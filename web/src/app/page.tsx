@@ -3,6 +3,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { FileText, ChevronRight } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
+import { weeklyReportPath } from "~/@/lib/reports/weekly-slug";
 import { Suspense } from "react";
 import { HomeContent } from "./home-content";
 import { TopShortsFallback } from "./top-shorts-fallback";
@@ -102,7 +103,7 @@ async function WeeklyReportBanner() {
   return (
     <div className="container mx-auto px-4 pb-4">
       <Link
-        href={`/reports/weekly/${reportSlug}`}
+        href={weeklyReportPath(reportSlug)}
         className="group block rounded-lg border border-primary/20 bg-gradient-to-r from-primary/5 to-primary/10 p-4 hover:border-primary/40 transition-colors"
       >
         <div className="flex items-center justify-between">

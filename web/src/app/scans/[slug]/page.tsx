@@ -19,7 +19,9 @@ interface PageProps {
 // NOTE: no loading.tsx anywhere on this route on purpose — without a
 // streaming boundary the page resolves before the response commits, so
 // notFound() below yields a real HTTP 404 for unknown scan slugs.
-export const revalidate = 3600;
+// ISR at 15min: deploys prerender the no-data shell (skipForBuild) and a
+// short page TTL caps how long it serves; the data layer stays 1h-cached.
+export const revalidate = 900;
 export const dynamicParams = true;
 
 export function generateStaticParams() {

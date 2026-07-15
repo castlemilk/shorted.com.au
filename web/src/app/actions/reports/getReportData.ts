@@ -451,19 +451,33 @@ function mapMover(m: {
 // Outer try/catch returns null for SSR graceful degradation (not cached)
 export async function getEnhancedWeeklyReportData(weekSlug: string): Promise<EnhancedWeeklyReportNarrative | null> {
   try {
-    return await unstable_cache(
-      () => fetchEnhancedReport(weekSlug),
-      [`enhanced-report-${weekSlug}`],
-      {
-        tags: [`report-${weekSlug}`],
-        revalidate: 86400, // 24h fallback
-      },
-    )();
+    return await getEnhancedWeeklyReportDataStrict(weekSlug);
   } catch (err) {
     // Transient error — don't cache, just return null for this request
     console.error(`[getEnhancedWeeklyReportData] Failed for slug=${weekSlug}:`, err);
     return null;
   }
+}
+
+/**
+ * Like getEnhancedWeeklyReportData but transient failures THROW instead of
+ * collapsing into null. Callers that hard-404 on absence (the report pages'
+ * generateMetadata guards) MUST use this: null means "definitively
+ * unpublished" (safe to 404), a throw means "backend blip" (must render a
+ * degraded 200, never 404 a published URL). Shares the cache entry with the
+ * lenient variant.
+ */
+export function getEnhancedWeeklyReportDataStrict(
+  weekSlug: string,
+): Promise<EnhancedWeeklyReportNarrative | null> {
+  return unstable_cache(
+    () => fetchEnhancedReport(weekSlug),
+    [`enhanced-report-${weekSlug}`],
+    {
+      tags: [`report-${weekSlug}`],
+      revalidate: 86400, // 24h fallback
+    },
+  )();
 }
 
 // Generate available month slugs (last 24 months, excluding the current incomplete month)

@@ -39,9 +39,12 @@ export function resolveWeeklySlugParam(
   if (path?.[1] && path[2]) {
     const week = parseInt(path[1], 10);
     if (week < 1 || week > 53) return null;
+    const dbSlug = `${path[2]}-W${String(week).padStart(2, "0")}`;
     return {
-      dbSlug: `${path[2]}-W${String(week).padStart(2, "0")}`,
-      canonical: true,
+      dbSlug,
+      // Zero-padded weeks ("week-05-2026") parse but are NOT the canonical
+      // path — treating them as canonical served duplicate 200s.
+      canonical: param === weekDbSlugToPathSlug(dbSlug),
     };
   }
   if (DB_SLUG_RE.test(param)) {

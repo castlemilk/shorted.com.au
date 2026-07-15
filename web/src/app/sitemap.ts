@@ -214,9 +214,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/features/the-widow-maker`, lastModified: "2026-06-23" },
     { url: `${baseUrl}/housing`, lastModified: latestDataDate },
     { url: `${baseUrl}/housing/calculators`, lastModified: latestDataDate },
-    // Suburb-explorer hub — was orphaned (leaf suburb pages were listed,
-    // the hub linking them wasn't).
-    { url: `${baseUrl}/housing/suburbs`, lastModified: latestDataDate },
+    // NOTE: /housing/suburbs is deliberately NOT listed — next.config.mjs
+    // 301s it to /housing (the hub page was deprecated 2026-06-29);
+    // sitemapping it would advertise a permanent redirect.
     // Squeeze radar — shipped July 2026 but absent from every discovery
     // surface; "short squeeze asx" is a winnable SERP with weak incumbents.
     { url: `${baseUrl}/battlegrounds`, lastModified: latestDataDate },
@@ -369,16 +369,24 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // getReportsList). Slugs used to be derived from the calendar (last 52
   // weeks), which advertised URLs for weeks the generator never published —
   // a sitemapped soft-404 whenever the pipeline stalls (2026-W26..W28,
-  // July 2026). On RPC failure only the /reports index is emitted: a
+  // July 2026). Requested PER TYPE: a combined most-recent-first request
+  // hits the backend row cap and silently truncates the oldest type as the
+  // archive grows. On RPC failure only the /reports index is emitted: a
   // transient regeneration without report URLs beats advertising 404s.
   let weekSlugs: string[] = [];
   let monthSlugs: string[] = [];
   let yearSlugs: string[] = [];
   try {
-    const published = skipForBuild() ? [] : await getReportsList("", 100);
-    weekSlugs = published.filter((r) => r.reportType === "weekly").map((r) => r.slug);
-    monthSlugs = published.filter((r) => r.reportType === "monthly").map((r) => r.slug);
-    yearSlugs = published.filter((r) => r.reportType === "yearly").map((r) => r.slug);
+    if (!skipForBuild()) {
+      const [weekly, monthly, yearly] = await Promise.all([
+        getReportsList("weekly", 200),
+        getReportsList("monthly", 100),
+        getReportsList("yearly", 50),
+      ]);
+      weekSlugs = weekly.map((r) => r.slug);
+      monthSlugs = monthly.map((r) => r.slug);
+      yearSlugs = yearly.map((r) => r.slug);
+    }
   } catch (error) {
     console.error("Failed to fetch report slugs for sitemap:", error);
   }

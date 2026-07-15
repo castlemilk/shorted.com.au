@@ -215,15 +215,23 @@ function SlugCardGrid({
   slugs,
   hrefPrefix,
   formatLabel,
+  hrefFor,
 }: {
   slugs: string[];
   hrefPrefix: string;
   formatLabel: (slug: string) => string;
+  /** Canonical-path builder override (weekly slugs don't join onto the prefix). */
+  hrefFor?: (slug: string) => string;
 }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
       {slugs.map((slug) => (
-        <Link key={slug} href={`${hrefPrefix}/${slug}`} prefetch={false} className="group">
+        <Link
+          key={slug}
+          href={hrefFor ? hrefFor(slug) : `${hrefPrefix}/${slug}`}
+          prefetch={false}
+          className="group"
+        >
           <Card className="hover:border-primary/50 transition-colors h-full">
             <CardContent className="pt-4 pb-4 flex items-center justify-between">
               <p className="font-semibold group-hover:text-primary transition-colors">
@@ -246,6 +254,7 @@ function ReportSection({
   formatLabel,
   maxItems,
   footnote,
+  hrefFor,
 }: {
   title: string;
   reports: ReportListEntry[];
@@ -254,6 +263,7 @@ function ReportSection({
   formatLabel: (slug: string) => string;
   maxItems: number;
   footnote?: string;
+  hrefFor?: (slug: string) => string;
 }) {
   const items = reports.slice(0, maxItems);
   const slugs = fallbackSlugs.slice(0, maxItems);
@@ -275,6 +285,7 @@ function ReportSection({
           slugs={slugs}
           hrefPrefix={hrefPrefix}
           formatLabel={formatLabel}
+          hrefFor={hrefFor}
         />
       )}
       {footnote && (
@@ -319,7 +330,8 @@ export default async function ReportsIndexPage() {
           ...weekSlugs.slice(0, 20).map((slug, i) => ({
             "@type": "ListItem",
             position: i + 1,
-            url: `https://shorted.com.au/reports/weekly/${slug}`,
+            // Canonical path — the ISO form 301s.
+            url: `https://shorted.com.au${weeklyReportPath(slug)}`,
             name: `Weekly Short Selling Report ${slug}`,
           })),
           ...monthSlugs.slice(0, 12).map((slug, i) => ({
@@ -406,6 +418,7 @@ export default async function ReportsIndexPage() {
           fallbackSlugs={weekSlugs}
           hrefPrefix="/reports/weekly"
           formatLabel={formatWeekSlug}
+          hrefFor={weeklyReportPath}
           maxItems={12}
           footnote={
             remainingWeekly.length > 12 || weekSlugs.length > 12

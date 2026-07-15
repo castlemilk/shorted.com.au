@@ -245,6 +245,17 @@ const Page = async ({ params }: PageProps) => {
     relatedData = { stocks: [], industry: null, industrySlug: null };
   }
 
+  // Under ISR a degraded render would be BAKED into the shared page cache
+  // for up to an hour (schema-less shell served to every visitor and
+  // crawler). Fail the generation instead: the request 500s, nothing is
+  // cached, and the next request regenerates. (getStockOrNotFound returns
+  // undefined only on transient errors — genuine not-found threw above.)
+  if (!stock) {
+    throw new Error(
+      `stock data transiently unavailable for ${stockCode}; failing ISR render instead of caching a degraded page`,
+    );
+  }
+
   const financialHighlightsMap = await financialHighlightsPromise;
   const financialHighlights = financialHighlightsMap?.[stockCode] ?? [];
   const newsArticles = await stockNewsPromise;

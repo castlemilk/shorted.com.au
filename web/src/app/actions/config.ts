@@ -115,11 +115,27 @@ export const SHORTED_TESTING_BYPASS_HEADER = "X-Shorted-Testing-Bypass";
 // Next patches globalThis.fetch and stashes the original on the patched
 // function (patch-fetch.js: `patched._nextOriginalFetch = originFetch`).
 // Resolved lazily — the patch may land after this module evaluates.
-function getUnpatchedFetch(): typeof fetch {
-  const candidate = (
-    globalThis.fetch as typeof fetch & { _nextOriginalFetch?: typeof fetch }
-  )._nextOriginalFetch;
-  return candidate ?? globalThis.fetch;
+// Returns null when fetch IS patched but the private stash is missing
+// (a Next upgrade renamed it) so callers can fall back to the guarded
+// path instead of silently dispatching through the patch.
+let warnedMissingOriginalFetch = false;
+function getUnpatchedFetch(): typeof fetch | null {
+  const patched = globalThis.fetch as typeof fetch & {
+    __nextPatched?: boolean;
+    _nextOriginalFetch?: typeof fetch;
+  };
+  if (patched._nextOriginalFetch) return patched._nextOriginalFetch;
+  // Not patched at all (tests, plain node) — the global fetch IS original.
+  if (!patched.__nextPatched) return globalThis.fetch;
+  if (!warnedMissingOriginalFetch) {
+    warnedMissingOriginalFetch = true;
+    console.warn(
+      "[config] Next's patched fetch no longer exposes _nextOriginalFetch — " +
+        "connect transports fall back to the guarded path (ISR renders may " +
+        "degrade); update serverFetchOutsideNextCache for this Next version.",
+    );
+  }
+  return null;
 }
 
 /**
@@ -197,14 +213,21 @@ export const serverFetchWithUserAgent: typeof fetch = (input, init) => {
     | undefined;
 
   // serverFetchOutsideNextCache marker: skip Next's patched fetch entirely
-  // (see its doc comment). Strip the marker before dispatch.
+  // (see its doc comment). Strip the marker before dispatch. When the
+  // original fetch can't be resolved (Next internals changed), fall through
+  // to the guarded path below rather than dispatching an unguarded POST
+  // through the patch.
   if (initWithNext?.__shortedBypassNextFetchPatch) {
     const { __shortedBypassNextFetchPatch: _ignored, ...cleanInit } =
       initWithNext;
-    return getUnpatchedFetch()(normalizeFetchInput(input), {
-      ...cleanInit,
-      headers,
-    });
+    const unpatched = getUnpatchedFetch();
+    if (unpatched) {
+      return unpatched(normalizeFetchInput(input), {
+        ...cleanInit,
+        headers,
+      });
+    }
+    init = cleanInit as RequestInit;
   }
 
   const method =

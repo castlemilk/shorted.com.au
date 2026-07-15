@@ -20,6 +20,7 @@ import { TopStocksTable } from "~/@/components/reports/top-stocks-table";
 import { IndustryBreakdown } from "~/@/components/reports/industry-breakdown";
 import {
   getEnhancedWeeklyReportData,
+  getEnhancedWeeklyReportDataStrict,
 } from "~/app/actions/reports/getReportData";
 
 interface PageProps {
@@ -33,11 +34,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!/^\d{4}$/.test(slug)) {
     notFound();
   }
-  // No-data guard lives in generateMetadata so notFound() commits a real
-  // HTTP 404 — the body's guard fires mid-stream and can only soft-404
-  // (see weekly/[slug]). The fetch dedupes with the page body via caching.
-  const enhanced = await getEnhancedWeeklyReportData(slug);
-  if (!enhanced) {
+  // Hard-404 guard (in generateMetadata so notFound() commits a real HTTP
+  // 404 — the body's guard fires mid-stream and can only soft-404). Only
+  // DEFINITIVE absence 404s: the strict fetch returned null (report
+  // genuinely unpublished). A transient backend failure (throw) renders
+  // the degraded 200 instead — never 404 a published URL on a blip.
+  let enhanced = null;
+  let enhancedUnavailable = false;
+  try {
+    enhanced = await getEnhancedWeeklyReportDataStrict(slug);
+  } catch {
+    enhancedUnavailable = true;
+  }
+  if (!enhanced && !enhancedUnavailable) {
     notFound();
   }
   const headline = enhanced?.headline;
