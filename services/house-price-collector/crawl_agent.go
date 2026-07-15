@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -27,9 +28,11 @@ import (
 
 type agentConfig struct {
 	brandbrainURL string // BRANDBRAIN_AGENT_URL, e.g. https://api.brandbrain.dev
-	token         string // BRANDBRAIN_AGENT_TOKEN
+	token         string // BRANDBRAIN_AGENT_TOKEN (optional seed; auto-refreshed on 401)
 	agentID       string // CRAWL_AGENT_ID (identifies this rig in the queue)
 	maxJobs       int    // CRAWL_AGENT_MAX_JOBS — safety cap per run
+	controlURL    string // loopback macOS-agent control API for on-401 token refresh (optional)
+	controlSecret string // matching X-Agent-Control-Secret
 }
 
 func loadAgentConfig() agentConfig {
@@ -37,12 +40,54 @@ func loadAgentConfig() agentConfig {
 	if host == "" {
 		host = "collector"
 	}
+	controlURL, controlSecret := loadAgentControlAuth()
 	return agentConfig{
 		brandbrainURL: strings.TrimRight(os.Getenv("BRANDBRAIN_AGENT_URL"), "/"),
 		token:         os.Getenv("BRANDBRAIN_AGENT_TOKEN"),
 		agentID:       envStr("CRAWL_AGENT_ID", "housing-"+host),
 		maxJobs:       envInt("CRAWL_AGENT_MAX_JOBS", 20),
+		controlURL:    controlURL,
+		controlSecret: controlSecret,
 	}
+}
+
+// loadAgentControlAuth locates the co-located macOS BrandBrain agent's loopback
+// control API. That agent is already signed in and continuously rotates its short
+// (~15 min) access token from a 30-day refresh token, so it is a durable, always-
+// fresh token source — using it means -mode agent NEVER needs a hand-minted
+// long-lived credential: it re-fetches a fresh token on 401 (see refreshToken).
+// Port from BRANDBRAIN_CONTROL_PORT or ~/.brandbrain/diag-port; secret from
+// BRANDBRAIN_CONTROL_SECRET or ~/.brandbrain/control_secret. Returns ("","") when
+// unavailable → no auto-refresh, plain single-token behaviour (back-compat).
+func loadAgentControlAuth() (controlURL, secret string) {
+	home, _ := os.UserHomeDir()
+	port := strings.TrimSpace(os.Getenv("BRANDBRAIN_CONTROL_PORT"))
+	if port == "" && home != "" {
+		if b, err := os.ReadFile(filepath.Join(home, ".brandbrain", "diag-port")); err == nil {
+			port = digitsOnly(string(b))
+		}
+	}
+	secret = strings.TrimSpace(os.Getenv("BRANDBRAIN_CONTROL_SECRET"))
+	if secret == "" && home != "" {
+		if b, err := os.ReadFile(filepath.Join(home, ".brandbrain", "control_secret")); err == nil {
+			secret = strings.TrimSpace(string(b))
+		}
+	}
+	if port == "" || secret == "" {
+		return "", ""
+	}
+	return "http://127.0.0.1:" + port, secret
+}
+
+// digitsOnly keeps only [0-9] (mirrors the diag-port shell read `tr -dc '0-9'`).
+func digitsOnly(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if r >= '0' && r <= '9' {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 // agentCrawlJob is the subset of brandbrain's crawl-job DTO the poller needs.
@@ -69,31 +114,77 @@ type crawlJobSummary struct {
 }
 
 type brandbrainAgentClient struct {
-	url     string
-	token   string
-	agentID string
-	http    *http.Client
+	url           string
+	token         string
+	agentID       string
+	http          *http.Client
+	controlURL    string // loopback macOS-agent control API (optional token source)
+	controlSecret string
 }
 
 func newBrandbrainAgentClient(cfg agentConfig) *brandbrainAgentClient {
 	return &brandbrainAgentClient{
 		url: cfg.brandbrainURL, token: cfg.token, agentID: cfg.agentID,
-		http: &http.Client{Timeout: 30 * time.Second},
+		http:       &http.Client{Timeout: 30 * time.Second},
+		controlURL: cfg.controlURL, controlSecret: cfg.controlSecret,
 	}
 }
 
+// canRefresh reports whether an expired token can be transparently replaced from
+// the co-located macOS agent's control API (see loadAgentControlAuth).
+func (c *brandbrainAgentClient) canRefresh() bool {
+	return c.controlURL != "" && c.controlSecret != ""
+}
+
+// do sends a request and, on a 401 (the short access token expired mid-run),
+// transparently re-fetches a fresh token from the local agent control API and
+// retries ONCE — so an unattended batch never dies of token expiry and never
+// needs a hand-minted long-lived credential.
 func (c *brandbrainAgentClient) do(ctx context.Context, method, path string, body, out any) error {
-	var rdr io.Reader
+	var payload []byte
 	if body != nil {
 		b, err := json.Marshal(body)
 		if err != nil {
 			return fmt.Errorf("marshal request: %w", err)
 		}
-		rdr = bytes.NewReader(b)
+		payload = b
+	}
+
+	rb, status, err := c.roundtrip(ctx, method, path, payload)
+	if err != nil {
+		return err
+	}
+	if status == http.StatusUnauthorized && c.canRefresh() {
+		if tok, rerr := c.refreshToken(ctx); rerr != nil {
+			log.Printf("[agent] token refresh failed: %v", rerr)
+		} else if tok != "" && tok != c.token {
+			c.token = tok
+			log.Printf("[agent] access token expired — refreshed from local agent, retrying")
+			rb, status, err = c.roundtrip(ctx, method, path, payload)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	if status >= 300 {
+		return fmt.Errorf("brandbrain %s %s: %d %s", method, path, status, strings.TrimSpace(string(rb)))
+	}
+	if out != nil && len(rb) > 0 {
+		return json.Unmarshal(rb, out)
+	}
+	return nil
+}
+
+// roundtrip performs a single authenticated request and returns the (bounded)
+// body + status. The 401-refresh policy lives in do, so this stays a pure send.
+func (c *brandbrainAgentClient) roundtrip(ctx context.Context, method, path string, payload []byte) ([]byte, int, error) {
+	var rdr io.Reader
+	if payload != nil {
+		rdr = bytes.NewReader(payload)
 	}
 	req, err := http.NewRequestWithContext(ctx, method, c.url+path, rdr)
 	if err != nil {
-		return err
+		return nil, 0, err
 	}
 	req.Header.Set("Authorization", "Bearer "+c.token)
 	req.Header.Set("X-Agent-ID", c.agentID)
@@ -101,17 +192,45 @@ func (c *brandbrainAgentClient) do(ctx context.Context, method, path string, bod
 
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return err
+		return nil, 0, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
+	rb, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	return rb, resp.StatusCode, nil
+}
+
+// refreshToken pulls the co-located macOS agent's CURRENT access token from its
+// loopback control API (the same source get-bb-token.sh uses). The agent keeps
+// this token continuously valid off its 30-day refresh token, so this needs no
+// stored long-lived credential — it just re-reads whatever is fresh right now.
+func (c *brandbrainAgentClient) refreshToken(ctx context.Context) (string, error) {
+	if !c.canRefresh() {
+		return "", fmt.Errorf("local agent control API not configured")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.controlURL+"/control/v1/auth/session/export", nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("X-Agent-Control-Secret", c.controlSecret)
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = resp.Body.Close() }()
 	rb, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if resp.StatusCode >= 300 {
-		return fmt.Errorf("brandbrain %s %s: %d %s", method, path, resp.StatusCode, strings.TrimSpace(string(rb)))
+		return "", fmt.Errorf("agent control export: %d %s", resp.StatusCode, strings.TrimSpace(string(rb)))
 	}
-	if out != nil && len(rb) > 0 {
-		return json.Unmarshal(rb, out)
+	var out struct {
+		AccessToken string `json:"access_token"`
 	}
-	return nil
+	if err := json.Unmarshal(rb, &out); err != nil {
+		return "", fmt.Errorf("agent control export: %w", err)
+	}
+	if out.AccessToken == "" {
+		return "", fmt.Errorf("agent control export: empty access_token (agent signed out?)")
+	}
+	return out.AccessToken, nil
 }
 
 // claim returns the next suburb job, or nil when the queue is empty.
@@ -165,8 +284,8 @@ func (c *brandbrainAgentClient) enqueue(ctx context.Context, jobs []crawlEnqueue
 // (default listings).
 func runEnqueue(ctx context.Context, _ *pgxpool.Pool) {
 	acfg := loadAgentConfig()
-	if acfg.brandbrainURL == "" || acfg.token == "" {
-		log.Printf("[enqueue] BRANDBRAIN_AGENT_URL + BRANDBRAIN_AGENT_TOKEN required — nothing to do")
+	if acfg.brandbrainURL == "" || (acfg.token == "" && acfg.controlURL == "") {
+		log.Printf("[enqueue] BRANDBRAIN_AGENT_URL + a token (BRANDBRAIN_AGENT_TOKEN, or a local agent control API for auto-refresh) required — nothing to do")
 		return
 	}
 	source := envStr("CRAWL_ENQUEUE_SOURCE", "both")
@@ -229,8 +348,8 @@ func titleCaseSuburb(s string) string {
 // browser needs a human re-warm (surfaces via exit code 3 for launchd).
 func runAgent(ctx context.Context, pool *pgxpool.Pool) bool {
 	acfg := loadAgentConfig()
-	if acfg.brandbrainURL == "" || acfg.token == "" {
-		log.Printf("[agent] BRANDBRAIN_AGENT_URL + BRANDBRAIN_AGENT_TOKEN required — nothing to do")
+	if acfg.brandbrainURL == "" || (acfg.token == "" && acfg.controlURL == "") {
+		log.Printf("[agent] BRANDBRAIN_AGENT_URL + a token (BRANDBRAIN_AGENT_TOKEN, or a local agent control API for auto-refresh) required — nothing to do")
 		return false
 	}
 
@@ -251,6 +370,9 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) bool {
 
 	client := newBrandbrainAgentClient(acfg)
 	log.Printf("[agent] start: agent=%s brandbrain=%s maxJobs=%d dryRun=%v", acfg.agentID, acfg.brandbrainURL, acfg.maxJobs, cfg.dryRun)
+	if acfg.controlURL != "" {
+		log.Printf("[agent] token auto-refresh ENABLED via local agent control API — an expired token is re-fetched mid-run (no minted credential needed)")
+	}
 
 	anyRewarm := false
 	wroteAny := false

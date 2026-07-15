@@ -134,6 +134,79 @@ func TestResolveCrawlTarget_ConstructedFallback(t *testing.T) {
 	}
 }
 
+func TestBrandbrainAgentClient_RefreshesOn401(t *testing.T) {
+	// The local agent control API hands out a fresh token.
+	control := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/control/v1/auth/session/export" || r.Header.Get("X-Agent-Control-Secret") != "ctl-secret" {
+			http.Error(w, "nope", http.StatusForbidden)
+			return
+		}
+		_, _ = w.Write([]byte(`{"access_token":"fresh-token"}`))
+	}))
+	defer control.Close()
+
+	var calls int
+	var seenTokens []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		seenTokens = append(seenTokens, r.Header.Get("Authorization"))
+		if r.Header.Get("Authorization") != "Bearer fresh-token" {
+			http.Error(w, "unauthorized", http.StatusUnauthorized) // stale token → 401
+			return
+		}
+		_, _ = w.Write([]byte(`{"job":{"id":"job-1","suburb":"Bondi","tier":"listings"}}`))
+	}))
+	defer srv.Close()
+
+	c := newBrandbrainAgentClient(agentConfig{
+		brandbrainURL: srv.URL, token: "stale-token", agentID: "a",
+		controlURL: control.URL, controlSecret: "ctl-secret",
+	})
+	job, err := c.claim(context.Background())
+	if err != nil {
+		t.Fatalf("claim after refresh: %v", err)
+	}
+	if job == nil || job.ID != "job-1" {
+		t.Fatalf("claim job = %+v", job)
+	}
+	if calls != 2 {
+		t.Fatalf("expected 2 calls (401 then retry with fresh token), got %d", calls)
+	}
+	if c.token != "fresh-token" {
+		t.Fatalf("client token not updated after refresh: %q", c.token)
+	}
+	if len(seenTokens) != 2 || seenTokens[0] != "Bearer stale-token" || seenTokens[1] != "Bearer fresh-token" {
+		t.Fatalf("tokens seen = %v", seenTokens)
+	}
+}
+
+func TestBrandbrainAgentClient_No401RefreshWithoutControl(t *testing.T) {
+	// Without a control API configured, a 401 stays a hard error (back-compat).
+	var calls int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	}))
+	defer srv.Close()
+
+	c := newBrandbrainAgentClient(agentConfig{brandbrainURL: srv.URL, token: "t", agentID: "a"})
+	if _, err := c.claim(context.Background()); err == nil {
+		t.Fatal("expected a 401 error when no control API is available to refresh from")
+	}
+	if calls != 1 {
+		t.Fatalf("expected exactly 1 call (no retry without refresh), got %d", calls)
+	}
+}
+
+func TestDigitsOnly(t *testing.T) {
+	cases := map[string]string{"9222\n": "9222", " 51763 ": "51763", "port=8080": "8080", "abc": "", "": ""}
+	for in, want := range cases {
+		if got := digitsOnly(in); got != want {
+			t.Errorf("digitsOnly(%q) = %q want %q", in, got, want)
+		}
+	}
+}
+
 func TestAgentJobOutcome(t *testing.T) {
 	cases := []struct {
 		name          string

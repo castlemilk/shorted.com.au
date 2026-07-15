@@ -70,19 +70,27 @@ Chrome + re-checking up to twice if it's cold, and (3) only then runs the real
 crawl. The manual launch command in step 3 above is still useful for a first
 warm-up / manual rehearsal, but the scheduled launchd run does it itself.
 
-## Queue mode (`-mode agent`) with a long-lived brandbrain token
+## Queue mode (`-mode agent`) — auth via the co-located BrandBrain agent
 
 The launcher above runs the STANDALONE path (`-mode listings` / `-mode crawl`,
 each Mac crawling its own shard directly). To instead drain the shared
 **brandbrain crawl-jobs queue** (`api.brandbrain.dev`) so multiple Macs fan
-suburbs out via SKIP-LOCKED, run `-mode agent` and give it a brandbrain agent
-token in `~/.shorted-housing-crawl.env`:
+suburbs out via SKIP-LOCKED, run `-mode agent` / `-mode enqueue`.
+
+**No token to mint or manage.** On any rig where the BrandBrain **macOS agent is
+signed in**, the collector authenticates by re-reading the agent's *current*
+access token from its loopback control API — and re-fetches a fresh one
+automatically on a `401`. So an unattended batch never expires mid-run, and there
+is no long-lived credential to mint, store, or rotate.
 
 ```bash
+# ~/.shorted-housing-crawl.env
 BRANDBRAIN_AGENT_URL=https://api.brandbrain.dev
-BRANDBRAIN_AGENT_TOKEN=bbt_...        # a scoped agent:crawl + agent:upload token
 CRAWL_AGENT_ID=housing-<host>          # optional; names this rig in the queue
 CRAWL_AGENT_MAX_JOBS=8                  # safety cap per run
+# BRANDBRAIN_AGENT_TOKEN is OPTIONAL — the collector reads the running agent's
+# token from ~/.brandbrain/{diag-port,control_secret} and refreshes it on 401.
+# Override the endpoint with BRANDBRAIN_CONTROL_PORT / BRANDBRAIN_CONTROL_SECRET.
 ```
 
 Enqueue the suburb catalog once (`-mode enqueue`), then each rig runs `-mode
@@ -91,24 +99,16 @@ reports `failed` **auto-re-pends up to `max_attempts` (3) across warm runs** onc
 the brandbrain-side `Submit` re-pend fix lands (branch `fix/crawl-submit-repend`),
 so a transient block no longer needs a manual re-enqueue.
 
-**The token MUST be long-lived.** The macOS agent's control-API session token
-(what `get-bb-token.sh` exports) has a **15-minute TTL**, so an unattended batch
-401s mid-run after ~11–16 min and only clears ~3–6 suburbs. brandbrain natively
-supports long-lived scoped tokens (`api_tokens` table); a token carrying **both**
-`agent:crawl` and `agent:upload` scopes is a drop-in for `BRANDBRAIN_AGENT_TOKEN`
-(no collector change). Mint one (needs `ML_TOKEN_MINT_SECRET` provisioned on the
-brandbrain prod env — admin-equivalent, keep it out of the repo):
+Why this works: the agent's session access token has a **15-min TTL** (rotated
+~every minute off a **30-day** refresh token). The old approach snapshotted it
+once (`get-bb-token.sh`), so an unattended batch `401`'d after ~11–16 min and only
+cleared ~3–6 suburbs. The collector now re-reads the always-fresh token from the
+running agent on demand — the agent is the durable auth, no minting required.
 
-```bash
-curl -XPOST https://api.brandbrain.dev/api/v1/ml/auth/tokens \
-  -H "X-BrandBrain-Mint-Secret: $ML_TOKEN_MINT_SECRET" \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"housing-crawl","subject":"housing-crawl@shorted",
-       "scopes":["agent:crawl","agent:upload"],"expires_in_hours":8760}'
-# → returns {"token":"bbt_..."} for BRANDBRAIN_AGENT_TOKEN (1-year TTL; revoke via api_tokens.revoked_at).
-```
-
-Bridge without the mint secret: `POST /api/v1/agent/refresh` (Bearer a current
-agent token) returns a **24h** token — fine for a run kicked more often than
-daily, not for a weekly cron. The durable, login-independent credential is the
-minted 1-year token above.
+**Fallback — a rig with no local BrandBrain agent** (e.g. a headless box): supply
+a long-lived scoped token in `BRANDBRAIN_AGENT_TOKEN`. brandbrain natively
+supports these (`api_tokens`); a token with **both** `agent:crawl` + `agent:upload`
+scopes is a drop-in. Mint via `POST /api/v1/ml/auth/tokens`
+(`{scopes:["agent:crawl","agent:upload"],expires_in_hours:8760}`, needs
+`ML_TOKEN_MINT_SECRET` on the brandbrain env), or bridge with the 24h
+`POST /api/v1/agent/refresh`.
