@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"log"
+	"math"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -359,15 +360,20 @@ func (lc *listingsCrawler) crawlSuburbSource(ctx context.Context, pool *pgxpool.
 // cfg.maxPages exactly, so nothing changes until real hints are populated.
 //
 // Page 1's PageMeta (the portal's own totalResultsCount/totalPages/pageSize —
-// see extractPageMeta) then bounds the walk to wantPages =
-// clamp(meta.TotalPages, 1, softCap) instead of always walking to softCap.
-// This is safe in BOTH directions even though PageMeta.TotalResults is the
-// BROADENED (suburb + surrounding-suburb) count, not the on-target inventory
-// (confirmed Phase-0, 2026-07-15): for a genuinely large/broadened suburb,
-// meta.TotalPages is always >= softCap, so the clamp is a no-op (identical to
-// today's behaviour, no over-fetch risk); it only SHORTENS the walk for
-// suburbs whose portal-reported extent is smaller than the cap, saving a
-// redundant fetch of a page we'd learn nothing new from anyway.
+// see extractPageMeta) then bounds the walk. When meta.OnTargetResults is
+// available (REA only — the SRP blob's exact on-target "listings_total", as
+// opposed to the broadened totalResultsCount; see PageMeta's doc comment),
+// wantPages = clamp(ceil(OnTargetResults/PageSize), 1, softCap) — sized off
+// the REAL on-target inventory, not the broadened count, so a small suburb
+// stops after 1-2 pages and a dense one is sized to its true on-target page
+// count. Otherwise (Domain, or REA when OnTargetResults is unavailable)
+// wantPages = clamp(meta.TotalPages, 1, softCap) — but meta.TotalPages is
+// itself the BROADENED count (confirmed live: New Farm reports
+// TotalResults≈969(REA)/608(Domain) while on-target inventory is only
+// ~54-65), so for a genuinely large/broadened suburb meta.TotalPages is
+// always >= softCap and this clamp is a no-op (identical to today's
+// behaviour, no over-fetch risk) — it only SHORTENS the walk for suburbs
+// whose portal-reported extent is smaller than the cap.
 //
 // Three natural-stop paths additionally use PageMeta to upgrade a sweepPartial
 // to the delist-safe sweepComplete (see upgradeIfPageMetaConfirms): (a) below,
@@ -396,7 +402,8 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 	pages := 0
 	wantPages := softCap
 	metaOK := false
-	totalResults := 0 // PageMeta.TotalResults once page 1's meta is read, for the trace record only
+	totalResults := 0    // PageMeta.TotalResults once page 1's meta is read, for the trace record only
+	onTargetResults := 0 // PageMeta.OnTargetResults once page 1's meta is read (REA only), for the trace record only
 
 	// Block-risk pacing signals: consecBlocksAtEntry is a MEDIUM-term signal
 	// (how many consecutive blocks this source already racked up entering this
@@ -465,7 +472,16 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 			if meta := extractPageMeta(doc, source); meta.OK {
 				metaOK = true
 				totalResults = meta.TotalResults
-				wantPages = max(1, min(meta.TotalPages, softCap))
+				onTargetResults = meta.OnTargetResults
+				if meta.OnTargetResults > 0 {
+					// REA: size off the exact on-target count, not the broadened total.
+					wantOnTargetPages := int(math.Ceil(float64(meta.OnTargetResults) / float64(meta.PageSize)))
+					wantPages = max(1, min(wantOnTargetPages, softCap))
+				} else {
+					// Domain, or REA when OnTargetResults is unavailable: unchanged
+					// broadened-TotalPages clamp (today's behaviour).
+					wantPages = max(1, min(meta.TotalPages, softCap))
+				}
 			}
 		}
 
@@ -491,16 +507,16 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 				// (broadened) extent — the on-target suburb was fully seen on the
 				// clean earlier pages before the surrounds began. Delist-safe.
 				status := upgradeIfPageMetaConfirms(metaOK && pages < wantPages, sweepPartial)
-				tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), Extracted: len(raw), Matched: len(matched), Mismatch: mismatch, TotalResults: totalResults, WantPages: wantPages, Outcome: "ok", Status: status.String(), Decision: "stop-broadening"})
+				tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), Extracted: len(raw), Matched: len(matched), Mismatch: mismatch, TotalResults: totalResults, OnTargetResults: onTargetResults, WantPages: wantPages, Outcome: "ok", Status: status.String(), Decision: "stop-broadening"})
 				return finish(status)
 			}
 			*blockCounter++
-			tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), Extracted: len(raw), Matched: len(matched), Mismatch: mismatch, TotalResults: totalResults, WantPages: wantPages, Outcome: "ok", Status: sweepBlocked.String(), Decision: "stop-poison-blocked"})
+			tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), Extracted: len(raw), Matched: len(matched), Mismatch: mismatch, TotalResults: totalResults, OnTargetResults: onTargetResults, WantPages: wantPages, Outcome: "ok", Status: sweepBlocked.String(), Decision: "stop-poison-blocked"})
 			return finish(sweepBlocked)
 		}
 		if page == 1 && len(matched) < lc.cfg.minPerPage {
 			*blockCounter++ // page rendered but nothing believable — empty/poisoned
-			tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), Extracted: len(raw), Matched: len(matched), Mismatch: mismatch, TotalResults: totalResults, WantPages: wantPages, Outcome: "ok", Status: sweepBlocked.String(), Decision: "stop-thin-page1"})
+			tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), Extracted: len(raw), Matched: len(matched), Mismatch: mismatch, TotalResults: totalResults, OnTargetResults: onTargetResults, WantPages: wantPages, Outcome: "ok", Status: sweepBlocked.String(), Decision: "stop-thin-page1"})
 			return finish(sweepBlocked)
 		}
 
@@ -508,14 +524,14 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 		// re-serve it → a natural end of the suburb.
 		sig := pageSignature(matched)
 		if page > 1 && sig == prevSig {
-			tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), Extracted: len(raw), Matched: len(matched), Mismatch: mismatch, TotalResults: totalResults, WantPages: wantPages, Outcome: "ok", Status: sweepComplete.String(), Decision: "stop-duplicate-page"})
+			tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), Extracted: len(raw), Matched: len(matched), Mismatch: mismatch, TotalResults: totalResults, OnTargetResults: onTargetResults, WantPages: wantPages, Outcome: "ok", Status: sweepComplete.String(), Decision: "stop-duplicate-page"})
 			return finish(sweepComplete)
 		}
 		prevSig = sig
 
 		// Ran out of listings on a later page → the whole suburb was seen.
 		if page > 1 && len(matched) == 0 {
-			tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), Extracted: len(raw), Matched: len(matched), Mismatch: mismatch, TotalResults: totalResults, WantPages: wantPages, Outcome: "ok", Status: sweepComplete.String(), Decision: "stop-empty-page"})
+			tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), Extracted: len(raw), Matched: len(matched), Mismatch: mismatch, TotalResults: totalResults, OnTargetResults: onTargetResults, WantPages: wantPages, Outcome: "ok", Status: sweepComplete.String(), Decision: "stop-empty-page"})
 			return finish(sweepComplete)
 		}
 
@@ -542,11 +558,11 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 		// reported extent).
 		if page > 1 && newThisPage < lc.cfg.minNewPerPage {
 			status := upgradeIfPageMetaConfirms(metaOK && pages < wantPages, sweepPartial)
-			tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), Extracted: len(raw), Matched: len(matched), Mismatch: mismatch, TotalResults: totalResults, WantPages: wantPages, NewIDs: newThisPage, Outcome: "ok", Status: status.String(), Decision: "stop-yield-decay"})
+			tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), Extracted: len(raw), Matched: len(matched), Mismatch: mismatch, TotalResults: totalResults, OnTargetResults: onTargetResults, WantPages: wantPages, NewIDs: newThisPage, Outcome: "ok", Status: status.String(), Decision: "stop-yield-decay"})
 			return finish(status)
 		}
 
-		tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), Extracted: len(raw), Matched: len(matched), Mismatch: mismatch, TotalResults: totalResults, WantPages: wantPages, NewIDs: newThisPage, Outcome: "ok", Status: "continuing", Decision: "continue"})
+		tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), Extracted: len(raw), Matched: len(matched), Mismatch: mismatch, TotalResults: totalResults, OnTargetResults: onTargetResults, WantPages: wantPages, NewIDs: newThisPage, Outcome: "ok", Status: "continuing", Decision: "continue"})
 	}
 
 	// Reached the loop bound with no natural end signal. When PageMeta sized

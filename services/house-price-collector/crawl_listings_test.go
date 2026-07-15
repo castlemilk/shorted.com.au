@@ -313,6 +313,23 @@ func domainPageWithMeta(ids []string, postcode string, total, pageSize int) stri
 		total, pageSize, strings.Join(items, ","))
 }
 
+// reaPageWithMeta builds a REA-style search-results page carrying both a
+// listing set and the portal's own pagination signal in the SAME blob: the
+// BROADENED totalResultsCount, PageSize, and — REA-only — the exact
+// on-target listings_total (see PageMeta's doc comment in
+// crawl_listings_extract.go). Mirrors domainPageWithMeta's role for the
+// Domain shape.
+func reaPageWithMeta(ids []string, postcode string, totalResults, onTarget, pageSize int) string {
+	items := make([]string, 0, len(ids))
+	for _, id := range ids {
+		items = append(items, fmt.Sprintf(
+			`{"id":"%s","_links":{"canonical":{"href":"https://www.realestate.com.au/property/%s"}},"price":{"display":"$1,200,000"},"address":{"suburb":"Bondi","state":"NSW","postcode":"%s","display":{"fullAddress":"%s Test St"}}}`,
+			id, id, postcode, id))
+	}
+	return fmt.Sprintf(`<html><body><script>window.ArgonautExchange = {"results":{"exchangeState":{"resolvedListings":[%s]}},"totalResultsCount":%d,"listings_total":%d,"pageSize":%d};</script></body></html>`,
+		strings.Join(items, ","), totalResults, onTarget, pageSize)
+}
+
 func sweepWith(pages map[string]string) suburbSweep {
 	lc := testLC()
 	lc.fetcher = &pagedFetcher{pages: pages}
@@ -455,6 +472,38 @@ func TestSweep_TotalCountSizesAndCompletes(t *testing.T) {
 	}
 	if len(sw.listings) != 5 {
 		t.Fatalf("expected 5 collected listings, got %d", len(sw.listings))
+	}
+}
+
+// TestSweep_OnTargetResultsSizesAndCompletes proves the REA on-target-count
+// fix: PageMeta carries BOTH a large BROADENED totalResultsCount (969, which
+// alone would size wantPages up to softCap) and the exact on-target
+// listings_total (5, pageSize 25 -> ceil(5/25)=1). Sizing must use the
+// on-target count, so the sweep fetches exactly ONE page and — reaching that
+// PageMeta-sized bound with no natural-end signal — is delist-safe complete,
+// even though the broadened total would otherwise never shrink the walk
+// (broadened TotalPages ceil(969/25)=39 >= softCap, a no-op clamp).
+func TestSweep_OnTargetResultsSizesAndCompletes(t *testing.T) {
+	p1 := reaPageWithMeta([]string{"a", "b", "c", "d", "e"}, "2026", 969, 5, 25)
+	lc := testLC()
+	lc.fetcher = &pagedFetcher{pages: map[string]string{
+		bondi.reaSearchURL(1): p1,
+		// page 2 deliberately left unscripted: if sizing mistakenly used the
+		// broadened total instead of the on-target one, the loop bound would be
+		// far above 1 and the sweep would fetch it (falling into the default
+		// empty-page fixture) — asserting pages==1 (not just status) proves the
+		// walk never got that far.
+	}}
+	blocks := 0
+	sw := lc.sweepSuburbSource(context.Background(), bondi, "rea", bondi.reaSearchURL, &blocks)
+	if sw.pages != 1 {
+		t.Fatalf("on-target sizing should size wantPages=1 (ceil(5/25)), fetched %d pages", sw.pages)
+	}
+	if sw.status != sweepComplete {
+		t.Errorf("reaching a PageMeta-sized bound (on-target) with no natural-end signal should be capped-complete, got %s", sw.status)
+	}
+	if len(sw.listings) != 5 {
+		t.Errorf("expected 5 collected listings, got %d", len(sw.listings))
 	}
 }
 

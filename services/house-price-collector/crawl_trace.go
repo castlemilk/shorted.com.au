@@ -94,19 +94,20 @@ func (c traceConfig) wants(suburbDisplay string) bool {
 // tracePageRecord is one page's decision trace — the exact smart-pagination
 // signals (Tasks 2-7) that drove the sweep's behaviour on this page.
 type tracePageRecord struct {
-	Page         int     `json:"page"`
-	URL          string  `json:"url"`
-	Ms           int64   `json:"ms"`
-	Bytes        int     `json:"bytes"`
-	Extracted    int     `json:"extracted"`     // raw listings found, before target-filtering
-	Matched      int     `json:"matched"`       // on-target listings, after partitionByTarget
-	Mismatch     float64 `json:"mismatch"`      // off-target ratio this page
-	TotalResults int     `json:"total_results"` // PageMeta.TotalResults (0 if PageMeta unusable) — the BROADENED count, see PageMeta's doc comment
-	WantPages    int     `json:"want_pages"`    // the sweep's current loop bound
-	NewIDs       int     `json:"new_ids"`       // ids added to `collected` this page
-	Outcome      string  `json:"outcome"`       // ok|blocked|error
-	Status       string  `json:"status"`        // the sweepStatus this page's decision resolved to (or "continuing")
-	Decision     string  `json:"decision"`      // short machine-readable reason: continue|stop-blocked|stop-error|stop-parse-error|stop-poison-blocked|stop-broadening|stop-thin-page1|stop-duplicate-page|stop-empty-page|stop-yield-decay
+	Page            int     `json:"page"`
+	URL             string  `json:"url"`
+	Ms              int64   `json:"ms"`
+	Bytes           int     `json:"bytes"`
+	Extracted       int     `json:"extracted"`         // raw listings found, before target-filtering
+	Matched         int     `json:"matched"`           // on-target listings, after partitionByTarget
+	Mismatch        float64 `json:"mismatch"`          // off-target ratio this page
+	TotalResults    int     `json:"total_results"`     // PageMeta.TotalResults (0 if PageMeta unusable) — the BROADENED count, see PageMeta's doc comment
+	OnTargetResults int     `json:"on_target_results"` // PageMeta.OnTargetResults (0 if unavailable — Domain, or REA when the field is missing) — the REA-only exact on-target count that drove sizing, see PageMeta's doc comment
+	WantPages       int     `json:"want_pages"`        // the sweep's current loop bound
+	NewIDs          int     `json:"new_ids"`           // ids added to `collected` this page
+	Outcome         string  `json:"outcome"`           // ok|blocked|error
+	Status          string  `json:"status"`            // the sweepStatus this page's decision resolved to (or "continuing")
+	Decision        string  `json:"decision"`          // short machine-readable reason: continue|stop-blocked|stop-error|stop-parse-error|stop-poison-blocked|stop-broadening|stop-thin-page1|stop-duplicate-page|stop-empty-page|stop-yield-decay
 }
 
 // traceSummary is the final sweep outcome, written once per (suburb,source).

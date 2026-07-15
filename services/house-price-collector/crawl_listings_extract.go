@@ -82,12 +82,21 @@ func extractListings(doc *goquery.Document, source string) []RawListing {
 // TotalResults≈969(REA)/608(Domain) while on-target inventory is only
 // ~54-65). The sweep loop (crawl_listings.go) must never size its page walk
 // off TotalResults/TotalPages directly; see sweepSuburbSource's doc comment.
+//
+// OnTargetResults is REA-only: its SRP blob also carries an exact on-target
+// count under "listings_total" (confirmed live, New Farm: 969 broadened −
+// 906 surrounding = 63, matching listings_total==63). Domain exposes no
+// equivalent field (only the broadened totalListings + a boolean
+// includeSurroundingSuburbs), so OnTargetResults is left 0 for Domain and
+// callers must keep falling back to the broadened-TotalPages/softCap
+// heuristic there.
 type PageMeta struct {
 	OK                 bool
 	TotalResults       int
 	TotalPages         int
 	PageSize           int
 	SurroundingSuburbs bool
+	OnTargetResults    int
 }
 
 // pageMetaTotalKeys/pageMetaPagesKeys/... are case-insensitive alias lists,
@@ -98,6 +107,9 @@ var (
 	pageMetaPagesKeys    = []string{"maxpagenumberavailable", "totalpages"}
 	pageMetaSizeKeys     = []string{"pagesize"}
 	pageMetaSurroundKeys = []string{"surroundingsuburbs", "includesurroundingsuburbs", "initialsurroundingsuburbs"}
+	// pageMetaOnTargetKeys: REA-only exact on-target count (Domain has no
+	// equivalent field — see PageMeta's doc comment).
+	pageMetaOnTargetKeys = []string{"listings_total"}
 )
 
 // extractPageMeta walks every <script> JSON blob on a search-results page (the
@@ -152,6 +164,11 @@ func walkForPageMeta(v any, m *PageMeta, depth int) {
 		if m.PageSize == 0 {
 			if f, ok := firstFloat([]map[string]any{lm}, pageMetaSizeKeys...); ok && f > 0 {
 				m.PageSize = int(f)
+			}
+		}
+		if m.OnTargetResults == 0 {
+			if f, ok := firstFloat([]map[string]any{lm}, pageMetaOnTargetKeys...); ok && f > 0 {
+				m.OnTargetResults = int(f)
 			}
 		}
 		if !m.SurroundingSuburbs {
