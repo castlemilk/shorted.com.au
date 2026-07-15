@@ -45,7 +45,11 @@ func periodToInterval(period string) string {
 // Uses mv_top_shorts materialized view for fast retrieval of top stocks (~6ms vs ~2s),
 // then fetches time series data from the raw shorts table.
 // Falls back to raw query if MV doesn't exist (for dev/test environments).
-func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string, summaryOnly bool) ([]*stocksv1alpha1.TimeSeriesData, int, error) {
+// productCodes (variadic, optional): when supplied, the time-series fetch is
+// scoped to EXACTLY these codes instead of the top-`limit` ranking — callers
+// that already know their constituents (e.g. industry-crowding) avoid pulling
+// every top-N stock's points. Empty = unchanged top-N behaviour.
+func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string, summaryOnly bool, productCodes ...string) ([]*stocksv1alpha1.TimeSeriesData, int, error) {
 	if limit <= 0 {
 		limit = 10 // Default to 10 if a non-positive limit is provided
 	}
@@ -186,6 +190,15 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string, sum
 	}
 	if rows.Err() != nil {
 		return nil, 0, rows.Err()
+	}
+
+	// An explicit code set overrides the top-N ranking: scope the (costly)
+	// time-series fetch below to exactly these codes. The top-N scan above is a
+	// cheap mv_top_shorts hit, so overriding here keeps the diff minimal and the
+	// existing path untouched. Names for codes outside the top-N stay empty —
+	// callers that need names pair this with a summary_only request.
+	if len(productCodes) > 0 {
+		topShorts = productCodes
 	}
 
 	// Optimized query for time series data without downsampling

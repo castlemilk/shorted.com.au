@@ -93,3 +93,61 @@ export const getTopShortsData = cache(
     },
   ),
 );
+
+// A connect transport whose fetch is ISR-cacheable (next:{revalidate}) — a bare
+// connect POST forces cache:'no-store' at Vercel runtime, which would opt the
+// caller's route out of static generation (e.g. flip /industry-intelligence from
+// ○ static to ƒ dynamic). Mirrors getIndustryData / fetchIndustryByCode.
+function createIsrTopShortsClient(revalidateSeconds: number) {
+  const isrFetch: typeof fetch = (input, init) =>
+    serverFetchWithUserAgent(input, {
+      ...init,
+      next: { revalidate: revalidateSeconds },
+    });
+  const transport = createConnectTransport({
+    fetch: isrFetch,
+    baseUrl: SHORTS_API_URL,
+  });
+  return createClient(ShortedStocksService, transport);
+}
+
+/**
+ * Names + latest short position for the top `limit` stocks, WITHOUT time-series
+ * points (summary_only) — ~102KB vs ~3.19MB for the full 2y×1000 payload. Used
+ * for name/industry enrichment where the points aren't needed.
+ */
+export const getTopShortsSummary = cache(
+  withRetryAndNotFound(
+    async (period: string, limit: number): Promise<GetTopShortsResponse> => {
+      const client = createIsrTopShortsClient(1800);
+      return client.getTopShorts({ period, limit, offset: 0, summaryOnly: true });
+    },
+  ),
+);
+
+/**
+ * Time series for an EXPLICIT set of product codes (industry-crowding
+ * constituents), instead of every top-N stock's points. `limit: 1000` is a
+ * graceful-degradation fallback: an older backend that predates the
+ * product_codes field ignores it and returns the top-1000 superset (correct,
+ * just unoptimised), so this is safe to deploy before the backend ships.
+ */
+export const getTopShortsByCodes = cache(
+  withRetryAndNotFound(
+    async (
+      period: string,
+      codes: string[],
+    ): Promise<GetTopShortsResponse> => {
+      if (codes.length === 0) {
+        return { $typeName: "shorts.v1alpha1.GetTopShortsResponse", timeSeries: [], offset: 0 } as GetTopShortsResponse;
+      }
+      const client = createIsrTopShortsClient(1800);
+      return client.getTopShorts({
+        period,
+        limit: 1000,
+        offset: 0,
+        productCodes: codes,
+      });
+    },
+  ),
+);

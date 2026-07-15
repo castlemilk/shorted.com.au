@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { preload } from "react-dom";
 import Link from "next/link";
 
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
@@ -8,6 +9,7 @@ import { HousingTiles, type HousingTile } from "@/components/housing/housing-til
 import { HousingSeriesChart } from "@/components/housing/housing-charts";
 import { HousingZoomMap } from "@/components/housing/housing-zoom-map-loader";
 import { SuburbPriceDropsPanel } from "@/components/housing/suburb-price-drops-panel-loader";
+import { WhenVisible } from "@/components/housing/when-visible";
 import { GCCSA_TO_STATE } from "@/lib/housing/states";
 import type { StateStat } from "@/lib/housing/map-lod";
 import { LLMMeta } from "@/components/seo/llm-meta";
@@ -93,6 +95,16 @@ export default async function HousingPage() {
   const capitals = metrics
     .filter((m) => m.regionType === "gccsa" && m.measure === "median_price" && m.dwellingType === "established_house")
     .sort((a, b) => b.value - a.value);
+
+  // Warm the 493KB national boundary file while the page hydrates, instead of
+  // waiting for the (dynamic, ssr:false) map chunk to download + mount before
+  // use-topojson.ts can even fire its fetch. Only when the map will render.
+  if (metrics.length > 0) {
+    // crossOrigin:"anonymous" is REQUIRED for the preload to be reused by
+    // use-topojson.ts's `fetch()` (cors mode, credentials same-origin) — a bare
+    // as:"fetch" preload mismatches and double-downloads the 493KB file.
+    preload("/geo/states.topojson", { as: "fetch", crossOrigin: "anonymous" });
+  }
 
   const asOf = quarterLabel(overview?.asOf?.seconds);
 
@@ -240,10 +252,14 @@ export default async function HousingPage() {
 
             <section className="grid gap-6 lg:grid-cols-2">
               <ChartCard icon="median-price" title="National mean dwelling price" subtitle="ABS Total Value of Dwellings · quarterly">
-                <HousingSeriesChart regionCode="AUS" measure="mean_price" ariaLabel="National mean dwelling price" format="aud" />
+                <WhenVisible>
+                  <HousingSeriesChart regionCode="AUS" measure="mean_price" ariaLabel="National mean dwelling price" format="aud" />
+                </WhenVisible>
               </ChartCard>
               <ChartCard icon="debt" title="Household debt-to-income" subtitle="RBA Table E2 · quarterly">
-                <HousingSeriesChart regionCode="AUS" measure="debt_to_income" ariaLabel="Household debt to income ratio" format="percent" />
+                <WhenVisible>
+                  <HousingSeriesChart regionCode="AUS" measure="debt_to_income" ariaLabel="Household debt to income ratio" format="percent" />
+                </WhenVisible>
               </ChartCard>
             </section>
           </>

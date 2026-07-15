@@ -718,6 +718,12 @@ message GetTopShortsRequest {
   // When true, returns only product code, name, and latest short position
   // without time series points. Much faster and smaller response.
   bool summary_only = 4;
+  // Optional explicit set of product codes to return time series for, INSTEAD
+  // of the top-`limit` ranking. Lets callers that already know which stocks
+  // they need (e.g. industry-crowding constituents) fetch just those series
+  // rather than every top-N stock's points. Ignored when empty. When set with
+  // summary_only=false, `limit`/`offset` are not applied to the code set.
+  repeated string product_codes = 5;
 }
 
 // Request for Top10 RPC, specifying the period of time.

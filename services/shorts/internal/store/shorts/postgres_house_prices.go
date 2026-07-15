@@ -53,7 +53,12 @@ func (s *postgresStore) GetHousingOverview(regionType string) ([]*HousingMetricR
 		       COALESCE(h.qoq_pct, 0), COALESCE(h.yoy_pct, 0)
 		FROM mv_housing_headline h
 		JOIN house_price_regions r ON r.region_code = h.region_code
-		WHERE ($1 = '' OR r.region_type = $1)
+		-- Unfiltered ("") = the /housing dashboard headline: national + gccsa +
+		-- state only. Exclude suburb rows (SA metro is the only region_type that
+		-- ingests quarterly, so mv_housing_headline carries ~350 Adelaide suburbs
+		-- the dashboard never renders — ~113KB / 82% of the response). Explicit
+		-- region_type filters still resolve suburbs for callers that ask.
+		WHERE (($1 <> '' AND r.region_type = $1) OR ($1 = '' AND r.region_type <> 'suburb'))
 		ORDER BY r.region_type, h.measure, h.value DESC`
 
 	rows, err := s.db.Query(ctx, query, regionType)
@@ -423,30 +428,39 @@ func (s *postgresStore) similarSuburbs(ctx context.Context, salCode string, limi
 			       LEAST(COALESCE(a.dist_to_coast_km,0),100) mc
 			FROM suburb_demographics d LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
 			WHERE d.sal_code = $1
+		),
+		ranked AS (
+			SELECT d.sal_code, d.sal_name, d.state_code,
+			       sqrt(
+			         COALESCE(pow((d.median_age - tgt.ma)/stats.sage,2),0) +
+			         COALESCE(pow((d.median_weekly_hhd_income - tgt.mi)/stats.sinc,2),0) +
+			         COALESCE(pow((d.pct_born_overseas - tgt.mb)/stats.sbo,2),0) +
+			         COALESCE(pow((COALESCE(a.amenity_density_score,0) - tgt.md)/stats.sden,2),0) +
+			         COALESCE(pow((ln(GREATEST(d.population,1)) - tgt.mp)/stats.spop,2),0) +
+			         COALESCE(pow((LEAST(COALESCE(a.dist_to_coast_km,0),100) - tgt.mc)/stats.scoast,2),0)
+			       ) AS dist
+			FROM suburb_demographics d
+			LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
+			CROSS JOIN tgt CROSS JOIN stats
+			WHERE d.sal_code <> $1 AND d.population > 200
+			  AND d.median_age IS NOT NULL AND d.median_weekly_hhd_income IS NOT NULL
+			ORDER BY dist ASC NULLS LAST
+			LIMIT $2
 		)
-		SELECT d.sal_code, d.sal_name, d.state_code, COALESCE(h.value,0), COALESCE(r.region_code,''),
-		       sqrt(
-		         COALESCE(pow((d.median_age - tgt.ma)/stats.sage,2),0) +
-		         COALESCE(pow((d.median_weekly_hhd_income - tgt.mi)/stats.sinc,2),0) +
-		         COALESCE(pow((d.pct_born_overseas - tgt.mb)/stats.sbo,2),0) +
-		         COALESCE(pow((COALESCE(a.amenity_density_score,0) - tgt.md)/stats.sden,2),0) +
-		         COALESCE(pow((ln(GREATEST(d.population,1)) - tgt.mp)/stats.spop,2),0) +
-		         COALESCE(pow((LEAST(COALESCE(a.dist_to_coast_km,0),100) - tgt.mc)/stats.scoast,2),0)
-		       ) AS dist
-		FROM suburb_demographics d
-		LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
-		LEFT JOIN house_price_regions r ON r.sal_code = d.sal_code AND r.region_type = 'suburb'
+		-- Price is display-only (it never enters the distance), so defer the
+		-- per-candidate latest-median LATERAL probe until AFTER the top-k are
+		-- chosen: k probes instead of one per ~15k candidate suburbs.
+		SELECT ranked.sal_code, ranked.sal_name, ranked.state_code, COALESCE(h.value,0),
+		       COALESCE(r.region_code,''), ranked.dist
+		FROM ranked
+		LEFT JOIN house_price_regions r ON r.sal_code = ranked.sal_code AND r.region_type = 'suburb'
 		LEFT JOIN LATERAL (
 			SELECT hp.value FROM house_prices hp
 			WHERE hp.region_code = r.region_code AND hp.measure = 'median_price' AND hp.dwelling_type = 'house'
 			  AND hp.source_licence <> 'proprietary-tos-restricted'
 			ORDER BY hp.period DESC LIMIT 1
 		) h ON true
-		CROSS JOIN tgt CROSS JOIN stats
-		WHERE d.sal_code <> $1 AND d.population > 200
-		  AND d.median_age IS NOT NULL AND d.median_weekly_hhd_income IS NOT NULL
-		ORDER BY dist ASC NULLS LAST
-		LIMIT $2`
+		ORDER BY ranked.dist ASC NULLS LAST`
 	rows, err := s.db.Query(ctx, q, salCode, limit)
 	if err != nil {
 		return nil, err

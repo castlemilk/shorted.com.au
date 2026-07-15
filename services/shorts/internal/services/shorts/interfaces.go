@@ -12,7 +12,7 @@ import (
 
 // ShortsStore defines the interface for shorts data operations
 type ShortsStore interface {
-	GetTopShorts(period string, limit int32, offset int32, summaryOnly bool) ([]*stocksv1alpha1.TimeSeriesData, int, error)
+	GetTopShorts(period string, limit int32, offset int32, summaryOnly bool, productCodes ...string) ([]*stocksv1alpha1.TimeSeriesData, int, error)
 	GetStock(productCode string) (*stocksv1alpha1.Stock, error)
 	GetStockData(productCode, period string) (*stocksv1alpha1.TimeSeriesData, error)
 	GetStockDetails(productCode string) (*stocksv1alpha1.StockDetails, error)

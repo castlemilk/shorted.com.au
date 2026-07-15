@@ -33,6 +33,8 @@ private static final long serialVersionUID = 0L;
   }
   private GetTopShortsRequest() {
     period_ = "";
+    productCodes_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -130,6 +132,75 @@ private static final long serialVersionUID = 0L;
     return summaryOnly_;
   }
 
+  public static final int PRODUCT_CODES_FIELD_NUMBER = 5;
+  @SuppressWarnings("serial")
+  private com.google.protobuf.LazyStringArrayList productCodes_ =
+      com.google.protobuf.LazyStringArrayList.emptyList();
+  /**
+   * <pre>
+   * Optional explicit set of product codes to return time series for, INSTEAD
+   * of the top-`limit` ranking. Lets callers that already know which stocks
+   * they need (e.g. industry-crowding constituents) fetch just those series
+   * rather than every top-N stock's points. Ignored when empty. When set with
+   * summary_only=false, `limit`/`offset` are not applied to the code set.
+   * </pre>
+   *
+   * <code>repeated string product_codes = 5 [json_name = "productCodes"];</code>
+   * @return A list containing the productCodes.
+   */
+  public com.google.protobuf.ProtocolStringList
+      getProductCodesList() {
+    return productCodes_;
+  }
+  /**
+   * <pre>
+   * Optional explicit set of product codes to return time series for, INSTEAD
+   * of the top-`limit` ranking. Lets callers that already know which stocks
+   * they need (e.g. industry-crowding constituents) fetch just those series
+   * rather than every top-N stock's points. Ignored when empty. When set with
+   * summary_only=false, `limit`/`offset` are not applied to the code set.
+   * </pre>
+   *
+   * <code>repeated string product_codes = 5 [json_name = "productCodes"];</code>
+   * @return The count of productCodes.
+   */
+  public int getProductCodesCount() {
+    return productCodes_.size();
+  }
+  /**
+   * <pre>
+   * Optional explicit set of product codes to return time series for, INSTEAD
+   * of the top-`limit` ranking. Lets callers that already know which stocks
+   * they need (e.g. industry-crowding constituents) fetch just those series
+   * rather than every top-N stock's points. Ignored when empty. When set with
+   * summary_only=false, `limit`/`offset` are not applied to the code set.
+   * </pre>
+   *
+   * <code>repeated string product_codes = 5 [json_name = "productCodes"];</code>
+   * @param index The index of the element to return.
+   * @return The productCodes at the given index.
+   */
+  public java.lang.String getProductCodes(int index) {
+    return productCodes_.get(index);
+  }
+  /**
+   * <pre>
+   * Optional explicit set of product codes to return time series for, INSTEAD
+   * of the top-`limit` ranking. Lets callers that already know which stocks
+   * they need (e.g. industry-crowding constituents) fetch just those series
+   * rather than every top-N stock's points. Ignored when empty. When set with
+   * summary_only=false, `limit`/`offset` are not applied to the code set.
+   * </pre>
+   *
+   * <code>repeated string product_codes = 5 [json_name = "productCodes"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the productCodes at the given index.
+   */
+  public com.google.protobuf.ByteString
+      getProductCodesBytes(int index) {
+    return productCodes_.getByteString(index);
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -156,6 +227,9 @@ private static final long serialVersionUID = 0L;
     if (summaryOnly_ != false) {
       output.writeBool(4, summaryOnly_);
     }
+    for (int i = 0; i < productCodes_.size(); i++) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 5, productCodes_.getRaw(i));
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -174,6 +248,14 @@ private static final long serialVersionUID = 0L;
     if (summaryOnly_ != false) {
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(4, summaryOnly_);
+    }
+    {
+      int dataSize = 0;
+      for (int i = 0; i < productCodes_.size(); i++) {
+        dataSize += computeStringSizeNoTag(productCodes_.getRaw(i));
+      }
+      size += dataSize;
+      size += 1 * getProductCodesList().size();
     }
     return size;
   }
@@ -207,6 +289,8 @@ private static final long serialVersionUID = 0L;
         != other.getOffset()) return false;
     if (getSummaryOnly()
         != other.getSummaryOnly()) return false;
+    if (!getProductCodesList()
+        .equals(other.getProductCodesList())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -227,6 +311,10 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + SUMMARY_ONLY_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getSummaryOnly());
+    if (getProductCodesCount() > 0) {
+      hash = (37 * hash) + PRODUCT_CODES_FIELD_NUMBER;
+      hash = (53 * hash) + getProductCodesList().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -366,6 +454,8 @@ private static final long serialVersionUID = 0L;
       limit_ = 0;
       offset_ = 0;
       summaryOnly_ = false;
+      productCodes_ =
+          com.google.protobuf.LazyStringArrayList.emptyList();
       return this;
     }
 
@@ -411,6 +501,10 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000008) != 0)) {
         result.summaryOnly_ = summaryOnly_;
       }
+      if (((from_bitField0_ & 0x00000010) != 0)) {
+        productCodes_.makeImmutable();
+        result.productCodes_ = productCodes_;
+      }
     }
 
     @java.lang.Override
@@ -438,6 +532,16 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getSummaryOnly() != false) {
         setSummaryOnly(other.getSummaryOnly());
+      }
+      if (!other.productCodes_.isEmpty()) {
+        if (productCodes_.isEmpty()) {
+          productCodes_ = other.productCodes_;
+          bitField0_ |= 0x00000010;
+        } else {
+          ensureProductCodesIsMutable();
+          productCodes_.addAll(other.productCodes_);
+        }
+        onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -485,6 +589,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000008;
               break;
             } // case 32
+            case 42: {
+              ensureProductCodesIsMutable();
+              productCodes_.add(input.readStringRequireUtf8());
+              break;
+            } // case 42
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -681,6 +790,189 @@ private static final long serialVersionUID = 0L;
     public Builder clearSummaryOnly() {
       bitField0_ = (bitField0_ & ~0x00000008);
       summaryOnly_ = false;
+      onChanged();
+      return this;
+    }
+
+    private com.google.protobuf.LazyStringArrayList productCodes_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+    private void ensureProductCodesIsMutable() {
+      if (!productCodes_.isModifiable()) {
+        productCodes_ = new com.google.protobuf.LazyStringArrayList(productCodes_);
+      }
+      bitField0_ |= 0x00000010;
+    }
+    /**
+     * <pre>
+     * Optional explicit set of product codes to return time series for, INSTEAD
+     * of the top-`limit` ranking. Lets callers that already know which stocks
+     * they need (e.g. industry-crowding constituents) fetch just those series
+     * rather than every top-N stock's points. Ignored when empty. When set with
+     * summary_only=false, `limit`/`offset` are not applied to the code set.
+     * </pre>
+     *
+     * <code>repeated string product_codes = 5 [json_name = "productCodes"];</code>
+     * @return A list containing the productCodes.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getProductCodesList() {
+      productCodes_.makeImmutable();
+      return productCodes_;
+    }
+    /**
+     * <pre>
+     * Optional explicit set of product codes to return time series for, INSTEAD
+     * of the top-`limit` ranking. Lets callers that already know which stocks
+     * they need (e.g. industry-crowding constituents) fetch just those series
+     * rather than every top-N stock's points. Ignored when empty. When set with
+     * summary_only=false, `limit`/`offset` are not applied to the code set.
+     * </pre>
+     *
+     * <code>repeated string product_codes = 5 [json_name = "productCodes"];</code>
+     * @return The count of productCodes.
+     */
+    public int getProductCodesCount() {
+      return productCodes_.size();
+    }
+    /**
+     * <pre>
+     * Optional explicit set of product codes to return time series for, INSTEAD
+     * of the top-`limit` ranking. Lets callers that already know which stocks
+     * they need (e.g. industry-crowding constituents) fetch just those series
+     * rather than every top-N stock's points. Ignored when empty. When set with
+     * summary_only=false, `limit`/`offset` are not applied to the code set.
+     * </pre>
+     *
+     * <code>repeated string product_codes = 5 [json_name = "productCodes"];</code>
+     * @param index The index of the element to return.
+     * @return The productCodes at the given index.
+     */
+    public java.lang.String getProductCodes(int index) {
+      return productCodes_.get(index);
+    }
+    /**
+     * <pre>
+     * Optional explicit set of product codes to return time series for, INSTEAD
+     * of the top-`limit` ranking. Lets callers that already know which stocks
+     * they need (e.g. industry-crowding constituents) fetch just those series
+     * rather than every top-N stock's points. Ignored when empty. When set with
+     * summary_only=false, `limit`/`offset` are not applied to the code set.
+     * </pre>
+     *
+     * <code>repeated string product_codes = 5 [json_name = "productCodes"];</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the productCodes at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getProductCodesBytes(int index) {
+      return productCodes_.getByteString(index);
+    }
+    /**
+     * <pre>
+     * Optional explicit set of product codes to return time series for, INSTEAD
+     * of the top-`limit` ranking. Lets callers that already know which stocks
+     * they need (e.g. industry-crowding constituents) fetch just those series
+     * rather than every top-N stock's points. Ignored when empty. When set with
+     * summary_only=false, `limit`/`offset` are not applied to the code set.
+     * </pre>
+     *
+     * <code>repeated string product_codes = 5 [json_name = "productCodes"];</code>
+     * @param index The index to set the value at.
+     * @param value The productCodes to set.
+     * @return This builder for chaining.
+     */
+    public Builder setProductCodes(
+        int index, java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureProductCodesIsMutable();
+      productCodes_.set(index, value);
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Optional explicit set of product codes to return time series for, INSTEAD
+     * of the top-`limit` ranking. Lets callers that already know which stocks
+     * they need (e.g. industry-crowding constituents) fetch just those series
+     * rather than every top-N stock's points. Ignored when empty. When set with
+     * summary_only=false, `limit`/`offset` are not applied to the code set.
+     * </pre>
+     *
+     * <code>repeated string product_codes = 5 [json_name = "productCodes"];</code>
+     * @param value The productCodes to add.
+     * @return This builder for chaining.
+     */
+    public Builder addProductCodes(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureProductCodesIsMutable();
+      productCodes_.add(value);
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Optional explicit set of product codes to return time series for, INSTEAD
+     * of the top-`limit` ranking. Lets callers that already know which stocks
+     * they need (e.g. industry-crowding constituents) fetch just those series
+     * rather than every top-N stock's points. Ignored when empty. When set with
+     * summary_only=false, `limit`/`offset` are not applied to the code set.
+     * </pre>
+     *
+     * <code>repeated string product_codes = 5 [json_name = "productCodes"];</code>
+     * @param values The productCodes to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAllProductCodes(
+        java.lang.Iterable<java.lang.String> values) {
+      ensureProductCodesIsMutable();
+      com.google.protobuf.AbstractMessageLite.Builder.addAll(
+          values, productCodes_);
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Optional explicit set of product codes to return time series for, INSTEAD
+     * of the top-`limit` ranking. Lets callers that already know which stocks
+     * they need (e.g. industry-crowding constituents) fetch just those series
+     * rather than every top-N stock's points. Ignored when empty. When set with
+     * summary_only=false, `limit`/`offset` are not applied to the code set.
+     * </pre>
+     *
+     * <code>repeated string product_codes = 5 [json_name = "productCodes"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearProductCodes() {
+      productCodes_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+      bitField0_ = (bitField0_ & ~0x00000010);;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Optional explicit set of product codes to return time series for, INSTEAD
+     * of the top-`limit` ranking. Lets callers that already know which stocks
+     * they need (e.g. industry-crowding constituents) fetch just those series
+     * rather than every top-N stock's points. Ignored when empty. When set with
+     * summary_only=false, `limit`/`offset` are not applied to the code set.
+     * </pre>
+     *
+     * <code>repeated string product_codes = 5 [json_name = "productCodes"];</code>
+     * @param value The bytes of the productCodes to add.
+     * @return This builder for chaining.
+     */
+    public Builder addProductCodesBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      ensureProductCodesIsMutable();
+      productCodes_.add(value);
+      bitField0_ |= 0x00000010;
       onChanged();
       return this;
     }
