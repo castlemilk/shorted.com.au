@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"net/http"
+	"sort"
 	"time"
 
 	"connectrpc.com/connect"
@@ -35,12 +37,25 @@ func (s *ShortsServer) GetTopShorts(ctx context.Context, req *connect.Request[sh
 	if req.Msg.SummaryOnly {
 		summaryTag = ":summary"
 	}
+	// A code-scoped request returns a DIFFERENT series set than the top-N call
+	// with the same period/limit/offset — fingerprint the (order-independent)
+	// code set into the key so the two never collide in the cache.
+	if len(req.Msg.ProductCodes) > 0 {
+		codes := append([]string(nil), req.Msg.ProductCodes...)
+		sort.Strings(codes)
+		h := fnv.New32a()
+		for _, c := range codes {
+			_, _ = h.Write([]byte(c))
+			_, _ = h.Write([]byte{0})
+		}
+		summaryTag += fmt.Sprintf(":codes:%x", h.Sum32())
+	}
 	cacheKey := s.cache.GetTopShortsKey(req.Msg.Period+summaryTag, req.Msg.Limit, req.Msg.Offset)
 
 	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
 		s.logger.Debugf("cache miss for GetTopShorts, fetching from database")
 
-		result, offset, err := s.store.GetTopShorts(req.Msg.GetPeriod(), req.Msg.GetLimit(), req.Msg.Offset, req.Msg.SummaryOnly)
+		result, offset, err := s.store.GetTopShorts(req.Msg.GetPeriod(), req.Msg.GetLimit(), req.Msg.Offset, req.Msg.SummaryOnly, req.Msg.ProductCodes...)
 		if err != nil {
 			return nil, err
 		}

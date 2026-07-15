@@ -514,8 +514,14 @@ export function buildIndustryIntelligenceStory({
       previewEnabled: true,
       cadences: ["Daily", "Weekly"],
     },
-    evidenceSources,
-    evidenceRecords,
+    // The client renders evidence EXCLUSIVELY from channels[] (each channel
+    // carries its own sources/records/timeBuckets/entityTotals). The top-level
+    // arrays are a byte-for-byte duplicate of that same data — nothing reads
+    // them, but they shipped in the RSC flight of every /industry-intelligence
+    // visitor (~284KB uncompressed across 8 stories). Keep the fields (builder
+    // inputs / test scratch still type-check) but emit them empty.
+    evidenceSources: [],
+    evidenceRecords: [],
     channels: buildEvidenceChannels({
       sources: evidenceSources,
       records: evidenceRecords,

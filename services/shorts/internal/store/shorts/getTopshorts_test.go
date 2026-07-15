@@ -226,6 +226,39 @@ func TestFetchTimeSeriesData_ReturnsMultipleResults(t *testing.T) {
 	t.Logf("✓ Returned %d active stocks out of requested %d", len(results), limit)
 }
 
+// TestFetchTimeSeriesData_ProductCodesScope verifies that supplying an explicit
+// product-code set returns time series for EXACTLY those codes (not the top-N
+// ranking) — the industry-crowding over-fetch fix.
+func TestFetchTimeSeriesData_ProductCodesScope(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	pool, cleanup := setupTestDatabase(t)
+	defer cleanup()
+
+	// Baseline: the unscoped top-N call returns several active stocks with points.
+	all, _, err := FetchTimeSeriesData(pool, 50, 0, "6M", false)
+	require.NoError(t, err, "baseline fetch should not error")
+	require.GreaterOrEqual(t, len(all), 2, "need at least 2 active stocks to scope")
+
+	// Scope to an explicit 2-code subset drawn from the full set.
+	want := []string{all[0].ProductCode, all[1].ProductCode}
+
+	scoped, _, err := FetchTimeSeriesData(pool, 50, 0, "6M", false, want...)
+	require.NoError(t, err, "code-scoped fetch should not error")
+
+	got := make([]string, 0, len(scoped))
+	for _, s := range scoped {
+		got = append(got, s.ProductCode)
+		assert.NotEmpty(t, s.Points, "scoped series %s should carry points", s.ProductCode)
+	}
+	assert.ElementsMatch(t, want, got,
+		"a code-scoped fetch must return exactly the requested codes, not the top-N ranking")
+
+	t.Logf("✓ scoped fetch returned exactly %v", got)
+}
+
 // TestFetchTimeSeriesData_OnlyReturnsRecentStocks validates that only stocks
 // with recent data (within 1 month of latest report) are returned.
 // This prevents delisted or stale stocks from appearing in top shorts.

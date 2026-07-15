@@ -44,4 +44,61 @@ public interface GetTopShortsRequestOrBuilder extends
    * @return The summaryOnly.
    */
   boolean getSummaryOnly();
+
+  /**
+   * <pre>
+   * Optional explicit set of product codes to return time series for, INSTEAD
+   * of the top-`limit` ranking. Lets callers that already know which stocks
+   * they need (e.g. industry-crowding constituents) fetch just those series
+   * rather than every top-N stock's points. Ignored when empty. When set with
+   * summary_only=false, `limit`/`offset` are not applied to the code set.
+   * </pre>
+   *
+   * <code>repeated string product_codes = 5 [json_name = "productCodes"];</code>
+   * @return A list containing the productCodes.
+   */
+  java.util.List<java.lang.String>
+      getProductCodesList();
+  /**
+   * <pre>
+   * Optional explicit set of product codes to return time series for, INSTEAD
+   * of the top-`limit` ranking. Lets callers that already know which stocks
+   * they need (e.g. industry-crowding constituents) fetch just those series
+   * rather than every top-N stock's points. Ignored when empty. When set with
+   * summary_only=false, `limit`/`offset` are not applied to the code set.
+   * </pre>
+   *
+   * <code>repeated string product_codes = 5 [json_name = "productCodes"];</code>
+   * @return The count of productCodes.
+   */
+  int getProductCodesCount();
+  /**
+   * <pre>
+   * Optional explicit set of product codes to return time series for, INSTEAD
+   * of the top-`limit` ranking. Lets callers that already know which stocks
+   * they need (e.g. industry-crowding constituents) fetch just those series
+   * rather than every top-N stock's points. Ignored when empty. When set with
+   * summary_only=false, `limit`/`offset` are not applied to the code set.
+   * </pre>
+   *
+   * <code>repeated string product_codes = 5 [json_name = "productCodes"];</code>
+   * @param index The index of the element to return.
+   * @return The productCodes at the given index.
+   */
+  java.lang.String getProductCodes(int index);
+  /**
+   * <pre>
+   * Optional explicit set of product codes to return time series for, INSTEAD
+   * of the top-`limit` ranking. Lets callers that already know which stocks
+   * they need (e.g. industry-crowding constituents) fetch just those series
+   * rather than every top-N stock's points. Ignored when empty. When set with
+   * summary_only=false, `limit`/`offset` are not applied to the code set.
+   * </pre>
+   *
+   * <code>repeated string product_codes = 5 [json_name = "productCodes"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the productCodes at the given index.
+   */
+  com.google.protobuf.ByteString
+      getProductCodesBytes(int index);
 }
