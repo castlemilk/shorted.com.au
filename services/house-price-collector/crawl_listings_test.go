@@ -296,6 +296,21 @@ func domainPageHTML(ids []string, postcode string) string {
 		strings.Join(items, ",") + `]}}}</script></body></html>`
 }
 
+// domainPageWithMeta is domainPageHTML plus the portal's own pagination signal
+// (totalResults/pageSize) in the SAME __NEXT_DATA__ blob — mirroring the real
+// Domain shape where componentProps carries both listingsMap and
+// totalPages/pageSize side by side (confirmed Phase-0, 2026-07-15).
+func domainPageWithMeta(ids []string, postcode string, total, pageSize int) string {
+	items := make([]string, 0, len(ids))
+	for _, id := range ids {
+		items = append(items, fmt.Sprintf(
+			`{"id":"%s","listingUrl":"/p/%s","price":"$1,200,000","bedrooms":3,"address":{"suburb":"Bondi","state":"NSW","postcode":"%s","displayAddress":"%s Test St"}}`,
+			id, id, postcode, id))
+	}
+	return fmt.Sprintf(`<html><body><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"totalResults":%d,"pageSize":%d,"listings":[%s]}}}</script></body></html>`,
+		total, pageSize, strings.Join(items, ","))
+}
+
 func sweepWith(pages map[string]string) suburbSweep {
 	lc := testLC()
 	lc.fetcher = &pagedFetcher{pages: pages}
@@ -422,5 +437,71 @@ func TestSweep_PageCapIsPartial(t *testing.T) {
 	}
 	if len(sw.listings) != 10 {
 		t.Errorf("expected 10 collected across 2 pages, got %d", len(sw.listings))
+	}
+}
+
+// --- PageMeta-informed sizing + delist-safe classification (Task 3) ---
+
+func TestSweep_TotalCountSizesAndCompletes(t *testing.T) {
+	p1 := domainPageWithMeta([]string{"a", "b", "c", "d", "e"}, "2026", /*total*/ 5, /*pageSize*/ 20)
+	sw := sweepWith(map[string]string{bondi.domainSearchURL(1): p1}) // page 2 is the default empty page
+	if sw.status != sweepComplete {
+		t.Fatalf("1-page suburb must be complete, got %s", sw.status)
+	}
+	if sw.pages != 1 {
+		t.Fatalf("must fetch exactly 1 page, got %d", sw.pages)
+	}
+	if len(sw.listings) != 5 {
+		t.Fatalf("expected 5 collected listings, got %d", len(sw.listings))
+	}
+}
+
+func TestSweep_TotalCountNeverExtendsBeyondMaxPages(t *testing.T) {
+	// A BROADENED total (say 900 results / 25 per page -> 36 pages) must never
+	// grow the walk past the hard cfg.maxPages ceiling — PageMeta can only
+	// shrink the loop bound, never grow it.
+	lc := testLC()
+	lc.cfg.maxPages = 2
+	p1 := domainPageWithMeta([]string{"a", "b", "c", "d", "e"}, "2026", /*total*/ 900, /*pageSize*/ 25)
+	p2 := domainPageHTML([]string{"f", "g", "h", "i", "j"}, "2026")
+	lc.fetcher = &pagedFetcher{pages: map[string]string{
+		bondi.domainSearchURL(1): p1,
+		bondi.domainSearchURL(2): p2,
+	}}
+	blocks := 0
+	sw := lc.sweepSuburbSource(context.Background(), bondi, "domain", bondi.domainSearchURL, &blocks)
+	if sw.pages != 2 {
+		t.Fatalf("must stay capped at maxPages=2 despite a large broadened total, got %d pages", sw.pages)
+	}
+	// wantPages(36) clamped to maxPages(2) == maxPages -> NOT capped-complete: a
+	// large broadened total offers no delist-safety guarantee at the hard cap.
+	if sw.status != sweepPartial {
+		t.Fatalf("hitting the hard cap under a still-larger broadened total must stay partial, got %s", sw.status)
+	}
+}
+
+func TestSweep_BroadenedLatePageCompletesWhenPageMetaConfirms(t *testing.T) {
+	// Same shape as TestSweep_BroadenedLatePageIsPartial, but this time page 1
+	// carries PageMeta reporting a broadened total far beyond where we stopped
+	// (pages=2 < wantPages) — confirming the on-target suburb was fully seen
+	// before the surrounds began. That must upgrade partial -> complete
+	// (delist-safe), unlike the no-PageMeta case.
+	p1 := domainPageWithMeta([]string{"a", "b", "c", "d", "e"}, "2026", /*total*/ 900, /*pageSize*/ 25) // wantPages=36, clamped to maxPages=5
+	p2 := `<html><body><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"listings":[` +
+		`{"id":"f","listingUrl":"/p/f","price":"$1,200,000","address":{"suburb":"Bondi","postcode":"2026","displayAddress":"f"}},` +
+		`{"id":"g","listingUrl":"/p/g","price":"$1,200,000","address":{"suburb":"Tamarama","postcode":"2026x","displayAddress":"g"}},` +
+		`{"id":"h","listingUrl":"/p/h","price":"$1,200,000","address":{"suburb":"Bronte","postcode":"2024","displayAddress":"h"}},` +
+		`{"id":"i","listingUrl":"/p/i","price":"$1,200,000","address":{"suburb":"Waverley","postcode":"2024","displayAddress":"i"}},` +
+		`{"id":"j","listingUrl":"/p/j","price":"$1,200,000","address":{"suburb":"Clovelly","postcode":"2031","displayAddress":"j"}}` +
+		`]}}}</script></body></html>` // 1 on-target + 4 nearby -> 80% mismatch
+	sw := sweepWith(map[string]string{
+		bondi.domainSearchURL(1): p1,
+		bondi.domainSearchURL(2): p2,
+	})
+	if sw.status != sweepComplete {
+		t.Errorf("a broadened late page confirmed short of PageMeta's own extent must be delist-safe complete, got %s", sw.status)
+	}
+	if len(sw.listings) != 5 {
+		t.Errorf("must keep the 5 confirmed page-1 listings, got %d", len(sw.listings))
 	}
 }
