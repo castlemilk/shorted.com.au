@@ -60,6 +60,7 @@ type suburbSweep struct {
 type listingsConfig struct {
 	crawlConfig                 // embeds cdpURL, minDelay/maxDelay, dryRun, maxConsecBlocks, fetchTimeout, profileDir, maxSuburbs
 	maxPages      int           // CRAWL_LISTINGS_MAX_PAGES      (default 5)
+	maxPagesHard  int           // CRAWL_LISTINGS_MAX_PAGES_HARD (default maxPages*3) — absolute ceiling softPageCap may grow into
 	minPerPage    int           // CRAWL_LISTINGS_MIN_PER_PAGE   (default 5)
 	minNewPerPage int           // CRAWL_LISTINGS_MIN_NEW_PER_PAGE (default 1) — yield-decay floor
 	pageMinDelay  time.Duration // CRAWL_LISTINGS_PAGE_MIN_MS   (default 8000)
@@ -75,9 +76,11 @@ type listingsConfig struct {
 }
 
 func loadListingsConfig() listingsConfig {
+	maxPages := envInt("CRAWL_LISTINGS_MAX_PAGES", 5)
 	return listingsConfig{
 		crawlConfig:   loadCrawlConfig(),
-		maxPages:      envInt("CRAWL_LISTINGS_MAX_PAGES", 5),
+		maxPages:      maxPages,
+		maxPagesHard:  envInt("CRAWL_LISTINGS_MAX_PAGES_HARD", maxPages*3),
 		minPerPage:    envInt("CRAWL_LISTINGS_MIN_PER_PAGE", 5),
 		minNewPerPage: envInt("CRAWL_LISTINGS_MIN_NEW_PER_PAGE", 1),
 		pageMinDelay:  time.Duration(envInt("CRAWL_LISTINGS_PAGE_MIN_MS", 8000)) * time.Millisecond,
@@ -319,16 +322,23 @@ func (lc *listingsCrawler) crawlSuburbSource(ctx context.Context, pool *pgxpool.
 // and target-filtering listings, and classifies the sweep (complete/partial/
 // blocked) — the classification that governs whether delisting is safe.
 //
+// Before fetching, softPageCap derives a per-suburb page ceiling from
+// t.Dwellings (a coarse population/dwelling-count hint — see CrawlTarget),
+// bounded by cfg.maxPagesHard. This softCap is the operative ceiling for the
+// REST of this function wherever cfg.maxPages appeared before Task 6 — for a
+// suburb with no hint (Dwellings==0, the whole catalog today), softCap ==
+// cfg.maxPages exactly, so nothing changes until real hints are populated.
+//
 // Page 1's PageMeta (the portal's own totalResultsCount/totalPages/pageSize —
-// see extractPageMeta) bounds the walk to wantPages = clamp(meta.TotalPages, 1,
-// cfg.maxPages) instead of always walking to cfg.maxPages. This is safe in
-// BOTH directions even though PageMeta.TotalResults is the BROADENED (suburb +
-// surrounding-suburb) count, not the on-target inventory (confirmed Phase-0,
-// 2026-07-15): for a genuinely large/broadened suburb, meta.TotalPages is
-// always >= cfg.maxPages, so the clamp is a no-op (identical to today's
-// behaviour, no over-fetch risk); it only SHORTENS the walk for suburbs whose
-// portal-reported extent is smaller than the cap, saving a redundant fetch of
-// a page we'd learn nothing new from anyway.
+// see extractPageMeta) then bounds the walk to wantPages =
+// clamp(meta.TotalPages, 1, softCap) instead of always walking to softCap.
+// This is safe in BOTH directions even though PageMeta.TotalResults is the
+// BROADENED (suburb + surrounding-suburb) count, not the on-target inventory
+// (confirmed Phase-0, 2026-07-15): for a genuinely large/broadened suburb,
+// meta.TotalPages is always >= softCap, so the clamp is a no-op (identical to
+// today's behaviour, no over-fetch risk); it only SHORTENS the walk for
+// suburbs whose portal-reported extent is smaller than the cap, saving a
+// redundant fetch of a page we'd learn nothing new from anyway.
 //
 // Three natural-stop paths additionally use PageMeta to upgrade a sweepPartial
 // to the delist-safe sweepComplete (see upgradeIfPageMetaConfirms): (a) below,
@@ -339,17 +349,19 @@ func (lc *listingsCrawler) crawlSuburbSource(ctx context.Context, pool *pgxpool.
 // wantPages confirms we stopped well short of the portal's own reported
 // extent, i.e. we saw the whole on-target suburb before the surrounds began.
 // When PageMeta.OK is false (extraction failed / portal changed shape),
-// wantPages falls back to cfg.maxPages and every classification falls back to
+// wantPages falls back to softCap and every classification falls back to
 // today's behaviour exactly — nothing regresses.
 func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget, source string, urlFor func(int) string, blockCounter *int) suburbSweep {
 	if *blockCounter >= lc.cfg.maxConsecBlocks {
 		return suburbSweep{status: sweepBlocked} // breaker open: stop hammering this source
 	}
 
+	softCap := softPageCap(t.Dwellings, lc.cfg.maxPagesHard, lc.cfg.maxPages)
+
 	collected := map[string]RawListing{}
 	var prevSig string
 	pages := 0
-	wantPages := lc.cfg.maxPages
+	wantPages := softCap
 	metaOK := false
 
 	for page := 1; page <= wantPages; page++ {
@@ -374,12 +386,12 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 		}
 
 		// Page 1 only: read the portal's own pagination signal and (re)size the
-		// walk. wantPages can only ever SHRINK the loop bound below cfg.maxPages
-		// here, never grow it — see the func doc for why that's safe.
+		// walk. wantPages can only ever SHRINK the loop bound below softCap here,
+		// never grow it — see the func doc for why that's safe.
 		if page == 1 {
 			if meta := extractPageMeta(doc, source); meta.OK {
 				metaOK = true
-				wantPages = max(1, min(meta.TotalPages, lc.cfg.maxPages))
+				wantPages = max(1, min(meta.TotalPages, softCap))
 			}
 		}
 
@@ -452,12 +464,44 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 	}
 
 	// Reached the loop bound with no natural end signal. When PageMeta sized
-	// that bound BELOW the hard cap (wantPages < cfg.maxPages), we've walked
-	// every page the portal itself claims exists — a "capped-complete" sweep,
-	// delist-safe. Otherwise (PageMeta unusable, or the broadened extent is
-	// itself >= cfg.maxPages) more listings may exist beyond the cap → partial,
-	// today's behaviour.
-	return finishSweep(collected, pages, upgradeIfPageMetaConfirms(metaOK && wantPages < lc.cfg.maxPages, sweepPartial))
+	// that bound BELOW softCap (wantPages < softCap), we've walked every page
+	// the portal itself claims exists — a "capped-complete" sweep, delist-safe.
+	// Otherwise (PageMeta unusable, or the broadened extent is itself >=
+	// softCap) more listings may exist beyond the cap → partial, today's
+	// behaviour.
+	return finishSweep(collected, pages, upgradeIfPageMetaConfirms(metaOK && wantPages < softCap, sweepPartial))
+}
+
+// softPageCap derives a per-suburb page ceiling from a coarse
+// population/dwelling-count hint, used to size the walk when the portal's own
+// PageMeta is unusable (meta.OK==false) — Task 3's exact per-page sizing
+// always wins once PageMeta is available. A dense suburb has legitimately
+// more genuine on-target inventory than a flat default can cover in cfg.
+// maxPages pages; a sparse one should stop sooner rather than wastefully
+// walking pages that will just broaden into surrounding-suburb stock.
+// dwellings<=0 (unknown — the whole catalog today, until a real ABS backfill
+// lands) returns defaultCap unchanged, so nothing regresses for any suburb
+// without a hint. The result is always clamped to >=1 and, when hardCeiling
+// is positive, to <=hardCeiling (hardCeiling<=0 is treated as "no override" —
+// a defensive fallback for callers/tests that don't set one, NOT an implicit
+// re-widening of an explicitly-passed low ceiling).
+func softPageCap(dwellings, hardCeiling, defaultCap int) int {
+	n := defaultCap
+	switch {
+	case dwellings >= 20000:
+		n = defaultCap * 2
+	case dwellings >= 8000:
+		n = defaultCap + 2
+	case dwellings > 0 && dwellings < 2000:
+		n = defaultCap - 2
+	}
+	if n < 1 {
+		n = 1
+	}
+	if hardCeiling > 0 && n > hardCeiling {
+		n = hardCeiling
+	}
+	return n
 }
 
 // upgradeIfPageMetaConfirms upgrades a natural-stop status to the delist-safe
