@@ -316,6 +316,27 @@ func (lc *listingsCrawler) crawlSuburbSource(ctx context.Context, pool *pgxpool.
 // sweepSuburbSource walks the paginated search results for one suburb, extracting
 // and target-filtering listings, and classifies the sweep (complete/partial/
 // blocked) — the classification that governs whether delisting is safe.
+//
+// Page 1's PageMeta (the portal's own totalResultsCount/totalPages/pageSize —
+// see extractPageMeta) bounds the walk to wantPages = clamp(meta.TotalPages, 1,
+// cfg.maxPages) instead of always walking to cfg.maxPages. This is safe in
+// BOTH directions even though PageMeta.TotalResults is the BROADENED (suburb +
+// surrounding-suburb) count, not the on-target inventory (confirmed Phase-0,
+// 2026-07-15): for a genuinely large/broadened suburb, meta.TotalPages is
+// always >= cfg.maxPages, so the clamp is a no-op (identical to today's
+// behaviour, no over-fetch risk); it only SHORTENS the walk for suburbs whose
+// portal-reported extent is smaller than the cap, saving a redundant fetch of
+// a page we'd learn nothing new from anyway. Two places additionally use
+// PageMeta to upgrade a natural-stop sweepPartial to the delist-safe
+// sweepComplete (see pageMetaCompleteStatus): (a) below, when the walk reaches
+// wantPages cleanly (a "capped-complete" sweep — we saw everything the portal
+// itself said existed); (b) when a later page hits the broadening/poison gate
+// or (Task 4) yield decay AFTER a healthy on-target set — pages < wantPages
+// there confirms we stopped well short of the portal's own reported extent,
+// i.e. we saw the whole on-target suburb before the surrounds began. When
+// PageMeta.OK is false (extraction failed / portal changed shape), wantPages
+// falls back to cfg.maxPages and every classification falls back to today's
+// behaviour exactly — nothing regresses.
 func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget, source string, urlFor func(int) string, blockCounter *int) suburbSweep {
 	if *blockCounter >= lc.cfg.maxConsecBlocks {
 		return suburbSweep{status: sweepBlocked} // breaker open: stop hammering this source
@@ -324,8 +345,10 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 	collected := map[string]RawListing{}
 	var prevSig string
 	pages := 0
+	wantPages := lc.cfg.maxPages
+	metaOK := false
 
-	for page := 1; page <= lc.cfg.maxPages; page++ {
+	for page := 1; page <= wantPages; page++ {
 		if page > 1 {
 			jitterSleep(ctx, lc.cfg.pageMinDelay, lc.cfg.pageMaxDelay)
 		}
@@ -345,6 +368,17 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 		if err != nil {
 			return finishSweep(collected, pages, blockedOrPartial(len(collected)))
 		}
+
+		// Page 1 only: read the portal's own pagination signal and (re)size the
+		// walk. wantPages can only ever SHRINK the loop bound below cfg.maxPages
+		// here, never grow it — see the func doc for why that's safe.
+		if page == 1 {
+			if meta := extractPageMeta(doc, source); meta.OK {
+				metaOK = true
+				wantPages = max(1, min(meta.TotalPages, lc.cfg.maxPages))
+			}
+		}
+
 		matched, mismatch := partitionByTarget(extractListings(doc, source), t)
 
 		// Page-level poison gate. A high off-target ratio is the poison signal —
@@ -355,11 +389,16 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 		// suburb's real listings are already in `collected` from cleaner earlier
 		// pages. sweepPoisonVerdict treats a late high-mismatch page (after a healthy
 		// on-target set) as paging PAST the suburb — keep what we have (partial ⇒
-		// write events, delist nothing) — and only BLOCKS an early high-mismatch
-		// page (genuine page-1 poison / bot-variant), which still trips the breaker.
+		// write events, delist nothing; or sweepComplete when PageMeta confirms we
+		// stopped short of the portal's own reported extent — delist-safe) — and
+		// only BLOCKS an early high-mismatch page (genuine page-1 poison /
+		// bot-variant), which still trips the breaker.
 		if mismatch > 0.30 {
 			if sweepPoisonVerdict(page, len(collected), lc.cfg.minPerPage) == sweepPartial {
-				return finishSweep(collected, pages, sweepPartial)
+				// PageMeta confirms we stopped short of the portal's own reported
+				// (broadened) extent — the on-target suburb was fully seen on the
+				// clean earlier pages before the surrounds began. Delist-safe.
+				return finishSweep(collected, pages, upgradeIfPageMetaConfirms(metaOK && pages < wantPages, sweepPartial))
 			}
 			*blockCounter++
 			return finishSweep(collected, pages, sweepBlocked)
@@ -389,8 +428,26 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 		}
 	}
 
-	// Reached the page cap without a natural end → more listings may exist → partial.
-	return finishSweep(collected, pages, sweepPartial)
+	// Reached the loop bound with no natural end signal. When PageMeta sized
+	// that bound BELOW the hard cap (wantPages < cfg.maxPages), we've walked
+	// every page the portal itself claims exists — a "capped-complete" sweep,
+	// delist-safe. Otherwise (PageMeta unusable, or the broadened extent is
+	// itself >= cfg.maxPages) more listings may exist beyond the cap → partial,
+	// today's behaviour.
+	return finishSweep(collected, pages, upgradeIfPageMetaConfirms(metaOK && wantPages < lc.cfg.maxPages, sweepPartial))
+}
+
+// upgradeIfPageMetaConfirms upgrades a natural-stop status to the delist-safe
+// sweepComplete when the caller has confirmed (via PageMeta) that the sweep
+// can be trusted as having seen the whole on-target suburb — see the two call
+// sites in sweepSuburbSource for the exact confirmation conditions. Falls back
+// to `def` — today's behaviour — otherwise (PageMeta unusable for this sweep,
+// or not yet confirmed).
+func upgradeIfPageMetaConfirms(confirmed bool, def sweepStatus) sweepStatus {
+	if confirmed {
+		return sweepComplete
+	}
+	return def
 }
 
 func finishSweep(collected map[string]RawListing, pages int, status sweepStatus) suburbSweep {
