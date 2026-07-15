@@ -43,6 +43,12 @@ func TestExtractPageMeta_REA(t *testing.T) {
 	if !m.SurroundingSuburbs {
 		t.Error("rea SurroundingSuburbs should be true (confirmed live: New Farm SRP broadens)")
 	}
+	// Confirmed live: the SRP blob also carries the exact on-target count under
+	// "listings_total" (969 broadened − 906 surrounding = 63), distinct from the
+	// broadened TotalResults above.
+	if m.OnTargetResults != 63 {
+		t.Errorf("rea OnTargetResults = %d, want 63 (the exact on-target listings_total, not the broadened total)", m.OnTargetResults)
+	}
 }
 
 func TestExtractPageMeta_Domain(t *testing.T) {
@@ -72,6 +78,12 @@ func TestExtractPageMeta_Domain(t *testing.T) {
 	}
 	if !m.SurroundingSuburbs {
 		t.Error("domain SurroundingSuburbs should be true (confirmed live: New Farm SRP broadens)")
+	}
+	// Domain exposes no equivalent exact on-target field (only the broadened
+	// totalListings + a boolean includeSurroundingSuburbs) — OnTargetResults
+	// must stay 0 so the sizing falls back to the broadened-TotalPages clamp.
+	if m.OnTargetResults != 0 {
+		t.Errorf("domain OnTargetResults = %d, want 0 (Domain has no on-target field)", m.OnTargetResults)
 	}
 }
 
