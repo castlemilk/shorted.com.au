@@ -11,7 +11,11 @@ Shorted aggregates and visualises official ASIC (Australian Securities and Inves
 
 ## Key Content
 
-- [Top 100 Most Shorted ASX Stocks](https://shorted.com.au/top): Live rankings of the most shorted stocks on the Australian Securities Exchange, updated daily with ASIC data.
+- [Most Shorted ASX Stocks](https://shorted.com.au/top): Live rankings of the most shorted stocks on the Australian Securities Exchange, updated daily with ASIC data.
+- [ASX Short Selling Statistics](https://shorted.com.au/statistics): Aggregate market-wide short interest — total dollars short-sold on the ASX, sector baskets, and weekly movers. Citable, updated daily.
+- [Battlegrounds — ASX Short Squeeze Candidates](https://shorted.com.au/battlegrounds): Daily-scored short squeeze radar combining short interest, days-to-cover, and price momentum.
+- [Daily Market Snapshots](https://shorted.com.au/market): Dated snapshot pages of ASX short positions for every trading day (e.g. /market/2026-07-09).
+- [Short Position Seasonality](https://shorted.com.au/seasonality): Seasonal patterns in ASX short positions.
 - [Industry Treemap](https://shorted.com.au/industry): Visual breakdown of short positions by ASX industry sector.
 - [Industry Intelligence](https://shorted.com.au/industry-intelligence): FY-aggregated tax, government-contract, political-donation and lobbying evidence joined to ASX industries and short interest.
 - [Individual Stock Pages](https://shorted.com.au/shorts/BHP): Detailed short position analysis for each ASX-listed security with historical charts.
@@ -24,11 +28,14 @@ Shorted aggregates and visualises official ASIC (Australian Securities and Inves
 - [Insider Trading & Director Trades](https://shorted.com.au/insider-trading): Per-stock director and insider trades sourced from ASX Appendix 3Y filings.
 - [Open Data Hub](https://shorted.com.au/data): Public dataset catalog with Dataset schema for Google Dataset Search.
 - [Australian House Prices Tracker](https://shorted.com.au/housing): ABS/RBA house-price tracker plus a national suburb explorer with census and electoral overlays.
+- [The Widow-Maker Trade](https://shorted.com.au/features/the-widow-maker): Investigative feature on why betting against Australian housing keeps failing, with interactive dashboards.
+- [Authors](https://shorted.com.au/authors): Editorial author profiles and credentials.
 - [API Documentation](https://shorted.com.au/docs/api-reference): Developer API for accessing ASIC short position data programmatically.
 - [LLM Context Documentation](https://shorted.com.au/docs/llm-context): Detailed platform and data documentation optimised for AI/LLM consumption.
 
 ## Educational Resources
 
+- [How to Short the ASX](https://shorted.com.au/learn/how-to-short-the-asx): Practical pillar guide to shorting Australian stocks — brokers, instruments (CFDs, options, BBOZ), costs, and regulation.
 - [What is Short Selling on the ASX?](https://shorted.com.au/learn/what-is-short-selling): Beginner's guide to short selling mechanics, risks, and regulation.
 - [ASIC Short Selling Regulations & Reporting Requirements](https://shorted.com.au/learn/asic-short-selling-regulations): Comprehensive guide covering the Corporations Act 2001 (s1020B naked short selling prohibition, s1020AB transaction reporting, s1020AC position reporting), ASIC Regulatory Guide 196, the 0.01% reporting threshold, net short position reporting, and the daily ASX short sales report.
 - [Understanding ASIC's T+4 Delay](https://shorted.com.au/learn/understanding-t4-delay): Why ASIC publishes short position data with a 4 trading day delay.

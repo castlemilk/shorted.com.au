@@ -94,12 +94,18 @@ async function fetchWeeklyReport(weekSlug: string): Promise<WeeklyReportData> {
       const transport = getTransport();
       const client = createClient(ShortedStocksService, transport);
 
-      const [availableDates, marketData] = await Promise.all([
-        client.getAvailableDates({ limit: 5, before: "" }),
-        client.getMarketByDate({ date: endStr, limit: 50, offset: 0 }),
-      ]);
-
+      // Clamp the market-data query to the newest available trading date
+      // WITHIN the week. Fresh reports publish Friday but the Friday's ASIC
+      // data lags ~4-6 days (T+4) — querying endStr returned zero stocks,
+      // which soft-404'd every report right when it was newest (July 2026).
+      const availableDates = await client.getAvailableDates({ limit: 5, before: "" });
       const weekDates = availableDates.dates.filter((d) => d >= startStr && d <= endStr);
+      const queryDate = weekDates[0] ?? endStr;
+      const marketData = await client.getMarketByDate({
+        date: queryDate,
+        limit: 50,
+        offset: 0,
+      });
 
       return {
         weekSlug,
@@ -561,7 +567,14 @@ async function fetchReportsList(
     const transport = getTransport();
     const client = createClient(ShortedStocksService, transport);
     const resp = await client.listReports({ reportType, limit });
-    return (resp.reports ?? []).map((r) => ({
+    // Defense against partial rows: the generator can leave a published_at
+    // row whose narrative never landed (July 2026: a 2026-W28 row surfaced
+    // as the "latest" featured card while GetWeeklyReport had nothing to
+    // render — a sitemapped soft-404). A real published report always has a
+    // headline, so gate on it.
+    return (resp.reports ?? [])
+      .filter((r) => (r.headline ?? "").trim().length > 0)
+      .map((r) => ({
       slug: r.slug,
       reportType: r.reportType,
       headline: r.headline,

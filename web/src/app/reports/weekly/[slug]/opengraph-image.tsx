@@ -3,6 +3,7 @@ import { ImageResponse } from "next/og";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { getServerShortsApiUrl } from "~/app/actions/config";
+import { resolveWeeklySlugParam } from "~/@/lib/reports/weekly-slug";
 
 export const alt = "Weekly Short Selling Report - Shorted.com.au";
 export const size = {
@@ -118,7 +119,10 @@ export default async function Image({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  // The route serves both slug forms (ISO "2026-W29" and the canonical
+  // "10-most-shorted-asx-stocks-week-29-2026") — normalize before parsing.
+  const slug = resolveWeeklySlugParam(rawSlug)?.dbSlug ?? rawSlug;
   const parsed = parseWeekSlug(slug);
   const weekLabel = parsed ? `Week ${parsed.week}, ${parsed.year}` : slug;
 

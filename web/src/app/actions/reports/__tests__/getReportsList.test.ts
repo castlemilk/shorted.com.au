@@ -88,7 +88,7 @@ describe("getReportsList", () => {
         {
           slug: "2025",
           reportType: "yearly",
-          headline: "",
+          headline: "Year of the shorts",
           summary: "",
           reportDate: "",
           maxShortPct: 0,
@@ -104,6 +104,45 @@ describe("getReportsList", () => {
     const result = await getReportsList();
     expect(result[0]!.topCodes).toEqual([]);
     expect(result[0]!.topLogoUrls).toEqual([]);
+  });
+
+  it("filters out partial rows lacking a headline (unrenderable reports)", async () => {
+    // A published_at row whose narrative never landed (2026-W28) surfaced as
+    // the featured "latest report" while its page had nothing to render.
+    mockListReports.mockResolvedValue({
+      reports: [
+        {
+          slug: "2026-W28",
+          reportType: "weekly",
+          headline: "   ",
+          summary: "",
+          reportDate: "2026-07-06",
+          maxShortPct: 0,
+          maxShortCode: "",
+          totalStocksShorted: 0,
+          qualityScore: 0,
+          topCodes: [],
+          topLogoUrls: [],
+        },
+        {
+          slug: "2026-W27",
+          reportType: "weekly",
+          headline: "Shorts pile into lithium",
+          summary: "…",
+          reportDate: "2026-07-03",
+          maxShortPct: 12.1,
+          maxShortCode: "PLS",
+          totalStocksShorted: 600,
+          qualityScore: 0.9,
+          topCodes: ["PLS"],
+          topLogoUrls: [""],
+        },
+      ],
+    });
+
+    const result = await getReportsList("weekly", 12);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.slug).toBe("2026-W27");
   });
 
   it("returns an empty array when the RPC fails (graceful index fallback)", async () => {

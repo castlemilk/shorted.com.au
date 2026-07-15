@@ -12,11 +12,8 @@ import {
   serverFetchWithUserAgent,
   skipForBuild,
 } from "./actions/config";
-import {
-  getAvailableWeekSlugs,
-  getAvailableMonthSlugs,
-  getAvailableYearSlugs,
-} from "./actions/reports/getReportData";
+import { getReportsList } from "./actions/reports/getReportData";
+import { weeklyReportPath } from "~/@/lib/reports/weekly-slug";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 
 // Render at request time, never from build output. The build runs with
@@ -216,6 +213,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/features/the-widow-maker`, lastModified: "2026-06-23" },
     { url: `${baseUrl}/housing`, lastModified: latestDataDate },
     { url: `${baseUrl}/housing/calculators`, lastModified: latestDataDate },
+    // Suburb-explorer hub — was orphaned (leaf suburb pages were listed,
+    // the hub linking them wasn't).
+    { url: `${baseUrl}/housing/suburbs`, lastModified: latestDataDate },
+    // Squeeze radar — shipped July 2026 but absent from every discovery
+    // surface; "short squeeze asx" is a winnable SERP with weak incumbents.
+    { url: `${baseUrl}/battlegrounds`, lastModified: latestDataDate },
+    // Aggregate market statistics — the citable "$X.XB shorted" page.
+    { url: `${baseUrl}/statistics`, lastModified: latestDataDate },
   ];
 
   // Blog post routes
@@ -352,14 +357,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })),
   ];
 
-  // Report pages
+  // Report pages — published reports ONLY (ListReports, headline-gated in
+  // getReportsList). Slugs used to be derived from the calendar (last 52
+  // weeks), which advertised URLs for weeks the generator never published —
+  // a sitemapped soft-404 whenever the pipeline stalls (2026-W26..W28,
+  // July 2026). On RPC failure only the /reports index is emitted: a
+  // transient regeneration without report URLs beats advertising 404s.
   let weekSlugs: string[] = [];
   let monthSlugs: string[] = [];
   let yearSlugs: string[] = [];
   try {
-    weekSlugs = await getAvailableWeekSlugs();
-    monthSlugs = await getAvailableMonthSlugs();
-    yearSlugs = await getAvailableYearSlugs();
+    const published = skipForBuild() ? [] : await getReportsList("", 100);
+    weekSlugs = published.filter((r) => r.reportType === "weekly").map((r) => r.slug);
+    monthSlugs = published.filter((r) => r.reportType === "monthly").map((r) => r.slug);
+    yearSlugs = published.filter((r) => r.reportType === "yearly").map((r) => r.slug);
   } catch (error) {
     console.error("Failed to fetch report slugs for sitemap:", error);
   }
@@ -398,7 +409,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const reportRoutes = [
     { url: `${baseUrl}/reports`, lastModified: currentDate },
     ...weekSlugs.map((slug) => ({
-      url: `${baseUrl}/reports/weekly/${slug}`,
+      // Canonical query-matching path; the ISO form 301s to it.
+      url: `${baseUrl}${weeklyReportPath(slug)}`,
       lastModified: weeklyLastMod(slug),
     })),
     ...monthSlugs.map((slug) => ({

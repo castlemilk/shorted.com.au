@@ -15,6 +15,7 @@ import {
   getReportsList,
   type ReportListEntry,
 } from "~/app/actions/reports/getReportData";
+import { weeklyReportPath } from "~/@/lib/reports/weekly-slug";
 
 export const metadata: Metadata = {
   title: "ASX Short Selling Reports — Weekly & Monthly",
@@ -79,6 +80,9 @@ function formatPeriod(report: ReportListEntry): string {
 }
 
 function reportHref(report: ReportListEntry): string {
+  // Weekly reports link to their canonical query-matching path
+  // ("10-most-shorted-asx-stocks-week-N-YYYY"); the ISO form 301s there.
+  if (report.reportType === "weekly") return weeklyReportPath(report.slug);
   return `/reports/${report.reportType}/${report.slug}`;
 }
 

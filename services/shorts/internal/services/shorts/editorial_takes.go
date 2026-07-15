@@ -39,9 +39,15 @@ func (s *ShortsServer) ListEditorialTakes(
 	ctx context.Context,
 	req *connect.Request[shortsv1alpha1.ListEditorialTakesRequest],
 ) (*connect.Response[shortsv1alpha1.ListEditorialTakesResponse], error) {
+	// Clamp over-limit requests to the cap rather than resetting to the
+	// default: the sitemap/feed ask for limit=200 to enumerate every
+	// published take, and the old reset-to-20 silently truncated them
+	// (only 20 of 24 /news URLs were sitemapped, July 2026).
 	limit := req.Msg.GetLimit()
-	if limit <= 0 || limit > 100 {
+	if limit <= 0 {
 		limit = 20
+	} else if limit > 500 {
+		limit = 500
 	}
 	takes, total, err := s.store.ListEditorialTakes(limit, req.Msg.GetOffset(), req.Msg.GetStockCode())
 	if err != nil {

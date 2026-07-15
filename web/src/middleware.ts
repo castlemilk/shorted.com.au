@@ -102,6 +102,21 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Weekly report slugs: 301 the ISO form ("2026-W29") to the canonical
+  // query-matching path ("10-most-shorted-asx-stocks-week-29-2026").
+  // Must happen HERE: a redirect thrown from the streamed page body (behind
+  // loading.tsx) degrades to a 200 + meta-refresh, not a real 301.
+  // Mirrors ~/@/lib/reports/weekly-slug.ts (kept dependency-free on purpose).
+  const weeklyIso = /^\/reports\/weekly\/(\d{4})-W(\d{2})$/.exec(pathname);
+  if (weeklyIso) {
+    const url = request.nextUrl.clone();
+    url.pathname = `/reports/weekly/10-most-shorted-asx-stocks-week-${parseInt(
+      weeklyIso[2]!,
+      10,
+    )}-${weeklyIso[1]}`;
+    return NextResponse.redirect(url, 301);
+  }
+
   // Check if this is a protected route
   const requiresApiAuth = AUTH_REQUIRED_API_PATHS.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`),
@@ -310,5 +325,12 @@ export const config = {
     "/shorts/:code",
     "/shorts/:code/:path*",
     "/insider-trading/:code",
+    /*
+     * Weekly reports: ISO-slug → canonical-slug 301 only (public, no auth).
+     * NOTE: a trailing single param (":slug") compiles to an optional .json
+     * suffix and never matches a real segment — the catch-all form is
+     * required (same reason the /shorts matcher needs :code/:path*).
+     */
+    "/reports/weekly/:slug*",
   ],
 };

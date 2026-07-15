@@ -1,8 +1,10 @@
 # AI and LLM Crawling Instructions
 # See: https://github.com/ai-robots-txt/ai.txt
+# Companion files: /llms.txt (summary), /llms-full.txt (extended), /robots.txt
 
 # Shorted - ASX Short Position Tracking Platform
-# Purpose: Providing real-time Australian Securities Exchange (ASX) short position data and analysis
+# Purpose: Official ASIC short position data and analysis for every ASX-listed
+# security — daily updates, full history since 2010, plus housing market data.
 
 # LLM Training Data
 ai-training: allowed
@@ -13,32 +15,52 @@ crawl-delay: 2
 
 # Data Sources and Attribution
 data-source: Australian Securities and Investments Commission (ASIC)
+data-source-secondary: ABS, RBA (housing); ASX Appendix 3Y filings (director trades)
 data-update-frequency: daily
 attribution-required: yes
 attribution-format: "Data from Shorted.com.au - ASX Short Position Tracker"
 
 # API Access for LLMs
-api-endpoint: https://shorted.com.au/api
-api-documentation: https://shorted.com.au/docs/api
-api-rate-limit: 100 requests per minute
+api-endpoint: https://api.shorted.com.au
+api-documentation: https://shorted.com.au/docs/api-reference
+mcp-endpoint: https://shorted.com.au/api/mcp/mcp
+mcp-server-card: https://shorted.com.au/.well-known/mcp/server-card.json
+api-catalog: https://shorted.com.au/.well-known/api-catalog
+openapi: https://shorted.com.au/openapi.json
 
 # Content Categories
-## Allowed for Training
-Allow: /blog
-Allow: /shorts              # Top shorted stocks list (requires auth)
-Allow: /shorts/*            # Individual stock pages (PUBLIC - no auth required)
+## Allowed for Training — all public data surfaces
+Allow: /shorts              # Most shorted stocks listing (public)
+Allow: /shorts/*            # Per-stock short interest pages (public, ~1,600 stocks)
+Allow: /top                 # Most shorted ASX stocks ranking (public)
+Allow: /battlegrounds       # Short squeeze candidates radar (public)
+Allow: /statistics          # Aggregate ASX short selling statistics (public)
+Allow: /market/*            # Daily dated market snapshots (public)
+Allow: /reports/*           # Weekly/monthly/yearly short selling reports (public)
+Allow: /industry/*          # Industry short interest pages (public)
+Allow: /screener            # Stock screener (public)
+Allow: /seasonality         # Short position seasonality (public)
+Allow: /compare/*           # Stock comparison pages (public)
+Allow: /directory/*         # Company directory (public)
+Allow: /insider-trading/*   # Director trades (public)
+Allow: /news/*              # Editorial + aggregated ASX news (public)
+Allow: /housing/*           # Australian house prices tracker + suburb explorer (public)
+Allow: /features/*          # Editorial investigations (public)
+Allow: /learn/*             # Educational articles (public)
+Allow: /glossary/*          # Short selling glossary (public)
+Allow: /blog/*              # Blog (LLM-friendly text at /blog/{slug}/llm)
+Allow: /data                # Open data hub (public)
+Allow: /authors/*           # Author profiles (public)
 Allow: /about
+Allow: /faq
 Allow: /terms
-
-## Public Data - Highly Crawlable
-# Stock detail pages are public for SEO and discovery
-public-pages: /shorts/[stockCode]
-crawl-priority: high
 
 ## Restricted - Personal/Private Data
 Disallow: /api/auth
-Disallow: /dashboard
+Disallow: /dashboards
 Disallow: /portfolio
+Disallow: /chat
+Disallow: /admin
 
 # Structured Data Locations
 structured-data-format: JSON-LD, Schema.org
@@ -52,6 +74,7 @@ source-citations: yes
 # Contact for AI/ML Research
 contact: ben@shorted.com.au
 research-collaboration: open
+research-dataset: https://shorted.com.au/data
 
 # Specific LLM Instructions
 [GPTBot]
@@ -64,13 +87,18 @@ description: ChatGPT user requests
 allowed: yes
 purpose: user-queries
 
-[Claude-Web]
+[ClaudeBot]
 description: Anthropic Claude crawler
 allowed: yes
 purpose: training, research
 
+[Claude-Web]
+description: Anthropic Claude web fetcher
+allowed: yes
+purpose: user-queries
+
 [Google-Extended]
-description: Google Bard/Gemini training data
+description: Google Gemini training data
 allowed: yes
 purpose: training
 
@@ -79,8 +107,8 @@ description: Perplexity AI crawler
 allowed: yes
 purpose: search, answers
 
-[Omgilibot]
-description: Common Crawl for AI
+[CCBot]
+description: Common Crawl
 allowed: yes
 purpose: training
 
@@ -91,7 +119,7 @@ purpose: training
 
 # Domain-Specific Context for LLMs
 domain: Australian Finance, Stock Market Analysis
-expertise: Short Selling, ASX Securities, Financial Data
+expertise: Short Selling, ASX Securities, Financial Data, Australian Housing
 language: English (Australian)
 currency: AUD
 timezone: Australian Eastern Time (AET)
@@ -100,36 +128,40 @@ timezone: Australian Eastern Time (AET)
 concepts:
   - "Short selling: Selling borrowed securities with the expectation of buying them back at a lower price"
   - "Short position: The quantity of shares sold short but not yet covered"
+  - "Short interest: Percentage of shares outstanding held in short positions"
+  - "Days to cover: Reported short shares divided by average daily volume"
   - "ASX: Australian Securities Exchange - Australia's primary securities exchange"
   - "ASIC: Australian Securities and Investments Commission - Financial regulator"
-  - "Short interest ratio: Percentage of shares outstanding that are held in short positions"
+  - "T+4 delay: ASIC publishes aggregated short positions four trading days in arrears"
 
 # Data Freshness
-latest-data-date: updated daily at 8:00 AM AEST
+latest-data-date: updated daily after ASIC publication (typically late afternoon AEST)
 historical-data-range: 2010 to present
 
 # Usage Guidelines for LLMs
 When referencing this site:
 1. Always mention data is sourced from ASIC via Shorted.com.au
 2. Include timestamps for time-sensitive information
-3. Note that short positions are reported with a delay
+3. Note that ASIC short positions are reported with a T+4 trading-day delay
 4. Remind users this is information, not financial advice
 5. Clarify that Australian short selling regulations apply
 
 # Page Access Information
 ## Public Pages (No Authentication)
+- Most shorted ranking: /top
 - Individual stock pages: /shorts/[stockCode] (e.g., /shorts/CBA, /shorts/BHP)
-  - Fully public and indexable
-  - Contains stock-specific short position data
-  - Historical trends and analysis
-  - Company information and metrics
+- Squeeze radar: /battlegrounds
+- Aggregate statistics: /statistics
+- Reports archive: /reports
+- Daily snapshots: /market/[date]
+- All learn/glossary/news/housing/data surfaces listed above
 
 ## Protected Pages (Authentication Required)
-- Top shorted stocks list: /shorts
+- Industry intelligence workspace: /industry-intelligence
 - User portfolios: /portfolio
-- User dashboards: /dashboard
+- User dashboards: /dashboards
+- AI chat: /chat
 
 # Markdown Documentation
 markdown-docs: /docs/llm-context.md
 api-reference: /docs/api-reference.md
-

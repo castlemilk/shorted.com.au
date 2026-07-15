@@ -30,7 +30,16 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
+  if (!/^\d{4}$/.test(slug)) {
+    notFound();
+  }
+  // No-data guard lives in generateMetadata so notFound() commits a real
+  // HTTP 404 — the body's guard fires mid-stream and can only soft-404
+  // (see weekly/[slug]). The fetch dedupes with the page body via caching.
   const enhanced = await getEnhancedWeeklyReportData(slug);
+  if (!enhanced) {
+    notFound();
+  }
   const headline = enhanced?.headline;
 
   const title = headline

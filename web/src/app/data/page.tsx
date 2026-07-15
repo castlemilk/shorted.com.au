@@ -8,11 +8,12 @@ import {
   BreadcrumbStructuredData,
 } from "~/@/components/seo/breadcrumbs";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
+import { DatasetStructuredData } from "~/@/components/seo/enhanced-structured-data";
 
 export const metadata: Metadata = {
   title: "ASX Short Selling Datasets | Open Data Hub | Shorted",
   description:
-    "Open access to ASX short selling datasets sourced from ASIC. Programmatic API endpoints with Dataset schema for Google Dataset Search. Free for research and analysis.",
+    "Download every ASIC short position, 2010 → today. Open ASX short selling datasets with programmatic API endpoints and Dataset schema for Google Dataset Search. Free for research, journalism, and analysis.",
   keywords: [
     "ASX dataset",
     "short selling data",
@@ -169,6 +170,12 @@ const DATASETS: DatasetEntry[] = [
   },
 ];
 
+// Rendered server-side; the page revalidates daily so the year stays current.
+const CURRENT_YEAR = new Date().getFullYear();
+
+/** Suggested citation — mirrored in the #citation block and Dataset JSON-LD. */
+const DATASET_CITATION = `Shorted.com.au (${CURRENT_YEAR}). ASX Short Position Data 2010–${CURRENT_YEAR}, aggregated from ASIC daily short position reports. https://shorted.com.au/data`;
+
 function buildDatasetSchema(d: DatasetEntry) {
   return {
     "@context": "https://schema.org",
@@ -203,6 +210,7 @@ function buildDatasetSchema(d: DatasetEntry) {
       address: { "@type": "PostalAddress", addressCountry: "AU" },
     },
     temporalCoverage: d.temporalCoverage,
+    citation: DATASET_CITATION,
     variableMeasured: d.variables.map((v) => ({
       "@type": "PropertyValue",
       name: v.name,
@@ -233,6 +241,13 @@ export default function DataHubPage() {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(buildDatasetSchema(d)) }}
         />
       ))}
+      <DatasetStructuredData
+        datasetInfo={{
+          name: `ASX Short Position Data 2010–${CURRENT_YEAR}`,
+          description:
+            "Every ASIC-reported short position on the Australian Securities Exchange from June 2010 to today, aggregated and republished by Shorted.com.au for research, journalism, and analysis.",
+        }}
+      />
       <LLMMeta
         title="ASX Short Selling Open Data Hub"
         description="Catalog of open datasets for Australian short-selling research, with Dataset schema for Google Dataset Search indexing."
@@ -253,13 +268,18 @@ export default function DataHubPage() {
         </div>
         <div>
           <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
-            ASX Short Selling Open Data
+            Download every ASIC short position, 2010 → today
           </h1>
           <p className="text-sm text-muted-foreground">
-            Free programmatic access to ASIC short position data, stock
-            prices, and director trades. Each dataset is published with{" "}
+            Free programmatic access to every ASIC-reported short position
+            since June 2010, plus stock prices and director trades. Each
+            dataset is published with{" "}
             <code className="rounded bg-muted px-1 py-0.5 text-xs">Dataset</code>{" "}
-            schema for Google Dataset Search.
+            schema for Google Dataset Search, and free to{" "}
+            <a href="#citation" className="underline hover:no-underline">
+              cite in research
+            </a>
+            .
           </p>
         </div>
       </section>
@@ -371,11 +391,39 @@ export default function DataHubPage() {
         ))}
       </section>
 
+      <section id="citation" className="mt-8 rounded-lg border bg-card p-5">
+        <h2 className="text-lg font-semibold tracking-tight">
+          Cite this dataset
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Using this data in a paper, article, or thesis? A suggested
+          citation:
+        </p>
+        <blockquote className="mt-3 rounded-md bg-muted p-4 font-mono text-xs leading-relaxed">
+          {DATASET_CITATION}
+        </blockquote>
+        <p className="mt-3 text-xs text-muted-foreground">
+          The data is free for academic and journalistic use under CC-BY 4.0
+          — attribute both Shorted.com.au and ASIC. For research
+          collaborations, bulk extracts, or methodology questions, email{" "}
+          <a
+            href="mailto:ben@shorted.com.au"
+            className="underline hover:no-underline"
+          >
+            ben@shorted.com.au
+          </a>
+          .
+        </p>
+      </section>
+
       <p className="mt-6 text-xs text-muted-foreground">
         All datasets are derived from publicly-available sources (ASIC short
         position reports and ASX Appendix 3Y filings) and republished under
-        CC-BY 4.0. When using this data in research or publications please
-        cite both Shorted.com.au and ASIC.
+        CC-BY 4.0. When using this data in research or publications please{" "}
+        <a href="#citation" className="underline hover:no-underline">
+          cite both Shorted.com.au and ASIC
+        </a>
+        .
       </p>
     </DashboardLayout>
   );

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Menu, Terminal, Code2, Home, Info, FileText, LayoutDashboard, Briefcase, TrendingDown, Lock, Cpu, BarChart3 } from "lucide-react";
 import { useSession } from "next-auth/react";
 
@@ -20,6 +20,7 @@ interface MobileNavProps {
 export function MobileNav({ items }: MobileNavProps) {
   const [open, setOpen] = React.useState(false);
   const pathname = usePathname();
+  const router = useRouter();
   const { data: session } = useSession();
 
   const getIcon = (title: string) => {
@@ -61,14 +62,15 @@ export function MobileNav({ items }: MobileNavProps) {
             {items?.map((item) => {
               if (!item.href) return null;
               const isLocked = item.requiresAuth && !session;
-              const href = isLocked
-                ? `/signin?callbackUrl=${encodeURIComponent(item.href)}`
-                : item.href;
 
+              // Locked items bounce to signin on click, but the anchor keeps
+              // the real destination — baking /signin?callbackUrl= into the
+              // href leaked sitewide internal link equity to a signin URL
+              // (crawlers read the signed-out SSR'd anchor).
               return (
                 <Link
                   key={item.href}
-                  href={href}
+                  href={item.href}
                   prefetch={false}
                   className={cn(
                     "flex items-center gap-2 transition-colors",
@@ -77,7 +79,15 @@ export function MobileNav({ items }: MobileNavProps) {
                       : "text-muted-foreground hover:text-foreground",
                     pathname === item.href && !isLocked && "text-foreground font-bold"
                   )}
-                  onClick={() => setOpen(false)}
+                  onClick={(e) => {
+                    setOpen(false);
+                    if (isLocked) {
+                      e.preventDefault();
+                      router.push(
+                        `/signin?callbackUrl=${encodeURIComponent(item.href!)}`,
+                      );
+                    }
+                  }}
                 >
                   {getIcon(item.title)}
                   {item.title}

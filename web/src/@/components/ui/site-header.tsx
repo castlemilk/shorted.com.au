@@ -12,7 +12,8 @@ export interface NavItemWithGroup extends NavItem {
 
 const items: NavItemWithGroup[] = [
   // Primary — always visible in desktop nav
-  { title: "top shorted", href: "/top", primary: true },
+  // Anchor text matches the head query the /top hub targets.
+  { title: "most shorted", href: "/top", primary: true },
   { title: "screener", href: "/screener", primary: true },
   { title: "battlegrounds", href: "/battlegrounds", primary: true },
   { title: "housing", href: "/housing", primary: true },
@@ -23,6 +24,7 @@ const items: NavItemWithGroup[] = [
   { title: "dashboard", href: "/dashboards", requiresAuth: true },
   { title: "AI chat", href: "/chat", requiresAuth: true },
   { title: "reports", href: "/reports" },
+  { title: "statistics", href: "/statistics" },
   { title: "news", href: "/news" },
   { title: "portfolio", href: "/portfolio", requiresAuth: true },
   { title: "about", href: "/about" },

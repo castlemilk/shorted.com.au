@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { GitCommit, AlertCircle, Lock } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { siteConfig } from "~/@/config/site";
@@ -52,15 +53,25 @@ function FooterLinkItem({
   link: FooterLink;
   isLocked: boolean;
 }) {
-  const href = isLocked
-    ? `/signin?callbackUrl=${encodeURIComponent(link.href)}`
-    : link.href;
+  const router = useRouter();
 
+  // Locked items bounce to signin on click, but the anchor keeps the real
+  // destination — baking /signin?callbackUrl= into the href leaked sitewide
+  // internal link equity to a signin URL (crawlers read the signed-out
+  // SSR'd anchor).
   return (
     <li>
       <Link
-        href={href}
+        href={link.href}
         prefetch={false}
+        onClick={(e) => {
+          if (isLocked) {
+            e.preventDefault();
+            router.push(
+              `/signin?callbackUrl=${encodeURIComponent(link.href)}`,
+            );
+          }
+        }}
         className={cn(
           "text-sm transition-colors inline-flex items-center gap-1.5",
           isLocked
