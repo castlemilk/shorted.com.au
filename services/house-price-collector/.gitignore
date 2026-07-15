@@ -1,2 +1,7 @@
 # Compiled binary produced by `go build` / `go test -c` in this dir.
 /house-price-collector
+
+# CRAWL_TRACE debug-trace mode output (crawl_trace.go) — local debugging aids
+# only, never committed.
+/traces/
+*.png

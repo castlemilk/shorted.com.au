@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/playwright-community/playwright-go"
 )
@@ -120,8 +121,52 @@ func (f *cdpFetcher) Close() {
 	})
 }
 
-// compile-time assertions that cdpFetcher satisfies both seams.
+// screenshot captures a PNG screenshot of url on the shared warm host-Chrome
+// context — the debug-trace mode's optional pageScreenshotter capability (see
+// crawl_trace.go). fileFetcher/playwrightFetcher do NOT implement this
+// interface, so tracing safely no-ops for them; only a live -mode
+// listings/-mode agent run driven by CRAWL_CDP_URL against a real warm host
+// Chrome exercises this method — it is NOT covered by the fixture-based unit
+// tests (operationally verified by the operator, plan Task 10).
+//
+// This opens its OWN short-lived page independent of fetch()'s page lifecycle
+// (fetch already closed its page by the time a caller decides to trace it),
+// so it is an EXTRA navigation on top of the fetch that already happened for
+// this page — an acceptable cost for an opt-in debug tool that the default
+// (non-tracing) path never pays.
+func (f *cdpFetcher) screenshot(ctx context.Context, url string) ([]byte, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+	page, err := f.ctx.NewPage()
+	if err != nil {
+		return nil, fmt.Errorf("trace screenshot new page: %w", err)
+	}
+	defer func() { _ = page.Close() }()
+
+	gotoTimeout := float64(f.cfg.fetchTimeout / time.Millisecond)
+	if gotoTimeout < 45000 {
+		gotoTimeout = 45000
+	}
+	if _, err := page.Goto(url, playwright.PageGotoOptions{
+		WaitUntil: playwright.WaitUntilStateDomcontentloaded,
+		Timeout:   playwright.Float(gotoTimeout),
+	}); err != nil {
+		return nil, fmt.Errorf("trace screenshot goto %s: %w", url, err)
+	}
+	png, err := page.Screenshot(playwright.PageScreenshotOptions{FullPage: playwright.Bool(false)})
+	if err != nil {
+		return nil, fmt.Errorf("trace screenshot capture: %w", err)
+	}
+	return png, nil
+}
+
+// compile-time assertions that cdpFetcher satisfies all three seams.
 var (
-	_ htmlFetcher  = (*cdpFetcher)(nil)
-	_ crawlFetcher = (*cdpFetcher)(nil)
+	_ htmlFetcher       = (*cdpFetcher)(nil)
+	_ crawlFetcher      = (*cdpFetcher)(nil)
+	_ pageScreenshotter = (*cdpFetcher)(nil)
 )
