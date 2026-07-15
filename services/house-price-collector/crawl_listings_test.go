@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 )
 
 // These tests are the listing tier's offline proof: the price-string semantics,
@@ -676,5 +677,36 @@ func TestSweep_SoftPageCapSizesTheWalkWhenPageMetaUnusable(t *testing.T) {
 	}
 	if sw.status != sweepPartial {
 		t.Fatalf("hitting the soft cap with no PageMeta confirmation must stay partial, got %s", sw.status)
+	}
+}
+
+// --- adaptive pacing under block-risk (Task 7) ---
+
+func TestPaceBounds(t *testing.T) {
+	base := paceRange{lo: 8 * time.Second, hi: 20 * time.Second}
+
+	if got := paceBounds(0, 0, base); got != base {
+		t.Errorf("a clean page (no blocks, no mismatch) should keep the base bounds, got %+v", got)
+	}
+	if got := paceBounds(0, 0.10, base); got != base {
+		t.Errorf("a low mismatch (<=30%%) should keep the base bounds, got %+v", got)
+	}
+
+	blocked := paceBounds(2, 0, base)
+	if blocked.lo <= base.lo || blocked.hi <= base.hi {
+		t.Errorf("consecutive blocks should widen the bounds, got %+v vs base %+v", blocked, base)
+	}
+
+	mismatched := paceBounds(0, 0.80, base)
+	if mismatched.lo <= base.lo || mismatched.hi <= base.hi {
+		t.Errorf("a high-mismatch (>30%%) page should widen the bounds, got %+v vs base %+v", mismatched, base)
+	}
+
+	// The widen factor must never blow out unbounded.
+	extreme := paceBounds(50, 1.0, base)
+	maxLo := time.Duration(float64(base.lo) * paceWidenFactorMax)
+	maxHi := time.Duration(float64(base.hi) * paceWidenFactorMax)
+	if extreme.lo != maxLo || extreme.hi != maxHi {
+		t.Errorf("an extreme risk signal should cap at %vx base, got %+v want lo=%v hi=%v", paceWidenFactorMax, extreme, maxLo, maxHi)
 	}
 }
