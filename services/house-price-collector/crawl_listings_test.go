@@ -205,12 +205,13 @@ func TestClampListingPrice(t *testing.T) {
 
 func testLC() *listingsCrawler {
 	return &listingsCrawler{cfg: listingsConfig{
-		crawlConfig: crawlConfig{maxConsecBlocks: 3},
-		maxPages:    5,
-		minPerPage:  5,
-		noiseAbs:    5000,
-		noisePct:    0.005,
-		delistGrace: 2,
+		crawlConfig:   crawlConfig{maxConsecBlocks: 3},
+		maxPages:      5,
+		minPerPage:    5,
+		minNewPerPage: 1,
+		noiseAbs:      5000,
+		noisePct:      0.005,
+		delistGrace:   2,
 	}}
 }
 
@@ -443,7 +444,7 @@ func TestSweep_PageCapIsPartial(t *testing.T) {
 // --- PageMeta-informed sizing + delist-safe classification (Task 3) ---
 
 func TestSweep_TotalCountSizesAndCompletes(t *testing.T) {
-	p1 := domainPageWithMeta([]string{"a", "b", "c", "d", "e"}, "2026", /*total*/ 5, /*pageSize*/ 20)
+	p1 := domainPageWithMeta([]string{"a", "b", "c", "d", "e"}, "2026" /*total*/, 5 /*pageSize*/, 20)
 	sw := sweepWith(map[string]string{bondi.domainSearchURL(1): p1}) // page 2 is the default empty page
 	if sw.status != sweepComplete {
 		t.Fatalf("1-page suburb must be complete, got %s", sw.status)
@@ -462,7 +463,7 @@ func TestSweep_TotalCountNeverExtendsBeyondMaxPages(t *testing.T) {
 	// shrink the loop bound, never grow it.
 	lc := testLC()
 	lc.cfg.maxPages = 2
-	p1 := domainPageWithMeta([]string{"a", "b", "c", "d", "e"}, "2026", /*total*/ 900, /*pageSize*/ 25)
+	p1 := domainPageWithMeta([]string{"a", "b", "c", "d", "e"}, "2026" /*total*/, 900 /*pageSize*/, 25)
 	p2 := domainPageHTML([]string{"f", "g", "h", "i", "j"}, "2026")
 	lc.fetcher = &pagedFetcher{pages: map[string]string{
 		bondi.domainSearchURL(1): p1,
@@ -486,7 +487,7 @@ func TestSweep_BroadenedLatePageCompletesWhenPageMetaConfirms(t *testing.T) {
 	// (pages=2 < wantPages) — confirming the on-target suburb was fully seen
 	// before the surrounds began. That must upgrade partial -> complete
 	// (delist-safe), unlike the no-PageMeta case.
-	p1 := domainPageWithMeta([]string{"a", "b", "c", "d", "e"}, "2026", /*total*/ 900, /*pageSize*/ 25) // wantPages=36, clamped to maxPages=5
+	p1 := domainPageWithMeta([]string{"a", "b", "c", "d", "e"}, "2026" /*total*/, 900 /*pageSize*/, 25) // wantPages=36, clamped to maxPages=5
 	p2 := `<html><body><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"listings":[` +
 		`{"id":"f","listingUrl":"/p/f","price":"$1,200,000","address":{"suburb":"Bondi","postcode":"2026","displayAddress":"f"}},` +
 		`{"id":"g","listingUrl":"/p/g","price":"$1,200,000","address":{"suburb":"Tamarama","postcode":"2026x","displayAddress":"g"}},` +
@@ -503,5 +504,51 @@ func TestSweep_BroadenedLatePageCompletesWhenPageMetaConfirms(t *testing.T) {
 	}
 	if len(sw.listings) != 5 {
 		t.Errorf("must keep the 5 confirmed page-1 listings, got %d", len(sw.listings))
+	}
+}
+
+// --- yield-decay stop (Task 4) ---
+
+// TestSweep_StopsOnZeroNewIDs is adapted from the plan's literal example (page
+// 2 = page 1's ids REORDERED). That exact scenario does NOT exercise the new
+// code: pageSignature sorts ids before joining, so a reordered-but-identical
+// id set already produces the SAME signature as page 1 and is already caught
+// by the pre-existing "duplicate page" check (sig == prevSig), independent of
+// this task. To actually exercise yield decay, page 2 here returns a SUBSET of
+// page 1's ids (4 of 5) — real content, a genuinely different signature (the
+// dup-page check misses it), but zero NEW ids.
+func TestSweep_StopsOnZeroNewIDs(t *testing.T) {
+	p1 := domainPageHTML([]string{"a", "b", "c", "d", "e"}, "2026")
+	p2 := domainPageHTML([]string{"a", "b", "c", "d"}, "2026") // same 4 ids, no new ones, different signature than p1
+	sw := sweepWith(map[string]string{
+		bondi.domainSearchURL(1): p1,
+		bondi.domainSearchURL(2): p2,
+	})
+	if len(sw.listings) != 5 {
+		t.Fatalf("must not lose or double-count, got %d", len(sw.listings))
+	}
+	if sw.status == sweepBlocked {
+		t.Fatalf("a zero-yield overlap page is not a block")
+	}
+	if sw.pages != 2 {
+		t.Fatalf("expected the sweep to stop right after the zero-yield page, got %d pages", sw.pages)
+	}
+}
+
+func TestSweep_YieldDecayCompletesWhenPageMetaConfirms(t *testing.T) {
+	// Same shape as TestSweep_StopsOnZeroNewIDs, but page 1 carries PageMeta
+	// confirming we stopped well short of the portal's own reported (broadened)
+	// extent -- the same delist-safety upgrade the broadening branch gets.
+	p1 := domainPageWithMeta([]string{"a", "b", "c", "d", "e"}, "2026" /*total*/, 900 /*pageSize*/, 25) // wantPages=36, clamped to maxPages=5
+	p2 := domainPageHTML([]string{"a", "b", "c", "d"}, "2026")
+	sw := sweepWith(map[string]string{
+		bondi.domainSearchURL(1): p1,
+		bondi.domainSearchURL(2): p2,
+	})
+	if sw.status != sweepComplete {
+		t.Errorf("a yield-decay stop confirmed short of PageMeta's own extent must be delist-safe complete, got %s", sw.status)
+	}
+	if len(sw.listings) != 5 {
+		t.Errorf("expected 5 collected listings, got %d", len(sw.listings))
 	}
 }
