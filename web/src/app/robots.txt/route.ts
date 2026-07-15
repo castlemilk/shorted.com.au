@@ -35,6 +35,8 @@ const AI_ALLOWED_PATHS = [
   "/top",
   "/battlegrounds",
   "/statistics",
+  "/scans",
+  "/scans/",
   "/industry/",
   "/reports/",
   "/market/",

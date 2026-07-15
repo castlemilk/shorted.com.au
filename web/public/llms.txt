@@ -14,6 +14,7 @@ Shorted aggregates and visualises official ASIC (Australian Securities and Inves
 - [Most Shorted ASX Stocks](https://shorted.com.au/top): Live rankings of the most shorted stocks on the Australian Securities Exchange, updated daily with ASIC data.
 - [ASX Short Selling Statistics](https://shorted.com.au/statistics): Aggregate market-wide short interest — total dollars short-sold on the ASX, sector baskets, and weekly movers. Citable, updated daily.
 - [Battlegrounds — ASX Short Squeeze Candidates](https://shorted.com.au/battlegrounds): Daily-scored short squeeze radar combining short interest, days-to-cover, and price momentum.
+- [Short Interest Scans](https://shorted.com.au/scans): Fixed daily scans — rising short interest, short covering, heavily shorted (10%+), days-to-cover extremes, covering-into-strength, and shorted-and-falling.
 - [Daily Market Snapshots](https://shorted.com.au/market): Dated snapshot pages of ASX short positions for every trading day (e.g. /market/2026-07-09).
 - [Short Position Seasonality](https://shorted.com.au/seasonality): Seasonal patterns in ASX short positions.
 - [Industry Treemap](https://shorted.com.au/industry): Visual breakdown of short positions by ASX industry sector.

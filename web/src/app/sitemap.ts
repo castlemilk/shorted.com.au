@@ -14,6 +14,7 @@ import {
 } from "./actions/config";
 import { getReportsList } from "./actions/reports/getReportData";
 import { weeklyReportPath } from "~/@/lib/reports/weekly-slug";
+import { SCAN_SLUGS } from "~/@/lib/scans/registry";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 
 // Render at request time, never from build output. The build runs with
@@ -221,6 +222,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/battlegrounds`, lastModified: latestDataDate },
     // Aggregate market statistics — the citable "$X.XB shorted" page.
     { url: `${baseUrl}/statistics`, lastModified: latestDataDate },
+    // Fixed short-interest scans (slugs come from the registry — single
+    // source of truth, no hand-list drift).
+    { url: `${baseUrl}/scans`, lastModified: latestDataDate },
+    ...SCAN_SLUGS.map((slug) => ({
+      url: `${baseUrl}/scans/${slug}`,
+      lastModified: latestDataDate,
+    })),
   ];
 
   // Blog post routes
