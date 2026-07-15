@@ -1,6 +1,7 @@
 import { getAllPosts } from "~/@/lib/api";
 import { siteConfig } from "~/@/config/site";
-import { getAvailableWeekSlugs } from "~/app/actions/reports/getReportData";
+import { getReportsList } from "~/app/actions/reports/getReportData";
+import { weeklyReportPath } from "~/@/lib/reports/weekly-slug";
 import {
   buildApiUrl,
   getServerShortsApiUrl,
@@ -154,15 +155,22 @@ export async function GET() {
     // If take fetching fails, continue without editorial items
   }
 
-  // Add weekly reports to the feed
+  // Add weekly reports to the feed — published reports only (calendar-derived
+  // slugs advertised weeks the generator never published) at their canonical
+  // query-matching URLs, with the real editorial headline when present.
   let reportItems: FeedItem[] = [];
   try {
-    const weekSlugs = await getAvailableWeekSlugs();
-    reportItems = weekSlugs.slice(0, 12).map((slug) => {
-      const reportUrl = `${siteConfig.url}/reports/weekly/${slug}`;
+    const published = await getReportsList("weekly", 12);
+    reportItems = published.map((report) => {
+      const slug = report.slug;
+      const reportUrl = `${siteConfig.url}${weeklyReportPath(slug)}`;
       const date = weekSlugToDate(slug);
-      const title = `ASX Short Selling Weekly Report - ${formatWeekTitle(slug)}`;
-      const description = `Weekly analysis of ASX short selling activity for ${formatWeekTitle(slug)}. Top movers, industry trends, and aggregate short interest from official ASIC data.`;
+      const title = report.headline
+        ? `${report.headline} — The 10 Most Shorted ASX Stocks, ${formatWeekTitle(slug)}`
+        : `The 10 Most Shorted ASX Stocks — ${formatWeekTitle(slug)}`;
+      const description =
+        report.summary ||
+        `Weekly analysis of ASX short selling activity for ${formatWeekTitle(slug)}. Top movers, industry trends, and aggregate short interest from official ASIC data.`;
 
       return {
         date,

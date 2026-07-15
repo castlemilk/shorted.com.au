@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ChevronDown, Lock } from "lucide-react";
 import { useSession } from "next-auth/react";
 
@@ -22,6 +22,7 @@ interface MainNavProps {
 
 export const MainNav = ({ items, modeToggle }: MainNavProps) => {
   const pathname = usePathname();
+  const router = useRouter();
   const { data: session } = useSession();
   const [moreOpen, setMoreOpen] = React.useState(false);
 
@@ -94,15 +95,16 @@ export const MainNav = ({ items, modeToggle }: MainNavProps) => {
                   {secondaryItems.map((item, index) => {
                     if (!item.href) return null;
                     const isLocked = item.requiresAuth && !session;
-                    const href = isLocked
-                      ? `/signin?callbackUrl=${encodeURIComponent(item.href)}`
-                      : item.href;
                     const isActive = pathname === item.href;
 
+                    // Locked items bounce to signin on click, but the anchor
+                    // keeps the real destination — baking /signin?callbackUrl=
+                    // into the href leaked sitewide internal link equity to a
+                    // signin URL (crawlers read the signed-out SSR'd anchor).
                     return (
                       <Link
                         key={index}
-                        href={href}
+                        href={item.href}
                         prefetch={false}
                         className={cn(
                           "px-3 py-2 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2",
@@ -112,7 +114,15 @@ export const MainNav = ({ items, modeToggle }: MainNavProps) => {
                               ? "bg-secondary text-foreground"
                               : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
                         )}
-                        onClick={() => setMoreOpen(false)}
+                        onClick={(e) => {
+                          setMoreOpen(false);
+                          if (isLocked) {
+                            e.preventDefault();
+                            router.push(
+                              `/signin?callbackUrl=${encodeURIComponent(item.href!)}`,
+                            );
+                          }
+                        }}
                         title={isLocked ? "Sign in to access" : undefined}
                       >
                         {item.title}
@@ -152,16 +162,25 @@ function NavLink({
   pathname: string;
   session: ReturnType<typeof useSession>["data"];
 }) {
+  // Hook must run unconditionally, before the early return.
+  const router = useRouter();
   if (!item.href) return null;
   const isLocked = item.requiresAuth && !session;
-  const href = isLocked
-    ? `/signin?callbackUrl=${encodeURIComponent(item.href)}`
-    : item.href;
 
+  // Locked items bounce to signin on click, but the anchor keeps the real
+  // destination — baking /signin?callbackUrl= into the href leaked sitewide
+  // internal link equity to a signin URL (crawlers read the signed-out
+  // SSR'd anchor).
   return (
     <Link
-      href={href}
+      href={item.href}
       prefetch={false}
+      onClick={(e) => {
+        if (isLocked) {
+          e.preventDefault();
+          router.push(`/signin?callbackUrl=${encodeURIComponent(item.href!)}`);
+        }
+      }}
       className={cn(
         "px-3 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center gap-1.5 whitespace-nowrap",
         isLocked

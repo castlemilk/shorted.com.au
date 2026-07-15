@@ -67,6 +67,8 @@ interface TopPageClientProps {
   initialData: SerializedTimeSeriesData[];
   initialMoversData: SerializedMoversData;
   initialPeriod: TimePeriod;
+  /** Latest ASIC data date (ISO) — rendered as a visible freshness signal. */
+  dataAsOf?: string;
 }
 
 const TOP_PAGE_CLIENT_ASSET_REVISION = "2026-07-05-cf-static-404";
@@ -75,6 +77,7 @@ export function TopPageClient({
   initialData,
   initialMoversData,
   initialPeriod,
+  dataAsOf,
 }: TopPageClientProps) {
   const [data, setData] = useState<SerializedTimeSeriesData[]>(initialData);
   const [moversData, setMoversData] = useState<SerializedMoversData>(initialMoversData);
@@ -156,18 +159,31 @@ export function TopPageClient({
             <div className="flex items-center gap-3 mb-4">
               <div className="h-10 w-1 bg-gradient-to-b from-red-500 to-orange-500 rounded-full" />
               <h1 id="hero-title" className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight">
-                Top 100 Most Shorted ASX Stocks
+                Most Shorted ASX Stocks
               </h1>
             </div>
             <p className="text-muted-foreground text-lg max-w-2xl mb-2">
-              Live rankings of the most shorted stocks on the ASX, updated daily from
-              official ASIC data.
+              The top 100 short positions on the ASX, ranked by short interest
+              and updated daily from official ASIC data.
             </p>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>Data delayed T+4 trading days</span>
-              <span aria-hidden="true">•</span>
-              <span>Source: ASIC</span>
+              {dataAsOf ? (
+                <>
+                  <span>
+                    Short positions as of{" "}
+                    <time dateTime={dataAsOf} className="font-medium text-foreground">
+                      {new Date(dataAsOf).toLocaleDateString("en-AU", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </time>
+                  </span>
+                  <span aria-hidden="true">•</span>
+                </>
+              ) : null}
+              <span>ASIC data, T+4 trading-day delay</span>
             </div>
           </div>
 

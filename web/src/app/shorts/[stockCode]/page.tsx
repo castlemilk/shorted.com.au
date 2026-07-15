@@ -56,7 +56,9 @@ import { ChevronDown } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
 import { RelatedStocks } from "~/@/components/seo/related-stocks";
 import { getRelatedStocks } from "~/app/actions/getRelatedStocks";
+import { getStockNews } from "~/app/actions/getStockNews";
 import { getStockOrNotFound } from "~/app/actions/getStock";
+import Link from "next/link";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 import { ShortInterestHistory } from "./short-interest-history";
 import { NotFoundError } from "~/app/actions/withRetry";
@@ -70,13 +72,27 @@ interface PageProps {
   params: Promise<{ stockCode: string }>;
 }
 
+// Strip ASIC security-type suffixes ("ORDINARY", "CDI 1:1", "FPO" …) from the
+// product string — "LOTUS RESOURCES LTD ORDINARY" is a product label, not a
+// company name. Shared by metadata + schema.
+function cleanCompanyName(name: string): string {
+  return (
+    name
+      .replace(/\s+(ORDINARY|FPO|CDI(\s+\d+:\d+)?|UNITS?|STAPLED(\s+SECURITIES)?|NON-VOTING.*)$/i, "")
+      .trim() || name
+  );
+}
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { stockCode } = await params;
   const code = stockCode.toUpperCase();
 
-  // Try to fetch stock data for enriched metadata
-  let title = `${code} Short Position | Official ASIC Data (T+4)`;
-  let description = `${code} short selling data from official ASIC reports. Current short interest %, historical trends, charts & analysis. Updated daily with T+4 delay. Free ASX short position tracking.`;
+  // Try to fetch stock data for enriched metadata. Titles lead with
+  // "{CODE} Short Interest" — the phrasing the per-ticker query cluster
+  // actually uses (the incumbents ranking for it are stale/thin) — with the
+  // live % as a freshness signal.
+  let title = `${code} Short Interest | Official ASIC Data (T+4)`;
+  let description = `${code} short interest from official ASIC reports. Current short %, historical trends, charts & analysis. Updated daily with T+4 delay. Free ASX short position tracking.`;
   let shouldNoindex = false;
   // Content-addressed OG image version: changes when the short % changes, so
   // the social card refreshes exactly when data does (and is served from
@@ -86,9 +102,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   try {
     const stock = await getStockOrNotFound(code);
     if (stock) {
-      const companyName = stock.name ? `(${stock.name})` : "";
+      const companyName = stock.name ? cleanCompanyName(stock.name) : "";
       const shortPct = stock.percentageShorted > 0 ? ` | ${stock.percentageShorted.toFixed(2)}% Shorted` : "";
-      title = `${code} ${companyName} Short Position${shortPct} | ASIC Data`;
+      title = companyName
+        ? `${code} Short Interest — ${companyName} (ASX:${code})${shortPct}`
+        : `${code} Short Interest${shortPct} | ASIC Data`;
       if (stock.percentageShorted > 0) ogVersion = stock.percentageShorted.toFixed(2);
 
       const dateStr = new Date().toLocaleDateString("en-AU", {
@@ -97,7 +115,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         year: "numeric",
       });
       const shortInfo = stock.percentageShorted > 0
-        ? `${stock.name || code} has ${stock.percentageShorted.toFixed(2)}% of shares sold short as of ${dateStr}.`
+        ? `${stock.name || code} short interest is ${stock.percentageShorted.toFixed(2)}% as of ${dateStr}.`
         : `${stock.name || code} short selling data from official ASIC reports.`;
       const industryInfo = stock.industry ? ` Industry: ${stock.industry}.` : "";
       description = `${shortInfo}${industryInfo} Track ${code}'s short position history, price charts, peer comparison, and ASIC data. Updated daily with T+4 delay.`;
@@ -201,6 +219,9 @@ const Page = async ({ params }: PageProps) => {
   ]).catch(
     (): Record<string, StockFinancialHighlight[]> => ({}),
   );
+  // Latest headlines for the crawlable research section below the tabs —
+  // degrades to an empty list (withRetryAndNotFound returns undefined).
+  const stockNewsPromise = getStockNews(stockCode, 5).catch(() => undefined);
   try {
     [stock, relatedData] = await Promise.all([
       getStockOrNotFound(stockCode),
@@ -217,6 +238,7 @@ const Page = async ({ params }: PageProps) => {
 
   const financialHighlightsMap = await financialHighlightsPromise;
   const financialHighlights = financialHighlightsMap?.[stockCode] ?? [];
+  const newsArticles = (await stockNewsPromise)?.articles?.slice(0, 5) ?? [];
 
   const breadcrumbItems = [
     { label: "Stocks", href: "/stocks" },
@@ -324,12 +346,7 @@ const Page = async ({ params }: PageProps) => {
         // short-selling entity. ASX + Bloomberg URLs are deterministic.
         // Wikipedia/Wikidata require per-stock lookup — handled in a
         // follow-up enrichment pass.
-        // Strip ASIC security-type suffixes ("ORDINARY", "CDI 1:1", "FPO" …)
-        // from the product string for schema name fields — "LOTUS RESOURCES
-        // LTD ORDINARY" is a product label, not a company name.
-        const cleanName = companyName
-          .replace(/\s+(ORDINARY|FPO|CDI(\s+\d+:\d+)?|UNITS?|STAPLED(\s+SECURITIES)?|NON-VOTING.*)$/i, "")
-          .trim() || companyName;
+        const cleanName = cleanCompanyName(companyName);
         const corporationSchema = {
           "@context": "https://schema.org",
           "@type": "Corporation",
@@ -485,30 +502,6 @@ const Page = async ({ params }: PageProps) => {
               />
             )}
 
-            {/* SSR short-interest history + FAQ — crawlable trend facts.
-                Native <details> keeps the content in the DOM (crawlable)
-                whether expanded or collapsed; defaults CLOSED so ~550px of
-                FAQ prose doesn't sit mid-overview. */}
-            {stock && (stock.percentageShorted ?? 0) > 0 && (
-              <details className="group rounded-lg border bg-card [&_summary::-webkit-details-marker]:hidden">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-medium">
-                  Short interest history &amp; FAQ
-                  <ChevronDown
-                    aria-hidden
-                    className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180"
-                  />
-                </summary>
-                <div className="border-t px-4 py-3">
-                  <Suspense fallback={null}>
-                    <ShortInterestHistory
-                      stockCode={stockCode}
-                      companyName={stock.name || stockCode}
-                    />
-                  </Suspense>
-                </div>
-              </details>
-            )}
-
             {/* Consolidated company research card — the ONLY place the
                 enriched prose renders (the Financials tab shows reports
                 + metrics only, no duplicated company content). */}
@@ -520,17 +513,6 @@ const Page = async ({ params }: PageProps) => {
             <Suspense fallback={<CompanyInfoPlaceholder />}>
               <CompanyInfo stockCode={stockCode} />
             </Suspense>
-
-            {/* Related stocks for internal linking */}
-            {relatedData.stocks.length > 0 && (
-              <RelatedStocks
-                stocks={relatedData.stocks}
-                currentStock={stockCode}
-                industrySlug={relatedData.industrySlug}
-                title={`More ${relatedData.industry} Stocks`}
-                description="Other shorted stocks in this sector"
-              />
-            )}
 
             <CommunityOverviewTeaser stockCode={stockCode} />
           </>
@@ -552,6 +534,136 @@ const Page = async ({ params }: PageProps) => {
           />
         }
       />
+
+      {/* Crawlable research section — deliberately OUTSIDE StockTabs.
+          StockTabs is an ssr:false boundary (its tab children import
+          @connectrpc/connect, which crashes SSR — see CLAUDE.md), so nothing
+          placed inside it ever reaches the served HTML. The content that
+          matters to crawlers/LLMs renders here as real HTML instead:
+          short-interest history + FAQ, latest headlines, and peer links. */}
+      <section
+        aria-label={`${stockCode} research and data`}
+        className="mt-6 grid min-w-0 grid-cols-1 items-start gap-4 md:gap-6 lg:grid-cols-[minmax(0,1fr)_310px]"
+      >
+        <div className="flex min-w-0 flex-col gap-4 md:gap-6">
+          {/* SSR short-interest history + FAQ — crawlable trend facts.
+              Native <details> keeps the content in the DOM (crawlable)
+              whether expanded or collapsed; defaults CLOSED to keep the
+              page compact. */}
+          {stock && (stock.percentageShorted ?? 0) > 0 && (
+            <details className="group rounded-lg border bg-card [&_summary::-webkit-details-marker]:hidden">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-medium">
+                Short interest history &amp; FAQ
+                <ChevronDown
+                  aria-hidden
+                  className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180"
+                />
+              </summary>
+              <div className="border-t px-4 py-3">
+                <Suspense fallback={null}>
+                  <ShortInterestHistory
+                    stockCode={stockCode}
+                    companyName={stock.name || stockCode}
+                  />
+                </Suspense>
+              </div>
+            </details>
+          )}
+
+          {/* Latest headlines — server-fetched so stock pages carry fresh,
+              crawlable text; the full feed lives on the News tab. */}
+          {newsArticles.length > 0 && (
+            <div className="rounded-lg border bg-card">
+              <div className="flex items-center justify-between px-4 py-3">
+                <h2 className="text-sm font-medium">
+                  Latest {stockCode} news
+                </h2>
+                <Link
+                  href={`/shorts/${stockCode}/news`}
+                  className="text-xs text-primary hover:underline"
+                >
+                  All news
+                </Link>
+              </div>
+              <ul className="divide-y border-t">
+                {newsArticles.map((article) => (
+                  <li key={article.id || article.url} className="px-4 py-2.5">
+                    <a
+                      href={article.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm leading-snug hover:text-primary hover:underline"
+                    >
+                      {article.headline}
+                    </a>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {article.source}
+                      {article.publishedAt
+                        ? ` · ${new Date(
+                            Number(article.publishedAt.seconds) * 1000,
+                          ).toLocaleDateString("en-AU", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}`
+                        : null}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+        <div className="flex min-w-0 flex-col gap-4 md:gap-6">
+          {/* Related stocks — the peer internal-link mesh must be in the
+              SSR DOM (it previously sat inside the tabs and was invisible
+              to crawlers). */}
+          {relatedData.stocks.length > 0 && (
+            <RelatedStocks
+              stocks={relatedData.stocks}
+              currentStock={stockCode}
+              industrySlug={relatedData.industrySlug}
+              title={`More ${relatedData.industry} Stocks`}
+              description="Other shorted stocks in this sector"
+            />
+          )}
+
+          {/* Hub links — part of the sitewide internal-link mesh. */}
+          <nav
+            aria-label="Short selling resources"
+            className="rounded-lg border bg-card px-4 py-3 text-sm"
+          >
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Explore
+            </p>
+            <ul className="mt-2 space-y-1.5">
+              <li>
+                <Link href="/top" className="text-primary hover:underline">
+                  Most shorted ASX stocks
+                </Link>
+              </li>
+              <li>
+                <Link href="/battlegrounds" className="text-primary hover:underline">
+                  Short squeeze candidates
+                </Link>
+              </li>
+              <li>
+                <Link href="/statistics" className="text-primary hover:underline">
+                  ASX short selling statistics
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/learn/how-to-short-the-asx"
+                  className="text-primary hover:underline"
+                >
+                  How to short the ASX
+                </Link>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      </section>
     </DashboardLayout>
   );
 };

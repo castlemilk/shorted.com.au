@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { weeklyReportPath } from "~/@/lib/reports/weekly-slug";
 
 interface WeekNavigationProps {
-  currentSlug: string; // e.g., "2026-W06"
+  currentSlug: string; // DB form, e.g., "2026-W06" (links emit canonical paths)
 }
 
 function parseWeekSlug(slug: string): { year: number; week: number } | null {
@@ -63,7 +64,7 @@ export function WeekNavigation({ currentSlug }: WeekNavigationProps) {
       aria-label="Week navigation"
     >
       <Link
-        href={`/reports/weekly/${prevSlug}`}
+        href={weeklyReportPath(prevSlug)}
         prefetch={false}
         className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
@@ -72,7 +73,7 @@ export function WeekNavigation({ currentSlug }: WeekNavigationProps) {
       </Link>
       {!isFuture && (
         <Link
-          href={`/reports/weekly/${nextSlug}`}
+          href={weeklyReportPath(nextSlug)}
           prefetch={false}
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >

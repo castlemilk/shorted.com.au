@@ -45,9 +45,21 @@ function formatDate(dateStr: string): string {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
+  if (!/^\d{4}-\d{2}$/.test(slug)) {
+    notFound();
+  }
   const monthTitle = formatMonthTitle(slug);
 
-  const enhanced = await getEnhancedWeeklyReportData(slug);
+  // No-data guard lives in generateMetadata so notFound() commits a real
+  // HTTP 404 — the body's guard fires mid-stream and can only soft-404
+  // (see weekly/[slug]). Fetches dedupe with the page body via caching.
+  const [enhanced, data] = await Promise.all([
+    getEnhancedWeeklyReportData(slug),
+    getMonthlyReportData(slug),
+  ]);
+  if (!data) {
+    notFound();
+  }
   const headline = enhanced?.headline;
 
   const title = headline

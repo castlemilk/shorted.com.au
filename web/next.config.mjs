@@ -265,6 +265,11 @@ const config = {
   async redirects() {
     return [
       { source: "/housing/suburbs", destination: "/housing", permanent: true },
+      {
+        source: "/short-squeeze",
+        destination: "/battlegrounds",
+        permanent: true,
+      },
     ];
   },
   async rewrites() {

@@ -1,6 +1,10 @@
 import { type Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
+import {
+  resolveWeeklySlugParam,
+  weeklyReportPath,
+} from "~/@/lib/reports/weekly-slug";
 import {
   TrendingDown,
   TrendingUp,
@@ -52,18 +56,70 @@ function formatDate(dateStr: string): string {
   });
 }
 
+// Monday/Friday (YYYY-MM-DD) for an ISO week slug — used to synthesize the
+// week envelope when the narrative exists but market data is unavailable.
+function weekDateRange(slug: string): { startDate: string; endDate: string } {
+  const match = slug.match(/^(\d{4})-W(\d{2})$/);
+  if (!match?.[1] || !match[2]) return { startDate: "", endDate: "" };
+  const year = parseInt(match[1]);
+  const week = parseInt(match[2]);
+  const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
+  const dow = simple.getUTCDay();
+  const monday = new Date(simple);
+  if (dow <= 4) monday.setUTCDate(simple.getUTCDate() - simple.getUTCDay() + 1);
+  else monday.setUTCDate(simple.getUTCDate() + 8 - simple.getUTCDay());
+  const friday = new Date(monday);
+  friday.setUTCDate(monday.getUTCDate() + 4);
+  return {
+    startDate: monday.toISOString().slice(0, 10),
+    endDate: friday.toISOString().slice(0, 10),
+  };
+}
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  // Accept both slug forms; 301 the legacy ISO form to the canonical
+  // query-matching path. The redirect must fire HERE (pre-commit) — thrown
+  // from the streamed page body it degrades to a meta-refresh, not a 301.
+  const resolved = resolveWeeklySlugParam(rawSlug);
+  if (!resolved) {
+    notFound();
+  }
+  if (!resolved.canonical) {
+    permanentRedirect(weeklyReportPath(resolved.dbSlug));
+  }
+  const slug = resolved.dbSlug;
+  const canonicalPath = weeklyReportPath(slug);
   const weekTitle = formatWeekTitle(slug);
 
-  // Try to get LLM headline for metadata
-  const enhanced = await getEnhancedWeeklyReportData(slug);
+  // The existence guard must live HERE, not only in the page body: metadata
+  // resolves before the response commits, so notFound() still yields a real
+  // HTTP 404. The page body streams behind loading.tsx — by the time its
+  // notFound() fires the 200 status is already on the wire and Next can only
+  // swap in the not-found UI + a noindex meta tag (the soft-404 GSC flagged
+  // on /reports/weekly/2026-W28, July 2026).
+  //
+  // The guard passes when EITHER the published narrative exists OR market
+  // data exists. Guarding on market data alone 404'd every FRESH report:
+  // the week's Friday market data lags ~4-6 days behind publication (ASIC
+  // T+4), so the report was dead precisely while it was newest.
+  // Both fetches are deduped with the page body (react cache/unstable_cache).
+  const [enhanced, data] = await Promise.all([
+    getEnhancedWeeklyReportData(slug),
+    getWeeklyReportData(slug),
+  ]);
+  if (!enhanced && (!data || data.topStocks.length === 0)) {
+    notFound();
+  }
   const headline = enhanced?.headline;
 
-  const title = headline
-    ?? `Most Shorted ASX Stocks: ${weekTitle} — Top Shorts & Biggest Movers`;
-  const description = enhanced?.summary
-    ?? `Weekly short selling report for the ASX — ${weekTitle}. Top shorted stocks, biggest movers, and industry analysis from official ASIC data.`;
+  // Title is ALWAYS the query-matching series pattern (what the freshness
+  // SERPs reward — the incumbents' weekly series titles work exactly this
+  // way); the editorial LLM headline leads the description + stays the H1.
+  const title = `The 10 Most Shorted ASX Stocks — ${weekTitle}`;
+  const description = headline
+    ? `${headline}. Top shorted stocks, biggest risers and fallers for ${weekTitle}, from official ASIC data.`
+    : `Weekly short selling report for the ASX — ${weekTitle}. Top shorted stocks, biggest movers, and industry analysis from official ASIC data.`;
 
   // Derive publication date from the week slug (Friday of that week)
   const parsed = slug.match(/^(\d{4})-W(\d{2})$/);
@@ -93,17 +149,18 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       ? { index: false, follow: true, googleBot: { index: false, follow: true } }
       : undefined,
     keywords: [
-      `ASX short selling report ${slug}`,
+      "10 most shorted ASX stocks",
+      "most shorted ASX stocks",
+      `most shorted ASX stocks ${weekTitle.toLowerCase()}`,
+      "most shorted ASX stocks this week",
       `weekly short interest ${weekTitle}`,
       "ASX short positions weekly",
-      "ASIC weekly report",
-      "most shorted ASX stocks",
       "short selling risers fallers",
     ],
     openGraph: {
       title,
       description,
-      url: `${siteConfig.url}/reports/weekly/${slug}`,
+      url: `${siteConfig.url}${canonicalPath}`,
       siteName: siteConfig.name,
       type: "article",
       locale: "en_AU",
@@ -112,10 +169,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       authors: [siteConfig.author],
       images: [
         {
-          url: `${siteConfig.url}/reports/weekly/${slug}/opengraph-image`,
+          url: `${siteConfig.url}${canonicalPath}/opengraph-image`,
           width: 1200,
           height: 630,
-          alt: `ASX Short Selling Weekly Report — ${weekTitle}`,
+          alt: `The 10 Most Shorted ASX Stocks — ${weekTitle}`,
         },
       ],
     },
@@ -123,59 +180,76 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       card: "summary_large_image",
       title,
       description,
-      images: [`${siteConfig.url}/reports/weekly/${slug}/opengraph-image`],
+      images: [`${siteConfig.url}${canonicalPath}/opengraph-image`],
     },
     alternates: {
-      canonical: `${siteConfig.url}/reports/weekly/${slug}`,
+      canonical: `${siteConfig.url}${canonicalPath}`,
       languages: {
-        "en-AU": `${siteConfig.url}/reports/weekly/${slug}`,
-        "x-default": `${siteConfig.url}/reports/weekly/${slug}`,
+        "en-AU": `${siteConfig.url}${canonicalPath}`,
+        "x-default": `${siteConfig.url}${canonicalPath}`,
       },
     },
   };
 }
 
 export default async function WeeklyReportPage({ params }: PageProps) {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
 
-  if (!/^\d{4}-W\d{2}$/.test(slug)) {
+  // Backstop for the redirect/404 already performed in generateMetadata.
+  const resolved = resolveWeeklySlugParam(rawSlug);
+  if (!resolved) {
     notFound();
   }
-
-  // Start both independent fetches — don't block financialHighlights on enhanced
-  const dataPromise = getWeeklyReportData(slug);
-  const enhancedPromise = getEnhancedWeeklyReportData(slug);
-
-  // Wait for data first (needed for guard + financialHighlights)
-  const data = await dataPromise;
-
-  // Show 404 only if there's no market data at all
-  // Enhanced narrative is optional — page renders with basic data if AI report isn't ready
-  if (!data || data.topStocks.length === 0) {
-    notFound();
+  if (!resolved.canonical) {
+    permanentRedirect(weeklyReportPath(resolved.dbSlug));
   }
+  const slug = resolved.dbSlug;
 
-  // financialHighlights depends on data.topStocks, runs in parallel with enhanced
-  const topCodes = data.topStocks.slice(0, 20).map((s) => s.code);
-  const [enhanced, financialHighlights] = await Promise.all([
-    enhancedPromise,
-    topCodes.length > 0
-      ? getStockFinancialHighlights(topCodes)
-      : Promise.resolve({} as Record<string, StockFinancialHighlight[]>),
+  // Both fetches are deduped with generateMetadata, which already ran the
+  // existence guard (404 only when BOTH narrative and market data are
+  // missing — see the note there).
+  const [rawData, enhanced] = await Promise.all([
+    getWeeklyReportData(slug),
+    getEnhancedWeeklyReportData(slug),
   ]);
+  if (!enhanced && (!rawData || rawData.topStocks.length === 0)) {
+    notFound();
+  }
+
+  // A published narrative can outrun market data (transient RPC failure or
+  // the ASIC T+4 lag window) — synthesize the week envelope from the slug so
+  // the render below never dereferences undefined.
+  const data = rawData ?? {
+    weekSlug: slug,
+    ...weekDateRange(slug),
+    dates: [],
+    topStocks: [],
+    totalStocksShorted: 0,
+  };
+
+  // financialHighlights depends on topStocks (falls back to the narrative's
+  // own top-shorted list when market data is lagging).
+  const topCodes = (
+    data.topStocks.length > 0
+      ? data.topStocks.slice(0, 20).map((s) => s.code)
+      : (enhanced?.topShorted ?? []).slice(0, 20).map((s) => s.code)
+  );
+  const financialHighlights = topCodes.length > 0
+    ? await getStockFinancialHighlights(topCodes)
+    : ({} as Record<string, StockFinancialHighlight[]>);
 
   const weekTitle = formatWeekTitle(slug);
   const hasNarrative = !!enhanced?.narrative?.openingHook;
 
   const breadcrumbItems = [
     { label: "Reports", href: "/reports" },
-    { label: weekTitle, href: `/reports/weekly/${slug}` },
+    { label: weekTitle, href: weeklyReportPath(slug) },
   ];
 
   const breadcrumbsSchema = [
     { name: "Home", url: siteConfig.url },
     { name: "Reports", url: `${siteConfig.url}/reports` },
-    { name: weekTitle, url: `${siteConfig.url}/reports/weekly/${slug}` },
+    { name: weekTitle, url: `${siteConfig.url}${weeklyReportPath(slug)}` },
   ];
 
   const topStock = data.topStocks[0];
@@ -205,10 +279,14 @@ export default async function WeeklyReportPage({ params }: PageProps) {
     .replace(/\s+/g, " ")
     .trim() || undefined;
 
+  const canonicalUrl = `${siteConfig.url}${weeklyReportPath(slug)}`;
+  // NewsArticle (not plain Article): the weekly series competes on freshness
+  // SERPs where the ranking incumbents all carry NewsArticle markup.
   const articleSchema = hasNarrative ? {
     "@context": "https://schema.org",
-    "@type": "Article",
-    headline: enhanced?.headline ?? `ASX Short Selling Report: ${weekTitle}`,
+    "@type": "NewsArticle",
+    headline: enhanced?.headline ?? `The 10 Most Shorted ASX Stocks — ${weekTitle}`,
+    alternativeHeadline: `The 10 Most Shorted ASX Stocks — ${weekTitle}`,
     description: cleanSummary,
     datePublished: data.endDate,
     dateModified: data.endDate,
@@ -229,10 +307,11 @@ export default async function WeeklyReportPage({ params }: PageProps) {
     },
     isPartOf: {
       "@type": "CreativeWorkSeries",
-      name: "Weekly ASX Short Selling Reports",
+      name: "The 10 Most Shorted ASX Stocks — Weekly Series",
       url: `${siteConfig.url}/reports`,
     },
-    mainEntityOfPage: `${siteConfig.url}/reports/weekly/${slug}`,
+    articleSection: "Short Selling",
+    mainEntityOfPage: canonicalUrl,
     image: [siteConfig.ogImage],
   } : null;
 
@@ -281,7 +360,7 @@ export default async function WeeklyReportPage({ params }: PageProps) {
         {/* Hero */}
         <section className="border-b border-border/40 pb-8">
           <p className="mb-3 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-            Weekly Report · {weekTitle}
+            The 10 Most Shorted ASX Stocks · {weekTitle}
           </p>
           <h1 className="font-serif text-3xl font-semibold leading-[1.1] tracking-tight md:text-4xl">
             {hasNarrative ? enhanced.headline : "Weekly Short Selling Report"}
@@ -562,6 +641,25 @@ export default async function WeeklyReportPage({ params }: PageProps) {
         {citations.length > 0 && (
           <CitationFootnotes citations={citations} />
         )}
+
+        {/* Hub links — internal-link mesh back to the live surfaces. */}
+        <section className="border-t border-border/40 pt-4 text-sm text-muted-foreground">
+          <p>
+            Track the live rankings on the{" "}
+            <Link href="/top" className="text-primary hover:underline">
+              most shorted ASX stocks
+            </Link>{" "}
+            page, watch{" "}
+            <Link href="/battlegrounds" className="text-primary hover:underline">
+              short squeeze candidates
+            </Link>
+            , or see market-wide totals in the{" "}
+            <Link href="/statistics" className="text-primary hover:underline">
+              ASX short selling statistics
+            </Link>
+            .
+          </p>
+        </section>
 
         {/* Disclaimer */}
         <section className="text-xs text-muted-foreground border-t border-border/40 pt-4">
