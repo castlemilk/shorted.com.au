@@ -385,6 +385,13 @@ export const listSuburbPriceDrops = ShortedStocksService.method.listSuburbPriceD
 export const listSuburbDropListings = ShortedStocksService.method.listSuburbDropListings;
 
 /**
+ * Full price timeline for a single physical address, across all its listings.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetPropertyHistory
+ */
+export const getPropertyHistory = ShortedStocksService.method.getPropertyHistory;
+
+/**
  * Get an ASX-listed entity's annual corporate-tax profile (ATO transparency data).
  *
  * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetCompanyTaxProfile

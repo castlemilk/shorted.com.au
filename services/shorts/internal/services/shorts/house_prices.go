@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/jackc/pgx/v5"
@@ -355,4 +356,63 @@ func (s *ShortsServer) ListSuburbDropListings(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list suburb drop listings"))
 	}
 	return connect.NewResponse(cached.(*shortsv1alpha1.ListSuburbDropListingsResponse)), nil
+}
+
+// GetPropertyHistory returns the full asking-price timeline for a single physical
+// address (stable address_key), merging every listing/relist seen at that address.
+// It reads the raw (proprietary-tos-restricted) listing rows — the SAME posture as
+// ListSuburbDropListings — so it is flag-gated behind HOUSING_DROP_LISTINGS_ENABLED
+// and returns an empty response (not an error) when the flag is off, so the UI
+// degrades cleanly to the aggregate-only surface.
+func (s *ShortsServer) GetPropertyHistory(ctx context.Context, req *connect.Request[shortsv1alpha1.GetPropertyHistoryRequest]) (*connect.Response[shortsv1alpha1.GetPropertyHistoryResponse], error) {
+	m := req.Msg
+	if m.AddressKey == "" {
+		return connect.NewResponse(&shortsv1alpha1.GetPropertyHistoryResponse{}), nil
+	}
+	if !dropListingsEnabled() {
+		return connect.NewResponse(&shortsv1alpha1.GetPropertyHistoryResponse{}), nil
+	}
+	cacheKey := s.cache.GetPropertyHistoryKey(m.AddressKey)
+	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+		res, err := s.store.GetPropertyHistory(m.AddressKey)
+		if err != nil {
+			return nil, err
+		}
+		if res == nil || res.Current == nil {
+			return &shortsv1alpha1.GetPropertyHistoryResponse{}, nil
+		}
+		c := res.Current
+		current := &shortsv1alpha1.PropertyListingSnapshot{
+			Source: c.Source, ListingId: c.ListingID, ListingUrl: c.ListingURL,
+			Price: c.Price, PriceDisplay: c.PriceDisplay, PriceKind: c.PriceKind,
+			ListingStatus: c.ListingStatus, IsActive: c.IsActive,
+			Bedrooms: c.Bedrooms, Bathrooms: c.Bathrooms, CarSpaces: c.CarSpaces,
+			LandSizeSqm: c.LandSizeSqm, PropertyType: c.PropertyType,
+			FirstSeenAt: c.FirstSeenAt.Format(time.RFC3339),
+			LastSeenAt:  c.LastSeenAt.Format(time.RFC3339),
+		}
+		events := make([]*shortsv1alpha1.PropertyPriceEvent, 0, len(res.Events))
+		for _, e := range res.Events {
+			if e == nil {
+				continue
+			}
+			events = append(events, &shortsv1alpha1.PropertyPriceEvent{
+				ObservedAt: e.ObservedAt.Format(time.RFC3339), EventType: e.EventType,
+				Source: e.Source, ListingId: e.ListingID,
+				Price: e.Price, PrevPrice: e.PrevPrice, DropAbs: e.DropAbs, DropPct: e.DropPct,
+				ListingStatus: e.ListingStatus, PrevStatus: e.PrevStatus,
+			})
+		}
+		return &shortsv1alpha1.GetPropertyHistoryResponse{
+			AddressKey: res.AddressKey, DisplayAddress: res.DisplayAddress,
+			Suburb: res.Suburb, StateCode: res.StateCode, Postcode: res.Postcode,
+			Current: current, Events: events, NumListings: res.NumListings,
+			FirstPrice: res.FirstPrice, CurrentPrice: res.CurrentPrice,
+		}, nil
+	})
+	if err != nil {
+		s.logger.Errorf("database error in GetPropertyHistory: %v", err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get property history"))
+	}
+	return connect.NewResponse(cached.(*shortsv1alpha1.GetPropertyHistoryResponse)), nil
 }

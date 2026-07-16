@@ -185,6 +185,7 @@ type Store interface {
 	GetHousingRegions(regionType, stateCode, query string, limit int32) ([]*HousingRegionRow, error)
 	ListSuburbPriceDrops(stateCode, sort string, limit int32) ([]*SuburbPriceDropRow, error)
 	ListSuburbDropListings(salCode, regionCode string, windowDays, limit int32) ([]*SuburbDropListingRow, error)
+	GetPropertyHistory(addressKey string) (*PropertyHistoryResult, error)
 
 	// Event timeline methods
 	GetEventTimeline(stockCode string, daysBack, limit int32) ([]*TimelineEventRow, error)
