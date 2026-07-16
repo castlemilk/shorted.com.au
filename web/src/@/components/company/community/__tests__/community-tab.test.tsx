@@ -76,6 +76,10 @@ function renderWithQueryClient(ui: ReactElement) {
 describe("StockTabs community integration", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // StockTabs writes ?tab= via history.replaceState and reads it back on
+    // mount (deep-linking) — jsdom's URL persists across tests in this
+    // file, so reset it or a prior test's tab selection leaks forward.
+    window.history.replaceState(null, "", "/");
     (useSession as jest.Mock).mockReturnValue({
       data: {
         user: {

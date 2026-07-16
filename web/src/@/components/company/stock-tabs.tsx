@@ -4,25 +4,56 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "~/@/components/ui/tabs";
-import { StockNewsTab } from "./stock-news-tab";
-import { StockConnections } from "./stock-connections";
-import { StockSignals } from "./stock-signals";
-import { StockVerdict } from "./stock-verdict";
-import { DirectorTradesTable } from "./director-trades-table";
-import { DividendHistory } from "./dividend-history";
-import { PeerComparisonTable } from "./peer-comparison-table";
-import { EventTimeline } from "./event-timeline";
+
+// This shell SSRs ON PURPOSE (the stock page is ISR): the server-rendered
+// overview slots (overviewMain/overviewRail — peers, short-interest history,
+// headlines, hub links) must land in the served HTML for crawlers, and the
+// default radix tab panel renders during SSR. The tab CHILDREN below import
+// @connectrpc/connect (module init crashes SSR — see CLAUDE.md), so they are
+// lazy client-only imports resolved after hydration; non-default tabs are
+// client-data surfaces anyway.
+const StockNewsTab = dynamic(
+  () => import("./stock-news-tab").then((m) => m.StockNewsTab),
+  { ssr: false },
+);
+const StockConnections = dynamic(
+  () => import("./stock-connections").then((m) => m.StockConnections),
+  { ssr: false },
+);
+const StockSignals = dynamic(
+  () => import("./stock-signals").then((m) => m.StockSignals),
+  { ssr: false },
+);
+const StockVerdict = dynamic(
+  () => import("./stock-verdict").then((m) => m.StockVerdict),
+  { ssr: false },
+);
+const DirectorTradesTable = dynamic(
+  () => import("./director-trades-table").then((m) => m.DirectorTradesTable),
+  { ssr: false },
+);
+const DividendHistory = dynamic(
+  () => import("./dividend-history").then((m) => m.DividendHistory),
+  { ssr: false },
+);
+const PeerComparisonTable = dynamic(
+  () => import("./peer-comparison-table").then((m) => m.PeerComparisonTable),
+  { ssr: false },
+);
+const EventTimeline = dynamic(
+  () => import("./event-timeline").then((m) => m.EventTimeline),
+  { ssr: false },
+);
 
 interface StockTabsProps {
   stockCode: string;
@@ -41,59 +72,50 @@ export function StockTabs({
   financialsContent,
   communityContent,
 }: StockTabsProps) {
-  const searchParams = useSearchParams();
-  const pathname = usePathname();
   const tabsListRef = useRef<HTMLDivElement>(null);
-  const availableTabs = useMemo(
-    () =>
-      [
-        "overview",
-        communityContent ? "community" : null,
-        "news",
-        "timeline",
-        "financials",
-        "directors",
-        "dividends",
-        "peers",
-      ].filter((tab): tab is string => Boolean(tab)),
-    [communityContent],
-  );
-
-  const requestedTab = searchParams.get("tab");
-  const initialTab =
-    requestedTab && availableTabs.includes(requestedTab)
-      ? requestedTab
-      : "overview";
-  const [activeTab, setActiveTab] = useState(initialTab);
+  // SSR always renders the overview panel (the crawlable default).
+  // NOTE: deliberately NOT useSearchParams() — on this static/ISR route it
+  // would force a CSR bailout that strips the overview HTML from the SSR
+  // output, defeating the whole point of the SSR'd shell. The ?tab= deep
+  // link is applied after mount instead.
+  const [activeTab, setActiveTab] = useState("overview");
 
   useEffect(() => {
-    if (requestedTab && availableTabs.includes(requestedTab)) {
-      setActiveTab(requestedTab);
+    const requested = new URLSearchParams(window.location.search).get("tab");
+    if (!requested || requested === "overview") return;
+    const available = [
+      "overview",
+      ...(communityContent ? ["community"] : []),
+      "news",
+      "timeline",
+      "financials",
+      "directors",
+      "dividends",
+      "peers",
+    ];
+    if (available.includes(requested)) {
+      setActiveTab(requested);
     }
-  }, [availableTabs, requestedTab]);
+  }, [communityContent]);
 
   // Keep ?tab= in sync so tabs stay deep-linkable after client navigation.
-  // Shallow history API, NOT router.replace: this page is force-dynamic, so a
-  // router navigation would re-execute the entire server page (all stock RPCs)
-  // on every tab click just to update a query param.
-  const handleTabChange = useCallback(
-    (value: string) => {
-      setActiveTab(value);
-      const params = new URLSearchParams(searchParams.toString());
-      if (value === "overview") {
-        params.delete("tab");
-      } else {
-        params.set("tab", value);
-      }
-      const query = params.toString();
-      window.history.replaceState(
-        null,
-        "",
-        query ? `${pathname}?${query}` : pathname,
-      );
-    },
-    [pathname, searchParams],
-  );
+  // Shallow history API, NOT router.replace: a router navigation would
+  // re-execute the server page just to update a query param.
+  const handleTabChange = useCallback((value: string) => {
+    setActiveTab(value);
+    const params = new URLSearchParams(window.location.search);
+    if (value === "overview") {
+      params.delete("tab");
+    } else {
+      params.set("tab", value);
+    }
+    const query = params.toString();
+    window.history.replaceState(
+      null,
+      "",
+      query ? `${window.location.pathname}?${query}` : window.location.pathname,
+    );
+  }, []);
 
   // The 8-trigger TabsList overflows horizontally on mobile; when a tab is
   // deep-linked (?tab=peers) make sure its trigger is scrolled into view.

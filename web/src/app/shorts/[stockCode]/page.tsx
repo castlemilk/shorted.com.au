@@ -39,11 +39,10 @@ import { StockEvidencePanelClient } from "~/@/components/company/stock-evidence-
 import { LoginPromptBanner } from "~/@/components/ui/login-prompt-banner";
 import { SignedOutOnly } from "~/@/components/ui/session-gates";
 
-// Dynamic import to avoid SSR issues — child components import @connectrpc/connect
-const StockTabs = nextDynamic(
-  () => import("~/@/components/company/stock-tabs").then((m) => m.StockTabs),
-  { ssr: false }
-);
+// The tabs shell SSRs (static import): the server-rendered overview slots
+// must reach the served HTML for crawlers. The connect-importing tab
+// CHILDREN are lazy ssr:false imports INSIDE the shell — see stock-tabs.tsx.
+import { StockTabs } from "~/@/components/company/stock-tabs";
 import { Suspense } from "react";
 import {
   Breadcrumbs,
@@ -493,7 +492,11 @@ const Page = async ({ params }: PageProps) => {
         <StockChartPanel stockCode={stockCode} />
       </section>
 
-      {/* Tabbed content area */}
+      {/* Tabbed content area. The shell SSRs (its connect-importing tab
+          children are lazy client-only inside it), so everything in the
+          overview slots below reaches the served HTML — peers, history,
+          headlines and hub links live in their proper rail/main positions
+          AND stay crawlable. */}
       <StockTabs
         stockCode={stockCode}
         overviewMain={
@@ -510,10 +513,78 @@ const Page = async ({ params }: PageProps) => {
               industrySlug={relatedData.industrySlug}
             />
 
+            {/* SSR short-interest history + FAQ — crawlable trend facts.
+                Native <details> keeps the content in the DOM (crawlable)
+                whether expanded or collapsed; defaults CLOSED so ~550px of
+                FAQ prose doesn't sit mid-overview. */}
+            {stock && (stock.percentageShorted ?? 0) > 0 && (
+              <details className="group rounded-lg border bg-card [&_summary::-webkit-details-marker]:hidden">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-medium">
+                  Short interest history &amp; FAQ
+                  <ChevronDown
+                    aria-hidden
+                    className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180"
+                  />
+                </summary>
+                <div className="border-t px-4 py-3">
+                  <Suspense fallback={null}>
+                    <ShortInterestHistory
+                      stockCode={stockCode}
+                      companyName={stock.name || stockCode}
+                    />
+                  </Suspense>
+                </div>
+              </details>
+            )}
+
             {/* Consolidated company research card — the ONLY place the
                 enriched prose renders (the Financials tab shows reports
                 + metrics only, no duplicated company content). */}
             <EnrichedCompanySection stockCode={stockCode} />
+
+            {/* Latest headlines — server-fetched so stock pages carry
+                fresh, crawlable text; the full feed lives on the News tab. */}
+            {newsArticles.length > 0 && (
+              <div className="rounded-lg border bg-card">
+                <div className="flex items-center justify-between px-4 py-3">
+                  <h2 className="text-sm font-medium">
+                    Latest {stockCode} news
+                  </h2>
+                  <Link
+                    href={`/shorts/${stockCode}/news`}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    All news
+                  </Link>
+                </div>
+                <ul className="divide-y border-t">
+                  {newsArticles.map((article) => (
+                    <li key={article.id || article.url} className="px-4 py-2.5">
+                      <a
+                        href={article.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm leading-snug hover:text-primary hover:underline"
+                      >
+                        {article.headline}
+                      </a>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {article.source}
+                        {article.publishedAtIso
+                          ? ` · ${new Date(
+                              article.publishedAtIso,
+                            ).toLocaleDateString("en-AU", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}`
+                          : null}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </>
         }
         overviewRail={
@@ -521,6 +592,53 @@ const Page = async ({ params }: PageProps) => {
             <Suspense fallback={<CompanyInfoPlaceholder />}>
               <CompanyInfo stockCode={stockCode} />
             </Suspense>
+
+            {/* Related stocks — the peer internal-link mesh, in the SSR
+                DOM via the SSR'd tabs shell. */}
+            {relatedData.stocks.length > 0 && (
+              <RelatedStocks
+                stocks={relatedData.stocks}
+                currentStock={stockCode}
+                industrySlug={relatedData.industrySlug}
+                title={`More ${relatedData.industry} Stocks`}
+                description="Other shorted stocks in this sector"
+              />
+            )}
+
+            {/* Hub links — part of the sitewide internal-link mesh. */}
+            <nav
+              aria-label="Short selling resources"
+              className="rounded-lg border bg-card px-4 py-3 text-sm"
+            >
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Explore
+              </p>
+              <ul className="mt-2 space-y-1.5">
+                <li>
+                  <Link href="/top" className="text-primary hover:underline">
+                    Most shorted ASX stocks
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/battlegrounds" className="text-primary hover:underline">
+                    Short squeeze candidates
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/statistics" className="text-primary hover:underline">
+                    ASX short selling statistics
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/learn/how-to-short-the-asx"
+                    className="text-primary hover:underline"
+                  >
+                    How to short the ASX
+                  </Link>
+                </li>
+              </ul>
+            </nav>
 
             <CommunityOverviewTeaser stockCode={stockCode} />
           </>
@@ -542,136 +660,6 @@ const Page = async ({ params }: PageProps) => {
           />
         }
       />
-
-      {/* Crawlable research section — deliberately OUTSIDE StockTabs.
-          StockTabs is an ssr:false boundary (its tab children import
-          @connectrpc/connect, which crashes SSR — see CLAUDE.md), so nothing
-          placed inside it ever reaches the served HTML. The content that
-          matters to crawlers/LLMs renders here as real HTML instead:
-          short-interest history + FAQ, latest headlines, and peer links. */}
-      <section
-        aria-label={`${stockCode} research and data`}
-        className="mt-6 grid min-w-0 grid-cols-1 items-start gap-4 md:gap-6 lg:grid-cols-[minmax(0,1fr)_310px]"
-      >
-        <div className="flex min-w-0 flex-col gap-4 md:gap-6">
-          {/* SSR short-interest history + FAQ — crawlable trend facts.
-              Native <details> keeps the content in the DOM (crawlable)
-              whether expanded or collapsed; defaults CLOSED to keep the
-              page compact. */}
-          {stock && (stock.percentageShorted ?? 0) > 0 && (
-            <details className="group rounded-lg border bg-card [&_summary::-webkit-details-marker]:hidden">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-medium">
-                Short interest history &amp; FAQ
-                <ChevronDown
-                  aria-hidden
-                  className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180"
-                />
-              </summary>
-              <div className="border-t px-4 py-3">
-                <Suspense fallback={null}>
-                  <ShortInterestHistory
-                    stockCode={stockCode}
-                    companyName={stock.name || stockCode}
-                  />
-                </Suspense>
-              </div>
-            </details>
-          )}
-
-          {/* Latest headlines — server-fetched so stock pages carry fresh,
-              crawlable text; the full feed lives on the News tab. */}
-          {newsArticles.length > 0 && (
-            <div className="rounded-lg border bg-card">
-              <div className="flex items-center justify-between px-4 py-3">
-                <h2 className="text-sm font-medium">
-                  Latest {stockCode} news
-                </h2>
-                <Link
-                  href={`/shorts/${stockCode}/news`}
-                  className="text-xs text-primary hover:underline"
-                >
-                  All news
-                </Link>
-              </div>
-              <ul className="divide-y border-t">
-                {newsArticles.map((article) => (
-                  <li key={article.id || article.url} className="px-4 py-2.5">
-                    <a
-                      href={article.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm leading-snug hover:text-primary hover:underline"
-                    >
-                      {article.headline}
-                    </a>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {article.source}
-                      {article.publishedAtIso
-                        ? ` · ${new Date(
-                            article.publishedAtIso,
-                          ).toLocaleDateString("en-AU", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                          })}`
-                        : null}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-        <div className="flex min-w-0 flex-col gap-4 md:gap-6">
-          {/* Related stocks — the peer internal-link mesh must be in the
-              SSR DOM (it previously sat inside the tabs and was invisible
-              to crawlers). */}
-          {relatedData.stocks.length > 0 && (
-            <RelatedStocks
-              stocks={relatedData.stocks}
-              currentStock={stockCode}
-              industrySlug={relatedData.industrySlug}
-              title={`More ${relatedData.industry} Stocks`}
-              description="Other shorted stocks in this sector"
-            />
-          )}
-
-          {/* Hub links — part of the sitewide internal-link mesh. */}
-          <nav
-            aria-label="Short selling resources"
-            className="rounded-lg border bg-card px-4 py-3 text-sm"
-          >
-            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Explore
-            </p>
-            <ul className="mt-2 space-y-1.5">
-              <li>
-                <Link href="/top" className="text-primary hover:underline">
-                  Most shorted ASX stocks
-                </Link>
-              </li>
-              <li>
-                <Link href="/battlegrounds" className="text-primary hover:underline">
-                  Short squeeze candidates
-                </Link>
-              </li>
-              <li>
-                <Link href="/statistics" className="text-primary hover:underline">
-                  ASX short selling statistics
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/learn/how-to-short-the-asx"
-                  className="text-primary hover:underline"
-                >
-                  How to short the ASX
-                </Link>
-              </li>
-            </ul>
-          </nav>
-        </div>
-      </section>
     </DashboardLayout>
   );
 };
