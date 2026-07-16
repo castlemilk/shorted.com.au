@@ -206,6 +206,13 @@ func envFloat(key string, def float64) float64 {
 
 type listingsStats struct {
 	suburbs, pages, seen, newListings, drops, rises, relisted, delisted, statusChanges, blockedSweeps int
+	// addressRelistDrops/addressRelistRises count price_drop/price_rise events
+	// fired by addressPriceMove (crawl_listings_diff.go) — a brand-new
+	// listing_id at a known address, priced against that address's most recent
+	// active listing across ANY listing_id/source. Tracked separately from
+	// drops/rises (which are listing_id-level moves on a listing we already
+	// track) so the relist-driven signal is visible in the run summary.
+	addressRelistDrops, addressRelistRises int
 }
 
 type listingsCrawler struct {
@@ -315,8 +322,8 @@ func runListings(ctx context.Context, pool *pgxpool.Pool) bool {
 	}
 
 	s := lc.stats
-	log.Printf("[listings] done: suburbs=%d pages=%d listings=%d new=%d drops=%d rises=%d relisted=%d delisted=%d status=%d blockedSweeps=%d events(rea=%d,domain=%d)",
-		s.suburbs, s.pages, s.seen, s.newListings, s.drops, s.rises, s.relisted, s.delisted, s.statusChanges, s.blockedSweeps, reaEvents, domEvents)
+	log.Printf("[listings] done: suburbs=%d pages=%d listings=%d new=%d drops=%d rises=%d relisted=%d delisted=%d status=%d blockedSweeps=%d addressRelistDrops=%d addressRelistRises=%d events(rea=%d,domain=%d)",
+		s.suburbs, s.pages, s.seen, s.newListings, s.drops, s.rises, s.relisted, s.delisted, s.statusChanges, s.blockedSweeps, s.addressRelistDrops, s.addressRelistRises, reaEvents, domEvents)
 	return rewarm
 }
 

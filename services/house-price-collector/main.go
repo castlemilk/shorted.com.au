@@ -22,7 +22,7 @@ func main() {
 // 3 = a crawl needs a human to re-warm the Chrome profile (Kasada/Akamai
 // clearance expired). Wrapping the body lets deferred cleanup run before exit.
 func run() int {
-	mode := flag.String("mode", "all", "official | crawl | listings | agent | enqueue | warmcheck | census | electorates | amenities | lga | connectivity | funding | council-financials | refresh | all")
+	mode := flag.String("mode", "all", "official | crawl | listings | agent | enqueue | warmcheck | backfill-address | census | electorates | amenities | lga | connectivity | funding | council-financials | refresh | all")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -83,6 +83,12 @@ func run() int {
 		// remember to launch Chrome with a REA startup URL. See
 		// crawl_warmcheck.go and deploy/run-housing-crawl.sh.
 		return runWarmCheck(ctx, pool)
+	case "backfill-address":
+		// ONE-TIME pass (operator-run, not part of any scheduled mode): derive
+		// address_key for every existing property_listings row and propagate it
+		// onto property_price_events, so pre-feature listings become per-address
+		// queryable too. Idempotent — safe to re-run. See crawl_backfill_address.go.
+		runBackfillAddress(ctx, pool)
 	case "census":
 		// ABS 2021 Census GCP SAL demographics — boundary-anchored suburb rows.
 		runCensus(ctx, pool)
@@ -108,7 +114,7 @@ func run() int {
 	case "refresh":
 		refresh(ctx, pool)
 	default:
-		log.Fatalf("unknown -mode %q (want official|crawl|listings|agent|enqueue|warmcheck|census|electorates|amenities|lga|connectivity|funding|council-financials|refresh|all)", *mode)
+		log.Fatalf("unknown -mode %q (want official|crawl|listings|agent|enqueue|warmcheck|backfill-address|census|electorates|amenities|lga|connectivity|funding|council-financials|refresh|all)", *mode)
 	}
 	return 0
 }

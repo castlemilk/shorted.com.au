@@ -263,6 +263,59 @@ func TestEventsFor(t *testing.T) {
 	}
 }
 
+// TestAddressPriceMove covers the address-level relist-drop detection
+// (crawl_listings_diff.go): a brand-new listing_id at a KNOWN address, priced
+// against that address's most recent active listing (a DIFFERENT listing_id,
+// possibly a different source) — the drop a listing_id-keyed diff alone can
+// never see. Same noise/comparable-kind gates as the listing-level diff.
+func TestAddressPriceMove(t *testing.T) {
+	lc := testLC()
+	addrKey := "1-centre-road-brighton-vic-3186"
+
+	// No known prior at this address -> never fires.
+	newL := RawListing{PriceLow: f64p(1_100_000), PriceKind: priceFixed, Status: "for_sale", AddressKey: addrKey}
+	if _, ok := lc.addressPriceMove(nil, newL); ok {
+		t.Error("nil addrPrior must never fire")
+	}
+
+	prior := &storedListing{Price: f64p(1_200_000), PriceKind: priceFixed, Status: "for_sale", IsActive: true}
+
+	// A relisted listing_id at the SAME address, priced below the prior active
+	// listing -> price_drop, carrying the prior's price as PrevPrice.
+	e, ok := lc.addressPriceMove(prior, newL)
+	if !ok || e.EventType != "price_drop" {
+		t.Fatalf("expected price_drop, got ok=%v e=%+v", ok, e)
+	}
+	if e.PrevPrice == nil || *e.PrevPrice != 1_200_000 {
+		t.Errorf("PrevPrice = %v, want 1200000", e.PrevPrice)
+	}
+
+	// Rise.
+	riseL := RawListing{PriceLow: f64p(1_350_000), PriceKind: priceFixed, Status: "for_sale", AddressKey: addrKey}
+	if e, ok := lc.addressPriceMove(prior, riseL); !ok || e.EventType != "price_rise" {
+		t.Errorf("expected price_rise, got ok=%v e=%+v", ok, e)
+	}
+
+	// Genuinely the same price (sub-threshold) -> must NOT fire (the "same
+	// listing/price" guard).
+	sameL := RawListing{PriceLow: f64p(1_199_000), PriceKind: priceFixed, Status: "for_sale", AddressKey: addrKey}
+	if _, ok := lc.addressPriceMove(prior, sameL); ok {
+		t.Error("sub-threshold move must not fire")
+	}
+
+	// Non-comparable kinds -> no phantom move.
+	rangeL := RawListing{PriceLow: f64p(1_000_000), PriceKind: priceRangeLow, Status: "for_sale", AddressKey: addrKey}
+	if _, ok := lc.addressPriceMove(prior, rangeL); ok {
+		t.Error("non-comparable price kinds must not fire")
+	}
+
+	// A sold listing must never produce a phantom "discount".
+	soldL := RawListing{PriceLow: f64p(900_000), PriceKind: priceFixed, Status: "sold", AddressKey: addrKey}
+	if _, ok := lc.addressPriceMove(prior, soldL); ok {
+		t.Error("a sold listing must not fire a price move")
+	}
+}
+
 func hasEvent(evs []priceEvent, kind string) bool {
 	for _, e := range evs {
 		if e.EventType == kind {
