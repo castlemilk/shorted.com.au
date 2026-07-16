@@ -158,4 +158,24 @@ public interface SuburbDropListingOrBuilder extends
    * <code>.google.protobuf.Timestamp observed_at = 12 [json_name = "observedAt"];</code>
    */
   com.google.protobuf.TimestampOrBuilder getObservedAtOrBuilder();
+
+  /**
+   * <pre>
+   * stable per-address key → /housing/property/[addressKey] (empty until backfilled)
+   * </pre>
+   *
+   * <code>string address_key = 13 [json_name = "addressKey"];</code>
+   * @return The addressKey.
+   */
+  java.lang.String getAddressKey();
+  /**
+   * <pre>
+   * stable per-address key → /housing/property/[addressKey] (empty until backfilled)
+   * </pre>
+   *
+   * <code>string address_key = 13 [json_name = "addressKey"];</code>
+   * @return The bytes for addressKey.
+   */
+  com.google.protobuf.ByteString
+      getAddressKeyBytes();
 }

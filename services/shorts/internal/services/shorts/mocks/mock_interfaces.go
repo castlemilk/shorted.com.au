@@ -779,6 +779,21 @@ func (mr *MockShortsStoreMockRecorder) ListActiveSubscribers() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListActiveSubscribers", reflect.TypeOf((*MockShortsStore)(nil).ListActiveSubscribers))
 }
 
+// ListAddressPriceDrops mocks base method.
+func (m *MockShortsStore) ListAddressPriceDrops(stateCode string, windowDays, limit int32) ([]*shorts.AddressPriceDropRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListAddressPriceDrops", stateCode, windowDays, limit)
+	ret0, _ := ret[0].([]*shorts.AddressPriceDropRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListAddressPriceDrops indicates an expected call of ListAddressPriceDrops.
+func (mr *MockShortsStoreMockRecorder) ListAddressPriceDrops(stateCode, windowDays, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAddressPriceDrops", reflect.TypeOf((*MockShortsStore)(nil).ListAddressPriceDrops), stateCode, windowDays, limit)
+}
+
 // ListAlertMonitors mocks base method.
 func (m *MockShortsStore) ListAlertMonitors(userID string, limit, offset int32) ([]*shorts.AlertMonitor, int32, error) {
 	m.ctrl.T.Helper()
@@ -1246,6 +1261,20 @@ func (m *MockCache) Get(key string) (any, bool) {
 func (mr *MockCacheMockRecorder) Get(key any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockCache)(nil).Get), key)
+}
+
+// GetAddressPriceDropsKey mocks base method.
+func (m *MockCache) GetAddressPriceDropsKey(stateCode string, windowDays, limit int32) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAddressPriceDropsKey", stateCode, windowDays, limit)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetAddressPriceDropsKey indicates an expected call of GetAddressPriceDropsKey.
+func (mr *MockCacheMockRecorder) GetAddressPriceDropsKey(stateCode, windowDays, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAddressPriceDropsKey", reflect.TypeOf((*MockCache)(nil).GetAddressPriceDropsKey), stateCode, windowDays, limit)
 }
 
 // GetAvailableDatesKey mocks base method.

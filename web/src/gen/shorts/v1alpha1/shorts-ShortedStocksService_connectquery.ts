@@ -392,6 +392,13 @@ export const listSuburbDropListings = ShortedStocksService.method.listSuburbDrop
 export const getPropertyHistory = ShortedStocksService.method.getPropertyHistory;
 
 /**
+ * Individual physical addresses ranked by their asking-price drop over a window.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.ListAddressPriceDrops
+ */
+export const listAddressPriceDrops = ShortedStocksService.method.listAddressPriceDrops;
+
+/**
  * Get an ASX-listed entity's annual corporate-tax profile (ATO transparency data).
  *
  * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetCompanyTaxProfile
