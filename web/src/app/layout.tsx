@@ -173,7 +173,10 @@ export default function RootLayout({
           title="Shorted Blog RSS Feed"
           href="/feed.xml"
         />
-        <link rel="preconnect" href="https://storage.googleapis.com" />
+        {/* GCS images are served via /_next/image (same-origin), so the
+            browser never opens a direct connection to storage.googleapis.com
+            on first paint — a preconnect there is wasted (Lighthouse flag).
+            Keep the near-free dns-prefetch as a hint for any direct fetch. */}
         <link rel="preconnect" href="https://www.googletagmanager.com" />
         <link rel="dns-prefetch" href="https://storage.googleapis.com" />
         <link rel="dns-prefetch" href="https://www.googletagmanager.com" />

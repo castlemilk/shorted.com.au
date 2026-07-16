@@ -429,6 +429,19 @@ export default withBundleAnalyzer(
           hostname: "localhost",
           port: "3020",
         },
+        // News publisher CDNs — lets NewsCard thumbnails flow through the
+        // /_next/image optimizer (resized AVIF/WebP) instead of shipping the
+        // publisher's full-size JPEG. KEEP IN SYNC with OPTIMIZED_HOSTS in
+        // src/@/components/news/news-image.tsx (unlisted hosts fall back to a
+        // plain <img>, so drift degrades quality, it never crashes).
+        { protocol: "https", hostname: "stockhead.com.au" },
+        { protocol: "https", hostname: "www.stockhead.com.au" },
+        { protocol: "https", hostname: "smallcaps.com.au" },
+        { protocol: "https", hostname: "www.smallcaps.com.au" },
+        { protocol: "https", hostname: "fool.com.au" },
+        { protocol: "https", hostname: "www.fool.com.au" },
+        { protocol: "https", hostname: "kalkinemedia.com" },
+        { protocol: "https", hostname: "www.kalkinemedia.com" },
       ],
       formats: ["image/avif", "image/webp"],
       deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],

@@ -1,0 +1,94 @@
+{
+  "url": "http://localhost:3020",
+  "preset": "mobile",
+  "runs": 3,
+  "capturedAt": "2026-07-16T13:08:52.770Z",
+  "gitRef": null,
+  "pages": {
+    "/": {
+      "runs": 3,
+      "scores": {
+        "performance": 0.72,
+        "accessibility": 0.99,
+        "best-practices": 1,
+        "seo": 0.92
+      },
+      "metrics": {
+        "first-contentful-paint": 1361,
+        "largest-contentful-paint": 8707,
+        "total-blocking-time": 181,
+        "cumulative-layout-shift": 0.001,
+        "speed-index": 2514,
+        "interactive": 13507
+      }
+    },
+    "/shorts/BHP": {
+      "runs": 3,
+      "scores": {
+        "performance": 0.67,
+        "accessibility": 1,
+        "best-practices": 0.96,
+        "seo": 0.92
+      },
+      "metrics": {
+        "first-contentful-paint": 1356,
+        "largest-contentful-paint": 11964,
+        "total-blocking-time": 185,
+        "cumulative-layout-shift": 0.129,
+        "speed-index": 2673,
+        "interactive": 13038
+      }
+    },
+    "/news": {
+      "runs": 3,
+      "scores": {
+        "performance": 0.74,
+        "accessibility": 0.99,
+        "best-practices": 1,
+        "seo": 0.92
+      },
+      "metrics": {
+        "first-contentful-paint": 1359,
+        "largest-contentful-paint": 9159,
+        "total-blocking-time": 121,
+        "cumulative-layout-shift": 0.001,
+        "speed-index": 1359,
+        "interactive": 12885
+      }
+    },
+    "/screener": {
+      "runs": 3,
+      "scores": {
+        "performance": 0.73,
+        "accessibility": 0.99,
+        "best-practices": 1,
+        "seo": 0.92
+      },
+      "metrics": {
+        "first-contentful-paint": 1215,
+        "largest-contentful-paint": 6017,
+        "total-blocking-time": 194,
+        "cumulative-layout-shift": 0.001,
+        "speed-index": 1215,
+        "interactive": 11208
+      }
+    },
+    "/methodology": {
+      "runs": 3,
+      "scores": {
+        "performance": 0.74,
+        "accessibility": 0.99,
+        "best-practices": 1,
+        "seo": 0.92
+      },
+      "metrics": {
+        "first-contentful-paint": 1206,
+        "largest-contentful-paint": 8105,
+        "total-blocking-time": 152,
+        "cumulative-layout-shift": 0.001,
+        "speed-index": 1206,
+        "interactive": 11030
+      }
+    }
+  }
+}

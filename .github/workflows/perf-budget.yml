@@ -1,0 +1,96 @@
+name: Perf Budget
+
+# Guards front-end performance on every PR that touches web/:
+#   1. Bundle budget (BLOCKING) — gzipped first-load JS per route vs committed
+#      baseline. Deterministic from `next build` output, so it fails the PR on a
+#      real regression (an accidental eager import, a heavy new dep).
+#   2. Lighthouse (ADVISORY) — mobile-throttled scores + Core Web Vitals on a
+#      freshly-built prod server. Kept non-blocking because Lighthouse numbers
+#      vary run-to-run on shared CI runners; it reports + uploads a JSON report
+#      so regressions are visible without flaking the merge queue.
+#
+# Both are self-contained: the build uses SKIP_ENV_VALIDATION and only the
+# public API URL, so no secrets are needed (same posture as storybook-tests).
+#
+# Refresh the committed baselines after an intentional change:
+#   cd web && npm run build && npm run bundle:baseline
+#   cd web && npm run build && npm run start &  # then:
+#   npm run perf:lh:baseline
+# and commit web/../docs/perf/{bundle-baseline,lh-baseline.mobile}.json.
+
+on:
+  pull_request:
+    paths:
+      - "web/**"
+      - "docs/perf/**"
+      - ".github/workflows/perf-budget.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: perf-budget-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SKIP_ENV_VALIDATION: "1"
+  NEXT_TELEMETRY_DISABLED: "1"
+  # Build-time public API base (client rewrites target the edge). No secret.
+  NEXT_PUBLIC_API_URL: "https://api.shorted.com.au"
+
+jobs:
+  perf-budget:
+    name: Bundle budget + Lighthouse
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Install Playwright Chromium (Lighthouse driver)
+        run: npx playwright install --with-deps chromium
+
+      - name: Production build
+        run: npx next build
+
+      # --- 1. Bundle budget (blocking) ---
+      - name: Bundle budget vs baseline
+        run: node scripts/bundle-budget.mjs --compare ../docs/perf/bundle-baseline.json
+
+      # --- 2. Lighthouse (advisory) ---
+      - name: Start production server
+        run: |
+          npm run start &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3020 >/dev/null && break
+            sleep 2
+          done
+          curl -sf http://localhost:3020 >/dev/null || (echo "server did not come up" && exit 1)
+
+      - name: Lighthouse (mobile) vs baseline
+        continue-on-error: true
+        env:
+          GIT_REF: ${{ github.sha }}
+        run: |
+          export CHROME_PATH="$(node -e 'console.log(require("playwright").chromium.executablePath())')"
+          node scripts/lighthouse-bench.mjs \
+            --url http://localhost:3020 \
+            --runs 3 \
+            --compare ../docs/perf/lh-baseline.mobile.json
+
+      - name: Upload perf reports
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: perf-reports
+          path: web/perf-results/
+          retention-days: 14
