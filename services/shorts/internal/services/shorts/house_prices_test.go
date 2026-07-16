@@ -25,11 +25,11 @@ func TestListStateSuburbs_RequiresState(t *testing.T) {
 }
 
 // TestGetPropertyHistory_FlagGate_ReturnsEmptyWhenDisabled asserts GetPropertyHistory
-// reads the SAME ToS-restricted per-listing data as ListSuburbDropListings, so it
-// must be gated behind the same HOUSING_DROP_LISTINGS_ENABLED flag: OFF (the
-// default) returns an empty response and never touches the store.
+// reads the SAME ToS-restricted per-listing data as ListSuburbDropListings, so the
+// HOUSING_DROP_LISTINGS_ENABLED kill switch (enabled by default, an explicit
+// falsey value disables) returns an empty response and never touches the store.
 func TestGetPropertyHistory_FlagGate_ReturnsEmptyWhenDisabled(t *testing.T) {
-	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "")
+	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "false")
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -167,11 +167,11 @@ func TestGetPropertyHistory_SurfacesDistinctDwellings(t *testing.T) {
 }
 
 // TestListAddressPriceDrops_FlagGate_ReturnsEmptyWhenDisabled asserts the
-// drops-by-address board reads the SAME ToS-restricted per-listing rows, so it is
-// gated behind HOUSING_DROP_LISTINGS_ENABLED: OFF returns an empty list and never
-// touches the store.
+// drops-by-address board reads the SAME ToS-restricted per-listing rows, so the
+// HOUSING_DROP_LISTINGS_ENABLED kill switch (explicit falsey value) returns an
+// empty list and never touches the store.
 func TestListAddressPriceDrops_FlagGate_ReturnsEmptyWhenDisabled(t *testing.T) {
-	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "")
+	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "false")
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
