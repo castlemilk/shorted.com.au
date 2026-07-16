@@ -21,6 +21,7 @@ import (
 type storedListing struct {
 	PK           int64
 	ListingID    string
+	AddressKey   string
 	Price        *float64
 	PriceKind    string
 	Status       string
@@ -34,6 +35,7 @@ type priceEvent struct {
 	Source       string
 	ListingID    string
 	RegionCode   string
+	AddressKey   string
 	ObservedAt   time.Time
 	EventType    string
 	Price        *float64
@@ -52,9 +54,9 @@ type priceEvent struct {
 func loadListing(ctx context.Context, tx pgx.Tx, source, listingID string) (*storedListing, error) {
 	var s storedListing
 	err := tx.QueryRow(ctx, `
-		SELECT id, price, price_kind, listing_status, is_active, missed_sweeps
+		SELECT id, address_key, price, price_kind, listing_status, is_active, missed_sweeps
 		FROM property_listings WHERE source = $1 AND listing_id = $2`,
-		source, listingID).Scan(&s.PK, &s.Price, &s.PriceKind, &s.Status, &s.IsActive, &s.MissedSweeps)
+		source, listingID).Scan(&s.PK, &s.AddressKey, &s.Price, &s.PriceKind, &s.Status, &s.IsActive, &s.MissedSweeps)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -62,6 +64,36 @@ func loadListing(ctx context.Context, tx pgx.Tx, source, listingID string) (*sto
 		return nil, err
 	}
 	s.ListingID = listingID
+	return &s, nil
+}
+
+// loadAddressPrior returns the most-recently-seen ACTIVE listing at addressKey,
+// EXCLUDING the current (source, listingID) itself, across ANY source/
+// listing_id — the candidate prior for addressPriceMove's relist-drop check
+// (crawl_listings_diff.go). Returns nil when no other active listing is known
+// at this address. "Most recent" is last_seen_at DESC, so a stale/never-
+// refreshed sighting never wins over a listing this same suburb sweep just
+// confirmed is still live.
+func loadAddressPrior(ctx context.Context, tx pgx.Tx, addressKey, excludeListingID, excludeSource string) (*storedListing, error) {
+	if addressKey == "" {
+		return nil, nil
+	}
+	var s storedListing
+	err := tx.QueryRow(ctx, `
+		SELECT id, listing_id, address_key, price, price_kind, listing_status, is_active, missed_sweeps
+		FROM property_listings
+		WHERE address_key = $1 AND is_active
+		  AND NOT (source = $2 AND listing_id = $3)
+		ORDER BY last_seen_at DESC
+		LIMIT 1`,
+		addressKey, excludeSource, excludeListingID).
+		Scan(&s.PK, &s.ListingID, &s.AddressKey, &s.Price, &s.PriceKind, &s.Status, &s.IsActive, &s.MissedSweeps)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
 	return &s, nil
 }
 
@@ -73,14 +105,15 @@ func upsertListing(ctx context.Context, tx pgx.Tx, r RawListing, t CrawlTarget, 
 	var pk int64
 	err := tx.QueryRow(ctx, `
 		INSERT INTO property_listings
-			(source, listing_id, listing_url, region_code, suburb, state_code, postcode,
+			(source, listing_id, address_key, listing_url, region_code, suburb, state_code, postcode,
 			 display_address, latitude, longitude, property_type, bedrooms, bathrooms,
 			 car_spaces, land_size_sqm, price, price_high, price_display, price_kind,
 			 listing_status, is_active, missed_sweeps, first_seen_at, last_seen_at,
 			 last_price_change_at, content_hash, updated_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-			$24, 0, $21, $21, $22, $23, now())
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,
+			$25, 0, $22, $22, $23, $24, now())
 		ON CONFLICT (source, listing_id) DO UPDATE SET
+			address_key = EXCLUDED.address_key,
 			listing_url = EXCLUDED.listing_url, region_code = EXCLUDED.region_code,
 			suburb = EXCLUDED.suburb, state_code = EXCLUDED.state_code, postcode = EXCLUDED.postcode,
 			display_address = EXCLUDED.display_address, latitude = EXCLUDED.latitude,
@@ -93,7 +126,7 @@ func upsertListing(ctx context.Context, tx pgx.Tx, r RawListing, t CrawlTarget, 
 			last_price_change_at = COALESCE(EXCLUDED.last_price_change_at, property_listings.last_price_change_at),
 			content_hash = EXCLUDED.content_hash, updated_at = now()
 		RETURNING id`,
-		r.Source, r.ListingID, r.ListingURL, t.regionCode(), r.Suburb, r.State, r.Postcode,
+		r.Source, r.ListingID, r.AddressKey, r.ListingURL, t.regionCode(), r.Suburb, r.State, r.Postcode,
 		r.DisplayAddr, r.Lat, r.Lng, r.PropertyType, r.Bedrooms, r.Bathrooms,
 		r.CarSpaces, r.LandSizeSqm, price, r.PriceHigh, r.PriceDisplay, r.PriceKind,
 		r.Status, runTs, lastPriceChange, listingContentHash(r), statusActive(r.Status)).Scan(&pk)
@@ -112,12 +145,12 @@ func statusActive(status string) bool {
 func insertPriceEvent(ctx context.Context, tx pgx.Tx, ev priceEvent) error {
 	_, err := tx.Exec(ctx, `
 		INSERT INTO property_price_events
-			(listing_pk, source, listing_id, region_code, observed_at, event_type,
+			(listing_pk, source, listing_id, region_code, address_key, observed_at, event_type,
 			 price, price_high, price_display, price_kind, prev_price, drop_abs, drop_pct,
 			 listing_status, prev_status)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
 		ON CONFLICT (listing_pk, event_type, observed_at) DO NOTHING`,
-		ev.ListingPK, ev.Source, ev.ListingID, ev.RegionCode, ev.ObservedAt, ev.EventType,
+		ev.ListingPK, ev.Source, ev.ListingID, ev.RegionCode, ev.AddressKey, ev.ObservedAt, ev.EventType,
 		ev.Price, ev.PriceHigh, ev.PriceDisplay, ev.PriceKind, ev.PrevPrice, ev.DropAbs, ev.DropPct,
 		ev.Status, ev.PrevStatus)
 	return err
@@ -127,7 +160,7 @@ func insertPriceEvent(ctx context.Context, tx pgx.Tx, ev priceEvent) error {
 // region) — the candidate set for absence/delist detection.
 func activeListingsForRegion(ctx context.Context, tx pgx.Tx, source, regionCode string) ([]storedListing, error) {
 	rows, err := tx.Query(ctx, `
-		SELECT id, listing_id, listing_status, missed_sweeps
+		SELECT id, listing_id, address_key, listing_status, missed_sweeps
 		FROM property_listings
 		WHERE source = $1 AND region_code = $2 AND is_active`,
 		source, regionCode)
@@ -138,7 +171,7 @@ func activeListingsForRegion(ctx context.Context, tx pgx.Tx, source, regionCode 
 	var out []storedListing
 	for rows.Next() {
 		var s storedListing
-		if err := rows.Scan(&s.PK, &s.ListingID, &s.Status, &s.MissedSweeps); err != nil {
+		if err := rows.Scan(&s.PK, &s.ListingID, &s.AddressKey, &s.Status, &s.MissedSweeps); err != nil {
 			return nil, err
 		}
 		s.IsActive = true
