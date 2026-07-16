@@ -113,6 +113,65 @@ scopes is a drop-in. Mint via `POST /api/v1/ml/auth/tokens`
 `ML_TOKEN_MINT_SECRET` on the brandbrain env), or bridge with the 24h
 `POST /api/v1/agent/refresh`.
 
+## Seamless auto-drainer (launchd) — hands-off corpus growth
+
+The queue steps above (`-mode enqueue` then `-mode agent`) are wrapped into ONE
+self-healing, scheduled job so nobody has to run anything per-crawl:
+
+- `run-housing-agent.sh` — reuses the standalone runner's self-healing Chrome warm
+  (auto-launch dedicated Chrome + prove REA's Kasada clearance via `-mode
+  warmcheck`), then runs `-mode enqueue` (post the catalog — idempotent) and
+  `-mode agent` (claim → warm-Chrome crawl → write listings to prod → submit
+  counts). `CRAWL_SKIP_ENQUEUE=true` drains leftover work only.
+- `com.shorted.housing-agent.plist.template` — launchd schedule (twice daily by
+  default; adjust freely, every run is idempotent).
+
+Install on any residential Mac that has the dedicated crawl Chrome + a signed-in
+BrandBrain macOS agent (for token auto-refresh):
+
+```bash
+cd services/house-price-collector/deploy
+REPO="$(cd ../../.. && pwd)"
+sed -e "s#__REPO__#$REPO#g" -e "s#__HOME__#$HOME#g" \
+  com.shorted.housing-agent.plist.template \
+  > "$HOME/Library/LaunchAgents/com.shorted.housing-agent.plist"
+launchctl unload "$HOME/Library/LaunchAgents/com.shorted.housing-agent.plist" 2>/dev/null
+launchctl load  "$HOME/Library/LaunchAgents/com.shorted.housing-agent.plist"
+# Kick one now:
+launchctl start com.shorted.housing-agent
+```
+
+**One-time credential**: `run-housing-agent.sh` requires `DATABASE_URL` (prod
+Supabase, transaction pooler 6543) in `~/.shorted-housing-crawl.env` so the
+drainer can write listings. This is the ONLY per-machine secret; provision it
+once and the corpus grows on the schedule. (The brandbrain token auto-refreshes
+off the co-located macOS agent — no token to mint.) Rig ready-check:
+`~/bin/house-price-collector -mode warmcheck` should exit 0.
+
+## Optional: trigger a crawl from a shorted admin endpoint (design)
+
+The launchd drainer above already grows the corpus hands-off on its schedule.
+An admin UI **trigger** (so an operator can kick an immediate/targeted crawl from
+shorted.com.au rather than waiting for the next scheduled run) is a thin layer on
+top — deferred, not yet built. The seam is the queue, so the endpoint's only job
+is to ENQUEUE; the scheduled Mac drainer picks the work up on its next tick (or
+immediately if you also `launchctl start`).
+
+Sketch (needs sign-off on auth + where the catalog lives before building):
+- `POST /api/admin/housing/crawl` — Next.js admin route, gated by the existing
+  shorted admin auth. Body: `{ suburbs?: [...], all?: true }`.
+- It POSTs enqueue requests to `${BRANDBRAIN_AGENT_URL}/api/v1/agent/crawl-jobs`
+  with `Authorization: Bearer ${BRANDBRAIN_AGENT_TOKEN}`. **shorted has no
+  brandbrain integration today**, so this adds a new server-side dependency +
+  secret (a brandbrain `agent:crawl`-scoped token in shorted's env).
+- Catalog source: either (a) accept the suburb list in the request body (a UI
+  sends the picked suburbs), or (b) share `crawl_targets.go` → a committed JSON
+  both the collector and the endpoint read, to avoid duplicating the 115-suburb
+  list. Prefer (b).
+
+Until then, "trigger a crawl" = `launchctl start com.shorted.housing-agent` on the
+rig (or wait for the schedule).
+
 ## Smart pagination
 
 The per-suburb sweep (`sweepSuburbSource`) sizes and stops itself instead of
