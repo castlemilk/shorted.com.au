@@ -109,9 +109,9 @@ func upsertListing(ctx context.Context, tx pgx.Tx, r RawListing, t CrawlTarget, 
 			 display_address, latitude, longitude, property_type, bedrooms, bathrooms,
 			 car_spaces, land_size_sqm, price, price_high, price_display, price_kind,
 			 listing_status, is_active, missed_sweeps, first_seen_at, last_seen_at,
-			 last_price_change_at, content_hash, updated_at)
+			 last_price_change_at, content_hash, agency_id, agency_name, agent_names, updated_at)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,
-			$25, 0, $22, $22, $23, $24, now())
+			$25, 0, $22, $22, $23, $24, $26, $27, $28, now())
 		ON CONFLICT (source, listing_id) DO UPDATE SET
 			address_key = EXCLUDED.address_key,
 			listing_url = EXCLUDED.listing_url, region_code = EXCLUDED.region_code,
@@ -124,12 +124,20 @@ func upsertListing(ctx context.Context, tx pgx.Tx, r RawListing, t CrawlTarget, 
 			listing_status = EXCLUDED.listing_status, is_active = EXCLUDED.is_active, missed_sweeps = 0,
 			last_seen_at = EXCLUDED.last_seen_at,
 			last_price_change_at = COALESCE(EXCLUDED.last_price_change_at, property_listings.last_price_change_at),
-			content_hash = EXCLUDED.content_hash, updated_at = now()
+			content_hash = EXCLUDED.content_hash,
+			-- keep the last non-empty agency/agents (a later sweep that omitted them
+			-- shouldn't wipe a good value)
+			agency_id = COALESCE(NULLIF(EXCLUDED.agency_id, ''), property_listings.agency_id),
+			agency_name = COALESCE(NULLIF(EXCLUDED.agency_name, ''), property_listings.agency_name),
+			agent_names = CASE WHEN COALESCE(array_length(EXCLUDED.agent_names, 1), 0) > 0
+			                   THEN EXCLUDED.agent_names ELSE property_listings.agent_names END,
+			updated_at = now()
 		RETURNING id`,
 		r.Source, r.ListingID, r.AddressKey, r.ListingURL, t.regionCode(), r.Suburb, r.State, r.Postcode,
 		r.DisplayAddr, r.Lat, r.Lng, r.PropertyType, r.Bedrooms, r.Bathrooms,
 		r.CarSpaces, r.LandSizeSqm, price, r.PriceHigh, r.PriceDisplay, r.PriceKind,
-		r.Status, runTs, lastPriceChange, listingContentHash(r), statusActive(r.Status)).Scan(&pk)
+		r.Status, runTs, lastPriceChange, listingContentHash(r), statusActive(r.Status),
+		r.AgencyID, r.AgencyName, r.AgentNames).Scan(&pk)
 	return pk, err
 }
 

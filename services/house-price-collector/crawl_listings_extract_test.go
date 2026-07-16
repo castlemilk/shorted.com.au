@@ -112,3 +112,29 @@ func TestExtractPageMeta_TotalPagesFallsBackToCeil(t *testing.T) {
 		t.Errorf("TotalPages = %d, want 3 (ceil(63/25))", m.TotalPages)
 	}
 }
+
+// TestHarvestListing_AgencyAndAgents verifies the agency (listingCompany) + agent
+// (listers) fields are pulled from the same REA search-results listing object.
+func TestHarvestListing_AgencyAndAgents(t *testing.T) {
+	lm := map[string]any{
+		"id":             "151008144",
+		"price":          map[string]any{"display": "$2,310,000"},
+		"address":        map[string]any{"display": map[string]any{"fulladdress": "67 Alma Street, Paddington, Qld 4064"}},
+		"listingcompany": map[string]any{"id": "PRDPAD", "name": "Place - Paddington"},
+		"listers": []any{
+			map[string]any{"name": "Tim Douglas"},
+			map[string]any{"name": "Jane Smith"},
+			map[string]any{"name": "Tim Douglas"}, // dup — must be deduped
+		},
+	}
+	l, ok := harvestListing(lm, "rea")
+	if !ok {
+		t.Fatal("expected listing to harvest")
+	}
+	if l.AgencyID != "PRDPAD" || l.AgencyName != "Place - Paddington" {
+		t.Fatalf("agency not extracted: id=%q name=%q", l.AgencyID, l.AgencyName)
+	}
+	if len(l.AgentNames) != 2 || l.AgentNames[0] != "Tim Douglas" || l.AgentNames[1] != "Jane Smith" {
+		t.Fatalf("agents not extracted/deduped: %v", l.AgentNames)
+	}
+}

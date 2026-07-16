@@ -46,6 +46,12 @@ type RawListing struct {
 	PriceHigh    *float64
 	PriceKind    string
 	Status       string // normalized: for_sale|under_offer|sold|withdrawn
+	// Marketing agency + agents, harvested from the same search-results blob
+	// (REA listingCompany + listers; Domain advertiser/agencyProfile +
+	// contactAgents). Best-effort — empty when the portal omits them.
+	AgencyID   string
+	AgencyName string
+	AgentNames []string
 }
 
 // extractListings walks every <script> JSON blob and returns the deduped
@@ -355,7 +361,45 @@ func harvestListing(lm map[string]any, source string) (RawListing, bool) {
 		l.Status = "sold"
 	}
 
+	// Marketing agency + agents — REA's listingCompany {id,name} + listers[{name}];
+	// Domain's advertiser/agencyProfile + contactAgents. All best-effort.
+	if lc := childMap(lm, "listingcompany", "agency", "advertiser", "agencyprofile", "marketingagent"); lc != nil {
+		l.AgencyID = getStr(lc, "id", "agencyid", "advertiserid", "profileid")
+		l.AgencyName = getStr(lc, "name", "agencyname", "companyname", "tradingname", "displayname")
+	}
+	l.AgentNames = harvestAgentNames(lm)
+
 	return l, true
+}
+
+// harvestAgentNames pulls listing agent display names from the first present of
+// the known array fields (REA "listers", Domain "contactAgents"/"agents"). Each
+// element is a map with a name field; blanks/dups are dropped. Returns nil when
+// no agents are present.
+func harvestAgentNames(lm map[string]any) []string {
+	for _, key := range []string{"listers", "contactagents", "agents", "agent", "advertiserlisters"} {
+		arr, ok := lm[key].([]any)
+		if !ok {
+			continue
+		}
+		var names []string
+		seen := map[string]bool{}
+		for _, a := range arr {
+			am, ok := a.(map[string]any)
+			if !ok {
+				continue
+			}
+			n := getStr(lowerKeys(am), "name", "fullname", "agentname", "displayname")
+			if n != "" && !seen[n] {
+				seen[n] = true
+				names = append(names, n)
+			}
+		}
+		if len(names) > 0 {
+			return names
+		}
+	}
+	return nil
 }
 
 // tagsContainSold reports whether a listing's "tags" value marks it sold. Domain
