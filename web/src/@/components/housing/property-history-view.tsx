@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getPropertyHistoryClient } from "~/app/actions/client/getHousingClient";
 import type { PropertyPriceEvent } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
+import { ArticleSeriesChart, type SeriesPoint } from "@/components/news/mdx/article-series-chart";
 import { HousingIcon } from "./housing-icon";
 
 export interface PropertyHistoryViewProps {
@@ -125,8 +126,47 @@ export function PropertyHistoryView({ addressKey }: PropertyHistoryViewProps) {
         totalChangePct={totalChangePct}
       />
 
+      <PriceTrendChart events={events} />
+
       <PriceTimeline events={events} />
     </div>
+  );
+}
+
+/**
+ * Asking-price-over-time chart across every listing/relist at this address.
+ * Renders only when there are ≥2 distinct priced observations (a single point
+ * has no trend to draw); otherwise the text timeline below carries the story.
+ * Points are the priced events, ordered ascending; duplicate same-timestamp
+ * observations collapse to the last one so the line is monotonic in time.
+ */
+function PriceTrendChart({ events }: { events: PropertyPriceEvent[] }) {
+  const byTime = new Map<number, number>();
+  for (const e of events) {
+    if (e.price <= 0 || !e.observedAt) continue;
+    const t = new Date(e.observedAt).getTime();
+    if (Number.isNaN(t)) continue;
+    byTime.set(t, e.price); // last write wins for a given instant
+  }
+  const points: SeriesPoint[] = Array.from(byTime.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([t, value]) => ({ date: new Date(t), value }));
+
+  if (points.length < 2) return null;
+
+  return (
+    <section className="rounded-xl border border-border bg-card p-5">
+      <h2 className="mb-3 flex items-center gap-2 font-serif text-lg text-foreground">
+        <HousingIcon name="median-price" size={20} /> Asking price over time
+      </h2>
+      <ArticleSeriesChart
+        points={points}
+        ariaLabel="Asking price at this address over time"
+        formatValue={fmtPriceShort}
+        height={220}
+        gradientId="property-price-trend"
+      />
+    </section>
   );
 }
 
