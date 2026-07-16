@@ -49,15 +49,33 @@ export async function hasEnrichedData(stockCode: string): Promise<boolean> {
   }
 }
 
+// getStockDetails serves TWO timestamp shapes: proto Timestamp objects
+// ({seconds: bigint, nanos}) from the connect client, and RFC3339 STRINGS
+// from the edge-read proto-JSON path. The old object-only math produced
+// Number(undefined)*1000 = NaN for strings, and new Date(NaN).toISOString()
+// throws RangeError — which the caller's catch turned into a silently
+// missing enriched section on every edge-read render (and, under ISR,
+// pinned that degraded HTML for the page TTL).
+function toIsoDate(
+  ts: StockDetails["enrichmentDate"] | string | undefined,
+): string | null {
+  if (!ts) return null;
+  if (typeof ts === "string") {
+    const d = new Date(ts);
+    return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  }
+  if (typeof ts === "object" && "seconds" in ts) {
+    const ms =
+      Number(ts.seconds) * 1000 + Math.floor((ts.nanos ?? 0) / 1_000_000);
+    return Number.isFinite(ms) && ms > 0 ? new Date(ms).toISOString() : null;
+  }
+  return null;
+}
+
 function mapStockDetailsToMetadata(
   details: StockDetails,
 ): EnrichedCompanyMetadata {
-  const enrichmentDate = details.enrichmentDate
-    ? new Date(
-        Number(details.enrichmentDate.seconds) * 1000 +
-          details.enrichmentDate.nanos / 1_000_000,
-      ).toISOString()
-    : null;
+  const enrichmentDate = toIsoDate(details.enrichmentDate);
 
   return {
     stock_code: details.productCode,
