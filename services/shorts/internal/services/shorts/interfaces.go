@@ -122,7 +122,7 @@ type ShortsStore interface {
 	ListSuburbPriceDrops(stateCode, sort string, limit int32) ([]*shortsstore.SuburbPriceDropRow, error)
 	ListSuburbDropListings(salCode, regionCode string, windowDays, limit int32) ([]*shortsstore.SuburbDropListingRow, error)
 	GetPropertyHistory(addressKey string) (*shortsstore.PropertyHistoryResult, error)
-	ListAddressPriceDrops(stateCode string, windowDays, limit int32) ([]*shortsstore.AddressPriceDropRow, error)
+	ListAddressPriceDrops(stateCode, sort string, windowDays, limit int32) ([]*shortsstore.AddressPriceDropRow, error)
 
 	// Event timeline methods
 	GetEventTimeline(stockCode string, daysBack, limit int32) ([]*shortsstore.TimelineEventRow, error)
@@ -169,7 +169,7 @@ type Cache interface {
 	GetSuburbPriceDropsKey(stateCode, sort string, limit int32) string
 	GetSuburbDropListingsKey(salCode, regionCode string, windowDays, limit int32) string
 	GetPropertyHistoryKey(addressKey string) string
-	GetAddressPriceDropsKey(stateCode string, windowDays, limit int32) string
+	GetAddressPriceDropsKey(stateCode, sort string, windowDays, limit int32) string
 	GetEventTimelineKey(stockCode string, daysBack, limit int32) string
 	GetDirectorTradesKey(stockCode string, limit int32) string
 	GetDividendHistoryKey(stockCode string, years int32) string

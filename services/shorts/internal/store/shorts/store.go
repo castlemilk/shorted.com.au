@@ -186,7 +186,7 @@ type Store interface {
 	ListSuburbPriceDrops(stateCode, sort string, limit int32) ([]*SuburbPriceDropRow, error)
 	ListSuburbDropListings(salCode, regionCode string, windowDays, limit int32) ([]*SuburbDropListingRow, error)
 	GetPropertyHistory(addressKey string) (*PropertyHistoryResult, error)
-	ListAddressPriceDrops(stateCode string, windowDays, limit int32) ([]*AddressPriceDropRow, error)
+	ListAddressPriceDrops(stateCode, sort string, windowDays, limit int32) ([]*AddressPriceDropRow, error)
 
 	// Event timeline methods
 	GetEventTimeline(stockCode string, daysBack, limit int32) ([]*TimelineEventRow, error)

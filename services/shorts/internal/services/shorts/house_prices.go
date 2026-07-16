@@ -430,9 +430,9 @@ func (s *ShortsServer) ListAddressPriceDrops(ctx context.Context, req *connect.R
 	if !dropListingsEnabled() {
 		return connect.NewResponse(&shortsv1alpha1.ListAddressPriceDropsResponse{}), nil
 	}
-	cacheKey := s.cache.GetAddressPriceDropsKey(m.StateCode, m.WindowDays, m.Limit)
+	cacheKey := s.cache.GetAddressPriceDropsKey(m.StateCode, m.Sort, m.WindowDays, m.Limit)
 	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
-		rows, err := s.store.ListAddressPriceDrops(m.StateCode, m.WindowDays, m.Limit)
+		rows, err := s.store.ListAddressPriceDrops(m.StateCode, m.Sort, m.WindowDays, m.Limit)
 		if err != nil {
 			return nil, err
 		}

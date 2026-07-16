@@ -2396,6 +2396,7 @@ message ListAddressPriceDropsRequest {
   string state_code = 1;   // optional filter, e.g. 'VIC' (empty = all states)
   int32  window_days = 2;  // optional; default 90
   int32  limit = 3;        // optional; default 50
+  string sort = 4;         // 'pct' (default) | 'abs' (biggest $ cut) | 'recent'
 }
 
 // One physical address (deduped by stable address_key) whose for-sale asking

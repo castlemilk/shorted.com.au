@@ -13831,6 +13831,7 @@ type ListAddressPriceDropsRequest struct {
 	StateCode     string                 `protobuf:"bytes,1,opt,name=state_code,json=stateCode,proto3" json:"state_code,omitempty"`     // optional filter, e.g. 'VIC' (empty = all states)
 	WindowDays    int32                  `protobuf:"varint,2,opt,name=window_days,json=windowDays,proto3" json:"window_days,omitempty"` // optional; default 90
 	Limit         int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`                             // optional; default 50
+	Sort          string                 `protobuf:"bytes,4,opt,name=sort,proto3" json:"sort,omitempty"`                                // 'pct' (default) | 'abs' (biggest $ cut) | 'recent'
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -13884,6 +13885,13 @@ func (x *ListAddressPriceDropsRequest) GetLimit() int32 {
 		return x.Limit
 	}
 	return 0
+}
+
+func (x *ListAddressPriceDropsRequest) GetSort() string {
+	if x != nil {
+		return x.Sort
+	}
+	return ""
 }
 
 // One physical address (deduped by stable address_key) whose for-sale asking
@@ -15351,13 +15359,14 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"firstPrice\x12#\n" +
 	"\rcurrent_price\x18\n" +
 	" \x01(\x01R\fcurrentPrice\x12-\n" +
-	"\x12distinct_dwellings\x18\v \x01(\x05R\x11distinctDwellings\"t\n" +
+	"\x12distinct_dwellings\x18\v \x01(\x05R\x11distinctDwellings\"\x88\x01\n" +
 	"\x1cListAddressPriceDropsRequest\x12\x1d\n" +
 	"\n" +
 	"state_code\x18\x01 \x01(\tR\tstateCode\x12\x1f\n" +
 	"\vwindow_days\x18\x02 \x01(\x05R\n" +
 	"windowDays\x12\x14\n" +
-	"\x05limit\x18\x03 \x01(\x05R\x05limit\"\xaa\x04\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\x12\x12\n" +
+	"\x04sort\x18\x04 \x01(\tR\x04sort\"\xaa\x04\n" +
 	"\x10AddressPriceDrop\x12\x1f\n" +
 	"\vaddress_key\x18\x01 \x01(\tR\n" +
 	"addressKey\x12'\n" +
