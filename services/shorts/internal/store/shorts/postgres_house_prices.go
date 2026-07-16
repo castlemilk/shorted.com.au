@@ -649,6 +649,7 @@ type SuburbDropListingRow struct {
 	DropPct        float64
 	DropAbs        float64
 	ObservedAt     time.Time
+	AddressKey     string
 }
 
 // ListSuburbDropListings returns the latest price-drop per active listing in a
@@ -670,7 +671,7 @@ func (s *postgresStore) ListSuburbDropListings(salCode, regionCode string, windo
 	const query = `
 		SELECT t.source, t.listing_url, t.display_address, t.property_type,
 		       t.bedrooms, t.bathrooms, t.car_spaces,
-		       t.prev_price, t.price, t.drop_pct, t.drop_abs, t.observed_at
+		       t.prev_price, t.price, t.drop_pct, t.drop_abs, t.observed_at, t.address_key
 		FROM (
 			SELECT DISTINCT ON (e.listing_pk)
 			       pl.source, pl.listing_url,
@@ -683,7 +684,7 @@ func (s *postgresStore) ListSuburbDropListings(salCode, regionCode string, windo
 			       COALESCE(e.price, 0)             AS price,
 			       COALESCE(e.drop_pct, 0)          AS drop_pct,
 			       COALESCE(e.drop_abs, 0)          AS drop_abs,
-			       e.observed_at, e.listing_pk
+			       e.observed_at, e.listing_pk, COALESCE(pl.address_key, '') AS address_key
 			FROM property_price_events e
 			JOIN property_listings pl ON pl.id = e.listing_pk
 			JOIN house_price_regions r ON r.region_code = e.region_code
@@ -710,7 +711,7 @@ func (s *postgresStore) ListSuburbDropListings(salCode, regionCode string, windo
 		var l SuburbDropListingRow
 		if err := rows.Scan(&l.Source, &l.ListingURL, &l.DisplayAddress, &l.PropertyType,
 			&l.Bedrooms, &l.Bathrooms, &l.CarSpaces, &l.PrevPrice, &l.Price,
-			&l.DropPct, &l.DropAbs, &l.ObservedAt); err != nil {
+			&l.DropPct, &l.DropAbs, &l.ObservedAt, &l.AddressKey); err != nil {
 			return nil, err
 		}
 		out = append(out, &l)
@@ -772,6 +773,10 @@ type PropertyHistoryResult struct {
 	NumListings    int32
 	FirstPrice     float64
 	CurrentPrice   float64
+	// DistinctDwellings counts distinct bed/bath/property_type profiles under
+	// this address_key. >1 flags a likely multi-unit over-collapse (portal
+	// omitted the unit number), so the UI can warn the timeline may blend units.
+	DistinctDwellings int32
 }
 
 // GetPropertyHistory returns the full asking-price timeline for a single
@@ -845,22 +850,163 @@ func (s *postgresStore) GetPropertyHistory(addressKey string) (*PropertyHistoryR
 		return nil, err
 	}
 
-	const countQuery = `SELECT COUNT(DISTINCT source || ':' || listing_id) FROM property_listings WHERE address_key = $1`
-	var numListings int32
-	if err := s.db.QueryRow(ctx, countQuery, addressKey).Scan(&numListings); err != nil {
+	// num_listings = distinct portal adverts at this address. distinct_dwellings =
+	// distinct KNOWN bedroom counts (a multi-unit over-collapse signal). We count
+	// bedrooms only — not raw bed/bath/property_type tuples — and exclude
+	// NULL/0 (unextracted) counts, so cross-portal label noise (REA 'House' vs
+	// Domain '' / a sweep that missed property_type or bathrooms) does NOT falsely
+	// read as separate dwellings. A genuine multi-unit over-collapse (studio vs
+	// penthouse) still differs in bedroom count and trips the >1 warning.
+	const countQuery = `
+		SELECT COUNT(DISTINCT source || ':' || listing_id),
+		       COUNT(DISTINCT bedrooms) FILTER (WHERE bedrooms IS NOT NULL AND bedrooms > 0)
+		FROM property_listings WHERE address_key = $1`
+	var numListings, distinctDwellings int32
+	if err := s.db.QueryRow(ctx, countQuery, addressKey).Scan(&numListings, &distinctDwellings); err != nil {
 		return nil, err
 	}
 
 	return &PropertyHistoryResult{
-		AddressKey:     addressKey,
-		DisplayAddress: cur.DisplayAddress,
-		Suburb:         cur.Suburb,
-		StateCode:      cur.StateCode,
-		Postcode:       cur.Postcode,
-		Current:        &cur,
-		Events:         events,
-		NumListings:    numListings,
-		FirstPrice:     firstPrice,
-		CurrentPrice:   cur.Price,
+		AddressKey:        addressKey,
+		DisplayAddress:    cur.DisplayAddress,
+		Suburb:            cur.Suburb,
+		StateCode:         cur.StateCode,
+		Postcode:          cur.Postcode,
+		Current:           &cur,
+		Events:            events,
+		NumListings:       numListings,
+		FirstPrice:        firstPrice,
+		CurrentPrice:      cur.Price,
+		DistinctDwellings: distinctDwellings,
 	}, nil
+}
+
+// AddressPriceDropRow is one physical address (deduped by address_key) whose
+// for-sale asking price fell over the window, for the drops-by-address board.
+type AddressPriceDropRow struct {
+	AddressKey       string
+	DisplayAddress   string
+	Suburb           string
+	StateCode        string
+	Postcode         string
+	FirstPrice       float64
+	CurrentPrice     float64
+	DropAbs          float64
+	DropPct          float64
+	NumListings      int32
+	LatestSource     string
+	LatestListingURL string
+	LastObservedAt   time.Time
+	PropertyType     string
+	Bedrooms         int32
+	Bathrooms        int32
+}
+
+// ListAddressPriceDrops ranks individual physical addresses (deduped by the
+// stable address_key) by their asking-price reduction over the last windowDays:
+// from the earliest priced observation IN the window (first_price) to the
+// current active listing's ask (current_price). It reads the raw
+// (proprietary-tos-restricted) listing rows — this is the flag-gated board; the
+// handler enforces the feature flag (same posture as ListSuburbDropListings).
+// Rows with an empty address_key, no priced observation, a non-positive current
+// ask, a dead deep-link, or a stale/inactive current listing are excluded; only
+// real drops (>= 3%) are returned, biggest percentage drop first.
+func (s *postgresStore) ListAddressPriceDrops(stateCode string, windowDays, limit int32) ([]*AddressPriceDropRow, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if windowDays <= 0 || windowDays > 365 {
+		windowDays = 90
+	}
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+
+	// cur  = the current (most-recent active, priced, live-URL) listing per address.
+	// firstp = earliest positive price observed within the window per address.
+	// nlist  = distinct portal adverts per address.
+	const query = `
+		WITH cur AS (
+			SELECT DISTINCT ON (pl.address_key)
+			       pl.address_key,
+			       COALESCE(pl.display_address, '') AS display_address,
+			       COALESCE(pl.suburb, '')          AS suburb,
+			       COALESCE(pl.state_code, '')      AS state_code,
+			       COALESCE(pl.postcode, '')        AS postcode,
+			       COALESCE(pl.price, 0)            AS current_price,
+			       pl.source                        AS latest_source,
+			       COALESCE(pl.listing_url, '')     AS latest_listing_url,
+			       pl.last_seen_at                  AS last_observed_at,
+			       COALESCE(pl.property_type, '')   AS property_type,
+			       COALESCE(pl.bedrooms, 0)         AS bedrooms,
+			       COALESCE(pl.bathrooms, 0)        AS bathrooms
+			FROM property_listings pl
+			WHERE pl.address_key <> ''
+			  AND pl.is_active
+			  AND pl.last_seen_at >= now() - interval '21 days'
+			  AND pl.listing_url <> ''
+			  AND COALESCE(pl.price, 0) > 0
+			  AND ($1 = '' OR UPPER(pl.state_code) = UPPER($1))
+			ORDER BY pl.address_key, pl.is_active DESC, pl.last_seen_at DESC, pl.price DESC, pl.id DESC
+		),
+		firstp AS (
+			-- first_price is scoped to the CURRENT dwelling: only events whose
+			-- listing has the same bedroom count as cur (bedrooms is reliably
+			-- extracted on both portals, unlike property_type). This stops a
+			-- multi-unit over-collapse (one address_key, several units the portal
+			-- listed without a unit number) from feeding another unit's price in
+			-- as the "first" ask — which would otherwise fabricate a huge cross-
+			-- unit drop and rank it #1. When cur's bedroom count is unknown (0),
+			-- fall back to address-wide (best effort). Relists of the SAME
+			-- dwelling (new listing_id, same beds) are still unified.
+			SELECT c.address_key,
+			       (ARRAY_AGG(e.price ORDER BY e.observed_at ASC, e.id ASC)
+			          FILTER (WHERE e.price > 0))[1] AS first_price
+			FROM cur c
+			JOIN property_price_events e ON e.address_key = c.address_key
+			JOIN property_listings epl ON epl.id = e.listing_pk
+			WHERE e.observed_at >= now() - make_interval(days => $2)
+			  AND (c.bedrooms = 0 OR COALESCE(epl.bedrooms, 0) = c.bedrooms)
+			GROUP BY c.address_key
+		),
+		nlist AS (
+			SELECT address_key, COUNT(DISTINCT source || ':' || listing_id) AS num_listings
+			FROM property_listings
+			WHERE address_key <> ''
+			GROUP BY address_key
+		)
+		SELECT c.address_key, c.display_address, c.suburb, c.state_code, c.postcode,
+		       f.first_price, c.current_price,
+		       (f.first_price - c.current_price)                  AS drop_abs,
+		       (f.first_price - c.current_price) / f.first_price  AS drop_pct,
+		       COALESCE(n.num_listings, 1)                        AS num_listings,
+		       c.latest_source, c.latest_listing_url, c.last_observed_at,
+		       c.property_type, c.bedrooms, c.bathrooms
+		FROM cur c
+		JOIN firstp f ON f.address_key = c.address_key
+		LEFT JOIN nlist n ON n.address_key = c.address_key
+		WHERE f.first_price > 0
+		  AND f.first_price > c.current_price
+		  AND (f.first_price - c.current_price) / f.first_price >= 0.03
+		ORDER BY drop_pct DESC, drop_abs DESC
+		LIMIT $3`
+
+	rows, err := s.db.Query(ctx, query, stateCode, windowDays, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*AddressPriceDropRow
+	for rows.Next() {
+		var r AddressPriceDropRow
+		if err := rows.Scan(&r.AddressKey, &r.DisplayAddress, &r.Suburb, &r.StateCode, &r.Postcode,
+			&r.FirstPrice, &r.CurrentPrice, &r.DropAbs, &r.DropPct, &r.NumListings,
+			&r.LatestSource, &r.LatestListingURL, &r.LastObservedAt,
+			&r.PropertyType, &r.Bedrooms, &r.Bathrooms); err != nil {
+			return nil, err
+		}
+		out = append(out, &r)
+	}
+	return out, rows.Err()
 }

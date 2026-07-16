@@ -347,6 +347,7 @@ func (s *ShortsServer) ListSuburbDropListings(ctx context.Context, req *connect.
 				PropertyType: r.PropertyType, Bedrooms: r.Bedrooms, Bathrooms: r.Bathrooms,
 				CarSpaces: r.CarSpaces, PrevPrice: r.PrevPrice, Price: r.Price,
 				DropPct: r.DropPct, DropAbs: r.DropAbs, ObservedAt: timestamppb.New(r.ObservedAt),
+				AddressKey: r.AddressKey,
 			})
 		}
 		return &shortsv1alpha1.ListSuburbDropListingsResponse{Listings: out}, nil
@@ -408,6 +409,7 @@ func (s *ShortsServer) GetPropertyHistory(ctx context.Context, req *connect.Requ
 			Suburb: res.Suburb, StateCode: res.StateCode, Postcode: res.Postcode,
 			Current: current, Events: events, NumListings: res.NumListings,
 			FirstPrice: res.FirstPrice, CurrentPrice: res.CurrentPrice,
+			DistinctDwellings: res.DistinctDwellings,
 		}, nil
 	})
 	if err != nil {
@@ -415,4 +417,45 @@ func (s *ShortsServer) GetPropertyHistory(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get property history"))
 	}
 	return connect.NewResponse(cached.(*shortsv1alpha1.GetPropertyHistoryResponse)), nil
+}
+
+// ListAddressPriceDrops ranks individual physical addresses (deduped by
+// address_key) by their asking-price reduction over a window, each deep-linking
+// to its per-address history page. Reads ToS-restricted listing rows — SAME
+// posture as ListSuburbDropListings — so it is flag-gated behind
+// HOUSING_DROP_LISTINGS_ENABLED and returns an empty list (not an error) when the
+// flag is off, so the UI degrades cleanly to the aggregate-only surface.
+func (s *ShortsServer) ListAddressPriceDrops(ctx context.Context, req *connect.Request[shortsv1alpha1.ListAddressPriceDropsRequest]) (*connect.Response[shortsv1alpha1.ListAddressPriceDropsResponse], error) {
+	m := req.Msg
+	if !dropListingsEnabled() {
+		return connect.NewResponse(&shortsv1alpha1.ListAddressPriceDropsResponse{}), nil
+	}
+	cacheKey := s.cache.GetAddressPriceDropsKey(m.StateCode, m.WindowDays, m.Limit)
+	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+		rows, err := s.store.ListAddressPriceDrops(m.StateCode, m.WindowDays, m.Limit)
+		if err != nil {
+			return nil, err
+		}
+		out := make([]*shortsv1alpha1.AddressPriceDrop, 0, len(rows))
+		for _, r := range rows {
+			if r == nil {
+				continue
+			}
+			out = append(out, &shortsv1alpha1.AddressPriceDrop{
+				AddressKey: r.AddressKey, DisplayAddress: r.DisplayAddress, Suburb: r.Suburb,
+				StateCode: r.StateCode, Postcode: r.Postcode,
+				FirstPrice: r.FirstPrice, CurrentPrice: r.CurrentPrice,
+				DropAbs: r.DropAbs, DropPct: r.DropPct, NumListings: r.NumListings,
+				LatestSource: r.LatestSource, LatestListingUrl: r.LatestListingURL,
+				LastObservedAt: r.LastObservedAt.Format(time.RFC3339),
+				PropertyType:   r.PropertyType, Bedrooms: r.Bedrooms, Bathrooms: r.Bathrooms,
+			})
+		}
+		return &shortsv1alpha1.ListAddressPriceDropsResponse{Addresses: out}, nil
+	})
+	if err != nil {
+		s.logger.Errorf("database error in ListAddressPriceDrops: %v", err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list address price drops"))
+	}
+	return connect.NewResponse(cached.(*shortsv1alpha1.ListAddressPriceDropsResponse)), nil
 }

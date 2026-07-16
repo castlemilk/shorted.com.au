@@ -687,6 +687,19 @@ service ShortedStocksService {
     };
   }
 
+  // Individual physical addresses ranked by their asking-price drop over a window.
+  rpc ListAddressPriceDrops (ListAddressPriceDropsRequest) returns (ListAddressPriceDropsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (google.api.http) = {
+      post: "/v1/listAddressPriceDrops"
+      body: "*"
+    };
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Address Price Drops",
+      description: "Individual physical addresses (deduped by stable address_key) ranked by their for-sale asking-price reduction over a rolling window — from the first observed price to the current active listing. Each entry deep-links to its per-address history page; factual price-change data only, the listing itself is not reproduced."
+    };
+  }
+
   // ==================== Corporate Tax (Influence layer) ====================
 
   // Get an ASX-listed entity's annual corporate-tax profile (ATO transparency data).
@@ -2308,6 +2321,7 @@ message SuburbDropListing {
   double drop_pct = 10;            // 0..1 fraction
   double drop_abs = 11;            // AUD reduction
   google.protobuf.Timestamp observed_at = 12;  // when the reduction was detected
+  string address_key = 13;         // stable per-address key → /housing/property/[addressKey] (empty until backfilled)
 }
 
 message ListSuburbDropListingsResponse {
@@ -2368,4 +2382,43 @@ message GetPropertyHistoryResponse {
   int32 num_listings = 8;                 // distinct source+listing_id at this address
   double first_price = 9;
   double current_price = 10;
+  // Distinct KNOWN bedroom counts seen under this address_key (NULL/0 excluded).
+  // >1 means the portal likely listed multiple differently-sized units of one
+  // building WITHOUT a unit number, so this timeline may blend more than one
+  // physical dwelling. Counting bedrooms (not raw bed/bath/type tuples) keeps
+  // cross-portal label noise from falsely flagging a single dwelling. A search-
+  // results crawl cannot recover the missing unit number, so the view warns
+  // instead of silently merging. See docs/housing-architecture.md.
+  int32 distinct_dwellings = 11;
+}
+
+message ListAddressPriceDropsRequest {
+  string state_code = 1;   // optional filter, e.g. 'VIC' (empty = all states)
+  int32  window_days = 2;  // optional; default 90
+  int32  limit = 3;        // optional; default 50
+}
+
+// One physical address (deduped by stable address_key) whose for-sale asking
+// price fell over the window, deep-linking to its per-address history page.
+message AddressPriceDrop {
+  string address_key = 1;
+  string display_address = 2;
+  string suburb = 3;
+  string state_code = 4;
+  string postcode = 5;
+  double first_price = 6;         // earliest observed price in the window, AUD
+  double current_price = 7;       // current active asking, AUD
+  double drop_abs = 8;            // first_price - current_price, AUD
+  double drop_pct = 9;            // fraction (0.062 == a 6.2% drop)
+  int32  num_listings = 10;       // distinct source+listing_id at this address
+  string latest_source = 11;      // 'rea' | 'domain'
+  string latest_listing_url = 12; // deep link to the live portal listing
+  string last_observed_at = 13;   // RFC3339, when the current listing was last seen
+  string property_type = 14;
+  int32  bedrooms = 15;
+  int32  bathrooms = 16;
+}
+
+message ListAddressPriceDropsResponse {
+  repeated AddressPriceDrop addresses = 1;
 }

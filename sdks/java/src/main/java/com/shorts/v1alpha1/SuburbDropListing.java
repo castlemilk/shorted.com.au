@@ -36,6 +36,7 @@ private static final long serialVersionUID = 0L;
     listingUrl_ = "";
     displayAddress_ = "";
     propertyType_ = "";
+    addressKey_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -360,6 +361,53 @@ private static final long serialVersionUID = 0L;
     return observedAt_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : observedAt_;
   }
 
+  public static final int ADDRESS_KEY_FIELD_NUMBER = 13;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object addressKey_ = "";
+  /**
+   * <pre>
+   * stable per-address key → /housing/property/[addressKey] (empty until backfilled)
+   * </pre>
+   *
+   * <code>string address_key = 13 [json_name = "addressKey"];</code>
+   * @return The addressKey.
+   */
+  @java.lang.Override
+  public java.lang.String getAddressKey() {
+    java.lang.Object ref = addressKey_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      addressKey_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * stable per-address key → /housing/property/[addressKey] (empty until backfilled)
+   * </pre>
+   *
+   * <code>string address_key = 13 [json_name = "addressKey"];</code>
+   * @return The bytes for addressKey.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getAddressKeyBytes() {
+    java.lang.Object ref = addressKey_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      addressKey_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -410,6 +458,9 @@ private static final long serialVersionUID = 0L;
     if (((bitField0_ & 0x00000001) != 0)) {
       output.writeMessage(12, getObservedAt());
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(addressKey_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 13, addressKey_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -457,6 +508,9 @@ private static final long serialVersionUID = 0L;
     if (((bitField0_ & 0x00000001) != 0)) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(12, getObservedAt());
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(addressKey_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(13, addressKey_);
     }
     return size;
   }
@@ -513,6 +567,8 @@ private static final long serialVersionUID = 0L;
       if (!getObservedAt()
           .equals(other.getObservedAt())) return false;
     }
+    if (!getAddressKey()
+        .equals(other.getAddressKey())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -554,6 +610,8 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + OBSERVED_AT_FIELD_NUMBER;
       hash = (53 * hash) + getObservedAt().hashCode();
     }
+    hash = (37 * hash) + ADDRESS_KEY_FIELD_NUMBER;
+    hash = (53 * hash) + getAddressKey().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -711,6 +769,7 @@ private static final long serialVersionUID = 0L;
         observedAtBuilder_.dispose();
         observedAtBuilder_ = null;
       }
+      addressKey_ = "";
       return this;
     }
 
@@ -784,6 +843,9 @@ private static final long serialVersionUID = 0L;
             : observedAtBuilder_.build();
         to_bitField0_ |= 0x00000001;
       }
+      if (((from_bitField0_ & 0x00001000) != 0)) {
+        result.addressKey_ = addressKey_;
+      }
       result.bitField0_ |= to_bitField0_;
     }
 
@@ -842,6 +904,11 @@ private static final long serialVersionUID = 0L;
       }
       if (other.hasObservedAt()) {
         mergeObservedAt(other.getObservedAt());
+      }
+      if (!other.getAddressKey().isEmpty()) {
+        addressKey_ = other.addressKey_;
+        bitField0_ |= 0x00001000;
+        onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -931,6 +998,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000800;
               break;
             } // case 98
+            case 106: {
+              addressKey_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00001000;
+              break;
+            } // case 106
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1703,6 +1775,98 @@ private static final long serialVersionUID = 0L;
         observedAt_ = null;
       }
       return observedAtBuilder_;
+    }
+
+    private java.lang.Object addressKey_ = "";
+    /**
+     * <pre>
+     * stable per-address key → /housing/property/[addressKey] (empty until backfilled)
+     * </pre>
+     *
+     * <code>string address_key = 13 [json_name = "addressKey"];</code>
+     * @return The addressKey.
+     */
+    public java.lang.String getAddressKey() {
+      java.lang.Object ref = addressKey_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        addressKey_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * stable per-address key → /housing/property/[addressKey] (empty until backfilled)
+     * </pre>
+     *
+     * <code>string address_key = 13 [json_name = "addressKey"];</code>
+     * @return The bytes for addressKey.
+     */
+    public com.google.protobuf.ByteString
+        getAddressKeyBytes() {
+      java.lang.Object ref = addressKey_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        addressKey_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * stable per-address key → /housing/property/[addressKey] (empty until backfilled)
+     * </pre>
+     *
+     * <code>string address_key = 13 [json_name = "addressKey"];</code>
+     * @param value The addressKey to set.
+     * @return This builder for chaining.
+     */
+    public Builder setAddressKey(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      addressKey_ = value;
+      bitField0_ |= 0x00001000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * stable per-address key → /housing/property/[addressKey] (empty until backfilled)
+     * </pre>
+     *
+     * <code>string address_key = 13 [json_name = "addressKey"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearAddressKey() {
+      addressKey_ = getDefaultInstance().getAddressKey();
+      bitField0_ = (bitField0_ & ~0x00001000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * stable per-address key → /housing/property/[addressKey] (empty until backfilled)
+     * </pre>
+     *
+     * <code>string address_key = 13 [json_name = "addressKey"];</code>
+     * @param value The bytes for addressKey to set.
+     * @return This builder for chaining.
+     */
+    public Builder setAddressKeyBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      addressKey_ = value;
+      bitField0_ |= 0x00001000;
+      onChanged();
+      return this;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.SuburbDropListing)

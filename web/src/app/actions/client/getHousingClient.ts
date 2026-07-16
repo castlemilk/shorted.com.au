@@ -8,6 +8,7 @@ import {
   type ListHousingRegionsResponse,
   type ListSuburbPriceDropsResponse,
   type ListSuburbDropListingsResponse,
+  type ListAddressPriceDropsResponse,
   type GetPropertyHistoryResponse,
 } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { SHORTS_API_URL } from "../config";
@@ -146,6 +147,27 @@ export async function listSuburbDropListingsClient(
   try {
     const result = await retryWithBackoff(
       () => client.listSuburbDropListings({ salCode, regionCode, windowDays, limit }), RETRY_OPTIONS);
+    setSessionCached(cacheKey, result);
+    return result;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Browser-side per-address price-drop ranking (deep-links to /housing/property/[addressKey]; flag-gated server-side). */
+export async function listAddressPriceDropsClient(
+  stateCode = "",
+  windowDays = 90,
+  limit = 50,
+): Promise<ListAddressPriceDropsResponse | undefined> {
+  const cacheKey = `addressPriceDrops:${stateCode}:${windowDays}:${limit}`;
+  const cached = getSessionCached<ListAddressPriceDropsResponse>(cacheKey);
+  if (cached) return cached;
+  const transport = createConnectTransport({ baseUrl: typeof window !== "undefined" ? "" : SHORTS_API_URL });
+  const client = createClient(ShortedStocksService, transport);
+  try {
+    const result = await retryWithBackoff(
+      () => client.listAddressPriceDrops({ stateCode, windowDays, limit }), RETRY_OPTIONS);
     setSessionCached(cacheKey, result);
     return result;
   } catch {

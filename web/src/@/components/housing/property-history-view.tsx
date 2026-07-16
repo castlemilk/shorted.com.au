@@ -105,6 +105,17 @@ export function PropertyHistoryView({ addressKey }: PropertyHistoryViewProps) {
         </p>
       </header>
 
+      {data.distinctDwellings > 1 ? (
+        <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
+          <HousingIcon name="dwellings" size={16} className="mt-0.5" />
+          <p>
+            This address shows {data.distinctDwellings} different bedroom counts — the portal may have
+            listed multiple units of one building without a unit number, so the timeline below can blend
+            more than one dwelling.
+          </p>
+        </div>
+      ) : null}
+
       <CurrentListingCard listing={current} />
 
       <SummaryStrip

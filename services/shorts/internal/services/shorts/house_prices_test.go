@@ -128,3 +128,101 @@ func TestGetPropertyHistory_FlagEnabled_ReturnsTimeline(t *testing.T) {
 		t.Fatalf("want num_listings/first_price/current_price mapped, got %+v", resp.Msg)
 	}
 }
+
+// TestGetPropertyHistory_SurfacesDistinctDwellings asserts the multi-unit guard:
+// when a single address_key groups >1 dwelling profile (a likely over-collapse of
+// units the portal listed without a unit number), the store's DistinctDwellings
+// count flows through to the response so the view can warn the timeline may blend
+// more than one physical dwelling.
+func TestGetPropertyHistory_SurfacesDistinctDwellings(t *testing.T) {
+	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "true")
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockStore := mocks.NewMockShortsStore(ctrl)
+
+	mockStore.EXPECT().GetPropertyHistory("vic-brighton-1-centre-rd").Return(&shortsstore.PropertyHistoryResult{
+		AddressKey:     "vic-brighton-1-centre-rd",
+		DisplayAddress: "1 Centre Road",
+		Suburb:         "Brighton",
+		StateCode:      "VIC",
+		Postcode:       "3186",
+		Current: &shortsstore.PropertyListingSnapshotRow{
+			Source: "rea", ListingID: "9", ListingURL: "https://realestate.com.au/9",
+			Price: 800000, ListingStatus: "for_sale", IsActive: true, Bedrooms: 2, Bathrooms: 1,
+		},
+		NumListings:       5,
+		DistinctDwellings: 3,
+	}, nil)
+
+	srv := newTestServer(t, mockStore)
+	resp, err := srv.GetPropertyHistory(context.Background(),
+		connect.NewRequest(&shortsv1alpha1.GetPropertyHistoryRequest{AddressKey: "vic-brighton-1-centre-rd"}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Msg.DistinctDwellings != 3 {
+		t.Fatalf("want distinct_dwellings=3 surfaced, got %d", resp.Msg.DistinctDwellings)
+	}
+}
+
+// TestListAddressPriceDrops_FlagGate_ReturnsEmptyWhenDisabled asserts the
+// drops-by-address board reads the SAME ToS-restricted per-listing rows, so it is
+// gated behind HOUSING_DROP_LISTINGS_ENABLED: OFF returns an empty list and never
+// touches the store.
+func TestListAddressPriceDrops_FlagGate_ReturnsEmptyWhenDisabled(t *testing.T) {
+	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "")
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	// No EXPECT() on ListAddressPriceDrops: the flag gate short-circuits first.
+	srv := newTestServer(t, mockStore)
+
+	resp, err := srv.ListAddressPriceDrops(context.Background(),
+		connect.NewRequest(&shortsv1alpha1.ListAddressPriceDropsRequest{StateCode: "VIC", WindowDays: 90, Limit: 50}))
+	if err != nil {
+		t.Fatalf("want nil error when flag disabled, got %v", err)
+	}
+	if len(resp.Msg.Addresses) != 0 {
+		t.Fatalf("want empty list when flag disabled, got %d", len(resp.Msg.Addresses))
+	}
+}
+
+// TestListAddressPriceDrops_FlagEnabled_ReturnsRanked asserts the handler maps
+// store rows through to the response, converting LastObservedAt to RFC3339.
+func TestListAddressPriceDrops_FlagEnabled_ReturnsRanked(t *testing.T) {
+	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "true")
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockStore := mocks.NewMockShortsStore(ctrl)
+
+	lastObs := time.Date(2026, 3, 10, 0, 0, 0, 0, time.UTC)
+	mockStore.EXPECT().ListAddressPriceDrops("VIC", int32(90), int32(50)).Return([]*shortsstore.AddressPriceDropRow{
+		{
+			AddressKey: "vic-brighton-1-centre-rd", DisplayAddress: "1 Centre Road",
+			Suburb: "Brighton", StateCode: "VIC", Postcode: "3186",
+			FirstPrice: 1000000, CurrentPrice: 900000, DropAbs: 100000, DropPct: 0.1,
+			NumListings: 3, LatestSource: "rea", LatestListingURL: "https://realestate.com.au/9",
+			LastObservedAt: lastObs, PropertyType: "house", Bedrooms: 4, Bathrooms: 2,
+		},
+	}, nil)
+
+	srv := newTestServer(t, mockStore)
+	resp, err := srv.ListAddressPriceDrops(context.Background(),
+		connect.NewRequest(&shortsv1alpha1.ListAddressPriceDropsRequest{StateCode: "VIC", WindowDays: 90, Limit: 50}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resp.Msg.Addresses) != 1 {
+		t.Fatalf("want 1 address mapped, got %d", len(resp.Msg.Addresses))
+	}
+	a := resp.Msg.Addresses[0]
+	if a.AddressKey != "vic-brighton-1-centre-rd" || a.DropPct != 0.1 || a.NumListings != 3 {
+		t.Fatalf("want row mapped, got %+v", a)
+	}
+	if a.LastObservedAt != lastObs.Format(time.RFC3339) {
+		t.Fatalf("want RFC3339 last_observed_at, got %q", a.LastObservedAt)
+	}
+}

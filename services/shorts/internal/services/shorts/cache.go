@@ -258,6 +258,11 @@ func (c *MemoryCache) GetPropertyHistoryKey(addressKey string) string {
 	return c.generateKey("property_history", addressKey)
 }
 
+// GetAddressPriceDropsKey builds a cache key for ListAddressPriceDrops responses.
+func (c *MemoryCache) GetAddressPriceDropsKey(stateCode string, windowDays, limit int32) string {
+	return c.generateKey("address_price_drops", stateCode, windowDays, limit)
+}
+
 // GetEventTimelineKey builds a cache key for GetEventTimeline responses.
 func (c *MemoryCache) GetEventTimelineKey(stockCode string, daysBack, limit int32) string {
 	return c.generateKey("event_timeline", stockCode, daysBack, limit)

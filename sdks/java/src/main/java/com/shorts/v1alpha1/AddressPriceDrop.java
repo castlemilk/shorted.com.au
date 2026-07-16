@@ -7,19 +7,17 @@ package com.shorts.v1alpha1;
 
 /**
  * <pre>
- * Full price timeline for a single physical address (stable address_key),
- * across all its listings and relists. Derived from ToS-restricted listing
- * rows — deep-links OUT to the live portal page rather than reproducing the
- * listing; flag-gated the same way as ListSuburbDropListings.
+ * One physical address (deduped by stable address_key) whose for-sale asking
+ * price fell over the window, deep-linking to its per-address history page.
  * </pre>
  *
- * Protobuf type {@code shorts.v1alpha1.GetPropertyHistoryResponse}
+ * Protobuf type {@code shorts.v1alpha1.AddressPriceDrop}
  */
 @com.google.protobuf.Generated
-public final class GetPropertyHistoryResponse extends
+public final class AddressPriceDrop extends
     com.google.protobuf.GeneratedMessage implements
-    // @@protoc_insertion_point(message_implements:shorts.v1alpha1.GetPropertyHistoryResponse)
-    GetPropertyHistoryResponseOrBuilder {
+    // @@protoc_insertion_point(message_implements:shorts.v1alpha1.AddressPriceDrop)
+    AddressPriceDropOrBuilder {
 private static final long serialVersionUID = 0L;
   static {
     com.google.protobuf.RuntimeVersion.validateProtobufGencodeVersion(
@@ -28,40 +26,42 @@ private static final long serialVersionUID = 0L;
       /* minor= */ 35,
       /* patch= */ 1,
       /* suffix= */ "",
-      "GetPropertyHistoryResponse");
+      "AddressPriceDrop");
   }
-  // Use GetPropertyHistoryResponse.newBuilder() to construct.
-  private GetPropertyHistoryResponse(com.google.protobuf.GeneratedMessage.Builder<?> builder) {
+  // Use AddressPriceDrop.newBuilder() to construct.
+  private AddressPriceDrop(com.google.protobuf.GeneratedMessage.Builder<?> builder) {
     super(builder);
   }
-  private GetPropertyHistoryResponse() {
+  private AddressPriceDrop() {
     addressKey_ = "";
     displayAddress_ = "";
     suburb_ = "";
     stateCode_ = "";
     postcode_ = "";
-    events_ = java.util.Collections.emptyList();
+    latestSource_ = "";
+    latestListingUrl_ = "";
+    lastObservedAt_ = "";
+    propertyType_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
       getDescriptor() {
-    return com.shorts.v1alpha1.ShortsProto.internal_static_shorts_v1alpha1_GetPropertyHistoryResponse_descriptor;
+    return com.shorts.v1alpha1.ShortsProto.internal_static_shorts_v1alpha1_AddressPriceDrop_descriptor;
   }
 
   @java.lang.Override
   public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
-    return com.shorts.v1alpha1.ShortsProto.internal_static_shorts_v1alpha1_GetPropertyHistoryResponse_descriptor;
+    return com.shorts.v1alpha1.ShortsProto.internal_static_shorts_v1alpha1_AddressPriceDrop_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return com.shorts.v1alpha1.ShortsProto.internal_static_shorts_v1alpha1_GetPropertyHistoryResponse_fieldAccessorTable
+    return com.shorts.v1alpha1.ShortsProto.internal_static_shorts_v1alpha1_AddressPriceDrop_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            com.shorts.v1alpha1.GetPropertyHistoryResponse.class, com.shorts.v1alpha1.GetPropertyHistoryResponse.Builder.class);
+            com.shorts.v1alpha1.AddressPriceDrop.class, com.shorts.v1alpha1.AddressPriceDrop.Builder.class);
   }
 
-  private int bitField0_;
   public static final int ADDRESS_KEY_FIELD_NUMBER = 1;
   @SuppressWarnings("serial")
   private volatile java.lang.Object addressKey_ = "";
@@ -257,124 +257,14 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int CURRENT_FIELD_NUMBER = 6;
-  private com.shorts.v1alpha1.PropertyListingSnapshot current_;
-  /**
-   * <pre>
-   * most-recent active listing (or most-recent if none active)
-   * </pre>
-   *
-   * <code>.shorts.v1alpha1.PropertyListingSnapshot current = 6 [json_name = "current"];</code>
-   * @return Whether the current field is set.
-   */
-  @java.lang.Override
-  public boolean hasCurrent() {
-    return ((bitField0_ & 0x00000001) != 0);
-  }
-  /**
-   * <pre>
-   * most-recent active listing (or most-recent if none active)
-   * </pre>
-   *
-   * <code>.shorts.v1alpha1.PropertyListingSnapshot current = 6 [json_name = "current"];</code>
-   * @return The current.
-   */
-  @java.lang.Override
-  public com.shorts.v1alpha1.PropertyListingSnapshot getCurrent() {
-    return current_ == null ? com.shorts.v1alpha1.PropertyListingSnapshot.getDefaultInstance() : current_;
-  }
-  /**
-   * <pre>
-   * most-recent active listing (or most-recent if none active)
-   * </pre>
-   *
-   * <code>.shorts.v1alpha1.PropertyListingSnapshot current = 6 [json_name = "current"];</code>
-   */
-  @java.lang.Override
-  public com.shorts.v1alpha1.PropertyListingSnapshotOrBuilder getCurrentOrBuilder() {
-    return current_ == null ? com.shorts.v1alpha1.PropertyListingSnapshot.getDefaultInstance() : current_;
-  }
-
-  public static final int EVENTS_FIELD_NUMBER = 7;
-  @SuppressWarnings("serial")
-  private java.util.List<com.shorts.v1alpha1.PropertyPriceEvent> events_;
-  /**
-   * <pre>
-   * full timeline across ALL its listings, ordered observed_at asc
-   * </pre>
-   *
-   * <code>repeated .shorts.v1alpha1.PropertyPriceEvent events = 7 [json_name = "events"];</code>
-   */
-  @java.lang.Override
-  public java.util.List<com.shorts.v1alpha1.PropertyPriceEvent> getEventsList() {
-    return events_;
-  }
-  /**
-   * <pre>
-   * full timeline across ALL its listings, ordered observed_at asc
-   * </pre>
-   *
-   * <code>repeated .shorts.v1alpha1.PropertyPriceEvent events = 7 [json_name = "events"];</code>
-   */
-  @java.lang.Override
-  public java.util.List<? extends com.shorts.v1alpha1.PropertyPriceEventOrBuilder> 
-      getEventsOrBuilderList() {
-    return events_;
-  }
-  /**
-   * <pre>
-   * full timeline across ALL its listings, ordered observed_at asc
-   * </pre>
-   *
-   * <code>repeated .shorts.v1alpha1.PropertyPriceEvent events = 7 [json_name = "events"];</code>
-   */
-  @java.lang.Override
-  public int getEventsCount() {
-    return events_.size();
-  }
-  /**
-   * <pre>
-   * full timeline across ALL its listings, ordered observed_at asc
-   * </pre>
-   *
-   * <code>repeated .shorts.v1alpha1.PropertyPriceEvent events = 7 [json_name = "events"];</code>
-   */
-  @java.lang.Override
-  public com.shorts.v1alpha1.PropertyPriceEvent getEvents(int index) {
-    return events_.get(index);
-  }
-  /**
-   * <pre>
-   * full timeline across ALL its listings, ordered observed_at asc
-   * </pre>
-   *
-   * <code>repeated .shorts.v1alpha1.PropertyPriceEvent events = 7 [json_name = "events"];</code>
-   */
-  @java.lang.Override
-  public com.shorts.v1alpha1.PropertyPriceEventOrBuilder getEventsOrBuilder(
-      int index) {
-    return events_.get(index);
-  }
-
-  public static final int NUM_LISTINGS_FIELD_NUMBER = 8;
-  private int numListings_ = 0;
-  /**
-   * <pre>
-   * distinct source+listing_id at this address
-   * </pre>
-   *
-   * <code>int32 num_listings = 8 [json_name = "numListings"];</code>
-   * @return The numListings.
-   */
-  @java.lang.Override
-  public int getNumListings() {
-    return numListings_;
-  }
-
-  public static final int FIRST_PRICE_FIELD_NUMBER = 9;
+  public static final int FIRST_PRICE_FIELD_NUMBER = 6;
   private double firstPrice_ = 0D;
   /**
-   * <code>double first_price = 9 [json_name = "firstPrice"];</code>
+   * <pre>
+   * earliest observed price in the window, AUD
+   * </pre>
+   *
+   * <code>double first_price = 6 [json_name = "firstPrice"];</code>
    * @return The firstPrice.
    */
   @java.lang.Override
@@ -382,10 +272,14 @@ private static final long serialVersionUID = 0L;
     return firstPrice_;
   }
 
-  public static final int CURRENT_PRICE_FIELD_NUMBER = 10;
+  public static final int CURRENT_PRICE_FIELD_NUMBER = 7;
   private double currentPrice_ = 0D;
   /**
-   * <code>double current_price = 10 [json_name = "currentPrice"];</code>
+   * <pre>
+   * current active asking, AUD
+   * </pre>
+   *
+   * <code>double current_price = 7 [json_name = "currentPrice"];</code>
    * @return The currentPrice.
    */
   @java.lang.Override
@@ -393,25 +287,251 @@ private static final long serialVersionUID = 0L;
     return currentPrice_;
   }
 
-  public static final int DISTINCT_DWELLINGS_FIELD_NUMBER = 11;
-  private int distinctDwellings_ = 0;
+  public static final int DROP_ABS_FIELD_NUMBER = 8;
+  private double dropAbs_ = 0D;
   /**
    * <pre>
-   * Distinct KNOWN bedroom counts seen under this address_key (NULL/0 excluded).
-   * &gt;1 means the portal likely listed multiple differently-sized units of one
-   * building WITHOUT a unit number, so this timeline may blend more than one
-   * physical dwelling. Counting bedrooms (not raw bed/bath/type tuples) keeps
-   * cross-portal label noise from falsely flagging a single dwelling. A search-
-   * results crawl cannot recover the missing unit number, so the view warns
-   * instead of silently merging. See docs/housing-architecture.md.
+   * first_price - current_price, AUD
    * </pre>
    *
-   * <code>int32 distinct_dwellings = 11 [json_name = "distinctDwellings"];</code>
-   * @return The distinctDwellings.
+   * <code>double drop_abs = 8 [json_name = "dropAbs"];</code>
+   * @return The dropAbs.
    */
   @java.lang.Override
-  public int getDistinctDwellings() {
-    return distinctDwellings_;
+  public double getDropAbs() {
+    return dropAbs_;
+  }
+
+  public static final int DROP_PCT_FIELD_NUMBER = 9;
+  private double dropPct_ = 0D;
+  /**
+   * <pre>
+   * fraction (0.062 == a 6.2% drop)
+   * </pre>
+   *
+   * <code>double drop_pct = 9 [json_name = "dropPct"];</code>
+   * @return The dropPct.
+   */
+  @java.lang.Override
+  public double getDropPct() {
+    return dropPct_;
+  }
+
+  public static final int NUM_LISTINGS_FIELD_NUMBER = 10;
+  private int numListings_ = 0;
+  /**
+   * <pre>
+   * distinct source+listing_id at this address
+   * </pre>
+   *
+   * <code>int32 num_listings = 10 [json_name = "numListings"];</code>
+   * @return The numListings.
+   */
+  @java.lang.Override
+  public int getNumListings() {
+    return numListings_;
+  }
+
+  public static final int LATEST_SOURCE_FIELD_NUMBER = 11;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object latestSource_ = "";
+  /**
+   * <pre>
+   * 'rea' | 'domain'
+   * </pre>
+   *
+   * <code>string latest_source = 11 [json_name = "latestSource"];</code>
+   * @return The latestSource.
+   */
+  @java.lang.Override
+  public java.lang.String getLatestSource() {
+    java.lang.Object ref = latestSource_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      latestSource_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * 'rea' | 'domain'
+   * </pre>
+   *
+   * <code>string latest_source = 11 [json_name = "latestSource"];</code>
+   * @return The bytes for latestSource.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getLatestSourceBytes() {
+    java.lang.Object ref = latestSource_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      latestSource_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int LATEST_LISTING_URL_FIELD_NUMBER = 12;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object latestListingUrl_ = "";
+  /**
+   * <pre>
+   * deep link to the live portal listing
+   * </pre>
+   *
+   * <code>string latest_listing_url = 12 [json_name = "latestListingUrl"];</code>
+   * @return The latestListingUrl.
+   */
+  @java.lang.Override
+  public java.lang.String getLatestListingUrl() {
+    java.lang.Object ref = latestListingUrl_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      latestListingUrl_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * deep link to the live portal listing
+   * </pre>
+   *
+   * <code>string latest_listing_url = 12 [json_name = "latestListingUrl"];</code>
+   * @return The bytes for latestListingUrl.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getLatestListingUrlBytes() {
+    java.lang.Object ref = latestListingUrl_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      latestListingUrl_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int LAST_OBSERVED_AT_FIELD_NUMBER = 13;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object lastObservedAt_ = "";
+  /**
+   * <pre>
+   * RFC3339, when the current listing was last seen
+   * </pre>
+   *
+   * <code>string last_observed_at = 13 [json_name = "lastObservedAt"];</code>
+   * @return The lastObservedAt.
+   */
+  @java.lang.Override
+  public java.lang.String getLastObservedAt() {
+    java.lang.Object ref = lastObservedAt_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      lastObservedAt_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * RFC3339, when the current listing was last seen
+   * </pre>
+   *
+   * <code>string last_observed_at = 13 [json_name = "lastObservedAt"];</code>
+   * @return The bytes for lastObservedAt.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getLastObservedAtBytes() {
+    java.lang.Object ref = lastObservedAt_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      lastObservedAt_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int PROPERTY_TYPE_FIELD_NUMBER = 14;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object propertyType_ = "";
+  /**
+   * <code>string property_type = 14 [json_name = "propertyType"];</code>
+   * @return The propertyType.
+   */
+  @java.lang.Override
+  public java.lang.String getPropertyType() {
+    java.lang.Object ref = propertyType_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      propertyType_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string property_type = 14 [json_name = "propertyType"];</code>
+   * @return The bytes for propertyType.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getPropertyTypeBytes() {
+    java.lang.Object ref = propertyType_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      propertyType_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int BEDROOMS_FIELD_NUMBER = 15;
+  private int bedrooms_ = 0;
+  /**
+   * <code>int32 bedrooms = 15 [json_name = "bedrooms"];</code>
+   * @return The bedrooms.
+   */
+  @java.lang.Override
+  public int getBedrooms() {
+    return bedrooms_;
+  }
+
+  public static final int BATHROOMS_FIELD_NUMBER = 16;
+  private int bathrooms_ = 0;
+  /**
+   * <code>int32 bathrooms = 16 [json_name = "bathrooms"];</code>
+   * @return The bathrooms.
+   */
+  @java.lang.Override
+  public int getBathrooms() {
+    return bathrooms_;
   }
 
   private byte memoizedIsInitialized = -1;
@@ -443,23 +563,38 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(postcode_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 5, postcode_);
     }
-    if (((bitField0_ & 0x00000001) != 0)) {
-      output.writeMessage(6, getCurrent());
-    }
-    for (int i = 0; i < events_.size(); i++) {
-      output.writeMessage(7, events_.get(i));
-    }
-    if (numListings_ != 0) {
-      output.writeInt32(8, numListings_);
-    }
     if (java.lang.Double.doubleToRawLongBits(firstPrice_) != 0) {
-      output.writeDouble(9, firstPrice_);
+      output.writeDouble(6, firstPrice_);
     }
     if (java.lang.Double.doubleToRawLongBits(currentPrice_) != 0) {
-      output.writeDouble(10, currentPrice_);
+      output.writeDouble(7, currentPrice_);
     }
-    if (distinctDwellings_ != 0) {
-      output.writeInt32(11, distinctDwellings_);
+    if (java.lang.Double.doubleToRawLongBits(dropAbs_) != 0) {
+      output.writeDouble(8, dropAbs_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(dropPct_) != 0) {
+      output.writeDouble(9, dropPct_);
+    }
+    if (numListings_ != 0) {
+      output.writeInt32(10, numListings_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(latestSource_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 11, latestSource_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(latestListingUrl_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 12, latestListingUrl_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(lastObservedAt_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 13, lastObservedAt_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(propertyType_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 14, propertyType_);
+    }
+    if (bedrooms_ != 0) {
+      output.writeInt32(15, bedrooms_);
+    }
+    if (bathrooms_ != 0) {
+      output.writeInt32(16, bathrooms_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -480,34 +615,45 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(postcode_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(5, postcode_);
     }
-    if (((bitField0_ & 0x00000001) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(6, getCurrent());
-    }
-
-        {
-          final int count = events_.size();
-          for (int i = 0; i < count; i++) {
-            size += com.google.protobuf.CodedOutputStream
-              .computeMessageSizeNoTag(events_.get(i));
-          }
-          size += 1 * count;
-        }
-    if (numListings_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeInt32Size(8, numListings_);
-    }
     if (java.lang.Double.doubleToRawLongBits(firstPrice_) != 0) {
       size += com.google.protobuf.CodedOutputStream
-        .computeDoubleSize(9, firstPrice_);
+        .computeDoubleSize(6, firstPrice_);
     }
     if (java.lang.Double.doubleToRawLongBits(currentPrice_) != 0) {
       size += com.google.protobuf.CodedOutputStream
-        .computeDoubleSize(10, currentPrice_);
+        .computeDoubleSize(7, currentPrice_);
     }
-    if (distinctDwellings_ != 0) {
+    if (java.lang.Double.doubleToRawLongBits(dropAbs_) != 0) {
       size += com.google.protobuf.CodedOutputStream
-        .computeInt32Size(11, distinctDwellings_);
+        .computeDoubleSize(8, dropAbs_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(dropPct_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(9, dropPct_);
+    }
+    if (numListings_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(10, numListings_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(latestSource_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(11, latestSource_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(latestListingUrl_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(12, latestListingUrl_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(lastObservedAt_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(13, lastObservedAt_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(propertyType_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(14, propertyType_);
+    }
+    if (bedrooms_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(15, bedrooms_);
+    }
+    if (bathrooms_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(16, bathrooms_);
     }
     return size;
   }
@@ -528,10 +674,10 @@ private static final long serialVersionUID = 0L;
     if (obj == this) {
      return true;
     }
-    if (!(obj instanceof com.shorts.v1alpha1.GetPropertyHistoryResponse)) {
+    if (!(obj instanceof com.shorts.v1alpha1.AddressPriceDrop)) {
       return super.equals(obj);
     }
-    com.shorts.v1alpha1.GetPropertyHistoryResponse other = (com.shorts.v1alpha1.GetPropertyHistoryResponse) obj;
+    com.shorts.v1alpha1.AddressPriceDrop other = (com.shorts.v1alpha1.AddressPriceDrop) obj;
 
     if (!getAddressKey()
         .equals(other.getAddressKey())) return false;
@@ -543,23 +689,32 @@ private static final long serialVersionUID = 0L;
         .equals(other.getStateCode())) return false;
     if (!getPostcode()
         .equals(other.getPostcode())) return false;
-    if (hasCurrent() != other.hasCurrent()) return false;
-    if (hasCurrent()) {
-      if (!getCurrent()
-          .equals(other.getCurrent())) return false;
-    }
-    if (!getEventsList()
-        .equals(other.getEventsList())) return false;
-    if (getNumListings()
-        != other.getNumListings()) return false;
     if (java.lang.Double.doubleToLongBits(getFirstPrice())
         != java.lang.Double.doubleToLongBits(
             other.getFirstPrice())) return false;
     if (java.lang.Double.doubleToLongBits(getCurrentPrice())
         != java.lang.Double.doubleToLongBits(
             other.getCurrentPrice())) return false;
-    if (getDistinctDwellings()
-        != other.getDistinctDwellings()) return false;
+    if (java.lang.Double.doubleToLongBits(getDropAbs())
+        != java.lang.Double.doubleToLongBits(
+            other.getDropAbs())) return false;
+    if (java.lang.Double.doubleToLongBits(getDropPct())
+        != java.lang.Double.doubleToLongBits(
+            other.getDropPct())) return false;
+    if (getNumListings()
+        != other.getNumListings()) return false;
+    if (!getLatestSource()
+        .equals(other.getLatestSource())) return false;
+    if (!getLatestListingUrl()
+        .equals(other.getLatestListingUrl())) return false;
+    if (!getLastObservedAt()
+        .equals(other.getLastObservedAt())) return false;
+    if (!getPropertyType()
+        .equals(other.getPropertyType())) return false;
+    if (getBedrooms()
+        != other.getBedrooms()) return false;
+    if (getBathrooms()
+        != other.getBathrooms()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -581,67 +736,75 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getStateCode().hashCode();
     hash = (37 * hash) + POSTCODE_FIELD_NUMBER;
     hash = (53 * hash) + getPostcode().hashCode();
-    if (hasCurrent()) {
-      hash = (37 * hash) + CURRENT_FIELD_NUMBER;
-      hash = (53 * hash) + getCurrent().hashCode();
-    }
-    if (getEventsCount() > 0) {
-      hash = (37 * hash) + EVENTS_FIELD_NUMBER;
-      hash = (53 * hash) + getEventsList().hashCode();
-    }
-    hash = (37 * hash) + NUM_LISTINGS_FIELD_NUMBER;
-    hash = (53 * hash) + getNumListings();
     hash = (37 * hash) + FIRST_PRICE_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
         java.lang.Double.doubleToLongBits(getFirstPrice()));
     hash = (37 * hash) + CURRENT_PRICE_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
         java.lang.Double.doubleToLongBits(getCurrentPrice()));
-    hash = (37 * hash) + DISTINCT_DWELLINGS_FIELD_NUMBER;
-    hash = (53 * hash) + getDistinctDwellings();
+    hash = (37 * hash) + DROP_ABS_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getDropAbs()));
+    hash = (37 * hash) + DROP_PCT_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getDropPct()));
+    hash = (37 * hash) + NUM_LISTINGS_FIELD_NUMBER;
+    hash = (53 * hash) + getNumListings();
+    hash = (37 * hash) + LATEST_SOURCE_FIELD_NUMBER;
+    hash = (53 * hash) + getLatestSource().hashCode();
+    hash = (37 * hash) + LATEST_LISTING_URL_FIELD_NUMBER;
+    hash = (53 * hash) + getLatestListingUrl().hashCode();
+    hash = (37 * hash) + LAST_OBSERVED_AT_FIELD_NUMBER;
+    hash = (53 * hash) + getLastObservedAt().hashCode();
+    hash = (37 * hash) + PROPERTY_TYPE_FIELD_NUMBER;
+    hash = (53 * hash) + getPropertyType().hashCode();
+    hash = (37 * hash) + BEDROOMS_FIELD_NUMBER;
+    hash = (53 * hash) + getBedrooms();
+    hash = (37 * hash) + BATHROOMS_FIELD_NUMBER;
+    hash = (53 * hash) + getBathrooms();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
   }
 
-  public static com.shorts.v1alpha1.GetPropertyHistoryResponse parseFrom(
+  public static com.shorts.v1alpha1.AddressPriceDrop parseFrom(
       java.nio.ByteBuffer data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static com.shorts.v1alpha1.GetPropertyHistoryResponse parseFrom(
+  public static com.shorts.v1alpha1.AddressPriceDrop parseFrom(
       java.nio.ByteBuffer data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static com.shorts.v1alpha1.GetPropertyHistoryResponse parseFrom(
+  public static com.shorts.v1alpha1.AddressPriceDrop parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static com.shorts.v1alpha1.GetPropertyHistoryResponse parseFrom(
+  public static com.shorts.v1alpha1.AddressPriceDrop parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static com.shorts.v1alpha1.GetPropertyHistoryResponse parseFrom(byte[] data)
+  public static com.shorts.v1alpha1.AddressPriceDrop parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static com.shorts.v1alpha1.GetPropertyHistoryResponse parseFrom(
+  public static com.shorts.v1alpha1.AddressPriceDrop parseFrom(
       byte[] data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static com.shorts.v1alpha1.GetPropertyHistoryResponse parseFrom(java.io.InputStream input)
+  public static com.shorts.v1alpha1.AddressPriceDrop parseFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseWithIOException(PARSER, input);
   }
-  public static com.shorts.v1alpha1.GetPropertyHistoryResponse parseFrom(
+  public static com.shorts.v1alpha1.AddressPriceDrop parseFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -649,26 +812,26 @@ private static final long serialVersionUID = 0L;
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
 
-  public static com.shorts.v1alpha1.GetPropertyHistoryResponse parseDelimitedFrom(java.io.InputStream input)
+  public static com.shorts.v1alpha1.AddressPriceDrop parseDelimitedFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseDelimitedWithIOException(PARSER, input);
   }
 
-  public static com.shorts.v1alpha1.GetPropertyHistoryResponse parseDelimitedFrom(
+  public static com.shorts.v1alpha1.AddressPriceDrop parseDelimitedFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
   }
-  public static com.shorts.v1alpha1.GetPropertyHistoryResponse parseFrom(
+  public static com.shorts.v1alpha1.AddressPriceDrop parseFrom(
       com.google.protobuf.CodedInputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseWithIOException(PARSER, input);
   }
-  public static com.shorts.v1alpha1.GetPropertyHistoryResponse parseFrom(
+  public static com.shorts.v1alpha1.AddressPriceDrop parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -681,7 +844,7 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
-  public static Builder newBuilder(com.shorts.v1alpha1.GetPropertyHistoryResponse prototype) {
+  public static Builder newBuilder(com.shorts.v1alpha1.AddressPriceDrop prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
   @java.lang.Override
@@ -698,47 +861,38 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Full price timeline for a single physical address (stable address_key),
-   * across all its listings and relists. Derived from ToS-restricted listing
-   * rows — deep-links OUT to the live portal page rather than reproducing the
-   * listing; flag-gated the same way as ListSuburbDropListings.
+   * One physical address (deduped by stable address_key) whose for-sale asking
+   * price fell over the window, deep-linking to its per-address history page.
    * </pre>
    *
-   * Protobuf type {@code shorts.v1alpha1.GetPropertyHistoryResponse}
+   * Protobuf type {@code shorts.v1alpha1.AddressPriceDrop}
    */
   public static final class Builder extends
       com.google.protobuf.GeneratedMessage.Builder<Builder> implements
-      // @@protoc_insertion_point(builder_implements:shorts.v1alpha1.GetPropertyHistoryResponse)
-      com.shorts.v1alpha1.GetPropertyHistoryResponseOrBuilder {
+      // @@protoc_insertion_point(builder_implements:shorts.v1alpha1.AddressPriceDrop)
+      com.shorts.v1alpha1.AddressPriceDropOrBuilder {
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return com.shorts.v1alpha1.ShortsProto.internal_static_shorts_v1alpha1_GetPropertyHistoryResponse_descriptor;
+      return com.shorts.v1alpha1.ShortsProto.internal_static_shorts_v1alpha1_AddressPriceDrop_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return com.shorts.v1alpha1.ShortsProto.internal_static_shorts_v1alpha1_GetPropertyHistoryResponse_fieldAccessorTable
+      return com.shorts.v1alpha1.ShortsProto.internal_static_shorts_v1alpha1_AddressPriceDrop_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              com.shorts.v1alpha1.GetPropertyHistoryResponse.class, com.shorts.v1alpha1.GetPropertyHistoryResponse.Builder.class);
+              com.shorts.v1alpha1.AddressPriceDrop.class, com.shorts.v1alpha1.AddressPriceDrop.Builder.class);
     }
 
-    // Construct using com.shorts.v1alpha1.GetPropertyHistoryResponse.newBuilder()
+    // Construct using com.shorts.v1alpha1.AddressPriceDrop.newBuilder()
     private Builder() {
-      maybeForceBuilderInitialization();
+
     }
 
     private Builder(
         com.google.protobuf.GeneratedMessage.BuilderParent parent) {
       super(parent);
-      maybeForceBuilderInitialization();
-    }
-    private void maybeForceBuilderInitialization() {
-      if (com.google.protobuf.GeneratedMessage
-              .alwaysUseFieldBuilders) {
-        internalGetCurrentFieldBuilder();
-        internalGetEventsFieldBuilder();
-      }
+
     }
     @java.lang.Override
     public Builder clear() {
@@ -749,39 +903,34 @@ private static final long serialVersionUID = 0L;
       suburb_ = "";
       stateCode_ = "";
       postcode_ = "";
-      current_ = null;
-      if (currentBuilder_ != null) {
-        currentBuilder_.dispose();
-        currentBuilder_ = null;
-      }
-      if (eventsBuilder_ == null) {
-        events_ = java.util.Collections.emptyList();
-      } else {
-        events_ = null;
-        eventsBuilder_.clear();
-      }
-      bitField0_ = (bitField0_ & ~0x00000040);
-      numListings_ = 0;
       firstPrice_ = 0D;
       currentPrice_ = 0D;
-      distinctDwellings_ = 0;
+      dropAbs_ = 0D;
+      dropPct_ = 0D;
+      numListings_ = 0;
+      latestSource_ = "";
+      latestListingUrl_ = "";
+      lastObservedAt_ = "";
+      propertyType_ = "";
+      bedrooms_ = 0;
+      bathrooms_ = 0;
       return this;
     }
 
     @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
-      return com.shorts.v1alpha1.ShortsProto.internal_static_shorts_v1alpha1_GetPropertyHistoryResponse_descriptor;
+      return com.shorts.v1alpha1.ShortsProto.internal_static_shorts_v1alpha1_AddressPriceDrop_descriptor;
     }
 
     @java.lang.Override
-    public com.shorts.v1alpha1.GetPropertyHistoryResponse getDefaultInstanceForType() {
-      return com.shorts.v1alpha1.GetPropertyHistoryResponse.getDefaultInstance();
+    public com.shorts.v1alpha1.AddressPriceDrop getDefaultInstanceForType() {
+      return com.shorts.v1alpha1.AddressPriceDrop.getDefaultInstance();
     }
 
     @java.lang.Override
-    public com.shorts.v1alpha1.GetPropertyHistoryResponse build() {
-      com.shorts.v1alpha1.GetPropertyHistoryResponse result = buildPartial();
+    public com.shorts.v1alpha1.AddressPriceDrop build() {
+      com.shorts.v1alpha1.AddressPriceDrop result = buildPartial();
       if (!result.isInitialized()) {
         throw newUninitializedMessageException(result);
       }
@@ -789,27 +938,14 @@ private static final long serialVersionUID = 0L;
     }
 
     @java.lang.Override
-    public com.shorts.v1alpha1.GetPropertyHistoryResponse buildPartial() {
-      com.shorts.v1alpha1.GetPropertyHistoryResponse result = new com.shorts.v1alpha1.GetPropertyHistoryResponse(this);
-      buildPartialRepeatedFields(result);
+    public com.shorts.v1alpha1.AddressPriceDrop buildPartial() {
+      com.shorts.v1alpha1.AddressPriceDrop result = new com.shorts.v1alpha1.AddressPriceDrop(this);
       if (bitField0_ != 0) { buildPartial0(result); }
       onBuilt();
       return result;
     }
 
-    private void buildPartialRepeatedFields(com.shorts.v1alpha1.GetPropertyHistoryResponse result) {
-      if (eventsBuilder_ == null) {
-        if (((bitField0_ & 0x00000040) != 0)) {
-          events_ = java.util.Collections.unmodifiableList(events_);
-          bitField0_ = (bitField0_ & ~0x00000040);
-        }
-        result.events_ = events_;
-      } else {
-        result.events_ = eventsBuilder_.build();
-      }
-    }
-
-    private void buildPartial0(com.shorts.v1alpha1.GetPropertyHistoryResponse result) {
+    private void buildPartial0(com.shorts.v1alpha1.AddressPriceDrop result) {
       int from_bitField0_ = bitField0_;
       if (((from_bitField0_ & 0x00000001) != 0)) {
         result.addressKey_ = addressKey_;
@@ -826,40 +962,53 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000010) != 0)) {
         result.postcode_ = postcode_;
       }
-      int to_bitField0_ = 0;
       if (((from_bitField0_ & 0x00000020) != 0)) {
-        result.current_ = currentBuilder_ == null
-            ? current_
-            : currentBuilder_.build();
-        to_bitField0_ |= 0x00000001;
-      }
-      if (((from_bitField0_ & 0x00000080) != 0)) {
-        result.numListings_ = numListings_;
-      }
-      if (((from_bitField0_ & 0x00000100) != 0)) {
         result.firstPrice_ = firstPrice_;
       }
-      if (((from_bitField0_ & 0x00000200) != 0)) {
+      if (((from_bitField0_ & 0x00000040) != 0)) {
         result.currentPrice_ = currentPrice_;
       }
-      if (((from_bitField0_ & 0x00000400) != 0)) {
-        result.distinctDwellings_ = distinctDwellings_;
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.dropAbs_ = dropAbs_;
       }
-      result.bitField0_ |= to_bitField0_;
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.dropPct_ = dropPct_;
+      }
+      if (((from_bitField0_ & 0x00000200) != 0)) {
+        result.numListings_ = numListings_;
+      }
+      if (((from_bitField0_ & 0x00000400) != 0)) {
+        result.latestSource_ = latestSource_;
+      }
+      if (((from_bitField0_ & 0x00000800) != 0)) {
+        result.latestListingUrl_ = latestListingUrl_;
+      }
+      if (((from_bitField0_ & 0x00001000) != 0)) {
+        result.lastObservedAt_ = lastObservedAt_;
+      }
+      if (((from_bitField0_ & 0x00002000) != 0)) {
+        result.propertyType_ = propertyType_;
+      }
+      if (((from_bitField0_ & 0x00004000) != 0)) {
+        result.bedrooms_ = bedrooms_;
+      }
+      if (((from_bitField0_ & 0x00008000) != 0)) {
+        result.bathrooms_ = bathrooms_;
+      }
     }
 
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
-      if (other instanceof com.shorts.v1alpha1.GetPropertyHistoryResponse) {
-        return mergeFrom((com.shorts.v1alpha1.GetPropertyHistoryResponse)other);
+      if (other instanceof com.shorts.v1alpha1.AddressPriceDrop) {
+        return mergeFrom((com.shorts.v1alpha1.AddressPriceDrop)other);
       } else {
         super.mergeFrom(other);
         return this;
       }
     }
 
-    public Builder mergeFrom(com.shorts.v1alpha1.GetPropertyHistoryResponse other) {
-      if (other == com.shorts.v1alpha1.GetPropertyHistoryResponse.getDefaultInstance()) return this;
+    public Builder mergeFrom(com.shorts.v1alpha1.AddressPriceDrop other) {
+      if (other == com.shorts.v1alpha1.AddressPriceDrop.getDefaultInstance()) return this;
       if (!other.getAddressKey().isEmpty()) {
         addressKey_ = other.addressKey_;
         bitField0_ |= 0x00000001;
@@ -885,46 +1034,46 @@ private static final long serialVersionUID = 0L;
         bitField0_ |= 0x00000010;
         onChanged();
       }
-      if (other.hasCurrent()) {
-        mergeCurrent(other.getCurrent());
-      }
-      if (eventsBuilder_ == null) {
-        if (!other.events_.isEmpty()) {
-          if (events_.isEmpty()) {
-            events_ = other.events_;
-            bitField0_ = (bitField0_ & ~0x00000040);
-          } else {
-            ensureEventsIsMutable();
-            events_.addAll(other.events_);
-          }
-          onChanged();
-        }
-      } else {
-        if (!other.events_.isEmpty()) {
-          if (eventsBuilder_.isEmpty()) {
-            eventsBuilder_.dispose();
-            eventsBuilder_ = null;
-            events_ = other.events_;
-            bitField0_ = (bitField0_ & ~0x00000040);
-            eventsBuilder_ = 
-              com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
-                 internalGetEventsFieldBuilder() : null;
-          } else {
-            eventsBuilder_.addAllMessages(other.events_);
-          }
-        }
-      }
-      if (other.getNumListings() != 0) {
-        setNumListings(other.getNumListings());
-      }
       if (java.lang.Double.doubleToRawLongBits(other.getFirstPrice()) != 0) {
         setFirstPrice(other.getFirstPrice());
       }
       if (java.lang.Double.doubleToRawLongBits(other.getCurrentPrice()) != 0) {
         setCurrentPrice(other.getCurrentPrice());
       }
-      if (other.getDistinctDwellings() != 0) {
-        setDistinctDwellings(other.getDistinctDwellings());
+      if (java.lang.Double.doubleToRawLongBits(other.getDropAbs()) != 0) {
+        setDropAbs(other.getDropAbs());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getDropPct()) != 0) {
+        setDropPct(other.getDropPct());
+      }
+      if (other.getNumListings() != 0) {
+        setNumListings(other.getNumListings());
+      }
+      if (!other.getLatestSource().isEmpty()) {
+        latestSource_ = other.latestSource_;
+        bitField0_ |= 0x00000400;
+        onChanged();
+      }
+      if (!other.getLatestListingUrl().isEmpty()) {
+        latestListingUrl_ = other.latestListingUrl_;
+        bitField0_ |= 0x00000800;
+        onChanged();
+      }
+      if (!other.getLastObservedAt().isEmpty()) {
+        lastObservedAt_ = other.lastObservedAt_;
+        bitField0_ |= 0x00001000;
+        onChanged();
+      }
+      if (!other.getPropertyType().isEmpty()) {
+        propertyType_ = other.propertyType_;
+        bitField0_ |= 0x00002000;
+        onChanged();
+      }
+      if (other.getBedrooms() != 0) {
+        setBedrooms(other.getBedrooms());
+      }
+      if (other.getBathrooms() != 0) {
+        setBathrooms(other.getBathrooms());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -977,46 +1126,61 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000010;
               break;
             } // case 42
-            case 50: {
-              input.readMessage(
-                  internalGetCurrentFieldBuilder().getBuilder(),
-                  extensionRegistry);
+            case 49: {
+              firstPrice_ = input.readDouble();
               bitField0_ |= 0x00000020;
               break;
-            } // case 50
-            case 58: {
-              com.shorts.v1alpha1.PropertyPriceEvent m =
-                  input.readMessage(
-                      com.shorts.v1alpha1.PropertyPriceEvent.parser(),
-                      extensionRegistry);
-              if (eventsBuilder_ == null) {
-                ensureEventsIsMutable();
-                events_.add(m);
-              } else {
-                eventsBuilder_.addMessage(m);
-              }
+            } // case 49
+            case 57: {
+              currentPrice_ = input.readDouble();
+              bitField0_ |= 0x00000040;
               break;
-            } // case 58
-            case 64: {
-              numListings_ = input.readInt32();
+            } // case 57
+            case 65: {
+              dropAbs_ = input.readDouble();
               bitField0_ |= 0x00000080;
               break;
-            } // case 64
+            } // case 65
             case 73: {
-              firstPrice_ = input.readDouble();
+              dropPct_ = input.readDouble();
               bitField0_ |= 0x00000100;
               break;
             } // case 73
-            case 81: {
-              currentPrice_ = input.readDouble();
+            case 80: {
+              numListings_ = input.readInt32();
               bitField0_ |= 0x00000200;
               break;
-            } // case 81
-            case 88: {
-              distinctDwellings_ = input.readInt32();
+            } // case 80
+            case 90: {
+              latestSource_ = input.readStringRequireUtf8();
               bitField0_ |= 0x00000400;
               break;
-            } // case 88
+            } // case 90
+            case 98: {
+              latestListingUrl_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000800;
+              break;
+            } // case 98
+            case 106: {
+              lastObservedAt_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00001000;
+              break;
+            } // case 106
+            case 114: {
+              propertyType_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00002000;
+              break;
+            } // case 114
+            case 120: {
+              bedrooms_ = input.readInt32();
+              bitField0_ |= 0x00004000;
+              break;
+            } // case 120
+            case 128: {
+              bathrooms_ = input.readInt32();
+              bitField0_ |= 0x00008000;
+              break;
+            } // case 128
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1394,473 +1558,180 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private com.shorts.v1alpha1.PropertyListingSnapshot current_;
-    private com.google.protobuf.SingleFieldBuilder<
-        com.shorts.v1alpha1.PropertyListingSnapshot, com.shorts.v1alpha1.PropertyListingSnapshot.Builder, com.shorts.v1alpha1.PropertyListingSnapshotOrBuilder> currentBuilder_;
+    private double firstPrice_ ;
     /**
      * <pre>
-     * most-recent active listing (or most-recent if none active)
+     * earliest observed price in the window, AUD
      * </pre>
      *
-     * <code>.shorts.v1alpha1.PropertyListingSnapshot current = 6 [json_name = "current"];</code>
-     * @return Whether the current field is set.
+     * <code>double first_price = 6 [json_name = "firstPrice"];</code>
+     * @return The firstPrice.
      */
-    public boolean hasCurrent() {
-      return ((bitField0_ & 0x00000020) != 0);
+    @java.lang.Override
+    public double getFirstPrice() {
+      return firstPrice_;
     }
     /**
      * <pre>
-     * most-recent active listing (or most-recent if none active)
+     * earliest observed price in the window, AUD
      * </pre>
      *
-     * <code>.shorts.v1alpha1.PropertyListingSnapshot current = 6 [json_name = "current"];</code>
-     * @return The current.
+     * <code>double first_price = 6 [json_name = "firstPrice"];</code>
+     * @param value The firstPrice to set.
+     * @return This builder for chaining.
      */
-    public com.shorts.v1alpha1.PropertyListingSnapshot getCurrent() {
-      if (currentBuilder_ == null) {
-        return current_ == null ? com.shorts.v1alpha1.PropertyListingSnapshot.getDefaultInstance() : current_;
-      } else {
-        return currentBuilder_.getMessage();
-      }
-    }
-    /**
-     * <pre>
-     * most-recent active listing (or most-recent if none active)
-     * </pre>
-     *
-     * <code>.shorts.v1alpha1.PropertyListingSnapshot current = 6 [json_name = "current"];</code>
-     */
-    public Builder setCurrent(com.shorts.v1alpha1.PropertyListingSnapshot value) {
-      if (currentBuilder_ == null) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
-        current_ = value;
-      } else {
-        currentBuilder_.setMessage(value);
-      }
+    public Builder setFirstPrice(double value) {
+
+      firstPrice_ = value;
       bitField0_ |= 0x00000020;
       onChanged();
       return this;
     }
     /**
      * <pre>
-     * most-recent active listing (or most-recent if none active)
+     * earliest observed price in the window, AUD
      * </pre>
      *
-     * <code>.shorts.v1alpha1.PropertyListingSnapshot current = 6 [json_name = "current"];</code>
+     * <code>double first_price = 6 [json_name = "firstPrice"];</code>
+     * @return This builder for chaining.
      */
-    public Builder setCurrent(
-        com.shorts.v1alpha1.PropertyListingSnapshot.Builder builderForValue) {
-      if (currentBuilder_ == null) {
-        current_ = builderForValue.build();
-      } else {
-        currentBuilder_.setMessage(builderForValue.build());
-      }
-      bitField0_ |= 0x00000020;
-      onChanged();
-      return this;
-    }
-    /**
-     * <pre>
-     * most-recent active listing (or most-recent if none active)
-     * </pre>
-     *
-     * <code>.shorts.v1alpha1.PropertyListingSnapshot current = 6 [json_name = "current"];</code>
-     */
-    public Builder mergeCurrent(com.shorts.v1alpha1.PropertyListingSnapshot value) {
-      if (currentBuilder_ == null) {
-        if (((bitField0_ & 0x00000020) != 0) &&
-          current_ != null &&
-          current_ != com.shorts.v1alpha1.PropertyListingSnapshot.getDefaultInstance()) {
-          getCurrentBuilder().mergeFrom(value);
-        } else {
-          current_ = value;
-        }
-      } else {
-        currentBuilder_.mergeFrom(value);
-      }
-      if (current_ != null) {
-        bitField0_ |= 0x00000020;
-        onChanged();
-      }
-      return this;
-    }
-    /**
-     * <pre>
-     * most-recent active listing (or most-recent if none active)
-     * </pre>
-     *
-     * <code>.shorts.v1alpha1.PropertyListingSnapshot current = 6 [json_name = "current"];</code>
-     */
-    public Builder clearCurrent() {
+    public Builder clearFirstPrice() {
       bitField0_ = (bitField0_ & ~0x00000020);
-      current_ = null;
-      if (currentBuilder_ != null) {
-        currentBuilder_.dispose();
-        currentBuilder_ = null;
-      }
+      firstPrice_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double currentPrice_ ;
+    /**
+     * <pre>
+     * current active asking, AUD
+     * </pre>
+     *
+     * <code>double current_price = 7 [json_name = "currentPrice"];</code>
+     * @return The currentPrice.
+     */
+    @java.lang.Override
+    public double getCurrentPrice() {
+      return currentPrice_;
+    }
+    /**
+     * <pre>
+     * current active asking, AUD
+     * </pre>
+     *
+     * <code>double current_price = 7 [json_name = "currentPrice"];</code>
+     * @param value The currentPrice to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCurrentPrice(double value) {
+
+      currentPrice_ = value;
+      bitField0_ |= 0x00000040;
       onChanged();
       return this;
     }
     /**
      * <pre>
-     * most-recent active listing (or most-recent if none active)
+     * current active asking, AUD
      * </pre>
      *
-     * <code>.shorts.v1alpha1.PropertyListingSnapshot current = 6 [json_name = "current"];</code>
+     * <code>double current_price = 7 [json_name = "currentPrice"];</code>
+     * @return This builder for chaining.
      */
-    public com.shorts.v1alpha1.PropertyListingSnapshot.Builder getCurrentBuilder() {
-      bitField0_ |= 0x00000020;
+    public Builder clearCurrentPrice() {
+      bitField0_ = (bitField0_ & ~0x00000040);
+      currentPrice_ = 0D;
       onChanged();
-      return internalGetCurrentFieldBuilder().getBuilder();
-    }
-    /**
-     * <pre>
-     * most-recent active listing (or most-recent if none active)
-     * </pre>
-     *
-     * <code>.shorts.v1alpha1.PropertyListingSnapshot current = 6 [json_name = "current"];</code>
-     */
-    public com.shorts.v1alpha1.PropertyListingSnapshotOrBuilder getCurrentOrBuilder() {
-      if (currentBuilder_ != null) {
-        return currentBuilder_.getMessageOrBuilder();
-      } else {
-        return current_ == null ?
-            com.shorts.v1alpha1.PropertyListingSnapshot.getDefaultInstance() : current_;
-      }
-    }
-    /**
-     * <pre>
-     * most-recent active listing (or most-recent if none active)
-     * </pre>
-     *
-     * <code>.shorts.v1alpha1.PropertyListingSnapshot current = 6 [json_name = "current"];</code>
-     */
-    private com.google.protobuf.SingleFieldBuilder<
-        com.shorts.v1alpha1.PropertyListingSnapshot, com.shorts.v1alpha1.PropertyListingSnapshot.Builder, com.shorts.v1alpha1.PropertyListingSnapshotOrBuilder> 
-        internalGetCurrentFieldBuilder() {
-      if (currentBuilder_ == null) {
-        currentBuilder_ = new com.google.protobuf.SingleFieldBuilder<
-            com.shorts.v1alpha1.PropertyListingSnapshot, com.shorts.v1alpha1.PropertyListingSnapshot.Builder, com.shorts.v1alpha1.PropertyListingSnapshotOrBuilder>(
-                getCurrent(),
-                getParentForChildren(),
-                isClean());
-        current_ = null;
-      }
-      return currentBuilder_;
+      return this;
     }
 
-    private java.util.List<com.shorts.v1alpha1.PropertyPriceEvent> events_ =
-      java.util.Collections.emptyList();
-    private void ensureEventsIsMutable() {
-      if (!((bitField0_ & 0x00000040) != 0)) {
-        events_ = new java.util.ArrayList<com.shorts.v1alpha1.PropertyPriceEvent>(events_);
-        bitField0_ |= 0x00000040;
-       }
+    private double dropAbs_ ;
+    /**
+     * <pre>
+     * first_price - current_price, AUD
+     * </pre>
+     *
+     * <code>double drop_abs = 8 [json_name = "dropAbs"];</code>
+     * @return The dropAbs.
+     */
+    @java.lang.Override
+    public double getDropAbs() {
+      return dropAbs_;
+    }
+    /**
+     * <pre>
+     * first_price - current_price, AUD
+     * </pre>
+     *
+     * <code>double drop_abs = 8 [json_name = "dropAbs"];</code>
+     * @param value The dropAbs to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDropAbs(double value) {
+
+      dropAbs_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * first_price - current_price, AUD
+     * </pre>
+     *
+     * <code>double drop_abs = 8 [json_name = "dropAbs"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearDropAbs() {
+      bitField0_ = (bitField0_ & ~0x00000080);
+      dropAbs_ = 0D;
+      onChanged();
+      return this;
     }
 
-    private com.google.protobuf.RepeatedFieldBuilder<
-        com.shorts.v1alpha1.PropertyPriceEvent, com.shorts.v1alpha1.PropertyPriceEvent.Builder, com.shorts.v1alpha1.PropertyPriceEventOrBuilder> eventsBuilder_;
+    private double dropPct_ ;
+    /**
+     * <pre>
+     * fraction (0.062 == a 6.2% drop)
+     * </pre>
+     *
+     * <code>double drop_pct = 9 [json_name = "dropPct"];</code>
+     * @return The dropPct.
+     */
+    @java.lang.Override
+    public double getDropPct() {
+      return dropPct_;
+    }
+    /**
+     * <pre>
+     * fraction (0.062 == a 6.2% drop)
+     * </pre>
+     *
+     * <code>double drop_pct = 9 [json_name = "dropPct"];</code>
+     * @param value The dropPct to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDropPct(double value) {
 
-    /**
-     * <pre>
-     * full timeline across ALL its listings, ordered observed_at asc
-     * </pre>
-     *
-     * <code>repeated .shorts.v1alpha1.PropertyPriceEvent events = 7 [json_name = "events"];</code>
-     */
-    public java.util.List<com.shorts.v1alpha1.PropertyPriceEvent> getEventsList() {
-      if (eventsBuilder_ == null) {
-        return java.util.Collections.unmodifiableList(events_);
-      } else {
-        return eventsBuilder_.getMessageList();
-      }
-    }
-    /**
-     * <pre>
-     * full timeline across ALL its listings, ordered observed_at asc
-     * </pre>
-     *
-     * <code>repeated .shorts.v1alpha1.PropertyPriceEvent events = 7 [json_name = "events"];</code>
-     */
-    public int getEventsCount() {
-      if (eventsBuilder_ == null) {
-        return events_.size();
-      } else {
-        return eventsBuilder_.getCount();
-      }
-    }
-    /**
-     * <pre>
-     * full timeline across ALL its listings, ordered observed_at asc
-     * </pre>
-     *
-     * <code>repeated .shorts.v1alpha1.PropertyPriceEvent events = 7 [json_name = "events"];</code>
-     */
-    public com.shorts.v1alpha1.PropertyPriceEvent getEvents(int index) {
-      if (eventsBuilder_ == null) {
-        return events_.get(index);
-      } else {
-        return eventsBuilder_.getMessage(index);
-      }
-    }
-    /**
-     * <pre>
-     * full timeline across ALL its listings, ordered observed_at asc
-     * </pre>
-     *
-     * <code>repeated .shorts.v1alpha1.PropertyPriceEvent events = 7 [json_name = "events"];</code>
-     */
-    public Builder setEvents(
-        int index, com.shorts.v1alpha1.PropertyPriceEvent value) {
-      if (eventsBuilder_ == null) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
-        ensureEventsIsMutable();
-        events_.set(index, value);
-        onChanged();
-      } else {
-        eventsBuilder_.setMessage(index, value);
-      }
+      dropPct_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
       return this;
     }
     /**
      * <pre>
-     * full timeline across ALL its listings, ordered observed_at asc
+     * fraction (0.062 == a 6.2% drop)
      * </pre>
      *
-     * <code>repeated .shorts.v1alpha1.PropertyPriceEvent events = 7 [json_name = "events"];</code>
+     * <code>double drop_pct = 9 [json_name = "dropPct"];</code>
+     * @return This builder for chaining.
      */
-    public Builder setEvents(
-        int index, com.shorts.v1alpha1.PropertyPriceEvent.Builder builderForValue) {
-      if (eventsBuilder_ == null) {
-        ensureEventsIsMutable();
-        events_.set(index, builderForValue.build());
-        onChanged();
-      } else {
-        eventsBuilder_.setMessage(index, builderForValue.build());
-      }
+    public Builder clearDropPct() {
+      bitField0_ = (bitField0_ & ~0x00000100);
+      dropPct_ = 0D;
+      onChanged();
       return this;
-    }
-    /**
-     * <pre>
-     * full timeline across ALL its listings, ordered observed_at asc
-     * </pre>
-     *
-     * <code>repeated .shorts.v1alpha1.PropertyPriceEvent events = 7 [json_name = "events"];</code>
-     */
-    public Builder addEvents(com.shorts.v1alpha1.PropertyPriceEvent value) {
-      if (eventsBuilder_ == null) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
-        ensureEventsIsMutable();
-        events_.add(value);
-        onChanged();
-      } else {
-        eventsBuilder_.addMessage(value);
-      }
-      return this;
-    }
-    /**
-     * <pre>
-     * full timeline across ALL its listings, ordered observed_at asc
-     * </pre>
-     *
-     * <code>repeated .shorts.v1alpha1.PropertyPriceEvent events = 7 [json_name = "events"];</code>
-     */
-    public Builder addEvents(
-        int index, com.shorts.v1alpha1.PropertyPriceEvent value) {
-      if (eventsBuilder_ == null) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
-        ensureEventsIsMutable();
-        events_.add(index, value);
-        onChanged();
-      } else {
-        eventsBuilder_.addMessage(index, value);
-      }
-      return this;
-    }
-    /**
-     * <pre>
-     * full timeline across ALL its listings, ordered observed_at asc
-     * </pre>
-     *
-     * <code>repeated .shorts.v1alpha1.PropertyPriceEvent events = 7 [json_name = "events"];</code>
-     */
-    public Builder addEvents(
-        com.shorts.v1alpha1.PropertyPriceEvent.Builder builderForValue) {
-      if (eventsBuilder_ == null) {
-        ensureEventsIsMutable();
-        events_.add(builderForValue.build());
-        onChanged();
-      } else {
-        eventsBuilder_.addMessage(builderForValue.build());
-      }
-      return this;
-    }
-    /**
-     * <pre>
-     * full timeline across ALL its listings, ordered observed_at asc
-     * </pre>
-     *
-     * <code>repeated .shorts.v1alpha1.PropertyPriceEvent events = 7 [json_name = "events"];</code>
-     */
-    public Builder addEvents(
-        int index, com.shorts.v1alpha1.PropertyPriceEvent.Builder builderForValue) {
-      if (eventsBuilder_ == null) {
-        ensureEventsIsMutable();
-        events_.add(index, builderForValue.build());
-        onChanged();
-      } else {
-        eventsBuilder_.addMessage(index, builderForValue.build());
-      }
-      return this;
-    }
-    /**
-     * <pre>
-     * full timeline across ALL its listings, ordered observed_at asc
-     * </pre>
-     *
-     * <code>repeated .shorts.v1alpha1.PropertyPriceEvent events = 7 [json_name = "events"];</code>
-     */
-    public Builder addAllEvents(
-        java.lang.Iterable<? extends com.shorts.v1alpha1.PropertyPriceEvent> values) {
-      if (eventsBuilder_ == null) {
-        ensureEventsIsMutable();
-        com.google.protobuf.AbstractMessageLite.Builder.addAll(
-            values, events_);
-        onChanged();
-      } else {
-        eventsBuilder_.addAllMessages(values);
-      }
-      return this;
-    }
-    /**
-     * <pre>
-     * full timeline across ALL its listings, ordered observed_at asc
-     * </pre>
-     *
-     * <code>repeated .shorts.v1alpha1.PropertyPriceEvent events = 7 [json_name = "events"];</code>
-     */
-    public Builder clearEvents() {
-      if (eventsBuilder_ == null) {
-        events_ = java.util.Collections.emptyList();
-        bitField0_ = (bitField0_ & ~0x00000040);
-        onChanged();
-      } else {
-        eventsBuilder_.clear();
-      }
-      return this;
-    }
-    /**
-     * <pre>
-     * full timeline across ALL its listings, ordered observed_at asc
-     * </pre>
-     *
-     * <code>repeated .shorts.v1alpha1.PropertyPriceEvent events = 7 [json_name = "events"];</code>
-     */
-    public Builder removeEvents(int index) {
-      if (eventsBuilder_ == null) {
-        ensureEventsIsMutable();
-        events_.remove(index);
-        onChanged();
-      } else {
-        eventsBuilder_.remove(index);
-      }
-      return this;
-    }
-    /**
-     * <pre>
-     * full timeline across ALL its listings, ordered observed_at asc
-     * </pre>
-     *
-     * <code>repeated .shorts.v1alpha1.PropertyPriceEvent events = 7 [json_name = "events"];</code>
-     */
-    public com.shorts.v1alpha1.PropertyPriceEvent.Builder getEventsBuilder(
-        int index) {
-      return internalGetEventsFieldBuilder().getBuilder(index);
-    }
-    /**
-     * <pre>
-     * full timeline across ALL its listings, ordered observed_at asc
-     * </pre>
-     *
-     * <code>repeated .shorts.v1alpha1.PropertyPriceEvent events = 7 [json_name = "events"];</code>
-     */
-    public com.shorts.v1alpha1.PropertyPriceEventOrBuilder getEventsOrBuilder(
-        int index) {
-      if (eventsBuilder_ == null) {
-        return events_.get(index);  } else {
-        return eventsBuilder_.getMessageOrBuilder(index);
-      }
-    }
-    /**
-     * <pre>
-     * full timeline across ALL its listings, ordered observed_at asc
-     * </pre>
-     *
-     * <code>repeated .shorts.v1alpha1.PropertyPriceEvent events = 7 [json_name = "events"];</code>
-     */
-    public java.util.List<? extends com.shorts.v1alpha1.PropertyPriceEventOrBuilder> 
-         getEventsOrBuilderList() {
-      if (eventsBuilder_ != null) {
-        return eventsBuilder_.getMessageOrBuilderList();
-      } else {
-        return java.util.Collections.unmodifiableList(events_);
-      }
-    }
-    /**
-     * <pre>
-     * full timeline across ALL its listings, ordered observed_at asc
-     * </pre>
-     *
-     * <code>repeated .shorts.v1alpha1.PropertyPriceEvent events = 7 [json_name = "events"];</code>
-     */
-    public com.shorts.v1alpha1.PropertyPriceEvent.Builder addEventsBuilder() {
-      return internalGetEventsFieldBuilder().addBuilder(
-          com.shorts.v1alpha1.PropertyPriceEvent.getDefaultInstance());
-    }
-    /**
-     * <pre>
-     * full timeline across ALL its listings, ordered observed_at asc
-     * </pre>
-     *
-     * <code>repeated .shorts.v1alpha1.PropertyPriceEvent events = 7 [json_name = "events"];</code>
-     */
-    public com.shorts.v1alpha1.PropertyPriceEvent.Builder addEventsBuilder(
-        int index) {
-      return internalGetEventsFieldBuilder().addBuilder(
-          index, com.shorts.v1alpha1.PropertyPriceEvent.getDefaultInstance());
-    }
-    /**
-     * <pre>
-     * full timeline across ALL its listings, ordered observed_at asc
-     * </pre>
-     *
-     * <code>repeated .shorts.v1alpha1.PropertyPriceEvent events = 7 [json_name = "events"];</code>
-     */
-    public java.util.List<com.shorts.v1alpha1.PropertyPriceEvent.Builder> 
-         getEventsBuilderList() {
-      return internalGetEventsFieldBuilder().getBuilderList();
-    }
-    private com.google.protobuf.RepeatedFieldBuilder<
-        com.shorts.v1alpha1.PropertyPriceEvent, com.shorts.v1alpha1.PropertyPriceEvent.Builder, com.shorts.v1alpha1.PropertyPriceEventOrBuilder> 
-        internalGetEventsFieldBuilder() {
-      if (eventsBuilder_ == null) {
-        eventsBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
-            com.shorts.v1alpha1.PropertyPriceEvent, com.shorts.v1alpha1.PropertyPriceEvent.Builder, com.shorts.v1alpha1.PropertyPriceEventOrBuilder>(
-                events_,
-                ((bitField0_ & 0x00000040) != 0),
-                getParentForChildren(),
-                isClean());
-        events_ = null;
-      }
-      return eventsBuilder_;
     }
 
     private int numListings_ ;
@@ -1869,7 +1740,7 @@ private static final long serialVersionUID = 0L;
      * distinct source+listing_id at this address
      * </pre>
      *
-     * <code>int32 num_listings = 8 [json_name = "numListings"];</code>
+     * <code>int32 num_listings = 10 [json_name = "numListings"];</code>
      * @return The numListings.
      */
     @java.lang.Override
@@ -1881,14 +1752,14 @@ private static final long serialVersionUID = 0L;
      * distinct source+listing_id at this address
      * </pre>
      *
-     * <code>int32 num_listings = 8 [json_name = "numListings"];</code>
+     * <code>int32 num_listings = 10 [json_name = "numListings"];</code>
      * @param value The numListings to set.
      * @return This builder for chaining.
      */
     public Builder setNumListings(int value) {
 
       numListings_ = value;
-      bitField0_ |= 0x00000080;
+      bitField0_ |= 0x00000200;
       onChanged();
       return this;
     }
@@ -1897,159 +1768,445 @@ private static final long serialVersionUID = 0L;
      * distinct source+listing_id at this address
      * </pre>
      *
-     * <code>int32 num_listings = 8 [json_name = "numListings"];</code>
+     * <code>int32 num_listings = 10 [json_name = "numListings"];</code>
      * @return This builder for chaining.
      */
     public Builder clearNumListings() {
-      bitField0_ = (bitField0_ & ~0x00000080);
+      bitField0_ = (bitField0_ & ~0x00000200);
       numListings_ = 0;
       onChanged();
       return this;
     }
 
-    private double firstPrice_ ;
-    /**
-     * <code>double first_price = 9 [json_name = "firstPrice"];</code>
-     * @return The firstPrice.
-     */
-    @java.lang.Override
-    public double getFirstPrice() {
-      return firstPrice_;
-    }
-    /**
-     * <code>double first_price = 9 [json_name = "firstPrice"];</code>
-     * @param value The firstPrice to set.
-     * @return This builder for chaining.
-     */
-    public Builder setFirstPrice(double value) {
-
-      firstPrice_ = value;
-      bitField0_ |= 0x00000100;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>double first_price = 9 [json_name = "firstPrice"];</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearFirstPrice() {
-      bitField0_ = (bitField0_ & ~0x00000100);
-      firstPrice_ = 0D;
-      onChanged();
-      return this;
-    }
-
-    private double currentPrice_ ;
-    /**
-     * <code>double current_price = 10 [json_name = "currentPrice"];</code>
-     * @return The currentPrice.
-     */
-    @java.lang.Override
-    public double getCurrentPrice() {
-      return currentPrice_;
-    }
-    /**
-     * <code>double current_price = 10 [json_name = "currentPrice"];</code>
-     * @param value The currentPrice to set.
-     * @return This builder for chaining.
-     */
-    public Builder setCurrentPrice(double value) {
-
-      currentPrice_ = value;
-      bitField0_ |= 0x00000200;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>double current_price = 10 [json_name = "currentPrice"];</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearCurrentPrice() {
-      bitField0_ = (bitField0_ & ~0x00000200);
-      currentPrice_ = 0D;
-      onChanged();
-      return this;
-    }
-
-    private int distinctDwellings_ ;
+    private java.lang.Object latestSource_ = "";
     /**
      * <pre>
-     * Distinct KNOWN bedroom counts seen under this address_key (NULL/0 excluded).
-     * &gt;1 means the portal likely listed multiple differently-sized units of one
-     * building WITHOUT a unit number, so this timeline may blend more than one
-     * physical dwelling. Counting bedrooms (not raw bed/bath/type tuples) keeps
-     * cross-portal label noise from falsely flagging a single dwelling. A search-
-     * results crawl cannot recover the missing unit number, so the view warns
-     * instead of silently merging. See docs/housing-architecture.md.
+     * 'rea' | 'domain'
      * </pre>
      *
-     * <code>int32 distinct_dwellings = 11 [json_name = "distinctDwellings"];</code>
-     * @return The distinctDwellings.
+     * <code>string latest_source = 11 [json_name = "latestSource"];</code>
+     * @return The latestSource.
      */
-    @java.lang.Override
-    public int getDistinctDwellings() {
-      return distinctDwellings_;
+    public java.lang.String getLatestSource() {
+      java.lang.Object ref = latestSource_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        latestSource_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
     }
     /**
      * <pre>
-     * Distinct KNOWN bedroom counts seen under this address_key (NULL/0 excluded).
-     * &gt;1 means the portal likely listed multiple differently-sized units of one
-     * building WITHOUT a unit number, so this timeline may blend more than one
-     * physical dwelling. Counting bedrooms (not raw bed/bath/type tuples) keeps
-     * cross-portal label noise from falsely flagging a single dwelling. A search-
-     * results crawl cannot recover the missing unit number, so the view warns
-     * instead of silently merging. See docs/housing-architecture.md.
+     * 'rea' | 'domain'
      * </pre>
      *
-     * <code>int32 distinct_dwellings = 11 [json_name = "distinctDwellings"];</code>
-     * @param value The distinctDwellings to set.
+     * <code>string latest_source = 11 [json_name = "latestSource"];</code>
+     * @return The bytes for latestSource.
+     */
+    public com.google.protobuf.ByteString
+        getLatestSourceBytes() {
+      java.lang.Object ref = latestSource_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        latestSource_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * 'rea' | 'domain'
+     * </pre>
+     *
+     * <code>string latest_source = 11 [json_name = "latestSource"];</code>
+     * @param value The latestSource to set.
      * @return This builder for chaining.
      */
-    public Builder setDistinctDwellings(int value) {
-
-      distinctDwellings_ = value;
+    public Builder setLatestSource(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      latestSource_ = value;
       bitField0_ |= 0x00000400;
       onChanged();
       return this;
     }
     /**
      * <pre>
-     * Distinct KNOWN bedroom counts seen under this address_key (NULL/0 excluded).
-     * &gt;1 means the portal likely listed multiple differently-sized units of one
-     * building WITHOUT a unit number, so this timeline may blend more than one
-     * physical dwelling. Counting bedrooms (not raw bed/bath/type tuples) keeps
-     * cross-portal label noise from falsely flagging a single dwelling. A search-
-     * results crawl cannot recover the missing unit number, so the view warns
-     * instead of silently merging. See docs/housing-architecture.md.
+     * 'rea' | 'domain'
      * </pre>
      *
-     * <code>int32 distinct_dwellings = 11 [json_name = "distinctDwellings"];</code>
+     * <code>string latest_source = 11 [json_name = "latestSource"];</code>
      * @return This builder for chaining.
      */
-    public Builder clearDistinctDwellings() {
+    public Builder clearLatestSource() {
+      latestSource_ = getDefaultInstance().getLatestSource();
       bitField0_ = (bitField0_ & ~0x00000400);
-      distinctDwellings_ = 0;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 'rea' | 'domain'
+     * </pre>
+     *
+     * <code>string latest_source = 11 [json_name = "latestSource"];</code>
+     * @param value The bytes for latestSource to set.
+     * @return This builder for chaining.
+     */
+    public Builder setLatestSourceBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      latestSource_ = value;
+      bitField0_ |= 0x00000400;
       onChanged();
       return this;
     }
 
-    // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.GetPropertyHistoryResponse)
+    private java.lang.Object latestListingUrl_ = "";
+    /**
+     * <pre>
+     * deep link to the live portal listing
+     * </pre>
+     *
+     * <code>string latest_listing_url = 12 [json_name = "latestListingUrl"];</code>
+     * @return The latestListingUrl.
+     */
+    public java.lang.String getLatestListingUrl() {
+      java.lang.Object ref = latestListingUrl_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        latestListingUrl_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * deep link to the live portal listing
+     * </pre>
+     *
+     * <code>string latest_listing_url = 12 [json_name = "latestListingUrl"];</code>
+     * @return The bytes for latestListingUrl.
+     */
+    public com.google.protobuf.ByteString
+        getLatestListingUrlBytes() {
+      java.lang.Object ref = latestListingUrl_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        latestListingUrl_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * deep link to the live portal listing
+     * </pre>
+     *
+     * <code>string latest_listing_url = 12 [json_name = "latestListingUrl"];</code>
+     * @param value The latestListingUrl to set.
+     * @return This builder for chaining.
+     */
+    public Builder setLatestListingUrl(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      latestListingUrl_ = value;
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * deep link to the live portal listing
+     * </pre>
+     *
+     * <code>string latest_listing_url = 12 [json_name = "latestListingUrl"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearLatestListingUrl() {
+      latestListingUrl_ = getDefaultInstance().getLatestListingUrl();
+      bitField0_ = (bitField0_ & ~0x00000800);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * deep link to the live portal listing
+     * </pre>
+     *
+     * <code>string latest_listing_url = 12 [json_name = "latestListingUrl"];</code>
+     * @param value The bytes for latestListingUrl to set.
+     * @return This builder for chaining.
+     */
+    public Builder setLatestListingUrlBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      latestListingUrl_ = value;
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object lastObservedAt_ = "";
+    /**
+     * <pre>
+     * RFC3339, when the current listing was last seen
+     * </pre>
+     *
+     * <code>string last_observed_at = 13 [json_name = "lastObservedAt"];</code>
+     * @return The lastObservedAt.
+     */
+    public java.lang.String getLastObservedAt() {
+      java.lang.Object ref = lastObservedAt_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        lastObservedAt_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * RFC3339, when the current listing was last seen
+     * </pre>
+     *
+     * <code>string last_observed_at = 13 [json_name = "lastObservedAt"];</code>
+     * @return The bytes for lastObservedAt.
+     */
+    public com.google.protobuf.ByteString
+        getLastObservedAtBytes() {
+      java.lang.Object ref = lastObservedAt_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        lastObservedAt_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * RFC3339, when the current listing was last seen
+     * </pre>
+     *
+     * <code>string last_observed_at = 13 [json_name = "lastObservedAt"];</code>
+     * @param value The lastObservedAt to set.
+     * @return This builder for chaining.
+     */
+    public Builder setLastObservedAt(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      lastObservedAt_ = value;
+      bitField0_ |= 0x00001000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * RFC3339, when the current listing was last seen
+     * </pre>
+     *
+     * <code>string last_observed_at = 13 [json_name = "lastObservedAt"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearLastObservedAt() {
+      lastObservedAt_ = getDefaultInstance().getLastObservedAt();
+      bitField0_ = (bitField0_ & ~0x00001000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * RFC3339, when the current listing was last seen
+     * </pre>
+     *
+     * <code>string last_observed_at = 13 [json_name = "lastObservedAt"];</code>
+     * @param value The bytes for lastObservedAt to set.
+     * @return This builder for chaining.
+     */
+    public Builder setLastObservedAtBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      lastObservedAt_ = value;
+      bitField0_ |= 0x00001000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object propertyType_ = "";
+    /**
+     * <code>string property_type = 14 [json_name = "propertyType"];</code>
+     * @return The propertyType.
+     */
+    public java.lang.String getPropertyType() {
+      java.lang.Object ref = propertyType_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        propertyType_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string property_type = 14 [json_name = "propertyType"];</code>
+     * @return The bytes for propertyType.
+     */
+    public com.google.protobuf.ByteString
+        getPropertyTypeBytes() {
+      java.lang.Object ref = propertyType_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        propertyType_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string property_type = 14 [json_name = "propertyType"];</code>
+     * @param value The propertyType to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPropertyType(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      propertyType_ = value;
+      bitField0_ |= 0x00002000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string property_type = 14 [json_name = "propertyType"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPropertyType() {
+      propertyType_ = getDefaultInstance().getPropertyType();
+      bitField0_ = (bitField0_ & ~0x00002000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string property_type = 14 [json_name = "propertyType"];</code>
+     * @param value The bytes for propertyType to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPropertyTypeBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      propertyType_ = value;
+      bitField0_ |= 0x00002000;
+      onChanged();
+      return this;
+    }
+
+    private int bedrooms_ ;
+    /**
+     * <code>int32 bedrooms = 15 [json_name = "bedrooms"];</code>
+     * @return The bedrooms.
+     */
+    @java.lang.Override
+    public int getBedrooms() {
+      return bedrooms_;
+    }
+    /**
+     * <code>int32 bedrooms = 15 [json_name = "bedrooms"];</code>
+     * @param value The bedrooms to set.
+     * @return This builder for chaining.
+     */
+    public Builder setBedrooms(int value) {
+
+      bedrooms_ = value;
+      bitField0_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>int32 bedrooms = 15 [json_name = "bedrooms"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearBedrooms() {
+      bitField0_ = (bitField0_ & ~0x00004000);
+      bedrooms_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int bathrooms_ ;
+    /**
+     * <code>int32 bathrooms = 16 [json_name = "bathrooms"];</code>
+     * @return The bathrooms.
+     */
+    @java.lang.Override
+    public int getBathrooms() {
+      return bathrooms_;
+    }
+    /**
+     * <code>int32 bathrooms = 16 [json_name = "bathrooms"];</code>
+     * @param value The bathrooms to set.
+     * @return This builder for chaining.
+     */
+    public Builder setBathrooms(int value) {
+
+      bathrooms_ = value;
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>int32 bathrooms = 16 [json_name = "bathrooms"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearBathrooms() {
+      bitField0_ = (bitField0_ & ~0x00008000);
+      bathrooms_ = 0;
+      onChanged();
+      return this;
+    }
+
+    // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.AddressPriceDrop)
   }
 
-  // @@protoc_insertion_point(class_scope:shorts.v1alpha1.GetPropertyHistoryResponse)
-  private static final com.shorts.v1alpha1.GetPropertyHistoryResponse DEFAULT_INSTANCE;
+  // @@protoc_insertion_point(class_scope:shorts.v1alpha1.AddressPriceDrop)
+  private static final com.shorts.v1alpha1.AddressPriceDrop DEFAULT_INSTANCE;
   static {
-    DEFAULT_INSTANCE = new com.shorts.v1alpha1.GetPropertyHistoryResponse();
+    DEFAULT_INSTANCE = new com.shorts.v1alpha1.AddressPriceDrop();
   }
 
-  public static com.shorts.v1alpha1.GetPropertyHistoryResponse getDefaultInstance() {
+  public static com.shorts.v1alpha1.AddressPriceDrop getDefaultInstance() {
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<GetPropertyHistoryResponse>
-      PARSER = new com.google.protobuf.AbstractParser<GetPropertyHistoryResponse>() {
+  private static final com.google.protobuf.Parser<AddressPriceDrop>
+      PARSER = new com.google.protobuf.AbstractParser<AddressPriceDrop>() {
     @java.lang.Override
-    public GetPropertyHistoryResponse parsePartialFrom(
+    public AddressPriceDrop parsePartialFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
@@ -2068,17 +2225,17 @@ private static final long serialVersionUID = 0L;
     }
   };
 
-  public static com.google.protobuf.Parser<GetPropertyHistoryResponse> parser() {
+  public static com.google.protobuf.Parser<AddressPriceDrop> parser() {
     return PARSER;
   }
 
   @java.lang.Override
-  public com.google.protobuf.Parser<GetPropertyHistoryResponse> getParserForType() {
+  public com.google.protobuf.Parser<AddressPriceDrop> getParserForType() {
     return PARSER;
   }
 
   @java.lang.Override
-  public com.shorts.v1alpha1.GetPropertyHistoryResponse getDefaultInstanceForType() {
+  public com.shorts.v1alpha1.AddressPriceDrop getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
 

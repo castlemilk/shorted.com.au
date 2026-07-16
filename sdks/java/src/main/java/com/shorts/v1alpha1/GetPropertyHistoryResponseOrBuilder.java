@@ -162,4 +162,20 @@ public interface GetPropertyHistoryResponseOrBuilder extends
    * @return The currentPrice.
    */
   double getCurrentPrice();
+
+  /**
+   * <pre>
+   * Distinct KNOWN bedroom counts seen under this address_key (NULL/0 excluded).
+   * &gt;1 means the portal likely listed multiple differently-sized units of one
+   * building WITHOUT a unit number, so this timeline may blend more than one
+   * physical dwelling. Counting bedrooms (not raw bed/bath/type tuples) keeps
+   * cross-portal label noise from falsely flagging a single dwelling. A search-
+   * results crawl cannot recover the missing unit number, so the view warns
+   * instead of silently merging. See docs/housing-architecture.md.
+   * </pre>
+   *
+   * <code>int32 distinct_dwellings = 11 [json_name = "distinctDwellings"];</code>
+   * @return The distinctDwellings.
+   */
+  int getDistinctDwellings();
 }

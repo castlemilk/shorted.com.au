@@ -288,14 +288,23 @@ function RecentPriceDrops({ salCode, regionCode }: { salCode: string; regionCode
         {listings.map((l, i) => (
           <li key={`${l.source}-${i}`} className="flex items-center justify-between gap-3 py-2.5">
             <div className="min-w-0">
-              <a
-                href={l.listingUrl}
-                target="_blank"
-                rel="noopener noreferrer nofollow"
-                className="block truncate text-sm text-foreground underline-offset-2 hover:underline"
-              >
-                {l.displayAddress || "View listing"}
-              </a>
+              {l.addressKey ? (
+                <Link
+                  href={`/housing/property/${encodeURIComponent(l.addressKey)}`}
+                  className="block truncate text-sm text-foreground underline-offset-2 hover:underline"
+                >
+                  {l.displayAddress || "View listing"}
+                </Link>
+              ) : (
+                <a
+                  href={l.listingUrl}
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
+                  className="block truncate text-sm text-foreground underline-offset-2 hover:underline"
+                >
+                  {l.displayAddress || "View listing"}
+                </a>
+              )}
               <div className="mt-0.5 truncate text-xs text-muted-foreground">
                 {[l.propertyType, bedBath(l)].filter(Boolean).join(" · ")}
                 {l.propertyType || bedBath(l) ? " · " : ""}

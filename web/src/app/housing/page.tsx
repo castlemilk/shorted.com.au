@@ -227,7 +227,14 @@ export default async function HousingPage() {
               <HousingTiles tiles={capitalTiles} />
             </section>
 
-            <SuburbPriceDropsPanel title="Biggest price drops by suburb" limit={25} />
+            <div>
+              <SuburbPriceDropsPanel title="Biggest price drops by suburb" limit={25} />
+              <div className="mt-2">
+                <Link href="/housing/drops" className="inline-flex items-center gap-1 text-sm text-primary underline-offset-2 hover:underline">
+                  See biggest price drops by individual address →
+                </Link>
+              </div>
+            </div>
 
             <section>
               <Link
