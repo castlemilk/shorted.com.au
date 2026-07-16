@@ -316,8 +316,19 @@ func (s *ShortsServer) ListSuburbPriceDrops(ctx context.Context, req *connect.Re
 // dropListingsEnabled gates the per-listing deep-link drill-down. That path reads
 // ToS-restricted listing rows, so it is OFF by default and enabled only once the
 // operator has confirmed the publish posture (HOUSING_DROP_LISTINGS_ENABLED=true).
+// dropListingsEnabled gates the per-address / per-listing surfaces (the
+// drops-by-address board, per-address history, suburb-drop deep-links, and the
+// suburb drops panel) that read the ToS-restricted REA/Domain listing rows.
+// Enabled by DEFAULT — no opt-in env is needed to ship it live. Set
+// HOUSING_DROP_LISTINGS_ENABLED to a falsey value ("false"/"0"/"off"/"no") only
+// as an explicit kill switch (e.g. a takedown request).
 func dropListingsEnabled() bool {
-	return strings.EqualFold(os.Getenv("HOUSING_DROP_LISTINGS_ENABLED"), "true")
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("HOUSING_DROP_LISTINGS_ENABLED"))) {
+	case "false", "0", "off", "no":
+		return false
+	default:
+		return true
+	}
 }
 
 // ListSuburbDropListings returns a suburb's recently-reduced listings, each
