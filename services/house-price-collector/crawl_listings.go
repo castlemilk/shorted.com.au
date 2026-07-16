@@ -83,6 +83,13 @@ type listingsConfig struct {
 	fixtureDir string // CRAWL_LISTINGS_FIXTURE_DIR
 	// CRAWL_LISTINGS_SOURCES allowlist (default rea+domain)
 	sources map[string]bool
+	// Per-source circuit breaker (crawl_circuit.go, -mode agent only): after
+	// circuitTrip consecutive blocked sweeps of a source, that source is skipped
+	// for an exponentially-growing cooldown (circuitBase, doubling up to
+	// circuitMax) so a portal that starts blocking isn't hammered on every suburb.
+	circuitTrip int           // CRAWL_CIRCUIT_TRIP    (default 2)
+	circuitBase time.Duration // CRAWL_CIRCUIT_BASE_S  (default 300s = 5m)
+	circuitMax  time.Duration // CRAWL_CIRCUIT_MAX_S   (default 3600s = 60m)
 }
 
 func loadListingsConfig() listingsConfig {
@@ -102,6 +109,9 @@ func loadListingsConfig() listingsConfig {
 		traceCfg:      loadTraceConfig(),
 		fixtureDir:    os.Getenv("CRAWL_LISTINGS_FIXTURE_DIR"),
 		sources:       parseListingsSources(),
+		circuitTrip:   envInt("CRAWL_CIRCUIT_TRIP", 2),
+		circuitBase:   time.Duration(envInt("CRAWL_CIRCUIT_BASE_S", 300)) * time.Second,
+		circuitMax:    time.Duration(envInt("CRAWL_CIRCUIT_MAX_S", 3600)) * time.Second,
 	}
 }
 

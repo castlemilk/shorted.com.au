@@ -197,6 +197,26 @@ blindly walking a fixed page cap:
   swept within the window (default `0` = disabled) so an interrupted run resumes
   mid-catalog and repeat runs spread over time.
 
+## Circuit breaking (per-source exponential backoff)
+
+`-mode agent` builds a fresh `listingsCrawler` per suburb, so the in-sweep block
+counter resets every job and can't see a portal that's blocking across suburbs.
+A **per-source circuit breaker** (`crawl_circuit.go`) holds that state at the
+agent-loop level instead: after `CRAWL_CIRCUIT_TRIP` (default **2**) consecutive
+blocked sweeps of a source (Akamai `errors.edgesuite.net`, Kasada stubs), that
+source's circuit **opens** and it is **skipped** for an exponentially-growing,
+jittered cooldown — `CRAWL_CIRCUIT_BASE_S` (default **300s**), doubling on each
+re-open up to `CRAWL_CIRCUIT_MAX_S` (default **3600s**). The **healthy portal
+keeps crawling** the whole time (e.g. Domain blocking never stops REA). After the
+cooldown one probe is allowed (half-open): a clean sweep closes the circuit and
+resets the backoff; another block widens it. If **every** source is circuit-open
+the run stops (leaving those suburbs pending for the next warm run) rather than
+burning the queue on a fully-blocked session.
+
+This is what stops a portal that starts rate-limiting from being hammered on
+every suburb, which is what escalates the residential-IP flag onto the other
+portal too.
+
 ## Debug tracing (`CRAWL_TRACE`)
 
 To debug/tune collection against live REA/Domain, set `CRAWL_TRACE=1` (or
