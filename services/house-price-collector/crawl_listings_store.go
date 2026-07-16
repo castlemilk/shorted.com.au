@@ -102,6 +102,13 @@ func loadAddressPrior(ctx context.Context, tx pgx.Tx, addressKey, excludeListing
 // move happened) advances last_price_change_at. first_seen_at is preserved.
 func upsertListing(ctx context.Context, tx pgx.Tx, r RawListing, t CrawlTarget, runTs time.Time, lastPriceChange *time.Time) (int64, error) {
 	price := canonicalPrice(r.PriceLow, r.PriceHigh, r.PriceKind)
+	// agent_names is NOT NULL DEFAULT '{}'; a nil Go slice encodes as SQL NULL
+	// (the DEFAULT only fires when the column is omitted, not when NULL is passed),
+	// so coerce nil → empty array to satisfy the constraint for agentless listings.
+	agentNames := r.AgentNames
+	if agentNames == nil {
+		agentNames = []string{}
+	}
 	var pk int64
 	err := tx.QueryRow(ctx, `
 		INSERT INTO property_listings
@@ -137,7 +144,7 @@ func upsertListing(ctx context.Context, tx pgx.Tx, r RawListing, t CrawlTarget, 
 		r.DisplayAddr, r.Lat, r.Lng, r.PropertyType, r.Bedrooms, r.Bathrooms,
 		r.CarSpaces, r.LandSizeSqm, price, r.PriceHigh, r.PriceDisplay, r.PriceKind,
 		r.Status, runTs, lastPriceChange, listingContentHash(r), statusActive(r.Status),
-		r.AgencyID, r.AgencyName, r.AgentNames).Scan(&pk)
+		r.AgencyID, r.AgencyName, agentNames).Scan(&pk)
 	return pk, err
 }
 
