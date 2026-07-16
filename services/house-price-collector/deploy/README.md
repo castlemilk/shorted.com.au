@@ -112,3 +112,44 @@ scopes is a drop-in. Mint via `POST /api/v1/ml/auth/tokens`
 (`{scopes:["agent:crawl","agent:upload"],expires_in_hours:8760}`, needs
 `ML_TOKEN_MINT_SECRET` on the brandbrain env), or bridge with the 24h
 `POST /api/v1/agent/refresh`.
+
+## Smart pagination
+
+The per-suburb sweep (`sweepSuburbSource`) sizes and stops itself instead of
+blindly walking a fixed page cap:
+
+- **Result-count sizing.** `extractPageMeta` reads the portal's own counts from the
+  same SRP blob the listings come from. REA also exposes the exact **on-target**
+  count (`listings_total`, e.g. 63) separately from the broadened
+  `totalResultsCount` (which includes surrounding suburbs, e.g. 969) — the sweep
+  sizes REA to the on-target count, so a small suburb stops after ~1 page and a
+  dense one is sized to its real inventory (bounded by the `maxPages` ceiling).
+  Domain exposes only a broadened total, so it keeps the broadening-detection stop.
+  A clean walk that reaches the on-target page count is now `sweepComplete`
+  (delist-safe), where before it was always `sweepPartial` at the cap.
+- **Yield-decay stop** — ends a sweep when a page adds no new on-target listings
+  (catches reordered/overlapping tail pages the duplicate-signature check misses).
+- **Cross-page dedup** — a listing seen thin on page 1 is upgraded by a richer copy
+  on a later page (fieldScore-max merge), not first-wins.
+- **Adaptive page cap** — a per-suburb soft cap seeded from ABS size (`Dwellings`).
+- **Adaptive pacing** — page-delay jitter widens after a blocked/high-mismatch page,
+  tightens after clean pages.
+- **Checkpoint / resume** — set `CRAWL_RESUME_WINDOW_H=20` to skip a (source,suburb)
+  swept within the window (default `0` = disabled) so an interrupted run resumes
+  mid-catalog and repeat runs spread over time.
+
+## Debug tracing (`CRAWL_TRACE`)
+
+To debug/tune collection against live REA/Domain, set `CRAWL_TRACE=1` (or
+`CRAWL_TRACE_DIR=<path>`; optional `CRAWL_TRACE_SUBURB=<Display>` to trace one
+suburb). Off by default = zero overhead. Per swept `(suburb,source)` it writes to
+`<CRAWL_TRACE_DIR>/<runId>/<suburb>-<source>/`:
+
+- `p{N}.png` — a screenshot of each rendered SRP (via the CDP fetcher),
+- `p{N}.html` — the raw fetched blob (offline re-parse),
+- `trace.jsonl` — one record per page with the exact pagination signals
+  (`page,url,ms,bytes,extracted,matched,mismatch,total_results,on_target_results,want_pages,new_ids,outcome,status,decision`),
+- `summary.json` — the final sweep status + counts.
+
+Trace artifacts contain portal listing data + screenshots → they stay **local to the
+rig** (gitignored, never uploaded to brandbrain).

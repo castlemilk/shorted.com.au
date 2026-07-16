@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -60,6 +61,139 @@ func extractListings(doc *goquery.Document, source string) []RawListing {
 		out = append(out, l)
 	}
 	return out
+}
+
+// PageMeta is the portal's OWN pagination signal for one search-results page,
+// parsed from the SAME embedded JSON blob extractListings walks. Confirmed key
+// paths (Phase-0 discovery, 2026-07-15, against live New Farm SRPs):
+//
+//   - REA (ArgonautExchange): buySearch.results.totalResultsCount (broadened
+//     count) + .pagination.maxPageNumberAvailable (total pages), and — one
+//     level deeper, inside the stringified buySearch.resolvedQuery.metadata.
+//     savedSearchQuery — .pageSize + .filters.surroundingSuburbs.
+//   - Domain (__NEXT_DATA__): componentProps.totalPages/totalListings, and
+//     componentProps.pageViewMetadata.searchRequest.pageSize +
+//     .locations[].includeSurroundingSuburbs (also
+//     .searchResponse.SearchResults.totalResults/totalPages, same values).
+//
+// CRITICAL: on both portals TotalResults/TotalPages are the BROADENED count —
+// suburb + surrounding suburbs once the SRP runs out of on-target inventory —
+// NOT the on-target listing count (confirmed live: New Farm reports
+// TotalResults≈969(REA)/608(Domain) while on-target inventory is only
+// ~54-65). The sweep loop (crawl_listings.go) must never size its page walk
+// off TotalResults/TotalPages directly; see sweepSuburbSource's doc comment.
+//
+// OnTargetResults is REA-only: its SRP blob also carries an exact on-target
+// count under "listings_total" (confirmed live, New Farm: 969 broadened −
+// 906 surrounding = 63, matching listings_total==63). Domain exposes no
+// equivalent field (only the broadened totalListings + a boolean
+// includeSurroundingSuburbs), so OnTargetResults is left 0 for Domain and
+// callers must keep falling back to the broadened-TotalPages/softCap
+// heuristic there.
+type PageMeta struct {
+	OK                 bool
+	TotalResults       int
+	TotalPages         int
+	PageSize           int
+	SurroundingSuburbs bool
+	OnTargetResults    int
+}
+
+// pageMetaTotalKeys/pageMetaPagesKeys/... are case-insensitive alias lists,
+// checked in order, mirroring the alias-list pattern extractListings/
+// harvestListing already use for schema drift resilience.
+var (
+	pageMetaTotalKeys    = []string{"totalresultscount", "totalresults", "totallistings"}
+	pageMetaPagesKeys    = []string{"maxpagenumberavailable", "totalpages"}
+	pageMetaSizeKeys     = []string{"pagesize"}
+	pageMetaSurroundKeys = []string{"surroundingsuburbs", "includesurroundingsuburbs", "initialsurroundingsuburbs"}
+	// pageMetaOnTargetKeys: REA-only exact on-target count (Domain has no
+	// equivalent field — see PageMeta's doc comment).
+	pageMetaOnTargetKeys = []string{"listings_total"}
+)
+
+// extractPageMeta walks every <script> JSON blob on a search-results page (the
+// same blobs extractListings walks — including REA's triple-nested
+// stringified JSON) looking for the portal's own pagination fields. OK is true
+// only when BOTH a total-result count and a page size were found (the minimum
+// needed to derive anything); an unrecognized/blocked/empty page returns
+// PageMeta{} (OK:false), and callers must fall back to today's behaviour.
+// TotalPages prefers the portal's own field when present, else is computed as
+// ceil(TotalResults/PageSize).
+func extractPageMeta(doc *goquery.Document, source string) PageMeta {
+	_ = source // the confirmed key-alias set is shared across both portals; kept for symmetry with extractListings(doc, source)
+	var m PageMeta
+	doc.Find("script").Each(func(_ int, s *goquery.Selection) {
+		for _, blob := range jsonBlobs(s.Text()) {
+			var v any
+			if err := json.Unmarshal([]byte(blob), &v); err != nil {
+				continue
+			}
+			walkForPageMeta(v, &m, 0)
+		}
+	})
+	m.OK = m.TotalResults > 0 && m.PageSize > 0
+	if m.OK && m.TotalPages <= 0 {
+		m.TotalPages = int(math.Ceil(float64(m.TotalResults) / float64(m.PageSize)))
+	}
+	return m
+}
+
+// walkForPageMeta recurses through maps, arrays, AND stringified-JSON string
+// values (mirrors walkForListingsDepth, including REA's double-stringified
+// urqlClientCache -> data -> savedSearchQuery chain), filling in each PageMeta
+// field the first time it's found. The confirmed fixtures repeat the same
+// value at every call-site on a page, so first-found-wins never conflicts.
+func walkForPageMeta(v any, m *PageMeta, depth int) {
+	if depth > 40 {
+		return
+	}
+	switch t := v.(type) {
+	case map[string]any:
+		lm := lowerKeys(t)
+		if m.TotalResults == 0 {
+			if f, ok := firstFloat([]map[string]any{lm}, pageMetaTotalKeys...); ok && f > 0 {
+				m.TotalResults = int(f)
+			}
+		}
+		if m.TotalPages == 0 {
+			if f, ok := firstFloat([]map[string]any{lm}, pageMetaPagesKeys...); ok && f > 0 {
+				m.TotalPages = int(f)
+			}
+		}
+		if m.PageSize == 0 {
+			if f, ok := firstFloat([]map[string]any{lm}, pageMetaSizeKeys...); ok && f > 0 {
+				m.PageSize = int(f)
+			}
+		}
+		if m.OnTargetResults == 0 {
+			if f, ok := firstFloat([]map[string]any{lm}, pageMetaOnTargetKeys...); ok && f > 0 {
+				m.OnTargetResults = int(f)
+			}
+		}
+		if !m.SurroundingSuburbs {
+			for _, k := range pageMetaSurroundKeys {
+				if b, ok := lm[k].(bool); ok && b {
+					m.SurroundingSuburbs = true
+					break
+				}
+			}
+		}
+		for _, child := range t {
+			walkForPageMeta(child, m, depth+1)
+		}
+	case []any:
+		for _, child := range t {
+			walkForPageMeta(child, m, depth+1)
+		}
+	case string:
+		if s := strings.TrimSpace(t); len(s) > 2 && (s[0] == '{' || s[0] == '[') {
+			var inner any
+			if json.Unmarshal([]byte(s), &inner) == nil {
+				walkForPageMeta(inner, m, depth+1)
+			}
+		}
+	}
 }
 
 func walkForListings(v any, source string, seen map[string]RawListing) {

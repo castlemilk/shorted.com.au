@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"log"
+	"math"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -58,14 +59,25 @@ type suburbSweep struct {
 }
 
 type listingsConfig struct {
-	crawlConfig                // embeds cdpURL, minDelay/maxDelay, dryRun, maxConsecBlocks, fetchTimeout, profileDir, maxSuburbs
-	maxPages     int           // CRAWL_LISTINGS_MAX_PAGES      (default 5)
-	minPerPage   int           // CRAWL_LISTINGS_MIN_PER_PAGE   (default 5)
-	pageMinDelay time.Duration // CRAWL_LISTINGS_PAGE_MIN_MS   (default 8000)
-	pageMaxDelay time.Duration // CRAWL_LISTINGS_PAGE_MAX_MS   (default 20000)
-	noiseAbs     float64       // CRAWL_LISTINGS_NOISE_ABS      (default 5000)
-	noisePct     float64       // CRAWL_LISTINGS_NOISE_PCT      (default 0.005 == 0.5%)
-	delistGrace  int           // CRAWL_LISTINGS_DELIST_GRACE   (default 2)
+	crawlConfig                 // embeds cdpURL, minDelay/maxDelay, dryRun, maxConsecBlocks, fetchTimeout, profileDir, maxSuburbs
+	maxPages      int           // CRAWL_LISTINGS_MAX_PAGES      (default 5)
+	maxPagesHard  int           // CRAWL_LISTINGS_MAX_PAGES_HARD (default maxPages*3) — absolute ceiling softPageCap may grow into
+	minPerPage    int           // CRAWL_LISTINGS_MIN_PER_PAGE   (default 5)
+	minNewPerPage int           // CRAWL_LISTINGS_MIN_NEW_PER_PAGE (default 1) — yield-decay floor
+	pageMinDelay  time.Duration // CRAWL_LISTINGS_PAGE_MIN_MS   (default 8000)
+	pageMaxDelay  time.Duration // CRAWL_LISTINGS_PAGE_MAX_MS   (default 20000)
+	noiseAbs      float64       // CRAWL_LISTINGS_NOISE_ABS      (default 5000)
+	noisePct      float64       // CRAWL_LISTINGS_NOISE_PCT      (default 0.005 == 0.5%)
+	delistGrace   int           // CRAWL_LISTINGS_DELIST_GRACE   (default 2)
+	// resumeWindow gates the checkpoint/resume cursor (crawl_resume.go): a
+	// (source,suburb) swept within this window of "now" is skipped. Defaults to
+	// 0 == DISABLED (today's behaviour: always sweep every selected target) —
+	// set CRAWL_LISTINGS_RESUME_WINDOW_H (a recommended value is 20, i.e. 20h)
+	// to opt in.
+	resumeWindow time.Duration // CRAWL_LISTINGS_RESUME_WINDOW_H (default 0/disabled)
+	// traceCfg gates the debug-trace mode (crawl_trace.go): off by default
+	// (CRAWL_TRACE unset and CRAWL_TRACE_DIR empty) — see loadTraceConfig.
+	traceCfg traceConfig
 	// fixtureDir, when set, reads pages from saved HTML files instead of driving a
 	// browser — for offline testing/seeding against captured real pages.
 	fixtureDir string // CRAWL_LISTINGS_FIXTURE_DIR
@@ -74,17 +86,22 @@ type listingsConfig struct {
 }
 
 func loadListingsConfig() listingsConfig {
+	maxPages := envInt("CRAWL_LISTINGS_MAX_PAGES", 5)
 	return listingsConfig{
-		crawlConfig:  loadCrawlConfig(),
-		maxPages:     envInt("CRAWL_LISTINGS_MAX_PAGES", 5),
-		minPerPage:   envInt("CRAWL_LISTINGS_MIN_PER_PAGE", 5),
-		pageMinDelay: time.Duration(envInt("CRAWL_LISTINGS_PAGE_MIN_MS", 8000)) * time.Millisecond,
-		pageMaxDelay: time.Duration(envInt("CRAWL_LISTINGS_PAGE_MAX_MS", 20000)) * time.Millisecond,
-		noiseAbs:     envFloat("CRAWL_LISTINGS_NOISE_ABS", 5000),
-		noisePct:     envFloat("CRAWL_LISTINGS_NOISE_PCT", 0.005),
-		delistGrace:  envInt("CRAWL_LISTINGS_DELIST_GRACE", 2),
-		fixtureDir:   os.Getenv("CRAWL_LISTINGS_FIXTURE_DIR"),
-		sources:      parseListingsSources(),
+		crawlConfig:   loadCrawlConfig(),
+		maxPages:      maxPages,
+		maxPagesHard:  envInt("CRAWL_LISTINGS_MAX_PAGES_HARD", maxPages*3),
+		minPerPage:    envInt("CRAWL_LISTINGS_MIN_PER_PAGE", 5),
+		minNewPerPage: envInt("CRAWL_LISTINGS_MIN_NEW_PER_PAGE", 1),
+		pageMinDelay:  time.Duration(envInt("CRAWL_LISTINGS_PAGE_MIN_MS", 8000)) * time.Millisecond,
+		pageMaxDelay:  time.Duration(envInt("CRAWL_LISTINGS_PAGE_MAX_MS", 20000)) * time.Millisecond,
+		noiseAbs:      envFloat("CRAWL_LISTINGS_NOISE_ABS", 5000),
+		noisePct:      envFloat("CRAWL_LISTINGS_NOISE_PCT", 0.005),
+		delistGrace:   envInt("CRAWL_LISTINGS_DELIST_GRACE", 2),
+		resumeWindow:  time.Duration(envInt("CRAWL_LISTINGS_RESUME_WINDOW_H", 0)) * time.Hour,
+		traceCfg:      loadTraceConfig(),
+		fixtureDir:    os.Getenv("CRAWL_LISTINGS_FIXTURE_DIR"),
+		sources:       parseListingsSources(),
 	}
 }
 
@@ -236,6 +253,16 @@ func runListings(ctx context.Context, pool *pgxpool.Pool) bool {
 
 	log.Printf("[listings] start: %d suburbs · %s · maxPages=%d · dryRun=%v · sources=%s", len(targets), crawlFetcherMode(cfg.crawlConfig), cfg.maxPages, cfg.dryRun, strings.Join(enabledSourceNames(cfg.sources), ","))
 
+	// Checkpoint/resume: OFF unless CRAWL_LISTINGS_RESUME_WINDOW_H is set. When
+	// enabled, load the last-swept snapshot ONCE and skip any (source,suburb)
+	// swept within the window — never silently: every skip is logged.
+	rs, resumeErr := loadResumeSnapshot(ctx, pool, cfg.resumeWindow)
+	if resumeErr != nil {
+		log.Printf("[listings] resume snapshot load failed (%v) — resume disabled for this run", resumeErr)
+	} else if cfg.resumeWindow > 0 {
+		log.Printf("[listings] resume window=%s — %d (source,suburb) pair(s) loaded", cfg.resumeWindow, len(rs))
+	}
+
 	reaEvents, domEvents := 0, 0
 	for i, t := range targets {
 		if i > 0 {
@@ -243,10 +270,18 @@ func runListings(ctx context.Context, pool *pgxpool.Pool) bool {
 		}
 		lc.stats.suburbs++
 		if cfg.sourceEnabled("rea") {
-			reaEvents += lc.crawlSuburbSource(ctx, pool, t, "rea", t.reaSearchURL, &lc.reaBlocks, runTs)
+			if rs.shouldSkipTarget("rea", t, runTs, cfg.resumeWindow) {
+				log.Printf("[listings] %s rea: skipped (swept within the resume window)", t.Display)
+			} else {
+				reaEvents += lc.crawlSuburbSource(ctx, pool, t, "rea", t.reaSearchURL, &lc.reaBlocks, runTs)
+			}
 		}
 		if cfg.sourceEnabled("domain") {
-			domEvents += lc.crawlSuburbSource(ctx, pool, t, "domain", t.domainSearchURL, &lc.domBlocks, runTs)
+			if rs.shouldSkipTarget("domain", t, runTs, cfg.resumeWindow) {
+				log.Printf("[listings] %s domain: skipped (swept within the resume window)", t.Display)
+			} else {
+				domEvents += lc.crawlSuburbSource(ctx, pool, t, "domain", t.domainSearchURL, &lc.domBlocks, runTs)
+			}
 		}
 	}
 
@@ -316,36 +351,143 @@ func (lc *listingsCrawler) crawlSuburbSource(ctx context.Context, pool *pgxpool.
 // sweepSuburbSource walks the paginated search results for one suburb, extracting
 // and target-filtering listings, and classifies the sweep (complete/partial/
 // blocked) — the classification that governs whether delisting is safe.
+//
+// Before fetching, softPageCap derives a per-suburb page ceiling from
+// t.Dwellings (a coarse population/dwelling-count hint — see CrawlTarget),
+// bounded by cfg.maxPagesHard. This softCap is the operative ceiling for the
+// REST of this function wherever cfg.maxPages appeared before Task 6 — for a
+// suburb with no hint (Dwellings==0, the whole catalog today), softCap ==
+// cfg.maxPages exactly, so nothing changes until real hints are populated.
+//
+// Page 1's PageMeta (the portal's own totalResultsCount/totalPages/pageSize —
+// see extractPageMeta) then bounds the walk. When meta.OnTargetResults is
+// available (REA only — the SRP blob's exact on-target "listings_total", as
+// opposed to the broadened totalResultsCount; see PageMeta's doc comment),
+// wantPages = clamp(ceil(OnTargetResults/PageSize), 1, softCap) — sized off
+// the REAL on-target inventory, not the broadened count, so a small suburb
+// stops after 1-2 pages and a dense one is sized to its true on-target page
+// count. Otherwise (Domain, or REA when OnTargetResults is unavailable)
+// wantPages = clamp(meta.TotalPages, 1, softCap) — but meta.TotalPages is
+// itself the BROADENED count (confirmed live: New Farm reports
+// TotalResults≈969(REA)/608(Domain) while on-target inventory is only
+// ~54-65), so for a genuinely large/broadened suburb meta.TotalPages is
+// always >= softCap and this clamp is a no-op (identical to today's
+// behaviour, no over-fetch risk) — it only SHORTENS the walk for suburbs
+// whose portal-reported extent is smaller than the cap.
+//
+// Three natural-stop paths additionally use PageMeta to upgrade a sweepPartial
+// to the delist-safe sweepComplete (see upgradeIfPageMetaConfirms): (a) below,
+// when the walk reaches wantPages cleanly with no natural-end signal (a
+// "capped-complete" sweep — we saw everything the portal itself said
+// existed); (b) when a later page hits the broadening/poison gate; (c) when a
+// later page hits yield decay (near-zero NEW ids). For (b)/(c), pages <
+// wantPages confirms we stopped well short of the portal's own reported
+// extent, i.e. we saw the whole on-target suburb before the surrounds began.
+// When PageMeta.OK is false (extraction failed / portal changed shape),
+// wantPages falls back to softCap and every classification falls back to
+// today's behaviour exactly — nothing regresses.
 func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget, source string, urlFor func(int) string, blockCounter *int) suburbSweep {
 	if *blockCounter >= lc.cfg.maxConsecBlocks {
 		return suburbSweep{status: sweepBlocked} // breaker open: stop hammering this source
 	}
 
+	// Debug-trace mode (crawl_trace.go): off by default, a zero-cost no-op
+	// writer when disabled or this suburb isn't wanted (CRAWL_TRACE_SUBURB).
+	tw := newTraceWriter(lc.cfg.traceCfg, t.Display, source)
+
+	softCap := softPageCap(t.Dwellings, lc.cfg.maxPagesHard, lc.cfg.maxPages)
+
 	collected := map[string]RawListing{}
 	var prevSig string
 	pages := 0
+	wantPages := softCap
+	metaOK := false
+	totalResults := 0    // PageMeta.TotalResults once page 1's meta is read, for the trace record only
+	onTargetResults := 0 // PageMeta.OnTargetResults once page 1's meta is read (REA only), for the trace record only
 
-	for page := 1; page <= lc.cfg.maxPages; page++ {
+	// Block-risk pacing signals: consecBlocksAtEntry is a MEDIUM-term signal
+	// (how many consecutive blocks this source already racked up entering this
+	// sweep — fixed for the whole sweep, since a block THIS sweep ends the
+	// function immediately, never leaving a nonzero *blockCounter to read
+	// mid-loop); lastMismatch is an IMMEDIATE, page-by-page signal (updated
+	// below after every page). See paceBounds.
+	consecBlocksAtEntry := *blockCounter
+	lastMismatch := 0.0
+	baseDelay := paceRange{lo: lc.cfg.pageMinDelay, hi: lc.cfg.pageMaxDelay}
+
+	// finish wraps finishSweep with the trace summary write, so every return
+	// path below is guaranteed to emit summary.json when tracing is on.
+	finish := func(status sweepStatus) suburbSweep {
+		sw := finishSweep(collected, pages, status)
+		tw.WriteSummary(traceSummary{Suburb: t.Display, Source: source, Pages: sw.pages, Listings: len(sw.listings), Status: status.String()})
+		return sw
+	}
+
+	for page := 1; page <= wantPages; page++ {
 		if page > 1 {
-			jitterSleep(ctx, lc.cfg.pageMinDelay, lc.cfg.pageMaxDelay)
+			delay := paceBounds(consecBlocksAtEntry, lastMismatch, baseDelay)
+			jitterSleep(ctx, delay.lo, delay.hi)
 		}
+		fetchStart := time.Now()
 		html, finalURL, outcome := fetchAndClassify(ctx, lc.fetcher, urlFor(page))
+		fetchMs := time.Since(fetchStart).Milliseconds()
 		pages++
 		if outcome == outcomeBlocked {
 			*blockCounter++
-			return finishSweep(collected, pages, blockedOrPartial(len(collected)))
+			status := blockedOrPartial(len(collected))
+			tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), WantPages: wantPages, Outcome: "blocked", Status: status.String(), Decision: "stop-blocked"})
+			return finish(status)
 		}
 		if outcome == outcomeError {
-			return finishSweep(collected, pages, blockedOrPartial(len(collected)))
+			status := blockedOrPartial(len(collected))
+			tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, WantPages: wantPages, Outcome: "error", Status: status.String(), Decision: "stop-error"})
+			return finish(status)
 		}
 		*blockCounter = 0
 		_ = finalURL
+		tw.WriteHTML(page, html)
 
 		doc, err := goquery.NewDocumentFromReader(bytes.NewReader(html))
 		if err != nil {
-			return finishSweep(collected, pages, blockedOrPartial(len(collected)))
+			status := blockedOrPartial(len(collected))
+			tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), WantPages: wantPages, Outcome: "ok", Status: status.String(), Decision: "stop-parse-error"})
+			return finish(status)
 		}
-		matched, mismatch := partitionByTarget(extractListings(doc, source), t)
+
+		// Trace-only, and only ever attempted when the active fetcher implements
+		// pageScreenshotter (cdpFetcher — see crawl_cdp.go); a silent no-op
+		// otherwise (fileFetcher/playwrightFetcher, i.e. every unit test).
+		if shooter, ok := lc.fetcher.(pageScreenshotter); ok && tw.enabled() {
+			if png, serr := shooter.screenshot(ctx, urlFor(page)); serr == nil {
+				tw.WriteScreenshot(page, png)
+			} else {
+				log.Printf("[trace] %s %s p%d: screenshot failed: %v", t.Display, source, page, serr)
+			}
+		}
+
+		// Page 1 only: read the portal's own pagination signal and (re)size the
+		// walk. wantPages can only ever SHRINK the loop bound below softCap here,
+		// never grow it — see the func doc for why that's safe.
+		if page == 1 {
+			if meta := extractPageMeta(doc, source); meta.OK {
+				metaOK = true
+				totalResults = meta.TotalResults
+				onTargetResults = meta.OnTargetResults
+				if meta.OnTargetResults > 0 {
+					// REA: size off the exact on-target count, not the broadened total.
+					wantOnTargetPages := int(math.Ceil(float64(meta.OnTargetResults) / float64(meta.PageSize)))
+					wantPages = max(1, min(wantOnTargetPages, softCap))
+				} else {
+					// Domain, or REA when OnTargetResults is unavailable: unchanged
+					// broadened-TotalPages clamp (today's behaviour).
+					wantPages = max(1, min(meta.TotalPages, softCap))
+				}
+			}
+		}
+
+		raw := extractListings(doc, source)
+		matched, mismatch := partitionByTarget(raw, t)
+		lastMismatch = mismatch
 
 		// Page-level poison gate. A high off-target ratio is the poison signal —
 		// BUT small suburbs legitimately run out of real inventory, after which
@@ -355,42 +497,139 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 		// suburb's real listings are already in `collected` from cleaner earlier
 		// pages. sweepPoisonVerdict treats a late high-mismatch page (after a healthy
 		// on-target set) as paging PAST the suburb — keep what we have (partial ⇒
-		// write events, delist nothing) — and only BLOCKS an early high-mismatch
-		// page (genuine page-1 poison / bot-variant), which still trips the breaker.
+		// write events, delist nothing; or sweepComplete when PageMeta confirms we
+		// stopped short of the portal's own reported extent — delist-safe) — and
+		// only BLOCKS an early high-mismatch page (genuine page-1 poison /
+		// bot-variant), which still trips the breaker.
 		if mismatch > 0.30 {
 			if sweepPoisonVerdict(page, len(collected), lc.cfg.minPerPage) == sweepPartial {
-				return finishSweep(collected, pages, sweepPartial)
+				// PageMeta confirms we stopped short of the portal's own reported
+				// (broadened) extent — the on-target suburb was fully seen on the
+				// clean earlier pages before the surrounds began. Delist-safe.
+				status := upgradeIfPageMetaConfirms(metaOK && pages < wantPages, sweepPartial)
+				tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), Extracted: len(raw), Matched: len(matched), Mismatch: mismatch, TotalResults: totalResults, OnTargetResults: onTargetResults, WantPages: wantPages, Outcome: "ok", Status: status.String(), Decision: "stop-broadening"})
+				return finish(status)
 			}
 			*blockCounter++
-			return finishSweep(collected, pages, sweepBlocked)
+			tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), Extracted: len(raw), Matched: len(matched), Mismatch: mismatch, TotalResults: totalResults, OnTargetResults: onTargetResults, WantPages: wantPages, Outcome: "ok", Status: sweepBlocked.String(), Decision: "stop-poison-blocked"})
+			return finish(sweepBlocked)
 		}
 		if page == 1 && len(matched) < lc.cfg.minPerPage {
 			*blockCounter++ // page rendered but nothing believable — empty/poisoned
-			return finishSweep(collected, pages, sweepBlocked)
+			tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), Extracted: len(raw), Matched: len(matched), Mismatch: mismatch, TotalResults: totalResults, OnTargetResults: onTargetResults, WantPages: wantPages, Outcome: "ok", Status: sweepBlocked.String(), Decision: "stop-thin-page1"})
+			return finish(sweepBlocked)
 		}
 
 		// Duplicate page: portals clamp an over-range page to the last page and
 		// re-serve it → a natural end of the suburb.
 		sig := pageSignature(matched)
 		if page > 1 && sig == prevSig {
-			return finishSweep(collected, pages, sweepComplete)
+			tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), Extracted: len(raw), Matched: len(matched), Mismatch: mismatch, TotalResults: totalResults, OnTargetResults: onTargetResults, WantPages: wantPages, Outcome: "ok", Status: sweepComplete.String(), Decision: "stop-duplicate-page"})
+			return finish(sweepComplete)
 		}
 		prevSig = sig
 
 		// Ran out of listings on a later page → the whole suburb was seen.
 		if page > 1 && len(matched) == 0 {
-			return finishSweep(collected, pages, sweepComplete)
+			tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), Extracted: len(raw), Matched: len(matched), Mismatch: mismatch, TotalResults: totalResults, OnTargetResults: onTargetResults, WantPages: wantPages, Outcome: "ok", Status: sweepComplete.String(), Decision: "stop-empty-page"})
+			return finish(sweepComplete)
 		}
 
+		newThisPage := 0
 		for _, m := range matched {
-			if _, ok := collected[m.ListingID]; !ok {
+			if prev, ok := collected[m.ListingID]; !ok {
 				collected[m.ListingID] = m
+				newThisPage++
+			} else {
+				collected[m.ListingID] = mergeListing(prev, m)
 			}
 		}
+
+		// Yield decay: a later page rendered real, on-target-passing content, but
+		// contributed nothing we hadn't already collected (`collected` IS the
+		// running seen-all set — no separate index needed). That happens when a
+		// portal re-serves overlapping/reordered stock once real inventory runs
+		// out WITHOUT going through an exact duplicate page (same signature) or a
+		// wholly empty one — e.g. a partial repeat. It's at least as strong an
+		// exhaustion signal as those two, so it ends the sweep the same way, under
+		// the same PageMeta-confirmed delist-safety rule as the broadening branch
+		// above (conservative default: sweepPartial, upgraded to sweepComplete
+		// only when PageMeta confirms we stopped short of the portal's own
+		// reported extent).
+		if page > 1 && newThisPage < lc.cfg.minNewPerPage {
+			status := upgradeIfPageMetaConfirms(metaOK && pages < wantPages, sweepPartial)
+			tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), Extracted: len(raw), Matched: len(matched), Mismatch: mismatch, TotalResults: totalResults, OnTargetResults: onTargetResults, WantPages: wantPages, NewIDs: newThisPage, Outcome: "ok", Status: status.String(), Decision: "stop-yield-decay"})
+			return finish(status)
+		}
+
+		tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), Extracted: len(raw), Matched: len(matched), Mismatch: mismatch, TotalResults: totalResults, OnTargetResults: onTargetResults, WantPages: wantPages, NewIDs: newThisPage, Outcome: "ok", Status: "continuing", Decision: "continue"})
 	}
 
-	// Reached the page cap without a natural end → more listings may exist → partial.
-	return finishSweep(collected, pages, sweepPartial)
+	// Reached the loop bound with no natural end signal. When PageMeta sized
+	// that bound BELOW softCap (wantPages < softCap), we've walked every page
+	// the portal itself claims exists — a "capped-complete" sweep, delist-safe.
+	// Otherwise (PageMeta unusable, or the broadened extent is itself >=
+	// softCap) more listings may exist beyond the cap → partial, today's
+	// behaviour.
+	return finish(upgradeIfPageMetaConfirms(metaOK && wantPages < softCap, sweepPartial))
+}
+
+// softPageCap derives a per-suburb page ceiling from a coarse
+// population/dwelling-count hint, used to size the walk when the portal's own
+// PageMeta is unusable (meta.OK==false) — Task 3's exact per-page sizing
+// always wins once PageMeta is available. A dense suburb has legitimately
+// more genuine on-target inventory than a flat default can cover in cfg.
+// maxPages pages; a sparse one should stop sooner rather than wastefully
+// walking pages that will just broaden into surrounding-suburb stock.
+// dwellings<=0 (unknown — the whole catalog today, until a real ABS backfill
+// lands) returns defaultCap unchanged, so nothing regresses for any suburb
+// without a hint. The result is always clamped to >=1 and, when hardCeiling
+// is positive, to <=hardCeiling (hardCeiling<=0 is treated as "no override" —
+// a defensive fallback for callers/tests that don't set one, NOT an implicit
+// re-widening of an explicitly-passed low ceiling).
+func softPageCap(dwellings, hardCeiling, defaultCap int) int {
+	n := defaultCap
+	switch {
+	case dwellings >= 20000:
+		n = defaultCap * 2
+	case dwellings >= 8000:
+		n = defaultCap + 2
+	case dwellings > 0 && dwellings < 2000:
+		n = defaultCap - 2
+	}
+	if n < 1 {
+		n = 1
+	}
+	if hardCeiling > 0 && n > hardCeiling {
+		n = hardCeiling
+	}
+	return n
+}
+
+// upgradeIfPageMetaConfirms upgrades a natural-stop status to the delist-safe
+// sweepComplete when the caller has confirmed (via PageMeta) that the sweep
+// can be trusted as having seen the whole on-target suburb — see the two call
+// sites in sweepSuburbSource for the exact confirmation conditions. Falls back
+// to `def` — today's behaviour — otherwise (PageMeta unusable for this sweep,
+// or not yet confirmed).
+func upgradeIfPageMetaConfirms(confirmed bool, def sweepStatus) sweepStatus {
+	if confirmed {
+		return sweepComplete
+	}
+	return def
+}
+
+// mergeListing keeps the richer of two same-id sightings of a listing, using
+// the SAME fieldScore rule extractListings/walkForListingsDepth already use to
+// dedupe candidates WITHIN a single page — applied here ACROSS pages too, so a
+// thin early sighting (e.g. a promo/teaser card carrying just a price) doesn't
+// shadow a richer later one (full address/beds/baths) for the same listing_id.
+// Ties keep `existing` (stable, no churn when both pages agree).
+func mergeListing(existing, incoming RawListing) RawListing {
+	if fieldScore(incoming) > fieldScore(existing) {
+		return incoming
+	}
+	return existing
 }
 
 func finishSweep(collected map[string]RawListing, pages int, status sweepStatus) suburbSweep {
@@ -448,6 +687,45 @@ func fetchAndClassify(ctx context.Context, f htmlFetcher, url string) ([]byte, s
 		return nil, "", outcomeBlocked
 	}
 	return html, finalURL, outcomeOK
+}
+
+// paceRange is a [lo,hi] jitter window for the page-to-page delay.
+type paceRange struct{ lo, hi time.Duration }
+
+const (
+	paceWidenPerConsecBlock = 0.5 // +50% pace per consecutive block already observed on this source, capped by paceWidenFactorMax
+	paceWidenOnMismatch     = 0.5 // +50% pace after a high-mismatch (>30%) page
+	paceWidenFactorMax      = 3.0 // never widen the pace bounds beyond 3x base
+)
+
+// paceBounds picks the [lo,hi] delay bounds for the NEXT page fetch from two
+// block-risk signals: consecBlocks (consecutive blocks this source has
+// already racked up — a medium-term risk signal) and lastMismatch (the
+// PREVIOUS page's target-mismatch ratio — an immediate freshness signal; a
+// high-mismatch page is often the first sign of a bot-variant/poisoned
+// response even before an outright block). Either signal widens the bounds so
+// a rate-limited/suspicious site gets more room to cool down before the next
+// request, instead of being hammered at the same pace that likely
+// contributed to the risk. A clean run (consecBlocks<=0 &&
+// lastMismatch<=0.30) returns `base` unchanged — today's flat pacing.
+func paceBounds(consecBlocks int, lastMismatch float64, base paceRange) paceRange {
+	factor := 1.0
+	if consecBlocks > 0 {
+		factor += float64(consecBlocks) * paceWidenPerConsecBlock
+	}
+	if lastMismatch > 0.30 {
+		factor += paceWidenOnMismatch
+	}
+	if factor > paceWidenFactorMax {
+		factor = paceWidenFactorMax
+	}
+	if factor <= 1.0 {
+		return base
+	}
+	return paceRange{
+		lo: time.Duration(float64(base.lo) * factor),
+		hi: time.Duration(float64(base.hi) * factor),
+	}
 }
 
 func jitterSleep(ctx context.Context, lo, hi time.Duration) {

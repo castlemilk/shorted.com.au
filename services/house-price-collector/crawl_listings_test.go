@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 )
 
 // These tests are the listing tier's offline proof: the price-string semantics,
@@ -205,12 +206,13 @@ func TestClampListingPrice(t *testing.T) {
 
 func testLC() *listingsCrawler {
 	return &listingsCrawler{cfg: listingsConfig{
-		crawlConfig: crawlConfig{maxConsecBlocks: 3},
-		maxPages:    5,
-		minPerPage:  5,
-		noiseAbs:    5000,
-		noisePct:    0.005,
-		delistGrace: 2,
+		crawlConfig:   crawlConfig{maxConsecBlocks: 3},
+		maxPages:      5,
+		minPerPage:    5,
+		minNewPerPage: 1,
+		noiseAbs:      5000,
+		noisePct:      0.005,
+		delistGrace:   2,
 	}}
 }
 
@@ -294,6 +296,38 @@ func domainPageHTML(ids []string, postcode string) string {
 	}
 	return `<html><body><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"listings":[` +
 		strings.Join(items, ",") + `]}}}</script></body></html>`
+}
+
+// domainPageWithMeta is domainPageHTML plus the portal's own pagination signal
+// (totalResults/pageSize) in the SAME __NEXT_DATA__ blob — mirroring the real
+// Domain shape where componentProps carries both listingsMap and
+// totalPages/pageSize side by side (confirmed Phase-0, 2026-07-15).
+func domainPageWithMeta(ids []string, postcode string, total, pageSize int) string {
+	items := make([]string, 0, len(ids))
+	for _, id := range ids {
+		items = append(items, fmt.Sprintf(
+			`{"id":"%s","listingUrl":"/p/%s","price":"$1,200,000","bedrooms":3,"address":{"suburb":"Bondi","state":"NSW","postcode":"%s","displayAddress":"%s Test St"}}`,
+			id, id, postcode, id))
+	}
+	return fmt.Sprintf(`<html><body><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"totalResults":%d,"pageSize":%d,"listings":[%s]}}}</script></body></html>`,
+		total, pageSize, strings.Join(items, ","))
+}
+
+// reaPageWithMeta builds a REA-style search-results page carrying both a
+// listing set and the portal's own pagination signal in the SAME blob: the
+// BROADENED totalResultsCount, PageSize, and — REA-only — the exact
+// on-target listings_total (see PageMeta's doc comment in
+// crawl_listings_extract.go). Mirrors domainPageWithMeta's role for the
+// Domain shape.
+func reaPageWithMeta(ids []string, postcode string, totalResults, onTarget, pageSize int) string {
+	items := make([]string, 0, len(ids))
+	for _, id := range ids {
+		items = append(items, fmt.Sprintf(
+			`{"id":"%s","_links":{"canonical":{"href":"https://www.realestate.com.au/property/%s"}},"price":{"display":"$1,200,000"},"address":{"suburb":"Bondi","state":"NSW","postcode":"%s","display":{"fullAddress":"%s Test St"}}}`,
+			id, id, postcode, id))
+	}
+	return fmt.Sprintf(`<html><body><script>window.ArgonautExchange = {"results":{"exchangeState":{"resolvedListings":[%s]}},"totalResultsCount":%d,"listings_total":%d,"pageSize":%d};</script></body></html>`,
+		strings.Join(items, ","), totalResults, onTarget, pageSize)
 }
 
 func sweepWith(pages map[string]string) suburbSweep {
@@ -422,5 +456,306 @@ func TestSweep_PageCapIsPartial(t *testing.T) {
 	}
 	if len(sw.listings) != 10 {
 		t.Errorf("expected 10 collected across 2 pages, got %d", len(sw.listings))
+	}
+}
+
+// --- PageMeta-informed sizing + delist-safe classification (Task 3) ---
+
+func TestSweep_TotalCountSizesAndCompletes(t *testing.T) {
+	p1 := domainPageWithMeta([]string{"a", "b", "c", "d", "e"}, "2026" /*total*/, 5 /*pageSize*/, 20)
+	sw := sweepWith(map[string]string{bondi.domainSearchURL(1): p1}) // page 2 is the default empty page
+	if sw.status != sweepComplete {
+		t.Fatalf("1-page suburb must be complete, got %s", sw.status)
+	}
+	if sw.pages != 1 {
+		t.Fatalf("must fetch exactly 1 page, got %d", sw.pages)
+	}
+	if len(sw.listings) != 5 {
+		t.Fatalf("expected 5 collected listings, got %d", len(sw.listings))
+	}
+}
+
+// TestSweep_OnTargetResultsSizesAndCompletes proves the REA on-target-count
+// fix: PageMeta carries BOTH a large BROADENED totalResultsCount (969, which
+// alone would size wantPages up to softCap) and the exact on-target
+// listings_total (5, pageSize 25 -> ceil(5/25)=1). Sizing must use the
+// on-target count, so the sweep fetches exactly ONE page and — reaching that
+// PageMeta-sized bound with no natural-end signal — is delist-safe complete,
+// even though the broadened total would otherwise never shrink the walk
+// (broadened TotalPages ceil(969/25)=39 >= softCap, a no-op clamp).
+func TestSweep_OnTargetResultsSizesAndCompletes(t *testing.T) {
+	p1 := reaPageWithMeta([]string{"a", "b", "c", "d", "e"}, "2026", 969, 5, 25)
+	lc := testLC()
+	lc.fetcher = &pagedFetcher{pages: map[string]string{
+		bondi.reaSearchURL(1): p1,
+		// page 2 deliberately left unscripted: if sizing mistakenly used the
+		// broadened total instead of the on-target one, the loop bound would be
+		// far above 1 and the sweep would fetch it (falling into the default
+		// empty-page fixture) — asserting pages==1 (not just status) proves the
+		// walk never got that far.
+	}}
+	blocks := 0
+	sw := lc.sweepSuburbSource(context.Background(), bondi, "rea", bondi.reaSearchURL, &blocks)
+	if sw.pages != 1 {
+		t.Fatalf("on-target sizing should size wantPages=1 (ceil(5/25)), fetched %d pages", sw.pages)
+	}
+	if sw.status != sweepComplete {
+		t.Errorf("reaching a PageMeta-sized bound (on-target) with no natural-end signal should be capped-complete, got %s", sw.status)
+	}
+	if len(sw.listings) != 5 {
+		t.Errorf("expected 5 collected listings, got %d", len(sw.listings))
+	}
+}
+
+func TestSweep_TotalCountNeverExtendsBeyondMaxPages(t *testing.T) {
+	// A BROADENED total (say 900 results / 25 per page -> 36 pages) must never
+	// grow the walk past the hard cfg.maxPages ceiling — PageMeta can only
+	// shrink the loop bound, never grow it.
+	lc := testLC()
+	lc.cfg.maxPages = 2
+	p1 := domainPageWithMeta([]string{"a", "b", "c", "d", "e"}, "2026" /*total*/, 900 /*pageSize*/, 25)
+	p2 := domainPageHTML([]string{"f", "g", "h", "i", "j"}, "2026")
+	lc.fetcher = &pagedFetcher{pages: map[string]string{
+		bondi.domainSearchURL(1): p1,
+		bondi.domainSearchURL(2): p2,
+	}}
+	blocks := 0
+	sw := lc.sweepSuburbSource(context.Background(), bondi, "domain", bondi.domainSearchURL, &blocks)
+	if sw.pages != 2 {
+		t.Fatalf("must stay capped at maxPages=2 despite a large broadened total, got %d pages", sw.pages)
+	}
+	// wantPages(36) clamped to maxPages(2) == maxPages -> NOT capped-complete: a
+	// large broadened total offers no delist-safety guarantee at the hard cap.
+	if sw.status != sweepPartial {
+		t.Fatalf("hitting the hard cap under a still-larger broadened total must stay partial, got %s", sw.status)
+	}
+}
+
+func TestSweep_BroadenedLatePageCompletesWhenPageMetaConfirms(t *testing.T) {
+	// Same shape as TestSweep_BroadenedLatePageIsPartial, but this time page 1
+	// carries PageMeta reporting a broadened total far beyond where we stopped
+	// (pages=2 < wantPages) — confirming the on-target suburb was fully seen
+	// before the surrounds began. That must upgrade partial -> complete
+	// (delist-safe), unlike the no-PageMeta case.
+	p1 := domainPageWithMeta([]string{"a", "b", "c", "d", "e"}, "2026" /*total*/, 900 /*pageSize*/, 25) // wantPages=36, clamped to maxPages=5
+	p2 := `<html><body><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"listings":[` +
+		`{"id":"f","listingUrl":"/p/f","price":"$1,200,000","address":{"suburb":"Bondi","postcode":"2026","displayAddress":"f"}},` +
+		`{"id":"g","listingUrl":"/p/g","price":"$1,200,000","address":{"suburb":"Tamarama","postcode":"2026x","displayAddress":"g"}},` +
+		`{"id":"h","listingUrl":"/p/h","price":"$1,200,000","address":{"suburb":"Bronte","postcode":"2024","displayAddress":"h"}},` +
+		`{"id":"i","listingUrl":"/p/i","price":"$1,200,000","address":{"suburb":"Waverley","postcode":"2024","displayAddress":"i"}},` +
+		`{"id":"j","listingUrl":"/p/j","price":"$1,200,000","address":{"suburb":"Clovelly","postcode":"2031","displayAddress":"j"}}` +
+		`]}}}</script></body></html>` // 1 on-target + 4 nearby -> 80% mismatch
+	sw := sweepWith(map[string]string{
+		bondi.domainSearchURL(1): p1,
+		bondi.domainSearchURL(2): p2,
+	})
+	if sw.status != sweepComplete {
+		t.Errorf("a broadened late page confirmed short of PageMeta's own extent must be delist-safe complete, got %s", sw.status)
+	}
+	if len(sw.listings) != 5 {
+		t.Errorf("must keep the 5 confirmed page-1 listings, got %d", len(sw.listings))
+	}
+}
+
+// --- yield-decay stop (Task 4) ---
+
+// TestSweep_StopsOnZeroNewIDs is adapted from the plan's literal example (page
+// 2 = page 1's ids REORDERED). That exact scenario does NOT exercise the new
+// code: pageSignature sorts ids before joining, so a reordered-but-identical
+// id set already produces the SAME signature as page 1 and is already caught
+// by the pre-existing "duplicate page" check (sig == prevSig), independent of
+// this task. To actually exercise yield decay, page 2 here returns a SUBSET of
+// page 1's ids (4 of 5) — real content, a genuinely different signature (the
+// dup-page check misses it), but zero NEW ids.
+func TestSweep_StopsOnZeroNewIDs(t *testing.T) {
+	p1 := domainPageHTML([]string{"a", "b", "c", "d", "e"}, "2026")
+	p2 := domainPageHTML([]string{"a", "b", "c", "d"}, "2026") // same 4 ids, no new ones, different signature than p1
+	sw := sweepWith(map[string]string{
+		bondi.domainSearchURL(1): p1,
+		bondi.domainSearchURL(2): p2,
+	})
+	if len(sw.listings) != 5 {
+		t.Fatalf("must not lose or double-count, got %d", len(sw.listings))
+	}
+	if sw.status == sweepBlocked {
+		t.Fatalf("a zero-yield overlap page is not a block")
+	}
+	if sw.pages != 2 {
+		t.Fatalf("expected the sweep to stop right after the zero-yield page, got %d pages", sw.pages)
+	}
+}
+
+func TestSweep_YieldDecayCompletesWhenPageMetaConfirms(t *testing.T) {
+	// Same shape as TestSweep_StopsOnZeroNewIDs, but page 1 carries PageMeta
+	// confirming we stopped well short of the portal's own reported (broadened)
+	// extent -- the same delist-safety upgrade the broadening branch gets.
+	p1 := domainPageWithMeta([]string{"a", "b", "c", "d", "e"}, "2026" /*total*/, 900 /*pageSize*/, 25) // wantPages=36, clamped to maxPages=5
+	p2 := domainPageHTML([]string{"a", "b", "c", "d"}, "2026")
+	sw := sweepWith(map[string]string{
+		bondi.domainSearchURL(1): p1,
+		bondi.domainSearchURL(2): p2,
+	})
+	if sw.status != sweepComplete {
+		t.Errorf("a yield-decay stop confirmed short of PageMeta's own extent must be delist-safe complete, got %s", sw.status)
+	}
+	if len(sw.listings) != 5 {
+		t.Errorf("expected 5 collected listings, got %d", len(sw.listings))
+	}
+}
+
+// --- cross-page dedup: fieldScore-max merge (Task 5) ---
+
+// TestSweep_CrossPageDedupKeepsRicherRecord: listing "z" appears thin (price +
+// address only, no beds/baths) on page 1, then richer (+ beds/baths) on page
+// 2 for the SAME id. The merged record must keep the richer page-2 fields, not
+// silently freeze on whichever page happened to see it first.
+func TestSweep_CrossPageDedupKeepsRicherRecord(t *testing.T) {
+	p1 := `<html><body><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"listings":[` +
+		`{"id":"z","listingUrl":"/p/z","price":"$1,200,000","address":{"suburb":"Bondi","postcode":"2026","displayAddress":"z Test St"}},` +
+		`{"id":"a","listingUrl":"/p/a","price":"$1,200,000","address":{"suburb":"Bondi","postcode":"2026","displayAddress":"a Test St"}},` +
+		`{"id":"b","listingUrl":"/p/b","price":"$1,200,000","address":{"suburb":"Bondi","postcode":"2026","displayAddress":"b Test St"}},` +
+		`{"id":"c","listingUrl":"/p/c","price":"$1,200,000","address":{"suburb":"Bondi","postcode":"2026","displayAddress":"c Test St"}},` +
+		`{"id":"d","listingUrl":"/p/d","price":"$1,200,000","address":{"suburb":"Bondi","postcode":"2026","displayAddress":"d Test St"}}` +
+		`]}}}</script></body></html>`
+	p2 := `<html><body><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"listings":[` +
+		`{"id":"z","listingUrl":"/p/z","price":"$1,200,000","bedrooms":3,"bathrooms":2,"address":{"suburb":"Bondi","postcode":"2026","displayAddress":"z Test St"}},` +
+		`{"id":"f","listingUrl":"/p/f","price":"$1,200,000","address":{"suburb":"Bondi","postcode":"2026","displayAddress":"f Test St"}}` +
+		`]}}}</script></body></html>` // "f" is genuinely new so this page isn't itself a yield-decay stop
+	sw := sweepWith(map[string]string{
+		bondi.domainSearchURL(1): p1,
+		bondi.domainSearchURL(2): p2,
+		// page 3 is the default empty page -> natural end -> complete
+	})
+	if sw.status == sweepBlocked {
+		t.Fatalf("must not block, got %s", sw.status)
+	}
+	if len(sw.listings) != 6 {
+		t.Fatalf("expected 6 distinct listings (z,a,b,c,d,f), got %d", len(sw.listings))
+	}
+	var z *RawListing
+	for i := range sw.listings {
+		if sw.listings[i].ListingID == "z" {
+			z = &sw.listings[i]
+		}
+	}
+	if z == nil {
+		t.Fatalf("listing z missing from the merged set")
+	}
+	if z.Bedrooms == nil || *z.Bedrooms != 3 {
+		t.Errorf("merged z should keep the richer page-2 bedrooms, got %v", z.Bedrooms)
+	}
+	if z.Bathrooms == nil || *z.Bathrooms != 2 {
+		t.Errorf("merged z should keep the richer page-2 bathrooms, got %v", z.Bathrooms)
+	}
+	if z.DisplayAddr != "z Test St" {
+		t.Errorf("merged z should still carry the address seen on both pages, got %q", z.DisplayAddr)
+	}
+}
+
+func TestMergeListing(t *testing.T) {
+	thin := RawListing{ListingID: "z", PriceDisplay: "$1.2m"}
+	rich := RawListing{ListingID: "z", PriceDisplay: "$1.2m", DisplayAddr: "1 Test St", Bedrooms: int16p(3)}
+	if got := mergeListing(thin, rich); got.Bedrooms == nil || *got.Bedrooms != 3 {
+		t.Errorf("mergeListing(thin, rich) should keep the richer incoming record, got %+v", got)
+	}
+	if got := mergeListing(rich, thin); got.Bedrooms == nil || *got.Bedrooms != 3 {
+		t.Errorf("mergeListing(rich, thin) should keep the richer existing record, got %+v", got)
+	}
+	// A tie keeps `existing` (no churn).
+	same := RawListing{ListingID: "z", PriceDisplay: "$1.2m"}
+	if got := mergeListing(thin, same); got.PriceDisplay != thin.PriceDisplay {
+		t.Errorf("a tie should keep existing, got %+v", got)
+	}
+}
+
+func int16p(v int16) *int16 { return &v }
+
+// --- adaptive page cap by suburb size (Task 6) ---
+
+func TestSoftPageCap(t *testing.T) {
+	const def = 5
+	if got := softPageCap(0, 20, def); got != def {
+		t.Errorf("unknown dwellings (0) should use the default cap, got %d want %d", got, def)
+	}
+	large := softPageCap(25_000, 20, def)
+	if large <= def {
+		t.Errorf("a large suburb should get a soft cap ABOVE the default, got %d", large)
+	}
+	if large > 20 {
+		t.Errorf("the soft cap must never exceed the hard ceiling, got %d", large)
+	}
+	tiny := softPageCap(1_000, 20, def)
+	if tiny >= def {
+		t.Errorf("a tiny suburb should get a soft cap BELOW the default, got %d", tiny)
+	}
+	if tiny < 1 {
+		t.Errorf("the soft cap must never go below 1, got %d", tiny)
+	}
+	// A low hard ceiling always wins, even for a huge suburb.
+	if got := softPageCap(1_000_000, 3, def); got != 3 {
+		t.Errorf("hard ceiling must always win, got %d want 3", got)
+	}
+	// hardCeiling<=0 is "no override" (defensive default for a caller that
+	// didn't set one), not an implicit re-widening.
+	if got := softPageCap(25_000, 0, def); got != def*2 {
+		t.Errorf("hardCeiling<=0 should not override the derived cap, got %d want %d", got, def*2)
+	}
+}
+
+// TestSweep_SoftPageCapSizesTheWalkWhenPageMetaUnusable proves softPageCap is
+// actually wired into the sweep loop, not just unit-tested in isolation: a
+// suburb tagged with a small Dwellings hint gets fewer pages than the
+// configured default when the portal's own PageMeta can't be read.
+func TestSweep_SoftPageCapSizesTheWalkWhenPageMetaUnusable(t *testing.T) {
+	tiny := bondi
+	tiny.Dwellings = 500 // < 2000 -> softCap = default(5) - 2 = 3
+
+	lc := testLC()
+	// Every page is full and clean -- with no cap, the walk would run to
+	// maxPages(5). With the Dwellings hint, it must stop at softCap(3).
+	pages := map[string]string{}
+	ids := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o"}
+	for i := 0; i < 3; i++ {
+		pages[tiny.domainSearchURL(i+1)] = domainPageHTML(ids[i*5:i*5+5], "2026")
+	}
+	lc.fetcher = &pagedFetcher{pages: pages}
+	blocks := 0
+	sw := lc.sweepSuburbSource(context.Background(), tiny, "domain", tiny.domainSearchURL, &blocks)
+	if sw.pages != 3 {
+		t.Fatalf("expected the Dwellings hint to cap the walk at 3 pages, got %d", sw.pages)
+	}
+	if sw.status != sweepPartial {
+		t.Fatalf("hitting the soft cap with no PageMeta confirmation must stay partial, got %s", sw.status)
+	}
+}
+
+// --- adaptive pacing under block-risk (Task 7) ---
+
+func TestPaceBounds(t *testing.T) {
+	base := paceRange{lo: 8 * time.Second, hi: 20 * time.Second}
+
+	if got := paceBounds(0, 0, base); got != base {
+		t.Errorf("a clean page (no blocks, no mismatch) should keep the base bounds, got %+v", got)
+	}
+	if got := paceBounds(0, 0.10, base); got != base {
+		t.Errorf("a low mismatch (<=30%%) should keep the base bounds, got %+v", got)
+	}
+
+	blocked := paceBounds(2, 0, base)
+	if blocked.lo <= base.lo || blocked.hi <= base.hi {
+		t.Errorf("consecutive blocks should widen the bounds, got %+v vs base %+v", blocked, base)
+	}
+
+	mismatched := paceBounds(0, 0.80, base)
+	if mismatched.lo <= base.lo || mismatched.hi <= base.hi {
+		t.Errorf("a high-mismatch (>30%%) page should widen the bounds, got %+v vs base %+v", mismatched, base)
+	}
+
+	// The widen factor must never blow out unbounded.
+	extreme := paceBounds(50, 1.0, base)
+	maxLo := time.Duration(float64(base.lo) * paceWidenFactorMax)
+	maxHi := time.Duration(float64(base.hi) * paceWidenFactorMax)
+	if extreme.lo != maxLo || extreme.hi != maxHi {
+		t.Errorf("an extreme risk signal should cap at %vx base, got %+v want lo=%v hi=%v", paceWidenFactorMax, extreme, maxLo, maxHi)
 	}
 }
