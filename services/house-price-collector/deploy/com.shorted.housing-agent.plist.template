@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.shorted.housing-agent</string>
+
+  <!-- Seamless QUEUE drainer: enqueue the catalog + drain the brandbrain
+       crawl_jobs queue (run-housing-agent.sh). Multiple Macs can run this same
+       job; they fan the catalog out via SKIP LOCKED, so it's safe to install on
+       every residential rig. Replace __REPO__ with this checkout's absolute path. -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__REPO__/services/house-price-collector/deploy/run-housing-agent.sh</string>
+  </array>
+
+  <!-- Twice daily (09:15 + 21:15 local): price drops/movers accrue as the
+       re-crawls stack. Adjust to taste; every run is idempotent. -->
+  <key>StartCalendarInterval</key>
+  <array>
+    <dict>
+      <key>Hour</key><integer>9</integer>
+      <key>Minute</key><integer>15</integer>
+    </dict>
+    <dict>
+      <key>Hour</key><integer>21</integer>
+      <key>Minute</key><integer>15</integer>
+    </dict>
+  </array>
+
+  <key>StandardOutPath</key><string>__HOME__/Library/Logs/shorted-housing-agent.out.log</string>
+  <key>StandardErrorPath</key><string>__HOME__/Library/Logs/shorted-housing-agent.err.log</string>
+  <key>RunAtLoad</key><false/>
+</dict>
+</plist>
