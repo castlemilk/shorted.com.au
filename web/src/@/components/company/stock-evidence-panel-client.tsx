@@ -3,7 +3,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 
-import { fetchIndustryIntelligenceSnapshotClient } from "~/app/actions/client/getIndustryIntelligenceClient";
 import { IntelLockCard } from "~/@/components/ui/intel-lock";
 import { StockEvidencePanelView } from "./stock-evidence-panel";
 
@@ -29,7 +28,16 @@ export function StockEvidencePanelClient({
 
   const { data: snapshot } = useQuery({
     queryKey: ["stock-evidence-snapshot", stockCode],
-    queryFn: () => fetchIndustryIntelligenceSnapshotClient("", 50, stockCode),
+    // The fetcher's import chain touches @connectrpc/connect, whose module
+    // init crashes the SSR pass (see CLAUDE.md) — this component SSRs now
+    // (it sits in the SSR'd tabs shell), so the import must be deferred to
+    // the browser-side query execution.
+    queryFn: async () => {
+      const { fetchIndustryIntelligenceSnapshotClient } = await import(
+        "~/app/actions/client/getIndustryIntelligenceClient"
+      );
+      return fetchIndustryIntelligenceSnapshotClient("", 50, stockCode);
+    },
     enabled: status === "authenticated",
     staleTime: 60 * 60 * 1000,
     retry: 1,
