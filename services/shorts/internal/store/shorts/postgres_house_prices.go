@@ -2,7 +2,10 @@ package shorts
 
 import (
 	"context"
+	"errors"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // HousingMetricRow is a region's latest house-price observation with QoQ/YoY change.
@@ -713,4 +716,151 @@ func (s *postgresStore) ListSuburbDropListings(salCode, regionCode string, windo
 		out = append(out, &l)
 	}
 	return out, rows.Err()
+}
+
+// PropertyListingSnapshotRow is the current (most-recent) listing at an
+// address — the most-recent ACTIVE one, or the most-recent overall if none
+// are active.
+type PropertyListingSnapshotRow struct {
+	Source         string
+	ListingID      string
+	ListingURL     string
+	Price          float64
+	PriceDisplay   string
+	PriceKind      string
+	ListingStatus  string
+	IsActive       bool
+	Bedrooms       int32
+	Bathrooms      int32
+	CarSpaces      int32
+	LandSizeSqm    float64
+	PropertyType   string
+	DisplayAddress string
+	Suburb         string
+	StateCode      string
+	Postcode       string
+	FirstSeenAt    time.Time
+	LastSeenAt     time.Time
+}
+
+// PropertyPriceEventRow is one event in an address's merged price timeline
+// (spans every listing/relist detected at that address).
+type PropertyPriceEventRow struct {
+	ObservedAt    time.Time
+	EventType     string
+	Source        string
+	ListingID     string
+	Price         float64
+	PrevPrice     float64
+	DropAbs       float64
+	DropPct       float64
+	ListingStatus string
+	PrevStatus    string
+}
+
+// PropertyHistoryResult is the full per-address price timeline: the current
+// listing snapshot plus the merged event history across every listing/relist
+// seen at that physical address.
+type PropertyHistoryResult struct {
+	AddressKey     string
+	DisplayAddress string
+	Suburb         string
+	StateCode      string
+	Postcode       string
+	Current        *PropertyListingSnapshotRow
+	Events         []*PropertyPriceEventRow
+	NumListings    int32
+	FirstPrice     float64
+	CurrentPrice   float64
+}
+
+// GetPropertyHistory returns the full asking-price timeline for a single
+// physical address (stable address_key), merging every listing/relist ever
+// seen at that address. It reads the raw (proprietary-tos-restricted) listing
+// rows — this is the flag-gated drill-down; the handler enforces the feature
+// flag (same posture as ListSuburbDropListings). Returns a zero-value result
+// (not an error) for an unknown/empty address_key.
+func (s *postgresStore) GetPropertyHistory(addressKey string) (*PropertyHistoryResult, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if addressKey == "" {
+		return &PropertyHistoryResult{}, nil
+	}
+
+	const currentQuery = `
+		SELECT source, listing_id, listing_url, COALESCE(price, 0), COALESCE(price_display, ''),
+		       price_kind, listing_status, is_active,
+		       COALESCE(bedrooms, 0), COALESCE(bathrooms, 0), COALESCE(car_spaces, 0),
+		       COALESCE(land_size_sqm, 0), COALESCE(property_type, ''),
+		       COALESCE(display_address, ''), COALESCE(suburb, ''), COALESCE(state_code, ''),
+		       COALESCE(postcode, ''), first_seen_at, last_seen_at
+		FROM property_listings
+		WHERE address_key = $1
+		ORDER BY is_active DESC, last_seen_at DESC
+		LIMIT 1`
+
+	var cur PropertyListingSnapshotRow
+	err := s.db.QueryRow(ctx, currentQuery, addressKey).Scan(
+		&cur.Source, &cur.ListingID, &cur.ListingURL, &cur.Price, &cur.PriceDisplay,
+		&cur.PriceKind, &cur.ListingStatus, &cur.IsActive,
+		&cur.Bedrooms, &cur.Bathrooms, &cur.CarSpaces, &cur.LandSizeSqm, &cur.PropertyType,
+		&cur.DisplayAddress, &cur.Suburb, &cur.StateCode, &cur.Postcode,
+		&cur.FirstSeenAt, &cur.LastSeenAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return &PropertyHistoryResult{}, nil
+		}
+		return nil, err
+	}
+
+	const eventsQuery = `
+		SELECT observed_at, event_type, source, listing_id,
+		       COALESCE(price, 0), COALESCE(prev_price, 0), COALESCE(drop_abs, 0), COALESCE(drop_pct, 0),
+		       COALESCE(listing_status, ''), COALESCE(prev_status, '')
+		FROM property_price_events
+		WHERE address_key = $1
+		ORDER BY observed_at ASC, id ASC`
+
+	rows, err := s.db.Query(ctx, eventsQuery, addressKey)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var events []*PropertyPriceEventRow
+	var firstPrice float64
+	for rows.Next() {
+		var e PropertyPriceEventRow
+		if err := rows.Scan(&e.ObservedAt, &e.EventType, &e.Source, &e.ListingID,
+			&e.Price, &e.PrevPrice, &e.DropAbs, &e.DropPct, &e.ListingStatus, &e.PrevStatus); err != nil {
+			return nil, err
+		}
+		if firstPrice == 0 && e.Price > 0 {
+			firstPrice = e.Price
+		}
+		events = append(events, &e)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	const countQuery = `SELECT COUNT(DISTINCT source || ':' || listing_id) FROM property_listings WHERE address_key = $1`
+	var numListings int32
+	if err := s.db.QueryRow(ctx, countQuery, addressKey).Scan(&numListings); err != nil {
+		return nil, err
+	}
+
+	return &PropertyHistoryResult{
+		AddressKey:     addressKey,
+		DisplayAddress: cur.DisplayAddress,
+		Suburb:         cur.Suburb,
+		StateCode:      cur.StateCode,
+		Postcode:       cur.Postcode,
+		Current:        &cur,
+		Events:         events,
+		NumListings:    numListings,
+		FirstPrice:     firstPrice,
+		CurrentPrice:   cur.Price,
+	}, nil
 }

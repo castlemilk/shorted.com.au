@@ -196,6 +196,9 @@ const (
 	// ShortedStocksServiceListSuburbDropListingsProcedure is the fully-qualified name of the
 	// ShortedStocksService's ListSuburbDropListings RPC.
 	ShortedStocksServiceListSuburbDropListingsProcedure = "/shorts.v1alpha1.ShortedStocksService/ListSuburbDropListings"
+	// ShortedStocksServiceGetPropertyHistoryProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetPropertyHistory RPC.
+	ShortedStocksServiceGetPropertyHistoryProcedure = "/shorts.v1alpha1.ShortedStocksService/GetPropertyHistory"
 	// ShortedStocksServiceGetCompanyTaxProfileProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetCompanyTaxProfile RPC.
 	ShortedStocksServiceGetCompanyTaxProfileProcedure = "/shorts.v1alpha1.ShortedStocksService/GetCompanyTaxProfile"
@@ -261,6 +264,7 @@ var (
 	shortedStocksServiceListHousingRegionsMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("ListHousingRegions")
 	shortedStocksServiceListSuburbPriceDropsMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("ListSuburbPriceDrops")
 	shortedStocksServiceListSuburbDropListingsMethodDescriptor          = shortedStocksServiceServiceDescriptor.Methods().ByName("ListSuburbDropListings")
+	shortedStocksServiceGetPropertyHistoryMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("GetPropertyHistory")
 	shortedStocksServiceGetCompanyTaxProfileMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("GetCompanyTaxProfile")
 	shortedStocksServiceGetIndustryIntelligenceMethodDescriptor         = shortedStocksServiceServiceDescriptor.Methods().ByName("GetIndustryIntelligence")
 )
@@ -377,6 +381,8 @@ type ShortedStocksServiceClient interface {
 	ListSuburbPriceDrops(context.Context, *connect.Request[v1alpha1.ListSuburbPriceDropsRequest]) (*connect.Response[v1alpha1.ListSuburbPriceDropsResponse], error)
 	// Individual recently-reduced listings for a suburb, deep-linking to the portal.
 	ListSuburbDropListings(context.Context, *connect.Request[v1alpha1.ListSuburbDropListingsRequest]) (*connect.Response[v1alpha1.ListSuburbDropListingsResponse], error)
+	// Full price timeline for a single physical address, across all its listings.
+	GetPropertyHistory(context.Context, *connect.Request[v1alpha1.GetPropertyHistoryRequest]) (*connect.Response[v1alpha1.GetPropertyHistoryResponse], error)
 	// Get an ASX-listed entity's annual corporate-tax profile (ATO transparency data).
 	GetCompanyTaxProfile(context.Context, *connect.Request[v1alpha1.GetCompanyTaxProfileRequest]) (*connect.Response[v1alpha1.GetCompanyTaxProfileResponse], error)
 	// Get imported, cited industry intelligence facts for an industry.
@@ -717,6 +723,12 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(shortedStocksServiceListSuburbDropListingsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		getPropertyHistory: connect.NewClient[v1alpha1.GetPropertyHistoryRequest, v1alpha1.GetPropertyHistoryResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetPropertyHistoryProcedure,
+			connect.WithSchema(shortedStocksServiceGetPropertyHistoryMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 		getCompanyTaxProfile: connect.NewClient[v1alpha1.GetCompanyTaxProfileRequest, v1alpha1.GetCompanyTaxProfileResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetCompanyTaxProfileProcedure,
@@ -788,6 +800,7 @@ type shortedStocksServiceClient struct {
 	listHousingRegions              *connect.Client[v1alpha1.ListHousingRegionsRequest, v1alpha1.ListHousingRegionsResponse]
 	listSuburbPriceDrops            *connect.Client[v1alpha1.ListSuburbPriceDropsRequest, v1alpha1.ListSuburbPriceDropsResponse]
 	listSuburbDropListings          *connect.Client[v1alpha1.ListSuburbDropListingsRequest, v1alpha1.ListSuburbDropListingsResponse]
+	getPropertyHistory              *connect.Client[v1alpha1.GetPropertyHistoryRequest, v1alpha1.GetPropertyHistoryResponse]
 	getCompanyTaxProfile            *connect.Client[v1alpha1.GetCompanyTaxProfileRequest, v1alpha1.GetCompanyTaxProfileResponse]
 	getIndustryIntelligence         *connect.Client[v1alpha1.GetIndustryIntelligenceRequest, v1alpha1.GetIndustryIntelligenceResponse]
 }
@@ -1065,6 +1078,11 @@ func (c *shortedStocksServiceClient) ListSuburbDropListings(ctx context.Context,
 	return c.listSuburbDropListings.CallUnary(ctx, req)
 }
 
+// GetPropertyHistory calls shorts.v1alpha1.ShortedStocksService.GetPropertyHistory.
+func (c *shortedStocksServiceClient) GetPropertyHistory(ctx context.Context, req *connect.Request[v1alpha1.GetPropertyHistoryRequest]) (*connect.Response[v1alpha1.GetPropertyHistoryResponse], error) {
+	return c.getPropertyHistory.CallUnary(ctx, req)
+}
+
 // GetCompanyTaxProfile calls shorts.v1alpha1.ShortedStocksService.GetCompanyTaxProfile.
 func (c *shortedStocksServiceClient) GetCompanyTaxProfile(ctx context.Context, req *connect.Request[v1alpha1.GetCompanyTaxProfileRequest]) (*connect.Response[v1alpha1.GetCompanyTaxProfileResponse], error) {
 	return c.getCompanyTaxProfile.CallUnary(ctx, req)
@@ -1188,6 +1206,8 @@ type ShortedStocksServiceHandler interface {
 	ListSuburbPriceDrops(context.Context, *connect.Request[v1alpha1.ListSuburbPriceDropsRequest]) (*connect.Response[v1alpha1.ListSuburbPriceDropsResponse], error)
 	// Individual recently-reduced listings for a suburb, deep-linking to the portal.
 	ListSuburbDropListings(context.Context, *connect.Request[v1alpha1.ListSuburbDropListingsRequest]) (*connect.Response[v1alpha1.ListSuburbDropListingsResponse], error)
+	// Full price timeline for a single physical address, across all its listings.
+	GetPropertyHistory(context.Context, *connect.Request[v1alpha1.GetPropertyHistoryRequest]) (*connect.Response[v1alpha1.GetPropertyHistoryResponse], error)
 	// Get an ASX-listed entity's annual corporate-tax profile (ATO transparency data).
 	GetCompanyTaxProfile(context.Context, *connect.Request[v1alpha1.GetCompanyTaxProfileRequest]) (*connect.Response[v1alpha1.GetCompanyTaxProfileResponse], error)
 	// Get imported, cited industry intelligence facts for an industry.
@@ -1524,6 +1544,12 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		connect.WithSchema(shortedStocksServiceListSuburbDropListingsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	shortedStocksServiceGetPropertyHistoryHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetPropertyHistoryProcedure,
+		svc.GetPropertyHistory,
+		connect.WithSchema(shortedStocksServiceGetPropertyHistoryMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	shortedStocksServiceGetCompanyTaxProfileHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetCompanyTaxProfileProcedure,
 		svc.GetCompanyTaxProfile,
@@ -1646,6 +1672,8 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceListSuburbPriceDropsHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceListSuburbDropListingsProcedure:
 			shortedStocksServiceListSuburbDropListingsHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetPropertyHistoryProcedure:
+			shortedStocksServiceGetPropertyHistoryHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetCompanyTaxProfileProcedure:
 			shortedStocksServiceGetCompanyTaxProfileHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetIndustryIntelligenceProcedure:
@@ -1873,6 +1901,10 @@ func (UnimplementedShortedStocksServiceHandler) ListSuburbPriceDrops(context.Con
 
 func (UnimplementedShortedStocksServiceHandler) ListSuburbDropListings(context.Context, *connect.Request[v1alpha1.ListSuburbDropListingsRequest]) (*connect.Response[v1alpha1.ListSuburbDropListingsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListSuburbDropListings is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetPropertyHistory(context.Context, *connect.Request[v1alpha1.GetPropertyHistoryRequest]) (*connect.Response[v1alpha1.GetPropertyHistoryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetPropertyHistory is not implemented"))
 }
 
 func (UnimplementedShortedStocksServiceHandler) GetCompanyTaxProfile(context.Context, *connect.Request[v1alpha1.GetCompanyTaxProfileRequest]) (*connect.Response[v1alpha1.GetCompanyTaxProfileResponse], error) {

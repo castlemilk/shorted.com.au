@@ -290,6 +290,10 @@ func (s *StoreAdapter) ListSuburbDropListings(salCode, regionCode string, window
 	return s.store.ListSuburbDropListings(salCode, regionCode, windowDays, limit)
 }
 
+func (s *StoreAdapter) GetPropertyHistory(addressKey string) (*shorts.PropertyHistoryResult, error) {
+	return s.store.GetPropertyHistory(addressKey)
+}
+
 func (s *StoreAdapter) GetEventTimeline(stockCode string, daysBack, limit int32) ([]*shorts.TimelineEventRow, error) {
 	return s.store.GetEventTimeline(stockCode, daysBack, limit)
 }

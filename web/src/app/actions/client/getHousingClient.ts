@@ -8,6 +8,7 @@ import {
   type ListHousingRegionsResponse,
   type ListSuburbPriceDropsResponse,
   type ListSuburbDropListingsResponse,
+  type GetPropertyHistoryResponse,
 } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { SHORTS_API_URL } from "../config";
 import { retryWithBackoff } from "@/lib/retry";
@@ -145,6 +146,25 @@ export async function listSuburbDropListingsClient(
   try {
     const result = await retryWithBackoff(
       () => client.listSuburbDropListings({ salCode, regionCode, windowDays, limit }), RETRY_OPTIONS);
+    setSessionCached(cacheKey, result);
+    return result;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Browser-side per-address price timeline (flag-gated server-side — see ListSuburbDropListings). */
+export async function getPropertyHistoryClient(
+  addressKey: string,
+): Promise<GetPropertyHistoryResponse | undefined> {
+  const cacheKey = `propertyHistory:${addressKey}`;
+  const cached = getSessionCached<GetPropertyHistoryResponse>(cacheKey);
+  if (cached) return cached;
+  const transport = createConnectTransport({ baseUrl: typeof window !== "undefined" ? "" : SHORTS_API_URL });
+  const client = createClient(ShortedStocksService, transport);
+  try {
+    const result = await retryWithBackoff(
+      () => client.getPropertyHistory({ addressKey }), RETRY_OPTIONS);
     setSessionCached(cacheKey, result);
     return result;
   } catch {
