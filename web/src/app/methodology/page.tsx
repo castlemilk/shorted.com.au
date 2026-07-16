@@ -83,7 +83,17 @@ const articleSchema = {
   about: {
     "@type": "Dataset",
     name: "ASIC Short Position Reports",
+    description:
+      "Daily aggregated net short position reports for ASX-listed securities, published by the Australian Securities and Investments Commission (ASIC) under Regulatory Guide 196. Each record covers reported short positions, total product in issue, and the percentage of issued capital held short. Coverage begins 1 June 2010.",
     url: "https://asic.gov.au/regulatory-resources/markets/short-selling/short-position-reports/",
+    creator: {
+      "@type": "GovernmentOrganization",
+      name: "Australian Securities and Investments Commission",
+      alternateName: "ASIC",
+      url: "https://asic.gov.au",
+    },
+    temporalCoverage: "2010-06-01/..",
+    license: "https://creativecommons.org/licenses/by/4.0/",
   },
   mainEntityOfPage: `${siteConfig.url}/methodology`,
 };
