@@ -57,8 +57,10 @@ func TestCircuitBreaker_CleanSweepClosesAndResets(t *testing.T) {
 	// Open it, widen it once.
 	cb.record("domain", true, base)
 	_, cd1 := cb.record("domain", true, base.Add(10*time.Minute))
-	if cd1 < 9*time.Minute { // should have doubled to ~10m
-		t.Fatalf("expected backoff to have doubled to ~10m, got %s", cd1)
+	// Doubled 5m→10m; with ±20% jitter that's [8m,12m], always clear of the
+	// base range's 6m max — so >7m proves it doubled without being jitter-flaky.
+	if cd1 <= 7*time.Minute {
+		t.Fatalf("expected backoff to have doubled to ~10m (±20%%), got %s", cd1)
 	}
 	// A clean sweep closes it and resets the backoff to base.
 	cb.record("domain", false, base.Add(30*time.Minute))
