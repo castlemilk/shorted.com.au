@@ -199,7 +199,7 @@ func TestListAddressPriceDrops_FlagEnabled_ReturnsRanked(t *testing.T) {
 	mockStore := mocks.NewMockShortsStore(ctrl)
 
 	lastObs := time.Date(2026, 3, 10, 0, 0, 0, 0, time.UTC)
-	mockStore.EXPECT().ListAddressPriceDrops("VIC", int32(90), int32(50)).Return([]*shortsstore.AddressPriceDropRow{
+	mockStore.EXPECT().ListAddressPriceDrops("VIC", "", int32(90), int32(50)).Return([]*shortsstore.AddressPriceDropRow{
 		{
 			AddressKey: "vic-brighton-1-centre-rd", DisplayAddress: "1 Centre Road",
 			Suburb: "Brighton", StateCode: "VIC", Postcode: "3186",
@@ -224,5 +224,25 @@ func TestListAddressPriceDrops_FlagEnabled_ReturnsRanked(t *testing.T) {
 	}
 	if a.LastObservedAt != lastObs.Format(time.RFC3339) {
 		t.Fatalf("want RFC3339 last_observed_at, got %q", a.LastObservedAt)
+	}
+}
+
+// TestListAddressPriceDrops_SortThreadsThrough asserts the sort selector reaches
+// the store (whitelisted there into an ORDER BY), so the board can rank by
+// biggest $ cut or recency, not just percentage.
+func TestListAddressPriceDrops_SortThreadsThrough(t *testing.T) {
+	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "true")
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	mockStore.EXPECT().ListAddressPriceDrops("", "abs", int32(90), int32(50)).
+		Return([]*shortsstore.AddressPriceDropRow{}, nil)
+
+	srv := newTestServer(t, mockStore)
+	_, err := srv.ListAddressPriceDrops(context.Background(),
+		connect.NewRequest(&shortsv1alpha1.ListAddressPriceDropsRequest{Sort: "abs", WindowDays: 90, Limit: 50}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }

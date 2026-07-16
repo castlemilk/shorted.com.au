@@ -911,7 +911,7 @@ type AddressPriceDropRow struct {
 // Rows with an empty address_key, no priced observation, a non-positive current
 // ask, a dead deep-link, or a stale/inactive current listing are excluded; only
 // real drops (>= 3%) are returned, biggest percentage drop first.
-func (s *postgresStore) ListAddressPriceDrops(stateCode string, windowDays, limit int32) ([]*AddressPriceDropRow, error) {
+func (s *postgresStore) ListAddressPriceDrops(stateCode, sort string, windowDays, limit int32) ([]*AddressPriceDropRow, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -922,10 +922,20 @@ func (s *postgresStore) ListAddressPriceDrops(stateCode string, windowDays, limi
 		limit = 50
 	}
 
+	// Whitelist the sort → a fixed ORDER BY clause (never interpolate user input).
+	// All three reference the output aliases of the final SELECT.
+	orderBy := "ORDER BY drop_pct DESC, drop_abs DESC" // default: biggest % cut
+	switch sort {
+	case "abs":
+		orderBy = "ORDER BY drop_abs DESC, drop_pct DESC" // biggest $ cut
+	case "recent":
+		orderBy = "ORDER BY last_observed_at DESC, drop_pct DESC" // most recently seen
+	}
+
 	// cur  = the current (most-recent active, priced, live-URL) listing per address.
 	// firstp = earliest positive price observed within the window per address.
 	// nlist  = distinct portal adverts per address.
-	const query = `
+	const baseQuery = `
 		WITH cur AS (
 			SELECT DISTINCT ON (pl.address_key)
 			       pl.address_key,
@@ -988,9 +998,9 @@ func (s *postgresStore) ListAddressPriceDrops(stateCode string, windowDays, limi
 		WHERE f.first_price > 0
 		  AND f.first_price > c.current_price
 		  AND (f.first_price - c.current_price) / f.first_price >= 0.03
-		ORDER BY drop_pct DESC, drop_abs DESC
-		LIMIT $3`
+		`
 
+	query := baseQuery + orderBy + "\n\t\tLIMIT $3"
 	rows, err := s.db.Query(ctx, query, stateCode, windowDays, limit)
 	if err != nil {
 		return nil, err

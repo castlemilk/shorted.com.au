@@ -780,18 +780,18 @@ func (mr *MockShortsStoreMockRecorder) ListActiveSubscribers() *gomock.Call {
 }
 
 // ListAddressPriceDrops mocks base method.
-func (m *MockShortsStore) ListAddressPriceDrops(stateCode string, windowDays, limit int32) ([]*shorts.AddressPriceDropRow, error) {
+func (m *MockShortsStore) ListAddressPriceDrops(stateCode, sort string, windowDays, limit int32) ([]*shorts.AddressPriceDropRow, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListAddressPriceDrops", stateCode, windowDays, limit)
+	ret := m.ctrl.Call(m, "ListAddressPriceDrops", stateCode, sort, windowDays, limit)
 	ret0, _ := ret[0].([]*shorts.AddressPriceDropRow)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListAddressPriceDrops indicates an expected call of ListAddressPriceDrops.
-func (mr *MockShortsStoreMockRecorder) ListAddressPriceDrops(stateCode, windowDays, limit any) *gomock.Call {
+func (mr *MockShortsStoreMockRecorder) ListAddressPriceDrops(stateCode, sort, windowDays, limit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAddressPriceDrops", reflect.TypeOf((*MockShortsStore)(nil).ListAddressPriceDrops), stateCode, windowDays, limit)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAddressPriceDrops", reflect.TypeOf((*MockShortsStore)(nil).ListAddressPriceDrops), stateCode, sort, windowDays, limit)
 }
 
 // ListAlertMonitors mocks base method.
@@ -1264,17 +1264,17 @@ func (mr *MockCacheMockRecorder) Get(key any) *gomock.Call {
 }
 
 // GetAddressPriceDropsKey mocks base method.
-func (m *MockCache) GetAddressPriceDropsKey(stateCode string, windowDays, limit int32) string {
+func (m *MockCache) GetAddressPriceDropsKey(stateCode, sort string, windowDays, limit int32) string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAddressPriceDropsKey", stateCode, windowDays, limit)
+	ret := m.ctrl.Call(m, "GetAddressPriceDropsKey", stateCode, sort, windowDays, limit)
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
 // GetAddressPriceDropsKey indicates an expected call of GetAddressPriceDropsKey.
-func (mr *MockCacheMockRecorder) GetAddressPriceDropsKey(stateCode, windowDays, limit any) *gomock.Call {
+func (mr *MockCacheMockRecorder) GetAddressPriceDropsKey(stateCode, sort, windowDays, limit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAddressPriceDropsKey", reflect.TypeOf((*MockCache)(nil).GetAddressPriceDropsKey), stateCode, windowDays, limit)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAddressPriceDropsKey", reflect.TypeOf((*MockCache)(nil).GetAddressPriceDropsKey), stateCode, sort, windowDays, limit)
 }
 
 // GetAvailableDatesKey mocks base method.

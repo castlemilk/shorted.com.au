@@ -294,8 +294,8 @@ func (s *StoreAdapter) GetPropertyHistory(addressKey string) (*shorts.PropertyHi
 	return s.store.GetPropertyHistory(addressKey)
 }
 
-func (s *StoreAdapter) ListAddressPriceDrops(stateCode string, windowDays, limit int32) ([]*shorts.AddressPriceDropRow, error) {
-	return s.store.ListAddressPriceDrops(stateCode, windowDays, limit)
+func (s *StoreAdapter) ListAddressPriceDrops(stateCode, sort string, windowDays, limit int32) ([]*shorts.AddressPriceDropRow, error) {
+	return s.store.ListAddressPriceDrops(stateCode, sort, windowDays, limit)
 }
 
 func (s *StoreAdapter) GetEventTimeline(stockCode string, daysBack, limit int32) ([]*shorts.TimelineEventRow, error) {

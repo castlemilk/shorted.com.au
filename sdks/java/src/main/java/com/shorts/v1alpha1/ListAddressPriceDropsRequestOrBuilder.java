@@ -49,4 +49,24 @@ public interface ListAddressPriceDropsRequestOrBuilder extends
    * @return The limit.
    */
   int getLimit();
+
+  /**
+   * <pre>
+   * 'pct' (default) | 'abs' (biggest $ cut) | 'recent'
+   * </pre>
+   *
+   * <code>string sort = 4 [json_name = "sort"];</code>
+   * @return The sort.
+   */
+  java.lang.String getSort();
+  /**
+   * <pre>
+   * 'pct' (default) | 'abs' (biggest $ cut) | 'recent'
+   * </pre>
+   *
+   * <code>string sort = 4 [json_name = "sort"];</code>
+   * @return The bytes for sort.
+   */
+  com.google.protobuf.ByteString
+      getSortBytes();
 }

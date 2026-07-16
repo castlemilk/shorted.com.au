@@ -159,15 +159,16 @@ export async function listAddressPriceDropsClient(
   stateCode = "",
   windowDays = 90,
   limit = 50,
+  sort = "",
 ): Promise<ListAddressPriceDropsResponse | undefined> {
-  const cacheKey = `addressPriceDrops:${stateCode}:${windowDays}:${limit}`;
+  const cacheKey = `addressPriceDrops:${stateCode}:${windowDays}:${limit}:${sort}`;
   const cached = getSessionCached<ListAddressPriceDropsResponse>(cacheKey);
   if (cached) return cached;
   const transport = createConnectTransport({ baseUrl: typeof window !== "undefined" ? "" : SHORTS_API_URL });
   const client = createClient(ShortedStocksService, transport);
   try {
     const result = await retryWithBackoff(
-      () => client.listAddressPriceDrops({ stateCode, windowDays, limit }), RETRY_OPTIONS);
+      () => client.listAddressPriceDrops({ stateCode, windowDays, limit, sort }), RETRY_OPTIONS);
     setSessionCached(cacheKey, result);
     return result;
   } catch {

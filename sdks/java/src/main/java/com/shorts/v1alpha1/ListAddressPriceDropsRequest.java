@@ -29,6 +29,7 @@ private static final long serialVersionUID = 0L;
   }
   private ListAddressPriceDropsRequest() {
     stateCode_ = "";
+    sort_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -126,6 +127,53 @@ private static final long serialVersionUID = 0L;
     return limit_;
   }
 
+  public static final int SORT_FIELD_NUMBER = 4;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object sort_ = "";
+  /**
+   * <pre>
+   * 'pct' (default) | 'abs' (biggest $ cut) | 'recent'
+   * </pre>
+   *
+   * <code>string sort = 4 [json_name = "sort"];</code>
+   * @return The sort.
+   */
+  @java.lang.Override
+  public java.lang.String getSort() {
+    java.lang.Object ref = sort_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      sort_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * 'pct' (default) | 'abs' (biggest $ cut) | 'recent'
+   * </pre>
+   *
+   * <code>string sort = 4 [json_name = "sort"];</code>
+   * @return The bytes for sort.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getSortBytes() {
+    java.lang.Object ref = sort_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      sort_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -149,6 +197,9 @@ private static final long serialVersionUID = 0L;
     if (limit_ != 0) {
       output.writeInt32(3, limit_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sort_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 4, sort_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -163,6 +214,9 @@ private static final long serialVersionUID = 0L;
     if (limit_ != 0) {
       size += com.google.protobuf.CodedOutputStream
         .computeInt32Size(3, limit_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sort_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(4, sort_);
     }
     return size;
   }
@@ -194,6 +248,8 @@ private static final long serialVersionUID = 0L;
         != other.getWindowDays()) return false;
     if (getLimit()
         != other.getLimit()) return false;
+    if (!getSort()
+        .equals(other.getSort())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -211,6 +267,8 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getWindowDays();
     hash = (37 * hash) + LIMIT_FIELD_NUMBER;
     hash = (53 * hash) + getLimit();
+    hash = (37 * hash) + SORT_FIELD_NUMBER;
+    hash = (53 * hash) + getSort().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -345,6 +403,7 @@ private static final long serialVersionUID = 0L;
       stateCode_ = "";
       windowDays_ = 0;
       limit_ = 0;
+      sort_ = "";
       return this;
     }
 
@@ -387,6 +446,9 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000004) != 0)) {
         result.limit_ = limit_;
       }
+      if (((from_bitField0_ & 0x00000008) != 0)) {
+        result.sort_ = sort_;
+      }
     }
 
     @java.lang.Override
@@ -411,6 +473,11 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getLimit() != 0) {
         setLimit(other.getLimit());
+      }
+      if (!other.getSort().isEmpty()) {
+        sort_ = other.sort_;
+        bitField0_ |= 0x00000008;
+        onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -453,6 +520,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000004;
               break;
             } // case 24
+            case 34: {
+              sort_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000008;
+              break;
+            } // case 34
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -646,6 +718,98 @@ private static final long serialVersionUID = 0L;
     public Builder clearLimit() {
       bitField0_ = (bitField0_ & ~0x00000004);
       limit_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object sort_ = "";
+    /**
+     * <pre>
+     * 'pct' (default) | 'abs' (biggest $ cut) | 'recent'
+     * </pre>
+     *
+     * <code>string sort = 4 [json_name = "sort"];</code>
+     * @return The sort.
+     */
+    public java.lang.String getSort() {
+      java.lang.Object ref = sort_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        sort_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * 'pct' (default) | 'abs' (biggest $ cut) | 'recent'
+     * </pre>
+     *
+     * <code>string sort = 4 [json_name = "sort"];</code>
+     * @return The bytes for sort.
+     */
+    public com.google.protobuf.ByteString
+        getSortBytes() {
+      java.lang.Object ref = sort_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        sort_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * 'pct' (default) | 'abs' (biggest $ cut) | 'recent'
+     * </pre>
+     *
+     * <code>string sort = 4 [json_name = "sort"];</code>
+     * @param value The sort to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSort(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      sort_ = value;
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 'pct' (default) | 'abs' (biggest $ cut) | 'recent'
+     * </pre>
+     *
+     * <code>string sort = 4 [json_name = "sort"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearSort() {
+      sort_ = getDefaultInstance().getSort();
+      bitField0_ = (bitField0_ & ~0x00000008);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 'pct' (default) | 'abs' (biggest $ cut) | 'recent'
+     * </pre>
+     *
+     * <code>string sort = 4 [json_name = "sort"];</code>
+     * @param value The bytes for sort to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSortBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      sort_ = value;
+      bitField0_ |= 0x00000008;
       onChanged();
       return this;
     }

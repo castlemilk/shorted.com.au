@@ -28,12 +28,19 @@ function bedBath(bedrooms: number, bathrooms: number): string {
  * unless the portal-listing tier is enabled), so the board may be empty until the
  * crawl tier is live.
  */
+const SORTS: { key: string; label: string }[] = [
+  { key: "pct", label: "Biggest %" },
+  { key: "abs", label: "Biggest $" },
+  { key: "recent", label: "Most recent" },
+];
+
 export function AddressDropsBoard({ stateCode: initialState = "", windowDays = 90, limit = 50 }: AddressDropsBoardProps) {
   const [stateCode, setStateCode] = useState(initialState);
+  const [sort, setSort] = useState("pct");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["address-price-drops", stateCode, windowDays, limit],
-    queryFn: () => listAddressPriceDropsClient(stateCode, windowDays, limit),
+    queryKey: ["address-price-drops", stateCode, windowDays, limit, sort],
+    queryFn: () => listAddressPriceDropsClient(stateCode, windowDays, limit, sort),
     staleTime: 30 * 60 * 1000,
   });
   const rows = data?.addresses ?? [];
@@ -58,6 +65,12 @@ export function AddressDropsBoard({ stateCode: initialState = "", windowDays = 9
               title={STATE_NAMES[code]}
               onClick={() => setStateCode(code)}
             />
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="mr-1 text-xs text-muted-foreground">Sort by</span>
+          {SORTS.map((s) => (
+            <StateChip key={s.key} active={sort === s.key} label={s.label} onClick={() => setSort(s.key)} />
           ))}
         </div>
       </header>
