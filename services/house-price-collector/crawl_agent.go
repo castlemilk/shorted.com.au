@@ -383,11 +383,28 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) bool {
 		log.Printf("[agent] resume window=%s — %d (source,suburb) pair(s) loaded", cfg.resumeWindow, len(rs))
 	}
 
+	// Per-source circuit breaker (crawl_circuit.go): persists across suburbs so a
+	// portal that starts serving block pages (Akamai errors.edgesuite.net, Kasada
+	// stubs) is backed off exponentially and SKIPPED during its cooldown instead
+	// of being hammered on every suburb — while the healthy portal keeps crawling.
+	// This is the state the per-job listingsCrawler (rebuilt each suburb) can't
+	// hold, which is why Domain-only blocking previously ran unthrottled.
+	cb := newCircuitBreaker(cfg.circuitTrip, cfg.circuitBase, cfg.circuitMax)
+	circuitSources := []string{"rea", "domain"}
+
 	anyRewarm := false
 	wroteAny := false
 	done := 0
 	consecBlocked := 0
 	for i := 0; i < acfg.maxJobs; i++ {
+		// If EVERY source is circuit-open, the whole session is blocked: stop
+		// claiming (leaving those suburbs pending for the next warm run) rather
+		// than burn the queue on jobs that would crawl nothing.
+		if allOpen, rem := cb.allOpen(circuitSources, time.Now().UTC()); allOpen {
+			log.Printf("[agent] all sources circuit-open (session blocked) — stopping to protect the queue; longest backoff %s", rem.Round(time.Second))
+			anyRewarm = true
+			break
+		}
 		job, err := client.claim(ctx)
 		if err != nil {
 			log.Printf("[agent] claim error: %v", err)
@@ -400,7 +417,7 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) bool {
 		if done > 0 {
 			jitterSleep(ctx, cfg.minDelay, cfg.maxDelay)
 		}
-		summary, status, errMsg, wrote := crawlAgentJob(ctx, pool, fetcher, cfg, job, rs)
+		summary, status, errMsg, wrote := crawlAgentJob(ctx, pool, fetcher, cfg, job, rs, cb)
 		wroteAny = wroteAny || wrote
 		if summary.NeedsRewarm {
 			anyRewarm = true
@@ -458,7 +475,7 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) bool {
 // may be nil) resume snapshot loaded once for the whole -mode agent run; a
 // source within the resume window is skipped for this job (logged, never
 // silently) rather than swept again.
-func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher, cfg listingsConfig, job *agentCrawlJob, rs resumeSet) (crawlJobSummary, string, string, bool) {
+func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher, cfg listingsConfig, job *agentCrawlJob, rs resumeSet, cb *crawlCircuitBreaker) (crawlJobSummary, string, string, bool) {
 	// Medians-in-agent-mode is a follow-up; the standalone `-mode crawl` path
 	// still serves the median tier. Fail such a job clearly rather than silently.
 	if strings.EqualFold(job.Tier, "medians") {
@@ -480,14 +497,26 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 	if rs.shouldSkipTarget("rea", t, runTs, cfg.resumeWindow) {
 		skippedRea = true
 		log.Printf("[agent] %s rea: skipped (swept within the resume window)", t.Display)
+	} else if open, rem := cb.skip("rea", runTs); open {
+		skippedRea = true
+		log.Printf("[agent] %s rea: SKIPPED — circuit open (portal blocking), backing off %s", t.Display, rem.Round(time.Second))
 	} else {
 		reaEvents = lc.crawlSuburbSource(ctx, pool, t, "rea", t.reaSearchURL, &lc.reaBlocks, runTs)
+		if opened, cd := cb.record("rea", lc.reaBlocks > 0, runTs); opened {
+			log.Printf("[agent] rea circuit OPEN after %d consecutive blocked sweep(s) — backing off %s before probing again", cb.circuit("rea").consec, cd.Round(time.Second))
+		}
 	}
 	if rs.shouldSkipTarget("domain", t, runTs, cfg.resumeWindow) {
 		skippedDomain = true
 		log.Printf("[agent] %s domain: skipped (swept within the resume window)", t.Display)
+	} else if open, rem := cb.skip("domain", runTs); open {
+		skippedDomain = true
+		log.Printf("[agent] %s domain: SKIPPED — circuit open (portal blocking), backing off %s", t.Display, rem.Round(time.Second))
 	} else {
 		domEvents = lc.crawlSuburbSource(ctx, pool, t, "domain", t.domainSearchURL, &lc.domBlocks, runTs)
+		if opened, cd := cb.record("domain", lc.domBlocks > 0, runTs); opened {
+			log.Printf("[agent] domain circuit OPEN after %d consecutive blocked sweep(s) — backing off %s before probing again", cb.circuit("domain").consec, cd.Round(time.Second))
+		}
 	}
 
 	s := lc.stats
