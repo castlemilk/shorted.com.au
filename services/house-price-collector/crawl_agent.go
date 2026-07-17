@@ -318,23 +318,29 @@ func (c *brandbrainAgentClient) enqueue(ctx context.Context, jobs []crawlEnqueue
 // runEnqueue is the -mode=enqueue entry point: post the curated suburb catalog to
 // the brandbrain queue so pollers have work to claim. shorted stays the source of
 // truth for AU suburbs; brandbrain is a generic queue. Env: BRANDBRAIN_AGENT_URL +
-// BRANDBRAIN_AGENT_TOKEN, CRAWL_ENQUEUE_SOURCE (default both), CRAWL_ENQUEUE_TIER
-// (default listings).
+// BRANDBRAIN_AGENT_TOKEN, CRAWL_ENQUEUE_SOURCE (default "split" → separate rea +
+// domain jobs; "rea"/"domain" for one portal; "both" for a legacy combined job),
+// CRAWL_ENQUEUE_TIER (default listings).
 func runEnqueue(ctx context.Context, _ *pgxpool.Pool) {
 	acfg := loadAgentConfig()
 	if acfg.brandbrainURL == "" || (acfg.token == "" && acfg.controlURL == "") {
 		log.Printf("[enqueue] BRANDBRAIN_AGENT_URL + a token (BRANDBRAIN_AGENT_TOKEN, or a local agent control API for auto-refresh) required — nothing to do")
 		return
 	}
-	source := envStr("CRAWL_ENQUEUE_SOURCE", "both")
+	sources := enqueueSources(envStr("CRAWL_ENQUEUE_SOURCE", "split"))
 	tier := envStr("CRAWL_ENQUEUE_TIER", "listings")
 
-	jobs := make([]crawlEnqueueInput, 0, len(crawlTargets))
+	// One job per (suburb, source) so REA and Domain crawl, retry, and report
+	// independently — the queue's unique-pending index is (kind,suburb,source,tier),
+	// so the two coexist without collision.
+	jobs := make([]crawlEnqueueInput, 0, len(crawlTargets)*len(sources))
 	for _, t := range crawlTargets {
-		jobs = append(jobs, crawlEnqueueInput{
-			Kind: "housing", Suburb: t.Display, State: t.State, Postcode: t.Postcode,
-			Source: source, Tier: tier,
-		})
+		for _, src := range sources {
+			jobs = append(jobs, crawlEnqueueInput{
+				Kind: "housing", Suburb: t.Display, State: t.State, Postcode: t.Postcode,
+				Source: src, Tier: tier,
+			})
+		}
 	}
 
 	client := newBrandbrainAgentClient(acfg)
@@ -343,7 +349,37 @@ func runEnqueue(ctx context.Context, _ *pgxpool.Pool) {
 		log.Printf("[enqueue] error: %v", err)
 		return
 	}
-	log.Printf("[enqueue] enqueued %d new job(s) of %d target(s) (source=%s tier=%s)", n, len(jobs), source, tier)
+	log.Printf("[enqueue] enqueued %d new job(s) of %d target(s) × sources=%v (tier=%s)", n, len(crawlTargets), sources, tier)
+}
+
+// enqueueSources maps CRAWL_ENQUEUE_SOURCE to the set of source jobs to create
+// per suburb. The default splits each suburb into independent "rea" and "domain"
+// jobs so the two portals crawl, retry, and report separately (REA is
+// Kasada-gated, Domain Akamai-gated — they block independently). "rea"/"domain"
+// enqueues just that portal; "both" creates one legacy combined job.
+func enqueueSources(v string) []string {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "rea":
+		return []string{"rea"}
+	case "domain":
+		return []string{"domain"}
+	case "both":
+		return []string{"both"}
+	default: // "", "split", or anything else → separate rea + domain jobs
+		return []string{"rea", "domain"}
+	}
+}
+
+// wantSource reports whether a job that targets jobSource ("rea" | "domain" |
+// "both" | "") should crawl the given portal. A blank or "both" source crawls
+// every portal (legacy combined jobs stay backward-compatible); a single-source
+// job crawls only its own portal.
+func wantSource(portal, jobSource string) bool {
+	s := strings.ToLower(strings.TrimSpace(jobSource))
+	if s == "" || s == "both" {
+		return true
+	}
+	return s == portal
 }
 
 // resolveCrawlTarget maps a claimed job to a full CrawlTarget. It prefers the
@@ -565,7 +601,13 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 	var reaEvents, domEvents int
 	var reaErr, domErr error
 	var skippedRea, skippedDomain bool
-	if rs.shouldSkipTarget("rea", t, runTs, cfg.resumeWindow) {
+	// A job may target a single portal (source="rea"/"domain") or both
+	// (source="both"/"" — legacy combined job). Skip the portal this job doesn't
+	// own so REA and Domain can run as independent jobs with their own status,
+	// retries, and circuit-breaker state.
+	if !wantSource("rea", job.Source) {
+		skippedRea = true
+	} else if rs.shouldSkipTarget("rea", t, runTs, cfg.resumeWindow) {
 		skippedRea = true
 		log.Printf("[agent] %s rea: skipped (swept within the resume window)", t.Display)
 	} else if open, rem := cb.skip("rea", runTs); open {
@@ -577,7 +619,9 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 			log.Printf("[agent] rea circuit OPEN after %d consecutive blocked sweep(s) — backing off %s before probing again", cb.circuit("rea").consec, cd.Round(time.Second))
 		}
 	}
-	if rs.shouldSkipTarget("domain", t, runTs, cfg.resumeWindow) {
+	if !wantSource("domain", job.Source) {
+		skippedDomain = true
+	} else if rs.shouldSkipTarget("domain", t, runTs, cfg.resumeWindow) {
 		skippedDomain = true
 		log.Printf("[agent] %s domain: skipped (swept within the resume window)", t.Display)
 	} else if open, rem := cb.skip("domain", runTs); open {
