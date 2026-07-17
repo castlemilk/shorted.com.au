@@ -506,6 +506,23 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 		matched, mismatch := partitionByTarget(raw, t)
 		lastMismatch = mismatch
 
+		// Anti-bot stub guard — runs on EVERY page, BEFORE any natural-end branch.
+		// A rendered Kasada KPSDK stub (~800B) or Akamai edgesuite stub carries no
+		// listing container and extracts 0 listings, but looksBlocked misses it (no
+		// marker string, >0 bytes). On a LATER page the empty-page/duplicate-page
+		// branches below would then read it as "ran out" → sweepComplete → the
+		// delist path flips the suburb's real pages-2+ listings to withdrawn. Treat
+		// a stub as a BLOCK instead (trips the per-source breaker, delists nothing).
+		// This is the in-sweep analogue of -mode warmcheck's reaLooksWarm, extended
+		// to Domain — deliberately biased toward blocking, since a false "stub" only
+		// skips this run's delisting (safe) while a MISSED stub corrupts the corpus.
+		if pageLooksStub(html, source) {
+			*blockCounter++
+			status := blockedOrPartial(len(collected))
+			tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), Extracted: len(raw), Matched: len(matched), Mismatch: mismatch, TotalResults: totalResults, OnTargetResults: onTargetResults, WantPages: wantPages, Outcome: "ok", Status: status.String(), Decision: "stop-stub"})
+			return finish(status)
+		}
+
 		// Page-level poison gate. A high off-target ratio is the poison signal —
 		// BUT small suburbs legitimately run out of real inventory, after which
 		// REA/Domain broaden the SRP to nearby stock (e.g. New Farm 4005 → Newstead
@@ -664,6 +681,33 @@ func blockedOrPartial(collectedN int) sweepStatus {
 		return sweepPartial
 	}
 	return sweepBlocked
+}
+
+// pageLooksStub reports whether a rendered page is an anti-bot stub rather than a
+// real search-results page: too small to be a real SRP (a genuine REA/Domain SRP
+// is hundreds of KB even with zero results, while the KPSDK/edgesuite stubs are
+// ~1KB), OR missing the portal's listing-data container. It's the in-sweep
+// analogue of reaLooksWarm (crawl_warmcheck.go), extended to Domain. Biased
+// toward reporting a stub on purpose: a false positive only skips this run's
+// delisting for that suburb (safe, self-corrects next warm run), whereas a missed
+// stub read as "ran out" delists real listings. A real SRP (large + container
+// present, which is what the working crawl always fetches) is never a stub, so
+// this changes nothing on the healthy path.
+func pageLooksStub(html []byte, source string) bool {
+	s := string(html)
+	switch source {
+	case "rea":
+		// REA's SRP always carries the ArgonautExchange blob; the KPSDK stub does
+		// not. Container-presence (not size) is the reliable signal — it also
+		// catches schema drift (a real page that stopped carrying the blob is,
+		// for our purposes, unusable and must not enable delisting).
+		return !strings.Contains(s, "ArgonautExchange")
+	case "domain":
+		return !strings.Contains(s, "__NEXT_DATA__")
+	default:
+		// Unknown source: fall back to a size floor (a real SRP is hundreds of KB).
+		return len(html) < reaWarmMinBytes
+	}
 }
 
 // sweepPoisonVerdict classifies a page whose off-target ratio exceeded the poison

@@ -336,7 +336,11 @@ func (f *pagedFetcher) fetch(_ context.Context, url string) ([]byte, string, err
 	if h, ok := f.pages[url]; ok {
 		return []byte(h), url, nil
 	}
-	return []byte(`<html><body></body></html>`), url, nil // unknown url -> empty page
+	// A REAL "ran out" page: the portal still serves its full SRP shell (data
+	// container present) with zero listings — NOT an anti-bot stub. Carries both
+	// portals' containers so pageLooksStub treats it as a legit natural end
+	// (source-agnostic here); a container-less page is the stub case (below/tests).
+	return []byte(`<html><body><script>window.ArgonautExchange={"results":{"exchangeState":{"resolvedListings":[]}}};</script><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"listings":[]}}}</script></body></html>`), url, nil
 }
 func (f *pagedFetcher) Close() {}
 
@@ -400,6 +404,31 @@ func TestSweep_CompleteOnEmptyPage(t *testing.T) {
 	}
 	if len(sw.listings) != 5 {
 		t.Errorf("expected 5 collected listings, got %d", len(sw.listings))
+	}
+}
+
+// TestSweep_StubOnLaterPageIsNotComplete pins the critical fix: an anti-bot stub
+// (Kasada KPSDK / Akamai) on a LATER page — which extracts 0 listings and carries
+// no data container — must NOT be read as "ran out" → sweepComplete (that would
+// run the delist path over the suburb's real pages-2+ listings). It's a block:
+// sweepPartial (page-1 listings kept, delist NOTHING), and it trips the breaker.
+func TestSweep_StubOnLaterPageIsNotComplete(t *testing.T) {
+	// A realistic anti-bot stub: no listing container (no __NEXT_DATA__ blob).
+	stub := `<html><head><script>window.KPSDK={cd:true};</script></head><body>Pardon the interruption</body></html>`
+	sw := sweepWith(map[string]string{
+		// total=10/pageSize=5 → the portal says there's a 2nd page, so the sweep
+		// fetches it and hits the stub (rather than stopping at page 1).
+		bondi.domainSearchURL(1): domainPageWithMeta([]string{"a", "b", "c", "d", "e"}, "2026", 10, 5),
+		bondi.domainSearchURL(2): stub, // anti-bot stub, not a real "ran out" page
+	})
+	if sw.status == sweepComplete {
+		t.Fatalf("a stub second page must NOT mark the sweep complete (would wrongly delist real listings); got %s", sw.status)
+	}
+	if sw.status != sweepPartial {
+		t.Fatalf("expected sweepPartial (page-1 kept, delist nothing), got %s", sw.status)
+	}
+	if len(sw.listings) != 5 {
+		t.Fatalf("page-1 listings must be kept, got %d", len(sw.listings))
 	}
 }
 
