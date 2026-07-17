@@ -206,12 +206,16 @@ func fixtureFilename(rawurl string) string {
 }
 
 func envFloat(key string, def float64) float64 {
-	if v := os.Getenv(key); v != "" {
-		if f, err := strconv.ParseFloat(v, 64); err == nil {
-			return f
-		}
+	v := os.Getenv(key)
+	if v == "" {
+		return def
 	}
-	return def
+	f, err := strconv.ParseFloat(v, 64)
+	if err != nil {
+		log.Printf("[config] %s=%q is not a valid number — using default %v", key, v, def)
+		return def
+	}
+	return f
 }
 
 type listingsStats struct {

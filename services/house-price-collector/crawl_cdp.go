@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -99,7 +101,67 @@ func newCDPFetcher(cfg crawlConfig) (*cdpFetcher, error) {
 func (f *cdpFetcher) fetch(ctx context.Context, url string) ([]byte, string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return fetchInContext(ctx, f.ctx, f.cfg, url)
+	html, final, err := fetchInContext(ctx, f.ctx, f.cfg, url)
+	if err != nil && ctx.Err() == nil && isCDPConnLost(err) {
+		// The CDP link to the host Chrome dropped mid-run (Chrome was restarted /
+		// re-warmed, or the DevTools WebSocket closed). Without this, every
+		// remaining suburb in the batch fails on the dead context. Reconnect ONCE
+		// and retry so one dropped link doesn't burn the rest of the run.
+		log.Printf("[cdp] connection lost (%v) — reconnecting to %s and retrying", err, f.cfg.cdpURL)
+		if rerr := f.reconnectLocked(); rerr != nil {
+			return html, final, fmt.Errorf("cdp reconnect failed: %w (original fetch error: %v)", rerr, err)
+		}
+		return fetchInContext(ctx, f.ctx, f.cfg, url)
+	}
+	return html, final, err
+}
+
+// reconnectLocked rebuilds the CDP client after a mid-run connection loss. It
+// tears down the stale driver + any context WE created — but NEVER the host
+// Chrome (no browser.Close(), same as Close) — then re-attaches via
+// newCDPFetcher, which reuses the host's warm default context (the Kasada
+// clearance cookie lives on the host and survives the reconnect). Must be called
+// with f.mu held.
+func (f *cdpFetcher) reconnectLocked() error {
+	if f.ownedCtx && f.ctx != nil {
+		_ = f.ctx.Close()
+	}
+	if f.pw != nil {
+		_ = f.pw.Stop()
+	}
+	f.pw, f.browser, f.ctx = nil, nil, nil
+
+	nf, err := newCDPFetcher(f.cfg)
+	if err != nil {
+		return err
+	}
+	f.pw, f.browser, f.ctx, f.ownedCtx = nf.pw, nf.browser, nf.ctx, nf.ownedCtx
+	return nil
+}
+
+// isCDPConnLost reports whether an error looks like the CDP link to the host
+// Chrome dropped (as opposed to an ordinary page/navigation error) — the class
+// of failure a reconnect can recover. Playwright surfaces these as substrings of
+// the error message; matched case-insensitively.
+func isCDPConnLost(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := strings.ToLower(err.Error())
+	for _, m := range []string{
+		"has been closed",       // "Target page, context or browser has been closed"
+		"connection closed",     // driver/transport dropped
+		"websocket",             // CDP WebSocket error
+		"browser has been closed",
+		"target closed",
+		"connect over cdp",   // a reconnect that itself failed to re-attach
+		"connection refused", // host Chrome not listening (restarting)
+	} {
+		if strings.Contains(s, m) {
+			return true
+		}
+	}
+	return false
 }
 
 // Close detaches from the host Chrome WITHOUT killing it. We only close a context
