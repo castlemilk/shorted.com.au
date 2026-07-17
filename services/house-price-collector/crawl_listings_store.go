@@ -266,6 +266,21 @@ func markAbsent(ctx context.Context, tx pgx.Tx, pk int64, missed int16, delist b
 	return err
 }
 
+// markSeenOnly records that a listing was PRESENT this sweep without persisting
+// its (unstorable) snapshot — used by diffSuburb when a per-row SAVEPOINT is
+// rolled back on a permanent error. It resets the cross-sweep absence counter
+// (missed_sweeps → 0) and bumps last_seen_at for an EXISTING row, so a skipped
+// listing can never drift toward a wrongful delist. A brand-new listing has no
+// row yet → 0 rows affected, a harmless no-op. It deliberately does NOT touch the
+// snapshot columns (price/status/etc.) — those are exactly what we couldn't store.
+func markSeenOnly(ctx context.Context, tx pgx.Tx, source, listingID string, runTs time.Time) error {
+	_, err := tx.Exec(ctx, `
+		UPDATE property_listings
+		SET missed_sweeps = 0, last_seen_at = $3, updated_at = now()
+		WHERE source = $1 AND listing_id = $2`, source, listingID, runTs)
+	return err
+}
+
 // linkListingSalCodes copies each listing's ABS sal_code from its (already
 // sal-linked) house_price_regions row. Run after linkSuburbSalCodes so the
 // regions are populated first. Idempotent: only touches NULL sal_codes.

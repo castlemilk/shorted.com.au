@@ -233,6 +233,12 @@ type listingsStats struct {
 	// 0-event run — the agent path fails the job (re-crawl), the batch path
 	// surfaces it in the run summary.
 	diffErrors int
+	// skippedRows counts individual listings dropped inside diffSuburb's per-row
+	// SAVEPOINT because they hit a PERMANENT data/constraint error
+	// (isPermanentRowError) — the rest of the suburb still persisted. A non-zero
+	// value flags a portal row our extractor can't represent (worth a look), NOT
+	// a lost suburb.
+	skippedRows int
 }
 
 type listingsCrawler struct {
@@ -351,8 +357,8 @@ func runListings(ctx context.Context, pool *pgxpool.Pool) bool {
 	}
 
 	s := lc.stats
-	log.Printf("[listings] done: suburbs=%d pages=%d listings=%d new=%d drops=%d rises=%d relisted=%d delisted=%d status=%d blockedSweeps=%d diffErrors=%d addressRelistDrops=%d addressRelistRises=%d events(rea=%d,domain=%d)",
-		s.suburbs, s.pages, s.seen, s.newListings, s.drops, s.rises, s.relisted, s.delisted, s.statusChanges, s.blockedSweeps, s.diffErrors, s.addressRelistDrops, s.addressRelistRises, reaEvents, domEvents)
+	log.Printf("[listings] done: suburbs=%d pages=%d listings=%d new=%d drops=%d rises=%d relisted=%d delisted=%d status=%d blockedSweeps=%d diffErrors=%d skippedRows=%d addressRelistDrops=%d addressRelistRises=%d events(rea=%d,domain=%d)",
+		s.suburbs, s.pages, s.seen, s.newListings, s.drops, s.rises, s.relisted, s.delisted, s.statusChanges, s.blockedSweeps, s.diffErrors, s.skippedRows, s.addressRelistDrops, s.addressRelistRises, reaEvents, domEvents)
 	return rewarm
 }
 

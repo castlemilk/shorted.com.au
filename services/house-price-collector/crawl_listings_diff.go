@@ -2,8 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
+	"log"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -33,10 +37,14 @@ func (lc *listingsCrawler) diffSuburb(ctx context.Context, pool *pgxpool.Pool, t
 			continue
 		}
 		// Strip NUL / invalid-UTF8 from portal text BEFORE it feeds the events,
-		// content hash, and row upsert — an unsanitised byte is a Postgres 22021
-		// that would abort this whole transaction on every re-crawl (a poison
-		// pill, now that a diff error fails+requeues the suburb). See cleanText.
+		// content hash, and row upsert — an unsanitised byte is a Postgres 22021.
+		// (This is the FIRST line of defence; the SAVEPOINT below is the second,
+		// catching any OTHER permanent per-row error.) See cleanText.
 		l = sanitizeListing(l)
+		// Mark seen BEFORE the savepoint attempt: a listing we saw but then had to
+		// SKIP (permanent row error) must still count as present, or the SAME-sweep
+		// delist pass below would treat it as absent. (The CROSS-sweep grace counter
+		// is handled by markSeenOnly in the skip path — see there.)
 		seen[l.ListingID] = true
 
 		// Stamp the per-address identity from the CANONICAL target suburb/
@@ -45,53 +53,49 @@ func (lc *listingsCrawler) diffSuburb(ctx context.Context, pool *pgxpool.Pool, t
 		// physical address regardless of how each portal formats it.
 		l.AddressKey = addressKey(l.DisplayAddr, t.Display, t.State, t.Postcode)
 
-		prev, err := loadListing(ctx, tx, source, l.ListingID)
+		// Diff each listing inside its OWN savepoint so a single poison row can't
+		// abort the whole suburb. A PERMANENT error (bad byte / out-of-range /
+		// constraint — recurs identically every crawl) rolls back just this
+		// listing and the suburb continues (clean continuation). A TRANSIENT error
+		// (connection/deadlock/ctx) is propagated to fail + requeue the suburb —
+		// the same behaviour #285 introduced, now scoped so it fires only for
+		// genuinely-retryable failures instead of poison-pilling on a bad row.
+		// (pgx's nested-tx Rollback issues ROLLBACK TO without RELEASE, so each
+		// SKIP leaves its savepoint on the stack; a suburb would need >64 permanent
+		// skips in one tx to reach Postgres's subxid-cache limit — and such a
+		// systematic all-skipped suburb is failed by agentJobTerminal anyway, so
+		// the extractor gets fixed long before that.)
+		statsBefore := lc.stats // value copy (all-int struct) — restore point if this listing is skipped
+		sp, err := tx.Begin(ctx)
 		if err != nil {
+			return events, err // can't even open a savepoint → the tx/conn is unhealthy → transient
+		}
+		n, derr := lc.diffListing(ctx, sp, l, t, source, runTs)
+		if derr != nil {
+			_ = sp.Rollback(ctx) // undo this listing's partial work; the parent tx stays healthy
+			if isPermanentRowError(derr) {
+				// Undo the in-memory event counters diffListing bumped: eventsFor/
+				// addressPriceMove mutate lc.stats BEFORE the write that failed, and
+				// the savepoint rollback undoes the DB writes but not those Go-side
+				// counters — so restore them to keep the run summary honest.
+				lc.stats = statsBefore
+				lc.stats.skippedRows++
+				// The listing IS present — we just can't persist its snapshot. Reset
+				// its cross-sweep absence counter (missed_sweeps) + last_seen_at so an
+				// intermittent permanent error can't let it drift up to delistGrace and
+				// WRONGLY withdraw a live listing. No-op for a brand-new listing.
+				if err := markSeenOnly(ctx, tx, source, l.ListingID, runTs); err != nil {
+					return events, err
+				}
+				log.Printf("[listings] %s %s: skipping listing %s (permanent row error, kept the rest of the suburb): %v", t.Display, source, l.ListingID, derr)
+				continue
+			}
+			return events, derr // transient → fail the suburb so it re-crawls
+		}
+		if err := sp.Commit(ctx); err != nil { // RELEASE SAVEPOINT
 			return events, err
 		}
-
-		evs, priceMoved := lc.eventsFor(prev, l)
-
-		// Address-level relist-drop detection: a brand-new listing_id (this
-		// portal has never seen it) at a KNOWN address, priced against that
-		// address's most recent active listing across ANY source/listing_id.
-		// This is the drop a listing_id-keyed diff alone can never see — a
-		// relist under a fresh id, or the same address picked up on the other
-		// portal. Only attempted for genuinely new listing_ids (prev == nil);
-		// a listing we already track is diffed against its OWN history above.
-		if prev == nil && l.AddressKey != "" {
-			addrPrior, err := loadAddressPrior(ctx, tx, l.AddressKey, l.ListingID, source)
-			if err != nil {
-				return events, err
-			}
-			if e, ok := lc.addressPriceMove(addrPrior, l); ok {
-				evs = append(evs, e)
-				priceMoved = true
-			}
-		}
-
-		var lastPriceChange *time.Time
-		if priceMoved {
-			lastPriceChange = &runTs
-		}
-
-		pk, err := upsertListing(ctx, tx, l, t, runTs, lastPriceChange)
-		if err != nil {
-			return events, err
-		}
-
-		for _, e := range evs {
-			e.ListingPK = pk
-			e.Source = source
-			e.ListingID = l.ListingID
-			e.RegionCode = regionCode
-			e.AddressKey = l.AddressKey
-			e.ObservedAt = runTs
-			if err := insertPriceEvent(ctx, tx, e); err != nil {
-				return events, err
-			}
-			events++
-		}
+		events += n
 	}
 
 	// Absence / delist detection — only on a COMPLETE sweep.
@@ -133,6 +137,95 @@ func (lc *listingsCrawler) diffSuburb(ctx context.Context, pool *pgxpool.Pool, t
 		return events, err
 	}
 	return events, nil
+}
+
+// diffListing diffs + upserts ONE (already-sanitised, AddressKey-stamped) listing
+// into tx and returns the number of price events it wrote. diffSuburb runs it
+// inside a per-listing SAVEPOINT, so an error here is caught there: a permanent
+// (bad-row) error rolls back just this listing and the suburb continues; a
+// transient error is propagated to fail + requeue the whole suburb. On any error
+// the returned count is discarded by the caller (the savepoint rollback undoes
+// every write this made), so the count is only meaningful on success.
+func (lc *listingsCrawler) diffListing(ctx context.Context, tx pgx.Tx, l RawListing, t CrawlTarget, source string, runTs time.Time) (int, error) {
+	regionCode := t.regionCode()
+
+	prev, err := loadListing(ctx, tx, source, l.ListingID)
+	if err != nil {
+		return 0, err
+	}
+
+	evs, priceMoved := lc.eventsFor(prev, l)
+
+	// Address-level relist-drop detection: a brand-new listing_id (this portal has
+	// never seen it) at a KNOWN address, priced against that address's most recent
+	// active listing across ANY source/listing_id — the drop a listing_id-keyed
+	// diff alone can never see. Only for genuinely new listing_ids (prev == nil).
+	if prev == nil && l.AddressKey != "" {
+		addrPrior, err := loadAddressPrior(ctx, tx, l.AddressKey, l.ListingID, source)
+		if err != nil {
+			return 0, err
+		}
+		if e, ok := lc.addressPriceMove(addrPrior, l); ok {
+			evs = append(evs, e)
+			priceMoved = true
+		}
+	}
+
+	var lastPriceChange *time.Time
+	if priceMoved {
+		lastPriceChange = &runTs
+	}
+
+	pk, err := upsertListing(ctx, tx, l, t, runTs, lastPriceChange)
+	if err != nil {
+		return 0, err
+	}
+
+	events := 0
+	for _, e := range evs {
+		e.ListingPK = pk
+		e.Source = source
+		e.ListingID = l.ListingID
+		e.RegionCode = regionCode
+		e.AddressKey = l.AddressKey
+		e.ObservedAt = runTs
+		if err := insertPriceEvent(ctx, tx, e); err != nil {
+			return events, err
+		}
+		events++
+	}
+	return events, nil
+}
+
+// isPermanentRowError reports whether err is a per-ROW data problem that will
+// recur identically on every re-crawl — a bad byte / out-of-range numeric (class
+// 22 data-exception) or a constraint violation (class 23) — so diffSuburb can
+// skip the single offending listing and keep the suburb. Everything else (a
+// connection drop, a deadlock/serialisation failure, ctx cancellation, or any
+// non-Postgres error) is TRANSIENT: it is propagated so the suburb fails +
+// requeues rather than silently dropping data on a blip. Conservative by design —
+// only KNOWN-permanent data errors are isolated-and-skipped; anything ambiguous
+// fails safe (re-crawl).
+func isPermanentRowError(err error) bool {
+	var pg *pgconn.PgError
+	if !errors.As(err, &pg) {
+		return false // not a Postgres error (network/driver) → transient
+	}
+	if len(pg.Code) < 2 {
+		return false
+	}
+	switch pg.Code[:2] {
+	case "22", // data exception: invalid byte sequence, numeric out of range, value too long, invalid text repr
+		"23", // integrity constraint violation: not-null / check / foreign-key / (an un-ON-CONFLICTed) unique
+		"54": // program_limit_exceeded: e.g. 54000 index row too large for a giant text value — recurs every crawl
+		return true
+	default:
+		// Everything else (class 08 connection, 40 deadlock/serialisation, 53
+		// insufficient-resources, 57 operator-intervention, 25 tx-state, 42
+		// schema/query bug, ...) is TRANSIENT or a code bug that must fail LOUDLY
+		// rather than be silently skipped row-by-row.
+		return false
+	}
 }
 
 // eventsFor computes the events a single listing produces given its stored
