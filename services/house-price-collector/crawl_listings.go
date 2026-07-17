@@ -237,6 +237,10 @@ type listingsCrawler struct {
 	reaBlocks int
 	domBlocks int
 	stats     listingsStats
+	// tel is the optional LIVE telemetry stream (crawl_telemetry.go); nil (or a
+	// disabled writer) is a no-op. Set by -mode agent so the co-located macOS
+	// agent UI can tail extraction + failures in-flight.
+	tel *telemetryWriter
 }
 
 // runListings returns true when the run detected that the browser profile needs a
@@ -351,11 +355,14 @@ func runListings(ctx context.Context, pool *pgxpool.Pool) bool {
 // crawlSuburbSource sweeps one source for one suburb and (unless dry-run, or the
 // sweep was blocked) diffs it into events. Returns the number of events written.
 func (lc *listingsCrawler) crawlSuburbSource(ctx context.Context, pool *pgxpool.Pool, t CrawlTarget, source string, urlFor func(int) string, blockCounter *int, runTs time.Time) (int, error) {
+	lc.tel.suburbStart(t.Display, source)
 	sweep := lc.sweepSuburbSource(ctx, t, source, urlFor, blockCounter)
 	lc.stats.pages += sweep.pages
 	lc.stats.seen += len(sweep.listings)
 	if sweep.status == sweepBlocked {
 		lc.stats.blockedSweeps++
+		lc.tel.failure(t.Display, source, "blocked/poison sweep", map[string]any{"pages": sweep.pages})
+		lc.tel.suburbDone(t.Display, source, 0, 0, sweep.status.String())
 	}
 
 	if lc.cfg.dryRun {
@@ -365,6 +372,10 @@ func (lc *listingsCrawler) crawlSuburbSource(ctx context.Context, pool *pgxpool.
 	if sweep.status == sweepBlocked {
 		return 0, nil
 	}
+	// Stream each extracted listing live (the "intelligent extraction info").
+	for i := range sweep.listings {
+		lc.tel.listing(t.Display, source, sweep.listings[i])
+	}
 	n, err := lc.diffSuburb(ctx, pool, t, source, sweep, runTs)
 	if err != nil {
 		// A diff failure is NOT a clean 0-event run: the sweep saw real listings
@@ -372,12 +383,14 @@ func (lc *listingsCrawler) crawlSuburbSource(ctx context.Context, pool *pgxpool.
 		// back. Surface it — the caller must not treat this as a no-change
 		// success (see agentJobTerminal / the batch diffErrors summary).
 		log.Printf("[listings] %s %s: diff error: %v", t.Display, source, err)
+		lc.tel.failure(t.Display, source, "diff error", map[string]any{"err": err.Error()})
 		lc.stats.diffErrors++
 		return 0, err
 	}
 	if n > 0 {
 		log.Printf("[listings] %s %s: %d event(s) from %d listing(s) (%s)", t.Display, source, n, len(sweep.listings), sweep.status)
 	}
+	lc.tel.suburbDone(t.Display, source, len(sweep.listings), n, sweep.status.String())
 	return n, nil
 }
 
@@ -521,6 +534,23 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 		raw := extractListings(doc, source)
 		matched, mismatch := partitionByTarget(raw, t)
 		lastMismatch = mismatch
+
+		// Anti-bot stub guard — runs on EVERY page, BEFORE any natural-end branch.
+		// A rendered Kasada KPSDK stub (~800B) or Akamai edgesuite stub carries no
+		// listing container and extracts 0 listings, but looksBlocked misses it (no
+		// marker string, >0 bytes). On a LATER page the empty-page/duplicate-page
+		// branches below would then read it as "ran out" → sweepComplete → the
+		// delist path flips the suburb's real pages-2+ listings to withdrawn. Treat
+		// a stub as a BLOCK instead (trips the per-source breaker, delists nothing).
+		// This is the in-sweep analogue of -mode warmcheck's reaLooksWarm, extended
+		// to Domain — deliberately biased toward blocking, since a false "stub" only
+		// skips this run's delisting (safe) while a MISSED stub corrupts the corpus.
+		if pageLooksStub(html, source) {
+			*blockCounter++
+			status := blockedOrPartial(len(collected))
+			tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), Extracted: len(raw), Matched: len(matched), Mismatch: mismatch, TotalResults: totalResults, OnTargetResults: onTargetResults, WantPages: wantPages, Outcome: "ok", Status: status.String(), Decision: "stop-stub"})
+			return finish(status)
+		}
 
 		// Page-level poison gate. A high off-target ratio is the poison signal —
 		// BUT small suburbs legitimately run out of real inventory, after which
@@ -680,6 +710,33 @@ func blockedOrPartial(collectedN int) sweepStatus {
 		return sweepPartial
 	}
 	return sweepBlocked
+}
+
+// pageLooksStub reports whether a rendered page is an anti-bot stub rather than a
+// real search-results page: too small to be a real SRP (a genuine REA/Domain SRP
+// is hundreds of KB even with zero results, while the KPSDK/edgesuite stubs are
+// ~1KB), OR missing the portal's listing-data container. It's the in-sweep
+// analogue of reaLooksWarm (crawl_warmcheck.go), extended to Domain. Biased
+// toward reporting a stub on purpose: a false positive only skips this run's
+// delisting for that suburb (safe, self-corrects next warm run), whereas a missed
+// stub read as "ran out" delists real listings. A real SRP (large + container
+// present, which is what the working crawl always fetches) is never a stub, so
+// this changes nothing on the healthy path.
+func pageLooksStub(html []byte, source string) bool {
+	s := string(html)
+	switch source {
+	case "rea":
+		// REA's SRP always carries the ArgonautExchange blob; the KPSDK stub does
+		// not. Container-presence (not size) is the reliable signal — it also
+		// catches schema drift (a real page that stopped carrying the blob is,
+		// for our purposes, unusable and must not enable delisting).
+		return !strings.Contains(s, "ArgonautExchange")
+	case "domain":
+		return !strings.Contains(s, "__NEXT_DATA__")
+	default:
+		// Unknown source: fall back to a size floor (a real SRP is hundreds of KB).
+		return len(html) < reaWarmMinBytes
+	}
 }
 
 // sweepPoisonVerdict classifies a page whose off-target ratio exceeded the poison

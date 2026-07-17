@@ -174,8 +174,15 @@ func upsertListing(ctx context.Context, tx pgx.Tx, r RawListing, t CrawlTarget, 
 			display_address = EXCLUDED.display_address, latitude = EXCLUDED.latitude,
 			longitude = EXCLUDED.longitude, property_type = EXCLUDED.property_type,
 			bedrooms = EXCLUDED.bedrooms, bathrooms = EXCLUDED.bathrooms, car_spaces = EXCLUDED.car_spaces,
-			land_size_sqm = EXCLUDED.land_size_sqm, price = EXCLUDED.price, price_high = EXCLUDED.price_high,
-			price_display = EXCLUDED.price_display, price_kind = EXCLUDED.price_kind,
+			land_size_sqm = EXCLUDED.land_size_sqm, price_high = EXCLUDED.price_high,
+			-- A re-sight whose price string couldn't be parsed (price_kind='unknown',
+			-- price NULL) must NOT clobber the stored numeric anchor to NULL — that
+			-- would lose the drop-detection baseline for future runs. Keep the prior
+			-- price/kind/display in that case; any real kind (fixed/poa/auction/…)
+			-- still overwrites.
+			price = CASE WHEN EXCLUDED.price_kind = 'unknown' THEN property_listings.price ELSE EXCLUDED.price END,
+			price_display = CASE WHEN EXCLUDED.price_kind = 'unknown' THEN property_listings.price_display ELSE EXCLUDED.price_display END,
+			price_kind = CASE WHEN EXCLUDED.price_kind = 'unknown' THEN property_listings.price_kind ELSE EXCLUDED.price_kind END,
 			listing_status = EXCLUDED.listing_status, is_active = EXCLUDED.is_active, missed_sweeps = 0,
 			last_seen_at = EXCLUDED.last_seen_at,
 			last_price_change_at = COALESCE(EXCLUDED.last_price_change_at, property_listings.last_price_change_at),

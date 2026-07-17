@@ -192,6 +192,67 @@ func TestMatchesTarget(t *testing.T) {
 	if matchesTarget(RawListing{}, tgt) {
 		t.Error("a listing with neither postcode nor suburb must be rejected")
 	}
+	// Shared-postcode neighbour: same postcode, DIFFERENT suburb. Postcode alone
+	// is NOT authoritative — many AU postcodes cover several localities (3182 =
+	// St Kilda + St Kilda West; 2026 = Bondi + Tamarama + North Bondi), so a
+	// postcode-only match silently pulls neighbouring-suburb stock into the
+	// target's corpus. When BOTH fields are present, both must agree.
+	if matchesTarget(RawListing{Postcode: "3182", Suburb: "St Kilda West"}, tgt) {
+		t.Error("same postcode but different suburb (shared-postcode neighbour) must NOT match")
+	}
+	// But a postcode match with NO suburb field present still matches — postcode
+	// is the best available signal when the portal omits the locality.
+	if !matchesTarget(RawListing{Postcode: "3182"}, tgt) {
+		t.Error("postcode match with no suburb field should still match (fallback preserved)")
+	}
+	// Abbreviation tolerance: the ABS-SAL Display and the portal disagree on
+	// St/Saint & Mt/Mount forms; both must still match (postcode gates, so this
+	// can't conflate distinct suburbs). Without it a whole page-1 of on-target
+	// listings fails subOK and the poison gate blocks the entire suburb.
+	mtEliza := CrawlTarget{Suburb: "mount-eliza", Display: "Mount Eliza", Postcode: "3930", State: "VIC"}
+	if !matchesTarget(RawListing{Postcode: "3930", Suburb: "Mt Eliza"}, mtEliza) {
+		t.Error("portal 'Mt Eliza' must match Display 'Mount Eliza' (Mt/Mount abbrev)")
+	}
+	stLeon := CrawlTarget{Suburb: "st-leonards", Display: "St Leonards", Postcode: "2065", State: "NSW"}
+	if !matchesTarget(RawListing{Postcode: "2065", Suburb: "Saint Leonards"}, stLeon) {
+		t.Error("portal 'Saint Leonards' must match Display 'St Leonards' (St/Saint abbrev)")
+	}
+}
+
+func TestPartitionByTarget_SoftMissNotPoison(t *testing.T) {
+	// A small suburb in a shared-postcode cluster: page 1 is back-filled with a
+	// same-postcode NEIGHBOUR (Tarneit shares 3029 with Truganina). Those rows are
+	// not written under Truganina, but they are legitimate nearby stock, NOT bot
+	// poison — so the poison ratio must stay 0 and the sweep must not block.
+	tgt := CrawlTarget{Suburb: "truganina", Display: "Truganina", Postcode: "3029", State: "VIC"}
+	raw := make([]RawListing, 0, 24)
+	for i := 0; i < 16; i++ {
+		raw = append(raw, RawListing{Postcode: "3029", Suburb: "Truganina"})
+	}
+	for i := 0; i < 8; i++ {
+		raw = append(raw, RawListing{Postcode: "3029", Suburb: "Tarneit"})
+	}
+	matched, mismatch := partitionByTarget(raw, tgt)
+	if len(matched) != 16 {
+		t.Errorf("only the 16 on-target Truganina listings should be written, got %d", len(matched))
+	}
+	if mismatch != 0 {
+		t.Errorf("same-postcode neighbours must NOT count toward the poison ratio, got %.3f", mismatch)
+	}
+}
+
+func TestPartitionByTarget_WrongPostcodeIsPoison(t *testing.T) {
+	// Genuinely off-target stock (different postcode) is what the poison gate is
+	// for — it must still register as mismatch.
+	tgt := CrawlTarget{Suburb: "truganina", Display: "Truganina", Postcode: "3029", State: "VIC"}
+	raw := []RawListing{
+		{Postcode: "3029", Suburb: "Truganina"},
+		{Postcode: "3030", Suburb: "Werribee"},
+		{Postcode: "3030", Suburb: "Werribee"},
+	}
+	if _, mismatch := partitionByTarget(raw, tgt); mismatch < 0.6 {
+		t.Errorf("wrong-postcode stock must count as poison, got %.3f", mismatch)
+	}
 }
 
 func TestSanitizeListing_StripsNulAndInvalidUTF8(t *testing.T) {
@@ -362,7 +423,11 @@ func (f *pagedFetcher) fetch(_ context.Context, url string) ([]byte, string, err
 	if h, ok := f.pages[url]; ok {
 		return []byte(h), url, nil
 	}
-	return []byte(`<html><body></body></html>`), url, nil // unknown url -> empty page
+	// A REAL "ran out" page: the portal still serves its full SRP shell (data
+	// container present) with zero listings — NOT an anti-bot stub. Carries both
+	// portals' containers so pageLooksStub treats it as a legit natural end
+	// (source-agnostic here); a container-less page is the stub case (below/tests).
+	return []byte(`<html><body><script>window.ArgonautExchange={"results":{"exchangeState":{"resolvedListings":[]}}};</script><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"listings":[]}}}</script></body></html>`), url, nil
 }
 func (f *pagedFetcher) Close() {}
 
@@ -426,6 +491,31 @@ func TestSweep_CompleteOnEmptyPage(t *testing.T) {
 	}
 	if len(sw.listings) != 5 {
 		t.Errorf("expected 5 collected listings, got %d", len(sw.listings))
+	}
+}
+
+// TestSweep_StubOnLaterPageIsNotComplete pins the critical fix: an anti-bot stub
+// (Kasada KPSDK / Akamai) on a LATER page — which extracts 0 listings and carries
+// no data container — must NOT be read as "ran out" → sweepComplete (that would
+// run the delist path over the suburb's real pages-2+ listings). It's a block:
+// sweepPartial (page-1 listings kept, delist NOTHING), and it trips the breaker.
+func TestSweep_StubOnLaterPageIsNotComplete(t *testing.T) {
+	// A realistic anti-bot stub: no listing container (no __NEXT_DATA__ blob).
+	stub := `<html><head><script>window.KPSDK={cd:true};</script></head><body>Pardon the interruption</body></html>`
+	sw := sweepWith(map[string]string{
+		// total=10/pageSize=5 → the portal says there's a 2nd page, so the sweep
+		// fetches it and hits the stub (rather than stopping at page 1).
+		bondi.domainSearchURL(1): domainPageWithMeta([]string{"a", "b", "c", "d", "e"}, "2026", 10, 5),
+		bondi.domainSearchURL(2): stub, // anti-bot stub, not a real "ran out" page
+	})
+	if sw.status == sweepComplete {
+		t.Fatalf("a stub second page must NOT mark the sweep complete (would wrongly delist real listings); got %s", sw.status)
+	}
+	if sw.status != sweepPartial {
+		t.Fatalf("expected sweepPartial (page-1 kept, delist nothing), got %s", sw.status)
+	}
+	if len(sw.listings) != 5 {
+		t.Fatalf("page-1 listings must be kept, got %d", len(sw.listings))
 	}
 }
 
