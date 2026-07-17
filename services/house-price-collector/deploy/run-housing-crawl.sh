@@ -75,6 +75,24 @@ warm_chrome() {
 	sleep 12
 }
 
+# recover_wedged_chrome hard-resets a WEDGED dedicated Chrome. The CDP port can
+# still answer /json/version (so chrome_reachable passes) while the browser can no
+# longer drive a page — a hung tab, or a stale SingletonLock/Socket/Cookie left by
+# an unclean exit, which makes the collector's fetcher fail to init: warmcheck
+# reports rc==4 (fetcher init failed), distinct from a cold-but-working session's
+# rc==5 (Kasada stub). A plain relaunch can't fix a held SingletonLock, so this
+# kills ONLY the dedicated-profile Chrome — matched by its --user-data-dir, so the
+# personal profile is NEVER touched — clears the Singleton lock files, then
+# relaunches warm. CHROME_PROFILE_DIR always has a value (defaulted from $HOME
+# above), so the pkill pattern can never degenerate to "match every Chrome".
+recover_wedged_chrome() {
+	echo "$(date -u +%FT%TZ) recover_wedged_chrome: killing dedicated Chrome + clearing SingletonLock (profile=$CHROME_PROFILE_DIR)" >>"$LOG"
+	/usr/bin/pkill -f "user-data-dir=$CHROME_PROFILE_DIR" >>"$LOG" 2>&1 || true
+	sleep 2
+	rm -f "$CHROME_PROFILE_DIR/SingletonLock" "$CHROME_PROFILE_DIR/SingletonSocket" "$CHROME_PROFILE_DIR/SingletonCookie" 2>/dev/null || true
+	warm_chrome
+}
+
 echo "=== $(date -u +%FT%TZ) shard $CRAWL_SHARD_INDEX/$CRAWL_SHARD_COUNT dry=$CRAWL_DRY_RUN ===" >>"$LOG"
 
 # 1. Chrome must be reachable at all — auto-launch it rather than requiring a
@@ -90,22 +108,33 @@ if ! chrome_reachable; then
 fi
 
 # 2. Chrome being reachable doesn't mean REA's Kasada session is warm — PROVE
-#    it via the collector's own fetcher (-mode warmcheck) before spending a
-#    real crawl run on a session that will just come back "blocked". Re-warm
-#    + retry up to twice if it reports cold (exit 5).
+#    it via the collector's own fetcher (-mode warmcheck) before spending a real
+#    crawl run on a session that will just come back "blocked". Retry up to twice,
+#    with the recovery matched to the failure:
+#      rc==5 (cold Kasada stub, Chrome working) → plain re-warm relaunch.
+#      rc==4 (fetcher init failed → Chrome/CDP UNUSABLE despite chrome_reachable:
+#             a wedged tab or a stale SingletonLock after an unclean exit) → a
+#             plain relaunch can't clear a held lock, so HARD-recover (kill +
+#             clear lock + relaunch). This is the exact failure a bare relaunch
+#             loop would spin on forever.
 warm_attempts=0
 "$BIN" -mode warmcheck >>"$LOG" 2>&1
 rc_warmcheck=$?
-while [[ "$rc_warmcheck" -eq 5 && "$warm_attempts" -lt 2 ]]; do
+while [[ ( "$rc_warmcheck" -eq 5 || "$rc_warmcheck" -eq 4 ) && "$warm_attempts" -lt 2 ]]; do
 	warm_attempts=$((warm_attempts + 1))
-	echo "$(date -u +%FT%TZ) warmcheck not warm (attempt $warm_attempts/2) — relaunching Chrome to re-warm" >>"$LOG"
-	warm_chrome
+	if [[ "$rc_warmcheck" -eq 4 ]]; then
+		echo "$(date -u +%FT%TZ) warmcheck rc=4 — Chrome wedged/unusable (attempt $warm_attempts/2), hard-recovering" >>"$LOG"
+		recover_wedged_chrome
+	else
+		echo "$(date -u +%FT%TZ) warmcheck not warm (attempt $warm_attempts/2) — relaunching Chrome to re-warm" >>"$LOG"
+		warm_chrome
+	fi
 	"$BIN" -mode warmcheck >>"$LOG" 2>&1
 	rc_warmcheck=$?
 done
 if [[ "$rc_warmcheck" -ne 0 ]]; then
-	notify "REA Chrome could not be warmed — check Kasada / relaunch Chrome with a REA startup URL"
-	echo "$(date -u +%FT%TZ) warmcheck-failed rc=$rc_warmcheck after $warm_attempts re-warm attempt(s)" >>"$LOG"
+	notify "REA Chrome could not be warmed (warmcheck rc=$rc_warmcheck) — check Kasada / wedged Chrome"
+	echo "$(date -u +%FT%TZ) warmcheck-failed rc=$rc_warmcheck after $warm_attempts recovery attempt(s)" >>"$LOG"
 	exit 5
 fi
 
