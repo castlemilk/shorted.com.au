@@ -191,6 +191,19 @@ func TestMatchesTarget(t *testing.T) {
 	if matchesTarget(RawListing{}, tgt) {
 		t.Error("a listing with neither postcode nor suburb must be rejected")
 	}
+	// Shared-postcode neighbour: same postcode, DIFFERENT suburb. Postcode alone
+	// is NOT authoritative — many AU postcodes cover several localities (3182 =
+	// St Kilda + St Kilda West; 2026 = Bondi + Tamarama + North Bondi), so a
+	// postcode-only match silently pulls neighbouring-suburb stock into the
+	// target's corpus. When BOTH fields are present, both must agree.
+	if matchesTarget(RawListing{Postcode: "3182", Suburb: "St Kilda West"}, tgt) {
+		t.Error("same postcode but different suburb (shared-postcode neighbour) must NOT match")
+	}
+	// But a postcode match with NO suburb field present still matches — postcode
+	// is the best available signal when the portal omits the locality.
+	if !matchesTarget(RawListing{Postcode: "3182"}, tgt) {
+		t.Error("postcode match with no suburb field should still match (fallback preserved)")
+	}
 }
 
 func TestClampListingPrice(t *testing.T) {

@@ -14,16 +14,31 @@ import "strings"
 //     priceless active listing instead of vanishing.
 
 // matchesTarget reports whether a harvested listing belongs to the requested
-// suburb. Postcode is authoritative when present; otherwise the suburb name is
-// compared normalized. A listing with neither is rejected (can't be confirmed).
+// suburb. When BOTH postcode and suburb are present they must BOTH agree:
+// postcode alone is not authoritative because many AU postcodes span several
+// localities (3182 = St Kilda + St Kilda West; 2026 = Bondi + Tamarama + North
+// Bondi), so a postcode-only match silently pulls neighbouring-suburb stock into
+// the target's corpus. When only one field is present it's used as the sole
+// signal (postcode preferred); a listing with neither is rejected. Tightening
+// this also sharpens partitionByTarget's mismatchRatio: genuine shared-postcode
+// neighbours now count as misses, so a page that has broadened into the surrounds
+// reads as more mismatched — the delist-safe direction (poison/partial, never a
+// wrongful complete sweep).
 func matchesTarget(r RawListing, t CrawlTarget) bool {
-	if r.Postcode != "" {
-		return r.Postcode == t.Postcode
+	havePostcode := r.Postcode != ""
+	haveSuburb := r.Suburb != ""
+	pcOK := havePostcode && r.Postcode == t.Postcode
+	subOK := haveSuburb && normSuburb(r.Suburb) == normSuburb(t.Display)
+	switch {
+	case havePostcode && haveSuburb:
+		return pcOK && subOK
+	case havePostcode:
+		return pcOK
+	case haveSuburb:
+		return subOK
+	default:
+		return false
 	}
-	if r.Suburb != "" {
-		return normSuburb(r.Suburb) == normSuburb(t.Display)
-	}
-	return false
 }
 
 // clampListingPrice nulls a canonical price that falls outside the trusted band
