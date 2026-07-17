@@ -232,3 +232,29 @@ suburb). Off by default = zero overhead. Per swept `(suburb,source)` it writes t
 
 Trace artifacts contain portal listing data + screenshots → they stay **local to the
 rig** (gitignored, never uploaded to brandbrain).
+
+## Android phone crawl node (`run-housing-crawl-android.sh`)
+
+Drive a real Android phone's **Chrome** over `adb`+CDP instead of the Mac's — the
+phone IS the browser. This is the mobile answer to blocking: an in-app WebView
+does a PROGRAMMATIC nav that Kasada stubs (verified — WKWebView returns an ~800B
+KPSDK stub even warmed), but the phone's REAL Chrome doing a NATIVE nav clears
+Kasada exactly like the Mac's does, and brings the phone's own device fingerprint
+(+ a different IP on mobile data) — the reason a phone on the same WiFi wasn't
+blocked when the Mac was.
+
+One-time: enable Developer options + USB debugging on the phone, plug it into the
+Mac, approve the prompt, install Chrome. Then:
+
+```bash
+bash services/house-price-collector/deploy/run-housing-crawl-android.sh
+```
+
+It opens REA in the phone's Chrome via an `adb` VIEW intent (native nav → clears
+Kasada), `adb forward`s Chrome's `chrome_devtools_remote` socket to a local port,
+proves the REA session is warm (`-mode warmcheck`), then drains the shared
+brandbrain queue through the phone's Chrome (`-mode enqueue`+`-mode agent`).
+Multiple phones + the Mac all claim from the one queue via SKIP LOCKED, so a
+block on one device never stops the others. NOTE: an in-app RN WebView can't do
+this (iOS sandboxes inter-app automation; on-device apps can't reach Chrome's
+DevTools socket) — driving real Chrome over adb is the feasible path.
