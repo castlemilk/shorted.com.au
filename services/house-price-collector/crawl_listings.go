@@ -223,6 +223,12 @@ type listingsStats struct {
 	// drops/rises (which are listing_id-level moves on a listing we already
 	// track) so the relist-driven signal is visible in the run summary.
 	addressRelistDrops, addressRelistRises int
+	// diffErrors counts (source,suburb) sweeps that saw real listings but whose
+	// diff transaction failed to persist them (a transient pgx/Supabase error).
+	// Tracked so a persist failure is never silently swallowed as a clean
+	// 0-event run — the agent path fails the job (re-crawl), the batch path
+	// surfaces it in the run summary.
+	diffErrors int
 }
 
 type listingsCrawler struct {
@@ -290,14 +296,19 @@ func runListings(ctx context.Context, pool *pgxpool.Pool) bool {
 			if rs.shouldSkipTarget("rea", t, runTs, cfg.resumeWindow) {
 				log.Printf("[listings] %s rea: skipped (swept within the resume window)", t.Display)
 			} else {
-				reaEvents += lc.crawlSuburbSource(ctx, pool, t, "rea", t.reaSearchURL, &lc.reaBlocks, runTs)
+				// Error already logged + counted in lc.stats.diffErrors (surfaced
+				// in the done summary); batch mode has no per-suburb queue status
+				// to fail, so it moves on — the suburb is re-swept next run.
+				n, _ := lc.crawlSuburbSource(ctx, pool, t, "rea", t.reaSearchURL, &lc.reaBlocks, runTs)
+				reaEvents += n
 			}
 		}
 		if cfg.sourceEnabled("domain") {
 			if rs.shouldSkipTarget("domain", t, runTs, cfg.resumeWindow) {
 				log.Printf("[listings] %s domain: skipped (swept within the resume window)", t.Display)
 			} else {
-				domEvents += lc.crawlSuburbSource(ctx, pool, t, "domain", t.domainSearchURL, &lc.domBlocks, runTs)
+				n, _ := lc.crawlSuburbSource(ctx, pool, t, "domain", t.domainSearchURL, &lc.domBlocks, runTs)
+				domEvents += n
 			}
 		}
 	}
@@ -332,14 +343,14 @@ func runListings(ctx context.Context, pool *pgxpool.Pool) bool {
 	}
 
 	s := lc.stats
-	log.Printf("[listings] done: suburbs=%d pages=%d listings=%d new=%d drops=%d rises=%d relisted=%d delisted=%d status=%d blockedSweeps=%d addressRelistDrops=%d addressRelistRises=%d events(rea=%d,domain=%d)",
-		s.suburbs, s.pages, s.seen, s.newListings, s.drops, s.rises, s.relisted, s.delisted, s.statusChanges, s.blockedSweeps, s.addressRelistDrops, s.addressRelistRises, reaEvents, domEvents)
+	log.Printf("[listings] done: suburbs=%d pages=%d listings=%d new=%d drops=%d rises=%d relisted=%d delisted=%d status=%d blockedSweeps=%d diffErrors=%d addressRelistDrops=%d addressRelistRises=%d events(rea=%d,domain=%d)",
+		s.suburbs, s.pages, s.seen, s.newListings, s.drops, s.rises, s.relisted, s.delisted, s.statusChanges, s.blockedSweeps, s.diffErrors, s.addressRelistDrops, s.addressRelistRises, reaEvents, domEvents)
 	return rewarm
 }
 
 // crawlSuburbSource sweeps one source for one suburb and (unless dry-run, or the
 // sweep was blocked) diffs it into events. Returns the number of events written.
-func (lc *listingsCrawler) crawlSuburbSource(ctx context.Context, pool *pgxpool.Pool, t CrawlTarget, source string, urlFor func(int) string, blockCounter *int, runTs time.Time) int {
+func (lc *listingsCrawler) crawlSuburbSource(ctx context.Context, pool *pgxpool.Pool, t CrawlTarget, source string, urlFor func(int) string, blockCounter *int, runTs time.Time) (int, error) {
 	sweep := lc.sweepSuburbSource(ctx, t, source, urlFor, blockCounter)
 	lc.stats.pages += sweep.pages
 	lc.stats.seen += len(sweep.listings)
@@ -349,20 +360,25 @@ func (lc *listingsCrawler) crawlSuburbSource(ctx context.Context, pool *pgxpool.
 
 	if lc.cfg.dryRun {
 		lc.logDryRun(t, source, sweep)
-		return 0
+		return 0, nil
 	}
 	if sweep.status == sweepBlocked {
-		return 0
+		return 0, nil
 	}
 	n, err := lc.diffSuburb(ctx, pool, t, source, sweep, runTs)
 	if err != nil {
+		// A diff failure is NOT a clean 0-event run: the sweep saw real listings
+		// (len(sweep.listings) may be large) but the persist transaction rolled
+		// back. Surface it — the caller must not treat this as a no-change
+		// success (see agentJobTerminal / the batch diffErrors summary).
 		log.Printf("[listings] %s %s: diff error: %v", t.Display, source, err)
-		return 0
+		lc.stats.diffErrors++
+		return 0, err
 	}
 	if n > 0 {
 		log.Printf("[listings] %s %s: %d event(s) from %d listing(s) (%s)", t.Display, source, n, len(sweep.listings), sweep.status)
 	}
-	return n
+	return n, nil
 }
 
 // sweepSuburbSource walks the paginated search results for one suburb, extracting
