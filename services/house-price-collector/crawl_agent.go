@@ -343,13 +343,30 @@ func runEnqueue(ctx context.Context, _ *pgxpool.Pool) {
 		}
 	}
 
-	client := newBrandbrainAgentClient(acfg)
-	n, err := client.enqueue(ctx, jobs)
-	if err != nil {
-		log.Printf("[enqueue] error: %v", err)
-		return
+	// POST in chunks: the backend enqueue does a per-row INSERT ... ON CONFLICT,
+	// so a whole-catalog batch (hundreds of jobs) can exceed the edge's request
+	// timeout (observed: 230 jobs → 504). Chunking keeps each request fast; the
+	// unique-pending index makes every chunk idempotent, so a retry just fills
+	// any gap. Overridable via CRAWL_ENQUEUE_BATCH.
+	batch := envInt("CRAWL_ENQUEUE_BATCH", 40)
+	if batch < 1 {
+		batch = 40
 	}
-	log.Printf("[enqueue] enqueued %d new job(s) of %d target(s) × sources=%v (tier=%s)", n, len(crawlTargets), sources, tier)
+	client := newBrandbrainAgentClient(acfg)
+	total := 0
+	for i := 0; i < len(jobs); i += batch {
+		end := i + batch
+		if end > len(jobs) {
+			end = len(jobs)
+		}
+		n, err := client.enqueue(ctx, jobs[i:end])
+		if err != nil {
+			log.Printf("[enqueue] error on batch %d-%d (%d already enqueued): %v", i, end, total, err)
+			return
+		}
+		total += n
+	}
+	log.Printf("[enqueue] enqueued %d new job(s) of %d target(s) × sources=%v (tier=%s)", total, len(crawlTargets), sources, tier)
 }
 
 // enqueueSources maps CRAWL_ENQUEUE_SOURCE to the set of source jobs to create
