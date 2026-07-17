@@ -75,20 +75,49 @@ warm_chrome() {
 	sleep 12
 }
 
+# dedicated_chrome_pids prints the PIDs of the DEDICATED-profile Chrome only —
+# matched by its --user-data-dir with a FIXED-STRING grep (grep -F, never a regex,
+# so a profile path containing regex metacharacters can't broaden the match)
+# against the UNtruncated command line (ps -ww). The personal Chrome never carries
+# this flag so it is never matched; grep -v excludes this pipeline itself.
+# CHROME_PROFILE_DIR always has a value (defaulted from $HOME above), so the
+# pattern can never degenerate to "match every Chrome".
+dedicated_chrome_pids() {
+	/bin/ps -axww -o pid=,command= 2>/dev/null \
+		| /usr/bin/grep -F -- "--user-data-dir=$CHROME_PROFILE_DIR" \
+		| /usr/bin/grep -v grep \
+		| /usr/bin/awk '{print $1}'
+}
+
 # recover_wedged_chrome hard-resets a WEDGED dedicated Chrome. The CDP port can
 # still answer /json/version (so chrome_reachable passes) while the browser can no
 # longer drive a page — a hung tab, or a stale SingletonLock/Socket/Cookie left by
 # an unclean exit, which makes the collector's fetcher fail to init: warmcheck
 # reports rc==4 (fetcher init failed), distinct from a cold-but-working session's
 # rc==5 (Kasada stub). A plain relaunch can't fix a held SingletonLock, so this
-# kills ONLY the dedicated-profile Chrome — matched by its --user-data-dir, so the
-# personal profile is NEVER touched — clears the Singleton lock files, then
-# relaunches warm. CHROME_PROFILE_DIR always has a value (defaulted from $HOME
-# above), so the pkill pattern can never degenerate to "match every Chrome".
+# SIGKILLs the dedicated-profile Chrome (a hung Chrome ignores SIGTERM) and CONFIRMS
+# every process is gone BEFORE clearing the lock + relaunching — otherwise a
+# still-alive instance holds the lock and warm_chrome spawns a SECOND Chrome on the
+# same profile. Only the dedicated profile is ever touched (never personal).
 recover_wedged_chrome() {
-	echo "$(date -u +%FT%TZ) recover_wedged_chrome: killing dedicated Chrome + clearing SingletonLock (profile=$CHROME_PROFILE_DIR)" >>"$LOG"
-	/usr/bin/pkill -f "user-data-dir=$CHROME_PROFILE_DIR" >>"$LOG" 2>&1 || true
-	sleep 2
+	echo "$(date -u +%FT%TZ) recover_wedged_chrome: SIGKILL dedicated Chrome + clear SingletonLock (profile=$CHROME_PROFILE_DIR)" >>"$LOG"
+	local pids
+	pids="$(dedicated_chrome_pids)"
+	if [[ -n "$pids" ]]; then
+		# shellcheck disable=SC2086  # word-split is intended: one kill for all PIDs
+		/bin/kill -9 $pids >>"$LOG" 2>&1 || true
+	fi
+	# Wait (up to ~10s) for every dedicated-profile process to actually exit before
+	# touching the lock / relaunching, so we can never double-launch on the profile.
+	local waited=0
+	while [[ -n "$(dedicated_chrome_pids)" && "$waited" -lt 10 ]]; do
+		sleep 1
+		waited=$((waited + 1))
+	done
+	if [[ -n "$(dedicated_chrome_pids)" ]]; then
+		echo "$(date -u +%FT%TZ) recover_wedged_chrome: dedicated Chrome still alive after ${waited}s — NOT relaunching (avoids a second instance); retry next attempt" >>"$LOG"
+		return 0
+	fi
 	rm -f "$CHROME_PROFILE_DIR/SingletonLock" "$CHROME_PROFILE_DIR/SingletonSocket" "$CHROME_PROFILE_DIR/SingletonCookie" 2>/dev/null || true
 	warm_chrome
 }
