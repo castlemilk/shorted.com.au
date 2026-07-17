@@ -62,6 +62,11 @@ func newTelemetryWriter(cfg telemetryConfig) *telemetryWriter {
 		log.Printf("[telemetry] mkdir failed (%v) — telemetry disabled", err)
 		return &telemetryWriter{}
 	}
+	// Bound growth: telemetry is append-only, so a long-lived rig with it enabled
+	// would grow this file without limit. Rotate before opening if it's over the
+	// cap (default 64 MB, CRAWL_TELEMETRY_MAX_MB) — keeps one prior generation for
+	// a tailer that reconnects; total bounded to ~2x cap.
+	rotateIfOversize(cfg.path, int64(envInt("CRAWL_TELEMETRY_MAX_MB", 64))*1024*1024)
 	f, err := os.OpenFile(cfg.path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
 		log.Printf("[telemetry] open %s failed (%v) — telemetry disabled", cfg.path, err)
@@ -151,4 +156,20 @@ func int16OrZero(p *int16) int16 {
 		return 0
 	}
 	return *p
+}
+
+// rotateIfOversize renames path to path+".1" (replacing any prior rotation) when
+// the file is at or over maxBytes, so an append-only log can't grow without
+// bound. A missing file or maxBytes<=0 is a no-op.
+func rotateIfOversize(path string, maxBytes int64) {
+	if maxBytes <= 0 {
+		return
+	}
+	fi, err := os.Stat(path)
+	if err != nil || fi.Size() < maxBytes {
+		return
+	}
+	if err := os.Rename(path, path+".1"); err != nil {
+		log.Printf("[telemetry] rotate %s failed (%v) — appending to the existing file", path, err)
+	}
 }

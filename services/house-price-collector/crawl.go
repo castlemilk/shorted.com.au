@@ -192,12 +192,19 @@ func selectTargets(all []CrawlTarget, cfg crawlConfig) []CrawlTarget {
 }
 
 func envInt(key string, def int) int {
-	if v := os.Getenv(key); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			return n
-		}
+	v := os.Getenv(key)
+	if v == "" {
+		return def
 	}
-	return def
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		// Don't silently swallow a typo: a SET-but-unparseable value used to fall
+		// through to the default with no signal, so a misconfigured rig ran with a
+		// silently-wrong knob. Warn loudly and keep the default.
+		log.Printf("[config] %s=%q is not a valid integer — using default %d", key, v, def)
+		return def
+	}
+	return n
 }
 
 func envStr(key, def string) string {

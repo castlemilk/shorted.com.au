@@ -502,7 +502,7 @@ A **Tier-3 residential listing crawl** of REA/Domain is **LIVE** (~12k `property
 | `services/house-price-collector/deploy/run-housing-crawl.sh` | Self-healing launcher: auto-launch/re-warm REA-startup Chrome + `-mode warmcheck` preflight + retry (exit 0/3/4/5) |
 | `services/shorts/internal/services/shorts/house_prices.go` + `store/shorts/postgres_house_prices.go` | RPC handlers + queries |
 | `proto/shortedapi/shorts/v1alpha1/shorts.proto` | `GetHousingOverview` / `GetHousePriceSeries` / `ListStateSuburbs` / `GetSuburbProfile` (+ `ListHousingRegions`) |
-| `terraform/modules/house-price-collector/` | Cloud Run Job + monthly scheduler (built, **NOT yet wired** into envs/CI) |
+| `terraform/modules/house-price-collector/` | Cloud Run Job + monthly scheduler — **wired into CI + both envs** (PR #211): built by `terraform-deploy.yml` + `module`/`house_price_collector_image` in `terraform/environments/{dev,prod}/main.tf`, so a merge to `main` deploys it |
 
 ### Data sources & live-vs-baked
 
