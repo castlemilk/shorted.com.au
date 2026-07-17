@@ -232,3 +232,16 @@ suburb). Off by default = zero overhead. Per swept `(suburb,source)` it writes t
 
 Trace artifacts contain portal listing data + screenshots → they stay **local to the
 rig** (gitignored, never uploaded to brandbrain).
+
+## Live telemetry (`CRAWL_TELEMETRY`) — extraction in-flight
+
+Off by default. Set `CRAWL_TELEMETRY=1` (or `CRAWL_TELEMETRY_PATH=/path`) and the
+`-mode agent` collector appends one NDJSON event per line to
+`~/.shorted-housing-crawl/telemetry.ndjson` **as it crawls** — `run_start`,
+`suburb_start`, one `listing` per extracted property (address, price, status,
+beds/baths, agency + agents, and the detail `url`), `suburb_done`, and `error`
+(a blocked/poison sweep, with debug). A co-located UI (the BrandBrain macOS
+agent's Real-estate tab) tails the file to show extraction in-flight and WHY a
+sweep failed. LOCAL only — unlike the counts-only summary posted to brandbrain,
+the per-listing data here never leaves the machine. Distinct from `CRAWL_TRACE`
+(per-page screenshots/HTML written after a sweep, for offline debugging).

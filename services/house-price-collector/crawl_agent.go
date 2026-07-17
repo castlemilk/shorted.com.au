@@ -429,6 +429,12 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) bool {
 	cb := newCircuitBreaker(cfg.circuitTrip, cfg.circuitBase, cfg.circuitMax)
 	circuitSources := []string{"rea", "domain"}
 
+	// Optional LIVE telemetry stream (crawl_telemetry.go): off unless CRAWL_TELEMETRY
+	// is set. Created once per run so the co-located macOS agent UI can tail
+	// per-listing extraction + failures in-flight.
+	tel := newTelemetryWriter(loadTelemetryConfig())
+	defer tel.Close()
+
 	anyRewarm := false
 	wroteAny := false
 	done := 0
@@ -454,7 +460,7 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) bool {
 		if done > 0 {
 			jitterSleep(ctx, cfg.minDelay, cfg.maxDelay)
 		}
-		summary, status, errMsg, wrote := crawlAgentJob(ctx, pool, fetcher, cfg, job, rs, cb)
+		summary, status, errMsg, wrote := crawlAgentJob(ctx, pool, fetcher, cfg, job, rs, cb, tel)
 		wroteAny = wroteAny || wrote
 		if summary.NeedsRewarm {
 			anyRewarm = true
@@ -518,7 +524,7 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) bool {
 // may be nil) resume snapshot loaded once for the whole -mode agent run; a
 // source within the resume window is skipped for this job (logged, never
 // silently) rather than swept again.
-func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher, cfg listingsConfig, job *agentCrawlJob, rs resumeSet, cb *crawlCircuitBreaker) (crawlJobSummary, string, string, bool) {
+func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher, cfg listingsConfig, job *agentCrawlJob, rs resumeSet, cb *crawlCircuitBreaker, tel *telemetryWriter) (crawlJobSummary, string, string, bool) {
 	// Medians-in-agent-mode is a follow-up; the standalone `-mode crawl` path
 	// still serves the median tier. Fail such a job clearly rather than silently.
 	if strings.EqualFold(job.Tier, "medians") {
@@ -534,7 +540,7 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 		}
 	}
 
-	lc := &listingsCrawler{fetcher: fetcher, cfg: cfg}
+	lc := &listingsCrawler{fetcher: fetcher, cfg: cfg, tel: tel}
 	var reaEvents, domEvents int
 	var skippedRea, skippedDomain bool
 	if rs.shouldSkipTarget("rea", t, runTs, cfg.resumeWindow) {

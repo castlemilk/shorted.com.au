@@ -231,6 +231,10 @@ type listingsCrawler struct {
 	reaBlocks int
 	domBlocks int
 	stats     listingsStats
+	// tel is the optional LIVE telemetry stream (crawl_telemetry.go); nil (or a
+	// disabled writer) is a no-op. Set by -mode agent so the co-located macOS
+	// agent UI can tail extraction + failures in-flight.
+	tel *telemetryWriter
 }
 
 // runListings returns true when the run detected that the browser profile needs a
@@ -340,11 +344,14 @@ func runListings(ctx context.Context, pool *pgxpool.Pool) bool {
 // crawlSuburbSource sweeps one source for one suburb and (unless dry-run, or the
 // sweep was blocked) diffs it into events. Returns the number of events written.
 func (lc *listingsCrawler) crawlSuburbSource(ctx context.Context, pool *pgxpool.Pool, t CrawlTarget, source string, urlFor func(int) string, blockCounter *int, runTs time.Time) int {
+	lc.tel.suburbStart(t.Display, source)
 	sweep := lc.sweepSuburbSource(ctx, t, source, urlFor, blockCounter)
 	lc.stats.pages += sweep.pages
 	lc.stats.seen += len(sweep.listings)
 	if sweep.status == sweepBlocked {
 		lc.stats.blockedSweeps++
+		lc.tel.failure(t.Display, source, "blocked/poison sweep", map[string]any{"pages": sweep.pages})
+		lc.tel.suburbDone(t.Display, source, 0, 0, sweep.status.String())
 	}
 
 	if lc.cfg.dryRun {
@@ -354,14 +361,20 @@ func (lc *listingsCrawler) crawlSuburbSource(ctx context.Context, pool *pgxpool.
 	if sweep.status == sweepBlocked {
 		return 0
 	}
+	// Stream each extracted listing live (the "intelligent extraction info").
+	for i := range sweep.listings {
+		lc.tel.listing(t.Display, source, sweep.listings[i])
+	}
 	n, err := lc.diffSuburb(ctx, pool, t, source, sweep, runTs)
 	if err != nil {
 		log.Printf("[listings] %s %s: diff error: %v", t.Display, source, err)
+		lc.tel.failure(t.Display, source, "diff error", map[string]any{"err": err.Error()})
 		return 0
 	}
 	if n > 0 {
 		log.Printf("[listings] %s %s: %d event(s) from %d listing(s) (%s)", t.Display, source, n, len(sweep.listings), sweep.status)
 	}
+	lc.tel.suburbDone(t.Display, source, len(sweep.listings), n, sweep.status.String())
 	return n
 }
 
