@@ -20,6 +20,7 @@ func TestIsPermanentRowError(t *testing.T) {
 		"23514", // check_violation
 		"23503", // foreign_key_violation
 		"23505", // unique_violation (if one ever escapes an ON CONFLICT)
+		"54000", // program_limit_exceeded (e.g. index row too large for a giant text value)
 	}
 	for _, code := range permanent {
 		if !isPermanentRowError(&pgconn.PgError{Code: code}) {

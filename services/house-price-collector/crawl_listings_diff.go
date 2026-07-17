@@ -42,8 +42,9 @@ func (lc *listingsCrawler) diffSuburb(ctx context.Context, pool *pgxpool.Pool, t
 		// catching any OTHER permanent per-row error.) See cleanText.
 		l = sanitizeListing(l)
 		// Mark seen BEFORE the savepoint attempt: a listing we saw but then had to
-		// SKIP (permanent row error) must still count as present, or the delist
-		// pass below would treat it as absent and eventually withdraw it wrongly.
+		// SKIP (permanent row error) must still count as present, or the SAME-sweep
+		// delist pass below would treat it as absent. (The CROSS-sweep grace counter
+		// is handled by markSeenOnly in the skip path — see there.)
 		seen[l.ListingID] = true
 
 		// Stamp the per-address identity from the CANONICAL target suburb/
@@ -59,6 +60,12 @@ func (lc *listingsCrawler) diffSuburb(ctx context.Context, pool *pgxpool.Pool, t
 		// (connection/deadlock/ctx) is propagated to fail + requeue the suburb —
 		// the same behaviour #285 introduced, now scoped so it fires only for
 		// genuinely-retryable failures instead of poison-pilling on a bad row.
+		// (pgx's nested-tx Rollback issues ROLLBACK TO without RELEASE, so each
+		// SKIP leaves its savepoint on the stack; a suburb would need >64 permanent
+		// skips in one tx to reach Postgres's subxid-cache limit — and such a
+		// systematic all-skipped suburb is failed by agentJobTerminal anyway, so
+		// the extractor gets fixed long before that.)
+		statsBefore := lc.stats // value copy (all-int struct) — restore point if this listing is skipped
 		sp, err := tx.Begin(ctx)
 		if err != nil {
 			return events, err // can't even open a savepoint → the tx/conn is unhealthy → transient
@@ -67,7 +74,19 @@ func (lc *listingsCrawler) diffSuburb(ctx context.Context, pool *pgxpool.Pool, t
 		if derr != nil {
 			_ = sp.Rollback(ctx) // undo this listing's partial work; the parent tx stays healthy
 			if isPermanentRowError(derr) {
+				// Undo the in-memory event counters diffListing bumped: eventsFor/
+				// addressPriceMove mutate lc.stats BEFORE the write that failed, and
+				// the savepoint rollback undoes the DB writes but not those Go-side
+				// counters — so restore them to keep the run summary honest.
+				lc.stats = statsBefore
 				lc.stats.skippedRows++
+				// The listing IS present — we just can't persist its snapshot. Reset
+				// its cross-sweep absence counter (missed_sweeps) + last_seen_at so an
+				// intermittent permanent error can't let it drift up to delistGrace and
+				// WRONGLY withdraw a live listing. No-op for a brand-new listing.
+				if err := markSeenOnly(ctx, tx, source, l.ListingID, runTs); err != nil {
+					return events, err
+				}
 				log.Printf("[listings] %s %s: skipping listing %s (permanent row error, kept the rest of the suburb): %v", t.Display, source, l.ListingID, derr)
 				continue
 			}
@@ -196,10 +215,15 @@ func isPermanentRowError(err error) bool {
 		return false
 	}
 	switch pg.Code[:2] {
-	case "22", // data exception: invalid byte sequence, numeric out of range, invalid text repr, ...
-		"23": // integrity constraint violation: not-null / check / foreign-key / (an un-ON-CONFLICTed) unique
+	case "22", // data exception: invalid byte sequence, numeric out of range, value too long, invalid text repr
+		"23", // integrity constraint violation: not-null / check / foreign-key / (an un-ON-CONFLICTed) unique
+		"54": // program_limit_exceeded: e.g. 54000 index row too large for a giant text value — recurs every crawl
 		return true
 	default:
+		// Everything else (class 08 connection, 40 deadlock/serialisation, 53
+		// insufficient-resources, 57 operator-intervention, 25 tx-state, 42
+		// schema/query bug, ...) is TRANSIENT or a code bug that must fail LOUDLY
+		// rather than be silently skipped row-by-row.
 		return false
 	}
 }

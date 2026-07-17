@@ -110,6 +110,7 @@ type crawlJobSummary struct {
 	Listings      int    `json:"listings"`
 	Events        int    `json:"events"`
 	BlockedSweeps int    `json:"blocked_sweeps"`
+	SkippedRows   int    `json:"skipped_rows,omitempty"`
 	NeedsRewarm   bool   `json:"needs_rewarm"`
 	Detail        string `json:"detail,omitempty"`
 }
@@ -474,7 +475,7 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) bool {
 			log.Printf("[agent] submit error (job=%s): %v", job.ID, err)
 		}
 		subCancel()
-		log.Printf("[agent] job %s %s/%s → %s: listings=%d events=%d blocked=%d", job.ID, job.Suburb, job.Tier, status, summary.Listings, summary.Events, summary.BlockedSweeps)
+		log.Printf("[agent] job %s %s/%s → %s: listings=%d events=%d blocked=%d skipped=%d", job.ID, job.Suburb, job.Tier, status, summary.Listings, summary.Events, summary.BlockedSweeps, summary.SkippedRows)
 		done++
 
 		// A job that wrote no events off a blocked/poisoned sweep means the browser
@@ -575,6 +576,7 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 		Listings:      s.seen,
 		Events:        reaEvents + domEvents,
 		BlockedSweeps: s.blockedSweeps,
+		SkippedRows:   s.skippedRows,
 		NeedsRewarm:   needsRewarm(cfg.maxConsecBlocks, lc.reaBlocks, lc.domBlocks),
 	}
 	if skippedRea && skippedDomain {
@@ -601,7 +603,7 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 	// swallowed the error and returned 0) banked a silent no-data run: 0 events
 	// is indistinguishable from a clean no-change sweep, so the job was marked
 	// done and the suburb wasn't re-served until the next full enqueue.
-	status, detail, errMsg := agentJobTerminal(summary.Events, s.blockedSweeps, firstErr(reaErr, domErr))
+	status, detail, errMsg := agentJobTerminal(summary.Events, s.blockedSweeps, s.skippedRows, firstErr(reaErr, domErr))
 	if status == "failed" {
 		summary.Detail = detail
 		// The job re-crawls, but a SIBLING source may already have committed real
@@ -631,15 +633,26 @@ func firstErr(errs ...error) error {
 // (see crawlAgentJob). A diff-error failure carries blockedSweeps that may be 0,
 // so — unlike a blocked-sweep failure — it does not count toward the re-warm /
 // session-degradation budget in runAgent (which gates on BlockedSweeps>0), i.e.
-// a Supabase blip never triggers a Chrome re-warm. Otherwise the counts-only
-// agentJobOutcome decides (blocked sweep with no events ⇒ failed).
-func agentJobTerminal(events, blockedSweeps int, diffErr error) (status, detail, errMsg string) {
+// a Supabase blip never triggers a Chrome re-warm.
+//
+// skippedRows are individual listings dropped by diffSuburb's per-row SAVEPOINT
+// on a PERMANENT error. A PARTIAL skip (events>0) is the intended graceful case →
+// succeed (the good rows persisted). But an ALL-skipped sweep (events==0 &&
+// skippedRows>0) means we saw listings and persisted NOTHING — a systematic
+// extractor/schema problem — so fail it to surface loudly rather than bank a
+// silent no-data success (same posture as the blocked-sweep gate). It is bounded
+// by the queue's max_attempts, and the fix is a code change, not a re-crawl.
+func agentJobTerminal(events, blockedSweeps, skippedRows int, diffErr error) (status, detail, errMsg string) {
 	if diffErr != nil {
 		m := "diff persist error: " + diffErr.Error()
 		return "failed", m, m
 	}
 	if agentJobOutcome(events, blockedSweeps) == "failed" {
 		return "failed", "blocked/poisoned sweep(s), no events written", "blocked sweeps, no events written"
+	}
+	if events == 0 && skippedRows > 0 {
+		m := "all listings skipped (permanent row errors), no events written"
+		return "failed", m, m
 	}
 	return "succeeded", "", ""
 }

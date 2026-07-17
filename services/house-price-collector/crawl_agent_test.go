@@ -242,33 +242,45 @@ func TestAgentJobTerminal(t *testing.T) {
 		name          string
 		events        int
 		blockedSweeps int
+		skippedRows   int
 		diffErr       error
 		want          string
 	}{
-		{"clean sweep", 242, 0, nil, "succeeded"},
-		{"blocked no events", 0, 2, nil, "failed"},
-		{"partial block with events", 110, 1, nil, "succeeded"},
-		{"legit no-change", 0, 0, nil, "succeeded"},
+		{"clean sweep", 242, 0, 0, nil, "succeeded"},
+		{"blocked no events", 0, 2, 0, nil, "failed"},
+		{"partial block with events", 110, 1, 0, nil, "succeeded"},
+		{"legit no-change", 0, 0, 0, nil, "succeeded"},
 		// A transient diff (persist) failure must FAIL the job even though the
 		// sweep wasn't blocked (blockedSweeps==0) — reporting "succeeded" would
 		// bank a silent no-data run (0 events looks identical to a clean
 		// no-change sweep), so the suburb wouldn't be re-crawled until the next
 		// full enqueue. Holds even if a sibling source already committed events.
-		{"diff error, no events written", 0, 0, boom, "failed"},
-		{"diff error despite sibling events", 5, 0, boom, "failed"},
+		{"diff error, no events written", 0, 0, 0, boom, "failed"},
+		{"diff error despite sibling events", 5, 0, 0, boom, "failed"},
+		// A PARTIAL per-row skip (some events still written) is the graceful case
+		// the SAVEPOINT change exists for → succeed, keep the good rows.
+		{"partial skip with events", 40, 0, 3, nil, "succeeded"},
+		// But ALL rows skipped (0 events, skippedRows>0) = we saw listings and
+		// persisted nothing → a systematic extractor problem → fail (surface it),
+		// not a silent no-data success.
+		{"all rows skipped", 0, 0, 12, nil, "failed"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, _, _ := agentJobTerminal(tc.events, tc.blockedSweeps, tc.diffErr)
+			got, _, _ := agentJobTerminal(tc.events, tc.blockedSweeps, tc.skippedRows, tc.diffErr)
 			if got != tc.want {
-				t.Fatalf("agentJobTerminal(%d, %d, %v) status = %q want %q", tc.events, tc.blockedSweeps, tc.diffErr, got, tc.want)
+				t.Fatalf("agentJobTerminal(%d, %d, %d, %v) status = %q want %q", tc.events, tc.blockedSweeps, tc.skippedRows, tc.diffErr, got, tc.want)
 			}
 		})
 	}
 	// The DB failure must surface in detail + errMsg so a warm-session DB blip is
 	// distinguishable from a Kasada block in the queue/ops logs.
-	_, detail, errMsg := agentJobTerminal(0, 0, errors.New("TLS handshake timeout"))
+	_, detail, errMsg := agentJobTerminal(0, 0, 0, errors.New("TLS handshake timeout"))
 	if !strings.Contains(detail, "diff persist error") || !strings.Contains(errMsg, "TLS handshake timeout") {
 		t.Fatalf("diff error should surface: detail=%q errMsg=%q", detail, errMsg)
+	}
+	// An all-skipped failure must surface distinctly (mentions skipped rows).
+	if _, d2, _ := agentJobTerminal(0, 0, 5, nil); !strings.Contains(d2, "skipped") {
+		t.Fatalf("all-skipped failure should mention skipped rows, got %q", d2)
 	}
 }
