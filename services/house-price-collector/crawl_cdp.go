@@ -70,28 +70,22 @@ func newCDPFetcher(cfg crawlConfig) (*cdpFetcher, error) {
 
 	// Reuse the host Chrome's warm, persistent default context (index 0). That is
 	// where the Kasada clearance cookie + warmed profile live, so reusing it is
-	// the whole point of option (b). Only fabricate a context if the connected
-	// browser somehow exposes none.
-	var bctx playwright.BrowserContext
-	ownedCtx := false
-	if ctxs := browser.Contexts(); len(ctxs) > 0 {
-		bctx = ctxs[0]
-	} else {
-		bctx, err = browser.NewContext(playwright.BrowserNewContextOptions{
-			Locale:     playwright.String("en-AU"),
-			TimezoneId: playwright.String("Australia/Sydney"),
-			UserAgent:  playwright.String(crawlUserAgent),
-			Viewport:   &playwright.Size{Width: 1440, Height: 900},
-		})
-		if err != nil {
-			_ = browser.Close()
-			_ = pw.Stop()
-			return nil, fmt.Errorf("create CDP browser context on %s: %w", cfg.cdpURL, err)
-		}
-		ownedCtx = true
+	// the whole point of option (b).
+	ctxs := browser.Contexts()
+	if len(ctxs) == 0 {
+		// A CDP-attached Chrome with NO browser context (0 open tabs) is the
+		// wedged / cold-Chrome state: warmcheck may have used the REA startup tab
+		// and it has since closed. You CANNOT create a context over CDP here
+		// (Browser.setDownloadBehavior → "Browser context management is not
+		// supported"), so surface it clearly and recoverably instead of failing
+		// with that cryptic message — runAgent maps this to rc==4 and the runner
+		// kills + relaunches a clean Chrome with a REA startup tab. Stop only OUR
+		// driver, NEVER the host browser (no browser.Close()).
+		_ = pw.Stop()
+		return nil, fmt.Errorf("host Chrome on %s has 0 browser contexts (no open tab) — the warm REA session is gone; re-warm the dedicated Chrome", cfg.cdpURL)
 	}
 
-	return &cdpFetcher{pw: pw, browser: browser, ctx: bctx, ownedCtx: ownedCtx, cfg: cfg}, nil
+	return &cdpFetcher{pw: pw, browser: browser, ctx: ctxs[0], ownedCtx: false, cfg: cfg}, nil
 }
 
 // fetch reuses the SAME page-fetch/settle logic as playwrightFetcher (a fresh

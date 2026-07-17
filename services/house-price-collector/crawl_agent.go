@@ -384,11 +384,15 @@ func titleCaseSuburb(s string) string {
 
 // runAgent is the -mode=agent entry point. Returns true if any job detected the
 // browser needs a human re-warm (surfaces via exit code 3 for launchd).
-func runAgent(ctx context.Context, pool *pgxpool.Pool) bool {
+// runAgent drains the brandbrain crawl queue and returns a process EXIT CODE:
+// 0 = ok / nothing to do, 3 = a sweep tripped the re-warm signal, 4 = the crawl
+// fetcher couldn't init (wedged/cold host Chrome — the runner should hard-recover
+// Chrome and retry, same convention as -mode warmcheck).
+func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 	acfg := loadAgentConfig()
 	if acfg.brandbrainURL == "" || (acfg.token == "" && acfg.controlURL == "") {
 		log.Printf("[agent] BRANDBRAIN_AGENT_URL + a token (BRANDBRAIN_AGENT_TOKEN, or a local agent control API for auto-refresh) required — nothing to do")
-		return false
+		return 0
 	}
 
 	cfg := loadListingsConfig()
@@ -399,8 +403,12 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) bool {
 	} else {
 		f, err := newCrawlFetcher(cfg.crawlConfig)
 		if err != nil {
-			log.Printf("[agent] crawl fetcher init failed (%v) — aborting (non-fatal)", err)
-			return false
+			// A wedged/cold host Chrome (e.g. 0 open tabs, so no CDP context — see
+			// newCDPFetcher). Return rc==4 so the runner hard-recovers Chrome (kill +
+			// clear SingletonLock + relaunch a clean REA-startup tab) and retries,
+			// instead of the old silent rc=0 abort that left the queue undrained.
+			log.Printf("[agent] crawl fetcher init failed (%v) — needs a Chrome re-warm (exit 4)", err)
+			return 4
 		}
 		fetcher = f
 	}
@@ -466,16 +474,27 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) bool {
 		if summary.NeedsRewarm {
 			anyRewarm = true
 		}
-		// Report on a DETACHED context (+ its own retries in do): reporting the
-		// result of ALREADY-COMPLETED work must not be killed by the crawl deadline
-		// (ctx) firing between the write and the submit — that would orphan the
-		// job in the queue and lose the counts.
-		subCtx, subCancel := context.WithTimeout(context.Background(), 45*time.Second)
-		if err := client.submit(subCtx, job.ID, status, &summary, errMsg); err != nil {
-			log.Printf("[agent] submit error (job=%s): %v", job.ID, err)
+		// A DRY run must NOT submit: submit is terminal in the queue, so a dry run
+		// reporting "succeeded" would CONSUME the pending job without persisting
+		// anything (it wouldn't re-serve to a real run until it went stale). Skip
+		// the submit — the claim's lease simply expires and the job re-pends. The
+		// rest of the loop (logging, block-detection) runs unchanged either way.
+		if !cfg.dryRun {
+			// Report on a DETACHED context (+ its own retries in do): reporting the
+			// result of ALREADY-COMPLETED work must not be killed by the crawl deadline
+			// (ctx) firing between the write and the submit — that would orphan the
+			// job in the queue and lose the counts.
+			subCtx, subCancel := context.WithTimeout(context.Background(), 45*time.Second)
+			if err := client.submit(subCtx, job.ID, status, &summary, errMsg); err != nil {
+				log.Printf("[agent] submit error (job=%s): %v", job.ID, err)
+			}
+			subCancel()
 		}
-		subCancel()
-		log.Printf("[agent] job %s %s/%s → %s: listings=%d events=%d blocked=%d skipped=%d", job.ID, job.Suburb, job.Tier, status, summary.Listings, summary.Events, summary.BlockedSweeps, summary.SkippedRows)
+		dry := ""
+		if cfg.dryRun {
+			dry = " DRY(not submitted)"
+		}
+		log.Printf("[agent] job %s %s/%s → %s: listings=%d events=%d blocked=%d skipped=%d%s", job.ID, job.Suburb, job.Tier, status, summary.Listings, summary.Events, summary.BlockedSweeps, summary.SkippedRows, dry)
 		done++
 
 		// A job that wrote no events off a blocked/poisoned sweep means the browser
@@ -515,8 +534,9 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) bool {
 	log.Printf("[agent] done: processed %d job(s)", done)
 	if anyRewarm {
 		log.Printf("[agent] REWARM REQUIRED: a sweep tripped the circuit breaker — re-warm the crawl Chrome profile")
+		return 3
 	}
-	return anyRewarm
+	return 0
 }
 
 // crawlAgentJob runs one claimed suburb job (listings tier) and returns the
