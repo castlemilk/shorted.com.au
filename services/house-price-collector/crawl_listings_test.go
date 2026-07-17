@@ -204,6 +204,54 @@ func TestMatchesTarget(t *testing.T) {
 	if !matchesTarget(RawListing{Postcode: "3182"}, tgt) {
 		t.Error("postcode match with no suburb field should still match (fallback preserved)")
 	}
+	// Abbreviation tolerance: the ABS-SAL Display and the portal disagree on
+	// St/Saint & Mt/Mount forms; both must still match (postcode gates, so this
+	// can't conflate distinct suburbs). Without it a whole page-1 of on-target
+	// listings fails subOK and the poison gate blocks the entire suburb.
+	mtEliza := CrawlTarget{Suburb: "mount-eliza", Display: "Mount Eliza", Postcode: "3930", State: "VIC"}
+	if !matchesTarget(RawListing{Postcode: "3930", Suburb: "Mt Eliza"}, mtEliza) {
+		t.Error("portal 'Mt Eliza' must match Display 'Mount Eliza' (Mt/Mount abbrev)")
+	}
+	stLeon := CrawlTarget{Suburb: "st-leonards", Display: "St Leonards", Postcode: "2065", State: "NSW"}
+	if !matchesTarget(RawListing{Postcode: "2065", Suburb: "Saint Leonards"}, stLeon) {
+		t.Error("portal 'Saint Leonards' must match Display 'St Leonards' (St/Saint abbrev)")
+	}
+}
+
+func TestPartitionByTarget_SoftMissNotPoison(t *testing.T) {
+	// A small suburb in a shared-postcode cluster: page 1 is back-filled with a
+	// same-postcode NEIGHBOUR (Tarneit shares 3029 with Truganina). Those rows are
+	// not written under Truganina, but they are legitimate nearby stock, NOT bot
+	// poison — so the poison ratio must stay 0 and the sweep must not block.
+	tgt := CrawlTarget{Suburb: "truganina", Display: "Truganina", Postcode: "3029", State: "VIC"}
+	raw := make([]RawListing, 0, 24)
+	for i := 0; i < 16; i++ {
+		raw = append(raw, RawListing{Postcode: "3029", Suburb: "Truganina"})
+	}
+	for i := 0; i < 8; i++ {
+		raw = append(raw, RawListing{Postcode: "3029", Suburb: "Tarneit"})
+	}
+	matched, mismatch := partitionByTarget(raw, tgt)
+	if len(matched) != 16 {
+		t.Errorf("only the 16 on-target Truganina listings should be written, got %d", len(matched))
+	}
+	if mismatch != 0 {
+		t.Errorf("same-postcode neighbours must NOT count toward the poison ratio, got %.3f", mismatch)
+	}
+}
+
+func TestPartitionByTarget_WrongPostcodeIsPoison(t *testing.T) {
+	// Genuinely off-target stock (different postcode) is what the poison gate is
+	// for — it must still register as mismatch.
+	tgt := CrawlTarget{Suburb: "truganina", Display: "Truganina", Postcode: "3029", State: "VIC"}
+	raw := []RawListing{
+		{Postcode: "3029", Suburb: "Truganina"},
+		{Postcode: "3030", Suburb: "Werribee"},
+		{Postcode: "3030", Suburb: "Werribee"},
+	}
+	if _, mismatch := partitionByTarget(raw, tgt); mismatch < 0.6 {
+		t.Errorf("wrong-postcode stock must count as poison, got %.3f", mismatch)
+	}
 }
 
 func TestClampListingPrice(t *testing.T) {
