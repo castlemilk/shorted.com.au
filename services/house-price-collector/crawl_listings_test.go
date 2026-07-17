@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 )
 
 // These tests are the listing tier's offline proof: the price-string semantics,
@@ -190,6 +191,31 @@ func TestMatchesTarget(t *testing.T) {
 	}
 	if matchesTarget(RawListing{}, tgt) {
 		t.Error("a listing with neither postcode nor suburb must be rejected")
+	}
+}
+
+func TestSanitizeListing_StripsNulAndInvalidUTF8(t *testing.T) {
+	// A portal  decodes to a real 0x00 in the Go string; left unsanitised it
+	// makes upsertListing's INSERT fail with Postgres 22021 and, now that a diff
+	// error fails+requeues the suburb, turns it into a re-crawl poison pill.
+	got := sanitizeListing(RawListing{
+		ListingID:    "abc\x00123",
+		DisplayAddr:  "12 Smith St\x00",
+		PriceDisplay: "For Sale $1.2m",
+		AgentNames:   []string{"Jane\x00Doe", "ok"},
+	})
+	if got.ListingID != "abc123" || got.DisplayAddr != "12 Smith St" {
+		t.Errorf("NUL not stripped: id=%q addr=%q", got.ListingID, got.DisplayAddr)
+	}
+	if got.PriceDisplay != "For Sale $1.2m" {
+		t.Errorf("clean text should be untouched, got %q", got.PriceDisplay)
+	}
+	if got.AgentNames[0] != "JaneDoe" || got.AgentNames[1] != "ok" {
+		t.Errorf("agent NUL not stripped: %q", got.AgentNames)
+	}
+	// A lone invalid byte (0xff) is coerced away rather than left to break the write.
+	if bad := sanitizeListing(RawListing{DisplayAddr: "caf\xffe"}); !utf8.ValidString(bad.DisplayAddr) {
+		t.Errorf("invalid UTF-8 not coerced: %q", bad.DisplayAddr)
 	}
 }
 

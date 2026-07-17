@@ -555,7 +555,13 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 	status, detail, errMsg := agentJobTerminal(summary.Events, s.blockedSweeps, firstErr(reaErr, domErr))
 	if status == "failed" {
 		summary.Detail = detail
-		return summary, "failed", errMsg, false
+		// The job re-crawls, but a SIBLING source may already have committed real
+		// events (e.g. REA persisted; only Domain's diff errored). Gate the
+		// end-of-run sal_code link + MV refresh on whether anything was actually
+		// committed (summary.Events), not a blanket false — otherwise freshly
+		// written data is left unlinked/unrefreshed until an unrelated later run.
+		// A blocked-sweep failure has Events==0, so it still returns false.
+		return summary, "failed", errMsg, !cfg.dryRun && summary.Events > 0
 	}
 	return summary, "succeeded", "", !cfg.dryRun && s.seen > 0
 }
