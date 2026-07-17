@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -150,21 +151,47 @@ func (c *brandbrainAgentClient) do(ctx context.Context, method, path string, bod
 		payload = b
 	}
 
-	rb, status, err := c.roundtrip(ctx, method, path, payload)
-	if err != nil {
-		return err
-	}
-	if status == http.StatusUnauthorized && c.canRefresh() {
-		if tok, rerr := c.refreshToken(ctx); rerr != nil {
-			log.Printf("[agent] token refresh failed: %v", rerr)
-		} else if tok != "" && tok != c.token {
-			c.token = tok
-			log.Printf("[agent] access token expired — refreshed from local agent, retrying")
-			rb, status, err = c.roundtrip(ctx, method, path, payload)
-			if err != nil {
-				return err
+	// Bounded retry with jittered backoff on TRANSIENT failures: a network/TLS/
+	// timeout error (roundtrip err), or a 5xx (brandbrain 502s are known at >2
+	// workers). A 401 triggers a ONE-SHOT token refresh; any other 4xx is terminal
+	// and not retried. Every endpoint here (claim/submit/enqueue) is idempotent
+	// (submit keys on job_id), so retrying is safe — this is what stops a single
+	// TLS handshake timeout from losing a completed suburb's counts.
+	const maxAttempts = 4
+	refreshed := false
+	var rb []byte
+	var status int
+	var err error
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-time.After(agentBackoff(attempt)):
+			case <-ctx.Done():
+				return ctx.Err()
 			}
 		}
+		rb, status, err = c.roundtrip(ctx, method, path, payload)
+		if err != nil {
+			continue // transient transport error — retry
+		}
+		if status == http.StatusUnauthorized && c.canRefresh() && !refreshed {
+			refreshed = true
+			if tok, rerr := c.refreshToken(ctx); rerr != nil {
+				log.Printf("[agent] token refresh failed: %v", rerr)
+			} else if tok != "" && tok != c.token {
+				c.token = tok
+				log.Printf("[agent] access token expired — refreshed from local agent, retrying")
+				attempt-- // a refresh retry shouldn't consume a backoff attempt
+				continue
+			}
+		}
+		if status >= 500 {
+			continue // transient server error (e.g. brandbrain 502) — retry
+		}
+		break // 2xx, or a terminal 4xx
+	}
+	if err != nil {
+		return err
 	}
 	if status >= 300 {
 		return fmt.Errorf("brandbrain %s %s: %d %s", method, path, status, strings.TrimSpace(string(rb)))
@@ -173,6 +200,16 @@ func (c *brandbrainAgentClient) do(ctx context.Context, method, path string, bod
 		return json.Unmarshal(rb, out)
 	}
 	return nil
+}
+
+// agentBackoff returns a jittered exponential backoff for retry attempt N (>=1):
+// ~0.5s, 1s, 2s, … capped at 8s, plus up to +50% jitter.
+func agentBackoff(attempt int) time.Duration {
+	base := 500 * time.Millisecond * time.Duration(int64(1)<<uint(attempt-1))
+	if base > 8*time.Second {
+		base = 8 * time.Second
+	}
+	return base + time.Duration(rand.Int63n(int64(base/2)+1))
 }
 
 // roundtrip performs a single authenticated request and returns the (bounded)
@@ -422,9 +459,15 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) bool {
 		if summary.NeedsRewarm {
 			anyRewarm = true
 		}
-		if err := client.submit(ctx, job.ID, status, &summary, errMsg); err != nil {
+		// Report on a DETACHED context (+ its own retries in do): reporting the
+		// result of ALREADY-COMPLETED work must not be killed by the crawl deadline
+		// (ctx) firing between the write and the submit — that would orphan the
+		// job in the queue and lose the counts.
+		subCtx, subCancel := context.WithTimeout(context.Background(), 45*time.Second)
+		if err := client.submit(subCtx, job.ID, status, &summary, errMsg); err != nil {
 			log.Printf("[agent] submit error (job=%s): %v", job.ID, err)
 		}
+		subCancel()
 		log.Printf("[agent] job %s %s/%s → %s: listings=%d events=%d blocked=%d", job.ID, job.Suburb, job.Tier, status, summary.Listings, summary.Events, summary.BlockedSweeps)
 		done++
 
