@@ -32,6 +32,11 @@ func (lc *listingsCrawler) diffSuburb(ctx context.Context, pool *pgxpool.Pool, t
 		if l.ListingID == "" {
 			continue
 		}
+		// Strip NUL / invalid-UTF8 from portal text BEFORE it feeds the events,
+		// content hash, and row upsert — an unsanitised byte is a Postgres 22021
+		// that would abort this whole transaction on every re-crawl (a poison
+		// pill, now that a diff error fails+requeues the suburb). See cleanText.
+		l = sanitizeListing(l)
 		seen[l.ListingID] = true
 
 		// Stamp the per-address identity from the CANONICAL target suburb/

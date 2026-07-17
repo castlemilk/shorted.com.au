@@ -542,6 +542,7 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 
 	lc := &listingsCrawler{fetcher: fetcher, cfg: cfg, tel: tel}
 	var reaEvents, domEvents int
+	var reaErr, domErr error
 	var skippedRea, skippedDomain bool
 	if rs.shouldSkipTarget("rea", t, runTs, cfg.resumeWindow) {
 		skippedRea = true
@@ -550,7 +551,7 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 		skippedRea = true
 		log.Printf("[agent] %s rea: SKIPPED — circuit open (portal blocking), backing off %s", t.Display, rem.Round(time.Second))
 	} else {
-		reaEvents = lc.crawlSuburbSource(ctx, pool, t, "rea", t.reaSearchURL, &lc.reaBlocks, runTs)
+		reaEvents, reaErr = lc.crawlSuburbSource(ctx, pool, t, "rea", t.reaSearchURL, &lc.reaBlocks, runTs)
 		if opened, cd := cb.record("rea", lc.reaBlocks > 0, runTs); opened {
 			log.Printf("[agent] rea circuit OPEN after %d consecutive blocked sweep(s) — backing off %s before probing again", cb.circuit("rea").consec, cd.Round(time.Second))
 		}
@@ -562,7 +563,7 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 		skippedDomain = true
 		log.Printf("[agent] %s domain: SKIPPED — circuit open (portal blocking), backing off %s", t.Display, rem.Round(time.Second))
 	} else {
-		domEvents = lc.crawlSuburbSource(ctx, pool, t, "domain", t.domainSearchURL, &lc.domBlocks, runTs)
+		domEvents, domErr = lc.crawlSuburbSource(ctx, pool, t, "domain", t.domainSearchURL, &lc.domBlocks, runTs)
 		if opened, cd := cb.record("domain", lc.domBlocks > 0, runTs); opened {
 			log.Printf("[agent] domain circuit OPEN after %d consecutive blocked sweep(s) — backing off %s before probing again", cb.circuit("domain").consec, cd.Round(time.Second))
 		}
@@ -594,11 +595,53 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 	// the next full `-mode enqueue` or a targeted re-enqueue. (A queue-side change
 	// to re-pend a submitted "failed" while attempts remain would give free
 	// warm-session retries — see the brandbrain crawl_jobs Submit handler.)
-	if agentJobOutcome(summary.Events, s.blockedSweeps) == "failed" {
-		summary.Detail = "blocked/poisoned sweep(s), no events written"
-		return summary, "failed", "blocked sweeps, no events written", false
+	// A diff (persist) error takes precedence over the counts-only outcome: the
+	// sweep saw listings but couldn't write them, so the suburb MUST re-crawl.
+	// Reporting "succeeded" here (as the old code did — crawlSuburbSource
+	// swallowed the error and returned 0) banked a silent no-data run: 0 events
+	// is indistinguishable from a clean no-change sweep, so the job was marked
+	// done and the suburb wasn't re-served until the next full enqueue.
+	status, detail, errMsg := agentJobTerminal(summary.Events, s.blockedSweeps, firstErr(reaErr, domErr))
+	if status == "failed" {
+		summary.Detail = detail
+		// The job re-crawls, but a SIBLING source may already have committed real
+		// events (e.g. REA persisted; only Domain's diff errored). Gate the
+		// end-of-run sal_code link + MV refresh on whether anything was actually
+		// committed (summary.Events), not a blanket false — otherwise freshly
+		// written data is left unlinked/unrefreshed until an unrelated later run.
+		// A blocked-sweep failure has Events==0, so it still returns false.
+		return summary, "failed", errMsg, !cfg.dryRun && summary.Events > 0
 	}
 	return summary, "succeeded", "", !cfg.dryRun && s.seen > 0
+}
+
+// firstErr returns the first non-nil error, or nil.
+func firstErr(errs ...error) error {
+	for _, e := range errs {
+		if e != nil {
+			return e
+		}
+	}
+	return nil
+}
+
+// agentJobTerminal decides the terminal queue status, detail, and error message
+// for a completed suburb job. A diff (persist) error takes precedence — a
+// transient DB failure is NOT a clean run and must NOT be reported "succeeded"
+// (see crawlAgentJob). A diff-error failure carries blockedSweeps that may be 0,
+// so — unlike a blocked-sweep failure — it does not count toward the re-warm /
+// session-degradation budget in runAgent (which gates on BlockedSweeps>0), i.e.
+// a Supabase blip never triggers a Chrome re-warm. Otherwise the counts-only
+// agentJobOutcome decides (blocked sweep with no events ⇒ failed).
+func agentJobTerminal(events, blockedSweeps int, diffErr error) (status, detail, errMsg string) {
+	if diffErr != nil {
+		m := "diff persist error: " + diffErr.Error()
+		return "failed", m, m
+	}
+	if agentJobOutcome(events, blockedSweeps) == "failed" {
+		return "failed", "blocked/poisoned sweep(s), no events written", "blocked sweeps, no events written"
+	}
+	return "succeeded", "", ""
 }
 
 // agentJobOutcome decides the terminal queue status for a completed suburb sweep

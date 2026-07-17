@@ -6,11 +6,59 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// cleanText strips NUL bytes and coerces the string to valid UTF-8. Portal JSON
+// can carry a  (a real 0x00 byte in the Go string) or lone surrogates that
+// Postgres text rejects with SQLSTATE 22021 ("invalid byte sequence for encoding
+// UTF8"). That is a PERMANENT error, and since a diff error now fails + requeues
+// the suburb (agentJobTerminal), an unsanitised byte would abort the suburb's
+// whole diff transaction on EVERY crawl — a poison pill that burns the scarce
+// warm-Chrome budget. Neutralise it at the write boundary.
+func cleanText(s string) string {
+	if s == "" {
+		return s
+	}
+	if strings.IndexByte(s, 0) >= 0 {
+		s = strings.ReplaceAll(s, "\x00", "")
+	}
+	if !utf8.ValidString(s) {
+		s = strings.ToValidUTF8(s, "")
+	}
+	return s
+}
+
+// sanitizeListing cleans every free-text field of a harvested listing so a stray
+// NUL / invalid-UTF8 byte from the portal can never abort the diff transaction.
+// Called once per listing (diffSuburb) before it is diffed into events + upserted,
+// so the events, content hash, and row all see the same cleaned text.
+func sanitizeListing(r RawListing) RawListing {
+	r.Source = cleanText(r.Source)
+	r.ListingID = cleanText(r.ListingID)
+	r.ListingURL = cleanText(r.ListingURL)
+	r.DisplayAddr = cleanText(r.DisplayAddr)
+	r.Suburb = cleanText(r.Suburb)
+	r.State = cleanText(r.State)
+	r.Postcode = cleanText(r.Postcode)
+	r.PropertyType = cleanText(r.PropertyType)
+	r.PriceDisplay = cleanText(r.PriceDisplay)
+	r.AgencyID = cleanText(r.AgencyID)
+	r.AgencyName = cleanText(r.AgencyName)
+	if len(r.AgentNames) > 0 {
+		names := make([]string, 0, len(r.AgentNames))
+		for _, n := range r.AgentNames {
+			names = append(names, cleanText(n))
+		}
+		r.AgentNames = names
+	}
+	return r
+}
 
 // Persistence for the listing tier. Reads/writes go through a pgx.Tx so a whole
 // suburb's diff (upserts + events + delists) commits atomically — a mid-write
