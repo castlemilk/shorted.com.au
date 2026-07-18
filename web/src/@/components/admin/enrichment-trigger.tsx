@@ -84,7 +84,7 @@ export function EnrichmentTrigger({ stockCode }: EnrichmentTriggerProps) {
             </Label>
           </div>
           {error && (
-            <div className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/20 p-2 rounded">
+            <div className="text-xs text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/20 p-2 rounded">
               {error}
             </div>
           )}

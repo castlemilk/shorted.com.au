@@ -60,8 +60,8 @@ function formatPrice(value: number): string {
 }
 
 function changeColor(value: number): string {
-  if (value > 0) return "text-emerald-600 dark:text-emerald-400";
-  if (value < 0) return "text-red-600 dark:text-red-400";
+  if (value > 0) return "text-emerald-700 dark:text-emerald-400";
+  if (value < 0) return "text-red-700 dark:text-red-400";
   return "text-muted-foreground";
 }
 
@@ -72,7 +72,7 @@ function ScoreBadge({ score }: { score: number }) {
       className={cn(
         "font-mono tabular-nums",
         score >= 70
-          ? "border-red-500/40 bg-red-500/10 text-red-600 dark:text-red-400"
+          ? "border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-400"
           : score >= 40
             ? "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
             : "border-border bg-muted/50 text-muted-foreground",
@@ -125,8 +125,8 @@ function WinBadge({ won }: { won: boolean | null }) {
       className={cn(
         "whitespace-nowrap",
         won
-          ? "border-red-500/40 bg-red-500/10 text-red-600 dark:text-red-400"
-          : "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+          ? "border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-400"
+          : "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
       )}
     >
       {won ? "Shorts won" : "Shorts lost"}

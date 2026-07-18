@@ -2,92 +2,92 @@
   "url": "http://localhost:3020",
   "preset": "mobile",
   "runs": 3,
-  "capturedAt": "2026-07-18T12:47:00.036Z",
+  "capturedAt": "2026-07-18T23:12:45.258Z",
   "gitRef": null,
   "pages": {
     "/": {
       "runs": 3,
       "scores": {
-        "performance": 0.79,
-        "accessibility": 0.99,
+        "performance": 0.81,
+        "accessibility": 1,
         "best-practices": 1,
         "seo": 0.92
       },
       "metrics": {
-        "first-contentful-paint": 1958,
-        "largest-contentful-paint": 5036,
-        "total-blocking-time": 117,
+        "first-contentful-paint": 1957,
+        "largest-contentful-paint": 4882,
+        "total-blocking-time": 38,
         "cumulative-layout-shift": 0.001,
-        "speed-index": 1958,
-        "interactive": 6830
+        "speed-index": 1957,
+        "interactive": 7373
       }
     },
     "/shorts/BHP": {
       "runs": 3,
       "scores": {
-        "performance": 0.72,
+        "performance": 0.73,
         "accessibility": 1,
         "best-practices": 0.96,
         "seo": 0.92
       },
       "metrics": {
-        "first-contentful-paint": 1356,
-        "largest-contentful-paint": 6479,
-        "total-blocking-time": 89,
+        "first-contentful-paint": 1354,
+        "largest-contentful-paint": 6138,
+        "total-blocking-time": 58,
         "cumulative-layout-shift": 0.129,
-        "speed-index": 1858,
-        "interactive": 7409
+        "speed-index": 1618,
+        "interactive": 6885
       }
     },
     "/news": {
       "runs": 3,
       "scores": {
-        "performance": 0.72,
-        "accessibility": 0.99,
+        "performance": 0.73,
+        "accessibility": 1,
         "best-practices": 1,
         "seo": 0.92
       },
       "metrics": {
-        "first-contentful-paint": 2860,
-        "largest-contentful-paint": 6685,
-        "total-blocking-time": 22,
+        "first-contentful-paint": 3006,
+        "largest-contentful-paint": 5856,
+        "total-blocking-time": 6,
         "cumulative-layout-shift": 0.001,
-        "speed-index": 2860,
-        "interactive": 7649
+        "speed-index": 3006,
+        "interactive": 7594
       }
     },
     "/screener": {
       "runs": 3,
       "scores": {
-        "performance": 0.86,
-        "accessibility": 0.99,
+        "performance": 0.87,
+        "accessibility": 1,
         "best-practices": 1,
         "seo": 0.92
       },
       "metrics": {
-        "first-contentful-paint": 1205,
-        "largest-contentful-paint": 4221,
-        "total-blocking-time": 64,
+        "first-contentful-paint": 1203,
+        "largest-contentful-paint": 4064,
+        "total-blocking-time": 23,
         "cumulative-layout-shift": 0.001,
-        "speed-index": 1205,
-        "interactive": 5771
+        "speed-index": 1203,
+        "interactive": 5308
       }
     },
     "/methodology": {
       "runs": 3,
       "scores": {
-        "performance": 0.87,
-        "accessibility": 0.99,
+        "performance": 0.88,
+        "accessibility": 1,
         "best-practices": 1,
         "seo": 0.92
       },
       "metrics": {
-        "first-contentful-paint": 1205,
-        "largest-contentful-paint": 4074,
-        "total-blocking-time": 48,
+        "first-contentful-paint": 1203,
+        "largest-contentful-paint": 3919,
+        "total-blocking-time": 5,
         "cumulative-layout-shift": 0.001,
-        "speed-index": 1205,
-        "interactive": 5480
+        "speed-index": 1203,
+        "interactive": 4827
       }
     }
   }

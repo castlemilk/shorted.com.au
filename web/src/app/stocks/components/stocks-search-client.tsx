@@ -103,7 +103,7 @@ export function StocksSearchClient({ popularStocks }: StocksSearchClientProps) {
   // Get sector color
   const getSectorColor = (sector?: string) => {
     const colors: Record<string, string> = {
-      Banking: "from-emerald-500/20 to-emerald-600/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400",
+      Banking: "from-emerald-500/20 to-emerald-600/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400",
       Mining: "from-amber-500/20 to-amber-600/10 border-amber-500/30 text-amber-600 dark:text-amber-400",
       Healthcare: "from-pink-500/20 to-pink-600/10 border-pink-500/30 text-pink-600 dark:text-pink-400",
       Technology: "from-blue-500/20 to-blue-600/10 border-blue-500/30 text-blue-600 dark:text-blue-400",

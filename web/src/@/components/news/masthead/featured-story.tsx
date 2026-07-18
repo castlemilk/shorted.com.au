@@ -7,6 +7,18 @@ import type { FeaturedItem } from "./featured";
  * layers the page's OG art over an amber bloom so it degrades gracefully if the
  * image route is unavailable (background-image, not <img>, so no broken icon).
  */
+/**
+ * Route a same-origin image (e.g. the /features OG route, ~97KB PNG) through
+ * the Next.js image optimizer so the card ships a resized AVIF/WebP instead.
+ * Kept as a CSS background (see component docstring), so we build the
+ * /_next/image URL by hand. External URLs pass through untouched — the
+ * optimizer 400s on hosts outside remotePatterns.
+ */
+function optimizedBackgroundUrl(image: string): string {
+  if (!image.startsWith("/")) return image;
+  return `/_next/image?url=${encodeURIComponent(image)}&w=828&q=70`;
+}
+
 export function FeaturedStory({ item }: { item: FeaturedItem }) {
   return (
     <section aria-label="Featured investigation">
@@ -29,7 +41,7 @@ export function FeaturedStory({ item }: { item: FeaturedItem }) {
               <div
                 aria-hidden
                 className="absolute inset-0 bg-cover bg-center opacity-95 transition-transform duration-700 group-hover:scale-[1.02]"
-                style={{ backgroundImage: `url('${item.image}')` }}
+                style={{ backgroundImage: `url('${optimizedBackgroundUrl(item.image)}')` }}
               />
             ) : null}
           </div>

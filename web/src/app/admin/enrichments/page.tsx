@@ -248,7 +248,7 @@ export default async function AdminEnrichmentsPage({
         {error && (
           <Card className="border-red-200 bg-red-50 dark:bg-red-950/20">
             <CardHeader>
-              <CardTitle className="text-red-600 dark:text-red-400">
+              <CardTitle className="text-red-700 dark:text-red-400">
                 Error Loading Data
               </CardTitle>
               <CardDescription className="text-red-600/80 dark:text-red-400/80">

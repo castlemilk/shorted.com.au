@@ -380,7 +380,7 @@ export function EnrichmentJobsStatus() {
       {(processError != null || processSuccess != null) && (
         <CardContent className="pb-2">
           {processError && (
-            <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/20 p-2 rounded border border-red-200 dark:border-red-800">
+            <div className="text-sm text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/20 p-2 rounded border border-red-200 dark:border-red-800">
               {processError}
             </div>
           )}

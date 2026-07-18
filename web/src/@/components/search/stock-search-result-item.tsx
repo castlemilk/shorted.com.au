@@ -60,7 +60,7 @@ export function StockSearchResultItem({
   const getStockGradient = (code: string) => {
     const gradients = [
       "from-blue-500/20 to-blue-600/10 text-blue-600 dark:text-blue-400 ring-blue-500/20",
-      "from-emerald-500/20 to-emerald-600/10 text-emerald-600 dark:text-emerald-400 ring-emerald-500/20",
+      "from-emerald-500/20 to-emerald-600/10 text-emerald-700 dark:text-emerald-400 ring-emerald-500/20",
       "from-amber-500/20 to-amber-600/10 text-amber-600 dark:text-amber-400 ring-amber-500/20",
       "from-purple-500/20 to-purple-600/10 text-purple-600 dark:text-purple-400 ring-purple-500/20",
       "from-pink-500/20 to-pink-600/10 text-pink-600 dark:text-pink-400 ring-pink-500/20",
@@ -152,7 +152,7 @@ export function StockSearchResultItem({
                 <Percent className="w-3 h-3 text-red-500" />
               </div>
               <span className="text-muted-foreground">Short:</span>
-              <span className="font-semibold text-red-600 dark:text-red-400">
+              <span className="font-semibold text-red-700 dark:text-red-400">
                 {stock.percentage_shorted.toFixed(2)}%
               </span>
             </div>
@@ -180,7 +180,7 @@ export function StockSearchResultItem({
                     "flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[11px] font-medium",
                     isPricePositive 
                       ? "bg-green-500/10 text-green-600 dark:text-green-400" 
-                      : "bg-red-500/10 text-red-600 dark:text-red-400"
+                      : "bg-red-500/10 text-red-700 dark:text-red-400"
                   )}>
                     {isPricePositive ? (
                       <TrendingUp className="w-3 h-3" />

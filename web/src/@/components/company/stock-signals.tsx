@@ -55,8 +55,8 @@ function SignalItem({ s }: { s: SignalView }) {
         className={cn(
           "h-4 w-4 mt-0.5 shrink-0",
           adverse
-            ? "text-red-600 dark:text-red-400"
-            : "text-emerald-600 dark:text-emerald-400",
+            ? "text-red-700 dark:text-red-400"
+            : "text-emerald-700 dark:text-emerald-400",
         )}
       />
       <div className="flex-1 min-w-0">
@@ -144,7 +144,7 @@ export function StockSignals({ stockCode, limit = 6 }: StockSignalsProps) {
       <CardContent className="space-y-5">
         {visibleAdverse.length > 0 && (
           <div className="space-y-3">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-red-600 dark:text-red-400 flex items-center gap-1.5">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-red-700 dark:text-red-400 flex items-center gap-1.5">
               <ShieldAlert className="h-3.5 w-3.5" aria-hidden /> Adverse
             </h4>
             {visibleAdverse.map((s, i) => (
@@ -154,7 +154,7 @@ export function StockSignals({ stockCode, limit = 6 }: StockSignalsProps) {
         )}
         {visiblePositive.length > 0 && (
           <div className="space-y-3">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
               <Award className="h-3.5 w-3.5" aria-hidden /> Positive
             </h4>
             {visiblePositive.map((s, i) => (

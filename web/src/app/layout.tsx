@@ -18,7 +18,8 @@ import {
   DevelopmentBanner,
 } from "~/@/components/ui/environment-banner";
 import { WebVitalsReporter } from "~/@/components/web-vitals-reporter";
-import { GoogleAnalytics } from "@next/third-parties/google";
+import { Suspense } from "react";
+import { DeferredGoogleAnalytics } from "~/@/components/deferred-google-analytics";
 import { CloudflareWebAnalytics } from "~/@/components/cloudflare-web-analytics";
 import { CloudflareJsDetections } from "~/@/components/cloudflare-js-detections";
 
@@ -182,7 +183,9 @@ export default function RootLayout({
             browser never opens a direct connection to storage.googleapis.com
             on first paint — a preconnect there is wasted (Lighthouse flag).
             Keep the near-free dns-prefetch as a hint for any direct fetch. */}
-        <link rel="preconnect" href="https://www.googletagmanager.com" />
+        {/* gtag.js is idle-deferred (DeferredGoogleAnalytics), so a first-paint
+            preconnect would open a connection ~seconds before it's used —
+            dns-prefetch alone is the right hint now. */}
         <link rel="dns-prefetch" href="https://storage.googleapis.com" />
         <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
         {/* News-card image CDNs — improves LCP on /news + per-stock /news. */}
@@ -259,7 +262,12 @@ export default function RootLayout({
           </ThemeProvider>
         </NextAuthProvider>
         {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
-          <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID} />
+          // Suspense: useSearchParams inside requires a boundary in a layout.
+          <Suspense fallback={null}>
+            <DeferredGoogleAnalytics
+              gaId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}
+            />
+          </Suspense>
         )}
         <CloudflareWebAnalytics />
         <CloudflareJsDetections />

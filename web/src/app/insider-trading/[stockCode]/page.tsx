@@ -279,7 +279,7 @@ export default async function StockInsiderTradingPage({ params }: PageProps) {
             </div>
             <div>
               <dt className="text-muted-foreground">Bought (value)</dt>
-              <dd className="font-semibold text-base text-emerald-600 dark:text-emerald-400">
+              <dd className="font-semibold text-base text-emerald-700 dark:text-emerald-400">
                 {formatMoney(totalBoughtValue)}
               </dd>
             </div>
@@ -295,7 +295,7 @@ export default async function StockInsiderTradingPage({ params }: PageProps) {
                 className={cn(
                   "font-semibold text-base",
                   netSentiment > 0
-                    ? "text-emerald-600 dark:text-emerald-400"
+                    ? "text-emerald-700 dark:text-emerald-400"
                     : netSentiment < 0
                       ? "text-rose-600 dark:text-rose-400"
                       : "",

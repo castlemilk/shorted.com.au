@@ -242,7 +242,9 @@ export default function MethodologyPage() {
             The short interest percentage we display is the ASIC-reported
             figure, calculated as:
           </p>
-          <pre className="mt-4 rounded-md bg-muted p-4 text-sm overflow-x-auto">
+          {/* text-foreground: prose's default pre colour assumes a dark code
+              block and fails WCAG AA on bg-muted in light mode */}
+          <pre className="mt-4 rounded-md bg-muted p-4 text-sm overflow-x-auto text-foreground">
 {`short_interest_% = reported_short_positions / total_product_in_issue × 100`}
           </pre>
           <p>
