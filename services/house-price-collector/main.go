@@ -22,7 +22,7 @@ func main() {
 // 3 = a crawl needs a human to re-warm the Chrome profile (Kasada/Akamai
 // clearance expired). Wrapping the body lets deferred cleanup run before exit.
 func run() int {
-	mode := flag.String("mode", "all", "official | crawl | listings | agent | enqueue | purge | warmcheck | backfill-address | census | electorates | amenities | lga | connectivity | funding | council-financials | refresh | all")
+	mode := flag.String("mode", "all", "official | crawl | listings | agent | enqueue | purge | mcp | warmcheck | backfill-address | census | electorates | amenities | lga | connectivity | funding | council-financials | refresh | all")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -82,6 +82,12 @@ func run() int {
 		// source='both' jobs after the per-source split). DRY-RUN by default;
 		// criteria via PURGE_SOURCE/KIND/TIER/STATUSES + PURGE_DRY_RUN=false.
 		runPurge(ctx, pool)
+	case "mcp":
+		// Stdio MCP server exposing the brandbrain crawl queue as tools
+		// (crawl_status / crawl_purge / crawl_enqueue) so queue monitoring +
+		// cleaning is a single tool call. Registered in Claude Code; reuses the
+		// agent client's local-agent token auto-refresh. See crawl_mcp.go.
+		runMCP(ctx, pool)
 	case "warmcheck":
 		// Preflight verifier: fetches one REA search page via the SAME fetcher a
 		// real crawl uses and reports whether the dedicated Chrome's Kasada

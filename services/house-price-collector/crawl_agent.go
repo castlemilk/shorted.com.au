@@ -808,3 +808,29 @@ func runPurge(ctx context.Context, _ *pgxpool.Pool) {
 	log.Printf("[purge] %s: %d job(s) matched (source=%q kind=%q tier=%q statuses=%v)",
 		mode, resp.Purged, req.Source, req.Kind, req.Tier, statuses)
 }
+
+// crawlStatusJob is the minimal per-row shape the MCP status tool surfaces.
+type crawlStatusJob struct {
+	Suburb string `json:"suburb"`
+	State  string `json:"state"`
+	Source string `json:"source"`
+	Status string `json:"status"`
+}
+
+// crawlSummaryResult is the decoded GET /crawl-jobs response: a newest-first
+// row sample + the whole-queue kind→status→count summary.
+type crawlSummaryResult struct {
+	Jobs    []crawlStatusJob          `json:"jobs"`
+	Summary map[string]map[string]int `json:"summary"`
+}
+
+// crawlSummary fetches the queue status (whole-queue counts + a recent sample)
+// from the brandbrain agent API. Used by the -mode mcp crawl_status tool.
+func (c *brandbrainAgentClient) crawlSummary(ctx context.Context, limit int) (crawlSummaryResult, error) {
+	if limit <= 0 {
+		limit = 500
+	}
+	var out crawlSummaryResult
+	err := c.do(ctx, http.MethodGet, fmt.Sprintf("/api/v1/agent/crawl-jobs?limit=%d", limit), nil, &out)
+	return out, err
+}
