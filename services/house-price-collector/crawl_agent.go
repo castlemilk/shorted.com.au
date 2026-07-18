@@ -689,3 +689,61 @@ func agentJobOutcome(events, blockedSweeps int) string {
 	}
 	return "succeeded"
 }
+
+type crawlPurgeRequest struct {
+	Kind     string   `json:"kind,omitempty"`
+	Source   string   `json:"source,omitempty"`
+	Tier     string   `json:"tier,omitempty"`
+	Statuses []string `json:"statuses"`
+	DryRun   bool     `json:"dry_run"`
+}
+
+type crawlPurgeResponse struct {
+	Purged int  `json:"purged"`
+	DryRun bool `json:"dry_run"`
+}
+
+func (c *brandbrainAgentClient) purge(ctx context.Context, req crawlPurgeRequest) (crawlPurgeResponse, error) {
+	var resp crawlPurgeResponse
+	err := c.do(ctx, http.MethodPost, "/api/v1/agent/crawl-jobs/purge", req, &resp)
+	return resp, err
+}
+
+// runPurge is the -mode=purge entry point: invalidate stale queue entries via
+// the brandbrain purge endpoint, for cleaning up after a job-shape/schema
+// refactor (e.g. clearing legacy source='both' jobs after the per-source split).
+// Criteria from env: PURGE_SOURCE, PURGE_KIND, PURGE_TIER, PURGE_STATUSES
+// (comma, default "pending,in_progress"), PURGE_DRY_RUN (default "true" — set
+// "false" to actually delete). DRY-RUN by default so the operator previews the
+// match count before deleting.
+func runPurge(ctx context.Context, _ *pgxpool.Pool) {
+	acfg := loadAgentConfig()
+	if acfg.brandbrainURL == "" || (acfg.token == "" && acfg.controlURL == "") {
+		log.Printf("[purge] BRANDBRAIN_AGENT_URL + a token (BRANDBRAIN_AGENT_TOKEN, or a local agent control API) required — nothing to do")
+		return
+	}
+	var statuses []string
+	for _, p := range strings.Split(envStr("PURGE_STATUSES", "pending,in_progress"), ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			statuses = append(statuses, p)
+		}
+	}
+	req := crawlPurgeRequest{
+		Kind:     envStr("PURGE_KIND", ""),
+		Source:   envStr("PURGE_SOURCE", ""),
+		Tier:     envStr("PURGE_TIER", ""),
+		Statuses: statuses,
+		DryRun:   envStr("PURGE_DRY_RUN", "true") != "false",
+	}
+	resp, err := newBrandbrainAgentClient(acfg).purge(ctx, req)
+	if err != nil {
+		log.Printf("[purge] error: %v", err)
+		return
+	}
+	mode := "DRY-RUN — nothing deleted (set PURGE_DRY_RUN=false to delete)"
+	if !resp.DryRun {
+		mode = "DELETED"
+	}
+	log.Printf("[purge] %s: %d job(s) matched (source=%q kind=%q tier=%q statuses=%v)",
+		mode, resp.Purged, req.Source, req.Kind, req.Tier, statuses)
+}
