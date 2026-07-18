@@ -313,7 +313,7 @@ export default async function NewsIndexPage() {
         <MastheadHeader />
         <MarketPulse />
 
-        {FEATURED[0] ? <FeaturedStory item={FEATURED[0]} /> : null}
+        {FEATURED[0] ? <FeaturedStory item={FEATURED[0]} priority /> : null}
 
         {leadTake ? (
           <LeadStory take={leadTake} />
