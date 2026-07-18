@@ -50,6 +50,11 @@ const fontSerif = localFont({
   ],
   variable: "--font-serif",
   display: "swap",
+  // Editorial accent face only (font-serif surfaces: /news masthead, featured
+  // cards). Not preloaded: ~290KB of woff2 on EVERY route's critical path was
+  // the single largest preload cost (Lighthouse LCP dependency chain); Georgia
+  // fallback + swap covers the brief gap on the pages that use it.
+  preload: false,
   fallback: ["Georgia", "serif"],
   adjustFontFallback: false,
 });

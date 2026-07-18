@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import {
   Sheet,
   SheetContent,
@@ -11,7 +12,20 @@ import {
 import { Button } from "~/@/components/ui/button";
 import { MessageSquare, RotateCcw, Loader2, ArrowLeft, Lock } from "lucide-react";
 import { useChat } from "~/@/hooks/use-chat";
-import { ChatMessageBubble } from "./chat-message";
+
+// Lazy-load the message renderer: it pulls the whole streamdown markdown stack
+// (remark/rehype + KaTeX + shiki, ~280KB gz) which would otherwise ship in the
+// shared layout bundle on EVERY page. The sheet starts closed, so defer the
+// download until a message actually renders (i.e. the user opens the chat).
+const ChatMessageBubble = dynamic(
+  () => import("./chat-message").then((m) => m.ChatMessageBubble),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-8 w-2/3 animate-pulse rounded-md bg-muted/40" />
+    ),
+  }
+);
 import { ChatInput } from "./chat-input";
 import { QuickActions } from "./quick-actions";
 import { ChatConversationList } from "./chat-conversation-list";
