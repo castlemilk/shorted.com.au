@@ -170,6 +170,16 @@ export default function RootLayout({
       <head>
         {/* Inline critical CSS to prevent render-blocking */}
         <style dangerouslySetInnerHTML={{ __html: criticalCSS }} />
+        {/* Pre-paint session sniff: mark html.anon when no next-auth cookie is
+            present so critical CSS can reserve space for client-gated
+            signed-out UI (login banner) without layout shift. Synchronous and
+            tiny by design — must run before first paint. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              'try{/(?:^|; ?)(?:__Secure-)?next-auth\\.session-token=/.test(document.cookie)||document.documentElement.classList.add("anon")}catch(e){}',
+          }}
+        />
         {/* Non-critical CSS will be loaded by Next.js automatically */}
         {/* No fonts.googleapis/gstatic preconnects: next/font self-hosts all
             fonts at build time, so those origins are never contacted. */}

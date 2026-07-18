@@ -8,6 +8,14 @@ import { Button } from "./button";
 export function LoginPromptBanner() {
   const [isVisible, setIsVisible] = useState(true);
 
+  const dismiss = () => {
+    setIsVisible(false);
+    // Collapse the CLS-reservation slot (html.anon reserves the banner's
+    // height in critical CSS) — this shift follows user input, so it's
+    // CLS-exempt.
+    document.documentElement.classList.remove("anon");
+  };
+
   if (!isVisible) return null;
 
   return (
@@ -29,7 +37,7 @@ export function LoginPromptBanner() {
               variant="ghost"
               size="sm"
               className="h-8 w-8 p-0"
-              onClick={() => setIsVisible(false)}
+              onClick={dismiss}
             >
               <X className="h-4 w-4" />
               <span className="sr-only">Close</span>
