@@ -98,6 +98,17 @@ Extend `Views/RealEstateView.swift` (currently strictly read-only) with an "Auto
 - **Run now** + **Stop** buttons call the Swift `HousingCrawlSupervisor` **directly, in-process** (start/terminate the child). This is simpler than the Brands-tab precedent (`ControlAPIClient.startCrawl` → `POST /control/v1/crawl/start` → Go runtime), which is cited only to show the button→action UI pattern already exists — the housing path does **not** round-trip through the Go runtime or the loopback control API, keeping the DB secret entirely inside the Swift process.
 - **Last-run summary**: jobs · events · blocked · a "will re-warm next run" note when the collector circuit-breaks (exit 3). The existing progress bar + state-coverage view keep rendering from the queue poll.
 
+### C5 — Validation & observability (a solid footing to validate + improve the crawl)
+
+The point of bundling isn't just "it runs unattended" — it's a **tight feedback loop for iterating on crawl quality** (e.g. the recurring Unley-REA poison SRP we watched block every warm cycle). Beyond the aggregate panel (success % / blocked / stalled), add:
+
+- **Per-run, per-suburb, per-source outcome capture.** The collector already logs each job (`suburb/source → succeeded|failed: listings=N events=M blocked=B`). C3's supervisor parses these into a structured last-run report and appends to `~/.brandbrain/housing-crawl-runs.jsonl` (last N runs). The tab shows a compact per-run breakdown so poison SRPs are **visible + named**, not buried in a log.
+- **Block/poison surfacing.** The tab's blocked list names the **suburb + source** that blocked, so a recurring poison (Unley-REA) can be investigated or excluded — the core "improve" loop. (Ties into the open brandbrain re-pend follow-up, PR #168.)
+- **Validate (dry-run) affordance.** A **"Test run (no writes)"** button spawns the collector with `CRAWL_DRY_RUN=true` (already supported) — exercises the full warm→claim→crawl→extract path against live REA/Domain **without** writing `property_listings`, so the operator can confirm health after a code/config change before a real run.
+- **Targeted deep-debug pointer.** `CRAWL_TRACE` (per-page screenshots + `trace.jsonl`, local-only/gitignored) stays the single-suburb debug tool; the tab documents how to run it rather than embedding it.
+
+Scope guard (YAGNI): **no** time-series DB, **no** dashboards — just structured last-N-runs capture + the dry-run validate button + the named block list. Enough to validate a run and see what to fix next.
+
 ## Data & control flow
 
 1. Operator enters shorted DB URL once → Keychain.
@@ -118,6 +129,7 @@ Extend `Views/RealEstateView.swift` (currently strictly read-only) with an "Auto
 
 - **shorted (Go):** unit-test the dedicated-profile pid match (must never match a personal-profile Chrome command line), the wedged-detection predicate, and the auto-warm decision (`chromeReachable`/warmcheck → warm-or-not). Browser launch itself stays a local/manual integration check (`-mode agent` against a cold CDP port).
 - **brandbrain (Swift):** cadence-logic tests (tick skipped while running; Off disables), Keychain round-trip, and env-injection via a **stub binary that echoes its env** (assert `DATABASE_URL`/caps present, secret absent from any file). Build check: after `build-dmg.sh`, assert `Contents/Resources/housing-crawl-collector` exists, is executable, and is signed.
+- **C5 (validation):** parse a sample collector log into the structured per-suburb/per-source run report (assert blocked suburb+source is named); assert a dry-run "Test run" spawns with `CRAWL_DRY_RUN=true` and the run-report round-trips to `housing-crawl-runs.jsonl`.
 - **E2E (local):** `make agent-ui-install` → enter DB URL → Run now → confirm a real crawl advances the brandbrain queue and the panel surfaces the summary.
 
 ## Retirement
@@ -127,7 +139,7 @@ On the Mac, the bundled agent **supersedes**: the launchd plist `com.shorted.hou
 ## Prerequisites & sequencing
 
 - **Panel branch first:** `RealEstateView.swift` + `crawl_jobs_view.go` currently live in the brandbrain `canvas-asset-sets` worktree, not `main`. That panel work must be merged/rebased onto `main` before C3/C4 land on top.
-- Suggested order: **C1** (shorted, independently shippable + testable) → **C2** (brandbrain build) → **C3** (supervisor + Keychain) → **C4** (UI) → E2E.
+- Suggested order: **C1** (shorted, independently shippable + testable) → **C2** (brandbrain build) → **C3** (supervisor + Keychain, incl. the C5 run-report capture) → **C4** (UI, incl. the C5 per-run breakdown + dry-run "Test run" button) → E2E. C5 is not a separate phase — its capture lands in C3 and its surfacing in C4.
 
 ## Out of scope (YAGNI)
 
