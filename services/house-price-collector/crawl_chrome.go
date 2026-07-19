@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -85,4 +86,56 @@ func loadChromeConfig(cdpURL string) chromeConfig {
 		autoWarm:   envStr("CRAWL_AUTO_WARM", "true") != "false",
 		startURL:   "https://www.realestate.com.au/",
 	}
+}
+
+// chromeDeps are the side-effecting operations ensureChromeWarm calls, injected
+// so the state machine is unit-testable without a real browser. In production
+// they are chromeReachable / launchDedicatedChrome / recoverWedgedChrome and a
+// warmProbe backed by runWarmCheck.
+type chromeDeps struct {
+	reachable func(cdpURL string) bool
+	launch    func(cfg chromeConfig) error
+	recover   func(cfg chromeConfig) error
+	warmProbe func() int // 0=warm, 4=wedged/unusable, 5=reachable-but-Kasada-stub
+}
+
+const warmMaxAttempts = 2
+
+// ensureChromeWarm guarantees the dedicated Chrome is reachable over CDP and its
+// REA/Kasada session is warm before a crawl runs — the in-process port of
+// run-housing-agent.sh steps 1-2. Returns an error (mapped by the caller to a
+// re-warm exit) if Chrome can't be made reachable or warm within the bounds.
+func ensureChromeWarm(cfg chromeConfig, deps chromeDeps) error {
+	// 1. Reachable at all — auto-launch rather than requiring a human.
+	if !deps.reachable(cfg.cdpURL) {
+		log.Printf("[agent] chrome unreachable at %s — auto-launching dedicated Chrome", cfg.cdpURL)
+		if err := deps.launch(cfg); err != nil {
+			return fmt.Errorf("launch dedicated Chrome: %w", err)
+		}
+		if !deps.reachable(cfg.cdpURL) {
+			return fmt.Errorf("chrome still unreachable at %s after launch", cfg.cdpURL)
+		}
+	}
+
+	// 2. Reachable != warm — PROVE the Kasada session cleared. rc 5 (cold stub) →
+	//    relaunch; rc 4 (wedged/no context) → hard-recover; re-probe up to twice.
+	rc := deps.warmProbe()
+	for attempts := 0; (rc == 5 || rc == 4) && attempts < warmMaxAttempts; attempts++ {
+		if rc == 4 {
+			log.Printf("[agent] warm probe rc=4 (Chrome wedged) — hard-recovering (attempt %d/%d)", attempts+1, warmMaxAttempts)
+			if err := deps.recover(cfg); err != nil {
+				return fmt.Errorf("recover wedged Chrome: %w", err)
+			}
+		} else {
+			log.Printf("[agent] warm probe rc=5 (Kasada stub) — relaunching to re-warm (attempt %d/%d)", attempts+1, warmMaxAttempts)
+			if err := deps.launch(cfg); err != nil {
+				return fmt.Errorf("relaunch dedicated Chrome: %w", err)
+			}
+		}
+		rc = deps.warmProbe()
+	}
+	if rc != 0 {
+		return fmt.Errorf("chrome not warm after %d attempt(s) (last warmcheck rc=%d)", warmMaxAttempts, rc)
+	}
+	return nil
 }

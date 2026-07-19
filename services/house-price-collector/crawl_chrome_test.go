@@ -87,3 +87,82 @@ func TestLoadChromeConfigAutoWarmOff(t *testing.T) {
 		t.Errorf("CRAWL_AUTO_WARM=false should disable autoWarm")
 	}
 }
+
+func TestEnsureChromeWarm(t *testing.T) {
+	cfg := chromeConfig{cdpURL: "http://localhost:9333", autoWarm: true}
+
+	// Already reachable + warm on the first probe → no launch, no recover.
+	t.Run("reachable_and_warm", func(t *testing.T) {
+		launches, recovers := 0, 0
+		deps := chromeDeps{
+			reachable: func(string) bool { return true },
+			launch:    func(chromeConfig) error { launches++; return nil },
+			recover:   func(chromeConfig) error { recovers++; return nil },
+			warmProbe: func() int { return 0 },
+		}
+		if err := ensureChromeWarm(cfg, deps); err != nil {
+			t.Fatalf("err = %v, want nil", err)
+		}
+		if launches != 0 || recovers != 0 {
+			t.Fatalf("launches=%d recovers=%d, want 0/0", launches, recovers)
+		}
+	})
+
+	// Unreachable, launch makes it reachable, then warm.
+	t.Run("unreachable_then_launched_warm", func(t *testing.T) {
+		reachableCalls := 0
+		launches := 0
+		deps := chromeDeps{
+			reachable: func(string) bool { reachableCalls++; return reachableCalls > 1 }, // false, then true
+			launch:    func(chromeConfig) error { launches++; return nil },
+			recover:   func(chromeConfig) error { return nil },
+			warmProbe: func() int { return 0 },
+		}
+		if err := ensureChromeWarm(cfg, deps); err != nil {
+			t.Fatalf("err = %v, want nil", err)
+		}
+		if launches != 1 {
+			t.Fatalf("launches=%d, want 1", launches)
+		}
+	})
+
+	// Reachable but never warm → give up after 2 relaunch attempts (error).
+	t.Run("never_warm_gives_up", func(t *testing.T) {
+		launches := 0
+		deps := chromeDeps{
+			reachable: func(string) bool { return true },
+			launch:    func(chromeConfig) error { launches++; return nil },
+			recover:   func(chromeConfig) error { return nil },
+			warmProbe: func() int { return 5 }, // Kasada stub forever
+		}
+		if err := ensureChromeWarm(cfg, deps); err == nil {
+			t.Fatalf("err = nil, want not-warm error")
+		}
+		if launches != 2 {
+			t.Fatalf("launches=%d, want 2 (bounded re-warm attempts)", launches)
+		}
+	})
+
+	// Wedged (rc 4) on first probe → recover, then warm.
+	t.Run("wedged_then_recovered", func(t *testing.T) {
+		probeCalls, recovers := 0, 0
+		deps := chromeDeps{
+			reachable: func(string) bool { return true },
+			launch:    func(chromeConfig) error { return nil },
+			recover:   func(chromeConfig) error { recovers++; return nil },
+			warmProbe: func() int {
+				probeCalls++
+				if probeCalls == 1 {
+					return 4
+				}
+				return 0
+			},
+		}
+		if err := ensureChromeWarm(cfg, deps); err != nil {
+			t.Fatalf("err = %v, want nil", err)
+		}
+		if recovers != 1 {
+			t.Fatalf("recovers=%d, want 1 (rc4 hard-recovers)", recovers)
+		}
+	})
+}
