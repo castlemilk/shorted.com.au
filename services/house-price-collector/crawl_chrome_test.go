@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -39,16 +40,19 @@ func TestChromeCDPPort(t *testing.T) {
 func TestMatchDedicatedPIDs(t *testing.T) {
 	profile := "/Users/ben/.shorted-housing-crawl-chrome"
 	// Realistic `ps -axww -o pid=,command=` output: the dedicated Chrome, the
-	// PERSONAL Chrome (must NEVER match), a helper without the flag, and grep noise.
+	// PERSONAL Chrome (must NEVER match), a helper without the flag, grep noise,
+	// and a SIBLING profile whose path is a prefix-superset of the dedicated one
+	// (must NEVER match either — a bare substring match would catch it).
 	psOut := "" +
 		"  501 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --remote-debugging-port=9333 --user-data-dir=/Users/ben/.shorted-housing-crawl-chrome https://www.realestate.com.au/\n" +
 		"  777 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --user-data-dir=/Users/ben/Library/Application Support/Google/Chrome\n" +
 		"  888 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome Helper (Renderer)\n" +
-		"  999 grep -F -- --user-data-dir=/Users/ben/.shorted-housing-crawl-chrome\n"
+		"  999 grep -F -- --user-data-dir=/Users/ben/.shorted-housing-crawl-chrome\n" +
+		"  606 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --user-data-dir=/Users/ben/.shorted-housing-crawl-chrome-backup\n"
 
 	got := matchDedicatedPIDs(psOut, profile)
 	if len(got) != 1 || got[0] != 501 {
-		t.Fatalf("matchDedicatedPIDs = %v, want [501] (dedicated only, never the personal profile or grep)", got)
+		t.Fatalf("matchDedicatedPIDs = %v, want [501] (dedicated only, never the personal profile, a sibling-prefix profile, or grep)", got)
 	}
 
 	// Empty profile must match NOTHING (guards against a defaulting bug turning
@@ -163,6 +167,29 @@ func TestEnsureChromeWarm(t *testing.T) {
 		}
 		if recovers != 1 {
 			t.Fatalf("recovers=%d, want 1 (rc4 hard-recovers)", recovers)
+		}
+	})
+
+	// Wedged (rc 4) and recover itself fails → fail fast. Refusing to proceed is
+	// safer than risking a second Chrome instance, so launch/warmProbe must NOT
+	// be called again after the failed recover.
+	t.Run("recover_error_fails_fast", func(t *testing.T) {
+		launches, probes := 0, 0
+		deps := chromeDeps{
+			reachable: func(string) bool { return true },
+			launch:    func(chromeConfig) error { launches++; return nil },
+			recover:   func(chromeConfig) error { return fmt.Errorf("kill failed: still alive") },
+			warmProbe: func() int { probes++; return 4 }, // wedged on every probe
+		}
+		err := ensureChromeWarm(cfg, deps)
+		if err == nil {
+			t.Fatalf("err = nil, want non-nil (recover failure must fail fast)")
+		}
+		if probes != 1 {
+			t.Fatalf("warmProbe called %d times, want 1 (no re-probe after failed recover)", probes)
+		}
+		if launches != 0 {
+			t.Fatalf("launches=%d, want 0 (no launch after failed recover)", launches)
 		}
 	})
 }
