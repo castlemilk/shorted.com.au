@@ -32,3 +32,25 @@ func TestChromeCDPPort(t *testing.T) {
 		}
 	}
 }
+
+func TestMatchDedicatedPIDs(t *testing.T) {
+	profile := "/Users/ben/.shorted-housing-crawl-chrome"
+	// Realistic `ps -axww -o pid=,command=` output: the dedicated Chrome, the
+	// PERSONAL Chrome (must NEVER match), a helper without the flag, and grep noise.
+	psOut := "" +
+		"  501 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --remote-debugging-port=9333 --user-data-dir=/Users/ben/.shorted-housing-crawl-chrome https://www.realestate.com.au/\n" +
+		"  777 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --user-data-dir=/Users/ben/Library/Application Support/Google/Chrome\n" +
+		"  888 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome Helper (Renderer)\n" +
+		"  999 grep -F -- --user-data-dir=/Users/ben/.shorted-housing-crawl-chrome\n"
+
+	got := matchDedicatedPIDs(psOut, profile)
+	if len(got) != 1 || got[0] != 501 {
+		t.Fatalf("matchDedicatedPIDs = %v, want [501] (dedicated only, never the personal profile or grep)", got)
+	}
+
+	// Empty profile must match NOTHING (guards against a defaulting bug turning
+	// this into "kill every Chrome").
+	if pids := matchDedicatedPIDs(psOut, ""); len(pids) != 0 {
+		t.Fatalf("matchDedicatedPIDs(_, \"\") = %v, want [] — empty profile must never match", pids)
+	}
+}
