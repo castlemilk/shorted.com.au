@@ -2,6 +2,7 @@ import { type Metadata } from "next";
 import { Suspense } from "react";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { StocksSearchClient } from "./components/stocks-search-client";
+import { CompanyDirectory } from "./components/company-directory";
 import { siteConfig } from "~/@/config/site";
 
 export const metadata: Metadata = {
@@ -61,6 +62,11 @@ export default function StocksPage() {
     <DashboardLayout>
       <Suspense fallback={<div className="h-96 animate-pulse rounded bg-muted" />}>
         <StocksSearchClient popularStocks={POPULAR_STOCKS} />
+      </Suspense>
+      {/* Server-rendered directory: real company list + logos below the
+          search box (crawlable /shorts/* links; search stays interactive) */}
+      <Suspense fallback={<div className="mt-8 h-64 animate-pulse rounded bg-muted" />}>
+        <CompanyDirectory />
       </Suspense>
     </DashboardLayout>
   );
