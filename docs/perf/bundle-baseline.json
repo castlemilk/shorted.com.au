@@ -1,0 +1,410 @@
+{
+  "capturedAt": "2026-07-16T13:04:13.624Z",
+  "gitRef": null,
+  "unit": "kB (Next First Load JS, raw)",
+  "sharedByAllKB": 95.1,
+  "routes": {
+    "/": {
+      "firstLoadKB": 194
+    },
+    "/_not-found": {
+      "firstLoadKB": 95.2
+    },
+    "/about": {
+      "firstLoadKB": 122
+    },
+    "/admin": {
+      "firstLoadKB": 136
+    },
+    "/admin/broadcasts": {
+      "firstLoadKB": 107
+    },
+    "/admin/enrichments": {
+      "firstLoadKB": 170
+    },
+    "/admin/takes": {
+      "firstLoadKB": 102
+    },
+    "/admin/takes/[slug]": {
+      "firstLoadKB": 589
+    },
+    "/alerts": {
+      "firstLoadKB": 127
+    },
+    "/api/about/statistics": {
+      "firstLoadKB": 0
+    },
+    "/api/about/warm-cache": {
+      "firstLoadKB": 0
+    },
+    "/api/admin/regen-hero": {
+      "firstLoadKB": 0
+    },
+    "/api/agent/api-catalog": {
+      "firstLoadKB": 0
+    },
+    "/api/agent/mcp-server-card": {
+      "firstLoadKB": 0
+    },
+    "/api/auth/[...nextauth]": {
+      "firstLoadKB": 0
+    },
+    "/api/chat": {
+      "firstLoadKB": 0
+    },
+    "/api/community/[stockCode]/pulse": {
+      "firstLoadKB": 0
+    },
+    "/api/community/[stockCode]/pulse/[pulseId]/replies": {
+      "firstLoadKB": 0
+    },
+    "/api/community/[stockCode]/summary": {
+      "firstLoadKB": 0
+    },
+    "/api/community/[stockCode]/threads": {
+      "firstLoadKB": 0
+    },
+    "/api/community/[stockCode]/threads/[threadId]": {
+      "firstLoadKB": 0
+    },
+    "/api/community/[stockCode]/threads/[threadId]/comments": {
+      "firstLoadKB": 0
+    },
+    "/api/community/reports": {
+      "firstLoadKB": 0
+    },
+    "/api/community/votes": {
+      "firstLoadKB": 0
+    },
+    "/api/docs": {
+      "firstLoadKB": 95.2
+    },
+    "/api/email/img": {
+      "firstLoadKB": 0
+    },
+    "/api/health": {
+      "firstLoadKB": 0
+    },
+    "/api/homepage/warm-cache": {
+      "firstLoadKB": 0
+    },
+    "/api/market-data/correlations": {
+      "firstLoadKB": 0
+    },
+    "/api/market-data/historical": {
+      "firstLoadKB": 0
+    },
+    "/api/market-data/multiple-quotes": {
+      "firstLoadKB": 0
+    },
+    "/api/mcp/[transport]": {
+      "firstLoadKB": 0
+    },
+    "/api/og/twitter/[type]": {
+      "firstLoadKB": 0
+    },
+    "/api/pages/warm-cache": {
+      "firstLoadKB": 0
+    },
+    "/api/revalidate": {
+      "firstLoadKB": 0
+    },
+    "/api/search/stocks": {
+      "firstLoadKB": 0
+    },
+    "/api/stocks/multiple": {
+      "firstLoadKB": 0
+    },
+    "/api/stripe/checkout": {
+      "firstLoadKB": 0
+    },
+    "/api/stripe/portal": {
+      "firstLoadKB": 0
+    },
+    "/api/stripe/webhook": {
+      "firstLoadKB": 0
+    },
+    "/api/unsubscribe": {
+      "firstLoadKB": 0
+    },
+    "/api/version": {
+      "firstLoadKB": 0
+    },
+    "/api/warm-pages": {
+      "firstLoadKB": 0
+    },
+    "/authors": {
+      "firstLoadKB": 131
+    },
+    "/authors/[slug]": {
+      "firstLoadKB": 131
+    },
+    "/battlegrounds": {
+      "firstLoadKB": 196
+    },
+    "/blog": {
+      "firstLoadKB": 115
+    },
+    "/blog/[slug]": {
+      "firstLoadKB": 119
+    },
+    "/blog/[slug]/llm": {
+      "firstLoadKB": 0
+    },
+    "/blog/[slug]/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/chat": {
+      "firstLoadKB": 719
+    },
+    "/chat.v1.ChatService/[method]": {
+      "firstLoadKB": 0
+    },
+    "/compare": {
+      "firstLoadKB": 103
+    },
+    "/compare/[pair]": {
+      "firstLoadKB": 103
+    },
+    "/dashboards": {
+      "firstLoadKB": 261
+    },
+    "/data": {
+      "firstLoadKB": 131
+    },
+    "/developer": {
+      "firstLoadKB": 119
+    },
+    "/directory": {
+      "firstLoadKB": 131
+    },
+    "/directory/[letter]": {
+      "firstLoadKB": 131
+    },
+    "/disclaimer": {
+      "firstLoadKB": 103
+    },
+    "/docs/api": {
+      "firstLoadKB": 124
+    },
+    "/docs/api-reference": {
+      "firstLoadKB": 0
+    },
+    "/docs/api/[endpoint]": {
+      "firstLoadKB": 115
+    },
+    "/docs/api/clients/[language]": {
+      "firstLoadKB": 102
+    },
+    "/docs/llm-context": {
+      "firstLoadKB": 102
+    },
+    "/docs/llm-context-raw": {
+      "firstLoadKB": 0
+    },
+    "/e2e-chat-render": {
+      "firstLoadKB": 589
+    },
+    "/embed/bank-basket": {
+      "firstLoadKB": 96.7
+    },
+    "/embed/chart": {
+      "firstLoadKB": 96.7
+    },
+    "/embed/top-shorts": {
+      "firstLoadKB": 175
+    },
+    "/embed/treemap": {
+      "firstLoadKB": 96.7
+    },
+    "/faq": {
+      "firstLoadKB": 137
+    },
+    "/features/the-widow-maker": {
+      "firstLoadKB": 104
+    },
+    "/features/the-widow-maker/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/feed.xml": {
+      "firstLoadKB": 0
+    },
+    "/glossary": {
+      "firstLoadKB": 130
+    },
+    "/glossary/[term]": {
+      "firstLoadKB": 131
+    },
+    "/housing": {
+      "firstLoadKB": 131
+    },
+    "/housing/[state]": {
+      "firstLoadKB": 159
+    },
+    "/housing/[state]/[suburb]": {
+      "firstLoadKB": 159
+    },
+    "/housing/calculators": {
+      "firstLoadKB": 131
+    },
+    "/housing/suburbs": {
+      "firstLoadKB": 131
+    },
+    "/industry": {
+      "firstLoadKB": 135
+    },
+    "/industry-intelligence": {
+      "firstLoadKB": 151
+    },
+    "/industry/[slug]": {
+      "firstLoadKB": 136
+    },
+    "/industry/[slug]/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/industry/[slug]/twitter-image": {
+      "firstLoadKB": 0
+    },
+    "/insider-trading": {
+      "firstLoadKB": 131
+    },
+    "/insider-trading/[stockCode]": {
+      "firstLoadKB": 131
+    },
+    "/learn": {
+      "firstLoadKB": 130
+    },
+    "/learn/[slug]": {
+      "firstLoadKB": 131
+    },
+    "/market": {
+      "firstLoadKB": 131
+    },
+    "/market/[date]": {
+      "firstLoadKB": 131
+    },
+    "/methodology": {
+      "firstLoadKB": 103
+    },
+    "/metrics": {
+      "firstLoadKB": 117
+    },
+    "/news": {
+      "firstLoadKB": 137
+    },
+    "/news/[slug]": {
+      "firstLoadKB": 320
+    },
+    "/news/[slug]/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/news/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/portfolio": {
+      "firstLoadKB": 141
+    },
+    "/pricing": {
+      "firstLoadKB": 158
+    },
+    "/privacy": {
+      "firstLoadKB": 110
+    },
+    "/pulse": {
+      "firstLoadKB": 124
+    },
+    "/reports": {
+      "firstLoadKB": 131
+    },
+    "/reports/monthly/[slug]": {
+      "firstLoadKB": 131
+    },
+    "/reports/monthly/[slug]/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/reports/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/reports/weekly/[slug]": {
+      "firstLoadKB": 132
+    },
+    "/reports/weekly/[slug]/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/reports/yearly/[slug]": {
+      "firstLoadKB": 131
+    },
+    "/reports/yearly/[slug]/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/roadmap": {
+      "firstLoadKB": 109
+    },
+    "/robots.txt": {
+      "firstLoadKB": 0
+    },
+    "/scans": {
+      "firstLoadKB": 131
+    },
+    "/scans/[slug]": {
+      "firstLoadKB": 131
+    },
+    "/screener": {
+      "firstLoadKB": 236
+    },
+    "/search": {
+      "firstLoadKB": 131
+    },
+    "/seasonality": {
+      "firstLoadKB": 103
+    },
+    "/shorts": {
+      "firstLoadKB": 185
+    },
+    "/shorts/[stockCode]": {
+      "firstLoadKB": 304
+    },
+    "/shorts/[stockCode]/community/[threadId]": {
+      "firstLoadKB": 133
+    },
+    "/shorts/[stockCode]/news": {
+      "firstLoadKB": 137
+    },
+    "/shorts/[stockCode]/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/signin": {
+      "firstLoadKB": 160
+    },
+    "/signup": {
+      "firstLoadKB": 160
+    },
+    "/sitemap.xml": {
+      "firstLoadKB": 0
+    },
+    "/statistics": {
+      "firstLoadKB": 131
+    },
+    "/stocks": {
+      "firstLoadKB": 204
+    },
+    "/subscribe/success": {
+      "firstLoadKB": 107
+    },
+    "/technology": {
+      "firstLoadKB": 118
+    },
+    "/terms": {
+      "firstLoadKB": 103
+    },
+    "/top": {
+      "firstLoadKB": 154
+    },
+    "/unsubscribe": {
+      "firstLoadKB": 96
+    }
+  }
+}

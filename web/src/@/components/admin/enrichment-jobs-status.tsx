@@ -380,7 +380,7 @@ export function EnrichmentJobsStatus() {
       {(processError != null || processSuccess != null) && (
         <CardContent className="pb-2">
           {processError && (
-            <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/20 p-2 rounded border border-red-200 dark:border-red-800">
+            <div className="text-sm text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/20 p-2 rounded border border-red-200 dark:border-red-800">
               {processError}
             </div>
           )}
@@ -496,7 +496,7 @@ export function EnrichmentJobsStatus() {
                     </span>
                   )}
                 </div>
-                <span className="text-muted-foreground text-xs font-light">
+                <span className="text-muted-foreground text-xs font-normal">
                   {formatTimestamp(job.completedAt)}
                 </span>
               </div>
@@ -543,7 +543,7 @@ export function EnrichmentJobsStatus() {
                         {job.stockCode}
                       </span>
                     </div>
-                    <span className="text-muted-foreground text-xs font-light">
+                    <span className="text-muted-foreground text-xs font-normal">
                       {formatTimestamp(job.completedAt)}
                     </span>
                   </div>

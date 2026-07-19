@@ -99,7 +99,7 @@ export function DividendHistory({
           {data.totalCount} dividend{data.totalCount !== 1 ? "s" : ""} in last{" "}
           {years} years
           {data.trailingYield > 0 && (
-            <span className="ml-2 font-medium text-emerald-600 dark:text-emerald-400">
+            <span className="ml-2 font-medium text-emerald-700 dark:text-emerald-400">
               Trailing yield: ${data.trailingYield.toFixed(4)}/share
             </span>
           )}

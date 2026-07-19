@@ -40,7 +40,7 @@ export function EndpointContent({ endpoint }: EndpointContentProps) {
                 <div className="flex items-center gap-2">
                   <span className="font-mono font-semibold text-blue-600 dark:text-blue-400">{param.name}</span>
                   <span className="text-xs text-zinc-500 uppercase">{param.in}</span>
-                  {param.required && <span className="text-[10px] bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded font-bold uppercase">Required</span>}
+                  {param.required && <span className="text-[10px] bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 px-1.5 py-0.5 rounded font-bold uppercase">Required</span>}
                 </div>
                 {param.description && <p className="text-sm text-muted-foreground">{param.description}</p>}
                 <SchemaViewer schema={param.schema} depth={1} />
@@ -73,7 +73,7 @@ export function EndpointContent({ endpoint }: EndpointContentProps) {
               <div className="flex items-center gap-2">
                 <span className={cn(
                   "text-xs font-bold px-1.5 py-0.5 rounded",
-                  code.startsWith('2') ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400" : "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
+                  code.startsWith('2') ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400" : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
                 )}>
                   {code}
                 </span>

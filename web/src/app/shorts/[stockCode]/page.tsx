@@ -455,12 +455,21 @@ const Page = async ({ params }: PageProps) => {
 
       {/* Signed-out breadcrumb to login — dismissible, above the fold.
           Client-gated: the ISR HTML is shared across sessions, so the
-          banner appears once the session resolves as signed-out. */}
-      <SignedOutOnly>
-        <div className="mb-4 overflow-hidden rounded-lg border border-primary/20">
-          <LoginPromptBanner />
-        </div>
-      </SignedOutOnly>
+          banner appears once the session resolves as signed-out.
+          CLS guard: the slot div is ALWAYS in the server HTML; a pre-paint
+          inline script in layout.tsx marks <html class="anon"> when no
+          next-auth session cookie exists, and critical CSS reserves the
+          banner's height under html.anon — so for the signed-out majority
+          the banner hydrates into pre-reserved space instead of shifting
+          the whole page down (~0.13 CLS on mobile). Signed-in visitors get
+          a zero-height slot. */}
+      <div className="login-slot">
+        <SignedOutOnly>
+          <div className="overflow-hidden rounded-lg border border-primary/20">
+            <LoginPromptBanner />
+          </div>
+        </SignedOutOnly>
+      </div>
 
       {/* Header: Profile & Stats (always visible above tabs) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 items-start mb-6">

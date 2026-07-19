@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { preload } from "react-dom";
 import type { FeaturedItem } from "./featured";
 
 /**
@@ -7,7 +8,32 @@ import type { FeaturedItem } from "./featured";
  * layers the page's OG art over an amber bloom so it degrades gracefully if the
  * image route is unavailable (background-image, not <img>, so no broken icon).
  */
-export function FeaturedStory({ item }: { item: FeaturedItem }) {
+/**
+ * Route a same-origin image (e.g. the /features OG route, ~97KB PNG) through
+ * the Next.js image optimizer so the card ships a resized AVIF/WebP instead.
+ * Kept as a CSS background (see component docstring), so we build the
+ * /_next/image URL by hand. External URLs pass through untouched — the
+ * optimizer 400s on hosts outside remotePatterns.
+ */
+function optimizedBackgroundUrl(image: string): string {
+  if (!image.startsWith("/")) return image;
+  return `/_next/image?url=${encodeURIComponent(image)}&w=828&q=70`;
+}
+
+export function FeaturedStory({
+  item,
+  priority = false,
+}: {
+  item: FeaturedItem;
+  /** Set on pages where this card is the LCP element (/news masthead): CSS
+   *  background images are discovered late (after CSS + DOM), so emit a
+   *  <link rel="preload" as="image"> for the optimized URL. Leave off where
+   *  the card is below the fold (homepage). */
+  priority?: boolean;
+}) {
+  if (priority && item.image) {
+    preload(optimizedBackgroundUrl(item.image), { as: "image" });
+  }
   return (
     <section aria-label="Featured investigation">
       <Link
@@ -26,10 +52,16 @@ export function FeaturedStory({ item }: { item: FeaturedItem }) {
               }}
             />
             {item.image ? (
-              <div
+              // Real <img> (not CSS background): the preload scanner and
+              // Lighthouse's LCP model both discover it from the HTML, and a
+              // decorative empty alt means a failed load renders blank — same
+              // graceful degradation as the old background-image approach.
+              <img
                 aria-hidden
-                className="absolute inset-0 bg-cover bg-center opacity-95 transition-transform duration-700 group-hover:scale-[1.02]"
-                style={{ backgroundImage: `url('${item.image}')` }}
+                alt=""
+                src={optimizedBackgroundUrl(item.image)}
+                fetchPriority={priority ? "high" : "auto"}
+                className="absolute inset-0 h-full w-full object-cover object-center opacity-95 transition-transform duration-700 group-hover:scale-[1.02]"
               />
             ) : null}
           </div>

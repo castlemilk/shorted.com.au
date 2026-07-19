@@ -80,7 +80,7 @@ export function CompanyInsightsCard({ data }: CompanyInsightsCardProps) {
       value: "advantages",
       label: "Competitive advantages",
       icon: (
-        <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+        <TrendingUp className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
       ),
       content: (
         <p className="text-sm text-muted-foreground leading-relaxed">
