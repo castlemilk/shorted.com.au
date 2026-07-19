@@ -98,6 +98,12 @@ resource "google_cloud_run_v2_service" "enrichment_processor" {
   template {
     service_account = google_service_account.enrichment_processor.email
 
+    # /process-queued and /enrich-batch process jobs synchronously inside the
+    # request (the handler allows 30 min) — the platform default of 300s was
+    # killing every run mid-job and stranding jobs in "processing"
+    # (2026-07-20 logo backfill incident). Match the handler's ceiling.
+    timeout = "3600s"
+
     containers {
       image = var.image_url
 

@@ -22,6 +22,11 @@ export function CompanyLogo({ src, code }: { src: string | null; code: string })
     );
   }
 
+  // SVG logos (the enrichment pipeline stores some as logos/svg/CODE.svg)
+  // can't go through the image optimizer without dangerouslyAllowSVG — serve
+  // them as-is; they're tiny and come from our own bucket.
+  const isSvg = src.split("?")[0]?.toLowerCase().endsWith(".svg");
+
   return (
     <Image
       src={src}
@@ -29,6 +34,7 @@ export function CompanyLogo({ src, code }: { src: string | null; code: string })
       width={36}
       height={36}
       sizes="36px"
+      unoptimized={isSvg}
       className="h-9 w-9 shrink-0 rounded-md bg-white object-contain p-0.5 ring-1 ring-border"
       onError={() => setFailed(true)}
     />
