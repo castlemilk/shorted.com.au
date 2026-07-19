@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestChromeCDPPort(t *testing.T) {
 	cases := []struct {
@@ -52,5 +55,35 @@ func TestMatchDedicatedPIDs(t *testing.T) {
 	// this into "kill every Chrome").
 	if pids := matchDedicatedPIDs(psOut, ""); len(pids) != 0 {
 		t.Fatalf("matchDedicatedPIDs(_, \"\") = %v, want [] — empty profile must never match", pids)
+	}
+}
+
+func TestLoadChromeConfigDefaults(t *testing.T) {
+	t.Setenv("HOUSING_CRAWL_CHROME_BIN", "")
+	t.Setenv("HOUSING_CRAWL_CHROME_PROFILE", "")
+	t.Setenv("CRAWL_AUTO_WARM", "")
+
+	cfg := loadChromeConfig("http://localhost:9333")
+	if cfg.cdpURL != "http://localhost:9333" {
+		t.Errorf("cdpURL = %q", cfg.cdpURL)
+	}
+	if cfg.bin == "" || !strings.Contains(cfg.bin, "Google Chrome") {
+		t.Errorf("bin default = %q, want the macOS Chrome path", cfg.bin)
+	}
+	if !strings.HasSuffix(cfg.profileDir, ".shorted-housing-crawl-chrome") {
+		t.Errorf("profileDir default = %q", cfg.profileDir)
+	}
+	if !cfg.autoWarm {
+		t.Errorf("autoWarm default = false, want true")
+	}
+	if cfg.startURL != "https://www.realestate.com.au/" {
+		t.Errorf("startURL = %q", cfg.startURL)
+	}
+}
+
+func TestLoadChromeConfigAutoWarmOff(t *testing.T) {
+	t.Setenv("CRAWL_AUTO_WARM", "false")
+	if loadChromeConfig("http://localhost:9333").autoWarm {
+		t.Errorf("CRAWL_AUTO_WARM=false should disable autoWarm")
 	}
 }

@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -59,4 +61,28 @@ func matchDedicatedPIDs(psOutput, profileDir string) []int {
 		pids = append(pids, pid)
 	}
 	return pids
+}
+
+// chromeConfig is the dedicated-Chrome lifecycle config for -mode agent.
+type chromeConfig struct {
+	bin        string // HOUSING_CRAWL_CHROME_BIN — Chrome executable
+	profileDir string // HOUSING_CRAWL_CHROME_PROFILE — dedicated --user-data-dir
+	cdpURL     string // from crawlConfig.cdpURL (CRAWL_CDP_URL)
+	autoWarm   bool   // CRAWL_AUTO_WARM (default true) — self-warm before crawling
+	startURL   string // REA startup URL whose native nav clears Kasada
+}
+
+const defaultChromeBin = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+
+// loadChromeConfig reads the dedicated-Chrome config, mirroring the defaults in
+// deploy/run-housing-agent.sh. cdpURL is threaded in from the crawl config.
+func loadChromeConfig(cdpURL string) chromeConfig {
+	home, _ := os.UserHomeDir()
+	return chromeConfig{
+		bin:        envStr("HOUSING_CRAWL_CHROME_BIN", defaultChromeBin),
+		profileDir: envStr("HOUSING_CRAWL_CHROME_PROFILE", filepath.Join(home, ".shorted-housing-crawl-chrome")),
+		cdpURL:     cdpURL,
+		autoWarm:   envStr("CRAWL_AUTO_WARM", "true") != "false",
+		startURL:   "https://www.realestate.com.au/",
+	}
 }
