@@ -305,6 +305,8 @@ This is the load-bearing fact the whole listings tier depends on, so it's encode
 2. **Session actually warm?** A reachable CDP port is *not* the same thing as a warm REA session (the profile's clearance cookie can simply have expired) — run `-mode warmcheck` as a preflight. If it reports cold, relaunch Chrome (`warm_chrome` again) and retry, **up to 2 re-warm attempts**.
 3. Only once warm does it run the real crawl (`-mode listings` then `-mode crawl`).
 
+**Now self-contained in the binary (C1, 2026-07).** The same warm → warmcheck → recover-wedged loop has been ported into the collector itself (`crawl_chrome.go`) as a preflight inside `-mode agent`: it auto-launches the dedicated Chrome (dedicated `--user-data-dir` only, never the personal profile), proves warmth via the `-mode warmcheck` classifier, and hard-recovers a wedged Chrome — all in-process, before claiming any job. The residential/scheduled path therefore no longer depends on the shell launcher for warming; the launcher's warm steps remain a belt-and-braces fallback for older binaries and non-collector schedulers. This self-warm is the foundation for bundling the crawl into the brandbrain macOS agent, which just spawns `-mode agent` and lets the binary manage Chrome (see `docs/superpowers/specs/2026-07-19-agent-bundled-housing-crawl-design.md`).
+
 **Exit codes** (mirrored by `main.go`, the launcher, and `deploy/README.md`):
 
 | Code | Meaning |
