@@ -496,7 +496,7 @@ export function EnrichmentJobsStatus() {
                     </span>
                   )}
                 </div>
-                <span className="text-muted-foreground text-xs font-light">
+                <span className="text-muted-foreground text-xs font-normal">
                   {formatTimestamp(job.completedAt)}
                 </span>
               </div>
@@ -543,7 +543,7 @@ export function EnrichmentJobsStatus() {
                         {job.stockCode}
                       </span>
                     </div>
-                    <span className="text-muted-foreground text-xs font-light">
+                    <span className="text-muted-foreground text-xs font-normal">
                       {formatTimestamp(job.completedAt)}
                     </span>
                   </div>

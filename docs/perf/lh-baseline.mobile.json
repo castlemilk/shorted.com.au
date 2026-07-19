@@ -2,7 +2,7 @@
   "url": "http://localhost:3020",
   "preset": "mobile",
   "runs": 3,
-  "capturedAt": "2026-07-18T23:37:17.634Z",
+  "capturedAt": "2026-07-19T00:53:13.813Z",
   "gitRef": null,
   "pages": {
     "/": {
@@ -14,12 +14,12 @@
         "seo": 0.92
       },
       "metrics": {
-        "first-contentful-paint": 1957,
-        "largest-contentful-paint": 4882,
-        "total-blocking-time": 27,
+        "first-contentful-paint": 1958,
+        "largest-contentful-paint": 4733,
+        "total-blocking-time": 34,
         "cumulative-layout-shift": 0.001,
-        "speed-index": 1957,
-        "interactive": 7368
+        "speed-index": 1958,
+        "interactive": 6501
       }
     },
     "/shorts/BHP": {
@@ -31,63 +31,63 @@
         "seo": 0.92
       },
       "metrics": {
-        "first-contentful-paint": 1354,
-        "largest-contentful-paint": 6137,
-        "total-blocking-time": 60,
+        "first-contentful-paint": 1356,
+        "largest-contentful-paint": 5952,
+        "total-blocking-time": 69,
         "cumulative-layout-shift": 0.001,
-        "speed-index": 1619,
-        "interactive": 6885
+        "speed-index": 1589,
+        "interactive": 6737
       }
     },
     "/news": {
       "runs": 3,
       "scores": {
-        "performance": 0.73,
+        "performance": 0.74,
         "accessibility": 1,
         "best-practices": 1,
         "seo": 0.92
       },
       "metrics": {
-        "first-contentful-paint": 3007,
-        "largest-contentful-paint": 5782,
-        "total-blocking-time": 4,
+        "first-contentful-paint": 3009,
+        "largest-contentful-paint": 5634,
+        "total-blocking-time": 10,
         "cumulative-layout-shift": 0.001,
-        "speed-index": 3007,
-        "interactive": 7534
+        "speed-index": 3009,
+        "interactive": 7299
       }
     },
     "/screener": {
       "runs": 3,
       "scores": {
-        "performance": 0.87,
+        "performance": 0.91,
         "accessibility": 1,
         "best-practices": 1,
         "seo": 0.92
       },
       "metrics": {
         "first-contentful-paint": 1204,
-        "largest-contentful-paint": 4066,
-        "total-blocking-time": 22,
+        "largest-contentful-paint": 3465,
+        "total-blocking-time": 13,
         "cumulative-layout-shift": 0.001,
         "speed-index": 1204,
-        "interactive": 5537
+        "interactive": 5071
       }
     },
     "/methodology": {
       "runs": 3,
       "scores": {
-        "performance": 0.88,
+        "performance": 0.89,
         "accessibility": 1,
         "best-practices": 1,
         "seo": 0.92
       },
       "metrics": {
         "first-contentful-paint": 1204,
-        "largest-contentful-paint": 3913,
-        "total-blocking-time": 3,
+        "largest-contentful-paint": 3763,
+        "total-blocking-time": 4,
         "cumulative-layout-shift": 0.001,
         "speed-index": 1204,
-        "interactive": 4822
+        "interactive": 4677
       }
     }
   }

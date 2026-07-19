@@ -1,4 +1,4 @@
-import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
+import { IBM_Plex_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import "~/styles/globals.css";
 import { criticalCSS } from "~/styles/critical-css";
@@ -30,10 +30,14 @@ const ChatSidebar = dynamic(
 );
 
 // IBM Plex Mono - Primary monospace for terminal aesthetic
+// Weights audited 2026-07: 400/500/600/700 in active use; 300 had 3 usages
+// (2 admin-only, since normalised; 1 serif blockquote covered by the
+// Newsreader variable font). Every weight here is a preloaded file on the
+// LCP critical path of every route — don't add weights without checking use.
 const fontMono = IBM_Plex_Mono({
   subsets: ["latin"],
   variable: "--font-sans",
-  weight: ["300", "400", "500", "600", "700"],
+  weight: ["400", "500", "600", "700"],
   display: "swap",
   preload: true,
   fallback: ["JetBrains Mono", "Fira Code", "ui-monospace", "monospace"],
@@ -60,15 +64,10 @@ const fontSerif = localFont({
   adjustFontFallback: false,
 });
 
-// Space Grotesk - Display font for headings (optional, geometric sans)
-const fontDisplay = Space_Grotesk({
-  subsets: ["latin"],
-  variable: "--font-display",
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-  preload: true,
-  fallback: ["system-ui", "sans-serif"],
-});
+// Space Grotesk (display headings) was removed 2026-07: zero usages of the
+// `font-display` class or `--font-display` var anywhere in src, yet its files
+// were preloaded on every route. globals.css still defines --font-display
+// with a system-ui fallback chain if a design ever wants it back.
 
 export const metadata = {
   metadataBase: new URL(siteConfig.url),
@@ -166,7 +165,7 @@ export default function RootLayout({
   `.replace(/\s+/g, " ");
 
   return (
-    <html lang="en-AU" className={`${fontMono.variable} ${fontDisplay.variable} ${fontSerif.variable}`} suppressHydrationWarning>
+    <html lang="en-AU" className={`${fontMono.variable} ${fontSerif.variable}`} suppressHydrationWarning>
       <head>
         {/* Inline critical CSS to prevent render-blocking */}
         <style dangerouslySetInnerHTML={{ __html: criticalCSS }} />
