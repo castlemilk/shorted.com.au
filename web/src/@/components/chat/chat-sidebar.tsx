@@ -47,6 +47,12 @@ export function ChatSidebar({ stockCode }: ChatSidebarProps) {
   const { isPremium } = useSubscription();
   const showChat = !!session && isPremium;
 
+  // No chat for signed-out visitors at all — the floating trigger used to
+  // open an upgrade prompt, but for the anonymous majority it's just UI
+  // noise (and one more interactive element in every audit). The premium
+  // gate inside ChatSidebarFull still handles signed-in-but-free users.
+  if (!session) return null;
+
   if (activated) {
     return <ChatSidebarFull stockCode={stockCode} initialOpen />;
   }
