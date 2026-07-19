@@ -3,11 +3,15 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
+	"time"
 )
 
 // crawl_chrome.go owns the DEDICATED-profile Chrome lifecycle for -mode agent:
@@ -138,4 +142,90 @@ func ensureChromeWarm(cfg chromeConfig, deps chromeDeps) error {
 		return fmt.Errorf("chrome not warm after %d attempt(s) (last warmcheck rc=%d)", warmMaxAttempts, rc)
 	}
 	return nil
+}
+
+// chromeReachable reports whether the CDP endpoint answers /json/version.
+func chromeReachable(cdpURL string) bool {
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get(strings.TrimRight(cdpURL, "/") + "/json/version")
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode == http.StatusOK
+}
+
+// dedicatedChromePIDs runs `ps -axww -o pid=,command=` and returns the PIDs of the
+// dedicated-profile Chrome only (via matchDedicatedPIDs).
+func dedicatedChromePIDs(profileDir string) []int {
+	out, err := exec.Command("/bin/ps", "-axww", "-o", "pid=,command=").Output()
+	if err != nil {
+		return nil
+	}
+	return matchDedicatedPIDs(string(out), profileDir)
+}
+
+// killDedicatedChrome SIGKILLs the dedicated-profile Chrome and waits up to ~10s
+// for it to actually exit. Returns true if it is gone. NEVER touches any Chrome
+// without the dedicated --user-data-dir.
+func killDedicatedChrome(profileDir string) bool {
+	for _, pid := range dedicatedChromePIDs(profileDir) {
+		_ = syscall.Kill(pid, syscall.SIGKILL)
+	}
+	for i := 0; i < 10; i++ {
+		if len(dedicatedChromePIDs(profileDir)) == 0 {
+			return true
+		}
+		time.Sleep(1 * time.Second)
+	}
+	return len(dedicatedChromePIDs(profileDir)) == 0
+}
+
+// clearSingletonLocks removes the profile lock files a SIGKILLed Chrome leaves
+// behind, which would otherwise make a relaunch hand off to (a non-existent)
+// running instance instead of binding the debug port.
+func clearSingletonLocks(profileDir string) {
+	for _, f := range []string{"SingletonLock", "SingletonSocket", "SingletonCookie"} {
+		_ = os.Remove(filepath.Join(profileDir, f))
+	}
+}
+
+// launchDedicatedChrome starts the dedicated Chrome with the remote-debugging port
+// and a REA startup URL (whose native nav clears Kasada), detached, and waits for
+// the CDP port to answer. It is the port of the shell's warm_chrome.
+func launchDedicatedChrome(cfg chromeConfig) error {
+	port, err := chromeCDPPort(cfg.cdpURL)
+	if err != nil {
+		return err
+	}
+	cmd := exec.Command(cfg.bin,
+		"--remote-debugging-port="+port,
+		"--user-data-dir="+cfg.profileDir,
+		cfg.startURL,
+	)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true} // detach from the collector
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("start dedicated Chrome: %w", err)
+	}
+	_ = cmd.Process.Release()
+	// Give Chrome's native startup nav time to bind the port + clear Kasada.
+	for i := 0; i < 12; i++ {
+		time.Sleep(2 * time.Second)
+		if chromeReachable(cfg.cdpURL) {
+			return nil
+		}
+	}
+	return nil // reachability is re-checked by the caller; don't hard-fail here
+}
+
+// recoverWedgedChrome hard-resets a wedged dedicated Chrome (CDP answers but hands
+// out no context): SIGKILL, confirm gone, clear locks, relaunch. Port of the
+// shell's recover_wedged_chrome — if Chrome won't die it does NOT relaunch (avoids
+// a second instance on the profile).
+func recoverWedgedChrome(cfg chromeConfig) error {
+	if !killDedicatedChrome(cfg.profileDir) {
+		return fmt.Errorf("dedicated Chrome still alive after SIGKILL — not relaunching (would fork a second instance)")
+	}
+	clearSingletonLocks(cfg.profileDir)
+	return launchDedicatedChrome(cfg)
 }
