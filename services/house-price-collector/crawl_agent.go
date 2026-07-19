@@ -451,11 +451,14 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 	cfg := loadListingsConfig()
 
 	// Self-warm the dedicated Chrome before crawling (in-process port of
-	// run-housing-agent.sh). Skipped for FIXTURE runs (no browser) and when
-	// CRAWL_AUTO_WARM=false or no CDP URL is configured. On failure, exit 4 so an
-	// unattended scheduler re-runs after a cooldown.
-	if cfg.fixtureDir == "" {
-		if ccfg := loadChromeConfig(cfg.cdpURL); ccfg.autoWarm && ccfg.cdpURL != "" {
+	// run-housing-agent.sh). Only when the run will ACTUALLY drive the host Chrome
+	// over CDP: selectFetcherMode mirrors newCrawlFetcher's precedence
+	// (gateway > cdp > playwright), so a gateway or self-launched-playwright run —
+	// which never touches our dedicated Chrome — won't waste ~60s warming one.
+	// Skipped for FIXTURE runs and when CRAWL_AUTO_WARM=false. On failure, exit 4
+	// so an unattended scheduler re-runs after a cooldown.
+	if cfg.fixtureDir == "" && selectFetcherMode(cfg.crawlConfig) == fetcherModeCDP {
+		if ccfg := loadChromeConfig(cfg.cdpURL); ccfg.autoWarm {
 			deps := chromeDeps{
 				reachable: chromeReachable,
 				launch:    launchDedicatedChrome,
@@ -481,8 +484,8 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 			// probe and crawl (a closed tab). Hard-recover once, then retry — mirrors
 			// the shell runner's agent-rc4 retry so an unattended run self-heals.
 			log.Printf("[agent] crawl fetcher init failed (%v) — hard-recovering Chrome and retrying", err)
-			if ccfg := loadChromeConfig(cfg.cdpURL); ccfg.cdpURL != "" {
-				_ = recoverWedgedChrome(ccfg)
+			if selectFetcherMode(cfg.crawlConfig) == fetcherModeCDP {
+				_ = recoverWedgedChrome(loadChromeConfig(cfg.cdpURL))
 			}
 			f, err = newCrawlFetcher(cfg.crawlConfig)
 			if err != nil {
