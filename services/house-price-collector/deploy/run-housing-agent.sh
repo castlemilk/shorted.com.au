@@ -22,6 +22,14 @@
 # Macs fan the catalog out via SKIP LOCKED and auth auto-refreshes off the
 # co-located BrandBrain macOS agent (no long-lived token to mint).
 #
+# NOTE (C1, 2026-07): `house-price-collector -mode agent` now SELF-WARMS the
+# dedicated Chrome in-process (crawl_chrome.go — a Go port of this script's
+# warm_chrome/recover_wedged_chrome/warmcheck loop). This wrapper's warm/recover
+# steps are now a belt-and-braces fallback for older binaries or non-collector
+# schedulers; with a current binary they are redundant (the collector re-checks
+# reachability + warmth itself before every run). The wrapper stays valid for
+# headless/server use; on the Mac, the bundled brandbrain agent supersedes it.
+#
 # Config (~/.shorted-housing-crawl.env, chmod 600, NOT committed):
 #   DATABASE_URL=postgresql://...          # prod Supabase (transaction pooler, 6543)
 #   CRAWL_CDP_URL=http://localhost:9222
