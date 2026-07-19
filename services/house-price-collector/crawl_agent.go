@@ -449,6 +449,27 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 	}
 
 	cfg := loadListingsConfig()
+
+	// Self-warm the dedicated Chrome before crawling (in-process port of
+	// run-housing-agent.sh). Skipped for FIXTURE runs (no browser) and when
+	// CRAWL_AUTO_WARM=false or no CDP URL is configured. On failure, exit 4 so an
+	// unattended scheduler re-runs after a cooldown.
+	if cfg.fixtureDir == "" {
+		if ccfg := loadChromeConfig(cfg.cdpURL); ccfg.autoWarm && ccfg.cdpURL != "" {
+			deps := chromeDeps{
+				reachable: chromeReachable,
+				launch:    launchDedicatedChrome,
+				recover:   recoverWedgedChrome,
+				warmProbe: func() int { return runWarmCheck(ctx, pool) },
+			}
+			if err := ensureChromeWarm(ccfg, deps); err != nil {
+				log.Printf("[agent] self-warm failed (%v) — exiting for re-warm (exit 4)", err)
+				return 4
+			}
+			log.Printf("[agent] dedicated Chrome warm (self-managed)")
+		}
+	}
+
 	var fetcher crawlFetcher
 	if cfg.fixtureDir != "" {
 		fetcher = &fileFetcher{dir: cfg.fixtureDir}
@@ -456,12 +477,18 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 	} else {
 		f, err := newCrawlFetcher(cfg.crawlConfig)
 		if err != nil {
-			// A wedged/cold host Chrome (e.g. 0 open tabs, so no CDP context — see
-			// newCDPFetcher). Return rc==4 so the runner hard-recovers Chrome (kill +
-			// clear SingletonLock + relaunch a clean REA-startup tab) and retries,
-			// instead of the old silent rc=0 abort that left the queue undrained.
-			log.Printf("[agent] crawl fetcher init failed (%v) — needs a Chrome re-warm (exit 4)", err)
-			return 4
+			// The warm preflight passed but the host Chrome lost its context between
+			// probe and crawl (a closed tab). Hard-recover once, then retry — mirrors
+			// the shell runner's agent-rc4 retry so an unattended run self-heals.
+			log.Printf("[agent] crawl fetcher init failed (%v) — hard-recovering Chrome and retrying", err)
+			if ccfg := loadChromeConfig(cfg.cdpURL); ccfg.cdpURL != "" {
+				_ = recoverWedgedChrome(ccfg)
+			}
+			f, err = newCrawlFetcher(cfg.crawlConfig)
+			if err != nil {
+				log.Printf("[agent] crawl fetcher init failed after recovery (%v) — exit 4", err)
+				return 4
+			}
 		}
 		fetcher = f
 	}
