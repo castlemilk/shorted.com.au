@@ -14,6 +14,13 @@ on:
         type: string
   pull_request:
     types: [opened, synchronize, reopened, labeled]
+  # Merges to main auto-promote (after smoke passes): without this, merge
+  # deploys exist in Vercel but the shorted.com.au domain stays pinned to the
+  # last manually-promoted deployment — changes look shipped while prod
+  # silently serves the old build (bit us 2026-07-19). The `prod` environment
+  # protection on promote-production still applies.
+  push:
+    branches: [main]
 
 permissions:
   contents: read
@@ -191,7 +198,9 @@ jobs:
     name: Promote Production
     runs-on: ubuntu-latest
     needs: [deploy-preview, smoke-preview]
-    if: github.event_name == 'workflow_dispatch' && inputs.promote == true
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.promote == true) ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
     environment: prod
     steps:
       - name: Promote smoked deployment
