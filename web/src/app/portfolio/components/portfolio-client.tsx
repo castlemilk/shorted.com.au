@@ -1,4 +1,5 @@
 "use client";
+import { pageTitle, lede } from "~/@/lib/typography";
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
@@ -280,8 +281,8 @@ export function PortfolioClient({ initialHoldings }: PortfolioClientProps) {
     <>
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">My Portfolio</h1>
-          <p className="text-muted-foreground mt-2">
+          <h1 className={pageTitle}>My Portfolio</h1>
+          <p className={lede}>
             Track your stock holdings and performance
           </p>
         </div>

@@ -33,3 +33,19 @@ export const sectionTitle = "font-serif text-2xl font-semibold tracking-tight";
  */
 export const eyebrow =
   "font-mono text-xs uppercase tracking-[0.16em] text-muted-foreground";
+
+/**
+ * Lede / dek — the muted intro paragraph that sits directly under a page
+ * title. Establishes the vertical rhythm (`mt-2`) and reading measure
+ * (`max-w-2xl`) for the standard left-aligned page header. Compose overrides
+ * for centred hero variants, e.g. `cn(lede, "mx-auto text-lg")`.
+ */
+export const lede = "mt-2 max-w-2xl text-muted-foreground";
+
+/**
+ * Card-title tier — intentionally NOT a token. shadcn's <CardTitle> already
+ * owns this level (mono, `text-lg`, terminal chrome); duplicating it here would
+ * just invite drift. Use <CardTitle> from `@/components/ui/card` for card and
+ * widget headers, and keep dashboard/control-bar labels mono. Serif is for the
+ * page `pageTitle` (h1) and standalone `sectionTitle` (h2) only.
+ */

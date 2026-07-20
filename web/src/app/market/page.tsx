@@ -1,4 +1,5 @@
 import { type Metadata } from "next";
+import { pageTitle } from "~/@/lib/typography";
 import Link from "next/link";
 import { Calendar, ChevronRight, TrendingDown } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
@@ -108,7 +109,7 @@ export default async function MarketIndexPage() {
               <Calendar className="h-8 w-8 text-primary" />
             </div>
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+              <h1 className={pageTitle}>
                 Daily Market Snapshots
               </h1>
               <p className="text-muted-foreground mt-1">

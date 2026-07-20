@@ -1,4 +1,5 @@
 "use client";
+import { pageTitle } from "~/@/lib/typography";
 
 import { Activity, TrendingUp, BarChart3, Zap } from "lucide-react";
 import { PremiumGate } from "~/@/components/premium/premium-gate";
@@ -32,7 +33,7 @@ export function PulseContent() {
   return (
     <div className="container py-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">Market Pulse</h1>
+        <h1 className={pageTitle}>Market Pulse</h1>
         <p className="text-muted-foreground mt-1">
           Real-time market sentiment and short selling activity.
         </p>

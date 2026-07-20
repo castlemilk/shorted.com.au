@@ -1,4 +1,5 @@
 import { type Metadata } from "next";
+import { pageTitle } from "~/@/lib/typography";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BookOpen, ChevronRight, ArrowLeft, Tag } from "lucide-react";
@@ -142,7 +143,7 @@ export default async function GlossaryTermPage({ params }: PageProps) {
               {category}
             </Badge>
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+          <h1 className={pageTitle}>
             {term.term}
           </h1>
         </section>

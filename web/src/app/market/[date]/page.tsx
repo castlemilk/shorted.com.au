@@ -1,4 +1,5 @@
 import { type Metadata } from "next";
+import { pageTitle } from "~/@/lib/typography";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -172,7 +173,7 @@ export default async function MarketDatePage({ params }: PageProps) {
               <Calendar className="h-8 w-8 text-primary" />
             </div>
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+              <h1 className={pageTitle}>
                 ASX Short Positions
               </h1>
               <p className="text-lg text-muted-foreground mt-1">

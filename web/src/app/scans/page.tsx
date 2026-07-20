@@ -1,4 +1,6 @@
 import { type Metadata } from "next";
+import { cn } from "~/@/lib/utils";
+import { pageTitle, eyebrow } from "~/@/lib/typography";
 import Link from "next/link";
 import { siteConfig } from "~/@/config/site";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
@@ -68,10 +70,10 @@ export default function ScansIndexPage() {
         </div>
 
         <section className="border-b border-border/40 pb-6">
-          <p className="mb-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          <p className={cn(eyebrow, "mb-2 font-medium")}>
             Scans
           </p>
-          <h1 className="font-serif text-3xl font-semibold leading-[1.1] tracking-tight md:text-4xl">
+          <h1 className={cn(pageTitle, "leading-[1.1]")}>
             ASX Short Interest Scans
           </h1>
           <p className="mt-2 max-w-3xl text-muted-foreground">

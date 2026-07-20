@@ -1,4 +1,6 @@
 import { type Metadata } from "next";
+import { cn } from "~/@/lib/utils";
+import { pageTitle, sectionTitle } from "~/@/lib/typography";
 import Link from "next/link";
 import { siteConfig } from "~/@/config/site";
 import {
@@ -173,7 +175,7 @@ export default function MethodologyPage() {
         </div>
 
         <article className="prose prose-neutral dark:prose-invert max-w-none">
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+          <h1 className={pageTitle}>
             Methodology
           </h1>
           <p className="mt-2 text-muted-foreground">
@@ -181,7 +183,7 @@ export default function MethodologyPage() {
             for ASX-listed securities. Updated 22 April 2026.
           </p>
 
-          <h2 className="mt-10 text-2xl font-semibold">Data source</h2>
+          <h2 className={cn(sectionTitle, "mt-10")}>Data source</h2>
           <p>
             All short position data published on Shorted.com.au is sourced
             directly from the{" "}
@@ -206,7 +208,7 @@ export default function MethodologyPage() {
             records, and third-party reference data.
           </p>
 
-          <h2 className="mt-10 text-2xl font-semibold">The T+4 delay</h2>
+          <h2 className={cn(sectionTitle, "mt-10")}>The T+4 delay</h2>
           <p>
             ASIC publishes short position data with a four trading day delay.
             A position held at the close of business on day <strong>T</strong>{" "}
@@ -221,7 +223,7 @@ export default function MethodologyPage() {
             moving events inside the T+4 window are not yet reflected.
           </p>
 
-          <h2 className="mt-10 text-2xl font-semibold">
+          <h2 className={cn(sectionTitle, "mt-10")}>
             Reporting threshold
           </h2>
           <p>
@@ -235,7 +237,7 @@ export default function MethodologyPage() {
             positions exist.
           </p>
 
-          <h2 className="mt-10 text-2xl font-semibold">
+          <h2 className={cn(sectionTitle, "mt-10")}>
             How short interest % is calculated
           </h2>
           <p>
@@ -254,7 +256,7 @@ export default function MethodologyPage() {
             our figures match ASIC's source data exactly.
           </p>
 
-          <h2 className="mt-10 text-2xl font-semibold">
+          <h2 className={cn(sectionTitle, "mt-10")}>
             Derived metrics
           </h2>
           <p>
@@ -277,7 +279,7 @@ export default function MethodologyPage() {
             </li>
           </ul>
 
-          <h2 className="mt-10 text-2xl font-semibold">Refresh cadence</h2>
+          <h2 className={cn(sectionTitle, "mt-10")}>Refresh cadence</h2>
           <p>
             Our pipeline runs once per ASX trading day, typically within 60
             minutes of ASIC publishing a new daily report. Stock pages,
@@ -287,7 +289,7 @@ export default function MethodologyPage() {
             reports.
           </p>
 
-          <h2 className="mt-10 text-2xl font-semibold">Coverage</h2>
+          <h2 className={cn(sectionTitle, "mt-10")}>Coverage</h2>
           <p>
             Shorted covers all ASX-listed securities included in the ASX
             Approved Short Sell Products list and therefore eligible for
@@ -296,7 +298,7 @@ export default function MethodologyPage() {
             data following post-GFC reforms.
           </p>
 
-          <h2 className="mt-10 text-2xl font-semibold">
+          <h2 className={cn(sectionTitle, "mt-10")}>
             Corrections and restatements
           </h2>
           <p>
@@ -309,7 +311,7 @@ export default function MethodologyPage() {
             with the stock code and date and we will investigate.
           </p>
 
-          <h2 className="mt-10 text-2xl font-semibold">Limitations</h2>
+          <h2 className={cn(sectionTitle, "mt-10")}>Limitations</h2>
           <ul>
             <li>
               Short positions below the 0.01% / A$100,000 threshold are not
@@ -333,7 +335,7 @@ export default function MethodologyPage() {
             </li>
           </ul>
 
-          <h2 className="mt-10 text-2xl font-semibold">References</h2>
+          <h2 className={cn(sectionTitle, "mt-10")}>References</h2>
           <ul>
             <li>
               <a

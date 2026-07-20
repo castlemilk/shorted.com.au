@@ -24,6 +24,7 @@ import {
   getAllIndustrySlugs,
 } from "../../actions/industry/getIndustryData";
 import { cn } from "~/@/lib/utils";
+import { pageTitle, eyebrow } from "~/@/lib/typography";
 import {
   ItemListStructuredData,
 } from "~/@/components/seo/enhanced-structured-data";
@@ -127,7 +128,7 @@ export default async function IndustryPage({ params }: PageProps) {
                 />
               </div>
               <div className="pt-1">
-                <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+                <h1 className={pageTitle}>
                   Industry Short Positions
                 </h1>
                 <p className="text-muted-foreground mt-1">
@@ -213,7 +214,7 @@ export default async function IndustryPage({ params }: PageProps) {
               />
             </div>
             <div className="pt-1">
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+              <h1 className={pageTitle}>
                 {industry.name} Short Positions
               </h1>
               <p className="text-muted-foreground mt-1">
@@ -261,7 +262,7 @@ export default async function IndustryPage({ params }: PageProps) {
 
         <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.8fr)]">
           <div className="rounded-lg border border-primary/20 bg-primary/5 p-5 shadow-amber-sm">
-            <div className="mb-3 inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-primary">
+            <div className={cn(eyebrow, "mb-3 inline-flex items-center gap-2 font-medium text-primary")}>
               <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
               Industry Intelligence
             </div>

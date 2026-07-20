@@ -1,4 +1,6 @@
 import { type Metadata } from "next";
+import { cn } from "~/@/lib/utils";
+import { pageTitle, sectionTitle, eyebrow } from "~/@/lib/typography";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import {
@@ -370,10 +372,10 @@ export default async function WeeklyReportPage({ params }: PageProps) {
 
         {/* Hero */}
         <section className="border-b border-border/40 pb-8">
-          <p className="mb-3 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          <p className={cn(eyebrow, "mb-3 font-medium")}>
             The 10 Most Shorted ASX Stocks · {weekTitle}
           </p>
-          <h1 className="font-serif text-3xl font-semibold leading-[1.1] tracking-tight md:text-4xl">
+          <h1 className={cn(pageTitle, "leading-[1.1]")}>
             {hasNarrative ? enhanced.headline : "Weekly Short Selling Report"}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -458,7 +460,7 @@ export default async function WeeklyReportPage({ params }: PageProps) {
         {/* Opening Analysis (LLM narrative) */}
         {hasNarrative && enhanced.narrative.openingHook && (
           <section className="border-l-2 border-border pl-5 md:pl-6">
-            <h2 className="mb-3 font-serif text-2xl font-semibold tracking-tight">
+            <h2 className={cn(sectionTitle, "mb-3")}>
               This Week&apos;s Analysis
             </h2>
             <p className="max-w-prose text-[15px] leading-7 text-foreground/90">
@@ -594,7 +596,7 @@ export default async function WeeklyReportPage({ params }: PageProps) {
         {/* Movers Analysis (LLM narrative) */}
         {hasNarrative && enhanced.narrative.moversAnalysis && (
           <section className="border-l-2 border-border pl-5 md:pl-6">
-            <h2 className="mb-3 font-serif text-2xl font-semibold tracking-tight">
+            <h2 className={cn(sectionTitle, "mb-3")}>
               Movers Analysis
             </h2>
             <p className="max-w-prose text-[15px] leading-7 text-foreground/80">
@@ -622,7 +624,7 @@ export default async function WeeklyReportPage({ params }: PageProps) {
         {/* Outlook (LLM narrative) */}
         {hasNarrative && enhanced.narrative.outlook && (
           <section className="border-t border-border/40 pt-6">
-            <h2 className="mb-3 font-serif text-2xl font-semibold tracking-tight">
+            <h2 className={cn(sectionTitle, "mb-3")}>
               Outlook
             </h2>
             <p className="max-w-prose text-[15px] leading-7 text-foreground/80">

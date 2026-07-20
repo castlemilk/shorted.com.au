@@ -1,4 +1,5 @@
 import { type Metadata } from "next";
+import { pageTitle } from "~/@/lib/typography";
 import Link from "next/link";
 import { siteConfig } from "~/@/config/site";
 import {
@@ -105,7 +106,7 @@ export default function DisclaimerPage() {
         </div>
 
         <article className="prose prose-neutral dark:prose-invert max-w-none">
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+          <h1 className={pageTitle}>
             Disclaimer
           </h1>
           <p className="mt-2 text-muted-foreground">

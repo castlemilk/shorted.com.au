@@ -1,4 +1,5 @@
 import { type Metadata } from "next";
+import { pageTitle } from "~/@/lib/typography";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -131,7 +132,7 @@ export default async function AuthorPage({ params }: PageProps) {
             <User className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
+            <h1 className={pageTitle}>
               {author.name}
             </h1>
             <p className="text-xs uppercase tracking-wider text-muted-foreground">

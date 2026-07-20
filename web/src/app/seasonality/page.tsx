@@ -1,4 +1,6 @@
 import { type Metadata } from "next";
+import { cn } from "~/@/lib/utils";
+import { pageTitle, sectionTitle } from "~/@/lib/typography";
 import Link from "next/link";
 import { siteConfig } from "~/@/config/site";
 import {
@@ -181,7 +183,7 @@ export default function SeasonalityPage() {
         </div>
 
         <article className="prose prose-neutral dark:prose-invert max-w-none">
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+          <h1 className={pageTitle}>
             ASX Short Interest Seasonality
           </h1>
           <p className="mt-2 text-muted-foreground">
@@ -191,7 +193,7 @@ export default function SeasonalityPage() {
             Shorted team.
           </p>
 
-          <h2 className="mt-10 text-2xl font-semibold">
+          <h2 className={cn(sectionTitle, "mt-10")}>
             Why seasonality exists
           </h2>
           <p>
@@ -212,7 +214,7 @@ export default function SeasonalityPage() {
             <Link href="/disclaimer">disclaimer</Link>.
           </p>
 
-          <h2 className="mt-10 text-2xl font-semibold">
+          <h2 className={cn(sectionTitle, "mt-10")}>
             1. Earnings season
           </h2>
           <p>
@@ -234,7 +236,7 @@ export default function SeasonalityPage() {
             directions at once.
           </p>
 
-          <h2 className="mt-10 text-2xl font-semibold">
+          <h2 className={cn(sectionTitle, "mt-10")}>
             2. Dividend dates
           </h2>
           <p>
@@ -254,7 +256,7 @@ export default function SeasonalityPage() {
             ex-date.
           </p>
 
-          <h2 className="mt-10 text-2xl font-semibold">
+          <h2 className={cn(sectionTitle, "mt-10")}>
             3. Tax-loss selling and EOFY
           </h2>
           <p>
@@ -274,7 +276,7 @@ export default function SeasonalityPage() {
             this pattern in the June and July issues.
           </p>
 
-          <h2 className="mt-10 text-2xl font-semibold">
+          <h2 className={cn(sectionTitle, "mt-10")}>
             4. Commodity cycles in resource stocks
           </h2>
           <p>
@@ -293,7 +295,7 @@ export default function SeasonalityPage() {
             conglomerates where multiple cycles offset.
           </p>
 
-          <h2 className="mt-10 text-2xl font-semibold">
+          <h2 className={cn(sectionTitle, "mt-10")}>
             5. Index rebalances and end-of-quarter effects
           </h2>
           <p>
@@ -310,7 +312,7 @@ export default function SeasonalityPage() {
             compared to the patterns above.
           </p>
 
-          <h2 className="mt-10 text-2xl font-semibold">
+          <h2 className={cn(sectionTitle, "mt-10")}>
             How to read seasonality on Shorted
           </h2>
           <p>
@@ -350,7 +352,7 @@ export default function SeasonalityPage() {
             </li>
           </ul>
 
-          <h2 className="mt-10 text-2xl font-semibold">Caveats</h2>
+          <h2 className={cn(sectionTitle, "mt-10")}>Caveats</h2>
           <ul>
             <li>
               Past seasonal patterns do not guarantee future behaviour.
