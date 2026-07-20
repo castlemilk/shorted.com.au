@@ -102,10 +102,14 @@ func (s *postgresStore) GetCompanyBranding(codes []string) (map[string]CompanyBr
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	// NOTE: prod company-metadata has NO plain `logo_url` column — an earlier
+	// version of this query referenced it and silently failed on every call
+	// (the callers treat branding errors as non-fatal), so reports never got
+	// logos in prod. Icon variant first: it's the 128px minified file.
 	query := `
 		SELECT
 			stock_code,
-			COALESCE(NULLIF(logo_icon_gcs_url, ''), NULLIF(logo_gcs_url, ''), NULLIF(logo_url, ''), '') AS logo_url,
+			COALESCE(NULLIF(logo_icon_gcs_url, ''), NULLIF(logo_gcs_url, ''), '') AS logo_url,
 			COALESCE(industry, '') AS industry
 		FROM "company-metadata"
 		WHERE stock_code = ANY($1)
