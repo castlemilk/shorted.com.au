@@ -1,6 +1,8 @@
 import { type Metadata } from "next";
+import { Suspense } from "react";
 import Link from "next/link";
 import { Building2, ChevronRight } from "lucide-react";
+import { CompanyDirectory } from "~/app/stocks/components/company-directory";
 import { siteConfig } from "~/@/config/site";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import {
@@ -40,7 +42,7 @@ export const metadata: Metadata = {
   },
 };
 
-export const revalidate = 86400; // Revalidate daily
+export const revalidate = 3600; // Hourly — the page now embeds live company data
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
@@ -96,6 +98,13 @@ export default function DirectoryPage() {
             ))}
           </div>
         </section>
+
+        {/* Browsable company list — the page previously rendered ONLY the
+            letter grid, which read as "nothing loads". Server-rendered top
+            companies with logos (same component as /stocks). */}
+        <Suspense fallback={<div className="h-64 animate-pulse rounded bg-muted" />}>
+          <CompanyDirectory />
+        </Suspense>
 
         {/* Info Section */}
         <section className="mt-12 pt-8 border-t border-border/40">

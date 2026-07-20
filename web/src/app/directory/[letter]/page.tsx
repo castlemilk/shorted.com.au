@@ -10,73 +10,8 @@ import {
 } from "~/@/components/seo/enhanced-structured-data";
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import { cn } from "~/@/lib/utils";
-import {
-  SHORTS_API_URL,
-  buildApiUrl,
-  serverFetchWithUserAgent,
-  skipForBuild,
-} from "~/app/actions/config";
-
-interface TopShortsTimeSeries {
-  productCode?: string;
-  name?: string;
-  latestShortPosition?: number;
-}
-
-interface TopShortsResponse {
-  timeSeries: TopShortsTimeSeries[];
-}
-
-/**
- * Fetch all stocks via direct JSON fetch to GetTopShorts.
- * Uses plain fetch to avoid protobuf-es SSR initialization overhead
- * that causes timeouts on Vercel serverless functions.
- */
-async function getAllStocksForDirectory(): Promise<
-  Array<{ code: string; name: string; shortPercent: number }>
-> {
-  if (skipForBuild()) {
-    return [];
-  }
-
-  try {
-    const baseUrl = SHORTS_API_URL;
-
-    const response = await serverFetchWithUserAgent(
-      buildApiUrl(
-        baseUrl,
-        "/shorts.v1alpha1.ShortedStocksService/GetTopShorts",
-      ),
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ period: "1y", limit: 1000, offset: 0, summaryOnly: true }),
-        next: { revalidate: 3600 },
-      },
-    );
-
-    if (!response.ok) {
-      console.warn(`Directory API returned ${response.status}`);
-      return [];
-    }
-
-    const data = (await response.json()) as TopShortsResponse;
-
-    return (data.timeSeries || [])
-      .filter(
-        (ts): ts is Required<TopShortsTimeSeries> =>
-          typeof ts.productCode === "string" && ts.productCode.length > 0,
-      )
-      .map((ts) => ({
-        code: ts.productCode,
-        name: ts.name || ts.productCode,
-        shortPercent: ts.latestShortPosition ?? 0,
-      }));
-  } catch (error) {
-    console.error("Failed to fetch stocks for directory:", error);
-    return [];
-  }
-}
+import { getDirectoryStocks } from "../directory-data";
+import { CompanyLogo } from "~/app/stocks/components/company-logo";
 
 const LETTERS = "abcdefghijklmnopqrstuvwxyz".split("");
 
@@ -141,8 +76,9 @@ export default async function DirectoryLetterPage({ params }: PageProps) {
 
   const upperLetter = normalizedLetter.toUpperCase();
 
-  // Fetch all stocks via direct JSON fetch (fast, avoids protobuf-es SSR overhead)
-  const allStocks = await getAllStocksForDirectory();
+  // Full universe from the screener MV (names + industries + minified logo
+  // icons), shared+cached across directory pages
+  const allStocks = await getDirectoryStocks();
   const stocks = allStocks
     .filter((s) => s.code.startsWith(upperLetter))
     .sort((a, b) => a.code.localeCompare(b.code));
@@ -222,7 +158,8 @@ export default async function DirectoryLetterPage({ params }: PageProps) {
           <section>
             <div className="rounded-lg border border-border/60 overflow-hidden bg-card/50 backdrop-blur-sm">
               {/* Header */}
-              <div className="grid grid-cols-[80px_1fr_100px_48px] md:grid-cols-[100px_1fr_120px_48px] gap-4 px-4 py-3 bg-muted/50 border-b border-border/60 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <div className="grid grid-cols-[56px_80px_1fr_100px_48px] md:grid-cols-[56px_100px_1fr_120px_48px] gap-4 px-4 py-3 bg-muted/50 border-b border-border/60 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <div></div>
                 <div>Code</div>
                 <div>Company</div>
                 <div className="text-right">Short %</div>
@@ -235,8 +172,9 @@ export default async function DirectoryLetterPage({ params }: PageProps) {
                   <Link
                     key={stock.code}
                     href={`/shorts/${stock.code}`}
-                    className="grid grid-cols-[80px_1fr_100px_48px] md:grid-cols-[100px_1fr_120px_48px] gap-4 px-4 py-3 items-center hover:bg-muted/50 transition-colors group"
+                    className="grid grid-cols-[56px_80px_1fr_100px_48px] md:grid-cols-[56px_100px_1fr_120px_48px] gap-4 px-4 py-3 items-center hover:bg-muted/50 transition-colors group"
                   >
+                    <CompanyLogo src={stock.logoUrl} code={stock.code} />
                     <div className="font-semibold text-foreground group-hover:text-primary transition-colors">
                       {stock.code}
                     </div>
