@@ -4,6 +4,8 @@ import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { StocksSearchClient } from "./components/stocks-search-client";
 import { CompanyDirectory } from "./components/company-directory";
 import { siteConfig } from "~/@/config/site";
+import { cn } from "~/@/lib/utils";
+import { pageTitle, eyebrow, lede } from "~/@/lib/typography";
 
 export const metadata: Metadata = {
   title: "ASX Stock Search - Find Short Positions by Company",
@@ -60,6 +62,20 @@ const POPULAR_STOCKS = [
 export default function StocksPage() {
   return (
     <DashboardLayout>
+      {/* SSR, crawlable page header — the single h1 for the directory/search
+          surface. Kept server-side so the heading is present for anonymous
+          and crawler traffic even before the search client hydrates. */}
+      <header className="mb-8 border-b border-border/60 pb-6">
+        <p className={cn(eyebrow, "text-primary font-medium")}>
+          Company Directory
+        </p>
+        <h1 className={cn(pageTitle, "mt-2")}>ASX Company Directory</h1>
+        <p className={cn(lede, "text-base")}>
+          Search 2,200+ ASX-listed companies and open any stock&apos;s short
+          selling position, historical trend and market data — sourced from
+          official ASIC short position reports.
+        </p>
+      </header>
       <Suspense fallback={<div className="h-96 animate-pulse rounded bg-muted" />}>
         <StocksSearchClient popularStocks={POPULAR_STOCKS} />
       </Suspense>

@@ -25,6 +25,8 @@ import { FinanceGridBackground } from "~/@/components/marketing/finance-grid-bac
 import { SpotlightCard } from "~/@/components/marketing/spotlight-card";
 import { CountUp } from "~/@/components/marketing/count-up";
 import { type AboutPageStatistics } from "~/lib/statistics";
+import { cn } from "~/@/lib/utils";
+import { pageTitle, sectionTitle, eyebrow, lede } from "~/@/lib/typography";
 
 
 
@@ -41,17 +43,14 @@ export default function MetricsClient({ statistics }: MetricsClientProps) {
       <section className="relative w-full pt-16 pb-20 md:pt-24 md:pb-28 overflow-hidden z-10">
         <div className="container px-4 md:px-6 relative">
           <div className="max-w-3xl mx-auto text-center">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-6">
-              <BarChart3 className="w-4 h-4" />
+            <p className={cn(eyebrow, "mb-4 inline-flex items-center gap-2 text-primary font-medium")}>
+              <BarChart3 className="h-3.5 w-3.5" />
               Platform Metrics
-            </div>
-            <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl md:text-6xl mb-6">
-              <span className="block text-foreground">Traction &</span>
-              <span className="block bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent bg-[length:200%_auto] animate-gradient">
-                Growth
-              </span>
+            </p>
+            <h1 className={cn(pageTitle, "text-4xl text-foreground md:text-5xl")}>
+              Traction &amp; Growth
             </h1>
-            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+            <p className={cn(lede, "mx-auto mt-4 max-w-2xl text-lg leading-relaxed md:text-xl")}>
               Real numbers from a production platform serving daily short position
               intelligence for the Australian stock market.
             </p>
@@ -63,7 +62,7 @@ export default function MetricsClient({ statistics }: MetricsClientProps) {
       <section className="w-full py-20 md:py-28 relative z-10 bg-muted/30 backdrop-blur-sm">
         <div className="container px-4 md:px-6">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl text-foreground mb-4">
+            <h2 className={cn(sectionTitle, "text-3xl sm:text-4xl text-foreground mb-4")}>
               Platform Statistics
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
@@ -108,7 +107,7 @@ export default function MetricsClient({ statistics }: MetricsClientProps) {
       <section className="w-full py-20 md:py-28 relative z-10">
         <div className="container px-4 md:px-6">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl text-foreground mb-4">
+            <h2 className={cn(sectionTitle, "text-3xl sm:text-4xl text-foreground mb-4")}>
               Data Pipeline
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
@@ -149,7 +148,7 @@ export default function MetricsClient({ statistics }: MetricsClientProps) {
       <section className="w-full py-20 md:py-28 relative z-10 bg-muted/30 backdrop-blur-sm">
         <div className="container px-4 md:px-6">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl text-foreground mb-4">
+            <h2 className={cn(sectionTitle, "text-3xl sm:text-4xl text-foreground mb-4")}>
               Growth Indicators
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
@@ -198,7 +197,7 @@ export default function MetricsClient({ statistics }: MetricsClientProps) {
       <section className="w-full py-20 md:py-28 relative z-10">
         <div className="container px-4 md:px-6">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl text-foreground mb-4">
+            <h2 className={cn(sectionTitle, "text-3xl sm:text-4xl text-foreground mb-4")}>
               Infrastructure Scale
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
@@ -247,7 +246,7 @@ export default function MetricsClient({ statistics }: MetricsClientProps) {
           <div className="relative max-w-4xl mx-auto">
             <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 rounded-3xl blur-xl" />
             <div className="relative bg-card/50 backdrop-blur-sm rounded-3xl border p-8 md:p-12 lg:p-16 text-center">
-              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl text-foreground mb-6">
+              <h2 className={cn(sectionTitle, "text-3xl sm:text-4xl text-foreground mb-6")}>
                 Explore the Platform
               </h2>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-10">
