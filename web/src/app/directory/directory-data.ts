@@ -1,7 +1,14 @@
 import { cache } from "react";
-import { screenStocks } from "~/app/actions/screenStocks";
-import { skipForBuild } from "~/app/actions/config";
+import { createConnectTransport } from "@connectrpc/connect-web";
+import { createClient } from "@connectrpc/connect";
+import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import type { ScreenerStock } from "~/gen/shorts/v1alpha1/shorts_pb";
+import {
+  SERVER_SHORTS_API_URL,
+  serverFetchOutsideNextCache,
+  skipForBuild,
+} from "~/app/actions/config";
+import { withRetryAndNotFound } from "~/app/actions/withRetry";
 
 export interface DirectoryStock {
   code: string;
@@ -11,8 +18,7 @@ export interface DirectoryStock {
   industry: string | null;
 }
 
-const FULL_LIMIT = 4000; // covers the whole universe (~3.3k) in ONE request
-const PAGE_SIZE = 200; // legacy backend cap, used only by the fallback pager
+const FULL_LIMIT = 4000; // covers the whole listed universe (~3.3k) in one call
 
 function toDirectoryStock(s: ScreenerStock): DirectoryStock {
   return {
@@ -24,46 +30,38 @@ function toDirectoryStock(s: ScreenerStock): DirectoryStock {
   };
 }
 
+// DO NOT use the shared `screenStocks` action here: its transport dispatches
+// POSTs through Next's patched fetch with cache:no-store, which throws
+// DynamicServerError ("Dynamic server usage: no-store fetch") inside these
+// STATIC (generateStaticParams) letter routes' ISR regeneration — every regen
+// failed and the pages served the empty build shell forever (root-caused via
+// preview-deployment lambda logs, 2026-07-20). serverFetchOutsideNextCache
+// dispatches via the unpatched fetch, sidestepping the static tracker.
+const fetchDirectoryStocks = async (): Promise<DirectoryStock[]> => {
+  const transport = createConnectTransport({
+    fetch: serverFetchOutsideNextCache,
+    baseUrl: SERVER_SHORTS_API_URL,
+  });
+  const client = createClient(ShortedStocksService, transport);
+  const res = await client.screenStocks({
+    sortField: 0,
+    sortDirection: 0,
+    limit: FULL_LIMIT,
+    offset: 0,
+  });
+  return (res.stocks ?? []).map(toDirectoryStock);
+};
+
+const fetchWithRetry = withRetryAndNotFound(fetchDirectoryStocks);
+
 /**
  * The full company universe for the /directory pages, via the screener MV
- * (company names, industries and the minified logo icons).
- *
- * Uses the `screenStocks` connect action — the exact call path that the
- * /stocks + /directory CompanyDirectory sections already use successfully in
- * prod SSR. (A previous raw-JSON implementation of this file worked locally
- * but silently returned nothing on Vercel; don't reintroduce a bespoke fetch
- * path here.)
- *
- * One limit=4000 request once the backend cap raise is deployed; until then
- * the old backend rejects it and we fall back to SERIAL 200-row pages
- * (parallel bursts trip the Cloudflare edge rate limit). Partial results beat
- * empty pages and self-heal on the next ISR revalidate.
+ * (company names, industries and the minified logo icons). `cache()` dedupes
+ * across a single render; ISR (revalidate) caches the rendered page.
  */
 export const getDirectoryStocks = cache(
   async (): Promise<DirectoryStock[]> => {
     if (skipForBuild()) return [];
-    try {
-      const all = await screenStocks(undefined, 0, 0, FULL_LIMIT, 0);
-      if (all?.stocks?.length) return all.stocks.map(toDirectoryStock);
-    } catch {
-      // fall through to paging
-    }
-    try {
-      const first = await screenStocks(undefined, 0, 0, PAGE_SIZE, 0);
-      const rows = [...(first?.stocks ?? [])];
-      const total = first?.totalCount ?? rows.length;
-      for (let o = PAGE_SIZE; o < total; o += PAGE_SIZE) {
-        try {
-          const page = await screenStocks(undefined, 0, 0, PAGE_SIZE, o);
-          rows.push(...(page?.stocks ?? []));
-        } catch {
-          break; // partial beats empty; next revalidate retries
-        }
-      }
-      return rows.map(toDirectoryStock);
-    } catch (error) {
-      console.error("Failed to fetch directory stocks:", error);
-      return [];
-    }
+    return (await fetchWithRetry()) ?? [];
   },
 );
