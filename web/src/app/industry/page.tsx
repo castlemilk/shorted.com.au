@@ -1,4 +1,6 @@
 import { type Metadata } from "next";
+import { cn } from "~/@/lib/utils";
+import { pageTitle } from "~/@/lib/typography";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -122,7 +124,7 @@ export default async function IndustryIndexPage() {
                   ASIC daily T+4
                 </Badge>
               </div>
-              <h1 className="max-w-3xl text-4xl font-bold tracking-tight text-balance md:text-5xl">
+              <h1 className={cn(pageTitle, "max-w-3xl text-4xl md:text-5xl")}>
                 Short Positions by Industry
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground text-pretty md:text-lg">

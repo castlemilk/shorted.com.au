@@ -1,6 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
+import { pageTitle } from "~/@/lib/typography";
 import { Loader2 } from "lucide-react";
 import Image from "next/image";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
@@ -31,7 +32,7 @@ export default function DeveloperPage() {
         <div className="flex items-center gap-4">
           <Image src="/assets/api-access-small.png" alt="" width={48} height={48} className="h-12 w-12" />
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Developer</h1>
+            <h1 className={pageTitle}>Developer</h1>
             <p className="text-muted-foreground mt-1">
               Manage your API tokens and view rate limit information.
             </p>

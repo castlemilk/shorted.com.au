@@ -3,6 +3,8 @@ import Link from "next/link";
 import { ChevronRight, Calendar } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
+import { cn } from "~/@/lib/utils";
+import { pageTitle, sectionTitle, eyebrow } from "~/@/lib/typography";
 import { Card, CardContent } from "~/@/components/ui/card";
 import { BreadcrumbListSchema } from "~/@/components/seo/enhanced-structured-data";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
@@ -152,7 +154,7 @@ function FeaturedReportCard({ report }: { report: ReportListEntry }) {
   return (
     <Link href={reportHref(report)} prefetch={false} className="group block">
       <article className="rounded-lg border border-border/60 bg-card/50 p-6 transition-colors hover:border-primary/40 md:p-8">
-        <p className="mb-3 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+        <p className={cn(eyebrow, "mb-3 font-medium")}>
           Latest weekly report · {formatPeriod(report)}
           {date ? ` · ${date}` : ""}
         </p>
@@ -270,7 +272,7 @@ function ReportSection({
   if (items.length === 0 && slugs.length === 0) return null;
   return (
     <section>
-      <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+      <h2 className={cn(sectionTitle, "mb-4 flex items-center gap-2")}>
         <Calendar className="h-5 w-5 text-primary" />
         {title}
       </h2>
@@ -397,10 +399,10 @@ export default async function ReportsIndexPage() {
 
         {/* Hero Section */}
         <section className="relative border-b border-border/40 pb-8">
-          <p className="mb-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          <p className={cn(eyebrow, "mb-2 font-medium")}>
             Reports
           </p>
-          <h1 className="font-serif text-3xl font-semibold leading-[1.1] tracking-tight md:text-4xl">
+          <h1 className={pageTitle}>
             ASX Short Selling Reports
           </h1>
           <p className="text-muted-foreground mt-2">

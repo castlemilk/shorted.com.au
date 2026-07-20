@@ -1,4 +1,5 @@
 import { type Metadata } from "next";
+import { pageTitle } from "~/@/lib/typography";
 import Link from "next/link";
 import { Search as SearchIcon, TrendingDown, TrendingUp } from "lucide-react";
 import { createConnectTransport } from "@connectrpc/connect-web";
@@ -88,7 +89,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
           <SearchIcon className="h-5 w-5 text-primary" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
+          <h1 className={pageTitle}>
             {query ? `Search: "${query}"` : "Search ASX Stocks"}
           </h1>
           <p className="text-sm text-muted-foreground">

@@ -1,4 +1,6 @@
 import { type Metadata } from "next";
+import { cn } from "~/@/lib/utils";
+import { pageTitle, eyebrow, lede } from "~/@/lib/typography";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { siteConfig } from "~/@/config/site";
@@ -227,13 +229,13 @@ export default async function BattlegroundsPage() {
       />
       <div className="container mx-auto px-4 py-6 max-w-7xl space-y-6">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <p className={cn(eyebrow, "font-semibold")}>
             Battlegrounds
           </p>
-          <h1 className="mt-1 text-2xl md:text-3xl font-bold tracking-tight">
+          <h1 className={cn(pageTitle, "mt-1")}>
             ASX Short Squeeze Candidates
           </h1>
-          <p className="text-muted-foreground mt-2 max-w-2xl text-sm leading-relaxed">
+          <p className={cn(lede, "text-sm leading-relaxed")}>
             ASX short squeeze candidates, scored daily. The squeeze radar ranks
             stocks by squeeze risk — days-to-cover, short interest, price
             momentum, and short-position crowding — while the battlegrounds

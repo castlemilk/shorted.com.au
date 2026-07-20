@@ -1,4 +1,5 @@
 import { type Metadata } from "next";
+import { pageTitle } from "~/@/lib/typography";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Building2, ChevronRight, ArrowLeft } from "lucide-react";
@@ -130,7 +131,7 @@ export default async function DirectoryLetterPage({ params }: PageProps) {
               <Building2 className="h-8 w-8 text-primary" />
             </div>
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+              <h1 className={pageTitle}>
                 ASX Stocks: {upperLetter}
               </h1>
               <p className="text-muted-foreground mt-1">

@@ -1,4 +1,5 @@
 import { type Metadata } from "next";
+import { pageTitle } from "~/@/lib/typography";
 import { Suspense } from "react";
 import Link from "next/link";
 import { Building2, ChevronRight } from "lucide-react";
@@ -73,7 +74,7 @@ export default function DirectoryPage() {
               <Building2 className="h-8 w-8 text-primary" />
             </div>
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+              <h1 className={pageTitle}>
                 ASX Stock Directory
               </h1>
               <p className="text-muted-foreground mt-1">

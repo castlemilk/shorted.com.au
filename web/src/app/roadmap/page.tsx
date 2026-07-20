@@ -526,7 +526,7 @@ function TreeNode({
             fill={entitlementBadge.text}
             fontSize={entitlement === "api_access" ? 7 : 9}
             fontWeight={900}
-            fontFamily="system-ui"
+            fontFamily="inherit"
             letterSpacing="0"
             pointerEvents="none"
           >
@@ -543,7 +543,7 @@ function TreeNode({
         fill="#ffffff"
         fontSize={16}
         fontWeight={900}
-        fontFamily="system-ui"
+        fontFamily="inherit"
         filter="url(#textGlow)"
         paintOrder="stroke"
         stroke="rgba(0,0,0,0.75)"

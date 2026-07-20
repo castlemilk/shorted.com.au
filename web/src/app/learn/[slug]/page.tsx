@@ -1,4 +1,6 @@
 import { type Metadata } from "next";
+import { cn } from "~/@/lib/utils";
+import { pageTitle } from "~/@/lib/typography";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -2348,7 +2350,7 @@ export default async function LearnArticlePage({ params }: PageProps) {
             </span>
           </div>
 
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
+          <h1 className={cn(pageTitle, "mb-4")}>
             {article.title}
           </h1>
 

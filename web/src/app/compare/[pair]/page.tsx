@@ -1,4 +1,5 @@
 import { type Metadata } from "next";
+import { pageTitle } from "~/@/lib/typography";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { siteConfig } from "~/@/config/site";
@@ -230,7 +231,7 @@ export default async function ComparePage({ params }: PageProps) {
         </div>
 
         <article>
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+          <h1 className={pageTitle}>
             {lo} vs {hi} — ASX Short Interest Comparison
           </h1>
           <p className="mt-3 text-base text-muted-foreground leading-relaxed">

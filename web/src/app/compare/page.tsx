@@ -1,4 +1,5 @@
 import { type Metadata } from "next";
+import { pageTitle } from "~/@/lib/typography";
 import Link from "next/link";
 import { siteConfig } from "~/@/config/site";
 import {
@@ -144,7 +145,7 @@ export default async function CompareIndexPage() {
           <Breadcrumbs items={breadcrumbItems} />
         </div>
 
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+        <h1 className={pageTitle}>
           ASX Stock Short Interest Comparisons
         </h1>
         <p className="mt-3 text-base text-muted-foreground max-w-2xl leading-relaxed">
