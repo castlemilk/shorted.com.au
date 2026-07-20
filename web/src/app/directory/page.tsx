@@ -42,7 +42,7 @@ export const metadata: Metadata = {
   },
 };
 
-export const revalidate = 3600; // Hourly — the page now embeds live company data
+export const revalidate = 300; // Short window: the build prerender is an empty shell (see [letter]/page.tsx)
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
