@@ -64,7 +64,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-export const revalidate = 3600; // Revalidate hourly — data fetches may fail on first build
+// 5 min, not hourly: Vercel builds run with SKIP_STATIC_GENERATION so the
+// prerender is an EMPTY shell, and that shell serves (and gets edge-cached)
+// for the full revalidate window after every deploy before the first real
+// regeneration can fill it. A short window bounds the empty period; the
+// underlying screener fetch is a cheap cached MV read.
+export const revalidate = 300;
 
 export default async function DirectoryLetterPage({ params }: PageProps) {
   const { letter } = await params;
