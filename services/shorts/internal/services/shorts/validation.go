@@ -260,10 +260,14 @@ func ValidateGetPeerComparisonRequest(req *shortsv1alpha1.GetPeerComparisonReque
 	return nil
 }
 
-// ValidateScreenStocksRequest validates the ScreenStocks request parameters
+// ValidateScreenStocksRequest validates the ScreenStocks request parameters.
+// The cap covers the full listed universe (~3.3k rows in mv_screener_data):
+// the /directory pages fetch everything in ONE request because paged bursts
+// from Vercel SSR trip the Cloudflare edge rate limit. The query is a ~3ms
+// MV scan, so a full-universe page is cheap.
 func ValidateScreenStocksRequest(req *shortsv1alpha1.ScreenStocksRequest) error {
-	if req.Limit < 0 || req.Limit > 200 {
-		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("limit must be between 0 and 200"))
+	if req.Limit < 0 || req.Limit > 4000 {
+		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("limit must be between 0 and 4000"))
 	}
 	if req.Offset < 0 {
 		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("offset must be non-negative"))
