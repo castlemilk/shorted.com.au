@@ -4,9 +4,14 @@ import { useState } from "react";
 import Image from "next/image";
 
 /**
- * Directory logo with graceful failure: some `logo_url`s in company metadata
- * 404 on GCS, and a server-rendered <Image> then shows the browser's broken
- * image icon. Swap to the ticker-initials tile on error instead.
+ * Directory logo tile.
+ *
+ * - Fixed 56x40 (7:5) white tile: company logos are a mix of square icons and
+ *   wide wordmarks — a square tile crushed wordmarks into illegible slivers.
+ *   The wider tile with flex centering keeps both shapes legible and centered.
+ * - Graceful failure: some `logo_url`s 404 on GCS; a server-rendered <Image>
+ *   would show the browser's broken-image icon, so swap to a ticker-initials
+ *   tile on error instead.
  */
 export function CompanyLogo({ src, code }: { src: string | null; code: string }) {
   const [failed, setFailed] = useState(false);
@@ -15,7 +20,7 @@ export function CompanyLogo({ src, code }: { src: string | null; code: string })
     return (
       <span
         aria-hidden
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted font-mono text-xs font-semibold text-muted-foreground ring-1 ring-border"
+        className="flex h-10 w-14 shrink-0 items-center justify-center rounded-md bg-muted font-mono text-xs font-semibold text-muted-foreground ring-1 ring-border"
       >
         {code.slice(0, 3)}
       </span>
@@ -27,16 +32,28 @@ export function CompanyLogo({ src, code }: { src: string | null; code: string })
   // them as-is; they're tiny and come from our own bucket.
   const isSvg = src.split("?")[0]?.toLowerCase().endsWith(".svg");
 
+  // Cache-bust: bump when bucket logo files are edited in place (v2 =
+  // 2026-07-20 whitespace-trim batch) so the Vercel image cache and browsers
+  // re-fetch instead of serving day-old transforms of the old files.
+  const versioned = `${src}${src.includes("?") ? "&" : "?"}v=2`;
+
   return (
-    <Image
-      src={src}
-      alt=""
-      width={36}
-      height={36}
-      sizes="36px"
-      unoptimized={isSvg}
-      className="h-9 w-9 shrink-0 rounded-md bg-white object-contain p-0.5 ring-1 ring-border"
-      onError={() => setFailed(true)}
-    />
+    <span
+      aria-hidden
+      className="flex h-10 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white p-1 ring-1 ring-border"
+    >
+      <Image
+        src={versioned}
+        alt=""
+        width={96}
+        height={72}
+        sizes="48px"
+        unoptimized={isSvg}
+        // h/w-full + object-contain (not max-*): small source images must
+        // scale UP to fill the tile too, or a 30px mark renders as a speck.
+        className="h-full w-full object-contain"
+        onError={() => setFailed(true)}
+      />
+    </span>
   );
 }
