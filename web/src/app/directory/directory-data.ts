@@ -11,8 +11,7 @@ export interface DirectoryStock {
   industry: string | null;
 }
 
-const FULL_LIMIT = 4000; // covers the whole universe (~3.3k) in ONE request
-const PAGE_SIZE = 200; // legacy backend cap, used only by the fallback pager
+const PAGE_SIZE = 200; // proven request shape (screener UI); see note below
 
 function toDirectoryStock(s: ScreenerStock): DirectoryStock {
   return {
@@ -42,28 +41,24 @@ function toDirectoryStock(s: ScreenerStock): DirectoryStock {
 export const getDirectoryStocks = cache(
   async (): Promise<DirectoryStock[]> => {
     if (skipForBuild()) return [];
-    try {
-      const all = await screenStocks(undefined, 0, 0, FULL_LIMIT, 0);
-      if (all?.stocks?.length) return all.stocks.map(toDirectoryStock);
-    } catch {
-      // fall through to paging
-    }
-    try {
-      const first = await screenStocks(undefined, 0, 0, PAGE_SIZE, 0);
-      const rows = [...(first?.stocks ?? [])];
-      const total = first?.totalCount ?? rows.length;
-      for (let o = PAGE_SIZE; o < total; o += PAGE_SIZE) {
-        try {
-          const page = await screenStocks(undefined, 0, 0, PAGE_SIZE, o);
-          rows.push(...(page?.stocks ?? []));
-        } catch {
-          break; // partial beats empty; next revalidate retries
-        }
-      }
-      return rows.map(toDirectoryStock);
-    } catch (error) {
-      console.error("Failed to fetch directory stocks:", error);
+    // Serial 200-row pages ONLY. The single limit=4000 call succeeds via curl
+    // from anywhere but its ~820KB response never materialises inside the
+    // Vercel lambda (page regens rendered empty while the 48-row index call
+    // worked on the same deployment). 200-row calls are the screener UI's
+    // daily-proven request shape. Serial, not parallel: bursts trip the
+    // Cloudflare edge rate limit.
+    const first = await screenStocks(undefined, 0, 0, PAGE_SIZE, 0);
+    if (!first?.stocks?.length) {
+      console.error("[directory] first screener page empty/undefined");
       return [];
     }
+    const rows = [...first.stocks];
+    const total = first.totalCount ?? rows.length;
+    for (let o = PAGE_SIZE; o < total; o += PAGE_SIZE) {
+      const page = await screenStocks(undefined, 0, 0, PAGE_SIZE, o);
+      if (!page?.stocks?.length) break; // partial beats empty; next revalidate retries
+      rows.push(...page.stocks);
+    }
+    return rows.map(toDirectoryStock);
   },
 );
