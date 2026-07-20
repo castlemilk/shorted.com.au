@@ -52,13 +52,8 @@ export const getDirectoryStocks = cache(
       console.error("[directory] first screener page empty/undefined");
       return [];
     }
-    const rows = [...first.stocks];
-    const total = first.totalCount ?? rows.length;
-    for (let o = PAGE_SIZE; o < total; o += PAGE_SIZE) {
-      const page = await screenStocks(undefined, 2, 0, PAGE_SIZE, o);
-      if (!page?.stocks?.length) break; // partial beats empty; next revalidate retries
-      rows.push(...page.stocks);
-    }
-    return rows.map(toDirectoryStock);
+    // PROBE B: single page only — isolating whether multi-call regen wall-time
+    // is what kills the ISR revalidation.
+    return first.stocks.map(toDirectoryStock);
   },
 );
