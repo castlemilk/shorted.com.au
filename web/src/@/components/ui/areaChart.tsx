@@ -11,7 +11,7 @@ import type { Timestamp } from "@bufbuild/protobuf/wkt";
 const axisColor = "hsl(var(--primary))";
 const axisBottomTickLabelProps = {
   textAnchor: "middle" as const,
-  fontFamily: "Arial",
+  fontFamily: "inherit",
   fontSize: 10,
   fill: axisColor,
 };

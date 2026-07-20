@@ -3,6 +3,8 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { FileText, ChevronRight } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
+import { cn } from "~/@/lib/utils";
+import { pageTitle, eyebrow } from "~/@/lib/typography";
 import { weeklyReportPath } from "~/@/lib/reports/weekly-slug";
 import { Suspense } from "react";
 import { HomeContent } from "./home-content";
@@ -113,7 +115,7 @@ async function WeeklyReportBanner() {
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-primary uppercase tracking-wider">
+                <span className={cn(eyebrow, "font-medium text-primary")}>
                   Latest Report
                 </span>
                 <span className="text-xs text-muted-foreground">
@@ -182,7 +184,7 @@ export default async function Page() {
 
       {/* Page header with SEO-optimized content */}
       <header className="container mx-auto px-4 pt-8 pb-4">
-        <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
+        <h1 className={pageTitle}>
           Shorting the ASX: Official Short Position Data from ASIC
         </h1>
         <p className="text-muted-foreground mt-2 max-w-2xl">

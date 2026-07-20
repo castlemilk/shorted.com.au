@@ -11,6 +11,7 @@ import { getTopPageData } from "../actions/top/getTopPageData";
 import { type TimePeriod } from "~/@/lib/shorts-calculations";
 import { TopPageSkeleton } from "./components/top-page-skeleton";
 import { ReportsBanner } from "~/@/components/reports/reports-banner";
+import { sectionTitle } from "~/@/lib/typography";
 
 // Dynamic import for client component to reduce initial bundle
 import dynamic from "next/dynamic";
@@ -128,7 +129,7 @@ async function TopPageData() {
         className="container mx-auto px-4 py-12 border-t border-border/40"
       >
         <div className="max-w-3xl space-y-4">
-          <h2 id="about-short-interest" className="text-xl font-semibold">
+          <h2 id="about-short-interest" className={sectionTitle}>
             About ASX short interest data
           </h2>
           <p className="text-muted-foreground leading-relaxed">

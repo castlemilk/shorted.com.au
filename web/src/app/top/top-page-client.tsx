@@ -27,6 +27,7 @@ import {
   type SerializedMoversData,
 } from "../actions/top/getTopPageData";
 import { cn } from "~/@/lib/utils";
+import { pageTitle } from "~/@/lib/typography";
 import { Badge } from "~/@/components/ui/badge";
 import { Input } from "~/@/components/ui/input";
 import {
@@ -158,7 +159,7 @@ export function TopPageClient({
           <div className="animate-fade-in">
             <div className="flex items-center gap-3 mb-4">
               <div className="h-10 w-1 bg-gradient-to-b from-red-500 to-orange-500 rounded-full" />
-              <h1 id="hero-title" className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight">
+              <h1 id="hero-title" className={cn(pageTitle, "lg:text-5xl")}>
                 Most Shorted ASX Stocks
               </h1>
             </div>
