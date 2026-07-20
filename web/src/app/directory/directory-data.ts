@@ -47,7 +47,7 @@ export const getDirectoryStocks = cache(
     // worked on the same deployment). 200-row calls are the screener UI's
     // daily-proven request shape. Serial, not parallel: bursts trip the
     // Cloudflare edge rate limit.
-    const first = await screenStocks(undefined, 0, 0, PAGE_SIZE, 0);
+    const first = await screenStocks(undefined, 2, 0, PAGE_SIZE, 0);
     if (!first?.stocks?.length) {
       console.error("[directory] first screener page empty/undefined");
       return [];
@@ -55,7 +55,7 @@ export const getDirectoryStocks = cache(
     const rows = [...first.stocks];
     const total = first.totalCount ?? rows.length;
     for (let o = PAGE_SIZE; o < total; o += PAGE_SIZE) {
-      const page = await screenStocks(undefined, 0, 0, PAGE_SIZE, o);
+      const page = await screenStocks(undefined, 2, 0, PAGE_SIZE, o);
       if (!page?.stocks?.length) break; // partial beats empty; next revalidate retries
       rows.push(...page.stocks);
     }
