@@ -413,6 +413,20 @@ export const listEconomicSeries = ShortedStocksService.method.listEconomicSeries
 export const getEconomicSeries = ShortedStocksService.method.getEconomicSeries;
 
 /**
+ * List ASX-listed companies with operations-weighted exposure to a state.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.ListStateCompanies
+ */
+export const listStateCompanies = ShortedStocksService.method.listStateCompanies;
+
+/**
+ * Exposure-weighted market cap and short interest aggregates by state.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetStateCompanyAggregates
+ */
+export const getStateCompanyAggregates = ShortedStocksService.method.getStateCompanyAggregates;
+
+/**
  * Get an ASX-listed entity's annual corporate-tax profile (ATO transparency data).
  *
  * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetCompanyTaxProfile
