@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
@@ -52,6 +53,12 @@ export default async function StatePage({ params }: PageProps) {
         </header>
         <StateSuburbExplorer stateCode={code} />
         <SuburbPriceDropsPanel stateCode={code} title={`${name} suburb prices & movers`} />
+        <p className="text-sm text-muted-foreground">
+          See how {name} compares nationally — cuts by state, suburb, address and agency — on the{" "}
+          <Link href={`/price-drops?state=${stateSlug(code)}`} className="font-medium text-primary underline-offset-4 hover:underline">
+            price-drops board →
+          </Link>
+        </p>
       </div>
     </DashboardLayout>
   );

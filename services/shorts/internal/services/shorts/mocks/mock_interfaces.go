@@ -531,6 +531,21 @@ func (mr *MockShortsStoreMockRecorder) GetPendingEnrichmentByStockCode(stockCode
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPendingEnrichmentByStockCode", reflect.TypeOf((*MockShortsStore)(nil).GetPendingEnrichmentByStockCode), stockCode)
 }
 
+// GetPriceDropsOverview mocks base method.
+func (m *MockShortsStore) GetPriceDropsOverview() ([]*shorts.StatePriceDropSummaryRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPriceDropsOverview")
+	ret0, _ := ret[0].([]*shorts.StatePriceDropSummaryRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPriceDropsOverview indicates an expected call of GetPriceDropsOverview.
+func (mr *MockShortsStoreMockRecorder) GetPriceDropsOverview() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPriceDropsOverview", reflect.TypeOf((*MockShortsStore)(nil).GetPriceDropsOverview))
+}
+
 // GetPropertyHistory mocks base method.
 func (m *MockShortsStore) GetPropertyHistory(addressKey string) (*shorts.PropertyHistoryResult, error) {
 	m.ctrl.T.Helper()
@@ -823,6 +838,21 @@ func (m *MockShortsStore) ListAddressPriceDrops(stateCode, sort string, windowDa
 func (mr *MockShortsStoreMockRecorder) ListAddressPriceDrops(stateCode, sort, windowDays, limit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAddressPriceDrops", reflect.TypeOf((*MockShortsStore)(nil).ListAddressPriceDrops), stateCode, sort, windowDays, limit)
+}
+
+// ListAgencyPriceStats mocks base method.
+func (m *MockShortsStore) ListAgencyPriceStats(stateCode, sort string, limit int32) ([]*shorts.AgencyPriceStatsRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListAgencyPriceStats", stateCode, sort, limit)
+	ret0, _ := ret[0].([]*shorts.AgencyPriceStatsRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListAgencyPriceStats indicates an expected call of ListAgencyPriceStats.
+func (mr *MockShortsStoreMockRecorder) ListAgencyPriceStats(stateCode, sort, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAgencyPriceStats", reflect.TypeOf((*MockShortsStore)(nil).ListAgencyPriceStats), stateCode, sort, limit)
 }
 
 // ListAlertMonitors mocks base method.
@@ -1338,6 +1368,20 @@ func (mr *MockCacheMockRecorder) GetAddressPriceDropsKey(stateCode, sort, window
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAddressPriceDropsKey", reflect.TypeOf((*MockCache)(nil).GetAddressPriceDropsKey), stateCode, sort, windowDays, limit)
 }
 
+// GetAgencyPriceStatsKey mocks base method.
+func (m *MockCache) GetAgencyPriceStatsKey(stateCode, sort string, limit int32) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAgencyPriceStatsKey", stateCode, sort, limit)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetAgencyPriceStatsKey indicates an expected call of GetAgencyPriceStatsKey.
+func (mr *MockCacheMockRecorder) GetAgencyPriceStatsKey(stateCode, sort, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAgencyPriceStatsKey", reflect.TypeOf((*MockCache)(nil).GetAgencyPriceStatsKey), stateCode, sort, limit)
+}
+
 // GetAvailableDatesKey mocks base method.
 func (m *MockCache) GetAvailableDatesKey(limit int32, before string) string {
 	m.ctrl.T.Helper()
@@ -1561,6 +1605,20 @@ func (m *MockCache) GetPeerComparisonKey(stockCode string, limit int32) string {
 func (mr *MockCacheMockRecorder) GetPeerComparisonKey(stockCode, limit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPeerComparisonKey", reflect.TypeOf((*MockCache)(nil).GetPeerComparisonKey), stockCode, limit)
+}
+
+// GetPriceDropsOverviewKey mocks base method.
+func (m *MockCache) GetPriceDropsOverviewKey() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPriceDropsOverviewKey")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetPriceDropsOverviewKey indicates an expected call of GetPriceDropsOverviewKey.
+func (mr *MockCacheMockRecorder) GetPriceDropsOverviewKey() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPriceDropsOverviewKey", reflect.TypeOf((*MockCache)(nil).GetPriceDropsOverviewKey))
 }
 
 // GetPropertyHistoryKey mocks base method.

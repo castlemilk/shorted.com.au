@@ -203,4 +203,14 @@ public interface SuburbPriceDropOrBuilder extends
    * @return The medianSold.
    */
   double getMedianSold();
+
+  /**
+   * <pre>
+   * summed AUD reductions across dropped addresses
+   * </pre>
+   *
+   * <code>double dropped_value = 19 [json_name = "droppedValue"];</code>
+   * @return The droppedValue.
+   */
+  double getDroppedValue();
 }

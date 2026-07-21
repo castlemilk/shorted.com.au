@@ -10,6 +10,8 @@ import {
   type GetSuburbProfileResponse,
   type ListSuburbPriceDropsResponse,
   type ListSuburbDropListingsResponse,
+  type GetPriceDropsOverviewResponse,
+  type ListAgencyPriceStatsResponse,
 } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { cache } from "react";
 import {
@@ -143,6 +145,26 @@ export const listSuburbDropListings = cache(
     async (salCode: string = "", regionCode: string = "", windowDays: number = 30, limit: number = 30): Promise<ListSuburbDropListingsResponse> => { // eslint-disable-line @typescript-eslint/no-inferrable-types
       const client = createHousingClient();
       return client.listSuburbDropListings({ salCode, regionCode, windowDays, limit });
+    },
+  ),
+);
+
+/** Per-state price-drop + asking/sold rollup with an AU national row (derived aggregate). */
+export const getPriceDropsOverview = cache(
+  withRetryAndNotFound(
+    async (): Promise<GetPriceDropsOverviewResponse> => {
+      const client = createHousingClient();
+      return client.getPriceDropsOverview({});
+    },
+  ),
+);
+
+/** Agencies ranked by recent asking-price cuts (derived aggregate). */
+export const listAgencyPriceStats = cache(
+  withRetryAndNotFound(
+    async (stateCode: string = "", sort: string = "drops", limit: number = 20): Promise<ListAgencyPriceStatsResponse> => { // eslint-disable-line @typescript-eslint/no-inferrable-types
+      const client = createHousingClient();
+      return client.listAgencyPriceStats({ stateCode, sort, limit });
     },
   ),
 );

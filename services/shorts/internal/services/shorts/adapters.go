@@ -299,6 +299,14 @@ func (s *StoreAdapter) ListAddressPriceDrops(stateCode, sort string, windowDays,
 	return s.store.ListAddressPriceDrops(stateCode, sort, windowDays, limit)
 }
 
+func (s *StoreAdapter) GetPriceDropsOverview() ([]*shorts.StatePriceDropSummaryRow, error) {
+	return s.store.GetPriceDropsOverview()
+}
+
+func (s *StoreAdapter) ListAgencyPriceStats(stateCode, sort string, limit int32) ([]*shorts.AgencyPriceStatsRow, error) {
+	return s.store.ListAgencyPriceStats(stateCode, sort, limit)
+}
+
 func (s *StoreAdapter) GetEventTimeline(stockCode string, daysBack, limit int32) ([]*shorts.TimelineEventRow, error) {
 	return s.store.GetEventTimeline(stockCode, daysBack, limit)
 }

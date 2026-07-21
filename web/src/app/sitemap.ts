@@ -545,6 +545,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   const housingRoutes = [
+    // Flagship price-drops board (state/suburb/address/agency rollups).
+    { url: `${baseUrl}/price-drops`, lastModified: latestDataDate },
     ...housingStateSlugs.map((slug) => ({ url: `${baseUrl}/housing/${slug}`, lastModified: latestDataDate })),
     // clean canonical URLs (the page resolves the SAL from the slug; ?sal= is only a fast-path)
     ...housingSuburbUrls.map((s) => ({ url: `${baseUrl}/housing/${s.state}/${s.suburb}`, lastModified: latestDataDate })),

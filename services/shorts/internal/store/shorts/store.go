@@ -191,6 +191,8 @@ type Store interface {
 	ListSuburbDropListings(salCode, regionCode string, windowDays, limit int32) ([]*SuburbDropListingRow, error)
 	GetPropertyHistory(addressKey string) (*PropertyHistoryResult, error)
 	ListAddressPriceDrops(stateCode, sort string, windowDays, limit int32) ([]*AddressPriceDropRow, error)
+	GetPriceDropsOverview() ([]*StatePriceDropSummaryRow, error)
+	ListAgencyPriceStats(stateCode, sort string, limit int32) ([]*AgencyPriceStatsRow, error)
 
 	// Economy snapshot methods
 	ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32) ([]*EconomicSeriesRow, error)

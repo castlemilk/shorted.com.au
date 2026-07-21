@@ -700,6 +700,32 @@ service ShortedStocksService {
     };
   }
 
+  // State-level price-drop + listing-price rollup, plus a national summary row.
+  rpc GetPriceDropsOverview (GetPriceDropsOverviewRequest) returns (GetPriceDropsOverviewResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (google.api.http) = {
+      post: "/v1/getPriceDropsOverview"
+      body: "*"
+    };
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Price Drops Overview",
+      description: "Per-state rollup of recent for-sale asking-price reductions plus asking/sold price aggregates, with a national summary. A derived aggregate over realestate.com.au / domain.com.au listing data covering tracked metro suburbs; individual listings are not republished."
+    };
+  }
+
+  // Agencies ranked by recent asking-price cuts across their listings.
+  rpc ListAgencyPriceStats (ListAgencyPriceStatsRequest) returns (ListAgencyPriceStatsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (google.api.http) = {
+      post: "/v1/listAgencyPriceStats"
+      body: "*"
+    };
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Agency Price Stats",
+      description: "Real-estate agencies ranked by recent asking-price reductions across their tracked for-sale listings — listing counts, median asking price, reduction depth and suburbs covered. A derived aggregate; individual listings are not republished."
+    };
+  }
+
   // List economic series catalog entries (Australian economy snapshot layer).
   rpc ListEconomicSeries (ListEconomicSeriesRequest) returns (ListEconomicSeriesResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
@@ -2330,6 +2356,7 @@ message SuburbPriceDrop {
   int32  sold_count = 16;              // recent sold listings captured
   double avg_sold = 17;                // mean sold price, AUD (0 if none)
   double median_sold = 18;             // median sold price, AUD
+  double dropped_value = 19;           // summed AUD reductions across dropped addresses
 }
 
 message ListSuburbPriceDropsResponse {
@@ -2358,6 +2385,8 @@ message SuburbDropListing {
   double drop_abs = 11;            // AUD reduction
   google.protobuf.Timestamp observed_at = 12;  // when the reduction was detected
   string address_key = 13;         // stable per-address key → /housing/property/[addressKey] (empty until backfilled)
+  string agency_name = 14;         // marketing agency ('' when not captured)
+  repeated string agent_names = 15; // listing agents ('' when not captured)
 }
 
 message ListSuburbDropListingsResponse {
@@ -2386,6 +2415,8 @@ message PropertyListingSnapshot {
   string property_type = 13;
   string first_seen_at = 14;       // RFC3339
   string last_seen_at = 15;        // RFC3339
+  string agency_name = 16;         // marketing agency ('' when not captured)
+  repeated string agent_names = 17; // listing agents ('' when not captured)
 }
 
 // One event in an address's price timeline (spans every listing/relist at
@@ -2454,10 +2485,70 @@ message AddressPriceDrop {
   string property_type = 14;
   int32  bedrooms = 15;
   int32  bathrooms = 16;
+  string agency_name = 17;          // marketing agency of the current listing ('' when not captured)
+  repeated string agent_names = 18; // listing agents ('' when not captured)
 }
 
 message ListAddressPriceDropsResponse {
   repeated AddressPriceDrop addresses = 1;
+}
+
+message GetPriceDropsOverviewRequest {}
+
+// State-grain rollup of the tracked listing corpus: recent asking-price
+// reductions plus asking/sold price aggregates. Derived aggregates only —
+// the underlying listings are ToS-restricted and never republished.
+message StatePriceDropSummary {
+  string state_code = 1;           // 'NSW'|'VIC'|... or 'AU' for the national row
+  int32  dropped_count = 2;        // physical addresses that cut asking price (30-day window, deduped)
+  double avg_drop_pct = 3;         // 0..1 fraction
+  double median_drop_pct = 4;
+  double max_drop_pct = 5;
+  double dropped_value = 6;        // summed AUD reductions across dropped addresses
+  int32  total_active_listings = 7;
+  double dropped_share = 8;        // dropped_count / total_active_listings
+  int32  for_sale_count = 9;       // active for-sale listings
+  int32  for_sale_priced = 10;     // subset with a numeric asking price (auction/POA excluded)
+  double avg_asking = 11;          // AUD (0 if none)
+  double median_asking = 12;       // AUD
+  int32  sold_count = 13;          // incidental sold captures — indicative only
+  double avg_sold = 14;            // AUD (0 if none)
+  double median_sold = 15;         // AUD
+  int32  suburbs_tracked = 16;     // tracked suburbs contributing listings
+}
+
+message GetPriceDropsOverviewResponse {
+  StatePriceDropSummary national = 1;          // the 'AU' row
+  repeated StatePriceDropSummary states = 2;   // ordered by dropped_count desc
+}
+
+message ListAgencyPriceStatsRequest {
+  string state_code = 1;   // optional filter, e.g. 'NSW'; '' = national
+  string sort = 2;         // 'drops' (default) | 'listings' | 'avg_cut' | 'value'
+  int32  limit = 3;        // optional; default 20, cap 100
+}
+
+// One agency's aggregate footprint across its tracked listings. agency
+// identity is per-portal (REA company id / Domain advertiser id) — the same
+// real-world agency may appear once per portal.
+message AgencyPriceStats {
+  string source = 1;               // 'rea' | 'domain'
+  string agency_id = 2;            // portal-scoped id
+  string agency_name = 3;
+  string state_code = 4;
+  int32  active_listings = 5;
+  int32  priced_listings = 6;      // active listings with a numeric asking price
+  double avg_asking = 7;           // AUD (0 if none)
+  double median_asking = 8;        // AUD
+  int32  suburbs_covered = 9;
+  int32  dropped_count = 10;       // deduped addresses cut in the 30-day window
+  double avg_drop_pct = 11;        // 0..1 fraction (0 if no drops)
+  double total_drop_value = 12;    // summed AUD reductions
+  repeated string agent_names = 13; // small display sample of listing agents (<=6)
+}
+
+message ListAgencyPriceStatsResponse {
+  repeated AgencyPriceStats agencies = 1;
 }
 
 // ── Economy (Australian economy snapshot) ────────────────────────────────────
