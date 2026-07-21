@@ -190,6 +190,10 @@ module "house_price_collector" {
   scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
   environment      = "production"
   image_url        = var.house_price_collector_image
+  # REVALIDATION_SECRET exists in prod Secret Manager (shared with short-data-sync)
+  # + the matching value is set in the Vercel frontend env, so enable event-driven
+  # housing cache busting after a crawl-driven MV refresh.
+  manage_revalidation_secret = true
 
   depends_on = [
     google_project_service.required_apis,

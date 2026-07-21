@@ -117,6 +117,11 @@ export const TOP_PAGE_TTL = 86400; // 24h, flushed on data change
 // shorts-data flush, so this key lives outside SHORTS_DATA_CACHE_PREFIXES and
 // relies purely on TTL expiry — 24h is far tighter than the quarterly cadence.
 export const HOUSING_TTL = 86400;
+// Price-drops are derived from the residential-listing crawl, which re-ingests
+// ~once/day. Cache hard (24h ceiling) and bust the cache:housing: prefix on the
+// crawl-change event via /api/revalidate?flush=housing; the ceiling bounds
+// staleness if a flush is ever missed.
+export const PRICE_DROPS_TTL = 86400;
 
 // Prefixes covering all data derived from the `shorts` table — flushed together
 // when a sync writes new ASIC data.
@@ -125,6 +130,11 @@ export const SHORTS_DATA_CACHE_PREFIXES = [
   TOP_PAGE_CACHE_PREFIX,
   TOOLTIP_CACHE_PREFIX,
 ] as const;
+
+// All house-price / price-drops data lives under cache:housing: (housingOverview
+// + the price-drops keys), so one prefix flushes the whole surface together on a
+// housing data-change event (crawl ingest) via /api/revalidate?flush=housing.
+export const HOUSING_DATA_CACHE_PREFIXES = ["cache:housing:"] as const;
 
 /**
  * Cache keys for various data types
@@ -142,6 +152,21 @@ export const CACHE_KEYS = {
   // Housing overview — TTL-only (see HOUSING_TTL); not under the shorts flush.
   housingOverview: (regionType: string) =>
     `cache:housing:overview:${regionType || "all"}`,
+  // Price-drops (residential-listing derived) — TTL-hard + flushed on the crawl
+  // event via HOUSING_DATA_CACHE_PREFIXES. Every parameter of the action is in
+  // its key so no two argument sets can ever share (poison) an entry.
+  priceDropsOverview: () => `cache:housing:drops:overview`,
+  suburbPriceDrops: (stateCode: string, sort: string, limit: number) =>
+    `cache:housing:drops:suburbs:${stateCode || "all"}:${sort}:${limit}`,
+  agencyPriceStats: (stateCode: string, sort: string, limit: number) =>
+    `cache:housing:drops:agencies:${stateCode || "all"}:${sort}:${limit}`,
+  addressPriceDrops: (
+    stateCode: string,
+    windowDays: number,
+    limit: number,
+    sort: string,
+  ) =>
+    `cache:housing:drops:addresses:${stateCode || "all"}:${windowDays}:${limit}:${sort}`,
   // Tooltip cache keys
   tooltipData: (productCode: string) =>
     `${TOOLTIP_CACHE_PREFIX}${productCode}`,

@@ -342,6 +342,10 @@ func runListings(ctx context.Context, pool *pgxpool.Pool) bool {
 		}
 		if err := refreshHousingMV(ctx, pool); err != nil {
 			log.Printf("[listings] mv refresh failed: %v", err)
+		} else if reaEvents+domEvents > 0 {
+			// New price-drop/relist events landed + MVs refreshed → bust the web
+			// tier's long-TTL housing caches now. Best-effort, never fails the run.
+			pingRevalidate("listings")
 		}
 		_ = updateRun(ctx, pool, "listings_rea", nil, reaEvents, "ok", "")
 		_ = updateRun(ctx, pool, "listings_domain", nil, domEvents, "ok", "")

@@ -2,16 +2,26 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import type {
+  AddressPriceDrop,
+  ListAddressPriceDropsResponse,
+} from "~/gen/shorts/v1alpha1/shorts_pb";
 import { listAddressPriceDropsClient } from "~/app/actions/client/getHousingClient";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
-import { ALL_STATES, STATE_NAMES } from "@/lib/housing/states";
+import { ALL_STATES, STATE_NAMES, slugToState } from "@/lib/housing/states";
 import { HousingIcon } from "./housing-icon";
 
 export interface AddressDropsBoardProps {
   stateCode?: string;
   windowDays?: number;
   limit?: number;
+  /**
+   * Server-fetched default (all-states, biggest-%) rows — seeds useQuery so the
+   * static /price-drops shell paints rows without a first-load client round-trip.
+   */
+  initialAddresses?: AddressPriceDrop[];
   /** Embedded in a page that supplies its own section heading (e.g. /price-drops) — hides the board's own title block. */
   embedded?: boolean;
 }
@@ -36,14 +46,35 @@ const SORTS: { key: string; label: string }[] = [
   { key: "recent", label: "Most recent" },
 ];
 
-export function AddressDropsBoard({ stateCode: initialState = "", windowDays = 90, limit = 50, embedded = false }: AddressDropsBoardProps) {
-  const [stateCode, setStateCode] = useState(initialState);
+export function AddressDropsBoard({ stateCode: initialState = "", windowDays = 90, limit = 50, initialAddresses, embedded = false }: AddressDropsBoardProps) {
+  // ?state= deep link (e.g. a shared /price-drops?state=vic URL) — read here on
+  // the client so the page stays static ISR. slugToState maps "vic"→"VIC" and
+  // drops anything invalid to "".
+  const searchParams = useSearchParams();
+  const stateFromUrl = slugToState(searchParams.get("state") ?? "") ?? "";
+  const [stateCode, setStateCode] = useState(initialState || stateFromUrl);
   const [sort, setSort] = useState("pct");
+
+  // The server-seeded rows are the all-states / biggest-% view; only reuse them
+  // as initialData when the current selection still IS that view, otherwise a
+  // filter/sort change must fetch live. An EMPTY seed is also rejected — with
+  // initialData present, TanStack treats the data as fresh for the whole
+  // staleTime and never fires the client fetch, so seeding [] (e.g. the server
+  // fetch failed while the rest of the page succeeded) would pin the board to
+  // its empty state instead of letting the client fetch recover.
+  const isDefaultView = stateCode === "" && sort === "pct";
 
   const { data, isLoading } = useQuery({
     queryKey: ["address-price-drops", stateCode, windowDays, limit, sort],
     queryFn: () => listAddressPriceDropsClient(stateCode, windowDays, limit, sort),
     staleTime: 30 * 60 * 1000,
+    initialData:
+      isDefaultView && initialAddresses && initialAddresses.length > 0
+        ? ({
+            $typeName: "shorts.v1alpha1.ListAddressPriceDropsResponse",
+            addresses: initialAddresses,
+          } satisfies ListAddressPriceDropsResponse)
+        : undefined,
   });
   const rows = data?.addresses ?? [];
 

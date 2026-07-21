@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -10,10 +11,10 @@ import { SuburbDropsLeaderboard } from "@/components/housing/price-drops/suburb-
 import { AgencyDropsBoard } from "@/components/housing/price-drops/agency-drops-board";
 import {
   getPriceDropsOverview,
+  listAddressPriceDrops,
   listAgencyPriceStats,
   listSuburbPriceDrops,
 } from "~/app/actions/getHousing";
-import { slugToState } from "@/lib/housing/states";
 import { pageTitle, sectionTitle, eyebrow, lede } from "@/lib/typography";
 import { cn } from "@/lib/utils";
 
@@ -22,9 +23,14 @@ const TITLE = "Australian House Price Drops — by State, Suburb & Agency";
 const DESCRIPTION =
   "Where Australian asking prices are falling: price cuts ranked by state, suburb, individual address and real-estate agency, tracked daily from realestate.com.au and Domain listings.";
 
-// Cheap MV-backed fetches — render dynamically (the /scans pattern) so the
-// first post-deploy visitor never sees a stale build-shell empty state.
-export const dynamic = "force-dynamic";
+// Static ISR — the price-drop corpus changes ~once/day after the crawl re-ingest,
+// so the three server fetches are KV-cached (getHousing.ts) and the route is
+// prerendered. We deliberately do NOT read the request query in this server page
+// (doing so forces dynamic rendering). The ?state= deep link is instead read
+// client-side by AddressDropsBoard (under a Suspense boundary). Busted on the
+// crawl event via /api/revalidate?path=/price-drops&flush=housing and warmed
+// post-deploy by /api/static-pages/warm-cache.
+export const revalidate = 3600;
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -60,22 +66,21 @@ function SectionHeader({
   );
 }
 
-interface PageProps {
-  searchParams: Promise<{ state?: string }>;
-}
-
-export default async function PriceDropsPage({ searchParams }: PageProps) {
-  const { state } = await searchParams;
-  const stateCode = state ? (slugToState(state) ?? "") : "";
-
-  const [overview, suburbs, agencies] = await Promise.all([
+export default async function PriceDropsPage() {
+  const [overview, suburbs, agencies, addresses] = await Promise.all([
     getPriceDropsOverview(),
-    listSuburbPriceDrops("", "count", 15),
+    // Fetch 25 (the /housing suburb panels' page size) and show the top 15 below,
+    // so the backend MemoryCache serves ONE entry across both surfaces.
+    listSuburbPriceDrops("", "count", 25),
     listAgencyPriceStats("", "drops", 12),
+    // Seed the address board's default (all-states, biggest-%) view so the static
+    // shell renders rows without a client round-trip.
+    listAddressPriceDrops(),
   ]);
 
   const national = overview?.national;
   const states = overview?.states ?? [];
+  const suburbRows = (suburbs?.suburbs ?? []).slice(0, 15);
   const hasData = Boolean(national && national.totalActiveListings > 0);
 
   const jsonLd = {
@@ -131,7 +136,7 @@ export default async function PriceDropsPage({ searchParams }: PageProps) {
                 title="Drops by state"
                 sub="Share of tracked listings that cut their asking price in the last 30 days, with each state's median cut and asking/sold price aggregates across every tracked listing. Click a state for its suburb explorer."
               />
-              <StateDropsBoard states={states} highlightState={stateCode} />
+              <StateDropsBoard states={states} />
             </section>
 
             <section className="space-y-4">
@@ -140,7 +145,7 @@ export default async function PriceDropsPage({ searchParams }: PageProps) {
                 title="Suburbs cutting hardest"
                 sub="Suburbs ranked by how many for-sale listings reduced their asking price in the last 30 days. A suburb needs at least three cut listings to appear."
               />
-              <SuburbDropsLeaderboard suburbs={suburbs?.suburbs ?? []} />
+              <SuburbDropsLeaderboard suburbs={suburbRows} />
               <p className="text-sm text-muted-foreground">
                 Browse every tracked suburb&apos;s asking and sold aggregates on the{" "}
                 <Link href="/housing" className="font-medium text-primary underline-offset-4 hover:underline">
@@ -155,7 +160,14 @@ export default async function PriceDropsPage({ searchParams }: PageProps) {
                 title="Biggest individual drops"
                 sub="Physical addresses ranked by how far their asking price has fallen — deduped across portals and relists, with the marketing agency where captured. Each row opens the full per-address price history."
               />
-              <AddressDropsBoard stateCode={stateCode} embedded />
+              {/* Suspense boundary required: AddressDropsBoard reads the ?state=
+                  deep link via useSearchParams, which suspends on a static page
+                  (the dynamic-import loading fallback does NOT satisfy it). */}
+              <Suspense
+                fallback={<div className="h-[480px] w-full animate-pulse rounded-xl bg-muted" />}
+              >
+                <AddressDropsBoard initialAddresses={addresses?.addresses ?? []} embedded />
+              </Suspense>
             </section>
 
             {(agencies?.agencies?.length ?? 0) > 0 ? (

@@ -4,6 +4,10 @@ import { fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
 import {
   ShortedStocksService,
   GetHousingOverviewResponseSchema,
+  GetPriceDropsOverviewResponseSchema,
+  ListSuburbPriceDropsResponseSchema,
+  ListAgencyPriceStatsResponseSchema,
+  ListAddressPriceDropsResponseSchema,
   type GetHousingOverviewResponse,
   type GetHousePriceSeriesResponse,
   type ListStateSuburbsResponse,
@@ -12,6 +16,7 @@ import {
   type ListSuburbDropListingsResponse,
   type GetPriceDropsOverviewResponse,
   type ListAgencyPriceStatsResponse,
+  type ListAddressPriceDropsResponse,
 } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { cache } from "react";
 import {
@@ -19,7 +24,13 @@ import {
   serverFetchWithUserAgent,
   skipForBuild,
 } from "./config";
-import { CACHE_KEYS, HOUSING_TTL, getCached, setCached } from "@/lib/kv-cache";
+import {
+  CACHE_KEYS,
+  HOUSING_TTL,
+  PRICE_DROPS_TTL,
+  getCached,
+  setCached,
+} from "@/lib/kv-cache";
 import { withRetryAndNotFound } from "./withRetry";
 import { suburbSlug } from "@/lib/housing/states";
 
@@ -129,12 +140,40 @@ export const getSuburbProfile = cache(
   ),
 );
 
+// The /price-drops board is static ISR (data changes ~once/day after the crawl),
+// so its three server actions get the same treatment as getHousingOverview:
+// skipForBuild() during the prerender, an Upstash KV layer keyed under
+// cache:housing:drops: (busted on the crawl event via
+// /api/revalidate?flush=housing), and the ISR-cacheable transport — WITHOUT the
+// `next:{revalidate}` tag serverFetchWithUserAgent forces cache:'no-store' on the
+// POST and silently opts the whole route back into dynamic rendering (the P1
+// trap). Cache the JSON projection (toJson) and fromJson-rehydrate so any int64
+// consumers keep working; on schema drift we fall through to a live fetch.
+
 /** Suburbs ranked by recent for-sale asking-price drops (derived aggregate). */
 export const listSuburbPriceDrops = cache(
   withRetryAndNotFound(
-    async (stateCode: string = "", sort: string = "count", limit: number = 50): Promise<ListSuburbPriceDropsResponse> => { // eslint-disable-line @typescript-eslint/no-inferrable-types
-      const client = createHousingClient();
-      return client.listSuburbPriceDrops({ stateCode, sort, limit });
+    async (stateCode: string = "", sort: string = "count", limit: number = 50): Promise<ListSuburbPriceDropsResponse | undefined> => { // eslint-disable-line @typescript-eslint/no-inferrable-types
+      if (skipForBuild()) return undefined;
+
+      const cacheKey = CACHE_KEYS.suburbPriceDrops(stateCode, sort, limit);
+      const cached = await getCached<JsonValue>(cacheKey);
+      if (cached != null) {
+        try {
+          return fromJson(ListSuburbPriceDropsResponseSchema, cached);
+        } catch {
+          // Schema drift / bad entry — fall through to a live fetch.
+        }
+      }
+
+      const client = createCacheableHousingClient();
+      const resp = await client.listSuburbPriceDrops({ stateCode, sort, limit });
+      try {
+        void setCached(cacheKey, toJson(ListSuburbPriceDropsResponseSchema, resp), PRICE_DROPS_TTL);
+      } catch {
+        // Serialization/caching must never break the request.
+      }
+      return resp;
     },
   ),
 );
@@ -152,9 +191,27 @@ export const listSuburbDropListings = cache(
 /** Per-state price-drop + asking/sold rollup with an AU national row (derived aggregate). */
 export const getPriceDropsOverview = cache(
   withRetryAndNotFound(
-    async (): Promise<GetPriceDropsOverviewResponse> => {
-      const client = createHousingClient();
-      return client.getPriceDropsOverview({});
+    async (): Promise<GetPriceDropsOverviewResponse | undefined> => {
+      if (skipForBuild()) return undefined;
+
+      const cacheKey = CACHE_KEYS.priceDropsOverview();
+      const cached = await getCached<JsonValue>(cacheKey);
+      if (cached != null) {
+        try {
+          return fromJson(GetPriceDropsOverviewResponseSchema, cached);
+        } catch {
+          // Schema drift / bad entry — fall through to a live fetch.
+        }
+      }
+
+      const client = createCacheableHousingClient();
+      const resp = await client.getPriceDropsOverview({});
+      try {
+        void setCached(cacheKey, toJson(GetPriceDropsOverviewResponseSchema, resp), PRICE_DROPS_TTL);
+      } catch {
+        // Serialization/caching must never break the request.
+      }
+      return resp;
     },
   ),
 );
@@ -162,9 +219,59 @@ export const getPriceDropsOverview = cache(
 /** Agencies ranked by recent asking-price cuts (derived aggregate). */
 export const listAgencyPriceStats = cache(
   withRetryAndNotFound(
-    async (stateCode: string = "", sort: string = "drops", limit: number = 20): Promise<ListAgencyPriceStatsResponse> => { // eslint-disable-line @typescript-eslint/no-inferrable-types
-      const client = createHousingClient();
-      return client.listAgencyPriceStats({ stateCode, sort, limit });
+    async (stateCode: string = "", sort: string = "drops", limit: number = 20): Promise<ListAgencyPriceStatsResponse | undefined> => { // eslint-disable-line @typescript-eslint/no-inferrable-types
+      if (skipForBuild()) return undefined;
+
+      const cacheKey = CACHE_KEYS.agencyPriceStats(stateCode, sort, limit);
+      const cached = await getCached<JsonValue>(cacheKey);
+      if (cached != null) {
+        try {
+          return fromJson(ListAgencyPriceStatsResponseSchema, cached);
+        } catch {
+          // Schema drift / bad entry — fall through to a live fetch.
+        }
+      }
+
+      const client = createCacheableHousingClient();
+      const resp = await client.listAgencyPriceStats({ stateCode, sort, limit });
+      try {
+        void setCached(cacheKey, toJson(ListAgencyPriceStatsResponseSchema, resp), PRICE_DROPS_TTL);
+      } catch {
+        // Serialization/caching must never break the request.
+      }
+      return resp;
+    },
+  ),
+);
+
+/**
+ * Individual addresses ranked by asking-price drop — the /price-drops address
+ * board's default (all-states, biggest-%) view, fetched server-side to seed the
+ * client board without a first-paint round-trip. Same KV+ISR treatment as above.
+ */
+export const listAddressPriceDrops = cache(
+  withRetryAndNotFound(
+    async (stateCode: string = "", windowDays: number = 90, limit: number = 50, sort: string = "pct"): Promise<ListAddressPriceDropsResponse | undefined> => { // eslint-disable-line @typescript-eslint/no-inferrable-types
+      if (skipForBuild()) return undefined;
+
+      const cacheKey = CACHE_KEYS.addressPriceDrops(stateCode, windowDays, limit, sort);
+      const cached = await getCached<JsonValue>(cacheKey);
+      if (cached != null) {
+        try {
+          return fromJson(ListAddressPriceDropsResponseSchema, cached);
+        } catch {
+          // Schema drift / bad entry — fall through to a live fetch.
+        }
+      }
+
+      const client = createCacheableHousingClient();
+      const resp = await client.listAddressPriceDrops({ stateCode, windowDays, limit, sort });
+      try {
+        void setCached(cacheKey, toJson(ListAddressPriceDropsResponseSchema, resp), PRICE_DROPS_TTL);
+      } catch {
+        // Serialization/caching must never break the request.
+      }
+      return resp;
     },
   ),
 );

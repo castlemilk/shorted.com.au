@@ -25,3 +25,30 @@ variable "image_url" {
   description = "Docker image URL for the house-price collector Cloud Run job"
   type        = string
 }
+
+variable "revalidation_url" {
+  description = <<-EOT
+    Frontend on-demand revalidation endpoint, pinged after a crawl-driven MV
+    refresh writes new housing data to bust the cached SSR pages (/price-drops,
+    /housing). Mirrors the short-data-sync default (the canonical host works for
+    the Cloud Run job because terraform/modules/cloudflare-edge skips
+    /api/revalidate from the managed challenge). Residential-Mac agent runs
+    instead read REVALIDATION_URL from ~/.shorted-housing-crawl.env and are
+    documented to use the Vercel origin.
+  EOT
+  type        = string
+  default     = "https://shorted.com.au/api/revalidate"
+}
+
+variable "manage_revalidation_secret" {
+  description = <<-EOT
+    Whether the REVALIDATION_SECRET Secret Manager secret exists and should be
+    mounted into the job + granted to its SA. Defaults to false because the
+    secret may not be provisioned in every env; the collector skips revalidation
+    gracefully when it is unset (housing pages self-heal on the ISR TTL). Set
+    true once the secret is created AND the matching value is set in the frontend
+    (Vercel) env to enable event-driven cache invalidation.
+  EOT
+  type        = bool
+  default     = false
+}

@@ -612,6 +612,10 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 		}
 		if err := refreshHousingMV(ctx, pool); err != nil {
 			log.Printf("[agent] mv refresh failed: %v", err)
+		} else {
+			// Data changed (wroteAny) + MVs refreshed → bust the web tier's
+			// long-TTL housing caches now. Best-effort, never fails the run.
+			pingRevalidate("agent")
 		}
 	}
 	log.Printf("[agent] done: processed %d job(s)", done)
