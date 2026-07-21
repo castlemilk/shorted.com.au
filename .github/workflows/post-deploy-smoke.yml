@@ -27,6 +27,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      # Bust + re-prime the static, data-backed ISR pages whose empty-at-build
+      # shell would otherwise be served to the first visitor after this deploy
+      # (see web/src/app/api/static-pages/warm-cache/route.ts). Best-effort: the
+      # page's own revalidate + the 15-min warm cron backstop it, so a failed
+      # warm must not fail the deploy smoke.
+      - name: Warm static data pages
+        env:
+          CLOUDFLARE_TESTING_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
+        run: |
+          BASE_URL="https://shorted.com.au"
+          CURL_ARGS=(-A "Mozilla/5.0 Shorted-E2E/1.0")
+          if [ -n "${CLOUDFLARE_TESTING_BYPASS_SECRET:-}" ]; then
+            CURL_ARGS+=(-H "X-Shorted-Testing-Bypass: ${CLOUDFLARE_TESTING_BYPASS_SECRET}")
+          fi
+          echo "Warming static data page shells (/market /housing /economy /compare)…"
+          curl -s --max-time 120 "${CURL_ARGS[@]}" "${BASE_URL}/api/static-pages/warm-cache" | head -c 500 || true
+          echo ""
+
       - name: Smoke test critical routes
         env:
           CLOUDFLARE_TESTING_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
