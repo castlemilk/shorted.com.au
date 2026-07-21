@@ -46,10 +46,12 @@ export default async function Image({
       stateName = STATE_NAMES[code] ?? code;
       const sal = await resolveSuburbSalCode(code, suburb);
       if (sal) {
+        // withRetryAndNotFound swallows all errors as `undefined` rather than
+        // throwing — guard explicitly rather than relying on the catch below.
         const profile = await getSuburbProfile(sal);
-        if (profile.summary?.salName) name = profile.summary.salName;
-        if (profile.banner?.archetype) archetype = profile.banner.archetype;
-        if (profile.summary && profile.summary.latestMedianPrice > 0) {
+        if (profile?.summary?.salName) name = profile.summary.salName;
+        if (profile?.banner?.archetype) archetype = profile.banner.archetype;
+        if (profile?.summary && profile.summary.latestMedianPrice > 0) {
           priceLabel = fmtPriceShort(profile.summary.latestMedianPrice);
         }
       }
