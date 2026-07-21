@@ -6,7 +6,11 @@ import {
   type ListEconomicSeriesResponse,
 } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { cache } from "react";
-import { SERVER_SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
+import {
+  SERVER_SHORTS_API_URL,
+  serverFetchWithUserAgent,
+  skipForBuild,
+} from "./config";
 import { withRetryAndNotFound } from "./withRetry";
 
 // A transport whose fetch tags the request ISR-cacheable — mirrors
@@ -27,7 +31,14 @@ function createCacheableEconomyClient() {
 /** Observations for up to 50 economic series keys. */
 export const getEconomicSeries = cache(
   withRetryAndNotFound(
-    async (seriesKeys: string[]): Promise<GetEconomicSeriesResponse> => {
+    async (
+      seriesKeys: string[],
+    ): Promise<GetEconomicSeriesResponse | undefined> => {
+      // Build phase: skip the live fetch so a prerendered /economy route
+      // doesn't make a live API call at `next build` time — ISR fills it on
+      // first request. Mirrors getHousingOverview in getHousing.ts.
+      if (skipForBuild()) return undefined;
+
       const client = createCacheableEconomyClient();
       return client.getEconomicSeries({ seriesKeys });
     },
@@ -41,7 +52,9 @@ export const listEconomicSeries = cache(
       topic: string = "", // eslint-disable-line @typescript-eslint/no-inferrable-types
       metric: string = "", // eslint-disable-line @typescript-eslint/no-inferrable-types
       regionType: string = "", // eslint-disable-line @typescript-eslint/no-inferrable-types
-    ): Promise<ListEconomicSeriesResponse> => {
+    ): Promise<ListEconomicSeriesResponse | undefined> => {
+      if (skipForBuild()) return undefined;
+
       const client = createCacheableEconomyClient();
       return client.listEconomicSeries({ topic, metric, regionType, limit: 500 });
     },
