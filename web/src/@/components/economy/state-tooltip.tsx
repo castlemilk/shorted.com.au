@@ -24,7 +24,7 @@ function Sparkline({ points }: { points: Obs[] }) {
 }
 
 export function StateTooltip({
-  name, value, metricLabel, format, period, yoy, higherIsBad, rank, spark, unavailableNote, companyCount,
+  name, value, metricLabel, format, period, yoy, higherIsBad, rank, spark, unavailableNote, companyCount, pinned,
 }: {
   name: string;
   value: number | null;
@@ -38,9 +38,13 @@ export function StateTooltip({
   unavailableNote?: string;
   /** aggregate metrics only — "N companies operating here" (no sparkline/yoy) */
   companyCount?: number;
+  /** small-viewport variant: full-width panel pinned inside the map container */
+  pinned?: boolean;
 }) {
   return (
-    <div className="w-56 rounded-lg border border-border bg-card p-3 shadow-lg">
+    <div
+      className={`${pinned ? "w-auto" : "w-56"} max-w-full rounded-lg border border-border bg-card p-3 shadow-lg`}
+    >
       <div className="font-serif text-sm font-semibold">{name}</div>
       <div className="mt-0.5 text-[11px] uppercase tracking-wide text-muted-foreground">
         {metricLabel}

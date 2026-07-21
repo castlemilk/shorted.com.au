@@ -122,6 +122,17 @@ export function EconomyMapExplorer() {
   const [metricKey, setMetricKey] = useState<EconomyMapMetricKey>("unemployment");
   const [selected, setSelected] = useState<string | null>(null); // slug ("wa")
   const [hover, setHover] = useState<{ id: string; x: number; y: number } | null>(null); // id = topo id "1".."8"
+  // < 640px: the tooltip pins to the bottom of the map instead of floating at
+  // the pointer (floating cards overflow small viewports). SSR-safe: this is
+  // a client-only component, and the effect only runs in the browser.
+  const [isNarrow, setIsNarrow] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)");
+    const update = () => setIsNarrow(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   const metric = METRIC_BY_KEY[metricKey];
   const isAggregate = metric.kind === "aggregate";
@@ -284,40 +295,52 @@ export function EconomyMapExplorer() {
             }}
           />
         )}
-        {hover && (
-          <div
-            className="pointer-events-none fixed z-50"
-            style={{
-              left: hover.x + TOOLTIP_W + 18 > window.innerWidth ? hover.x - TOOLTIP_W - 14 : hover.x + 14,
-              top: hover.y + TOOLTIP_H + 18 > window.innerHeight ? hover.y - TOOLTIP_H : hover.y + 14,
-            }}
-          >
-            {isAggregate ? (
-              <StateTooltip
-                name={nameById.get(hover.id) ?? hover.id}
-                value={hoverAgg?.value ?? null}
-                metricLabel={metric.label}
-                format={format}
-                higherIsBad={metric.higherIsBad}
-                rank={rankOf(latestRanks, hover.id)}
-                companyCount={hoverAgg?.companyCount}
-              />
-            ) : (
-              <StateTooltip
-                name={nameById.get(hover.id) ?? hover.id}
-                value={hoverUnavailable ? null : hoverValue?.latest ?? null}
-                metricLabel={metric.label}
-                format={format}
-                period={hoverValue?.latestDate.toLocaleDateString("en-AU", { month: "short", year: "numeric" })}
-                yoy={hoverValue?.yoy}
-                higherIsBad={metric.higherIsBad}
-                rank={rankOf(latestRanks, hover.id)}
-                spark={hoverValue?.spark}
-                unavailableNote={metric.kind === "series" ? metric.unavailableNote : undefined}
-              />
-            )}
-          </div>
-        )}
+        {hover && (() => {
+          const card = isAggregate ? (
+            <StateTooltip
+              pinned={isNarrow}
+              name={nameById.get(hover.id) ?? hover.id}
+              value={hoverAgg?.value ?? null}
+              metricLabel={metric.label}
+              format={format}
+              higherIsBad={metric.higherIsBad}
+              rank={rankOf(latestRanks, hover.id)}
+              companyCount={hoverAgg?.companyCount}
+            />
+          ) : (
+            <StateTooltip
+              pinned={isNarrow}
+              name={nameById.get(hover.id) ?? hover.id}
+              value={hoverUnavailable ? null : hoverValue?.latest ?? null}
+              metricLabel={metric.label}
+              format={format}
+              period={hoverValue?.latestDate.toLocaleDateString("en-AU", { month: "short", year: "numeric" })}
+              yoy={hoverValue?.yoy}
+              higherIsBad={metric.higherIsBad}
+              rank={rankOf(latestRanks, hover.id)}
+              spark={hoverValue?.spark}
+              unavailableNote={metric.kind === "series" ? metric.unavailableNote : undefined}
+            />
+          );
+          // Small viewports: pin the card to the bottom of the map container
+          // — always inside bounds, regardless of where the tap landed.
+          if (isNarrow) {
+            return (
+              <div className="pointer-events-none absolute bottom-2 left-2 right-2 z-50">
+                {card}
+              </div>
+            );
+          }
+          // Desktop: float at the pointer, CLAMPED to the viewport (flip-only
+          // logic still overflowed near corners).
+          const left = Math.min(Math.max(hover.x + 14, 8), window.innerWidth - TOOLTIP_W - 8);
+          const top = Math.min(Math.max(hover.y + 14, 8), window.innerHeight - TOOLTIP_H - 8);
+          return (
+            <div className="pointer-events-none fixed z-50" style={{ left, top }}>
+              {card}
+            </div>
+          );
+        })()}
       </div>
 
       {selected && (
