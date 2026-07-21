@@ -22,7 +22,7 @@ const productLinks: FooterLink[] = [
   { title: "Portfolio", href: "/portfolio", requiresAuth: true },
   { title: "Industry Heatmap", href: "/top#treemap" },
   { title: "Reports", href: "/reports" },
-  { title: "Market Snapshots", href: "/reports" },
+  { title: "Market Snapshots", href: "/market" },
   { title: "Company Directory", href: "/directory" },
 ];
 
