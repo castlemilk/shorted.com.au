@@ -22,7 +22,7 @@ func main() {
 // 3 = a crawl needs a human to re-warm the Chrome profile (Kasada/Akamai
 // clearance expired). Wrapping the body lets deferred cleanup run before exit.
 func run() int {
-	mode := flag.String("mode", "all", "official | crawl | listings | agent | enqueue | purge | warmcheck | backfill-address | census | electorates | amenities | lga | connectivity | funding | council-financials | refresh | all")
+	mode := flag.String("mode", "all", "official | crawl | listings | agent | enqueue | purge | warmcheck | backfill-address | census | electorates | banners | amenities | lga | connectivity | funding | council-financials | refresh | all")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -101,6 +101,10 @@ func run() int {
 	case "electorates":
 		// AEC federal electoral representation, spatially joined per suburb.
 		runElectorates(ctx, pool)
+	case "banners":
+		// Per-suburb banner archetype classification, precomputed offline and
+		// upserted into suburb_demographics (banner_archetype/banner_bg_key).
+		runBanners(ctx, pool)
 	case "amenities":
 		// Per-suburb amenity/lifestyle metrics, spatially joined offline
 		// (web/scripts/geo/join-amenities.mjs) and upserted into suburb_amenities.
@@ -120,7 +124,7 @@ func run() int {
 	case "refresh":
 		refresh(ctx, pool)
 	default:
-		log.Fatalf("unknown -mode %q (want official|crawl|listings|agent|enqueue|warmcheck|backfill-address|census|electorates|amenities|lga|connectivity|funding|council-financials|refresh|all)", *mode)
+		log.Fatalf("unknown -mode %q (want official|crawl|listings|agent|enqueue|warmcheck|backfill-address|census|electorates|banners|amenities|lga|connectivity|funding|council-financials|refresh|all)", *mode)
 	}
 	return 0
 }
@@ -246,6 +250,25 @@ func runElectorates(ctx context.Context, pool *pgxpool.Pool) {
 	}
 	log.Printf("[electorates] upserted %d", n)
 	_ = updateRun(ctx, pool, "aec_federal", nil, n, "ok", "")
+}
+
+// runBanners loads the committed suburb archetype map and upserts each
+// suburb's banner_archetype (+ seeds banner_bg_key) into suburb_demographics.
+func runBanners(ctx context.Context, pool *pgxpool.Pool) {
+	rows, err := ingestBanners()
+	if err != nil {
+		log.Printf("[banners] ingest error: %v", err)
+		_ = updateRun(ctx, pool, "suburb_archetypes", nil, 0, "error", err.Error())
+		return
+	}
+	n, err := upsertBanners(ctx, pool, rows)
+	if err != nil {
+		log.Printf("[banners] upsert error after %d: %v", n, err)
+		_ = updateRun(ctx, pool, "suburb_archetypes", nil, n, "error", err.Error())
+		return
+	}
+	log.Printf("[banners] upserted %d", n)
+	_ = updateRun(ctx, pool, "suburb_archetypes", nil, n, "ok", "")
 }
 
 func refresh(ctx context.Context, pool *pgxpool.Pool) {
