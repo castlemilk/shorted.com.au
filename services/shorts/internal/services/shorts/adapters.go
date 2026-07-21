@@ -319,6 +319,14 @@ func (s *StoreAdapter) GetEconomicSeries(seriesKeys []string, startPeriod time.T
 	return s.store.GetEconomicSeries(seriesKeys, startPeriod)
 }
 
+func (s *StoreAdapter) ListStateCompanies(state string, limit int32) ([]*shorts.StateCompanyRow, error) {
+	return s.store.ListStateCompanies(state, limit)
+}
+
+func (s *StoreAdapter) GetStateCompanyAggregates() ([]*shorts.StateCompanyAggregateRow, error) {
+	return s.store.GetStateCompanyAggregates()
+}
+
 // QueryRowContext delegates to the underlying store's QueryRowContext.
 func (s *StoreAdapter) QueryRowContext(ctx context.Context, query string, args ...interface{}) shorts.Row {
 	return s.store.QueryRowContext(ctx, query, args...)

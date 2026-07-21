@@ -131,6 +131,10 @@ type ShortsStore interface {
 	ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32) ([]*shortsstore.EconomicSeriesRow, error)
 	GetEconomicSeries(seriesKeys []string, startPeriod time.Time) ([]*shortsstore.EconomicSeriesDataRow, error)
 
+	// Company state exposure methods
+	ListStateCompanies(state string, limit int32) ([]*shortsstore.StateCompanyRow, error)
+	GetStateCompanyAggregates() ([]*shortsstore.StateCompanyAggregateRow, error)
+
 	// Event timeline methods
 	GetEventTimeline(stockCode string, daysBack, limit int32) ([]*shortsstore.TimelineEventRow, error)
 
@@ -181,6 +185,8 @@ type Cache interface {
 	GetAgencyPriceStatsKey(stateCode, sort string, limit int32) string
 	ListEconomicSeriesKey(topic, metric, regionType, regionCode, product string, limit int32) string
 	GetEconomicSeriesKey(seriesKeys []string, startPeriod string) string
+	ListStateCompaniesKey(state string, limit int32) string
+	GetStateCompanyAggregatesKey() string
 	GetEventTimelineKey(stockCode string, daysBack, limit int32) string
 	GetDirectorTradesKey(stockCode string, limit int32) string
 	GetDividendHistoryKey(stockCode string, years int32) string
