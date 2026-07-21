@@ -1,6 +1,12 @@
 "use client";
 
+import { HousingIcon } from "./housing-icon";
+import { HOUSING_ICONS, type HousingIconName } from "./housing-icons.generated";
 import { SuburbBannerMap } from "./suburb-banner-map";
+
+function isHousingIconName(value: string): value is HousingIconName {
+  return Object.prototype.hasOwnProperty.call(HOUSING_ICONS.icons, value);
+}
 
 export type SuburbBannerData = {
   archetype: string;
@@ -54,7 +60,14 @@ export function SuburbBanner({
 
       <div className="relative flex min-h-[200px] items-center justify-between gap-4 p-6 sm:min-h-[260px] sm:p-8">
         <div className="max-w-[62%]">
-          <div className="font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground">Housing</div>
+          <div className="flex items-center gap-2">
+            {banner?.archetype && isHousingIconName(banner.archetype) ? (
+              <span className="inline-flex items-center justify-center rounded-full border border-border/60 bg-card/70 p-1 backdrop-blur-sm">
+                <HousingIcon name={banner.archetype} size={16} title={banner.archetype} />
+              </span>
+            ) : null}
+            <div className="font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground">Housing</div>
+          </div>
           <h1 className="mt-1 font-serif text-4xl font-semibold capitalize text-foreground sm:text-6xl">
             {name.toLowerCase()}
           </h1>
