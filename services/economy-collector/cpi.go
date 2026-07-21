@@ -86,6 +86,13 @@ func parseCPI(rows [][]string) ([]Obs, error) {
 				RegionType: "national", RegionCode: "aus", RegionName: "Australia",
 				Unit: unit, Frequency: periodFreq, Adjustment: "original",
 				SourceKey: "abs-cpi", Licence: absdata.Licence,
+				Dimensions: map[string]string{
+					"abs_dataflow": cpiFlow,
+					"measure":      measure,
+					"index":        cpiIndexAllGroups,
+					"region":       cpiRegionAus,
+					"tsest":        cpiTsestOriginal,
+				},
 			},
 			Period: period,
 			Value:  val,

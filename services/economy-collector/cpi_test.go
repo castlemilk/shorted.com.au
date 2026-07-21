@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 // cpiFixture mirrors the REAL ABS,CPI(2.0.0) SDMX-CSV header (probed
 // 2026-07-21): no UNIT_MULT column (values are already correctly scaled),
@@ -36,14 +39,33 @@ func TestParseCPI(t *testing.T) {
 	if len(obs) != 2 {
 		t.Fatalf("want 2 obs (non-matching rows filtered), got %d: %#v", len(obs), obs)
 	}
-	byKey := map[string]float64{}
+	byKey := map[string]Obs{}
 	for _, o := range obs {
-		byKey[o.Series.Key()] = o.Value
+		byKey[o.Series.Key()] = o
 	}
-	if byKey["cpi.index.all_groups.aus"] != 101.7 {
+
+	index, ok := byKey["cpi.index.all_groups.aus"]
+	if !ok || index.Value != 101.7 {
 		t.Fatalf("index obs missing/wrong: %#v", byKey)
 	}
-	if byKey["cpi.annual_change.all_groups.aus"] != 4 {
+	// The FREQ filtering exists precisely to guarantee the index series stays
+	// quarterly-only (the monthly index-number row in the fixture must be
+	// dropped, not silently averaged/overwritten into this series).
+	if index.Series.Frequency != "quarterly" {
+		t.Fatalf("index obs frequency: want quarterly, got %q", index.Series.Frequency)
+	}
+	if want := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC); !index.Period.Equal(want) {
+		t.Fatalf("index obs period: want %v, got %v", want, index.Period)
+	}
+
+	annual, ok := byKey["cpi.annual_change.all_groups.aus"]
+	if !ok || annual.Value != 4 {
 		t.Fatalf("annual change obs missing/wrong: %#v", byKey)
+	}
+	if annual.Series.Frequency != "monthly" {
+		t.Fatalf("annual change obs frequency: want monthly, got %q", annual.Series.Frequency)
+	}
+	if want := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC); !annual.Period.Equal(want) {
+		t.Fatalf("annual change obs period: want %v, got %v", want, annual.Period)
 	}
 }
