@@ -225,6 +225,12 @@ function CurrentListingCard({ listing }: { listing: PropertyListingSnapshotLike 
             Listed {fmtDate(listing.firstSeenAt)} · last seen {fmtDate(listing.lastSeenAt)} ·{" "}
             {SOURCE_LABEL[listing.source] ?? listing.source}
           </p>
+          {listing.agencyName ? (
+            <p className="mt-1 text-xs text-muted-foreground/80">
+              Listed by {listing.agencyName}
+              {listing.agentNames.length > 0 ? ` — ${listing.agentNames.slice(0, 3).join(", ")}` : ""}
+            </p>
+          ) : null}
         </div>
         {listing.listingUrl ? (
           <a

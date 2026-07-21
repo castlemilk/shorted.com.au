@@ -310,6 +310,12 @@ function RecentPriceDrops({ salCode, regionCode }: { salCode: string; regionCode
                 {l.propertyType || bedBath(l) ? " · " : ""}
                 {portalName(l.source)}
               </div>
+              {l.agencyName ? (
+                <div className="mt-0.5 truncate text-xs text-muted-foreground/80">
+                  Listed by {l.agencyName}
+                  {l.agentNames.length > 0 ? ` — ${l.agentNames.slice(0, 2).join(", ")}` : ""}
+                </div>
+              ) : null}
             </div>
             <div className="shrink-0 text-right">
               <div className="font-mono text-sm font-semibold tabular-nums text-[color:var(--semantic-red)]">

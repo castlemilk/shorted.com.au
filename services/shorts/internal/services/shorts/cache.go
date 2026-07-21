@@ -263,6 +263,16 @@ func (c *MemoryCache) GetAddressPriceDropsKey(stateCode, sort string, windowDays
 	return c.generateKey("address_price_drops", stateCode, sort, windowDays, limit)
 }
 
+// GetPriceDropsOverviewKey builds a cache key for GetPriceDropsOverview responses.
+func (c *MemoryCache) GetPriceDropsOverviewKey() string {
+	return c.generateKey("price_drops_overview")
+}
+
+// GetAgencyPriceStatsKey builds a cache key for ListAgencyPriceStats responses.
+func (c *MemoryCache) GetAgencyPriceStatsKey(stateCode, sort string, limit int32) string {
+	return c.generateKey("agency_price_stats", stateCode, sort, limit)
+}
+
 // ListEconomicSeriesKey builds a cache key for ListEconomicSeries responses.
 func (c *MemoryCache) ListEconomicSeriesKey(topic, metric, regionType, regionCode, product string, limit int32) string {
 	return c.generateKey("economic_series_list", topic, metric, regionType, regionCode, product, limit)

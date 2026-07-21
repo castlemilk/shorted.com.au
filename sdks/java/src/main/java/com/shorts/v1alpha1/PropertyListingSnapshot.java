@@ -42,6 +42,9 @@ private static final long serialVersionUID = 0L;
     propertyType_ = "";
     firstSeenAt_ = "";
     lastSeenAt_ = "";
+    agencyName_ = "";
+    agentNames_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -547,6 +550,106 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int AGENCY_NAME_FIELD_NUMBER = 16;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object agencyName_ = "";
+  /**
+   * <pre>
+   * marketing agency ('' when not captured)
+   * </pre>
+   *
+   * <code>string agency_name = 16 [json_name = "agencyName"];</code>
+   * @return The agencyName.
+   */
+  @java.lang.Override
+  public java.lang.String getAgencyName() {
+    java.lang.Object ref = agencyName_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      agencyName_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * marketing agency ('' when not captured)
+   * </pre>
+   *
+   * <code>string agency_name = 16 [json_name = "agencyName"];</code>
+   * @return The bytes for agencyName.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getAgencyNameBytes() {
+    java.lang.Object ref = agencyName_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      agencyName_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int AGENT_NAMES_FIELD_NUMBER = 17;
+  @SuppressWarnings("serial")
+  private com.google.protobuf.LazyStringArrayList agentNames_ =
+      com.google.protobuf.LazyStringArrayList.emptyList();
+  /**
+   * <pre>
+   * listing agents ('' when not captured)
+   * </pre>
+   *
+   * <code>repeated string agent_names = 17 [json_name = "agentNames"];</code>
+   * @return A list containing the agentNames.
+   */
+  public com.google.protobuf.ProtocolStringList
+      getAgentNamesList() {
+    return agentNames_;
+  }
+  /**
+   * <pre>
+   * listing agents ('' when not captured)
+   * </pre>
+   *
+   * <code>repeated string agent_names = 17 [json_name = "agentNames"];</code>
+   * @return The count of agentNames.
+   */
+  public int getAgentNamesCount() {
+    return agentNames_.size();
+  }
+  /**
+   * <pre>
+   * listing agents ('' when not captured)
+   * </pre>
+   *
+   * <code>repeated string agent_names = 17 [json_name = "agentNames"];</code>
+   * @param index The index of the element to return.
+   * @return The agentNames at the given index.
+   */
+  public java.lang.String getAgentNames(int index) {
+    return agentNames_.get(index);
+  }
+  /**
+   * <pre>
+   * listing agents ('' when not captured)
+   * </pre>
+   *
+   * <code>repeated string agent_names = 17 [json_name = "agentNames"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the agentNames at the given index.
+   */
+  public com.google.protobuf.ByteString
+      getAgentNamesBytes(int index) {
+    return agentNames_.getByteString(index);
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -606,6 +709,12 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(lastSeenAt_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 15, lastSeenAt_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(agencyName_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 16, agencyName_);
+    }
+    for (int i = 0; i < agentNames_.size(); i++) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 17, agentNames_.getRaw(i));
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -660,6 +769,17 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(lastSeenAt_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(15, lastSeenAt_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(agencyName_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(16, agencyName_);
+    }
+    {
+      int dataSize = 0;
+      for (int i = 0; i < agentNames_.size(); i++) {
+        dataSize += computeStringSizeNoTag(agentNames_.getRaw(i));
+      }
+      size += dataSize;
+      size += 2 * getAgentNamesList().size();
     }
     return size;
   }
@@ -717,6 +837,10 @@ private static final long serialVersionUID = 0L;
         .equals(other.getFirstSeenAt())) return false;
     if (!getLastSeenAt()
         .equals(other.getLastSeenAt())) return false;
+    if (!getAgencyName()
+        .equals(other.getAgencyName())) return false;
+    if (!getAgentNamesList()
+        .equals(other.getAgentNamesList())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -761,6 +885,12 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getFirstSeenAt().hashCode();
     hash = (37 * hash) + LAST_SEEN_AT_FIELD_NUMBER;
     hash = (53 * hash) + getLastSeenAt().hashCode();
+    hash = (37 * hash) + AGENCY_NAME_FIELD_NUMBER;
+    hash = (53 * hash) + getAgencyName().hashCode();
+    if (getAgentNamesCount() > 0) {
+      hash = (37 * hash) + AGENT_NAMES_FIELD_NUMBER;
+      hash = (53 * hash) + getAgentNamesList().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -912,6 +1042,9 @@ private static final long serialVersionUID = 0L;
       propertyType_ = "";
       firstSeenAt_ = "";
       lastSeenAt_ = "";
+      agencyName_ = "";
+      agentNames_ =
+          com.google.protobuf.LazyStringArrayList.emptyList();
       return this;
     }
 
@@ -990,6 +1123,13 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00004000) != 0)) {
         result.lastSeenAt_ = lastSeenAt_;
       }
+      if (((from_bitField0_ & 0x00008000) != 0)) {
+        result.agencyName_ = agencyName_;
+      }
+      if (((from_bitField0_ & 0x00010000) != 0)) {
+        agentNames_.makeImmutable();
+        result.agentNames_ = agentNames_;
+      }
     }
 
     @java.lang.Override
@@ -1065,6 +1205,21 @@ private static final long serialVersionUID = 0L;
       if (!other.getLastSeenAt().isEmpty()) {
         lastSeenAt_ = other.lastSeenAt_;
         bitField0_ |= 0x00004000;
+        onChanged();
+      }
+      if (!other.getAgencyName().isEmpty()) {
+        agencyName_ = other.agencyName_;
+        bitField0_ |= 0x00008000;
+        onChanged();
+      }
+      if (!other.agentNames_.isEmpty()) {
+        if (agentNames_.isEmpty()) {
+          agentNames_ = other.agentNames_;
+          bitField0_ |= 0x00010000;
+        } else {
+          ensureAgentNamesIsMutable();
+          agentNames_.addAll(other.agentNames_);
+        }
         onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
@@ -1168,6 +1323,16 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00004000;
               break;
             } // case 122
+            case 130: {
+              agencyName_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00008000;
+              break;
+            } // case 130
+            case 138: {
+              ensureAgentNamesIsMutable();
+              agentNames_.add(input.readStringRequireUtf8());
+              break;
+            } // case 138
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2193,6 +2358,245 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       lastSeenAt_ = value;
       bitField0_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object agencyName_ = "";
+    /**
+     * <pre>
+     * marketing agency ('' when not captured)
+     * </pre>
+     *
+     * <code>string agency_name = 16 [json_name = "agencyName"];</code>
+     * @return The agencyName.
+     */
+    public java.lang.String getAgencyName() {
+      java.lang.Object ref = agencyName_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        agencyName_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * marketing agency ('' when not captured)
+     * </pre>
+     *
+     * <code>string agency_name = 16 [json_name = "agencyName"];</code>
+     * @return The bytes for agencyName.
+     */
+    public com.google.protobuf.ByteString
+        getAgencyNameBytes() {
+      java.lang.Object ref = agencyName_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        agencyName_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * marketing agency ('' when not captured)
+     * </pre>
+     *
+     * <code>string agency_name = 16 [json_name = "agencyName"];</code>
+     * @param value The agencyName to set.
+     * @return This builder for chaining.
+     */
+    public Builder setAgencyName(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      agencyName_ = value;
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * marketing agency ('' when not captured)
+     * </pre>
+     *
+     * <code>string agency_name = 16 [json_name = "agencyName"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearAgencyName() {
+      agencyName_ = getDefaultInstance().getAgencyName();
+      bitField0_ = (bitField0_ & ~0x00008000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * marketing agency ('' when not captured)
+     * </pre>
+     *
+     * <code>string agency_name = 16 [json_name = "agencyName"];</code>
+     * @param value The bytes for agencyName to set.
+     * @return This builder for chaining.
+     */
+    public Builder setAgencyNameBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      agencyName_ = value;
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+
+    private com.google.protobuf.LazyStringArrayList agentNames_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+    private void ensureAgentNamesIsMutable() {
+      if (!agentNames_.isModifiable()) {
+        agentNames_ = new com.google.protobuf.LazyStringArrayList(agentNames_);
+      }
+      bitField0_ |= 0x00010000;
+    }
+    /**
+     * <pre>
+     * listing agents ('' when not captured)
+     * </pre>
+     *
+     * <code>repeated string agent_names = 17 [json_name = "agentNames"];</code>
+     * @return A list containing the agentNames.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getAgentNamesList() {
+      agentNames_.makeImmutable();
+      return agentNames_;
+    }
+    /**
+     * <pre>
+     * listing agents ('' when not captured)
+     * </pre>
+     *
+     * <code>repeated string agent_names = 17 [json_name = "agentNames"];</code>
+     * @return The count of agentNames.
+     */
+    public int getAgentNamesCount() {
+      return agentNames_.size();
+    }
+    /**
+     * <pre>
+     * listing agents ('' when not captured)
+     * </pre>
+     *
+     * <code>repeated string agent_names = 17 [json_name = "agentNames"];</code>
+     * @param index The index of the element to return.
+     * @return The agentNames at the given index.
+     */
+    public java.lang.String getAgentNames(int index) {
+      return agentNames_.get(index);
+    }
+    /**
+     * <pre>
+     * listing agents ('' when not captured)
+     * </pre>
+     *
+     * <code>repeated string agent_names = 17 [json_name = "agentNames"];</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the agentNames at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getAgentNamesBytes(int index) {
+      return agentNames_.getByteString(index);
+    }
+    /**
+     * <pre>
+     * listing agents ('' when not captured)
+     * </pre>
+     *
+     * <code>repeated string agent_names = 17 [json_name = "agentNames"];</code>
+     * @param index The index to set the value at.
+     * @param value The agentNames to set.
+     * @return This builder for chaining.
+     */
+    public Builder setAgentNames(
+        int index, java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureAgentNamesIsMutable();
+      agentNames_.set(index, value);
+      bitField0_ |= 0x00010000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * listing agents ('' when not captured)
+     * </pre>
+     *
+     * <code>repeated string agent_names = 17 [json_name = "agentNames"];</code>
+     * @param value The agentNames to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAgentNames(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureAgentNamesIsMutable();
+      agentNames_.add(value);
+      bitField0_ |= 0x00010000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * listing agents ('' when not captured)
+     * </pre>
+     *
+     * <code>repeated string agent_names = 17 [json_name = "agentNames"];</code>
+     * @param values The agentNames to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAllAgentNames(
+        java.lang.Iterable<java.lang.String> values) {
+      ensureAgentNamesIsMutable();
+      com.google.protobuf.AbstractMessageLite.Builder.addAll(
+          values, agentNames_);
+      bitField0_ |= 0x00010000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * listing agents ('' when not captured)
+     * </pre>
+     *
+     * <code>repeated string agent_names = 17 [json_name = "agentNames"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearAgentNames() {
+      agentNames_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+      bitField0_ = (bitField0_ & ~0x00010000);;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * listing agents ('' when not captured)
+     * </pre>
+     *
+     * <code>repeated string agent_names = 17 [json_name = "agentNames"];</code>
+     * @param value The bytes of the agentNames to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAgentNamesBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      ensureAgentNamesIsMutable();
+      agentNames_.add(value);
+      bitField0_ |= 0x00010000;
       onChanged();
       return this;
     }
