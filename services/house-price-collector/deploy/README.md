@@ -33,6 +33,9 @@ design/plan in `docs/superpowers/{specs,plans}/2026-07-13-realestate-*`.
    CRAWL_CDP_URL=http://localhost:9222
    BRANDBRAIN_URL=https://api.brandbrain.dev
    # CRAWL_DRY_RUN defaults to false in the wrapper; set true to rehearse.
+   # --- Event-driven cache busting (optional; see "Cache revalidation" below) ---
+   REVALIDATION_URL=https://shorted-com-au-document-analyser.vercel.app/api/revalidate
+   REVALIDATION_SECRET=...                   # same value as the Vercel frontend env
    ```
 5. Install the launchd job:
    ```bash
@@ -91,6 +94,9 @@ CRAWL_AGENT_MAX_JOBS=8                  # safety cap per run
 # BRANDBRAIN_AGENT_TOKEN is OPTIONAL — the collector reads the running agent's
 # token from ~/.brandbrain/{diag-port,control_secret} and refreshes it on 401.
 # Override the endpoint with BRANDBRAIN_CONTROL_PORT / BRANDBRAIN_CONTROL_SECRET.
+# Optional — event-driven cache busting after the run's MV refresh (see below):
+REVALIDATION_URL=https://shorted-com-au-document-analyser.vercel.app/api/revalidate
+REVALIDATION_SECRET=...                 # same value as the Vercel frontend env
 ```
 
 Enqueue the suburb catalog once (`-mode enqueue`), then each rig runs `-mode
@@ -216,6 +222,32 @@ burning the queue on a fully-blocked session.
 This is what stops a portal that starts rate-limiting from being hammered on
 every suburb, which is what escalates the residential-IP flag onto the other
 portal too.
+
+## Cache revalidation (`REVALIDATION_URL` / `REVALIDATION_SECRET`)
+
+After a run refreshes the housing materialized views (`-mode agent`, `-mode
+listings`, and the official `-mode all`/`crawl`/`refresh` paths), the collector
+pings the web tier so it busts its long-TTL SSR caches the instant the data
+changes — `/price-drops` and `/housing` re-render fresh instead of waiting out
+their ISR ceiling. The ping POSTs to
+`<REVALIDATION_URL>?secret=<REVALIDATION_SECRET>&path=/price-drops,/housing&flush=housing`.
+
+It is **best-effort and optional**: a failure only WARN-logs and never fails a
+run, and when either env var is unset the collector logs a skip and moves on
+(pages self-heal on the ISR TTL). The `-mode agent`/`-mode listings` paths only
+ping when the run actually wrote data.
+
+- **`REVALIDATION_URL`** — default the **Vercel origin**
+  (`https://shorted-com-au-document-analyser.vercel.app/api/revalidate`), NOT the
+  canonical `shorted.com.au` host: Cloudflare's managed challenge can block
+  non-browser POSTs to the canonical host (same reason `scripts/take-writer`
+  defaults to the Vercel origin). Note that `terraform/modules/cloudflare-edge`
+  DOES carry a skip rule for `/api/revalidate`, so the canonical host works too
+  — which is why the Cloud Run job (`terraform/modules/house-price-collector`)
+  defaults to `https://shorted.com.au/api/revalidate`. Either works from the
+  Macs; the Vercel origin is the safe default here.
+- **`REVALIDATION_SECRET`** — the same value set in the Vercel frontend env
+  (prod Secret Manager `REVALIDATION_SECRET`, project `rosy-clover-477102-t5`).
 
 ## Debug tracing (`CRAWL_TRACE`)
 

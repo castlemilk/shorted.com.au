@@ -26,7 +26,7 @@ const BROWSER_UA =
 
 // The static ISR pages whose empty-at-build render is a user-visible shell.
 // Keep in sync with the "check back shortly" / "No … data available" fallbacks.
-const STATIC_PAGES = ["/market", "/housing", "/economy", "/compare"];
+const STATIC_PAGES = ["/market", "/housing", "/economy", "/compare", "/price-drops"];
 
 export async function GET(request: NextRequest) {
   // Optional secret gate — same pattern as the other warm-cache routes. When

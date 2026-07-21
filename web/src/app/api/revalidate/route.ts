@@ -2,8 +2,16 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import {
   deleteCachedByPrefix,
+  HOUSING_DATA_CACHE_PREFIXES,
   SHORTS_DATA_CACHE_PREFIXES,
 } from "~/@/lib/kv-cache";
+
+// Redis prefix sets flushable via ?flush=<name>[,<name>...]. Each name maps to
+// the family of keys busted together on that data-change event.
+const FLUSH_PREFIXES: Record<string, readonly string[]> = {
+  shorts: SHORTS_DATA_CACHE_PREFIXES,
+  housing: HOUSING_DATA_CACHE_PREFIXES,
+};
 
 /**
  * On-demand revalidation endpoint (event-driven caching).
@@ -18,9 +26,11 @@ import {
  *        &path=/,/top,/news,/shorts/[stockCode]  (comma-separated, optional;
  *                                                 patterns with [..] revalidate
  *                                                 the whole dynamic route)
- *        &flush=shorts|housing                 (flush the shorts-data, or housing-overview, Redis prefixes)
+ *        &flush=shorts,housing                 (comma-separated Redis-prefix
+ *                                                 families to flush; `shorts` and
+ *                                                 `housing` are the current names)
  *
- * Backward compatible with the existing single `?tag=` callers.
+ * Backward compatible with the existing single `?tag=` and `?flush=shorts` callers.
  */
 export async function POST(request: NextRequest) {
   const sp = request.nextUrl.searchParams;
@@ -39,9 +49,9 @@ export async function POST(request: NextRequest) {
 
   const tags = split(sp.get("tag"));
   const paths = split(sp.get("path"));
-  const flush = sp.get("flush");
+  const flushTargets = split(sp.get("flush"));
 
-  if (tags.length === 0 && paths.length === 0 && !flush) {
+  if (tags.length === 0 && paths.length === 0 && flushTargets.length === 0) {
     return NextResponse.json(
       { error: "Provide at least one of: tag, path, flush" },
       { status: 400 },
@@ -57,15 +67,15 @@ export async function POST(request: NextRequest) {
   }
 
   let flushedKeys = 0;
-  if (flush === "shorts") {
-    for (const prefix of SHORTS_DATA_CACHE_PREFIXES) {
+  for (const target of flushTargets) {
+    const prefixes = FLUSH_PREFIXES[target];
+    if (!prefixes) continue; // unknown flush name — ignore, keep other work
+    // `housing` covers the whole cache:housing: prefix — the drops keys AND the
+    // TTL-only overview entries (the admin panel's poisoned-entry clear relies
+    // on this being a superset of cache:housing:overview:).
+    for (const prefix of prefixes) {
       flushedKeys += await deleteCachedByPrefix(prefix);
     }
-  } else if (flush === "housing") {
-    // Housing overview is TTL-only (24h) and NOT in SHORTS_DATA_CACHE_PREFIXES,
-    // so this is the sanctioned way to clear a poisoned/stale entry (e.g. an
-    // empty response cached during a backend redeploy) without raw Redis access.
-    flushedKeys += await deleteCachedByPrefix("cache:housing:overview:");
   }
 
   return NextResponse.json({

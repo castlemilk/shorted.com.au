@@ -285,6 +285,9 @@ func refresh(ctx context.Context, pool *pgxpool.Pool) {
 		return
 	}
 	log.Println("refreshed mv_housing_headline")
+	// Official/crawl ingest refreshed the housing MVs → bust the web tier's
+	// long-TTL housing caches now. Best-effort, never fails the run.
+	pingRevalidate("refresh")
 }
 
 // runOfficial pulls each official (ABS + RBA) source, upserts regions + facts,

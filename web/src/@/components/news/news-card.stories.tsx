@@ -24,13 +24,21 @@ const baseArticle: NewsCardArticle = {
     "StockTake: Solar technology leader joins ClearVue's expanding glass empire",
   url: "https://stockhead.com.au/stockhead-tv/stocktake/example",
   source: "Stockhead",
-  publishedAt: new Date("2026-07-16T09:30:00+10:00").toISOString(),
+  // ALWAYS 5 days ago, never a fixed date: the card renders a RELATIVE time
+  // ("5d ago"), so a fixed timestamp makes the visual baselines a time bomb —
+  // they matched only while the capture date was within the same bucket, then
+  // started failing daily ("6d ago", "7d ago", …).
+  publishedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
   sentiment: "neutral",
   summary:
     "The building-integrated solar player has signed a fresh partnership that widens its addressable market across commercial glazing.",
-  // A representative allowlisted publisher URL — in the app this flows through
-  // next/image; Storybook's next/image mock renders it unoptimized.
-  imageUrl: "https://stockhead.com.au/wp-content/uploads/2026/07/CPV-1200x675-1.jpg",
+  // A COMMITTED static image, never a live publisher URL: the thumbnail's
+  // pixels feed the visual-regression baselines, and a third party can (and
+  // did) change the bytes behind a stable URL — failing every NewsCard
+  // snapshot with no repo change. In the app this flows through next/image;
+  // Storybook's next/image mock renders it unoptimized, and object-fit:cover
+  // makes the aspect irrelevant.
+  imageUrl: "/housing-banners/bg/coastal-beach.light.avif",
   stockCode: "CPV",
   isPriceSensitive: false,
 };
