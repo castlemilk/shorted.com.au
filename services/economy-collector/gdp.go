@@ -50,24 +50,24 @@ import (
 // trusting absdata.ApplyMult's UNIT_MULT column, which is simply broken
 // for this dataflow.
 const (
-	gspFlow          = "ANA_SFD"
-	gspMeasureVCH    = "VCH" // Chain volume measures (levels, not % change)
-	gspDataItemSFD   = "SFD" // STATE FINAL DEMAND (the all-items total, not a component)
-	gspSectorAll     = "SSS" // All sectors
-	gspTsestSeasAdj  = "20"  // Seasonally Adjusted
-	gspFreqQuarterly = "Q"
-	gspStartPeriod   = "2000-Q1"
-	// gspUnitMillion is the hardcoded $-million scale documented above —
+	sfdFlow          = "ANA_SFD"
+	sfdMeasureVCH    = "VCH" // Chain volume measures (levels, not % change)
+	sfdDataItemSFD   = "SFD" // STATE FINAL DEMAND (the all-items total, not a component)
+	sfdSectorAll     = "SSS" // All sectors
+	sfdTsestSeasAdj  = "20"  // Seasonally Adjusted
+	sfdFreqQuarterly = "Q"
+	sfdStartPeriod   = "2000-Q1"
+	// sfdUnitMillion is the hardcoded $-million scale documented above —
 	// this dataflow's own UNIT_MULT column is unreliable.
-	gspUnitMillion = 1e6
-	// gspKey covers just MEASURE.DATA_ITEM.SECTOR.TSEST.REGION.FREQ = the one
+	sfdUnitMillion = 1e6
+	// sfdKey covers just MEASURE.DATA_ITEM.SECTOR.TSEST.REGION.FREQ = the one
 	// series per state we want, rather than pulling `all` (~3.3k rows for a
 	// single quarter across every measure/data-item/sector/tsest/region combo).
-	gspKey = "VCH.SFD.SSS.20.1+2+3+4+5+6+7+8.Q"
+	sfdKey = "VCH.SFD.SSS.20.1+2+3+4+5+6+7+8.Q"
 )
 
 func ingestStateAccounts(ctx context.Context, c *absdata.Client) ([]Obs, error) {
-	rows, err := c.FetchSDMXCSV(ctx, gspFlow, gspKey, gspStartPeriod)
+	rows, err := c.FetchSDMXCSV(ctx, sfdFlow, sfdKey, sfdStartPeriod)
 	if err != nil {
 		return nil, err
 	}
@@ -92,19 +92,19 @@ func parseStateAccounts(rows [][]string) ([]Obs, error) {
 	}
 	var obs []Obs
 	for _, row := range rows[1:] {
-		if absdata.Code(absdata.Cell(row, idx["MEASURE"])) != gspMeasureVCH {
+		if absdata.Code(absdata.Cell(row, idx["MEASURE"])) != sfdMeasureVCH {
 			continue
 		}
-		if absdata.Code(absdata.Cell(row, idx["DATA_ITEM"])) != gspDataItemSFD {
+		if absdata.Code(absdata.Cell(row, idx["DATA_ITEM"])) != sfdDataItemSFD {
 			continue
 		}
-		if absdata.Code(absdata.Cell(row, idx["SECTOR"])) != gspSectorAll {
+		if absdata.Code(absdata.Cell(row, idx["SECTOR"])) != sfdSectorAll {
 			continue
 		}
-		if absdata.Code(absdata.Cell(row, idx["TSEST"])) != gspTsestSeasAdj {
+		if absdata.Code(absdata.Cell(row, idx["TSEST"])) != sfdTsestSeasAdj {
 			continue
 		}
-		if absdata.Code(absdata.Cell(row, idx["FREQ"])) != gspFreqQuarterly {
+		if absdata.Code(absdata.Cell(row, idx["FREQ"])) != sfdFreqQuarterly {
 			continue
 		}
 		regionCode := absdata.Code(absdata.Cell(row, idx["REGION"]))
@@ -127,16 +127,16 @@ func parseStateAccounts(rows [][]string) ([]Obs, error) {
 				Unit: "aud", Frequency: freq, Adjustment: "seasadj",
 				SourceKey: "abs-state-accounts", Licence: absdata.Licence,
 				Dimensions: map[string]string{
-					"abs_dataflow": gspFlow,
-					"measure":      gspMeasureVCH,
-					"data_item":    gspDataItemSFD,
-					"sector":       gspSectorAll,
-					"tsest":        gspTsestSeasAdj,
+					"abs_dataflow": sfdFlow,
+					"measure":      sfdMeasureVCH,
+					"data_item":    sfdDataItemSFD,
+					"sector":       sfdSectorAll,
+					"tsest":        sfdTsestSeasAdj,
 					"region":       regionCode,
 				},
 			},
 			Period: period,
-			Value:  val * gspUnitMillion,
+			Value:  val * sfdUnitMillion,
 		})
 	}
 	return obs, nil
