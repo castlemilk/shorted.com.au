@@ -1,7 +1,34 @@
 # Australian Economy Data Platform — Design
 
 **Date**: 2026-07-21
-**Status**: Draft for review
+**Status**: Implemented (see "Implementation deviations" below)
+
+## Implementation deviations (probe-driven, 2026-07-21)
+
+- **GSP → State Final Demand**: the ABS SDMX API has no GSP dataflow (5220.0 is
+  Excel-only; `ANA_AGG` is national-only). The `abs-state-accounts` source ships
+  quarterly seasonally-adjusted **State Final Demand** (`ANA_SFD`, chain volume,
+  ×1e6 scale hardcoded around an upstream UNIT_MULT metadata bug) as an
+  expenditure-side proxy, honestly labelled in the UI. Series keys:
+  `gdp.state_final_demand_chain_volume.total.<state>.seasadj` (8 states, no national).
+- **CPI**: dataflow v2.0.0 merged the monthly indicator into `CPI`; the all-groups
+  index is quarterly (`FREQ=Q`-filtered to avoid double-count), the annual-change
+  series exists only monthly since 2025-04 (~14 obs).
+- **Labour**: NT + ACT have no seasonally-adjusted LF series upstream → 21 series
+  (3 metrics × 7 regions), not 27.
+- **Trade**: national state code is `TOT` (normalized → aus); products keyed by a
+  static SITC code→slug map (never label-derived); ACT × SITC-4 has no data → 98
+  series per metric.
+- **Petroleum**: energy.gov.au is WAF-blocked; discovery goes through the
+  data.gov.au CKAN mirror (`/data/api/3`). Real sheets: Refinery production
+  (input + output), Sales of products (+ by state), Imports/Exports volume.
+  Sales-by-state IS ingested (long-format parser variant).
+- **Registry**: migration 000082 extends `industry_intelligence_sources`'
+  `signal_kind` CHECK with `economic_series`.
+- **Ops**: the collector is monthly-scheduled; run
+  `gcloud run jobs execute economy-collector` once after first deploy or
+  `/economy` stays in its empty state until the 5th. Add `/economy` to the
+  sitemap after first prod ingest.
 **Scope decision**: Option 3 (shared pipeline, two consumers) at scope 2 (energy + macro core).
 
 ## Goal

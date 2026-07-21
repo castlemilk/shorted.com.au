@@ -2,7 +2,7 @@
  * Economy Collector Module
  *
  * Cloud Run Job + Cloud Scheduler that runs services/economy-collector in
- * its default mode (ABS/RBA/DCCEEW ingest + materialized-view refresh).
+ * its default mode (ABS/RBA/DCCEEW ingest).
  * Monthly cadence, scheduled an hour after the house-price collector so the
  * two jobs don't stampede the database at the same time.
  */
@@ -47,7 +47,7 @@ resource "google_cloud_run_v2_job" "collector" {
 
       containers {
         image = var.image_url
-        # Default ENTRYPOINT runs -mode all (official ingest + MV refresh).
+        # Default ENTRYPOINT runs -mode all (all six official-source ingests).
 
         env {
           name  = "ENVIRONMENT"

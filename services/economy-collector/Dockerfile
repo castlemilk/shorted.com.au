@@ -34,5 +34,5 @@ FROM gcr.io/distroless/static-debian12
 
 COPY --from=builder /economy-collector /economy-collector
 
-# Default mode is "all" = ABS/RBA/DCCEEW monthly ingest + MV refresh.
+# Default mode is "all" = ABS/RBA/DCCEEW monthly ingest.
 ENTRYPOINT ["/economy-collector"]
