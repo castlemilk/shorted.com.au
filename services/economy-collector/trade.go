@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/absdata"
@@ -49,6 +50,29 @@ const (
 	tradeKey = "0+1+2+3+4+5+6+7+8+9+TOT.TOT.1+2+3+4+5+6+7+8+TOT.M"
 )
 
+// sitcProducts maps ABS COMMODITY_SITC section codes to stable product slugs.
+// Series identity must key off this static, code-driven map — NOT the SITC
+// label text — because ABS labels can be re-worded upstream without the code
+// changing, which would silently churn every series_key. Values were pinned
+// 2026-07-21 by querying the already-ingested rows this importer produced
+// from the live labels (`SELECT DISTINCT product, dimensions->>'sitc_code'
+// FROM economic_series WHERE topic='trade' ORDER BY 2`), so switching to this
+// map is a no-op for existing series keys. Codes not in this map are skipped
+// (fail closed) rather than falling back to a label slug.
+var sitcProducts = map[string]string{
+	"0":   "food_and_live_animals",
+	"1":   "beverages_and_tobacco",
+	"2":   "crude_materials_inedible_except_fuels",
+	"3":   "mineral_fuels_lubricants_and_related_materials",
+	"4":   "animal_and_vegetable_oils_fats_and_waxes",
+	"5":   "chemicals_and_related_products_nes",
+	"6":   "manufactured_goods_classified_chiefly_by_material",
+	"7":   "machinery_and_transport_equipment",
+	"8":   "miscellaneous_manufactured_articles",
+	"9":   "commodities_and_transactions_not_classified_elsewhere_in_the_sitc",
+	"TOT": "total",
+}
+
 func ingestTradeByState(ctx context.Context, c *absdata.Client) ([]Obs, error) {
 	var all []Obs
 	pulls := []struct {
@@ -62,7 +86,7 @@ func ingestTradeByState(ctx context.Context, c *absdata.Client) ([]Obs, error) {
 		if err != nil {
 			return nil, err
 		}
-		obs, err := parseTrade(rows, p.metric, p.stateDim)
+		obs, err := parseTrade(rows, p.metric, p.stateDim, p.flow)
 		if err != nil {
 			return nil, err
 		}
@@ -73,21 +97,34 @@ func ingestTradeByState(ctx context.Context, c *absdata.Client) ([]Obs, error) {
 
 // parseTrade parses one MERCH_EXP/MERCH_IMP SDMX-CSV body. stateDim is
 // "STATE_ORIGIN" (export) or "STATE_DEST" (import) — the column resolved by
-// name so one parser serves both flows.
-func parseTrade(rows [][]string, metric, stateDim string) ([]Obs, error) {
+// name so one parser serves both flows. dataflow ("MERCH_EXP"/"MERCH_IMP") is
+// recorded verbatim into Dimensions.abs_dataflow.
+func parseTrade(rows [][]string, metric, stateDim, dataflow string) ([]Obs, error) {
 	if len(rows) < 2 {
 		return nil, nil
 	}
 	idx := absdata.ColIndex(rows[0])
+	// Fail closed: the country dimension is what prevents double counting
+	// (Total-country rows vs. per-country splits), and FREQ is what keeps
+	// non-monthly rows out. If either is missing, the schema has drifted from
+	// what this importer was built against — refuse to ingest rather than
+	// silently disabling the guard.
 	countryCol, hasCountry := countryColumn(idx)
+	if !hasCountry {
+		return nil, fmt.Errorf("parseTrade: country dimension not found — schema drift, refusing to ingest")
+	}
+	freqCol, hasFreq := idx["FREQ"]
+	if !hasFreq {
+		return nil, fmt.Errorf("parseTrade: FREQ dimension not found — schema drift, refusing to ingest")
+	}
 	var obs []Obs
 	for _, row := range rows[1:] {
 		// Only country=Total rows — per-country splits would double count
 		// against the Total-country row for the same commodity/state/period.
-		if hasCountry && absdata.Code(absdata.Cell(row, countryCol)) != tradeTotalCode {
+		if absdata.Code(absdata.Cell(row, countryCol)) != tradeTotalCode {
 			continue
 		}
-		if freqCol, ok := idx["FREQ"]; ok && absdata.Code(absdata.Cell(row, freqCol)) != tradeFreqMonthly {
+		if absdata.Code(absdata.Cell(row, freqCol)) != tradeFreqMonthly {
 			continue
 		}
 		stateCode := tradeStateCode(absdata.Code(absdata.Cell(row, idx[stateDim])))
@@ -95,11 +132,10 @@ func parseTrade(rows [][]string, metric, stateDim string) ([]Obs, error) {
 		if !ok {
 			continue
 		}
-		commodity := absdata.Cell(row, idx["COMMODITY_SITC"])
-		commodityCode := absdata.Code(commodity)
-		product := slug(absdata.Label(commodity))
-		if commodityCode == tradeTotalCode {
-			product = "total"
+		commodityCode := absdata.Code(absdata.Cell(row, idx["COMMODITY_SITC"]))
+		product, ok := sitcProducts[commodityCode]
+		if !ok {
+			continue // unknown SITC code — fail closed rather than guess a slug
 		}
 		period, freq, ok := absdata.PeriodDate(absdata.Cell(row, idx["TIME_PERIOD"]))
 		if !ok {
@@ -115,7 +151,10 @@ func parseTrade(rows [][]string, metric, stateDim string) ([]Obs, error) {
 				RegionType: st[2], RegionCode: st[0], RegionName: st[1],
 				Unit: "aud", Frequency: freq, Adjustment: "original",
 				SourceKey: "abs-merch-trade-state", Licence: absdata.Licence,
-				Dimensions: map[string]string{"sitc_code": commodityCode},
+				Dimensions: map[string]string{
+					"sitc_code":    commodityCode,
+					"abs_dataflow": dataflow,
+				},
 			},
 			Period: period,
 			Value:  absdata.ApplyMult(val, absdata.Cell(row, idx["UNIT_MULT"])),
