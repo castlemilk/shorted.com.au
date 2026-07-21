@@ -32,6 +32,12 @@ jobs:
       # (see web/src/app/api/static-pages/warm-cache/route.ts). Best-effort: the
       # page's own revalidate + the 15-min warm cron backstop it, so a failed
       # warm must not fail the deploy smoke.
+      #
+      # Two steps: (1) call the endpoint to revalidatePath() the shells; (2) fetch
+      # each page HERE with the Cloudflare testing bypass. Step 2 is essential —
+      # Cloudflare bot protection 403s any plain server-side fetch (even a browser
+      # UA), so only a request carrying the bypass UA + secret reaches Vercel to
+      # trigger the regeneration that re-primes the cache with real data.
       - name: Warm static data pages
         env:
           CLOUDFLARE_TESTING_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
@@ -40,10 +46,17 @@ jobs:
           CURL_ARGS=(-A "Mozilla/5.0 Shorted-E2E/1.0")
           if [ -n "${CLOUDFLARE_TESTING_BYPASS_SECRET:-}" ]; then
             CURL_ARGS+=(-H "X-Shorted-Testing-Bypass: ${CLOUDFLARE_TESTING_BYPASS_SECRET}")
+          else
+            echo "::warning::CLOUDFLARE_TESTING_BYPASS_SECRET unset — re-prime fetches will be 403'd by Cloudflare."
           fi
-          echo "Warming static data page shells (/market /housing /economy /compare)…"
-          curl -s --max-time 120 "${CURL_ARGS[@]}" "${BASE_URL}/api/static-pages/warm-cache" | head -c 500 || true
+          echo "1) Invalidating static page shells (revalidatePath)…"
+          curl -s --max-time 60 "${CURL_ARGS[@]}" "${BASE_URL}/api/static-pages/warm-cache" | head -c 400 || true
           echo ""
+          echo "2) Re-priming each page through the Cloudflare bypass…"
+          for p in /market /housing /economy /compare; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 90 "${CURL_ARGS[@]}" "${BASE_URL}${p}")
+            echo "   re-prime ${p}: HTTP ${code}"
+          done
 
       - name: Smoke test critical routes
         env:
