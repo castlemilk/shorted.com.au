@@ -23,10 +23,13 @@ export const LIGHT_RAMP = [
 ].map(([t, h]) => [t, hex(h)]);
 
 // near-black → bronze → glowing amber → warm sand
+// Shadow/low-mid stops deepened toward true black (2026-07-21 polish pass) so
+// dark bands read crisp on the true-black app bg instead of a muddy warm-grey
+// lift; highlight stops (0.72+) are untouched to keep the amber glow intact.
 export const DARK_RAMP = [
-  [0.00, "#0C0C0C"], // = dark page bg (shadows melt into the page)
-  [0.26, "#33240F"], // deep umber
-  [0.50, "#6E4E20"], // bronze
+  [0.00, "#070707"], // deeper than the page bg — shadows read as true black
+  [0.26, "#241A0A"], // deep umber, less lifted
+  [0.50, "#5C4119"], // bronze, pulled down a touch
   [0.72, "#B4793A"], // burnt amber
   [0.88, "#E8A94D"], // glowing amber ≈ dark --primary
   [1.00, "#F3D89B"], // warm sand-amber sky glow ≈ dark --foreground

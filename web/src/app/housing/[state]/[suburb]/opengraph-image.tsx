@@ -1,3 +1,6 @@
+/* eslint-disable @next/next/no-img-element -- satori (next/og) only accepts <img>, not next/image */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { ImageResponse } from "next/og";
 import { getSuburbProfile, resolveSuburbSalCode } from "~/app/actions/getHousing";
 import { STATE_NAMES, slugToState } from "@/lib/housing/states";
@@ -62,6 +65,23 @@ export default async function Image({
 
   const archetypeLabel = titleCase(archetype);
 
+  // Embed the archetype's dark-toned OG scene JPEG as a data URI — satori
+  // (next/og) can decode JPEG (unlike AVIF), so this is a separate bake
+  // target from the AVIF banner bands used on the page itself. process.cwd()
+  // at runtime can resolve to either the repo root or web/, so try both.
+  let bgDataUri = "";
+  try {
+    const p = join(process.cwd(), "web", "public", "housing-banners", "og", `${archetype}.jpg`);
+    bgDataUri = `data:image/jpeg;base64,${readFileSync(p).toString("base64")}`;
+  } catch {
+    try {
+      const p = join(process.cwd(), "public", "housing-banners", "og", `${archetype}.jpg`);
+      bgDataUri = `data:image/jpeg;base64,${readFileSync(p).toString("base64")}`;
+    } catch {
+      // fall back to the gradient-only look below
+    }
+  }
+
   return new ImageResponse(
     (
       <div
@@ -69,71 +89,119 @@ export default async function Image({
           width: "100%",
           height: "100%",
           display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
+          position: "relative",
           backgroundColor: "#0C0C0C",
-          // satori (next/og) doesn't parse sized radial-gradients — a linear
-          // amber-to-near-black glow reads as the same warm brand bloom safely.
-          backgroundImage:
-            "linear-gradient(150deg, rgba(255,169,77,0.20) 0%, rgba(12,12,12,0) 55%)",
-          padding: "64px 72px",
           color: "#E8DDB5",
           fontFamily: "Georgia, serif",
         }}
       >
+        {bgDataUri ? (
+          <img
+            src={bgDataUri}
+            alt=""
+            width={size.width}
+            height={size.height}
+            style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "cover" }}
+          />
+        ) : null}
+
+        {/* Scrim: satori (next/og) doesn't parse sized radial-gradients — a linear
+            amber-to-near-black glow reads as the same warm brand bloom safely. When
+            a scene image sits underneath, a flat dark wash is layered first so the
+            monospace detail rows stay legible against bright sky/foliage anywhere
+            on the card, not just where the diagonal gradient happens to be dark. */}
+        {bgDataUri ? (
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              backgroundColor: "rgba(8,8,8,0.6)",
+            }}
+          />
+        ) : null}
         <div
           style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
             display: "flex",
-            alignItems: "center",
-            gap: 14,
-            fontFamily: "monospace",
-            fontSize: 22,
-            letterSpacing: 6,
-            textTransform: "uppercase",
-            color: "#FFA94D",
+            backgroundImage: "linear-gradient(150deg, rgba(255,169,77,0.20) 0%, rgba(12,12,12,0) 55%)",
+          }}
+        />
+
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            padding: "64px 72px",
           }}
         >
-          Shorted · Housing
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-          <div style={{ display: "flex" }}>
-            <span style={{ fontSize: 104, lineHeight: 1.02, fontWeight: 600, color: "#F3EAC8" }}>
-              {name}
-            </span>
-          </div>
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 16,
+              gap: 14,
               fontFamily: "monospace",
-              fontSize: 28,
-              color: "#B7A98A",
+              fontSize: 22,
+              letterSpacing: 6,
+              textTransform: "uppercase",
+              color: "#FFA94D",
             }}
           >
-            {stateName ? <span>{stateName}</span> : null}
-            {stateName ? <span style={{ color: "#6b5530" }}>·</span> : null}
-            <span>{archetypeLabel}</span>
-            {priceLabel ? <span style={{ color: "#6b5530" }}>·</span> : null}
-            {priceLabel ? <span style={{ color: "#FFA94D", fontWeight: 700 }}>{priceLabel} median</span> : null}
+            Shorted · Housing
           </div>
-        </div>
 
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            borderTop: "2px solid rgba(255,169,77,0.5)",
-            paddingTop: 24,
-            fontFamily: "monospace",
-            fontSize: 22,
-            color: "#9C8F72",
-          }}
-        >
-          <span>shorted.com.au</span>
-          <span>House prices &amp; demographics</span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            <div style={{ display: "flex" }}>
+              <span style={{ fontSize: 104, lineHeight: 1.02, fontWeight: 600, color: "#F3EAC8" }}>
+                {name}
+              </span>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 16,
+                fontFamily: "monospace",
+                fontSize: 28,
+                color: "#B7A98A",
+              }}
+            >
+              {stateName ? <span>{stateName}</span> : null}
+              {stateName ? <span style={{ color: "#6b5530" }}>·</span> : null}
+              <span>{archetypeLabel}</span>
+              {priceLabel ? <span style={{ color: "#6b5530" }}>·</span> : null}
+              {priceLabel ? <span style={{ color: "#FFA94D", fontWeight: 700 }}>{priceLabel} median</span> : null}
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              borderTop: "2px solid rgba(255,169,77,0.5)",
+              paddingTop: 24,
+              fontFamily: "monospace",
+              fontSize: 22,
+              color: "#9C8F72",
+            }}
+          >
+            <span>shorted.com.au</span>
+            <span>House prices &amp; demographics</span>
+          </div>
         </div>
       </div>
     ),
