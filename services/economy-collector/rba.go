@@ -15,7 +15,8 @@ type rbaSpec struct {
 	unit     string
 }
 
-// F1.1 = cash rate; F11 = exchange rates (AUD/USD FXRUSD, TWI FXRTWI).
+// F1.1 = cash rate (RBA publishes monthly-average observations); F11.1 =
+// exchange rates (AUD/USD FXRUSD, TWI FXRTWI), which RBA publishes daily.
 var rbaTables = []struct {
 	file  string
 	freq  string
@@ -24,7 +25,7 @@ var rbaTables = []struct {
 	{"f1.1-data.csv", "monthly", []rbaSpec{
 		{seriesID: "FIRMMCRT", metric: "cash_rate_target", unit: "percent"},
 	}},
-	{"f11.1-data.csv", "monthly", []rbaSpec{
+	{"f11.1-data.csv", "daily", []rbaSpec{
 		{seriesID: "FXRUSD", metric: "aud_usd", unit: "usd"},
 		{seriesID: "FXRTWI", metric: "trade_weighted_index", unit: "index"},
 	}},
