@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getEconomicSeriesClient } from "~/app/actions/client/getEconomyClient";
 import { EconomySeriesChart } from "./economy-charts";
+import { StateCompanies } from "./state-companies";
 import {
   MAP_FORMATS,
   METRIC_BY_KEY,
@@ -74,12 +75,17 @@ function TopExports({ state }: { state: StateSlug }) {
 }
 
 // Availability derives from the registry's unavailableStates — one source of
-// truth with the map fill + tooltip notes.
+// truth with the map fill + tooltip notes. (Narrow to kind:"series" — only
+// series metrics carry unavailableStates.)
+const unavailableFor = (key: "unemployment" | "diesel_sales"): StateSlug[] => {
+  const m = METRIC_BY_KEY[key];
+  return m.kind === "series" ? m.unavailableStates ?? [] : [];
+};
 const HAS_LABOUR: StateSlug[] = STATE_SLUGS.filter(
-  (s) => !METRIC_BY_KEY.unemployment.unavailableStates?.includes(s),
+  (s) => !unavailableFor("unemployment").includes(s),
 );
 const HAS_DIESEL: StateSlug[] = STATE_SLUGS.filter(
-  (s) => !METRIC_BY_KEY.diesel_sales.unavailableStates?.includes(s),
+  (s) => !unavailableFor("diesel_sales").includes(s),
 );
 
 export function StateDossier({
@@ -158,6 +164,7 @@ export function StateDossier({
             />
           </div>
         )}
+        <StateCompanies state={slug} />
         <TopExports state={slug} />
       </div>
     </section>

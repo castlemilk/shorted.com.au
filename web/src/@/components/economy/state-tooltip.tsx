@@ -24,7 +24,7 @@ function Sparkline({ points }: { points: Obs[] }) {
 }
 
 export function StateTooltip({
-  name, value, metricLabel, format, period, yoy, higherIsBad, rank, spark, unavailableNote,
+  name, value, metricLabel, format, period, yoy, higherIsBad, rank, spark, unavailableNote, companyCount,
 }: {
   name: string;
   value: number | null;
@@ -36,6 +36,8 @@ export function StateTooltip({
   rank?: { rank: number; of: number } | null;
   spark?: Obs[];
   unavailableNote?: string;
+  /** aggregate metrics only — "N companies operating here" (no sparkline/yoy) */
+  companyCount?: number;
 }) {
   return (
     <div className="w-56 rounded-lg border border-border bg-card p-3 shadow-lg">
@@ -64,6 +66,11 @@ export function StateTooltip({
           {rank && (
             <div className="mt-0.5 text-[11px] text-muted-foreground">
               #{rank.rank} of {rank.of} states
+            </div>
+          )}
+          {companyCount != null && (
+            <div className="mt-0.5 text-[11px] text-muted-foreground">
+              {companyCount} {companyCount === 1 ? "company" : "companies"} operating here
             </div>
           )}
           {spark && <Sparkline points={spark} />}

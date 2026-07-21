@@ -6,7 +6,10 @@ import { useSearchParams } from "next/navigation";
 import { ChoroplethMap } from "@/components/housing/choropleth-map";
 import { MapLegend } from "@/components/housing/map-legend";
 import { useTopojson } from "@/components/housing/use-topojson";
-import { getEconomicSeriesClient } from "~/app/actions/client/getEconomyClient";
+import {
+  getEconomicSeriesClient,
+  getStateCompanyAggregatesClient,
+} from "~/app/actions/client/getEconomyClient";
 import {
   ECONOMY_MAP_METRICS, METRIC_BY_KEY, MAP_FORMATS, STATE_NAMES, STATE_SLUGS,
   buildStateValues, continuousScale, divergingScale, rankOf, seriesKeysFor,
@@ -46,7 +49,9 @@ function useMetricData(metric: EconomyMapMetric) {
   return useQuery({
     queryKey: ["economy-map", metric.key],
     staleTime: 60 * 60 * 1000,
+    enabled: metric.kind === "series",
     queryFn: async () => {
+      if (metric.kind !== "series") return {};
       const keys = seriesKeysFor(metric);
       const resp = await getEconomicSeriesClient(keys);
       const byKey: Record<string, StateSeries> = {};
@@ -69,6 +74,42 @@ function useMetricData(metric: EconomyMapMetric) {
   });
 }
 
+interface AggValue {
+  value: number;
+  companyCount: number;
+}
+
+/**
+ * One fetch covers BOTH aggregate metrics (footprint + short interest) — the
+ * RPC returns every state's aggregate row in a single response, so the query
+ * key is metric-independent.
+ */
+function useAggregateData(enabled: boolean) {
+  return useQuery({
+    queryKey: ["economy-map-agg"],
+    staleTime: 60 * 60 * 1000,
+    enabled,
+    queryFn: async () => {
+      const resp = await getStateCompanyAggregatesClient();
+      if (!resp) throw new Error("state company aggregates unavailable");
+      // keyed by lowercase state slug ("nsw"), per the RPC contract
+      const byState: Record<string, {
+        companyCount: number;
+        exposureWeightedMarketCap: number;
+        exposureWeightedShortPercent: number;
+      }> = {};
+      for (const a of resp.aggregates ?? []) {
+        byState[a.state] = {
+          companyCount: a.companyCount,
+          exposureWeightedMarketCap: a.exposureWeightedMarketCap,
+          exposureWeightedShortPercent: a.exposureWeightedShortPercent,
+        };
+      }
+      return byState;
+    },
+  });
+}
+
 function DeepLinkSync({ onApply }: { onApply: (state: string | null, metric: string | null) => void }) {
   const searchParams = useSearchParams();
   const state = searchParams.get("state");
@@ -83,24 +124,46 @@ export function EconomyMapExplorer() {
   const [hover, setHover] = useState<{ id: string; x: number; y: number } | null>(null); // id = topo id "1".."8"
 
   const metric = METRIC_BY_KEY[metricKey];
+  const isAggregate = metric.kind === "aggregate";
   const { data: topo } = useTopojson("/geo/states.topojson");
-  const { data: byKey, isError, refetch } = useMetricData(metric);
+  const seriesQuery = useMetricData(metric);
+  const aggQuery = useAggregateData(isAggregate);
+  const byKey = seriesQuery.data;
+  const isError = isAggregate ? aggQuery.isError : seriesQuery.isError;
+  const refetch = isAggregate ? aggQuery.refetch : seriesQuery.refetch;
 
   // Keyed by "NSW"-style abbreviations (buildStateValues contract).
   const values = useMemo(
-    () => (byKey ? buildStateValues(metric, byKey) : new Map<string, StateValue>()),
+    () =>
+      metric.kind === "series" && byKey
+        ? buildStateValues(metric, byKey)
+        : new Map<string, StateValue>(),
     [byKey, metric],
   );
+
+  // Aggregate metrics: value + company count keyed by "NSW"-style abbreviations.
+  const aggValues = useMemo(() => {
+    const m = new Map<string, AggValue>();
+    if (metric.kind !== "aggregate" || !aggQuery.data) return m;
+    for (const [slug, row] of Object.entries(aggQuery.data)) {
+      m.set(toFeatureId(slug), {
+        value: row[metric.aggField],
+        companyCount: row.companyCount,
+      });
+    }
+    return m;
+  }, [aggQuery.data, metric]);
 
   // Bridge: ChoroplethMap wants maps keyed by the REAL topojson feature ids.
   const valueById = useMemo(() => {
     const m = new Map<string, number | null>();
     for (const slug of STATE_SLUGS) {
-      const v = values.get(toFeatureId(slug));
-      m.set(toTopoFeatureId(slug), v ? v.latest : null);
+      const abbr = toFeatureId(slug);
+      const v = isAggregate ? aggValues.get(abbr)?.value : values.get(abbr)?.latest;
+      m.set(toTopoFeatureId(slug), v ?? null);
     }
     return m;
-  }, [values]);
+  }, [values, aggValues, isAggregate]);
 
   const [min, max] = useMemo(() => {
     const nums = [...valueById.values()].filter((v): v is number => v != null);
@@ -149,8 +212,12 @@ export function EconomyMapExplorer() {
 
   const hoverAbbr = hover ? abbrFromTopoId(hover.id) : null;
   const hoverValue = hoverAbbr ? values.get(hoverAbbr) : undefined;
+  const hoverAgg = hoverAbbr ? aggValues.get(hoverAbbr) : undefined;
   const hoverSlug = hoverAbbr ? toSlug(hoverAbbr) : null;
-  const hoverUnavailable = hoverSlug ? metric.unavailableStates?.includes(hoverSlug) : false;
+  const hoverUnavailable =
+    hoverSlug && metric.kind === "series"
+      ? metric.unavailableStates?.includes(hoverSlug)
+      : false;
 
   return (
     <div className="relative">
@@ -225,18 +292,30 @@ export function EconomyMapExplorer() {
               top: hover.y + TOOLTIP_H + 18 > window.innerHeight ? hover.y - TOOLTIP_H : hover.y + 14,
             }}
           >
-            <StateTooltip
-              name={nameById.get(hover.id) ?? hover.id}
-              value={hoverUnavailable ? null : hoverValue?.latest ?? null}
-              metricLabel={metric.label}
-              format={format}
-              period={hoverValue?.latestDate.toLocaleDateString("en-AU", { month: "short", year: "numeric" })}
-              yoy={hoverValue?.yoy}
-              higherIsBad={metric.higherIsBad}
-              rank={rankOf(latestRanks, hover.id)}
-              spark={hoverValue?.spark}
-              unavailableNote={metric.unavailableNote}
-            />
+            {isAggregate ? (
+              <StateTooltip
+                name={nameById.get(hover.id) ?? hover.id}
+                value={hoverAgg?.value ?? null}
+                metricLabel={metric.label}
+                format={format}
+                higherIsBad={metric.higherIsBad}
+                rank={rankOf(latestRanks, hover.id)}
+                companyCount={hoverAgg?.companyCount}
+              />
+            ) : (
+              <StateTooltip
+                name={nameById.get(hover.id) ?? hover.id}
+                value={hoverUnavailable ? null : hoverValue?.latest ?? null}
+                metricLabel={metric.label}
+                format={format}
+                period={hoverValue?.latestDate.toLocaleDateString("en-AU", { month: "short", year: "numeric" })}
+                yoy={hoverValue?.yoy}
+                higherIsBad={metric.higherIsBad}
+                rank={rankOf(latestRanks, hover.id)}
+                spark={hoverValue?.spark}
+                unavailableNote={metric.kind === "series" ? metric.unavailableNote : undefined}
+              />
+            )}
           </div>
         )}
       </div>
