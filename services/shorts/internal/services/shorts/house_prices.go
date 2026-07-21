@@ -156,6 +156,35 @@ func (s *ShortsServer) ListStateSuburbs(ctx context.Context, req *connect.Reques
 	return connect.NewResponse(cached.(*shortsv1alpha1.ListStateSuburbsResponse)), nil
 }
 
+// bannerFallbackBlurb returns a deterministic one-line blurb from the archetype,
+// used when no agy-generated banner_blurb exists yet.
+func bannerFallbackBlurb(archetype, salName, lgaName string) string {
+	descr := map[string]string{
+		"coastal-beach":  "a coastal suburb",
+		"harbour":        "a harbourside suburb",
+		"river-valley":   "a riverside suburb",
+		"urban-skyline":  "an inner-city suburb",
+		"inner-terraces": "a dense inner suburb",
+		"leafy-suburban": "a leafy residential suburb",
+		"parkland":       "a green, park-rich suburb",
+		"hills-ranges":   "a suburb in the hills",
+		"bushland":       "a bushland suburb",
+		"farmland":       "a rural suburb",
+	}
+	d := descr[archetype]
+	if d == "" {
+		d = "a residential suburb"
+	}
+	name := salName
+	if name == "" {
+		return ""
+	}
+	if lgaName != "" {
+		return fmt.Sprintf("%s is %s of %s.", name, d, lgaName)
+	}
+	return fmt.Sprintf("%s is %s.", name, d)
+}
+
 // GetSuburbProfile returns one suburb's full profile.
 func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Request[shortsv1alpha1.GetSuburbProfileRequest]) (*connect.Response[shortsv1alpha1.GetSuburbProfileResponse], error) {
 	m := req.Msg
@@ -212,6 +241,9 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 		}
 		if banner.BgKey == "" {
 			banner.BgKey = banner.Archetype
+		}
+		if banner.Blurb == "" {
+			banner.Blurb = bannerFallbackBlurb(banner.Archetype, p.Summary.SALName, p.LgaName)
 		}
 		if len(p.BannerLandmarks) > 0 {
 			var landmarks []struct {

@@ -297,6 +297,92 @@ func TestGetSuburbProfile_BannerBgKeyExplicit(t *testing.T) {
 	}
 }
 
+// TestBannerFallbackBlurb asserts the deterministic templated blurb used when
+// no agy-generated banner_blurb exists yet in the DB.
+func TestBannerFallbackBlurb(t *testing.T) {
+	tests := []struct {
+		name      string
+		archetype string
+		salName   string
+		lgaName   string
+		want      string
+	}{
+		{
+			name:      "known archetype with LGA",
+			archetype: "coastal-beach",
+			salName:   "Bondi",
+			lgaName:   "Waverley",
+			want:      "Bondi is a coastal suburb of Waverley.",
+		},
+		{
+			name:      "known archetype without LGA",
+			archetype: "harbour",
+			salName:   "Mosman",
+			lgaName:   "",
+			want:      "Mosman is a harbourside suburb.",
+		},
+		{
+			name:      "unknown archetype falls back to residential suburb",
+			archetype: "some-unmapped-archetype",
+			salName:   "Richmond",
+			lgaName:   "Yarra",
+			want:      "Richmond is a residential suburb of Yarra.",
+		},
+		{
+			name:      "empty archetype falls back to residential suburb",
+			archetype: "",
+			salName:   "Richmond",
+			lgaName:   "",
+			want:      "Richmond is a residential suburb.",
+		},
+		{
+			name:      "empty suburb name returns empty blurb",
+			archetype: "coastal-beach",
+			salName:   "",
+			lgaName:   "Waverley",
+			want:      "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := bannerFallbackBlurb(tt.archetype, tt.salName, tt.lgaName)
+			if got != tt.want {
+				t.Fatalf("bannerFallbackBlurb(%q, %q, %q) = %q, want %q",
+					tt.archetype, tt.salName, tt.lgaName, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestGetSuburbProfile_BannerBlurbFallback asserts that when the store row has
+// no banner_blurb yet (agy hasn't generated one), GetSuburbProfile fills in
+// the templated fallback rather than leaving Blurb empty.
+func TestGetSuburbProfile_BannerBlurbFallback(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockStore := mocks.NewMockShortsStore(ctrl)
+
+	mockStore.EXPECT().GetSuburbProfile("21063110123").Return(&shortsstore.SuburbProfileRow{
+		Summary: shortsstore.SuburbSummaryRow{
+			SALCode: "21063110123", SALName: "Richmond", StateCode: "VIC",
+		},
+		BannerArchetype: "inner-terraces",
+		BannerBlurb:     "",
+		LgaName:         "Yarra",
+	}, nil)
+
+	srv := newTestServer(t, mockStore)
+	resp, err := srv.GetSuburbProfile(context.Background(),
+		connect.NewRequest(&shortsv1alpha1.GetSuburbProfileRequest{SalCode: "21063110123"}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := "Richmond is a dense inner suburb of Yarra."
+	if resp.Msg.Banner.Blurb != want {
+		t.Fatalf("want fallback blurb %q, got %q", want, resp.Msg.Banner.Blurb)
+	}
+}
+
 // TestListAddressPriceDrops_SortThreadsThrough asserts the sort selector reaches
 // the store (whitelisted there into an ORDER BY), so the board can rank by
 // biggest $ cut or recency, not just percentage.
