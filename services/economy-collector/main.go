@@ -16,7 +16,7 @@ func main() {
 }
 
 func run() int {
-	mode := flag.String("mode", "all", "sources | rba | cpi | labour | trade | gdp | petroleum | all")
+	mode := flag.String("mode", "all", "sources | rba | cpi | labour | trade | gdp | petroleum | govfin | all")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -46,6 +46,7 @@ func run() int {
 		"trade":     {"abs-merch-trade-state", ingestTradeByState},
 		"gdp":       {"abs-state-accounts", ingestStateAccounts},
 		"petroleum": {"dcceew-petroleum-statistics", ingestPetroleum},
+		"govfin":    {"abs-government-finance", ingestGovFin},
 	}
 
 	runJob := func(j job) bool {
@@ -80,7 +81,7 @@ func run() int {
 		if err := registerSources(ctx, pool); err != nil {
 			log.Fatalf("register sources: %v", err)
 		}
-	case "rba", "cpi", "labour", "trade", "gdp", "petroleum":
+	case "rba", "cpi", "labour", "trade", "gdp", "petroleum", "govfin":
 		if err := registerSources(ctx, pool); err != nil {
 			log.Fatalf("register sources: %v", err)
 		}
@@ -92,17 +93,18 @@ func run() int {
 			log.Fatalf("register sources: %v", err)
 		}
 		failed := 0
-		for _, name := range []string{"rba", "cpi", "labour", "trade", "gdp", "petroleum"} {
+		names := []string{"rba", "cpi", "labour", "trade", "gdp", "petroleum", "govfin"}
+		for _, name := range names {
 			if !runJob(jobs[name]) {
 				failed++
 			}
 		}
 		if failed > 0 {
-			log.Printf("%d/6 sources failed", failed)
+			log.Printf("%d/%d sources failed", failed, len(names))
 			return 1
 		}
 	default:
-		log.Fatalf("unknown -mode %q (want sources|rba|cpi|labour|trade|gdp|petroleum|all)", *mode)
+		log.Fatalf("unknown -mode %q (want sources|rba|cpi|labour|trade|gdp|petroleum|govfin|all)", *mode)
 	}
 	return 0
 }
