@@ -3279,14 +3279,15 @@ func (s *postgresStore) GetStocksForStateExposure(limit int) ([]StateExposureCan
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	// Only columns that exist on BOTH local dev and prod Supabase — prod's
+	// company-metadata has no `sector`/`description` columns (schema drift
+	// found during the first prod backfill run, 2026-07-21).
 	query := `
 		SELECT
 			stock_code,
 			COALESCE(company_name, ''),
 			COALESCE(industry, ''),
-			COALESCE(sector, ''),
-			COALESCE(summary, ''),
-			COALESCE(description, '')
+			COALESCE(summary, '')
 		FROM "company-metadata"
 		WHERE stock_code IS NOT NULL
 		  AND (state_exposure IS NULL OR state_exposure = '[]'::jsonb)
@@ -3303,9 +3304,11 @@ func (s *postgresStore) GetStocksForStateExposure(limit int) ([]StateExposureCan
 	var results []StateExposureCandidateRow
 	for rows.Next() {
 		var row StateExposureCandidateRow
-		if err := rows.Scan(&row.StockCode, &row.CompanyName, &row.Industry, &row.Sector, &row.Summary, &row.Description); err != nil {
+		if err := rows.Scan(&row.StockCode, &row.CompanyName, &row.Industry, &row.Summary); err != nil {
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
+		// Sector/Description intentionally left empty — the exposure prompt
+		// treats them as optional context and prod doesn't store them.
 		results = append(results, row)
 	}
 
