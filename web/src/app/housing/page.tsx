@@ -166,6 +166,12 @@ export default async function HousingPage() {
             from the Australian Bureau of Statistics and the Reserve Bank
             {asOf ? ` · as of ${asOf}` : ""}.
           </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Looking for the broader picture?{" "}
+            <Link href="/economy" className="font-medium text-primary underline-offset-4 hover:underline">
+              Explore the Australian economy dashboard →
+            </Link>
+          </p>
         </header>
 
         {metrics.length === 0 ? (

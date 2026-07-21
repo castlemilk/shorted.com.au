@@ -17,6 +17,7 @@ const items: NavItemWithGroup[] = [
   { title: "screener", href: "/screener", primary: true },
   { title: "battlegrounds", href: "/battlegrounds", primary: true },
   { title: "housing", href: "/housing", primary: true },
+  { title: "economy", href: "/economy", primary: true },
   // Visible with a lock when signed out — the intel workspace is the
   // flagship signed-in surface, so it stays discoverable on every page.
   { title: "industry intel", href: "/industry-intelligence", requiresAuth: true, primary: true },

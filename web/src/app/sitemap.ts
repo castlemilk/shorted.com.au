@@ -213,6 +213,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/seasonality`, lastModified: latestDataDate },
     { url: `${baseUrl}/features/the-widow-maker`, lastModified: "2026-06-23" },
     { url: `${baseUrl}/housing`, lastModified: latestDataDate },
+    { url: `${baseUrl}/economy`, lastModified: latestDataDate },
     { url: `${baseUrl}/housing/calculators`, lastModified: latestDataDate },
     // NOTE: /housing/suburbs is deliberately NOT listed — next.config.mjs
     // 301s it to /housing (the hub page was deprecated 2026-06-29);
