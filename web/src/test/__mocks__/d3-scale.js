@@ -1,3 +1,6 @@
+// WARNING: partial surface — exports only what current tests transitively use.
+// If a tested component needs another scale/interpolator (e.g. scaleLinear,
+// interpolateYlOrRd), EXTEND these mocks; a missing export fails as undefined.
 // Mock for d3-scale (ESM-only module that Jest can't parse without extra
 // transform config). Provides minimal functional stubs — enough for pure
 // helpers that build a color scale to run under Jest without needing the

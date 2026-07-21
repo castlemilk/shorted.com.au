@@ -3,7 +3,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { getEconomicSeriesClient } from "~/app/actions/client/getEconomyClient";
 import { EconomySeriesChart } from "./economy-charts";
-import { MAP_FORMATS, STATE_NAMES, type EconomyMapMetricKey, type StateSlug } from "@/lib/economy/map-metrics";
+import {
+  MAP_FORMATS,
+  METRIC_BY_KEY,
+  STATE_NAMES,
+  STATE_SLUGS,
+  type EconomyMapMetricKey,
+  type StateSlug,
+} from "@/lib/economy/map-metrics";
 
 /**
  * SITC product slugs — MUST match services/economy-collector/trade.go's
@@ -66,8 +73,14 @@ function TopExports({ state }: { state: StateSlug }) {
   );
 }
 
-const HAS_LABOUR: StateSlug[] = ["nsw", "vic", "qld", "sa", "wa", "tas"];
-const HAS_DIESEL: StateSlug[] = ["nsw", "vic", "qld", "sa", "wa", "tas", "nt"];
+// Availability derives from the registry's unavailableStates — one source of
+// truth with the map fill + tooltip notes.
+const HAS_LABOUR: StateSlug[] = STATE_SLUGS.filter(
+  (s) => !METRIC_BY_KEY.unemployment.unavailableStates?.includes(s),
+);
+const HAS_DIESEL: StateSlug[] = STATE_SLUGS.filter(
+  (s) => !METRIC_BY_KEY.diesel_sales.unavailableStates?.includes(s),
+);
 
 export function StateDossier({
   state,

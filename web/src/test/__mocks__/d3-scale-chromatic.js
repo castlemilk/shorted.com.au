@@ -1,3 +1,4 @@
+// WARNING: partial surface — extend when a tested component needs another interpolator.
 // Mock for d3-scale-chromatic (ESM-only module that Jest can't parse without
 // extra transform config). Returns a deterministic placeholder color string
 // for any interpolation parameter — sufficient for pure helpers under test,
