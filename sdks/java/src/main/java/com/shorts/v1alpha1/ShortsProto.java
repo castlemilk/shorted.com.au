@@ -901,6 +901,41 @@ public final class ShortsProto extends com.google.protobuf.GeneratedFile {
   static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_shorts_v1alpha1_ListAddressPriceDropsResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_EconomicSeriesInfo_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_EconomicSeriesInfo_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_ListEconomicSeriesRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_ListEconomicSeriesRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_ListEconomicSeriesResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_ListEconomicSeriesResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_EconomicObservation_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_EconomicObservation_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_EconomicSeriesData_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_EconomicSeriesData_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_GetEconomicSeriesRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_GetEconomicSeriesRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_GetEconomicSeriesResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_GetEconomicSeriesResponse_fieldAccessorTable;
 
   public static com.google.protobuf.Descriptors.FileDescriptor
       getDescriptor() {
@@ -1848,451 +1883,497 @@ public final class ShortsProto extends com.google.protobuf.GeneratedFile {
       "(\005R\010bedrooms\022\034\n\tbathrooms\030\020 \001(\005R\tbathroo" +
       "ms\"`\n\035ListAddressPriceDropsResponse\022?\n\ta" +
       "ddresses\030\001 \003(\0132!.shorts.v1alpha1.Address" +
-      "PriceDropR\taddresses*5\n\010ViewMode\022\022\n\016CURR" +
-      "ENT_CHANGE\020\000\022\025\n\021PERCENTAGE_CHANGE\020\001*\272\001\n\020" +
-      "EnrichmentStatus\022!\n\035ENRICHMENT_STATUS_UN" +
-      "SPECIFIED\020\000\022$\n ENRICHMENT_STATUS_PENDING" +
-      "_REVIEW\020\001\022\037\n\033ENRICHMENT_STATUS_COMPLETED" +
-      "\020\002\022\034\n\030ENRICHMENT_STATUS_FAILED\020\003\022\036\n\032ENRI" +
-      "CHMENT_STATUS_REJECTED\020\004*\310\001\n\022EnrichmentP" +
-      "riority\022#\n\037ENRICHMENT_PRIORITY_UNSPECIFI" +
-      "ED\020\000\022\"\n\036ENRICHMENT_PRIORITY_MARKET_CAP\020\001" +
-      "\022&\n\"ENRICHMENT_PRIORITY_SHORT_POSITION\020\002" +
-      "\022\"\n\036ENRICHMENT_PRIORITY_UNENRICHED\020\003\022\035\n\031" +
-      "ENRICHMENT_PRIORITY_STALE\020\004*\360\001\n\023Enrichme" +
-      "ntJobStatus\022%\n!ENRICHMENT_JOB_STATUS_UNS" +
-      "PECIFIED\020\000\022 \n\034ENRICHMENT_JOB_STATUS_QUEU" +
-      "ED\020\001\022$\n ENRICHMENT_JOB_STATUS_PROCESSING" +
-      "\020\002\022#\n\037ENRICHMENT_JOB_STATUS_COMPLETED\020\003\022" +
-      " \n\034ENRICHMENT_JOB_STATUS_FAILED\020\004\022#\n\037ENR" +
-      "ICHMENT_JOB_STATUS_CANCELLED\020\005*\341\001\n\022Subsc" +
-      "riptionStatus\022#\n\037SUBSCRIPTION_STATUS_UNS" +
-      "PECIFIED\020\000\022\036\n\032SUBSCRIPTION_STATUS_ACTIVE" +
-      "\020\001\022 \n\034SUBSCRIPTION_STATUS_TRIALING\020\002\022 \n\034" +
-      "SUBSCRIPTION_STATUS_PAST_DUE\020\003\022 \n\034SUBSCR" +
-      "IPTION_STATUS_CANCELED\020\004\022 \n\034SUBSCRIPTION" +
-      "_STATUS_INACTIVE\020\005*\255\001\n\020SubscriptionTier\022" +
-      "!\n\035SUBSCRIPTION_TIER_UNSPECIFIED\020\000\022\032\n\026SU" +
-      "BSCRIPTION_TIER_FREE\020\001\022\031\n\025SUBSCRIPTION_T" +
-      "IER_PRO\020\002\022 \n\034SUBSCRIPTION_TIER_ENTERPRIS" +
-      "E\020\003\022\035\n\031SUBSCRIPTION_TIER_PREMIUM\020\004*y\n\021Al" +
-      "ertMonitorScope\022#\n\037ALERT_MONITOR_SCOPE_U" +
-      "NSPECIFIED\020\000\022 \n\034ALERT_MONITOR_SCOPE_INDU" +
-      "STRY\020\001\022\035\n\031ALERT_MONITOR_SCOPE_STOCK\020\002*\323\001" +
-      "\n\025AlertMonitorCondition\022\'\n#ALERT_MONITOR" +
-      "_CONDITION_UNSPECIFIED\020\000\0220\n,ALERT_MONITO" +
-      "R_CONDITION_SHORT_INTEREST_ABOVE\020\001\0220\n,AL" +
-      "ERT_MONITOR_CONDITION_SHORT_INTEREST_RIS" +
-      "ES\020\002\022-\n)ALERT_MONITOR_CONDITION_NEW_TOP_" +
-      "TEN_ENTRY\020\003*\177\n\023AlertMonitorCadence\022%\n!AL" +
-      "ERT_MONITOR_CADENCE_UNSPECIFIED\020\000\022\037\n\033ALE" +
-      "RT_MONITOR_CADENCE_DAILY\020\001\022 \n\034ALERT_MONI" +
-      "TOR_CADENCE_WEEKLY\020\002*|\n\022AlertMonitorStat" +
-      "us\022$\n ALERT_MONITOR_STATUS_UNSPECIFIED\020\000" +
-      "\022\037\n\033ALERT_MONITOR_STATUS_ACTIVE\020\001\022\037\n\033ALE" +
-      "RT_MONITOR_STATUS_PAUSED\020\002*t\n\nTakeStatus" +
-      "\022\033\n\027TAKE_STATUS_UNSPECIFIED\020\000\022\025\n\021TAKE_ST" +
-      "ATUS_DRAFT\020\001\022\031\n\025TAKE_STATUS_PUBLISHED\020\002\022" +
-      "\027\n\023TAKE_STATUS_TWEETED\020\003*\360\002\n\021ScreenerSor" +
-      "tField\022!\n\035SCREENER_SORT_FIELD_SHORT_PCT\020" +
-      "\000\022(\n$SCREENER_SORT_FIELD_SHORT_PCT_CHANG" +
-      "E\020\001\022\"\n\036SCREENER_SORT_FIELD_MARKET_CAP\020\002\022" +
-      "\'\n#SCREENER_SORT_FIELD_PRICE_CHANGE_1M\020\003" +
-      "\022 \n\034SCREENER_SORT_FIELD_PE_RATIO\020\004\022&\n\"SC" +
-      "REENER_SORT_FIELD_DIVIDEND_YIELD\020\005\022(\n$SC" +
-      "REENER_SORT_FIELD_NET_DIRECTOR_BUY\020\006\022&\n\"" +
-      "SCREENER_SORT_FIELD_NEWS_SENTIMENT\020\007\022%\n!" +
-      "SCREENER_SORT_FIELD_DAYS_TO_COVER\020\010*@\n\rS" +
-      "ortDirection\022\027\n\023SORT_DIRECTION_DESC\020\000\022\026\n" +
-      "\022SORT_DIRECTION_ASC\020\001*v\n\020BattlegroundVie" +
-      "w\022!\n\035BATTLEGROUND_VIEW_UNSPECIFIED\020\000\022\035\n\031" +
-      "BATTLEGROUND_VIEW_SQUEEZE\020\001\022 \n\034BATTLEGRO" +
-      "UND_VIEW_DIVERGENCE\020\002*\302\001\n\014VerdictLabel\022\035" +
-      "\n\031VERDICT_LABEL_UNSPECIFIED\020\000\022 \n\034VERDICT" +
-      "_LABEL_STRONG_BEARISH\020\001\022\031\n\025VERDICT_LABEL" +
-      "_BEARISH\020\002\022\031\n\025VERDICT_LABEL_NEUTRAL\020\003\022\031\n" +
-      "\025VERDICT_LABEL_BULLISH\020\004\022 \n\034VERDICT_LABE" +
-      "L_STRONG_BULLISH\020\0052\255s\n\024ShortedStocksServ" +
-      "ice\022\206\003\n\014GetTopShorts\022$.shorts.v1alpha1.G" +
-      "etTopShortsRequest\032%.shorts.v1alpha1.Get" +
-      "TopShortsResponse\"\250\002\332A\023period,limit,offs" +
-      "et\272G\212\002\022\016Get Top Shorts\032jRetrieve the top" +
-      " shorted stocks on the ASX for a given t" +
-      "ime period. Supports pagination and cust" +
-      "om limits.B\213\001\022X\n\003200\022Q\nO\nMA successful r" +
-      "esponse containing time series data for " +
-      "the top shorted stocks.\022/\n\003400\022(\n&\n$Inva" +
-      "lid request parameters provided.\200\265\030\001\022\375\002\n" +
-      "\022GetIndustryTreeMap\022*.shorts.v1alpha1.Ge" +
-      "tIndustryTreeMapRequest\032 .stocks.v1alpha" +
-      "1.IndustryTreeMap\"\230\002\272G\220\002\022\024Get Industry T" +
-      "reeMap\032{Retrieve a hierarchical treemap " +
-      "of short positions grouped by industry. " +
-      "Useful for visualizing market-wide short" +
-      "ing trends.B{\022Q\n\003200\022J\nH\nFA successful r" +
-      "esponse containing industry-grouped shor" +
-      "t position data.\022&\n\003400\022\037\n\035\n\033Invalid req" +
-      "uest parameters.\200\265\030\001\022\300\002\n\010GetStock\022 .shor" +
-      "ts.v1alpha1.GetStockRequest\032\026.stocks.v1a" +
-      "lpha1.Stock\"\371\001\272G\361\001\022\021Get Stock Summary\032fR" +
-      "etrieve a summary of current short posit" +
-      "ions and basic metadata for a specific s" +
-      "tock by its ASX code.Bt\022>\n\003200\0227\n5\n3A su" +
-      "ccessful response containing the stock s" +
-      "ummary.\0222\n\003404\022+\n)\n\'The specified stock " +
-      "code was not found.\200\265\030\001\022\360\002\n\017GetStockDeta" +
-      "ils\022\'.shorts.v1alpha1.GetStockDetailsReq" +
-      "uest\032\035.stocks.v1alpha1.StockDetails\"\224\002\272G" +
-      "\214\002\022\021Get Stock Details\032sRetrieve comprehe" +
-      "nsive metadata for a specific stock, inc" +
-      "luding company history, key people, and " +
-      "financial reports.B\201\001\022G\n\003200\022@\n>\n<A succ" +
-      "essful response containing detailed stoc" +
-      "k information.\0226\n\003404\022/\n-\n+The specified" +
-      " stock details were not found.\200\265\030\001\022\360\002\n\014G" +
-      "etStockData\022$.shorts.v1alpha1.GetStockDa" +
-      "taRequest\032\037.stocks.v1alpha1.TimeSeriesDa" +
-      "ta\"\230\002\272G\220\002\022\032Get Stock Time Series Data\032XR" +
-      "etrieve historical short position data f" +
-      "or a specific stock over a defined time " +
-      "period.B\227\001\022J\n\003200\022C\nA\n?A successful resp" +
-      "onse containing historical time series p" +
-      "oints.\022I\n\003401\022B\n@\n>Authentication is req" +
-      "uired to access private time series data" +
-      ".\200\265\030\001\022\313\001\n\017GetMarketByDate\022\'.shorts.v1alp" +
-      "ha1.GetMarketByDateRequest\032(.shorts.v1al" +
-      "pha1.GetMarketByDateResponse\"e\272G^\022\022Get M" +
-      "arket By Date\032HRetrieve all short positi" +
-      "ons for a specific trading date from ASI" +
-      "C data.\200\265\030\001\022\304\001\n\021GetAvailableDates\022).shor" +
-      "ts.v1alpha1.GetAvailableDatesRequest\032*.s" +
-      "horts.v1alpha1.GetAvailableDatesResponse" +
-      "\"X\272GQ\022\023Get Available Dates\032:Retrieve ava" +
-      "ilable trading dates with short position" +
-      " data.\200\265\030\001\022\371\001\n\014SearchStocks\022$.shorts.v1a" +
-      "lpha1.SearchStocksRequest\032%.shorts.v1alp" +
-      "ha1.SearchStocksResponse\"\233\001\272G\223\001\022\rSearch " +
-      "Stocks\032YSearch for ASX stocks using full" +
-      "-text search against their ticker symbol" +
-      " or company name.B\'\022%\n\003200\022\036\n\034\n\032A list o" +
-      "f matching stocks.\200\265\030\001\022\311\002\n\rGetSyncStatus" +
-      "\022%.shorts.v1alpha1.GetSyncStatusRequest\032" +
-      "&.shorts.v1alpha1.GetSyncStatusResponse\"" +
-      "\350\001\272G\327\001\022\017Get Sync Status\032nAdministrative " +
-      "endpoint to retrieve the status and hist" +
-      "ory of data synchronization tasks. Requi" +
-      "res admin role.BT\022#\n\003200\022\034\n\032\n\030Recent syn" +
-      "c run history.\022-\n\003403\022&\n$\n\"Forbidden: Ad" +
-      "min role is required.\200\265\030\002\212\265\030\005admin\022\254\002\n\tM" +
-      "intToken\022!.shorts.v1alpha1.MintTokenRequ" +
-      "est\032\".shorts.v1alpha1.MintTokenResponse\"" +
-      "\327\001\272G\317\001\022\016Mint API Token\032lGenerate a bespo" +
-      "ke API token for programmatic access to " +
-      "Shorted APIs. Requires valid session aut" +
-      "hentication.BO\022\033\n\003200\022\024\n\022\n\020A new API tok" +
-      "en.\0220\n\003401\022)\n\'\n%Unauthorized: User must " +
-      "be signed in.\200\265\030\002\022\354\002\n\016SyncKeyMetrics\022&.s" +
-      "horts.v1alpha1.SyncKeyMetricsRequest\032\'.s" +
-      "horts.v1alpha1.SyncKeyMetricsResponse\"\210\002" +
-      "\272G\367\001\022\020Sync Key Metrics\032\213\001Trigger on-dema" +
-      "nd sync of key metrics (market cap, P/E " +
-      "ratio, etc.) for specific stocks. Fetche" +
-      "s fresh data from Yahoo Finance. Admin o" +
-      "nly.BU\022\'\n\003200\022 \n\036\n\034Sync completed succes" +
-      "sfully.\022*\n\003403\022#\n!\n\037Forbidden: Admin rol" +
-      "e required.\200\265\030\002\212\265\030\005admin\022g\n\013EnrichStock\022" +
-      "#.shorts.v1alpha1.EnrichStockRequest\032$.s" +
-      "horts.v1alpha1.EnrichStockResponse\"\r\200\265\030\002" +
-      "\212\265\030\005admin\022\221\001\n\031GetTopStocksForEnrichment\022" +
-      "1.shorts.v1alpha1.GetTopStocksForEnrichm" +
-      "entRequest\0322.shorts.v1alpha1.GetTopStock" +
-      "sForEnrichmentResponse\"\r\200\265\030\002\212\265\030\005admin\022\210\001" +
-      "\n\026ListPendingEnrichments\022..shorts.v1alph" +
-      "a1.ListPendingEnrichmentsRequest\032/.short" +
-      "s.v1alpha1.ListPendingEnrichmentsRespons" +
-      "e\"\r\200\265\030\002\212\265\030\005admin\022\202\001\n\024GetPendingEnrichmen" +
-      "t\022,.shorts.v1alpha1.GetPendingEnrichment" +
-      "Request\032-.shorts.v1alpha1.GetPendingEnri" +
-      "chmentResponse\"\r\200\265\030\002\212\265\030\005admin\022v\n\020ReviewE" +
-      "nrichment\022(.shorts.v1alpha1.ReviewEnrich" +
-      "mentRequest\032).shorts.v1alpha1.ReviewEnri" +
-      "chmentResponse\"\r\200\265\030\002\212\265\030\005admin\022\210\001\n\026GetEnr" +
-      "ichmentJobStatus\022..shorts.v1alpha1.GetEn" +
-      "richmentJobStatusRequest\032/.shorts.v1alph" +
-      "a1.GetEnrichmentJobStatusResponse\"\r\200\265\030\002\212" +
-      "\265\030\005admin\022|\n\022ListEnrichmentJobs\022*.shorts." +
-      "v1alpha1.ListEnrichmentJobsRequest\032+.sho" +
-      "rts.v1alpha1.ListEnrichmentJobsResponse\"" +
-      "\r\200\265\030\002\212\265\030\005admin\022\224\001\n\035HandleStripeCheckoutC" +
-      "ompleted\0225.shorts.v1alpha1.HandleStripeC" +
-      "heckoutCompletedRequest\0326.shorts.v1alpha" +
-      "1.HandleStripeCheckoutCompletedResponse\"" +
-      "\004\200\265\030\002\022\232\001\n\037HandleStripeSubscriptionUpdate" +
-      "d\0227.shorts.v1alpha1.HandleStripeSubscrip" +
-      "tionUpdatedRequest\0328.shorts.v1alpha1.Han" +
-      "dleStripeSubscriptionUpdatedResponse\"\004\200\265" +
-      "\030\002\022p\n\021GetMySubscription\022).shorts.v1alpha" +
-      "1.GetMySubscriptionRequest\032*.shorts.v1al" +
-      "pha1.GetMySubscriptionResponse\"\004\200\265\030\002\022s\n\022" +
-      "CreateAlertMonitor\022*.shorts.v1alpha1.Cre" +
-      "ateAlertMonitorRequest\032+.shorts.v1alpha1" +
-      ".CreateAlertMonitorResponse\"\004\200\265\030\002\022p\n\021Lis" +
-      "tAlertMonitors\022).shorts.v1alpha1.ListAle" +
-      "rtMonitorsRequest\032*.shorts.v1alpha1.List" +
-      "AlertMonitorsResponse\"\004\200\265\030\002\022\352\001\n\017GetWeekl" +
-      "yReport\022\'.shorts.v1alpha1.GetWeeklyRepor" +
-      "tRequest\032(.shorts.v1alpha1.GetWeeklyRepo" +
-      "rtResponse\"\203\001\272G|\022\021Get Weekly Report\032gRet" +
-      "rieve a weekly short selling report with" +
-      " narrative analysis, top shorted stocks," +
-      " and biggest movers.\200\265\030\001\022\312\001\n\013ListReports" +
-      "\022#.shorts.v1alpha1.ListReportsRequest\032$." +
-      "shorts.v1alpha1.ListReportsResponse\"p\272Gi" +
-      "\022\014List Reports\032YList published short sel" +
-      "ling reports with headlines and summary " +
-      "stats, most recent first.\200\265\030\001\022\237\002\n\033GetSto" +
-      "ckFinancialHighlights\0223.shorts.v1alpha1." +
-      "GetStockFinancialHighlightsRequest\0324.sho" +
-      "rts.v1alpha1.GetStockFinancialHighlights" +
-      "Response\"\224\001\272G\214\001\022\036Get Stock Financial Hig" +
-      "hlights\032jRetrieve extracted financial me" +
-      "trics (revenue, NPAT, EPS, dividends, et" +
-      "c.) from company financial reports.\200\265\030\001\022" +
-      "\312\001\n\014GetStockNews\022$.shorts.v1alpha1.GetSt" +
-      "ockNewsRequest\032%.shorts.v1alpha1.GetStoc" +
-      "kNewsResponse\"m\272Gf\022\016Get Stock News\032TRetr" +
-      "ieve recent news articles, announcements" +
-      ", and analysis for a specific ASX stock." +
-      "\200\265\030\001\022\337\001\n\016GetRelatedNews\022&.shorts.v1alpha" +
-      "1.GetRelatedNewsRequest\032\'.shorts.v1alpha" +
-      "1.GetRelatedNewsResponse\"|\272Gu\022\020Get Relat" +
-      "ed News\032aRetrieve news articles semantic" +
-      "ally related to a stock or a given artic" +
-      "le, via vector similarity.\200\265\030\001\022\314\001\n\rGetMa" +
-      "rketNews\022%.shorts.v1alpha1.GetMarketNews" +
-      "Request\032&.shorts.v1alpha1.GetMarketNewsR" +
-      "esponse\"l\272Ge\022\017Get Market News\032RRetrieve " +
-      "recent market-wide news articles and ann" +
-      "ouncements across all ASX stocks.\200\265\030\001\022\264\001" +
-      "\n\020GetEditorialTake\022(.shorts.v1alpha1.Get" +
-      "EditorialTakeRequest\032).shorts.v1alpha1.G" +
-      "etEditorialTakeResponse\"K\272GD\022\022Get Editor" +
-      "ial Take\032.Retrieve a published Shorted T" +
-      "ake by URL slug.\200\265\030\001\022\337\001\n\022ListEditorialTa" +
-      "kes\022*.shorts.v1alpha1.ListEditorialTakes" +
-      "Request\032+.shorts.v1alpha1.ListEditorialT" +
-      "akesResponse\"p\272Gi\022\024List Editorial Takes\032" +
-      "QList recent published Shorted Takes, ne" +
-      "west first. Optional filter by stock cod" +
-      "e.\200\265\030\001\022\202\001\n\027ListEditorialTakesAdmin\022/.sho" +
-      "rts.v1alpha1.ListEditorialTakesAdminRequ" +
-      "est\0320.shorts.v1alpha1.ListEditorialTakes" +
-      "AdminResponse\"\004\200\265\030\002\022y\n\024PublishEditorialT" +
-      "ake\022,.shorts.v1alpha1.PublishEditorialTa" +
-      "keRequest\032-.shorts.v1alpha1.PublishEdito" +
-      "rialTakeResponse\"\004\200\265\030\002\022v\n\023UpdateEditoria" +
-      "lTake\022+.shorts.v1alpha1.UpdateEditorialT" +
-      "akeRequest\032,.shorts.v1alpha1.UpdateEdito" +
-      "rialTakeResponse\"\004\200\265\030\002\022v\n\023DeleteEditoria" +
-      "lTake\022+.shorts.v1alpha1.DeleteEditorialT" +
-      "akeRequest\032,.shorts.v1alpha1.DeleteEdito" +
-      "rialTakeResponse\"\004\200\265\030\002\022\177\n\026MarkTakeTweetP" +
-      "ublished\022..shorts.v1alpha1.MarkTakeTweet" +
-      "PublishedRequest\032/.shorts.v1alpha1.MarkT" +
-      "akeTweetPublishedResponse\"\004\200\265\030\002\022|\n\025ListT" +
-      "weetPublishQueue\022-.shorts.v1alpha1.ListT" +
-      "weetPublishQueueRequest\032..shorts.v1alpha" +
-      "1.ListTweetPublishQueueResponse\"\004\200\265\030\002\022\351\001" +
-      "\n\021GetDirectorTrades\022).shorts.v1alpha1.Ge" +
-      "tDirectorTradesRequest\032*.shorts.v1alpha1" +
-      ".GetDirectorTradesResponse\"}\272Gv\022\023Get Dir" +
-      "ector Trades\032_Retrieve director (insider" +
-      ") trading activity from ASX Appendix 3Y " +
-      "filings for a specific stock.\200\265\030\001\022\344\001\n\022Ge" +
-      "tDividendHistory\022*.shorts.v1alpha1.GetDi",
-      "videndHistoryRequest\032+.shorts.v1alpha1.G" +
-      "etDividendHistoryResponse\"u\272Gn\022\024Get Divi" +
-      "dend History\032VRetrieve dividend payment " +
-      "history including franking credits for a" +
-      " specific ASX stock.\200\265\030\001\022\337\001\n\021GetPeerComp" +
-      "arison\022).shorts.v1alpha1.GetPeerComparis" +
-      "onRequest\032*.shorts.v1alpha1.GetPeerCompa" +
-      "risonResponse\"s\272Gl\022\023Get Peer Comparison\032" +
-      "UCompare a stock\'s short position, price" +
-      ", and fundamentals against its industry " +
-      "peers.\200\265\030\001\022\200\002\n\014ScreenStocks\022$.shorts.v1a" +
-      "lpha1.ScreenStocksRequest\032%.shorts.v1alp" +
-      "ha1.ScreenStocksResponse\"\242\001\272G\232\001\022\rScreen " +
-      "Stocks\032\210\001Filter and sort stocks using co" +
-      "mpound criteria across short positions, " +
-      "price changes, fundamentals, director tr" +
-      "ades, and news sentiment.\200\265\030\001\022\311\002\n\025GetBat" +
-      "tlegroundStocks\022-.shorts.v1alpha1.GetBat" +
-      "tlegroundStocksRequest\032..shorts.v1alpha1" +
-      ".GetBattlegroundStocksResponse\"\320\001\272G\254\001\022\027G" +
-      "et Battleground Stocks\032\220\001Rank stocks by " +
-      "squeeze risk (days-to-cover, short inter" +
-      "est, crowding, momentum) or by bull-vs-b" +
-      "ear divergence (price rising while short" +
-      "s build).\200\265\030\001\202\323\344\223\002\026\"\021/v1/battlegrounds:\001" +
-      "*\022\343\002\n\017GetStockVerdict\022\'.shorts.v1alpha1." +
-      "GetStockVerdictRequest\032(.shorts.v1alpha1" +
-      ".GetStockVerdictResponse\"\374\001\272G\331\001\022\021Get Sto" +
-      "ck Verdict\032\303\001Composite bear-vs-bull verd" +
-      "ict (-100..100) for a single stock, comb" +
-      "ining short-position trend and level, di" +
-      "rector trading, news sentiment, and sque" +
-      "eze pressure \342\200\224 with a per-component br" +
-      "eakdown.\200\265\030\001\202\323\344\223\002\025\"\020/v1/stockVerdict:\001*\022" +
-      "\371\002\n\032GetShortCampaignScoreboard\0222.shorts." +
-      "v1alpha1.GetShortCampaignScoreboardReque" +
-      "st\0323.shorts.v1alpha1.GetShortCampaignSco" +
-      "reboardResponse\"\361\001\272G\303\001\022\035Get Short Campai" +
-      "gn Scoreboard\032\241\001Historic short campaigns" +
-      " (peak short interest >= 5% over the las" +
-      "t 3 years) with price outcomes 3 and 6 m" +
-      "onths after the peak, and overall short-" +
-      "seller win rates.\200\265\030\001\202\323\344\223\002 \"\033/v1/shortCa" +
-      "mpaignScoreboard:\001*\022\211\002\n\rGetStockGraph\022%." +
-      "shorts.v1alpha1.GetStockGraphRequest\032&.s" +
-      "horts.v1alpha1.GetStockGraphResponse\"\250\001\272" +
-      "G\240\001\022\017Get Stock Graph\032\214\001Retrieve a stock\'" +
-      "s connected people (directors/officers a" +
-      "nd their other ASX roles) and semantical" +
-      "ly similar companies via vector similari" +
-      "ty.\200\265\030\001\022\232\002\n\020GetEventTimeline\022(.shorts.v1" +
-      "alpha1.GetEventTimelineRequest\032).shorts." +
-      "v1alpha1.GetEventTimelineResponse\"\260\001\272G\250\001" +
-      "\022\022Get Event Timeline\032\221\001Retrieve a chrono" +
-      "logical feed of events for a stock, merg" +
-      "ing ASX announcements, director trades, " +
-      "price-sensitive news, and short position" +
-      " spikes.\200\265\030\001\022\334\002\n\017GetStockSignals\022\'.short" +
-      "s.v1alpha1.GetStockSignalsRequest\032(.shor" +
-      "ts.v1alpha1.GetStockSignalsResponse\"\365\001\272G" +
-      "\355\001\022\021Get Stock Signals\032\327\001Retrieve a stock" +
-      "\'s reputation/risk signals \342\200\224 adverse (" +
-      "court matters, regulator sanctions, comp" +
-      "laints) and positive (awards, press), ea" +
-      "ch with citations, severity and confiden" +
-      "ce. Sourced from grounded web research.\200" +
-      "\265\030\001\022\317\002\n\022GetHousingOverview\022*.shorts.v1al" +
-      "pha1.GetHousingOverviewRequest\032+.shorts." +
-      "v1alpha1.GetHousingOverviewResponse\"\337\001\272G" +
-      "\327\001\022\024Get Housing Overview\032\276\001Latest Austra" +
-      "lian house-price headline metrics by reg" +
-      "ion (national, state, capital city) \342\200\224 " +
-      "mean/median price and price index with Q" +
-      "oQ and YoY change. Sourced from the ABS " +
-      "Data API and RBA.\200\265\030\001\022\255\002\n\023GetHousePriceS" +
-      "eries\022+.shorts.v1alpha1.GetHousePriceSer" +
-      "iesRequest\032,.shorts.v1alpha1.GetHousePri" +
-      "ceSeriesResponse\"\272\001\272G\262\001\022\026Get House Price" +
-      " Series\032\227\001A single house-price time seri" +
-      "es for a region and measure (national me" +
-      "an price, capital-city median, household" +
-      " debt-to-income, price index), quarterly" +
-      ".\200\265\030\001\022\234\002\n\020ListStateSuburbs\022(.shorts.v1al" +
-      "pha1.ListStateSuburbsRequest\032).shorts.v1" +
-      "alpha1.ListStateSuburbsResponse\"\262\001\272G\252\001\022\022" +
-      "List State Suburbs\032\223\001Every suburb (ABS S" +
-      "AL) in a state with its latest median ho" +
-      "use price and key ABS Census demographic" +
-      "s \342\200\224 powers the state choropleth + subu" +
-      "rb list.\200\265\030\001\022\225\002\n\020GetSuburbProfile\022(.shor" +
-      "ts.v1alpha1.GetSuburbProfileRequest\032).sh" +
-      "orts.v1alpha1.GetSuburbProfileResponse\"\253" +
-      "\001\272G\243\001\022\022Get Suburb Profile\032\214\001A single sub" +
-      "urb\'s rich profile \342\200\224 ABS Census demogr" +
-      "aphics, latest median house price with Q" +
-      "oQ/YoY, and state/national comparison ba" +
-      "selines.\200\265\030\001\022\313\002\n\022ListHousingRegions\022*.sh" +
-      "orts.v1alpha1.ListHousingRegionsRequest\032" +
-      "+.shorts.v1alpha1.ListHousingRegionsResp" +
-      "onse\"\333\001\272G\323\001\022\024List Housing Regions\032\272\001List" +
-      " house-price regions, optionally filtere" +
-      "d by region_type, state, or a name query" +
-      " \342\200\224 powers the suburb explorer. Suburb " +
-      "medians are sourced from state Valuer-Ge" +
-      "neral offices (CC BY).\200\265\030\001\022\251\003\n\024ListSubur" +
-      "bPriceDrops\022,.shorts.v1alpha1.ListSuburb" +
-      "PriceDropsRequest\032-.shorts.v1alpha1.List" +
-      "SuburbPriceDropsResponse\"\263\002\272G\253\002\022\027List Su" +
-      "burb Price Drops\032\217\002Suburbs ranked by rec" +
-      "ent for-sale asking-price reductions ove" +
-      "r a rolling window \342\200\224 count of reduced " +
-      "listings plus the average, median and la" +
-      "rgest reduction. A derived aggregate ove" +
-      "r realestate.com.au / domain.com.au list" +
-      "ing data; individual listings are not re" +
-      "published.\200\265\030\001\022\347\002\n\026ListSuburbDropListing" +
-      "s\022..shorts.v1alpha1.ListSuburbDropListin" +
-      "gsRequest\032/.shorts.v1alpha1.ListSuburbDr" +
-      "opListingsResponse\"\353\001\272G\343\001\022\031List Suburb D" +
-      "rop Listings\032\305\001Recently price-reduced fo" +
-      "r-sale listings in a suburb, each deep-l" +
-      "inking OUT to the live realestate.com.au" +
-      " / domain.com.au page. Factual price-cha" +
-      "nge data only; the listing itself is not" +
-      " reproduced.\200\265\030\001\022\270\003\n\022GetPropertyHistory\022" +
-      "*.shorts.v1alpha1.GetPropertyHistoryRequ" +
-      "est\032+.shorts.v1alpha1.GetPropertyHistory" +
-      "Response\"\310\002\272G\237\002\022\024Get Property History\032\206\002" +
-      "Full asking-price timeline for a single " +
-      "physical address (stable address_key), a" +
-      "cross all its listings and relists on re" +
-      "alestate.com.au / domain.com.au. Deep-li" +
-      "nks OUT to the live portal page; factual" +
-      " price-change data only, the listing its" +
-      "elf is not reproduced.\200\265\030\001\202\323\344\223\002\033\"\026/v1/ge" +
-      "tPropertyHistory:\001*\022\203\004\n\025ListAddressPrice" +
-      "Drops\022-.shorts.v1alpha1.ListAddressPrice" +
-      "DropsRequest\032..shorts.v1alpha1.ListAddre" +
-      "ssPriceDropsResponse\"\212\003\272G\336\002\022\030List Addres" +
-      "s Price Drops\032\301\002Individual physical addr" +
-      "esses (deduped by stable address_key) ra" +
-      "nked by their for-sale asking-price redu" +
-      "ction over a rolling window \342\200\224 from the" +
-      " first observed price to the current act" +
-      "ive listing. Each entry deep-links to it" +
-      "s per-address history page; factual pric" +
-      "e-change data only, the listing itself i" +
-      "s not reproduced.\200\265\030\001\202\323\344\223\002\036\"\031/v1/listAdd" +
-      "ressPriceDrops:\001*\022\262\004\n\024GetCompanyTaxProfi" +
-      "le\022,.shorts.v1alpha1.GetCompanyTaxProfil" +
-      "eRequest\032-.shorts.v1alpha1.GetCompanyTax" +
-      "ProfileResponse\"\274\003\272G\224\003\022\027Get Company Tax " +
-      "Profile\032\370\002An ASX-listed entity\'s annual " +
-      "corporate-tax profile from the ATO Corpo" +
-      "rate Tax Transparency dataset (total inc" +
-      "ome, taxable income, tax payable per inc" +
-      "ome year). Entities are matched to ASX c" +
-      "odes only on exact ABN or exact normaliz" +
-      "ed-name mapping. Nil/absent taxable inco" +
-      "me or tax payable is meaningful and ofte" +
-      "n legitimate (losses/offsets) \342\200\224 total " +
-      "income is always reported.\200\265\030\001\202\323\344\223\002\032\"\025/v" +
-      "1/companyTaxProfile:\001*\022\322\002\n\027GetIndustryIn" +
-      "telligence\022/.shorts.v1alpha1.GetIndustry" +
-      "IntelligenceRequest\0320.shorts.v1alpha1.Ge" +
-      "tIndustryIntelligenceResponse\"\323\001\272G\250\001\022\031Ge" +
-      "t Industry Intelligence\032\212\001Imported, cite" +
-      "d industry intelligence records for a Sh" +
-      "orted industry. Only public-enabled sour" +
-      "ces and exact-reviewed records are retur" +
-      "ned.\200\265\030\001\202\323\344\223\002\035\"\030/v1/industryIntelligence" +
-      ":\001*\032\025\312A\022api.shorted.com.auB\240\003\n\023com.short" +
-      "s.v1alpha1B\013ShortsProtoP\001ZYgithub.com/ca" +
-      "stlemilk/shorted.com.au/services/gen/pro" +
-      "to/go/shorts/v1alpha1;shortsv1alpha1\242\002\003S" +
-      "XX\252\002\017Shorts.V1alpha1\312\002\017Shorts\\V1alpha1\342\002" +
-      "\033Shorts\\V1alpha1\\GPBMetadata\352\002\020Shorts::V" +
-      "1alpha1\272G\302\001\022\177\n\013Shorted API\022\rShorted API\'" +
-      "s\"(\022\016shorted.com.au\032\026support@shorted.com" +
-      ".au*3\n\023Proprietary license\022\034https://shor" +
-      "ted.com.au/terms2\002v1\032\034\n\032https://api.shor" +
-      "ted.com.au*!:\037\n\035\n\tAuthToken\022\020\n\016\n\004http*\006b" +
-      "earerb\006proto3"
+      "PriceDropR\taddresses\"\267\003\n\022EconomicSeriesI" +
+      "nfo\022\035\n\nseries_key\030\001 \001(\tR\tseriesKey\022\024\n\005to" +
+      "pic\030\002 \001(\tR\005topic\022\026\n\006metric\030\003 \001(\tR\006metric" +
+      "\022\030\n\007product\030\004 \001(\tR\007product\022\037\n\013region_typ" +
+      "e\030\005 \001(\tR\nregionType\022\037\n\013region_code\030\006 \001(\t" +
+      "R\nregionCode\022\037\n\013region_name\030\007 \001(\tR\nregio" +
+      "nName\022\022\n\004unit\030\010 \001(\tR\004unit\022\034\n\tfrequency\030\t" +
+      " \001(\tR\tfrequency\022\036\n\nadjustment\030\n \001(\tR\nadj" +
+      "ustment\022\035\n\nsource_key\030\013 \001(\tR\tsourceKey\022%" +
+      "\n\016source_licence\030\014 \001(\tR\rsourceLicence\022?\n" +
+      "\rlatest_period\030\r \001(\0132\032.google.protobuf.T" +
+      "imestampR\014latestPeriod\"\273\001\n\031ListEconomicS" +
+      "eriesRequest\022\024\n\005topic\030\001 \001(\tR\005topic\022\026\n\006me" +
+      "tric\030\002 \001(\tR\006metric\022\037\n\013region_type\030\003 \001(\tR" +
+      "\nregionType\022\037\n\013region_code\030\004 \001(\tR\nregion" +
+      "Code\022\030\n\007product\030\005 \001(\tR\007product\022\024\n\005limit\030" +
+      "\006 \001(\005R\005limit\"Y\n\032ListEconomicSeriesRespon" +
+      "se\022;\n\006series\030\001 \003(\0132#.shorts.v1alpha1.Eco" +
+      "nomicSeriesInfoR\006series\"_\n\023EconomicObser" +
+      "vation\0222\n\006period\030\001 \001(\0132\032.google.protobuf" +
+      ".TimestampR\006period\022\024\n\005value\030\002 \001(\001R\005value" +
+      "\"\227\001\n\022EconomicSeriesData\0227\n\004info\030\001 \001(\0132#." +
+      "shorts.v1alpha1.EconomicSeriesInfoR\004info" +
+      "\022H\n\014observations\030\002 \003(\0132$.shorts.v1alpha1" +
+      ".EconomicObservationR\014observations\"z\n\030Ge" +
+      "tEconomicSeriesRequest\022\037\n\013series_keys\030\001 " +
+      "\003(\tR\nseriesKeys\022=\n\014start_period\030\002 \001(\0132\032." +
+      "google.protobuf.TimestampR\013startPeriod\"X" +
+      "\n\031GetEconomicSeriesResponse\022;\n\006series\030\001 " +
+      "\003(\0132#.shorts.v1alpha1.EconomicSeriesData" +
+      "R\006series*5\n\010ViewMode\022\022\n\016CURRENT_CHANGE\020\000" +
+      "\022\025\n\021PERCENTAGE_CHANGE\020\001*\272\001\n\020EnrichmentSt" +
+      "atus\022!\n\035ENRICHMENT_STATUS_UNSPECIFIED\020\000\022" +
+      "$\n ENRICHMENT_STATUS_PENDING_REVIEW\020\001\022\037\n" +
+      "\033ENRICHMENT_STATUS_COMPLETED\020\002\022\034\n\030ENRICH" +
+      "MENT_STATUS_FAILED\020\003\022\036\n\032ENRICHMENT_STATU" +
+      "S_REJECTED\020\004*\310\001\n\022EnrichmentPriority\022#\n\037E" +
+      "NRICHMENT_PRIORITY_UNSPECIFIED\020\000\022\"\n\036ENRI" +
+      "CHMENT_PRIORITY_MARKET_CAP\020\001\022&\n\"ENRICHME" +
+      "NT_PRIORITY_SHORT_POSITION\020\002\022\"\n\036ENRICHME" +
+      "NT_PRIORITY_UNENRICHED\020\003\022\035\n\031ENRICHMENT_P" +
+      "RIORITY_STALE\020\004*\360\001\n\023EnrichmentJobStatus\022" +
+      "%\n!ENRICHMENT_JOB_STATUS_UNSPECIFIED\020\000\022 " +
+      "\n\034ENRICHMENT_JOB_STATUS_QUEUED\020\001\022$\n ENRI" +
+      "CHMENT_JOB_STATUS_PROCESSING\020\002\022#\n\037ENRICH" +
+      "MENT_JOB_STATUS_COMPLETED\020\003\022 \n\034ENRICHMEN" +
+      "T_JOB_STATUS_FAILED\020\004\022#\n\037ENRICHMENT_JOB_" +
+      "STATUS_CANCELLED\020\005*\341\001\n\022SubscriptionStatu" +
+      "s\022#\n\037SUBSCRIPTION_STATUS_UNSPECIFIED\020\000\022\036" +
+      "\n\032SUBSCRIPTION_STATUS_ACTIVE\020\001\022 \n\034SUBSCR" +
+      "IPTION_STATUS_TRIALING\020\002\022 \n\034SUBSCRIPTION" +
+      "_STATUS_PAST_DUE\020\003\022 \n\034SUBSCRIPTION_STATU" +
+      "S_CANCELED\020\004\022 \n\034SUBSCRIPTION_STATUS_INAC" +
+      "TIVE\020\005*\255\001\n\020SubscriptionTier\022!\n\035SUBSCRIPT" +
+      "ION_TIER_UNSPECIFIED\020\000\022\032\n\026SUBSCRIPTION_T" +
+      "IER_FREE\020\001\022\031\n\025SUBSCRIPTION_TIER_PRO\020\002\022 \n" +
+      "\034SUBSCRIPTION_TIER_ENTERPRISE\020\003\022\035\n\031SUBSC" +
+      "RIPTION_TIER_PREMIUM\020\004*y\n\021AlertMonitorSc" +
+      "ope\022#\n\037ALERT_MONITOR_SCOPE_UNSPECIFIED\020\000" +
+      "\022 \n\034ALERT_MONITOR_SCOPE_INDUSTRY\020\001\022\035\n\031AL" +
+      "ERT_MONITOR_SCOPE_STOCK\020\002*\323\001\n\025AlertMonit" +
+      "orCondition\022\'\n#ALERT_MONITOR_CONDITION_U" +
+      "NSPECIFIED\020\000\0220\n,ALERT_MONITOR_CONDITION_" +
+      "SHORT_INTEREST_ABOVE\020\001\0220\n,ALERT_MONITOR_" +
+      "CONDITION_SHORT_INTEREST_RISES\020\002\022-\n)ALER" +
+      "T_MONITOR_CONDITION_NEW_TOP_TEN_ENTRY\020\003*" +
+      "\177\n\023AlertMonitorCadence\022%\n!ALERT_MONITOR_" +
+      "CADENCE_UNSPECIFIED\020\000\022\037\n\033ALERT_MONITOR_C" +
+      "ADENCE_DAILY\020\001\022 \n\034ALERT_MONITOR_CADENCE_" +
+      "WEEKLY\020\002*|\n\022AlertMonitorStatus\022$\n ALERT_" +
+      "MONITOR_STATUS_UNSPECIFIED\020\000\022\037\n\033ALERT_MO" +
+      "NITOR_STATUS_ACTIVE\020\001\022\037\n\033ALERT_MONITOR_S" +
+      "TATUS_PAUSED\020\002*t\n\nTakeStatus\022\033\n\027TAKE_STA" +
+      "TUS_UNSPECIFIED\020\000\022\025\n\021TAKE_STATUS_DRAFT\020\001" +
+      "\022\031\n\025TAKE_STATUS_PUBLISHED\020\002\022\027\n\023TAKE_STAT" +
+      "US_TWEETED\020\003*\360\002\n\021ScreenerSortField\022!\n\035SC" +
+      "REENER_SORT_FIELD_SHORT_PCT\020\000\022(\n$SCREENE" +
+      "R_SORT_FIELD_SHORT_PCT_CHANGE\020\001\022\"\n\036SCREE" +
+      "NER_SORT_FIELD_MARKET_CAP\020\002\022\'\n#SCREENER_" +
+      "SORT_FIELD_PRICE_CHANGE_1M\020\003\022 \n\034SCREENER" +
+      "_SORT_FIELD_PE_RATIO\020\004\022&\n\"SCREENER_SORT_" +
+      "FIELD_DIVIDEND_YIELD\020\005\022(\n$SCREENER_SORT_" +
+      "FIELD_NET_DIRECTOR_BUY\020\006\022&\n\"SCREENER_SOR" +
+      "T_FIELD_NEWS_SENTIMENT\020\007\022%\n!SCREENER_SOR" +
+      "T_FIELD_DAYS_TO_COVER\020\010*@\n\rSortDirection" +
+      "\022\027\n\023SORT_DIRECTION_DESC\020\000\022\026\n\022SORT_DIRECT" +
+      "ION_ASC\020\001*v\n\020BattlegroundView\022!\n\035BATTLEG" +
+      "ROUND_VIEW_UNSPECIFIED\020\000\022\035\n\031BATTLEGROUND" +
+      "_VIEW_SQUEEZE\020\001\022 \n\034BATTLEGROUND_VIEW_DIV" +
+      "ERGENCE\020\002*\302\001\n\014VerdictLabel\022\035\n\031VERDICT_LA" +
+      "BEL_UNSPECIFIED\020\000\022 \n\034VERDICT_LABEL_STRON" +
+      "G_BEARISH\020\001\022\031\n\025VERDICT_LABEL_BEARISH\020\002\022\031" +
+      "\n\025VERDICT_LABEL_NEUTRAL\020\003\022\031\n\025VERDICT_LAB" +
+      "EL_BULLISH\020\004\022 \n\034VERDICT_LABEL_STRONG_BUL" +
+      "LISH\020\0052\260x\n\024ShortedStocksService\022\206\003\n\014GetT" +
+      "opShorts\022$.shorts.v1alpha1.GetTopShortsR" +
+      "equest\032%.shorts.v1alpha1.GetTopShortsRes" +
+      "ponse\"\250\002\332A\023period,limit,offset\272G\212\002\022\016Get " +
+      "Top Shorts\032jRetrieve the top shorted sto" +
+      "cks on the ASX for a given time period. " +
+      "Supports pagination and custom limits.B\213" +
+      "\001\022X\n\003200\022Q\nO\nMA successful response cont" +
+      "aining time series data for the top shor" +
+      "ted stocks.\022/\n\003400\022(\n&\n$Invalid request " +
+      "parameters provided.\200\265\030\001\022\375\002\n\022GetIndustry" +
+      "TreeMap\022*.shorts.v1alpha1.GetIndustryTre" +
+      "eMapRequest\032 .stocks.v1alpha1.IndustryTr" +
+      "eeMap\"\230\002\272G\220\002\022\024Get Industry TreeMap\032{Retr" +
+      "ieve a hierarchical treemap of short pos" +
+      "itions grouped by industry. Useful for v" +
+      "isualizing market-wide shorting trends.B" +
+      "{\022Q\n\003200\022J\nH\nFA successful response cont" +
+      "aining industry-grouped short position d" +
+      "ata.\022&\n\003400\022\037\n\035\n\033Invalid request paramet" +
+      "ers.\200\265\030\001\022\300\002\n\010GetStock\022 .shorts.v1alpha1." +
+      "GetStockRequest\032\026.stocks.v1alpha1.Stock\"" +
+      "\371\001\272G\361\001\022\021Get Stock Summary\032fRetrieve a su" +
+      "mmary of current short positions and bas" +
+      "ic metadata for a specific stock by its " +
+      "ASX code.Bt\022>\n\003200\0227\n5\n3A successful res" +
+      "ponse containing the stock summary.\0222\n\0034" +
+      "04\022+\n)\n\'The specified stock code was not" +
+      " found.\200\265\030\001\022\360\002\n\017GetStockDetails\022\'.shorts" +
+      ".v1alpha1.GetStockDetailsRequest\032\035.stock" +
+      "s.v1alpha1.StockDetails\"\224\002\272G\214\002\022\021Get Stoc" +
+      "k Details\032sRetrieve comprehensive metada" +
+      "ta for a specific stock, including compa" +
+      "ny history, key people, and financial re" +
+      "ports.B\201\001\022G\n\003200\022@\n>\n<A successful respo" +
+      "nse containing detailed stock informatio" +
+      "n.\0226\n\003404\022/\n-\n+The specified stock detai" +
+      "ls were not found.\200\265\030\001\022\360\002\n\014GetStockData\022" +
+      "$.shorts.v1alpha1.GetStockDataRequest\032\037." +
+      "stocks.v1alpha1.TimeSeriesData\"\230\002\272G\220\002\022\032G" +
+      "et Stock Time Series Data\032XRetrieve hist" +
+      "orical short position data for a specifi" +
+      "c stock over a defined time period.B\227\001\022J" +
+      "\n\003200\022C\nA\n?A successful response contain" +
+      "ing historical time series points.\022I\n\00340" +
+      "1\022B\n@\n>Authentication is required to acc" +
+      "ess private time series data.\200\265\030\001\022\313\001\n\017Ge" +
+      "tMarketByDate\022\'.shorts.v1alpha1.GetMarke" +
+      "tByDateRequest\032(.shorts.v1alpha1.GetMark" +
+      "etByDateResponse\"e\272G^\022\022Get Market By Dat" +
+      "e\032HRetrieve all short positions for a sp" +
+      "ecific trading date from ASIC data.\200\265\030\001\022" +
+      "\304\001\n\021GetAvailableDates\022).shorts.v1alpha1." +
+      "GetAvailableDatesRequest\032*.shorts.v1alph" +
+      "a1.GetAvailableDatesResponse\"X\272GQ\022\023Get A" +
+      "vailable Dates\032:Retrieve available tradi" +
+      "ng dates with short position data.\200\265\030\001\022\371" +
+      "\001\n\014SearchStocks\022$.shorts.v1alpha1.Search" +
+      "StocksRequest\032%.shorts.v1alpha1.SearchSt" +
+      "ocksResponse\"\233\001\272G\223\001\022\rSearch Stocks\032YSear" +
+      "ch for ASX stocks using full-text search" +
+      " against their ticker symbol or company " +
+      "name.B\'\022%\n\003200\022\036\n\034\n\032A list of matching s" +
+      "tocks.\200\265\030\001\022\311\002\n\rGetSyncStatus\022%.shorts.v1" +
+      "alpha1.GetSyncStatusRequest\032&.shorts.v1a" +
+      "lpha1.GetSyncStatusResponse\"\350\001\272G\327\001\022\017Get " +
+      "Sync Status\032nAdministrative endpoint to " +
+      "retrieve the status and history of data " +
+      "synchronization tasks. Requires admin ro" +
+      "le.BT\022#\n\003200\022\034\n\032\n\030Recent sync run histor" +
+      "y.\022-\n\003403\022&\n$\n\"Forbidden: Admin role is " +
+      "required.\200\265\030\002\212\265\030\005admin\022\254\002\n\tMintToken\022!.s" +
+      "horts.v1alpha1.MintTokenRequest\032\".shorts" +
+      ".v1alpha1.MintTokenResponse\"\327\001\272G\317\001\022\016Mint" +
+      " API Token\032lGenerate a bespoke API token" +
+      " for programmatic access to Shorted APIs" +
+      ". Requires valid session authentication." +
+      "BO\022\033\n\003200\022\024\n\022\n\020A new API token.\0220\n\003401\022)" +
+      "\n\'\n%Unauthorized: User must be signed in" +
+      ".\200\265\030\002\022\354\002\n\016SyncKeyMetrics\022&.shorts.v1alph" +
+      "a1.SyncKeyMetricsRequest\032\'.shorts.v1alph" +
+      "a1.SyncKeyMetricsResponse\"\210\002\272G\367\001\022\020Sync K" +
+      "ey Metrics\032\213\001Trigger on-demand sync of k" +
+      "ey metrics (market cap, P/E ratio, etc.)" +
+      " for specific stocks. Fetches fresh data" +
+      " from Yahoo Finance. Admin only.BU\022\'\n\00320" +
+      "0\022 \n\036\n\034Sync completed successfully.\022*\n\0034" +
+      "03\022#\n!\n\037Forbidden: Admin role required.\200" +
+      "\265\030\002\212\265\030\005admin\022g\n\013EnrichStock\022#.shorts.v1a" +
+      "lpha1.EnrichStockRequest\032$.shorts.v1alph" +
+      "a1.EnrichStockResponse\"\r\200\265\030\002\212\265\030\005admin\022\221\001" +
+      "\n\031GetTopStocksForEnrichment\0221.shorts.v1a" +
+      "lpha1.GetTopStocksForEnrichmentRequest\0322" +
+      ".shorts.v1alpha1.GetTopStocksForEnrichme" +
+      "ntResponse\"\r\200\265\030\002\212\265\030\005admin\022\210\001\n\026ListPendin" +
+      "gEnrichments\022..shorts.v1alpha1.ListPendi" +
+      "ngEnrichmentsRequest\032/.shorts.v1alpha1.L" +
+      "istPendingEnrichmentsResponse\"\r\200\265\030\002\212\265\030\005a" +
+      "dmin\022\202\001\n\024GetPendingEnrichment\022,.shorts.v" +
+      "1alpha1.GetPendingEnrichmentRequest\032-.sh" +
+      "orts.v1alpha1.GetPendingEnrichmentRespon" +
+      "se\"\r\200\265\030\002\212\265\030\005admin\022v\n\020ReviewEnrichment\022(." +
+      "shorts.v1alpha1.ReviewEnrichmentRequest\032" +
+      ").shorts.v1alpha1.ReviewEnrichmentRespon" +
+      "se\"\r\200\265\030\002\212\265\030\005admin\022\210\001\n\026GetEnrichmentJobSt" +
+      "atus\022..shorts.v1alpha1.GetEnrichmentJobS" +
+      "tatusRequest\032/.shorts.v1alpha1.GetEnrich" +
+      "mentJobStatusResponse\"\r\200\265\030\002\212\265\030\005admin\022|\n\022" +
+      "ListEnrichmentJobs\022*.shorts.v1alpha1.Lis" +
+      "tEnrichmentJobsRequest\032+.shorts.v1alpha1" +
+      ".ListEnrichmentJobsResponse\"\r\200\265\030\002\212\265\030\005adm" +
+      "in\022\224\001\n\035HandleStripeCheckoutCompleted\0225.s" +
+      "horts.v1alpha1.HandleStripeCheckoutCompl" +
+      "etedRequest\0326.shorts.v1alpha1.HandleStri" +
+      "peCheckoutCompletedResponse\"\004\200\265\030\002\022\232\001\n\037Ha" +
+      "ndleStripeSubscriptionUpdated\0227.shorts.v" +
+      "1alpha1.HandleStripeSubscriptionUpdatedR" +
+      "equest\0328.shorts.v1alpha1.HandleStripeSub" +
+      "scriptionUpdatedResponse\"\004\200\265\030\002\022p\n\021GetMyS" +
+      "ubscription\022).shorts.v1alpha1.GetMySubsc" +
+      "riptionRequest\032*.shorts.v1alpha1.GetMySu" +
+      "bscriptionResponse\"\004\200\265\030\002\022s\n\022CreateAlertM" +
+      "onitor\022*.shorts.v1alpha1.CreateAlertMoni" +
+      "torRequest\032+.shorts.v1alpha1.CreateAlert" +
+      "MonitorResponse\"\004\200\265\030\002\022p\n\021ListAlertMonito" +
+      "rs\022).shorts.v1alpha1.ListAlertMonitorsRe" +
+      "quest\032*.shorts.v1alpha1.ListAlertMonitor" +
+      "sResponse\"\004\200\265\030\002\022\352\001\n\017GetWeeklyReport\022\'.sh" +
+      "orts.v1alpha1.GetWeeklyReportRequest\032(.s" +
+      "horts.v1alpha1.GetWeeklyReportResponse\"\203" +
+      "\001\272G|\022\021Get Weekly Report\032gRetrieve a week" +
+      "ly short selling report with narrative a" +
+      "nalysis, top shorted stocks, and biggest" +
+      " movers.\200\265\030\001\022\312\001\n\013ListReports\022#.shorts.v1" +
+      "alpha1.ListReportsRequest\032$.shorts.v1alp" +
+      "ha1.ListReportsResponse\"p\272Gi\022\014List Repor" +
+      "ts\032YList published short selling reports" +
+      " with headlines and summary stats, most " +
+      "recent first.\200\265\030\001\022\237\002\n\033GetStockFinancialH" +
+      "ighlights\0223.shorts.v1alpha1.GetStockFina" +
+      "ncialHighlightsRequest\0324.shorts.v1alpha1" +
+      ".GetStockFinancialHighlightsResponse\"\224\001\272" +
+      "G\214\001\022\036Get Stock Financial Highlights\032jRet" +
+      "rieve extracted financial metrics (reven" +
+      "ue, NPAT, EPS, dividends, etc.) from com" +
+      "pany financial reports.\200\265\030\001\022\312\001\n\014GetStock" +
+      "News\022$.shorts.v1alpha1.GetStockNewsReque" +
+      "st\032%.shorts.v1alpha1.GetStockNewsRespons" +
+      "e\"m\272Gf\022\016Get Stock News\032TRetrieve recent " +
+      "news articles, announcements, and analys" +
+      "is for a specific ASX stock.\200\265\030\001\022\337\001\n\016Get" +
+      "RelatedNews\022&.shorts.v1alpha1.GetRelated" +
+      "NewsRequest\032\'.shorts.v1alpha1.GetRelated" +
+      "NewsResponse\"|\272Gu\022\020Get Related News\032aRet" +
+      "rieve news articles semantically related" +
+      " to a stock or a given article, via vect" +
+      "or similarity.\200\265\030\001\022\314\001\n\rGetMarketNews\022%.s" +
+      "horts.v1alpha1.GetMarketNewsRequest\032&.sh" +
+      "orts.v1alpha1.GetMarketNewsResponse\"l\272Ge" +
+      "\022\017Get Market News\032RRetrieve recent marke" +
+      "t-wide news articles and announcements a" +
+      "cross all ASX stocks.\200\265\030\001\022\264\001\n\020GetEditori" +
+      "alTake\022(.shorts.v1alpha1.GetEditorialTak" +
+      "eRequest\032).shorts.v1alpha1.GetEditorialT" +
+      "akeResponse\"K\272GD\022\022Get Editorial Take\032.Re" +
+      "trieve a published Shorted Take by URL s" +
+      "lug.\200\265\030\001\022\337\001\n\022ListEditorialTakes\022*.shorts" +
+      ".v1alpha1.ListEditorialTakesRequest\032+.sh",
+      "orts.v1alpha1.ListEditorialTakesResponse" +
+      "\"p\272Gi\022\024List Editorial Takes\032QList recent" +
+      " published Shorted Takes, newest first. " +
+      "Optional filter by stock code.\200\265\030\001\022\202\001\n\027L" +
+      "istEditorialTakesAdmin\022/.shorts.v1alpha1" +
+      ".ListEditorialTakesAdminRequest\0320.shorts" +
+      ".v1alpha1.ListEditorialTakesAdminRespons" +
+      "e\"\004\200\265\030\002\022y\n\024PublishEditorialTake\022,.shorts" +
+      ".v1alpha1.PublishEditorialTakeRequest\032-." +
+      "shorts.v1alpha1.PublishEditorialTakeResp" +
+      "onse\"\004\200\265\030\002\022v\n\023UpdateEditorialTake\022+.shor" +
+      "ts.v1alpha1.UpdateEditorialTakeRequest\032," +
+      ".shorts.v1alpha1.UpdateEditorialTakeResp" +
+      "onse\"\004\200\265\030\002\022v\n\023DeleteEditorialTake\022+.shor" +
+      "ts.v1alpha1.DeleteEditorialTakeRequest\032," +
+      ".shorts.v1alpha1.DeleteEditorialTakeResp" +
+      "onse\"\004\200\265\030\002\022\177\n\026MarkTakeTweetPublished\022..s" +
+      "horts.v1alpha1.MarkTakeTweetPublishedReq" +
+      "uest\032/.shorts.v1alpha1.MarkTakeTweetPubl" +
+      "ishedResponse\"\004\200\265\030\002\022|\n\025ListTweetPublishQ" +
+      "ueue\022-.shorts.v1alpha1.ListTweetPublishQ" +
+      "ueueRequest\032..shorts.v1alpha1.ListTweetP" +
+      "ublishQueueResponse\"\004\200\265\030\002\022\351\001\n\021GetDirecto" +
+      "rTrades\022).shorts.v1alpha1.GetDirectorTra" +
+      "desRequest\032*.shorts.v1alpha1.GetDirector" +
+      "TradesResponse\"}\272Gv\022\023Get Director Trades" +
+      "\032_Retrieve director (insider) trading ac" +
+      "tivity from ASX Appendix 3Y filings for " +
+      "a specific stock.\200\265\030\001\022\344\001\n\022GetDividendHis" +
+      "tory\022*.shorts.v1alpha1.GetDividendHistor" +
+      "yRequest\032+.shorts.v1alpha1.GetDividendHi" +
+      "storyResponse\"u\272Gn\022\024Get Dividend History" +
+      "\032VRetrieve dividend payment history incl" +
+      "uding franking credits for a specific AS" +
+      "X stock.\200\265\030\001\022\337\001\n\021GetPeerComparison\022).sho" +
+      "rts.v1alpha1.GetPeerComparisonRequest\032*." +
+      "shorts.v1alpha1.GetPeerComparisonRespons" +
+      "e\"s\272Gl\022\023Get Peer Comparison\032UCompare a s" +
+      "tock\'s short position, price, and fundam" +
+      "entals against its industry peers.\200\265\030\001\022\200" +
+      "\002\n\014ScreenStocks\022$.shorts.v1alpha1.Screen" +
+      "StocksRequest\032%.shorts.v1alpha1.ScreenSt" +
+      "ocksResponse\"\242\001\272G\232\001\022\rScreen Stocks\032\210\001Fil" +
+      "ter and sort stocks using compound crite" +
+      "ria across short positions, price change" +
+      "s, fundamentals, director trades, and ne" +
+      "ws sentiment.\200\265\030\001\022\311\002\n\025GetBattlegroundSto" +
+      "cks\022-.shorts.v1alpha1.GetBattlegroundSto" +
+      "cksRequest\032..shorts.v1alpha1.GetBattlegr" +
+      "oundStocksResponse\"\320\001\272G\254\001\022\027Get Battlegro" +
+      "und Stocks\032\220\001Rank stocks by squeeze risk" +
+      " (days-to-cover, short interest, crowdin" +
+      "g, momentum) or by bull-vs-bear divergen" +
+      "ce (price rising while shorts build).\200\265\030" +
+      "\001\202\323\344\223\002\026\"\021/v1/battlegrounds:\001*\022\343\002\n\017GetSto" +
+      "ckVerdict\022\'.shorts.v1alpha1.GetStockVerd" +
+      "ictRequest\032(.shorts.v1alpha1.GetStockVer" +
+      "dictResponse\"\374\001\272G\331\001\022\021Get Stock Verdict\032\303" +
+      "\001Composite bear-vs-bull verdict (-100..1" +
+      "00) for a single stock, combining short-" +
+      "position trend and level, director tradi" +
+      "ng, news sentiment, and squeeze pressure" +
+      " \342\200\224 with a per-component breakdown.\200\265\030\001" +
+      "\202\323\344\223\002\025\"\020/v1/stockVerdict:\001*\022\371\002\n\032GetShort" +
+      "CampaignScoreboard\0222.shorts.v1alpha1.Get" +
+      "ShortCampaignScoreboardRequest\0323.shorts." +
+      "v1alpha1.GetShortCampaignScoreboardRespo" +
+      "nse\"\361\001\272G\303\001\022\035Get Short Campaign Scoreboar" +
+      "d\032\241\001Historic short campaigns (peak short" +
+      " interest >= 5% over the last 3 years) w" +
+      "ith price outcomes 3 and 6 months after " +
+      "the peak, and overall short-seller win r" +
+      "ates.\200\265\030\001\202\323\344\223\002 \"\033/v1/shortCampaignScoreb" +
+      "oard:\001*\022\211\002\n\rGetStockGraph\022%.shorts.v1alp" +
+      "ha1.GetStockGraphRequest\032&.shorts.v1alph" +
+      "a1.GetStockGraphResponse\"\250\001\272G\240\001\022\017Get Sto" +
+      "ck Graph\032\214\001Retrieve a stock\'s connected " +
+      "people (directors/officers and their oth" +
+      "er ASX roles) and semantically similar c" +
+      "ompanies via vector similarity.\200\265\030\001\022\232\002\n\020" +
+      "GetEventTimeline\022(.shorts.v1alpha1.GetEv" +
+      "entTimelineRequest\032).shorts.v1alpha1.Get" +
+      "EventTimelineResponse\"\260\001\272G\250\001\022\022Get Event " +
+      "Timeline\032\221\001Retrieve a chronological feed" +
+      " of events for a stock, merging ASX anno" +
+      "uncements, director trades, price-sensit" +
+      "ive news, and short position spikes.\200\265\030\001" +
+      "\022\334\002\n\017GetStockSignals\022\'.shorts.v1alpha1.G" +
+      "etStockSignalsRequest\032(.shorts.v1alpha1." +
+      "GetStockSignalsResponse\"\365\001\272G\355\001\022\021Get Stoc" +
+      "k Signals\032\327\001Retrieve a stock\'s reputatio" +
+      "n/risk signals \342\200\224 adverse (court matter" +
+      "s, regulator sanctions, complaints) and " +
+      "positive (awards, press), each with cita" +
+      "tions, severity and confidence. Sourced " +
+      "from grounded web research.\200\265\030\001\022\317\002\n\022GetH" +
+      "ousingOverview\022*.shorts.v1alpha1.GetHous" +
+      "ingOverviewRequest\032+.shorts.v1alpha1.Get" +
+      "HousingOverviewResponse\"\337\001\272G\327\001\022\024Get Hous" +
+      "ing Overview\032\276\001Latest Australian house-p" +
+      "rice headline metrics by region (nationa" +
+      "l, state, capital city) \342\200\224 mean/median " +
+      "price and price index with QoQ and YoY c" +
+      "hange. Sourced from the ABS Data API and" +
+      " RBA.\200\265\030\001\022\255\002\n\023GetHousePriceSeries\022+.shor" +
+      "ts.v1alpha1.GetHousePriceSeriesRequest\032," +
+      ".shorts.v1alpha1.GetHousePriceSeriesResp" +
+      "onse\"\272\001\272G\262\001\022\026Get House Price Series\032\227\001A " +
+      "single house-price time series for a reg" +
+      "ion and measure (national mean price, ca" +
+      "pital-city median, household debt-to-inc" +
+      "ome, price index), quarterly.\200\265\030\001\022\234\002\n\020Li" +
+      "stStateSuburbs\022(.shorts.v1alpha1.ListSta" +
+      "teSuburbsRequest\032).shorts.v1alpha1.ListS" +
+      "tateSuburbsResponse\"\262\001\272G\252\001\022\022List State S" +
+      "uburbs\032\223\001Every suburb (ABS SAL) in a sta" +
+      "te with its latest median house price an" +
+      "d key ABS Census demographics \342\200\224 powers" +
+      " the state choropleth + suburb list.\200\265\030\001" +
+      "\022\225\002\n\020GetSuburbProfile\022(.shorts.v1alpha1." +
+      "GetSuburbProfileRequest\032).shorts.v1alpha" +
+      "1.GetSuburbProfileResponse\"\253\001\272G\243\001\022\022Get S" +
+      "uburb Profile\032\214\001A single suburb\'s rich p" +
+      "rofile \342\200\224 ABS Census demographics, late" +
+      "st median house price with QoQ/YoY, and " +
+      "state/national comparison baselines.\200\265\030\001" +
+      "\022\313\002\n\022ListHousingRegions\022*.shorts.v1alpha" +
+      "1.ListHousingRegionsRequest\032+.shorts.v1a" +
+      "lpha1.ListHousingRegionsResponse\"\333\001\272G\323\001\022" +
+      "\024List Housing Regions\032\272\001List house-price" +
+      " regions, optionally filtered by region_" +
+      "type, state, or a name query \342\200\224 powers " +
+      "the suburb explorer. Suburb medians are " +
+      "sourced from state Valuer-General office" +
+      "s (CC BY).\200\265\030\001\022\251\003\n\024ListSuburbPriceDrops\022" +
+      ",.shorts.v1alpha1.ListSuburbPriceDropsRe" +
+      "quest\032-.shorts.v1alpha1.ListSuburbPriceD" +
+      "ropsResponse\"\263\002\272G\253\002\022\027List Suburb Price D" +
+      "rops\032\217\002Suburbs ranked by recent for-sale" +
+      " asking-price reductions over a rolling " +
+      "window \342\200\224 count of reduced listings plu" +
+      "s the average, median and largest reduct" +
+      "ion. A derived aggregate over realestate" +
+      ".com.au / domain.com.au listing data; in" +
+      "dividual listings are not republished.\200\265" +
+      "\030\001\022\347\002\n\026ListSuburbDropListings\022..shorts.v" +
+      "1alpha1.ListSuburbDropListingsRequest\032/." +
+      "shorts.v1alpha1.ListSuburbDropListingsRe" +
+      "sponse\"\353\001\272G\343\001\022\031List Suburb Drop Listings" +
+      "\032\305\001Recently price-reduced for-sale listi" +
+      "ngs in a suburb, each deep-linking OUT t" +
+      "o the live realestate.com.au / domain.co" +
+      "m.au page. Factual price-change data onl" +
+      "y; the listing itself is not reproduced." +
+      "\200\265\030\001\022\270\003\n\022GetPropertyHistory\022*.shorts.v1a" +
+      "lpha1.GetPropertyHistoryRequest\032+.shorts" +
+      ".v1alpha1.GetPropertyHistoryResponse\"\310\002\272" +
+      "G\237\002\022\024Get Property History\032\206\002Full asking-" +
+      "price timeline for a single physical add" +
+      "ress (stable address_key), across all it" +
+      "s listings and relists on realestate.com" +
+      ".au / domain.com.au. Deep-links OUT to t" +
+      "he live portal page; factual price-chang" +
+      "e data only, the listing itself is not r" +
+      "eproduced.\200\265\030\001\202\323\344\223\002\033\"\026/v1/getPropertyHis" +
+      "tory:\001*\022\203\004\n\025ListAddressPriceDrops\022-.shor" +
+      "ts.v1alpha1.ListAddressPriceDropsRequest" +
+      "\032..shorts.v1alpha1.ListAddressPriceDrops" +
+      "Response\"\212\003\272G\336\002\022\030List Address Price Drop" +
+      "s\032\301\002Individual physical addresses (dedup" +
+      "ed by stable address_key) ranked by thei" +
+      "r for-sale asking-price reduction over a" +
+      " rolling window \342\200\224 from the first obser" +
+      "ved price to the current active listing." +
+      " Each entry deep-links to its per-addres" +
+      "s history page; factual price-change dat" +
+      "a only, the listing itself is not reprod" +
+      "uced.\200\265\030\001\202\323\344\223\002\036\"\031/v1/listAddressPriceDro" +
+      "ps:\001*\022\315\002\n\022ListEconomicSeries\022*.shorts.v1" +
+      "alpha1.ListEconomicSeriesRequest\032+.short" +
+      "s.v1alpha1.ListEconomicSeriesResponse\"\335\001" +
+      "\272G\325\001\022\024List Economic Series\032\274\001Catalog of " +
+      "Australian economic series (petroleum, t" +
+      "rade by state, GDP, labour, CPI, policy " +
+      "rates) with dimensions, units and source" +
+      " attribution. Sourced from ABS, RBA and " +
+      "DCCEEW open data.\200\265\030\001\022\260\002\n\021GetEconomicSer" +
+      "ies\022).shorts.v1alpha1.GetEconomicSeriesR" +
+      "equest\032*.shorts.v1alpha1.GetEconomicSeri" +
+      "esResponse\"\303\001\272G\273\001\022\023Get Economic Series\032\243" +
+      "\001Time-series observations for named econ" +
+      "omic series keys (e.g. petroleum.refiner" +
+      "y_output.diesel.aus, trade.export_value." +
+      "total.wa), with unit, frequency and lice" +
+      "nce.\200\265\030\001\022\262\004\n\024GetCompanyTaxProfile\022,.shor" +
+      "ts.v1alpha1.GetCompanyTaxProfileRequest\032" +
+      "-.shorts.v1alpha1.GetCompanyTaxProfileRe" +
+      "sponse\"\274\003\272G\224\003\022\027Get Company Tax Profile\032\370" +
+      "\002An ASX-listed entity\'s annual corporate" +
+      "-tax profile from the ATO Corporate Tax " +
+      "Transparency dataset (total income, taxa" +
+      "ble income, tax payable per income year)" +
+      ". Entities are matched to ASX codes only" +
+      " on exact ABN or exact normalized-name m" +
+      "apping. Nil/absent taxable income or tax" +
+      " payable is meaningful and often legitim" +
+      "ate (losses/offsets) \342\200\224 total income is" +
+      " always reported.\200\265\030\001\202\323\344\223\002\032\"\025/v1/company" +
+      "TaxProfile:\001*\022\322\002\n\027GetIndustryIntelligenc" +
+      "e\022/.shorts.v1alpha1.GetIndustryIntellige" +
+      "nceRequest\0320.shorts.v1alpha1.GetIndustry" +
+      "IntelligenceResponse\"\323\001\272G\250\001\022\031Get Industr" +
+      "y Intelligence\032\212\001Imported, cited industr" +
+      "y intelligence records for a Shorted ind" +
+      "ustry. Only public-enabled sources and e" +
+      "xact-reviewed records are returned.\200\265\030\001\202" +
+      "\323\344\223\002\035\"\030/v1/industryIntelligence:\001*\032\025\312A\022a" +
+      "pi.shorted.com.auB\240\003\n\023com.shorts.v1alpha" +
+      "1B\013ShortsProtoP\001ZYgithub.com/castlemilk/" +
+      "shorted.com.au/services/gen/proto/go/sho" +
+      "rts/v1alpha1;shortsv1alpha1\242\002\003SXX\252\002\017Shor" +
+      "ts.V1alpha1\312\002\017Shorts\\V1alpha1\342\002\033Shorts\\V" +
+      "1alpha1\\GPBMetadata\352\002\020Shorts::V1alpha1\272G" +
+      "\302\001\022\177\n\013Shorted API\022\rShorted API\'s\"(\022\016shor" +
+      "ted.com.au\032\026support@shorted.com.au*3\n\023Pr" +
+      "oprietary license\022\034https://shorted.com.a" +
+      "u/terms2\002v1\032\034\n\032https://api.shorted.com.a" +
+      "u*!:\037\n\035\n\tAuthToken\022\020\n\016\n\004http*\006bearerb\006pr" +
+      "oto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -3354,6 +3435,48 @@ public final class ShortsProto extends com.google.protobuf.GeneratedFile {
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListAddressPriceDropsResponse_descriptor,
         new java.lang.String[] { "Addresses", });
+    internal_static_shorts_v1alpha1_EconomicSeriesInfo_descriptor =
+      getDescriptor().getMessageType(173);
+    internal_static_shorts_v1alpha1_EconomicSeriesInfo_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_EconomicSeriesInfo_descriptor,
+        new java.lang.String[] { "SeriesKey", "Topic", "Metric", "Product", "RegionType", "RegionCode", "RegionName", "Unit", "Frequency", "Adjustment", "SourceKey", "SourceLicence", "LatestPeriod", });
+    internal_static_shorts_v1alpha1_ListEconomicSeriesRequest_descriptor =
+      getDescriptor().getMessageType(174);
+    internal_static_shorts_v1alpha1_ListEconomicSeriesRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_ListEconomicSeriesRequest_descriptor,
+        new java.lang.String[] { "Topic", "Metric", "RegionType", "RegionCode", "Product", "Limit", });
+    internal_static_shorts_v1alpha1_ListEconomicSeriesResponse_descriptor =
+      getDescriptor().getMessageType(175);
+    internal_static_shorts_v1alpha1_ListEconomicSeriesResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_ListEconomicSeriesResponse_descriptor,
+        new java.lang.String[] { "Series", });
+    internal_static_shorts_v1alpha1_EconomicObservation_descriptor =
+      getDescriptor().getMessageType(176);
+    internal_static_shorts_v1alpha1_EconomicObservation_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_EconomicObservation_descriptor,
+        new java.lang.String[] { "Period", "Value", });
+    internal_static_shorts_v1alpha1_EconomicSeriesData_descriptor =
+      getDescriptor().getMessageType(177);
+    internal_static_shorts_v1alpha1_EconomicSeriesData_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_EconomicSeriesData_descriptor,
+        new java.lang.String[] { "Info", "Observations", });
+    internal_static_shorts_v1alpha1_GetEconomicSeriesRequest_descriptor =
+      getDescriptor().getMessageType(178);
+    internal_static_shorts_v1alpha1_GetEconomicSeriesRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_GetEconomicSeriesRequest_descriptor,
+        new java.lang.String[] { "SeriesKeys", "StartPeriod", });
+    internal_static_shorts_v1alpha1_GetEconomicSeriesResponse_descriptor =
+      getDescriptor().getMessageType(179);
+    internal_static_shorts_v1alpha1_GetEconomicSeriesResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_GetEconomicSeriesResponse_descriptor,
+        new java.lang.String[] { "Series", });
     descriptor.resolveAllFeaturesImmutable();
     com.google.api.AnnotationsProto.getDescriptor();
     com.gnostic.openapi.v3.AnnotationsProto.getDescriptor();

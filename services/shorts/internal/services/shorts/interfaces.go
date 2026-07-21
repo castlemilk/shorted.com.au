@@ -2,6 +2,7 @@ package shorts
 
 import (
 	"context"
+	"time"
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
@@ -124,6 +125,10 @@ type ShortsStore interface {
 	GetPropertyHistory(addressKey string) (*shortsstore.PropertyHistoryResult, error)
 	ListAddressPriceDrops(stateCode, sort string, windowDays, limit int32) ([]*shortsstore.AddressPriceDropRow, error)
 
+	// Economy snapshot methods
+	ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32) ([]*shortsstore.EconomicSeriesRow, error)
+	GetEconomicSeries(seriesKeys []string, startPeriod time.Time) ([]*shortsstore.EconomicSeriesDataRow, error)
+
 	// Event timeline methods
 	GetEventTimeline(stockCode string, daysBack, limit int32) ([]*shortsstore.TimelineEventRow, error)
 
@@ -170,6 +175,8 @@ type Cache interface {
 	GetSuburbDropListingsKey(salCode, regionCode string, windowDays, limit int32) string
 	GetPropertyHistoryKey(addressKey string) string
 	GetAddressPriceDropsKey(stateCode, sort string, windowDays, limit int32) string
+	ListEconomicSeriesKey(topic, metric, regionType, regionCode, product string, limit int32) string
+	GetEconomicSeriesKey(seriesKeys []string, startPeriod string) string
 	GetEventTimelineKey(stockCode string, daysBack, limit int32) string
 	GetDirectorTradesKey(stockCode string, limit int32) string
 	GetDividendHistoryKey(stockCode string, years int32) string
