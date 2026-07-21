@@ -10,14 +10,9 @@ type sourceDef struct {
 	Key, DisplayName, SignalKind, Publisher, URL, Licence, Cadence, Method, Notes string
 }
 
-// NOTE: signal_kind values below use "economic_series", which does NOT satisfy
-// the industry_intelligence_sources_kind_check CHECK constraint defined in
-// services/migrations/000075_add_industry_intelligence_sources.up.sql (allowed
-// values: short_interest | trade_exposure | public_money | tax_environment |
-// policy_footprint | emissions). This was flagged during Task 3 implementation
-// as a schema mismatch requiring a decision (extend the CHECK constraint via a
-// new migration, or pick a different registry) rather than inventing a fix.
-// See the Task 3 completion report for detail.
+// signal_kind "economic_series" is allowed by the
+// industry_intelligence_sources_kind_check CHECK constraint, extended by
+// migration 000082_extend_source_kind_check.
 var sourceDefs = []sourceDef{
 	{"rba-key-indicators", "RBA key indicators (cash rate, exchange rates)", "economic_series",
 		"Reserve Bank of Australia", "https://www.rba.gov.au/statistics/tables/",

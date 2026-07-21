@@ -120,13 +120,28 @@ func ingestPetroleum(ctx context.Context, _ *absdata.Client) ([]Obs, error) {
 		return nil, err
 	}
 	defer func() { _ = f.Close() }()
+	return parsePetroleumWorkbook(f, petroleumSheets, xlsxURL)
+}
+
+// parsePetroleumWorkbook parses every configured sheet, accumulating per-sheet
+// failures instead of aborting on the first: one renamed column must not
+// stale the other five sheets. Observations from healthy sheets are returned
+// ALONGSIDE a non-nil error when any sheet failed, so the caller can persist
+// what parsed while still failing the run loudly (non-zero exit) so the
+// layout drift gets noticed.
+func parsePetroleumWorkbook(f *excelize.File, specs []petroleumSheetSpec, xlsxURL string) ([]Obs, error) {
 	var all []Obs
-	for _, spec := range petroleumSheets {
+	var errs []string
+	for _, spec := range specs {
 		obs, err := parsePetroleumSheet(f, spec, xlsxURL)
 		if err != nil {
-			return nil, fmt.Errorf("sheet %q (%s): %w", spec.SheetMatch, spec.Metric, err)
+			errs = append(errs, fmt.Sprintf("sheet %q (%s): %v", spec.SheetMatch, spec.Metric, err))
+			continue
 		}
 		all = append(all, obs...)
+	}
+	if len(errs) > 0 {
+		return all, fmt.Errorf("%d/%d petroleum sheets failed: %s", len(errs), len(specs), strings.Join(errs, "; "))
 	}
 	return all, nil
 }
@@ -250,6 +265,21 @@ func parsePetroleumSheet(f *excelize.File, spec petroleumSheetSpec, sourceURL st
 	monthCol, firstDataCol := 0, 1
 	if spec.StateColumn {
 		monthCol, firstDataCol = 1, 2
+	}
+
+	// ProductOverride collapses every matched column onto ONE product slug —
+	// with more than one matched column that would silently upsert colliding
+	// (series, period) rows where the last column wins. Guard loudly instead.
+	if spec.ProductOverride != "" {
+		matched := 0
+		for col := firstDataCol; col < len(header); col++ {
+			if label := strings.TrimSpace(header[col]); label != "" && columnWanted(label, spec) {
+				matched++
+			}
+		}
+		if matched > 1 {
+			return nil, fmt.Errorf("ProductOverride %q set but %d columns matched — refusing silent series collision", spec.ProductOverride, matched)
+		}
 	}
 
 	var obs []Obs

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/xuri/excelize/v2"
@@ -149,6 +150,39 @@ func TestParsePetroleumSheetStateColumn(t *testing.T) {
 	nsw := byKey["petroleum.sales.automotive_gasoline_total.nsw"]
 	if nsw.Value != 510.2 {
 		t.Fatalf("NSW gasoline wrong (n.p. May row must be skipped, Apr kept): %#v", byKey)
+	}
+}
+
+func TestParsePetroleumWorkbookPartialFailure(t *testing.T) {
+	f := petroleumFixture(t) // has "Refinery production" only
+	specs := []petroleumSheetSpec{
+		{SheetMatch: "Refinery production", Metric: "refinery_output", HeaderMatch: "Month",
+			ColumnExclude: []string{"Percentage indigenous", "Total input"}},
+		{SheetMatch: "Imports volume", Metric: "imports", HeaderMatch: "Month"}, // missing sheet
+	}
+	obs, err := parsePetroleumWorkbook(f, specs, "")
+	if err == nil {
+		t.Fatal("want non-nil error when a sheet fails")
+	}
+	if !strings.Contains(err.Error(), "1/2 petroleum sheets failed") {
+		t.Fatalf("error should report failed/total counts: %v", err)
+	}
+	if len(obs) != 5 {
+		t.Fatalf("healthy sheet's obs must still be returned: want 5, got %d", len(obs))
+	}
+}
+
+func TestParsePetroleumSheetProductOverrideMultiColumn(t *testing.T) {
+	f := petroleumFixture(t)
+	_, err := parsePetroleumSheet(f, petroleumSheetSpec{
+		SheetMatch:      "Refinery production",
+		Metric:          "refinery_input",
+		HeaderMatch:     "Month",
+		ColumnExclude:   []string{"Percentage indigenous"}, // leaves 4 columns matched
+		ProductOverride: "total",
+	}, "")
+	if err == nil || !strings.Contains(err.Error(), "ProductOverride") {
+		t.Fatalf("want loud failure when ProductOverride matches >1 column, got %v", err)
 	}
 }
 

@@ -51,6 +51,18 @@ func run() int {
 	runJob := func(j job) bool {
 		obs, err := j.fn(ctx, client)
 		if err != nil {
+			// An importer may return partial observations alongside its error
+			// (e.g. petroleum: one drifted sheet must not stale the healthy
+			// ones). Persist what parsed, but STILL fail the job so the drift
+			// exits non-zero and gets noticed.
+			if len(obs) > 0 {
+				n, upErr := upsertObservations(ctx, pool, obs)
+				if upErr != nil {
+					log.Printf("ERROR %s partial upsert (wrote %d): %v", j.name, n, upErr)
+				} else {
+					log.Printf("partial %s: %d observations written despite error", j.name, n)
+				}
+			}
 			log.Printf("ERROR %s: %v", j.name, err)
 			return false
 		}
