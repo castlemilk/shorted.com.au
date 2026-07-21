@@ -122,6 +122,12 @@ export const HOUSING_TTL = 86400;
 // crawl-change event via /api/revalidate?flush=housing; the ceiling bounds
 // staleness if a flush is ever missed.
 export const PRICE_DROPS_TTL = 86400;
+// Economy series update at most daily (RBA FX) and mostly monthly/quarterly;
+// 6h TTL keeps regen cheap while bounding staleness well inside any cadence.
+// Load-bearing beyond perf: a live-RPC failure during an ISR regen would bake
+// the /economy placeholder for an hour — the KV entry is the last-good
+// fallback that prevents that (same rationale as getHousingOverview).
+export const ECONOMY_TTL = 21600;
 
 // Prefixes covering all data derived from the `shorts` table — flushed together
 // when a sync writes new ASIC data.
@@ -152,6 +158,10 @@ export const CACHE_KEYS = {
   // Housing overview — TTL-only (see HOUSING_TTL); not under the shorts flush.
   housingOverview: (regionType: string) =>
     `cache:housing:overview:${regionType || "all"}`,
+  // Economy series — TTL-only (see ECONOMY_TTL). Keyed on the sorted key list
+  // so logically-equal requests share one entry (mirrors the backend handler's
+  // normalization).
+  economicSeries: (sortedKeys: string) => `cache:economy:series:${sortedKeys}`,
   // Price-drops (residential-listing derived) — TTL-hard + flushed on the crawl
   // event via HOUSING_DATA_CACHE_PREFIXES. Every parameter of the action is in
   // its key so no two argument sets can ever share (poison) an entry.
