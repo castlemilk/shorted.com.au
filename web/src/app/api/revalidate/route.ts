@@ -18,7 +18,7 @@ import {
  *        &path=/,/top,/news,/shorts/[stockCode]  (comma-separated, optional;
  *                                                 patterns with [..] revalidate
  *                                                 the whole dynamic route)
- *        &flush=shorts                         (flush the shorts-data Redis prefixes)
+ *        &flush=shorts|housing                 (flush the shorts-data, or housing-overview, Redis prefixes)
  *
  * Backward compatible with the existing single `?tag=` callers.
  */
@@ -61,6 +61,11 @@ export async function POST(request: NextRequest) {
     for (const prefix of SHORTS_DATA_CACHE_PREFIXES) {
       flushedKeys += await deleteCachedByPrefix(prefix);
     }
+  } else if (flush === "housing") {
+    // Housing overview is TTL-only (24h) and NOT in SHORTS_DATA_CACHE_PREFIXES,
+    // so this is the sanctioned way to clear a poisoned/stale entry (e.g. an
+    // empty response cached during a backend redeploy) without raw Redis access.
+    flushedKeys += await deleteCachedByPrefix("cache:housing:overview:");
   }
 
   return NextResponse.json({
