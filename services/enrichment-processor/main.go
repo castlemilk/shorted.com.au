@@ -65,6 +65,7 @@ func main() {
 	// Parse CLI flags
 	backfillPeople := flag.Bool("backfill-people", false, "Run person enrichment backfill on existing stocks")
 	backfillImages := flag.Bool("backfill-images", false, "Fetch LinkedIn profile photos for people with LinkedIn URLs but no images")
+	backfillStateExposure := flag.Bool("backfill-state-exposure", false, "Generate operations-weighted state exposure for companies missing it (default limit 300)")
 	backfillLimit := flag.Int("limit", 50, "Maximum number of stocks to process in backfill mode")
 	backfillForce := flag.Bool("force", false, "Re-process stocks even if already enriched (adds LinkedIn to existing data)")
 	backfillAfter := flag.String("after", "", "Resume force backfill after this stock code (cursor pagination)")
@@ -145,6 +146,28 @@ func main() {
 	if *backfillImages {
 		logger.Infof("Running in image backfill mode (limit: %d)", *backfillLimit)
 		runImageBackfillMain(enrichmentStore, logger, *backfillLimit, *backfillAfter, !*interactive)
+		return
+	}
+
+	// Handle --backfill-state-exposure mode (needs store + OpenAI client only)
+	if *backfillStateExposure {
+		// This mode defaults to 300 (top-300 by market cap) unless --limit was
+		// explicitly passed; the shared --limit flag default (50) suits the
+		// people/image backfills but is too small here.
+		limit := 300
+		flag.Visit(func(f *flag.Flag) {
+			if f.Name == "limit" {
+				limit = *backfillLimit
+			}
+		})
+		logger.Infof("Running in state exposure backfill mode (limit: %d)", limit)
+
+		openAIKey := strings.TrimSpace(os.Getenv("OPENAI_API_KEY"))
+		stateExposureClient, clientErr := enrichment.NewOpenAIGPTClient(openAIKey)
+		if clientErr != nil {
+			log.Fatalf("failed to create OpenAI client for state exposure backfill: %v", clientErr)
+		}
+		runStateExposureBackfillMain(enrichmentStore, stateExposureClient, logger, limit)
 		return
 	}
 

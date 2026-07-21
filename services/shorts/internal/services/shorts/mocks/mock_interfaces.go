@@ -531,6 +531,21 @@ func (mr *MockShortsStoreMockRecorder) GetPendingEnrichmentByStockCode(stockCode
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPendingEnrichmentByStockCode", reflect.TypeOf((*MockShortsStore)(nil).GetPendingEnrichmentByStockCode), stockCode)
 }
 
+// GetPriceDropsOverview mocks base method.
+func (m *MockShortsStore) GetPriceDropsOverview() ([]*shorts.StatePriceDropSummaryRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPriceDropsOverview")
+	ret0, _ := ret[0].([]*shorts.StatePriceDropSummaryRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPriceDropsOverview indicates an expected call of GetPriceDropsOverview.
+func (mr *MockShortsStoreMockRecorder) GetPriceDropsOverview() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPriceDropsOverview", reflect.TypeOf((*MockShortsStore)(nil).GetPriceDropsOverview))
+}
+
 // GetPropertyHistory mocks base method.
 func (m *MockShortsStore) GetPropertyHistory(addressKey string) (*shorts.PropertyHistoryResult, error) {
 	m.ctrl.T.Helper()
@@ -576,6 +591,21 @@ func (m *MockShortsStore) GetShortCampaignScoreboard(industry string, limit, off
 func (mr *MockShortsStoreMockRecorder) GetShortCampaignScoreboard(industry, limit, offset any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetShortCampaignScoreboard", reflect.TypeOf((*MockShortsStore)(nil).GetShortCampaignScoreboard), industry, limit, offset)
+}
+
+// GetStateCompanyAggregates mocks base method.
+func (m *MockShortsStore) GetStateCompanyAggregates() ([]*shorts.StateCompanyAggregateRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStateCompanyAggregates")
+	ret0, _ := ret[0].([]*shorts.StateCompanyAggregateRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStateCompanyAggregates indicates an expected call of GetStateCompanyAggregates.
+func (mr *MockShortsStoreMockRecorder) GetStateCompanyAggregates() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStateCompanyAggregates", reflect.TypeOf((*MockShortsStore)(nil).GetStateCompanyAggregates))
 }
 
 // GetStock mocks base method.
@@ -810,6 +840,21 @@ func (mr *MockShortsStoreMockRecorder) ListAddressPriceDrops(stateCode, sort, wi
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAddressPriceDrops", reflect.TypeOf((*MockShortsStore)(nil).ListAddressPriceDrops), stateCode, sort, windowDays, limit)
 }
 
+// ListAgencyPriceStats mocks base method.
+func (m *MockShortsStore) ListAgencyPriceStats(stateCode, sort string, limit int32) ([]*shorts.AgencyPriceStatsRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListAgencyPriceStats", stateCode, sort, limit)
+	ret0, _ := ret[0].([]*shorts.AgencyPriceStatsRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListAgencyPriceStats indicates an expected call of ListAgencyPriceStats.
+func (mr *MockShortsStoreMockRecorder) ListAgencyPriceStats(stateCode, sort, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAgencyPriceStats", reflect.TypeOf((*MockShortsStore)(nil).ListAgencyPriceStats), stateCode, sort, limit)
+}
+
 // ListAlertMonitors mocks base method.
 func (m *MockShortsStore) ListAlertMonitors(userID string, limit, offset int32) ([]*shorts.AlertMonitor, int32, error) {
 	m.ctrl.T.Helper()
@@ -932,6 +977,21 @@ func (m *MockShortsStore) ListReports(reportType string, limit int) ([]*shorts.R
 func (mr *MockShortsStoreMockRecorder) ListReports(reportType, limit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListReports", reflect.TypeOf((*MockShortsStore)(nil).ListReports), reportType, limit)
+}
+
+// ListStateCompanies mocks base method.
+func (m *MockShortsStore) ListStateCompanies(state string, limit int32) ([]*shorts.StateCompanyRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListStateCompanies", state, limit)
+	ret0, _ := ret[0].([]*shorts.StateCompanyRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListStateCompanies indicates an expected call of ListStateCompanies.
+func (mr *MockShortsStoreMockRecorder) ListStateCompanies(state, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListStateCompanies", reflect.TypeOf((*MockShortsStore)(nil).ListStateCompanies), state, limit)
 }
 
 // ListStateSuburbs mocks base method.
@@ -1308,6 +1368,20 @@ func (mr *MockCacheMockRecorder) GetAddressPriceDropsKey(stateCode, sort, window
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAddressPriceDropsKey", reflect.TypeOf((*MockCache)(nil).GetAddressPriceDropsKey), stateCode, sort, windowDays, limit)
 }
 
+// GetAgencyPriceStatsKey mocks base method.
+func (m *MockCache) GetAgencyPriceStatsKey(stateCode, sort string, limit int32) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAgencyPriceStatsKey", stateCode, sort, limit)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetAgencyPriceStatsKey indicates an expected call of GetAgencyPriceStatsKey.
+func (mr *MockCacheMockRecorder) GetAgencyPriceStatsKey(stateCode, sort, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAgencyPriceStatsKey", reflect.TypeOf((*MockCache)(nil).GetAgencyPriceStatsKey), stateCode, sort, limit)
+}
+
 // GetAvailableDatesKey mocks base method.
 func (m *MockCache) GetAvailableDatesKey(limit int32, before string) string {
 	m.ctrl.T.Helper()
@@ -1533,6 +1607,20 @@ func (mr *MockCacheMockRecorder) GetPeerComparisonKey(stockCode, limit any) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPeerComparisonKey", reflect.TypeOf((*MockCache)(nil).GetPeerComparisonKey), stockCode, limit)
 }
 
+// GetPriceDropsOverviewKey mocks base method.
+func (m *MockCache) GetPriceDropsOverviewKey() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPriceDropsOverviewKey")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetPriceDropsOverviewKey indicates an expected call of GetPriceDropsOverviewKey.
+func (mr *MockCacheMockRecorder) GetPriceDropsOverviewKey() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPriceDropsOverviewKey", reflect.TypeOf((*MockCache)(nil).GetPriceDropsOverviewKey))
+}
+
 // GetPropertyHistoryKey mocks base method.
 func (m *MockCache) GetPropertyHistoryKey(addressKey string) string {
 	m.ctrl.T.Helper()
@@ -1601,6 +1689,20 @@ func (m *MockCache) GetShortCampaignScoreboardKey(industry string, limit, offset
 func (mr *MockCacheMockRecorder) GetShortCampaignScoreboardKey(industry, limit, offset any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetShortCampaignScoreboardKey", reflect.TypeOf((*MockCache)(nil).GetShortCampaignScoreboardKey), industry, limit, offset)
+}
+
+// GetStateCompanyAggregatesKey mocks base method.
+func (m *MockCache) GetStateCompanyAggregatesKey() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStateCompanyAggregatesKey")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetStateCompanyAggregatesKey indicates an expected call of GetStateCompanyAggregatesKey.
+func (mr *MockCacheMockRecorder) GetStateCompanyAggregatesKey() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStateCompanyAggregatesKey", reflect.TypeOf((*MockCache)(nil).GetStateCompanyAggregatesKey))
 }
 
 // GetStateSuburbsKey mocks base method.
@@ -1783,6 +1885,20 @@ func (m *MockCache) ListEconomicSeriesKey(topic, metric, regionType, regionCode,
 func (mr *MockCacheMockRecorder) ListEconomicSeriesKey(topic, metric, regionType, regionCode, product, limit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListEconomicSeriesKey", reflect.TypeOf((*MockCache)(nil).ListEconomicSeriesKey), topic, metric, regionType, regionCode, product, limit)
+}
+
+// ListStateCompaniesKey mocks base method.
+func (m *MockCache) ListStateCompaniesKey(state string, limit int32) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListStateCompaniesKey", state, limit)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ListStateCompaniesKey indicates an expected call of ListStateCompaniesKey.
+func (mr *MockCacheMockRecorder) ListStateCompaniesKey(state, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListStateCompaniesKey", reflect.TypeOf((*MockCache)(nil).ListStateCompaniesKey), state, limit)
 }
 
 // Set mocks base method.

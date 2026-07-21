@@ -38,7 +38,7 @@ func TestEnvInt_WarnsOnUnparseable(t *testing.T) {
 
 	// Unset falls back silently.
 	buf.Reset()
-	os.Unsetenv("CRAWL_TEST_INT")
+	_ = os.Unsetenv("CRAWL_TEST_INT")
 	if got := envInt("CRAWL_TEST_INT", 7); got != 7 || buf.Len() != 0 {
 		t.Errorf("unset env should default silently: got %d warn=%q", got, buf.String())
 	}

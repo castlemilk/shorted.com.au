@@ -452,6 +452,21 @@ private static final long serialVersionUID = 0L;
     return medianSold_;
   }
 
+  public static final int DROPPED_VALUE_FIELD_NUMBER = 19;
+  private double droppedValue_ = 0D;
+  /**
+   * <pre>
+   * summed AUD reductions across dropped addresses
+   * </pre>
+   *
+   * <code>double dropped_value = 19 [json_name = "droppedValue"];</code>
+   * @return The droppedValue.
+   */
+  @java.lang.Override
+  public double getDroppedValue() {
+    return droppedValue_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -519,6 +534,9 @@ private static final long serialVersionUID = 0L;
     }
     if (java.lang.Double.doubleToRawLongBits(medianSold_) != 0) {
       output.writeDouble(18, medianSold_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(droppedValue_) != 0) {
+      output.writeDouble(19, droppedValue_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -591,6 +609,10 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeDoubleSize(18, medianSold_);
     }
+    if (java.lang.Double.doubleToRawLongBits(droppedValue_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(19, droppedValue_);
+    }
     return size;
   }
   @java.lang.Override
@@ -660,6 +682,9 @@ private static final long serialVersionUID = 0L;
     if (java.lang.Double.doubleToLongBits(getMedianSold())
         != java.lang.Double.doubleToLongBits(
             other.getMedianSold())) return false;
+    if (java.lang.Double.doubleToLongBits(getDroppedValue())
+        != java.lang.Double.doubleToLongBits(
+            other.getDroppedValue())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -716,6 +741,9 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + MEDIAN_SOLD_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
         java.lang.Double.doubleToLongBits(getMedianSold()));
+    hash = (37 * hash) + DROPPED_VALUE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getDroppedValue()));
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -870,6 +898,7 @@ private static final long serialVersionUID = 0L;
       soldCount_ = 0;
       avgSold_ = 0D;
       medianSold_ = 0D;
+      droppedValue_ = 0D;
       return this;
     }
 
@@ -957,6 +986,9 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00020000) != 0)) {
         result.medianSold_ = medianSold_;
       }
+      if (((from_bitField0_ & 0x00040000) != 0)) {
+        result.droppedValue_ = droppedValue_;
+      }
     }
 
     @java.lang.Override
@@ -1034,6 +1066,9 @@ private static final long serialVersionUID = 0L;
       }
       if (java.lang.Double.doubleToRawLongBits(other.getMedianSold()) != 0) {
         setMedianSold(other.getMedianSold());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getDroppedValue()) != 0) {
+        setDroppedValue(other.getDroppedValue());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1151,6 +1186,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00020000;
               break;
             } // case 145
+            case 153: {
+              droppedValue_ = input.readDouble();
+              bitField0_ |= 0x00040000;
+              break;
+            } // case 153
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2100,6 +2140,50 @@ private static final long serialVersionUID = 0L;
     public Builder clearMedianSold() {
       bitField0_ = (bitField0_ & ~0x00020000);
       medianSold_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double droppedValue_ ;
+    /**
+     * <pre>
+     * summed AUD reductions across dropped addresses
+     * </pre>
+     *
+     * <code>double dropped_value = 19 [json_name = "droppedValue"];</code>
+     * @return The droppedValue.
+     */
+    @java.lang.Override
+    public double getDroppedValue() {
+      return droppedValue_;
+    }
+    /**
+     * <pre>
+     * summed AUD reductions across dropped addresses
+     * </pre>
+     *
+     * <code>double dropped_value = 19 [json_name = "droppedValue"];</code>
+     * @param value The droppedValue to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDroppedValue(double value) {
+
+      droppedValue_ = value;
+      bitField0_ |= 0x00040000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * summed AUD reductions across dropped addresses
+     * </pre>
+     *
+     * <code>double dropped_value = 19 [json_name = "droppedValue"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearDroppedValue() {
+      bitField0_ = (bitField0_ & ~0x00040000);
+      droppedValue_ = 0D;
       onChanged();
       return this;
     }

@@ -263,6 +263,16 @@ func (c *MemoryCache) GetAddressPriceDropsKey(stateCode, sort string, windowDays
 	return c.generateKey("address_price_drops", stateCode, sort, windowDays, limit)
 }
 
+// GetPriceDropsOverviewKey builds a cache key for GetPriceDropsOverview responses.
+func (c *MemoryCache) GetPriceDropsOverviewKey() string {
+	return c.generateKey("price_drops_overview")
+}
+
+// GetAgencyPriceStatsKey builds a cache key for ListAgencyPriceStats responses.
+func (c *MemoryCache) GetAgencyPriceStatsKey(stateCode, sort string, limit int32) string {
+	return c.generateKey("agency_price_stats", stateCode, sort, limit)
+}
+
 // ListEconomicSeriesKey builds a cache key for ListEconomicSeries responses.
 func (c *MemoryCache) ListEconomicSeriesKey(topic, metric, regionType, regionCode, product string, limit int32) string {
 	return c.generateKey("economic_series_list", topic, metric, regionType, regionCode, product, limit)
@@ -271,6 +281,16 @@ func (c *MemoryCache) ListEconomicSeriesKey(topic, metric, regionType, regionCod
 // GetEconomicSeriesKey builds a cache key for GetEconomicSeries responses.
 func (c *MemoryCache) GetEconomicSeriesKey(seriesKeys []string, startPeriod string) string {
 	return c.generateKey("economic_series_get", seriesKeys, startPeriod)
+}
+
+// ListStateCompaniesKey builds a cache key for ListStateCompanies responses.
+func (c *MemoryCache) ListStateCompaniesKey(state string, limit int32) string {
+	return c.generateKey("state_companies_list", state, limit)
+}
+
+// GetStateCompanyAggregatesKey builds a cache key for GetStateCompanyAggregates responses.
+func (c *MemoryCache) GetStateCompanyAggregatesKey() string {
+	return c.generateKey("state_company_aggregates")
 }
 
 // GetEventTimelineKey builds a cache key for GetEventTimeline responses.

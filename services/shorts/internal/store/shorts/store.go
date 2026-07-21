@@ -133,6 +133,10 @@ type Store interface {
 	// none (§6.5 additive below-gate people write). Returns true when a row was written.
 	UpdateKeyPeopleIfEmpty(stockCode string, keyPeopleJSON []byte) (bool, error)
 
+	// State exposure backfill
+	GetStocksForStateExposure(limit int) ([]StateExposureCandidateRow, error)
+	UpdateStateExposure(stockCode string, exposureJSON []byte) error
+
 	// News methods
 	GetStockNews(stockCode string, limit int32, source, sentiment string) ([]*NewsArticle, int, error)
 	GetMarketNews(limit int32, source string, priceSensitiveOnly bool) ([]*NewsArticle, int, error)
@@ -187,10 +191,16 @@ type Store interface {
 	ListSuburbDropListings(salCode, regionCode string, windowDays, limit int32) ([]*SuburbDropListingRow, error)
 	GetPropertyHistory(addressKey string) (*PropertyHistoryResult, error)
 	ListAddressPriceDrops(stateCode, sort string, windowDays, limit int32) ([]*AddressPriceDropRow, error)
+	GetPriceDropsOverview() ([]*StatePriceDropSummaryRow, error)
+	ListAgencyPriceStats(stateCode, sort string, limit int32) ([]*AgencyPriceStatsRow, error)
 
 	// Economy snapshot methods
 	ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32) ([]*EconomicSeriesRow, error)
 	GetEconomicSeries(seriesKeys []string, startPeriod time.Time) ([]*EconomicSeriesDataRow, error)
+
+	// Company state exposure methods
+	ListStateCompanies(state string, limit int32) ([]*StateCompanyRow, error)
+	GetStateCompanyAggregates() ([]*StateCompanyAggregateRow, error)
 
 	// Event timeline methods
 	GetEventTimeline(stockCode string, daysBack, limit int32) ([]*TimelineEventRow, error)
@@ -226,6 +236,16 @@ type StockPeopleBackfillRow struct {
 	StockCode   string
 	CompanyName string
 	KeyPeople   []byte // Raw JSONB
+}
+
+// StateExposureCandidateRow represents a stock needing state exposure enrichment
+type StateExposureCandidateRow struct {
+	StockCode   string
+	CompanyName string
+	Industry    string
+	Sector      string
+	Summary     string
+	Description string
 }
 
 // EnrichmentStats holds enrichment coverage statistics

@@ -203,4 +203,65 @@ public interface AddressPriceDropOrBuilder extends
    * @return The bathrooms.
    */
   int getBathrooms();
+
+  /**
+   * <pre>
+   * marketing agency of the current listing ('' when not captured)
+   * </pre>
+   *
+   * <code>string agency_name = 17 [json_name = "agencyName"];</code>
+   * @return The agencyName.
+   */
+  java.lang.String getAgencyName();
+  /**
+   * <pre>
+   * marketing agency of the current listing ('' when not captured)
+   * </pre>
+   *
+   * <code>string agency_name = 17 [json_name = "agencyName"];</code>
+   * @return The bytes for agencyName.
+   */
+  com.google.protobuf.ByteString
+      getAgencyNameBytes();
+
+  /**
+   * <pre>
+   * listing agents ('' when not captured)
+   * </pre>
+   *
+   * <code>repeated string agent_names = 18 [json_name = "agentNames"];</code>
+   * @return A list containing the agentNames.
+   */
+  java.util.List<java.lang.String>
+      getAgentNamesList();
+  /**
+   * <pre>
+   * listing agents ('' when not captured)
+   * </pre>
+   *
+   * <code>repeated string agent_names = 18 [json_name = "agentNames"];</code>
+   * @return The count of agentNames.
+   */
+  int getAgentNamesCount();
+  /**
+   * <pre>
+   * listing agents ('' when not captured)
+   * </pre>
+   *
+   * <code>repeated string agent_names = 18 [json_name = "agentNames"];</code>
+   * @param index The index of the element to return.
+   * @return The agentNames at the given index.
+   */
+  java.lang.String getAgentNames(int index);
+  /**
+   * <pre>
+   * listing agents ('' when not captured)
+   * </pre>
+   *
+   * <code>repeated string agent_names = 18 [json_name = "agentNames"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the agentNames at the given index.
+   */
+  com.google.protobuf.ByteString
+      getAgentNamesBytes(int index);
 }

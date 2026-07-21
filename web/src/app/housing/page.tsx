@@ -166,6 +166,12 @@ export default async function HousingPage() {
             from the Australian Bureau of Statistics and the Reserve Bank
             {asOf ? ` · as of ${asOf}` : ""}.
           </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Looking for the broader picture?{" "}
+            <Link href="/economy" className="font-medium text-primary underline-offset-4 hover:underline">
+              Explore the Australian economy dashboard →
+            </Link>
+          </p>
         </header>
 
         {metrics.length === 0 ? (
@@ -227,14 +233,28 @@ export default async function HousingPage() {
               <HousingTiles tiles={capitalTiles} />
             </section>
 
-            <div>
-              <SuburbPriceDropsPanel title="Biggest price drops by suburb" limit={25} />
-              <div className="mt-2">
-                <Link href="/housing/drops" className="inline-flex items-center gap-1 text-sm text-primary underline-offset-2 hover:underline">
-                  See biggest price drops by individual address →
-                </Link>
-              </div>
-            </div>
+            <section>
+              <Link
+                href="/price-drops"
+                className="group flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/50"
+              >
+                <div>
+                  <h2 className="flex items-center gap-2 font-serif text-xl text-foreground">
+                    <HousingIcon name="median-price" size={20} /> Price drops — by state, suburb &amp; agency
+                  </h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Where asking prices are falling: cuts ranked by state, suburb,
+                    individual address and real-estate agency, tracked daily from
+                    live portal listings.
+                  </p>
+                </div>
+                <span className="font-mono text-sm text-primary transition-transform group-hover:translate-x-0.5">
+                  Open price drops →
+                </span>
+              </Link>
+            </section>
+
+            <SuburbPriceDropsPanel title="Biggest price drops by suburb" limit={25} />
 
             <section>
               <Link

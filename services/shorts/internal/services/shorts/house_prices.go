@@ -356,6 +356,7 @@ func (s *ShortsServer) ListSuburbPriceDrops(ctx context.Context, req *connect.Re
 				TotalActiveListings: r.TotalActiveListings, DroppedShare: r.DroppedShare,
 				ForSaleCount: r.ForSaleCount, AvgAsking: r.AvgAsking, MedianAsking: r.MedianAsking,
 				SoldCount: r.SoldCount, AvgSold: r.AvgSold, MedianSold: r.MedianSold,
+				DroppedValue: r.DroppedValue,
 			})
 		}
 		return &shortsv1alpha1.ListSuburbPriceDropsResponse{Suburbs: out}, nil
@@ -412,7 +413,7 @@ func (s *ShortsServer) ListSuburbDropListings(ctx context.Context, req *connect.
 				PropertyType: r.PropertyType, Bedrooms: r.Bedrooms, Bathrooms: r.Bathrooms,
 				CarSpaces: r.CarSpaces, PrevPrice: r.PrevPrice, Price: r.Price,
 				DropPct: r.DropPct, DropAbs: r.DropAbs, ObservedAt: timestamppb.New(r.ObservedAt),
-				AddressKey: r.AddressKey,
+				AddressKey: r.AddressKey, AgencyName: r.AgencyName, AgentNames: r.AgentNames,
 			})
 		}
 		return &shortsv1alpha1.ListSuburbDropListingsResponse{Listings: out}, nil
@@ -456,6 +457,7 @@ func (s *ShortsServer) GetPropertyHistory(ctx context.Context, req *connect.Requ
 			LandSizeSqm: c.LandSizeSqm, PropertyType: c.PropertyType,
 			FirstSeenAt: c.FirstSeenAt.Format(time.RFC3339),
 			LastSeenAt:  c.LastSeenAt.Format(time.RFC3339),
+			AgencyName:  c.AgencyName, AgentNames: c.AgentNames,
 		}
 		events := make([]*shortsv1alpha1.PropertyPriceEvent, 0, len(res.Events))
 		for _, e := range res.Events {
@@ -514,6 +516,7 @@ func (s *ShortsServer) ListAddressPriceDrops(ctx context.Context, req *connect.R
 				LatestSource: r.LatestSource, LatestListingUrl: r.LatestListingURL,
 				LastObservedAt: r.LastObservedAt.Format(time.RFC3339),
 				PropertyType:   r.PropertyType, Bedrooms: r.Bedrooms, Bathrooms: r.Bathrooms,
+				AgencyName:     r.AgencyName, AgentNames: r.AgentNames,
 			})
 		}
 		return &shortsv1alpha1.ListAddressPriceDropsResponse{Addresses: out}, nil
@@ -523,4 +526,100 @@ func (s *ShortsServer) ListAddressPriceDrops(ctx context.Context, req *connect.R
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list address price drops"))
 	}
 	return connect.NewResponse(cached.(*shortsv1alpha1.ListAddressPriceDropsResponse)), nil
+}
+
+// GetPriceDropsOverview returns the per-state rollup of recent asking-price
+// reductions plus asking/sold price aggregates, with an 'AU' national summary.
+// This is a DERIVED aggregate surface (mv_state_price_drops) — no addresses or
+// individual listings are returned, so it is always public (same posture as
+// ListSuburbPriceDrops).
+func (s *ShortsServer) GetPriceDropsOverview(ctx context.Context, req *connect.Request[shortsv1alpha1.GetPriceDropsOverviewRequest]) (*connect.Response[shortsv1alpha1.GetPriceDropsOverviewResponse], error) {
+	cacheKey := s.cache.GetPriceDropsOverviewKey()
+	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+		rows, err := s.store.GetPriceDropsOverview()
+		if err != nil {
+			return nil, err
+		}
+		resp := &shortsv1alpha1.GetPriceDropsOverviewResponse{}
+		for _, r := range rows {
+			if r == nil {
+				continue
+			}
+			row := &shortsv1alpha1.StatePriceDropSummary{
+				StateCode: r.StateCode, DroppedCount: r.DroppedCount,
+				AvgDropPct: r.AvgDropPct, MedianDropPct: r.MedianDropPct, MaxDropPct: r.MaxDropPct,
+				DroppedValue: r.DroppedValue, TotalActiveListings: r.TotalActiveListings,
+				DroppedShare: r.DroppedShare, ForSaleCount: r.ForSaleCount, ForSalePriced: r.ForSalePriced,
+				AvgAsking: r.AvgAsking, MedianAsking: r.MedianAsking,
+				SoldCount: r.SoldCount, AvgSold: r.AvgSold, MedianSold: r.MedianSold,
+				SuburbsTracked: r.SuburbsTracked,
+			}
+			if r.StateCode == "AU" {
+				resp.National = row
+			} else {
+				resp.States = append(resp.States, row)
+			}
+		}
+		return resp, nil
+	})
+	if err != nil {
+		s.logger.Errorf("database error in GetPriceDropsOverview: %v", err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get price drops overview"))
+	}
+	return connect.NewResponse(cached.(*shortsv1alpha1.GetPriceDropsOverviewResponse)), nil
+}
+
+// ListAgencyPriceStats ranks real-estate agencies by recent asking-price cuts
+// (or listing footprint) from mv_agency_stats (>=3 active listings floor; drop
+// depth/value suppressed below 3 dropped addresses). Although the rows are
+// derived aggregates, they carry agency + agent NAMES harvested from the
+// ToS-restricted listing rows — so unlike the anonymous suburb/state
+// aggregates, this surface sits behind the same HOUSING_DROP_LISTINGS_ENABLED
+// kill switch as the per-listing boards and returns an empty list (not an
+// error) when disabled.
+func (s *ShortsServer) ListAgencyPriceStats(ctx context.Context, req *connect.Request[shortsv1alpha1.ListAgencyPriceStatsRequest]) (*connect.Response[shortsv1alpha1.ListAgencyPriceStatsResponse], error) {
+	m := req.Msg
+	if !dropListingsEnabled() {
+		return connect.NewResponse(&shortsv1alpha1.ListAgencyPriceStatsResponse{}), nil
+	}
+	// Normalize BEFORE the cache key so casing/junk variants of the same query
+	// can't fan out into distinct cache entries.
+	stateCode := strings.ToUpper(strings.TrimSpace(m.StateCode))
+	sort := m.Sort
+	switch sort {
+	case "drops", "listings", "avg_cut", "value":
+	default:
+		sort = "drops"
+	}
+	limit := m.Limit
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	cacheKey := s.cache.GetAgencyPriceStatsKey(stateCode, sort, limit)
+	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+		rows, err := s.store.ListAgencyPriceStats(stateCode, sort, limit)
+		if err != nil {
+			return nil, err
+		}
+		out := make([]*shortsv1alpha1.AgencyPriceStats, 0, len(rows))
+		for _, r := range rows {
+			if r == nil {
+				continue
+			}
+			out = append(out, &shortsv1alpha1.AgencyPriceStats{
+				Source: r.Source, AgencyId: r.AgencyID, AgencyName: r.AgencyName,
+				StateCode: r.StateCode, ActiveListings: r.ActiveListings,
+				PricedListings: r.PricedListings, AvgAsking: r.AvgAsking,
+				MedianAsking: r.MedianAsking, SuburbsCovered: r.SuburbsCovered,
+				DroppedCount: r.DroppedCount, AvgDropPct: r.AvgDropPct,
+				TotalDropValue: r.TotalDropValue, AgentNames: r.AgentNames,
+			})
+		}
+		return &shortsv1alpha1.ListAgencyPriceStatsResponse{Agencies: out}, nil
+	})
+	if err != nil {
+		s.logger.Errorf("database error in ListAgencyPriceStats: %v", err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list agency price stats"))
+	}
+	return connect.NewResponse(cached.(*shortsv1alpha1.ListAgencyPriceStatsResponse)), nil
 }

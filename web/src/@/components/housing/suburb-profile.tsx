@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { fromJson, type JsonValue } from "@bufbuild/protobuf";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
@@ -149,7 +149,7 @@ export function SuburbProfile({
           {/* price chart or empty-state */}
           <div className="rounded-xl border border-border bg-card p-5">
             <h2 className="mb-3 flex items-center gap-2 font-serif text-lg text-foreground">
-              <HousingIcon name="median-price" size={20} /> Median house price
+              <HousingIcon name="median-price" size={24} /> Median house price
             </h2>
             {chartRegion ? (
               <HousingSeriesChart regionCode={chartRegion} measure="median_price" dwellingType="house" ariaLabel={`${s.salName} median house price`} format="aud" height={280} />
@@ -164,15 +164,15 @@ export function SuburbProfile({
           {/* demographics — grouped */}
           <div className="space-y-4">
             <DemoGroup title="People" icon="population" stats={[
-              ["Population", d?.population ? d.population.toLocaleString() : "—"],
-              ["Median age", d?.medianAge ? `${d.medianAge} yrs` : "—"],
-              ["Income / person / wk", d?.medianWeeklyPerIncome ? fmtMoney(d.medianWeeklyPerIncome) : "—"],
-              ["Household income / wk", d?.medianWeeklyHhdIncome ? fmtMoney(d.medianWeeklyHhdIncome) : "—"],
+              ["Population", d?.population ? d.population.toLocaleString() : "—", "population"],
+              ["Median age", d?.medianAge ? `${d.medianAge} yrs` : "—", "age"],
+              ["Income / person / wk", d?.medianWeeklyPerIncome ? fmtMoney(d.medianWeeklyPerIncome) : "—", "income"],
+              ["Household income / wk", d?.medianWeeklyHhdIncome ? fmtMoney(d.medianWeeklyHhdIncome) : "—", "income"],
             ]} />
             <DemoGroup title="Housing" icon="dwellings" stats={[
-              ["Dwellings", d?.dwellingCount ? d.dwellingCount.toLocaleString() : "—"],
-              ["Median rent / wk", d?.medianWeeklyRent ? fmtMoney(d.medianWeeklyRent) : "—"],
-              ["Mortgage / month", d?.medianMonthlyMortgage ? fmtMoney(d.medianMonthlyMortgage) : "—"],
+              ["Dwellings", d?.dwellingCount ? d.dwellingCount.toLocaleString() : "—", "dwellings"],
+              ["Median rent / wk", d?.medianWeeklyRent ? fmtMoney(d.medianWeeklyRent) : "—", "rent"],
+              ["Mortgage / month", d?.medianMonthlyMortgage ? fmtMoney(d.medianMonthlyMortgage) : "—", "mortgage"],
             ]} />
             {d ? <CultureStats d={d} /> : null}
             {s.amenities ? <AmenitiesGroup a={s.amenities} nbn={s.dominantNbnTech} /> : null}
@@ -184,7 +184,7 @@ export function SuburbProfile({
           {/* comparison */}
           <div className="rounded-xl border border-border bg-card p-5">
             <h2 className="mb-3 flex items-center gap-2 font-serif text-lg text-foreground">
-              <HousingIcon name="compare" size={20} /> How it compares
+              <HousingIcon name="compare" size={24} /> How it compares
             </h2>
             {priced ? (
               <CompareBar
@@ -209,7 +209,7 @@ export function SuburbProfile({
           {nearby.length ? (
             <div className="rounded-xl border border-border bg-card p-4">
               <h2 className="mb-2 flex items-center gap-1.5 font-serif text-base text-foreground">
-                <HousingIcon name="nearby" size={18} /> Nearby &amp; comparable
+                <HousingIcon name="nearby" size={22} /> Nearby &amp; comparable
               </h2>
               <div className="flex flex-col">
                 {nearby.map((n) => (
@@ -226,7 +226,7 @@ export function SuburbProfile({
           {data.similar?.length ? (
             <div className="rounded-xl border border-border bg-card p-4">
               <h2 className="mb-1 flex items-center gap-1.5 font-serif text-base text-foreground">
-                <HousingIcon name="similar" size={18} /> Similar suburbs
+                <HousingIcon name="similar" size={22} /> Similar suburbs
               </h2>
               <p className="mb-2 text-[11px] text-muted-foreground">Closest demographic &amp; amenity profile, nationally.</p>
               <div className="flex flex-col">
@@ -273,7 +273,7 @@ function RecentPriceDrops({ salCode, regionCode }: { salCode: string; regionCode
   return (
     <div className="rounded-xl border border-border bg-card p-5">
       <h2 className="mb-1 flex items-center gap-2 font-serif text-lg text-foreground">
-        <HousingIcon name="median-price" size={20} /> Recent price drops
+        <HousingIcon name="median-price" size={24} /> Recent price drops
       </h2>
       <p className="mb-3 text-xs text-muted-foreground">
         For-sale listings that recently cut their asking price. Links open the live portal listing.
@@ -304,6 +304,12 @@ function RecentPriceDrops({ salCode, regionCode }: { salCode: string; regionCode
                 {l.propertyType || bedBath(l) ? " · " : ""}
                 {portalName(l.source)}
               </div>
+              {l.agencyName ? (
+                <div className="mt-0.5 truncate text-xs text-muted-foreground/80">
+                  Listed by {l.agencyName}
+                  {l.agentNames.length > 0 ? ` — ${l.agentNames.slice(0, 2).join(", ")}` : ""}
+                </div>
+              ) : null}
             </div>
             <div className="shrink-0 text-right">
               <div className="font-mono text-sm font-semibold tabular-nums text-[color:var(--semantic-red)]">
@@ -332,9 +338,7 @@ function FederalRep({ s }: { s: Summary }) {
     : "—";
   return (
     <div>
-      <h3 className="mb-2 flex items-center gap-1.5 font-serif text-sm text-muted-foreground">
-        <HousingIcon name="representation" size={15} /> Representation
-      </h3>
+      <SectionHeading icon="representation">Representation</SectionHeading>
       <div className="rounded-lg border border-border bg-card p-4">
         <dl className="grid grid-cols-1 gap-x-8 gap-y-2.5 text-sm sm:grid-cols-2">
           <CultureRow label="Federal division" value={s.federalDivision || "—"} />
@@ -353,9 +357,7 @@ function CouncilCard({ c }: { c: Council }) {
   if (!c.lgaName) return null;
   return (
     <div>
-      <h3 className="mb-2 flex items-center gap-1.5 font-serif text-sm text-muted-foreground">
-        <HousingIcon name="council" size={15} /> Local council
-      </h3>
+      <SectionHeading icon="council">Local council</SectionHeading>
       <div className="rounded-lg border border-border bg-card p-4">
         <dl className="grid grid-cols-1 gap-x-8 gap-y-2.5 text-sm sm:grid-cols-2">
           <CultureRow label="Council (LGA)" value={c.lgaName} />
@@ -390,35 +392,26 @@ function AmenitiesGroup({ a, nbn }: { a: NonNullable<Summary["amenities"]>; nbn?
     a.aldiCount ? `${a.aldiCount} Aldi` : "",
     a.igaCount ? `${a.igaCount} IGA` : "",
   ].filter(Boolean).join(" · ");
-  const stats: [string, string][] = [
-    ["Amenity score", a.amenityDensityScore > 0 ? `${Math.round(a.amenityDensityScore)}/100` : "—"],
-    ["Schools", `${a.schoolsTotal}`],
-    ["Supermarkets", `${a.supermarketsTotal}`],
-    ["Pubs & bars", `${a.pubsBars}`],
-    ["Parks", `${a.parksCount}`],
-    ["Libraries", `${a.librariesCount}`],
-    ["GP clinics", `${a.gpCount}`],
-    ["Pharmacies", `${a.pharmacyCount}`],
-    ["Hospitals", `${a.hospitalsCount}`],
-    ["Nearest supermarket", a.nearestSupermarketKm > 0 ? `${a.nearestSupermarketKm.toFixed(1)} km` : "—"],
-    ["Nearest train", a.nearestTrainKm > 0 ? `${a.nearestTrainKm.toFixed(1)} km` : "—"],
-    ["Nearest hospital", a.nearestHospitalKm > 0 ? `${a.nearestHospitalKm.toFixed(1)} km` : "—"],
-    ["Distance to coast", a.distToCoastKm > 0 ? (a.distToCoastKm < 20 ? `${a.distToCoastKm.toFixed(1)} km` : `${Math.round(a.distToCoastKm)} km`) : "On the coast"],
-    ...(nbn ? [["NBN", nbn] as [string, string]] : []),
+  const stats: IconStat[] = [
+    ["Amenity score", a.amenityDensityScore > 0 ? `${Math.round(a.amenityDensityScore)}/100` : "—", "amenity-density"],
+    ["Schools", `${a.schoolsTotal}`, "school"],
+    ["Supermarkets", `${a.supermarketsTotal}`, "supermarket"],
+    ["Pubs & bars", `${a.pubsBars}`, "pubs"],
+    ["Parks", `${a.parksCount}`, "parks"],
+    ["Libraries", `${a.librariesCount}`, "libraries"],
+    ["GP clinics", `${a.gpCount}`, "healthcare"],
+    ["Pharmacies", `${a.pharmacyCount}`, "pharmacy"],
+    ["Hospitals", `${a.hospitalsCount}`, "hospital"],
+    ["Nearest supermarket", a.nearestSupermarketKm > 0 ? `${a.nearestSupermarketKm.toFixed(1)} km` : "—", "supermarket"],
+    ["Nearest train", a.nearestTrainKm > 0 ? `${a.nearestTrainKm.toFixed(1)} km` : "—", "train"],
+    ["Nearest hospital", a.nearestHospitalKm > 0 ? `${a.nearestHospitalKm.toFixed(1)} km` : "—", "hospital"],
+    ["Distance to coast", a.distToCoastKm > 0 ? (a.distToCoastKm < 20 ? `${a.distToCoastKm.toFixed(1)} km` : `${Math.round(a.distToCoastKm)} km`) : "On the coast", "coast"],
+    ...(nbn ? [["NBN", nbn, "nbn"] as IconStat] : []),
   ];
   return (
     <div>
-      <h3 className="mb-2 flex items-center gap-1.5 font-serif text-sm text-muted-foreground">
-        <HousingIcon name="amenity-density" size={15} /> Local amenities
-      </h3>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {stats.map(([label, value]) => (
-          <div key={label} className="rounded-lg border border-border bg-card p-4">
-            <div className="text-xs text-muted-foreground">{label}</div>
-            <div className="mt-1 font-mono text-lg tabular-nums text-foreground">{value}</div>
-          </div>
-        ))}
-      </div>
+      <SectionHeading icon="amenity-density">Local amenities</SectionHeading>
+      <StatGrid stats={stats} />
       <p className="mt-2 text-[11px] text-muted-foreground">
         {brands ? <>Grocery mix: {brands}. </> : null}
         <span className="opacity-70">Amenity counts via © OpenStreetMap contributors (ODbL) &amp; Geoscience Australia HealthDirect (CC BY 4.0). Distance to coast derived from ABS state boundaries (CC BY 4.0).</span>
@@ -432,27 +425,18 @@ function SchoolSectorCard({ a }: { a: NonNullable<Summary["amenities"]> }) {
   // Coverage signal: uncovered states scan to 0 across the board; require some
   // sector data (or a nearest-secondary) before rendering. Scoped to VIC & QLD.
   if (total <= 0 && !(a.nearestSecondaryKm > 0)) return null;
-  const stats: [string, string][] = [
-    ["Government", `${a.schoolsGov}`],
-    ["Catholic", `${a.schoolsCatholic}`],
-    ["Independent", `${a.schoolsIndependent}`],
-    ["Primary", `${a.schoolsPrimary}`],
-    ["Secondary", `${a.schoolsSecondary}`],
-    ["Nearest secondary", a.nearestSecondaryKm > 0 ? `${a.nearestSecondaryKm.toFixed(1)} km` : "—"],
+  const stats: IconStat[] = [
+    ["Government", `${a.schoolsGov}`, "school"],
+    ["Catholic", `${a.schoolsCatholic}`, "religion"],
+    ["Independent", `${a.schoolsIndependent}`, "school"],
+    ["Primary", `${a.schoolsPrimary}`, "age"],
+    ["Secondary", `${a.schoolsSecondary}`, "school"],
+    ["Nearest secondary", a.nearestSecondaryKm > 0 ? `${a.nearestSecondaryKm.toFixed(1)} km` : "—", "location"],
   ];
   return (
     <div>
-      <h3 className="mb-2 flex items-center gap-1.5 font-serif text-sm text-muted-foreground">
-        <HousingIcon name="school" size={15} /> Schools by sector
-      </h3>
-      <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
-        {stats.map(([label, value]) => (
-          <div key={label} className="rounded-lg border border-border bg-card p-4">
-            <div className="text-xs text-muted-foreground">{label}</div>
-            <div className="mt-1 font-mono text-lg tabular-nums text-foreground">{value}</div>
-          </div>
-        ))}
-      </div>
+      <SectionHeading icon="school">Schools by sector</SectionHeading>
+      <StatGrid stats={stats} cols="grid-cols-3 sm:grid-cols-6" />
       <p className="mt-2 text-[11px] text-muted-foreground opacity-70">
         School sector &amp; type: ACARA (Australian Curriculum, Assessment and Reporting Authority), School Location dataset.
       </p>
@@ -472,9 +456,7 @@ function CultureStats({ d }: { d: Demographics }) {
   if (!d.topReligion && !d.topLanguage && !(d.pctBornOverseas > 0)) return null;
   return (
     <div>
-      <h3 className="mb-2 flex items-center gap-1.5 font-serif text-sm text-muted-foreground">
-        <HousingIcon name="culture" size={15} /> Culture &amp; community
-      </h3>
+      <SectionHeading icon="culture">Culture &amp; community</SectionHeading>
       <div className="rounded-lg border border-border bg-card p-4">
         <dl className="grid grid-cols-1 gap-x-8 gap-y-2.5 text-sm sm:grid-cols-2">
           <CultureRow label="Dominant religion" value={religion} />
@@ -497,20 +479,43 @@ function CultureRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function DemoGroup({ title, icon, stats }: { title: string; icon: HousingIconName; stats: [string, string][] }) {
+// Icon-led stat tile: the detail's custom warm-duotone icon sits above its
+// label + value, so every suburb metric reads by its icon first.
+function StatTile({ icon, label, value }: { icon: HousingIconName; label: string; value: string }) {
+  return (
+    <div className="flex flex-col items-center rounded-lg border border-border bg-card p-4 text-center">
+      <HousingIcon name={icon} size={30} className="mb-2" />
+      <div className="text-xs leading-tight text-muted-foreground">{label}</div>
+      <div className="mt-0.5 font-mono text-lg tabular-nums text-foreground">{value}</div>
+    </div>
+  );
+}
+
+type IconStat = [label: string, value: string, icon: HousingIconName];
+
+function StatGrid({ stats, cols = "grid-cols-2 sm:grid-cols-4" }: { stats: IconStat[]; cols?: string }) {
+  return (
+    <div className={`grid gap-3 ${cols}`}>
+      {stats.map(([label, value, icon]) => (
+        <StatTile key={label} icon={icon} label={label} value={value} />
+      ))}
+    </div>
+  );
+}
+
+function SectionHeading({ icon, children }: { icon: HousingIconName; children: ReactNode }) {
+  return (
+    <h3 className="mb-2.5 flex items-center gap-2 font-serif text-base text-foreground">
+      <HousingIcon name={icon} size={26} /> {children}
+    </h3>
+  );
+}
+
+function DemoGroup({ title, icon, stats }: { title: string; icon: HousingIconName; stats: IconStat[] }) {
   return (
     <div>
-      <h3 className="mb-2 flex items-center gap-1.5 font-serif text-sm text-muted-foreground">
-        <HousingIcon name={icon} size={15} /> {title}
-      </h3>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {stats.map(([label, value]) => (
-          <div key={label} className="rounded-lg border border-border bg-card p-4">
-            <div className="text-xs text-muted-foreground">{label}</div>
-            <div className="mt-1 font-mono text-lg tabular-nums text-foreground">{value}</div>
-          </div>
-        ))}
-      </div>
+      <SectionHeading icon={icon}>{title}</SectionHeading>
+      <StatGrid stats={stats} />
     </div>
   );
 }

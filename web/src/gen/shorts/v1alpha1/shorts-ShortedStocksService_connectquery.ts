@@ -399,6 +399,20 @@ export const getPropertyHistory = ShortedStocksService.method.getPropertyHistory
 export const listAddressPriceDrops = ShortedStocksService.method.listAddressPriceDrops;
 
 /**
+ * State-level price-drop + listing-price rollup, plus a national summary row.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetPriceDropsOverview
+ */
+export const getPriceDropsOverview = ShortedStocksService.method.getPriceDropsOverview;
+
+/**
+ * Agencies ranked by recent asking-price cuts across their listings.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.ListAgencyPriceStats
+ */
+export const listAgencyPriceStats = ShortedStocksService.method.listAgencyPriceStats;
+
+/**
  * List economic series catalog entries (Australian economy snapshot layer).
  *
  * @generated from rpc shorts.v1alpha1.ShortedStocksService.ListEconomicSeries
@@ -411,6 +425,20 @@ export const listEconomicSeries = ShortedStocksService.method.listEconomicSeries
  * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetEconomicSeries
  */
 export const getEconomicSeries = ShortedStocksService.method.getEconomicSeries;
+
+/**
+ * List ASX-listed companies with operations-weighted exposure to a state.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.ListStateCompanies
+ */
+export const listStateCompanies = ShortedStocksService.method.listStateCompanies;
+
+/**
+ * Exposure-weighted market cap and short interest aggregates by state.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetStateCompanyAggregates
+ */
+export const getStateCompanyAggregates = ShortedStocksService.method.getStateCompanyAggregates;
 
 /**
  * Get an ASX-listed entity's annual corporate-tax profile (ATO transparency data).

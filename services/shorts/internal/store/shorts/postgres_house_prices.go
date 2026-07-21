@@ -581,6 +581,7 @@ type SuburbPriceDropRow struct {
 	SoldCount           int32
 	AvgSold             float64
 	MedianSold          float64
+	DroppedValue        float64
 }
 
 // ListSuburbPriceDrops returns the per-suburb listing board: asking/sold price
@@ -608,6 +609,11 @@ func (s *postgresStore) ListSuburbPriceDrops(stateCode, sort string, limit int32
 		orderBy = "st.avg_sold"
 	}
 
+	// dropped_value only exists once migration 000083 has rebuilt
+	// mv_suburb_price_drops. Selecting it via a scalar subquery over the MV's
+	// row (to_jsonb ->> column) keeps this ONE query that works on both the old
+	// and new MV shape, so a code deploy ahead of the manual prod DDL can't
+	// break the suburb board.
 	query := `
 		SELECT st.region_code, COALESCE(r.sal_code, ''),
 		       COALESCE(NULLIF(sd.sal_name, ''), r.region_name, '') AS sal_name,
@@ -617,7 +623,8 @@ func (s *postgresStore) ListSuburbPriceDrops(stateCode, sort string, limit int32
 		       COALESCE(d.max_drop_abs, 0), COALESCE(d.total_active_listings, st.for_sale_count),
 		       COALESCE(d.dropped_share, 0),
 		       st.for_sale_count, COALESCE(st.avg_asking, 0), COALESCE(st.median_asking, 0),
-		       st.sold_count, COALESCE(st.avg_sold, 0), COALESCE(st.median_sold, 0)
+		       st.sold_count, COALESCE(st.avg_sold, 0), COALESCE(st.median_sold, 0),
+		       COALESCE((to_jsonb(d) ->> 'dropped_value')::float8, 0)
 		FROM mv_suburb_listing_stats st
 		JOIN house_price_regions r ON r.region_code = st.region_code
 		LEFT JOIN suburb_demographics sd ON sd.sal_code = r.sal_code
@@ -638,7 +645,8 @@ func (s *postgresStore) ListSuburbPriceDrops(stateCode, sort string, limit int32
 		if err := rows.Scan(&d.RegionCode, &d.SALCode, &d.SALName, &d.StateCode, &d.Postcode,
 			&d.DroppedListingCount, &d.AvgDropPct, &d.MedianDropPct, &d.MaxDropPct,
 			&d.MaxDropAbs, &d.TotalActiveListings, &d.DroppedShare,
-			&d.ForSaleCount, &d.AvgAsking, &d.MedianAsking, &d.SoldCount, &d.AvgSold, &d.MedianSold); err != nil {
+			&d.ForSaleCount, &d.AvgAsking, &d.MedianAsking, &d.SoldCount, &d.AvgSold, &d.MedianSold,
+			&d.DroppedValue); err != nil {
 			return nil, err
 		}
 		out = append(out, &d)
@@ -662,6 +670,8 @@ type SuburbDropListingRow struct {
 	DropAbs        float64
 	ObservedAt     time.Time
 	AddressKey     string
+	AgencyName     string
+	AgentNames     []string
 }
 
 // ListSuburbDropListings returns the latest price-drop per active listing in a
@@ -683,7 +693,8 @@ func (s *postgresStore) ListSuburbDropListings(salCode, regionCode string, windo
 	const query = `
 		SELECT t.source, t.listing_url, t.display_address, t.property_type,
 		       t.bedrooms, t.bathrooms, t.car_spaces,
-		       t.prev_price, t.price, t.drop_pct, t.drop_abs, t.observed_at, t.address_key
+		       t.prev_price, t.price, t.drop_pct, t.drop_abs, t.observed_at, t.address_key,
+		       t.agency_name, t.agent_names
 		FROM (
 			SELECT DISTINCT ON (e.listing_pk)
 			       pl.source, pl.listing_url,
@@ -696,7 +707,9 @@ func (s *postgresStore) ListSuburbDropListings(salCode, regionCode string, windo
 			       COALESCE(e.price, 0)             AS price,
 			       COALESCE(e.drop_pct, 0)          AS drop_pct,
 			       COALESCE(e.drop_abs, 0)          AS drop_abs,
-			       e.observed_at, e.listing_pk, COALESCE(pl.address_key, '') AS address_key
+			       e.observed_at, e.listing_pk, COALESCE(pl.address_key, '') AS address_key,
+			       COALESCE(pl.agency_name, '') AS agency_name,
+			       COALESCE(pl.agent_names, '{}') AS agent_names
 			FROM property_price_events e
 			JOIN property_listings pl ON pl.id = e.listing_pk
 			JOIN house_price_regions r ON r.region_code = e.region_code
@@ -707,6 +720,9 @@ func (s *postgresStore) ListSuburbDropListings(salCode, regionCode string, windo
 			  AND pl.is_active
 			  AND pl.last_seen_at >= now() - interval '21 days'
 			  AND pl.listing_url <> ''
+			  -- Same typo-correction sanity cap as the aggregate MVs (000083) so
+			  -- the drill-down can't rank a correction above real drops.
+			  AND e.drop_pct <= 0.40
 			ORDER BY e.listing_pk, e.observed_at DESC
 		) t
 		ORDER BY t.drop_pct DESC
@@ -723,7 +739,8 @@ func (s *postgresStore) ListSuburbDropListings(salCode, regionCode string, windo
 		var l SuburbDropListingRow
 		if err := rows.Scan(&l.Source, &l.ListingURL, &l.DisplayAddress, &l.PropertyType,
 			&l.Bedrooms, &l.Bathrooms, &l.CarSpaces, &l.PrevPrice, &l.Price,
-			&l.DropPct, &l.DropAbs, &l.ObservedAt, &l.AddressKey); err != nil {
+			&l.DropPct, &l.DropAbs, &l.ObservedAt, &l.AddressKey,
+			&l.AgencyName, &l.AgentNames); err != nil {
 			return nil, err
 		}
 		out = append(out, &l)
@@ -754,6 +771,8 @@ type PropertyListingSnapshotRow struct {
 	Postcode       string
 	FirstSeenAt    time.Time
 	LastSeenAt     time.Time
+	AgencyName     string
+	AgentNames     []string
 }
 
 // PropertyPriceEventRow is one event in an address's merged price timeline
@@ -811,7 +830,8 @@ func (s *postgresStore) GetPropertyHistory(addressKey string) (*PropertyHistoryR
 		       COALESCE(bedrooms, 0), COALESCE(bathrooms, 0), COALESCE(car_spaces, 0),
 		       COALESCE(land_size_sqm, 0), COALESCE(property_type, ''),
 		       COALESCE(display_address, ''), COALESCE(suburb, ''), COALESCE(state_code, ''),
-		       COALESCE(postcode, ''), first_seen_at, last_seen_at
+		       COALESCE(postcode, ''), first_seen_at, last_seen_at,
+		       COALESCE(agency_name, ''), COALESCE(agent_names, '{}')
 		FROM property_listings
 		WHERE address_key = $1
 		ORDER BY is_active DESC, last_seen_at DESC
@@ -823,7 +843,7 @@ func (s *postgresStore) GetPropertyHistory(addressKey string) (*PropertyHistoryR
 		&cur.PriceKind, &cur.ListingStatus, &cur.IsActive,
 		&cur.Bedrooms, &cur.Bathrooms, &cur.CarSpaces, &cur.LandSizeSqm, &cur.PropertyType,
 		&cur.DisplayAddress, &cur.Suburb, &cur.StateCode, &cur.Postcode,
-		&cur.FirstSeenAt, &cur.LastSeenAt)
+		&cur.FirstSeenAt, &cur.LastSeenAt, &cur.AgencyName, &cur.AgentNames)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return &PropertyHistoryResult{}, nil
@@ -912,6 +932,8 @@ type AddressPriceDropRow struct {
 	PropertyType     string
 	Bedrooms         int32
 	Bathrooms        int32
+	AgencyName       string
+	AgentNames       []string
 }
 
 // ListAddressPriceDrops ranks individual physical addresses (deduped by the
@@ -961,7 +983,9 @@ func (s *postgresStore) ListAddressPriceDrops(stateCode, sort string, windowDays
 			       pl.last_seen_at                  AS last_observed_at,
 			       COALESCE(pl.property_type, '')   AS property_type,
 			       COALESCE(pl.bedrooms, 0)         AS bedrooms,
-			       COALESCE(pl.bathrooms, 0)        AS bathrooms
+			       COALESCE(pl.bathrooms, 0)        AS bathrooms,
+			       COALESCE(pl.agency_name, '')     AS agency_name,
+			       COALESCE(pl.agent_names, '{}')   AS agent_names
 			FROM property_listings pl
 			WHERE pl.address_key <> ''
 			  AND pl.is_active
@@ -1003,13 +1027,21 @@ func (s *postgresStore) ListAddressPriceDrops(stateCode, sort string, windowDays
 		       (f.first_price - c.current_price) / f.first_price  AS drop_pct,
 		       COALESCE(n.num_listings, 1)                        AS num_listings,
 		       c.latest_source, c.latest_listing_url, c.last_observed_at,
-		       c.property_type, c.bedrooms, c.bathrooms
+		       c.property_type, c.bedrooms, c.bathrooms, c.agency_name, c.agent_names
 		FROM cur c
 		JOIN firstp f ON f.address_key = c.address_key
 		LEFT JOIN nlist n ON n.address_key = c.address_key
 		WHERE f.first_price > 0
 		  AND f.first_price > c.current_price
 		  AND (f.first_price - c.current_price) / f.first_price >= 0.03
+		  -- Sanity cap in the spirit of the aggregate MVs (000083): a >40%
+		  -- move is a listing typo correction (e.g. an extra-zero $7.5M ->
+		  -- $750k fix), not a vendor discount. NOTE this board's cap is on the
+		  -- CUMULATIVE window reduction (first_price -> current), while the MVs
+		  -- cap each individual drop event — an address that really fell >40%
+		  -- through several capped cuts is excluded here but still counted in
+		  -- the aggregates.
+		  AND (f.first_price - c.current_price) / f.first_price <= 0.40
 		`
 
 	query := baseQuery + orderBy + "\n\t\tLIMIT $3"
@@ -1025,7 +1057,140 @@ func (s *postgresStore) ListAddressPriceDrops(stateCode, sort string, windowDays
 		if err := rows.Scan(&r.AddressKey, &r.DisplayAddress, &r.Suburb, &r.StateCode, &r.Postcode,
 			&r.FirstPrice, &r.CurrentPrice, &r.DropAbs, &r.DropPct, &r.NumListings,
 			&r.LatestSource, &r.LatestListingURL, &r.LastObservedAt,
-			&r.PropertyType, &r.Bedrooms, &r.Bathrooms); err != nil {
+			&r.PropertyType, &r.Bedrooms, &r.Bathrooms, &r.AgencyName, &r.AgentNames); err != nil {
+			return nil, err
+		}
+		out = append(out, &r)
+	}
+	return out, rows.Err()
+}
+
+// StatePriceDropSummaryRow is one state's (or the 'AU' national) rollup of
+// recent asking-price reductions plus asking/sold aggregates, from
+// mv_state_price_drops (derived aggregates only).
+type StatePriceDropSummaryRow struct {
+	StateCode           string
+	DroppedCount        int32
+	AvgDropPct          float64
+	MedianDropPct       float64
+	MaxDropPct          float64
+	DroppedValue        float64
+	TotalActiveListings int32
+	DroppedShare        float64
+	ForSaleCount        int32
+	ForSalePriced       int32
+	AvgAsking           float64
+	MedianAsking        float64
+	SoldCount           int32
+	AvgSold             float64
+	MedianSold          float64
+	SuburbsTracked      int32
+}
+
+// GetPriceDropsOverview returns the per-state price-drop + listing-price
+// rollup, including the 'AU' national row. Reads ONLY the derived aggregate
+// (mv_state_price_drops) — never the raw, ToS-restricted listing rows.
+func (s *postgresStore) GetPriceDropsOverview() ([]*StatePriceDropSummaryRow, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	const query = `
+		SELECT state_code, dropped_count, COALESCE(avg_drop_pct, 0),
+		       COALESCE(median_drop_pct, 0), COALESCE(max_drop_pct, 0),
+		       COALESCE(dropped_value, 0), total_active_listings,
+		       COALESCE(dropped_share, 0), for_sale_count, for_sale_priced,
+		       COALESCE(avg_asking, 0), COALESCE(median_asking, 0),
+		       sold_count, COALESCE(avg_sold, 0), COALESCE(median_sold, 0),
+		       suburbs_tracked
+		FROM mv_state_price_drops
+		ORDER BY (state_code = 'AU') DESC, dropped_count DESC, state_code ASC`
+
+	rows, err := s.db.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*StatePriceDropSummaryRow
+	for rows.Next() {
+		var r StatePriceDropSummaryRow
+		if err := rows.Scan(&r.StateCode, &r.DroppedCount, &r.AvgDropPct, &r.MedianDropPct,
+			&r.MaxDropPct, &r.DroppedValue, &r.TotalActiveListings, &r.DroppedShare,
+			&r.ForSaleCount, &r.ForSalePriced, &r.AvgAsking, &r.MedianAsking,
+			&r.SoldCount, &r.AvgSold, &r.MedianSold, &r.SuburbsTracked); err != nil {
+			return nil, err
+		}
+		out = append(out, &r)
+	}
+	return out, rows.Err()
+}
+
+// AgencyPriceStatsRow is one agency's aggregate footprint from mv_agency_stats
+// (derived aggregates only; >=3 active listings floor baked into the MV).
+// Agency identity is per-portal — the same real-world agency may appear once
+// per portal.
+type AgencyPriceStatsRow struct {
+	Source         string
+	AgencyID       string
+	AgencyName     string
+	StateCode      string
+	ActiveListings int32
+	PricedListings int32
+	AvgAsking      float64
+	MedianAsking   float64
+	SuburbsCovered int32
+	DroppedCount   int32
+	AvgDropPct     float64
+	TotalDropValue float64
+	AgentNames     []string
+}
+
+// ListAgencyPriceStats ranks agencies by recent asking-price cuts (or listing
+// footprint) from mv_agency_stats. Reads ONLY the derived aggregate — never
+// the raw, ToS-restricted listing rows.
+// sort ∈ {drops,listings,avg_cut,value}; default drops.
+func (s *postgresStore) ListAgencyPriceStats(stateCode, sort string, limit int32) ([]*AgencyPriceStatsRow, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	// Whitelist the sort column (never interpolate user input into SQL).
+	orderBy := "dropped_count DESC, total_drop_value DESC, active_listings DESC"
+	switch sort {
+	case "listings":
+		orderBy = "active_listings DESC, dropped_count DESC"
+	case "avg_cut":
+		orderBy = "avg_drop_pct DESC NULLS LAST, dropped_count DESC"
+	case "value":
+		orderBy = "total_drop_value DESC, dropped_count DESC"
+	}
+
+	query := `
+		SELECT source, agency_id, agency_name, state_code,
+		       active_listings, priced_listings,
+		       COALESCE(avg_asking, 0), COALESCE(median_asking, 0),
+		       suburbs_covered, dropped_count, COALESCE(avg_drop_pct, 0),
+		       COALESCE(total_drop_value, 0), COALESCE(agent_names, '{}')
+		FROM mv_agency_stats
+		WHERE ($1 = '' OR state_code = UPPER($1))
+		ORDER BY ` + orderBy + `
+		LIMIT $2`
+
+	rows, err := s.db.Query(ctx, query, stateCode, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*AgencyPriceStatsRow
+	for rows.Next() {
+		var r AgencyPriceStatsRow
+		if err := rows.Scan(&r.Source, &r.AgencyID, &r.AgencyName, &r.StateCode,
+			&r.ActiveListings, &r.PricedListings, &r.AvgAsking, &r.MedianAsking,
+			&r.SuburbsCovered, &r.DroppedCount, &r.AvgDropPct, &r.TotalDropValue,
+			&r.AgentNames); err != nil {
 			return nil, err
 		}
 		out = append(out, &r)
