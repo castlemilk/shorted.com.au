@@ -2235,12 +2235,28 @@ message SimilarSuburb {
   string region_code = 6;
 }
 
+// A notable landmark shown in the suburb banner.
+message SuburbLandmark {
+  string name = 1;
+  string kind = 2;
+}
+
+// Editorial banner header for the suburb profile page.
+message SuburbBanner {
+  string archetype = 1;                    // classified/refined archetype id
+  string blurb = 2;                        // editorial one-liner (also page copy)
+  repeated SuburbLandmark landmarks = 3;
+  string bg_key = 4;                       // library asset key (defaults to archetype)
+  string bg_url = 5;                       // bespoke background override (optional)
+}
+
 message GetSuburbProfileResponse {
   SuburbSummary summary = 1;
   SuburbDemographics demographics = 2;
   ComparisonBaselines baselines = 3;
   LgaInfo council = 4;              // council this suburb sits in ('' if unmatched)
   repeated SimilarSuburb similar = 5; // most-similar suburbs nationally (knowledge graph)
+  SuburbBanner banner = 6;          // editorial banner header (archetype, blurb, landmarks)
 }
 
 message ListHousingRegionsRequest {
