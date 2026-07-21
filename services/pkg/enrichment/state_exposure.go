@@ -38,6 +38,9 @@ const maxStateExposureEntries = 6
 // ValidateStateExposure sanitizes an LLM-produced exposure list:
 //   - errors on empty input or more than maxStateExposureEntries raw entries
 //   - drops entries with invalid regions or zero/negative weights
+//   - merges duplicate regions (weights summed, first non-empty basis wins) —
+//     mv_company_state_exposure has a unique (stock_code, region) index, so a
+//     duplicate region must never reach the database
 //   - errors if nothing survives filtering
 //   - renormalizes surviving weights to sum exactly 1.0 (2dp, residual folded
 //     into the largest entry)
@@ -50,6 +53,7 @@ func ValidateStateExposure(raw []StateExposure) ([]StateExposure, error) {
 	}
 
 	valid := make([]StateExposure, 0, len(raw))
+	indexByRegion := make(map[string]int, len(raw))
 	for _, e := range raw {
 		region := strings.ToLower(strings.TrimSpace(e.Region))
 		if !validStateExposureRegions[region] {
@@ -58,10 +62,20 @@ func ValidateStateExposure(raw []StateExposure) ([]StateExposure, error) {
 		if e.Weight <= 0 {
 			continue
 		}
+		basis := strings.TrimSpace(e.Basis)
+		if idx, seen := indexByRegion[region]; seen {
+			// Merge duplicate regions: sum weights, first non-empty basis wins.
+			valid[idx].Weight += e.Weight
+			if valid[idx].Basis == "" {
+				valid[idx].Basis = basis
+			}
+			continue
+		}
+		indexByRegion[region] = len(valid)
 		valid = append(valid, StateExposure{
 			Region: region,
 			Weight: e.Weight,
-			Basis:  strings.TrimSpace(e.Basis),
+			Basis:  basis,
 		})
 	}
 

@@ -168,6 +168,81 @@ func TestValidateStateExposure_DropsZeroAndNegativeWeights(t *testing.T) {
 	}
 }
 
+func TestValidateStateExposure_MergesDuplicateRegions(t *testing.T) {
+	// FPH regression: two "international" rows must merge into one entry,
+	// weight 1.0, first non-empty basis wins.
+	raw := []StateExposure{
+		{Region: "international", Weight: 0.9, Basis: "a"},
+		{Region: "international", Weight: 0.1, Basis: "b"},
+	}
+
+	got, err := ValidateStateExposure(raw)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("expected 1 merged entry, got %d: %v", len(got), got)
+	}
+	if got[0].Region != "international" {
+		t.Errorf("region = %q, want international", got[0].Region)
+	}
+	if math.Abs(got[0].Weight-1.0) > 1e-9 {
+		t.Errorf("weight = %v, want 1.0", got[0].Weight)
+	}
+	if got[0].Basis != "a" {
+		t.Errorf("basis = %q, want %q (first basis wins)", got[0].Basis, "a")
+	}
+}
+
+func TestValidateStateExposure_MergesDupeAlongsideDistinctRegion(t *testing.T) {
+	raw := []StateExposure{
+		{Region: "wa", Weight: 0.25, Basis: "Iron ore"},
+		{Region: "international", Weight: 0.5, Basis: "Offshore sales"},
+		{Region: "international", Weight: 0.25, Basis: "Other offshore"},
+	}
+
+	got, err := ValidateStateExposure(raw)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("expected 2 entries after merge, got %d: %v", len(got), got)
+	}
+	if got[0].Region != "wa" || got[1].Region != "international" {
+		t.Errorf("regions = %s/%s, want wa/international", got[0].Region, got[1].Region)
+	}
+	if math.Abs(got[0].Weight-0.25) > 1e-9 {
+		t.Errorf("wa weight = %v, want 0.25", got[0].Weight)
+	}
+	if math.Abs(got[1].Weight-0.75) > 1e-9 {
+		t.Errorf("international weight = %v, want 0.75", got[1].Weight)
+	}
+	if got[1].Basis != "Offshore sales" {
+		t.Errorf("merged basis = %q, want first basis %q", got[1].Basis, "Offshore sales")
+	}
+	if s := sumWeights(got); math.Abs(s-1.0) > 1e-9 {
+		t.Errorf("weights sum = %v, want exactly 1.0", s)
+	}
+}
+
+func TestValidateStateExposure_MergedEmptyBasisTakesFirstNonEmpty(t *testing.T) {
+	raw := []StateExposure{
+		{Region: "nsw", Weight: 0.5, Basis: ""},
+		{Region: "nsw", Weight: 0.5, Basis: "Sydney retail network"},
+	}
+
+	got, err := ValidateStateExposure(raw)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("expected 1 merged entry, got %d", len(got))
+	}
+	if got[0].Basis != "Sydney retail network" {
+		t.Errorf("basis = %q, want first non-empty basis", got[0].Basis)
+	}
+}
+
 func TestValidateStateExposure_NormalizesRegionCase(t *testing.T) {
 	raw := []StateExposure{
 		{Region: " WA ", Weight: 0.6, Basis: "Mining"},
