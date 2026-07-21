@@ -28,6 +28,12 @@ variable "house_price_collector_image" {
   default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/house-price-collector:latest"
 }
 
+variable "economy_collector_image" {
+  description = "Docker image URL for economy-collector job"
+  type        = string
+  default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/economy-collector:latest"
+}
+
 variable "shorts_api_image" {
   description = "Docker image URL for shorts API service"
   type        = string
