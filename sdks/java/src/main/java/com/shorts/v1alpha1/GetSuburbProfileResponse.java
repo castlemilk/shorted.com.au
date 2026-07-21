@@ -227,6 +227,44 @@ private static final long serialVersionUID = 0L;
     return similar_.get(index);
   }
 
+  public static final int BANNER_FIELD_NUMBER = 6;
+  private com.shorts.v1alpha1.SuburbBanner banner_;
+  /**
+   * <pre>
+   * editorial banner header (archetype, blurb, landmarks)
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbBanner banner = 6 [json_name = "banner"];</code>
+   * @return Whether the banner field is set.
+   */
+  @java.lang.Override
+  public boolean hasBanner() {
+    return ((bitField0_ & 0x00000010) != 0);
+  }
+  /**
+   * <pre>
+   * editorial banner header (archetype, blurb, landmarks)
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbBanner banner = 6 [json_name = "banner"];</code>
+   * @return The banner.
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.SuburbBanner getBanner() {
+    return banner_ == null ? com.shorts.v1alpha1.SuburbBanner.getDefaultInstance() : banner_;
+  }
+  /**
+   * <pre>
+   * editorial banner header (archetype, blurb, landmarks)
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbBanner banner = 6 [json_name = "banner"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.SuburbBannerOrBuilder getBannerOrBuilder() {
+    return banner_ == null ? com.shorts.v1alpha1.SuburbBanner.getDefaultInstance() : banner_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -255,6 +293,9 @@ private static final long serialVersionUID = 0L;
     }
     for (int i = 0; i < similar_.size(); i++) {
       output.writeMessage(5, similar_.get(i));
+    }
+    if (((bitField0_ & 0x00000010) != 0)) {
+      output.writeMessage(6, getBanner());
     }
     getUnknownFields().writeTo(output);
   }
@@ -285,6 +326,10 @@ private static final long serialVersionUID = 0L;
           }
           size += 1 * count;
         }
+    if (((bitField0_ & 0x00000010) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(6, getBanner());
+    }
     return size;
   }
   @java.lang.Override
@@ -331,6 +376,11 @@ private static final long serialVersionUID = 0L;
     }
     if (!getSimilarList()
         .equals(other.getSimilarList())) return false;
+    if (hasBanner() != other.hasBanner()) return false;
+    if (hasBanner()) {
+      if (!getBanner()
+          .equals(other.getBanner())) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -361,6 +411,10 @@ private static final long serialVersionUID = 0L;
     if (getSimilarCount() > 0) {
       hash = (37 * hash) + SIMILAR_FIELD_NUMBER;
       hash = (53 * hash) + getSimilarList().hashCode();
+    }
+    if (hasBanner()) {
+      hash = (37 * hash) + BANNER_FIELD_NUMBER;
+      hash = (53 * hash) + getBanner().hashCode();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -497,6 +551,7 @@ private static final long serialVersionUID = 0L;
         internalGetBaselinesFieldBuilder();
         internalGetCouncilFieldBuilder();
         internalGetSimilarFieldBuilder();
+        internalGetBannerFieldBuilder();
       }
     }
     @java.lang.Override
@@ -530,6 +585,11 @@ private static final long serialVersionUID = 0L;
         similarBuilder_.clear();
       }
       bitField0_ = (bitField0_ & ~0x00000010);
+      banner_ = null;
+      if (bannerBuilder_ != null) {
+        bannerBuilder_.dispose();
+        bannerBuilder_ = null;
+      }
       return this;
     }
 
@@ -601,6 +661,12 @@ private static final long serialVersionUID = 0L;
             : councilBuilder_.build();
         to_bitField0_ |= 0x00000008;
       }
+      if (((from_bitField0_ & 0x00000020) != 0)) {
+        result.banner_ = bannerBuilder_ == null
+            ? banner_
+            : bannerBuilder_.build();
+        to_bitField0_ |= 0x00000010;
+      }
       result.bitField0_ |= to_bitField0_;
     }
 
@@ -653,6 +719,9 @@ private static final long serialVersionUID = 0L;
             similarBuilder_.addAllMessages(other.similar_);
           }
         }
+      }
+      if (other.hasBanner()) {
+        mergeBanner(other.getBanner());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -721,6 +790,13 @@ private static final long serialVersionUID = 0L;
               }
               break;
             } // case 42
+            case 50: {
+              input.readMessage(
+                  internalGetBannerFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000020;
+              break;
+            } // case 50
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1568,6 +1644,163 @@ private static final long serialVersionUID = 0L;
         similar_ = null;
       }
       return similarBuilder_;
+    }
+
+    private com.shorts.v1alpha1.SuburbBanner banner_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.SuburbBanner, com.shorts.v1alpha1.SuburbBanner.Builder, com.shorts.v1alpha1.SuburbBannerOrBuilder> bannerBuilder_;
+    /**
+     * <pre>
+     * editorial banner header (archetype, blurb, landmarks)
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbBanner banner = 6 [json_name = "banner"];</code>
+     * @return Whether the banner field is set.
+     */
+    public boolean hasBanner() {
+      return ((bitField0_ & 0x00000020) != 0);
+    }
+    /**
+     * <pre>
+     * editorial banner header (archetype, blurb, landmarks)
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbBanner banner = 6 [json_name = "banner"];</code>
+     * @return The banner.
+     */
+    public com.shorts.v1alpha1.SuburbBanner getBanner() {
+      if (bannerBuilder_ == null) {
+        return banner_ == null ? com.shorts.v1alpha1.SuburbBanner.getDefaultInstance() : banner_;
+      } else {
+        return bannerBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * editorial banner header (archetype, blurb, landmarks)
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbBanner banner = 6 [json_name = "banner"];</code>
+     */
+    public Builder setBanner(com.shorts.v1alpha1.SuburbBanner value) {
+      if (bannerBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        banner_ = value;
+      } else {
+        bannerBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * editorial banner header (archetype, blurb, landmarks)
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbBanner banner = 6 [json_name = "banner"];</code>
+     */
+    public Builder setBanner(
+        com.shorts.v1alpha1.SuburbBanner.Builder builderForValue) {
+      if (bannerBuilder_ == null) {
+        banner_ = builderForValue.build();
+      } else {
+        bannerBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * editorial banner header (archetype, blurb, landmarks)
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbBanner banner = 6 [json_name = "banner"];</code>
+     */
+    public Builder mergeBanner(com.shorts.v1alpha1.SuburbBanner value) {
+      if (bannerBuilder_ == null) {
+        if (((bitField0_ & 0x00000020) != 0) &&
+          banner_ != null &&
+          banner_ != com.shorts.v1alpha1.SuburbBanner.getDefaultInstance()) {
+          getBannerBuilder().mergeFrom(value);
+        } else {
+          banner_ = value;
+        }
+      } else {
+        bannerBuilder_.mergeFrom(value);
+      }
+      if (banner_ != null) {
+        bitField0_ |= 0x00000020;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * editorial banner header (archetype, blurb, landmarks)
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbBanner banner = 6 [json_name = "banner"];</code>
+     */
+    public Builder clearBanner() {
+      bitField0_ = (bitField0_ & ~0x00000020);
+      banner_ = null;
+      if (bannerBuilder_ != null) {
+        bannerBuilder_.dispose();
+        bannerBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * editorial banner header (archetype, blurb, landmarks)
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbBanner banner = 6 [json_name = "banner"];</code>
+     */
+    public com.shorts.v1alpha1.SuburbBanner.Builder getBannerBuilder() {
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return internalGetBannerFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * editorial banner header (archetype, blurb, landmarks)
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbBanner banner = 6 [json_name = "banner"];</code>
+     */
+    public com.shorts.v1alpha1.SuburbBannerOrBuilder getBannerOrBuilder() {
+      if (bannerBuilder_ != null) {
+        return bannerBuilder_.getMessageOrBuilder();
+      } else {
+        return banner_ == null ?
+            com.shorts.v1alpha1.SuburbBanner.getDefaultInstance() : banner_;
+      }
+    }
+    /**
+     * <pre>
+     * editorial banner header (archetype, blurb, landmarks)
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbBanner banner = 6 [json_name = "banner"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.SuburbBanner, com.shorts.v1alpha1.SuburbBanner.Builder, com.shorts.v1alpha1.SuburbBannerOrBuilder> 
+        internalGetBannerFieldBuilder() {
+      if (bannerBuilder_ == null) {
+        bannerBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.shorts.v1alpha1.SuburbBanner, com.shorts.v1alpha1.SuburbBanner.Builder, com.shorts.v1alpha1.SuburbBannerOrBuilder>(
+                getBanner(),
+                getParentForChildren(),
+                isClean());
+        banner_ = null;
+      }
+      return bannerBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.GetSuburbProfileResponse)

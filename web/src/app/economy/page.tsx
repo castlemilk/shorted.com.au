@@ -7,6 +7,7 @@ import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { getEconomicSeries } from "~/app/actions/getEconomy";
 import type { GetEconomicSeriesResponse } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { EconomySeriesChart } from "@/components/economy/economy-charts";
+import { EconomyIcon, type EconomyIconName } from "@/components/economy/economy-icon";
 import { EconomyMapExplorer } from "@/components/economy/economy-map-loader";
 import { WhenVisible } from "@/components/housing/when-visible";
 import { LLMMeta } from "@/components/seo/llm-meta";
@@ -70,10 +71,21 @@ function latestPeriod(
   });
 }
 
-function BigStat({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function BigStat({
+  label,
+  value,
+  sub,
+  icon,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  icon?: EconomyIconName;
+}) {
   return (
     <div className="rounded-xl border border-border bg-card p-5">
-      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {icon ? <EconomyIcon name={icon} size={18} /> : null}
         {label}
       </div>
       <div className="mt-2 font-mono text-3xl font-semibold tabular-nums text-foreground">
@@ -88,17 +100,22 @@ function ChartCard({
   title,
   subtitle,
   source,
+  icon,
   children,
 }: {
   title: string;
   subtitle: string;
   source: string;
+  icon?: EconomyIconName;
   children: ReactNode;
 }) {
   return (
     <div className="rounded-xl border border-border bg-card p-5">
       <div className="mb-3">
-        <h3 className="font-serif text-lg text-foreground">{title}</h3>
+        <h3 className="flex items-center gap-2 font-serif text-lg text-foreground">
+          {icon ? <EconomyIcon name={icon} size={22} /> : null}
+          {title}
+        </h3>
         <p className="text-xs text-muted-foreground">{subtitle}</p>
       </div>
       {children}
@@ -191,6 +208,7 @@ export default async function EconomyPage() {
             {cashRate !== undefined ? (
               <BigStat
                 label="RBA cash rate target"
+                icon="cash-rate"
                 value={`${cashRate.toFixed(2)}%`}
                 sub={`RBA · ${latestPeriod(headline, "rates.cash_rate_target.aus")}`}
               />
@@ -198,6 +216,7 @@ export default async function EconomyPage() {
             {cpiYoy !== undefined ? (
               <BigStat
                 label="CPI annual change"
+                icon="cpi"
                 value={`${cpiYoy.toFixed(1)}%`}
                 sub={`ABS monthly CPI indicator · ${latestPeriod(headline, "cpi.annual_change.all_groups.aus")}`}
               />
@@ -205,6 +224,7 @@ export default async function EconomyPage() {
             {unemployment !== undefined ? (
               <BigStat
                 label="Unemployment rate"
+                icon="unemployment"
                 value={`${unemployment.toFixed(1)}%`}
                 sub={`ABS, seasonally adjusted · ${latestPeriod(headline, "labour.unemployment_rate.total.aus.seasadj")}`}
               />
@@ -212,6 +232,7 @@ export default async function EconomyPage() {
             {tradeBalance !== undefined ? (
               <BigStat
                 label="Goods trade balance"
+                icon="trade-balance"
                 value={`${tradeBalance >= 0 ? "+" : "−"}$${Math.abs(tradeBalance / 1_000_000_000).toFixed(1)}B`}
                 sub={`Exports − imports · ABS · ${latestPeriod(headline, "trade.export_value.total.aus")}`}
               />
@@ -219,6 +240,7 @@ export default async function EconomyPage() {
             {audUsd !== undefined ? (
               <BigStat
                 label="AUD / USD"
+                icon="aud-usd"
                 value={audUsd.toFixed(4)}
                 sub={`RBA · ${latestPeriod(headline, "rates.aud_usd.aus")}`}
               />
@@ -226,6 +248,7 @@ export default async function EconomyPage() {
             {dieselSales !== undefined ? (
               <BigStat
                 label="National diesel sales"
+                icon="diesel"
                 value={`${(dieselSales / 1_000).toFixed(1)}GL`}
                 sub={`DCCEEW Australian Petroleum Statistics · ${latestPeriod(headline, "petroleum.sales.diesel_oil_total.aus")}`}
               />
@@ -249,22 +272,22 @@ export default async function EconomyPage() {
             blurb="Monetary policy, consumer prices and the labour market."
           />
           <div className="grid gap-6 lg:grid-cols-2">
-            <ChartCard title="RBA cash rate target" subtitle="Monthly · per cent" source="Reserve Bank of Australia, F1.1">
+            <ChartCard title="RBA cash rate target" subtitle="Monthly · per cent" source="Reserve Bank of Australia, F1.1" icon="cash-rate">
               <WhenVisible>
                 <EconomySeriesChart seriesKey="rates.cash_rate_target.aus" format="percent" ariaLabel="RBA cash rate target over time" />
               </WhenVisible>
             </ChartCard>
-            <ChartCard title="Consumer price index" subtitle="All groups, quarterly · index" source="Australian Bureau of Statistics, Consumer Price Index">
+            <ChartCard title="Consumer price index" subtitle="All groups, quarterly · index" source="Australian Bureau of Statistics, Consumer Price Index" icon="cpi">
               <WhenVisible>
                 <EconomySeriesChart seriesKey="cpi.index.all_groups.aus" format="index" ariaLabel="Consumer price index, all groups" />
               </WhenVisible>
             </ChartCard>
-            <ChartCard title="Unemployment rate — Australia" subtitle="Monthly, seasonally adjusted · per cent" source="Australian Bureau of Statistics, Labour Force">
+            <ChartCard title="Unemployment rate — Australia" subtitle="Monthly, seasonally adjusted · per cent" source="Australian Bureau of Statistics, Labour Force" icon="unemployment">
               <WhenVisible>
                 <EconomySeriesChart seriesKey="labour.unemployment_rate.total.aus.seasadj" format="percent" ariaLabel="National unemployment rate" />
               </WhenVisible>
             </ChartCard>
-            <ChartCard title="AUD/USD exchange rate" subtitle="Daily · US dollars per AUD" source="Reserve Bank of Australia, F11">
+            <ChartCard title="AUD/USD exchange rate" subtitle="Daily · US dollars per AUD" source="Reserve Bank of Australia, F11" icon="aud-usd">
               <WhenVisible>
                 <EconomySeriesChart seriesKey="rates.aud_usd.aus" format="usd" ariaLabel="AUD to USD exchange rate" />
               </WhenVisible>
@@ -279,12 +302,12 @@ export default async function EconomyPage() {
             blurb="National goods exports and imports — per-state trade lives in the map above."
           />
           <div className="grid gap-6 lg:grid-cols-2">
-            <ChartCard title="National goods exports" subtitle="Monthly · A$" source="Australian Bureau of Statistics, International Trade in Goods">
+            <ChartCard title="National goods exports" subtitle="Monthly · A$" source="Australian Bureau of Statistics, International Trade in Goods" icon="exports">
               <WhenVisible>
                 <EconomySeriesChart seriesKey="trade.export_value.total.aus" format="aud" ariaLabel="National goods exports" />
               </WhenVisible>
             </ChartCard>
-            <ChartCard title="National goods imports" subtitle="Monthly · A$" source="Australian Bureau of Statistics, International Trade in Goods">
+            <ChartCard title="National goods imports" subtitle="Monthly · A$" source="Australian Bureau of Statistics, International Trade in Goods" icon="imports">
               <WhenVisible>
                 <EconomySeriesChart seriesKey="trade.import_value.total.aus" format="aud" ariaLabel="National goods imports" />
               </WhenVisible>
@@ -299,32 +322,32 @@ export default async function EconomyPage() {
             blurb="Refinery output, fuel imports and national fuel sales, in megalitres."
           />
           <div className="grid gap-6 lg:grid-cols-2">
-            <ChartCard title="Refinery output — diesel" subtitle="Monthly · megalitres" source="DCCEEW, Australian Petroleum Statistics">
+            <ChartCard title="Refinery output — diesel" subtitle="Monthly · megalitres" source="DCCEEW, Australian Petroleum Statistics" icon="refinery">
               <WhenVisible>
                 <EconomySeriesChart seriesKey="petroleum.refinery_output.diesel_oil.aus" format="megalitres" ariaLabel="Australian refinery diesel output" />
               </WhenVisible>
             </ChartCard>
-            <ChartCard title="Refinery output — petrol" subtitle="Automotive gasoline, monthly · megalitres" source="DCCEEW, Australian Petroleum Statistics">
+            <ChartCard title="Refinery output — petrol" subtitle="Automotive gasoline, monthly · megalitres" source="DCCEEW, Australian Petroleum Statistics" icon="refinery">
               <WhenVisible>
                 <EconomySeriesChart seriesKey="petroleum.refinery_output.automotive_gasoline.aus" format="megalitres" ariaLabel="Australian refinery petrol output" />
               </WhenVisible>
             </ChartCard>
-            <ChartCard title="Refinery output — jet fuel" subtitle="Aviation turbine fuel, monthly · megalitres" source="DCCEEW, Australian Petroleum Statistics">
+            <ChartCard title="Refinery output — jet fuel" subtitle="Aviation turbine fuel, monthly · megalitres" source="DCCEEW, Australian Petroleum Statistics" icon="refinery">
               <WhenVisible>
                 <EconomySeriesChart seriesKey="petroleum.refinery_output.aviation_turbine_fuel.aus" format="megalitres" ariaLabel="Australian refinery jet fuel output" />
               </WhenVisible>
             </ChartCard>
-            <ChartCard title="Diesel imports" subtitle="Monthly · megalitres — Australia imports most of its diesel" source="DCCEEW, Australian Petroleum Statistics">
+            <ChartCard title="Diesel imports" subtitle="Monthly · megalitres — Australia imports most of its diesel" source="DCCEEW, Australian Petroleum Statistics" icon="diesel">
               <WhenVisible>
                 <EconomySeriesChart seriesKey="petroleum.imports.diesel_oil.aus" format="megalitres" ariaLabel="Australian diesel imports" />
               </WhenVisible>
             </ChartCard>
-            <ChartCard title="National diesel sales" subtitle="Monthly · megalitres" source="DCCEEW, Australian Petroleum Statistics">
+            <ChartCard title="National diesel sales" subtitle="Monthly · megalitres" source="DCCEEW, Australian Petroleum Statistics" icon="diesel">
               <WhenVisible>
                 <EconomySeriesChart seriesKey="petroleum.sales.diesel_oil_total.aus" format="megalitres" ariaLabel="National diesel sales" />
               </WhenVisible>
             </ChartCard>
-            <ChartCard title="Refinery input" subtitle="Total refinery intake, monthly · megalitres" source="DCCEEW, Australian Petroleum Statistics">
+            <ChartCard title="Refinery input" subtitle="Total refinery intake, monthly · megalitres" source="DCCEEW, Australian Petroleum Statistics" icon="refinery">
               <WhenVisible>
                 <EconomySeriesChart seriesKey="petroleum.refinery_input.total.aus" format="megalitres" ariaLabel="Total Australian refinery input" />
               </WhenVisible>

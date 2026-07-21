@@ -13,6 +13,17 @@ const FORMATTERS: Record<string, (v: number) => string> = {
       : Math.abs(v) >= 1_000_000
         ? `$${(v / 1_000_000).toFixed(0)}M`
         : `$${Math.round(v).toLocaleString()}`,
+  // Signed AUD with a proper minus — for diverging series like net operating
+  // balance where deficits are negative.
+  aud_signed: (v) => {
+    const a = Math.abs(v);
+    const sign = v < 0 ? "−" : "";
+    return a >= 1_000_000_000
+      ? `${sign}$${(a / 1_000_000_000).toFixed(1)}B`
+      : a >= 1_000_000
+        ? `${sign}$${(a / 1_000_000).toFixed(0)}M`
+        : `${sign}$${Math.round(a).toLocaleString()}`;
+  },
   percent: (v) => `${v.toFixed(1)}%`,
   index: (v) => v.toFixed(1),
   megalitres: (v) =>
@@ -33,7 +44,7 @@ export function EconomySeriesChart({
 }: {
   seriesKey: string;
   ariaLabel: string;
-  format?: "aud" | "percent" | "index" | "megalitres" | "usd";
+  format?: "aud" | "aud_signed" | "percent" | "index" | "megalitres" | "usd";
   height?: number;
 }) {
   const { data, isLoading } = useQuery({

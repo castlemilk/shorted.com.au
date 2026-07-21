@@ -92,14 +92,20 @@ export const getHousingOverview = cache(
 
       const client = createCacheableHousingClient();
       const resp = await client.getHousingOverview({ regionType });
-      try {
-        void setCached(
-          cacheKey,
-          toJson(GetHousingOverviewResponseSchema, resp),
-          HOUSING_TTL,
-        );
-      } catch {
-        // Serialization/caching must never break the request.
+      // Never cache an EMPTY response. A transient empty (e.g. the backend
+      // mid-redeploy, or an MV refresh window) would otherwise pin /housing to
+      // its empty state for the full HOUSING_TTL (24h) with no flush path —
+      // exactly the outage this guards against. Only cache real metrics.
+      if (resp.metrics.length > 0) {
+        try {
+          void setCached(
+            cacheKey,
+            toJson(GetHousingOverviewResponseSchema, resp),
+            HOUSING_TTL,
+          );
+        } catch {
+          // Serialization/caching must never break the request.
+        }
       }
       return resp;
     },
@@ -168,10 +174,15 @@ export const listSuburbPriceDrops = cache(
 
       const client = createCacheableHousingClient();
       const resp = await client.listSuburbPriceDrops({ stateCode, sort, limit });
-      try {
-        void setCached(cacheKey, toJson(ListSuburbPriceDropsResponseSchema, resp), PRICE_DROPS_TTL);
-      } catch {
-        // Serialization/caching must never break the request.
+      // Never cache an EMPTY response (same guard as getHousingOverview): a
+      // transient empty during a backend redeploy would otherwise pin the board
+      // until the next crawl flush or the 24h TTL.
+      if (resp.suburbs.length > 0) {
+        try {
+          void setCached(cacheKey, toJson(ListSuburbPriceDropsResponseSchema, resp), PRICE_DROPS_TTL);
+        } catch {
+          // Serialization/caching must never break the request.
+        }
       }
       return resp;
     },
@@ -206,10 +217,13 @@ export const getPriceDropsOverview = cache(
 
       const client = createCacheableHousingClient();
       const resp = await client.getPriceDropsOverview({});
-      try {
-        void setCached(cacheKey, toJson(GetPriceDropsOverviewResponseSchema, resp), PRICE_DROPS_TTL);
-      } catch {
-        // Serialization/caching must never break the request.
+      // Never cache an EMPTY response (same guard as getHousingOverview).
+      if (resp.national != null || resp.states.length > 0) {
+        try {
+          void setCached(cacheKey, toJson(GetPriceDropsOverviewResponseSchema, resp), PRICE_DROPS_TTL);
+        } catch {
+          // Serialization/caching must never break the request.
+        }
       }
       return resp;
     },
@@ -234,10 +248,15 @@ export const listAgencyPriceStats = cache(
 
       const client = createCacheableHousingClient();
       const resp = await client.listAgencyPriceStats({ stateCode, sort, limit });
-      try {
-        void setCached(cacheKey, toJson(ListAgencyPriceStatsResponseSchema, resp), PRICE_DROPS_TTL);
-      } catch {
-        // Serialization/caching must never break the request.
+      // Never cache an EMPTY response (same guard as getHousingOverview). Also
+      // covers the kill switch: a flagged-off backend returns [] and must not
+      // pin the agency board's KV entry.
+      if (resp.agencies.length > 0) {
+        try {
+          void setCached(cacheKey, toJson(ListAgencyPriceStatsResponseSchema, resp), PRICE_DROPS_TTL);
+        } catch {
+          // Serialization/caching must never break the request.
+        }
       }
       return resp;
     },
@@ -266,10 +285,14 @@ export const listAddressPriceDrops = cache(
 
       const client = createCacheableHousingClient();
       const resp = await client.listAddressPriceDrops({ stateCode, windowDays, limit, sort });
-      try {
-        void setCached(cacheKey, toJson(ListAddressPriceDropsResponseSchema, resp), PRICE_DROPS_TTL);
-      } catch {
-        // Serialization/caching must never break the request.
+      // Never cache an EMPTY response (same guard as getHousingOverview + the
+      // kill-switch case — [] must not pin the board's KV entry).
+      if (resp.addresses.length > 0) {
+        try {
+          void setCached(cacheKey, toJson(ListAddressPriceDropsResponseSchema, resp), PRICE_DROPS_TTL);
+        } catch {
+          // Serialization/caching must never break the request.
+        }
       }
       return resp;
     },

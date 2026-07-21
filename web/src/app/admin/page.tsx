@@ -31,6 +31,7 @@ import {
   Database,
 } from "lucide-react";
 import { AdminFilters } from "./admin-filters";
+import { CachePanel } from "./cache-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -293,6 +294,9 @@ export default async function AdminDashboard({ searchParams }: AdminPageProps) {
 
         {/* PRIMARY: all async jobs */}
         <JobsOverview overview={jobsOverview} />
+
+        {/* Cache & revalidation controls */}
+        <CachePanel />
 
         {/* SECONDARY: market-data sync_status record detail */}
         <Card>

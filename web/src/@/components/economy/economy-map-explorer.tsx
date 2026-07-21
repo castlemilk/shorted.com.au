@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useCallback, Suspense, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ChoroplethMap } from "@/components/housing/choropleth-map";
 import { MapLegend } from "@/components/housing/map-legend";
 import { useTopojson } from "@/components/housing/use-topojson";
@@ -17,7 +17,6 @@ import {
   type EconomyMapMetric, type EconomyMapMetricKey, type StateSeries, type StateValue,
 } from "@/lib/economy/map-metrics";
 import { StateTooltip } from "./state-tooltip";
-import { StateDossier } from "./state-dossier";
 
 // Verified in Task 1 Step 0: /geo/states.topojson's single object, with
 // NUMERIC ABS STE_CODE21 feature ids "1".."8" (bridged below via
@@ -119,8 +118,8 @@ function DeepLinkSync({ onApply }: { onApply: (state: string | null, metric: str
 }
 
 export function EconomyMapExplorer() {
+  const router = useRouter();
   const [metricKey, setMetricKey] = useState<EconomyMapMetricKey>("unemployment");
-  const [selected, setSelected] = useState<string | null>(null); // slug ("wa")
   const [hover, setHover] = useState<{ id: string; x: number; y: number } | null>(null); // id = topo id "1".."8"
   // < 640px: the tooltip pins to the bottom of the map instead of floating at
   // the pointer (floating cards overflow small viewports). SSR-safe: this is
@@ -198,27 +197,26 @@ export function EconomyMapExplorer() {
     return m;
   }, [valueById]);
 
-  // URL sync (write side)
-  const syncUrl = useCallback((state: string | null, mk: EconomyMapMetricKey) => {
+  // URL sync (write side) — metric only now; a selected state is its own route.
+  const syncMetric = useCallback((mk: EconomyMapMetricKey) => {
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
-    if (state) url.searchParams.set("state", state); else url.searchParams.delete("state");
     url.searchParams.set("metric", mk);
     window.history.replaceState(null, "", url);
   }, []);
 
+  // Deep-link read side: ?metric= still selects a metric; the legacy ?state=X
+  // link now REDIRECTS to the real /economy/X route (the SPA dossier is gone).
   const applyDeepLink = useCallback((state: string | null, mk: string | null) => {
     if (mk && mk in METRIC_BY_KEY) setMetricKey(mk as EconomyMapMetricKey);
-    if (state && (STATE_SLUGS as readonly string[]).includes(state)) setSelected(state);
-  }, []);
+    if (state && (STATE_SLUGS as readonly string[]).includes(state)) {
+      router.replace(`/economy/${state}`);
+    }
+  }, [router]);
 
-  const selectState = (slug: string | null) => {
-    setSelected(slug);
-    syncUrl(slug, metricKey);
-  };
   const selectMetric = (mk: EconomyMapMetricKey) => {
     setMetricKey(mk);
-    syncUrl(selected, mk);
+    syncMetric(mk);
   };
 
   const hoverAbbr = hover ? abbrFromTopoId(hover.id) : null;
@@ -270,8 +268,6 @@ export function EconomyMapExplorer() {
             colorScale={scale}
             nameById={nameById}
             fitValueById={valueById}
-            selectedId={selected ? toTopoFeatureId(selected) : undefined}
-            focusId={selected ? toTopoFeatureId(selected) : undefined}
             ariaLabel={`Australian states by ${metric.label}`}
             legend={
               <MapLegend
@@ -286,8 +282,7 @@ export function EconomyMapExplorer() {
             onFeatureClick={(id) => {
               const abbr = abbrFromTopoId(id);
               if (!abbr) return; // unknown topo id (e.g. Other Territories)
-              const slug = toSlug(abbr);
-              selectState(selected === slug ? null : slug);
+              router.push(`/economy/${toSlug(abbr)}`);
             }}
             onFeatureHover={(id, evt) => {
               if (!id || !evt || !abbrFromTopoId(id)) return setHover(null);
@@ -342,10 +337,6 @@ export function EconomyMapExplorer() {
           );
         })()}
       </div>
-
-      {selected && (
-        <StateDossier state={selected} onClose={() => selectState(null)} />
-      )}
     </div>
   );
 }

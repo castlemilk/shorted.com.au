@@ -2,6 +2,7 @@ package shorts
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -155,6 +156,35 @@ func (s *ShortsServer) ListStateSuburbs(ctx context.Context, req *connect.Reques
 	return connect.NewResponse(cached.(*shortsv1alpha1.ListStateSuburbsResponse)), nil
 }
 
+// bannerFallbackBlurb returns a deterministic one-line blurb from the archetype,
+// used when no agy-generated banner_blurb exists yet.
+func bannerFallbackBlurb(archetype, salName, lgaName string) string {
+	descr := map[string]string{
+		"coastal-beach":  "a coastal suburb",
+		"harbour":        "a harbourside suburb",
+		"river-valley":   "a riverside suburb",
+		"urban-skyline":  "an inner-city suburb",
+		"inner-terraces": "a dense inner suburb",
+		"leafy-suburban": "a leafy residential suburb",
+		"parkland":       "a green, park-rich suburb",
+		"hills-ranges":   "a suburb in the hills",
+		"bushland":       "a bushland suburb",
+		"farmland":       "a rural suburb",
+	}
+	d := descr[archetype]
+	if d == "" {
+		d = "a residential suburb"
+	}
+	name := salName
+	if name == "" {
+		return ""
+	}
+	if lgaName != "" {
+		return fmt.Sprintf("%s is %s of %s.", name, d, lgaName)
+	}
+	return fmt.Sprintf("%s is %s.", name, d)
+}
+
 // GetSuburbProfile returns one suburb's full profile.
 func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Request[shortsv1alpha1.GetSuburbProfileRequest]) (*connect.Response[shortsv1alpha1.GetSuburbProfileResponse], error) {
 	m := req.Msg
@@ -203,6 +233,29 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 				Similarity: 1.0 / (1.0 + sm.Distance),
 			})
 		}
+		banner := &shortsv1alpha1.SuburbBanner{
+			Archetype: p.BannerArchetype,
+			Blurb:     p.BannerBlurb,
+			BgKey:     p.BannerBgKey,
+			BgUrl:     p.BannerBgUrl,
+		}
+		if banner.BgKey == "" {
+			banner.BgKey = banner.Archetype
+		}
+		if banner.Blurb == "" {
+			banner.Blurb = bannerFallbackBlurb(banner.Archetype, p.Summary.SALName, p.LgaName)
+		}
+		if len(p.BannerLandmarks) > 0 {
+			var landmarks []struct {
+				Name string `json:"name"`
+				Kind string `json:"kind"`
+			}
+			if err := json.Unmarshal(p.BannerLandmarks, &landmarks); err == nil {
+				for _, l := range landmarks {
+					banner.Landmarks = append(banner.Landmarks, &shortsv1alpha1.SuburbLandmark{Name: l.Name, Kind: l.Kind})
+				}
+			}
+		}
 		return &shortsv1alpha1.GetSuburbProfileResponse{
 			Summary: summary,
 			Demographics: &shortsv1alpha1.SuburbDemographics{
@@ -229,6 +282,7 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 				AssetRenewalRatio: p.LgaAssetRenewalRatio, FinSource: p.LgaFinSource, FinYear: p.LgaFinYear,
 			},
 			Similar: similar,
+			Banner:  banner,
 		}, nil
 	})
 	if err != nil {

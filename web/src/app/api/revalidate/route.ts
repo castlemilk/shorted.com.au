@@ -70,6 +70,9 @@ export async function POST(request: NextRequest) {
   for (const target of flushTargets) {
     const prefixes = FLUSH_PREFIXES[target];
     if (!prefixes) continue; // unknown flush name — ignore, keep other work
+    // `housing` covers the whole cache:housing: prefix — the drops keys AND the
+    // TTL-only overview entries (the admin panel's poisoned-entry clear relies
+    // on this being a superset of cache:housing:overview:).
     for (const prefix of prefixes) {
       flushedKeys += await deleteCachedByPrefix(prefix);
     }

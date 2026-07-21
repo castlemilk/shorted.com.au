@@ -16,7 +16,7 @@ func main() {
 }
 
 func run() int {
-	mode := flag.String("mode", "all", "sources | rba | cpi | labour | trade | gdp | petroleum | all")
+	mode := flag.String("mode", "all", "sources | rba | cpi | labour | trade | gdp | petroleum | govfin | markets | all")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -46,6 +46,14 @@ func run() int {
 		"trade":     {"abs-merch-trade-state", ingestTradeByState},
 		"gdp":       {"abs-state-accounts", ingestStateAccounts},
 		"petroleum": {"dcceew-petroleum-statistics", ingestPetroleum},
+		"govfin":    {"abs-government-finance", ingestGovFin},
+		// markets is DERIVED from the DB (shorts × exposure MV), not fetched
+		// from a web source — so it takes the pool, not the client. Wrap it in
+		// a client-shaped closure so it reuses the same runJob plumbing; the
+		// client arg is deliberately ignored.
+		"markets": {"derived-shorted-markets", func(ctx context.Context, _ *absdata.Client) ([]Obs, error) {
+			return ingestMarkets(ctx, pool)
+		}},
 	}
 
 	runJob := func(j job) bool {
@@ -80,7 +88,7 @@ func run() int {
 		if err := registerSources(ctx, pool); err != nil {
 			log.Fatalf("register sources: %v", err)
 		}
-	case "rba", "cpi", "labour", "trade", "gdp", "petroleum":
+	case "rba", "cpi", "labour", "trade", "gdp", "petroleum", "govfin", "markets":
 		if err := registerSources(ctx, pool); err != nil {
 			log.Fatalf("register sources: %v", err)
 		}
@@ -92,17 +100,22 @@ func run() int {
 			log.Fatalf("register sources: %v", err)
 		}
 		failed := 0
-		for _, name := range []string{"rba", "cpi", "labour", "trade", "gdp", "petroleum"} {
+		// markets runs LAST: it reads mv_company_state_exposure (refreshed by a
+		// separate pipeline, not this collector) — no in-run dependency on the
+		// other importers, but ordering it last keeps the "derived from the
+		// rest of the DB" step at the end.
+		names := []string{"rba", "cpi", "labour", "trade", "gdp", "petroleum", "govfin", "markets"}
+		for _, name := range names {
 			if !runJob(jobs[name]) {
 				failed++
 			}
 		}
 		if failed > 0 {
-			log.Printf("%d/6 sources failed", failed)
+			log.Printf("%d/%d sources failed", failed, len(names))
 			return 1
 		}
 	default:
-		log.Fatalf("unknown -mode %q (want sources|rba|cpi|labour|trade|gdp|petroleum|all)", *mode)
+		log.Fatalf("unknown -mode %q (want sources|rba|cpi|labour|trade|gdp|petroleum|govfin|markets|all)", *mode)
 	}
 	return 0
 }

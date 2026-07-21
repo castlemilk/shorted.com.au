@@ -214,6 +214,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/features/the-widow-maker`, lastModified: "2026-06-23" },
     { url: `${baseUrl}/housing`, lastModified: latestDataDate },
     { url: `${baseUrl}/economy`, lastModified: latestDataDate },
+    // Per-state economy drill-downs (mirrors the 8 STATE_SLUGS the
+    // /economy/[state] route statically generates).
+    ...["nsw", "vic", "qld", "sa", "wa", "tas", "nt", "act"].map((slug) => ({
+      url: `${baseUrl}/economy/${slug}`,
+      lastModified: latestDataDate,
+    })),
     { url: `${baseUrl}/housing/calculators`, lastModified: latestDataDate },
     // NOTE: /housing/suburbs is deliberately NOT listed — next.config.mjs
     // 301s it to /housing (the hub page was deprecated 2026-06-29);

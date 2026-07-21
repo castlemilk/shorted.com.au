@@ -29,9 +29,21 @@ var sourceDefs = []sourceDef{
 	{"abs-state-accounts", "ABS State Final Demand (chain volume, by state)", "economic_series",
 		"Australian Bureau of Statistics", "https://www.abs.gov.au/statistics/economy/national-accounts/australian-national-accounts-national-income-expenditure-and-product/latest-release",
 		"CC-BY-4.0", "Quarterly", "download", "State final demand, chain volume measures, seasonally adjusted, by state via SDMX (ANA_SFD) — an expenditure-side proxy for state economic activity; GSP proper (catalogue 5220.0) is Excel-only and not available via the ABS Data API."},
+	{"abs-government-finance", "ABS Government Finance Statistics (state general government)", "economic_series",
+		"Australian Bureau of Statistics", "https://www.abs.gov.au/statistics/economy/government/government-finance-statistics-australia/latest-release",
+		"CC-BY-4.0", "Quarterly", "download", "Per-state general-government operating statement — total revenue, total expenses, net operating balance by state (quarterly XLSX data cube, formerly catalogue 5519.0.55.001)."},
 	{"dcceew-petroleum-statistics", "Australian Petroleum Statistics", "economic_series",
 		"Department of Climate Change, Energy, the Environment and Water", "https://www.energy.gov.au/publications/australian-petroleum-statistics",
 		"CC-BY-4.0", "Monthly", "download", "Refinery output, fuel sales by state, petroleum imports/exports (XLSX)."},
+	{"derived-shorted-markets", "Per-state exposure-weighted short interest (derived)", "economic_series",
+		"Shorted (derived from ASIC + exposure model)", "https://shorted.com.au",
+		"derived", "Monthly", "derived",
+		"Monthly per-state exposure-weighted average short interest, derived in-DB from the ASIC shorts " +
+			"history joined to the company→state exposure model (mv_company_state_exposure): each month uses " +
+			"every stock's last short observation, weighted by exposure weight × market cap. CAVEAT: the exposure " +
+			"weights and market caps are CURRENT (no history), so this applies present-day state composition " +
+			"retrospectively to every month — a 'current-constituent basis', the standard fixed-basket " +
+			"index-construction caveat. Short percentages themselves are historical; only the weighting is present-day."},
 }
 
 // registerSources upserts this collector's sources into the shared registry.
