@@ -399,6 +399,20 @@ export const getPropertyHistory = ShortedStocksService.method.getPropertyHistory
 export const listAddressPriceDrops = ShortedStocksService.method.listAddressPriceDrops;
 
 /**
+ * List economic series catalog entries (Australian economy snapshot layer).
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.ListEconomicSeries
+ */
+export const listEconomicSeries = ShortedStocksService.method.listEconomicSeries;
+
+/**
+ * Fetch observations for up to 50 series by series_key.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetEconomicSeries
+ */
+export const getEconomicSeries = ShortedStocksService.method.getEconomicSeries;
+
+/**
  * Get an ASX-listed entity's annual corporate-tax profile (ATO transparency data).
  *
  * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetCompanyTaxProfile

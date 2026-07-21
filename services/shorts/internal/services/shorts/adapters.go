@@ -3,6 +3,7 @@ package shorts
 import (
 	"context"
 	"log"
+	"time"
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
@@ -300,6 +301,14 @@ func (s *StoreAdapter) ListAddressPriceDrops(stateCode, sort string, windowDays,
 
 func (s *StoreAdapter) GetEventTimeline(stockCode string, daysBack, limit int32) ([]*shorts.TimelineEventRow, error) {
 	return s.store.GetEventTimeline(stockCode, daysBack, limit)
+}
+
+func (s *StoreAdapter) ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32) ([]*shorts.EconomicSeriesRow, error) {
+	return s.store.ListEconomicSeries(topic, metric, regionType, regionCode, product, limit)
+}
+
+func (s *StoreAdapter) GetEconomicSeries(seriesKeys []string, startPeriod time.Time) ([]*shorts.EconomicSeriesDataRow, error) {
+	return s.store.GetEconomicSeries(seriesKeys, startPeriod)
 }
 
 // QueryRowContext delegates to the underlying store's QueryRowContext.

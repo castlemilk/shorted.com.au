@@ -137,6 +137,17 @@ module "house_price_collector" {
   image_url        = var.house_price_collector_image
 }
 
+# Economy collector (ABS/RBA/DCCEEW monthly ingest)
+module "economy_collector" {
+  source = "../../modules/economy-collector"
+
+  project_id       = var.project_id
+  region           = var.region
+  scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
+  environment      = "production"
+  image_url        = var.economy_collector_image
+}
+
 # Shorts API Service
 module "shorts_api" {
   source = "../../modules/shorts-api"
