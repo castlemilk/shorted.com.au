@@ -1,17 +1,19 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { preload } from "react-dom";
 
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { getEconomicSeries } from "~/app/actions/getEconomy";
 import type { GetEconomicSeriesResponse } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { EconomySeriesChart } from "@/components/economy/economy-charts";
+import { EconomyMapExplorer } from "@/components/economy/economy-map-loader";
 import { WhenVisible } from "@/components/housing/when-visible";
 import { LLMMeta } from "@/components/seo/llm-meta";
 
 const URL = "https://shorted.com.au/economy";
 const TITLE = "Australian Economy Snapshot";
 const DESCRIPTION =
-  "Live snapshot of the Australian economy: the RBA cash rate, inflation, unemployment by state, trade by state, state final demand and petroleum refining — from ABS, RBA and DCCEEW open data.";
+  "Live snapshot of the Australian economy with an interactive state map: colour Australia by unemployment, trade or state final demand, then drill into any state — plus the RBA cash rate, inflation and petroleum refining, from ABS, RBA and DCCEEW open data.";
 
 export const revalidate = 3600;
 
@@ -114,6 +116,7 @@ function SectionHeading({ title, blurb }: { title: string; blurb: string }) {
 }
 
 export default async function EconomyPage() {
+  preload("/geo/states.topojson", { as: "fetch", crossOrigin: "anonymous" });
   const headline = await getEconomicSeries(HEADLINE_KEYS).catch(() => undefined);
 
   const cashRate = latest(headline, "rates.cash_rate_target.aus");
@@ -223,6 +226,15 @@ export default async function EconomyPage() {
           </div>
         )}
 
+        {/* ── Explore by state ──────────────────────────────────────── */}
+        <section className="space-y-4">
+          <SectionHeading
+            title="Explore by state"
+            blurb="Colour the map, hover for detail, click a state to drill down."
+          />
+          <EconomyMapExplorer />
+        </section>
+
         {/* ── Macro ─────────────────────────────────────────────────── */}
         <section className="space-y-4">
           <SectionHeading
@@ -250,16 +262,6 @@ export default async function EconomyPage() {
                 <EconomySeriesChart seriesKey="rates.aud_usd.aus" format="usd" ariaLabel="AUD to USD exchange rate" />
               </WhenVisible>
             </ChartCard>
-            <ChartCard title="Unemployment rate — NSW" subtitle="Monthly, seasonally adjusted · per cent" source="Australian Bureau of Statistics, Labour Force">
-              <WhenVisible>
-                <EconomySeriesChart seriesKey="labour.unemployment_rate.total.nsw.seasadj" format="percent" ariaLabel="New South Wales unemployment rate" />
-              </WhenVisible>
-            </ChartCard>
-            <ChartCard title="Unemployment rate — VIC" subtitle="Monthly, seasonally adjusted · per cent" source="Australian Bureau of Statistics, Labour Force">
-              <WhenVisible>
-                <EconomySeriesChart seriesKey="labour.unemployment_rate.total.vic.seasadj" format="percent" ariaLabel="Victoria unemployment rate" />
-              </WhenVisible>
-            </ChartCard>
           </div>
         </section>
 
@@ -267,7 +269,7 @@ export default async function EconomyPage() {
         <section className="space-y-4">
           <SectionHeading
             title="Trade"
-            blurb="Goods exports and imports, nationally and for the biggest exporting states."
+            blurb="National goods exports and imports — per-state trade lives in the map above."
           />
           <div className="grid gap-6 lg:grid-cols-2">
             <ChartCard title="National goods exports" subtitle="Monthly · A$" source="Australian Bureau of Statistics, International Trade in Goods">
@@ -278,46 +280,6 @@ export default async function EconomyPage() {
             <ChartCard title="National goods imports" subtitle="Monthly · A$" source="Australian Bureau of Statistics, International Trade in Goods">
               <WhenVisible>
                 <EconomySeriesChart seriesKey="trade.import_value.total.aus" format="aud" ariaLabel="National goods imports" />
-              </WhenVisible>
-            </ChartCard>
-            <ChartCard title="WA goods exports" subtitle="Monthly · A$ — Australia's biggest exporting state" source="Australian Bureau of Statistics, International Trade in Goods">
-              <WhenVisible>
-                <EconomySeriesChart seriesKey="trade.export_value.total.wa" format="aud" ariaLabel="Western Australia goods exports" />
-              </WhenVisible>
-            </ChartCard>
-            <ChartCard title="QLD goods exports" subtitle="Monthly · A$" source="Australian Bureau of Statistics, International Trade in Goods">
-              <WhenVisible>
-                <EconomySeriesChart seriesKey="trade.export_value.total.qld" format="aud" ariaLabel="Queensland goods exports" />
-              </WhenVisible>
-            </ChartCard>
-          </div>
-        </section>
-
-        {/* ── State final demand ────────────────────────────────────── */}
-        <section className="space-y-4">
-          <SectionHeading
-            title="State final demand"
-            blurb="Quarterly expenditure-side activity by state (chain volume, seasonally adjusted). An expenditure proxy for state economic activity — not GDP: it excludes international and interstate trade."
-          />
-          <div className="grid gap-6 lg:grid-cols-2">
-            <ChartCard title="New South Wales" subtitle="Quarterly, chain volume, seasonally adjusted · A$" source="Australian Bureau of Statistics, National Accounts">
-              <WhenVisible>
-                <EconomySeriesChart seriesKey="gdp.state_final_demand_chain_volume.total.nsw.seasadj" format="aud" ariaLabel="New South Wales state final demand" />
-              </WhenVisible>
-            </ChartCard>
-            <ChartCard title="Victoria" subtitle="Quarterly, chain volume, seasonally adjusted · A$" source="Australian Bureau of Statistics, National Accounts">
-              <WhenVisible>
-                <EconomySeriesChart seriesKey="gdp.state_final_demand_chain_volume.total.vic.seasadj" format="aud" ariaLabel="Victoria state final demand" />
-              </WhenVisible>
-            </ChartCard>
-            <ChartCard title="Queensland" subtitle="Quarterly, chain volume, seasonally adjusted · A$" source="Australian Bureau of Statistics, National Accounts">
-              <WhenVisible>
-                <EconomySeriesChart seriesKey="gdp.state_final_demand_chain_volume.total.qld.seasadj" format="aud" ariaLabel="Queensland state final demand" />
-              </WhenVisible>
-            </ChartCard>
-            <ChartCard title="Western Australia" subtitle="Quarterly, chain volume, seasonally adjusted · A$" source="Australian Bureau of Statistics, National Accounts">
-              <WhenVisible>
-                <EconomySeriesChart seriesKey="gdp.state_final_demand_chain_volume.total.wa.seasadj" format="aud" ariaLabel="Western Australia state final demand" />
               </WhenVisible>
             </ChartCard>
           </div>

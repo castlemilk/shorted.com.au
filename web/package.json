@@ -82,6 +82,8 @@
       "^d3-geo$": "<rootDir>/src/test/__mocks__/d3-geo.js",
       "^d3-zoom$": "<rootDir>/src/test/__mocks__/d3-zoom.js",
       "^d3-selection$": "<rootDir>/src/test/__mocks__/d3-selection.js",
+      "^d3-scale$": "<rootDir>/src/test/__mocks__/d3-scale.js",
+      "^d3-scale-chromatic$": "<rootDir>/src/test/__mocks__/d3-scale-chromatic.js",
       "^topojson-client$": "<rootDir>/src/test/__mocks__/topojson-client.js",
       "^@/lib/utils$": "<rootDir>/src/@/lib/utils.ts",
       "^@/(.*)$": "<rootDir>/src/@/$1",
