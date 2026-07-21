@@ -5,6 +5,7 @@ import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { getEconomicSeries } from "~/app/actions/getEconomy";
 import type { GetEconomicSeriesResponse } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { EconomyBreadcrumbs } from "@/components/economy/economy-breadcrumbs";
+import { EconomyIcon, type EconomyIconName } from "@/components/economy/economy-icon";
 import { StateCharts } from "@/components/economy/state-charts-loader";
 import { StateLocatorMap } from "@/components/economy/state-locator-map-loader";
 import { hasLabour } from "@/components/economy/availability";
@@ -90,10 +91,21 @@ function fmtAud(v: number): string {
   return `${sign}$${a.toFixed(0)}`;
 }
 
-function Chip({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function Chip({
+  label,
+  value,
+  sub,
+  icon,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  icon?: EconomyIconName;
+}) {
   return (
     <div className="rounded-lg border border-border bg-card px-4 py-3">
-      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+      <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        {icon ? <EconomyIcon name={icon} size={16} /> : null}
         {label}
       </div>
       <div className="mt-1 font-mono text-2xl font-semibold tabular-nums text-foreground">
@@ -172,6 +184,7 @@ export default async function EconomyStatePage({ params }: PageProps) {
               <div className="mt-5 grid gap-3 sm:grid-cols-3">
                 {unemployment !== undefined ? (
                   <Chip
+                    icon="unemployment"
                     label="Unemployment"
                     value={`${unemployment.toFixed(1)}%`}
                     sub={`ABS, seas. adj. · ${latestPeriod(headline, unemploymentKey)}`}
@@ -179,6 +192,7 @@ export default async function EconomyStatePage({ params }: PageProps) {
                 ) : null}
                 {sfd !== undefined ? (
                   <Chip
+                    icon="sfd"
                     label="State final demand"
                     value={fmtAud(sfd)}
                     sub={`ABS, chain volume · ${latestPeriod(headline, sfdKey)}`}
@@ -186,6 +200,7 @@ export default async function EconomyStatePage({ params }: PageProps) {
                 ) : null}
                 {exportsAud !== undefined ? (
                   <Chip
+                    icon="exports"
                     label="Goods exports"
                     value={fmtAud(exportsAud)}
                     sub={`ABS · ${latestPeriod(headline, exportsKey)}`}

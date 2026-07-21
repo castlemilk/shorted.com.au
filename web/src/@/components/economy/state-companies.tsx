@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { StockLogo } from "@/components/reports/stock-logo";
+import { EconomyIcon } from "./economy-icon";
 import { listStateCompaniesClient } from "~/app/actions/client/getEconomyClient";
 import type { StateSlug } from "@/lib/economy/map-metrics";
 
@@ -27,7 +28,10 @@ export function StateCompanies({ state }: { state: StateSlug }) {
 
   return (
     <div data-testid="state-companies" className="min-w-0">
-      <h4 className="font-serif text-sm font-semibold">Operating here</h4>
+      <h4 className="flex items-center gap-1.5 font-serif text-sm font-semibold">
+        <EconomyIcon name="company-footprint" size={18} />
+        Operating here
+      </h4>
       <ul className="mt-2 space-y-1.5">
         {companies.map((c) => (
           <li key={c.stockCode} className="flex items-center gap-2 text-xs">
