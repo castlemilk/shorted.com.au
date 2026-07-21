@@ -38,29 +38,29 @@ func ingestRBA(ctx context.Context, c *absdata.Client) ([]Obs, error) {
 		if err != nil {
 			return nil, err
 		}
-		obs, err := parseRBASeries(rows, t.file, t.specs)
+		obs, err := parseRBASeries(rows, t.file, t.freq, t.specs)
 		if err != nil {
 			return nil, err
-		}
-		for i := range obs {
-			obs[i].Series.Frequency = t.freq
 		}
 		all = append(all, obs...)
 	}
 	return all, nil
 }
 
-func parseRBASeries(rows [][]string, file string, specs []rbaSpec) ([]Obs, error) {
+func parseRBASeries(rows [][]string, file, freq string, specs []rbaSpec) ([]Obs, error) {
 	var obs []Obs
 	for _, s := range specs {
 		col, dataStart, ok := absdata.FindRBASeries(rows, s.seriesID)
 		if !ok {
 			return nil, fmt.Errorf("RBA %s: series %s not found", file, s.seriesID)
 		}
+		// def is copied by value into every Obs below, but its Dimensions
+		// map is a reference shared across all of them — never mutate def
+		// (or def.Dimensions) after this point.
 		def := SeriesDef{
 			Topic: "rates", Metric: s.metric,
 			RegionType: "national", RegionCode: "aus", RegionName: "Australia",
-			Unit: s.unit, Frequency: "monthly", Adjustment: "original",
+			Unit: s.unit, Frequency: freq, Adjustment: "original",
 			SourceKey: "rba-key-indicators", Licence: absdata.RBALicence,
 			Dimensions: map[string]string{"rba_series_id": s.seriesID, "rba_table": file},
 		}
