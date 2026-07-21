@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -103,12 +102,4 @@ func envInt(name string, def int) int {
 		}
 	}
 	return def
-}
-
-// Stub replaced by Task 9. Returns an error so `-mode all` fails loudly
-// rather than silently skipping an unimplemented source.
-var errNotImplemented = fmt.Errorf("importer not implemented yet")
-
-func ingestPetroleum(ctx context.Context, c *absdata.Client) ([]Obs, error) {
-	return nil, errNotImplemented
 }
