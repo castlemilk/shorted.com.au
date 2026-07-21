@@ -72,7 +72,8 @@ func parseLabour(rows [][]string) ([]Obs, error) {
 	idx := absdata.ColIndex(rows[0])
 	var obs []Obs
 	for _, row := range rows[1:] {
-		m, ok := lfMeasures[absdata.Code(absdata.Cell(row, idx["MEASURE"]))]
+		measureCode := absdata.Code(absdata.Cell(row, idx["MEASURE"]))
+		m, ok := lfMeasures[measureCode]
 		if !ok {
 			continue
 		}
@@ -85,7 +86,11 @@ func parseLabour(rows [][]string) ([]Obs, error) {
 		if absdata.Code(absdata.Cell(row, idx["TSEST"])) != lfTsestSeasAdj {
 			continue
 		}
-		st, ok := lfStates[absdata.Code(absdata.Cell(row, idx["REGION"]))]
+		if absdata.Code(absdata.Cell(row, idx["FREQ"])) != lfFreqMonthly {
+			continue
+		}
+		regionCode := absdata.Code(absdata.Cell(row, idx["REGION"]))
+		st, ok := lfStates[regionCode]
 		if !ok {
 			continue
 		}
@@ -105,11 +110,11 @@ func parseLabour(rows [][]string) ([]Obs, error) {
 				SourceKey: "abs-labour-force", Licence: absdata.Licence,
 				Dimensions: map[string]string{
 					"abs_dataflow": lfFlow,
-					"measure":      absdata.Code(absdata.Cell(row, idx["MEASURE"])),
+					"measure":      measureCode,
 					"sex":          lfSexPersons,
 					"age":          lfAgeAll,
 					"tsest":        lfTsestSeasAdj,
-					"region":       st[0],
+					"region":       regionCode,
 				},
 			},
 			Period: period,

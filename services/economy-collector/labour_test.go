@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"math"
+	"testing"
+)
 
 // lfFixture mirrors the REAL ABS,LF(1.0.0) SDMX-CSV header (probed
 // 2026-07-21): the region dimension is named REGION (not STATE as guessed),
@@ -21,6 +24,14 @@ func lfFixture() [][]string {
 		{"ABS:LF(1.0.0)", "M13: Unemployment rate", "3: Persons", "1599: Total (age)", "30: Trend", "1: New South Wales", "M: Monthly", "2026-05", "4.3", "PCT: Percent", "0: Units", "", "", "1: One"},
 		// filtered: unmapped MEASURE (civilian population, not a tracked metric)
 		{"ABS:LF(1.0.0)", "M11: Civilian population", "3: Persons", "1599: Total (age)", "20: Seasonally Adjusted", "AUS: Australia", "M: Monthly", "2026-05", "22000", "NUM: Number", "3: Thousands", "", "", "1: One"},
+		// filtered: wrong FREQ (quarterly, not monthly) — LF publishes monthly
+		// only, but this guards against a future dataflow change silently
+		// double-counting a period under two frequencies (mirrors cpi.go)
+		{"ABS:LF(1.0.0)", "M13: Unemployment rate", "3: Persons", "1599: Total (age)", "20: Seasonally Adjusted", "1: New South Wales", "Q: Quarterly", "2026-Q2", "4.3", "PCT: Percent", "0: Units", "", "", "1: One"},
+		// filtered: unmapped REGION (a region code not in lfStates)
+		{"ABS:LF(1.0.0)", "M13: Unemployment rate", "3: Persons", "1599: Total (age)", "20: Seasonally Adjusted", "9: Other Territories", "M: Monthly", "2026-05", "5.0", "PCT: Percent", "0: Units", "", "", "1: One"},
+		// filtered: wrong AGE (15-24 age bracket, not total)
+		{"ABS:LF(1.0.0)", "M13: Unemployment rate", "3: Persons", "1524: 15-24 years", "20: Seasonally Adjusted", "1: New South Wales", "M: Monthly", "2026-05", "9.1", "PCT: Percent", "0: Units", "", "", "1: One"},
 	}
 }
 
@@ -30,7 +41,7 @@ func TestParseLabour(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(obs) != 2 {
-		t.Fatalf("want 2 obs (males/trend/unmapped rows filtered), got %d: %#v", len(obs), obs)
+		t.Fatalf("want 2 obs (males/trend/unmapped-measure/wrong-freq/unmapped-region/wrong-age rows filtered), got %d: %#v", len(obs), obs)
 	}
 	byKey := map[string]Obs{}
 	for _, o := range obs {
@@ -44,13 +55,21 @@ func TestParseLabour(t *testing.T) {
 	if nsw.Series.Frequency != "monthly" {
 		t.Fatalf("nsw unemployment frequency: want monthly, got %q", nsw.Series.Frequency)
 	}
+	// Dimensions["region"] must carry the RAW ABS region code ("1"), not the
+	// normalized RegionCode ("nsw") which already lives on SeriesDef.
+	if got := nsw.Series.Dimensions["region"]; got != "1" {
+		t.Fatalf("nsw unemployment dimensions[region]: want raw code %q, got %q", "1", got)
+	}
 
 	// employed persons scaled by UNIT_MULT 10^3
 	aus, ok := byKey["labour.employed_persons.total.aus.seasadj"]
 	if !ok {
 		t.Fatalf("aus employed persons missing: %#v", byKey)
 	}
-	if want := 14738839.14046; want-aus.Value > 1e-6 || aus.Value-want > 1e-6 {
+	if want := 14738839.14046; math.Abs(aus.Value-want) > 1e-6 {
 		t.Fatalf("employed persons wrong: got %v want %v", aus.Value, want)
+	}
+	if got := aus.Series.Dimensions["region"]; got != "AUS" {
+		t.Fatalf("aus employed persons dimensions[region]: want raw code %q, got %q", "AUS", got)
 	}
 }
