@@ -11,7 +11,7 @@ import {
   DatasetStructuredData,
   ItemListStructuredData,
 } from "~/@/components/seo/enhanced-structured-data";
-import { getScan, SCANS, SCAN_SLUGS } from "~/@/lib/scans/registry";
+import { getScan, SCANS } from "~/@/lib/scans/registry";
 import { getScanResults } from "~/app/actions/getScanResults";
 
 interface PageProps {
@@ -21,14 +21,16 @@ interface PageProps {
 // NOTE: no loading.tsx anywhere on this route on purpose — without a
 // streaming boundary the page resolves before the response commits, so
 // notFound() below yields a real HTTP 404 for unknown scan slugs.
-// ISR at 15min: deploys prerender the no-data shell (skipForBuild) and a
-// short page TTL caps how long it serves; the data layer stays 1h-cached.
-export const revalidate = 900;
-export const dynamicParams = true;
-
-export function generateStaticParams() {
-  return SCAN_SLUGS.map((slug) => ({ slug }));
-}
+//
+// force-dynamic (matching /market/[date] and /reports/weekly/[slug]): the
+// backend is unreachable at build time, where skipForBuild() forces
+// getScanResults() → null. Static prerendering therefore baked a
+// "Scan data is temporarily unavailable" shell into every scan page that was
+// served until the first *successful* ISR revalidation — i.e. the first
+// visitor after each deploy saw an empty page. Rendering per-request instead
+// always fetches real data at runtime (skipForBuild() is false off the build
+// phase); getScanResults()'s own 1h unstable_cache keeps the DB cost down.
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
