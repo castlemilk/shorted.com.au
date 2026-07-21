@@ -44,7 +44,15 @@ export async function GET(request: NextRequest) {
   // just touching the stale build shell.
   for (const path of STATIC_PAGES) revalidatePath(path);
 
-  const origin = request.nextUrl.origin;
+  // Re-prime against the INTERNAL deployment URL, never the public host. The
+  // public shorted.com.au sits behind Cloudflare bot protection, which 403s any
+  // server-side fetch (even with a browser UA — verified). VERCEL_URL is the
+  // deployment's own *.vercel.app origin, reached directly (no Cloudflare), so
+  // the self-fetch actually triggers regeneration. Falls back to the request
+  // origin only in local dev (where VERCEL_URL is unset and there is no edge).
+  const origin = process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : request.nextUrl.origin;
   await Promise.allSettled(
     STATIC_PAGES.map(async (path) => {
       const pageStart = Date.now();
