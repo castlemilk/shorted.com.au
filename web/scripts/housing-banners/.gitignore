@@ -1,0 +1,3 @@
+# Generated full-res backgrounds, toned variants, contact sheets, mocks, run summaries.
+# The committed shipped assets live in web/public/housing-banners/ (baked AVIF).
+out/
