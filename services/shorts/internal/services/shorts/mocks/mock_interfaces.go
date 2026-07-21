@@ -12,6 +12,7 @@ package mocks
 import (
 	context "context"
 	reflect "reflect"
+	time "time"
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
@@ -301,6 +302,21 @@ func (m *MockShortsStore) GetDividendHistory(stockCode string, years int32) ([]*
 func (mr *MockShortsStoreMockRecorder) GetDividendHistory(stockCode, years any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDividendHistory", reflect.TypeOf((*MockShortsStore)(nil).GetDividendHistory), stockCode, years)
+}
+
+// GetEconomicSeries mocks base method.
+func (m *MockShortsStore) GetEconomicSeries(seriesKeys []string, startPeriod time.Time) ([]*shorts.EconomicSeriesDataRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetEconomicSeries", seriesKeys, startPeriod)
+	ret0, _ := ret[0].([]*shorts.EconomicSeriesDataRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetEconomicSeries indicates an expected call of GetEconomicSeries.
+func (mr *MockShortsStoreMockRecorder) GetEconomicSeries(seriesKeys, startPeriod any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEconomicSeries", reflect.TypeOf((*MockShortsStore)(nil).GetEconomicSeries), seriesKeys, startPeriod)
 }
 
 // GetEditorialTake mocks base method.
@@ -825,6 +841,21 @@ func (mr *MockShortsStoreMockRecorder) ListBroadcasts(limit any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListBroadcasts", reflect.TypeOf((*MockShortsStore)(nil).ListBroadcasts), limit)
 }
 
+// ListEconomicSeries mocks base method.
+func (m *MockShortsStore) ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32) ([]*shorts.EconomicSeriesRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListEconomicSeries", topic, metric, regionType, regionCode, product, limit)
+	ret0, _ := ret[0].([]*shorts.EconomicSeriesRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListEconomicSeries indicates an expected call of ListEconomicSeries.
+func (mr *MockShortsStoreMockRecorder) ListEconomicSeries(topic, metric, regionType, regionCode, product, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListEconomicSeries", reflect.TypeOf((*MockShortsStore)(nil).ListEconomicSeries), topic, metric, regionType, regionCode, product, limit)
+}
+
 // ListEditorialTakes mocks base method.
 func (m *MockShortsStore) ListEditorialTakes(limit, offset int32, stockCode string) ([]*shorts.EditorialTake, int, error) {
 	m.ctrl.T.Helper()
@@ -1347,6 +1378,20 @@ func (mr *MockCacheMockRecorder) GetDividendHistoryKey(stockCode, years any) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDividendHistoryKey", reflect.TypeOf((*MockCache)(nil).GetDividendHistoryKey), stockCode, years)
 }
 
+// GetEconomicSeriesKey mocks base method.
+func (m *MockCache) GetEconomicSeriesKey(seriesKeys []string, startPeriod string) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetEconomicSeriesKey", seriesKeys, startPeriod)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetEconomicSeriesKey indicates an expected call of GetEconomicSeriesKey.
+func (mr *MockCacheMockRecorder) GetEconomicSeriesKey(seriesKeys, startPeriod any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEconomicSeriesKey", reflect.TypeOf((*MockCache)(nil).GetEconomicSeriesKey), seriesKeys, startPeriod)
+}
+
 // GetEventTimelineKey mocks base method.
 func (m *MockCache) GetEventTimelineKey(stockCode string, daysBack, limit int32) string {
 	m.ctrl.T.Helper()
@@ -1724,6 +1769,20 @@ func (m *MockCache) GetTopShortsKey(period string, limit, offset int32) string {
 func (mr *MockCacheMockRecorder) GetTopShortsKey(period, limit, offset any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTopShortsKey", reflect.TypeOf((*MockCache)(nil).GetTopShortsKey), period, limit, offset)
+}
+
+// ListEconomicSeriesKey mocks base method.
+func (m *MockCache) ListEconomicSeriesKey(topic, metric, regionType, regionCode, product string, limit int32) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListEconomicSeriesKey", topic, metric, regionType, regionCode, product, limit)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ListEconomicSeriesKey indicates an expected call of ListEconomicSeriesKey.
+func (mr *MockCacheMockRecorder) ListEconomicSeriesKey(topic, metric, regionType, regionCode, product, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListEconomicSeriesKey", reflect.TypeOf((*MockCache)(nil).ListEconomicSeriesKey), topic, metric, regionType, regionCode, product, limit)
 }
 
 // Set mocks base method.
