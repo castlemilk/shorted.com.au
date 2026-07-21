@@ -109,9 +109,17 @@ func envInt(name string, def int) int {
 // loudly rather than silently skipping an unimplemented source.
 var errNotImplemented = fmt.Errorf("importer not implemented yet")
 
-func ingestCPI(ctx context.Context, c *absdata.Client) ([]Obs, error)           { return nil, errNotImplemented }
-func ingestLabour(ctx context.Context, c *absdata.Client) ([]Obs, error)        { return nil, errNotImplemented }
-func ingestTradeByState(ctx context.Context, c *absdata.Client) ([]Obs, error)  { return nil, errNotImplemented }
-func ingestStateAccounts(ctx context.Context, c *absdata.Client) ([]Obs, error) { return nil, errNotImplemented }
-func ingestPetroleum(ctx context.Context, c *absdata.Client) ([]Obs, error)     { return nil, errNotImplemented }
-func ingestRBA(ctx context.Context, c *absdata.Client) ([]Obs, error)           { return nil, errNotImplemented }
+func ingestCPI(ctx context.Context, c *absdata.Client) ([]Obs, error) { return nil, errNotImplemented }
+func ingestLabour(ctx context.Context, c *absdata.Client) ([]Obs, error) {
+	return nil, errNotImplemented
+}
+func ingestTradeByState(ctx context.Context, c *absdata.Client) ([]Obs, error) {
+	return nil, errNotImplemented
+}
+func ingestStateAccounts(ctx context.Context, c *absdata.Client) ([]Obs, error) {
+	return nil, errNotImplemented
+}
+func ingestPetroleum(ctx context.Context, c *absdata.Client) ([]Obs, error) {
+	return nil, errNotImplemented
+}
+func ingestRBA(ctx context.Context, c *absdata.Client) ([]Obs, error) { return nil, errNotImplemented }
