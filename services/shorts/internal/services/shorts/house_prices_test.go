@@ -227,6 +227,76 @@ func TestListAddressPriceDrops_FlagEnabled_ReturnsRanked(t *testing.T) {
 	}
 }
 
+// TestGetSuburbProfile_MapsBanner asserts the editorial banner (archetype,
+// blurb, landmarks) threads from the store row through to the response the
+// same way council/similar already do, and that an empty bg_key defaults to
+// the archetype so the frontend always has a usable background asset key.
+func TestGetSuburbProfile_MapsBanner(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockStore := mocks.NewMockShortsStore(ctrl)
+
+	mockStore.EXPECT().GetSuburbProfile("21063110123").Return(&shortsstore.SuburbProfileRow{
+		Summary: shortsstore.SuburbSummaryRow{
+			SALCode: "21063110123", SALName: "Richmond", StateCode: "VIC",
+		},
+		BannerArchetype: "inner-urban-terrace",
+		BannerBlurb:     "Warehouse conversions and laneway cafes minutes from the CBD.",
+		BannerLandmarks: []byte(`[{"name":"MCG","kind":"landmark"},{"name":"Bridge Road","kind":"shopping"}]`),
+		BannerBgKey:     "",
+		BannerBgUrl:     "",
+	}, nil)
+
+	srv := newTestServer(t, mockStore)
+	resp, err := srv.GetSuburbProfile(context.Background(),
+		connect.NewRequest(&shortsv1alpha1.GetSuburbProfileRequest{SalCode: "21063110123"}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	banner := resp.Msg.Banner
+	if banner == nil {
+		t.Fatalf("want banner set, got nil")
+	}
+	if banner.Archetype != "inner-urban-terrace" {
+		t.Fatalf("want archetype mapped, got %q", banner.Archetype)
+	}
+	if banner.Blurb != "Warehouse conversions and laneway cafes minutes from the CBD." {
+		t.Fatalf("want blurb mapped, got %q", banner.Blurb)
+	}
+	if banner.BgKey != "inner-urban-terrace" {
+		t.Fatalf("want bg_key to default to archetype when empty, got %q", banner.BgKey)
+	}
+	if len(banner.Landmarks) != 2 || banner.Landmarks[0].Name != "MCG" || banner.Landmarks[0].Kind != "landmark" {
+		t.Fatalf("want 2 landmarks mapped, got %+v", banner.Landmarks)
+	}
+}
+
+// TestGetSuburbProfile_BannerBgKeyExplicit asserts an explicit bg_key from the
+// store is preserved rather than overwritten by the archetype default.
+func TestGetSuburbProfile_BannerBgKeyExplicit(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockStore := mocks.NewMockShortsStore(ctrl)
+
+	mockStore.EXPECT().GetSuburbProfile("21063110123").Return(&shortsstore.SuburbProfileRow{
+		Summary: shortsstore.SuburbSummaryRow{
+			SALCode: "21063110123", SALName: "Richmond", StateCode: "VIC",
+		},
+		BannerArchetype: "inner-urban-terrace",
+		BannerBgKey:     "coastal-beach",
+	}, nil)
+
+	srv := newTestServer(t, mockStore)
+	resp, err := srv.GetSuburbProfile(context.Background(),
+		connect.NewRequest(&shortsv1alpha1.GetSuburbProfileRequest{SalCode: "21063110123"}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Msg.Banner.BgKey != "coastal-beach" {
+		t.Fatalf("want explicit bg_key preserved, got %q", resp.Msg.Banner.BgKey)
+	}
+}
+
 // TestListAddressPriceDrops_SortThreadsThrough asserts the sort selector reaches
 // the store (whitelisted there into an ORDER BY), so the board can rank by
 // biggest $ cut or recency, not just percentage.

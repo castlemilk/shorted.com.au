@@ -213,6 +213,14 @@ type SuburbProfileRow struct {
 	LgaAssetRenewalRatio float64
 	LgaFinSource         string
 	LgaFinYear           string
+	// editorial banner header (archetype, blurb, landmarks, background) — the
+	// landmarks are left as raw jsonb bytes for the service layer to unmarshal
+	// into proto SuburbLandmark values.
+	BannerArchetype string
+	BannerBlurb     string
+	BannerLandmarks []byte
+	BannerBgKey     string
+	BannerBgUrl     string
 	// most-similar suburbs (feature-vector kNN — the knowledge-graph "similar_to")
 	Similar []SimilarSuburbRow
 }
@@ -357,7 +365,10 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		       COALESCE(lg.lga_code24,''), COALESCE(lg.lga_name,''), COALESCE(lg.state_code,''), COALESCE(lg.area_sqkm,0), COALESCE(lg.population,0),
 		       COALESCE(lg.fed_fag_aud,0), COALESCE(lg.fed_fag_year,''),
 		       COALESCE(lg.avg_rates,0), COALESCE(lg.op_surplus_ratio,0), COALESCE(lg.asset_renewal_ratio,0),
-		       COALESCE(lg.fin_source,''), COALESCE(lg.fin_year,'')
+		       COALESCE(lg.fin_source,''), COALESCE(lg.fin_year,''),
+		       COALESCE(d.banner_archetype,''), COALESCE(d.banner_blurb,''),
+		       COALESCE(d.banner_landmarks, '[]'::jsonb),
+		       COALESCE(d.banner_bg_key,''), COALESCE(d.banner_bg_url,'')
 		FROM suburb_demographics d
 		LEFT JOIN house_price_regions r ON r.sal_code = d.sal_code AND r.region_type = 'suburb'
 		LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
@@ -400,6 +411,7 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		&p.LgaCode, &p.LgaName, &p.LgaState, &p.LgaAreaSqkm, &p.LgaPopulation,
 		&p.LgaFagAud, &p.LgaFagYear,
 		&p.LgaAvgRates, &p.LgaOpSurplusRatio, &p.LgaAssetRenewalRatio, &p.LgaFinSource, &p.LgaFinYear,
+		&p.BannerArchetype, &p.BannerBlurb, &p.BannerLandmarks, &p.BannerBgKey, &p.BannerBgUrl,
 	); err != nil {
 		return nil, err
 	}
