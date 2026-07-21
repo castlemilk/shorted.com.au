@@ -40,6 +40,8 @@ func upsertObservations(ctx context.Context, pool *pgxpool.Pool, obs []Obs) (int
 			(series_key, topic, metric, product, region_type, region_code,
 			 region_name, unit, frequency, adjustment, dimensions, source_key, licence)
 		VALUES ($1,$2,$3,NULLIF($4,''),$5,$6,$7,$8,$9,$10,$11,$12,$13)
+		-- Identity fields (topic/metric/product/region/source_key/licence/frequency)
+		-- are deliberately immutable on re-run; only display/metadata fields refresh.
 		ON CONFLICT (series_key) DO UPDATE SET
 			region_name = EXCLUDED.region_name, unit = EXCLUDED.unit,
 			dimensions = EXCLUDED.dimensions, updated_at = now()
@@ -79,12 +81,14 @@ func upsertObservations(ctx context.Context, pool *pgxpool.Pool, obs []Obs) (int
 	for range obs {
 		if _, err := br.Exec(); err != nil {
 			_ = br.Close()
-			return n, err
+			// tx rolls back on return (deferred), so nothing persisted —
+			// report 0 rather than a partial count that implies otherwise.
+			return 0, err
 		}
 		n++
 	}
 	if err := br.Close(); err != nil {
-		return n, err
+		return 0, err
 	}
 	return n, tx.Commit(ctx)
 }

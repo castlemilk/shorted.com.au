@@ -20,3 +20,20 @@ func TestBuildKey(t *testing.T) {
 		}
 	}
 }
+
+func TestSlug(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"Crude materials, inedible, except fuels", "crude_materials_inedible_except_fuels"},
+		{"  Jet fuel ", "jet_fuel"},
+		{"--", ""},
+		{"A&B", "a_b"},
+	}
+	for _, c := range cases {
+		if got := slug(c.in); got != c.want {
+			t.Fatalf("slug(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
