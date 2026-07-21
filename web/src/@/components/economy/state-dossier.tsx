@@ -9,7 +9,6 @@ import {
   METRIC_BY_KEY,
   STATE_NAMES,
   STATE_SLUGS,
-  type EconomyMapMetricKey,
   type StateSlug,
 } from "@/lib/economy/map-metrics";
 
@@ -90,11 +89,9 @@ const HAS_DIESEL: StateSlug[] = STATE_SLUGS.filter(
 
 export function StateDossier({
   state,
-  metricKey: _metricKey,
   onClose,
 }: {
   state: string;
-  metricKey: EconomyMapMetricKey;
   onClose: () => void;
 }) {
   const slug = state as StateSlug;

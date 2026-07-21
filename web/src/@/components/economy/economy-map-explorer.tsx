@@ -344,7 +344,7 @@ export function EconomyMapExplorer() {
       </div>
 
       {selected && (
-        <StateDossier state={selected} metricKey={metricKey} onClose={() => selectState(null)} />
+        <StateDossier state={selected} onClose={() => selectState(null)} />
       )}
     </div>
   );
