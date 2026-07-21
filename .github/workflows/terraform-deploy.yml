@@ -1044,7 +1044,8 @@ jobs:
               -f /migrations/000074_add_alert_monitors.up.sql \
               -f /migrations/000075_add_industry_intelligence_sources.up.sql \
               -f /migrations/000081_add_economic_series.up.sql \
-              -f /migrations/000082_extend_source_kind_check.up.sql
+              -f /migrations/000082_extend_source_kind_check.up.sql \
+              -f /migrations/000083_add_state_exposure.up.sql
 
             run_psql -c "CREATE TABLE IF NOT EXISTS schema_migrations (version bigint NOT NULL PRIMARY KEY, dirty boolean NOT NULL); DELETE FROM schema_migrations; INSERT INTO schema_migrations (version, dirty) VALUES (75, false);"
 

@@ -33,7 +33,9 @@ export type EconomyMapMetricKey =
   | "exports"
   | "imports"
   | "trade_balance"
-  | "diesel_sales";
+  | "diesel_sales"
+  | "company_footprint"
+  | "local_short_interest";
 
 /** lowercase collector slugs ↔ uppercase state abbreviations (NOT the real numeric topojson feature id — see file header). */
 export const STATE_SLUGS = ["nsw", "vic", "qld", "sa", "wa", "tas", "nt", "act"] as const;
@@ -59,70 +61,108 @@ export const fromTopoFeatureId = (topoId: string): string => {
   return abbr;
 };
 
-export interface EconomyMapMetric {
+interface EconomyMapMetricBase {
   key: EconomyMapMetricKey;
   label: string;
   legendLabel: string;
+  format: "percent" | "aud" | "megalitres";
+  palette: "continuous" | "diverging";
+  higherIsBad?: boolean;
+}
+
+/** Time-series-fed metric — colours the map from GetEconomicSeries observations. */
+export interface EconomySeriesMetric extends EconomyMapMetricBase {
+  kind: "series";
   /** "{state}" placeholder — e.g. "labour.unemployment_rate.total.{state}.seasadj" */
   seriesKeyTemplate: string;
   /** second template for derived "balance" metrics (imports side) */
   secondaryTemplate?: string;
-  format: "percent" | "aud" | "megalitres";
-  palette: "continuous" | "diverging";
-  higherIsBad?: boolean;
   derived?: "yoy" | "balance";
   /** states with no upstream series — grey/hatch fill + tooltip note */
   unavailableStates?: StateSlug[];
   unavailableNote?: string;
 }
 
+/**
+ * Aggregate-fed metric — colours the map from a single
+ * GetStateCompanyAggregates call (one point per state, no history →
+ * no sparkline / no y/y in the tooltip).
+ */
+export interface EconomyAggregateMetric extends EconomyMapMetricBase {
+  kind: "aggregate";
+  /** which StateCompanyAggregate field carries the value */
+  aggField: "exposureWeightedMarketCap" | "exposureWeightedShortPercent";
+}
+
+export type EconomyMapMetric = EconomySeriesMetric | EconomyAggregateMetric;
+
+/** kind:"series" spread helper so the 8 original entries stay terse. */
+const series = (m: Omit<EconomySeriesMetric, "kind">): EconomySeriesMetric => ({
+  kind: "series",
+  ...m,
+});
+
 export const ECONOMY_MAP_METRICS: EconomyMapMetric[] = [
-  {
+  series({
     key: "unemployment", label: "Unemployment rate", legendLabel: "Unemployment rate (seas. adj.)",
     seriesKeyTemplate: "labour.unemployment_rate.total.{state}.seasadj",
     format: "percent", palette: "continuous", higherIsBad: true,
     unavailableStates: ["nt", "act"],
     unavailableNote: "ABS does not publish seasonally adjusted labour force series for this territory",
-  },
-  {
+  }),
+  series({
     key: "participation", label: "Participation rate", legendLabel: "Participation rate (seas. adj.)",
     seriesKeyTemplate: "labour.participation_rate.total.{state}.seasadj",
     format: "percent", palette: "continuous",
     unavailableStates: ["nt", "act"],
     unavailableNote: "ABS does not publish seasonally adjusted labour force series for this territory",
-  },
-  {
+  }),
+  series({
     key: "sfd", label: "State final demand", legendLabel: "State final demand (quarterly, chain volume)",
     seriesKeyTemplate: "gdp.state_final_demand_chain_volume.total.{state}.seasadj",
     format: "aud", palette: "continuous",
-  },
-  {
+  }),
+  series({
     key: "sfd_growth", label: "SFD growth (YoY)", legendLabel: "State final demand, year-on-year",
     seriesKeyTemplate: "gdp.state_final_demand_chain_volume.total.{state}.seasadj",
     format: "percent", palette: "diverging", derived: "yoy",
-  },
-  {
+  }),
+  series({
     key: "exports", label: "Goods exports", legendLabel: "Goods exports (monthly)",
     seriesKeyTemplate: "trade.export_value.total.{state}",
     format: "aud", palette: "continuous",
-  },
-  {
+  }),
+  series({
     key: "imports", label: "Goods imports", legendLabel: "Goods imports (monthly)",
     seriesKeyTemplate: "trade.import_value.total.{state}",
     format: "aud", palette: "continuous",
-  },
-  {
+  }),
+  series({
     key: "trade_balance", label: "Trade balance", legendLabel: "Goods trade balance (exports − imports)",
     seriesKeyTemplate: "trade.export_value.total.{state}",
     secondaryTemplate: "trade.import_value.total.{state}",
     format: "aud", palette: "diverging", derived: "balance",
-  },
-  {
+  }),
+  series({
     key: "diesel_sales", label: "Diesel sales", legendLabel: "Diesel sales (monthly)",
     seriesKeyTemplate: "petroleum.sales.diesel_oil_total.{state}",
     format: "megalitres", palette: "continuous",
     unavailableStates: ["act"],
     unavailableNote: "DCCEEW folds ACT fuel sales into NSW",
+  }),
+  {
+    kind: "aggregate",
+    key: "company_footprint", label: "Company footprint",
+    legendLabel: "ASX company footprint (exposure-weighted market cap)",
+    format: "aud", palette: "continuous",
+    aggField: "exposureWeightedMarketCap",
+  },
+  {
+    kind: "aggregate",
+    key: "local_short_interest", label: "Local short interest",
+    legendLabel: "Short interest of locally-operating companies (exposure-weighted)",
+    format: "percent", palette: "continuous", higherIsBad: true,
+    aggField: "exposureWeightedShortPercent",
   },
 ];
 
@@ -130,8 +170,12 @@ export const METRIC_BY_KEY = Object.fromEntries(
   ECONOMY_MAP_METRICS.map((m) => [m.key, m]),
 ) as Record<EconomyMapMetricKey, EconomyMapMetric>;
 
-/** All RPC series keys a metric needs (primary + secondary), skipping unavailable states. */
-export function seriesKeysFor(metric: EconomyMapMetric): string[] {
+/**
+ * All RPC series keys a metric needs (primary + secondary), skipping
+ * unavailable states. Takes EconomySeriesMetric ONLY — aggregate metrics have
+ * no series templates, so passing one is a compile error by design.
+ */
+export function seriesKeysFor(metric: EconomySeriesMetric): string[] {
   const states = STATE_SLUGS.filter((s) => !metric.unavailableStates?.includes(s));
   const keys = states.map((s) => metric.seriesKeyTemplate.replace("{state}", s));
   if (metric.secondaryTemplate) {
@@ -175,7 +219,7 @@ export function yoyPct(obs: Obs[]): number | null {
  * ":export"/":import" (the explorer builds them that way from the two templates).
  */
 export function buildStateValues(
-  metric: EconomyMapMetric,
+  metric: EconomySeriesMetric,
   byKey: Record<string, StateSeries>,
 ): Map<string, StateValue> {
   const out = new Map<string, StateValue>();

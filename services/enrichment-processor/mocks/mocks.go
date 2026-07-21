@@ -298,6 +298,31 @@ func (mr *MockEnrichmentStoreMockRecorder) UpdateKeyPeopleIfEmpty(stockCode, key
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateKeyPeopleIfEmpty", reflect.TypeOf((*MockEnrichmentStore)(nil).UpdateKeyPeopleIfEmpty), stockCode, keyPeopleJSON)
 }
 
+func (m *MockEnrichmentStore) GetStocksForStateExposure(limit int) ([]enrichment.StateExposureCandidate, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStocksForStateExposure", limit)
+	ret0, _ := ret[0].([]enrichment.StateExposureCandidate)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (mr *MockEnrichmentStoreMockRecorder) GetStocksForStateExposure(limit interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStocksForStateExposure", reflect.TypeOf((*MockEnrichmentStore)(nil).GetStocksForStateExposure), limit)
+}
+
+func (m *MockEnrichmentStore) UpdateStateExposure(stockCode string, exposureJSON []byte) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateStateExposure", stockCode, exposureJSON)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (mr *MockEnrichmentStoreMockRecorder) UpdateStateExposure(stockCode, exposureJSON interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStateExposure", reflect.TypeOf((*MockEnrichmentStore)(nil).UpdateStateExposure), stockCode, exposureJSON)
+}
+
 // MockGPTClient is a mock of GPTClient interface
 type MockGPTClient struct {
 	ctrl     *gomock.Controller

@@ -3,7 +3,9 @@ import { createClient } from "@connectrpc/connect";
 import {
   ShortedStocksService,
   type GetEconomicSeriesResponse,
+  type GetStateCompanyAggregatesResponse,
   type ListEconomicSeriesResponse,
+  type ListStateCompaniesResponse,
 } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { SHORTS_API_URL } from "../config";
 import { retryWithBackoff } from "@/lib/retry";
@@ -27,6 +29,57 @@ export async function getEconomicSeriesClient(
   try {
     const result = await retryWithBackoff(
       () => client.getEconomicSeries({ seriesKeys }),
+      RETRY_OPTIONS,
+    );
+    setSessionCached(cacheKey, result);
+    return result;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Browser-side per-state company-exposure aggregates (one call = all states). */
+export async function getStateCompanyAggregatesClient(): Promise<
+  GetStateCompanyAggregatesResponse | undefined
+> {
+  const cacheKey = "stateCompanyAggregates";
+  const cached = getSessionCached<GetStateCompanyAggregatesResponse>(cacheKey);
+  if (cached) return cached;
+
+  const transport = createConnectTransport({
+    baseUrl: typeof window !== "undefined" ? "" : SHORTS_API_URL,
+  });
+  const client = createClient(ShortedStocksService, transport);
+
+  try {
+    const result = await retryWithBackoff(
+      () => client.getStateCompanyAggregates({}),
+      RETRY_OPTIONS,
+    );
+    setSessionCached(cacheKey, result);
+    return result;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Browser-side top companies operating in a state (dossier "Operating here"). */
+export async function listStateCompaniesClient(
+  state: string,
+  limit = 8,
+): Promise<ListStateCompaniesResponse | undefined> {
+  const cacheKey = `stateCompanies:${state}:${limit}`;
+  const cached = getSessionCached<ListStateCompaniesResponse>(cacheKey);
+  if (cached) return cached;
+
+  const transport = createConnectTransport({
+    baseUrl: typeof window !== "undefined" ? "" : SHORTS_API_URL,
+  });
+  const client = createClient(ShortedStocksService, transport);
+
+  try {
+    const result = await retryWithBackoff(
+      () => client.listStateCompanies({ state, limit }),
       RETRY_OPTIONS,
     );
     setSessionCached(cacheKey, result);

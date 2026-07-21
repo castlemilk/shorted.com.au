@@ -3,7 +3,9 @@ import { createClient } from "@connectrpc/connect";
 import {
   ShortedStocksService,
   type GetEconomicSeriesResponse,
+  type GetStateCompanyAggregatesResponse,
   type ListEconomicSeriesResponse,
+  type ListStateCompaniesResponse,
 } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { cache } from "react";
 import {
@@ -57,6 +59,33 @@ export const listEconomicSeries = cache(
 
       const client = createCacheableEconomyClient();
       return client.listEconomicSeries({ topic, metric, regionType, limit: 500 });
+    },
+  ),
+);
+
+/** Per-state company-exposure aggregates (all states in one response). */
+export const getStateCompanyAggregates = cache(
+  withRetryAndNotFound(
+    async (): Promise<GetStateCompanyAggregatesResponse | undefined> => {
+      if (skipForBuild()) return undefined;
+
+      const client = createCacheableEconomyClient();
+      return client.getStateCompanyAggregates({});
+    },
+  ),
+);
+
+/** Top companies operating in a state (weight-desc, dossier "Operating here"). */
+export const listStateCompanies = cache(
+  withRetryAndNotFound(
+    async (
+      state: string,
+      limit: number = 8, // eslint-disable-line @typescript-eslint/no-inferrable-types
+    ): Promise<ListStateCompaniesResponse | undefined> => {
+      if (skipForBuild()) return undefined;
+
+      const client = createCacheableEconomyClient();
+      return client.listStateCompanies({ state, limit });
     },
   ),
 );

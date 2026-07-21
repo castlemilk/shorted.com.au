@@ -718,6 +718,24 @@ service ShortedStocksService {
     };
   }
 
+  // List ASX-listed companies with operations-weighted exposure to a state.
+  rpc ListStateCompanies (ListStateCompaniesRequest) returns (ListStateCompaniesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List State Companies",
+      description: "ASX-listed companies operating in a given Australian state, ranked by exposure-weighted market cap. Exposure is LLM-estimated from company disclosures (operations/revenue split), with a registered-office fallback for companies not yet enriched."
+    };
+  }
+
+  // Exposure-weighted market cap and short interest aggregates by state.
+  rpc GetStateCompanyAggregates (GetStateCompanyAggregatesRequest) returns (GetStateCompanyAggregatesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get State Company Aggregates",
+      description: "Per-state aggregates over the company state-exposure layer: company count (weight >= 0.2), exposure-weighted market cap, and exposure-weighted short interest. Excludes region=international."
+    };
+  }
+
   // ==================== Corporate Tax (Influence layer) ====================
 
   // Get an ASX-listed entity's annual corporate-tax profile (ATO transparency data).
@@ -2490,4 +2508,40 @@ message GetEconomicSeriesRequest {
 
 message GetEconomicSeriesResponse {
   repeated EconomicSeriesData series = 1;
+}
+
+// ── Company state exposure (operations-weighted geographic footprint) ───────
+
+message ListStateCompaniesRequest {
+  string state = 1; // nsw|vic|qld|sa|wa|tas|nt|act (lowercase)
+  int32 limit = 2;  // default 10, max 50
+}
+
+message StateCompany {
+  string stock_code = 1;
+  string company_name = 2;
+  string industry = 3;
+  double weight = 4;         // 0-1 share of operations attributed to this state
+  string basis = 5;          // short human-readable basis, e.g. "Pilbara iron ore operations"
+  double market_cap = 6;
+  double short_percent = 7;  // 0 when no current short data
+  string logo_url = 8;
+  string source = 9;         // 'llm' | 'hq_fallback'
+}
+
+message ListStateCompaniesResponse {
+  repeated StateCompany companies = 1;
+}
+
+message GetStateCompanyAggregatesRequest {}
+
+message StateCompanyAggregate {
+  string state = 1;
+  int32 company_count = 2;                        // weight >= 0.2, excludes region=international
+  double exposure_weighted_market_cap = 3;
+  double exposure_weighted_short_percent = 4;      // sum(w*mc*short)/sum(w*mc) over non-null-short rows
+}
+
+message GetStateCompanyAggregatesResponse {
+  repeated StateCompanyAggregate aggregates = 1;
 }

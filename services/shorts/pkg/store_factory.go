@@ -172,6 +172,29 @@ func (a *enrichmentStoreAdapter) UpdateKeyPeopleIfEmpty(stockCode string, keyPeo
 	return a.store.UpdateKeyPeopleIfEmpty(stockCode, keyPeopleJSON)
 }
 
+func (a *enrichmentStoreAdapter) GetStocksForStateExposure(limit int) ([]enrichment.StateExposureCandidate, error) {
+	rows, err := a.store.GetStocksForStateExposure(limit)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]enrichment.StateExposureCandidate, len(rows))
+	for i, row := range rows {
+		result[i] = enrichment.StateExposureCandidate{
+			StockCode:   row.StockCode,
+			CompanyName: row.CompanyName,
+			Industry:    row.Industry,
+			Sector:      row.Sector,
+			Summary:     row.Summary,
+			Description: row.Description,
+		}
+	}
+	return result, nil
+}
+
+func (a *enrichmentStoreAdapter) UpdateStateExposure(stockCode string, exposureJSON []byte) error {
+	return a.store.UpdateStateExposure(stockCode, exposureJSON)
+}
+
 // Explicit interface check to ensure enrichmentStoreAdapter implements enrichment.EnrichmentStore
 var _ enrichment.EnrichmentStore = (*enrichmentStoreAdapter)(nil)
 

@@ -273,6 +273,16 @@ func (c *MemoryCache) GetEconomicSeriesKey(seriesKeys []string, startPeriod stri
 	return c.generateKey("economic_series_get", seriesKeys, startPeriod)
 }
 
+// ListStateCompaniesKey builds a cache key for ListStateCompanies responses.
+func (c *MemoryCache) ListStateCompaniesKey(state string, limit int32) string {
+	return c.generateKey("state_companies_list", state, limit)
+}
+
+// GetStateCompanyAggregatesKey builds a cache key for GetStateCompanyAggregates responses.
+func (c *MemoryCache) GetStateCompanyAggregatesKey() string {
+	return c.generateKey("state_company_aggregates")
+}
+
 // GetEventTimelineKey builds a cache key for GetEventTimeline responses.
 func (c *MemoryCache) GetEventTimelineKey(stockCode string, daysBack, limit int32) string {
 	return c.generateKey("event_timeline", stockCode, daysBack, limit)

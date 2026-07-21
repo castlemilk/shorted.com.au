@@ -208,6 +208,12 @@ const (
 	// ShortedStocksServiceGetEconomicSeriesProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetEconomicSeries RPC.
 	ShortedStocksServiceGetEconomicSeriesProcedure = "/shorts.v1alpha1.ShortedStocksService/GetEconomicSeries"
+	// ShortedStocksServiceListStateCompaniesProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListStateCompanies RPC.
+	ShortedStocksServiceListStateCompaniesProcedure = "/shorts.v1alpha1.ShortedStocksService/ListStateCompanies"
+	// ShortedStocksServiceGetStateCompanyAggregatesProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetStateCompanyAggregates RPC.
+	ShortedStocksServiceGetStateCompanyAggregatesProcedure = "/shorts.v1alpha1.ShortedStocksService/GetStateCompanyAggregates"
 	// ShortedStocksServiceGetCompanyTaxProfileProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetCompanyTaxProfile RPC.
 	ShortedStocksServiceGetCompanyTaxProfileProcedure = "/shorts.v1alpha1.ShortedStocksService/GetCompanyTaxProfile"
@@ -277,6 +283,8 @@ var (
 	shortedStocksServiceListAddressPriceDropsMethodDescriptor           = shortedStocksServiceServiceDescriptor.Methods().ByName("ListAddressPriceDrops")
 	shortedStocksServiceListEconomicSeriesMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("ListEconomicSeries")
 	shortedStocksServiceGetEconomicSeriesMethodDescriptor               = shortedStocksServiceServiceDescriptor.Methods().ByName("GetEconomicSeries")
+	shortedStocksServiceListStateCompaniesMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("ListStateCompanies")
+	shortedStocksServiceGetStateCompanyAggregatesMethodDescriptor       = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStateCompanyAggregates")
 	shortedStocksServiceGetCompanyTaxProfileMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("GetCompanyTaxProfile")
 	shortedStocksServiceGetIndustryIntelligenceMethodDescriptor         = shortedStocksServiceServiceDescriptor.Methods().ByName("GetIndustryIntelligence")
 )
@@ -401,6 +409,10 @@ type ShortedStocksServiceClient interface {
 	ListEconomicSeries(context.Context, *connect.Request[v1alpha1.ListEconomicSeriesRequest]) (*connect.Response[v1alpha1.ListEconomicSeriesResponse], error)
 	// Fetch observations for up to 50 series by series_key.
 	GetEconomicSeries(context.Context, *connect.Request[v1alpha1.GetEconomicSeriesRequest]) (*connect.Response[v1alpha1.GetEconomicSeriesResponse], error)
+	// List ASX-listed companies with operations-weighted exposure to a state.
+	ListStateCompanies(context.Context, *connect.Request[v1alpha1.ListStateCompaniesRequest]) (*connect.Response[v1alpha1.ListStateCompaniesResponse], error)
+	// Exposure-weighted market cap and short interest aggregates by state.
+	GetStateCompanyAggregates(context.Context, *connect.Request[v1alpha1.GetStateCompanyAggregatesRequest]) (*connect.Response[v1alpha1.GetStateCompanyAggregatesResponse], error)
 	// Get an ASX-listed entity's annual corporate-tax profile (ATO transparency data).
 	GetCompanyTaxProfile(context.Context, *connect.Request[v1alpha1.GetCompanyTaxProfileRequest]) (*connect.Response[v1alpha1.GetCompanyTaxProfileResponse], error)
 	// Get imported, cited industry intelligence facts for an industry.
@@ -765,6 +777,18 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(shortedStocksServiceGetEconomicSeriesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		listStateCompanies: connect.NewClient[v1alpha1.ListStateCompaniesRequest, v1alpha1.ListStateCompaniesResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListStateCompaniesProcedure,
+			connect.WithSchema(shortedStocksServiceListStateCompaniesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getStateCompanyAggregates: connect.NewClient[v1alpha1.GetStateCompanyAggregatesRequest, v1alpha1.GetStateCompanyAggregatesResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetStateCompanyAggregatesProcedure,
+			connect.WithSchema(shortedStocksServiceGetStateCompanyAggregatesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 		getCompanyTaxProfile: connect.NewClient[v1alpha1.GetCompanyTaxProfileRequest, v1alpha1.GetCompanyTaxProfileResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetCompanyTaxProfileProcedure,
@@ -840,6 +864,8 @@ type shortedStocksServiceClient struct {
 	listAddressPriceDrops           *connect.Client[v1alpha1.ListAddressPriceDropsRequest, v1alpha1.ListAddressPriceDropsResponse]
 	listEconomicSeries              *connect.Client[v1alpha1.ListEconomicSeriesRequest, v1alpha1.ListEconomicSeriesResponse]
 	getEconomicSeries               *connect.Client[v1alpha1.GetEconomicSeriesRequest, v1alpha1.GetEconomicSeriesResponse]
+	listStateCompanies              *connect.Client[v1alpha1.ListStateCompaniesRequest, v1alpha1.ListStateCompaniesResponse]
+	getStateCompanyAggregates       *connect.Client[v1alpha1.GetStateCompanyAggregatesRequest, v1alpha1.GetStateCompanyAggregatesResponse]
 	getCompanyTaxProfile            *connect.Client[v1alpha1.GetCompanyTaxProfileRequest, v1alpha1.GetCompanyTaxProfileResponse]
 	getIndustryIntelligence         *connect.Client[v1alpha1.GetIndustryIntelligenceRequest, v1alpha1.GetIndustryIntelligenceResponse]
 }
@@ -1137,6 +1163,16 @@ func (c *shortedStocksServiceClient) GetEconomicSeries(ctx context.Context, req 
 	return c.getEconomicSeries.CallUnary(ctx, req)
 }
 
+// ListStateCompanies calls shorts.v1alpha1.ShortedStocksService.ListStateCompanies.
+func (c *shortedStocksServiceClient) ListStateCompanies(ctx context.Context, req *connect.Request[v1alpha1.ListStateCompaniesRequest]) (*connect.Response[v1alpha1.ListStateCompaniesResponse], error) {
+	return c.listStateCompanies.CallUnary(ctx, req)
+}
+
+// GetStateCompanyAggregates calls shorts.v1alpha1.ShortedStocksService.GetStateCompanyAggregates.
+func (c *shortedStocksServiceClient) GetStateCompanyAggregates(ctx context.Context, req *connect.Request[v1alpha1.GetStateCompanyAggregatesRequest]) (*connect.Response[v1alpha1.GetStateCompanyAggregatesResponse], error) {
+	return c.getStateCompanyAggregates.CallUnary(ctx, req)
+}
+
 // GetCompanyTaxProfile calls shorts.v1alpha1.ShortedStocksService.GetCompanyTaxProfile.
 func (c *shortedStocksServiceClient) GetCompanyTaxProfile(ctx context.Context, req *connect.Request[v1alpha1.GetCompanyTaxProfileRequest]) (*connect.Response[v1alpha1.GetCompanyTaxProfileResponse], error) {
 	return c.getCompanyTaxProfile.CallUnary(ctx, req)
@@ -1268,6 +1304,10 @@ type ShortedStocksServiceHandler interface {
 	ListEconomicSeries(context.Context, *connect.Request[v1alpha1.ListEconomicSeriesRequest]) (*connect.Response[v1alpha1.ListEconomicSeriesResponse], error)
 	// Fetch observations for up to 50 series by series_key.
 	GetEconomicSeries(context.Context, *connect.Request[v1alpha1.GetEconomicSeriesRequest]) (*connect.Response[v1alpha1.GetEconomicSeriesResponse], error)
+	// List ASX-listed companies with operations-weighted exposure to a state.
+	ListStateCompanies(context.Context, *connect.Request[v1alpha1.ListStateCompaniesRequest]) (*connect.Response[v1alpha1.ListStateCompaniesResponse], error)
+	// Exposure-weighted market cap and short interest aggregates by state.
+	GetStateCompanyAggregates(context.Context, *connect.Request[v1alpha1.GetStateCompanyAggregatesRequest]) (*connect.Response[v1alpha1.GetStateCompanyAggregatesResponse], error)
 	// Get an ASX-listed entity's annual corporate-tax profile (ATO transparency data).
 	GetCompanyTaxProfile(context.Context, *connect.Request[v1alpha1.GetCompanyTaxProfileRequest]) (*connect.Response[v1alpha1.GetCompanyTaxProfileResponse], error)
 	// Get imported, cited industry intelligence facts for an industry.
@@ -1628,6 +1668,18 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		connect.WithSchema(shortedStocksServiceGetEconomicSeriesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	shortedStocksServiceListStateCompaniesHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListStateCompaniesProcedure,
+		svc.ListStateCompanies,
+		connect.WithSchema(shortedStocksServiceListStateCompaniesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceGetStateCompanyAggregatesHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetStateCompanyAggregatesProcedure,
+		svc.GetStateCompanyAggregates,
+		connect.WithSchema(shortedStocksServiceGetStateCompanyAggregatesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	shortedStocksServiceGetCompanyTaxProfileHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetCompanyTaxProfileProcedure,
 		svc.GetCompanyTaxProfile,
@@ -1758,6 +1810,10 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceListEconomicSeriesHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetEconomicSeriesProcedure:
 			shortedStocksServiceGetEconomicSeriesHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListStateCompaniesProcedure:
+			shortedStocksServiceListStateCompaniesHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetStateCompanyAggregatesProcedure:
+			shortedStocksServiceGetStateCompanyAggregatesHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetCompanyTaxProfileProcedure:
 			shortedStocksServiceGetCompanyTaxProfileHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetIndustryIntelligenceProcedure:
@@ -2001,6 +2057,14 @@ func (UnimplementedShortedStocksServiceHandler) ListEconomicSeries(context.Conte
 
 func (UnimplementedShortedStocksServiceHandler) GetEconomicSeries(context.Context, *connect.Request[v1alpha1.GetEconomicSeriesRequest]) (*connect.Response[v1alpha1.GetEconomicSeriesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetEconomicSeries is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListStateCompanies(context.Context, *connect.Request[v1alpha1.ListStateCompaniesRequest]) (*connect.Response[v1alpha1.ListStateCompaniesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListStateCompanies is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetStateCompanyAggregates(context.Context, *connect.Request[v1alpha1.GetStateCompanyAggregatesRequest]) (*connect.Response[v1alpha1.GetStateCompanyAggregatesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetStateCompanyAggregates is not implemented"))
 }
 
 func (UnimplementedShortedStocksServiceHandler) GetCompanyTaxProfile(context.Context, *connect.Request[v1alpha1.GetCompanyTaxProfileRequest]) (*connect.Response[v1alpha1.GetCompanyTaxProfileResponse], error) {
