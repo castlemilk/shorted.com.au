@@ -196,6 +196,10 @@ type Store interface {
 	ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32) ([]*EconomicSeriesRow, error)
 	GetEconomicSeries(seriesKeys []string, startPeriod time.Time) ([]*EconomicSeriesDataRow, error)
 
+	// Company state exposure methods
+	ListStateCompanies(state string, limit int32) ([]*StateCompanyRow, error)
+	GetStateCompanyAggregates() ([]*StateCompanyAggregateRow, error)
+
 	// Event timeline methods
 	GetEventTimeline(stockCode string, daysBack, limit int32) ([]*TimelineEventRow, error)
 
