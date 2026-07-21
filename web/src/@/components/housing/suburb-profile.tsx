@@ -9,6 +9,7 @@ import {
 } from "~/app/actions/client/getHousingClient";
 import { GetSuburbProfileResponseSchema } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { HousingSeriesChart } from "./housing-series-chart";
+import { SuburbBanner } from "./suburb-banner";
 import { SuburbLocatorMap } from "./suburb-locator-map";
 import { STATE_NAMES, stateSlug, suburbHref } from "@/lib/housing/states";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
@@ -117,37 +118,30 @@ export function SuburbProfile({
       ) : null}
 
       {/* header */}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-serif text-4xl font-semibold capitalize text-foreground">{s.salName.toLowerCase()}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {stateName}{s.postcode ? ` · ${s.postcode}` : ""}{d?.censusYear ? ` · Census ${d.censusYear}` : ""}
-          </p>
-        </div>
-        {priced ? (
-          <div className="text-right">
-            <div className="font-mono text-3xl font-semibold tabular-nums text-foreground">{fmtAUD(s.latestMedianPrice)}</div>
-            <div className="text-xs">
-              {s.yoyPct === 0 ? (
-                <span className="text-muted-foreground">flat yr</span>
-              ) : (
-                <span className={s.yoyPct >= 0 ? "text-[color:var(--semantic-green)]" : "text-[color:var(--semantic-red)]"}>
-                  {s.yoyPct >= 0 ? "+" : ""}{s.yoyPct.toFixed(1)}% yr
-                </span>
-              )}
-              <span className="text-muted-foreground"> · median house{asOf ? ` · ${asOf}` : ""}</span>
-            </div>
-            <Link
-              href={`/housing/calculators?price=${Math.round(s.latestMedianPrice)}${st ? `&state=${st}` : ""}`}
-              className="mt-1 inline-block text-xs text-primary transition-colors hover:text-foreground"
-            >
-              Estimate repayments for this suburb →
-            </Link>
-          </div>
-        ) : (
-          <span className="rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground">Price not tracked</span>
-        )}
-      </div>
+      <SuburbBanner
+        name={s.salName}
+        sub={`${stateName}${s.postcode ? ` · ${s.postcode}` : ""}${d?.censusYear ? ` · Census ${d.censusYear}` : ""}`}
+        stat={priced ? fmtAUD(s.latestMedianPrice) : undefined}
+        statSub={priced
+          ? `${s.yoyPct === 0 ? "flat yr" : `${s.yoyPct >= 0 ? "+" : ""}${s.yoyPct.toFixed(1)}% yr`} · median house${asOf ? ` · ${asOf}` : ""}`
+          : "Price not tracked"}
+        banner={data.banner ? {
+          archetype: data.banner.archetype,
+          blurb: data.banner.blurb,
+          bgKey: data.banner.bgKey,
+          bgUrl: data.banner.bgUrl || undefined,
+        } : undefined}
+        stateCode={st}
+        salCode={s.salCode}
+      />
+      {priced ? (
+        <Link
+          href={`/housing/calculators?price=${Math.round(s.latestMedianPrice)}${st ? `&state=${st}` : ""}`}
+          className="inline-block text-xs text-primary transition-colors hover:text-foreground"
+        >
+          Estimate repayments for this suburb →
+        </Link>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
         {/* main column */}

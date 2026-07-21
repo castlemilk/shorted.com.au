@@ -125,4 +125,31 @@ public interface GetSuburbProfileResponseOrBuilder extends
    */
   com.shorts.v1alpha1.SimilarSuburbOrBuilder getSimilarOrBuilder(
       int index);
+
+  /**
+   * <pre>
+   * editorial banner header (archetype, blurb, landmarks)
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbBanner banner = 6 [json_name = "banner"];</code>
+   * @return Whether the banner field is set.
+   */
+  boolean hasBanner();
+  /**
+   * <pre>
+   * editorial banner header (archetype, blurb, landmarks)
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbBanner banner = 6 [json_name = "banner"];</code>
+   * @return The banner.
+   */
+  com.shorts.v1alpha1.SuburbBanner getBanner();
+  /**
+   * <pre>
+   * editorial banner header (archetype, blurb, landmarks)
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbBanner banner = 6 [json_name = "banner"];</code>
+   */
+  com.shorts.v1alpha1.SuburbBannerOrBuilder getBannerOrBuilder();
 }

@@ -81,14 +81,20 @@ export const getHousingOverview = cache(
 
       const client = createCacheableHousingClient();
       const resp = await client.getHousingOverview({ regionType });
-      try {
-        void setCached(
-          cacheKey,
-          toJson(GetHousingOverviewResponseSchema, resp),
-          HOUSING_TTL,
-        );
-      } catch {
-        // Serialization/caching must never break the request.
+      // Never cache an EMPTY response. A transient empty (e.g. the backend
+      // mid-redeploy, or an MV refresh window) would otherwise pin /housing to
+      // its empty state for the full HOUSING_TTL (24h) with no flush path —
+      // exactly the outage this guards against. Only cache real metrics.
+      if (resp.metrics.length > 0) {
+        try {
+          void setCached(
+            cacheKey,
+            toJson(GetHousingOverviewResponseSchema, resp),
+            HOUSING_TTL,
+          );
+        } catch {
+          // Serialization/caching must never break the request.
+        }
       }
       return resp;
     },

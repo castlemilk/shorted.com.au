@@ -807,6 +807,16 @@ public final class ShortsProto extends com.google.protobuf.GeneratedFile {
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_shorts_v1alpha1_SimilarSuburb_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_SuburbLandmark_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_SuburbLandmark_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_SuburbBanner_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_SuburbBanner_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
     internal_static_shorts_v1alpha1_GetSuburbProfileResponse_descriptor;
   static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
@@ -1812,715 +1822,722 @@ public final class ShortsProto extends com.google.protobuf.GeneratedFile {
       "\001(\tR\tstateCode\022.\n\023latest_median_price\030\004 " +
       "\001(\001R\021latestMedianPrice\022\036\n\nsimilarity\030\005 \001" +
       "(\001R\nsimilarity\022\037\n\013region_code\030\006 \001(\tR\nreg" +
-      "ionCode\"\317\002\n\030GetSuburbProfileResponse\0228\n\007" +
-      "summary\030\001 \001(\0132\036.shorts.v1alpha1.SuburbSu" +
-      "mmaryR\007summary\022G\n\014demographics\030\002 \001(\0132#.s" +
-      "horts.v1alpha1.SuburbDemographicsR\014demog" +
-      "raphics\022B\n\tbaselines\030\003 \001(\0132$.shorts.v1al" +
-      "pha1.ComparisonBaselinesR\tbaselines\0222\n\007c" +
-      "ouncil\030\004 \001(\0132\030.shorts.v1alpha1.LgaInfoR\007" +
-      "council\0228\n\007similar\030\005 \003(\0132\036.shorts.v1alph" +
-      "a1.SimilarSuburbR\007similar\"\207\001\n\031ListHousin" +
-      "gRegionsRequest\022\037\n\013region_type\030\001 \001(\tR\nre" +
-      "gionType\022\035\n\nstate_code\030\002 \001(\tR\tstateCode\022" +
-      "\024\n\005query\030\003 \001(\tR\005query\022\024\n\005limit\030\004 \001(\005R\005li" +
-      "mit\"\221\002\n\rHousingRegion\022\037\n\013region_code\030\001 \001" +
-      "(\tR\nregionCode\022\037\n\013region_name\030\002 \001(\tR\nreg" +
-      "ionName\022\037\n\013region_type\030\003 \001(\tR\nregionType" +
-      "\022\035\n\nstate_code\030\004 \001(\tR\tstateCode\022\032\n\010postc" +
-      "ode\030\005 \001(\tR\010postcode\022!\n\014latest_value\030\006 \001(" +
-      "\001R\013latestValue\022?\n\rlatest_period\030\007 \001(\0132\032." +
-      "google.protobuf.TimestampR\014latestPeriod\"" +
-      "V\n\032ListHousingRegionsResponse\0228\n\007regions" +
-      "\030\001 \003(\0132\036.shorts.v1alpha1.HousingRegionR\007" +
-      "regions\"\207\001\n\033ListSuburbPriceDropsRequest\022" +
-      "\035\n\nstate_code\030\001 \001(\tR\tstateCode\022\037\n\013window" +
-      "_days\030\002 \001(\005R\nwindowDays\022\022\n\004sort\030\003 \001(\tR\004s" +
-      "ort\022\024\n\005limit\030\004 \001(\005R\005limit\"\250\005\n\017SuburbPric" +
-      "eDrop\022\037\n\013region_code\030\001 \001(\tR\nregionCode\022\031" +
-      "\n\010sal_code\030\002 \001(\tR\007salCode\022\031\n\010sal_name\030\003 " +
-      "\001(\tR\007salName\022\035\n\nstate_code\030\004 \001(\tR\tstateC" +
-      "ode\0222\n\025dropped_listing_count\030\005 \001(\005R\023drop" +
-      "pedListingCount\022 \n\014avg_drop_pct\030\006 \001(\001R\na" +
-      "vgDropPct\022&\n\017median_drop_pct\030\007 \001(\001R\rmedi" +
-      "anDropPct\022 \n\014max_drop_pct\030\010 \001(\001R\nmaxDrop" +
-      "Pct\022 \n\014max_drop_abs\030\t \001(\001R\nmaxDropAbs\0222\n" +
-      "\025total_active_listings\030\n \001(\005R\023totalActiv" +
-      "eListings\022#\n\rdropped_share\030\013 \001(\001R\014droppe" +
-      "dShare\022\032\n\010postcode\030\014 \001(\tR\010postcode\022$\n\016fo" +
-      "r_sale_count\030\r \001(\005R\014forSaleCount\022\035\n\navg_" +
-      "asking\030\016 \001(\001R\tavgAsking\022#\n\rmedian_asking" +
-      "\030\017 \001(\001R\014medianAsking\022\035\n\nsold_count\030\020 \001(\005" +
-      "R\tsoldCount\022\031\n\010avg_sold\030\021 \001(\001R\007avgSold\022\037" +
-      "\n\013median_sold\030\022 \001(\001R\nmedianSold\022#\n\rdropp" +
-      "ed_value\030\023 \001(\001R\014droppedValue\"Z\n\034ListSubu" +
-      "rbPriceDropsResponse\022:\n\007suburbs\030\001 \003(\0132 ." +
-      "shorts.v1alpha1.SuburbPriceDropR\007suburbs" +
-      "\"\222\001\n\035ListSuburbDropListingsRequest\022\031\n\010sa" +
-      "l_code\030\001 \001(\tR\007salCode\022\037\n\013region_code\030\002 \001" +
-      "(\tR\nregionCode\022\037\n\013window_days\030\003 \001(\005R\nwin" +
-      "dowDays\022\024\n\005limit\030\004 \001(\005R\005limit\"\376\003\n\021Suburb" +
-      "DropListing\022\026\n\006source\030\001 \001(\tR\006source\022\037\n\013l" +
-      "isting_url\030\002 \001(\tR\nlistingUrl\022\'\n\017display_" +
-      "address\030\003 \001(\tR\016displayAddress\022#\n\rpropert" +
-      "y_type\030\004 \001(\tR\014propertyType\022\032\n\010bedrooms\030\005" +
-      " \001(\005R\010bedrooms\022\034\n\tbathrooms\030\006 \001(\005R\tbathr" +
-      "ooms\022\035\n\ncar_spaces\030\007 \001(\005R\tcarSpaces\022\035\n\np" +
-      "rev_price\030\010 \001(\001R\tprevPrice\022\024\n\005price\030\t \001(" +
-      "\001R\005price\022\031\n\010drop_pct\030\n \001(\001R\007dropPct\022\031\n\010d" +
-      "rop_abs\030\013 \001(\001R\007dropAbs\022;\n\013observed_at\030\014 " +
-      "\001(\0132\032.google.protobuf.TimestampR\nobserve" +
-      "dAt\022\037\n\013address_key\030\r \001(\tR\naddressKey\022\037\n\013" +
-      "agency_name\030\016 \001(\tR\nagencyName\022\037\n\013agent_n" +
-      "ames\030\017 \003(\tR\nagentNames\"`\n\036ListSuburbDrop" +
-      "ListingsResponse\022>\n\010listings\030\001 \003(\0132\".sho" +
-      "rts.v1alpha1.SuburbDropListingR\010listings" +
-      "\"<\n\031GetPropertyHistoryRequest\022\037\n\013address" +
-      "_key\030\001 \001(\tR\naddressKey\"\271\004\n\027PropertyListi" +
-      "ngSnapshot\022\026\n\006source\030\001 \001(\tR\006source\022\035\n\nli" +
-      "sting_id\030\002 \001(\tR\tlistingId\022\037\n\013listing_url" +
-      "\030\003 \001(\tR\nlistingUrl\022\024\n\005price\030\004 \001(\001R\005price" +
-      "\022#\n\rprice_display\030\005 \001(\tR\014priceDisplay\022\035\n" +
-      "\nprice_kind\030\006 \001(\tR\tpriceKind\022%\n\016listing_" +
-      "status\030\007 \001(\tR\rlistingStatus\022\033\n\tis_active" +
-      "\030\010 \001(\010R\010isActive\022\032\n\010bedrooms\030\t \001(\005R\010bedr" +
-      "ooms\022\034\n\tbathrooms\030\n \001(\005R\tbathrooms\022\035\n\nca" +
-      "r_spaces\030\013 \001(\005R\tcarSpaces\022\"\n\rland_size_s" +
-      "qm\030\014 \001(\001R\013landSizeSqm\022#\n\rproperty_type\030\r" +
-      " \001(\tR\014propertyType\022\"\n\rfirst_seen_at\030\016 \001(" +
-      "\tR\013firstSeenAt\022 \n\014last_seen_at\030\017 \001(\tR\nla" +
-      "stSeenAt\022\037\n\013agency_name\030\020 \001(\tR\nagencyNam" +
-      "e\022\037\n\013agent_names\030\021 \003(\tR\nagentNames\"\276\002\n\022P" +
-      "ropertyPriceEvent\022\037\n\013observed_at\030\001 \001(\tR\n" +
-      "observedAt\022\035\n\nevent_type\030\002 \001(\tR\teventTyp" +
-      "e\022\026\n\006source\030\003 \001(\tR\006source\022\035\n\nlisting_id\030" +
-      "\004 \001(\tR\tlistingId\022\024\n\005price\030\005 \001(\001R\005price\022\035" +
-      "\n\nprev_price\030\006 \001(\001R\tprevPrice\022\031\n\010drop_ab" +
-      "s\030\007 \001(\001R\007dropAbs\022\031\n\010drop_pct\030\010 \001(\001R\007drop" +
-      "Pct\022%\n\016listing_status\030\t \001(\tR\rlistingStat" +
-      "us\022\037\n\013prev_status\030\n \001(\tR\nprevStatus\"\322\003\n\032" +
-      "GetPropertyHistoryResponse\022\037\n\013address_ke" +
-      "y\030\001 \001(\tR\naddressKey\022\'\n\017display_address\030\002" +
-      " \001(\tR\016displayAddress\022\026\n\006suburb\030\003 \001(\tR\006su" +
-      "burb\022\035\n\nstate_code\030\004 \001(\tR\tstateCode\022\032\n\010p" +
-      "ostcode\030\005 \001(\tR\010postcode\022B\n\007current\030\006 \001(\013" +
-      "2(.shorts.v1alpha1.PropertyListingSnapsh" +
-      "otR\007current\022;\n\006events\030\007 \003(\0132#.shorts.v1a" +
-      "lpha1.PropertyPriceEventR\006events\022!\n\014num_" +
-      "listings\030\010 \001(\005R\013numListings\022\037\n\013first_pri" +
-      "ce\030\t \001(\001R\nfirstPrice\022#\n\rcurrent_price\030\n " +
-      "\001(\001R\014currentPrice\022-\n\022distinct_dwellings\030" +
-      "\013 \001(\005R\021distinctDwellings\"\210\001\n\034ListAddress" +
-      "PriceDropsRequest\022\035\n\nstate_code\030\001 \001(\tR\ts" +
-      "tateCode\022\037\n\013window_days\030\002 \001(\005R\nwindowDay" +
-      "s\022\024\n\005limit\030\003 \001(\005R\005limit\022\022\n\004sort\030\004 \001(\tR\004s" +
-      "ort\"\354\004\n\020AddressPriceDrop\022\037\n\013address_key\030" +
-      "\001 \001(\tR\naddressKey\022\'\n\017display_address\030\002 \001" +
-      "(\tR\016displayAddress\022\026\n\006suburb\030\003 \001(\tR\006subu" +
-      "rb\022\035\n\nstate_code\030\004 \001(\tR\tstateCode\022\032\n\010pos" +
-      "tcode\030\005 \001(\tR\010postcode\022\037\n\013first_price\030\006 \001" +
-      "(\001R\nfirstPrice\022#\n\rcurrent_price\030\007 \001(\001R\014c" +
-      "urrentPrice\022\031\n\010drop_abs\030\010 \001(\001R\007dropAbs\022\031" +
-      "\n\010drop_pct\030\t \001(\001R\007dropPct\022!\n\014num_listing" +
-      "s\030\n \001(\005R\013numListings\022#\n\rlatest_source\030\013 " +
-      "\001(\tR\014latestSource\022,\n\022latest_listing_url\030" +
-      "\014 \001(\tR\020latestListingUrl\022(\n\020last_observed" +
-      "_at\030\r \001(\tR\016lastObservedAt\022#\n\rproperty_ty" +
-      "pe\030\016 \001(\tR\014propertyType\022\032\n\010bedrooms\030\017 \001(\005" +
-      "R\010bedrooms\022\034\n\tbathrooms\030\020 \001(\005R\tbathrooms" +
-      "\022\037\n\013agency_name\030\021 \001(\tR\nagencyName\022\037\n\013age" +
-      "nt_names\030\022 \003(\tR\nagentNames\"`\n\035ListAddres" +
-      "sPriceDropsResponse\022?\n\taddresses\030\001 \003(\0132!" +
-      ".shorts.v1alpha1.AddressPriceDropR\taddre" +
-      "sses\"\036\n\034GetPriceDropsOverviewRequest\"\333\004\n" +
-      "\025StatePriceDropSummary\022\035\n\nstate_code\030\001 \001" +
-      "(\tR\tstateCode\022#\n\rdropped_count\030\002 \001(\005R\014dr" +
-      "oppedCount\022 \n\014avg_drop_pct\030\003 \001(\001R\navgDro" +
-      "pPct\022&\n\017median_drop_pct\030\004 \001(\001R\rmedianDro" +
-      "pPct\022 \n\014max_drop_pct\030\005 \001(\001R\nmaxDropPct\022#" +
-      "\n\rdropped_value\030\006 \001(\001R\014droppedValue\0222\n\025t" +
-      "otal_active_listings\030\007 \001(\005R\023totalActiveL" +
-      "istings\022#\n\rdropped_share\030\010 \001(\001R\014droppedS" +
-      "hare\022$\n\016for_sale_count\030\t \001(\005R\014forSaleCou" +
-      "nt\022&\n\017for_sale_priced\030\n \001(\005R\rforSalePric" +
-      "ed\022\035\n\navg_asking\030\013 \001(\001R\tavgAsking\022#\n\rmed" +
-      "ian_asking\030\014 \001(\001R\014medianAsking\022\035\n\nsold_c" +
-      "ount\030\r \001(\005R\tsoldCount\022\031\n\010avg_sold\030\016 \001(\001R" +
-      "\007avgSold\022\037\n\013median_sold\030\017 \001(\001R\nmedianSol" +
-      "d\022\'\n\017suburbs_tracked\030\020 \001(\005R\016suburbsTrack" +
-      "ed\"\243\001\n\035GetPriceDropsOverviewResponse\022B\n\010" +
-      "national\030\001 \001(\0132&.shorts.v1alpha1.StatePr" +
-      "iceDropSummaryR\010national\022>\n\006states\030\002 \003(\013" +
-      "2&.shorts.v1alpha1.StatePriceDropSummary" +
-      "R\006states\"f\n\033ListAgencyPriceStatsRequest\022" +
-      "\035\n\nstate_code\030\001 \001(\tR\tstateCode\022\022\n\004sort\030\002" +
-      " \001(\tR\004sort\022\024\n\005limit\030\003 \001(\005R\005limit\"\330\003\n\020Age" +
-      "ncyPriceStats\022\026\n\006source\030\001 \001(\tR\006source\022\033\n" +
-      "\tagency_id\030\002 \001(\tR\010agencyId\022\037\n\013agency_nam" +
-      "e\030\003 \001(\tR\nagencyName\022\035\n\nstate_code\030\004 \001(\tR" +
-      "\tstateCode\022\'\n\017active_listings\030\005 \001(\005R\016act" +
-      "iveListings\022\'\n\017priced_listings\030\006 \001(\005R\016pr" +
-      "icedListings\022\035\n\navg_asking\030\007 \001(\001R\tavgAsk" +
-      "ing\022#\n\rmedian_asking\030\010 \001(\001R\014medianAsking" +
-      "\022\'\n\017suburbs_covered\030\t \001(\005R\016suburbsCovere" +
-      "d\022#\n\rdropped_count\030\n \001(\005R\014droppedCount\022 " +
-      "\n\014avg_drop_pct\030\013 \001(\001R\navgDropPct\022(\n\020tota" +
-      "l_drop_value\030\014 \001(\001R\016totalDropValue\022\037\n\013ag" +
-      "ent_names\030\r \003(\tR\nagentNames\"]\n\034ListAgenc" +
-      "yPriceStatsResponse\022=\n\010agencies\030\001 \003(\0132!." +
-      "shorts.v1alpha1.AgencyPriceStatsR\010agenci" +
-      "es\"\267\003\n\022EconomicSeriesInfo\022\035\n\nseries_key\030" +
-      "\001 \001(\tR\tseriesKey\022\024\n\005topic\030\002 \001(\tR\005topic\022\026" +
-      "\n\006metric\030\003 \001(\tR\006metric\022\030\n\007product\030\004 \001(\tR" +
-      "\007product\022\037\n\013region_type\030\005 \001(\tR\nregionTyp" +
-      "e\022\037\n\013region_code\030\006 \001(\tR\nregionCode\022\037\n\013re" +
-      "gion_name\030\007 \001(\tR\nregionName\022\022\n\004unit\030\010 \001(" +
-      "\tR\004unit\022\034\n\tfrequency\030\t \001(\tR\tfrequency\022\036\n" +
-      "\nadjustment\030\n \001(\tR\nadjustment\022\035\n\nsource_" +
-      "key\030\013 \001(\tR\tsourceKey\022%\n\016source_licence\030\014" +
-      " \001(\tR\rsourceLicence\022?\n\rlatest_period\030\r \001" +
-      "(\0132\032.google.protobuf.TimestampR\014latestPe" +
-      "riod\"\273\001\n\031ListEconomicSeriesRequest\022\024\n\005to" +
-      "pic\030\001 \001(\tR\005topic\022\026\n\006metric\030\002 \001(\tR\006metric" +
-      "\022\037\n\013region_type\030\003 \001(\tR\nregionType\022\037\n\013reg" +
-      "ion_code\030\004 \001(\tR\nregionCode\022\030\n\007product\030\005 " +
-      "\001(\tR\007product\022\024\n\005limit\030\006 \001(\005R\005limit\"Y\n\032Li" +
-      "stEconomicSeriesResponse\022;\n\006series\030\001 \003(\013" +
-      "2#.shorts.v1alpha1.EconomicSeriesInfoR\006s" +
-      "eries\"_\n\023EconomicObservation\0222\n\006period\030\001" +
-      " \001(\0132\032.google.protobuf.TimestampR\006period" +
-      "\022\024\n\005value\030\002 \001(\001R\005value\"\227\001\n\022EconomicSerie" +
-      "sData\0227\n\004info\030\001 \001(\0132#.shorts.v1alpha1.Ec" +
-      "onomicSeriesInfoR\004info\022H\n\014observations\030\002" +
-      " \003(\0132$.shorts.v1alpha1.EconomicObservati" +
-      "onR\014observations\"z\n\030GetEconomicSeriesReq" +
-      "uest\022\037\n\013series_keys\030\001 \003(\tR\nseriesKeys\022=\n" +
-      "\014start_period\030\002 \001(\0132\032.google.protobuf.Ti" +
-      "mestampR\013startPeriod\"X\n\031GetEconomicSerie" +
-      "sResponse\022;\n\006series\030\001 \003(\0132#.shorts.v1alp" +
-      "ha1.EconomicSeriesDataR\006series\"G\n\031ListSt" +
-      "ateCompaniesRequest\022\024\n\005state\030\001 \001(\tR\005stat" +
-      "e\022\024\n\005limit\030\002 \001(\005R\005limit\"\221\002\n\014StateCompany" +
-      "\022\035\n\nstock_code\030\001 \001(\tR\tstockCode\022!\n\014compa" +
-      "ny_name\030\002 \001(\tR\013companyName\022\032\n\010industry\030\003" +
-      " \001(\tR\010industry\022\026\n\006weight\030\004 \001(\001R\006weight\022\024" +
-      "\n\005basis\030\005 \001(\tR\005basis\022\035\n\nmarket_cap\030\006 \001(\001" +
-      "R\tmarketCap\022#\n\rshort_percent\030\007 \001(\001R\014shor" +
-      "tPercent\022\031\n\010logo_url\030\010 \001(\tR\007logoUrl\022\026\n\006s" +
-      "ource\030\t \001(\tR\006source\"Y\n\032ListStateCompanie" +
-      "sResponse\022;\n\tcompanies\030\001 \003(\0132\035.shorts.v1" +
-      "alpha1.StateCompanyR\tcompanies\"\"\n GetSta" +
-      "teCompanyAggregatesRequest\"\332\001\n\025StateComp" +
-      "anyAggregate\022\024\n\005state\030\001 \001(\tR\005state\022#\n\rco" +
-      "mpany_count\030\002 \001(\005R\014companyCount\022?\n\034expos" +
-      "ure_weighted_market_cap\030\003 \001(\001R\031exposureW" +
-      "eightedMarketCap\022E\n\037exposure_weighted_sh" +
-      "ort_percent\030\004 \001(\001R\034exposureWeightedShort" +
-      "Percent\"k\n!GetStateCompanyAggregatesResp" +
-      "onse\022F\n\naggregates\030\001 \003(\0132&.shorts.v1alph" +
-      "a1.StateCompanyAggregateR\naggregates*5\n\010" +
-      "ViewMode\022\022\n\016CURRENT_CHANGE\020\000\022\025\n\021PERCENTA" +
-      "GE_CHANGE\020\001*\272\001\n\020EnrichmentStatus\022!\n\035ENRI" +
-      "CHMENT_STATUS_UNSPECIFIED\020\000\022$\n ENRICHMEN" +
-      "T_STATUS_PENDING_REVIEW\020\001\022\037\n\033ENRICHMENT_" +
-      "STATUS_COMPLETED\020\002\022\034\n\030ENRICHMENT_STATUS_" +
-      "FAILED\020\003\022\036\n\032ENRICHMENT_STATUS_REJECTED\020\004" +
-      "*\310\001\n\022EnrichmentPriority\022#\n\037ENRICHMENT_PR" +
-      "IORITY_UNSPECIFIED\020\000\022\"\n\036ENRICHMENT_PRIOR" +
-      "ITY_MARKET_CAP\020\001\022&\n\"ENRICHMENT_PRIORITY_" +
-      "SHORT_POSITION\020\002\022\"\n\036ENRICHMENT_PRIORITY_" +
-      "UNENRICHED\020\003\022\035\n\031ENRICHMENT_PRIORITY_STAL" +
-      "E\020\004*\360\001\n\023EnrichmentJobStatus\022%\n!ENRICHMEN" +
-      "T_JOB_STATUS_UNSPECIFIED\020\000\022 \n\034ENRICHMENT" +
-      "_JOB_STATUS_QUEUED\020\001\022$\n ENRICHMENT_JOB_S" +
-      "TATUS_PROCESSING\020\002\022#\n\037ENRICHMENT_JOB_STA" +
-      "TUS_COMPLETED\020\003\022 \n\034ENRICHMENT_JOB_STATUS" +
-      "_FAILED\020\004\022#\n\037ENRICHMENT_JOB_STATUS_CANCE" +
-      "LLED\020\005*\341\001\n\022SubscriptionStatus\022#\n\037SUBSCRI" +
-      "PTION_STATUS_UNSPECIFIED\020\000\022\036\n\032SUBSCRIPTI" +
-      "ON_STATUS_ACTIVE\020\001\022 \n\034SUBSCRIPTION_STATU" +
-      "S_TRIALING\020\002\022 \n\034SUBSCRIPTION_STATUS_PAST" +
-      "_DUE\020\003\022 \n\034SUBSCRIPTION_STATUS_CANCELED\020\004" +
-      "\022 \n\034SUBSCRIPTION_STATUS_INACTIVE\020\005*\255\001\n\020S" +
-      "ubscriptionTier\022!\n\035SUBSCRIPTION_TIER_UNS" +
-      "PECIFIED\020\000\022\032\n\026SUBSCRIPTION_TIER_FREE\020\001\022\031" +
-      "\n\025SUBSCRIPTION_TIER_PRO\020\002\022 \n\034SUBSCRIPTIO" +
-      "N_TIER_ENTERPRISE\020\003\022\035\n\031SUBSCRIPTION_TIER" +
-      "_PREMIUM\020\004*y\n\021AlertMonitorScope\022#\n\037ALERT" +
-      "_MONITOR_SCOPE_UNSPECIFIED\020\000\022 \n\034ALERT_MO" +
-      "NITOR_SCOPE_INDUSTRY\020\001\022\035\n\031ALERT_MONITOR_" +
-      "SCOPE_STOCK\020\002*\323\001\n\025AlertMonitorCondition\022" +
-      "\'\n#ALERT_MONITOR_CONDITION_UNSPECIFIED\020\000" +
-      "\0220\n,ALERT_MONITOR_CONDITION_SHORT_INTERE" +
-      "ST_ABOVE\020\001\0220\n,ALERT_MONITOR_CONDITION_SH" +
-      "ORT_INTEREST_RISES\020\002\022-\n)ALERT_MONITOR_CO" +
-      "NDITION_NEW_TOP_TEN_ENTRY\020\003*\177\n\023AlertMoni" +
-      "torCadence\022%\n!ALERT_MONITOR_CADENCE_UNSP" +
-      "ECIFIED\020\000\022\037\n\033ALERT_MONITOR_CADENCE_DAILY" +
-      "\020\001\022 \n\034ALERT_MONITOR_CADENCE_WEEKLY\020\002*|\n\022" +
-      "AlertMonitorStatus\022$\n ALERT_MONITOR_STAT" +
-      "US_UNSPECIFIED\020\000\022\037\n\033ALERT_MONITOR_STATUS" +
-      "_ACTIVE\020\001\022\037\n\033ALERT_MONITOR_STATUS_PAUSED" +
-      "\020\002*t\n\nTakeStatus\022\033\n\027TAKE_STATUS_UNSPECIF" +
-      "IED\020\000\022\025\n\021TAKE_STATUS_DRAFT\020\001\022\031\n\025TAKE_STA" +
-      "TUS_PUBLISHED\020\002\022\027\n\023TAKE_STATUS_TWEETED\020\003" +
-      "*\360\002\n\021ScreenerSortField\022!\n\035SCREENER_SORT_" +
-      "FIELD_SHORT_PCT\020\000\022(\n$SCREENER_SORT_FIELD" +
-      "_SHORT_PCT_CHANGE\020\001\022\"\n\036SCREENER_SORT_FIE" +
-      "LD_MARKET_CAP\020\002\022\'\n#SCREENER_SORT_FIELD_P" +
-      "RICE_CHANGE_1M\020\003\022 \n\034SCREENER_SORT_FIELD_" +
-      "PE_RATIO\020\004\022&\n\"SCREENER_SORT_FIELD_DIVIDE" +
-      "ND_YIELD\020\005\022(\n$SCREENER_SORT_FIELD_NET_DI" +
-      "RECTOR_BUY\020\006\022&\n\"SCREENER_SORT_FIELD_NEWS" +
-      "_SENTIMENT\020\007\022%\n!SCREENER_SORT_FIELD_DAYS" +
-      "_TO_COVER\020\010*@\n\rSortDirection\022\027\n\023SORT_DIR" +
-      "ECTION_DESC\020\000\022\026\n\022SORT_DIRECTION_ASC\020\001*v\n" +
-      "\020BattlegroundView\022!\n\035BATTLEGROUND_VIEW_U" +
-      "NSPECIFIED\020\000\022\035\n\031BATTLEGROUND_VIEW_SQUEEZ" +
-      "E\020\001\022 \n\034BATTLEGROUND_VIEW_DIVERGENCE\020\002*\302\001" +
-      "\n\014VerdictLabel\022\035\n\031VERDICT_LABEL_UNSPECIF" +
-      "IED\020\000\022 \n\034VERDICT_LABEL_STRONG_BEARISH\020\001\022" +
-      "\031\n\025VERDICT_LABEL_BEARISH\020\002\022\031\n\025VERDICT_LA" +
-      "BEL_NEUTRAL\020\003\022\031\n\025VERDICT_LABEL_BULLISH\020\004" +
-      "\022 \n\034VERDICT_LABEL_STRONG_BULLISH\020\0052\243\205\001\n\024" +
-      "ShortedStocksService\022\206\003\n\014GetTopShorts\022$." +
-      "shorts.v1alpha1.GetTopShortsRequest\032%.sh" +
-      "orts.v1alpha1.GetTopShortsResponse\"\250\002\332A\023" +
-      "period,limit,offset\272G\212\002\022\016Get Top Shorts\032" +
-      "jRetrieve the top shorted stocks on the " +
-      "ASX for a given time period. Supports pa" +
-      "gination and custom limits.B\213\001\022X\n\003200\022Q\n" +
-      "O\nMA successful response containing time" +
-      " series data for the top shorted stocks." +
-      "\022/\n\003400\022(\n&\n$Invalid request parameters " +
-      "provided.\200\265\030\001\022\375\002\n\022GetIndustryTreeMap\022*.s" +
-      "horts.v1alpha1.GetIndustryTreeMapRequest" +
-      "\032 .stocks.v1alpha1.IndustryTreeMap\"\230\002\272G\220" +
-      "\002\022\024Get Industry TreeMap\032{Retrieve a hier" +
-      "archical treemap of short positions grou" +
-      "ped by industry. Useful for visualizing " +
-      "market-wide shorting trends.B{\022Q\n\003200\022J\n" +
-      "H\nFA successful response containing indu" +
-      "stry-grouped short position data.\022&\n\003400" +
-      "\022\037\n\035\n\033Invalid request parameters.\200\265\030\001\022\300\002" +
-      "\n\010GetStock\022 .shorts.v1alpha1.GetStockReq" +
-      "uest\032\026.stocks.v1alpha1.Stock\"\371\001\272G\361\001\022\021Get" +
-      " Stock Summary\032fRetrieve a summary of cu" +
-      "rrent short positions and basic metadata" +
-      " for a specific stock by its ASX code.Bt" +
-      "\022>\n\003200\0227\n5\n3A successful response conta" +
-      "ining the stock summary.\0222\n\003404\022+\n)\n\'The" +
-      " specified stock code was not found.\200\265\030\001" +
-      "\022\360\002\n\017GetStockDetails\022\'.shorts.v1alpha1.G" +
-      "etStockDetailsRequest\032\035.stocks.v1alpha1." +
-      "StockDetails\"\224\002\272G\214\002\022\021Get Stock Details\032s" +
-      "Retrieve comprehensive metadata for a sp" +
-      "ecific stock, including company history," +
-      " key people, and financial reports.B\201\001\022G" +
-      "\n\003200\022@\n>\n<A successful response contain" +
-      "ing detailed stock information.\0226\n\003404\022/" +
-      "\n-\n+The specified stock details were not" +
-      " found.\200\265\030\001\022\360\002\n\014GetStockData\022$.shorts.v1" +
-      "alpha1.GetStockDataRequest\032\037.stocks.v1al" +
-      "pha1.TimeSeriesData\"\230\002\272G\220\002\022\032Get Stock Ti" +
-      "me Series Data\032XRetrieve historical shor" +
-      "t position data for a specific stock ove" +
-      "r a defined time period.B\227\001\022J\n\003200\022C\nA\n?" +
-      "A successful response containing histori" +
-      "cal time series points.\022I\n\003401\022B\n@\n>Auth" +
-      "entication is required to access private" +
-      " time series data.\200\265\030\001\022\313\001\n\017GetMarketByDa" +
-      "te\022\'.shorts.v1alpha1.GetMarketByDateRequ" +
-      "est\032(.shorts.v1alpha1.GetMarketByDateRes" +
-      "ponse\"e\272G^\022\022Get Market By Date\032HRetrieve" +
-      " all short positions for a specific trad" +
-      "ing date from ASIC data.\200\265\030\001\022\304\001\n\021GetAvai" +
-      "lableDates\022).shorts.v1alpha1.GetAvailabl" +
-      "eDatesRequest\032*.shorts.v1alpha1.GetAvail" +
-      "ableDatesResponse\"X\272GQ\022\023Get Available Da" +
-      "tes\032:Retrieve available trading dates wi" +
-      "th short position data.\200\265\030\001\022\371\001\n\014SearchSt" +
-      "ocks\022$.shorts.v1alpha1.SearchStocksReque" +
-      "st\032%.shorts.v1alpha1.SearchStocksRespons" +
-      "e\"\233\001\272G\223\001\022\rSearch Stocks\032YSearch for ASX " +
-      "stocks using full-text search against th" +
-      "eir ticker symbol or company name.B\'\022%\n\003" +
-      "200\022\036\n\034\n\032A list of matching stocks.\200\265\030\001\022" +
-      "\311\002\n\rGetSyncStatus\022%.shorts.v1alpha1.GetS" +
-      "yncStatusRequest\032&.shorts.v1alpha1.GetSy" +
-      "ncStatusResponse\"\350\001\272G\327\001\022\017Get Sync Status" +
-      "\032nAdministrative endpoint to retrieve th" +
-      "e status and history of data synchroniza" +
-      "tion tasks. Requires admin role.BT\022#\n\00320" +
-      "0\022\034\n\032\n\030Recent sync run history.\022-\n\003403\022&" +
-      "\n$\n\"Forbidden: Admin role is required.\200\265" +
-      "\030\002\212\265\030\005admin\022\254\002\n\tMintToken\022!.shorts.v1alp" +
-      "ha1.MintTokenRequest\032\".shorts.v1alpha1.M" +
-      "intTokenResponse\"\327\001\272G\317\001\022\016Mint API Token\032" +
-      "lGenerate a bespoke API token for progra" +
-      "mmatic access to Shorted APIs. Requires " +
-      "valid session authentication.BO\022\033\n\003200\022\024" +
-      "\n\022\n\020A new API token.\0220\n\003401\022)\n\'\n%Unautho" +
-      "rized: User must be signed in.\200\265\030\002\022\354\002\n\016S" +
-      "yncKeyMetrics\022&.shorts.v1alpha1.SyncKeyM" +
-      "etricsRequest\032\'.shorts.v1alpha1.SyncKeyM" +
-      "etricsResponse\"\210\002\272G\367\001\022\020Sync Key Metrics\032" +
-      "\213\001Trigger on-demand sync of key metrics " +
-      "(market cap, P/E ratio, etc.) for specif" +
-      "ic stocks. Fetches fresh data from Yahoo" +
-      " Finance. Admin only.BU\022\'\n\003200\022 \n\036\n\034Sync" +
-      " completed successfully.\022*\n\003403\022#\n!\n\037For" +
-      "bidden: Admin role required.\200\265\030\002\212\265\030\005admi" +
-      "n\022g\n\013EnrichStock\022#.shorts.v1alpha1.Enric" +
-      "hStockRequest\032$.shorts.v1alpha1.EnrichSt" +
-      "ockResponse\"\r\200\265\030\002\212\265\030\005admin\022\221\001\n\031GetTopSto" +
-      "cksForEnrichment\0221.shorts.v1alpha1.GetTo" +
-      "pStocksForEnrichmentRequest\0322.shorts.v1a" +
-      "lpha1.GetTopStocksForEnrichmentResponse\"" +
-      "\r\200\265\030\002\212\265\030\005admin\022\210\001\n\026ListPendingEnrichment" +
-      "s\022..shorts.v1alpha1.ListPendingEnrichmen" +
-      "tsRequest\032/.shorts.v1alpha1.ListPendingE" +
-      "nrichmentsResponse\"\r\200\265\030\002\212\265\030\005admin\022\202\001\n\024Ge" +
-      "tPendingEnrichment\022,.shorts.v1alpha1.Get" +
-      "PendingEnrichmentRequest\032-.shorts.v1alph" +
-      "a1.GetPendingEnrichmentResponse\"\r\200\265\030\002\212\265\030" +
-      "\005admin\022v\n\020ReviewEnrichment\022(.shorts.v1al" +
-      "pha1.ReviewEnrichmentRequest\032).shorts.v1" +
-      "alpha1.ReviewEnrichmentResponse\"\r\200\265\030\002\212\265\030" +
-      "\005admin\022\210\001\n\026GetEnrichmentJobStatus\022..shor" +
-      "ts.v1alpha1.GetEnrichmentJobStatusReques" +
-      "t\032/.shorts.v1alpha1.GetEnrichmentJobStat" +
-      "usResponse\"\r\200\265\030\002\212\265\030\005admin\022|\n\022ListEnrichm" +
-      "entJobs\022*.shorts.v1alpha1.ListEnrichment" +
-      "JobsRequest\032+.shorts.v1alpha1.ListEnrich" +
-      "mentJobsResponse\"\r\200\265\030\002\212\265\030\005admin\022\224\001\n\035Hand" +
-      "leStripeCheckoutCompleted\0225.shorts.v1alp",
-      "ha1.HandleStripeCheckoutCompletedRequest" +
-      "\0326.shorts.v1alpha1.HandleStripeCheckoutC" +
-      "ompletedResponse\"\004\200\265\030\002\022\232\001\n\037HandleStripeS" +
-      "ubscriptionUpdated\0227.shorts.v1alpha1.Han" +
-      "dleStripeSubscriptionUpdatedRequest\0328.sh" +
-      "orts.v1alpha1.HandleStripeSubscriptionUp" +
-      "datedResponse\"\004\200\265\030\002\022p\n\021GetMySubscription" +
-      "\022).shorts.v1alpha1.GetMySubscriptionRequ" +
-      "est\032*.shorts.v1alpha1.GetMySubscriptionR" +
-      "esponse\"\004\200\265\030\002\022s\n\022CreateAlertMonitor\022*.sh" +
-      "orts.v1alpha1.CreateAlertMonitorRequest\032" +
-      "+.shorts.v1alpha1.CreateAlertMonitorResp" +
-      "onse\"\004\200\265\030\002\022p\n\021ListAlertMonitors\022).shorts" +
-      ".v1alpha1.ListAlertMonitorsRequest\032*.sho" +
-      "rts.v1alpha1.ListAlertMonitorsResponse\"\004" +
-      "\200\265\030\002\022\352\001\n\017GetWeeklyReport\022\'.shorts.v1alph" +
-      "a1.GetWeeklyReportRequest\032(.shorts.v1alp" +
-      "ha1.GetWeeklyReportResponse\"\203\001\272G|\022\021Get W" +
-      "eekly Report\032gRetrieve a weekly short se" +
-      "lling report with narrative analysis, to" +
-      "p shorted stocks, and biggest movers.\200\265\030" +
-      "\001\022\312\001\n\013ListReports\022#.shorts.v1alpha1.List" +
-      "ReportsRequest\032$.shorts.v1alpha1.ListRep" +
-      "ortsResponse\"p\272Gi\022\014List Reports\032YList pu" +
-      "blished short selling reports with headl" +
-      "ines and summary stats, most recent firs" +
-      "t.\200\265\030\001\022\237\002\n\033GetStockFinancialHighlights\0223" +
-      ".shorts.v1alpha1.GetStockFinancialHighli" +
-      "ghtsRequest\0324.shorts.v1alpha1.GetStockFi" +
-      "nancialHighlightsResponse\"\224\001\272G\214\001\022\036Get St" +
-      "ock Financial Highlights\032jRetrieve extra" +
-      "cted financial metrics (revenue, NPAT, E" +
-      "PS, dividends, etc.) from company financ" +
-      "ial reports.\200\265\030\001\022\312\001\n\014GetStockNews\022$.shor" +
-      "ts.v1alpha1.GetStockNewsRequest\032%.shorts" +
-      ".v1alpha1.GetStockNewsResponse\"m\272Gf\022\016Get" +
-      " Stock News\032TRetrieve recent news articl" +
-      "es, announcements, and analysis for a sp" +
-      "ecific ASX stock.\200\265\030\001\022\337\001\n\016GetRelatedNews" +
-      "\022&.shorts.v1alpha1.GetRelatedNewsRequest" +
-      "\032\'.shorts.v1alpha1.GetRelatedNewsRespons" +
-      "e\"|\272Gu\022\020Get Related News\032aRetrieve news " +
-      "articles semantically related to a stock" +
-      " or a given article, via vector similari" +
-      "ty.\200\265\030\001\022\314\001\n\rGetMarketNews\022%.shorts.v1alp" +
-      "ha1.GetMarketNewsRequest\032&.shorts.v1alph" +
-      "a1.GetMarketNewsResponse\"l\272Ge\022\017Get Marke" +
-      "t News\032RRetrieve recent market-wide news" +
-      " articles and announcements across all A" +
-      "SX stocks.\200\265\030\001\022\264\001\n\020GetEditorialTake\022(.sh" +
-      "orts.v1alpha1.GetEditorialTakeRequest\032)." +
-      "shorts.v1alpha1.GetEditorialTakeResponse" +
-      "\"K\272GD\022\022Get Editorial Take\032.Retrieve a pu" +
-      "blished Shorted Take by URL slug.\200\265\030\001\022\337\001" +
-      "\n\022ListEditorialTakes\022*.shorts.v1alpha1.L" +
-      "istEditorialTakesRequest\032+.shorts.v1alph" +
-      "a1.ListEditorialTakesResponse\"p\272Gi\022\024List" +
-      " Editorial Takes\032QList recent published " +
-      "Shorted Takes, newest first. Optional fi" +
-      "lter by stock code.\200\265\030\001\022\202\001\n\027ListEditoria" +
-      "lTakesAdmin\022/.shorts.v1alpha1.ListEditor" +
-      "ialTakesAdminRequest\0320.shorts.v1alpha1.L" +
-      "istEditorialTakesAdminResponse\"\004\200\265\030\002\022y\n\024" +
-      "PublishEditorialTake\022,.shorts.v1alpha1.P" +
-      "ublishEditorialTakeRequest\032-.shorts.v1al" +
-      "pha1.PublishEditorialTakeResponse\"\004\200\265\030\002\022" +
-      "v\n\023UpdateEditorialTake\022+.shorts.v1alpha1" +
-      ".UpdateEditorialTakeRequest\032,.shorts.v1a" +
-      "lpha1.UpdateEditorialTakeResponse\"\004\200\265\030\002\022" +
-      "v\n\023DeleteEditorialTake\022+.shorts.v1alpha1" +
-      ".DeleteEditorialTakeRequest\032,.shorts.v1a" +
-      "lpha1.DeleteEditorialTakeResponse\"\004\200\265\030\002\022" +
-      "\177\n\026MarkTakeTweetPublished\022..shorts.v1alp" +
-      "ha1.MarkTakeTweetPublishedRequest\032/.shor" +
-      "ts.v1alpha1.MarkTakeTweetPublishedRespon" +
-      "se\"\004\200\265\030\002\022|\n\025ListTweetPublishQueue\022-.shor" +
-      "ts.v1alpha1.ListTweetPublishQueueRequest" +
-      "\032..shorts.v1alpha1.ListTweetPublishQueue" +
-      "Response\"\004\200\265\030\002\022\351\001\n\021GetDirectorTrades\022).s" +
-      "horts.v1alpha1.GetDirectorTradesRequest\032" +
-      "*.shorts.v1alpha1.GetDirectorTradesRespo" +
-      "nse\"}\272Gv\022\023Get Director Trades\032_Retrieve " +
-      "director (insider) trading activity from" +
-      " ASX Appendix 3Y filings for a specific " +
-      "stock.\200\265\030\001\022\344\001\n\022GetDividendHistory\022*.shor" +
-      "ts.v1alpha1.GetDividendHistoryRequest\032+." +
-      "shorts.v1alpha1.GetDividendHistoryRespon" +
-      "se\"u\272Gn\022\024Get Dividend History\032VRetrieve " +
-      "dividend payment history including frank" +
-      "ing credits for a specific ASX stock.\200\265\030" +
-      "\001\022\337\001\n\021GetPeerComparison\022).shorts.v1alpha" +
-      "1.GetPeerComparisonRequest\032*.shorts.v1al" +
-      "pha1.GetPeerComparisonResponse\"s\272Gl\022\023Get" +
-      " Peer Comparison\032UCompare a stock\'s shor" +
-      "t position, price, and fundamentals agai" +
-      "nst its industry peers.\200\265\030\001\022\200\002\n\014ScreenSt" +
-      "ocks\022$.shorts.v1alpha1.ScreenStocksReque" +
-      "st\032%.shorts.v1alpha1.ScreenStocksRespons" +
-      "e\"\242\001\272G\232\001\022\rScreen Stocks\032\210\001Filter and sor" +
-      "t stocks using compound criteria across " +
-      "short positions, price changes, fundamen" +
-      "tals, director trades, and news sentimen" +
-      "t.\200\265\030\001\022\311\002\n\025GetBattlegroundStocks\022-.short" +
-      "s.v1alpha1.GetBattlegroundStocksRequest\032" +
-      "..shorts.v1alpha1.GetBattlegroundStocksR" +
-      "esponse\"\320\001\272G\254\001\022\027Get Battleground Stocks\032" +
-      "\220\001Rank stocks by squeeze risk (days-to-c" +
-      "over, short interest, crowding, momentum" +
-      ") or by bull-vs-bear divergence (price r" +
-      "ising while shorts build).\200\265\030\001\202\323\344\223\002\026\"\021/v" +
-      "1/battlegrounds:\001*\022\343\002\n\017GetStockVerdict\022\'" +
-      ".shorts.v1alpha1.GetStockVerdictRequest\032" +
-      "(.shorts.v1alpha1.GetStockVerdictRespons" +
-      "e\"\374\001\272G\331\001\022\021Get Stock Verdict\032\303\001Composite " +
-      "bear-vs-bull verdict (-100..100) for a s" +
-      "ingle stock, combining short-position tr" +
-      "end and level, director trading, news se" +
-      "ntiment, and squeeze pressure \342\200\224 with a" +
-      " per-component breakdown.\200\265\030\001\202\323\344\223\002\025\"\020/v1" +
-      "/stockVerdict:\001*\022\371\002\n\032GetShortCampaignSco" +
-      "reboard\0222.shorts.v1alpha1.GetShortCampai" +
-      "gnScoreboardRequest\0323.shorts.v1alpha1.Ge" +
-      "tShortCampaignScoreboardResponse\"\361\001\272G\303\001\022" +
-      "\035Get Short Campaign Scoreboard\032\241\001Histori" +
-      "c short campaigns (peak short interest >" +
-      "= 5% over the last 3 years) with price o" +
-      "utcomes 3 and 6 months after the peak, a" +
-      "nd overall short-seller win rates.\200\265\030\001\202\323" +
-      "\344\223\002 \"\033/v1/shortCampaignScoreboard:\001*\022\211\002\n" +
-      "\rGetStockGraph\022%.shorts.v1alpha1.GetStoc" +
-      "kGraphRequest\032&.shorts.v1alpha1.GetStock" +
-      "GraphResponse\"\250\001\272G\240\001\022\017Get Stock Graph\032\214\001" +
-      "Retrieve a stock\'s connected people (dir" +
-      "ectors/officers and their other ASX role" +
-      "s) and semantically similar companies vi" +
-      "a vector similarity.\200\265\030\001\022\232\002\n\020GetEventTim" +
-      "eline\022(.shorts.v1alpha1.GetEventTimeline" +
-      "Request\032).shorts.v1alpha1.GetEventTimeli" +
-      "neResponse\"\260\001\272G\250\001\022\022Get Event Timeline\032\221\001" +
-      "Retrieve a chronological feed of events " +
-      "for a stock, merging ASX announcements, " +
-      "director trades, price-sensitive news, a" +
-      "nd short position spikes.\200\265\030\001\022\334\002\n\017GetSto" +
-      "ckSignals\022\'.shorts.v1alpha1.GetStockSign" +
-      "alsRequest\032(.shorts.v1alpha1.GetStockSig" +
-      "nalsResponse\"\365\001\272G\355\001\022\021Get Stock Signals\032\327" +
-      "\001Retrieve a stock\'s reputation/risk sign" +
-      "als \342\200\224 adverse (court matters, regulato" +
-      "r sanctions, complaints) and positive (a" +
-      "wards, press), each with citations, seve" +
-      "rity and confidence. Sourced from ground" +
-      "ed web research.\200\265\030\001\022\317\002\n\022GetHousingOverv" +
-      "iew\022*.shorts.v1alpha1.GetHousingOverview" +
-      "Request\032+.shorts.v1alpha1.GetHousingOver" +
-      "viewResponse\"\337\001\272G\327\001\022\024Get Housing Overvie" +
-      "w\032\276\001Latest Australian house-price headli" +
-      "ne metrics by region (national, state, c" +
-      "apital city) \342\200\224 mean/median price and p" +
-      "rice index with QoQ and YoY change. Sour" +
-      "ced from the ABS Data API and RBA.\200\265\030\001\022\255" +
-      "\002\n\023GetHousePriceSeries\022+.shorts.v1alpha1" +
-      ".GetHousePriceSeriesRequest\032,.shorts.v1a" +
-      "lpha1.GetHousePriceSeriesResponse\"\272\001\272G\262\001" +
-      "\022\026Get House Price Series\032\227\001A single hous" +
-      "e-price time series for a region and mea" +
-      "sure (national mean price, capital-city " +
-      "median, household debt-to-income, price " +
-      "index), quarterly.\200\265\030\001\022\234\002\n\020ListStateSubu" +
-      "rbs\022(.shorts.v1alpha1.ListStateSuburbsRe" +
-      "quest\032).shorts.v1alpha1.ListStateSuburbs" +
-      "Response\"\262\001\272G\252\001\022\022List State Suburbs\032\223\001Ev" +
-      "ery suburb (ABS SAL) in a state with its" +
-      " latest median house price and key ABS C" +
-      "ensus demographics \342\200\224 powers the state " +
-      "choropleth + suburb list.\200\265\030\001\022\225\002\n\020GetSub" +
-      "urbProfile\022(.shorts.v1alpha1.GetSuburbPr" +
-      "ofileRequest\032).shorts.v1alpha1.GetSuburb" +
-      "ProfileResponse\"\253\001\272G\243\001\022\022Get Suburb Profi" +
-      "le\032\214\001A single suburb\'s rich profile \342\200\224 " +
-      "ABS Census demographics, latest median h" +
-      "ouse price with QoQ/YoY, and state/natio" +
-      "nal comparison baselines.\200\265\030\001\022\313\002\n\022ListHo" +
-      "usingRegions\022*.shorts.v1alpha1.ListHousi" +
-      "ngRegionsRequest\032+.shorts.v1alpha1.ListH" +
-      "ousingRegionsResponse\"\333\001\272G\323\001\022\024List Housi" +
-      "ng Regions\032\272\001List house-price regions, o" +
-      "ptionally filtered by region_type, state" +
-      ", or a name query \342\200\224 powers the suburb " +
-      "explorer. Suburb medians are sourced fro" +
-      "m state Valuer-General offices (CC BY).\200" +
-      "\265\030\001\022\251\003\n\024ListSuburbPriceDrops\022,.shorts.v1" +
-      "alpha1.ListSuburbPriceDropsRequest\032-.sho" +
-      "rts.v1alpha1.ListSuburbPriceDropsRespons" +
-      "e\"\263\002\272G\253\002\022\027List Suburb Price Drops\032\217\002Subu" +
-      "rbs ranked by recent for-sale asking-pri" +
-      "ce reductions over a rolling window \342\200\224 " +
-      "count of reduced listings plus the avera" +
-      "ge, median and largest reduction. A deri" +
-      "ved aggregate over realestate.com.au / d" +
-      "omain.com.au listing data; individual li" +
-      "stings are not republished.\200\265\030\001\022\347\002\n\026List" +
-      "SuburbDropListings\022..shorts.v1alpha1.Lis" +
-      "tSuburbDropListingsRequest\032/.shorts.v1al" +
-      "pha1.ListSuburbDropListingsResponse\"\353\001\272G" +
-      "\343\001\022\031List Suburb Drop Listings\032\305\001Recently" +
-      " price-reduced for-sale listings in a su" +
-      "burb, each deep-linking OUT to the live " +
-      "realestate.com.au / domain.com.au page. " +
-      "Factual price-change data only; the list" +
-      "ing itself is not reproduced.\200\265\030\001\022\270\003\n\022Ge" +
-      "tPropertyHistory\022*.shorts.v1alpha1.GetPr" +
-      "opertyHistoryRequest\032+.shorts.v1alpha1.G" +
-      "etPropertyHistoryResponse\"\310\002\272G\237\002\022\024Get Pr" +
-      "operty History\032\206\002Full asking-price timel" +
-      "ine for a single physical address (stabl" +
-      "e address_key), across all its listings " +
-      "and relists on realestate.com.au / domai" +
-      "n.com.au. Deep-links OUT to the live por" +
-      "tal page; factual price-change data only" +
-      ", the listing itself is not reproduced.\200" +
-      "\265\030\001\202\323\344\223\002\033\"\026/v1/getPropertyHistory:\001*\022\203\004\n" +
-      "\025ListAddressPriceDrops\022-.shorts.v1alpha1" +
-      ".ListAddressPriceDropsRequest\032..shorts.v" +
-      "1alpha1.ListAddressPriceDropsResponse\"\212\003" +
-      "\272G\336\002\022\030List Address Price Drops\032\301\002Individ" +
-      "ual physical addresses (deduped by stabl" +
-      "e address_key) ranked by their for-sale " +
-      "asking-price reduction over a rolling wi" +
-      "ndow \342\200\224 from the first observed price t" +
-      "o the current active listing. Each entry" +
-      " deep-links to its per-address history p" +
-      "age; factual price-change data only, the" +
-      " listing itself is not reproduced.\200\265\030\001\202\323" +
-      "\344\223\002\036\"\031/v1/listAddressPriceDrops:\001*\022\312\003\n\025G" +
-      "etPriceDropsOverview\022-.shorts.v1alpha1.G" +
-      "etPriceDropsOverviewRequest\032..shorts.v1a" +
-      "lpha1.GetPriceDropsOverviewResponse\"\321\002\272G" +
-      "\245\002\022\030Get Price Drops Overview\032\210\002Per-state" +
-      " rollup of recent for-sale asking-price " +
-      "reductions plus asking/sold price aggreg" +
-      "ates, with a national summary. A derived" +
-      " aggregate over realestate.com.au / doma" +
-      "in.com.au listing data covering tracked " +
-      "metro suburbs; individual listings are n" +
-      "ot republished.\200\265\030\001\202\323\344\223\002\036\"\031/v1/getPriceD" +
-      "ropsOverview:\001*\022\255\003\n\024ListAgencyPriceStats" +
-      "\022,.shorts.v1alpha1.ListAgencyPriceStatsR" +
-      "equest\032-.shorts.v1alpha1.ListAgencyPrice" +
-      "StatsResponse\"\267\002\272G\214\002\022\027List Agency Price " +
-      "Stats\032\360\001Real-estate agencies ranked by r" +
-      "ecent asking-price reductions across the" +
-      "ir tracked for-sale listings \342\200\224 listing" +
-      " counts, median asking price, reduction " +
-      "depth and suburbs covered. A derived agg" +
-      "regate; individual listings are not repu" +
-      "blished.\200\265\030\001\202\323\344\223\002\035\"\030/v1/listAgencyPriceS" +
-      "tats:\001*\022\315\002\n\022ListEconomicSeries\022*.shorts." +
-      "v1alpha1.ListEconomicSeriesRequest\032+.sho" +
-      "rts.v1alpha1.ListEconomicSeriesResponse\"" +
-      "\335\001\272G\325\001\022\024List Economic Series\032\274\001Catalog o" +
-      "f Australian economic series (petroleum," +
-      " trade by state, GDP, labour, CPI, polic" +
-      "y rates) with dimensions, units and sour" +
-      "ce attribution. Sourced from ABS, RBA an" +
-      "d DCCEEW open data.\200\265\030\001\022\260\002\n\021GetEconomicS" +
-      "eries\022).shorts.v1alpha1.GetEconomicSerie" +
-      "sRequest\032*.shorts.v1alpha1.GetEconomicSe" +
-      "riesResponse\"\303\001\272G\273\001\022\023Get Economic Series" +
-      "\032\243\001Time-series observations for named ec" +
-      "onomic series keys (e.g. petroleum.refin" +
-      "ery_output.diesel.aus, trade.export_valu" +
-      "e.total.wa), with unit, frequency and li" +
-      "cence.\200\265\030\001\022\205\003\n\022ListStateCompanies\022*.shor" +
-      "ts.v1alpha1.ListStateCompaniesRequest\032+." +
-      "shorts.v1alpha1.ListStateCompaniesRespon" +
-      "se\"\225\002\272G\215\002\022\024List State Companies\032\364\001ASX-li" +
-      "sted companies operating in a given Aust" +
-      "ralian state, ranked by exposure-weighte" +
-      "d market cap. Exposure is LLM-estimated " +
-      "from company disclosures (operations/rev" +
-      "enue split), with a registered-office fa" +
-      "llback for companies not yet enriched.\200\265" +
-      "\030\001\022\353\002\n\031GetStateCompanyAggregates\0221.short" +
-      "s.v1alpha1.GetStateCompanyAggregatesRequ" +
-      "est\0322.shorts.v1alpha1.GetStateCompanyAgg" +
-      "regatesResponse\"\346\001\272G\336\001\022\034Get State Compan" +
-      "y Aggregates\032\275\001Per-state aggregates over" +
-      " the company state-exposure layer: compa" +
-      "ny count (weight >= 0.2), exposure-weigh" +
-      "ted market cap, and exposure-weighted sh" +
-      "ort interest. Excludes region=internatio" +
-      "nal.\200\265\030\001\022\262\004\n\024GetCompanyTaxProfile\022,.shor" +
-      "ts.v1alpha1.GetCompanyTaxProfileRequest\032" +
-      "-.shorts.v1alpha1.GetCompanyTaxProfileRe" +
-      "sponse\"\274\003\272G\224\003\022\027Get Company Tax Profile\032\370" +
-      "\002An ASX-listed entity\'s annual corporate" +
-      "-tax profile from the ATO Corporate Tax " +
-      "Transparency dataset (total income, taxa" +
-      "ble income, tax payable per income year)" +
-      ". Entities are matched to ASX codes only" +
-      " on exact ABN or exact normalized-name m" +
-      "apping. Nil/absent taxable income or tax" +
-      " payable is meaningful and often legitim" +
-      "ate (losses/offsets) \342\200\224 total income is" +
-      " always reported.\200\265\030\001\202\323\344\223\002\032\"\025/v1/company" +
-      "TaxProfile:\001*\022\322\002\n\027GetIndustryIntelligenc" +
-      "e\022/.shorts.v1alpha1.GetIndustryIntellige" +
-      "nceRequest\0320.shorts.v1alpha1.GetIndustry" +
-      "IntelligenceResponse\"\323\001\272G\250\001\022\031Get Industr" +
-      "y Intelligence\032\212\001Imported, cited industr" +
-      "y intelligence records for a Shorted ind" +
-      "ustry. Only public-enabled sources and e" +
-      "xact-reviewed records are returned.\200\265\030\001\202" +
-      "\323\344\223\002\035\"\030/v1/industryIntelligence:\001*\032\025\312A\022a" +
-      "pi.shorted.com.auB\240\003\n\023com.shorts.v1alpha" +
-      "1B\013ShortsProtoP\001ZYgithub.com/castlemilk/" +
-      "shorted.com.au/services/gen/proto/go/sho" +
-      "rts/v1alpha1;shortsv1alpha1\242\002\003SXX\252\002\017Shor" +
-      "ts.V1alpha1\312\002\017Shorts\\V1alpha1\342\002\033Shorts\\V" +
-      "1alpha1\\GPBMetadata\352\002\020Shorts::V1alpha1\272G" +
-      "\302\001\022\177\n\013Shorted API\022\rShorted API\'s\"(\022\016shor" +
-      "ted.com.au\032\026support@shorted.com.au*3\n\023Pr" +
-      "oprietary license\022\034https://shorted.com.a" +
-      "u/terms2\002v1\032\034\n\032https://api.shorted.com.a" +
-      "u*!:\037\n\035\n\tAuthToken\022\020\n\016\n\004http*\006bearerb\006pr" +
-      "oto3"
+      "ionCode\"8\n\016SuburbLandmark\022\022\n\004name\030\001 \001(\tR" +
+      "\004name\022\022\n\004kind\030\002 \001(\tR\004kind\"\257\001\n\014SuburbBann" +
+      "er\022\034\n\tarchetype\030\001 \001(\tR\tarchetype\022\024\n\005blur" +
+      "b\030\002 \001(\tR\005blurb\022=\n\tlandmarks\030\003 \003(\0132\037.shor" +
+      "ts.v1alpha1.SuburbLandmarkR\tlandmarks\022\025\n" +
+      "\006bg_key\030\004 \001(\tR\005bgKey\022\025\n\006bg_url\030\005 \001(\tR\005bg" +
+      "Url\"\206\003\n\030GetSuburbProfileResponse\0228\n\007summ" +
+      "ary\030\001 \001(\0132\036.shorts.v1alpha1.SuburbSummar" +
+      "yR\007summary\022G\n\014demographics\030\002 \001(\0132#.short" +
+      "s.v1alpha1.SuburbDemographicsR\014demograph" +
+      "ics\022B\n\tbaselines\030\003 \001(\0132$.shorts.v1alpha1" +
+      ".ComparisonBaselinesR\tbaselines\0222\n\007counc" +
+      "il\030\004 \001(\0132\030.shorts.v1alpha1.LgaInfoR\007coun" +
+      "cil\0228\n\007similar\030\005 \003(\0132\036.shorts.v1alpha1.S" +
+      "imilarSuburbR\007similar\0225\n\006banner\030\006 \001(\0132\035." +
+      "shorts.v1alpha1.SuburbBannerR\006banner\"\207\001\n" +
+      "\031ListHousingRegionsRequest\022\037\n\013region_typ" +
+      "e\030\001 \001(\tR\nregionType\022\035\n\nstate_code\030\002 \001(\tR" +
+      "\tstateCode\022\024\n\005query\030\003 \001(\tR\005query\022\024\n\005limi" +
+      "t\030\004 \001(\005R\005limit\"\221\002\n\rHousingRegion\022\037\n\013regi" +
+      "on_code\030\001 \001(\tR\nregionCode\022\037\n\013region_name" +
+      "\030\002 \001(\tR\nregionName\022\037\n\013region_type\030\003 \001(\tR" +
+      "\nregionType\022\035\n\nstate_code\030\004 \001(\tR\tstateCo" +
+      "de\022\032\n\010postcode\030\005 \001(\tR\010postcode\022!\n\014latest" +
+      "_value\030\006 \001(\001R\013latestValue\022?\n\rlatest_peri" +
+      "od\030\007 \001(\0132\032.google.protobuf.TimestampR\014la" +
+      "testPeriod\"V\n\032ListHousingRegionsResponse" +
+      "\0228\n\007regions\030\001 \003(\0132\036.shorts.v1alpha1.Hous" +
+      "ingRegionR\007regions\"\207\001\n\033ListSuburbPriceDr" +
+      "opsRequest\022\035\n\nstate_code\030\001 \001(\tR\tstateCod" +
+      "e\022\037\n\013window_days\030\002 \001(\005R\nwindowDays\022\022\n\004so" +
+      "rt\030\003 \001(\tR\004sort\022\024\n\005limit\030\004 \001(\005R\005limit\"\250\005\n" +
+      "\017SuburbPriceDrop\022\037\n\013region_code\030\001 \001(\tR\nr" +
+      "egionCode\022\031\n\010sal_code\030\002 \001(\tR\007salCode\022\031\n\010" +
+      "sal_name\030\003 \001(\tR\007salName\022\035\n\nstate_code\030\004 " +
+      "\001(\tR\tstateCode\0222\n\025dropped_listing_count\030" +
+      "\005 \001(\005R\023droppedListingCount\022 \n\014avg_drop_p" +
+      "ct\030\006 \001(\001R\navgDropPct\022&\n\017median_drop_pct\030" +
+      "\007 \001(\001R\rmedianDropPct\022 \n\014max_drop_pct\030\010 \001" +
+      "(\001R\nmaxDropPct\022 \n\014max_drop_abs\030\t \001(\001R\nma" +
+      "xDropAbs\0222\n\025total_active_listings\030\n \001(\005R" +
+      "\023totalActiveListings\022#\n\rdropped_share\030\013 " +
+      "\001(\001R\014droppedShare\022\032\n\010postcode\030\014 \001(\tR\010pos" +
+      "tcode\022$\n\016for_sale_count\030\r \001(\005R\014forSaleCo" +
+      "unt\022\035\n\navg_asking\030\016 \001(\001R\tavgAsking\022#\n\rme" +
+      "dian_asking\030\017 \001(\001R\014medianAsking\022\035\n\nsold_" +
+      "count\030\020 \001(\005R\tsoldCount\022\031\n\010avg_sold\030\021 \001(\001" +
+      "R\007avgSold\022\037\n\013median_sold\030\022 \001(\001R\nmedianSo" +
+      "ld\022#\n\rdropped_value\030\023 \001(\001R\014droppedValue\"" +
+      "Z\n\034ListSuburbPriceDropsResponse\022:\n\007subur" +
+      "bs\030\001 \003(\0132 .shorts.v1alpha1.SuburbPriceDr" +
+      "opR\007suburbs\"\222\001\n\035ListSuburbDropListingsRe" +
+      "quest\022\031\n\010sal_code\030\001 \001(\tR\007salCode\022\037\n\013regi" +
+      "on_code\030\002 \001(\tR\nregionCode\022\037\n\013window_days" +
+      "\030\003 \001(\005R\nwindowDays\022\024\n\005limit\030\004 \001(\005R\005limit" +
+      "\"\376\003\n\021SuburbDropListing\022\026\n\006source\030\001 \001(\tR\006" +
+      "source\022\037\n\013listing_url\030\002 \001(\tR\nlistingUrl\022" +
+      "\'\n\017display_address\030\003 \001(\tR\016displayAddress" +
+      "\022#\n\rproperty_type\030\004 \001(\tR\014propertyType\022\032\n" +
+      "\010bedrooms\030\005 \001(\005R\010bedrooms\022\034\n\tbathrooms\030\006" +
+      " \001(\005R\tbathrooms\022\035\n\ncar_spaces\030\007 \001(\005R\tcar" +
+      "Spaces\022\035\n\nprev_price\030\010 \001(\001R\tprevPrice\022\024\n" +
+      "\005price\030\t \001(\001R\005price\022\031\n\010drop_pct\030\n \001(\001R\007d" +
+      "ropPct\022\031\n\010drop_abs\030\013 \001(\001R\007dropAbs\022;\n\013obs" +
+      "erved_at\030\014 \001(\0132\032.google.protobuf.Timesta" +
+      "mpR\nobservedAt\022\037\n\013address_key\030\r \001(\tR\nadd" +
+      "ressKey\022\037\n\013agency_name\030\016 \001(\tR\nagencyName" +
+      "\022\037\n\013agent_names\030\017 \003(\tR\nagentNames\"`\n\036Lis" +
+      "tSuburbDropListingsResponse\022>\n\010listings\030" +
+      "\001 \003(\0132\".shorts.v1alpha1.SuburbDropListin" +
+      "gR\010listings\"<\n\031GetPropertyHistoryRequest" +
+      "\022\037\n\013address_key\030\001 \001(\tR\naddressKey\"\271\004\n\027Pr" +
+      "opertyListingSnapshot\022\026\n\006source\030\001 \001(\tR\006s" +
+      "ource\022\035\n\nlisting_id\030\002 \001(\tR\tlistingId\022\037\n\013" +
+      "listing_url\030\003 \001(\tR\nlistingUrl\022\024\n\005price\030\004" +
+      " \001(\001R\005price\022#\n\rprice_display\030\005 \001(\tR\014pric" +
+      "eDisplay\022\035\n\nprice_kind\030\006 \001(\tR\tpriceKind\022" +
+      "%\n\016listing_status\030\007 \001(\tR\rlistingStatus\022\033" +
+      "\n\tis_active\030\010 \001(\010R\010isActive\022\032\n\010bedrooms\030" +
+      "\t \001(\005R\010bedrooms\022\034\n\tbathrooms\030\n \001(\005R\tbath" +
+      "rooms\022\035\n\ncar_spaces\030\013 \001(\005R\tcarSpaces\022\"\n\r" +
+      "land_size_sqm\030\014 \001(\001R\013landSizeSqm\022#\n\rprop" +
+      "erty_type\030\r \001(\tR\014propertyType\022\"\n\rfirst_s" +
+      "een_at\030\016 \001(\tR\013firstSeenAt\022 \n\014last_seen_a" +
+      "t\030\017 \001(\tR\nlastSeenAt\022\037\n\013agency_name\030\020 \001(\t" +
+      "R\nagencyName\022\037\n\013agent_names\030\021 \003(\tR\nagent" +
+      "Names\"\276\002\n\022PropertyPriceEvent\022\037\n\013observed" +
+      "_at\030\001 \001(\tR\nobservedAt\022\035\n\nevent_type\030\002 \001(" +
+      "\tR\teventType\022\026\n\006source\030\003 \001(\tR\006source\022\035\n\n" +
+      "listing_id\030\004 \001(\tR\tlistingId\022\024\n\005price\030\005 \001" +
+      "(\001R\005price\022\035\n\nprev_price\030\006 \001(\001R\tprevPrice" +
+      "\022\031\n\010drop_abs\030\007 \001(\001R\007dropAbs\022\031\n\010drop_pct\030" +
+      "\010 \001(\001R\007dropPct\022%\n\016listing_status\030\t \001(\tR\r" +
+      "listingStatus\022\037\n\013prev_status\030\n \001(\tR\nprev" +
+      "Status\"\322\003\n\032GetPropertyHistoryResponse\022\037\n" +
+      "\013address_key\030\001 \001(\tR\naddressKey\022\'\n\017displa" +
+      "y_address\030\002 \001(\tR\016displayAddress\022\026\n\006subur" +
+      "b\030\003 \001(\tR\006suburb\022\035\n\nstate_code\030\004 \001(\tR\tsta" +
+      "teCode\022\032\n\010postcode\030\005 \001(\tR\010postcode\022B\n\007cu" +
+      "rrent\030\006 \001(\0132(.shorts.v1alpha1.PropertyLi" +
+      "stingSnapshotR\007current\022;\n\006events\030\007 \003(\0132#" +
+      ".shorts.v1alpha1.PropertyPriceEventR\006eve" +
+      "nts\022!\n\014num_listings\030\010 \001(\005R\013numListings\022\037" +
+      "\n\013first_price\030\t \001(\001R\nfirstPrice\022#\n\rcurre" +
+      "nt_price\030\n \001(\001R\014currentPrice\022-\n\022distinct" +
+      "_dwellings\030\013 \001(\005R\021distinctDwellings\"\210\001\n\034" +
+      "ListAddressPriceDropsRequest\022\035\n\nstate_co" +
+      "de\030\001 \001(\tR\tstateCode\022\037\n\013window_days\030\002 \001(\005" +
+      "R\nwindowDays\022\024\n\005limit\030\003 \001(\005R\005limit\022\022\n\004so" +
+      "rt\030\004 \001(\tR\004sort\"\354\004\n\020AddressPriceDrop\022\037\n\013a" +
+      "ddress_key\030\001 \001(\tR\naddressKey\022\'\n\017display_" +
+      "address\030\002 \001(\tR\016displayAddress\022\026\n\006suburb\030" +
+      "\003 \001(\tR\006suburb\022\035\n\nstate_code\030\004 \001(\tR\tstate" +
+      "Code\022\032\n\010postcode\030\005 \001(\tR\010postcode\022\037\n\013firs" +
+      "t_price\030\006 \001(\001R\nfirstPrice\022#\n\rcurrent_pri" +
+      "ce\030\007 \001(\001R\014currentPrice\022\031\n\010drop_abs\030\010 \001(\001" +
+      "R\007dropAbs\022\031\n\010drop_pct\030\t \001(\001R\007dropPct\022!\n\014" +
+      "num_listings\030\n \001(\005R\013numListings\022#\n\rlates" +
+      "t_source\030\013 \001(\tR\014latestSource\022,\n\022latest_l" +
+      "isting_url\030\014 \001(\tR\020latestListingUrl\022(\n\020la" +
+      "st_observed_at\030\r \001(\tR\016lastObservedAt\022#\n\r" +
+      "property_type\030\016 \001(\tR\014propertyType\022\032\n\010bed" +
+      "rooms\030\017 \001(\005R\010bedrooms\022\034\n\tbathrooms\030\020 \001(\005" +
+      "R\tbathrooms\022\037\n\013agency_name\030\021 \001(\tR\nagency" +
+      "Name\022\037\n\013agent_names\030\022 \003(\tR\nagentNames\"`\n" +
+      "\035ListAddressPriceDropsResponse\022?\n\taddres" +
+      "ses\030\001 \003(\0132!.shorts.v1alpha1.AddressPrice" +
+      "DropR\taddresses\"\036\n\034GetPriceDropsOverview" +
+      "Request\"\333\004\n\025StatePriceDropSummary\022\035\n\nsta" +
+      "te_code\030\001 \001(\tR\tstateCode\022#\n\rdropped_coun" +
+      "t\030\002 \001(\005R\014droppedCount\022 \n\014avg_drop_pct\030\003 " +
+      "\001(\001R\navgDropPct\022&\n\017median_drop_pct\030\004 \001(\001" +
+      "R\rmedianDropPct\022 \n\014max_drop_pct\030\005 \001(\001R\nm" +
+      "axDropPct\022#\n\rdropped_value\030\006 \001(\001R\014droppe" +
+      "dValue\0222\n\025total_active_listings\030\007 \001(\005R\023t" +
+      "otalActiveListings\022#\n\rdropped_share\030\010 \001(" +
+      "\001R\014droppedShare\022$\n\016for_sale_count\030\t \001(\005R" +
+      "\014forSaleCount\022&\n\017for_sale_priced\030\n \001(\005R\r" +
+      "forSalePriced\022\035\n\navg_asking\030\013 \001(\001R\tavgAs" +
+      "king\022#\n\rmedian_asking\030\014 \001(\001R\014medianAskin" +
+      "g\022\035\n\nsold_count\030\r \001(\005R\tsoldCount\022\031\n\010avg_" +
+      "sold\030\016 \001(\001R\007avgSold\022\037\n\013median_sold\030\017 \001(\001" +
+      "R\nmedianSold\022\'\n\017suburbs_tracked\030\020 \001(\005R\016s" +
+      "uburbsTracked\"\243\001\n\035GetPriceDropsOverviewR" +
+      "esponse\022B\n\010national\030\001 \001(\0132&.shorts.v1alp" +
+      "ha1.StatePriceDropSummaryR\010national\022>\n\006s" +
+      "tates\030\002 \003(\0132&.shorts.v1alpha1.StatePrice" +
+      "DropSummaryR\006states\"f\n\033ListAgencyPriceSt" +
+      "atsRequest\022\035\n\nstate_code\030\001 \001(\tR\tstateCod" +
+      "e\022\022\n\004sort\030\002 \001(\tR\004sort\022\024\n\005limit\030\003 \001(\005R\005li" +
+      "mit\"\330\003\n\020AgencyPriceStats\022\026\n\006source\030\001 \001(\t" +
+      "R\006source\022\033\n\tagency_id\030\002 \001(\tR\010agencyId\022\037\n" +
+      "\013agency_name\030\003 \001(\tR\nagencyName\022\035\n\nstate_" +
+      "code\030\004 \001(\tR\tstateCode\022\'\n\017active_listings" +
+      "\030\005 \001(\005R\016activeListings\022\'\n\017priced_listing" +
+      "s\030\006 \001(\005R\016pricedListings\022\035\n\navg_asking\030\007 " +
+      "\001(\001R\tavgAsking\022#\n\rmedian_asking\030\010 \001(\001R\014m" +
+      "edianAsking\022\'\n\017suburbs_covered\030\t \001(\005R\016su" +
+      "burbsCovered\022#\n\rdropped_count\030\n \001(\005R\014dro" +
+      "ppedCount\022 \n\014avg_drop_pct\030\013 \001(\001R\navgDrop" +
+      "Pct\022(\n\020total_drop_value\030\014 \001(\001R\016totalDrop" +
+      "Value\022\037\n\013agent_names\030\r \003(\tR\nagentNames\"]" +
+      "\n\034ListAgencyPriceStatsResponse\022=\n\010agenci" +
+      "es\030\001 \003(\0132!.shorts.v1alpha1.AgencyPriceSt" +
+      "atsR\010agencies\"\267\003\n\022EconomicSeriesInfo\022\035\n\n" +
+      "series_key\030\001 \001(\tR\tseriesKey\022\024\n\005topic\030\002 \001" +
+      "(\tR\005topic\022\026\n\006metric\030\003 \001(\tR\006metric\022\030\n\007pro" +
+      "duct\030\004 \001(\tR\007product\022\037\n\013region_type\030\005 \001(\t" +
+      "R\nregionType\022\037\n\013region_code\030\006 \001(\tR\nregio" +
+      "nCode\022\037\n\013region_name\030\007 \001(\tR\nregionName\022\022" +
+      "\n\004unit\030\010 \001(\tR\004unit\022\034\n\tfrequency\030\t \001(\tR\tf" +
+      "requency\022\036\n\nadjustment\030\n \001(\tR\nadjustment" +
+      "\022\035\n\nsource_key\030\013 \001(\tR\tsourceKey\022%\n\016sourc" +
+      "e_licence\030\014 \001(\tR\rsourceLicence\022?\n\rlatest" +
+      "_period\030\r \001(\0132\032.google.protobuf.Timestam" +
+      "pR\014latestPeriod\"\273\001\n\031ListEconomicSeriesRe" +
+      "quest\022\024\n\005topic\030\001 \001(\tR\005topic\022\026\n\006metric\030\002 " +
+      "\001(\tR\006metric\022\037\n\013region_type\030\003 \001(\tR\nregion" +
+      "Type\022\037\n\013region_code\030\004 \001(\tR\nregionCode\022\030\n" +
+      "\007product\030\005 \001(\tR\007product\022\024\n\005limit\030\006 \001(\005R\005" +
+      "limit\"Y\n\032ListEconomicSeriesResponse\022;\n\006s" +
+      "eries\030\001 \003(\0132#.shorts.v1alpha1.EconomicSe" +
+      "riesInfoR\006series\"_\n\023EconomicObservation\022" +
+      "2\n\006period\030\001 \001(\0132\032.google.protobuf.Timest" +
+      "ampR\006period\022\024\n\005value\030\002 \001(\001R\005value\"\227\001\n\022Ec" +
+      "onomicSeriesData\0227\n\004info\030\001 \001(\0132#.shorts." +
+      "v1alpha1.EconomicSeriesInfoR\004info\022H\n\014obs" +
+      "ervations\030\002 \003(\0132$.shorts.v1alpha1.Econom" +
+      "icObservationR\014observations\"z\n\030GetEconom" +
+      "icSeriesRequest\022\037\n\013series_keys\030\001 \003(\tR\nse" +
+      "riesKeys\022=\n\014start_period\030\002 \001(\0132\032.google." +
+      "protobuf.TimestampR\013startPeriod\"X\n\031GetEc" +
+      "onomicSeriesResponse\022;\n\006series\030\001 \003(\0132#.s" +
+      "horts.v1alpha1.EconomicSeriesDataR\006serie" +
+      "s\"G\n\031ListStateCompaniesRequest\022\024\n\005state\030" +
+      "\001 \001(\tR\005state\022\024\n\005limit\030\002 \001(\005R\005limit\"\221\002\n\014S" +
+      "tateCompany\022\035\n\nstock_code\030\001 \001(\tR\tstockCo" +
+      "de\022!\n\014company_name\030\002 \001(\tR\013companyName\022\032\n" +
+      "\010industry\030\003 \001(\tR\010industry\022\026\n\006weight\030\004 \001(" +
+      "\001R\006weight\022\024\n\005basis\030\005 \001(\tR\005basis\022\035\n\nmarke" +
+      "t_cap\030\006 \001(\001R\tmarketCap\022#\n\rshort_percent\030" +
+      "\007 \001(\001R\014shortPercent\022\031\n\010logo_url\030\010 \001(\tR\007l" +
+      "ogoUrl\022\026\n\006source\030\t \001(\tR\006source\"Y\n\032ListSt" +
+      "ateCompaniesResponse\022;\n\tcompanies\030\001 \003(\0132" +
+      "\035.shorts.v1alpha1.StateCompanyR\tcompanie" +
+      "s\"\"\n GetStateCompanyAggregatesRequest\"\332\001" +
+      "\n\025StateCompanyAggregate\022\024\n\005state\030\001 \001(\tR\005" +
+      "state\022#\n\rcompany_count\030\002 \001(\005R\014companyCou" +
+      "nt\022?\n\034exposure_weighted_market_cap\030\003 \001(\001" +
+      "R\031exposureWeightedMarketCap\022E\n\037exposure_" +
+      "weighted_short_percent\030\004 \001(\001R\034exposureWe" +
+      "ightedShortPercent\"k\n!GetStateCompanyAgg" +
+      "regatesResponse\022F\n\naggregates\030\001 \003(\0132&.sh" +
+      "orts.v1alpha1.StateCompanyAggregateR\nagg" +
+      "regates*5\n\010ViewMode\022\022\n\016CURRENT_CHANGE\020\000\022" +
+      "\025\n\021PERCENTAGE_CHANGE\020\001*\272\001\n\020EnrichmentSta" +
+      "tus\022!\n\035ENRICHMENT_STATUS_UNSPECIFIED\020\000\022$" +
+      "\n ENRICHMENT_STATUS_PENDING_REVIEW\020\001\022\037\n\033" +
+      "ENRICHMENT_STATUS_COMPLETED\020\002\022\034\n\030ENRICHM" +
+      "ENT_STATUS_FAILED\020\003\022\036\n\032ENRICHMENT_STATUS" +
+      "_REJECTED\020\004*\310\001\n\022EnrichmentPriority\022#\n\037EN" +
+      "RICHMENT_PRIORITY_UNSPECIFIED\020\000\022\"\n\036ENRIC" +
+      "HMENT_PRIORITY_MARKET_CAP\020\001\022&\n\"ENRICHMEN" +
+      "T_PRIORITY_SHORT_POSITION\020\002\022\"\n\036ENRICHMEN" +
+      "T_PRIORITY_UNENRICHED\020\003\022\035\n\031ENRICHMENT_PR" +
+      "IORITY_STALE\020\004*\360\001\n\023EnrichmentJobStatus\022%" +
+      "\n!ENRICHMENT_JOB_STATUS_UNSPECIFIED\020\000\022 \n" +
+      "\034ENRICHMENT_JOB_STATUS_QUEUED\020\001\022$\n ENRIC" +
+      "HMENT_JOB_STATUS_PROCESSING\020\002\022#\n\037ENRICHM" +
+      "ENT_JOB_STATUS_COMPLETED\020\003\022 \n\034ENRICHMENT" +
+      "_JOB_STATUS_FAILED\020\004\022#\n\037ENRICHMENT_JOB_S" +
+      "TATUS_CANCELLED\020\005*\341\001\n\022SubscriptionStatus" +
+      "\022#\n\037SUBSCRIPTION_STATUS_UNSPECIFIED\020\000\022\036\n" +
+      "\032SUBSCRIPTION_STATUS_ACTIVE\020\001\022 \n\034SUBSCRI" +
+      "PTION_STATUS_TRIALING\020\002\022 \n\034SUBSCRIPTION_" +
+      "STATUS_PAST_DUE\020\003\022 \n\034SUBSCRIPTION_STATUS" +
+      "_CANCELED\020\004\022 \n\034SUBSCRIPTION_STATUS_INACT" +
+      "IVE\020\005*\255\001\n\020SubscriptionTier\022!\n\035SUBSCRIPTI" +
+      "ON_TIER_UNSPECIFIED\020\000\022\032\n\026SUBSCRIPTION_TI" +
+      "ER_FREE\020\001\022\031\n\025SUBSCRIPTION_TIER_PRO\020\002\022 \n\034" +
+      "SUBSCRIPTION_TIER_ENTERPRISE\020\003\022\035\n\031SUBSCR" +
+      "IPTION_TIER_PREMIUM\020\004*y\n\021AlertMonitorSco" +
+      "pe\022#\n\037ALERT_MONITOR_SCOPE_UNSPECIFIED\020\000\022" +
+      " \n\034ALERT_MONITOR_SCOPE_INDUSTRY\020\001\022\035\n\031ALE" +
+      "RT_MONITOR_SCOPE_STOCK\020\002*\323\001\n\025AlertMonito" +
+      "rCondition\022\'\n#ALERT_MONITOR_CONDITION_UN" +
+      "SPECIFIED\020\000\0220\n,ALERT_MONITOR_CONDITION_S" +
+      "HORT_INTEREST_ABOVE\020\001\0220\n,ALERT_MONITOR_C" +
+      "ONDITION_SHORT_INTEREST_RISES\020\002\022-\n)ALERT" +
+      "_MONITOR_CONDITION_NEW_TOP_TEN_ENTRY\020\003*\177" +
+      "\n\023AlertMonitorCadence\022%\n!ALERT_MONITOR_C" +
+      "ADENCE_UNSPECIFIED\020\000\022\037\n\033ALERT_MONITOR_CA" +
+      "DENCE_DAILY\020\001\022 \n\034ALERT_MONITOR_CADENCE_W" +
+      "EEKLY\020\002*|\n\022AlertMonitorStatus\022$\n ALERT_M" +
+      "ONITOR_STATUS_UNSPECIFIED\020\000\022\037\n\033ALERT_MON" +
+      "ITOR_STATUS_ACTIVE\020\001\022\037\n\033ALERT_MONITOR_ST" +
+      "ATUS_PAUSED\020\002*t\n\nTakeStatus\022\033\n\027TAKE_STAT" +
+      "US_UNSPECIFIED\020\000\022\025\n\021TAKE_STATUS_DRAFT\020\001\022" +
+      "\031\n\025TAKE_STATUS_PUBLISHED\020\002\022\027\n\023TAKE_STATU" +
+      "S_TWEETED\020\003*\360\002\n\021ScreenerSortField\022!\n\035SCR" +
+      "EENER_SORT_FIELD_SHORT_PCT\020\000\022(\n$SCREENER" +
+      "_SORT_FIELD_SHORT_PCT_CHANGE\020\001\022\"\n\036SCREEN" +
+      "ER_SORT_FIELD_MARKET_CAP\020\002\022\'\n#SCREENER_S" +
+      "ORT_FIELD_PRICE_CHANGE_1M\020\003\022 \n\034SCREENER_" +
+      "SORT_FIELD_PE_RATIO\020\004\022&\n\"SCREENER_SORT_F" +
+      "IELD_DIVIDEND_YIELD\020\005\022(\n$SCREENER_SORT_F" +
+      "IELD_NET_DIRECTOR_BUY\020\006\022&\n\"SCREENER_SORT" +
+      "_FIELD_NEWS_SENTIMENT\020\007\022%\n!SCREENER_SORT" +
+      "_FIELD_DAYS_TO_COVER\020\010*@\n\rSortDirection\022" +
+      "\027\n\023SORT_DIRECTION_DESC\020\000\022\026\n\022SORT_DIRECTI" +
+      "ON_ASC\020\001*v\n\020BattlegroundView\022!\n\035BATTLEGR" +
+      "OUND_VIEW_UNSPECIFIED\020\000\022\035\n\031BATTLEGROUND_" +
+      "VIEW_SQUEEZE\020\001\022 \n\034BATTLEGROUND_VIEW_DIVE" +
+      "RGENCE\020\002*\302\001\n\014VerdictLabel\022\035\n\031VERDICT_LAB" +
+      "EL_UNSPECIFIED\020\000\022 \n\034VERDICT_LABEL_STRONG" +
+      "_BEARISH\020\001\022\031\n\025VERDICT_LABEL_BEARISH\020\002\022\031\n" +
+      "\025VERDICT_LABEL_NEUTRAL\020\003\022\031\n\025VERDICT_LABE" +
+      "L_BULLISH\020\004\022 \n\034VERDICT_LABEL_STRONG_BULL" +
+      "ISH\020\0052\243\205\001\n\024ShortedStocksService\022\206\003\n\014GetT" +
+      "opShorts\022$.shorts.v1alpha1.GetTopShortsR" +
+      "equest\032%.shorts.v1alpha1.GetTopShortsRes" +
+      "ponse\"\250\002\332A\023period,limit,offset\272G\212\002\022\016Get " +
+      "Top Shorts\032jRetrieve the top shorted sto" +
+      "cks on the ASX for a given time period. " +
+      "Supports pagination and custom limits.B\213" +
+      "\001\022X\n\003200\022Q\nO\nMA successful response cont" +
+      "aining time series data for the top shor" +
+      "ted stocks.\022/\n\003400\022(\n&\n$Invalid request " +
+      "parameters provided.\200\265\030\001\022\375\002\n\022GetIndustry" +
+      "TreeMap\022*.shorts.v1alpha1.GetIndustryTre" +
+      "eMapRequest\032 .stocks.v1alpha1.IndustryTr" +
+      "eeMap\"\230\002\272G\220\002\022\024Get Industry TreeMap\032{Retr" +
+      "ieve a hierarchical treemap of short pos" +
+      "itions grouped by industry. Useful for v" +
+      "isualizing market-wide shorting trends.B" +
+      "{\022Q\n\003200\022J\nH\nFA successful response cont" +
+      "aining industry-grouped short position d" +
+      "ata.\022&\n\003400\022\037\n\035\n\033Invalid request paramet" +
+      "ers.\200\265\030\001\022\300\002\n\010GetStock\022 .shorts.v1alpha1." +
+      "GetStockRequest\032\026.stocks.v1alpha1.Stock\"" +
+      "\371\001\272G\361\001\022\021Get Stock Summary\032fRetrieve a su" +
+      "mmary of current short positions and bas" +
+      "ic metadata for a specific stock by its " +
+      "ASX code.Bt\022>\n\003200\0227\n5\n3A successful res" +
+      "ponse containing the stock summary.\0222\n\0034" +
+      "04\022+\n)\n\'The specified stock code was not" +
+      " found.\200\265\030\001\022\360\002\n\017GetStockDetails\022\'.shorts" +
+      ".v1alpha1.GetStockDetailsRequest\032\035.stock" +
+      "s.v1alpha1.StockDetails\"\224\002\272G\214\002\022\021Get Stoc" +
+      "k Details\032sRetrieve comprehensive metada" +
+      "ta for a specific stock, including compa" +
+      "ny history, key people, and financial re" +
+      "ports.B\201\001\022G\n\003200\022@\n>\n<A successful respo" +
+      "nse containing detailed stock informatio" +
+      "n.\0226\n\003404\022/\n-\n+The specified stock detai" +
+      "ls were not found.\200\265\030\001\022\360\002\n\014GetStockData\022" +
+      "$.shorts.v1alpha1.GetStockDataRequest\032\037." +
+      "stocks.v1alpha1.TimeSeriesData\"\230\002\272G\220\002\022\032G" +
+      "et Stock Time Series Data\032XRetrieve hist" +
+      "orical short position data for a specifi" +
+      "c stock over a defined time period.B\227\001\022J" +
+      "\n\003200\022C\nA\n?A successful response contain" +
+      "ing historical time series points.\022I\n\00340" +
+      "1\022B\n@\n>Authentication is required to acc" +
+      "ess private time series data.\200\265\030\001\022\313\001\n\017Ge" +
+      "tMarketByDate\022\'.shorts.v1alpha1.GetMarke" +
+      "tByDateRequest\032(.shorts.v1alpha1.GetMark" +
+      "etByDateResponse\"e\272G^\022\022Get Market By Dat" +
+      "e\032HRetrieve all short positions for a sp" +
+      "ecific trading date from ASIC data.\200\265\030\001\022" +
+      "\304\001\n\021GetAvailableDates\022).shorts.v1alpha1." +
+      "GetAvailableDatesRequest\032*.shorts.v1alph" +
+      "a1.GetAvailableDatesResponse\"X\272GQ\022\023Get A" +
+      "vailable Dates\032:Retrieve available tradi" +
+      "ng dates with short position data.\200\265\030\001\022\371" +
+      "\001\n\014SearchStocks\022$.shorts.v1alpha1.Search" +
+      "StocksRequest\032%.shorts.v1alpha1.SearchSt" +
+      "ocksResponse\"\233\001\272G\223\001\022\rSearch Stocks\032YSear" +
+      "ch for ASX stocks using full-text search" +
+      " against their ticker symbol or company " +
+      "name.B\'\022%\n\003200\022\036\n\034\n\032A list of matching s" +
+      "tocks.\200\265\030\001\022\311\002\n\rGetSyncStatus\022%.shorts.v1" +
+      "alpha1.GetSyncStatusRequest\032&.shorts.v1a" +
+      "lpha1.GetSyncStatusResponse\"\350\001\272G\327\001\022\017Get " +
+      "Sync Status\032nAdministrative endpoint to " +
+      "retrieve the status and history of data " +
+      "synchronization tasks. Requires admin ro" +
+      "le.BT\022#\n\003200\022\034\n\032\n\030Recent sync run histor" +
+      "y.\022-\n\003403\022&\n$\n\"Forbidden: Admin role is " +
+      "required.\200\265\030\002\212\265\030\005admin\022\254\002\n\tMintToken\022!.s" +
+      "horts.v1alpha1.MintTokenRequest\032\".shorts" +
+      ".v1alpha1.MintTokenResponse\"\327\001\272G\317\001\022\016Mint" +
+      " API Token\032lGenerate a bespoke API token" +
+      " for programmatic access to Shorted APIs" +
+      ". Requires valid session authentication." +
+      "BO\022\033\n\003200\022\024\n\022\n\020A new API token.\0220\n\003401\022)" +
+      "\n\'\n%Unauthorized: User must be signed in" +
+      ".\200\265\030\002\022\354\002\n\016SyncKeyMetrics\022&.shorts.v1alph" +
+      "a1.SyncKeyMetricsRequest\032\'.shorts.v1alph" +
+      "a1.SyncKeyMetricsResponse\"\210\002\272G\367\001\022\020Sync K" +
+      "ey Metrics\032\213\001Trigger on-demand sync of k" +
+      "ey metrics (market cap, P/E ratio, etc.)" +
+      " for specific stocks. Fetches fresh data" +
+      " from Yahoo Finance. Admin only.BU\022\'\n\00320" +
+      "0\022 \n\036\n\034Sync completed successfully.\022*\n\0034" +
+      "03\022#\n!\n\037Forbidden: Admin role required.\200" +
+      "\265\030\002\212\265\030\005admin\022g\n\013EnrichStock\022#.shorts.v1a" +
+      "lpha1.EnrichStockRequest\032$.shorts.v1alph" +
+      "a1.EnrichStockResponse\"\r\200\265\030\002\212\265\030\005admin\022\221\001" +
+      "\n\031GetTopStocksForEnrichment\0221.shorts.v1a" +
+      "lpha1.GetTopStocksForEnrichmentRequest\0322" +
+      ".shorts.v1alpha1.GetTopStocksForEnrichme" +
+      "ntResponse\"\r\200\265\030\002\212\265\030\005admin\022\210\001\n\026ListPendin" +
+      "gEnrichments\022..shorts.v1alpha1.ListPendi" +
+      "ngEnrichmentsRequest\032/.shorts.v1alpha1.L" +
+      "istPendingEnrichmentsResponse\"\r\200\265\030\002\212\265\030\005a" +
+      "dmin\022\202\001\n\024GetPendingEnrichment\022,.shorts.v" +
+      "1alpha1.GetPendingEnrichmentRequest\032-.sh" +
+      "orts.v1alpha1.GetPendingEnrichmentRespon" +
+      "se\"\r\200\265\030\002\212\265\030\005admin\022v\n\020ReviewEnrichment\022(." +
+      "shorts.v1alpha1.ReviewEnrichmentRequest\032" +
+      ").shorts.v1alpha1.ReviewEnrichmentRespon" +
+      "se\"\r\200\265\030\002\212\265\030\005admin\022\210\001\n\026GetEnrichmentJobSt",
+      "atus\022..shorts.v1alpha1.GetEnrichmentJobS" +
+      "tatusRequest\032/.shorts.v1alpha1.GetEnrich" +
+      "mentJobStatusResponse\"\r\200\265\030\002\212\265\030\005admin\022|\n\022" +
+      "ListEnrichmentJobs\022*.shorts.v1alpha1.Lis" +
+      "tEnrichmentJobsRequest\032+.shorts.v1alpha1" +
+      ".ListEnrichmentJobsResponse\"\r\200\265\030\002\212\265\030\005adm" +
+      "in\022\224\001\n\035HandleStripeCheckoutCompleted\0225.s" +
+      "horts.v1alpha1.HandleStripeCheckoutCompl" +
+      "etedRequest\0326.shorts.v1alpha1.HandleStri" +
+      "peCheckoutCompletedResponse\"\004\200\265\030\002\022\232\001\n\037Ha" +
+      "ndleStripeSubscriptionUpdated\0227.shorts.v" +
+      "1alpha1.HandleStripeSubscriptionUpdatedR" +
+      "equest\0328.shorts.v1alpha1.HandleStripeSub" +
+      "scriptionUpdatedResponse\"\004\200\265\030\002\022p\n\021GetMyS" +
+      "ubscription\022).shorts.v1alpha1.GetMySubsc" +
+      "riptionRequest\032*.shorts.v1alpha1.GetMySu" +
+      "bscriptionResponse\"\004\200\265\030\002\022s\n\022CreateAlertM" +
+      "onitor\022*.shorts.v1alpha1.CreateAlertMoni" +
+      "torRequest\032+.shorts.v1alpha1.CreateAlert" +
+      "MonitorResponse\"\004\200\265\030\002\022p\n\021ListAlertMonito" +
+      "rs\022).shorts.v1alpha1.ListAlertMonitorsRe" +
+      "quest\032*.shorts.v1alpha1.ListAlertMonitor" +
+      "sResponse\"\004\200\265\030\002\022\352\001\n\017GetWeeklyReport\022\'.sh" +
+      "orts.v1alpha1.GetWeeklyReportRequest\032(.s" +
+      "horts.v1alpha1.GetWeeklyReportResponse\"\203" +
+      "\001\272G|\022\021Get Weekly Report\032gRetrieve a week" +
+      "ly short selling report with narrative a" +
+      "nalysis, top shorted stocks, and biggest" +
+      " movers.\200\265\030\001\022\312\001\n\013ListReports\022#.shorts.v1" +
+      "alpha1.ListReportsRequest\032$.shorts.v1alp" +
+      "ha1.ListReportsResponse\"p\272Gi\022\014List Repor" +
+      "ts\032YList published short selling reports" +
+      " with headlines and summary stats, most " +
+      "recent first.\200\265\030\001\022\237\002\n\033GetStockFinancialH" +
+      "ighlights\0223.shorts.v1alpha1.GetStockFina" +
+      "ncialHighlightsRequest\0324.shorts.v1alpha1" +
+      ".GetStockFinancialHighlightsResponse\"\224\001\272" +
+      "G\214\001\022\036Get Stock Financial Highlights\032jRet" +
+      "rieve extracted financial metrics (reven" +
+      "ue, NPAT, EPS, dividends, etc.) from com" +
+      "pany financial reports.\200\265\030\001\022\312\001\n\014GetStock" +
+      "News\022$.shorts.v1alpha1.GetStockNewsReque" +
+      "st\032%.shorts.v1alpha1.GetStockNewsRespons" +
+      "e\"m\272Gf\022\016Get Stock News\032TRetrieve recent " +
+      "news articles, announcements, and analys" +
+      "is for a specific ASX stock.\200\265\030\001\022\337\001\n\016Get" +
+      "RelatedNews\022&.shorts.v1alpha1.GetRelated" +
+      "NewsRequest\032\'.shorts.v1alpha1.GetRelated" +
+      "NewsResponse\"|\272Gu\022\020Get Related News\032aRet" +
+      "rieve news articles semantically related" +
+      " to a stock or a given article, via vect" +
+      "or similarity.\200\265\030\001\022\314\001\n\rGetMarketNews\022%.s" +
+      "horts.v1alpha1.GetMarketNewsRequest\032&.sh" +
+      "orts.v1alpha1.GetMarketNewsResponse\"l\272Ge" +
+      "\022\017Get Market News\032RRetrieve recent marke" +
+      "t-wide news articles and announcements a" +
+      "cross all ASX stocks.\200\265\030\001\022\264\001\n\020GetEditori" +
+      "alTake\022(.shorts.v1alpha1.GetEditorialTak" +
+      "eRequest\032).shorts.v1alpha1.GetEditorialT" +
+      "akeResponse\"K\272GD\022\022Get Editorial Take\032.Re" +
+      "trieve a published Shorted Take by URL s" +
+      "lug.\200\265\030\001\022\337\001\n\022ListEditorialTakes\022*.shorts" +
+      ".v1alpha1.ListEditorialTakesRequest\032+.sh" +
+      "orts.v1alpha1.ListEditorialTakesResponse" +
+      "\"p\272Gi\022\024List Editorial Takes\032QList recent" +
+      " published Shorted Takes, newest first. " +
+      "Optional filter by stock code.\200\265\030\001\022\202\001\n\027L" +
+      "istEditorialTakesAdmin\022/.shorts.v1alpha1" +
+      ".ListEditorialTakesAdminRequest\0320.shorts" +
+      ".v1alpha1.ListEditorialTakesAdminRespons" +
+      "e\"\004\200\265\030\002\022y\n\024PublishEditorialTake\022,.shorts" +
+      ".v1alpha1.PublishEditorialTakeRequest\032-." +
+      "shorts.v1alpha1.PublishEditorialTakeResp" +
+      "onse\"\004\200\265\030\002\022v\n\023UpdateEditorialTake\022+.shor" +
+      "ts.v1alpha1.UpdateEditorialTakeRequest\032," +
+      ".shorts.v1alpha1.UpdateEditorialTakeResp" +
+      "onse\"\004\200\265\030\002\022v\n\023DeleteEditorialTake\022+.shor" +
+      "ts.v1alpha1.DeleteEditorialTakeRequest\032," +
+      ".shorts.v1alpha1.DeleteEditorialTakeResp" +
+      "onse\"\004\200\265\030\002\022\177\n\026MarkTakeTweetPublished\022..s" +
+      "horts.v1alpha1.MarkTakeTweetPublishedReq" +
+      "uest\032/.shorts.v1alpha1.MarkTakeTweetPubl" +
+      "ishedResponse\"\004\200\265\030\002\022|\n\025ListTweetPublishQ" +
+      "ueue\022-.shorts.v1alpha1.ListTweetPublishQ" +
+      "ueueRequest\032..shorts.v1alpha1.ListTweetP" +
+      "ublishQueueResponse\"\004\200\265\030\002\022\351\001\n\021GetDirecto" +
+      "rTrades\022).shorts.v1alpha1.GetDirectorTra" +
+      "desRequest\032*.shorts.v1alpha1.GetDirector" +
+      "TradesResponse\"}\272Gv\022\023Get Director Trades" +
+      "\032_Retrieve director (insider) trading ac" +
+      "tivity from ASX Appendix 3Y filings for " +
+      "a specific stock.\200\265\030\001\022\344\001\n\022GetDividendHis" +
+      "tory\022*.shorts.v1alpha1.GetDividendHistor" +
+      "yRequest\032+.shorts.v1alpha1.GetDividendHi" +
+      "storyResponse\"u\272Gn\022\024Get Dividend History" +
+      "\032VRetrieve dividend payment history incl" +
+      "uding franking credits for a specific AS" +
+      "X stock.\200\265\030\001\022\337\001\n\021GetPeerComparison\022).sho" +
+      "rts.v1alpha1.GetPeerComparisonRequest\032*." +
+      "shorts.v1alpha1.GetPeerComparisonRespons" +
+      "e\"s\272Gl\022\023Get Peer Comparison\032UCompare a s" +
+      "tock\'s short position, price, and fundam" +
+      "entals against its industry peers.\200\265\030\001\022\200" +
+      "\002\n\014ScreenStocks\022$.shorts.v1alpha1.Screen" +
+      "StocksRequest\032%.shorts.v1alpha1.ScreenSt" +
+      "ocksResponse\"\242\001\272G\232\001\022\rScreen Stocks\032\210\001Fil" +
+      "ter and sort stocks using compound crite" +
+      "ria across short positions, price change" +
+      "s, fundamentals, director trades, and ne" +
+      "ws sentiment.\200\265\030\001\022\311\002\n\025GetBattlegroundSto" +
+      "cks\022-.shorts.v1alpha1.GetBattlegroundSto" +
+      "cksRequest\032..shorts.v1alpha1.GetBattlegr" +
+      "oundStocksResponse\"\320\001\272G\254\001\022\027Get Battlegro" +
+      "und Stocks\032\220\001Rank stocks by squeeze risk" +
+      " (days-to-cover, short interest, crowdin" +
+      "g, momentum) or by bull-vs-bear divergen" +
+      "ce (price rising while shorts build).\200\265\030" +
+      "\001\202\323\344\223\002\026\"\021/v1/battlegrounds:\001*\022\343\002\n\017GetSto" +
+      "ckVerdict\022\'.shorts.v1alpha1.GetStockVerd" +
+      "ictRequest\032(.shorts.v1alpha1.GetStockVer" +
+      "dictResponse\"\374\001\272G\331\001\022\021Get Stock Verdict\032\303" +
+      "\001Composite bear-vs-bull verdict (-100..1" +
+      "00) for a single stock, combining short-" +
+      "position trend and level, director tradi" +
+      "ng, news sentiment, and squeeze pressure" +
+      " \342\200\224 with a per-component breakdown.\200\265\030\001" +
+      "\202\323\344\223\002\025\"\020/v1/stockVerdict:\001*\022\371\002\n\032GetShort" +
+      "CampaignScoreboard\0222.shorts.v1alpha1.Get" +
+      "ShortCampaignScoreboardRequest\0323.shorts." +
+      "v1alpha1.GetShortCampaignScoreboardRespo" +
+      "nse\"\361\001\272G\303\001\022\035Get Short Campaign Scoreboar" +
+      "d\032\241\001Historic short campaigns (peak short" +
+      " interest >= 5% over the last 3 years) w" +
+      "ith price outcomes 3 and 6 months after " +
+      "the peak, and overall short-seller win r" +
+      "ates.\200\265\030\001\202\323\344\223\002 \"\033/v1/shortCampaignScoreb" +
+      "oard:\001*\022\211\002\n\rGetStockGraph\022%.shorts.v1alp" +
+      "ha1.GetStockGraphRequest\032&.shorts.v1alph" +
+      "a1.GetStockGraphResponse\"\250\001\272G\240\001\022\017Get Sto" +
+      "ck Graph\032\214\001Retrieve a stock\'s connected " +
+      "people (directors/officers and their oth" +
+      "er ASX roles) and semantically similar c" +
+      "ompanies via vector similarity.\200\265\030\001\022\232\002\n\020" +
+      "GetEventTimeline\022(.shorts.v1alpha1.GetEv" +
+      "entTimelineRequest\032).shorts.v1alpha1.Get" +
+      "EventTimelineResponse\"\260\001\272G\250\001\022\022Get Event " +
+      "Timeline\032\221\001Retrieve a chronological feed" +
+      " of events for a stock, merging ASX anno" +
+      "uncements, director trades, price-sensit" +
+      "ive news, and short position spikes.\200\265\030\001" +
+      "\022\334\002\n\017GetStockSignals\022\'.shorts.v1alpha1.G" +
+      "etStockSignalsRequest\032(.shorts.v1alpha1." +
+      "GetStockSignalsResponse\"\365\001\272G\355\001\022\021Get Stoc" +
+      "k Signals\032\327\001Retrieve a stock\'s reputatio" +
+      "n/risk signals \342\200\224 adverse (court matter" +
+      "s, regulator sanctions, complaints) and " +
+      "positive (awards, press), each with cita" +
+      "tions, severity and confidence. Sourced " +
+      "from grounded web research.\200\265\030\001\022\317\002\n\022GetH" +
+      "ousingOverview\022*.shorts.v1alpha1.GetHous" +
+      "ingOverviewRequest\032+.shorts.v1alpha1.Get" +
+      "HousingOverviewResponse\"\337\001\272G\327\001\022\024Get Hous" +
+      "ing Overview\032\276\001Latest Australian house-p" +
+      "rice headline metrics by region (nationa" +
+      "l, state, capital city) \342\200\224 mean/median " +
+      "price and price index with QoQ and YoY c" +
+      "hange. Sourced from the ABS Data API and" +
+      " RBA.\200\265\030\001\022\255\002\n\023GetHousePriceSeries\022+.shor" +
+      "ts.v1alpha1.GetHousePriceSeriesRequest\032," +
+      ".shorts.v1alpha1.GetHousePriceSeriesResp" +
+      "onse\"\272\001\272G\262\001\022\026Get House Price Series\032\227\001A " +
+      "single house-price time series for a reg" +
+      "ion and measure (national mean price, ca" +
+      "pital-city median, household debt-to-inc" +
+      "ome, price index), quarterly.\200\265\030\001\022\234\002\n\020Li" +
+      "stStateSuburbs\022(.shorts.v1alpha1.ListSta" +
+      "teSuburbsRequest\032).shorts.v1alpha1.ListS" +
+      "tateSuburbsResponse\"\262\001\272G\252\001\022\022List State S" +
+      "uburbs\032\223\001Every suburb (ABS SAL) in a sta" +
+      "te with its latest median house price an" +
+      "d key ABS Census demographics \342\200\224 powers" +
+      " the state choropleth + suburb list.\200\265\030\001" +
+      "\022\225\002\n\020GetSuburbProfile\022(.shorts.v1alpha1." +
+      "GetSuburbProfileRequest\032).shorts.v1alpha" +
+      "1.GetSuburbProfileResponse\"\253\001\272G\243\001\022\022Get S" +
+      "uburb Profile\032\214\001A single suburb\'s rich p" +
+      "rofile \342\200\224 ABS Census demographics, late" +
+      "st median house price with QoQ/YoY, and " +
+      "state/national comparison baselines.\200\265\030\001" +
+      "\022\313\002\n\022ListHousingRegions\022*.shorts.v1alpha" +
+      "1.ListHousingRegionsRequest\032+.shorts.v1a" +
+      "lpha1.ListHousingRegionsResponse\"\333\001\272G\323\001\022" +
+      "\024List Housing Regions\032\272\001List house-price" +
+      " regions, optionally filtered by region_" +
+      "type, state, or a name query \342\200\224 powers " +
+      "the suburb explorer. Suburb medians are " +
+      "sourced from state Valuer-General office" +
+      "s (CC BY).\200\265\030\001\022\251\003\n\024ListSuburbPriceDrops\022" +
+      ",.shorts.v1alpha1.ListSuburbPriceDropsRe" +
+      "quest\032-.shorts.v1alpha1.ListSuburbPriceD" +
+      "ropsResponse\"\263\002\272G\253\002\022\027List Suburb Price D" +
+      "rops\032\217\002Suburbs ranked by recent for-sale" +
+      " asking-price reductions over a rolling " +
+      "window \342\200\224 count of reduced listings plu" +
+      "s the average, median and largest reduct" +
+      "ion. A derived aggregate over realestate" +
+      ".com.au / domain.com.au listing data; in" +
+      "dividual listings are not republished.\200\265" +
+      "\030\001\022\347\002\n\026ListSuburbDropListings\022..shorts.v" +
+      "1alpha1.ListSuburbDropListingsRequest\032/." +
+      "shorts.v1alpha1.ListSuburbDropListingsRe" +
+      "sponse\"\353\001\272G\343\001\022\031List Suburb Drop Listings" +
+      "\032\305\001Recently price-reduced for-sale listi" +
+      "ngs in a suburb, each deep-linking OUT t" +
+      "o the live realestate.com.au / domain.co" +
+      "m.au page. Factual price-change data onl" +
+      "y; the listing itself is not reproduced." +
+      "\200\265\030\001\022\270\003\n\022GetPropertyHistory\022*.shorts.v1a" +
+      "lpha1.GetPropertyHistoryRequest\032+.shorts" +
+      ".v1alpha1.GetPropertyHistoryResponse\"\310\002\272" +
+      "G\237\002\022\024Get Property History\032\206\002Full asking-" +
+      "price timeline for a single physical add" +
+      "ress (stable address_key), across all it" +
+      "s listings and relists on realestate.com" +
+      ".au / domain.com.au. Deep-links OUT to t" +
+      "he live portal page; factual price-chang" +
+      "e data only, the listing itself is not r" +
+      "eproduced.\200\265\030\001\202\323\344\223\002\033\"\026/v1/getPropertyHis" +
+      "tory:\001*\022\203\004\n\025ListAddressPriceDrops\022-.shor" +
+      "ts.v1alpha1.ListAddressPriceDropsRequest" +
+      "\032..shorts.v1alpha1.ListAddressPriceDrops" +
+      "Response\"\212\003\272G\336\002\022\030List Address Price Drop" +
+      "s\032\301\002Individual physical addresses (dedup" +
+      "ed by stable address_key) ranked by thei" +
+      "r for-sale asking-price reduction over a" +
+      " rolling window \342\200\224 from the first obser" +
+      "ved price to the current active listing." +
+      " Each entry deep-links to its per-addres" +
+      "s history page; factual price-change dat" +
+      "a only, the listing itself is not reprod" +
+      "uced.\200\265\030\001\202\323\344\223\002\036\"\031/v1/listAddressPriceDro" +
+      "ps:\001*\022\312\003\n\025GetPriceDropsOverview\022-.shorts" +
+      ".v1alpha1.GetPriceDropsOverviewRequest\032." +
+      ".shorts.v1alpha1.GetPriceDropsOverviewRe" +
+      "sponse\"\321\002\272G\245\002\022\030Get Price Drops Overview\032" +
+      "\210\002Per-state rollup of recent for-sale as" +
+      "king-price reductions plus asking/sold p" +
+      "rice aggregates, with a national summary" +
+      ". A derived aggregate over realestate.co" +
+      "m.au / domain.com.au listing data coveri" +
+      "ng tracked metro suburbs; individual lis" +
+      "tings are not republished.\200\265\030\001\202\323\344\223\002\036\"\031/v" +
+      "1/getPriceDropsOverview:\001*\022\255\003\n\024ListAgenc" +
+      "yPriceStats\022,.shorts.v1alpha1.ListAgency" +
+      "PriceStatsRequest\032-.shorts.v1alpha1.List" +
+      "AgencyPriceStatsResponse\"\267\002\272G\214\002\022\027List Ag" +
+      "ency Price Stats\032\360\001Real-estate agencies " +
+      "ranked by recent asking-price reductions" +
+      " across their tracked for-sale listings " +
+      "\342\200\224 listing counts, median asking price," +
+      " reduction depth and suburbs covered. A " +
+      "derived aggregate; individual listings a" +
+      "re not republished.\200\265\030\001\202\323\344\223\002\035\"\030/v1/listA" +
+      "gencyPriceStats:\001*\022\315\002\n\022ListEconomicSerie" +
+      "s\022*.shorts.v1alpha1.ListEconomicSeriesRe" +
+      "quest\032+.shorts.v1alpha1.ListEconomicSeri" +
+      "esResponse\"\335\001\272G\325\001\022\024List Economic Series\032" +
+      "\274\001Catalog of Australian economic series " +
+      "(petroleum, trade by state, GDP, labour," +
+      " CPI, policy rates) with dimensions, uni" +
+      "ts and source attribution. Sourced from " +
+      "ABS, RBA and DCCEEW open data.\200\265\030\001\022\260\002\n\021G" +
+      "etEconomicSeries\022).shorts.v1alpha1.GetEc" +
+      "onomicSeriesRequest\032*.shorts.v1alpha1.Ge" +
+      "tEconomicSeriesResponse\"\303\001\272G\273\001\022\023Get Econ" +
+      "omic Series\032\243\001Time-series observations f" +
+      "or named economic series keys (e.g. petr" +
+      "oleum.refinery_output.diesel.aus, trade." +
+      "export_value.total.wa), with unit, frequ" +
+      "ency and licence.\200\265\030\001\022\205\003\n\022ListStateCompa" +
+      "nies\022*.shorts.v1alpha1.ListStateCompanie" +
+      "sRequest\032+.shorts.v1alpha1.ListStateComp" +
+      "aniesResponse\"\225\002\272G\215\002\022\024List State Compani" +
+      "es\032\364\001ASX-listed companies operating in a" +
+      " given Australian state, ranked by expos" +
+      "ure-weighted market cap. Exposure is LLM" +
+      "-estimated from company disclosures (ope" +
+      "rations/revenue split), with a registere" +
+      "d-office fallback for companies not yet " +
+      "enriched.\200\265\030\001\022\353\002\n\031GetStateCompanyAggrega" +
+      "tes\0221.shorts.v1alpha1.GetStateCompanyAgg" +
+      "regatesRequest\0322.shorts.v1alpha1.GetStat" +
+      "eCompanyAggregatesResponse\"\346\001\272G\336\001\022\034Get S" +
+      "tate Company Aggregates\032\275\001Per-state aggr" +
+      "egates over the company state-exposure l" +
+      "ayer: company count (weight >= 0.2), exp" +
+      "osure-weighted market cap, and exposure-" +
+      "weighted short interest. Excludes region" +
+      "=international.\200\265\030\001\022\262\004\n\024GetCompanyTaxPro" +
+      "file\022,.shorts.v1alpha1.GetCompanyTaxProf" +
+      "ileRequest\032-.shorts.v1alpha1.GetCompanyT" +
+      "axProfileResponse\"\274\003\272G\224\003\022\027Get Company Ta" +
+      "x Profile\032\370\002An ASX-listed entity\'s annua" +
+      "l corporate-tax profile from the ATO Cor" +
+      "porate Tax Transparency dataset (total i" +
+      "ncome, taxable income, tax payable per i" +
+      "ncome year). Entities are matched to ASX" +
+      " codes only on exact ABN or exact normal" +
+      "ized-name mapping. Nil/absent taxable in" +
+      "come or tax payable is meaningful and of" +
+      "ten legitimate (losses/offsets) \342\200\224 tota" +
+      "l income is always reported.\200\265\030\001\202\323\344\223\002\032\"\025" +
+      "/v1/companyTaxProfile:\001*\022\322\002\n\027GetIndustry" +
+      "Intelligence\022/.shorts.v1alpha1.GetIndust" +
+      "ryIntelligenceRequest\0320.shorts.v1alpha1." +
+      "GetIndustryIntelligenceResponse\"\323\001\272G\250\001\022\031" +
+      "Get Industry Intelligence\032\212\001Imported, ci" +
+      "ted industry intelligence records for a " +
+      "Shorted industry. Only public-enabled so" +
+      "urces and exact-reviewed records are ret" +
+      "urned.\200\265\030\001\202\323\344\223\002\035\"\030/v1/industryIntelligen" +
+      "ce:\001*\032\025\312A\022api.shorted.com.auB\240\003\n\023com.sho" +
+      "rts.v1alpha1B\013ShortsProtoP\001ZYgithub.com/" +
+      "castlemilk/shorted.com.au/services/gen/p" +
+      "roto/go/shorts/v1alpha1;shortsv1alpha1\242\002" +
+      "\003SXX\252\002\017Shorts.V1alpha1\312\002\017Shorts\\V1alpha1" +
+      "\342\002\033Shorts\\V1alpha1\\GPBMetadata\352\002\020Shorts:" +
+      ":V1alpha1\272G\302\001\022\177\n\013Shorted API\022\rShorted AP" +
+      "I\'s\"(\022\016shorted.com.au\032\026support@shorted.c" +
+      "om.au*3\n\023Proprietary license\022\034https://sh" +
+      "orted.com.au/terms2\002v1\032\034\n\032https://api.sh" +
+      "orted.com.au*!:\037\n\035\n\tAuthToken\022\020\n\016\n\004http*" +
+      "\006bearerb\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -3468,218 +3485,230 @@ public final class ShortsProto extends com.google.protobuf.GeneratedFile {
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_SimilarSuburb_descriptor,
         new java.lang.String[] { "SalCode", "SalName", "StateCode", "LatestMedianPrice", "Similarity", "RegionCode", });
-    internal_static_shorts_v1alpha1_GetSuburbProfileResponse_descriptor =
+    internal_static_shorts_v1alpha1_SuburbLandmark_descriptor =
       getDescriptor().getMessageType(154);
+    internal_static_shorts_v1alpha1_SuburbLandmark_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_SuburbLandmark_descriptor,
+        new java.lang.String[] { "Name", "Kind", });
+    internal_static_shorts_v1alpha1_SuburbBanner_descriptor =
+      getDescriptor().getMessageType(155);
+    internal_static_shorts_v1alpha1_SuburbBanner_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_SuburbBanner_descriptor,
+        new java.lang.String[] { "Archetype", "Blurb", "Landmarks", "BgKey", "BgUrl", });
+    internal_static_shorts_v1alpha1_GetSuburbProfileResponse_descriptor =
+      getDescriptor().getMessageType(156);
     internal_static_shorts_v1alpha1_GetSuburbProfileResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetSuburbProfileResponse_descriptor,
-        new java.lang.String[] { "Summary", "Demographics", "Baselines", "Council", "Similar", });
+        new java.lang.String[] { "Summary", "Demographics", "Baselines", "Council", "Similar", "Banner", });
     internal_static_shorts_v1alpha1_ListHousingRegionsRequest_descriptor =
-      getDescriptor().getMessageType(155);
+      getDescriptor().getMessageType(157);
     internal_static_shorts_v1alpha1_ListHousingRegionsRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListHousingRegionsRequest_descriptor,
         new java.lang.String[] { "RegionType", "StateCode", "Query", "Limit", });
     internal_static_shorts_v1alpha1_HousingRegion_descriptor =
-      getDescriptor().getMessageType(156);
+      getDescriptor().getMessageType(158);
     internal_static_shorts_v1alpha1_HousingRegion_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_HousingRegion_descriptor,
         new java.lang.String[] { "RegionCode", "RegionName", "RegionType", "StateCode", "Postcode", "LatestValue", "LatestPeriod", });
     internal_static_shorts_v1alpha1_ListHousingRegionsResponse_descriptor =
-      getDescriptor().getMessageType(157);
+      getDescriptor().getMessageType(159);
     internal_static_shorts_v1alpha1_ListHousingRegionsResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListHousingRegionsResponse_descriptor,
         new java.lang.String[] { "Regions", });
     internal_static_shorts_v1alpha1_ListSuburbPriceDropsRequest_descriptor =
-      getDescriptor().getMessageType(158);
+      getDescriptor().getMessageType(160);
     internal_static_shorts_v1alpha1_ListSuburbPriceDropsRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListSuburbPriceDropsRequest_descriptor,
         new java.lang.String[] { "StateCode", "WindowDays", "Sort", "Limit", });
     internal_static_shorts_v1alpha1_SuburbPriceDrop_descriptor =
-      getDescriptor().getMessageType(159);
+      getDescriptor().getMessageType(161);
     internal_static_shorts_v1alpha1_SuburbPriceDrop_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_SuburbPriceDrop_descriptor,
         new java.lang.String[] { "RegionCode", "SalCode", "SalName", "StateCode", "DroppedListingCount", "AvgDropPct", "MedianDropPct", "MaxDropPct", "MaxDropAbs", "TotalActiveListings", "DroppedShare", "Postcode", "ForSaleCount", "AvgAsking", "MedianAsking", "SoldCount", "AvgSold", "MedianSold", "DroppedValue", });
     internal_static_shorts_v1alpha1_ListSuburbPriceDropsResponse_descriptor =
-      getDescriptor().getMessageType(160);
+      getDescriptor().getMessageType(162);
     internal_static_shorts_v1alpha1_ListSuburbPriceDropsResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListSuburbPriceDropsResponse_descriptor,
         new java.lang.String[] { "Suburbs", });
     internal_static_shorts_v1alpha1_ListSuburbDropListingsRequest_descriptor =
-      getDescriptor().getMessageType(161);
+      getDescriptor().getMessageType(163);
     internal_static_shorts_v1alpha1_ListSuburbDropListingsRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListSuburbDropListingsRequest_descriptor,
         new java.lang.String[] { "SalCode", "RegionCode", "WindowDays", "Limit", });
     internal_static_shorts_v1alpha1_SuburbDropListing_descriptor =
-      getDescriptor().getMessageType(162);
+      getDescriptor().getMessageType(164);
     internal_static_shorts_v1alpha1_SuburbDropListing_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_SuburbDropListing_descriptor,
         new java.lang.String[] { "Source", "ListingUrl", "DisplayAddress", "PropertyType", "Bedrooms", "Bathrooms", "CarSpaces", "PrevPrice", "Price", "DropPct", "DropAbs", "ObservedAt", "AddressKey", "AgencyName", "AgentNames", });
     internal_static_shorts_v1alpha1_ListSuburbDropListingsResponse_descriptor =
-      getDescriptor().getMessageType(163);
+      getDescriptor().getMessageType(165);
     internal_static_shorts_v1alpha1_ListSuburbDropListingsResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListSuburbDropListingsResponse_descriptor,
         new java.lang.String[] { "Listings", });
     internal_static_shorts_v1alpha1_GetPropertyHistoryRequest_descriptor =
-      getDescriptor().getMessageType(164);
+      getDescriptor().getMessageType(166);
     internal_static_shorts_v1alpha1_GetPropertyHistoryRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetPropertyHistoryRequest_descriptor,
         new java.lang.String[] { "AddressKey", });
     internal_static_shorts_v1alpha1_PropertyListingSnapshot_descriptor =
-      getDescriptor().getMessageType(165);
+      getDescriptor().getMessageType(167);
     internal_static_shorts_v1alpha1_PropertyListingSnapshot_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_PropertyListingSnapshot_descriptor,
         new java.lang.String[] { "Source", "ListingId", "ListingUrl", "Price", "PriceDisplay", "PriceKind", "ListingStatus", "IsActive", "Bedrooms", "Bathrooms", "CarSpaces", "LandSizeSqm", "PropertyType", "FirstSeenAt", "LastSeenAt", "AgencyName", "AgentNames", });
     internal_static_shorts_v1alpha1_PropertyPriceEvent_descriptor =
-      getDescriptor().getMessageType(166);
+      getDescriptor().getMessageType(168);
     internal_static_shorts_v1alpha1_PropertyPriceEvent_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_PropertyPriceEvent_descriptor,
         new java.lang.String[] { "ObservedAt", "EventType", "Source", "ListingId", "Price", "PrevPrice", "DropAbs", "DropPct", "ListingStatus", "PrevStatus", });
     internal_static_shorts_v1alpha1_GetPropertyHistoryResponse_descriptor =
-      getDescriptor().getMessageType(167);
+      getDescriptor().getMessageType(169);
     internal_static_shorts_v1alpha1_GetPropertyHistoryResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetPropertyHistoryResponse_descriptor,
         new java.lang.String[] { "AddressKey", "DisplayAddress", "Suburb", "StateCode", "Postcode", "Current", "Events", "NumListings", "FirstPrice", "CurrentPrice", "DistinctDwellings", });
     internal_static_shorts_v1alpha1_ListAddressPriceDropsRequest_descriptor =
-      getDescriptor().getMessageType(168);
+      getDescriptor().getMessageType(170);
     internal_static_shorts_v1alpha1_ListAddressPriceDropsRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListAddressPriceDropsRequest_descriptor,
         new java.lang.String[] { "StateCode", "WindowDays", "Limit", "Sort", });
     internal_static_shorts_v1alpha1_AddressPriceDrop_descriptor =
-      getDescriptor().getMessageType(169);
+      getDescriptor().getMessageType(171);
     internal_static_shorts_v1alpha1_AddressPriceDrop_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_AddressPriceDrop_descriptor,
         new java.lang.String[] { "AddressKey", "DisplayAddress", "Suburb", "StateCode", "Postcode", "FirstPrice", "CurrentPrice", "DropAbs", "DropPct", "NumListings", "LatestSource", "LatestListingUrl", "LastObservedAt", "PropertyType", "Bedrooms", "Bathrooms", "AgencyName", "AgentNames", });
     internal_static_shorts_v1alpha1_ListAddressPriceDropsResponse_descriptor =
-      getDescriptor().getMessageType(170);
+      getDescriptor().getMessageType(172);
     internal_static_shorts_v1alpha1_ListAddressPriceDropsResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListAddressPriceDropsResponse_descriptor,
         new java.lang.String[] { "Addresses", });
     internal_static_shorts_v1alpha1_GetPriceDropsOverviewRequest_descriptor =
-      getDescriptor().getMessageType(171);
+      getDescriptor().getMessageType(173);
     internal_static_shorts_v1alpha1_GetPriceDropsOverviewRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetPriceDropsOverviewRequest_descriptor,
         new java.lang.String[] { });
     internal_static_shorts_v1alpha1_StatePriceDropSummary_descriptor =
-      getDescriptor().getMessageType(172);
+      getDescriptor().getMessageType(174);
     internal_static_shorts_v1alpha1_StatePriceDropSummary_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_StatePriceDropSummary_descriptor,
         new java.lang.String[] { "StateCode", "DroppedCount", "AvgDropPct", "MedianDropPct", "MaxDropPct", "DroppedValue", "TotalActiveListings", "DroppedShare", "ForSaleCount", "ForSalePriced", "AvgAsking", "MedianAsking", "SoldCount", "AvgSold", "MedianSold", "SuburbsTracked", });
     internal_static_shorts_v1alpha1_GetPriceDropsOverviewResponse_descriptor =
-      getDescriptor().getMessageType(173);
+      getDescriptor().getMessageType(175);
     internal_static_shorts_v1alpha1_GetPriceDropsOverviewResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetPriceDropsOverviewResponse_descriptor,
         new java.lang.String[] { "National", "States", });
     internal_static_shorts_v1alpha1_ListAgencyPriceStatsRequest_descriptor =
-      getDescriptor().getMessageType(174);
+      getDescriptor().getMessageType(176);
     internal_static_shorts_v1alpha1_ListAgencyPriceStatsRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListAgencyPriceStatsRequest_descriptor,
         new java.lang.String[] { "StateCode", "Sort", "Limit", });
     internal_static_shorts_v1alpha1_AgencyPriceStats_descriptor =
-      getDescriptor().getMessageType(175);
+      getDescriptor().getMessageType(177);
     internal_static_shorts_v1alpha1_AgencyPriceStats_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_AgencyPriceStats_descriptor,
         new java.lang.String[] { "Source", "AgencyId", "AgencyName", "StateCode", "ActiveListings", "PricedListings", "AvgAsking", "MedianAsking", "SuburbsCovered", "DroppedCount", "AvgDropPct", "TotalDropValue", "AgentNames", });
     internal_static_shorts_v1alpha1_ListAgencyPriceStatsResponse_descriptor =
-      getDescriptor().getMessageType(176);
+      getDescriptor().getMessageType(178);
     internal_static_shorts_v1alpha1_ListAgencyPriceStatsResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListAgencyPriceStatsResponse_descriptor,
         new java.lang.String[] { "Agencies", });
     internal_static_shorts_v1alpha1_EconomicSeriesInfo_descriptor =
-      getDescriptor().getMessageType(177);
+      getDescriptor().getMessageType(179);
     internal_static_shorts_v1alpha1_EconomicSeriesInfo_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_EconomicSeriesInfo_descriptor,
         new java.lang.String[] { "SeriesKey", "Topic", "Metric", "Product", "RegionType", "RegionCode", "RegionName", "Unit", "Frequency", "Adjustment", "SourceKey", "SourceLicence", "LatestPeriod", });
     internal_static_shorts_v1alpha1_ListEconomicSeriesRequest_descriptor =
-      getDescriptor().getMessageType(178);
+      getDescriptor().getMessageType(180);
     internal_static_shorts_v1alpha1_ListEconomicSeriesRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListEconomicSeriesRequest_descriptor,
         new java.lang.String[] { "Topic", "Metric", "RegionType", "RegionCode", "Product", "Limit", });
     internal_static_shorts_v1alpha1_ListEconomicSeriesResponse_descriptor =
-      getDescriptor().getMessageType(179);
+      getDescriptor().getMessageType(181);
     internal_static_shorts_v1alpha1_ListEconomicSeriesResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListEconomicSeriesResponse_descriptor,
         new java.lang.String[] { "Series", });
     internal_static_shorts_v1alpha1_EconomicObservation_descriptor =
-      getDescriptor().getMessageType(180);
+      getDescriptor().getMessageType(182);
     internal_static_shorts_v1alpha1_EconomicObservation_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_EconomicObservation_descriptor,
         new java.lang.String[] { "Period", "Value", });
     internal_static_shorts_v1alpha1_EconomicSeriesData_descriptor =
-      getDescriptor().getMessageType(181);
+      getDescriptor().getMessageType(183);
     internal_static_shorts_v1alpha1_EconomicSeriesData_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_EconomicSeriesData_descriptor,
         new java.lang.String[] { "Info", "Observations", });
     internal_static_shorts_v1alpha1_GetEconomicSeriesRequest_descriptor =
-      getDescriptor().getMessageType(182);
+      getDescriptor().getMessageType(184);
     internal_static_shorts_v1alpha1_GetEconomicSeriesRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetEconomicSeriesRequest_descriptor,
         new java.lang.String[] { "SeriesKeys", "StartPeriod", });
     internal_static_shorts_v1alpha1_GetEconomicSeriesResponse_descriptor =
-      getDescriptor().getMessageType(183);
+      getDescriptor().getMessageType(185);
     internal_static_shorts_v1alpha1_GetEconomicSeriesResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetEconomicSeriesResponse_descriptor,
         new java.lang.String[] { "Series", });
     internal_static_shorts_v1alpha1_ListStateCompaniesRequest_descriptor =
-      getDescriptor().getMessageType(184);
+      getDescriptor().getMessageType(186);
     internal_static_shorts_v1alpha1_ListStateCompaniesRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListStateCompaniesRequest_descriptor,
         new java.lang.String[] { "State", "Limit", });
     internal_static_shorts_v1alpha1_StateCompany_descriptor =
-      getDescriptor().getMessageType(185);
+      getDescriptor().getMessageType(187);
     internal_static_shorts_v1alpha1_StateCompany_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_StateCompany_descriptor,
         new java.lang.String[] { "StockCode", "CompanyName", "Industry", "Weight", "Basis", "MarketCap", "ShortPercent", "LogoUrl", "Source", });
     internal_static_shorts_v1alpha1_ListStateCompaniesResponse_descriptor =
-      getDescriptor().getMessageType(186);
+      getDescriptor().getMessageType(188);
     internal_static_shorts_v1alpha1_ListStateCompaniesResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListStateCompaniesResponse_descriptor,
         new java.lang.String[] { "Companies", });
     internal_static_shorts_v1alpha1_GetStateCompanyAggregatesRequest_descriptor =
-      getDescriptor().getMessageType(187);
+      getDescriptor().getMessageType(189);
     internal_static_shorts_v1alpha1_GetStateCompanyAggregatesRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetStateCompanyAggregatesRequest_descriptor,
         new java.lang.String[] { });
     internal_static_shorts_v1alpha1_StateCompanyAggregate_descriptor =
-      getDescriptor().getMessageType(188);
+      getDescriptor().getMessageType(190);
     internal_static_shorts_v1alpha1_StateCompanyAggregate_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_StateCompanyAggregate_descriptor,
         new java.lang.String[] { "State", "CompanyCount", "ExposureWeightedMarketCap", "ExposureWeightedShortPercent", });
     internal_static_shorts_v1alpha1_GetStateCompanyAggregatesResponse_descriptor =
-      getDescriptor().getMessageType(189);
+      getDescriptor().getMessageType(191);
     internal_static_shorts_v1alpha1_GetStateCompanyAggregatesResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetStateCompanyAggregatesResponse_descriptor,
