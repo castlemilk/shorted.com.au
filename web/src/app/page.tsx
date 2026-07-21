@@ -245,6 +245,40 @@ export default async function Page() {
         <BrowseByIndustry />
       </Suspense>
 
+      {/* Macro dashboards — cross-links to the housing + economy surfaces */}
+      <section className="container mx-auto px-4 py-6">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Link
+            href="/economy"
+            className="group rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/50"
+          >
+            <p className={eyebrow}>Macro dashboard</p>
+            <h2 className="mt-1 font-serif text-xl font-semibold">
+              Australian economy
+              <ChevronRight className="ml-1 inline h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100" />
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Interactive state map — unemployment, trade, state final demand and
+              fuel, with cash rate and CPI. ABS, RBA and DCCEEW open data.
+            </p>
+          </Link>
+          <Link
+            href="/housing"
+            className="group rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/50"
+          >
+            <p className={eyebrow}>Macro dashboard</p>
+            <h2 className="mt-1 font-serif text-xl font-semibold">
+              House prices tracker
+              <ChevronRight className="ml-1 inline h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100" />
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              National and suburb-level prices, demographics and drilldown maps
+              from ABS and RBA data.
+            </p>
+          </Link>
+        </div>
+      </section>
+
       {/* Featured investigation — flagship editorial long-read */}
       {FEATURED[0] && (
         <div className="container mx-auto px-4 py-6">

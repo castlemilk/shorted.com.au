@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { preload } from "react-dom";
 
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
@@ -172,6 +173,12 @@ export default async function EconomyPage() {
           <p className="mt-3 max-w-2xl text-muted-foreground">
             Rates, prices, labour, trade and petroleum — a live snapshot from
             ABS, RBA and DCCEEW open data. CC BY 4.0.
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Property-focused?{" "}
+            <Link href="/housing" className="font-medium text-primary underline-offset-4 hover:underline">
+              See the house prices tracker →
+            </Link>
           </p>
         </header>
 

@@ -250,6 +250,11 @@ export function IndustryIntelligenceClient({
           <span className="mr-2 hidden font-mono text-xs tabular-nums text-muted-foreground md:inline">
             ASIC daily, T+4 · as at {asAt}
           </span>
+          <Button asChild variant="outline" className="min-h-10">
+            <Link href="/economy" prefetch={false}>
+              Economy dashboard
+            </Link>
+          </Button>
           <EvidenceExportButton
             industryName={selectedStory.industry.name}
             industrySlug={selectedStory.industry.slug}
