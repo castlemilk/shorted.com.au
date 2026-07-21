@@ -35,6 +35,15 @@ var sourceDefs = []sourceDef{
 	{"dcceew-petroleum-statistics", "Australian Petroleum Statistics", "economic_series",
 		"Department of Climate Change, Energy, the Environment and Water", "https://www.energy.gov.au/publications/australian-petroleum-statistics",
 		"CC-BY-4.0", "Monthly", "download", "Refinery output, fuel sales by state, petroleum imports/exports (XLSX)."},
+	{"derived-shorted-markets", "Per-state exposure-weighted short interest (derived)", "economic_series",
+		"Shorted (derived from ASIC + exposure model)", "https://shorted.com.au",
+		"derived", "Monthly", "derived",
+		"Monthly per-state exposure-weighted average short interest, derived in-DB from the ASIC shorts " +
+			"history joined to the company→state exposure model (mv_company_state_exposure): each month uses " +
+			"every stock's last short observation, weighted by exposure weight × market cap. CAVEAT: the exposure " +
+			"weights and market caps are CURRENT (no history), so this applies present-day state composition " +
+			"retrospectively to every month — a 'current-constituent basis', the standard fixed-basket " +
+			"index-construction caveat. Short percentages themselves are historical; only the weighting is present-day."},
 }
 
 // registerSources upserts this collector's sources into the shared registry.
