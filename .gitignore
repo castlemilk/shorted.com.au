@@ -75,3 +75,8 @@ venv/
 .vercel
 .env*.local
 .worktrees/
+
+# Session verification screenshots land at the repo root — never committed.
+/*.jpeg
+/*.jpg
+/*.png

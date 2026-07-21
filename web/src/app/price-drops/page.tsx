@@ -15,6 +15,7 @@ import {
   listAgencyPriceStats,
   listSuburbPriceDrops,
 } from "~/app/actions/getHousing";
+import { LLMMeta } from "@/components/seo/llm-meta";
 import { pageTitle, sectionTitle, eyebrow, lede } from "@/lib/typography";
 import { cn } from "@/lib/utils";
 
@@ -96,9 +97,21 @@ export default async function PriceDropsPage() {
 
   return (
     <DashboardLayout>
-      {/* No LLMMeta here — it hardcodes ASIC/regulatory Dataset provenance,
-          which would be false for portal-listing data. The Dataset JSON-LD
-          below carries the correct provenance instead. */}
+      {/* LLMMeta now derives provenance from `dataSource` (realestate.com.au +
+          Domain, not ASIC), so it's safe to emit here. The Dataset JSON-LD
+          below complements it with the dataset-level provenance. */}
+      <LLMMeta
+        title={TITLE}
+        description={DESCRIPTION}
+        url={URL}
+        dataSource="realestate.com.au, domain.com.au"
+        dataFrequency="daily"
+        keywords={[
+          "house price drops Australia",
+          "price cuts by suburb",
+          "real estate price reductions",
+        ]}
+      />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <div className="mx-auto max-w-6xl space-y-12 px-4 py-8">
