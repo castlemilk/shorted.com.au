@@ -3273,6 +3273,64 @@ func (s *postgresStore) GetStocksForImageBackfill(limit int, afterStockCode stri
 	return results, rows.Err()
 }
 
+// GetStocksForStateExposure returns the top-N companies by market cap that do
+// not yet have a state_exposure breakdown. Used by --backfill-state-exposure.
+func (s *postgresStore) GetStocksForStateExposure(limit int) ([]StateExposureCandidateRow, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	query := `
+		SELECT
+			stock_code,
+			COALESCE(company_name, ''),
+			COALESCE(industry, ''),
+			COALESCE(sector, ''),
+			COALESCE(summary, ''),
+			COALESCE(description, '')
+		FROM "company-metadata"
+		WHERE stock_code IS NOT NULL
+		  AND (state_exposure IS NULL OR state_exposure = '[]'::jsonb)
+		ORDER BY COALESCE((key_metrics->>'market_cap')::double precision, 0) DESC
+		LIMIT $1
+	`
+
+	rows, err := s.db.Query(ctx, query, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query stocks for state exposure: %w", err)
+	}
+	defer rows.Close()
+
+	var results []StateExposureCandidateRow
+	for rows.Next() {
+		var row StateExposureCandidateRow
+		if err := rows.Scan(&row.StockCode, &row.CompanyName, &row.Industry, &row.Sector, &row.Summary, &row.Description); err != nil {
+			return nil, fmt.Errorf("failed to scan row: %w", err)
+		}
+		results = append(results, row)
+	}
+
+	return results, rows.Err()
+}
+
+// UpdateStateExposure writes a validated state_exposure JSONB array for a stock.
+func (s *postgresStore) UpdateStateExposure(stockCode string, exposureJSON []byte) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	query := `
+		UPDATE "company-metadata"
+		SET state_exposure = $1::jsonb
+		WHERE stock_code = $2
+	`
+
+	_, err := s.db.Exec(ctx, query, string(exposureJSON), stockCode)
+	if err != nil {
+		return fmt.Errorf("failed to update state_exposure for %s: %w", stockCode, err)
+	}
+
+	return nil
+}
+
 func (s *postgresStore) UnsubscribeByID(id string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
