@@ -122,4 +122,3 @@ func ingestStateAccounts(ctx context.Context, c *absdata.Client) ([]Obs, error) 
 func ingestPetroleum(ctx context.Context, c *absdata.Client) ([]Obs, error) {
 	return nil, errNotImplemented
 }
-func ingestRBA(ctx context.Context, c *absdata.Client) ([]Obs, error) { return nil, errNotImplemented }
