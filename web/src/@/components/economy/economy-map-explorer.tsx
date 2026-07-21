@@ -22,9 +22,24 @@ import { StateDossier } from "./state-dossier";
 const TOPO_OBJECT = "STE_2021_AUST_GDA2020";
 
 // StateTooltip is w-56 (224px); ~180px tall with sparkline. Used to flip the
-// hover card away from viewport edges (state-suburb-map.tsx pattern).
+// hover card away from viewport edges (state-suburb-map.tsx pattern —
+// matching its 220px height allowance so the sparkline never clips at the
+// bottom edge of the viewport).
 const TOOLTIP_W = 224;
-const TOOLTIP_H = 190;
+const TOOLTIP_H = 220;
+
+/**
+ * Safe topo-id → state abbreviation lookup: returns null for ids not in the
+ * STE_CODE map (e.g. a future boundary rebuild adding "9"/Other Territories)
+ * instead of letting fromTopoFeatureId throw mid-render.
+ */
+function abbrFromTopoId(id: string): string | null {
+  try {
+    return fromTopoFeatureId(id);
+  } catch {
+    return null;
+  }
+}
 
 /** Fetch + reshape one metric's series into StateSeries keyed for buildStateValues. */
 function useMetricData(metric: EconomyMapMetric) {
@@ -132,8 +147,9 @@ export function EconomyMapExplorer() {
     syncUrl(selected, mk);
   };
 
-  const hoverValue = hover ? values.get(fromTopoFeatureId(hover.id)) : undefined;
-  const hoverSlug = hover ? toSlug(fromTopoFeatureId(hover.id)) : null;
+  const hoverAbbr = hover ? abbrFromTopoId(hover.id) : null;
+  const hoverValue = hoverAbbr ? values.get(hoverAbbr) : undefined;
+  const hoverSlug = hoverAbbr ? toSlug(hoverAbbr) : null;
   const hoverUnavailable = hoverSlug ? metric.unavailableStates?.includes(hoverSlug) : false;
 
   return (
@@ -190,11 +206,13 @@ export function EconomyMapExplorer() {
               />
             }
             onFeatureClick={(id) => {
-              const slug = toSlug(fromTopoFeatureId(id));
+              const abbr = abbrFromTopoId(id);
+              if (!abbr) return; // unknown topo id (e.g. Other Territories)
+              const slug = toSlug(abbr);
               selectState(selected === slug ? null : slug);
             }}
             onFeatureHover={(id, evt) => {
-              if (!id || !evt) return setHover(null);
+              if (!id || !evt || !abbrFromTopoId(id)) return setHover(null);
               setHover({ id, x: evt.clientX, y: evt.clientY });
             }}
           />

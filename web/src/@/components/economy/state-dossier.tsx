@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { getEconomicSeriesClient } from "@/app/actions/client/getEconomyClient";
+import { getEconomicSeriesClient } from "~/app/actions/client/getEconomyClient";
 import { EconomySeriesChart } from "./economy-charts";
 import { MAP_FORMATS, STATE_NAMES, type EconomyMapMetricKey, type StateSlug } from "@/lib/economy/map-metrics";
 
