@@ -26,8 +26,14 @@ test("missing signals → leafy-suburban (safe default)", () => {
 test("ARCHETYPE_BASE excludes LLM-only archetypes", () => {
   assert.ok(!ARCHETYPE_BASE.includes("harbour") && !ARCHETYPE_BASE.includes("hills-ranges"));
 });
-test("dense-but-coastal stays urban (coastal rule gated by dens < 80)", () => {
-  assert.equal(classifyArchetype({ distToCoastKm: 1.9, amenityDensityScore: 85 }), "urban-skyline");
+test("dense-but-coastal stays coastal (coastal rule gated by dens < 90)", () => {
+  assert.equal(classifyArchetype({ distToCoastKm: 1.9, amenityDensityScore: 85 }), "coastal-beach");
+});
+test("Bondi Beach-like dense beach suburb stays coastal-beach", () => {
+  assert.equal(classifyArchetype({ distToCoastKm: 0.7, amenityDensityScore: 85.9 }), "coastal-beach");
+});
+test("CBD core near harbour stays urban-skyline (dens >= 90)", () => {
+  assert.equal(classifyArchetype({ distToCoastKm: 0.5, amenityDensityScore: 100 }), "urban-skyline");
 });
 test("coast rule is strict < 2 (exactly 2km is not coastal-beach)", () => {
   assert.equal(classifyArchetype({ distToCoastKm: 2, amenityDensityScore: 40 }), "leafy-suburban");

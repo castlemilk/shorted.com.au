@@ -12,7 +12,10 @@ export function classifyArchetype(s) {
   const coast = Number(o.distToCoastKm ?? Infinity);
   const dens = Number(o.amenityDensityScore ?? 0);
   const parks = Number(o.parksCount ?? 0);
-  if (coast < 2 && dens < 80) return "coastal-beach";
+  // Coastal identity wins at the water's edge, even for dense beach suburbs
+  // (e.g. Bondi Beach, dens ~86) — only exclude genuine CBD cores (dens >= 90,
+  // e.g. Sydney CBD at 100) that happen to sit near the harbour.
+  if (coast < 2 && dens < 90) return "coastal-beach";
   if (dens >= 80) return "urban-skyline";
   if (dens >= 55) return "inner-terraces";
   if (parks >= PARKS_TOP_DECILE) return "parkland";
