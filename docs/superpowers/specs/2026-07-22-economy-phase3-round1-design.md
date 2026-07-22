@@ -45,7 +45,7 @@ sandbox has no network). Codes are PINNED — do not re-derive from labels.
 | `credit.growth_yoy.owner_occupier_housing.aus.seasadj` | DGFACOH12 | Owner-occupier |
 | `credit.growth_yoy.investor_housing.aus.seasadj` | DGFACIH12 | Investor |
 | `credit.growth_yoy.personal.aus.seasadj` | DGFACOP12 | Other personal |
-| `credit.growth_yoy.business.aus.seasadj` | DGFACB12 | Business |
+| `credit.growth_yoy.business.aus.seasadj` | DGFACBNF12 | Business (non-financial; DGFACB12 discontinued 2019) |
 
 - Magnitude cross-check: housing credit YoY in −2..+25% band; typical ~4–7%.
 - `rba.go` currently hardcodes Topic/SourceKey/Adjustment in the def — the
