@@ -24,6 +24,12 @@ source "$DIR/housing-crawl-common.sh"
 
 hc_load_env
 
+# Single-drainer lock: a full pass runs ~1.5 days and must NOT overlap another
+# drainer on this Mac's one host Chrome + one residential IP. Holding the lock makes
+# the daily deltas skip cleanly while this pass runs. If another drainer is already
+# holding it, this full pass skips (exit 0) rather than double-draining.
+hc_acquire_lock
+
 echo "=== $(date -u +%FT%TZ) housing-full (selection=all whole-catalog) ===" >>"$LOG"
 
 # 1. Enqueue the whole catalog (idempotent — brandbrain dedups pending jobs).

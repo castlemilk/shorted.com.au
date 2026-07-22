@@ -15,9 +15,14 @@
     <string>__REPO__/services/house-price-collector/deploy/run-housing-full.sh</string>
   </array>
 
-  <!-- Fortnightly: the 1st and 15th at 02:00 local (an hour before the daily delta,
-       so a full pass never overlaps a delta on those days). launchd runs the job on
-       whichever of these day-of-month entries matches. -->
+  <!-- Fortnightly: the 1st and 15th at 02:00 local. A full pass over the whole
+       catalog (500 suburbs x 2 portals at ~14 suburbs/hr) takes ~1.5 DAYS on one
+       residential IP, so it DOES overrun the daily 03:00 delta — rescheduling can't
+       fix a >1-day job. The wrappers share a cross-run lock (hc_acquire_lock in
+       housing-crawl-common.sh): while a full pass holds it, each daily delta SKIPS
+       cleanly (the full already re-crawls everything), so they never contend for the
+       one host Chrome / residential IP. launchd runs whichever day-of-month entry
+       matches. -->
   <key>StartCalendarInterval</key>
   <array>
     <dict>

@@ -17,7 +17,10 @@
   </array>
 
   <!-- Daily 03:00 local — quiet hours, and the freshest re-crawl before the morning
-       board views. Every run is idempotent; adjust the hour to taste. -->
+       board views. Every run is idempotent; adjust the hour to taste. While a
+       fortnightly full pass is still draining (it runs ~1.5 days), the shared
+       single-drainer lock makes this delta SKIP cleanly — no contention on the one
+       host Chrome / residential IP. -->
   <key>StartCalendarInterval</key>
   <dict>
     <key>Hour</key><integer>3</integer>

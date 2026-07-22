@@ -33,6 +33,11 @@ source "$DIR/housing-crawl-common.sh"
 
 hc_load_env
 
+# Single-drainer lock: if a full pass (or another delta) is already draining on this
+# Mac, SKIP this run (exit 0) — one host Chrome + one residential IP means concurrent
+# drainers only hurt. A full pass runs ~1.5 days, during which daily deltas skip.
+hc_acquire_lock
+
 echo "=== $(date -u +%FT%TZ) housing-delta (selection=delta ttl=${CRAWL_DELTA_TTL_HOURS:-24}h churn>=${CRAWL_DELTA_CHURN_MIN:-1}/${CRAWL_DELTA_CHURN_DAYS:-7}d cap=${CRAWL_DELTA_MAX_SUBURBS:-60}) ===" >>"$LOG"
 
 # 1. Enqueue ONLY the stale/churny slice (delta selection logs its own why + cap).

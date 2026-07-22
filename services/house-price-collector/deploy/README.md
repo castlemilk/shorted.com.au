@@ -216,6 +216,19 @@ Three pieces:
   suburbs are a coverage gap, not an alarm (a partially-seeded catalog would
   otherwise alarm forever); a fresh/never-run env (no coverage) never alarms.
 
+**Single-drainer lock (important).** A full pass is NOT a ~1-hour job: **500
+suburbs × 2 portals at ~14 suburbs/hr ≈ 30+ HOURS (~1.5 days)**, so it is still
+running when the next daily 03:00 delta fires — and rescheduling can't fix a
+>1-day job. All three wrappers (delta, full, **and** the legacy
+`run-housing-agent.sh`) share ONE host Chrome (`localhost:9222`) + ONE residential
+IP, so two concurrent `-mode agent` drainers just halve the pacing and raise the
+block risk the no-proxy design avoids. `hc_acquire_lock`
+(`housing-crawl-common.sh`) serializes them with a **portable atomic `mkdir` lock**
+(macOS has no `flock(1)`) + a PID stale-guard + an EXIT-trap release: while a full
+pass holds the lock, each daily delta logs `another housing crawl holds the lock —
+skipping this run` and **exits 0** (the full already re-crawls everything). Override
+the lock path with `HOUSING_CRAWL_LOCKDIR`.
+
 Env knobs (all optional; put them in `~/.shorted-housing-crawl.env`):
 
 | Var | Default | Meaning |
@@ -234,6 +247,14 @@ Install both launchd jobs (daily 03:00 delta, fortnightly 1st/15th 02:00 full):
 ```bash
 cd services/house-price-collector/deploy
 REPO="$(cd ../../.. && pwd)"
+
+# FIRST: retire the legacy whole-catalog drainer if it's installed — otherwise the
+# rig runs THREE overlapping drainers (agent + delta + full) fighting for the one
+# host Chrome. The lock would serialize them, but you'd still be scheduling a job
+# whose work the delta/full already cover, so just remove it.
+launchctl unload "$HOME/Library/LaunchAgents/com.shorted.housing-agent.plist" 2>/dev/null
+rm -f "$HOME/Library/LaunchAgents/com.shorted.housing-agent.plist"
+
 for job in housing-delta housing-full; do
   sed -e "s#__REPO__#$REPO#g" -e "s#__HOME__#$HOME#g" \
     "com.shorted.$job.plist.template" \

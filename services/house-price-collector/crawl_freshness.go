@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"sort"
 	"time"
@@ -160,22 +162,38 @@ func postFreshnessAlarm(webhook string, rep freshnessReport, msg string) {
 		"never_crawled":    rep.NeverCrawled,
 		"stale_over_ttl":   rep.StaleOverTTL,
 	}
+	// SECRET HYGIENE: the webhook URL may carry a Slack/Discord bearer token in its
+	// path/query, and Go's *url.Error.Error() embeds the FULL request URL — so a bare
+	// `%v` on a transport/build error would write that token into the local log.
+	// Never log the raw error or URL: report only the redacted host, and (for a
+	// transport failure) the UNWRAPPED inner error, which carries no URL.
+	host := "webhook"
+	if u, perr := url.Parse(webhook); perr == nil && u.Hostname() != "" {
+		host = u.Hostname()
+	}
 	b, err := json.Marshal(payload)
 	if err != nil {
-		log.Printf("[freshness] alarm webhook marshal failed: %v", err)
+		log.Printf("[freshness] alarm webhook marshal failed: %v", err) // payload only — no URL
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, webhook, bytes.NewReader(b))
 	if err != nil {
-		log.Printf("[freshness] alarm webhook build failed: %v", err)
+		log.Printf("[freshness] alarm webhook build failed (host %s): malformed webhook URL", host)
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		log.Printf("[freshness] alarm webhook post failed: %v", err)
+		// Unwrap *url.Error → its inner .Err carries the transport cause (e.g. "dial
+		// tcp: connection refused") WITHOUT the URL; fall back to a generic note.
+		inner := "transport error"
+		var ue *url.Error
+		if errors.As(err, &ue) && ue.Err != nil {
+			inner = ue.Err.Error()
+		}
+		log.Printf("[freshness] alarm webhook post failed (host %s): %s", host, inner)
 		return
 	}
 	defer func() { _ = resp.Body.Close() }()
