@@ -22,7 +22,7 @@ func main() {
 // 3 = a crawl needs a human to re-warm the Chrome profile (Kasada/Akamai
 // clearance expired). Wrapping the body lets deferred cleanup run before exit.
 func run() int {
-	mode := flag.String("mode", "all", "official | crawl | listings | details | agent | enqueue | purge | warmcheck | backfill-address | census | electorates | banners | amenities | lga | connectivity | funding | council-financials | refresh | all")
+	mode := flag.String("mode", "all", "official | crawl | listings | details | agent | enqueue | freshness | purge | warmcheck | backfill-address | census | electorates | banners | amenities | lga | connectivity | funding | council-financials | refresh | all")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -90,9 +90,17 @@ func run() int {
 		// 4 fetcher init failed (wedged/cold Chrome — the runner hard-recovers).
 		return runAgent(ctx, pool)
 	case "enqueue":
-		// Post the curated suburb catalog to the brandbrain crawl queue so pollers
-		// (-mode agent) have work to claim. Requires BRANDBRAIN_AGENT_URL + _TOKEN.
+		// Post suburbs to the brandbrain crawl queue so pollers (-mode agent) have
+		// work to claim. Requires BRANDBRAIN_AGENT_URL + _TOKEN. CRAWL_ENQUEUE_SELECTION
+		// picks the set: "all" (default, whole catalog) or "delta" (demand-right-sizing
+		// — only never-crawled/stale/churny suburbs, ranked + capped; see crawl_delta.go).
 		runEnqueue(ctx, pool)
+	case "freshness":
+		// READ-ONLY staleness guard: report per-suburb crawl freshness across the
+		// catalog and ALARM (non-zero exit 6 + optional CRAWL_FRESHNESS_WEBHOOK POST)
+		// when the oldest covered suburb crosses CRAWL_FRESHNESS_ALARM_HOURS — the
+		// check that catches the board silently going stale. See crawl_freshness.go.
+		return runFreshness(ctx, pool)
 	case "purge":
 		// Invalidate stale queue entries via the brandbrain purge endpoint, for
 		// cleaning up after a job-shape/schema refactor (e.g. clearing legacy
@@ -141,7 +149,7 @@ func run() int {
 	case "refresh":
 		refresh(ctx, pool)
 	default:
-		log.Fatalf("unknown -mode %q (want official|crawl|listings|details|agent|enqueue|warmcheck|backfill-address|census|electorates|banners|amenities|lga|connectivity|funding|council-financials|refresh|all)", *mode)
+		log.Fatalf("unknown -mode %q (want official|crawl|listings|details|agent|enqueue|freshness|warmcheck|backfill-address|census|electorates|banners|amenities|lga|connectivity|funding|council-financials|refresh|all)", *mode)
 	}
 	return 0
 }

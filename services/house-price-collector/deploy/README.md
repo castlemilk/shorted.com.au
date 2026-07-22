@@ -178,6 +178,79 @@ Sketch (needs sign-off on auth + where the catalog lives before building):
 Until then, "trigger a crawl" = `launchctl start com.shorted.housing-agent` on the
 rig (or wait for the schedule).
 
+## Demand-right-sizing scheduler — daily delta + fortnightly full + freshness alarm
+
+The `run-housing-agent.sh` drainer above re-enqueues the **whole catalog** every
+run. As the catalog grew (25 → 115 → 500 suburbs) that became wasteful and slow on
+a single residential IP with no proxies. The scheduler here **right-sizes demand**
+instead of spending: re-crawl only the suburbs that need it daily, do a full
+catalog pass occasionally, and **alarm** if the board silently goes stale. It also
+closes two gaps: each `-mode agent` run only claims up to `CRAWL_AGENT_MAX_JOBS`
+(default 20), so one drain left the queue partly full; and nothing noticed when the
+board stopped updating for days.
+
+Three pieces:
+
+- **Daily delta** (`run-housing-delta.sh` → `CRAWL_ENQUEUE_SELECTION=delta -mode
+  enqueue`). Reads each catalog suburb's freshness + churn read-only from prod and
+  enqueues **only** suburbs that are: never crawled, **stale** (last crawl older
+  than `CRAWL_DELTA_TTL_HOURS`, default **24h**), or **churny** (`>=
+  CRAWL_DELTA_CHURN_MIN` price events, default **1**, over `CRAWL_DELTA_CHURN_DAYS`,
+  default **7d**). Ranked never-first → churniest → oldest, capped at
+  `CRAWL_DELTA_MAX_SUBURBS` (default **60**). The capped-off tail is logged (never
+  silently dropped).
+- **Fortnightly full** (`run-housing-full.sh` → `CRAWL_ENQUEUE_SELECTION=all -mode
+  enqueue`). The whole catalog — re-reaches quiet suburbs the delta never selects
+  and re-confirms delists catalog-wide.
+- **Drain-until-empty.** Both wrappers loop `-mode agent` (via
+  `hc_drain_until_empty` in `housing-crawl-common.sh`) until the queue reports empty
+  — parsing the collector's stable `[agent] no more jobs` / `[agent] done: processed
+  N job(s)` lines — bounded by `CRAWL_DRAIN_MAX_ROUNDS` (default **30**) and honoring
+  the exit-3 re-warm / exit-4 Chrome breaks. So one scheduled run clears the whole
+  enqueue instead of leaving ~20 jobs behind.
+- **Freshness alarm** (`-mode freshness`, READ-ONLY). After draining, both wrappers
+  run the freshness guard: it logs freshest / median / oldest covered-suburb age +
+  the never-crawled coverage gap, and if the **oldest covered suburb** exceeds
+  `CRAWL_FRESHNESS_ALARM_HOURS` (default **72h**) it **exits 6** and best-effort
+  POSTs `CRAWL_FRESHNESS_WEBHOOK` (Slack/Discord-shaped `{text,...}`). Never-crawled
+  suburbs are a coverage gap, not an alarm (a partially-seeded catalog would
+  otherwise alarm forever); a fresh/never-run env (no coverage) never alarms.
+
+Env knobs (all optional; put them in `~/.shorted-housing-crawl.env`):
+
+| Var | Default | Meaning |
+|-----|---------|---------|
+| `CRAWL_ENQUEUE_SELECTION` | `all` | `all` (whole catalog) or `delta` (stale/churny only) |
+| `CRAWL_DELTA_TTL_HOURS` | `24` | re-crawl if last crawl older than this |
+| `CRAWL_DELTA_CHURN_MIN` | `1` | re-crawl if recent price events `>=` this (`0` disables the churn signal) |
+| `CRAWL_DELTA_CHURN_DAYS` | `7` | churn look-back window (days) |
+| `CRAWL_DELTA_MAX_SUBURBS` | `60` | per-run delta cap |
+| `CRAWL_DRAIN_MAX_ROUNDS` | `30` | drain-loop bound |
+| `CRAWL_FRESHNESS_ALARM_HOURS` | `72` | oldest-covered-suburb horizon that alarms |
+| `CRAWL_FRESHNESS_WEBHOOK` | _unset_ | optional POST target for the freshness alarm |
+
+Install both launchd jobs (daily 03:00 delta, fortnightly 1st/15th 02:00 full):
+
+```bash
+cd services/house-price-collector/deploy
+REPO="$(cd ../../.. && pwd)"
+for job in housing-delta housing-full; do
+  sed -e "s#__REPO__#$REPO#g" -e "s#__HOME__#$HOME#g" \
+    "com.shorted.$job.plist.template" \
+    > "$HOME/Library/LaunchAgents/com.shorted.$job.plist"
+  launchctl unload "$HOME/Library/LaunchAgents/com.shorted.$job.plist" 2>/dev/null
+  launchctl load  "$HOME/Library/LaunchAgents/com.shorted.$job.plist"
+done
+# Rehearse without writing: CRAWL_DRY_RUN=true bash run-housing-delta.sh
+# Kick one now:            launchctl start com.shorted.housing-delta
+# Freshness only (read-only): ~/bin/house-price-collector -mode freshness ; echo $?
+```
+
+Multiple residential Macs can install both jobs — they fan the queue out via SKIP
+LOCKED, and every mode is idempotent. Prefer running the **delta** on every rig and
+the **full** on one (or stagger the full across rigs) to avoid a fortnightly
+thundering herd. Exit `6` from a wrapper = the freshness alarm tripped.
+
 ## Smart pagination
 
 The per-suburb sweep (`sweepSuburbSource`) sizes and stops itself instead of
