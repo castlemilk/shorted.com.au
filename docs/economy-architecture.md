@@ -182,8 +182,9 @@ mobile <640px pins to the map bottom; desktop clamps to viewport), click →
   ISR surface.
 - **Every Vercel promote resets ALL ISR pages** to build-time placeholders.
   The deploy workflow promotes itself (~terraform-deploy.yml:1413-1456 —
-  don't race it). Post-deploy revalidate sweep: secret is Vercel-*sensitive*
-  (unpullable) but mirrored in GCP SM —
+  don't race it). The post-promote revalidate sweep is automated by
+  `.github/workflows/terraform-deploy.yml`. Manual fallback: the secret is
+  Vercel-*sensitive* (unpullable) but mirrored in GCP SM —
   `gcloud secrets versions access latest --secret=REVALIDATION_SECRET
   --project rosy-clover-477102-t5`, then POST
   `/api/revalidate?secret=…&path=/economy,/economy/nsw,…` with a **browser
