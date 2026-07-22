@@ -5,9 +5,12 @@ import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { getEconomicSeries } from "~/app/actions/getEconomy";
 import type { GetEconomicSeriesResponse } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { EconomyBreadcrumbs } from "@/components/economy/economy-breadcrumbs";
-import { EconomyIcon, type EconomyIconName } from "@/components/economy/economy-icon";
+import {
+  EconomyIcon,
+  type EconomyIconName,
+} from "@/components/economy/economy-icon";
+import { StateBanner } from "@/components/economy/state-banner";
 import { StateCharts } from "@/components/economy/state-charts-loader";
-import { StateLocatorMap } from "@/components/economy/state-locator-map-loader";
 import { hasLabour } from "@/components/economy/availability";
 import { LLMMeta } from "@/components/seo/llm-meta";
 import {
@@ -30,7 +33,9 @@ export function generateStaticParams(): { state: string }[] {
   return STATE_SLUGS.map((state) => ({ state }));
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
   const { state } = await params;
   if (!isStateSlug(state)) return {};
   const name = STATE_NAMES[state];
@@ -74,7 +79,9 @@ function latestPeriod(
 ): string {
   const s = response?.series.find((d) => d.info?.seriesKey === key);
   const obs = s?.observations;
-  const seconds = obs?.length ? obs[obs.length - 1]!.period?.seconds : undefined;
+  const seconds = obs?.length
+    ? obs[obs.length - 1]!.period?.seconds
+    : undefined;
   if (!seconds) return "";
   return new Date(Number(seconds) * 1000).toLocaleDateString("en-AU", {
     month: "short",
@@ -111,7 +118,9 @@ function Chip({
       <div className="mt-1 font-mono text-2xl font-semibold tabular-nums text-foreground">
         {value}
       </div>
-      {sub ? <div className="mt-0.5 text-[11px] text-muted-foreground">{sub}</div> : null}
+      {sub ? (
+        <div className="mt-0.5 text-[11px] text-muted-foreground">{sub}</div>
+      ) : null}
     </div>
   );
 }
@@ -135,7 +144,9 @@ export default async function EconomyStatePage({ params }: PageProps) {
   ];
   const headline = await getEconomicSeries(chipKeys).catch(() => undefined);
 
-  const unemployment = hasLabour(state) ? latest(headline, unemploymentKey) : undefined;
+  const unemployment = hasLabour(state)
+    ? latest(headline, unemploymentKey)
+    : undefined;
   const sfd = latest(headline, sfdKey);
   const exportsAud = latest(headline, exportsKey);
   const hasChips = [unemployment, sfd, exportsAud].some((v) => v !== undefined);
@@ -145,13 +156,25 @@ export default async function EconomyStatePage({ params }: PageProps) {
     "@type": "Dataset",
     name: `${name} economic snapshot`,
     description: `Unemployment, state final demand, trade and petroleum indicators for ${name}.`,
-    creator: { "@type": "Organization", name: "Shorted", url: "https://shorted.com.au" },
+    creator: {
+      "@type": "Organization",
+      name: "Shorted",
+      url: "https://shorted.com.au",
+    },
     isAccessibleForFree: true,
     license: "https://creativecommons.org/licenses/by/4.0/",
     spatialCoverage: name,
     sourceOrganization: [
-      { "@type": "GovernmentOrganization", name: "Australian Bureau of Statistics", url: "https://abs.gov.au" },
-      { "@type": "GovernmentOrganization", name: "Department of Climate Change, Energy, the Environment and Water", url: "https://www.energy.gov.au" },
+      {
+        "@type": "GovernmentOrganization",
+        name: "Australian Bureau of Statistics",
+        url: "https://abs.gov.au",
+      },
+      {
+        "@type": "GovernmentOrganization",
+        name: "Department of Climate Change, Energy, the Environment and Water",
+        url: "https://www.energy.gov.au",
+      },
     ],
   };
 
@@ -163,55 +186,61 @@ export default async function EconomyStatePage({ params }: PageProps) {
         url={url}
         dataSource="ABS, DCCEEW"
         dataFrequency="monthly / quarterly"
-        keywords={[`${name} economy`, `${name} unemployment`, `${name} state final demand`, `${name} exports`]}
+        keywords={[
+          `${name} economy`,
+          `${name} unemployment`,
+          `${name} state final demand`,
+          `${name} exports`,
+        ]}
       />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
 
       <div className="mx-auto max-w-6xl space-y-8 px-4 py-8">
         <EconomyBreadcrumbs stateName={name} stateSlug={state} />
 
-        <div className="grid gap-6 lg:grid-cols-[1fr_18rem]">
-          <header>
-            <h1 className="font-serif text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
-              {name} economy
-            </h1>
-            <p className="mt-3 max-w-2xl text-muted-foreground">
+        <StateBanner
+          state={state}
+          name={name}
+          subtitle={
+            <>
               Labour, demand, trade and petroleum for {name}, plus the ASX
-              companies operating here — from ABS and DCCEEW open data. CC BY 4.0.
-            </p>
+              companies operating here — from ABS and DCCEEW open data. CC BY
+              4.0.
+            </>
+          }
+        />
 
-            {hasChips ? (
-              <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                {unemployment !== undefined ? (
-                  <Chip
-                    icon="unemployment"
-                    label="Unemployment"
-                    value={`${unemployment.toFixed(1)}%`}
-                    sub={`ABS, seas. adj. · ${latestPeriod(headline, unemploymentKey)}`}
-                  />
-                ) : null}
-                {sfd !== undefined ? (
-                  <Chip
-                    icon="sfd"
-                    label="State final demand"
-                    value={fmtAud(sfd)}
-                    sub={`ABS, chain volume · ${latestPeriod(headline, sfdKey)}`}
-                  />
-                ) : null}
-                {exportsAud !== undefined ? (
-                  <Chip
-                    icon="exports"
-                    label="Goods exports"
-                    value={fmtAud(exportsAud)}
-                    sub={`ABS · ${latestPeriod(headline, exportsKey)}`}
-                  />
-                ) : null}
-              </div>
+        {hasChips ? (
+          <div className="grid gap-3 sm:grid-cols-3">
+            {unemployment !== undefined ? (
+              <Chip
+                icon="unemployment"
+                label="Unemployment"
+                value={`${unemployment.toFixed(1)}%`}
+                sub={`ABS, seas. adj. · ${latestPeriod(headline, unemploymentKey)}`}
+              />
             ) : null}
-          </header>
-
-          <StateLocatorMap state={state} />
-        </div>
+            {sfd !== undefined ? (
+              <Chip
+                icon="sfd"
+                label="State final demand"
+                value={fmtAud(sfd)}
+                sub={`ABS, chain volume · ${latestPeriod(headline, sfdKey)}`}
+              />
+            ) : null}
+            {exportsAud !== undefined ? (
+              <Chip
+                icon="exports"
+                label="Goods exports"
+                value={fmtAud(exportsAud)}
+                sub={`ABS · ${latestPeriod(headline, exportsKey)}`}
+              />
+            ) : null}
+          </div>
+        ) : null}
 
         <StateCharts state={state} />
 
