@@ -57,6 +57,9 @@ const (
 var internalOnlyMethods = map[string]bool{
 	"shorts.v1alpha1.ShortedStocksService.HandleStripeCheckoutCompleted":   true,
 	"shorts.v1alpha1.ShortedStocksService.HandleStripeSubscriptionUpdated": true,
+	// Same methods exposed via the per-domain BillingService split.
+	"shorts.v1alpha1.BillingService.HandleStripeCheckoutCompleted":   true,
+	"shorts.v1alpha1.BillingService.HandleStripeSubscriptionUpdated": true,
 }
 
 // SubscriptionLookup is a function that looks up a user's subscription tier by user ID.

@@ -1,0 +1,220 @@
+syntax = "proto3";
+
+package shorts.v1alpha1;
+
+option go_package = "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1";
+
+import "stocks/v1alpha1/stocks.proto";
+import "options/v1/options.proto";
+
+service MarketService {
+  // Shows top 10 short positions on the ASX over different periods of time.
+  rpc GetTopShorts (GetTopShortsRequest) returns (GetTopShortsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Get Industry TreeMap for short positions.
+  rpc GetIndustryTreeMap(GetIndustryTreeMapRequest) returns (stocks.v1alpha1.IndustryTreeMap) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Get all short positions for a specific trading date
+  rpc GetMarketByDate (GetMarketByDateRequest) returns (GetMarketByDateResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Get available trading dates for market snapshots
+  rpc GetAvailableDates (GetAvailableDatesRequest) returns (GetAvailableDatesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Get sync status for admin dashboard
+  rpc GetSyncStatus (GetSyncStatusRequest) returns (GetSyncStatusResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (shortedapi.options.v1.required_role) = "admin";
+  }
+
+  // Get squeeze-radar and battleground (price up + shorts building) ranked stocks
+  rpc GetBattlegroundStocks (GetBattlegroundStocksRequest) returns (GetBattlegroundStocksResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Get the short-seller scoreboard: historic short campaigns and whether shorts won
+  rpc GetShortCampaignScoreboard (GetShortCampaignScoreboardRequest) returns (GetShortCampaignScoreboardResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+}
+
+// Request for Top10 RPC, specifying the period of time.
+message GetTopShortsRequest {
+  string period = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+  // When true, returns only product code, name, and latest short position
+  // without time series points. Much faster and smaller response.
+  bool summary_only = 4;
+  // Optional explicit set of product codes to return time series for, INSTEAD
+  // of the top-`limit` ranking. Lets callers that already know which stocks
+  // they need (e.g. industry-crowding constituents) fetch just those series
+  // rather than every top-N stock's points. Ignored when empty. When set with
+  // summary_only=false, `limit`/`offset` are not applied to the code set.
+  repeated string product_codes = 5;
+}
+
+// Request for Top10 RPC, specifying the period of time.
+message GetIndustryTreeMapRequest {
+  // time over which to look at the max value
+  string period = 1;
+  // number of stocks to return for each parent
+  int32 limit = 2;
+  
+  ViewMode view_mode = 3;
+}
+
+enum ViewMode {
+   // return the current/latest short positions
+   CURRENT_CHANGE = 0;
+   // return the percentage change in short positions
+   PERCENTAGE_CHANGE = 1;
+}
+
+// Response for Top10 RPC, including time series data for each of the top 10 short positions.
+message GetTopShortsResponse {
+  repeated stocks.v1alpha1.TimeSeriesData time_series = 1;
+  int32 offset = 2;
+}
+
+// Request for GetSyncStatus RPC
+message GetSyncStatusRequest {
+  int32 limit = 1; // Number of past runs to return (default: 10)
+}
+
+// Response for GetSyncStatus RPC
+message GetSyncStatusResponse {
+  repeated SyncRun runs = 1;
+}
+
+// Represents a single sync run execution
+message SyncRun {
+  string run_id = 1;
+  string started_at = 2;
+  string completed_at = 3;
+  string status = 4;
+  string error_message = 5;
+  int32 shorts_records_updated = 6;
+  int32 prices_records_updated = 7;
+  int32 metrics_records_updated = 8;
+  int32 algolia_records_synced = 9;
+  double total_duration_seconds = 10;
+  string environment = 11;
+  string hostname = 12;
+  
+  // Checkpoint tracking
+  int32 checkpoint_stocks_total = 13;
+  int32 checkpoint_stocks_processed = 14;
+  int32 checkpoint_stocks_successful = 15;
+  int32 checkpoint_stocks_failed = 16;
+}
+
+// Request for GetMarketByDate RPC
+message GetMarketByDateRequest {
+  string date = 1;   // YYYY-MM-DD format
+  int32 limit = 2;   // Max stocks to return (default 50)
+  int32 offset = 3;  // Pagination offset
+}
+
+// Response for GetMarketByDate RPC
+message GetMarketByDateResponse {
+  string date = 1;
+  repeated stocks.v1alpha1.Stock stocks = 2;
+  int32 total_count = 3;
+  string previous_date = 4;  // Previous trading date for navigation
+  string next_date = 5;      // Next trading date for navigation
+}
+
+// Request for GetAvailableDates RPC
+message GetAvailableDatesRequest {
+  int32 limit = 1;       // How many dates to return (default 90)
+  string before = 2;     // Return dates before this date (YYYY-MM-DD)
+}
+
+// Response for GetAvailableDates RPC
+message GetAvailableDatesResponse {
+  repeated string dates = 1;   // Available trading dates in YYYY-MM-DD
+  string earliest_date = 2;
+  string latest_date = 3;
+  int32 total_count = 4;
+}
+
+// View mode for GetBattlegroundStocks
+enum BattlegroundView {
+  BATTLEGROUND_VIEW_UNSPECIFIED = 0;
+  BATTLEGROUND_VIEW_SQUEEZE = 1;      // rank by squeeze_score
+  BATTLEGROUND_VIEW_DIVERGENCE = 2;   // rank by divergence_score (price up + shorts building only)
+}
+
+// Request for GetBattlegroundStocks RPC
+message GetBattlegroundStocksRequest {
+  BattlegroundView view = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+}
+
+// A single stock result from the squeeze radar / battlegrounds ranking
+message BattlegroundStock {
+  string stock_code = 1;
+  string company_name = 2;
+  string industry = 3;
+  string logo_url = 4;
+  double short_pct = 5;
+  double short_pct_change_4w = 6;
+  double latest_price = 7;
+  double price_change_1m = 8;
+  double days_to_cover = 9;
+  double squeeze_score = 10;     // 0-100
+  double divergence_score = 11;  // 0-100, 0 unless price up AND shorts building
+  double market_cap = 12;
+}
+
+// Response for GetBattlegroundStocks RPC
+message GetBattlegroundStocksResponse {
+  repeated BattlegroundStock stocks = 1;
+  int32 total_count = 2;
+}
+
+// Request for GetShortCampaignScoreboard RPC
+message GetShortCampaignScoreboardRequest {
+  int32 limit = 1;
+  int32 offset = 2;
+  string industry = 3; // optional exact industry filter
+}
+
+// A historic short campaign: the peak short position and what the price did after
+message ShortCampaign {
+  string stock_code = 1;
+  string company_name = 2;
+  string industry = 3;
+  string logo_url = 4;
+  string peak_date = 5;      // YYYY-MM-DD
+  double peak_short_pct = 6;
+  double price_at_peak = 7;  // 0 when unknown
+  double price_3m_after = 8; // meaningful only when has_3m
+  double price_6m_after = 9; // meaningful only when has_6m
+  double return_3m = 10;     // percent price change 3 months after the peak
+  double return_6m = 11;     // percent price change 6 months after the peak
+  bool has_3m = 12;          // enough price history to score the 3-month outcome
+  bool has_6m = 13;          // enough price history to score the 6-month outcome
+  bool shorts_won_3m = 14;   // price fell 3 months after the peak
+  bool shorts_won_6m = 15;   // price fell 6 months after the peak
+  double current_short_pct = 16;
+  double latest_price = 17;
+}
+
+// Response for GetShortCampaignScoreboard RPC
+message GetShortCampaignScoreboardResponse {
+  repeated ShortCampaign campaigns = 1;
+  int32 total_count = 2;          // campaigns matching the filter
+  int32 campaigns_total = 3;      // campaigns considered for the win-rate stats
+  double shorts_win_rate_3m = 4;  // percent (0-100) of scored campaigns where the price fell after 3 months
+  double shorts_win_rate_6m = 5;  // percent (0-100) of scored campaigns where the price fell after 6 months
+}

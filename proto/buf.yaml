@@ -15,6 +15,12 @@ lint:
   except:
     - FIELD_NOT_REQUIRED
     - PACKAGE_NO_IMPORT_CYCLE
+  # The legacy monolithic ShortedStocksService intentionally shares its
+  # request/response messages with the per-domain services (market/stock/
+  # housing/...) that supersede it for web clients.
+  ignore_only:
+    RPC_REQUEST_RESPONSE_UNIQUE:
+      - shortedapi/shorts/v1alpha1
   disallow_comment_ignores: true
 breaking:
   use:

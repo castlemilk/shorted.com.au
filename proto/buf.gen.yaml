@@ -18,13 +18,8 @@ plugins:
     opt:
       - target=ts
       - import_extension=none
-  # protoc-gen-connect-query v2: generates TanStack Query hooks
-  - plugin: protoc-gen-connect-query
-    path: ../web/node_modules/.bin/protoc-gen-connect-query
-    out: ../web/src/gen
-    opt:
-      - target=ts
-      - import_extension=none
+  # protoc-gen-connect-query removed 2026-07: zero generated hooks were
+  # imported anywhere in web/src (verified repo-wide) — dead output.
   # Java client SDK
   - plugin: buf.build/protocolbuffers/java
     out: ../sdks/java/src/main/java
