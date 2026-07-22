@@ -33,6 +33,12 @@
 # Set CRAWL_SKIP_ENQUEUE=true to drain leftover work only (skip the enqueue).
 set -uo pipefail
 
+# Source the shared lib for the cross-wrapper single-drainer lock only (this script
+# keeps its own env handling below — it does NOT call hc_load_env).
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=housing-crawl-common.sh
+source "$DIR/housing-crawl-common.sh"
+
 ENV_FILE="${HOUSING_CRAWL_ENV:-$HOME/.shorted-housing-crawl.env}"
 if [[ -f "$ENV_FILE" ]]; then
 	set -a
@@ -53,6 +59,11 @@ BIN="${HOUSING_CRAWL_BIN:-$HOME/bin/house-price-collector}"
 LOG="${HOUSING_CRAWL_LOG:-$HOME/Library/Logs/shorted-housing-agent.log}"
 
 notify() { /usr/bin/osascript -e "display notification \"$1\" with title \"Housing crawl\"" >/dev/null 2>&1 || true; }
+
+# Single-drainer lock: don't run a second concurrent drainer on this Mac's one host
+# Chrome + one residential IP. If a delta/full/agent drain already holds the lock,
+# this run skips cleanly (exit 0). Shared with run-housing-delta.sh / run-housing-full.sh.
+hc_acquire_lock
 
 echo "=== $(date -u +%FT%TZ) housing-agent drain (dry=$CRAWL_DRY_RUN skip_enqueue=${CRAWL_SKIP_ENQUEUE:-false}) ===" >>"$LOG"
 

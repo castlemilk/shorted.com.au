@@ -315,13 +315,19 @@ func (c *brandbrainAgentClient) enqueue(ctx context.Context, jobs []crawlEnqueue
 	return resp.Enqueued, nil
 }
 
-// runEnqueue is the -mode=enqueue entry point: post the curated suburb catalog to
-// the brandbrain queue so pollers have work to claim. shorted stays the source of
-// truth for AU suburbs; brandbrain is a generic queue. Env: BRANDBRAIN_AGENT_URL +
+// runEnqueue is the -mode=enqueue entry point: post the suburb catalog to the
+// brandbrain queue so pollers have work to claim. shorted stays the source of truth
+// for AU suburbs; brandbrain is a generic queue. Env: BRANDBRAIN_AGENT_URL +
 // BRANDBRAIN_AGENT_TOKEN, CRAWL_ENQUEUE_SOURCE (default "split" → separate rea +
 // domain jobs; "rea"/"domain" for one portal; "both" for a legacy combined job),
 // CRAWL_ENQUEUE_TIER (default listings).
-func runEnqueue(ctx context.Context, _ *pgxpool.Pool) {
+//
+// CRAWL_ENQUEUE_SELECTION picks WHICH suburbs to enqueue:
+//   - "all"   (default, back-compat) — the whole catalog every run.
+//   - "delta" — DEMAND-RIGHT-SIZING: only never-crawled / stale / churny suburbs,
+//     ranked + capped (see selectDeltaSuburbs / crawl_delta.go). Reads freshness
+//     read-only from prod; needs the pool, hence it is passed through here.
+func runEnqueue(ctx context.Context, pool *pgxpool.Pool) {
 	acfg := loadAgentConfig()
 	if acfg.brandbrainURL == "" || (acfg.token == "" && acfg.controlURL == "") {
 		log.Printf("[enqueue] BRANDBRAIN_AGENT_URL + a token (BRANDBRAIN_AGENT_TOKEN, or a local agent control API for auto-refresh) required — nothing to do")
@@ -330,11 +336,31 @@ func runEnqueue(ctx context.Context, _ *pgxpool.Pool) {
 	sources := enqueueSources(envStr("CRAWL_ENQUEUE_SOURCE", "split"))
 	tier := envStr("CRAWL_ENQUEUE_TIER", "listings")
 
+	// Choose the suburb set for this run. Default "all" preserves today's
+	// whole-catalog behaviour; "delta" right-sizes to demand.
+	targets := crawlTargets
+	if strings.EqualFold(strings.TrimSpace(envStr("CRAWL_ENQUEUE_SELECTION", "all")), "delta") {
+		dcfg := loadDeltaConfig()
+		fresh, err := queryCatalogFreshness(ctx, pool, crawlTargets, dcfg.churnDays)
+		if err != nil {
+			log.Printf("[enqueue] delta: freshness query failed (%v) — aborting (NOT falling back to a full enqueue, which would defeat the point)", err)
+			return
+		}
+		sel := selectDeltaSuburbs(fresh, dcfg, time.Now().UTC())
+		log.Printf("[enqueue] delta selection: %d/%d suburb(s) selected — %d never-crawled, %d stale (>%s), %d churny (>=%d ev/%dd); %d capped off (NOT crawled this run)",
+			len(sel.Targets), len(crawlTargets), sel.Never, sel.Stale, dcfg.ttl, sel.Churny, dcfg.churnMin, dcfg.churnDays, sel.Dropped)
+		if len(sel.Targets) == 0 {
+			log.Printf("[enqueue] delta: nothing stale/churny — queue left as-is (nothing to enqueue)")
+			return
+		}
+		targets = sel.Targets
+	}
+
 	// One job per (suburb, source) so REA and Domain crawl, retry, and report
 	// independently — the queue's unique-pending index is (kind,suburb,source,tier),
 	// so the two coexist without collision.
-	jobs := make([]crawlEnqueueInput, 0, len(crawlTargets)*len(sources))
-	for _, t := range crawlTargets {
+	jobs := make([]crawlEnqueueInput, 0, len(targets)*len(sources))
+	for _, t := range targets {
 		for _, src := range sources {
 			jobs = append(jobs, crawlEnqueueInput{
 				Kind: "housing", Suburb: t.Display, State: t.State, Postcode: t.Postcode,
@@ -366,7 +392,7 @@ func runEnqueue(ctx context.Context, _ *pgxpool.Pool) {
 		}
 		total += n
 	}
-	log.Printf("[enqueue] enqueued %d new job(s) of %d target(s) × sources=%v (tier=%s)", total, len(crawlTargets), sources, tier)
+	log.Printf("[enqueue] enqueued %d new job(s) of %d target(s) × sources=%v (tier=%s)", total, len(targets), sources, tier)
 }
 
 // enqueueSources maps CRAWL_ENQUEUE_SOURCE to the set of source jobs to create
@@ -546,6 +572,9 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 			break
 		}
 		if job == nil {
+			// NOTE: the drain-until-empty wrapper (deploy/housing-crawl-common.sh)
+			// greps this exact "[agent] no more jobs" line to stop looping — keep
+			// the wording stable if this is ever reworded.
 			log.Printf("[agent] no more jobs")
 			break
 		}
@@ -628,6 +657,9 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 		}
 		finCancel()
 	}
+	// NOTE: the drain-until-empty wrapper (deploy/housing-crawl-common.sh) parses
+	// the "processed N job(s)" count out of this exact line to decide whether to
+	// loop again — keep the "done: processed <N> job" shape stable.
 	log.Printf("[agent] done: processed %d job(s)", done)
 	if anyRewarm {
 		log.Printf("[agent] REWARM REQUIRED: a sweep tripped the circuit breaker — re-warm the crawl Chrome profile")
