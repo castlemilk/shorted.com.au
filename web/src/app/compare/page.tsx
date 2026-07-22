@@ -7,6 +7,7 @@ import {
   BreadcrumbStructuredData,
 } from "~/@/components/seo/breadcrumbs";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
+import { bailOnEmptyRender } from "~/app/actions/config";
 
 export const metadata: Metadata = {
   title: "ASX Stock Short Interest Comparisons",
@@ -105,6 +106,9 @@ async function buildFeaturedPairs(): Promise<
 
 export default async function CompareIndexPage() {
   const pairs = await buildFeaturedPairs();
+  // A failed/cold fetch must not bake the "pairs are being built" shell into
+  // the route cache for the whole revalidate window.
+  if (pairs.length === 0) bailOnEmptyRender();
 
   const breadcrumbItems = [{ label: "Compare", href: "/compare" }];
 

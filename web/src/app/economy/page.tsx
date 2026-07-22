@@ -5,6 +5,7 @@ import { preload } from "react-dom";
 
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { getEconomicSeries } from "~/app/actions/getEconomy";
+import { bailOnEmptyRender } from "~/app/actions/config";
 import type { GetEconomicSeriesResponse } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { EconomySeriesChart } from "@/components/economy/economy-charts";
 import { EconomyIcon, type EconomyIconName } from "@/components/economy/economy-icon";
@@ -153,6 +154,9 @@ export default async function EconomyPage() {
   const hasTiles = [cashRate, cpiYoy, unemployment, tradeBalance, audUsd, dieselSales].some(
     (v) => v !== undefined,
   );
+  // A failed/cold fetch must not bake the "data is loading" shell into the
+  // route cache for the whole revalidate window.
+  if (!hasTiles) bailOnEmptyRender();
 
   const jsonLd = {
     "@context": "https://schema.org",
