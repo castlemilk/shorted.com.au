@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 
 import { getEconomicSeriesClient } from "~/app/actions/client/getEconomyClient";
-import { GetEconomicSeriesResponseSchema } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { GetEconomicSeriesResponseSchema } from "~/gen/shorts/v1alpha1/economy_pb";
 import { StateCorrelations } from "../state-correlations";
 
 jest.mock("~/app/actions/client/getEconomyClient", () => ({
@@ -43,6 +43,31 @@ describe("StateCorrelations candidates", () => {
       ]),
     );
   });
+
+  it.each(["wa", "qld"] as const)(
+    "requests national flagship overlays and local labour/wage series for %s",
+    async (state) => {
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      render(
+        <QueryClientProvider client={queryClient}>
+          <StateCorrelations state={state} />
+        </QueryClientProvider>,
+      );
+
+      await waitFor(() => expect(mockGetEconomicSeriesClient).toHaveBeenCalled());
+      expect(mockGetEconomicSeriesClient).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          "commodities.price_index.bulk.aus",
+          "commodities.price_index.all_items.aus",
+          "credit.growth_yoy.business.aus.seasadj",
+          "credit.growth_yoy.housing.aus.seasadj",
+          `labour.job_vacancies.${state}`,
+          `wages.wpi_yoy.${state}`,
+          `wages.real_wpi_yoy.${state}`,
+        ]),
+      );
+    },
+  );
 
   it("formats population candidates as a compact count", async () => {
     mockGetEconomicSeriesClient.mockResolvedValue(

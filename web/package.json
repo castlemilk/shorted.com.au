@@ -1,6 +1,6 @@
 {
   "name": "shorted",
-  "version": "v0.2.2-1271-ge644fdc3-dirty",
+  "version": "pre-merge-anchor-302-g2ff63a405-dirty",
   "private": true,
   "type": "module",
   "moduleResolution": "Node",

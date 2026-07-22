@@ -15,6 +15,7 @@ import {
   type IndustrySummary,
   type IndustryStockInput,
 } from "~/@/lib/industry-intelligence";
+import { createSlug } from "~/@/lib/industry-slug";
 import {
   getIndustryData,
   getIndustryStocks,
@@ -73,13 +74,6 @@ const invalidIndustries = new Set([
 
 function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
-}
-
-function createSlug(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
 }
 
 function industryNameForStock(

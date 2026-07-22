@@ -182,6 +182,128 @@ export const METRIC_BY_KEY = Object.fromEntries(
   ECONOMY_MAP_METRICS.map((m) => [m.key, m]),
 ) as Record<EconomyMapMetricKey, EconomyMapMetric>;
 
+export type EconomySeriesDisplayFormat =
+  | "aud"
+  | "percent"
+  | "index"
+  | "number"
+  | "megalitres";
+
+export interface StateCorrelationCandidateMetric {
+  seriesKeyTemplate: string;
+  label: string;
+  format: EconomySeriesDisplayFormat;
+  unavailableStates?: StateSlug[];
+}
+
+/**
+ * Overlay registry for the state-page short-interest correlation surface.
+ * National keys intentionally omit `{state}`: national indicators are valid
+ * comparison candidates for every state. Availability follows the same
+ * `unavailableStates` convention as the map registry.
+ */
+export const STATE_CORRELATION_CANDIDATES: StateCorrelationCandidateMetric[] = [
+  {
+    seriesKeyTemplate: "commodities.price_index.bulk.aus",
+    label: "Bulk commodity prices",
+    format: "index",
+  },
+  {
+    seriesKeyTemplate: "commodities.price_index.all_items.aus",
+    label: "Commodity prices (all items)",
+    format: "index",
+  },
+  {
+    seriesKeyTemplate: "credit.growth_yoy.business.aus.seasadj",
+    label: "Business credit growth",
+    format: "percent",
+  },
+  {
+    seriesKeyTemplate: "credit.growth_yoy.housing.aus.seasadj",
+    label: "Housing credit growth",
+    format: "percent",
+  },
+  {
+    seriesKeyTemplate: "labour.job_vacancies.{state}",
+    label: "Job vacancies",
+    format: "number",
+  },
+  {
+    seriesKeyTemplate: "wages.wpi_yoy.{state}",
+    label: "Wage growth",
+    format: "percent",
+  },
+  {
+    seriesKeyTemplate: "wages.real_wpi_yoy.{state}",
+    label: "Real wage growth",
+    format: "percent",
+  },
+  {
+    seriesKeyTemplate: "trade.export_value.total.{state}",
+    label: "Goods exports",
+    format: "aud",
+  },
+  {
+    seriesKeyTemplate: "trade.import_value.total.{state}",
+    label: "Goods imports",
+    format: "aud",
+  },
+  {
+    seriesKeyTemplate:
+      "gdp.state_final_demand_chain_volume.total.{state}.seasadj",
+    label: "State final demand",
+    format: "aud",
+  },
+  {
+    seriesKeyTemplate: "govfin.revenue.total.{state}",
+    label: "Govt revenue",
+    format: "aud",
+  },
+  {
+    seriesKeyTemplate: "retail.turnover.total.{state}.seasadj",
+    label: "Retail turnover",
+    format: "aud",
+  },
+  {
+    seriesKeyTemplate: "approvals.dwelling_units.total.{state}",
+    label: "Dwelling approvals",
+    format: "number",
+  },
+  {
+    seriesKeyTemplate: "population.erp.total.{state}",
+    label: "Population",
+    format: "number",
+  },
+  {
+    seriesKeyTemplate: "labour.unemployment_rate.total.{state}.seasadj",
+    label: "Unemployment rate",
+    format: "percent",
+    unavailableStates:
+      METRIC_BY_KEY.unemployment.kind === "series"
+        ? METRIC_BY_KEY.unemployment.unavailableStates
+        : undefined,
+  },
+  {
+    seriesKeyTemplate: "petroleum.sales.diesel_oil_total.{state}",
+    label: "Diesel sales",
+    format: "megalitres",
+    unavailableStates:
+      METRIC_BY_KEY.diesel_sales.kind === "series"
+        ? METRIC_BY_KEY.diesel_sales.unavailableStates
+        : undefined,
+  },
+];
+
+export function stateCorrelationCandidates(state: StateSlug) {
+  return STATE_CORRELATION_CANDIDATES.filter(
+    (candidate) => !candidate.unavailableStates?.includes(state),
+  ).map(({ seriesKeyTemplate, label, format }) => ({
+    key: seriesKeyTemplate.replace("{state}", state),
+    label,
+    format,
+  }));
+}
+
 /**
  * All RPC series keys a metric needs (primary + secondary), skipping
  * unavailable states. Takes EconomySeriesMetric ONLY — aggregate metrics have

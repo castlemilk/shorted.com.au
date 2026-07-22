@@ -14,6 +14,8 @@ import {
   IndustryCrowdingChart,
 } from "~/@/components/industry/industry-charts";
 import { IndustryMethodology } from "~/@/components/industry/industry-methodology";
+import { IndustryEconomyContext } from "~/@/components/industry/industry-economy-context-loader";
+import { WhenVisible } from "~/@/components/housing/when-visible";
 import { Badge } from "~/@/components/ui/badge";
 import { Button } from "~/@/components/ui/button";
 import {
@@ -458,6 +460,10 @@ function OverviewPanel({ story }: { story: IndustryIntelligenceStory }) {
       {story.crowding ? <CrowdingSection story={story} /> : null}
 
       <IndustrySignalPanel story={story} stockLimit={10} id="top-shorts" />
+
+      <WhenVisible minHeightClassName="h-[380px]">
+        <IndustryEconomyContext industryName={story.industry.name} />
+      </WhenVisible>
 
       {/* Alert funnel: one quiet, purposeful strip — not another card grid. */}
       <aside
