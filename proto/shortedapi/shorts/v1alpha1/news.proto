@@ -1,0 +1,250 @@
+syntax = "proto3";
+
+package shorts.v1alpha1;
+
+option go_package = "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1";
+
+import "google/protobuf/timestamp.proto";
+import "options/v1/options.proto";
+
+service NewsService {
+  // ==================== News ====================
+
+  // Get recent news articles for a specific stock
+  rpc GetStockNews (GetStockNewsRequest) returns (GetStockNewsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Get news semantically related to a stock (or to a specific article)
+  rpc GetRelatedNews (GetRelatedNewsRequest) returns (GetRelatedNewsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Get market-wide news across all stocks
+  rpc GetMarketNews (GetMarketNewsRequest) returns (GetMarketNewsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // ==================== Editorial Takes (Shorted Take) ====================
+
+  // Get a single published editorial take by slug.
+  rpc GetEditorialTake (GetEditorialTakeRequest) returns (GetEditorialTakeResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // List recent published editorial takes (paginated).
+  rpc ListEditorialTakes (ListEditorialTakesRequest) returns (ListEditorialTakesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Admin: list all takes including drafts (admin-gated).
+  rpc ListEditorialTakesAdmin (ListEditorialTakesAdminRequest) returns (ListEditorialTakesAdminResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
+
+  // Admin: publish a draft take (sets published_at = NOW()).
+  rpc PublishEditorialTake (PublishEditorialTakeRequest) returns (PublishEditorialTakeResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
+
+  // Admin: partial update of a take's editable fields.
+  rpc UpdateEditorialTake (UpdateEditorialTakeRequest) returns (UpdateEditorialTakeResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
+
+  // Admin: hard delete a take.
+  rpc DeleteEditorialTake (DeleteEditorialTakeRequest) returns (DeleteEditorialTakeResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
+
+  // Admin: mark a take as tweet-published (called by the bot worker).
+  rpc MarkTakeTweetPublished (MarkTakeTweetPublishedRequest) returns (MarkTakeTweetPublishedResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
+
+  // Admin: list takes in the tweet publish queue (published_at IS NOT NULL,
+  // tweet_published_at IS NULL). Used by the bot worker.
+  rpc ListTweetPublishQueue (ListTweetPublishQueueRequest) returns (ListTweetPublishQueueResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
+}
+
+// ==================== News Messages ====================
+
+// A single news article
+message NewsArticle {
+  string id = 1;
+  string stock_code = 2;
+  string source = 3;              // 'asx', 'stockhead', 'livewire', 'afr'
+  string headline = 4;
+  string url = 5;
+  google.protobuf.Timestamp published_at = 6;
+  string sentiment = 7;           // 'positive', 'negative', 'neutral'
+  double relevance_score = 8;
+  bool is_price_sensitive = 9;
+  string summary = 10;
+  repeated string tags = 11;
+  string image_url = 12;          // Hero image from RSS or scraped og:image
+  int32 syndication_count = 13;          // total cluster size INCLUDING this article (1 = unsyndicated); syndicated_sources excludes self, so len(sources) == count-1
+  repeated string syndicated_sources = 14; // OTHER mastheads carrying this story (self excluded)
+}
+
+// Request for GetStockNews RPC
+message GetStockNewsRequest {
+  string stock_code = 1;          // ASX stock code (e.g., "BHP")
+  int32 limit = 2;                // Max articles to return (default 20)
+  string source = 3;              // Optional filter by source
+  string sentiment = 4;           // Optional filter by sentiment
+}
+
+// Response for GetStockNews RPC
+message GetStockNewsResponse {
+  repeated NewsArticle articles = 1;
+  int32 total_count = 2;
+}
+
+// Request for GetRelatedNews RPC
+message GetRelatedNewsRequest {
+  string stock_code = 1;          // ASX stock code (e.g., "BHP")
+  string article_id = 2;          // Optional anchor article id; if empty, uses the stock's latest article
+  int32 limit = 3;                // Max related articles to return (default 6)
+}
+
+// Response for GetRelatedNews RPC
+message GetRelatedNewsResponse {
+  repeated NewsArticle articles = 1;   // ordered nearest-first by semantic similarity
+}
+
+// Request for GetMarketNews RPC
+message GetMarketNewsRequest {
+  int32 limit = 1;                // Max articles to return (default 50)
+  string source = 2;              // Optional filter by source
+  bool price_sensitive_only = 3;  // Only return price-sensitive news
+}
+
+// Response for GetMarketNews RPC
+message GetMarketNewsResponse {
+  repeated NewsArticle articles = 1;
+  int32 total_count = 2;
+}
+
+// ==================== Editorial Take Messages ====================
+
+// A single Shorted Take editorial article (Gemini-generated commentary
+// on a price-sensitive news headline).
+message EditorialTake {
+  string id = 1;
+  string slug = 2;
+  string headline = 3;
+  string stock_code = 4;
+  string body_md = 5;             // Markdown body
+  string sentiment = 6;
+  string source_article_id = 7;   // UUID of source news_article, or empty
+  string source_url = 8;          // External publisher URL (attribution)
+  string source_name = 9;         // 'Stockhead', 'Motley Fool', etc.
+  string og_image_url = 10;
+  int32 word_count = 11;
+  string model = 12;              // 'gemini-2.0-flash', etc.
+  google.protobuf.Timestamp published_at = 13;
+  google.protobuf.Timestamp created_at = 14;
+  string hero_image_url = 15;
+  repeated InlineImage inline_images = 16;
+  google.protobuf.Timestamp tweet_published_at = 17;
+  repeated TakeCitation citations = 18;
+  repeated LayoutImage layout_images = 19;
+  string body_format = 20;    // 'markdown' | 'mdx'
+  string standfirst = 21;     // one-sentence dek under the headline
+  string byline = 22;         // e.g. "The Shorted Desk — Mining & Resources"
+  string hero_caption = 23;
+  string hero_credit = 24;    // e.g. "AI-generated illustration"
+}
+
+// A single cited source referenced by a [ref-N] marker in body_md.
+message TakeCitation {
+  string ref_id = 1;          // "ref-1", "ref-2", …
+  string url = 2;
+  string source = 3;          // 'stockhead', 'motleyfool', etc.
+  string headline = 4;
+  string date = 5;            // YYYY-MM-DD
+  string type = 6;            // 'news' | 'trade' | 'data'
+}
+
+// Inline image embedded in a Take body.
+message InlineImage {
+  string url = 1;
+  string topic = 2;   // editorial brief the image was generated from
+  string alt = 3;     // accessible alt text
+}
+
+// An art-directed layout image with style/ratio/placement for bespoke
+// editorial rendering. Stored in editorial_takes.layout_images.
+message LayoutImage {
+  string url = 1;
+  string style = 2;              // documentary | aerial | still_life | isometric | archival | abstract | environmental
+  string ratio = 3;              // landscape | portrait | square
+  string brief = 4;              // subject the image was generated from
+  string caption = 5;            // editorial caption
+  string placement = 6;          // full | left | right | inset
+  int32 anchor_after_block = 7;  // render after this 0-based body block
+}
+
+message GetEditorialTakeRequest {
+  string slug = 1;
+}
+
+message GetEditorialTakeResponse {
+  EditorialTake take = 1;
+}
+
+message ListEditorialTakesRequest {
+  int32 limit = 1;         // default 20
+  int32 offset = 2;
+  string stock_code = 3;   // optional filter
+}
+
+message ListEditorialTakesResponse {
+  repeated EditorialTake takes = 1;
+  int32 total_count = 2;
+}
+
+// ===== Admin =====
+
+enum TakeStatus {
+  TAKE_STATUS_UNSPECIFIED = 0;
+  TAKE_STATUS_DRAFT = 1;        // published_at IS NULL
+  TAKE_STATUS_PUBLISHED = 2;    // published_at IS NOT NULL, tweet_published_at IS NULL
+  TAKE_STATUS_TWEETED = 3;      // both timestamps set
+}
+
+message ListEditorialTakesAdminRequest {
+  int32 limit = 1;
+  int32 offset = 2;
+  TakeStatus status_filter = 3; // optional
+}
+
+message ListEditorialTakesAdminResponse {
+  repeated EditorialTake takes = 1;
+  int32 total_count = 2;
+}
+
+message PublishEditorialTakeRequest { string slug = 1; }
+message PublishEditorialTakeResponse { EditorialTake take = 1; }
+
+message UpdateEditorialTakeRequest {
+  string slug = 1;
+  // Each optional field is applied only if non-empty.
+  string body_md = 2;
+  string headline = 3;
+  string hero_image_url = 4;
+  string sentiment = 5;
+}
+message UpdateEditorialTakeResponse { EditorialTake take = 1; }
+
+message DeleteEditorialTakeRequest { string slug = 1; }
+message DeleteEditorialTakeResponse { bool deleted = 1; }
+
+message MarkTakeTweetPublishedRequest { string slug = 1; }
+message MarkTakeTweetPublishedResponse { EditorialTake take = 1; }
+
+message ListTweetPublishQueueRequest { int32 limit = 1; }
+message ListTweetPublishQueueResponse { repeated EditorialTake takes = 1; }

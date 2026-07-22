@@ -1,0 +1,324 @@
+syntax = "proto3";
+
+package shorts.v1alpha1;
+
+option go_package = "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1";
+
+import "stocks/v1alpha1/stocks.proto";
+import "options/v1/options.proto";
+
+service StockService {
+  // Provides an overview of a specific stock based on PRODUCT_CODE.
+  rpc GetStock (GetStockRequest) returns (stocks.v1alpha1.Stock) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Provides a more in-depth breakdown of a particular stock's metadata.
+  rpc GetStockDetails (GetStockDetailsRequest) returns (stocks.v1alpha1.StockDetails) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // fetch time series data for a specific stock
+  rpc GetStockData (GetStockDataRequest) returns (stocks.v1alpha1.TimeSeriesData) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Get extracted financial highlights for specific stocks
+  rpc GetStockFinancialHighlights (GetStockFinancialHighlightsRequest) returns (GetStockFinancialHighlightsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Get director (insider) trades for a specific stock
+  rpc GetDirectorTrades (GetDirectorTradesRequest) returns (GetDirectorTradesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Get dividend history for a specific stock
+  rpc GetDividendHistory (GetDividendHistoryRequest) returns (GetDividendHistoryResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Get peer comparison for a stock within its industry
+  rpc GetPeerComparison (GetPeerComparisonRequest) returns (GetPeerComparisonResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Get a composite bear-vs-bull verdict for a single stock
+  rpc GetStockVerdict (GetStockVerdictRequest) returns (GetStockVerdictResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Get a stock's people (with their other companies) and narrative-similar companies
+  rpc GetStockGraph (GetStockGraphRequest) returns (GetStockGraphResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Get a chronological feed of events for a stock (announcements, director trades, news, short spikes)
+  rpc GetEventTimeline (GetEventTimelineRequest) returns (GetEventTimelineResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Get a stock's reputation/risk signals (adverse: court/sanctions/complaints; positive: awards/press)
+  rpc GetStockSignals (GetStockSignalsRequest) returns (GetStockSignalsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Get an ASX-listed entity's annual corporate-tax profile (ATO transparency data).
+  rpc GetCompanyTaxProfile (GetCompanyTaxProfileRequest) returns (GetCompanyTaxProfileResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+}
+
+// Request for GetStockSummary RPC, specifying the product code.
+message GetStockRequest {
+  string product_code = 1;
+}
+
+// Request for GetStockDetails RPC, specifying the product code.
+message GetStockDetailsRequest {
+  string product_code = 1;
+}
+
+// Request for GetStockDataRequest RPC, specifying the product code.
+message GetStockDataRequest {
+  string product_code = 1;
+  string period = 2;
+}
+
+// Request for GetStockFinancialHighlights RPC
+message GetStockFinancialHighlightsRequest {
+  repeated string stock_codes = 1; // ASX stock codes (e.g., ["DMP", "BHP"])
+  int32 max_reports_per_stock = 2; // Max reports to return per stock (default 2)
+}
+
+// Response for GetStockFinancialHighlights RPC
+message GetStockFinancialHighlightsResponse {
+  map<string, StockFinancialHighlights> highlights = 1; // stock_code → highlights
+}
+
+// Financial highlights for a single stock
+message StockFinancialHighlights {
+  repeated FinancialReportHighlight reports = 1;
+}
+
+// Extracted financial data from a single report
+message FinancialReportHighlight {
+  string report_title = 1;
+  string report_type = 2;  // e.g., "annual_results", "half_year_results"
+  string report_date = 3;  // YYYY-MM-DD
+  repeated FinancialMetric metrics = 4;
+  string digest = 5;      // compressed Flash-distilled summary of the report
+  double confidence = 6;  // digest confidence 0.0-1.0
+}
+
+// A single extracted financial metric
+message FinancialMetric {
+  string metric_type = 1;   // e.g., "revenue", "net_profit", "eps", "dividend"
+  string source_text = 2;   // Original text from the report
+  map<string, string> attributes = 3; // e.g., {"value_millions": "5142", "period": "H1 FY2025"}
+}
+
+// A single director trade record
+message DirectorTrade {
+  string id = 1;
+  string stock_code = 2;
+  string director_name = 3;
+  string trade_type = 4;          // 'buy', 'sell', 'exercise_options'
+  int64 shares_traded = 5;
+  double price_per_share = 6;
+  double total_value = 7;
+  string trade_date = 8;          // YYYY-MM-DD
+  string announcement_url = 9;
+}
+
+// Request for GetDirectorTrades RPC
+message GetDirectorTradesRequest {
+  string stock_code = 1;          // ASX stock code
+  int32 limit = 2;                // Max trades to return (default 20)
+}
+
+// Response for GetDirectorTrades RPC
+message GetDirectorTradesResponse {
+  repeated DirectorTrade trades = 1;
+  int32 total_count = 2;
+}
+
+// A single dividend record
+message DividendRecord {
+  string id = 1;
+  string stock_code = 2;
+  string ex_date = 3;             // YYYY-MM-DD
+  string payment_date = 4;        // YYYY-MM-DD
+  double amount_per_share = 5;
+  double franking_percentage = 6;
+  string dividend_type = 7;       // 'ordinary', 'special', 'interim', 'final'
+}
+
+// Request for GetDividendHistory RPC
+message GetDividendHistoryRequest {
+  string stock_code = 1;          // ASX stock code
+  int32 years = 2;                // How many years of history (default 5)
+}
+
+// Response for GetDividendHistory RPC
+message GetDividendHistoryResponse {
+  repeated DividendRecord dividends = 1;
+  int32 total_count = 2;
+  double trailing_yield = 3;      // Calculated trailing 12-month dividend yield
+}
+
+// A peer stock for comparison
+message PeerStock {
+  string stock_code = 1;
+  string company_name = 2;
+  string industry = 3;
+  double short_position_percent = 4;
+  double market_cap = 5;
+  double pe_ratio = 6;
+  double dividend_yield = 7;
+  double price_change_1m = 8;     // 1-month price change %
+  string logo_url = 9;            // Company logo URL (GCS-hosted, may be empty)
+}
+
+// Request for GetPeerComparison RPC
+message GetPeerComparisonRequest {
+  string stock_code = 1;          // ASX stock code to compare
+  int32 limit = 2;                // Number of peers (default 5)
+}
+
+// Response for GetPeerComparison RPC
+message GetPeerComparisonResponse {
+  PeerStock subject = 1;          // The stock being compared
+  repeated PeerStock peers = 2;   // Industry peers
+  string industry = 3;            // Common industry
+}
+
+// Verdict band derived from the composite score
+enum VerdictLabel {
+  VERDICT_LABEL_UNSPECIFIED = 0;
+  VERDICT_LABEL_STRONG_BEARISH = 1; // composite <= -40
+  VERDICT_LABEL_BEARISH = 2;        // -40 < composite <= -10
+  VERDICT_LABEL_NEUTRAL = 3;        // -10 < composite < 10
+  VERDICT_LABEL_BULLISH = 4;        // 10 <= composite < 40
+  VERDICT_LABEL_STRONG_BULLISH = 5; // composite >= 40
+}
+
+// Request for GetStockVerdict RPC
+message GetStockVerdictRequest {
+  string product_code = 1;
+}
+
+// A single component of the composite verdict
+message VerdictComponent {
+  string name = 1;         // e.g. "short_trend"
+  double score = 2;        // normalized -1..1, bullish positive
+  double weight = 3;       // 0..1
+  double contribution = 4; // weight * score * 100 (points of the composite)
+}
+
+// Response for GetStockVerdict RPC
+message GetStockVerdictResponse {
+  string product_code = 1;
+  double composite = 2; // -100..100, bullish positive
+  VerdictLabel label = 3;
+  repeated VerdictComponent components = 4;
+}
+
+// Request for GetCompanyTaxProfile RPC
+message GetCompanyTaxProfileRequest {
+  string product_code = 1;
+}
+
+// One income year of ATO corporate-tax transparency data for an entity.
+// has_taxable_income / has_tax_payable distinguish a genuine zero from
+// "not reported" (the ATO leaves these blank; blank is meaningful, not zero).
+message CompanyTaxYear {
+  int32 income_year = 1;         // e.g. 2024 for the 2023-24 report
+  double total_income = 2;       // always reported (A$)
+  bool has_taxable_income = 3;
+  double taxable_income = 4;     // valid only when has_taxable_income
+  bool has_tax_payable = 5;
+  double tax_payable = 6;        // valid only when has_tax_payable
+}
+
+// Response for GetCompanyTaxProfile RPC
+message GetCompanyTaxProfileResponse {
+  string entity_name = 1;
+  string abn = 2;
+  repeated CompanyTaxYear years = 3;
+  string source_attribution = 4;
+}
+
+// Request for GetStockGraph RPC
+message GetStockGraphRequest {
+  string stock_code = 1;
+  int32 limit = 2; // max people / similar companies to return (default 12)
+}
+
+// Response for GetStockGraph RPC
+message GetStockGraphResponse {
+  repeated GraphPerson people = 1;
+  repeated GraphPeer similar_companies = 2;
+}
+
+// A person connected to the stock (director/officer) with their other ASX roles
+message GraphPerson {
+  string name = 1;
+  string role = 2;
+  string image_url = 3;
+  string linkedin_url = 4;
+  repeated string also_at = 5; // OTHER stock codes this person is connected to
+}
+
+// A narratively/semantically similar company
+message GraphPeer {
+  string stock_code = 1;
+  string company_name = 2;
+  string industry = 3;
+  double similarity = 4;
+}
+
+// Request for GetEventTimeline RPC
+message GetEventTimelineRequest {
+  string stock_code = 1;
+  int32 days_back = 2; // number of days to look back (default 90)
+  int32 limit = 3;     // max events to return (default 50)
+}
+
+// Response for GetEventTimeline RPC
+message GetEventTimelineResponse {
+  repeated TimelineEvent events = 1;
+}
+
+// A single event in the stock's timeline
+message TimelineEvent {
+  string date = 1;              // YYYY-MM-DD
+  string type = 2;              // 'announcement' | 'director_trade' | 'news' | 'short_spike'
+  string title = 3;
+  string detail = 4;
+  string url = 5;
+  string sentiment = 6;         // for news events; '' otherwise
+  bool   is_price_sensitive = 7;
+}
+
+message GetStockSignalsRequest {
+  string stock_code = 1;
+  int32  limit = 2;             // max signals per polarity (default 10)
+}
+
+message GetStockSignalsResponse {
+  repeated StockSignal adverse = 1;
+  repeated StockSignal positive = 2;
+}
+
+// A single reputation/risk signal for a stock
+message StockSignal {
+  string polarity = 1;          // 'adverse' | 'positive'
+  string kind = 2;              // 'court' | 'sanction' | 'complaint' | 'award' | 'press' | ...
+  string headline = 3;
+  string detail = 4;
+  string event_date = 5;        // 'YYYY-MM-DD' or 'YYYY'
+  string severity = 6;          // 'high' | 'medium' | 'low' (adverse only)
+  double confidence = 7;
+  repeated string citations = 8;
+}

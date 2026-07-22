@@ -157,6 +157,29 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	mux.Handle(shortsPath, shortsHandler)
 	mux.Handle(registerPath, registerHandler)
 
+	// Per-domain services over the same ShortsServer. The legacy monolithic
+	// ShortedStocksService above stays mounted for external consumers (public
+	// API docs, chat tools, twitter bot, MCP); web clients migrate to these so
+	// each route's bundle only carries its own domain's descriptor. mount
+	// applies the same interceptors chain (passed to each constructor) +
+	// withCORS — never mux.Handle a connect handler directly or it silently
+	// loses auth, rate limiting and CORS.
+	mount := func(path string, handler http.Handler) {
+		mux.Handle(path, withCORS(handler))
+	}
+	mount(shortsv1alpha1connect.NewMarketServiceHandler(s, interceptors))
+	mount(shortsv1alpha1connect.NewStockServiceHandler(s, interceptors))
+	mount(shortsv1alpha1connect.NewSearchServiceHandler(s, interceptors))
+	mount(shortsv1alpha1connect.NewScreenerServiceHandler(s, interceptors))
+	mount(shortsv1alpha1connect.NewNewsServiceHandler(s, interceptors))
+	mount(shortsv1alpha1connect.NewEnrichmentServiceHandler(s, interceptors))
+	mount(shortsv1alpha1connect.NewBillingServiceHandler(s, interceptors))
+	mount(shortsv1alpha1connect.NewAlertsServiceHandler(s, interceptors))
+	mount(shortsv1alpha1connect.NewReportsServiceHandler(s, interceptors))
+	mount(shortsv1alpha1connect.NewHousingServiceHandler(s, interceptors))
+	mount(shortsv1alpha1connect.NewEconomyServiceHandler(s, interceptors))
+	mount(shortsv1alpha1connect.NewIndustryIntelligenceServiceHandler(s, interceptors))
+
 	// Add health check endpoint
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
