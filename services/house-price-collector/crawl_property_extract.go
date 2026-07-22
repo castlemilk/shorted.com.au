@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -10,28 +12,35 @@ import (
 
 // Per-ADDRESS property-profile extraction for property.com.au (REA Group's
 // address-research portal: AVM estimate + sales history + attributes + year built).
-// Like the listing SRP/LDP harvesters (crawl_listings_extract.go /
-// crawl_details_extract.go) this is schema-AGNOSTIC: property.com.au is a
-// React/Next.js app that embeds its state in __NEXT_DATA__ (props.pageProps) and/or
-// a window.* blob, REA-family sites DOUBLE-STRINGIFY their caches (a JSON string
-// inside a JSON string), and the key paths mutate + serve bot-variant DOM. So we
-// never bind a selector: we walk every JSON blob on the page (reusing jsonBlobs +
-// the walk helpers), keep the object that looks most like a single property
-// profile, and harvest each field through case-insensitive alias lists with a
-// shallow nested fallback. Every field is optional; ok is false only when NO
-// recognizable property-profile payload was found at all.
 //
-// NOTE (Phase 0): no real property.com.au profile fixture exists yet (Kasada-blocked
-// recon) — every alias set + nesting below is EXPECTED-not-verified. The Phase-0
-// live probe (10 dry-run fetches, gated until the current SRP drain frees the warm
-// Chrome) will confirm/refine the exact blob (__NEXT_DATA__ vs window.*) and key
-// paths. The extractor is written tolerant so a shape drift degrades to "fewer
-// fields harvested", never a crash or a false ok=false — refining it is a localized
-// edit to the alias lists.
+// REVERSE-ENGINEERED against a captured profile (Phase-0 live probe): there is NO
+// __NEXT_DATA__. The property data ships in `window.ArgonautExchange` (the SAME
+// container realestate.com.au uses) under URQL_CACHE as a DOUBLE/TRIPLE-stringified
+// JSON string (a JSON string inside a JSON string), which our schema-agnostic walk
+// descends transparently (walkForProperty, like walkForListingsDepth). The confirmed
+// KEY PATHS (snake_case!) — shapes only, no captured values reproduced here:
+//
+//   - The flat AVM + attributes block is tracking.propertyContext.data
+//     (__typename "TrackingData_PropertyContext_Data"), carrying the keys:
+//       bedrooms, bathrooms, car_spaces, year_built, property_type,
+//       land_size_sq_metres, floor_area, avm_estimated_value (mid), avm_low_range,
+//       avm_high_range, avm_confidence, avm_last_updated_date
+//   - Geo is propertyMap.coordinates {latitude, longitude, __typename:"Point"} —
+//     NOT on the tracking object, so it is harvested from the propertyMap wrapper
+//     (deterministic; the page carries many neighbour coordinates, so we never grab
+//     "the first lat/lng we see").
+//   - Sales history is timelineV4 events (__typename "PropertyPage_TimelineEvent"),
+//     each {badgeV3:{text}, titleV2, details} — type from badgeV3.text, price from
+//     the titleV2 "$" figure, date+agency parsed from the details string.
+//
+// Every field is optional; ok is false only when NO recognizable property payload
+// (neither a data object nor a timeline event) is present — which is exactly the
+// case on a 404 page (no ArgonautExchange, no avm_*), so a not-found page correctly
+// extracts nothing.
 
-// saleRecord is one entry in a property's sales history. Pointer Price is nil when
-// the portal shows a non-numeric result (e.g. "Withdrawn"). json tags are lower
-// snake_case so the marshaled sales_history JSONB reads cleanly.
+// saleRecord is one entry in a property's sales/timeline history. Pointer Price is
+// nil when the event carries no dollar figure (e.g. a bare "Listed for sale"). json
+// tags are lower snake_case so the marshaled sales_history JSONB reads cleanly.
 type saleRecord struct {
 	Date   string   `json:"date,omitempty"`
 	Price  *float64 `json:"price,omitempty"`
@@ -56,130 +65,142 @@ type propertyProfile struct {
 	Raw                                    string // JSON of the recognized fields; "{}" when nothing harvested
 }
 
-// Alias sets (case-insensitive, checked in order) — EXPECTED shapes, Phase-0
-// probe-verified. Kept as package vars so refining a path after the probe is a
-// one-line edit.
+// Real snake_case key aliases (confirmed against the captured profile). Extra
+// aliases are defensive fallbacks against shape drift; the FIRST in each list is the
+// confirmed live key.
 var (
-	// estimateObjectKeys: the AVM sub-object holding low/mid/high/confidence.
-	estimateObjectKeys = []string{
-		"estimate", "priceestimate", "propertyvalueestimate", "valuationestimate",
-		"avmestimate", "avm", "valuation", "pricevaluation", "estimatedvalue",
-		"displayestimate", "propertyestimate", "valueestimate", "priceguide",
-	}
-	estimateLowKeys  = []string{"low", "lower", "pricelower", "estimatelow", "min", "minimum", "rangelow", "lowerprice", "from", "lowervalue", "confidencelower"}
-	estimateMidKeys  = []string{"mid", "middle", "midpoint", "estimate", "price", "value", "estimatedvalue", "midprice", "displayprice", "point", "central"}
-	estimateHighKeys = []string{"high", "upper", "priceupper", "estimatehigh", "max", "maximum", "rangehigh", "upperprice", "to", "uppervalue"}
-	estimateConfKeys = []string{"confidence", "confidencelevel", "estimateconfidence", "confidencescore", "fsd", "accuracy"}
-
-	// flat estimate fallbacks (when the portal flattens the AVM onto the profile).
-	flatEstimateLowKeys  = []string{"estimatelow", "pricelowestimate", "lowestimate", "estimatedvaluelow"}
-	flatEstimateMidKeys  = []string{"estimatemid", "estimatedvalue", "displayestimate", "midestimate", "estimatevalue"}
-	flatEstimateHighKeys = []string{"estimatehigh", "pricehighestimate", "highestimate", "estimatedvaluehigh"}
-
-	// rentEstimateObjectKeys / rentMidKeys: the weekly rent AVM.
-	rentEstimateObjectKeys = []string{"rentestimate", "rentalestimate", "weeklyrentestimate", "rentvaluation", "rentalvaluation"}
-	rentMidKeys            = []string{"mid", "value", "amount", "estimate", "weekly", "perweek", "price", "displayprice"}
-
-	yearBuiltKeys = []string{"yearbuilt", "builtyear", "yearconstructed", "constructionyear", "buildyear", "yearofconstruction"}
-	propTypeKeys  = []string{"propertytypeformatted", "propertytype", "dwellingtype", "subtype", "propertycategory", "landuse"}
-	bedroomKeys   = []string{"bedrooms", "beds", "bed", "numbedrooms"}
-	bathroomKeys  = []string{"bathrooms", "baths", "bath", "numbathrooms"}
-	carSpaceKeys  = []string{"carspaces", "parking", "carspots", "car", "numcarspaces", "garages", "carports"}
-
-	// salesHistoryKeys: the array (or wrapper object) of prior sale events.
-	salesHistoryKeys = []string{"saleshistory", "salehistory", "transactionhistory", "priorsales", "historicalsales", "soldhistory", "propertyhistory", "salesresults", "timeline"}
-	saleDateKeys     = []string{"date", "saledate", "solddate", "contractdate", "eventdate", "transactiondate", "settlementdate", "displaydate"}
-	salePriceKeys    = []string{"price", "saleprice", "soldprice", "amount", "value", "pricevalue", "salevalue"}
-	saleAgencyKeys   = []string{"agency", "agencyname", "agent", "advertiser", "company", "sellingagency", "brand"}
-	saleTypeKeys     = []string{"type", "salemethod", "saletype", "method", "category", "eventtype", "channel"}
+	avmLowKeys    = []string{"avm_low_range", "avm_low", "low_range"}
+	avmMidKeys    = []string{"avm_estimated_value", "avm_mid", "estimated_value", "avm_value"}
+	avmHighKeys   = []string{"avm_high_range", "avm_high", "high_range"}
+	avmConfKeys   = []string{"avm_confidence", "confidence"}
+	landKeys      = []string{"land_size_sq_metres", "land_size_sqm", "land_size", "land_area"}
+	floorKeys     = []string{"floor_area", "building_size_sqm", "building_size", "floor_size", "internal_area"}
+	propTypeKeys  = []string{"property_type", "property_type_formatted", "dwelling_type"}
+	bedroomKeys   = []string{"bedrooms", "beds", "num_bedrooms"}
+	bathroomKeys  = []string{"bathrooms", "baths", "num_bathrooms"}
+	carSpaceKeys  = []string{"car_spaces", "parking", "car_spots", "garages"}
+	yearBuiltKeys = []string{"year_built", "built_year", "year_constructed", "construction_year"}
 )
 
-// extractPropertyProfile walks every <script> JSON blob (including REA's
-// double-stringified caches), picks the richest property-profile object, and
-// harvests its fields. Returns ok=false only when NO recognizable property-profile
-// payload was found (an anti-bot stub, an error page, or an unrelated blob).
+// propertyScan accumulates the three distinct things the profile page carries in
+// three distinct places: the flat AVM+attribute object(s), the timeline events, and
+// the subject geo (from propertyMap). Filled by walkForProperty in one pass.
+type propertyScan struct {
+	dataCands []map[string]any
+	events    []map[string]any
+	lat, lng  *float64
+}
+
+// extractPropertyProfile walks every <script> JSON blob (including the
+// ArgonautExchange/URQL_CACHE double-stringified chain), picks the richest AVM/
+// attribute object, and attaches the timeline sales history + subject geo. Returns
+// ok=false only when NO recognizable property payload was found (an anti-bot stub, a
+// 404 page, or an unrelated blob).
 func extractPropertyProfile(html string) (propertyProfile, bool) {
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
 	if err != nil {
 		return propertyProfile{}, false
 	}
-	var cands []map[string]any
+	scan := &propertyScan{}
 	doc.Find("script").Each(func(_ int, s *goquery.Selection) {
 		for _, blob := range jsonBlobs(s.Text()) {
 			var v any
 			if json.Unmarshal([]byte(blob), &v) != nil {
 				continue
 			}
-			walkForProperty(v, &cands, 0)
+			walkForProperty(v, scan, 0)
 		}
 	})
-	if len(cands) == 0 {
+	if len(scan.dataCands) == 0 && len(scan.events) == 0 {
 		return propertyProfile{}, false
 	}
-	best, bestScore := cands[0], propertyFieldScore(cands[0])
-	for _, c := range cands[1:] {
-		if sc := propertyFieldScore(c); sc > bestScore {
-			best, bestScore = c, sc
+	var best map[string]any
+	if len(scan.dataCands) > 0 {
+		best = scan.dataCands[0]
+		bestScore := propertyDataScore(best)
+		for _, c := range scan.dataCands[1:] {
+			if sc := propertyDataScore(c); sc > bestScore {
+				best, bestScore = c, sc
+			}
 		}
 	}
-	return harvestProperty(best), true
+	return harvestProperty(best, scan), true
 }
 
 // walkForProperty recurses through maps, arrays, AND stringified-JSON string values
-// (mirrors walkForListingsDepth / walkForDetail — REA-family sites double-stringify
-// their state), collecting every object that looks like a single property profile.
-func walkForProperty(v any, cands *[]map[string]any, depth int) {
+// (the ArgonautExchange → URQL_CACHE → data chain is stringified JSON inside
+// stringified JSON), filling the scan: AVM/attribute candidates, timeline events,
+// and the subject geo (taken deterministically from a propertyMap wrapper, never the
+// first stray coordinate — the page carries neighbour coordinates too).
+func walkForProperty(v any, scan *propertyScan, depth int) {
 	if depth > 40 {
 		return
 	}
 	switch t := v.(type) {
 	case map[string]any:
 		lm := lowerKeys(t)
-		if isPropertyCandidate(lm) {
-			*cands = append(*cands, lm)
+		if isPropertyDataObject(lm) {
+			scan.dataCands = append(scan.dataCands, lm)
+		}
+		if isTimelineEvent(lm) {
+			scan.events = append(scan.events, lm)
+		}
+		if scan.lat == nil {
+			if pm := childMap(lm, "propertymap", "map", "property_location"); pm != nil {
+				if lat, lng, ok := firstAUGeo(pm, 0); ok {
+					scan.lat, scan.lng = f64p(lat), f64p(lng)
+				}
+			}
 		}
 		for _, child := range t {
-			walkForProperty(child, cands, depth+1)
+			walkForProperty(child, scan, depth+1)
 		}
 	case []any:
 		for _, child := range t {
-			walkForProperty(child, cands, depth+1)
+			walkForProperty(child, scan, depth+1)
 		}
 	case string:
 		if s := strings.TrimSpace(t); len(s) > 2 && (s[0] == '{' || s[0] == '[') {
 			var inner any
 			if json.Unmarshal([]byte(s), &inner) == nil {
-				walkForProperty(inner, cands, depth+1)
+				walkForProperty(inner, scan, depth+1)
 			}
 		}
 	}
 }
 
-// isPropertyCandidate reports whether a lowercased map looks like a single
-// property's research profile. The defining signals are an AVM estimate OR a sales
-// history (this tier's whole reason to exist); failing those, an address block plus
-// a physical attribute (beds/land/year/type) is enough to recognize a thin profile.
-func isPropertyCandidate(lm map[string]any) bool {
-	hasEstimate := childMap(lm, estimateObjectKeys...) != nil ||
-		anyKey(lm, flatEstimateMidKeys...) || anyKey(lm, flatEstimateLowKeys...) || anyKey(lm, flatEstimateHighKeys...)
-	hasSales := salesArrayOf(firstValue(lm, salesHistoryKeys...)) != nil
-	hasAddr := childMap(lm, "address") != nil || anyKey(lm, "displayaddress", "streetaddress", "fulladdress")
-	hasAttrs := anyKey(lm, "bedrooms", "beds", "bathrooms", "baths", "landsize", "landarea", "yearbuilt", "propertytype")
-	if hasEstimate || hasSales {
+// isPropertyDataObject reports whether a lowercased map is the flat AVM+attributes
+// block. An AVM key is the defining signal; failing that, a property_type plus a
+// bed/bath/car count also qualifies (a thin profile with no AVM yet).
+func isPropertyDataObject(lm map[string]any) bool {
+	if anyKey(lm, "avm_estimated_value", "avm_low_range", "avm_high_range") {
 		return true
 	}
-	return hasAddr && hasAttrs
+	if anyKey(lm, "land_size_sq_metres") {
+		return true
+	}
+	return anyKey(lm, propTypeKeys...) && anyKey(lm, "bedrooms", "bathrooms", "car_spaces")
 }
 
-// propertyFieldScore ranks candidate objects so the richest (the true profile, not
-// a thin nested reference to it) wins.
-func propertyFieldScore(lm map[string]any) int {
+// isTimelineEvent reports whether a lowercased map is a single timeline/sales event.
+// The __typename is the surest signal; a badgeV3+titleV2/details pair is the
+// shape-drift fallback.
+func isTimelineEvent(lm map[string]any) bool {
+	if tn, ok := lm["__typename"].(string); ok && strings.EqualFold(tn, "PropertyPage_TimelineEvent") {
+		return true
+	}
+	return anyKey(lm, "badgev3") && anyKey(lm, "titlev2", "details")
+}
+
+// propertyDataScore ranks AVM/attribute candidates so the subject property's block
+// (which carries the full AVM range + every attribute) outranks any thinner
+// neighbour object on the page.
+func propertyDataScore(lm map[string]any) int {
 	n := 0
 	for _, k := range []string{
-		"estimate", "priceestimate", "valuation", "avm", "estimatedvalue", "displayestimate",
-		"rentestimate", "rentalestimate", "saleshistory", "salehistory", "transactionhistory",
-		"propertyhistory", "yearbuilt", "landsize", "landarea", "buildingsize", "floorarea",
-		"propertytype", "bedrooms", "bathrooms", "carspaces", "address", "geolocation", "location",
+		"avm_estimated_value", "avm_low_range", "avm_high_range", "avm_confidence",
+		"avm_last_updated_date", "bedrooms", "bathrooms", "car_spaces", "year_built",
+		"property_type", "land_size_sq_metres", "floor_area",
 	} {
 		if _, ok := lm[k]; ok {
 			n++
@@ -188,132 +209,73 @@ func propertyFieldScore(lm map[string]any) int {
 	return n
 }
 
-// harvestProperty pulls every profile field out of the chosen object (and its
-// direct child maps), building both the typed record and the raw JSON of exactly
-// what was recognized. All fields are best-effort/optional. Every FREE-TEXT value
-// is run through cleanText at harvest time so the raw JSON is built from CLEANED
-// values — a stray NUL/lone-surrogate from the portal would otherwise survive into
-// the raw JSONB column (json.Marshal escapes a 0x00 to a \u0000 escape, which
+// harvestProperty pulls every profile field out of the chosen AVM/attribute object
+// (best; may be nil when only timeline/geo was found) plus the scan's timeline events
+// and subject geo, building both the typed record and the raw JSON of exactly what
+// was recognized. All fields best-effort/optional. Every FREE-TEXT value is
+// cleanText'd at harvest time so the raw JSON is built from CLEANED values — a stray
+// NUL/lone-surrogate from the portal would otherwise survive into the raw JSONB
+// column (json.Marshal escapes a 0x00 to a \u0000 escape, which Postgres jsonb
 // REJECTS with 22P05, aborting the whole write tx). See also
 // upsertPropertyValuation's belt-and-braces guard.
-func harvestProperty(lm map[string]any) propertyProfile {
-	maps := gatherMaps(lm)
-	raw := map[string]any{}
+func harvestProperty(best map[string]any, scan *propertyScan) propertyProfile {
 	var p propertyProfile
+	raw := map[string]any{}
 
-	// AVM estimate — a nested {low,mid,high,confidence} sub-object (possibly one
-	// extra wrapper level deep, e.g. valuation.estimate.*), else flat fields.
-	if est := resolveEstimateObject(lm); est != nil {
-		estMaps := []map[string]any{est}
-		if lo, ok := firstFloat(estMaps, estimateLowKeys...); ok && lo > 0 {
+	if best != nil {
+		maps := gatherMaps(best)
+		if lo, ok := firstFloat(maps, avmLowKeys...); ok && lo > 0 {
 			p.EstimateLow = f64p(lo)
+			raw["estimate_low"] = lo
 		}
-		if mid, ok := firstFloat(estMaps, estimateMidKeys...); ok && mid > 0 {
+		if mid, ok := firstFloat(maps, avmMidKeys...); ok && mid > 0 {
 			p.EstimateMid = f64p(mid)
+			raw["estimate_mid"] = mid
 		}
-		if hi, ok := firstFloat(estMaps, estimateHighKeys...); ok && hi > 0 {
+		if hi, ok := firstFloat(maps, avmHighKeys...); ok && hi > 0 {
 			p.EstimateHigh = f64p(hi)
+			raw["estimate_high"] = hi
 		}
-		if c := cleanText(getStr(est, estimateConfKeys...)); c != "" {
+		if c := cleanText(strings.ToLower(firstStr(maps, avmConfKeys...))); c != "" {
 			p.EstimateConfidence = c
+			raw["estimate_confidence"] = c
 		}
-	}
-	// Flat estimate fallbacks fill any gap the nested object didn't.
-	if p.EstimateLow == nil {
-		if lo, ok := firstFloat(maps, flatEstimateLowKeys...); ok && lo > 0 {
-			p.EstimateLow = f64p(lo)
+		if p.Bedrooms = firstInt16(maps, 0, 60, bedroomKeys...); p.Bedrooms != nil {
+			raw["bedrooms"] = *p.Bedrooms
 		}
-	}
-	if p.EstimateMid == nil {
-		if mid, ok := firstFloat(maps, flatEstimateMidKeys...); ok && mid > 0 {
-			p.EstimateMid = f64p(mid)
+		if p.Bathrooms = firstInt16(maps, 0, 60, bathroomKeys...); p.Bathrooms != nil {
+			raw["bathrooms"] = *p.Bathrooms
 		}
-	}
-	if p.EstimateHigh == nil {
-		if hi, ok := firstFloat(maps, flatEstimateHighKeys...); ok && hi > 0 {
-			p.EstimateHigh = f64p(hi)
+		if p.CarSpaces = firstInt16(maps, 0, 60, carSpaceKeys...); p.CarSpaces != nil {
+			raw["car_spaces"] = *p.CarSpaces
 		}
-	}
-	if p.EstimateConfidence == "" {
-		if c := cleanText(getStr(lm, estimateConfKeys...)); c != "" {
-			p.EstimateConfidence = c
+		if v, ok := firstFloat(maps, landKeys...); ok && v > 0 {
+			p.LandSizeSqm = f64p(v)
+			raw["land_size_sqm"] = v
 		}
-	}
-	if p.EstimateLow != nil {
-		raw["estimate_low"] = *p.EstimateLow
-	}
-	if p.EstimateMid != nil {
-		raw["estimate_mid"] = *p.EstimateMid
-	}
-	if p.EstimateHigh != nil {
-		raw["estimate_high"] = *p.EstimateHigh
-	}
-	if p.EstimateConfidence != "" {
-		raw["estimate_confidence"] = p.EstimateConfidence
-	}
-
-	// Weekly rent estimate — nested sub-object or flat.
-	if rent := childMap(lm, rentEstimateObjectKeys...); rent != nil {
-		if v, ok := firstFloat([]map[string]any{rent}, rentMidKeys...); ok && v > 0 {
-			p.RentEstimateMid = f64p(v)
+		if v, ok := firstFloat(maps, floorKeys...); ok && v > 0 {
+			p.BuildingSizeSqm = f64p(v)
+			raw["building_size_sqm"] = v
 		}
-	}
-	if p.RentEstimateMid == nil {
-		if v, ok := firstFloat(maps, "rentestimatemid", "weeklyrent", "rentperweek", "estimatedrent"); ok && v > 0 {
-			p.RentEstimateMid = f64p(v)
+		if v := harvestYearBuilt(maps); v != nil {
+			p.YearBuilt = v
+			raw["year_built"] = *v
 		}
-	}
-	if p.RentEstimateMid != nil {
-		raw["rent_estimate_mid"] = *p.RentEstimateMid
-	}
-
-	// Attributes.
-	if p.Bedrooms = firstInt16(maps, 0, 60, bedroomKeys...); p.Bedrooms != nil {
-		raw["bedrooms"] = *p.Bedrooms
-	}
-	if p.Bathrooms = firstInt16(maps, 0, 60, bathroomKeys...); p.Bathrooms != nil {
-		raw["bathrooms"] = *p.Bathrooms
-	}
-	if p.CarSpaces = firstInt16(maps, 0, 60, carSpaceKeys...); p.CarSpaces != nil {
-		raw["car_spaces"] = *p.CarSpaces
-	}
-	if v := harvestSqm(maps, "land"); v != nil {
-		p.LandSizeSqm = v
-		raw["land_size_sqm"] = *v
-	}
-	if v := harvestSqm(maps, "building"); v != nil {
-		p.BuildingSizeSqm = v
-		raw["building_size_sqm"] = *v
-	}
-	if v := harvestYearBuilt(maps); v != nil {
-		p.YearBuilt = v
-		raw["year_built"] = *v
-	}
-	if pt := cleanText(strings.TrimSpace(firstStr(maps, propTypeKeys...))); pt != "" {
-		p.PropertyType = pt
-		raw["property_type"] = pt
-	}
-
-	// Geo — a geolocation/location sub-object, the address block, or flat; kept only
-	// inside the AU bounding box (same gate as the listing harvesters).
-	geoMaps := []map[string]any{lm}
-	if geo := childMap(lm, "geolocation", "location", "geo", "coordinates", "geocode", "map"); geo != nil {
-		geoMaps = append(geoMaps, geo)
-	}
-	if addr := childMap(lm, "address"); addr != nil {
-		geoMaps = append(geoMaps, addr)
-	}
-	if lat, ok := firstFloat(geoMaps, "latitude", "lat"); ok {
-		if lng, ok2 := firstFloat(geoMaps, "longitude", "lng", "lon", "long"); ok2 && lat <= -9 && lat >= -45 && lng >= 110 && lng <= 156 {
-			p.Lat, p.Lng = f64p(lat), f64p(lng)
-			raw["latitude"], raw["longitude"] = lat, lng
+		if pt := cleanText(strings.TrimSpace(firstStr(maps, propTypeKeys...))); pt != "" {
+			p.PropertyType = pt
+			raw["property_type"] = pt
 		}
 	}
 
-	// Sales history — the full array of prior sale events.
-	if sh := harvestSalesHistory(lm); len(sh) > 0 {
-		p.SalesHistory = sh
-		raw["sales_history"] = sh
+	if scan != nil && scan.lat != nil && scan.lng != nil {
+		p.Lat, p.Lng = scan.lat, scan.lng
+		raw["latitude"], raw["longitude"] = *scan.lat, *scan.lng
+	}
+	if scan != nil {
+		if sh := eventsToSales(scan.events); len(sh) > 0 {
+			p.SalesHistory = sh
+			raw["sales_history"] = sh
+		}
 	}
 
 	if b, err := json.Marshal(raw); err == nil {
@@ -327,48 +289,9 @@ func harvestProperty(lm map[string]any) propertyProfile {
 	return p
 }
 
-// resolveEstimateObject returns the object that actually holds the AVM bounds. The
-// estimate normally sits directly under an estimate-alias child (property.estimate),
-// but some shapes wrap it one extra level (a "valuation" object whose "estimate"
-// child holds low/mid/high). When the first-level object under an estimate alias
-// doesn't itself carry numeric bounds, we descend once more into its own
-// estimate-alias child. Returns nil when no estimate object is present. It searches
-// ONLY inside a recognized estimate object (never the whole profile) so a generic
-// numeric field elsewhere — e.g. propertySizes.land.value — can't be mistaken for a
-// price estimate.
-func resolveEstimateObject(lm map[string]any) map[string]any {
-	est := childMap(lm, estimateObjectKeys...)
-	if est == nil {
-		return nil
-	}
-	if hasEstimateBounds(est) {
-		return est
-	}
-	if inner := childMap(est, estimateObjectKeys...); inner != nil && hasEstimateBounds(inner) {
-		return inner
-	}
-	return est
-}
-
-// hasEstimateBounds reports whether a map carries at least one parseable low/mid/high
-// AVM number (so a bare {estimate:{…}} wrapper, whose only key is a nested object,
-// is correctly seen as NOT holding the bounds itself).
-func hasEstimateBounds(m map[string]any) bool {
-	one := []map[string]any{m}
-	if _, ok := firstFloat(one, estimateLowKeys...); ok {
-		return true
-	}
-	if _, ok := firstFloat(one, estimateMidKeys...); ok {
-		return true
-	}
-	if _, ok := firstFloat(one, estimateHighKeys...); ok {
-		return true
-	}
-	return false
-}
-
 // harvestYearBuilt pulls a construction year and bounds it to a plausible range
-// (1800..next year) so a stray numeric field can't land a nonsense year.
+// (1800..next year) so a stray numeric field can't land a nonsense year. year_built
+// is often null on property.com.au, so nil is the common, expected result.
 func harvestYearBuilt(maps []map[string]any) *int16 {
 	if f, ok := firstFloat(maps, yearBuiltKeys...); ok {
 		y := int(f + 0.5)
@@ -380,70 +303,118 @@ func harvestYearBuilt(maps []map[string]any) *int16 {
 	return nil
 }
 
-// harvestSalesHistory collects prior sale events from the first present sales array
-// (a bare array, or an array wrapped in a {sales|events|results|...} sub-object —
-// salesArrayOf handles both). Each element is mapped date+price(+agency+type);
-// entries with neither a date nor a price are dropped. Order-preserving; nil when
-// none.
-func harvestSalesHistory(lm map[string]any) []saleRecord {
-	for _, key := range salesHistoryKeys {
-		v, ok := lm[key]
-		if !ok {
+// eventDateRe matches a "6 Jun 2026" style date embedded in an event's details.
+var eventDateRe = regexp.MustCompile(`(\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4})`)
+
+// dollarNumberRe matches the leading "$2,340,000" figure in an event title.
+var dollarNumberRe = regexp.MustCompile(`\$\s*([\d,]+)`)
+
+var eventDateLayouts = []string{"2 Jan 2006", "02 Jan 2006", "2 January 2006", "02 January 2006"}
+
+// eventsToSales maps timeline events to sale records: type from badgeV3.text, price
+// from the titleV2 dollar figure, and date+agency parsed out of the free-text
+// details ("6 Jun 2026 by Sample Realty - Test Region"). Deduped on (type,date,price)
+// — the ArgonautExchange cache can carry the payload twice.
+func eventsToSales(events []map[string]any) []saleRecord {
+	var out []saleRecord
+	seen := map[string]bool{}
+	for _, e := range events {
+		var sr saleRecord
+		if b := childMap(e, "badgev3"); b != nil {
+			sr.Type = cleanText(getStr(b, "text", "label"))
+		}
+		if pr, ok := parseDollarNumber(getStr(e, "titlev2", "title")); ok {
+			sr.Price = f64p(pr)
+		}
+		details := getStr(e, "details", "subtitle")
+		sr.Date = parseEventDate(details)
+		sr.Agency = cleanText(parseEventAgency(details))
+		if sr.Date == "" && sr.Price == nil && sr.Type == "" {
 			continue
 		}
-		arr := salesArrayOf(v)
-		if arr == nil {
+		key := sr.Type + "|" + sr.Date + "|"
+		if sr.Price != nil {
+			key += strconv.FormatFloat(*sr.Price, 'f', 0, 64)
+		}
+		if seen[key] {
 			continue
 		}
-		var out []saleRecord
-		for _, e := range arr {
-			em, ok := e.(map[string]any)
-			if !ok {
-				continue
-			}
-			lem := lowerKeys(em)
-			var sr saleRecord
-			sr.Date = cleanText(getStr(lem, saleDateKeys...))
-			if f, ok := firstFloat([]map[string]any{lem}, salePriceKeys...); ok && f > 0 {
-				sr.Price = f64p(f)
-			}
-			sr.Agency = cleanText(getStr(lem, saleAgencyKeys...))
-			sr.Type = cleanText(getStr(lem, saleTypeKeys...))
-			if sr.Date != "" || sr.Price != nil {
-				out = append(out, sr)
-			}
-		}
-		if len(out) > 0 {
-			return out
-		}
+		seen[key] = true
+		out = append(out, sr)
 	}
-	return nil
+	return out
 }
 
-// salesArrayOf coerces a sales-history value into its element array: either a bare
-// array, or an array nested one level under a common wrapper key.
-func salesArrayOf(v any) []any {
+// parseDollarNumber pulls the leading dollar figure out of a title like
+// "$2,340,000" or "$1,200 per week". Returns false when there is no figure (e.g. a
+// bare "Listed for sale" with a null title).
+func parseDollarNumber(s string) (float64, bool) {
+	m := dollarNumberRe.FindStringSubmatch(s)
+	if m == nil {
+		return 0, false
+	}
+	f, err := strconv.ParseFloat(strings.ReplaceAll(m[1], ",", ""), 64)
+	if err != nil || f <= 0 {
+		return 0, false
+	}
+	return f, true
+}
+
+// parseEventDate extracts and normalizes the "6 Jun 2026" date from an event's
+// details string to an ISO "2006-01-02" date, or "" when none is present.
+func parseEventDate(details string) string {
+	m := eventDateRe.FindString(details)
+	if m == "" {
+		return ""
+	}
+	for _, layout := range eventDateLayouts {
+		if tm, err := time.Parse(layout, m); err == nil {
+			return tm.Format("2006-01-02")
+		}
+	}
+	return ""
+}
+
+// parseEventAgency pulls the agency name out of an event's details ("... by Sample
+// Realty  - Test Region" → "Sample Realty - Test Region", the doubled space
+// collapsed); "" when the details carry no "by <agency>" clause.
+func parseEventAgency(details string) string {
+	i := strings.Index(strings.ToLower(details), " by ")
+	if i < 0 {
+		return ""
+	}
+	ag := strings.TrimSpace(details[i+4:])
+	return strings.Join(strings.Fields(ag), " ") // collapse the doubled spaces
+}
+
+// firstAUGeo recursively finds the first object carrying a latitude+longitude pair
+// inside the Australian bounding box. Used only on a propertyMap wrapper (the
+// subject's map), so it returns the subject property's coordinates, not a
+// neighbour's.
+func firstAUGeo(v any, depth int) (lat, lng float64, ok bool) {
+	if depth > 20 {
+		return 0, 0, false
+	}
 	switch t := v.(type) {
-	case []any:
-		return t
 	case map[string]any:
 		lm := lowerKeys(t)
-		for _, k := range []string{"sales", "events", "results", "items", "history", "transactions", "records", "list"} {
-			if a, ok := lm[k].([]any); ok {
-				return a
+		if la, ok1 := firstFloat([]map[string]any{lm}, "latitude", "lat"); ok1 {
+			if lo, ok2 := firstFloat([]map[string]any{lm}, "longitude", "lng", "lon", "long"); ok2 &&
+				la <= -9 && la >= -45 && lo >= 110 && lo <= 156 {
+				return la, lo, true
+			}
+		}
+		for _, child := range t {
+			if la, lo, found := firstAUGeo(child, depth+1); found {
+				return la, lo, true
+			}
+		}
+	case []any:
+		for _, child := range t {
+			if la, lo, found := firstAUGeo(child, depth+1); found {
+				return la, lo, true
 			}
 		}
 	}
-	return nil
-}
-
-// firstValue returns the first present alias's raw value (used to peek for a
-// sales-history array before committing to harvesting it).
-func firstValue(lm map[string]any, aliases ...string) any {
-	for _, a := range aliases {
-		if v, ok := lm[a]; ok {
-			return v
-		}
-	}
-	return nil
+	return 0, 0, false
 }
