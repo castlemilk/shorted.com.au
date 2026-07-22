@@ -535,6 +535,52 @@ That crawl corpus now powers **`/price-drops`** (PR #315) — a flagship price-c
 - Full architecture + extension recipes: `docs/housing-architecture.md` (§5 = the suburb explorer data model; §7 = data model & licensing; §9 = extension recipes).
 - Adding a new feature dashboard, a new ABS measure/region, a new RPC, wiring the feature charts to live data, **a new suburb-map highlight metric (recipe G), a new ABS Census measure (recipe H), or refreshing the electoral layer after an election (recipe I)**: see the "Future extensions" section of that doc.
 
+## Economy (map explorer + state pages + series platform)
+
+`/economy` (map-first hub, ISR) → `/economy/[state]` (SSG ×8, breadcrumbs) over a
+**generic economic-series layer**: `economic_series` + `economic_observations`
+(migrations 000081/000082/000083/000085) fed by `services/economy-collector`
+(8 modes: rba, cpi, labour, trade, gdp=SFD, petroleum, govfin, markets) on a
+monthly Cloud Run Job, read by public RPCs `ListEconomicSeries`/`GetEconomicSeries`
+(+ `ListStateCompanies`/`GetStateCompanyAggregates` for the operations-weighted
+company↔state exposure layer). **LIVE on prod.**
+
+### Key files
+
+| File | Purpose |
+|------|---------|
+| `services/economy-collector/` | All importers (`-mode all`); probe-pinned constants; fail-closed filters |
+| `services/pkg/absdata/` | Shared ABS SDMX-CSV + RBA CSV clients (WAF-safe UA is mandatory) |
+| `services/migrations/000081…000085` | Series layer, registry kind/method extensions, state_exposure + MV |
+| `services/shorts/.../economy.go`, `state_exposure.go` | RPC handlers (normalized cache keys) |
+| `services/enrichment-processor --backfill-state-exposure` | LLM operations-weighted state footprints (top 300 = 93.8% mkt cap) |
+| `web/src/@/lib/economy/map-metrics.ts` | Serializable "Colour by" registry (kind:"series" \| "aggregate") — availability + metrics single source of truth |
+| `web/src/@/components/economy/` | Map explorer, state charts/companies/correlations, dual-axis chart, `<EconomyIcon>` sprite |
+| `web/src/app/economy/` + `[state]/` | Hub + state pages; actions in `app/actions/getEconomy.ts` (KV last-good layer) |
+| `web/scripts/economy-icons/` | Icon-set generation pipeline (housing-icons clone) |
+| `terraform/modules/economy-collector/` | Cloud Run Job + monthly scheduler (5th, 17:00 UTC) |
+
+### Landmines (details: `docs/economy-architecture.md`)
+
+- **ISR + connect POST**: the `next:{revalidate}` tag on server-action connect
+  transports is LOAD-BEARING (untagged → no-store → "static to dynamic" throw
+  during regen → placeholder baked for an hour). The Upstash KV last-good layer
+  in `getEconomy.ts` is the durable protection — mirror it for new ISR surfaces.
+- **After every deploy**: promote resets all ISR pages to placeholders — run the
+  revalidate sweep (secret via GCP SM `REVALIDATION_SECRET`, browser UA required).
+- **ABS reality vs assumptions**: no GSP or GFS SDMX flows exist (SFD proxy +
+  GFS XLSX importer instead); CPI v2 has no UNIT_MULT and needs FREQ filtering;
+  labour has no NT/ACT seasadj; trade LNG is confidentialised out of state splits.
+  Never derive series keys from source labels — stable codes/static maps only.
+- **Prod company-metadata lacks `sector`/`description`** (local has them) —
+  query only columns present in both.
+- **Prod MV refresh**: session pooler 5432 + `statement_timeout=0` (txn pooler
+  kills `refresh_all_materialized_views`).
+- First collector run in a new env is manual: `gcloud run jobs execute economy-collector`.
+
+Full architecture + extension recipes (new SDMX/XLSX source, new map metric,
+new derived series): `docs/economy-architecture.md`.
+
 ## Twitter / X Automation
 
 `@shorted___` is the live X handle. The bot is a self-contained Node + TypeScript project at `scripts/twitter/` that pulls live ASIC short data, market news, and director trades from the public shorted.com.au API and posts curated tweets.
