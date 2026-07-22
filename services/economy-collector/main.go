@@ -16,7 +16,7 @@ import (
 // because it derives observations from data already in the database.
 var allJobModes = []string{
 	"rba", "cpi", "labour", "trade", "gdp", "approvals", "retail", "population",
-	"petroleum", "govfin", "markets",
+	"petroleum", "govfin", "vacancies", "wages", "markets",
 }
 
 func main() {
@@ -24,7 +24,7 @@ func main() {
 }
 
 func run() int {
-	mode := flag.String("mode", "all", "sources | rba | cpi | labour | trade | gdp | approvals | retail | population | petroleum | govfin | markets | all")
+	mode := flag.String("mode", "all", "sources | rba | cpi | labour | trade | gdp | approvals | retail | population | petroleum | govfin | vacancies | wages | markets | all")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -58,6 +58,8 @@ func run() int {
 		"population": {"abs-population", ingestPopulation},
 		"petroleum":  {"dcceew-petroleum-statistics", ingestPetroleum},
 		"govfin":     {"abs-government-finance", ingestGovFin},
+		"vacancies":  {"abs-job-vacancies", ingestVacancies},
+		"wages":      {"abs-wage-price-index", ingestWPI},
 		// markets is DERIVED from the DB (shorts × exposure MV), not fetched
 		// from a web source — so it takes the pool, not the client. Wrap it in
 		// a client-shaped closure so it reuses the same runJob plumbing; the
@@ -99,7 +101,7 @@ func run() int {
 		if err := registerSources(ctx, pool); err != nil {
 			log.Fatalf("register sources: %v", err)
 		}
-	case "rba", "cpi", "labour", "trade", "gdp", "approvals", "retail", "population", "petroleum", "govfin", "markets":
+	case "rba", "cpi", "labour", "trade", "gdp", "approvals", "retail", "population", "petroleum", "govfin", "vacancies", "wages", "markets":
 		if err := registerSources(ctx, pool); err != nil {
 			log.Fatalf("register sources: %v", err)
 		}
@@ -125,7 +127,7 @@ func run() int {
 			return 1
 		}
 	default:
-		log.Fatalf("unknown -mode %q (want sources|rba|cpi|labour|trade|gdp|approvals|retail|population|petroleum|govfin|markets|all)", *mode)
+		log.Fatalf("unknown -mode %q (want sources|rba|cpi|labour|trade|gdp|approvals|retail|population|petroleum|govfin|vacancies|wages|markets|all)", *mode)
 	}
 	return 0
 }

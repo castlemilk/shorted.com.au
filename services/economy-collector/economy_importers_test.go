@@ -8,22 +8,32 @@ import (
 )
 
 func TestNewABSImportersAreRegisteredSources(t *testing.T) {
-	want := map[string]bool{
-		"abs-building-approvals": false,
-		"abs-retail-trade":       false,
-		"abs-population":         false,
+	type expectedSource struct {
+		url     string
+		cadence string
+		found   bool
+	}
+	want := map[string]expectedSource{
+		"abs-building-approvals": {url: "https://www.abs.gov.au/statistics/industry/building-and-construction/building-approvals-australia/latest-release", cadence: "Monthly"},
+		"abs-retail-trade":       {url: "https://www.abs.gov.au/statistics/industry/retail-and-wholesale-trade/retail-trade-australia/latest-release", cadence: "Monthly"},
+		"abs-population":         {url: "https://www.abs.gov.au/statistics/people/population/national-state-and-territory-population/latest-release", cadence: "Quarterly"},
+		"abs-job-vacancies":      {url: "https://www.abs.gov.au/statistics/labour/jobs/job-vacancies-australia/latest-release", cadence: "Quarterly"},
+		"abs-wage-price-index":   {url: "https://www.abs.gov.au/statistics/economy/price-indexes-and-inflation/wage-price-index-australia/latest-release", cadence: "Quarterly"},
 	}
 	for _, source := range sourceDefs {
-		if _, ok := want[source.Key]; !ok {
+		expected, ok := want[source.Key]
+		if !ok {
 			continue
 		}
-		want[source.Key] = true
-		if source.Publisher != "Australian Bureau of Statistics" || source.Licence != "CC-BY-4.0" || source.URL == "" {
+		expected.found = true
+		want[source.Key] = expected
+		if source.Publisher != "Australian Bureau of Statistics" || source.Licence != "CC-BY-4.0" ||
+			source.URL != expected.url || source.Cadence != expected.cadence {
 			t.Errorf("incomplete ABS source metadata for %q: %#v", source.Key, source)
 		}
 	}
-	for key, found := range want {
-		if !found {
+	for key, expected := range want {
+		if !expected.found {
 			t.Errorf("sourceDefs missing %q", key)
 		}
 	}
@@ -32,7 +42,7 @@ func TestNewABSImportersAreRegisteredSources(t *testing.T) {
 func TestAllModeIncludesNewABSImporters(t *testing.T) {
 	want := []string{
 		"rba", "cpi", "labour", "trade", "gdp", "approvals", "retail", "population",
-		"petroleum", "govfin", "markets",
+		"petroleum", "govfin", "vacancies", "wages", "markets",
 	}
 	if !reflect.DeepEqual(allJobModes, want) {
 		t.Fatalf("allJobModes=%#v, want exact deterministic order %#v", allJobModes, want)
