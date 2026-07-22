@@ -555,13 +555,16 @@ That crawl corpus now powers **`/price-drops`** (PR #315) — a flagship price-c
 
 ## Economy (map explorer + state pages + series platform)
 
-`/economy` (map-first hub, ISR) → `/economy/[state]` (SSG ×8, breadcrumbs) over a
-**generic economic-series layer**: `economic_series` + `economic_observations`
-(migrations 000081/000082/000083/000085) fed by `services/economy-collector`
-(8 modes: rba, cpi, labour, trade, gdp=SFD, petroleum, govfin, markets) on a
-monthly Cloud Run Job, read by public RPCs `ListEconomicSeries`/`GetEconomicSeries`
-(+ `ListStateCompanies`/`GetStateCompanyAggregates` for the operations-weighted
-company↔state exposure layer). **LIVE on prod.**
+`/economy` (map-first hub, ISR) → `/economy/[state]` (SSG ×8, banner heroes with
+centered state silhouettes, breadcrumbs) over a **generic economic-series
+layer**: `economic_series` + `economic_observations` (migrations
+000081/000082/000083/000085) fed by `services/economy-collector`
+(**11 sources**: rba, cpi, labour, trade, gdp=SFD, petroleum, govfin+detail,
+approvals, retail, population, markets-derived) on a monthly Cloud Run Job,
+read by the public **`EconomyService`** (economy.proto after the proto split):
+`ListEconomicSeries`/`GetEconomicSeries` + `ListStateCompanies`/
+`GetStateCompanyAggregates` (operations-weighted company↔state exposure).
+472 series / ~120k observations. **LIVE on prod.**
 
 ### Key files
 
