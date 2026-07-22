@@ -281,6 +281,12 @@ func runBanners(ctx context.Context, pool *pgxpool.Pool) {
 }
 
 func refresh(ctx context.Context, pool *pgxpool.Pool) {
+	// Finalize on a DETACHED context (not the caller's run deadline): this links
+	// + refreshes writes that already committed, and `-mode crawl` shares the
+	// same long-deadline class as agent/listings — a deadline firing mid-crawl
+	// must not kill the MV refresh for data that's already in.
+	ctx, cancel := context.WithTimeout(context.Background(), finalizeTimeout)
+	defer cancel()
 	// Link any newly-ingested suburb regions to their ABS sal_code first, so the
 	// suburb map (which reads house_prices via the sal_code bridge) paints without
 	// a manual backfill step.

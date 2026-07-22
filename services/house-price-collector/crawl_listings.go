@@ -365,7 +365,12 @@ func runListings(ctx context.Context, pool *pgxpool.Pool) bool {
 	rewarm := needsRewarm(cfg.maxConsecBlocks, lc.reaBlocks, lc.domBlocks)
 	if rewarm {
 		if !cfg.dryRun {
-			_ = updateRun(ctx, pool, "listings_rewarm", nil, 0, "needs_rewarm", "circuit breaker tripped — re-warm the crawl Chrome profile")
+			// Detached for the same reason as the finalizer above: this status row
+			// records an outcome that already happened, so a dead run ctx must not
+			// silently drop it.
+			rwCtx, rwCancel := context.WithTimeout(context.Background(), 30*time.Second)
+			_ = updateRun(rwCtx, pool, "listings_rewarm", nil, 0, "needs_rewarm", "circuit breaker tripped — re-warm the crawl Chrome profile")
+			rwCancel()
 		}
 		log.Printf("[listings] REWARM REQUIRED: circuit breaker tripped (rea=%d dom=%d ≥ %d) — re-warm the dedicated Chrome profile by hand",
 			lc.reaBlocks, lc.domBlocks, cfg.maxConsecBlocks)
