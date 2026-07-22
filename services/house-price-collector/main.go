@@ -22,7 +22,7 @@ func main() {
 // 3 = a crawl needs a human to re-warm the Chrome profile (Kasada/Akamai
 // clearance expired). Wrapping the body lets deferred cleanup run before exit.
 func run() int {
-	mode := flag.String("mode", "all", "official | crawl | listings | details | agent | enqueue | freshness | purge | warmcheck | backfill-address | census | electorates | banners | amenities | lga | connectivity | funding | council-financials | refresh | all")
+	mode := flag.String("mode", "all", "official | crawl | listings | details | property | agent | enqueue | freshness | purge | warmcheck | backfill-address | census | electorates | banners | amenities | lga | connectivity | funding | council-financials | refresh | all")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -38,7 +38,7 @@ func run() int {
 	// suburbs in, killing the in-flight suburb's writes with it.
 	defaultTimeoutMin := 15
 	switch *mode {
-	case "agent", "listings", "crawl", "details":
+	case "agent", "listings", "crawl", "details", "property":
 		defaultTimeoutMin = 240
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(envInt("CRAWL_TIMEOUT_MIN", defaultTimeoutMin))*time.Minute)
@@ -81,6 +81,16 @@ func run() int {
 		// residential-rig posture as -mode listings (headed host-Chrome over CDP);
 		// dry-run defaults ON. Returns the exit code directly (0 ok, 3 re-warm).
 		return runDetails(ctx, pool)
+	case "property":
+		// Supplementary address-seeded VALUATION crawl — opt-in only, never part of
+		// the scheduled run. property.com.au is REA Group's per-address research
+		// portal (AVM estimate + sales history + attributes + year built); this pass
+		// enriches our EXISTING address corpus (seeded from distinct property_listings
+		// addresses, keyed by the same address_key) rather than sweeping the market.
+		// Same residential-rig posture as -mode details (headed host-Chrome over CDP,
+		// Kasada+Akamai stub-guard); dry-run defaults ON. Returns the exit code
+		// directly (0 ok, 3 re-warm).
+		return runProperty(ctx, pool)
 	case "agent":
 		// Poll the brandbrain-native crawl queue for suburbs to crawl, run the
 		// existing per-suburb listings sweep (residential host-Chrome over CDP),
@@ -149,7 +159,7 @@ func run() int {
 	case "refresh":
 		refresh(ctx, pool)
 	default:
-		log.Fatalf("unknown -mode %q (want official|crawl|listings|details|agent|enqueue|freshness|warmcheck|backfill-address|census|electorates|banners|amenities|lga|connectivity|funding|council-financials|refresh|all)", *mode)
+		log.Fatalf("unknown -mode %q (want official|crawl|listings|details|property|agent|enqueue|freshness|warmcheck|backfill-address|census|electorates|banners|amenities|lga|connectivity|funding|council-financials|refresh|all)", *mode)
 	}
 	return 0
 }
