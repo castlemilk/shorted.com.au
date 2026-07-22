@@ -22,7 +22,8 @@ func TestEconomicSeriesToolDeclarationAndGeminiSchema(t *testing.T) {
 
 	wantDescriptionFragments := []string{
 		"rates.cash_rate_target.aus",
-		"cpi.annual_change.aus",
+		"cpi.annual_change.all_groups.aus",
+		"cpi.index.all_groups.aus",
 		"labour.unemployment_rate.total.{state}.seasadj",
 		"labour.job_vacancies.{state}",
 		"wages.wpi_yoy.{state}",
@@ -34,6 +35,9 @@ func TestEconomicSeriesToolDeclarationAndGeminiSchema(t *testing.T) {
 		"trade.balance.total.{state}",
 		"nsw/vic/qld/sa/wa/tas/nt/act",
 		"materials, energy, banks, software-services",
+	}
+	if strings.Contains(economicTool.Description, "cpi.annual_change.aus") {
+		t.Error("tool description contains the nonexistent CPI key cpi.annual_change.aus")
 	}
 	for _, fragment := range wantDescriptionFragments {
 		if !strings.Contains(economicTool.Description, fragment) {

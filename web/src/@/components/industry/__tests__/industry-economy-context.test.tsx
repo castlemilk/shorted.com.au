@@ -40,4 +40,15 @@ describe("IndustryEconomyContext", () => {
       }),
     );
   });
+
+  it("renders the empty state without mounting the query surface for an unpinned industry", () => {
+    render(<IndustryEconomyContext industryName="Future GICS Group" />);
+
+    expect(mockSeriesCorrelation).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(
+        "No derived short-interest history is available for Future GICS Group yet. Smaller industries may not meet the current constituent threshold.",
+      ),
+    ).toBeInTheDocument();
+  });
 });

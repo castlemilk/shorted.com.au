@@ -1,5 +1,6 @@
 import {
   ECONOMY_MAP_METRICS,
+  ECONOMY_SERIES_FORMATTERS,
   METRIC_BY_KEY,
   seriesKeysFor,
   buildStateValues,
@@ -25,6 +26,10 @@ const asSeries = (m: EconomyMapMetric): EconomySeriesMetric => {
 };
 
 describe("map-metrics", () => {
+  it("formats negative megalitres using the absolute threshold and signed value", () => {
+    expect(ECONOMY_SERIES_FORMATTERS.megalitres(-1500)).toBe("-1.5GL");
+  });
+
   it("registry has 12 metrics with unique keys", () => {
     const keys = ECONOMY_MAP_METRICS.map((m) => m.key);
     expect(keys).toHaveLength(12);

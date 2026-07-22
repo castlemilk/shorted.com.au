@@ -75,32 +75,11 @@ func (te *ToolExecutor) callEconomicSeries(ctx context.Context, args map[string]
 		return "", err
 	}
 
-	bodyBytes, err := json.Marshal(struct {
+	respBody, err := te.callServiceRPC(ctx, "EconomyService", "GetEconomicSeries", struct {
 		SeriesKeys []string `json:"seriesKeys"`
 	}{SeriesKeys: seriesKeys})
 	if err != nil {
-		return "", fmt.Errorf("marshal request: %w", err)
-	}
-
-	url := fmt.Sprintf("%s/shorts.v1alpha1.EconomyService/GetEconomicSeries", te.shortsAPIURL)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
-	if err != nil {
-		return "", fmt.Errorf("create request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := te.httpClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("execute request: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("read response: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("RPC GetEconomicSeries returned %d: %s", resp.StatusCode, string(respBody))
+		return "", err
 	}
 
 	var apiResponse economicSeriesAPIResponse
@@ -200,31 +179,20 @@ func economicSeriesLimit(value interface{}) (int, error) {
 		return defaultLimit, nil
 	}
 
-	var limit int64
-	switch number := value.(type) {
-	case int:
-		limit = int64(number)
-	case int32:
-		limit = int64(number)
-	case int64:
-		limit = number
-	case float32:
-		floatValue := float64(number)
-		if math.Trunc(floatValue) != floatValue {
-			return 0, fmt.Errorf("limit must be an integer")
-		}
-		limit = int64(floatValue)
+	var number float64
+	switch typed := value.(type) {
 	case float64:
-		if math.IsNaN(number) || math.IsInf(number, 0) || math.Trunc(number) != number {
+		number = typed
+	default:
+		encoded, err := json.Marshal(value)
+		if err != nil || json.Unmarshal(encoded, &number) != nil {
 			return 0, fmt.Errorf("limit must be an integer")
 		}
-		if number > maximumLimit {
-			return maximumLimit, nil
-		}
-		limit = int64(number)
-	default:
+	}
+	if math.IsNaN(number) || math.IsInf(number, 0) || math.Trunc(number) != number {
 		return 0, fmt.Errorf("limit must be an integer")
 	}
+	limit := int64(number)
 
 	if limit <= 0 {
 		return defaultLimit, nil
@@ -235,36 +203,51 @@ func economicSeriesLimit(value interface{}) (int, error) {
 	return int(limit), nil
 }
 
-// callRPC makes a Connect-RPC call to the Shorts API.
-func (te *ToolExecutor) callRPC(ctx context.Context, method string, args map[string]interface{}) (string, error) {
-	// Map tool args to RPC request format
-	reqBody := mapArgsToRequest(method, args)
-
-	bodyBytes, err := json.Marshal(reqBody)
+// callServiceRPC sends a Connect-JSON request to a service method and returns
+// the complete response body. Tool-specific shaping and truncation stay with
+// the caller; HTTP behavior is shared by every tool.
+func (te *ToolExecutor) callServiceRPC(
+	ctx context.Context,
+	service string,
+	method string,
+	requestBody interface{},
+) ([]byte, error) {
+	bodyBytes, err := json.Marshal(requestBody)
 	if err != nil {
-		return "", fmt.Errorf("marshal request: %w", err)
+		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	url := fmt.Sprintf("%s/shorts.v1alpha1.ShortedStocksService/%s", te.shortsAPIURL, method)
-	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(bodyBytes))
+	url := fmt.Sprintf("%s/shorts.v1alpha1.%s/%s", te.shortsAPIURL, service, method)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
 	if err != nil {
-		return "", fmt.Errorf("create request: %w", err)
+		return nil, fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := te.httpClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("execute request: %w", err)
+		return nil, fmt.Errorf("execute request: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("read response: %w", err)
+		return nil, fmt.Errorf("read response: %w", err)
 	}
-
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("RPC %s returned %d: %s", method, resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("RPC %s returned %d: %s", method, resp.StatusCode, string(respBody))
+	}
+	return respBody, nil
+}
+
+// callRPC makes a Connect-RPC call to the Shorts API.
+func (te *ToolExecutor) callRPC(ctx context.Context, method string, args map[string]interface{}) (string, error) {
+	// Map tool args to RPC request format
+	reqBody := mapArgsToRequest(method, args)
+
+	respBody, err := te.callServiceRPC(ctx, "ShortedStocksService", method, reqBody)
+	if err != nil {
+		return "", err
 	}
 
 	// Truncate very large responses to avoid exceeding LLM context

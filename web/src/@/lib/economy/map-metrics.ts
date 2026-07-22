@@ -184,10 +184,52 @@ export const METRIC_BY_KEY = Object.fromEntries(
 
 export type EconomySeriesDisplayFormat =
   | "aud"
+  | "aud_signed"
   | "percent"
   | "index"
   | "number"
-  | "megalitres";
+  | "megalitres"
+  | "usd";
+
+export interface EconomyCorrelationSeriesDef {
+  key: string;
+  label: string;
+  format: EconomySeriesDisplayFormat;
+}
+
+/** National overlays shared by every industry-economy correlation query. */
+export const NATIONAL_ECONOMY_OVERLAYS: EconomyCorrelationSeriesDef[] = [
+  {
+    key: "commodities.price_index.bulk.aus",
+    label: "Bulk commodity prices",
+    format: "index",
+  },
+  {
+    key: "commodities.price_index.all_items.aus",
+    label: "Commodity prices (all items)",
+    format: "index",
+  },
+  {
+    key: "credit.growth_yoy.business.aus.seasadj",
+    label: "Business credit growth",
+    format: "percent",
+  },
+  {
+    key: "labour.job_vacancies.aus",
+    label: "Job vacancies",
+    format: "number",
+  },
+  {
+    key: "wages.wpi_yoy.aus",
+    label: "Wage growth",
+    format: "percent",
+  },
+  {
+    key: "cpi.annual_change.all_groups.aus",
+    label: "Inflation",
+    format: "percent",
+  },
+];
 
 export interface StateCorrelationCandidateMetric {
   seriesKeyTemplate: string;
@@ -278,19 +320,15 @@ export const STATE_CORRELATION_CANDIDATES: StateCorrelationCandidateMetric[] = [
     seriesKeyTemplate: "labour.unemployment_rate.total.{state}.seasadj",
     label: "Unemployment rate",
     format: "percent",
-    unavailableStates:
-      METRIC_BY_KEY.unemployment.kind === "series"
-        ? METRIC_BY_KEY.unemployment.unavailableStates
-        : undefined,
+    // Mirrors the unemployment entry in ECONOMY_MAP_METRICS.
+    unavailableStates: ["nt", "act"],
   },
   {
     seriesKeyTemplate: "petroleum.sales.diesel_oil_total.{state}",
     label: "Diesel sales",
     format: "megalitres",
-    unavailableStates:
-      METRIC_BY_KEY.diesel_sales.kind === "series"
-        ? METRIC_BY_KEY.diesel_sales.unavailableStates
-        : undefined,
+    // Mirrors the diesel_sales entry in ECONOMY_MAP_METRICS.
+    unavailableStates: ["act"],
   },
 ];
 
@@ -421,14 +459,32 @@ export function divergingScale(min: number, max: number): (v: number) => string 
   return (v: number) => s(v);
 }
 
-export const MAP_FORMATS: Record<EconomyMapMetric["format"], (v: number) => string> = {
-  percent: (v) => `${v.toFixed(1)}%`,
-  aud: (v) => {
-    const a = Math.abs(v);
-    const sign = v < 0 ? "−" : "";
-    if (a >= 1e9) return `${sign}$${(a / 1e9).toFixed(1)}B`;
-    if (a >= 1e6) return `${sign}$${(a / 1e6).toFixed(0)}M`;
-    return `${sign}$${a.toFixed(0)}`;
-  },
-  megalitres: (v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}GL` : `${v.toFixed(0)}ML`),
+const COMPACT_NUMBER = new Intl.NumberFormat("en-AU", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
+const formatAud = (value: number): string => {
+  const absolute = Math.abs(value);
+  const sign = value < 0 ? "−" : "";
+  if (absolute >= 1e9) return `${sign}$${(absolute / 1e9).toFixed(1)}B`;
+  if (absolute >= 1e6) return `${sign}$${(absolute / 1e6).toFixed(0)}M`;
+  return `${sign}$${absolute.toFixed(0)}`;
+};
+
+/** Shared formatter registry for every non-housing economy surface. */
+export const ECONOMY_SERIES_FORMATTERS: Record<
+  EconomySeriesDisplayFormat,
+  (value: number) => string
+> = {
+  aud: formatAud,
+  aud_signed: formatAud,
+  percent: (value) => `${value.toFixed(1)}%`,
+  index: (value) => value.toFixed(1),
+  number: (value) => COMPACT_NUMBER.format(value),
+  megalitres: (value) =>
+    Math.abs(value) >= 1000
+      ? `${(value / 1000).toFixed(1)}GL`
+      : `${value.toFixed(0)}ML`,
+  usd: (value) => value.toFixed(2),
 };

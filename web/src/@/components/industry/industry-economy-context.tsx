@@ -1,43 +1,8 @@
 "use client";
 
-import {
-  SeriesCorrelation,
-  type CorrelationSeriesDef,
-} from "@/components/economy/series-correlation";
+import { SeriesCorrelation } from "@/components/economy/series-correlation";
 import { industryShortInterestSeriesKey } from "@/lib/economy/industry-context";
-
-const NATIONAL_ECONOMY_OVERLAYS: CorrelationSeriesDef[] = [
-  {
-    key: "commodities.price_index.bulk.aus",
-    label: "Bulk commodity prices",
-    format: "index",
-  },
-  {
-    key: "commodities.price_index.all_items.aus",
-    label: "Commodity prices (all items)",
-    format: "index",
-  },
-  {
-    key: "credit.growth_yoy.business.aus.seasadj",
-    label: "Business credit growth",
-    format: "percent",
-  },
-  {
-    key: "labour.job_vacancies.aus",
-    label: "Job vacancies",
-    format: "number",
-  },
-  {
-    key: "wages.wpi_yoy.aus",
-    label: "Wage growth",
-    format: "percent",
-  },
-  {
-    key: "cpi.annual_change.all_groups.aus",
-    label: "Inflation",
-    format: "percent",
-  },
-];
+import { NATIONAL_ECONOMY_OVERLAYS } from "@/lib/economy/map-metrics";
 
 /** Selected-industry bridge into the generic economy correlation surface. */
 export function IndustryEconomyContext({
@@ -45,21 +10,43 @@ export function IndustryEconomyContext({
 }: {
   industryName: string;
 }) {
+  const anchorKey = industryShortInterestSeriesKey(industryName);
+  const title = `${industryName} short interest vs the economy`;
+  const description =
+    "Compare the industry’s average short interest with national commodity, credit, labour, wage and inflation indicators.";
+  const missingAnchorMessage = `No derived short-interest history is available for ${industryName} yet. Smaller industries may not meet the current constituent threshold.`;
+
+  if (anchorKey === null) {
+    return (
+      <section aria-label={`${industryName} economy context`} className="space-y-4">
+        <div>
+          <h3 className="font-serif text-lg font-semibold">{title}</h3>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+            {description}
+          </p>
+        </div>
+        <p className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
+          {missingAnchorMessage}
+        </p>
+      </section>
+    );
+  }
+
   return (
     <SeriesCorrelation
       anchor={{
-        key: industryShortInterestSeriesKey(industryName),
+        key: anchorKey,
         label: `${industryName} short interest`,
         format: "percent",
       }}
       overlayCandidates={NATIONAL_ECONOMY_OVERLAYS}
-      title={`${industryName} short interest vs the economy`}
-      description="Compare the industry’s average short interest with national commodity, credit, labour, wage and inflation indicators."
+      title={title}
+      description={description}
       sectionAriaLabel={`${industryName} economy context`}
       chartAriaLabel={`${industryName} industry short interest versus`}
       defaultOverlayKey="commodities.price_index.bulk.aus"
       requireAnchor
-      missingAnchorMessage={`No derived short-interest history is available for ${industryName} yet. Smaller industries may not meet the current constituent threshold.`}
+      missingAnchorMessage={missingAnchorMessage}
     />
   );
 }

@@ -35,13 +35,10 @@ func TestRealWageObsSubtractsYoYFromQuarterlyCPIIndex(t *testing.T) {
 	}
 }
 
-func TestTradeBalanceObsRequiresBothSides(t *testing.T) {
+func TestTradeBalanceObsSubtractsImportsFromExports(t *testing.T) {
 	period := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
-	exports, imports := 1250.0, 900.0
 	rows := []tradeBalanceRow{
-		{RegionCode: "aus", RegionName: "Australia", RegionType: "national", Period: period, ExportValue: &exports, ImportValue: &imports},
-		{RegionCode: "wa", RegionName: "Western Australia", RegionType: "state", Period: period, ExportValue: &exports},
-		{RegionCode: "vic", RegionName: "Victoria", RegionType: "state", Period: period, ImportValue: &imports},
+		{RegionCode: "aus", RegionName: "Australia", RegionType: "national", Period: period, ExportValue: 1250, ImportValue: 900},
 	}
 
 	obs := assembleTradeBalanceObs(rows)

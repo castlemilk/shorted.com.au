@@ -137,11 +137,7 @@ type industryMarketStats struct {
 	UnmappedRows              int
 }
 
-func industryMarketObs(row industryMarketRow) (Obs, bool) {
-	slug, ok := industrySlugs[row.Industry]
-	if !ok || row.Constituents < 5 {
-		return Obs{}, false
-	}
+func industryMarketObs(row industryMarketRow, slug string) Obs {
 	return Obs{
 		Series: SeriesDef{
 			Topic:      "markets",
@@ -162,7 +158,7 @@ func industryMarketObs(row industryMarketRow) (Obs, bool) {
 		},
 		Period: row.Period,
 		Value:  row.Average,
-	}, true
+	}
 }
 
 // assembleIndustryMarketObs applies the five-stock noise floor and the GICS
@@ -173,14 +169,15 @@ func assembleIndustryMarketObs(rows []industryMarketRow) ([]Obs, industryMarketS
 	stats := industryMarketStats{}
 	obs := make([]Obs, 0, len(rows))
 	for _, row := range rows {
-		if _, ok := industrySlugs[row.Industry]; !ok {
+		slug, mapped := industrySlugs[row.Industry]
+		if !mapped {
 			stats.UnmappedRows++
 			stats.UnmappedConstituentMonths += row.Constituents
 			continue
 		}
 		stats.MappedConstituentMonths += row.Constituents
-		if o, ok := industryMarketObs(row); ok {
-			obs = append(obs, o)
+		if row.Constituents >= 5 {
+			obs = append(obs, industryMarketObs(row, slug))
 		}
 	}
 
@@ -257,14 +254,10 @@ WHERE NULLIF(BTRIM(cm.industry), '') IS NOT NULL
 GROUP BY cm.industry, m.month
 ORDER BY cm.industry, m.month`
 
-// ingestMarkets runs both derivations and assembles the per-state weighted and
-// per-industry equal-weight monthly observations. Returning one combined slice
-// makes runJob persist both families in the same transaction. Each family is
-// fail-loud on 0 observations, consistent with every other importer.
-func ingestMarkets(ctx context.Context, pool *pgxpool.Pool) ([]Obs, error) {
+func deriveStateMarkets(ctx context.Context, pool *pgxpool.Pool) ([]Obs, error) {
 	rows, err := pool.Query(ctx, marketsQuery)
 	if err != nil {
-		return nil, fmt.Errorf("markets derivation query: %w", err)
+		return nil, fmt.Errorf("derivation query: %w", err)
 	}
 	defer rows.Close()
 
@@ -275,7 +268,7 @@ func ingestMarkets(ctx context.Context, pool *pgxpool.Pool) ([]Obs, error) {
 		var month time.Time
 		var wavg float64
 		if err := rows.Scan(&region, &month, &wavg); err != nil {
-			return nil, fmt.Errorf("markets scan: %w", err)
+			return nil, fmt.Errorf("scan: %w", err)
 		}
 		o, ok := marketObs(region, month, wavg)
 		if !ok {
@@ -286,20 +279,23 @@ func ingestMarkets(ctx context.Context, pool *pgxpool.Pool) ([]Obs, error) {
 		obs = append(obs, o)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("markets rows: %w", err)
+		return nil, fmt.Errorf("rows: %w", err)
 	}
 	if len(obs) == 0 {
-		return nil, fmt.Errorf("markets derivation produced 0 observations — " +
+		return nil, fmt.Errorf("derivation produced 0 observations — " +
 			"shorts history empty or mv_company_state_exposure unpopulated; treating as drift, not success")
 	}
 	if skipped > 0 {
 		// Not fatal, but surfaced: the query filter and the Go map disagreed.
 		fmt.Printf("markets: skipped %d rows with non-state region codes\n", skipped)
 	}
+	return obs, nil
+}
 
+func deriveIndustryMarkets(ctx context.Context, pool *pgxpool.Pool) ([]Obs, error) {
 	industryRows, err := pool.Query(ctx, industryMarketsQuery)
 	if err != nil {
-		return nil, fmt.Errorf("industry markets derivation query: %w", err)
+		return nil, fmt.Errorf("derivation query: %w", err)
 	}
 	defer industryRows.Close()
 
@@ -307,12 +303,12 @@ func ingestMarkets(ctx context.Context, pool *pgxpool.Pool) ([]Obs, error) {
 	for industryRows.Next() {
 		var row industryMarketRow
 		if err := industryRows.Scan(&row.Industry, &row.Period, &row.Average, &row.Constituents); err != nil {
-			return nil, fmt.Errorf("industry markets scan: %w", err)
+			return nil, fmt.Errorf("scan: %w", err)
 		}
 		rawIndustryRows = append(rawIndustryRows, row)
 	}
 	if err := industryRows.Err(); err != nil {
-		return nil, fmt.Errorf("industry markets rows: %w", err)
+		return nil, fmt.Errorf("rows: %w", err)
 	}
 	industryObs, stats, err := assembleIndustryMarketObs(rawIndustryRows)
 	if stats.UnmappedRows > 0 {
@@ -323,9 +319,22 @@ func ingestMarkets(ctx context.Context, pool *pgxpool.Pool) ([]Obs, error) {
 		return nil, err
 	}
 	if len(industryObs) == 0 {
-		return nil, fmt.Errorf("industry markets derivation produced 0 observations — " +
+		return nil, fmt.Errorf("derivation produced 0 observations — " +
 			"company metadata missing or every industry is below the five-stock noise floor; treating as drift, not success")
 	}
+	return industryObs, nil
+}
 
-	return append(obs, industryObs...), nil
+// ingestMarkets runs both independent derivations even when either one fails.
+// runJob persists the healthy family's observations alongside the returned
+// error, preserving per-family resilience without adding another CLI mode.
+func ingestMarkets(ctx context.Context, pool *pgxpool.Pool) ([]Obs, error) {
+	return runDerivationFamilies(
+		derivationFamily{name: "state markets", run: func() ([]Obs, error) {
+			return deriveStateMarkets(ctx, pool)
+		}},
+		derivationFamily{name: "industry markets", run: func() ([]Obs, error) {
+			return deriveIndustryMarkets(ctx, pool)
+		}},
+	)
 }

@@ -125,7 +125,7 @@ func GetToolDefinitions() []ToolDefinition {
 		{
 			Name: "get_economic_series",
 			Description: "Get Australian macroeconomic and market series. Key families: " +
-				"rates.cash_rate_target.aus; cpi.annual_change.aus; " +
+				"rates.cash_rate_target.aus; cpi.annual_change.all_groups.aus; cpi.index.all_groups.aus; " +
 				"labour.unemployment_rate.total.{state}.seasadj; labour.job_vacancies.{state}; " +
 				"wages.wpi_yoy.{state}; wages.real_wpi_yoy.{state}; " +
 				"commodities.price_index.bulk.aus; credit.growth_yoy.housing.aus.seasadj; " +

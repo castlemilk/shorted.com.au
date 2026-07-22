@@ -142,16 +142,13 @@ type tradeBalanceRow struct {
 	RegionName  string
 	RegionType  string
 	Period      time.Time
-	ExportValue *float64
-	ImportValue *float64
+	ExportValue float64
+	ImportValue float64
 }
 
 func assembleTradeBalanceObs(rows []tradeBalanceRow) []Obs {
 	obs := make([]Obs, 0, len(rows))
 	for _, row := range rows {
-		if row.ExportValue == nil || row.ImportValue == nil {
-			continue
-		}
 		obs = append(obs, Obs{
 			Series: SeriesDef{
 				Topic:      "trade",
@@ -167,16 +164,16 @@ func assembleTradeBalanceObs(rows []tradeBalanceRow) []Obs {
 				Licence:    "derived",
 			},
 			Period: row.Period,
-			Value:  *row.ExportValue - *row.ImportValue,
+			Value:  row.ExportValue - row.ImportValue,
 		})
 	}
 	return obs
 }
 
-func ingestDerived(ctx context.Context, pool *pgxpool.Pool) ([]Obs, error) {
+func deriveRealWages(ctx context.Context, pool *pgxpool.Pool) ([]Obs, error) {
 	realRows, err := pool.Query(ctx, realWagesQuery)
 	if err != nil {
-		return nil, fmt.Errorf("real wages derivation query: %w", err)
+		return nil, fmt.Errorf("derivation query: %w", err)
 	}
 	defer realRows.Close()
 
@@ -187,48 +184,61 @@ func ingestDerived(ctx context.Context, pool *pgxpool.Pool) ([]Obs, error) {
 			&row.RegionCode, &row.RegionName, &row.RegionType, &row.Period,
 			&row.WPIYoY, &row.CPIIndex, &row.CPIIndexYearAgo,
 		); err != nil {
-			return nil, fmt.Errorf("real wages scan: %w", err)
+			return nil, fmt.Errorf("scan: %w", err)
 		}
 		if obs, ok := realWagesObs(row); ok {
 			realWages = append(realWages, obs)
 		}
 	}
 	if err := realRows.Err(); err != nil {
-		return nil, fmt.Errorf("real wages rows: %w", err)
+		return nil, fmt.Errorf("rows: %w", err)
 	}
 	if len(realWages) == 0 {
-		return nil, fmt.Errorf("real wages derivation produced 0 observations — " +
+		return nil, fmt.Errorf("derivation produced 0 observations — " +
 			"quarterly WPI YoY or national quarterly CPI index history is missing; treating as drift, not success")
 	}
+	return realWages, nil
+}
 
+func deriveTradeBalances(ctx context.Context, pool *pgxpool.Pool) ([]Obs, error) {
 	tradeRows, err := pool.Query(ctx, tradeBalanceQuery)
 	if err != nil {
-		return nil, fmt.Errorf("trade balance derivation query: %w", err)
+		return nil, fmt.Errorf("derivation query: %w", err)
 	}
 	defer tradeRows.Close()
 
 	var rawTradeRows []tradeBalanceRow
 	for tradeRows.Next() {
 		var row tradeBalanceRow
-		var exports, imports float64
 		if err := tradeRows.Scan(
 			&row.RegionCode, &row.RegionName, &row.RegionType, &row.Period,
-			&exports, &imports,
+			&row.ExportValue, &row.ImportValue,
 		); err != nil {
-			return nil, fmt.Errorf("trade balance scan: %w", err)
+			return nil, fmt.Errorf("scan: %w", err)
 		}
-		row.ExportValue = &exports
-		row.ImportValue = &imports
 		rawTradeRows = append(rawTradeRows, row)
 	}
 	if err := tradeRows.Err(); err != nil {
-		return nil, fmt.Errorf("trade balance rows: %w", err)
+		return nil, fmt.Errorf("rows: %w", err)
 	}
 	tradeBalances := assembleTradeBalanceObs(rawTradeRows)
 	if len(tradeBalances) == 0 {
-		return nil, fmt.Errorf("trade balance derivation produced 0 observations — " +
+		return nil, fmt.Errorf("derivation produced 0 observations — " +
 			"matching total export/import months are missing; treating as drift, not success")
 	}
+	return tradeBalances, nil
+}
 
-	return append(realWages, tradeBalances...), nil
+// ingestDerived runs both independent derivations even when either one fails.
+// runJob persists the healthy family's observations alongside the returned
+// error, so missing WPI/CPI cannot stale trade balance (or vice versa).
+func ingestDerived(ctx context.Context, pool *pgxpool.Pool) ([]Obs, error) {
+	return runDerivationFamilies(
+		derivationFamily{name: "real wages", run: func() ([]Obs, error) {
+			return deriveRealWages(ctx, pool)
+		}},
+		derivationFamily{name: "trade balance", run: func() ([]Obs, error) {
+			return deriveTradeBalances(ctx, pool)
+		}},
+	)
 }

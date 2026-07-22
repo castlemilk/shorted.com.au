@@ -5,21 +5,17 @@ import { useQuery } from "@tanstack/react-query";
 
 import { getEconomicSeriesClient } from "~/app/actions/client/getEconomyClient";
 import type { GetEconomicSeriesResponse } from "~/gen/shorts/v1alpha1/economy_pb";
-import type {
-  EconomySeriesDisplayFormat,
-  Obs,
+import {
+  ECONOMY_SERIES_FORMATTERS,
+  type EconomyCorrelationSeriesDef,
+  type EconomySeriesDisplayFormat,
+  type Obs,
 } from "@/lib/economy/map-metrics";
 import { topCorrelations } from "@/lib/economy/correlation";
 import { EconomyIcon } from "./economy-icon";
 import { DualAxisChart } from "./dual-axis-chart";
 
-export interface CorrelationSeriesDef {
-  /** Stable catalog key; safe to pass across a React server/client boundary. */
-  key: string;
-  label: string;
-  /** Serializable formatter selector — never pass a formatter function from RSC. */
-  format: EconomySeriesDisplayFormat;
-}
+export type CorrelationSeriesDef = EconomyCorrelationSeriesDef;
 
 export interface SeriesCorrelationProps {
   anchor: CorrelationSeriesDef;
@@ -34,37 +30,16 @@ export interface SeriesCorrelationProps {
   missingAnchorMessage?: string;
 }
 
-const COMPACT_NUMBER = new Intl.NumberFormat("en-AU", {
-  notation: "compact",
-  maximumFractionDigits: 1,
-});
-
-const FORMATTERS: Record<EconomySeriesDisplayFormat, (value: number) => string> = {
-  aud: (value) => {
-    const absolute = Math.abs(value);
-    const sign = value < 0 ? "−" : "";
-    if (absolute >= 1e9) return `${sign}$${(absolute / 1e9).toFixed(1)}B`;
-    if (absolute >= 1e6) return `${sign}$${(absolute / 1e6).toFixed(0)}M`;
-    return `${sign}$${absolute.toFixed(0)}`;
-  },
-  percent: (value) => `${value.toFixed(1)}%`,
-  index: (value) => value.toFixed(1),
-  number: (value) => COMPACT_NUMBER.format(value),
-  megalitres: (value) =>
-    Math.abs(value) >= 1_000
-      ? `${(value / 1_000).toFixed(1)}GL`
-      : `${value.toFixed(0)}ML`,
-};
-
 /** Extract observations from a batched response by stable series key. */
 function observationsFor(
-  response: GetEconomicSeriesResponse | undefined,
+  response: Pick<GetEconomicSeriesResponse, "series"> | undefined,
   key: string,
 ): Obs[] {
   const series = response?.series.find((item) => item.info?.seriesKey === key);
   return (series?.observations ?? [])
+    .filter((observation) => observation.period != null)
     .map((observation) => ({
-      date: new Date(Number(observation.period?.seconds ?? 0n) * 1000),
+      date: new Date(Number(observation.period!.seconds) * 1000),
       value: observation.value,
     }))
     .filter((point) => !Number.isNaN(point.date.getTime()))
@@ -91,15 +66,31 @@ export function SeriesCorrelation({
   requireAnchor = false,
   missingAnchorMessage = "No anchor-series history is available yet.",
 }: SeriesCorrelationProps) {
-  const allKeys = useMemo(
-    () => [anchor.key, ...overlayCandidates.map((candidate) => candidate.key)],
-    [anchor.key, overlayCandidates],
+  const overlayKeys = useMemo(
+    () => overlayCandidates.map((candidate) => candidate.key),
+    [overlayCandidates],
   );
-  const { data, isLoading } = useQuery({
-    queryKey: ["economy-series-correlation", ...allKeys],
-    queryFn: () => getEconomicSeriesClient(allKeys),
+  const anchorQuery = useQuery({
+    queryKey: ["economy-series-correlation-anchor", anchor.key],
+    queryFn: () => getEconomicSeriesClient([anchor.key]),
     staleTime: 60 * 60 * 1000,
   });
+  const overlayQuery = useQuery({
+    queryKey: ["economy-series-correlation-overlays", ...overlayKeys],
+    queryFn: () => getEconomicSeriesClient(overlayKeys),
+    enabled: overlayKeys.length > 0,
+    staleTime: 60 * 60 * 1000,
+  });
+  const data = useMemo(
+    () => ({
+      series: [
+        ...(anchorQuery.data?.series ?? []),
+        ...(overlayQuery.data?.series ?? []),
+      ],
+    }),
+    [anchorQuery.data, overlayQuery.data],
+  );
+  const isLoading = anchorQuery.isLoading || overlayQuery.isLoading;
 
   const anchorObservations = useMemo(
     () => observationsFor(data, anchor.key),
@@ -214,8 +205,8 @@ export function SeriesCorrelation({
                 secondary={chartSecondary}
                 primaryLabel={anchor.label}
                 secondaryLabel={active.label}
-                formatPrimary={FORMATTERS[anchor.format]}
-                formatSecondary={FORMATTERS[active.format]}
+                formatPrimary={ECONOMY_SERIES_FORMATTERS[anchor.format]}
+                formatSecondary={ECONOMY_SERIES_FORMATTERS[active.format]}
                 ariaLabel={`${chartAriaLabel} ${active.label}`}
                 height={280}
               />

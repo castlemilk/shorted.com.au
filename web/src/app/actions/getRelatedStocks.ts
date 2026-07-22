@@ -4,14 +4,7 @@ import { cache } from "react";
 import { getStockDetails } from "./getStockDetails";
 import { getIndustryStocks } from "./industry/getIndustryData";
 import { type RelatedStock } from "~/@/components/seo/related-stocks";
-
-// Create URL-friendly slug from industry name
-function createSlug(industry: string): string {
-  return industry
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-}
+import { createSlug } from "~/@/lib/industry-slug";
 
 /**
  * Get related stocks in the same industry as the given stock.

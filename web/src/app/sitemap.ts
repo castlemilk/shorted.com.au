@@ -18,6 +18,7 @@ import { getReportsList } from "./actions/reports/getReportData";
 import { weeklyReportPath } from "~/@/lib/reports/weekly-slug";
 import { SCAN_SLUGS } from "~/@/lib/scans/registry";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
+import { createSlug } from "~/@/lib/industry-slug";
 
 // Render at request time, never from build output. The build runs with
 // SKIP_STATIC_GENERATION=1 so its prerender only ever contains the 20-stock
@@ -289,7 +290,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Industry pages - index + individual industry pages. Fetched directly
   // (not via getAllIndustrySlugs) so the fetch carries the ISR-safe cache
-  // mode; slug rules mirror actions/industry/getIndustryData.ts createSlug.
+  // mode; slug rules use the canonical industry slug helper.
   let industrySlugs: string[] = [];
   if (!skipForBuild()) {
     try {
@@ -317,9 +318,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           const industry = s.industry?.trim() ?? "Other";
           names.add(invalid.has(industry) ? "Other" : industry);
         }
-        industrySlugs = [...names].map((name) =>
-          name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
-        );
+        industrySlugs = [...names].map(createSlug);
       }
     } catch (error) {
       console.error("Failed to fetch industry slugs for sitemap:", error);

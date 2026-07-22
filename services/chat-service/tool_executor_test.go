@@ -65,7 +65,7 @@ func TestExecuteEconomicSeriesPostsConnectJSONAndReturnsTrimmedSeries(t *testing
 			t.Errorf("request body = %#v, want only seriesKeys", request)
 		}
 		keys, ok := request["seriesKeys"].([]interface{})
-		if !ok || len(keys) != 2 || keys[0] != "rates.cash_rate_target.aus" || keys[1] != "cpi.annual_change.aus" {
+		if !ok || len(keys) != 2 || keys[0] != "rates.cash_rate_target.aus" || keys[1] != "cpi.annual_change.all_groups.aus" {
 			t.Errorf("seriesKeys = %#v, want requested keys", request["seriesKeys"])
 		}
 
@@ -88,7 +88,7 @@ func TestExecuteEconomicSeriesPostsConnectJSONAndReturnsTrimmedSeries(t *testing
 	}))
 
 	result, err := executor.Execute(context.Background(), "get_economic_series", map[string]interface{}{
-		"series_keys": []interface{}{"rates.cash_rate_target.aus", "cpi.annual_change.aus"},
+		"series_keys": []interface{}{"rates.cash_rate_target.aus", "cpi.annual_change.all_groups.aus"},
 	})
 	if err != nil {
 		t.Fatalf("Execute() error = %v", err)
@@ -138,6 +138,31 @@ func TestExecuteEconomicSeriesPostsConnectJSONAndReturnsTrimmedSeries(t *testing
 	}
 }
 
+func TestCallServiceRPCPostsToRequestedServiceAndMethod(t *testing.T) {
+	executor := newTestToolExecutor(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got, want := r.URL.Path, "/shorts.v1alpha1.EconomyService/GetEconomicSeries"; got != want {
+			t.Errorf("path = %q, want %q", got, want)
+		}
+		if got := r.Header.Get("Content-Type"); got != "application/json" {
+			t.Errorf("Content-Type = %q, want application/json", got)
+		}
+		_, _ = w.Write([]byte(`{"series":[]}`))
+	}))
+
+	body, err := executor.callServiceRPC(
+		context.Background(),
+		"EconomyService",
+		"GetEconomicSeries",
+		map[string]interface{}{"seriesKeys": []string{"rates.cash_rate_target.aus"}},
+	)
+	if err != nil {
+		t.Fatalf("callServiceRPC() error = %v", err)
+	}
+	if got, want := string(body), `{"series":[]}`; got != want {
+		t.Fatalf("body = %q, want %q", got, want)
+	}
+}
+
 func TestExecuteEconomicSeriesNormalizesLimit(t *testing.T) {
 	observations := make([]map[string]interface{}, 65)
 	for i := range observations {
@@ -147,7 +172,7 @@ func TestExecuteEconomicSeriesNormalizesLimit(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"series": []interface{}{map[string]interface{}{
 				"info": map[string]interface{}{
-					"seriesKey": "cpi.annual_change.aus", "regionName": "Australia", "unit": "percent", "frequency": "quarterly",
+					"seriesKey": "cpi.annual_change.all_groups.aus", "regionName": "Australia", "unit": "percent", "frequency": "quarterly",
 				},
 				"observations": observations,
 			}},
@@ -161,12 +186,12 @@ func TestExecuteEconomicSeriesNormalizesLimit(t *testing.T) {
 		wantFirst string
 	}{
 		{name: "clamps JSON number above maximum", limit: float64(100), wantCount: 60, wantFirst: "p05"},
-		{name: "uses default for non-positive", limit: -1, wantCount: 12, wantFirst: "p53"},
+		{name: "uses default for non-positive generic number", limit: -1, wantCount: 12, wantFirst: "p53"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			result, err := executor.Execute(context.Background(), "get_economic_series", map[string]interface{}{
-				"series_keys": []string{"cpi.annual_change.aus"},
+				"series_keys": []string{"cpi.annual_change.all_groups.aus"},
 				"limit":       test.limit,
 			})
 			if err != nil {

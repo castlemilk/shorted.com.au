@@ -3,24 +3,42 @@ import { createSlug } from "@/lib/industry-slug";
 const INDUSTRY_SHORT_INTEREST_PREFIX = "markets.short_interest_avg.";
 const INDUSTRY_SHORT_INTEREST_SUFFIX = ".aus";
 
-/** Bridge a display industry name to the collector's derived series key. */
-export function industryShortInterestSeriesKey(industryName: string): string {
-  return `${INDUSTRY_SHORT_INTEREST_PREFIX}${createSlug(industryName)}${INDUSTRY_SHORT_INTEREST_SUFFIX}`;
-}
+// Source of truth: services/economy-collector/markets.go industrySlugs.
+// Keep this pinned bridge in lockstep with the collector's emitted keys.
+export const PINNED_INDUSTRY_SLUGS = new Set([
+  "materials",
+  "energy",
+  "software-services",
+  "financial-services",
+  "health-care-equipment-services",
+  "pharmaceuticals-biotechnology-life-sciences",
+  "capital-goods",
+  "commercial-professional-services",
+  "media-entertainment",
+  "food-beverage-tobacco",
+  "consumer-discretionary-distribution-retail",
+  "consumer-services",
+  "equity-real-estate-investment-trusts-reits",
+  "technology-hardware-equipment",
+  "transportation",
+  "real-estate-management-development",
+  "utilities",
+  "telecommunication-services",
+  "consumer-durables-apparel",
+  "banks",
+  "household-personal-products",
+  "insurance",
+  "automobiles-components",
+  "consumer-staples-distribution-retail",
+  "semiconductors-semiconductor-equipment",
+]);
 
-/** Recover the canonical industry slug from a derived short-interest key. */
-export function industrySlugFromShortInterestSeriesKey(
-  seriesKey: string,
+/** Bridge a display industry name to the collector's derived series key. */
+export function industryShortInterestSeriesKey(
+  industryName: string,
 ): string | null {
-  if (
-    !seriesKey.startsWith(INDUSTRY_SHORT_INTEREST_PREFIX) ||
-    !seriesKey.endsWith(INDUSTRY_SHORT_INTEREST_SUFFIX)
-  ) {
-    return null;
-  }
-  const slug = seriesKey.slice(
-    INDUSTRY_SHORT_INTEREST_PREFIX.length,
-    -INDUSTRY_SHORT_INTEREST_SUFFIX.length,
-  );
-  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) ? slug : null;
+  const slug = createSlug(industryName);
+  return PINNED_INDUSTRY_SLUGS.has(slug)
+    ? `${INDUSTRY_SHORT_INTEREST_PREFIX}${slug}${INDUSTRY_SHORT_INTEREST_SUFFIX}`
+    : null;
 }
