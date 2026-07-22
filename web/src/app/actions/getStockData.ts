@@ -1,6 +1,6 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { StockService } from "~/gen/shorts/v1alpha1/stock_pb";
 import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
@@ -29,7 +29,7 @@ async function fetchStockData(
     fetch: serverFetchOutsideNextCache,
     baseUrl: SHORTS_API_URL,
   });
-  const client = createClient(ShortedStocksService, transport);
+  const client = createClient(StockService, transport);
   return client.getStockData({
     productCode,
     period,

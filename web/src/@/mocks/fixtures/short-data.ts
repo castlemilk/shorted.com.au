@@ -20,18 +20,10 @@ import {
   type TimeSeriesData,
   type TimeSeriesPoint,
 } from "~/gen/stocks/v1alpha1/stocks_pb";
-import {
-  GetTopShortsResponseSchema,
-  SearchStocksResponseSchema,
-  GetMarketNewsResponseSchema,
-  NewsArticleSchema,
-  ScreenStocksResponseSchema,
-  ScreenerStockSchema,
-  type GetTopShortsResponse,
-  type SearchStocksResponse,
-  type GetMarketNewsResponse,
-  type ScreenStocksResponse,
-} from "~/gen/shorts/v1alpha1/shorts_pb";
+import { GetTopShortsResponseSchema, type GetTopShortsResponse } from "~/gen/shorts/v1alpha1/market_pb";
+import { GetMarketNewsResponseSchema, NewsArticleSchema, type GetMarketNewsResponse } from "~/gen/shorts/v1alpha1/news_pb";
+import { ScreenStocksResponseSchema, ScreenerStockSchema, type ScreenStocksResponse } from "~/gen/shorts/v1alpha1/screener_pb";
+import { SearchStocksResponseSchema, type SearchStocksResponse } from "~/gen/shorts/v1alpha1/search_pb";
 import type {
   StockQuote,
   HistoricalDataPoint,

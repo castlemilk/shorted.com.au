@@ -95,7 +95,7 @@ function isIgnorableFailedRequest(url, errorText) {
 }
 
 function isIgnorableAppApiFailure(url, status) {
-  return status === 404 && url.includes("/shorts.v1alpha1.ShortedStocksService/GetCompanyTaxProfile");
+  return status === 404 && url.includes("/GetCompanyTaxProfile");
 }
 
 function isIgnorableConsoleError(text, url = "") {
@@ -107,7 +107,7 @@ function isIgnorableConsoleError(text, url = "") {
     text === "Failed to load resource: net::ERR_FAILED" ||
     (url.includes("/cdn-cgi/rum") &&
       text.includes("Failed to load resource: the server responded with a status of 404")) ||
-    (url.includes("/shorts.v1alpha1.ShortedStocksService/GetCompanyTaxProfile") &&
+    (url.includes("/GetCompanyTaxProfile") &&
       text.includes("Failed to load resource: the server responded with a status of 404"))
   );
 }

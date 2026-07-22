@@ -35,21 +35,18 @@ const BUDGETS = {
   default: 300,
   routes: {
     // Public, SEO-critical routes — tighter guards (current value + headroom).
-    "/": 215,
+    "/": 185,
     "/stocks": 225,
-    // 2026-07-22: the shorts-RPC routes ([stockCode]/screener/dashboards) each
-    // grew ~+31kB in one step — NOT from route code but from the generated
-    // shorts_pb.ts: protobuf-es schemas all reference the WHOLE-FILE descriptor,
-    // so every message added to the monolithic shorts.proto (price-drops,
-    // banners, economy, state exposure) lands in every importer's chunk.
-    // Budgets re-based to the new floor + headroom. The real fix (tracked
-    // follow-up) is splitting shorts.proto into per-domain files so each
-    // route only carries its own domain's descriptor — tighten these back
-    // (~-30kB each) when that lands.
-    "/shorts/[stockCode]": 355,
-    "/news/[slug]": 340,
-    "/screener": 280,
-    "/dashboards": 310,
+    // 2026-07-22: shorts.proto split into per-domain files (market/stock/
+    // housing/...), each with its own service — routes now carry only their
+    // own domain's descriptor instead of the monolithic 66.7KB blob. The
+    // shorts-RPC routes dropped 25-31kB each; budgets tightened back to the
+    // new floor + headroom. Keep new messages in the right domain file — a
+    // message added to a domain lands only in that domain's importers.
+    "/shorts/[stockCode]": 330,
+    "/news/[slug]": 315,
+    "/screener": 250,
+    "/dashboards": 280,
     // Known-heavy / non-public routes — guarded at current + headroom. These
     // are acknowledged tech debt (chat pulls markdown+mermaid+katex; trim via
     // dynamic import if they grow). Tighten as they're optimized.

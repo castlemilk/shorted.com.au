@@ -1,4 +1,4 @@
-import type { AgencyPriceStats } from "~/gen/shorts/v1alpha1/shorts_pb";
+import type { AgencyPriceStats } from "~/gen/shorts/v1alpha1/housing_pb";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
 
 const SOURCE_LABEL: Record<string, string> = { rea: "realestate.com.au", domain: "Domain" };

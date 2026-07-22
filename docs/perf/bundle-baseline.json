@@ -1,11 +1,11 @@
 {
-  "capturedAt": "2026-07-22T00:18:04.624Z",
+  "capturedAt": "2026-07-22T03:22:15.588Z",
   "gitRef": null,
   "unit": "kB (Next First Load JS, raw)",
   "sharedByAllKB": 95.4,
   "routes": {
     "/": {
-      "firstLoadKB": 197
+      "firstLoadKB": 167
     },
     "/_not-found": {
       "firstLoadKB": 95.6
@@ -20,7 +20,7 @@
       "firstLoadKB": 107
     },
     "/admin/enrichments": {
-      "firstLoadKB": 174
+      "firstLoadKB": 143
     },
     "/admin/takes": {
       "firstLoadKB": 103
@@ -146,7 +146,7 @@
       "firstLoadKB": 132
     },
     "/battlegrounds": {
-      "firstLoadKB": 227
+      "firstLoadKB": 198
     },
     "/blog": {
       "firstLoadKB": 116
@@ -161,7 +161,7 @@
       "firstLoadKB": 0
     },
     "/chat": {
-      "firstLoadKB": 721
+      "firstLoadKB": 720
     },
     "/chat.v1.ChatService/[method]": {
       "firstLoadKB": 0
@@ -173,7 +173,7 @@
       "firstLoadKB": 104
     },
     "/dashboards": {
-      "firstLoadKB": 295
+      "firstLoadKB": 265
     },
     "/data": {
       "firstLoadKB": 132
@@ -224,7 +224,7 @@
       "firstLoadKB": 97
     },
     "/embed/top-shorts": {
-      "firstLoadKB": 205
+      "firstLoadKB": 174
     },
     "/embed/treemap": {
       "firstLoadKB": 97
@@ -314,7 +314,7 @@
       "firstLoadKB": 138
     },
     "/news/[slug]": {
-      "firstLoadKB": 324
+      "firstLoadKB": 299
     },
     "/news/[slug]/opengraph-image": {
       "firstLoadKB": 0
@@ -332,7 +332,7 @@
       "firstLoadKB": 131
     },
     "/pricing": {
-      "firstLoadKB": 159
+      "firstLoadKB": 160
     },
     "/privacy": {
       "firstLoadKB": 111
@@ -377,7 +377,7 @@
       "firstLoadKB": 132
     },
     "/screener": {
-      "firstLoadKB": 267
+      "firstLoadKB": 236
     },
     "/search": {
       "firstLoadKB": 132
@@ -386,10 +386,10 @@
       "firstLoadKB": 104
     },
     "/shorts": {
-      "firstLoadKB": 216
+      "firstLoadKB": 187
     },
     "/shorts/[stockCode]": {
-      "firstLoadKB": 338
+      "firstLoadKB": 312
     },
     "/shorts/[stockCode]/community/[threadId]": {
       "firstLoadKB": 134
@@ -404,7 +404,7 @@
       "firstLoadKB": 161
     },
     "/signup": {
-      "firstLoadKB": 161
+      "firstLoadKB": 162
     },
     "/sitemap.xml": {
       "firstLoadKB": 0
@@ -419,7 +419,7 @@
       "firstLoadKB": 108
     },
     "/technology": {
-      "firstLoadKB": 118
+      "firstLoadKB": 119
     },
     "/terms": {
       "firstLoadKB": 104

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Search as SearchIcon, TrendingDown, TrendingUp } from "lucide-react";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { SearchService } from "~/gen/shorts/v1alpha1/search_pb";
 import { siteConfig } from "~/@/config/site";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import {
@@ -56,7 +56,7 @@ async function searchStocks(query: string): Promise<SearchResultStock[]> {
       fetch: serverFetchWithUserAgent,
       baseUrl: SHORTS_API_URL,
     });
-    const client = createClient(ShortedStocksService, transport);
+    const client = createClient(SearchService, transport);
     const resp = await client.searchStocks({
       query,
       limit: 30,

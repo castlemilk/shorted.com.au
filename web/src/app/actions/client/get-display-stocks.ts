@@ -4,7 +4,7 @@ import { cache } from "react";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
 import { CACHE_KEYS, deleteCached, getCached, setCached } from "~/@/lib/kv-cache";
 import type { TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
-import type { GetTopShortsResponse } from "~/gen/shorts/v1alpha1/shorts_pb";
+import type { GetTopShortsResponse } from "~/gen/shorts/v1alpha1/market_pb";
 import {
   filterTopShortsResponse,
   hasOnlyEligibleTopShortsInstruments,

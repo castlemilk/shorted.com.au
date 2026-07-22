@@ -2,10 +2,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { CompanyLogo } from "./company-logo";
 import { screenStocks } from "~/app/actions/screenStocks";
-import {
-  ScreenerSortField,
-  SortDirection,
-} from "~/gen/shorts/v1alpha1/shorts_pb";
+import { ScreenerSortField, SortDirection } from "~/gen/shorts/v1alpha1/screener_pb";
 
 const DIRECTORY_SIZE = 48;
 

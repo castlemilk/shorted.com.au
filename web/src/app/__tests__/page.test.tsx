@@ -77,7 +77,7 @@ jest.mock("../treemap/treeMap", () => ({
 }));
 
 // Mock ViewMode enum
-jest.mock("~/gen/shorts/v1alpha1/shorts_pb", () => ({
+jest.mock("~/gen/shorts/v1alpha1/market_pb", () => ({
   ViewMode: {
     CURRENT_CHANGE: "CURRENT_CHANGE",
   },

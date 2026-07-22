@@ -4,7 +4,7 @@ import { type WidgetProps, type NewsFeedSettings, WidgetType } from "~/@/types/d
 import { useQuery } from "@tanstack/react-query";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { NewsService } from "~/gen/shorts/v1alpha1/news_pb";
 import { Skeleton } from "~/@/components/ui/skeleton";
 import { SentimentBadge } from "~/@/components/ui/sentiment-badge";
 import {
@@ -26,7 +26,7 @@ export function NewsFeedWidget({ config, sizeVariant = "standard" }: WidgetProps
     queryKey: ["market-news-widget", limit, priceSensitiveOnly],
     queryFn: async () => {
       const transport = createConnectTransport({ baseUrl: "" });
-      const client = createClient(ShortedStocksService, transport);
+      const client = createClient(NewsService, transport);
       return client.getMarketNews({ limit, priceSensitiveOnly });
     },
     staleTime: 5 * 60 * 1000,

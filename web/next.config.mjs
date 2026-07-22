@@ -299,8 +299,13 @@ const config = {
         destination: `${firebaseAuthHelperOrigin}/__/firebase/:path*`,
       },
       {
-        source: "/shorts.v1alpha1.ShortedStocksService/:path*",
-        destination: `${shortsApiUrl}/shorts.v1alpha1.ShortedStocksService/:path*`,
+        // Every shorts.v1alpha1 service — the legacy ShortedStocksService and
+        // the per-domain services (MarketService, HousingService, ...) from
+        // the shorts.proto split. One regex-constrained param instead of a
+        // hand-maintained service list: new domain services proxy without
+        // touching this file.
+        source: "/:service(shorts\\.v1alpha1\\.[A-Za-z]+Service)/:path*",
+        destination: `${shortsApiUrl}/:service/:path*`,
       },
       {
         source: "/register.v1.RegisterService/:path*",

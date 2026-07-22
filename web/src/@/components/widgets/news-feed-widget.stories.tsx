@@ -6,10 +6,10 @@
  * exercising the widget's stock-code navigation.
  *
  * Data trace (verified against news-feed-widget.tsx):
- * - ShortedStocksService.getMarketNews({ limit, priceSensitiveOnly }) via an
+ * - NewsService.getMarketNews({ limit, priceSensitiveOnly }) via an
  *   INLINE Connect client built inside the useQuery queryFn
  *   (createConnectTransport({ baseUrl: "" }) → POST to
- *   /shorts.v1alpha1.ShortedStocksService/GetMarketNews over global fetch).
+ *   /shorts.v1alpha1.NewsService/GetMarketNews over global fetch).
  *   There is NO wrapper module to sb.mock, so this file stubs globalThis.fetch
  *   per story (install in beforeEach, restore via the returned cleanup).
  *   Deliberately file-local — do NOT promote to preview.tsx or install MSW;
@@ -41,12 +41,9 @@ import {
   withGridCell,
 } from "~/@/mocks/widget-story-helpers";
 import { marketNewsResponseFixture } from "~/@/mocks/fixtures/short-data";
-import {
-  GetMarketNewsResponseSchema,
-  type GetMarketNewsResponse,
-} from "~/gen/shorts/v1alpha1/shorts_pb";
+import { GetMarketNewsResponseSchema, type GetMarketNewsResponse } from "~/gen/shorts/v1alpha1/news_pb";
 
-const MARKET_NEWS_PATH = "/shorts.v1alpha1.ShortedStocksService/GetMarketNews";
+const MARKET_NEWS_PATH = "/shorts.v1alpha1.NewsService/GetMarketNews";
 
 /**
  * Replaces globalThis.fetch for the story's lifetime. GetMarketNews calls go

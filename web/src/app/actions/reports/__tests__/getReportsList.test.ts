@@ -26,8 +26,8 @@ jest.mock("@connectrpc/connect", () => ({
   })),
 }));
 
-jest.mock("~/gen/shorts/v1alpha1/shorts_pb", () => ({
-  ShortedStocksService: {},
+jest.mock("~/gen/shorts/v1alpha1/reports_pb", () => ({
+  ReportsService: {},
 }));
 
 import {

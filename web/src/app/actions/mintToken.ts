@@ -2,7 +2,7 @@
 
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { BillingService } from "~/gen/shorts/v1alpha1/billing_pb";
 import { auth } from "~/server/auth";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 
@@ -25,7 +25,7 @@ export async function mintApiTokenAction() {
     baseUrl: SHORTS_API_URL,
   });
 
-  const client = createClient(ShortedStocksService, transport);
+  const client = createClient(BillingService, transport);
 
   try {
     const internalSecret =

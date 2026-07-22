@@ -1,4 +1,4 @@
-import type { GetIndustryIntelligenceResponse } from "~/gen/shorts/v1alpha1/shorts_pb";
+import type { GetIndustryIntelligenceResponse } from "~/gen/shorts/v1alpha1/industry_pb";
 import type {
   IndustryEvidenceEntityTotalInput,
   IndustryEvidenceRecordInput,

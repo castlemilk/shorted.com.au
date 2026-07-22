@@ -3,7 +3,7 @@ import {
   IndustryTreeMapSchema,
   type IndustryTreeMap,
 } from "~/gen/stocks/v1alpha1/stocks_pb";
-import { type ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { type ViewMode } from "~/gen/shorts/v1alpha1/market_pb";
 import { formatPeriodForAPI } from "~/lib/period-utils";
 import { retryWithBackoff } from "@/lib/retry";
 import { getSessionCached, setSessionCached } from "@/lib/session-cache";

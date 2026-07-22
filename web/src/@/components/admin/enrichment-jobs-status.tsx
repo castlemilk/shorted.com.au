@@ -11,10 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { listEnrichmentJobs } from "~/app/actions/listEnrichmentJobs";
-import {
-  EnrichmentJobStatus,
-  type EnrichmentJob,
-} from "~/gen/shorts/v1alpha1/shorts_pb";
+import { EnrichmentJobStatus, type EnrichmentJob } from "~/gen/shorts/v1alpha1/enrichment_pb";
 import { RefreshCw, Loader2, Play } from "lucide-react";
 import { processQueuedJobsAction } from "~/app/actions/processQueuedJobs";
 

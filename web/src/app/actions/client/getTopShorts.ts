@@ -1,7 +1,7 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
-import { type GetTopShortsResponse } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { MarketService } from "~/gen/shorts/v1alpha1/market_pb";
+import { type GetTopShortsResponse } from "~/gen/shorts/v1alpha1/market_pb";
 import { formatPeriodForAPI } from "~/lib/period-utils";
 import { SHORTS_API_URL } from "../config";
 import { retryWithBackoff } from "@/lib/retry";
@@ -47,7 +47,7 @@ export const getTopShortsDataClient = async (
     baseUrl: typeof window !== "undefined" ? "" : SHORTS_API_URL,
   });
 
-  const client = createClient(ShortedStocksService, transport);
+  const client = createClient(MarketService, transport);
 
   const result = await retryWithBackoff(
     () =>

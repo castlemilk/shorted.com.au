@@ -48,7 +48,7 @@ const DEFAULT_ACTION_RETRY_OPTIONS: RetryOptions = {
  * ```ts
  * export const getStockDetails = cache(
  *   withRetry(async (productCode: string) => {
- *     const client = createClient(ShortedStocksService, transport);
+ *     const client = createClient(StockService, transport);
  *     return await client.getStockDetails({ productCode });
  *   })
  * );
@@ -83,7 +83,7 @@ export function withRetry<TArgs extends unknown[], TReturn>(
  * ```ts
  * export const getStockDetails = cache(
  *   withRetryAndNotFound(async (productCode: string) => {
- *     const client = createClient(ShortedStocksService, transport);
+ *     const client = createClient(StockService, transport);
  *     return await client.getStockDetails({ productCode });
  *   })
  * );

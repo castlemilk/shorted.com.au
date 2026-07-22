@@ -211,28 +211,46 @@ Query performance expectations (measured January 2026):
 
 ### Adding a New API Endpoint
 
-1. **Define the protobuf** in `proto/shortedapi/shorts/v1alpha1/shorts.proto`:
+`shorts.v1alpha1` is split into **per-domain proto files** (2026-07), each with its
+own service: `market.proto` (MarketService), `stock.proto` (StockService),
+`housing.proto`, `economy.proto`, `news.proto`, `screener.proto`, `search.proto`,
+`reports.proto`, `enrichment.proto`, `billing.proto`, `alerts.proto`,
+`industry.proto`. `shorts.proto` keeps only the legacy monolithic
+`ShortedStocksService` (all 64 rpcs, message-less, for external API consumers) —
+**web code must import from the domain module** (`~/gen/shorts/v1alpha1/<domain>_pb`),
+never from `shorts_pb` (importing it drags the full legacy descriptor into the
+route bundle; `bundle:budget` will catch it).
+
+1. **Define the rpc + messages** in the matching domain file, e.g.
+   `proto/shortedapi/shorts/v1alpha1/market.proto`, and add the SAME rpc to the
+   legacy `ShortedStocksService` in `shorts.proto` (public-API back-compat).
+   Annotate visibility (`option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;`)
+   on BOTH copies — unannotated methods default to auth-required:
 
    ```protobuf
    rpc GetNewEndpoint(GetNewEndpointRequest) returns (GetNewEndpointResponse) {
-     option (google.api.http) = {
-       post: "/v1/newEndpoint"
-       body: "*"
-     };
+     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
    }
    ```
 
-2. **Generate code**:
+2. **Generate code** (commit ALL outputs, including the `sdks/java` churn —
+   the committed Java SDK tracks the protos):
 
    ```bash
    cd proto && buf generate
    ```
 
-3. **Implement the handler** in `services/shorts/internal/services/shorts/service.go`
+3. **Implement the handler** in `services/shorts/internal/services/shorts/` —
+   one `ShortsServer` struct implements every service; a new method on it
+   satisfies both the domain handler and the legacy handler. New DOMAIN
+   services must be mounted in `serve.go` with the shared `interceptors` +
+   `withCORS`, get a rewrite rule in `web/next.config.mjs`, and internal-only
+   methods need their full name in `internalOnlyMethods` (middleware_connect.go).
 
 4. **Add store method** in `services/shorts/internal/store/shorts/store.go`
 
-5. **Frontend types** are auto-generated in `web/src/gen/`
+5. **Frontend types** are auto-generated in `web/src/gen/` — import from the
+   domain `_pb` module and `createClient(<Domain>Service, transport)`
 
 ### Adding a New React Component
 
@@ -504,7 +522,7 @@ That crawl corpus now powers **`/price-drops`** (PR #315) — a flagship price-c
 | `services/house-price-collector/crawl*.go` | Residential crawl: `crawl_targets.go` (115-suburb catalog), `crawl_agent.go` (queue poll/submit + token auto-refresh + events-based terminal status), `crawl_cdp.go` (CDP fetcher), `crawl_listings.go`/`crawl_listings_extract.go` (smart pagination + sweep-poison/broadening gate), `crawl_warmcheck.go` (Kasada warmth probe), `crawl_trace.go` (`CRAWL_TRACE` debug) |
 | `services/house-price-collector/deploy/run-housing-crawl.sh` | Self-healing launcher: auto-launch/re-warm REA-startup Chrome + `-mode warmcheck` preflight + retry (exit 0/3/4/5) |
 | `services/shorts/internal/services/shorts/house_prices.go` + `store/shorts/postgres_house_prices.go` | RPC handlers + queries |
-| `proto/shortedapi/shorts/v1alpha1/shorts.proto` | `GetHousingOverview` / `GetHousePriceSeries` / `ListStateSuburbs` / `GetSuburbProfile` (+ `ListHousingRegions`, `GetPriceDropsOverview`, `ListAgencyPriceStats`) |
+| `proto/shortedapi/shorts/v1alpha1/housing.proto` | `HousingService`: `GetHousingOverview` / `GetHousePriceSeries` / `ListStateSuburbs` / `GetSuburbProfile` (+ `ListHousingRegions`, `GetPriceDropsOverview`, `ListAgencyPriceStats`) — same rpcs also on the legacy service in `shorts.proto` |
 | `terraform/modules/house-price-collector/` | Cloud Run Job + monthly scheduler — **wired into CI + both envs** (PR #211): built by `terraform-deploy.yml` + `module`/`house_price_collector_image` in `terraform/environments/{dev,prod}/main.tf`, so a merge to `main` deploys it. Sets `REVALIDATION_URL`; the matching secret is wired only when `manage_revalidation_secret=true` (both env-injected, so `pingRevalidate` no-ops until set) |
 
 ### Data sources & live-vs-baked

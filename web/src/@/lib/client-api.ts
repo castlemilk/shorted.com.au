@@ -2,11 +2,9 @@
 
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
-import {
-  type GetTopShortsResponse,
-  type ViewMode,
-} from "~/gen/shorts/v1alpha1/shorts_pb";
+import { StockService } from "~/gen/shorts/v1alpha1/stock_pb";
+import { MarketService } from "~/gen/shorts/v1alpha1/market_pb";
+import { type GetTopShortsResponse, type ViewMode } from "~/gen/shorts/v1alpha1/market_pb";
 import {
   type IndustryTreeMap,
   type Stock,
@@ -60,7 +58,7 @@ export async function fetchStockDetailsClient(
 
   try {
     const transport = getTransport();
-    const client = createClient(ShortedStocksService, transport);
+    const client = createClient(StockService, transport);
     const response = await client.getStockDetails({ productCode });
     return response;
   } catch (error) {
@@ -88,7 +86,7 @@ export async function fetchStockClient(
 
   try {
     const transport = getTransport();
-    const client = createClient(ShortedStocksService, transport);
+    const client = createClient(StockService, transport);
     return await client.getStock({ productCode });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -117,7 +115,7 @@ export async function fetchStockDataClient(
 
   try {
     const transport = getTransport();
-    const client = createClient(ShortedStocksService, transport);
+    const client = createClient(StockService, transport);
     const response = await client.getStockData({
       productCode,
       period,
@@ -146,7 +144,7 @@ export async function fetchTopShortsClient(
 ): Promise<GetTopShortsResponse | undefined> {
   try {
     const transport = getTransport();
-    const client = createClient(ShortedStocksService, transport);
+    const client = createClient(MarketService, transport);
     return await client.getTopShorts({
       period: formatPeriodForAPI(period),
       limit,
@@ -171,7 +169,7 @@ export async function fetchIndustryTreeMapClient(
 ): Promise<IndustryTreeMap | undefined> {
   try {
     const transport = getTransport();
-    const client = createClient(ShortedStocksService, transport);
+    const client = createClient(MarketService, transport);
     return await client.getIndustryTreeMap({
       period: formatPeriodForAPI(period),
       limit,

@@ -2,8 +2,8 @@
 
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
-import { SubscriptionStatus as ProtoSubscriptionStatus, SubscriptionTier as ProtoSubscriptionTier } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { BillingService } from "~/gen/shorts/v1alpha1/billing_pb";
+import { SubscriptionStatus as ProtoSubscriptionStatus, SubscriptionTier as ProtoSubscriptionTier } from "~/gen/shorts/v1alpha1/billing_pb";
 import { auth } from "~/server/auth";
 import { SUBSCRIPTION_TIERS, isPremiumTier, type SubscriptionStatus, type SubscriptionTier } from "~/lib/stripe";
 import type { CheckoutTier } from "~/lib/stripe-plans";
@@ -114,7 +114,7 @@ export async function getSubscriptionStatus(): Promise<SubscriptionInfo> {
       session.user.id,
       session.user.email ?? ""
     );
-    const client = createClient(ShortedStocksService, transport);
+    const client = createClient(BillingService, transport);
 
     const response = await retryWithBackoff(
       async () => {

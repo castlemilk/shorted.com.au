@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { SuburbPriceDrop } from "~/gen/shorts/v1alpha1/shorts_pb";
+import type { SuburbPriceDrop } from "~/gen/shorts/v1alpha1/housing_pb";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
 import { suburbHref } from "@/lib/housing/states";
 

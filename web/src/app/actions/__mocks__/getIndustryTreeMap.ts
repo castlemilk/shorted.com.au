@@ -11,7 +11,7 @@
  */
 import { fn } from "storybook/test";
 import type { IndustryTreeMap } from "~/gen/stocks/v1alpha1/stocks_pb";
-import type { ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
+import type { ViewMode } from "~/gen/shorts/v1alpha1/market_pb";
 
 export const getIndustryTreeMap =
   fn<

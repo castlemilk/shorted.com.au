@@ -1,12 +1,7 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import {
-  ShortedStocksService,
-  type GetEconomicSeriesResponse,
-  type GetStateCompanyAggregatesResponse,
-  type ListEconomicSeriesResponse,
-  type ListStateCompaniesResponse,
-} from "~/gen/shorts/v1alpha1/shorts_pb";
+import { type GetEconomicSeriesResponse, type GetStateCompanyAggregatesResponse, type ListEconomicSeriesResponse, type ListStateCompaniesResponse } from "~/gen/shorts/v1alpha1/economy_pb";
+import { EconomyService } from "~/gen/shorts/v1alpha1/economy_pb";
 import { SHORTS_API_URL } from "../config";
 import { retryWithBackoff } from "@/lib/retry";
 import { getSessionCached, setSessionCached } from "@/lib/session-cache";
@@ -24,7 +19,7 @@ export async function getEconomicSeriesClient(
   const transport = createConnectTransport({
     baseUrl: typeof window !== "undefined" ? "" : SHORTS_API_URL,
   });
-  const client = createClient(ShortedStocksService, transport);
+  const client = createClient(EconomyService, transport);
 
   try {
     const result = await retryWithBackoff(
@@ -49,7 +44,7 @@ export async function getStateCompanyAggregatesClient(): Promise<
   const transport = createConnectTransport({
     baseUrl: typeof window !== "undefined" ? "" : SHORTS_API_URL,
   });
-  const client = createClient(ShortedStocksService, transport);
+  const client = createClient(EconomyService, transport);
 
   try {
     const result = await retryWithBackoff(
@@ -75,7 +70,7 @@ export async function listStateCompaniesClient(
   const transport = createConnectTransport({
     baseUrl: typeof window !== "undefined" ? "" : SHORTS_API_URL,
   });
-  const client = createClient(ShortedStocksService, transport);
+  const client = createClient(EconomyService, transport);
 
   try {
     const result = await retryWithBackoff(
@@ -102,7 +97,7 @@ export async function listEconomicSeriesClient(
   const transport = createConnectTransport({
     baseUrl: typeof window !== "undefined" ? "" : SHORTS_API_URL,
   });
-  const client = createClient(ShortedStocksService, transport);
+  const client = createClient(EconomyService, transport);
 
   try {
     const result = await retryWithBackoff(

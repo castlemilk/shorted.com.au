@@ -3,7 +3,9 @@ import { siteConfig } from "~/@/config/site"
 import { getAllPosts } from "~/@/lib/api";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { HousingService } from "~/gen/shorts/v1alpha1/housing_pb";
+import { MarketService } from "~/gen/shorts/v1alpha1/market_pb";
+import { NewsService } from "~/gen/shorts/v1alpha1/news_pb";
 import { getAllTermSlugs } from "~/@/data/glossary-terms";
 import { getHousingStateSlugs } from "./actions/getHousingSitemap";
 import {
@@ -181,12 +183,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     fetch: serverFetchWithUserAgent,
     baseUrl: API_URL,
   });
-  const client = createClient(ShortedStocksService, transport);
+  const housingClient = createClient(HousingService, transport);
+  const marketClient = createClient(MarketService, transport);
+  const newsClient = createClient(NewsService, transport);
 
   let marketDates: string[] = [];
   if (!skipForBuild()) {
     try {
-      const response = await client.getAvailableDates({ limit: 90, before: "" });
+      const response = await marketClient.getAvailableDates({ limit: 90, before: "" });
       marketDates = response.dates;
     } catch (error) {
       console.error("Failed to fetch market dates for sitemap:", error);
@@ -492,7 +496,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let takeRoutes: MetadataRoute.Sitemap = [];
   if (!skipForBuild()) {
     try {
-      const takesResp = await client.listEditorialTakes({
+      const takesResp = await newsClient.listEditorialTakes({
         limit: 200,
         offset: 0,
         stockCode: "",
@@ -537,7 +541,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const perState = await Promise.all(
       ALL_STATES.map(async (st) => {
         try {
-          const res = await client.listStateSuburbs({ stateCode: st, query: "", limit: 5000 });
+          const res = await housingClient.listStateSuburbs({ stateCode: st, query: "", limit: 5000 });
           return res.suburbs
             .filter((s) => s.latestMedianPrice > 0) // only real price data (avoid thin pages)
             .map((s) => ({ state: stateSlug(st), suburb: slugifySuburb(s.salName, s.postcode) }));

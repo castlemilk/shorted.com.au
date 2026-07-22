@@ -13,7 +13,7 @@ import { toJson } from "@bufbuild/protobuf";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
 import { getIndustryTreeMap } from "~/app/actions/getIndustryTreeMap";
 import { TimeSeriesDataSchema, IndustryTreeMapSchema } from "~/gen/stocks/v1alpha1/stocks_pb";
-import type { ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
+import type { ViewMode } from "~/gen/shorts/v1alpha1/market_pb";
 
 // Dynamic import to avoid SSR issues — component imports @connectrpc/connect
 const BreakingNewsBanner = dynamic(

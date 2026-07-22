@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { StockService } from "~/gen/shorts/v1alpha1/stock_pb";
 import {
   Card,
   CardContent,
@@ -48,7 +48,7 @@ export function DividendHistory({
       const transport = createConnectTransport({
         baseUrl: "",
       });
-      const client = createClient(ShortedStocksService, transport);
+      const client = createClient(StockService, transport);
       return client.getDividendHistory({ stockCode, years });
     },
     staleTime: 5 * 60 * 1000,

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { getEconomicSeries } from "~/app/actions/getEconomy";
-import type { GetEconomicSeriesResponse } from "~/gen/shorts/v1alpha1/shorts_pb";
+import type { GetEconomicSeriesResponse } from "~/gen/shorts/v1alpha1/economy_pb";
 import { EconomyBreadcrumbs } from "@/components/economy/economy-breadcrumbs";
 import { EconomyIcon, type EconomyIconName } from "@/components/economy/economy-icon";
 import { StateCharts } from "@/components/economy/state-charts-loader";

@@ -1,8 +1,8 @@
 import { cache } from "react";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
-import type { ScreenerStock } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { ScreenerService } from "~/gen/shorts/v1alpha1/screener_pb";
+import type { ScreenerStock } from "~/gen/shorts/v1alpha1/screener_pb";
 import {
   SERVER_SHORTS_API_URL,
   serverFetchOutsideNextCache,
@@ -42,7 +42,7 @@ const fetchDirectoryStocks = async (): Promise<DirectoryStock[]> => {
     fetch: serverFetchOutsideNextCache,
     baseUrl: SERVER_SHORTS_API_URL,
   });
-  const client = createClient(ShortedStocksService, transport);
+  const client = createClient(ScreenerService, transport);
   const res = await client.screenStocks({
     sortField: 0,
     sortDirection: 0,

@@ -1,12 +1,7 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
-import {
-  type ScreenStocksResponse,
-  type ScreenerFilters,
-  type ScreenerSortField,
-  type SortDirection,
-} from "~/gen/shorts/v1alpha1/shorts_pb";
+import { ScreenerService } from "~/gen/shorts/v1alpha1/screener_pb";
+import { type ScreenStocksResponse, type ScreenerFilters, type ScreenerSortField, type SortDirection } from "~/gen/shorts/v1alpha1/screener_pb";
 import { cache } from "react";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 import { withRetryAndNotFound } from "./withRetry";
@@ -24,7 +19,7 @@ export const screenStocks = cache(
         fetch: serverFetchWithUserAgent,
         baseUrl: SHORTS_API_URL,
       });
-      const client = createClient(ShortedStocksService, transport);
+      const client = createClient(ScreenerService, transport);
       return await client.screenStocks({
         filters,
         sortField: sortField ?? 0,

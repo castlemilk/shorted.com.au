@@ -3,10 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { getEconomicSeriesClient } from "~/app/actions/client/getEconomyClient";
-import {
-  GetEconomicSeriesResponseSchema,
-  type GetEconomicSeriesResponse,
-} from "~/gen/shorts/v1alpha1/shorts_pb";
+import { GetEconomicSeriesResponseSchema, type GetEconomicSeriesResponse } from "~/gen/shorts/v1alpha1/economy_pb";
 import { TopExports } from "../top-exports";
 
 jest.mock("~/app/actions/client/getEconomyClient", () => ({

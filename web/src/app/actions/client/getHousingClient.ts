@@ -1,16 +1,7 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import {
-  ShortedStocksService,
-  type GetHousePriceSeriesResponse,
-  type ListStateSuburbsResponse,
-  type GetSuburbProfileResponse,
-  type ListHousingRegionsResponse,
-  type ListSuburbPriceDropsResponse,
-  type ListSuburbDropListingsResponse,
-  type ListAddressPriceDropsResponse,
-  type GetPropertyHistoryResponse,
-} from "~/gen/shorts/v1alpha1/shorts_pb";
+import { type GetHousePriceSeriesResponse, type ListStateSuburbsResponse, type GetSuburbProfileResponse, type ListHousingRegionsResponse, type ListSuburbPriceDropsResponse, type ListSuburbDropListingsResponse, type ListAddressPriceDropsResponse, type GetPropertyHistoryResponse } from "~/gen/shorts/v1alpha1/housing_pb";
+import { HousingService } from "~/gen/shorts/v1alpha1/housing_pb";
 import { SHORTS_API_URL } from "../config";
 import { retryWithBackoff } from "@/lib/retry";
 import { getSessionCached, setSessionCached } from "@/lib/session-cache";
@@ -30,7 +21,7 @@ export async function getHousePriceSeriesClient(
   const transport = createConnectTransport({
     baseUrl: typeof window !== "undefined" ? "" : SHORTS_API_URL,
   });
-  const client = createClient(ShortedStocksService, transport);
+  const client = createClient(HousingService, transport);
 
   try {
     const result = await retryWithBackoff(
@@ -54,7 +45,7 @@ export async function listStateSuburbsClient(
   const cached = getSessionCached<ListStateSuburbsResponse>(cacheKey);
   if (cached) return cached;
   const transport = createConnectTransport({ baseUrl: typeof window !== "undefined" ? "" : SHORTS_API_URL });
-  const client = createClient(ShortedStocksService, transport);
+  const client = createClient(HousingService, transport);
   try {
     const result = await retryWithBackoff(
       () => client.listStateSuburbs({ stateCode, query, limit }), RETRY_OPTIONS);
@@ -73,7 +64,7 @@ export async function getSuburbProfileClient(
   const cached = getSessionCached<GetSuburbProfileResponse>(cacheKey);
   if (cached) return cached;
   const transport = createConnectTransport({ baseUrl: typeof window !== "undefined" ? "" : SHORTS_API_URL });
-  const client = createClient(ShortedStocksService, transport);
+  const client = createClient(HousingService, transport);
   try {
     const result = await retryWithBackoff(() => client.getSuburbProfile({ salCode }), RETRY_OPTIONS);
     setSessionCached(cacheKey, result);
@@ -97,7 +88,7 @@ export async function listHousingRegionsClient(
   const transport = createConnectTransport({
     baseUrl: typeof window !== "undefined" ? "" : SHORTS_API_URL,
   });
-  const client = createClient(ShortedStocksService, transport);
+  const client = createClient(HousingService, transport);
 
   try {
     const result = await retryWithBackoff(
@@ -121,7 +112,7 @@ export async function listSuburbPriceDropsClient(
   const cached = getSessionCached<ListSuburbPriceDropsResponse>(cacheKey);
   if (cached) return cached;
   const transport = createConnectTransport({ baseUrl: typeof window !== "undefined" ? "" : SHORTS_API_URL });
-  const client = createClient(ShortedStocksService, transport);
+  const client = createClient(HousingService, transport);
   try {
     const result = await retryWithBackoff(
       () => client.listSuburbPriceDrops({ stateCode, sort, limit }), RETRY_OPTIONS);
@@ -143,7 +134,7 @@ export async function listSuburbDropListingsClient(
   const cached = getSessionCached<ListSuburbDropListingsResponse>(cacheKey);
   if (cached) return cached;
   const transport = createConnectTransport({ baseUrl: typeof window !== "undefined" ? "" : SHORTS_API_URL });
-  const client = createClient(ShortedStocksService, transport);
+  const client = createClient(HousingService, transport);
   try {
     const result = await retryWithBackoff(
       () => client.listSuburbDropListings({ salCode, regionCode, windowDays, limit }), RETRY_OPTIONS);
@@ -165,7 +156,7 @@ export async function listAddressPriceDropsClient(
   const cached = getSessionCached<ListAddressPriceDropsResponse>(cacheKey);
   if (cached) return cached;
   const transport = createConnectTransport({ baseUrl: typeof window !== "undefined" ? "" : SHORTS_API_URL });
-  const client = createClient(ShortedStocksService, transport);
+  const client = createClient(HousingService, transport);
   try {
     const result = await retryWithBackoff(
       () => client.listAddressPriceDrops({ stateCode, windowDays, limit, sort }), RETRY_OPTIONS);
@@ -184,7 +175,7 @@ export async function getPropertyHistoryClient(
   const cached = getSessionCached<GetPropertyHistoryResponse>(cacheKey);
   if (cached) return cached;
   const transport = createConnectTransport({ baseUrl: typeof window !== "undefined" ? "" : SHORTS_API_URL });
-  const client = createClient(ShortedStocksService, transport);
+  const client = createClient(HousingService, transport);
   try {
     const result = await retryWithBackoff(
       () => client.getPropertyHistory({ addressKey }), RETRY_OPTIONS);
