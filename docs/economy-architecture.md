@@ -252,3 +252,5 @@ mobile <640px pins to the map bottom; desktop clamps to viewport), click →
 - Licensing: all ABS/RBA/DCCEEW data CC-BY-4.0 (attribution rendered per
   chart); `markets.*` series are in-house derivations (licence `derived`).
 - Specs/plans: `docs/superpowers/{specs,plans}/2026-07-2{1,2}-*.md`.
+
+- Phase 3+ backlog (exhaustive, tiered): `docs/economy-roadmap.md`.
