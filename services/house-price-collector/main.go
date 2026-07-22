@@ -22,7 +22,7 @@ func main() {
 // 3 = a crawl needs a human to re-warm the Chrome profile (Kasada/Akamai
 // clearance expired). Wrapping the body lets deferred cleanup run before exit.
 func run() int {
-	mode := flag.String("mode", "all", "official | crawl | listings | agent | enqueue | purge | warmcheck | backfill-address | census | electorates | banners | amenities | lga | connectivity | funding | council-financials | refresh | all")
+	mode := flag.String("mode", "all", "official | crawl | listings | details | agent | enqueue | purge | warmcheck | backfill-address | census | electorates | banners | amenities | lga | connectivity | funding | council-financials | refresh | all")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -38,7 +38,7 @@ func run() int {
 	// suburbs in, killing the in-flight suburb's writes with it.
 	defaultTimeoutMin := 15
 	switch *mode {
-	case "agent", "listings", "crawl":
+	case "agent", "listings", "crawl", "details":
 		defaultTimeoutMin = 240
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(envInt("CRAWL_TIMEOUT_MIN", defaultTimeoutMin))*time.Minute)
@@ -73,6 +73,14 @@ func run() int {
 		if runListings(ctx, pool) {
 			return 3
 		}
+	case "details":
+		// Supplementary listing DETAIL-page crawl — opt-in only, never part of the
+		// scheduled run. Visits each active listing's own detail page to close the
+		// per-portal SRP gap (REA has no geo/land/type; Domain has no agency/agents)
+		// and detect delists (a dead ad 404s / redirects to a search page). Same
+		// residential-rig posture as -mode listings (headed host-Chrome over CDP);
+		// dry-run defaults ON. Returns the exit code directly (0 ok, 3 re-warm).
+		return runDetails(ctx, pool)
 	case "agent":
 		// Poll the brandbrain-native crawl queue for suburbs to crawl, run the
 		// existing per-suburb listings sweep (residential host-Chrome over CDP),
@@ -133,7 +141,7 @@ func run() int {
 	case "refresh":
 		refresh(ctx, pool)
 	default:
-		log.Fatalf("unknown -mode %q (want official|crawl|listings|agent|enqueue|warmcheck|backfill-address|census|electorates|banners|amenities|lga|connectivity|funding|council-financials|refresh|all)", *mode)
+		log.Fatalf("unknown -mode %q (want official|crawl|listings|details|agent|enqueue|warmcheck|backfill-address|census|electorates|banners|amenities|lga|connectivity|funding|council-financials|refresh|all)", *mode)
 	}
 	return 0
 }
