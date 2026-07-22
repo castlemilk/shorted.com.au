@@ -95,7 +95,7 @@ sandbox has no network). Codes are PINNED — do not re-derive from labels.
   pharmaceuticals-biotechnology-life-sciences, capital-goods,
   commercial-professional-services, media-entertainment,
   food-beverage-tobacco, consumer-discretionary-distribution-retail,
-  consumer-services, equity-reits, technology-hardware-equipment,
+  consumer-services, equity-real-estate-investment-trusts-reits (matches web slugify — the identity contract), technology-hardware-equipment,
   transportation, real-estate-management-development, utilities,
   telecommunication-services, consumer-durables-apparel, banks,
   household-personal-products, insurance, automobiles-components,

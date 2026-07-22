@@ -42,7 +42,7 @@ func TestNewABSImportersAreRegisteredSources(t *testing.T) {
 func TestAllModeIncludesNewABSImporters(t *testing.T) {
 	want := []string{
 		"rba", "cpi", "labour", "trade", "gdp", "approvals", "retail", "population",
-		"petroleum", "govfin", "vacancies", "wages", "markets",
+		"petroleum", "govfin", "vacancies", "wages", "markets", "derived",
 	}
 	if !reflect.DeepEqual(allJobModes, want) {
 		t.Fatalf("allJobModes=%#v, want exact deterministic order %#v", allJobModes, want)
@@ -54,9 +54,28 @@ func TestAllModeIncludesNewABSImporters(t *testing.T) {
 		}
 		seen[mode] = true
 	}
-	if got := allJobModes[len(allJobModes)-1]; got != "markets" {
-		t.Errorf("markets must run last, got final mode %q", got)
+	if got := allJobModes[len(allJobModes)-1]; got != "derived" {
+		t.Errorf("derived must run last, got final mode %q", got)
 	}
+	if got := allJobModes[len(allJobModes)-2]; got != "markets" {
+		t.Errorf("markets must run immediately before derived, got penultimate mode %q", got)
+	}
+}
+
+func TestDerivedEconomySourceIsRegistered(t *testing.T) {
+	for _, source := range sourceDefs {
+		if source.Key != "derived-shorted-economy" {
+			continue
+		}
+		if source.Method != "derived" || source.Licence != "derived" || source.Cadence != "Monthly + quarterly" {
+			t.Errorf("derived source metadata = %#v", source)
+		}
+		if !strings.Contains(source.Notes, "national CPI") {
+			t.Errorf("derived source notes omit national-CPI caveat: %q", source.Notes)
+		}
+		return
+	}
+	t.Fatal("sourceDefs missing derived-shorted-economy")
 }
 
 func assertSDMXRowError(t *testing.T, err error, parser string, csvRow int) {
