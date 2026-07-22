@@ -18,16 +18,21 @@ import {
 import { withRetryAndNotFound } from "./withRetry";
 import { CACHE_KEYS, ECONOMY_TTL, getCached, setCached } from "@/lib/kv-cache";
 
-// Plain (uncached-fetch) transport. Deliberately NOT tagged with
-// `next: { revalidate }`: connect-web streams its POST bodies, which the Next
-// data cache cannot key — at runtime that throws "Failed to generate cache
-// key" inside ISR regeneration (the exact failure documented in sitemap.ts),
-// the fetch fails, withRetryAndNotFound returns undefined, and the /economy
-// placeholder gets BAKED into the page cache for an hour. Freshness/cost is
-// handled by the page-level ISR window plus the Upstash KV layer below.
+// ISR-tagged transport (housing's isrHousingFetch pattern) — the `next:
+// { revalidate }` tag is LOAD-BEARING inside static routes: without it,
+// serverFetchWithUserAgent forces `cache:'no-store'` on POSTs, and a no-store
+// fetch inside an ISR page THROWS "Page changed from static to dynamic at
+// runtime" (observed live on /economy, 2026-07-22) — withRetryAndNotFound
+// then returns undefined and the placeholder gets baked for an hour. The KV
+// layer below is the resilience mechanism for any residual fetch failure
+// (e.g. the sitemap.ts "Failed to generate cache key" mode): once one regen
+// succeeds, KV serves last-good for ECONOMY_TTL regardless of fetch health.
+const isrEconomyFetch: typeof fetch = (input, init) =>
+  serverFetchWithUserAgent(input, { ...init, next: { revalidate: 3600 } });
+
 function createEconomyClient() {
   const transport = createConnectTransport({
-    fetch: serverFetchWithUserAgent,
+    fetch: isrEconomyFetch,
     baseUrl: SERVER_SHORTS_API_URL,
   });
   return createClient(ShortedStocksService, transport);
