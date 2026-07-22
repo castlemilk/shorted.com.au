@@ -54,13 +54,18 @@ const (
 // request body for identity + tier — would otherwise let any logged-in user
 // self-grant a paid subscription or mutate another customer's record.
 // Keyed by protobuf full method name.
-var internalOnlyMethods = map[string]bool{
-	"shorts.v1alpha1.ShortedStocksService.HandleStripeCheckoutCompleted":   true,
-	"shorts.v1alpha1.ShortedStocksService.HandleStripeSubscriptionUpdated": true,
-	// Same methods exposed via the per-domain BillingService split.
-	"shorts.v1alpha1.BillingService.HandleStripeCheckoutCompleted":   true,
-	"shorts.v1alpha1.BillingService.HandleStripeSubscriptionUpdated": true,
-}
+// Each method is served by both the legacy monolithic service and its
+// per-domain service (same ShortsServer handler) — derive both full names
+// from one list so the two mounts can't drift.
+var internalOnlyMethods = func() map[string]bool {
+	m := make(map[string]bool)
+	for _, svc := range []string{"ShortedStocksService", "BillingService"} {
+		for _, method := range []string{"HandleStripeCheckoutCompleted", "HandleStripeSubscriptionUpdated"} {
+			m["shorts.v1alpha1."+svc+"."+method] = true
+		}
+	}
+	return m
+}()
 
 // SubscriptionLookup is a function that looks up a user's subscription tier by user ID.
 // Returns the tier (e.g., "free", "pro", "enterprise") or empty string if not found.

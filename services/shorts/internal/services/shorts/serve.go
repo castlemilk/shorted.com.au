@@ -160,33 +160,25 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	// Per-domain services over the same ShortsServer. The legacy monolithic
 	// ShortedStocksService above stays mounted for external consumers (public
 	// API docs, chat tools, twitter bot, MCP); web clients migrate to these so
-	// each route's bundle only carries its own domain's descriptor. Every mount
-	// MUST go through the same interceptors chain + withCORS or it silently
+	// each route's bundle only carries its own domain's descriptor. mount
+	// applies the same interceptors chain (passed to each constructor) +
+	// withCORS — never mux.Handle a connect handler directly or it silently
 	// loses auth, rate limiting and CORS.
-	marketPath, marketHandler := shortsv1alpha1connect.NewMarketServiceHandler(s, interceptors)
-	mux.Handle(marketPath, withCORS(marketHandler))
-	stockPath, stockHandler := shortsv1alpha1connect.NewStockServiceHandler(s, interceptors)
-	mux.Handle(stockPath, withCORS(stockHandler))
-	searchPath, searchHandler := shortsv1alpha1connect.NewSearchServiceHandler(s, interceptors)
-	mux.Handle(searchPath, withCORS(searchHandler))
-	screenerPath, screenerHandler := shortsv1alpha1connect.NewScreenerServiceHandler(s, interceptors)
-	mux.Handle(screenerPath, withCORS(screenerHandler))
-	newsPath, newsHandler := shortsv1alpha1connect.NewNewsServiceHandler(s, interceptors)
-	mux.Handle(newsPath, withCORS(newsHandler))
-	enrichmentPath, enrichmentHandler := shortsv1alpha1connect.NewEnrichmentServiceHandler(s, interceptors)
-	mux.Handle(enrichmentPath, withCORS(enrichmentHandler))
-	billingPath, billingHandler := shortsv1alpha1connect.NewBillingServiceHandler(s, interceptors)
-	mux.Handle(billingPath, withCORS(billingHandler))
-	alertsPath, alertsHandler := shortsv1alpha1connect.NewAlertsServiceHandler(s, interceptors)
-	mux.Handle(alertsPath, withCORS(alertsHandler))
-	reportsPath, reportsHandler := shortsv1alpha1connect.NewReportsServiceHandler(s, interceptors)
-	mux.Handle(reportsPath, withCORS(reportsHandler))
-	housingPath, housingHandler := shortsv1alpha1connect.NewHousingServiceHandler(s, interceptors)
-	mux.Handle(housingPath, withCORS(housingHandler))
-	economyPath, economyHandler := shortsv1alpha1connect.NewEconomyServiceHandler(s, interceptors)
-	mux.Handle(economyPath, withCORS(economyHandler))
-	industryPath, industryHandler := shortsv1alpha1connect.NewIndustryIntelligenceServiceHandler(s, interceptors)
-	mux.Handle(industryPath, withCORS(industryHandler))
+	mount := func(path string, handler http.Handler) {
+		mux.Handle(path, withCORS(handler))
+	}
+	mount(shortsv1alpha1connect.NewMarketServiceHandler(s, interceptors))
+	mount(shortsv1alpha1connect.NewStockServiceHandler(s, interceptors))
+	mount(shortsv1alpha1connect.NewSearchServiceHandler(s, interceptors))
+	mount(shortsv1alpha1connect.NewScreenerServiceHandler(s, interceptors))
+	mount(shortsv1alpha1connect.NewNewsServiceHandler(s, interceptors))
+	mount(shortsv1alpha1connect.NewEnrichmentServiceHandler(s, interceptors))
+	mount(shortsv1alpha1connect.NewBillingServiceHandler(s, interceptors))
+	mount(shortsv1alpha1connect.NewAlertsServiceHandler(s, interceptors))
+	mount(shortsv1alpha1connect.NewReportsServiceHandler(s, interceptors))
+	mount(shortsv1alpha1connect.NewHousingServiceHandler(s, interceptors))
+	mount(shortsv1alpha1connect.NewEconomyServiceHandler(s, interceptors))
+	mount(shortsv1alpha1connect.NewIndustryIntelligenceServiceHandler(s, interceptors))
 
 	// Add health check endpoint
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
