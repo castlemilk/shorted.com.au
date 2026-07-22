@@ -4,14 +4,17 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/hex"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Persistence for the listing DETAIL tier. Writes go through a pgx.Tx so each
-// listing's (upsert detail + stamp base cursor + backfill base row) commits
-// atomically, matching the listing-diff store idioms (crawl_listings_store.go).
+// listing's (upsert detail + backfill base row) commits atomically, matching the
+// listing-diff store idioms (crawl_listings_store.go). The work-list cursor lives
+// on property_listing_details.detail_fetched_at (the details row IS the "fetched"
+// marker) — there is no separate base-row cursor.
 
 // detailTarget is one work-list row: the active listing due a detail fetch, with
 // just enough identity to fetch it and (on delist) write a price event.
@@ -65,7 +68,10 @@ func loadDetailWorklist(ctx context.Context, pool *pgxpool.Pool, limit int) ([]d
 // run through cleanText (portal JSON carries NUL / lone-surrogate bytes Postgres
 // rejects — same 22021 poison-pill as the listing store).
 func upsertListingDetail(ctx context.Context, tx pgx.Tx, pk int64, source, status, finalURL string, rec detailRecord) error {
-	raw := rec.Raw
+	// Final guard at the write boundary: strip any   escape so the `raw JSONB`
+	// insert can't 22P05 (harvestDetail already cleans its inputs; this also covers
+	// any raw that didn't come from harvestDetail).
+	raw := stripJSONNul(rec.Raw)
 	if raw == "" {
 		raw = "{}"
 	}
@@ -104,11 +110,14 @@ func upsertListingDetail(ctx context.Context, tx pgx.Tx, pk int64, source, statu
 	return err
 }
 
-// stampDetailFetched marks the base listing row as detail-fetched now, so the
-// work-list stops returning it until its price moves or the 90-day window lapses.
-func stampDetailFetched(ctx context.Context, tx pgx.Tx, pk int64) error {
-	_, err := tx.Exec(ctx, `UPDATE property_listings SET detail_fetched_at = now() WHERE id = $1`, pk)
-	return err
+// stripJSONNul removes any literal `\u0000` escape sequence from a marshaled JSON
+// string. Postgres jsonb rejects \u0000 (SQLSTATE 22P05) even though it is valid
+// JSON, so it must never reach the `raw JSONB` insert.
+func stripJSONNul(s string) string {
+	if !strings.Contains(s, `\u0000`) {
+		return s
+	}
+	return strings.ReplaceAll(s, `\u0000`, "")
 }
 
 // backfillBaseRow fills the base listing's lat/lng/land_size_sqm/property_type from

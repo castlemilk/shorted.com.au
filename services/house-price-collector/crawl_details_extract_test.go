@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 )
@@ -220,6 +221,59 @@ func TestParseAnyTime(t *testing.T) {
 		if ok != c.ok {
 			t.Errorf("parseAnyTime(%q) ok=%v want %v", c.in, ok, c.ok)
 		}
+	}
+}
+
+// TestExtractDetail_RawSurvivesNulByte is the FIX-1 regression: a portal
+// description carrying a literal NUL must NOT survive into the raw JSON payload —
+// json.Marshal escapes a 0x00 to the 6-char \u0000, which Postgres jsonb rejects
+// (22P05), aborting the whole write tx so the listing re-fetches forever.
+func TestExtractDetail_RawSurvivesNulByte(t *testing.T) {
+	nulEscape := "\\u0000" // the 6-char sequence json.Marshal emits for a 0x00
+	payload := map[string]any{
+		"props": map[string]any{"pageProps": map[string]any{"componentProps": map[string]any{
+			"address":        map[string]any{"suburb": "Bondi"},
+			"listingSummary": map[string]any{"description": "Bad\x00byte in here", "propertyType": "House"},
+		}}},
+	}
+	b, _ := json.Marshal(payload)
+	html := `<html><body><script id="__NEXT_DATA__" type="application/json">` + string(b) + `</script></body></html>`
+
+	rec, ok := extractDetail(html, "domain")
+	if !ok {
+		t.Fatal("expected the listing to be recognized")
+	}
+	if strings.ContainsRune(rec.Description, 0) {
+		t.Errorf("description still contains a NUL byte: %q", rec.Description)
+	}
+	if rec.Description != "Badbyte in here" {
+		t.Errorf("description = %q, want the NUL stripped", rec.Description)
+	}
+	if strings.ContainsRune(rec.Raw, 0) {
+		t.Errorf("raw contains a literal NUL byte: %q", rec.Raw)
+	}
+	if strings.Contains(rec.Raw, nulEscape) {
+		t.Errorf("raw contains a \\u0000 escape (jsonb 22P05): %q", rec.Raw)
+	}
+	var m map[string]any
+	if err := json.Unmarshal([]byte(rec.Raw), &m); err != nil {
+		t.Fatalf("raw is not valid JSON: %v (%s)", err, rec.Raw)
+	}
+}
+
+func TestStripJSONNul(t *testing.T) {
+	nulEscape := "\\u0000"
+	in := `{"a":"x` + nulEscape + `y","b":"z"}`
+	got := stripJSONNul(in)
+	if strings.Contains(got, nulEscape) {
+		t.Errorf("stripJSONNul left a \\u0000: %q", got)
+	}
+	if got != `{"a":"xy","b":"z"}` {
+		t.Errorf("stripJSONNul = %q", got)
+	}
+	clean := `{"ok":true}`
+	if stripJSONNul(clean) != clean {
+		t.Errorf("stripJSONNul mutated a clean string: %q", stripJSONNul(clean))
 	}
 }
 

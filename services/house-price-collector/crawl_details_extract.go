@@ -153,17 +153,22 @@ func detailFieldScore(lm map[string]any) int {
 
 // harvestDetail pulls every detail field out of the chosen listing object (and its
 // direct child maps), building both the typed record and the raw JSON of exactly
-// what was recognized. All fields are best-effort/optional.
+// what was recognized. All fields are best-effort/optional. Every FREE-TEXT value
+// is run through cleanText at harvest time so the raw JSON is built from CLEANED
+// values — a stray NUL/lone-surrogate from the portal would otherwise survive into
+// the `raw JSONB` column (json.Marshal escapes a 0x00 to \u0000, which Postgres
+// jsonb REJECTS with 22P05, aborting the whole write tx → the listing re-fetches
+// at the top of the work-list forever). See also upsertListingDetail's guard.
 func harvestDetail(lm map[string]any, source string) detailRecord {
 	maps := gatherMaps(lm)
 	raw := map[string]any{"source": source}
 	var rec detailRecord
 
-	if d := firstStr(maps, "description", "listingdescription", "propertydescription", "bodytext", "adtext", "summarydescription"); d != "" {
+	if d := cleanText(firstStr(maps, "description", "listingdescription", "propertydescription", "bodytext", "adtext", "summarydescription")); d != "" {
 		rec.Description = d
 		raw["description"] = d
 	}
-	if pt := strings.TrimSpace(firstStr(maps, "propertytypeformatted", "propertytype", "dwellingtype", "subtype", "propertycategory")); pt != "" {
+	if pt := cleanText(strings.TrimSpace(firstStr(maps, "propertytypeformatted", "propertytype", "dwellingtype", "subtype", "propertycategory"))); pt != "" {
 		rec.PropertyType = pt
 		raw["property_type"] = pt
 	}
@@ -192,7 +197,7 @@ func harvestDetail(lm map[string]any, source string) detailRecord {
 		rec.BuildingSizeSqm = v
 		raw["building_size_sqm"] = *v
 	}
-	if fs := harvestFeatures(lm); len(fs) > 0 {
+	if fs := cleanTexts(harvestFeatures(lm)); len(fs) > 0 {
 		rec.Features = fs
 		raw["features"] = fs
 	}
@@ -212,19 +217,22 @@ func harvestDetail(lm map[string]any, source string) detailRecord {
 		rec.ListedAt = tm
 		raw["listed_at"] = tm.Format("2006-01-02")
 	}
-	if ph := harvestAgentPhones(lm); len(ph) > 0 {
+	if ph := cleanTexts(harvestAgentPhones(lm)); len(ph) > 0 {
 		rec.AgentPhones = ph
 		raw["agent_phones"] = ph
 	}
 	if ag := childMap(lm, "listingcompany", "agency", "advertiser", "agencyprofile", "marketingagent"); ag != nil {
-		if n := getStr(ag, "name", "agencyname", "companyname", "tradingname", "displayname"); n != "" {
+		if n := cleanText(getStr(ag, "name", "agencyname", "companyname", "tradingname", "displayname")); n != "" {
 			rec.AgencyName = n
 			raw["agency_name"] = n
 		}
 	}
 
 	if b, err := json.Marshal(raw); err == nil {
-		rec.Raw = string(b)
+		// Belt-and-braces: even though every free-text value was cleanText'd above,
+		// strip any \u0000 escape the marshaler might still emit — Postgres jsonb
+		// rejects it (22P05) even as an escape sequence.
+		rec.Raw = stripJSONNul(string(b))
 	} else {
 		rec.Raw = "{}"
 	}

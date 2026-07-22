@@ -56,7 +56,7 @@ func loadDetailsConfig() detailsConfig {
 }
 
 type detailStats struct {
-	attempted, ok, delisted, noPayload, blocked, errors, skipped int
+	attempted, ok, delisted, noPayload, blocked, stub, errors, skipped int
 }
 
 // runDetails returns a process exit code (0 ok, 3 re-warm needed) — same contract
@@ -124,9 +124,26 @@ worklist:
 		st.attempted++
 
 		html, finalURL, outcome := cr.fetchPage(ctx, it.url)
-		switch outcome {
-		case outcomeBlocked:
-			st.blocked++
+		if outcome == outcomeError {
+			st.errors++ // transient — leave the row un-fetched so it's retried next run
+			continue
+		}
+		// A rendered anti-bot STUB (200-status, tiny, no ArgonautExchange/__NEXT_DATA__
+		// container) passes looksBlocked but is NOT a real page — extractDetail would
+		// find no payload and we'd stamp a HEALTHY listing detail_status='error' for
+		// 90 days. Treat it as a BLOCK: bump the circuit + block streak, write NOTHING,
+		// so it retries next run and can still trip the exit-3 rewarm streak. (Same
+		// guard the SRP sweep uses — pageLooksStub, crawl_listings.go.)
+		stub := outcome == outcomeOK && pageLooksStub(html, it.source)
+		if stub {
+			log.Printf("[details] %s %s: anti-bot STUB (missing data container) — treating as block, not stamping", it.listingID, it.source)
+		}
+		if outcome == outcomeBlocked || stub {
+			if stub {
+				st.stub++
+			} else {
+				st.blocked++
+			}
 			bumpBlock(&reaBlocks, &domBlocks, it.source)
 			if opened, cd := cb.record(it.source, true, now); opened {
 				log.Printf("[details] %s circuit OPEN after %d consecutive blocked fetch(es) — backing off %s", it.source, cb.circuit(it.source).consec, cd.Round(time.Second))
@@ -139,9 +156,6 @@ worklist:
 				rewarm = true
 				break worklist
 			}
-			continue
-		case outcomeError:
-			st.errors++ // transient — leave the row un-stamped so it's retried next run
 			continue
 		}
 		// A clean fetch closes the source's circuit.
@@ -209,8 +223,8 @@ worklist:
 		finCancel()
 	}
 
-	log.Printf("[details] done: attempted=%d ok=%d delisted=%d noPayload=%d blocked=%d errors=%d skipped=%d",
-		st.attempted, st.ok, st.delisted, st.noPayload, st.blocked, st.errors, st.skipped)
+	log.Printf("[details] done: attempted=%d ok=%d delisted=%d noPayload=%d blocked=%d stub=%d errors=%d skipped=%d",
+		st.attempted, st.ok, st.delisted, st.noPayload, st.blocked, st.stub, st.errors, st.skipped)
 	if rewarm {
 		log.Printf("[details] REWARM REQUIRED: circuit breaker tripped — re-warm the crawl Chrome profile by hand")
 		return 3
@@ -218,9 +232,9 @@ worklist:
 	return 0
 }
 
-// writeDetail persists one listing's detail snapshot: upsert the detail row, stamp
-// the base cursor, and (on a good extraction) backfill the base row's missing
-// geo/land/type — all in one transaction.
+// writeDetail persists one listing's detail snapshot: upsert the detail row (which
+// IS the work-list cursor), and — on a good extraction — backfill the base row's
+// missing geo/land/type. Both in one transaction.
 func writeDetail(ctx context.Context, pool *pgxpool.Pool, it detailTarget, status, finalURL string, rec detailRecord) error {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
@@ -228,9 +242,6 @@ func writeDetail(ctx context.Context, pool *pgxpool.Pool, it detailTarget, statu
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	if err := upsertListingDetail(ctx, tx, it.pk, it.source, status, finalURL, rec); err != nil {
-		return err
-	}
-	if err := stampDetailFetched(ctx, tx, it.pk); err != nil {
 		return err
 	}
 	if status == "ok" {
@@ -242,8 +253,9 @@ func writeDetail(ctx context.Context, pool *pgxpool.Pool, it detailTarget, statu
 }
 
 // writeDetailDelist records a definitive removal (a 404/redirect on the LDP): flip
-// the base row inactive/withdrawn, append a 'delisted' price event, and stamp the
-// detail cursor so the row leaves the work-list. Grace is 0 — unlike a missed SRP
+// the base row inactive/withdrawn, append a 'delisted' price event, and upsert a
+// minimal 'notfound' detail row so the work-list LEFT JOIN excludes this listing
+// naturally (its detail_fetched_at is now set). Grace is 0 — unlike a missed SRP
 // sweep (which might be a transient block), a detail 404 is unambiguous.
 func writeDetailDelist(ctx context.Context, pool *pgxpool.Pool, it detailTarget) error {
 	tx, err := pool.Begin(ctx)
@@ -271,7 +283,7 @@ func writeDetailDelist(ctx context.Context, pool *pgxpool.Pool, it detailTarget)
 	if err := insertPriceEvent(ctx, tx, ev); err != nil {
 		return err
 	}
-	if err := stampDetailFetched(ctx, tx, it.pk); err != nil {
+	if err := upsertListingDetail(ctx, tx, it.pk, it.source, "notfound", "", detailRecord{Raw: "{}"}); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)

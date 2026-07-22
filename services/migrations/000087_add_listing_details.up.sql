@@ -10,18 +10,12 @@
 -- aggregates are a publishable surface; the raw per-listing detail is stored for
 -- backfilling the base row + internal enrichment only. Gate any public read on
 -- source_licence.
-
--- Cursor on the base row: when this listing's detail page was last fetched. NULL
--- for every pre-existing row, so the whole active corpus is "never fetched" on
--- the first detail run.
-ALTER TABLE property_listings
-    ADD COLUMN IF NOT EXISTS detail_fetched_at TIMESTAMPTZ;
-
--- Work-list index: the detail crawl repeatedly asks "which active listings are
--- due a detail fetch", ordered by detail_fetched_at (NULLs first). Partial on
--- is_active so it only covers the on-market rows the crawl actually walks.
-CREATE INDEX IF NOT EXISTS idx_property_listings_detail_todo
-    ON property_listings (detail_fetched_at) WHERE is_active;
+--
+-- WORK-LIST CURSOR: the "when was this listing last detail-fetched" cursor lives on
+-- property_listing_details.detail_fetched_at (below), NOT on property_listings. A
+-- listing with no detail row has never been fetched — the collector's work-list
+-- LEFT JOINs the two and picks the NULL-join / price-moved / >90-day rows. So there
+-- is deliberately no base-row cursor column; the details row IS the marker.
 
 -- One row per listing's harvested detail page (latest snapshot, upserted).
 CREATE TABLE IF NOT EXISTS property_listing_details (

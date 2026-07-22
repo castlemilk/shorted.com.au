@@ -5,6 +5,44 @@ import (
 	"testing"
 )
 
+// TestDetailStubTreatedAsBlock is the FIX-2 regression: an anti-bot stub LDP
+// (200-status, no data container) must be caught by pageLooksStub BEFORE extract
+// — otherwise extractDetail returns ok=false and runDetails would stamp a HEALTHY
+// listing detail_status='error' for 90 days. This proves the guard fires exactly
+// on stubs (block path → nothing written) and not on real pages.
+func TestDetailStubTreatedAsBlock(t *testing.T) {
+	reaStub := []byte(`<html><body><script>window.kpsdk={};</script>blocked</body></html>`)   // no ArgonautExchange
+	domainStub := []byte(`<html><body><h1>Just a moment...</h1></body></html>`)                // no __NEXT_DATA__
+
+	// Stubs: pageLooksStub true (→ block path, not stamped), and extractDetail would
+	// have found no payload (the false 'error' stamp the guard prevents).
+	if !pageLooksStub(reaStub, "rea") {
+		t.Error("REA stub (no ArgonautExchange) must be detected as a stub")
+	}
+	if !pageLooksStub(domainStub, "domain") {
+		t.Error("Domain stub (no __NEXT_DATA__) must be detected as a stub")
+	}
+	if _, ok := extractDetail(string(reaStub), "rea"); ok {
+		t.Error("REA stub must not extract a payload (so, absent the guard, it would be stamped 'error')")
+	}
+	if _, ok := extractDetail(string(domainStub), "domain"); ok {
+		t.Error("Domain stub must not extract a payload")
+	}
+
+	// A real LDP is NOT a stub (has the container) and extracts cleanly — the guard
+	// leaves the healthy path untouched.
+	if pageLooksStub([]byte(domainLDPHTML()), "domain") {
+		t.Error("a real Domain LDP must not be flagged a stub")
+	}
+	rea := reaDoubleStringifiedLDP(map[string]any{
+		"id": "140123456", "price": map[string]any{"display": "Auction"},
+		"address": map[string]any{"suburb": "New Farm"}, "propertyType": "House",
+	})
+	if pageLooksStub([]byte(rea), "rea") {
+		t.Error("a real REA LDP must not be flagged a stub")
+	}
+}
+
 func TestIsDelistedDetail(t *testing.T) {
 	healthy := []byte("<html><body>3 bed 2 bath house for sale</body></html>")
 	removed := []byte("<html><body>This listing has been removed from realestate.com.au</body></html>")
