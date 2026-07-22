@@ -281,6 +281,12 @@ func markSeenOnly(ctx context.Context, tx pgx.Tx, source, listingID string, runT
 	return err
 }
 
+// finalizeTimeout bounds the end-of-run finalizer (sal-linking + MV refresh)
+// on its DETACHED context — generous because refresh_housing_materialized_views
+// on prod Supabase can take minutes, but bounded so a wedged pool can't hang a
+// finished run forever.
+const finalizeTimeout = 10 * time.Minute
+
 // linkListingSalCodes copies each listing's ABS sal_code from its (already
 // sal-linked) house_price_regions row. Run after linkSuburbSalCodes so the
 // regions are populated first. Idempotent: only touches NULL sal_codes.
@@ -289,6 +295,22 @@ func linkListingSalCodes(ctx context.Context, pool *pgxpool.Pool) (int64, error)
 		UPDATE property_listings pl SET sal_code = r.sal_code
 		FROM house_price_regions r
 		WHERE pl.region_code = r.region_code AND pl.sal_code IS NULL AND r.sal_code IS NOT NULL`)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
+// linkPriceEventSalCodes copies each price event's ABS sal_code from its (already
+// sal-linked) listing row. insertPriceEvent never sets sal_code — the listing's
+// own sal_code is typically still NULL mid-run and only lands in the end-of-run
+// link pass — so events are linked here, after linkListingSalCodes. Idempotent:
+// only touches NULL sal_codes, so the first run also backfills all history.
+func linkPriceEventSalCodes(ctx context.Context, pool *pgxpool.Pool) (int64, error) {
+	tag, err := pool.Exec(ctx, `
+		UPDATE property_price_events e SET sal_code = pl.sal_code
+		FROM property_listings pl
+		WHERE e.listing_pk = pl.id AND e.sal_code IS NULL AND pl.sal_code IS NOT NULL`)
 	if err != nil {
 		return 0, err
 	}

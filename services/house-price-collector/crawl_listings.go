@@ -330,25 +330,36 @@ func runListings(ctx context.Context, pool *pgxpool.Pool) bool {
 	if cfg.dryRun {
 		log.Printf("[listings] dry-run: nothing written")
 	} else {
-		if n, err := linkSuburbSalCodes(ctx, pool); err != nil {
+		// Finalize on a DETACHED context: the sal-link + MV refresh + revalidate
+		// ping cover writes that already COMMITTED, so the run deadline (ctx)
+		// firing mid-batch must not kill them — that leaves fresh data invisible
+		// on /price-drops until an unrelated later run.
+		finCtx, finCancel := context.WithTimeout(context.Background(), finalizeTimeout)
+		if n, err := linkSuburbSalCodes(finCtx, pool); err != nil {
 			log.Printf("[listings] suburb sal_code link failed: %v", err)
 		} else if n > 0 {
 			log.Printf("[listings] linked %d suburb region(s) to sal_code", n)
 		}
-		if n, err := linkListingSalCodes(ctx, pool); err != nil {
+		if n, err := linkListingSalCodes(finCtx, pool); err != nil {
 			log.Printf("[listings] listing sal_code link failed: %v", err)
 		} else if n > 0 {
 			log.Printf("[listings] linked %d listing(s) to sal_code", n)
 		}
-		if err := refreshHousingMV(ctx, pool); err != nil {
+		if n, err := linkPriceEventSalCodes(finCtx, pool); err != nil {
+			log.Printf("[listings] price-event sal_code link failed: %v", err)
+		} else if n > 0 {
+			log.Printf("[listings] linked %d price event(s) to sal_code", n)
+		}
+		if err := refreshHousingMV(finCtx, pool); err != nil {
 			log.Printf("[listings] mv refresh failed: %v", err)
 		} else if reaEvents+domEvents > 0 {
 			// New price-drop/relist events landed + MVs refreshed → bust the web
 			// tier's long-TTL housing caches now. Best-effort, never fails the run.
 			pingRevalidate("listings")
 		}
-		_ = updateRun(ctx, pool, "listings_rea", nil, reaEvents, "ok", "")
-		_ = updateRun(ctx, pool, "listings_domain", nil, domEvents, "ok", "")
+		_ = updateRun(finCtx, pool, "listings_rea", nil, reaEvents, "ok", "")
+		_ = updateRun(finCtx, pool, "listings_domain", nil, domEvents, "ok", "")
+		finCancel()
 	}
 
 	rewarm := needsRewarm(cfg.maxConsecBlocks, lc.reaBlocks, lc.domBlocks)
