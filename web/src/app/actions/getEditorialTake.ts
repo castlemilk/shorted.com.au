@@ -1,10 +1,7 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
-import {
-  type GetEditorialTakeResponse,
-  type ListEditorialTakesResponse,
-} from "~/gen/shorts/v1alpha1/shorts_pb";
+import { NewsService } from "~/gen/shorts/v1alpha1/news_pb";
+import { type GetEditorialTakeResponse, type ListEditorialTakesResponse } from "~/gen/shorts/v1alpha1/news_pb";
 import { cache } from "react";
 import { SERVER_SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 import { withRetryAndNotFound } from "./withRetry";
@@ -14,7 +11,7 @@ function createEditorialClient() {
     fetch: serverFetchWithUserAgent,
     baseUrl: SERVER_SHORTS_API_URL,
   });
-  return createClient(ShortedStocksService, transport);
+  return createClient(NewsService, transport);
 }
 
 export const getEditorialTake = cache(

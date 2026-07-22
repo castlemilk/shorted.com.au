@@ -2,7 +2,7 @@
 
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { StockService } from "~/gen/shorts/v1alpha1/stock_pb";
 import { type StockDetails, type Stock } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { getShortsApiUrl } from "../config";
 
@@ -18,7 +18,7 @@ export async function fetchStockDetailsClient(
     const transport = createConnectTransport({
       baseUrl: typeof window !== "undefined" ? "" : getShortsApiUrl(),
     });
-    const client = createClient(ShortedStocksService, transport);
+    const client = createClient(StockService, transport);
     const response = await client.getStockDetails({ productCode });
     return response;
   } catch (error) {
@@ -39,7 +39,7 @@ export async function fetchStockClient(
     const transport = createConnectTransport({
       baseUrl: typeof window !== "undefined" ? "" : getShortsApiUrl(),
     });
-    const client = createClient(ShortedStocksService, transport);
+    const client = createClient(StockService, transport);
     const response = await client.getStock({ productCode });
     return response;
   } catch (error) {

@@ -3,10 +3,8 @@ import { createConnectTransport } from "@connectrpc/connect-web";
 import { unstable_cache } from "next/cache";
 import { cache } from "react";
 
-import {
-  type GetIndustryIntelligenceResponse,
-  ShortedStocksService,
-} from "~/gen/shorts/v1alpha1/shorts_pb";
+import { type GetIndustryIntelligenceResponse } from "~/gen/shorts/v1alpha1/industry_pb";
+import { IndustryIntelligenceService } from "~/gen/shorts/v1alpha1/industry_pb";
 import {
   toSnapshot,
   type IndustryIntelligenceSnapshot,
@@ -40,7 +38,7 @@ const fetchIndustryIntelligence: GetIndustryIntelligenceAction = async (
     fetch: serverFetchOutsideNextCache,
     baseUrl: SERVER_SHORTS_API_URL,
   });
-  const client = createClient(ShortedStocksService, transport);
+  const client = createClient(IndustryIntelligenceService, transport);
   return await client.getIndustryIntelligence({
     industry,
     recordLimit,

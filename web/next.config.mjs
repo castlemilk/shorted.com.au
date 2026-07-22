@@ -302,6 +302,25 @@ const config = {
         source: "/shorts.v1alpha1.ShortedStocksService/:path*",
         destination: `${shortsApiUrl}/shorts.v1alpha1.ShortedStocksService/:path*`,
       },
+      // Per-domain services (shorts.proto split) — same backend, one rule per
+      // service because path-to-regexp params can't span the dotted segment.
+      ...[
+        "MarketService",
+        "StockService",
+        "SearchService",
+        "ScreenerService",
+        "NewsService",
+        "EnrichmentService",
+        "BillingService",
+        "AlertsService",
+        "ReportsService",
+        "HousingService",
+        "EconomyService",
+        "IndustryIntelligenceService",
+      ].map((svc) => ({
+        source: `/shorts.v1alpha1.${svc}/:path*`,
+        destination: `${shortsApiUrl}/shorts.v1alpha1.${svc}/:path*`,
+      })),
       {
         source: "/register.v1.RegisterService/:path*",
         destination: `${shortsApiUrl}/register.v1.RegisterService/:path*`,

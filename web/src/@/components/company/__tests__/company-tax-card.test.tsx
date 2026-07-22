@@ -3,10 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { getCompanyTaxProfileClient } from "~/app/actions/client/getCompanyTaxProfileClient";
-import {
-  GetCompanyTaxProfileResponseSchema,
-  type GetCompanyTaxProfileResponse,
-} from "~/gen/shorts/v1alpha1/shorts_pb";
+import { GetCompanyTaxProfileResponseSchema, type GetCompanyTaxProfileResponse } from "~/gen/shorts/v1alpha1/stock_pb";
 import { CompanyTaxCard } from "../company-tax-card";
 
 jest.mock("~/app/actions/client/getCompanyTaxProfileClient", () => ({

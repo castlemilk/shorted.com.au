@@ -3,10 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { listStateCompaniesClient } from "~/app/actions/client/getEconomyClient";
-import {
-  ListStateCompaniesResponseSchema,
-  type ListStateCompaniesResponse,
-} from "~/gen/shorts/v1alpha1/shorts_pb";
+import { ListStateCompaniesResponseSchema, type ListStateCompaniesResponse } from "~/gen/shorts/v1alpha1/economy_pb";
 import { StateCompanies } from "../state-companies";
 
 jest.mock("~/app/actions/client/getEconomyClient", () => ({

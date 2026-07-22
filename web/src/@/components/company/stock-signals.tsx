@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { StockService } from "~/gen/shorts/v1alpha1/stock_pb";
 import {
   Card,
   CardContent,
@@ -106,7 +106,7 @@ export function StockSignals({ stockCode, limit = 6 }: StockSignalsProps) {
     queryKey: ["stock-signals", stockCode, limit],
     queryFn: async () => {
       const transport = createConnectTransport({ baseUrl: "" });
-      const client = createClient(ShortedStocksService, transport);
+      const client = createClient(StockService, transport);
       return client.getStockSignals({ stockCode, limit });
     },
     staleTime: 30 * 60 * 1000,

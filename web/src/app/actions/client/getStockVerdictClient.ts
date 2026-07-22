@@ -1,7 +1,7 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
-import { type GetStockVerdictResponse } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { StockService } from "~/gen/shorts/v1alpha1/stock_pb";
+import { type GetStockVerdictResponse } from "~/gen/shorts/v1alpha1/stock_pb";
 import { SHORTS_API_URL } from "../config";
 import { retryWithBackoff } from "@/lib/retry";
 import { getSessionCached, setSessionCached } from "@/lib/session-cache";
@@ -34,7 +34,7 @@ export const getStockVerdictClient = async (
     baseUrl: typeof window !== "undefined" ? "" : SHORTS_API_URL,
   });
 
-  const client = createClient(ShortedStocksService, transport);
+  const client = createClient(StockService, transport);
 
   const result = await retryWithBackoff(
     () => client.getStockVerdict({ productCode }),

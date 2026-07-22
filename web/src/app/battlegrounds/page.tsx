@@ -9,7 +9,7 @@ import {
   DatasetStructuredData,
   ItemListStructuredData,
 } from "~/@/components/seo/enhanced-structured-data";
-import { BattlegroundView } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { BattlegroundView } from "~/gen/shorts/v1alpha1/market_pb";
 import { getBattlegrounds } from "~/app/actions/getBattlegrounds";
 import { toBattlegroundRows, type BattlegroundRow } from "./types";
 

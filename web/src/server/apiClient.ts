@@ -7,12 +7,12 @@
 
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient, type Client } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { MarketService } from "~/gen/shorts/v1alpha1/market_pb";
 import { getGoogleIdToken, isGoogleAuthAvailable } from "./getGoogleIdToken";
 import { auth } from "./auth";
 import { getServerShortsApiUrl, serverFetchWithUserAgent } from "~/app/actions/config";
 
-export type AuthenticatedClient = Client<typeof ShortedStocksService>;
+export type AuthenticatedClient = Client<typeof MarketService>;
 
 /**
  * Get authentication headers for API calls.
@@ -86,7 +86,7 @@ export async function createAuthenticatedClient(): Promise<AuthenticatedClient> 
   });
 
   // Create a client with default headers
-  const client = createClient(ShortedStocksService, transport);
+  const client = createClient(MarketService, transport);
 
   // Return a proxy that adds auth headers to all calls
   return new Proxy(client, {

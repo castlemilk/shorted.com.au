@@ -6,7 +6,7 @@ import { preload } from "react-dom";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { getEconomicSeries } from "~/app/actions/getEconomy";
 import { bailOnEmptyRender } from "~/app/actions/config";
-import type { GetEconomicSeriesResponse } from "~/gen/shorts/v1alpha1/shorts_pb";
+import type { GetEconomicSeriesResponse } from "~/gen/shorts/v1alpha1/economy_pb";
 import { EconomySeriesChart } from "@/components/economy/economy-charts";
 import { EconomyIcon, type EconomyIconName } from "@/components/economy/economy-icon";
 import { EconomyMapExplorer } from "@/components/economy/economy-map-loader";

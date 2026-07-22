@@ -7,7 +7,7 @@ import { LLMMeta } from "@/components/seo/llm-meta";
 import { HousingBreadcrumb } from "@/components/housing/housing-breadcrumb";
 import { SuburbProfile } from "@/components/housing/suburb-profile-loader";
 import { getSuburbProfile, resolveSuburbSalCode } from "~/app/actions/getHousing";
-import { GetSuburbProfileResponseSchema } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { GetSuburbProfileResponseSchema } from "~/gen/shorts/v1alpha1/housing_pb";
 import { STATE_NAMES, slugToState, stateSlug } from "@/lib/housing/states";
 
 export const revalidate = 86400;

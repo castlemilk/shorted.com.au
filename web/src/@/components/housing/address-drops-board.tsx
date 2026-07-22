@@ -4,10 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import type {
-  AddressPriceDrop,
-  ListAddressPriceDropsResponse,
-} from "~/gen/shorts/v1alpha1/shorts_pb";
+import type { AddressPriceDrop, ListAddressPriceDropsResponse } from "~/gen/shorts/v1alpha1/housing_pb";
 import { listAddressPriceDropsClient } from "~/app/actions/client/getHousingClient";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
 import { ALL_STATES, STATE_NAMES, slugToState } from "@/lib/housing/states";

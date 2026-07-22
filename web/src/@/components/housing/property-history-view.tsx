@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { getPropertyHistoryClient } from "~/app/actions/client/getHousingClient";
-import type { PropertyPriceEvent } from "~/gen/shorts/v1alpha1/shorts_pb";
+import type { PropertyPriceEvent } from "~/gen/shorts/v1alpha1/housing_pb";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
 import { ArticleSeriesChart, type SeriesPoint } from "@/components/news/mdx/article-series-chart";
 import { HousingIcon } from "./housing-icon";

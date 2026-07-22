@@ -5,11 +5,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { screenStocks } from "~/app/actions/screenStocks";
-import {
-  ScreenerSortField,
-  SortDirection,
-  type ScreenerStock,
-} from "~/gen/shorts/v1alpha1/shorts_pb";
+import { ScreenerSortField, SortDirection, type ScreenerStock } from "~/gen/shorts/v1alpha1/screener_pb";
 import { cn } from "~/@/lib/utils";
 
 function EmbedTopShortsInner() {

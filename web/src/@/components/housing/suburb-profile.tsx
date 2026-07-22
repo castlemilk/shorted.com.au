@@ -7,7 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   getSuburbProfileClient, listStateSuburbsClient, listSuburbDropListingsClient,
 } from "~/app/actions/client/getHousingClient";
-import { GetSuburbProfileResponseSchema } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { GetSuburbProfileResponseSchema } from "~/gen/shorts/v1alpha1/housing_pb";
 import { HousingSeriesChart } from "./housing-series-chart";
 import { SuburbBanner } from "./suburb-banner";
 import { SuburbLocatorMap } from "./suburb-locator-map";

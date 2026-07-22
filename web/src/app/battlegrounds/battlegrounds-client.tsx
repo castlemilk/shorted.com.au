@@ -4,7 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { BattlegroundView } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { BattlegroundView } from "~/gen/shorts/v1alpha1/market_pb";
 import { getBattlegroundsClient } from "~/app/actions/client/getBattlegroundsClient";
 import { getScoreboardClient } from "~/app/actions/client/getScoreboardClient";
 import {

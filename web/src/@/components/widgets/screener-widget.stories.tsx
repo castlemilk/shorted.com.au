@@ -35,7 +35,7 @@ import {
 } from "~/@/mocks/widget-story-helpers";
 import { screenerResponseFixture } from "~/@/mocks/fixtures/short-data";
 import { screenStocks } from "~/app/actions/screenStocks";
-import { ScreenStocksResponseSchema } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { ScreenStocksResponseSchema } from "~/gen/shorts/v1alpha1/screener_pb";
 
 /** formatPercent twin of the widget's own helper (signed, 2 dp). */
 const signedPct = (value: number) =>

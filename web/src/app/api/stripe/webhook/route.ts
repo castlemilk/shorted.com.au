@@ -5,8 +5,8 @@ import type Stripe from "stripe";
 import { stripe } from "~/lib/stripe";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
-import { SubscriptionStatus, SubscriptionTier } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { BillingService } from "~/gen/shorts/v1alpha1/billing_pb";
+import { SubscriptionStatus, SubscriptionTier } from "~/gen/shorts/v1alpha1/billing_pb";
 import { retryWithBackoff, type RetryOptions } from "@/lib/retry";
 import { timestampFromDate } from "@bufbuild/protobuf/wkt";
 import { recordProductEvent } from "~/@/lib/product-events";
@@ -32,7 +32,7 @@ const transport = createConnectTransport({
 });
 
 // Create gRPC client
-const client = createClient(ShortedStocksService, transport);
+const client = createClient(BillingService, transport);
 
 // Webhook secret for verifying Stripe signatures
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;

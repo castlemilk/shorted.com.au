@@ -1,23 +1,8 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
-import {
-  ShortedStocksService,
-  GetHousingOverviewResponseSchema,
-  GetPriceDropsOverviewResponseSchema,
-  ListSuburbPriceDropsResponseSchema,
-  ListAgencyPriceStatsResponseSchema,
-  ListAddressPriceDropsResponseSchema,
-  type GetHousingOverviewResponse,
-  type GetHousePriceSeriesResponse,
-  type ListStateSuburbsResponse,
-  type GetSuburbProfileResponse,
-  type ListSuburbPriceDropsResponse,
-  type ListSuburbDropListingsResponse,
-  type GetPriceDropsOverviewResponse,
-  type ListAgencyPriceStatsResponse,
-  type ListAddressPriceDropsResponse,
-} from "~/gen/shorts/v1alpha1/shorts_pb";
+import { GetHousingOverviewResponseSchema, GetPriceDropsOverviewResponseSchema, ListSuburbPriceDropsResponseSchema, ListAgencyPriceStatsResponseSchema, ListAddressPriceDropsResponseSchema, type GetHousingOverviewResponse, type GetHousePriceSeriesResponse, type ListStateSuburbsResponse, type GetSuburbProfileResponse, type ListSuburbPriceDropsResponse, type ListSuburbDropListingsResponse, type GetPriceDropsOverviewResponse, type ListAgencyPriceStatsResponse, type ListAddressPriceDropsResponse } from "~/gen/shorts/v1alpha1/housing_pb";
+import { HousingService } from "~/gen/shorts/v1alpha1/housing_pb";
 import { cache } from "react";
 import {
   SERVER_SHORTS_API_URL,
@@ -39,7 +24,7 @@ function createHousingClient() {
     fetch: serverFetchWithUserAgent,
     baseUrl: SERVER_SHORTS_API_URL,
   });
-  return createClient(ShortedStocksService, transport);
+  return createClient(HousingService, transport);
 }
 
 // A transport whose fetch tags the request ISR-cacheable. Without a `next`
@@ -59,7 +44,7 @@ function createCacheableHousingClient() {
     fetch: isrHousingFetch,
     baseUrl: SERVER_SHORTS_API_URL,
   });
-  return createClient(ShortedStocksService, transport);
+  return createClient(HousingService, transport);
 }
 
 /** Latest house-price headline metrics per region (optionally filtered by type). */

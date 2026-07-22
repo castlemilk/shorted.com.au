@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { type EditorialTake } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { type EditorialTake } from "~/gen/shorts/v1alpha1/news_pb";
 import { stockChipPalette } from "~/@/lib/stock-color";
 
 function fmtDate(ts: { seconds?: bigint | number } | undefined): string {

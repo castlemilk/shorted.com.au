@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { StatePriceDropSummary } from "~/gen/shorts/v1alpha1/shorts_pb";
+import type { StatePriceDropSummary } from "~/gen/shorts/v1alpha1/housing_pb";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
 import { STATE_NAMES, stateSlug } from "@/lib/housing/states";
 import { cn } from "@/lib/utils";

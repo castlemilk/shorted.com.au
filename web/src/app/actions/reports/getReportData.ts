@@ -1,6 +1,8 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { MarketService } from "~/gen/shorts/v1alpha1/market_pb";
+import { ReportsService } from "~/gen/shorts/v1alpha1/reports_pb";
+import { StockService } from "~/gen/shorts/v1alpha1/stock_pb";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { SHORTS_API_URL, serverFetchOutsideNextCache } from "../config";
@@ -92,7 +94,7 @@ async function fetchWeeklyReport(weekSlug: string): Promise<WeeklyReportData> {
     { weekSlug, startDate: startStr, endDate: endStr },
     async () => {
       const transport = getTransport();
-      const client = createClient(ShortedStocksService, transport);
+      const client = createClient(MarketService, transport);
 
       // Clamp the market-data query to the newest available trading date
       // WITHIN the week. Fresh reports publish Friday but the Friday's ASIC
@@ -148,7 +150,7 @@ async function fetchMonthlyReport(monthSlug: string): Promise<MonthlyReportData>
   const endDate = `${year}-${month}-${String(lastDay).padStart(2, "0")}`;
 
   const transport = getTransport();
-  const client = createClient(ShortedStocksService, transport);
+  const client = createClient(MarketService, transport);
 
   const monthNum = parseInt(month);
   const yearNum = parseInt(year);
@@ -335,7 +337,7 @@ async function fetchEnhancedReport(weekSlug: string): Promise<EnhancedWeeklyRepo
       { weekSlug },
       async () => {
         const transport = getTransport();
-        const client = createClient(ShortedStocksService, transport);
+        const client = createClient(ReportsService, transport);
         return client.getWeeklyReport({ weekSlug });
       },
     );
@@ -512,7 +514,7 @@ async function fetchStockFinancialHighlights(
 ): Promise<Record<string, StockFinancialHighlight[]>> {
   try {
     const transport = getTransport();
-    const client = createClient(ShortedStocksService, transport);
+    const client = createClient(StockService, transport);
 
     const resp = await client.getStockFinancialHighlights({
       stockCodes,
@@ -579,7 +581,7 @@ async function fetchReportsList(
 ): Promise<ReportListEntry[]> {
   return withSpan("report.fetch.list", { reportType, limit }, async () => {
     const transport = getTransport();
-    const client = createClient(ShortedStocksService, transport);
+    const client = createClient(ReportsService, transport);
     const resp = await client.listReports({ reportType, limit });
     // Defense against partial rows: the generator can leave a published_at
     // row whose narrative never landed (July 2026: a 2026-W28 row surfaced

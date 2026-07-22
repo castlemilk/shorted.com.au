@@ -1,4 +1,4 @@
-import type { StatePriceDropSummary } from "~/gen/shorts/v1alpha1/shorts_pb";
+import type { StatePriceDropSummary } from "~/gen/shorts/v1alpha1/housing_pb";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
 import { HousingIcon, type HousingIconName } from "@/components/housing/housing-icon";
 

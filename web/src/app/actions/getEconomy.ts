@@ -1,14 +1,8 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
-import {
-  ShortedStocksService,
-  GetEconomicSeriesResponseSchema,
-  type GetEconomicSeriesResponse,
-  type GetStateCompanyAggregatesResponse,
-  type ListEconomicSeriesResponse,
-  type ListStateCompaniesResponse,
-} from "~/gen/shorts/v1alpha1/shorts_pb";
+import { GetEconomicSeriesResponseSchema, type GetEconomicSeriesResponse, type GetStateCompanyAggregatesResponse, type ListEconomicSeriesResponse, type ListStateCompaniesResponse } from "~/gen/shorts/v1alpha1/economy_pb";
+import { EconomyService } from "~/gen/shorts/v1alpha1/economy_pb";
 import { cache } from "react";
 import {
   SERVER_SHORTS_API_URL,
@@ -35,7 +29,7 @@ function createEconomyClient() {
     fetch: isrEconomyFetch,
     baseUrl: SERVER_SHORTS_API_URL,
   });
-  return createClient(ShortedStocksService, transport);
+  return createClient(EconomyService, transport);
 }
 
 /** Observations for up to 50 economic series keys. */

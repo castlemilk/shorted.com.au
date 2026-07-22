@@ -4,10 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import Link from "next/link";
-import {
-  ShortedStocksService,
-  type NewsArticle,
-} from "~/gen/shorts/v1alpha1/shorts_pb";
+import { type NewsArticle } from "~/gen/shorts/v1alpha1/news_pb";
+import { NewsService } from "~/gen/shorts/v1alpha1/news_pb";
 import {
   Card,
   CardContent,
@@ -24,7 +22,7 @@ import { AlertTriangle, Newspaper, RefreshCw } from "lucide-react";
 
 function newsClient() {
   const transport = createConnectTransport({ baseUrl: "" });
-  return createClient(ShortedStocksService, transport);
+  return createClient(NewsService, transport);
 }
 
 /** Feed query — key kept identical to the legacy StockNewsFeed. */

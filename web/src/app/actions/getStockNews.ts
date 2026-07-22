@@ -1,7 +1,7 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
-import { type GetStockNewsResponse } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { NewsService } from "~/gen/shorts/v1alpha1/news_pb";
+import { type GetStockNewsResponse } from "~/gen/shorts/v1alpha1/news_pb";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { SERVER_SHORTS_API_URL, serverFetchOutsideNextCache } from "./config";
@@ -14,7 +14,7 @@ function createNewsClient() {
     fetch: serverFetchOutsideNextCache,
     baseUrl: SERVER_SHORTS_API_URL,
   });
-  return createClient(ShortedStocksService, transport);
+  return createClient(NewsService, transport);
 }
 
 export const getStockNews = cache(

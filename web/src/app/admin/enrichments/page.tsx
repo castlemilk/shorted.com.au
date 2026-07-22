@@ -25,7 +25,7 @@ import { getPendingEnrichments } from "~/app/actions/getPendingEnrichments";
 import { getEnrichmentComparison } from "~/app/actions/getEnrichmentComparison";
 import { reviewEnrichmentAction } from "~/app/actions/reviewEnrichment";
 import { triggerEnrichmentAction } from "~/app/actions/triggerEnrichment";
-import { EnrichmentStatus } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { EnrichmentStatus } from "~/gen/shorts/v1alpha1/enrichment_pb";
 import { EnrichmentJobsStatus } from "@/components/admin/enrichment-jobs-status";
 import { retryWithBackoff } from "@/lib/retry";
 

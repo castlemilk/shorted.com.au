@@ -4,7 +4,7 @@ import { stripe } from "~/lib/stripe";
 import { auth } from "~/server/auth";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { BillingService } from "~/gen/shorts/v1alpha1/billing_pb";
 import { rateLimit } from "~/@/lib/rate-limit";
 import { recordProductEvent } from "~/@/lib/product-events";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "~/app/actions/config";
@@ -14,7 +14,7 @@ const transport = createConnectTransport({
   fetch: serverFetchWithUserAgent,
   baseUrl: SHORTS_API_URL,
 });
-const client = createClient(ShortedStocksService, transport);
+const client = createClient(BillingService, transport);
 
 export async function POST(request: NextRequest) {
   const started = Date.now();

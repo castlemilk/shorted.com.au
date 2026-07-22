@@ -19,7 +19,7 @@ jest.mock("~/app/actions/getIndustryTreeMap", () => ({
 }));
 
 // Mock protobuf to avoid import issues
-jest.mock("~/gen/shorts/v1alpha1/shorts_pb", () => ({
+jest.mock("~/gen/shorts/v1alpha1/market_pb", () => ({
   ViewMode: {
     CURRENT_CHANGE: 0,
   },

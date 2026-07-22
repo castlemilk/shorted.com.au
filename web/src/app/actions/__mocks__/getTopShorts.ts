@@ -10,7 +10,7 @@
  *   mocked(getTopShortsData).mockResolvedValue(topShortsResponseFixture())
  */
 import { fn } from "storybook/test";
-import type { GetTopShortsResponse } from "~/gen/shorts/v1alpha1/shorts_pb";
+import type { GetTopShortsResponse } from "~/gen/shorts/v1alpha1/market_pb";
 
 export const getTopShortsData =
   fn<

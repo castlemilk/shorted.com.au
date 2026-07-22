@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { CompanyTaxYear } from "~/gen/shorts/v1alpha1/shorts_pb";
+import type { CompanyTaxYear } from "~/gen/shorts/v1alpha1/stock_pb";
 import { getCompanyTaxProfileClient } from "~/app/actions/client/getCompanyTaxProfileClient";
 import {
   Card,

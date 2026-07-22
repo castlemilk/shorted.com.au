@@ -3,7 +3,8 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { revalidatePath } from "next/cache";
-import { ShortedStocksService, TakeStatus } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { TakeStatus } from "~/gen/shorts/v1alpha1/news_pb";
+import { NewsService } from "~/gen/shorts/v1alpha1/news_pb";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "~/app/actions/config";
 import { requireAdmin } from "~/server/admin";
 
@@ -12,7 +13,7 @@ function adminClient() {
     fetch: serverFetchWithUserAgent,
     baseUrl: SHORTS_API_URL,
   });
-  return createClient(ShortedStocksService, transport);
+  return createClient(NewsService, transport);
 }
 
 export async function listTakesAdmin(filter?: "draft" | "published" | "tweeted") {

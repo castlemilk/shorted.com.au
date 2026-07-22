@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { getEconomicSeriesClient } from "~/app/actions/client/getEconomyClient";
-import type { GetEconomicSeriesResponse } from "~/gen/shorts/v1alpha1/shorts_pb";
+import type { GetEconomicSeriesResponse } from "~/gen/shorts/v1alpha1/economy_pb";
 import { STATE_NAMES, type StateSlug } from "@/lib/economy/map-metrics";
 import type { Obs } from "@/lib/economy/map-metrics";
 import { topCorrelations } from "@/lib/economy/correlation";

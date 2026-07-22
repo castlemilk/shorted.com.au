@@ -2,7 +2,7 @@
 
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { EnrichmentService } from "~/gen/shorts/v1alpha1/enrichment_pb";
 import { requireAdmin } from "~/server/admin";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 import { retryWithBackoff } from "@/lib/retry";
@@ -21,7 +21,7 @@ export async function getPendingEnrichments(limit = 100, offset = 0) {
     fetch: serverFetchWithUserAgent,
     baseUrl: SHORTS_API_URL,
   });
-  const client = createClient(ShortedStocksService, transport);
+  const client = createClient(EnrichmentService, transport);
 
   const internalSecret = process.env.INTERNAL_SECRET ?? "dev-internal-secret";
 

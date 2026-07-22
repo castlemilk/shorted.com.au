@@ -3,12 +3,8 @@
 import { Code, ConnectError, createClient } from "@connectrpc/connect";
 import { createConnectTransport } from "@connectrpc/connect-web";
 
-import {
-  AlertMonitorCadence,
-  AlertMonitorCondition,
-  AlertMonitorScope,
-  ShortedStocksService,
-} from "~/gen/shorts/v1alpha1/shorts_pb";
+import { AlertMonitorCadence, AlertMonitorCondition, AlertMonitorScope } from "~/gen/shorts/v1alpha1/alerts_pb";
+import { AlertsService } from "~/gen/shorts/v1alpha1/alerts_pb";
 import { auth } from "~/server/auth";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 
@@ -89,7 +85,7 @@ export async function createAlertMonitor(
       session.user.id,
       session.user.email ?? "",
     );
-    const client = createClient(ShortedStocksService, transport);
+    const client = createClient(AlertsService, transport);
     const response = await client.createAlertMonitor({
       scope:
         input.scope === "industry"

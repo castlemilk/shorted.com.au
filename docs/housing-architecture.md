@@ -608,10 +608,14 @@ Cloud Run RPC volume for the page down to ~hourly worst case.
   suburbs (`property_listings` sal link) + shim `agy --effort low` (~7s/call) ≈ 15–20 min ≈ $1–2,
   vs ~18h/$30–60 for the full priced set. No overwrite flag; a valid LLM `archetype_hint`
   OVERWRITES the classifier's background choice.
-- **Bundle-weight landmine**: protobuf-es schemas reference the WHOLE-FILE descriptor, so every
-  message added to the monolithic `shorts.proto` adds ~1:1 first-load weight to EVERY route that
-  imports anything from `shorts_pb.ts` (the arc cost ~+31kB × 6 routes; budgets re-based in
-  `web/scripts/bundle-budget.mjs`). Reclaim: split `shorts.proto` into per-domain files.
+- **Bundle-weight landmine — RECLAIMED 2026-07-22**: protobuf-es schemas reference the
+  WHOLE-FILE descriptor, so the monolithic `shorts.proto` used to add ~1:1 first-load weight
+  to EVERY route importing anything from `shorts_pb.ts`. Fixed by splitting `shorts.proto`
+  into 12 per-domain files (`housing.proto`/`market.proto`/…), each with its own service
+  (`HousingService` etc.) mounted alongside the legacy `ShortedStocksService` — routes now
+  carry only their own domain's descriptor (−25–31kB × 9 routes; budgets tightened back in
+  `web/scripts/bundle-budget.mjs`). Keep new housing messages in `housing.proto`; import
+  from `~/gen/shorts/v1alpha1/housing_pb` and call via `HousingService`.
 
 ### 10.5 Extension recipes
 

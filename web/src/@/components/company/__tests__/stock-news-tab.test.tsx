@@ -4,11 +4,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { createClient } from "@connectrpc/connect";
-import {
-  GetRelatedNewsResponseSchema,
-  GetStockNewsResponseSchema,
-  NewsArticleSchema,
-} from "~/gen/shorts/v1alpha1/shorts_pb";
+import { GetRelatedNewsResponseSchema, GetStockNewsResponseSchema, NewsArticleSchema } from "~/gen/shorts/v1alpha1/news_pb";
 import { StockNewsTab } from "../stock-news-tab";
 
 jest.mock("next/link", () => ({

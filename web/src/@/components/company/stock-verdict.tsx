@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { VerdictLabel } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { VerdictLabel } from "~/gen/shorts/v1alpha1/stock_pb";
 import { getStockVerdictClient } from "~/app/actions/client/getStockVerdictClient";
 import {
   Card,
