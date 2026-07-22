@@ -582,14 +582,15 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 
 		// A job that wrote no events off a blocked/poisoned sweep means the browser
 		// session has gone cold — Kasada/Akamai serving stubs or poison, or an IP
-		// throttle after several heavy sweeps. The submit above marked it failed
-		// (terminal). Two such jobs in a row ⇒ the session is degraded, so STOP
-		// claiming and flag a re-warm (exit 3) instead of burning the rest of the
-		// still-PENDING queue on a session that will keep returning blocked — those
-		// un-claimed suburbs stay pending for the next warm run (this break is what
-		// protects them; the two that already blocked are terminally failed and need
-		// a re-enqueue). (Observed live: New Farm then Toowong both blocked
-		// back-to-back once the session throttled.)
+		// throttle after several heavy sweeps. The submit above marked it failed.
+		// Two such jobs in a row ⇒ the session is degraded, so STOP claiming and
+		// flag a re-warm (exit 3) instead of burning the rest of the still-PENDING
+		// queue on a session that will keep returning blocked — those un-claimed
+		// suburbs stay pending for the next warm run, and (since brandbrain PR
+		// #168) the two that already blocked auto-re-pend too while
+		// attempts<max_attempts, so a later warm run retries them for free.
+		// (Observed live: New Farm then Toowong both blocked back-to-back once
+		// the session throttled.)
 		if status == "failed" && summary.Events == 0 && summary.BlockedSweeps > 0 {
 			consecBlocked++
 			if consecBlocked >= 2 {
@@ -602,21 +603,30 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 		}
 	}
 
-	// Refresh MVs + sal-link once at the end of the run (not per job).
+	// Refresh MVs + sal-link once at the end of the run (not per job) — on a
+	// DETACHED context, same reason as submit above: finalizing ALREADY-COMMITTED
+	// writes must not die with the run deadline. Observed live: the deadline fired
+	// mid-batch and took the sal-link, the MV refresh AND the revalidate ping with
+	// it, leaving fresh data invisible on /price-drops until an unrelated later run.
 	if wroteAny && !cfg.dryRun {
-		if _, err := linkSuburbSalCodes(ctx, pool); err != nil {
+		finCtx, finCancel := context.WithTimeout(context.Background(), finalizeTimeout)
+		if _, err := linkSuburbSalCodes(finCtx, pool); err != nil {
 			log.Printf("[agent] suburb sal_code link failed: %v", err)
 		}
-		if _, err := linkListingSalCodes(ctx, pool); err != nil {
+		if _, err := linkListingSalCodes(finCtx, pool); err != nil {
 			log.Printf("[agent] listing sal_code link failed: %v", err)
 		}
-		if err := refreshHousingMV(ctx, pool); err != nil {
+		if _, err := linkPriceEventSalCodes(finCtx, pool); err != nil {
+			log.Printf("[agent] price-event sal_code link failed: %v", err)
+		}
+		if err := refreshHousingMV(finCtx, pool); err != nil {
 			log.Printf("[agent] mv refresh failed: %v", err)
 		} else {
 			// Data changed (wroteAny) + MVs refreshed → bust the web tier's
 			// long-TTL housing caches now. Best-effort, never fails the run.
 			pingRevalidate("agent")
 		}
+		finCancel()
 	}
 	log.Printf("[agent] done: processed %d job(s)", done)
 	if anyRewarm {
@@ -706,12 +716,11 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 	// no events got no usable data, so mark the job FAILED rather than banking a
 	// silent no-data "success". (Observed live: QLD suburbs collected page 1, hit a
 	// mid-sweep poison gate → seen=118, events=0, and were wrongly reported
-	// "succeeded".) NOTE: "failed" is terminal in the brandbrain queue — it does
-	// NOT auto-re-pend. The queue only auto-retries lease-EXPIRED (unsubmitted)
-	// jobs while attempts<max_attempts; a terminally-failed suburb is re-crawled by
-	// the next full `-mode enqueue` or a targeted re-enqueue. (A queue-side change
-	// to re-pend a submitted "failed" while attempts remain would give free
-	// warm-session retries — see the brandbrain crawl_jobs Submit handler.)
+	// "succeeded".) NOTE: since brandbrain PR #168 a submitted "failed" AUTO-
+	// RE-PENDS in the queue while attempts<max_attempts (same as a lease-expired
+	// job), so a failed suburb gets free retries in later warm sessions; only a
+	// suburb that exhausts max_attempts stays terminally failed until the next
+	// full `-mode enqueue` or a targeted re-enqueue.
 	// A diff (persist) error takes precedence over the counts-only outcome: the
 	// sweep saw listings but couldn't write them, so the suburb MUST re-crawl.
 	// Reporting "succeeded" here (as the old code did — crawlSuburbSource

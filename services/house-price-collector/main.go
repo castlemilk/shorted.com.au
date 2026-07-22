@@ -30,9 +30,18 @@ func run() int {
 		log.Fatal("DATABASE_URL is required")
 	}
 
-	// Configurable overall deadline — a slow, paced live listings crawl needs longer
-	// than the 15-min default used by the quick official/refresh runs.
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(envInt("CRAWL_TIMEOUT_MIN", 15))*time.Minute)
+	// Configurable overall deadline. The slow, paced live-crawl modes (a full
+	// queue drain walks many suburbs at 8-20s page jitter, ~2-3 min per suburb)
+	// default far higher than the quick official/refresh runs: callers that set
+	// no CRAWL_TIMEOUT_MIN — the bundled macOS agent's Auto-crawl among them —
+	// were getting the 15-min default and self-aborting a healthy batch a few
+	// suburbs in, killing the in-flight suburb's writes with it.
+	defaultTimeoutMin := 15
+	switch *mode {
+	case "agent", "listings", "crawl":
+		defaultTimeoutMin = 240
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(envInt("CRAWL_TIMEOUT_MIN", defaultTimeoutMin))*time.Minute)
 	defer cancel()
 
 	pool, err := connect(ctx, dbURL)
@@ -272,6 +281,12 @@ func runBanners(ctx context.Context, pool *pgxpool.Pool) {
 }
 
 func refresh(ctx context.Context, pool *pgxpool.Pool) {
+	// Finalize on a DETACHED context (not the caller's run deadline): this links
+	// + refreshes writes that already committed, and `-mode crawl` shares the
+	// same long-deadline class as agent/listings — a deadline firing mid-crawl
+	// must not kill the MV refresh for data that's already in.
+	ctx, cancel := context.WithTimeout(context.Background(), finalizeTimeout)
+	defer cancel()
 	// Link any newly-ingested suburb regions to their ABS sal_code first, so the
 	// suburb map (which reads house_prices via the sal_code bridge) paints without
 	// a manual backfill step.
