@@ -1,7 +1,9 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
+import { fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
 import {
   ShortedStocksService,
+  GetEconomicSeriesResponseSchema,
   type GetEconomicSeriesResponse,
   type GetStateCompanyAggregatesResponse,
   type ListEconomicSeriesResponse,
@@ -14,17 +16,18 @@ import {
   skipForBuild,
 } from "./config";
 import { withRetryAndNotFound } from "./withRetry";
+import { CACHE_KEYS, ECONOMY_TTL, getCached, setCached } from "@/lib/kv-cache";
 
-// A transport whose fetch tags the request ISR-cacheable — mirrors
-// isrHousingFetch in getHousing.ts. Without a `next` (or explicit `cache`)
-// option, serverFetchWithUserAgent forces `cache:'no-store'` on POSTs at
-// Vercel runtime, which opts the whole route out of static generation.
-const isrEconomyFetch: typeof fetch = (input, init) =>
-  serverFetchWithUserAgent(input, { ...init, next: { revalidate: 3600 } });
-
-function createCacheableEconomyClient() {
+// Plain (uncached-fetch) transport. Deliberately NOT tagged with
+// `next: { revalidate }`: connect-web streams its POST bodies, which the Next
+// data cache cannot key — at runtime that throws "Failed to generate cache
+// key" inside ISR regeneration (the exact failure documented in sitemap.ts),
+// the fetch fails, withRetryAndNotFound returns undefined, and the /economy
+// placeholder gets BAKED into the page cache for an hour. Freshness/cost is
+// handled by the page-level ISR window plus the Upstash KV layer below.
+function createEconomyClient() {
   const transport = createConnectTransport({
-    fetch: isrEconomyFetch,
+    fetch: serverFetchWithUserAgent,
     baseUrl: SERVER_SHORTS_API_URL,
   });
   return createClient(ShortedStocksService, transport);
@@ -41,8 +44,39 @@ export const getEconomicSeries = cache(
       // first request. Mirrors getHousingOverview in getHousing.ts.
       if (skipForBuild()) return undefined;
 
-      const client = createCacheableEconomyClient();
-      return client.getEconomicSeries({ seriesKeys });
+      // KV cache (Upstash, TTL-only) — the last-good fallback that stops a
+      // transient RPC failure during ISR regen from baking the empty-state
+      // placeholder for an hour. Cache the JSON projection (the proto carries
+      // int64 Timestamps that JSON.stringify can't serialize) and rehydrate
+      // via fromJson so observation periods keep their BigInt seconds.
+      const cacheKey = CACHE_KEYS.economicSeries(
+        [...seriesKeys].sort().join(","),
+      );
+      const cached = await getCached<JsonValue>(cacheKey);
+      if (cached != null) {
+        try {
+          return fromJson(GetEconomicSeriesResponseSchema, cached);
+        } catch {
+          // Schema drift / bad entry — fall through to a live fetch.
+        }
+      }
+
+      const client = createEconomyClient();
+      const resp = await client.getEconomicSeries({ seriesKeys });
+      // Never cache an EMPTY response — a transient empty would pin the
+      // placeholder for the full TTL. Only cache real series.
+      if (resp.series.length > 0) {
+        try {
+          void setCached(
+            cacheKey,
+            toJson(GetEconomicSeriesResponseSchema, resp),
+            ECONOMY_TTL,
+          );
+        } catch {
+          // Serialization/caching must never break the request.
+        }
+      }
+      return resp;
     },
   ),
 );
@@ -57,7 +91,7 @@ export const listEconomicSeries = cache(
     ): Promise<ListEconomicSeriesResponse | undefined> => {
       if (skipForBuild()) return undefined;
 
-      const client = createCacheableEconomyClient();
+      const client = createEconomyClient();
       return client.listEconomicSeries({ topic, metric, regionType, limit: 500 });
     },
   ),
@@ -69,7 +103,7 @@ export const getStateCompanyAggregates = cache(
     async (): Promise<GetStateCompanyAggregatesResponse | undefined> => {
       if (skipForBuild()) return undefined;
 
-      const client = createCacheableEconomyClient();
+      const client = createEconomyClient();
       return client.getStateCompanyAggregates({});
     },
   ),
@@ -84,7 +118,7 @@ export const listStateCompanies = cache(
     ): Promise<ListStateCompaniesResponse | undefined> => {
       if (skipForBuild()) return undefined;
 
-      const client = createCacheableEconomyClient();
+      const client = createEconomyClient();
       return client.listStateCompanies({ state, limit });
     },
   ),
