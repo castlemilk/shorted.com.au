@@ -11,12 +11,20 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/pkg/absdata"
 )
 
+// allJobModes is kept explicit so collection order is deterministic and a
+// failed importer counts once in the all-mode summary. Markets remains last
+// because it derives observations from data already in the database.
+var allJobModes = []string{
+	"rba", "cpi", "labour", "trade", "gdp", "approvals", "retail", "population",
+	"petroleum", "govfin", "markets",
+}
+
 func main() {
 	os.Exit(run())
 }
 
 func run() int {
-	mode := flag.String("mode", "all", "sources | rba | cpi | labour | trade | gdp | petroleum | govfin | markets | all")
+	mode := flag.String("mode", "all", "sources | rba | cpi | labour | trade | gdp | approvals | retail | population | petroleum | govfin | markets | all")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -40,13 +48,16 @@ func run() int {
 		fn   func(context.Context, *absdata.Client) ([]Obs, error)
 	}
 	jobs := map[string]job{
-		"rba":       {"rba-key-indicators", ingestRBA},
-		"cpi":       {"abs-cpi", ingestCPI},
-		"labour":    {"abs-labour-force", ingestLabour},
-		"trade":     {"abs-merch-trade-state", ingestTradeByState},
-		"gdp":       {"abs-state-accounts", ingestStateAccounts},
-		"petroleum": {"dcceew-petroleum-statistics", ingestPetroleum},
-		"govfin":    {"abs-government-finance", ingestGovFin},
+		"rba":        {"rba-key-indicators", ingestRBA},
+		"cpi":        {"abs-cpi", ingestCPI},
+		"labour":     {"abs-labour-force", ingestLabour},
+		"trade":      {"abs-merch-trade-state", ingestTradeByState},
+		"gdp":        {"abs-state-accounts", ingestStateAccounts},
+		"approvals":  {"abs-building-approvals", ingestApprovals},
+		"retail":     {"abs-retail-trade", ingestRetail},
+		"population": {"abs-population", ingestPopulation},
+		"petroleum":  {"dcceew-petroleum-statistics", ingestPetroleum},
+		"govfin":     {"abs-government-finance", ingestGovFin},
 		// markets is DERIVED from the DB (shorts × exposure MV), not fetched
 		// from a web source — so it takes the pool, not the client. Wrap it in
 		// a client-shaped closure so it reuses the same runJob plumbing; the
@@ -88,7 +99,7 @@ func run() int {
 		if err := registerSources(ctx, pool); err != nil {
 			log.Fatalf("register sources: %v", err)
 		}
-	case "rba", "cpi", "labour", "trade", "gdp", "petroleum", "govfin", "markets":
+	case "rba", "cpi", "labour", "trade", "gdp", "approvals", "retail", "population", "petroleum", "govfin", "markets":
 		if err := registerSources(ctx, pool); err != nil {
 			log.Fatalf("register sources: %v", err)
 		}
@@ -104,18 +115,17 @@ func run() int {
 		// separate pipeline, not this collector) — no in-run dependency on the
 		// other importers, but ordering it last keeps the "derived from the
 		// rest of the DB" step at the end.
-		names := []string{"rba", "cpi", "labour", "trade", "gdp", "petroleum", "govfin", "markets"}
-		for _, name := range names {
+		for _, name := range allJobModes {
 			if !runJob(jobs[name]) {
 				failed++
 			}
 		}
 		if failed > 0 {
-			log.Printf("%d/%d sources failed", failed, len(names))
+			log.Printf("%d/%d sources failed", failed, len(allJobModes))
 			return 1
 		}
 	default:
-		log.Fatalf("unknown -mode %q (want sources|rba|cpi|labour|trade|gdp|petroleum|govfin|markets|all)", *mode)
+		log.Fatalf("unknown -mode %q (want sources|rba|cpi|labour|trade|gdp|approvals|retail|population|petroleum|govfin|markets|all)", *mode)
 	}
 	return 0
 }

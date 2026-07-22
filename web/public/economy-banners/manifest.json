@@ -1,0 +1,34 @@
+{
+  "wa": {
+    "light": "/economy-banners/bg/wa.light.avif",
+    "dark": "/economy-banners/bg/wa.dark.avif"
+  },
+  "qld": {
+    "light": "/economy-banners/bg/qld.light.avif",
+    "dark": "/economy-banners/bg/qld.dark.avif"
+  },
+  "nsw": {
+    "light": "/economy-banners/bg/nsw.light.avif",
+    "dark": "/economy-banners/bg/nsw.dark.avif"
+  },
+  "vic": {
+    "light": "/economy-banners/bg/vic.light.avif",
+    "dark": "/economy-banners/bg/vic.dark.avif"
+  },
+  "sa": {
+    "light": "/economy-banners/bg/sa.light.avif",
+    "dark": "/economy-banners/bg/sa.dark.avif"
+  },
+  "tas": {
+    "light": "/economy-banners/bg/tas.light.avif",
+    "dark": "/economy-banners/bg/tas.dark.avif"
+  },
+  "nt": {
+    "light": "/economy-banners/bg/nt.light.avif",
+    "dark": "/economy-banners/bg/nt.dark.avif"
+  },
+  "act": {
+    "light": "/economy-banners/bg/act.light.avif",
+    "dark": "/economy-banners/bg/act.dark.avif"
+  }
+}

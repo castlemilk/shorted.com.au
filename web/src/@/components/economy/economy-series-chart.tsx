@@ -6,6 +6,10 @@ import { ArticleSeriesChart } from "@/components/news/mdx/article-series-chart";
 
 // Formatter chosen by a serializable key — functions can't cross the
 // server→client component boundary, so the server page passes `format`.
+const COMPACT_NUMBER = new Intl.NumberFormat("en-AU", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
 const FORMATTERS: Record<string, (v: number) => string> = {
   aud: (v) =>
     Math.abs(v) >= 1_000_000_000
@@ -26,6 +30,7 @@ const FORMATTERS: Record<string, (v: number) => string> = {
   },
   percent: (v) => `${v.toFixed(1)}%`,
   index: (v) => v.toFixed(1),
+  number: (v) => COMPACT_NUMBER.format(v),
   megalitres: (v) =>
     Math.abs(v) >= 1_000 ? `${(v / 1_000).toFixed(1)}GL` : `${v.toFixed(0)}ML`,
   usd: (v) => v.toFixed(2),
@@ -44,7 +49,7 @@ export function EconomySeriesChart({
 }: {
   seriesKey: string;
   ariaLabel: string;
-  format?: "aud" | "aud_signed" | "percent" | "index" | "megalitres" | "usd";
+  format?: "aud" | "aud_signed" | "percent" | "index" | "number" | "megalitres" | "usd";
   height?: number;
 }) {
   const { data, isLoading } = useQuery({
