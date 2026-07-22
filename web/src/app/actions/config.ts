@@ -2,6 +2,7 @@
  * Centralized configuration for server actions
  * Uses environment variables with fallbacks for different environments
  */
+import { unstable_noStore } from "next/cache";
 
 export function normalizeApiBaseUrl(
   value: string | undefined,
@@ -33,6 +34,25 @@ export function skipForBuild(): boolean {
     process.env.SKIP_STATIC_GENERATION === "1" &&
     process.env.NEXT_PHASE === "phase-production-build"
   );
+}
+
+/**
+ * Mark the CURRENT render uncacheable — call from a static-ISR page exactly
+ * when it is about to render its data-empty fallback. Without this, a single
+ * failed fetch during a regeneration (e.g. a cold Cloud Run right after a
+ * deploy, min-instances=0) bakes the "data is loading" shell into the route
+ * cache for the FULL revalidate window. With it, the empty render is served
+ * once, uncached, so the very next request retries; a background revalidation
+ * that comes up empty bails out and keeps serving the previous good page.
+ *
+ * No-ops during the production build: the deliberately-empty skipForBuild
+ * prerender must keep the route STATIC (the post-deploy warm-cache call fills
+ * it) — calling noStore at build time would flip the whole route to dynamic
+ * and undo the ISR optimization.
+ */
+export function bailOnEmptyRender(): void {
+  if (skipForBuild()) return;
+  unstable_noStore();
 }
 
 export function buildApiUrl(baseUrl: string, path: string): string {

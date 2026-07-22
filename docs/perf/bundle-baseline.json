@@ -1,40 +1,43 @@
 {
-  "capturedAt": "2026-07-16T13:04:13.624Z",
+  "capturedAt": "2026-07-22T00:18:04.624Z",
   "gitRef": null,
   "unit": "kB (Next First Load JS, raw)",
-  "sharedByAllKB": 95.1,
+  "sharedByAllKB": 95.4,
   "routes": {
     "/": {
-      "firstLoadKB": 194
+      "firstLoadKB": 197
     },
     "/_not-found": {
-      "firstLoadKB": 95.2
+      "firstLoadKB": 95.6
     },
     "/about": {
       "firstLoadKB": 122
     },
     "/admin": {
-      "firstLoadKB": 136
+      "firstLoadKB": 138
     },
     "/admin/broadcasts": {
       "firstLoadKB": 107
     },
     "/admin/enrichments": {
-      "firstLoadKB": 170
+      "firstLoadKB": 174
     },
     "/admin/takes": {
-      "firstLoadKB": 102
+      "firstLoadKB": 103
     },
     "/admin/takes/[slug]": {
-      "firstLoadKB": 589
+      "firstLoadKB": 590
     },
     "/alerts": {
-      "firstLoadKB": 127
+      "firstLoadKB": 128
     },
     "/api/about/statistics": {
       "firstLoadKB": 0
     },
     "/api/about/warm-cache": {
+      "firstLoadKB": 0
+    },
+    "/api/admin/flush-cache": {
       "firstLoadKB": 0
     },
     "/api/admin/regen-hero": {
@@ -77,7 +80,7 @@
       "firstLoadKB": 0
     },
     "/api/docs": {
-      "firstLoadKB": 95.2
+      "firstLoadKB": 95.6
     },
     "/api/email/img": {
       "firstLoadKB": 0
@@ -112,6 +115,9 @@
     "/api/search/stocks": {
       "firstLoadKB": 0
     },
+    "/api/static-pages/warm-cache": {
+      "firstLoadKB": 0
+    },
     "/api/stocks/multiple": {
       "firstLoadKB": 0
     },
@@ -134,16 +140,16 @@
       "firstLoadKB": 0
     },
     "/authors": {
-      "firstLoadKB": 131
+      "firstLoadKB": 132
     },
     "/authors/[slug]": {
-      "firstLoadKB": 131
+      "firstLoadKB": 132
     },
     "/battlegrounds": {
-      "firstLoadKB": 196
+      "firstLoadKB": 227
     },
     "/blog": {
-      "firstLoadKB": 115
+      "firstLoadKB": 116
     },
     "/blog/[slug]": {
       "firstLoadKB": 119
@@ -155,37 +161,37 @@
       "firstLoadKB": 0
     },
     "/chat": {
-      "firstLoadKB": 719
+      "firstLoadKB": 721
     },
     "/chat.v1.ChatService/[method]": {
       "firstLoadKB": 0
     },
     "/compare": {
-      "firstLoadKB": 103
+      "firstLoadKB": 104
     },
     "/compare/[pair]": {
-      "firstLoadKB": 103
+      "firstLoadKB": 104
     },
     "/dashboards": {
-      "firstLoadKB": 261
+      "firstLoadKB": 295
     },
     "/data": {
-      "firstLoadKB": 131
+      "firstLoadKB": 132
     },
     "/developer": {
-      "firstLoadKB": 119
+      "firstLoadKB": 120
     },
     "/directory": {
-      "firstLoadKB": 131
+      "firstLoadKB": 137
     },
     "/directory/[letter]": {
-      "firstLoadKB": 131
+      "firstLoadKB": 137
     },
     "/disclaimer": {
-      "firstLoadKB": 103
+      "firstLoadKB": 104
     },
     "/docs/api": {
-      "firstLoadKB": 124
+      "firstLoadKB": 125
     },
     "/docs/api-reference": {
       "firstLoadKB": 0
@@ -194,31 +200,37 @@
       "firstLoadKB": 115
     },
     "/docs/api/clients/[language]": {
-      "firstLoadKB": 102
+      "firstLoadKB": 103
     },
     "/docs/llm-context": {
-      "firstLoadKB": 102
+      "firstLoadKB": 103
     },
     "/docs/llm-context-raw": {
       "firstLoadKB": 0
     },
     "/e2e-chat-render": {
-      "firstLoadKB": 589
+      "firstLoadKB": 590
+    },
+    "/economy": {
+      "firstLoadKB": 132
+    },
+    "/economy/[state]": {
+      "firstLoadKB": 132
     },
     "/embed/bank-basket": {
-      "firstLoadKB": 96.7
+      "firstLoadKB": 97.1
     },
     "/embed/chart": {
-      "firstLoadKB": 96.7
+      "firstLoadKB": 97
     },
     "/embed/top-shorts": {
-      "firstLoadKB": 175
+      "firstLoadKB": 205
     },
     "/embed/treemap": {
-      "firstLoadKB": 96.7
+      "firstLoadKB": 97
     },
     "/faq": {
-      "firstLoadKB": 137
+      "firstLoadKB": 138
     },
     "/features/the-widow-maker": {
       "firstLoadKB": 104
@@ -230,31 +242,40 @@
       "firstLoadKB": 0
     },
     "/glossary": {
-      "firstLoadKB": 130
+      "firstLoadKB": 131
     },
     "/glossary/[term]": {
-      "firstLoadKB": 131
+      "firstLoadKB": 132
     },
     "/housing": {
-      "firstLoadKB": 131
+      "firstLoadKB": 132
     },
     "/housing/[state]": {
-      "firstLoadKB": 159
+      "firstLoadKB": 160
     },
     "/housing/[state]/[suburb]": {
-      "firstLoadKB": 159
+      "firstLoadKB": 160
+    },
+    "/housing/[state]/[suburb]/opengraph-image": {
+      "firstLoadKB": 0
     },
     "/housing/calculators": {
       "firstLoadKB": 131
+    },
+    "/housing/drops": {
+      "firstLoadKB": 95.6
+    },
+    "/housing/property/[addressKey]": {
+      "firstLoadKB": 160
     },
     "/housing/suburbs": {
       "firstLoadKB": 131
     },
     "/industry": {
-      "firstLoadKB": 135
+      "firstLoadKB": 136
     },
     "/industry-intelligence": {
-      "firstLoadKB": 151
+      "firstLoadKB": 153
     },
     "/industry/[slug]": {
       "firstLoadKB": 136
@@ -266,34 +287,34 @@
       "firstLoadKB": 0
     },
     "/insider-trading": {
-      "firstLoadKB": 131
+      "firstLoadKB": 132
     },
     "/insider-trading/[stockCode]": {
-      "firstLoadKB": 131
+      "firstLoadKB": 132
     },
     "/learn": {
-      "firstLoadKB": 130
+      "firstLoadKB": 131
     },
     "/learn/[slug]": {
-      "firstLoadKB": 131
+      "firstLoadKB": 132
     },
     "/market": {
-      "firstLoadKB": 131
+      "firstLoadKB": 132
     },
     "/market/[date]": {
-      "firstLoadKB": 131
+      "firstLoadKB": 132
     },
     "/methodology": {
-      "firstLoadKB": 103
+      "firstLoadKB": 104
     },
     "/metrics": {
-      "firstLoadKB": 117
+      "firstLoadKB": 118
     },
     "/news": {
-      "firstLoadKB": 137
+      "firstLoadKB": 138
     },
     "/news/[slug]": {
-      "firstLoadKB": 320
+      "firstLoadKB": 324
     },
     "/news/[slug]/opengraph-image": {
       "firstLoadKB": 0
@@ -305,22 +326,25 @@
       "firstLoadKB": 0
     },
     "/portfolio": {
-      "firstLoadKB": 141
+      "firstLoadKB": 142
+    },
+    "/price-drops": {
+      "firstLoadKB": 131
     },
     "/pricing": {
-      "firstLoadKB": 158
+      "firstLoadKB": 159
     },
     "/privacy": {
-      "firstLoadKB": 110
+      "firstLoadKB": 111
     },
     "/pulse": {
-      "firstLoadKB": 124
+      "firstLoadKB": 125
     },
     "/reports": {
-      "firstLoadKB": 131
+      "firstLoadKB": 137
     },
     "/reports/monthly/[slug]": {
-      "firstLoadKB": 131
+      "firstLoadKB": 137
     },
     "/reports/monthly/[slug]/opengraph-image": {
       "firstLoadKB": 0
@@ -329,82 +353,82 @@
       "firstLoadKB": 0
     },
     "/reports/weekly/[slug]": {
-      "firstLoadKB": 132
+      "firstLoadKB": 138
     },
     "/reports/weekly/[slug]/opengraph-image": {
       "firstLoadKB": 0
     },
     "/reports/yearly/[slug]": {
-      "firstLoadKB": 131
+      "firstLoadKB": 137
     },
     "/reports/yearly/[slug]/opengraph-image": {
       "firstLoadKB": 0
     },
     "/roadmap": {
-      "firstLoadKB": 109
+      "firstLoadKB": 110
     },
     "/robots.txt": {
       "firstLoadKB": 0
     },
     "/scans": {
-      "firstLoadKB": 131
+      "firstLoadKB": 132
     },
     "/scans/[slug]": {
-      "firstLoadKB": 131
+      "firstLoadKB": 132
     },
     "/screener": {
-      "firstLoadKB": 236
+      "firstLoadKB": 267
     },
     "/search": {
-      "firstLoadKB": 131
+      "firstLoadKB": 132
     },
     "/seasonality": {
-      "firstLoadKB": 103
+      "firstLoadKB": 104
     },
     "/shorts": {
-      "firstLoadKB": 185
+      "firstLoadKB": 216
     },
     "/shorts/[stockCode]": {
-      "firstLoadKB": 304
+      "firstLoadKB": 338
     },
     "/shorts/[stockCode]/community/[threadId]": {
-      "firstLoadKB": 133
+      "firstLoadKB": 134
     },
     "/shorts/[stockCode]/news": {
-      "firstLoadKB": 137
+      "firstLoadKB": 138
     },
     "/shorts/[stockCode]/opengraph-image": {
       "firstLoadKB": 0
     },
     "/signin": {
-      "firstLoadKB": 160
+      "firstLoadKB": 161
     },
     "/signup": {
-      "firstLoadKB": 160
+      "firstLoadKB": 161
     },
     "/sitemap.xml": {
       "firstLoadKB": 0
     },
     "/statistics": {
-      "firstLoadKB": 131
+      "firstLoadKB": 132
     },
     "/stocks": {
-      "firstLoadKB": 204
+      "firstLoadKB": 206
     },
     "/subscribe/success": {
-      "firstLoadKB": 107
+      "firstLoadKB": 108
     },
     "/technology": {
       "firstLoadKB": 118
     },
     "/terms": {
-      "firstLoadKB": 103
+      "firstLoadKB": 104
     },
     "/top": {
-      "firstLoadKB": 154
+      "firstLoadKB": 156
     },
     "/unsubscribe": {
-      "firstLoadKB": 96
+      "firstLoadKB": 96.3
     }
   }
 }

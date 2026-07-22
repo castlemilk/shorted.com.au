@@ -15,6 +15,7 @@ import {
   listAgencyPriceStats,
   listSuburbPriceDrops,
 } from "~/app/actions/getHousing";
+import { bailOnEmptyRender } from "~/app/actions/config";
 import { LLMMeta } from "@/components/seo/llm-meta";
 import { pageTitle, sectionTitle, eyebrow, lede } from "@/lib/typography";
 import { cn } from "@/lib/utils";
@@ -83,6 +84,9 @@ export default async function PriceDropsPage() {
   const states = overview?.states ?? [];
   const suburbRows = (suburbs?.suburbs ?? []).slice(0, 15);
   const hasData = Boolean(national && national.totalActiveListings > 0);
+  // A failed/cold fetch must not bake the "data is loading" shell into the
+  // route cache for the whole revalidate window.
+  if (!hasData) bailOnEmptyRender();
 
   const jsonLd = {
     "@context": "https://schema.org",

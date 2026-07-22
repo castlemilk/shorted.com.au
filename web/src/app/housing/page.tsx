@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { getHousingOverview } from "~/app/actions/getHousing";
+import { bailOnEmptyRender } from "~/app/actions/config";
 import { HousingTiles, type HousingTile } from "@/components/housing/housing-tiles";
 import { HousingSeriesChart } from "@/components/housing/housing-charts";
 import { HousingZoomMap } from "@/components/housing/housing-zoom-map-loader";
@@ -88,6 +89,9 @@ function ChartCard({ title, subtitle, children, icon }: { title: string; subtitl
 export default async function HousingPage() {
   const overview = await getHousingOverview("");
   const metrics = overview?.metrics ?? [];
+  // A failed/cold fetch must not bake the "data is loading" shell into the
+  // route cache for the whole revalidate window.
+  if (metrics.length === 0) bailOnEmptyRender();
 
   const national = metrics.find((m) => m.regionCode === "AUS" && m.measure === "mean_price");
   const dti = metrics.find((m) => m.regionCode === "AUS" && m.measure === "debt_to_income");
