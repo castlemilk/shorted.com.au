@@ -19,16 +19,18 @@ frontend; adding a chart never touches ingestion.
 ABS SDMX (7 flows) ─┐                                 ┌─ /economy (map hub, ISR 3600)
 RBA CSV            ─┤                                 ├─ /economy/[state] (SSG ×8, banners)
 ABS GFS XLSX       ─┼→ economy-collector → economic_  ┼─ correlations / dual-axis overlays
-DCCEEW APS XLSX    ─┤  (11 modes)          series +   │
+DCCEEW APS XLSX    ─┤  (15 modes)          series +   │
 shorts DB (derived)─┘  monthly Cloud Run   observatns └─ industry-intel context (phase 3, unbuilt)
                        Job (5th, 17:00 UTC)     ↑
                         EconomyService: ListEconomicSeries / GetEconomicSeries
                         + ListStateCompanies / GetStateCompanyAggregates (public)
 ```
 
-**Live catalog size** (prod + local parity, 2026-07-22): 472 series —
-trade 196 · petroleum 126 · govfin 56 · population 35 · labour 21 · retail 9 ·
-approvals 8 · gdp 8 · markets 8 · rates 3 · cpi 2. ~120k observations.
+**Live catalog size** (local, post phase-3 round 1, 2026-07-22): 550 series —
+trade 205 · petroleum 126 · govfin 56 · population 35 · markets 30 ·
+labour 30 · wages 27 · retail 9 · gdp 8 · approvals 8 · commodities 6 ·
+credit 5 · rates 3 · cpi 2. (Industry `markets.short_interest_avg.*` counts
+vary with constituent coverage; prod re-derives on its own history.)
 
 ## 1. Data model
 
@@ -58,7 +60,7 @@ Related migrations: `000082` (registry `signal_kind` += economic_series),
 `000083` (company `state_exposure` + `hq_state` + `mv_company_state_exposure`),
 `000085` (registry `collection_method` += derived).
 
-## 2. Sources — the full reference (11 live)
+## 2. Sources — the full reference (15 live)
 
 | source_key | Publication (reference link) | API/flow | Series | Freq | Licence |
 |---|---|---|---|---|---|
@@ -72,7 +74,12 @@ Related migrations: `000082` (registry `signal_kind` += economic_series),
 | `abs-building-approvals` | [ABS Building Approvals, Australia](https://www.abs.gov.au/statistics/industry/building-and-construction/building-approvals-australia/latest-release) | SDMX `BA_SA2` (state-level rows; data from 2021-07) | dwelling_units — 8 states | M | CC-BY-4.0 |
 | `abs-retail-trade` | [ABS Retail Trade, Australia](https://www.abs.gov.au/statistics/industry/retail-and-wholesale-trade/retail-trade-australia/latest-release) | SDMX `RT` | turnover (seasadj — **keys carry `.seasadj`**), aus + 8 states; national ≈ $37.9B/mo | M | CC-BY-4.0 |
 | `abs-population` | [ABS National, state and territory population](https://www.abs.gov.au/statistics/people/population/national-state-and-territory-population/latest-release) | SDMX `ERP_Q` + `ERP_COMP_Q` | erp (level) + natural_increase / net_interstate_migration / net_overseas_migration | Q | CC-BY-4.0 |
-| `derived-shorted-markets` | Derived in-house from [ASIC short position reports](https://asic.gov.au/regulatory-resources/markets/short-selling/short-position-reports-table/) (our `shorts` table) × the exposure model (§4) | SQL (`markets.go`, DISTINCT-ON monthly-last, ~100ms) | short_interest_wavg — 8 states, 2015→, **current-constituent basis** (present-day weights/market caps applied retrospectively — documented caveat) | M | derived |
+| `derived-shorted-markets` | Derived in-house from [ASIC short position reports](https://asic.gov.au/regulatory-resources/markets/short-selling/short-position-reports-table/) (our `shorts` table) × the exposure model (§4) | SQL (`markets.go`, DISTINCT-ON monthly-last, ~100ms) | short_interest_wavg — 8 states, 2015→, **current-constituent basis** (present-day weights/market caps applied retrospectively — documented caveat); + short_interest_avg × ~25 GICS industry groups (`markets.short_interest_avg.{industry-slug}.aus` — equal-weight, ≥5-stock monthly floor, slug map pinned to the web `createSlug`, 10% vocab-drift tripwire) | M | derived |
+| `rba-commodity-prices` | [RBA Index of Commodity Prices](https://www.rba.gov.au/statistics/tables/) — table I2 | CSV `i2-data.csv` | price_index × {all_items, rural, non_rural, base_metals, bulk, bulk_spot} — A$ only, aus, index 2024/25=100 (individual iron-ore/coal/gold components are XLSX-only upstream — parked; bulk ≈ the iron-ore+coal proxy) | M | CC-BY-4.0 |
+| `rba-credit-aggregates` | [RBA Growth in Selected Financial Aggregates](https://www.rba.gov.au/statistics/tables/) — table D1 | CSV `d1-data.csv` | growth_yoy (12-month-ended, seasadj) × {housing, owner_occupier_housing, investor_housing, personal, business} — business = DGFACBNF12 (DGFACB12 discontinued 2019-06) | M | CC-BY-4.0 |
+| `abs-job-vacancies` | [ABS Job Vacancies, Australia](https://www.abs.gov.au/statistics/labour/jobs/job-vacancies-australia/latest-release) | SDMX `JV` v**1.0** (1.0.0 404s) | job_vacancies (persons, ×1000 from UNIT_MULT=3) — aus + 8 states, **original-only for states** | Q | CC-BY-4.0 |
+| `abs-wage-price-index` | [ABS Wage Price Index, Australia](https://www.abs.gov.au/statistics/economy/price-indexes-and-inflation/wage-price-index-australia/latest-release) | SDMX `WPI` v1.2.0 | wpi (index) + wpi_yoy (percent) — THRPEB headline, aus + 8 states, original-only, **no UNIT_MULT column upstream** | Q | CC-BY-4.0 |
+| `derived-shorted-economy` | Derived in-DB from already-imported series | SQL (`derived.go`, `-mode derived`, runs LAST in `all`) | real_wpi_yoy (`wages.real_wpi_yoy.{region}` = wpi_yoy − national CPI YoY from the quarterly index via exact 1-year self-join — **national deflator caveat**, no state CPI exists); balance (`trade.balance.total.{region}` = export − import, both-sides months only) | Q/M | derived |
 
 **Probe discipline** (every SDMX importer): dimension codes are pinned from
 live probes, recorded in dated comment blocks, parsed **by column name** via
@@ -89,12 +96,16 @@ of ANA_AGG national GDP · WA short-interest hand-recompute exact match.
 **Upstream quirks that look like bugs but aren't**: ABS confidentialises LNG
 out of state-level trade splits (WA "mineral fuels" exports read tiny — real);
 NT/ACT have no seasonally-adjusted labour series; DCCEEW folds ACT fuel sales
-into NSW; CPI's UNIT_MULT column doesn't exist in v2.0.0; ANA_SFD's UNIT_MULT
-always reads 0 despite $m values (hardcoded ×1e6, cross-validated).
+into NSW; CPI's UNIT_MULT column doesn't exist in v2.0.0 (nor does WPI's);
+ANA_SFD's UNIT_MULT always reads 0 despite $m values (hardcoded ×1e6,
+cross-validated); JV state rows are original-only and carry blank OBS_VALUE
+cells (`OBS_STATUS=q`) that must skip, not error; RBA D1's "Business" credit
+series (DGFACB12) died 2019-06 — DGFACBNF12 is the live successor.
 
 ## 3. Collector — `services/economy-collector`
 
-Single binary, `-mode sources|rba|cpi|labour|trade|gdp|petroleum|govfin|approvals|retail|population|markets|all`.
+Single binary, `-mode sources|rba|cpi|labour|trade|gdp|petroleum|govfin|approvals|retail|population|vacancies|wages|markets|derived|all`
+(`derived` runs LAST in `all` — it reads series the other modes write).
 Cloud Run Job (min instances 0), monthly scheduler (5th, 17:00 UTC),
 `terraform/modules/economy-collector`, image in `terraform-deploy.yml`'s
 `build-docker-images` matrix.
@@ -230,12 +241,19 @@ mobile <640px pins to the map bottom; desktop clamps to viewport), click →
 
 ## 9. Roadmap (specced or discussed, unbuilt)
 
-- Industry-intelligence "economy context" strip (phase 3 — the RPCs make it
-  a UI-only task).
+Round 1 of the phase-3 backlog SHIPPED 2026-07 (roadmap items 1.1–1.6, 4.1,
+4.2, 5.4, 6.1): commodity/credit/vacancy/wage sources, industry short-interest
++ real-wage + trade-balance derived series, the industry-intel economy-context
+strip, the `get_economic_series` chat tool, and the automated post-promote
+revalidate sweep. Still open (see `docs/economy-roadmap.md` for the full
+tiers):
+
 - LLM-composed state insight panels; commodity-level correlation drill.
 - Approvals map metric (chip row currently at capacity); state OG images.
 - AEMO electricity/gas + Resources & Energy Quarterly sources.
 - Full-universe exposure enrichment (tail beyond the top 300).
+- Migrating the map's diverging trade metric to the stored
+  `trade.balance.total.*` series (client derivation still in place).
 
 ## Appendix — primary references
 
