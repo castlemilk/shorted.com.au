@@ -299,28 +299,14 @@ const config = {
         destination: `${firebaseAuthHelperOrigin}/__/firebase/:path*`,
       },
       {
-        source: "/shorts.v1alpha1.ShortedStocksService/:path*",
-        destination: `${shortsApiUrl}/shorts.v1alpha1.ShortedStocksService/:path*`,
+        // Every shorts.v1alpha1 service — the legacy ShortedStocksService and
+        // the per-domain services (MarketService, HousingService, ...) from
+        // the shorts.proto split. One regex-constrained param instead of a
+        // hand-maintained service list: new domain services proxy without
+        // touching this file.
+        source: "/:service(shorts\\.v1alpha1\\.[A-Za-z]+Service)/:path*",
+        destination: `${shortsApiUrl}/:service/:path*`,
       },
-      // Per-domain services (shorts.proto split) — same backend, one rule per
-      // service because path-to-regexp params can't span the dotted segment.
-      ...[
-        "MarketService",
-        "StockService",
-        "SearchService",
-        "ScreenerService",
-        "NewsService",
-        "EnrichmentService",
-        "BillingService",
-        "AlertsService",
-        "ReportsService",
-        "HousingService",
-        "EconomyService",
-        "IndustryIntelligenceService",
-      ].map((svc) => ({
-        source: `/shorts.v1alpha1.${svc}/:path*`,
-        destination: `${shortsApiUrl}/shorts.v1alpha1.${svc}/:path*`,
-      })),
       {
         source: "/register.v1.RegisterService/:path*",
         destination: `${shortsApiUrl}/register.v1.RegisterService/:path*`,

@@ -233,10 +233,11 @@ route bundle; `bundle:budget` will catch it).
    }
    ```
 
-2. **Generate code** (then revert the `sdks/java` churn):
+2. **Generate code** (commit ALL outputs, including the `sdks/java` churn —
+   the committed Java SDK tracks the protos):
 
    ```bash
-   cd proto && buf generate && git checkout -- ../sdks/java
+   cd proto && buf generate
    ```
 
 3. **Implement the handler** in `services/shorts/internal/services/shorts/` —

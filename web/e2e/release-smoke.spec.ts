@@ -128,7 +128,7 @@ function isIgnorableConsoleError(text: string, url = ""): boolean {
         "Failed to load resource: the server responded with a status of 404",
       )) ||
     (url.includes(
-      "/shorts.v1alpha1.ShortedStocksService/GetCompanyTaxProfile",
+      "/GetCompanyTaxProfile",
     ) &&
       text.includes(
         "Failed to load resource: the server responded with a status of 404",
@@ -139,7 +139,7 @@ function isIgnorableConsoleError(text: string, url = ""): boolean {
 function isIgnorableAppApiFailure(url: string, status: number): boolean {
   return (
     status === 404 &&
-    url.includes("/shorts.v1alpha1.ShortedStocksService/GetCompanyTaxProfile")
+    url.includes("/GetCompanyTaxProfile")
   );
 }
 
