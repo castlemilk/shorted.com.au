@@ -202,10 +202,9 @@ module "market_data" {
 }
 
 # =============================================================================
-# Chat Service — NOT managed in dev. The chat-service image is not built by the
-# dev CI matrix (its :latest tag no longer exists in the dev registry), so every
-# apply tainted/failed on it. The live dev service was `state rm`'d (left running,
-# unmanaged) rather than destroyed. Chat is exercised in prod; dev doesn't need it.
+# Chat Service — NOT managed in dev. The image is now CI-built per commit. Dev
+# remains deliberately unmanaged because chat is exercised in prod;
+# re-managing it would require re-importing the state-rm'd service.
 # =============================================================================
 
 # Market Discovery and Data Sync Jobs

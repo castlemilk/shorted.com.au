@@ -262,6 +262,9 @@ jobs:
           - name: shorts
             dockerfile: services/shorts/Dockerfile
             context: services
+          - name: chat-service
+            dockerfile: services/chat-service/Dockerfile
+            context: services
           - name: stock-price-ingestion
             dockerfile: services/stock-price-ingestion/Dockerfile
             context: services/stock-price-ingestion
@@ -466,6 +469,7 @@ jobs:
             -var="stock_price_ingestion_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/stock-price-ingestion:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="short_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/short-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="shorts_api_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorts:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="chat_service_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/chat-service:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="asx_discovery_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/asx-discovery:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="market_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="market_data_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data:${{ needs.determine-environment.outputs.image-tag }}" \
@@ -1112,6 +1116,7 @@ jobs:
             -var="stock_price_ingestion_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/stock-price-ingestion:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="short_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/short-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="shorts_api_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorts:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="chat_service_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/chat-service:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="asx_discovery_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/asx-discovery:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="market_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="market_data_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data:${{ needs.determine-environment.outputs.image-tag }}" \
