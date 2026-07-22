@@ -15,7 +15,11 @@ import { DualAxisChart } from "./dual-axis-chart";
 // Formatter chosen by a serializable key (this is a client component, so a
 // small local map is fine — but keys keep it consistent with the rest of the
 // economy surface where the server picks the format).
-type FormatKey = "aud" | "percent" | "index" | "megalitres";
+type FormatKey = "aud" | "percent" | "index" | "number" | "megalitres";
+const COMPACT_NUMBER = new Intl.NumberFormat("en-AU", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
 const FORMATTERS: Record<FormatKey, (v: number) => string> = {
   aud: (v) => {
     const a = Math.abs(v);
@@ -26,6 +30,7 @@ const FORMATTERS: Record<FormatKey, (v: number) => string> = {
   },
   percent: (v) => `${v.toFixed(1)}%`,
   index: (v) => v.toFixed(1),
+  number: (v) => COMPACT_NUMBER.format(v),
   megalitres: (v) => (Math.abs(v) >= 1_000 ? `${(v / 1_000).toFixed(1)}GL` : `${v.toFixed(0)}ML`),
 };
 
@@ -46,6 +51,21 @@ function candidateDefs(state: StateSlug): CandidateDef[] {
       format: "aud",
     },
     { key: `govfin.revenue.total.${state}`, label: "Govt revenue", format: "aud" },
+    {
+      key: `retail.turnover.total.${state}.seasadj`,
+      label: "Retail turnover",
+      format: "aud",
+    },
+    {
+      key: `approvals.dwelling_units.total.${state}`,
+      label: "Dwelling approvals",
+      format: "number",
+    },
+    {
+      key: `population.erp.total.${state}`,
+      label: "Population",
+      format: "number",
+    },
   ];
   if (hasLabour(state)) {
     defs.push({

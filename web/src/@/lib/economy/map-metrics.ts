@@ -30,6 +30,8 @@ export type EconomyMapMetricKey =
   | "participation"
   | "sfd"
   | "sfd_growth"
+  | "retail"
+  | "population_growth"
   | "exports"
   | "imports"
   | "trade_balance"
@@ -125,6 +127,16 @@ export const ECONOMY_MAP_METRICS: EconomyMapMetric[] = [
   series({
     key: "sfd_growth", label: "SFD growth (YoY)", legendLabel: "State final demand, year-on-year",
     seriesKeyTemplate: "gdp.state_final_demand_chain_volume.total.{state}.seasadj",
+    format: "percent", palette: "diverging", derived: "yoy",
+  }),
+  series({
+    key: "retail", label: "Retail turnover", legendLabel: "Retail turnover (monthly, seas. adj.)",
+    seriesKeyTemplate: "retail.turnover.total.{state}.seasadj",
+    format: "aud", palette: "continuous",
+  }),
+  series({
+    key: "population_growth", label: "Population growth (YoY)", legendLabel: "Estimated resident population, year-on-year",
+    seriesKeyTemplate: "population.erp.total.{state}",
     format: "percent", palette: "diverging", derived: "yoy",
   }),
   series({

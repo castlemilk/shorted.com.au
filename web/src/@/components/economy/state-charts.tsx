@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { ExternalLink } from "lucide-react";
 
 import { EconomySeriesChart } from "./economy-charts";
 import { StateCompanies } from "./state-companies";
@@ -9,6 +10,7 @@ import { StateCorrelations } from "./state-correlations";
 import { EconomyIcon, type EconomyIconName } from "./economy-icon";
 import { hasDiesel, hasLabour } from "./availability";
 import { STATE_NAMES, type StateSlug } from "@/lib/economy/map-metrics";
+import { STATE_FINANCE_LINKS } from "@/lib/economy/state-finance-links";
 
 /** Chart header with a warm-duotone economy icon beside the title. */
 function ChartHeader({ icon, children }: { icon: EconomyIconName; children: ReactNode }) {
@@ -82,6 +84,33 @@ export function StateCharts({ state }: { state: StateSlug }) {
             />
           </div>
         )}
+        <div>
+          <ChartHeader icon="trade-balance">Retail turnover</ChartHeader>
+          <EconomySeriesChart
+            seriesKey={`retail.turnover.total.${state}.seasadj`}
+            ariaLabel={`${name} retail turnover`}
+            format="aud"
+            height={220}
+          />
+        </div>
+        <div>
+          <ChartHeader icon="company-footprint">Dwelling approvals</ChartHeader>
+          <EconomySeriesChart
+            seriesKey={`approvals.dwelling_units.total.${state}`}
+            ariaLabel={`${name} dwelling approvals`}
+            format="number"
+            height={220}
+          />
+        </div>
+        <div>
+          <ChartHeader icon="participation">Estimated resident population</ChartHeader>
+          <EconomySeriesChart
+            seriesKey={`population.erp.total.${state}`}
+            ariaLabel={`${name} estimated resident population`}
+            format="number"
+            height={220}
+          />
+        </div>
       </section>
 
       {/* State finances — ABS Government Finance Statistics. Revenue and
@@ -121,10 +150,72 @@ export function StateCharts({ state }: { state: StateSlug }) {
             />
           </div>
         </div>
+        <div className="mt-5 border-t border-border pt-4">
+          <h4 className="mb-3 font-mono text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+            Finances breakdown
+          </h4>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="min-w-0">
+              <ChartHeader icon="state-finances">Taxation revenue</ChartHeader>
+              <EconomySeriesChart
+                seriesKey={`govfin.revenue.taxation.${state}`}
+                ariaLabel={`${name} government taxation revenue`}
+                format="aud"
+                height={160}
+              />
+            </div>
+            <div className="min-w-0">
+              <ChartHeader icon="state-finances">Current grants</ChartHeader>
+              <EconomySeriesChart
+                seriesKey={`govfin.revenue.grants.${state}`}
+                ariaLabel={`${name} government grants revenue`}
+                format="aud"
+                height={160}
+              />
+            </div>
+            <div className="min-w-0">
+              <ChartHeader icon="state-finances">Employee expenses</ChartHeader>
+              <EconomySeriesChart
+                seriesKey={`govfin.expenses.employees.${state}`}
+                ariaLabel={`${name} government employee expenses`}
+                format="aud"
+                height={160}
+              />
+            </div>
+            <div className="min-w-0">
+              <ChartHeader icon="state-finances">Interest expenses</ChartHeader>
+              <EconomySeriesChart
+                seriesKey={`govfin.expenses.interest.${state}`}
+                ariaLabel={`${name} government interest expenses`}
+                format="aud"
+                height={160}
+              />
+            </div>
+          </div>
+        </div>
         <p className="mt-2 text-xs text-muted-foreground">
           Source: ABS Government Finance Statistics (general government, quarterly).
           CC BY 4.0.
         </p>
+        <div className="mt-4 border-t border-border pt-4">
+          <h4 className="font-mono text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+            Sources &amp; further reading
+          </h4>
+          <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
+            {STATE_FINANCE_LINKS[state].map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex min-h-10 items-center gap-1.5 text-sm text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                {link.label}
+                <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+              </a>
+            ))}
+          </div>
+        </div>
       </section>
 
       {/* Short-interest correlations — below the chart grid, above Operating here. */}

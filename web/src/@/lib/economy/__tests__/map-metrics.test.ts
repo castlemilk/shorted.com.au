@@ -25,17 +25,30 @@ const asSeries = (m: EconomyMapMetric): EconomySeriesMetric => {
 };
 
 describe("map-metrics", () => {
-  it("registry has 10 metrics with unique keys", () => {
+  it("registry has 12 metrics with unique keys", () => {
     const keys = ECONOMY_MAP_METRICS.map((m) => m.key);
-    expect(keys).toHaveLength(10);
-    expect(new Set(keys).size).toBe(10);
+    expect(keys).toHaveLength(12);
+    expect(new Set(keys).size).toBe(12);
     expect(METRIC_BY_KEY.unemployment.label).toMatch(/unemployment/i);
   });
 
-  it("registry kinds: 8 series + 2 aggregate", () => {
+  it("registry kinds: 10 series + 2 aggregate", () => {
     const byKind = { series: 0, aggregate: 0 };
     for (const m of ECONOMY_MAP_METRICS) byKind[m.kind]++;
-    expect(byKind).toEqual({ series: 8, aggregate: 2 });
+    expect(byKind).toEqual({ series: 10, aggregate: 2 });
+  });
+
+  it("registers retail turnover and derived population growth", () => {
+    const retail = asSeries(METRIC_BY_KEY.retail);
+    expect(retail.seriesKeyTemplate).toBe("retail.turnover.total.{state}.seasadj");
+    expect(retail.format).toBe("aud");
+    expect(seriesKeysFor(retail)).toContain("retail.turnover.total.nsw.seasadj");
+
+    const population = asSeries(METRIC_BY_KEY.population_growth);
+    expect(population.seriesKeyTemplate).toBe("population.erp.total.{state}");
+    expect(population.format).toBe("percent");
+    expect(population.palette).toBe("diverging");
+    expect(population.derived).toBe("yoy");
   });
 
   it("aggregate metrics map to StateCompanyAggregate fields", () => {

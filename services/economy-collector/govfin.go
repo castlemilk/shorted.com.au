@@ -46,10 +46,16 @@ import (
 //     "Mar Qtr 2026"), row 6 the unit row ("$m" under each period column),
 //     rows 7+ one line item per row (label in col A, values across the period
 //     columns). Section headers ("GFS Revenue", "less", "GFS Expenses", …)
-//     carry no values. The three totals we ingest are the exact labels
+//     carry no values. The three mandatory totals are the exact labels
 //     "Total GFS revenue", "Total GFS expenses" and "GFS NET OPERATING BALANCE".
-//     Only these totals are captured — component lines (Taxation revenue,
-//     Employee expenses, …) and the section headers are deliberately ignored.
+//     Four additive detail metrics are also captured. "Taxation revenue",
+//     "Current grants and subsidies" (within GFS Revenue), and "Employee
+//     expenses" use normalized, fail-soft label matching. Interest expense is
+//     derived per period by summing the precisely matched GFS Expenses rows
+//     "Interest on defined benefit superannuation" and "Other interest
+//     expenses"; if either component is absent/suppressed, the available one
+//     is used. The GFS Revenue row "Interest income" is never included. Missing
+//     detail lines never make an otherwise healthy sheet fail.
 //
 //   - Period label "Sep Qtr 2025" is a workbook rendering, not an SDMX
 //     TIME_PERIOD, so it's parsed locally by parseGovFinPeriod (mirroring
@@ -105,13 +111,77 @@ var govfinSheets = []govfinSheetSpec{
 }
 
 // govfinMetrics maps the lowercased operating-statement total labels to the
-// metric name. Only these three totals are ingested; every other row (section
-// headers, component lines) is ignored. All three are REQUIRED on every sheet —
-// a missing one is treated as layout drift and fails the sheet loudly.
+// metric name. All three are REQUIRED on every sheet — a missing one is treated
+// as layout drift and fails the sheet loudly.
 var govfinMetrics = map[string]string{
 	"total gfs revenue":         "revenue",
 	"total gfs expenses":        "expenses",
 	"gfs net operating balance": "net_operating_balance",
+}
+
+// govfinDetailLineItem is an optional operating-statement component. Section
+// scoping is load-bearing for "Current grants and subsidies", whose wording can
+// also occur on the expense side of an operating statement.
+type govfinDetailLineItem struct {
+	Metric  string
+	Product string
+	Section string
+	Labels  []string
+}
+
+// Best-candidate label sets inferred from the pinned Mar-2026 layout notes.
+// Matching is normalized and accepts trailing footnote markers, but each item
+// remains optional so a live label drift cannot stale the mandatory totals.
+var govfinDetailLineItems = []govfinDetailLineItem{
+	{Metric: "revenue", Product: "taxation", Section: "revenue", Labels: []string{"Taxation revenue"}},
+	{Metric: "revenue", Product: "grants", Section: "revenue", Labels: []string{"Current grants and subsidies"}},
+	{Metric: "expenses", Product: "employees", Section: "expenses", Labels: []string{"Employee expenses"}},
+}
+
+// govfinInterestExpenseLabels are the exact live workbook components of the
+// derived interest-expense metric. Matching uses normalized equality (not a
+// substring/prefix), and callers additionally require the expenses section, so
+// the revenue-side "Interest income" row cannot be included.
+var govfinInterestExpenseLabels = []string{
+	"Interest on defined benefit superannuation",
+	"Other interest expenses",
+}
+
+const govfinInterestLineItem = "Interest on defined benefit superannuation + Other interest expenses"
+
+var govfinLabelSeparatorRe = regexp.MustCompile(`[^a-z0-9]+`)
+
+// normalizeGovFinLabel makes matching resilient to case, punctuation,
+// ampersands and whitespace while preserving word order.
+func normalizeGovFinLabel(label string) string {
+	label = strings.ToLower(strings.ReplaceAll(label, "&", " and "))
+	return strings.Join(govfinLabelSeparatorRe.Split(label, -1), " ")
+}
+
+func matchGovFinDetail(label, section string) (govfinDetailLineItem, bool) {
+	normalized := strings.TrimSpace(normalizeGovFinLabel(label))
+	for _, item := range govfinDetailLineItems {
+		if item.Section != section {
+			continue
+		}
+		for _, candidate := range item.Labels {
+			want := strings.TrimSpace(normalizeGovFinLabel(candidate))
+			if normalized == want || strings.HasPrefix(normalized, want+" ") {
+				return item, true
+			}
+		}
+	}
+	return govfinDetailLineItem{}, false
+}
+
+func isGovFinInterestExpenseLabel(label string) bool {
+	normalized := strings.TrimSpace(normalizeGovFinLabel(label))
+	for _, candidate := range govfinInterestExpenseLabels {
+		if normalized == strings.TrimSpace(normalizeGovFinLabel(candidate)) {
+			return true
+		}
+	}
+	return false
 }
 
 func ingestGovFin(ctx context.Context, _ *absdata.Client) ([]Obs, error) {
@@ -215,17 +285,47 @@ func parseGovFinSheet(f *excelize.File, spec govfinSheetSpec, sourceURL string) 
 	}
 
 	var obs []Obs
-	seenMetrics := map[string]bool{}
+	seenTotals := map[string]bool{}
+	interestByPeriod := map[time.Time]float64{}
+	section := ""
 	for _, row := range rows[headerIdx+2:] {
 		if len(row) == 0 {
 			continue
 		}
 		label := strings.TrimSpace(row[0])
-		metric, ok := govfinMetrics[strings.ToLower(label)]
-		if !ok {
+		normalizedLabel := strings.TrimSpace(normalizeGovFinLabel(label))
+		switch normalizedLabel {
+		case "gfs revenue":
+			section = "revenue"
+			continue
+		case "gfs expenses":
+			section = "expenses"
 			continue
 		}
-		seenMetrics[metric] = true
+
+		if section == "expenses" && isGovFinInterestExpenseLabel(label) {
+			for col, period := range periods {
+				if col >= len(row) {
+					continue
+				}
+				val, err := strconv.ParseFloat(strings.ReplaceAll(strings.TrimSpace(row[col]), ",", ""), 64)
+				if err != nil {
+					continue // one suppressed component does not suppress the other
+				}
+				interestByPeriod[period] += val * govfinUnitScale
+			}
+			continue
+		}
+
+		metric, aggregate := govfinMetrics[strings.ToLower(label)]
+		product := "total"
+		if aggregate {
+			seenTotals[metric] = true
+		} else if detail, ok := matchGovFinDetail(label, section); ok {
+			metric, product = detail.Metric, detail.Product
+		} else {
+			continue
+		}
 		for col, period := range periods {
 			if col >= len(row) {
 				continue
@@ -236,7 +336,7 @@ func parseGovFinSheet(f *excelize.File, spec govfinSheetSpec, sourceURL string) 
 			}
 			obs = append(obs, Obs{
 				Series: SeriesDef{
-					Topic: "govfin", Metric: metric, Product: "total",
+					Topic: "govfin", Metric: metric, Product: product,
 					RegionType: "state", RegionCode: spec.RegionCode, RegionName: spec.RegionName,
 					Unit: "aud", Frequency: "quarterly", Adjustment: "original",
 					SourceKey: govfinSource, Licence: govfinLicence,
@@ -253,12 +353,35 @@ func parseGovFinSheet(f *excelize.File, spec govfinSheetSpec, sourceURL string) 
 		}
 	}
 
+	// Emit one observation per period after both precisely named interest rows
+	// have had a chance to contribute. A single available component is valid;
+	// no available components simply means this optional detail series is absent.
+	for period, value := range interestByPeriod {
+		obs = append(obs, Obs{
+			Series: SeriesDef{
+				Topic: "govfin", Metric: "expenses", Product: "interest",
+				RegionType: "state", RegionCode: spec.RegionCode, RegionName: spec.RegionName,
+				Unit: "aud", Frequency: "quarterly", Adjustment: "original",
+				SourceKey: govfinSource, Licence: govfinLicence,
+				Dimensions: map[string]string{
+					"abs_catalogue": "5519.0.55.001",
+					"sheet":         sheet,
+					"line_item":     govfinInterestLineItem,
+					"derivation":    "sum_available_components",
+					"source_url":    sourceURL,
+				},
+			},
+			Period: period,
+			Value:  value,
+		})
+	}
+
 	// Fail closed on drift: all three totals must be present on every state
 	// sheet. A silently renamed/dropped total would otherwise thin the series
 	// without any error.
 	var missing []string
 	for _, want := range []string{"revenue", "expenses", "net_operating_balance"} {
-		if !seenMetrics[want] {
+		if !seenTotals[want] {
 			missing = append(missing, want)
 		}
 	}
