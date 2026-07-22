@@ -98,3 +98,40 @@ resolution; per-agent profile pages; time-bucketed aggregate history (MV snapsho
 ### Prod rollout (user-gated)
 DB-before-code: apply 000083 on Supabase session pooler 5432 (`PGOPTIONS="-c statement_timeout=0"`),
 then merge. Collector refresh already calls the shared refresh fn — new MVs refresh on next run.
+
+---
+
+## Shipped — final state (2026-07-22)
+
+The design above shipped across four PRs, all live on prod:
+
+| PR | What | Landed |
+|----|------|--------|
+| **#315** | The flagship view + rollup MVs + RPCs + integrations | 2026-07-21; DDL applied to prod by the operator (session pooler), MVs populated (25 suburb / 6 state / 1,137 agency rows at creation); launch verified live: 158 addresses cut, −3.7% median, $9.5M value cut, sanity cap provably excluding the 90% typo corrections |
+| **#318** | Crawl-aligned caching: static ISR (1h) + KV (`cache:housing:drops:*`, 24h) + collector `pingRevalidate` + `flush=housing`; `?state=` moved client-side; address board server-seeded | verified live: 380–640ms → 40–58ms `x-vercel-cache: HIT` |
+| **#320** | LLMMeta provenance derives from `dataSource` (ASIC surfaces byte-for-byte pinned); LLMMeta restored on /price-drops | |
+| **#322** | `bailOnEmptyRender()` — the route-cache leg of the never-cache-empty defense (/housing "data is loading" transient) | |
+
+**Deviations from the design as written:**
+- **Migration number**: authored as `000083`, renumbered twice after collisions with
+  concurrently-merged branches — final file is `000086_price_drops_rollups`
+  (000083 = state exposure, 000084 = suburb banners). Prod received the content
+  under manual DDL, unaffected by file naming.
+- **Review hardening** (adversarial workflow, 22 agents — see "Review outcomes"
+  above): 40% cap extended to `ListSuburbDropListings`; `dropped_share`
+  denominators address-deduped; `AU` collision guard; agency drop depth/value
+  suppressed below 3 dropped addresses; `ListAgencyPriceStats` moved behind the
+  `HOUSING_DROP_LISTINGS_ENABLED` kill switch (it carries agency/agent names).
+- **`/price-drops` render mode**: the design chose force-dynamic (the /scans
+  pattern); superseded by #318's static ISR + event-driven busting once the
+  crawl ping existed. The `?state=` searchParams read moved client-side to keep
+  the route static.
+
+**Canonical architecture doc:** `docs/housing-architecture.md` §10 (data model,
+gating, the caching loop, ops, extension recipes J/K).
+
+**Open follow-ups:** rent crawl channel (no rent data anywhere); dedicated /sold
+sweep or Valuer-General transfer join; cross-portal agency entity resolution;
+splitting the monolithic `shorts.proto` into per-domain files (~30kB first-load
+reclaim on every RPC-importing route); cost-lean blurb backfill for the ~115
+catalog suburbs (runner pattern in §10.4).

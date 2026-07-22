@@ -5,7 +5,8 @@ The "housing" surface on Shorted is three products plus a speculative data tier,
 1. **The Widow-Maker editorial feature** (`/features/the-widow-maker`) — a hand-built investigative long-read with embedded interactive dashboards. Data is **baked** (curated research arrays). — §1
 2. **The House Prices Tracker** (`/housing`) — a **live** national/state/GCCSA price dashboard fed by a real ABS/RBA/Valuer-General ingest pipeline. — §4
 3. **The suburb explorer** (`/housing` national map → `/housing/[state]` → `/housing/[state]/[suburb]`) — a national → state → suburb **choropleth drilldown** over real ABS boundaries, with a "Colour by" toggle across house price, ABS Census demographics + culture (religion, language, born-overseas), and **electoral representation** (federal + state member/party + two-party-preferred). — §5
-4. **A Tier-3 residential real-estate crawl** of REA/Domain — **LIVE**: suburb medians (`-mode crawl`) and individual for-sale listings (`-mode listings` / queue-distributed `-mode agent`), distributed across residential Macs via a brandbrain-hosted job queue and a warm host-Chrome CDP fetch that clears REA's Kasada challenge; still anti-poisoning-gated and licence-gated. A 115-suburb catalog (25 seed + 90 ABS-population metro) has crawled ~12,151 listings across 67 suburbs so far. — §6
+4. **A Tier-3 residential real-estate crawl** of REA/Domain — **LIVE**: suburb medians (`-mode crawl`) and individual for-sale listings (`-mode listings` / queue-distributed `-mode agent`), distributed across residential Macs via a brandbrain-hosted job queue and a warm host-Chrome CDP fetch that clears REA's Kasada challenge; still anti-poisoning-gated and licence-gated. A 115-suburb catalog (25 seed + 90 ABS-population metro) has crawled ~22k listings across the 5 mainland capitals. — §6
+5. **The price-drops flagship** (`/price-drops`) — **LIVE**: asking-price cuts from the listings crawl rolled up by **state, suburb, individual address and agency**, on a crawl-aligned caching architecture (static ISR + KV, busted by a collector ping the moment a crawl lands). `/housing/drops` 308-redirects into it. — §10
 
 Products 2 + 3 share one fact/dimension data model (`house_prices` + `house_price_regions` + `suburb_demographics`) and one collector (`house-price-collector`, `-mode official|census|electorates|amenities|crawl|refresh|all`).
 
@@ -392,6 +393,7 @@ Keyed by `sal_code` (ABS SAL_CODE21, PK). Indexed on `(state_code)` and `(sal_na
 | **000058** (federal) | `federal_division`, `federal_member`, `federal_party`, `federal_party_ab`, `federal_tpp_alp` |
 | **000059** (state district) | `state_district` |
 | **000060** (state member) | `state_member`, `state_party`, `state_party_ab` *(NULL for TAS/ACT)* |
+| **000084** (suburb banners) | `banner_archetype`, `banner_blurb`, `banner_landmarks`, `banner_bg_key`, `banner_bg_url`, `banner_generated_at` — populated by `-mode banners` (deterministic classifier over the committed `web/public/geo/insights/suburb-archetypes.json`; 15,329 suburbs classified on prod) + the optional `web/scripts/housing-banners/blurb.mjs` LLM blurbs (templated fallback in the RPC until then). Surfaced ONLY on `GetSuburbProfile` (`banner` field) → `<SuburbBanner>` composites an archetype AVIF (`web/public/housing-banners/bg/<key>.{light,dark}.avif`) + d3-geo locator snapshot + blurb. |
 
 > Note: `pct_owned_*` / `pct_rented` / `dwelling_count` columns exist (000055) but `-mode census` does **not** populate them (tenure tables G33/G37 aren't parsed) — they're reserved/NULL.
 
@@ -497,3 +499,129 @@ Follow the existing `short_data_sync` module/variable/image-tag flow as the temp
 
 - **State party** currently covers the 6 single-member states (NSW/VIC/QLD/WA/SA/NT) via `fetch-state-members.py` scraping the Wikipedia members tables. TAS/ACT are Hare-Clark multi-member — to surface them you'd model multiple members/parties per district (not a single `state_party`), so the map would need a different (e.g. dominant-party or "mixed") treatment.
 - **Refresh after an election / redistribution**: re-run the data-prep (new AEC boundaries + tally-room event id, new ABS `SED` edition, re-scrape `fetch-state-members.py` for the new term), re-commit the `web/public/geo/electorates/*.json`, then `-mode electorates`. No schema change. Watch the `fetch-state-members.py` page-title year ranges + the party-abbreviation map.
+
+---
+
+## 10. The price-drops surface (`/price-drops`) & crawl-aligned caching
+
+The flagship rollup over the §6 listings corpus (PRs #315 flagship, #318 caching, #320
+provenance, #322 empty-shell guard; spec: `docs/superpowers/specs/2026-07-21-price-drops-design.md`).
+Four boards on one page: **national pulse tiles → drops by state → suburbs cutting hardest →
+biggest individual drops (with agency attribution) → agencies cutting hardest**, plus a
+methodology footer. `/housing/drops` 308-redirects here; `/housing`, `/housing/[state]` and
+suburb profiles cross-link in.
+
+### 10.1 Derived-aggregate data model (migration `000086_price_drops_rollups`)
+
+> Migration-number history: authored as 000083, renumbered twice after collisions with
+> concurrently-merged branches (state-exposure took 000083; banners hold 000084) — the
+> CONTENT was applied to prod manually under its original number, which is fine because
+> prod DDL is applied by hand (schema_migrations tracker is not advanced on prod).
+
+| MV | Grain | What it holds |
+|----|-------|---------------|
+| `mv_suburb_price_drops` (rebuilt) | `region_code` | 30-day drop signal: dropped count, avg/median/max pct, max abs, `dropped_value`; n≥3 floor |
+| `mv_state_price_drops` | `state_code` + an `AU` national row (GROUPING SETS) | drop stats + asking/sold aggregates + tracked counts per state |
+| `mv_agency_stats` | (`source`, `agency_id`, `state_code`) | per-portal agency footprint: active/priced listings, median asking, suburbs covered, 30-day drop stats, ≤6 sample `agent_names` |
+
+**Data-quality rules baked into every drop aggregate** (calibrated on prod):
+- **40% sanity cap** — `drop_pct > 0.40` events are listing typo corrections (e.g. $7.5M→$750k
+  extra-zero fixes), excluded everywhere (MVs AND the per-listing board queries).
+- **Cross-portal address dedup** — ~30% of listings are on both portals; every aggregate
+  dedups by `COALESCE(NULLIF(address_key,''), source||':'||listing_id)` on **numerators AND
+  denominators** (mixed units understated `dropped_share` up to 2× before).
+- **Severest-portal dollar sums** — per address, `dropped_value` sums one portal's events
+  (the portal that observed the most cutting), so a cut seen on both portals never
+  double-counts while multiple real cuts do sum.
+- **`AU` guard** — junk `state_code='AU'` rows are excluded (they'd collide with the national
+  GROUPING SETS row and abort the whole MV refresh via the unique index).
+- **Agency identifiability floor** — drop depth/value (`avg_drop_pct`, `total_drop_value`)
+  are suppressed (NULL) below **3 dropped addresses** so no published figure reverses to a
+  single listing's exact numbers; `active_listings >= 3` floor for the row itself.
+
+All three MVs are folded into `refresh_housing_materialized_views()` (guarded CONCURRENTLY
+fallback), refreshed by every collector post-run path.
+
+### 10.2 RPCs & gating
+
+| RPC | Gate | Notes |
+|-----|------|-------|
+| `GetPriceDropsOverview` | none (anonymous aggregates) | national + per-state rows |
+| `ListSuburbPriceDrops` | none | drives /price-drops suburb board + the /housing panels; tolerant `to_jsonb(d)->>'dropped_value'` select so code-first deploys survive the pre-migration MV shape |
+| `ListAgencyPriceStats` | **`HOUSING_DROP_LISTINGS_ENABLED`** | carries agency/agent NAMES from ToS-restricted rows → same kill switch as the per-listing surfaces; inputs normalized before the MemoryCache key |
+| `ListSuburbDropListings` / `ListAddressPriceDrops` / `GetPropertyHistory` | `HOUSING_DROP_LISTINGS_ENABLED` | per-listing deep-link-out surfaces; now also return `agency_name` + `agent_names` |
+
+Licence posture unchanged from §6/§7: raw listing rows never republished; aggregates are the
+publishable surface; per-listing rows deep-link OUT to the live portal page.
+
+### 10.3 Crawl-aligned caching (pay-per-crawl, not pay-per-visitor)
+
+The corpus changes ~once/day (when a crawl batch lands), so freshness is EVENT-driven with
+TTLs only as self-healing ceilings:
+
+```
+crawl batch (rig -mode agent / -mode listings / official refresh)
+  └─ refreshHousingMV()  — SQL refresh of all housing MVs
+      └─ pingRevalidate() — services/house-price-collector/revalidate.go
+          POST $REVALIDATION_URL?secret=…&path=/price-drops,/housing&flush=housing
+          (detached 45s ctx; warn-only; NO-OP when env unset)
+              ├─ revalidatePath(/price-drops, /housing)   — busts the ISR route cache
+              └─ flush=housing → deleteCachedByPrefix(cache:housing:*)  — busts KV
+                     (flush= takes a comma list; `shorts` and `housing` families exist)
+next visitor → ISR regen → server actions live-fetch → repopulate KV → HIT for everyone
+```
+
+Layer map for one `/price-drops` view:
+
+| Layer | TTL | Notes |
+|-------|-----|-------|
+| Vercel route cache (static ISR) | 1h ceiling | `revalidate = 3600`; page is prerendered — **do not read `searchParams` in the server page** (forces dynamic); the `?state=` deep link is read client-side via `useSearchParams` under a `<Suspense>` boundary |
+| Upstash KV (`cache:housing:drops:*`) | 24h ceiling | `getHousing.ts` actions: skipForBuild guard + toJson/fromJson projections + ISR-cacheable transport (`next:{revalidate}` — without it the no-store POST silently flips the route dynamic); **empty responses are never cached** |
+| Backend MemoryCache | 5 min | per-Cloud-Run-instance L2, singleflight-deduped |
+| Browser | 30 min TanStack / 5 min sessionStorage | address board only; default view is server-seeded via `initialAddresses` → `useQuery initialData` (never seed an EMPTY array — initialData suppresses the client fetch for the whole staleTime) |
+
+**The empty-shell defenses** (all three are required — see
+`web/src/app/actions/config.ts`):
+1. **Build shell**: `skipForBuild()` prerenders an empty page → cleared by the post-deploy
+   warm (`/api/static-pages/warm-cache`, `/price-drops` is in `STATIC_PAGES`; the CI re-prime
+   needs the Cloudflare bypass).
+2. **KV**: actions never cache an empty response.
+3. **Route cache**: `bailOnEmptyRender()` — calls `unstable_noStore()` exactly when a page
+   renders its data-empty fallback, so a failed regen fetch (cold min-instances=0 Cloud Run
+   after a deploy) is served once UNCACHED instead of pinning "data is loading" for the full
+   window. It NO-OPS during the build so routes STAY static ISR. Wired into
+   `/housing /price-drops /economy /compare` — wire it into any new static data page.
+
+Measured effect: 380–640ms force-dynamic TTFB → **40–58ms `x-vercel-cache: HIT`**, with
+Cloud Run RPC volume for the page down to ~hourly worst case.
+
+### 10.4 Ops
+
+- **Rig env** (`~/.shorted-housing-crawl.env`): `REVALIDATION_URL` (Vercel-origin default —
+  Cloudflare's managed challenge can block non-browser POSTs to the canonical host, though
+  cloudflare-edge carries a skip rule for `/api/revalidate`) + `REVALIDATION_SECRET` (prod
+  Secret Manager, shared with short-data-sync). Cloud Run job: Terraform
+  `manage_revalidation_secret = true` (prod) mirrors the short-data-sync module.
+- **Kill switch**: `HOUSING_DROP_LISTINGS_ENABLED` (default ON; falsey disables) empties the
+  per-listing boards AND the agency leaderboard; the anonymous suburb/state aggregates stay up.
+- **Blurb backfill** (optional): cost-lean runner pattern = target only the ~115 crawl-catalog
+  suburbs (`property_listings` sal link) + shim `agy --effort low` (~7s/call) ≈ 15–20 min ≈ $1–2,
+  vs ~18h/$30–60 for the full priced set. No overwrite flag; a valid LLM `archetype_hint`
+  OVERWRITES the classifier's background choice.
+- **Bundle-weight landmine**: protobuf-es schemas reference the WHOLE-FILE descriptor, so every
+  message added to the monolithic `shorts.proto` adds ~1:1 first-load weight to EVERY route that
+  imports anything from `shorts_pb.ts` (the arc cost ~+31kB × 6 routes; budgets re-based in
+  `web/scripts/bundle-budget.mjs`). Reclaim: split `shorts.proto` into per-domain files.
+
+### 10.5 Extension recipes
+
+- **(J) New drops rollup metric** — add the column to the MV in a NEW migration (recreate MV +
+  unique index + refresh fn), apply the same 40% cap + address dedup CTE shape, add the proto
+  field (`buf generate`), select it in `postgres_house_prices.go` (keep the tolerant-select
+  pattern if the existing suburb MV shape changes), map it in `house_prices.go`, render it in
+  `web/src/@/components/housing/price-drops/*`. Remember prod DDL is manual (session pooler
+  :5432) and DB-before-code.
+- **(K) New cached housing page** — copy the `/price-drops` treatment end-to-end: `revalidate`
+  export + KV'd actions (cacheable transport!) + `bailOnEmptyRender()` on the empty branch +
+  add to warm-cache `STATIC_PAGES` + include its KV keys under `cache:housing:` so the crawl
+  ping busts it for free.
