@@ -91,3 +91,15 @@ session at the established cadence: five S-importers/derived series, one UI
 bridge task (1.6 following 1.3), the chat tool, and the deploy-workflow
 revalidate step. Delivers the flagship commodity-vs-shorts correlation story
 end-to-end.
+
+> **SHIPPED 2026-07-22** as phase-3 round 1 (branch
+> `feat/economy-phase3-round1`; spec
+> `docs/superpowers/specs/2026-07-22-economy-phase3-round1-design.md`):
+> 1.1 ✓ (A$ aggregate indices; iron-ore/coal components are XLSX-only —
+> parked) · 1.2 ✓ (DGFACBNF12 for business; DGFACB12 discontinued 2019) ·
+> 1.3 ✓ (`markets.short_interest_avg.{slug}.aus`, equal-weight, slug map ==
+> web createSlug) · 1.4 ✓ vacancies (payrolls still open) · 1.5 ✓ · 1.6 ✓
+> (economy-context strip in /industry-intelligence) · 4.1 ✓ (national-CPI
+> deflator caveat) · 4.2 ✓ (stored series; map metric still client-derived)
+> · 5.4 ✓ (`get_economic_series`) · 6.1 ✓ (workflow step, browser UA,
+> continue-on-error).

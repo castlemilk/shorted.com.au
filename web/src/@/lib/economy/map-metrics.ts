@@ -182,6 +182,166 @@ export const METRIC_BY_KEY = Object.fromEntries(
   ECONOMY_MAP_METRICS.map((m) => [m.key, m]),
 ) as Record<EconomyMapMetricKey, EconomyMapMetric>;
 
+export type EconomySeriesDisplayFormat =
+  | "aud"
+  | "aud_signed"
+  | "percent"
+  | "index"
+  | "number"
+  | "megalitres"
+  | "usd";
+
+export interface EconomyCorrelationSeriesDef {
+  key: string;
+  label: string;
+  format: EconomySeriesDisplayFormat;
+}
+
+/** National overlays shared by every industry-economy correlation query. */
+export const NATIONAL_ECONOMY_OVERLAYS: EconomyCorrelationSeriesDef[] = [
+  {
+    key: "commodities.price_index.bulk.aus",
+    label: "Bulk commodity prices",
+    format: "index",
+  },
+  {
+    key: "commodities.price_index.all_items.aus",
+    label: "Commodity prices (all items)",
+    format: "index",
+  },
+  {
+    key: "credit.growth_yoy.business.aus.seasadj",
+    label: "Business credit growth",
+    format: "percent",
+  },
+  {
+    key: "labour.job_vacancies.aus",
+    label: "Job vacancies",
+    format: "number",
+  },
+  {
+    key: "wages.wpi_yoy.aus",
+    label: "Wage growth",
+    format: "percent",
+  },
+  {
+    key: "cpi.annual_change.all_groups.aus",
+    label: "Inflation",
+    format: "percent",
+  },
+];
+
+export interface StateCorrelationCandidateMetric {
+  seriesKeyTemplate: string;
+  label: string;
+  format: EconomySeriesDisplayFormat;
+  unavailableStates?: StateSlug[];
+}
+
+/**
+ * Overlay registry for the state-page short-interest correlation surface.
+ * National keys intentionally omit `{state}`: national indicators are valid
+ * comparison candidates for every state. Availability follows the same
+ * `unavailableStates` convention as the map registry.
+ */
+export const STATE_CORRELATION_CANDIDATES: StateCorrelationCandidateMetric[] = [
+  {
+    seriesKeyTemplate: "commodities.price_index.bulk.aus",
+    label: "Bulk commodity prices",
+    format: "index",
+  },
+  {
+    seriesKeyTemplate: "commodities.price_index.all_items.aus",
+    label: "Commodity prices (all items)",
+    format: "index",
+  },
+  {
+    seriesKeyTemplate: "credit.growth_yoy.business.aus.seasadj",
+    label: "Business credit growth",
+    format: "percent",
+  },
+  {
+    seriesKeyTemplate: "credit.growth_yoy.housing.aus.seasadj",
+    label: "Housing credit growth",
+    format: "percent",
+  },
+  {
+    seriesKeyTemplate: "labour.job_vacancies.{state}",
+    label: "Job vacancies",
+    format: "number",
+  },
+  {
+    seriesKeyTemplate: "wages.wpi_yoy.{state}",
+    label: "Wage growth",
+    format: "percent",
+  },
+  {
+    seriesKeyTemplate: "wages.real_wpi_yoy.{state}",
+    label: "Real wage growth",
+    format: "percent",
+  },
+  {
+    seriesKeyTemplate: "trade.export_value.total.{state}",
+    label: "Goods exports",
+    format: "aud",
+  },
+  {
+    seriesKeyTemplate: "trade.import_value.total.{state}",
+    label: "Goods imports",
+    format: "aud",
+  },
+  {
+    seriesKeyTemplate:
+      "gdp.state_final_demand_chain_volume.total.{state}.seasadj",
+    label: "State final demand",
+    format: "aud",
+  },
+  {
+    seriesKeyTemplate: "govfin.revenue.total.{state}",
+    label: "Govt revenue",
+    format: "aud",
+  },
+  {
+    seriesKeyTemplate: "retail.turnover.total.{state}.seasadj",
+    label: "Retail turnover",
+    format: "aud",
+  },
+  {
+    seriesKeyTemplate: "approvals.dwelling_units.total.{state}",
+    label: "Dwelling approvals",
+    format: "number",
+  },
+  {
+    seriesKeyTemplate: "population.erp.total.{state}",
+    label: "Population",
+    format: "number",
+  },
+  {
+    seriesKeyTemplate: "labour.unemployment_rate.total.{state}.seasadj",
+    label: "Unemployment rate",
+    format: "percent",
+    // Mirrors the unemployment entry in ECONOMY_MAP_METRICS.
+    unavailableStates: ["nt", "act"],
+  },
+  {
+    seriesKeyTemplate: "petroleum.sales.diesel_oil_total.{state}",
+    label: "Diesel sales",
+    format: "megalitres",
+    // Mirrors the diesel_sales entry in ECONOMY_MAP_METRICS.
+    unavailableStates: ["act"],
+  },
+];
+
+export function stateCorrelationCandidates(state: StateSlug) {
+  return STATE_CORRELATION_CANDIDATES.filter(
+    (candidate) => !candidate.unavailableStates?.includes(state),
+  ).map(({ seriesKeyTemplate, label, format }) => ({
+    key: seriesKeyTemplate.replace("{state}", state),
+    label,
+    format,
+  }));
+}
+
 /**
  * All RPC series keys a metric needs (primary + secondary), skipping
  * unavailable states. Takes EconomySeriesMetric ONLY — aggregate metrics have
@@ -299,14 +459,32 @@ export function divergingScale(min: number, max: number): (v: number) => string 
   return (v: number) => s(v);
 }
 
-export const MAP_FORMATS: Record<EconomyMapMetric["format"], (v: number) => string> = {
-  percent: (v) => `${v.toFixed(1)}%`,
-  aud: (v) => {
-    const a = Math.abs(v);
-    const sign = v < 0 ? "−" : "";
-    if (a >= 1e9) return `${sign}$${(a / 1e9).toFixed(1)}B`;
-    if (a >= 1e6) return `${sign}$${(a / 1e6).toFixed(0)}M`;
-    return `${sign}$${a.toFixed(0)}`;
-  },
-  megalitres: (v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}GL` : `${v.toFixed(0)}ML`),
+const COMPACT_NUMBER = new Intl.NumberFormat("en-AU", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
+const formatAud = (value: number): string => {
+  const absolute = Math.abs(value);
+  const sign = value < 0 ? "−" : "";
+  if (absolute >= 1e9) return `${sign}$${(absolute / 1e9).toFixed(1)}B`;
+  if (absolute >= 1e6) return `${sign}$${(absolute / 1e6).toFixed(0)}M`;
+  return `${sign}$${absolute.toFixed(0)}`;
+};
+
+/** Shared formatter registry for every non-housing economy surface. */
+export const ECONOMY_SERIES_FORMATTERS: Record<
+  EconomySeriesDisplayFormat,
+  (value: number) => string
+> = {
+  aud: formatAud,
+  aud_signed: formatAud,
+  percent: (value) => `${value.toFixed(1)}%`,
+  index: (value) => value.toFixed(1),
+  number: (value) => COMPACT_NUMBER.format(value),
+  megalitres: (value) =>
+    Math.abs(value) >= 1000
+      ? `${(value / 1000).toFixed(1)}GL`
+      : `${value.toFixed(0)}ML`,
+  usd: (value) => value.toFixed(2),
 };

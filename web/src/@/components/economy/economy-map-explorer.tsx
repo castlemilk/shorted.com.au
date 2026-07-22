@@ -11,7 +11,7 @@ import {
   getStateCompanyAggregatesClient,
 } from "~/app/actions/client/getEconomyClient";
 import {
-  ECONOMY_MAP_METRICS, METRIC_BY_KEY, MAP_FORMATS, STATE_NAMES, STATE_SLUGS,
+  ECONOMY_MAP_METRICS, ECONOMY_SERIES_FORMATTERS, METRIC_BY_KEY, STATE_NAMES, STATE_SLUGS,
   buildStateValues, continuousScale, divergingScale, rankOf, seriesKeysFor,
   toFeatureId, toSlug, toTopoFeatureId, fromTopoFeatureId,
   type EconomyMapMetric, type EconomyMapMetricKey, type StateSeries, type StateValue,
@@ -190,7 +190,7 @@ export function EconomyMapExplorer() {
     [],
   );
 
-  const format = MAP_FORMATS[metric.format];
+  const format = ECONOMY_SERIES_FORMATTERS[metric.format];
   const latestRanks = useMemo(() => {
     const m = new Map<string, number>();
     for (const [id, v] of valueById) if (v != null) m.set(id, v);

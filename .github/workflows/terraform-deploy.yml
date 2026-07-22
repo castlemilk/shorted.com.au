@@ -1460,6 +1460,39 @@ jobs:
             --yes \
             --token "$VERCEL_TOKEN"
 
+      - name: Revalidate ISR pages post-promote
+        continue-on-error: true
+        env:
+          REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}
+        run: |
+          curl_exit=0
+          isr_paths=$(node -e '
+            const fs = require("node:fs");
+            const pages = JSON.parse(fs.readFileSync("web/src/config/isr-pages.json", "utf8"));
+            if (!Array.isArray(pages) || pages.length === 0 || pages.some((path) => typeof path !== "string" || !path.startsWith("/"))) {
+              throw new Error("web/src/config/isr-pages.json must be a non-empty array of /-prefixed paths");
+            }
+            process.stdout.write(pages.join(","));
+          ')
+          status=$(curl --silent --show-error --output /dev/null --write-out "%{http_code}" \
+            --connect-timeout 10 \
+            --max-time 60 \
+            --request POST \
+            --get \
+            --user-agent "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36" \
+            --data-urlencode "secret=$REVALIDATION_SECRET" \
+            --data-urlencode "path=$isr_paths" \
+            --data-urlencode "flush=shorts,housing" \
+            "https://shorted.com.au/api/revalidate") || curl_exit=$?
+          status="${status:-000}"
+          echo "ISR revalidation HTTP status: $status"
+          if [ "$curl_exit" -ne 0 ]; then
+            exit "$curl_exit"
+          fi
+          if [ "$status" != "200" ]; then
+            exit 1
+          fi
+
       - name: Production Deployment Summary
         run: |
           echo "## 🚀 Production Deployment Complete" >> $GITHUB_STEP_SUMMARY

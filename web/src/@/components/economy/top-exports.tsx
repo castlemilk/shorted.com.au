@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { getEconomicSeriesClient } from "~/app/actions/client/getEconomyClient";
-import { MAP_FORMATS, type StateSlug } from "@/lib/economy/map-metrics";
+import { ECONOMY_SERIES_FORMATTERS, type StateSlug } from "@/lib/economy/map-metrics";
 import { EconomyIcon, type EconomyIconName } from "./economy-icon";
 
 /**
@@ -25,7 +25,7 @@ const SITC_PRODUCTS: { slug: string; label: string; icon: EconomyIconName }[] = 
   { slug: "commodities_and_transactions_not_classified_elsewhere_in_the_sitc", label: "Other commodities", icon: "other-commodities" },
 ];
 
-const fmtAud = MAP_FORMATS.aud;
+const fmtAud = ECONOMY_SERIES_FORMATTERS.aud;
 
 /** Top export commodities for a state (SITC single-digit sections), bar-ranked. */
 export function TopExports({ state }: { state: StateSlug }) {

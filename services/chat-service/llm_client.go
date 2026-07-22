@@ -293,6 +293,9 @@ func buildGeminiTools() []*genai.Tool {
 				schema.Type = genai.TypeInteger
 			case "boolean":
 				schema.Type = genai.TypeBoolean
+			case "array":
+				schema.Type = genai.TypeArray
+				schema.Items = &genai.Schema{Type: genai.TypeString}
 			default:
 				schema.Type = genai.TypeString
 			}

@@ -13,6 +13,7 @@ import {
 import { BreadcrumbListSchema } from "~/@/components/seo/enhanced-structured-data";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { glossaryTerms } from "~/@/data/glossary-terms";
+import { createSlug } from "~/@/lib/industry-slug";
 
 export const metadata: Metadata = {
   title: "Short Selling Glossary | Key Terms & Definitions",
@@ -172,7 +173,7 @@ export default function GlossaryPage() {
                           {item.related.map((related) => (
                             <Link
                               key={related}
-                              href={`/glossary/${related.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`}
+                              href={`/glossary/${createSlug(related)}`}
                               className="text-xs px-2 py-1 rounded bg-muted hover:bg-muted/80 transition-colors"
                             >
                               {related}

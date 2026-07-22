@@ -122,5 +122,21 @@ func GetToolDefinitions() []ToolDefinition {
 			},
 			Required: []string{"stock_code"},
 		},
+		{
+			Name: "get_economic_series",
+			Description: "Get Australian macroeconomic and market series. Key families: " +
+				"rates.cash_rate_target.aus; cpi.annual_change.all_groups.aus; cpi.index.all_groups.aus; " +
+				"labour.unemployment_rate.total.{state}.seasadj; labour.job_vacancies.{state}; " +
+				"wages.wpi_yoy.{state}; wages.real_wpi_yoy.{state}; " +
+				"commodities.price_index.bulk.aus; credit.growth_yoy.housing.aus.seasadj; " +
+				"markets.short_interest_wavg.{state}; markets.short_interest_avg.{industry}.aus; " +
+				"trade.balance.total.{state}. State values: lowercase nsw/vic/qld/sa/wa/tas/nt/act. " +
+				"Industry examples: materials, energy, banks, software-services.",
+			Parameters: map[string]ToolParameter{
+				"series_keys": {Type: "array", Description: "Series keys to fetch (required, max 10)"},
+				"limit":       {Type: "integer", Description: "Observations per series (default 12, max 60)"},
+			},
+			Required: []string{"series_keys"},
+		},
 	}
 }

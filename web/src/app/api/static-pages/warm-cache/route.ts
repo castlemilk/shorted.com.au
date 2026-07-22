@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
+import isrPages from "~/config/isr-pages.json";
 
 // Warm the static, data-backed ISR pages that render a "no data" / "loading"
 // shell when their fetch comes back empty.
@@ -25,8 +26,10 @@ const BROWSER_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 // The static ISR pages whose empty-at-build render is a user-visible shell.
-// Keep in sync with the "check back shortly" / "No … data available" fallbacks.
-const STATIC_PAGES = ["/market", "/housing", "/economy", "/compare", "/price-drops"];
+// This is deliberately smaller than the full post-promote revalidation list:
+// only these pages render the empty-at-build fallback described above. The
+// first five entries in config/isr-pages.json are this warm-cache subset.
+const STATIC_PAGES = isrPages.slice(0, 5);
 
 export async function GET(request: NextRequest) {
   // Optional secret gate — same pattern as the other warm-cache routes. When
