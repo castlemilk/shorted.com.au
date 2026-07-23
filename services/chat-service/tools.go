@@ -130,7 +130,12 @@ func GetToolDefinitions() []ToolDefinition {
 				"wages.wpi_yoy.{state}; wages.real_wpi_yoy.{state}; " +
 				"commodities.price_index.bulk.aus; credit.growth_yoy.housing.aus.seasadj; " +
 				"markets.short_interest_wavg.{state}; markets.short_interest_avg.{industry}.aus; " +
-				"trade.balance.total.{state}. State values: lowercase nsw/vic/qld/sa/wa/tas/nt/act. " +
+				"trade.balance.total.{state}; spending.household.total.{state}.seasadj; " +
+				"lending.new_commitments.investor.{state}.seasadj; " +
+				"business.gross_operating_profit.{industry}.aus.seasadj; " +
+				"construction.work_done.total.{state}.seasadj; " +
+				"crime.victims.{offence}.{state}; crime.victims_rate_100k.{offence}.{state}. " +
+				"State values: lowercase nsw/vic/qld/sa/wa/tas/nt/act. " +
 				"Industry examples: materials, energy, banks, software-services.",
 			Parameters: map[string]ToolParameter{
 				"series_keys": {Type: "array", Description: "Series keys to fetch (required, max 10)"},

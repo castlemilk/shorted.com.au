@@ -13,13 +13,46 @@ jest.mock("../economy-charts", () => ({
     ariaLabel: string;
     format: string;
   }) => (
-    <div role="img" aria-label={ariaLabel} data-series-key={seriesKey} data-format={format} />
+    <div
+      role="img"
+      aria-label={ariaLabel}
+      data-series-key={seriesKey}
+      data-format={format}
+    />
+  ),
+  EconomyComparisonChart: ({
+    primaryKey,
+    secondaryKey,
+    ariaLabel,
+    format,
+  }: {
+    primaryKey: string;
+    secondaryKey: string;
+    ariaLabel: string;
+    format: string;
+  }) => (
+    <div
+      role="img"
+      aria-label={ariaLabel}
+      data-primary-key={primaryKey}
+      data-secondary-key={secondaryKey}
+      data-format={format}
+    />
   ),
 }));
 
-jest.mock("../state-companies", () => ({ StateCompanies: () => <div>Companies</div> }));
-jest.mock("../top-exports", () => ({ TopExports: () => <div>Top exports</div> }));
-jest.mock("../state-correlations", () => ({ StateCorrelations: () => <div>Correlations</div> }));
+jest.mock("../state-companies", () => ({
+  StateCompanies: () => <div>Companies</div>,
+}));
+jest.mock("../top-exports", () => ({
+  TopExports: () => <div>Top exports</div>,
+}));
+jest.mock("../state-correlations", () => ({
+  StateCorrelations: () => <div>Correlations</div>,
+}));
+jest.mock("../state-crime-card", () => ({
+  StateCrimeCard: () => <div>Crime card</div>,
+}));
 
 const seriesKeyFor = (label: string) =>
   screen.getByRole("img", { name: label }).getAttribute("data-series-key");
@@ -51,6 +84,30 @@ describe("StateCharts", () => {
     );
   });
 
+  it("registers household spending, two-series lending, and construction work done", () => {
+    render(<StateCharts state="nsw" />);
+
+    expect(seriesKeyFor("New South Wales household spending")).toBe(
+      "spending.household.total.nsw.seasadj",
+    );
+    expect(seriesKeyFor("New South Wales construction work done")).toBe(
+      "construction.work_done.total.nsw.seasadj",
+    );
+
+    const lending = screen.getByRole("img", {
+      name: "New South Wales new housing lending commitments",
+    });
+    expect(lending).toHaveAttribute(
+      "data-primary-key",
+      "lending.new_commitments.owner_occupier.nsw.seasadj",
+    );
+    expect(lending).toHaveAttribute(
+      "data-secondary-key",
+      "lending.new_commitments.investor.nsw.seasadj",
+    );
+    expect(lending).toHaveAttribute("data-format", "aud");
+  });
+
   it("renders three safe official finance links for every state", () => {
     const expectedBudgetHosts: Record<StateSlug, string> = {
       nsw: "budget.nsw.gov.au",
@@ -65,10 +122,14 @@ describe("StateCharts", () => {
 
     for (const state of STATE_SLUGS) {
       const { unmount } = render(<StateCharts state={state} />);
-      const section = screen.getByRole("heading", { name: "Sources & further reading" }).parentElement!;
+      const section = screen.getByRole("heading", {
+        name: "Sources & further reading",
+      }).parentElement!;
       const links = Array.from(section.querySelectorAll("a"));
       expect(links).toHaveLength(3);
-      expect(new URL(links[0]!.href).hostname).toContain(expectedBudgetHosts[state]);
+      expect(new URL(links[0]!.href).hostname).toContain(
+        expectedBudgetHosts[state],
+      );
       for (const link of links) {
         expect(link).toHaveAttribute("target", "_blank");
         expect(link).toHaveAttribute("rel", "noopener noreferrer");

@@ -33,6 +33,12 @@ func TestEconomicSeriesToolDeclarationAndGeminiSchema(t *testing.T) {
 		"markets.short_interest_wavg.{state}",
 		"markets.short_interest_avg.{industry}.aus",
 		"trade.balance.total.{state}",
+		"spending.household.total.{state}.seasadj",
+		"lending.new_commitments.investor.{state}.seasadj",
+		"business.gross_operating_profit.{industry}.aus.seasadj",
+		"construction.work_done.total.{state}.seasadj",
+		"crime.victims.{offence}.{state}",
+		"crime.victims_rate_100k.{offence}.{state}",
 		"nsw/vic/qld/sa/wa/tas/nt/act",
 		"materials, energy, banks, software-services",
 	}
