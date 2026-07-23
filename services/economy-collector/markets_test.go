@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"math"
 	"regexp"
 	"strings"
 	"testing"
@@ -111,6 +113,184 @@ func TestMarketObs(t *testing.T) {
 func TestMarketObs_RejectsUnknownRegion(t *testing.T) {
 	if _, ok := marketObs("international", time.Now(), 2.0); ok {
 		t.Error("marketObs(international): expected NOT ok — should never emit a series for a non-state region")
+	}
+}
+
+func TestPriceReturnIndexSeriesDef(t *testing.T) {
+	def, ok := priceReturnIndexSeriesDef("wa")
+	if !ok {
+		t.Fatal("priceReturnIndexSeriesDef(wa): expected ok")
+	}
+	if got, want := def.Key(), "markets.price_return_index.wa"; got != want {
+		t.Fatalf("Key() = %q, want %q", got, want)
+	}
+	if def.Unit != "index" || def.Frequency != "monthly" || def.Adjustment != "original" {
+		t.Fatalf("series metadata = %#v", def)
+	}
+	if def.SourceKey != "derived-shorted-markets" || def.Licence != "derived" {
+		t.Fatalf("source metadata = %#v", def)
+	}
+	if got := def.Dimensions["basis"]; got != "current-constituent" {
+		t.Fatalf("Dimensions[basis] = %q", got)
+	}
+	if got := def.Dimensions["weighting"]; got != "weight_x_market_cap" {
+		t.Fatalf("Dimensions[weighting] = %q", got)
+	}
+}
+
+func TestAssemblePriceReturnIndexObsBase100AndCumprod(t *testing.T) {
+	rows := []priceReturnRow{
+		{Region: "nsw", Period: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), Return: 0.10, Constituents: 6},
+		{Region: "nsw", Period: time.Date(2025, 2, 1, 0, 0, 0, 0, time.UTC), Return: -0.05, Constituents: 5},
+		{Region: "nsw", Period: time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC), Return: 0.20, Constituents: 8},
+	}
+
+	obs, err := assembleStatePriceReturnIndexObs(rows)
+	if err != nil {
+		t.Fatalf("assembleStatePriceReturnIndexObs: %v", err)
+	}
+	if got, want := len(obs), 3; got != want {
+		t.Fatalf("len(obs) = %d, want %d", got, want)
+	}
+	want := []float64{100, 95, 114}
+	for i := range want {
+		if math.Abs(obs[i].Value-want[i]) > 1e-12 {
+			t.Errorf("obs[%d].Value = %.12f, want %.12f", i, obs[i].Value, want[i])
+		}
+	}
+}
+
+func TestAssemblePriceReturnIndexObsDoesNotInventGapMonth(t *testing.T) {
+	rows := []priceReturnRow{
+		{Region: "vic", Period: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), Return: 0.02, Constituents: 5},
+		{Region: "vic", Period: time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC), Return: 0.10, Constituents: 5},
+	}
+
+	obs, err := assembleStatePriceReturnIndexObs(rows)
+	if err != nil {
+		t.Fatalf("assembleStatePriceReturnIndexObs: %v", err)
+	}
+	if got, want := len(obs), 2; got != want {
+		t.Fatalf("len(obs) = %d, want %d", got, want)
+	}
+	if got := obs[0].Period.Format("2006-01-02"); got != "2025-01-01" {
+		t.Fatalf("first period = %s", got)
+	}
+	if got := obs[1].Period.Format("2006-01-02"); got != "2025-03-01" {
+		t.Fatalf("second period = %s, gap month must remain absent", got)
+	}
+	if math.Abs(obs[1].Value-110) > 1e-12 {
+		t.Fatalf("post-gap index = %.12f, want 110", obs[1].Value)
+	}
+}
+
+func TestAssemblePriceReturnIndexObsAppliesConstituentFloor(t *testing.T) {
+	rows := []priceReturnRow{
+		{Region: "qld", Period: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), Return: 0.01, Constituents: 4},
+		{Region: "qld", Period: time.Date(2025, 2, 1, 0, 0, 0, 0, time.UTC), Return: 0.02, Constituents: 5},
+	}
+
+	obs, err := assembleStatePriceReturnIndexObs(rows)
+	if err != nil {
+		t.Fatalf("assembleStatePriceReturnIndexObs: %v", err)
+	}
+	if got, want := len(obs), 1; got != want {
+		t.Fatalf("len(obs) = %d, want %d", got, want)
+	}
+	if obs[0].Value != 100 {
+		t.Fatalf("first qualifying month index = %v, want 100", obs[0].Value)
+	}
+}
+
+func TestAssemblePriceReturnIndexObsRejectsMonthlyReturnDrift(t *testing.T) {
+	for _, monthlyReturn := range []float64{0.250001, -0.250001, math.NaN(), math.Inf(1)} {
+		t.Run(fmt.Sprintf("%v", monthlyReturn), func(t *testing.T) {
+			rows := []priceReturnRow{{
+				Region: "tas", Period: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+				Return: monthlyReturn, Constituents: 5,
+			}}
+			obs, err := assembleStatePriceReturnIndexObs(rows)
+			if err == nil {
+				t.Fatalf("monthly return %v: expected drift error", monthlyReturn)
+			}
+			if obs != nil {
+				t.Fatalf("monthly return %v: obs = %#v, want nil on family failure", monthlyReturn, obs)
+			}
+		})
+	}
+}
+
+func TestConsecutiveStockPriceReturnsBreaksChainOnGap(t *testing.T) {
+	rows := []monthlyPriceExposureRow{
+		{
+			StockCode: "ABC", Region: "wa", Period: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+			Close: 100, ExposureWeight: 1, MarketCap: 1_000_000,
+		},
+		{
+			StockCode: "ABC", Region: "wa", Period: time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC),
+			Close: 120, ExposureWeight: 1, MarketCap: 1_000_000,
+		},
+		{
+			StockCode: "XYZ", Region: "wa", Period: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+			Close: 50, ExposureWeight: 1, MarketCap: 2_000_000,
+		},
+		{
+			StockCode: "XYZ", Region: "wa", Period: time.Date(2025, 2, 1, 0, 0, 0, 0, time.UTC),
+			Close: 55, ExposureWeight: 1, MarketCap: 2_000_000,
+		},
+	}
+
+	returns, err := consecutiveStockPriceReturns(rows)
+	if err != nil {
+		t.Fatalf("consecutiveStockPriceReturns: %v", err)
+	}
+	if got, want := len(returns), 1; got != want {
+		t.Fatalf("len(returns) = %d, want %d: %#v", got, want, returns)
+	}
+	if returns[0].StockCode != "XYZ" || returns[0].Period.Format("2006-01-02") != "2025-02-01" {
+		t.Fatalf("return row = %#v", returns[0])
+	}
+	if math.Abs(returns[0].Return-0.10) > 1e-12 {
+		t.Fatalf("return = %.12f, want .10", returns[0].Return)
+	}
+}
+
+func TestAggregateStatePriceReturnsUsesExposureWeightTimesMarketCap(t *testing.T) {
+	period := time.Date(2025, 2, 1, 0, 0, 0, 0, time.UTC)
+	rows := []weightedStockReturnRow{
+		{StockCode: "A", Region: "nsw", Period: period, Return: 0.10, Weight: 1},
+		{StockCode: "B", Region: "nsw", Period: period, Return: -0.10, Weight: 3},
+		{StockCode: "C", Region: "nsw", Period: period, Return: 0, Weight: 1},
+		{StockCode: "D", Region: "nsw", Period: period, Return: 0, Weight: 1},
+		{StockCode: "E", Region: "nsw", Period: period, Return: 0, Weight: 1},
+	}
+
+	stateRows, err := aggregateStatePriceReturns(rows)
+	if err != nil {
+		t.Fatalf("aggregateStatePriceReturns: %v", err)
+	}
+	if got, want := len(stateRows), 1; got != want {
+		t.Fatalf("len(stateRows) = %d, want %d", got, want)
+	}
+	if math.Abs(stateRows[0].Return-(-0.20/7.0)) > 1e-12 {
+		t.Fatalf("weighted return = %.12f, want %.12f", stateRows[0].Return, -0.20/7.0)
+	}
+	if stateRows[0].Constituents != 5 {
+		t.Fatalf("constituents = %d, want 5", stateRows[0].Constituents)
+	}
+}
+
+func TestPriceReturnQueryLoadsMonthlyLastPricesAndCurrentWeights(t *testing.T) {
+	for _, want := range []string{
+		"DISTINCT ON (p.stock_code, date_trunc('month', p.date))",
+		"JOIN mv_company_state_exposure e ON e.stock_code = m.stock_code",
+		"e.weight",
+		"e.market_cap",
+		"ORDER BY m.stock_code, m.month, e.region",
+	} {
+		if !strings.Contains(priceReturnIndexQuery, want) {
+			t.Errorf("price-return query missing %q", want)
+		}
 	}
 }
 

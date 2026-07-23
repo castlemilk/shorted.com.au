@@ -325,7 +325,7 @@ func deriveIndustryMarkets(ctx context.Context, pool *pgxpool.Pool) ([]Obs, erro
 	return industryObs, nil
 }
 
-// ingestMarkets runs both independent derivations even when either one fails.
+// ingestMarkets runs all independent derivations even when one fails.
 // runJob persists the healthy family's observations alongside the returned
 // error, preserving per-family resilience without adding another CLI mode.
 func ingestMarkets(ctx context.Context, pool *pgxpool.Pool) ([]Obs, error) {
@@ -335,6 +335,9 @@ func ingestMarkets(ctx context.Context, pool *pgxpool.Pool) ([]Obs, error) {
 		}},
 		derivationFamily{name: "industry markets", run: func() ([]Obs, error) {
 			return deriveIndustryMarkets(ctx, pool)
+		}},
+		derivationFamily{name: "state price-return index", run: func() ([]Obs, error) {
+			return derivePriceReturnIndexes(ctx, pool)
 		}},
 	)
 }

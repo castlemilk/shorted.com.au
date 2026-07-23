@@ -71,7 +71,7 @@ var sourceDefs = []sourceDef{
 	{"dcceew-petroleum-statistics", "Australian Petroleum Statistics", "economic_series",
 		"Department of Climate Change, Energy, the Environment and Water", "https://www.energy.gov.au/publications/australian-petroleum-statistics",
 		"CC-BY-4.0", "Monthly", "download", "Refinery output, fuel sales by state, petroleum imports/exports (XLSX)."},
-	{"derived-shorted-markets", "State and industry short interest (derived)", "economic_series",
+	{"derived-shorted-markets", "State market indexes and industry short interest (derived)", "economic_series",
 		"Shorted (derived from ASIC + exposure model)", "https://shorted.com.au",
 		"derived", "Monthly", "derived",
 		"Monthly per-state exposure-weighted average short interest, derived in-DB from the ASIC shorts " +
@@ -79,13 +79,16 @@ var sourceDefs = []sourceDef{
 			"every stock's last short observation, weighted by exposure weight × market cap. CAVEAT: the exposure " +
 			"weights and market caps are CURRENT (no history), so this applies present-day state composition " +
 			"retrospectively to every month — a 'current-constituent basis', the standard fixed-basket " +
-			"index-construction caveat. Also includes a simple monthly average by current GICS industry, emitted only " +
+			"index-construction caveat. Also includes a base-100 state stock-price return index using monthly-last " +
+			"closes, consecutive stock months, the same current exposure × market-cap weighting, and a five-stock floor. " +
+			"The source also includes a simple monthly average by current GICS industry, emitted only " +
 			"for industry-months with at least five stocks; those classifications likewise use current membership. " +
 			"Short percentages themselves are historical; only the weighting/classification is present-day."},
-	{"derived-shorted-economy", "Real wages, trade balance, and recorded-crime rates (derived)", "economic_series",
+	{"derived-shorted-economy", "Derived economic rates and per-capita series", "economic_series",
 		"Shorted (derived from ABS economic series)", "https://shorted.com.au",
 		"derived", "Annual + monthly + quarterly", "derived",
 		"Annual recorded-crime victimisation rates per 100,000 residents, quarterly real WPI growth, and monthly total merchandise trade balance, derived in-DB from imported ABS series. Crime rates use exact state ERP observations at the June-quarter start for each victim year. " +
+			"Also includes quarterly state final demand per capita using same-quarter ERP, monthly household spending per capita using forward-filled quarterly ERP, and monthly dwelling approvals per 100,000 using forward-filled ERP. " +
 			"CAVEAT: real WPI uses the national CPI index as the deflator for every state and territory because no state CPI series exists; " +
 			"it is WPI YoY minus national CPI YoY computed from quarterly index levels, not the monthly CPI annual-change series."},
 }
