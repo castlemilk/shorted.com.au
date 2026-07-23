@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
@@ -151,9 +152,229 @@ func TestParseSuburbStreets(t *testing.T) {
 	}
 }
 
-func TestResolveViaSearch_IsStub(t *testing.T) {
-	if _, ok := resolveViaSearch(propertyTarget{suburb: "Sampleton", stateCode: "VIC", postcode: "3999"}); ok {
-		t.Error("resolveViaSearch must be a documented no-op fallback (return ok=false)")
+// --- address SEARCH resolver (PRIMARY path) ---
+// All addresses/units/PIDs below are SYNTHETIC; they exercise the parse/query/match/
+// URL-build logic against the confirmed suggest response SHAPE without embedding any
+// captured portal data.
+
+func TestParseAddressParts(t *testing.T) {
+	cases := []struct {
+		in, unit, number, numFrom, name string
+	}{
+		{"033/175 Kelletts Road", "33", "175", "175", "Kelletts Road"},       // zero-padded unit
+		{"6/45 Wheatley Street", "6", "45", "45", "Wheatley Street"},         // plain unit
+		{"06/ 88 Menser Street", "6", "88", "88", "Menser Street"},           // space after slash
+		{"06/6  Josling Street", "6", "6", "6", "Josling Street"},            // double space
+		{"1/51-53 Sheffield Street", "1", "51-53", "51", "Sheffield Street"}, // street-number range
+		{"19 Badajoz Road", "", "19", "19", "Badajoz Road"},                  // house, no unit
+		{"1a Test Street", "", "1a", "1a", "Test Street"},                    // letter suffix
+		{"Example Road", "", "", "", "Example Road"},                         // no number
+	}
+	for _, c := range cases {
+		p := parseAddressParts(c.in)
+		if p.unit != c.unit || p.number != c.number || p.numFrom != c.numFrom || p.name != c.name {
+			t.Errorf("parseAddressParts(%q) = {unit:%q number:%q numFrom:%q name:%q}, want {unit:%q number:%q numFrom:%q name:%q}",
+				c.in, p.unit, p.number, p.numFrom, p.name, c.unit, c.number, c.numFrom, c.name)
+		}
+	}
+}
+
+func TestNormUnit(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{"033", "33"}, {"06", "6"}, {"0", "0"}, {"00", "0"}, {"7", "7"}, {"100", "100"}, {"09 Ambrose", "9 Ambrose"},
+	}
+	for _, c := range cases {
+		if got := normUnit(c.in); got != c.want {
+			t.Errorf("normUnit(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+func TestBuildSuggestQuery(t *testing.T) {
+	p := parseAddressParts("033/175 Kelletts Road")
+	if got := buildSuggestQuery(p, "Rowville", "vic", "3178", true); got != "33/175 Kelletts Road, Rowville VIC 3178" {
+		t.Errorf("unit query = %q", got)
+	}
+	if got := buildSuggestQuery(p, "Rowville", "vic", "3178", false); got != "175 Kelletts Road, Rowville VIC 3178" {
+		t.Errorf("street query = %q", got)
+	}
+	house := parseAddressParts("19 Badajoz Road")
+	if got := buildSuggestQuery(house, "Ryde", "NSW", "2112", true); got != "19 Badajoz Road, Ryde NSW 2112" {
+		t.Errorf("house query (withUnit, no unit) = %q", got)
+	}
+}
+
+func TestBuildSuggestURL(t *testing.T) {
+	got := buildSuggestURL("33/175 Kelletts Road, Rowville VIC 3178")
+	for _, want := range []string{
+		suggestEndpoint + "?",
+		"max=8",
+		"type=address%2Csuburb%2Cpostcode%2Cstate%2Cregion",
+		"query=33%2F175+Kelletts+Road%2C+Rowville+VIC+3178",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("suggest URL %q missing %q", got, want)
+		}
+	}
+}
+
+func TestBuildProfileURLFromSource(t *testing.T) {
+	// house
+	s := suggestSource{StreetNumber: "19", StreetName: "Badajoz Rd", Suburb: "Ryde", State: "NSW", Postcode: "2112"}
+	if got := buildProfileURLFromSource(s, "94337"); got != "https://www.property.com.au/nsw/ryde-2112/badajoz-rd/19-pid-94337/" {
+		t.Errorf("house profile URL = %q", got)
+	}
+	// unit — streetNumber "33/175" slugs to "33-175"
+	u := suggestSource{UnitNumber: "33", StreetNumber: "33/175", StreetNumberFrom: "175", StreetName: "Kelletts Rd", Suburb: "Rowville", State: "VIC", Postcode: "3178"}
+	if got := buildProfileURLFromSource(u, "6535276"); got != "https://www.property.com.au/vic/rowville-3178/kelletts-rd/33-175-pid-6535276/" {
+		t.Errorf("unit profile URL = %q", got)
+	}
+	// missing component → ""
+	if got := buildProfileURLFromSource(suggestSource{StreetNumber: "1", StreetName: "Foo St", Suburb: "Bar", State: "VIC"}, "1"); got != "" {
+		t.Errorf("missing postcode should yield empty URL, got %q", got)
+	}
+	if got := buildProfileURLFromSource(s, ""); got != "" {
+		t.Errorf("missing id should yield empty URL, got %q", got)
+	}
+}
+
+// syntheticSuggestJSON builds a suggest-shaped response for a street-number query at
+// "175 Kelletts Rd, Rowville VIC 3178": a base street property + a unit, plus a
+// DIFFERENT-street-number decoy ("33/191") to prove the streetNumberFrom guard.
+func syntheticSuggestJSON() string {
+	return `{"_embedded":{"suggestions":[
+		{"id":"5000001","type":"address","source":{"streetNumber":"175","streetNumberFrom":"175","streetName":"Kelletts Rd","suburb":"Rowville","state":"VIC","postcode":"3178"}},
+		{"id":"5000002","type":"address","source":{"unitNumber":"33","streetNumber":"33/175","streetNumberFrom":"175","streetName":"Kelletts Rd","suburb":"Rowville","state":"VIC","postcode":"3178"}},
+		{"id":"5000003","type":"address","source":{"unitNumber":"33","streetNumber":"33/191","streetNumberFrom":"191","streetName":"Kelletts Rd","suburb":"Rowville","state":"VIC","postcode":"3178"}},
+		{"id":"5000004","type":"suburb","source":{"suburb":"Rowville","state":"VIC","postcode":"3178"}}
+	]}}`
+}
+
+func TestParseSuggestResponse(t *testing.T) {
+	items, ok := parseSuggestResponse([]byte(syntheticSuggestJSON()))
+	if !ok || len(items) != 4 {
+		t.Fatalf("parse bare JSON: ok=%v items=%d", ok, len(items))
+	}
+	// browser-navigated JSON is wrapped in <pre>...</pre>; extraction must still work.
+	wrapped := `<html><head><meta charset="utf-8"></head><body><pre>` + syntheticSuggestJSON() + `</pre></body></html>`
+	items2, ok2 := parseSuggestResponse([]byte(wrapped))
+	if !ok2 || len(items2) != 4 {
+		t.Fatalf("parse <pre>-wrapped JSON: ok=%v items=%d", ok2, len(items2))
+	}
+	if _, ok := parseSuggestResponse([]byte("<html><body>not json</body></html>")); ok {
+		t.Error("non-JSON page must not parse as a suggest response")
+	}
+}
+
+func TestMatchSuggestion(t *testing.T) {
+	items, _ := parseSuggestResponse([]byte(syntheticSuggestJSON()))
+
+	// exact unit 33 at streetNumberFrom 175 → id 5000002 (NOT the 33/191 decoy).
+	if it, how, ok := matchSuggestion(items, parseAddressParts("033/175 Kelletts Road")); !ok || it.ID != "5000002" || how != "exact-unit" {
+		t.Errorf("exact-unit match = id %q how %q ok %v, want 5000002/exact-unit", it.ID, how, ok)
+	}
+
+	// a unit NOT indexed (unit 99) falls back to the base street property → id 5000001.
+	if it, how, ok := matchSuggestion(items, parseAddressParts("099/175 Kelletts Road")); !ok || it.ID != "5000001" || how != "base-street" {
+		t.Errorf("base-street fallback = id %q how %q ok %v, want 5000001/base-street", it.ID, how, ok)
+	}
+
+	// a plain house at 175 → base street property.
+	if it, _, ok := matchSuggestion(items, parseAddressParts("175 Kelletts Road")); !ok || it.ID != "5000001" {
+		t.Errorf("house match = id %q ok %v, want 5000001", it.ID, ok)
+	}
+
+	// fuzzy-street-number guard: a unit whose ONLY suggestion is a different street
+	// number (191 when we want 200) must NOT match.
+	decoyOnly := []suggestItem{{ID: "9", Type: "address", Source: suggestSource{UnitNumber: "33", StreetNumber: "33/191", StreetNumberFrom: "191", StreetName: "Kelletts Rd", Suburb: "Rowville", State: "VIC", Postcode: "3178"}}}
+	if _, _, ok := matchSuggestion(decoyOnly, parseAddressParts("33/200 Kelletts Road")); ok {
+		t.Error("a different streetNumberFrom must be rejected (fuzzy near-number guard)")
+	}
+}
+
+// unitKellettsTarget is the SYNTHETIC unit-heavy prod-shaped address used by the
+// search-flow tests (matches syntheticSuggestJSON's exact unit 33 at 175).
+var unitKellettsTarget = propertyTarget{displayAddress: "033/175 Kelletts Road", suburb: "Rowville", stateCode: "VIC", postcode: "3178"}
+
+// TestResolveViaSearch_Flow drives the search resolver end-to-end through the fake
+// htmlFetcher: the <pre>-wrapped suggest JSON resolves the zero-padded unit "033/175"
+// straight to its pid-bearing profile URL, and a repeat query is served from cache.
+func TestResolveViaSearch_Flow(t *testing.T) {
+	ff := &fakeFetcher{html: map[string]string{
+		"consumer-suggest": `<html><body><pre>` + syntheticSuggestJSON() + `</pre></body></html>`,
+	}}
+	cr := newTestCrawler(ff, "")
+	caches := newPropertyResolveCaches()
+	noop := func() {}
+
+	url, st := cr.resolveViaSearch(context.Background(), unitKellettsTarget, caches, noop)
+	if st != resolveOK || url != "https://www.property.com.au/vic/rowville-3178/kelletts-rd/33-175-pid-5000002/" {
+		t.Fatalf("resolveViaSearch = %q %v, want the 33-175-pid-5000002 profile", url, st)
+	}
+	before := len(ff.calls)
+	if _, st := cr.resolveViaSearch(context.Background(), unitKellettsTarget, caches, noop); st != resolveOK {
+		t.Fatalf("second resolveViaSearch status = %v", st)
+	}
+	if len(ff.calls) != before {
+		t.Errorf("expected per-run cache hit (no new fetch), calls went %d -> %d", before, len(ff.calls))
+	}
+}
+
+// TestResolveProfile_SearchIsPrimary proves search is the PRIMARY path: when it
+// resolves, the traversal index pages are never fetched.
+func TestResolveProfile_SearchIsPrimary(t *testing.T) {
+	ff := &fakeFetcher{html: map[string]string{"consumer-suggest": syntheticSuggestJSON()}}
+	cr := newTestCrawler(ff, "")
+
+	url, st := cr.resolveProfile(context.Background(), unitKellettsTarget, newPropertyResolveCaches(), func() {})
+	if st != resolveOK || !strings.Contains(url, "-pid-5000002/") {
+		t.Fatalf("resolveProfile (search primary) = %q %v", url, st)
+	}
+	for _, c := range ff.calls {
+		if !strings.Contains(c, "consumer-suggest") {
+			t.Errorf("traversal fetched %q — it must not run when search resolves", c)
+		}
+	}
+}
+
+// TestResolveProfile_BlockShortCircuits ensures a blocked suggest fetch surfaces as a
+// block (so the circuit breaker backs off) instead of silently falling to traversal.
+func TestResolveProfile_BlockShortCircuits(t *testing.T) {
+	ff := &fakeFetcher{blockOn: map[string]bool{"consumer-suggest": true}}
+	cr := newTestCrawler(ff, "")
+	if _, st := cr.resolveViaSearch(context.Background(), unitKellettsTarget, newPropertyResolveCaches(), func() {}); st != resolveBlocked {
+		t.Errorf("blocked suggest fetch must yield resolveBlocked, got %v", st)
+	}
+	if _, st := cr.resolveProfile(context.Background(), unitKellettsTarget, newPropertyResolveCaches(), func() {}); st != resolveBlocked {
+		t.Errorf("resolveProfile must surface the block, got %v", st)
+	}
+}
+
+// TestResolveProfile_SearchMissTriesTraversal proves the traversal fallback is
+// ATTEMPTED when the search API returns no match (a suburb-page fetch happens after
+// the suggest fetch). The traversal PARSERS themselves are covered by
+// TestParseSuburbStreets / TestParseStreetProperties.
+func TestResolveProfile_SearchMissTriesTraversal(t *testing.T) {
+	ff := &fakeFetcher{html: map[string]string{
+		"consumer-suggest": `{"_embedded":{"suggestions":[]}}`, // search finds nothing
+	}}
+	cr := newTestCrawler(ff, "")
+	tgt := propertyTarget{displayAddress: "19 Example Road", suburb: "Sampleton", stateCode: "VIC", postcode: "3999"}
+	cr.resolveProfile(context.Background(), tgt, newPropertyResolveCaches(), func() {})
+
+	sawSuggest, sawSuburb := false, false
+	for _, c := range ff.calls {
+		if strings.Contains(c, "consumer-suggest") {
+			sawSuggest = true
+		} else if strings.Contains(c, "/vic/sampleton-3999/") {
+			sawSuburb = true
+		}
+	}
+	if !sawSuggest {
+		t.Error("search (suggest) must be tried first")
+	}
+	if !sawSuburb {
+		t.Error("a search miss must fall back to the suburb-page traversal")
 	}
 }
 
