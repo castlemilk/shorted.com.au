@@ -2,6 +2,7 @@ package shorts
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -73,6 +74,7 @@ func TestGetPropertyHistory_RequiresAddressKey(t *testing.T) {
 // current-listing snapshot and the merged event timeline.
 func TestGetPropertyHistory_FlagEnabled_ReturnsTimeline(t *testing.T) {
 	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "true")
+	t.Setenv("HOUSING_VALUATIONS_ENABLED", "false")
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -136,6 +138,7 @@ func TestGetPropertyHistory_FlagEnabled_ReturnsTimeline(t *testing.T) {
 // more than one physical dwelling.
 func TestGetPropertyHistory_SurfacesDistinctDwellings(t *testing.T) {
 	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "true")
+	t.Setenv("HOUSING_VALUATIONS_ENABLED", "false")
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -163,6 +166,229 @@ func TestGetPropertyHistory_SurfacesDistinctDwellings(t *testing.T) {
 	}
 	if resp.Msg.DistinctDwellings != 3 {
 		t.Fatalf("want distinct_dwellings=3 surfaced, got %d", resp.Msg.DistinctDwellings)
+	}
+}
+
+func propertyHistoryForValuation(addressKey string) *shortsstore.PropertyHistoryResult {
+	return &shortsstore.PropertyHistoryResult{
+		AddressKey:     addressKey,
+		DisplayAddress: "1 Smith Street",
+		Suburb:         "Richmond",
+		StateCode:      "VIC",
+		Postcode:       "3121",
+		Current: &shortsstore.PropertyListingSnapshotRow{
+			Source: "rea", ListingID: "listing-1", ListingURL: "https://realestate.com.au/listing-1",
+			Price: 1_200_000, ListingStatus: "for_sale", IsActive: true,
+		},
+		Events: []*shortsstore.PropertyPriceEventRow{{
+			ObservedAt: time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
+			EventType:  "first_seen",
+			Source:     "rea",
+			ListingID:  "listing-1",
+			Price:      1_200_000,
+		}},
+		NumListings:  1,
+		FirstPrice:   1_200_000,
+		CurrentPrice: 1_200_000,
+	}
+}
+
+func TestGetPropertyHistory_ValuationExact_MapsAllFields(t *testing.T) {
+	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "true")
+	t.Setenv("HOUSING_VALUATIONS_ENABLED", "")
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	const addressKey = "1-smith-street-richmond-vic-3121"
+	fetchedAt := time.Date(2026, 7, 20, 9, 30, 0, 0, time.UTC)
+
+	mockStore.EXPECT().GetPropertyHistory(addressKey).Return(propertyHistoryForValuation(addressKey), nil)
+	mockStore.EXPECT().GetPropertyValuation(addressKey).Return(&shortsstore.PropertyValuationRow{
+		Source:               "property.com.au",
+		ProfileURL:           "https://www.property.com.au/vic/richmond-3121/smith-st/1-pid-1/",
+		FetchedAt:            fetchedAt,
+		EstimateLow:          1_100_000,
+		EstimateMid:          1_200_000,
+		EstimateHigh:         1_300_000,
+		EstimateConfidence:   "high",
+		ValuationGranularity: "exact",
+		RentEstimateMid:      650,
+		Bedrooms:             3,
+		Bathrooms:            2,
+		CarSpaces:            1,
+		LandSizeSqm:          450,
+		BuildingSizeSqm:      180,
+		YearBuilt:            1998,
+		PropertyType:         "house",
+	}, nil)
+
+	srv := newTestServer(t, mockStore)
+	resp, err := srv.GetPropertyHistory(context.Background(),
+		connect.NewRequest(&shortsv1alpha1.GetPropertyHistoryRequest{AddressKey: addressKey}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	v := resp.Msg.Valuation
+	if v == nil {
+		t.Fatal("want valuation block, got nil")
+	}
+	if v.Source != "property.com.au" || v.ProfileUrl == "" || v.FetchedAt != fetchedAt.Format(time.RFC3339) {
+		t.Fatalf("want source/profile/fetched_at mapped, got %+v", v)
+	}
+	if v.EstimateLow != 1_100_000 || v.EstimateMid != 1_200_000 || v.EstimateHigh != 1_300_000 {
+		t.Fatalf("want estimate range mapped, got %+v", v)
+	}
+	if v.EstimateConfidence != "high" || v.ValuationGranularity != "exact" || v.RentEstimateMid != 650 {
+		t.Fatalf("want confidence/granularity/rent mapped, got %+v", v)
+	}
+	if v.Bedrooms != 3 || v.Bathrooms != 2 || v.CarSpaces != 1 ||
+		v.LandSizeSqm != 450 || v.BuildingSizeSqm != 180 || v.YearBuilt != 1998 ||
+		v.PropertyType != "house" {
+		t.Fatalf("want property attributes mapped, got %+v", v)
+	}
+}
+
+func TestGetPropertyHistory_ValuationBuilding_PreservesGranularity(t *testing.T) {
+	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "true")
+	t.Setenv("HOUSING_VALUATIONS_ENABLED", "")
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	const addressKey = "unit-2-1-smith-street-richmond-vic-3121"
+
+	mockStore.EXPECT().GetPropertyHistory(addressKey).Return(propertyHistoryForValuation(addressKey), nil)
+	mockStore.EXPECT().GetPropertyValuation(addressKey).Return(&shortsstore.PropertyValuationRow{
+		FetchedAt:            time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC),
+		EstimateMid:          5_000_000,
+		ValuationGranularity: "building",
+	}, nil)
+
+	srv := newTestServer(t, mockStore)
+	resp, err := srv.GetPropertyHistory(context.Background(),
+		connect.NewRequest(&shortsv1alpha1.GetPropertyHistoryRequest{AddressKey: addressKey}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Msg.Valuation == nil || resp.Msg.Valuation.ValuationGranularity != "building" {
+		t.Fatalf("want building granularity passed through, got %+v", resp.Msg.Valuation)
+	}
+}
+
+func TestGetPropertyHistory_ValuationMissing_KeepsHistory(t *testing.T) {
+	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "true")
+	t.Setenv("HOUSING_VALUATIONS_ENABLED", "")
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	const addressKey = "1-smith-street-richmond-vic-3121"
+
+	mockStore.EXPECT().GetPropertyHistory(addressKey).Return(propertyHistoryForValuation(addressKey), nil)
+	mockStore.EXPECT().GetPropertyValuation(addressKey).Return(nil, nil)
+
+	srv := newTestServer(t, mockStore)
+	resp, err := srv.GetPropertyHistory(context.Background(),
+		connect.NewRequest(&shortsv1alpha1.GetPropertyHistoryRequest{AddressKey: addressKey}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Msg.Valuation != nil {
+		t.Fatalf("want valuation omitted, got %+v", resp.Msg.Valuation)
+	}
+	if resp.Msg.Current == nil || resp.Msg.Current.ListingId != "listing-1" || len(resp.Msg.Events) != 1 {
+		t.Fatalf("want property history intact, got %+v", resp.Msg)
+	}
+}
+
+func TestGetPropertyHistory_ValuationError_IsWarnOnly(t *testing.T) {
+	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "true")
+	t.Setenv("HOUSING_VALUATIONS_ENABLED", "")
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	const addressKey = "1-smith-street-richmond-vic-3121"
+
+	mockStore.EXPECT().GetPropertyHistory(addressKey).Return(propertyHistoryForValuation(addressKey), nil)
+	mockStore.EXPECT().GetPropertyValuation(addressKey).Return(nil, errors.New("relation property_valuations does not exist"))
+
+	srv := newTestServer(t, mockStore)
+	resp, err := srv.GetPropertyHistory(context.Background(),
+		connect.NewRequest(&shortsv1alpha1.GetPropertyHistoryRequest{AddressKey: addressKey}))
+	if err != nil {
+		t.Fatalf("want valuation error to degrade without RPC error, got %v", err)
+	}
+	if resp.Msg.Valuation != nil {
+		t.Fatalf("want valuation omitted on store error, got %+v", resp.Msg.Valuation)
+	}
+	if resp.Msg.Current == nil || resp.Msg.Current.ListingId != "listing-1" || len(resp.Msg.Events) != 1 {
+		t.Fatalf("want property history intact, got %+v", resp.Msg)
+	}
+}
+
+func TestGetPropertyHistory_ValuationFlagDisabled_SkipsStore(t *testing.T) {
+	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "true")
+	t.Setenv("HOUSING_VALUATIONS_ENABLED", "false")
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	const addressKey = "1-smith-street-richmond-vic-3121"
+
+	mockStore.EXPECT().GetPropertyHistory(addressKey).Return(propertyHistoryForValuation(addressKey), nil)
+	// No EXPECT() on GetPropertyValuation: the valuation kill switch must
+	// short-circuit without affecting the history response.
+
+	srv := newTestServer(t, mockStore)
+	resp, err := srv.GetPropertyHistory(context.Background(),
+		connect.NewRequest(&shortsv1alpha1.GetPropertyHistoryRequest{AddressKey: addressKey}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Msg.Valuation != nil {
+		t.Fatalf("want valuation omitted when disabled, got %+v", resp.Msg.Valuation)
+	}
+	if resp.Msg.Current == nil || resp.Msg.Current.ListingId != "listing-1" {
+		t.Fatalf("want property history intact, got %+v", resp.Msg)
+	}
+}
+
+func TestGetPropertyHistory_ValuationSalesHistory_MapsUndisclosedPrice(t *testing.T) {
+	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "true")
+	t.Setenv("HOUSING_VALUATIONS_ENABLED", "")
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	const addressKey = "1-smith-street-richmond-vic-3121"
+	soldPrice := 980_000.0
+
+	mockStore.EXPECT().GetPropertyHistory(addressKey).Return(propertyHistoryForValuation(addressKey), nil)
+	mockStore.EXPECT().GetPropertyValuation(addressKey).Return(&shortsstore.PropertyValuationRow{
+		FetchedAt: time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC),
+		SalesHistory: []shortsstore.PropertyValuationSaleRow{
+			{Date: "2019-05-11", Price: &soldPrice, Agency: "Test Realty", Type: "Sold"},
+			{Date: "2015-02-02", Price: nil, Type: "Listed for sale"},
+		},
+	}, nil)
+
+	srv := newTestServer(t, mockStore)
+	resp, err := srv.GetPropertyHistory(context.Background(),
+		connect.NewRequest(&shortsv1alpha1.GetPropertyHistoryRequest{AddressKey: addressKey}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Msg.Valuation == nil || len(resp.Msg.Valuation.SalesHistory) != 2 {
+		t.Fatalf("want two mapped sales, got %+v", resp.Msg.Valuation)
+	}
+	if got := resp.Msg.Valuation.SalesHistory[0]; got.Price != soldPrice ||
+		got.Date != "2019-05-11" || got.Agency != "Test Realty" || got.EventType != "Sold" {
+		t.Fatalf("want disclosed sale mapped, got %+v", got)
+	}
+	if got := resp.Msg.Valuation.SalesHistory[1]; got.Price != 0 || got.EventType != "Listed for sale" {
+		t.Fatalf("want nil price mapped to zero, got %+v", got)
 	}
 }
 

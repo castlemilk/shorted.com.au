@@ -11,8 +11,8 @@ import (
 	"go.uber.org/mock/gomock"
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
-	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/shorts/mocks"
+	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 )
 
 func newTestServer(t *testing.T, store ShortsStore) *ShortsServer {
@@ -20,6 +20,7 @@ func newTestServer(t *testing.T, store ShortsStore) *ShortsServer {
 	ctrl := gomock.NewController(t)
 	mockLogger := mocks.NewMockLogger(ctrl)
 	mockLogger.EXPECT().Debugf(gomock.Any(), gomock.Any()).AnyTimes()
+	mockLogger.EXPECT().Warnf(gomock.Any(), gomock.Any()).AnyTimes()
 	mockLogger.EXPECT().Errorf(gomock.Any(), gomock.Any()).AnyTimes()
 	return &ShortsServer{
 		store:  store,

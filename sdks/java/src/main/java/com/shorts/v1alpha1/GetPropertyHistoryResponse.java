@@ -414,6 +414,47 @@ private static final long serialVersionUID = 0L;
     return distinctDwellings_;
   }
 
+  public static final int VALUATION_FIELD_NUMBER = 12;
+  private com.shorts.v1alpha1.PropertyValuation valuation_;
+  /**
+   * <pre>
+   * AVM valuation for this address (property.com.au). Unset when none exists,
+   * fetch_status != 'ok', or HOUSING_VALUATIONS_ENABLED is off.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.PropertyValuation valuation = 12 [json_name = "valuation"];</code>
+   * @return Whether the valuation field is set.
+   */
+  @java.lang.Override
+  public boolean hasValuation() {
+    return ((bitField0_ & 0x00000002) != 0);
+  }
+  /**
+   * <pre>
+   * AVM valuation for this address (property.com.au). Unset when none exists,
+   * fetch_status != 'ok', or HOUSING_VALUATIONS_ENABLED is off.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.PropertyValuation valuation = 12 [json_name = "valuation"];</code>
+   * @return The valuation.
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.PropertyValuation getValuation() {
+    return valuation_ == null ? com.shorts.v1alpha1.PropertyValuation.getDefaultInstance() : valuation_;
+  }
+  /**
+   * <pre>
+   * AVM valuation for this address (property.com.au). Unset when none exists,
+   * fetch_status != 'ok', or HOUSING_VALUATIONS_ENABLED is off.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.PropertyValuation valuation = 12 [json_name = "valuation"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.PropertyValuationOrBuilder getValuationOrBuilder() {
+    return valuation_ == null ? com.shorts.v1alpha1.PropertyValuation.getDefaultInstance() : valuation_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -460,6 +501,9 @@ private static final long serialVersionUID = 0L;
     }
     if (distinctDwellings_ != 0) {
       output.writeInt32(11, distinctDwellings_);
+    }
+    if (((bitField0_ & 0x00000002) != 0)) {
+      output.writeMessage(12, getValuation());
     }
     getUnknownFields().writeTo(output);
   }
@@ -508,6 +552,10 @@ private static final long serialVersionUID = 0L;
     if (distinctDwellings_ != 0) {
       size += com.google.protobuf.CodedOutputStream
         .computeInt32Size(11, distinctDwellings_);
+    }
+    if (((bitField0_ & 0x00000002) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(12, getValuation());
     }
     return size;
   }
@@ -560,6 +608,11 @@ private static final long serialVersionUID = 0L;
             other.getCurrentPrice())) return false;
     if (getDistinctDwellings()
         != other.getDistinctDwellings()) return false;
+    if (hasValuation() != other.hasValuation()) return false;
+    if (hasValuation()) {
+      if (!getValuation()
+          .equals(other.getValuation())) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -599,6 +652,10 @@ private static final long serialVersionUID = 0L;
         java.lang.Double.doubleToLongBits(getCurrentPrice()));
     hash = (37 * hash) + DISTINCT_DWELLINGS_FIELD_NUMBER;
     hash = (53 * hash) + getDistinctDwellings();
+    if (hasValuation()) {
+      hash = (37 * hash) + VALUATION_FIELD_NUMBER;
+      hash = (53 * hash) + getValuation().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -738,6 +795,7 @@ private static final long serialVersionUID = 0L;
               .alwaysUseFieldBuilders) {
         internalGetCurrentFieldBuilder();
         internalGetEventsFieldBuilder();
+        internalGetValuationFieldBuilder();
       }
     }
     @java.lang.Override
@@ -765,6 +823,11 @@ private static final long serialVersionUID = 0L;
       firstPrice_ = 0D;
       currentPrice_ = 0D;
       distinctDwellings_ = 0;
+      valuation_ = null;
+      if (valuationBuilder_ != null) {
+        valuationBuilder_.dispose();
+        valuationBuilder_ = null;
+      }
       return this;
     }
 
@@ -844,6 +907,12 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00000400) != 0)) {
         result.distinctDwellings_ = distinctDwellings_;
+      }
+      if (((from_bitField0_ & 0x00000800) != 0)) {
+        result.valuation_ = valuationBuilder_ == null
+            ? valuation_
+            : valuationBuilder_.build();
+        to_bitField0_ |= 0x00000002;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -925,6 +994,9 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getDistinctDwellings() != 0) {
         setDistinctDwellings(other.getDistinctDwellings());
+      }
+      if (other.hasValuation()) {
+        mergeValuation(other.getValuation());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1017,6 +1089,13 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000400;
               break;
             } // case 88
+            case 98: {
+              input.readMessage(
+                  internalGetValuationFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000800;
+              break;
+            } // case 98
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2031,6 +2110,172 @@ private static final long serialVersionUID = 0L;
       distinctDwellings_ = 0;
       onChanged();
       return this;
+    }
+
+    private com.shorts.v1alpha1.PropertyValuation valuation_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.PropertyValuation, com.shorts.v1alpha1.PropertyValuation.Builder, com.shorts.v1alpha1.PropertyValuationOrBuilder> valuationBuilder_;
+    /**
+     * <pre>
+     * AVM valuation for this address (property.com.au). Unset when none exists,
+     * fetch_status != 'ok', or HOUSING_VALUATIONS_ENABLED is off.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.PropertyValuation valuation = 12 [json_name = "valuation"];</code>
+     * @return Whether the valuation field is set.
+     */
+    public boolean hasValuation() {
+      return ((bitField0_ & 0x00000800) != 0);
+    }
+    /**
+     * <pre>
+     * AVM valuation for this address (property.com.au). Unset when none exists,
+     * fetch_status != 'ok', or HOUSING_VALUATIONS_ENABLED is off.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.PropertyValuation valuation = 12 [json_name = "valuation"];</code>
+     * @return The valuation.
+     */
+    public com.shorts.v1alpha1.PropertyValuation getValuation() {
+      if (valuationBuilder_ == null) {
+        return valuation_ == null ? com.shorts.v1alpha1.PropertyValuation.getDefaultInstance() : valuation_;
+      } else {
+        return valuationBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * AVM valuation for this address (property.com.au). Unset when none exists,
+     * fetch_status != 'ok', or HOUSING_VALUATIONS_ENABLED is off.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.PropertyValuation valuation = 12 [json_name = "valuation"];</code>
+     */
+    public Builder setValuation(com.shorts.v1alpha1.PropertyValuation value) {
+      if (valuationBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        valuation_ = value;
+      } else {
+        valuationBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * AVM valuation for this address (property.com.au). Unset when none exists,
+     * fetch_status != 'ok', or HOUSING_VALUATIONS_ENABLED is off.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.PropertyValuation valuation = 12 [json_name = "valuation"];</code>
+     */
+    public Builder setValuation(
+        com.shorts.v1alpha1.PropertyValuation.Builder builderForValue) {
+      if (valuationBuilder_ == null) {
+        valuation_ = builderForValue.build();
+      } else {
+        valuationBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * AVM valuation for this address (property.com.au). Unset when none exists,
+     * fetch_status != 'ok', or HOUSING_VALUATIONS_ENABLED is off.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.PropertyValuation valuation = 12 [json_name = "valuation"];</code>
+     */
+    public Builder mergeValuation(com.shorts.v1alpha1.PropertyValuation value) {
+      if (valuationBuilder_ == null) {
+        if (((bitField0_ & 0x00000800) != 0) &&
+          valuation_ != null &&
+          valuation_ != com.shorts.v1alpha1.PropertyValuation.getDefaultInstance()) {
+          getValuationBuilder().mergeFrom(value);
+        } else {
+          valuation_ = value;
+        }
+      } else {
+        valuationBuilder_.mergeFrom(value);
+      }
+      if (valuation_ != null) {
+        bitField0_ |= 0x00000800;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * AVM valuation for this address (property.com.au). Unset when none exists,
+     * fetch_status != 'ok', or HOUSING_VALUATIONS_ENABLED is off.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.PropertyValuation valuation = 12 [json_name = "valuation"];</code>
+     */
+    public Builder clearValuation() {
+      bitField0_ = (bitField0_ & ~0x00000800);
+      valuation_ = null;
+      if (valuationBuilder_ != null) {
+        valuationBuilder_.dispose();
+        valuationBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * AVM valuation for this address (property.com.au). Unset when none exists,
+     * fetch_status != 'ok', or HOUSING_VALUATIONS_ENABLED is off.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.PropertyValuation valuation = 12 [json_name = "valuation"];</code>
+     */
+    public com.shorts.v1alpha1.PropertyValuation.Builder getValuationBuilder() {
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return internalGetValuationFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * AVM valuation for this address (property.com.au). Unset when none exists,
+     * fetch_status != 'ok', or HOUSING_VALUATIONS_ENABLED is off.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.PropertyValuation valuation = 12 [json_name = "valuation"];</code>
+     */
+    public com.shorts.v1alpha1.PropertyValuationOrBuilder getValuationOrBuilder() {
+      if (valuationBuilder_ != null) {
+        return valuationBuilder_.getMessageOrBuilder();
+      } else {
+        return valuation_ == null ?
+            com.shorts.v1alpha1.PropertyValuation.getDefaultInstance() : valuation_;
+      }
+    }
+    /**
+     * <pre>
+     * AVM valuation for this address (property.com.au). Unset when none exists,
+     * fetch_status != 'ok', or HOUSING_VALUATIONS_ENABLED is off.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.PropertyValuation valuation = 12 [json_name = "valuation"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.PropertyValuation, com.shorts.v1alpha1.PropertyValuation.Builder, com.shorts.v1alpha1.PropertyValuationOrBuilder> 
+        internalGetValuationFieldBuilder() {
+      if (valuationBuilder_ == null) {
+        valuationBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.shorts.v1alpha1.PropertyValuation, com.shorts.v1alpha1.PropertyValuation.Builder, com.shorts.v1alpha1.PropertyValuationOrBuilder>(
+                getValuation(),
+                getParentForChildren(),
+                isClean());
+        valuation_ = null;
+      }
+      return valuationBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.GetPropertyHistoryResponse)

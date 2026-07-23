@@ -299,6 +299,10 @@ func (s *StoreAdapter) GetPropertyHistory(addressKey string) (*shorts.PropertyHi
 	return s.store.GetPropertyHistory(addressKey)
 }
 
+func (s *StoreAdapter) GetPropertyValuation(addressKey string) (*shorts.PropertyValuationRow, error) {
+	return s.store.GetPropertyValuation(addressKey)
+}
+
 func (s *StoreAdapter) ListAddressPriceDrops(stateCode, sort string, windowDays, limit int32) ([]*shorts.AddressPriceDropRow, error) {
 	return s.store.ListAddressPriceDrops(stateCode, sort, windowDays, limit)
 }
