@@ -14,11 +14,14 @@ func TestNewABSImportersAreRegisteredSources(t *testing.T) {
 		found   bool
 	}
 	want := map[string]expectedSource{
-		"abs-building-approvals": {url: "https://www.abs.gov.au/statistics/industry/building-and-construction/building-approvals-australia/latest-release", cadence: "Monthly"},
-		"abs-retail-trade":       {url: "https://www.abs.gov.au/statistics/industry/retail-and-wholesale-trade/retail-trade-australia/latest-release", cadence: "Monthly"},
-		"abs-population":         {url: "https://www.abs.gov.au/statistics/people/population/national-state-and-territory-population/latest-release", cadence: "Quarterly"},
-		"abs-job-vacancies":      {url: "https://www.abs.gov.au/statistics/labour/jobs/job-vacancies-australia/latest-release", cadence: "Quarterly"},
-		"abs-wage-price-index":   {url: "https://www.abs.gov.au/statistics/economy/price-indexes-and-inflation/wage-price-index-australia/latest-release", cadence: "Quarterly"},
+		"abs-building-approvals":     {url: "https://www.abs.gov.au/statistics/industry/building-and-construction/building-approvals-australia/latest-release", cadence: "Monthly"},
+		"abs-retail-trade":           {url: "https://www.abs.gov.au/statistics/industry/retail-and-wholesale-trade/retail-trade-australia/latest-release", cadence: "Monthly"},
+		"abs-population":             {url: "https://www.abs.gov.au/statistics/people/population/national-state-and-territory-population/latest-release", cadence: "Quarterly"},
+		"abs-job-vacancies":          {url: "https://www.abs.gov.au/statistics/labour/jobs/job-vacancies-australia/latest-release", cadence: "Quarterly"},
+		"abs-wage-price-index":       {url: "https://www.abs.gov.au/statistics/economy/price-indexes-and-inflation/wage-price-index-australia/latest-release", cadence: "Quarterly"},
+		"abs-household-spending":     {url: "https://www.abs.gov.au/statistics/economy/finance/monthly-household-spending-indicator/latest-release", cadence: "Monthly"},
+		"abs-lending-indicators":     {url: "https://www.abs.gov.au/statistics/economy/finance/lending-indicators/latest-release", cadence: "Quarterly"},
+		"abs-construction-work-done": {url: "https://www.abs.gov.au/statistics/industry/building-and-construction/construction-work-done-australia-preliminary/latest-release", cadence: "Quarterly"},
 	}
 	for _, source := range sourceDefs {
 		expected, ok := want[source.Key]
@@ -42,7 +45,7 @@ func TestNewABSImportersAreRegisteredSources(t *testing.T) {
 func TestAllModeIncludesNewABSImporters(t *testing.T) {
 	want := []string{
 		"rba", "cpi", "labour", "trade", "gdp", "approvals", "retail", "population",
-		"petroleum", "govfin", "vacancies", "wages", "markets", "derived",
+		"petroleum", "govfin", "vacancies", "wages", "spending", "lending", "construction", "markets", "derived",
 	}
 	if !reflect.DeepEqual(allJobModes, want) {
 		t.Fatalf("allJobModes=%#v, want exact deterministic order %#v", allJobModes, want)
