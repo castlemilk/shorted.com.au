@@ -476,6 +476,15 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 
 	cfg := loadListingsConfig()
 
+	// Health-record identity for this invocation (see crawl_run_status.go). Resolved
+	// up-front so the early Chrome-failure returns below can also self-report. A
+	// launchd wrapper exports CRAWL_RUN_TYPE (delta|full) + a stable CRAWL_RUN_ID so
+	// its several `-mode agent` rounds accumulate into one dashboard row.
+	runStart := time.Now().UTC()
+	runType := crawlRunType()
+	runID := crawlRunID(runType)
+	host := crawlHost()
+
 	// Self-warm the dedicated Chrome before crawling (in-process port of
 	// run-housing-agent.sh). Only when the run will ACTUALLY drive the host Chrome
 	// over CDP: selectFetcherMode mirrors newCrawlFetcher's precedence
@@ -493,6 +502,12 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 			}
 			if err := ensureChromeWarm(ccfg, deps); err != nil {
 				log.Printf("[agent] self-warm failed (%v) — exiting for re-warm (exit 4)", err)
+				if !cfg.dryRun {
+					writeCrawlRunStatus(crawlRunStatusRecord{
+						RunType: runType, Host: host, RunID: runID, StartedAt: runStart,
+						Status: "error", Detail: "self-warm failed: " + err.Error(),
+					}, pool)
+				}
 				return 4
 			}
 			log.Printf("[agent] dedicated Chrome warm (self-managed)")
@@ -516,6 +531,12 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 			f, err = newCrawlFetcher(cfg.crawlConfig)
 			if err != nil {
 				log.Printf("[agent] crawl fetcher init failed after recovery (%v) — exit 4", err)
+				if !cfg.dryRun {
+					writeCrawlRunStatus(crawlRunStatusRecord{
+						RunType: runType, Host: host, RunID: runID, StartedAt: runStart,
+						Status: "error", Detail: "crawl fetcher init failed: " + err.Error(),
+					}, pool)
+				}
 				return 4
 			}
 		}
@@ -557,6 +578,14 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 	wroteAny := false
 	done := 0
 	consecBlocked := 0
+	// Health-record accumulators for this round (see crawl_run_status.go): counts of
+	// suburbs, listings, events, and blocked sweeps, plus whether a fatal (claim)
+	// error ended the round having accomplished nothing.
+	succeeded := 0
+	totalListings := 0
+	totalEvents := 0
+	totalBlocked := 0
+	fatalErr := false
 	for i := 0; i < acfg.maxJobs; i++ {
 		// If EVERY source is circuit-open, the whole session is blocked: stop
 		// claiming (leaving those suburbs pending for the next warm run) rather
@@ -569,6 +598,7 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 		job, err := client.claim(ctx)
 		if err != nil {
 			log.Printf("[agent] claim error: %v", err)
+			fatalErr = true
 			break
 		}
 		if job == nil {
@@ -583,6 +613,13 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 		}
 		summary, status, errMsg, wrote := crawlAgentJob(ctx, pool, fetcher, cfg, job, rs, cb, tel)
 		wroteAny = wroteAny || wrote
+		// Accumulate this suburb's counts into the round totals for the health record.
+		totalListings += summary.Listings
+		totalEvents += summary.Events
+		totalBlocked += summary.BlockedSweeps
+		if status == "succeeded" {
+			succeeded++
+		}
 		if summary.NeedsRewarm {
 			anyRewarm = true
 		}
@@ -657,6 +694,29 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 		}
 		finCancel()
 	}
+	// Self-report this round's health so the residential crawl shows up as a tracked
+	// scheduled job in the admin dashboard (see crawl_run_status.go). Best-effort +
+	// detached; skipped for DRY runs (which never submit / persist). Rounds sharing
+	// CRAWL_RUN_ID accumulate into one row for the whole launchd run.
+	if !cfg.dryRun {
+		runStatus := deriveCrawlRunStatus(totalEvents, totalBlocked, done, anyRewarm, fatalErr)
+		writeCrawlRunStatus(crawlRunStatusRecord{
+			RunType:         runType,
+			Host:            host,
+			RunID:           runID,
+			StartedAt:       runStart,
+			Status:          runStatus,
+			SuburbsSelected: done,
+			SuburbsDone:     succeeded,
+			ListingsTouched: totalListings,
+			EventsWritten:   totalEvents,
+			BlockedCount:    totalBlocked,
+			RewarmNeeded:    anyRewarm,
+			Detail: fmt.Sprintf("%d/%d suburbs done, %d listings, %d events, %d blocked sweep(s)",
+				succeeded, done, totalListings, totalEvents, totalBlocked),
+		}, pool)
+	}
+
 	// NOTE: the drain-until-empty wrapper (deploy/housing-crawl-common.sh) parses
 	// the "processed N job(s)" count out of this exact line to decide whether to
 	// loop again — keep the "done: processed <N> job" shape stable.

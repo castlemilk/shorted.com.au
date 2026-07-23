@@ -14,7 +14,10 @@ export interface JobStatus {
   name: string;
   displayName: string;
   category: string;
-  type: "job" | "service";
+  // "job" = Cloud Run Job, "service" = Cloud Scheduler-triggered HTTP service,
+  // "rig" = Mac-based residential housing crawl (self-reported via crawl_run_status,
+  // migration 000089 — jobmonitor is GCP-only and can't see an off-Cloud-Run job).
+  type: "job" | "service" | "rig";
   schedule: string;
   scheduleHuman: string;
   schedulerState: string; // ENABLED | PAUSED | ""

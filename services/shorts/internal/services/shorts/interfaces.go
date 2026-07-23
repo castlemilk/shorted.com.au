@@ -24,6 +24,7 @@ type ShortsStore interface {
 	GetSyncStatus(filter shortsstore.SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error)
 	CleanupStuckSyncRuns() (int, error)
 	GetJobsOverview() ([]*shortsstore.JobHealth, error)
+	GetCrawlRunStatuses() ([]*shortsstore.CrawlRunStatus, error)
 
 	// Key metrics sync methods
 	GetAllStockCodes() ([]string, error)

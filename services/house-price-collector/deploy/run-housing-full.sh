@@ -30,6 +30,14 @@ hc_load_env
 # holding it, this full pass skips (exit 0) rather than double-draining.
 hc_acquire_lock
 
+# Tag every `-mode agent` round + the freshness run below so the collector writes a
+# HEALTH RECORD for this run to crawl_run_status (migration 000089) → the admin jobs
+# dashboard, where the residential crawl now appears as a tracked scheduled job. A full
+# pass runs many drain rounds over ~1.5 days; the STABLE CRAWL_RUN_ID makes them all
+# accumulate into one row, and a dead rig auto-goes-stale via the row's finished_at.
+export CRAWL_RUN_TYPE=full
+export CRAWL_RUN_ID="full-$(date -u +%Y%m%dT%H%M%SZ)"
+
 echo "=== $(date -u +%FT%TZ) housing-full (selection=all whole-catalog) ===" >>"$LOG"
 
 # 1. Enqueue the whole catalog (idempotent — brandbrain dedups pending jobs).

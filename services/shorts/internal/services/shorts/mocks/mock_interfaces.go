@@ -272,6 +272,21 @@ func (mr *MockShortsStoreMockRecorder) GetCompanyTaxProfile(productCode any) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCompanyTaxProfile", reflect.TypeOf((*MockShortsStore)(nil).GetCompanyTaxProfile), productCode)
 }
 
+// GetCrawlRunStatuses mocks base method.
+func (m *MockShortsStore) GetCrawlRunStatuses() ([]*shorts.CrawlRunStatus, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCrawlRunStatuses")
+	ret0, _ := ret[0].([]*shorts.CrawlRunStatus)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCrawlRunStatuses indicates an expected call of GetCrawlRunStatuses.
+func (mr *MockShortsStoreMockRecorder) GetCrawlRunStatuses() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCrawlRunStatuses", reflect.TypeOf((*MockShortsStore)(nil).GetCrawlRunStatuses))
+}
+
 // GetDirectorTrades mocks base method.
 func (m *MockShortsStore) GetDirectorTrades(stockCode string, limit int32) ([]*shorts.DirectorTrade, int, error) {
 	m.ctrl.T.Helper()

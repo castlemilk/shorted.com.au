@@ -288,6 +288,55 @@ func (s *postgresStore) GetJobsOverview() ([]*JobHealth, error) {
 	return jobs, nil
 }
 
+// GetCrawlRunStatuses reads the residential-crawl health records (migration 000089).
+// These are written by the Mac-based house-price-collector because the GCP-only
+// jobmonitor can't observe a job that runs off Cloud Run; the admin jobs handler
+// maps them into JobStatus rows. Degrades gracefully (empty slice) when the table
+// has not yet been created — e.g. a dev DB or an env where the migration hasn't run.
+func (s *postgresStore) GetCrawlRunStatuses() ([]*CrawlRunStatus, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	const query = `
+		SELECT run_type, host, COALESCE(run_id, ''),
+			started_at, finished_at, COALESCE(status, ''),
+			suburbs_selected, suburbs_done, listings_touched, events_written,
+			blocked_count, rewarm_needed, freshness_oldest_hours,
+			COALESCE(detail, ''), updated_at
+		FROM crawl_run_status
+		ORDER BY run_type, host`
+
+	rows, err := s.db.Query(ctx, query)
+	if err != nil {
+		if strings.Contains(err.Error(), "crawl_run_status") ||
+			strings.Contains(err.Error(), "does not exist") ||
+			strings.Contains(err.Error(), "relation") {
+			return []*CrawlRunStatus{}, nil
+		}
+		return nil, fmt.Errorf("GetCrawlRunStatuses: query failed: %w", err)
+	}
+	defer rows.Close()
+
+	var out []*CrawlRunStatus
+	for rows.Next() {
+		c := &CrawlRunStatus{}
+		if err := rows.Scan(
+			&c.RunType, &c.Host, &c.RunID,
+			&c.StartedAt, &c.FinishedAt, &c.Status,
+			&c.SuburbsSelected, &c.SuburbsDone, &c.ListingsTouched, &c.EventsWritten,
+			&c.BlockedCount, &c.RewarmNeeded, &c.FreshnessOldestHours,
+			&c.Detail, &c.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("GetCrawlRunStatuses: scan row: %w", err)
+		}
+		out = append(out, c)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("GetCrawlRunStatuses: iterate rows: %w", err)
+	}
+	return out, nil
+}
+
 // GetStock retrieves a single stock by its ID, including metadata.
 func (s *postgresStore) GetStock(productCode string) (*stocksv1alpha1.Stock, error) {
 	query := `
