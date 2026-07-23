@@ -177,6 +177,21 @@ type SuburbSummaryRow struct {
 	// NBN connectivity (Local Insights)
 	DominantNbnTech          string
 	ConnectivityQualityScore float64
+	// Crime percentile ranks (latest pooled FY, gated MV); 0 = no data.
+	CrimeBreakInsRank     float64
+	CrimeViolentRank      float64
+	CrimeMotorVehicleRank float64
+}
+
+// SuburbCrimeStatRow is one latest-pooled, gated crime observation.
+type SuburbCrimeStatRow struct {
+	CrimeType    string
+	FYEnding     int32
+	RatePer100k  float64
+	PctRank      float64
+	Jurisdiction string
+	Source       string
+	Licence      string
 }
 
 // SuburbProfileRow is the full per-suburb profile (demographics + headline price).
@@ -225,6 +240,8 @@ type SuburbProfileRow struct {
 	BannerBgUrl     string
 	// most-similar suburbs (feature-vector kNN — the knowledge-graph "similar_to")
 	Similar []SimilarSuburbRow
+	// latest pooled crime observations; empty means no reliable data
+	Crime []SuburbCrimeStatRow
 }
 
 // SimilarSuburbRow is one near-neighbour in demographic+amenity feature space.
@@ -236,6 +253,20 @@ type SimilarSuburbRow struct {
 	RegionCode        string
 	Distance          float64
 }
+
+const listStateSuburbsCrimeJoin = `
+		LEFT JOIN (
+			-- Latest pooled, CVS-adjusted crime ranks, pivoted per suburb. The MV
+			-- (000092) is already gated; this WHERE re-asserts the small_pop/
+			-- unreliable gate as defense-in-depth.
+			SELECT sal_code,
+			       MAX(pct_rank) FILTER (WHERE crime_type = 'break_ins') AS break_ins_rank,
+			       MAX(pct_rank) FILTER (WHERE crime_type = 'violent') AS violent_rank,
+			       MAX(pct_rank) FILTER (WHERE crime_type = 'motor_vehicle') AS motor_vehicle_rank
+			FROM mv_suburb_crime_latest
+			WHERE NOT small_pop AND NOT unreliable
+			GROUP BY sal_code
+		) cr ON cr.sal_code = d.sal_code`
 
 // ListStateSuburbs returns every SAL suburb in a state, LEFT JOINed to its latest
 // median price (via the sal_code bridge) and headline demographics.
@@ -265,11 +296,14 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 		       COALESCE(a.dist_to_coast_km,0),
 		       COALESCE(a.schools_gov,0), COALESCE(a.schools_catholic,0), COALESCE(a.schools_independent,0),
 		       COALESCE(a.schools_primary,0), COALESCE(a.schools_secondary,0), COALESCE(a.nearest_secondary_km,0),
-		       COALESCE(c.dominant_nbn_tech,''), COALESCE(c.connectivity_quality_score,0)
+		       COALESCE(c.dominant_nbn_tech,''), COALESCE(c.connectivity_quality_score,0),
+		       COALESCE(ROUND(cr.break_ins_rank::numeric, 1), 0),
+		       COALESCE(ROUND(cr.violent_rank::numeric, 1), 0),
+		       COALESCE(ROUND(cr.motor_vehicle_rank::numeric, 1), 0)
 		FROM suburb_demographics d
 		LEFT JOIN house_price_regions r ON r.sal_code = d.sal_code AND r.region_type = 'suburb'
 		LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
-		LEFT JOIN suburb_connectivity c ON c.sal_code = d.sal_code
+		LEFT JOIN suburb_connectivity c ON c.sal_code = d.sal_code` + listStateSuburbsCrimeJoin + `
 		-- Latest median from house_prices directly (NOT the quarterly-only MV) so annual
 		-- Valuer-General states (VIC) light up too; YoY computed vs the obs ~1yr prior.
 		LEFT JOIN LATERAL (
@@ -307,7 +341,8 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 			&r.HospitalsCount, &r.GpCount, &r.PharmacyCount, &r.NearestTrainKm, &r.NearestHospitalKm,
 			&r.DistToCoastKm,
 			&r.SchoolsGov, &r.SchoolsCatholic, &r.SchoolsIndependent, &r.SchoolsPrimary, &r.SchoolsSecondary, &r.NearestSecondaryKm,
-			&r.DominantNbnTech, &r.ConnectivityQualityScore); err != nil {
+			&r.DominantNbnTech, &r.ConnectivityQualityScore,
+			&r.CrimeBreakInsRank, &r.CrimeViolentRank, &r.CrimeMotorVehicleRank); err != nil {
 			return nil, err
 		}
 		out = append(out, &r)
@@ -420,7 +455,40 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 	if sim, err := s.similarSuburbs(ctx, salCode, 6); err == nil {
 		p.Similar = sim
 	}
+	if crime, err := s.suburbCrime(ctx, salCode); err == nil {
+		p.Crime = crime
+	}
 	return &p, nil
+}
+
+const suburbCrimeQuery = `
+		SELECT crime_type, fy_ending, COALESCE(rate_per_100k, 0),
+		       COALESCE(pct_rank, 0), source_jurisdiction, source, source_licence
+		FROM mv_suburb_crime_latest
+		WHERE sal_code = $1 AND NOT small_pop AND NOT unreliable
+		ORDER BY crime_type`
+
+// suburbCrime returns the latest pooled, gated crime stats for one suburb.
+// Empty slice means no reliable data (uncovered state or gated small-pop row).
+func (s *postgresStore) suburbCrime(ctx context.Context, salCode string) ([]SuburbCrimeStatRow, error) {
+	rows, err := s.db.Query(ctx, suburbCrimeQuery, salCode)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []SuburbCrimeStatRow
+	for rows.Next() {
+		var stat SuburbCrimeStatRow
+		if err := rows.Scan(
+			&stat.CrimeType, &stat.FYEnding, &stat.RatePer100k, &stat.PctRank,
+			&stat.Jurisdiction, &stat.Source, &stat.Licence,
+		); err != nil {
+			return nil, err
+		}
+		out = append(out, stat)
+	}
+	return out, rows.Err()
 }
 
 // similarSuburbs finds the k nearest suburbs nationally in a z-scored feature

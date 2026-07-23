@@ -12,6 +12,7 @@ import { HousingSeriesChart } from "./housing-series-chart";
 import { SuburbBanner } from "./suburb-banner";
 import { SuburbLocatorMap } from "./suburb-locator-map";
 import { STATE_NAMES, stateSlug, suburbHref } from "@/lib/housing/states";
+import { crimeRankScale } from "@/lib/housing/highlight-metrics";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
 import { HousingIcon, type HousingIconName } from "./housing-icon";
 
@@ -179,6 +180,7 @@ export function SuburbProfile({
             {s.amenities ? <SchoolSectorCard a={s.amenities} /> : null}
             {data.council?.lgaName ? <CouncilCard c={data.council} /> : null}
             <FederalRep s={s} />
+            <CrimeCard crime={data.crime} />
           </div>
 
           {/* comparison */}
@@ -329,6 +331,59 @@ function RecentPriceDrops({ salCode, regionCode }: { salCode: string; regionCode
 type Demographics = NonNullable<NonNullable<Awaited<ReturnType<typeof getSuburbProfileClient>>>["demographics"]>;
 
 type Summary = NonNullable<NonNullable<Awaited<ReturnType<typeof getSuburbProfileClient>>>["summary"]>;
+type Crime = NonNullable<Awaited<ReturnType<typeof getSuburbProfileClient>>>["crime"];
+
+const CRIME_LABELS: Record<string, string> = {
+  break_ins: "Break-ins",
+  violent: "Violent crime",
+  motor_vehicle: "Car theft",
+};
+const fyLabel = (fy: number) => `FY${fy - 1}–${String(fy).slice(2)}`;
+const ordinal = (n: number) => {
+  const v = Math.round(n), r = v % 10, t = v % 100;
+  return `${v}${t >= 11 && t <= 13 ? "th" : r === 1 ? "st" : r === 2 ? "nd" : r === 3 ? "rd" : "th"}`;
+};
+
+/** Crime & safety — latest 2-yr-pooled, CVS-adjusted stats. Renders nothing
+ * when the suburb has no reliable data (uncovered state, TAS/NT, or a
+ * small-population/unreliable suburb gated server-side) — never zeros. */
+export function CrimeCard({ crime }: { crime: Crime | undefined }) {
+  const stats = crime?.stats ?? [];
+  if (stats.length === 0) return null;
+  const fy = stats[0]!.fyEnding;
+  const rankScale = crimeRankScale();
+  return (
+    <div>
+      <SectionHeading icon="dwellings">Crime &amp; safety</SectionHeading>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {stats.map((c) => (
+          <div key={c.crimeType} className="rounded-lg border border-border bg-card p-4">
+            <div className="text-xs text-muted-foreground">
+              {CRIME_LABELS[c.crimeType] ?? c.crimeType.replace(/_/g, " ")}
+            </div>
+            <div className="mt-1 font-mono text-lg tabular-nums text-foreground">
+              {Math.round(c.ratePer100k).toLocaleString()}
+              <span className="text-xs text-muted-foreground">/100k</span>
+            </div>
+            <div
+              className={`mt-1.5 inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 text-[11px] font-medium ${c.pctRank > 65 ? "text-white" : "text-black"}`}
+              style={{ backgroundColor: rankScale(c.pctRank) }}
+            >
+              {ordinal(c.pctRank)} percentile
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="mt-2 text-[11px] text-muted-foreground opacity-70">
+        {fyLabel(fy)}, 2-yr pooled. Recorded incidents: NSW Bureau of Crime Statistics
+        and Research (BOCSAR); adjusted to the ABS Crime Victimisation Survey; ABS ERP
+        population denominator. All CC BY 4.0. Percentile is the national
+        population-weighted rank — higher means more reported crime.
+      </p>
+    </div>
+  );
+}
+
 const fmtMemberName = (n: string) => n.toLowerCase().replace(/(^|[\s'-])([a-z])/g, (_, p: string, c: string) => p + c.toUpperCase());
 
 function FederalRep({ s }: { s: Summary }) {

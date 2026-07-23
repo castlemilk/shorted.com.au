@@ -968,6 +968,53 @@ private static final long serialVersionUID = 0L;
     return connectivityQualityScore_;
   }
 
+  public static final int CRIME_BREAK_INS_RANK_FIELD_NUMBER = 28;
+  private double crimeBreakInsRank_ = 0D;
+  /**
+   * <pre>
+   * Crime percentile ranks (national population-weighted, 0..100, higher =
+   * more reported crime; latest 2-yr-pooled FY, CVS-adjusted). 0 = no data —
+   * pct_rank is strictly &gt; 0 whenever a reliable observation exists. Small-
+   * population and statistically-unreliable suburbs are gated server-side
+   * (mv_suburb_crime_latest) and read as no-data. NSW (BOCSAR) only in
+   * Phase 1; uncovered states/TAS/NT stay 0. CC-BY sources.
+   * </pre>
+   *
+   * <code>double crime_break_ins_rank = 28 [json_name = "crimeBreakInsRank"];</code>
+   * @return The crimeBreakInsRank.
+   */
+  @java.lang.Override
+  public double getCrimeBreakInsRank() {
+    return crimeBreakInsRank_;
+  }
+
+  public static final int CRIME_VIOLENT_RANK_FIELD_NUMBER = 29;
+  private double crimeViolentRank_ = 0D;
+  /**
+   * <code>double crime_violent_rank = 29 [json_name = "crimeViolentRank"];</code>
+   * @return The crimeViolentRank.
+   */
+  @java.lang.Override
+  public double getCrimeViolentRank() {
+    return crimeViolentRank_;
+  }
+
+  public static final int CRIME_MOTOR_VEHICLE_RANK_FIELD_NUMBER = 30;
+  private double crimeMotorVehicleRank_ = 0D;
+  /**
+   * <pre>
+   * Field 31 is reserved by convention for crime_property_damage_rank once a
+   * CVS anchor exists; do not use 31 for anything else.
+   * </pre>
+   *
+   * <code>double crime_motor_vehicle_rank = 30 [json_name = "crimeMotorVehicleRank"];</code>
+   * @return The crimeMotorVehicleRank.
+   */
+  @java.lang.Override
+  public double getCrimeMotorVehicleRank() {
+    return crimeMotorVehicleRank_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -1062,6 +1109,15 @@ private static final long serialVersionUID = 0L;
     }
     if (java.lang.Double.doubleToRawLongBits(connectivityQualityScore_) != 0) {
       output.writeDouble(27, connectivityQualityScore_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(crimeBreakInsRank_) != 0) {
+      output.writeDouble(28, crimeBreakInsRank_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(crimeViolentRank_) != 0) {
+      output.writeDouble(29, crimeViolentRank_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(crimeMotorVehicleRank_) != 0) {
+      output.writeDouble(30, crimeMotorVehicleRank_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -1159,6 +1215,18 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeDoubleSize(27, connectivityQualityScore_);
     }
+    if (java.lang.Double.doubleToRawLongBits(crimeBreakInsRank_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(28, crimeBreakInsRank_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(crimeViolentRank_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(29, crimeViolentRank_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(crimeMotorVehicleRank_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(30, crimeMotorVehicleRank_);
+    }
     return size;
   }
   @java.lang.Override
@@ -1251,6 +1319,15 @@ private static final long serialVersionUID = 0L;
     if (java.lang.Double.doubleToLongBits(getConnectivityQualityScore())
         != java.lang.Double.doubleToLongBits(
             other.getConnectivityQualityScore())) return false;
+    if (java.lang.Double.doubleToLongBits(getCrimeBreakInsRank())
+        != java.lang.Double.doubleToLongBits(
+            other.getCrimeBreakInsRank())) return false;
+    if (java.lang.Double.doubleToLongBits(getCrimeViolentRank())
+        != java.lang.Double.doubleToLongBits(
+            other.getCrimeViolentRank())) return false;
+    if (java.lang.Double.doubleToLongBits(getCrimeMotorVehicleRank())
+        != java.lang.Double.doubleToLongBits(
+            other.getCrimeMotorVehicleRank())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -1328,6 +1405,15 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + CONNECTIVITY_QUALITY_SCORE_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
         java.lang.Double.doubleToLongBits(getConnectivityQualityScore()));
+    hash = (37 * hash) + CRIME_BREAK_INS_RANK_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getCrimeBreakInsRank()));
+    hash = (37 * hash) + CRIME_VIOLENT_RANK_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getCrimeViolentRank()));
+    hash = (37 * hash) + CRIME_MOTOR_VEHICLE_RANK_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getCrimeMotorVehicleRank()));
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -1501,6 +1587,9 @@ private static final long serialVersionUID = 0L;
       }
       dominantNbnTech_ = "";
       connectivityQualityScore_ = 0D;
+      crimeBreakInsRank_ = 0D;
+      crimeViolentRank_ = 0D;
+      crimeMotorVehicleRank_ = 0D;
       return this;
     }
 
@@ -1621,6 +1710,15 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x04000000) != 0)) {
         result.connectivityQualityScore_ = connectivityQualityScore_;
+      }
+      if (((from_bitField0_ & 0x08000000) != 0)) {
+        result.crimeBreakInsRank_ = crimeBreakInsRank_;
+      }
+      if (((from_bitField0_ & 0x10000000) != 0)) {
+        result.crimeViolentRank_ = crimeViolentRank_;
+      }
+      if (((from_bitField0_ & 0x20000000) != 0)) {
+        result.crimeMotorVehicleRank_ = crimeMotorVehicleRank_;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -1749,6 +1847,15 @@ private static final long serialVersionUID = 0L;
       }
       if (java.lang.Double.doubleToRawLongBits(other.getConnectivityQualityScore()) != 0) {
         setConnectivityQualityScore(other.getConnectivityQualityScore());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getCrimeBreakInsRank()) != 0) {
+        setCrimeBreakInsRank(other.getCrimeBreakInsRank());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getCrimeViolentRank()) != 0) {
+        setCrimeViolentRank(other.getCrimeViolentRank());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getCrimeMotorVehicleRank()) != 0) {
+        setCrimeMotorVehicleRank(other.getCrimeMotorVehicleRank());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1915,6 +2022,21 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x04000000;
               break;
             } // case 217
+            case 225: {
+              crimeBreakInsRank_ = input.readDouble();
+              bitField0_ |= 0x08000000;
+              break;
+            } // case 225
+            case 233: {
+              crimeViolentRank_ = input.readDouble();
+              bitField0_ |= 0x10000000;
+              break;
+            } // case 233
+            case 241: {
+              crimeMotorVehicleRank_ = input.readDouble();
+              bitField0_ |= 0x20000000;
+              break;
+            } // case 241
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -3946,6 +4068,144 @@ private static final long serialVersionUID = 0L;
     public Builder clearConnectivityQualityScore() {
       bitField0_ = (bitField0_ & ~0x04000000);
       connectivityQualityScore_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double crimeBreakInsRank_ ;
+    /**
+     * <pre>
+     * Crime percentile ranks (national population-weighted, 0..100, higher =
+     * more reported crime; latest 2-yr-pooled FY, CVS-adjusted). 0 = no data —
+     * pct_rank is strictly &gt; 0 whenever a reliable observation exists. Small-
+     * population and statistically-unreliable suburbs are gated server-side
+     * (mv_suburb_crime_latest) and read as no-data. NSW (BOCSAR) only in
+     * Phase 1; uncovered states/TAS/NT stay 0. CC-BY sources.
+     * </pre>
+     *
+     * <code>double crime_break_ins_rank = 28 [json_name = "crimeBreakInsRank"];</code>
+     * @return The crimeBreakInsRank.
+     */
+    @java.lang.Override
+    public double getCrimeBreakInsRank() {
+      return crimeBreakInsRank_;
+    }
+    /**
+     * <pre>
+     * Crime percentile ranks (national population-weighted, 0..100, higher =
+     * more reported crime; latest 2-yr-pooled FY, CVS-adjusted). 0 = no data —
+     * pct_rank is strictly &gt; 0 whenever a reliable observation exists. Small-
+     * population and statistically-unreliable suburbs are gated server-side
+     * (mv_suburb_crime_latest) and read as no-data. NSW (BOCSAR) only in
+     * Phase 1; uncovered states/TAS/NT stay 0. CC-BY sources.
+     * </pre>
+     *
+     * <code>double crime_break_ins_rank = 28 [json_name = "crimeBreakInsRank"];</code>
+     * @param value The crimeBreakInsRank to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCrimeBreakInsRank(double value) {
+
+      crimeBreakInsRank_ = value;
+      bitField0_ |= 0x08000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Crime percentile ranks (national population-weighted, 0..100, higher =
+     * more reported crime; latest 2-yr-pooled FY, CVS-adjusted). 0 = no data —
+     * pct_rank is strictly &gt; 0 whenever a reliable observation exists. Small-
+     * population and statistically-unreliable suburbs are gated server-side
+     * (mv_suburb_crime_latest) and read as no-data. NSW (BOCSAR) only in
+     * Phase 1; uncovered states/TAS/NT stay 0. CC-BY sources.
+     * </pre>
+     *
+     * <code>double crime_break_ins_rank = 28 [json_name = "crimeBreakInsRank"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCrimeBreakInsRank() {
+      bitField0_ = (bitField0_ & ~0x08000000);
+      crimeBreakInsRank_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double crimeViolentRank_ ;
+    /**
+     * <code>double crime_violent_rank = 29 [json_name = "crimeViolentRank"];</code>
+     * @return The crimeViolentRank.
+     */
+    @java.lang.Override
+    public double getCrimeViolentRank() {
+      return crimeViolentRank_;
+    }
+    /**
+     * <code>double crime_violent_rank = 29 [json_name = "crimeViolentRank"];</code>
+     * @param value The crimeViolentRank to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCrimeViolentRank(double value) {
+
+      crimeViolentRank_ = value;
+      bitField0_ |= 0x10000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>double crime_violent_rank = 29 [json_name = "crimeViolentRank"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCrimeViolentRank() {
+      bitField0_ = (bitField0_ & ~0x10000000);
+      crimeViolentRank_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double crimeMotorVehicleRank_ ;
+    /**
+     * <pre>
+     * Field 31 is reserved by convention for crime_property_damage_rank once a
+     * CVS anchor exists; do not use 31 for anything else.
+     * </pre>
+     *
+     * <code>double crime_motor_vehicle_rank = 30 [json_name = "crimeMotorVehicleRank"];</code>
+     * @return The crimeMotorVehicleRank.
+     */
+    @java.lang.Override
+    public double getCrimeMotorVehicleRank() {
+      return crimeMotorVehicleRank_;
+    }
+    /**
+     * <pre>
+     * Field 31 is reserved by convention for crime_property_damage_rank once a
+     * CVS anchor exists; do not use 31 for anything else.
+     * </pre>
+     *
+     * <code>double crime_motor_vehicle_rank = 30 [json_name = "crimeMotorVehicleRank"];</code>
+     * @param value The crimeMotorVehicleRank to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCrimeMotorVehicleRank(double value) {
+
+      crimeMotorVehicleRank_ = value;
+      bitField0_ |= 0x20000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Field 31 is reserved by convention for crime_property_damage_rank once a
+     * CVS anchor exists; do not use 31 for anything else.
+     * </pre>
+     *
+     * <code>double crime_motor_vehicle_rank = 30 [json_name = "crimeMotorVehicleRank"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCrimeMotorVehicleRank() {
+      bitField0_ = (bitField0_ & ~0x20000000);
+      crimeMotorVehicleRank_ = 0D;
       onChanged();
       return this;
     }

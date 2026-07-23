@@ -265,6 +265,44 @@ private static final long serialVersionUID = 0L;
     return banner_ == null ? com.shorts.v1alpha1.SuburbBanner.getDefaultInstance() : banner_;
   }
 
+  public static final int CRIME_FIELD_NUMBER = 7;
+  private com.shorts.v1alpha1.SuburbCrime crime_;
+  /**
+   * <pre>
+   * null when the suburb has no gated crime data
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbCrime crime = 7 [json_name = "crime"];</code>
+   * @return Whether the crime field is set.
+   */
+  @java.lang.Override
+  public boolean hasCrime() {
+    return ((bitField0_ & 0x00000020) != 0);
+  }
+  /**
+   * <pre>
+   * null when the suburb has no gated crime data
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbCrime crime = 7 [json_name = "crime"];</code>
+   * @return The crime.
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.SuburbCrime getCrime() {
+    return crime_ == null ? com.shorts.v1alpha1.SuburbCrime.getDefaultInstance() : crime_;
+  }
+  /**
+   * <pre>
+   * null when the suburb has no gated crime data
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbCrime crime = 7 [json_name = "crime"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.SuburbCrimeOrBuilder getCrimeOrBuilder() {
+    return crime_ == null ? com.shorts.v1alpha1.SuburbCrime.getDefaultInstance() : crime_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -296,6 +334,9 @@ private static final long serialVersionUID = 0L;
     }
     if (((bitField0_ & 0x00000010) != 0)) {
       output.writeMessage(6, getBanner());
+    }
+    if (((bitField0_ & 0x00000020) != 0)) {
+      output.writeMessage(7, getCrime());
     }
     getUnknownFields().writeTo(output);
   }
@@ -329,6 +370,10 @@ private static final long serialVersionUID = 0L;
     if (((bitField0_ & 0x00000010) != 0)) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(6, getBanner());
+    }
+    if (((bitField0_ & 0x00000020) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(7, getCrime());
     }
     return size;
   }
@@ -381,6 +426,11 @@ private static final long serialVersionUID = 0L;
       if (!getBanner()
           .equals(other.getBanner())) return false;
     }
+    if (hasCrime() != other.hasCrime()) return false;
+    if (hasCrime()) {
+      if (!getCrime()
+          .equals(other.getCrime())) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -415,6 +465,10 @@ private static final long serialVersionUID = 0L;
     if (hasBanner()) {
       hash = (37 * hash) + BANNER_FIELD_NUMBER;
       hash = (53 * hash) + getBanner().hashCode();
+    }
+    if (hasCrime()) {
+      hash = (37 * hash) + CRIME_FIELD_NUMBER;
+      hash = (53 * hash) + getCrime().hashCode();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -552,6 +606,7 @@ private static final long serialVersionUID = 0L;
         internalGetCouncilFieldBuilder();
         internalGetSimilarFieldBuilder();
         internalGetBannerFieldBuilder();
+        internalGetCrimeFieldBuilder();
       }
     }
     @java.lang.Override
@@ -589,6 +644,11 @@ private static final long serialVersionUID = 0L;
       if (bannerBuilder_ != null) {
         bannerBuilder_.dispose();
         bannerBuilder_ = null;
+      }
+      crime_ = null;
+      if (crimeBuilder_ != null) {
+        crimeBuilder_.dispose();
+        crimeBuilder_ = null;
       }
       return this;
     }
@@ -667,6 +727,12 @@ private static final long serialVersionUID = 0L;
             : bannerBuilder_.build();
         to_bitField0_ |= 0x00000010;
       }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.crime_ = crimeBuilder_ == null
+            ? crime_
+            : crimeBuilder_.build();
+        to_bitField0_ |= 0x00000020;
+      }
       result.bitField0_ |= to_bitField0_;
     }
 
@@ -722,6 +788,9 @@ private static final long serialVersionUID = 0L;
       }
       if (other.hasBanner()) {
         mergeBanner(other.getBanner());
+      }
+      if (other.hasCrime()) {
+        mergeCrime(other.getCrime());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -797,6 +866,13 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000020;
               break;
             } // case 50
+            case 58: {
+              input.readMessage(
+                  internalGetCrimeFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 58
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1801,6 +1877,163 @@ private static final long serialVersionUID = 0L;
         banner_ = null;
       }
       return bannerBuilder_;
+    }
+
+    private com.shorts.v1alpha1.SuburbCrime crime_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.SuburbCrime, com.shorts.v1alpha1.SuburbCrime.Builder, com.shorts.v1alpha1.SuburbCrimeOrBuilder> crimeBuilder_;
+    /**
+     * <pre>
+     * null when the suburb has no gated crime data
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbCrime crime = 7 [json_name = "crime"];</code>
+     * @return Whether the crime field is set.
+     */
+    public boolean hasCrime() {
+      return ((bitField0_ & 0x00000040) != 0);
+    }
+    /**
+     * <pre>
+     * null when the suburb has no gated crime data
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbCrime crime = 7 [json_name = "crime"];</code>
+     * @return The crime.
+     */
+    public com.shorts.v1alpha1.SuburbCrime getCrime() {
+      if (crimeBuilder_ == null) {
+        return crime_ == null ? com.shorts.v1alpha1.SuburbCrime.getDefaultInstance() : crime_;
+      } else {
+        return crimeBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * null when the suburb has no gated crime data
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbCrime crime = 7 [json_name = "crime"];</code>
+     */
+    public Builder setCrime(com.shorts.v1alpha1.SuburbCrime value) {
+      if (crimeBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        crime_ = value;
+      } else {
+        crimeBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * null when the suburb has no gated crime data
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbCrime crime = 7 [json_name = "crime"];</code>
+     */
+    public Builder setCrime(
+        com.shorts.v1alpha1.SuburbCrime.Builder builderForValue) {
+      if (crimeBuilder_ == null) {
+        crime_ = builderForValue.build();
+      } else {
+        crimeBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * null when the suburb has no gated crime data
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbCrime crime = 7 [json_name = "crime"];</code>
+     */
+    public Builder mergeCrime(com.shorts.v1alpha1.SuburbCrime value) {
+      if (crimeBuilder_ == null) {
+        if (((bitField0_ & 0x00000040) != 0) &&
+          crime_ != null &&
+          crime_ != com.shorts.v1alpha1.SuburbCrime.getDefaultInstance()) {
+          getCrimeBuilder().mergeFrom(value);
+        } else {
+          crime_ = value;
+        }
+      } else {
+        crimeBuilder_.mergeFrom(value);
+      }
+      if (crime_ != null) {
+        bitField0_ |= 0x00000040;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * null when the suburb has no gated crime data
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbCrime crime = 7 [json_name = "crime"];</code>
+     */
+    public Builder clearCrime() {
+      bitField0_ = (bitField0_ & ~0x00000040);
+      crime_ = null;
+      if (crimeBuilder_ != null) {
+        crimeBuilder_.dispose();
+        crimeBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * null when the suburb has no gated crime data
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbCrime crime = 7 [json_name = "crime"];</code>
+     */
+    public com.shorts.v1alpha1.SuburbCrime.Builder getCrimeBuilder() {
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return internalGetCrimeFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * null when the suburb has no gated crime data
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbCrime crime = 7 [json_name = "crime"];</code>
+     */
+    public com.shorts.v1alpha1.SuburbCrimeOrBuilder getCrimeOrBuilder() {
+      if (crimeBuilder_ != null) {
+        return crimeBuilder_.getMessageOrBuilder();
+      } else {
+        return crime_ == null ?
+            com.shorts.v1alpha1.SuburbCrime.getDefaultInstance() : crime_;
+      }
+    }
+    /**
+     * <pre>
+     * null when the suburb has no gated crime data
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbCrime crime = 7 [json_name = "crime"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.SuburbCrime, com.shorts.v1alpha1.SuburbCrime.Builder, com.shorts.v1alpha1.SuburbCrimeOrBuilder> 
+        internalGetCrimeFieldBuilder() {
+      if (crimeBuilder_ == null) {
+        crimeBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.shorts.v1alpha1.SuburbCrime, com.shorts.v1alpha1.SuburbCrime.Builder, com.shorts.v1alpha1.SuburbCrimeOrBuilder>(
+                getCrime(),
+                getParentForChildren(),
+                isClean());
+        crime_ = null;
+      }
+      return crimeBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.GetSuburbProfileResponse)

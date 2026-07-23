@@ -1,5 +1,5 @@
 import { scaleSequential, scaleSequentialSqrt, scaleDiverging } from "d3-scale";
-import { interpolateOranges, interpolateRdBu } from "d3-scale-chromatic";
+import { interpolateOranges, interpolateRdBu, interpolateYlOrRd } from "d3-scale-chromatic";
 import { fmtPriceShort } from "./price-scale";
 import type { HousingIconName } from "@/components/housing/housing-icons.generated";
 
@@ -36,11 +36,16 @@ export type SuburbMetricInput = {
   nearestTrainKm: number;
   distToCoastKm: number; // km to the national coastline (0 = beachfront)
   dominantNbnTech: string; // '' | Fixed Line | Fixed Wireless | Satellite
+  // crime percentile ranks (0 = no data; > 0 always when covered)
+  crimeBreakInsRank: number;
+  crimeViolentRank: number;
+  crimeMotorVehicleRank: number;
 };
 
 export type MetricKey =
   | "price" | "population" | "age" | "income" | "born_overseas" | "religion" | "language"
   | "federal_party" | "federal_lean" | "state_party"
+  | "crime_break_ins" | "crime_violent" | "crime_motor_vehicle"
   | "amenity_density" | "supermarkets" | "pubs" | "grocery" | "healthcare" | "school_sector" | "nearest_train" | "distance_to_coast" | "nbn";
 
 type Base = { key: MetricKey; label: string; legendLabel: string };
@@ -254,6 +259,27 @@ export const HIGHLIGHT_METRICS: HighlightMetric[] = [
     colorFor: partyColor, order: PARTY_ORDER,
   },
   {
+    kind: "continuous", key: "crime_break_ins", label: "Break-ins",
+    legendLabel: "Break-ins (national percentile)",
+    value: (s) => (s.crimeBreakInsRank > 0 ? s.crimeBreakInsRank : null),
+    format: (v) => `${Math.round(v)}th pctile`,
+    domain: [0, 100], makeScale: () => crimeRankScale(),
+  },
+  {
+    kind: "continuous", key: "crime_violent", label: "Violent crime",
+    legendLabel: "Violent crime (national percentile)",
+    value: (s) => (s.crimeViolentRank > 0 ? s.crimeViolentRank : null),
+    format: (v) => `${Math.round(v)}th pctile`,
+    domain: [0, 100], makeScale: () => crimeRankScale(),
+  },
+  {
+    kind: "continuous", key: "crime_motor_vehicle", label: "Car theft",
+    legendLabel: "Motor-vehicle theft (national percentile)",
+    value: (s) => (s.crimeMotorVehicleRank > 0 ? s.crimeMotorVehicleRank : null),
+    format: (v) => `${Math.round(v)}th pctile`,
+    domain: [0, 100], makeScale: () => crimeRankScale(),
+  },
+  {
     kind: "continuous", key: "amenity_density", label: "Amenity density",
     legendLabel: "Amenity density (0–100)",
     value: (s) => (s.population > 0 ? s.amenityDensityScore : null),
@@ -331,6 +357,7 @@ export const METRIC_ICON: Record<MetricKey, HousingIconName> = {
   price: "median-price", population: "population", age: "age", income: "income",
   born_overseas: "born-overseas", religion: "religion", language: "language",
   federal_party: "party", federal_lean: "federal-lean", state_party: "party",
+  crime_break_ins: "dwellings", crime_violent: "population", crime_motor_vehicle: "train",
   amenity_density: "amenity-density", supermarkets: "supermarket", pubs: "pubs",
   grocery: "grocery", healthcare: "healthcare", school_sector: "school",
   nearest_train: "train", distance_to_coast: "coast", nbn: "nbn",
@@ -347,4 +374,9 @@ export function amberScale(min: number, max: number, sqrt = false): (v: number) 
 export function politicalLeanScale(): (v: number) => string {
   // RdBu: 0=red, 0.5=white, 1=blue. We want high ALP-TPP → red, low → blue.
   return scaleDiverging<string>([0, 50, 100], (t) => interpolateRdBu(1 - t));
+}
+
+/** Sequential yellow-to-red danger ramp for crime percentile ranks (0..100). */
+export function crimeRankScale(): (v: number) => string {
+  return scaleSequential((t: number) => interpolateYlOrRd(0.15 + 0.8 * t)).domain([0, 100]);
 }

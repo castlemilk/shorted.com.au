@@ -61,6 +61,8 @@ export function StateSuburbExplorer({ stateCode }: StateSuburbExplorerProps) {
       nearestTrainKm: s.amenities?.nearestTrainKm ?? 0, nearestHospitalKm: s.amenities?.nearestHospitalKm ?? 0,
       distToCoastKm: s.amenities?.distToCoastKm ?? 0,
       dominantNbnTech: s.dominantNbnTech, connectivityQualityScore: s.connectivityQualityScore,
+      crimeBreakInsRank: s.crimeBreakInsRank, crimeViolentRank: s.crimeViolentRank,
+      crimeMotorVehicleRank: s.crimeMotorVehicleRank,
     })),
     [data],
   );

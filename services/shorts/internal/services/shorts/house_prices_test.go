@@ -25,6 +25,30 @@ func TestListStateSuburbs_RequiresState(t *testing.T) {
 	}
 }
 
+func TestListStateSuburbs_MapsCrimeRanks(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	mockStore.EXPECT().ListStateSuburbs("NSW", "", int32(5000)).Return([]*shortsstore.SuburbSummaryRow{{
+		SALCode: "121041416", SALName: "Newtown", StateCode: "NSW",
+		CrimeBreakInsRank: 72.4, CrimeViolentRank: 43.1, CrimeMotorVehicleRank: 88.8,
+	}}, nil)
+
+	srv := newTestServer(t, mockStore)
+	resp, err := srv.ListStateSuburbs(context.Background(),
+		connect.NewRequest(&shortsv1alpha1.ListStateSuburbsRequest{StateCode: "NSW", Limit: 5000}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resp.Msg.Suburbs) != 1 {
+		t.Fatalf("want one suburb, got %d", len(resp.Msg.Suburbs))
+	}
+	got := resp.Msg.Suburbs[0]
+	if got.CrimeBreakInsRank != 72.4 || got.CrimeViolentRank != 43.1 || got.CrimeMotorVehicleRank != 88.8 {
+		t.Fatalf("crime ranks not mapped: %+v", got)
+	}
+}
+
 // TestGetPropertyHistory_FlagGate_ReturnsEmptyWhenDisabled asserts GetPropertyHistory
 // reads the SAME ToS-restricted per-listing data as ListSuburbDropListings, so the
 // HOUSING_DROP_LISTINGS_ENABLED kill switch (enabled by default, an explicit
@@ -494,6 +518,77 @@ func TestGetSuburbProfile_MapsBanner(t *testing.T) {
 	}
 	if len(banner.Landmarks) != 2 || banner.Landmarks[0].Name != "MCG" || banner.Landmarks[0].Kind != "landmark" {
 		t.Fatalf("want 2 landmarks mapped, got %+v", banner.Landmarks)
+	}
+}
+
+func TestGetSuburbProfile_MapsCrimeAndEmbeddedSummaryRanks(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockStore := mocks.NewMockShortsStore(ctrl)
+
+	mockStore.EXPECT().GetSuburbProfile("121041416").Return(&shortsstore.SuburbProfileRow{
+		Summary: shortsstore.SuburbSummaryRow{
+			SALCode: "121041416", SALName: "Newtown", StateCode: "NSW",
+		},
+		Crime: []shortsstore.SuburbCrimeStatRow{
+			{
+				CrimeType: "break_ins", FYEnding: 2025, RatePer100k: 0, PctRank: 72.4,
+				Jurisdiction: "NSW", Source: "bocsar", Licence: "CC-BY-4.0",
+			},
+			{
+				CrimeType: "motor_vehicle", FYEnding: 2025, RatePer100k: 845.2, PctRank: 88.8,
+				Jurisdiction: "NSW", Source: "bocsar", Licence: "CC-BY-4.0",
+			},
+			{
+				CrimeType: "violent", FYEnding: 2025, RatePer100k: 1234.5, PctRank: 43.1,
+				Jurisdiction: "NSW", Source: "bocsar", Licence: "CC-BY-4.0",
+			},
+		},
+	}, nil)
+
+	srv := newTestServer(t, mockStore)
+	resp, err := srv.GetSuburbProfile(context.Background(),
+		connect.NewRequest(&shortsv1alpha1.GetSuburbProfileRequest{SalCode: "121041416"}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Msg.Crime == nil {
+		t.Fatal("want crime message, got nil")
+	}
+	if resp.Msg.Crime.SourceJurisdiction != "NSW" || resp.Msg.Crime.Source != "bocsar" ||
+		resp.Msg.Crime.SourceLicence != "CC-BY-4.0" {
+		t.Fatalf("crime attribution not mapped: %+v", resp.Msg.Crime)
+	}
+	if len(resp.Msg.Crime.Stats) != 3 {
+		t.Fatalf("want three crime stats, got %d", len(resp.Msg.Crime.Stats))
+	}
+	if resp.Msg.Crime.Stats[0].RatePer_100K != 0 || resp.Msg.Crime.Stats[0].PctRank != 72.4 {
+		t.Fatalf("zero-rate reliable observation was not preserved: %+v", resp.Msg.Crime.Stats[0])
+	}
+	if resp.Msg.Summary.CrimeBreakInsRank != 72.4 || resp.Msg.Summary.CrimeViolentRank != 43.1 ||
+		resp.Msg.Summary.CrimeMotorVehicleRank != 88.8 {
+		t.Fatalf("embedded summary crime ranks not mapped: %+v", resp.Msg.Summary)
+	}
+}
+
+func TestGetSuburbProfile_OmitsCrimeWhenNoReliableData(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	mockStore.EXPECT().GetSuburbProfile("600011234").Return(&shortsstore.SuburbProfileRow{
+		Summary: shortsstore.SuburbSummaryRow{
+			SALCode: "600011234", SALName: "Uncovered", StateCode: "TAS",
+		},
+	}, nil)
+
+	srv := newTestServer(t, mockStore)
+	resp, err := srv.GetSuburbProfile(context.Background(),
+		connect.NewRequest(&shortsv1alpha1.GetSuburbProfileRequest{SalCode: "600011234"}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Msg.Crime != nil {
+		t.Fatalf("want absent crime message for uncovered suburb, got %+v", resp.Msg.Crime)
 	}
 }
 
