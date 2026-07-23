@@ -415,3 +415,76 @@ func upsertAmenities(ctx context.Context, pool *pgxpool.Pool, rows []AmenityRow)
 	}
 	return n, nil
 }
+
+// upsertCrime idempotently writes the scaled + ranked suburb crime rows (PK =
+// sal_code, crime_type, fy_ending, pooled). Re-running a source is a no-op; a
+// newer source release overlays newer FYs.
+func upsertCrime(ctx context.Context, pool *pgxpool.Pool, rows []CrimeStatRow) (int, error) {
+	const q = `
+		INSERT INTO suburb_crime_stats
+			(sal_code, crime_type, fy_ending, pooled, raw_offence_count,
+			 adjusted_offence_count, rate_per_100k, pct_rank, population, scale_factor,
+			 small_pop, unreliable, source_jurisdiction, source, source_licence)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+		ON CONFLICT (sal_code, crime_type, fy_ending, pooled) DO UPDATE SET
+			raw_offence_count      = EXCLUDED.raw_offence_count,
+			adjusted_offence_count = EXCLUDED.adjusted_offence_count,
+			rate_per_100k          = EXCLUDED.rate_per_100k,
+			pct_rank               = EXCLUDED.pct_rank,
+			population             = EXCLUDED.population,
+			scale_factor           = EXCLUDED.scale_factor,
+			small_pop              = EXCLUDED.small_pop,
+			unreliable             = EXCLUDED.unreliable,
+			source_jurisdiction    = EXCLUDED.source_jurisdiction,
+			source                 = EXCLUDED.source,
+			source_licence         = EXCLUDED.source_licence,
+			fetched_at             = now()`
+	batch := &pgx.Batch{}
+	for _, r := range rows {
+		batch.Queue(q, r.SalCode, r.CrimeType, r.FYEnding, r.Pooled, r.RawCount,
+			r.AdjustedCount, r.RatePer100k, r.PctRank, r.Population, r.ScaleFactor,
+			r.SmallPop, r.Unreliable, r.Jurisdiction, r.Source, r.SourceLicence)
+	}
+	br := pool.SendBatch(ctx, batch)
+	defer func() { _ = br.Close() }()
+	n := 0
+	for range rows {
+		if _, err := br.Exec(); err != nil {
+			return n, err
+		}
+		n++
+	}
+	return n, nil
+}
+
+// SuburbCrimeYear is one suburb's single-FY crime datapoint (read path — used by
+// the shorts service's GetSuburbProfile once the Phase-3 read wiring lands).
+type SuburbCrimeYear struct {
+	FYEnding    int
+	CrimeType   string
+	RatePer100k float64
+	PctRank     float64
+	SmallPop    bool
+}
+
+// getSuburbCrime returns a suburb's single-FY crime series ordered by FY.
+func getSuburbCrime(ctx context.Context, pool *pgxpool.Pool, salCode string) ([]SuburbCrimeYear, error) {
+	rows, err := pool.Query(ctx, `
+		SELECT fy_ending, crime_type, rate_per_100k, pct_rank, small_pop
+		FROM suburb_crime_stats
+		WHERE sal_code = $1 AND NOT pooled AND pct_rank IS NOT NULL
+		ORDER BY fy_ending, crime_type`, salCode)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []SuburbCrimeYear
+	for rows.Next() {
+		var y SuburbCrimeYear
+		if err := rows.Scan(&y.FYEnding, &y.CrimeType, &y.RatePer100k, &y.PctRank, &y.SmallPop); err != nil {
+			return nil, err
+		}
+		out = append(out, y)
+	}
+	return out, rows.Err()
+}
