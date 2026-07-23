@@ -1,32 +1,48 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 )
 
-// property.com.au profile-URL RESOLUTION (Phase-0 probe-confirmed).
+// property.com.au profile-URL RESOLUTION.
 //
 // A property profile lives at /{state}/{suburb}-{postcode}/{street-abbrev}/{number}-pid-{PID}/.
-// The PID is property.com.au's INTERNAL id, which we do NOT have and a constructed
-// slug can NEVER yield — so a pure slug builder (the original scaffold's guess) can't
-// reach a profile. Instead we TRAVERSE the site's own index pages, which is exactly
-// how a user drills in:
+// The PID is property.com.au's INTERNAL id, which a constructed slug can NEVER yield.
 //
-//   1. Suburb page  /{state}/{suburb}-{postcode}/            lists every STREET link
-//      (/{state}/{suburb}-{postcode}/{street-abbrev}/). This is AUTHORITATIVE for the
-//      street-type abbreviation, which is NOT reliably derivable: the live data shows
-//      Lane abbreviates to "lane" (not "ln") and Crescent to BOTH "cr" and "cres" on
-//      the same suburb page.
+// PRIMARY path — the ADDRESS SEARCH API (resolveViaSearch). property.com.au (REA
+// Group) drives its search box off realestate.com.au's public consumer address
+// autocomplete:
+//
+//	GET https://suggest.realestate.com.au/consumer-suggest/suggestions
+//	    ?max=8&type=address,suburb,postcode,state,region&src=...&query=<address>
+//
+// probe-CONFIRMED facts that make this the reliable resolver:
+//   - each suggestion carries an `id` that IS the property.com.au profile PID
+//     ("19 Badajoz Rd, Ryde NSW 2112" -> id 94337 == canonical .../19-pid-94337/).
+//   - the profile URL is BUILDABLE from the suggestion's structured `source`
+//     (state/suburb/postcode/streetName/streetNumber) + that id — no street-type
+//     abbreviation guessing (source.streetName is already abbreviated, and
+//     property.com.au 301-redirects a near-miss slug to canonical by PID anyway).
+//   - it resolves UNIT-heavy / zero-padded prod addresses ("033/175 Kelletts Road",
+//     "6/45 Wheatley Street") that the street-number traversal can't: we normalize
+//     the unit (strip leading zeros) and match the exact unit, or fall back to the
+//     base street number. This is why the traversal had ~0 hit-rate on the real
+//     corpus and search resolves it directly.
+//
+// FALLBACK path — index-page TRAVERSAL (resolveViaTraversal), kept for when the
+// search API misses/changes: it drills the site's own index pages exactly how a user
+// would —
+//
+//   1. Suburb page  /{state}/{suburb}-{postcode}/            lists every STREET link.
 //   2. Street page  /{state}/{suburb}-{postcode}/{street}/   lists every PROPERTY
 //      link with its /{number}-pid-{PID}/ path.
 //   3. Match our street number against the street page → the profile URL (with PID).
-//
-// So resolution is suburb-page-first (reliable), with a street-abbrev map as a
-// best-effort FALLBACK only (used when the suburb page can't be fetched or doesn't
-// carry the street). No GraphQL is needed — the street/suburb pages are plain SSR.
 
 const propertyOrigin = "https://www.property.com.au"
 
@@ -73,40 +89,79 @@ type suburbStreet struct {
 type propertyResolveCaches struct {
 	suburb map[string][]suburbStreet
 	street map[string][]streetProperty
+	// search memoizes the suggest API's parsed suggestions per query string, so the
+	// unit-form and (shared) base-street-form queries a suburb's many units emit are
+	// each fetched once per run.
+	search map[string][]suggestItem
 }
 
 func newPropertyResolveCaches() *propertyResolveCaches {
 	return &propertyResolveCaches{
 		suburb: map[string][]suburbStreet{},
 		street: map[string][]streetProperty{},
+		search: map[string][]suggestItem{},
 	}
 }
 
-// resolveProfile turns a seed address into its property.com.au profile URL by
-// traversing suburb → street → property index pages. throttle paces each NETWORK
-// fetch (cache hits neither fetch nor sleep).
-func (cr *crawler) resolveProfile(ctx context.Context, t propertyTarget, caches *propertyResolveCaches, throttle func()) (string, resolveStatus) {
+// resolveProfile turns a seed address into its property.com.au profile URL plus the
+// match GRANULARITY ("exact" | "building"). The address SEARCH API is the PRIMARY
+// path (resolveViaSearch); the index-page traversal (resolveViaTraversal) is the
+// fallback when search misses or errors. A block from either path short-circuits so
+// the caller's circuit breaker backs off. throttle paces each NETWORK fetch (cache
+// hits neither fetch nor sleep).
+func (cr *crawler) resolveProfile(ctx context.Context, t propertyTarget, caches *propertyResolveCaches, throttle func()) (string, string, resolveStatus) {
+	url, gran, st := cr.resolveViaSearch(ctx, t, caches, throttle)
+	if st == resolveOK {
+		return url, gran, resolveOK
+	}
+	if st == resolveBlocked {
+		return "", "", resolveBlocked
+	}
+
+	// Search missed (or hit a transient error) — fall back to the index-page traversal.
+	turl, tgran, tst := cr.resolveViaTraversal(ctx, t, caches, throttle)
+	switch tst {
+	case resolveOK:
+		return turl, tgran, resolveOK
+	case resolveBlocked:
+		return "", "", resolveBlocked
+	case resolveErr:
+		return "", "", resolveErr
+	}
+	// Both paths missed. Surface a transient search error as retryable; otherwise a
+	// definitive miss (→ 'notfound').
+	if st == resolveErr {
+		return "", "", resolveErr
+	}
+	return "", "", resolveMiss
+}
+
+// resolveViaTraversal is the FALLBACK resolver: it drills the site's suburb → street
+// → property index pages. It resolves a specific property link (a specific PID), so a
+// hit is "exact". throttle paces each NETWORK fetch (cache hits neither fetch nor
+// sleep).
+func (cr *crawler) resolveViaTraversal(ctx context.Context, t propertyTarget, caches *propertyResolveCaches, throttle func()) (string, string, resolveStatus) {
 	number, name := splitStreetNumber(streetPart(t.displayAddress, t.suburb))
 	if number == "" || name == "" || t.suburb == "" || t.stateCode == "" || t.postcode == "" {
-		return "", resolveMiss // no usable street number/name — not resolvable
+		return "", "", resolveMiss // no usable street number/name — not resolvable
 	}
 
 	streetURL, st := cr.findStreetURL(ctx, t, name, caches, throttle)
 	if st != resolveOK {
-		return "", st
+		return "", "", st
 	}
 	if streetURL == "" {
-		return "", resolveMiss
+		return "", "", resolveMiss
 	}
 
 	props, st := cr.streetProperties(ctx, streetURL, caches, throttle)
 	if st != resolveOK {
-		return "", st
+		return "", "", st
 	}
 	if path, ok := matchStreetProperty(props, number); ok {
-		return propertyOrigin + path, resolveOK
+		return propertyOrigin + path, "exact", resolveOK
 	}
-	return "", resolveMiss // street resolved, but our number isn't listed on it
+	return "", "", resolveMiss // street resolved, but our number isn't listed on it
 }
 
 // findStreetURL finds the authoritative street-page URL for a street: the suburb
@@ -371,12 +426,374 @@ func ensureTrailingSlash(p string) string {
 	return p
 }
 
-// resolveViaSearch is a DOCUMENTED FALLBACK hook for property.com.au's address
-// search/autocomplete resolution path. The traversal resolver (suburb → street →
-// property) is the primary and proved sufficient in the Phase-0 probe, so this is an
-// intentional no-op stub; wire it only if a future site change breaks traversal.
-func resolveViaSearch(_ propertyTarget) (string, bool) {
-	return "", false
+// --- PRIMARY: address search / autocomplete resolution ---
+
+// suggestEndpoint is realestate.com.au's public consumer address autocomplete —
+// the same service property.com.au's search box calls. A suggestion's `id` is the
+// property.com.au profile PID (probe-confirmed).
+const suggestEndpoint = "https://suggest.realestate.com.au/consumer-suggest/suggestions"
+
+// suggestSource is the structured address on each suggestion. The fields we use are
+// enough to BUILD the property.com.au profile URL directly.
+type suggestSource struct {
+	UnitNumber       string `json:"unitNumber"`       // "33" (unit) or "" (house)
+	StreetNumber     string `json:"streetNumber"`     // "33/175" (unit) or "79" (house)
+	StreetNumberFrom string `json:"streetNumberFrom"` // "175" — the base street number
+	StreetName       string `json:"streetName"`       // "Kelletts Rd" (type already abbreviated)
+	Suburb           string `json:"suburb"`
+	State            string `json:"state"`
+	Postcode         string `json:"postcode"`
+}
+
+// suggestItem is one autocomplete result. Type is one of
+// address|suburb|postcode|state|region; we only resolve `address`. ID IS the
+// property.com.au profile PID.
+type suggestItem struct {
+	ID     string        `json:"id"`
+	Type   string        `json:"type"`
+	Source suggestSource `json:"source"`
+}
+
+// suggestResponse is the HAL-shaped envelope the suggest service returns.
+type suggestResponse struct {
+	Embedded struct {
+		Suggestions []suggestItem `json:"suggestions"`
+	} `json:"_embedded"`
+}
+
+// addressParts is the unit / street-number / street-name decomposition of a portal
+// display address, normalized for the suggest query + strict matching.
+type addressParts struct {
+	unit    string // normalized: leading zeros stripped ("033" -> "33"); "" if none
+	number  string // street number, range collapsed to "N-M" ("51-53"); "" if none
+	numFrom string // low end of a range, or the number itself ("51"); "" if none
+	name    string // street name incl. its type word ("Kelletts Road")
+}
+
+var (
+	// propNumberRe captures a leading street number (with an optional letter suffix
+	// and an optional "-" range) then the street name.
+	propNumberRe = regexp.MustCompile(`^(\d+[a-zA-Z]?(?:\s*-\s*\d+[a-zA-Z]?)?)\s+(.+)$`)
+	rangeSepRe   = regexp.MustCompile(`\s*-\s*`)
+)
+
+// normUnit strips leading zeros off a unit token ("033" -> "33", "09 Ambrose" ->
+// "9 Ambrose"), keeping a lone "0". Zero-padding is exactly what makes the raw prod
+// unit prefixes ("033/", "06/") fail the suggest query, so we always normalize.
+func normUnit(s string) string {
+	s = strings.TrimSpace(s)
+	t := strings.TrimLeft(s, "0")
+	if t == "" && s != "" {
+		return "0"
+	}
+	return t
+}
+
+// parseAddressParts decomposes the unit+street portion of a display address (i.e.
+// the streetPart(), suburb suffix already stripped) into its unit / number / name.
+// Handles unit prefixes ("033/175 Kelletts Road"), padded/spaced units
+// ("06/ 88 Menser Street"), and street-number ranges ("1/51-53 Sheffield Street").
+func parseAddressParts(streetPortion string) addressParts {
+	s := strings.Join(strings.Fields(streetPortion), " ") // collapse all whitespace
+	var unit, rest string
+	if i := strings.IndexByte(s, '/'); i >= 0 {
+		unit = normUnit(s[:i])
+		rest = strings.TrimSpace(s[i+1:])
+	} else {
+		rest = s
+	}
+	m := propNumberRe.FindStringSubmatch(rest)
+	if m == nil {
+		return addressParts{unit: unit, name: strings.TrimSpace(rest)}
+	}
+	number := rangeSepRe.ReplaceAllString(strings.TrimSpace(m[1]), "-")
+	numFrom := number
+	if i := strings.IndexByte(numFrom, '-'); i >= 0 {
+		numFrom = numFrom[:i]
+	}
+	return addressParts{unit: unit, number: number, numFrom: numFrom, name: strings.TrimSpace(m[2])}
+}
+
+// buildSuggestQuery forms the free-text address query the suggest service parses.
+// withUnit=true prepends the (normalized) unit so the exact unit ranks first;
+// withUnit=false is the base-street / house form.
+func buildSuggestQuery(p addressParts, suburb, state, postcode string, withUnit bool) string {
+	var street string
+	switch {
+	case withUnit && p.unit != "" && p.number != "":
+		street = p.unit + "/" + p.number + " " + p.name
+	case p.number != "":
+		street = p.number + " " + p.name
+	default:
+		street = p.name
+	}
+	q := strings.TrimSpace(street)
+	if suburb != "" {
+		q += ", " + strings.TrimSpace(suburb)
+	}
+	if state != "" {
+		q += " " + strings.ToUpper(strings.TrimSpace(state))
+	}
+	if postcode != "" {
+		q += " " + strings.TrimSpace(postcode)
+	}
+	return strings.Join(strings.Fields(q), " ")
+}
+
+// buildSuggestURL encodes a suggest request for a query (comma in `type` -> %2C,
+// spaces in `query` -> +, exactly as the site emits).
+func buildSuggestURL(query string) string {
+	v := url.Values{}
+	v.Set("max", "8")
+	v.Set("type", "address,suburb,postcode,state,region")
+	v.Set("src", "reax-multi-intent-search-modal")
+	v.Set("query", query)
+	return suggestEndpoint + "?" + v.Encode()
+}
+
+// addressTarget is the FULL target address a suggestion must agree with — not just
+// the unit + street number, but the street NAME, suburb, postcode and state too. The
+// suggest API is fuzzy and its NEAREST-NEIGHBOUR fallback (fired exactly when the
+// exact address isn't indexed) will happily return a same-number property on a
+// DIFFERENT street or in a DIFFERENT suburb/postcode. Matching on the number alone
+// would then attribute the WRONG property's valuation to this target, so every axis
+// is checked.
+type addressTarget struct {
+	parts    addressParts // unit / number / numFrom / street name
+	suburb   string
+	state    string
+	postcode string
+}
+
+// streetTypeCanon maps every street-type token (both the full word and its URL
+// abbreviation) to a single canonical form, so "Kelletts Road" and "Kelletts Rd"
+// normalize equal — while "Park Road" and "Park Street" stay DISTINCT (they
+// canonicalize to different types). Built from streetTypeAbbrev (full -> abbrev).
+var streetTypeCanon = func() map[string]string {
+	m := make(map[string]string, len(streetTypeAbbrev)*2)
+	for full, ab := range streetTypeAbbrev {
+		m[full] = ab
+		m[ab] = ab
+	}
+	return m
+}()
+
+// normStreetName canonicalizes a street name for comparison: lower-case, slug, with
+// the trailing type token folded to its canonical form (full<->abbrev). An unknown
+// final token is kept as-is, so two truly-different streets never collide.
+func normStreetName(name string) string {
+	fields := strings.Fields(strings.ToLower(strings.TrimSpace(name)))
+	if len(fields) == 0 {
+		return ""
+	}
+	if canon, ok := streetTypeCanon[fields[len(fields)-1]]; ok {
+		fields[len(fields)-1] = canon
+	}
+	return slug(strings.Join(fields, " "))
+}
+
+// suggestionAddressAgrees reports whether an address suggestion is the SAME physical
+// street address as the target on every non-number axis: street name (abbrev-
+// normalized), suburb, postcode and state. This is the wrong-property guard — a
+// number-only agreement is NEVER sufficient.
+func suggestionAddressAgrees(it suggestItem, tgt addressTarget) bool {
+	if it.Type != "address" {
+		return false
+	}
+	if normStreetName(it.Source.StreetName) != normStreetName(tgt.parts.name) {
+		return false
+	}
+	if slug(it.Source.Suburb) != slug(tgt.suburb) {
+		return false
+	}
+	if strings.TrimSpace(it.Source.Postcode) != strings.TrimSpace(tgt.postcode) {
+		return false
+	}
+	if !strings.EqualFold(strings.TrimSpace(it.Source.State), strings.TrimSpace(tgt.state)) {
+		return false
+	}
+	return true
+}
+
+// matchSuggestion picks the best address suggestion for the target. Beyond the base
+// street number agreeing (streetNumberFrom == numFrom — the fuzzy near-number
+// guard), it REQUIRES the full address to agree (suggestionAddressAgrees: street
+// name AND suburb AND postcode AND state) so a nearest-neighbour on a different
+// street/suburb can never match. Suggestions are already RANKED, so the first
+// agreeing match is the top-ranked one. Preference: exact unit, then the base street
+// number (a unit-less property at that number — the exact property for a plain
+// house, or the building-level fallback for a unit whose exact number isn't indexed).
+// The returned how is "exact-unit" | "base-street"; matchGranularity maps it to the
+// stored granularity.
+func matchSuggestion(items []suggestItem, tgt addressTarget) (suggestItem, string, bool) {
+	p := tgt.parts
+	if p.numFrom == "" {
+		return suggestItem{}, "", false
+	}
+	if p.unit != "" {
+		for _, it := range items {
+			if !suggestionAddressAgrees(it, tgt) {
+				continue
+			}
+			if normUnit(it.Source.UnitNumber) == p.unit && it.Source.StreetNumberFrom == p.numFrom {
+				return it, "exact-unit", true
+			}
+		}
+	}
+	for _, it := range items {
+		if !suggestionAddressAgrees(it, tgt) || it.Source.UnitNumber != "" {
+			continue
+		}
+		if it.Source.StreetNumberFrom == p.numFrom || it.Source.StreetNumber == p.number {
+			return it, "base-street", true
+		}
+	}
+	return suggestItem{}, "", false
+}
+
+// matchGranularity maps a matchSuggestion `how` + whether the target named a unit to
+// the stored valuation_granularity: "building" when a UNIT target fell back to the
+// base building (a whole-building AVM, NOT unit-precise — must never be consumed as
+// unit-precise), else "exact" (a house resolved to its own profile, or a unit
+// resolved to its exact unit profile).
+func matchGranularity(how string, targetHasUnit bool) string {
+	if how == "base-street" && targetHasUnit {
+		return "building"
+	}
+	return "exact"
+}
+
+// buildProfileURLFromSource constructs the property.com.au profile URL from a
+// suggestion's structured source + its id (the PID). streetName is already
+// type-abbreviated ("Kelletts Rd" -> "kelletts-rd"); a slight mismatch would still
+// 301 to canonical by PID, but we build it right. Returns "" if any component is
+// missing.
+func buildProfileURLFromSource(s suggestSource, id string) string {
+	state := slug(s.State)
+	suburb := slug(s.Suburb)
+	postcode := strings.TrimSpace(s.Postcode)
+	street := slug(s.StreetName)
+	number := slug(s.StreetNumber)
+	if state == "" || suburb == "" || postcode == "" || street == "" || number == "" || strings.TrimSpace(id) == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s/%s/%s-%s/%s/%s-pid-%s/", propertyOrigin, state, suburb, postcode, street, number, strings.TrimSpace(id))
+}
+
+// extractSuggestJSON pulls the JSON body out of a fetched suggest response. When the
+// browser NAVIGATES to a JSON endpoint it wraps the body in <pre>...</pre>; a raw
+// fixture file is already bare JSON. Slicing first '{' .. last '}' handles both, and
+// the response has no other braces before the payload.
+func extractSuggestJSON(html []byte) []byte {
+	i := bytes.IndexByte(html, '{')
+	j := bytes.LastIndexByte(html, '}')
+	if i < 0 || j <= i {
+		return nil
+	}
+	return html[i : j+1]
+}
+
+// parseSuggestResponse extracts + unmarshals the suggest JSON. ok=false when no JSON
+// body was present or it didn't parse (treated as a soft miss, not a block).
+func parseSuggestResponse(html []byte) ([]suggestItem, bool) {
+	body := extractSuggestJSON(html)
+	if body == nil {
+		return nil, false
+	}
+	var r suggestResponse
+	if err := json.Unmarshal(body, &r); err != nil {
+		return nil, false
+	}
+	return r.Embedded.Suggestions, true
+}
+
+// fetchSuggestions fetches + parses (and caches) the suggest response for a query.
+// It routes through cr.fetchPage (NOT fetchPropertyPage): a suggest response is a
+// few KB of JSON — below the profile stub SIZE FLOOR (reaWarmMinBytes) — so the
+// profile stub-as-block guard would false-flag it. looksBlocked (challenge markers)
+// still applies, so a real Kasada interstitial is still caught as a block.
+func (cr *crawler) fetchSuggestions(ctx context.Context, query string, caches *propertyResolveCaches, throttle func()) ([]suggestItem, resolveStatus) {
+	if query == "" {
+		return nil, resolveMiss
+	}
+	if v, ok := caches.search[query]; ok {
+		return v, resolveOK
+	}
+	throttle()
+	html, _, outcome := cr.fetchPage(ctx, buildSuggestURL(query))
+	switch outcome {
+	case outcomeBlocked:
+		return nil, resolveBlocked
+	case outcomeError:
+		return nil, resolveErr
+	}
+	items, ok := parseSuggestResponse(html)
+	if !ok {
+		return nil, resolveMiss // a 200 that isn't the expected JSON: soft miss, don't trip the breaker
+	}
+	caches.search[query] = items
+	return items, resolveOK
+}
+
+// resolveViaSearch is the PRIMARY resolver: it resolves an arbitrary (often
+// unit-heavy / zero-padded) display address straight to its property.com.au profile
+// URL via the address autocomplete. It emits at most two suggest fetches: the
+// unit-form query (when the address has a unit) for an exact-unit match, then the
+// base-street-form query as the fallback (and the sole query for a plain house). It
+// returns the resolved URL, the match GRANULARITY ("exact" | "building"), and the
+// status. Every match is verified against the FULL target address (street name +
+// suburb + postcode + state), so a fuzzy nearest-neighbour is never accepted.
+func (cr *crawler) resolveViaSearch(ctx context.Context, t propertyTarget, caches *propertyResolveCaches, throttle func()) (string, string, resolveStatus) {
+	if t.suburb == "" || t.stateCode == "" || t.postcode == "" {
+		return "", "", resolveMiss
+	}
+	tgt := addressTarget{
+		parts:    parseAddressParts(streetPart(t.displayAddress, t.suburb)),
+		suburb:   t.suburb,
+		state:    t.stateCode,
+		postcode: t.postcode,
+	}
+	if tgt.parts.numFrom == "" {
+		return "", "", resolveMiss // no usable street number → search can't disambiguate
+	}
+
+	sawErr := false
+	resolve := func(withUnit bool) (string, string, resolveStatus, bool) {
+		items, st := cr.fetchSuggestions(ctx, buildSuggestQuery(tgt.parts, t.suburb, t.stateCode, t.postcode, withUnit), caches, throttle)
+		switch st {
+		case resolveBlocked:
+			return "", "", resolveBlocked, true
+		case resolveErr:
+			sawErr = true
+			return "", "", resolveErr, false
+		}
+		if it, how, ok := matchSuggestion(items, tgt); ok {
+			if u := buildProfileURLFromSource(it.Source, it.ID); u != "" {
+				return u, matchGranularity(how, tgt.parts.unit != ""), resolveOK, true
+			}
+		}
+		return "", "", resolveMiss, false
+	}
+
+	// Query 1: unit form — surfaces the exact unit as the top suggestion.
+	if tgt.parts.unit != "" {
+		if u, gran, st, done := resolve(true); done {
+			return u, gran, st
+		}
+	}
+
+	// Query 2: street-number form — base-building fallback (also the primary query
+	// for a plain house, and the catch for a spurious "unit" on a house).
+	if u, gran, st, done := resolve(false); done {
+		return u, gran, st
+	}
+
+	// No match. A transient fetch error is retryable; otherwise let the caller try
+	// the traversal fallback on a clean miss.
+	if sawErr {
+		return "", "", resolveErr
+	}
+	return "", "", resolveMiss
 }
 
 // propertyNotFoundMarkers are phrases confirmed on the REAL property.com.au 404 page
@@ -413,4 +830,40 @@ func isProfileNotFound(finalURL string, html []byte) bool {
 
 func isPropertyURL(u string) bool {
 	return strings.Contains(u, "property.com.au")
+}
+
+// profileAddressMatchesTarget is the DEFENCE-IN-DEPTH check run after a profile is
+// fetched, before its valuation is stored: it confirms the profile URL's
+// /{state}/{suburb}-{postcode}/ segment actually equals the target's. Even though
+// matchSuggestion already verifies the suggestion's address, a PID whose canonical
+// property.com.au address disagrees with the suggestion (a data inconsistency, or a
+// 301 that landed elsewhere) is caught here — so a mismatched valuation is NEVER
+// attributed to the target. It prefers the post-redirect finalURL (the canonical),
+// falling back to the URL we built. An unparseable/non-profile URL returns true (it
+// can't disprove the match — the suggest guard already verified the address), so this
+// only ever REJECTS a CLEAR state/suburb/postcode mismatch.
+func profileAddressMatchesTarget(finalURL, builtURL string, t propertyTarget) bool {
+	want := slug(t.stateCode) + "/" + slug(t.suburb) + "-" + strings.TrimSpace(t.postcode)
+	for _, u := range []string{finalURL, builtURL} {
+		if !isPropertyURL(strings.ToLower(u)) {
+			continue
+		}
+		state, subPc, ok := profileURLStateSuburb(u)
+		if !ok {
+			continue // not a parseable profile path — can't disprove
+		}
+		return state+"/"+subPc == want
+	}
+	return true // no parseable profile URL to check against — trust the suggest guard
+}
+
+// profileURLStateSuburb pulls the leading {state}/{suburb-postcode} out of a
+// property.com.au profile URL path. ok=false when the path isn't the expected
+// profile shape.
+func profileURLStateSuburb(profileURL string) (state, suburbPostcode string, ok bool) {
+	segs := strings.Split(strings.Trim(pathOf(profileURL), "/"), "/")
+	if len(segs) < 4 || segs[0] == "" || segs[1] == "" {
+		return "", "", false // want at least {state}/{suburb-pc}/{street}/{number-pid-…}
+	}
+	return segs[0], segs[1], true
 }
