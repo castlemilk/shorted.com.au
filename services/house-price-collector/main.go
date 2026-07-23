@@ -22,7 +22,7 @@ func main() {
 // 3 = a crawl needs a human to re-warm the Chrome profile (Kasada/Akamai
 // clearance expired). Wrapping the body lets deferred cleanup run before exit.
 func run() int {
-	mode := flag.String("mode", "all", "official | crawl | listings | details | property | agent | enqueue | freshness | purge | warmcheck | backfill-address | census | electorates | banners | amenities | lga | connectivity | funding | council-financials | refresh | all")
+	mode := flag.String("mode", "all", "official | crawl | listings | details | property | agent | enqueue | freshness | purge | warmcheck | backfill-address | census | electorates | banners | amenities | lga | connectivity | funding | council-financials | crime | refresh | all")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -39,6 +39,10 @@ func run() int {
 	defaultTimeoutMin := 15
 	switch *mode {
 	case "agent", "listings", "crawl", "details", "property":
+		defaultTimeoutMin = 240
+	case "crime":
+		// Downloads the 436MB BOCSAR CSV + CVS/ERP, melts, scales, ranks and
+		// upserts ~1M+ rows — well beyond the 15-min quick-run default.
 		defaultTimeoutMin = 240
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(envInt("CRAWL_TIMEOUT_MIN", defaultTimeoutMin))*time.Minute)
@@ -156,10 +160,16 @@ func run() int {
 	case "council-financials":
 		// VIC LGPRF per-council financials (rates, surplus, asset renewal) → lga.
 		runVICFinancials(ctx, pool)
+	case "crime":
+		// Licence-clean suburb crime pipeline: ABS CVS scaler + ABS ERP
+		// denominator + state police open data (Phase 1 = NSW/BOCSAR),
+		// population-weighted percentile-ranked per crime type. Operator-run,
+		// yearly; DRY-RUN by default. Refreshes the housing MVs internally on write.
+		runCrime(ctx, pool)
 	case "refresh":
 		refresh(ctx, pool)
 	default:
-		log.Fatalf("unknown -mode %q (want official|crawl|listings|details|property|agent|enqueue|freshness|warmcheck|backfill-address|census|electorates|banners|amenities|lga|connectivity|funding|council-financials|refresh|all)", *mode)
+		log.Fatalf("unknown -mode %q (want official|crawl|listings|details|property|agent|enqueue|freshness|warmcheck|backfill-address|census|electorates|banners|amenities|lga|connectivity|funding|council-financials|crime|refresh|all)", *mode)
 	}
 	return 0
 }
