@@ -4,12 +4,10 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { getEconomicSeriesClient } from "~/app/actions/client/getEconomyClient";
-import type { GetEconomicSeriesResponse } from "~/gen/shorts/v1alpha1/economy_pb";
 import {
   ECONOMY_SERIES_FORMATTERS,
+  observationsFor,
   type EconomyCorrelationSeriesDef,
-  type EconomySeriesDisplayFormat,
-  type Obs,
 } from "@/lib/economy/map-metrics";
 import { topCorrelations } from "@/lib/economy/correlation";
 import { EconomyIcon } from "./economy-icon";
@@ -28,22 +26,6 @@ export interface SeriesCorrelationProps {
   /** Industry series are derived and may not exist; state anchors retain legacy permissive behaviour. */
   requireAnchor?: boolean;
   missingAnchorMessage?: string;
-}
-
-/** Extract observations from a batched response by stable series key. */
-function observationsFor(
-  response: Pick<GetEconomicSeriesResponse, "series"> | undefined,
-  key: string,
-): Obs[] {
-  const series = response?.series.find((item) => item.info?.seriesKey === key);
-  return (series?.observations ?? [])
-    .filter((observation) => observation.period != null)
-    .map((observation) => ({
-      date: new Date(Number(observation.period!.seconds) * 1000),
-      value: observation.value,
-    }))
-    .filter((point) => !Number.isNaN(point.date.getTime()))
-    .sort((a, b) => a.date.getTime() - b.date.getTime());
 }
 
 function formatCoefficient(value: number): string {

@@ -33,11 +33,22 @@ func TestEconomicSeriesToolDeclarationAndGeminiSchema(t *testing.T) {
 		"markets.short_interest_wavg.{state}",
 		"markets.short_interest_avg.{industry}.aus",
 		"trade.balance.total.{state}",
+		"spending.household.total.{state}.seasadj",
+		"lending.new_commitments.investor.{state}.seasadj",
+		"business.gross_operating_profit.{industry}.aus.seasadj",
+		"construction.work_done.total.{state}.seasadj",
+		"crime.victims.{offence}.{state}",
+		"crime.victims_rate_100k.{offence}.{state}",
 		"nsw/vic/qld/sa/wa/tas/nt/act",
-		"materials, energy, banks, software-services",
+		"Business industry values (ANZSIC divisions): mining, manufacturing, retail-trade",
+		"Market industry values (GICS): materials, energy, banks",
+		"Offence values: homicide, assault, sexual-assault, robbery, unlawful-entry, motor-vehicle-theft, other-theft",
 	}
 	if strings.Contains(economicTool.Description, "cpi.annual_change.aus") {
 		t.Error("tool description contains the nonexistent CPI key cpi.annual_change.aus")
+	}
+	if strings.Contains(economicTool.Description, "Industry examples:") {
+		t.Error("tool description must not present one ambiguous industry vocabulary")
 	}
 	for _, fragment := range wantDescriptionFragments {
 		if !strings.Contains(economicTool.Description, fragment) {

@@ -103,3 +103,11 @@ end-to-end.
 > deflator caveat) · 4.2 ✓ (stored series; map metric still client-derived)
 > · 5.4 ✓ (`get_economic_series`) · 6.1 ✓ (workflow step, browser UA,
 > continue-on-error).
+
+> **ROUND 2 SHIPPED 2026-07-23** (branch `feat/economy-phase3-round2`; spec
+> `docs/superpowers/specs/2026-07-23-economy-phase3-round2-design.md`):
+> 2.2 ✓ QBIS (current families only — state×industry died upstream 2022) ·
+> 2.3 ✓ lending (TOTDWELL, quarterly) · 2.7 ✓ CWD · 2.8 ✓ HSI_M ·
+> **+ recorded crime** (user-requested, XLSX — no SDMX flow exists; counts
+> 1993→ + derived per-100k rates + state-page crime card). Parked: OAD
+> visitor arrivals (no state dim), OMAD_VISA (overlaps NOM), EWD detail.

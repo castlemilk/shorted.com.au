@@ -1,9 +1,14 @@
+import { create } from "@bufbuild/protobuf";
+
+import { GetEconomicSeriesResponseSchema } from "~/gen/shorts/v1alpha1/economy_pb";
 import {
   ECONOMY_MAP_METRICS,
   ECONOMY_SERIES_FORMATTERS,
   METRIC_BY_KEY,
+  STATE_CORRELATION_CANDIDATES,
   seriesKeysFor,
   buildStateValues,
+  observationsFor,
   yoyPct,
   rankOf,
   type EconomyMapMetric,
@@ -11,7 +16,11 @@ import {
   type StateSeries,
 } from "../map-metrics";
 
-const mk = (state: string, values: number[], startYear = 2024): StateSeries => ({
+const mk = (
+  state: string,
+  values: number[],
+  startYear = 2024,
+): StateSeries => ({
   state,
   observations: values.map((v, i) => ({
     date: new Date(Date.UTC(startYear, i, 1)),
@@ -26,28 +35,86 @@ const asSeries = (m: EconomyMapMetric): EconomySeriesMetric => {
 };
 
 describe("map-metrics", () => {
+  it("converts proto observations, dropping unset/invalid periods and sorting ascending", () => {
+    const response = create(GetEconomicSeriesResponseSchema, {
+      series: [
+        {
+          info: { seriesKey: "example.series" },
+          observations: [
+            { period: { seconds: 1_704_067_200n }, value: 20 },
+            { value: 999 },
+            { period: { seconds: 9_000_000_000_000n }, value: 888 },
+            { period: { seconds: 1_672_531_200n }, value: 10 },
+          ],
+        },
+      ],
+    });
+
+    expect(observationsFor(response, "example.series")).toEqual([
+      { date: new Date("2023-01-01T00:00:00.000Z"), value: 10 },
+      { date: new Date("2024-01-01T00:00:00.000Z"), value: 20 },
+    ]);
+    expect(observationsFor(response, "missing.series")).toEqual([]);
+  });
+
   it("formats negative megalitres using the absolute threshold and signed value", () => {
     expect(ECONOMY_SERIES_FORMATTERS.megalitres(-1500)).toBe("-1.5GL");
   });
 
-  it("registry has 12 metrics with unique keys", () => {
+  it("formats per-100k rates as unscaled decimal values without compact suffixes", () => {
+    expect(ECONOMY_SERIES_FORMATTERS.rate(1.46)).toBe("1.5");
+    expect(ECONOMY_SERIES_FORMATTERS.rate(189.8)).toBe("190");
+  });
+
+  it("registry has 13 metrics with unique keys", () => {
     const keys = ECONOMY_MAP_METRICS.map((m) => m.key);
-    expect(keys).toHaveLength(12);
-    expect(new Set(keys).size).toBe(12);
+    expect(keys).toHaveLength(13);
+    expect(new Set(keys).size).toBe(13);
     expect(METRIC_BY_KEY.unemployment.label).toMatch(/unemployment/i);
   });
 
-  it("registry kinds: 10 series + 2 aggregate", () => {
+  it("registry kinds: 11 series + 2 aggregate", () => {
     const byKind = { series: 0, aggregate: 0 };
     for (const m of ECONOMY_MAP_METRICS) byKind[m.kind]++;
-    expect(byKind).toEqual({ series: 10, aggregate: 2 });
+    expect(byKind).toEqual({ series: 11, aggregate: 2 });
+  });
+
+  it("registers household spending YoY as the sole round-2 map metric", () => {
+    const spending = asSeries(METRIC_BY_KEY.spending_household_yoy);
+    expect(spending.seriesKeyTemplate).toBe(
+      "spending.household_yoy.total.{state}.seasadj",
+    );
+    expect(spending.format).toBe("percent");
+    expect(spending.palette).toBe("diverging");
+    expect(spending.derived).toBeUndefined();
+    expect(METRIC_BY_KEY).not.toHaveProperty("construction_work_done");
+  });
+
+  it("registers round-2 state correlation candidates without annual crime", () => {
+    const templates = STATE_CORRELATION_CANDIDATES.map(
+      (candidate) => candidate.seriesKeyTemplate,
+    );
+    expect(templates).toEqual(
+      expect.arrayContaining([
+        "spending.household.total.{state}.seasadj",
+        "lending.new_commitments.investor.{state}.seasadj",
+        "construction.work_done.total.{state}.seasadj",
+      ]),
+    );
+    expect(templates.some((template) => template.startsWith("crime."))).toBe(
+      false,
+    );
   });
 
   it("registers retail turnover and derived population growth", () => {
     const retail = asSeries(METRIC_BY_KEY.retail);
-    expect(retail.seriesKeyTemplate).toBe("retail.turnover.total.{state}.seasadj");
+    expect(retail.seriesKeyTemplate).toBe(
+      "retail.turnover.total.{state}.seasadj",
+    );
     expect(retail.format).toBe("aud");
-    expect(seriesKeysFor(retail)).toContain("retail.turnover.total.nsw.seasadj");
+    expect(seriesKeysFor(retail)).toContain(
+      "retail.turnover.total.nsw.seasadj",
+    );
 
     const population = asSeries(METRIC_BY_KEY.population_growth);
     expect(population.seriesKeyTemplate).toBe("population.erp.total.{state}");
@@ -96,7 +163,10 @@ describe("map-metrics", () => {
   });
 
   it("yoyPct computes % change vs ~12 months earlier", () => {
-    const s = mk("nsw", Array.from({ length: 13 }, (_, i) => 100 + i)); // 100..112
+    const s = mk(
+      "nsw",
+      Array.from({ length: 13 }, (_, i) => 100 + i),
+    ); // 100..112
     expect(yoyPct(s.observations)).toBeCloseTo(12, 5);
     expect(yoyPct(s.observations.slice(0, 6))).toBeNull(); // < a year of data
   });

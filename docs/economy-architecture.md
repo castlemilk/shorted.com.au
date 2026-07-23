@@ -26,11 +26,11 @@ shorts DB (derived)─┘  monthly Cloud Run   observatns └─ industry-intel 
                         + ListStateCompanies / GetStateCompanyAggregates (public)
 ```
 
-**Live catalog size** (local, post phase-3 round 1, 2026-07-22): 550 series —
-trade 205 · petroleum 126 · govfin 56 · population 35 · markets 30 ·
-labour 30 · wages 27 · retail 9 · gdp 8 · approvals 8 · commodities 6 ·
-credit 5 · rates 3 · cpi 2. (Industry `markets.short_interest_avg.*` counts
-vary with constituent coverage; prod re-derives on its own history.)
+**Live catalog size** (local, post phase-3 round 2, 2026-07-23): ~760 series
+across 20 sources — round 2 added spending 18 · lending 18 · construction 27 ·
+business 32 · crime 110 (56 counts + 54 rates) on top of round 1's 550.
+(Derived counts vary with constituent/erp coverage; prod re-derives on its
+own history.)
 
 ## 1. Data model
 
@@ -60,7 +60,7 @@ Related migrations: `000082` (registry `signal_kind` += economic_series),
 `000083` (company `state_exposure` + `hq_state` + `mv_company_state_exposure`),
 `000085` (registry `collection_method` += derived).
 
-## 2. Sources — the full reference (15 live)
+## 2. Sources — the full reference (20 live)
 
 | source_key | Publication (reference link) | API/flow | Series | Freq | Licence |
 |---|---|---|---|---|---|
@@ -79,7 +79,12 @@ Related migrations: `000082` (registry `signal_kind` += economic_series),
 | `rba-credit-aggregates` | [RBA Growth in Selected Financial Aggregates](https://www.rba.gov.au/statistics/tables/) — table D1 | CSV `d1-data.csv` | growth_yoy (12-month-ended, seasadj) × {housing, owner_occupier_housing, investor_housing, personal, business} — business = DGFACBNF12 (DGFACB12 discontinued 2019-06) | M | CC-BY-4.0 |
 | `abs-job-vacancies` | [ABS Job Vacancies, Australia](https://www.abs.gov.au/statistics/labour/jobs/job-vacancies-australia/latest-release) | SDMX `JV` v**1.0** (1.0.0 404s) | job_vacancies (persons, ×1000 from UNIT_MULT=3) — aus + 8 states, **original-only for states** | Q | CC-BY-4.0 |
 | `abs-wage-price-index` | [ABS Wage Price Index, Australia](https://www.abs.gov.au/statistics/economy/price-indexes-and-inflation/wage-price-index-australia/latest-release) | SDMX `WPI` v1.2.0 | wpi (index) + wpi_yoy (percent) — THRPEB headline, aus + 8 states, original-only, **no UNIT_MULT column upstream** | Q | CC-BY-4.0 |
-| `derived-shorted-economy` | Derived in-DB from already-imported series | SQL (`derived.go`, `-mode derived`, runs LAST in `all`) | real_wpi_yoy (`wages.real_wpi_yoy.{region}` = wpi_yoy − national CPI YoY from the quarterly index via exact 1-year self-join — **national deflator caveat**, no state CPI exists); balance (`trade.balance.total.{region}` = export − import, both-sides months only) | Q/M | derived |
+| `derived-shorted-economy` | Derived in-DB from already-imported series | SQL (`derived.go`, `-mode derived`, runs LAST in `all`, per-family resilience) | real_wpi_yoy (national-deflator caveat); trade balance; crime victims_rate_100k (victims ÷ June-quarter erp × 100k) | Q/M/A | derived |
+| `abs-household-spending` | [ABS Monthly Household Spending Indicator](https://www.abs.gov.au/statistics/economy/finance/monthly-household-spending-indicator/latest-release) | SDMX `HSI_M` v1.6.0 | household total $ + through-year % — seasadj, 9 regions (supersedes retail as the broad gauge; both kept) | M | CC-BY-4.0 |
+| `abs-lending-indicators` | [ABS Lending Indicators](https://www.abs.gov.au/statistics/economy/finance/lending-indicators/latest-release) | SDMX `LEND_HOUSING` v1.1 | new_commitments owner_occupier + investor — **TOTDWELL purpose** (the OO/investor split does NOT exist under TOTHOUS), FIN_VAL, seasadj, 9 regions, **quarterly** (release moved off monthly) | Q | CC-BY-4.0 |
+| `abs-business-indicators` | [ABS Business Indicators](https://www.abs.gov.au/statistics/economy/business-indicators/business-indicators-australia/latest-release) | SDMX `QBIS` v1.0.0 | gross_operating_profit × 15 ANZSIC divisions (aus only) + sales/wages all-industry totals per state — **state×industry splits died upstream 2022-Q3; constrained fetch keys can't resurrect them**. NEW pinned ANZSIC slug map — never cross-map to GICS | Q | CC-BY-4.0 |
+| `abs-construction-work-done` | [ABS Construction Work Done](https://www.abs.gov.au/statistics/industry/building-and-construction/construction-work-done-australia-preliminary/latest-release) | SDMX `CWD` v1.0.0 | work_done building/engineering/total — CVM, seasadj, 9 regions | Q | CC-BY-4.0 |
+| `abs-recorded-crime-victims` | [ABS Recorded Crime — Victims](https://www.abs.gov.au/statistics/people/crime-and-justice/recorded-crime-victims/latest-release) — **no SDMX flow exists** (1,223-flow scan) | XLSX states cube (Table 9 = all 8 states as sections), per-run release-page discovery | victims × 7 offences × 8 states, annual 1993→; footnote-stripped offence map, np skip; assault/sexual-assault carry `comparability=within-state-only` | A | CC-BY-4.0 |
 
 **Probe discipline** (every SDMX importer): dimension codes are pinned from
 live probes, recorded in dated comment blocks, parsed **by column name** via
@@ -104,7 +109,7 @@ series (DGFACB12) died 2019-06 — DGFACBNF12 is the live successor.
 
 ## 3. Collector — `services/economy-collector`
 
-Single binary, `-mode sources|rba|cpi|labour|trade|gdp|petroleum|govfin|approvals|retail|population|vacancies|wages|markets|derived|all`
+Single binary, `-mode sources|rba|cpi|labour|trade|gdp|petroleum|govfin|approvals|retail|population|vacancies|wages|spending|lending|construction|business|crime|markets|derived|all`
 (`derived` runs LAST in `all` — it reads series the other modes write).
 Cloud Run Job (min instances 0), monthly scheduler (5th, 17:00 UTC),
 `terraform/modules/economy-collector`, image in `terraform-deploy.yml`'s

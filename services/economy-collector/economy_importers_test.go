@@ -14,11 +14,16 @@ func TestNewABSImportersAreRegisteredSources(t *testing.T) {
 		found   bool
 	}
 	want := map[string]expectedSource{
-		"abs-building-approvals": {url: "https://www.abs.gov.au/statistics/industry/building-and-construction/building-approvals-australia/latest-release", cadence: "Monthly"},
-		"abs-retail-trade":       {url: "https://www.abs.gov.au/statistics/industry/retail-and-wholesale-trade/retail-trade-australia/latest-release", cadence: "Monthly"},
-		"abs-population":         {url: "https://www.abs.gov.au/statistics/people/population/national-state-and-territory-population/latest-release", cadence: "Quarterly"},
-		"abs-job-vacancies":      {url: "https://www.abs.gov.au/statistics/labour/jobs/job-vacancies-australia/latest-release", cadence: "Quarterly"},
-		"abs-wage-price-index":   {url: "https://www.abs.gov.au/statistics/economy/price-indexes-and-inflation/wage-price-index-australia/latest-release", cadence: "Quarterly"},
+		"abs-building-approvals":     {url: "https://www.abs.gov.au/statistics/industry/building-and-construction/building-approvals-australia/latest-release", cadence: "Monthly"},
+		"abs-retail-trade":           {url: "https://www.abs.gov.au/statistics/industry/retail-and-wholesale-trade/retail-trade-australia/latest-release", cadence: "Monthly"},
+		"abs-population":             {url: "https://www.abs.gov.au/statistics/people/population/national-state-and-territory-population/latest-release", cadence: "Quarterly"},
+		"abs-job-vacancies":          {url: "https://www.abs.gov.au/statistics/labour/jobs/job-vacancies-australia/latest-release", cadence: "Quarterly"},
+		"abs-wage-price-index":       {url: "https://www.abs.gov.au/statistics/economy/price-indexes-and-inflation/wage-price-index-australia/latest-release", cadence: "Quarterly"},
+		"abs-household-spending":     {url: "https://www.abs.gov.au/statistics/economy/finance/monthly-household-spending-indicator/latest-release", cadence: "Monthly"},
+		"abs-lending-indicators":     {url: "https://www.abs.gov.au/statistics/economy/finance/lending-indicators/latest-release", cadence: "Quarterly"},
+		"abs-construction-work-done": {url: "https://www.abs.gov.au/statistics/industry/building-and-construction/construction-work-done-australia-preliminary/latest-release", cadence: "Quarterly"},
+		"abs-business-indicators":    {url: "https://www.abs.gov.au/statistics/economy/business-indicators/business-indicators-australia/latest-release", cadence: "Quarterly"},
+		"abs-recorded-crime-victims": {url: "https://www.abs.gov.au/statistics/people/crime-and-justice/recorded-crime-victims/latest-release", cadence: "Annual"},
 	}
 	for _, source := range sourceDefs {
 		expected, ok := want[source.Key]
@@ -42,7 +47,7 @@ func TestNewABSImportersAreRegisteredSources(t *testing.T) {
 func TestAllModeIncludesNewABSImporters(t *testing.T) {
 	want := []string{
 		"rba", "cpi", "labour", "trade", "gdp", "approvals", "retail", "population",
-		"petroleum", "govfin", "vacancies", "wages", "markets", "derived",
+		"petroleum", "govfin", "vacancies", "wages", "spending", "lending", "construction", "business", "crime", "markets", "derived",
 	}
 	if !reflect.DeepEqual(allJobModes, want) {
 		t.Fatalf("allJobModes=%#v, want exact deterministic order %#v", allJobModes, want)
@@ -57,9 +62,27 @@ func TestAllModeIncludesNewABSImporters(t *testing.T) {
 	if got := allJobModes[len(allJobModes)-1]; got != "derived" {
 		t.Errorf("derived must run last, got final mode %q", got)
 	}
+	if got := allJobModes[len(allJobModes)-3]; got != "crime" {
+		t.Errorf("crime must run immediately before markets, got mode %q", got)
+	}
 	if got := allJobModes[len(allJobModes)-2]; got != "markets" {
 		t.Errorf("markets must run immediately before derived, got penultimate mode %q", got)
 	}
+}
+
+func TestBusinessSourceDocumentsANZSICIsNotGICS(t *testing.T) {
+	for _, source := range sourceDefs {
+		if source.Key != "abs-business-indicators" {
+			continue
+		}
+		for _, phrase := range []string{"ANZSIC", "GICS", "never"} {
+			if !strings.Contains(source.Notes, phrase) {
+				t.Errorf("business source notes omit %q distinction: %q", phrase, source.Notes)
+			}
+		}
+		return
+	}
+	t.Fatal("sourceDefs missing abs-business-indicators")
 }
 
 func TestDerivedEconomySourceIsRegistered(t *testing.T) {
@@ -67,7 +90,7 @@ func TestDerivedEconomySourceIsRegistered(t *testing.T) {
 		if source.Key != "derived-shorted-economy" {
 			continue
 		}
-		if source.Method != "derived" || source.Licence != "derived" || source.Cadence != "Monthly + quarterly" {
+		if source.Method != "derived" || source.Licence != "derived" || source.Cadence != "Annual + monthly + quarterly" {
 			t.Errorf("derived source metadata = %#v", source)
 		}
 		if !strings.Contains(source.Notes, "national CPI") {
@@ -76,6 +99,21 @@ func TestDerivedEconomySourceIsRegistered(t *testing.T) {
 		return
 	}
 	t.Fatal("sourceDefs missing derived-shorted-economy")
+}
+
+func TestCrimeSourceDocumentsCrossStateComparabilityCaveat(t *testing.T) {
+	for _, source := range sourceDefs {
+		if source.Key != "abs-recorded-crime-victims" {
+			continue
+		}
+		for _, phrase := range []string{"assault", "sexual-assault", "not comparable across states", "recording practices"} {
+			if !strings.Contains(strings.ToLower(source.Notes), phrase) {
+				t.Errorf("crime source notes omit %q caveat: %q", phrase, source.Notes)
+			}
+		}
+		return
+	}
+	t.Fatal("sourceDefs missing abs-recorded-crime-victims")
 }
 
 func assertSDMXRowError(t *testing.T, err error, parser string, csvRow int) {

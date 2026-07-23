@@ -35,6 +35,21 @@ var sourceDefs = []sourceDef{
 	{"abs-wage-price-index", "ABS Wage Price Index, Australia", "economic_series",
 		"Australian Bureau of Statistics", "https://www.abs.gov.au/statistics/economy/price-indexes-and-inflation/wage-price-index-australia/latest-release",
 		"CC-BY-4.0", "Quarterly", "download", "Headline wage price index and annual change by state and Australia, original series, via SDMX."},
+	{"abs-household-spending", "ABS Monthly Household Spending Indicator", "economic_series",
+		"Australian Bureau of Statistics", "https://www.abs.gov.au/statistics/economy/finance/monthly-household-spending-indicator/latest-release",
+		"CC-BY-4.0", "Monthly", "download", "Total household spending and through-the-year growth by state and Australia, seasonally adjusted, via SDMX. This broad spending gauge supersedes retail turnover for this use; retail remains available and overlaps by design."},
+	{"abs-lending-indicators", "ABS Lending Indicators — housing finance", "economic_series",
+		"Australian Bureau of Statistics", "https://www.abs.gov.au/statistics/economy/finance/lending-indicators/latest-release",
+		"CC-BY-4.0", "Quarterly", "download", "Value of new housing loan commitments for total dwellings excluding refinancing, split by owner-occupier and investor purpose, by state and Australia, seasonally adjusted via SDMX."},
+	{"abs-construction-work-done", "ABS Construction Work Done, Australia, Preliminary", "economic_series",
+		"Australian Bureau of Statistics", "https://www.abs.gov.au/statistics/industry/building-and-construction/construction-work-done-australia-preliminary/latest-release",
+		"CC-BY-4.0", "Quarterly", "download", "Building, engineering and total construction work done, chain volume measures, by state and Australia, seasonally adjusted via SDMX; complements building approvals as the activity side of the lead/lag pair."},
+	{"abs-business-indicators", "ABS Business Indicators, Australia", "economic_series",
+		"Australian Bureau of Statistics", "https://www.abs.gov.au/statistics/economy/business-indicators/business-indicators-australia/latest-release",
+		"CC-BY-4.0", "Quarterly", "download", "Current-price gross operating profits by current national ANZSIC division, plus all-industry sales and wages totals by region, seasonally adjusted via SDMX. ANZSIC and GICS are distinct classifications and must never be cross-mapped to the markets industry map."},
+	{"abs-recorded-crime-victims", "ABS Recorded Crime — Victims by state and territory", "economic_series",
+		"Australian Bureau of Statistics", crimePage,
+		"CC-BY-4.0", "Annual", "download", "Annual victims by selected top-level offence from Table 9 of the states and territories XLSX cube. ABS cautions that assault and sexual-assault counts are not comparable across states because recording practices differ; use those series only for within-state comparisons over time."},
 	{"abs-merch-trade-state", "ABS International Merchandise Trade by state", "economic_series",
 		"Australian Bureau of Statistics", "https://www.abs.gov.au/statistics/economy/international-trade/international-trade-goods/latest-release",
 		"CC-BY-4.0", "Monthly", "download", "Export/import value by state of origin × SITC section via SDMX."},
@@ -67,10 +82,10 @@ var sourceDefs = []sourceDef{
 			"index-construction caveat. Also includes a simple monthly average by current GICS industry, emitted only " +
 			"for industry-months with at least five stocks; those classifications likewise use current membership. " +
 			"Short percentages themselves are historical; only the weighting/classification is present-day."},
-	{"derived-shorted-economy", "Real wages and merchandise trade balance (derived)", "economic_series",
+	{"derived-shorted-economy", "Real wages, trade balance, and recorded-crime rates (derived)", "economic_series",
 		"Shorted (derived from ABS economic series)", "https://shorted.com.au",
-		"derived", "Monthly + quarterly", "derived",
-		"Quarterly real WPI growth and monthly total merchandise trade balance, derived in-DB from imported ABS series. " +
+		"derived", "Annual + monthly + quarterly", "derived",
+		"Annual recorded-crime victimisation rates per 100,000 residents, quarterly real WPI growth, and monthly total merchandise trade balance, derived in-DB from imported ABS series. Crime rates use exact state ERP observations at the June-quarter start for each victim year. " +
 			"CAVEAT: real WPI uses the national CPI index as the deflator for every state and territory because no state CPI series exists; " +
 			"it is WPI YoY minus national CPI YoY computed from quarterly index levels, not the monthly CPI annual-change series."},
 }

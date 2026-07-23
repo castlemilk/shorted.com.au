@@ -3,17 +3,84 @@
 import type { ReactNode } from "react";
 import { ExternalLink } from "lucide-react";
 
-import { EconomySeriesChart } from "./economy-charts";
+import { EconomyComparisonChart, EconomySeriesChart } from "./economy-charts";
 import { StateCompanies } from "./state-companies";
 import { TopExports } from "./top-exports";
 import { StateCorrelations } from "./state-correlations";
+import { StateCrimeCard } from "./state-crime-card";
 import { EconomyIcon, type EconomyIconName } from "./economy-icon";
 import { hasDiesel, hasLabour } from "./availability";
-import { STATE_NAMES, type StateSlug } from "@/lib/economy/map-metrics";
+import { WhenVisible } from "@/components/housing/when-visible";
+import {
+  STATE_NAMES,
+  type EconomySeriesDisplayFormat,
+  type StateSlug,
+} from "@/lib/economy/map-metrics";
 import { STATE_FINANCE_LINKS } from "@/lib/economy/state-finance-links";
 
+type StateChartDefinition =
+  | {
+      kind: "single";
+      title: string;
+      icon: EconomyIconName;
+      seriesKeyTemplate: string;
+      ariaLabel: string;
+      format: EconomySeriesDisplayFormat;
+    }
+  | {
+      kind: "comparison";
+      title: string;
+      icon: EconomyIconName;
+      primaryKeyTemplate: string;
+      secondaryKeyTemplate: string;
+      primaryLabel: string;
+      secondaryLabel: string;
+      ariaLabel: string;
+      format: EconomySeriesDisplayFormat;
+      sharedScale?: boolean;
+    };
+
+/** Serializable registry for the round-2 state chart additions. */
+const STATE_CHART_REGISTRY: StateChartDefinition[] = [
+  {
+    kind: "single",
+    title: "Household spending",
+    icon: "sfd",
+    seriesKeyTemplate: "spending.household.total.{state}.seasadj",
+    ariaLabel: "household spending",
+    format: "aud",
+  },
+  {
+    kind: "comparison",
+    title: "New housing lending commitments",
+    icon: "cash-rate",
+    primaryKeyTemplate:
+      "lending.new_commitments.owner_occupier.{state}.seasadj",
+    secondaryKeyTemplate: "lending.new_commitments.investor.{state}.seasadj",
+    primaryLabel: "Owner-occupier",
+    secondaryLabel: "Investor",
+    ariaLabel: "new housing lending commitments",
+    format: "aud",
+    sharedScale: true,
+  },
+  {
+    kind: "single",
+    title: "Construction work done",
+    icon: "company-footprint",
+    seriesKeyTemplate: "construction.work_done.total.{state}.seasadj",
+    ariaLabel: "construction work done",
+    format: "aud",
+  },
+];
+
 /** Chart header with a warm-duotone economy icon beside the title. */
-function ChartHeader({ icon, children }: { icon: EconomyIconName; children: ReactNode }) {
+function ChartHeader({
+  icon,
+  children,
+}: {
+  icon: EconomyIconName;
+  children: ReactNode;
+}) {
   return (
     <h4 className="mb-1 flex items-center gap-1.5 font-serif text-sm font-semibold">
       <EconomyIcon name={icon} size={18} />
@@ -103,7 +170,9 @@ export function StateCharts({ state }: { state: StateSlug }) {
           />
         </div>
         <div>
-          <ChartHeader icon="participation">Estimated resident population</ChartHeader>
+          <ChartHeader icon="participation">
+            Estimated resident population
+          </ChartHeader>
           <EconomySeriesChart
             seriesKey={`population.erp.total.${state}`}
             ariaLabel={`${name} estimated resident population`}
@@ -111,7 +180,38 @@ export function StateCharts({ state }: { state: StateSlug }) {
             height={220}
           />
         </div>
+        {STATE_CHART_REGISTRY.map((chart) => (
+          <div key={chart.title}>
+            <ChartHeader icon={chart.icon}>{chart.title}</ChartHeader>
+            {chart.kind === "single" ? (
+              <EconomySeriesChart
+                seriesKey={chart.seriesKeyTemplate.replace("{state}", state)}
+                ariaLabel={`${name} ${chart.ariaLabel}`}
+                format={chart.format}
+                height={220}
+              />
+            ) : (
+              <EconomyComparisonChart
+                primaryKey={chart.primaryKeyTemplate.replace("{state}", state)}
+                secondaryKey={chart.secondaryKeyTemplate.replace(
+                  "{state}",
+                  state,
+                )}
+                primaryLabel={chart.primaryLabel}
+                secondaryLabel={chart.secondaryLabel}
+                ariaLabel={`${name} ${chart.ariaLabel}`}
+                format={chart.format}
+                height={220}
+                sharedScale={chart.sharedScale}
+              />
+            )}
+          </div>
+        ))}
       </section>
+
+      <WhenVisible minHeightClassName="h-[340px]">
+        <StateCrimeCard state={state} />
+      </WhenVisible>
 
       {/* State finances — ABS Government Finance Statistics. Revenue and
           expenses side-by-side (like quantities → shared read), net operating
@@ -141,7 +241,9 @@ export function StateCharts({ state }: { state: StateSlug }) {
             />
           </div>
           <div className="lg:col-span-2">
-            <ChartHeader icon="state-finances">Net operating balance</ChartHeader>
+            <ChartHeader icon="state-finances">
+              Net operating balance
+            </ChartHeader>
             <EconomySeriesChart
               seriesKey={`govfin.net_operating_balance.total.${state}`}
               ariaLabel={`${name} government net operating balance`}
@@ -194,8 +296,8 @@ export function StateCharts({ state }: { state: StateSlug }) {
           </div>
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
-          Source: ABS Government Finance Statistics (general government, quarterly).
-          CC BY 4.0.
+          Source: ABS Government Finance Statistics (general government,
+          quarterly). CC BY 4.0.
         </p>
         <div className="mt-4 border-t border-border pt-4">
           <h4 className="font-mono text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
