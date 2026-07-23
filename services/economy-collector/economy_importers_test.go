@@ -22,6 +22,7 @@ func TestNewABSImportersAreRegisteredSources(t *testing.T) {
 		"abs-household-spending":     {url: "https://www.abs.gov.au/statistics/economy/finance/monthly-household-spending-indicator/latest-release", cadence: "Monthly"},
 		"abs-lending-indicators":     {url: "https://www.abs.gov.au/statistics/economy/finance/lending-indicators/latest-release", cadence: "Quarterly"},
 		"abs-construction-work-done": {url: "https://www.abs.gov.au/statistics/industry/building-and-construction/construction-work-done-australia-preliminary/latest-release", cadence: "Quarterly"},
+		"abs-business-indicators":    {url: "https://www.abs.gov.au/statistics/economy/business-indicators/business-indicators-australia/latest-release", cadence: "Quarterly"},
 	}
 	for _, source := range sourceDefs {
 		expected, ok := want[source.Key]
@@ -45,7 +46,7 @@ func TestNewABSImportersAreRegisteredSources(t *testing.T) {
 func TestAllModeIncludesNewABSImporters(t *testing.T) {
 	want := []string{
 		"rba", "cpi", "labour", "trade", "gdp", "approvals", "retail", "population",
-		"petroleum", "govfin", "vacancies", "wages", "spending", "lending", "construction", "markets", "derived",
+		"petroleum", "govfin", "vacancies", "wages", "spending", "lending", "construction", "business", "markets", "derived",
 	}
 	if !reflect.DeepEqual(allJobModes, want) {
 		t.Fatalf("allJobModes=%#v, want exact deterministic order %#v", allJobModes, want)
@@ -63,6 +64,21 @@ func TestAllModeIncludesNewABSImporters(t *testing.T) {
 	if got := allJobModes[len(allJobModes)-2]; got != "markets" {
 		t.Errorf("markets must run immediately before derived, got penultimate mode %q", got)
 	}
+}
+
+func TestBusinessSourceDocumentsANZSICIsNotGICS(t *testing.T) {
+	for _, source := range sourceDefs {
+		if source.Key != "abs-business-indicators" {
+			continue
+		}
+		for _, phrase := range []string{"ANZSIC", "GICS", "never"} {
+			if !strings.Contains(source.Notes, phrase) {
+				t.Errorf("business source notes omit %q distinction: %q", phrase, source.Notes)
+			}
+		}
+		return
+	}
+	t.Fatal("sourceDefs missing abs-business-indicators")
 }
 
 func TestDerivedEconomySourceIsRegistered(t *testing.T) {

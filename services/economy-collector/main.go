@@ -16,7 +16,7 @@ import (
 // after fetched inputs, with derived last because it consumes CPI/WPI/trade.
 var allJobModes = []string{
 	"rba", "cpi", "labour", "trade", "gdp", "approvals", "retail", "population",
-	"petroleum", "govfin", "vacancies", "wages", "spending", "lending", "construction", "markets", "derived",
+	"petroleum", "govfin", "vacancies", "wages", "spending", "lending", "construction", "business", "markets", "derived",
 }
 
 func main() {
@@ -24,7 +24,7 @@ func main() {
 }
 
 func run() int {
-	mode := flag.String("mode", "all", "sources | rba | cpi | labour | trade | gdp | approvals | retail | population | petroleum | govfin | vacancies | wages | spending | lending | construction | markets | derived | all")
+	mode := flag.String("mode", "all", "sources | rba | cpi | labour | trade | gdp | approvals | retail | population | petroleum | govfin | vacancies | wages | spending | lending | construction | business | markets | derived | all")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -63,6 +63,7 @@ func run() int {
 		"spending":     {"abs-household-spending", ingestSpending},
 		"lending":      {"abs-lending-indicators", ingestLending},
 		"construction": {"abs-construction-work-done", ingestConstruction},
+		"business":     {"abs-business-indicators", ingestBusiness},
 		// markets is DERIVED from the DB (shorts × exposure MV), not fetched
 		// from a web source — so it takes the pool, not the client. Wrap it in
 		// a client-shaped closure so it reuses the same runJob plumbing; the
@@ -109,7 +110,7 @@ func run() int {
 		if err := registerSources(ctx, pool); err != nil {
 			log.Fatalf("register sources: %v", err)
 		}
-	case "rba", "cpi", "labour", "trade", "gdp", "approvals", "retail", "population", "petroleum", "govfin", "vacancies", "wages", "spending", "lending", "construction", "markets", "derived":
+	case "rba", "cpi", "labour", "trade", "gdp", "approvals", "retail", "population", "petroleum", "govfin", "vacancies", "wages", "spending", "lending", "construction", "business", "markets", "derived":
 		if err := registerSources(ctx, pool); err != nil {
 			log.Fatalf("register sources: %v", err)
 		}
@@ -134,7 +135,7 @@ func run() int {
 			return 1
 		}
 	default:
-		log.Fatalf("unknown -mode %q (want sources|rba|cpi|labour|trade|gdp|approvals|retail|population|petroleum|govfin|vacancies|wages|spending|lending|construction|markets|derived|all)", *mode)
+		log.Fatalf("unknown -mode %q (want sources|rba|cpi|labour|trade|gdp|approvals|retail|population|petroleum|govfin|vacancies|wages|spending|lending|construction|business|markets|derived|all)", *mode)
 	}
 	return 0
 }
