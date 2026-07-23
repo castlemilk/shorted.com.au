@@ -79,7 +79,7 @@ func loadPropertyWorklist(ctx context.Context, pool *pgxpool.Pool, ttlDays, limi
 // cleanText'd and the raw JSON is stripJSONNul'd (portal JSON carries NUL /
 // lone-surrogate bytes Postgres jsonb rejects — the same 22P05 poison-pill guarded
 // in the listing-detail store). content_hash is the sha1 of the raw payload.
-func upsertPropertyValuation(ctx context.Context, pool *pgxpool.Pool, t propertyTarget, status, profileURL string, p propertyProfile) error {
+func upsertPropertyValuation(ctx context.Context, pool *pgxpool.Pool, t propertyTarget, status, granularity, profileURL string, p propertyProfile) error {
 	raw := stripJSONNul(p.Raw)
 	if raw == "" {
 		raw = "{}"
@@ -95,20 +95,29 @@ func upsertPropertyValuation(ctx context.Context, pool *pgxpool.Pool, t property
 		}
 	}
 
+	// valuation_granularity distinguishes a dwelling-precise AVM ('exact') from a
+	// whole-BUILDING AVM stored against a unit's address_key ('building'); empty →
+	// SQL NULL (notfound/error rows carry no valuation).
+	var granularityVal any
+	if granularity != "" {
+		granularityVal = granularity
+	}
+
 	_, err := pool.Exec(ctx, `
 		INSERT INTO property_valuations
-			(address_key, source, profile_url, fetched_at, fetch_status,
+			(address_key, source, profile_url, fetched_at, fetch_status, valuation_granularity,
 			 estimate_low, estimate_mid, estimate_high, estimate_confidence, rent_estimate_mid,
 			 bedrooms, bathrooms, car_spaces, land_size_sqm, building_size_sqm, year_built,
 			 property_type, latitude, longitude, sales_history, raw, content_hash, updated_at)
-		VALUES ($1,'property.com.au',$2, now(), $3,
-		        $4,$5,$6,$7,$8,
-		        $9,$10,$11,$12,$13,$14,
-		        $15,$16,$17,$18,$19,$20, now())
+		VALUES ($1,'property.com.au',$2, now(), $3, $4,
+		        $5,$6,$7,$8,$9,
+		        $10,$11,$12,$13,$14,$15,
+		        $16,$17,$18,$19,$20,$21, now())
 		ON CONFLICT (address_key) DO UPDATE SET
 			profile_url = EXCLUDED.profile_url,
 			fetched_at = now(),
 			fetch_status = EXCLUDED.fetch_status,
+			valuation_granularity = EXCLUDED.valuation_granularity,
 			estimate_low = EXCLUDED.estimate_low,
 			estimate_mid = EXCLUDED.estimate_mid,
 			estimate_high = EXCLUDED.estimate_high,
@@ -127,7 +136,7 @@ func upsertPropertyValuation(ctx context.Context, pool *pgxpool.Pool, t property
 			raw = EXCLUDED.raw,
 			content_hash = EXCLUDED.content_hash,
 			updated_at = now()`,
-		t.addressKey, cleanText(profileURL), status,
+		t.addressKey, cleanText(profileURL), status, granularityVal,
 		p.EstimateLow, p.EstimateMid, p.EstimateHigh, cleanText(p.EstimateConfidence), p.RentEstimateMid,
 		p.Bedrooms, p.Bathrooms, p.CarSpaces, p.LandSizeSqm, p.BuildingSizeSqm, p.YearBuilt,
 		cleanText(p.PropertyType), p.Lat, p.Lng, salesJSON, raw, contentHash)

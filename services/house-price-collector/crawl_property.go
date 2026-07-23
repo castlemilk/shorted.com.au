@@ -67,6 +67,11 @@ func loadPropertyConfig() propertyConfig {
 
 type propertyStats struct {
 	attempted, ok, notfound, noPayload, blocked, stub, errors, skipped, unresolved int
+	// building = an 'ok' row whose valuation is a whole-BUILDING AVM (a unit target
+	// that fell back to its base building — NOT unit-precise). addrMismatch = a
+	// fetched profile whose canonical address disagreed with the target (wrong-property
+	// guard tripped → stamped notfound, valuation discarded).
+	building, addrMismatch int
 }
 
 func runProperty(ctx context.Context, pool *pgxpool.Pool) int {
@@ -157,8 +162,10 @@ worklist:
 		}
 		st.attempted++
 
-		// Resolve the profile URL by traversing suburb → street → property.
-		profileURL, rstatus := cr.resolveProfile(ctx, t, caches, throttle)
+		// Resolve the profile URL — search API first (with the full-address guard),
+		// traversal fallback. granularity is "exact" (dwelling-precise) or "building"
+		// (a unit that fell back to its base building — a whole-building AVM).
+		profileURL, granularity, rstatus := cr.resolveProfile(ctx, t, caches, throttle)
 		switch rstatus {
 		case resolveBlocked:
 			if recordBlock(false) {
@@ -175,7 +182,7 @@ worklist:
 				log.Printf("[property] DRY %s: unresolved (no profile URL) — would mark NOTFOUND", t.addressKey)
 				continue
 			}
-			if err := upsertPropertyValuation(ctx, pool, t, "notfound", "", propertyProfile{Raw: "{}"}); err != nil {
+			if err := upsertPropertyValuation(ctx, pool, t, "notfound", "", "", propertyProfile{Raw: "{}"}); err != nil {
 				log.Printf("[property] %s: notfound (unresolved) write failed: %v", t.addressKey, err)
 				st.errors++
 			}
@@ -211,8 +218,25 @@ worklist:
 				log.Printf("[property] DRY %s: would mark NOTFOUND (final=%s)", t.addressKey, finalURL)
 				continue
 			}
-			if err := upsertPropertyValuation(ctx, pool, t, "notfound", profileURL, propertyProfile{Raw: "{}"}); err != nil {
+			if err := upsertPropertyValuation(ctx, pool, t, "notfound", "", profileURL, propertyProfile{Raw: "{}"}); err != nil {
 				log.Printf("[property] %s: notfound write failed: %v", t.addressKey, err)
+				st.errors++
+			}
+			continue
+		}
+
+		// DEFENCE-IN-DEPTH: confirm the fetched profile's address actually equals the
+		// target before trusting its valuation. If the canonical /{state}/{suburb}-
+		// {postcode}/ disagrees, the resolved PID is a DIFFERENT property — never store
+		// its valuation against this target; stamp 'notfound' so the address is retried.
+		if !profileAddressMatchesTarget(finalURL, profileURL, t) {
+			st.addrMismatch++
+			log.Printf("[property] %s: profile address MISMATCH (final=%s built=%s) — not storing (wrong-property guard)", t.addressKey, finalURL, profileURL)
+			if cfg.dryRun {
+				continue
+			}
+			if err := upsertPropertyValuation(ctx, pool, t, "notfound", "", "", propertyProfile{Raw: "{}"}); err != nil {
+				log.Printf("[property] %s: notfound (addr-mismatch) write failed: %v", t.addressKey, err)
 				st.errors++
 			}
 			continue
@@ -228,7 +252,7 @@ worklist:
 				log.Printf("[property] DRY %s: no profile payload recognized (final=%s)", t.addressKey, finalURL)
 				continue
 			}
-			if err := upsertPropertyValuation(ctx, pool, t, "error", profileURL, propertyProfile{Raw: "{}"}); err != nil {
+			if err := upsertPropertyValuation(ctx, pool, t, "error", "", profileURL, propertyProfile{Raw: "{}"}); err != nil {
 				log.Printf("[property] %s: error-row write failed: %v", t.addressKey, err)
 				st.errors++
 			}
@@ -236,11 +260,14 @@ worklist:
 		}
 
 		st.ok++
+		if granularity == "building" {
+			st.building++
+		}
 		if cfg.dryRun {
-			log.Printf("[property] DRY %s: %s", t.addressKey, previewProperty(prof))
+			log.Printf("[property] DRY %s [%s]: %s", t.addressKey, granularity, previewProperty(prof))
 			continue
 		}
-		if err := upsertPropertyValuation(ctx, pool, t, "ok", profileURL, prof); err != nil {
+		if err := upsertPropertyValuation(ctx, pool, t, "ok", granularity, profileURL, prof); err != nil {
 			log.Printf("[property] %s: valuation write failed: %v", t.addressKey, err)
 			st.errors++
 		}
@@ -264,8 +291,8 @@ worklist:
 		finCancel()
 	}
 
-	log.Printf("[property] done: attempted=%d ok=%d notfound=%d noPayload=%d blocked=%d stub=%d errors=%d skipped=%d unresolved=%d",
-		st.attempted, st.ok, st.notfound, st.noPayload, st.blocked, st.stub, st.errors, st.skipped, st.unresolved)
+	log.Printf("[property] done: attempted=%d ok=%d (building=%d) notfound=%d noPayload=%d blocked=%d stub=%d errors=%d skipped=%d unresolved=%d addrMismatch=%d",
+		st.attempted, st.ok, st.building, st.notfound, st.noPayload, st.blocked, st.stub, st.errors, st.skipped, st.unresolved, st.addrMismatch)
 	if rewarm {
 		log.Printf("[property] REWARM REQUIRED: circuit breaker tripped — re-warm the crawl Chrome profile by hand")
 		return 3

@@ -238,27 +238,38 @@ func TestBuildProfileURLFromSource(t *testing.T) {
 	}
 }
 
+// at builds an addressTarget from a display street portion + canonical suburb/state/
+// postcode — the shape matchSuggestion verifies against.
+func at(display, suburb, state, postcode string) addressTarget {
+	return addressTarget{parts: parseAddressParts(display), suburb: suburb, state: state, postcode: postcode}
+}
+
 // syntheticSuggestJSON builds a suggest-shaped response for a street-number query at
-// "175 Kelletts Rd, Rowville VIC 3178": a base street property + a unit, plus a
-// DIFFERENT-street-number decoy ("33/191") to prove the streetNumberFrom guard.
+// "175 Kelletts Rd, Rowville VIC 3178": the base street property + the exact unit,
+// plus THREE nearest-neighbour decoys the fuzzy suggester really returns — a
+// different STREET-NUMBER ("33/191"), a same-number different STREET ("175 Blaxland
+// Rd"), and a same-street/number in a different SUBURB/postcode ("175 Kelletts Rd,
+// Lysterfield 3179"). Each must be rejected.
 func syntheticSuggestJSON() string {
 	return `{"_embedded":{"suggestions":[
 		{"id":"5000001","type":"address","source":{"streetNumber":"175","streetNumberFrom":"175","streetName":"Kelletts Rd","suburb":"Rowville","state":"VIC","postcode":"3178"}},
 		{"id":"5000002","type":"address","source":{"unitNumber":"33","streetNumber":"33/175","streetNumberFrom":"175","streetName":"Kelletts Rd","suburb":"Rowville","state":"VIC","postcode":"3178"}},
 		{"id":"5000003","type":"address","source":{"unitNumber":"33","streetNumber":"33/191","streetNumberFrom":"191","streetName":"Kelletts Rd","suburb":"Rowville","state":"VIC","postcode":"3178"}},
+		{"id":"5000005","type":"address","source":{"streetNumber":"175","streetNumberFrom":"175","streetName":"Blaxland Rd","suburb":"Rowville","state":"VIC","postcode":"3178"}},
+		{"id":"5000006","type":"address","source":{"streetNumber":"175","streetNumberFrom":"175","streetName":"Kelletts Rd","suburb":"Lysterfield","state":"VIC","postcode":"3179"}},
 		{"id":"5000004","type":"suburb","source":{"suburb":"Rowville","state":"VIC","postcode":"3178"}}
 	]}}`
 }
 
 func TestParseSuggestResponse(t *testing.T) {
 	items, ok := parseSuggestResponse([]byte(syntheticSuggestJSON()))
-	if !ok || len(items) != 4 {
+	if !ok || len(items) != 6 {
 		t.Fatalf("parse bare JSON: ok=%v items=%d", ok, len(items))
 	}
 	// browser-navigated JSON is wrapped in <pre>...</pre>; extraction must still work.
 	wrapped := `<html><head><meta charset="utf-8"></head><body><pre>` + syntheticSuggestJSON() + `</pre></body></html>`
 	items2, ok2 := parseSuggestResponse([]byte(wrapped))
-	if !ok2 || len(items2) != 4 {
+	if !ok2 || len(items2) != 6 {
 		t.Fatalf("parse <pre>-wrapped JSON: ok=%v items=%d", ok2, len(items2))
 	}
 	if _, ok := parseSuggestResponse([]byte("<html><body>not json</body></html>")); ok {
@@ -266,29 +277,119 @@ func TestParseSuggestResponse(t *testing.T) {
 	}
 }
 
+func TestNormStreetName(t *testing.T) {
+	// full word and abbreviation canonicalize equal…
+	if normStreetName("Kelletts Road") != normStreetName("Kelletts Rd") {
+		t.Error("Kelletts Road / Kelletts Rd must canonicalize equal")
+	}
+	// …but different TYPES stay distinct (Road vs Street).
+	if normStreetName("Park Road") == normStreetName("Park Street") {
+		t.Error("Park Road / Park Street must NOT collide")
+	}
+	// different NAMES stay distinct.
+	if normStreetName("Kelletts Rd") == normStreetName("Blaxland Rd") {
+		t.Error("Kelletts / Blaxland must not collide")
+	}
+}
+
+func TestSuggestionAddressAgrees(t *testing.T) {
+	kelletts := suggestItem{Type: "address", Source: suggestSource{StreetName: "Kelletts Rd", Suburb: "Rowville", State: "VIC", Postcode: "3178"}}
+	tgt := at("175 Kelletts Road", "Rowville", "VIC", "3178")
+	if !suggestionAddressAgrees(kelletts, tgt) {
+		t.Error("same address on every axis must agree")
+	}
+	// street name differs
+	if suggestionAddressAgrees(suggestItem{Type: "address", Source: suggestSource{StreetName: "Blaxland Rd", Suburb: "Rowville", State: "VIC", Postcode: "3178"}}, tgt) {
+		t.Error("different street must not agree")
+	}
+	// suburb differs
+	if suggestionAddressAgrees(suggestItem{Type: "address", Source: suggestSource{StreetName: "Kelletts Rd", Suburb: "Lysterfield", State: "VIC", Postcode: "3178"}}, tgt) {
+		t.Error("different suburb must not agree")
+	}
+	// postcode differs
+	if suggestionAddressAgrees(suggestItem{Type: "address", Source: suggestSource{StreetName: "Kelletts Rd", Suburb: "Rowville", State: "VIC", Postcode: "3179"}}, tgt) {
+		t.Error("different postcode must not agree")
+	}
+	// non-address type
+	if suggestionAddressAgrees(suggestItem{Type: "suburb", Source: kelletts.Source}, tgt) {
+		t.Error("a non-address suggestion must not agree")
+	}
+}
+
+func TestMatchGranularity(t *testing.T) {
+	if matchGranularity("exact-unit", true) != "exact" {
+		t.Error("exact unit → exact")
+	}
+	if matchGranularity("base-street", false) != "exact" {
+		t.Error("house on base street → exact")
+	}
+	if matchGranularity("base-street", true) != "building" {
+		t.Error("unit fell back to base building → building")
+	}
+}
+
 func TestMatchSuggestion(t *testing.T) {
 	items, _ := parseSuggestResponse([]byte(syntheticSuggestJSON()))
 
 	// exact unit 33 at streetNumberFrom 175 → id 5000002 (NOT the 33/191 decoy).
-	if it, how, ok := matchSuggestion(items, parseAddressParts("033/175 Kelletts Road")); !ok || it.ID != "5000002" || how != "exact-unit" {
+	if it, how, ok := matchSuggestion(items, at("033/175 Kelletts Road", "Rowville", "VIC", "3178")); !ok || it.ID != "5000002" || how != "exact-unit" {
 		t.Errorf("exact-unit match = id %q how %q ok %v, want 5000002/exact-unit", it.ID, how, ok)
 	}
 
-	// a unit NOT indexed (unit 99) falls back to the base street property → id 5000001.
-	if it, how, ok := matchSuggestion(items, parseAddressParts("099/175 Kelletts Road")); !ok || it.ID != "5000001" || how != "base-street" {
+	// a unit NOT indexed (unit 99) falls back to the base street property → id 5000001
+	// (NOT the Blaxland-Rd or Lysterfield decoys — those fail the address guard).
+	if it, how, ok := matchSuggestion(items, at("099/175 Kelletts Road", "Rowville", "VIC", "3178")); !ok || it.ID != "5000001" || how != "base-street" {
 		t.Errorf("base-street fallback = id %q how %q ok %v, want 5000001/base-street", it.ID, how, ok)
 	}
 
 	// a plain house at 175 → base street property.
-	if it, _, ok := matchSuggestion(items, parseAddressParts("175 Kelletts Road")); !ok || it.ID != "5000001" {
+	if it, _, ok := matchSuggestion(items, at("175 Kelletts Road", "Rowville", "VIC", "3178")); !ok || it.ID != "5000001" {
 		t.Errorf("house match = id %q ok %v, want 5000001", it.ID, ok)
 	}
 
 	// fuzzy-street-number guard: a unit whose ONLY suggestion is a different street
 	// number (191 when we want 200) must NOT match.
-	decoyOnly := []suggestItem{{ID: "9", Type: "address", Source: suggestSource{UnitNumber: "33", StreetNumber: "33/191", StreetNumberFrom: "191", StreetName: "Kelletts Rd", Suburb: "Rowville", State: "VIC", Postcode: "3178"}}}
-	if _, _, ok := matchSuggestion(decoyOnly, parseAddressParts("33/200 Kelletts Road")); ok {
+	numberDecoy := []suggestItem{{ID: "9", Type: "address", Source: suggestSource{UnitNumber: "33", StreetNumber: "33/191", StreetNumberFrom: "191", StreetName: "Kelletts Rd", Suburb: "Rowville", State: "VIC", Postcode: "3178"}}}
+	if _, _, ok := matchSuggestion(numberDecoy, at("33/200 Kelletts Road", "Rowville", "VIC", "3178")); ok {
 		t.Error("a different streetNumberFrom must be rejected (fuzzy near-number guard)")
+	}
+
+	// WRONG-PROPERTY guard: a same-NUMBER suggestion on a DIFFERENT STREET must NOT
+	// match (19 Blaxland Rd is not 19 Badajoz Rd).
+	streetDecoy := []suggestItem{{ID: "9", Type: "address", Source: suggestSource{StreetNumber: "19", StreetNumberFrom: "19", StreetName: "Blaxland Rd", Suburb: "Ryde", State: "NSW", Postcode: "2112"}}}
+	if _, _, ok := matchSuggestion(streetDecoy, at("19 Badajoz Road", "Ryde", "NSW", "2112")); ok {
+		t.Error("a same-number different-STREET suggestion must be rejected (wrong-property guard)")
+	}
+
+	// WRONG-PROPERTY guard: a same-street/number in a DIFFERENT SUBURB/postcode must
+	// NOT match (175 Kelletts Rd, Lysterfield 3179 ≠ Rowville 3178).
+	suburbDecoy := []suggestItem{{ID: "9", Type: "address", Source: suggestSource{StreetNumber: "175", StreetNumberFrom: "175", StreetName: "Kelletts Rd", Suburb: "Lysterfield", State: "VIC", Postcode: "3179"}}}
+	if _, _, ok := matchSuggestion(suburbDecoy, at("175 Kelletts Road", "Rowville", "VIC", "3178")); ok {
+		t.Error("a same-street different-SUBURB/postcode suggestion must be rejected (wrong-property guard)")
+	}
+}
+
+func TestProfileAddressMatchesTarget(t *testing.T) {
+	tgt := propertyTarget{suburb: "Rowville", stateCode: "VIC", postcode: "3178"}
+	// canonical final URL matches the target
+	if !profileAddressMatchesTarget("https://www.property.com.au/vic/rowville-3178/kelletts-rd/33-175-pid-6535276/", "", tgt) {
+		t.Error("matching canonical must pass")
+	}
+	// final URL in a DIFFERENT suburb/postcode → reject (wrong property)
+	if profileAddressMatchesTarget("https://www.property.com.au/vic/lysterfield-3179/kelletts-rd/175-pid-9/", "", tgt) {
+		t.Error("a different suburb/postcode canonical must be rejected")
+	}
+	// different STATE → reject
+	if profileAddressMatchesTarget("https://www.property.com.au/nsw/rowville-3178/kelletts-rd/175-pid-9/", "", tgt) {
+		t.Error("a different state canonical must be rejected")
+	}
+	// unparseable / non-profile URL → cannot disprove, must pass (guard already ran)
+	if !profileAddressMatchesTarget("https://www.property.com.au/", "", tgt) {
+		t.Error("a non-profile URL must not reject (can't disprove)")
+	}
+	// falls back to the built URL when finalURL isn't a profile path
+	if !profileAddressMatchesTarget("", "https://www.property.com.au/vic/rowville-3178/kelletts-rd/33-175-pid-6535276/", tgt) {
+		t.Error("must verify the built URL when finalURL is empty")
 	}
 }
 
@@ -307,12 +408,15 @@ func TestResolveViaSearch_Flow(t *testing.T) {
 	caches := newPropertyResolveCaches()
 	noop := func() {}
 
-	url, st := cr.resolveViaSearch(context.Background(), unitKellettsTarget, caches, noop)
+	url, gran, st := cr.resolveViaSearch(context.Background(), unitKellettsTarget, caches, noop)
 	if st != resolveOK || url != "https://www.property.com.au/vic/rowville-3178/kelletts-rd/33-175-pid-5000002/" {
 		t.Fatalf("resolveViaSearch = %q %v, want the 33-175-pid-5000002 profile", url, st)
 	}
+	if gran != "exact" {
+		t.Errorf("exact-unit resolution granularity = %q, want exact", gran)
+	}
 	before := len(ff.calls)
-	if _, st := cr.resolveViaSearch(context.Background(), unitKellettsTarget, caches, noop); st != resolveOK {
+	if _, _, st := cr.resolveViaSearch(context.Background(), unitKellettsTarget, caches, noop); st != resolveOK {
 		t.Fatalf("second resolveViaSearch status = %v", st)
 	}
 	if len(ff.calls) != before {
@@ -326,7 +430,7 @@ func TestResolveProfile_SearchIsPrimary(t *testing.T) {
 	ff := &fakeFetcher{html: map[string]string{"consumer-suggest": syntheticSuggestJSON()}}
 	cr := newTestCrawler(ff, "")
 
-	url, st := cr.resolveProfile(context.Background(), unitKellettsTarget, newPropertyResolveCaches(), func() {})
+	url, _, st := cr.resolveProfile(context.Background(), unitKellettsTarget, newPropertyResolveCaches(), func() {})
 	if st != resolveOK || !strings.Contains(url, "-pid-5000002/") {
 		t.Fatalf("resolveProfile (search primary) = %q %v", url, st)
 	}
@@ -342,10 +446,10 @@ func TestResolveProfile_SearchIsPrimary(t *testing.T) {
 func TestResolveProfile_BlockShortCircuits(t *testing.T) {
 	ff := &fakeFetcher{blockOn: map[string]bool{"consumer-suggest": true}}
 	cr := newTestCrawler(ff, "")
-	if _, st := cr.resolveViaSearch(context.Background(), unitKellettsTarget, newPropertyResolveCaches(), func() {}); st != resolveBlocked {
+	if _, _, st := cr.resolveViaSearch(context.Background(), unitKellettsTarget, newPropertyResolveCaches(), func() {}); st != resolveBlocked {
 		t.Errorf("blocked suggest fetch must yield resolveBlocked, got %v", st)
 	}
-	if _, st := cr.resolveProfile(context.Background(), unitKellettsTarget, newPropertyResolveCaches(), func() {}); st != resolveBlocked {
+	if _, _, st := cr.resolveProfile(context.Background(), unitKellettsTarget, newPropertyResolveCaches(), func() {}); st != resolveBlocked {
 		t.Errorf("resolveProfile must surface the block, got %v", st)
 	}
 }
