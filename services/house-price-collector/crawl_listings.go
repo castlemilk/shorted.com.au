@@ -763,6 +763,16 @@ func pageLooksStub(html []byte, source string) bool {
 		return !strings.Contains(s, "ArgonautExchange")
 	case "domain":
 		return !strings.Contains(s, "__NEXT_DATA__")
+	case "property":
+		// property.com.au (REA Group, Kasada+Akamai — the SAME Kasada tenant as REA)
+		// renders its per-address profile as a large Next.js document; a KPSDK/Kasada
+		// challenge stub is ~1KB with no profile payload. We key on a SIZE FLOOR (not a
+		// container name) because the exact data-container name is not yet
+		// probe-confirmed — a wrong container-name guess would false-flag EVERY real
+		// page as a stub and wedge the crawl into a permanent rewarm. PROBE-VERIFY:
+		// once the Phase-0 probe confirms the profile blob (window.* / __NEXT_DATA__),
+		// tighten this to container-presence like the rea/domain cases.
+		return len(html) < reaWarmMinBytes
 	default:
 		// Unknown source: fall back to a size floor (a real SRP is hundreds of KB).
 		return len(html) < reaWarmMinBytes
