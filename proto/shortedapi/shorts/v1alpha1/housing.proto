@@ -427,6 +427,49 @@ message GetPropertyHistoryResponse {
   // results crawl cannot recover the missing unit number, so the view warns
   // instead of silently merging. See docs/housing-architecture.md.
   int32 distinct_dwellings = 11;
+  // AVM valuation for this address (property.com.au). Unset when none exists,
+  // fetch_status != 'ok', or HOUSING_VALUATIONS_ENABLED is off.
+  PropertyValuation valuation = 12;
+}
+
+// One historical sales/timeline event from the valuation source's property
+// profile (property.com.au timeline). Distinct from PropertyPriceEvent: these
+// are the portal's own transaction history (sold/listed/rented, potentially
+// decades back), not our crawl-observed asking-price events.
+message PropertyValuationSale {
+  string date = 1;        // ISO date 'YYYY-MM-DD' ('' when unparsed)
+  double price = 2;       // AUD; 0 = undisclosed (source omitted the figure)
+  string agency = 3;      // '' when not captured
+  string event_type = 4;  // source badge text, e.g. 'Sold' | 'Listed for sale' | 'Rented'
+}
+
+// AVM valuation snapshot for a physical address (property.com.au / PropTrack
+// AVM). DERIVED figures from a proprietary-tos-restricted source: the raw
+// harvested profile is never exposed; this surface deep-links OUT to the
+// source profile. Absent entirely when the address has no successful
+// valuation, or when the valuations kill switch is off.
+message PropertyValuation {
+  string source = 1;                 // 'property.com.au'
+  string profile_url = 2;            // deep link OUT to the source profile page
+  string fetched_at = 3;             // RFC3339 — AVMs are point-in-time; UI must show this
+  double estimate_low = 4;           // AVM range low, AUD (0 = not provided)
+  double estimate_mid = 5;           // AVM point estimate, AUD (0 = not provided)
+  double estimate_high = 6;          // AVM range high, AUD (0 = not provided)
+  string estimate_confidence = 7;    // source confidence string ('' when not exposed); free-form
+  // 'exact'    — the profile is the exact dwelling this address names
+  // 'building' — a unit whose own profile isn't indexed; this is the whole
+  //              BUILDING's AVM used as a fallback. Consumers MUST label it
+  //              "building estimate" and MUST NOT present it as unit-precise.
+  string valuation_granularity = 8;
+  double rent_estimate_mid = 9;      // weekly rent estimate, AUD (0 when not exposed)
+  int32  bedrooms = 10;              // 0 = unknown
+  int32  bathrooms = 11;
+  int32  car_spaces = 12;
+  double land_size_sqm = 13;         // 0 = unknown
+  double building_size_sqm = 14;     // floor area; 0 = unknown
+  int32  year_built = 15;            // 0 = unknown
+  string property_type = 16;         // '' = unknown
+  repeated PropertyValuationSale sales_history = 17;  // newest first
 }
 
 message ListAddressPriceDropsRequest {

@@ -2,9 +2,11 @@ package shorts
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
+	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -810,6 +812,34 @@ type PropertyHistoryResult struct {
 	DistinctDwellings int32
 }
 
+// PropertyValuationSaleRow is one entry of property_valuations.sales_history.
+// JSON tags mirror the collector's saleRecord (crawl_property_extract.go) exactly.
+type PropertyValuationSaleRow struct {
+	Date   string   `json:"date"`
+	Price  *float64 `json:"price"` // nil = undisclosed
+	Agency string   `json:"agency"`
+	Type   string   `json:"type"`
+}
+
+// PropertyValuationRow is the servable slice of a property_valuations row.
+// Raw/content_hash/lat/lng deliberately never leave the store layer.
+type PropertyValuationRow struct {
+	Source                         string
+	ProfileURL                     string
+	FetchedAt                      time.Time
+	EstimateLow                    float64
+	EstimateMid                    float64
+	EstimateHigh                   float64
+	EstimateConfidence             string
+	ValuationGranularity           string // 'exact' | 'building'
+	RentEstimateMid                float64
+	Bedrooms, Bathrooms, CarSpaces int32
+	LandSizeSqm, BuildingSizeSqm   float64
+	YearBuilt                      int32
+	PropertyType                   string
+	SalesHistory                   []PropertyValuationSaleRow
+}
+
 // GetPropertyHistory returns the full asking-price timeline for a single
 // physical address (stable address_key), merging every listing/relist ever
 // seen at that address. It reads the raw (proprietary-tos-restricted) listing
@@ -911,6 +941,52 @@ func (s *postgresStore) GetPropertyHistory(addressKey string) (*PropertyHistoryR
 		CurrentPrice:      cur.Price,
 		DistinctDwellings: distinctDwellings,
 	}, nil
+}
+
+// GetPropertyValuation returns the AVM snapshot for one address, or nil when
+// no successful valuation exists. Only fetch_status='ok' rows are servable;
+// blocked/notfound/error rows (and their NULL granularity) never surface.
+func (s *postgresStore) GetPropertyValuation(addressKey string) (*PropertyValuationRow, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	const query = `
+		SELECT COALESCE(source, ''), COALESCE(profile_url, ''), fetched_at,
+		       COALESCE(estimate_low, 0), COALESCE(estimate_mid, 0), COALESCE(estimate_high, 0),
+		       COALESCE(estimate_confidence, ''), COALESCE(valuation_granularity, ''),
+		       COALESCE(rent_estimate_mid, 0),
+		       COALESCE(bedrooms, 0), COALESCE(bathrooms, 0), COALESCE(car_spaces, 0),
+		       COALESCE(land_size_sqm, 0), COALESCE(building_size_sqm, 0),
+		       COALESCE(year_built, 0), COALESCE(property_type, ''),
+		       COALESCE(sales_history, '[]'::jsonb)
+		FROM property_valuations
+		WHERE address_key = $1 AND fetch_status = 'ok'`
+
+	var row PropertyValuationRow
+	var salesHistory []byte
+	err := s.db.QueryRow(ctx, query, addressKey).Scan(
+		&row.Source, &row.ProfileURL, &row.FetchedAt,
+		&row.EstimateLow, &row.EstimateMid, &row.EstimateHigh,
+		&row.EstimateConfidence, &row.ValuationGranularity,
+		&row.RentEstimateMid,
+		&row.Bedrooms, &row.Bathrooms, &row.CarSpaces,
+		&row.LandSizeSqm, &row.BuildingSizeSqm,
+		&row.YearBuilt, &row.PropertyType,
+		&salesHistory,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	if err := json.Unmarshal(salesHistory, &row.SalesHistory); err != nil {
+		log.Warnf("GetPropertyValuation(%s): failed to decode sales_history: %v", addressKey, err)
+		row.SalesHistory = []PropertyValuationSaleRow{}
+	}
+
+	return &row, nil
 }
 
 // AddressPriceDropRow is one physical address (deduped by address_key) whose

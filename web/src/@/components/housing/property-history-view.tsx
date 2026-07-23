@@ -6,6 +6,7 @@ import type { PropertyPriceEvent } from "~/gen/shorts/v1alpha1/housing_pb";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
 import { ArticleSeriesChart, type SeriesPoint } from "@/components/news/mdx/article-series-chart";
 import { HousingIcon } from "./housing-icon";
+import { PropertyValuationCard } from "./property-valuation-card";
 
 export interface PropertyHistoryViewProps {
   addressKey: string;
@@ -118,6 +119,10 @@ export function PropertyHistoryView({ addressKey }: PropertyHistoryViewProps) {
       ) : null}
 
       <CurrentListingCard listing={current} />
+
+      {data.valuation ? (
+        <PropertyValuationCard valuation={data.valuation} />
+      ) : null}
 
       <SummaryStrip
         numListings={data.numListings}

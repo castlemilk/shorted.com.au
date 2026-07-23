@@ -14,6 +14,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
+	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 )
 
 // GetHousingOverview returns the latest house-price headline metrics (mean/median
@@ -138,7 +139,7 @@ func (s *ShortsServer) ListStateSuburbs(ctx context.Context, req *connect.Reques
 					HospitalsCount: r.HospitalsCount, GpCount: r.GpCount, PharmacyCount: r.PharmacyCount,
 					NearestTrainKm: r.NearestTrainKm, NearestHospitalKm: r.NearestHospitalKm,
 					DistToCoastKm: r.DistToCoastKm,
-					SchoolsGov: r.SchoolsGov, SchoolsCatholic: r.SchoolsCatholic, SchoolsIndependent: r.SchoolsIndependent,
+					SchoolsGov:    r.SchoolsGov, SchoolsCatholic: r.SchoolsCatholic, SchoolsIndependent: r.SchoolsIndependent,
 					SchoolsPrimary: r.SchoolsPrimary, SchoolsSecondary: r.SchoolsSecondary, NearestSecondaryKm: r.NearestSecondaryKm,
 				},
 			}
@@ -218,7 +219,7 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 				HospitalsCount: p.Summary.HospitalsCount, GpCount: p.Summary.GpCount, PharmacyCount: p.Summary.PharmacyCount,
 				NearestTrainKm: p.Summary.NearestTrainKm, NearestHospitalKm: p.Summary.NearestHospitalKm,
 				DistToCoastKm: p.Summary.DistToCoastKm,
-				SchoolsGov: p.Summary.SchoolsGov, SchoolsCatholic: p.Summary.SchoolsCatholic, SchoolsIndependent: p.Summary.SchoolsIndependent,
+				SchoolsGov:    p.Summary.SchoolsGov, SchoolsCatholic: p.Summary.SchoolsCatholic, SchoolsIndependent: p.Summary.SchoolsIndependent,
 				SchoolsPrimary: p.Summary.SchoolsPrimary, SchoolsSecondary: p.Summary.SchoolsSecondary, NearestSecondaryKm: p.Summary.NearestSecondaryKm,
 			},
 		}
@@ -386,6 +387,18 @@ func dropListingsEnabled() bool {
 	}
 }
 
+// valuationsEnabled independently gates the property.com.au AVM enrichment.
+// It is enabled by default, with an explicit kill switch for the source's
+// heightened ToS posture.
+func valuationsEnabled() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("HOUSING_VALUATIONS_ENABLED"))) {
+	case "false", "0", "off", "no":
+		return false
+	default:
+		return true
+	}
+}
+
 // ListSuburbDropListings returns a suburb's recently-reduced listings, each
 // deep-linking OUT to the live portal page. Flag-gated: returns an empty list when
 // disabled so the UI degrades cleanly to the aggregate-only surface.
@@ -445,6 +458,8 @@ func (s *ShortsServer) GetPropertyHistory(ctx context.Context, req *connect.Requ
 		if err != nil {
 			return nil, err
 		}
+		// Valuation work is seeded from property_listings address keys, so an
+		// address without a listing cannot have a reachable valuation.
 		if res == nil || res.Current == nil {
 			return &shortsv1alpha1.GetPropertyHistoryResponse{}, nil
 		}
@@ -471,12 +486,25 @@ func (s *ShortsServer) GetPropertyHistory(ctx context.Context, req *connect.Requ
 				ListingStatus: e.ListingStatus, PrevStatus: e.PrevStatus,
 			})
 		}
+		var valuation *shortsv1alpha1.PropertyValuation
+		if valuationsEnabled() {
+			v, verr := s.store.GetPropertyValuation(m.AddressKey)
+			if verr != nil {
+				// The valuation is an enrichment. A failure here, including a
+				// pre-migration environment without property_valuations, must never
+				// fail the property-history page.
+				s.logger.Warnf("GetPropertyValuation(%s): %v", m.AddressKey, verr)
+			} else if v != nil {
+				valuation = toPropertyValuationProto(v)
+			}
+		}
 		return &shortsv1alpha1.GetPropertyHistoryResponse{
 			AddressKey: res.AddressKey, DisplayAddress: res.DisplayAddress,
 			Suburb: res.Suburb, StateCode: res.StateCode, Postcode: res.Postcode,
 			Current: current, Events: events, NumListings: res.NumListings,
 			FirstPrice: res.FirstPrice, CurrentPrice: res.CurrentPrice,
 			DistinctDwellings: res.DistinctDwellings,
+			Valuation:         valuation,
 		}, nil
 	})
 	if err != nil {
@@ -484,6 +512,47 @@ func (s *ShortsServer) GetPropertyHistory(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get property history"))
 	}
 	return connect.NewResponse(cached.(*shortsv1alpha1.GetPropertyHistoryResponse)), nil
+}
+
+func toPropertyValuationProto(row *shortsstore.PropertyValuationRow) *shortsv1alpha1.PropertyValuation {
+	if row == nil {
+		return nil
+	}
+	salesHistory := make([]*shortsv1alpha1.PropertyValuationSale, 0, len(row.SalesHistory))
+	for _, sale := range row.SalesHistory {
+		salesHistory = append(salesHistory, &shortsv1alpha1.PropertyValuationSale{
+			Date:      sale.Date,
+			Price:     derefOrZero(sale.Price),
+			Agency:    sale.Agency,
+			EventType: sale.Type,
+		})
+	}
+	return &shortsv1alpha1.PropertyValuation{
+		Source:               row.Source,
+		ProfileUrl:           row.ProfileURL,
+		FetchedAt:            row.FetchedAt.Format(time.RFC3339),
+		EstimateLow:          row.EstimateLow,
+		EstimateMid:          row.EstimateMid,
+		EstimateHigh:         row.EstimateHigh,
+		EstimateConfidence:   row.EstimateConfidence,
+		ValuationGranularity: row.ValuationGranularity,
+		RentEstimateMid:      row.RentEstimateMid,
+		Bedrooms:             row.Bedrooms,
+		Bathrooms:            row.Bathrooms,
+		CarSpaces:            row.CarSpaces,
+		LandSizeSqm:          row.LandSizeSqm,
+		BuildingSizeSqm:      row.BuildingSizeSqm,
+		YearBuilt:            row.YearBuilt,
+		PropertyType:         row.PropertyType,
+		SalesHistory:         salesHistory,
+	}
+}
+
+func derefOrZero(value *float64) float64 {
+	if value == nil {
+		return 0
+	}
+	return *value
 }
 
 // ListAddressPriceDrops ranks individual physical addresses (deduped by
@@ -516,7 +585,7 @@ func (s *ShortsServer) ListAddressPriceDrops(ctx context.Context, req *connect.R
 				LatestSource: r.LatestSource, LatestListingUrl: r.LatestListingURL,
 				LastObservedAt: r.LastObservedAt.Format(time.RFC3339),
 				PropertyType:   r.PropertyType, Bedrooms: r.Bedrooms, Bathrooms: r.Bathrooms,
-				AgencyName:     r.AgencyName, AgentNames: r.AgentNames,
+				AgencyName: r.AgencyName, AgentNames: r.AgentNames,
 			})
 		}
 		return &shortsv1alpha1.ListAddressPriceDropsResponse{Addresses: out}, nil

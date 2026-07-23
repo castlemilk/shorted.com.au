@@ -124,6 +124,7 @@ type ShortsStore interface {
 	ListSuburbPriceDrops(stateCode, sort string, limit int32) ([]*shortsstore.SuburbPriceDropRow, error)
 	ListSuburbDropListings(salCode, regionCode string, windowDays, limit int32) ([]*shortsstore.SuburbDropListingRow, error)
 	GetPropertyHistory(addressKey string) (*shortsstore.PropertyHistoryResult, error)
+	GetPropertyValuation(addressKey string) (*shortsstore.PropertyValuationRow, error)
 	ListAddressPriceDrops(stateCode, sort string, windowDays, limit int32) ([]*shortsstore.AddressPriceDropRow, error)
 	GetPriceDropsOverview() ([]*shortsstore.StatePriceDropSummaryRow, error)
 	ListAgencyPriceStats(stateCode, sort string, limit int32) ([]*shortsstore.AgencyPriceStatsRow, error)

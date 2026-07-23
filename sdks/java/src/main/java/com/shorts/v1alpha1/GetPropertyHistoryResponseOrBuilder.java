@@ -178,4 +178,34 @@ public interface GetPropertyHistoryResponseOrBuilder extends
    * @return The distinctDwellings.
    */
   int getDistinctDwellings();
+
+  /**
+   * <pre>
+   * AVM valuation for this address (property.com.au). Unset when none exists,
+   * fetch_status != 'ok', or HOUSING_VALUATIONS_ENABLED is off.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.PropertyValuation valuation = 12 [json_name = "valuation"];</code>
+   * @return Whether the valuation field is set.
+   */
+  boolean hasValuation();
+  /**
+   * <pre>
+   * AVM valuation for this address (property.com.au). Unset when none exists,
+   * fetch_status != 'ok', or HOUSING_VALUATIONS_ENABLED is off.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.PropertyValuation valuation = 12 [json_name = "valuation"];</code>
+   * @return The valuation.
+   */
+  com.shorts.v1alpha1.PropertyValuation getValuation();
+  /**
+   * <pre>
+   * AVM valuation for this address (property.com.au). Unset when none exists,
+   * fetch_status != 'ok', or HOUSING_VALUATIONS_ENABLED is off.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.PropertyValuation valuation = 12 [json_name = "valuation"];</code>
+   */
+  com.shorts.v1alpha1.PropertyValuationOrBuilder getValuationOrBuilder();
 }
