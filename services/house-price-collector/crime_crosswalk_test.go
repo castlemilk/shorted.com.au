@@ -55,6 +55,8 @@ func TestNormCVSLabel(t *testing.T) {
 		"Motor vehicle theft":                         "motor vehicle theft",
 		"  Malicious property  damage ":               "malicious property damage",
 		"Robbery(d)":                                  "robbery",
+		// Stacked footnotes must ALL be stripped, not just the last one.
+		"Total physical and/or threatened assault(a)(d)": "total physical and/or threatened assault",
 	}
 	for in, want := range cases {
 		if got := normCVSLabel(in); got != want {
@@ -73,6 +75,8 @@ func TestCVSCrimeType(t *testing.T) {
 		{"Motor vehicle theft", crimeMotorVehicle, true},
 		{"Malicious property damage", crimePropertyDamage, true},
 		{"Total physical and/or threatened assault(d)", crimeViolent, true},
+		// Stacked footnote must still map the violent anchor.
+		{"Total physical and/or threatened assault(a)(d)", crimeViolent, true},
 		{"Attempted break–in", "", false}, // attempts excluded from break_ins
 		{"Theft from a motor vehicle", "", false},
 		{"Other theft(c)", "", false},

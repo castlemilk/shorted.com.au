@@ -272,13 +272,18 @@ func parseCVSSheet(f *excelize.File, sheet string, labelFn func(string) (crimeTy
 	if err != nil {
 		return nil, err
 	}
-	// Find the period header row + column → fy_ending mapping.
+	// Find the period header row + column → fy_ending mapping. ABS appends a
+	// revision footnote to the LATEST period header (e.g. "2023–25(d)"), which
+	// cvsPeriodRe (anchored) would not match — dropping the newest FY entirely
+	// while the older clean columns still locate the row, so no error surfaces.
+	// Strip footnotes first (mirrors the populations parser below).
 	periodRow, colFY := -1, map[int]int{}
 	for i, row := range rows {
 		hits := map[int]int{}
 		for j := 1; j < len(row); j++ {
-			if cvsPeriodRe.MatchString(strings.TrimSpace(row[j])) {
-				if fy, ok := cvsFYFromPeriod(row[j]); ok {
+			tok := stripCVSFootnotes(row[j])
+			if cvsPeriodRe.MatchString(tok) {
+				if fy, ok := cvsFYFromPeriod(tok); ok {
 					hits[j] = fy
 				}
 			}
@@ -403,9 +408,8 @@ func parseCVSPopulations(pop []byte, data *CVSData) error {
 		// Detect the base period sub-header (e.g. "2023–25(d)") for baseFY.
 		if baseFY == 0 {
 			for j := 1; j < len(row); j++ {
-				token := strings.TrimSpace(row[j])
-				token = cvsFootnoteRe.ReplaceAllString(strings.ToLower(token), "")
-				if cvsPeriodRe.MatchString(strings.TrimSpace(token)) {
+				token := stripCVSFootnotes(row[j])
+				if cvsPeriodRe.MatchString(token) {
 					if fy, ok := cvsFYFromPeriod(token); ok {
 						baseFY = fy
 					}
@@ -454,6 +458,13 @@ func parseCVSPopulations(pop []byte, data *CVSData) error {
 }
 
 var cvsInlineFootnoteRe = regexp.MustCompile(`\([a-z]\)`)
+
+// stripCVSFootnotes removes ALL inline footnote markers (e.g. "2023–25(d)",
+// "assault(a)(d)") and trims — used wherever an ABS header/label may carry a
+// revision or reference footnote.
+func stripCVSFootnotes(s string) string {
+	return strings.TrimSpace(cvsInlineFootnoteRe.ReplaceAllString(s, ""))
+}
 
 // parseCVSFloat parses a numeric cell; blank / suppressed markers → (0,false).
 // ABS annotates individual data cells with inline footnote markers (e.g. the

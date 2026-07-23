@@ -1,9 +1,6 @@
 package main
 
-import (
-	"regexp"
-	"strings"
-)
+import "strings"
 
 // Offence-type crosswalk — the linchpin of the crime pipeline. Every police
 // jurisdiction counts offences under its own bespoke category scheme, and the
@@ -103,14 +100,13 @@ func nswCrimeType(category, subcategory string) (crimeType, bool) {
 // threatened assault(d)"). normCVSLabel canonicalises those so the match is
 // robust to the en-dash / footnote drift the ABS uses release-to-release.
 
-var cvsFootnoteRe = regexp.MustCompile(`\([a-z]\)\s*$`)
-
-// normCVSLabel lower-cases, replaces en/em dashes with a hyphen, strips a
-// trailing "(x)" footnote marker, and collapses whitespace.
+// normCVSLabel lower-cases, replaces en/em dashes with a hyphen, strips ALL
+// "(x)" footnote markers (ABS sometimes stacks them, e.g. "assault(a)(d)"), and
+// collapses whitespace. cvsInlineFootnoteRe is defined in crime_abs_cvs.go.
 func normCVSLabel(s string) string {
 	s = strings.ToLower(strings.TrimSpace(s))
 	s = strings.NewReplacer("–", "-", "—", "-", "‒", "-").Replace(s)
-	s = cvsFootnoteRe.ReplaceAllString(s, "")
+	s = cvsInlineFootnoteRe.ReplaceAllString(s, "")
 	s = strings.Join(strings.Fields(s), " ")
 	return strings.TrimSpace(s)
 }

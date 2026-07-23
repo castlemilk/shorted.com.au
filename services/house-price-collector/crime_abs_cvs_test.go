@@ -38,7 +38,9 @@ func buildCVSPooled(t *testing.T) []byte {
 			t.Fatal(err)
 		}
 		setRow(t, f, sheet, 3, sheet+" title")
-		setRow(t, f, sheet, 5, "", "2021–23", "2022–24", "2023–25")
+		// The latest period header carries the real ABS revision footnote "(d)"
+		// — parseCVSSheet must strip it or the newest FY is silently dropped.
+		setRow(t, f, sheet, 5, "", "2021–23", "2022–24", "2023–25(d)")
 		setRow(t, f, sheet, 6, "", "%", "%", "%")
 		r := 7
 		for label, nsw := range blocks {
@@ -187,5 +189,32 @@ func TestFindCVSTab_ExcludesRSE(t *testing.T) {
 	}
 	if got := findCVSTab(contents, []string{"household crimes", "victimisation rate"}, []string{"relative standard error"}); got != "Table 30c" {
 		t.Errorf("findCVSTab picked %q, want Table 30c", got)
+	}
+}
+
+// The latest period header carries a revision footnote ("2023–25(d)"). The
+// anchored period regex won't match it raw, so parseCVSSheet must strip the
+// footnote first — otherwise the NEWEST FY (2025, the map's read) is dropped
+// while the older clean columns still locate the header row (no error surfaces).
+func TestParseCVSSheet_FootnotedPeriodHeader(t *testing.T) {
+	f := excelize.NewFile()
+	_ = f.SetSheetName("Sheet1", "S")
+	setRow(t, f, "S", 3, "S title")
+	setRow(t, f, "S", 5, "", "2021–23", "2022–24", "2023–25(d)")
+	setRow(t, f, "S", 6, "", "%", "%", "%")
+	setRow(t, f, "S", 7, "", "Break–in")
+	setRow(t, f, "S", 8, "New South Wales", 1.2, 1.3, 1.5)
+	setRow(t, f, "S", 9, "Australia", 1.2, 1.3, 1.5)
+
+	vals, err := parseCVSSheet(f, "S", cvsCrimeType)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, ok := vals["NSW"][crimeBreakIns][2025]
+	if !ok {
+		t.Fatalf("FY2025 (from footnoted header 2023–25(d)) was dropped: %+v", vals["NSW"][crimeBreakIns])
+	}
+	if got != 1.5 {
+		t.Errorf("FY2025 rate = %v, want 1.5", got)
 	}
 }
