@@ -272,6 +272,27 @@ LOCKED, and every mode is idempotent. Prefer running the **delta** on every rig 
 the **full** on one (or stagger the full across rigs) to avoid a fortnightly
 thundering herd. Exit `6` from a wrapper = the freshness alarm tripped.
 
+### Tracked as a scheduled job in the admin dashboard
+
+Installing these launchd jobs makes the crawl a **first-class tracked scheduled job**
+in the shorted **admin jobs dashboard** (`/admin` → `GET /api/admin/jobs`), alongside
+the GCP Cloud Run jobs. The dashboard's job monitor is GCP-only (Cloud Run + Cloud
+Scheduler) and can't see a Mac-based job, so each run **self-reports** a health record
+to the `crawl_run_status` table (migration `000089`):
+
+- The `run-housing-delta.sh` / `run-housing-full.sh` wrappers export `CRAWL_RUN_TYPE`
+  (`delta`/`full`) + a stable `CRAWL_RUN_ID`, so the collector tags the record and the
+  several drain rounds of one run **accumulate** their counts (suburbs / listings /
+  events / blocked) into a single dashboard row. `-mode freshness` annotates it with
+  the oldest-covered-suburb age.
+- Health follows the run: a blocked/failed run shows **critical**, a re-warm/partial
+  run **warning**, a clean run **ok**. Crucially, a **DEAD RIG** (crashed launchd,
+  machine off, Chrome permanently wedged) stops writing, so the row's `finished_at`
+  goes stale and the dashboard flips it to warning → critical **automatically** — no
+  heartbeat needed. Scheduling stays on launchd (Kasada requires it); only the
+  *tracking* now matches the GCP jobs. No extra setup: it works the moment the
+  wrappers run against a DB that has migration `000089`.
+
 ## Smart pagination
 
 The per-suburb sweep (`sweepSuburbSource`) sizes and stops itself instead of

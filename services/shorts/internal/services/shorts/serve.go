@@ -584,6 +584,21 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 			logger.Warnf("Serving stale job status after collect error: %v", err)
 		}
 
+		// Merge in the Mac-based residential-crawl health records (migration 000089).
+		// jobmonitor.Collect() is GCP-only (Cloud Run + Cloud Scheduler) and cannot
+		// observe the crawl, which runs on a residential Mac — so these rows come from
+		// the DB. Best-effort: a read failure omits them rather than failing the whole
+		// endpoint. Appended after the GCP jobs (frontend highlights critical rows).
+		// Build a FRESH slice rather than appending onto `jobs` — the collector may
+		// return its internal cached slice, and appending into spare capacity would
+		// corrupt that cache for other requests.
+		if crawlJobs := s.crawlJobStatuses(); len(crawlJobs) > 0 {
+			merged := make([]jobmonitor.JobStatus, 0, len(jobs)+len(crawlJobs))
+			merged = append(merged, jobs...)
+			merged = append(merged, crawlJobs...)
+			jobs = merged
+		}
+
 		type Response struct {
 			Jobs  []jobmonitor.JobStatus `json:"jobs"`
 			Stale bool                   `json:"stale"`

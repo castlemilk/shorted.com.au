@@ -43,15 +43,31 @@ function duration(seconds: number): string {
   return `${seconds.toFixed(1)}s`;
 }
 
+// typeLabel describes a job's source in the "category · source" subtitle.
+function typeLabel(type: JobStatus["type"]): string {
+  switch (type) {
+    case "service":
+      return "scheduled service";
+    case "rig":
+      return "residential rig";
+    default:
+      return "Cloud Run job";
+  }
+}
+
 function statusLabel(job: JobStatus): string {
   switch (job.health) {
     case "critical":
+      // A rig that has gone silent past the dead-rig horizon is "offline", not "failed".
+      if (job.type === "rig" && job.lastRunStatus !== "failed") return "offline";
       return "failed";
     case "running":
       return "running";
     case "warning":
       if (job.lastRunStatus === "running") return "stuck?";
       if (job.schedulerState === "PAUSED") return "paused";
+      // Rig warnings are degraded/overdue runs, not the GCP "stale" cadence miss.
+      if (job.type === "rig") return "attention";
       return "stale";
     case "unknown":
       return job.lastRunStatus === "never" ? "never run" : "no data";
@@ -221,7 +237,7 @@ export function JobsOverview({ overview }: { overview: JobsOverviewData }) {
                         <span className="text-xs text-muted-foreground flex items-center gap-1.5">
                           {job.category}
                           <span className="opacity-50">·</span>
-                          {job.type === "service" ? "scheduled service" : "Cloud Run job"}
+                          {typeLabel(job.type)}
                         </span>
                         {job.message && (
                           <span

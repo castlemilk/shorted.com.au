@@ -125,6 +125,18 @@ func runFreshness(ctx context.Context, pool *pgxpool.Pool) int {
 	log.Printf("[freshness] oldest covered suburb: %s (last crawled %s ago)",
 		rep.OldestSuburb.regionName(), humanAge(rep.OldestAge))
 
+	// Annotate this run-type/host's dashboard health row with the oldest-covered age
+	// so the admin jobs dashboard shows corpus staleness alongside the crawl's run
+	// counts. Best-effort + detached; targets the row the `-mode agent` rounds wrote
+	// for the same launchd run (shared CRAWL_RUN_TYPE + host). No-op if none exists.
+	func() {
+		fctx, fcancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer fcancel()
+		if err := updateCrawlRunFreshness(fctx, pool, crawlRunType(), crawlHost(), rep.OldestAge.Hours()); err != nil {
+			log.Printf("[freshness] crawl_run_status freshness annotation failed (best-effort): %v", err)
+		}
+	}()
+
 	if !rep.Alarm {
 		return 0
 	}

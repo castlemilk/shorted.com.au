@@ -64,6 +64,10 @@ func (s *StoreAdapter) GetJobsOverview() ([]*shorts.JobHealth, error) {
 	return s.store.GetJobsOverview()
 }
 
+func (s *StoreAdapter) GetCrawlRunStatuses() ([]*shorts.CrawlRunStatus, error) {
+	return s.store.GetCrawlRunStatuses()
+}
+
 // GetAllStockCodes wraps the store's GetAllStockCodes
 func (s *StoreAdapter) GetAllStockCodes() ([]string, error) {
 	return s.store.GetAllStockCodes()

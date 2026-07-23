@@ -56,6 +56,31 @@ type JobHealth struct {
 	AlertLevel              string  `json:"alertLevel"` // critical | warning | no_data | ok
 }
 
+// CrawlRunStatus is one health record for a scheduled residential-crawl run-type on
+// a rig (migration 000089, table crawl_run_status). It is written by the Mac-based
+// house-price-collector (`-mode agent` / `-mode freshness`) because the GCP-only
+// jobmonitor can't see a job that runs off Cloud Run. The admin jobs dashboard maps
+// these rows into the same JobStatus shape as the Cloud Run jobs — see
+// crawlRunToJobStatus in the shorts service. Nullable timestamps use pointers so a
+// row that has never finished (or a freshness-only marker) is representable.
+type CrawlRunStatus struct {
+	RunType              string     `json:"runType"`
+	Host                 string     `json:"host"`
+	RunID                string     `json:"runId"`
+	StartedAt            *time.Time `json:"startedAt"`
+	FinishedAt           *time.Time `json:"finishedAt"`
+	Status               string     `json:"status"`
+	SuburbsSelected      int        `json:"suburbsSelected"`
+	SuburbsDone          int        `json:"suburbsDone"`
+	ListingsTouched      int        `json:"listingsTouched"`
+	EventsWritten        int        `json:"eventsWritten"`
+	BlockedCount         int        `json:"blockedCount"`
+	RewarmNeeded         bool       `json:"rewarmNeeded"`
+	FreshnessOldestHours *float64   `json:"freshnessOldestHours"`
+	Detail               string     `json:"detail"`
+	UpdatedAt            *time.Time `json:"updatedAt"`
+}
+
 type Store interface {
 	GetStock(string) (*stockv1alpha1.Stock, error)
 	GetTopShorts(period string, limit, offset int32, summaryOnly bool, productCodes ...string) ([]*stockv1alpha1.TimeSeriesData, int, error)
@@ -77,6 +102,9 @@ type Store interface {
 	GetSyncStatus(filter SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error)
 	CleanupStuckSyncRuns() (int, error)
 	GetJobsOverview() ([]*JobHealth, error)
+	// GetCrawlRunStatuses returns the residential-crawl health records (migration
+	// 000089) the admin jobs dashboard merges into the GCP job list.
+	GetCrawlRunStatuses() ([]*CrawlRunStatus, error)
 
 	// Key metrics sync methods
 	GetAllStockCodes() ([]string, error)

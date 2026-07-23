@@ -38,6 +38,14 @@ hc_load_env
 # drainers only hurt. A full pass runs ~1.5 days, during which daily deltas skip.
 hc_acquire_lock
 
+# Tag every `-mode agent` round + the freshness run below so the collector writes a
+# HEALTH RECORD for this run to crawl_run_status (migration 000089) → the admin jobs
+# dashboard, where the residential crawl now appears as a tracked scheduled job.
+# CRAWL_RUN_ID is STABLE across the drain's rounds so their counts ACCUMULATE into one
+# row; a dead rig stops writing and the row's finished_at auto-goes-stale on the board.
+export CRAWL_RUN_TYPE=delta
+export CRAWL_RUN_ID="delta-$(date -u +%Y%m%dT%H%M%SZ)"
+
 echo "=== $(date -u +%FT%TZ) housing-delta (selection=delta ttl=${CRAWL_DELTA_TTL_HOURS:-24}h churn>=${CRAWL_DELTA_CHURN_MIN:-1}/${CRAWL_DELTA_CHURN_DAYS:-7}d cap=${CRAWL_DELTA_MAX_SUBURBS:-60}) ===" >>"$LOG"
 
 # 1. Enqueue ONLY the stale/churny slice (delta selection logs its own why + cap).
