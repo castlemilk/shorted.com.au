@@ -130,6 +130,8 @@ func (s *ShortsServer) ListStateSuburbs(ctx context.Context, req *connect.Reques
 				FederalTppAlp: r.FederalTppAlp, StateDistrict: r.StateDistrict,
 				StateMember: r.StateMember, StateParty: r.StateParty, StatePartyAb: r.StatePartyAb,
 				DominantNbnTech: r.DominantNbnTech, ConnectivityQualityScore: r.ConnectivityQualityScore,
+				CrimeBreakInsRank: r.CrimeBreakInsRank, CrimeViolentRank: r.CrimeViolentRank,
+				CrimeMotorVehicleRank: r.CrimeMotorVehicleRank,
 				Amenities: &shortsv1alpha1.SuburbAmenities{
 					SchoolsTotal: r.SchoolsTotal, SupermarketsTotal: r.SupermarketsTotal,
 					ColesCount: r.ColesCount, WoolworthsCount: r.WoolworthsCount,
@@ -257,6 +259,28 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 				}
 			}
 		}
+		var crime *shortsv1alpha1.SuburbCrime
+		if len(p.Crime) > 0 {
+			crime = &shortsv1alpha1.SuburbCrime{
+				SourceJurisdiction: p.Crime[0].Jurisdiction,
+				Source:             p.Crime[0].Source,
+				SourceLicence:      p.Crime[0].Licence,
+			}
+			for _, c := range p.Crime {
+				crime.Stats = append(crime.Stats, &shortsv1alpha1.SuburbCrimeStat{
+					CrimeType: c.CrimeType, RatePer_100K: c.RatePer100k,
+					PctRank: c.PctRank, FyEnding: c.FYEnding,
+				})
+				switch c.CrimeType {
+				case "break_ins":
+					summary.CrimeBreakInsRank = c.PctRank
+				case "violent":
+					summary.CrimeViolentRank = c.PctRank
+				case "motor_vehicle":
+					summary.CrimeMotorVehicleRank = c.PctRank
+				}
+			}
+		}
 		return &shortsv1alpha1.GetSuburbProfileResponse{
 			Summary: summary,
 			Demographics: &shortsv1alpha1.SuburbDemographics{
@@ -284,6 +308,7 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 			},
 			Similar: similar,
 			Banner:  banner,
+			Crime:   crime,
 		}, nil
 	})
 	if err != nil {

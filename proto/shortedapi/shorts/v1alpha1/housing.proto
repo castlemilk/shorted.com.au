@@ -184,6 +184,17 @@ message SuburbSummary {
   // NBN connectivity (Local Insights); '' until ingested.
   string dominant_nbn_tech = 26;             // Fixed Line | Fixed Wireless | Satellite
   double connectivity_quality_score = 27;    // 0..100 (tech-tier proxy)
+  // Crime percentile ranks (national population-weighted, 0..100, higher =
+  // more reported crime; latest 2-yr-pooled FY, CVS-adjusted). 0 = no data —
+  // pct_rank is strictly > 0 whenever a reliable observation exists. Small-
+  // population and statistically-unreliable suburbs are gated server-side
+  // (mv_suburb_crime_latest) and read as no-data. NSW (BOCSAR) only in
+  // Phase 1; uncovered states/TAS/NT stay 0. CC-BY sources.
+  double crime_break_ins_rank = 28;
+  double crime_violent_rank = 29;
+  double crime_motor_vehicle_rank = 30;
+  // Field 31 is reserved by convention for crime_property_damage_rank once a
+  // CVS anchor exists; do not use 31 for anything else.
 }
 
 message ListStateSuburbsResponse {
@@ -266,6 +277,24 @@ message SuburbBanner {
   string bg_url = 5;                       // bespoke background override (optional)
 }
 
+// Latest reliable crime observation for one crime type (2-yr pooled,
+// CVS-adjusted; small_pop/unreliable rows are gated out server-side).
+message SuburbCrimeStat {
+  string crime_type = 1;       // 'break_ins' | 'violent' | 'motor_vehicle' (+ future types)
+  double rate_per_100k = 2;    // adjusted offences per 100k residents (can be 0)
+  double pct_rank = 3;         // 0..100 national pop-weighted percentile; > 0 always
+  int32 fy_ending = 4;         // 2025 = FY2024-25 (end year of the pooled window)
+}
+
+// Per-suburb crime block. Message absent (null) = no reliable data for this
+// suburb (uncovered state, TAS/NT, or gated small_pop/unreliable).
+message SuburbCrime {
+  repeated SuburbCrimeStat stats = 1;
+  string source_jurisdiction = 2;  // 'NSW'
+  string source = 3;               // 'bocsar'
+  string source_licence = 4;       // 'CC-BY-4.0'
+}
+
 message GetSuburbProfileResponse {
   SuburbSummary summary = 1;
   SuburbDemographics demographics = 2;
@@ -273,6 +302,7 @@ message GetSuburbProfileResponse {
   LgaInfo council = 4;              // council this suburb sits in ('' if unmatched)
   repeated SimilarSuburb similar = 5; // most-similar suburbs nationally (knowledge graph)
   SuburbBanner banner = 6;          // editorial banner header (archetype, blurb, landmarks)
+  SuburbCrime crime = 7;             // null when the suburb has no gated crime data
 }
 
 message ListHousingRegionsRequest {

@@ -170,11 +170,11 @@ Always add a new key to this map, never thread a function through props. The sam
 
 ## 5. The suburb explorer (national → state → suburb map)
 
-The third live product: a choropleth drilldown over real ABS boundaries. `/housing` shows a national **states** map (click a state to drill in); `/housing/[state]` shows a **suburb** choropleth + searchable list + a **"Colour by" metric toggle**; `/housing/[state]/[suburb]` is a rich profile. One table — `suburb_demographics`, keyed by ABS `sal_code` (SAL_CODE21) — holds three data families.
+The third live product: a choropleth drilldown over real ABS boundaries. `/housing` shows a national **states** map (click a state to drill in); `/housing/[state]` shows a **suburb** choropleth + searchable list + a **"Colour by" metric toggle**; `/housing/[state]/[suburb]` is a rich profile. `suburb_demographics`, keyed by ABS `sal_code` (SAL_CODE21), is the suburb spine; `suburb_crime_stats` adds a time-series fact table at suburb × crime type × FY grain.
 
 ### 5.1 The suburb data model (`suburb_demographics`)
 
-Migrations **000055** (base) + **000057** (culture) + **000058/000059/000060** (electoral). Every column is keyed by `sal_code`. (Full column inventory in §7.)
+Migrations **000055** (base) + **000057** (culture) + **000058/000059/000060** (electoral) + **000090/000092** (crime fact + gated read snapshot). Every row is keyed by `sal_code`. (Full column inventory in §7.)
 
 | Family | Migration | Columns | Source |
 |--------|-----------|---------|--------|
@@ -182,6 +182,7 @@ Migrations **000055** (base) + **000057** (culture) + **000058/000059/000060** (
 | **Census culture** | 000057 | `pct_born_overseas`, `pct_english_only`, `top_religion`, `pct_top_religion`, `pct_no_religion`, `top_language`, `pct_top_language` | ABS Census 2021 G01/G13/G14 |
 | **Federal electoral** | 000058 | `federal_division`, `federal_member`, `federal_party`, `federal_party_ab`, `federal_tpp_alp` | AEC 2025 election (CC-BY-4.0) |
 | **State electoral** | 000059 + 000060 | `state_district` (000059); `state_member`, `state_party`, `state_party_ab` (000060) | ABS SED_2025 + each state parliament |
+| **Crime & safety** | 000090 + 000092 | `suburb_crime_stats` pooled/single-FY rates + national population-weighted ranks; gated pooled-latest `mv_suburb_crime_latest` | NSW BOCSAR incidents + ABS Crime Victimisation Survey/ERP (CC-BY-4.0) |
 
 The `sal_code` **bridge** links priced regions to demographics: `house_price_regions.sal_code` (added 000055, backfilled 000056 by normalized name + state) → `suburb_demographics.sal_code`. So a suburb's median price joins its census/electoral data. `state_member/party/party_ab` are **NULL for TAS/ACT** (Hare-Clark multi-member — no single member per area).
 
@@ -225,11 +226,11 @@ The boundary→suburb spatial join + member/party roll-up are **precomputed once
 
 ### 5.5 RPCs
 
-- `ListStateSuburbs(state_code, query, limit)` → `SuburbSummary[]` — the 24-field summary (identity + latest price + headline demographics + culture + federal + state) that powers the state choropleth + list.
-- `GetSuburbProfile(sal_code)` → `{ SuburbSummary, SuburbDemographics, ComparisonBaselines }` — the profile page (full demographics + state/national comparison bars).
+- `ListStateSuburbs(state_code, query, limit)` → `SuburbSummary[]` — the 30-field summary (identity + latest price + headline demographics + culture + federal/state representation + three gated crime ranks) that powers the state choropleth + list.
+- `GetSuburbProfile(sal_code)` → `{ SuburbSummary, SuburbDemographics, ComparisonBaselines, SuburbCrime? }` — the profile page (full demographics + state/national comparison bars + an absent-when-uncovered crime block).
 - `ListHousingRegions(region_type, state_code, query, limit)` → `HousingRegion[]` — a **parallel, older** regions-based explorer (merged from `main` before the suburb map landed). Kept alongside the suburb map (which supersedes it for the UI; `/housing/suburbs` 301-redirects to `/housing`). New work should use `ListStateSuburbs`/`GetSuburbProfile`.
 
-Handlers in `house_prices.go`, queries in `postgres_house_prices.go`. The suburb queries LEFT-JOIN the latest median via a LATERAL subquery (covers VIC annual + national quarterly), with YoY vs the obs ~1yr prior; baselines are the avg latest median per priced suburb (state + national). All cached via `s.cache.Get<Name>Key`.
+Handlers in `house_prices.go`, queries in `postgres_house_prices.go`. The suburb queries LEFT-JOIN the latest median via a LATERAL subquery (covers VIC annual + national quarterly), with YoY vs the obs ~1yr prior; baselines are the avg latest median per priced suburb (state + national). Crime ranks use a FILTER-aggregate LEFT JOIN over `mv_suburb_crime_latest`; profile stats use the same pooled-latest MV. Both reads re-assert `NOT small_pop AND NOT unreliable`, so uncovered/gated suburbs remain no-data rather than zero. All cached via `s.cache.Get<Name>Key`.
 
 ### 5.6 Frontend: the choropleth + highlight metrics
 
@@ -237,9 +238,10 @@ Handlers in `house_prices.go`, queries in `postgres_house_prices.go`. The suburb
 - **`HIGHLIGHT_METRICS`** (`lib/housing/highlight-metrics.ts`) — the "Colour by" toggle:
   - **Continuous → amber sequential** (`amberScale`, sqrt for long-tail): `price`, `population`, `age`, `income`, `born_overseas`.
   - **Continuous → diverging**: `federal_lean` (Labor 2PP, `politicalLeanScale()` = `scaleDiverging([0,50,100], t ⇒ interpolateRdBu(1-t))`, fixed `domain:[0,100]`, `makeScale` override).
+  - **Continuous → yellow-to-red danger ramp**: `crime_break_ins`, `crime_violent`, `crime_motor_vehicle` (`crimeRankScale()`, fixed `domain:[0,100]`; rank `0` → `null` → no-data hatch).
   - **Categorical → qualitative palette + swatch legend**: `religion` (`RELIGION_COLORS`), `language` (`LANGUAGE_COLORS`, English-neutral base below `LANGUAGE_MIN_PCT=5` so non-English pockets pop), `federal_party` + `state_party` (`PARTY_COLORS`, `party_ab → label` via `PARTY_LABEL`).
   - `ContinuousMetric` carries optional `domain` + `makeScale`; `CategoricalMetric` carries `category`/`colorFor`/`order`.
-- **Component tree**: `NationalHousingMap` (states drilldown) → `StateSuburbExplorer` (search/sort/filter list ⟷ `StateSuburbMap` → `ChoroplethMap`, two-way hover/select, `?sal=` deep-link) → `SuburbTooltip` (hover/selected card: stats + lazy price sparkline + Culture + federal MP + State seat + "Open profile →") / `SuburbProfile` (People · Housing · **Culture & community** · **Representation** [federal division + MP + 2PP + state seat + state MP] · compare bars · locator inset · nearby rail).
+- **Component tree**: `NationalHousingMap` (states drilldown) → `StateSuburbExplorer` (search/sort/filter list ⟷ `StateSuburbMap` → `ChoroplethMap`, two-way hover/select, `?sal=` deep-link) → `SuburbTooltip` (hover/selected card: stats + lazy price sparkline + Culture + federal MP + State seat + "Open profile →") / `SuburbProfile` (People · Housing · **Culture & community** · **Representation** · **Crime & safety** [rate/100k + percentile + FY + CC-BY attribution] · compare bars · locator inset · nearby rail).
 - **SSR**: every map/chart is `dynamic(ssr:false)` from a `"use client"` module; metrics are dispatched by a serializable `MetricKey` (never a function prop across the RSC boundary; see §4's format-key gotcha).
 
 To add a metric, demographic measure, or electoral source, see §9.
@@ -377,7 +379,7 @@ The admin **jobs dashboard** (`/admin`, backed by `GET /api/admin/jobs` → `job
 
 ## 7. Data model & licensing summary
 
-Two tables hold the live data: **`house_prices`** (narrow EAV: one row per region × measure × dwelling × period × source) + **`house_price_regions`** (location dimension), and **`suburb_demographics`** (wide, one row per ABS SAL suburb). Source/licence per row:
+The live data sits in **`house_prices`** (narrow EAV: one row per region × measure × dwelling × period × source) + **`house_price_regions`** (location dimension), **`suburb_demographics`** (wide, one row per ABS SAL suburb), and **`suburb_crime_stats`** (suburb × crime type × FY × pooled flag). Source/licence per row:
 
 | Source | Measure(s) / data | Region | Live/Baked | Licence | Gate |
 |--------|-----------|--------|-----------|---------|------|
@@ -391,6 +393,7 @@ Two tables hold the live data: **`house_prices`** (narrow EAV: one row per regio
 | **AEC 2025 election** (boundaries + event 31496 CSVs) | federal division, member, party, two-party-preferred | suburb (SAL via spatial join) | LIVE (`-mode electorates`) | CC-BY-4.0 | none |
 | **ABS SED_2025** | state electoral district | suburb (SAL via spatial join) | LIVE (`-mode electorates`) | CC-BY-4.0 | none |
 | **State parliaments** (via Wikipedia members tables) | state member + party (6 single-member states) | suburb (SAL) | LIVE (`-mode electorates`) | CC-BY-SA (attribute) | none |
+| **NSW BOCSAR + ABS Crime Victimisation Survey/ERP** | adjusted crime rate/100k + national population-weighted percentile (`break_ins`, `violent`, `motor_vehicle`) | NSW suburb (SAL) | LIVE (`-mode crime`) | CC-BY-4.0 | pooled latest only; `NOT small_pop AND NOT unreliable`; exclude `wa-tou-noncommercial` |
 | BIS/FRED HPI | price_index (2010=100) | AUS/JPN/USA/CHN | BAKED (`series.ts`, never fetched) | public domain | none |
 | OECD / ABS Lending / ATO | price_to_income, investor_share, neg_geared_count | AUS | BAKED (`series.ts`) | open | none |
 | REA/Domain crawl (`-mode crawl`) | median_price | suburb | **LIVE** (brandbrain queue + warm-Chrome CDP) | proprietary-tos-restricted | **no republish** |
@@ -444,6 +447,8 @@ Housing migrations are applied **manually** against prod Supabase via the **sess
 | `000056` | backfill `house_price_regions.sal_code` (name+state match) — run **after** census ingest |
 | `000057` | culture columns (religion, language, born-overseas) |
 | `000058` / `000059` / `000060` | federal electoral / state district / state member+party |
+| `000090` | `suburb_crime_stats` + initial pooled-latest crime MV + refresh wiring |
+| `000092` | deterministic gated `mv_suburb_crime_latest` rebuild + guarded refresh wiring |
 
 ```bash
 PGOPTIONS="-c statement_timeout=0" psql "postgresql://…@…:5432/postgres" \

@@ -413,4 +413,36 @@ public interface SuburbSummaryOrBuilder extends
    * @return The connectivityQualityScore.
    */
   double getConnectivityQualityScore();
+
+  /**
+   * <pre>
+   * Crime percentile ranks (national population-weighted, 0..100, higher =
+   * more reported crime; latest 2-yr-pooled FY, CVS-adjusted). 0 = no data —
+   * pct_rank is strictly &gt; 0 whenever a reliable observation exists. Small-
+   * population and statistically-unreliable suburbs are gated server-side
+   * (mv_suburb_crime_latest) and read as no-data. NSW (BOCSAR) only in
+   * Phase 1; uncovered states/TAS/NT stay 0. CC-BY sources.
+   * </pre>
+   *
+   * <code>double crime_break_ins_rank = 28 [json_name = "crimeBreakInsRank"];</code>
+   * @return The crimeBreakInsRank.
+   */
+  double getCrimeBreakInsRank();
+
+  /**
+   * <code>double crime_violent_rank = 29 [json_name = "crimeViolentRank"];</code>
+   * @return The crimeViolentRank.
+   */
+  double getCrimeViolentRank();
+
+  /**
+   * <pre>
+   * Field 31 is reserved by convention for crime_property_damage_rank once a
+   * CVS anchor exists; do not use 31 for anything else.
+   * </pre>
+   *
+   * <code>double crime_motor_vehicle_rank = 30 [json_name = "crimeMotorVehicleRank"];</code>
+   * @return The crimeMotorVehicleRank.
+   */
+  double getCrimeMotorVehicleRank();
 }

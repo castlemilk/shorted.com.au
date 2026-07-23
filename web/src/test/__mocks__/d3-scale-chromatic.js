@@ -6,5 +6,6 @@
 
 const interpolateOranges = (t) => `rgb-oranges-${t}`;
 const interpolateRdBu = (t) => `rgb-rdbu-${t}`;
+const interpolateYlOrRd = (t) => `rgb-ylorrd-${t}`;
 
-module.exports = { interpolateOranges, interpolateRdBu };
+module.exports = { interpolateOranges, interpolateRdBu, interpolateYlOrRd };

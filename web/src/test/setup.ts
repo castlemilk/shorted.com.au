@@ -622,6 +622,7 @@ jest.mock("d3-array", () => ({
 }));
 
 jest.mock("d3-scale", () => ({
+  ...jest.requireActual("./__mocks__/d3-scale"),
   scaleLinear: jest.fn(() => ({
     domain: jest.fn().mockReturnThis(),
     range: jest.fn().mockReturnThis(),

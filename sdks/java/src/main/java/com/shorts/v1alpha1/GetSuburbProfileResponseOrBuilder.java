@@ -152,4 +152,31 @@ public interface GetSuburbProfileResponseOrBuilder extends
    * <code>.shorts.v1alpha1.SuburbBanner banner = 6 [json_name = "banner"];</code>
    */
   com.shorts.v1alpha1.SuburbBannerOrBuilder getBannerOrBuilder();
+
+  /**
+   * <pre>
+   * null when the suburb has no gated crime data
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbCrime crime = 7 [json_name = "crime"];</code>
+   * @return Whether the crime field is set.
+   */
+  boolean hasCrime();
+  /**
+   * <pre>
+   * null when the suburb has no gated crime data
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbCrime crime = 7 [json_name = "crime"];</code>
+   * @return The crime.
+   */
+  com.shorts.v1alpha1.SuburbCrime getCrime();
+  /**
+   * <pre>
+   * null when the suburb has no gated crime data
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbCrime crime = 7 [json_name = "crime"];</code>
+   */
+  com.shorts.v1alpha1.SuburbCrimeOrBuilder getCrimeOrBuilder();
 }
