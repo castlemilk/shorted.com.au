@@ -25,11 +25,13 @@ jest.mock("../economy-charts", () => ({
     secondaryKey,
     ariaLabel,
     format,
+    sharedScale,
   }: {
     primaryKey: string;
     secondaryKey: string;
     ariaLabel: string;
     format: string;
+    sharedScale?: boolean;
   }) => (
     <div
       role="img"
@@ -37,7 +39,22 @@ jest.mock("../economy-charts", () => ({
       data-primary-key={primaryKey}
       data-secondary-key={secondaryKey}
       data-format={format}
+      data-shared-scale={sharedScale}
     />
+  ),
+}));
+
+jest.mock("@/components/housing/when-visible", () => ({
+  WhenVisible: ({
+    children,
+    minHeightClassName,
+  }: {
+    children: React.ReactNode;
+    minHeightClassName?: string;
+  }) => (
+    <div data-testid="when-visible" data-min-height={minHeightClassName}>
+      {children}
+    </div>
   ),
 }));
 
@@ -106,6 +123,15 @@ describe("StateCharts", () => {
       "lending.new_commitments.investor.nsw.seasadj",
     );
     expect(lending).toHaveAttribute("data-format", "aud");
+    expect(lending).toHaveAttribute("data-shared-scale", "true");
+  });
+
+  it("viewport-gates the crime card using its loading height", () => {
+    render(<StateCharts state="nsw" />);
+
+    const gate = screen.getByTestId("when-visible");
+    expect(gate).toHaveAttribute("data-min-height", "h-[340px]");
+    expect(gate).toHaveTextContent("Crime card");
   });
 
   it("renders three safe official finance links for every state", () => {

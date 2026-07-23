@@ -136,7 +136,10 @@ func GetToolDefinitions() []ToolDefinition {
 				"construction.work_done.total.{state}.seasadj; " +
 				"crime.victims.{offence}.{state}; crime.victims_rate_100k.{offence}.{state}. " +
 				"State values: lowercase nsw/vic/qld/sa/wa/tas/nt/act. " +
-				"Industry examples: materials, energy, banks, software-services.",
+				"Business industry values (ANZSIC divisions): mining, manufacturing, retail-trade. " +
+				"Market industry values (GICS): materials, energy, banks. " +
+				"Offence values: homicide, assault, sexual-assault, robbery, unlawful-entry, " +
+				"motor-vehicle-theft, other-theft.",
 			Parameters: map[string]ToolParameter{
 				"series_keys": {Type: "array", Description: "Series keys to fetch (required, max 10)"},
 				"limit":       {Type: "integer", Description: "Observations per series (default 12, max 60)"},

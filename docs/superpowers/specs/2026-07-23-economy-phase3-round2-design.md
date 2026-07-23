@@ -84,11 +84,12 @@ release-page machinery.
   contains "states and territories" (currently
   `2.%20Victims%20of%20crime%2C%20states%20and%20territories%20%28Tables%209%20to%2016%29.xlsx`
   under a year-versioned path) — fail loud if not found.
-- Cube shape (inspected): one sheet per state ("Table 9"…"Table 16" — the
-  state name appears in a section header row under the year header row;
-  actually each table IS one state — confirm by reading each sheet's title
-  row "Table N Victims, Selected offences, <STATE>"), years as columns
-  (1993→2024), offence rows. Cells may be `np` (not published) — skip.
+- Cube shape (verified by live ingest): Table 9 contains all eight states and
+  territories as successive section blocks under one shared year header;
+  Tables 10–16 are analytical breakdowns, not one sheet per state. Years are
+  columns (1993→the current release end year; 2024 in the inspected workbook),
+  with offence rows beneath each state section. Cells may be `np` (not
+  published) — skip.
 - Offence static map (pin from the actual sheet rows; expected set):
   Homicide and related offences → homicide, Assault → assault,
   Sexual assault → sexual-assault, Robbery → robbery,

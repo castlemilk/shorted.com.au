@@ -20,10 +20,9 @@ import (
 const (
 	crimePage = "https://www.abs.gov.au/statistics/people/crime-and-justice/recorded-crime-victims/latest-release"
 
-	crimeSource     = "abs-recorded-crime-victims"
-	crimeLicence    = absdata.Licence
-	crimeSheet      = "Table 9"
-	crimeTableTitle = "Table 9 Victims, Selected offences by states and territories, 1993 to 2024"
+	crimeSource  = "abs-recorded-crime-victims"
+	crimeLicence = absdata.Licence
+	crimeSheet   = "Table 9"
 )
 
 type crimeStateSpec struct {
@@ -66,7 +65,8 @@ var crimeOffenceOrder = []string{
 }
 
 var (
-	crimeFootnoteSuffixRe = regexp.MustCompile(`(?i)(?:\([a-z]+\))+$`)
+	crimeTableTitleRe     = regexp.MustCompile(`^Table 9 Victims, Selected offences by states and territories, 1993 to (\d{4})$`)
+	crimeFootnoteSuffixRe = regexp.MustCompile(`(?i)(?:\s*\([a-z0-9]+\))+$`)
 	crimeYearRe           = regexp.MustCompile(`^(\d{4})(?:\([A-Za-z]+\))*$`)
 )
 
@@ -164,18 +164,12 @@ func parseCrimeWorkbook(f *excelize.File, sourceURL string) ([]Obs, error) {
 	if err != nil {
 		return nil, err
 	}
-	titleFound := false
-	for _, row := range rows {
-		if len(row) > 0 && strings.TrimSpace(row[0]) == crimeTableTitle {
-			titleFound = true
-			break
-		}
-	}
-	if !titleFound {
-		return nil, fmt.Errorf("%s title %q not found — layout drift", crimeSheet, crimeTableTitle)
+	lastYear, err := crimeTableEndYear(rows)
+	if err != nil {
+		return nil, err
 	}
 
-	years, err := crimeYearColumns(rows)
+	years, err := crimeYearColumns(rows, lastYear)
 	if err != nil {
 		return nil, err
 	}
@@ -199,12 +193,34 @@ func parseCrimeWorkbook(f *excelize.File, sourceURL string) ([]Obs, error) {
 	return all, nil
 }
 
-func crimeYearColumns(rows [][]string) ([]crimeYearColumn, error) {
+func crimeTableEndYear(rows [][]string) (int, error) {
+	for _, row := range rows {
+		if len(row) == 0 {
+			continue
+		}
+		title := strings.TrimSpace(row[0])
+		match := crimeTableTitleRe.FindStringSubmatch(title)
+		if match == nil {
+			continue
+		}
+		lastYear, err := strconv.Atoi(match[1])
+		if err != nil {
+			return 0, fmt.Errorf("%s malformed title end year %q — layout drift", crimeSheet, match[1])
+		}
+		if lastYear < 1993 {
+			return 0, fmt.Errorf("%s title end year %d precedes 1993 — layout drift", crimeSheet, lastYear)
+		}
+		return lastYear, nil
+	}
+	return 0, fmt.Errorf("%s title matching %q not found — layout drift", crimeSheet, crimeTableTitleRe.String())
+}
+
+func crimeYearColumns(rows [][]string, lastYear int) ([]crimeYearColumn, error) {
 	for _, row := range rows {
 		if len(row) == 0 || !strings.EqualFold(strings.TrimSpace(row[0]), "Offence") {
 			continue
 		}
-		const firstYear, lastYear = 1993, 2024
+		const firstYear = 1993
 		years := make([]crimeYearColumn, 0, lastYear-firstYear+1)
 		seen := map[int]bool{}
 		expected := firstYear

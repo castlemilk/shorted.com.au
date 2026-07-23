@@ -1,3 +1,6 @@
+import { create } from "@bufbuild/protobuf";
+
+import { GetEconomicSeriesResponseSchema } from "~/gen/shorts/v1alpha1/economy_pb";
 import {
   ECONOMY_MAP_METRICS,
   ECONOMY_SERIES_FORMATTERS,
@@ -5,6 +8,7 @@ import {
   STATE_CORRELATION_CANDIDATES,
   seriesKeysFor,
   buildStateValues,
+  observationsFor,
   yoyPct,
   rankOf,
   type EconomyMapMetric,
@@ -31,6 +35,28 @@ const asSeries = (m: EconomyMapMetric): EconomySeriesMetric => {
 };
 
 describe("map-metrics", () => {
+  it("converts proto observations, dropping unset/invalid periods and sorting ascending", () => {
+    const response = create(GetEconomicSeriesResponseSchema, {
+      series: [
+        {
+          info: { seriesKey: "example.series" },
+          observations: [
+            { period: { seconds: 1_704_067_200n }, value: 20 },
+            { value: 999 },
+            { period: { seconds: 9_000_000_000_000n }, value: 888 },
+            { period: { seconds: 1_672_531_200n }, value: 10 },
+          ],
+        },
+      ],
+    });
+
+    expect(observationsFor(response, "example.series")).toEqual([
+      { date: new Date("2023-01-01T00:00:00.000Z"), value: 10 },
+      { date: new Date("2024-01-01T00:00:00.000Z"), value: 20 },
+    ]);
+    expect(observationsFor(response, "missing.series")).toEqual([]);
+  });
+
   it("formats negative megalitres using the absolute threshold and signed value", () => {
     expect(ECONOMY_SERIES_FORMATTERS.megalitres(-1500)).toBe("-1.5GL");
   });

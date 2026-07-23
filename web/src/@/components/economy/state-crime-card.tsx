@@ -4,17 +4,16 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { getEconomicSeriesClient } from "~/app/actions/client/getEconomyClient";
-import type { GetEconomicSeriesResponse } from "~/gen/shorts/v1alpha1/economy_pb";
 import {
+  observationsFor,
   STATE_NAMES,
   type EconomySeriesDisplayFormat,
-  type Obs,
   type StateSlug,
 } from "@/lib/economy/map-metrics";
 import { EconomyIcon } from "./economy-icon";
 import { EconomySeriesChartView } from "./economy-charts";
 
-export const CRIME_OFFENCES = [
+const CRIME_OFFENCES = [
   { slug: "homicide", label: "Homicide" },
   { slug: "assault", label: "Assault" },
   { slug: "sexual-assault", label: "Sexual assault" },
@@ -56,21 +55,6 @@ function crimeKeys(state: StateSlug): string[] {
     seriesKey(state, slug, "count"),
     seriesKey(state, slug, "rate"),
   ]);
-}
-
-function observationsFor(
-  response: Pick<GetEconomicSeriesResponse, "series"> | undefined,
-  key: string,
-): Obs[] {
-  const series = response?.series.find((item) => item.info?.seriesKey === key);
-  return (series?.observations ?? [])
-    .filter((observation) => observation.period != null)
-    .map((observation) => ({
-      date: new Date(Number(observation.period!.seconds) * 1000),
-      value: observation.value,
-    }))
-    .filter((point) => !Number.isNaN(point.date.getTime()))
-    .sort((a, b) => a.date.getTime() - b.date.getTime());
 }
 
 /** Annual ABS Recorded Crime — Victims card for an individual state page. */

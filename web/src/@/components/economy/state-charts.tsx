@@ -10,6 +10,7 @@ import { StateCorrelations } from "./state-correlations";
 import { StateCrimeCard } from "./state-crime-card";
 import { EconomyIcon, type EconomyIconName } from "./economy-icon";
 import { hasDiesel, hasLabour } from "./availability";
+import { WhenVisible } from "@/components/housing/when-visible";
 import {
   STATE_NAMES,
   type EconomySeriesDisplayFormat,
@@ -36,10 +37,11 @@ type StateChartDefinition =
       secondaryLabel: string;
       ariaLabel: string;
       format: EconomySeriesDisplayFormat;
+      sharedScale?: boolean;
     };
 
 /** Serializable registry for the round-2 state chart additions. */
-export const STATE_CHART_REGISTRY: StateChartDefinition[] = [
+const STATE_CHART_REGISTRY: StateChartDefinition[] = [
   {
     kind: "single",
     title: "Household spending",
@@ -59,6 +61,7 @@ export const STATE_CHART_REGISTRY: StateChartDefinition[] = [
     secondaryLabel: "Investor",
     ariaLabel: "new housing lending commitments",
     format: "aud",
+    sharedScale: true,
   },
   {
     kind: "single",
@@ -199,13 +202,16 @@ export function StateCharts({ state }: { state: StateSlug }) {
                 ariaLabel={`${name} ${chart.ariaLabel}`}
                 format={chart.format}
                 height={220}
+                sharedScale={chart.sharedScale}
               />
             )}
           </div>
         ))}
       </section>
 
-      <StateCrimeCard state={state} />
+      <WhenVisible minHeightClassName="h-[340px]">
+        <StateCrimeCard state={state} />
+      </WhenVisible>
 
       {/* State finances — ABS Government Finance Statistics. Revenue and
           expenses side-by-side (like quantities → shared read), net operating

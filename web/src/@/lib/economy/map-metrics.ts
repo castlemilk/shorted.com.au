@@ -23,6 +23,7 @@
  */
 import { scaleSequential, scaleDiverging } from "d3-scale";
 import { interpolateOranges, interpolateRdBu } from "d3-scale-chromatic";
+import type { GetEconomicSeriesResponse } from "~/gen/shorts/v1alpha1/economy_pb";
 import { STE_CODE_TO_STATE, STATE_TO_STE_CODE } from "@/lib/housing/states";
 
 export type EconomyMapMetricKey =
@@ -454,6 +455,23 @@ export interface Obs {
   date: Date;
   value: number;
 }
+
+/** Extract valid observations from a batched proto response by stable series key. */
+export function observationsFor(
+  response: Pick<GetEconomicSeriesResponse, "series"> | undefined,
+  key: string,
+): Obs[] {
+  const series = response?.series.find((item) => item.info?.seriesKey === key);
+  return (series?.observations ?? [])
+    .filter((observation) => observation.period != null)
+    .map((observation) => ({
+      date: new Date(Number(observation.period!.seconds) * 1000),
+      value: observation.value,
+    }))
+    .filter((point) => !Number.isNaN(point.date.getTime()))
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
+}
+
 export interface StateSeries {
   state: string;
   observations: Obs[];

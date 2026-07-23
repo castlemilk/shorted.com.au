@@ -3,28 +3,12 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { getEconomicSeriesClient } from "~/app/actions/client/getEconomyClient";
-import type { GetEconomicSeriesResponse } from "~/gen/shorts/v1alpha1/economy_pb";
 import {
   ECONOMY_SERIES_FORMATTERS,
+  observationsFor,
   type EconomySeriesDisplayFormat,
-  type Obs,
 } from "@/lib/economy/map-metrics";
 import { DualAxisChart } from "./dual-axis-chart";
-
-function observationsFor(
-  response: Pick<GetEconomicSeriesResponse, "series"> | undefined,
-  key: string,
-): Obs[] {
-  const series = response?.series.find((item) => item.info?.seriesKey === key);
-  return (series?.observations ?? [])
-    .filter((observation) => observation.period != null)
-    .map((observation) => ({
-      date: new Date(Number(observation.period!.seconds) * 1000),
-      value: observation.value,
-    }))
-    .filter((point) => !Number.isNaN(point.date.getTime()))
-    .sort((a, b) => a.date.getTime() - b.date.getTime());
-}
 
 /** Fetches and plots two economic series through the existing two-line chart primitive. */
 export function EconomyComparisonChart({
@@ -35,6 +19,7 @@ export function EconomyComparisonChart({
   ariaLabel,
   format,
   height = 220,
+  sharedScale = false,
 }: {
   primaryKey: string;
   secondaryKey: string;
@@ -43,6 +28,7 @@ export function EconomyComparisonChart({
   ariaLabel: string;
   format: EconomySeriesDisplayFormat;
   height?: number;
+  sharedScale?: boolean;
 }) {
   const { data, isLoading } = useQuery({
     queryKey: ["economy-series-comparison", primaryKey, secondaryKey],
@@ -70,6 +56,7 @@ export function EconomyComparisonChart({
       formatSecondary={formatter}
       ariaLabel={ariaLabel}
       height={height}
+      sharedScale={sharedScale}
     />
   );
 }

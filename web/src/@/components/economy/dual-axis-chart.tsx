@@ -50,6 +50,24 @@ function yDomain(points: SeriesPoint[]): [number, number] {
   return [min - pad, max + pad];
 }
 
+export function yDomainsFor(
+  primary: SeriesPoint[],
+  secondary: SeriesPoint[],
+  sharedScale: boolean,
+): {
+  primary: [number, number];
+  secondary: [number, number];
+} {
+  if (sharedScale) {
+    const shared = yDomain([...primary, ...secondary]);
+    return { primary: shared, secondary: shared };
+  }
+  return {
+    primary: yDomain(primary),
+    secondary: yDomain(secondary),
+  };
+}
+
 export interface DualAxisChartProps {
   primary: SeriesPoint[];
   secondary: SeriesPoint[];
@@ -59,6 +77,8 @@ export interface DualAxisChartProps {
   formatSecondary?: (value: number) => string;
   height?: number;
   ariaLabel: string;
+  /** Plot like-unit series against one shared y-domain and show only the left axis. */
+  sharedScale?: boolean;
 }
 
 interface HoverState {
@@ -77,6 +97,7 @@ function ChartInner({
   width,
   height,
   ariaLabel,
+  sharedScale,
 }: Required<DualAxisChartProps> & { width: number }) {
   const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } =
     useTooltip<HoverState>();
@@ -93,13 +114,29 @@ function ChartInner({
     });
   }, [primary, secondary, innerWidth]);
 
+  const yDomains = useMemo(
+    () => yDomainsFor(primary, secondary, sharedScale),
+    [primary, secondary, sharedScale],
+  );
   const yPrimary = useMemo(
-    () => scaleLinear({ domain: yDomain(primary), range: [innerHeight, 0], nice: true }),
-    [primary, innerHeight],
+    () =>
+      scaleLinear({
+        domain: yDomains.primary,
+        range: [innerHeight, 0],
+        nice: true,
+      }),
+    [yDomains, innerHeight],
   );
   const ySecondary = useMemo(
-    () => scaleLinear({ domain: yDomain(secondary), range: [innerHeight, 0], nice: true }),
-    [secondary, innerHeight],
+    () =>
+      sharedScale
+        ? yPrimary
+        : scaleLinear({
+            domain: yDomains.secondary,
+            range: [innerHeight, 0],
+            nice: true,
+          }),
+    [sharedScale, yDomains, innerHeight, yPrimary],
   );
 
   const handleMouseMove = useCallback(
@@ -173,21 +210,23 @@ function ChartInner({
               dy: "0.3em",
             })}
           />
-          <AxisRight
-            left={innerWidth}
-            scale={ySecondary}
-            numTicks={4}
-            stroke={AXIS_LINE}
-            hideTicks
-            tickFormat={(v) => formatSecondary(Number(v))}
-            tickLabelProps={() => ({
-              fill: SECONDARY,
-              fontSize: 10,
-              textAnchor: "start" as const,
-              dx: "0.25em",
-              dy: "0.3em",
-            })}
-          />
+          {!sharedScale ? (
+            <AxisRight
+              left={innerWidth}
+              scale={ySecondary}
+              numTicks={4}
+              stroke={AXIS_LINE}
+              hideTicks
+              tickFormat={(v) => formatSecondary(Number(v))}
+              tickLabelProps={() => ({
+                fill: SECONDARY,
+                fontSize: 10,
+                textAnchor: "start" as const,
+                dx: "0.25em",
+                dy: "0.3em",
+              })}
+            />
+          ) : null}
           {tooltipOpen && tooltipData?.p && (
             <circle
               cx={xScale(tooltipData.p.date)}
@@ -285,7 +324,8 @@ function LegendChip({ color, dashed, label }: { color: string; dashed?: boolean;
 
 /**
  * A lean two-series line chart with independent left (amber, primary) and right
- * (slate, secondary) y-axes over a shared time x-axis. Built dedicated rather
+ * (slate, secondary) y-axes by default, or an opt-in shared y-scale for
+ * like-unit comparisons, over a shared time x-axis. Built dedicated rather
  * than reusing the heavier multi-series StockChart panel — two arbitrary
  * economic series only need this. Purely presentational; data fetching lives in
  * the wrapping component. SSR-safe via the ssr:false loader chain.
@@ -299,6 +339,7 @@ export function DualAxisChart({
   formatSecondary = (v) => v.toFixed(1),
   height = 260,
   ariaLabel,
+  sharedScale = false,
 }: DualAxisChartProps) {
   const hasAny = primary.length >= 2 || secondary.length >= 2;
   return (
@@ -322,6 +363,7 @@ export function DualAxisChart({
                   width={width}
                   height={height}
                   ariaLabel={ariaLabel}
+                  sharedScale={sharedScale}
                 />
               ) : null
             }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math"
 	"os"
 	"strconv"
@@ -24,8 +25,12 @@ var crimeFixtureStates = []struct {
 }
 
 func crimeFixtureYearHeader() []string {
+	return crimeFixtureYearHeaderThrough(2024)
+}
+
+func crimeFixtureYearHeaderThrough(lastYear int) []string {
 	header := []string{"Offence"}
-	for year := 1993; year <= 2024; year++ {
+	for year := 1993; year <= lastYear; year++ {
 		label := strconv.Itoa(year)
 		switch year {
 		case 1999:
@@ -38,54 +43,58 @@ func crimeFixtureYearHeader() []string {
 	return header
 }
 
-func crimeFixtureOffenceRow(label string, valueForYear func(int) interface{}) []interface{} {
+func crimeFixtureOffenceRowThrough(lastYear int, label string, valueForYear func(int) interface{}) []interface{} {
 	row := []interface{}{label}
-	for year := 1993; year <= 2024; year++ {
+	for year := 1993; year <= lastYear; year++ {
 		row = append(row, valueForYear(year))
 	}
 	return row
 }
 
 func crimeFixtureWorkbook(t *testing.T) *excelize.File {
+	return crimeFixtureWorkbookThrough(t, 2024)
+}
+
+func crimeFixtureWorkbookThrough(t *testing.T, lastYear int) *excelize.File {
 	t.Helper()
 	f := excelize.NewFile()
 	if err := f.SetSheetName("Sheet1", "Table 9"); err != nil {
 		t.Fatal(err)
 	}
-	header := crimeFixtureYearHeader()
+	header := crimeFixtureYearHeaderThrough(lastYear)
 	headerRow := make([]interface{}, len(header))
 	for i, cell := range header {
 		headerRow[i] = cell
 	}
 	rows := [][]interface{}{
-		{"This table shows Victims from 2023 - 2024, by states and territories by number."},
+		{fmt.Sprintf("This table shows Victims from %d - %d, by states and territories by number.", lastYear-1, lastYear)},
 		{"Australian Bureau of Statistics"},
-		{"Table 9 Victims, Selected offences by states and territories, 1993 to 2024"},
-		{"Recorded Crime – Victims, 2024"},
+		{fmt.Sprintf("Table 9 Victims, Selected offences by states and territories, 1993 to %d", lastYear)},
+		{fmt.Sprintf("Recorded Crime – Victims, %d", lastYear)},
 		{"", "Year"},
 		headerRow,
 	}
 	for _, state := range crimeFixtureStates {
 		rows = append(rows,
 			[]interface{}{"", state.name},
-			crimeFixtureOffenceRow("Homicide and related offences(h)", func(year int) interface{} {
-				if year == 2024 {
+			crimeFixtureOffenceRowThrough(lastYear, "Homicide and related offences(h)", func(year int) interface{} {
+				if year == lastYear {
 					return "240"
 				}
 				return "250"
 			}),
-			crimeFixtureOffenceRow("Murder", func(int) interface{} { return "140" }), // subrow: skipped and counted
-			crimeFixtureOffenceRow("Assault(i)(x)", func(year int) interface{} {
+			crimeFixtureOffenceRowThrough(lastYear, "Murder", func(int) interface{} { return "140" }), // subrow: skipped and counted
+			crimeFixtureOffenceRowThrough(lastYear, "Assault(i)(x)", func(year int) interface{} {
 				if year == 1993 {
 					return "np"
 				}
 				return "65,000"
 			}),
-			crimeFixtureOffenceRow("Sexual assault(p)", func(int) interface{} { return "3,000" }),
-			crimeFixtureOffenceRow("Robbery", func(int) interface{} { return "1,000" }),
-			crimeFixtureOffenceRow("Unlawful entry with intent(l)(s)", func(int) interface{} { return "20,000" }),
-			crimeFixtureOffenceRow("Motor vehicle theft", func(int) interface{} { return "8,000" }),
-			crimeFixtureOffenceRow("Other theft(m)", func(year int) interface{} {
+			crimeFixtureOffenceRowThrough(lastYear, "Sexual assault(p)", func(int) interface{} { return "3,000" }),
+			crimeFixtureOffenceRowThrough(lastYear, "Robbery", func(int) interface{} { return "1,000" }),
+			crimeFixtureOffenceRowThrough(lastYear, "Unlawful entry with intent(l)(s)", func(int) interface{} { return "20,000" }),
+			crimeFixtureOffenceRowThrough(lastYear, "Motor vehicle theft", func(int) interface{} { return "8,000" }),
+			crimeFixtureOffenceRowThrough(lastYear, "Other theft(m)", func(year int) interface{} {
 				if year == 1994 {
 					return ""
 				}
@@ -109,6 +118,20 @@ func crimeFixtureWorkbook(t *testing.T) *excelize.File {
 		t.Fatal(err)
 	}
 	return f
+}
+
+func TestStripCrimeFootnotesNormalizesLetterNumericAndMixedSuffixes(t *testing.T) {
+	tests := map[string]string{
+		"Assault (1)":                "Assault",
+		"Robbery(a1)":                "Robbery",
+		"Other theft (2)(b3)  ":      "Other theft",
+		"Motor vehicle theft (note)": "Motor vehicle theft",
+	}
+	for input, want := range tests {
+		if got := stripCrimeFootnotes(input); got != want {
+			t.Errorf("stripCrimeFootnotes(%q) = %q, want %q", input, got, want)
+		}
+	}
 }
 
 func TestSelectCrimeXLSXLinkMatchesDecodedURLOrDisplayText(t *testing.T) {
@@ -189,7 +212,7 @@ func TestCrimeYearColumnsRejectsDrift(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			header := tc.mutate(crimeFixtureYearHeader())
-			_, err := crimeYearColumns([][]string{header})
+			_, err := crimeYearColumns([][]string{header}, 2024)
 			if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
 				t.Fatalf("want error containing %q, got %v", tc.wantErr, err)
 			}
@@ -252,6 +275,30 @@ func TestParseCrimeWorkbookTable9AllStateSections(t *testing.T) {
 	if _, present := byKeyPeriod["crime.victims.murder.nsw@2024-01-01"]; present {
 		t.Fatal("unmapped subrow must not create a series")
 	}
+}
+
+func TestParseCrimeWorkbookAcceptsContiguous2025Extension(t *testing.T) {
+	f := crimeFixtureWorkbookThrough(t, 2025)
+	defer f.Close()
+
+	obs, err := parseCrimeWorkbook(f, "https://example.test/crime-2025.xlsx")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 8 states × (7 offences × 33 years - one np cell - one blank cell).
+	if got, want := len(obs), 1832; got != want {
+		t.Fatalf("len(obs) = %d, want %d", got, want)
+	}
+	for _, observation := range obs {
+		if observation.Series.Key() == "crime.victims.homicide.nsw" &&
+			observation.Period.Format("2006-01-02") == "2025-01-01" {
+			if observation.Value != 240 {
+				t.Fatalf("2025 homicide value = %v, want 240", observation.Value)
+			}
+			return
+		}
+	}
+	t.Fatal("2025 extension observation not parsed")
 }
 
 func TestParseCrimeWorkbookKeepsHealthyStatesWhenOneSectionDrifts(t *testing.T) {
