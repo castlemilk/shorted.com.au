@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -439,20 +440,37 @@ func upsertCrime(ctx context.Context, pool *pgxpool.Pool, rows []CrimeStatRow) (
 			source                 = EXCLUDED.source,
 			source_licence         = EXCLUDED.source_licence,
 			fetched_at             = now()`
-	batch := &pgx.Batch{}
-	for _, r := range rows {
-		batch.Queue(q, r.SalCode, r.CrimeType, r.FYEnding, r.Pooled, r.RawCount,
-			r.AdjustedCount, r.RatePer100k, r.PctRank, r.Population, r.ScaleFactor,
-			r.SmallPop, r.Unreliable, r.Jurisdiction, r.Source, r.SourceLicence)
-	}
-	br := pool.SendBatch(ctx, batch)
-	defer func() { _ = br.Close() }()
+	// Chunk the send: crime is ~527k rows, and a single pgx.Batch that large
+	// pipelines every statement in one round-trip which STALLS through Supabase's
+	// PgBouncer transaction pooler (observed hanging at 0 rows). Send in bounded
+	// chunks so each is a manageable pooled transaction, with progress logging.
+	const chunkSize = 2000
 	n := 0
-	for range rows {
-		if _, err := br.Exec(); err != nil {
+	for start := 0; start < len(rows); start += chunkSize {
+		end := start + chunkSize
+		if end > len(rows) {
+			end = len(rows)
+		}
+		batch := &pgx.Batch{}
+		for _, r := range rows[start:end] {
+			batch.Queue(q, r.SalCode, r.CrimeType, r.FYEnding, r.Pooled, r.RawCount,
+				r.AdjustedCount, r.RatePer100k, r.PctRank, r.Population, r.ScaleFactor,
+				r.SmallPop, r.Unreliable, r.Jurisdiction, r.Source, r.SourceLicence)
+		}
+		br := pool.SendBatch(ctx, batch)
+		for range rows[start:end] {
+			if _, err := br.Exec(); err != nil {
+				_ = br.Close()
+				return n, err
+			}
+			n++
+		}
+		if err := br.Close(); err != nil {
 			return n, err
 		}
-		n++
+		if n%50000 == 0 || end == len(rows) {
+			log.Printf("[crime] upsert progress: %d/%d rows", n, len(rows))
+		}
 	}
 	return n, nil
 }
