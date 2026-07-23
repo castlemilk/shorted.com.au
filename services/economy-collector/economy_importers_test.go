@@ -23,6 +23,7 @@ func TestNewABSImportersAreRegisteredSources(t *testing.T) {
 		"abs-lending-indicators":     {url: "https://www.abs.gov.au/statistics/economy/finance/lending-indicators/latest-release", cadence: "Quarterly"},
 		"abs-construction-work-done": {url: "https://www.abs.gov.au/statistics/industry/building-and-construction/construction-work-done-australia-preliminary/latest-release", cadence: "Quarterly"},
 		"abs-business-indicators":    {url: "https://www.abs.gov.au/statistics/economy/business-indicators/business-indicators-australia/latest-release", cadence: "Quarterly"},
+		"abs-recorded-crime-victims": {url: "https://www.abs.gov.au/statistics/people/crime-and-justice/recorded-crime-victims/latest-release", cadence: "Annual"},
 	}
 	for _, source := range sourceDefs {
 		expected, ok := want[source.Key]
@@ -46,7 +47,7 @@ func TestNewABSImportersAreRegisteredSources(t *testing.T) {
 func TestAllModeIncludesNewABSImporters(t *testing.T) {
 	want := []string{
 		"rba", "cpi", "labour", "trade", "gdp", "approvals", "retail", "population",
-		"petroleum", "govfin", "vacancies", "wages", "spending", "lending", "construction", "business", "markets", "derived",
+		"petroleum", "govfin", "vacancies", "wages", "spending", "lending", "construction", "business", "crime", "markets", "derived",
 	}
 	if !reflect.DeepEqual(allJobModes, want) {
 		t.Fatalf("allJobModes=%#v, want exact deterministic order %#v", allJobModes, want)
@@ -60,6 +61,9 @@ func TestAllModeIncludesNewABSImporters(t *testing.T) {
 	}
 	if got := allJobModes[len(allJobModes)-1]; got != "derived" {
 		t.Errorf("derived must run last, got final mode %q", got)
+	}
+	if got := allJobModes[len(allJobModes)-3]; got != "crime" {
+		t.Errorf("crime must run immediately before markets, got mode %q", got)
 	}
 	if got := allJobModes[len(allJobModes)-2]; got != "markets" {
 		t.Errorf("markets must run immediately before derived, got penultimate mode %q", got)
@@ -86,7 +90,7 @@ func TestDerivedEconomySourceIsRegistered(t *testing.T) {
 		if source.Key != "derived-shorted-economy" {
 			continue
 		}
-		if source.Method != "derived" || source.Licence != "derived" || source.Cadence != "Monthly + quarterly" {
+		if source.Method != "derived" || source.Licence != "derived" || source.Cadence != "Annual + monthly + quarterly" {
 			t.Errorf("derived source metadata = %#v", source)
 		}
 		if !strings.Contains(source.Notes, "national CPI") {
@@ -95,6 +99,21 @@ func TestDerivedEconomySourceIsRegistered(t *testing.T) {
 		return
 	}
 	t.Fatal("sourceDefs missing derived-shorted-economy")
+}
+
+func TestCrimeSourceDocumentsCrossStateComparabilityCaveat(t *testing.T) {
+	for _, source := range sourceDefs {
+		if source.Key != "abs-recorded-crime-victims" {
+			continue
+		}
+		for _, phrase := range []string{"assault", "sexual-assault", "not comparable across states", "recording practices"} {
+			if !strings.Contains(strings.ToLower(source.Notes), phrase) {
+				t.Errorf("crime source notes omit %q caveat: %q", phrase, source.Notes)
+			}
+		}
+		return
+	}
+	t.Fatal("sourceDefs missing abs-recorded-crime-victims")
 }
 
 func assertSDMXRowError(t *testing.T, err error, parser string, csvRow int) {

@@ -13,10 +13,11 @@ import (
 
 // allJobModes is kept explicit so collection order is deterministic and a
 // failed importer counts once in the all-mode summary. Pool-derived modes run
-// after fetched inputs, with derived last because it consumes CPI/WPI/trade.
+// after fetched inputs, with derived last because it consumes CPI/WPI/trade,
+// recorded-crime victims, and population ERP.
 var allJobModes = []string{
 	"rba", "cpi", "labour", "trade", "gdp", "approvals", "retail", "population",
-	"petroleum", "govfin", "vacancies", "wages", "spending", "lending", "construction", "business", "markets", "derived",
+	"petroleum", "govfin", "vacancies", "wages", "spending", "lending", "construction", "business", "crime", "markets", "derived",
 }
 
 func main() {
@@ -24,7 +25,7 @@ func main() {
 }
 
 func run() int {
-	mode := flag.String("mode", "all", "sources | rba | cpi | labour | trade | gdp | approvals | retail | population | petroleum | govfin | vacancies | wages | spending | lending | construction | business | markets | derived | all")
+	mode := flag.String("mode", "all", "sources | rba | cpi | labour | trade | gdp | approvals | retail | population | petroleum | govfin | vacancies | wages | spending | lending | construction | business | crime | markets | derived | all")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -64,6 +65,7 @@ func run() int {
 		"lending":      {"abs-lending-indicators", ingestLending},
 		"construction": {"abs-construction-work-done", ingestConstruction},
 		"business":     {"abs-business-indicators", ingestBusiness},
+		"crime":        {"abs-recorded-crime-victims", ingestCrime},
 		// markets is DERIVED from the DB (shorts × exposure MV), not fetched
 		// from a web source — so it takes the pool, not the client. Wrap it in
 		// a client-shaped closure so it reuses the same runJob plumbing; the
@@ -110,7 +112,7 @@ func run() int {
 		if err := registerSources(ctx, pool); err != nil {
 			log.Fatalf("register sources: %v", err)
 		}
-	case "rba", "cpi", "labour", "trade", "gdp", "approvals", "retail", "population", "petroleum", "govfin", "vacancies", "wages", "spending", "lending", "construction", "business", "markets", "derived":
+	case "rba", "cpi", "labour", "trade", "gdp", "approvals", "retail", "population", "petroleum", "govfin", "vacancies", "wages", "spending", "lending", "construction", "business", "crime", "markets", "derived":
 		if err := registerSources(ctx, pool); err != nil {
 			log.Fatalf("register sources: %v", err)
 		}
@@ -123,8 +125,9 @@ func run() int {
 		}
 		failed := 0
 		// Pool-derived modes run after fetched inputs. In particular, derived
-		// must run LAST because it consumes CPI, WPI, and trade rows written by
-		// this same all-mode run; markets stays immediately before it.
+		// must run LAST because it consumes CPI, WPI, trade, crime, and ERP rows
+		// written by this same all-mode run; crime is immediately before markets
+		// so its persisted observations are available to the final derived job.
 		for _, name := range allJobModes {
 			if !runJob(jobs[name]) {
 				failed++
@@ -135,7 +138,7 @@ func run() int {
 			return 1
 		}
 	default:
-		log.Fatalf("unknown -mode %q (want sources|rba|cpi|labour|trade|gdp|approvals|retail|population|petroleum|govfin|vacancies|wages|spending|lending|construction|business|markets|derived|all)", *mode)
+		log.Fatalf("unknown -mode %q (want sources|rba|cpi|labour|trade|gdp|approvals|retail|population|petroleum|govfin|vacancies|wages|spending|lending|construction|business|crime|markets|derived|all)", *mode)
 	}
 	return 0
 }
