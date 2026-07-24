@@ -29,6 +29,7 @@ export function StateCorrelations({ state }: { state: StateSlug }) {
       sectionAriaLabel={`${name} short interest correlations`}
       chartAriaLabel={`${name} local short interest versus`}
       defaultOverlayKey={exportsKey}
+      precomputedBaseKey={shortKey}
     />
   );
 }

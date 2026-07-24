@@ -38,6 +38,8 @@ export type EconomyMapMetricKey =
   | "imports"
   | "trade_balance"
   | "diesel_sales"
+  | "dwelling_approvals"
+  | "construction_work_done"
   | "company_footprint"
   | "local_short_interest";
 
@@ -86,7 +88,7 @@ interface EconomyMapMetricBase {
   key: EconomyMapMetricKey;
   label: string;
   legendLabel: string;
-  format: "percent" | "aud" | "megalitres";
+  format: "percent" | "aud" | "megalitres" | "number";
   palette: "continuous" | "diverging";
   higherIsBad?: boolean;
 }
@@ -227,6 +229,23 @@ export const ECONOMY_MAP_METRICS: EconomyMapMetric[] = [
     unavailableStates: ["act"],
     unavailableNote: "DCCEEW folds ACT fuel sales into NSW",
   }),
+  series({
+    key: "dwelling_approvals",
+    label: "Dwelling approvals",
+    legendLabel: "Dwelling units approved (monthly)",
+    seriesKeyTemplate: "approvals.dwelling_units.total.{state}",
+    format: "number",
+    palette: "continuous",
+  }),
+  series({
+    key: "construction_work_done",
+    label: "Construction work done",
+    legendLabel: "Construction work done (quarterly, seas. adj.)",
+    seriesKeyTemplate:
+      "construction.work_done.total.{state}.seasadj",
+    format: "aud",
+    palette: "continuous",
+  }),
   {
     kind: "aggregate",
     key: "company_footprint",
@@ -301,6 +320,11 @@ export const NATIONAL_ECONOMY_OVERLAYS: EconomyCorrelationSeriesDef[] = [
     label: "Inflation",
     format: "percent",
   },
+  {
+    key: "spending.household_per_capita.total.aus.seasadj",
+    label: "Household spending per capita",
+    format: "aud",
+  },
 ];
 
 export interface StateCorrelationCandidateMetric {
@@ -317,6 +341,11 @@ export interface StateCorrelationCandidateMetric {
  * `unavailableStates` convention as the map registry.
  */
 export const STATE_CORRELATION_CANDIDATES: StateCorrelationCandidateMetric[] = [
+  {
+    seriesKeyTemplate: "markets.price_return_index.{state}",
+    label: "Share-price return index",
+    format: "index",
+  },
   {
     seriesKeyTemplate: "commodities.price_index.bulk.aus",
     label: "Bulk commodity prices",
@@ -369,6 +398,12 @@ export const STATE_CORRELATION_CANDIDATES: StateCorrelationCandidateMetric[] = [
     format: "aud",
   },
   {
+    seriesKeyTemplate:
+      "gdp.state_final_demand_per_capita.total.{state}.seasadj",
+    label: "State final demand per capita",
+    format: "aud",
+  },
+  {
     seriesKeyTemplate: "govfin.revenue.total.{state}",
     label: "Govt revenue",
     format: "aud",
@@ -381,6 +416,12 @@ export const STATE_CORRELATION_CANDIDATES: StateCorrelationCandidateMetric[] = [
   {
     seriesKeyTemplate: "spending.household.total.{state}.seasadj",
     label: "Household spending",
+    format: "aud",
+  },
+  {
+    seriesKeyTemplate:
+      "spending.household_per_capita.total.{state}.seasadj",
+    label: "Household spending per capita",
     format: "aud",
   },
   {
@@ -397,6 +438,12 @@ export const STATE_CORRELATION_CANDIDATES: StateCorrelationCandidateMetric[] = [
     seriesKeyTemplate: "approvals.dwelling_units.total.{state}",
     label: "Dwelling approvals",
     format: "number",
+  },
+  {
+    seriesKeyTemplate:
+      "approvals.dwelling_units_per_100k.total.{state}",
+    label: "Dwelling approvals per 100k",
+    format: "rate",
   },
   {
     seriesKeyTemplate: "population.erp.total.{state}",

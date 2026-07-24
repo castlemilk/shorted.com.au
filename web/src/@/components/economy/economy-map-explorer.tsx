@@ -17,6 +17,13 @@ import {
   type EconomyMapMetric, type EconomyMapMetricKey, type StateSeries, type StateValue,
 } from "@/lib/economy/map-metrics";
 import { StateTooltip } from "./state-tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ChevronDown } from "lucide-react";
 
 // Verified in Task 1 Step 0: /geo/states.topojson's single object, with
 // NUMERIC ABS STE_CODE21 feature ids "1".."8" (bridged below via
@@ -29,6 +36,7 @@ const TOPO_OBJECT = "STE_2021_AUST_GDA2020";
 // bottom edge of the viewport).
 const TOOLTIP_W = 224;
 const TOOLTIP_H = 220;
+const VISIBLE_METRIC_COUNT = 8;
 
 /**
  * Safe topo-id → state abbreviation lookup: returns null for ids not in the
@@ -218,6 +226,25 @@ export function EconomyMapExplorer() {
     setMetricKey(mk);
     syncMetric(mk);
   };
+  const visibleMetrics = useMemo(() => {
+    const first = ECONOMY_MAP_METRICS.slice(0, VISIBLE_METRIC_COUNT);
+    const selected = METRIC_BY_KEY[metricKey];
+    if (first.some((candidate) => candidate.key === selected.key)) {
+      return first;
+    }
+    return [...first.slice(0, VISIBLE_METRIC_COUNT - 1), selected];
+  }, [metricKey]);
+  const visibleMetricKeys = useMemo(
+    () => new Set(visibleMetrics.map((candidate) => candidate.key)),
+    [visibleMetrics],
+  );
+  const overflowMetrics = useMemo(
+    () =>
+      ECONOMY_MAP_METRICS.filter(
+        (candidate) => !visibleMetricKeys.has(candidate.key),
+      ),
+    [visibleMetricKeys],
+  );
 
   const hoverAbbr = hover ? abbrFromTopoId(hover.id) : null;
   const hoverValue = hoverAbbr ? values.get(hoverAbbr) : undefined;
@@ -237,7 +264,7 @@ export function EconomyMapExplorer() {
       {/* Metric switcher */}
       <div className="mb-3 flex flex-wrap items-center gap-1.5">
         <span className="mr-1 text-[11px] uppercase tracking-wide text-muted-foreground">Colour by</span>
-        {ECONOMY_MAP_METRICS.map((m) => (
+        {visibleMetrics.map((m) => (
           <button
             key={m.key}
             type="button"
@@ -251,6 +278,29 @@ export function EconomyMapExplorer() {
             {m.label}
           </button>
         ))}
+        {overflowMetrics.length > 0 ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
+              >
+                More
+                <ChevronDown className="h-3 w-3" aria-hidden="true" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {overflowMetrics.map((m) => (
+                <DropdownMenuItem
+                  key={m.key}
+                  onSelect={() => selectMetric(m.key)}
+                >
+                  {m.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
         {isError && (
           <button type="button" onClick={() => refetch()} className="ml-2 text-xs text-red-600 underline">
             data unavailable — retry

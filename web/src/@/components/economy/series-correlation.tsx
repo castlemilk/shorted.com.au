@@ -3,7 +3,10 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
-import { getEconomicSeriesClient } from "~/app/actions/client/getEconomyClient";
+import {
+  getEconomicSeriesClient,
+  listSeriesCorrelationsClient,
+} from "~/app/actions/client/getEconomyClient";
 import {
   ECONOMY_SERIES_FORMATTERS,
   observationsFor,
@@ -23,6 +26,7 @@ export interface SeriesCorrelationProps {
   sectionAriaLabel: string;
   chartAriaLabel: string;
   defaultOverlayKey?: string;
+  precomputedBaseKey?: string;
   /** Industry series are derived and may not exist; state anchors retain legacy permissive behaviour. */
   requireAnchor?: boolean;
   missingAnchorMessage?: string;
@@ -45,6 +49,7 @@ export function SeriesCorrelation({
   sectionAriaLabel,
   chartAriaLabel,
   defaultOverlayKey,
+  precomputedBaseKey,
   requireAnchor = false,
   missingAnchorMessage = "No anchor-series history is available yet.",
 }: SeriesCorrelationProps) {
@@ -52,6 +57,26 @@ export function SeriesCorrelation({
     () => overlayCandidates.map((candidate) => candidate.key),
     [overlayCandidates],
   );
+  const candidateByKey = useMemo(
+    () =>
+      new Map(
+        overlayCandidates.map((candidate) => [candidate.key, candidate]),
+      ),
+    [overlayCandidates],
+  );
+  const precomputedQuery = useQuery({
+    queryKey: ["economy-series-correlations", precomputedBaseKey],
+    queryFn: () => listSeriesCorrelationsClient(precomputedBaseKey!),
+    enabled: precomputedBaseKey !== undefined,
+    staleTime: 60 * 60 * 1000,
+  });
+  const precomputedRows = useMemo(
+    () => precomputedQuery.data?.correlations ?? [],
+    [precomputedQuery.data],
+  );
+  const useLegacyComputation =
+    precomputedBaseKey === undefined ||
+    (precomputedQuery.isFetched && precomputedRows.length === 0);
   const anchorQuery = useQuery({
     queryKey: ["economy-series-correlation-anchor", anchor.key],
     queryFn: () => getEconomicSeriesClient([anchor.key]),
@@ -60,10 +85,10 @@ export function SeriesCorrelation({
   const overlayQuery = useQuery({
     queryKey: ["economy-series-correlation-overlays", ...overlayKeys],
     queryFn: () => getEconomicSeriesClient(overlayKeys),
-    enabled: overlayKeys.length > 0,
+    enabled: useLegacyComputation && overlayKeys.length > 0,
     staleTime: 60 * 60 * 1000,
   });
-  const data = useMemo(
+  const legacyData = useMemo(
     () => ({
       series: [
         ...(anchorQuery.data?.series ?? []),
@@ -72,35 +97,56 @@ export function SeriesCorrelation({
     }),
     [anchorQuery.data, overlayQuery.data],
   );
-  const isLoading = anchorQuery.isLoading || overlayQuery.isLoading;
 
   const anchorObservations = useMemo(
-    () => observationsFor(data, anchor.key),
-    [anchor.key, data],
+    () => observationsFor(anchorQuery.data, anchor.key),
+    [anchor.key, anchorQuery.data],
   );
-  const available = useMemo(
+  const legacyAvailable = useMemo(
     () =>
       overlayCandidates
         .map((candidate) => ({
           ...candidate,
-          series: observationsFor(data, candidate.key),
+          series: observationsFor(legacyData, candidate.key),
         }))
         .filter((candidate) => candidate.series.length >= 2),
-    [data, overlayCandidates],
+    [legacyData, overlayCandidates],
   );
-  const ranked = useMemo(
+  const legacyRanked = useMemo(
     () =>
       topCorrelations(
         anchorObservations,
-        available.map((candidate) => ({
+        legacyAvailable.map((candidate) => ({
           key: candidate.key,
           label: candidate.label,
           series: candidate.series,
         })),
         { minAbsR: 0.4, minN: 12, windowMonths: 24 },
       ),
-    [anchorObservations, available],
+    [anchorObservations, legacyAvailable],
   );
+  const precomputedAvailable = useMemo(
+    () =>
+      precomputedRows.flatMap((correlation) => {
+        const candidate = candidateByKey.get(correlation.overlaySeriesKey);
+        return candidate
+          ? [
+              {
+                ...candidate,
+                r: correlation.r,
+                n: correlation.n,
+              },
+            ]
+          : [];
+      }),
+    [candidateByKey, precomputedRows],
+  );
+  const available = useLegacyComputation
+    ? legacyAvailable
+    : precomputedAvailable;
+  const ranked = useLegacyComputation
+    ? legacyRanked
+    : precomputedAvailable;
 
   const fallbackKey =
     ranked[0]?.key ??
@@ -114,7 +160,38 @@ export function SeriesCorrelation({
     selectedKey && available.some((candidate) => candidate.key === selectedKey)
       ? selectedKey
       : fallbackKey;
-  const active = available.find((candidate) => candidate.key === activeKey);
+  const precomputedOverlayQuery = useQuery({
+    queryKey: ["economy-series-correlation-overlay", activeKey],
+    queryFn: () => getEconomicSeriesClient([activeKey]),
+    enabled:
+      precomputedBaseKey !== undefined &&
+      !useLegacyComputation &&
+      activeKey !== "",
+    staleTime: 60 * 60 * 1000,
+  });
+  const activeCandidate = useLegacyComputation
+    ? legacyAvailable.find((candidate) => candidate.key === activeKey)
+    : precomputedAvailable.find((candidate) => candidate.key === activeKey);
+  const activeSeries = useMemo(
+    () =>
+      useLegacyComputation
+        ? legacyAvailable.find((candidate) => candidate.key === activeKey)
+            ?.series ?? []
+        : observationsFor(precomputedOverlayQuery.data, activeKey),
+    [
+      activeKey,
+      legacyAvailable,
+      precomputedOverlayQuery.data,
+      useLegacyComputation,
+    ],
+  );
+  const active = useMemo(
+    () =>
+      activeCandidate && activeSeries.length >= 2
+        ? { ...activeCandidate, series: activeSeries }
+        : undefined,
+    [activeCandidate, activeSeries],
+  );
   const chartSecondary = useMemo(() => {
     if (!active) return [];
     const anchorStart = anchorObservations[0]?.date.getTime();
@@ -123,6 +200,12 @@ export function SeriesCorrelation({
       (observation) => observation.date.getTime() >= anchorStart,
     );
   }, [active, anchorObservations]);
+  const isLoading =
+    anchorQuery.isLoading ||
+    (precomputedBaseKey !== undefined && precomputedQuery.isLoading) ||
+    (useLegacyComputation
+      ? overlayQuery.isLoading
+      : precomputedOverlayQuery.isLoading);
 
   if (isLoading) {
     return <div className="h-[320px] w-full animate-pulse rounded bg-muted" />;

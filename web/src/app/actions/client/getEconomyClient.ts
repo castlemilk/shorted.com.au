@@ -1,6 +1,6 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { type GetEconomicSeriesResponse, type GetStateCompanyAggregatesResponse, type ListEconomicSeriesResponse, type ListStateCompaniesResponse } from "~/gen/shorts/v1alpha1/economy_pb";
+import { type GetEconomicSeriesResponse, type GetStateCompanyAggregatesResponse, type ListEconomicSeriesResponse, type ListSeriesCorrelationsResponse, type ListStateCompaniesResponse } from "~/gen/shorts/v1alpha1/economy_pb";
 import { EconomyService } from "~/gen/shorts/v1alpha1/economy_pb";
 import { SHORTS_API_URL } from "../config";
 import { retryWithBackoff } from "@/lib/retry";
@@ -24,6 +24,41 @@ export async function getEconomicSeriesClient(
   try {
     const result = await retryWithBackoff(
       () => client.getEconomicSeries({ seriesKeys }),
+      RETRY_OPTIONS,
+    );
+    setSessionCached(cacheKey, result);
+    return result;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Browser-side ranked correlation lookup for an economic base series. */
+export async function listSeriesCorrelationsClient(
+  baseSeriesKey: string,
+  windowMonths = 24,
+  minAbsR = 0.4,
+  limit = 100,
+): Promise<ListSeriesCorrelationsResponse | undefined> {
+  const cacheKey = `seriesCorrelations:${baseSeriesKey}:${windowMonths}:${minAbsR}:${limit}`;
+  const cached =
+    getSessionCached<ListSeriesCorrelationsResponse>(cacheKey);
+  if (cached) return cached;
+
+  const transport = createConnectTransport({
+    baseUrl: typeof window !== "undefined" ? "" : SHORTS_API_URL,
+  });
+  const client = createClient(EconomyService, transport);
+
+  try {
+    const result = await retryWithBackoff(
+      () =>
+        client.listSeriesCorrelations({
+          baseSeriesKey,
+          windowMonths,
+          minAbsR,
+          limit,
+        }),
       RETRY_OPTIONS,
     );
     setSessionCached(cacheKey, result);
