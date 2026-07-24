@@ -327,6 +327,21 @@ func TestPriceReturnQueryLoadsMonthlyLastPricesAndCurrentWeights(t *testing.T) {
 	}
 }
 
+func TestMarketsQuerySharesOneMonthlyLastScanAcrossFamilies(t *testing.T) {
+	if got := strings.Count(marketsQuery, "WITH monthly_last AS MATERIALIZED"); got != 1 {
+		t.Fatalf("monthly_last CTE count = %d, want exactly one shared materialized CTE", got)
+	}
+	for _, want := range []string{
+		"'state'::text AS family",
+		"'industry'::text AS family",
+		"UNION ALL",
+	} {
+		if !strings.Contains(marketsQuery, want) {
+			t.Errorf("marketsQuery missing %q", want)
+		}
+	}
+}
+
 func TestIndustrySlugMapMatchesPinnedGICSValuesAndWebSlugify(t *testing.T) {
 	want := map[string]string{
 		"Materials":                        "materials",

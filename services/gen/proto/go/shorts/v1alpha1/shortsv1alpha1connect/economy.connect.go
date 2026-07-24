@@ -39,6 +39,9 @@ const (
 	// EconomyServiceGetEconomicSeriesProcedure is the fully-qualified name of the EconomyService's
 	// GetEconomicSeries RPC.
 	EconomyServiceGetEconomicSeriesProcedure = "/shorts.v1alpha1.EconomyService/GetEconomicSeries"
+	// EconomyServiceListSeriesCorrelationsProcedure is the fully-qualified name of the EconomyService's
+	// ListSeriesCorrelations RPC.
+	EconomyServiceListSeriesCorrelationsProcedure = "/shorts.v1alpha1.EconomyService/ListSeriesCorrelations"
 	// EconomyServiceListStateCompaniesProcedure is the fully-qualified name of the EconomyService's
 	// ListStateCompanies RPC.
 	EconomyServiceListStateCompaniesProcedure = "/shorts.v1alpha1.EconomyService/ListStateCompanies"
@@ -52,6 +55,7 @@ var (
 	economyServiceServiceDescriptor                         = v1alpha1.File_shorts_v1alpha1_economy_proto.Services().ByName("EconomyService")
 	economyServiceListEconomicSeriesMethodDescriptor        = economyServiceServiceDescriptor.Methods().ByName("ListEconomicSeries")
 	economyServiceGetEconomicSeriesMethodDescriptor         = economyServiceServiceDescriptor.Methods().ByName("GetEconomicSeries")
+	economyServiceListSeriesCorrelationsMethodDescriptor    = economyServiceServiceDescriptor.Methods().ByName("ListSeriesCorrelations")
 	economyServiceListStateCompaniesMethodDescriptor        = economyServiceServiceDescriptor.Methods().ByName("ListStateCompanies")
 	economyServiceGetStateCompanyAggregatesMethodDescriptor = economyServiceServiceDescriptor.Methods().ByName("GetStateCompanyAggregates")
 )
@@ -62,6 +66,8 @@ type EconomyServiceClient interface {
 	ListEconomicSeries(context.Context, *connect.Request[v1alpha1.ListEconomicSeriesRequest]) (*connect.Response[v1alpha1.ListEconomicSeriesResponse], error)
 	// Fetch observations for up to 50 series by series_key.
 	GetEconomicSeries(context.Context, *connect.Request[v1alpha1.GetEconomicSeriesRequest]) (*connect.Response[v1alpha1.GetEconomicSeriesResponse], error)
+	// Rank precomputed economic-series correlations for a base market series.
+	ListSeriesCorrelations(context.Context, *connect.Request[v1alpha1.ListSeriesCorrelationsRequest]) (*connect.Response[v1alpha1.ListSeriesCorrelationsResponse], error)
 	// List ASX-listed companies with operations-weighted exposure to a state.
 	ListStateCompanies(context.Context, *connect.Request[v1alpha1.ListStateCompaniesRequest]) (*connect.Response[v1alpha1.ListStateCompaniesResponse], error)
 	// Exposure-weighted market cap and short interest aggregates by state.
@@ -90,6 +96,12 @@ func NewEconomyServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(economyServiceGetEconomicSeriesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		listSeriesCorrelations: connect.NewClient[v1alpha1.ListSeriesCorrelationsRequest, v1alpha1.ListSeriesCorrelationsResponse](
+			httpClient,
+			baseURL+EconomyServiceListSeriesCorrelationsProcedure,
+			connect.WithSchema(economyServiceListSeriesCorrelationsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 		listStateCompanies: connect.NewClient[v1alpha1.ListStateCompaniesRequest, v1alpha1.ListStateCompaniesResponse](
 			httpClient,
 			baseURL+EconomyServiceListStateCompaniesProcedure,
@@ -109,6 +121,7 @@ func NewEconomyServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 type economyServiceClient struct {
 	listEconomicSeries        *connect.Client[v1alpha1.ListEconomicSeriesRequest, v1alpha1.ListEconomicSeriesResponse]
 	getEconomicSeries         *connect.Client[v1alpha1.GetEconomicSeriesRequest, v1alpha1.GetEconomicSeriesResponse]
+	listSeriesCorrelations    *connect.Client[v1alpha1.ListSeriesCorrelationsRequest, v1alpha1.ListSeriesCorrelationsResponse]
 	listStateCompanies        *connect.Client[v1alpha1.ListStateCompaniesRequest, v1alpha1.ListStateCompaniesResponse]
 	getStateCompanyAggregates *connect.Client[v1alpha1.GetStateCompanyAggregatesRequest, v1alpha1.GetStateCompanyAggregatesResponse]
 }
@@ -121,6 +134,11 @@ func (c *economyServiceClient) ListEconomicSeries(ctx context.Context, req *conn
 // GetEconomicSeries calls shorts.v1alpha1.EconomyService.GetEconomicSeries.
 func (c *economyServiceClient) GetEconomicSeries(ctx context.Context, req *connect.Request[v1alpha1.GetEconomicSeriesRequest]) (*connect.Response[v1alpha1.GetEconomicSeriesResponse], error) {
 	return c.getEconomicSeries.CallUnary(ctx, req)
+}
+
+// ListSeriesCorrelations calls shorts.v1alpha1.EconomyService.ListSeriesCorrelations.
+func (c *economyServiceClient) ListSeriesCorrelations(ctx context.Context, req *connect.Request[v1alpha1.ListSeriesCorrelationsRequest]) (*connect.Response[v1alpha1.ListSeriesCorrelationsResponse], error) {
+	return c.listSeriesCorrelations.CallUnary(ctx, req)
 }
 
 // ListStateCompanies calls shorts.v1alpha1.EconomyService.ListStateCompanies.
@@ -139,6 +157,8 @@ type EconomyServiceHandler interface {
 	ListEconomicSeries(context.Context, *connect.Request[v1alpha1.ListEconomicSeriesRequest]) (*connect.Response[v1alpha1.ListEconomicSeriesResponse], error)
 	// Fetch observations for up to 50 series by series_key.
 	GetEconomicSeries(context.Context, *connect.Request[v1alpha1.GetEconomicSeriesRequest]) (*connect.Response[v1alpha1.GetEconomicSeriesResponse], error)
+	// Rank precomputed economic-series correlations for a base market series.
+	ListSeriesCorrelations(context.Context, *connect.Request[v1alpha1.ListSeriesCorrelationsRequest]) (*connect.Response[v1alpha1.ListSeriesCorrelationsResponse], error)
 	// List ASX-listed companies with operations-weighted exposure to a state.
 	ListStateCompanies(context.Context, *connect.Request[v1alpha1.ListStateCompaniesRequest]) (*connect.Response[v1alpha1.ListStateCompaniesResponse], error)
 	// Exposure-weighted market cap and short interest aggregates by state.
@@ -163,6 +183,12 @@ func NewEconomyServiceHandler(svc EconomyServiceHandler, opts ...connect.Handler
 		connect.WithSchema(economyServiceGetEconomicSeriesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	economyServiceListSeriesCorrelationsHandler := connect.NewUnaryHandler(
+		EconomyServiceListSeriesCorrelationsProcedure,
+		svc.ListSeriesCorrelations,
+		connect.WithSchema(economyServiceListSeriesCorrelationsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	economyServiceListStateCompaniesHandler := connect.NewUnaryHandler(
 		EconomyServiceListStateCompaniesProcedure,
 		svc.ListStateCompanies,
@@ -181,6 +207,8 @@ func NewEconomyServiceHandler(svc EconomyServiceHandler, opts ...connect.Handler
 			economyServiceListEconomicSeriesHandler.ServeHTTP(w, r)
 		case EconomyServiceGetEconomicSeriesProcedure:
 			economyServiceGetEconomicSeriesHandler.ServeHTTP(w, r)
+		case EconomyServiceListSeriesCorrelationsProcedure:
+			economyServiceListSeriesCorrelationsHandler.ServeHTTP(w, r)
 		case EconomyServiceListStateCompaniesProcedure:
 			economyServiceListStateCompaniesHandler.ServeHTTP(w, r)
 		case EconomyServiceGetStateCompanyAggregatesProcedure:
@@ -200,6 +228,10 @@ func (UnimplementedEconomyServiceHandler) ListEconomicSeries(context.Context, *c
 
 func (UnimplementedEconomyServiceHandler) GetEconomicSeries(context.Context, *connect.Request[v1alpha1.GetEconomicSeriesRequest]) (*connect.Response[v1alpha1.GetEconomicSeriesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.EconomyService.GetEconomicSeries is not implemented"))
+}
+
+func (UnimplementedEconomyServiceHandler) ListSeriesCorrelations(context.Context, *connect.Request[v1alpha1.ListSeriesCorrelationsRequest]) (*connect.Response[v1alpha1.ListSeriesCorrelationsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.EconomyService.ListSeriesCorrelations is not implemented"))
 }
 
 func (UnimplementedEconomyServiceHandler) ListStateCompanies(context.Context, *connect.Request[v1alpha1.ListStateCompaniesRequest]) (*connect.Response[v1alpha1.ListStateCompaniesResponse], error) {

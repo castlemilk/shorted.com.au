@@ -18,6 +18,11 @@ service EconomyService {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
   }
 
+  // Rank precomputed economic-series correlations for a base market series.
+  rpc ListSeriesCorrelations (ListSeriesCorrelationsRequest) returns (ListSeriesCorrelationsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
   // List ASX-listed companies with operations-weighted exposure to a state.
   rpc ListStateCompanies (ListStateCompaniesRequest) returns (ListStateCompaniesResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
@@ -73,10 +78,30 @@ message EconomicSeriesData {
 message GetEconomicSeriesRequest {
   repeated string series_keys = 1;            // max 50
   google.protobuf.Timestamp start_period = 2; // optional
+  int32 max_observations = 3;                  // default 600, clamped to 1..600
 }
 
 message GetEconomicSeriesResponse {
   repeated EconomicSeriesData series = 1;
+}
+
+message ListSeriesCorrelationsRequest {
+  string base_series_key = 1; // required
+  int32 window_months = 2;    // default 24
+  double min_abs_r = 3;
+  int32 limit = 4;            // default 100, max 100
+}
+
+message SeriesCorrelation {
+  string overlay_series_key = 1;
+  double r = 2;
+  int32 n = 3;
+  google.protobuf.Timestamp last_period = 4;
+  EconomicSeriesInfo overlay = 5;
+}
+
+message ListSeriesCorrelationsResponse {
+  repeated SeriesCorrelation correlations = 1;
 }
 
 // ── Company state exposure (operations-weighted geographic footprint) ───────

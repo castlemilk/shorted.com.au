@@ -229,15 +229,15 @@ func assembleIndustryMarketObs(rows []industryMarketRow) ([]Obs, industryMarketS
 // Shape: for each stock, take its LAST short observation within each calendar
 // month (DISTINCT ON (stock, month) ORDER BY DATE DESC — served by the
 // covering index idx_shorts_timeseries_covering on (PRODUCT_CODE, DATE DESC)
-// INCLUDE (PERCENT...)); join the exposure model on stock_code; then per
-// (region, month) compute the market-cap × exposure-weight weighted average of
-// those short percentages over the stocks that HAVE a short obs that month.
-// Set-based, one pass, ~100ms locally / seconds on the full ~2.1M-row history.
+// INCLUDE (PERCENT...)). One materialized CTE then feeds a UNION ALL of the
+// state exposure-weighted family and the equal-weight industry family, tagged
+// with a discriminator for the Go assembly paths. Set-based, one shorts scan,
+// ~100ms locally / seconds on the full ~2.1M-row history.
 // ASIC's columns are upper-case and must stay double-quoted; the DATE column
 // is a timestamp, so date_trunc('month', ...) buckets it and ::date drops the
 // time component for a clean month-start period.
 const marketsQuery = `
-WITH monthly_last AS (
+WITH monthly_last AS MATERIALIZED (
   SELECT DISTINCT ON (s."PRODUCT_CODE", date_trunc('month', s."DATE"))
     s."PRODUCT_CODE"                                                        AS stock_code,
     date_trunc('month', s."DATE")::date                                    AS month,
@@ -248,102 +248,68 @@ WITH monthly_last AS (
   ORDER BY s."PRODUCT_CODE", date_trunc('month', s."DATE"), s."DATE" DESC
 )
 SELECT
-  e.region,
+  'state'::text AS family,
+  e.region      AS dimension,
   m.month,
-  SUM(e.weight * e.market_cap * m.short_pct) / NULLIF(SUM(e.weight * e.market_cap), 0) AS wavg
+  SUM(e.weight * e.market_cap * m.short_pct) / NULLIF(SUM(e.weight * e.market_cap), 0) AS value,
+  COUNT(*)::bigint AS constituents
 FROM monthly_last m
 JOIN mv_company_state_exposure e ON e.stock_code = m.stock_code
 WHERE e.region <> 'international'
   AND e.market_cap IS NOT NULL
 GROUP BY e.region, m.month
-ORDER BY e.region, m.month`
 
-// industryMarketsQuery deliberately mirrors marketsQuery's monthly-last CTE,
-// then joins current company metadata and computes a simple (equal-weight)
-// average by raw GICS industry. Invalid classifications are excluded in SQL;
-// other unknown values remain visible to Go so the pinned-map tripwire can
-// count their constituent-months. The five-stock emission floor is applied by
-// assembleIndustryMarketObs, keeping that behavior unit-testable.
-const industryMarketsQuery = `
-WITH monthly_last AS (
-  SELECT DISTINCT ON (s."PRODUCT_CODE", date_trunc('month', s."DATE"))
-    s."PRODUCT_CODE"                                                        AS stock_code,
-    date_trunc('month', s."DATE")::date                                    AS month,
-    s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS"       AS short_pct
-  FROM shorts s
-  WHERE s."DATE" >= DATE '2015-01-01'
-    AND s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" IS NOT NULL
-  ORDER BY s."PRODUCT_CODE", date_trunc('month', s."DATE"), s."DATE" DESC
-)
+UNION ALL
+
 SELECT
-  cm.industry,
+  'industry'::text AS family,
+  cm.industry      AS dimension,
   m.month,
-  AVG(m.short_pct) AS average,
-  COUNT(*)         AS constituents
+  AVG(m.short_pct) AS value,
+  COUNT(*)::bigint AS constituents
 FROM monthly_last m
 JOIN "company-metadata" cm ON cm.stock_code = m.stock_code
 WHERE NULLIF(BTRIM(cm.industry), '') IS NOT NULL
   AND cm.industry NOT IN ('Not Applic', 'Class Pend')
 GROUP BY cm.industry, m.month
-ORDER BY cm.industry, m.month`
+ORDER BY family, dimension, month`
 
-func deriveStateMarkets(ctx context.Context, pool *pgxpool.Pool) ([]Obs, error) {
-	rows, err := pool.Query(ctx, marketsQuery)
-	if err != nil {
-		return nil, fmt.Errorf("derivation query: %w", err)
-	}
-	defer rows.Close()
+type stateMarketRow struct {
+	Region string
+	Period time.Time
+	Value  float64
+}
 
-	var obs []Obs
+type shortInterestMarketDerivations struct {
+	stateObs    []Obs
+	stateErr    error
+	industryObs []Obs
+	industryErr error
+}
+
+func assembleStateMarketObs(rows []stateMarketRow) ([]Obs, error) {
+	obs := make([]Obs, 0, len(rows))
 	skipped := 0
-	for rows.Next() {
-		var region string
-		var month time.Time
-		var wavg float64
-		if err := rows.Scan(&region, &month, &wavg); err != nil {
-			return nil, fmt.Errorf("scan: %w", err)
-		}
-		o, ok := marketObs(region, month, wavg)
+	for _, row := range rows {
+		o, ok := marketObs(row.Region, row.Period, row.Value)
 		if !ok {
-			// A region the WHERE clause should already exclude — defensive.
 			skipped++
 			continue
 		}
 		obs = append(obs, o)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("rows: %w", err)
 	}
 	if len(obs) == 0 {
 		return nil, fmt.Errorf("derivation produced 0 observations — " +
 			"shorts history empty or mv_company_state_exposure unpopulated; treating as drift, not success")
 	}
 	if skipped > 0 {
-		// Not fatal, but surfaced: the query filter and the Go map disagreed.
 		fmt.Printf("markets: skipped %d rows with non-state region codes\n", skipped)
 	}
 	return obs, nil
 }
 
-func deriveIndustryMarkets(ctx context.Context, pool *pgxpool.Pool) ([]Obs, error) {
-	industryRows, err := pool.Query(ctx, industryMarketsQuery)
-	if err != nil {
-		return nil, fmt.Errorf("derivation query: %w", err)
-	}
-	defer industryRows.Close()
-
-	var rawIndustryRows []industryMarketRow
-	for industryRows.Next() {
-		var row industryMarketRow
-		if err := industryRows.Scan(&row.Industry, &row.Period, &row.Average, &row.Constituents); err != nil {
-			return nil, fmt.Errorf("scan: %w", err)
-		}
-		rawIndustryRows = append(rawIndustryRows, row)
-	}
-	if err := industryRows.Err(); err != nil {
-		return nil, fmt.Errorf("rows: %w", err)
-	}
-	industryObs, stats, err := assembleIndustryMarketObs(rawIndustryRows)
+func assembleIndustryMarketFamily(rows []industryMarketRow) ([]Obs, error) {
+	obs, stats, err := assembleIndustryMarketObs(rows)
 	if stats.UnmappedRows > 0 {
 		fmt.Printf("markets: skipped %d unknown industry-month rows (%d constituent-months; %d mapped constituent-months)\n",
 			stats.UnmappedRows, stats.UnmappedConstituentMonths, stats.MappedConstituentMonths)
@@ -351,11 +317,58 @@ func deriveIndustryMarkets(ctx context.Context, pool *pgxpool.Pool) ([]Obs, erro
 	if err != nil {
 		return nil, err
 	}
-	if len(industryObs) == 0 {
+	if len(obs) == 0 {
 		return nil, fmt.Errorf("derivation produced 0 observations — " +
 			"company metadata missing or every industry is below the five-stock noise floor; treating as drift, not success")
 	}
-	return industryObs, nil
+	return obs, nil
+}
+
+// deriveShortInterestMarkets executes the shared monthly_last CTE once, then
+// routes discriminator-tagged rows through the existing state and industry
+// assembly paths so family-level validation remains independent.
+func deriveShortInterestMarkets(ctx context.Context, pool *pgxpool.Pool) shortInterestMarketDerivations {
+	rows, err := pool.Query(ctx, marketsQuery)
+	if err != nil {
+		queryErr := fmt.Errorf("derivation query: %w", err)
+		return shortInterestMarketDerivations{stateErr: queryErr, industryErr: queryErr}
+	}
+	defer rows.Close()
+
+	var stateRows []stateMarketRow
+	var industryRows []industryMarketRow
+	for rows.Next() {
+		var family string
+		var dimension string
+		var month time.Time
+		var value float64
+		var constituents int64
+		if err := rows.Scan(&family, &dimension, &month, &value, &constituents); err != nil {
+			scanErr := fmt.Errorf("scan: %w", err)
+			return shortInterestMarketDerivations{stateErr: scanErr, industryErr: scanErr}
+		}
+		switch family {
+		case "state":
+			stateRows = append(stateRows, stateMarketRow{Region: dimension, Period: month, Value: value})
+		case "industry":
+			industryRows = append(industryRows, industryMarketRow{
+				Industry: dimension, Period: month, Average: value, Constituents: constituents,
+			})
+		default:
+			scanErr := fmt.Errorf("scan: unknown markets family %q", family)
+			return shortInterestMarketDerivations{stateErr: scanErr, industryErr: scanErr}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		rowsErr := fmt.Errorf("rows: %w", err)
+		return shortInterestMarketDerivations{stateErr: rowsErr, industryErr: rowsErr}
+	}
+	stateObs, stateErr := assembleStateMarketObs(stateRows)
+	industryObs, industryErr := assembleIndustryMarketFamily(industryRows)
+	return shortInterestMarketDerivations{
+		stateObs: stateObs, stateErr: stateErr,
+		industryObs: industryObs, industryErr: industryErr,
+	}
 }
 
 // ingestMarkets runs all independent derivations even when one fails.
@@ -365,12 +378,13 @@ func ingestMarkets(ctx context.Context, pool *pgxpool.Pool) ([]Obs, error) {
 	if err := warnIfExposureMVStale(ctx, pool); err != nil {
 		return nil, err
 	}
+	shortInterest := deriveShortInterestMarkets(ctx, pool)
 	return runDerivationFamilies(
 		derivationFamily{name: "state markets", run: func() ([]Obs, error) {
-			return deriveStateMarkets(ctx, pool)
+			return shortInterest.stateObs, shortInterest.stateErr
 		}},
 		derivationFamily{name: "industry markets", run: func() ([]Obs, error) {
-			return deriveIndustryMarkets(ctx, pool)
+			return shortInterest.industryObs, shortInterest.industryErr
 		}},
 		derivationFamily{name: "state price-return index", run: func() ([]Obs, error) {
 			return derivePriceReturnIndexes(ctx, pool)

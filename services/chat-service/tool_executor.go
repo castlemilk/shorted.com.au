@@ -76,8 +76,9 @@ func (te *ToolExecutor) callEconomicSeries(ctx context.Context, args map[string]
 	}
 
 	respBody, err := te.callServiceRPC(ctx, "EconomyService", "GetEconomicSeries", struct {
-		SeriesKeys []string `json:"seriesKeys"`
-	}{SeriesKeys: seriesKeys})
+		SeriesKeys      []string `json:"seriesKeys"`
+		MaxObservations int      `json:"maxObservations"`
+	}{SeriesKeys: seriesKeys, MaxObservations: limit})
 	if err != nil {
 		return "", err
 	}

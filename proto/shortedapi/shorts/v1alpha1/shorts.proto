@@ -756,6 +756,15 @@ service ShortedStocksService {
     };
   }
 
+  // Rank precomputed economic-series correlations for a base market series.
+  rpc ListSeriesCorrelations (ListSeriesCorrelationsRequest) returns (ListSeriesCorrelationsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Series Correlations",
+      description: "Precomputed rolling Pearson correlations between a market-series anchor and eligible economic overlays, ranked by absolute correlation."
+    };
+  }
+
   // List ASX-listed companies with operations-weighted exposure to a state.
   rpc ListStateCompanies (ListStateCompaniesRequest) returns (ListStateCompaniesResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;

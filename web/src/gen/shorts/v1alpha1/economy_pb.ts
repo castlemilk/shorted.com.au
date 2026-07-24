@@ -13,7 +13,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file shorts/v1alpha1/economy.proto.
  */
 export const file_shorts_v1alpha1_economy: GenFile = /*@__PURE__*/
-  fileDesc("Ch1zaG9ydHMvdjFhbHBoYTEvZWNvbm9teS5wcm90bxIPc2hvcnRzLnYxYWxwaGExIqsCChJFY29ub21pY1Nlcmllc0luZm8SEgoKc2VyaWVzX2tleRgBIAEoCRINCgV0b3BpYxgCIAEoCRIOCgZtZXRyaWMYAyABKAkSDwoHcHJvZHVjdBgEIAEoCRITCgtyZWdpb25fdHlwZRgFIAEoCRITCgtyZWdpb25fY29kZRgGIAEoCRITCgtyZWdpb25fbmFtZRgHIAEoCRIMCgR1bml0GAggASgJEhEKCWZyZXF1ZW5jeRgJIAEoCRISCgphZGp1c3RtZW50GAogASgJEhIKCnNvdXJjZV9rZXkYCyABKAkSFgoOc291cmNlX2xpY2VuY2UYDCABKAkSMQoNbGF0ZXN0X3BlcmlvZBgNIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAihAEKGUxpc3RFY29ub21pY1Nlcmllc1JlcXVlc3QSDQoFdG9waWMYASABKAkSDgoGbWV0cmljGAIgASgJEhMKC3JlZ2lvbl90eXBlGAMgASgJEhMKC3JlZ2lvbl9jb2RlGAQgASgJEg8KB3Byb2R1Y3QYBSABKAkSDQoFbGltaXQYBiABKAUiUQoaTGlzdEVjb25vbWljU2VyaWVzUmVzcG9uc2USMwoGc2VyaWVzGAEgAygLMiMuc2hvcnRzLnYxYWxwaGExLkVjb25vbWljU2VyaWVzSW5mbyJQChNFY29ub21pY09ic2VydmF0aW9uEioKBnBlcmlvZBgBIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDQoFdmFsdWUYAiABKAEigwEKEkVjb25vbWljU2VyaWVzRGF0YRIxCgRpbmZvGAEgASgLMiMuc2hvcnRzLnYxYWxwaGExLkVjb25vbWljU2VyaWVzSW5mbxI6CgxvYnNlcnZhdGlvbnMYAiADKAsyJC5zaG9ydHMudjFhbHBoYTEuRWNvbm9taWNPYnNlcnZhdGlvbiJhChhHZXRFY29ub21pY1Nlcmllc1JlcXVlc3QSEwoLc2VyaWVzX2tleXMYASADKAkSMAoMc3RhcnRfcGVyaW9kGAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCJQChlHZXRFY29ub21pY1Nlcmllc1Jlc3BvbnNlEjMKBnNlcmllcxgBIAMoCzIjLnNob3J0cy52MWFscGhhMS5FY29ub21pY1Nlcmllc0RhdGEiOQoZTGlzdFN0YXRlQ29tcGFuaWVzUmVxdWVzdBINCgVzdGF0ZRgBIAEoCRINCgVsaW1pdBgCIAEoBSK2AQoMU3RhdGVDb21wYW55EhIKCnN0b2NrX2NvZGUYASABKAkSFAoMY29tcGFueV9uYW1lGAIgASgJEhAKCGluZHVzdHJ5GAMgASgJEg4KBndlaWdodBgEIAEoARINCgViYXNpcxgFIAEoCRISCgptYXJrZXRfY2FwGAYgASgBEhUKDXNob3J0X3BlcmNlbnQYByABKAESEAoIbG9nb191cmwYCCABKAkSDgoGc291cmNlGAkgASgJIk4KGkxpc3RTdGF0ZUNvbXBhbmllc1Jlc3BvbnNlEjAKCWNvbXBhbmllcxgBIAMoCzIdLnNob3J0cy52MWFscGhhMS5TdGF0ZUNvbXBhbnkiIgogR2V0U3RhdGVDb21wYW55QWdncmVnYXRlc1JlcXVlc3QijAEKFVN0YXRlQ29tcGFueUFnZ3JlZ2F0ZRINCgVzdGF0ZRgBIAEoCRIVCg1jb21wYW55X2NvdW50GAIgASgFEiQKHGV4cG9zdXJlX3dlaWdodGVkX21hcmtldF9jYXAYAyABKAESJwofZXhwb3N1cmVfd2VpZ2h0ZWRfc2hvcnRfcGVyY2VudBgEIAEoASJfCiFHZXRTdGF0ZUNvbXBhbnlBZ2dyZWdhdGVzUmVzcG9uc2USOgoKYWdncmVnYXRlcxgBIAMoCzImLnNob3J0cy52MWFscGhhMS5TdGF0ZUNvbXBhbnlBZ2dyZWdhdGUy9wMKDkVjb25vbXlTZXJ2aWNlEnMKEkxpc3RFY29ub21pY1NlcmllcxIqLnNob3J0cy52MWFscGhhMS5MaXN0RWNvbm9taWNTZXJpZXNSZXF1ZXN0Gisuc2hvcnRzLnYxYWxwaGExLkxpc3RFY29ub21pY1Nlcmllc1Jlc3BvbnNlIgSAtRgBEnAKEUdldEVjb25vbWljU2VyaWVzEikuc2hvcnRzLnYxYWxwaGExLkdldEVjb25vbWljU2VyaWVzUmVxdWVzdBoqLnNob3J0cy52MWFscGhhMS5HZXRFY29ub21pY1Nlcmllc1Jlc3BvbnNlIgSAtRgBEnMKEkxpc3RTdGF0ZUNvbXBhbmllcxIqLnNob3J0cy52MWFscGhhMS5MaXN0U3RhdGVDb21wYW5pZXNSZXF1ZXN0Gisuc2hvcnRzLnYxYWxwaGExLkxpc3RTdGF0ZUNvbXBhbmllc1Jlc3BvbnNlIgSAtRgBEogBChlHZXRTdGF0ZUNvbXBhbnlBZ2dyZWdhdGVzEjEuc2hvcnRzLnYxYWxwaGExLkdldFN0YXRlQ29tcGFueUFnZ3JlZ2F0ZXNSZXF1ZXN0GjIuc2hvcnRzLnYxYWxwaGExLkdldFN0YXRlQ29tcGFueUFnZ3JlZ2F0ZXNSZXNwb25zZSIEgLUYAULbAQoTY29tLnNob3J0cy52MWFscGhhMUIMRWNvbm9teVByb3RvUAFaWWdpdGh1Yi5jb20vY2FzdGxlbWlsay9zaG9ydGVkLmNvbS5hdS9zZXJ2aWNlcy9nZW4vcHJvdG8vZ28vc2hvcnRzL3YxYWxwaGExO3Nob3J0c3YxYWxwaGExogIDU1hYqgIPU2hvcnRzLlYxYWxwaGExygIPU2hvcnRzXFYxYWxwaGEx4gIbU2hvcnRzXFYxYWxwaGExXEdQQk1ldGFkYXRh6gIQU2hvcnRzOjpWMWFscGhhMWIGcHJvdG8z", [file_google_protobuf_timestamp, file_options_v1_options]);
+  fileDesc("Ch1zaG9ydHMvdjFhbHBoYTEvZWNvbm9teS5wcm90bxIPc2hvcnRzLnYxYWxwaGExIqsCChJFY29ub21pY1Nlcmllc0luZm8SEgoKc2VyaWVzX2tleRgBIAEoCRINCgV0b3BpYxgCIAEoCRIOCgZtZXRyaWMYAyABKAkSDwoHcHJvZHVjdBgEIAEoCRITCgtyZWdpb25fdHlwZRgFIAEoCRITCgtyZWdpb25fY29kZRgGIAEoCRITCgtyZWdpb25fbmFtZRgHIAEoCRIMCgR1bml0GAggASgJEhEKCWZyZXF1ZW5jeRgJIAEoCRISCgphZGp1c3RtZW50GAogASgJEhIKCnNvdXJjZV9rZXkYCyABKAkSFgoOc291cmNlX2xpY2VuY2UYDCABKAkSMQoNbGF0ZXN0X3BlcmlvZBgNIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAihAEKGUxpc3RFY29ub21pY1Nlcmllc1JlcXVlc3QSDQoFdG9waWMYASABKAkSDgoGbWV0cmljGAIgASgJEhMKC3JlZ2lvbl90eXBlGAMgASgJEhMKC3JlZ2lvbl9jb2RlGAQgASgJEg8KB3Byb2R1Y3QYBSABKAkSDQoFbGltaXQYBiABKAUiUQoaTGlzdEVjb25vbWljU2VyaWVzUmVzcG9uc2USMwoGc2VyaWVzGAEgAygLMiMuc2hvcnRzLnYxYWxwaGExLkVjb25vbWljU2VyaWVzSW5mbyJQChNFY29ub21pY09ic2VydmF0aW9uEioKBnBlcmlvZBgBIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDQoFdmFsdWUYAiABKAEigwEKEkVjb25vbWljU2VyaWVzRGF0YRIxCgRpbmZvGAEgASgLMiMuc2hvcnRzLnYxYWxwaGExLkVjb25vbWljU2VyaWVzSW5mbxI6CgxvYnNlcnZhdGlvbnMYAiADKAsyJC5zaG9ydHMudjFhbHBoYTEuRWNvbm9taWNPYnNlcnZhdGlvbiJ7ChhHZXRFY29ub21pY1Nlcmllc1JlcXVlc3QSEwoLc2VyaWVzX2tleXMYASADKAkSMAoMc3RhcnRfcGVyaW9kGAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIYChBtYXhfb2JzZXJ2YXRpb25zGAMgASgFIlAKGUdldEVjb25vbWljU2VyaWVzUmVzcG9uc2USMwoGc2VyaWVzGAEgAygLMiMuc2hvcnRzLnYxYWxwaGExLkVjb25vbWljU2VyaWVzRGF0YSJxCh1MaXN0U2VyaWVzQ29ycmVsYXRpb25zUmVxdWVzdBIXCg9iYXNlX3Nlcmllc19rZXkYASABKAkSFQoNd2luZG93X21vbnRocxgCIAEoBRIRCgltaW5fYWJzX3IYAyABKAESDQoFbGltaXQYBCABKAUirAEKEVNlcmllc0NvcnJlbGF0aW9uEhoKEm92ZXJsYXlfc2VyaWVzX2tleRgBIAEoCRIJCgFyGAIgASgBEgkKAW4YAyABKAUSLwoLbGFzdF9wZXJpb2QYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjQKB292ZXJsYXkYBSABKAsyIy5zaG9ydHMudjFhbHBoYTEuRWNvbm9taWNTZXJpZXNJbmZvIloKHkxpc3RTZXJpZXNDb3JyZWxhdGlvbnNSZXNwb25zZRI4Cgxjb3JyZWxhdGlvbnMYASADKAsyIi5zaG9ydHMudjFhbHBoYTEuU2VyaWVzQ29ycmVsYXRpb24iOQoZTGlzdFN0YXRlQ29tcGFuaWVzUmVxdWVzdBINCgVzdGF0ZRgBIAEoCRINCgVsaW1pdBgCIAEoBSK2AQoMU3RhdGVDb21wYW55EhIKCnN0b2NrX2NvZGUYASABKAkSFAoMY29tcGFueV9uYW1lGAIgASgJEhAKCGluZHVzdHJ5GAMgASgJEg4KBndlaWdodBgEIAEoARINCgViYXNpcxgFIAEoCRISCgptYXJrZXRfY2FwGAYgASgBEhUKDXNob3J0X3BlcmNlbnQYByABKAESEAoIbG9nb191cmwYCCABKAkSDgoGc291cmNlGAkgASgJIk4KGkxpc3RTdGF0ZUNvbXBhbmllc1Jlc3BvbnNlEjAKCWNvbXBhbmllcxgBIAMoCzIdLnNob3J0cy52MWFscGhhMS5TdGF0ZUNvbXBhbnkiIgogR2V0U3RhdGVDb21wYW55QWdncmVnYXRlc1JlcXVlc3QijAEKFVN0YXRlQ29tcGFueUFnZ3JlZ2F0ZRINCgVzdGF0ZRgBIAEoCRIVCg1jb21wYW55X2NvdW50GAIgASgFEiQKHGV4cG9zdXJlX3dlaWdodGVkX21hcmtldF9jYXAYAyABKAESJwofZXhwb3N1cmVfd2VpZ2h0ZWRfc2hvcnRfcGVyY2VudBgEIAEoASJfCiFHZXRTdGF0ZUNvbXBhbnlBZ2dyZWdhdGVzUmVzcG9uc2USOgoKYWdncmVnYXRlcxgBIAMoCzImLnNob3J0cy52MWFscGhhMS5TdGF0ZUNvbXBhbnlBZ2dyZWdhdGUy+AQKDkVjb25vbXlTZXJ2aWNlEnMKEkxpc3RFY29ub21pY1NlcmllcxIqLnNob3J0cy52MWFscGhhMS5MaXN0RWNvbm9taWNTZXJpZXNSZXF1ZXN0Gisuc2hvcnRzLnYxYWxwaGExLkxpc3RFY29ub21pY1Nlcmllc1Jlc3BvbnNlIgSAtRgBEnAKEUdldEVjb25vbWljU2VyaWVzEikuc2hvcnRzLnYxYWxwaGExLkdldEVjb25vbWljU2VyaWVzUmVxdWVzdBoqLnNob3J0cy52MWFscGhhMS5HZXRFY29ub21pY1Nlcmllc1Jlc3BvbnNlIgSAtRgBEn8KFkxpc3RTZXJpZXNDb3JyZWxhdGlvbnMSLi5zaG9ydHMudjFhbHBoYTEuTGlzdFNlcmllc0NvcnJlbGF0aW9uc1JlcXVlc3QaLy5zaG9ydHMudjFhbHBoYTEuTGlzdFNlcmllc0NvcnJlbGF0aW9uc1Jlc3BvbnNlIgSAtRgBEnMKEkxpc3RTdGF0ZUNvbXBhbmllcxIqLnNob3J0cy52MWFscGhhMS5MaXN0U3RhdGVDb21wYW5pZXNSZXF1ZXN0Gisuc2hvcnRzLnYxYWxwaGExLkxpc3RTdGF0ZUNvbXBhbmllc1Jlc3BvbnNlIgSAtRgBEogBChlHZXRTdGF0ZUNvbXBhbnlBZ2dyZWdhdGVzEjEuc2hvcnRzLnYxYWxwaGExLkdldFN0YXRlQ29tcGFueUFnZ3JlZ2F0ZXNSZXF1ZXN0GjIuc2hvcnRzLnYxYWxwaGExLkdldFN0YXRlQ29tcGFueUFnZ3JlZ2F0ZXNSZXNwb25zZSIEgLUYAULbAQoTY29tLnNob3J0cy52MWFscGhhMUIMRWNvbm9teVByb3RvUAFaWWdpdGh1Yi5jb20vY2FzdGxlbWlsay9zaG9ydGVkLmNvbS5hdS9zZXJ2aWNlcy9nZW4vcHJvdG8vZ28vc2hvcnRzL3YxYWxwaGExO3Nob3J0c3YxYWxwaGExogIDU1hYqgIPU2hvcnRzLlYxYWxwaGExygIPU2hvcnRzXFYxYWxwaGEx4gIbU2hvcnRzXFYxYWxwaGExXEdQQk1ldGFkYXRh6gIQU2hvcnRzOjpWMWFscGhhMWIGcHJvdG8z", [file_google_protobuf_timestamp, file_options_v1_options]);
 
 /**
  * @generated from message shorts.v1alpha1.EconomicSeriesInfo
@@ -234,6 +234,13 @@ export type GetEconomicSeriesRequest = Message<"shorts.v1alpha1.GetEconomicSerie
    * @generated from field: google.protobuf.Timestamp start_period = 2;
    */
   startPeriod?: Timestamp;
+
+  /**
+   * default 600, clamped to 1..600
+   *
+   * @generated from field: int32 max_observations = 3;
+   */
+  maxObservations: number;
 };
 
 /**
@@ -261,6 +268,98 @@ export const GetEconomicSeriesResponseSchema: GenMessage<GetEconomicSeriesRespon
   messageDesc(file_shorts_v1alpha1_economy, 6);
 
 /**
+ * @generated from message shorts.v1alpha1.ListSeriesCorrelationsRequest
+ */
+export type ListSeriesCorrelationsRequest = Message<"shorts.v1alpha1.ListSeriesCorrelationsRequest"> & {
+  /**
+   * required
+   *
+   * @generated from field: string base_series_key = 1;
+   */
+  baseSeriesKey: string;
+
+  /**
+   * default 24
+   *
+   * @generated from field: int32 window_months = 2;
+   */
+  windowMonths: number;
+
+  /**
+   * @generated from field: double min_abs_r = 3;
+   */
+  minAbsR: number;
+
+  /**
+   * default 100, max 100
+   *
+   * @generated from field: int32 limit = 4;
+   */
+  limit: number;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.ListSeriesCorrelationsRequest.
+ * Use `create(ListSeriesCorrelationsRequestSchema)` to create a new message.
+ */
+export const ListSeriesCorrelationsRequestSchema: GenMessage<ListSeriesCorrelationsRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_economy, 7);
+
+/**
+ * @generated from message shorts.v1alpha1.SeriesCorrelation
+ */
+export type SeriesCorrelation = Message<"shorts.v1alpha1.SeriesCorrelation"> & {
+  /**
+   * @generated from field: string overlay_series_key = 1;
+   */
+  overlaySeriesKey: string;
+
+  /**
+   * @generated from field: double r = 2;
+   */
+  r: number;
+
+  /**
+   * @generated from field: int32 n = 3;
+   */
+  n: number;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp last_period = 4;
+   */
+  lastPeriod?: Timestamp;
+
+  /**
+   * @generated from field: shorts.v1alpha1.EconomicSeriesInfo overlay = 5;
+   */
+  overlay?: EconomicSeriesInfo;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.SeriesCorrelation.
+ * Use `create(SeriesCorrelationSchema)` to create a new message.
+ */
+export const SeriesCorrelationSchema: GenMessage<SeriesCorrelation> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_economy, 8);
+
+/**
+ * @generated from message shorts.v1alpha1.ListSeriesCorrelationsResponse
+ */
+export type ListSeriesCorrelationsResponse = Message<"shorts.v1alpha1.ListSeriesCorrelationsResponse"> & {
+  /**
+   * @generated from field: repeated shorts.v1alpha1.SeriesCorrelation correlations = 1;
+   */
+  correlations: SeriesCorrelation[];
+};
+
+/**
+ * Describes the message shorts.v1alpha1.ListSeriesCorrelationsResponse.
+ * Use `create(ListSeriesCorrelationsResponseSchema)` to create a new message.
+ */
+export const ListSeriesCorrelationsResponseSchema: GenMessage<ListSeriesCorrelationsResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_economy, 9);
+
+/**
  * @generated from message shorts.v1alpha1.ListStateCompaniesRequest
  */
 export type ListStateCompaniesRequest = Message<"shorts.v1alpha1.ListStateCompaniesRequest"> & {
@@ -284,7 +383,7 @@ export type ListStateCompaniesRequest = Message<"shorts.v1alpha1.ListStateCompan
  * Use `create(ListStateCompaniesRequestSchema)` to create a new message.
  */
 export const ListStateCompaniesRequestSchema: GenMessage<ListStateCompaniesRequest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_economy, 7);
+  messageDesc(file_shorts_v1alpha1_economy, 10);
 
 /**
  * @generated from message shorts.v1alpha1.StateCompany
@@ -349,7 +448,7 @@ export type StateCompany = Message<"shorts.v1alpha1.StateCompany"> & {
  * Use `create(StateCompanySchema)` to create a new message.
  */
 export const StateCompanySchema: GenMessage<StateCompany> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_economy, 8);
+  messageDesc(file_shorts_v1alpha1_economy, 11);
 
 /**
  * @generated from message shorts.v1alpha1.ListStateCompaniesResponse
@@ -366,7 +465,7 @@ export type ListStateCompaniesResponse = Message<"shorts.v1alpha1.ListStateCompa
  * Use `create(ListStateCompaniesResponseSchema)` to create a new message.
  */
 export const ListStateCompaniesResponseSchema: GenMessage<ListStateCompaniesResponse> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_economy, 9);
+  messageDesc(file_shorts_v1alpha1_economy, 12);
 
 /**
  * @generated from message shorts.v1alpha1.GetStateCompanyAggregatesRequest
@@ -379,7 +478,7 @@ export type GetStateCompanyAggregatesRequest = Message<"shorts.v1alpha1.GetState
  * Use `create(GetStateCompanyAggregatesRequestSchema)` to create a new message.
  */
 export const GetStateCompanyAggregatesRequestSchema: GenMessage<GetStateCompanyAggregatesRequest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_economy, 10);
+  messageDesc(file_shorts_v1alpha1_economy, 13);
 
 /**
  * @generated from message shorts.v1alpha1.StateCompanyAggregate
@@ -415,7 +514,7 @@ export type StateCompanyAggregate = Message<"shorts.v1alpha1.StateCompanyAggrega
  * Use `create(StateCompanyAggregateSchema)` to create a new message.
  */
 export const StateCompanyAggregateSchema: GenMessage<StateCompanyAggregate> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_economy, 11);
+  messageDesc(file_shorts_v1alpha1_economy, 14);
 
 /**
  * @generated from message shorts.v1alpha1.GetStateCompanyAggregatesResponse
@@ -432,7 +531,7 @@ export type GetStateCompanyAggregatesResponse = Message<"shorts.v1alpha1.GetStat
  * Use `create(GetStateCompanyAggregatesResponseSchema)` to create a new message.
  */
 export const GetStateCompanyAggregatesResponseSchema: GenMessage<GetStateCompanyAggregatesResponse> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_economy, 12);
+  messageDesc(file_shorts_v1alpha1_economy, 15);
 
 /**
  * @generated from service shorts.v1alpha1.EconomyService
@@ -457,6 +556,16 @@ export const EconomyService: GenService<{
     methodKind: "unary";
     input: typeof GetEconomicSeriesRequestSchema;
     output: typeof GetEconomicSeriesResponseSchema;
+  },
+  /**
+   * Rank precomputed economic-series correlations for a base market series.
+   *
+   * @generated from rpc shorts.v1alpha1.EconomyService.ListSeriesCorrelations
+   */
+  listSeriesCorrelations: {
+    methodKind: "unary";
+    input: typeof ListSeriesCorrelationsRequestSchema;
+    output: typeof ListSeriesCorrelationsResponseSchema;
   },
   /**
    * List ASX-listed companies with operations-weighted exposure to a state.

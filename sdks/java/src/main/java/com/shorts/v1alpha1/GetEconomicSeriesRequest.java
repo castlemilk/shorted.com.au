@@ -142,6 +142,21 @@ private static final long serialVersionUID = 0L;
     return startPeriod_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : startPeriod_;
   }
 
+  public static final int MAX_OBSERVATIONS_FIELD_NUMBER = 3;
+  private int maxObservations_ = 0;
+  /**
+   * <pre>
+   * default 600, clamped to 1..600
+   * </pre>
+   *
+   * <code>int32 max_observations = 3 [json_name = "maxObservations"];</code>
+   * @return The maxObservations.
+   */
+  @java.lang.Override
+  public int getMaxObservations() {
+    return maxObservations_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -162,6 +177,9 @@ private static final long serialVersionUID = 0L;
     if (((bitField0_ & 0x00000001) != 0)) {
       output.writeMessage(2, getStartPeriod());
     }
+    if (maxObservations_ != 0) {
+      output.writeInt32(3, maxObservations_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -177,6 +195,10 @@ private static final long serialVersionUID = 0L;
     if (((bitField0_ & 0x00000001) != 0)) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(2, getStartPeriod());
+    }
+    if (maxObservations_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(3, maxObservations_);
     }
     return size;
   }
@@ -209,6 +231,8 @@ private static final long serialVersionUID = 0L;
       if (!getStartPeriod()
           .equals(other.getStartPeriod())) return false;
     }
+    if (getMaxObservations()
+        != other.getMaxObservations()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -228,6 +252,8 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + START_PERIOD_FIELD_NUMBER;
       hash = (53 * hash) + getStartPeriod().hashCode();
     }
+    hash = (37 * hash) + MAX_OBSERVATIONS_FIELD_NUMBER;
+    hash = (53 * hash) + getMaxObservations();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -372,6 +398,7 @@ private static final long serialVersionUID = 0L;
         startPeriodBuilder_.dispose();
         startPeriodBuilder_ = null;
       }
+      maxObservations_ = 0;
       return this;
     }
 
@@ -416,6 +443,9 @@ private static final long serialVersionUID = 0L;
             : startPeriodBuilder_.build();
         to_bitField0_ |= 0x00000001;
       }
+      if (((from_bitField0_ & 0x00000004) != 0)) {
+        result.maxObservations_ = maxObservations_;
+      }
       result.bitField0_ |= to_bitField0_;
     }
 
@@ -443,6 +473,9 @@ private static final long serialVersionUID = 0L;
       }
       if (other.hasStartPeriod()) {
         mergeStartPeriod(other.getStartPeriod());
+      }
+      if (other.getMaxObservations() != 0) {
+        setMaxObservations(other.getMaxObservations());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -482,6 +515,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000002;
               break;
             } // case 18
+            case 24: {
+              maxObservations_ = input.readInt32();
+              bitField0_ |= 0x00000004;
+              break;
+            } // case 24
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -801,6 +839,50 @@ private static final long serialVersionUID = 0L;
         startPeriod_ = null;
       }
       return startPeriodBuilder_;
+    }
+
+    private int maxObservations_ ;
+    /**
+     * <pre>
+     * default 600, clamped to 1..600
+     * </pre>
+     *
+     * <code>int32 max_observations = 3 [json_name = "maxObservations"];</code>
+     * @return The maxObservations.
+     */
+    @java.lang.Override
+    public int getMaxObservations() {
+      return maxObservations_;
+    }
+    /**
+     * <pre>
+     * default 600, clamped to 1..600
+     * </pre>
+     *
+     * <code>int32 max_observations = 3 [json_name = "maxObservations"];</code>
+     * @param value The maxObservations to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMaxObservations(int value) {
+
+      maxObservations_ = value;
+      bitField0_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * default 600, clamped to 1..600
+     * </pre>
+     *
+     * <code>int32 max_observations = 3 [json_name = "maxObservations"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearMaxObservations() {
+      bitField0_ = (bitField0_ & ~0x00000004);
+      maxObservations_ = 0;
+      onChanged();
+      return this;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.GetEconomicSeriesRequest)
