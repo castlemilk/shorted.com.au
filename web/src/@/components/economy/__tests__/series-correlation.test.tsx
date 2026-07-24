@@ -18,25 +18,30 @@ jest.mock("~/app/actions/client/getEconomyClient", () => ({
   listSeriesCorrelationsClient: jest.fn(),
 }));
 jest.mock("../dual-axis-chart", () => ({
-  DualAxisChart: jest.fn(({
-    primaryLabel,
-    secondaryLabel,
-    formatPrimary,
-    formatSecondary,
-  }: {
-    primaryLabel: string;
-    secondaryLabel: string;
-    formatPrimary: (value: number) => string;
-    formatSecondary: (value: number) => string;
-  }) => (
-    <div data-testid="dual-axis-chart">
-      {primaryLabel}: {formatPrimary(7.25)} / {secondaryLabel}: {formatSecondary(121.4)}
-    </div>
-  )),
+  DualAxisChart: jest.fn(
+    ({
+      primaryLabel,
+      secondaryLabel,
+      formatPrimary,
+      formatSecondary,
+    }: {
+      primaryLabel: string;
+      secondaryLabel: string;
+      formatPrimary: (value: number) => string;
+      formatSecondary: (value: number) => string;
+    }) => (
+      <div data-testid="dual-axis-chart">
+        {primaryLabel}: {formatPrimary(7.25)} / {secondaryLabel}:{" "}
+        {formatSecondary(121.4)}
+      </div>
+    ),
+  ),
 }));
 
 const mockGetEconomicSeriesClient =
-  getEconomicSeriesClient as jest.MockedFunction<typeof getEconomicSeriesClient>;
+  getEconomicSeriesClient as jest.MockedFunction<
+    typeof getEconomicSeriesClient
+  >;
 const mockListSeriesCorrelationsClient =
   listSeriesCorrelationsClient as jest.MockedFunction<
     typeof listSeriesCorrelationsClient
@@ -46,14 +51,16 @@ const mockDualAxisChart = DualAxisChart as jest.MockedFunction<
 >;
 
 function renderCorrelation(requireAnchor = false) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   return render(
     <QueryClientProvider client={queryClient}>
       <SeriesCorrelation
         anchor={{
           key: "markets.short_interest_avg.materials.aus",
           label: "Materials short interest",
-          format: "percent"
+          format: "percent",
         }}
         overlayCandidates={[
           {
@@ -104,7 +111,9 @@ describe("SeriesCorrelation", () => {
 
     renderCorrelation();
 
-    await waitFor(() => expect(mockGetEconomicSeriesClient).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(mockGetEconomicSeriesClient).toHaveBeenCalledTimes(2),
+    );
     expect(mockGetEconomicSeriesClient).toHaveBeenNthCalledWith(1, [
       "markets.short_interest_avg.materials.aus",
     ]);
@@ -212,7 +221,9 @@ describe("SeriesCorrelation", () => {
     expect(await screen.findByTestId("dual-axis-chart")).toBeInTheDocument();
     const primary = mockDualAxisChart.mock.calls[0]?.[0].primary;
     expect(primary).toHaveLength(2);
-    expect(primary?.some((point) => point.date.getUTCFullYear() === 1970)).toBe(false);
+    expect(primary?.some((point) => point.date.getUTCFullYear() === 1970)).toBe(
+      false,
+    );
   });
 
   it("reuses the stable overlay query when only the anchor changes", async () => {
@@ -257,7 +268,9 @@ describe("SeriesCorrelation", () => {
         "Materials short interest",
       ),
     );
-    await waitFor(() => expect(mockGetEconomicSeriesClient).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(mockGetEconomicSeriesClient).toHaveBeenCalledTimes(2),
+    );
 
     view.rerender(
       correlation(
@@ -265,21 +278,89 @@ describe("SeriesCorrelation", () => {
         "Energy short interest",
       ),
     );
-    await waitFor(() => expect(mockGetEconomicSeriesClient).toHaveBeenCalledTimes(3));
+    await waitFor(() =>
+      expect(mockGetEconomicSeriesClient).toHaveBeenCalledTimes(3),
+    );
 
     const overlayCalls = mockGetEconomicSeriesClient.mock.calls.filter(
-      ([keys]) => keys.length === 1 && keys[0] === "commodities.price_index.bulk.aus",
+      ([keys]) =>
+        keys.length === 1 && keys[0] === "commodities.price_index.bulk.aus",
     );
     expect(overlayCalls).toHaveLength(1);
   });
 
-  it("renders precomputed chips and skips rows outside the candidate registry", async () => {
+  it("keeps the legacy switcher registry-complete and fetches an unavailable selection on demand", async () => {
+    const observations = Array.from({ length: 12 }, (_, month) => ({
+      period: {
+        seconds: BigInt(Math.floor(Date.UTC(2025, month, 1) / 1000)),
+      },
+      value: month + 1,
+    }));
+    mockGetEconomicSeriesClient.mockImplementation(async (keys) => {
+      const returnedKeys =
+        keys.length > 1 ? ["commodities.price_index.bulk.aus"] : keys;
+      return create(GetEconomicSeriesResponseSchema, {
+        series: returnedKeys.map((key) => ({
+          info: { seriesKey: key },
+          observations,
+        })),
+      });
+    });
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SeriesCorrelation
+          anchor={{
+            key: "markets.short_interest_avg.materials.aus",
+            label: "Materials short interest",
+            format: "percent",
+          }}
+          overlayCandidates={[
+            {
+              key: "commodities.price_index.bulk.aus",
+              label: "Bulk commodity prices",
+              format: "index",
+            },
+            {
+              key: "credit.growth_yoy.business.aus.seasadj",
+              label: "Business credit growth",
+              format: "percent",
+            },
+          ]}
+          title="Materials short interest vs the economy"
+          description="Compare the industry's short interest with national indicators."
+          sectionAriaLabel="Materials economy context"
+          chartAriaLabel="Materials short interest versus economic context"
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByTestId("dual-axis-chart")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Business credit growth" }),
+    );
+    await waitFor(() =>
+      expect(mockGetEconomicSeriesClient).toHaveBeenCalledWith([
+        "credit.growth_yoy.business.aus.seasadj",
+      ]),
+    );
+  });
+
+  it("uses a partial registry match for precomputed chips and keeps the switcher registry-complete", async () => {
     mockListSeriesCorrelationsClient.mockResolvedValue(
       create(ListSeriesCorrelationsResponseSchema, {
         correlations: [
           {
             overlaySeriesKey: "commodities.price_index.bulk.aus",
             r: -0.81,
+            n: 24,
+          },
+          {
+            overlaySeriesKey: "credit.growth_yoy.business.aus.seasadj",
+            r: 0.2,
             n: 24,
           },
           {
@@ -319,6 +400,16 @@ describe("SeriesCorrelation", () => {
               label: "Bulk commodity prices",
               format: "index",
             },
+            {
+              key: "credit.growth_yoy.business.aus.seasadj",
+              label: "Business credit growth",
+              format: "percent",
+            },
+            {
+              key: "labour.employment.total.aus.seasadj",
+              label: "Employment",
+              format: "number",
+            },
           ]}
           title="Materials short interest vs the economy"
           description="Compare the industry's short interest with national indicators."
@@ -335,8 +426,22 @@ describe("SeriesCorrelation", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.queryByText("future.unknown.series")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: /Business credit growth.*r = 0\.20.*24m/i,
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Business credit growth" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Employment" }),
+    ).toBeInTheDocument();
     expect(mockListSeriesCorrelationsClient).toHaveBeenCalledWith(
       "markets.short_interest_avg.materials.aus",
+      24,
+      0,
+      250,
     );
     expect(mockGetEconomicSeriesClient).toHaveBeenCalledWith([
       "markets.short_interest_avg.materials.aus",
@@ -347,6 +452,18 @@ describe("SeriesCorrelation", () => {
     expect(mockGetEconomicSeriesClient).not.toHaveBeenCalledWith([
       "future.unknown.series",
     ]);
+    expect(mockGetEconomicSeriesClient).not.toHaveBeenCalledWith([
+      "commodities.price_index.bulk.aus",
+      "credit.growth_yoy.business.aus.seasadj",
+      "labour.employment.total.aus.seasadj",
+    ]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Employment" }));
+    await waitFor(() =>
+      expect(mockGetEconomicSeriesClient).toHaveBeenCalledWith([
+        "labour.employment.total.aus.seasadj",
+      ]),
+    );
   });
 
   it("falls back to the existing batched client-side computation when precomputed rows are empty", async () => {
@@ -359,9 +476,76 @@ describe("SeriesCorrelation", () => {
           info: { seriesKey: key },
           observations: Array.from({ length: 12 }, (_, month) => ({
             period: {
-              seconds: BigInt(
-                Math.floor(Date.UTC(2025, month, 1) / 1000),
-              ),
+              seconds: BigInt(Math.floor(Date.UTC(2025, month, 1) / 1000)),
+            },
+            value: month + 1,
+          })),
+        })),
+      }),
+    );
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SeriesCorrelation
+          anchor={{
+            key: "markets.short_interest_avg.materials.aus",
+            label: "Materials short interest",
+            format: "percent",
+          }}
+          overlayCandidates={[
+            {
+              key: "commodities.price_index.bulk.aus",
+              label: "Bulk commodity prices",
+              format: "index",
+            },
+            {
+              key: "credit.growth_yoy.business.aus.seasadj",
+              label: "Business credit growth",
+              format: "percent",
+            },
+          ]}
+          title="Materials short interest vs the economy"
+          description="Compare the industry's short interest with national indicators."
+          sectionAriaLabel="Materials economy context"
+          chartAriaLabel="Materials short interest versus economic context"
+          precomputedBaseKey="markets.short_interest_avg.materials.aus"
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(
+      await screen.findByRole("button", {
+        name: /Bulk commodity prices.*r = 1\.00.*12m/i,
+      }),
+    ).toBeInTheDocument();
+    expect(mockGetEconomicSeriesClient).toHaveBeenCalledWith([
+      "commodities.price_index.bulk.aus",
+      "credit.growth_yoy.business.aus.seasadj",
+    ]);
+  });
+
+  it("falls back to client-side computation when precomputed rows have zero registry intersection", async () => {
+    mockListSeriesCorrelationsClient.mockResolvedValue(
+      create(ListSeriesCorrelationsResponseSchema, {
+        correlations: [
+          {
+            overlaySeriesKey: "future.unknown.series",
+            r: 0.99,
+            n: 24,
+          },
+        ],
+      }),
+    );
+    mockGetEconomicSeriesClient.mockImplementation(async (keys) =>
+      create(GetEconomicSeriesResponseSchema, {
+        series: keys.map((key) => ({
+          info: { seriesKey: key },
+          observations: Array.from({ length: 12 }, (_, month) => ({
+            period: {
+              seconds: BigInt(Math.floor(Date.UTC(2025, month, 1) / 1000)),
             },
             value: month + 1,
           })),
@@ -494,8 +678,7 @@ describe("SeriesCorrelation", () => {
       expect(
         mockGetEconomicSeriesClient.mock.calls.filter(
           ([keys]) =>
-            keys.length === 1 &&
-            keys[0] === "commodities.price_index.bulk.aus",
+            keys.length === 1 && keys[0] === "commodities.price_index.bulk.aus",
         ),
       ).toHaveLength(1),
     );

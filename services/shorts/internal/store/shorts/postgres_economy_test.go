@@ -23,6 +23,25 @@ func TestNormalizeMaxObservations(t *testing.T) {
 	}
 }
 
+func TestNormalizeCorrelationLimit(t *testing.T) {
+	tests := []struct {
+		input int32
+		want  int32
+	}{
+		{input: -1, want: 100},
+		{input: 0, want: 100},
+		{input: 1, want: 1},
+		{input: 100, want: 100},
+		{input: 250, want: 250},
+		{input: 251, want: 250},
+	}
+	for _, test := range tests {
+		if got := normalizeCorrelationLimit(test.input); got != test.want {
+			t.Errorf("normalizeCorrelationLimit(%d) = %d, want %d", test.input, got, test.want)
+		}
+	}
+}
+
 func TestListSeriesCorrelationsQueryUsesCatalogJoinAndAbsoluteRanking(t *testing.T) {
 	for _, fragment := range []string{
 		"FROM economic_correlations c",

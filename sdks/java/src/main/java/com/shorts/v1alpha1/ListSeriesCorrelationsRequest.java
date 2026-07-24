@@ -126,7 +126,7 @@ private static final long serialVersionUID = 0L;
   private int limit_ = 0;
   /**
    * <pre>
-   * default 100, max 100
+   * default 100, max 250
    * </pre>
    *
    * <code>int32 limit = 4 [json_name = "limit"];</code>
@@ -677,7 +677,7 @@ private static final long serialVersionUID = 0L;
     private int limit_ ;
     /**
      * <pre>
-     * default 100, max 100
+     * default 100, max 250
      * </pre>
      *
      * <code>int32 limit = 4 [json_name = "limit"];</code>
@@ -689,7 +689,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * default 100, max 100
+     * default 100, max 250
      * </pre>
      *
      * <code>int32 limit = 4 [json_name = "limit"];</code>
@@ -705,7 +705,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * default 100, max 100
+     * default 100, max 250
      * </pre>
      *
      * <code>int32 limit = 4 [json_name = "limit"];</code>

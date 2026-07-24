@@ -48,7 +48,7 @@ public interface ListSeriesCorrelationsRequestOrBuilder extends
 
   /**
    * <pre>
-   * default 100, max 100
+   * default 100, max 250
    * </pre>
    *
    * <code>int32 limit = 4 [json_name = "limit"];</code>

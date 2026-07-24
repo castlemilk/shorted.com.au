@@ -291,7 +291,7 @@ export type ListSeriesCorrelationsRequest = Message<"shorts.v1alpha1.ListSeriesC
   minAbsR: number;
 
   /**
-   * default 100, max 100
+   * default 100, max 250
    *
    * @generated from field: int32 limit = 4;
    */

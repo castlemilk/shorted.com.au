@@ -2,6 +2,7 @@ package main
 
 import (
 	"math"
+	"strings"
 	"testing"
 	"time"
 )
@@ -166,5 +167,13 @@ func TestComputeCorrelationRowsSkipsInsufficientOverlapAndUndefinedCoefficients(
 	}
 	if stats.EligiblePairs != 2 || stats.InsufficientPairs != 2 {
 		t.Fatalf("stats=%#v, want 2 eligible and 2 insufficient/undefined", stats)
+	}
+}
+
+func TestDeleteEconomicCorrelationsCoversEntireMarketsBaseUniverse(t *testing.T) {
+	got := strings.Join(strings.Fields(deleteEconomicCorrelations), " ")
+	want := "DELETE FROM economic_correlations WHERE base_series_key LIKE 'markets.%'"
+	if got != want {
+		t.Fatalf("deleteEconomicCorrelations = %q, want %q", got, want)
 	}
 }

@@ -303,10 +303,13 @@ INSERT INTO economic_correlations
   (base_series_key, overlay_series_key, window_months, r, n, last_period, computed_at)
 VALUES ($1, $2, $3, $4, $5, $6, now())`
 
+const deleteEconomicCorrelations = `
+DELETE FROM economic_correlations
+WHERE base_series_key LIKE 'markets.%'`
+
 func replaceEconomicCorrelations(
 	ctx context.Context,
 	pool *pgxpool.Pool,
-	series []correlationSeries,
 	rows []economicCorrelationRow,
 ) error {
 	tx, err := pool.Begin(ctx)
@@ -315,16 +318,8 @@ func replaceEconomicCorrelations(
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	for _, candidate := range series {
-		if candidate.Topic != "markets" {
-			continue
-		}
-		if _, err := tx.Exec(ctx,
-			`DELETE FROM economic_correlations WHERE base_series_key = $1`,
-			candidate.Key,
-		); err != nil {
-			return fmt.Errorf("delete base %s: %w", candidate.Key, err)
-		}
+	if _, err := tx.Exec(ctx, deleteEconomicCorrelations); err != nil {
+		return fmt.Errorf("delete market bases: %w", err)
 	}
 
 	batch := &pgx.Batch{}
@@ -375,7 +370,7 @@ func ingestCorrelations(ctx context.Context, pool *pgxpool.Pool) (int, error) {
 			stats.EligiblePairs,
 		)
 	}
-	if err := replaceEconomicCorrelations(ctx, pool, series, rows); err != nil {
+	if err := replaceEconomicCorrelations(ctx, pool, rows); err != nil {
 		return 0, err
 	}
 	return len(rows), nil

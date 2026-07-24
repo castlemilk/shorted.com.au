@@ -234,7 +234,10 @@ func aggregateStatePriceReturns(rows []weightedStockReturnRow) ([]priceReturnRow
 
 // assemblePriceReturnIndexObs applies the constituent floor, drift guard, and
 // base-100 cumulative product without a database dependency. Each state's
-// first qualifying return month is the base observation at exactly 100.
+// first qualifying return month is the base observation at exactly 100, so
+// that discarded base return is not drift-checked. Once based, below-floor
+// months remain unpublished but are priced into the running level to preserve
+// index continuity.
 func assembleStatePriceReturnIndexObs(rows []priceReturnRow) ([]Obs, error) {
 	sortedRows := append([]priceReturnRow(nil), rows...)
 	sort.SliceStable(sortedRows, func(i, j int) bool {
@@ -247,13 +250,21 @@ func assembleStatePriceReturnIndexObs(rows []priceReturnRow) ([]Obs, error) {
 	indexByRegion := make(map[string]float64, len(marketStateNames))
 	obs := make([]Obs, 0, len(sortedRows))
 	for _, row := range sortedRows {
-		if row.Constituents < 5 {
-			continue
-		}
 		def, ok := priceReturnIndexSeriesDef(row.Region)
 		if !ok {
 			continue
 		}
+
+		index, exists := indexByRegion[row.Region]
+		if !exists {
+			if row.Constituents < 5 {
+				continue
+			}
+			indexByRegion[row.Region] = 100
+			obs = append(obs, Obs{Series: def, Period: row.Period, Value: 100})
+			continue
+		}
+
 		if math.IsNaN(row.Return) || math.IsInf(row.Return, 0) ||
 			row.Return < -maxStateMonthlyPriceReturn || row.Return > maxStateMonthlyPriceReturn {
 			return nil, fmt.Errorf(
@@ -262,12 +273,7 @@ func assembleStatePriceReturnIndexObs(rows []priceReturnRow) ([]Obs, error) {
 			)
 		}
 
-		index, exists := indexByRegion[row.Region]
-		if !exists {
-			index = 100
-		} else {
-			index *= 1 + row.Return
-		}
+		index *= 1 + row.Return
 		if math.IsNaN(index) || math.IsInf(index, 0) || index <= 0 {
 			return nil, fmt.Errorf(
 				"price-return index drift for %s at %s: %.6f",
@@ -275,6 +281,9 @@ func assembleStatePriceReturnIndexObs(rows []priceReturnRow) ([]Obs, error) {
 			)
 		}
 		indexByRegion[row.Region] = index
+		if row.Constituents < 5 {
+			continue
+		}
 		obs = append(obs, Obs{Series: def, Period: row.Period, Value: index})
 	}
 	return obs, nil

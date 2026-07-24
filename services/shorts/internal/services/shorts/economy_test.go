@@ -62,7 +62,7 @@ func TestGetEconomicSeries_DedupBelow50IsOK(t *testing.T) {
 	}
 
 	mockStore.EXPECT().
-		GetEconomicSeries(gomock.Any(), gomock.Any(), int32(600)).
+		GetEconomicSeries(gomock.Any(), gomock.Any(), int32(0)).
 		DoAndReturn(func(keys []string, _ time.Time, _ int32) ([]*shortsstore.EconomicSeriesDataRow, error) {
 			if len(keys) != 40 {
 				t.Fatalf("want 40 deduped keys reaching the store, got %d: %v", len(keys), keys)
@@ -88,7 +88,7 @@ func TestGetEconomicSeries_CacheKeyOrderInsensitive(t *testing.T) {
 	mockStore := mocks.NewMockShortsStore(ctrl)
 
 	sorted := []string{"cpi.index.all_groups.aus", "rates.cash_rate_target.aus"}
-	mockStore.EXPECT().GetEconomicSeries(sorted, gomock.Any(), int32(600)).Return(
+	mockStore.EXPECT().GetEconomicSeries(sorted, gomock.Any(), int32(0)).Return(
 		[]*shortsstore.EconomicSeriesDataRow{}, nil,
 	).Times(1) // EXACTLY one call: the second request must be served from cache.
 
@@ -145,13 +145,14 @@ func TestGetEconomicSeries_HappyPath(t *testing.T) {
 	}
 }
 
-func TestGetEconomicSeries_NormalizesMaxObservationsBeforeStoreAndCache(t *testing.T) {
+func TestGetEconomicSeries_PassesRawMaxObservationsToStoreAndCache(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mockStore := mocks.NewMockShortsStore(ctrl)
 	key := []string{"rates.cash_rate_target.aus"}
-	mockStore.EXPECT().GetEconomicSeries(key, gomock.Any(), int32(600)).Return(nil, nil).Times(1)
-	mockStore.EXPECT().GetEconomicSeries(key, gomock.Any(), int32(1)).Return(nil, nil).Times(1)
+	mockStore.EXPECT().GetEconomicSeries(key, gomock.Any(), int32(0)).Return(nil, nil).Times(1)
+	mockStore.EXPECT().GetEconomicSeries(key, gomock.Any(), int32(900)).Return(nil, nil).Times(1)
+	mockStore.EXPECT().GetEconomicSeries(key, gomock.Any(), int32(-4)).Return(nil, nil).Times(1)
 
 	srv := newTestServer(t, mockStore)
 	for _, maxObservations := range []int32{0, 900, -4} {
@@ -184,7 +185,7 @@ func TestListSeriesCorrelations_NormalizesInputsAndMapsOverlayMetadata(t *testin
 	mockStore := mocks.NewMockShortsStore(ctrl)
 	lastPeriod := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
 	mockStore.EXPECT().
-		ListSeriesCorrelations("markets.short_interest_wavg.wa", int32(24), 0.4, int32(100)).
+		ListSeriesCorrelations("markets.short_interest_wavg.wa", int32(24), 0.4, int32(250)).
 		Return([]*shortsstore.SeriesCorrelationRow{{
 			Overlay: shortsstore.EconomicSeriesRow{
 				SeriesKey: "commodities.price_index.iron_ore.aus",
@@ -220,6 +221,29 @@ func TestListSeriesCorrelations_NormalizesInputsAndMapsOverlayMetadata(t *testin
 		}
 		if row.Overlay == nil || row.Overlay.SeriesKey != row.OverlaySeriesKey || row.Overlay.Unit != "index" {
 			t.Fatalf("overlay metadata mismatch: %+v", row.Overlay)
+		}
+	}
+}
+
+func TestListSeriesCorrelations_PassesRawDefaultLimitToStoreAndCache(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	mockStore.EXPECT().
+		ListSeriesCorrelations("markets.short_interest_wavg.wa", int32(24), 0.0, int32(0)).
+		Return(nil, nil).
+		Times(1)
+
+	srv := newTestServer(t, mockStore)
+	for range 2 {
+		_, err := srv.ListSeriesCorrelations(
+			context.Background(),
+			connect.NewRequest(&shortsv1alpha1.ListSeriesCorrelationsRequest{
+				BaseSeriesKey: "markets.short_interest_wavg.wa",
+			}),
+		)
+		if err != nil {
+			t.Fatal(err)
 		}
 	}
 }

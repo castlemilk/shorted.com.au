@@ -49,8 +49,8 @@ describe("listSeriesCorrelationsClient", () => {
     expect(listSeriesCorrelations).toHaveBeenCalledWith({
       baseSeriesKey: "markets.short_interest_wavg.nsw",
       windowMonths: 24,
-      minAbsR: 0.4,
-      limit: 100,
+      minAbsR: 0,
+      limit: 250,
     });
   });
 });

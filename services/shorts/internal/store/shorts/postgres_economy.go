@@ -72,6 +72,11 @@ const listSeriesCorrelationsQuery = `
 	ORDER BY c.abs_r DESC, c.overlay_series_key
 	LIMIT $4`
 
+const (
+	defaultSeriesCorrelationLimit int32 = 100
+	maxSeriesCorrelationLimit     int32 = 250
+)
+
 // ListEconomicSeries returns catalog entries matching the optional filters.
 func (s *postgresStore) ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32) ([]*EconomicSeriesRow, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -178,11 +183,7 @@ func (s *postgresStore) ListSeriesCorrelations(baseSeriesKey string, windowMonth
 	} else if minAbsR > 1 {
 		minAbsR = 1
 	}
-	if limit <= 0 {
-		limit = 100
-	} else if limit > 100 {
-		limit = 100
-	}
+	limit = normalizeCorrelationLimit(limit)
 
 	rows, err := s.db.Query(ctx, listSeriesCorrelationsQuery, baseSeriesKey, windowMonths, minAbsR, limit)
 	if err != nil {
@@ -217,5 +218,16 @@ func normalizeMaxObservations(maxObservations int32) int32 {
 		return 600
 	default:
 		return maxObservations
+	}
+}
+
+func normalizeCorrelationLimit(limit int32) int32 {
+	switch {
+	case limit <= 0:
+		return defaultSeriesCorrelationLimit
+	case limit > maxSeriesCorrelationLimit:
+		return maxSeriesCorrelationLimit
+	default:
+		return limit
 	}
 }

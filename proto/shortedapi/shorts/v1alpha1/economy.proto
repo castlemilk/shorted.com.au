@@ -89,7 +89,7 @@ message ListSeriesCorrelationsRequest {
   string base_series_key = 1; // required
   int32 window_months = 2;    // default 24
   double min_abs_r = 3;
-  int32 limit = 4;            // default 100, max 100
+  int32 limit = 4;            // default 100, max 250
 }
 
 message SeriesCorrelation {

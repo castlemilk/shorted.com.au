@@ -235,13 +235,59 @@ func TestAssemblePriceReturnIndexObsAppliesConstituentFloor(t *testing.T) {
 	}
 }
 
+func TestAssemblePriceReturnIndexObsPricesInUnpublishedBelowFloorMonth(t *testing.T) {
+	rows := []priceReturnRow{
+		{Region: "qld", Period: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), Return: 0.10, Constituents: 5},
+		{Region: "qld", Period: time.Date(2025, 2, 1, 0, 0, 0, 0, time.UTC), Return: 0.20, Constituents: 4},
+		{Region: "qld", Period: time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC), Return: 0.10, Constituents: 5},
+	}
+
+	obs, err := assembleStatePriceReturnIndexObs(rows)
+	if err != nil {
+		t.Fatalf("assembleStatePriceReturnIndexObs: %v", err)
+	}
+	if got, want := len(obs), 2; got != want {
+		t.Fatalf("len(obs) = %d, want %d", got, want)
+	}
+	if got := obs[1].Period.Format("2006-01-02"); got != "2025-03-01" {
+		t.Fatalf("second period = %s, below-floor month must remain unpublished", got)
+	}
+	if got, want := obs[1].Value, 132.0; math.Abs(got-want) > 1e-12 {
+		t.Fatalf("post-floor index = %.12f, want %.12f with February priced in", got, want)
+	}
+}
+
+func TestAssemblePriceReturnIndexObsSkipsDriftGuardForBaseMonth(t *testing.T) {
+	rows := []priceReturnRow{{
+		Region: "tas", Period: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+		Return: 0.50, Constituents: 5,
+	}}
+
+	obs, err := assembleStatePriceReturnIndexObs(rows)
+	if err != nil {
+		t.Fatalf("base month return is discarded and must not trigger drift guard: %v", err)
+	}
+	if got, want := len(obs), 1; got != want {
+		t.Fatalf("len(obs) = %d, want %d", got, want)
+	}
+	if got := obs[0].Value; got != 100 {
+		t.Fatalf("base index = %v, want 100", got)
+	}
+}
+
 func TestAssemblePriceReturnIndexObsRejectsMonthlyReturnDrift(t *testing.T) {
 	for _, monthlyReturn := range []float64{0.250001, -0.250001, math.NaN(), math.Inf(1)} {
 		t.Run(fmt.Sprintf("%v", monthlyReturn), func(t *testing.T) {
-			rows := []priceReturnRow{{
-				Region: "tas", Period: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
-				Return: monthlyReturn, Constituents: 5,
-			}}
+			rows := []priceReturnRow{
+				{
+					Region: "tas", Period: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+					Return: 0, Constituents: 5,
+				},
+				{
+					Region: "tas", Period: time.Date(2025, 2, 1, 0, 0, 0, 0, time.UTC),
+					Return: monthlyReturn, Constituents: 5,
+				},
+			}
 			obs, err := assembleStatePriceReturnIndexObs(rows)
 			if err == nil {
 				t.Fatalf("monthly return %v: expected drift error", monthlyReturn)

@@ -504,7 +504,7 @@ type ListSeriesCorrelationsRequest struct {
 	BaseSeriesKey string                 `protobuf:"bytes,1,opt,name=base_series_key,json=baseSeriesKey,proto3" json:"base_series_key,omitempty"` // required
 	WindowMonths  int32                  `protobuf:"varint,2,opt,name=window_months,json=windowMonths,proto3" json:"window_months,omitempty"`     // default 24
 	MinAbsR       float64                `protobuf:"fixed64,3,opt,name=min_abs_r,json=minAbsR,proto3" json:"min_abs_r,omitempty"`
-	Limit         int32                  `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"` // default 100, max 100
+	Limit         int32                  `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"` // default 100, max 250
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

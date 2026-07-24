@@ -1,6 +1,8 @@
 -- Recreate the exposure MV with a refresh timestamp. now() is evaluated by
 -- CREATE/REFRESH, so every materialized row records the completed snapshot's
 -- refresh transaction time. Keep the unique index for CONCURRENTLY refreshes.
+-- Privileges remain owner-default: no migration grants this materialized view,
+-- so recreating it does not require any explicit re-grant.
 
 DROP MATERIALIZED VIEW IF EXISTS mv_company_state_exposure;
 

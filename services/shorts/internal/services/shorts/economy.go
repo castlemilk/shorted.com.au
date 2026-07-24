@@ -57,7 +57,7 @@ func (s *ShortsServer) GetEconomicSeries(ctx context.Context, req *connect.Reque
 		startKey = start.Format("2006-01-02")
 	}
 
-	maxObservations := normalizeMaxObservations(m.MaxObservations)
+	maxObservations := m.MaxObservations
 	cacheKey := s.cache.GetEconomicSeriesKey(keys, startKey, maxObservations)
 	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
 		rows, err := s.store.GetEconomicSeries(keys, start, maxObservations)
@@ -88,7 +88,8 @@ func (s *ShortsServer) GetEconomicSeries(ctx context.Context, req *connect.Reque
 }
 
 // ListSeriesCorrelations returns precomputed overlays for one normalized base
-// series. Defaults and caps are applied before both cache and store access.
+// series. The handler validates request-only constraints; the store owns the
+// correlation limit default and cap.
 func (s *ShortsServer) ListSeriesCorrelations(ctx context.Context, req *connect.Request[shortsv1alpha1.ListSeriesCorrelationsRequest]) (*connect.Response[shortsv1alpha1.ListSeriesCorrelationsResponse], error) {
 	m := req.Msg
 	baseSeriesKey := strings.ToLower(strings.TrimSpace(m.BaseSeriesKey))
@@ -105,12 +106,8 @@ func (s *ShortsServer) ListSeriesCorrelations(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("min_abs_r must be between 0 and 1"))
 	}
 	limit := m.Limit
-	if limit == 0 {
-		limit = 100
-	} else if limit < 0 {
+	if limit < 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("limit must be positive"))
-	} else if limit > 100 {
-		limit = 100
 	}
 
 	cacheKey := s.cache.ListSeriesCorrelationsKey(baseSeriesKey, windowMonths, m.MinAbsR, limit)
@@ -139,19 +136,6 @@ func (s *ShortsServer) ListSeriesCorrelations(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list series correlations"))
 	}
 	return connect.NewResponse(cached.(*shortsv1alpha1.ListSeriesCorrelationsResponse)), nil
-}
-
-func normalizeMaxObservations(maxObservations int32) int32 {
-	switch {
-	case maxObservations == 0:
-		return 600
-	case maxObservations < 1:
-		return 1
-	case maxObservations > 600:
-		return 600
-	default:
-		return maxObservations
-	}
 }
 
 func economicSeriesInfoProto(r *shortsstore.EconomicSeriesRow) *shortsv1alpha1.EconomicSeriesInfo {
