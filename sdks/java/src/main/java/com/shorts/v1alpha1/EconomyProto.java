@@ -62,6 +62,21 @@ public final class EconomyProto extends com.google.protobuf.GeneratedFile {
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_shorts_v1alpha1_GetEconomicSeriesResponse_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_ListSeriesCorrelationsRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_ListSeriesCorrelationsRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_SeriesCorrelation_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_SeriesCorrelation_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_ListSeriesCorrelationsResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_ListSeriesCorrelationsResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
     internal_static_shorts_v1alpha1_ListStateCompaniesRequest_descriptor;
   static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
@@ -127,50 +142,67 @@ public final class EconomyProto extends com.google.protobuf.GeneratedFile {
       " \001(\0132#.shorts.v1alpha1.EconomicSeriesInf" +
       "oR\004info\022H\n\014observations\030\002 \003(\0132$.shorts.v" +
       "1alpha1.EconomicObservationR\014observation" +
-      "s\"z\n\030GetEconomicSeriesRequest\022\037\n\013series_" +
-      "keys\030\001 \003(\tR\nseriesKeys\022=\n\014start_period\030\002" +
-      " \001(\0132\032.google.protobuf.TimestampR\013startP" +
-      "eriod\"X\n\031GetEconomicSeriesResponse\022;\n\006se" +
-      "ries\030\001 \003(\0132#.shorts.v1alpha1.EconomicSer" +
-      "iesDataR\006series\"G\n\031ListStateCompaniesReq" +
-      "uest\022\024\n\005state\030\001 \001(\tR\005state\022\024\n\005limit\030\002 \001(" +
-      "\005R\005limit\"\221\002\n\014StateCompany\022\035\n\nstock_code\030" +
-      "\001 \001(\tR\tstockCode\022!\n\014company_name\030\002 \001(\tR\013" +
-      "companyName\022\032\n\010industry\030\003 \001(\tR\010industry\022" +
-      "\026\n\006weight\030\004 \001(\001R\006weight\022\024\n\005basis\030\005 \001(\tR\005" +
-      "basis\022\035\n\nmarket_cap\030\006 \001(\001R\tmarketCap\022#\n\r" +
-      "short_percent\030\007 \001(\001R\014shortPercent\022\031\n\010log" +
-      "o_url\030\010 \001(\tR\007logoUrl\022\026\n\006source\030\t \001(\tR\006so" +
-      "urce\"Y\n\032ListStateCompaniesResponse\022;\n\tco" +
-      "mpanies\030\001 \003(\0132\035.shorts.v1alpha1.StateCom" +
-      "panyR\tcompanies\"\"\n GetStateCompanyAggreg" +
-      "atesRequest\"\332\001\n\025StateCompanyAggregate\022\024\n" +
-      "\005state\030\001 \001(\tR\005state\022#\n\rcompany_count\030\002 \001" +
-      "(\005R\014companyCount\022?\n\034exposure_weighted_ma" +
-      "rket_cap\030\003 \001(\001R\031exposureWeightedMarketCa" +
-      "p\022E\n\037exposure_weighted_short_percent\030\004 \001" +
-      "(\001R\034exposureWeightedShortPercent\"k\n!GetS" +
-      "tateCompanyAggregatesResponse\022F\n\naggrega" +
-      "tes\030\001 \003(\0132&.shorts.v1alpha1.StateCompany" +
-      "AggregateR\naggregates2\367\003\n\016EconomyService" +
-      "\022s\n\022ListEconomicSeries\022*.shorts.v1alpha1" +
-      ".ListEconomicSeriesRequest\032+.shorts.v1al" +
-      "pha1.ListEconomicSeriesResponse\"\004\200\265\030\001\022p\n" +
-      "\021GetEconomicSeries\022).shorts.v1alpha1.Get" +
-      "EconomicSeriesRequest\032*.shorts.v1alpha1." +
-      "GetEconomicSeriesResponse\"\004\200\265\030\001\022s\n\022ListS" +
-      "tateCompanies\022*.shorts.v1alpha1.ListStat" +
-      "eCompaniesRequest\032+.shorts.v1alpha1.List" +
-      "StateCompaniesResponse\"\004\200\265\030\001\022\210\001\n\031GetStat" +
-      "eCompanyAggregates\0221.shorts.v1alpha1.Get" +
-      "StateCompanyAggregatesRequest\0322.shorts.v" +
-      "1alpha1.GetStateCompanyAggregatesRespons" +
-      "e\"\004\200\265\030\001B\333\001\n\023com.shorts.v1alpha1B\014Economy" +
-      "ProtoP\001ZYgithub.com/castlemilk/shorted.c" +
-      "om.au/services/gen/proto/go/shorts/v1alp" +
-      "ha1;shortsv1alpha1\242\002\003SXX\252\002\017Shorts.V1alph" +
-      "a1\312\002\017Shorts\\V1alpha1\342\002\033Shorts\\V1alpha1\\G" +
-      "PBMetadata\352\002\020Shorts::V1alpha1b\006proto3"
+      "s\"\245\001\n\030GetEconomicSeriesRequest\022\037\n\013series" +
+      "_keys\030\001 \003(\tR\nseriesKeys\022=\n\014start_period\030" +
+      "\002 \001(\0132\032.google.protobuf.TimestampR\013start" +
+      "Period\022)\n\020max_observations\030\003 \001(\005R\017maxObs" +
+      "ervations\"X\n\031GetEconomicSeriesResponse\022;" +
+      "\n\006series\030\001 \003(\0132#.shorts.v1alpha1.Economi" +
+      "cSeriesDataR\006series\"\236\001\n\035ListSeriesCorrel" +
+      "ationsRequest\022&\n\017base_series_key\030\001 \001(\tR\r" +
+      "baseSeriesKey\022#\n\rwindow_months\030\002 \001(\005R\014wi" +
+      "ndowMonths\022\032\n\tmin_abs_r\030\003 \001(\001R\007minAbsR\022\024" +
+      "\n\005limit\030\004 \001(\005R\005limit\"\331\001\n\021SeriesCorrelati" +
+      "on\022,\n\022overlay_series_key\030\001 \001(\tR\020overlayS" +
+      "eriesKey\022\014\n\001r\030\002 \001(\001R\001r\022\014\n\001n\030\003 \001(\005R\001n\022;\n\013" +
+      "last_period\030\004 \001(\0132\032.google.protobuf.Time" +
+      "stampR\nlastPeriod\022=\n\007overlay\030\005 \001(\0132#.sho" +
+      "rts.v1alpha1.EconomicSeriesInfoR\007overlay" +
+      "\"h\n\036ListSeriesCorrelationsResponse\022F\n\014co" +
+      "rrelations\030\001 \003(\0132\".shorts.v1alpha1.Serie" +
+      "sCorrelationR\014correlations\"G\n\031ListStateC" +
+      "ompaniesRequest\022\024\n\005state\030\001 \001(\tR\005state\022\024\n" +
+      "\005limit\030\002 \001(\005R\005limit\"\221\002\n\014StateCompany\022\035\n\n" +
+      "stock_code\030\001 \001(\tR\tstockCode\022!\n\014company_n" +
+      "ame\030\002 \001(\tR\013companyName\022\032\n\010industry\030\003 \001(\t" +
+      "R\010industry\022\026\n\006weight\030\004 \001(\001R\006weight\022\024\n\005ba" +
+      "sis\030\005 \001(\tR\005basis\022\035\n\nmarket_cap\030\006 \001(\001R\tma" +
+      "rketCap\022#\n\rshort_percent\030\007 \001(\001R\014shortPer" +
+      "cent\022\031\n\010logo_url\030\010 \001(\tR\007logoUrl\022\026\n\006sourc" +
+      "e\030\t \001(\tR\006source\"Y\n\032ListStateCompaniesRes" +
+      "ponse\022;\n\tcompanies\030\001 \003(\0132\035.shorts.v1alph" +
+      "a1.StateCompanyR\tcompanies\"\"\n GetStateCo" +
+      "mpanyAggregatesRequest\"\332\001\n\025StateCompanyA" +
+      "ggregate\022\024\n\005state\030\001 \001(\tR\005state\022#\n\rcompan" +
+      "y_count\030\002 \001(\005R\014companyCount\022?\n\034exposure_" +
+      "weighted_market_cap\030\003 \001(\001R\031exposureWeigh" +
+      "tedMarketCap\022E\n\037exposure_weighted_short_" +
+      "percent\030\004 \001(\001R\034exposureWeightedShortPerc" +
+      "ent\"k\n!GetStateCompanyAggregatesResponse" +
+      "\022F\n\naggregates\030\001 \003(\0132&.shorts.v1alpha1.S" +
+      "tateCompanyAggregateR\naggregates2\370\004\n\016Eco" +
+      "nomyService\022s\n\022ListEconomicSeries\022*.shor" +
+      "ts.v1alpha1.ListEconomicSeriesRequest\032+." +
+      "shorts.v1alpha1.ListEconomicSeriesRespon" +
+      "se\"\004\200\265\030\001\022p\n\021GetEconomicSeries\022).shorts.v" +
+      "1alpha1.GetEconomicSeriesRequest\032*.short" +
+      "s.v1alpha1.GetEconomicSeriesResponse\"\004\200\265" +
+      "\030\001\022\177\n\026ListSeriesCorrelations\022..shorts.v1" +
+      "alpha1.ListSeriesCorrelationsRequest\032/.s" +
+      "horts.v1alpha1.ListSeriesCorrelationsRes" +
+      "ponse\"\004\200\265\030\001\022s\n\022ListStateCompanies\022*.shor" +
+      "ts.v1alpha1.ListStateCompaniesRequest\032+." +
+      "shorts.v1alpha1.ListStateCompaniesRespon" +
+      "se\"\004\200\265\030\001\022\210\001\n\031GetStateCompanyAggregates\0221" +
+      ".shorts.v1alpha1.GetStateCompanyAggregat" +
+      "esRequest\0322.shorts.v1alpha1.GetStateComp" +
+      "anyAggregatesResponse\"\004\200\265\030\001B\333\001\n\023com.shor" +
+      "ts.v1alpha1B\014EconomyProtoP\001ZYgithub.com/" +
+      "castlemilk/shorted.com.au/services/gen/p" +
+      "roto/go/shorts/v1alpha1;shortsv1alpha1\242\002" +
+      "\003SXX\252\002\017Shorts.V1alpha1\312\002\017Shorts\\V1alpha1" +
+      "\342\002\033Shorts\\V1alpha1\\GPBMetadata\352\002\020Shorts:" +
+      ":V1alpha1b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -213,45 +245,63 @@ public final class EconomyProto extends com.google.protobuf.GeneratedFile {
     internal_static_shorts_v1alpha1_GetEconomicSeriesRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetEconomicSeriesRequest_descriptor,
-        new java.lang.String[] { "SeriesKeys", "StartPeriod", });
+        new java.lang.String[] { "SeriesKeys", "StartPeriod", "MaxObservations", });
     internal_static_shorts_v1alpha1_GetEconomicSeriesResponse_descriptor =
       getDescriptor().getMessageType(6);
     internal_static_shorts_v1alpha1_GetEconomicSeriesResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetEconomicSeriesResponse_descriptor,
         new java.lang.String[] { "Series", });
-    internal_static_shorts_v1alpha1_ListStateCompaniesRequest_descriptor =
+    internal_static_shorts_v1alpha1_ListSeriesCorrelationsRequest_descriptor =
       getDescriptor().getMessageType(7);
+    internal_static_shorts_v1alpha1_ListSeriesCorrelationsRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_ListSeriesCorrelationsRequest_descriptor,
+        new java.lang.String[] { "BaseSeriesKey", "WindowMonths", "MinAbsR", "Limit", });
+    internal_static_shorts_v1alpha1_SeriesCorrelation_descriptor =
+      getDescriptor().getMessageType(8);
+    internal_static_shorts_v1alpha1_SeriesCorrelation_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_SeriesCorrelation_descriptor,
+        new java.lang.String[] { "OverlaySeriesKey", "R", "N", "LastPeriod", "Overlay", });
+    internal_static_shorts_v1alpha1_ListSeriesCorrelationsResponse_descriptor =
+      getDescriptor().getMessageType(9);
+    internal_static_shorts_v1alpha1_ListSeriesCorrelationsResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_ListSeriesCorrelationsResponse_descriptor,
+        new java.lang.String[] { "Correlations", });
+    internal_static_shorts_v1alpha1_ListStateCompaniesRequest_descriptor =
+      getDescriptor().getMessageType(10);
     internal_static_shorts_v1alpha1_ListStateCompaniesRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListStateCompaniesRequest_descriptor,
         new java.lang.String[] { "State", "Limit", });
     internal_static_shorts_v1alpha1_StateCompany_descriptor =
-      getDescriptor().getMessageType(8);
+      getDescriptor().getMessageType(11);
     internal_static_shorts_v1alpha1_StateCompany_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_StateCompany_descriptor,
         new java.lang.String[] { "StockCode", "CompanyName", "Industry", "Weight", "Basis", "MarketCap", "ShortPercent", "LogoUrl", "Source", });
     internal_static_shorts_v1alpha1_ListStateCompaniesResponse_descriptor =
-      getDescriptor().getMessageType(9);
+      getDescriptor().getMessageType(12);
     internal_static_shorts_v1alpha1_ListStateCompaniesResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListStateCompaniesResponse_descriptor,
         new java.lang.String[] { "Companies", });
     internal_static_shorts_v1alpha1_GetStateCompanyAggregatesRequest_descriptor =
-      getDescriptor().getMessageType(10);
+      getDescriptor().getMessageType(13);
     internal_static_shorts_v1alpha1_GetStateCompanyAggregatesRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetStateCompanyAggregatesRequest_descriptor,
         new java.lang.String[] { });
     internal_static_shorts_v1alpha1_StateCompanyAggregate_descriptor =
-      getDescriptor().getMessageType(11);
+      getDescriptor().getMessageType(14);
     internal_static_shorts_v1alpha1_StateCompanyAggregate_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_StateCompanyAggregate_descriptor,
         new java.lang.String[] { "State", "CompanyCount", "ExposureWeightedMarketCap", "ExposureWeightedShortPercent", });
     internal_static_shorts_v1alpha1_GetStateCompanyAggregatesResponse_descriptor =
-      getDescriptor().getMessageType(12);
+      getDescriptor().getMessageType(15);
     internal_static_shorts_v1alpha1_GetStateCompanyAggregatesResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetStateCompanyAggregatesResponse_descriptor,

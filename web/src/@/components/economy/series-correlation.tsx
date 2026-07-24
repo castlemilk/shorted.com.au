@@ -3,7 +3,10 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
-import { getEconomicSeriesClient } from "~/app/actions/client/getEconomyClient";
+import {
+  getEconomicSeriesClient,
+  listSeriesCorrelationsClient,
+} from "~/app/actions/client/getEconomyClient";
 import {
   ECONOMY_SERIES_FORMATTERS,
   observationsFor,
@@ -23,6 +26,7 @@ export interface SeriesCorrelationProps {
   sectionAriaLabel: string;
   chartAriaLabel: string;
   defaultOverlayKey?: string;
+  precomputedBaseKey?: string;
   /** Industry series are derived and may not exist; state anchors retain legacy permissive behaviour. */
   requireAnchor?: boolean;
   missingAnchorMessage?: string;
@@ -45,6 +49,7 @@ export function SeriesCorrelation({
   sectionAriaLabel,
   chartAriaLabel,
   defaultOverlayKey,
+  precomputedBaseKey,
   requireAnchor = false,
   missingAnchorMessage = "No anchor-series history is available yet.",
 }: SeriesCorrelationProps) {
@@ -52,6 +57,42 @@ export function SeriesCorrelation({
     () => overlayCandidates.map((candidate) => candidate.key),
     [overlayCandidates],
   );
+  const candidateByKey = useMemo(
+    () =>
+      new Map(overlayCandidates.map((candidate) => [candidate.key, candidate])),
+    [overlayCandidates],
+  );
+  const precomputedQuery = useQuery({
+    queryKey: ["economy-series-correlations", precomputedBaseKey],
+    queryFn: () =>
+      listSeriesCorrelationsClient(precomputedBaseKey!, 24, 0, 250),
+    enabled: precomputedBaseKey !== undefined,
+    staleTime: 60 * 60 * 1000,
+  });
+  const precomputedRows = useMemo(
+    () => precomputedQuery.data?.correlations ?? [],
+    [precomputedQuery.data],
+  );
+  const precomputedAvailable = useMemo(
+    () =>
+      precomputedRows.flatMap((correlation) => {
+        const candidate = candidateByKey.get(correlation.overlaySeriesKey);
+        return candidate
+          ? [
+              {
+                ...candidate,
+                r: correlation.r,
+                n: correlation.n,
+              },
+            ]
+          : [];
+      }),
+    [candidateByKey, precomputedRows],
+  );
+  const useLegacyComputation =
+    precomputedBaseKey === undefined ||
+    (precomputedQuery.isFetched &&
+      (precomputedRows.length === 0 || precomputedAvailable.length === 0));
   const anchorQuery = useQuery({
     queryKey: ["economy-series-correlation-anchor", anchor.key],
     queryFn: () => getEconomicSeriesClient([anchor.key]),
@@ -60,10 +101,10 @@ export function SeriesCorrelation({
   const overlayQuery = useQuery({
     queryKey: ["economy-series-correlation-overlays", ...overlayKeys],
     queryFn: () => getEconomicSeriesClient(overlayKeys),
-    enabled: overlayKeys.length > 0,
+    enabled: useLegacyComputation && overlayKeys.length > 0,
     staleTime: 60 * 60 * 1000,
   });
-  const data = useMemo(
+  const legacyData = useMemo(
     () => ({
       series: [
         ...(anchorQuery.data?.series ?? []),
@@ -72,49 +113,97 @@ export function SeriesCorrelation({
     }),
     [anchorQuery.data, overlayQuery.data],
   );
-  const isLoading = anchorQuery.isLoading || overlayQuery.isLoading;
 
   const anchorObservations = useMemo(
-    () => observationsFor(data, anchor.key),
-    [anchor.key, data],
+    () => observationsFor(anchorQuery.data, anchor.key),
+    [anchor.key, anchorQuery.data],
   );
-  const available = useMemo(
+  const legacyAvailable = useMemo(
     () =>
       overlayCandidates
         .map((candidate) => ({
           ...candidate,
-          series: observationsFor(data, candidate.key),
+          series: observationsFor(legacyData, candidate.key),
         }))
         .filter((candidate) => candidate.series.length >= 2),
-    [data, overlayCandidates],
+    [legacyData, overlayCandidates],
   );
-  const ranked = useMemo(
+  const legacyRanked = useMemo(
     () =>
       topCorrelations(
         anchorObservations,
-        available.map((candidate) => ({
+        legacyAvailable.map((candidate) => ({
           key: candidate.key,
           label: candidate.label,
           series: candidate.series,
         })),
         { minAbsR: 0.4, minN: 12, windowMonths: 24 },
       ),
-    [anchorObservations, available],
+    [anchorObservations, legacyAvailable],
   );
+  const precomputedRanked = useMemo(
+    () =>
+      precomputedAvailable.filter(
+        (correlation) => Math.abs(correlation.r) >= 0.4,
+      ),
+    [precomputedAvailable],
+  );
+  const modeAvailable = useLegacyComputation
+    ? legacyAvailable
+    : precomputedAvailable;
+  const ranked = useLegacyComputation ? legacyRanked : precomputedRanked;
 
+  const defaultOverlayIsSelectable =
+    defaultOverlayKey !== undefined &&
+    (useLegacyComputation
+      ? legacyAvailable.some((candidate) => candidate.key === defaultOverlayKey)
+      : candidateByKey.has(defaultOverlayKey));
   const fallbackKey =
     ranked[0]?.key ??
-    (defaultOverlayKey &&
-    available.some((candidate) => candidate.key === defaultOverlayKey)
+    (defaultOverlayKey && defaultOverlayIsSelectable
       ? defaultOverlayKey
-      : available[0]?.key) ??
+      : modeAvailable[0]?.key) ??
+    overlayCandidates[0]?.key ??
     "";
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const activeKey =
-    selectedKey && available.some((candidate) => candidate.key === selectedKey)
-      ? selectedKey
-      : fallbackKey;
-  const active = available.find((candidate) => candidate.key === activeKey);
+    selectedKey && candidateByKey.has(selectedKey) ? selectedKey : fallbackKey;
+  const legacyActiveSeries = useMemo(
+    () =>
+      legacyAvailable.find((candidate) => candidate.key === activeKey)
+        ?.series ?? [],
+    [activeKey, legacyAvailable],
+  );
+  const activeOverlayQuery = useQuery({
+    queryKey: ["economy-series-correlation-overlay", activeKey],
+    queryFn: () => getEconomicSeriesClient([activeKey]),
+    enabled:
+      activeKey !== "" &&
+      (useLegacyComputation
+        ? overlayQuery.isFetched && legacyActiveSeries.length < 2
+        : precomputedQuery.isFetched),
+    staleTime: 60 * 60 * 1000,
+  });
+  const activeCandidate = candidateByKey.get(activeKey);
+  const activeSeries = useMemo(
+    () =>
+      useLegacyComputation && legacyActiveSeries.length >= 2
+        ? legacyActiveSeries
+        : observationsFor(activeOverlayQuery.data, activeKey),
+    [
+      activeKey,
+      activeOverlayQuery.data,
+      legacyActiveSeries,
+      useLegacyComputation,
+    ],
+  );
+  const active = useMemo(
+    () =>
+      activeCandidate && activeSeries.length >= 2
+        ? { ...activeCandidate, series: activeSeries }
+        : undefined,
+    [activeCandidate, activeSeries],
+  );
   const chartSecondary = useMemo(() => {
     if (!active) return [];
     const anchorStart = anchorObservations[0]?.date.getTime();
@@ -123,12 +212,22 @@ export function SeriesCorrelation({
       (observation) => observation.date.getTime() >= anchorStart,
     );
   }, [active, anchorObservations]);
+  const isLoading =
+    anchorQuery.isLoading ||
+    (precomputedBaseKey !== undefined && precomputedQuery.isLoading) ||
+    (useLegacyComputation
+      ? overlayQuery.isLoading || activeOverlayQuery.isLoading
+      : activeOverlayQuery.isLoading);
 
   if (isLoading) {
     return <div className="h-[320px] w-full animate-pulse rounded bg-muted" />;
   }
 
-  if (!requireAnchor && available.length === 0 && anchorObservations.length < 2) {
+  if (
+    !requireAnchor &&
+    modeAvailable.length === 0 &&
+    anchorObservations.length < 2
+  ) {
     return null;
   }
 
@@ -180,24 +279,30 @@ export function SeriesCorrelation({
             </div>
           ) : null}
 
-          {active ? (
+          {activeKey !== "" ? (
             <div className="rounded-lg border border-border bg-card p-4">
-              <DualAxisChart
-                primary={anchorObservations}
-                secondary={chartSecondary}
-                primaryLabel={anchor.label}
-                secondaryLabel={active.label}
-                formatPrimary={ECONOMY_SERIES_FORMATTERS[anchor.format]}
-                formatSecondary={ECONOMY_SERIES_FORMATTERS[active.format]}
-                ariaLabel={`${chartAriaLabel} ${active.label}`}
-                height={280}
-              />
-              {available.length > 1 ? (
+              {active ? (
+                <DualAxisChart
+                  primary={anchorObservations}
+                  secondary={chartSecondary}
+                  primaryLabel={anchor.label}
+                  secondaryLabel={active.label}
+                  formatPrimary={ECONOMY_SERIES_FORMATTERS[anchor.format]}
+                  formatSecondary={ECONOMY_SERIES_FORMATTERS[active.format]}
+                  ariaLabel={`${chartAriaLabel} ${active.label}`}
+                  height={280}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Not enough overlapping data to chart a correlation yet.
+                </p>
+              )}
+              {overlayCandidates.length > 1 ? (
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <span className="text-xs text-muted-foreground">
                     Compare against:
                   </span>
-                  {available.map((candidate) => (
+                  {overlayCandidates.map((candidate) => (
                     <button
                       key={candidate.key}
                       type="button"
@@ -223,7 +328,8 @@ export function SeriesCorrelation({
       )}
 
       <p className="text-xs text-muted-foreground">
-        Correlations are descriptive, not causal · current-constituent weighting.
+        Correlations are descriptive, not causal · current-constituent
+        weighting.
       </p>
     </section>
   );

@@ -14,8 +14,8 @@ import (
 	reflect "reflect"
 	time "time"
 
-	v1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
-	v1alpha10 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
+	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
+	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	shorts "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -45,7 +45,7 @@ func (m *MockShortsStore) EXPECT() *MockShortsStoreMockRecorder {
 }
 
 // ApplyEnrichment mocks base method.
-func (m *MockShortsStore) ApplyEnrichment(stockCode string, data *v1alpha1.EnrichmentData) error {
+func (m *MockShortsStore) ApplyEnrichment(stockCode string, data *shortsv1alpha1.EnrichmentData) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ApplyEnrichment", stockCode, data)
 	ret0, _ := ret[0].(error)
@@ -164,10 +164,10 @@ func (mr *MockShortsStoreMockRecorder) GetAPISubscriptionByCustomer(stripeCustom
 }
 
 // GetActiveEnrichmentJobByStockCode mocks base method.
-func (m *MockShortsStore) GetActiveEnrichmentJobByStockCode(stockCode string) (*v1alpha1.EnrichmentJob, error) {
+func (m *MockShortsStore) GetActiveEnrichmentJobByStockCode(stockCode string) (*shortsv1alpha1.EnrichmentJob, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetActiveEnrichmentJobByStockCode", stockCode)
-	ret0, _ := ret[0].(*v1alpha1.EnrichmentJob)
+	ret0, _ := ret[0].(*shortsv1alpha1.EnrichmentJob)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -212,7 +212,7 @@ func (mr *MockShortsStoreMockRecorder) GetAvailableDates(limit, before any) *gom
 }
 
 // GetBattlegroundStocks mocks base method.
-func (m *MockShortsStore) GetBattlegroundStocks(view v1alpha1.BattlegroundView, limit, offset int32) ([]*shorts.BattlegroundStock, int, error) {
+func (m *MockShortsStore) GetBattlegroundStocks(view shortsv1alpha1.BattlegroundView, limit, offset int32) ([]*shorts.BattlegroundStock, int, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetBattlegroundStocks", view, limit, offset)
 	ret0, _ := ret[0].([]*shorts.BattlegroundStock)
@@ -320,18 +320,18 @@ func (mr *MockShortsStoreMockRecorder) GetDividendHistory(stockCode, years any) 
 }
 
 // GetEconomicSeries mocks base method.
-func (m *MockShortsStore) GetEconomicSeries(seriesKeys []string, startPeriod time.Time) ([]*shorts.EconomicSeriesDataRow, error) {
+func (m *MockShortsStore) GetEconomicSeries(seriesKeys []string, startPeriod time.Time, maxObservations int32) ([]*shorts.EconomicSeriesDataRow, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetEconomicSeries", seriesKeys, startPeriod)
+	ret := m.ctrl.Call(m, "GetEconomicSeries", seriesKeys, startPeriod, maxObservations)
 	ret0, _ := ret[0].([]*shorts.EconomicSeriesDataRow)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetEconomicSeries indicates an expected call of GetEconomicSeries.
-func (mr *MockShortsStoreMockRecorder) GetEconomicSeries(seriesKeys, startPeriod any) *gomock.Call {
+func (mr *MockShortsStoreMockRecorder) GetEconomicSeries(seriesKeys, startPeriod, maxObservations any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEconomicSeries", reflect.TypeOf((*MockShortsStore)(nil).GetEconomicSeries), seriesKeys, startPeriod)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEconomicSeries", reflect.TypeOf((*MockShortsStore)(nil).GetEconomicSeries), seriesKeys, startPeriod, maxObservations)
 }
 
 // GetEditorialTake mocks base method.
@@ -350,10 +350,10 @@ func (mr *MockShortsStoreMockRecorder) GetEditorialTake(slug any) *gomock.Call {
 }
 
 // GetEnrichmentJob mocks base method.
-func (m *MockShortsStore) GetEnrichmentJob(jobID string) (*v1alpha1.EnrichmentJob, error) {
+func (m *MockShortsStore) GetEnrichmentJob(jobID string) (*shortsv1alpha1.EnrichmentJob, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetEnrichmentJob", jobID)
-	ret0, _ := ret[0].(*v1alpha1.EnrichmentJob)
+	ret0, _ := ret[0].(*shortsv1alpha1.EnrichmentJob)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -440,10 +440,10 @@ func (mr *MockShortsStoreMockRecorder) GetIndustryIntelligence(industry, stockCo
 }
 
 // GetIndustryTreeMap mocks base method.
-func (m *MockShortsStore) GetIndustryTreeMap(limit int32, period, viewMode string) (*v1alpha10.IndustryTreeMap, error) {
+func (m *MockShortsStore) GetIndustryTreeMap(limit int32, period, viewMode string) (*stocksv1alpha1.IndustryTreeMap, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetIndustryTreeMap", limit, period, viewMode)
-	ret0, _ := ret[0].(*v1alpha10.IndustryTreeMap)
+	ret0, _ := ret[0].(*stocksv1alpha1.IndustryTreeMap)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -470,10 +470,10 @@ func (mr *MockShortsStoreMockRecorder) GetJobsOverview() *gomock.Call {
 }
 
 // GetMarketByDate mocks base method.
-func (m *MockShortsStore) GetMarketByDate(date string, limit, offset int32) ([]*v1alpha10.Stock, int, error) {
+func (m *MockShortsStore) GetMarketByDate(date string, limit, offset int32) ([]*stocksv1alpha1.Stock, int, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetMarketByDate", date, limit, offset)
-	ret0, _ := ret[0].([]*v1alpha10.Stock)
+	ret0, _ := ret[0].([]*stocksv1alpha1.Stock)
 	ret1, _ := ret[1].(int)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
@@ -517,10 +517,10 @@ func (mr *MockShortsStoreMockRecorder) GetPeerComparison(stockCode, limit any) *
 }
 
 // GetPendingEnrichment mocks base method.
-func (m *MockShortsStore) GetPendingEnrichment(enrichmentID string) (*v1alpha1.PendingEnrichment, error) {
+func (m *MockShortsStore) GetPendingEnrichment(enrichmentID string) (*shortsv1alpha1.PendingEnrichment, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetPendingEnrichment", enrichmentID)
-	ret0, _ := ret[0].(*v1alpha1.PendingEnrichment)
+	ret0, _ := ret[0].(*shortsv1alpha1.PendingEnrichment)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -532,10 +532,10 @@ func (mr *MockShortsStoreMockRecorder) GetPendingEnrichment(enrichmentID any) *g
 }
 
 // GetPendingEnrichmentByStockCode mocks base method.
-func (m *MockShortsStore) GetPendingEnrichmentByStockCode(stockCode string) (*v1alpha1.PendingEnrichmentSummary, error) {
+func (m *MockShortsStore) GetPendingEnrichmentByStockCode(stockCode string) (*shortsv1alpha1.PendingEnrichmentSummary, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetPendingEnrichmentByStockCode", stockCode)
-	ret0, _ := ret[0].(*v1alpha1.PendingEnrichmentSummary)
+	ret0, _ := ret[0].(*shortsv1alpha1.PendingEnrichmentSummary)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -639,10 +639,10 @@ func (mr *MockShortsStoreMockRecorder) GetStateCompanyAggregates() *gomock.Call 
 }
 
 // GetStock mocks base method.
-func (m *MockShortsStore) GetStock(productCode string) (*v1alpha10.Stock, error) {
+func (m *MockShortsStore) GetStock(productCode string) (*stocksv1alpha1.Stock, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetStock", productCode)
-	ret0, _ := ret[0].(*v1alpha10.Stock)
+	ret0, _ := ret[0].(*stocksv1alpha1.Stock)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -654,10 +654,10 @@ func (mr *MockShortsStoreMockRecorder) GetStock(productCode any) *gomock.Call {
 }
 
 // GetStockData mocks base method.
-func (m *MockShortsStore) GetStockData(productCode, period string) (*v1alpha10.TimeSeriesData, error) {
+func (m *MockShortsStore) GetStockData(productCode, period string) (*stocksv1alpha1.TimeSeriesData, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetStockData", productCode, period)
-	ret0, _ := ret[0].(*v1alpha10.TimeSeriesData)
+	ret0, _ := ret[0].(*stocksv1alpha1.TimeSeriesData)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -669,10 +669,10 @@ func (mr *MockShortsStoreMockRecorder) GetStockData(productCode, period any) *go
 }
 
 // GetStockDetails mocks base method.
-func (m *MockShortsStore) GetStockDetails(productCode string) (*v1alpha10.StockDetails, error) {
+func (m *MockShortsStore) GetStockDetails(productCode string) (*stocksv1alpha1.StockDetails, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetStockDetails", productCode)
-	ret0, _ := ret[0].(*v1alpha10.StockDetails)
+	ret0, _ := ret[0].(*stocksv1alpha1.StockDetails)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -775,10 +775,10 @@ func (mr *MockShortsStoreMockRecorder) GetSuburbProfile(salCode any) *gomock.Cal
 }
 
 // GetSyncStatus mocks base method.
-func (m *MockShortsStore) GetSyncStatus(filter shorts.SyncStatusFilter) ([]*v1alpha1.SyncRun, error) {
+func (m *MockShortsStore) GetSyncStatus(filter shorts.SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetSyncStatus", filter)
-	ret0, _ := ret[0].([]*v1alpha1.SyncRun)
+	ret0, _ := ret[0].([]*shortsv1alpha1.SyncRun)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -790,14 +790,14 @@ func (mr *MockShortsStoreMockRecorder) GetSyncStatus(filter any) *gomock.Call {
 }
 
 // GetTopShorts mocks base method.
-func (m *MockShortsStore) GetTopShorts(period string, limit, offset int32, summaryOnly bool, productCodes ...string) ([]*v1alpha10.TimeSeriesData, int, error) {
+func (m *MockShortsStore) GetTopShorts(period string, limit, offset int32, summaryOnly bool, productCodes ...string) ([]*stocksv1alpha1.TimeSeriesData, int, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{period, limit, offset, summaryOnly}
 	for _, a := range productCodes {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "GetTopShorts", varargs...)
-	ret0, _ := ret[0].([]*v1alpha10.TimeSeriesData)
+	ret0, _ := ret[0].([]*stocksv1alpha1.TimeSeriesData)
 	ret1, _ := ret[1].(int)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
@@ -811,10 +811,10 @@ func (mr *MockShortsStoreMockRecorder) GetTopShorts(period, limit, offset, summa
 }
 
 // GetTopStocksForEnrichment mocks base method.
-func (m *MockShortsStore) GetTopStocksForEnrichment(limit int32, priority v1alpha1.EnrichmentPriority) ([]*v1alpha1.StockEnrichmentCandidate, error) {
+func (m *MockShortsStore) GetTopStocksForEnrichment(limit int32, priority shortsv1alpha1.EnrichmentPriority) ([]*shortsv1alpha1.StockEnrichmentCandidate, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetTopStocksForEnrichment", limit, priority)
-	ret0, _ := ret[0].([]*v1alpha1.StockEnrichmentCandidate)
+	ret0, _ := ret[0].([]*shortsv1alpha1.StockEnrichmentCandidate)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -964,10 +964,10 @@ func (mr *MockShortsStoreMockRecorder) ListEditorialTakesAdmin(limit, offset, st
 }
 
 // ListEnrichmentJobs mocks base method.
-func (m *MockShortsStore) ListEnrichmentJobs(limit, offset int32, status *v1alpha1.EnrichmentJobStatus) ([]*v1alpha1.EnrichmentJob, int32, error) {
+func (m *MockShortsStore) ListEnrichmentJobs(limit, offset int32, status *shortsv1alpha1.EnrichmentJobStatus) ([]*shortsv1alpha1.EnrichmentJob, int32, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListEnrichmentJobs", limit, offset, status)
-	ret0, _ := ret[0].([]*v1alpha1.EnrichmentJob)
+	ret0, _ := ret[0].([]*shortsv1alpha1.EnrichmentJob)
 	ret1, _ := ret[1].(int32)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
@@ -980,10 +980,10 @@ func (mr *MockShortsStoreMockRecorder) ListEnrichmentJobs(limit, offset, status 
 }
 
 // ListPendingEnrichments mocks base method.
-func (m *MockShortsStore) ListPendingEnrichments(limit, offset int32) ([]*v1alpha1.PendingEnrichmentSummary, error) {
+func (m *MockShortsStore) ListPendingEnrichments(limit, offset int32) ([]*shortsv1alpha1.PendingEnrichmentSummary, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListPendingEnrichments", limit, offset)
-	ret0, _ := ret[0].([]*v1alpha1.PendingEnrichmentSummary)
+	ret0, _ := ret[0].([]*shortsv1alpha1.PendingEnrichmentSummary)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1007,6 +1007,21 @@ func (m *MockShortsStore) ListReports(reportType string, limit int) ([]*shorts.R
 func (mr *MockShortsStoreMockRecorder) ListReports(reportType, limit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListReports", reflect.TypeOf((*MockShortsStore)(nil).ListReports), reportType, limit)
+}
+
+// ListSeriesCorrelations mocks base method.
+func (m *MockShortsStore) ListSeriesCorrelations(baseSeriesKey string, windowMonths int32, minAbsR float64, limit int32) ([]*shorts.SeriesCorrelationRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListSeriesCorrelations", baseSeriesKey, windowMonths, minAbsR, limit)
+	ret0, _ := ret[0].([]*shorts.SeriesCorrelationRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListSeriesCorrelations indicates an expected call of ListSeriesCorrelations.
+func (mr *MockShortsStoreMockRecorder) ListSeriesCorrelations(baseSeriesKey, windowMonths, minAbsR, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSeriesCorrelations", reflect.TypeOf((*MockShortsStore)(nil).ListSeriesCorrelations), baseSeriesKey, windowMonths, minAbsR, limit)
 }
 
 // ListStateCompanies mocks base method.
@@ -1148,7 +1163,7 @@ func (mr *MockShortsStoreMockRecorder) ReviewEnrichment(enrichmentID, approve, r
 }
 
 // SavePendingEnrichment mocks base method.
-func (m *MockShortsStore) SavePendingEnrichment(enrichmentID, stockCode string, status v1alpha1.EnrichmentStatus, data *v1alpha1.EnrichmentData, quality *v1alpha1.QualityScore) (string, error) {
+func (m *MockShortsStore) SavePendingEnrichment(enrichmentID, stockCode string, status shortsv1alpha1.EnrichmentStatus, data *shortsv1alpha1.EnrichmentData, quality *shortsv1alpha1.QualityScore) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SavePendingEnrichment", enrichmentID, stockCode, status, data, quality)
 	ret0, _ := ret[0].(string)
@@ -1163,7 +1178,7 @@ func (mr *MockShortsStoreMockRecorder) SavePendingEnrichment(enrichmentID, stock
 }
 
 // ScreenStocks mocks base method.
-func (m *MockShortsStore) ScreenStocks(filters *v1alpha1.ScreenerFilters, sortField v1alpha1.ScreenerSortField, sortDir v1alpha1.SortDirection, limit, offset int32) ([]*shorts.ScreenerStock, int, error) {
+func (m *MockShortsStore) ScreenStocks(filters *shortsv1alpha1.ScreenerFilters, sortField shortsv1alpha1.ScreenerSortField, sortDir shortsv1alpha1.SortDirection, limit, offset int32) ([]*shorts.ScreenerStock, int, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ScreenStocks", filters, sortField, sortDir, limit, offset)
 	ret0, _ := ret[0].([]*shorts.ScreenerStock)
@@ -1179,10 +1194,10 @@ func (mr *MockShortsStoreMockRecorder) ScreenStocks(filters, sortField, sortDir,
 }
 
 // SearchStocks mocks base method.
-func (m *MockShortsStore) SearchStocks(query string, limit int32) ([]*v1alpha10.Stock, error) {
+func (m *MockShortsStore) SearchStocks(query string, limit int32) ([]*stocksv1alpha1.Stock, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SearchStocks", query, limit)
-	ret0, _ := ret[0].([]*v1alpha10.Stock)
+	ret0, _ := ret[0].([]*stocksv1alpha1.Stock)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1252,7 +1267,7 @@ func (mr *MockShortsStoreMockRecorder) UpdateEditorialTake(slug, fields any) *go
 }
 
 // UpdateEnrichmentJobStatus mocks base method.
-func (m *MockShortsStore) UpdateEnrichmentJobStatus(jobID string, status v1alpha1.EnrichmentJobStatus, enrichmentID, errorMsg *string) error {
+func (m *MockShortsStore) UpdateEnrichmentJobStatus(jobID string, status shortsv1alpha1.EnrichmentJobStatus, enrichmentID, errorMsg *string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateEnrichmentJobStatus", jobID, status, enrichmentID, errorMsg)
 	ret0, _ := ret[0].(error)
@@ -1427,7 +1442,7 @@ func (mr *MockCacheMockRecorder) GetAvailableDatesKey(limit, before any) *gomock
 }
 
 // GetBattlegroundStocksKey mocks base method.
-func (m *MockCache) GetBattlegroundStocksKey(view v1alpha1.BattlegroundView, limit, offset int32) string {
+func (m *MockCache) GetBattlegroundStocksKey(view shortsv1alpha1.BattlegroundView, limit, offset int32) string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetBattlegroundStocksKey", view, limit, offset)
 	ret0, _ := ret[0].(string)
@@ -1483,17 +1498,17 @@ func (mr *MockCacheMockRecorder) GetDividendHistoryKey(stockCode, years any) *go
 }
 
 // GetEconomicSeriesKey mocks base method.
-func (m *MockCache) GetEconomicSeriesKey(seriesKeys []string, startPeriod string) string {
+func (m *MockCache) GetEconomicSeriesKey(seriesKeys []string, startPeriod string, maxObservations int32) string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetEconomicSeriesKey", seriesKeys, startPeriod)
+	ret := m.ctrl.Call(m, "GetEconomicSeriesKey", seriesKeys, startPeriod, maxObservations)
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
 // GetEconomicSeriesKey indicates an expected call of GetEconomicSeriesKey.
-func (mr *MockCacheMockRecorder) GetEconomicSeriesKey(seriesKeys, startPeriod any) *gomock.Call {
+func (mr *MockCacheMockRecorder) GetEconomicSeriesKey(seriesKeys, startPeriod, maxObservations any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEconomicSeriesKey", reflect.TypeOf((*MockCache)(nil).GetEconomicSeriesKey), seriesKeys, startPeriod)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEconomicSeriesKey", reflect.TypeOf((*MockCache)(nil).GetEconomicSeriesKey), seriesKeys, startPeriod, maxObservations)
 }
 
 // GetEventTimelineKey mocks base method.
@@ -1680,7 +1695,7 @@ func (mr *MockCacheMockRecorder) GetRelatedNewsKey(stockCode, articleID, limit a
 }
 
 // GetScreenStocksKey mocks base method.
-func (m *MockCache) GetScreenStocksKey(filters *v1alpha1.ScreenerFilters, sortField v1alpha1.ScreenerSortField, sortDir v1alpha1.SortDirection, limit, offset int32) string {
+func (m *MockCache) GetScreenStocksKey(filters *shortsv1alpha1.ScreenerFilters, sortField shortsv1alpha1.ScreenerSortField, sortDir shortsv1alpha1.SortDirection, limit, offset int32) string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetScreenStocksKey", filters, sortField, sortDir, limit, offset)
 	ret0, _ := ret[0].(string)
@@ -1915,6 +1930,20 @@ func (m *MockCache) ListEconomicSeriesKey(topic, metric, regionType, regionCode,
 func (mr *MockCacheMockRecorder) ListEconomicSeriesKey(topic, metric, regionType, regionCode, product, limit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListEconomicSeriesKey", reflect.TypeOf((*MockCache)(nil).ListEconomicSeriesKey), topic, metric, regionType, regionCode, product, limit)
+}
+
+// ListSeriesCorrelationsKey mocks base method.
+func (m *MockCache) ListSeriesCorrelationsKey(baseSeriesKey string, windowMonths int32, minAbsR float64, limit int32) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListSeriesCorrelationsKey", baseSeriesKey, windowMonths, minAbsR, limit)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ListSeriesCorrelationsKey indicates an expected call of ListSeriesCorrelationsKey.
+func (mr *MockCacheMockRecorder) ListSeriesCorrelationsKey(baseSeriesKey, windowMonths, minAbsR, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSeriesCorrelationsKey", reflect.TypeOf((*MockCache)(nil).ListSeriesCorrelationsKey), baseSeriesKey, windowMonths, minAbsR, limit)
 }
 
 // ListStateCompaniesKey mocks base method.

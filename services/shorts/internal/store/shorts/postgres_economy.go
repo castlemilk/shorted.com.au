@@ -2,6 +2,7 @@ package shorts
 
 import (
 	"context"
+	"strings"
 	"time"
 )
 
@@ -33,6 +34,48 @@ type EconomicSeriesDataRow struct {
 	Info   EconomicSeriesRow
 	Points []EconomicObservationRow
 }
+
+// SeriesCorrelationRow is a precomputed correlation plus its overlay catalog metadata.
+type SeriesCorrelationRow struct {
+	Overlay    EconomicSeriesRow
+	R          float64
+	N          int32
+	LastPeriod time.Time
+}
+
+const getEconomicSeriesQuery = `
+	SELECT es.series_key, es.topic, es.metric, COALESCE(es.product, ''),
+	       es.region_type, es.region_code, es.region_name, es.unit,
+	       es.frequency, es.adjustment, es.source_key, es.licence,
+	       o.period, o.value
+	FROM economic_series es
+	JOIN LATERAL (
+		SELECT period, value
+		FROM economic_observations ob
+		WHERE ob.series_id = es.id AND ob.period >= $2
+		ORDER BY ob.period DESC
+		LIMIT $3
+	) o ON TRUE
+	WHERE es.series_key = ANY($1)
+	ORDER BY es.series_key, o.period ASC`
+
+const listSeriesCorrelationsQuery = `
+	SELECT c.overlay_series_key, c.r, c.n, c.last_period,
+	       es.topic, es.metric, COALESCE(es.product, ''),
+	       es.region_type, es.region_code, es.region_name, es.unit,
+	       es.frequency, es.adjustment, es.source_key, es.licence
+	FROM economic_correlations c
+	JOIN economic_series es ON es.series_key = c.overlay_series_key
+	WHERE c.base_series_key = $1
+	  AND c.window_months = $2
+	  AND c.abs_r >= $3
+	ORDER BY c.abs_r DESC, c.overlay_series_key
+	LIMIT $4`
+
+const (
+	defaultSeriesCorrelationLimit int32 = 100
+	maxSeriesCorrelationLimit     int32 = 250
+)
 
 // ListEconomicSeries returns catalog entries matching the optional filters.
 func (s *postgresStore) ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32) ([]*EconomicSeriesRow, error) {
@@ -80,33 +123,18 @@ func (s *postgresStore) ListEconomicSeries(topic, metric, regionType, regionCode
 	return out, rows.Err()
 }
 
-// GetEconomicSeries returns observations (oldest first, capped at 600/series)
-// for the requested keys. Unknown keys are silently absent from the result.
-func (s *postgresStore) GetEconomicSeries(seriesKeys []string, startPeriod time.Time) ([]*EconomicSeriesDataRow, error) {
+// GetEconomicSeries returns observations oldest-first for the requested keys,
+// capped per series by maxObservations. Unknown keys are silently absent.
+func (s *postgresStore) GetEconomicSeries(seriesKeys []string, startPeriod time.Time, maxObservations int32) ([]*EconomicSeriesDataRow, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if len(seriesKeys) > 50 {
 		seriesKeys = seriesKeys[:50]
 	}
+	maxObservations = normalizeMaxObservations(maxObservations)
 
-	const query = `
-		SELECT es.series_key, es.topic, es.metric, COALESCE(es.product, ''),
-		       es.region_type, es.region_code, es.region_name, es.unit,
-		       es.frequency, es.adjustment, es.source_key, es.licence,
-		       o.period, o.value
-		FROM economic_series es
-		JOIN LATERAL (
-			SELECT period, value
-			FROM economic_observations ob
-			WHERE ob.series_id = es.id AND ob.period >= $2
-			ORDER BY ob.period DESC
-			LIMIT 600
-		) o ON TRUE
-		WHERE es.series_key = ANY($1)
-		ORDER BY es.series_key, o.period ASC`
-
-	rows, err := s.db.Query(ctx, query, seriesKeys, startPeriod)
+	rows, err := s.db.Query(ctx, getEconomicSeriesQuery, seriesKeys, startPeriod, maxObservations)
 	if err != nil {
 		return nil, err
 	}
@@ -138,4 +166,68 @@ func (s *postgresStore) GetEconomicSeries(seriesKeys []string, startPeriod time.
 		out = append(out, d)
 	}
 	return out, rows.Err()
+}
+
+// ListSeriesCorrelations returns precomputed overlays ranked by absolute
+// correlation, including catalog metadata needed by clients to label results.
+func (s *postgresStore) ListSeriesCorrelations(baseSeriesKey string, windowMonths int32, minAbsR float64, limit int32) ([]*SeriesCorrelationRow, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	baseSeriesKey = strings.ToLower(strings.TrimSpace(baseSeriesKey))
+	if windowMonths <= 0 {
+		windowMonths = 24
+	}
+	if minAbsR < 0 {
+		minAbsR = 0
+	} else if minAbsR > 1 {
+		minAbsR = 1
+	}
+	limit = normalizeCorrelationLimit(limit)
+
+	rows, err := s.db.Query(ctx, listSeriesCorrelationsQuery, baseSeriesKey, windowMonths, minAbsR, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*SeriesCorrelationRow
+	for rows.Next() {
+		var row SeriesCorrelationRow
+		if err := rows.Scan(
+			&row.Overlay.SeriesKey, &row.R, &row.N, &row.LastPeriod,
+			&row.Overlay.Topic, &row.Overlay.Metric, &row.Overlay.Product,
+			&row.Overlay.RegionType, &row.Overlay.RegionCode, &row.Overlay.RegionName,
+			&row.Overlay.Unit, &row.Overlay.Frequency, &row.Overlay.Adjustment,
+			&row.Overlay.SourceKey, &row.Overlay.SourceLicence,
+		); err != nil {
+			return nil, err
+		}
+		out = append(out, &row)
+	}
+	return out, rows.Err()
+}
+
+func normalizeMaxObservations(maxObservations int32) int32 {
+	switch {
+	case maxObservations == 0:
+		return 600
+	case maxObservations < 1:
+		return 1
+	case maxObservations > 600:
+		return 600
+	default:
+		return maxObservations
+	}
+}
+
+func normalizeCorrelationLimit(limit int32) int32 {
+	switch {
+	case limit <= 0:
+		return defaultSeriesCorrelationLimit
+	case limit > maxSeriesCorrelationLimit:
+		return maxSeriesCorrelationLimit
+	default:
+		return limit
+	}
 }

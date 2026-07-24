@@ -156,6 +156,152 @@ func TestAssembleCrimeRateObsSkipsNonFiniteInputs(t *testing.T) {
 	}
 }
 
+func TestForwardFilledERPSelectsLatestAtOrBeforeMonth(t *testing.T) {
+	populations := []erpRow{
+		{RegionCode: "nsw", Period: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), Population: 8_100_000},
+		{RegionCode: "vic", Period: time.Date(2024, 4, 1, 0, 0, 0, 0, time.UTC), Population: 6_900_000},
+		{RegionCode: "nsw", Period: time.Date(2024, 4, 1, 0, 0, 0, 0, time.UTC), Population: 8_200_000},
+	}
+
+	if _, ok := forwardFilledERP("nsw", time.Date(2023, 12, 1, 0, 0, 0, 0, time.UTC), populations); ok {
+		t.Fatal("month before first NSW ERP must be skipped")
+	}
+	if got, ok := forwardFilledERP("nsw", time.Date(2024, 3, 1, 0, 0, 0, 0, time.UTC), populations); !ok || got != 8_100_000 {
+		t.Fatalf("March NSW ERP = %v, %v; want 8,100,000, true", got, ok)
+	}
+	if got, ok := forwardFilledERP("nsw", time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC), populations); !ok || got != 8_200_000 {
+		t.Fatalf("June NSW ERP = %v, %v; want 8,200,000, true", got, ok)
+	}
+}
+
+func TestAssembleStateFinalDemandPerCapitaUsesSameQuarterERP(t *testing.T) {
+	period := time.Date(2024, 4, 1, 0, 0, 0, 0, time.UTC)
+	values := []derivedValueRow{{
+		RegionCode: "wa", RegionName: "Western Australia", RegionType: "state",
+		Period: period, Value: 84_000_000_000,
+	}}
+	populations := []erpRow{
+		{RegionCode: "wa", Period: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), Population: 2_900_000},
+		{RegionCode: "wa", Period: period, Population: 3_000_000},
+	}
+
+	obs, err := assembleStateFinalDemandPerCapitaObs(values, populations)
+	if err != nil {
+		t.Fatalf("assembleStateFinalDemandPerCapitaObs: %v", err)
+	}
+	if got, want := len(obs), 1; got != want {
+		t.Fatalf("len(obs) = %d, want %d", got, want)
+	}
+	if got, want := obs[0].Value, 28_000.0; got != want {
+		t.Fatalf("Value = %v, want %v", got, want)
+	}
+	if got, want := obs[0].Series.Key(), "gdp.state_final_demand_per_capita.total.wa.seasadj"; got != want {
+		t.Fatalf("Key() = %q, want %q", got, want)
+	}
+	assertPerCapitaMetadata(t, obs[0], "aud", "quarterly", "seasadj")
+}
+
+func TestAssembleHouseholdSpendingPerCapitaForwardFillsERP(t *testing.T) {
+	values := []derivedValueRow{
+		{
+			RegionCode: "aus", RegionName: "Australia", RegionType: "national",
+			Period: time.Date(2023, 12, 1, 0, 0, 0, 0, time.UTC), Value: 75_000_000_000,
+		},
+		{
+			RegionCode: "aus", RegionName: "Australia", RegionType: "national",
+			Period: time.Date(2024, 2, 1, 0, 0, 0, 0, time.UTC), Value: 81_000_000_000,
+		},
+	}
+	populations := []erpRow{{
+		RegionCode: "aus", Period: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), Population: 27_000_000,
+	}}
+
+	obs, err := assembleHouseholdSpendingPerCapitaObs(values, populations)
+	if err != nil {
+		t.Fatalf("assembleHouseholdSpendingPerCapitaObs: %v", err)
+	}
+	if got, want := len(obs), 1; got != want {
+		t.Fatalf("len(obs) = %d, want %d (pre-ERP month skipped)", got, want)
+	}
+	if got, want := obs[0].Value, 3_000.0; got != want {
+		t.Fatalf("Value = %v, want %v", got, want)
+	}
+	if got, want := obs[0].Series.Key(), "spending.household_per_capita.total.aus.seasadj"; got != want {
+		t.Fatalf("Key() = %q, want %q", got, want)
+	}
+	assertPerCapitaMetadata(t, obs[0], "aud", "monthly", "seasadj")
+}
+
+func TestAssembleDwellingApprovalsPer100kForwardFillsERP(t *testing.T) {
+	values := []derivedValueRow{{
+		RegionCode: "tas", RegionName: "Tasmania", RegionType: "state",
+		Period: time.Date(2024, 5, 1, 0, 0, 0, 0, time.UTC), Value: 300,
+	}}
+	populations := []erpRow{{
+		RegionCode: "tas", Period: time.Date(2024, 4, 1, 0, 0, 0, 0, time.UTC), Population: 600_000,
+	}}
+
+	obs, err := assembleDwellingApprovalsPer100kObs(values, populations)
+	if err != nil {
+		t.Fatalf("assembleDwellingApprovalsPer100kObs: %v", err)
+	}
+	if got, want := len(obs), 1; got != want {
+		t.Fatalf("len(obs) = %d, want %d", got, want)
+	}
+	if got, want := obs[0].Value, 50.0; got != want {
+		t.Fatalf("Value = %v, want %v", got, want)
+	}
+	if got, want := obs[0].Series.Key(), "approvals.dwelling_units_per_100k.total.tas"; got != want {
+		t.Fatalf("Key() = %q, want %q", got, want)
+	}
+	assertPerCapitaMetadata(t, obs[0], "rate_per_100k", "monthly", "original")
+}
+
+func TestPerCapitaAssemblersRejectInvalidMagnitudes(t *testing.T) {
+	period := time.Date(2024, 4, 1, 0, 0, 0, 0, time.UTC)
+	baseValue := derivedValueRow{
+		RegionCode: "sa", RegionName: "South Australia", RegionType: "state",
+		Period: period, Value: 1_000,
+	}
+	for _, tc := range []struct {
+		name       string
+		value      float64
+		population float64
+	}{
+		{name: "zero ERP", value: 1_000, population: 0},
+		{name: "negative ERP", value: 1_000, population: -1},
+		{name: "NaN ERP", value: 1_000, population: math.NaN()},
+		{name: "infinite numerator", value: math.Inf(1), population: 1_000_000},
+		{name: "negative numerator", value: -1, population: 1_000_000},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			value := baseValue
+			value.Value = tc.value
+			populations := []erpRow{{RegionCode: "sa", Period: period, Population: tc.population}}
+			obs, err := assembleStateFinalDemandPerCapitaObs([]derivedValueRow{value}, populations)
+			if err == nil {
+				t.Fatalf("expected magnitude error, got obs %#v", obs)
+			}
+			if obs != nil {
+				t.Fatalf("obs = %#v, want nil on family failure", obs)
+			}
+		})
+	}
+}
+
+func assertPerCapitaMetadata(t *testing.T, obs Obs, unit, frequency, adjustment string) {
+	t.Helper()
+	if obs.Series.Unit != unit || obs.Series.Frequency != frequency || obs.Series.Adjustment != adjustment {
+		t.Fatalf("series metadata = %#v", obs.Series)
+	}
+	if obs.Series.SourceKey != "derived-shorted-economy" || obs.Series.Licence != "derived" {
+		t.Fatalf("source metadata = %#v", obs.Series)
+	}
+	if got := obs.Series.Dimensions["denominator"]; got != "erp" {
+		t.Fatalf("Dimensions[denominator] = %q, want erp", got)
+	}
+}
+
 func TestCrimeRateQueriesAreScopedToPinnedSourceFamilies(t *testing.T) {
 	for _, want := range []string{
 		"series.topic = 'crime'",

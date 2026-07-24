@@ -8,7 +8,7 @@ centered silhouettes, approvals/retail/population, govfin detail + finance
 links). Everything below is **LIVE on prod**. NOTE: the monolithic
 `shorts.proto` has since been split per-domain — economy RPCs now live in
 `proto/shortedapi/shorts/v1alpha1/economy.proto` as **`EconomyService`**
-(4 RPCs); imports come from `~/gen/shorts/v1alpha1/economy_pb`.
+(5 RPCs incl. `ListSeriesCorrelations`); imports come from `~/gen/shorts/v1alpha1/economy_pb`.
 
 The platform has one load-bearing idea: **a single generic economic-series
 layer** (SDMX-shaped catalog + observations) that every source normalizes into
@@ -26,8 +26,14 @@ shorts DB (derived)─┘  monthly Cloud Run   observatns └─ industry-intel 
                         + ListStateCompanies / GetStateCompanyAggregates (public)
 ```
 
-**Live catalog size** (local, post phase-3 round 2, 2026-07-23): ~760 series
-across 20 sources — round 2 added spending 18 · lending 18 · construction 27 ·
+**Live catalog size** (local, post phase-3 round 3, 2026-07-24): ~800 series
+across 20 sources + the `economic_correlations` matrix (migration 000093;
+`-mode correlations` all-pairs rolling-Pearson, served by
+`ListSeriesCorrelations` — state pages + industry strip read precomputed
+chips and fetch only anchor + active overlay). Round 3 also added
+`markets.price_return_index.{state}`, per-capita variants, the map chip
+overflow, `GetEconomicSeries.max_observations`, and the exposure-MV
+`refreshed_at` staleness guard (migration 000094) — round 2 added spending 18 · lending 18 · construction 27 ·
 business 32 · crime 110 (56 counts + 54 rates) on top of round 1's 550.
 (Derived counts vary with constituent/erp coverage; prod re-derives on its
 own history.)

@@ -3,6 +3,7 @@ package shorts
 import (
 	"context"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"time"
@@ -56,9 +57,10 @@ func (s *ShortsServer) GetEconomicSeries(ctx context.Context, req *connect.Reque
 		startKey = start.Format("2006-01-02")
 	}
 
-	cacheKey := s.cache.GetEconomicSeriesKey(keys, startKey)
+	maxObservations := m.MaxObservations
+	cacheKey := s.cache.GetEconomicSeriesKey(keys, startKey, maxObservations)
 	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
-		rows, err := s.store.GetEconomicSeries(keys, start)
+		rows, err := s.store.GetEconomicSeries(keys, start, maxObservations)
 		if err != nil {
 			return nil, err
 		}
@@ -83,6 +85,57 @@ func (s *ShortsServer) GetEconomicSeries(ctx context.Context, req *connect.Reque
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get economic series"))
 	}
 	return connect.NewResponse(cached.(*shortsv1alpha1.GetEconomicSeriesResponse)), nil
+}
+
+// ListSeriesCorrelations returns precomputed overlays for one normalized base
+// series. The handler validates request-only constraints; the store owns the
+// correlation limit default and cap.
+func (s *ShortsServer) ListSeriesCorrelations(ctx context.Context, req *connect.Request[shortsv1alpha1.ListSeriesCorrelationsRequest]) (*connect.Response[shortsv1alpha1.ListSeriesCorrelationsResponse], error) {
+	m := req.Msg
+	baseSeriesKey := strings.ToLower(strings.TrimSpace(m.BaseSeriesKey))
+	if baseSeriesKey == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("base_series_key is required"))
+	}
+	windowMonths := m.WindowMonths
+	if windowMonths == 0 {
+		windowMonths = 24
+	} else if windowMonths < 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("window_months must be positive"))
+	}
+	if math.IsNaN(m.MinAbsR) || math.IsInf(m.MinAbsR, 0) || m.MinAbsR < 0 || m.MinAbsR > 1 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("min_abs_r must be between 0 and 1"))
+	}
+	limit := m.Limit
+	if limit < 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("limit must be positive"))
+	}
+
+	cacheKey := s.cache.ListSeriesCorrelationsKey(baseSeriesKey, windowMonths, m.MinAbsR, limit)
+	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+		rows, err := s.store.ListSeriesCorrelations(baseSeriesKey, windowMonths, m.MinAbsR, limit)
+		if err != nil {
+			return nil, err
+		}
+		out := make([]*shortsv1alpha1.SeriesCorrelation, 0, len(rows))
+		for _, row := range rows {
+			correlation := &shortsv1alpha1.SeriesCorrelation{
+				OverlaySeriesKey: row.Overlay.SeriesKey,
+				R:                row.R,
+				N:                row.N,
+				Overlay:          economicSeriesInfoProto(&row.Overlay),
+			}
+			if !row.LastPeriod.IsZero() && row.LastPeriod.Year() > 1 {
+				correlation.LastPeriod = timestamppb.New(row.LastPeriod)
+			}
+			out = append(out, correlation)
+		}
+		return &shortsv1alpha1.ListSeriesCorrelationsResponse{Correlations: out}, nil
+	})
+	if err != nil {
+		s.logger.Errorf("database error in ListSeriesCorrelations: %v", err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list series correlations"))
+	}
+	return connect.NewResponse(cached.(*shortsv1alpha1.ListSeriesCorrelationsResponse)), nil
 }
 
 func economicSeriesInfoProto(r *shortsstore.EconomicSeriesRow) *shortsv1alpha1.EconomicSeriesInfo {

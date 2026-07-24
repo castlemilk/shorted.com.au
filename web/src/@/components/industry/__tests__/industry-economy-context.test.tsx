@@ -36,6 +36,8 @@ describe("IndustryEconomyContext", () => {
           expect.objectContaining({ key: "cpi.annual_change.all_groups.aus" }),
         ]),
         defaultOverlayKey: "commodities.price_index.bulk.aus",
+        precomputedBaseKey:
+          "markets.short_interest_avg.software-services.aus",
         requireAnchor: true,
       }),
     );

@@ -279,8 +279,13 @@ func (c *MemoryCache) ListEconomicSeriesKey(topic, metric, regionType, regionCod
 }
 
 // GetEconomicSeriesKey builds a cache key for GetEconomicSeries responses.
-func (c *MemoryCache) GetEconomicSeriesKey(seriesKeys []string, startPeriod string) string {
-	return c.generateKey("economic_series_get", seriesKeys, startPeriod)
+func (c *MemoryCache) GetEconomicSeriesKey(seriesKeys []string, startPeriod string, maxObservations int32) string {
+	return c.generateKey("economic_series_get", seriesKeys, startPeriod, maxObservations)
+}
+
+// ListSeriesCorrelationsKey builds a cache key for normalized correlation filters.
+func (c *MemoryCache) ListSeriesCorrelationsKey(baseSeriesKey string, windowMonths int32, minAbsR float64, limit int32) string {
+	return c.generateKey("series_correlations_list", baseSeriesKey, windowMonths, minAbsR, limit)
 }
 
 // ListStateCompaniesKey builds a cache key for ListStateCompanies responses.

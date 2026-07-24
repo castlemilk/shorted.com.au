@@ -2,32 +2,73 @@ import { create } from "@bufbuild/protobuf";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 
-import { getEconomicSeriesClient } from "~/app/actions/client/getEconomyClient";
-import { GetEconomicSeriesResponseSchema } from "~/gen/shorts/v1alpha1/economy_pb";
+import {
+  getEconomicSeriesClient,
+  listSeriesCorrelationsClient,
+} from "~/app/actions/client/getEconomyClient";
+import {
+  GetEconomicSeriesResponseSchema,
+  ListSeriesCorrelationsResponseSchema,
+} from "~/gen/shorts/v1alpha1/economy_pb";
 import { StateCorrelations } from "../state-correlations";
 
 jest.mock("~/app/actions/client/getEconomyClient", () => ({
   getEconomicSeriesClient: jest.fn(),
+  listSeriesCorrelationsClient: jest.fn(),
 }));
 jest.mock("../dual-axis-chart", () => ({
-  DualAxisChart: ({ formatSecondary }: { formatSecondary: (value: number) => string }) => (
-    <div>{formatSecondary(8_641_085)}</div>
-  ),
+  DualAxisChart: ({
+    formatSecondary,
+  }: {
+    formatSecondary: (value: number) => string;
+  }) => <div>{formatSecondary(8_641_085)}</div>,
 }));
 
 const mockGetEconomicSeriesClient =
-  getEconomicSeriesClient as jest.MockedFunction<typeof getEconomicSeriesClient>;
+  getEconomicSeriesClient as jest.MockedFunction<
+    typeof getEconomicSeriesClient
+  >;
+const mockListSeriesCorrelationsClient =
+  listSeriesCorrelationsClient as jest.MockedFunction<
+    typeof listSeriesCorrelationsClient
+  >;
 
 describe("StateCorrelations candidates", () => {
   beforeEach(() => {
     mockGetEconomicSeriesClient.mockReset();
+    mockListSeriesCorrelationsClient.mockReset();
+    mockListSeriesCorrelationsClient.mockResolvedValue(
+      create(ListSeriesCorrelationsResponseSchema, { correlations: [] }),
+    );
     mockGetEconomicSeriesClient.mockResolvedValue(
       create(GetEconomicSeriesResponseSchema, { series: [] }),
     );
   });
 
+  it("uses the state's short-interest series as the precomputed base", async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <StateCorrelations state="nsw" />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() =>
+      expect(mockListSeriesCorrelationsClient).toHaveBeenCalledWith(
+        "markets.short_interest_wavg.nsw",
+        24,
+        0,
+        250,
+      ),
+    );
+  });
+
   it("requests retail, dwelling approvals, and population alongside established candidates", async () => {
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
     render(
       <QueryClientProvider client={queryClient}>
         <StateCorrelations state="nsw" />
@@ -47,14 +88,18 @@ describe("StateCorrelations candidates", () => {
   it.each(["wa", "qld"] as const)(
     "requests national flagship overlays and local labour/wage series for %s",
     async (state) => {
-      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
       render(
         <QueryClientProvider client={queryClient}>
           <StateCorrelations state={state} />
         </QueryClientProvider>,
       );
 
-      await waitFor(() => expect(mockGetEconomicSeriesClient).toHaveBeenCalled());
+      await waitFor(() =>
+        expect(mockGetEconomicSeriesClient).toHaveBeenCalled(),
+      );
       expect(mockGetEconomicSeriesClient).toHaveBeenCalledWith(
         expect.arrayContaining([
           "commodities.price_index.bulk.aus",
@@ -90,7 +135,9 @@ describe("StateCorrelations candidates", () => {
         ],
       }),
     );
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
     render(
       <QueryClientProvider client={queryClient}>
         <StateCorrelations state="nsw" />

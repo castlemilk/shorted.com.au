@@ -111,3 +111,11 @@ end-to-end.
 > **+ recorded crime** (user-requested, XLSX — no SDMX flow exists; counts
 > 1993→ + derived per-100k rates + state-page crime card). Parked: OAD
 > visitor arrivals (no state dim), OMAD_VISA (overlaps NOM), EWD detail.
+
+> **ROUND 3 SHIPPED 2026-07-24** (`feat/economy-phase3-round3`): 4.3 ✓
+> per-capita · 4.5 ✓ price-return index · 4.6 ✓ correlation matrix
+> (000093 + `-mode correlations` + `ListSeriesCorrelations` + precomputed
+> web chips) · 5.8 ✓ chip overflow + approvals/construction metrics ·
+> 6.5 ✓ MV staleness guard (000094) · round-1 perf follow-ups ✓ (single
+> scan, max_observations, 2-series state-page fetch). **1.4 payrolls is
+> DEAD upstream** (publication discontinued — probed 2026-07-24).

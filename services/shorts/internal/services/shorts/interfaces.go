@@ -131,7 +131,8 @@ type ShortsStore interface {
 
 	// Economy snapshot methods
 	ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32) ([]*shortsstore.EconomicSeriesRow, error)
-	GetEconomicSeries(seriesKeys []string, startPeriod time.Time) ([]*shortsstore.EconomicSeriesDataRow, error)
+	GetEconomicSeries(seriesKeys []string, startPeriod time.Time, maxObservations int32) ([]*shortsstore.EconomicSeriesDataRow, error)
+	ListSeriesCorrelations(baseSeriesKey string, windowMonths int32, minAbsR float64, limit int32) ([]*shortsstore.SeriesCorrelationRow, error)
 
 	// Company state exposure methods
 	ListStateCompanies(state string, limit int32) ([]*shortsstore.StateCompanyRow, error)
@@ -186,7 +187,8 @@ type Cache interface {
 	GetPriceDropsOverviewKey() string
 	GetAgencyPriceStatsKey(stateCode, sort string, limit int32) string
 	ListEconomicSeriesKey(topic, metric, regionType, regionCode, product string, limit int32) string
-	GetEconomicSeriesKey(seriesKeys []string, startPeriod string) string
+	GetEconomicSeriesKey(seriesKeys []string, startPeriod string, maxObservations int32) string
+	ListSeriesCorrelationsKey(baseSeriesKey string, windowMonths int32, minAbsR float64, limit int32) string
 	ListStateCompaniesKey(state string, limit int32) string
 	GetStateCompanyAggregatesKey() string
 	GetEventTimelineKey(stockCode string, daysBack, limit int32) string

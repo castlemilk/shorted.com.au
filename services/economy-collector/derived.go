@@ -405,5 +405,14 @@ func ingestDerived(ctx context.Context, pool *pgxpool.Pool) ([]Obs, error) {
 		derivationFamily{name: "recorded crime rates", run: func() ([]Obs, error) {
 			return deriveCrimeRates(ctx, pool)
 		}},
+		derivationFamily{name: "state final demand per capita", run: func() ([]Obs, error) {
+			return deriveStateFinalDemandPerCapita(ctx, pool)
+		}},
+		derivationFamily{name: "household spending per capita", run: func() ([]Obs, error) {
+			return deriveHouseholdSpendingPerCapita(ctx, pool)
+		}},
+		derivationFamily{name: "dwelling approvals per 100k", run: func() ([]Obs, error) {
+			return deriveDwellingApprovalsPer100k(ctx, pool)
+		}},
 	)
 }

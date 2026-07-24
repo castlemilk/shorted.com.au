@@ -66,17 +66,17 @@ describe("map-metrics", () => {
     expect(ECONOMY_SERIES_FORMATTERS.rate(189.8)).toBe("190");
   });
 
-  it("registry has 13 metrics with unique keys", () => {
+  it("registry has 15 metrics with unique keys", () => {
     const keys = ECONOMY_MAP_METRICS.map((m) => m.key);
-    expect(keys).toHaveLength(13);
-    expect(new Set(keys).size).toBe(13);
+    expect(keys).toHaveLength(15);
+    expect(new Set(keys).size).toBe(15);
     expect(METRIC_BY_KEY.unemployment.label).toMatch(/unemployment/i);
   });
 
-  it("registry kinds: 11 series + 2 aggregate", () => {
+  it("registry kinds: 13 series + 2 aggregate", () => {
     const byKind = { series: 0, aggregate: 0 };
     for (const m of ECONOMY_MAP_METRICS) byKind[m.kind]++;
-    expect(byKind).toEqual({ series: 11, aggregate: 2 });
+    expect(byKind).toEqual({ series: 13, aggregate: 2 });
   });
 
   it("registers household spending YoY as the sole round-2 map metric", () => {
@@ -87,7 +87,20 @@ describe("map-metrics", () => {
     expect(spending.format).toBe("percent");
     expect(spending.palette).toBe("diverging");
     expect(spending.derived).toBeUndefined();
-    expect(METRIC_BY_KEY).not.toHaveProperty("construction_work_done");
+  });
+
+  it("registers dwelling approvals and construction work done as map metrics", () => {
+    const approvals = asSeries(METRIC_BY_KEY.dwelling_approvals);
+    expect(approvals.seriesKeyTemplate).toBe(
+      "approvals.dwelling_units.total.{state}",
+    );
+    expect(approvals.format).toBe("number");
+
+    const construction = asSeries(METRIC_BY_KEY.construction_work_done);
+    expect(construction.seriesKeyTemplate).toBe(
+      "construction.work_done.total.{state}.seasadj",
+    );
+    expect(construction.format).toBe("aud");
   });
 
   it("registers round-2 state correlation candidates without annual crime", () => {
@@ -104,6 +117,32 @@ describe("map-metrics", () => {
     expect(templates.some((template) => template.startsWith("crime."))).toBe(
       false,
     );
+  });
+
+  it("registers price-return and per-capita series only as correlation candidates", () => {
+    const templates = STATE_CORRELATION_CANDIDATES.map(
+      (candidate) => candidate.seriesKeyTemplate,
+    );
+    expect(templates).toEqual(
+      expect.arrayContaining([
+        "markets.price_return_index.{state}",
+        "gdp.state_final_demand_per_capita.total.{state}.seasadj",
+        "spending.household_per_capita.total.{state}.seasadj",
+        "approvals.dwelling_units_per_100k.total.{state}",
+      ]),
+    );
+
+    const mapTemplates = ECONOMY_MAP_METRICS.flatMap((metric) =>
+      metric.kind === "series" ? [metric.seriesKeyTemplate] : [],
+    );
+    expect(
+      mapTemplates.some(
+        (template) =>
+          template.includes("price_return_index") ||
+          template.includes("per_capita") ||
+          template.includes("per_100k"),
+      ),
+    ).toBe(false);
   });
 
   it("registers retail turnover and derived population growth", () => {

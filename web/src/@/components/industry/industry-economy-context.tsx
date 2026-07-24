@@ -45,6 +45,7 @@ export function IndustryEconomyContext({
       sectionAriaLabel={`${industryName} economy context`}
       chartAriaLabel={`${industryName} industry short interest versus`}
       defaultOverlayKey="commodities.price_index.bulk.aus"
+      precomputedBaseKey={anchorKey}
       requireAnchor
       missingAnchorMessage={missingAnchorMessage}
     />

@@ -49,8 +49,8 @@ public final class ShortsProto extends com.google.protobuf.GeneratedFile {
       "et.proto\032\032shorts/v1alpha1/news.proto\032\035sh" +
       "orts/v1alpha1/reports.proto\032\036shorts/v1al" +
       "pha1/screener.proto\032\034shorts/v1alpha1/sea" +
-      "rch.proto\032\033shorts/v1alpha1/stock.proto2\243" +
-      "\205\001\n\024ShortedStocksService\022\206\003\n\014GetTopShort" +
+      "rch.proto\032\033shorts/v1alpha1/stock.proto2\316" +
+      "\207\001\n\024ShortedStocksService\022\206\003\n\014GetTopShort" +
       "s\022$.shorts.v1alpha1.GetTopShortsRequest\032" +
       "%.shorts.v1alpha1.GetTopShortsResponse\"\250" +
       "\002\332A\023period,limit,offset\272G\212\002\022\016Get Top Sho" +
@@ -434,60 +434,67 @@ public final class ShortsProto extends com.google.protobuf.GeneratedFile {
       "d economic series keys (e.g. petroleum.r" +
       "efinery_output.diesel.aus, trade.export_" +
       "value.total.wa), with unit, frequency an" +
-      "d licence.\200\265\030\001\022\205\003\n\022ListStateCompanies\022*.",
-      "shorts.v1alpha1.ListStateCompaniesReques" +
-      "t\032+.shorts.v1alpha1.ListStateCompaniesRe" +
-      "sponse\"\225\002\272G\215\002\022\024List State Companies\032\364\001AS" +
-      "X-listed companies operating in a given " +
-      "Australian state, ranked by exposure-wei" +
-      "ghted market cap. Exposure is LLM-estima" +
-      "ted from company disclosures (operations" +
-      "/revenue split), with a registered-offic" +
-      "e fallback for companies not yet enriche" +
-      "d.\200\265\030\001\022\353\002\n\031GetStateCompanyAggregates\0221.s" +
-      "horts.v1alpha1.GetStateCompanyAggregates" +
-      "Request\0322.shorts.v1alpha1.GetStateCompan" +
-      "yAggregatesResponse\"\346\001\272G\336\001\022\034Get State Co" +
-      "mpany Aggregates\032\275\001Per-state aggregates " +
-      "over the company state-exposure layer: c" +
-      "ompany count (weight >= 0.2), exposure-w" +
-      "eighted market cap, and exposure-weighte" +
-      "d short interest. Excludes region=intern" +
-      "ational.\200\265\030\001\022\262\004\n\024GetCompanyTaxProfile\022,." +
-      "shorts.v1alpha1.GetCompanyTaxProfileRequ" +
-      "est\032-.shorts.v1alpha1.GetCompanyTaxProfi" +
-      "leResponse\"\274\003\272G\224\003\022\027Get Company Tax Profi" +
-      "le\032\370\002An ASX-listed entity\'s annual corpo" +
-      "rate-tax profile from the ATO Corporate " +
-      "Tax Transparency dataset (total income, " +
-      "taxable income, tax payable per income y" +
-      "ear). Entities are matched to ASX codes " +
-      "only on exact ABN or exact normalized-na" +
-      "me mapping. Nil/absent taxable income or" +
-      " tax payable is meaningful and often leg" +
-      "itimate (losses/offsets) \342\200\224 total incom" +
-      "e is always reported.\200\265\030\001\202\323\344\223\002\032\"\025/v1/com" +
-      "panyTaxProfile:\001*\022\322\002\n\027GetIndustryIntelli" +
-      "gence\022/.shorts.v1alpha1.GetIndustryIntel" +
-      "ligenceRequest\0320.shorts.v1alpha1.GetIndu" +
-      "stryIntelligenceResponse\"\323\001\272G\250\001\022\031Get Ind" +
-      "ustry Intelligence\032\212\001Imported, cited ind" +
-      "ustry intelligence records for a Shorted" +
-      " industry. Only public-enabled sources a" +
-      "nd exact-reviewed records are returned.\200" +
-      "\265\030\001\202\323\344\223\002\035\"\030/v1/industryIntelligence:\001*\032\025" +
-      "\312A\022api.shorted.com.auB\240\003\n\023com.shorts.v1a" +
-      "lpha1B\013ShortsProtoP\001ZYgithub.com/castlem" +
-      "ilk/shorted.com.au/services/gen/proto/go" +
-      "/shorts/v1alpha1;shortsv1alpha1\242\002\003SXX\252\002\017" +
-      "Shorts.V1alpha1\312\002\017Shorts\\V1alpha1\342\002\033Shor" +
-      "ts\\V1alpha1\\GPBMetadata\352\002\020Shorts::V1alph" +
-      "a1\272G\302\001\022\177\n\013Shorted API\022\rShorted API\'s\"(\022\016" +
-      "shorted.com.au\032\026support@shorted.com.au*3" +
-      "\n\023Proprietary license\022\034https://shorted.c" +
-      "om.au/terms2\002v1\032\034\n\032https://api.shorted.c" +
-      "om.au*!:\037\n\035\n\tAuthToken\022\020\n\016\n\004http*\006bearer" +
-      "b\006proto3"
+      "d licence.\200\265\030\001\022\250\002\n\026ListSeriesCorrelation",
+      "s\022..shorts.v1alpha1.ListSeriesCorrelatio" +
+      "nsRequest\032/.shorts.v1alpha1.ListSeriesCo" +
+      "rrelationsResponse\"\254\001\272G\244\001\022\030List Series C" +
+      "orrelations\032\207\001Precomputed rolling Pearso" +
+      "n correlations between a market-series a" +
+      "nchor and eligible economic overlays, ra" +
+      "nked by absolute correlation.\200\265\030\001\022\205\003\n\022Li" +
+      "stStateCompanies\022*.shorts.v1alpha1.ListS" +
+      "tateCompaniesRequest\032+.shorts.v1alpha1.L" +
+      "istStateCompaniesResponse\"\225\002\272G\215\002\022\024List S" +
+      "tate Companies\032\364\001ASX-listed companies op" +
+      "erating in a given Australian state, ran" +
+      "ked by exposure-weighted market cap. Exp" +
+      "osure is LLM-estimated from company disc" +
+      "losures (operations/revenue split), with" +
+      " a registered-office fallback for compan" +
+      "ies not yet enriched.\200\265\030\001\022\353\002\n\031GetStateCo" +
+      "mpanyAggregates\0221.shorts.v1alpha1.GetSta" +
+      "teCompanyAggregatesRequest\0322.shorts.v1al" +
+      "pha1.GetStateCompanyAggregatesResponse\"\346" +
+      "\001\272G\336\001\022\034Get State Company Aggregates\032\275\001Pe" +
+      "r-state aggregates over the company stat" +
+      "e-exposure layer: company count (weight " +
+      ">= 0.2), exposure-weighted market cap, a" +
+      "nd exposure-weighted short interest. Exc" +
+      "ludes region=international.\200\265\030\001\022\262\004\n\024GetC" +
+      "ompanyTaxProfile\022,.shorts.v1alpha1.GetCo" +
+      "mpanyTaxProfileRequest\032-.shorts.v1alpha1" +
+      ".GetCompanyTaxProfileResponse\"\274\003\272G\224\003\022\027Ge" +
+      "t Company Tax Profile\032\370\002An ASX-listed en" +
+      "tity\'s annual corporate-tax profile from" +
+      " the ATO Corporate Tax Transparency data" +
+      "set (total income, taxable income, tax p" +
+      "ayable per income year). Entities are ma" +
+      "tched to ASX codes only on exact ABN or " +
+      "exact normalized-name mapping. Nil/absen" +
+      "t taxable income or tax payable is meani" +
+      "ngful and often legitimate (losses/offse" +
+      "ts) \342\200\224 total income is always reported." +
+      "\200\265\030\001\202\323\344\223\002\032\"\025/v1/companyTaxProfile:\001*\022\322\002\n" +
+      "\027GetIndustryIntelligence\022/.shorts.v1alph" +
+      "a1.GetIndustryIntelligenceRequest\0320.shor" +
+      "ts.v1alpha1.GetIndustryIntelligenceRespo" +
+      "nse\"\323\001\272G\250\001\022\031Get Industry Intelligence\032\212\001" +
+      "Imported, cited industry intelligence re" +
+      "cords for a Shorted industry. Only publi" +
+      "c-enabled sources and exact-reviewed rec" +
+      "ords are returned.\200\265\030\001\202\323\344\223\002\035\"\030/v1/indust" +
+      "ryIntelligence:\001*\032\025\312A\022api.shorted.com.au" +
+      "B\240\003\n\023com.shorts.v1alpha1B\013ShortsProtoP\001Z" +
+      "Ygithub.com/castlemilk/shorted.com.au/se" +
+      "rvices/gen/proto/go/shorts/v1alpha1;shor" +
+      "tsv1alpha1\242\002\003SXX\252\002\017Shorts.V1alpha1\312\002\017Sho" +
+      "rts\\V1alpha1\342\002\033Shorts\\V1alpha1\\GPBMetada" +
+      "ta\352\002\020Shorts::V1alpha1\272G\302\001\022\177\n\013Shorted API" +
+      "\022\rShorted API\'s\"(\022\016shorted.com.au\032\026suppo" +
+      "rt@shorted.com.au*3\n\023Proprietary license" +
+      "\022\034https://shorted.com.au/terms2\002v1\032\034\n\032ht" +
+      "tps://api.shorted.com.au*!:\037\n\035\n\tAuthToke" +
+      "n\022\020\n\016\n\004http*\006bearerb\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,

@@ -396,11 +396,12 @@ func (x *EconomicSeriesData) GetObservations() []*EconomicObservation {
 }
 
 type GetEconomicSeriesRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	SeriesKeys    []string               `protobuf:"bytes,1,rep,name=series_keys,json=seriesKeys,proto3" json:"series_keys,omitempty"`    // max 50
-	StartPeriod   *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=start_period,json=startPeriod,proto3" json:"start_period,omitempty"` // optional
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	SeriesKeys      []string               `protobuf:"bytes,1,rep,name=series_keys,json=seriesKeys,proto3" json:"series_keys,omitempty"`                 // max 50
+	StartPeriod     *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=start_period,json=startPeriod,proto3" json:"start_period,omitempty"`              // optional
+	MaxObservations int32                  `protobuf:"varint,3,opt,name=max_observations,json=maxObservations,proto3" json:"max_observations,omitempty"` // default 600, clamped to 1..600
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *GetEconomicSeriesRequest) Reset() {
@@ -447,6 +448,13 @@ func (x *GetEconomicSeriesRequest) GetStartPeriod() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *GetEconomicSeriesRequest) GetMaxObservations() int32 {
+	if x != nil {
+		return x.MaxObservations
+	}
+	return 0
+}
+
 type GetEconomicSeriesResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Series        []*EconomicSeriesData  `protobuf:"bytes,1,rep,name=series,proto3" json:"series,omitempty"`
@@ -491,6 +499,194 @@ func (x *GetEconomicSeriesResponse) GetSeries() []*EconomicSeriesData {
 	return nil
 }
 
+type ListSeriesCorrelationsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	BaseSeriesKey string                 `protobuf:"bytes,1,opt,name=base_series_key,json=baseSeriesKey,proto3" json:"base_series_key,omitempty"` // required
+	WindowMonths  int32                  `protobuf:"varint,2,opt,name=window_months,json=windowMonths,proto3" json:"window_months,omitempty"`     // default 24
+	MinAbsR       float64                `protobuf:"fixed64,3,opt,name=min_abs_r,json=minAbsR,proto3" json:"min_abs_r,omitempty"`
+	Limit         int32                  `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"` // default 100, max 250
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSeriesCorrelationsRequest) Reset() {
+	*x = ListSeriesCorrelationsRequest{}
+	mi := &file_shorts_v1alpha1_economy_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSeriesCorrelationsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSeriesCorrelationsRequest) ProtoMessage() {}
+
+func (x *ListSeriesCorrelationsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_economy_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSeriesCorrelationsRequest.ProtoReflect.Descriptor instead.
+func (*ListSeriesCorrelationsRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_economy_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *ListSeriesCorrelationsRequest) GetBaseSeriesKey() string {
+	if x != nil {
+		return x.BaseSeriesKey
+	}
+	return ""
+}
+
+func (x *ListSeriesCorrelationsRequest) GetWindowMonths() int32 {
+	if x != nil {
+		return x.WindowMonths
+	}
+	return 0
+}
+
+func (x *ListSeriesCorrelationsRequest) GetMinAbsR() float64 {
+	if x != nil {
+		return x.MinAbsR
+	}
+	return 0
+}
+
+func (x *ListSeriesCorrelationsRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type SeriesCorrelation struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	OverlaySeriesKey string                 `protobuf:"bytes,1,opt,name=overlay_series_key,json=overlaySeriesKey,proto3" json:"overlay_series_key,omitempty"`
+	R                float64                `protobuf:"fixed64,2,opt,name=r,proto3" json:"r,omitempty"`
+	N                int32                  `protobuf:"varint,3,opt,name=n,proto3" json:"n,omitempty"`
+	LastPeriod       *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=last_period,json=lastPeriod,proto3" json:"last_period,omitempty"`
+	Overlay          *EconomicSeriesInfo    `protobuf:"bytes,5,opt,name=overlay,proto3" json:"overlay,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *SeriesCorrelation) Reset() {
+	*x = SeriesCorrelation{}
+	mi := &file_shorts_v1alpha1_economy_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SeriesCorrelation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SeriesCorrelation) ProtoMessage() {}
+
+func (x *SeriesCorrelation) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_economy_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SeriesCorrelation.ProtoReflect.Descriptor instead.
+func (*SeriesCorrelation) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_economy_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *SeriesCorrelation) GetOverlaySeriesKey() string {
+	if x != nil {
+		return x.OverlaySeriesKey
+	}
+	return ""
+}
+
+func (x *SeriesCorrelation) GetR() float64 {
+	if x != nil {
+		return x.R
+	}
+	return 0
+}
+
+func (x *SeriesCorrelation) GetN() int32 {
+	if x != nil {
+		return x.N
+	}
+	return 0
+}
+
+func (x *SeriesCorrelation) GetLastPeriod() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LastPeriod
+	}
+	return nil
+}
+
+func (x *SeriesCorrelation) GetOverlay() *EconomicSeriesInfo {
+	if x != nil {
+		return x.Overlay
+	}
+	return nil
+}
+
+type ListSeriesCorrelationsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Correlations  []*SeriesCorrelation   `protobuf:"bytes,1,rep,name=correlations,proto3" json:"correlations,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSeriesCorrelationsResponse) Reset() {
+	*x = ListSeriesCorrelationsResponse{}
+	mi := &file_shorts_v1alpha1_economy_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSeriesCorrelationsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSeriesCorrelationsResponse) ProtoMessage() {}
+
+func (x *ListSeriesCorrelationsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_economy_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSeriesCorrelationsResponse.ProtoReflect.Descriptor instead.
+func (*ListSeriesCorrelationsResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_economy_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ListSeriesCorrelationsResponse) GetCorrelations() []*SeriesCorrelation {
+	if x != nil {
+		return x.Correlations
+	}
+	return nil
+}
+
 type ListStateCompaniesRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	State         string                 `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"`  // nsw|vic|qld|sa|wa|tas|nt|act (lowercase)
@@ -501,7 +697,7 @@ type ListStateCompaniesRequest struct {
 
 func (x *ListStateCompaniesRequest) Reset() {
 	*x = ListStateCompaniesRequest{}
-	mi := &file_shorts_v1alpha1_economy_proto_msgTypes[7]
+	mi := &file_shorts_v1alpha1_economy_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -513,7 +709,7 @@ func (x *ListStateCompaniesRequest) String() string {
 func (*ListStateCompaniesRequest) ProtoMessage() {}
 
 func (x *ListStateCompaniesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_economy_proto_msgTypes[7]
+	mi := &file_shorts_v1alpha1_economy_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -526,7 +722,7 @@ func (x *ListStateCompaniesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListStateCompaniesRequest.ProtoReflect.Descriptor instead.
 func (*ListStateCompaniesRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_economy_proto_rawDescGZIP(), []int{7}
+	return file_shorts_v1alpha1_economy_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ListStateCompaniesRequest) GetState() string {
@@ -560,7 +756,7 @@ type StateCompany struct {
 
 func (x *StateCompany) Reset() {
 	*x = StateCompany{}
-	mi := &file_shorts_v1alpha1_economy_proto_msgTypes[8]
+	mi := &file_shorts_v1alpha1_economy_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -572,7 +768,7 @@ func (x *StateCompany) String() string {
 func (*StateCompany) ProtoMessage() {}
 
 func (x *StateCompany) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_economy_proto_msgTypes[8]
+	mi := &file_shorts_v1alpha1_economy_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -585,7 +781,7 @@ func (x *StateCompany) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StateCompany.ProtoReflect.Descriptor instead.
 func (*StateCompany) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_economy_proto_rawDescGZIP(), []int{8}
+	return file_shorts_v1alpha1_economy_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *StateCompany) GetStockCode() string {
@@ -660,7 +856,7 @@ type ListStateCompaniesResponse struct {
 
 func (x *ListStateCompaniesResponse) Reset() {
 	*x = ListStateCompaniesResponse{}
-	mi := &file_shorts_v1alpha1_economy_proto_msgTypes[9]
+	mi := &file_shorts_v1alpha1_economy_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -672,7 +868,7 @@ func (x *ListStateCompaniesResponse) String() string {
 func (*ListStateCompaniesResponse) ProtoMessage() {}
 
 func (x *ListStateCompaniesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_economy_proto_msgTypes[9]
+	mi := &file_shorts_v1alpha1_economy_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -685,7 +881,7 @@ func (x *ListStateCompaniesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListStateCompaniesResponse.ProtoReflect.Descriptor instead.
 func (*ListStateCompaniesResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_economy_proto_rawDescGZIP(), []int{9}
+	return file_shorts_v1alpha1_economy_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ListStateCompaniesResponse) GetCompanies() []*StateCompany {
@@ -703,7 +899,7 @@ type GetStateCompanyAggregatesRequest struct {
 
 func (x *GetStateCompanyAggregatesRequest) Reset() {
 	*x = GetStateCompanyAggregatesRequest{}
-	mi := &file_shorts_v1alpha1_economy_proto_msgTypes[10]
+	mi := &file_shorts_v1alpha1_economy_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -715,7 +911,7 @@ func (x *GetStateCompanyAggregatesRequest) String() string {
 func (*GetStateCompanyAggregatesRequest) ProtoMessage() {}
 
 func (x *GetStateCompanyAggregatesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_economy_proto_msgTypes[10]
+	mi := &file_shorts_v1alpha1_economy_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -728,7 +924,7 @@ func (x *GetStateCompanyAggregatesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStateCompanyAggregatesRequest.ProtoReflect.Descriptor instead.
 func (*GetStateCompanyAggregatesRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_economy_proto_rawDescGZIP(), []int{10}
+	return file_shorts_v1alpha1_economy_proto_rawDescGZIP(), []int{13}
 }
 
 type StateCompanyAggregate struct {
@@ -743,7 +939,7 @@ type StateCompanyAggregate struct {
 
 func (x *StateCompanyAggregate) Reset() {
 	*x = StateCompanyAggregate{}
-	mi := &file_shorts_v1alpha1_economy_proto_msgTypes[11]
+	mi := &file_shorts_v1alpha1_economy_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -755,7 +951,7 @@ func (x *StateCompanyAggregate) String() string {
 func (*StateCompanyAggregate) ProtoMessage() {}
 
 func (x *StateCompanyAggregate) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_economy_proto_msgTypes[11]
+	mi := &file_shorts_v1alpha1_economy_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -768,7 +964,7 @@ func (x *StateCompanyAggregate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StateCompanyAggregate.ProtoReflect.Descriptor instead.
 func (*StateCompanyAggregate) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_economy_proto_rawDescGZIP(), []int{11}
+	return file_shorts_v1alpha1_economy_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *StateCompanyAggregate) GetState() string {
@@ -808,7 +1004,7 @@ type GetStateCompanyAggregatesResponse struct {
 
 func (x *GetStateCompanyAggregatesResponse) Reset() {
 	*x = GetStateCompanyAggregatesResponse{}
-	mi := &file_shorts_v1alpha1_economy_proto_msgTypes[12]
+	mi := &file_shorts_v1alpha1_economy_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -820,7 +1016,7 @@ func (x *GetStateCompanyAggregatesResponse) String() string {
 func (*GetStateCompanyAggregatesResponse) ProtoMessage() {}
 
 func (x *GetStateCompanyAggregatesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_economy_proto_msgTypes[12]
+	mi := &file_shorts_v1alpha1_economy_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -833,7 +1029,7 @@ func (x *GetStateCompanyAggregatesResponse) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use GetStateCompanyAggregatesResponse.ProtoReflect.Descriptor instead.
 func (*GetStateCompanyAggregatesResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_economy_proto_rawDescGZIP(), []int{12}
+	return file_shorts_v1alpha1_economy_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *GetStateCompanyAggregatesResponse) GetAggregates() []*StateCompanyAggregate {
@@ -886,13 +1082,28 @@ const file_shorts_v1alpha1_economy_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\x01R\x05value\"\x97\x01\n" +
 	"\x12EconomicSeriesData\x127\n" +
 	"\x04info\x18\x01 \x01(\v2#.shorts.v1alpha1.EconomicSeriesInfoR\x04info\x12H\n" +
-	"\fobservations\x18\x02 \x03(\v2$.shorts.v1alpha1.EconomicObservationR\fobservations\"z\n" +
+	"\fobservations\x18\x02 \x03(\v2$.shorts.v1alpha1.EconomicObservationR\fobservations\"\xa5\x01\n" +
 	"\x18GetEconomicSeriesRequest\x12\x1f\n" +
 	"\vseries_keys\x18\x01 \x03(\tR\n" +
 	"seriesKeys\x12=\n" +
-	"\fstart_period\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\vstartPeriod\"X\n" +
+	"\fstart_period\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\vstartPeriod\x12)\n" +
+	"\x10max_observations\x18\x03 \x01(\x05R\x0fmaxObservations\"X\n" +
 	"\x19GetEconomicSeriesResponse\x12;\n" +
-	"\x06series\x18\x01 \x03(\v2#.shorts.v1alpha1.EconomicSeriesDataR\x06series\"G\n" +
+	"\x06series\x18\x01 \x03(\v2#.shorts.v1alpha1.EconomicSeriesDataR\x06series\"\x9e\x01\n" +
+	"\x1dListSeriesCorrelationsRequest\x12&\n" +
+	"\x0fbase_series_key\x18\x01 \x01(\tR\rbaseSeriesKey\x12#\n" +
+	"\rwindow_months\x18\x02 \x01(\x05R\fwindowMonths\x12\x1a\n" +
+	"\tmin_abs_r\x18\x03 \x01(\x01R\aminAbsR\x12\x14\n" +
+	"\x05limit\x18\x04 \x01(\x05R\x05limit\"\xd9\x01\n" +
+	"\x11SeriesCorrelation\x12,\n" +
+	"\x12overlay_series_key\x18\x01 \x01(\tR\x10overlaySeriesKey\x12\f\n" +
+	"\x01r\x18\x02 \x01(\x01R\x01r\x12\f\n" +
+	"\x01n\x18\x03 \x01(\x05R\x01n\x12;\n" +
+	"\vlast_period\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"lastPeriod\x12=\n" +
+	"\aoverlay\x18\x05 \x01(\v2#.shorts.v1alpha1.EconomicSeriesInfoR\aoverlay\"h\n" +
+	"\x1eListSeriesCorrelationsResponse\x12F\n" +
+	"\fcorrelations\x18\x01 \x03(\v2\".shorts.v1alpha1.SeriesCorrelationR\fcorrelations\"G\n" +
 	"\x19ListStateCompaniesRequest\x12\x14\n" +
 	"\x05state\x18\x01 \x01(\tR\x05state\x12\x14\n" +
 	"\x05limit\x18\x02 \x01(\x05R\x05limit\"\x91\x02\n" +
@@ -919,10 +1130,11 @@ const file_shorts_v1alpha1_economy_proto_rawDesc = "" +
 	"!GetStateCompanyAggregatesResponse\x12F\n" +
 	"\n" +
 	"aggregates\x18\x01 \x03(\v2&.shorts.v1alpha1.StateCompanyAggregateR\n" +
-	"aggregates2\xf7\x03\n" +
+	"aggregates2\xf8\x04\n" +
 	"\x0eEconomyService\x12s\n" +
 	"\x12ListEconomicSeries\x12*.shorts.v1alpha1.ListEconomicSeriesRequest\x1a+.shorts.v1alpha1.ListEconomicSeriesResponse\"\x04\x80\xb5\x18\x01\x12p\n" +
-	"\x11GetEconomicSeries\x12).shorts.v1alpha1.GetEconomicSeriesRequest\x1a*.shorts.v1alpha1.GetEconomicSeriesResponse\"\x04\x80\xb5\x18\x01\x12s\n" +
+	"\x11GetEconomicSeries\x12).shorts.v1alpha1.GetEconomicSeriesRequest\x1a*.shorts.v1alpha1.GetEconomicSeriesResponse\"\x04\x80\xb5\x18\x01\x12\x7f\n" +
+	"\x16ListSeriesCorrelations\x12..shorts.v1alpha1.ListSeriesCorrelationsRequest\x1a/.shorts.v1alpha1.ListSeriesCorrelationsResponse\"\x04\x80\xb5\x18\x01\x12s\n" +
 	"\x12ListStateCompanies\x12*.shorts.v1alpha1.ListStateCompaniesRequest\x1a+.shorts.v1alpha1.ListStateCompaniesResponse\"\x04\x80\xb5\x18\x01\x12\x88\x01\n" +
 	"\x19GetStateCompanyAggregates\x121.shorts.v1alpha1.GetStateCompanyAggregatesRequest\x1a2.shorts.v1alpha1.GetStateCompanyAggregatesResponse\"\x04\x80\xb5\x18\x01B\xdb\x01\n" +
 	"\x13com.shorts.v1alpha1B\fEconomyProtoP\x01ZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1\xa2\x02\x03SXX\xaa\x02\x0fShorts.V1alpha1\xca\x02\x0fShorts\\V1alpha1\xe2\x02\x1bShorts\\V1alpha1\\GPBMetadata\xea\x02\x10Shorts::V1alpha1b\x06proto3"
@@ -939,7 +1151,7 @@ func file_shorts_v1alpha1_economy_proto_rawDescGZIP() []byte {
 	return file_shorts_v1alpha1_economy_proto_rawDescData
 }
 
-var file_shorts_v1alpha1_economy_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_shorts_v1alpha1_economy_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_shorts_v1alpha1_economy_proto_goTypes = []any{
 	(*EconomicSeriesInfo)(nil),                // 0: shorts.v1alpha1.EconomicSeriesInfo
 	(*ListEconomicSeriesRequest)(nil),         // 1: shorts.v1alpha1.ListEconomicSeriesRequest
@@ -948,37 +1160,45 @@ var file_shorts_v1alpha1_economy_proto_goTypes = []any{
 	(*EconomicSeriesData)(nil),                // 4: shorts.v1alpha1.EconomicSeriesData
 	(*GetEconomicSeriesRequest)(nil),          // 5: shorts.v1alpha1.GetEconomicSeriesRequest
 	(*GetEconomicSeriesResponse)(nil),         // 6: shorts.v1alpha1.GetEconomicSeriesResponse
-	(*ListStateCompaniesRequest)(nil),         // 7: shorts.v1alpha1.ListStateCompaniesRequest
-	(*StateCompany)(nil),                      // 8: shorts.v1alpha1.StateCompany
-	(*ListStateCompaniesResponse)(nil),        // 9: shorts.v1alpha1.ListStateCompaniesResponse
-	(*GetStateCompanyAggregatesRequest)(nil),  // 10: shorts.v1alpha1.GetStateCompanyAggregatesRequest
-	(*StateCompanyAggregate)(nil),             // 11: shorts.v1alpha1.StateCompanyAggregate
-	(*GetStateCompanyAggregatesResponse)(nil), // 12: shorts.v1alpha1.GetStateCompanyAggregatesResponse
-	(*timestamppb.Timestamp)(nil),             // 13: google.protobuf.Timestamp
+	(*ListSeriesCorrelationsRequest)(nil),     // 7: shorts.v1alpha1.ListSeriesCorrelationsRequest
+	(*SeriesCorrelation)(nil),                 // 8: shorts.v1alpha1.SeriesCorrelation
+	(*ListSeriesCorrelationsResponse)(nil),    // 9: shorts.v1alpha1.ListSeriesCorrelationsResponse
+	(*ListStateCompaniesRequest)(nil),         // 10: shorts.v1alpha1.ListStateCompaniesRequest
+	(*StateCompany)(nil),                      // 11: shorts.v1alpha1.StateCompany
+	(*ListStateCompaniesResponse)(nil),        // 12: shorts.v1alpha1.ListStateCompaniesResponse
+	(*GetStateCompanyAggregatesRequest)(nil),  // 13: shorts.v1alpha1.GetStateCompanyAggregatesRequest
+	(*StateCompanyAggregate)(nil),             // 14: shorts.v1alpha1.StateCompanyAggregate
+	(*GetStateCompanyAggregatesResponse)(nil), // 15: shorts.v1alpha1.GetStateCompanyAggregatesResponse
+	(*timestamppb.Timestamp)(nil),             // 16: google.protobuf.Timestamp
 }
 var file_shorts_v1alpha1_economy_proto_depIdxs = []int32{
-	13, // 0: shorts.v1alpha1.EconomicSeriesInfo.latest_period:type_name -> google.protobuf.Timestamp
+	16, // 0: shorts.v1alpha1.EconomicSeriesInfo.latest_period:type_name -> google.protobuf.Timestamp
 	0,  // 1: shorts.v1alpha1.ListEconomicSeriesResponse.series:type_name -> shorts.v1alpha1.EconomicSeriesInfo
-	13, // 2: shorts.v1alpha1.EconomicObservation.period:type_name -> google.protobuf.Timestamp
+	16, // 2: shorts.v1alpha1.EconomicObservation.period:type_name -> google.protobuf.Timestamp
 	0,  // 3: shorts.v1alpha1.EconomicSeriesData.info:type_name -> shorts.v1alpha1.EconomicSeriesInfo
 	3,  // 4: shorts.v1alpha1.EconomicSeriesData.observations:type_name -> shorts.v1alpha1.EconomicObservation
-	13, // 5: shorts.v1alpha1.GetEconomicSeriesRequest.start_period:type_name -> google.protobuf.Timestamp
+	16, // 5: shorts.v1alpha1.GetEconomicSeriesRequest.start_period:type_name -> google.protobuf.Timestamp
 	4,  // 6: shorts.v1alpha1.GetEconomicSeriesResponse.series:type_name -> shorts.v1alpha1.EconomicSeriesData
-	8,  // 7: shorts.v1alpha1.ListStateCompaniesResponse.companies:type_name -> shorts.v1alpha1.StateCompany
-	11, // 8: shorts.v1alpha1.GetStateCompanyAggregatesResponse.aggregates:type_name -> shorts.v1alpha1.StateCompanyAggregate
-	1,  // 9: shorts.v1alpha1.EconomyService.ListEconomicSeries:input_type -> shorts.v1alpha1.ListEconomicSeriesRequest
-	5,  // 10: shorts.v1alpha1.EconomyService.GetEconomicSeries:input_type -> shorts.v1alpha1.GetEconomicSeriesRequest
-	7,  // 11: shorts.v1alpha1.EconomyService.ListStateCompanies:input_type -> shorts.v1alpha1.ListStateCompaniesRequest
-	10, // 12: shorts.v1alpha1.EconomyService.GetStateCompanyAggregates:input_type -> shorts.v1alpha1.GetStateCompanyAggregatesRequest
-	2,  // 13: shorts.v1alpha1.EconomyService.ListEconomicSeries:output_type -> shorts.v1alpha1.ListEconomicSeriesResponse
-	6,  // 14: shorts.v1alpha1.EconomyService.GetEconomicSeries:output_type -> shorts.v1alpha1.GetEconomicSeriesResponse
-	9,  // 15: shorts.v1alpha1.EconomyService.ListStateCompanies:output_type -> shorts.v1alpha1.ListStateCompaniesResponse
-	12, // 16: shorts.v1alpha1.EconomyService.GetStateCompanyAggregates:output_type -> shorts.v1alpha1.GetStateCompanyAggregatesResponse
-	13, // [13:17] is the sub-list for method output_type
-	9,  // [9:13] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	16, // 7: shorts.v1alpha1.SeriesCorrelation.last_period:type_name -> google.protobuf.Timestamp
+	0,  // 8: shorts.v1alpha1.SeriesCorrelation.overlay:type_name -> shorts.v1alpha1.EconomicSeriesInfo
+	8,  // 9: shorts.v1alpha1.ListSeriesCorrelationsResponse.correlations:type_name -> shorts.v1alpha1.SeriesCorrelation
+	11, // 10: shorts.v1alpha1.ListStateCompaniesResponse.companies:type_name -> shorts.v1alpha1.StateCompany
+	14, // 11: shorts.v1alpha1.GetStateCompanyAggregatesResponse.aggregates:type_name -> shorts.v1alpha1.StateCompanyAggregate
+	1,  // 12: shorts.v1alpha1.EconomyService.ListEconomicSeries:input_type -> shorts.v1alpha1.ListEconomicSeriesRequest
+	5,  // 13: shorts.v1alpha1.EconomyService.GetEconomicSeries:input_type -> shorts.v1alpha1.GetEconomicSeriesRequest
+	7,  // 14: shorts.v1alpha1.EconomyService.ListSeriesCorrelations:input_type -> shorts.v1alpha1.ListSeriesCorrelationsRequest
+	10, // 15: shorts.v1alpha1.EconomyService.ListStateCompanies:input_type -> shorts.v1alpha1.ListStateCompaniesRequest
+	13, // 16: shorts.v1alpha1.EconomyService.GetStateCompanyAggregates:input_type -> shorts.v1alpha1.GetStateCompanyAggregatesRequest
+	2,  // 17: shorts.v1alpha1.EconomyService.ListEconomicSeries:output_type -> shorts.v1alpha1.ListEconomicSeriesResponse
+	6,  // 18: shorts.v1alpha1.EconomyService.GetEconomicSeries:output_type -> shorts.v1alpha1.GetEconomicSeriesResponse
+	9,  // 19: shorts.v1alpha1.EconomyService.ListSeriesCorrelations:output_type -> shorts.v1alpha1.ListSeriesCorrelationsResponse
+	12, // 20: shorts.v1alpha1.EconomyService.ListStateCompanies:output_type -> shorts.v1alpha1.ListStateCompaniesResponse
+	15, // 21: shorts.v1alpha1.EconomyService.GetStateCompanyAggregates:output_type -> shorts.v1alpha1.GetStateCompanyAggregatesResponse
+	17, // [17:22] is the sub-list for method output_type
+	12, // [12:17] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_shorts_v1alpha1_economy_proto_init() }
@@ -992,7 +1212,7 @@ func file_shorts_v1alpha1_economy_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shorts_v1alpha1_economy_proto_rawDesc), len(file_shorts_v1alpha1_economy_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   13,
+			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

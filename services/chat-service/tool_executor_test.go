@@ -61,12 +61,15 @@ func TestExecuteEconomicSeriesPostsConnectJSONAndReturnsTrimmedSeries(t *testing
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			t.Fatalf("decode request: %v", err)
 		}
-		if len(request) != 1 {
-			t.Errorf("request body = %#v, want only seriesKeys", request)
+		if len(request) != 2 {
+			t.Errorf("request body = %#v, want seriesKeys and maxObservations", request)
 		}
 		keys, ok := request["seriesKeys"].([]interface{})
 		if !ok || len(keys) != 2 || keys[0] != "rates.cash_rate_target.aus" || keys[1] != "cpi.annual_change.all_groups.aus" {
 			t.Errorf("seriesKeys = %#v, want requested keys", request["seriesKeys"])
+		}
+		if got := request["maxObservations"]; got != float64(12) {
+			t.Errorf("maxObservations = %#v, want default limit 12", got)
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -168,16 +171,6 @@ func TestExecuteEconomicSeriesNormalizesLimit(t *testing.T) {
 	for i := range observations {
 		observations[i] = map[string]interface{}{"period": fmt.Sprintf("p%02d", i), "value": i}
 	}
-	executor := newTestToolExecutor(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"series": []interface{}{map[string]interface{}{
-				"info": map[string]interface{}{
-					"seriesKey": "cpi.annual_change.all_groups.aus", "regionName": "Australia", "unit": "percent", "frequency": "quarterly",
-				},
-				"observations": observations,
-			}},
-		})
-	}))
 
 	tests := []struct {
 		name      string
@@ -190,6 +183,23 @@ func TestExecuteEconomicSeriesNormalizesLimit(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			executor := newTestToolExecutor(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var request map[string]interface{}
+				if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+					t.Fatalf("decode request: %v", err)
+				}
+				if got := request["maxObservations"]; got != float64(test.wantCount) {
+					t.Errorf("maxObservations = %#v, want %d", got, test.wantCount)
+				}
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+					"series": []interface{}{map[string]interface{}{
+						"info": map[string]interface{}{
+							"seriesKey": "cpi.annual_change.all_groups.aus", "regionName": "Australia", "unit": "percent", "frequency": "quarterly",
+						},
+						"observations": observations,
+					}},
+				})
+			}))
 			result, err := executor.Execute(context.Background(), "get_economic_series", map[string]interface{}{
 				"series_keys": []string{"cpi.annual_change.all_groups.aus"},
 				"limit":       test.limit,

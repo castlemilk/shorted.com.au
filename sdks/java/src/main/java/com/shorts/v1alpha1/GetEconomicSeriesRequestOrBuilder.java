@@ -77,4 +77,14 @@ public interface GetEconomicSeriesRequestOrBuilder extends
    * <code>.google.protobuf.Timestamp start_period = 2 [json_name = "startPeriod"];</code>
    */
   com.google.protobuf.TimestampOrBuilder getStartPeriodOrBuilder();
+
+  /**
+   * <pre>
+   * default 600, clamped to 1..600
+   * </pre>
+   *
+   * <code>int32 max_observations = 3 [json_name = "maxObservations"];</code>
+   * @return The maxObservations.
+   */
+  int getMaxObservations();
 }
