@@ -116,6 +116,39 @@ func TestMarketObs_RejectsUnknownRegion(t *testing.T) {
 	}
 }
 
+func TestExposureMVStalenessWarning(t *testing.T) {
+	now := time.Date(2026, 7, 24, 12, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name        string
+		refreshedAt *time.Time
+		wantWarning bool
+	}{
+		{name: "pre-migration null is silent", refreshedAt: nil, wantWarning: false},
+		{name: "fresh", refreshedAt: timePtr(now.AddDate(0, 0, -10)), wantWarning: false},
+		{name: "exactly 45 days is not older", refreshedAt: timePtr(now.Add(-45 * 24 * time.Hour)), wantWarning: false},
+		{name: "older than 45 days warns", refreshedAt: timePtr(now.Add(-45*24*time.Hour - time.Second)), wantWarning: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			warning := exposureMVStalenessWarning(tt.refreshedAt, now)
+			if got := warning != ""; got != tt.wantWarning {
+				t.Fatalf("warning=%q, present=%v want %v", warning, got, tt.wantWarning)
+			}
+			if tt.wantWarning {
+				for _, phrase := range []string{"WARNING", "mv_company_state_exposure", "45 days"} {
+					if !strings.Contains(warning, phrase) {
+						t.Errorf("warning %q omits %q", warning, phrase)
+					}
+				}
+			}
+		})
+	}
+}
+
+func timePtr(value time.Time) *time.Time {
+	return &value
+}
+
 func TestPriceReturnIndexSeriesDef(t *testing.T) {
 	def, ok := priceReturnIndexSeriesDef("wa")
 	if !ok {

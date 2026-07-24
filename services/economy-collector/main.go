@@ -13,11 +13,11 @@ import (
 
 // allJobModes is kept explicit so collection order is deterministic and a
 // failed importer counts once in the all-mode summary. Pool-derived modes run
-// after fetched inputs, with derived last because it consumes CPI/WPI/trade,
-// recorded-crime victims, and population ERP.
+// after fetched inputs, with correlations last because it consumes markets and
+// all derived economic observations written by the same run.
 var allJobModes = []string{
 	"rba", "cpi", "labour", "trade", "gdp", "approvals", "retail", "population",
-	"petroleum", "govfin", "vacancies", "wages", "spending", "lending", "construction", "business", "crime", "markets", "derived",
+	"petroleum", "govfin", "vacancies", "wages", "spending", "lending", "construction", "business", "crime", "markets", "derived", "correlations",
 }
 
 func main() {
@@ -25,7 +25,7 @@ func main() {
 }
 
 func run() int {
-	mode := flag.String("mode", "all", "sources | rba | cpi | labour | trade | gdp | approvals | retail | population | petroleum | govfin | vacancies | wages | spending | lending | construction | business | crime | markets | derived | all")
+	mode := flag.String("mode", "all", "sources | rba | cpi | labour | trade | gdp | approvals | retail | population | petroleum | govfin | vacancies | wages | spending | lending | construction | business | crime | markets | derived | correlations | all")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -106,6 +106,15 @@ func run() int {
 		log.Printf("ok %s: %d observations", j.name, n)
 		return true
 	}
+	runCorrelationJob := func() bool {
+		n, err := ingestCorrelations(ctx, pool)
+		if err != nil {
+			log.Printf("ERROR correlations: %v", err)
+			return false
+		}
+		log.Printf("ok correlations: %d rows", n)
+		return true
+	}
 
 	switch *mode {
 	case "sources":
@@ -119,17 +128,29 @@ func run() int {
 		if !runJob(jobs[*mode]) {
 			return 1
 		}
+	case "correlations":
+		if err := registerSources(ctx, pool); err != nil {
+			log.Fatalf("register sources: %v", err)
+		}
+		if !runCorrelationJob() {
+			return 1
+		}
 	case "all":
 		if err := registerSources(ctx, pool); err != nil {
 			log.Fatalf("register sources: %v", err)
 		}
 		failed := 0
-		// Pool-derived modes run after fetched inputs. In particular, derived
-		// must run LAST because it consumes CPI, WPI, trade, crime, and ERP rows
-		// written by this same all-mode run; crime is immediately before markets
-		// so its persisted observations are available to the final derived job.
+		// Pool-derived modes run after fetched inputs. Derived consumes CPI,
+		// WPI, trade, crime, and ERP rows written by this run. Correlations must
+		// run after both markets and derived so its matrix sees their new rows.
 		for _, name := range allJobModes {
-			if !runJob(jobs[name]) {
+			ok := false
+			if name == "correlations" {
+				ok = runCorrelationJob()
+			} else {
+				ok = runJob(jobs[name])
+			}
+			if !ok {
 				failed++
 			}
 		}
@@ -138,7 +159,7 @@ func run() int {
 			return 1
 		}
 	default:
-		log.Fatalf("unknown -mode %q (want sources|rba|cpi|labour|trade|gdp|approvals|retail|population|petroleum|govfin|vacancies|wages|spending|lending|construction|business|crime|markets|derived|all)", *mode)
+		log.Fatalf("unknown -mode %q (want sources|rba|cpi|labour|trade|gdp|approvals|retail|population|petroleum|govfin|vacancies|wages|spending|lending|construction|business|crime|markets|derived|correlations|all)", *mode)
 	}
 	return 0
 }

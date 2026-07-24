@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -48,6 +51,36 @@ var marketStateNames = map[string]string{
 	"tas": "Tasmania",
 	"nt":  "Northern Territory",
 	"act": "Australian Capital Territory",
+}
+
+const exposureMVRefreshedAtQuery = `SELECT max(refreshed_at) FROM mv_company_state_exposure`
+
+func exposureMVStalenessWarning(refreshedAt *time.Time, now time.Time) string {
+	if refreshedAt == nil || !refreshedAt.Before(now.Add(-45*24*time.Hour)) {
+		return ""
+	}
+	return fmt.Sprintf(
+		"WARNING: mv_company_state_exposure is older than 45 days (last refreshed %s); markets derivation will continue on stale current-constituent weights",
+		refreshedAt.UTC().Format(time.RFC3339),
+	)
+}
+
+func warnIfExposureMVStale(ctx context.Context, pool *pgxpool.Pool) error {
+	var refreshedAt *time.Time
+	if err := pool.QueryRow(ctx, exposureMVRefreshedAtQuery).Scan(&refreshedAt); err != nil {
+		// A rolling deployment may run the new collector before migration
+		// 000094. Missing refreshed_at means the guard is unavailable, not that
+		// the markets derivation itself is unsafe to run.
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "42703" {
+			return nil
+		}
+		return fmt.Errorf("check exposure MV refreshed_at: %w", err)
+	}
+	if warning := exposureMVStalenessWarning(refreshedAt, time.Now()); warning != "" {
+		log.Print(warning)
+	}
+	return nil
 }
 
 // industrySlugs is pinned to the 25 real GICS industry-group values observed
@@ -329,6 +362,9 @@ func deriveIndustryMarkets(ctx context.Context, pool *pgxpool.Pool) ([]Obs, erro
 // runJob persists the healthy family's observations alongside the returned
 // error, preserving per-family resilience without adding another CLI mode.
 func ingestMarkets(ctx context.Context, pool *pgxpool.Pool) ([]Obs, error) {
+	if err := warnIfExposureMVStale(ctx, pool); err != nil {
+		return nil, err
+	}
 	return runDerivationFamilies(
 		derivationFamily{name: "state markets", run: func() ([]Obs, error) {
 			return deriveStateMarkets(ctx, pool)

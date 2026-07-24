@@ -47,7 +47,7 @@ func TestNewABSImportersAreRegisteredSources(t *testing.T) {
 func TestAllModeIncludesNewABSImporters(t *testing.T) {
 	want := []string{
 		"rba", "cpi", "labour", "trade", "gdp", "approvals", "retail", "population",
-		"petroleum", "govfin", "vacancies", "wages", "spending", "lending", "construction", "business", "crime", "markets", "derived",
+		"petroleum", "govfin", "vacancies", "wages", "spending", "lending", "construction", "business", "crime", "markets", "derived", "correlations",
 	}
 	if !reflect.DeepEqual(allJobModes, want) {
 		t.Fatalf("allJobModes=%#v, want exact deterministic order %#v", allJobModes, want)
@@ -59,14 +59,17 @@ func TestAllModeIncludesNewABSImporters(t *testing.T) {
 		}
 		seen[mode] = true
 	}
-	if got := allJobModes[len(allJobModes)-1]; got != "derived" {
-		t.Errorf("derived must run last, got final mode %q", got)
+	if got := allJobModes[len(allJobModes)-1]; got != "correlations" {
+		t.Errorf("correlations must run last, got final mode %q", got)
 	}
-	if got := allJobModes[len(allJobModes)-3]; got != "crime" {
+	if got := allJobModes[len(allJobModes)-4]; got != "crime" {
 		t.Errorf("crime must run immediately before markets, got mode %q", got)
 	}
-	if got := allJobModes[len(allJobModes)-2]; got != "markets" {
-		t.Errorf("markets must run immediately before derived, got penultimate mode %q", got)
+	if got := allJobModes[len(allJobModes)-3]; got != "markets" {
+		t.Errorf("markets must run immediately before derived, got mode %q", got)
+	}
+	if got := allJobModes[len(allJobModes)-2]; got != "derived" {
+		t.Errorf("derived must run immediately before correlations, got mode %q", got)
 	}
 }
 
