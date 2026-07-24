@@ -11,17 +11,22 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const maxStateMonthlyPriceReturn = 0.25
+const (
+	maxStockMonthlyPriceReturn = 2.0
+	maxStateMonthlyPriceReturn = 0.25
+)
 
-// priceReturnIndexQuery loads the monthly-last close and current exposure
-// inputs. Consecutive-month chaining, weighted state aggregation, the
-// constituent floor, and cumulative indexing stay in pure Go below.
+// priceReturnIndexQuery loads the monthly-last raw and adjusted closes plus
+// current exposure inputs. Consecutive-month chaining, weighted state
+// aggregation, the constituent floor, and cumulative indexing stay in pure Go
+// below.
 const priceReturnIndexQuery = `
 WITH monthly_last AS (
   SELECT DISTINCT ON (p.stock_code, date_trunc('month', p.date))
     p.stock_code,
     date_trunc('month', p.date)::date AS month,
-    p.close::double precision         AS close
+    p.close::double precision                     AS close,
+    NULLIF(p.adjusted_close, 0)::double precision AS adjusted_close
   FROM stock_prices p
   WHERE p.close IS NOT NULL
     AND p.close > 0
@@ -32,6 +37,7 @@ SELECT
   e.region,
   m.month,
   m.close,
+  m.adjusted_close,
   e.weight::double precision,
   e.market_cap::double precision
 FROM monthly_last m
@@ -48,6 +54,7 @@ type monthlyPriceExposureRow struct {
 	Region         string
 	Period         time.Time
 	Close          float64
+	AdjustedClose  *float64
 	ExposureWeight float64
 	MarketCap      float64
 }
@@ -91,9 +98,11 @@ func priceReturnIndexSeriesDef(region string) (SeriesDef, bool) {
 }
 
 type stockMonth struct {
-	StockCode string
-	Period    time.Time
-	Close     float64
+	StockCode        string
+	Period           time.Time
+	Close            float64
+	AdjustedClose    float64
+	HasAdjustedClose bool
 }
 
 type seriesPeriodKey struct {
@@ -114,17 +123,40 @@ func consecutiveStockPriceReturns(rows []monthlyPriceExposureRow) ([]weightedSto
 				row.StockCode, row.Period.Format("2006-01-02"), row.Close,
 			)
 		}
-		key := seriesPeriodKey{Code: row.StockCode, Period: row.Period}
-		if existing, ok := priceByStockMonth[key]; ok && existing.Close != row.Close {
+		if row.AdjustedClose != nil &&
+			(*row.AdjustedClose <= 0 || math.IsNaN(*row.AdjustedClose) || math.IsInf(*row.AdjustedClose, 0)) {
 			return nil, fmt.Errorf(
-				"inconsistent monthly close for %s at %s: %v and %v",
-				row.StockCode, row.Period.Format("2006-01-02"), existing.Close, row.Close,
+				"stock adjusted close drift for %s at %s: %v",
+				row.StockCode, row.Period.Format("2006-01-02"), *row.AdjustedClose,
 			)
 		}
+		key := seriesPeriodKey{Code: row.StockCode, Period: row.Period}
+		adjustedClose := 0.0
+		hasAdjustedClose := row.AdjustedClose != nil
+		if hasAdjustedClose {
+			adjustedClose = *row.AdjustedClose
+		}
+		if existing, ok := priceByStockMonth[key]; ok {
+			if existing.Close != row.Close {
+				return nil, fmt.Errorf(
+					"inconsistent monthly close for %s at %s: %v and %v",
+					row.StockCode, row.Period.Format("2006-01-02"), existing.Close, row.Close,
+				)
+			}
+			if existing.HasAdjustedClose != hasAdjustedClose ||
+				(hasAdjustedClose && existing.AdjustedClose != adjustedClose) {
+				return nil, fmt.Errorf(
+					"inconsistent monthly adjusted close for %s at %s",
+					row.StockCode, row.Period.Format("2006-01-02"),
+				)
+			}
+		}
 		priceByStockMonth[key] = stockMonth{
-			StockCode: row.StockCode,
-			Period:    row.Period,
-			Close:     row.Close,
+			StockCode:        row.StockCode,
+			Period:           row.Period,
+			Close:            row.Close,
+			AdjustedClose:    adjustedClose,
+			HasAdjustedClose: hasAdjustedClose,
 		}
 	}
 
@@ -140,19 +172,33 @@ func consecutiveStockPriceReturns(rows []monthlyPriceExposureRow) ([]weightedSto
 	})
 
 	returnByStockMonth := make(map[seriesPeriodKey]float64, len(prices))
+	droppedStockMonthReturns := 0
 	var previous stockMonth
 	havePrevious := false
 	for _, price := range prices {
 		if havePrevious && previous.StockCode == price.StockCode &&
 			previous.Period.AddDate(0, 1, 0).Equal(price.Period) {
-			monthlyReturn := price.Close/previous.Close - 1
+			previousPrice, currentPrice := previous.Close, price.Close
+			// Adjusted prices are pair-consistent: use them only when both
+			// consecutive months have one. At a missing-data boundary, mixing
+			// adjusted and raw columns would itself manufacture a price jump,
+			// so the pair deliberately falls back to raw close/raw close.
+			if previous.HasAdjustedClose && price.HasAdjustedClose {
+				previousPrice = previous.AdjustedClose
+				currentPrice = price.AdjustedClose
+			}
+			monthlyReturn := currentPrice/previousPrice - 1
 			if math.IsNaN(monthlyReturn) || math.IsInf(monthlyReturn, 0) {
 				return nil, fmt.Errorf(
 					"stock return drift for %s at %s: %v",
 					price.StockCode, price.Period.Format("2006-01-02"), monthlyReturn,
 				)
 			}
-			returnByStockMonth[seriesPeriodKey{Code: price.StockCode, Period: price.Period}] = monthlyReturn
+			if math.Abs(monthlyReturn) > maxStockMonthlyPriceReturn {
+				droppedStockMonthReturns++
+			} else {
+				returnByStockMonth[seriesPeriodKey{Code: price.StockCode, Period: price.Period}] = monthlyReturn
+			}
 		}
 		previous = price
 		havePrevious = true
@@ -178,6 +224,12 @@ func consecutiveStockPriceReturns(rows []monthlyPriceExposureRow) ([]weightedSto
 			Return:    monthlyReturn,
 			Weight:    weight,
 		})
+	}
+	if droppedStockMonthReturns > 0 {
+		log.Printf(
+			"WARNING: dropped %d stock-month price returns outside ±%.0f%% sanity bound before state aggregation",
+			droppedStockMonthReturns, maxStockMonthlyPriceReturn*100,
+		)
 	}
 	return returns, nil
 }
@@ -331,7 +383,8 @@ func derivePriceReturnIndexes(ctx context.Context, pool *pgxpool.Pool) ([]Obs, e
 	for rows.Next() {
 		var row monthlyPriceExposureRow
 		if err := rows.Scan(
-			&row.StockCode, &row.Region, &row.Period, &row.Close, &row.ExposureWeight, &row.MarketCap,
+			&row.StockCode, &row.Region, &row.Period, &row.Close, &row.AdjustedClose,
+			&row.ExposureWeight, &row.MarketCap,
 		); err != nil {
 			return nil, fmt.Errorf("scan: %w", err)
 		}
