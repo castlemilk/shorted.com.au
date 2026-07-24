@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!-- DAILY property.com.au AVM enrichment (14:00 local — daytime, well clear of the
+     08:00 full / 10:00 delta listings jobs; REA-family Kasada is more reliable by day).
+     Fetches a bounded batch (CRAWL_PROPERTY_MAX) of addresses lacking a fresh valuation,
+     gradually filling property_valuations over successive days. Shares the single-drainer
+     lock, so it skips cleanly while a listings full/delta pass is draining. All storage on
+     gamma. Replace __STABLE_DEPLOY__ with the operator's staged deploy dir (e.g.
+     ~/.shorted-housing-crawl-deploy) and __HOME__ with the home dir. -->
+<dict>
+  <key>Label</key><string>com.shorted.housing-property</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__STABLE_DEPLOY__/run-housing-property.sh</string>
+  </array>
+
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key><integer>14</integer>
+    <key>Minute</key><integer>0</integer>
+  </dict>
+
+  <key>StandardOutPath</key><string>__HOME__/Library/Logs/shorted-housing-property.out.log</string>
+  <key>StandardErrorPath</key><string>__HOME__/Library/Logs/shorted-housing-property.err.log</string>
+  <key>RunAtLoad</key><false/>
+</dict>
+</plist>
