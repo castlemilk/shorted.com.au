@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/playwright-community/playwright-go"
+	"github.com/mxschmitt/playwright-go"
 )
 
 // crawl_playwright.go is the SELF-LAUNCHED real-browser FETCH for the Tier-3

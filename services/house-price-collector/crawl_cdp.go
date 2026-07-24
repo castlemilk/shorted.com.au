@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/playwright-community/playwright-go"
+	"github.com/mxschmitt/playwright-go"
 )
 
 // crawl_cdp.go implements the "option (b)" local-agent execution model: instead
