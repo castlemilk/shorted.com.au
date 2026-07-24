@@ -31,6 +31,10 @@ import (
 // uses that month's actual short observations); only the weighting is present-
 // day. Consumers must read the series as "how the current WA-exposed cohort
 // was shorted over time", not "the WA cohort as it stood each month".
+// Small-cohort states (especially ACT and NT) may also legitimately breach the
+// price-return index's ±25% monthly stability band and be excluded run-to-run.
+// Consumers must treat a missing state price-return series as an insufficiently
+// stable cohort, not as evidence that upstream state exposure data is absent.
 //
 // PROD NOTE: this reads mv_company_state_exposure, which is refreshed by a
 // separate job (the company-state-exposure pipeline), NOT by this collector.

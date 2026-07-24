@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"math"
 	"regexp"
 	"strings"
@@ -275,27 +275,73 @@ func TestAssemblePriceReturnIndexObsSkipsDriftGuardForBaseMonth(t *testing.T) {
 	}
 }
 
-func TestAssemblePriceReturnIndexObsRejectsMonthlyReturnDrift(t *testing.T) {
-	for _, monthlyReturn := range []float64{0.250001, -0.250001, math.NaN(), math.Inf(1)} {
-		t.Run(fmt.Sprintf("%v", monthlyReturn), func(t *testing.T) {
-			rows := []priceReturnRow{
-				{
-					Region: "tas", Period: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
-					Return: 0, Constituents: 5,
-				},
-				{
-					Region: "tas", Period: time.Date(2025, 2, 1, 0, 0, 0, 0, time.UTC),
-					Return: monthlyReturn, Constituents: 5,
-				},
-			}
-			obs, err := assembleStatePriceReturnIndexObs(rows)
-			if err == nil {
-				t.Fatalf("monthly return %v: expected drift error", monthlyReturn)
-			}
-			if obs != nil {
-				t.Fatalf("monthly return %v: obs = %#v, want nil on family failure", monthlyReturn, obs)
-			}
-		})
+func TestAssemblePriceReturnIndexObsExcludesEntireBreachingState(t *testing.T) {
+	rows := []priceReturnRow{
+		{Region: "act", Period: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), Return: 0, Constituents: 5},
+		{Region: "act", Period: time.Date(2025, 2, 1, 0, 0, 0, 0, time.UTC), Return: 0.10, Constituents: 5},
+		{Region: "act", Period: time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC), Return: 0.30, Constituents: 5},
+		{Region: "vic", Period: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), Return: 0, Constituents: 5},
+		{Region: "vic", Period: time.Date(2025, 2, 1, 0, 0, 0, 0, time.UTC), Return: 0.05, Constituents: 5},
+		{Region: "vic", Period: time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC), Return: -0.02, Constituents: 5},
+	}
+
+	obs, err := assembleStatePriceReturnIndexObs(rows)
+	if err != nil {
+		t.Fatalf("one healthy state should keep the family alive: %v", err)
+	}
+	if got, want := len(obs), 3; got != want {
+		t.Fatalf("len(obs) = %d, want %d healthy-state observations: %#v", got, want, obs)
+	}
+	for _, observation := range obs {
+		if got := observation.Series.RegionCode; got != "vic" {
+			t.Fatalf("published rejected state %q: %#v", got, obs)
+		}
+	}
+}
+
+func TestAssemblePriceReturnIndexObsErrorsWhenAllStatesBreach(t *testing.T) {
+	rows := []priceReturnRow{
+		{Region: "act", Period: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), Return: 0, Constituents: 5},
+		{Region: "act", Period: time.Date(2025, 2, 1, 0, 0, 0, 0, time.UTC), Return: 0.30, Constituents: 5},
+		{Region: "nt", Period: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), Return: 0, Constituents: 5},
+		{Region: "nt", Period: time.Date(2025, 2, 1, 0, 0, 0, 0, time.UTC), Return: -0.30, Constituents: 5},
+	}
+
+	obs, err := assembleStatePriceReturnIndexObs(rows)
+	if err == nil {
+		t.Fatal("expected family error when zero state series survive")
+	}
+	if obs != nil {
+		t.Fatalf("obs = %#v, want nil when zero state series survive", obs)
+	}
+}
+
+func TestAssemblePriceReturnIndexObsWarningNamesExcludedStateMonthAndReturn(t *testing.T) {
+	var logs strings.Builder
+	previousOutput := log.Writer()
+	log.SetOutput(&logs)
+	t.Cleanup(func() {
+		log.SetOutput(previousOutput)
+	})
+
+	rows := []priceReturnRow{
+		{Region: "act", Period: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), Return: 0, Constituents: 5},
+		{Region: "act", Period: time.Date(2025, 2, 1, 0, 0, 0, 0, time.UTC), Return: 0.10, Constituents: 5},
+		{Region: "act", Period: time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC), Return: 0.30, Constituents: 5},
+		{Region: "vic", Period: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), Return: 0, Constituents: 5},
+	}
+
+	if _, err := assembleStatePriceReturnIndexObs(rows); err != nil {
+		t.Fatalf("healthy state should keep the family alive: %v", err)
+	}
+	warning := logs.String()
+	for _, phrase := range []string{"WARNING", "act", "2025-03-01", "0.300000"} {
+		if !strings.Contains(warning, phrase) {
+			t.Errorf("warning %q omits %q", warning, phrase)
+		}
+	}
+	if got, want := strings.Count(warning, "WARNING"), 1; got != want {
+		t.Errorf("warning count = %d, want %d: %q", got, want, warning)
 	}
 }
 

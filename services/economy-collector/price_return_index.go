@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"math"
 	"sort"
 	"time"
@@ -237,7 +238,8 @@ func aggregateStatePriceReturns(rows []weightedStockReturnRow) ([]priceReturnRow
 // first qualifying return month is the base observation at exactly 100, so
 // that discarded base return is not drift-checked. Once based, below-floor
 // months remain unpublished but are priced into the running level to preserve
-// index continuity.
+// index continuity. A state that breaches the monthly-return guard is omitted
+// in full; the family fails only when no state series survives assembly.
 func assembleStatePriceReturnIndexObs(rows []priceReturnRow) ([]Obs, error) {
 	sortedRows := append([]priceReturnRow(nil), rows...)
 	sort.SliceStable(sortedRows, func(i, j int) bool {
@@ -247,46 +249,75 @@ func assembleStatePriceReturnIndexObs(rows []priceReturnRow) ([]Obs, error) {
 		return sortedRows[i].Period.Before(sortedRows[j].Period)
 	})
 
-	indexByRegion := make(map[string]float64, len(marketStateNames))
 	obs := make([]Obs, 0, len(sortedRows))
-	for _, row := range sortedRows {
-		def, ok := priceReturnIndexSeriesDef(row.Region)
-		if !ok {
-			continue
+	for start := 0; start < len(sortedRows); {
+		end := start + 1
+		for end < len(sortedRows) && sortedRows[end].Region == sortedRows[start].Region {
+			end++
 		}
 
-		index, exists := indexByRegion[row.Region]
+		stateObs, breach, err := assembleSingleStatePriceReturnIndexObs(sortedRows[start:end])
+		if err != nil {
+			return nil, err
+		}
+		if breach != nil {
+			log.Printf(
+				"WARNING: excluding entire price-return index series for %s this run: monthly return at %s was %.6f outside ±%.0f%%",
+				breach.Region, breach.Period.Format("2006-01-02"), breach.Return, maxStateMonthlyPriceReturn*100,
+			)
+		} else {
+			obs = append(obs, stateObs...)
+		}
+		start = end
+	}
+	if len(obs) == 0 {
+		return nil, fmt.Errorf("price-return index family produced zero surviving state series")
+	}
+	return obs, nil
+}
+
+func assembleSingleStatePriceReturnIndexObs(rows []priceReturnRow) ([]Obs, *priceReturnRow, error) {
+	if len(rows) == 0 {
+		return nil, nil, nil
+	}
+	def, ok := priceReturnIndexSeriesDef(rows[0].Region)
+	if !ok {
+		return nil, nil, nil
+	}
+
+	var index float64
+	exists := false
+	obs := make([]Obs, 0, len(rows))
+	for _, row := range rows {
 		if !exists {
 			if row.Constituents < 5 {
 				continue
 			}
-			indexByRegion[row.Region] = 100
+			index = 100
+			exists = true
 			obs = append(obs, Obs{Series: def, Period: row.Period, Value: 100})
 			continue
 		}
 
 		if math.IsNaN(row.Return) || math.IsInf(row.Return, 0) ||
 			row.Return < -maxStateMonthlyPriceReturn || row.Return > maxStateMonthlyPriceReturn {
-			return nil, fmt.Errorf(
-				"monthly state price return drift for %s at %s: %.6f outside ±%.0f%%",
-				row.Region, row.Period.Format("2006-01-02"), row.Return, maxStateMonthlyPriceReturn*100,
-			)
+			breach := row
+			return nil, &breach, nil
 		}
 
 		index *= 1 + row.Return
 		if math.IsNaN(index) || math.IsInf(index, 0) || index <= 0 {
-			return nil, fmt.Errorf(
+			return nil, nil, fmt.Errorf(
 				"price-return index drift for %s at %s: %.6f",
 				row.Region, row.Period.Format("2006-01-02"), index,
 			)
 		}
-		indexByRegion[row.Region] = index
 		if row.Constituents < 5 {
 			continue
 		}
 		obs = append(obs, Obs{Series: def, Period: row.Period, Value: index})
 	}
-	return obs, nil
+	return obs, nil, nil
 }
 
 func derivePriceReturnIndexes(ctx context.Context, pool *pgxpool.Pool) ([]Obs, error) {
