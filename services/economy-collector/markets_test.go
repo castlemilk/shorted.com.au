@@ -380,6 +380,163 @@ func TestConsecutiveStockPriceReturnsBreaksChainOnGap(t *testing.T) {
 	}
 }
 
+func pricePtr(value float64) *float64 {
+	return &value
+}
+
+func TestConsecutiveStockPriceReturnsUsesOnePriceColumnPerPair(t *testing.T) {
+	jan := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	feb := time.Date(2025, 2, 1, 0, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name        string
+		firstClose  float64
+		secondClose float64
+		firstAdj    *float64
+		secondAdj   *float64
+		wantReturn  float64
+	}{
+		{
+			name:       "adjusted both",
+			firstClose: 100, secondClose: 110,
+			firstAdj: pricePtr(50), secondAdj: pricePtr(60),
+			wantReturn: 0.20,
+		},
+		{
+			name:       "raw both",
+			firstClose: 100, secondClose: 110,
+			wantReturn: 0.10,
+		},
+		{
+			name:       "adjusted to raw falls back to raw pair",
+			firstClose: 100, secondClose: 120,
+			firstAdj:   pricePtr(50),
+			wantReturn: 0.20,
+		},
+		{
+			name:       "raw to adjusted falls back to raw pair",
+			firstClose: 100, secondClose: 80,
+			secondAdj:  pricePtr(40),
+			wantReturn: -0.20,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rows := []monthlyPriceExposureRow{
+				{
+					StockCode: "PAIR", Region: "wa", Period: jan,
+					Close: tt.firstClose, AdjustedClose: tt.firstAdj,
+					ExposureWeight: 1, MarketCap: 1,
+				},
+				{
+					StockCode: "PAIR", Region: "wa", Period: feb,
+					Close: tt.secondClose, AdjustedClose: tt.secondAdj,
+					ExposureWeight: 1, MarketCap: 1,
+				},
+			}
+
+			returns, err := consecutiveStockPriceReturns(rows)
+			if err != nil {
+				t.Fatalf("consecutiveStockPriceReturns: %v", err)
+			}
+			if got, want := len(returns), 1; got != want {
+				t.Fatalf("len(returns) = %d, want %d: %#v", got, want, returns)
+			}
+			if got := returns[0].Return; math.Abs(got-tt.wantReturn) > 1e-12 {
+				t.Fatalf("return = %.12f, want %.12f", got, tt.wantReturn)
+			}
+		})
+	}
+}
+
+func TestConsecutiveStockPriceReturnsDropsReturnsBeyondTwoHundredPercent(t *testing.T) {
+	var logs strings.Builder
+	previousOutput := log.Writer()
+	log.SetOutput(&logs)
+	t.Cleanup(func() {
+		log.SetOutput(previousOutput)
+	})
+
+	jan := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	feb := time.Date(2025, 2, 1, 0, 0, 0, 0, time.UTC)
+	rows := []monthlyPriceExposureRow{
+		{StockCode: "DROP", Region: "wa", Period: jan, Close: 100, ExposureWeight: 1, MarketCap: 1},
+		{StockCode: "DROP", Region: "wa", Period: feb, Close: 301, ExposureWeight: 1, MarketCap: 1},
+		{StockCode: "DROP", Region: "nsw", Period: jan, Close: 100, ExposureWeight: 1, MarketCap: 1},
+		{StockCode: "DROP", Region: "nsw", Period: feb, Close: 301, ExposureWeight: 1, MarketCap: 1},
+		{StockCode: "KEEP", Region: "wa", Period: jan, Close: 100, ExposureWeight: 1, MarketCap: 1},
+		{StockCode: "KEEP", Region: "wa", Period: feb, Close: 300, ExposureWeight: 1, MarketCap: 1},
+	}
+
+	returns, err := consecutiveStockPriceReturns(rows)
+	if err != nil {
+		t.Fatalf("consecutiveStockPriceReturns: %v", err)
+	}
+	if got, want := len(returns), 1; got != want {
+		t.Fatalf("len(returns) = %d, want %d: %#v", got, want, returns)
+	}
+	if returns[0].StockCode != "KEEP" || math.Abs(returns[0].Return-2) > 1e-12 {
+		t.Fatalf("kept return = %#v, want KEEP at exactly +200%%", returns[0])
+	}
+	warning := logs.String()
+	for _, phrase := range []string{"WARNING", "dropped 1", "stock-month", "200%"} {
+		if !strings.Contains(warning, phrase) {
+			t.Errorf("warning %q omits %q", warning, phrase)
+		}
+	}
+	if got, want := strings.Count(warning, "WARNING"), 1; got != want {
+		t.Errorf("warning count = %d, want %d: %q", got, want, warning)
+	}
+}
+
+func TestPriceReturnPipelineNeutralizesRawShareConsolidationWithAdjustedClose(t *testing.T) {
+	months := []time.Time{
+		time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(2025, 2, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC),
+	}
+	var rows []monthlyPriceExposureRow
+	for stock := 0; stock < 5; stock++ {
+		code := string(rune('A' + stock))
+		for monthIndex, period := range months {
+			close := 10.0
+			if stock == 0 && monthIndex < 2 {
+				close = 1 // Raw close jumps 10:1 in March after a consolidation.
+			}
+			rows = append(rows, monthlyPriceExposureRow{
+				StockCode:      code,
+				Region:         "wa",
+				Period:         period,
+				Close:          close,
+				AdjustedClose:  pricePtr(10),
+				ExposureWeight: 1,
+				MarketCap:      1,
+			})
+		}
+	}
+
+	stockReturns, err := consecutiveStockPriceReturns(rows)
+	if err != nil {
+		t.Fatalf("consecutiveStockPriceReturns: %v", err)
+	}
+	stateReturns, err := aggregateStatePriceReturns(stockReturns)
+	if err != nil {
+		t.Fatalf("aggregateStatePriceReturns: %v", err)
+	}
+	obs, err := assembleStatePriceReturnIndexObs(stateReturns)
+	if err != nil {
+		t.Fatalf("assembleStatePriceReturnIndexObs: %v", err)
+	}
+	if got, want := len(obs), 2; got != want {
+		t.Fatalf("len(obs) = %d, want %d: %#v", got, want, obs)
+	}
+	for i, observation := range obs {
+		if observation.Value != 100 {
+			t.Fatalf("obs[%d].Value = %v, want 100", i, observation.Value)
+		}
+	}
+}
+
 func TestAggregateStatePriceReturnsUsesExposureWeightTimesMarketCap(t *testing.T) {
 	period := time.Date(2025, 2, 1, 0, 0, 0, 0, time.UTC)
 	rows := []weightedStockReturnRow{
@@ -408,6 +565,9 @@ func TestAggregateStatePriceReturnsUsesExposureWeightTimesMarketCap(t *testing.T
 func TestPriceReturnQueryLoadsMonthlyLastPricesAndCurrentWeights(t *testing.T) {
 	for _, want := range []string{
 		"DISTINCT ON (p.stock_code, date_trunc('month', p.date))",
+		"p.close::double precision",
+		"NULLIF(p.adjusted_close, 0)::double precision",
+		"m.adjusted_close",
 		"JOIN mv_company_state_exposure e ON e.stock_code = m.stock_code",
 		"e.weight",
 		"e.market_cap",
