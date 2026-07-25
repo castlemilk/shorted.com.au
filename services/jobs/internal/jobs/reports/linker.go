@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"math/rand"
 	"net/url"
 	"sort"
 	"strings"
@@ -34,6 +33,7 @@ func LinkJob() runner.Job {
 	return runner.Func{
 		JobName: "link",
 		Desc:    "extract financial reports from stored company links (optionally live-crawl investor pages)",
+		DryRun:  true,
 		Fn:      RunLink,
 	}
 }
@@ -58,7 +58,7 @@ func RunLink(ctx context.Context, args []string) error {
 
 	db, err := platform.ConnectFromEnv(ctx, platform.WithMaxConns(3))
 	if err != nil {
-		return err
+		return fmt.Errorf("connect: %w", err)
 	}
 	defer db.Close()
 
@@ -94,6 +94,9 @@ func runLinksExtraction(ctx context.Context, db *pgxpool.Pool, f linkerFlags) er
 	var totalProcessed, totalUpdated, totalReportsFound int
 
 	for _, c := range companies {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		reports := extractFinancialReports(c.website, c.links)
 		if len(reports) == 0 {
 			continue
@@ -144,10 +147,14 @@ func runLiveCrawl(ctx context.Context, db *pgxpool.Pool, f linkerFlags) error {
 	var totalCrawled, totalUpdated, totalReportsFound, totalErrors int
 
 	for i, c := range companies {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if i > 0 {
-			// Polite delay with jitter
-			jitter := time.Duration(rand.Int63n(int64(f.delay / 2)))
-			time.Sleep(f.delay + jitter)
+			// Polite delay with jitter, abandoned on cancellation.
+			if err := politeSleep(ctx, f.delay); err != nil {
+				return err
+			}
 		}
 
 		if i > 0 && i%20 == 0 {
@@ -283,16 +290,29 @@ func queryCompanyRows(ctx context.Context, db *pgxpool.Pool, query string, args 
 	defer rows.Close()
 
 	var companies []companyRow
+	var scanned int
+	var badRows rowFailures
 	for rows.Next() {
+		scanned++
 		var c companyRow
 		var existingJSON string
 		if err := rows.Scan(&c.stockCode, &c.website, &c.links, &existingJSON); err != nil {
+			badRows.record(err)
 			continue
 		}
-		_ = json.Unmarshal([]byte(existingJSON), &c.existingReports)
+		if err := json.Unmarshal([]byte(existingJSON), &c.existingReports); err != nil {
+			badRows.record(fmt.Errorf("%s financial_reports: %w", c.stockCode, err))
+			continue
+		}
 		companies = append(companies, c)
 	}
-	return companies, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := badRows.report("queryCompanyRows", scanned); err != nil {
+		return nil, err
+	}
+	return companies, nil
 }
 
 // extractFinancialReports pulls report PDFs out of a company's stored links blob.

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
 	"net/http"
 	"os"
 	"regexp"
@@ -42,6 +41,7 @@ func SyncJob() runner.Job {
 	return runner.Func{
 		JobName: "sync",
 		Desc:    "download report PDFs and mirror them into the GCS reports bucket",
+		DryRun:  true,
 		Fn:      RunSync,
 	}
 }
@@ -72,7 +72,7 @@ func RunSync(ctx context.Context, args []string) error {
 
 	db, err := platform.ConnectFromEnv(ctx, platform.WithMaxConns(3))
 	if err != nil {
-		return err
+		return fmt.Errorf("connect: %w", err)
 	}
 	defer db.Close()
 
@@ -103,6 +103,9 @@ func RunSync(ctx context.Context, args []string) error {
 
 companyLoop:
 	for _, c := range companies {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		unsyncedReports := getUnsyncedReports(c.reports)
 		if len(unsyncedReports) == 0 {
 			continue
@@ -142,8 +145,9 @@ companyLoop:
 
 			// Download PDF
 			if totalSynced > 0 {
-				jitter := time.Duration(rand.Int63n(int64(f.delay / 2)))
-				time.Sleep(f.delay + jitter)
+				if err := politeSleep(ctx, f.delay); err != nil {
+					return err
+				}
 			}
 
 			pdfData, err := downloadPDF(ctx, httpClient, r.URL)
@@ -230,13 +234,18 @@ func getCompaniesWithUnsyncedReports(ctx context.Context, db *pgxpool.Pool, code
 	defer rows.Close()
 
 	var companies []companyReports
+	var scanned int
+	var badRows rowFailures
 	for rows.Next() {
+		scanned++
 		var c companyReports
 		var reportsJSON string
 		if err := rows.Scan(&c.stockCode, &reportsJSON); err != nil {
+			badRows.record(err)
 			continue
 		}
 		if err := json.Unmarshal([]byte(reportsJSON), &c.reports); err != nil {
+			badRows.record(fmt.Errorf("%s: %w", c.stockCode, err))
 			continue
 		}
 		// Only include companies that have at least one unsynced report
@@ -244,7 +253,13 @@ func getCompaniesWithUnsyncedReports(ctx context.Context, db *pgxpool.Pool, code
 			companies = append(companies, c)
 		}
 	}
-	return companies, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := badRows.report("getCompaniesWithUnsyncedReports", scanned); err != nil {
+		return nil, err
+	}
+	return companies, nil
 }
 
 func getUnsyncedReports(reports []FinancialReport) []FinancialReport {
@@ -385,7 +400,7 @@ func uploadToGCS(ctx context.Context, client *storage.Client, bucketName, object
 
 // updateReports uses a transaction with row-level locking to safely read-merge-write.
 // It reads the current DB state, applies GCS URL updates by matching on report URL, and writes back.
-func updateReports(ctx context.Context, db *pgxpool.Pool, stockCode string, reports []FinancialReport) error {
+func updateReports(ctx context.Context, db txBeginner, stockCode string, reports []FinancialReport) error {
 	tx, err := db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
@@ -401,9 +416,12 @@ func updateReports(ctx context.Context, db *pgxpool.Pool, stockCode string, repo
 		return fmt.Errorf("fetch current: %w", err)
 	}
 
+	// Never nil-out on a decode failure: writing `current == nil` back would
+	// destroy the company's entire financial_reports array. Abort this company
+	// instead; the caller counts it and moves on.
 	var current []FinancialReport
 	if err := json.Unmarshal([]byte(currentJSON), &current); err != nil {
-		current = nil
+		return fmt.Errorf("corrupt financial_reports for %s: %w", stockCode, err)
 	}
 
 	// Build a map of URL → GCS URL from our in-memory state

@@ -14,17 +14,32 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/url"
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5"
 )
+
+// txBeginner is the narrow slice of *pgxpool.Pool that the read-merge-write
+// path needs. It is declared here, at the consumer, so the merge logic is
+// testable without a live database.
+type txBeginner interface {
+	Begin(ctx context.Context) (pgx.Tx, error)
+}
 
 // FinancialReport matches the JSONB schema in company-metadata.financial_reports.
 // GcsURL is only populated by `reports sync`; it is omitempty so the linker and
 // coverage tools round-trip rows they didn't sync without clobbering the field.
+//
+// The single unified struct also FIXES a silent data-loss bug in the old
+// report-linker: its local struct had no GcsURL field, so every read-merge-write
+// it performed decoded the stored gcsUrl into nothing and wrote the array back
+// WITHOUT it — un-syncing every PDF `report-sync` had already mirrored to GCS
+// for that company. Keep GcsURL on this struct; there is exactly one shape.
 type FinancialReport struct {
 	URL    string `json:"url"`
 	Date   string `json:"date"`
@@ -161,10 +176,20 @@ func BuildReportFromURL(absURL, source string) FinancialReport {
 }
 
 // SourcePriority orders reports by provenance quality (lower = better) when
-// merging. Merged from the two copies: report-coverage knew about
-// "investor_crawl", report-linker did not; the relative order of every source
-// either tool produces is unchanged (asx_announcements < smart_crawler/crawler
-// < investor_crawl < live_crawl < links_import < everything else).
+// merging. This is the UNIFIED table, deliberately adopting report-coverage's
+// (richer) ordering for both jobs:
+//
+//	asx_announcements < smart_crawler/crawler < investor_crawl < live_crawl
+//	< links_import < everything else
+//
+// DIVERGENCE from the old report-linker: it had no "investor_crawl" case, so
+// investor_crawl fell to the default rank (after links_import). Under the
+// unified table it now sorts BEFORE live_crawl. Because every merge re-sorts the
+// company's whole array, `reports link` will therefore REORDER already-persisted
+// investor_crawl entries the first time it touches a row that has them. That is
+// intended — provenance ranking should not depend on which tool happens to write
+// — but it is a real, observable change to stored ordering, not a no-op.
+// Ordering is presentational only: no dedup or retention decision keys off it.
 func SourcePriority(source string) int {
 	switch source {
 	case "asx_announcements":
@@ -179,6 +204,60 @@ func SourcePriority(source string) int {
 		return 4
 	default:
 		return 6
+	}
+}
+
+// rowFailures accumulates per-row scan/decode failures inside a query loop.
+// The three query loops in this package used to `continue` silently, so a query
+// whose every row failed to decode looked exactly like a query that legitimately
+// matched nothing. Now the count and the first error are always logged, and a
+// loop where EVERY row failed is a hard error.
+type rowFailures struct {
+	count int
+	first error
+}
+
+func (rf *rowFailures) record(err error) {
+	rf.count++
+	if rf.first == nil {
+		rf.first = err
+	}
+}
+
+// report logs the tally and returns an error when every scanned row failed.
+func (rf *rowFailures) report(what string, scanned int) error {
+	if rf.count == 0 {
+		return nil
+	}
+	if scanned > 0 && rf.count == scanned {
+		return fmt.Errorf("%s: all %d rows failed to decode; first error: %w", what, scanned, rf.first)
+	}
+	log.Printf("  WARNING %s: skipped %d of %d rows that failed to decode; first error: %v",
+		what, rf.count, scanned, rf.first)
+	return nil
+}
+
+// politeSleep waits `delay` plus up to delay/2 of random jitter between remote
+// fetches, and returns early (with ctx.Err()) when the job is cancelled — a bare
+// time.Sleep would keep a SIGTERM'd run alive for the rest of its delay budget.
+//
+// A non-positive delay disables the wait entirely: rand.Int63n PANICS on a
+// non-positive bound, which is exactly what `-delay 0` used to do.
+func politeSleep(ctx context.Context, delay time.Duration) error {
+	if delay <= 0 {
+		return ctx.Err()
+	}
+	wait := delay
+	if half := int64(delay / 2); half > 0 {
+		wait += time.Duration(rand.Int63n(half))
+	}
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
 	}
 }
 
@@ -245,7 +324,7 @@ func SortReports(reports []FinancialReport) {
 // away — it always re-reads under the row lock). Dedup keeps the row-level
 // `FOR UPDATE` lock, the case-insensitive URL dedup, the source/date ordering
 // and the "no new URLs → no write" short-circuit.
-func mergeReports(ctx context.Context, db *pgxpool.Pool, code string, newReports []FinancialReport, verbose bool) (bool, error) {
+func mergeReports(ctx context.Context, db txBeginner, code string, newReports []FinancialReport, verbose bool) (bool, error) {
 	tx, err := db.Begin(ctx)
 	if err != nil {
 		return false, fmt.Errorf("begin tx: %w", err)
@@ -261,8 +340,13 @@ func mergeReports(ctx context.Context, db *pgxpool.Pool, code string, newReports
 		return false, fmt.Errorf("fetch existing: %w", err)
 	}
 
+	// A decode failure must ABORT this company: swallowing it leaves `existing`
+	// nil, and the write below would then replace the company's whole
+	// financial_reports array with just the new reports — silent data loss.
 	var existing []FinancialReport
-	_ = json.Unmarshal([]byte(existingJSON), &existing)
+	if err := json.Unmarshal([]byte(existingJSON), &existing); err != nil {
+		return false, fmt.Errorf("corrupt financial_reports for %s: %w", code, err)
+	}
 
 	existingURLs := make(map[string]bool, len(existing))
 	for _, r := range existing {

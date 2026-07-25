@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"log"
-	"math/rand"
 	"sort"
 	"strings"
 	"time"
@@ -32,6 +32,7 @@ func CoverageJob() runner.Job {
 	return runner.Func{
 		JobName: "coverage",
 		Desc:    "close financial-report gaps: import direct PDF links + crawl investor pages",
+		DryRun:  true,
 		Fn:      RunCoverage,
 	}
 }
@@ -46,7 +47,7 @@ func RunCoverage(ctx context.Context, args []string) error {
 	fs.IntVar(&f.limit, "limit", 0, "Limit number of companies to crawl (0 = all)")
 	fs.BoolVar(&f.verbose, "verbose", g.Verbose, "Verbose output")
 	fs.DurationVar(&f.delay, "delay", 2*time.Second, "Delay between crawls (polite scraping)")
-	fs.StringVar(&f.mode, "mode", "all", "Mode: all, crawl-only, direct-only, update-websites")
+	fs.StringVar(&f.mode, "mode", "all", "Mode: all, crawl-only, direct-only")
 	if err := fs.Parse(args); err != nil {
 		if err == flag.ErrHelp {
 			return runner.ErrUsage
@@ -56,7 +57,7 @@ func RunCoverage(ctx context.Context, args []string) error {
 
 	mainDB, err := platform.ConnectFromEnv(ctx, platform.WithMaxConns(3))
 	if err != nil {
-		return err
+		return fmt.Errorf("connect: %w", err)
 	}
 	defer mainDB.Close()
 
@@ -64,7 +65,7 @@ func RunCoverage(ctx context.Context, args []string) error {
 	log.Println("=== Loading company state from main DB ===")
 	mainState, err := loadMainDBState(ctx, mainDB)
 	if err != nil {
-		return err
+		return fmt.Errorf("load company state: %w", err)
 	}
 	log.Printf("Main DB: %d companies total", len(mainState))
 
@@ -133,14 +134,18 @@ func RunCoverage(ctx context.Context, args []string) error {
 	if f.mode == "all" || f.mode == "direct-only" {
 		log.Println("")
 		log.Println("=== Phase A: Importing direct PDF links ===")
-		importDirectPDFs(ctx, mainDB, directPDFs, f)
+		if err := importDirectPDFs(ctx, mainDB, directPDFs, f); err != nil {
+			return err
+		}
 	}
 
 	// Phase B: Crawl investor pages
 	if f.mode == "all" || f.mode == "crawl-only" {
 		log.Println("")
 		log.Println("=== Phase B: Crawling investor pages for reports ===")
-		crawlForReports(ctx, mainDB, missingReports, f)
+		if err := crawlForReports(ctx, mainDB, missingReports, f); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -178,21 +183,31 @@ func loadMainDBState(ctx context.Context, db *pgxpool.Pool) (map[string]mainDBCo
 	defer rows.Close()
 
 	result := make(map[string]mainDBCompany)
+	var scanned int
+	var badRows rowFailures
 	for rows.Next() {
+		scanned++
 		var code, website, reportsJSON, corporateLinksJSON string
 		var shortPct float64
 		if err := rows.Scan(&code, &website, &reportsJSON, &corporateLinksJSON, &shortPct); err != nil {
+			badRows.record(err)
 			continue
 		}
 
 		var reports []FinancialReport
-		_ = json.Unmarshal([]byte(reportsJSON), &reports)
+		if err := json.Unmarshal([]byte(reportsJSON), &reports); err != nil {
+			badRows.record(fmt.Errorf("%s financial_reports: %w", code, err))
+			continue
+		}
 
 		hasReports := len(reports) > 0 && reportsJSON != "[]" && reportsJSON != "null"
 
 		// Extract investor_relations links from corporate_links JSONB
 		var corporateLinks map[string][]string
-		_ = json.Unmarshal([]byte(corporateLinksJSON), &corporateLinks)
+		if err := json.Unmarshal([]byte(corporateLinksJSON), &corporateLinks); err != nil {
+			badRows.record(fmt.Errorf("%s corporate_links: %w", code, err))
+			continue
+		}
 		investorLinks := corporateLinks["investor_relations"]
 
 		result[code] = mainDBCompany{
@@ -203,13 +218,22 @@ func loadMainDBState(ctx context.Context, db *pgxpool.Pool) (map[string]mainDBCo
 			investorLinks: investorLinks,
 		}
 	}
-	return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := badRows.report("loadMainDBState", scanned); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
-func importDirectPDFs(ctx context.Context, db *pgxpool.Pool, companies []gapCompany, f coverageFlags) {
-	var totalImported, totalCompanies int
+func importDirectPDFs(ctx context.Context, db *pgxpool.Pool, companies []gapCompany, f coverageFlags) error {
+	var totalImported, totalCompanies, totalErrors int
 
 	for _, c := range companies {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		var reports []FinancialReport
 		for _, pdfURL := range c.urls {
 			reports = append(reports, BuildReportFromURL(pdfURL, "links_import"))
@@ -235,6 +259,7 @@ func importDirectPDFs(ctx context.Context, db *pgxpool.Pool, companies []gapComp
 		updated, err := mergeReports(ctx, db, c.stockCode, reports, f.verbose)
 		if err != nil {
 			log.Printf("  ERROR updating %s: %v", c.stockCode, err)
+			totalErrors++
 			continue
 		}
 		if updated {
@@ -243,10 +268,11 @@ func importDirectPDFs(ctx context.Context, db *pgxpool.Pool, companies []gapComp
 		}
 	}
 
-	log.Printf("Imported %d direct PDFs for %d companies", totalImported, totalCompanies)
+	log.Printf("Imported %d direct PDFs for %d companies (%d errors)", totalImported, totalCompanies, totalErrors)
+	return nil
 }
 
-func crawlForReports(ctx context.Context, db *pgxpool.Pool, companies []gapCompany, f coverageFlags) {
+func crawlForReports(ctx context.Context, db *pgxpool.Pool, companies []gapCompany, f coverageFlags) error {
 	if f.limit > 0 && len(companies) > f.limit {
 		companies = companies[:f.limit]
 	}
@@ -257,9 +283,13 @@ func crawlForReports(ctx context.Context, db *pgxpool.Pool, companies []gapCompa
 	var totalCrawled, totalUpdated, totalReports, totalErrors int
 
 	for i, c := range companies {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if i > 0 {
-			jitter := time.Duration(rand.Int63n(int64(f.delay / 2)))
-			time.Sleep(f.delay + jitter)
+			if err := politeSleep(ctx, f.delay); err != nil {
+				return err
+			}
 		}
 
 		if i > 0 && i%50 == 0 {
@@ -331,6 +361,7 @@ func crawlForReports(ctx context.Context, db *pgxpool.Pool, companies []gapCompa
 
 	log.Printf("Crawl done! Crawled: %d, Reports found: %d, Updated: %d, Errors: %d",
 		totalCrawled, totalReports, totalUpdated, totalErrors)
+	return nil
 }
 
 func sortByShortPct(companies []gapCompany) {
