@@ -18,6 +18,15 @@
 //	-mode public-records  Publish already-ingested tax + external public records.
 //	-mode all    sources + tax + match + public-records.
 //
+//	-mode register-discover  Scrape the APH Registers of Members'/Senators'
+//	                         Interests listing pages into the register_documents
+//	                         manifest. Downloads no PDFs.
+//
+// The register-* modes are deliberately EXCLUDED from -mode all: -mode all runs
+// on every prod deploy, and a 775-document crawl of aph.gov.au must never fire
+// from a deploy step. They also dry-run by default (REGISTER_DRY_RUN=false to
+// persist).
+//
 // Editorial gate: only exact-ABN or exact-normalized-name matches are ever
 // inserted into entity_asx_map (match_method='name_exact'); fuzzy matching is out
 // of scope here. See docs/influence-editorial-standards.md.
@@ -35,8 +44,9 @@ import (
 )
 
 func main() {
-	mode := flag.String("mode", "tax", "tax | match | sources | source-registry | source-probe | tax-records | emissions | austender | aec | lobbyists | trade | public-records | all")
+	mode := flag.String("mode", "tax", "tax | match | sources | source-registry | source-probe | tax-records | emissions | austender | aec | lobbyists | trade | public-records | all | register-discover")
 	sourceLimit := flag.Int("source-limit", defaultAusTenderResourceCap, "maximum downloadable resources per source for archive-backed collectors")
+	registerLimit := flag.Int("register-limit", 0, "cap documents processed per register-* run (0 = no cap)")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -103,8 +113,10 @@ func main() {
 		runAECMode(ctx, pool, *sourceLimit)
 		runLobbyistsMode(ctx, pool)
 		runTradeMode(ctx, pool)
+	case "register-discover":
+		runRegisterDiscover(ctx, pool, *registerLimit)
 	default:
-		log.Fatalf("unknown -mode %q (want tax|match|sources|source-registry|source-probe|tax-records|emissions|austender|aec|lobbyists|trade|public-records|all)", *mode)
+		log.Fatalf("unknown -mode %q (want tax|match|sources|source-registry|source-probe|tax-records|emissions|austender|aec|lobbyists|trade|public-records|all|register-discover)", *mode)
 	}
 }
 
