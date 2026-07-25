@@ -254,6 +254,18 @@ func runRegisterLoad(ctx context.Context, pool *pgxpool.Pool, limit int) {
 		return
 	}
 
+	// Retroactive quarantine: a document downgraded to 'partial' by a re-extract
+	// must lose its previously loaded rows, or the quarantine only applies to
+	// documents that were never loaded in the first place.
+	purged, err := purgeNonExtractedStatements(ctx, pool)
+	if err != nil {
+		registerFinishFailure(ctx, pool, runID, "[register-load]", err)
+		log.Fatalf("[register-load] purge quarantined statements: %v", err)
+	}
+	if purged > 0 {
+		log.Printf("[register-load] purged %d statements belonging to no-longer-extracted documents", purged)
+	}
+
 	var loaded, failed, statements, items int
 	for _, p := range pending {
 		s, i, err := loadExtraction(ctx, pool, p)
@@ -280,6 +292,7 @@ func runRegisterLoad(ctx context.Context, pool *pgxpool.Pool, limit int) {
 	}
 	if err := finishIndustryCollectionRun(ctx, pool, runID, status, len(pending), loaded, failed, "", map[string]any{
 		"documents_loaded":      loaded,
+		"statements_purged":     purged,
 		"documents_failed":      failed,
 		"statements_written":    statements,
 		"items_written":         items,
@@ -293,6 +306,57 @@ func runRegisterLoad(ctx context.Context, pool *pgxpool.Pool, limit int) {
 	log.Printf("[register-load] loaded %d documents (%d failed): %d statements, %d item rows", loaded, failed, statements, items)
 	log.Printf("[register-load] totals: %d politicians, %d statements, %d item rows (%d declared), %d unresolved",
 		stats.Politicians, stats.Statements, stats.Items, stats.Declared, stats.Unresolved)
+}
+
+// runRegisterResolve rebuilds the declared-name -> ASX code links.
+func runRegisterResolve(ctx context.Context, pool *pgxpool.Pool) {
+	runID, err := insertIndustryCollectionRun(ctx, pool, registerSource)
+	if err != nil {
+		log.Fatalf("[register-resolve] start collection run: %v", err)
+	}
+
+	if registerDryRun() {
+		log.Printf("[register-resolve] DRY-RUN — resolving nothing (set REGISTER_DRY_RUN=false to write)")
+		if err := finishIndustryCollectionRun(ctx, pool, runID, "succeeded", 0, 0, 0, "", map[string]any{"dry_run": true}); err != nil {
+			log.Fatalf("[register-resolve] finish collection run: %v", err)
+		}
+		return
+	}
+
+	stats, err := runRegisterSecurityResolve(ctx, pool)
+	if err != nil {
+		registerFinishFailure(ctx, pool, runID, "[register-resolve]", err)
+		log.Fatalf("[register-resolve] securities: %v", err)
+	}
+
+	resolvedPct := 0.0
+	// Denominator excludes non-securities (prose, "Not Applicable", meta
+	// statements): they are not failures to resolve, and leaving them in would
+	// make the headline gauge track how chatty members are.
+	resolvable := stats.Candidates - stats.NotSecurity
+	if resolvable > 0 {
+		resolvedPct = 100.0 * float64(stats.Resolved) / float64(resolvable)
+	}
+
+	if err := finishIndustryCollectionRun(ctx, pool, runID, "succeeded", stats.Candidates, stats.Resolved, 0, "", map[string]any{
+		"candidates":            stats.Candidates,
+		"resolvable":            resolvable,
+		"resolved":              stats.Resolved,
+		"ambiguous":             stats.Ambiguous,
+		"unmatched":             stats.Unmatched,
+		"unlisted_fund":         stats.Unlisted,
+		"not_a_security":        stats.NotSecurity,
+		"security_resolved_pct": resolvedPct,
+		"by_method":             stats.ByMethod,
+	}); err != nil {
+		log.Fatalf("[register-resolve] finish collection run: %v", err)
+	}
+
+	log.Printf("[register-resolve] %d candidates: %d resolved (%.1f%% of %d resolvable), %d ambiguous, %d unmatched, %d not-a-security",
+		stats.Candidates, stats.Resolved, resolvedPct, resolvable, stats.Ambiguous, stats.Unmatched, stats.NotSecurity)
+	for method, n := range stats.ByMethod {
+		log.Printf("[register-resolve]   via %s: %d", method, n)
+	}
 }
 
 func registerFinishFailure(ctx context.Context, pool *pgxpool.Pool, runID, label string, err error) {

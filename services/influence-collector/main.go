@@ -27,6 +27,9 @@
 //	-mode register-load      Turn extraction artifacts into normalised
 //	                         statements/items and resolve each document to a
 //	                         person (politicians + politician_terms).
+//	-mode register-resolve   Rebuild declared-name -> ASX code links. Only
+//	                         curated aliases, member-stated tickers and exact
+//	                         name matches are publishable.
 //
 // The register-* modes are deliberately EXCLUDED from -mode all: -mode all runs
 // on every prod deploy, and an 804-document crawl of aph.gov.au must never fire
@@ -125,8 +128,10 @@ func main() {
 		runRegisterFetch(ctx, pool, *registerLimit)
 	case "register-load":
 		runRegisterLoad(ctx, pool, *registerLimit)
+	case "register-resolve":
+		runRegisterResolve(ctx, pool)
 	default:
-		log.Fatalf("unknown -mode %q (want tax|match|sources|source-registry|source-probe|tax-records|emissions|austender|aec|lobbyists|trade|public-records|all|register-discover|register-fetch|register-load)", *mode)
+		log.Fatalf("unknown -mode %q (want tax|match|sources|source-registry|source-probe|tax-records|emissions|austender|aec|lobbyists|trade|public-records|all|register-discover|register-fetch|register-load|register-resolve)", *mode)
 	}
 }
 

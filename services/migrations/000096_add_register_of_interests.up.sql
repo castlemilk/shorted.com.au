@@ -367,13 +367,20 @@ CREATE TABLE IF NOT EXISTS register_item_securities (
     resolved_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT register_item_securities_status_check
         CHECK (resolution_status IN ('resolved','ambiguous','unmatched','unlisted_fund','not_a_security')),
+    -- ticker_in_text is the member writing the ASX code themselves, e.g.
+    -- "iShares S&P 500 ETF (IVV)". It is publishable because it is stronger
+    -- evidence than a name match, not weaker: the code is stated at source and
+    -- then validated against "company-metadata". This is also the only thing
+    -- that resolves ETFs at all — their company_name values are abbreviated
+    -- ("Vngd Aus Shares Etf Units"), so no register spelling reaches them by
+    -- name.
     CONSTRAINT register_item_securities_method_check
         CHECK (match_method IS NULL
-               OR match_method IN ('curated_alias','name_exact','analyst_fuzzy')),
+               OR match_method IN ('curated_alias','ticker_in_text','name_exact','analyst_fuzzy')),
     CONSTRAINT register_item_securities_public_gate
         CHECK (resolution_status <> 'resolved'
                OR (stock_code IS NOT NULL
-                   AND match_method IN ('curated_alias','name_exact'))),
+                   AND match_method IN ('curated_alias','ticker_in_text','name_exact'))),
     UNIQUE (item_id, candidate_ordinal)
 );
 CREATE INDEX IF NOT EXISTS idx_register_item_securities_stock

@@ -466,7 +466,16 @@ def store_extraction(conn, row, artifact: dict, metrics: dict, dry_run: bool) ->
     # A document whose pages are mostly unattributed is 'partial' and must never
     # reach public output — silent under-extraction is indistinguishable from a
     # member who declared nothing.
-    status = "extracted" if metrics["page_coverage_pct"] >= MIN_PAGE_COVERAGE_PCT else "partial"
+    #
+    # A centred-label layout is quarantined for a different reason: the rows ARE
+    # extracted, but this parser cannot reliably attribute them between Self /
+    # Spouse / Dependent children. Wrong attribution published under a named
+    # person is far worse than a known gap.
+    status = "extracted"
+    if metrics["page_coverage_pct"] < MIN_PAGE_COVERAGE_PCT:
+        status = "partial"
+    elif any(w == "centred_label_layout" for w in warnings):
+        status = "partial"
 
     cur = conn.cursor()
     cur.execute(

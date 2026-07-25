@@ -299,6 +299,25 @@ func loadExtraction(ctx context.Context, pool *pgxpool.Pool, p pendingExtraction
 	return statements, items, nil
 }
 
+// purgeNonExtractedStatements removes rows belonging to documents that are no
+// longer 'extracted'.
+//
+// Load alone is not enough: when a re-extract DOWNGRADES a document to 'partial'
+// (a coverage miss, or a layout this parser cannot attribute), its previously
+// loaded rows would otherwise stay in the tables and keep being published. The
+// quarantine has to be retroactive or it is not a quarantine.
+func purgeNonExtractedStatements(ctx context.Context, pool *pgxpool.Pool) (int64, error) {
+	tag, err := pool.Exec(ctx, `
+		DELETE FROM register_statements s
+		USING register_documents d
+		WHERE d.id = s.document_id
+		  AND d.extract_status <> 'extracted'`)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
 // registerLoadStats summarises what the tables now hold.
 type registerLoadStats struct {
 	Politicians int

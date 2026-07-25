@@ -174,6 +174,11 @@ func TestParseHouseNameCell(t *testing.T) {
 		{"Aly, Professor Anne, Member for Cowan, WAW", "Cowan", "WA"},
 		// A trailing comma leaves an empty state part.
 		{"Butler, Ms Terri, Member for Griffith,", "Griffith", ""},
+		// Trailing punctuation on the division drifts between parliaments
+		// ("Flynn" in 48P vs "Flynn." in 47P). Division is the join key to
+		// suburb_demographics.federal_division, so a stray period costs a member
+		// all of their represented suburbs.
+		{"Boyce, Mr Colin, Member for Flynn., QLD", "Flynn", "QLD"},
 		{"", "", ""},
 	}
 	for _, tc := range cases {

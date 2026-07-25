@@ -358,7 +358,10 @@ func parseHouseNameCell(cell string) (division, state string) {
 			}
 			candidate = strings.TrimSpace(trailingStateRe.ReplaceAllString(candidate, ""))
 		}
-		division = candidate
+		// Trailing punctuation drifts between parliaments ("Flynn" vs "Flynn.").
+		// Division is the join key to suburb_demographics.federal_division, so a
+		// stray period silently costs a member all of their represented suburbs.
+		division = strings.TrimSpace(strings.Trim(candidate, ".,;:"))
 	}
 	return division, state
 }

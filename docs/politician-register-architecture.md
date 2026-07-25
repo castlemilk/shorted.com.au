@@ -397,6 +397,51 @@ Slugs are minted **once** and never reassigned — they reach OG images, the
 sitemap and editorial cross-links, so renumbering means broken URLs. Collision
 order is deterministic: plain name → state-qualified → numbered.
 
+## 3.4 Security resolution
+
+Four things reach a public surface, in precedence order:
+
+1. **Curated alias** — a human decision outranks a coincidence.
+2. **Inline ticker** — the member wrote the ASX code themselves
+   (`iShares S&P 500 ETF (IVV)`), then validated against `"company-metadata"`.
+   This is *stronger* evidence than a name match, and it is the only thing that
+   resolves ETFs at all, since their `company_name` values are abbreviated past
+   recognition.
+3. **Exact normalised name** — one company or nothing, the `runMatch` rule.
+4. Otherwise `unmatched` / `ambiguous`, neither of which is publishable.
+
+### Landmines found in real data
+
+- **Generic security words that are real ASX codes.** `ETF` is UBS IQ MSCI
+  Australia ETF, `REIT` is VanEck International REIT, `LIC` is Lifestyle
+  Communities. Every fund name *ending* in "ETF" resolved to `ETF`, showing ten
+  members as holding a fund none had declared. A stopword list now blocks the
+  ticker path for these; a member who genuinely holds one gets a curated alias.
+- **Private entities are not unresolved listings.** A `Pty Ltd` / family trust /
+  SMSF that matches nothing is `not_a_security`, not `unmatched`. 171 of a
+  607-row item-1 backlog were private entities, and item 4 (directorships) is
+  almost entirely them — leaving them in buries the real curation work.
+- **Item 4 resolves at 0%.** Directorships are overwhelmingly private companies,
+  so item 4 contributes no stock links. It is still resolved (a directorship of a
+  *listed* company is genuinely interesting) but it must not sit in the headline
+  denominator.
+
+### Measured rates (192-document sample, parliaments 47-48)
+
+| Metric | Value |
+|---|---|
+| Candidates | 1,175 |
+| Resolvable (excl. not-a-security) | 799 |
+| Resolved | 290 (**36.3%**) |
+| via exact name / inline ticker / curated alias | 173 / 60 / 57 |
+| Unmatched (the curation worklist) | 505 |
+
+`register_resolution_backlog`, ordered by frequency, **is** the worklist.
+Migration `000097` seeds 42 hand-authored aliases covering ticker shorthand
+(`CBA`, `NAB`), everyday short names (`Westpac Bank`, `Rio`), nil-declaration
+noise, and unlisted funds. Adding them moved CBA from 5 to 10 members and WBC
+from 0 to 6.
+
 ## 4. Status
 
 | Phase | State |
@@ -405,13 +450,42 @@ order is deterministic: plain name → state-qualified → numbered.
 | 1 — migration 000096 + `register-discover` | **done** — manifest holds 804 documents (769 house, 35 senate) |
 | 2 — `register-fetch` + classify | **done** — streaming content-addressed sink, per-page classification |
 | 3 — deterministic parser + golden set | **done** — text tier parses base statements + both alteration variants |
+| — 47P centred-label layout | **known gap, quarantined** (see §2.8) |
 | 4 — `register-load` + identity | **done** — person/term spine, artifacts loaded to normalised rows |
-| 5 — security resolution + curated aliases | pending |
+| 5 — security resolution + curated aliases | **done** — 36% of resolvable item-1 candidates; alias seed + backlog view |
 | 6 — location resolution → `sal_code` | pending |
 | 7 — vision OCR tier | pending |
 | 8 — `politicians.proto` + backend API | pending |
 | 9 — `/politicians` frontend + 4 integrations | pending |
 | 10 — ops wiring + launch gates | pending |
+
+### 2.8 The 47P form centres its holder labels — quarantined, not guessed
+
+The 47th-Parliament base form differs structurally from 46P/48P:
+
+- the column header sits **right** of the value column (header x≈121, values
+  x≈112), so deriving the label boundary from the header dropped the first word
+  of every cell — `Not Applicable` became `Applicable`, `X Pty Ltd` became
+  `Ltd`. Fixed by making `LABEL_X_MAX` a fixed 95 that is never raised.
+- holder labels are **vertically centred** against multi-line blocks rather than
+  top-aligned, so `Self` can appear *below* eight lines of its own values.
+  Attributing by label order would silently mis-assign holdings between Self /
+  Spouse / Dependent children.
+
+Wrong attribution published under a named person is far worse than a known gap,
+so those documents are marked `extract_status='partial'` and excluded from the
+load. `pymupdf.find_tables()` **does** recover the holder structure correctly
+and is the likely fix, but it truncated multi-line cell content in a first probe,
+so it needs its own pass.
+
+Of 197 classified documents: 149/150 of 48P extract cleanly (the 1 partial is
+the Albanese scan), while 47P splits 32 top-aligned / 15 centred. One 48P
+document (`Marles_48P`) still yields 23 fragment rows and needs the same
+treatment.
+
+The quarantine is **retroactive**: `register-load` purges statements belonging to
+documents that a re-extract has downgraded, or the gate would only apply to
+documents that were never loaded.
 
 Feature stays dark (`industry_intelligence_sources.public_enabled = FALSE`) until
 the QA gates pass **and** an editorial template review against

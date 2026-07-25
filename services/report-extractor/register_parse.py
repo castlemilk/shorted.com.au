@@ -72,6 +72,20 @@ FOOTER_ZONE = 0.93
 # Item headings are flush left; holder labels are indented slightly.
 ITEM_HEADING_X_MAX = 38.0
 
+# The boundary between the holder-label column and the value columns.
+#
+# FIXED, never derived from the column header. The 47th-Parliament form puts its
+# header text at x≈121 while the values sit at x≈112, so deriving the boundary
+# from the header (origins[0] - 5) pushed it to 116 and silently dropped the
+# first word of every cell — turning "Not Applicable" into "Applicable" and
+# "X Pty Ltd" into "Ltd". Holder labels start at x≈41 and the longest
+# ("Dependent") ends well before 95.
+LABEL_X_MAX = 95.0
+
+# How far a value band may sit ABOVE its holder label before the layout is
+# treated as centred-label rather than top-aligned.
+CENTRED_LABEL_TOLERANCE_PT = 6.0
+
 # --- patterns -------------------------------------------------------------
 
 ITEM_HEADING_RE = re.compile(r"^(\d{1,2})\.\s*(.*)$")
@@ -418,11 +432,19 @@ def parse_item_tables(bands_by_page: list[tuple[int, list[Band]]], change_type: 
 
     current: Optional[Item] = None
     origins: list[float] = []
-    label_x_max = 95.0
+    label_x_max = LABEL_X_MAX
     pending_cells: list[list[str]] = []
     pending_holder: Optional[str] = None
     ordinal = 0
     awaiting_header = False
+    # Layout probe: in the 48P/46P form a holder label is top-aligned with its
+    # block, so values never precede the first label. The 47P form centres the
+    # label against a multi-line block, which this parser cannot attribute
+    # correctly — those documents are flagged rather than guessed at.
+    first_value_y: Optional[float] = None
+    first_label_y: Optional[float] = None
+    centred_layout = False
+    header_open = False
 
     for page_no, bands in bands_by_page:
         for band in bands:
@@ -443,6 +465,7 @@ def parse_item_tables(bands_by_page: list[tuple[int, list[Band]]], change_type: 
                     )
                     items.append(current)
                     origins, ordinal, awaiting_header = [], 0, True
+                    first_value_y, first_label_y = None, None
                 else:
                     current = None
                 continue
@@ -457,14 +480,35 @@ def parse_item_tables(bands_by_page: list[tuple[int, list[Band]]], change_type: 
                 ordinal = _flush(current, pending_cells, pending_holder, change_type, page_no, ordinal)
                 pending_cells, pending_holder = [], None
                 origins = column_origins(band)
+                # NEVER raise the boundary: see LABEL_X_MAX. In the 47P form the
+                # header sits RIGHT of the values, so origins[0]-5 would push the
+                # boundary past the value column and eat the first word of every
+                # cell.
                 if origins:
-                    label_x_max = origins[0] - 5.0
+                    label_x_max = min(LABEL_X_MAX, origins[0] - 5.0)
                 awaiting_header = False
+                header_open = True
+                continue
+
+            # A column header can WRAP: item 2 reads "Name of trust/nominee" on
+            # one line and "company" on the next. "company" is not header
+            # vocabulary, so without this the continuation looks like a value —
+            # which flagged 24 correctly-parsed 48P documents as centred-layout.
+            if (
+                header_open
+                and first.x0 > label_x_max
+                and not any(w.text[:1].isupper() for w in band.words)
+            ):
                 continue
 
             # --- holder row ----------------------------------------------
             holder = holder_of(token) if first.x0 <= label_x_max else None
             if holder:
+                header_open = False
+                if first_label_y is None:
+                    first_label_y = band.y
+                    if first_value_y is not None and first_label_y - first_value_y > CENTRED_LABEL_TOLERANCE_PT:
+                        centred_layout = True
                 ordinal = _flush(current, pending_cells, pending_holder, change_type, page_no, ordinal)
                 pending_holder = holder
                 pending_cells = assign_columns([w for w in band.words if w.x0 > label_x_max], origins)
@@ -477,6 +521,20 @@ def parse_item_tables(bands_by_page: list[tuple[int, list[Band]]], change_type: 
             # the previous row's value, because the two sit at nearly the same
             # y. Dropping the whole band loses that tail, so only the label word
             # itself is discarded (it is left of label_x_max anyway).
+            # Only bands AFTER the column header count as values. The item
+            # heading's own wrapped description ("(i) in which a beneficial
+            # interest is held, indicating…") also extends right of the label
+            # column, and counting it flagged 144 of 150 correctly-parsed 48P
+            # documents as centred-layout.
+            if (
+                not awaiting_header
+                and origins
+                and first_value_y is None
+                and any(w.x0 > label_x_max for w in band.words)
+            ):
+                first_value_y = band.y
+                header_open = False
+
             if pending_holder is not None:
                 values = [w for w in band.words if w.x0 > label_x_max]
                 if values:
@@ -486,6 +544,13 @@ def parse_item_tables(bands_by_page: list[tuple[int, list[Band]]], change_type: 
 
     if not items:
         warnings.append("no_items_parsed")
+    if centred_layout:
+        # Holder labels are vertically centred against multi-line blocks (the
+        # 47P form). This parser attributes values by label order, so it would
+        # silently mis-assign a member's holdings between Self / Spouse /
+        # Dependent children. A known gap is recoverable; wrong attribution
+        # published under a named person is not.
+        warnings.append("centred_label_layout")
     return items, warnings
 
 
