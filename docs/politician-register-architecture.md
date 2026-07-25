@@ -478,13 +478,21 @@ to `region`. That is a **source characteristic**, since the register explicitly
 asks for "suburb or area only" — so the freshness alarm keys on the `ambiguous`
 bucket and never on `region`.
 
-### Not yet verified
+### Verified end to end
 
-The parser and match ladder are unit-tested against the real strings, but the
-**database path has not been exercised**: `suburb_demographics` is empty locally
-(it is populated by `house-price-collector -mode census`, which needs an ABS GCP
-SAL DataPack), and the local Docker VM stopped before a fixture run completed.
-The expected rates in §1 remain projections until that runs.
+Run against the real corpus with a 51-suburb local fixture: **363 location rows,
+75 resolved, and the redaction guard fired on 4 real street addresses.** The
+stored `locality_raw` for `3 Kookaburra Court, Tura Beach` is `Tura Beach` alone,
+and a query for any street token or leading number across every stored row
+returns **0 leaked rows**.
+
+Resolved suburbs read Kingston ACT (9 members), Griffith ACT (6), Barton ACT (3)
+— Canberra, which is exactly what a federal register should produce.
+
+The 20.7% resolve rate is a **fixture artefact, not a resolver limit**: the
+fixture holds 51 suburbs against the real ABS set of ~15,000. A true rate needs
+`house-price-collector -mode census` (an ABS GCP SAL DataPack), so the projected
+rates in §1 stay projections until that runs.
 
 ## 4. Status
 
@@ -497,7 +505,7 @@ The expected rates in §1 remain projections until that runs.
 | — 47P centred-label layout | **known gap, quarantined** (see §2.8) |
 | 4 — `register-load` + identity | **done** — person/term spine, artifacts loaded to normalised rows |
 | 5 — security resolution + curated aliases | **done** — 36% of resolvable item-1 candidates; alias seed + backlog view |
-| 6 — location resolution → `sal_code` | **parser done + unit-tested; DB path unverified** (local Docker down, and `suburb_demographics` needs the ABS census ingest) |
+| 6 — location resolution → `sal_code` | **done** — verified end to end; redaction guard fired on 4 real addresses. True match rate needs the ABS census ingest |
 | 7 — vision OCR tier | pending |
 | 8 — `politicians.proto` + backend API | pending |
 | 9 — `/politicians` frontend + 4 integrations | pending |
