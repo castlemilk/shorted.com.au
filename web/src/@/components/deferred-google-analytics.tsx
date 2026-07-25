@@ -32,9 +32,16 @@ export function DeferredGoogleAnalytics({ gaId }: { gaId: string }) {
     loaded.current = true;
 
     window.dataLayer = window.dataLayer ?? [];
-    window.gtag = (...args: unknown[]) => {
-      window.dataLayer!.push(args);
-    };
+    // MUST push the `arguments` object, not a rest-args array: gtag.js only
+    // executes commands whose dataLayer entry is [object Arguments] and
+    // silently ignores plain arrays. The arrow-function/rest-array version of
+    // this stub shipped 2026-07-16 and zeroed out ALL GA hits (config never
+    // ran, so no page_view or events fired) until fixed on 2026-07-25.
+    const gtag = function () {
+      // eslint-disable-next-line prefer-rest-params
+      window.dataLayer!.push(arguments);
+    } as NonNullable<Window["gtag"]>;
+    window.gtag = gtag;
     window.gtag("js", new Date());
     // send_page_view stays on: the initial page_view fires when gtag.js boots.
     window.gtag("config", gaId);
