@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -106,6 +107,120 @@ func runRegisterDiscover(ctx context.Context, pool *pgxpool.Pool, limit int) {
 
 	log.Printf("[register-discover] upserted %d documents; manifest now holds %d (%d house, %d senate, %d pending fetch)",
 		written, counts.Total, counts.House, counts.Senate, counts.PendingFetch)
+}
+
+// runRegisterFetch drains the fetch queue, streaming each PDF into the sink.
+//
+// Politeness is deliberate and serial: one connection, REGISTER_FETCH_DELAY_MS
+// (default 1500ms) between requests. A full 804-document pass therefore takes
+// ~20 minutes, which is invisible to APH and fine for a scheduled job.
+func runRegisterFetch(ctx context.Context, pool *pgxpool.Pool, limit int) {
+	runID, err := insertIndustryCollectionRun(ctx, pool, registerSource)
+	if err != nil {
+		log.Fatalf("[register-fetch] start collection run: %v", err)
+	}
+
+	maxAttempts := envInt("REGISTER_MAX_ATTEMPTS", defaultRegisterMaxAttempts)
+	pending, err := selectPendingDocuments(ctx, pool, maxAttempts, limit)
+	if err != nil {
+		registerFinishFailure(ctx, pool, runID, "[register-fetch]", err)
+		log.Fatalf("[register-fetch] select queue: %v", err)
+	}
+	if len(pending) == 0 {
+		log.Printf("[register-fetch] queue empty — nothing to fetch")
+		if err := finishIndustryCollectionRun(ctx, pool, runID, "succeeded", 0, 0, 0, "", map[string]any{"queue_empty": true}); err != nil {
+			log.Fatalf("[register-fetch] finish collection run: %v", err)
+		}
+		return
+	}
+
+	if registerDryRun() {
+		log.Printf("[register-fetch] DRY-RUN — %d documents queued, fetching none (set REGISTER_DRY_RUN=false to fetch)", len(pending))
+		if err := finishIndustryCollectionRun(ctx, pool, runID, "succeeded", len(pending), 0, 0, "", map[string]any{
+			"dry_run": true, "queued": len(pending),
+		}); err != nil {
+			log.Fatalf("[register-fetch] finish collection run: %v", err)
+		}
+		return
+	}
+
+	sink, err := newRegisterSink(ctx)
+	if err != nil {
+		registerFinishFailure(ctx, pool, runID, "[register-fetch]", err)
+		log.Fatalf("[register-fetch] sink: %v", err)
+	}
+	client := newAPHClient()
+	delay := registerFetchDelay()
+	log.Printf("[register-fetch] %d queued -> %s (delay %s, max %d attempts)", len(pending), sink.Describe(), delay, maxAttempts)
+
+	var fetched, deduped, failed, blocked int
+	var bytesTotal int64
+
+	// Labelled so the cancellation path exits the LOOP; a bare break inside the
+	// select would only leave the select and keep crawling.
+fetchLoop:
+	for i, doc := range pending {
+		if i > 0 {
+			select {
+			case <-ctx.Done():
+				log.Printf("[register-fetch] context cancelled after %d documents", i)
+				break fetchLoop
+			case <-time.After(delay):
+			}
+		}
+
+		res, err := fetchWithRetry(ctx, client, doc, sink, maxAttempts-doc.Attempts)
+		if err != nil {
+			_, isBlocked := errors.AsType[*errBlocked](err)
+			if markErr := markDocumentFailed(ctx, pool, doc.ID, res.HTTPStatus, isBlocked, err); markErr != nil {
+				log.Printf("[register-fetch] mark failed: %v", markErr)
+			}
+			if isBlocked {
+				// The WAF changed its mind about us. Stop immediately: hammering
+				// on through 804 documents would be exactly the wrong response.
+				blocked++
+				log.Printf("[register-fetch] BLOCKED at %s — aborting run", doc.SourceURL)
+				registerFinishFailure(ctx, pool, runID, "[register-fetch]", err)
+				log.Fatalf("[register-fetch] %v", err)
+			}
+			failed++
+			log.Printf("[register-fetch] failed %s: %v", doc.SourceURL, err)
+			continue
+		}
+
+		if err := markDocumentFetched(ctx, pool, doc.ID, res); err != nil {
+			log.Printf("[register-fetch] mark fetched: %v", err)
+			failed++
+			continue
+		}
+		fetched++
+		bytesTotal += res.ByteSize
+		if res.Deduped {
+			deduped++
+		}
+		if fetched%50 == 0 {
+			log.Printf("[register-fetch] %d/%d fetched (%.1f MB)", fetched, len(pending), float64(bytesTotal)/(1<<20))
+		}
+	}
+
+	status := "succeeded"
+	if failed > 0 && fetched == 0 {
+		status = "failed"
+	} else if failed > 0 {
+		status = "partial"
+	}
+	if err := finishIndustryCollectionRun(ctx, pool, runID, status, len(pending), fetched, failed, "", map[string]any{
+		"fetched":      fetched,
+		"deduplicated": deduped,
+		"failed":       failed,
+		"blocked":      blocked,
+		"bytes":        bytesTotal,
+		"sink":         sink.Describe(),
+	}); err != nil {
+		log.Fatalf("[register-fetch] finish collection run: %v", err)
+	}
+	log.Printf("[register-fetch] fetched %d of %d (%d byte-identical, %d failed), %.1f MB",
+		fetched, len(pending), deduped, failed, float64(bytesTotal)/(1<<20))
 }
 
 func registerFinishFailure(ctx context.Context, pool *pgxpool.Pool, runID, label string, err error) {

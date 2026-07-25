@@ -154,7 +154,13 @@ CREATE TABLE IF NOT EXISTS register_documents (
     text_chars_total  INTEGER,
     chars_per_page    NUMERIC,
     text_class        TEXT,
+    -- Pages needing vision OCR, and pages with nothing on them. Kept apart
+    -- deliberately: every born-digital statement carries a full-bleed
+    -- letterhead, so counting "has an image" as a scan marks every blank
+    -- continuation page for OCR — ~1,000 needless vision calls across the
+    -- corpus. blank pages are excluded from the text-vs-scan judgement.
     scan_page_count   INTEGER,
+    blank_page_count  INTEGER,
 
     extract_status    TEXT NOT NULL DEFAULT 'pending',
     extract_tier      TEXT,

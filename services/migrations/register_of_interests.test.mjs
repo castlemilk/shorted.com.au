@@ -306,6 +306,15 @@ test("the document manifest is the crawl cursor and is idempotent on source_url"
   assert.match(block, /http_status\s+SMALLINT/i);
 });
 
+test("the manifest counts scan pages and blank pages separately", () => {
+  // Every born-digital statement carries a full-bleed letterhead and 1-2 blank
+  // continuation pages. Folding those into scan_page_count marks every House
+  // document 'mixed' and sends ~1,000 empty pages to the vision tier.
+  const block = tableBlock("register_documents");
+  assert.match(block, /scan_page_count\s+INTEGER/i);
+  assert.match(block, /blank_page_count\s+INTEGER/i);
+});
+
 test("extraction artifacts are content-addressed and versioned so a parser upgrade is non-destructive", () => {
   assert.match(
     tableBlock("register_extractions"),

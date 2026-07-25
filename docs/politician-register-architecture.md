@@ -218,7 +218,7 @@ geometry:
 - Data rows sit at **x0 ≈ 40.9** and begin with a holder token
 - Label continuations (`Partner`, `Children`) are bands entirely left of x≈95
 
-### 2.5 The listing cells drift, and the drift is recoverable
+### 2.4 The listing cells drift, and the drift is recoverable
 
 A full 769-document discovery run initially left 4 rows with no division and 1
 with no date. All five turned out to be source wording drift, not parser bugs,
@@ -257,7 +257,35 @@ parser must have**:
 3. **Exclude footers.** The bare page number (`3` at x0≈294, y≈793) otherwise
    merges into the last row as a value.
 
-### 2.4 `Form A` is a running page header, not a section delimiter
+### 2.5 A blank page is not a scanned page
+
+Classifying "low text + has an image" as a scan marks **every** born-digital
+House statement as `mixed`, because every one of them carries a full-bleed
+letterhead image and 1-2 blank continuation pages holding nothing but their own
+page number. Left alone that would have routed roughly **1,000 empty pages**
+across the corpus to the vision tier.
+
+The two populations separate unanimously on two signals (measured over a
+12-document sample plus a known scan):
+
+| Page kind | Image coverage | Text blocks | Chars |
+|---|---|---|---|
+| Blank continuation page | 0.84 (letterhead) | 1 (the page number) | 1-2 |
+| True scanned page | 1.00 (full bleed) | 0 | 0-46 |
+
+Effective DPI is **not** a usable discriminator — the letterhead is 220 DPI
+while real scans measured 144, 150 and 300.
+
+So a low-text page is a `scan` when it has a full-bleed image **or** no text
+blocks at all, and `blank` otherwise. The test is an OR rather than an AND on
+purpose: mislabelling a blank page as a scan wastes one cheap vision call, while
+mislabelling a scan as blank silently loses a member's declared interests.
+Blank pages are then excluded from the document-level text-vs-scan judgement.
+
+After the fix, the same 12 documents classify as 11 `text` + 1 `mixed`, with
+`Albanese_48P` correctly isolating its 14 scanned pages.
+
+### 2.6 `Form A` is a running page header, not a section delimiter
 
 Senate 2025 Volume 1: **180** bare `Form A` lines but only **55** `Surname:`
 header blocks across **35 distinct senators**. `Form A` repeats on every page of
@@ -337,7 +365,7 @@ render as declared text with no ticker link.
 |---|---|
 | 0 — verification spike | **done** (§2) |
 | 1 — migration 000096 + `register-discover` | **done** — manifest holds 804 documents (769 house, 35 senate) |
-| 2 — `register-fetch` + classify | pending |
+| 2 — `register-fetch` + classify | **done** — streaming content-addressed sink, per-page classification |
 | 3 — deterministic parser + golden set + QA gates | pending |
 | 4 — `register-load` + identity | pending |
 | 5 — security resolution + curated aliases | pending |

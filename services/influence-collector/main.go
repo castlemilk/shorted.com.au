@@ -21,6 +21,9 @@
 //	-mode register-discover  Scrape the APH Registers of Members'/Senators'
 //	                         Interests listing pages into the register_documents
 //	                         manifest. Downloads no PDFs.
+//	-mode register-fetch     Stream queued PDFs into the content-addressed sink
+//	                         (REGISTER_BUCKET, else a local cache) and record
+//	                         sha256/size/storage_uri on the manifest.
 //
 // The register-* modes are deliberately EXCLUDED from -mode all: -mode all runs
 // on every prod deploy, and a 775-document crawl of aph.gov.au must never fire
@@ -115,8 +118,10 @@ func main() {
 		runTradeMode(ctx, pool)
 	case "register-discover":
 		runRegisterDiscover(ctx, pool, *registerLimit)
+	case "register-fetch":
+		runRegisterFetch(ctx, pool, *registerLimit)
 	default:
-		log.Fatalf("unknown -mode %q (want tax|match|sources|source-registry|source-probe|tax-records|emissions|austender|aec|lobbyists|trade|public-records|all|register-discover)", *mode)
+		log.Fatalf("unknown -mode %q (want tax|match|sources|source-registry|source-probe|tax-records|emissions|austender|aec|lobbyists|trade|public-records|all|register-discover|register-fetch)", *mode)
 	}
 }
 
