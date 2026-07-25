@@ -12,8 +12,6 @@ import (
 	"io"
 	"os"
 	"os/signal"
-	"sort"
-	"strings"
 	"syscall"
 	"time"
 )
@@ -25,6 +23,27 @@ type Job interface {
 	Name() string
 	Synopsis() string
 	Run(ctx context.Context, args []string) error
+}
+
+// DryRunAware is implemented by jobs that honour a dry run (i.e. they have their
+// own -dry-run flag defaulting to Globals.DryRun). A global -dry-run against a
+// job that does NOT implement this is refused before the job runs, rather than
+// silently writing to the database — see Registry.Dispatch.
+type DryRunAware interface {
+	SupportsDryRun() bool
+}
+
+func supportsDryRun(j Job) bool {
+	d, ok := j.(DryRunAware)
+	return ok && d.SupportsDryRun()
+}
+
+// Dispatcher is implemented by jobs that own a nested registry (Group). The
+// parent Dispatch hands the log prefix and log writer down so the LEAF job's
+// name reaches the single start/end line (`name=shorted reports coverage`)
+// instead of stopping at the group.
+type Dispatcher interface {
+	Dispatch(ctx context.Context, prefix string, args []string, logw io.Writer) error
 }
 
 // Globals are the root-level flags shared by every job. Jobs opt in by reading
@@ -51,7 +70,8 @@ func FromContext(ctx context.Context) Globals {
 }
 
 // ErrUsage signals that the caller asked for help (or got the invocation wrong)
-// and usage has already been printed. Main maps it to exit code 2.
+// and usage has ALREADY been printed by the runner. Main maps it to exit code 2
+// and must not print anything itself — usage errors are reported exactly once.
 var ErrUsage = errors.New("usage")
 
 // Registry holds the jobs reachable from one command level.
@@ -91,13 +111,6 @@ func (r *Registry) Names() []string {
 	return out
 }
 
-// SortedNames returns the registered job names alphabetically.
-func (r *Registry) SortedNames() []string {
-	out := r.Names()
-	sort.Strings(out)
-	return out
-}
-
 // PrintUsage writes the "available jobs" listing.
 func (r *Registry) PrintUsage(w io.Writer, prefix string) {
 	fmt.Fprintf(w, "usage: %s <job> [flags]\n\nAvailable jobs:\n", prefix)
@@ -117,6 +130,13 @@ func (r *Registry) PrintUsage(w io.Writer, prefix string) {
 // wrapped in the standard start/end logging. args must NOT include the program
 // name. An empty args slice (or -h/--help/help) prints usage and returns
 // ErrUsage.
+//
+// A job that owns a nested registry (Group) is handed the extended prefix and
+// the log writer instead of being Observe-wrapped here, so the start/end pair is
+// emitted ONCE, at the leaf, carrying the full name (`shorted reports coverage`).
+//
+// An unknown job name is reported HERE (message + usage listing) and returned
+// wrapped in ErrUsage so main exits 2 without printing it a second time.
 func (r *Registry) Dispatch(ctx context.Context, prefix string, args []string, logw io.Writer) error {
 	if len(args) == 0 {
 		r.PrintUsage(logw, prefix)
@@ -132,16 +152,26 @@ func (r *Registry) Dispatch(ctx context.Context, prefix string, args []string, l
 	if !ok {
 		fmt.Fprintf(logw, "unknown job %q\n\n", name)
 		r.PrintUsage(logw, prefix)
-		return fmt.Errorf("unknown job %q", name)
+		return fmt.Errorf("unknown job %q: %w", name, ErrUsage)
 	}
-	return Observe(ctx, prefix+" "+name, logw, func(ctx context.Context) error {
+	full := prefix + " " + name
+	if d, nested := job.(Dispatcher); nested {
+		return d.Dispatch(ctx, full, args[1:], logw)
+	}
+	// A global -dry-run against a job with no dry-run support would silently
+	// write; fail before the job opens a pool.
+	if FromContext(ctx).DryRun && !supportsDryRun(job) {
+		return fmt.Errorf("job %q does not support -dry-run: refusing to run so a global -dry-run never writes", full)
+	}
+	return Observe(ctx, full, logw, func(ctx context.Context) error {
 		return job.Run(ctx, args[1:])
 	})
 }
 
 // Observe runs fn with structured start/end lines (name, duration, error).
-// Only the OUTERMOST dispatch wraps in Observe — a Group hands straight to its
-// sub-job, so one invocation produces exactly one start/end pair.
+// Exactly ONE Observe wraps any invocation: nested Groups forward through
+// Dispatch (which does not Observe the group itself), so the single pair names
+// the leaf job.
 func Observe(ctx context.Context, name string, logw io.Writer, fn func(context.Context) error) error {
 	start := time.Now()
 	fmt.Fprintf(logw, "[job] start name=%s at=%s\n", name, start.UTC().Format(time.RFC3339))
@@ -181,26 +211,20 @@ func (g *Group) Synopsis() string { return g.synopsis }
 // Sub exposes the nested registry (used by help output and tests).
 func (g *Group) Sub() *Registry { return g.sub }
 
-// Run implements Job by dispatching to the nested registry. The nested job's
-// own start/end lines are emitted by the inner Dispatch.
+// SupportsDryRun implements DryRunAware. A group itself never writes; the
+// nested Dispatch enforces the check against the leaf sub-job.
+func (g *Group) SupportsDryRun() bool { return true }
+
+// Dispatch implements Dispatcher: the parent hands down its prefix and log
+// writer so the leaf sub-job owns the start/end pair and the full log name.
+func (g *Group) Dispatch(ctx context.Context, prefix string, args []string, logw io.Writer) error {
+	return g.sub.Dispatch(ctx, prefix, args, logw)
+}
+
+// Run implements Job. It is the fallback path for a Group invoked outside
+// Registry.Dispatch (which is the log-name-preserving path); it logs to stderr.
 func (g *Group) Run(ctx context.Context, args []string) error {
-	if len(args) == 0 {
-		g.sub.PrintUsage(os.Stderr, "shorted "+g.name)
-		return ErrUsage
-	}
-	name := args[0]
-	switch name {
-	case "-h", "--help", "help":
-		g.sub.PrintUsage(os.Stderr, "shorted "+g.name)
-		return ErrUsage
-	}
-	job, ok := g.sub.Lookup(name)
-	if !ok {
-		fmt.Fprintf(os.Stderr, "unknown %s job %q\n\n", g.name, name)
-		g.sub.PrintUsage(os.Stderr, "shorted "+g.name)
-		return fmt.Errorf("unknown %s job %q", g.name, name)
-	}
-	return job.Run(ctx, args[1:])
+	return g.Dispatch(ctx, "shorted "+g.name, args, os.Stderr)
 }
 
 // SignalContext returns a context cancelled on SIGINT/SIGTERM. Batch jobs get a
@@ -214,7 +238,11 @@ func SignalContext(parent context.Context) (context.Context, context.CancelFunc)
 type Func struct {
 	JobName string
 	Desc    string
-	Fn      func(ctx context.Context, args []string) error
+	// DryRun declares that Fn honours a dry run (it has its own -dry-run flag
+	// defaulting to Globals.DryRun). Leave false for jobs that always write —
+	// the runner then refuses a global -dry-run instead of writing silently.
+	DryRun bool
+	Fn     func(ctx context.Context, args []string) error
 }
 
 // Name implements Job.
@@ -223,17 +251,8 @@ func (f Func) Name() string { return f.JobName }
 // Synopsis implements Job.
 func (f Func) Synopsis() string { return f.Desc }
 
+// SupportsDryRun implements DryRunAware.
+func (f Func) SupportsDryRun() bool { return f.DryRun }
+
 // Run implements Job.
 func (f Func) Run(ctx context.Context, args []string) error { return f.Fn(ctx, args) }
-
-// HelpRequested reports whether args ask for help, so a job can short-circuit
-// before touching the database.
-func HelpRequested(args []string) bool {
-	for _, a := range args {
-		switch strings.TrimSpace(a) {
-		case "-h", "--help":
-			return true
-		}
-	}
-	return false
-}

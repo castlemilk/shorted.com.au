@@ -12,6 +12,7 @@ func testJob(name string, calls *[]string, err error) Job {
 	return Func{
 		JobName: name,
 		Desc:    name + " description",
+		DryRun:  true,
 		Fn: func(ctx context.Context, args []string) error {
 			*calls = append(*calls, name+":"+strings.Join(args, ","))
 			return err
@@ -73,16 +74,18 @@ func TestDispatchNoArgsPrintsAvailableJobs(t *testing.T) {
 }
 
 func TestDispatchHelpTokenPrintsUsage(t *testing.T) {
-	var calls []string
-	r := NewRegistry(testJob("influence", &calls, nil))
 	for _, arg := range []string{"-h", "--help", "help"} {
-		var out bytes.Buffer
-		if err := r.Dispatch(context.Background(), "shorted", []string{arg}, &out); !errors.Is(err, ErrUsage) {
-			t.Fatalf("%s: want ErrUsage, got %v", arg, err)
-		}
-		if !strings.Contains(out.String(), "Available jobs:") {
-			t.Errorf("%s: missing usage: %q", arg, out.String())
-		}
+		t.Run(arg, func(t *testing.T) {
+			var calls []string
+			r := NewRegistry(testJob("influence", &calls, nil))
+			var out bytes.Buffer
+			if err := r.Dispatch(context.Background(), "shorted", []string{arg}, &out); !errors.Is(err, ErrUsage) {
+				t.Fatalf("want ErrUsage, got %v", err)
+			}
+			if !strings.Contains(out.String(), "Available jobs:") {
+				t.Errorf("missing usage: %q", out.String())
+			}
+		})
 	}
 }
 
@@ -94,6 +97,11 @@ func TestDispatchUnknownJob(t *testing.T) {
 	err := r.Dispatch(context.Background(), "shorted", []string{"nope"}, &out)
 	if err == nil || !strings.Contains(err.Error(), `unknown job "nope"`) {
 		t.Fatalf("want unknown-job error, got %v", err)
+	}
+	// Wrapped in ErrUsage so main exits 2 WITHOUT reprinting what the runner
+	// already wrote.
+	if !errors.Is(err, ErrUsage) {
+		t.Errorf("unknown job should wrap ErrUsage, got %v", err)
 	}
 	if !strings.Contains(out.String(), "Available jobs:") {
 		t.Errorf("expected usage after unknown job: %q", out.String())
@@ -122,12 +130,56 @@ func TestGroupDispatchesSubJobs(t *testing.T) {
 	}
 }
 
+// The sub-job name must survive into the log line, and exactly one start/end
+// pair may be emitted for the whole invocation.
+func TestGroupLogsLeafJobName(t *testing.T) {
+	var calls []string
+	g := NewGroup("reports", "report tools", testJob("coverage", &calls, nil))
+	r := NewRegistry(g)
+
+	var out bytes.Buffer
+	if err := r.Dispatch(context.Background(), "shorted", []string{"reports", "coverage"}, &out); err != nil {
+		t.Fatalf("Dispatch: %v", err)
+	}
+	got := out.String()
+	if !strings.Contains(got, "[job] start name=shorted reports coverage") {
+		t.Errorf("leaf name lost from start line: %q", got)
+	}
+	if !strings.Contains(got, "[job] done name=shorted reports coverage") {
+		t.Errorf("leaf name lost from end line: %q", got)
+	}
+	if n := strings.Count(got, "[job] start"); n != 1 {
+		t.Errorf("want exactly 1 start line, got %d:\n%s", n, got)
+	}
+	if n := strings.Count(got, "[job] done"); n != 1 {
+		t.Errorf("want exactly 1 done line, got %d:\n%s", n, got)
+	}
+}
+
+func TestGroupDispatchWritesUsageToProvidedWriter(t *testing.T) {
+	var calls []string
+	g := NewGroup("reports", "report tools", testJob("coverage", &calls, nil))
+	r := NewRegistry(g)
+
+	var out bytes.Buffer
+	err := r.Dispatch(context.Background(), "shorted", []string{"reports"}, &out)
+	if !errors.Is(err, ErrUsage) {
+		t.Fatalf("want ErrUsage, got %v", err)
+	}
+	if !strings.Contains(out.String(), "usage: shorted reports <job>") {
+		t.Errorf("group usage not written to the dispatch writer: %q", out.String())
+	}
+}
+
 func TestGroupUnknownSubJob(t *testing.T) {
 	var calls []string
 	g := NewGroup("reports", "report tools", testJob("coverage", &calls, nil))
 	err := g.Run(context.Background(), []string{"nope"})
-	if err == nil || !strings.Contains(err.Error(), `unknown reports job "nope"`) {
+	if err == nil || !strings.Contains(err.Error(), `unknown job "nope"`) {
 		t.Fatalf("want unknown sub-job error, got %v", err)
+	}
+	if !errors.Is(err, ErrUsage) {
+		t.Errorf("unknown sub-job should wrap ErrUsage, got %v", err)
 	}
 }
 
@@ -135,6 +187,72 @@ func TestGroupNoArgsIsUsage(t *testing.T) {
 	g := NewGroup("reports", "report tools")
 	if err := g.Run(context.Background(), nil); !errors.Is(err, ErrUsage) {
 		t.Fatalf("want ErrUsage, got %v", err)
+	}
+}
+
+// A global -dry-run must fail fast against a job that cannot honour it, rather
+// than letting the job write.
+func TestDispatchRefusesGlobalDryRunOnUnsupportedJob(t *testing.T) {
+	var calls []string
+	writer := Func{
+		JobName: "influence",
+		Desc:    "always writes",
+		Fn: func(ctx context.Context, args []string) error {
+			calls = append(calls, "ran")
+			return nil
+		},
+	}
+	r := NewRegistry(writer)
+
+	ctx := WithGlobals(context.Background(), Globals{DryRun: true})
+	var out bytes.Buffer
+	err := r.Dispatch(ctx, "shorted", []string{"influence"}, &out)
+	if err == nil || !strings.Contains(err.Error(), "does not support -dry-run") {
+		t.Fatalf("want dry-run refusal, got %v", err)
+	}
+	if len(calls) != 0 {
+		t.Fatalf("job ran despite unsupported -dry-run: %v", calls)
+	}
+	if strings.Contains(out.String(), "[job] start") {
+		t.Errorf("refusal should precede the job start line: %q", out.String())
+	}
+}
+
+func TestDispatchAllowsGlobalDryRunOnSupportingJob(t *testing.T) {
+	var calls []string
+	r := NewRegistry(testJob("coverage", &calls, nil))
+
+	ctx := WithGlobals(context.Background(), Globals{DryRun: true})
+	var out bytes.Buffer
+	if err := r.Dispatch(ctx, "shorted", []string{"coverage"}, &out); err != nil {
+		t.Fatalf("Dispatch: %v", err)
+	}
+	if len(calls) != 1 {
+		t.Fatalf("dry-run-aware job should have run: %v", calls)
+	}
+}
+
+// The enforcement must reach through a Group to the leaf sub-job.
+func TestGroupDryRunEnforcementReachesLeaf(t *testing.T) {
+	var calls []string
+	leaf := Func{
+		JobName: "sync",
+		Desc:    "always writes",
+		Fn: func(ctx context.Context, args []string) error {
+			calls = append(calls, "ran")
+			return nil
+		},
+	}
+	r := NewRegistry(NewGroup("reports", "report tools", leaf))
+
+	ctx := WithGlobals(context.Background(), Globals{DryRun: true})
+	var out bytes.Buffer
+	err := r.Dispatch(ctx, "shorted", []string{"reports", "sync"}, &out)
+	if err == nil || !strings.Contains(err.Error(), `job "shorted reports sync" does not support -dry-run`) {
+		t.Fatalf("want leaf dry-run refusal, got %v", err)
+	}
+	if len(calls) != 0 {
+		t.Fatalf("leaf ran despite unsupported -dry-run: %v", calls)
 	}
 }
 
@@ -157,13 +275,4 @@ func TestDuplicateRegistrationPanics(t *testing.T) {
 	}()
 	var calls []string
 	NewRegistry(testJob("dup", &calls, nil), testJob("dup", &calls, nil))
-}
-
-func TestHelpRequested(t *testing.T) {
-	if !HelpRequested([]string{"-mode", "tax", "-h"}) {
-		t.Error("-h not detected")
-	}
-	if HelpRequested([]string{"-mode", "tax"}) {
-		t.Error("false positive")
-	}
 }
