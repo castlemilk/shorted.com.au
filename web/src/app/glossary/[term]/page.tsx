@@ -34,7 +34,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const term = getTermBySlug(slug);
 
   if (!term) {
-    return { title: "Term Not Found" };
+    // The page body calls notFound() for this slug, but the 404 status can be
+    // pre-empted if the response has already streamed — keep the fallback
+    // metadata explicitly noindex so a soft-200 never enters the index.
+    return {
+      title: "Term Not Found",
+      robots: { index: false, follow: false },
+    };
   }
 
   const title = `${term.term} Definition | Short Selling Glossary | ${siteConfig.name}`;

@@ -1,5 +1,10 @@
 import Link from "next/link";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
+import { sectionTitle } from "~/@/lib/typography";
+import {
+  AsicDataFreshness,
+  latestAsicDataDate,
+} from "~/@/components/home/asic-data-freshness";
 
 /**
  * Server-rendered HTML table of top shorted stocks.
@@ -12,9 +17,11 @@ export async function TopShortsFallback() {
     name: string;
     percent: number;
   }> = [];
+  let asOf: Date | null = null;
 
   try {
     const data = await getTopShortsData("3m", 10, 0);
+    asOf = latestAsicDataDate(data?.timeSeries);
     stocks = (data?.timeSeries ?? [])
       .slice(0, 10)
       .map((ts) => ({
@@ -31,13 +38,15 @@ export async function TopShortsFallback() {
 
   return (
     <section className="container mx-auto px-4 py-4">
-      <noscript>
-        <h2 className="text-xl font-semibold mb-4">
-          Top 10 Most Shorted ASX Stocks
-        </h2>
-      </noscript>
+      {/* The one H2 for the top-10 table. Previously rendered twice (a
+          <noscript> copy plus an sr-only copy), which put a duplicate heading
+          in the crawled HTML. */}
+      <h2 className={sectionTitle}>Top 10 Most Shorted ASX Stocks</h2>
+      <AsicDataFreshness
+        date={asOf}
+        className="mt-1 text-sm text-muted-foreground"
+      />
       <div className="sr-only">
-        <h2>Top 10 Most Shorted ASX Stocks</h2>
         <table>
           <caption>
             Most shorted stocks on the Australian Securities Exchange, sourced from

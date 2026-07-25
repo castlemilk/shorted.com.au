@@ -5,8 +5,12 @@ import Link from "next/link";
 import { siteConfig } from "~/@/config/site";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
-import { BreadcrumbListSchema } from "~/@/components/seo/enhanced-structured-data";
+import {
+  BreadcrumbListSchema,
+  ItemListStructuredData,
+} from "~/@/components/seo/enhanced-structured-data";
 import { SCANS } from "~/@/lib/scans/registry";
+import { getScanResults } from "~/app/actions/getScanResults";
 
 export const metadata: Metadata = {
   title: "ASX Short Interest Scans — Rising Shorts, Covering & Squeeze Fuel",
@@ -52,18 +56,52 @@ export const metadata: Metadata = {
   },
 };
 
-export const revalidate = 86400;
+// force-dynamic, matching /scans/[slug] for the same reason: the hub now
+// reads the ASIC data date via getScanResults(), and the backend is
+// unreachable at build time where skipForBuild() forces it to null. Under
+// ISR that would bake a date-less shell that survived until the first
+// successful revalidation. Rendering per-request always resolves a real
+// date; getScanResults()'s own 1h unstable_cache (shared with the slug
+// pages) means this adds no backend load.
+export const dynamic = "force-dynamic";
 
 const breadcrumbs = [
   { name: "Home", url: siteConfig.url },
   { name: "Scans", url: `${siteConfig.url}/scans` },
 ];
 
-export default function ScansIndexPage() {
+function formatAsOf(iso: string): string {
+  if (!iso) return "";
+  const d = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-AU", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+export default async function ScansIndexPage() {
   const scans = Object.values(SCANS);
+
+  // One scan's results carry the ASIC data date for the whole set (all scans
+  // read the same MV). Tolerates null — the freshness line is simply omitted.
+  const firstSlug = scans[0]?.slug;
+  const results = firstSlug ? await getScanResults(firstSlug) : null;
+  const asOf = results ? formatAsOf(results.asOfDate) : "";
+
   return (
     <DashboardLayout>
       <BreadcrumbListSchema items={breadcrumbs} />
+      <ItemListStructuredData
+        name="ASX Short Interest Scans"
+        description="Daily short-selling scans over every ASX stock, from official ASIC data."
+        items={scans.map((scan) => ({
+          name: scan.h1,
+          url: `${siteConfig.url}/scans/${scan.slug}`,
+          description: scan.dek,
+        }))}
+      />
       <div className="space-y-8">
         <div className="mb-4">
           <Breadcrumbs items={[{ label: "Scans", href: "/scans" }]} />
@@ -85,6 +123,18 @@ export default function ScansIndexPage() {
             </Link>
             .
           </p>
+          {asOf && (
+            <p className="mt-3 text-sm text-muted-foreground">
+              Short positions as of{" "}
+              <time
+                dateTime={results!.asOfDate}
+                className="font-medium text-foreground"
+              >
+                {asOf}
+              </time>{" "}
+              · ASIC data, T+4 delay
+            </p>
+          )}
         </section>
 
         <section aria-label="Available scans">

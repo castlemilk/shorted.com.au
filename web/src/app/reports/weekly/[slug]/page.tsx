@@ -324,6 +324,8 @@ export default async function WeeklyReportPage({ params }: PageProps) {
       url: `${siteConfig.url}/reports`,
     },
     articleSection: "Short Selling",
+    inLanguage: "en-AU",
+    isAccessibleForFree: true,
     mainEntityOfPage: canonicalUrl,
     image: [siteConfig.ogImage],
   } : null;

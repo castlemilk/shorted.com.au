@@ -4,6 +4,7 @@ import { Badge } from "./badge";
 import { Skeleton } from "./skeleton";
 import { Sparkles, RefreshCwIcon } from "lucide-react";
 import { CompanyLogo } from "./company-logo";
+import { formatCompanyName } from "~/@/lib/company-name";
 
 /**
  * Shared presentational view for the company profile card.
@@ -28,6 +29,9 @@ export function CompanyProfileView({
   // produced mid-word "..." cutoffs on top of the clamp.
   const displaySummary =
     stockDetails.enhancedSummary || stockDetails.summary || "";
+  // The backend title-caser mangles ticker acronyms ("BHP GROUP LIMITED" →
+  // "Bhp Group"); repair at display time. See lib/company-name.ts.
+  const displayName = formatCompanyName(stockDetails.companyName, stockCode);
 
   return (
     <Card className="h-full">
@@ -54,8 +58,8 @@ export function CompanyProfileView({
                 )}
               </div>
               {/* h2 — the page's h1 is the sr-only crawler summary in page.tsx */}
-              <h2 className="text-xl md:text-2xl font-extrabold tracking-tight text-foreground line-clamp-2 leading-tight" title={stockDetails.companyName ?? stockCode}>
-                {stockDetails.companyName ?? stockCode}
+              <h2 className="text-xl md:text-2xl font-extrabold tracking-tight text-foreground line-clamp-2 leading-tight" title={displayName || stockCode}>
+                {displayName || stockCode}
               </h2>
               <div className="flex flex-wrap gap-1 mt-2">
                 {stockDetails.industry && (

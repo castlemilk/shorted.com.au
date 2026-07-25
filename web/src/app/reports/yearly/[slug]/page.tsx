@@ -149,6 +149,14 @@ export default async function YearlyReportPage({ params }: PageProps) {
     headline: enhanced.headline ?? `ASX Short Selling Year in Review: ${slug}`,
     description: cleanSummary,
     datePublished: `${slug}-12-31`,
+    dateModified: `${slug}-12-31`,
+    inLanguage: "en-AU",
+    isAccessibleForFree: true,
+    isPartOf: {
+      "@type": "CreativeWorkSeries",
+      name: "ASX Short Selling Year in Review",
+      url: `${siteConfig.url}/reports`,
+    },
     // Organization author only — "Shorted AI Research" is not a Person, and
     // Google's guidance requires author to accurately represent authorship.
     author: [

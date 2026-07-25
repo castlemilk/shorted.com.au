@@ -1,10 +1,13 @@
 export const siteConfig = {
   name: "Shorted",
-  fullTitle: "Shorting the ASX — Official ASIC Short Position Data | Shorted",
+  fullTitle: "Most Shorted ASX Stocks — Official ASIC Short Selling Data | Shorted",
+  // Same title without the brand suffix — for OG/Twitter cards, where the brand
+  // is already shown as the site name.
+  socialTitle: "Most Shorted ASX Stocks — Official ASIC Short Selling Data",
   url: "https://shorted.com.au",
   ogImage: "https://shorted.com.au/opengraph-image",
   description:
-    "Shorting the ASX starts with the data. Official ASIC short positions for every ASX stock — most shorted lists, short interest trends and charts, updated daily (T+4).",
+    "Shorting the ASX starts with the data. Official ASIC short selling data for every ASX stock — the most shorted stocks, short interest trends and charts, updated daily (T+4).",
   shortDescription:
     "Official ASIC short position data for ASX stocks. Updated daily with T+4 delay. Track the most shorted stocks on the Australian market.",
   dataDisclaimer:
