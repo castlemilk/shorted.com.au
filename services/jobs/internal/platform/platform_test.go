@@ -112,6 +112,40 @@ func TestPingRevalidateSuccess(t *testing.T) {
 	}
 }
 
+// The weekly-report job busts by TAG rather than by path; the tag must ride the
+// query string and no empty path/flush params may be sent.
+func TestPingRevalidateTagOnly(t *testing.T) {
+	var query url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		query = r.URL.Query()
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	t.Setenv("REVALIDATION_URL", srv.URL+"/api/revalidate")
+	t.Setenv("REVALIDATION_SECRET", testSecret)
+
+	out := captureLog(t, func() {
+		PingRevalidate(RevalidateRequest{Reason: "weekly-report", Tag: "report-2026-W06"})
+	})
+
+	if got := query.Get("tag"); got != "report-2026-W06" {
+		t.Errorf("tag = %q, want report-2026-W06", got)
+	}
+	if _, ok := query["path"]; ok {
+		t.Errorf("path must be omitted when no paths are given: %v", query)
+	}
+	if _, ok := query["flush"]; ok {
+		t.Errorf("flush must be omitted when unset: %v", query)
+	}
+	if query.Get("secret") != testSecret {
+		t.Errorf("secret not forwarded: %v", query)
+	}
+	if strings.Contains(out, testSecret) {
+		t.Errorf("secret leaked into logs: %q", out)
+	}
+}
+
 func TestPingRevalidateNonSuccessWarnsWithoutSecret(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
