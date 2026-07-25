@@ -112,3 +112,14 @@ before cutover):**
   `Run` chains them with early returns.
 - Freeze the source services (README banner + a PR-template note) as soon as
   their port lands, so this only has to be paid once per job family.
+
+## Cutover checklist — announcements + economy (from Phase 2 review)
+
+- `.github/workflows/economy-freshness.yml` passes `--args="-mode,freshness"` —
+  after repointing the Cloud Run job at the `shorted` image the args MUST become
+  `economy,-mode,freshness` (a bare `-mode` exits 2 with usage).
+- Log-based alerting: single-mode economy failures no longer emit an
+  `ERROR <name>: <err>` textPayload line — the error surfaces as the runner's
+  `[job] done ... status=error` line + main's `error:` exit line. Review any
+  log-match alerts before cutover. (`-mode all` per-step ERROR lines unchanged.)
+- OTel service name stays "asx-announcement-crawler" for dashboard continuity.
