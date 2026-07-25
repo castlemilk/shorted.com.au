@@ -33,21 +33,22 @@ services/jobs/
 
 | Subcommand | Replaces | Deployed? |
 |---|---|---|
-| `announcements` | `services/asx-announcement-crawler` | yes — Cloud Run Job (still served by the OLD service) |
-| `economy` | `services/economy-collector` | yes — Cloud Run Job (still served by the OLD service) |
+| `announcements` | `services/asx-announcement-crawler` | yes — `shorted-announcements` (cutover 1; old scheduler paused) |
+| `economy` | `services/economy-collector` | yes — `shorted-economy` (cutover 1; old scheduler paused) |
 | `influence` | `services/influence-collector` | no — laptop-only tool |
-| `news` | `services/news-aggregator` | yes — Cloud Run Job (still served by the OLD service) |
+| `news` | `services/news-aggregator` | yes — `shorted-news`, 1 job + 5 schedules (cutover 2; all 5 old schedulers paused) |
 | `reports coverage` | `services/report-coverage` | no — laptop-only tool |
 | `reports link` | `services/report-linker` | no — laptop-only tool |
 | `reports sync` | `services/report-sync` | no — laptop-only tool |
-| `signals` | `services/signals-collector` (Python) | yes — Cloud Run Job (still served by the OLD service) |
-| `weekly-report` | `services/weekly-report-generator` | yes — Cloud Run Job (still served by the OLD service) |
+| `signals` | `services/signals-collector` (Python) | yes — `shorted-signals` (cutover 2; old scheduler paused) |
+| `weekly-report` | `services/weekly-report-generator` | yes — `shorted-weekly-report`, weekly + monthly schedules (cutover 2; old schedulers paused) |
 
-The old services are still present and still build; per the plan's invariants a
-service is only deleted in a later cleanup PR, after its replacement has run
-green. **Nothing deployed changes yet** — `announcements` and `economy` are code
-ports only: their Terraform, images and schedules still point at the standalone
-services, and the scheduler cutover is a separate PR per job.
+The old services are still present, still build and stay **deployed + manually
+executable**; per the plan's invariants a service is only deleted in a later
+cleanup PR, after its replacement has run green for ≥1 scheduled cycle. Only the
+old *schedulers* are paused, so rollback is a `scheduler_paused` / `paused`
+variable flip in `terraform/environments/{dev,prod}/main.tf` — see
+`docs/jobs-consolidation-plan.md` ("Cutover slice 1" / "Cutover slice 2").
 
 ## Phase 2b port notes (news / signals / weekly-report)
 

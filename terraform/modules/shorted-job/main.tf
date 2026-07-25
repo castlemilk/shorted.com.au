@@ -19,6 +19,33 @@ locals {
     environment = var.environment
     managed_by  = "terraform"
   }
+
+  schedules_by_suffix = { for s in var.schedules : s.name_suffix => s }
+
+  # The single container's override object for each extra schedule. `env` is
+  # emitted as the Cloud Run v1 [{name, value}] list (map iteration is
+  # key-sorted, so the payload is stable across plans).
+  schedule_overrides = {
+    for k, s in local.schedules_by_suffix : k => merge(
+      s.args_override == null ? {} : { args = s.args_override },
+      s.env_override == null ? {} : { env = [for name, value in s.env_override : { name = name, value = value }] },
+    )
+  }
+
+  # Base64 scheduler body — null (no body posted, a plain :run) when the entry
+  # declares no overrides. Encoding copied verbatim from the old
+  # news-aggregator / weekly-report-generator schedulers.
+  schedule_bodies = {
+    for k, o in local.schedule_overrides : k => length(o) == 0 ? null : base64encode(jsonencode({
+      overrides = {
+        container_overrides = [o]
+      }
+    }))
+  }
+
+  # runWithOverrides is in roles/run.developer, NOT roles/run.invoker: any
+  # schedule that posts an overrides body 403s without the extra binding.
+  needs_run_developer = length([for k, b in local.schedule_bodies : k if b != null]) > 0
 }
 
 # Service account the job runs as.
@@ -107,6 +134,18 @@ resource "google_cloud_run_v2_job_iam_member" "scheduler_invoker" {
   member   = "serviceAccount:${google_service_account.scheduler_invoker.email}"
 }
 
+# Only created when at least one extra schedule posts an overrides body, so
+# single-schedule instantiations are unaffected (count = 0 → no resource).
+resource "google_cloud_run_v2_job_iam_member" "scheduler_developer" {
+  count = local.needs_run_developer ? 1 : 0
+
+  name     = google_cloud_run_v2_job.job.name
+  location = google_cloud_run_v2_job.job.location
+  project  = var.project_id
+  role     = "roles/run.developer"
+  member   = "serviceAccount:${google_service_account.scheduler_invoker.email}"
+}
+
 resource "google_cloud_scheduler_job" "schedule" {
   name             = "${var.name}-schedule"
   description      = var.description != "" ? var.description : "Scheduled run of `shorted ${join(" ", var.args)}`"
@@ -136,5 +175,50 @@ resource "google_cloud_scheduler_job" "schedule" {
   depends_on = [
     google_cloud_run_v2_job.job,
     google_cloud_run_v2_job_iam_member.scheduler_invoker
+  ]
+}
+
+# Extra schedules (var.schedules) — same job, different cron, optionally with an
+# args/env override payload. Kept as a SEPARATE for_each resource from the
+# primary `schedule` above so that adding this feature does not re-address the
+# existing single-schedule instantiations (no state moves, no plan diff).
+resource "google_cloud_scheduler_job" "extra_schedule" {
+  for_each = local.schedules_by_suffix
+
+  name        = "${var.name}-${each.key}"
+  description = each.value.description != "" ? each.value.description : "Scheduled run of `shorted ${join(" ", coalesce(each.value.args_override, var.args))}` (${each.key})"
+  schedule    = each.value.cron
+  time_zone   = "UTC"
+  attempt_deadline = (
+    each.value.attempt_deadline != null ? each.value.attempt_deadline : var.scheduler_attempt_deadline
+  )
+  region  = var.scheduler_region
+  project = var.project_id
+  paused  = each.value.paused != null ? each.value.paused : var.paused
+
+  retry_config {
+    retry_count          = 2
+    max_retry_duration   = "3600s"
+    min_backoff_duration = "10s"
+    max_backoff_duration = "1800s"
+  }
+
+  http_target {
+    http_method = "POST"
+    uri         = "https://${var.region}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${var.project_id}/jobs/${google_cloud_run_v2_job.job.name}:run"
+
+    oauth_token {
+      service_account_email = google_service_account.scheduler_invoker.email
+    }
+
+    # null when the entry declares no overrides → a plain :run, same as the
+    # primary schedule.
+    body = local.schedule_bodies[each.key]
+  }
+
+  depends_on = [
+    google_cloud_run_v2_job.job,
+    google_cloud_run_v2_job_iam_member.scheduler_invoker,
+    google_cloud_run_v2_job_iam_member.scheduler_developer,
   ]
 }
