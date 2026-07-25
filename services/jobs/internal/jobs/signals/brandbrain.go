@@ -130,7 +130,10 @@ func (c *brandbrainClient) resolveOnce(ctx context.Context, body []byte) (payloa
 
 	var out signalsPayload
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return nil, false, fmt.Errorf("decode brandbrain response: %w", err)
+		// Retryable, matching collect.py, which wrapped resp.json() inside the
+		// retried block — a truncated/garbled 200 body gets the backoff retries
+		// rather than permanently failing the stock for this run.
+		return nil, true, fmt.Errorf("decode brandbrain response: %w", err)
 	}
 	return &out, false, nil
 }

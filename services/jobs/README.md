@@ -123,3 +123,12 @@ from `services/go.work`, the bind-mount branch of the Dockerfile adds one
 pointing at `/stealth`, and the GitHub-token branch needs none (a committed
 `replace … => ../../../stealth` resolves to a non-existent `/stealth` in the
 image and breaks the token path before the token is read).
+
+### Phase 2b review notes (documented divergences)
+
+- **news**: the old binary set `log.SetOutput(os.Stdout)`; the monolith logs to
+  stderr like every other job. If any log-based metric filters on the stdout
+  stream for news-aggregator, update it at cutover.
+- **signals**: brandbrain responses are decoded strictly (typed floats/strings);
+  Python coerced loosely. Upstream schema drift (e.g. confidence as a JSON
+  string) fails the decode — surfaced as a retried, then logged+counted error.
