@@ -26,6 +26,18 @@ variable "image_url" {
   type        = string
 }
 
+# Cutover switch: the consolidated `shorted news` job (modules/shorted-job,
+# module.shorted_job_news — ONE job, five schedules) takes over ALL FIVE of this
+# module's schedulers (periodic / backfill-images / resolve-googlenews / cluster
+# / digest). The old job stays deployed (and manually executable) with every
+# scheduler paused until one green scheduled run of the replacement; rollback =
+# flip this back to false and pause the new module.
+variable "scheduler_paused" {
+  description = "Pause ALL five of this job's Cloud Scheduler triggers (used during the shorted-jobs consolidation cutover)"
+  type        = bool
+  default     = false
+}
+
 variable "otel_endpoint" {
   description = "OpenTelemetry OTLP endpoint for traces and metrics"
   type        = string

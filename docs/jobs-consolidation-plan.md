@@ -169,3 +169,110 @@ services.
   `[job] done ... status=error` line + main's `error:` exit line. Review any
   log-match alerts before cutover. (`-mode all` per-step ERROR lines unchanged.)
 - OTel service name stays "asx-announcement-crawler" for dashboard continuity.
+
+## Cutover slice 2 — weekly-report + news + signals (branch `feat/jobs-monolith-cutover-2`)
+
+Three more jobs now run from the ONE `shorted-jobs` image. No new CI wiring was
+needed (`shorted_jobs_image` is already threaded into both envs by slice 1).
+
+### `modules/shorted-job` gained multi-schedule support
+
+The news topology is ONE Cloud Run Job with FIVE schedulers, four of which set
+`RUN_MODE` (+ extra env) through `overrides.container_overrides` in the
+scheduler HTTP body. Rather than five jobs, the shared module grew an optional
+`schedules` list:
+
+```hcl
+schedules = [{
+  name_suffix      = "cluster"          # → scheduler "<name>-cluster"
+  cron             = "30 */2 * * *"
+  description      = optional
+  paused           = optional(bool)      # defaults to var.paused
+  attempt_deadline = optional(string)    # defaults to var.scheduler_attempt_deadline
+  args_override    = optional(list(string))
+  env_override     = optional(map(string))
+}]
+```
+
+- Encoded as `base64encode(jsonencode({overrides = {container_overrides = [{args=…, env=[{name,value}…]}]}}))`
+  — byte-identical mechanism to the old news-aggregator / weekly-report
+  schedulers. Entries with no override post NO body (a plain `:run`).
+- `env_override` MERGES into the container env; `args_override` REPLACES the
+  container args wholesale (so it must repeat the `shorted <subcommand>` prefix).
+- `roles/run.developer` (needed for `runWithOverrides`; `run.invoker` alone
+  403s) is granted only when at least one entry carries an override —
+  `count = 0` otherwise.
+- **The pre-existing single-schedule path is untouched.** `var.schedule` still
+  drives the un-counted `google_cloud_scheduler_job.schedule`; the new triggers
+  live in a separate `for_each` resource (`…extra_schedule`). No resource was
+  re-addressed, so `module.shorted_job_announcements` /
+  `module.shorted_job_economy` keep exactly the resources and attributes they
+  have in state (empty `schedules` ⇒ `for_each = {}` ⇒ nothing planned).
+
+### Instantiations (dev + prod)
+
+| Module | Job | Args | Schedules | Resources |
+|---|---|---|---|---|
+| `shorted_job_weekly_report` | `shorted-weekly-report` | `["weekly-report"]` | `0 11 * * 5` (primary) + `monthly` `0 1 1 * *` w/ `REPORT_TYPE=monthly` | 900s, 1 CPU / 512Mi |
+| `shorted_job_news` | `shorted-news` | `["news"]` | `0 */4 * * *` (primary) + `backfill-images` / `resolve-googlenews` / `cluster` / `digest`, each w/ `RUN_MODE=…` | 900s, 1 CPU / 512Mi |
+| `shorted_job_signals` | `shorted-signals` | `["signals","--priority","top-shorted","--limit","200","--max-age-days","30","--workers","2"]` | `0 13 * * 1` | 3600s, 1 CPU / 512Mi |
+
+Env/secret parity is one-for-one with the old modules, including the prod-only
+splits: news reads `GEMINI_API_KEY` from the **`GEMINI_API_KEY_NEWS`** secret and
+gets `EMAIL_IMG_SECRET` in prod only (dev's old module defaulted
+`email_img_secret_exists = false`); weekly-report keeps `OPENAI_API_KEY` +
+`GEMINI_API_KEY`; signals keeps `BRANDBRAIN_URL`. The dev instantiations gate
+`GEMINI_API_KEY` on the same `var.gemini_secret_exists` the old modules used.
+
+**Old jobs are PAUSED, not deleted:** `scheduler_paused` (default `false`) was
+added to `modules/weekly-report-generator` (2 schedulers),
+`modules/news-aggregator` (**all FIVE schedulers**) and
+`modules/signals-collector` (1), and set to `true` at both env call sites.
+
+**Rollback (variable flips only, nothing destroyed):** set
+`scheduler_paused = false` on the old module call site and `paused = true` on the
+matching `module.shorted_job_*`, then `terraform apply`. For `shorted_job_news`
+and `shorted_job_weekly_report`, `paused = true` cascades to their extra
+schedules too (each entry's `paused` defaults to `var.paused`).
+
+**Cleanup (after ≥1 green scheduled run of each replacement):** delete
+`modules/{weekly-report-generator,news-aggregator,signals-collector}`, their env
+call sites, the `weekly_report_generator_image` / `news_aggregator_image` /
+`signals_collector_image` vars, the CI matrix entries and the source services.
+
+## Cutover checklist — weekly-report + news + signals
+
+- **news logs move stdout → stderr.** The standalone binary called
+  `log.SetOutput(os.Stdout)`; the monolith logs to stderr like every other job.
+  Any log-based metric/alert filtering on the stdout stream for
+  `news-aggregator` must be repointed (stream + `job_name="shorted-news"`).
+- **Job/resource names change**, so every log filter, dashboard and jobstatus
+  query keyed on the Cloud Run job name needs updating:
+  `weekly-report-generator` → `shorted-weekly-report`, `news-aggregator` →
+  `shorted-news`, `signals-collector` → `shorted-signals`. Scheduler names
+  likewise (`news-aggregator-periodic` → `shorted-news-schedule`,
+  `-backfill-images`/`-resolve-googlenews`/`-cluster`/`-digest` keep their
+  suffixes under the `shorted-news-` prefix; `weekly-report-generator-weekly` →
+  `shorted-weekly-report-schedule`, `-monthly` → `shorted-weekly-report-monthly`;
+  `signals-collector-weekly` → `shorted-signals-schedule`).
+- **OTel service names are unchanged** (`weekly-report-generator`,
+  `news-aggregator`, `signals-collector`) for dashboard continuity — the OTel and
+  Cloud Run identities now differ deliberately.
+- **Single-mode failures** surface as the runner's `[job] done … status=error`
+  + main's `error:` line rather than the old per-binary `ERROR` textPayload —
+  same caveat as slice 1, re-check log-match alerts.
+- **Scheduler retry_config is normalised** by the shared module (retry_count 2 /
+  max_retry_duration 3600s / backoff 10s–1800s). The old news + signals
+  schedulers used `retry_count = 1` and, for the periodic/cluster/digest
+  triggers, shorter max_retry/backoff windows. Attempt deadlines ARE preserved
+  per schedule (600s/1800s).
+- **`shorted news` with no `RUN_MODE` aggregates** (flag default), so the
+  primary schedule needs no body — but an UNKNOWN `RUN_MODE` now fails fast
+  instead of silently falling through to aggregate. Keep override values exactly
+  as listed above.
+- `PUBLIC_SITE_URL` + `EMAIL_IMG_SECRET` remain load-bearing for
+  `RUN_MODE=digest` (signed `/api/email/img` thumbnails must verify against the
+  Vercel-side secret).
+- Revalidation env (`REVALIDATION_URL`/`_SECRET`) was NOT set on the old
+  weekly-report module and is still not set — `platform.PingRevalidate` no-ops,
+  same as today. Wiring it is a separate change.

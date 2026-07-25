@@ -207,6 +207,7 @@ resource "google_cloud_scheduler_job" "news_aggregator" {
   attempt_deadline = "600s"
   region           = var.scheduler_region
   project          = var.project_id
+  paused           = var.scheduler_paused
 
   retry_config {
     retry_count          = 2
@@ -243,6 +244,7 @@ resource "google_cloud_scheduler_job" "news_aggregator_backfill_images" {
   attempt_deadline = "1800s"
   region           = var.scheduler_region
   project          = var.project_id
+  paused           = var.scheduler_paused
 
   retry_config {
     retry_count          = 1
@@ -293,6 +295,7 @@ resource "google_cloud_scheduler_job" "news_aggregator_resolve_googlenews" {
   attempt_deadline = "1800s"
   region           = var.scheduler_region
   project          = var.project_id
+  paused           = var.scheduler_paused
 
   retry_config {
     retry_count          = 1
@@ -342,6 +345,7 @@ resource "google_cloud_scheduler_job" "news_aggregator_cluster" {
   attempt_deadline = "600s"
   region           = var.scheduler_region
   project          = var.project_id
+  paused           = var.scheduler_paused
 
   retry_config {
     retry_count          = 1
@@ -390,6 +394,7 @@ resource "google_cloud_scheduler_job" "news_aggregator_digest" {
   attempt_deadline = "600s"
   region           = var.scheduler_region
   project          = var.project_id
+  paused           = var.scheduler_paused
 
   retry_config {
     retry_count          = 1
