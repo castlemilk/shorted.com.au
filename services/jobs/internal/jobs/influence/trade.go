@@ -23,8 +23,10 @@ import (
 // helpers are local copies, the housing collector is a separate main package).
 //
 // Dataflows (verified live 2026-07-09):
-//   ABS,MERCH_EXP,1.0.0  COMMODITY_SITC.COUNTRY_DEST.STATE_ORIGIN.FREQ
-//   ABS,MERCH_IMP,1.0.0  COMMODITY_SITC.COUNTRY_ORIGIN.STATE_DEST.FREQ
+//
+//	ABS,MERCH_EXP,1.0.0  COMMODITY_SITC.COUNTRY_DEST.STATE_ORIGIN.FREQ
+//	ABS,MERCH_IMP,1.0.0  COMMODITY_SITC.COUNTRY_ORIGIN.STATE_DEST.FREQ
+//
 // We pull national totals only (COUNTRY=TOT, STATE=TOT, monthly). OBS_VALUE is
 // AUD thousands (UNIT_MULT=3) — scaled to raw AUD via the UNIT_MULT column.
 // Basis: exports FOB; imports customs value. Original terms (not seasonally
@@ -373,10 +375,10 @@ func syncIndustryTradeRecords(ctx context.Context, pool *pgxpool.Pool, rows []Tr
 
 // runTradeMode mirrors the other run* collectors: one observability run per
 // invocation covering fetch, aggregation, and upsert.
-func runTradeMode(ctx context.Context, pool *pgxpool.Pool) {
+func runTradeMode(ctx context.Context, pool *pgxpool.Pool) error {
 	runID, err := insertIndustryCollectionRun(ctx, pool, tradeSource)
 	if err != nil {
-		fatalf("[trade] start collection run: %v", err)
+		return fmt.Errorf("[trade] start collection run: %w", err)
 	}
 	rows, err := ingestABSTrade(ctx)
 	if err != nil {
@@ -385,7 +387,7 @@ func runTradeMode(ctx context.Context, pool *pgxpool.Pool) {
 			"import_dataflow": absMerchImportFlow,
 			"source_url":      tradeSourceURL,
 		})
-		fatalf("[trade] ingest error: %v", err)
+		return fmt.Errorf("[trade] ingest error: %w", err)
 	}
 	imported, skipped, err := syncIndustryTradeRecords(ctx, pool, rows)
 	if err != nil {
@@ -394,7 +396,7 @@ func runTradeMode(ctx context.Context, pool *pgxpool.Pool) {
 			"import_dataflow": absMerchImportFlow,
 			"source_url":      tradeSourceURL,
 		})
-		fatalf("[trade] sync error: %v", err)
+		return fmt.Errorf("[trade] sync error: %w", err)
 	}
 	status := "succeeded"
 	if imported == 0 {
@@ -408,9 +410,10 @@ func runTradeMode(ctx context.Context, pool *pgxpool.Pool) {
 		"crosswalk_commodities":      len(absTradeIndustryMap),
 		"skipped_unmapped_commodity": skipped,
 	}); err != nil {
-		fatalf("[trade] finish collection run: %v", err)
+		return fmt.Errorf("[trade] finish collection run: %w", err)
 	}
 	log.Printf("[trade] parsed %d ABS observations, upserted %d industry-level records (%d unmapped-commodity rows skipped)", len(rows), imported, skipped)
+	return nil
 }
 
 // tradeRecordID builds a deterministic, readable record ID:

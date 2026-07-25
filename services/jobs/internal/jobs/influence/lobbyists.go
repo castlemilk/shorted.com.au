@@ -743,7 +743,7 @@ func syncFITSRegisterRecords(ctx context.Context, pool *pgxpool.Pool, rows []FIT
 // fabricating data; any other error is fatal after both registers have been
 // attempted. markIndustrySourcePublic flips public_enabled through
 // upsertIndustryRecords, the same path AusTender uses.
-func runLobbyistsMode(ctx context.Context, pool *pgxpool.Pool) {
+func runLobbyistsMode(ctx context.Context, pool *pgxpool.Pool) error {
 	lobbyistsErr := runLobbyistRegisterSource(ctx, pool)
 	if lobbyistsErr != nil {
 		log.Printf("[lobbyists] register run failed: %v", lobbyistsErr)
@@ -753,8 +753,9 @@ func runLobbyistsMode(ctx context.Context, pool *pgxpool.Pool) {
 		log.Printf("[fits] register run failed: %v", fitsErr)
 	}
 	if err := firstHardRegisterError(lobbyistsErr, fitsErr); err != nil {
-		fatalf("[lobbyists] run error: %v", err)
+		return fmt.Errorf("[lobbyists] run error: %w", err)
 	}
+	return nil
 }
 
 // firstHardRegisterError returns the first error that is NOT an

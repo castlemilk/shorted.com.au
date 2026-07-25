@@ -13,8 +13,17 @@ import (
 // internal/platform (Connect / ConnectFromEnv) — same SimpleProtocol +
 // MaxConns=4 posture, one copy for every job.
 
+// taxBatchSize caps how many statements go into one pgx.Batch. The whole ATO
+// corpus is ~11 annual reports of tens of thousands of entities; queueing all of
+// it in a single SendBatch is the known Supabase transaction-pooler hang (the
+// crime ingest hit exactly this at 527k rows). Chunking keeps each round trip
+// bounded and lets ctx cancellation land between chunks.
+const taxBatchSize = 2000
+
 // upsertTaxRows idempotently writes tax facts, keyed by (abn, income_year).
 // TaxableIncome / TaxPayable bind nil → NULL (a blank cell is meaningful, never 0).
+// Returns the number of rows written before any error, so callers can report
+// partial progress.
 func upsertTaxRows(ctx context.Context, pool *pgxpool.Pool, rows []TaxRow) (int, error) {
 	const q = `
 		INSERT INTO corporate_tax
@@ -27,21 +36,41 @@ func upsertTaxRows(ctx context.Context, pool *pgxpool.Pool, rows []TaxRow) (int,
 			tax_payable    = EXCLUDED.tax_payable,
 			source         = EXCLUDED.source,
 			source_licence = EXCLUDED.source_licence`
-	batch := &pgx.Batch{}
-	for _, r := range rows {
-		batch.Queue(q, r.ABN, r.EntityName, r.IncomeYear, r.TotalIncome,
-			r.TaxableIncome, r.TaxPayable, taxSource, taxSourceLicence)
-	}
-	br := pool.SendBatch(ctx, batch)
-	defer func() { _ = br.Close() }()
 	n := 0
-	for range rows {
-		if _, err := br.Exec(); err != nil {
+	for start := 0; start < len(rows); start += taxBatchSize {
+		if err := ctx.Err(); err != nil {
 			return n, err
 		}
-		n++
+		end := min(start+taxBatchSize, len(rows))
+		chunk := rows[start:end]
+
+		batch := &pgx.Batch{}
+		for _, r := range chunk {
+			batch.Queue(q, r.ABN, r.EntityName, r.IncomeYear, r.TotalIncome,
+				r.TaxableIncome, r.TaxPayable, taxSource, taxSourceLicence)
+		}
+		written, err := sendTaxBatch(ctx, pool, batch, len(chunk))
+		n += written
+		if err != nil {
+			return n, err
+		}
 	}
 	return n, nil
+}
+
+// sendTaxBatch executes one chunk and always closes the batch result before
+// returning (a deferred Close inside the caller's loop would pile up).
+func sendTaxBatch(ctx context.Context, pool *pgxpool.Pool, batch *pgx.Batch, n int) (int, error) {
+	br := pool.SendBatch(ctx, batch)
+	defer func() { _ = br.Close() }()
+	written := 0
+	for range n {
+		if _, err := br.Exec(); err != nil {
+			return written, err
+		}
+		written++
+	}
+	return written, nil
 }
 
 // normExpr builds the SQL that normalizes an entity/company name for matching:

@@ -513,10 +513,10 @@ func syncIndustryDonationRecords(ctx context.Context, pool *pgxpool.Pool, rows [
 
 // runAECMode mirrors runAusTenderMode: collection-run bracketing, ingest, sync,
 // and a partial status when nothing matched. main.go wires it up later.
-func runAECMode(ctx context.Context, pool *pgxpool.Pool, sourceLimit int) {
+func runAECMode(ctx context.Context, pool *pgxpool.Pool, sourceLimit int) error {
 	runID, err := insertIndustryCollectionRun(ctx, pool, aecSource)
 	if err != nil {
-		fatalf("[aec] start collection run: %v", err)
+		return fmt.Errorf("[aec] start collection run: %w", err)
 	}
 	rows, files, err := ingestAEC(ctx, sourceLimit)
 	if err != nil {
@@ -525,7 +525,7 @@ func runAECMode(ctx context.Context, pool *pgxpool.Pool, sourceLimit int) {
 			"register_url": aecDownloadPage,
 			"file_limit":   sourceLimit,
 		})
-		fatalf("[aec] ingest error: %v", err)
+		return fmt.Errorf("[aec] ingest error: %w", err)
 	}
 	imported, skipped, err := syncIndustryDonationRecords(ctx, pool, rows)
 	if err != nil {
@@ -534,7 +534,7 @@ func runAECMode(ctx context.Context, pool *pgxpool.Pool, sourceLimit int) {
 			"register_url": aecDownloadPage,
 			"file_limit":   sourceLimit,
 		})
-		fatalf("[aec] sync error: %v", err)
+		return fmt.Errorf("[aec] sync error: %w", err)
 	}
 	status := "succeeded"
 	if imported == 0 && skipped > 0 {
@@ -547,7 +547,8 @@ func runAECMode(ctx context.Context, pool *pgxpool.Pool, sourceLimit int) {
 		"file_limit":       sourceLimit,
 		"skipped_unmapped": skipped,
 	}); err != nil {
-		fatalf("[aec] finish collection run: %v", err)
+		return fmt.Errorf("[aec] finish collection run: %w", err)
 	}
 	log.Printf("[aec] parsed %d AEC return rows from %d files, imported %d exact name-matched records (%d unmapped)", len(rows), files, imported, skipped)
+	return nil
 }
