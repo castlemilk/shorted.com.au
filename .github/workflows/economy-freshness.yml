@@ -1,0 +1,57 @@
+# Economy data freshness sentinel.
+#
+# Runs `-mode freshness` as a prod Cloud Run job execution a few days after
+# the monthly ingest scheduler (5th, 17:00 UTC). A STALE source (or an aged
+# correlation matrix) exits non-zero -> this workflow fails -> GitHub
+# notifies. Investigation runbook: the `$economy-data` skill
+# (.claude/skills/economy-data/SKILL.md) — sweep procedure in §1.
+#
+# FROZEN sources (upstream-discontinued, e.g. abs-retail-trade) are reported
+# but never fail the run. Threshold calibration lives in
+# services/economy-collector/freshness.go.
+name: Economy Freshness
+
+on:
+  schedule:
+    # 8th of each month, 21:23 UTC (collector ingests on the 5th).
+    - cron: "23 21 8 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  freshness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: projects/334313144667/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-actions-sa@rosy-clover-477102-t5.iam.gserviceaccount.com
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Run freshness check on prod
+        run: |
+          gcloud run jobs execute economy-collector \
+            --project rosy-clover-477102-t5 \
+            --region australia-southeast2 \
+            --args="-mode,freshness" \
+            --wait
+
+      - name: Surface report in summary
+        if: always()
+        run: |
+          {
+            echo "## Economy freshness report"
+            echo '```'
+            gcloud logging read \
+              'resource.type="cloud_run_job" AND resource.labels.job_name="economy-collector" AND (textPayload:"source_key=" OR textPayload:"freshness:")' \
+              --project rosy-clover-477102-t5 --freshness 30m --limit 40 \
+              --format="value(textPayload)" | sort
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,6121 @@
+{
+"fetched": "2026-07-23",
+"endpoint": "https://data.api.abs.gov.au/rest/dataflow/ABS?detail=allstubs",
+"flows": [
+{
+"id": "ABORIGINAL_ID_POP_PROJ",
+"version": "1.0",
+"name": "Projected resident population, Aboriginal and Torres Strait Islander Australians, identification change series, sex and age groups by states and territories and Australia, 2021 to 2031"
+},
+{
+"id": "ABORIGINAL_ID_POP_PROJ_REMOTE",
+"version": "1.0",
+"name": "Projected resident population, Aboriginal and Torres Strait Islander Australians, identification change series, sex and age groups by Remoteness Areas, 2021 to 2031"
+},
+{
+"id": "ABORIGINAL_POP_PROJ",
+"version": "1.3.0",
+"name": "Projected population, Aboriginal and Torres Strait Islander peoples, States and Territories, 2021 to 2031"
+},
+{
+"id": "ABORIGINAL_POP_PROJ_REMOTE",
+"version": "1.1.0",
+"name": "Projected population, Aboriginal and Torres Strait Islander peoples, Remoteness Areas, 2021 to 2031"
+},
+{
+"id": "ABS_ABORIGINAL_POPPROJ_INDREGION",
+"version": "1.2.0",
+"name": "Projected population, Aboriginal and Torres Strait Islander Australians, Indigenous Regions, 2021 to 2031"
+},
+{
+"id": "ABS_ACLD_LFSTATUS",
+"version": "1.0.0",
+"name": "Australian Census Longitudinal Dataset (ACLD): Labour force status, 2006-2011"
+},
+{
+"id": "ABS_ACLD_TENURE",
+"version": "1.0.0",
+"name": "Australian Census Longitudinal Dataset (ACLD): Tenure and landlord type, 2006-2011"
+},
+{
+"id": "ABS_ACLD_UNPAIDASST",
+"version": "1.0.0",
+"name": "Australian Census Longitudinal Dataset (ACLD): Unpaid assistance to a person with disability, 2006-2011"
+},
+{
+"id": "ABS_ACLD_VOLWORK",
+"version": "1.0.0",
+"name": "Australian Census Longitudinal Dataset (ACLD): Voluntary work for an organisation or group, 2006-2011"
+},
+{
+"id": "ABS_ANNUAL_ERP_ASGS",
+"version": "1.0.0",
+"name": "ERP by SA2 and above (ASGS 2011), 1991 to 2016"
+},
+{
+"id": "ABS_ANNUAL_ERP_ASGS2016",
+"version": "1.2.0",
+"name": "ERP by SA2 and above (ASGS 2016), 2001 to 2021"
+},
+{
+"id": "ABS_ANNUAL_ERP_ASGS2021",
+"version": "1.2.0",
+"name": "ERP by SA2 and above (ASGS Edition 3), 2001 onwards"
+},
+{
+"id": "ABS_ANNUAL_ERP_LGA2016",
+"version": "1.0.0",
+"name": "ERP by LGA (ASGS 2016), Age and Sex, 2001 to 2016"
+},
+{
+"id": "ABS_ANNUAL_ERP_LGA2017",
+"version": "1.0.0",
+"name": "ERP by LGA (ASGS 2017), Age and Sex, 2001 to 2017"
+},
+{
+"id": "ABS_ANNUAL_ERP_LGA2018",
+"version": "1.0.0",
+"name": "ERP by LGA (ASGS 2018), Age by Sex, 2001 to 2018"
+},
+{
+"id": "ABS_ANNUAL_ERP_LGA2019",
+"version": "1.0.0",
+"name": "ERP by LGA (ASGS 2019), Age and Sex, 2001 to 2019"
+},
+{
+"id": "ABS_ANNUAL_ERP_LGA2020",
+"version": "1.0.0",
+"name": "ERP by LGA (ASGS 2020), Age and Sex, 2001 to 2020"
+},
+{
+"id": "ABS_ANNUAL_ERP_LGA2021",
+"version": "1.0.0",
+"name": "ERP by LGA (2021), Age and Sex, 2001 to 2021"
+},
+{
+"id": "ABS_ANNUAL_ERP_LGA2022",
+"version": "1.2.0",
+"name": "ERP by LGA (2022), Age and Sex, 2001 to 2022"
+},
+{
+"id": "ABS_ANNUAL_ERP_LGA2023",
+"version": "1.1.0",
+"name": "ERP by LGA (2023), Age and Sex, 2001 to 2023"
+},
+{
+"id": "ABS_ANNUAL_ERP_LGA2024",
+"version": "1.0.0",
+"name": "ERP by LGA (2024), Age and Sex, 2001 to 2024"
+},
+{
+"id": "ABS_C16_G43_LGA",
+"version": "1.0.0",
+"name": "Census 2016, G43 Labour force status by age by sex (LGA)"
+},
+{
+"id": "ABS_C16_G43_SA",
+"version": "1.0.0",
+"name": "Census 2016, G43 Labour force status by age by sex (SA2+)"
+},
+{
+"id": "ABS_C16_G44_LGA",
+"version": "1.0.0",
+"name": "Census 2016, G44 Labour force status by sex of parents by age of dependent children for Couple families (LGA)"
+},
+{
+"id": "ABS_C16_G44_SA",
+"version": "1.0.0",
+"name": "Census 2016, G44 Labour force status by sex of parents by age of dependent children for Couple families (SA2+)"
+},
+{
+"id": "ABS_C16_G45_LGA",
+"version": "1.0.0",
+"name": "Census 2016, G45 Labour force status by sex of parent by age of dependent children for one parent families (LGA)"
+},
+{
+"id": "ABS_C16_G45_SA",
+"version": "1.0.0",
+"name": "Census 2016, G45 Labour force status by sex of parent by age of dependent children for one parent families (SA2+)"
+},
+{
+"id": "ABS_C16_G46_LGA",
+"version": "1.0.0",
+"name": "Census 2016, G46 Non-school qualification: Level of Education by age by sex (LGA)"
+},
+{
+"id": "ABS_C16_G46_SA",
+"version": "1.0.0",
+"name": "Census 2016, G46 Non-school qualification: Level of Education by age by sex (SA2+)"
+},
+{
+"id": "ABS_C16_G47_LGA",
+"version": "1.0.0",
+"name": "Census 2016, G47 Non-school Qualification: Field of Study by age by sex (LGA)"
+},
+{
+"id": "ABS_C16_G47_SA",
+"version": "1.0.0",
+"name": "Census 2016, G47 Non-school Qualification: Field of Study by age by sex (SA2+)"
+},
+{
+"id": "ABS_C16_G48_LGA",
+"version": "1.0.0",
+"name": "Census 2016, G48 Non-school Qualification: Field of study by occupation by sex (LGA)"
+},
+{
+"id": "ABS_C16_G48_SA",
+"version": "1.0.0",
+"name": "Census 2016, G48 Non-school Qualification: Field of study by occupation by sex (SA2+)"
+},
+{
+"id": "ABS_C16_G49_LGA",
+"version": "1.0.0",
+"name": "Census 2016, G49 Non-school Qualification: Level of Education by occupation by sex (LGA)"
+},
+{
+"id": "ABS_C16_G49_SA",
+"version": "1.0.0",
+"name": "Census 2016, G49 Non-school Qualification: Level of Education by occupation by sex (SA2+)"
+},
+{
+"id": "ABS_C16_G50_LGA",
+"version": "1.0.0",
+"name": "Census 2016, G50 Non-school Qualification: Level of Education by Industry of employment by sex (LGA)"
+},
+{
+"id": "ABS_C16_G50_SA",
+"version": "1.0.0",
+"name": "Census 2016, G50 Non-school Qualification: Level of Education by Industry of employment by sex (SA2+)"
+},
+{
+"id": "ABS_C16_G51_LGA",
+"version": "1.0.0",
+"name": "Census 2016, G51 Industry of employment by age by sex (LGA)"
+},
+{
+"id": "ABS_C16_G51_SA",
+"version": "1.0.0",
+"name": "Census 2016, G51 Industry of employment by age by sex (SA2+)"
+},
+{
+"id": "ABS_C16_G52_LGA",
+"version": "1.0.0",
+"name": "Census 2016, G52 Industry of employment by hours worked by sex (LGA)"
+},
+{
+"id": "ABS_C16_G52_SA",
+"version": "1.0.0",
+"name": "Census 2016, G52 Industry of employment by hours worked by sex (SA2+)"
+},
+{
+"id": "ABS_C16_G53_LGA",
+"version": "1.0.0",
+"name": "Census 2016, G53 Industry of employment by occupation (LGA)"
+},
+{
+"id": "ABS_C16_G53_SA",
+"version": "1.0.0",
+"name": "Census 2016, G53 Industry of employment by occupation (SA2+)"
+},
+{
+"id": "ABS_C16_G56_LGA",
+"version": "1.0.0",
+"name": "Census 2016, G60 Total family income (weekly) by labour force status of parents/partners in families (LGA)"
+},
+{
+"id": "ABS_C16_G56_SA",
+"version": "1.0.0",
+"name": "Census 2016, G60 Total family income (weekly) by labour force status of parents/partners in families (SA2+)"
+},
+{
+"id": "ABS_C16_G57_LGA",
+"version": "1.0.0",
+"name": "Census 2016, G57 Occupation by Age by Sex (LGA)"
+},
+{
+"id": "ABS_C16_G57_SA",
+"version": "1.0.0",
+"name": "Census 2016, G57 Occupation by Age by Sex (SA2+)"
+},
+{
+"id": "ABS_C16_G58_LGA",
+"version": "1.0.0",
+"name": "Census 2016, G58 Occupation by Hours worked by sex (LGA)"
+},
+{
+"id": "ABS_C16_G58_SA",
+"version": "1.0.0",
+"name": "Census 2016, G58 Occupation by Hours worked by sex (SA2+)"
+},
+{
+"id": "ABS_C16_G59_LGA",
+"version": "1.0.0",
+"name": "Census 2016, G59 Method of travel to work by sex (LGA)"
+},
+{
+"id": "ABS_C16_G59_SA",
+"version": "1.0.0",
+"name": "Census 2016, G59 Method of travel to work by sex (SA2+)"
+},
+{
+"id": "ABS_C16_T01_LGA",
+"version": "1.0.0",
+"name": "Census 2016, Age by Sex (LGA)"
+},
+{
+"id": "ABS_C16_T01_SA",
+"version": "1.0.0",
+"name": "Census 2016, T01 Age by Sex (SA2+)"
+},
+{
+"id": "ABS_C16_T01_TS_LGA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T01 Age by Sex (LGA)"
+},
+{
+"id": "ABS_C16_T01_TS_SA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T01 Age by Sex (SA2+)"
+},
+{
+"id": "ABS_C16_T02_LGA",
+"version": "1.0.0",
+"name": "Census 2016, Registered Marital Status by Age by Sex (LGA)"
+},
+{
+"id": "ABS_C16_T02_SA",
+"version": "1.0.0",
+"name": "Census 2016, Registered Marital Status by Age by Sex (SA2+)"
+},
+{
+"id": "ABS_C16_T02_TS_LGA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T02 Registered Marital Status by Age by Sex (LGA)"
+},
+{
+"id": "ABS_C16_T02_TS_SA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T02 Registered Marital Status by Age by Sex (SA2+)"
+},
+{
+"id": "ABS_C16_T03_LGA",
+"version": "1.0.0",
+"name": "Census 2016, Social Marital Status by Age by Sex (LGA)"
+},
+{
+"id": "ABS_C16_T03_SA",
+"version": "1.0.0",
+"name": "Census 2016, Social Marital Status by Age by Sex (SA2+)"
+},
+{
+"id": "ABS_C16_T03_TS_LGA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T03 Social Marital Status Age by Sex (LGA)"
+},
+{
+"id": "ABS_C16_T03_TS_SA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T03 Social Marital Status Age by Sex (SA2+)"
+},
+{
+"id": "ABS_C16_T04_LGA",
+"version": "1.0.0",
+"name": "Census 2016, Indigenous Status by Age by Sex (LGA)"
+},
+{
+"id": "ABS_C16_T04_SA",
+"version": "1.0.0",
+"name": "Census 2016, Indigenous Status by Age by Sex (SA2+)"
+},
+{
+"id": "ABS_C16_T04_TS_LGA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T04 Indigenous Status by Age by Sex (LGA)"
+},
+{
+"id": "ABS_C16_T04_TS_SA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T04 Indigenous Status by Age by Sex (SA2+)"
+},
+{
+"id": "ABS_C16_T05_LGA",
+"version": "1.0.0",
+"name": "Census 2016, Ancestry by Birthplace of Parents (LGA)"
+},
+{
+"id": "ABS_C16_T05_SA",
+"version": "1.0.0",
+"name": "Census 2016, Ancestry by Birthplace of Parents (SA2+)"
+},
+{
+"id": "ABS_C16_T06_LGA",
+"version": "1.0.0",
+"name": "Census 2016, Country of Birth of Person by Sex (LGA)"
+},
+{
+"id": "ABS_C16_T06_SA",
+"version": "1.0.0",
+"name": "Census 2016, Country of Birth of Person by Sex (SA2+)"
+},
+{
+"id": "ABS_C16_T07_LGA",
+"version": "1.0.0",
+"name": "Census 2016, Country of Birth of Person by Year of Arrival in Australia (ranges) (LGA)"
+},
+{
+"id": "ABS_C16_T07_SA",
+"version": "1.0.0",
+"name": "Census 2016, Country of Birth of Person by Year of Arrival in Australia (ranges) (SA2+)"
+},
+{
+"id": "ABS_C16_T08_LGA",
+"version": "1.0.0",
+"name": "Census 2016, Proficiency in Spoken English/Language by Age by Sex (LGA)"
+},
+{
+"id": "ABS_C16_T08_SA",
+"version": "1.0.0",
+"name": "Census 2016, Proficiency in Spoken English/Language by Age by Sex (SA2+)"
+},
+{
+"id": "ABS_C16_T08_TS_LGA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T08 Proficiency in Spoken English/Language by Age by Sex (LGA)"
+},
+{
+"id": "ABS_C16_T08_TS_SA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T08 Proficiency in Spoken English/Language by Age by Sex (SA2+)"
+},
+{
+"id": "ABS_C16_T09_LGA",
+"version": "1.0.0",
+"name": "Census 2016, Language spoken at home by Sex (LGA)"
+},
+{
+"id": "ABS_C16_T09_SA",
+"version": "1.0.0",
+"name": "Census 2016, Language spoken at home by Sex (SA2+)"
+},
+{
+"id": "ABS_C16_T10_LGA",
+"version": "1.0.0",
+"name": "Census 2016, Religious Affiliation by Sex (LGA)"
+},
+{
+"id": "ABS_C16_T10_SA",
+"version": "1.0.0",
+"name": "Census 2016, Religious Affiliation by Sex (SA2+)"
+},
+{
+"id": "ABS_C16_T11_LGA",
+"version": "1.0.0",
+"name": "Census 2016, T11 Educational Institution: Attendee Status by Sex (LGA)"
+},
+{
+"id": "ABS_C16_T11_SA",
+"version": "1.0.0",
+"name": "Census 2016, T11 Educational Institution: Attendee Status by Sex (SA2+)"
+},
+{
+"id": "ABS_C16_T11_TS_LGA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T11 Educational Institution: Attendee Status by Sex (LGA)"
+},
+{
+"id": "ABS_C16_T11_TS_SA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T11 Educational Institution: Attendee Status by Sex (SA2+)"
+},
+{
+"id": "ABS_C16_T12_LGA",
+"version": "1.0.0",
+"name": "Census 2016, Highest Year of School Completed by Age by Sex (LGA)"
+},
+{
+"id": "ABS_C16_T12_SA",
+"version": "1.0.0",
+"name": "Census 2016, Highest Year of School Completed by Age by Sex (SA2+)"
+},
+{
+"id": "ABS_C16_T12_TS_LGA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T12 Highest Year of School Completed by Age by Sex (LGA)"
+},
+{
+"id": "ABS_C16_T12_TS_SA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T12 Highest Year of School Completed by Age by Sex (SA2+)"
+},
+{
+"id": "ABS_C16_T13_LGA",
+"version": "1.0.0",
+"name": "Census 2016, Total Personal Income (weekly) by Age by Sex (LGA)"
+},
+{
+"id": "ABS_C16_T13_SA",
+"version": "1.0.0",
+"name": "Census 2016, Total Personal Income (weekly) by Age by Sex (SA2+)"
+},
+{
+"id": "ABS_C16_T14_LGA",
+"version": "1.0.0",
+"name": "Census 2016, Core Activity Need For Assistance by Age by Sex (LGA)"
+},
+{
+"id": "ABS_C16_T14_SA",
+"version": "1.0.0",
+"name": "Census 2016, Core Activity Need For Assistance by Age by Sex (SA2+)"
+},
+{
+"id": "ABS_C16_T14_TS_LGA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T14 Core Activity Need For Assistance by Age by Sex (LGA)"
+},
+{
+"id": "ABS_C16_T14_TS_SA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T14 Core Activity Need For Assistance by Age by Sex (SA2+)"
+},
+{
+"id": "ABS_C16_T15_LGA",
+"version": "1.0.0",
+"name": "Census 2016, Voluntary Work for an Organisation or Group by Age by Sex (LGA)"
+},
+{
+"id": "ABS_C16_T15_SA",
+"version": "1.0.0",
+"name": "Census 2016, Voluntary Work for an Organisation or Group by Age by Sex (SA2+)"
+},
+{
+"id": "ABS_C16_T15_TS_LGA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T15 Voluntary Work for an Organisation or Group by Age by Sex (LGA)"
+},
+{
+"id": "ABS_C16_T15_TS_SA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T15 Voluntary Work for an Organisation or Group by Age by Sex (SA2+)"
+},
+{
+"id": "ABS_C16_T16_LGA",
+"version": "1.0.0",
+"name": "Census 2016, Unpaid Domestic Work: Number of Hours by Age by Sex (LGA)"
+},
+{
+"id": "ABS_C16_T16_SA",
+"version": "1.0.0",
+"name": "Census 2016, Unpaid Domestic Work: Number of Hours by Age by Sex (SA2+)"
+},
+{
+"id": "ABS_C16_T16_TS_LGA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T16 Unpaid Domestic Work: Number of Hours by Age by Sex (LGA)"
+},
+{
+"id": "ABS_C16_T16_TS_SA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T16 Unpaid Domestic Work: Number of Hours by Age by Sex (SA2+)"
+},
+{
+"id": "ABS_C16_T17_LGA",
+"version": "1.0.0",
+"name": "Census 2016, Unpaid Assistance to a Person with a Disability by Age by Sex (LGA)"
+},
+{
+"id": "ABS_C16_T17_SA",
+"version": "1.0.0",
+"name": "Census 2016, Unpaid Assistance to a Person with a Disability by Age by Sex (SA2+)"
+},
+{
+"id": "ABS_C16_T17_TS_LGA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T17 Unpaid Assistance to a Person with a Disability by Age by Sex (LGA)"
+},
+{
+"id": "ABS_C16_T17_TS_SA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T17 Unpaid Assistance to a Person with a Disability by Age by Sex (SA2+)"
+},
+{
+"id": "ABS_C16_T18_LGA",
+"version": "1.0.0",
+"name": "Census 2016, Unpaid Child Care by Age by Sex (LGA)"
+},
+{
+"id": "ABS_C16_T18_SA",
+"version": "1.0.0",
+"name": "Census 2016, Unpaid Child Care by Age by Sex (SA2+)"
+},
+{
+"id": "ABS_C16_T18_TS_LGA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T18 Unpaid Child Care by Age by Sex (LGA)"
+},
+{
+"id": "ABS_C16_T18_TS_SA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T18 Unpaid Child Care by Age by Sex (SA2+)"
+},
+{
+"id": "ABS_C16_T19_LGA",
+"version": "1.0.0",
+"name": "Census 2016, Total Family Income (weekly) by Family Composition (LGA)"
+},
+{
+"id": "ABS_C16_T19_SA",
+"version": "1.0.0",
+"name": "Census 2016, Total Family Income (weekly) by Family Composition (SA2+)"
+},
+{
+"id": "ABS_C16_T20_LGA",
+"version": "1.0.0",
+"name": "Census 2016, Family Blending by Family records (LGA)"
+},
+{
+"id": "ABS_C16_T20_SA",
+"version": "1.0.0",
+"name": "Census 2016, Family Blending by Family records (SA2+)"
+},
+{
+"id": "ABS_C16_T20_TS_LGA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T20 Family Blending by Family records (LGA)"
+},
+{
+"id": "ABS_C16_T20_TS_SA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T20 Family Blending by Family records (SA2+)"
+},
+{
+"id": "ABS_C16_T21_LGA",
+"version": "1.0.0",
+"name": "Census 2016, Total Household Income (Weekly) by Household Composition (LGA)"
+},
+{
+"id": "ABS_C16_T21_SA",
+"version": "1.0.0",
+"name": "Census 2016, Total Household Income (Weekly) by Household Composition (SA2+)"
+},
+{
+"id": "ABS_C16_T22_LGA",
+"version": "1.0.0",
+"name": "Census 2016, Number of Motor Vehicles by Dwelling Records (LGA)"
+},
+{
+"id": "ABS_C16_T22_SA",
+"version": "1.0.0",
+"name": "Census 2016, Number of Motor Vehicles by Dwelling Records (SA2+)"
+},
+{
+"id": "ABS_C16_T22_TS_LGA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T22 Number of Motor Vehicles by Dwelling records (LGA)"
+},
+{
+"id": "ABS_C16_T22_TS_SA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T22 Number of Motor Vehicles by Dwelling records (SA2+)"
+},
+{
+"id": "ABS_C16_T23_LGA",
+"version": "1.0.0",
+"name": "Census 2016, Household Composition By Number Of Persons Usually Resident (LGA)"
+},
+{
+"id": "ABS_C16_T23_SA",
+"version": "1.0.0",
+"name": "Census 2016, Household Composition By Number Of Persons Usually Resident (SA2+)"
+},
+{
+"id": "ABS_C16_T23_TS_LGA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T23 Household Composition By Number Of Persons Usually Resident (LGA)"
+},
+{
+"id": "ABS_C16_T23_TS_SA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T23 Household Composition By Number Of Persons Usually Resident (SA2+)"
+},
+{
+"id": "ABS_C16_T24_LGA",
+"version": "1.0.0",
+"name": "Census 2016, Dwelling Structure by Dwelling Type (LGA)"
+},
+{
+"id": "ABS_C16_T24_SA",
+"version": "1.0.0",
+"name": "Census 2016, Dwelling Structure by Dwelling Type (SA2+)"
+},
+{
+"id": "ABS_C16_T24_TS_LGA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T24 Dwelling Structure by Dwelling Type (LGA)"
+},
+{
+"id": "ABS_C16_T24_TS_SA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T24 Dwelling Structure by Dwelling Type (SA2+)"
+},
+{
+"id": "ABS_C16_T25_LGA",
+"version": "1.0.0",
+"name": "Census 2016, Mortgage Repayments (monthly) by Dwelling Structure (LGA)"
+},
+{
+"id": "ABS_C16_T25_SA",
+"version": "1.0.0",
+"name": "Census 2016, Mortgage Repayments (monthly) by Dwelling Structure (SA2+)"
+},
+{
+"id": "ABS_C16_T25_TS_LGA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T25 Mortgage Repayments (monthly) by Dwelling Structure (LGA)"
+},
+{
+"id": "ABS_C16_T25_TS_SA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T25 Mortgage Repayments (monthly) by Dwelling Structure (SA2+)"
+},
+{
+"id": "ABS_C16_T26_LGA",
+"version": "1.0.0",
+"name": "Census 2016, Rent (weekly) by Dwelling Structure (LGA)"
+},
+{
+"id": "ABS_C16_T26_SA",
+"version": "1.0.0",
+"name": "Census 2016, Rent (weekly) by Dwelling Structure (SA2+)"
+},
+{
+"id": "ABS_C16_T26_TS_LGA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T26 Rent (weekly) by Dwelling Structure (LGA)"
+},
+{
+"id": "ABS_C16_T26_TS_SA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T26 Rent (weekly) by Dwelling Structure (SA2+)"
+},
+{
+"id": "ABS_C16_T27_LGA",
+"version": "1.0.0",
+"name": "Census 2016, Dwelling Internet Connection by Dwelling Structure (LGA)"
+},
+{
+"id": "ABS_C16_T27_SA",
+"version": "1.0.0",
+"name": "Census 2016, Dwelling Internet Connection by Dwelling Structure (SA2+)"
+},
+{
+"id": "ABS_C16_T27_TS_LGA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T27 Dwelling Internet Connection by Dwelling Structure (LGA)"
+},
+{
+"id": "ABS_C16_T27_TS_SA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T27 Dwelling Internet Connection by Dwelling Structure (SA2+)"
+},
+{
+"id": "ABS_C16_T28_LGA",
+"version": "1.0.0",
+"name": "Census 2016, Dwelling Structure By Number Of Bedrooms in Private Dwelling (LGA)"
+},
+{
+"id": "ABS_C16_T28_SA",
+"version": "1.0.0",
+"name": "Census 2016, Dwelling Structure By Number Of Bedrooms in Private Dwelling (SA2+)"
+},
+{
+"id": "ABS_C16_T28_TS_LGA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T28 Dwelling Structure By Number Of Bedrooms in Private Dwelling (LGA)"
+},
+{
+"id": "ABS_C16_T28_TS_SA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T28 Dwelling Structure By Number Of Bedrooms in Private Dwelling (SA2+)"
+},
+{
+"id": "ABS_C16_T29_TS_LGA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T29 Selected Labour Force, Education and Migration Characteristics (LGA)"
+},
+{
+"id": "ABS_C16_T29_TS_SA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T29 Selected Labour Force, Education and Migration Characteristics (SA2+)"
+},
+{
+"id": "ABS_C16_T31_TS_LGA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T31 Non-school Qualification: Level of Education by age by sex (LGA)"
+},
+{
+"id": "ABS_C16_T31_TS_SA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T31 Non-school Qualification: Level of Education by age by sex (SA2+)"
+},
+{
+"id": "ABS_C16_T32_TS_LGA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T32 Non-school Qualification: Field of Study by age by sex (LGA)"
+},
+{
+"id": "ABS_C16_T32_TS_SA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T32 Non-school Qualification: Field of Study by age by sex (SA2+)"
+},
+{
+"id": "ABS_C16_T33_TS_LGA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T33 Labour force status by age by sex (LGA)"
+},
+{
+"id": "ABS_C16_T33_TS_SA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T33 Labour force status by age by sex (SA2+)"
+},
+{
+"id": "ABS_C16_T34_TS_LGA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T34 Industry of employment by sex (LGA)"
+},
+{
+"id": "ABS_C16_T34_TS_SA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T34 Industry of employment by sex (SA2+)"
+},
+{
+"id": "ABS_C16_T35_TS_LGA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T35 Occupation by sex (LGA)"
+},
+{
+"id": "ABS_C16_T35_TS_SA",
+"version": "1.0.0",
+"name": "Census Time Series 2016, 2011, 2006: T35 Occupation by sex (SA2+)"
+},
+{
+"id": "ABS_CENSUS2011_B01",
+"version": "1.0.0",
+"name": "B01 Selected Person Characteristics by Sex (SA2+)"
+},
+{
+"id": "ABS_CENSUS2011_B01_LGA",
+"version": "1.0.0",
+"name": "B01 Selected Person Characteristics (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B01_SA1_SA",
+"version": "1.0.0",
+"name": "B01 Selected Person Characteristics (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B02",
+"version": "1.0.0",
+"name": "B02 Selected Medians and Averages"
+},
+{
+"id": "ABS_CENSUS2011_B02_LGA",
+"version": "1.0.0",
+"name": "B02 Selected Medians and Averages (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B02_SA1_SA",
+"version": "1.0.0",
+"name": "B02 Selected Medians and Averages (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B03",
+"version": "1.0.0",
+"name": "B03 Place of Usual Residence on Census Night by Age (SA2+)"
+},
+{
+"id": "ABS_CENSUS2011_B03_LGA",
+"version": "1.0.0",
+"name": "B03 Place of Usual Residence on Census Night by Age (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B03_SA1_SA",
+"version": "1.0.0",
+"name": "B03 Place of Usual Residence on Census Night by Sex (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B04",
+"version": "1.0.0",
+"name": "B04 Age by Sex"
+},
+{
+"id": "ABS_CENSUS2011_B04_LGA",
+"version": "1.0.0",
+"name": "B04 Age by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B04_SA1_SA",
+"version": "1.0.0",
+"name": "B04 Age by Sex (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B05",
+"version": "1.0.0",
+"name": "B05 Registered Marital Status by Age by Sex"
+},
+{
+"id": "ABS_CENSUS2011_B05_LGA",
+"version": "1.0.0",
+"name": "B05 Registered Marital Status by Age by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B05_SA1_SA",
+"version": "1.0.0",
+"name": "B05 Registered Marital Status by Age by Sex (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B06",
+"version": "1.0.0",
+"name": "B06 Social Marital Status by Age by Sex"
+},
+{
+"id": "ABS_CENSUS2011_B06_LGA",
+"version": "1.0.0",
+"name": "B06 Social Marital Status by Age by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B06_SA1_SA",
+"version": "1.0.0",
+"name": "B06 Social Marital Status by Age by Sex (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B07",
+"version": "1.0.0",
+"name": "B07 Indigenous Status by Age by Sex"
+},
+{
+"id": "ABS_CENSUS2011_B07_LGA",
+"version": "1.0.0",
+"name": "B07 Indigenous Status by Age by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B07_SA1_SA",
+"version": "1.0.0",
+"name": "B07 Indigenous Status by Age by Sex (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B08",
+"version": "1.0.0",
+"name": "B08 Ancestry by Birthplace of Parents"
+},
+{
+"id": "ABS_CENSUS2011_B08_LGA",
+"version": "1.0.0",
+"name": "B08 Ancestry by Birthplace of Parents (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B08_SA1_SA",
+"version": "1.0.0",
+"name": "B08 Ancestry by Birthplace of Parents (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B09",
+"version": "1.0.0",
+"name": "B09 Country of Birth of Person by Sex"
+},
+{
+"id": "ABS_CENSUS2011_B09_LGA",
+"version": "1.0.0",
+"name": "B09 Country of Birth of Person by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B09_SA1_SA",
+"version": "1.0.0",
+"name": "B09 Country of Birth of Person by Sex (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B10",
+"version": "1.0.0",
+"name": "B10 Country of Birth of Person by Year of Arrival in Australia"
+},
+{
+"id": "ABS_CENSUS2011_B10_LGA",
+"version": "1.0.0",
+"name": "B10 Country of Birth of Person by Year of Arrival in Australia (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B10_SA1_SA",
+"version": "1.0.0",
+"name": "B10 Country of Birth of Person by Year of Arrival in Australia (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B11",
+"version": "1.0.0",
+"name": "B11 Proficiency in Spoken English/Language by Year of Arrival in Australia by Sex"
+},
+{
+"id": "ABS_CENSUS2011_B11_LGA",
+"version": "1.0.0",
+"name": "B11 Proficiency in Spoken English/Language by Year of Arrival in Australia by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B11_SA1_SA",
+"version": "1.0.0",
+"name": "B11 Proficiency in Spoken English/Language by Year of Arrival in Australia by Sex (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B12",
+"version": "1.0.0",
+"name": "B12 Proficiency in Spoken English/Language of Parents by Age of Dependent Children"
+},
+{
+"id": "ABS_CENSUS2011_B12_LGA",
+"version": "1.0.0",
+"name": "B12 Proficiency in Spoken English/Language of Parents by Age of Dependent Children (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B12_SA1_SA",
+"version": "1.0.0",
+"name": "B12 Proficiency in Spoken English/Language of Parents by Age of Dependent Children (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B13",
+"version": "1.0.0",
+"name": "B13 Language Spoken at Home by Sex"
+},
+{
+"id": "ABS_CENSUS2011_B13_LGA",
+"version": "1.0.0",
+"name": "B13 Language Spoken at Home by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B13_SA1_SA",
+"version": "1.0.0",
+"name": "B13 Language Spoken at Home by Sex (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B14",
+"version": "1.0.0",
+"name": "B14 Religious Affiliation by Sex"
+},
+{
+"id": "ABS_CENSUS2011_B14_LGA",
+"version": "1.0.0",
+"name": "B14 Religious Affiliation by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B14_SA1_SA",
+"version": "1.0.0",
+"name": "B14 Religious Affiliation by Sex (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B15",
+"version": "1.0.0",
+"name": "B15 Type of Educational Institution Attending (Full/Part-Time Student Status by Age) by Sex"
+},
+{
+"id": "ABS_CENSUS2011_B15_LGA",
+"version": "1.0.0",
+"name": "B15 Type of Educational Institution Attending (Full/Part-Time Student Status by Age) by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B15_SA1_SA",
+"version": "1.0.0",
+"name": "B15 Type of Educational Institution Attending (Full/Part-Time Student Status by Age) by Sex (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B16",
+"version": "1.0.0",
+"name": "B16 Highest Year of School Completed by Age by Sex"
+},
+{
+"id": "ABS_CENSUS2011_B16_LGA",
+"version": "1.0.0",
+"name": "B16 Highest Year of School Completed by Age by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B16_SA1_SA",
+"version": "1.0.0",
+"name": "B16 Highest Year of School Completed by Age by Sex (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B17",
+"version": "1.0.0",
+"name": "B17 Total Personal Income (weekly) by Age by Sex"
+},
+{
+"id": "ABS_CENSUS2011_B17_LGA",
+"version": "1.0.0",
+"name": "B17 Total Personal Income (weekly) by Age by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B17_SA1_SA",
+"version": "1.0.0",
+"name": "B17 Total Personal Income (weekly) by Age by Sex (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B18",
+"version": "1.0.0",
+"name": "B18 Core Activity Need for Assistance by Age by Sex"
+},
+{
+"id": "ABS_CENSUS2011_B18_LGA",
+"version": "1.0.0",
+"name": "B18 Core Activity Need for Assistance by Age by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B18_SA1_SA",
+"version": "1.0.0",
+"name": "B18 Core Activity Need for Assistance by Age by Sex (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B19",
+"version": "1.0.0",
+"name": "B19 Voluntary Work for an Organisation or Group by Age by Sex"
+},
+{
+"id": "ABS_CENSUS2011_B19_LGA",
+"version": "1.0.0",
+"name": "B19 Voluntary Work for an Organisation or Group by Age by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B19_SA1_SA",
+"version": "1.0.0",
+"name": "B19 Voluntary Work for an Organisation or Group by Age by Sex (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B20",
+"version": "1.0.0",
+"name": "B20 Unpaid Domestic Work: Number of Hour by Age by Sex"
+},
+{
+"id": "ABS_CENSUS2011_B20_LGA",
+"version": "1.0.0",
+"name": "B20 Unpaid Domestic Work: Number of Hour by Age by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B20_SA1_SA",
+"version": "1.0.0",
+"name": "B20 Unpaid Domestic Work: Number of Hour by Age by Sex (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B21",
+"version": "1.0.0",
+"name": "B21 Unpaid Assistance to a Person with a Disability by Age by Sex"
+},
+{
+"id": "ABS_CENSUS2011_B21_LGA",
+"version": "1.0.0",
+"name": "B21 Unpaid Assistance to a Person with a Disability by Age by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B21_SA1_SA",
+"version": "1.0.0",
+"name": "B21 Unpaid Assistance to a Person with a Disability by Age by Sex (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B22",
+"version": "1.0.0",
+"name": "B22 Unpaid Child Care by Age by Sex"
+},
+{
+"id": "ABS_CENSUS2011_B22_LGA",
+"version": "1.0.0",
+"name": "B22 Unpaid Child Care by Age by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B22_SA1_SA",
+"version": "1.0.0",
+"name": "B22 Unpaid Child Care by Age by Sex (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B23",
+"version": "1.0.0",
+"name": "B23 Relationship in Household by Age by Sex"
+},
+{
+"id": "ABS_CENSUS2011_B23_LGA",
+"version": "1.0.0",
+"name": "B23 Relationship in Household by Age by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B23_SA1_SA",
+"version": "1.0.0",
+"name": "B23 Relationship in Household by Age by Sex (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B24",
+"version": "1.0.0",
+"name": "B24 Number of Children Ever Born by Age of Parent"
+},
+{
+"id": "ABS_CENSUS2011_B24_LGA",
+"version": "1.0.0",
+"name": "B24 Number of Children Ever Born by Age of Parent (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B24_SA1_SA",
+"version": "1.0.0",
+"name": "B24 Number of Children Ever Born Night by Sex (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B25",
+"version": "1.0.0",
+"name": "B25 Family Composition"
+},
+{
+"id": "ABS_CENSUS2011_B25_LGA",
+"version": "1.0.0",
+"name": "B25 Family Composition (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B25_SA1_SA",
+"version": "1.0.0",
+"name": "B25 Family Composition (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B26",
+"version": "1.0.0",
+"name": "B26 Total Family Income (weekly) by Family Composition"
+},
+{
+"id": "ABS_CENSUS2011_B26_LGA",
+"version": "1.0.0",
+"name": "B26 Total Family Income (weekly) by Family Composition (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B26_SA1_SA",
+"version": "1.0.0",
+"name": "B26 Total Family Income (weekly) by Family Composition (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B27",
+"version": "1.0.0",
+"name": "B27 Family Blending"
+},
+{
+"id": "ABS_CENSUS2011_B27_LGA",
+"version": "1.0.0",
+"name": "B27 Family Blending (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B27_SA1_SA",
+"version": "1.0.0",
+"name": "B27 Family Blending (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B28",
+"version": "1.0.0",
+"name": "B28 Total Household Income (weekly) by Household Composition"
+},
+{
+"id": "ABS_CENSUS2011_B28_LGA",
+"version": "1.0.0",
+"name": "B28 Total Household Income (weekly) by Household Composition (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B28_SA1_SA",
+"version": "1.0.0",
+"name": "B28 Total Household Income (weekly) by Household Composition (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B29",
+"version": "1.0.0",
+"name": "B29 Number of Motor Vehicles by Dwellings"
+},
+{
+"id": "ABS_CENSUS2011_B29_LGA",
+"version": "1.0.0",
+"name": "B29 Number of Motor Vehicles by Dwellings (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B29_SA1_SA",
+"version": "1.0.0",
+"name": "B29 Number of Motor Vehicles by Dwellings (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B30",
+"version": "1.0.0",
+"name": "B30 Household Composition by Number of Persons Usually Resident"
+},
+{
+"id": "ABS_CENSUS2011_B30_LGA",
+"version": "1.0.0",
+"name": "B30 Household Composition by Number of Persons Usually Resident (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B30_SA1_SA",
+"version": "1.0.0",
+"name": "B30 Household Composition by Number of Persons Usually Resident (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B31",
+"version": "1.0.0",
+"name": "B31 Dwelling Structure"
+},
+{
+"id": "ABS_CENSUS2011_B31_LGA",
+"version": "1.0.0",
+"name": "B31 Dwelling Structure (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B31_SA1_SA",
+"version": "1.0.0",
+"name": "B31 Dwelling Structure (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B32",
+"version": "1.0.0",
+"name": "B32 Tenure Type and Landlord Type by Dwelling Structure"
+},
+{
+"id": "ABS_CENSUS2011_B32_LGA",
+"version": "1.0.0",
+"name": "B32 Tenure Type and Landlord Type by Dwelling Structure (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B32_SA1_SA",
+"version": "1.0.0",
+"name": "B32 Tenure Type and Landlord Type by Dwelling Structure (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B33",
+"version": "1.0.0",
+"name": "B33 Mortgage Repayment (monthly) by Dwelling Structure"
+},
+{
+"id": "ABS_CENSUS2011_B33_LGA",
+"version": "1.0.0",
+"name": "B33 Mortgage Repayment (monthly) by Dwelling Structure (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B33_SA1_SA",
+"version": "1.0.0",
+"name": "B33 Mortgage Repayment (monthly) by Dwelling Structure (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B34",
+"version": "1.0.0",
+"name": "B34 Rent (weekly) by Landlord Type"
+},
+{
+"id": "ABS_CENSUS2011_B34_LGA",
+"version": "1.0.0",
+"name": "B34 Rent (weekly) by Landlord Type (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B34_SA1_SA",
+"version": "1.0.0",
+"name": "B34 Rent (weekly) by Landlord Type (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B35",
+"version": "1.0.0",
+"name": "B35 Type of Internet Connection by Dwelling Structure"
+},
+{
+"id": "ABS_CENSUS2011_B35_LGA",
+"version": "1.0.0",
+"name": "B35 Type of Internet Connection by Dwelling Structure (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B35_SA1_SA",
+"version": "1.0.0",
+"name": "B35 Type of Internet Connection by Dwelling Structure (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B36",
+"version": "1.0.0",
+"name": "B36 Dwelling Structure by Number of Bedrooms"
+},
+{
+"id": "ABS_CENSUS2011_B36_LGA",
+"version": "1.0.0",
+"name": "B36 Dwelling Structure by Number of Bedrooms (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B36_SA1_SA",
+"version": "1.0.0",
+"name": "B36 Dwelling Structure by Number of Bedrooms (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B37",
+"version": "1.0.0",
+"name": "B37 Selected Labour Force, Education and Migration Characteristics by Sex"
+},
+{
+"id": "ABS_CENSUS2011_B37_LGA",
+"version": "1.0.0",
+"name": "B37 Selected Labour Force, Education and Migration Characteristics by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B37_SA1_SA",
+"version": "1.0.0",
+"name": "B37 Selected Labour Force, Education and Migration Characteristics by Sex (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B38",
+"version": "1.0.0",
+"name": "B38 Place of Usual Residence 1 Year Ago by Sex"
+},
+{
+"id": "ABS_CENSUS2011_B38_LGA",
+"version": "1.0.0",
+"name": "B38 Place of Usual Residence 1 Year Ago by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B38_SA1_SA",
+"version": "1.0.0",
+"name": "B38 Place of Usual Residence 1 Year Ago by Sex (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B39",
+"version": "1.0.0",
+"name": "B39 Place of Usual Residence 5 Years Ago by Sex"
+},
+{
+"id": "ABS_CENSUS2011_B39_LGA",
+"version": "1.0.0",
+"name": "B39 Place of Usual Residence 5 Years Ago by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B39_SA1_SA",
+"version": "1.0.0",
+"name": "B39 Place of Usual Residence 5 Years Ago by Sex (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B40",
+"version": "1.0.0",
+"name": "B40 Non-School Qualification: Level of Education by Age by Sex"
+},
+{
+"id": "ABS_CENSUS2011_B40_LGA",
+"version": "1.0.0",
+"name": "B40 Non-School Qualification: Level of Education by Age by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B40_SA1_SA",
+"version": "1.0.0",
+"name": "B40 Non-School Qualification: Level of Education by Age by Sex (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B41",
+"version": "1.0.0",
+"name": "B41 Non-School Qualification: Field of Study by Age by Sex"
+},
+{
+"id": "ABS_CENSUS2011_B41_LGA",
+"version": "1.0.0",
+"name": "B41 Non-School Qualification: Field of Study by Age by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B41_SA1_SA",
+"version": "1.0.0",
+"name": "B41 Non-School Qualification: Field of Study by Age by Sex (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B42",
+"version": "1.0.0",
+"name": "B42 Labour Force Status by Age by Sex"
+},
+{
+"id": "ABS_CENSUS2011_B42_LGA",
+"version": "1.0.0",
+"name": "B42 Labour Force Status by Age by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B42_SA1_SA",
+"version": "1.0.0",
+"name": "B42 Labour Force Status by Age by Sex (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B43",
+"version": "1.0.0",
+"name": "B43 Industry of Employment by Age by Sex"
+},
+{
+"id": "ABS_CENSUS2011_B43_LGA",
+"version": "1.0.0",
+"name": "B43 Industry of Employment by Age by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B43_SA1_SA",
+"version": "1.0.0",
+"name": "B43 Industry of Employment by Age by Sex (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B44",
+"version": "1.0.0",
+"name": "B44 Industry of Employment by Occupation"
+},
+{
+"id": "ABS_CENSUS2011_B44_LGA",
+"version": "1.0.0",
+"name": "B44 Industry of Employment by Occupation (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B44_SA1_SA",
+"version": "1.0.0",
+"name": "B44 Industry of Employment by Occupation (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B45",
+"version": "1.0.0",
+"name": "B45 Occupation by Age by Sex"
+},
+{
+"id": "ABS_CENSUS2011_B45_LGA",
+"version": "1.0.0",
+"name": "B45 Occupation by Age by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B45_SA1_SA",
+"version": "1.0.0",
+"name": "B45 Occupation by Age by Sex (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_B46",
+"version": "1.0.0",
+"name": "B46 Method of Travel to Work by Sex"
+},
+{
+"id": "ABS_CENSUS2011_B46_LGA",
+"version": "1.0.0",
+"name": "B46 Method of Travel to Work by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_B46_SA1_SA",
+"version": "1.0.0",
+"name": "B46 Method of Travel to Work by Sex (SA1 SA)"
+},
+{
+"id": "ABS_CENSUS2011_T01",
+"version": "1.0.0",
+"name": "T01 Selected Person Characteristics (SA2+)"
+},
+{
+"id": "ABS_CENSUS2011_T01_LGA",
+"version": "1.0.0",
+"name": "T01 Selected Person Characteristics (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T02",
+"version": "1.0.0",
+"name": "T02 Selected Medians and Averages"
+},
+{
+"id": "ABS_CENSUS2011_T02_LGA",
+"version": "1.0.0",
+"name": "T02 Selected Medians and Averages (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T03",
+"version": "1.0.0",
+"name": "T03 Age by Sex"
+},
+{
+"id": "ABS_CENSUS2011_T03_LGA",
+"version": "1.0.0",
+"name": "T03 Age by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T04",
+"version": "1.0.0",
+"name": "T04 Registered Marital Status by Age by Sex"
+},
+{
+"id": "ABS_CENSUS2011_T04_LGA",
+"version": "1.0.0",
+"name": "T04 Registered Marital Status by Age by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T05",
+"version": "1.0.0",
+"name": "T05 Social Marital Status by Age by Sex"
+},
+{
+"id": "ABS_CENSUS2011_T05_LGA",
+"version": "1.0.0",
+"name": "T05 Social Marital Status by Age by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T06",
+"version": "1.0.0",
+"name": "T06 Indigenous Status by Age by Sex"
+},
+{
+"id": "ABS_CENSUS2011_T06_LGA",
+"version": "1.0.0",
+"name": "T06 Indigenous Status by Age by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T07",
+"version": "1.0.0",
+"name": "T07 Number of Children Ever Born by Age of Parent"
+},
+{
+"id": "ABS_CENSUS2011_T07_LGA",
+"version": "1.0.0",
+"name": "T07 Number of Children Ever Born by Age of Parent (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T08",
+"version": "1.0.0",
+"name": "T08 Country of Birth of Person by Sex"
+},
+{
+"id": "ABS_CENSUS2011_T08_LGA",
+"version": "1.0.0",
+"name": "T08 Country of Birth of Person by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T09",
+"version": "1.0.0",
+"name": "T09 Ancestry by Birthplace of Parents"
+},
+{
+"id": "ABS_CENSUS2011_T09_LGA",
+"version": "1.0.0",
+"name": "T09 Ancestry by Birthplace of Parents (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T10",
+"version": "1.0.0",
+"name": "T10 Language Spoken at Home by Sex"
+},
+{
+"id": "ABS_CENSUS2011_T10_LGA",
+"version": "1.0.0",
+"name": "T10 Language Spoken at Home by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T11",
+"version": "1.0.0",
+"name": "T11 Proficiency in Spoken English/Language by Age"
+},
+{
+"id": "ABS_CENSUS2011_T11_LGA",
+"version": "1.0.0",
+"name": "T11 Proficiency in Spoken English/Language by Age (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T12",
+"version": "1.0.0",
+"name": "T12 Religious Affiliation by Age"
+},
+{
+"id": "ABS_CENSUS2011_T12_LGA",
+"version": "1.0.0",
+"name": "T12 Religious Affiliation by Age (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T13",
+"version": "1.0.0",
+"name": "T13 Type of Educational Institution Attending by Sex"
+},
+{
+"id": "ABS_CENSUS2011_T13_LGA",
+"version": "1.0.0",
+"name": "T13 Type of Educational Institution Attending by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T14",
+"version": "1.0.0",
+"name": "T14 Dwelling Structure by Household Composition and Family Composition"
+},
+{
+"id": "ABS_CENSUS2011_T14_LGA",
+"version": "1.0.0",
+"name": "T14 Dwelling Structure by Household Composition and Family Composition (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T15",
+"version": "1.0.0",
+"name": "T15 Dwelling Structure by Number of Persons Usually Resident"
+},
+{
+"id": "ABS_CENSUS2011_T15_LGA",
+"version": "1.0.0",
+"name": "T15 Dwelling Structure by Number of Persons Usually Resident (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T16",
+"version": "1.0.0",
+"name": "T16 Dwelling Structure and Number of Bedrooms by Number of Persons Usually Resident for Family Households"
+},
+{
+"id": "ABS_CENSUS2011_T16_LGA",
+"version": "1.0.0",
+"name": "T16 Dwelling Structure and Number of Bedrooms by Number of Persons Usually Resident for Family Households (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T17",
+"version": "1.0.0",
+"name": "T17 Dwelling Structure and Number of Bedrooms by Number of Persons Usually Resident for Group Households"
+},
+{
+"id": "ABS_CENSUS2011_T17_LGA",
+"version": "1.0.0",
+"name": "T17 Dwelling Structure and Number of Bedrooms by Number of Persons Usually Resident for Group Households (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T18",
+"version": "1.0.0",
+"name": "T18 Tenure Type and Landlord Type by Dwelling Structure"
+},
+{
+"id": "ABS_CENSUS2011_T18_LGA",
+"version": "1.0.0",
+"name": "T18 Tenure Type and Landlord Type by Dwelling Structure (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T19",
+"version": "1.0.0",
+"name": "T19 Rent (weekly) by Landlord Type"
+},
+{
+"id": "ABS_CENSUS2011_T19_LGA",
+"version": "1.0.0",
+"name": "T19 Rent (weekly) by Landlord Type (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T20",
+"version": "1.0.0",
+"name": "T20 Rent (weekly) by Family Composition for Couple Families"
+},
+{
+"id": "ABS_CENSUS2011_T20_LGA",
+"version": "1.0.0",
+"name": "T20 Rent (weekly) by Family Composition for Couple Families (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T21",
+"version": "1.0.0",
+"name": "T21 Rent (weekly) by Family Composition for One Parent Families"
+},
+{
+"id": "ABS_CENSUS2011_T21_LGA",
+"version": "1.0.0",
+"name": "T21 Rent (weekly) by Family Composition for One Parent Families (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T22",
+"version": "1.0.0",
+"name": "T22 Total Family Income (weekly) by Number of Children for Couple Families"
+},
+{
+"id": "ABS_CENSUS2011_T22_LGA",
+"version": "1.0.0",
+"name": "T22 Total Family Income (weekly) by Number of Children for Couple Families (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T23",
+"version": "1.0.0",
+"name": "T23 Total Family Income (weekly) by Number of Children for One Parent Families"
+},
+{
+"id": "ABS_CENSUS2011_T23_LGA",
+"version": "1.0.0",
+"name": "T23 Total Family Income (weekly) by Number of Children for One Parent Families (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T24",
+"version": "1.0.0",
+"name": "T24 Total Household Income (weekly) by Rent (weekly)"
+},
+{
+"id": "ABS_CENSUS2011_T24_LGA",
+"version": "1.0.0",
+"name": "T24 Total Household Income (weekly) by Rent (weekly) (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T25",
+"version": "1.0.0",
+"name": "T25 Family Composition by Mortgage Repayment"
+},
+{
+"id": "ABS_CENSUS2011_T25_LGA",
+"version": "1.0.0",
+"name": "T25 Family Composition by Mortgage Repayment (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T26",
+"version": "1.0.0",
+"name": "T26 Family Composition by Income Comparison for Parents/Partners"
+},
+{
+"id": "ABS_CENSUS2011_T26_LGA",
+"version": "1.0.0",
+"name": "T26 Family Composition by Income Comparison for Parents/Partners (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T27",
+"version": "1.0.0",
+"name": "T27 Family Composition and Social Marital Status by Number of Dependent Children"
+},
+{
+"id": "ABS_CENSUS2011_T27_LGA",
+"version": "1.0.0",
+"name": "T27 Family Composition and Social Marital Status by Number of Dependent Children (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T28",
+"version": "1.0.0",
+"name": "T28 Selected Labour Force, Education and Migration Characteristics"
+},
+{
+"id": "ABS_CENSUS2011_T28_LGA",
+"version": "1.0.0",
+"name": "T28 Selected Labour Force, Education and Migration Characteristics (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T29",
+"version": "1.0.0",
+"name": "T29 Family Composition and Labour Force Status of Parent(s)/Partners by Total Family Income (weekly)"
+},
+{
+"id": "ABS_CENSUS2011_T29_LGA",
+"version": "1.0.0",
+"name": "T29 Family Composition and Labour Force Status of Parent(s)/Partners by Total Family Income (weekly) (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T30",
+"version": "1.0.0",
+"name": "T30 Non-School Qualification: Level of Education by Age by Sex"
+},
+{
+"id": "ABS_CENSUS2011_T30_LGA",
+"version": "1.0.0",
+"name": "T30 Non-School Qualification: Level of Education by Age by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T31",
+"version": "1.0.0",
+"name": "T31 Non-School Qualification: Field of Study by Age by Sex"
+},
+{
+"id": "ABS_CENSUS2011_T31_LGA",
+"version": "1.0.0",
+"name": "T31 Non-School Qualification: Field of Study by Age by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T32",
+"version": "1.0.0",
+"name": "T32 Labour Force Status by Age by Sex"
+},
+{
+"id": "ABS_CENSUS2011_T32_LGA",
+"version": "1.0.0",
+"name": "T32 Labour Force Status by Age by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T33",
+"version": "1.0.0",
+"name": "T33 Industry of Employment by Sex"
+},
+{
+"id": "ABS_CENSUS2011_T33_LGA",
+"version": "1.0.0",
+"name": "T33 Industry of Employment by Sex (LGA)"
+},
+{
+"id": "ABS_CENSUS2011_T34",
+"version": "1.0.0",
+"name": "T34 Occupation by Sex"
+},
+{
+"id": "ABS_CENSUS2011_T34_LGA",
+"version": "1.0.0",
+"name": "T34 Occupation by Sex (LGA)"
+},
+{
+"id": "ABS_DEM_QIM",
+"version": "1.0.0",
+"name": "Interstate Migration by States and Territories of Arrival and Departure by Sex"
+},
+{
+"id": "ABS_ERP_ASGS",
+"version": "1.0.0",
+"name": "ERP by SA2 (ASGS 2011), Age and Sex, 2001 to 2016"
+},
+{
+"id": "ABS_ERP_COB_STATE",
+"version": "1.0.0",
+"name": "Estimated resident population, country of birth, state/territory, age and sex - as at 30 June Census years only - 1996 onwards"
+},
+{
+"id": "ABS_ERP_COMP_LGA",
+"version": "1.0.0",
+"name": "ERP and components by LGA (ASGS 2017), 2017"
+},
+{
+"id": "ABS_ERP_COMP_LGA2018",
+"version": "1.0.0",
+"name": "ERP and components by LGA (ASGS 2018), 2017 to 2018"
+},
+{
+"id": "ABS_ERP_LGA2016",
+"version": "1.0.0",
+"name": "ERP by LGA (ASGS 2016), 2001 to 2016"
+},
+{
+"id": "ABS_ERP_LGA2017",
+"version": "1.0.0",
+"name": "ERP by LGA (ASGS 2017), 2001 to 2017"
+},
+{
+"id": "ABS_ERP_LGA2018",
+"version": "1.0.0",
+"name": "ERP by LGA (ASGS 2018), 2001 to 2018"
+},
+{
+"id": "ABS_FAMILY_PROJ",
+"version": "1.0.0",
+"name": "Projected families, Australia, 2021 to 2046"
+},
+{
+"id": "ABS_HH_PROV",
+"version": "1.0.0",
+"name": "Projected households, Australia, 2021 to 2046"
+},
+{
+"id": "ABS_INTERNET_ACCESS",
+"version": "1.0.0",
+"name": "Characteristics of internet access"
+},
+{
+"id": "ABS_INTERNET_COMMERCE",
+"version": "1.0.0",
+"name": "Internet commerce"
+},
+{
+"id": "ABS_IT_BARRIER",
+"version": "1.0.0",
+"name": "Barriers to general business activities or performance and barriers to innovation"
+},
+{
+"id": "ABS_IT_BUS_STRUC",
+"version": "1.0.0",
+"name": "Business structure and operations"
+},
+{
+"id": "ABS_IT_FINANCE",
+"version": "1.0.0",
+"name": "Business finance"
+},
+{
+"id": "ABS_IT_INNOVATION",
+"version": "1.0.0",
+"name": "Business innovation"
+},
+{
+"id": "ABS_IT_MKTCOMP",
+"version": "1.0.0",
+"name": "Business markets and competition"
+},
+{
+"id": "ABS_IT_PERF",
+"version": "1.0.0",
+"name": "Business performance"
+},
+{
+"id": "ABS_IT_SKILLS",
+"version": "1.0.0",
+"name": "Skills"
+},
+{
+"id": "ABS_IT_SUPPORT",
+"version": "1.0.0",
+"name": "Characteristics of IT in Australian Businesses"
+},
+{
+"id": "ABS_LABOUR_ACCT",
+"version": "1.0.0",
+"name": "Labour Account Australia, Annual Balanced: Subdivision, Division and Total All Industries"
+},
+{
+"id": "ABS_LABOUR_ACCT_UNBAL",
+"version": "1.0.0",
+"name": "Labour Account Australia, Annual Unbalanced: Total All Industries"
+},
+{
+"id": "ABS_LAMPS",
+"version": "1.0.0",
+"name": "Land Management Practices Survey, 2011-12"
+},
+{
+"id": "ABS_LAMPS2014",
+"version": "1.0.0",
+"name": "Land Management Practices Survey, 2013-14"
+},
+{
+"id": "ABS_LAND_COVER",
+"version": "1.0.0",
+"name": "Land cover net change matrix 2005-06 to 2010-11 (Hectares)"
+},
+{
+"id": "ABS_LAND_USE",
+"version": "1.0.0",
+"name": "Land use net change matrix 2006 to 2011"
+},
+{
+"id": "ABS_MONETARY_ACCOUNT",
+"version": "1.0.0",
+"name": "Monetary account for land use 2006 to 2011 ($'000)"
+},
+{
+"id": "ABS_NOM_VISA_CY",
+"version": "1.0.0",
+"name": "Overseas migration, arrivals, departures, state/territory, visa and citizenship groups - calendar years, 2004 onwards"
+},
+{
+"id": "ABS_NOM_VISA_FY",
+"version": "1.0.0",
+"name": "Overseas migration, arrivals, departures, state/territory, visa and citizenship groups - financial years, 2004-05 onwards"
+},
+{
+"id": "ABS_PERSONS_PROJ",
+"version": "1.1.0",
+"name": "Projected persons, by living arrangement, Australia, 2021 to 2046"
+},
+{
+"id": "ABS_PHYSICAL_ACCOUNT_LC",
+"version": "1.0.0",
+"name": "Physical account for land cover 2006 to 2011 (Hectares)"
+},
+{
+"id": "ABS_PHYSICAL_ACCOUNT_LU",
+"version": "1.0.0",
+"name": "Physical account for land use 2006 to 2011 (Hectares)"
+},
+{
+"id": "ABS_REGIONAL_ASGS2016",
+"version": "1.2.0",
+"name": "Regional Statistics, ASGS 2016, 2011-2020"
+},
+{
+"id": "ABS_REGIONAL_ASGS2021",
+"version": "1.6.0",
+"name": "Data by region 2011-2025, by Main Structure and GCCSA (ASGS Edition 3 (2021 - 2026))"
+},
+{
+"id": "ABS_REGIONAL_INDIGENOUS",
+"version": "1.1.0",
+"name": "Regional Statistics by Indigenous Structure (ASGS 2016), 2011-2020"
+},
+{
+"id": "ABS_REGIONAL_INDIGENOUS_2021",
+"version": "1.5.0",
+"name": "Data by region 2011-2025, by Indigenous Structure (ASGS Edition 3 (2021 - 2026))"
+},
+{
+"id": "ABS_REGIONAL_LGA2017",
+"version": "1.0.0",
+"name": "Regional Statistics, LGA 2017, 2011-2017"
+},
+{
+"id": "ABS_REGIONAL_LGA2018",
+"version": "1.0.0",
+"name": "Regional Statistics by LGA 2018, 2011-2018"
+},
+{
+"id": "ABS_REGIONAL_LGA2019",
+"version": "1.0.0",
+"name": "Regional Statistics by LGA 2019, 2011-2019"
+},
+{
+"id": "ABS_REGIONAL_LGA2020",
+"version": "1.2.0",
+"name": "Regional Statistics by LGA 2020, 2011-2020"
+},
+{
+"id": "ABS_REGIONAL_LGA2021",
+"version": "1.6.0",
+"name": "Data by region 2011-2025, by Local Government Areas (ASGS Edition 3 (2021 - 2026))"
+},
+{
+"id": "ABS_REGIONAL_MIGRATION",
+"version": "1.0.0",
+"name": "Net internal and overseas migration estimates by region (SA2 and above) and age, 2016-17 onwards"
+},
+{
+"id": "ABS_REGIONAL_REMOTENESS",
+"version": "1.3.0",
+"name": "Data by region 2011-2022, by Remoteness Areas (ASGS Edition 2 (2016))"
+},
+{
+"id": "ABS_REGIONAL_REMOTENESS_ASGS2021",
+"version": "1.5.0",
+"name": "Data by region 2011-2025, by Remoteness Structure (ASGS Edition 3 (2021 - 2026))"
+},
+{
+"id": "ABS_SEIFA2016_LGA",
+"version": "1.0.0",
+"name": "SEIFA 2016 by Local Government Area (LGA)"
+},
+{
+"id": "ABS_SEIFA2016_POA",
+"version": "1.0.0",
+"name": "SEIFA 2016 by Postal Area Code"
+},
+{
+"id": "ABS_SEIFA2016_SA1",
+"version": "1.0.0",
+"name": "SEIFA 2016 by Statistical Area 1 (SA1)"
+},
+{
+"id": "ABS_SEIFA2016_SA2",
+"version": "1.0.0",
+"name": "SEIFA 2016 by Statistical Area 2"
+},
+{
+"id": "ABS_SEIFA2016_SSC",
+"version": "1.0.0",
+"name": "SEIFA 2016 by State Suburb Code"
+},
+{
+"id": "ABS_SEIFA2021_LGA",
+"version": "1.0.0",
+"name": "SEIFA 2021 by Local Government Area (LGA)"
+},
+{
+"id": "ABS_SEIFA2021_POA",
+"version": "1.0.0",
+"name": "SEIFA 2021 by Postal Area Code (POA)"
+},
+{
+"id": "ABS_SEIFA2021_SA1",
+"version": "1.0.0",
+"name": "SEIFA 2021 by Statistical Area 1 (SA1)"
+},
+{
+"id": "ABS_SEIFA2021_SA2",
+"version": "1.0.0",
+"name": "SEIFA 2021 by Statistical Area 2 (SA2)"
+},
+{
+"id": "ABS_SEIFA2021_SAL",
+"version": "1.0.0",
+"name": "SEIFA 2021 by Suburbs and Localities (SAL)"
+},
+{
+"id": "ABS_SEIFA_LGA",
+"version": "1.0.0",
+"name": "SEIFA 2011 by Local Government Area (LGA)"
+},
+{
+"id": "ABS_SEIFA_SA2",
+"version": "1.0.0",
+"name": "SEIFA 2011 by Statistical Area 2 (SA2)"
+},
+{
+"id": "ABS_SEIFA_SLA",
+"version": "1.0.0",
+"name": "SEIFA 2011 by Statistical Local Area (SLA)"
+},
+{
+"id": "ABS_SU_TABLE_2018",
+"version": "1.0.0",
+"name": "Supply Use Table"
+},
+{
+"id": "ABS_SU_TABLE_2020",
+"version": "1.0.0",
+"name": "Supply Use Table, 2019-20"
+},
+{
+"id": "ABS_SU_TABLE_2021",
+"version": "1.0.0",
+"name": "Supply Use Table, 2020-21"
+},
+{
+"id": "ABS_SU_TABLE_2022",
+"version": "1.0.0",
+"name": "Supply Use Table, 2021-22"
+},
+{
+"id": "ABS_SU_TABLE_2023",
+"version": "1.0.0",
+"name": "Supply Use Table, 2022-23"
+},
+{
+"id": "ABS_SU_TABLE_2024",
+"version": "1.0.0",
+"name": "Supply Use Table, 2023-24"
+},
+{
+"id": "AG_BROADACRE",
+"version": "1.0.1",
+"name": "Australian Agriculture: Broadacre Crops"
+},
+{
+"id": "AG_HORTICULTURE",
+"version": "1.0.1",
+"name": "Australian Agriculture: Horticulture"
+},
+{
+"id": "ALC",
+"version": "1.0.0",
+"name": "Apparent Consumption of Alcohol, Australia"
+},
+{
+"id": "AMLPS_PART_2017",
+"version": "1.0.0",
+"name": "Australian Marriage Law Postal Survey 2017 - Participation"
+},
+{
+"id": "AMLPS_RESP_2017",
+"version": "1.0.0",
+"name": "Australian Marriage Law Postal Survey 2017 - Response"
+},
+{
+"id": "ANA_AGG",
+"version": "1.0.0",
+"name": "Australian National Accounts Key Aggregates"
+},
+{
+"id": "ANA_EXP",
+"version": "1.0.0",
+"name": "Australian National Accounts - Expenditure on Gross Domestic Product (GDP (E))"
+},
+{
+"id": "ANA_INC",
+"version": "1.0.0",
+"name": "Australian National Accounts - Income from Gross Domestic Product (GDP (I))"
+},
+{
+"id": "ANA_IND_GVA",
+"version": "1.0.0",
+"name": "Australian National Accounts - Production of Gross Domestic Product (GDP (P))"
+},
+{
+"id": "ANA_SFD",
+"version": "1.0.0",
+"name": "Australian National Accounts - State Final Demand"
+},
+{
+"id": "ATSI_BIRTHS_SUMM",
+"version": "1.0.0",
+"name": "Aboriginal and Torres Strait Islander births and confinements, summary, by state"
+},
+{
+"id": "ATSI_FERTILITY",
+"version": "1.0.0",
+"name": "Aboriginal and Torres Strait Islander registered births and fertility rate, by age groups and state or territory of usual residence, 2001 onwards"
+},
+{
+"id": "AUSTRALIAN_INDUSTRY",
+"version": "1.1.0",
+"name": "Australian Industry"
+},
+{
+"id": "AWE",
+"version": "1.0.0",
+"name": "Average Weekly Earnings"
+},
+{
+"id": "BA_GCCSA",
+"version": "1.0.0",
+"name": "Building Approvals by Greater Capital Cities Statistical Area (GCCSA) and above"
+},
+{
+"id": "BA_LGA2018",
+"version": "1.0.0",
+"name": "Building Approvals by Local Government Area (LGA 2018)"
+},
+{
+"id": "BA_LGA2019",
+"version": "1.0.0",
+"name": "Building Approvals by Local Government Area (LGA 2019)"
+},
+{
+"id": "BA_LGA2020",
+"version": "1.0.0",
+"name": "Building Approvals by Local Government Area (LGA 2020)"
+},
+{
+"id": "BA_LGA2021",
+"version": "1.0.0",
+"name": "Building Approvals by Local Government Area (LGA 2021)"
+},
+{
+"id": "BA_LGA2022",
+"version": "1.0.0",
+"name": "Building Approvals by Local Government Area (LGA 2022)"
+},
+{
+"id": "BA_LGA2023",
+"version": "1.0.0",
+"name": "Building Approvals by Local Government Area (LGA 2023)"
+},
+{
+"id": "BA_LGA2024",
+"version": "1.0.0",
+"name": "Building Approvals by Local Government Area (LGA 2024)"
+},
+{
+"id": "BA_LGA2025",
+"version": "1.0.0",
+"name": "Building Approvals by Local Government Area (LGA 2025)"
+},
+{
+"id": "BA_SA2",
+"version": "2.0.0",
+"name": "Building Approvals by SA2 and above, from July 2021 onwards"
+},
+{
+"id": "BA_SA2_201116",
+"version": "1.0.0",
+"name": "Building Approvals by SA2 and above, July 2011 to June 2016"
+},
+{
+"id": "BA_SA2_2016-21",
+"version": "1.0.0",
+"name": "Building Approvals by SA2 and above, 2016 to 2021"
+},
+{
+"id": "BCS_BUSGVTSK",
+"version": "1.0.0",
+"name": "Business interaction with government and Skills, year ended 30 June 2022"
+},
+{
+"id": "BCS_BUSICT",
+"version": "1.0.0",
+"name": "Use and management of ICT, Cloud computing and Cyber security, year ended 30 June 2022"
+},
+{
+"id": "BCS_BUSINF",
+"version": "2.0.0",
+"name": "Business information and performance"
+},
+{
+"id": "BCS_BUSINF2",
+"version": "1.0.0",
+"name": "Business profile, Performance and arrangements, year ended 30 June 2022"
+},
+{
+"id": "BCS_BUSINT",
+"version": "1.0.0",
+"name": "Internet connectivity, Online presence and E-commerce, year ended 30 June 2022"
+},
+{
+"id": "BCS_INN",
+"version": "2.0.0",
+"name": "Business innovation including collaboration, fee-for-service arrangements, financing and assessment"
+},
+{
+"id": "BCS_INNACT",
+"version": "2.0.0",
+"name": "Business innovation activity including innovation implemented, still in development or abandoned"
+},
+{
+"id": "BCS_INNSIG",
+"version": "2.0.0",
+"name": "Most significant innovation, including target markets and commercialisation activities"
+},
+{
+"id": "BIRTHS_AGE_FATHER",
+"version": "1.0.0",
+"name": "Registered births, nuptiality by age of father, 1975 onwards"
+},
+{
+"id": "BIRTHS_AGE_MOTHER",
+"version": "1.0.0",
+"name": "Registered births, nuptiality by age of mother, 1975 onwards"
+},
+{
+"id": "BIRTHS_MONTH_OCCURRENCE",
+"version": "1.0.0",
+"name": "Births, year and month of occurrence by state or territory of usual residence, 1975 onwards"
+},
+{
+"id": "BIRTHS_MON_OCC_AGE_MOTHER",
+"version": "1.0.0",
+"name": "Births, by year and month of occurrence, by age of the mother, by state or territory of usual residence, 2001 onwards"
+},
+{
+"id": "BIRTHS_SUMMARY",
+"version": "1.0.0",
+"name": "Registered births, summary by state or territory of usual residence, 1975 onwards"
+},
+{
+"id": "BOP",
+"version": "1.0.0",
+"name": "Balance of Payments"
+},
+{
+"id": "BOP_FACTOR",
+"version": "1.0.0",
+"name": "Balance of Payments and International Investment Position: Combined current price seasonal adjustment factors"
+},
+{
+"id": "BOP_GOODS",
+"version": "1.0.0",
+"name": "Balance of Payments: Goods Exports and Imports"
+},
+{
+"id": "BOP_STATE",
+"version": "1.0.0",
+"name": "Balance of Payments by State"
+},
+{
+"id": "BUILDING_ACTIVITY",
+"version": "1.0.0",
+"name": "Building Activity"
+},
+{
+"id": "BUSINESS_TURNOVER",
+"version": "1.3.0",
+"name": "Monthly Business Turnover Indicator"
+},
+{
+"id": "BWD",
+"version": "1.0.0",
+"name": "Building Work Done, Preliminary"
+},
+{
+"id": "C21_G01_CED",
+"version": "1.0.0",
+"name": "Census 2021, G01 Selected person characteristics by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G01_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G01 Selected person characteristics by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G01_POA",
+"version": "1.0.0",
+"name": "Census 2021, G01 Selected person characteristics by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G01_RA",
+"version": "1.0.0",
+"name": "Census 2021, G01 Selected person characteristics by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G01_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G01 Selected person characteristics by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G01_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G01 Selected person characteristics by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G01_SED",
+"version": "1.0.0",
+"name": "Census 2021, G01 Selected person characteristics by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G01_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G01 Selected person characteristics by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G01_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G01 Selected person characteristics by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G02_CED",
+"version": "1.0.0",
+"name": "Census 2021, G02 Selected medians and averages, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G02_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G02 Selected medians and averages, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G02_POA",
+"version": "1.0.0",
+"name": "Census 2021, G02 Selected medians and averages, Postal Areas (POA)"
+},
+{
+"id": "C21_G02_RA",
+"version": "1.0.0",
+"name": "Census 2021, G02 Selected medians and averages, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G02_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G02 Selected medians and averages, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G02_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G02 Selected medians and averages, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G02_SED",
+"version": "1.0.0",
+"name": "Census 2021, G02 Selected medians and averages, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G02_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G02 Selected medians and averages, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G02_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G02 Selected medians and averages, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G03_CED",
+"version": "1.0.0",
+"name": "Census 2021, G03 Place of usual residence by place of enumeration on Census Night by age, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G03_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G03 Place of usual residence by place of enumeration on Census Night by age, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G03_POA",
+"version": "1.0.0",
+"name": "Census 2021, G03 Place of usual residence by place of enumeration on Census Night by age, Postal Areas (POA)"
+},
+{
+"id": "C21_G03_RA",
+"version": "1.0.0",
+"name": "Census 2021, G03 Place of usual residence by place of enumeration on Census Night by age, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G03_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G03 Place of usual residence by place of enumeration on Census Night by age, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G03_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G03 Place of usual residence by place of enumeration on Census Night by age, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G03_SED",
+"version": "1.0.0",
+"name": "Census 2021, G03 Place of usual residence by place of enumeration on Census Night by age, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G03_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G03 Place of usual residence by place of enumeration on Census Night by age, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G03_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G03 Place of usual residence by place of enumeration on Census Night by age, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G04_CED",
+"version": "1.0.0",
+"name": "Census 2021, G04 Age by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G04_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G04 Age by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G04_POA",
+"version": "1.0.0",
+"name": "Census 2021, G04 Age by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G04_RA",
+"version": "1.0.0",
+"name": "Census 2021, G04 Age by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G04_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G04 Age by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G04_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G04 Age by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G04_SED",
+"version": "1.0.0",
+"name": "Census 2021, G04 Age by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G04_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G04 Age by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G04_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G04 Age by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G05_CED",
+"version": "1.0.0",
+"name": "Census 2021, G05 Registered marital status by age by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G05_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G05 Registered marital status by age by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G05_POA",
+"version": "1.0.0",
+"name": "Census 2021, G05 Registered marital status by age by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G05_RA",
+"version": "1.0.0",
+"name": "Census 2021, G05 Registered marital status by age by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G05_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G05 Registered marital status by age by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G05_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G05 Registered marital status by age by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G05_SED",
+"version": "1.0.0",
+"name": "Census 2021, G05 Registered marital status by age by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G05_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G05 Registered marital status by age by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G05_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G05 Registered marital status by age by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G06_CED",
+"version": "1.0.0",
+"name": "Census 2021, G06 Social marital status by age by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G06_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G06 Social marital status by age by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G06_POA",
+"version": "1.0.0",
+"name": "Census 2021, G06 Social marital status by age by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G06_RA",
+"version": "1.0.0",
+"name": "Census 2021, G06 Social marital status by age by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G06_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G06 Social marital status by age by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G06_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G06 Social marital status by age by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G06_SED",
+"version": "1.0.0",
+"name": "Census 2021, G06 Social marital status by age by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G06_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G06 Social marital status by age by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G06_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G06 Social marital status by age by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G07_CED",
+"version": "1.0.0",
+"name": "Census 2021, G07 Indigenous status by age by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G07_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G07 Indigenous status by age by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G07_POA",
+"version": "1.0.0",
+"name": "Census 2021, G07 Indigenous status by age by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G07_RA",
+"version": "1.0.0",
+"name": "Census 2021, G07 Indigenous status by age by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G07_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G07 Indigenous status by age by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G07_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G07 Indigenous status by age by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G07_SED",
+"version": "1.0.0",
+"name": "Census 2021, G07 Indigenous status by age by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G07_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G07 Indigenous status by age by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G07_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G07 Indigenous status by age by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G08_CED",
+"version": "1.0.0",
+"name": "Census 2021, G08 Ancestry by country of birth of parents, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G08_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G08 Ancestry by country of birth of parents, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G08_POA",
+"version": "1.0.0",
+"name": "Census 2021, G08 Ancestry by country of birth of parents, Postal Areas (POA)"
+},
+{
+"id": "C21_G08_RA",
+"version": "1.0.0",
+"name": "Census 2021, G08 Ancestry by country of birth of parents, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G08_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G08 Ancestry by country of birth of parents, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G08_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G08 Ancestry by country of birth of parents, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G08_SED",
+"version": "1.0.0",
+"name": "Census 2021, G08 Ancestry by country of birth of parents, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G08_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G08 Ancestry by country of birth of parents, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G08_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G08 Ancestry by country of birth of parents, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G09_CED",
+"version": "1.0.0",
+"name": "Census 2021, G09 Country of birth of person by age by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G09_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G09 Country of birth of person by age by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G09_POA",
+"version": "1.0.0",
+"name": "Census 2021, G09 Country of birth of person by age by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G09_RA",
+"version": "1.0.0",
+"name": "Census 2021, G09 Country of birth of person by age by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G09_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G09 Country of birth of person by age by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G09_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G09 Country of birth of person by age by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G09_SED",
+"version": "1.0.0",
+"name": "Census 2021, G09 Country of birth of person by age by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G09_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G09 Country of birth of person by age by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G09_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G09 Country of birth of person by age by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G10_CED",
+"version": "1.0.0",
+"name": "Census 2021, G10 Country of birth of person by year of arrival in Australia, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G10_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G10 Country of birth of person by year of arrival in Australia, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G10_POA",
+"version": "1.0.0",
+"name": "Census 2021, G10 Country of birth of person by year of arrival in Australia, Postal Areas (POA)"
+},
+{
+"id": "C21_G10_RA",
+"version": "1.0.0",
+"name": "Census 2021, G10 Country of birth of person by year of arrival in Australia, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G10_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G10 Country of birth of person by year of arrival in Australia, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G10_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G10 Country of birth of person by year of arrival in Australia, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G10_SED",
+"version": "1.0.0",
+"name": "Census 2021, G10 Country of birth of person by year of arrival in Australia, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G10_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G10 Country of birth of person by year of arrival in Australia, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G10_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G10 Country of birth of person by year of arrival in Australia, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G11_CED",
+"version": "1.0.0",
+"name": "Census 2021, G11 Proficiency in spoken English by year of arrival in Australia by age, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G11_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G11 Proficiency in spoken English by year of arrival in Australia by age, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G11_POA",
+"version": "1.0.0",
+"name": "Census 2021, G11 Proficiency in spoken English by year of arrival in Australia by age, Postal Areas (POA)"
+},
+{
+"id": "C21_G11_RA",
+"version": "1.0.0",
+"name": "Census 2021, G11 Proficiency in spoken English by year of arrival in Australia by age, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G11_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G11 Proficiency in spoken English by year of arrival in Australia by age, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G11_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G11 Proficiency in spoken English by year of arrival in Australia by age, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G11_SED",
+"version": "1.0.0",
+"name": "Census 2021, G11 Proficiency in spoken English by year of arrival in Australia by age, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G11_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G11 Proficiency in spoken English by year of arrival in Australia by age, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G11_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G11 Proficiency in spoken English by year of arrival in Australia by age, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G12_CED",
+"version": "1.0.0",
+"name": "Census 2021, G12 Proficiency in spoken English of parents by age of dependent children, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G12_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G12 Proficiency in spoken English of parents by age of dependent children, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G12_POA",
+"version": "1.0.0",
+"name": "Census 2021, G12 Proficiency in spoken English of parents by age of dependent children, Postal Areas (POA)"
+},
+{
+"id": "C21_G12_RA",
+"version": "1.0.0",
+"name": "Census 2021, G12 Proficiency in spoken English of parents by age of dependent children, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G12_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G12 Proficiency in spoken English of parents by age of dependent children, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G12_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G12 Proficiency in spoken English of parents by age of dependent children, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G12_SED",
+"version": "1.0.0",
+"name": "Census 2021, G12 Proficiency in spoken English of parents by age of dependent children, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G12_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G12 Proficiency in spoken English of parents by age of dependent children, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G12_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G12 Proficiency in spoken English of parents by age of dependent children, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G13_CED",
+"version": "1.0.0",
+"name": "Census 2021, G13 Language used at home by proficiency in spoken English by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G13_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G13 Language used at home by proficiency in spoken English by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G13_POA",
+"version": "1.0.0",
+"name": "Census 2021, G13 Language used at home by proficiency in spoken English by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G13_RA",
+"version": "1.0.0",
+"name": "Census 2021, G13 Language used at home by proficiency in spoken English by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G13_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G13 Language used at home by proficiency in spoken English by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G13_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G13 Language used at home by proficiency in spoken English by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G13_SED",
+"version": "1.0.0",
+"name": "Census 2021, G13 Language used at home by proficiency in spoken English by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G13_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G13 Language used at home by proficiency in spoken English by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G13_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G13 Language used at home by proficiency in spoken English by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G14_CED",
+"version": "1.0.0",
+"name": "Census 2021, G14 Religious affiliation by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G14_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G14 Religious affiliation by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G14_POA",
+"version": "1.0.0",
+"name": "Census 2021, G14 Religious affiliation by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G14_RA",
+"version": "1.0.0",
+"name": "Census 2021, G14 Religious affiliation by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G14_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G14 Religious affiliation by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G14_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G14 Religious affiliation by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G14_SED",
+"version": "1.0.0",
+"name": "Census 2021, G14 Religious affiliation by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G14_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G14 Religious affiliation by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G14_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G14 Religious affiliation by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G15_CED",
+"version": "1.0.0",
+"name": "Census 2021, G15 Type of education institution attending (full-time/part-time student status by age) by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G15_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G15 Type of education institution attending (full-time/part-time student status by age) by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G15_POA",
+"version": "1.0.0",
+"name": "Census 2021, G15 Type of education institution attending (full-time/part-time student status by age) by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G15_RA",
+"version": "1.0.0",
+"name": "Census 2021, G15 Type of education institution attending (full-time/part-time student status by age) by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G15_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G15 Type of education institution attending (full-time/part-time student status by age) by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G15_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G15 Type of education institution attending (full-time/part-time student status by age) by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G15_SED",
+"version": "1.0.0",
+"name": "Census 2021, G15 Type of education institution attending (full-time/part-time student status by age) by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G15_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G15 Type of education institution attending (full-time/part-time student status by age) by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G15_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G15 Type of education institution attending (full-time/part-time student status by age) by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G16_CED",
+"version": "1.0.0",
+"name": "Census 2021, G16 Highest year of school completed by age by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G16_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G16 Highest year of school completed by age by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G16_POA",
+"version": "1.0.0",
+"name": "Census 2021, G16 Highest year of school completed by age by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G16_RA",
+"version": "1.0.0",
+"name": "Census 2021, G16 Highest year of school completed by age by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G16_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G16 Highest year of school completed by age by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G16_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G16 Highest year of school completed by age by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G16_SED",
+"version": "1.0.0",
+"name": "Census 2021, G16 Highest year of school completed by age by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G16_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G16 Highest year of school completed by age by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G16_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G16 Highest year of school completed by age by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G17_CED",
+"version": "1.0.0",
+"name": "Census 2021, G17 Total personal income (weekly) by age by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G17_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G17 Total personal income (weekly) by age by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G17_POA",
+"version": "1.0.0",
+"name": "Census 2021, G17 Total personal income (weekly) by age by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G17_RA",
+"version": "1.0.0",
+"name": "Census 2021, G17 Total personal income (weekly) by age by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G17_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G17 Total personal income (weekly) by age by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G17_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G17 Total personal income (weekly) by age by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G17_SED",
+"version": "1.0.0",
+"name": "Census 2021, G17 Total personal income (weekly) by age by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G17_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G17 Total personal income (weekly) by age by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G17_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G17 Total personal income (weekly) by age by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G18_CED",
+"version": "1.0.0",
+"name": "Census 2021, G18 Core activity need for assistance by age by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G18_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G18 Core activity need for assistance by age by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G18_POA",
+"version": "1.0.0",
+"name": "Census 2021, G18 Core activity need for assistance by age by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G18_RA",
+"version": "1.0.0",
+"name": "Census 2021, G18 Core activity need for assistance by age by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G18_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G18 Core activity need for assistance by age by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G18_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G18 Core activity need for assistance by age by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G18_SED",
+"version": "1.0.0",
+"name": "Census 2021, G18 Core activity need for assistance by age by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G18_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G18 Core activity need for assistance by age by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G18_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G18 Core activity need for assistance by age by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G19_CED",
+"version": "1.0.0",
+"name": "Census 2021, G19 Type of long-term health condition by age by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G19_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G19 Type of long-term health condition by age by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G19_POA",
+"version": "1.0.0",
+"name": "Census 2021, G19 Type of long-term health condition by age by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G19_RA",
+"version": "1.0.0",
+"name": "Census 2021, G19 Type of long-term health condition by age by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G19_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G19 Type of long-term health condition by age by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G19_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G19 Type of long-term health condition by age by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G19_SED",
+"version": "1.0.0",
+"name": "Census 2021, G19 Type of long-term health condition by age by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G19_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G19 Type of long-term health condition by age by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G19_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G19 Type of long-term health condition by age by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G20_CED",
+"version": "1.0.0",
+"name": "Census 2021, G20 Count of selected long-term health conditions by age by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G20_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G20 Count of selected long-term health conditions by age by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G20_POA",
+"version": "1.0.0",
+"name": "Census 2021, G20 Count of selected long-term health conditions by age by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G20_RA",
+"version": "1.0.0",
+"name": "Census 2021, G20 Count of selected long-term health conditions by age by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G20_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G20 Count of selected long-term health conditions by age by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G20_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G20 Count of selected long-term health conditions by age by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G20_SED",
+"version": "1.0.0",
+"name": "Census 2021, G20 Count of selected long-term health conditions by age by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G20_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G20 Count of selected long-term health conditions by age by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G20_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G20 Count of selected long-term health conditions by age by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G21_CED",
+"version": "1.0.0",
+"name": "Census 2021, G21 Type of long-term health condition by selected person characteristics, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G21_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G21 Type of long-term health condition by selected person characteristics, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G21_POA",
+"version": "1.0.0",
+"name": "Census 2021, G21 Type of long-term health condition by selected person characteristics, Postal Areas (POA)"
+},
+{
+"id": "C21_G21_RA",
+"version": "1.0.0",
+"name": "Census 2021, G21 Type of long-term health condition by selected person characteristics, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G21_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G21 Type of long-term health condition by selected person characteristics, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G21_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G21 Type of long-term health condition by selected person characteristics, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G21_SED",
+"version": "1.0.0",
+"name": "Census 2021, G21 Type of long-term health condition by selected person characteristics, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G21_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G21 Type of long-term health condition by selected person characteristics, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G21_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G21 Type of long-term health condition by selected person characteristics, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G22_CED",
+"version": "1.0.0",
+"name": "Census 2021, G22 Australian Defence Force service by age by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G22_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G22 Australian Defence Force service by age by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G22_POA",
+"version": "1.0.0",
+"name": "Census 2021, G22 Australian Defence Force service by age by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G22_RA",
+"version": "1.0.0",
+"name": "Census 2021, G22 Australian Defence Force service by age by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G22_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G22 Australian Defence Force service by age by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G22_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G22 Australian Defence Force service by age by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G22_SED",
+"version": "1.0.0",
+"name": "Census 2021, G22 Australian Defence Force service by age by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G22_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G22 Australian Defence Force service by age by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G22_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G22 Australian Defence Force service by age by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G23_CED",
+"version": "1.0.0",
+"name": "Census 2021, G23 Voluntary work for an organisation or group by age by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G23_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G23 Voluntary work for an organisation or group by age by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G23_POA",
+"version": "1.0.0",
+"name": "Census 2021, G23 Voluntary work for an organisation or group by age by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G23_RA",
+"version": "1.0.0",
+"name": "Census 2021, G23 Voluntary work for an organisation or group by age by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G23_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G23 Voluntary work for an organisation or group by age by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G23_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G23 Voluntary work for an organisation or group by age by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G23_SED",
+"version": "1.0.0",
+"name": "Census 2021, G23 Voluntary work for an organisation or group by age by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G23_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G23 Voluntary work for an organisation or group by age by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G23_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G23 Voluntary work for an organisation or group by age by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G24_CED",
+"version": "1.0.0",
+"name": "Census 2021, G24 Unpaid domestic work: number of hours by age by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G24_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G24 Unpaid domestic work: number of hours by age by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G24_POA",
+"version": "1.0.0",
+"name": "Census 2021, G24 Unpaid domestic work: number of hours by age by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G24_RA",
+"version": "1.0.0",
+"name": "Census 2021, G24 Unpaid domestic work: number of hours by age by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G24_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G24 Unpaid domestic work: number of hours by age by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G24_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G24 Unpaid domestic work: number of hours by age by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G24_SED",
+"version": "1.0.0",
+"name": "Census 2021, G24 Unpaid domestic work: number of hours by age by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G24_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G24 Unpaid domestic work: number of hours by age by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G24_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G24 Unpaid domestic work: number of hours by age by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G25_CED",
+"version": "1.0.0",
+"name": "Census 2021, G25 Unpaid assistance to a person with a disability, health condition or due to old age by age by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G25_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G25 Unpaid assistance to a person with a disability, health condition or due to old age by age by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G25_POA",
+"version": "1.0.0",
+"name": "Census 2021, G25 Unpaid assistance to a person with a disability, health condition or due to old age by age by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G25_RA",
+"version": "1.0.0",
+"name": "Census 2021, G25 Unpaid assistance to a person with a disability, health condition or due to old age by age by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G25_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G25 Unpaid assistance to a person with a disability, health condition or due to old age by age by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G25_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G25 Unpaid assistance to a person with a disability, health condition or due to old age by age by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G25_SED",
+"version": "1.0.0",
+"name": "Census 2021, G25 Unpaid assistance to a person with a disability, health condition or due to old age by age by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G25_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G25 Unpaid assistance to a person with a disability, health condition or due to old age by age by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G25_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G25 Unpaid assistance to a person with a disability, health condition or due to old age by age by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G26_CED",
+"version": "1.0.0",
+"name": "Census 2021, G26 Unpaid child care by age by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G26_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G26 Unpaid child care by age by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G26_POA",
+"version": "1.0.0",
+"name": "Census 2021, G26 Unpaid child care by age by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G26_RA",
+"version": "1.0.0",
+"name": "Census 2021, G26 Unpaid child care by age by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G26_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G26 Unpaid child care by age by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G26_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G26 Unpaid child care by age by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G26_SED",
+"version": "1.0.0",
+"name": "Census 2021, G26 Unpaid child care by age by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G26_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G26 Unpaid child care by age by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G26_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G26 Unpaid child care by age by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G27_CED",
+"version": "1.0.0",
+"name": "Census 2021, G27 Relationship in household by age by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G27_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G27 Relationship in household by age by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G27_POA",
+"version": "1.0.0",
+"name": "Census 2021, G27 Relationship in household by age by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G27_RA",
+"version": "1.0.0",
+"name": "Census 2021, G27 Relationship in household by age by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G27_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G27 Relationship in household by age by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G27_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G27 Relationship in household by age by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G27_SED",
+"version": "1.0.0",
+"name": "Census 2021, G27 Relationship in household by age by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G27_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G27 Relationship in household by age by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G27_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G27 Relationship in household by age by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G28_CED",
+"version": "1.0.0",
+"name": "Census 2021, G28 Number of children ever born, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G28_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G28 Number of children ever born, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G28_POA",
+"version": "1.0.0",
+"name": "Census 2021, G28 Number of children ever born, Postal Areas (POA)"
+},
+{
+"id": "C21_G28_RA",
+"version": "1.0.0",
+"name": "Census 2021, G28 Number of children ever born, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G28_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G28 Number of children ever born, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G28_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G28 Number of children ever born, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G28_SED",
+"version": "1.0.0",
+"name": "Census 2021, G28 Number of children ever born, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G28_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G28 Number of children ever born, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G28_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G28 Number of children ever born, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G29_CED",
+"version": "1.0.0",
+"name": "Census 2021, G29 Family composition, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G29_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G29 Family composition, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G29_POA",
+"version": "1.0.0",
+"name": "Census 2021, G29 Family composition, Postal Areas (POA)"
+},
+{
+"id": "C21_G29_RA",
+"version": "1.0.0",
+"name": "Census 2021, G29 Family composition, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G29_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G29 Family composition, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G29_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G29 Family composition, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G29_SED",
+"version": "1.0.0",
+"name": "Census 2021, G29 Family composition, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G29_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G29 Family composition, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G29_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G29 Family composition, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G30_CED",
+"version": "1.0.0",
+"name": "Census 2021, G30 Family composition and country of birth of parents by age of dependent children, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G30_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G30 Family composition and country of birth of parents by age of dependent children, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G30_POA",
+"version": "1.0.0",
+"name": "Census 2021, G30 Family composition and country of birth of parents by age of dependent children, Postal Areas (POA)"
+},
+{
+"id": "C21_G30_RA",
+"version": "1.0.0",
+"name": "Census 2021, G30 Family composition and country of birth of parents by age of dependent children, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G30_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G30 Family composition and country of birth of parents by age of dependent children, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G30_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G30 Family composition and country of birth of parents by age of dependent children, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G30_SED",
+"version": "1.0.0",
+"name": "Census 2021, G30 Family composition and country of birth of parents by age of dependent children, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G30_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G30 Family composition and country of birth of parents by age of dependent children, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G30_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G30 Family composition and country of birth of parents by age of dependent children, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G31_CED",
+"version": "1.0.0",
+"name": "Census 2021, G31 Family blending, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G31_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G31 Family blending, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G31_POA",
+"version": "1.0.0",
+"name": "Census 2021, G31 Family blending, Postal Areas (POA)"
+},
+{
+"id": "C21_G31_RA",
+"version": "1.0.0",
+"name": "Census 2021, G31 Family blending, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G31_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G31 Family blending, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G31_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G31 Family blending, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G31_SED",
+"version": "1.0.0",
+"name": "Census 2021, G31 Family blending, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G31_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G31 Family blending, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G31_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G31 Family blending, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G32_CED",
+"version": "1.0.0",
+"name": "Census 2021, G32 Total family income (weekly) by family composition, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G32_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G32 Total family income (weekly) by family composition, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G32_POA",
+"version": "1.0.0",
+"name": "Census 2021, G32 Total family income (weekly) by family composition, Postal Areas (POA)"
+},
+{
+"id": "C21_G32_RA",
+"version": "1.0.0",
+"name": "Census 2021, G32 Total family income (weekly) by family composition, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G32_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G32 Total family income (weekly) by family composition, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G32_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G32 Total family income (weekly) by family composition, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G32_SED",
+"version": "1.0.0",
+"name": "Census 2021, G32 Total family income (weekly) by family composition, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G32_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G32 Total family income (weekly) by family composition, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G32_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G32 Total family income (weekly) by family composition, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G33_CED",
+"version": "1.0.0",
+"name": "Census 2021, G33 Total household income (weekly) by household composition, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G33_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G33 Total household income (weekly) by household composition, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G33_POA",
+"version": "1.0.0",
+"name": "Census 2021, G33 Total household income (weekly) by household composition, Postal Areas (POA)"
+},
+{
+"id": "C21_G33_RA",
+"version": "1.0.0",
+"name": "Census 2021, G33 Total household income (weekly) by household composition, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G33_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G33 Total household income (weekly) by household composition, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G33_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G33 Total household income (weekly) by household composition, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G33_SED",
+"version": "1.0.0",
+"name": "Census 2021, G33 Total household income (weekly) by household composition, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G33_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G33 Total household income (weekly) by household composition, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G33_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G33 Total household income (weekly) by household composition, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G34_CED",
+"version": "1.0.0",
+"name": "Census 2021, G34 Number of motor vehicles by dwellings, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G34_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G34 Number of motor vehicles by dwellings, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G34_POA",
+"version": "1.0.0",
+"name": "Census 2021, G34 Number of motor vehicles by dwellings, Postal Areas (POA)"
+},
+{
+"id": "C21_G34_RA",
+"version": "1.0.0",
+"name": "Census 2021, G34 Number of motor vehicles by dwellings, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G34_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G34 Number of motor vehicles by dwellings, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G34_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G34 Number of motor vehicles by dwellings, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G34_SED",
+"version": "1.0.0",
+"name": "Census 2021, G34 Number of motor vehicles by dwellings, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G34_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G34 Number of motor vehicles by dwellings, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G34_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G34 Number of motor vehicles by dwellings, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G35_CED",
+"version": "1.0.0",
+"name": "Census 2021, G35 Household composition by number of persons usually resident, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G35_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G35 Household composition by number of persons usually resident, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G35_POA",
+"version": "1.0.0",
+"name": "Census 2021, G35 Household composition by number of persons usually resident, Postal Areas (POA)"
+},
+{
+"id": "C21_G35_RA",
+"version": "1.0.0",
+"name": "Census 2021, G35 Household composition by number of persons usually resident, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G35_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G35 Household composition by number of persons usually resident, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G35_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G35 Household composition by number of persons usually resident, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G35_SED",
+"version": "1.0.0",
+"name": "Census 2021, G35 Household composition by number of persons usually resident, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G35_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G35 Household composition by number of persons usually resident, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G35_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G35 Household composition by number of persons usually resident, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G36_CED",
+"version": "1.0.0",
+"name": "Census 2021, G36 Dwelling structure, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G36_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G36 Dwelling structure, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G36_POA",
+"version": "1.0.0",
+"name": "Census 2021, G36 Dwelling structure, Postal Areas (POA)"
+},
+{
+"id": "C21_G36_RA",
+"version": "1.0.0",
+"name": "Census 2021, G36 Dwelling structure, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G36_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G36 Dwelling structure, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G36_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G36 Dwelling structure, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G36_SED",
+"version": "1.0.0",
+"name": "Census 2021, G36 Dwelling structure, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G36_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G36 Dwelling structure, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G36_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G36 Dwelling structure, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G37_CED",
+"version": "1.0.0",
+"name": "Census 2021, G37 Tenure and landlord type by dwelling structure, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G37_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G37 Tenure and landlord type by dwelling structure, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G37_POA",
+"version": "1.0.0",
+"name": "Census 2021, G37 Tenure and landlord type by dwelling structure, Postal Areas (POA)"
+},
+{
+"id": "C21_G37_RA",
+"version": "1.0.0",
+"name": "Census 2021, G37 Tenure and landlord type by dwelling structure, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G37_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G37 Tenure and landlord type by dwelling structure, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G37_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G37 Tenure and landlord type by dwelling structure, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G37_SED",
+"version": "1.0.0",
+"name": "Census 2021, G37 Tenure and landlord type by dwelling structure, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G37_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G37 Tenure and landlord type by dwelling structure, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G37_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G37 Tenure and landlord type by dwelling structure, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G38_CED",
+"version": "1.0.0",
+"name": "Census 2021, G38 Mortgage repayment (monthly) by dwelling structure, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G38_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G38 Mortgage repayment (monthly) by dwelling structure, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G38_POA",
+"version": "1.0.0",
+"name": "Census 2021, G38 Mortgage repayment (monthly) by dwelling structure, Postal Areas (POA)"
+},
+{
+"id": "C21_G38_RA",
+"version": "1.0.0",
+"name": "Census 2021, G38 Mortgage repayment (monthly) by dwelling structure, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G38_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G38 Mortgage repayment (monthly) by dwelling structure, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G38_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G38 Mortgage repayment (monthly) by dwelling structure, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G38_SED",
+"version": "1.0.0",
+"name": "Census 2021, G38 Mortgage repayment (monthly) by dwelling structure, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G38_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G38 Mortgage repayment (monthly) by dwelling structure, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G38_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G38 Mortgage repayment (monthly) by dwelling structure, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G39_CED",
+"version": "1.0.0",
+"name": "Census 2021, G39 Mortgage repayment (monthly) by family composition, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G39_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G39 Mortgage repayment (monthly) by family composition, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G39_POA",
+"version": "1.0.0",
+"name": "Census 2021, G39 Mortgage repayment (monthly) by family composition, Postal Areas (POA)"
+},
+{
+"id": "C21_G39_RA",
+"version": "1.0.0",
+"name": "Census 2021, G39 Mortgage repayment (monthly) by family composition, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G39_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G39 Mortgage repayment (monthly) by family composition, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G39_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G39 Mortgage repayment (monthly) by family composition, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G39_SED",
+"version": "1.0.0",
+"name": "Census 2021, G39 Mortgage repayment (monthly) by family composition, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G39_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G39 Mortgage repayment (monthly) by family composition, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G39_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G39 Mortgage repayment (monthly) by family composition, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G40_CED",
+"version": "1.0.0",
+"name": "Census 2021, G40 Rent (weekly) by landlord type, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G40_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G40 Rent (weekly) by landlord type, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G40_POA",
+"version": "1.0.0",
+"name": "Census 2021, G40 Rent (weekly) by landlord type, Postal Areas (POA)"
+},
+{
+"id": "C21_G40_RA",
+"version": "1.0.0",
+"name": "Census 2021, G40 Rent (weekly) by landlord type, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G40_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G40 Rent (weekly) by landlord type, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G40_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G40 Rent (weekly) by landlord type, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G40_SED",
+"version": "1.0.0",
+"name": "Census 2021, G40 Rent (weekly) by landlord type, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G40_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G40 Rent (weekly) by landlord type, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G40_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G40 Rent (weekly) by landlord type, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G41_CED",
+"version": "1.0.0",
+"name": "Census 2021, G41 Dwelling structure by number of bedrooms, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G41_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G41 Dwelling structure by number of bedrooms, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G41_POA",
+"version": "1.0.0",
+"name": "Census 2021, G41 Dwelling structure by number of bedrooms, Postal Areas (POA)"
+},
+{
+"id": "C21_G41_RA",
+"version": "1.0.0",
+"name": "Census 2021, G41 Dwelling structure by number of bedrooms, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G41_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G41 Dwelling structure by number of bedrooms, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G41_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G41 Dwelling structure by number of bedrooms, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G41_SED",
+"version": "1.0.0",
+"name": "Census 2021, G41 Dwelling structure by number of bedrooms, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G41_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G41 Dwelling structure by number of bedrooms, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G41_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G41 Dwelling structure by number of bedrooms, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G42_CED",
+"version": "1.0.0",
+"name": "Census 2021, G42 Dwelling structure by household composition and family composition, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G42_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G42 Dwelling structure by household composition and family composition, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G42_POA",
+"version": "1.0.0",
+"name": "Census 2021, G42 Dwelling structure by household composition and family composition, Postal Areas (POA)"
+},
+{
+"id": "C21_G42_RA",
+"version": "1.0.0",
+"name": "Census 2021, G42 Dwelling structure by household composition and family composition, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G42_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G42 Dwelling structure by household composition and family composition, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G42_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G42 Dwelling structure by household composition and family composition, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G42_SED",
+"version": "1.0.0",
+"name": "Census 2021, G42 Dwelling structure by household composition and family composition, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G42_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G42 Dwelling structure by household composition and family composition, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G42_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G42 Dwelling structure by household composition and family composition, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G43_CED",
+"version": "1.0.0",
+"name": "Census 2021, G43 Selected labour force, education and migration characteristics by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G43_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G43 Selected labour force, education and migration characteristics by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G43_POA",
+"version": "1.0.0",
+"name": "Census 2021, G43 Selected labour force, education and migration characteristics by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G43_RA",
+"version": "1.0.0",
+"name": "Census 2021, G43 Selected labour force, education and migration characteristics by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G43_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G43 Selected labour force, education and migration characteristics by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G43_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G43 Selected labour force, education and migration characteristics by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G43_SED",
+"version": "1.0.0",
+"name": "Census 2021, G43 Selected labour force, education and migration characteristics by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G43_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G43 Selected labour force, education and migration characteristics by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G43_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G43 Selected labour force, education and migration characteristics by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G44_CED",
+"version": "1.0.0",
+"name": "Census 2021, G44 Place of usual residence 1 year ago by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G44_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G44 Place of usual residence 1 year ago by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G44_POA",
+"version": "1.0.0",
+"name": "Census 2021, G44 Place of usual residence 1 year ago by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G44_RA",
+"version": "1.0.0",
+"name": "Census 2021, G44 Place of usual residence 1 year ago by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G44_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G44 Place of usual residence 1 year ago by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G44_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G44 Place of usual residence 1 year ago by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G44_SED",
+"version": "1.0.0",
+"name": "Census 2021, G44 Place of usual residence 1 year ago by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G44_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G44 Place of usual residence 1 year ago by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G44_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G44 Place of usual residence 1 year ago by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G45_CED",
+"version": "1.0.0",
+"name": "Census 2021, G45 Place of usual residence 5 years ago by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G45_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G45 Place of usual residence 5 years ago by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G45_POA",
+"version": "1.0.0",
+"name": "Census 2021, G45 Place of usual residence 5 years ago by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G45_RA",
+"version": "1.0.0",
+"name": "Census 2021, G45 Place of usual residence 5 years ago by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G45_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G45 Place of usual residence 5 years ago by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G45_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G45 Place of usual residence 5 years ago by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G45_SED",
+"version": "1.0.0",
+"name": "Census 2021, G45 Place of usual residence 5 years ago by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G45_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G45 Place of usual residence 5 years ago by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G45_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G45 Place of usual residence 5 years ago by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G46_CED",
+"version": "1.0.0",
+"name": "Census 2021, G46 Labour force status by age by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G46_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G46 Labour force status by age by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G46_POA",
+"version": "1.0.0",
+"name": "Census 2021, G46 Labour force status by age by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G46_RA",
+"version": "1.0.0",
+"name": "Census 2021, G46 Labour force status by age by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G46_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G46 Labour force status by age by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G46_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G46 Labour force status by age by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G46_SED",
+"version": "1.0.0",
+"name": "Census 2021, G46 Labour force status by age by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G46_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G46 Labour force status by age by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G46_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G46 Labour force status by age by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G47_CED",
+"version": "1.0.0",
+"name": "Census 2021, G47 Labour force status by sex of parents by age of dependent children for couple families, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G47_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G47 Labour force status by sex of parents by age of dependent children for couple families, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G47_POA",
+"version": "1.0.0",
+"name": "Census 2021, G47 Labour force status by sex of parents by age of dependent children for couple families, Postal Areas (POA)"
+},
+{
+"id": "C21_G47_RA",
+"version": "1.0.0",
+"name": "Census 2021, G47 Labour force status by sex of parents by age of dependent children for couple families, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G47_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G47 Labour force status by sex of parents by age of dependent children for couple families, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G47_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G47 Labour force status by sex of parents by age of dependent children for couple families, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G47_SED",
+"version": "1.0.0",
+"name": "Census 2021, G47 Labour force status by sex of parents by age of dependent children for couple families, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G47_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G47 Labour force status by sex of parents by age of dependent children for couple families, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G47_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G47 Labour force status by sex of parents by age of dependent children for couple families, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G48_CED",
+"version": "1.0.0",
+"name": "Census 2021, G48 Labour force status by sex of parent by age of dependent children for one parent families, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G48_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G48 Labour force status by sex of parent by age of dependent children for one parent families, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G48_POA",
+"version": "1.0.0",
+"name": "Census 2021, G48 Labour force status by sex of parent by age of dependent children for one parent families, Postal Areas (POA)"
+},
+{
+"id": "C21_G48_RA",
+"version": "1.0.0",
+"name": "Census 2021, G48 Labour force status by sex of parent by age of dependent children for one parent families, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G48_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G48 Labour force status by sex of parent by age of dependent children for one parent families, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G48_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G48 Labour force status by sex of parent by age of dependent children for one parent families, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G48_SED",
+"version": "1.0.0",
+"name": "Census 2021, G48 Labour force status by sex of parent by age of dependent children for one parent families, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G48_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G48 Labour force status by sex of parent by age of dependent children for one parent families, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G48_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G48 Labour force status by sex of parent by age of dependent children for one parent families, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G49_CED",
+"version": "1.0.0",
+"name": "Census 2021, G49 Highest non-school qualification: level of education by age by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G49_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G49 Highest non-school qualification: level of education by age by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G49_POA",
+"version": "1.0.0",
+"name": "Census 2021, G49 Highest non-school qualification: level of education by age by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G49_RA",
+"version": "1.0.0",
+"name": "Census 2021, G49 Highest non-school qualification: level of education by age by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G49_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G49 Highest non-school qualification: level of education by age by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G49_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G49 Highest non-school qualification: level of education by age by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G49_SED",
+"version": "1.0.0",
+"name": "Census 2021, G49 Highest non-school qualification: level of education by age by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G49_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G49 Highest non-school qualification: level of education by age by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G49_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G49 Highest non-school qualification: level of education by age by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G50_CED",
+"version": "1.0.0",
+"name": "Census 2021, G50 Highest non-school qualification: field of study by age by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G50_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G50 Highest non-school qualification: field of study by age by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G50_POA",
+"version": "1.0.0",
+"name": "Census 2021, G50 Highest non-school qualification: field of study by age by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G50_RA",
+"version": "1.0.0",
+"name": "Census 2021, G50 Highest non-school qualification: field of study by age by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G50_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G50 Highest non-school qualification: field of study by age by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G50_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G50 Highest non-school qualification: field of study by age by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G50_SED",
+"version": "1.0.0",
+"name": "Census 2021, G50 Highest non-school qualification: field of study by age by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G50_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G50 Highest non-school qualification: field of study by age by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G50_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G50 Highest non-school qualification: field of study by age by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G51_CED",
+"version": "1.0.0",
+"name": "Census 2021, G51 Highest non-school qualification: field of study by occupation by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G51_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G51 Highest non-school qualification: field of study by occupation by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G51_POA",
+"version": "1.0.0",
+"name": "Census 2021, G51 Highest non-school qualification: field of study by occupation by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G51_RA",
+"version": "1.0.0",
+"name": "Census 2021, G51 Highest non-school qualification: field of study by occupation by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G51_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G51 Highest non-school qualification: field of study by occupation by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G51_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G51 Highest non-school qualification: field of study by occupation by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G51_SED",
+"version": "1.0.0",
+"name": "Census 2021, G51 Highest non-school qualification: field of study by occupation by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G51_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G51 Highest non-school qualification: field of study by occupation by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G51_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G51 Highest non-school qualification: field of study by occupation by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G52_CED",
+"version": "1.0.0",
+"name": "Census 2021, G52 Highest non-school qualification: level of education by occupation by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G52_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G52 Highest non-school qualification: level of education by occupation by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G52_POA",
+"version": "1.0.0",
+"name": "Census 2021, G52 Highest non-school qualification: level of education by occupation by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G52_RA",
+"version": "1.0.0",
+"name": "Census 2021, G52 Highest non-school qualification: level of education by occupation by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G52_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G52 Highest non-school qualification: level of education by occupation by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G52_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G52 Highest non-school qualification: level of education by occupation by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G52_SED",
+"version": "1.0.0",
+"name": "Census 2021, G52 Highest non-school qualification: level of education by occupation by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G52_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G52 Highest non-school qualification: level of education by occupation by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G52_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G52 Highest non-school qualification: level of education by occupation by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G53_CED",
+"version": "1.0.0",
+"name": "Census 2021, G53 Highest non-school qualification: level of education by industry of employment by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G53_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G53 Highest non-school qualification: level of education by industry of employment by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G53_POA",
+"version": "1.0.0",
+"name": "Census 2021, G53 Highest non-school qualification: level of education by industry of employment by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G53_RA",
+"version": "1.0.0",
+"name": "Census 2021, G53 Highest non-school qualification: level of education by industry of employment by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G53_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G53 Highest non-school qualification: level of education by industry of employment by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G53_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G53 Highest non-school qualification: level of education by industry of employment by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G53_SED",
+"version": "1.0.0",
+"name": "Census 2021, G53 Highest non-school qualification: level of education by industry of employment by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G53_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G53 Highest non-school qualification: level of education by industry of employment by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G53_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G53 Highest non-school qualification: level of education by industry of employment by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G54_CED",
+"version": "1.0.0",
+"name": "Census 2021, G54 Industry of employment by age by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G54_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G54 Industry of employment by age by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G54_POA",
+"version": "1.0.0",
+"name": "Census 2021, G54 Industry of employment by age by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G54_RA",
+"version": "1.0.0",
+"name": "Census 2021, G54 Industry of employment by age by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G54_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G54 Industry of employment by age by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G54_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G54 Industry of employment by age by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G54_SED",
+"version": "1.0.0",
+"name": "Census 2021, G54 Industry of employment by age by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G54_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G54 Industry of employment by age by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G54_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G54 Industry of employment by age by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G55_CED",
+"version": "1.0.0",
+"name": "Census 2021, G55 Industry of employment by hours worked by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G55_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G55 Industry of employment by hours worked by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G55_POA",
+"version": "1.0.0",
+"name": "Census 2021, G55 Industry of employment by hours worked by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G55_RA",
+"version": "1.0.0",
+"name": "Census 2021, G55 Industry of employment by hours worked by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G55_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G55 Industry of employment by hours worked by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G55_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G55 Industry of employment by hours worked by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G55_SED",
+"version": "1.0.0",
+"name": "Census 2021, G55 Industry of employment by hours worked by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G55_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G55 Industry of employment by hours worked by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G55_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G55 Industry of employment by hours worked by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G56_CED",
+"version": "1.0.0",
+"name": "Census 2021, G56 Industry of employment by occupation, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G56_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G56 Industry of employment by occupation, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G56_POA",
+"version": "1.0.0",
+"name": "Census 2021, G56 Industry of employment by occupation, Postal Areas (POA)"
+},
+{
+"id": "C21_G56_RA",
+"version": "1.0.0",
+"name": "Census 2021, G56 Industry of employment by occupation, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G56_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G56 Industry of employment by occupation, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G56_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G56 Industry of employment by occupation, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G56_SED",
+"version": "1.0.0",
+"name": "Census 2021, G56 Industry of employment by occupation, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G56_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G56 Industry of employment by occupation, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G56_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G56 Industry of employment by occupation, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G57_CED",
+"version": "1.0.0",
+"name": "Census 2021, G57 Total family income (weekly) by labour force status of partners for couple families with no children, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G57_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G57 Total family income (weekly) by labour force status of partners for couple families with no children, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G57_POA",
+"version": "1.0.0",
+"name": "Census 2021, G57 Total family income (weekly) by labour force status of partners for couple families with no children, Postal Areas (POA)"
+},
+{
+"id": "C21_G57_RA",
+"version": "1.0.0",
+"name": "Census 2021, G57 Total family income (weekly) by labour force status of partners for couple families with no children, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G57_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G57 Total family income (weekly) by labour force status of partners for couple families with no children, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G57_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G57 Total family income (weekly) by labour force status of partners for couple families with no children, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G57_SED",
+"version": "1.0.0",
+"name": "Census 2021, G57 Total family income (weekly) by labour force status of partners for couple families with no children, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G57_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G57 Total family income (weekly) by labour force status of partners for couple families with no children, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G57_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G57 Total family income (weekly) by labour force status of partners for couple families with no children, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G58_CED",
+"version": "1.0.0",
+"name": "Census 2021, G58 Total family income (weekly) by labour force status of parents/partners for couple families with children, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G58_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G58 Total family income (weekly) by labour force status of parents/partners for couple families with children, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G58_POA",
+"version": "1.0.0",
+"name": "Census 2021, G58 Total family income (weekly) by labour force status of parents/partners for couple families with children, Postal Areas (POA)"
+},
+{
+"id": "C21_G58_RA",
+"version": "1.0.0",
+"name": "Census 2021, G58 Total family income (weekly) by labour force status of parents/partners for couple families with children, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G58_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G58 Total family income (weekly) by labour force status of parents/partners for couple families with children, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G58_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G58 Total family income (weekly) by labour force status of parents/partners for couple families with children, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G58_SED",
+"version": "1.0.0",
+"name": "Census 2021, G58 Total family income (weekly) by labour force status of parents/partners for couple families with children, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G58_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G58 Total family income (weekly) by labour force status of parents/partners for couple families with children, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G58_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G58 Total family income (weekly) by labour force status of parents/partners for couple families with children, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G59_CED",
+"version": "1.0.0",
+"name": "Census 2021, G59 Total family income (weekly) by labour force status of parent for one parent families, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G59_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G59 Total family income (weekly) by labour force status of parent for one parent families, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G59_POA",
+"version": "1.0.0",
+"name": "Census 2021, G59 Total family income (weekly) by labour force status of parent for one parent families, Postal Areas (POA)"
+},
+{
+"id": "C21_G59_RA",
+"version": "1.0.0",
+"name": "Census 2021, G59 Total family income (weekly) by labour force status of parent for one parent families, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G59_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G59 Total family income (weekly) by labour force status of parent for one parent families, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G59_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G59 Total family income (weekly) by labour force status of parent for one parent families, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G59_SED",
+"version": "1.0.0",
+"name": "Census 2021, G59 Total family income (weekly) by labour force status of parent for one parent families, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G59_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G59 Total family income (weekly) by labour force status of parent for one parent families, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G59_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G59 Total family income (weekly) by labour force status of parent for one parent families, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G60_CED",
+"version": "1.0.0",
+"name": "Census 2021, G60 Occupation by age by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G60_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G60 Occupation by age by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G60_POA",
+"version": "1.0.0",
+"name": "Census 2021, G60 Occupation by age by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G60_RA",
+"version": "1.0.0",
+"name": "Census 2021, G60 Occupation by age by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G60_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G60 Occupation by age by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G60_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G60 Occupation by age by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G60_SED",
+"version": "1.0.0",
+"name": "Census 2021, G60 Occupation by age by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G60_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G60 Occupation by age by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G60_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G60 Occupation by age by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G61_CED",
+"version": "1.0.0",
+"name": "Census 2021, G61 Occupation by hours worked by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G61_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G61 Occupation by hours worked by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G61_POA",
+"version": "1.0.0",
+"name": "Census 2021, G61 Occupation by hours worked by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G61_RA",
+"version": "1.0.0",
+"name": "Census 2021, G61 Occupation by hours worked by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G61_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G61 Occupation by hours worked by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G61_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G61 Occupation by hours worked by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G61_SED",
+"version": "1.0.0",
+"name": "Census 2021, G61 Occupation by hours worked by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G61_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G61 Occupation by hours worked by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G61_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G61 Occupation by hours worked by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_G62_CED",
+"version": "1.0.0",
+"name": "Census 2021, G62 Method of travel to work by sex, Commonwealth Electoral Divisions (CED 2021 boundaries)"
+},
+{
+"id": "C21_G62_LGA",
+"version": "1.0.0",
+"name": "Census 2021, G62 Method of travel to work by sex, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_G62_POA",
+"version": "1.0.0",
+"name": "Census 2021, G62 Method of travel to work by sex, Postal Areas (POA)"
+},
+{
+"id": "C21_G62_RA",
+"version": "1.0.0",
+"name": "Census 2021, G62 Method of travel to work by sex, Remoteness Areas (RA)"
+},
+{
+"id": "C21_G62_SA2",
+"version": "1.0.0",
+"name": "Census 2021, G62 Method of travel to work by sex, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_G62_SAL",
+"version": "1.0.0",
+"name": "Census 2021, G62 Method of travel to work by sex, Suburbs and Localities (SAL)"
+},
+{
+"id": "C21_G62_SED",
+"version": "1.0.0",
+"name": "Census 2021, G62 Method of travel to work by sex, State Electoral Divisions (SED 2021 boundaries)"
+},
+{
+"id": "C21_G62_SUA",
+"version": "1.0.0",
+"name": "Census 2021, G62 Method of travel to work by sex, Significant Urban Areas (SUA)"
+},
+{
+"id": "C21_G62_UCL",
+"version": "1.0.0",
+"name": "Census 2021, G62 Method of travel to work by sex, Urban Centres, Localities and Section of State (UCL/SOS/SOSR)"
+},
+{
+"id": "C21_T01_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T01 Selected person characteristics by sex, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T01_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T01 Selected person characteristics by sex, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T02_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T02 Selected medians and averages, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T02_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T02 Selected medians and averages, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T03_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T03 Age by sex, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T03_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T03 Age by sex, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T04_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T04 Registered marital status by age by sex, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T04_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T04 Registered marital status by age by sex, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T05_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T05 Social marital status by age by sex, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T05_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T05 Social marital status by age by sex, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T06_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T06 Indigenous status by age by sex, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T06_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T06 Indigenous status by age by sex, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T07_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T07 Number of children ever born by age of parent, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T07_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T07 Number of children ever born by age of parent, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T08_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T08 Country of birth of person by sex, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T08_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T08 Country of birth of person by sex, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T09_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T09 Ancestry by country of birth of parents, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T09_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T09 Ancestry by country of birth of parents, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T10_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T10 Language used at home by sex, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T10_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T10 Language used at home by sex, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T11_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T11 Proficiency in spoken English by age, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T11_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T11 Proficiency in spoken English by age, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T12_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T12 Religious affiliation by age, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T12_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T12 Religious affiliation by age, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T13_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T13 Type of educational institution attending (full-time/part-time student status by age) by sex, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T13_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T13 Type of educational institution attending (full-time/part-time student status by age) by sex, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T14_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T14 Dwelling structure by household composition and family composition, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T14_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T14 Dwelling structure by household composition and family composition, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T15_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T15 Dwelling structure by number of persons usually resident, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T15_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T15 Dwelling structure by number of persons usually resident, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T16_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T16 Dwelling structure and number of bedrooms by number of persons usually resident for family households, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T16_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T16 Dwelling structure and number of bedrooms by number of persons usually resident for family households, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T17_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T17 Dwelling structure and number of bedrooms by number of persons usually resident for group households, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T17_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T17 Dwelling structure and number of bedrooms by number of persons usually resident for group households, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T18_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T18 Tenure and landlord type by dwelling structure, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T18_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T18 Tenure and landlord type by dwelling structure, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T19_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T19 Rent (weekly) by landlord type, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T19_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T19 Rent (weekly) by landlord type, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T20_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T20 Rent (weekly) by family composition for couple families, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T20_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T20 Rent (weekly) by family composition for couple families, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T21_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T21 Rent (weekly) by family composition for one parent families, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T21_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T21 Rent (weekly) by family composition for one parent families, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T22_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T22 Total family income (weekly) by number of children for couple families, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T22_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T22 Total family income (weekly) by number of children for couple families, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T23_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T23 Total family income (weekly) by number of children for one parent families, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T23_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T23 Total family income (weekly) by number of children for one parent families, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T24_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T24 Total household income (weekly) by rent (weekly), Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T24_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T24 Total household income (weekly) by rent (weekly), Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T25_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T25 Family composition by mortgage repayment (monthly), Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T25_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T25 Family composition by mortgage repayment (monthly), Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T26_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T26 Couple families by income comparison for parents/partners, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T26_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T26 Couple families by income comparison for parents/partners, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T27_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T27 Family composition and social marital status by number of dependent children, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T27_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T27 Family composition and social marital status by number of dependent children, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T28_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T28 Core activity need for assistance by age by sex, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T28_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T28 Core activity need for assistance by age by sex, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T29_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T29 Selected labour force, education and migration characteristics, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T29_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T29 Selected labour force, education and migration characteristics, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T30_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T30 Family composition and labour force status of parent(s)/partners by total family income (weekly), Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T30_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T30 Family composition and labour force status of parent(s)/partners by total family income (weekly), Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T31_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T31 Highest non-school qualification: level of education by age by sex, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T31_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T31 Highest non-school qualification: level of education by age by sex, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T32_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T32 Highest non-school qualification: field of study by age by sex, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T32_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T32 Highest non-school qualification: field of study by age by sex, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T33_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T33 Labour force status by age by sex, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T33_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T33 Labour force status by age by sex, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T34_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T34 Industry of employment by sex, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T34_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T34 Industry of employment by sex, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "C21_T35_LGA",
+"version": "1.0.0",
+"name": "Census 2021, T35 Occupation by sex, Time Series, Local Government Area 2021 (LGA 2021 boundaries)"
+},
+{
+"id": "C21_T35_SA2",
+"version": "1.0.0",
+"name": "Census 2021, T35 Occupation by sex, Time Series, Main Statistical Areas Level 2 and up (SA2+)"
+},
+{
+"id": "CAPEX",
+"version": "1.0.0",
+"name": "Private New Capital Expenditure and Expected Expenditure"
+},
+{
+"id": "CAPEX_EST",
+"version": "1.0.0",
+"name": "Private New Capital Expenditure and Expected Expenditure, Financial Year Estimates"
+},
+{
+"id": "CONFINEMENTS_NUPTIALITY",
+"version": "1.0.0",
+"name": "Registered births, confinements and median age of parents by nuptiality and state or territory of usual residence, 1975 onwards"
+},
+{
+"id": "CONFINEMENTS_PLURALITY",
+"version": "1.0.0",
+"name": "Confinements, plurality by state or territory of usual residence, 1975 onwards"
+},
+{
+"id": "COVID_HI",
+"version": "1.0.0",
+"name": "Household Impacts of COVID-19 Survey, Household Income"
+},
+{
+"id": "COVID_HS",
+"version": "1.0.0",
+"name": "Household Impacts of COVID-19 Survey, Household Spending"
+},
+{
+"id": "COVID_SALTS",
+"version": "1.0.0",
+"name": "Household Impacts of COVID-19 Survey by Sex, Age and Location"
+},
+{
+"id": "COVID_SC",
+"version": "1.0.0",
+"name": "Household Impacts of COVID-19 Survey, Selected Characteristics"
+},
+{
+"id": "CPI",
+"version": "2.0.0",
+"name": "Consumer Price Index (CPI)"
+},
+{
+"id": "CPI_M",
+"version": "1.2.0",
+"name": "Monthly Consumer Price Index (CPI) indicator"
+},
+{
+"id": "CPI_Q",
+"version": "1.0.0",
+"name": "Consumer Price Index (CPI) Quarterly"
+},
+{
+"id": "CPI_WEIGHTS",
+"version": "1.0.0",
+"name": "Consumer Price Index (CPI) Weights"
+},
+{
+"id": "CWD",
+"version": "1.0.0",
+"name": "Construction Work Done, Preliminary"
+},
+{
+"id": "DEATHS_AGESPECIFIC_OCCURENCEYEAR",
+"version": "1.0.0",
+"name": "Deaths, Year of occurrence, Age at death, Age-specific death rates, Sex, States, Territories and Australia"
+},
+{
+"id": "DEATHS_AGESPECIFIC_REGISTRATIONYEAR",
+"version": "1.0.0",
+"name": "Deaths, Year of registration, Age at death, Age-specific death rates, Sex, States, Territories and Australia"
+},
+{
+"id": "DEATHS_AGESPECIFIC_REGISTRATIONYEAR_1",
+"version": "1.0.0",
+"name": "Deaths, Year of registration, Age at death, Sex, Australia"
+},
+{
+"id": "DEATHS_INDIGENOUS",
+"version": "1.0.0",
+"name": "Deaths, Year of registration, Indigenous status, Age at death, Sex, Five State/Territory"
+},
+{
+"id": "DEATHS_INDIGENOUS_SUMMARY",
+"version": "1.0.0",
+"name": "Deaths, Year of registration, Indigenous status, Summary data, Sex, States, Territories and Australia"
+},
+{
+"id": "DEATHS_MARITAL_STATUS",
+"version": "1.0.0",
+"name": "Deaths, Year of registration, Marital status, Age at death, Sex, Australia"
+},
+{
+"id": "DEATHS_MONTHOCCURENCE",
+"version": "1.0.0",
+"name": "Deaths and Infant deaths, Year and months of occurrence, Sex, States, Territories and Australia"
+},
+{
+"id": "DEATHS_SUMMARY",
+"version": "1.0.0",
+"name": "Deaths, Year of registration, Summary data, Sex, States, Territories and Australia"
+},
+{
+"id": "ERP_ASGS2016",
+"version": "1.0.0",
+"name": "ERP by SA2 (ASGS 2016), Age and Sex, 2001 to 2021"
+},
+{
+"id": "ERP_ASGS2021",
+"version": "1.0.0",
+"name": "ERP by SA2 (ASGS Edition 3), Age and Sex, 2001 Onwards"
+},
+{
+"id": "ERP_ATSI",
+"version": "1.0.0",
+"name": "Estimated resident population, Aboriginal and Torres Strait Islander peoples, sex and age groups by states and territories and Australia, 2011 to 2021"
+},
+{
+"id": "ERP_ATSI_REMOTE",
+"version": "1.0.0",
+"name": "Estimated resident population, Aboriginal and Torres Strait Islander peoples, sex and age groups by Remoteness Areas and Australia, 2011 to 2021"
+},
+{
+"id": "ERP_COB",
+"version": "1.0.0",
+"name": "Estimated resident population, country of birth, age and sex - as at 30 June annually - 1996 onwards"
+},
+{
+"id": "ERP_COMP_LGA2019",
+"version": "1.0.0",
+"name": "ERP and components by LGA (ASGS 2019), 2017 to 2019"
+},
+{
+"id": "ERP_COMP_LGA2020",
+"version": "1.0.0",
+"name": "ERP and components by LGA (ASGS 2020), 2017 to 2020"
+},
+{
+"id": "ERP_COMP_LGA2021",
+"version": "1.0.0",
+"name": "ERP and components by 2021 LGA, 2017 to 2021"
+},
+{
+"id": "ERP_COMP_LGA2022",
+"version": "1.0.0",
+"name": "ERP and components by LGA (2022), 2022"
+},
+{
+"id": "ERP_COMP_LGA2023",
+"version": "1.0.0",
+"name": "ERP and components by LGA (2023), 2022 to 2023"
+},
+{
+"id": "ERP_COMP_LGA2024",
+"version": "1.2",
+"name": "ERP and components by LGA (2024), 2022 to 2024"
+},
+{
+"id": "ERP_COMP_LGA2025",
+"version": "1.0.0",
+"name": "ERP and components by LGA (2025), 2022 to 2025"
+},
+{
+"id": "ERP_COMP_Q",
+"version": "1.0.0",
+"name": "Population and components of change - national, states and territories"
+},
+{
+"id": "ERP_COMP_SA",
+"version": "1.0.0",
+"name": "ERP and components by SA2 and above (ASGS 2016), 2017 to 2021"
+},
+{
+"id": "ERP_COMP_SA_ASGS2021",
+"version": "1.0.0",
+"name": "ERP and components by SA2 and above (ASGS Edition 3), 2022 onwards"
+},
+{
+"id": "ERP_LGA2019",
+"version": "1.0.0",
+"name": "ERP by LGA (ASGS 2019), 2001 to 2019"
+},
+{
+"id": "ERP_LGA2020",
+"version": "1.0.0",
+"name": "ERP by LGA (ASGS 2020), 2001 to 2020"
+},
+{
+"id": "ERP_LGA2021",
+"version": "1.1.0",
+"name": "ERP by LGA (2021), 2001 to 2021"
+},
+{
+"id": "ERP_LGA2022",
+"version": "1.0.0",
+"name": "ERP by LGA (2022), 2001 to 2022"
+},
+{
+"id": "ERP_LGA2023",
+"version": "1.0.0",
+"name": "ERP by LGA (2023), 2001 to 2023"
+},
+{
+"id": "ERP_LGA2024",
+"version": "1.1",
+"name": "ERP by LGA (2024), 2001 to 2024"
+},
+{
+"id": "ERP_LGA2025",
+"version": "1.0.0",
+"name": "ERP by LGA (2025), 2001 to 2025"
+},
+{
+"id": "ERP_Q",
+"version": "1.0.0",
+"name": "Quarterly Population Estimates (ERP), by State/Territory, Sex and Age"
+},
+{
+"id": "EWD",
+"version": "1.0.0",
+"name": "Engineering Construction Work Done, Preliminary"
+},
+{
+"id": "FERTILITY_AGE_STATE",
+"version": "1.0.0",
+"name": "Registered births, fertility and summary by age and state or territory of usual residence, 1975 onwards"
+},
+{
+"id": "HSI_M",
+"version": "1.6.0",
+"name": "Monthly Household Spending Indicator"
+},
+{
+"id": "HSI_Q",
+"version": "1.2.0",
+"name": "Quarterly Household Spending Indicator"
+},
+{
+"id": "IIP",
+"version": "1.0.0",
+"name": "International Investment Position"
+},
+{
+"id": "INFANTDEATHS_REGISTRATIONYEAR",
+"version": "1.0.0",
+"name": "Infant deaths and Infant mortality rates, Year of registration, Age at death, Sex, States, Territories and Australia"
+},
+{
+"id": "INFANTDEATHS_YEAROCCURENCE",
+"version": "1.0.0",
+"name": "Infant deaths, Year of occurrence, Age at death, Sex, Australia"
+},
+{
+"id": "ITGS",
+"version": "1.2.0",
+"name": "International Trade in Goods"
+},
+{
+"id": "ITPI_EXP",
+"version": "1.0.0",
+"name": "Export Price Index"
+},
+{
+"id": "ITPI_IMP",
+"version": "1.0.0",
+"name": "Import Price Index"
+},
+{
+"id": "JV",
+"version": "1.0",
+"name": "Job Vacancies"
+},
+{
+"id": "LABOUR_ACCT_Q",
+"version": "1.1",
+"name": "Labour Account Australia, Final Quarterly Balanced: Subdivision, Division and Total All Industries"
+},
+{
+"id": "LCI",
+"version": "1.0.0",
+"name": "Selected Living Cost Indexes"
+},
+{
+"id": "LCI_WEIGHTS",
+"version": "1.0.0",
+"name": "Selected Living Cost Indexes Weights"
+},
+{
+"id": "LC_CM_15",
+"version": "1.0.0",
+"name": "Change matrix for Land Cover, Statistical Area Level 2 (SA2), 2010 and 2015"
+},
+{
+"id": "LC_CM_YR",
+"version": "1.0.0",
+"name": "Change Matrix for Land Cover, 2015 and 2016 to 2019 and 2020"
+},
+{
+"id": "LC_PA_15",
+"version": "1.0.0",
+"name": "Physical Account for Land Cover, Statistical Area Level 2 (SA2), 2010 and 2015"
+},
+{
+"id": "LC_PA_YR",
+"version": "1.0.0",
+"name": "Physical Account for Land Cover, 2015 and 2016 to 2019 and 2020"
+},
+{
+"id": "LC_TS",
+"version": "1.0.0",
+"name": "Time series for Land Cover Stock Position, 1988-2020"
+},
+{
+"id": "LEND_BUSINESS",
+"version": "1.1",
+"name": "Lending Indicators Business Finance"
+},
+{
+"id": "LEND_HOUSING",
+"version": "1.1",
+"name": "Lending Indicators Housing Finance"
+},
+{
+"id": "LEND_PERSONAL",
+"version": "1.1",
+"name": "Lending Indicators Personal Finance"
+},
+{
+"id": "LF",
+"version": "1.0.0",
+"name": "Labour Force"
+},
+{
+"id": "LF_AGES",
+"version": "1.0.0",
+"name": "Labour Force: Age Groups"
+},
+{
+"id": "LF_EDU",
+"version": "1.0.0",
+"name": "Labour Force Educational Attendance"
+},
+{
+"id": "LF_HOURS",
+"version": "1.0.0",
+"name": "Labour Force: Hours worked by sector"
+},
+{
+"id": "LF_UNDER",
+"version": "1.0.1",
+"name": "Labour force - underemployment and underutilisation"
+},
+{
+"id": "LSTOCK_MEAT",
+"version": "1.0.0",
+"name": "Meat produced"
+},
+{
+"id": "LSTOCK_SLAUGHT",
+"version": "1.0.0",
+"name": "Livestock slaughtered"
+},
+{
+"id": "LT_CM_16",
+"version": "1.0.0",
+"name": "Change matrix for Land Tenure, Statistical Area Level 2 (SA2), 2010-11 and 2015-16"
+},
+{
+"id": "LT_PA_16",
+"version": "1.0.0",
+"name": "Physical Account for Land Tenure, Statistical Area Level 2 (SA2), 2010-11 and 2015-16"
+},
+{
+"id": "MERCH_EXP",
+"version": "1.0.0",
+"name": "Merchandise Exports by Commodity (SITC), Country and State"
+},
+{
+"id": "MERCH_IMP",
+"version": "1.0.0",
+"name": "Merchandise Imports by Commodity (SITC), Country and State"
+},
+{
+"id": "MIN_EXP",
+"version": "1.0.0",
+"name": "Mineral Exploration"
+},
+{
+"id": "MODELLERS_DB",
+"version": "1.0.0",
+"name": "Modellers' Database"
+},
+{
+"id": "NIM_CY",
+"version": "1.0.0",
+"name": "Interstate migration: Arrivals, departures and net, State/territory, Age and sex - Calendar years, 1997 onwards"
+},
+{
+"id": "NIM_FY",
+"version": "1.0.0",
+"name": "Interstate migration: Arrivals, departures and net, State/territory, Age and sex - Financial years, 1996-97 onwards"
+},
+{
+"id": "NOM_CY",
+"version": "1.0.0",
+"name": "Net overseas migration, Arrivals, departures and net, State/territory, Age and sex - Calendar years, 2004 onwards"
+},
+{
+"id": "NOM_FY",
+"version": "1.0.0",
+"name": "Net overseas migration: Arrivals, departures and net, State/territory, Age and sex - Financial years, 2004-05 onwards"
+},
+{
+"id": "OAD_COUNTRY",
+"version": "1.0.0",
+"name": "Visitor arrivals and resident returns, Selected Countries of Residence/Destinations"
+},
+{
+"id": "OAD_REASON",
+"version": "1.0.0",
+"name": "Visitor arrivals and resident returns, Intended Length of Stay and Main Reason for Journey"
+},
+{
+"id": "OMAD_VISA",
+"version": "1.0.0",
+"name": "Overseas migrant arrivals and departures by visa group by state, quarterly and financial years, from September quarter 2006 onwards"
+},
+{
+"id": "PATERNITY_AGE_STATE",
+"version": "1.0.0",
+"name": "Registered births, paternity and summary by age and state or territory of usual residence, 1975 onwards"
+},
+{
+"id": "PET_EXP",
+"version": "1.0.0",
+"name": "Petroleum Exploration"
+},
+{
+"id": "POPULATION_CLOCK",
+"version": "1.0.0",
+"name": "Population Clock Component Data"
+},
+{
+"id": "POP_PROJ",
+"version": "1.0.0",
+"name": "Population Projections, Australia, 2022-2071"
+},
+{
+"id": "POP_PROJ_2011",
+"version": "1.0.0",
+"name": "Population Projections, Australia, 2017-2066"
+},
+{
+"id": "POP_PROJ_REGION",
+"version": "1.0.0",
+"name": "Population Projections by Region, 2022-2071"
+},
+{
+"id": "POP_PROJ_REGION_2012_2061",
+"version": "1.0.0",
+"name": "Population Projections by Region, 2017-2066"
+},
+{
+"id": "PPI",
+"version": "1.1.3",
+"name": "Producer Price Indexes by Industry"
+},
+{
+"id": "PPI_FD",
+"version": "1.1.0",
+"name": "Producer Price Indexes, Final Demand"
+},
+{
+"id": "PROV_MORTALITY",
+"version": "1.0.0",
+"name": "Provisional Mortality Statistics: Number of deaths by Sex, Age and State of registration, by month of occurrence"
+},
+{
+"id": "PROV_MORTALITY_CAUSE",
+"version": "1.0.0",
+"name": "Provisional Mortality Statistics by Selected causes of death, by month of occurrence"
+},
+{
+"id": "PROV_MORTALITY_CAUSE_WK",
+"version": "1.0.0",
+"name": "Provisional Mortality Statistics by Selected causes of death, by week of occurrence"
+},
+{
+"id": "PROV_MORTALITY_WK",
+"version": "1.0.0",
+"name": "Provisional Mortality Statistics: Number of deaths by Sex, Age and State of registration, by week of occurrence"
+},
+{
+"id": "QBIS",
+"version": "1.0.0",
+"name": "Business Indicators"
+},
+{
+"id": "RES_DWELL",
+"version": "1.0.0",
+"name": "Residential Dwellings: Unstratified Medians and Transfer Counts by Dwelling Type, GCCSA and Rest of State"
+},
+{
+"id": "RES_DWELL_ST",
+"version": "1.0.0",
+"name": "Residential Dwellings: Values, Mean Price and Number by State and Territories"
+},
+{
+"id": "RIME_LGA2011",
+"version": "1.0.0",
+"name": "Regional Internal Migration Estimates by LGA2011, 2006-07 to 2015-16"
+},
+{
+"id": "RIME_REGION",
+"version": "1.0.0",
+"name": "Regional Internal Migration Estimates by Region (SA2 and above), 2006-07 to 2015-16"
+},
+{
+"id": "RIME_ROME",
+"version": "1.1.0",
+"name": "Net internal and overseas migration estimates by age, by SA2 and above (ASGS Edition 3), 2021-22 onwards"
+},
+{
+"id": "RIME_SA4_GCCSA_STE",
+"version": "1.0.0",
+"name": "RIME by region of arrival by departure, SA4 and above (ASGS 2016), 2016-17 to 2020-21"
+},
+{
+"id": "RIME_SA4_GCCSA_STE_ASGS2021",
+"version": "1.0.0",
+"name": "RIME by region of arrival by departure, SA4 and above (ASGS Edition 3), 2021-22 onwards"
+},
+{
+"id": "RIM_SA4_GCCSA_STE_H",
+"version": "1.0.0",
+"name": "Regional Internal Migration Estimates by Region of Arrival and Departure (SA4 and above), 2006-07 to 2015-16"
+},
+{
+"id": "RIN_SA34_GCCSA_STE",
+"version": "1.0.0",
+"name": "Regional Internal Migration Estimates by Region (SA3 and above), Age and Sex, 2006-07 to 2015-16"
+},
+{
+"id": "RPPI",
+"version": "1.0.0",
+"name": "Residential Property Price Index"
+},
+{
+"id": "RT",
+"version": "1.0.0",
+"name": "Retail Trade"
+},
+{
+"id": "SECURITISERS",
+"version": "1.0.0",
+"name": "Assets and Liabilities of Australian Securitisers"
+},
+{
+"id": "SEIFA_POA",
+"version": "1.0.0",
+"name": "SEIFA 2011 by Postal Area Code (POA)"
+},
+{
+"id": "SEIFA_SA1",
+"version": "1.0.0",
+"name": "SEIFA 2011 by Statistical Area 1 (SA1)"
+},
+{
+"id": "SEIFA_SSC",
+"version": "1.0.0",
+"name": "SEIFA 2011 by State Suburb Code (SSC)"
+},
+{
+"id": "TEST",
+"version": "1.0.0",
+"name": "Test Dataflow"
+},
+{
+"id": "TRADE_SERV_CNTRY_CY",
+"version": "1.0.0",
+"name": "International Trade in Services by Classification (EBOPS) and Country, Calendar Year"
+},
+{
+"id": "TRADE_SERV_CNTRY_FY",
+"version": "1.0.0",
+"name": "International Trade in Services by Classification (EBOPS) and Country, Financial Year"
+},
+{
+"id": "TRADE_SERV_STATE_CY",
+"version": "1.0.0",
+"name": "International Trade in Services by Classification (EBOPS) and State, Calendar Year"
+},
+{
+"id": "TRADE_SERV_STATE_FY",
+"version": "1.0.0",
+"name": "International Trade in Services by Classification (EBOPS) and State, Financial Year"
+},
+{
+"id": "WPI",
+"version": "1.2.0",
+"name": "Wage Price Index"
+}
+]
+}
