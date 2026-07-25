@@ -494,6 +494,72 @@ fixture holds 51 suburbs against the real ABS set of ~15,000. A true rate needs
 `house-price-collector -mode census` (an ABS GCP SAL DataPack), so the projected
 rates in §1 stay projections until that runs.
 
+## 3.6 The API
+
+`PoliticiansService` (9 rpcs), each also mirrored onto the legacy
+`ShortedStocksService` — `proto_parity_test.go` walks the registry and fails if a
+domain rpc is missing there or the visibility annotations differ.
+
+| rpc | Surface |
+|---|---|
+| `GetParliamentOverview` | `/politicians` hub tiles |
+| `ListPoliticians` / `GetPolitician` | explorer + profile |
+| `ListStockPoliticians` | card on `/shorts/{code}` |
+| `ListPoliticianStocks` | most-declared (concentration) |
+| `ListSuburbPoliticians` | card on `/housing/{state}/{suburb}` |
+| `ListStatePoliticianHoldings` | card on `/economy/{state}` |
+| `ListRegisterChanges` | change timeline |
+| `ListShortInterestOverlap` | short-interest overlap |
+
+**Committee/portfolio proximity is not implemented.** It needs committee
+membership, which the register does not carry and we do not yet ingest.
+
+### The gate is four layers, deliberately
+
+The 2026-07 audit found the housing licence gate leaking on the one read path
+that trusted its upstream, so:
+
+1. `register_item_securities_public_gate` CHECK — a fuzzy match can never be
+   `resolved` at all
+2. `mv_register_public_holdings` — only identity-resolved people, only cleanly
+   extracted documents
+3. the store queries re-assert `stock_code IS NOT NULL` rather than trusting (2)
+4. `POLITICIAN_INTERESTS_ENABLED` — a kill switch, default ON, returning an
+   **empty response rather than an error** so a surface degrades instead of
+   breaking
+
+### Editorial constraints held in the API itself
+
+- No field anywhere expresses an amount, share count, price or return.
+- `declared_from_known = false` reaches the wire as a **nil** timestamp, not the
+  zero time, which would serialise as 1 January year 1 and render as a real date.
+- Counts are of **people**, never rows: a member declaring one company across
+  three statements is one member.
+- `ListShortInterestOverlap` serves its caveat **in the response body**
+  (`disclosure_note`), because a member's name beside a rising short line is
+  exactly the juxtaposition rule 2 governs — a consumer must not have to remember
+  the disclaimer.
+- Every response carries `source_licence`.
+
+Party is not on the Register listing, so it comes from
+`politician_terms.division` → `suburb_demographics.federal_division` →
+`federal_party`, already populated by `-mode electorates`.
+
+### Smoke-tested live
+
+Against a freshly built binary (with the LISTEN pid verified — a 1-day-old stale
+server was squatting the default port and would have served old code):
+
+```
+GetParliamentOverview        171 politicians, 1145 statements, 151 companies, 34 suburbs
+ListStockPoliticians CBA     10 distinct people, holder labels, unknown starts
+ListPoliticianStocks         TLS 14, CBA 10, NAB 9, BHP 8, WES 7, WBC 6
+ListSuburbPoliticians        Kingston ACT, 9 declaring members
+ListStatePoliticianHoldings  NSW, 52 members
+ListShortInterestOverlap     DRO 11.94%, FLT 11.43%, TWE 10.92% + disclosure served
+POLITICIAN_INTERESTS_ENABLED=false  ->  HTTP 200 {} on every rpc
+```
+
 ## 4. Status
 
 | Phase | State |
@@ -507,7 +573,7 @@ rates in §1 stay projections until that runs.
 | 5 — security resolution + curated aliases | **done** — 36% of resolvable item-1 candidates; alias seed + backlog view |
 | 6 — location resolution → `sal_code` | **done** — verified end to end; redaction guard fired on 4 real addresses. True match rate needs the ABS census ingest |
 | 7 — vision OCR tier | pending |
-| 8 — `politicians.proto` + backend API | pending |
+| 8 — `politicians.proto` + backend API | **done** — 9 rpcs live and smoke-tested; kill switch verified |
 | 9 — `/politicians` frontend + 4 integrations | pending |
 | 10 — ops wiring + launch gates | pending |
 

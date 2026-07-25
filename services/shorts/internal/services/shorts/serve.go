@@ -179,6 +179,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	mount(shortsv1alpha1connect.NewHousingServiceHandler(s, interceptors))
 	mount(shortsv1alpha1connect.NewEconomyServiceHandler(s, interceptors))
 	mount(shortsv1alpha1connect.NewIndustryIntelligenceServiceHandler(s, interceptors))
+	mount(shortsv1alpha1connect.NewPoliticiansServiceHandler(s, interceptors))
 
 	// Add health check endpoint
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {

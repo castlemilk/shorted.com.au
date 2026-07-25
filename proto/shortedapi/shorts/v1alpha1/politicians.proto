@@ -1,0 +1,314 @@
+syntax = "proto3";
+
+package shorts.v1alpha1;
+
+option go_package = "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1";
+
+import "google/protobuf/timestamp.proto";
+import "options/v1/options.proto";
+
+// PoliticiansService exposes the Registers of Members' and Senators' Interests.
+//
+// EDITORIAL CONTRACT (docs/influence-editorial-standards.md rule 5): the
+// registers disclose WHAT is held, NEVER quantity or value. There is deliberately
+// no field in this file for an amount, a share count, a price, a portfolio size
+// or a return, and none may be added. Consumers can express "declared, and
+// since when" and nothing more.
+service PoliticiansService {
+  // Parliament-wide counts and the as-at date. Cheap; drives the hub tiles.
+  rpc GetParliamentOverview (GetParliamentOverviewRequest) returns (GetParliamentOverviewResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Browse/filter parliamentarians.
+  rpc ListPoliticians (ListPoliticiansRequest) returns (ListPoliticiansResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // One politician's profile: declared interests, property, and terms served.
+  rpc GetPolitician (GetPoliticianRequest) returns (GetPoliticianResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Which parliamentarians declare an interest in one ASX-listed company.
+  // Drives the card on /shorts/{code}.
+  rpc ListStockPoliticians (ListStockPoliticiansRequest) returns (ListStockPoliticiansResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Parliament's most-declared ASX-listed companies, with a party split.
+  rpc ListPoliticianStocks (ListPoliticianStocksRequest) returns (ListPoliticianStocksResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Which parliamentarians declare real estate in one ABS suburb.
+  // Drives the card on /housing/{state}/{suburb}.
+  rpc ListSuburbPoliticians (ListSuburbPoliticiansRequest) returns (ListSuburbPoliticiansResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Parliamentarians of one state and the listed companies they declare.
+  // Drives the card on /economy/{state}.
+  rpc ListStatePoliticianHoldings (ListStatePoliticianHoldingsRequest) returns (ListStatePoliticianHoldingsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Register additions and removals over time.
+  rpc ListRegisterChanges (ListRegisterChangesRequest) returns (ListRegisterChangesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Declared interests in companies carrying short interest.
+  //
+  // The short percentage describes THE COMPANY (ASIC, market-wide). It is not
+  // and cannot be a property of anyone's holding — the registers record no
+  // quantities. Consumers must label it as the company's figure.
+  rpc ListShortInterestOverlap (ListShortInterestOverlapRequest) returns (ListShortInterestOverlapResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+}
+
+// ==================== Shared enums ====================
+
+// RegisterHolder is whose interest a row records. The register itself attributes
+// every row to one of these, and surfaces must label which.
+enum RegisterHolder {
+  REGISTER_HOLDER_UNSPECIFIED = 0;
+  REGISTER_HOLDER_SELF = 1;
+  REGISTER_HOLDER_SPOUSE_PARTNER = 2;
+  REGISTER_HOLDER_DEPENDENT_CHILDREN = 3;
+}
+
+// RegisterChangeKind is why a row entered or left the register. A removal can
+// mean a disposal, a correction, or the member leaving parliament — consumers
+// must not present it as a transaction.
+enum RegisterChangeKind {
+  REGISTER_CHANGE_KIND_UNSPECIFIED = 0;
+  REGISTER_CHANGE_KIND_ADDED = 1;
+  REGISTER_CHANGE_KIND_REMOVED = 2;
+}
+
+// ==================== Core messages ====================
+
+message Politician {
+  string slug = 1;          // canonical; consumers must never derive this
+  string display_name = 2;
+  string surname = 3;
+  string given_names = 4;
+  string honorific = 5;
+  string chamber = 6;       // 'house' | 'senate' (most recent term)
+  string division = 7;      // House seat
+  string state_code = 8;    // UPPERCASE
+  string party = 9;
+  string party_ab = 10;
+  int32 first_parliament = 11;
+  int32 last_parliament = 12;
+  string aph_mpid = 13;     // opaque; absent for some members
+  // Counts only. Never a value.
+  int32 declared_listed_count = 14;
+  int32 declared_property_count = 15;
+}
+
+// DeclaredInterest is one holding over one continuous period.
+//
+// declared_from_known distinguishes "declared since this date" from "declared as
+// at a statement whose date the form did not state". A consumer must render the
+// second as an unknown start and never substitute a guess.
+message DeclaredInterest {
+  int32 item_no = 1;              // 1 shareholdings, 3 real estate, 4 directorships…
+  string item_label = 2;
+  RegisterHolder holder = 3;
+  string declared_text = 4;       // verbatim, as the member wrote it
+  string secondary_text = 5;      // item 3 purpose, item 6 creditor…
+  string stock_code = 6;          // empty unless publishably resolved
+  string company_name = 7;
+  string industry = 8;
+  string sal_code = 9;            // empty unless resolved to an ABS suburb
+  string suburb_name = 10;
+  string property_state = 11;
+  string match_method = 12;       // curated_alias | ticker_in_text | name_exact
+  google.protobuf.Timestamp declared_from = 13;
+  bool declared_from_known = 14;
+  google.protobuf.Timestamp declared_to = 15;  // absent while still declared
+  bool currently_declared = 16;
+  string source_url = 17;         // the aph.gov.au PDF this came from
+  string source_licence = 18;
+}
+
+message PoliticianTerm {
+  int32 parliament = 1;
+  string chamber = 2;
+  string division = 3;
+  string state_code = 4;
+  string party = 5;
+  string party_ab = 6;
+}
+
+// ==================== RPC messages ====================
+
+message GetParliamentOverviewRequest {}
+
+message GetParliamentOverviewResponse {
+  int32 politician_count = 1;
+  int32 statement_count = 2;
+  int32 declared_row_count = 3;
+  int32 resolved_listed_count = 4;   // distinct companies publishably resolved
+  int32 resolved_suburb_count = 5;   // distinct suburbs publishably resolved
+  int32 first_parliament = 6;
+  int32 last_parliament = 7;
+  google.protobuf.Timestamp as_at = 8;         // newest lodgement we hold
+  google.protobuf.Timestamp refreshed_at = 9;  // when our snapshot was built
+  string source_licence = 10;
+}
+
+message ListPoliticiansRequest {
+  string chamber = 1;     // optional
+  string state_code = 2;  // optional
+  string party_ab = 3;    // optional
+  string query = 4;       // optional name substring
+  int32 limit = 5;        // default 100, max 500
+  int32 offset = 6;
+}
+
+message ListPoliticiansResponse {
+  repeated Politician politicians = 1;
+  int32 total = 2;
+}
+
+message GetPoliticianRequest {
+  string slug = 1;
+}
+
+message GetPoliticianResponse {
+  Politician politician = 1;
+  string canonical_slug = 2;   // consumers redirect when it differs from the request
+  repeated PoliticianTerm terms = 3;
+  repeated DeclaredInterest interests = 4;
+  // Suburbs in the member's division, from the ABS boundary join. These are
+  // suburbs REPRESENTED, which has nothing to do with anything owned.
+  repeated string represented_suburbs = 5;
+}
+
+message ListStockPoliticiansRequest {
+  string stock_code = 1;
+  bool current_only = 2;  // default false: history included
+}
+
+// PartyCount is a count of PEOPLE, never of money.
+message PartyCount {
+  string party_ab = 1;
+  string party = 2;
+  int32 politician_count = 3;
+}
+
+message ListStockPoliticiansResponse {
+  string stock_code = 1;
+  string company_name = 2;
+  int32 politician_count = 3;
+  repeated PartyCount party_counts = 4;
+  repeated StockPoliticianInterest interests = 5;
+  string source_licence = 6;
+}
+
+message StockPoliticianInterest {
+  Politician politician = 1;
+  DeclaredInterest interest = 2;
+}
+
+message ListPoliticianStocksRequest {
+  int32 limit = 1;        // default 50, max 200
+  bool current_only = 2;
+}
+
+message PoliticianStockRollup {
+  string stock_code = 1;
+  string company_name = 2;
+  string industry = 3;
+  int32 politician_count = 4;
+  repeated PartyCount party_counts = 5;
+  double short_percent = 6;  // THE COMPANY's ASIC short interest, not a holding
+}
+
+message ListPoliticianStocksResponse {
+  repeated PoliticianStockRollup stocks = 1;
+  string source_licence = 2;
+}
+
+message ListSuburbPoliticiansRequest {
+  string sal_code = 1;
+}
+
+message ListSuburbPoliticiansResponse {
+  string sal_code = 1;
+  string suburb_name = 2;
+  string state_code = 3;
+  int32 declaring_member_count = 4;
+  repeated SuburbPoliticianProperty properties = 5;
+  string source_licence = 6;
+}
+
+message SuburbPoliticianProperty {
+  Politician politician = 1;
+  DeclaredInterest interest = 2;
+}
+
+message ListStatePoliticianHoldingsRequest {
+  string state_code = 1;  // accepts a slug or a code
+  int32 limit = 2;        // default 20, max 100
+}
+
+message ListStatePoliticianHoldingsResponse {
+  string state_code = 1;
+  repeated PoliticianStockRollup stocks = 2;
+  int32 politician_count = 3;
+  string source_licence = 4;
+}
+
+message ListRegisterChangesRequest {
+  google.protobuf.Timestamp since = 1;
+  RegisterChangeKind kind = 2;  // UNSPECIFIED = both
+  string stock_code = 3;        // optional
+  int32 limit = 4;              // default 100, max 500
+  int32 offset = 5;
+}
+
+message RegisterChangeEvent {
+  Politician politician = 1;
+  RegisterChangeKind kind = 2;
+  int32 item_no = 3;
+  string item_label = 4;
+  RegisterHolder holder = 5;
+  string declared_text = 6;
+  string stock_code = 7;
+  string company_name = 8;
+  google.protobuf.Timestamp changed_on = 9;
+  string source_url = 10;
+}
+
+message ListRegisterChangesResponse {
+  repeated RegisterChangeEvent events = 1;
+  int32 total = 2;
+  string source_licence = 3;
+}
+
+message ListShortInterestOverlapRequest {
+  double min_short_percent = 1;  // default 2.0
+  int32 limit = 2;               // default 50, max 200
+}
+
+message ShortInterestOverlap {
+  string stock_code = 1;
+  string company_name = 2;
+  string industry = 3;
+  // THE COMPANY's short interest (ASIC, market-wide). Says nothing about any
+  // member's holding, its size, or any gain or loss.
+  double short_percent = 4;
+  int32 politician_count = 5;
+  repeated PartyCount party_counts = 6;
+}
+
+message ListShortInterestOverlapResponse {
+  repeated ShortInterestOverlap overlaps = 1;
+  string disclosure_note = 2;  // the mandatory caveat, served with the data
+  string source_licence = 3;
+}

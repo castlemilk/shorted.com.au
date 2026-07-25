@@ -319,6 +319,44 @@ func (s *StoreAdapter) GetEventTimeline(stockCode string, daysBack, limit int32)
 	return s.store.GetEventTimeline(stockCode, daysBack, limit)
 }
 
+// --- Register of Members'/Senators' Interests ---
+
+func (s *StoreAdapter) GetRegisterOverview() (*shorts.RegisterOverviewRow, error) {
+	return s.store.GetRegisterOverview()
+}
+
+func (s *StoreAdapter) ListPoliticians(chamber, stateCode, partyAb, query string, limit, offset int32) ([]*shorts.PoliticianRow, int32, error) {
+	return s.store.ListPoliticians(chamber, stateCode, partyAb, query, limit, offset)
+}
+
+func (s *StoreAdapter) GetPolitician(slug string) (*shorts.PoliticianRow, []*shorts.DeclaredInterestRow, []string, error) {
+	return s.store.GetPolitician(slug)
+}
+
+func (s *StoreAdapter) ListStockPoliticians(stockCode string, currentOnly bool) (string, []*shorts.PoliticianRow, []*shorts.DeclaredInterestRow, []*shorts.PartyCountRow, error) {
+	return s.store.ListStockPoliticians(stockCode, currentOnly)
+}
+
+func (s *StoreAdapter) ListPoliticianStocks(limit int32, currentOnly bool) ([]*shorts.PoliticianStockRollupRow, error) {
+	return s.store.ListPoliticianStocks(limit, currentOnly)
+}
+
+func (s *StoreAdapter) ListSuburbPoliticians(salCode string) (string, string, []*shorts.PoliticianRow, []*shorts.DeclaredInterestRow, error) {
+	return s.store.ListSuburbPoliticians(salCode)
+}
+
+func (s *StoreAdapter) ListStatePoliticianHoldings(stateCode string, limit int32) ([]*shorts.PoliticianStockRollupRow, int32, error) {
+	return s.store.ListStatePoliticianHoldings(stateCode, limit)
+}
+
+func (s *StoreAdapter) ListRegisterChanges(since time.Time, kind, stockCode string, limit, offset int32) ([]*shorts.RegisterChangeRow, int32, error) {
+	return s.store.ListRegisterChanges(since, kind, stockCode, limit, offset)
+}
+
+func (s *StoreAdapter) ListShortInterestOverlap(minShortPercent float64, limit int32) ([]*shorts.PoliticianStockRollupRow, error) {
+	return s.store.ListShortInterestOverlap(minShortPercent, limit)
+}
+
 func (s *StoreAdapter) ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32) ([]*shorts.EconomicSeriesRow, error) {
 	return s.store.ListEconomicSeries(topic, metric, regionType, regionCode, product, limit)
 }
