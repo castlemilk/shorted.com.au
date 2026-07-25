@@ -209,14 +209,16 @@ module "shorted_job_economy" {
   project_id       = var.project_id
   region           = var.region
   scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
-  environment      = "production"
-  image_url        = var.shorted_jobs_image
+  # The OLD dev economy-collector was mislabelled "production" (pre-existing
+  # quirk); the replacement is a fresh resource, so label it honestly.
+  environment = "dev"
+  image_url   = var.shorted_jobs_image
 
   args     = ["economy", "-mode", "all"]
   schedule = "0 17 5 * *" # 5th of month, 17:00 UTC (an hour after the housing job)
 
   env = {
-    ENVIRONMENT = "production"
+    ENVIRONMENT = "dev"
     GCP_PROJECT = var.project_id
   }
 
