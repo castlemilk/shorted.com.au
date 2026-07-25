@@ -25,7 +25,7 @@ func main() {
 }
 
 func run() int {
-	mode := flag.String("mode", "all", "sources | rba | cpi | labour | trade | gdp | approvals | retail | population | petroleum | govfin | vacancies | wages | spending | lending | construction | business | crime | markets | derived | correlations | all")
+	mode := flag.String("mode", "all", "sources | freshness | rba | cpi | labour | trade | gdp | approvals | retail | population | petroleum | govfin | vacancies | wages | spending | lending | construction | business | crime | markets | derived | correlations | all")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -121,6 +121,15 @@ func run() int {
 		if err := registerSources(ctx, pool); err != nil {
 			log.Fatalf("register sources: %v", err)
 		}
+	case "freshness":
+		results, err := collectFreshness(ctx, pool, time.Now())
+		if err != nil {
+			log.Printf("ERROR freshness: %v", err)
+			return 1
+		}
+		if writeFreshnessReport(os.Stdout, results) > 0 {
+			return 1
+		}
 	case "rba", "cpi", "labour", "trade", "gdp", "approvals", "retail", "population", "petroleum", "govfin", "vacancies", "wages", "spending", "lending", "construction", "business", "crime", "markets", "derived":
 		if err := registerSources(ctx, pool); err != nil {
 			log.Fatalf("register sources: %v", err)
@@ -159,7 +168,7 @@ func run() int {
 			return 1
 		}
 	default:
-		log.Fatalf("unknown -mode %q (want sources|rba|cpi|labour|trade|gdp|approvals|retail|population|petroleum|govfin|vacancies|wages|spending|lending|construction|business|crime|markets|derived|correlations|all)", *mode)
+		log.Fatalf("unknown -mode %q (want sources|freshness|rba|cpi|labour|trade|gdp|approvals|retail|population|petroleum|govfin|vacancies|wages|spending|lending|construction|business|crime|markets|derived|correlations|all)", *mode)
 	}
 	return 0
 }
