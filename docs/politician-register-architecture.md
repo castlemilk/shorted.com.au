@@ -285,7 +285,25 @@ Blank pages are then excluded from the document-level text-vs-scan judgement.
 After the fix, the same 12 documents classify as 11 `text` + 1 `mixed`, with
 `Albanese_48P` correctly isolating its 14 scanned pages.
 
-### 2.6 `Form A` is a running page header, not a section delimiter
+### 2.6 Multi-value cells must keep their line structure
+
+The real-estate cell lists one property per line. Flattening
+
+    Warragul
+    Port Melbourne
+
+into `"Warragul Port Melbourne"` produces a locality that matches no ABS suburb
+at all, silently losing both. Same for item 1, where a member may list a dozen
+funds down one cell.
+
+The parser therefore keeps `declared_lines` alongside the joined
+`declared_text`, and deliberately does **not** guess which line breaks are
+wrapping and which separate two entries — that is genuinely ambiguous
+(`Superannuation - Public Sector Superannuation` / `Accumulation Plan` is one
+value). It preserves the evidence; the location and security resolvers try both
+readings.
+
+### 2.7 `Form A` is a running page header, not a section delimiter
 
 Senate 2025 Volume 1: **180** bare `Form A` lines but only **55** `Surname:`
 header blocks across **35 distinct senators**. `Form A` repeats on every page of
@@ -366,7 +384,7 @@ render as declared text with no ticker link.
 | 0 — verification spike | **done** (§2) |
 | 1 — migration 000096 + `register-discover` | **done** — manifest holds 804 documents (769 house, 35 senate) |
 | 2 — `register-fetch` + classify | **done** — streaming content-addressed sink, per-page classification |
-| 3 — deterministic parser + golden set + QA gates | pending |
+| 3 — deterministic parser + golden set | **done** — text tier parses base statements + both alteration variants |
 | 4 — `register-load` + identity | pending |
 | 5 — security resolution + curated aliases | pending |
 | 6 — location resolution → `sal_code` | pending |
