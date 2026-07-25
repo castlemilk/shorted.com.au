@@ -335,6 +335,19 @@ func runRegisterResolve(ctx context.Context, pool *pgxpool.Pool) {
 		log.Fatalf("[register-resolve] locations: %v", err)
 	}
 
+	// The interval fold must run AFTER both resolvers: it keys holdings on the
+	// resolved stock_code / sal_code where one exists.
+	fold, err := rebuildHoldingPeriods(ctx, pool)
+	if err != nil {
+		registerFinishFailure(ctx, pool, runID, "[register-resolve]", err)
+		log.Fatalf("[register-resolve] holding periods: %v", err)
+	}
+
+	if err := refreshRegisterMaterializedViews(ctx, pool); err != nil {
+		registerFinishFailure(ctx, pool, runID, "[register-resolve]", err)
+		log.Fatalf("[register-resolve] refresh materialized views: %v", err)
+	}
+
 	resolvedPct := 0.0
 	// Denominator excludes non-securities (prose, "Not Applicable", meta
 	// statements): they are not failures to resolve, and leaving them in would
@@ -362,6 +375,11 @@ func runRegisterResolve(ctx context.Context, pool *pgxpool.Pool) {
 		"location_unmatched":    locs.Unmatched,
 		"location_redacted":     locs.Redacted,
 		"location_resolved_pct": locationPct(locs),
+		"holding_events":        fold.Events,
+		"holdings":              fold.Holdings,
+		"holding_intervals":     fold.Intervals,
+		"holdings_current":      fold.Current,
+		"holdings_unknown_from": fold.UnknownFrom,
 	}); err != nil {
 		log.Fatalf("[register-resolve] finish collection run: %v", err)
 	}
@@ -374,6 +392,9 @@ func runRegisterResolve(ctx context.Context, pool *pgxpool.Pool) {
 
 	log.Printf("[register-resolve] locations: %d rows, %d resolved (%.1f%%), %d ambiguous, %d region, %d no-state, %d unmatched",
 		locs.Rows, locs.Resolved, locationPct(locs), locs.Ambiguous, locs.Region, locs.NoState, locs.Unmatched)
+	log.Printf("[register-resolve] fold: %d events -> %d holdings, %d intervals (%d current, %d closed, %d with an unknown start)",
+		fold.Events, fold.Holdings, fold.Intervals, fold.Current, fold.Closed, fold.UnknownFrom)
+
 	if locs.Redacted > 0 {
 		// Never silent: the register asks for suburb only, so a street address is
 		// the source over-disclosing and we must be seen not to amplify it.
