@@ -2,6 +2,7 @@ package platform
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
@@ -29,18 +30,22 @@ func WithMaxConns(n int32) PoolOption {
 // by hand; this is the one copy.
 func Connect(ctx context.Context, dbURL string, opts ...PoolOption) (*pgxpool.Pool, error) {
 	if dbURL == "" {
-		return nil, fmt.Errorf("database url is empty")
+		return nil, errors.New("database url is empty")
 	}
 	cfg, err := pgxpool.ParseConfig(dbURL)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parse database url: %w", err)
 	}
 	cfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 	cfg.MaxConns = DefaultMaxConns
 	for _, opt := range opts {
 		opt(cfg)
 	}
-	return pgxpool.NewWithConfig(ctx, cfg)
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("open pool: %w", err)
+	}
+	return pool, nil
 }
 
 // ConnectFromEnv is Connect over the DATABASE_URL env var, erroring when unset.
