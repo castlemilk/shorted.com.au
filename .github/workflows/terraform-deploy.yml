@@ -292,6 +292,9 @@ jobs:
           - name: economy-collector
             dockerfile: services/economy-collector/Dockerfile
             context: services
+          - name: shorted-jobs
+            dockerfile: services/jobs/Dockerfile
+            context: services
           - name: signals-collector
             dockerfile: services/signals-collector/Dockerfile
             context: services/signals-collector
@@ -479,6 +482,7 @@ jobs:
             -var="weekly_report_generator_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/weekly-report-generator:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="house_price_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/house-price-collector:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="economy_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/economy-collector:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="shorted_jobs_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorted-jobs:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="signals_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/signals-collector:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="report_extractor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/report-extractor:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="grafana_auth=${{ secrets.GRAFANA_SERVICE_ACCOUNT_TOKEN }}" \
@@ -1126,6 +1130,7 @@ jobs:
             -var="weekly_report_generator_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/weekly-report-generator:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="house_price_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/house-price-collector:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="economy_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/economy-collector:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="shorted_jobs_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorted-jobs:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="signals_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/signals-collector:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="report_extractor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/report-extractor:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="grafana_auth=${{ secrets.GRAFANA_SERVICE_ACCOUNT_TOKEN }}" \

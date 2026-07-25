@@ -8,7 +8,13 @@
 #
 # FROZEN sources (upstream-discontinued, e.g. abs-retail-trade) are reported
 # but never fail the run. Threshold calibration lives in
-# services/economy-collector/freshness.go.
+# services/jobs/internal/jobs/economy/freshness.go.
+#
+# Post-consolidation this targets the `shorted-economy` Cloud Run job
+# (terraform/modules/shorted-job) running the consolidated `shorted` binary.
+# The legacy `economy-collector` job still exists with its scheduler paused;
+# if you roll the cutover back, repoint the job name AND drop the `economy`
+# subcommand from --args here.
 name: Economy Freshness
 
 on:
@@ -35,12 +41,14 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v3
 
+      # Post-cutover this runs the consolidated `shorted` binary, so the args
+      # MUST carry the `economy` subcommand — a bare `-mode` exits 2 with usage.
       - name: Run freshness check on prod
         run: |
-          gcloud run jobs execute economy-collector \
+          gcloud run jobs execute shorted-economy \
             --project rosy-clover-477102-t5 \
             --region australia-southeast2 \
-            --args="-mode,freshness" \
+            --args="economy,-mode,freshness" \
             --wait
 
       - name: Surface report in summary
@@ -50,7 +58,7 @@ jobs:
             echo "## Economy freshness report"
             echo '```'
             gcloud logging read \
-              'resource.type="cloud_run_job" AND resource.labels.job_name="economy-collector" AND (textPayload:"source_key=" OR textPayload:"freshness:")' \
+              'resource.type="cloud_run_job" AND resource.labels.job_name="shorted-economy" AND (textPayload:"source_key=" OR textPayload:"freshness:")' \
               --project rosy-clover-477102-t5 --freshness 30m --limit 40 \
               --format="value(textPayload)" | sort
             echo '```'

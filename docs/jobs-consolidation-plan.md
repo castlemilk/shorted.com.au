@@ -113,6 +113,52 @@ before cutover):**
 - Freeze the source services (README banner + a PR-template note) as soon as
   their port lands, so this only has to be paid once per job family.
 
+## Cutover slice 1 — announcements + economy (IN PROGRESS, branch `feat/jobs-monolith-cutover-1`)
+
+Terraform/CI now run both jobs from the ONE consolidated image:
+
+- CI builds `shorted-jobs` (`services/jobs/Dockerfile`, context `services`) in
+  the `build-docker-images` matrix, and threads `-var="shorted_jobs_image=…"`
+  into both `terraform plan` and `terraform apply` (mirrors the
+  `house_price_collector_image` wiring from PR #211).
+- `terraform/modules/shorted-job/` is the generic Cloud Run Job + Scheduler +
+  invoker-SA module (`name`, `args`, `env`, `secret_env`, `schedule`, `paused`,
+  `timeout_seconds`, `cpu`, `memory`, `max_retries`). Resource shapes copied
+  from `modules/economy-collector`.
+- Instantiated in dev + prod as `module.shorted_job_announcements`
+  (job `shorted-announcements`, `["announcements", -director-trades,
+  -dividends, -news-table, -all-announcements, -years 2024,2025,2026,
+  -workers 6]`, `0 11 * * *`, 5400s, 2 CPU / 1Gi) and
+  `module.shorted_job_economy` (job `shorted-economy`,
+  `["economy", "-mode", "all"]`, `0 17 5 * *`, 1800s, 1 CPU / 512Mi).
+- `.github/workflows/economy-freshness.yml` now executes `shorted-economy`
+  with `--args="economy,-mode,freshness"` and greps logs for
+  `job_name="shorted-economy"`.
+
+**Old jobs are PAUSED, not deleted** (plan invariant): `scheduler_paused`
+(default `false`) was added to `modules/asx-announcement-crawler` and
+`modules/economy-collector` and set to `true` at both env call sites. The
+Cloud Run Jobs themselves stay deployed and manually executable.
+
+**Rollback (one variable per job, no destroy):**
+
+1. Set `scheduler_paused = false` on the old module call site
+   (`module.asx_announcement_crawler` / `module.economy_collector`) in
+   `terraform/environments/{dev,prod}/main.tf`.
+2. Set `paused = true` on the matching new module call site
+   (`module.shorted_job_announcements` / `module.shorted_job_economy`).
+3. `terraform apply`. Both schedules flip within one apply; nothing is
+   destroyed and no image rebuild is needed.
+4. For economy also revert `.github/workflows/economy-freshness.yml` to job
+   `economy-collector` + `--args="-mode,freshness"` (the legacy image's
+   entrypoint takes no subcommand).
+
+**Cleanup (only after ≥1 green scheduled run of each replacement):** a follow-up
+PR deletes `modules/asx-announcement-crawler`, `modules/economy-collector`,
+their env call sites, the `asx_announcement_crawler_image` /
+`economy_collector_image` vars, the two CI matrix entries and the source
+services.
+
 ## Cutover checklist — announcements + economy (from Phase 2 review)
 
 - `.github/workflows/economy-freshness.yml` passes `--args="-mode,freshness"` —
