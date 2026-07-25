@@ -24,6 +24,10 @@ type RevalidateRequest struct {
 	Paths []string
 	// Flush names the cache families to drop (e.g. "housing", "shorts,housing").
 	Flush string
+	// Tag is a Next.js cache tag to revalidate (e.g. "report-2026-W06"). Jobs
+	// that bust by tag rather than by path (weekly-report) set this instead of
+	// Paths; the endpoint accepts either.
+	Tag string
 }
 
 // PingRevalidate tells the web tier to bust its long-TTL caches the instant a
@@ -56,8 +60,9 @@ func PingRevalidate(req RevalidateRequest) {
 	if req.Flush != "" {
 		q.Set("flush", req.Flush)
 	}
-	// tag is intentionally unset — the flush= branch busts the surfaces by
-	// path, no per-tag revalidation needed here.
+	if req.Tag != "" {
+		q.Set("tag", req.Tag)
+	}
 	//
 	// TODO: the secret rides in the QUERY STRING because that is what the web
 	// tier's /api/revalidate reads. Moving it to a header (and keeping the query
