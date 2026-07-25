@@ -25,6 +25,7 @@ import {
   EnhancedOrganizationSchema,
 } from "~/@/components/seo/enhanced-structured-data";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
+import { HomepageFaq } from "~/@/components/home/homepage-faq";
 import { PremiumUpsellBanner } from "~/@/components/premium/premium-upsell-banner";
 import { getEnhancedWeeklyReportData, getAvailableWeekSlugs } from "~/app/actions/reports/getReportData";
 import { BrowseByIndustry } from "./browse-by-industry";
@@ -45,7 +46,7 @@ export const metadata: Metadata = {
   description: siteConfig.description,
   keywords: siteConfig.keywords,
   openGraph: {
-    title: siteConfig.fullTitle,
+    title: siteConfig.socialTitle,
     description: siteConfig.description,
     url: siteConfig.url,
     siteName: siteConfig.name,
@@ -62,7 +63,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: siteConfig.fullTitle,
+    title: siteConfig.socialTitle,
     description: siteConfig.description,
     images: [siteConfig.ogImage],
   },
@@ -168,7 +169,7 @@ export default async function Page() {
           one here with a different SearchAction target confuses parsers. */}
       <EnhancedOrganizationSchema />
       <LLMMeta
-        title="Shorted - Official ASIC Short Position Data for ASX Stocks"
+        title="Most Shorted ASX Stocks — Official ASIC Short Selling Data"
         description="Track short selling positions on the ASX using official ASIC data. Free daily updates, interactive charts, industry heatmaps, and analysis of the most shorted Australian stocks."
         keywords={[
           "ASIC short position data",
@@ -185,7 +186,8 @@ export default async function Page() {
       {/* Page header with SEO-optimized content */}
       <header className="container mx-auto px-4 pt-8 pb-4">
         <h1 className={pageTitle}>
-          Shorting the ASX: Official Short Position Data from ASIC
+          Shorting the ASX: Australia&apos;s Most Shorted Stocks, from Official
+          ASIC Data
         </h1>
         <p className="text-muted-foreground mt-2 max-w-2xl">
           Everything you need to track shorting on the ASX — official ASIC short
@@ -194,12 +196,13 @@ export default async function Page() {
         </p>
         {/* Extended description for SEO - visually hidden but accessible */}
         <p className="sr-only">
-          Shorted.com.au provides free daily short position data sourced directly from
-          ASIC (Australian Securities and Investments Commission). View the top 100 most
-          shorted stocks on the ASX, interactive historical charts, industry sector
-          breakdowns, and comprehensive analysis. Data is updated daily with T+4 trading
-          day delay as published by ASIC. Track short interest trends, identify heavily
-          shorted companies, and monitor bearish sentiment across the Australian market.
+          Shorted.com.au provides free daily short selling data sourced directly from
+          ASIC (Australian Securities and Investments Commission). See Australia&apos;s
+          most shorted stocks — the top 100 short positions on the ASX — with interactive
+          historical charts, industry sector breakdowns, and comprehensive analysis. Data
+          is updated daily with a T+4 trading day delay as published by ASIC. Track short
+          interest trends, identify heavily shorted companies, and monitor bearish
+          sentiment across the Australian market.
         </p>
       </header>
 
@@ -319,7 +322,36 @@ export default async function Page() {
             </p>
           </div>
         </div>
+        {/* Crawlable cross-links to the two data surfaces the homepage
+            otherwise never linked to. */}
+        <p className="mt-4 text-sm text-muted-foreground">
+          Go deeper:{" "}
+          <Link
+            href="/statistics"
+            className="underline underline-offset-4 hover:text-foreground"
+          >
+            ASX short selling statistics — total dollars shorted
+          </Link>
+          ,{" "}
+          <Link
+            href="/scans"
+            className="underline underline-offset-4 hover:text-foreground"
+          >
+            daily short interest scans
+          </Link>
+          , or the{" "}
+          <Link
+            href="/top"
+            className="underline underline-offset-4 hover:text-foreground"
+          >
+            top 100 most shorted ASX stocks
+          </Link>
+          .
+        </p>
       </section>
+
+      {/* Homepage FAQ — question-form headings + FAQPage JSON-LD */}
+      <HomepageFaq />
     </main>
   );
 }

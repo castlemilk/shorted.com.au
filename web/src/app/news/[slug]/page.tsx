@@ -52,8 +52,14 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { slug } = await params;
   const take = await loadTake(slug);
   if (!take) {
-    // Root layout template handles the "| Shorted" suffix.
-    return { title: "Take not found" };
+    // Root layout template handles the "| Shorted" suffix. The page body
+    // notFound()s, but a take can also be missing transiently (RPC blip) and
+    // the 404 status can be pre-empted once the response has streamed —
+    // noindex the fallback so a soft-200 never enters the index.
+    return {
+      title: "Take not found",
+      robots: { index: false, follow: false },
+    };
   }
   const url = `${siteConfig.url}/news/${slug}`;
   const description = buildDescription(take.bodyMd);

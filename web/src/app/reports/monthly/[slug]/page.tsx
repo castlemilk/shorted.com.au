@@ -189,11 +189,27 @@ export default async function MonthlyReportPage({ params }: PageProps) {
     .replace(/\s+/g, " ")
     .trim() || undefined;
 
+  // Publication date: the last ASIC data date covered by the report, falling
+  // back to the last calendar day of the month when market data is lagging.
+  // Google drops Article rich results entirely without a datePublished.
+  const monthEndDate =
+    data.dates[data.dates.length - 1] ??
+    (() => {
+      const [y, m] = slug.split("-").map(Number);
+      if (!y || !m) return undefined;
+      return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+    })();
+
   const articleSchema = hasNarrative ? {
     "@context": "https://schema.org",
     "@type": "Article",
     headline: enhanced?.headline ?? `ASX Short Selling Report: ${monthTitle}`,
     description: cleanSummary,
+    ...(monthEndDate
+      ? { datePublished: monthEndDate, dateModified: monthEndDate }
+      : {}),
+    inLanguage: "en-AU",
+    isAccessibleForFree: true,
     // Organization author only — "Shorted AI Research" is not a Person, and
     // Google's guidance requires author to accurately represent authorship.
     author: [
