@@ -299,6 +299,13 @@ CREATE TABLE IF NOT EXISTS register_declared_items (
     change_type        TEXT NOT NULL,
     row_ordinal        SMALLINT NOT NULL DEFAULT 0,
     declared_text      TEXT NOT NULL,
+    -- The PHYSICAL lines of the primary cell. The form lists one property (or
+    -- one company) per line, so the joined text is often several entries welded
+    -- together: "Warragul" + "Port Melbourne" flattens to a locality matching no
+    -- suburb and loses both. The parser deliberately does not guess which breaks
+    -- are wrapping — that is genuinely ambiguous — so both readings are kept and
+    -- the resolvers try each.
+    declared_lines     TEXT[] NOT NULL DEFAULT '{}',
     secondary_text     TEXT NOT NULL DEFAULT '',  -- item 3 Purpose / 6 Creditor / 4 Activities
     tertiary_text      TEXT NOT NULL DEFAULT '',  -- item 5 has three value columns
     is_nil             BOOLEAN NOT NULL DEFAULT FALSE,

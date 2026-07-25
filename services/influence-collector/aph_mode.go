@@ -223,6 +223,78 @@ fetchLoop:
 		fetched, len(pending), deduped, failed, float64(bytesTotal)/(1<<20))
 }
 
+// runRegisterLoad turns extraction artifacts into normalised rows and resolves
+// each document to a person.
+func runRegisterLoad(ctx context.Context, pool *pgxpool.Pool, limit int) {
+	runID, err := insertIndustryCollectionRun(ctx, pool, registerSource)
+	if err != nil {
+		log.Fatalf("[register-load] start collection run: %v", err)
+	}
+
+	pending, err := selectExtractionsToLoad(ctx, pool, limit)
+	if err != nil {
+		registerFinishFailure(ctx, pool, runID, "[register-load]", err)
+		log.Fatalf("[register-load] select artifacts: %v", err)
+	}
+	if len(pending) == 0 {
+		log.Printf("[register-load] no extracted artifacts to load")
+		if err := finishIndustryCollectionRun(ctx, pool, runID, "succeeded", 0, 0, 0, "", map[string]any{"queue_empty": true}); err != nil {
+			log.Fatalf("[register-load] finish collection run: %v", err)
+		}
+		return
+	}
+
+	if registerDryRun() {
+		log.Printf("[register-load] DRY-RUN — %d artifacts ready, loading none (set REGISTER_DRY_RUN=false to load)", len(pending))
+		if err := finishIndustryCollectionRun(ctx, pool, runID, "succeeded", len(pending), 0, 0, "", map[string]any{
+			"dry_run": true, "artifacts": len(pending),
+		}); err != nil {
+			log.Fatalf("[register-load] finish collection run: %v", err)
+		}
+		return
+	}
+
+	var loaded, failed, statements, items int
+	for _, p := range pending {
+		s, i, err := loadExtraction(ctx, pool, p)
+		if err != nil {
+			failed++
+			log.Printf("[register-load] %s failed: %v", p.SourceURL, err)
+			continue
+		}
+		loaded++
+		statements += s
+		items += i
+	}
+
+	stats, err := registerLoadSummary(ctx, pool)
+	if err != nil {
+		log.Printf("[register-load] summary: %v", err)
+	}
+
+	status := "succeeded"
+	if failed > 0 && loaded == 0 {
+		status = "failed"
+	} else if failed > 0 {
+		status = "partial"
+	}
+	if err := finishIndustryCollectionRun(ctx, pool, runID, status, len(pending), loaded, failed, "", map[string]any{
+		"documents_loaded":      loaded,
+		"documents_failed":      failed,
+		"statements_written":    statements,
+		"items_written":         items,
+		"politicians_total":     stats.Politicians,
+		"declared_rows_total":   stats.Declared,
+		"unresolved_statements": stats.Unresolved,
+	}); err != nil {
+		log.Fatalf("[register-load] finish collection run: %v", err)
+	}
+
+	log.Printf("[register-load] loaded %d documents (%d failed): %d statements, %d item rows", loaded, failed, statements, items)
+	log.Printf("[register-load] totals: %d politicians, %d statements, %d item rows (%d declared), %d unresolved",
+		stats.Politicians, stats.Statements, stats.Items, stats.Declared, stats.Unresolved)
+}
+
 func registerFinishFailure(ctx context.Context, pool *pgxpool.Pool, runID, label string, err error) {
 	metadata := map[string]any{
 		"house_listing":  aphBase + houseRegisterPath,

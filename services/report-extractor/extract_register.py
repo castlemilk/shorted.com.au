@@ -33,8 +33,13 @@ import fitz  # pymupdf
 import psycopg2
 import psycopg2.extras
 
+from register_parse import parse_house_document
 from register_schema import (
+    EXTRACTOR_NAME,
+    MIN_PAGE_COVERAGE_PCT,
     SCAN_PAGE_CHAR_THRESHOLD,
+    SCHEMA_VERSION,
+    TIER_DETERMINISTIC,
     classify_document,
     classify_page,
 )
@@ -311,9 +316,290 @@ def run_classify(args) -> int:
     return 1 if failed and failed == len(rows) else 0
 
 
+# ---------------------------------------------------------------------------
+# Extraction
+# ---------------------------------------------------------------------------
+
+
+def select_documents_to_extract(conn, args):
+    conds = [
+        "fetch_status = 'fetched'",
+        "classify_status = 'classified'",
+        "storage_uri IS NOT NULL",
+        # Scan-only documents have nothing for the deterministic tier to read.
+        # They wait for the vision tier rather than being recorded as failures.
+        "text_class <> 'scan'",
+    ]
+    params: list = []
+    if args.chamber:
+        conds.append("chamber = %s")
+        params.append(args.chamber)
+    if args.parliament:
+        conds.append("parliament = %s")
+        params.append(args.parliament)
+    if not args.force:
+        # Re-extracting at the same version is pointless: the artifact is keyed
+        # by (sha256, extractor_version, tier).
+        conds.append(
+            "NOT EXISTS (SELECT 1 FROM register_extractions e "
+            "WHERE e.content_sha256 = register_documents.content_sha256 "
+            "AND e.extractor_version = %s AND e.tier = %s)"
+        )
+        params.extend([SCHEMA_VERSION, TIER_DETERMINISTIC])
+
+    sql = f"""
+        SELECT id::text, source_url, storage_uri, chamber, parliament,
+               content_sha256, page_count,
+               COALESCE(blank_page_count, 0) AS blank_page_count,
+               COALESCE(scan_page_count, 0)  AS scan_page_count
+        FROM register_documents
+        WHERE {' AND '.join(conds)}
+        ORDER BY parliament DESC NULLS LAST, discovered_at
+    """
+    if args.limit > 0:
+        sql += " LIMIT %s"
+        params.append(args.limit)
+
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute(sql, params)
+    rows = cur.fetchall()
+    cur.close()
+    return rows
+
+
+def build_artifact(row, parsed, page_count: int) -> dict:
+    """Serialise a parse into the versioned artifact.
+
+    Field names mirror the DB columns the Go loader writes, so the contract
+    between the two languages is one JSON shape rather than two conventions.
+    """
+    statements = []
+    for s in parsed.statements:
+        statements.append(
+            {
+                "ordinal": s.ordinal,
+                "kind": s.kind,
+                "lodged_date": s.lodged_date.isoformat() if s.lodged_date else None,
+                "date_is_stated": s.date_is_stated,
+                "page_from": s.page_from,
+                "page_to": s.page_to,
+                "warnings": s.warnings,
+                "items": [
+                    {
+                        "item_no": item.item_no,
+                        "item_label": item.item_label,
+                        "page_no": item.page_no,
+                        "rows": [
+                            {
+                                "holder": r.holder,
+                                "change_type": r.change_type,
+                                "ordinal": r.ordinal,
+                                "declared_text": r.declared_text,
+                                "declared_lines": r.declared_lines,
+                                "secondary_text": r.secondary_text,
+                                "tertiary_text": r.tertiary_text,
+                                "is_nil": r.is_nil,
+                                "contains_amount": r.contains_amount,
+                                "page_no": r.page_no,
+                            }
+                            for r in item.rows
+                        ],
+                    }
+                    for item in s.items
+                ],
+            }
+        )
+
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "document_sha256": row["content_sha256"],
+        "source_url": row["source_url"],
+        "chamber": row["chamber"],
+        "parliament": row["parliament"],
+        "extractor": {
+            "name": EXTRACTOR_NAME,
+            "version": SCHEMA_VERSION,
+            "tier": TIER_DETERMINISTIC,
+            "model": "",
+        },
+        "pages": {
+            "count": page_count,
+            "attributed": parsed.pages_attributed,
+            "blank": row["blank_page_count"],
+            "scan": row["scan_page_count"],
+        },
+        "statements": statements,
+        "warnings": parsed.warnings,
+    }
+
+
+def artifact_metrics(artifact: dict, page_count: int, blank_pages: int = 0) -> dict:
+    """Coverage is measured against READABLE pages, not every page.
+
+    Blank continuation pages carry nothing to attribute, so counting them as
+    misses drags a perfectly-parsed document under the threshold: an 8-page
+    statement with one blank page scores 7/8 = 88% and would be quarantined as
+    'partial' despite having lost nothing.
+    """
+    statements = artifact["statements"]
+    items = sum(len(s["items"]) for s in statements)
+    attributed = artifact["pages"]["attributed"]
+    readable = max(page_count - blank_pages, 0)
+    coverage = (100.0 * attributed / readable) if readable else 0.0
+    return {
+        "statement_count": len(statements),
+        "item_count": items,
+        "pages_covered": attributed,
+        "readable_pages": readable,
+        "page_coverage_pct": round(min(coverage, 100.0), 2),
+    }
+
+
+def store_extraction(conn, row, artifact: dict, metrics: dict, dry_run: bool) -> None:
+    if dry_run:
+        return
+
+    warnings = list(artifact.get("warnings", []))
+    for s in artifact["statements"]:
+        warnings.extend(s.get("warnings", []))
+
+    # A document whose pages are mostly unattributed is 'partial' and must never
+    # reach public output — silent under-extraction is indistinguishable from a
+    # member who declared nothing.
+    status = "extracted" if metrics["page_coverage_pct"] >= MIN_PAGE_COVERAGE_PCT else "partial"
+
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO register_extractions
+            (document_id, content_sha256, schema_version, extractor_name,
+             extractor_version, tier, model, payload, statement_count,
+             item_count, pages_covered, page_coverage_pct, warnings)
+        VALUES (%s, %s, %s, %s, %s, %s, '', %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (content_sha256, extractor_version, tier) DO UPDATE SET
+            payload           = EXCLUDED.payload,
+            statement_count   = EXCLUDED.statement_count,
+            item_count        = EXCLUDED.item_count,
+            pages_covered     = EXCLUDED.pages_covered,
+            page_coverage_pct = EXCLUDED.page_coverage_pct,
+            warnings          = EXCLUDED.warnings
+        """,
+        (
+            row["id"],
+            row["content_sha256"],
+            SCHEMA_VERSION,
+            EXTRACTOR_NAME,
+            SCHEMA_VERSION,
+            TIER_DETERMINISTIC,
+            psycopg2.extras.Json(artifact),
+            metrics["statement_count"],
+            metrics["item_count"],
+            metrics["pages_covered"],
+            metrics["page_coverage_pct"],
+            psycopg2.extras.Json(warnings),
+        ),
+    )
+    cur.execute(
+        """
+        UPDATE register_documents SET
+            extract_status    = %s,
+            extract_tier      = %s,
+            extractor_version = %s,
+            extracted_at      = now(),
+            extract_error     = '',
+            page_coverage_pct = %s,
+            updated_at        = now()
+        WHERE id = %s
+        """,
+        (status, TIER_DETERMINISTIC, SCHEMA_VERSION, metrics["page_coverage_pct"], row["id"]),
+    )
+    conn.commit()
+    cur.close()
+
+
+def mark_extract_failed(conn, doc_id: str, err: Exception, dry_run: bool) -> None:
+    if dry_run:
+        return
+    cur = conn.cursor()
+    cur.execute(
+        """
+        UPDATE register_documents SET
+            extract_status = 'failed',
+            extract_error  = %s,
+            updated_at     = now()
+        WHERE id = %s
+        """,
+        (str(err)[:500], doc_id),
+    )
+    conn.commit()
+    cur.close()
+
+
 def run_extract(args) -> int:
-    log.error("--stage extract is not implemented yet (phase 3)")
-    return 2
+    conn = connect_db()
+    rows = select_documents_to_extract(conn, args)
+    if not rows:
+        log.info("extract: nothing to do")
+        return 0
+
+    log.info("extract: %d documents%s", len(rows), " (dry run)" if args.dry_run else "")
+    extracted = partial = failed = 0
+    total_rows = 0
+
+    for row in rows:
+        temp_path = None
+        try:
+            doc, temp_path = open_document(row["storage_uri"])
+            try:
+                parsed = parse_house_document(doc)
+                page_count = row["page_count"] or doc.page_count
+            finally:
+                doc.close()
+
+            artifact = build_artifact(row, parsed, page_count)
+            metrics = artifact_metrics(artifact, page_count, row["blank_page_count"])
+            declared = sum(
+                1
+                for s in artifact["statements"]
+                for i in s["items"]
+                for r in i["rows"]
+                if not r["is_nil"]
+            )
+            total_rows += declared
+
+            store_extraction(conn, row, artifact, metrics, args.dry_run)
+            if metrics["page_coverage_pct"] >= MIN_PAGE_COVERAGE_PCT:
+                extracted += 1
+            else:
+                partial += 1
+            log.info(
+                "  %s %d statements, %d items, %d declared rows, coverage %.0f%%",
+                row["source_url"].rsplit("/", 1)[-1],
+                metrics["statement_count"],
+                metrics["item_count"],
+                declared,
+                metrics["page_coverage_pct"],
+            )
+        except Exception as e:  # noqa: BLE001
+            failed += 1
+            log.warning("  %s FAILED: %s", row["source_url"], e)
+            mark_extract_failed(conn, row["id"], e, args.dry_run)
+        finally:
+            if temp_path:
+                try:
+                    os.unlink(temp_path)
+                except OSError:
+                    pass
+
+    conn.close()
+    log.info(
+        "extract: %d extracted, %d partial, %d failed, %d declared rows",
+        extracted,
+        partial,
+        failed,
+        total_rows,
+    )
+    return 1 if failed and failed == len(rows) else 0
 
 
 def main() -> int:
@@ -322,6 +608,7 @@ def main() -> int:
     ap.add_argument("--limit", type=int, default=0, help="0 = no cap")
     ap.add_argument("--chamber", choices=["house", "senate"])
     ap.add_argument("--parliament", type=int)
+    ap.add_argument("--force", action="store_true", help="re-extract at the same version")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 

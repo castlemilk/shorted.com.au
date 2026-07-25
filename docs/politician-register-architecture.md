@@ -377,6 +377,26 @@ render as declared text with no ticker link.
 
 ---
 
+## 3.3 Identity
+
+Two normalisations in `person_key`, each guarding a real way one member becomes
+two people (and their declared history gets split in half):
+
+1. **Only the first given name is kept.** The listing writes `Anthony` in one
+   parliament and `Anthony Norman` in another.
+2. **All punctuation is stripped**, so `O'Brien` / `OBrien` / `O Brien` collapse
+   to one key. Two distinct members whose surnames differ only in punctuation is
+   not a real scenario; the same member spelled two ways is.
+
+Post-nominals arrive glued to the **surname** field (`Alexander OAM, Mr John`)
+and must be stripped, while a genuine multi-word surname (`Van Manen`) must not
+be truncated. Honorifics are inconsistent (`Hon`, `The Hon`, `Hon Dr`,
+`Professor`) and are held separately from the given names.
+
+Slugs are minted **once** and never reassigned — they reach OG images, the
+sitemap and editorial cross-links, so renumbering means broken URLs. Collision
+order is deterministic: plain name → state-qualified → numbered.
+
 ## 4. Status
 
 | Phase | State |
@@ -385,7 +405,7 @@ render as declared text with no ticker link.
 | 1 — migration 000096 + `register-discover` | **done** — manifest holds 804 documents (769 house, 35 senate) |
 | 2 — `register-fetch` + classify | **done** — streaming content-addressed sink, per-page classification |
 | 3 — deterministic parser + golden set | **done** — text tier parses base statements + both alteration variants |
-| 4 — `register-load` + identity | pending |
+| 4 — `register-load` + identity | **done** — person/term spine, artifacts loaded to normalised rows |
 | 5 — security resolution + curated aliases | pending |
 | 6 — location resolution → `sal_code` | pending |
 | 7 — vision OCR tier | pending |

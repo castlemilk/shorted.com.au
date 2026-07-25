@@ -171,3 +171,10 @@ def classify_document(page_kinds: list[str]) -> tuple[str, int, int]:
     if text_pages == 0:
         return TEXT_CLASS_SCAN, scan_pages, blank_pages
     return TEXT_CLASS_MIXED, scan_pages, blank_pages
+
+
+# A document whose statement page-ranges cover less than this share of its pages
+# is recorded as 'partial' and never contributes to public output. Silent
+# under-extraction is indistinguishable from a member who declared nothing, so
+# it has to be caught structurally rather than noticed.
+MIN_PAGE_COVERAGE_PCT = 90.0

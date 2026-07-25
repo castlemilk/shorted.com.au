@@ -24,9 +24,12 @@
 //	-mode register-fetch     Stream queued PDFs into the content-addressed sink
 //	                         (REGISTER_BUCKET, else a local cache) and record
 //	                         sha256/size/storage_uri on the manifest.
+//	-mode register-load      Turn extraction artifacts into normalised
+//	                         statements/items and resolve each document to a
+//	                         person (politicians + politician_terms).
 //
 // The register-* modes are deliberately EXCLUDED from -mode all: -mode all runs
-// on every prod deploy, and a 775-document crawl of aph.gov.au must never fire
+// on every prod deploy, and an 804-document crawl of aph.gov.au must never fire
 // from a deploy step. They also dry-run by default (REGISTER_DRY_RUN=false to
 // persist).
 //
@@ -47,7 +50,7 @@ import (
 )
 
 func main() {
-	mode := flag.String("mode", "tax", "tax | match | sources | source-registry | source-probe | tax-records | emissions | austender | aec | lobbyists | trade | public-records | all | register-discover")
+	mode := flag.String("mode", "tax", "tax | match | sources | source-registry | source-probe | tax-records | emissions | austender | aec | lobbyists | trade | public-records | all | register-discover | register-fetch | register-load")
 	sourceLimit := flag.Int("source-limit", defaultAusTenderResourceCap, "maximum downloadable resources per source for archive-backed collectors")
 	registerLimit := flag.Int("register-limit", 0, "cap documents processed per register-* run (0 = no cap)")
 	flag.Parse()
@@ -120,8 +123,10 @@ func main() {
 		runRegisterDiscover(ctx, pool, *registerLimit)
 	case "register-fetch":
 		runRegisterFetch(ctx, pool, *registerLimit)
+	case "register-load":
+		runRegisterLoad(ctx, pool, *registerLimit)
 	default:
-		log.Fatalf("unknown -mode %q (want tax|match|sources|source-registry|source-probe|tax-records|emissions|austender|aec|lobbyists|trade|public-records|all|register-discover|register-fetch)", *mode)
+		log.Fatalf("unknown -mode %q (want tax|match|sources|source-registry|source-probe|tax-records|emissions|austender|aec|lobbyists|trade|public-records|all|register-discover|register-fetch|register-load)", *mode)
 	}
 }
 
