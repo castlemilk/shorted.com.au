@@ -17,6 +17,8 @@ services/jobs/
   cmd/shorted/main.go         root CLI: global flags → registry dispatch
   internal/runner/            Job interface, Registry, Group, signal ctx, start/end logs
   internal/platform/          db (pgxpool), revalidate ping, env config
+  internal/jobs/announcements/`shorted announcements` (was services/asx-announcement-crawler)
+  internal/jobs/economy/      `shorted economy`    (was services/economy-collector)
   internal/jobs/influence/    `shorted influence`  (was services/influence-collector)
   internal/jobs/reports/      `shorted reports coverage|link|sync`
                               (was services/report-coverage / -linker / -sync)
@@ -27,6 +29,8 @@ services/jobs/
 
 | Subcommand | Replaces | Deployed? |
 |---|---|---|
+| `announcements` | `services/asx-announcement-crawler` | yes — Cloud Run Job (still served by the OLD service) |
+| `economy` | `services/economy-collector` | yes — Cloud Run Job (still served by the OLD service) |
 | `influence` | `services/influence-collector` | no — laptop-only tool |
 | `reports coverage` | `services/report-coverage` | no — laptop-only tool |
 | `reports link` | `services/report-linker` | no — laptop-only tool |
@@ -34,7 +38,9 @@ services/jobs/
 
 The old services are still present and still build; per the plan's invariants a
 service is only deleted in a later cleanup PR, after its replacement has run
-green. Nothing deployed changes in Phase 1.
+green. **Nothing deployed changes yet** — `announcements` and `economy` are code
+ports only: their Terraform, images and schedules still point at the standalone
+services, and the scheduler cutover is a separate PR per job.
 
 ## Conventions for new jobs
 
