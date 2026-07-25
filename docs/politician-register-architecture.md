@@ -442,6 +442,50 @@ Migration `000097` seeds 42 hand-authored aliases covering ticker shorthand
 noise, and unlisted funds. Adding them moved CBA from 5 to 10 members and WBC
 from 0 to 6.
 
+## 3.5 Location resolution, and an editorial obligation
+
+Item 3 asks for "suburb or area only", and the parser handles every observed
+shape: `Greenvale, VIC` · `Auchenflower, Queensland` · `Barton ACT` ·
+`Island Beach (SA)` · `Balgownie` (no state) · `Apartment (Forrest, ACT)` ·
+`Australian Capital Territory, Kingston` (state first) · `Ballarat, VIC,
+Investment` (the Purpose column bled into the line).
+
+### Street addresses must be redacted, not stored
+
+**Some members write a full street address anyway** — measured: 8 of 714 lines,
+4 distinct addresses (`43 Lynjohn Drive, Bega`, `26/47 Wentworth Avenue,
+Kingston`, …).
+
+`docs/influence-editorial-standards.md` §4 puts home addresses out of scope
+**full stop**. So the resolver keeps only the locality and the street portion is
+never written to any column a read path can reach; a street number with no
+suburb is rejected outright. `locality_raw` holds the redacted locality, and the
+run logs the redaction count so it is never silent. A dedicated test asserts that
+no street token survives into `locality_raw` or `locality_norm`.
+
+We do not amplify the source over-disclosing.
+
+### Ambiguity is recorded, never guessed
+
+`name + state` is the strong path. Without a state, only a **nationally unique**
+name resolves. A name matching more than one suburb — nationally (`no_state`) or
+within one state (`ambiguous`) — resolves to nothing: guessing which of two
+same-named suburbs a member owns property in is exactly the invention the
+standards forbid.
+
+Known area names (`Central Coast`, `Sunshine Coast`, `Blue Mountains`, …) resolve
+to `region`. That is a **source characteristic**, since the register explicitly
+asks for "suburb or area only" — so the freshness alarm keys on the `ambiguous`
+bucket and never on `region`.
+
+### Not yet verified
+
+The parser and match ladder are unit-tested against the real strings, but the
+**database path has not been exercised**: `suburb_demographics` is empty locally
+(it is populated by `house-price-collector -mode census`, which needs an ABS GCP
+SAL DataPack), and the local Docker VM stopped before a fixture run completed.
+The expected rates in §1 remain projections until that runs.
+
 ## 4. Status
 
 | Phase | State |
@@ -453,7 +497,7 @@ from 0 to 6.
 | — 47P centred-label layout | **known gap, quarantined** (see §2.8) |
 | 4 — `register-load` + identity | **done** — person/term spine, artifacts loaded to normalised rows |
 | 5 — security resolution + curated aliases | **done** — 36% of resolvable item-1 candidates; alias seed + backlog view |
-| 6 — location resolution → `sal_code` | pending |
+| 6 — location resolution → `sal_code` | **parser done + unit-tested; DB path unverified** (local Docker down, and `suburb_demographics` needs the ABS census ingest) |
 | 7 — vision OCR tier | pending |
 | 8 — `politicians.proto` + backend API | pending |
 | 9 — `/politicians` frontend + 4 integrations | pending |

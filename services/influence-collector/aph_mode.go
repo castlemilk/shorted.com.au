@@ -329,6 +329,12 @@ func runRegisterResolve(ctx context.Context, pool *pgxpool.Pool) {
 		log.Fatalf("[register-resolve] securities: %v", err)
 	}
 
+	locs, err := runRegisterLocationResolve(ctx, pool)
+	if err != nil {
+		registerFinishFailure(ctx, pool, runID, "[register-resolve]", err)
+		log.Fatalf("[register-resolve] locations: %v", err)
+	}
+
 	resolvedPct := 0.0
 	// Denominator excludes non-securities (prose, "Not Applicable", meta
 	// statements): they are not failures to resolve, and leaving them in would
@@ -348,6 +354,14 @@ func runRegisterResolve(ctx context.Context, pool *pgxpool.Pool) {
 		"not_a_security":        stats.NotSecurity,
 		"security_resolved_pct": resolvedPct,
 		"by_method":             stats.ByMethod,
+		"location_rows":         locs.Rows,
+		"location_resolved":     locs.Resolved,
+		"location_ambiguous":    locs.Ambiguous,
+		"location_region":       locs.Region,
+		"location_no_state":     locs.NoState,
+		"location_unmatched":    locs.Unmatched,
+		"location_redacted":     locs.Redacted,
+		"location_resolved_pct": locationPct(locs),
 	}); err != nil {
 		log.Fatalf("[register-resolve] finish collection run: %v", err)
 	}
@@ -357,6 +371,21 @@ func runRegisterResolve(ctx context.Context, pool *pgxpool.Pool) {
 	for method, n := range stats.ByMethod {
 		log.Printf("[register-resolve]   via %s: %d", method, n)
 	}
+
+	log.Printf("[register-resolve] locations: %d rows, %d resolved (%.1f%%), %d ambiguous, %d region, %d no-state, %d unmatched",
+		locs.Rows, locs.Resolved, locationPct(locs), locs.Ambiguous, locs.Region, locs.NoState, locs.Unmatched)
+	if locs.Redacted > 0 {
+		// Never silent: the register asks for suburb only, so a street address is
+		// the source over-disclosing and we must be seen not to amplify it.
+		log.Printf("[register-resolve] redacted a street address from %d location rows (editorial standards §4)", locs.Redacted)
+	}
+}
+
+func locationPct(s locationResolveStats) float64 {
+	if s.Rows == 0 {
+		return 0
+	}
+	return 100.0 * float64(s.Resolved) / float64(s.Rows)
 }
 
 func registerFinishFailure(ctx context.Context, pool *pgxpool.Pool, runID, label string, err error) {
