@@ -35,9 +35,9 @@ resource "grafana_dashboard" "operations" {
     templating = {
       list = [
         {
-          name    = "service"
-          type    = "custom"
-          current = { text = "All", value = "$__all" }
+          name       = "service"
+          type       = "custom"
+          current    = { text = "All", value = "$__all" }
           includeAll = true
           allValue   = "shorted-api|market-data|shorted-market-data-sync|enrichment-processor|weekly-report-generator|asx-discovery|news-aggregator|asx-announcement-crawler"
           multi      = true
@@ -67,13 +67,13 @@ resource "grafana_dashboard" "operations" {
 
       # Panel 1: RPC Request Rate (per service)
       [{
-        type  = "timeseries"
-        title = "RPC Request Rate"
-        gridPos = { h = 8, w = 12, x = 0, y = 1 }
+        type       = "timeseries"
+        title      = "RPC Request Rate"
+        gridPos    = { h = 8, w = 12, x = 0, y = 1 }
         datasource = { type = "prometheus", uid = var.prometheus_datasource_uid }
         fieldConfig = {
           defaults = {
-            unit = "reqps"
+            unit   = "reqps"
             custom = { drawStyle = "line", fillOpacity = 10, lineWidth = 2 }
           }
         }
@@ -86,13 +86,13 @@ resource "grafana_dashboard" "operations" {
 
       # Panel 2: RPC Duration (p50, p95, p99)
       [{
-        type  = "timeseries"
-        title = "RPC Duration (p50 / p95 / p99)"
-        gridPos = { h = 8, w = 12, x = 12, y = 1 }
+        type       = "timeseries"
+        title      = "RPC Duration (p50 / p95 / p99)"
+        gridPos    = { h = 8, w = 12, x = 12, y = 1 }
         datasource = { type = "prometheus", uid = var.prometheus_datasource_uid }
         fieldConfig = {
           defaults = {
-            unit = "ms"
+            unit   = "ms"
             custom = { drawStyle = "line", fillOpacity = 5, lineWidth = 2 }
           }
         }
@@ -117,13 +117,13 @@ resource "grafana_dashboard" "operations" {
 
       # Panel 3: RPC Error Rate
       [{
-        type  = "timeseries"
-        title = "RPC Error Rate"
-        gridPos = { h = 8, w = 8, x = 0, y = 9 }
+        type       = "timeseries"
+        title      = "RPC Error Rate"
+        gridPos    = { h = 8, w = 8, x = 0, y = 9 }
         datasource = { type = "prometheus", uid = var.prometheus_datasource_uid }
         fieldConfig = {
           defaults = {
-            unit = "reqps"
+            unit   = "reqps"
             custom = { drawStyle = "bars", fillOpacity = 50, lineWidth = 1 }
             color  = { mode = "fixed", fixedColor = "red" }
           }
@@ -137,13 +137,13 @@ resource "grafana_dashboard" "operations" {
 
       # Panel 4: RPC Duration by Method (p95)
       [{
-        type  = "timeseries"
-        title = "RPC p95 by Method"
-        gridPos = { h = 8, w = 8, x = 8, y = 9 }
+        type       = "timeseries"
+        title      = "RPC p95 by Method"
+        gridPos    = { h = 8, w = 8, x = 8, y = 9 }
         datasource = { type = "prometheus", uid = var.prometheus_datasource_uid }
         fieldConfig = {
           defaults = {
-            unit = "ms"
+            unit   = "ms"
             custom = { drawStyle = "line", fillOpacity = 5, lineWidth = 1 }
           }
         }
@@ -156,13 +156,13 @@ resource "grafana_dashboard" "operations" {
 
       # Panel 5: Request Count (stat)
       [{
-        type  = "stat"
-        title = "Total Requests (24h)"
-        gridPos = { h = 4, w = 8, x = 16, y = 9 }
+        type       = "stat"
+        title      = "Total Requests (24h)"
+        gridPos    = { h = 4, w = 8, x = 16, y = 9 }
         datasource = { type = "prometheus", uid = var.prometheus_datasource_uid }
         fieldConfig = {
           defaults = {
-            unit = "short"
+            unit  = "short"
             color = { mode = "thresholds" }
             thresholds = { steps = [
               { color = "green", value = null },
@@ -180,13 +180,13 @@ resource "grafana_dashboard" "operations" {
 
       # Panel 6: Error Count (stat)
       [{
-        type  = "stat"
-        title = "Errors (24h)"
-        gridPos = { h = 4, w = 8, x = 16, y = 13 }
+        type       = "stat"
+        title      = "Errors (24h)"
+        gridPos    = { h = 4, w = 8, x = 16, y = 13 }
         datasource = { type = "prometheus", uid = var.prometheus_datasource_uid }
         fieldConfig = {
           defaults = {
-            unit = "short"
+            unit  = "short"
             color = { mode = "thresholds" }
             thresholds = { steps = [
               { color = "green", value = null },
@@ -212,13 +212,13 @@ resource "grafana_dashboard" "operations" {
 
       # Panel 7: Rate Limit Blocks
       [{
-        type  = "timeseries"
-        title = "Rate Limit Blocks"
-        gridPos = { h = 8, w = 8, x = 0, y = 18 }
+        type       = "timeseries"
+        title      = "Rate Limit Blocks"
+        gridPos    = { h = 8, w = 8, x = 0, y = 18 }
         datasource = { type = "prometheus", uid = var.prometheus_datasource_uid }
         fieldConfig = {
           defaults = {
-            unit = "short"
+            unit   = "short"
             custom = { drawStyle = "bars", fillOpacity = 50, lineWidth = 1 }
             color  = { mode = "palette-classic" }
           }
@@ -232,13 +232,13 @@ resource "grafana_dashboard" "operations" {
 
       # Panel 8: Scraper Blocks
       [{
-        type  = "timeseries"
-        title = "Scraper / Bot Blocks"
-        gridPos = { h = 8, w = 8, x = 8, y = 18 }
+        type       = "timeseries"
+        title      = "Scraper / Bot Blocks"
+        gridPos    = { h = 8, w = 8, x = 8, y = 18 }
         datasource = { type = "prometheus", uid = var.prometheus_datasource_uid }
         fieldConfig = {
           defaults = {
-            unit = "short"
+            unit   = "short"
             custom = { drawStyle = "bars", fillOpacity = 50, lineWidth = 1 }
             color  = { mode = "palette-classic" }
           }
@@ -252,9 +252,9 @@ resource "grafana_dashboard" "operations" {
 
       # Panel 9: Auth Method Distribution
       [{
-        type  = "piechart"
-        title = "Auth Methods (24h)"
-        gridPos = { h = 8, w = 8, x = 16, y = 18 }
+        type       = "piechart"
+        title      = "Auth Methods (24h)"
+        gridPos    = { h = 8, w = 8, x = 16, y = 18 }
         datasource = { type = "prometheus", uid = var.prometheus_datasource_uid }
         options = {
           reduceOptions = { calcs = ["sum"] }
@@ -269,13 +269,13 @@ resource "grafana_dashboard" "operations" {
 
       # Panel 10: Rate Limit Blocks (24h stat)
       [{
-        type  = "stat"
-        title = "Rate Limited (24h)"
-        gridPos = { h = 4, w = 6, x = 0, y = 26 }
+        type       = "stat"
+        title      = "Rate Limited (24h)"
+        gridPos    = { h = 4, w = 6, x = 0, y = 26 }
         datasource = { type = "prometheus", uid = var.prometheus_datasource_uid }
         fieldConfig = {
           defaults = {
-            unit = "short"
+            unit  = "short"
             color = { mode = "thresholds" }
             thresholds = { steps = [
               { color = "green", value = null },
@@ -293,13 +293,13 @@ resource "grafana_dashboard" "operations" {
 
       # Panel 11: Scrapers Blocked (24h stat)
       [{
-        type  = "stat"
-        title = "Scrapers Blocked (24h)"
-        gridPos = { h = 4, w = 6, x = 6, y = 26 }
+        type       = "stat"
+        title      = "Scrapers Blocked (24h)"
+        gridPos    = { h = 4, w = 6, x = 6, y = 26 }
         datasource = { type = "prometheus", uid = var.prometheus_datasource_uid }
         fieldConfig = {
           defaults = {
-            unit = "short"
+            unit  = "short"
             color = { mode = "thresholds" }
             thresholds = { steps = [
               { color = "green", value = null },
@@ -317,14 +317,14 @@ resource "grafana_dashboard" "operations" {
 
       # Panel 12: Anonymous vs Authenticated (24h)
       [{
-        type  = "stat"
-        title = "Anonymous Requests (24h)"
-        gridPos = { h = 4, w = 6, x = 12, y = 26 }
+        type       = "stat"
+        title      = "Anonymous Requests (24h)"
+        gridPos    = { h = 4, w = 6, x = 12, y = 26 }
         datasource = { type = "prometheus", uid = var.prometheus_datasource_uid }
         fieldConfig = {
           defaults = {
-            unit   = "short"
-            color  = { mode = "fixed", fixedColor = "orange" }
+            unit  = "short"
+            color = { mode = "fixed", fixedColor = "orange" }
           }
         }
         options = { colorMode = "background" }
@@ -336,14 +336,14 @@ resource "grafana_dashboard" "operations" {
 
       # Panel 13: Authenticated Requests (24h)
       [{
-        type  = "stat"
-        title = "Authenticated (24h)"
-        gridPos = { h = 4, w = 6, x = 18, y = 26 }
+        type       = "stat"
+        title      = "Authenticated (24h)"
+        gridPos    = { h = 4, w = 6, x = 18, y = 26 }
         datasource = { type = "prometheus", uid = var.prometheus_datasource_uid }
         fieldConfig = {
           defaults = {
-            unit   = "short"
-            color  = { mode = "fixed", fixedColor = "green" }
+            unit  = "short"
+            color = { mode = "fixed", fixedColor = "green" }
           }
         }
         options = { colorMode = "background" }
@@ -363,13 +363,13 @@ resource "grafana_dashboard" "operations" {
 
       # Panel 14: HTTP Request Rate by Service
       [{
-        type  = "timeseries"
-        title = "HTTP Request Rate by Service"
-        gridPos = { h = 8, w = 12, x = 0, y = 31 }
+        type       = "timeseries"
+        title      = "HTTP Request Rate by Service"
+        gridPos    = { h = 8, w = 12, x = 0, y = 31 }
         datasource = { type = "prometheus", uid = var.prometheus_datasource_uid }
         fieldConfig = {
           defaults = {
-            unit = "reqps"
+            unit   = "reqps"
             custom = { drawStyle = "line", fillOpacity = 10, lineWidth = 2 }
           }
         }
@@ -382,13 +382,13 @@ resource "grafana_dashboard" "operations" {
 
       # Panel 15: HTTP Duration p95 by Service
       [{
-        type  = "timeseries"
-        title = "HTTP Duration p95 by Service"
-        gridPos = { h = 8, w = 12, x = 12, y = 31 }
+        type       = "timeseries"
+        title      = "HTTP Duration p95 by Service"
+        gridPos    = { h = 8, w = 12, x = 12, y = 31 }
         datasource = { type = "prometheus", uid = var.prometheus_datasource_uid }
         fieldConfig = {
           defaults = {
-            unit = "ms"
+            unit   = "ms"
             custom = { drawStyle = "line", fillOpacity = 5, lineWidth = 2 }
           }
         }
@@ -409,13 +409,13 @@ resource "grafana_dashboard" "operations" {
 
       # Panel 16: Frontend Server Action Duration
       [{
-        type  = "timeseries"
-        title = "Server Action Duration (p95)"
-        gridPos = { h = 8, w = 12, x = 0, y = 40 }
+        type       = "timeseries"
+        title      = "Server Action Duration (p95)"
+        gridPos    = { h = 8, w = 12, x = 0, y = 40 }
         datasource = { type = "prometheus", uid = var.prometheus_datasource_uid }
         fieldConfig = {
           defaults = {
-            unit = "ms"
+            unit   = "ms"
             custom = { drawStyle = "line", fillOpacity = 10, lineWidth = 2 }
           }
         }
@@ -428,13 +428,13 @@ resource "grafana_dashboard" "operations" {
 
       # Panel 17: Frontend Request Rate
       [{
-        type  = "timeseries"
-        title = "Frontend Request Rate"
-        gridPos = { h = 8, w = 12, x = 12, y = 40 }
+        type       = "timeseries"
+        title      = "Frontend Request Rate"
+        gridPos    = { h = 8, w = 12, x = 12, y = 40 }
         datasource = { type = "prometheus", uid = var.prometheus_datasource_uid }
         fieldConfig = {
           defaults = {
-            unit = "reqps"
+            unit   = "reqps"
             custom = { drawStyle = "line", fillOpacity = 10, lineWidth = 2 }
           }
         }
@@ -455,9 +455,9 @@ resource "grafana_dashboard" "operations" {
 
       # Panel 18: Job Execution Status
       [{
-        type  = "timeseries"
-        title = "Job Execution Status"
-        gridPos = { h = 8, w = 12, x = 0, y = 49 }
+        type       = "timeseries"
+        title      = "Job Execution Status"
+        gridPos    = { h = 8, w = 12, x = 0, y = 49 }
         datasource = { type = "prometheus", uid = var.prometheus_datasource_uid }
         fieldConfig = {
           defaults = {
@@ -483,13 +483,13 @@ resource "grafana_dashboard" "operations" {
 
       # Panel 19: Job Duration
       [{
-        type  = "timeseries"
-        title = "Job Duration (avg)"
-        gridPos = { h = 8, w = 12, x = 12, y = 49 }
+        type       = "timeseries"
+        title      = "Job Duration (avg)"
+        gridPos    = { h = 8, w = 12, x = 12, y = 49 }
         datasource = { type = "prometheus", uid = var.prometheus_datasource_uid }
         fieldConfig = {
           defaults = {
-            unit = "s"
+            unit   = "s"
             custom = { drawStyle = "line", fillOpacity = 10, lineWidth = 2 }
           }
         }
@@ -502,13 +502,13 @@ resource "grafana_dashboard" "operations" {
 
       # Panel 20: Records Processed
       [{
-        type  = "timeseries"
-        title = "Records Processed"
-        gridPos = { h = 8, w = 12, x = 0, y = 57 }
+        type       = "timeseries"
+        title      = "Records Processed"
+        gridPos    = { h = 8, w = 12, x = 0, y = 57 }
         datasource = { type = "prometheus", uid = var.prometheus_datasource_uid }
         fieldConfig = {
           defaults = {
-            unit = "short"
+            unit   = "short"
             custom = { drawStyle = "line", fillOpacity = 10, lineWidth = 2 }
           }
         }
@@ -521,13 +521,13 @@ resource "grafana_dashboard" "operations" {
 
       # Panel 21: Time Since Last Success
       [{
-        type  = "stat"
-        title = "Time Since Last Success"
-        gridPos = { h = 8, w = 12, x = 12, y = 57 }
+        type       = "stat"
+        title      = "Time Since Last Success"
+        gridPos    = { h = 8, w = 12, x = 12, y = 57 }
         datasource = { type = "prometheus", uid = var.prometheus_datasource_uid }
         fieldConfig = {
           defaults = {
-            unit = "h"
+            unit  = "h"
             color = { mode = "thresholds" }
             thresholds = { steps = [
               { color = "green", value = null },
@@ -546,9 +546,9 @@ resource "grafana_dashboard" "operations" {
 
       # Panel 22: Successful Runs (24h)
       [{
-        type  = "stat"
-        title = "Successful Runs (24h)"
-        gridPos = { h = 4, w = 12, x = 0, y = 65 }
+        type       = "stat"
+        title      = "Successful Runs (24h)"
+        gridPos    = { h = 4, w = 12, x = 0, y = 65 }
         datasource = { type = "prometheus", uid = var.prometheus_datasource_uid }
         fieldConfig = {
           defaults = {
@@ -566,13 +566,13 @@ resource "grafana_dashboard" "operations" {
 
       # Panel 23: Failed Runs (24h)
       [{
-        type  = "stat"
-        title = "Failed Runs (24h)"
-        gridPos = { h = 4, w = 12, x = 12, y = 65 }
+        type       = "stat"
+        title      = "Failed Runs (24h)"
+        gridPos    = { h = 4, w = 12, x = 12, y = 65 }
         datasource = { type = "prometheus", uid = var.prometheus_datasource_uid }
         fieldConfig = {
           defaults = {
-            unit = "short"
+            unit  = "short"
             color = { mode = "thresholds" }
             thresholds = { steps = [
               { color = "green", value = null },
