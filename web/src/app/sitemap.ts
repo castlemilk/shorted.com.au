@@ -561,6 +561,30 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...housingSuburbUrls.map((s) => ({ url: `${baseUrl}/housing/${s.state}/${s.suburb}`, lastModified: latestDataDate })),
   ];
 
+  // Registers of Members'/Senators' Interests. Profiles are filtered to those
+  // with at least one matched declaration, mirroring the housing-suburb filter:
+  // the sitemap must never advertise a page the route marks noindex.
+  // lastModified is a STRING here, matching latestDataDate and every other route
+  // array in this file — the dates come off the API as RFC3339 strings, not Dates.
+  let politicianRoutes: Array<{ url: string; lastModified: string }> = [
+    { url: `${baseUrl}/politicians`, lastModified: latestDataDate },
+    { url: `${baseUrl}/politicians/short-interest`, lastModified: latestDataDate },
+    { url: `${baseUrl}/politicians/changes`, lastModified: latestDataDate },
+  ];
+  if (!skipForBuild()) {
+    try {
+      const { getPoliticianSlugs } = await import("~/app/actions/getPoliticians");
+      const slugs = await getPoliticianSlugs();
+      politicianRoutes = politicianRoutes.concat(
+        (slugs ?? [])
+          .filter((s) => s.hasInterests)
+          .map((s) => ({ url: `${baseUrl}/politicians/${s.slug}`, lastModified: latestDataDate })),
+      );
+    } catch {
+      // A register outage must not break the whole sitemap.
+    }
+  }
+
   // Authors hub + per-author profile pages — E-E-A-T signal (static).
   const { getAllAuthorSlugs } = await import("~/@/data/authors");
   const authorSlugs = getAllAuthorSlugs();
@@ -591,6 +615,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...docRoutes,
     ...screenerRoutes,
     ...housingRoutes,
+    ...politicianRoutes,
     ...blogRoutes,
     ...stockRoutes,
     ...comparePairs,

@@ -26,9 +26,9 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/jackc/pgx/v5"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
+	"github.com/jackc/pgx/v5"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -134,7 +134,7 @@ func declaredInterestProto(r *shortsstore.DeclaredInterestRow) *shortsv1alpha1.D
 		ItemLabel:         r.ItemLabel,
 		Holder:            registerHolderProto(r.Holder),
 		DeclaredText:      r.DeclaredText,
-		SecondaryText:     r.SecondaryText,
+		SecondaryText:     attributableSecondaryText(r.ItemNo, r.SecondaryText),
 		StockCode:         r.StockCode,
 		CompanyName:       r.CompanyName,
 		Industry:          r.Industry,

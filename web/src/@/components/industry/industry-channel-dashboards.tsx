@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { REPORT_ERROR_EMAIL } from "@/lib/report-error";
 import Link from "next/link";
 import { ArrowUpRight, Download, Flag, Lock } from "lucide-react";
 
@@ -18,7 +19,7 @@ import {
   type FyBucketFormat,
 } from "./charts/fy-bucket-bar-chart";
 
-const REPORT_ERROR_EMAIL = "support@shorted.com.au";
+
 
 /** Preferred headline metric per channel; falls back to the busiest metric. */
 const PRIMARY_METRIC_BY_KIND: Record<string, string> = {

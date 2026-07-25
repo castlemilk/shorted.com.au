@@ -118,9 +118,26 @@ test("holding periods are intervals that can be open-ended or unknown-start", ()
 test("a fuzzy security match can never be 'resolved' (structural public gate)", () => {
   const block = tableBlock("register_item_securities");
   assert.match(block, /analyst_fuzzy/);
-  assert.match(
-    block,
-    /register_item_securities_public_gate[\s\S]*resolution_status <> 'resolved'[\s\S]*match_method IN \('curated_alias','name_exact'\)/,
+
+  // Exactly three methods may reach the public surface, and the point of the
+  // assertion is the ONE that may not: analyst_fuzzy. A ticker the member wrote
+  // themselves ('ticker_in_text') is the strongest signal of the three — they
+  // named the listing — so it belongs in the allowlist alongside a human-curated
+  // alias and an exact normalised name. The UI copy names the same three.
+  const gate =
+    /register_item_securities_public_gate[\s\S]*resolution_status <> 'resolved'[\s\S]*match_method IN \(([^)]*)\)/.exec(
+      block,
+    );
+  assert.ok(gate, "public-gate CHECK not found on register_item_securities");
+  const allowed = gate[1].split(",").map((s) => s.trim().replace(/'/g, ""));
+  assert.deepStrictEqual(
+    allowed.slice().sort(),
+    ["curated_alias", "name_exact", "ticker_in_text"],
+    "the public gate's allowlist changed — a new method must be justified, and analyst_fuzzy must never appear",
+  );
+  assert.ok(
+    !allowed.includes("analyst_fuzzy"),
+    "analyst_fuzzy is analyst-only and must never be publishable",
   );
   // The gate must also require a code, or "resolved with no ticker" slips through.
   assert.match(

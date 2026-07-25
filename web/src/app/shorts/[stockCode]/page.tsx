@@ -1,4 +1,5 @@
 import nextDynamic from "next/dynamic";
+import { PoliticianInterestsCard } from "@/components/company/politician-interests-card-loader";
 import { type Metadata } from "next";
 // Consolidated per-stock chart (price + short interest, dual-axis, volume, brush).
 // Client-only: uses Connect-RPC + market-data hooks.
@@ -601,6 +602,13 @@ const Page = async ({ params }: PageProps) => {
             <Suspense fallback={<CompanyInfoPlaceholder />}>
               <CompanyInfo stockCode={stockCode} />
             </Suspense>
+
+            {/* Registers of Members'/Senators' Interests. A rail card rather
+                than a 9th tab: the tab list already overflows on mobile, its
+                `available` array is hardcoded (so a missed edit silently breaks
+                ?tab= deep links), and the card is empty for most stocks.
+                ssr:false keeps politicians_pb out of this route's 330kB budget. */}
+            <PoliticianInterestsCard stockCode={stockCode} />
 
             {/* Related stocks — the peer internal-link mesh, in the SSR
                 DOM via the SSR'd tabs shell. */}

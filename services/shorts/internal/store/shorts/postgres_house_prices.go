@@ -165,6 +165,8 @@ type SuburbSummaryRow struct {
 	GpCount              int32
 	PharmacyCount        int32
 	NearestTrainKm       float64
+	// Declared properties resolving to this suburb (registers of interests).
+	PoliticianPropertyCount int32
 	NearestHospitalKm    float64
 	DistToCoastKm        float64
 	// school sector/type split (per-state CC-BY open data)
@@ -299,11 +301,15 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 		       COALESCE(c.dominant_nbn_tech,''), COALESCE(c.connectivity_quality_score,0),
 		       COALESCE(ROUND(cr.break_ins_rank::numeric, 1), 0),
 		       COALESCE(ROUND(cr.violent_rank::numeric, 1), 0),
-		       COALESCE(ROUND(cr.motor_vehicle_rank::numeric, 1), 0)
+		       COALESCE(ROUND(cr.motor_vehicle_rank::numeric, 1), 0),
+		       COALESCE(rp.declared_property_count, 0)
 		FROM suburb_demographics d
 		LEFT JOIN house_price_regions r ON r.sal_code = d.sal_code AND r.region_type = 'suburb'
 		LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
-		LEFT JOIN suburb_connectivity c ON c.sal_code = d.sal_code` + listStateSuburbsCrimeJoin + `
+		LEFT JOIN suburb_connectivity c ON c.sal_code = d.sal_code
+		-- Register-of-interests property counts. Read from the MV, never a
+		-- per-request aggregate: this query returns ~5,000 rows per state.
+		LEFT JOIN mv_register_suburb_property rp ON rp.sal_code = d.sal_code` + listStateSuburbsCrimeJoin + `
 		-- Latest median from house_prices directly (NOT the quarterly-only MV) so annual
 		-- Valuer-General states (VIC) light up too; YoY computed vs the obs ~1yr prior.
 		LEFT JOIN LATERAL (
@@ -342,7 +348,8 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 			&r.DistToCoastKm,
 			&r.SchoolsGov, &r.SchoolsCatholic, &r.SchoolsIndependent, &r.SchoolsPrimary, &r.SchoolsSecondary, &r.NearestSecondaryKm,
 			&r.DominantNbnTech, &r.ConnectivityQualityScore,
-			&r.CrimeBreakInsRank, &r.CrimeViolentRank, &r.CrimeMotorVehicleRank); err != nil {
+			&r.CrimeBreakInsRank, &r.CrimeViolentRank, &r.CrimeMotorVehicleRank,
+			&r.PoliticianPropertyCount); err != nil {
 			return nil, err
 		}
 		out = append(out, &r)

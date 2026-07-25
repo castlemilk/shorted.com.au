@@ -800,8 +800,16 @@ type SuburbSummary struct {
 	CrimeBreakInsRank     float64 `protobuf:"fixed64,28,opt,name=crime_break_ins_rank,json=crimeBreakInsRank,proto3" json:"crime_break_ins_rank,omitempty"`
 	CrimeViolentRank      float64 `protobuf:"fixed64,29,opt,name=crime_violent_rank,json=crimeViolentRank,proto3" json:"crime_violent_rank,omitempty"`
 	CrimeMotorVehicleRank float64 `protobuf:"fixed64,30,opt,name=crime_motor_vehicle_rank,json=crimeMotorVehicleRank,proto3" json:"crime_motor_vehicle_rank,omitempty"`
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	// Properties declared in the federal Registers of Members'/Senators'
+	// Interests that resolve to this suburb. A COUNT of declarations — the
+	// registers record what is held, never quantity or value.
+	//
+	// A scalar rather than a nested message on purpose: the map needs a value for
+	// every suburb in a state (~5,000 rows per request), and a message would drag
+	// the politicians descriptor into the hot /housing/[state] route bundle.
+	PoliticianPropertyCount int32 `protobuf:"varint,31,opt,name=politician_property_count,json=politicianPropertyCount,proto3" json:"politician_property_count,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *SuburbSummary) Reset() {
@@ -1040,6 +1048,13 @@ func (x *SuburbSummary) GetCrimeViolentRank() float64 {
 func (x *SuburbSummary) GetCrimeMotorVehicleRank() float64 {
 	if x != nil {
 		return x.CrimeMotorVehicleRank
+	}
+	return 0
+}
+
+func (x *SuburbSummary) GetPoliticianPropertyCount() int32 {
+	if x != nil {
+		return x.PoliticianPropertyCount
 	}
 	return 0
 }
@@ -4353,7 +4368,8 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	"\x13schools_independent\x18\x14 \x01(\x05R\x12schoolsIndependent\x12'\n" +
 	"\x0fschools_primary\x18\x15 \x01(\x05R\x0eschoolsPrimary\x12+\n" +
 	"\x11schools_secondary\x18\x16 \x01(\x05R\x10schoolsSecondary\x120\n" +
-	"\x14nearest_secondary_km\x18\x17 \x01(\x01R\x12nearestSecondaryKm\"\xdb\t\n" +
+	"\x14nearest_secondary_km\x18\x17 \x01(\x01R\x12nearestSecondaryKm\"\x97\n" +
+	"\n" +
 	"\rSuburbSummary\x12\x19\n" +
 	"\bsal_code\x18\x01 \x01(\tR\asalCode\x12\x19\n" +
 	"\bsal_name\x18\x02 \x01(\tR\asalName\x12\x1d\n" +
@@ -4391,7 +4407,8 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	"\x1aconnectivity_quality_score\x18\x1b \x01(\x01R\x18connectivityQualityScore\x12/\n" +
 	"\x14crime_break_ins_rank\x18\x1c \x01(\x01R\x11crimeBreakInsRank\x12,\n" +
 	"\x12crime_violent_rank\x18\x1d \x01(\x01R\x10crimeViolentRank\x127\n" +
-	"\x18crime_motor_vehicle_rank\x18\x1e \x01(\x01R\x15crimeMotorVehicleRank\"T\n" +
+	"\x18crime_motor_vehicle_rank\x18\x1e \x01(\x01R\x15crimeMotorVehicleRank\x12:\n" +
+	"\x19politician_property_count\x18\x1f \x01(\x05R\x17politicianPropertyCount\"T\n" +
 	"\x18ListStateSuburbsResponse\x128\n" +
 	"\asuburbs\x18\x01 \x03(\v2\x1e.shorts.v1alpha1.SuburbSummaryR\asuburbs\"4\n" +
 	"\x17GetSuburbProfileRequest\x12\x19\n" +

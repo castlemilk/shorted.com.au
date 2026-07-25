@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { SuburbPoliticianPropertyCard } from "@/components/politicians/suburb-politician-property-card-loader";
 import { fromJson, type JsonValue } from "@bufbuild/protobuf";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
@@ -180,6 +181,7 @@ export function SuburbProfile({
             {s.amenities ? <SchoolSectorCard a={s.amenities} /> : null}
             {data.council?.lgaName ? <CouncilCard c={data.council} /> : null}
             <FederalRep s={s} />
+            <SuburbPoliticianPropertyCard salCode={salCode} />
             <CrimeCard crime={data.crime} />
           </div>
 

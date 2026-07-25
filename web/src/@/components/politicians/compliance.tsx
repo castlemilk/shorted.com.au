@@ -1,0 +1,297 @@
+/**
+ * The compliance kit for every politician surface.
+ *
+ * Built FIRST and deliberately: these components make
+ * docs/influence-editorial-standards.md rules 1, 5 and 8 true by construction
+ * rather than by remembering them on each new surface.
+ *
+ *   rule 1  every figure links to its source with an as-at date  -> SourceLine
+ *   rule 5  what is held, never quantity or value                -> CaveatNote
+ *   rule 8  a "report an error" affordance on every surface      -> SourceLine
+ *
+ * The copy here is reviewed once and then frozen. editorial-copy.test.ts asserts
+ * the exact holder labels and bans accusatory verbs across this directory.
+ */
+
+import Link from "next/link";
+import { Flag } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+import { partyColorFromAb, partyLabel } from "@/lib/politics/party-palette";
+import { REPORT_ERROR_EMAIL } from "@/lib/report-error";
+import { RegisterHolder } from "~/gen/shorts/v1alpha1/politicians_pb";
+
+/** Exact holder copy. Locked by test — never paraphrase these. */
+const HOLDER_COPY: Record<number, { label: string; title: string }> = {
+  [RegisterHolder.SELF]: {
+    label: "Self",
+    title: "Declared in the member's own name.",
+  },
+  [RegisterHolder.SPOUSE_PARTNER]: {
+    label: "Spouse/partner",
+    title:
+      "Declared by the member as an interest of their spouse or partner, as the register requires.",
+  },
+  [RegisterHolder.DEPENDENT_CHILDREN]: {
+    label: "Dependent child",
+    title:
+      "Declared by the member as an interest of a dependent child, as the register requires.",
+  },
+};
+
+/**
+ * Whose interest a row records.
+ *
+ * Muted outline only — NEVER a warning colour or icon. Editorial rule 2 covers
+ * iconography, and a warning badge next to a family member is an accusation.
+ */
+export function HolderBadge({ holder }: { holder: RegisterHolder }) {
+  const copy = HOLDER_COPY[holder];
+  if (!copy) return null;
+  return (
+    <Badge
+      variant="outline"
+      title={copy.title}
+      className="border-muted-foreground/30 text-muted-foreground font-normal text-[10px] px-1.5 py-0"
+    >
+      {copy.label}
+    </Badge>
+  );
+}
+
+export function PartyChip({ partyAb, className }: { partyAb?: string; className?: string }) {
+  if (!partyAb) return null;
+  const label = partyLabel(partyAb);
+  return (
+    <span
+      className={cn("inline-flex items-center gap-1 text-xs text-muted-foreground", className)}
+      title={label}
+    >
+      <span
+        aria-hidden
+        className="inline-block h-2 w-2 rounded-full"
+        style={{ backgroundColor: partyColorFromAb(partyAb) }}
+      />
+      {label}
+    </span>
+  );
+}
+
+export function ReportErrorLink({ surface }: { surface: string }) {
+  const subject = encodeURIComponent(`Register of Interests data — ${surface}`);
+  return (
+    <a
+      href={`mailto:${REPORT_ERROR_EMAIL}?subject=${subject}`}
+      className="inline-flex items-center gap-1 hover:text-foreground underline decoration-dotted"
+    >
+      <Flag className="h-3 w-3" aria-hidden />
+      Report an error
+    </a>
+  );
+}
+
+function formatAsAt(date?: Date): string {
+  if (!date) return "";
+  return date.toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" });
+}
+
+/**
+ * The one attribution line, used on every surface.
+ *
+ * Links the ORIGINAL aph.gov.au PDF. We never rehost the source documents — the
+ * licence permits extracted facts with attribution, not a mirror.
+ */
+export function SourceLine({
+  asAt,
+  pdfUrl,
+  surface,
+  className,
+}: {
+  asAt?: Date;
+  pdfUrl?: string;
+  surface: string;
+  className?: string;
+}) {
+  return (
+    <p className={cn("text-[11px] leading-relaxed text-muted-foreground", className)}>
+      Register of Members&rsquo; Interests / Register of Senators&rsquo; Interests, Parliament of
+      Australia
+      {asAt ? <> — as at {formatAsAt(asAt)}</> : null}.{" "}
+      {pdfUrl ? (
+        <>
+          <a
+            href={pdfUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-foreground underline decoration-dotted"
+          >
+            Original PDF
+          </a>
+          {" · "}
+        </>
+      ) : null}
+      <ReportErrorLink surface={surface} />
+    </p>
+  );
+}
+
+/**
+ * A declared entity.
+ *
+ * Resolved -> a link to the stock page. Unresolved -> the member's own words and
+ * NO link, with an explicit reason. Only an exact normalised match, a
+ * member-stated ticker or a human-curated alias ever resolves, so an unresolved
+ * row is the honest majority case rather than an error.
+ */
+export function DeclaredEntity({
+  declaredText,
+  stockCode,
+  companyName,
+}: {
+  declaredText: string;
+  stockCode?: string;
+  companyName?: string;
+}) {
+  if (stockCode) {
+    return (
+      <Link href={`/shorts/${stockCode}`} className="hover:underline">
+        <span className="font-medium">{stockCode}</span>
+        {companyName ? <span className="text-muted-foreground"> · {companyName}</span> : null}
+      </Link>
+    );
+  }
+  return (
+    <span
+      className="text-muted-foreground"
+      title="We link a declaration to a listed company only on an exact normalised name match, a ticker the member stated, or a human-verified alias."
+    >
+      <span className="font-mono text-[11px]">{declaredText}</span>
+      <span className="text-[11px]"> — not matched to an ASX listing</span>
+    </span>
+  );
+}
+
+/** A declared property location. Suburb granularity only — by design. */
+export function DeclaredLocation({
+  declaredText,
+  suburbName,
+  stateCode,
+  salCode,
+  href,
+}: {
+  declaredText: string;
+  suburbName?: string;
+  stateCode?: string;
+  salCode?: string;
+  href?: string;
+}) {
+  if (salCode && href && suburbName) {
+    return (
+      <Link href={href} className="hover:underline">
+        <span className="font-medium">{suburbName}</span>
+        {stateCode ? <span className="text-muted-foreground"> {stateCode}</span> : null}
+      </Link>
+    );
+  }
+  return (
+    <span className="text-muted-foreground" title="This location does not map to a single ABS suburb.">
+      <span className="font-mono text-[11px]">{declaredText}</span>
+    </span>
+  );
+}
+
+/**
+ * When a declaration started.
+ *
+ * An unknown start stays unknown. Most base statements carry no date (the form
+ * puts it in a signature block), so substituting the parliament's opening would
+ * fabricate the start of a named person's holding.
+ */
+export function DeclaredPeriod({
+  from,
+  fromKnown,
+  to,
+  currentlyDeclared,
+}: {
+  from?: Date;
+  fromKnown: boolean;
+  to?: Date;
+  currentlyDeclared: boolean;
+}) {
+  const fmt = (d?: Date) =>
+    d ? d.toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }) : "";
+
+  if (!fromKnown || !from) {
+    return (
+      <span
+        className="text-[11px] text-muted-foreground"
+        title="The register entry carries no lodgement date, so the start of this declaration is unknown. We do not infer one."
+      >
+        {currentlyDeclared ? "Declared; start date not stated" : `Removed ${fmt(to)}`}
+      </span>
+    );
+  }
+  return (
+    <span className="text-[11px] text-muted-foreground">
+      {currentlyDeclared ? `Declared since ${fmt(from)}` : `${fmt(from)} – ${fmt(to)}`}
+    </span>
+  );
+}
+
+/**
+ * The method note, shown at the foot of every politician surface.
+ *
+ * Reviewed once against rules 1-5, then frozen. If this needs to change, the
+ * change re-triggers editorial review.
+ */
+export function CaveatNote({ className }: { className?: string }) {
+  return (
+    <div className={cn("space-y-2 text-[11px] leading-relaxed text-muted-foreground", className)}>
+      <p className="font-medium text-foreground/80">Method &amp; caveats</p>
+      <p>
+        Australian federal parliamentarians must declare certain interests in the Register of
+        Members&rsquo; Interests (House of Representatives) and the Register of Senators&rsquo;
+        Interests. The registers record <strong>what</strong> is held — they do{" "}
+        <strong>not</strong> record quantity, value, purchase price or income. Nothing on this page
+        states or implies the size of any holding, any gain or loss, or any trading activity.
+      </p>
+      <p>
+        Dates are the dates a declaration appeared in, or was removed from, the register — not
+        transaction dates. A removal can mean an asset was disposed of, a declaration was corrected,
+        or the member left parliament.
+      </p>
+      <p>
+        Company names are free text as written by the member. We link a declaration to an ASX listing
+        only on an exact normalised match, a ticker the member stated, or a human-verified alias, so
+        many declarations appear as text only. Real-estate declarations are suburb- or area-level;
+        the registers contain no street addresses, and some declared locations do not map to a single
+        ABS suburb.
+      </p>
+      <p>
+        Rows are declared as held by the member (&ldquo;Self&rdquo;), their spouse or partner, or a
+        dependent child, exactly as the register records them. Members&rsquo; seats, parties and
+        chambers change between parliaments.
+      </p>
+      <p>
+        Extracted from primary PDFs published by the Parliament of Australia; parliamentary material,
+        &copy; Commonwealth of Australia. Corrections are annotated, not silently applied. Not
+        financial advice.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * The mandatory caveat for any surface pairing a member with short interest.
+ *
+ * The API serves this string in `disclosure_note`; this renders whatever it sent
+ * rather than restating it, so the wording lives in one place.
+ */
+export function ShortInterestCaveat({ note }: { note?: string }) {
+  if (!note) return null;
+  return (
+    <p className="rounded-md border border-amber-500/20 bg-amber-500/5 p-2 text-[11px] leading-relaxed text-muted-foreground">
+      {note}
+    </p>
+  );
+}

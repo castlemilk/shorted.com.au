@@ -5,6 +5,7 @@ import { ExternalLink } from "lucide-react";
 
 import { EconomyComparisonChart, EconomySeriesChart } from "./economy-charts";
 import { StateCompanies } from "./state-companies";
+import { StatePoliticianHoldings } from "./state-politician-holdings";
 import { TopExports } from "./top-exports";
 import { StateCorrelations } from "./state-correlations";
 import { StateCrimeCard } from "./state-crime-card";
@@ -326,6 +327,13 @@ export function StateCharts({ state }: { state: StateSlug }) {
       <section className="grid gap-4 lg:grid-cols-2">
         <StateCompanies state={state} />
         <TopExports state={state} />
+      </section>
+
+      {/* Register of interests, in its own row rather than squeezed into a
+          3-column grid. Already inside state-charts-loader's ssr:false
+          boundary, so the connect-web import is safe here. */}
+      <section className="grid gap-4 lg:grid-cols-2">
+        <StatePoliticianHoldings state={state} />
       </section>
     </div>
   );

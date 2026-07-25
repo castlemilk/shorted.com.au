@@ -569,12 +569,13 @@ POLITICIAN_INTERESTS_ENABLED=false  ->  HTTP 200 {} on every rpc
 | 2 — `register-fetch` + classify | **done** — streaming content-addressed sink, per-page classification |
 | 3 — deterministic parser + golden set | **done** — text tier parses base statements + both alteration variants |
 | — 47P centred-label layout | **known gap, quarantined** (see §2.8) |
-| 4 — `register-load` + identity | **done** — person/term spine, artifacts loaded to normalised rows |
+| — item-3 multi-property rows merge | **known gap, purpose suppressed on read** (see §2.9) |
+| 4 — `register-load` + identity | **done** — person/term spine, artifacts loaded to normalised rows; party seeded from the committed AEC result (see §2.10) |
 | 5 — security resolution + curated aliases | **done** — 36% of resolvable item-1 candidates; alias seed + backlog view |
 | 6 — location resolution → `sal_code` | **done** — verified end to end; redaction guard fired on 4 real addresses. True match rate needs the ABS census ingest |
 | 7 — vision OCR tier | pending |
 | 8 — `politicians.proto` + backend API | **done** — 9 rpcs live and smoke-tested; kill switch verified |
-| 9 — `/politicians` frontend + 4 integrations | pending |
+| 9 — `/politicians` frontend + 4 integrations | **done** — 4 routes + 4 integration surfaces verified in the running app (10/10 browser checks) |
 | 10 — ops wiring + launch gates | pending |
 
 ### 2.8 The 47P form centres its holder labels — quarantined, not guessed
@@ -608,3 +609,84 @@ documents that were never loaded.
 Feature stays dark (`industry_intelligence_sources.public_enabled = FALSE`) until
 the QA gates pass **and** an editorial template review against
 `docs/influence-editorial-standards.md` rules 1-5 is signed off.
+
+### 2.9 Item 3 merges multi-property rows — purpose suppressed on read
+
+Item 3 is a table with **one row per property**:
+
+```
+Location                                Purpose for which owned
+House Buchanan NSW                      Residential (owned jointly with spouse)
+Unit Kingston ACT                       Residential (owned jointly with spouse)
+House and granny flat Kurri Kurri NSW   Investment (owned jointly with spouse)
+Unit Nelson Bay NSW                     Investment (owned jointly with spouse)
+```
+
+Only the FIRST row carries the `Self` label; the rest have an empty label column
+and therefore read to the band grouper as wrapped continuations of the row above.
+All four collapse into one declared item whose purpose is the space-joined run-on
+`Residential (…) Residential (…) Investment (…) Investment (…)`, and whose
+location blob yields a single resolved locality.
+
+**Measured on the loaded corpus (2026-07-25):**
+
+| Item-3 non-nil rows | 363 |
+|---|---|
+| rows merging ≥2 properties (≥2 state tokens) | **106 (29%)** |
+| rows carrying a run-on purpose | **115 (32%)** |
+| distinct localities captured per item | 1 (always) |
+
+Two consequences, and they differ in severity:
+
+1. **Purpose becomes unattributable.** Rendering that string next to the one
+   resolved suburb asserts every listed purpose attaches to the property *in that
+   suburb* — for Swanson above, the Kingston unit would read as both residential
+   and investment. That is a misattribution about a named individual, so
+   `attributableSecondaryText` (`politicians_attribution.go`) blanks a purpose
+   that names two or more purposes, for item 3 only. A blank field is honest; a
+   run-on is not.
+2. **Property counts undercount.** A member with four properties contributes one
+   locality, so `mv_register_suburb_property` is a floor, not a total. Surfaces
+   say "declares real estate in X", never "owns N properties".
+
+The raw text is **kept** in `register_declared_items` / `register_holding_periods`
+for audit and for the re-parse. This is a read-path gate, not a data edit: when
+the row splitter lands, these strings stop matching the run-on pattern and purpose
+reappears with no change to the API.
+
+> The fix belongs with the §2.8 47P work — both are the same band-grouping
+> problem, and `pymupdf.find_tables()` is the likely answer to both. Splitting on
+> the Location column starting a new logical entry is not safely inferable from
+> the current y-band heuristic.
+
+### 2.10 Party is seeded from the AEC result, and its VINTAGE is load-bearing
+
+The register form records a member's **name, seat and state — never their party**.
+`politician_terms.party` existed from migration 000096 but nothing populated it,
+so every party chip rendered grey "Other" and `partyCounts` returned a single
+`Other` bucket.
+
+`seedTermParties` (`aph_party.go`, run inside `-mode register-load`) fills it from
+the already-committed AEC output `web/public/geo/electorates/federal-divisions.json`
+(`division → {member, party, partyAb, state, tppAlp}`). Result: **150 of 150** 48P
+terms carry a party, 0 unmatched divisions.
+
+Three things that are easy to get wrong here:
+
+- **One file describes ONE election.** Divisions change hands, so applying the
+  2025 result to the 47th Parliament would attribute the wrong party to a named
+  person. Only `electoratesParliament` (48) is seeded; the 21 people whose latest
+  term is 47P keep a NULL party and render no chip. A blank chip is honest.
+  **Bump the constant in the same commit that refreshes the JSON.**
+- **Match divisions case- and punctuation-insensitively.** The AEC's own files
+  disagree with themselves (`O'connor` in the boundary file, `O'Connor` in the
+  results CSV) — exact matching silently drops those seats.
+- **Seed BEFORE the queue-empty return, not after the load loop.** Once the
+  backlog is drained every run has an empty queue, so a post-loop seed would
+  never re-apply a refreshed JSON. It runs twice: once before, once after the
+  loop for terms that run created.
+
+`postgres_politicians.go` reads `COALESCE(t.party, e.federal_party, '')`, so the
+term wins and the `suburb_demographics.federal_division` join stays a fallback —
+which matters because **senators have no division** and could never resolve
+through it.

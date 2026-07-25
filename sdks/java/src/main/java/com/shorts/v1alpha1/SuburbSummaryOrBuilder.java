@@ -445,4 +445,20 @@ public interface SuburbSummaryOrBuilder extends
    * @return The crimeMotorVehicleRank.
    */
   double getCrimeMotorVehicleRank();
+
+  /**
+   * <pre>
+   * Properties declared in the federal Registers of Members'/Senators'
+   * Interests that resolve to this suburb. A COUNT of declarations — the
+   * registers record what is held, never quantity or value.
+   *
+   * A scalar rather than a nested message on purpose: the map needs a value for
+   * every suburb in a state (~5,000 rows per request), and a message would drag
+   * the politicians descriptor into the hot /housing/[state] route bundle.
+   * </pre>
+   *
+   * <code>int32 politician_property_count = 31 [json_name = "politicianPropertyCount"];</code>
+   * @return The politicianPropertyCount.
+   */
+  int getPoliticianPropertyCount();
 }

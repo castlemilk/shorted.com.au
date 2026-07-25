@@ -236,18 +236,44 @@ func runRegisterLoad(ctx context.Context, pool *pgxpool.Pool, limit int) {
 		registerFinishFailure(ctx, pool, runID, "[register-load]", err)
 		log.Fatalf("[register-load] select artifacts: %v", err)
 	}
-	if len(pending) == 0 {
-		log.Printf("[register-load] no extracted artifacts to load")
-		if err := finishIndustryCollectionRun(ctx, pool, runID, "succeeded", 0, 0, 0, "", map[string]any{"queue_empty": true}); err != nil {
+	if registerDryRun() {
+		log.Printf("[register-load] DRY-RUN — %d artifacts ready, loading none (set REGISTER_DRY_RUN=false to load)", len(pending))
+		if err := finishIndustryCollectionRun(ctx, pool, runID, "succeeded", len(pending), 0, 0, "", map[string]any{
+			"dry_run": true, "artifacts": len(pending),
+		}); err != nil {
 			log.Fatalf("[register-load] finish collection run: %v", err)
 		}
 		return
 	}
 
-	if registerDryRun() {
-		log.Printf("[register-load] DRY-RUN — %d artifacts ready, loading none (set REGISTER_DRY_RUN=false to load)", len(pending))
-		if err := finishIndustryCollectionRun(ctx, pool, runID, "succeeded", len(pending), 0, 0, "", map[string]any{
-			"dry_run": true, "artifacts": len(pending),
+	// Party seeding runs BEFORE the queue-empty return, not after the load loop.
+	// It reads the committed AEC file and existing terms, so it depends on
+	// nothing in this run's artifacts — and once the backlog is drained every
+	// subsequent run has an empty queue. Seeding after the loop would mean a
+	// refreshed federal-divisions.json (post-election) never got applied.
+	party, err := seedTermParties(ctx, pool)
+	if err != nil {
+		registerFinishFailure(ctx, pool, runID, "[register-load]", err)
+		log.Fatalf("[register-load] seed term parties: %v", err)
+	}
+	if !party.SkippedFile {
+		log.Printf("[register-load] party seed (parliament %d): %d of %d terms carry a party (%d updated from %d divisions)",
+			electoratesParliament, party.WithParty, party.Terms, party.Updated, party.Divisions)
+		if len(party.Unmatched) > 0 {
+			// Never silent: an unmatched seat is a blank party chip on a real
+			// person's profile, and after a redistribution it is the signal that
+			// federal-divisions.json needs refreshing.
+			log.Printf("[register-load] party seed: %d divisions did not match the AEC gazetteer: %s",
+				len(party.Unmatched), strings.Join(party.Unmatched, ", "))
+		}
+	}
+
+	if len(pending) == 0 {
+		log.Printf("[register-load] no extracted artifacts to load")
+		if err := finishIndustryCollectionRun(ctx, pool, runID, "succeeded", 0, 0, 0, "", map[string]any{
+			"queue_empty":        true,
+			"party_terms_seeded": party.WithParty,
+			"party_terms_total":  party.Terms,
 		}); err != nil {
 			log.Fatalf("[register-load] finish collection run: %v", err)
 		}
@@ -279,6 +305,15 @@ func runRegisterLoad(ctx context.Context, pool *pgxpool.Pool, limit int) {
 		items += i
 	}
 
+	// Terms created by THIS run's load loop need seeding too — the pass above ran
+	// before them. Idempotent, and cheap once the first pass has settled.
+	if reseed, err := seedTermParties(ctx, pool); err != nil {
+		log.Printf("[register-load] re-seed term parties: %v", err)
+	} else if reseed.Updated > 0 {
+		log.Printf("[register-load] party seed: %d further terms seeded after load", reseed.Updated)
+		party = reseed
+	}
+
 	stats, err := registerLoadSummary(ctx, pool)
 	if err != nil {
 		log.Printf("[register-load] summary: %v", err)
@@ -291,14 +326,17 @@ func runRegisterLoad(ctx context.Context, pool *pgxpool.Pool, limit int) {
 		status = "partial"
 	}
 	if err := finishIndustryCollectionRun(ctx, pool, runID, status, len(pending), loaded, failed, "", map[string]any{
-		"documents_loaded":      loaded,
-		"statements_purged":     purged,
-		"documents_failed":      failed,
-		"statements_written":    statements,
-		"items_written":         items,
-		"politicians_total":     stats.Politicians,
-		"declared_rows_total":   stats.Declared,
-		"unresolved_statements": stats.Unresolved,
+		"documents_loaded":          loaded,
+		"statements_purged":         purged,
+		"documents_failed":          failed,
+		"statements_written":        statements,
+		"items_written":             items,
+		"politicians_total":         stats.Politicians,
+		"declared_rows_total":       stats.Declared,
+		"unresolved_statements":     stats.Unresolved,
+		"party_terms_seeded":        party.WithParty,
+		"party_terms_total":         party.Terms,
+		"party_divisions_unmatched": len(party.Unmatched),
 	}); err != nil {
 		log.Fatalf("[register-load] finish collection run: %v", err)
 	}

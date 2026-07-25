@@ -312,7 +312,7 @@ public final class HousingProto extends com.google.protobuf.GeneratedFile {
       "hoolsIndependent\022\'\n\017schools_primary\030\025 \001(" +
       "\005R\016schoolsPrimary\022+\n\021schools_secondary\030\026" +
       " \001(\005R\020schoolsSecondary\0220\n\024nearest_second" +
-      "ary_km\030\027 \001(\001R\022nearestSecondaryKm\"\333\t\n\rSub" +
+      "ary_km\030\027 \001(\001R\022nearestSecondaryKm\"\227\n\n\rSub" +
       "urbSummary\022\031\n\010sal_code\030\001 \001(\tR\007salCode\022\031\n" +
       "\010sal_name\030\002 \001(\tR\007salName\022\035\n\nstate_code\030\003" +
       " \001(\tR\tstateCode\022\032\n\010postcode\030\004 \001(\tR\010postc" +
@@ -343,287 +343,288 @@ public final class HousingProto extends com.google.protobuf.GeneratedFile {
       "yScore\022/\n\024crime_break_ins_rank\030\034 \001(\001R\021cr" +
       "imeBreakInsRank\022,\n\022crime_violent_rank\030\035 " +
       "\001(\001R\020crimeViolentRank\0227\n\030crime_motor_veh" +
-      "icle_rank\030\036 \001(\001R\025crimeMotorVehicleRank\"T" +
-      "\n\030ListStateSuburbsResponse\0228\n\007suburbs\030\001 " +
-      "\003(\0132\036.shorts.v1alpha1.SuburbSummaryR\007sub" +
-      "urbs\"4\n\027GetSuburbProfileRequest\022\031\n\010sal_c" +
-      "ode\030\001 \001(\tR\007salCode\"\206\006\n\022SuburbDemographic" +
-      "s\022\036\n\npopulation\030\001 \001(\005R\npopulation\022\035\n\nmed" +
-      "ian_age\030\002 \001(\001R\tmedianAge\0227\n\030median_weekl" +
-      "y_hhd_income\030\003 \001(\001R\025medianWeeklyHhdIncom" +
-      "e\0227\n\030median_weekly_per_income\030\004 \001(\001R\025med" +
-      "ianWeeklyPerIncome\022,\n\022median_weekly_rent" +
-      "\030\005 \001(\001R\020medianWeeklyRent\0226\n\027median_month" +
-      "ly_mortgage\030\006 \001(\001R\025medianMonthlyMortgage" +
-      "\022,\n\022pct_owned_outright\030\007 \001(\001R\020pctOwnedOu" +
-      "tright\022,\n\022pct_owned_mortgage\030\010 \001(\001R\020pctO" +
-      "wnedMortgage\022\035\n\npct_rented\030\t \001(\001R\tpctRen" +
-      "ted\022%\n\016dwelling_count\030\n \001(\005R\rdwellingCou" +
-      "nt\022\037\n\013census_year\030\013 \001(\005R\ncensusYear\022*\n\021p" +
-      "ct_born_overseas\030\014 \001(\001R\017pctBornOverseas\022" +
-      "(\n\020pct_english_only\030\r \001(\001R\016pctEnglishOnl" +
-      "y\022!\n\014top_religion\030\016 \001(\tR\013topReligion\022(\n\020" +
-      "pct_top_religion\030\017 \001(\001R\016pctTopReligion\022&" +
-      "\n\017pct_no_religion\030\020 \001(\001R\rpctNoReligion\022!" +
-      "\n\014top_language\030\021 \001(\tR\013topLanguage\022(\n\020pct" +
-      "_top_language\030\022 \001(\001R\016pctTopLanguage\"\205\002\n\023" +
-      "ComparisonBaselines\022,\n\022state_median_pric" +
-      "e\030\001 \001(\001R\020stateMedianPrice\0222\n\025national_me" +
-      "dian_price\030\002 \001(\001R\023nationalMedianPrice\022B\n" +
-      "\036state_median_weekly_hhd_income\030\003 \001(\001R\032s" +
-      "tateMedianWeeklyHhdIncome\022H\n!national_me" +
-      "dian_weekly_hhd_income\030\004 \001(\001R\035nationalMe" +
-      "dianWeeklyHhdIncome\"\216\003\n\007LgaInfo\022\031\n\010lga_c" +
-      "ode\030\001 \001(\tR\007lgaCode\022\031\n\010lga_name\030\002 \001(\tR\007lg" +
-      "aName\022\035\n\nstate_code\030\003 \001(\tR\tstateCode\022\033\n\t" +
-      "area_sqkm\030\004 \001(\001R\010areaSqkm\022\036\n\npopulation\030" +
-      "\005 \001(\005R\npopulation\022\036\n\013fed_fag_aud\030\006 \001(\001R\t" +
-      "fedFagAud\022 \n\014fed_fag_year\030\007 \001(\tR\nfedFagY" +
-      "ear\022\033\n\tavg_rates\030\010 \001(\001R\010avgRates\022(\n\020op_s" +
-      "urplus_ratio\030\t \001(\001R\016opSurplusRatio\022.\n\023as" +
-      "set_renewal_ratio\030\n \001(\001R\021assetRenewalRat" +
-      "io\022\035\n\nfin_source\030\013 \001(\tR\tfinSource\022\031\n\010fin" +
-      "_year\030\014 \001(\tR\007finYear\"\325\001\n\rSimilarSuburb\022\031" +
-      "\n\010sal_code\030\001 \001(\tR\007salCode\022\031\n\010sal_name\030\002 " +
-      "\001(\tR\007salName\022\035\n\nstate_code\030\003 \001(\tR\tstateC" +
-      "ode\022.\n\023latest_median_price\030\004 \001(\001R\021latest" +
-      "MedianPrice\022\036\n\nsimilarity\030\005 \001(\001R\nsimilar" +
-      "ity\022\037\n\013region_code\030\006 \001(\tR\nregionCode\"8\n\016" +
-      "SuburbLandmark\022\022\n\004name\030\001 \001(\tR\004name\022\022\n\004ki" +
-      "nd\030\002 \001(\tR\004kind\"\257\001\n\014SuburbBanner\022\034\n\tarche" +
-      "type\030\001 \001(\tR\tarchetype\022\024\n\005blurb\030\002 \001(\tR\005bl" +
-      "urb\022=\n\tlandmarks\030\003 \003(\0132\037.shorts.v1alpha1" +
-      ".SuburbLandmarkR\tlandmarks\022\025\n\006bg_key\030\004 \001" +
-      "(\tR\005bgKey\022\025\n\006bg_url\030\005 \001(\tR\005bgUrl\"\214\001\n\017Sub" +
-      "urbCrimeStat\022\035\n\ncrime_type\030\001 \001(\tR\tcrimeT" +
-      "ype\022\"\n\rrate_per_100k\030\002 \001(\001R\013ratePer100k\022" +
-      "\031\n\010pct_rank\030\003 \001(\001R\007pctRank\022\033\n\tfy_ending\030" +
-      "\004 \001(\005R\010fyEnding\"\265\001\n\013SuburbCrime\0226\n\005stats" +
-      "\030\001 \003(\0132 .shorts.v1alpha1.SuburbCrimeStat" +
-      "R\005stats\022/\n\023source_jurisdiction\030\002 \001(\tR\022so" +
-      "urceJurisdiction\022\026\n\006source\030\003 \001(\tR\006source" +
-      "\022%\n\016source_licence\030\004 \001(\tR\rsourceLicence\"" +
-      "\272\003\n\030GetSuburbProfileResponse\0228\n\007summary\030" +
-      "\001 \001(\0132\036.shorts.v1alpha1.SuburbSummaryR\007s" +
-      "ummary\022G\n\014demographics\030\002 \001(\0132#.shorts.v1" +
-      "alpha1.SuburbDemographicsR\014demographics\022" +
-      "B\n\tbaselines\030\003 \001(\0132$.shorts.v1alpha1.Com" +
-      "parisonBaselinesR\tbaselines\0222\n\007council\030\004" +
-      " \001(\0132\030.shorts.v1alpha1.LgaInfoR\007council\022" +
-      "8\n\007similar\030\005 \003(\0132\036.shorts.v1alpha1.Simil" +
-      "arSuburbR\007similar\0225\n\006banner\030\006 \001(\0132\035.shor" +
-      "ts.v1alpha1.SuburbBannerR\006banner\0222\n\005crim" +
-      "e\030\007 \001(\0132\034.shorts.v1alpha1.SuburbCrimeR\005c" +
-      "rime\"\207\001\n\031ListHousingRegionsRequest\022\037\n\013re" +
-      "gion_type\030\001 \001(\tR\nregionType\022\035\n\nstate_cod" +
-      "e\030\002 \001(\tR\tstateCode\022\024\n\005query\030\003 \001(\tR\005query" +
-      "\022\024\n\005limit\030\004 \001(\005R\005limit\"\221\002\n\rHousingRegion" +
-      "\022\037\n\013region_code\030\001 \001(\tR\nregionCode\022\037\n\013reg" +
-      "ion_name\030\002 \001(\tR\nregionName\022\037\n\013region_typ" +
-      "e\030\003 \001(\tR\nregionType\022\035\n\nstate_code\030\004 \001(\tR" +
-      "\tstateCode\022\032\n\010postcode\030\005 \001(\tR\010postcode\022!" +
-      "\n\014latest_value\030\006 \001(\001R\013latestValue\022?\n\rlat" +
-      "est_period\030\007 \001(\0132\032.google.protobuf.Times" +
-      "tampR\014latestPeriod\"V\n\032ListHousingRegions" +
-      "Response\0228\n\007regions\030\001 \003(\0132\036.shorts.v1alp" +
-      "ha1.HousingRegionR\007regions\"\207\001\n\033ListSubur" +
-      "bPriceDropsRequest\022\035\n\nstate_code\030\001 \001(\tR\t" +
-      "stateCode\022\037\n\013window_days\030\002 \001(\005R\nwindowDa" +
-      "ys\022\022\n\004sort\030\003 \001(\tR\004sort\022\024\n\005limit\030\004 \001(\005R\005l" +
-      "imit\"\250\005\n\017SuburbPriceDrop\022\037\n\013region_code\030" +
-      "\001 \001(\tR\nregionCode\022\031\n\010sal_code\030\002 \001(\tR\007sal" +
-      "Code\022\031\n\010sal_name\030\003 \001(\tR\007salName\022\035\n\nstate" +
-      "_code\030\004 \001(\tR\tstateCode\0222\n\025dropped_listin" +
-      "g_count\030\005 \001(\005R\023droppedListingCount\022 \n\014av" +
-      "g_drop_pct\030\006 \001(\001R\navgDropPct\022&\n\017median_d" +
-      "rop_pct\030\007 \001(\001R\rmedianDropPct\022 \n\014max_drop" +
-      "_pct\030\010 \001(\001R\nmaxDropPct\022 \n\014max_drop_abs\030\t" +
-      " \001(\001R\nmaxDropAbs\0222\n\025total_active_listing" +
-      "s\030\n \001(\005R\023totalActiveListings\022#\n\rdropped_" +
-      "share\030\013 \001(\001R\014droppedShare\022\032\n\010postcode\030\014 " +
-      "\001(\tR\010postcode\022$\n\016for_sale_count\030\r \001(\005R\014f" +
-      "orSaleCount\022\035\n\navg_asking\030\016 \001(\001R\tavgAski" +
-      "ng\022#\n\rmedian_asking\030\017 \001(\001R\014medianAsking\022" +
-      "\035\n\nsold_count\030\020 \001(\005R\tsoldCount\022\031\n\010avg_so" +
-      "ld\030\021 \001(\001R\007avgSold\022\037\n\013median_sold\030\022 \001(\001R\n" +
-      "medianSold\022#\n\rdropped_value\030\023 \001(\001R\014dropp" +
-      "edValue\"Z\n\034ListSuburbPriceDropsResponse\022" +
-      ":\n\007suburbs\030\001 \003(\0132 .shorts.v1alpha1.Subur" +
-      "bPriceDropR\007suburbs\"\222\001\n\035ListSuburbDropLi" +
-      "stingsRequest\022\031\n\010sal_code\030\001 \001(\tR\007salCode" +
-      "\022\037\n\013region_code\030\002 \001(\tR\nregionCode\022\037\n\013win" +
-      "dow_days\030\003 \001(\005R\nwindowDays\022\024\n\005limit\030\004 \001(" +
-      "\005R\005limit\"\376\003\n\021SuburbDropListing\022\026\n\006source" +
-      "\030\001 \001(\tR\006source\022\037\n\013listing_url\030\002 \001(\tR\nlis" +
-      "tingUrl\022\'\n\017display_address\030\003 \001(\tR\016displa" +
-      "yAddress\022#\n\rproperty_type\030\004 \001(\tR\014propert" +
-      "yType\022\032\n\010bedrooms\030\005 \001(\005R\010bedrooms\022\034\n\tbat" +
-      "hrooms\030\006 \001(\005R\tbathrooms\022\035\n\ncar_spaces\030\007 " +
-      "\001(\005R\tcarSpaces\022\035\n\nprev_price\030\010 \001(\001R\tprev" +
-      "Price\022\024\n\005price\030\t \001(\001R\005price\022\031\n\010drop_pct\030" +
-      "\n \001(\001R\007dropPct\022\031\n\010drop_abs\030\013 \001(\001R\007dropAb" +
-      "s\022;\n\013observed_at\030\014 \001(\0132\032.google.protobuf" +
-      ".TimestampR\nobservedAt\022\037\n\013address_key\030\r " +
-      "\001(\tR\naddressKey\022\037\n\013agency_name\030\016 \001(\tR\nag" +
-      "encyName\022\037\n\013agent_names\030\017 \003(\tR\nagentName" +
-      "s\"`\n\036ListSuburbDropListingsResponse\022>\n\010l" +
-      "istings\030\001 \003(\0132\".shorts.v1alpha1.SuburbDr" +
-      "opListingR\010listings\"<\n\031GetPropertyHistor" +
-      "yRequest\022\037\n\013address_key\030\001 \001(\tR\naddressKe" +
-      "y\"\271\004\n\027PropertyListingSnapshot\022\026\n\006source\030" +
-      "\001 \001(\tR\006source\022\035\n\nlisting_id\030\002 \001(\tR\tlisti" +
-      "ngId\022\037\n\013listing_url\030\003 \001(\tR\nlistingUrl\022\024\n" +
-      "\005price\030\004 \001(\001R\005price\022#\n\rprice_display\030\005 \001" +
-      "(\tR\014priceDisplay\022\035\n\nprice_kind\030\006 \001(\tR\tpr" +
-      "iceKind\022%\n\016listing_status\030\007 \001(\tR\rlisting" +
-      "Status\022\033\n\tis_active\030\010 \001(\010R\010isActive\022\032\n\010b" +
-      "edrooms\030\t \001(\005R\010bedrooms\022\034\n\tbathrooms\030\n \001" +
-      "(\005R\tbathrooms\022\035\n\ncar_spaces\030\013 \001(\005R\tcarSp" +
-      "aces\022\"\n\rland_size_sqm\030\014 \001(\001R\013landSizeSqm" +
-      "\022#\n\rproperty_type\030\r \001(\tR\014propertyType\022\"\n" +
-      "\rfirst_seen_at\030\016 \001(\tR\013firstSeenAt\022 \n\014las" +
-      "t_seen_at\030\017 \001(\tR\nlastSeenAt\022\037\n\013agency_na" +
-      "me\030\020 \001(\tR\nagencyName\022\037\n\013agent_names\030\021 \003(" +
-      "\tR\nagentNames\"\276\002\n\022PropertyPriceEvent\022\037\n\013" +
-      "observed_at\030\001 \001(\tR\nobservedAt\022\035\n\nevent_t" +
-      "ype\030\002 \001(\tR\teventType\022\026\n\006source\030\003 \001(\tR\006so" +
-      "urce\022\035\n\nlisting_id\030\004 \001(\tR\tlistingId\022\024\n\005p" +
-      "rice\030\005 \001(\001R\005price\022\035\n\nprev_price\030\006 \001(\001R\tp" +
-      "revPrice\022\031\n\010drop_abs\030\007 \001(\001R\007dropAbs\022\031\n\010d" +
-      "rop_pct\030\010 \001(\001R\007dropPct\022%\n\016listing_status" +
-      "\030\t \001(\tR\rlistingStatus\022\037\n\013prev_status\030\n \001" +
-      "(\tR\nprevStatus\"\224\004\n\032GetPropertyHistoryRes" +
-      "ponse\022\037\n\013address_key\030\001 \001(\tR\naddressKey\022\'" +
-      "\n\017display_address\030\002 \001(\tR\016displayAddress\022" +
-      "\026\n\006suburb\030\003 \001(\tR\006suburb\022\035\n\nstate_code\030\004 " +
-      "\001(\tR\tstateCode\022\032\n\010postcode\030\005 \001(\tR\010postco" +
-      "de\022B\n\007current\030\006 \001(\0132(.shorts.v1alpha1.Pr" +
-      "opertyListingSnapshotR\007current\022;\n\006events" +
-      "\030\007 \003(\0132#.shorts.v1alpha1.PropertyPriceEv" +
-      "entR\006events\022!\n\014num_listings\030\010 \001(\005R\013numLi" +
-      "stings\022\037\n\013first_price\030\t \001(\001R\nfirstPrice\022" +
-      "#\n\rcurrent_price\030\n \001(\001R\014currentPrice\022-\n\022" +
-      "distinct_dwellings\030\013 \001(\005R\021distinctDwelli" +
-      "ngs\022@\n\tvaluation\030\014 \001(\0132\".shorts.v1alpha1" +
-      ".PropertyValuationR\tvaluation\"x\n\025Propert" +
-      "yValuationSale\022\022\n\004date\030\001 \001(\tR\004date\022\024\n\005pr" +
-      "ice\030\002 \001(\001R\005price\022\026\n\006agency\030\003 \001(\tR\006agency" +
-      "\022\035\n\nevent_type\030\004 \001(\tR\teventType\"\242\005\n\021Prop" +
-      "ertyValuation\022\026\n\006source\030\001 \001(\tR\006source\022\037\n" +
-      "\013profile_url\030\002 \001(\tR\nprofileUrl\022\035\n\nfetche" +
-      "d_at\030\003 \001(\tR\tfetchedAt\022!\n\014estimate_low\030\004 " +
-      "\001(\001R\013estimateLow\022!\n\014estimate_mid\030\005 \001(\001R\013" +
-      "estimateMid\022#\n\restimate_high\030\006 \001(\001R\014esti" +
-      "mateHigh\022/\n\023estimate_confidence\030\007 \001(\tR\022e" +
-      "stimateConfidence\0223\n\025valuation_granulari" +
-      "ty\030\010 \001(\tR\024valuationGranularity\022*\n\021rent_e" +
-      "stimate_mid\030\t \001(\001R\017rentEstimateMid\022\032\n\010be" +
-      "drooms\030\n \001(\005R\010bedrooms\022\034\n\tbathrooms\030\013 \001(" +
-      "\005R\tbathrooms\022\035\n\ncar_spaces\030\014 \001(\005R\tcarSpa" +
-      "ces\022\"\n\rland_size_sqm\030\r \001(\001R\013landSizeSqm\022" +
-      "*\n\021building_size_sqm\030\016 \001(\001R\017buildingSize" +
-      "Sqm\022\035\n\nyear_built\030\017 \001(\005R\tyearBuilt\022#\n\rpr" +
-      "operty_type\030\020 \001(\tR\014propertyType\022K\n\rsales" +
-      "_history\030\021 \003(\0132&.shorts.v1alpha1.Propert" +
-      "yValuationSaleR\014salesHistory\"\210\001\n\034ListAdd" +
-      "ressPriceDropsRequest\022\035\n\nstate_code\030\001 \001(" +
-      "\tR\tstateCode\022\037\n\013window_days\030\002 \001(\005R\nwindo" +
-      "wDays\022\024\n\005limit\030\003 \001(\005R\005limit\022\022\n\004sort\030\004 \001(" +
-      "\tR\004sort\"\354\004\n\020AddressPriceDrop\022\037\n\013address_" +
-      "key\030\001 \001(\tR\naddressKey\022\'\n\017display_address" +
-      "\030\002 \001(\tR\016displayAddress\022\026\n\006suburb\030\003 \001(\tR\006" +
-      "suburb\022\035\n\nstate_code\030\004 \001(\tR\tstateCode\022\032\n" +
-      "\010postcode\030\005 \001(\tR\010postcode\022\037\n\013first_price" +
-      "\030\006 \001(\001R\nfirstPrice\022#\n\rcurrent_price\030\007 \001(" +
-      "\001R\014currentPrice\022\031\n\010drop_abs\030\010 \001(\001R\007dropA" +
-      "bs\022\031\n\010drop_pct\030\t \001(\001R\007dropPct\022!\n\014num_lis" +
-      "tings\030\n \001(\005R\013numListings\022#\n\rlatest_sourc" +
-      "e\030\013 \001(\tR\014latestSource\022,\n\022latest_listing_" +
-      "url\030\014 \001(\tR\020latestListingUrl\022(\n\020last_obse" +
-      "rved_at\030\r \001(\tR\016lastObservedAt\022#\n\rpropert" +
-      "y_type\030\016 \001(\tR\014propertyType\022\032\n\010bedrooms\030\017" +
-      " \001(\005R\010bedrooms\022\034\n\tbathrooms\030\020 \001(\005R\tbathr" +
-      "ooms\022\037\n\013agency_name\030\021 \001(\tR\nagencyName\022\037\n" +
-      "\013agent_names\030\022 \003(\tR\nagentNames\"`\n\035ListAd" +
-      "dressPriceDropsResponse\022?\n\taddresses\030\001 \003" +
-      "(\0132!.shorts.v1alpha1.AddressPriceDropR\ta" +
-      "ddresses\"\036\n\034GetPriceDropsOverviewRequest" +
-      "\"\333\004\n\025StatePriceDropSummary\022\035\n\nstate_code" +
-      "\030\001 \001(\tR\tstateCode\022#\n\rdropped_count\030\002 \001(\005" +
-      "R\014droppedCount\022 \n\014avg_drop_pct\030\003 \001(\001R\nav" +
-      "gDropPct\022&\n\017median_drop_pct\030\004 \001(\001R\rmedia" +
-      "nDropPct\022 \n\014max_drop_pct\030\005 \001(\001R\nmaxDropP" +
-      "ct\022#\n\rdropped_value\030\006 \001(\001R\014droppedValue\022" +
-      "2\n\025total_active_listings\030\007 \001(\005R\023totalAct" +
-      "iveListings\022#\n\rdropped_share\030\010 \001(\001R\014drop" +
-      "pedShare\022$\n\016for_sale_count\030\t \001(\005R\014forSal" +
-      "eCount\022&\n\017for_sale_priced\030\n \001(\005R\rforSale" +
-      "Priced\022\035\n\navg_asking\030\013 \001(\001R\tavgAsking\022#\n" +
-      "\rmedian_asking\030\014 \001(\001R\014medianAsking\022\035\n\nso" +
-      "ld_count\030\r \001(\005R\tsoldCount\022\031\n\010avg_sold\030\016 " +
-      "\001(\001R\007avgSold\022\037\n\013median_sold\030\017 \001(\001R\nmedia" +
-      "nSold\022\'\n\017suburbs_tracked\030\020 \001(\005R\016suburbsT" +
-      "racked\"\243\001\n\035GetPriceDropsOverviewResponse" +
-      "\022B\n\010national\030\001 \001(\0132&.shorts.v1alpha1.Sta" +
-      "tePriceDropSummaryR\010national\022>\n\006states\030\002" +
-      " \003(\0132&.shorts.v1alpha1.StatePriceDropSum" +
-      "maryR\006states\"f\n\033ListAgencyPriceStatsRequ" +
-      "est\022\035\n\nstate_code\030\001 \001(\tR\tstateCode\022\022\n\004so" +
-      "rt\030\002 \001(\tR\004sort\022\024\n\005limit\030\003 \001(\005R\005limit\"\330\003\n" +
-      "\020AgencyPriceStats\022\026\n\006source\030\001 \001(\tR\006sourc" +
-      "e\022\033\n\tagency_id\030\002 \001(\tR\010agencyId\022\037\n\013agency" +
-      "_name\030\003 \001(\tR\nagencyName\022\035\n\nstate_code\030\004 " +
-      "\001(\tR\tstateCode\022\'\n\017active_listings\030\005 \001(\005R" +
-      "\016activeListings\022\'\n\017priced_listings\030\006 \001(\005" +
-      "R\016pricedListings\022\035\n\navg_asking\030\007 \001(\001R\tav" +
-      "gAsking\022#\n\rmedian_asking\030\010 \001(\001R\014medianAs" +
-      "king\022\'\n\017suburbs_covered\030\t \001(\005R\016suburbsCo" +
-      "vered\022#\n\rdropped_count\030\n \001(\005R\014droppedCou" +
-      "nt\022 \n\014avg_drop_pct\030\013 \001(\001R\navgDropPct\022(\n\020" +
-      "total_drop_value\030\014 \001(\001R\016totalDropValue\022\037" +
-      "\n\013agent_names\030\r \003(\tR\nagentNames\"]\n\034ListA" +
-      "gencyPriceStatsResponse\022=\n\010agencies\030\001 \003(" +
-      "\0132!.shorts.v1alpha1.AgencyPriceStatsR\010ag" +
-      "encies2\270\n\n\016HousingService\022s\n\022GetHousingO" +
-      "verview\022*.shorts.v1alpha1.GetHousingOver" +
-      "viewRequest\032+.shorts.v1alpha1.GetHousing" +
-      "OverviewResponse\"\004\200\265\030\001\022v\n\023GetHousePriceS" +
-      "eries\022+.shorts.v1alpha1.GetHousePriceSer" +
-      "iesRequest\032,.shorts.v1alpha1.GetHousePri" +
-      "ceSeriesResponse\"\004\200\265\030\001\022m\n\020ListStateSubur" +
-      "bs\022(.shorts.v1alpha1.ListStateSuburbsReq" +
-      "uest\032).shorts.v1alpha1.ListStateSuburbsR" +
-      "esponse\"\004\200\265\030\001\022m\n\020GetSuburbProfile\022(.shor" +
-      "ts.v1alpha1.GetSuburbProfileRequest\032).sh" +
-      "orts.v1alpha1.GetSuburbProfileResponse\"\004" +
-      "\200\265\030\001\022s\n\022ListHousingRegions\022*.shorts.v1al" +
-      "pha1.ListHousingRegionsRequest\032+.shorts." +
-      "v1alpha1.ListHousingRegionsResponse\"\004\200\265\030" +
-      "\001\022y\n\024ListSuburbPriceDrops\022,.shorts.v1alp" +
-      "ha1.ListSuburbPriceDropsRequest\032-.shorts" +
-      ".v1alpha1.ListSuburbPriceDropsResponse\"\004" +
-      "\200\265\030\001\022\177\n\026ListSuburbDropListings\022..shorts." +
-      "v1alpha1.ListSuburbDropListingsRequest\032/" +
-      ".shorts.v1alpha1.ListSuburbDropListingsR" +
-      "esponse\"\004\200\265\030\001\022s\n\022GetPropertyHistory\022*.sh" +
-      "orts.v1alpha1.GetPropertyHistoryRequest\032" +
-      "+.shorts.v1alpha1.GetPropertyHistoryResp" +
-      "onse\"\004\200\265\030\001\022|\n\025ListAddressPriceDrops\022-.sh" +
-      "orts.v1alpha1.ListAddressPriceDropsReque" +
-      "st\032..shorts.v1alpha1.ListAddressPriceDro" +
-      "psResponse\"\004\200\265\030\001\022|\n\025GetPriceDropsOvervie" +
-      "w\022-.shorts.v1alpha1.GetPriceDropsOvervie" +
-      "wRequest\032..shorts.v1alpha1.GetPriceDrops" +
-      "OverviewResponse\"\004\200\265\030\001\022y\n\024ListAgencyPric" +
-      "eStats\022,.shorts.v1alpha1.ListAgencyPrice" +
-      "StatsRequest\032-.shorts.v1alpha1.ListAgenc" +
-      "yPriceStatsResponse\"\004\200\265\030\001B\333\001\n\023com.shorts" +
-      ".v1alpha1B\014HousingProtoP\001ZYgithub.com/ca" +
-      "stlemilk/shorted.com.au/services/gen/pro" +
-      "to/go/shorts/v1alpha1;shortsv1alpha1\242\002\003S" +
-      "XX\252\002\017Shorts.V1alpha1\312\002\017Shorts\\V1alpha1\342\002" +
-      "\033Shorts\\V1alpha1\\GPBMetadata\352\002\020Shorts::V" +
-      "1alpha1b\006proto3"
+      "icle_rank\030\036 \001(\001R\025crimeMotorVehicleRank\022:" +
+      "\n\031politician_property_count\030\037 \001(\005R\027polit" +
+      "icianPropertyCount\"T\n\030ListStateSuburbsRe" +
+      "sponse\0228\n\007suburbs\030\001 \003(\0132\036.shorts.v1alpha" +
+      "1.SuburbSummaryR\007suburbs\"4\n\027GetSuburbPro" +
+      "fileRequest\022\031\n\010sal_code\030\001 \001(\tR\007salCode\"\206" +
+      "\006\n\022SuburbDemographics\022\036\n\npopulation\030\001 \001(" +
+      "\005R\npopulation\022\035\n\nmedian_age\030\002 \001(\001R\tmedia" +
+      "nAge\0227\n\030median_weekly_hhd_income\030\003 \001(\001R\025" +
+      "medianWeeklyHhdIncome\0227\n\030median_weekly_p" +
+      "er_income\030\004 \001(\001R\025medianWeeklyPerIncome\022," +
+      "\n\022median_weekly_rent\030\005 \001(\001R\020medianWeekly" +
+      "Rent\0226\n\027median_monthly_mortgage\030\006 \001(\001R\025m" +
+      "edianMonthlyMortgage\022,\n\022pct_owned_outrig" +
+      "ht\030\007 \001(\001R\020pctOwnedOutright\022,\n\022pct_owned_" +
+      "mortgage\030\010 \001(\001R\020pctOwnedMortgage\022\035\n\npct_" +
+      "rented\030\t \001(\001R\tpctRented\022%\n\016dwelling_coun" +
+      "t\030\n \001(\005R\rdwellingCount\022\037\n\013census_year\030\013 " +
+      "\001(\005R\ncensusYear\022*\n\021pct_born_overseas\030\014 \001" +
+      "(\001R\017pctBornOverseas\022(\n\020pct_english_only\030" +
+      "\r \001(\001R\016pctEnglishOnly\022!\n\014top_religion\030\016 " +
+      "\001(\tR\013topReligion\022(\n\020pct_top_religion\030\017 \001" +
+      "(\001R\016pctTopReligion\022&\n\017pct_no_religion\030\020 " +
+      "\001(\001R\rpctNoReligion\022!\n\014top_language\030\021 \001(\t" +
+      "R\013topLanguage\022(\n\020pct_top_language\030\022 \001(\001R" +
+      "\016pctTopLanguage\"\205\002\n\023ComparisonBaselines\022" +
+      ",\n\022state_median_price\030\001 \001(\001R\020stateMedian" +
+      "Price\0222\n\025national_median_price\030\002 \001(\001R\023na" +
+      "tionalMedianPrice\022B\n\036state_median_weekly" +
+      "_hhd_income\030\003 \001(\001R\032stateMedianWeeklyHhdI" +
+      "ncome\022H\n!national_median_weekly_hhd_inco" +
+      "me\030\004 \001(\001R\035nationalMedianWeeklyHhdIncome\"" +
+      "\216\003\n\007LgaInfo\022\031\n\010lga_code\030\001 \001(\tR\007lgaCode\022\031" +
+      "\n\010lga_name\030\002 \001(\tR\007lgaName\022\035\n\nstate_code\030" +
+      "\003 \001(\tR\tstateCode\022\033\n\tarea_sqkm\030\004 \001(\001R\010are" +
+      "aSqkm\022\036\n\npopulation\030\005 \001(\005R\npopulation\022\036\n" +
+      "\013fed_fag_aud\030\006 \001(\001R\tfedFagAud\022 \n\014fed_fag" +
+      "_year\030\007 \001(\tR\nfedFagYear\022\033\n\tavg_rates\030\010 \001" +
+      "(\001R\010avgRates\022(\n\020op_surplus_ratio\030\t \001(\001R\016" +
+      "opSurplusRatio\022.\n\023asset_renewal_ratio\030\n " +
+      "\001(\001R\021assetRenewalRatio\022\035\n\nfin_source\030\013 \001" +
+      "(\tR\tfinSource\022\031\n\010fin_year\030\014 \001(\tR\007finYear" +
+      "\"\325\001\n\rSimilarSuburb\022\031\n\010sal_code\030\001 \001(\tR\007sa" +
+      "lCode\022\031\n\010sal_name\030\002 \001(\tR\007salName\022\035\n\nstat" +
+      "e_code\030\003 \001(\tR\tstateCode\022.\n\023latest_median" +
+      "_price\030\004 \001(\001R\021latestMedianPrice\022\036\n\nsimil" +
+      "arity\030\005 \001(\001R\nsimilarity\022\037\n\013region_code\030\006" +
+      " \001(\tR\nregionCode\"8\n\016SuburbLandmark\022\022\n\004na" +
+      "me\030\001 \001(\tR\004name\022\022\n\004kind\030\002 \001(\tR\004kind\"\257\001\n\014S" +
+      "uburbBanner\022\034\n\tarchetype\030\001 \001(\tR\tarchetyp" +
+      "e\022\024\n\005blurb\030\002 \001(\tR\005blurb\022=\n\tlandmarks\030\003 \003" +
+      "(\0132\037.shorts.v1alpha1.SuburbLandmarkR\tlan" +
+      "dmarks\022\025\n\006bg_key\030\004 \001(\tR\005bgKey\022\025\n\006bg_url\030" +
+      "\005 \001(\tR\005bgUrl\"\214\001\n\017SuburbCrimeStat\022\035\n\ncrim" +
+      "e_type\030\001 \001(\tR\tcrimeType\022\"\n\rrate_per_100k" +
+      "\030\002 \001(\001R\013ratePer100k\022\031\n\010pct_rank\030\003 \001(\001R\007p" +
+      "ctRank\022\033\n\tfy_ending\030\004 \001(\005R\010fyEnding\"\265\001\n\013" +
+      "SuburbCrime\0226\n\005stats\030\001 \003(\0132 .shorts.v1al" +
+      "pha1.SuburbCrimeStatR\005stats\022/\n\023source_ju" +
+      "risdiction\030\002 \001(\tR\022sourceJurisdiction\022\026\n\006" +
+      "source\030\003 \001(\tR\006source\022%\n\016source_licence\030\004" +
+      " \001(\tR\rsourceLicence\"\272\003\n\030GetSuburbProfile" +
+      "Response\0228\n\007summary\030\001 \001(\0132\036.shorts.v1alp" +
+      "ha1.SuburbSummaryR\007summary\022G\n\014demographi" +
+      "cs\030\002 \001(\0132#.shorts.v1alpha1.SuburbDemogra" +
+      "phicsR\014demographics\022B\n\tbaselines\030\003 \001(\0132$" +
+      ".shorts.v1alpha1.ComparisonBaselinesR\tba" +
+      "selines\0222\n\007council\030\004 \001(\0132\030.shorts.v1alph" +
+      "a1.LgaInfoR\007council\0228\n\007similar\030\005 \003(\0132\036.s" +
+      "horts.v1alpha1.SimilarSuburbR\007similar\0225\n" +
+      "\006banner\030\006 \001(\0132\035.shorts.v1alpha1.SuburbBa" +
+      "nnerR\006banner\0222\n\005crime\030\007 \001(\0132\034.shorts.v1a" +
+      "lpha1.SuburbCrimeR\005crime\"\207\001\n\031ListHousing" +
+      "RegionsRequest\022\037\n\013region_type\030\001 \001(\tR\nreg" +
+      "ionType\022\035\n\nstate_code\030\002 \001(\tR\tstateCode\022\024" +
+      "\n\005query\030\003 \001(\tR\005query\022\024\n\005limit\030\004 \001(\005R\005lim" +
+      "it\"\221\002\n\rHousingRegion\022\037\n\013region_code\030\001 \001(" +
+      "\tR\nregionCode\022\037\n\013region_name\030\002 \001(\tR\nregi" +
+      "onName\022\037\n\013region_type\030\003 \001(\tR\nregionType\022" +
+      "\035\n\nstate_code\030\004 \001(\tR\tstateCode\022\032\n\010postco" +
+      "de\030\005 \001(\tR\010postcode\022!\n\014latest_value\030\006 \001(\001" +
+      "R\013latestValue\022?\n\rlatest_period\030\007 \001(\0132\032.g" +
+      "oogle.protobuf.TimestampR\014latestPeriod\"V" +
+      "\n\032ListHousingRegionsResponse\0228\n\007regions\030" +
+      "\001 \003(\0132\036.shorts.v1alpha1.HousingRegionR\007r" +
+      "egions\"\207\001\n\033ListSuburbPriceDropsRequest\022\035" +
+      "\n\nstate_code\030\001 \001(\tR\tstateCode\022\037\n\013window_" +
+      "days\030\002 \001(\005R\nwindowDays\022\022\n\004sort\030\003 \001(\tR\004so" +
+      "rt\022\024\n\005limit\030\004 \001(\005R\005limit\"\250\005\n\017SuburbPrice" +
+      "Drop\022\037\n\013region_code\030\001 \001(\tR\nregionCode\022\031\n" +
+      "\010sal_code\030\002 \001(\tR\007salCode\022\031\n\010sal_name\030\003 \001" +
+      "(\tR\007salName\022\035\n\nstate_code\030\004 \001(\tR\tstateCo" +
+      "de\0222\n\025dropped_listing_count\030\005 \001(\005R\023dropp" +
+      "edListingCount\022 \n\014avg_drop_pct\030\006 \001(\001R\nav" +
+      "gDropPct\022&\n\017median_drop_pct\030\007 \001(\001R\rmedia" +
+      "nDropPct\022 \n\014max_drop_pct\030\010 \001(\001R\nmaxDropP" +
+      "ct\022 \n\014max_drop_abs\030\t \001(\001R\nmaxDropAbs\0222\n\025" +
+      "total_active_listings\030\n \001(\005R\023totalActive" +
+      "Listings\022#\n\rdropped_share\030\013 \001(\001R\014dropped" +
+      "Share\022\032\n\010postcode\030\014 \001(\tR\010postcode\022$\n\016for" +
+      "_sale_count\030\r \001(\005R\014forSaleCount\022\035\n\navg_a" +
+      "sking\030\016 \001(\001R\tavgAsking\022#\n\rmedian_asking\030" +
+      "\017 \001(\001R\014medianAsking\022\035\n\nsold_count\030\020 \001(\005R" +
+      "\tsoldCount\022\031\n\010avg_sold\030\021 \001(\001R\007avgSold\022\037\n" +
+      "\013median_sold\030\022 \001(\001R\nmedianSold\022#\n\rdroppe" +
+      "d_value\030\023 \001(\001R\014droppedValue\"Z\n\034ListSubur" +
+      "bPriceDropsResponse\022:\n\007suburbs\030\001 \003(\0132 .s" +
+      "horts.v1alpha1.SuburbPriceDropR\007suburbs\"" +
+      "\222\001\n\035ListSuburbDropListingsRequest\022\031\n\010sal" +
+      "_code\030\001 \001(\tR\007salCode\022\037\n\013region_code\030\002 \001(" +
+      "\tR\nregionCode\022\037\n\013window_days\030\003 \001(\005R\nwind" +
+      "owDays\022\024\n\005limit\030\004 \001(\005R\005limit\"\376\003\n\021SuburbD" +
+      "ropListing\022\026\n\006source\030\001 \001(\tR\006source\022\037\n\013li" +
+      "sting_url\030\002 \001(\tR\nlistingUrl\022\'\n\017display_a" +
+      "ddress\030\003 \001(\tR\016displayAddress\022#\n\rproperty" +
+      "_type\030\004 \001(\tR\014propertyType\022\032\n\010bedrooms\030\005 " +
+      "\001(\005R\010bedrooms\022\034\n\tbathrooms\030\006 \001(\005R\tbathro" +
+      "oms\022\035\n\ncar_spaces\030\007 \001(\005R\tcarSpaces\022\035\n\npr" +
+      "ev_price\030\010 \001(\001R\tprevPrice\022\024\n\005price\030\t \001(\001" +
+      "R\005price\022\031\n\010drop_pct\030\n \001(\001R\007dropPct\022\031\n\010dr" +
+      "op_abs\030\013 \001(\001R\007dropAbs\022;\n\013observed_at\030\014 \001" +
+      "(\0132\032.google.protobuf.TimestampR\nobserved" +
+      "At\022\037\n\013address_key\030\r \001(\tR\naddressKey\022\037\n\013a" +
+      "gency_name\030\016 \001(\tR\nagencyName\022\037\n\013agent_na" +
+      "mes\030\017 \003(\tR\nagentNames\"`\n\036ListSuburbDropL" +
+      "istingsResponse\022>\n\010listings\030\001 \003(\0132\".shor" +
+      "ts.v1alpha1.SuburbDropListingR\010listings\"" +
+      "<\n\031GetPropertyHistoryRequest\022\037\n\013address_" +
+      "key\030\001 \001(\tR\naddressKey\"\271\004\n\027PropertyListin" +
+      "gSnapshot\022\026\n\006source\030\001 \001(\tR\006source\022\035\n\nlis" +
+      "ting_id\030\002 \001(\tR\tlistingId\022\037\n\013listing_url\030" +
+      "\003 \001(\tR\nlistingUrl\022\024\n\005price\030\004 \001(\001R\005price\022" +
+      "#\n\rprice_display\030\005 \001(\tR\014priceDisplay\022\035\n\n" +
+      "price_kind\030\006 \001(\tR\tpriceKind\022%\n\016listing_s" +
+      "tatus\030\007 \001(\tR\rlistingStatus\022\033\n\tis_active\030" +
+      "\010 \001(\010R\010isActive\022\032\n\010bedrooms\030\t \001(\005R\010bedro" +
+      "oms\022\034\n\tbathrooms\030\n \001(\005R\tbathrooms\022\035\n\ncar" +
+      "_spaces\030\013 \001(\005R\tcarSpaces\022\"\n\rland_size_sq" +
+      "m\030\014 \001(\001R\013landSizeSqm\022#\n\rproperty_type\030\r " +
+      "\001(\tR\014propertyType\022\"\n\rfirst_seen_at\030\016 \001(\t" +
+      "R\013firstSeenAt\022 \n\014last_seen_at\030\017 \001(\tR\nlas" +
+      "tSeenAt\022\037\n\013agency_name\030\020 \001(\tR\nagencyName" +
+      "\022\037\n\013agent_names\030\021 \003(\tR\nagentNames\"\276\002\n\022Pr" +
+      "opertyPriceEvent\022\037\n\013observed_at\030\001 \001(\tR\no" +
+      "bservedAt\022\035\n\nevent_type\030\002 \001(\tR\teventType" +
+      "\022\026\n\006source\030\003 \001(\tR\006source\022\035\n\nlisting_id\030\004" +
+      " \001(\tR\tlistingId\022\024\n\005price\030\005 \001(\001R\005price\022\035\n" +
+      "\nprev_price\030\006 \001(\001R\tprevPrice\022\031\n\010drop_abs" +
+      "\030\007 \001(\001R\007dropAbs\022\031\n\010drop_pct\030\010 \001(\001R\007dropP" +
+      "ct\022%\n\016listing_status\030\t \001(\tR\rlistingStatu" +
+      "s\022\037\n\013prev_status\030\n \001(\tR\nprevStatus\"\224\004\n\032G" +
+      "etPropertyHistoryResponse\022\037\n\013address_key" +
+      "\030\001 \001(\tR\naddressKey\022\'\n\017display_address\030\002 " +
+      "\001(\tR\016displayAddress\022\026\n\006suburb\030\003 \001(\tR\006sub" +
+      "urb\022\035\n\nstate_code\030\004 \001(\tR\tstateCode\022\032\n\010po" +
+      "stcode\030\005 \001(\tR\010postcode\022B\n\007current\030\006 \001(\0132" +
+      "(.shorts.v1alpha1.PropertyListingSnapsho" +
+      "tR\007current\022;\n\006events\030\007 \003(\0132#.shorts.v1al" +
+      "pha1.PropertyPriceEventR\006events\022!\n\014num_l" +
+      "istings\030\010 \001(\005R\013numListings\022\037\n\013first_pric" +
+      "e\030\t \001(\001R\nfirstPrice\022#\n\rcurrent_price\030\n \001" +
+      "(\001R\014currentPrice\022-\n\022distinct_dwellings\030\013" +
+      " \001(\005R\021distinctDwellings\022@\n\tvaluation\030\014 \001" +
+      "(\0132\".shorts.v1alpha1.PropertyValuationR\t" +
+      "valuation\"x\n\025PropertyValuationSale\022\022\n\004da" +
+      "te\030\001 \001(\tR\004date\022\024\n\005price\030\002 \001(\001R\005price\022\026\n\006" +
+      "agency\030\003 \001(\tR\006agency\022\035\n\nevent_type\030\004 \001(\t" +
+      "R\teventType\"\242\005\n\021PropertyValuation\022\026\n\006sou" +
+      "rce\030\001 \001(\tR\006source\022\037\n\013profile_url\030\002 \001(\tR\n" +
+      "profileUrl\022\035\n\nfetched_at\030\003 \001(\tR\tfetchedA" +
+      "t\022!\n\014estimate_low\030\004 \001(\001R\013estimateLow\022!\n\014" +
+      "estimate_mid\030\005 \001(\001R\013estimateMid\022#\n\restim" +
+      "ate_high\030\006 \001(\001R\014estimateHigh\022/\n\023estimate" +
+      "_confidence\030\007 \001(\tR\022estimateConfidence\0223\n" +
+      "\025valuation_granularity\030\010 \001(\tR\024valuationG" +
+      "ranularity\022*\n\021rent_estimate_mid\030\t \001(\001R\017r" +
+      "entEstimateMid\022\032\n\010bedrooms\030\n \001(\005R\010bedroo" +
+      "ms\022\034\n\tbathrooms\030\013 \001(\005R\tbathrooms\022\035\n\ncar_" +
+      "spaces\030\014 \001(\005R\tcarSpaces\022\"\n\rland_size_sqm" +
+      "\030\r \001(\001R\013landSizeSqm\022*\n\021building_size_sqm" +
+      "\030\016 \001(\001R\017buildingSizeSqm\022\035\n\nyear_built\030\017 " +
+      "\001(\005R\tyearBuilt\022#\n\rproperty_type\030\020 \001(\tR\014p" +
+      "ropertyType\022K\n\rsales_history\030\021 \003(\0132&.sho" +
+      "rts.v1alpha1.PropertyValuationSaleR\014sale" +
+      "sHistory\"\210\001\n\034ListAddressPriceDropsReques" +
+      "t\022\035\n\nstate_code\030\001 \001(\tR\tstateCode\022\037\n\013wind" +
+      "ow_days\030\002 \001(\005R\nwindowDays\022\024\n\005limit\030\003 \001(\005" +
+      "R\005limit\022\022\n\004sort\030\004 \001(\tR\004sort\"\354\004\n\020AddressP" +
+      "riceDrop\022\037\n\013address_key\030\001 \001(\tR\naddressKe" +
+      "y\022\'\n\017display_address\030\002 \001(\tR\016displayAddre" +
+      "ss\022\026\n\006suburb\030\003 \001(\tR\006suburb\022\035\n\nstate_code" +
+      "\030\004 \001(\tR\tstateCode\022\032\n\010postcode\030\005 \001(\tR\010pos" +
+      "tcode\022\037\n\013first_price\030\006 \001(\001R\nfirstPrice\022#" +
+      "\n\rcurrent_price\030\007 \001(\001R\014currentPrice\022\031\n\010d" +
+      "rop_abs\030\010 \001(\001R\007dropAbs\022\031\n\010drop_pct\030\t \001(\001" +
+      "R\007dropPct\022!\n\014num_listings\030\n \001(\005R\013numList" +
+      "ings\022#\n\rlatest_source\030\013 \001(\tR\014latestSourc" +
+      "e\022,\n\022latest_listing_url\030\014 \001(\tR\020latestLis" +
+      "tingUrl\022(\n\020last_observed_at\030\r \001(\tR\016lastO" +
+      "bservedAt\022#\n\rproperty_type\030\016 \001(\tR\014proper" +
+      "tyType\022\032\n\010bedrooms\030\017 \001(\005R\010bedrooms\022\034\n\tba" +
+      "throoms\030\020 \001(\005R\tbathrooms\022\037\n\013agency_name\030" +
+      "\021 \001(\tR\nagencyName\022\037\n\013agent_names\030\022 \003(\tR\n" +
+      "agentNames\"`\n\035ListAddressPriceDropsRespo" +
+      "nse\022?\n\taddresses\030\001 \003(\0132!.shorts.v1alpha1" +
+      ".AddressPriceDropR\taddresses\"\036\n\034GetPrice" +
+      "DropsOverviewRequest\"\333\004\n\025StatePriceDropS" +
+      "ummary\022\035\n\nstate_code\030\001 \001(\tR\tstateCode\022#\n" +
+      "\rdropped_count\030\002 \001(\005R\014droppedCount\022 \n\014av" +
+      "g_drop_pct\030\003 \001(\001R\navgDropPct\022&\n\017median_d" +
+      "rop_pct\030\004 \001(\001R\rmedianDropPct\022 \n\014max_drop" +
+      "_pct\030\005 \001(\001R\nmaxDropPct\022#\n\rdropped_value\030" +
+      "\006 \001(\001R\014droppedValue\0222\n\025total_active_list" +
+      "ings\030\007 \001(\005R\023totalActiveListings\022#\n\rdropp" +
+      "ed_share\030\010 \001(\001R\014droppedShare\022$\n\016for_sale" +
+      "_count\030\t \001(\005R\014forSaleCount\022&\n\017for_sale_p" +
+      "riced\030\n \001(\005R\rforSalePriced\022\035\n\navg_asking" +
+      "\030\013 \001(\001R\tavgAsking\022#\n\rmedian_asking\030\014 \001(\001" +
+      "R\014medianAsking\022\035\n\nsold_count\030\r \001(\005R\tsold" +
+      "Count\022\031\n\010avg_sold\030\016 \001(\001R\007avgSold\022\037\n\013medi" +
+      "an_sold\030\017 \001(\001R\nmedianSold\022\'\n\017suburbs_tra" +
+      "cked\030\020 \001(\005R\016suburbsTracked\"\243\001\n\035GetPriceD" +
+      "ropsOverviewResponse\022B\n\010national\030\001 \001(\0132&" +
+      ".shorts.v1alpha1.StatePriceDropSummaryR\010" +
+      "national\022>\n\006states\030\002 \003(\0132&.shorts.v1alph" +
+      "a1.StatePriceDropSummaryR\006states\"f\n\033List" +
+      "AgencyPriceStatsRequest\022\035\n\nstate_code\030\001 " +
+      "\001(\tR\tstateCode\022\022\n\004sort\030\002 \001(\tR\004sort\022\024\n\005li" +
+      "mit\030\003 \001(\005R\005limit\"\330\003\n\020AgencyPriceStats\022\026\n" +
+      "\006source\030\001 \001(\tR\006source\022\033\n\tagency_id\030\002 \001(\t" +
+      "R\010agencyId\022\037\n\013agency_name\030\003 \001(\tR\nagencyN" +
+      "ame\022\035\n\nstate_code\030\004 \001(\tR\tstateCode\022\'\n\017ac" +
+      "tive_listings\030\005 \001(\005R\016activeListings\022\'\n\017p" +
+      "riced_listings\030\006 \001(\005R\016pricedListings\022\035\n\n" +
+      "avg_asking\030\007 \001(\001R\tavgAsking\022#\n\rmedian_as" +
+      "king\030\010 \001(\001R\014medianAsking\022\'\n\017suburbs_cove" +
+      "red\030\t \001(\005R\016suburbsCovered\022#\n\rdropped_cou" +
+      "nt\030\n \001(\005R\014droppedCount\022 \n\014avg_drop_pct\030\013" +
+      " \001(\001R\navgDropPct\022(\n\020total_drop_value\030\014 \001" +
+      "(\001R\016totalDropValue\022\037\n\013agent_names\030\r \003(\tR" +
+      "\nagentNames\"]\n\034ListAgencyPriceStatsRespo" +
+      "nse\022=\n\010agencies\030\001 \003(\0132!.shorts.v1alpha1." +
+      "AgencyPriceStatsR\010agencies2\270\n\n\016HousingSe" +
+      "rvice\022s\n\022GetHousingOverview\022*.shorts.v1a" +
+      "lpha1.GetHousingOverviewRequest\032+.shorts" +
+      ".v1alpha1.GetHousingOverviewResponse\"\004\200\265" +
+      "\030\001\022v\n\023GetHousePriceSeries\022+.shorts.v1alp" +
+      "ha1.GetHousePriceSeriesRequest\032,.shorts." +
+      "v1alpha1.GetHousePriceSeriesResponse\"\004\200\265" +
+      "\030\001\022m\n\020ListStateSuburbs\022(.shorts.v1alpha1" +
+      ".ListStateSuburbsRequest\032).shorts.v1alph" +
+      "a1.ListStateSuburbsResponse\"\004\200\265\030\001\022m\n\020Get" +
+      "SuburbProfile\022(.shorts.v1alpha1.GetSubur" +
+      "bProfileRequest\032).shorts.v1alpha1.GetSub" +
+      "urbProfileResponse\"\004\200\265\030\001\022s\n\022ListHousingR" +
+      "egions\022*.shorts.v1alpha1.ListHousingRegi" +
+      "onsRequest\032+.shorts.v1alpha1.ListHousing" +
+      "RegionsResponse\"\004\200\265\030\001\022y\n\024ListSuburbPrice" +
+      "Drops\022,.shorts.v1alpha1.ListSuburbPriceD" +
+      "ropsRequest\032-.shorts.v1alpha1.ListSuburb" +
+      "PriceDropsResponse\"\004\200\265\030\001\022\177\n\026ListSuburbDr" +
+      "opListings\022..shorts.v1alpha1.ListSuburbD" +
+      "ropListingsRequest\032/.shorts.v1alpha1.Lis" +
+      "tSuburbDropListingsResponse\"\004\200\265\030\001\022s\n\022Get" +
+      "PropertyHistory\022*.shorts.v1alpha1.GetPro" +
+      "pertyHistoryRequest\032+.shorts.v1alpha1.Ge" +
+      "tPropertyHistoryResponse\"\004\200\265\030\001\022|\n\025ListAd" +
+      "dressPriceDrops\022-.shorts.v1alpha1.ListAd" +
+      "dressPriceDropsRequest\032..shorts.v1alpha1" +
+      ".ListAddressPriceDropsResponse\"\004\200\265\030\001\022|\n\025" +
+      "GetPriceDropsOverview\022-.shorts.v1alpha1." +
+      "GetPriceDropsOverviewRequest\032..shorts.v1" +
+      "alpha1.GetPriceDropsOverviewResponse\"\004\200\265" +
+      "\030\001\022y\n\024ListAgencyPriceStats\022,.shorts.v1al" +
+      "pha1.ListAgencyPriceStatsRequest\032-.short" +
+      "s.v1alpha1.ListAgencyPriceStatsResponse\"" +
+      "\004\200\265\030\001B\333\001\n\023com.shorts.v1alpha1B\014HousingPr" +
+      "otoP\001ZYgithub.com/castlemilk/shorted.com" +
+      ".au/services/gen/proto/go/shorts/v1alpha" +
+      "1;shortsv1alpha1\242\002\003SXX\252\002\017Shorts.V1alpha1" +
+      "\312\002\017Shorts\\V1alpha1\342\002\033Shorts\\V1alpha1\\GPB" +
+      "Metadata\352\002\020Shorts::V1alpha1b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -684,7 +685,7 @@ public final class HousingProto extends com.google.protobuf.GeneratedFile {
     internal_static_shorts_v1alpha1_SuburbSummary_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_SuburbSummary_descriptor,
-        new java.lang.String[] { "SalCode", "SalName", "StateCode", "Postcode", "LatestMedianPrice", "LatestPeriod", "YoyPct", "Population", "MedianAge", "MedianWeeklyHhdIncome", "RegionCode", "PctBornOverseas", "TopReligion", "TopLanguage", "PctTopLanguage", "FederalDivision", "FederalMember", "FederalParty", "FederalPartyAb", "FederalTppAlp", "StateDistrict", "StateMember", "StateParty", "StatePartyAb", "Amenities", "DominantNbnTech", "ConnectivityQualityScore", "CrimeBreakInsRank", "CrimeViolentRank", "CrimeMotorVehicleRank", });
+        new java.lang.String[] { "SalCode", "SalName", "StateCode", "Postcode", "LatestMedianPrice", "LatestPeriod", "YoyPct", "Population", "MedianAge", "MedianWeeklyHhdIncome", "RegionCode", "PctBornOverseas", "TopReligion", "TopLanguage", "PctTopLanguage", "FederalDivision", "FederalMember", "FederalParty", "FederalPartyAb", "FederalTppAlp", "StateDistrict", "StateMember", "StateParty", "StatePartyAb", "Amenities", "DominantNbnTech", "ConnectivityQualityScore", "CrimeBreakInsRank", "CrimeViolentRank", "CrimeMotorVehicleRank", "PoliticianPropertyCount", });
     internal_static_shorts_v1alpha1_ListStateSuburbsResponse_descriptor =
       getDescriptor().getMessageType(9);
     internal_static_shorts_v1alpha1_ListStateSuburbsResponse_fieldAccessorTable = new

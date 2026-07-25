@@ -20,7 +20,8 @@ const items: NavItemWithGroup[] = [
   { title: "economy", href: "/economy", primary: true },
   // Visible with a lock when signed out — the intel workspace is the
   // flagship signed-in surface, so it stays discoverable on every page.
-  { title: "industry intel", href: "/industry-intelligence", requiresAuth: true, primary: true },
+  { title: "politicians", href: "/politicians" },
+    { title: "industry intel", href: "/industry-intelligence", requiresAuth: true, primary: true },
   // Secondary — grouped under "More" dropdown
   { title: "dashboard", href: "/dashboards", requiresAuth: true },
   { title: "AI chat", href: "/chat", requiresAuth: true },

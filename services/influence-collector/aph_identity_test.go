@@ -19,50 +19,50 @@ func TestParseMemberHint(t *testing.T) {
 		nameOfCase string
 	}{
 		{
-			hint: "Albanese, Hon Anthony, Member for Grayndler, NSW",
+			hint:    "Albanese, Hon Anthony, Member for Grayndler, NSW",
 			surname: "Albanese", given: "Anthony", honorific: "Hon",
 			personKey: "ALBANESE|ANTHONY", display: "Anthony Albanese", slugBase: "anthony-albanese",
 			nameOfCase: "standard",
 		},
 		{
-			hint: "O'Brien, Mr Llew, Member for Wide Bay, QLD",
+			hint:    "O'Brien, Mr Llew, Member for Wide Bay, QLD",
 			surname: "O'Brien", given: "Llew", honorific: "Mr",
 			personKey: "OBRIEN|LLEW", display: "Llew O'Brien", slugBase: "llew-o-brien",
 			nameOfCase: "apostrophe surname",
 		},
 		{
 			// A post-nominal glued to the surname forks one person into two.
-			hint: "Alexander OAM, Mr John, Member for Bennelong, NSW¹",
+			hint:    "Alexander OAM, Mr John, Member for Bennelong, NSW¹",
 			surname: "Alexander", given: "John", honorific: "Mr",
 			personKey: "ALEXANDER|JOHN", display: "John Alexander", slugBase: "john-alexander",
 			nameOfCase: "post-nominal on the surname",
 		},
 		{
-			hint: "Kelly, Hon Dr Mike, Member for Eden-Monaro, NSW¹",
+			hint:    "Kelly, Hon Dr Mike, Member for Eden-Monaro, NSW¹",
 			surname: "Kelly", given: "Mike", honorific: "Hon Dr",
 			personKey: "KELLY|MIKE", display: "Mike Kelly", slugBase: "mike-kelly",
 			nameOfCase: "compound honorific + footnote",
 		},
 		{
-			hint: "Husic, The Hon Edham, Member for Chifley, NSW",
+			hint:    "Husic, The Hon Edham, Member for Chifley, NSW",
 			surname: "Husic", given: "Edham", honorific: "The Hon",
 			personKey: "HUSIC|EDHAM", display: "Edham Husic", slugBase: "edham-husic",
 			nameOfCase: "'The Hon' honorific",
 		},
 		{
-			hint: "Aly, Professor Anne, Member for Cowan, WAW",
+			hint:    "Aly, Professor Anne, Member for Cowan, WAW",
 			surname: "Aly", given: "Anne", honorific: "Professor",
 			personKey: "ALY|ANNE", display: "Anne Aly", slugBase: "anne-aly",
 			nameOfCase: "academic title + footnote-suffixed state",
 		},
 		{
-			hint: "Hockey, The Hon Joe, Former Member for North Sydney, NSW",
+			hint:    "Hockey, The Hon Joe, Former Member for North Sydney, NSW",
 			surname: "Hockey", given: "Joe", honorific: "The Hon",
 			personKey: "HOCKEY|JOE", display: "Joe Hockey", slugBase: "joe-hockey",
 			nameOfCase: "former member",
 		},
 		{
-			hint: "Le, Ms Dai, Member for Fowler, NSW",
+			hint:    "Le, Ms Dai, Member for Fowler, NSW",
 			surname: "Le", given: "Dai", honorific: "Ms",
 			personKey: "LE|DAI", display: "Dai Le", slugBase: "dai-le",
 			nameOfCase: "two-letter surname",
