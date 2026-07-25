@@ -20,8 +20,12 @@ services/jobs/
   internal/jobs/announcements/`shorted announcements` (was services/asx-announcement-crawler)
   internal/jobs/economy/      `shorted economy`    (was services/economy-collector)
   internal/jobs/influence/    `shorted influence`  (was services/influence-collector)
+  internal/jobs/news/         `shorted news`       (was services/news-aggregator)
   internal/jobs/reports/      `shorted reports coverage|link|sync`
                               (was services/report-coverage / -linker / -sync)
+  internal/jobs/signals/      `shorted signals`    (was services/signals-collector, Python)
+  internal/jobs/weeklyreport/ `shorted weekly-report`
+                              (was services/weekly-report-generator)
   Dockerfile                  standard image (context = services/)
 ```
 
@@ -32,15 +36,55 @@ services/jobs/
 | `announcements` | `services/asx-announcement-crawler` | yes — Cloud Run Job (still served by the OLD service) |
 | `economy` | `services/economy-collector` | yes — Cloud Run Job (still served by the OLD service) |
 | `influence` | `services/influence-collector` | no — laptop-only tool |
+| `news` | `services/news-aggregator` | yes — Cloud Run Job (still served by the OLD service) |
 | `reports coverage` | `services/report-coverage` | no — laptop-only tool |
 | `reports link` | `services/report-linker` | no — laptop-only tool |
 | `reports sync` | `services/report-sync` | no — laptop-only tool |
+| `signals` | `services/signals-collector` (Python) | yes — Cloud Run Job (still served by the OLD service) |
+| `weekly-report` | `services/weekly-report-generator` | yes — Cloud Run Job (still served by the OLD service) |
 
 The old services are still present and still build; per the plan's invariants a
 service is only deleted in a later cleanup PR, after its replacement has run
 green. **Nothing deployed changes yet** — `announcements` and `economy` are code
 ports only: their Terraform, images and schedules still point at the standalone
 services, and the scheduler cutover is a separate PR per job.
+
+## Phase 2b port notes (news / signals / weekly-report)
+
+Behaviour is carried over one-for-one except where a shared-binary invariant
+forced a change. The deliberate divergences:
+
+- **`news`: `RUN_MODE` → `-run-mode`.** The env var is still the flag's DEFAULT,
+  so the deployed schedulers' `container_overrides` keep working untouched; an
+  explicit flag wins. Unknown modes now fail fast instead of falling through to
+  the aggregate path.
+- **`news`: no implicit HTTP server.** The standalone binary served `/health` +
+  `POST /run` whenever `CLOUD_RUN_JOB` was unset — a leftover from its Cloud Run
+  *service* days (in prod it is a Job, and Cloud Run always sets that variable,
+  so the branch was unreachable there). It is preserved behind an explicit
+  `-run-mode serve` (with graceful shutdown) so `shorted news` on a laptop
+  aggregates and exits instead of silently becoming a server.
+- **`news`: `-dry-run` is refused** for `embed-backfill`,
+  `embed-company-summaries`, `digest` and `serve` — those modes write
+  regardless, and the standalone binary silently ignored the flag.
+- **`news`: aggregate-only collaborators are built lazily.** The stock matcher
+  (a DB query), the sentiment analyzer and the stealth RSS engine are only
+  constructed for `aggregate`/`serve`; the standalone binary built them before
+  the RUN_MODE switch, so a `cluster-news` or `digest` run paid for them.
+- **`weekly-report`: the revalidation ping goes through `platform.PingRevalidate`.**
+  Same endpoint and same query (`?secret=…&tag=report-<slug>` — `Tag` was added
+  to `RevalidateRequest` for it), but the shared helper adds a 45s deadline on a
+  detached context and REDACTS the URL from error logs; the original logged the
+  raw `*url.Error`, which contains `?secret=`.
+- **`signals` is a Python→Go rewrite.** Same flags, same SQL, same
+  `sha1(code|polarity|headline)` content hash, same 1s/3s 5xx backoff. It writes
+  through the shared pgx pool inside a per-stock transaction instead of one
+  psycopg2 connection behind a mutex, dedupes rows by content hash before the
+  multi-row upsert (Postgres rejects a second hit on the same conflict target,
+  which failed the whole stock in `collect.py`), and stops on SIGTERM (selection
+  is `last_fetched_at`-driven, so a partial sweep resumes next run).
+- **`log.Fatal*` is gone** from every ported path (including
+  `NewRSSFetcher`), per the convention below.
 
 ## Conventions for new jobs
 
