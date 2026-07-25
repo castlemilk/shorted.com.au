@@ -202,6 +202,11 @@ module "house_price_collector" {
 }
 
 # Economy collector (ABS/RBA/DCCEEW monthly ingest)
+#
+# SUPERSEDED by module.shorted_job_economy (`shorted economy -mode all`).
+# The job stays deployed + manually executable; only its scheduler is paused
+# until the replacement has one green scheduled run. Rollback: set
+# scheduler_paused = false here and paused = true on shorted_job_economy.
 module "economy_collector" {
   source = "../../modules/economy-collector"
 
@@ -210,6 +215,92 @@ module "economy_collector" {
   scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
   environment      = "production"
   image_url        = var.economy_collector_image
+  scheduler_paused = true
+
+  depends_on = [
+    google_project_service.required_apis,
+    google_artifact_registry_repository.shorted
+  ]
+}
+
+# ---------------------------------------------------------------------------
+# Consolidated `shorted <job>` binary (services/jobs) — Phase 2 cutover.
+# One image, one generic module, args select the subcommand.
+# ---------------------------------------------------------------------------
+
+# `shorted announcements ...` — replaces module.asx_announcement_crawler.
+module "shorted_job_announcements" {
+  source = "../../modules/shorted-job"
+
+  name             = "shorted-announcements"
+  description      = "Daily crawl of ASX announcements for director trades, dividends, and news"
+  project_id       = var.project_id
+  region           = var.region
+  scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
+  environment      = "production"
+  image_url        = var.shorted_jobs_image
+
+  # Identical to the old module's container args, prefixed with the subcommand.
+  args = [
+    "announcements",
+    "-director-trades",
+    "-dividends",
+    "-news-table",
+    "-all-announcements",
+    "-years", "2024,2025,2026",
+    "-workers", "6",
+  ]
+
+  schedule = "0 11 * * *" # 11 AM UTC = 9 PM AEST
+
+  env = {
+    ENVIRONMENT                 = "production"
+    OTEL_EXPORTER_OTLP_ENDPOINT = "https://otlp-gateway-prod-au-southeast-1.grafana.net/otlp"
+    OTEL_EXPORTER_OTLP_PROTOCOL = "http/protobuf"
+  }
+
+  secret_env = {
+    DATABASE_URL               = "DATABASE_URL"
+    OTEL_EXPORTER_OTLP_HEADERS = "OTEL_EXPORTER_OTLP_HEADERS"
+  }
+
+  timeout_seconds = 5400 # 90 min cap, same as the old module
+  cpu             = "2"
+  memory          = "1Gi"
+
+  depends_on = [
+    google_project_service.required_apis,
+    google_artifact_registry_repository.shorted
+  ]
+}
+
+# `shorted economy -mode all` — replaces module.economy_collector.
+module "shorted_job_economy" {
+  source = "../../modules/shorted-job"
+
+  name             = "shorted-economy"
+  description      = "Monthly ABS/RBA/DCCEEW economy ingest"
+  project_id       = var.project_id
+  region           = var.region
+  scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
+  environment      = "production"
+  image_url        = var.shorted_jobs_image
+
+  args     = ["economy", "-mode", "all"]
+  schedule = "0 17 5 * *" # 5th of month, 17:00 UTC (an hour after the housing job)
+
+  env = {
+    ENVIRONMENT = "production"
+    GCP_PROJECT = var.project_id
+  }
+
+  secret_env = {
+    DATABASE_URL = "DATABASE_URL"
+  }
+
+  timeout_seconds = 1800
+  cpu             = "1"
+  memory          = "512Mi"
 
   depends_on = [
     google_project_service.required_apis,
@@ -401,6 +492,11 @@ module "news_aggregator" {
 }
 
 # ASX Announcement Crawler Job (director trades, dividends, news from ASX)
+#
+# SUPERSEDED by module.shorted_job_announcements (`shorted announcements ...`).
+# The job stays deployed + manually executable; only its scheduler is paused
+# until the replacement has one green scheduled run. Rollback: set
+# scheduler_paused = false here and paused = true on shorted_job_announcements.
 module "asx_announcement_crawler" {
   source = "../../modules/asx-announcement-crawler"
 
@@ -409,6 +505,7 @@ module "asx_announcement_crawler" {
   scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
   environment      = "production"
   image_url        = var.asx_announcement_crawler_image
+  scheduler_paused = true
 
   depends_on = [
     google_project_service.required_apis,

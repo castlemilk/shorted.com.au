@@ -152,6 +152,7 @@ resource "google_cloud_scheduler_job" "asx_announcement_crawler" {
   attempt_deadline = "1800s"
   region           = var.scheduler_region
   project          = var.project_id
+  paused           = var.scheduler_paused
 
   retry_config {
     retry_count          = 2

@@ -34,6 +34,12 @@ variable "economy_collector_image" {
   default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/economy-collector:latest"
 }
 
+variable "shorted_jobs_image" {
+  description = "Docker image URL for the consolidated `shorted <job>` batch binary (services/jobs)"
+  type        = string
+  default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/shorted-jobs:latest"
+}
+
 variable "shorts_api_image" {
   description = "Docker image URL for shorts API service"
   type        = string
