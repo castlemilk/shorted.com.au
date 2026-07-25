@@ -14,6 +14,12 @@
 # github.com/skunkworq/stealth (private). Builders that can't mount the stealth
 # source pass a GitHub token secret instead. Both paths are optional-by-design;
 # with neither, `go mod download` fails fast on the private module.
+#
+# NEITHER go.mod carries a checked-in stealth `replace` (the local workspace
+# gets it from services/go.work) — a committed `replace … => ../../../stealth`
+# would resolve to a non-existent /stealth inside the image and break the
+# GitHub-token branch before the token was ever consulted. The bind-mount branch
+# ADDS the replace here; the token branch needs none.
 FROM scratch AS stealth
 FROM golang:1.26.0 AS builder
 
@@ -25,6 +31,7 @@ COPY jobs/go.mod jobs/go.sum ./jobs/
 
 RUN --mount=type=secret,id=github_token \
     --mount=type=bind,from=stealth,target=/stealth-src \
+    export GOTOOLCHAIN=auto && \
     if [ -f /run/secrets/github_token ]; then \
       git config --global url."https://x-access-token:$(cat /run/secrets/github_token)@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"; \
     elif [ -f /stealth-src/go.mod ]; then \
@@ -35,7 +42,7 @@ RUN --mount=type=secret,id=github_token \
       cp jobs/go.mod /tmp/jobs.go.mod.stealth; \
     fi && \
     cd jobs && \
-    GOPRIVATE=github.com/skunkworq/* GONOSUMCHECK=github.com/skunkworq/* go mod download && \
+    GOPRIVATE=github.com/skunkworq/* go mod download && \
     rm -f ~/.gitconfig
 
 COPY . .
@@ -47,7 +54,7 @@ RUN [ -f /tmp/jobs.go.mod.stealth ] && cp /tmp/jobs.go.mod.stealth jobs/go.mod |
 
 # Build in module mode: the workspace file (go.work) is irrelevant here and
 # GOWORK=off keeps the image build independent of sibling modules.
-RUN cd jobs && GOWORK=off CGO_ENABLED=0 GOOS=linux go build -o /shorted ./cmd/shorted
+RUN cd jobs && GOTOOLCHAIN=auto GOWORK=off CGO_ENABLED=0 GOOS=linux go build -o /shorted ./cmd/shorted
 
 FROM gcr.io/distroless/static-debian12
 

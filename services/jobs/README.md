@@ -42,10 +42,16 @@ green. Nothing deployed changes in Phase 1.
 2. Parse flags with a `flag.FlagSet` inside `Run(ctx, args)` — never
    package-level `flag.X` vars (they'd leak across subcommands). Default
    `-dry-run`/`-verbose` from `runner.FromContext(ctx)` so the global flags work.
+   If the job honours a dry run, ALSO set `DryRun: true` on its `runner.Func` —
+   the runner refuses a global `-dry-run` against a job that doesn't declare it,
+   rather than letting it silently write.
 3. Get the DB from `platform.ConnectFromEnv` (SimpleProtocol + pooler-safe) and
    the cache bust from `platform.PingRevalidate` — do not hand-roll either.
-4. Return errors; don't `log.Fatal`. The runner logs `[job] done … status=error`
-   and main exits non-zero, and your deferred cleanup actually runs.
+4. Return errors; don't `log.Fatal` and never `panic` for expected failures.
+   The runner logs `[job] done … status=error` and main exits non-zero, and your
+   deferred cleanup actually runs. Long per-item loops must check `ctx.Err()`
+   each iteration and wait on `select { case <-ctx.Done(): … }`, not
+   `time.Sleep`, so SIGTERM lands promptly.
 5. Register it in `cmd/shorted/main.go`.
 
 ## Building the image
@@ -61,3 +67,9 @@ docker build -f services/jobs/Dockerfile --secret id=github_token,env=GH_TOKEN s
 `pkg/enrichment` (used by `reports coverage|link`) pulls `pkg/stealthhttp` →
 `github.com/skunkworq/stealth`, so the `FROM scratch AS stealth` stage from the
 other service Dockerfiles carries over unchanged.
+
+Note that **neither `go.mod` carries a stealth `replace`** — local builds get it
+from `services/go.work`, the bind-mount branch of the Dockerfile adds one
+pointing at `/stealth`, and the GitHub-token branch needs none (a committed
+`replace … => ../../../stealth` resolves to a non-existent `/stealth` in the
+image and breaks the token path before the token is read).

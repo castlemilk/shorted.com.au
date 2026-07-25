@@ -6,9 +6,6 @@ go 1.26.0
 // module during the transition — see docs/jobs-consolidation-plan.md invariants.
 replace github.com/castlemilk/shorted.com.au/services => ../
 
-// Same private-module pattern the services module uses.
-replace github.com/skunkworq/stealth => ../../../stealth
-
 require (
 	cloud.google.com/go/storage v1.64.0
 	github.com/PuerkitoBio/goquery v1.12.0
