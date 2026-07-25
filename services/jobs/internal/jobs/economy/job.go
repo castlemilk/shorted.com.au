@@ -199,9 +199,12 @@ func (c *collector) runAll(ctx context.Context) error {
 	}
 	jobs := c.jobs()
 	failed := 0
-	for _, name := range allJobModes {
+	for i, name := range allJobModes {
 		if err := ctx.Err(); err != nil {
-			return err
+			// Keep the failure tally visible even when the run is cut short —
+			// a bare ctx.Err() would hide how much of the walk had failed.
+			return fmt.Errorf("cancelled after %d/%d steps, %d failed: %w",
+				i, len(allJobModes), failed, err)
 		}
 		var err error
 		if name == "correlations" {
