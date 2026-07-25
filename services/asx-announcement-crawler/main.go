@@ -68,10 +68,21 @@ type crawlStats struct {
 	reportsUpdated int64
 	errors         int64
 	announcements  int64
+	annScanned     int64
+	annSkipped     int64
 	annStored      int64
+	newsScanned    int64
+	newsSkipped    int64
 	newsStored     int64
 	dirTrades      int64
 	dividends      int64
+}
+
+// record folds a per-stock store result into the shared cross-worker tallies.
+func (s *crawlStats) record(scanned, skipped, inserted *int64, c storeCounts) {
+	atomic.AddInt64(scanned, int64(c.scanned))
+	atomic.AddInt64(skipped, int64(c.skipped))
+	atomic.AddInt64(inserted, int64(c.inserted))
 }
 
 // Financial report headline keywords/patterns
@@ -224,11 +235,11 @@ func main() {
 			if *flagAllAnnouncements && len(allAnns) > 0 {
 				atomic.AddInt64(&stats.announcements, int64(len(allAnns)))
 				if !*flagDryRun {
-					stored, err := storeAnnouncements(ctx, db, code, allAnns)
+					counts, err := storeAnnouncements(ctx, db, code, allAnns)
 					if err != nil {
 						log.Printf("  ERROR storing announcements for %s: %v", code, err)
 					} else {
-						atomic.AddInt64(&stats.annStored, int64(stored))
+						stats.record(&stats.annScanned, &stats.annSkipped, &stats.annStored, counts)
 					}
 				} else if *flagVerbose {
 					log.Printf("  %s: %d total announcements", code, len(allAnns))
@@ -237,11 +248,11 @@ func main() {
 
 			// Write announcements as news articles
 			if *flagNewsTable && len(allAnns) > 0 && !*flagDryRun {
-				stored, err := storeAsNewsArticles(ctx, db, code, allAnns)
+				counts, err := storeAsNewsArticles(ctx, db, code, allAnns)
 				if err != nil {
 					log.Printf("  ERROR storing news for %s: %v", code, err)
 				} else {
-					atomic.AddInt64(&stats.newsStored, int64(stored))
+					stats.record(&stats.newsScanned, &stats.newsSkipped, &stats.newsStored, counts)
 				}
 			}
 
@@ -338,6 +349,13 @@ func main() {
 		atomic.LoadInt64(&stats.processed), atomic.LoadInt64(&stats.reports), atomic.LoadInt64(&stats.reportsUpdated),
 		atomic.LoadInt64(&stats.announcements), atomic.LoadInt64(&stats.annStored), atomic.LoadInt64(&stats.newsStored),
 		atomic.LoadInt64(&stats.dirTrades), atomic.LoadInt64(&stats.dividends), atomic.LoadInt64(&stats.errors))
+
+	// Write-path efficiency: the crawl re-reads the full announcement history
+	// every run, so "skipped" should dominate. If inserted ~= scanned on a
+	// steady-state run, the pre-filter has stopped matching the DB keys.
+	log.Printf("Write path — asx_announcements: scanned %d, skipped-existing %d, inserted %d | news_articles: scanned %d, skipped-existing %d, inserted %d",
+		atomic.LoadInt64(&stats.annScanned), atomic.LoadInt64(&stats.annSkipped), atomic.LoadInt64(&stats.annStored),
+		atomic.LoadInt64(&stats.newsScanned), atomic.LoadInt64(&stats.newsSkipped), atomic.LoadInt64(&stats.newsStored))
 
 	// Record sync metrics
 	shortedotel.SyncDuration.Record(ctx, time.Since(syncStart).Seconds(), syncAttrs)
@@ -654,35 +672,59 @@ func classifyAnnouncementType(headline string) string {
 	}
 }
 
-// storeAnnouncements inserts announcements into the asx_announcements table, returning count of new rows
-func storeAnnouncements(ctx context.Context, db *pgxpool.Pool, code string, announcements []ASXAnnouncement) (int, error) {
-	stored := 0
-	for _, ann := range announcements {
-		annType := classifyAnnouncementType(ann.Headline)
-		query := fmt.Sprintf(
-			`INSERT INTO asx_announcements (stock_code, announcement_date, headline, is_price_sensitive, announcement_type, pdf_url, source)
-			 VALUES ('%s', '%s', '%s', %t, '%s', '%s', 'asx_announcements')
-			 ON CONFLICT (stock_code, announcement_date, headline) DO NOTHING`,
-			escapeSQLString(code),
-			escapeSQLString(ann.Date),
-			escapeSQLString(ann.Headline),
-			ann.IsPriceSens,
-			escapeSQLString(annType),
-			escapeSQLString(ann.PDFURL),
-		)
+// fetchExistingAnnouncementKeys loads the (announcement_date, headline) keys
+// already stored for a stock code, so the crawl's re-fetched history can be
+// filtered client-side instead of firing one no-op INSERT per announcement.
+// One indexed read per stock (idx_asx_ann_stock_date) replaces ~140 INSERTs.
+func fetchExistingAnnouncementKeys(ctx context.Context, db *pgxpool.Pool, code string) (map[string]struct{}, error) {
+	rows, err := db.Query(ctx,
+		`SELECT announcement_date, headline FROM asx_announcements WHERE stock_code = $1`, code)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
-		tag, err := db.Exec(ctx, query)
+	existing := make(map[string]struct{})
+	for rows.Next() {
+		var date time.Time
+		var headline string
+		if err := rows.Scan(&date, &headline); err != nil {
+			continue
+		}
+		existing[announcementKey(date.Format("2006-01-02"), headline)] = struct{}{}
+	}
+	return existing, rows.Err()
+}
+
+// storeAnnouncements inserts announcements into the asx_announcements table.
+// It pre-filters against what's already stored for the code and batches the
+// remainder into multi-row parameterized INSERTs.
+func storeAnnouncements(ctx context.Context, db *pgxpool.Pool, code string, announcements []ASXAnnouncement) (storeCounts, error) {
+	counts := storeCounts{scanned: len(announcements)}
+
+	existing, err := fetchExistingAnnouncementKeys(ctx, db, code)
+	if err != nil {
+		return counts, fmt.Errorf("fetch existing announcements: %w", err)
+	}
+
+	fresh := filterNewAnnouncements(announcements, existing)
+	counts.skipped = counts.scanned - len(fresh)
+	if len(fresh) == 0 {
+		return counts, nil
+	}
+
+	for _, batch := range chunkAnnouncements(fresh, maxInsertRowsPerStatement) {
+		query, args := buildAnnouncementInsert(code, batch)
+		tag, err := db.Exec(ctx, query, args...)
 		if err != nil {
 			if *flagVerbose {
-				log.Printf("    WARN: failed to insert announcement for %s: %v", code, err)
+				log.Printf("    WARN: failed to insert %d announcements for %s: %v", len(batch), code, err)
 			}
 			continue
 		}
-		if tag.RowsAffected() > 0 {
-			stored++
-		}
+		counts.inserted += int(tag.RowsAffected())
 	}
-	return stored, nil
+	return counts, nil
 }
 
 // escapeSQLString escapes single quotes for safe SQL string literals

@@ -8,45 +8,57 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// storeAsNewsArticles inserts ASX announcements into the news_articles table
-func storeAsNewsArticles(ctx context.Context, db *pgxpool.Pool, code string, announcements []ASXAnnouncement) (int, error) {
-	stored := 0
-	for _, ann := range announcements {
-		// Determine sentiment heuristic from headline
-		sentiment := classifySentiment(ann.Headline)
+// fetchExistingNewsURLs loads the article URLs already stored for a stock code.
+// news_articles dedups on UNIQUE(url), so one indexed read per stock
+// (idx_news_articles_stock_code_published) lets us skip the announcements that
+// are already mirrored instead of firing a no-op INSERT for each one.
+func fetchExistingNewsURLs(ctx context.Context, db *pgxpool.Pool, code string) (map[string]struct{}, error) {
+	rows, err := db.Query(ctx, `SELECT url FROM news_articles WHERE stock_code = $1`, code)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
-		// Determine relevance score based on price sensitivity
-		relevanceScore := 0.5
-		if ann.IsPriceSens {
-			relevanceScore = 0.9
+	existing := make(map[string]struct{})
+	for rows.Next() {
+		var url string
+		if err := rows.Scan(&url); err != nil {
+			continue
 		}
+		existing[url] = struct{}{}
+	}
+	return existing, rows.Err()
+}
 
-		query := fmt.Sprintf(
-			`INSERT INTO news_articles (stock_code, source, headline, url, published_at, sentiment, relevance_score, is_price_sensitive, summary)
-			 VALUES ('%s', 'asx', '%s', '%s', '%s'::timestamptz, '%s', %f, %t, '%s')
-			 ON CONFLICT (url) DO NOTHING`,
-			escapeSQLString(code),
-			escapeSQLString(ann.Headline),
-			escapeSQLString(ann.PDFURL),
-			escapeSQLString(ann.Date+"T00:00:00+10:00"), // AEST timezone
-			escapeSQLString(sentiment),
-			relevanceScore,
-			ann.IsPriceSens,
-			escapeSQLString(classifyAnnouncementType(ann.Headline)+" announcement"), // Basic summary
-		)
+// storeAsNewsArticles inserts ASX announcements into the news_articles table,
+// pre-filtering on the already-stored URLs and batching the remainder into
+// multi-row parameterized INSERTs.
+func storeAsNewsArticles(ctx context.Context, db *pgxpool.Pool, code string, announcements []ASXAnnouncement) (storeCounts, error) {
+	counts := storeCounts{scanned: len(announcements)}
 
-		tag, err := db.Exec(ctx, query)
+	existing, err := fetchExistingNewsURLs(ctx, db, code)
+	if err != nil {
+		return counts, fmt.Errorf("fetch existing news urls: %w", err)
+	}
+
+	fresh := filterNewNewsArticles(announcements, existing)
+	counts.skipped = counts.scanned - len(fresh)
+	if len(fresh) == 0 {
+		return counts, nil
+	}
+
+	for _, batch := range chunkAnnouncements(fresh, maxInsertRowsPerStatement) {
+		query, args := buildNewsArticleInsert(code, batch)
+		tag, err := db.Exec(ctx, query, args...)
 		if err != nil {
 			if *flagVerbose {
-				log.Printf("    WARN: failed to insert news article for %s: %v", code, err)
+				log.Printf("    WARN: failed to insert %d news articles for %s: %v", len(batch), code, err)
 			}
 			continue
 		}
-		if tag.RowsAffected() > 0 {
-			stored++
-		}
+		counts.inserted += int(tag.RowsAffected())
 	}
-	return stored, nil
+	return counts, nil
 }
 
 // classifySentiment does a simple keyword-based sentiment classification
