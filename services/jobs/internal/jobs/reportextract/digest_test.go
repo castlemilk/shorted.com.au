@@ -30,12 +30,27 @@ func TestParseDigestJSON(t *testing.T) {
 			want: digestResult{Digest: "y", Confidence: 0.1},
 		},
 		{
-			name: "surrounding whitespace",
-			raw:  "\n\n  {\"digest\":\"z\"}  \n",
-			want: digestResult{Digest: "z"},
+			// Python: float(parsed.get("confidence")) == float(None) raises
+			// inside the blanket except → the WHOLE digest is dropped. The
+			// zero-value default the port briefly had would have stored
+			// confidence 0.0 rows Python's NULL rule was designed to prevent.
+			name:    "missing confidence drops the digest (Python float(None) parity)",
+			raw:     "\n\n  {\"digest\":\"z\"}  \n",
+			wantErr: true,
 		},
 		{
-			name: "missing keys default to zero values",
+			name:    "null confidence drops the digest",
+			raw:     `{"digest":"x","confidence":null}`,
+			wantErr: true,
+		},
+		{
+			// Python float("0.9") succeeds on a numeric string.
+			name: "string-number confidence coerces (Python float(str) parity)",
+			raw:  `{"digest":"x","confidence":"0.9"}`,
+			want: digestResult{Digest: "x", Confidence: 0.9},
+		},
+		{
+			name: "missing other keys default to zero values",
 			raw:  `{"confidence":0.9}`,
 			want: digestResult{Confidence: 0.9},
 		},

@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/http/cookiejar"
 	"regexp"
 	"strings"
 	"time"
@@ -63,7 +64,12 @@ type fetcher struct {
 }
 
 func newFetcher() *fetcher {
-	return &fetcher{client: &http.Client{}}
+	// Cookie jar restores requests.Session parity: the displayAnnouncement.do
+	// terms page may set cookies the announcements.asx.com.au PDF host checks
+	// on the follow-up GET — without a jar every display-URL resolve could
+	// systematically degrade to no_pdf, masked by the tally.
+	jar, _ := cookiejar.New(nil)
+	return &fetcher{client: &http.Client{Jar: jar}}
 }
 
 // get issues a GET with the ASX browser headers and a per-request deadline.

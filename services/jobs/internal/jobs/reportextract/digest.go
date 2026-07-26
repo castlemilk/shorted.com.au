@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/google/generative-ai-go/genai"
@@ -56,9 +57,34 @@ var (
 // Python returned on every failure path: {"digest": "", "confidence": 0.0,
 // "key_takeaways": []}.
 type digestResult struct {
-	Digest       string   `json:"digest"`
-	Confidence   float64  `json:"confidence"`
-	KeyTakeaways []string `json:"key_takeaways"`
+	Digest        string          `json:"digest"`
+	RawConfidence json.RawMessage `json:"confidence"`
+	KeyTakeaways  []string        `json:"key_takeaways"`
+	// Confidence is populated by parseDigestJSON with Python float() coercion
+	// semantics — see coerceConfidence.
+	Confidence float64 `json:"-"`
+}
+
+// coerceConfidence reproduces Python's `float(parsed.get("confidence"))`
+// inside its blanket except: a JSON number OR a numeric string succeeds;
+// null/missing/non-numeric raises in Python, dropping the WHOLE digest —
+// so those return an error here rather than defaulting to 0.0 (a value the
+// NULL rule was designed to keep out of digest_confidence).
+func coerceConfidence(raw json.RawMessage) (float64, error) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return 0, fmt.Errorf("confidence missing or null")
+	}
+	var f float64
+	if err := json.Unmarshal(raw, &f); err == nil {
+		return f, nil
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err == nil {
+		if f, err := strconv.ParseFloat(strings.TrimSpace(s), 64); err == nil {
+			return f, nil
+		}
+	}
+	return 0, fmt.Errorf("confidence %s is not numeric", string(raw))
 }
 
 // digestAPIKey mirrors summarize_report's lookup order (GEMINI_API_KEY first,
@@ -157,6 +183,13 @@ func parseDigestJSON(raw string) (digestResult, error) {
 	if err := json.Unmarshal([]byte(raw), &result); err != nil {
 		return digestResult{}, err
 	}
+	// Python's float() coercion: null/non-numeric confidence raised inside
+	// the blanket except and dropped the whole digest; numeric strings passed.
+	conf, err := coerceConfidence(result.RawConfidence)
+	if err != nil {
+		return digestResult{}, fmt.Errorf("coerce confidence: %w", err)
+	}
+	result.Confidence = conf
 	return result, nil
 }
 

@@ -711,3 +711,12 @@ image and breaks the token path before the token is read).
 - **signals**: brandbrain responses are decoded strictly (typed floats/strings);
   Python coerced loosely. Upstream schema drift (e.g. confidence as a JSON
   string) fails the decode — surfaced as a retried, then logged+counted error.
+
+**Phase 3 review addenda (report-extractor):** cookie jar added to the ASX
+fetcher (requests.Session parity — the terms page may set cookies the PDF host
+checks); digest confidence coercion now matches Python float() exactly
+(null/missing/non-numeric drops the whole digest; numeric strings coerce);
+worker bodies are panic-shielded into the "error" tally outcome (Python's
+as_completed except Exception equivalence); empty director date_of_change now
+writes NULL (Python raised a cast error and lost the row — a deliberate,
+disclosed improvement).

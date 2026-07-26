@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"sync"
@@ -369,7 +370,7 @@ func RunConcurrent(ctx context.Context, args []string) error {
 				if err := gctx.Err(); err != nil {
 					return err
 				}
-				counts.record(work(gctx, r))
+				counts.record(runShielded(func() string { return work(gctx, r) }))
 				return nil
 			})
 		}
@@ -567,7 +568,7 @@ func RunDirectorTrades(ctx context.Context, args []string) error {
 				if err := gctx.Err(); err != nil {
 					return err
 				}
-				counts.record(d.processOne(gctx, row))
+				counts.record(runShielded(func() string { return d.processOne(gctx, row) }))
 				return nil
 			})
 		}
@@ -815,4 +816,20 @@ func sleepCtx(ctx context.Context, d time.Duration) error {
 	case <-t.C:
 		return nil
 	}
+}
+
+// runShielded invokes a worker body, converting a panic anywhere in its
+// collaborators (langextract, the genai SDK, the GCS client) into the
+// "error" tally outcome instead of crashing the whole batch mid-sweep —
+// Python's as_completed `except Exception` gave every worker failure the
+// same treatment. The PDF parser has its own recover; this is the outer
+// net for everything else.
+func runShielded(fn func() string) (out string) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("  PANIC recovered in worker: %v\n%s", r, debug.Stack())
+			out = outcomeError
+		}
+	}()
+	return fn()
 }
