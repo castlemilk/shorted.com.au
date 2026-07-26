@@ -280,8 +280,31 @@ func (g *Group) Run(ctx context.Context, args []string) error {
 // SignalContext returns a context cancelled on SIGINT/SIGTERM. Batch jobs get a
 // chance to unwind (close pools, finish a collection run) instead of being hard
 // killed mid-write. The returned stop func must be deferred by the caller.
+//
+// A SECOND signal hard-exits (130): signal.NotifyContext keeps its handler
+// installed until stop() runs, which would otherwise swallow repeat Ctrl-C /
+// SIGTERM and leave a wedged non-ctx-aware call (e.g. a stuck CDP fetch)
+// unkillable short of SIGKILL.
 func SignalContext(parent context.Context) (context.Context, context.CancelFunc) {
-	return signal.NotifyContext(parent, os.Interrupt, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(parent, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-ctx.Done()
+		if parent.Err() != nil {
+			return // parent cancellation, not a signal
+		}
+		second := make(chan os.Signal, 1)
+		signal.Notify(second, os.Interrupt, syscall.SIGTERM)
+		select {
+		case <-second:
+			fmt.Fprintln(os.Stderr, "second signal: exiting immediately")
+			os.Exit(130)
+		case <-time.After(10 * time.Minute):
+			// Unwind is taking absurdly long even for a crawl finalizer;
+			// stop waiting for a second signal and let the process finish
+			// however it will (launchd/Cloud Run will SIGKILL eventually).
+		}
+	}()
+	return ctx, stop
 }
 
 // Func adapts a plain function into a Job.

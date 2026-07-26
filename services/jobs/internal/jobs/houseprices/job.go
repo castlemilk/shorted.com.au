@@ -243,6 +243,16 @@ func Run(parent context.Context, args []string) error {
 	default:
 		return fmt.Errorf("unknown -mode %q (want official|crawl|listings|details|property|agent|enqueue|freshness|warmcheck|backfill-address|census|electorates|banners|amenities|lga|connectivity|funding|council-financials|crime|refresh|all)", *mode)
 	}
+	// A cancelled run must never exit 0: the old binary died on SIGTERM with
+	// the default disposition (143), and the rig drain wrapper
+	// (deploy/housing-crawl-common.sh) treats rc=0 + processed>0 as a healthy
+	// round and LOOPS AGAIN — so a graceful unwind that returned nil here
+	// would make `launchctl stop` spawn another agent round. Surface the
+	// interruption as an error (exit 1); the wrapper stops on any non-zero
+	// that isn't its retry codes.
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("-mode %s: run interrupted: %w", *mode, err)
+	}
 	return nil
 }
 
