@@ -27,6 +27,9 @@ services/jobs/
   internal/jobs/marketdata/   `shorted market-data serve|sync|audit-gaps|historical-backfill`
                               (was services/market-data-sync)
   internal/jobs/news/         `shorted news`       (was services/news-aggregator)
+  internal/jobs/reportextract/`shorted report-extract concurrent|sequential`
+                              + `shorted director-trades`
+                              (was services/report-extractor, Python)
   internal/jobs/reports/      `shorted reports coverage|link|sync`
                               (was services/report-coverage / -linker / -sync)
   internal/jobs/signals/      `shorted signals`    (was services/signals-collector, Python)
@@ -50,6 +53,9 @@ services/jobs/
 | `market-data audit-gaps` | `services/market-data-sync/cmd/audit-gaps` | no — laptop-only tool |
 | `market-data historical-backfill` | `services/market-data-sync/cmd/historical-backfill` | no — laptop-only tool |
 | `news` | `services/news-aggregator` | yes — `shorted-news`, 1 job + 5 schedules (cutover 2; all 5 old schedulers paused) |
+| `director-trades` | `services/report-extractor/extract_director_trades.py` | **not yet** — ported (Phase 3), no Terraform change; `director-trade-extractor` still runs the Python image |
+| `report-extract concurrent` | `services/report-extractor/extract_reports_concurrent.py` | **not yet** — ported (Phase 3); `financial-report-extractor` still runs the Python image |
+| `report-extract sequential` | `services/report-extractor/extract.py` | no — laptop-only CLI |
 | `reports coverage` | `services/report-coverage` | no — laptop-only tool |
 | `reports link` | `services/report-linker` | no — laptop-only tool |
 | `reports sync` | `services/report-sync` | no — laptop-only tool |
@@ -436,6 +442,222 @@ table, `refresh`'s detached `finalizeTimeout` + `linkSuburbSalCodes` +
 All 316 tests came across (every one of them env-gated where it needs a DB,
 a live CDP Chrome or real ABS/BOCSAR files, so `go test ./...` stays offline),
 plus 9 new dispatch/exit-code tests here and 3 in `internal/runner`.
+
+## Phase 3 port notes (report-extract / director-trades)
+
+The first Python→Go port that replaces **deployed** jobs:
+`services/report-extractor` (3 scripts, ~1,650 LoC) →
+`internal/jobs/reportextract` (1 package, 111 tests). **CODE ONLY** — no
+Terraform, no schedule change, nothing deleted. `terraform/modules/report-extractor`
+still points both Cloud Run Jobs at the Python image.
+
+### Three scripts, two deployed jobs, one package
+
+| Python | Deployed as | Go |
+|---|---|---|
+| `extract.py` (helper library + sequential CLI) | — (laptop only) | `shorted report-extract sequential` + the whole package's shared layer |
+| `extract_reports_concurrent.py` | `financial-report-extractor` (weekly, Sun 14:00 UTC) | `shorted report-extract concurrent` |
+| `extract_director_trades.py` | `director-trade-extractor` (daily, 12:30 UTC) | `shorted director-trades` |
+
+`report-extract` is a **`runner.Group`**, not one flat subcommand. The two report
+scripts disagree on flag DEFAULTS (`--recent` 2 vs 0, `--workers` 8 vs a
+sequential `--delay` loop, `--mode all` vs `top50`); folding them together would
+have silently changed one caller's defaults, which is the exact failure this port
+is supposed to avoid. `director-trades` is flat: one script, one job.
+Python's `import extract` relationship is preserved by keeping all three in one
+Go package, the way they share one module in Python.
+
+Cutover args, for whenever the Terraform slice lands:
+
+```hcl
+# financial-report-extractor → shorted-report-extract
+args = ["report-extract", "concurrent", "-recent", "2", "-limit", tostring(var.reports_limit),
+        "-workers", "2", "-max-pages", "6", "-top-shorted-first"]
+# director-trade-extractor → shorted-director-trades
+args = ["director-trades", "-priority", "recent", "-limit", tostring(var.director_limit), "-workers", "2"]
+```
+
+(`--flag value` still parses — the stdlib `flag` package accepts double dashes —
+so the existing arg lists work unchanged apart from the subcommand prefix.)
+
+### Flag parity
+
+`report-extract concurrent` ← `extract_reports_concurrent.py`
+
+| Python | Go | Default | Same? |
+|---|---|---|---|
+| `--recent` | `-recent` | 2 | ✅ |
+| `--limit` | `-limit` | 0 (=all, then capped by the run budget) | ✅ |
+| `--workers` | `-workers` | 8 (capped to 2) | ✅ |
+| `--model` | `-model` | `gemini-2.5-flash` | ✅ |
+| `--max-pages` | `-max-pages` | 10 | ✅ |
+| `--top-shorted-first` | `-top-shorted-first` | false | ✅ |
+| `--backfill-digests` | `-backfill-digests` | false | ✅ |
+| `--dry-run` | `-dry-run` | false (defaults from the global `-dry-run`) | ✅ + also gates GCS |
+
+`report-extract sequential` ← `extract.py`
+
+| Python | Go | Default | Same? |
+|---|---|---|---|
+| `--mode top50\|codes\|all` | `-mode` | `top50` | ✅ (invalid values now ERROR; argparse enforced choices, `flag` doesn't) |
+| `--codes` | `-codes` | `""` | ✅ (non-empty still forces `mode=codes`) |
+| `--limit` | `-limit` | 0 | ✅ |
+| `--recent` | `-recent` | 0 | ✅ |
+| `--model` | `-model` | `gemini-2.5-flash` | ✅ |
+| `--delay` | `-delay` | 2.0s | ✅ (now a ctx-aware wait, not `time.sleep`) |
+| `--max-pages` | `-max-pages` | 10 | ✅ |
+| `--dry-run` | `-dry-run` | false | ✅ + also gates GCS |
+| `--verbose` | `-verbose` | false | ✅ (per-metric dump; no global log-level change) |
+
+`director-trades` ← `extract_director_trades.py`
+
+| Python | Go | Default | Same? |
+|---|---|---|---|
+| `--limit` | `-limit` | 200 (capped to 20) | ✅ |
+| `--priority recent\|unknown\|top-shorted` | `-priority` | `recent` | ✅ (invalid values now ERROR) |
+| `--workers` | `-workers` | 6 (capped to 2) | ✅ |
+| `--retry-after-days` | `-retry-after-days` | 30 | ✅ |
+| `--dry-run` | `-dry-run` | false | ✅ |
+
+Environment is unchanged: `DATABASE_URL`, `GEMINI_API_KEY`, `LANGEXTRACT_API_KEY`,
+`GCS_REPORTS_BUCKET` (default `shorted-financial-reports`), `GEMINI_MAX_RUN_ITEMS`,
+`GEMINI_MAX_RUN_WORKERS`. The per-script run-budget defaults (10/1, 10/2, 20/2)
+and `_positive_int_env`'s fail-closed parsing came across exactly — a malformed
+budget env still ERRORS rather than degrading to unlimited.
+
+### DB / API interaction parity
+
+| Interaction | Python | Go | Same? |
+|---|---|---|---|
+| report selection (`codes`) | `IN (%s,…)` on `"company-metadata"` | `= ANY($1)` — same predicate, 1 bind param | ✅ |
+| report selection (`top50`) | `INNER JOIN (SELECT product_code FROM mv_top_shorts ORDER BY current_percent DESC LIMIT 50)` | verbatim | ✅ |
+| report selection (`all`) | `financial_reports::text LIKE '%asx_announcements%' ORDER BY stock_code` | verbatim | ✅ |
+| type filter | 5 types, quarterlies excluded | verbatim | ✅ |
+| §6.3(a) title noise filter | 24 noise + 6 keep-override regexes | verbatim (`(?i)` prefix instead of `re.IGNORECASE`) | ✅ |
+| ordering | `sort(key=(code,date), reverse=True)` stable | `sort.SliceStable` with a `>` comparator | ✅ |
+| per-company cap | `Counter` walk | same walk | ✅ |
+| already-extracted skip | `report_url = ANY(%s)` | `= ANY($1)` | ✅ |
+| top-shorted ordering | `rank.get(code, -1)`, stable reverse | same, stable | ✅ |
+| digest backfill selection | `WHERE digest IS NULL` | verbatim | ✅ |
+| extraction upsert | `ON CONFLICT (report_url) DO UPDATE` on 7 columns | verbatim; `""` → NULL for `report_date` (see below) | ⚠️ |
+| `digest_confidence` NULL rule | only stored alongside a non-empty digest | verbatim | ✅ |
+| `digest_model` | the CONSTANT `gemini-2.5-flash`, NOT `--model` | verbatim (latent bug, see below) | ✅ |
+| `raw_text_length` | `len(text)` = CODE POINTS | `utf8.RuneCountInString` | ✅ |
+| GCS object path | `digests/<code>/<sha1(url)>.txt`, `text/plain; charset=utf-8` | verbatim | ✅ |
+| director selection | `DISTINCT ON (announcement_url)` + `~ '^https?://'` + `(director_name='Unknown Director' OR total_value IS NULL)`, outer re-sort by `trade_date DESC LIMIT` | verbatim | ✅ |
+| §6.9 cool-off | `NOT EXISTS (… last_attempted_at > NOW() - make_interval(days => %s))`, appended only when `director_extract_attempts` exists | verbatim; params still (days, limit) and renumber to `$1` when the clause is absent | ✅ |
+| attempt marker | `ON CONFLICT DO UPDATE attempts = attempts + 1` | verbatim | ✅ |
+| director write-back | `UPDATE … trade_date = COALESCE(%s::date, trade_date) WHERE announcement_url = %s` | verbatim | ✅ |
+| ASX PDF fetch | `requests.Session` + `ASX_HEADERS`, 15s resolve / 60s download, `%PDF-` magic, `name="pdfURL"` hidden field | verbatim; one shared `http.Client` (thread-safe) instead of one Session per thread, and the body is bounded at 64 MiB | ⚠️ |
+| langextract call | `lx.extract(prompt, examples, model_id, passes=1, max_workers=1, max_char_buffer=2000)` | same options through `langextract.ExtractRaw` | ✅ |
+| Gemini digest | system=`DIGEST_PROMPT`, temp 0.2, no response MIME, fence-strip + JSON parse | verbatim | ✅ |
+| Gemini 3Y extract | system=`EXTRACT_PROMPT`, temp 0.0, `response_mime_type=application/json`, text[:6000] | verbatim | ✅ |
+| API-key precedence | digest: `GEMINI_API_KEY` → `LANGEXTRACT_API_KEY`; langextract: the reverse | both preserved | ✅ |
+
+### 🚨 LOUD CALLOUTS
+
+**1. PDF text extraction is NOT byte-identical — the engine changed.**
+Python used **pymupdf** (MuPDF). There is no pure-Go MuPDF, and a cgo binding
+(`go-fitz`) cannot ship in the distroless/static image, so this uses
+**`github.com/ledongthuc/pdf`** (a new direct dependency; it was already in
+`go.sum` as a chromedp test transitive). Page selection (`max-pages`), the
+`"\n\n"` page join and the `<100 chars → treat as no text` floor are unchanged,
+but **layout, whitespace, column ordering and glyph/encoding coverage differ**.
+Consequences to expect at cutover:
+- `raw_text_length` values will not match Python's for the same PDF.
+- Some PDFs pymupdf reads will yield **no** text here (ledongthuc has weaker
+  CMap/embedded-font coverage) → more `no_pdf`/`no_text` outcomes.
+- Metric extraction and digest quality are downstream of that text, so a
+  side-by-side parity run on a sample of real announcements is **required**
+  before the scheduler is repointed. This is the single highest-risk item in
+  this port.
+The reader also **panics** on malformed xref tables instead of erroring; every
+call is wrapped in a `recover` so one corrupt filing can't kill the batch.
+
+**2. langextract semantic gaps (Go port vs Python library).**
+- **API key**: the Python library reads `LANGEXTRACT_API_KEY` from the
+  environment implicitly. The Go port requires it in
+  `ModelConfig.ProviderKwargs["api_key"]`, so the package reads the env itself
+  (`LANGEXTRACT_API_KEY` → `GEMINI_API_KEY`). Same effective behaviour, one more
+  explicit hop.
+- **Missing key**: Python reached `lx.extract` with no key and its blanket
+  `except` turned the provider error into "no extractions + a warning". The Go
+  port short-circuits with the same warning and the same empty result, so the
+  digest-from-raw-text path still runs.
+- **Prompt-example validation** defaults to `PromptValidationWarning` in the Go
+  port. The `revenue` few-shot example's `extraction_text` joins two source lines
+  with a space where the example text has a newline, so it does not align
+  exactly — this is true of the Python original too and produces a warning, not a
+  failure. Pinned by `TestExtractionExamplesAlignToTheirSourceText`.
+- **`fetch_urls` defaults to TRUE in both** libraries: if a PDF's extracted text
+  ever began with a bare URL it would be fetched instead of extracted. Inherited
+  hazard, deliberately not "fixed" so behaviour matches.
+- **Attribute typing**: Python attributes are `dict[str, str]`; Go's are
+  `map[string]any`. Where the model returns a JSON number both libraries keep the
+  parsed type, so the stored JSON agrees.
+- **JSON key order**: Go marshals map keys sorted, Python preserved insertion
+  order. The column is `jsonb`, which does not preserve key order, so there is no
+  observable difference in stored data.
+- No other semantic gap was found between the two libraries for this call shape
+  (single pass, 1 worker, 2000-char buffer, Gemini provider).
+
+**3. `digest_model` mislabels rows when `--model` is overridden (Python bug,
+carried over).** `extract.py` passes `--model` to `summarize_report` but persists
+the CONSTANT `DIGEST_MODEL` in the `digest_model` column. Reproduced rather than
+fixed — `digest_model` is stored data, and "fixing" it would make Go-written rows
+disagree with every Python-written row for the same invocation. Fix it as a
+deliberate data decision, not as part of a port.
+
+**4. `-dry-run` now gates the GCS upload.** `extract.py` and
+`extract_reports_concurrent.py` called `upload_raw_text_to_gcs` **before** the
+dry-run check inside `store_extraction`, so `--dry-run` genuinely wrote objects
+to `shorted-financial-reports`. The consolidated binary's rule is that a dry run
+writes nothing, so the upload is stubbed out (the READ path stays live so the
+digest backfill is still exercised).
+
+**5. Empty `report_date` now writes NULL instead of failing.** Python passed the
+financial_reports JSON's `date` straight through; an empty string against the
+`DATE` column raised a psycopg2 `DataError` and lost the row. Non-empty dates are
+unaffected. Same for `report_type` / `report_title` / `raw_text_gcs_url`.
+
+**6. Cancellation is now an error.** Python's `ThreadPoolExecutor` swallowed
+every worker exception into an `error` tally entry and always exited 0 — an
+interrupted run looked clean. Here a per-item failure is still just a tally
+entry, but a CANCELLED run (SIGTERM, Cloud Run task timeout) returns an error so
+the job reports `status=error`. Selection is idempotent (already-extracted URLs
+skip; the §6.9 cool-off skips), so the next run resumes.
+
+**7. Missing Gemini key now fails `director-trades` up front.** Python called
+`sys.exit(1)` from inside the first worker thread; the Go port checks before
+opening a pool and returns the same message.
+
+**8. Known regex gaps preserved.** `on-?market buy-?back` / `buy-?back` require a
+hyphen-or-nothing between the words, so `"On market buyback"` is KEPT by both
+implementations. Pinned by `TestKnownNoisePatternGapsMatchPython` so a future
+"fix" is a deliberate decision.
+
+### Not ported
+
+- **`compare_models.py`** — a scratch model-comparison harness (no infra, no
+  schedule, no DB writes beyond reads); scratch tooling, not a job.
+- **`test_extract.py`** — the Python unit tests; their coverage is replaced (and
+  extended) by the 111 Go tests in this package.
+- **`ensure_table()`** — already dead in `extract.py` (commented out at the call
+  site; the schema is migration 000045).
+- **`Dockerfile` / `requirements.txt`** — the standard `services/jobs/Dockerfile`
+  serves both jobs; no browser and no Python runtime are needed.
+- **Terraform** — `modules/report-extractor` is untouched. The cutover (a
+  `modules/shorted-job` pair + `scheduler_paused = true` on the old module) is
+  its own PR, per the plan's invariants.
+
+### Tests
+
+111 tests, all offline — no Gemini, no database, no GCS, no live ASX. The
+collaborators (`pdfFetcher`, `blobStore`, `extractionStore`, `summarizer`,
+`directorExtractor`, and langextract itself via an injected `extractFn`) are
+interfaces precisely so the pipelines can be exercised end-to-end with fixtures.
+The only network in the suite is a local `httptest` server proving the ASX
+display-URL → PDF-URL resolution and the browser-header contract.
 
 ## Conventions for new jobs
 
