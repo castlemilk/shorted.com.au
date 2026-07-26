@@ -155,7 +155,7 @@ The palette is defined in three places that MUST stay in sync:
 
 ## 6. Dedup runbook (wire feed duplicates)
 
-Clustering runs **inline after every aggregation run** (`runAggregation` → `ClusterNews`, non-dry-run only) in `services/news-aggregator/`:
+Clustering runs **inline after every aggregation run** (`runAggregation` → `ClusterNews`, non-dry-run only) in `services/jobs/internal/jobs/news/`:
 
 - 48h lookback over unclustered articles, 3-gram headline shingles (stopwords/digits stripped), ≥3 shared shingles, 12h max time gap, union-find merge, buckets by `stock_code`.
 - The no-stock-code `_MARKET` bucket additionally requires shared shingles ≥ 60% of the smaller set (`sameStoryMarket`) — flat overlap falsely merges templated headlines ("insider just sold..."). See `clustering_test.go`.
@@ -165,9 +165,9 @@ Clustering runs **inline after every aggregation run** (`runAggregation` → `Cl
 Manual backfill:
 
 ```bash
-cd services
-RUN_MODE=cluster-news CLUSTER_LOOKBACK_HOURS=2160 go run ./news-aggregator/ --dry-run   # preview
-RUN_MODE=cluster-news CLUSTER_LOOKBACK_HOURS=2160 go run ./news-aggregator/             # write
+cd services/jobs
+CLUSTER_LOOKBACK_HOURS=2160 go run ./cmd/shorted news -run-mode cluster-news -dry-run   # preview
+CLUSTER_LOOKBACK_HOURS=2160 go run ./cmd/shorted news -run-mode cluster-news            # write
 # CLUSTER_MIN_OVERLAP=3 to tune
 ```
 

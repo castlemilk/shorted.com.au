@@ -135,29 +135,16 @@ Terraform/CI now run both jobs from the ONE consolidated image:
   with `--args="economy,-mode,freshness"` and greps logs for
   `job_name="shorted-economy"`.
 
-**Old jobs are PAUSED, not deleted** (plan invariant): `scheduler_paused`
-(default `false`) was added to `modules/asx-announcement-crawler` and
-`modules/economy-collector` and set to `true` at both env call sites. The
-Cloud Run Jobs themselves stay deployed and manually executable.
+**Old jobs were PAUSED, then DELETED** — see "Cleanup slice 1" below. The
+paused-not-deleted stage (`scheduler_paused = true` on
+`modules/asx-announcement-crawler` + `modules/economy-collector`) is historical;
+those modules, their env call sites and the source services are gone.
 
-**Rollback (one variable per job, no destroy):**
-
-1. Set `scheduler_paused = false` on the old module call site
-   (`module.asx_announcement_crawler` / `module.economy_collector`) in
-   `terraform/environments/{dev,prod}/main.tf`.
-2. Set `paused = true` on the matching new module call site
-   (`module.shorted_job_announcements` / `module.shorted_job_economy`).
-3. `terraform apply`. Both schedules flip within one apply; nothing is
-   destroyed and no image rebuild is needed.
-4. For economy also revert `.github/workflows/economy-freshness.yml` to job
-   `economy-collector` + `--args="-mode,freshness"` (the legacy image's
-   entrypoint takes no subcommand).
-
-**Cleanup (only after ≥1 green scheduled run of each replacement):** a follow-up
-PR deletes `modules/asx-announcement-crawler`, `modules/economy-collector`,
-their env call sites, the `asx_announcement_crawler_image` /
-`economy_collector_image` vars, the two CI matrix entries and the source
-services.
+**Rollback (historical, while both copies existed): one variable per job, no
+destroy** — `scheduler_paused = false` on the old module + `paused = true` on the
+matching `module.shorted_job_*`, then `terraform apply`. Post-cleanup the
+rollback is `git revert` of the cleanup commit + `terraform apply` (the legacy
+images are still in Artifact Registry).
 
 ## Cutover checklist — announcements + economy (from Phase 2 review)
 
@@ -239,6 +226,10 @@ schedules too (each entry's `paused` defaults to `var.paused`).
 `modules/{weekly-report-generator,news-aggregator,signals-collector}`, their env
 call sites, the `weekly_report_generator_image` / `news_aggregator_image` /
 `signals_collector_image` vars, the CI matrix entries and the source services.
+**news is DONE** (cleanup slice 1 below — 6/6 overnight scheduled runs green,
+including the four container-override schedulers). `weekly-report` (first
+scheduled monolith run = the coming Friday) and `signals` (Monday) are still
+pending their green scheduled cycle and were deliberately left in place.
 
 ## Phase 2c ports — market-data + discovery (branch `feat/jobs-monolith-phase2c-ports`)
 
@@ -461,3 +452,46 @@ market-data sync and the Sunday 12:00 UTC discovery run):** drop the
 `asx_discovery_image` / `market_data_sync_image` variables and the override
 plumbing (fold the image + args in directly), and delete
 `services/asx-discovery` + `services/market-data-sync`.
+
+## Cleanup slice 1 — announcements + economy + news DELETED (branch `feat/jobs-monolith-cleanup-1`)
+
+The first cleanup PR. Each of the three replacements had run green on its REAL
+trigger path before anything was deleted:
+
+| Deleted | Replacement | Green-run evidence |
+|---|---|---|
+| `services/asx-announcement-crawler` + `terraform/modules/asx-announcement-crawler` | `module.shorted_job_announcements` (`shorted-announcements`) | scheduled 11:00 UTC run green (~35 min) |
+| `services/news-aggregator` + `terraform/modules/news-aggregator` | `module.shorted_job_news` (`shorted-news`) | 6/6 overnight scheduled runs green, incl. all four container-override schedulers |
+| `services/economy-collector` + `terraform/modules/economy-collector` | `module.shorted_job_economy` (`shorted-economy`) | manual run green + `economy-freshness.yml` already repointed; monthly slot is Aug 5, and the scheduler mechanism is the same module resource shape proven by news/announcements |
+
+Also removed: the three `module` call sites in
+`terraform/environments/{dev,prod}/main.tf`, the
+`asx_announcement_crawler_image` / `news_aggregator_image` /
+`economy_collector_image` variables in both `variables.tf`, and the three
+`build-docker-images` matrix entries + their six `-var=` lines (plan **and**
+apply) in `.github/workflows/terraform-deploy.yml`.
+
+Preserved rather than deleted:
+
+- `services/economy-collector/probes/abs-flow-catalog.json` (the committed ABS
+  dataflow snapshot the `$economy-data` catalog-diff step compares against)
+  moved to `services/jobs/internal/jobs/economy/probes/abs-flow-catalog.json`.
+- OTel service names (`asx-announcement-crawler`, `news-aggregator`) are
+  unchanged in the ported jobs, so `modules/grafana-dashboards` still names them
+  and needs no edit.
+- `terraform/environments/prod/gemini-secret-isolation.test.mjs` was repointed
+  from `modules/news-aggregator` (`gemini_secret_name`) to
+  `module.shorted_job_news`'s `secret_env` mapping + the shared
+  `modules/shorted-job` IAM/env wiring.
+
+**This apply DESTROYS the paused old jobs, schedulers and service accounts** —
+that is the point of the slice. Rollback after merge is `git revert` + a
+`terraform apply`; the legacy images (`asx-announcement-crawler`,
+`news-aggregator`, `economy-collector`) remain in Artifact Registry, so nothing
+needs rebuilding, though CI no longer refreshes their tags.
+
+**Deliberately NOT in this slice:** `weekly-report-generator` (first scheduled
+monolith run is the coming Friday), `signals-collector` (Monday),
+`influence-collector` (the uncommitted `feat/politician-register-of-interests`
+work must be reconciled into `internal/jobs/influence` first), and every job
+that has not been cut over yet.

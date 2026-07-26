@@ -28,12 +28,6 @@ variable "house_price_collector_image" {
   default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/house-price-collector:latest"
 }
 
-variable "economy_collector_image" {
-  description = "Docker image URL for economy-collector job"
-  type        = string
-  default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/economy-collector:latest"
-}
-
 variable "shorted_jobs_image" {
   description = "Docker image URL for the consolidated `shorted <job>` batch binary (services/jobs)"
   type        = string
@@ -104,18 +98,6 @@ variable "market_data_image" {
   description = "Docker image URL for market-data API service"
   type        = string
   default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/market-data:latest"
-}
-
-variable "news_aggregator_image" {
-  description = "Docker image URL for news-aggregator job"
-  type        = string
-  default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/news-aggregator:latest"
-}
-
-variable "asx_announcement_crawler_image" {
-  description = "Docker image URL for asx-announcement-crawler job"
-  type        = string
-  default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/asx-announcement-crawler:latest"
 }
 
 variable "signals_collector_image" {

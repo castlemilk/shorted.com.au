@@ -137,23 +137,6 @@ module "house_price_collector" {
   image_url        = var.house_price_collector_image
 }
 
-# Economy collector (ABS/RBA/DCCEEW monthly ingest)
-#
-# SUPERSEDED by module.shorted_job_economy (`shorted economy -mode all`).
-# The job stays deployed + manually executable; only its scheduler is paused
-# until the replacement has one green scheduled run. Rollback: set
-# scheduler_paused = false here and paused = true on shorted_job_economy.
-module "economy_collector" {
-  source = "../../modules/economy-collector"
-
-  project_id       = var.project_id
-  region           = var.region
-  scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
-  environment      = "production"
-  image_url        = var.economy_collector_image
-  scheduler_paused = true
-}
-
 # ---------------------------------------------------------------------------
 # Consolidated `shorted <job>` binary (services/jobs) — Phase 2 cutover.
 # One image, one generic module, args select the subcommand.
@@ -523,47 +506,6 @@ module "weekly_report_generator" {
   image_url            = var.weekly_report_generator_image
   gemini_secret_exists = var.gemini_secret_exists
   scheduler_paused     = true
-
-  depends_on = [
-  ]
-}
-
-# News Aggregator Job (RSS feeds → news_articles table)
-#
-# SUPERSEDED by module.shorted_job_news (`shorted news`, one job + five
-# schedules). The job stays deployed + manually executable; ALL FIVE schedulers
-# are paused until the replacement has one green scheduled run. Rollback: set
-# scheduler_paused = false here and paused = true on shorted_job_news.
-module "news_aggregator" {
-  source = "../../modules/news-aggregator"
-
-  project_id           = var.project_id
-  region               = var.region
-  scheduler_region     = "australia-southeast1" # Cloud Scheduler only available in southeast1
-  environment          = "dev"
-  image_url            = var.news_aggregator_image
-  gemini_secret_exists = var.gemini_secret_exists
-  scheduler_paused     = true
-
-  depends_on = [
-  ]
-}
-
-# ASX Announcement Crawler Job (director trades, dividends, news from ASX)
-#
-# SUPERSEDED by module.shorted_job_announcements (`shorted announcements ...`).
-# The job stays deployed + manually executable; only its scheduler is paused
-# until the replacement has one green scheduled run. Rollback: set
-# scheduler_paused = false here and paused = true on shorted_job_announcements.
-module "asx_announcement_crawler" {
-  source = "../../modules/asx-announcement-crawler"
-
-  project_id       = var.project_id
-  region           = var.region
-  scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
-  environment      = "dev"
-  image_url        = var.asx_announcement_crawler_image
-  scheduler_paused = true
 
   depends_on = [
   ]

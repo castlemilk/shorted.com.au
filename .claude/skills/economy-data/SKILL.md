@@ -31,8 +31,8 @@ Run in order; each step's output feeds the report at the end.
 
 ### 1a. Freshness (deterministic)
 ```bash
-cd services/economy-collector
-DATABASE_URL=postgresql://admin:password@localhost:5438/shorts go run . -mode freshness   # local
+cd services/jobs
+DATABASE_URL=postgresql://admin:password@localhost:5438/shorts go run ./cmd/shorted economy -mode freshness   # local
 # prod: read-only — point DATABASE_URL at the prod SESSION pooler URL from services/.env
 ```
 Non-zero exit = at least one source stale (also checks correlation-matrix
@@ -44,7 +44,7 @@ to fire when the next yearly release is DUE — a STALE crime source usually
 means "check the release page for the new issue", not breakage. For each
 STALE source: check the upstream release page for a schedule
 change before assuming breakage; then check collector job logs
-(`gcloud logging read ... job_name="economy-collector"`, config
+(`gcloud logging read ... job_name="shorted-economy"`, config
 `shorted-prod`).
 
 ### 1b. Catalog diff (new + removed ABS flows)
@@ -53,7 +53,7 @@ curl -s -A "shorted-data/1.0 (+https://shorted.com.au)" -H "Accept: application/
   "https://data.api.abs.gov.au/rest/dataflow/ABS?detail=allstubs" -o /tmp/abs-flows-now.json
 ```
 Diff `{id,version}` pairs against the committed snapshot
-`services/economy-collector/probes/abs-flow-catalog.json`:
+`services/jobs/internal/jobs/economy/probes/abs-flow-catalog.json`:
 - **New flows** → candidate list (ignore `C21_*`/`CENSUS`/`C16_*` census noise).
 - **Version bumps on PINNED flows** (grep importer files for `Version` consts)
   → re-probe that flow (§2) and re-run its magnitude cross-check; a bump can
