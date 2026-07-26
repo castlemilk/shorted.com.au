@@ -1224,3 +1224,51 @@ response MIME type is not a schema guarantee — do not treat it as one.
 Manager injected into the job, exactly like `DATABASE_URL` in
 `terraform/modules/influence-collector/` — never in a repo file, and never on a
 command line that gets logged.
+
+### 8.8 Drain progress and the environment blocker
+
+**143 of 345 scan/mixed documents drained** via `--vision-backend gemini-api`
+before the run stopped, with **0 genuine extraction failures** and 12 documents
+quarantined by the gates (mostly `vision_amount_spike` on real gifts/travel
+values). Every extracted document reported 13-14 items at 100% page coverage.
+
+The run did NOT stop for a pipeline reason. The local postgres container died
+under it:
+
+```
+FAILED: server closed the connection unexpectedly
+psycopg2.InterfaceError: connection already closed   <- in mark_extract_failed
+```
+
+Two fixes, because a multi-hour drain must survive a DB blip:
+
+- `run_vision` reconnects per document when `conn.closed` is set. Cheap against a
+  local pool, and the queue is long enough that losing it to a dropped socket is
+  the expensive outcome.
+- `mark_extract_failed` now tolerates a dead connection instead of raising. It is
+  the ERROR path: raising there turned one document's failure into the loss of
+  every document after it, which is precisely what happened at document 143.
+
+**The real blocker is OrbStack, not the pipeline.** The Docker daemon died twice in
+one session, taking `shorted_db` with it. Disk is not the cause (249 GB free on /,
+574 GB on the external volume). Nothing is lost when it happens — the 769 fetched
+PDFs are on disk and the DB is on the named volume `sql_my_db_data`, which survived
+the first crash intact (19,029 declared items verified after restart).
+
+Resuming is one command; completed documents are skipped by the `NOT EXISTS`
+artifact guard, no `--force` needed:
+
+```bash
+cd analysis/sql && docker compose up -d postgres     # after `orb start`
+cd services/report-extractor
+GEMINI_API_KEY=... DATABASE_URL=... .venv/bin/python extract_register.py \
+    --stage vision --vision-backend gemini-api --concurrency 6 --batch-pages 4
+# then, in this order:
+#   ic -mode register-load     (party seed + normalised rows)
+#   ic -mode register-resolve  (securities, locations, fold, MV refresh)
+```
+
+Sizing note for the estimate: 44P/45P average **18.8 pages** per document (max 68),
+not the 6 pages of the probe document, so the corpus is ~6,500 pages and the drain
+is ~2.5-3 hours at 1.6s/page — matching the original estimate rather than the
+optimistic one extrapolated from small documents.

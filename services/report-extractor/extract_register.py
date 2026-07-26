@@ -545,7 +545,17 @@ def store_extraction(
 
 
 def mark_extract_failed(conn, doc_id: str, err: Exception, dry_run: bool) -> None:
+    """Record a per-document failure.
+
+    Tolerates a dead connection. This is the ERROR path: raising here turns one
+    document's failure into the loss of every document after it, which is exactly
+    what happened at document 143 of a 345-document vision drain when postgres
+    dropped the socket.
+    """
     if dry_run:
+        return
+    if getattr(conn, "closed", 0):
+        log.warning("cannot record failure for %s: connection closed", doc_id)
         return
     cur = conn.cursor()
     cur.execute(
@@ -709,6 +719,15 @@ def run_vision(args) -> int:
 
     for row in rows:
         temp_path = None
+        # A vision drain over the whole scan corpus runs for HOURS on one
+        # connection, and postgres closed it mid-run at document 143 of 345.
+        # mark_extract_failed then raised InterfaceError on the dead handle, so a
+        # transient blip killed the rest of the queue. Reconnect per document:
+        # cheap against a local pool, and the queue is long enough that losing it
+        # to a dropped socket is the expensive outcome.
+        if conn.closed:
+            log.warning("database connection closed; reconnecting")
+            conn = connect_db()
         try:
             doc, temp_path = open_document(row["storage_uri"])
             try:
