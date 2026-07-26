@@ -240,6 +240,32 @@ schedules too (each entry's `paused` defaults to `var.paused`).
 call sites, the `weekly_report_generator_image` / `news_aggregator_image` /
 `signals_collector_image` vars, the CI matrix entries and the source services.
 
+## Phase 2c ports — market-data + discovery (branch `feat/jobs-monolith-phase2c-ports`)
+
+CODE ONLY: both jobs are ported into the `shorted` binary, nothing is deployed,
+no Terraform/schedule changed, nothing deleted. `services/market-data-sync` and
+`services/asx-discovery` stay in `services/go.work` and still build.
+
+- `shorted market-data serve|sync|audit-gaps|historical-backfill`
+  (was `services/market-data-sync` + `cmd/audit-gaps` + `cmd/historical-backfill`).
+  `serve` preserves the full HTTP surface the weekday scheduler POSTs, so the
+  cutover is a scheduler retarget, not a contract change.
+- `shorted discovery` (was `services/asx-discovery`), env-only contract
+  unchanged (`GCS_BUCKET_NAME`, `DOWNLOAD_DIR`).
+- New `services/jobs/Dockerfile.browser`: SAME binary + build stage as
+  `Dockerfile`, Debian + Chromium runtime. `discovery` is the only job that
+  needs it; the standard distroless image stays lean for the other eight.
+- **Landmine found:** `asx-discovery`'s scraper imports
+  `github.com/mxschmitt/playwright-go` (resolved via `go.work` from the parent
+  module, v0.6100.0 → driver 1.61.1) while its `go.mod` requires an unused
+  `playwright-community/playwright-go v0.5200.1` (driver 1.52.0) and its
+  Dockerfile pins npm `playwright@1.57.0`. The pre-bundled Chromium has never
+  matched the driver, so every run re-downloads ~165 MiB from
+  `cdn.playwright.dev`. `Dockerfile.browser` pins **1.61.1** to match the
+  driver `jobs/go.mod` now requires directly.
+- Full divergence tables, omitted scratch CLIs and dep-version convergences:
+  `services/jobs/README.md` ("Phase 2c port notes").
+
 ## Cutover checklist — weekly-report + news + signals
 
 - **news logs move stdout → stderr.** The standalone binary called
