@@ -1,0 +1,125 @@
+# syntax=docker/dockerfile:1
+#
+# BROWSER image variant for the consolidated `shorted <job>` batch binary.
+#
+# Same binary, same build stage and same build CONTEXT (services/) as
+# ./Dockerfile — only the runtime base differs: this one carries Chromium and
+# the Playwright driver. Build it from the repo root:
+#
+#   docker build -f services/jobs/Dockerfile.browser services
+#   docker build -f services/jobs/Dockerfile.browser --secret id=github_token,env=GH_TOKEN services
+#
+# WHY A SEPARATE IMAGE: the standard image is distroless/static and serves the
+# lean jobs (announcements, economy, influence, news, reports, signals,
+# weekly-report, market-data). Bolting ~500 MiB of Chromium + Debian onto it
+# would tax every one of them to serve the one job that needs a browser.
+#
+# WHO USES IT: `shorted discovery` (was services/asx-discovery). If the
+# house-prices crawler's non-CDP modes are ever containerised they belong here
+# too; its CDP modes talk to a host Chrome on the residential Macs and need no
+# browser in the image at all.
+#
+# The stealth stage/private-module dance is identical to ./Dockerfile — see the
+# comment block there for why neither go.mod carries a checked-in replace.
+FROM scratch AS stealth
+FROM golang:1.26.0 AS builder
+
+WORKDIR /app
+
+# Parent module manifests first (the jobs module replaces ../ ).
+COPY go.mod go.sum ./
+COPY jobs/go.mod jobs/go.sum ./jobs/
+
+RUN --mount=type=secret,id=github_token \
+    --mount=type=bind,from=stealth,target=/stealth-src \
+    export GOTOOLCHAIN=auto && \
+    if [ -f /run/secrets/github_token ]; then \
+      git config --global url."https://x-access-token:$(cat /run/secrets/github_token)@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"; \
+    elif [ -f /stealth-src/go.mod ]; then \
+      cp -r /stealth-src /stealth && \
+      go mod edit -replace github.com/skunkworq/stealth=/stealth && \
+      go mod edit -replace github.com/skunkworq/stealth=/stealth ./jobs/go.mod && \
+      cp go.mod /tmp/go.mod.stealth && \
+      cp jobs/go.mod /tmp/jobs.go.mod.stealth; \
+    fi && \
+    cd jobs && \
+    GOPRIVATE=github.com/skunkworq/* go mod download && \
+    rm -f ~/.gitconfig
+
+COPY . .
+
+# Restore the go.mod files carrying the local-stealth replace (COPY . . above
+# overwrote them with the checked-in versions).
+RUN [ -f /tmp/go.mod.stealth ] && cp /tmp/go.mod.stealth go.mod || true
+RUN [ -f /tmp/jobs.go.mod.stealth ] && cp /tmp/jobs.go.mod.stealth jobs/go.mod || true
+
+RUN cd jobs && GOTOOLCHAIN=auto GOWORK=off CGO_ENABLED=0 GOOS=linux go build -o /shorted ./cmd/shorted
+
+# Runtime: Debian, because Playwright's Chromium build is glibc-linked.
+FROM debian:bookworm-slim
+
+# Node.js + npm, used only to run `playwright install chromium` at build time.
+RUN apt-get update && apt-get install -y \
+    curl \
+    ca-certificates \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Shared libraries Chromium needs.
+RUN apt-get update && apt-get install -y \
+    fonts-liberation \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libatk1.0-0 \
+    libatspi2.0-0 \
+    libcups2 \
+    libdbus-1-3 \
+    libdrm2 \
+    libgbm1 \
+    libgtk-3-0 \
+    libnspr4 \
+    libnss3 \
+    libwayland-client0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxkbcommon0 \
+    libxrandr2 \
+    xdg-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Pre-bundle the Chromium build the linked playwright-go driver expects.
+#
+# PIN CONTRACT: this version MUST equal `playwrightCliVersion` in the
+# github.com/mxschmitt/playwright-go release pinned by services/jobs/go.mod
+# (v0.6100.0 → 1.61.1). If they diverge, playwright-go deletes the bundled
+# build and re-downloads ~165 MiB of Chromium on every run — a startup memory
+# spike plus a hard runtime dependency on cdn.playwright.dev.
+#
+# NOTE this pin deliberately DIFFERS from services/asx-discovery/Dockerfile,
+# which pins 1.57.0 against a comment claiming playwright-go v0.5200.1 ships
+# driver 1.57.0. Both halves of that claim are wrong: v0.5200.1's driver is
+# 1.52.0, AND the scraper does not import playwright-community/playwright-go at
+# all — it imports github.com/mxschmitt/playwright-go, which asx-discovery's own
+# go.mod never requires and which resolves through services/go.work to the
+# parent module's v0.6100.0 (driver 1.61.1). So the old image has been
+# re-downloading Chromium on every run. See services/jobs/README.md.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN PLAYWRIGHT_BROWSERS_PATH=/ms-playwright npx --yes playwright@1.61.1 install chromium \
+    && PLAYWRIGHT_BROWSERS_PATH=/ms-playwright npx --yes playwright@1.61.1 install-deps chromium || true \
+    && rm -rf /root/.npm /root/.cache
+
+WORKDIR /app
+COPY --from=builder /shorted /shorted
+
+# Directories for the Playwright driver and the CSV download scratch space.
+RUN mkdir -p /tmp/asx-downloads /root/.cache/ms-playwright-go && \
+    chmod 777 /tmp/asx-downloads && \
+    chmod 777 /root/.cache/ms-playwright-go
+
+ENV DOWNLOAD_DIR=/tmp/asx-downloads
+
+# Same contract as the standard image: Cloud Run passes the subcommand as args,
+# e.g. args = ["discovery"].
+ENTRYPOINT ["/shorted"]
