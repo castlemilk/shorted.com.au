@@ -258,28 +258,47 @@ function parliamentList(numbers: number[]): string {
  */
 export function CoverageNote({
   extracted,
+  partial = [],
   pending,
 }: {
   extracted: number[];
+  partial?: number[];
   pending: number[];
 }) {
-  if (extracted.length === 0 && pending.length === 0) return null;
+  if (extracted.length === 0 && partial.length === 0 && pending.length === 0) return null;
+
+  const incomplete = partial.length > 0 || pending.length > 0;
 
   return (
     <p className="rounded-md border border-muted-foreground/20 bg-muted/30 p-2.5 text-[11px] leading-relaxed text-muted-foreground">
       {extracted.length > 0 ? (
         <>
           This page covers the <strong>{parliamentList(extracted)}</strong>{" "}
-          {extracted.length === 1 ? "Parliament" : "Parliaments"}.{" "}
+          {extracted.length === 1 ? "Parliament" : "Parliaments"} in full.{" "}
+        </>
+      ) : null}
+      {/* Partial is its OWN state, never folded into "covered". A parliament
+          where half the documents parsed cannot support an absence claim about
+          any individual member, because we may simply not have read theirs. */}
+      {partial.length > 0 ? (
+        <>
+          We have read <strong>only part</strong> of the{" "}
+          <strong>{parliamentList(partial)}</strong>{" "}
+          {partial.length === 1 ? "Parliament" : "Parliaments"} — this member&rsquo;s own document
+          may be among those still unread.{" "}
         </>
       ) : null}
       {pending.length > 0 ? (
         <>
           Register documents for the <strong>{parliamentList(pending)}</strong>{" "}
           {pending.length === 1 ? "Parliament" : "Parliaments"} exist but have not been extracted
-          yet, so nothing below should be read as covering{" "}
-          {pending.length === 1 ? "it" : "them"}. An empty section means we have not recorded an
-          entry for the parliaments listed — not that the member declared nothing.
+          yet.{" "}
+        </>
+      ) : null}
+      {incomplete ? (
+        <>
+          An empty section below means we have no recorded entry — <strong>not</strong> that the
+          member declared nothing.
         </>
       ) : null}
     </p>
@@ -299,9 +318,15 @@ export function CaveatNote({ className }: { className?: string }) {
       <p>
         Australian federal parliamentarians must declare certain interests in the Register of
         Members&rsquo; Interests (House of Representatives) and the Register of Senators&rsquo;
-        Interests. The registers record <strong>what</strong> is held — they do{" "}
-        <strong>not</strong> record quantity, value, purchase price or income. Nothing on this page
-        states or implies the size of any holding, any gain or loss, or any trading activity.
+        Interests. For holdings — shares, real estate, trusts, liabilities, assets — the registers
+        record <strong>what</strong> is held and do <strong>not</strong> record quantity, value,
+        purchase price or income. Nothing on this page states or implies the size of any holding,
+        any gain or loss, or any trading activity.
+      </p>
+      <p>
+        Two items are different, because the form itself asks for a value: gifts and sponsored
+        travel. Where a member stated an amount there, it appears as they wrote it. That figure is
+        the declared value of a gift or a trip — never the size of a holding, and never a total.
       </p>
       <p>
         Dates are the dates a declaration appeared in, or was removed from, the register — not

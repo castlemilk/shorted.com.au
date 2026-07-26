@@ -295,6 +295,7 @@ func (s *ShortsServer) GetPolitician(
 			// to know the corpus boundary to caption a short list as well as an
 			// absent one.
 			ExtractedParliaments: row.ExtractedParliaments,
+			PartialParliaments:   row.PartialParliaments,
 			PendingParliaments:   row.PendingParliaments,
 		}
 		for _, i := range interests {

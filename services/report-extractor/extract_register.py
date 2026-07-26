@@ -39,6 +39,7 @@ from register_schema import (
     MIN_PAGE_COVERAGE_PCT,
     SCAN_PAGE_CHAR_THRESHOLD,
     SCHEMA_VERSION,
+    TIER_VISION,
     TIER_DETERMINISTIC,
     classify_document,
     classify_page,
@@ -176,6 +177,17 @@ def connect_db():
         log.error("DATABASE_URL environment variable required")
         sys.exit(1)
     return psycopg2.connect(db_url)
+
+
+from register_vision import (  # noqa: E402  (kept near use: agy is operator-only)
+    VISION_BATCH_PAGES,
+    VISION_CONCURRENCY_DEFAULT,
+    VISION_MODEL_DEFAULT,
+    VisionUnavailable,
+    require_agy,
+    vision_gates,
+    vision_pages,
+)
 
 
 def select_documents_to_classify(conn, limit: int, chamber: Optional[str], parliament: Optional[int]):
@@ -367,7 +379,7 @@ def select_documents_to_extract(conn, args):
     return rows
 
 
-def build_artifact(row, parsed, page_count: int) -> dict:
+def build_artifact(row, parsed, page_count: int, tier: str = TIER_DETERMINISTIC) -> dict:
     """Serialise a parse into the versioned artifact.
 
     Field names mirror the DB columns the Go loader writes, so the contract
@@ -419,7 +431,7 @@ def build_artifact(row, parsed, page_count: int) -> dict:
         "extractor": {
             "name": EXTRACTOR_NAME,
             "version": SCHEMA_VERSION,
-            "tier": TIER_DETERMINISTIC,
+            "tier": tier,
             "model": "",
         },
         "pages": {
@@ -455,7 +467,10 @@ def artifact_metrics(artifact: dict, page_count: int, blank_pages: int = 0) -> d
     }
 
 
-def store_extraction(conn, row, artifact: dict, metrics: dict, dry_run: bool) -> None:
+def store_extraction(
+    conn, row, artifact: dict, metrics: dict, dry_run: bool,
+    tier: str = TIER_DETERMINISTIC, model: str = "",
+) -> None:
     if dry_run:
         return
 
@@ -484,7 +499,7 @@ def store_extraction(conn, row, artifact: dict, metrics: dict, dry_run: bool) ->
             (document_id, content_sha256, schema_version, extractor_name,
              extractor_version, tier, model, payload, statement_count,
              item_count, pages_covered, page_coverage_pct, warnings)
-        VALUES (%s, %s, %s, %s, %s, %s, '', %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON CONFLICT (content_sha256, extractor_version, tier) DO UPDATE SET
             payload           = EXCLUDED.payload,
             statement_count   = EXCLUDED.statement_count,
@@ -499,7 +514,8 @@ def store_extraction(conn, row, artifact: dict, metrics: dict, dry_run: bool) ->
             SCHEMA_VERSION,
             EXTRACTOR_NAME,
             SCHEMA_VERSION,
-            TIER_DETERMINISTIC,
+            tier,
+            model,
             psycopg2.extras.Json(artifact),
             metrics["statement_count"],
             metrics["item_count"],
@@ -520,7 +536,7 @@ def store_extraction(conn, row, artifact: dict, metrics: dict, dry_run: bool) ->
             updated_at        = now()
         WHERE id = %s
         """,
-        (status, TIER_DETERMINISTIC, SCHEMA_VERSION, metrics["page_coverage_pct"], row["id"]),
+        (status, tier, SCHEMA_VERSION, metrics["page_coverage_pct"], row["id"]),
     )
     conn.commit()
     cur.close()
@@ -611,18 +627,182 @@ def run_extract(args) -> int:
     return 1 if failed and failed == len(rows) else 0
 
 
+
+def select_documents_for_vision(conn, args):
+    """Documents the deterministic tier cannot read.
+
+    'scan' has no text layer at all; 'mixed' has some scanned pages. Both need
+    the vision tier for at least part of the document.
+    """
+    conds = [
+        "fetch_status = 'fetched'",
+        "classify_status = 'classified'",
+        "storage_uri IS NOT NULL",
+        "text_class IN ('scan', 'mixed')",
+    ]
+    params: list = []
+    if args.chamber:
+        conds.append("chamber = %s")
+        params.append(args.chamber)
+    if args.parliament:
+        conds.append("parliament = %s")
+        params.append(args.parliament)
+    if not args.force:
+        conds.append(
+            "NOT EXISTS (SELECT 1 FROM register_extractions e "
+            "WHERE e.content_sha256 = register_documents.content_sha256 "
+            "AND e.extractor_version = %s AND e.tier = %s)"
+        )
+        params.extend([SCHEMA_VERSION, TIER_VISION])
+
+    sql = f"""
+        SELECT id, source_url, content_sha256, storage_uri, chamber, parliament,
+               page_count, blank_page_count, scan_page_count, text_class
+        FROM register_documents
+        WHERE {" AND ".join(conds)}
+        ORDER BY parliament DESC NULLS LAST, source_url
+    """
+    if args.limit:
+        sql += f" LIMIT {int(args.limit)}"
+
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute(sql, params)
+    rows = cur.fetchall()
+    cur.close()
+    return rows
+
+
+def run_vision(args) -> int:
+    """Read scanned documents through the agy-backed vision tier.
+
+    OPERATOR-MACHINE ONLY. `agy` authenticates as the operator, so this stage
+    needs no GEMINI_API_KEY — and cannot run in the report-extractor container,
+    which has no agy binary. require_agy() fails fast rather than marking a whole
+    batch as failed extractions.
+    """
+    try:
+        require_agy()
+    except VisionUnavailable as e:
+        log.error("vision: %s", e)
+        return 2
+
+    conn = connect_db()
+    rows = select_documents_for_vision(conn, args)
+    if not rows:
+        log.info("vision: nothing to do")
+        return 0
+
+    log.info(
+        "vision: %d documents, model=%s batch=%d concurrency=%d%s",
+        len(rows), args.model, args.batch_pages, args.concurrency,
+        " (dry run)" if args.dry_run else "",
+    )
+
+    extracted = partial = failed = 0
+    total_rows = 0
+
+    for row in rows:
+        temp_path = None
+        try:
+            doc, temp_path = open_document(row["storage_uri"])
+            try:
+                page_count = row["page_count"] or doc.page_count
+            finally:
+                doc.close()
+
+            # open_document returns temp_path=None for a file:// URI — the bytes
+            # were never downloaded. Rasterising needs a real path either way.
+            uri = row["storage_uri"]
+            pdf_path = temp_path or (
+                uri[len("file://"):] if uri.startswith("file://") else uri
+            )
+
+            # Every page goes to vision. Choosing pages by char count would skip
+            # a scanned page that happens to carry a stray text artefact, and a
+            # skipped page is an unread declaration.
+            pages = list(range(1, page_count + 1))
+
+            parsed = vision_pages(
+                pdf_path,
+                page_numbers=pages,
+                page_count=page_count,
+                model=args.model,
+                batch_size=args.batch_pages,
+                concurrency=args.concurrency,
+            )
+            gates = vision_gates(parsed)
+            parsed.warnings.extend(gates)
+
+            artifact = build_artifact(row, parsed, page_count, tier=TIER_VISION)
+            metrics = artifact_metrics(artifact, page_count, row["blank_page_count"])
+            declared = sum(
+                1
+                for s in artifact["statements"]
+                for i in s["items"]
+                for r in i["rows"]
+                if not r["is_nil"]
+            )
+            total_rows += declared
+
+            store_extraction(
+                conn, row, artifact, metrics, args.dry_run,
+                tier=TIER_VISION, model=args.model,
+            )
+            ok = metrics["page_coverage_pct"] >= MIN_PAGE_COVERAGE_PCT and not gates
+            if ok:
+                extracted += 1
+            else:
+                partial += 1
+            log.info(
+                "  %s %d items, %d declared rows, coverage %.0f%%%s",
+                row["source_url"].rsplit("/", 1)[-1],
+                metrics["item_count"],
+                declared,
+                metrics["page_coverage_pct"],
+                (" GATES: " + ",".join(gates)) if gates else "",
+            )
+        except Exception as e:  # noqa: BLE001
+            failed += 1
+            log.warning("  %s FAILED: %s", row["source_url"], e)
+            mark_extract_failed(conn, row["id"], e, args.dry_run)
+        finally:
+            if temp_path:
+                try:
+                    os.unlink(temp_path)
+                except OSError:
+                    pass
+
+    conn.close()
+    log.info(
+        "vision: %d extracted, %d partial, %d failed, %d declared rows",
+        extracted, partial, failed, total_rows,
+    )
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Register-of-interests extraction")
-    ap.add_argument("--stage", choices=["classify", "extract"], required=True)
+    ap.add_argument("--stage", choices=["classify", "extract", "vision"], required=True)
     ap.add_argument("--limit", type=int, default=0, help="0 = no cap")
     ap.add_argument("--chamber", choices=["house", "senate"])
     ap.add_argument("--parliament", type=int)
     ap.add_argument("--force", action="store_true", help="re-extract at the same version")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--model", default=VISION_MODEL_DEFAULT, help="vision stage model")
+    ap.add_argument(
+        "--batch-pages", type=int, default=VISION_BATCH_PAGES,
+        help="pages per agy call (batching is the throughput lever, not concurrency)",
+    )
+    ap.add_argument(
+        "--concurrency", type=int, default=VISION_CONCURRENCY_DEFAULT,
+        help="parallel agy calls; clamped to the measured ceiling of 8",
+    )
     args = ap.parse_args()
 
     if args.stage == "classify":
         return run_classify(args)
+    if args.stage == "vision":
+        return run_vision(args)
     return run_extract(args)
 
 

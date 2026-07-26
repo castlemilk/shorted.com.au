@@ -147,6 +147,7 @@ export default async function PoliticianPage({
               the documents yet. */}
           <CoverageNote
             extracted={data?.extractedParliaments ?? []}
+            partial={data?.partialParliaments ?? []}
             pending={data?.pendingParliaments ?? []}
           />
 

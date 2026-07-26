@@ -573,7 +573,7 @@ POLITICIAN_INTERESTS_ENABLED=false  ->  HTTP 200 {} on every rpc
 | 4 — `register-load` + identity | **done** — person/term spine, artifacts loaded to normalised rows; party seeded from the committed AEC result (see §2.10) |
 | 5 — security resolution + curated aliases | **done** — 36% of resolvable item-1 candidates; alias seed + backlog view |
 | 6 — location resolution → `sal_code` | **done** — verified end to end; redaction guard fired on 4 real addresses. True match rate needs the ABS census ingest |
-| 7 — vision OCR tier | pending — 44P/45P (310 docs) + 35 Senate volumes unfetched |
+| 7 — vision OCR tier | **built + verified** (see §7) — agy-backed, no GEMINI_API_KEY. 44P/45P fetched + classified (5,823 pages); the bulk vision run is an operator step |
 | 8 — `politicians.proto` + backend API | **done** — 9 rpcs live and smoke-tested; kill switch verified |
 | 9 — `/politicians` frontend + 4 integrations | **done** — 4 routes + 4 integration surfaces verified in the running app (10/10 browser checks) |
 | 10 — ops wiring + launch gates | **done** — image + Cloud Run Job + monthly scheduler + `register-freshness` sentinel; launch gate corrected (see above) |
@@ -870,3 +870,101 @@ descriptions, JSON-LD and alt text.
    get empty pages indexed.
 3. **The review outcome must be recorded** (who / when / commit). The gate says
    "signed off"; nothing here records a signature.
+---
+
+## 7. The vision tier runs on `agy`, not the Gemini API
+
+`--stage vision` shells out to the local **`agy` CLI**, which fronts the same
+Gemini models but authenticates as the operator. Consequences, all deliberate:
+
+- **No `GEMINI_API_KEY` and no per-token billing.** The earlier plan's ~$31/pass
+  estimate does not apply.
+- **It is an operator-machine stage.** The report-extractor container is
+  python-slim with no `agy` binary, so this cannot run in Cloud Run.
+  `require_agy()` fails fast (exit 2) rather than marking a batch as failed
+  extractions.
+- **`--sandbox` is mandatory; `--dangerously-skip-permissions` is forbidden.**
+  The latter disables agy's own approval gate. It is blocked by this
+  environment's safety classifier, and `test_register_vision.py` asserts the
+  string "dangerously" never appears in the argv — so nobody "fixes" a
+  permission prompt by reaching for it.
+
+### 7.1 Measured behaviour
+
+| | |
+|---|---|
+| model | `gemini-3.6-flash-low` (14s/page alone; 3.5-flash-low was 23s) |
+| raster | pymupdf `get_pixmap(dpi=150)` → ~1148×1755 |
+| batching | **4 pages/call = 7.8s/page** vs 12.9s/page one-at-a-time — ~10-16s of each call is fixed CLI startup, so batching is the throughput lever |
+| concurrency | 4-way 0.204 job/s, 8-way 0.229, **16-way 0.145 — a regression**. Default 4, clamped at 8 |
+| accuracy | Gosling_48P (6pp, **0 chars/page**) transcribed 100% correctly against the page image, including that item 2 has two sub-tables (2.i + 2.ii) = 6 rows |
+| end-to-end | Albanese_47P (47pp scan) → 14 items, 79 declared rows, 100% coverage |
+
+`--print-timeout` bounds only the response wait, **not wall clock** (a 1s value
+still burned 13.9s). The `subprocess.run(timeout=…)` is the real bound.
+
+### 7.2 Landmines found by building it
+
+- **`fitz.open(None)` returns a NEW EMPTY DOCUMENT instead of raising.**
+  `open_document` returns `temp_path=None` for a `file://` URI, so passing it
+  through produced zero pages, zero coverage and a silently 'partial' document —
+  arriving by a route the coverage gate could not distinguish from a genuinely
+  unreadable scan. `rasterise` now rejects a falsy path and a zero-page document
+  explicitly.
+- **The amount gate was miscalibrated.** `contains_amount` is a hallucination
+  tripwire for holdings, but items **11 (gifts)** and **12 (sponsored travel)**
+  legitimately carry values — the form asks for them. Measured on Aly_47P: 2 of
+  25 rows carried an amount, both genuine ("total value $500", "valued at $370 ex
+  GST"), which tripped the gate at 8% and quarantined a correct document. Scoring
+  now excludes those two items; an amount in item 1 or 3 still trips.
+  `CaveatNote` was corrected to match: holdings carry no value, gifts and
+  sponsored travel do, and a figure there is a gift's declared value — never the
+  size of a holding.
+- **`contains_amount` is computed from OUR transcription**, by regex, never asked
+  of the model. A model-supplied boolean would be an opinion where a measurement
+  is needed.
+- **One base statement per scanned document, by design.** The tier does not split
+  a scan into base + alterations: a mis-split would attribute an ADDITION to the
+  wrong period. An unsplit document reads as one declaration with an unknown
+  start, which is the honest reading when the section boundaries are not visible.
+- A batch that fails twice **falls back to single pages** — a batch usually fails
+  because one page in it is pathological. Observed live: `agy returned empty
+  stdout` and `agy exit 1`, both recovered, coverage still 100%.
+- JSON is **brace-matched forward from the first `{`**, string-aware. Scanning
+  backwards from the last `{` returns the innermost object — for
+  `{"rows":[{"item_no":1}]}` that is `{"item_no":1}`, which parses cleanly and is
+  the wrong answer.
+
+### 7.3 Runbook
+
+```bash
+cd services/report-extractor
+# 1. classify (already run for 44P/45P: 245 scan, 65 mixed, 5,823 pages)
+DATABASE_URL=... .venv/bin/python extract_register.py --stage classify
+# 2. vision, one parliament at a time so a bad batch is contained
+DATABASE_URL=... .venv/bin/python extract_register.py \
+    --stage vision --parliament 45 --concurrency 4 --batch-pages 4
+# 3. load + resolve (in that order — resolve rebuilds the fold and the MVs)
+cd ../ && DATABASE_URL=... REGISTER_DRY_RUN=false ./ic -mode register-load
+DATABASE_URL=... REGISTER_DRY_RUN=false ./ic -mode register-resolve
+```
+
+Estimated wall clock for the remaining 5,823 scan pages at 4-way × 4-page
+batches: **~2-4 hours**.
+
+### 7.4 Coverage is a SHARE, not "any"
+
+A parliament is reported as read only when **≥95%** of its documents carry an
+`extracted` artifact (`fullyReadPct`, postgres_politicians.go). Anything between
+is `partial_parliaments` and says so on the profile.
+
+An earlier version used `extracted > 0`, which claimed the 47th was covered when
+87 of 155 documents had parsed — so the ~44% of members whose own document failed
+rendered an empty list under a heading asserting we had looked. That is the exact
+false-absence claim `CoverageNote` exists to prevent. Three states now:
+
+| | 2026-07-26 |
+|---|---|
+| read in full (≥95%) | 48th |
+| read in part | 46th (65%), 47th (56%) |
+| documents exist, none read | 44th, 45th |

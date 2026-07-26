@@ -148,6 +148,12 @@ public interface GetPoliticianResponseOrBuilder extends
    * these two lists an empty `interests` is indistinguishable from a member who
    * genuinely declared nothing — an absence claim about a named individual,
    * which influence-editorial-standards forbids.
+   * Three buckets, not two, and the threshold is a SHARE not "any".
+   *
+   * A parliament where one document out of 155 parsed is not a parliament we
+   * have read. Claiming it would make every member whose own document failed to
+   * parse render an empty list under a heading that says we looked — a false
+   * absence claim about a named individual.
    * </pre>
    *
    * <code>repeated int32 extracted_parliaments = 6 [json_name = "extractedParliaments"];</code>
@@ -164,6 +170,12 @@ public interface GetPoliticianResponseOrBuilder extends
    * these two lists an empty `interests` is indistinguishable from a member who
    * genuinely declared nothing — an absence claim about a named individual,
    * which influence-editorial-standards forbids.
+   * Three buckets, not two, and the threshold is a SHARE not "any".
+   *
+   * A parliament where one document out of 155 parsed is not a parliament we
+   * have read. Claiming it would make every member whose own document failed to
+   * parse render an empty list under a heading that says we looked — a false
+   * absence claim about a named individual.
    * </pre>
    *
    * <code>repeated int32 extracted_parliaments = 6 [json_name = "extractedParliaments"];</code>
@@ -180,6 +192,12 @@ public interface GetPoliticianResponseOrBuilder extends
    * these two lists an empty `interests` is indistinguishable from a member who
    * genuinely declared nothing — an absence claim about a named individual,
    * which influence-editorial-standards forbids.
+   * Three buckets, not two, and the threshold is a SHARE not "any".
+   *
+   * A parliament where one document out of 155 parsed is not a parliament we
+   * have read. Claiming it would make every member whose own document failed to
+   * parse render an empty list under a heading that says we looked — a false
+   * absence claim about a named individual.
    * </pre>
    *
    * <code>repeated int32 extracted_parliaments = 6 [json_name = "extractedParliaments"];</code>
@@ -190,7 +208,36 @@ public interface GetPoliticianResponseOrBuilder extends
 
   /**
    * <pre>
-   * documents exist, not yet read
+   * read in part — an empty list here proves nothing
+   * </pre>
+   *
+   * <code>repeated int32 partial_parliaments = 8 [json_name = "partialParliaments"];</code>
+   * @return A list containing the partialParliaments.
+   */
+  java.util.List<java.lang.Integer> getPartialParliamentsList();
+  /**
+   * <pre>
+   * read in part — an empty list here proves nothing
+   * </pre>
+   *
+   * <code>repeated int32 partial_parliaments = 8 [json_name = "partialParliaments"];</code>
+   * @return The count of partialParliaments.
+   */
+  int getPartialParliamentsCount();
+  /**
+   * <pre>
+   * read in part — an empty list here proves nothing
+   * </pre>
+   *
+   * <code>repeated int32 partial_parliaments = 8 [json_name = "partialParliaments"];</code>
+   * @param index The index of the element to return.
+   * @return The partialParliaments at the given index.
+   */
+  int getPartialParliaments(int index);
+
+  /**
+   * <pre>
+   * documents exist, none read
    * </pre>
    *
    * <code>repeated int32 pending_parliaments = 7 [json_name = "pendingParliaments"];</code>
@@ -199,7 +246,7 @@ public interface GetPoliticianResponseOrBuilder extends
   java.util.List<java.lang.Integer> getPendingParliamentsList();
   /**
    * <pre>
-   * documents exist, not yet read
+   * documents exist, none read
    * </pre>
    *
    * <code>repeated int32 pending_parliaments = 7 [json_name = "pendingParliaments"];</code>
@@ -208,7 +255,7 @@ public interface GetPoliticianResponseOrBuilder extends
   int getPendingParliamentsCount();
   /**
    * <pre>
-   * documents exist, not yet read
+   * documents exist, none read
    * </pre>
    *
    * <code>repeated int32 pending_parliaments = 7 [json_name = "pendingParliaments"];</code>

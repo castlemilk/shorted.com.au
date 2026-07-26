@@ -34,6 +34,7 @@ private static final long serialVersionUID = 0L;
     representedSuburbs_ =
         com.google.protobuf.LazyStringArrayList.emptyList();
     extractedParliaments_ = emptyIntList();
+    partialParliaments_ = emptyIntList();
     pendingParliaments_ = emptyIntList();
   }
 
@@ -282,6 +283,12 @@ private static final long serialVersionUID = 0L;
    * these two lists an empty `interests` is indistinguishable from a member who
    * genuinely declared nothing — an absence claim about a named individual,
    * which influence-editorial-standards forbids.
+   * Three buckets, not two, and the threshold is a SHARE not "any".
+   *
+   * A parliament where one document out of 155 parsed is not a parliament we
+   * have read. Claiming it would make every member whose own document failed to
+   * parse render an empty list under a heading that says we looked — a false
+   * absence claim about a named individual.
    * </pre>
    *
    * <code>repeated int32 extracted_parliaments = 6 [json_name = "extractedParliaments"];</code>
@@ -302,6 +309,12 @@ private static final long serialVersionUID = 0L;
    * these two lists an empty `interests` is indistinguishable from a member who
    * genuinely declared nothing — an absence claim about a named individual,
    * which influence-editorial-standards forbids.
+   * Three buckets, not two, and the threshold is a SHARE not "any".
+   *
+   * A parliament where one document out of 155 parsed is not a parliament we
+   * have read. Claiming it would make every member whose own document failed to
+   * parse render an empty list under a heading that says we looked — a false
+   * absence claim about a named individual.
    * </pre>
    *
    * <code>repeated int32 extracted_parliaments = 6 [json_name = "extractedParliaments"];</code>
@@ -320,6 +333,12 @@ private static final long serialVersionUID = 0L;
    * these two lists an empty `interests` is indistinguishable from a member who
    * genuinely declared nothing — an absence claim about a named individual,
    * which influence-editorial-standards forbids.
+   * Three buckets, not two, and the threshold is a SHARE not "any".
+   *
+   * A parliament where one document out of 155 parsed is not a parliament we
+   * have read. Claiming it would make every member whose own document failed to
+   * parse render an empty list under a heading that says we looked — a false
+   * absence claim about a named individual.
    * </pre>
    *
    * <code>repeated int32 extracted_parliaments = 6 [json_name = "extractedParliaments"];</code>
@@ -331,13 +350,55 @@ private static final long serialVersionUID = 0L;
   }
   private int extractedParliamentsMemoizedSerializedSize = -1;
 
+  public static final int PARTIAL_PARLIAMENTS_FIELD_NUMBER = 8;
+  @SuppressWarnings("serial")
+  private com.google.protobuf.Internal.IntList partialParliaments_ =
+      emptyIntList();
+  /**
+   * <pre>
+   * read in part — an empty list here proves nothing
+   * </pre>
+   *
+   * <code>repeated int32 partial_parliaments = 8 [json_name = "partialParliaments"];</code>
+   * @return A list containing the partialParliaments.
+   */
+  @java.lang.Override
+  public java.util.List<java.lang.Integer>
+      getPartialParliamentsList() {
+    return partialParliaments_;
+  }
+  /**
+   * <pre>
+   * read in part — an empty list here proves nothing
+   * </pre>
+   *
+   * <code>repeated int32 partial_parliaments = 8 [json_name = "partialParliaments"];</code>
+   * @return The count of partialParliaments.
+   */
+  public int getPartialParliamentsCount() {
+    return partialParliaments_.size();
+  }
+  /**
+   * <pre>
+   * read in part — an empty list here proves nothing
+   * </pre>
+   *
+   * <code>repeated int32 partial_parliaments = 8 [json_name = "partialParliaments"];</code>
+   * @param index The index of the element to return.
+   * @return The partialParliaments at the given index.
+   */
+  public int getPartialParliaments(int index) {
+    return partialParliaments_.getInt(index);
+  }
+  private int partialParliamentsMemoizedSerializedSize = -1;
+
   public static final int PENDING_PARLIAMENTS_FIELD_NUMBER = 7;
   @SuppressWarnings("serial")
   private com.google.protobuf.Internal.IntList pendingParliaments_ =
       emptyIntList();
   /**
    * <pre>
-   * documents exist, not yet read
+   * documents exist, none read
    * </pre>
    *
    * <code>repeated int32 pending_parliaments = 7 [json_name = "pendingParliaments"];</code>
@@ -350,7 +411,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * documents exist, not yet read
+   * documents exist, none read
    * </pre>
    *
    * <code>repeated int32 pending_parliaments = 7 [json_name = "pendingParliaments"];</code>
@@ -361,7 +422,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * documents exist, not yet read
+   * documents exist, none read
    * </pre>
    *
    * <code>repeated int32 pending_parliaments = 7 [json_name = "pendingParliaments"];</code>
@@ -416,6 +477,13 @@ private static final long serialVersionUID = 0L;
     }
     for (int i = 0; i < pendingParliaments_.size(); i++) {
       output.writeInt32NoTag(pendingParliaments_.getInt(i));
+    }
+    if (getPartialParliamentsList().size() > 0) {
+      output.writeUInt32NoTag(66);
+      output.writeUInt32NoTag(partialParliamentsMemoizedSerializedSize);
+    }
+    for (int i = 0; i < partialParliaments_.size(); i++) {
+      output.writeInt32NoTag(partialParliaments_.getInt(i));
     }
     getUnknownFields().writeTo(output);
   }
@@ -482,6 +550,20 @@ private static final long serialVersionUID = 0L;
       }
       pendingParliamentsMemoizedSerializedSize = dataSize;
     }
+    {
+      int dataSize = 0;
+      for (int i = 0; i < partialParliaments_.size(); i++) {
+        dataSize += com.google.protobuf.CodedOutputStream
+          .computeInt32SizeNoTag(partialParliaments_.getInt(i));
+      }
+      size += dataSize;
+      if (!getPartialParliamentsList().isEmpty()) {
+        size += 1;
+        size += com.google.protobuf.CodedOutputStream
+            .computeInt32SizeNoTag(dataSize);
+      }
+      partialParliamentsMemoizedSerializedSize = dataSize;
+    }
     return size;
   }
   @java.lang.Override
@@ -521,6 +603,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getRepresentedSuburbsList())) return false;
     if (!getExtractedParliamentsList()
         .equals(other.getExtractedParliamentsList())) return false;
+    if (!getPartialParliamentsList()
+        .equals(other.getPartialParliamentsList())) return false;
     if (!getPendingParliamentsList()
         .equals(other.getPendingParliamentsList())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
@@ -555,6 +639,10 @@ private static final long serialVersionUID = 0L;
     if (getExtractedParliamentsCount() > 0) {
       hash = (37 * hash) + EXTRACTED_PARLIAMENTS_FIELD_NUMBER;
       hash = (53 * hash) + getExtractedParliamentsList().hashCode();
+    }
+    if (getPartialParliamentsCount() > 0) {
+      hash = (37 * hash) + PARTIAL_PARLIAMENTS_FIELD_NUMBER;
+      hash = (53 * hash) + getPartialParliamentsList().hashCode();
     }
     if (getPendingParliamentsCount() > 0) {
       hash = (37 * hash) + PENDING_PARLIAMENTS_FIELD_NUMBER;
@@ -722,6 +810,7 @@ private static final long serialVersionUID = 0L;
       representedSuburbs_ =
           com.google.protobuf.LazyStringArrayList.emptyList();
       extractedParliaments_ = emptyIntList();
+      partialParliaments_ = emptyIntList();
       pendingParliaments_ = emptyIntList();
       return this;
     }
@@ -797,6 +886,10 @@ private static final long serialVersionUID = 0L;
         result.extractedParliaments_ = extractedParliaments_;
       }
       if (((from_bitField0_ & 0x00000040) != 0)) {
+        partialParliaments_.makeImmutable();
+        result.partialParliaments_ = partialParliaments_;
+      }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
         pendingParliaments_.makeImmutable();
         result.pendingParliaments_ = pendingParliaments_;
       }
@@ -896,11 +989,22 @@ private static final long serialVersionUID = 0L;
         }
         onChanged();
       }
+      if (!other.partialParliaments_.isEmpty()) {
+        if (partialParliaments_.isEmpty()) {
+          partialParliaments_ = other.partialParliaments_;
+          partialParliaments_.makeImmutable();
+          bitField0_ |= 0x00000040;
+        } else {
+          ensurePartialParliamentsIsMutable();
+          partialParliaments_.addAll(other.partialParliaments_);
+        }
+        onChanged();
+      }
       if (!other.pendingParliaments_.isEmpty()) {
         if (pendingParliaments_.isEmpty()) {
           pendingParliaments_ = other.pendingParliaments_;
           pendingParliaments_.makeImmutable();
-          bitField0_ |= 0x00000040;
+          bitField0_ |= 0x00000080;
         } else {
           ensurePendingParliamentsIsMutable();
           pendingParliaments_.addAll(other.pendingParliaments_);
@@ -1008,6 +1112,22 @@ private static final long serialVersionUID = 0L;
               input.popLimit(limit);
               break;
             } // case 58
+            case 64: {
+              int v = input.readInt32();
+              ensurePartialParliamentsIsMutable();
+              partialParliaments_.addInt(v);
+              break;
+            } // case 64
+            case 66: {
+              int length = input.readRawVarint32();
+              int limit = input.pushLimit(length);
+              ensurePartialParliamentsIsMutable();
+              while (input.getBytesUntilLimit() > 0) {
+                partialParliaments_.addInt(input.readInt32());
+              }
+              input.popLimit(limit);
+              break;
+            } // case 66
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1891,6 +2011,12 @@ private static final long serialVersionUID = 0L;
      * these two lists an empty `interests` is indistinguishable from a member who
      * genuinely declared nothing — an absence claim about a named individual,
      * which influence-editorial-standards forbids.
+     * Three buckets, not two, and the threshold is a SHARE not "any".
+     *
+     * A parliament where one document out of 155 parsed is not a parliament we
+     * have read. Claiming it would make every member whose own document failed to
+     * parse render an empty list under a heading that says we looked — a false
+     * absence claim about a named individual.
      * </pre>
      *
      * <code>repeated int32 extracted_parliaments = 6 [json_name = "extractedParliaments"];</code>
@@ -1911,6 +2037,12 @@ private static final long serialVersionUID = 0L;
      * these two lists an empty `interests` is indistinguishable from a member who
      * genuinely declared nothing — an absence claim about a named individual,
      * which influence-editorial-standards forbids.
+     * Three buckets, not two, and the threshold is a SHARE not "any".
+     *
+     * A parliament where one document out of 155 parsed is not a parliament we
+     * have read. Claiming it would make every member whose own document failed to
+     * parse render an empty list under a heading that says we looked — a false
+     * absence claim about a named individual.
      * </pre>
      *
      * <code>repeated int32 extracted_parliaments = 6 [json_name = "extractedParliaments"];</code>
@@ -1929,6 +2061,12 @@ private static final long serialVersionUID = 0L;
      * these two lists an empty `interests` is indistinguishable from a member who
      * genuinely declared nothing — an absence claim about a named individual,
      * which influence-editorial-standards forbids.
+     * Three buckets, not two, and the threshold is a SHARE not "any".
+     *
+     * A parliament where one document out of 155 parsed is not a parliament we
+     * have read. Claiming it would make every member whose own document failed to
+     * parse render an empty list under a heading that says we looked — a false
+     * absence claim about a named individual.
      * </pre>
      *
      * <code>repeated int32 extracted_parliaments = 6 [json_name = "extractedParliaments"];</code>
@@ -1948,6 +2086,12 @@ private static final long serialVersionUID = 0L;
      * these two lists an empty `interests` is indistinguishable from a member who
      * genuinely declared nothing — an absence claim about a named individual,
      * which influence-editorial-standards forbids.
+     * Three buckets, not two, and the threshold is a SHARE not "any".
+     *
+     * A parliament where one document out of 155 parsed is not a parliament we
+     * have read. Claiming it would make every member whose own document failed to
+     * parse render an empty list under a heading that says we looked — a false
+     * absence claim about a named individual.
      * </pre>
      *
      * <code>repeated int32 extracted_parliaments = 6 [json_name = "extractedParliaments"];</code>
@@ -1974,6 +2118,12 @@ private static final long serialVersionUID = 0L;
      * these two lists an empty `interests` is indistinguishable from a member who
      * genuinely declared nothing — an absence claim about a named individual,
      * which influence-editorial-standards forbids.
+     * Three buckets, not two, and the threshold is a SHARE not "any".
+     *
+     * A parliament where one document out of 155 parsed is not a parliament we
+     * have read. Claiming it would make every member whose own document failed to
+     * parse render an empty list under a heading that says we looked — a false
+     * absence claim about a named individual.
      * </pre>
      *
      * <code>repeated int32 extracted_parliaments = 6 [json_name = "extractedParliaments"];</code>
@@ -1998,6 +2148,12 @@ private static final long serialVersionUID = 0L;
      * these two lists an empty `interests` is indistinguishable from a member who
      * genuinely declared nothing — an absence claim about a named individual,
      * which influence-editorial-standards forbids.
+     * Three buckets, not two, and the threshold is a SHARE not "any".
+     *
+     * A parliament where one document out of 155 parsed is not a parliament we
+     * have read. Claiming it would make every member whose own document failed to
+     * parse render an empty list under a heading that says we looked — a false
+     * absence claim about a named individual.
      * </pre>
      *
      * <code>repeated int32 extracted_parliaments = 6 [json_name = "extractedParliaments"];</code>
@@ -2023,6 +2179,12 @@ private static final long serialVersionUID = 0L;
      * these two lists an empty `interests` is indistinguishable from a member who
      * genuinely declared nothing — an absence claim about a named individual,
      * which influence-editorial-standards forbids.
+     * Three buckets, not two, and the threshold is a SHARE not "any".
+     *
+     * A parliament where one document out of 155 parsed is not a parliament we
+     * have read. Claiming it would make every member whose own document failed to
+     * parse render an empty list under a heading that says we looked — a false
+     * absence claim about a named individual.
      * </pre>
      *
      * <code>repeated int32 extracted_parliaments = 6 [json_name = "extractedParliaments"];</code>
@@ -2035,16 +2197,128 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private com.google.protobuf.Internal.IntList pendingParliaments_ = emptyIntList();
-    private void ensurePendingParliamentsIsMutable() {
-      if (!pendingParliaments_.isModifiable()) {
-        pendingParliaments_ = makeMutableCopy(pendingParliaments_);
+    private com.google.protobuf.Internal.IntList partialParliaments_ = emptyIntList();
+    private void ensurePartialParliamentsIsMutable() {
+      if (!partialParliaments_.isModifiable()) {
+        partialParliaments_ = makeMutableCopy(partialParliaments_);
       }
       bitField0_ |= 0x00000040;
     }
     /**
      * <pre>
-     * documents exist, not yet read
+     * read in part — an empty list here proves nothing
+     * </pre>
+     *
+     * <code>repeated int32 partial_parliaments = 8 [json_name = "partialParliaments"];</code>
+     * @return A list containing the partialParliaments.
+     */
+    public java.util.List<java.lang.Integer>
+        getPartialParliamentsList() {
+      partialParliaments_.makeImmutable();
+      return partialParliaments_;
+    }
+    /**
+     * <pre>
+     * read in part — an empty list here proves nothing
+     * </pre>
+     *
+     * <code>repeated int32 partial_parliaments = 8 [json_name = "partialParliaments"];</code>
+     * @return The count of partialParliaments.
+     */
+    public int getPartialParliamentsCount() {
+      return partialParliaments_.size();
+    }
+    /**
+     * <pre>
+     * read in part — an empty list here proves nothing
+     * </pre>
+     *
+     * <code>repeated int32 partial_parliaments = 8 [json_name = "partialParliaments"];</code>
+     * @param index The index of the element to return.
+     * @return The partialParliaments at the given index.
+     */
+    public int getPartialParliaments(int index) {
+      return partialParliaments_.getInt(index);
+    }
+    /**
+     * <pre>
+     * read in part — an empty list here proves nothing
+     * </pre>
+     *
+     * <code>repeated int32 partial_parliaments = 8 [json_name = "partialParliaments"];</code>
+     * @param index The index to set the value at.
+     * @param value The partialParliaments to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPartialParliaments(
+        int index, int value) {
+
+      ensurePartialParliamentsIsMutable();
+      partialParliaments_.setInt(index, value);
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * read in part — an empty list here proves nothing
+     * </pre>
+     *
+     * <code>repeated int32 partial_parliaments = 8 [json_name = "partialParliaments"];</code>
+     * @param value The partialParliaments to add.
+     * @return This builder for chaining.
+     */
+    public Builder addPartialParliaments(int value) {
+
+      ensurePartialParliamentsIsMutable();
+      partialParliaments_.addInt(value);
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * read in part — an empty list here proves nothing
+     * </pre>
+     *
+     * <code>repeated int32 partial_parliaments = 8 [json_name = "partialParliaments"];</code>
+     * @param values The partialParliaments to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAllPartialParliaments(
+        java.lang.Iterable<? extends java.lang.Integer> values) {
+      ensurePartialParliamentsIsMutable();
+      com.google.protobuf.AbstractMessageLite.Builder.addAll(
+          values, partialParliaments_);
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * read in part — an empty list here proves nothing
+     * </pre>
+     *
+     * <code>repeated int32 partial_parliaments = 8 [json_name = "partialParliaments"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPartialParliaments() {
+      partialParliaments_ = emptyIntList();
+      bitField0_ = (bitField0_ & ~0x00000040);
+      onChanged();
+      return this;
+    }
+
+    private com.google.protobuf.Internal.IntList pendingParliaments_ = emptyIntList();
+    private void ensurePendingParliamentsIsMutable() {
+      if (!pendingParliaments_.isModifiable()) {
+        pendingParliaments_ = makeMutableCopy(pendingParliaments_);
+      }
+      bitField0_ |= 0x00000080;
+    }
+    /**
+     * <pre>
+     * documents exist, none read
      * </pre>
      *
      * <code>repeated int32 pending_parliaments = 7 [json_name = "pendingParliaments"];</code>
@@ -2057,7 +2331,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * documents exist, not yet read
+     * documents exist, none read
      * </pre>
      *
      * <code>repeated int32 pending_parliaments = 7 [json_name = "pendingParliaments"];</code>
@@ -2068,7 +2342,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * documents exist, not yet read
+     * documents exist, none read
      * </pre>
      *
      * <code>repeated int32 pending_parliaments = 7 [json_name = "pendingParliaments"];</code>
@@ -2080,7 +2354,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * documents exist, not yet read
+     * documents exist, none read
      * </pre>
      *
      * <code>repeated int32 pending_parliaments = 7 [json_name = "pendingParliaments"];</code>
@@ -2093,13 +2367,13 @@ private static final long serialVersionUID = 0L;
 
       ensurePendingParliamentsIsMutable();
       pendingParliaments_.setInt(index, value);
-      bitField0_ |= 0x00000040;
+      bitField0_ |= 0x00000080;
       onChanged();
       return this;
     }
     /**
      * <pre>
-     * documents exist, not yet read
+     * documents exist, none read
      * </pre>
      *
      * <code>repeated int32 pending_parliaments = 7 [json_name = "pendingParliaments"];</code>
@@ -2110,13 +2384,13 @@ private static final long serialVersionUID = 0L;
 
       ensurePendingParliamentsIsMutable();
       pendingParliaments_.addInt(value);
-      bitField0_ |= 0x00000040;
+      bitField0_ |= 0x00000080;
       onChanged();
       return this;
     }
     /**
      * <pre>
-     * documents exist, not yet read
+     * documents exist, none read
      * </pre>
      *
      * <code>repeated int32 pending_parliaments = 7 [json_name = "pendingParliaments"];</code>
@@ -2128,13 +2402,13 @@ private static final long serialVersionUID = 0L;
       ensurePendingParliamentsIsMutable();
       com.google.protobuf.AbstractMessageLite.Builder.addAll(
           values, pendingParliaments_);
-      bitField0_ |= 0x00000040;
+      bitField0_ |= 0x00000080;
       onChanged();
       return this;
     }
     /**
      * <pre>
-     * documents exist, not yet read
+     * documents exist, none read
      * </pre>
      *
      * <code>repeated int32 pending_parliaments = 7 [json_name = "pendingParliaments"];</code>
@@ -2142,7 +2416,7 @@ private static final long serialVersionUID = 0L;
      */
     public Builder clearPendingParliaments() {
       pendingParliaments_ = emptyIntList();
-      bitField0_ = (bitField0_ & ~0x00000040);
+      bitField0_ = (bitField0_ & ~0x00000080);
       onChanged();
       return this;
     }

@@ -47,6 +47,7 @@ type PoliticianRow struct {
 	// for everyone, and it is the claim that stops an empty list reading as
 	// "declared nothing".
 	ExtractedParliaments []int32
+	PartialParliaments   []int32
 	PendingParliaments   []int32
 }
 
@@ -312,16 +313,30 @@ func (s *postgresStore) GetPolitician(slug string) (*PoliticianRow, []*DeclaredI
 	return row, interests, represented, nil
 }
 
-// loadCoverage records which parliaments have actually been read.
+// fullyReadPct is the share of a parliament's documents that must have parsed
+// before we will say we read that parliament.
 //
-// A parliament counts as EXTRACTED only if at least one of its documents reached
-// extract_status='extracted'. 'partial' does not count: a partial document is
-// quarantined from public output, so publishing its parliament as covered would
-// re-assert the coverage the quarantine exists to deny.
+// NOT "at least one". An earlier version of this used `extracted > 0`, which
+// claimed the 47th Parliament was covered when 87 of 155 documents had parsed —
+// so the ~44% of members whose own document failed rendered an empty list under
+// a heading asserting we had looked. That is a false absence claim about a named
+// individual, which is the exact failure CoverageNote exists to prevent.
+//
+// 95 rather than 100: a handful of documents are legitimately quarantined
+// (the centred-label layout), and holding a parliament hostage to them would
+// report every parliament as partial forever.
+const fullyReadPct = 95.0
+
+// loadCoverage records how much of each parliament has actually been read.
+//
+// 'partial' documents are counted as NOT read: a partial document is quarantined
+// from public output, so counting it would re-assert the coverage the quarantine
+// exists to deny.
 func (s *postgresStore) loadCoverage(ctx context.Context, row *PoliticianRow) error {
 	rows, err := s.db.Query(ctx, `
 		SELECT parliament,
-		       count(*) FILTER (WHERE extract_status = 'extracted') AS extracted
+		       count(*)                                                AS docs,
+		       count(*) FILTER (WHERE extract_status = 'extracted')     AS extracted
 		FROM register_documents
 		WHERE parliament IS NOT NULL
 		GROUP BY parliament
@@ -332,14 +347,17 @@ func (s *postgresStore) loadCoverage(ctx context.Context, row *PoliticianRow) er
 	defer rows.Close()
 
 	for rows.Next() {
-		var parliament, extracted int32
-		if err := rows.Scan(&parliament, &extracted); err != nil {
+		var parliament, docs, extracted int32
+		if err := rows.Scan(&parliament, &docs, &extracted); err != nil {
 			return err
 		}
-		if extracted > 0 {
-			row.ExtractedParliaments = append(row.ExtractedParliaments, parliament)
-		} else {
+		switch {
+		case extracted == 0:
 			row.PendingParliaments = append(row.PendingParliaments, parliament)
+		case docs > 0 && 100.0*float64(extracted)/float64(docs) >= fullyReadPct:
+			row.ExtractedParliaments = append(row.ExtractedParliaments, parliament)
+		default:
+			row.PartialParliaments = append(row.PartialParliaments, parliament)
 		}
 	}
 	return rows.Err()

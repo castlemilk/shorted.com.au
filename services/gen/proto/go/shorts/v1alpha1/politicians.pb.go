@@ -904,8 +904,15 @@ type GetPoliticianResponse struct {
 	// these two lists an empty `interests` is indistinguishable from a member who
 	// genuinely declared nothing — an absence claim about a named individual,
 	// which influence-editorial-standards forbids.
-	ExtractedParliaments []int32 `protobuf:"varint,6,rep,packed,name=extracted_parliaments,json=extractedParliaments,proto3" json:"extracted_parliaments,omitempty"` // we read these
-	PendingParliaments   []int32 `protobuf:"varint,7,rep,packed,name=pending_parliaments,json=pendingParliaments,proto3" json:"pending_parliaments,omitempty"`       // documents exist, not yet read
+	// Three buckets, not two, and the threshold is a SHARE not "any".
+	//
+	// A parliament where one document out of 155 parsed is not a parliament we
+	// have read. Claiming it would make every member whose own document failed to
+	// parse render an empty list under a heading that says we looked — a false
+	// absence claim about a named individual.
+	ExtractedParliaments []int32 `protobuf:"varint,6,rep,packed,name=extracted_parliaments,json=extractedParliaments,proto3" json:"extracted_parliaments,omitempty"` // read in full (>= 95% of documents)
+	PartialParliaments   []int32 `protobuf:"varint,8,rep,packed,name=partial_parliaments,json=partialParliaments,proto3" json:"partial_parliaments,omitempty"`       // read in part — an empty list here proves nothing
+	PendingParliaments   []int32 `protobuf:"varint,7,rep,packed,name=pending_parliaments,json=pendingParliaments,proto3" json:"pending_parliaments,omitempty"`       // documents exist, none read
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
@@ -978,6 +985,13 @@ func (x *GetPoliticianResponse) GetRepresentedSuburbs() []string {
 func (x *GetPoliticianResponse) GetExtractedParliaments() []int32 {
 	if x != nil {
 		return x.ExtractedParliaments
+	}
+	return nil
+}
+
+func (x *GetPoliticianResponse) GetPartialParliaments() []int32 {
+	if x != nil {
+		return x.PartialParliaments
 	}
 	return nil
 }
@@ -2261,7 +2275,7 @@ const file_shorts_v1alpha1_politicians_proto_rawDesc = "" +
 	"\vpoliticians\x18\x01 \x03(\v2\x1b.shorts.v1alpha1.PoliticianR\vpoliticians\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\"*\n" +
 	"\x14GetPoliticianRequest\x12\x12\n" +
-	"\x04slug\x18\x01 \x01(\tR\x04slug\"\x8a\x03\n" +
+	"\x04slug\x18\x01 \x01(\tR\x04slug\"\xbb\x03\n" +
 	"\x15GetPoliticianResponse\x12;\n" +
 	"\n" +
 	"politician\x18\x01 \x01(\v2\x1b.shorts.v1alpha1.PoliticianR\n" +
@@ -2271,6 +2285,7 @@ const file_shorts_v1alpha1_politicians_proto_rawDesc = "" +
 	"\tinterests\x18\x04 \x03(\v2!.shorts.v1alpha1.DeclaredInterestR\tinterests\x12/\n" +
 	"\x13represented_suburbs\x18\x05 \x03(\tR\x12representedSuburbs\x123\n" +
 	"\x15extracted_parliaments\x18\x06 \x03(\x05R\x14extractedParliaments\x12/\n" +
+	"\x13partial_parliaments\x18\b \x03(\x05R\x12partialParliaments\x12/\n" +
 	"\x13pending_parliaments\x18\a \x03(\x05R\x12pendingParliaments\"_\n" +
 	"\x1bListStockPoliticiansRequest\x12\x1d\n" +
 	"\n" +

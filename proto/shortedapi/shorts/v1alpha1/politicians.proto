@@ -196,8 +196,15 @@ message GetPoliticianResponse {
   // these two lists an empty `interests` is indistinguishable from a member who
   // genuinely declared nothing — an absence claim about a named individual,
   // which influence-editorial-standards forbids.
-  repeated int32 extracted_parliaments = 6;   // we read these
-  repeated int32 pending_parliaments = 7;     // documents exist, not yet read
+  // Three buckets, not two, and the threshold is a SHARE not "any".
+  //
+  // A parliament where one document out of 155 parsed is not a parliament we
+  // have read. Claiming it would make every member whose own document failed to
+  // parse render an empty list under a heading that says we looked — a false
+  // absence claim about a named individual.
+  repeated int32 extracted_parliaments = 6;  // read in full (>= 95% of documents)
+  repeated int32 partial_parliaments = 8;    // read in part — an empty list here proves nothing
+  repeated int32 pending_parliaments = 7;    // documents exist, none read
 }
 
 message ListStockPoliticiansRequest {
