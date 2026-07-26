@@ -33,6 +33,8 @@ private static final long serialVersionUID = 0L;
     interests_ = java.util.Collections.emptyList();
     representedSuburbs_ =
         com.google.protobuf.LazyStringArrayList.emptyList();
+    extractedParliaments_ = emptyIntList();
+    pendingParliaments_ = emptyIntList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -266,6 +268,111 @@ private static final long serialVersionUID = 0L;
     return representedSuburbs_.getByteString(index);
   }
 
+  public static final int EXTRACTED_PARLIAMENTS_FIELD_NUMBER = 6;
+  @SuppressWarnings("serial")
+  private com.google.protobuf.Internal.IntList extractedParliaments_ =
+      emptyIntList();
+  /**
+   * <pre>
+   * Extraction coverage FOR THIS PERSON, so a consumer can never present
+   * "declared nothing" when the truth is "not yet read".
+   *
+   * A member's register documents are discovered long before they are parsed
+   * (the 44th and 45th Parliaments are scans awaiting the vision tier). Without
+   * these two lists an empty `interests` is indistinguishable from a member who
+   * genuinely declared nothing — an absence claim about a named individual,
+   * which influence-editorial-standards forbids.
+   * </pre>
+   *
+   * <code>repeated int32 extracted_parliaments = 6 [json_name = "extractedParliaments"];</code>
+   * @return A list containing the extractedParliaments.
+   */
+  @java.lang.Override
+  public java.util.List<java.lang.Integer>
+      getExtractedParliamentsList() {
+    return extractedParliaments_;
+  }
+  /**
+   * <pre>
+   * Extraction coverage FOR THIS PERSON, so a consumer can never present
+   * "declared nothing" when the truth is "not yet read".
+   *
+   * A member's register documents are discovered long before they are parsed
+   * (the 44th and 45th Parliaments are scans awaiting the vision tier). Without
+   * these two lists an empty `interests` is indistinguishable from a member who
+   * genuinely declared nothing — an absence claim about a named individual,
+   * which influence-editorial-standards forbids.
+   * </pre>
+   *
+   * <code>repeated int32 extracted_parliaments = 6 [json_name = "extractedParliaments"];</code>
+   * @return The count of extractedParliaments.
+   */
+  public int getExtractedParliamentsCount() {
+    return extractedParliaments_.size();
+  }
+  /**
+   * <pre>
+   * Extraction coverage FOR THIS PERSON, so a consumer can never present
+   * "declared nothing" when the truth is "not yet read".
+   *
+   * A member's register documents are discovered long before they are parsed
+   * (the 44th and 45th Parliaments are scans awaiting the vision tier). Without
+   * these two lists an empty `interests` is indistinguishable from a member who
+   * genuinely declared nothing — an absence claim about a named individual,
+   * which influence-editorial-standards forbids.
+   * </pre>
+   *
+   * <code>repeated int32 extracted_parliaments = 6 [json_name = "extractedParliaments"];</code>
+   * @param index The index of the element to return.
+   * @return The extractedParliaments at the given index.
+   */
+  public int getExtractedParliaments(int index) {
+    return extractedParliaments_.getInt(index);
+  }
+  private int extractedParliamentsMemoizedSerializedSize = -1;
+
+  public static final int PENDING_PARLIAMENTS_FIELD_NUMBER = 7;
+  @SuppressWarnings("serial")
+  private com.google.protobuf.Internal.IntList pendingParliaments_ =
+      emptyIntList();
+  /**
+   * <pre>
+   * documents exist, not yet read
+   * </pre>
+   *
+   * <code>repeated int32 pending_parliaments = 7 [json_name = "pendingParliaments"];</code>
+   * @return A list containing the pendingParliaments.
+   */
+  @java.lang.Override
+  public java.util.List<java.lang.Integer>
+      getPendingParliamentsList() {
+    return pendingParliaments_;
+  }
+  /**
+   * <pre>
+   * documents exist, not yet read
+   * </pre>
+   *
+   * <code>repeated int32 pending_parliaments = 7 [json_name = "pendingParliaments"];</code>
+   * @return The count of pendingParliaments.
+   */
+  public int getPendingParliamentsCount() {
+    return pendingParliaments_.size();
+  }
+  /**
+   * <pre>
+   * documents exist, not yet read
+   * </pre>
+   *
+   * <code>repeated int32 pending_parliaments = 7 [json_name = "pendingParliaments"];</code>
+   * @param index The index of the element to return.
+   * @return The pendingParliaments at the given index.
+   */
+  public int getPendingParliaments(int index) {
+    return pendingParliaments_.getInt(index);
+  }
+  private int pendingParliamentsMemoizedSerializedSize = -1;
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -280,6 +387,7 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
+    getSerializedSize();
     if (((bitField0_ & 0x00000001) != 0)) {
       output.writeMessage(1, getPolitician());
     }
@@ -294,6 +402,20 @@ private static final long serialVersionUID = 0L;
     }
     for (int i = 0; i < representedSuburbs_.size(); i++) {
       com.google.protobuf.GeneratedMessage.writeString(output, 5, representedSuburbs_.getRaw(i));
+    }
+    if (getExtractedParliamentsList().size() > 0) {
+      output.writeUInt32NoTag(50);
+      output.writeUInt32NoTag(extractedParliamentsMemoizedSerializedSize);
+    }
+    for (int i = 0; i < extractedParliaments_.size(); i++) {
+      output.writeInt32NoTag(extractedParliaments_.getInt(i));
+    }
+    if (getPendingParliamentsList().size() > 0) {
+      output.writeUInt32NoTag(58);
+      output.writeUInt32NoTag(pendingParliamentsMemoizedSerializedSize);
+    }
+    for (int i = 0; i < pendingParliaments_.size(); i++) {
+      output.writeInt32NoTag(pendingParliaments_.getInt(i));
     }
     getUnknownFields().writeTo(output);
   }
@@ -332,6 +454,34 @@ private static final long serialVersionUID = 0L;
       size += dataSize;
       size += 1 * getRepresentedSuburbsList().size();
     }
+    {
+      int dataSize = 0;
+      for (int i = 0; i < extractedParliaments_.size(); i++) {
+        dataSize += com.google.protobuf.CodedOutputStream
+          .computeInt32SizeNoTag(extractedParliaments_.getInt(i));
+      }
+      size += dataSize;
+      if (!getExtractedParliamentsList().isEmpty()) {
+        size += 1;
+        size += com.google.protobuf.CodedOutputStream
+            .computeInt32SizeNoTag(dataSize);
+      }
+      extractedParliamentsMemoizedSerializedSize = dataSize;
+    }
+    {
+      int dataSize = 0;
+      for (int i = 0; i < pendingParliaments_.size(); i++) {
+        dataSize += com.google.protobuf.CodedOutputStream
+          .computeInt32SizeNoTag(pendingParliaments_.getInt(i));
+      }
+      size += dataSize;
+      if (!getPendingParliamentsList().isEmpty()) {
+        size += 1;
+        size += com.google.protobuf.CodedOutputStream
+            .computeInt32SizeNoTag(dataSize);
+      }
+      pendingParliamentsMemoizedSerializedSize = dataSize;
+    }
     return size;
   }
   @java.lang.Override
@@ -369,6 +519,10 @@ private static final long serialVersionUID = 0L;
         .equals(other.getInterestsList())) return false;
     if (!getRepresentedSuburbsList()
         .equals(other.getRepresentedSuburbsList())) return false;
+    if (!getExtractedParliamentsList()
+        .equals(other.getExtractedParliamentsList())) return false;
+    if (!getPendingParliamentsList()
+        .equals(other.getPendingParliamentsList())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -397,6 +551,14 @@ private static final long serialVersionUID = 0L;
     if (getRepresentedSuburbsCount() > 0) {
       hash = (37 * hash) + REPRESENTED_SUBURBS_FIELD_NUMBER;
       hash = (53 * hash) + getRepresentedSuburbsList().hashCode();
+    }
+    if (getExtractedParliamentsCount() > 0) {
+      hash = (37 * hash) + EXTRACTED_PARLIAMENTS_FIELD_NUMBER;
+      hash = (53 * hash) + getExtractedParliamentsList().hashCode();
+    }
+    if (getPendingParliamentsCount() > 0) {
+      hash = (37 * hash) + PENDING_PARLIAMENTS_FIELD_NUMBER;
+      hash = (53 * hash) + getPendingParliamentsList().hashCode();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -559,6 +721,8 @@ private static final long serialVersionUID = 0L;
       bitField0_ = (bitField0_ & ~0x00000008);
       representedSuburbs_ =
           com.google.protobuf.LazyStringArrayList.emptyList();
+      extractedParliaments_ = emptyIntList();
+      pendingParliaments_ = emptyIntList();
       return this;
     }
 
@@ -627,6 +791,14 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000010) != 0)) {
         representedSuburbs_.makeImmutable();
         result.representedSuburbs_ = representedSuburbs_;
+      }
+      if (((from_bitField0_ & 0x00000020) != 0)) {
+        extractedParliaments_.makeImmutable();
+        result.extractedParliaments_ = extractedParliaments_;
+      }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        pendingParliaments_.makeImmutable();
+        result.pendingParliaments_ = pendingParliaments_;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -713,6 +885,28 @@ private static final long serialVersionUID = 0L;
         }
         onChanged();
       }
+      if (!other.extractedParliaments_.isEmpty()) {
+        if (extractedParliaments_.isEmpty()) {
+          extractedParliaments_ = other.extractedParliaments_;
+          extractedParliaments_.makeImmutable();
+          bitField0_ |= 0x00000020;
+        } else {
+          ensureExtractedParliamentsIsMutable();
+          extractedParliaments_.addAll(other.extractedParliaments_);
+        }
+        onChanged();
+      }
+      if (!other.pendingParliaments_.isEmpty()) {
+        if (pendingParliaments_.isEmpty()) {
+          pendingParliaments_ = other.pendingParliaments_;
+          pendingParliaments_.makeImmutable();
+          bitField0_ |= 0x00000040;
+        } else {
+          ensurePendingParliamentsIsMutable();
+          pendingParliaments_.addAll(other.pendingParliaments_);
+        }
+        onChanged();
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -782,6 +976,38 @@ private static final long serialVersionUID = 0L;
               representedSuburbs_.add(input.readStringRequireUtf8());
               break;
             } // case 42
+            case 48: {
+              int v = input.readInt32();
+              ensureExtractedParliamentsIsMutable();
+              extractedParliaments_.addInt(v);
+              break;
+            } // case 48
+            case 50: {
+              int length = input.readRawVarint32();
+              int limit = input.pushLimit(length);
+              ensureExtractedParliamentsIsMutable();
+              while (input.getBytesUntilLimit() > 0) {
+                extractedParliaments_.addInt(input.readInt32());
+              }
+              input.popLimit(limit);
+              break;
+            } // case 50
+            case 56: {
+              int v = input.readInt32();
+              ensurePendingParliamentsIsMutable();
+              pendingParliaments_.addInt(v);
+              break;
+            } // case 56
+            case 58: {
+              int length = input.readRawVarint32();
+              int limit = input.pushLimit(length);
+              ensurePendingParliamentsIsMutable();
+              while (input.getBytesUntilLimit() > 0) {
+                pendingParliaments_.addInt(input.readInt32());
+              }
+              input.popLimit(limit);
+              break;
+            } // case 58
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1644,6 +1870,279 @@ private static final long serialVersionUID = 0L;
       ensureRepresentedSuburbsIsMutable();
       representedSuburbs_.add(value);
       bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+
+    private com.google.protobuf.Internal.IntList extractedParliaments_ = emptyIntList();
+    private void ensureExtractedParliamentsIsMutable() {
+      if (!extractedParliaments_.isModifiable()) {
+        extractedParliaments_ = makeMutableCopy(extractedParliaments_);
+      }
+      bitField0_ |= 0x00000020;
+    }
+    /**
+     * <pre>
+     * Extraction coverage FOR THIS PERSON, so a consumer can never present
+     * "declared nothing" when the truth is "not yet read".
+     *
+     * A member's register documents are discovered long before they are parsed
+     * (the 44th and 45th Parliaments are scans awaiting the vision tier). Without
+     * these two lists an empty `interests` is indistinguishable from a member who
+     * genuinely declared nothing — an absence claim about a named individual,
+     * which influence-editorial-standards forbids.
+     * </pre>
+     *
+     * <code>repeated int32 extracted_parliaments = 6 [json_name = "extractedParliaments"];</code>
+     * @return A list containing the extractedParliaments.
+     */
+    public java.util.List<java.lang.Integer>
+        getExtractedParliamentsList() {
+      extractedParliaments_.makeImmutable();
+      return extractedParliaments_;
+    }
+    /**
+     * <pre>
+     * Extraction coverage FOR THIS PERSON, so a consumer can never present
+     * "declared nothing" when the truth is "not yet read".
+     *
+     * A member's register documents are discovered long before they are parsed
+     * (the 44th and 45th Parliaments are scans awaiting the vision tier). Without
+     * these two lists an empty `interests` is indistinguishable from a member who
+     * genuinely declared nothing — an absence claim about a named individual,
+     * which influence-editorial-standards forbids.
+     * </pre>
+     *
+     * <code>repeated int32 extracted_parliaments = 6 [json_name = "extractedParliaments"];</code>
+     * @return The count of extractedParliaments.
+     */
+    public int getExtractedParliamentsCount() {
+      return extractedParliaments_.size();
+    }
+    /**
+     * <pre>
+     * Extraction coverage FOR THIS PERSON, so a consumer can never present
+     * "declared nothing" when the truth is "not yet read".
+     *
+     * A member's register documents are discovered long before they are parsed
+     * (the 44th and 45th Parliaments are scans awaiting the vision tier). Without
+     * these two lists an empty `interests` is indistinguishable from a member who
+     * genuinely declared nothing — an absence claim about a named individual,
+     * which influence-editorial-standards forbids.
+     * </pre>
+     *
+     * <code>repeated int32 extracted_parliaments = 6 [json_name = "extractedParliaments"];</code>
+     * @param index The index of the element to return.
+     * @return The extractedParliaments at the given index.
+     */
+    public int getExtractedParliaments(int index) {
+      return extractedParliaments_.getInt(index);
+    }
+    /**
+     * <pre>
+     * Extraction coverage FOR THIS PERSON, so a consumer can never present
+     * "declared nothing" when the truth is "not yet read".
+     *
+     * A member's register documents are discovered long before they are parsed
+     * (the 44th and 45th Parliaments are scans awaiting the vision tier). Without
+     * these two lists an empty `interests` is indistinguishable from a member who
+     * genuinely declared nothing — an absence claim about a named individual,
+     * which influence-editorial-standards forbids.
+     * </pre>
+     *
+     * <code>repeated int32 extracted_parliaments = 6 [json_name = "extractedParliaments"];</code>
+     * @param index The index to set the value at.
+     * @param value The extractedParliaments to set.
+     * @return This builder for chaining.
+     */
+    public Builder setExtractedParliaments(
+        int index, int value) {
+
+      ensureExtractedParliamentsIsMutable();
+      extractedParliaments_.setInt(index, value);
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Extraction coverage FOR THIS PERSON, so a consumer can never present
+     * "declared nothing" when the truth is "not yet read".
+     *
+     * A member's register documents are discovered long before they are parsed
+     * (the 44th and 45th Parliaments are scans awaiting the vision tier). Without
+     * these two lists an empty `interests` is indistinguishable from a member who
+     * genuinely declared nothing — an absence claim about a named individual,
+     * which influence-editorial-standards forbids.
+     * </pre>
+     *
+     * <code>repeated int32 extracted_parliaments = 6 [json_name = "extractedParliaments"];</code>
+     * @param value The extractedParliaments to add.
+     * @return This builder for chaining.
+     */
+    public Builder addExtractedParliaments(int value) {
+
+      ensureExtractedParliamentsIsMutable();
+      extractedParliaments_.addInt(value);
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Extraction coverage FOR THIS PERSON, so a consumer can never present
+     * "declared nothing" when the truth is "not yet read".
+     *
+     * A member's register documents are discovered long before they are parsed
+     * (the 44th and 45th Parliaments are scans awaiting the vision tier). Without
+     * these two lists an empty `interests` is indistinguishable from a member who
+     * genuinely declared nothing — an absence claim about a named individual,
+     * which influence-editorial-standards forbids.
+     * </pre>
+     *
+     * <code>repeated int32 extracted_parliaments = 6 [json_name = "extractedParliaments"];</code>
+     * @param values The extractedParliaments to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAllExtractedParliaments(
+        java.lang.Iterable<? extends java.lang.Integer> values) {
+      ensureExtractedParliamentsIsMutable();
+      com.google.protobuf.AbstractMessageLite.Builder.addAll(
+          values, extractedParliaments_);
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Extraction coverage FOR THIS PERSON, so a consumer can never present
+     * "declared nothing" when the truth is "not yet read".
+     *
+     * A member's register documents are discovered long before they are parsed
+     * (the 44th and 45th Parliaments are scans awaiting the vision tier). Without
+     * these two lists an empty `interests` is indistinguishable from a member who
+     * genuinely declared nothing — an absence claim about a named individual,
+     * which influence-editorial-standards forbids.
+     * </pre>
+     *
+     * <code>repeated int32 extracted_parliaments = 6 [json_name = "extractedParliaments"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearExtractedParliaments() {
+      extractedParliaments_ = emptyIntList();
+      bitField0_ = (bitField0_ & ~0x00000020);
+      onChanged();
+      return this;
+    }
+
+    private com.google.protobuf.Internal.IntList pendingParliaments_ = emptyIntList();
+    private void ensurePendingParliamentsIsMutable() {
+      if (!pendingParliaments_.isModifiable()) {
+        pendingParliaments_ = makeMutableCopy(pendingParliaments_);
+      }
+      bitField0_ |= 0x00000040;
+    }
+    /**
+     * <pre>
+     * documents exist, not yet read
+     * </pre>
+     *
+     * <code>repeated int32 pending_parliaments = 7 [json_name = "pendingParliaments"];</code>
+     * @return A list containing the pendingParliaments.
+     */
+    public java.util.List<java.lang.Integer>
+        getPendingParliamentsList() {
+      pendingParliaments_.makeImmutable();
+      return pendingParliaments_;
+    }
+    /**
+     * <pre>
+     * documents exist, not yet read
+     * </pre>
+     *
+     * <code>repeated int32 pending_parliaments = 7 [json_name = "pendingParliaments"];</code>
+     * @return The count of pendingParliaments.
+     */
+    public int getPendingParliamentsCount() {
+      return pendingParliaments_.size();
+    }
+    /**
+     * <pre>
+     * documents exist, not yet read
+     * </pre>
+     *
+     * <code>repeated int32 pending_parliaments = 7 [json_name = "pendingParliaments"];</code>
+     * @param index The index of the element to return.
+     * @return The pendingParliaments at the given index.
+     */
+    public int getPendingParliaments(int index) {
+      return pendingParliaments_.getInt(index);
+    }
+    /**
+     * <pre>
+     * documents exist, not yet read
+     * </pre>
+     *
+     * <code>repeated int32 pending_parliaments = 7 [json_name = "pendingParliaments"];</code>
+     * @param index The index to set the value at.
+     * @param value The pendingParliaments to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPendingParliaments(
+        int index, int value) {
+
+      ensurePendingParliamentsIsMutable();
+      pendingParliaments_.setInt(index, value);
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * documents exist, not yet read
+     * </pre>
+     *
+     * <code>repeated int32 pending_parliaments = 7 [json_name = "pendingParliaments"];</code>
+     * @param value The pendingParliaments to add.
+     * @return This builder for chaining.
+     */
+    public Builder addPendingParliaments(int value) {
+
+      ensurePendingParliamentsIsMutable();
+      pendingParliaments_.addInt(value);
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * documents exist, not yet read
+     * </pre>
+     *
+     * <code>repeated int32 pending_parliaments = 7 [json_name = "pendingParliaments"];</code>
+     * @param values The pendingParliaments to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAllPendingParliaments(
+        java.lang.Iterable<? extends java.lang.Integer> values) {
+      ensurePendingParliamentsIsMutable();
+      com.google.protobuf.AbstractMessageLite.Builder.addAll(
+          values, pendingParliaments_);
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * documents exist, not yet read
+     * </pre>
+     *
+     * <code>repeated int32 pending_parliaments = 7 [json_name = "pendingParliaments"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPendingParliaments() {
+      pendingParliaments_ = emptyIntList();
+      bitField0_ = (bitField0_ & ~0x00000040);
       onChanged();
       return this;
     }

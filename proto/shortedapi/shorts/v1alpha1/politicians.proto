@@ -187,6 +187,17 @@ message GetPoliticianResponse {
   // Suburbs in the member's division, from the ABS boundary join. These are
   // suburbs REPRESENTED, which has nothing to do with anything owned.
   repeated string represented_suburbs = 5;
+
+  // Extraction coverage FOR THIS PERSON, so a consumer can never present
+  // "declared nothing" when the truth is "not yet read".
+  //
+  // A member's register documents are discovered long before they are parsed
+  // (the 44th and 45th Parliaments are scans awaiting the vision tier). Without
+  // these two lists an empty `interests` is indistinguishable from a member who
+  // genuinely declared nothing — an absence claim about a named individual,
+  // which influence-editorial-standards forbids.
+  repeated int32 extracted_parliaments = 6;   // we read these
+  repeated int32 pending_parliaments = 7;     // documents exist, not yet read
 }
 
 message ListStockPoliticiansRequest {

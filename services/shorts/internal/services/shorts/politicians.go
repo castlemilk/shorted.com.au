@@ -291,6 +291,11 @@ func (s *ShortsServer) GetPolitician(
 			// Slugs are minted once server-side and never derived by consumers.
 			CanonicalSlug:      row.Slug,
 			RepresentedSuburbs: represented,
+			// Served ALWAYS, not just when interests is empty: a consumer needs
+			// to know the corpus boundary to caption a short list as well as an
+			// absent one.
+			ExtractedParliaments: row.ExtractedParliaments,
+			PendingParliaments:   row.PendingParliaments,
 		}
 		for _, i := range interests {
 			out.Interests = append(out.Interests, declaredInterestProto(i))

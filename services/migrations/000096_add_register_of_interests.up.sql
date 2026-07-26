@@ -680,9 +680,19 @@ ALTER FUNCTION refresh_register_materialized_views() SET statement_timeout TO '0
 --
 -- signal_kind 'policy_footprint' and collection_method 'html' are already
 -- permitted by the existing CHECK constraints, so no constraint migration is
--- needed. public_enabled stays FALSE until the extraction QA gates pass AND an
--- editorial template review against influence-editorial-standards rules 1-5 is
--- signed off.
+-- needed.
+--
+-- public_enabled = FALSE here is CATALOGUE METADATA, NOT A GATE. Nothing in the
+-- politician read path reads it: the only runtime reader is
+-- postgres_industry_intelligence.go, which filters industry_intelligence_records
+-- — a table this pipeline never writes — and mv_register_public_holdings does
+-- not join this registry at all. An earlier version of this comment claimed it
+-- kept the feature dark. It does not. Do not rely on it.
+--
+-- The launch gate is a MERGE gate enforced by a human: QA gates pass, editorial
+-- template review against influence-editorial-standards rules 1-8 signed off and
+-- recorded, then the branch merges. The only runtime control is the
+-- POLITICIAN_INTERESTS_ENABLED kill switch, which defaults ON.
 -- ---------------------------------------------------------------------------
 INSERT INTO industry_intelligence_sources
     (source_key, display_name, signal_kind, publisher, source_url, licence,

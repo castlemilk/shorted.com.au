@@ -238,6 +238,54 @@ export function DeclaredPeriod({
   );
 }
 
+/** Render "44th and 45th" / "44th, 45th and 46th" from parliament numbers. */
+function parliamentList(numbers: number[]): string {
+  const ordinals = numbers.map((n) => `${n}th`);
+  if (ordinals.length <= 1) return ordinals[0] ?? "";
+  return `${ordinals.slice(0, -1).join(", ")} and ${ordinals[ordinals.length - 1]}`;
+}
+
+/**
+ * What we have actually read.
+ *
+ * The register corpus is discovered long before it is parsed — the 44th and 45th
+ * Parliaments are scanned images awaiting the vision tier. Without this note an
+ * empty section reads as "this member declared nothing", which is an absence
+ * claim about a named individual that the data does not support.
+ *
+ * Renders nothing when there is no gap: a caveat that is always present stops
+ * being read.
+ */
+export function CoverageNote({
+  extracted,
+  pending,
+}: {
+  extracted: number[];
+  pending: number[];
+}) {
+  if (extracted.length === 0 && pending.length === 0) return null;
+
+  return (
+    <p className="rounded-md border border-muted-foreground/20 bg-muted/30 p-2.5 text-[11px] leading-relaxed text-muted-foreground">
+      {extracted.length > 0 ? (
+        <>
+          This page covers the <strong>{parliamentList(extracted)}</strong>{" "}
+          {extracted.length === 1 ? "Parliament" : "Parliaments"}.{" "}
+        </>
+      ) : null}
+      {pending.length > 0 ? (
+        <>
+          Register documents for the <strong>{parliamentList(pending)}</strong>{" "}
+          {pending.length === 1 ? "Parliament" : "Parliaments"} exist but have not been extracted
+          yet, so nothing below should be read as covering{" "}
+          {pending.length === 1 ? "it" : "them"}. An empty section means we have not recorded an
+          entry for the parliaments listed — not that the member declared nothing.
+        </>
+      ) : null}
+    </p>
+  );
+}
+
 /**
  * The method note, shown at the foot of every politician surface.
  *
@@ -274,8 +322,15 @@ export function CaveatNote({ className }: { className?: string }) {
       </p>
       <p>
         Extracted from primary PDFs published by the Parliament of Australia; parliamentary material,
-        &copy; Commonwealth of Australia. Corrections are annotated, not silently applied. Not
-        financial advice.
+        &copy; Commonwealth of Australia.{" "}
+        {/* Rule 7 needs a destination, not just a promise. */}
+        <Link
+          href="/disclaimer#corrections"
+          className="hover:text-foreground underline decoration-dotted"
+        >
+          Corrections are annotated, not silently applied
+        </Link>
+        . Not financial advice.
       </p>
     </div>
   );

@@ -896,8 +896,18 @@ type GetPoliticianResponse struct {
 	// Suburbs in the member's division, from the ABS boundary join. These are
 	// suburbs REPRESENTED, which has nothing to do with anything owned.
 	RepresentedSuburbs []string `protobuf:"bytes,5,rep,name=represented_suburbs,json=representedSuburbs,proto3" json:"represented_suburbs,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// Extraction coverage FOR THIS PERSON, so a consumer can never present
+	// "declared nothing" when the truth is "not yet read".
+	//
+	// A member's register documents are discovered long before they are parsed
+	// (the 44th and 45th Parliaments are scans awaiting the vision tier). Without
+	// these two lists an empty `interests` is indistinguishable from a member who
+	// genuinely declared nothing — an absence claim about a named individual,
+	// which influence-editorial-standards forbids.
+	ExtractedParliaments []int32 `protobuf:"varint,6,rep,packed,name=extracted_parliaments,json=extractedParliaments,proto3" json:"extracted_parliaments,omitempty"` // we read these
+	PendingParliaments   []int32 `protobuf:"varint,7,rep,packed,name=pending_parliaments,json=pendingParliaments,proto3" json:"pending_parliaments,omitempty"`       // documents exist, not yet read
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *GetPoliticianResponse) Reset() {
@@ -961,6 +971,20 @@ func (x *GetPoliticianResponse) GetInterests() []*DeclaredInterest {
 func (x *GetPoliticianResponse) GetRepresentedSuburbs() []string {
 	if x != nil {
 		return x.RepresentedSuburbs
+	}
+	return nil
+}
+
+func (x *GetPoliticianResponse) GetExtractedParliaments() []int32 {
+	if x != nil {
+		return x.ExtractedParliaments
+	}
+	return nil
+}
+
+func (x *GetPoliticianResponse) GetPendingParliaments() []int32 {
+	if x != nil {
+		return x.PendingParliaments
 	}
 	return nil
 }
@@ -2237,7 +2261,7 @@ const file_shorts_v1alpha1_politicians_proto_rawDesc = "" +
 	"\vpoliticians\x18\x01 \x03(\v2\x1b.shorts.v1alpha1.PoliticianR\vpoliticians\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\"*\n" +
 	"\x14GetPoliticianRequest\x12\x12\n" +
-	"\x04slug\x18\x01 \x01(\tR\x04slug\"\xa4\x02\n" +
+	"\x04slug\x18\x01 \x01(\tR\x04slug\"\x8a\x03\n" +
 	"\x15GetPoliticianResponse\x12;\n" +
 	"\n" +
 	"politician\x18\x01 \x01(\v2\x1b.shorts.v1alpha1.PoliticianR\n" +
@@ -2245,7 +2269,9 @@ const file_shorts_v1alpha1_politicians_proto_rawDesc = "" +
 	"\x0ecanonical_slug\x18\x02 \x01(\tR\rcanonicalSlug\x125\n" +
 	"\x05terms\x18\x03 \x03(\v2\x1f.shorts.v1alpha1.PoliticianTermR\x05terms\x12?\n" +
 	"\tinterests\x18\x04 \x03(\v2!.shorts.v1alpha1.DeclaredInterestR\tinterests\x12/\n" +
-	"\x13represented_suburbs\x18\x05 \x03(\tR\x12representedSuburbs\"_\n" +
+	"\x13represented_suburbs\x18\x05 \x03(\tR\x12representedSuburbs\x123\n" +
+	"\x15extracted_parliaments\x18\x06 \x03(\x05R\x14extractedParliaments\x12/\n" +
+	"\x13pending_parliaments\x18\a \x03(\x05R\x12pendingParliaments\"_\n" +
 	"\x1bListStockPoliticiansRequest\x12\x1d\n" +
 	"\n" +
 	"stock_code\x18\x01 \x01(\tR\tstockCode\x12!\n" +

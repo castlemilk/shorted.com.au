@@ -2,3 +2,39 @@
 # Docker builds that need workspaces (e.g., market-data-sync) create their own.
 go.work
 go.work.sum
+
+# ---------------------------------------------------------------------------
+# Local-only bulk. EVERY image built from this directory pays for these, because
+# the daemon uploads the whole context before the first instruction runs.
+#
+# Measured 2026-07-26 while adding influence-collector/Dockerfile: the context
+# was 1.94GB and took ~12 minutes to transfer, which reads as a hung build.
+# Breakdown: enrichment-processor/venv 1.1GB, report-extractor/.venv 286MB,
+# data/shorts 220MB, mobile_sam.pt 39MB, models/ 37MB.
+#
+# None of it is reachable from any Dockerfile: enrichment-processor DOWNLOADS
+# mobile_sam.pt from GitHub at build time rather than copying it from context,
+# and no Dockerfile COPYs data/ or a venv.
+# ---------------------------------------------------------------------------
+
+# Python virtualenvs (local dev only; images pip install from requirements.txt)
+**/venv/
+**/.venv/
+**/__pycache__/
+**/*.pyc
+
+# Model weights — fetched at build time or at runtime, never from context
+**/models/
+*.pt
+*.pb
+
+# Sample/ingest CSV corpora
+data/
+
+# Local build outputs and credential helpers
+bin/
+docker-credential-gcr
+
+# Local crawl artifacts. These can hold register/portal documents that must never
+# be baked into an image (same rule as the housing crawl's CRAWL_TRACE output).
+*.pdf

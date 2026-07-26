@@ -36,6 +36,18 @@ type PoliticianRow struct {
 	APHMPID               string
 	DeclaredListedCount   int32
 	DeclaredPropertyCount int32
+
+	// Extraction coverage of the CORPUS, populated by GetPolitician only.
+	//
+	// Corpus-level rather than per-person on purpose: linking an UNextracted
+	// document to a person would mean re-implementing aph_identity.go's name
+	// normaliser in SQL against register_documents.member_hint, and a wrong join
+	// there would mis-attribute a document to the wrong named individual — a
+	// worse failure than the coarser claim. "We have not read the 44th" is true
+	// for everyone, and it is the claim that stops an empty list reading as
+	// "declared nothing".
+	ExtractedParliaments []int32
+	PendingParliaments   []int32
 }
 
 // DeclaredInterestRow is one holding over one continuous period.
@@ -185,7 +197,7 @@ func (s *postgresStore) GetRegisterOverview() (*RegisterOverviewRow, error) {
 
 // ListPoliticians browses parliamentarians.
 //
-// Filters are built dynamically rather than as `WHERE ($1 = '' OR col = $1)`:
+// Filters are built dynamically rather than as `WHERE ($1 = ” OR col = $1)`:
 // the OR-guard form defeats index usage, which postgres_industry_intelligence.go
 // documents having hit.
 func (s *postgresStore) ListPoliticians(chamber, stateCode, partyAb, query string, limit, offset int32) ([]*PoliticianRow, int32, error) {
@@ -293,7 +305,44 @@ func (s *postgresStore) GetPolitician(slug string) (*PoliticianRow, []*DeclaredI
 		}
 	}
 
+	if err := s.loadCoverage(ctx, row); err != nil {
+		return nil, nil, nil, err
+	}
+
 	return row, interests, represented, nil
+}
+
+// loadCoverage records which parliaments have actually been read.
+//
+// A parliament counts as EXTRACTED only if at least one of its documents reached
+// extract_status='extracted'. 'partial' does not count: a partial document is
+// quarantined from public output, so publishing its parliament as covered would
+// re-assert the coverage the quarantine exists to deny.
+func (s *postgresStore) loadCoverage(ctx context.Context, row *PoliticianRow) error {
+	rows, err := s.db.Query(ctx, `
+		SELECT parliament,
+		       count(*) FILTER (WHERE extract_status = 'extracted') AS extracted
+		FROM register_documents
+		WHERE parliament IS NOT NULL
+		GROUP BY parliament
+		ORDER BY parliament`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var parliament, extracted int32
+		if err := rows.Scan(&parliament, &extracted); err != nil {
+			return err
+		}
+		if extracted > 0 {
+			row.ExtractedParliaments = append(row.ExtractedParliaments, parliament)
+		} else {
+			row.PendingParliaments = append(row.PendingParliaments, parliament)
+		}
+	}
+	return rows.Err()
 }
 
 func (s *postgresStore) declaredInterests(ctx context.Context, sql string, args ...any) ([]*DeclaredInterestRow, error) {

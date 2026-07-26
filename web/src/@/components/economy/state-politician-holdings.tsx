@@ -10,6 +10,7 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { listStatePoliticianHoldingsClient } from "~/app/actions/client/getPoliticiansClient";
+import { SourceLine } from "@/components/politicians/compliance";
 import { EconomyIcon } from "./economy-icon";
 import type { StateSlug } from "@/lib/economy/map-metrics";
 import { STATE_NAMES } from "@/lib/economy/map-metrics";
@@ -57,6 +58,11 @@ export function StatePoliticianHoldings({ state }: { state: StateSlug }) {
           All declared interests →
         </Link>
       </p>
+      {/* Rules 1 and 8 are NOT optional on a surface that names people, even
+          indirectly: this one attributes declarations to "this state's members".
+          It shipped without either and the copy test did not catch it, because
+          the test only banned words instead of requiring attribution. */}
+      <SourceLine surface={`economy ${state}`} />
     </section>
   );
 }

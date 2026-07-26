@@ -292,6 +292,9 @@ jobs:
           - name: economy-collector
             dockerfile: services/economy-collector/Dockerfile
             context: services
+          - name: influence-collector
+            dockerfile: services/influence-collector/Dockerfile
+            context: services
           - name: signals-collector
             dockerfile: services/signals-collector/Dockerfile
             context: services/signals-collector

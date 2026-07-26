@@ -7,6 +7,7 @@ import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { LLMMeta } from "@/components/seo/llm-meta";
 import {
   CaveatNote,
+  CoverageNote,
   DeclaredEntity,
   DeclaredLocation,
   DeclaredPeriod,
@@ -140,12 +141,21 @@ export default async function PoliticianPage({
             </div>
           </header>
 
+          {/* Stated BEFORE the lists, not as a footnote. An empty list under a
+              heading reads as "declared nothing"; that is an absence claim about
+              a named person, and it is false wherever we simply have not read
+              the documents yet. */}
+          <CoverageNote
+            extracted={data?.extractedParliaments ?? []}
+            pending={data?.pendingParliaments ?? []}
+          />
+
           <section className="space-y-3">
             <h2 className={sectionTitle}>Declared company interests</h2>
             {listed.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No company interests appear in this member&rsquo;s register entries for the
-                parliaments we cover.
+                parliaments listed above.
               </p>
             ) : (
               <ul className="divide-y">
@@ -181,8 +191,8 @@ export default async function PoliticianPage({
             </p>
             {property.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No real estate appears in this member&rsquo;s register entries for the parliaments we
-                cover.
+                No real estate appears in this member&rsquo;s register entries for the parliaments
+                listed above.
               </p>
             ) : (
               <ul className="divide-y">

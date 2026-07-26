@@ -148,6 +148,24 @@ module "economy_collector" {
   image_url        = var.economy_collector_image
 }
 
+# Influence Collector Job (ATO tax / CER emissions / AusTender / AEC / lobbyists
+# / trade). The APH register-of-interests crawl runs on the same job but is
+# operator-invoked, never scheduled — see the module header.
+#
+# manage_register_bucket stays false here: the register crawl runs in prod, and
+# dev has no need for a second copy of parliamentary PDFs. With REGISTER_BUCKET
+# unset the collector falls back to a local directory, so an operator can still
+# exercise the modes in dev without a bucket.
+module "influence_collector" {
+  source = "../../modules/influence-collector"
+
+  project_id       = var.project_id
+  region           = var.region
+  scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
+  environment      = "production"
+  image_url        = var.influence_collector_image
+}
+
 # Shorts API Service
 module "shorts_api" {
   source = "../../modules/shorts-api"

@@ -137,4 +137,83 @@ public interface GetPoliticianResponseOrBuilder extends
    */
   com.google.protobuf.ByteString
       getRepresentedSuburbsBytes(int index);
+
+  /**
+   * <pre>
+   * Extraction coverage FOR THIS PERSON, so a consumer can never present
+   * "declared nothing" when the truth is "not yet read".
+   *
+   * A member's register documents are discovered long before they are parsed
+   * (the 44th and 45th Parliaments are scans awaiting the vision tier). Without
+   * these two lists an empty `interests` is indistinguishable from a member who
+   * genuinely declared nothing — an absence claim about a named individual,
+   * which influence-editorial-standards forbids.
+   * </pre>
+   *
+   * <code>repeated int32 extracted_parliaments = 6 [json_name = "extractedParliaments"];</code>
+   * @return A list containing the extractedParliaments.
+   */
+  java.util.List<java.lang.Integer> getExtractedParliamentsList();
+  /**
+   * <pre>
+   * Extraction coverage FOR THIS PERSON, so a consumer can never present
+   * "declared nothing" when the truth is "not yet read".
+   *
+   * A member's register documents are discovered long before they are parsed
+   * (the 44th and 45th Parliaments are scans awaiting the vision tier). Without
+   * these two lists an empty `interests` is indistinguishable from a member who
+   * genuinely declared nothing — an absence claim about a named individual,
+   * which influence-editorial-standards forbids.
+   * </pre>
+   *
+   * <code>repeated int32 extracted_parliaments = 6 [json_name = "extractedParliaments"];</code>
+   * @return The count of extractedParliaments.
+   */
+  int getExtractedParliamentsCount();
+  /**
+   * <pre>
+   * Extraction coverage FOR THIS PERSON, so a consumer can never present
+   * "declared nothing" when the truth is "not yet read".
+   *
+   * A member's register documents are discovered long before they are parsed
+   * (the 44th and 45th Parliaments are scans awaiting the vision tier). Without
+   * these two lists an empty `interests` is indistinguishable from a member who
+   * genuinely declared nothing — an absence claim about a named individual,
+   * which influence-editorial-standards forbids.
+   * </pre>
+   *
+   * <code>repeated int32 extracted_parliaments = 6 [json_name = "extractedParliaments"];</code>
+   * @param index The index of the element to return.
+   * @return The extractedParliaments at the given index.
+   */
+  int getExtractedParliaments(int index);
+
+  /**
+   * <pre>
+   * documents exist, not yet read
+   * </pre>
+   *
+   * <code>repeated int32 pending_parliaments = 7 [json_name = "pendingParliaments"];</code>
+   * @return A list containing the pendingParliaments.
+   */
+  java.util.List<java.lang.Integer> getPendingParliamentsList();
+  /**
+   * <pre>
+   * documents exist, not yet read
+   * </pre>
+   *
+   * <code>repeated int32 pending_parliaments = 7 [json_name = "pendingParliaments"];</code>
+   * @return The count of pendingParliaments.
+   */
+  int getPendingParliamentsCount();
+  /**
+   * <pre>
+   * documents exist, not yet read
+   * </pre>
+   *
+   * <code>repeated int32 pending_parliaments = 7 [json_name = "pendingParliaments"];</code>
+   * @param index The index of the element to return.
+   * @return The pendingParliaments at the given index.
+   */
+  int getPendingParliaments(int index);
 }

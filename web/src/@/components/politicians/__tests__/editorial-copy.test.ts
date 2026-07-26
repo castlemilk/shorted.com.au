@@ -57,9 +57,43 @@ function proseOnly(source: string): string {
     .replace(/^\s*\/\/.*$/gm, "");
 }
 
+/**
+ * Files that RENDER register data, as opposed to the kit they render it with or
+ * the shims that load it.
+ *
+ *   compliance.tsx        DEFINES SourceLine/ReportErrorLink; it never calls them
+ *   *-loader.tsx          a `dynamic(ssr:false)` import shim — no copy at all
+ *
+ * Everything else names parliamentarians and must cite and be disputable.
+ */
+const RENDERING_SURFACES = FILES.filter(
+  (f) =>
+    !f.endsWith("compliance.tsx") &&
+    !f.endsWith("-loader.tsx") &&
+    !f.includes("__tests__"),
+);
+
 describe("politician surface copy", () => {
-  it("covers the surfaces it claims to", () => {
-    expect(FILES.length).toBeGreaterThan(4);
+  // A pinned count, not a floor. `toBeGreaterThan(4)` let a new surface be added
+  // outside the four hand-listed paths in SURFACES[] without anyone noticing —
+  // which is exactly how state-politician-holdings.tsx shipped with no
+  // attribution. Update this number deliberately when adding a surface, and
+  // re-run the editorial review when you do.
+  it("covers exactly the surfaces it claims to", () => {
+    expect(FILES.length).toBe(9);
+    expect(RENDERING_SURFACES.length).toBe(7);
+  });
+
+  /**
+   * Rule 1 (every figure traceable to a source with an as-at date) and rule 8
+   * (a report-an-error affordance on every surface) are REQUIREMENTS, not
+   * prohibitions. The rest of this file bans words; without this test a surface
+   * can name parliamentarians, cite nothing, offer no dispute path, and still
+   * pass every other assertion. state-politician-holdings.tsx did exactly that.
+   */
+  it.each(RENDERING_SURFACES)("%s cites its source and offers a dispute path", (file) => {
+    const src = readFileSync(file, "utf8");
+    expect(src).toMatch(/<SourceLine|<ReportErrorLink/);
   });
 
   it.each(FILES)("%s uses no accusatory verb", (file) => {

@@ -53,7 +53,7 @@ import (
 )
 
 func main() {
-	mode := flag.String("mode", "tax", "tax | match | sources | source-registry | source-probe | tax-records | emissions | austender | aec | lobbyists | trade | public-records | all | register-discover | register-fetch | register-load")
+	mode := flag.String("mode", "tax", "tax | match | sources | source-registry | source-probe | tax-records | emissions | austender | aec | lobbyists | trade | public-records | all | register-discover | register-fetch | register-load | register-resolve | register-freshness")
 	sourceLimit := flag.Int("source-limit", defaultAusTenderResourceCap, "maximum downloadable resources per source for archive-backed collectors")
 	registerLimit := flag.Int("register-limit", 0, "cap documents processed per register-* run (0 = no cap)")
 	flag.Parse()
@@ -130,8 +130,20 @@ func main() {
 		runRegisterLoad(ctx, pool, *registerLimit)
 	case "register-resolve":
 		runRegisterResolve(ctx, pool)
+	case "register-freshness":
+		// Read-only. Exits non-zero on an alarm so the scheduled workflow that
+		// invokes it fails loudly — same contract as economy-collector's
+		// -mode freshness. Safe to run any time; writes nothing.
+		checks, err := collectRegisterFreshness(ctx, pool, time.Now())
+		if err != nil {
+			log.Printf("ERROR register-freshness: %v", err)
+			os.Exit(1)
+		}
+		if writeRegisterFreshnessReport(os.Stdout, checks) > 0 {
+			os.Exit(1)
+		}
 	default:
-		log.Fatalf("unknown -mode %q (want tax|match|sources|source-registry|source-probe|tax-records|emissions|austender|aec|lobbyists|trade|public-records|all|register-discover|register-fetch|register-load|register-resolve)", *mode)
+		log.Fatalf("unknown -mode %q (want tax|match|sources|source-registry|source-probe|tax-records|emissions|austender|aec|lobbyists|trade|public-records|all|register-discover|register-fetch|register-load|register-resolve|register-freshness)", *mode)
 	}
 }
 

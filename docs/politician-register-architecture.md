@@ -565,7 +565,7 @@ POLITICIAN_INTERESTS_ENABLED=false  ->  HTTP 200 {} on every rpc
 | Phase | State |
 |---|---|
 | 0 — verification spike | **done** (§2) |
-| 1 — migration 000096 + `register-discover` | **done** — manifest holds 804 documents (769 house, 35 senate) |
+| 1 — migration 000096 + `register-discover` | **done** — manifest holds 804 documents (769 house, 35 senate); 459 fetched (46P/47P/48P) |
 | 2 — `register-fetch` + classify | **done** — streaming content-addressed sink, per-page classification |
 | 3 — deterministic parser + golden set | **done** — text tier parses base statements + both alteration variants |
 | — 47P centred-label layout | **known gap, quarantined** (see §2.8) |
@@ -573,10 +573,10 @@ POLITICIAN_INTERESTS_ENABLED=false  ->  HTTP 200 {} on every rpc
 | 4 — `register-load` + identity | **done** — person/term spine, artifacts loaded to normalised rows; party seeded from the committed AEC result (see §2.10) |
 | 5 — security resolution + curated aliases | **done** — 36% of resolvable item-1 candidates; alias seed + backlog view |
 | 6 — location resolution → `sal_code` | **done** — verified end to end; redaction guard fired on 4 real addresses. True match rate needs the ABS census ingest |
-| 7 — vision OCR tier | pending |
+| 7 — vision OCR tier | pending — 44P/45P (310 docs) + 35 Senate volumes unfetched |
 | 8 — `politicians.proto` + backend API | **done** — 9 rpcs live and smoke-tested; kill switch verified |
 | 9 — `/politicians` frontend + 4 integrations | **done** — 4 routes + 4 integration surfaces verified in the running app (10/10 browser checks) |
-| 10 — ops wiring + launch gates | pending |
+| 10 — ops wiring + launch gates | **done** — image + Cloud Run Job + monthly scheduler + `register-freshness` sentinel; launch gate corrected (see above) |
 
 ### 2.8 The 47P form centres its holder labels — quarantined, not guessed
 
@@ -606,9 +606,37 @@ The quarantine is **retroactive**: `register-load` purges statements belonging t
 documents that a re-extract has downgraded, or the gate would only apply to
 documents that were never loaded.
 
-Feature stays dark (`industry_intelligence_sources.public_enabled = FALSE`) until
-the QA gates pass **and** an editorial template review against
-`docs/influence-editorial-standards.md` rules 1-5 is signed off.
+### The launch gate is a MERGE gate, not a runtime flag
+
+> **Correction (2026-07-26).** This document previously said the feature "stays
+> dark (`industry_intelligence_sources.public_enabled = FALSE`)". **That was
+> false**, and the Phase 9 commit message repeated it.
+
+`public_enabled` is read in exactly one place in the codebase —
+`postgres_industry_intelligence.go:87` (`conds := []string{"s.public_enabled"}`)
+— which filters `industry_intelligence_records`. **The register pipeline never
+writes that table**, and `mv_register_public_holdings` does not join
+`industry_intelligence_sources`. So the `FALSE` on the registry row is inert for
+every politician read path. It is kept for catalogue completeness, not as a gate.
+
+The only runtime control is `POLITICIAN_INTERESTS_ENABLED` (`politicians.go`),
+which defaults **ON** and is a *takedown kill switch*, not a dark-launch flag.
+That default is deliberate and matches the standing preference against opt-in
+dark flags — but it means **merging this branch publishes the feature**.
+
+Therefore the gate is enforced by a human at merge time:
+
+1. the QA gates in §5 pass,
+2. the editorial template review against `influence-editorial-standards.md`
+   rules 1-8 is signed off and the outcome recorded (who / when / commit),
+3. only then does the branch merge.
+
+If a genuine runtime dark period is ever needed, `POLITICIAN_INTERESTS_ENABLED=false`
+alone is **not sufficient**: the rpcs return HTTP 200 `{}`, so the routes still
+render empty, the nav entry still shows, and `sitemap.ts` still advertises
+`/politicians`, `/politicians/short-interest` and `/politicians/changes` — which
+would get empty pages indexed. Gate the nav item and those three sitemap entries
+on the same value if you take that path.
 
 ### 2.9 Item 3 merges multi-property rows — purpose suppressed on read
 
@@ -690,3 +718,155 @@ Three things that are easy to get wrong here:
 term wins and the `suburb_demographics.federal_division` join stays a fallback —
 which matters because **senators have no division** and could never resolve
 through it.
+
+---
+
+## 5. Ops
+
+### 5.1 The image and the job
+
+| Artifact | Path |
+|---|---|
+| Dockerfile | `services/influence-collector/Dockerfile` (distroless/static, Go only) |
+| CI image build | `terraform-deploy.yml` `build-images` matrix, context `services` |
+| Cloud Run Job + scheduler | `terraform/modules/influence-collector/` |
+| Env wiring | `terraform/environments/{dev,prod}/main.tf` + `variables.tf` |
+
+Three things that will bite:
+
+- **`CMD ["-mode","all"]` is load-bearing.** This binary's flag default is
+  `-mode tax`, unlike economy-collector and house-price-collector which default
+  to `all`. An argless run silently ingests ATO corporate tax only and reports
+  success. Terraform also sets `args` explicitly; the CMD is the safety net for a
+  manual `docker run`.
+- **The stealth bind-mount block is required even though this collector imports
+  no stealth code.** A bare `go mod download` resolves every module
+  `services/go.mod` requires, including the private `github.com/skunkworq/stealth`
+  that `services/pkg/stealthhttp` needs. CI passes it as the `github_token`
+  secret; local builds can bind-mount the repo instead.
+- **Build context.** Measured 2026-07-26: the `services` context was **1.94GB**
+  and took ~12 minutes to upload, which reads as a hung build. `services/.dockerignore`
+  now excludes venvs, model weights, `data/` and `__pycache__`, taking it to
+  **75MB**. That speeds every image in the matrix, not just this one. Do not pass
+  `--build-context stealth=~/projects/stealth` locally unless you need it — that
+  directory carries ~8.7GB of local artifacts.
+
+### 5.2 The register modes are NOT scheduled
+
+`-mode all` excludes `register-discover|fetch|load|resolve` by design, and the
+monthly scheduler runs `-mode all`. A 804-document crawl of a parliamentary
+website must never fire from a deploy step or an unattended timer.
+
+Operator-run, in order:
+
+```bash
+gcloud run jobs execute influence-collector --region australia-southeast2 \
+  --args="-mode,register-discover" --wait     # manifest only, no downloads
+gcloud run jobs execute influence-collector --region australia-southeast2 \
+  --args="-mode,register-fetch,-register-limit,260" --wait
+# then the extractor job: --stage classify, then --stage extract
+gcloud run jobs execute influence-collector --region australia-southeast2 \
+  --args="-mode,register-load" --wait
+gcloud run jobs execute influence-collector --region australia-southeast2 \
+  --args="-mode,register-resolve" --wait      # also refreshes the MVs
+```
+
+`REGISTER_DRY_RUN` defaults **true** and is pinned true in the job definition —
+every one of those is a no-op until it is explicitly set false. The fetch queue is
+ordered `parliament DESC`, so `-register-limit N` always covers the newest
+parliament first and a cap lands on a parliament boundary rather than at random.
+
+`register-fetch` **aborts the entire run on a single 403** rather than working
+through a WAF policy change.
+
+### 5.3 The freshness sentinel
+
+`-mode register-freshness` (read-only, exits non-zero on an alarm) run weekly by
+`.github/workflows/register-freshness.yml`. Same contract as economy-freshness:
+alarm → workflow fails → GitHub notifies.
+
+| Check | Alarms when | Why it is otherwise silent |
+|---|---|---|
+| `aph-waf` | any document has `http_status = 403` | APH revoking the no-UA posture makes every fetch fail while nothing else looks wrong — the corpus just stops growing |
+| `aph-staleness` | newest fetch > 28 days | the crawl stopped, for any reason |
+| `aph-extract-backlog` | text documents fetched but unparsed > 14 days | unparsed documents render as a member simply having fewer entries |
+
+Scanned documents are **excluded** from the backlog alarm — they wait on the
+vision tier by design, and alarming on them would keep the check permanently red
+and train the operator to ignore it. Per-parliament coverage is reported as INFO
+and never fails the run.
+
+**On an `aph-waf` alarm, do not send a browser User-Agent.** That is WAF evasion.
+Re-probe the no-UA posture by hand; if it is genuinely revoked, stop crawling and
+contact the publisher. The alarm text says so at the point of failure.
+
+### 5.4 Known gap: the CI prod-deploy bootstrap still runs `go run`
+
+`terraform-deploy.yml` (~line 1056) runs `go run ./influence-collector -mode all`
+(or `-mode public-records`) inside the **prod migration step**, as a corporate-tax
+bootstrap. With a real Cloud Run Job and a monthly scheduler now in place that
+path is redundant, and the `else` branch re-runs `-mode public-records` on every
+prod deploy.
+
+It is **deliberately left in place**: removing it changes prod deploy behaviour
+and, if the monthly job were ever failing, would silently drop a refresh that
+happens today on every deploy. Retire it in its own change, with the monthly job
+observed green first.
+
+---
+
+## 6. Launch gate
+
+The gate is a **merge** gate enforced by a human (§ "The launch gate is a MERGE
+gate, not a runtime flag"). Merging this branch publishes the feature.
+
+### 6.1 QA gates — measured 2026-07-26
+
+| Gate | Threshold | Measured | |
+|---|---|---|---|
+| item-1 security resolution | ≥ 35% of resolvable candidates | **35.3%** (478 / 1,356) | pass |
+| identity resolution | 0 unresolved statements | **0** of 2,609 | pass |
+| 47P centred-label layout | quarantined, never published | 119 docs at `partial` | pass |
+| item-3 multi-property merge | purpose suppressed on read | suppressed (29% of rows merge) | pass |
+| no amount/value column | none anywhere in the subsystem | enforced by migration test | pass |
+| `analyst_fuzzy` publishable | never | CHECK-enforced, asserted by test | pass |
+| freshness sentinel | exit 0 | exit 0 locally; alarm path mutation-tested | pass |
+| scan corpus | stated as unread, never as "no declarations" | `CoverageNote` on every profile | pass |
+
+**The scan corpus is the one to argue about.** The 44th and 45th Parliaments
+(310 documents) and all 35 Senate volumes are unfetched and unextracted. Without
+`CoverageNote` a profile for a member who served then renders an empty list,
+which reads as "declared nothing" — an absence claim about a named individual.
+That is why the coverage fields are served on `GetPolitician` and stated *above*
+the lists rather than as a footnote.
+
+### 6.2 Editorial template review — rules 1-8
+
+Seven rendering surfaces: the four `/politicians` routes, the stock rail card,
+the suburb property card, the economy state card. Plus OG images, `<title>`,
+descriptions, JSON-LD and alt text.
+
+| Rule | State |
+|---|---|
+| 1 — citation + as-at on every figure | **enforced by test** — `editorial-copy.test.ts` requires `SourceLine`/`ReportErrorLink` on every rendering surface. Caught `state-politician-holdings.tsx`, which had shipped with neither |
+| 2 — juxtaposition, not accusation | manual: no headline pairs a member with a market metric as cause; `/short-interest` renders `disclosure_note` adjacent to the table; no warning-coloured iconography near a person |
+| 3 — banned verbs | **enforced by test** |
+| 4 — integrity bodies | N/A — no NACC/ICAC data |
+| 5 — what is held, never how much | **enforced by test** (no `$`, no currency formatter) + no amount column + proto carries no amount field |
+| 6 — right of reply | N/A for automated cards; a standing precondition for any newsroom piece |
+| 7 — corrections policy | **closed** — `/disclaimer#corrections` written and linked from `CaveatNote` |
+| 8 — report an error | **enforced by test**. Row-level takedown is still whole-feature only — see below |
+
+### 6.3 Open items, stated rather than hidden
+
+1. **Row-level takedown does not exist.** Rule 8's remedy is implementable only
+   at whole-feature granularity (`POLITICIAN_INTERESTS_ENABLED=false`). A
+   `register_declared_items.suppressed_at` column plus a filter in
+   `mv_register_public_holdings` would fix it; until then a single contested
+   declaration means taking the whole surface down.
+2. **The sitemap and nav are not gated by the kill switch.** With the switch off
+   the rpcs return `{}` but the routes still render, the nav entry still shows,
+   and `sitemap.ts` still advertises three URLs — so a runtime dark period would
+   get empty pages indexed.
+3. **The review outcome must be recorded** (who / when / commit). The gate says
+   "signed off"; nothing here records a signature.
