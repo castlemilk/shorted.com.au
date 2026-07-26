@@ -267,6 +267,74 @@ func TestGlobalsRoundTrip(t *testing.T) {
 	}
 }
 
+// TestExitCodeOfOrdinaryError — the default contract: any error is exit 1.
+func TestExitCodeOfOrdinaryError(t *testing.T) {
+	if got := ExitCodeOf(nil); got != 0 {
+		t.Fatalf("nil → %d, want 0", got)
+	}
+	if got := ExitCodeOf(errors.New("boom")); got != 1 {
+		t.Fatalf("plain error → %d, want 1", got)
+	}
+	// A zero code is not a "successful error" — it degrades to 1.
+	if got := ExitCodeOf(&ExitCodeError{Code: 0, Err: errors.New("boom")}); got != 1 {
+		t.Fatalf("zero-code ExitCodeError → %d, want 1", got)
+	}
+}
+
+// TestExitCodeErrorSurvivesDispatch is the end-to-end exit-code demonstration:
+// a job returns *ExitCodeError, the runner still logs its normal
+// `status=error` end line (so nothing is skipped the way os.Exit would), the
+// error reaches the caller wrapped, and main's ExitCodeOf recovers the exact
+// code the external caller branches on. `shorted house-prices -mode warmcheck`
+// → 5 is exactly this path.
+func TestExitCodeErrorSurvivesDispatch(t *testing.T) {
+	cleanedUp := false
+	job := Func{
+		JobName: "house-prices",
+		Desc:    "exit-code carrier",
+		Fn: func(ctx context.Context, args []string) error {
+			defer func() { cleanedUp = true }() // stands in for pool.Close()
+			return &ExitCodeError{Code: 5, Err: errors.New("-mode warmcheck: REA session is cold")}
+		},
+	}
+	r := NewRegistry(job)
+
+	var out bytes.Buffer
+	err := r.Dispatch(context.Background(), "shorted", []string{"house-prices", "-mode", "warmcheck"}, &out)
+	if err == nil {
+		t.Fatal("want an error carrying exit code 5")
+	}
+	if !cleanedUp {
+		t.Fatal("deferred cleanup did not run — the whole point of not calling os.Exit")
+	}
+	if got := ExitCodeOf(err); got != 5 {
+		t.Fatalf("ExitCodeOf = %d, want 5", got)
+	}
+	var ec *ExitCodeError
+	if !errors.As(err, &ec) || ec.ExitCode() != 5 {
+		t.Fatalf("errors.As lost the code: %v", err)
+	}
+	if logged := out.String(); !strings.Contains(logged, "status=error") || !strings.Contains(logged, "name=shorted house-prices") {
+		t.Fatalf("end-of-job line missing/incorrect: %q", logged)
+	}
+}
+
+// TestExitCodeErrorWrapping asserts the message shape and that Unwrap keeps
+// errors.Is working through the wrapper.
+func TestExitCodeErrorWrapping(t *testing.T) {
+	sentinel := errors.New("cold")
+	err := &ExitCodeError{Code: 5, Err: sentinel}
+	if !errors.Is(err, sentinel) {
+		t.Fatal("Unwrap broken")
+	}
+	if got := err.Error(); got != "cold (exit 5)" {
+		t.Fatalf("Error() = %q", got)
+	}
+	if got := (&ExitCodeError{Code: 3}).Error(); got != "exit status 3" {
+		t.Fatalf("nil-cause Error() = %q", got)
+	}
+}
+
 func TestDuplicateRegistrationPanics(t *testing.T) {
 	defer func() {
 		if recover() == nil {

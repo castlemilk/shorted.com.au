@@ -1,0 +1,8 @@
+# Test binary produced by `go test -c` in this dir.
+/houseprices.test
+
+# CRAWL_TRACE debug-trace mode output (crawl_trace.go) — per-page screenshots
+# and HTML dumps hold portal listing data under a restrictive ToS, so they are
+# local-debugging aids only and must NEVER be committed or uploaded.
+/traces/
+*.png

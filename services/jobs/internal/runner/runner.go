@@ -74,6 +74,56 @@ func FromContext(ctx context.Context) Globals {
 // and must not print anything itself — usage errors are reported exactly once.
 var ErrUsage = errors.New("usage")
 
+// ExitCodeError carries a SPECIFIC process exit code out of a job, for the rare
+// case where an external caller branches on the code rather than on "did it
+// fail". The runner's default contract is one failure code (1); this is the
+// documented escape hatch.
+//
+// The only current user is `shorted house-prices`, whose residential-rig
+// launchers (services/house-price-collector/deploy/*.sh) branch on
+//
+//	3 = re-warm the crawl Chrome (Kasada/Akamai clearance expired)
+//	4 = fetcher init failed — Chrome/CDP unusable (hard-recover)
+//	5 = warmcheck says the session is cold
+//	6 = crawl-freshness ALARM
+//
+// A job returns this INSTEAD of calling os.Exit, so deferred cleanup (pool
+// close) still runs and the runner still emits its `status=error` line; main
+// unwraps it and exits with Code. Errors carrying code 0 are treated as
+// ordinary failures (exit 1) — a "successful error" is not expressible.
+type ExitCodeError struct {
+	Code int
+	Err  error
+}
+
+// Error implements error.
+func (e *ExitCodeError) Error() string {
+	if e.Err == nil {
+		return fmt.Sprintf("exit status %d", e.Code)
+	}
+	return fmt.Sprintf("%v (exit %d)", e.Err, e.Code)
+}
+
+// Unwrap exposes the underlying cause to errors.Is/As.
+func (e *ExitCodeError) Unwrap() error { return e.Err }
+
+// ExitCode returns the process exit code this error asks for.
+func (e *ExitCodeError) ExitCode() int { return e.Code }
+
+// ExitCodeOf returns the exit code a job asked for, or 1 for any ordinary
+// error (and 0 for nil). Main uses it as the single mapping from error to
+// process status.
+func ExitCodeOf(err error) int {
+	if err == nil {
+		return 0
+	}
+	var ec *ExitCodeError
+	if errors.As(err, &ec) && ec.Code != 0 {
+		return ec.Code
+	}
+	return 1
+}
+
 // Registry holds the jobs reachable from one command level.
 type Registry struct {
 	jobs map[string]Job
@@ -230,8 +280,31 @@ func (g *Group) Run(ctx context.Context, args []string) error {
 // SignalContext returns a context cancelled on SIGINT/SIGTERM. Batch jobs get a
 // chance to unwind (close pools, finish a collection run) instead of being hard
 // killed mid-write. The returned stop func must be deferred by the caller.
+//
+// A SECOND signal hard-exits (130): signal.NotifyContext keeps its handler
+// installed until stop() runs, which would otherwise swallow repeat Ctrl-C /
+// SIGTERM and leave a wedged non-ctx-aware call (e.g. a stuck CDP fetch)
+// unkillable short of SIGKILL.
 func SignalContext(parent context.Context) (context.Context, context.CancelFunc) {
-	return signal.NotifyContext(parent, os.Interrupt, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(parent, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-ctx.Done()
+		if parent.Err() != nil {
+			return // parent cancellation, not a signal
+		}
+		second := make(chan os.Signal, 1)
+		signal.Notify(second, os.Interrupt, syscall.SIGTERM)
+		select {
+		case <-second:
+			fmt.Fprintln(os.Stderr, "second signal: exiting immediately")
+			os.Exit(130)
+		case <-time.After(10 * time.Minute):
+			// Unwind is taking absurdly long even for a crawl finalizer;
+			// stop waiting for a second signal and let the process finish
+			// however it will (launchd/Cloud Run will SIGKILL eventually).
+		}
+	}()
+	return ctx, stop
 }
 
 // Func adapts a plain function into a Job.
