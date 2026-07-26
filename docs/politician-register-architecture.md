@@ -1000,3 +1000,74 @@ false-absence claim `CoverageNote` exists to prevent. Three states now:
 | read in full (≥95%) | 48th |
 | read in part | 46th (65%), 47th (56%) |
 | documents exist, none read | 44th, 45th |
+
+---
+
+## 8. DeepSeek cannot do this, and local OCR is close but not there yet
+
+### 8.1 The DeepSeek API has no vision input
+
+Checked against the official docs, not assumed:
+
+- `messages.content` is a **plain string**; the only models are `deepseek-v4-flash`
+  and `deepseek-v4-pro`, and `GET /models` lists just those two.
+- Stated explicitly: *"Array types like `image`, `document`, and `search_result`
+  are **not supported**."*
+- **DeepSeek-OCR** is a real vision-language model built for exactly this job, but
+  it ships as HuggingFace weights — self-hosted, GPU required, not API-served.
+
+So no DeepSeek token unblocks the OCR step. Where DeepSeek *would* fit is the
+SECOND half of a split pipeline: local OCR does image → text, and its cheap text
+API turns that text into structured JSON.
+
+### 8.2 Local Tesseract is fast, free and accurate on VALUES
+
+Tesseract 5.5.1 is already installed and MuPDF drives it (`get_textpage_ocr`).
+Measured on Gosling_48P — a **0-chars/page** scan:
+
+| | `agy` / Gemini | Local Tesseract |
+|---|---|---|
+| speed | 14s/page | **0.8s/page** |
+| cost | quota-capped ~16 docs/hour | **free, unlimited** |
+| hallucination surface | real (5 gates guard it) | **none — deterministic** |
+| typed values | 100% | **7/7 ground-truth phrases**, "Not Applicable" ×7 exactly |
+
+DPI matters: 150 over-reported "Not Applicable" (8 vs a true 7); **200 and 400
+matched truth exactly**, so `OCR_DPI_DEFAULT = 200`.
+
+### 8.3 What is wired, and the one thing still blocking it
+
+Wired and tested (`parse_house_document(doc, ocr=True)`):
+
+- `page_bands(page, textpage=…)` accepts an OCR TextPage. This is load-bearing:
+  `get_textpage_ocr()` returns a SEPARATE object and does **not** replace the
+  page's default text layer, so a bare `page.get_text("words")` on a scan returns
+  **0 words** and the parser silently finds nothing. The kwarg is passed only when
+  a textpage exists, so the born-digital path and its test doubles are untouched.
+- A page MuPDF cannot OCR is warned (`ocr_failed:page_N`) and left unattributed,
+  which lowers page coverage and quarantines the document.
+
+**BLOCKER — do not publish OCR output yet.** With strict header matching a scan
+yields **6 of 14 items** and welds items 9-11 onto item 8, so "MP Salary" (item 10
+income) and "QANTAS Chairmans Lounge" (item 11 gifts) are attributed to item 8
+(savings accounts). Wrong facts about a named person.
+
+The cause is §"NOT YET OCR-TOLERANT" in `register_parse.py`: `column_origins()`
+derives the value-column x-origins from the header band, and headers are exactly
+what Tesseract garbles. A fuzzy variant was tried and **reverted** — it rejects
+every data-row word correctly ("applicable" 0.40, "not" 0.44) but also matches
+real born-digital header words ("subsidiary" against "beneficiary"), adding
+spurious column origins and changing the born-digital parse. The golden set caught
+it.
+
+**Remaining work:** scope fuzzy header matching to the OCR path only — a flag
+threaded through `column_origins`/`is_column_header` and their two callers — then
+re-measure item recall against the LLM's verified 14/14 on the same document.
+Until that lands, scans stay on either the quota-limited `agy` tier or nothing,
+and `CoverageNote` keeps reporting 44P/45P as unread.
+
+Also needed before an OCR run can publish: the deterministic path's only numeric
+gate is page coverage, which was **100%** for the bad parse above. An OCR'd
+document must additionally clear an item-count sanity check (the vision tier's
+`VISION_MIN_BASE_ITEMS` is the natural threshold) or a wrong parse ships as
+`extracted`.

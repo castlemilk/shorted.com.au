@@ -42,6 +42,7 @@ Design notes: docs/politician-register-architecture.md
 
 from __future__ import annotations
 
+import difflib
 import re
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -105,6 +106,24 @@ COLUMN_HEADER_TOKENS = re.compile(
     r"^(location|name|nature|type|item|details|purpose|activities|body|creditor|beneficial|beneficiary)\b",
     re.I,
 )
+
+# NOT YET OCR-TOLERANT, and that is the blocker for parsing scans deterministically.
+#
+# column_origins() derives the value-column x-origins FROM the header band, and on
+# an OCR'd scan the headers are exactly what Tesseract garbles worst — measured on
+# Gosling_48P p2, typed values came through exactly ("Ludmilla, NT", "Not
+# Applicable" x7) while headers read "inchiding", "aapptieable", "hotding". With
+# strict matching a scan yields 6 of 14 items and welds items 9-11 onto item 8.
+#
+# A fuzzy variant (difflib against the vocabulary at ratio >= 0.72) was tried and
+# REVERTED: it correctly rejects every data-row word ("applicable" 0.40, "not"
+# 0.44) but it also matches real born-digital header words like "subsidiary"
+# against "beneficiary", adding spurious column origins and changing the
+# born-digital parse — the golden set caught it.
+#
+# So fuzzy matching must be scoped to the OCR path ONLY, threaded as a flag
+# through column_origins/is_column_header and their two callers. Until then, an
+# OCR'd document must not be published: see docs/politician-register-architecture.md.
 DATE_LABEL_RE = re.compile(r"(submitted\s+date|signed|date)\s*:?", re.I)
 DATE_VALUE_RE = re.compile(r"\b(\d{1,2})/(\d{1,2})/(\d{2,4})\b")
 PROCESSED_RE = re.compile(r"^processed\b", re.I)
@@ -113,6 +132,11 @@ PROCESSED_RE = re.compile(r"^processed\b", re.I)
 # is kept verbatim and flagged for review. Expected rate is near zero; a spike
 # in the vision tier means the model is hallucinating numbers.
 AMOUNT_RE = re.compile(r"\$\s?\d")
+
+# Tesseract DPI for scanned pages. 200 measured best on the register's scans:
+# 150 over-reported "Not Applicable" (8 vs a true 7 on Gosling_48P p2) while 200
+# and 400 both matched truth exactly, and 200 is the cheaper of the two.
+OCR_DPI_DEFAULT = 200
 
 
 @dataclass
@@ -188,14 +212,26 @@ class ParsedDocument:
 # ---------------------------------------------------------------------------
 
 
-def page_bands(page) -> list[Band]:
-    """Cluster a page's words into visual lines, dropping footer chrome."""
+def page_bands(page, textpage=None) -> list[Band]:
+    """Cluster a page's words into visual lines, dropping footer chrome.
+
+    textpage is an OPTIONAL pymupdf TextPage. It must be passed explicitly for an
+    OCR'd scan: get_textpage_ocr() returns a separate object and does NOT replace
+    the page's default text layer, so a bare page.get_text("words") on a scan
+    returns 0 words (measured) and the parser silently finds nothing.
+    """
     height = page.rect.height or 1.0
     cutoff = height * FOOTER_ZONE
 
     raw = [
         Word(x0, y0, x1, y1, text)
-        for x0, y0, x1, y1, text, *_ in page.get_text("words")
+        # Only pass the kwarg when there IS a textpage: the born-digital path and
+        # its test doubles call get_text("words") with no extra arguments.
+        for x0, y0, x1, y1, text, *_ in (
+            page.get_text("words", textpage=textpage)
+            if textpage is not None
+            else page.get_text("words")
+        )
         if text.strip() and y0 < cutoff  # drop the page-number footer
     ]
     if not raw:
@@ -706,12 +742,23 @@ def page_form_kind(bands: list[Band]) -> Optional[str]:
     return None
 
 
-def parse_house_document(doc, skip_pages: Optional[set[int]] = None) -> ParsedDocument:
-    """Parse a born-digital House member statement.
+def parse_house_document(
+    doc,
+    skip_pages: Optional[set[int]] = None,
+    ocr: bool = False,
+    ocr_dpi: int = OCR_DPI_DEFAULT,
+) -> ParsedDocument:
+    """Parse a House member statement.
 
     One PDF holds the member's base Statement of Registrable Interests followed
     by every dated Notification of Alteration they lodged — so a single document
     yields the full event stream for that parliament.
+
+    ocr=True runs each page through Tesseract (via MuPDF) first, which lets the
+    SAME geometry parser read a scanned document. Measured on Gosling_48P — a
+    0-chars/page scan — Tesseract at 200dpi recovered every typed value exactly.
+    That keeps scans on the deterministic path instead of an LLM: no quota, no
+    per-token cost, ~0.8s/page against ~14s, and no hallucination surface at all.
     """
     skip_pages = skip_pages or set()
     out = ParsedDocument()
@@ -721,7 +768,19 @@ def parse_house_document(doc, skip_pages: Optional[set[int]] = None) -> ParsedDo
         page_no = index + 1
         if page_no in skip_pages:
             continue
-        bands = page_bands(doc[index])
+        page = doc[index]
+        textpage = None
+        if ocr:
+            try:
+                textpage = page.get_textpage_ocr(flags=0, dpi=ocr_dpi, full=True)
+            except Exception as exc:  # noqa: BLE001
+                # A page MuPDF cannot OCR stays unattributed, which lowers page
+                # coverage and quarantines the document — never published empty.
+                out.warnings.append(f"ocr_failed:page_{page_no}")
+                logging.getLogger("register_parse").warning(
+                    "OCR failed on page %d: %s", page_no, exc
+                )
+        bands = page_bands(page, textpage=textpage)
         if not bands:
             continue
         pages.append((page_no, bands, page_form_kind(bands)))
