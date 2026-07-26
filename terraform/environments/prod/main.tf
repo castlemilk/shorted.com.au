@@ -201,28 +201,6 @@ module "house_price_collector" {
   ]
 }
 
-# Economy collector (ABS/RBA/DCCEEW monthly ingest)
-#
-# SUPERSEDED by module.shorted_job_economy (`shorted economy -mode all`).
-# The job stays deployed + manually executable; only its scheduler is paused
-# until the replacement has one green scheduled run. Rollback: set
-# scheduler_paused = false here and paused = true on shorted_job_economy.
-module "economy_collector" {
-  source = "../../modules/economy-collector"
-
-  project_id       = var.project_id
-  region           = var.region
-  scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
-  environment      = "production"
-  image_url        = var.economy_collector_image
-  scheduler_paused = true
-
-  depends_on = [
-    google_project_service.required_apis,
-    google_artifact_registry_repository.shorted
-  ]
-}
-
 # ---------------------------------------------------------------------------
 # Consolidated `shorted <job>` binary (services/jobs) — Phase 2 cutover.
 # One image, one generic module, args select the subcommand.
@@ -679,57 +657,6 @@ module "market_discovery_sync" {
     google_project_service.required_apis,
     google_artifact_registry_repository.shorted,
     module.short_data_sync
-  ]
-}
-
-# News Aggregator Job (RSS feeds → news_articles table)
-module "news_aggregator" {
-  source = "../../modules/news-aggregator"
-
-  project_id           = var.project_id
-  region               = var.region
-  scheduler_region     = "australia-southeast1" # Cloud Scheduler only available in southeast1
-  environment          = "production"
-  image_url            = var.news_aggregator_image
-  gemini_secret_exists = true
-  gemini_secret_name   = "GEMINI_API_KEY_NEWS"
-  # EMAIL_IMG_SECRET must be provisioned in Secret Manager BEFORE this is applied
-  # (push-to-main = prod CD). The same value must also be set as a Vercel env var
-  # so /api/email/img can verify the digest's signed thumbnail URLs.
-  email_img_secret_exists = true
-  public_site_url         = "https://shorted.com.au"
-
-  # SUPERSEDED by module.shorted_job_news (`shorted news`, one job + five
-  # schedules). The job stays deployed + manually executable; ALL FIVE
-  # schedulers are paused until the replacement has one green scheduled run.
-  # Rollback: set this to false and paused = true on shorted_job_news.
-  scheduler_paused = true
-
-  depends_on = [
-    google_project_service.required_apis,
-    google_artifact_registry_repository.shorted
-  ]
-}
-
-# ASX Announcement Crawler Job (director trades, dividends, news from ASX)
-#
-# SUPERSEDED by module.shorted_job_announcements (`shorted announcements ...`).
-# The job stays deployed + manually executable; only its scheduler is paused
-# until the replacement has one green scheduled run. Rollback: set
-# scheduler_paused = false here and paused = true on shorted_job_announcements.
-module "asx_announcement_crawler" {
-  source = "../../modules/asx-announcement-crawler"
-
-  project_id       = var.project_id
-  region           = var.region
-  scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
-  environment      = "production"
-  image_url        = var.asx_announcement_crawler_image
-  scheduler_paused = true
-
-  depends_on = [
-    google_project_service.required_apis,
-    google_artifact_registry_repository.shorted
   ]
 }
 

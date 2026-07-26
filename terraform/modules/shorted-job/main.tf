@@ -6,8 +6,8 @@
  *
  * Replaces the copy-pasted per-job modules one migration at a time: each
  * instantiation is the same image with different `args`, resources and cron.
- * Resource shapes are lifted verbatim from modules/economy-collector +
- * modules/asx-announcement-crawler — no new patterns.
+ * Resource shapes were lifted verbatim from the old modules/economy-collector +
+ * modules/asx-announcement-crawler (both since deleted) — no new patterns.
  *
  * Cost guardrail: Cloud Run Jobs have no min-instance concept, so there is
  * nothing to pin to zero here; keep cpu/memory at the migrated job's sizing.
