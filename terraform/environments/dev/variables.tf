@@ -40,6 +40,12 @@ variable "shorted_jobs_image" {
   default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/shorted-jobs:latest"
 }
 
+variable "shorted_jobs_browser_image" {
+  description = "Docker image URL for the browser (Debian + Chromium) variant of the consolidated `shorted <job>` binary (services/jobs/Dockerfile.browser) — used by `shorted discovery`"
+  type        = string
+  default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/shorted-jobs-browser:latest"
+}
+
 variable "shorts_api_image" {
   description = "Docker image URL for shorts API service"
   type        = string
