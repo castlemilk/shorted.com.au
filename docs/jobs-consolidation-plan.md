@@ -266,6 +266,31 @@ no Terraform/schedule changed, nothing deleted. `services/market-data-sync` and
 - Full divergence tables, omitted scratch CLIs and dep-version convergences:
   `services/jobs/README.md` ("Phase 2c port notes").
 
+## Phase 3 port — report-extract + director-trades (branch `feat/jobs-monolith-report-extractor`)
+
+CODE ONLY: `services/report-extractor` (3 Python scripts) is ported into the
+`shorted` binary; nothing is deployed, no Terraform/schedule changed, nothing
+deleted. `terraform/modules/report-extractor` still points both Cloud Run Jobs
+(`financial-report-extractor` weekly, `director-trade-extractor` daily) at the
+Python image.
+
+- `shorted report-extract concurrent` ← `extract_reports_concurrent.py` (deployed)
+- `shorted report-extract sequential` ← `extract.py`'s main() (laptop CLI)
+- `shorted director-trades` ← `extract_director_trades.py` (deployed)
+
+`report-extract` is a GROUP because the two report scripts disagree on flag
+defaults (`--recent` 2 vs 0, `--workers` 8 vs a `--delay` loop, `--mode all` vs
+`top50`); one flat subcommand would have silently changed a caller's defaults.
+
+**Blocking pre-cutover item — PDF text extraction changed engine.** pymupdf has
+no pure-Go equivalent that can ship in the static image, so the port uses
+`github.com/ledongthuc/pdf`. Page selection, the `"\n\n"` join and the 100-char
+floor are unchanged, but the extracted TEXT differs (layout/whitespace/glyph
+coverage), which moves `raw_text_length`, some `no_pdf`/`no_text` outcomes and,
+downstream, metric+digest quality. A side-by-side run over a sample of real ASX
+announcements is required before the schedulers are repointed. Full parity
+tables + 8 loud callouts: `services/jobs/README.md` ("Phase 3 port notes").
+
 ## Cutover checklist — weekly-report + news + signals
 
 - **news logs move stdout → stderr.** The standalone binary called
