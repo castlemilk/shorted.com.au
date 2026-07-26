@@ -247,7 +247,7 @@ class ParsedDocument:
 # ---------------------------------------------------------------------------
 
 
-def page_bands(page, textpage=None) -> list[Band]:
+def page_bands(page, textpage=None, words=None) -> list[Band]:
     """Cluster a page's words into visual lines, dropping footer chrome.
 
     textpage is an OPTIONAL pymupdf TextPage. It must be passed explicitly for an
@@ -260,10 +260,14 @@ def page_bands(page, textpage=None) -> list[Band]:
 
     raw = [
         Word(x0, y0, x1, y1, text)
-        # Only pass the kwarg when there IS a textpage: the born-digital path and
-        # its test doubles call get_text("words") with no extra arguments.
+        # `words` lets an OCR backend inject positioned text directly, bypassing
+        # MuPDF entirely — Apple Vision produces its own boxes. Otherwise: pass the
+        # textpage kwarg only when there IS one, so the born-digital path and its
+        # test doubles keep calling get_text("words") with no extra arguments.
         for x0, y0, x1, y1, text, *_ in (
-            page.get_text("words", textpage=textpage)
+            words
+            if words is not None
+            else page.get_text("words", textpage=textpage)
             if textpage is not None
             else page.get_text("words")
         )
@@ -782,6 +786,7 @@ def parse_house_document(
     skip_pages: Optional[set[int]] = None,
     ocr: bool = False,
     ocr_dpi: int = OCR_DPI_DEFAULT,
+    ocr_backend: str = "vision",
 ) -> ParsedDocument:
     """Parse a House member statement.
 
@@ -805,17 +810,25 @@ def parse_house_document(
             continue
         page = doc[index]
         textpage = None
+        ocr_words = None
         if ocr:
             try:
-                textpage = page.get_textpage_ocr(flags=0, dpi=ocr_dpi, full=True)
+                if ocr_backend == "vision":
+                    # Apple Vision: reads item NUMBERS correctly, which Tesseract
+                    # does not (it renders "1." as "4,"). See register_ocr.py.
+                    from register_ocr import page_ocr_words
+
+                    ocr_words = [w.as_tuple() for w in page_ocr_words(page, dpi=ocr_dpi)]
+                else:
+                    textpage = page.get_textpage_ocr(flags=0, dpi=ocr_dpi, full=True)
             except Exception as exc:  # noqa: BLE001
-                # A page MuPDF cannot OCR stays unattributed, which lowers page
+                # A page we cannot OCR stays unattributed, which lowers page
                 # coverage and quarantines the document — never published empty.
                 out.warnings.append(f"ocr_failed:page_{page_no}")
                 logging.getLogger("register_parse").warning(
                     "OCR failed on page %d: %s", page_no, exc
                 )
-        bands = page_bands(page, textpage=textpage)
+        bands = page_bands(page, textpage=textpage, words=ocr_words)
         if not bands:
             continue
         pages.append((page_no, bands, page_form_kind(bands)))

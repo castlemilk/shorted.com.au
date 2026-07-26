@@ -1108,3 +1108,58 @@ alone would have shipped it as good.
 No stage runs `ocr=True` today, so nothing can publish an OCR parse — the
 capability is wired and gated, not enabled. Scans stay on the quota-limited `agy`
 tier, and `CoverageNote` keeps reporting 44P/45P as unread.
+
+### 8.6 Apple Vision replaces Tesseract as the OCR backend
+
+`register_ocr.py`, backend `vision`. On-device, free, unquota'd, and it fixes the
+failure Tesseract could not: **item numbers**.
+
+Same page (Gosling_48P p2), same parser:
+
+```
+Tesseract      '4,'  <- item "1." : digit read as 4, period as comma
+               '2.'  <- number kept, label lost to another line
+Apple Vision   '1. List shereholdings in public and private companies (...'  conf 1.00
+               '2. List family and business trusts and nominee companies:'  conf 1.00
+```
+
+Whole-document result, deterministic parser, no LLM:
+
+| | Tesseract | Apple Vision |
+|---|---|---|
+| items found | 6/14 | **12/14** |
+| item 1 / item 3 | missing | **both correct** |
+| item 10 income | misfiled under item 8 | **correct** |
+| `ocr_parse_gates` | FAIL | **PASS** |
+| wall clock | 2.9s | 3.9s |
+
+Mechanics worth knowing:
+
+- Vision boxes are **normalised 0..1 with a BOTTOM-left origin** — the opposite
+  vertical convention to PDF text extraction. `vision_words()` flips it once.
+- Vision returns roughly **one observation per table cell** on this form, so the
+  x0 of each observation is an exact column origin. Words within an observation
+  get x-extents apportioned by character offset, which is an approximation the
+  parser tolerates because it needs a stable y per line and the x0 of each
+  column's first word — both exact.
+- `page_bands(page, ..., words=…)` lets a backend inject positioned text and skip
+  MuPDF entirely. The born-digital path still calls `get_text("words")` with no
+  extra arguments, so it and its test doubles are untouched.
+- macOS + `pyobjc-framework-{Vision,Quartz}` only. Another operator-machine
+  backend; the Linux container cannot run it.
+
+**Still not publishable — two residual defects, both column-level rather than
+attribution-level:**
+
+1. **Item 8 declared/secondary are misaligned**: `declared_text` came back as
+   `'NAB'` (the institution column) where truth is `'Savings'`. A semantic swap,
+   not a wrong person.
+2. **Boilerplate bleed**: item 11 captured the form's explanatory note
+   ("children from family members or personal friends in a purely personal
+   capacity need not be…") instead of the QANTAS gift value. That would render as
+   a garbage declaration on a named member's profile.
+
+Value recall is 5/6 on the probe document. Next work is boilerplate filtering
+(the notes are distinguishable — smaller type, full-width, no holder label) and
+item-8 column alignment. `ocr_parse_gates` PASSES on this document, so those two
+must be fixed before any OCR stage is wired — the gate would not catch them.
