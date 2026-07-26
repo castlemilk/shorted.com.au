@@ -480,6 +480,20 @@ module "market_discovery_sync" {
   min_instances          = 0
   max_instances          = 10
 
+  # Jobs-monolith cutover (slice 3) — both surfaces now run the consolidated
+  # `shorted` binary IN PLACE: the SAME Cloud Run service/job resources, the
+  # same service accounts, the same schedulers, just a new image + args. The
+  # binary's ENTRYPOINT is /shorted; command is set explicitly so the args are
+  # unambiguous. ROLLBACK: delete these six lines (or set the two *_override
+  # vars to "") and apply — the legacy images come straight back.
+  market_data_sync_image_override = var.shorted_jobs_image
+  market_data_sync_command        = ["/shorted"]
+  market_data_sync_args           = ["market-data", "serve"]
+
+  asx_discovery_image_override = var.shorted_jobs_browser_image
+  asx_discovery_command        = ["/shorted"]
+  asx_discovery_args           = ["discovery"]
+
   depends_on = [
     module.short_data_sync
   ]

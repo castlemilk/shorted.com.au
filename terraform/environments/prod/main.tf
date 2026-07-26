@@ -659,6 +659,22 @@ module "market_discovery_sync" {
   market_data_sync_image = var.market_data_sync_image
   bucket_name            = module.short_data_sync.bucket_name
 
+  # Jobs-monolith cutover (slice 3) — both surfaces now run the consolidated
+  # `shorted` binary IN PLACE: the SAME Cloud Run service/job resources, the
+  # same service accounts, the same schedulers, just a new image + args. The
+  # binary's ENTRYPOINT is /shorted; command is set explicitly so the args are
+  # unambiguous. ROLLBACK: delete these six lines (or set the two *_override
+  # vars to "") and apply — the legacy images come straight back. For the
+  # service, `gcloud run services update-traffic market-data-sync
+  # --to-revisions=<previous>=100 --region us-central1` is the instant path.
+  market_data_sync_image_override = var.shorted_jobs_image
+  market_data_sync_command        = ["/shorted"]
+  market_data_sync_args           = ["market-data", "serve"]
+
+  asx_discovery_image_override = var.shorted_jobs_browser_image
+  asx_discovery_command        = ["/shorted"]
+  asx_discovery_args           = ["discovery"]
+
   depends_on = [
     google_project_service.required_apis,
     google_artifact_registry_repository.shorted,

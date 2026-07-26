@@ -41,12 +41,12 @@ services/jobs/
 | Subcommand | Replaces | Deployed? |
 |---|---|---|
 | `announcements` | `services/asx-announcement-crawler` | yes — `shorted-announcements` (cutover 1; old scheduler paused) |
-| `discovery` | `services/asx-discovery` | **not yet** — ported (Phase 2c), no Terraform change; needs the browser image |
+| `discovery` | `services/asx-discovery` | yes — the EXISTING `asx-discovery` job now runs the `shorted-jobs-browser` image with args `["discovery"]` (cutover 3, in-place; no old scheduler to pause) |
 | `economy` | `services/economy-collector` | yes — `shorted-economy` (cutover 1; old scheduler paused) |
 | `house-prices` | `services/house-price-collector` | **not yet** — ported (Phase 2d), no Terraform change, no rig cutover; see below |
 | `influence` | `services/influence-collector` | no — laptop-only tool |
-| `market-data serve` | `services/market-data-sync` (default mode) | **not yet** — ported (Phase 2c), no Terraform change |
-| `market-data sync` | `services/market-data-sync -cli` | **not yet** — ported (Phase 2c) |
+| `market-data serve` | `services/market-data-sync` (default mode) | yes — the EXISTING `market-data-sync` Cloud Run SERVICE now runs the `shorted-jobs` image with args `["market-data","serve"]` (cutover 3, in-place revision swap; same URI/SA/scheduler) |
+| `market-data sync` | `services/market-data-sync -cli` | n/a — CLI mode; the deployed surface is `serve` (cutover 3) |
 | `market-data audit-gaps` | `services/market-data-sync/cmd/audit-gaps` | no — laptop-only tool |
 | `market-data historical-backfill` | `services/market-data-sync/cmd/historical-backfill` | no — laptop-only tool |
 | `news` | `services/news-aggregator` | yes — `shorted-news`, 1 job + 5 schedules (cutover 2; all 5 old schedulers paused) |
@@ -226,6 +226,14 @@ The four forced convergences are all *upgrades* of the source modules' pins onto
 what the consolidated module already used for the eight previously-ported jobs;
 downgrading the shared module to match one source service was not an option. The
 old modules keep their own pins (their `go.mod`s are untouched).
+
+**CUTOVER STATUS (slice 3, shipped):** this risk is now LIVE — both surfaces
+run from the shorted-jobs images, so prod is on pgx 5.10.0 / otel 1.44.0 /
+storage 1.64.0 / google-api 0.290.0 for market-data + discovery. Rollback is a
+Terraform variable flip (`market_data_sync_image_override` /
+`asx_discovery_image_override` back to `""`) or, for the service,
+`gcloud run services update-traffic market-data-sync --to-revisions=<prev>=100`.
+See "Cutover slice 3" in `docs/jobs-consolidation-plan.md`.
 
 **CUTOVER RISK — these upgrades are a REAL runtime change for the deployed
 images.** Local/dev builds resolve through the full `services/go.work` union

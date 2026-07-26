@@ -4,6 +4,19 @@ locals {
     environment = var.environment
     managed_by  = "terraform"
   }
+
+  # Jobs-monolith cutover: an empty override keeps the legacy per-service image,
+  # so the module's default behaviour (and every un-migrated call site) is
+  # byte-identical to before this variable existed.
+  asx_discovery_image    = var.asx_discovery_image_override != "" ? var.asx_discovery_image_override : var.asx_discovery_image
+  market_data_sync_image = var.market_data_sync_image_override != "" ? var.market_data_sync_image_override : var.market_data_sync_image
+
+  # `null` (not `[]`) so the attribute is OMITTED and the image's own
+  # ENTRYPOINT/CMD applies — an empty list would clear it.
+  asx_discovery_command    = length(var.asx_discovery_command) > 0 ? var.asx_discovery_command : null
+  asx_discovery_args       = length(var.asx_discovery_args) > 0 ? var.asx_discovery_args : null
+  market_data_sync_command = length(var.market_data_sync_command) > 0 ? var.market_data_sync_command : null
+  market_data_sync_args    = length(var.market_data_sync_args) > 0 ? var.market_data_sync_args : null
 }
 
 # Service Account for ASX Discovery
@@ -30,11 +43,24 @@ resource "google_cloud_run_v2_job" "asx_discovery" {
     template {
       service_account = google_service_account.asx_discovery.email
       containers {
-        image = var.asx_discovery_image
+        image   = local.asx_discovery_image
+        command = local.asx_discovery_command
+        args    = local.asx_discovery_args
 
         env {
           name  = "GCS_BUCKET_NAME"
           value = var.bucket_name
+        }
+
+        # DOWNLOAD_DIR is otherwise left to the image's own ENV default
+        # (/tmp/asx-downloads in BOTH the legacy asx-discovery image and
+        # services/jobs/Dockerfile.browser), exactly as before.
+        dynamic "env" {
+          for_each = var.asx_discovery_download_dir != "" ? [var.asx_discovery_download_dir] : []
+          content {
+            name  = "DOWNLOAD_DIR"
+            value = env.value
+          }
         }
 
         # OpenTelemetry configuration (traces + metrics to Grafana Cloud)
@@ -137,7 +163,9 @@ resource "google_cloud_run_v2_service" "market_data_sync" {
     service_account = google_service_account.market_data_sync.email
 
     containers {
-      image = var.market_data_sync_image
+      image   = local.market_data_sync_image
+      command = local.market_data_sync_command
+      args    = local.market_data_sync_args
 
       ports {
         container_port = 8080
@@ -224,6 +252,12 @@ resource "google_cloud_run_v2_service" "market_data_sync" {
         startup_cpu_boost = true
       }
 
+      # Probe parity across the cutover: `shorted market-data serve` registers
+      # /healthz, /readyz AND /health (marketdata/api/server.go) before its
+      # dependencies come up, and listens on $PORT (default 8080), which Cloud
+      # Run sets to the container port declared above. Both probe paths/ports are
+      # therefore unchanged — do not "modernise" them to /healthz without
+      # re-checking the legacy image.
       startup_probe {
         http_get {
           path = "/health"

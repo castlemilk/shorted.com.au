@@ -302,3 +302,137 @@ no Terraform/schedule changed, nothing deleted. `services/market-data-sync` and
 - Revalidation env (`REVALIDATION_URL`/`_SECRET`) was NOT set on the old
   weekly-report module and is still not set — `platform.PingRevalidate` no-ops,
   same as today. Wiring it is a separate change.
+
+## Cutover slice 3 — market-data + discovery (branch `feat/jobs-monolith-cutover-3`)
+
+The last two Phase 2c ports go live. Both are **in-place swaps of the EXISTING
+resources** in `terraform/modules/market-discovery-sync` (which hosts BOTH the
+`market-data-sync` Cloud Run **service** and the `asx-discovery` Cloud Run
+**job**) — no new Cloud Run resources, no new service accounts, no new
+schedulers, nothing destroyed.
+
+### CI
+
+`shorted-jobs-browser` (`services/jobs/Dockerfile.browser`, context `services`,
+same `github_token=STEALTH_PAT` secret invocation as every other matrix entry)
+joins the `build-docker-images` matrix, and
+`-var="shorted_jobs_browser_image=…"` is threaded into both `terraform plan` and
+`terraform apply`, exactly like `shorted_jobs_image` in slice 1. Both envs gain
+a `shorted_jobs_browser_image` variable (defaulted to `…/shorted-jobs-browser:latest`).
+
+### Why in-place, not new resources
+
+`market-data-sync` is a **service**, not a job: a weekday scheduler POSTs
+`${service.uri}/api/sync/all` with an OIDC token whose audience is that URI. A
+new service resource would change the URI, the audience, the invoker binding and
+the SA — a fleet of coupled edits to roll back. Swapping the image + args on the
+existing service is a plain **revision update**: the URI, SA, IAM, scheduler and
+probes are untouched, and Cloud Run's own `update-traffic --to-revisions` is an
+instant rollback that does not need Terraform at all. The same argument (minus
+the URI) applies to the `asx-discovery` job, whose scheduler targets it by NAME
+— so a new job would need a new scheduler plus a pause of the old one, versus a
+one-attribute template change. Both surfaces therefore take the lowest-blast-radius
+path; there is no old scheduler left running that needs `paused = true`, because
+there is no second copy of anything.
+
+New module variables (all defaulted to "no override", so any un-migrated call
+site plans byte-identically): `market_data_sync_image_override`,
+`market_data_sync_command`, `market_data_sync_args`,
+`asx_discovery_image_override`, `asx_discovery_command`, `asx_discovery_args`,
+`asx_discovery_download_dir`. `command`/`args` resolve to `null` when empty, so
+the attribute is omitted and the image's own ENTRYPOINT/CMD applies.
+
+Set at both env call sites:
+
+| Surface | Image | command | args |
+|---|---|---|---|
+| `market-data-sync` (service) | `var.shorted_jobs_image` | `["/shorted"]` | `["market-data","serve"]` |
+| `asx-discovery` (job) | `var.shorted_jobs_browser_image` | `["/shorted"]` | `["discovery"]` |
+
+### Parity — market-data-sync service
+
+Env, secrets, ports, resources, scaling, traffic and both probes are **unchanged**;
+only `image`, `command` and `args` differ in the plan.
+
+| Item | Before | After |
+|---|---|---|
+| Env | `ENVIRONMENT`, `GCP_PROJECT`, `DB_MAX_CONNS=3`, `DB_MIN_CONNS=0`, `GCS_BUCKET_NAME`, `PRIORITY_STOCK_COUNT=100`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_PROTOCOL` | identical |
+| Secret env | `DATABASE_URL`, `ALPHA_VANTAGE_API_KEY`, `OTEL_EXPORTER_OTLP_HEADERS` | identical |
+| Port | `container_port = 8080` (`http1`) | identical (`serve` listens on `$PORT`, default 8080 — Cloud Run injects 8080) |
+| startup_probe | `GET /health:8080`, delay 5s / period 5s / timeout 5s / threshold 6 | identical — `api/server.go` registers `/healthz`, `/readyz` **and** `/health`, all served before dependency init completes (API routes 503 until ready) |
+| liveness_probe | `GET /health:8080`, delay 30s / period 30s / timeout 10s / threshold 3 | identical |
+| Resources | 1 CPU / 512Mi, `cpu_idle`, `startup_cpu_boost` | identical |
+| Scaling / traffic / timeout | min/max instances, `LATEST` 100%, 600s | identical |
+| Scheduler | `market-data-sync-daily`, `0 10 * * 1-5`, POST `${uri}/api/sync/all`, OIDC aud = service URI, deadline 1800s | identical (same resource, same URI) |
+
+### Parity — asx-discovery job
+
+| Item | Before | After |
+|---|---|---|
+| Env | `GCS_BUCKET_NAME` (+ OTel endpoint/protocol/headers-secret) | identical |
+| `DOWNLOAD_DIR` | never set in TF — came from the image `ENV DOWNLOAD_DIR=/tmp/asx-downloads` | identical: `Dockerfile.browser` sets the same `ENV`. `asx_discovery_download_dir` exists as an explicit escape hatch, unset by default |
+| Resources | 2 CPU / 4Gi | identical |
+| SA / GCS IAM / OTel secret IAM | `asx-discovery` SA, bucket `objectAdmin`, OTLP-headers accessor | identical |
+| Scheduler | `asx-discovery-weekly`, `0 12 * * 0`, `:run`, deadline 320s | identical (same resource, targets the job by name) |
+
+Bonus: the browser image pins `playwright@1.61.1` to match the
+`mxschmitt/playwright-go v0.6100.0` driver, so discovery should stop
+re-downloading ~165 MiB of Chromium on every run (see the README landmine).
+
+### Rollback per surface (variable flips, nothing destroyed)
+
+- **market-data-sync (service)** — fastest path, no Terraform:
+  `gcloud run services update-traffic market-data-sync --to-revisions=<previous>=100
+  --region <us-central1|australia-southeast2> --project <proj>`. Durable path:
+  remove (or blank) `market_data_sync_image_override` / `_command` / `_args` at
+  the env call site and `terraform apply` — the service reverts to
+  `var.market_data_sync_image` (still built by CI) in one revision. The
+  scheduler, URI, OIDC audience and SA never moved, so nothing else changes.
+- **asx-discovery (job)** — remove (or blank) `asx_discovery_image_override` /
+  `_command` / `_args` and `terraform apply`; the next scheduled `:run` uses the
+  legacy `asx-discovery` image. Nothing to unpause. To roll back mid-week,
+  apply then `gcloud run jobs execute asx-discovery`.
+- Neither rollback needs an image rebuild: CI keeps building `asx-discovery`
+  and `market-data-sync` until the cleanup PR.
+
+### Cutover checklist — market-data + discovery
+
+- **DEPENDENCY UPGRADE (carried from `services/jobs/README.md` "CUTOVER RISK").**
+  The deployed legacy images build a two-module workspace that resolves the LOWER
+  pins; the shorted-jobs image resolves the shared module's. This cutover
+  therefore upgrades, in prod, for BOTH surfaces: **pgx v5.9.2 → v5.10.0**,
+  **otel v1.40.0 → v1.44.0**, **cloud.google.com/go/storage v1.58.0 → v1.64.0**,
+  **google.golang.org/api v0.258.0 → v0.290.0**. If post-cutover behaviour
+  differs (pool/TLS behaviour on the Supabase pooler, OTel export shape, GCS
+  upload semantics), check these BEFORE suspecting the port. pgx 5.10 is already
+  proven in prod by the eight monolith jobs; storage/google-api are newly
+  exercised by discovery's CSV upload path.
+- **Job/service names do NOT change** (`market-data-sync`, `asx-discovery`), so
+  unlike slices 1–2 no log filter, dashboard or scheduler name needs updating.
+  OTel identities are also unchanged (`shorted-market-data-sync` + metric attr
+  `market-data-sync`; `asx-discovery`).
+- **Probe paths must stay `/health`** — the ported server serves `/healthz`,
+  `/readyz` and `/health`; do not "modernise" the module to `/healthz` in the
+  same change as the image swap, or a probe failure and an image failure become
+  indistinguishable.
+- **`serve` starts the HTTP listener BEFORE dependencies** and answers 503 on
+  API routes until `SetDependencies` runs (10 attempts, linear backoff capped at
+  30s). A DB outage now shows as 503s from `/api/sync/all` rather than a crash
+  loop; the startup probe (6 × 5s) passes throughout.
+- **`log.Fatal` → returned errors**: a failed run exits 1 with the runner's
+  `[job] done … status=error` line rather than the old per-binary `ERROR`
+  textPayload — same caveat as slices 1–2, re-check log-match alerts. Notably
+  `historical-backfill` interrupted now exits 1 (used to exit 0) and
+  `sync` interrupted exits 1 (was 130).
+- **`POST /api/sync/all` still detaches** onto `context.Background()`
+  deliberately (checkpointed/resumable sweep) — unchanged behaviour.
+- **Keep the npm playwright pin in lockstep** with `playwrightCliVersion` on any
+  `playwright-go` bump, or discovery silently resumes the 165 MiB per-run
+  Chromium download.
+
+**Cleanup (only after ≥1 green scheduled run of each: the Mon–Fri 10:00 UTC
+market-data sync and the Sunday 12:00 UTC discovery run):** drop the
+`asx-discovery` / `market-data-sync` CI matrix entries, the
+`asx_discovery_image` / `market_data_sync_image` variables and the override
+plumbing (fold the image + args in directly), and delete
+`services/asx-discovery` + `services/market-data-sync`.
