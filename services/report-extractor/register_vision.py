@@ -137,6 +137,21 @@ class VisionUnavailable(RuntimeError):
     """`agy` is not installed. Raised once, before any work."""
 
 
+class VisionQuotaExhausted(RuntimeError):
+    """The agy subscription quota is spent.
+
+    Distinct from VisionError because it is not per-batch and not retryable: every
+    subsequent call in the run will fail the same way. Measured 2026-07-26 — a
+    bulk run over 367 documents exhausted the quota after 16 documents (~200
+    pages) and then logged 266 identical failures while marking real documents as
+    0%-coverage partials. Same posture as the APH 403: stop, do not hammer on.
+    """
+
+
+# agy's wording, matched loosely so a rephrasing still trips it.
+_QUOTA_RE = re.compile(r"quota reached|upgrade your subscription", re.I)
+
+
 # ---------------------------------------------------------------------------
 # Prompt
 # ---------------------------------------------------------------------------
@@ -287,9 +302,13 @@ def run_batch(
         raise VisionError(f"agy timed out after {exc.timeout}s") from exc
 
     if proc.returncode != 0:
-        raise VisionError(
-            f"agy exit {proc.returncode}: {(proc.stderr or proc.stdout)[:300]}"
-        )
+        detail = (proc.stderr or proc.stdout or "")[:300]
+        # Quota is terminal for the whole run, not for this batch. Retrying it
+        # burns nothing but time and leaves a trail of 0%-coverage documents that
+        # look like unreadable scans.
+        if _QUOTA_RE.search(detail):
+            raise VisionQuotaExhausted(detail.strip())
+        raise VisionError(f"agy exit {proc.returncode}: {detail}")
 
     payload = extract_json_object(proc.stdout)
     rows = payload.get("rows")
@@ -481,6 +500,8 @@ def vision_pages(
             for attempt in range(1, VISION_MAX_ATTEMPTS + 1):
                 try:
                     return group, run_batch(paths, workdir, model), None
+                except VisionQuotaExhausted:
+                    raise  # terminal for the run; never retried, never salvaged
                 except VisionError as exc:
                     last = str(exc)
                     log.warning(
@@ -496,6 +517,8 @@ def vision_pages(
                     try:
                         salvaged += run_batch([rendered[page_no]], workdir, model)
                         ok.append(page_no)
+                    except VisionQuotaExhausted:
+                        raise
                     except VisionError as exc:
                         log.warning("page %d unrecoverable: %s", page_no, exc)
                 if ok:
@@ -522,6 +545,15 @@ def vision_pages(
                         row["page_no"] = offset + 1
 
     parsed = to_parsed(raw_rows, page_offset=0, page_count=page_count, pages_read=pages_read)
+    if not parsed.statements:
+        # Raise rather than return an empty document. store_extraction would
+        # otherwise persist a 0-item artifact, and the NOT EXISTS resume guard
+        # keys on the artifact's existence — so the document would never be
+        # retried, and would sit at 0% coverage looking like an unreadable scan.
+        raise VisionError(
+            f"vision read no items from {len(page_numbers)} page(s); "
+            f"{len(failures)} batch failure(s): {failures[:1]}"
+        )
     if failures:
         parsed.warnings.append("vision_batch_unrecoverable")
     return parsed

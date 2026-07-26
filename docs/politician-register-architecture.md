@@ -949,8 +949,40 @@ cd ../ && DATABASE_URL=... REGISTER_DRY_RUN=false ./ic -mode register-load
 DATABASE_URL=... REGISTER_DRY_RUN=false ./ic -mode register-resolve
 ```
 
-Estimated wall clock for the remaining 5,823 scan pages at 4-way × 4-page
-batches: **~2-4 hours**.
+### 7.3.1 THE BINDING CONSTRAINT IS THE agy SUBSCRIPTION QUOTA
+
+Throughput is not the limit. Measured 2026-07-26 on a real bulk run at
+concurrency 6: the quota was **exhausted after 16 documents (~200 pages, ~12
+minutes)**, then produced 266 identical failures:
+
+```
+agy exit 1: Error: Individual quota reached. Please upgrade your subscription
+to increase your limits. Resets in 1h7m26s.
+```
+
+So the ~2-4h wall-clock estimate is irrelevant — the corpus must be drained in
+**quota windows**, roughly 16 documents (~200 pages) per window with a ~1h reset.
+At that rate the remaining ~350 scan/mixed documents need on the order of **20+
+windows**, i.e. days of elapsed time on the current subscription. Options, in the
+operator's hands: run it as a background trickle across days, raise the agy
+subscription limit, or fall back to a paid Gemini API key for a one-off bulk pass
+(the original ~\$31/pass estimate).
+
+Two code guards came out of that run, and both matter:
+
+- **Quota is TERMINAL for the run** (`VisionQuotaExhausted`). It is never retried
+  and never salvaged page-by-page; the stage aborts the queue. Same posture as the
+  APH 403 — do not hammer on through a block. Without this, one exhausted quota
+  marched through the entire queue marking real documents as 0%-coverage partials.
+- **An empty read RAISES instead of persisting an empty artifact.** The resume
+  guard is `NOT EXISTS (… tier='vision')`, so a persisted 0-item artifact would
+  make the document **permanently skipped** while sitting at 0% coverage looking
+  like an unreadable scan. Ten documents were poisoned this way before the fix and
+  had to be deleted by hand. A failed document now writes no artifact, so a
+  re-run picks it up with no `--force`.
+
+Progress after the aborted run: **10 vision artifacts** (9 at 14 items / 100%
+coverage, 1 quarantined at 61%).
 
 ### 7.4 Coverage is a SHARE, not "any"
 

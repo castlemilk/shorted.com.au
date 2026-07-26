@@ -183,6 +183,7 @@ from register_vision import (  # noqa: E402  (kept near use: agy is operator-onl
     VISION_BATCH_PAGES,
     VISION_CONCURRENCY_DEFAULT,
     VISION_MODEL_DEFAULT,
+    VisionQuotaExhausted,
     VisionUnavailable,
     require_agy,
     vision_gates,
@@ -761,6 +762,21 @@ def run_vision(args) -> int:
                 metrics["page_coverage_pct"],
                 (" GATES: " + ",".join(gates)) if gates else "",
             )
+        except VisionQuotaExhausted as e:
+            # Terminal for the RUN. Stop immediately rather than grinding the rest
+            # of the queue into 0%-coverage partials that look like unreadable
+            # scans. The queue is resumable: no artifact was written for this
+            # document, so a later run picks it up with no --force.
+            failed += 1
+            log.error("  %s quota exhausted: %s", row["source_url"], e)
+            mark_extract_failed(conn, row["id"], e, args.dry_run)
+            log.error(
+                "vision: ABORTING — agy subscription quota is spent. "
+                "%d extracted, %d partial, %d failed so far. Re-run after the "
+                "quota resets; completed documents are skipped automatically.",
+                extracted, partial, failed,
+            )
+            break
         except Exception as e:  # noqa: BLE001
             failed += 1
             log.warning("  %s FAILED: %s", row["source_url"], e)
