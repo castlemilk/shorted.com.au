@@ -64,6 +64,30 @@ log = logging.getLogger("register_vision")
 
 VISION_MODEL_DEFAULT = "gemini-3.6-flash-low"
 
+# Direct Gemini API backend. Measured 2026-07-26 against the agy CLI on the same
+# document (Gosling_48P, a 0-chars/page scan):
+#
+#                      items  recall  s/page  quota wall
+#   agy CLI            14/14   6/6     14.0   ~16 docs/hour
+#   Gemini API         14/14   6/6      1.6   none hit
+#
+# 8.75x faster and no subscription ceiling. Needs GEMINI_API_KEY.
+GEMINI_API_MODEL_DEFAULT = "gemini-3.1-flash-lite"
+GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+
+# 72dpi, not 150. Input tokens measured FLAT at 6,633 for a 6-page batch across
+# 72/96/110/150dpi — Gemini normalises images to a fixed token cost, so resolution
+# is free and 14/14 holds at 72. The smaller payload is just faster to upload.
+GEMINI_API_DPI = 72
+
+# The COMPACT wire schema, and it is worth the ugliness: 1-char keys plus a nil
+# marker cut output tokens 2,027 -> 906 (55%) on the probe document with identical
+# accuracy, and halved latency because there is less to generate. The form is
+# mostly "Not Applicable", so repeating that string was most of the output bill.
+# Nil rows are still EMITTED (marked, never dropped) because a nil row is what
+# proves the tier read the item.
+_COMPACT_HOLDER = {"s": "self", "p": "spouse/partner", "c": "dependent children"}
+
 # 150dpi renders a 1148x1755 page, which transcribed a 0-chars/page scan with
 # 100% accuracy in the probe. Higher costs latency for no measured gain.
 VISION_RASTER_DPI = 150
@@ -205,6 +229,123 @@ def build_prompt(image_paths: list[str]) -> str:
 # ---------------------------------------------------------------------------
 # The agy invocation
 # ---------------------------------------------------------------------------
+
+
+_GEMINI_PROMPT = """Transcribe these scanned Register of Members' Interests pages, in order.
+Items 1-14; each is a table with rows Self, Spouse/partner, Dependent children.
+Item 2 has sub-tables 2.i and 2.ii - emit every holder row of both.
+IGNORE explanatory notes/instructions. Never create a numeric field.
+Output compact JSON only, no whitespace:
+{"r":[{"p":page,"i":item_no,"h":"s"|"p"|"c","d":declared_text,"e":secondary_text}]}
+h: s=Self p=Spouse/partner c=Dependent children.
+If a cell says Not Applicable/Nil/N/A, emit {"p":..,"i":..,"h":..,"n":1} and OMIT d and e.
+Omit "e" entirely when the second column is empty. Transcribe other cells VERBATIM."""
+
+
+def _expand_compact(rows: list[dict]) -> list[dict]:
+    """Compact wire rows -> the same shape run_batch() returns, so to_parsed()
+    and every gate downstream are backend-agnostic."""
+    out: list[dict] = []
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        holder = _COMPACT_HOLDER.get(str(r.get("h", "")).lower(), "")
+        # A nil marker becomes the literal the parser and is_nil_value expect;
+        # the row is kept, never dropped.
+        declared = "Not Applicable" if r.get("n") else str(r.get("d", "") or "")
+        out.append({
+            "page_no": r.get("p", 1),
+            "item_no": r.get("i"),
+            "holder": holder,
+            "change_type": "declared",
+            "declared_text": declared,
+            "secondary_text": "" if r.get("n") else str(r.get("e", "") or ""),
+        })
+    return out
+
+
+def run_batch_gemini(
+    image_paths: list[str], model: str = GEMINI_API_MODEL_DEFAULT
+) -> list[dict]:
+    """One Gemini API call over a batch of page images."""
+    import base64
+    import urllib.error
+    import urllib.request
+
+    key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if not key:
+        raise VisionUnavailable("GEMINI_API_KEY is not set")
+
+    parts: list[dict] = [{"text": _GEMINI_PROMPT}]
+    for path in image_paths:
+        with open(path, "rb") as fh:
+            parts.append({
+                "inline_data": {
+                    "mime_type": "image/png",
+                    "data": base64.b64encode(fh.read()).decode(),
+                }
+            })
+
+    body = json.dumps({
+        "contents": [{"parts": parts}],
+        "generationConfig": {"temperature": 0, "responseMimeType": "application/json"},
+    }).encode()
+    request = urllib.request.Request(
+        GEMINI_API_URL.format(model=model) + f"?key={key}",
+        data=body,
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=VISION_PRINT_TIMEOUT_S) as resp:
+            payload = json.load(resp)
+    except urllib.error.HTTPError as exc:
+        detail = exc.read()[:300].decode("utf-8", "replace")
+        # 429/5xx are retryable; 400/403 are not, and quota shows as 429 here.
+        if exc.code == 429 or _QUOTA_RE.search(detail):
+            raise VisionQuotaExhausted(f"HTTP {exc.code}: {detail}") from exc
+        raise VisionError(f"gemini HTTP {exc.code}: {detail}") from exc
+    except Exception as exc:  # noqa: BLE001
+        raise VisionError(f"gemini transport: {exc}") from exc
+
+    try:
+        text = payload["candidates"][0]["content"]["parts"][0]["text"]
+    except (KeyError, IndexError) as exc:
+        raise VisionError(f"gemini payload shape: {str(payload)[:200]}") from exc
+
+    return _expand_compact(_collect_rows(text))
+
+
+def _collect_rows(text: str) -> list[dict]:
+    """Pull rows out of a Gemini reply, tolerating three observed shapes.
+
+    responseMimeType=application/json pins only that the output is JSON — NOT the
+    top-level shape. Measured on real batches:
+      1. {"r":[...]}                  the requested shape
+      2. [...]                        a bare array
+      3. {"r":[...]}\n{"r":[...]}     ONE OBJECT PER PAGE, concatenated
+    Shape 3 made json.loads raise "Extra data: line 2 column 1" and failed 2 of 12
+    documents outright, so every top-level value is decoded and merged.
+    """
+    decoder = json.JSONDecoder()
+    rows: list[dict] = []
+    idx = 0
+    text = text.strip()
+    while idx < len(text):
+        try:
+            value, end = decoder.raw_decode(text, idx)
+        except json.JSONDecodeError:
+            idx += 1  # skip separators / stray whitespace
+            continue
+        if isinstance(value, dict):
+            found = value.get("r", value.get("rows"))
+            if isinstance(found, list):
+                rows.extend(x for x in found if isinstance(x, dict))
+            elif "i" in value or "item_no" in value:
+                rows.append(value)  # a lone row object
+        elif isinstance(value, list):
+            rows.extend(x for x in value if isinstance(x, dict))
+        idx = end
+    return rows
 
 
 def agy_argv(prompt: str, workdir: str, model: str) -> list[str]:
@@ -471,13 +612,17 @@ def vision_pages(
     model: str = VISION_MODEL_DEFAULT,
     batch_size: int = VISION_BATCH_PAGES,
     concurrency: int = VISION_CONCURRENCY_DEFAULT,
+    backend: str = "agy",
 ) -> ParsedDocument:
     """Read the listed pages of one PDF through the vision tier.
 
     Only the pages given are read, so a MIXED document sends its scanned pages
     here and keeps the deterministic parse of its text pages.
     """
-    require_agy()
+    if backend == "agy":
+        require_agy()
+    elif backend != "gemini-api":
+        raise VisionUnavailable(f"unknown vision backend {backend!r}")
     concurrency = max(1, min(concurrency, VISION_CONCURRENCY_MAX))
 
     if not page_numbers:
@@ -488,7 +633,8 @@ def vision_pages(
     failures: list[str] = []
 
     with tempfile.TemporaryDirectory(prefix="register-vision-") as workdir:
-        rendered = rasterise(pdf_path, sorted(page_numbers), workdir)
+        dpi = GEMINI_API_DPI if backend == "gemini-api" else VISION_RASTER_DPI
+        rendered = rasterise(pdf_path, sorted(page_numbers), workdir, dpi=dpi)
         if not rendered:
             return ParsedDocument(statements=[], warnings=["vision_no_pages_rendered"], pages_attributed=0)
 
@@ -499,6 +645,8 @@ def vision_pages(
             last: Optional[str] = None
             for attempt in range(1, VISION_MAX_ATTEMPTS + 1):
                 try:
+                    if backend == "gemini-api":
+                        return group, run_batch_gemini(paths, model), None
                     return group, run_batch(paths, workdir, model), None
                 except VisionQuotaExhausted:
                     raise  # terminal for the run; never retried, never salvaged
@@ -515,7 +663,11 @@ def vision_pages(
                 ok: list[int] = []
                 for page_no in group:
                     try:
-                        salvaged += run_batch([rendered[page_no]], workdir, model)
+                        salvaged += (
+                            run_batch_gemini([rendered[page_no]], model)
+                            if backend == "gemini-api"
+                            else run_batch([rendered[page_no]], workdir, model)
+                        )
                         ok.append(page_no)
                     except VisionQuotaExhausted:
                         raise

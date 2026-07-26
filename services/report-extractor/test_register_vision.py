@@ -293,3 +293,29 @@ class TestOcrParseGates(unittest.TestCase):
         from register_vision import ocr_parse_gates
         parsed = to_parsed(self._rows(range(1, 15)), 0, 14, 14)
         self.assertEqual(ocr_parse_gates(parsed), [])
+
+
+class TestGeminiReplyShapes(unittest.TestCase):
+    """responseMimeType=application/json pins that it IS json, not its shape.
+    All three of these were observed on real batches; shape 3 failed 2 of 12
+    documents before it was handled."""
+
+    def test_requested_shape(self):
+        from register_vision import _collect_rows
+        self.assertEqual(len(_collect_rows('{"r":[{"i":1},{"i":2}]}')), 2)
+
+    def test_bare_array(self):
+        from register_vision import _collect_rows
+        self.assertEqual(len(_collect_rows('[{"i":1},{"i":3}]')), 2)
+
+    def test_one_object_per_page_concatenated(self):
+        from register_vision import _collect_rows
+        rows = _collect_rows('{"r":[{"i":1}]}\n{"r":[{"i":2},{"i":3}]}')
+        self.assertEqual([r["i"] for r in rows], [1, 2, 3])
+
+    def test_nil_marker_expands_and_is_kept(self):
+        from register_vision import _expand_compact
+        rows = _expand_compact([{"p": 1, "i": 4, "h": "c", "n": 1}])
+        self.assertEqual(rows[0]["declared_text"], "Not Applicable")
+        self.assertEqual(rows[0]["holder"], "dependent children")
+        self.assertEqual(rows[0]["secondary_text"], "")

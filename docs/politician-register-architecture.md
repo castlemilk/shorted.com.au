@@ -1163,3 +1163,64 @@ Value recall is 5/6 on the probe document. Next work is boilerplate filtering
 (the notes are distinguishable — smaller type, full-width, no holder label) and
 item-8 column alignment. `ocr_parse_gates` PASSES on this document, so those two
 must be fixed before any OCR stage is wired — the gate would not catch them.
+
+### 8.7 The direct Gemini API is the backend to use (`--vision-backend gemini-api`)
+
+Measured on the same probe document (Gosling_48P, 0 chars/page) and then on real
+45P batches:
+
+| backend | items | value recall | s/page | ceiling |
+|---|---|---|---|---|
+| Tesseract | 6/14 | — | 0.8 | misreads item NUMBERS |
+| Apple Vision | 12/14 | 5/6 | 0.65 | item-8 column, boilerplate bleed |
+| `agy` CLI | 14/14 | 6/6 | 14.0 | **quota ~16 docs/hour** |
+| **Gemini API** | **14/14** | **6/6** | **1.6** | none hit |
+
+It also fixed the two things Apple Vision got wrong: item 8 returns `Savings` (not
+the institution column `NAB`) and item 11 returns the actual gift value rather than
+the form's explanatory note.
+
+**Batch evaluation, 45P, `gemini-3.1-flash-lite`, 4-page batches, concurrency 6:**
+
+- 18 documents, **17 at 14/14 items and 100% page coverage**, 610 declared rows
+- 1 quarantined (`vision_amount_spike` — a genuine gifts/travel value, see §7.2)
+- 0 failures after the shape fix below
+- ~10s per document end to end
+
+#### Token minimisation — measured, not guessed
+
+- **DPI is FREE.** Input tokens were flat at **6,633** for a 6-page batch across
+  72 / 96 / 110 / 150 dpi — Gemini normalises images to a fixed per-image cost. So
+  the lever is FEWER images, never smaller ones. `GEMINI_API_DPI = 72` because the
+  payload uploads faster and 14/14 still holds.
+- **A compact wire schema cut output 55%**: 1-char keys plus a nil marker took
+  output from **2,027 → 906** tokens with identical accuracy (14/14, 6/6), and
+  halved latency because there is less to generate. The form is overwhelmingly
+  "Not Applicable", so repeating that string was most of the output bill. Nil rows
+  are still EMITTED — marked, never dropped — because a nil row is what proves the
+  tier read the item.
+- Net: **~1,119 input + ~151 output tokens per page**. For the ~5,800 remaining
+  scan pages that is ~6.5M in / ~0.9M out, on the order of **$1-2** at flash-lite
+  rates — against the ~$31/pass the original plan budgeted.
+
+#### `responseMimeType: application/json` does NOT pin the top-level shape
+
+Three shapes came back from real batches, and the third failed 2 of 12 documents
+outright with `Extra data: line 2 column 1`:
+
+```
+{"r":[...]}                 the requested shape
+[...]                       a bare array
+{"r":[...]}\n{"r":[...]}     ONE OBJECT PER PAGE, concatenated
+```
+
+`_collect_rows()` decodes every top-level value with `raw_decode` in a loop and
+merges them. Both previously-failed documents then extracted at 14/14. Setting a
+response MIME type is not a schema guarantee — do not treat it as one.
+
+#### Key handling
+
+`GEMINI_API_KEY` is read from the environment only. It belongs in GCP Secret
+Manager injected into the job, exactly like `DATABASE_URL` in
+`terraform/modules/influence-collector/` — never in a repo file, and never on a
+command line that gets logged.

@@ -182,6 +182,7 @@ def connect_db():
 from register_vision import (  # noqa: E402  (kept near use: agy is operator-only)
     VISION_BATCH_PAGES,
     VISION_CONCURRENCY_DEFAULT,
+    GEMINI_API_MODEL_DEFAULT,
     VISION_MODEL_DEFAULT,
     VisionQuotaExhausted,
     VisionUnavailable,
@@ -681,10 +682,14 @@ def run_vision(args) -> int:
     which has no agy binary. require_agy() fails fast rather than marking a whole
     batch as failed extractions.
     """
-    try:
-        require_agy()
-    except VisionUnavailable as e:
-        log.error("vision: %s", e)
+    if args.vision_backend == "agy":
+        try:
+            require_agy()
+        except VisionUnavailable as e:
+            log.error("vision: %s", e)
+            return 2
+    elif not os.environ.get("GEMINI_API_KEY", "").strip():
+        log.error("vision: --vision-backend gemini-api needs GEMINI_API_KEY")
         return 2
 
     conn = connect_db()
@@ -694,8 +699,8 @@ def run_vision(args) -> int:
         return 0
 
     log.info(
-        "vision: %d documents, model=%s batch=%d concurrency=%d%s",
-        len(rows), args.model, args.batch_pages, args.concurrency,
+        "vision: %d documents, backend=%s model=%s batch=%d concurrency=%d%s",
+        len(rows), args.vision_backend, args.model, args.batch_pages, args.concurrency,
         " (dry run)" if args.dry_run else "",
     )
 
@@ -730,6 +735,7 @@ def run_vision(args) -> int:
                 model=args.model,
                 batch_size=args.batch_pages,
                 concurrency=args.concurrency,
+                backend=args.vision_backend,
             )
             gates = vision_gates(parsed)
             parsed.warnings.extend(gates)
@@ -804,20 +810,30 @@ def main() -> int:
     ap.add_argument("--parliament", type=int)
     ap.add_argument("--force", action="store_true", help="re-extract at the same version")
     ap.add_argument("--dry-run", action="store_true")
-    ap.add_argument("--model", default=VISION_MODEL_DEFAULT, help="vision stage model")
+    ap.add_argument("--model", default="", help="vision model; defaults per backend")
     ap.add_argument(
         "--batch-pages", type=int, default=VISION_BATCH_PAGES,
         help="pages per agy call (batching is the throughput lever, not concurrency)",
     )
     ap.add_argument(
         "--concurrency", type=int, default=VISION_CONCURRENCY_DEFAULT,
-        help="parallel agy calls; clamped to the measured ceiling of 8",
+        help="parallel calls; clamped to the measured ceiling of 8",
+    )
+    ap.add_argument(
+        "--vision-backend", choices=["agy", "gemini-api"], default="agy",
+        help="agy CLI (operator auth, quota-limited) or the Gemini API (needs GEMINI_API_KEY)",
     )
     args = ap.parse_args()
 
     if args.stage == "classify":
         return run_classify(args)
     if args.stage == "vision":
+        if not args.model:
+            args.model = (
+                GEMINI_API_MODEL_DEFAULT
+                if args.vision_backend == "gemini-api"
+                else VISION_MODEL_DEFAULT
+            )
         return run_vision(args)
     return run_extract(args)
 
