@@ -106,8 +106,12 @@ RUN apt-get update && apt-get install -y \
 # parent module's v0.6100.0 (driver 1.61.1). So the old image has been
 # re-downloading Chromium on every run. See services/jobs/README.md.
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+# NOTE: `|| true` is scoped to install-deps ONLY (shared-lib install can fail
+# on already-present packages) — a failed `install chromium` MUST fail the
+# build, or we ship an image with no bundled browser that re-downloads
+# ~165MiB at runtime: the exact bug this pin exists to fix.
 RUN PLAYWRIGHT_BROWSERS_PATH=/ms-playwright npx --yes playwright@1.61.1 install chromium \
-    && PLAYWRIGHT_BROWSERS_PATH=/ms-playwright npx --yes playwright@1.61.1 install-deps chromium || true \
+    && { PLAYWRIGHT_BROWSERS_PATH=/ms-playwright npx --yes playwright@1.61.1 install-deps chromium || true; } \
     && rm -rf /root/.npm /root/.cache
 
 WORKDIR /app

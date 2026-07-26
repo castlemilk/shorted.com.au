@@ -112,6 +112,13 @@ func (s *Server) AwaitShutdown(ctx context.Context) error {
 	case err := <-s.serveErr:
 		return err
 	case <-ctx.Done():
+		// A bind failure can race the cancellation: prefer reporting it over
+		// a clean shutdown of a server that never listened.
+		select {
+		case err := <-s.serveErr:
+			return err
+		default:
+		}
 	}
 	log.Printf("⏹️ Shutting down server...")
 

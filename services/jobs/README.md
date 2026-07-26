@@ -222,9 +222,18 @@ a good follow-up, deliberately not bundled into this slice.
 The four forced convergences are all *upgrades* of the source modules' pins onto
 what the consolidated module already used for the eight previously-ported jobs;
 downgrading the shared module to match one source service was not an option. The
-old modules keep their own pins (their `go.mod`s are untouched) — but note they
-were already resolving through `services/go.work`, which takes the union of the
-workspace build list, so their *compiled* versions were already the higher ones.
+old modules keep their own pins (their `go.mod`s are untouched).
+
+**CUTOVER RISK — these upgrades are a REAL runtime change for the deployed
+images.** Local/dev builds resolve through the full `services/go.work` union
+(which includes `./jobs`, dragging versions up), but the DEPLOYED images build
+a two-module workspace (`go work init . ./market-data-sync` and
+`. ./asx-discovery` in their Dockerfiles), which resolves the LOWER versions:
+storage v1.58.0, google-api v0.258.0, pgx v5.9.2, otel v1.40.0. Cutting these
+two jobs over to the shorted-jobs image therefore upgrades all four in prod
+(pgx 5.9.2→5.10.0, otel 1.40→1.44, storage 1.58→1.64, api 0.258→0.290). If
+post-cutover behaviour differs, check these versions before suspecting the
+port. (pgx 5.10 is already proven in prod by the eight other monolith jobs.)
 
 ### The playwright pin — a landmine found during the port
 
