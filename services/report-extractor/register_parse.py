@@ -107,7 +107,7 @@ COLUMN_HEADER_TOKENS = re.compile(
     re.I,
 )
 
-# NOT YET OCR-TOLERANT, and that is the blocker for parsing scans deterministically.
+# OCR-tolerant header matching, SCOPED TO THE OCR PATH BY AN EXPLICIT FLAG.
 #
 # column_origins() derives the value-column x-origins FROM the header band, and on
 # an OCR'd scan the headers are exactly what Tesseract garbles worst — measured on
@@ -124,6 +124,41 @@ COLUMN_HEADER_TOKENS = re.compile(
 # So fuzzy matching must be scoped to the OCR path ONLY, threaded as a flag
 # through column_origins/is_column_header and their two callers. Until then, an
 # OCR'd document must not be published: see docs/politician-register-architecture.md.
+COLUMN_HEADER_VOCAB = (
+    "location", "name", "nature", "type", "item", "details", "purpose",
+    "activities", "body", "creditor", "beneficial", "beneficiary",
+)
+# 0.72 accepts OCR damage ("purpese", "Iocation", "creditcr") and rejects every
+# data-row word we measured: "applicable" 0.40, "not" 0.44, "spouse" 0.62.
+COLUMN_HEADER_FUZZ = 0.72
+
+
+def looks_like_column_header(text: str, fuzzy: bool = False) -> bool:
+    """True when a word starts a table column header.
+
+    fuzzy=False is EXACT and is what the born-digital path uses. Turning fuzz on
+    for born-digital text changes the parse: "subsidiary" matches "beneficiary"
+    at >=0.72, which adds a spurious column origin and re-splits real headers —
+    the golden set caught exactly that. So fuzz is only ever enabled for OCR,
+    where the header is damaged and the alternative is losing the table entirely.
+
+    Fuzzy-matching a HEADING is consistent with this parser's standing rule:
+    headings are boilerplate we already know and may be matched loosely; VALUES
+    never are, because a wrong value is a wrong fact about a named person.
+    """
+    if COLUMN_HEADER_TOKENS.match(text):
+        return True
+    if not fuzzy:
+        return False
+    word = re.sub(r"[^a-z]", "", (text or "").casefold())
+    if len(word) < 4:
+        return False
+    return any(
+        difflib.SequenceMatcher(None, word, v).ratio() >= COLUMN_HEADER_FUZZ
+        for v in COLUMN_HEADER_VOCAB
+    )
+
+
 DATE_LABEL_RE = re.compile(r"(submitted\s+date|signed|date)\s*:?", re.I)
 DATE_VALUE_RE = re.compile(r"\b(\d{1,2})/(\d{1,2})/(\d{2,4})\b")
 PROCESSED_RE = re.compile(r"^processed\b", re.I)
@@ -270,7 +305,7 @@ def holder_of(token: str) -> Optional[str]:
 # ---------------------------------------------------------------------------
 
 
-def column_origins(header: Band, gap_pt: float = 25.0) -> list[float]:
+def column_origins(header: Band, gap_pt: float = 25.0, fuzzy: bool = False) -> list[float]:
     """Derive value-column x-origins from a column-header band.
 
     Split on the header VOCABULARY rather than on horizontal gaps. Gaps do not
@@ -288,7 +323,7 @@ def column_origins(header: Band, gap_pt: float = 25.0) -> list[float]:
     Falls back to gap-based splitting when the vocabulary finds nothing, so an
     unfamiliar header still yields a single usable column.
     """
-    origins = [w.x0 for w in header.words if COLUMN_HEADER_TOKENS.match(w.text)]
+    origins = [w.x0 for w in header.words if looks_like_column_header(w.text, fuzzy)]
     if origins:
         return origins
 
@@ -301,7 +336,7 @@ def column_origins(header: Band, gap_pt: float = 25.0) -> list[float]:
     return origins
 
 
-def is_column_header(band: Band, label_x_max: float, gap_pt: float = 25.0) -> bool:
+def is_column_header(band: Band, label_x_max: float, gap_pt: float = 25.0, fuzzy: bool = False) -> bool:
     """True when a band is a table's column-header row.
 
     EVERY column must start with header vocabulary. Requiring all of them (not
@@ -332,7 +367,7 @@ def is_column_header(band: Band, label_x_max: float, gap_pt: float = 25.0) -> bo
             columns.append(w.text)
         prev_x1 = w.x1
 
-    return bool(columns) and all(COLUMN_HEADER_TOKENS.match(c) for c in columns)
+    return bool(columns) and all(looks_like_column_header(c, fuzzy) for c in columns)
 
 
 def assign_columns(words: Iterable[Word], origins: list[float]) -> list[list[str]]:
@@ -457,7 +492,7 @@ def _flush(item: Optional[Item], cells: list[list[str]], holder: Optional[str], 
     return ordinal + 1
 
 
-def parse_item_tables(bands_by_page: list[tuple[int, list[Band]]], change_type: str = CHANGE_DECLARED) -> tuple[list[Item], list[str]]:
+def parse_item_tables(bands_by_page: list[tuple[int, list[Band]]], change_type: str = CHANGE_DECLARED, fuzzy: bool = False) -> tuple[list[Item], list[str]]:
     """Parse numbered item tables with three holder rows.
 
     Items are segmented before rows are read (guard 1); the column-header band
@@ -512,10 +547,10 @@ def parse_item_tables(bands_by_page: list[tuple[int, list[Band]]], change_type: 
             # --- column header -------------------------------------------
             # Accepted ANYWHERE inside an item, not only straight after the
             # heading: item 2 has two sub-tables and therefore two headers.
-            if is_column_header(band, label_x_max):
+            if is_column_header(band, label_x_max, fuzzy=fuzzy):
                 ordinal = _flush(current, pending_cells, pending_holder, change_type, page_no, ordinal)
                 pending_cells, pending_holder = [], None
-                origins = column_origins(band)
+                origins = column_origins(band, fuzzy=fuzzy)
                 # NEVER raise the boundary: see LABEL_X_MAX. In the 47P form the
                 # header sits RIGHT of the values, so origins[0]-5 would push the
                 # boundary past the value column and eat the first word of every
@@ -595,7 +630,7 @@ def parse_item_tables(bands_by_page: list[tuple[int, list[Band]]], change_type: 
 # ---------------------------------------------------------------------------
 
 
-def parse_alteration_page(page_no: int, bands: list[Band]) -> tuple[list[Item], Optional[date], bool]:
+def parse_alteration_page(page_no: int, bands: list[Band], fuzzy: bool = False) -> tuple[list[Item], Optional[date], bool]:
     """Parse one alteration form.
 
     Handles both observed variants:
@@ -677,9 +712,9 @@ def parse_alteration_page(page_no: int, bands: list[Band]) -> tuple[list[Item], 
             origins, current_holder = [], HOLDER_UNSPECIFIED
             continue
 
-        if is_column_header(band, 0.0):
+        if is_column_header(band, 0.0, fuzzy=fuzzy):
             commit()
-            origins = column_origins(band)
+            origins = column_origins(band, fuzzy=fuzzy)
             if origins:
                 label_x_max = min(95.0, origins[0] - 5.0)
             continue
@@ -803,14 +838,14 @@ def parse_house_document(
         statement = Statement(ordinal=ordinal, kind=kind, page_from=page_from, page_to=page_to)
 
         if kind == STATEMENT_BASE:
-            items, warnings = parse_item_tables(group)
+            items, warnings = parse_item_tables(group, fuzzy=ocr)
             statement.items = items
             statement.warnings.extend(warnings)
             joined = " ".join(b.text for _, bands in group for b in bands)
             statement.lodged_date, statement.date_is_stated = parse_form_date(joined)
         else:
             for page_no, bands in group:
-                items, lodged, stated = parse_alteration_page(page_no, bands)
+                items, lodged, stated = parse_alteration_page(page_no, bands, fuzzy=ocr)
                 statement.items.extend(items)
                 if stated and (not statement.date_is_stated or (lodged and statement.lodged_date and lodged < statement.lodged_date)):
                     statement.lodged_date, statement.date_is_stated = lodged, True

@@ -260,3 +260,36 @@ class TestVisionGates(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestOcrParseGates(unittest.TestCase):
+    """The deterministic-on-OCR path needs its own gates: page coverage was 100%
+    for a parse that found 6 of 14 items and misfiled three of them."""
+
+    def _rows(self, item_nos):
+        return [
+            {"page_no": 1, "item_no": n, "holder": h, "declared_text": "BHP"}
+            for n in item_nos
+            for h in ("self", "spouse/partner", "dependent children")
+        ]
+
+    def test_low_recall_flagged(self):
+        from register_vision import ocr_parse_gates
+        parsed = to_parsed(self._rows([4, 5, 6, 7, 8, 12]), 0, 6, 6)
+        gates = ocr_parse_gates(parsed)
+        self.assertIn("ocr_item_recall_low", gates)
+        self.assertIn("ocr_core_items_missing", gates)
+
+    def test_missing_core_items_flagged_even_at_good_recall(self):
+        """Items 1 (shareholdings) and 3 (real estate) are the two this dataset
+        exists to read. Losing them is not a partial success."""
+        from register_vision import ocr_parse_gates
+        parsed = to_parsed(self._rows([2, 4, 5, 6, 7, 8, 9, 10, 11, 12]), 0, 10, 10)
+        gates = ocr_parse_gates(parsed)
+        self.assertNotIn("ocr_item_recall_low", gates)
+        self.assertIn("ocr_core_items_missing", gates)
+
+    def test_full_parse_passes(self):
+        from register_vision import ocr_parse_gates
+        parsed = to_parsed(self._rows(range(1, 15)), 0, 14, 14)
+        self.assertEqual(ocr_parse_gates(parsed), [])

@@ -1060,14 +1060,51 @@ real born-digital header words ("subsidiary" against "beneficiary"), adding
 spurious column origins and changing the born-digital parse. The golden set caught
 it.
 
-**Remaining work:** scope fuzzy header matching to the OCR path only — a flag
-threaded through `column_origins`/`is_column_header` and their two callers — then
-re-measure item recall against the LLM's verified 14/14 on the same document.
-Until that lands, scans stay on either the quota-limited `agy` tier or nothing,
-and `CoverageNote` keeps reporting 44P/45P as unread.
+### 8.4 Fuzzy headers were scoped to OCR — and did NOT fix it
 
-Also needed before an OCR run can publish: the deterministic path's only numeric
-gate is page coverage, which was **100%** for the bad parse above. An OCR'd
-document must additionally clear an item-count sanity check (the vision tier's
-`VISION_MIN_BASE_ITEMS` is the natural threshold) or a wrong parse ships as
-`extracted`.
+Fuzzy header matching is now threaded as an explicit `fuzzy` flag through
+`column_origins`/`is_column_header` → `parse_item_tables`/`parse_alteration_page`
+→ `parse_house_document(ocr=…)`, so the born-digital path is byte-identical (58
+tests, golden set green) and fuzz only ever applies to a scan.
+
+**It made no difference: still 6 of 14 items.** The blocker was misdiagnosed; it is
+not column headers, it is ITEM HEADINGS. Measured on Gosling_48P page 2, where
+items 1-3 live, Tesseract renders the three headings as:
+
+```
+'4,'     <- item "1." : digit 1 read as 4, period read as comma
+'2.'     <- number kept, but the label text landed on a separate OCR line
+'3.'     <- same
+```
+
+Two distinct failures, and the first is the serious one:
+
+1. **A misread item NUMBER files a declaration under the wrong item** — item 1
+   shareholdings arriving as item 4 directorships. That is a wrong fact about a
+   named person, not a recall gap, and no amount of header tolerance fixes it.
+2. `ITEM_HEADING_RE` needs both a number and a ≥10-char label to validate against
+   the canonical 14. OCR splits number from label across lines, so validation
+   fails and the rows weld onto the previous item.
+
+Fixing this properly needs heading/label reassembly across OCR lines plus
+digit-confusion handling (1/4/7, 5/S, 0/O) validated against the canonical labels
+— materially more than the header work, and it must be validated against the LLM's
+verified 14/14 before anything publishes.
+
+### 8.5 The safety gate is in place regardless
+
+`ocr_parse_gates()` (register_vision.py) is MANDATORY before any OCR'd document is
+marked `extracted`:
+
+| gate | fires when |
+|---|---|
+| `ocr_item_recall_low` | a base statement surfaces < 8 of 14 items |
+| `ocr_core_items_missing` | item 1 (shareholdings) or item 3 (real estate) is absent — the two items this dataset exists to read |
+
+This exists because the deterministic path's ONLY numeric gate is page coverage,
+and coverage was **100%** for the 6-of-14 parse that misfiled items 9-11. Coverage
+alone would have shipped it as good.
+
+No stage runs `ocr=True` today, so nothing can publish an OCR parse — the
+capability is wired and gated, not enabled. Scans stay on the quota-limited `agy`
+tier, and `CoverageNote` keeps reporting 44P/45P as unread.

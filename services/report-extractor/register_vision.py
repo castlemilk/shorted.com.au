@@ -559,6 +559,33 @@ def vision_pages(
     return parsed
 
 
+def ocr_parse_gates(parsed: ParsedDocument) -> list[str]:
+    """Gates for a DETERMINISTIC parse of an OCR'd scan.
+
+    MANDATORY before any OCR'd document is marked 'extracted'. The deterministic
+    path's only numeric gate is page coverage, and coverage was 100% for a parse
+    that found 6 of 14 items and welded items 9-11 onto item 8 — so coverage alone
+    would ship a wrong parse as good.
+
+    Measured on Gosling_48P (2026-07-26): Tesseract renders the heading "1." as
+    "4," — the digit misread AND the period as a comma. A misread item NUMBER files
+    shareholdings under directorships, which is a wrong fact about a named person,
+    so an OCR'd parse must clear a recall bar before it is trusted at all.
+    """
+    out: list[str] = []
+    for statement in parsed.statements:
+        if statement.kind != STATEMENT_BASE:
+            continue
+        found = {i.item_no for i in statement.items}
+        if len(found) < VISION_MIN_BASE_ITEMS:
+            out.append("ocr_item_recall_low")
+        # The form is a fixed 14-item instrument. A base statement missing item 1
+        # or item 3 is missing exactly the two items this dataset exists to read.
+        if not {1, 3} <= found:
+            out.append("ocr_core_items_missing")
+    return sorted(set(out))
+
+
 def vision_gates(parsed: ParsedDocument) -> list[str]:
     """Runtime QA gates specific to the vision tier.
 
