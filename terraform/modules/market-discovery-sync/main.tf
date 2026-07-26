@@ -13,10 +13,17 @@ locals {
 
   # `null` (not `[]`) so the attribute is OMITTED and the image's own
   # ENTRYPOINT/CMD applies — an empty list would clear it.
-  asx_discovery_command    = length(var.asx_discovery_command) > 0 ? var.asx_discovery_command : null
-  asx_discovery_args       = length(var.asx_discovery_args) > 0 ? var.asx_discovery_args : null
-  market_data_sync_command = length(var.market_data_sync_command) > 0 ? var.market_data_sync_command : null
-  market_data_sync_args    = length(var.market_data_sync_args) > 0 ? var.market_data_sync_args : null
+  #
+  # command/args are COUPLED to the image override: clearing just the image
+  # override (the advertised one-variable rollback) must also drop the
+  # `/shorted` command, or the legacy image (which has no /shorted binary)
+  # crash-loops with `exec: "/shorted": not found` — the rollback would BE
+  # the outage. With the override unset, command/args are null regardless of
+  # the *_command/*_args vars.
+  asx_discovery_command    = var.asx_discovery_image_override != "" && length(var.asx_discovery_command) > 0 ? var.asx_discovery_command : null
+  asx_discovery_args       = var.asx_discovery_image_override != "" && length(var.asx_discovery_args) > 0 ? var.asx_discovery_args : null
+  market_data_sync_command = var.market_data_sync_image_override != "" && length(var.market_data_sync_command) > 0 ? var.market_data_sync_command : null
+  market_data_sync_args    = var.market_data_sync_image_override != "" && length(var.market_data_sync_args) > 0 ? var.market_data_sync_args : null
 }
 
 # Service Account for ASX Discovery
