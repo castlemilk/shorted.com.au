@@ -13,6 +13,7 @@ import {
   DeclaredPeriod,
   HolderBadge,
   PartyChip,
+  RegisterItemTag,
   SourceLine,
 } from "@/components/politicians/compliance";
 import { getPolitician } from "~/app/actions/getPoliticians";
@@ -170,9 +171,7 @@ export default async function PoliticianPage({
                         entityKind={i.entityKind}
                       />
                       <HolderBadge holder={i.holder} />
-                      {i.itemNo === 4 ? (
-                        <span className="text-[10px] text-muted-foreground">directorship</span>
-                      ) : null}
+                      {i.itemNo === 4 ? <RegisterItemTag itemNo={4} /> : null}
                     </div>
                     <DeclaredPeriod
                       from={toDate(i.declaredFrom)}
@@ -257,7 +256,7 @@ export default async function PoliticianPage({
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm">{i.declaredText}</span>
                       <HolderBadge holder={i.holder} />
-                      <span className="text-[10px] text-muted-foreground">{i.itemLabel}</span>
+                      <RegisterItemTag itemNo={i.itemNo} />
                     </div>
                     {i.secondaryText ? (
                       <span className="text-[11px] text-muted-foreground">{i.secondaryText}</span>

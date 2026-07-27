@@ -148,11 +148,18 @@ func declaredInterestProto(r *shortsstore.DeclaredInterestRow) *shortsv1alpha1.D
 		CurrentlyDeclared: r.CurrentlyDeclared,
 		SourceUrl:         r.SourceURL,
 		SourceLicence:     firstNonBlank(r.SourceLicence, registerLicence),
-		// Defaulted rather than left blank: an empty kind would make a consumer
-		// guess, and the guess it would make ("we failed to match this") is the
-		// wrong one for a trust. 'listed' is what the column defaults to for
-		// every item that has no security candidate.
-		EntityKind: firstNonBlank(r.EntityKind, "listed"),
+		// NOT defaulted. An empty kind means "never classified", which is the
+		// truth for items 3 and 5-14: only items 1 and 4 carry a security
+		// candidate, so nothing else was ever a match attempt.
+		//
+		// This used to default to 'listed', and it was the LAST of three layers
+		// doing so — the fold and the store query did it too. With the other two
+		// fixed the database was clean and the API still served the fiction, so
+		// 666 superannuation accounts, trusts and gifts kept rendering
+		// "not matched to an ASX listing". A consumer that sees an empty kind
+		// must make NO ASX claim; DeclaredEntity keys the wording off an
+		// explicit 'listed'.
+		EntityKind: r.EntityKind,
 	}
 }
 
@@ -517,9 +524,12 @@ func (s *ShortsServer) ListRegisterChanges(
 					DeclaredText: r.DeclaredText,
 					StockCode:    r.StockCode,
 					CompanyName:  r.CompanyName,
-					EntityKind:   firstNonBlank(r.EntityKind, "listed"),
-					ChangedOn:    registerTimestamp(r.ChangedOn),
-					SourceUrl:    r.SourceURL,
+					// Not defaulted — see registerInterestProto. The changes feed
+					// is where this bit most: 3,174 of its rows are items whose
+					// kind was never computed.
+					EntityKind: r.EntityKind,
+					ChangedOn:  registerTimestamp(r.ChangedOn),
+					SourceUrl:  r.SourceURL,
 				})
 			}
 			return out, nil

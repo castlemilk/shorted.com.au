@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { partyColorFromAb, partyLabel } from "@/lib/politics/party-palette";
 import { REPORT_ERROR_EMAIL } from "@/lib/report-error";
+import { registerItem } from "@/lib/politics/register-items";
 import { RegisterHolder } from "~/gen/shorts/v1alpha1/politicians_pb";
 
 /** Exact holder copy. Locked by test — never paraphrase these. */
@@ -36,6 +37,22 @@ const HOLDER_COPY: Record<number, { label: string; title: string }> = {
     label: "Dependent child",
     title:
       "Declared by the member as an interest of a dependent child, as the register requires.",
+  },
+  // Say so rather than render nothing.
+  //
+  // 2,279 published rows carry no holder, almost all of them from the 46th and
+  // 47th Parliament alteration forms, whose two-column "Item | Details" layout
+  // has no holder column at all. Rendering no chip put them beside rows chipped
+  // "Self", under the member's own name and a heading reading "Declared company
+  // interests" — so the page implied they were the member's own.
+  //
+  // The wording is deliberately about THIS row's form, not about alterations in
+  // general: 48th-Parliament alteration forms DO record a holder, and 1,021 of
+  // 1,022 of those rows are attributed.
+  [RegisterHolder.UNSPECIFIED]: {
+    label: "Holder not stated",
+    title:
+      "The register form this was lodged on does not record whose interest it is. We do not infer one.",
   },
 };
 
@@ -56,6 +73,30 @@ export function HolderBadge({ holder }: { holder: RegisterHolder }) {
     >
       {copy.label}
     </Badge>
+  );
+}
+
+/**
+ * Which of the register's 14 items a row came from.
+ *
+ * The emoji is aria-hidden and the label carries the meaning, so a screen reader
+ * hears "Gift", not "wrapped present Gift". The form's own wording is the
+ * tooltip — that is what lets a reader find the row on the original PDF.
+ */
+export function RegisterItemTag({ itemNo, className }: { itemNo?: number; className?: string }) {
+  const item = registerItem(itemNo);
+  if (!item) return null;
+  return (
+    <span
+      className={cn(
+        "text-muted-foreground inline-flex items-center gap-1 text-[10px] whitespace-nowrap",
+        className,
+      )}
+      title={item.formLabel}
+    >
+      <span aria-hidden>{item.emoji}</span>
+      {item.label}
+    </span>
   );
 }
 
@@ -213,6 +254,18 @@ export function DeclaredEntity({
         </Badge>
       </span>
     );
+  }
+
+  // The apology requires an EXPLICIT 'listed', never a fallthrough.
+  //
+  // Only items 1 (shareholdings) and 4 (directorships) are ever classified —
+  // they are the only items with a security candidate. Everything else arrives
+  // unclassified, and treating "unclassified" as "listed" claimed we had tried
+  // and failed to match 666 superannuation accounts, family trusts and gifts to
+  // an ASX listing. Nothing about "REST superannuation fund" or a Qantas lounge
+  // membership was ever a match attempt, so there is no failure to report.
+  if (entityKind !== "listed") {
+    return <span className="text-muted-foreground font-mono text-[11px]">{declaredText}</span>;
   }
 
   return (

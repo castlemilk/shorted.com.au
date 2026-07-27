@@ -45,9 +45,29 @@ describe("DeclaredEntity", () => {
     expect(screen.getByText(NOT_MATCHED)).toBeInTheDocument();
   });
 
-  it("falls back to the unmatched wording when no kind is served", () => {
-    render(<DeclaredEntity declaredText="AGL Ltd" />);
-    expect(screen.getByText(NOT_MATCHED)).toBeInTheDocument();
+  /**
+   * This used to assert the OPPOSITE, and that fallback was the single
+   * highest-volume wrong claim on the whole surface.
+   *
+   * Only items 1 (shareholdings) and 4 (directorships) are ever classified —
+   * they are the only items with a security candidate. The fold hardcoded
+   * 'listed' for every other item, so 666 published rows and 3,174 rows in the
+   * /politicians/changes feed — superannuation accounts, family trusts, gifts,
+   * sponsored travel — carried "not matched to an ASX listing". Nothing about
+   * "REST superannuation fund" was ever a match attempt, so there was no
+   * failure to report.
+   *
+   * The apology now requires an EXPLICIT 'listed' and must never return by
+   * fallthrough.
+   */
+  it.each([
+    ["REST superannuation fund", undefined],
+    ["Hostplus superannuation fund (self)", ""],
+    ["Gold bullion - Held in TAY Super (SMSF)", "unclassified"],
+  ])("makes no ASX-matching claim about %s when the kind is not 'listed'", (text, kind) => {
+    render(<DeclaredEntity declaredText={text} entityKind={kind} />);
+    expect(screen.getByText(text)).toBeInTheDocument();
+    expect(screen.queryByText(NOT_MATCHED)).toBeNull();
   });
 
   it("states no quantity, value or currency for any kind", () => {

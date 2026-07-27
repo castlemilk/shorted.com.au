@@ -72,9 +72,15 @@ type DeclaredInterestRow struct {
 	SourceURL         string
 	SourceLicence     string
 	// EntityKind names WHAT was declared (listed | private_company |
-	// family_trust | smsf | managed_fund | foreign | not_an_entity). A read
-	// surface needs it to describe an unmatched row honestly: "not matched to
-	// an ASX listing" is only true of a listed candidate.
+	// family_trust | smsf | managed_fund | foreign). A read surface needs it to
+	// describe an unmatched row honestly: "not matched to an ASX listing" is
+	// only true of a listed candidate.
+	//
+	// EMPTY outside items 1 and 4, and a read path must NOT default it to
+	// 'listed'. Only those two items carry a security candidate, so nothing
+	// else was ever classified — defaulting made the apology appear on 666
+	// superannuation accounts, trusts and gifts that were never match attempts.
+	// 'not_an_entity' and 'multi_entity' never reach here; the fold drops them.
 	EntityKind string
 }
 
@@ -279,7 +285,7 @@ func (s *postgresStore) GetPolitician(slug string) (*PoliticianRow, []*DeclaredI
 		        COALESCE(stock_code, ''), COALESCE(company_name, ''), COALESCE(industry, ''),
 		        COALESCE(sal_code, ''), COALESCE(sal_name, ''), COALESCE(property_state, ''),
 		        declared_from, declared_from_known, declared_to, currently_declared,
-		        source_url, source_licence, COALESCE(entity_kind, 'listed')
+		        source_url, source_licence, COALESCE(entity_kind, '')
 		 FROM mv_register_public_holdings
 		 WHERE slug = $1
 		 ORDER BY item_no, currently_declared DESC, declared_from DESC NULLS LAST, declared_text`, slug)
@@ -700,7 +706,7 @@ func (s *postgresStore) ListRegisterChanges(since time.Time, kind, stockCode str
 		           COALESCE(party, '') AS party, COALESCE(party_ab, '') AS party_ab,
 		           'added' AS kind, item_no, holder, declared_text,
 		           COALESCE(stock_code, '') AS stock_code, COALESCE(company_name, '') AS company_name,
-		           COALESCE(entity_kind, 'listed') AS entity_kind,
+		           COALESCE(entity_kind, '') AS entity_kind,
 		           declared_from AS changed_on, source_url
 		    FROM mv_register_public_holdings
 		    WHERE declared_from IS NOT NULL AND declared_from_known
@@ -710,7 +716,7 @@ func (s *postgresStore) ListRegisterChanges(since time.Time, kind, stockCode str
 		           COALESCE(party, ''), COALESCE(party_ab, ''),
 		           'removed', item_no, holder, declared_text,
 		           COALESCE(stock_code, ''), COALESCE(company_name, ''),
-		           COALESCE(entity_kind, 'listed'),
+		           COALESCE(entity_kind, ''),
 		           declared_to, source_url
 		    FROM mv_register_public_holdings
 		    WHERE declared_to IS NOT NULL
