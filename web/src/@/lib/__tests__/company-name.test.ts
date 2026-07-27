@@ -56,6 +56,29 @@ describe("formatCompanyName", () => {
     expect(formatCompanyName("AGL Energy Limited.", "AGL")).toBe("AGL Energy");
   });
 
+  it("cuts instrument metadata at the first security-type token", () => {
+    // The ASIC PRODUCT field is `<company> <security type> [qualifiers…]`.
+    expect(formatCompanyName("FIDUCIAN GROUP LTD ORDINARY FULLY PAID", "FID")).toBe(
+      "Fiducian Group",
+    );
+    expect(formatCompanyName("LENDLEASE GROUP FPO/UNITS STAPLED", "LLC")).toBe(
+      "Lendlease Group",
+    );
+    expect(formatCompanyName("FLETCHER BUILDING ORD FOR. EXEMPT NZX", "FBU")).toBe(
+      "Fletcher Building",
+    );
+    expect(formatCompanyName("GRAINCORP LIMITED A CLASS ORDINARY", "GNC")).toBe(
+      "Graincorp",
+    );
+    // Space-less venue form — \b would fail between the "I" and the "1".
+    expect(formatCompanyName("NEWMONT CORPORATION CDI1:1FOREXEMPT NYSE", "NEM")).toBe(
+      "Newmont",
+    );
+    expect(formatCompanyName("OMNI BRIDGEWAY LTD ORD US PROHIBITED", "OBL")).toBe(
+      "Omni Bridgeway",
+    );
+  });
+
   it("falls back to the stock code for empty input", () => {
     expect(formatCompanyName("", "BHP")).toBe("BHP");
     expect(formatCompanyName(undefined, "BHP")).toBe("BHP");
