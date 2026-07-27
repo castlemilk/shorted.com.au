@@ -81,6 +81,18 @@ func setupSchema(t *testing.T, pool *pgxpool.Pool) {
 	CREATE INDEX IF NOT EXISTS idx_shorts_product_code ON shorts("PRODUCT_CODE");
 	CREATE INDEX IF NOT EXISTS idx_shorts_date ON shorts("DATE");
 	CREATE INDEX IF NOT EXISTS idx_shorts_percent ON shorts("PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS");
+
+	-- The raw (non-MV) top-shorts queries LEFT JOIN company-metadata to prefer
+	-- the enriched company_name over the truncated ASIC "PRODUCT" string, so
+	-- the table has to exist here even though these tests leave it empty
+	-- (an empty table exercises the fall-back-to-PRODUCT branch).
+	CREATE TABLE IF NOT EXISTS "company-metadata" (
+		stock_code VARCHAR(50) PRIMARY KEY,
+		company_name TEXT,
+		industry TEXT,
+		tags TEXT[],
+		logo_gcs_url TEXT
+	);
 	`
 
 	_, err := pool.Exec(ctx, createTableSQL)
@@ -599,17 +611,20 @@ func TestTopShortsFastPath_ExcludesNonEquityInstrumentsFromMaterializedView(t *t
 	_, err := pool.Exec(ctx, `
 		CREATE TABLE mv_top_shorts (
 			product_name text NOT NULL,
+			company_name text,
 			product_code text NOT NULL,
 			current_percent double precision NOT NULL,
 			industry text,
 			total_in_issue double precision
 		);
-		INSERT INTO mv_top_shorts (product_name, product_code, current_percent, industry, total_in_issue)
+		INSERT INTO mv_top_shorts (product_name, company_name, product_code, current_percent, industry, total_in_issue)
 		VALUES
-			('ASIAN DEVELOPMENT 4.35% 17-JAN-29', 'ATBHQ', 160.0, '', 200000),
-			('BOSS ENERGY LTD ORDINARY', 'BOE', 21.59, 'Energy', 352000000),
-			('DOMINO PIZZA ENTERPR ORDINARY', 'DMP', 17.51, 'Consumer Discretionary', 100000000),
-			('PILBARA MIN LTD ORDINARY', 'PLS', 14.47, 'Materials', 3000000000);
+			('ASIAN DEVELOPMENT 4.35% 17-JAN-29', NULL, 'ATBHQ', 160.0, '', 200000),
+			('BOSS ENERGY LTD ORDINARY', NULL, 'BOE', 21.59, 'Energy', 352000000),
+			-- enriched name present: must win over the truncated ASIC product
+			('DOMINO PIZZA ENTERPR ORDINARY', 'Domino''s Pizza Enterprises', 'DMP', 17.51, 'Consumer Discretionary', 100000000),
+			-- empty string must fall back to the product name, not blank it out
+			('PILBARA MIN LTD ORDINARY', '', 'PLS', 14.47, 'Materials', 3000000000);
 	`)
 	require.NoError(t, err, "failed to create mv_top_shorts fast-path fixture")
 
@@ -625,6 +640,19 @@ func TestTopShortsFastPath_ExcludesNonEquityInstrumentsFromMaterializedView(t *t
 		assert.NotContains(t, result.Name, "ETF",
 			"fast-path mv_top_shorts row %s should not be an ETF: %s", result.ProductCode, result.Name)
 	}
+
+	// The enriched company-metadata name wins over the truncated ASIC PRODUCT
+	// string; an empty company_name falls back rather than blanking the name.
+	byCode := map[string]string{}
+	for _, r := range results {
+		byCode[r.ProductCode] = r.Name
+	}
+	assert.Equal(t, "Domino's Pizza Enterprises", byCode["DMP"],
+		"enriched company_name should win over the truncated product name")
+	assert.Equal(t, "PILBARA MIN LTD ORDINARY", byCode["PLS"],
+		"empty company_name should fall back to the product name")
+	assert.Equal(t, "BOSS ENERGY LTD ORDINARY", byCode["BOE"],
+		"NULL company_name should fall back to the product name")
 }
 
 func TestTopShortsSummaryFastPath_ExcludesNonEquityInstrumentsFromMaterializedView(t *testing.T) {
@@ -639,16 +667,17 @@ func TestTopShortsSummaryFastPath_ExcludesNonEquityInstrumentsFromMaterializedVi
 	_, err := pool.Exec(ctx, `
 		CREATE TABLE mv_top_shorts (
 			product_name text NOT NULL,
+			company_name text,
 			product_code text NOT NULL,
 			current_percent double precision NOT NULL,
 			industry text,
 			total_in_issue double precision
 		);
-		INSERT INTO mv_top_shorts (product_name, product_code, current_percent, industry, total_in_issue)
+		INSERT INTO mv_top_shorts (product_name, company_name, product_code, current_percent, industry, total_in_issue)
 		VALUES
-			('ASIAN DEVELOPMENT 4.35% 17-JAN-29', 'ATBHQ', 160.0, '', 200000),
-			('BOSS ENERGY LTD ORDINARY', 'BOE', 21.59, 'Energy', 352000000),
-			('DOMINO PIZZA ENTERPR ORDINARY', 'DMP', 17.51, 'Consumer Discretionary', 100000000);
+			('ASIAN DEVELOPMENT 4.35% 17-JAN-29', NULL, 'ATBHQ', 160.0, '', 200000),
+			('BOSS ENERGY LTD ORDINARY', '', 'BOE', 21.59, 'Energy', 352000000),
+			('DOMINO PIZZA ENTERPR ORDINARY', 'Domino''s Pizza Enterprises', 'DMP', 17.51, 'Consumer Discretionary', 100000000);
 	`)
 	require.NoError(t, err, "failed to create mv_top_shorts summary fast-path fixture")
 
@@ -664,6 +693,15 @@ func TestTopShortsSummaryFastPath_ExcludesNonEquityInstrumentsFromMaterializedVi
 		assert.NotContains(t, result.Name, "ETF",
 			"summary fast-path mv_top_shorts row %s should not be an ETF: %s", result.ProductCode, result.Name)
 	}
+
+	byCode := map[string]string{}
+	for _, r := range results {
+		byCode[r.ProductCode] = r.Name
+	}
+	assert.Equal(t, "Domino's Pizza Enterprises", byCode["DMP"],
+		"summary path should also prefer the enriched company_name")
+	assert.Equal(t, "BOSS ENERGY LTD ORDINARY", byCode["BOE"],
+		"summary path: empty company_name should fall back to the product name")
 }
 
 // TestFetchTimeSeriesData_DataIntegrity validates the integrity of returned data

@@ -75,7 +75,7 @@ const searchStocksQuery = `
 		SELECT
 			s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
 			s."PRODUCT_CODE" as product_code,
-			s."PRODUCT" as name,
+			COALESCE(NULLIF(m.company_name, ''), s."PRODUCT") as name,
 			s."TOTAL_PRODUCT_IN_ISSUE" as total_product_in_issue,
 			s."REPORTED_SHORT_POSITIONS" as reported_short_positions,
 			COALESCE(m.industry, '') as industry,
@@ -86,6 +86,7 @@ const searchStocksQuery = `
 				WHEN s."PRODUCT_CODE" ILIKE $2 THEN 50
 				WHEN m.search_vector @@ plainto_tsquery('english', $1) THEN ts_rank(m.search_vector, plainto_tsquery('english', $1)) * 10
 				WHEN s."PRODUCT" ILIKE $2 THEN 20
+				WHEN m.company_name ILIKE $2 THEN 20
 				ELSE 1
 			END as relevance
 		FROM latest_shorts s
@@ -99,6 +100,7 @@ const searchStocksQuery = `
 				s."PRODUCT_CODE" = $1 OR
 				s."PRODUCT_CODE" ILIKE $2 OR
 				s."PRODUCT" ILIKE $2 OR
+				m.company_name ILIKE $2 OR
 				m.search_vector @@ plainto_tsquery('english', $1)
 			)
 	)
@@ -341,7 +343,7 @@ func (s *postgresStore) GetStock(productCode string) (*stocksv1alpha1.Stock, err
 SELECT 
 	s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
 	s."PRODUCT_CODE" as product_code,
-	s."PRODUCT" as name, 
+	COALESCE(NULLIF(m.company_name, ''), s."PRODUCT") as name, 
 	s."TOTAL_PRODUCT_IN_ISSUE" as total_product_in_issue, 
 	s."REPORTED_SHORT_POSITIONS" as reported_short_positions,
 	COALESCE(m.industry, '') as industry,
@@ -1239,7 +1241,7 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32) ([]*st
 	query := `
 		SELECT
 			s."PRODUCT_CODE" as product_code,
-			s."PRODUCT" as name,
+			COALESCE(NULLIF(m.company_name, ''), s."PRODUCT") as name,
 			s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
 			s."REPORTED_SHORT_POSITIONS" as reported_short_positions,
 			s."TOTAL_PRODUCT_IN_ISSUE" as total_product_in_issue,
