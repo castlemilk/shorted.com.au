@@ -227,6 +227,77 @@ class TestBaseStatementTables(unittest.TestCase):
             self.assertEqual(r.secondary_text, "Not Applicable")
             self.assertEqual(r.tertiary_text, "Not Applicable")
 
+    def test_sub_item_explanatory_note_does_not_weld_onto_the_last_row(self):
+        """Regression, measured on 436 of 455 born-digital documents.
+
+        Item 2's SECOND sub-table is introduced by the form's own note ("ii. in
+        which the Member, the Member's spouse, or a child who is wholly or
+        mainly dependent…"). Its lines are indented to x≈55-78 and run right
+        past the value column, so a parser that continues a cell from any band
+        with words right of the label boundary appends the whole paragraph to
+        the last row of the FIRST sub-table — publishing
+        "Not Applicable the Member, the Member's spouse…" as a dependent
+        child's declaration under a named member.
+        """
+        page = [
+            line(210.82, (35.4, "2."), (56.6, "List"), (79.3, "family"), (136.8, "business"), (187.6, "trusts")),
+            line(275.68, (113.8, "Name"), (268.2, "Nature"), (424.2, "Beneficial")),
+            line(306.04, (41.4, "Self"), (113.5, "The"), (133.1, "Nirvana"), (169.4, "Trust")),
+            line(369.76, (41.4, "Dependent"), (113.8, "Not"), (131.6, "Applicable")),
+            line(381.88, (41.4, "children")),
+            # The form's note for sub-table ii — prose, not a value.
+            line(415.24, (55.4, "ii."), (78.0, "in"), (120.7, "the"), (138.5, "Member,"), (311.4, "child")),
+            line(427.36, (78.0, "Member"), (135.1, "support,"), (197.4, "trustee"), (270.2, "including")),
+        ]
+        items, _ = parse_item_tables([(2, page)])
+        dependent = items[0].rows[-1]
+        self.assertEqual(dependent.declared_text, "Not Applicable")
+        self.assertTrue(dependent.is_nil, "a nil row must stay nil, not absorb the form's note")
+
+    def test_a_centred_holder_label_claims_the_line_above_it(self):
+        """Regression, measured on Templeman_47P item 2.i.
+
+        The form centres a holder label against its own cell. Where the cell
+        wraps to three lines and the label to two, the label's first line sits
+        BELOW the cell's first line — so "most recent label wins" hands
+        Spouse/partner's first trust to Self, yielding
+        "The Nirvana Trust The Nirvana Trust" for Self and dropping it from the
+        spouse. The table's DRAWN row rule at y=322.32 separates the two rows
+        exactly, so nothing has to be inferred from label positions.
+        """
+        page = [
+            line(210.82, (35.4, "2."), (56.6, "List"), (79.3, "family"), (136.8, "business"), (187.6, "trusts")),
+            line(275.68, (113.8, "Name"), (268.2, "Nature"), (424.2, "Beneficial")),
+            line(306.04, (41.4, "Self"), (113.5, "The"), (133.1, "Nirvana"), (169.4, "Trust"), (267.6, "Family"), (423.4, "Yes")),
+            line(324.56, (113.5, "The"), (133.1, "Nirvana"), (169.4, "Trust"), (267.6, "Family"), (423.4, "Yes")),
+            line(331.84, (41.4, "Spouse/")),
+            line(339.56, (113.5, "Project"), (146.5, "Tableland"), (267.6, "Unit"), (423.4, "Unit")),
+            line(343.96, (41.4, "partner")),
+            line(369.76, (41.4, "Dependent"), (113.8, "Not"), (131.6, "Applicable")),
+        ]
+        rules = {2: [273.6, 304.08, 322.32, 367.8, 398.28]}
+        items, _ = parse_item_tables([(2, page)], rules_by_page=rules)
+        rows = items[0].rows
+        self.assertEqual([r.holder for r in rows], [HOLDER_SELF, HOLDER_SPOUSE, HOLDER_DEPENDENT])
+        self.assertEqual(rows[0].declared_lines, ["The Nirvana Trust"])
+        self.assertEqual(
+            rows[1].declared_lines,
+            ["The Nirvana Trust", "Project Tableland"],
+            "the line above a centred label belongs to that label's row",
+        )
+
+    def test_without_drawn_rules_attribution_is_unchanged(self):
+        """The rules are an ADDITION, never a dependency: a scan, an OCR'd page
+        and every geometry fixture here carry none, and must parse exactly as
+        they did before rules existed."""
+        items, warnings = parse_item_tables([(3, real_estate_page())], rules_by_page={})
+        with_rules, _ = parse_item_tables([(3, real_estate_page())])
+        self.assertEqual(warnings, [])
+        self.assertEqual(
+            [(r.holder, r.declared_text) for r in items[0].rows],
+            [(r.holder, r.declared_text) for r in with_rules[0].rows],
+        )
+
     def test_no_items_warns(self):
         _, warnings = parse_item_tables([(1, [line(100, (300, "nothing"), (350, "useful"))])])
         self.assertIn("no_items_parsed", warnings)

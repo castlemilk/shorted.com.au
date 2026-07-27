@@ -42,7 +42,9 @@ Design notes: docs/politician-register-architecture.md
 
 from __future__ import annotations
 
+import bisect
 import difflib
+import logging
 import re
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -86,6 +88,24 @@ LABEL_X_MAX = 95.0
 # How far a value band may sit ABOVE its holder label before the layout is
 # treated as centred-label rather than top-aligned.
 CENTRED_LABEL_TOLERANCE_PT = 6.0
+
+# --- table row rules ------------------------------------------------------
+#
+# The born-digital form draws its tables, so the row boundaries are LITERALLY
+# ON THE PAGE and do not have to be inferred from label positions. That matters
+# because the 48P form centres a holder label against its own cell: when the
+# cell wraps to three lines and the label to two, the label's first line sits
+# BELOW the cell's first line, and a parser that attributes by "most recent
+# label wins" hands that first line to the previous holder. Measured on
+# Templeman_48P item 2.i, where Spouse/partner's "The Nirvana Trust" was welded
+# onto Self, producing "The Nirvana Trust The Nirvana Trust".
+#
+# A drawn rule at y=322.32 separates the two rows with 16pt of margin above and
+# 2pt below — an exact answer where nearest-label arithmetic was a coin flip.
+RULE_MAX_THICKNESS_PT = 2.0   # thicker than this is a fill, not a rule
+RULE_MIN_SEGMENT_PT = 20.0    # ignore tick marks and column-divider stubs
+RULE_SAME_Y_PT = 1.5          # segments this close vertically are one rule
+RULE_MIN_SPAN_PT = 200.0      # a row rule spans the table, not one cell
 
 # --- patterns -------------------------------------------------------------
 
@@ -297,6 +317,49 @@ def page_bands(page, textpage=None, words=None) -> list[Band]:
     return bands
 
 
+def page_row_rules(page) -> list[float]:
+    """The y of every horizontal rule that spans a table on this page.
+
+    Returns [] for anything without vector drawings — a scan, an OCR'd page, a
+    test double — and the caller then behaves exactly as it did before rules
+    existed. That is deliberate: the rules make attribution EXACT where they are
+    present and change nothing where they are not.
+
+    A rule is drawn as several segments, one per column, because the column
+    dividers interrupt it. Segments at the same y are summed and the group is
+    kept only if it spans most of the table; that rejects a single cell's
+    underline and the column dividers themselves (which are tall, not thin).
+    """
+    try:
+        drawings = page.get_drawings()
+    except Exception:  # noqa: BLE001 - no drawings on a scan, and that is fine
+        return []
+
+    spans: dict[float, float] = {}
+    for item in drawings:
+        rect = item.get("rect") if isinstance(item, dict) else None
+        if rect is None:
+            continue
+        height = rect.y1 - rect.y0
+        width = rect.x1 - rect.x0
+        if height > RULE_MAX_THICKNESS_PT or width < RULE_MIN_SEGMENT_PT:
+            continue
+        y = (rect.y0 + rect.y1) / 2.0
+        key = next(
+            (k for k in spans if abs(k - y) <= RULE_SAME_Y_PT),
+            y,
+        )
+        spans[key] = spans.get(key, 0.0) + width
+
+    return sorted(y for y, span in spans.items() if span >= RULE_MIN_SPAN_PT)
+
+
+def rule_slot(rules: list[float], y: float) -> int:
+    """Which band between two rules a y falls in. 0 for every y when there are
+    no rules, so a ruleless page keeps its original single-slot behaviour."""
+    return bisect.bisect_right(rules, y) if rules else 0
+
+
 def holder_of(token: str) -> Optional[str]:
     for pattern, holder in HOLDER_PATTERNS:
         if pattern.match(token):
@@ -496,20 +559,32 @@ def _flush(item: Optional[Item], cells: list[list[str]], holder: Optional[str], 
     return ordinal + 1
 
 
-def parse_item_tables(bands_by_page: list[tuple[int, list[Band]]], change_type: str = CHANGE_DECLARED, fuzzy: bool = False) -> tuple[list[Item], list[str]]:
+def parse_item_tables(
+    bands_by_page: list[tuple[int, list[Band]]],
+    change_type: str = CHANGE_DECLARED,
+    fuzzy: bool = False,
+    rules_by_page: Optional[dict[int, list[float]]] = None,
+) -> tuple[list[Item], list[str]]:
     """Parse numbered item tables with three holder rows.
 
     Items are segmented before rows are read (guard 1); the column-header band
-    is consumed as a header (guard 2); footers were already dropped (guard 3).
+    is consumed as a header (guard 2); footers were already dropped (guard 3);
+    and a band never crosses a drawn row rule into the previous holder's cell
+    (guard 4 — see page_row_rules). rules_by_page is optional and an empty map
+    reproduces the pre-rules behaviour exactly.
     """
     items: list[Item] = []
     warnings: list[str] = []
+    rules_by_page = rules_by_page or {}
 
     current: Optional[Item] = None
     origins: list[float] = []
     label_x_max = LABEL_X_MAX
     pending_cells: list[list[str]] = []
     pending_holder: Optional[str] = None
+    # Which gap between drawn rules the open row lives in. None until a band
+    # opens one; a band from a different slot can never join it.
+    pending_slot: Optional[int] = None
     ordinal = 0
     awaiting_header = False
     # Layout probe: in the 48P/46P form a holder label is top-aligned with its
@@ -522,15 +597,20 @@ def parse_item_tables(bands_by_page: list[tuple[int, list[Band]]], change_type: 
     header_open = False
 
     for page_no, bands in bands_by_page:
+        rules = rules_by_page.get(page_no, [])
         for band in bands:
             first = band.words[0]
             token = first.text
+            # None on a page with no drawn rules (a scan, an OCR'd page, a test
+            # double): every slot comparison below then short-circuits on
+            # `rules` and the pre-rules behaviour is reproduced exactly.
+            slot = rule_slot(rules, band.y) if rules else None
 
             # --- item boundary -------------------------------------------
             heading = ITEM_HEADING_RE.match(token)
             if heading and first.x0 <= ITEM_HEADING_X_MAX:
                 ordinal = _flush(current, pending_cells, pending_holder, change_type, page_no, ordinal)
-                pending_cells, pending_holder = [], None
+                pending_cells, pending_holder, pending_slot = [], None, None
                 item_no = int(heading.group(1))
                 if 1 <= item_no <= 14:
                     current = Item(
@@ -553,7 +633,7 @@ def parse_item_tables(bands_by_page: list[tuple[int, list[Band]]], change_type: 
             # heading: item 2 has two sub-tables and therefore two headers.
             if is_column_header(band, label_x_max, fuzzy=fuzzy):
                 ordinal = _flush(current, pending_cells, pending_holder, change_type, page_no, ordinal)
-                pending_cells, pending_holder = [], None
+                pending_cells, pending_holder, pending_slot = [], None, None
                 origins = column_origins(band, fuzzy=fuzzy)
                 # NEVER raise the boundary: see LABEL_X_MAX. In the 47P form the
                 # header sits RIGHT of the values, so origins[0]-5 would push the
@@ -584,9 +664,18 @@ def parse_item_tables(bands_by_page: list[tuple[int, list[Band]]], change_type: 
                     first_label_y = band.y
                     if first_value_y is not None and first_label_y - first_value_y > CENTRED_LABEL_TOLERANCE_PT:
                         centred_layout = True
-                ordinal = _flush(current, pending_cells, pending_holder, change_type, page_no, ordinal)
+                # A label that shares its slot with lines already read is a
+                # CENTRED label: the cell's first line(s) sit above the label
+                # word, inside the same drawn row. Those lines are held with no
+                # holder (see the value branch below) and are claimed here — they
+                # are this holder's, not the previous holder's.
+                carried = pending_cells if (rules and pending_holder is None and pending_slot == slot) else []
+                if not carried:
+                    ordinal = _flush(current, pending_cells, pending_holder, change_type, page_no, ordinal)
                 pending_holder = holder
-                pending_cells = assign_columns([w for w in band.words if w.x0 > label_x_max], origins)
+                pending_slot = slot
+                values = assign_columns([w for w in band.words if w.x0 > label_x_max], origins)
+                pending_cells = merge_cells(carried, values) if carried else values
                 awaiting_header = False
                 continue
 
@@ -610,10 +699,42 @@ def parse_item_tables(bands_by_page: list[tuple[int, list[Band]]], change_type: 
                 first_value_y = band.y
                 header_open = False
 
-            if pending_holder is not None:
-                values = [w for w in band.words if w.x0 > label_x_max]
-                if values:
-                    pending_cells = merge_cells(pending_cells, assign_columns(values, origins))
+            # ONLY a band that begins in the value columns, or the second
+            # physical line of a holder label, may extend a cell. Without this
+            # the form's own explanatory note for item 2's second sub-table
+            # ("ii. in which the Member, the Member's spouse, or a child who is
+            # wholly or mainly dependent…") welds itself onto the last row of
+            # the FIRST sub-table, because its lines are indented to x≈55-78 and
+            # run right past the value column. Measured: 437 rows across 436 of
+            # 455 born-digital documents, every one of them a nil row rendered
+            # as "Not Applicable the Member, the Member's spouse…".
+            if first.x0 <= label_x_max and not HOLDER_CONTINUATION_RE.match(token):
+                continue
+
+            values = [w for w in band.words if w.x0 > label_x_max]
+            if not values:
+                continue
+            cells = assign_columns(values, origins)
+            if rules and origins:
+                if pending_slot == slot and (pending_holder is not None or pending_cells):
+                    # Same drawn row: a wrapped line of the open cell, or another
+                    # line of a cell whose centred label has not appeared yet.
+                    # Both ACCUMULATE — a cell can have several lines above its
+                    # label (measured: four, on Wilson_45P item 1).
+                    pending_cells = merge_cells(pending_cells, cells)
+                else:
+                    # A different drawn row. Hold the lines with NO holder: if
+                    # this row's label is centred it is still to come and the
+                    # holder branch above claims them. If none comes they are
+                    # dropped rather than attributed to whichever holder happened
+                    # to be open — an omission is recoverable, a holding filed
+                    # under the wrong person is not.
+                    ordinal = _flush(current, pending_cells, pending_holder, change_type, page_no, ordinal)
+                    pending_holder = None
+                    pending_slot = slot
+                    pending_cells = cells
+            elif pending_holder is not None:
+                pending_cells = merge_cells(pending_cells, cells)
 
     _flush(current, pending_cells, pending_holder, change_type, 0, ordinal)
 
@@ -804,6 +925,7 @@ def parse_house_document(
     out = ParsedDocument()
 
     pages: list[tuple[int, list[Band], Optional[str]]] = []
+    rules_by_page: dict[int, list[float]] = {}
     for index in range(doc.page_count):
         page_no = index + 1
         if page_no in skip_pages:
@@ -831,6 +953,12 @@ def parse_house_document(
         bands = page_bands(page, textpage=textpage, words=ocr_words)
         if not bands:
             continue
+        # Rules come from the PDF's own vectors, so an OCR'd page contributes
+        # none and falls back to label-order attribution unchanged.
+        if not ocr:
+            found = page_row_rules(page)
+            if found:
+                rules_by_page[page_no] = found
         pages.append((page_no, bands, page_form_kind(bands)))
 
     if not pages:
@@ -851,7 +979,7 @@ def parse_house_document(
         statement = Statement(ordinal=ordinal, kind=kind, page_from=page_from, page_to=page_to)
 
         if kind == STATEMENT_BASE:
-            items, warnings = parse_item_tables(group, fuzzy=ocr)
+            items, warnings = parse_item_tables(group, fuzzy=ocr, rules_by_page=rules_by_page)
             statement.items = items
             statement.warnings.extend(warnings)
             joined = " ".join(b.text for _, bands in group for b in bands)
