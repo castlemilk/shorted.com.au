@@ -94,8 +94,10 @@ export function formatCompanyName(
         return code;
       }
       if (!isShouting) return token;
-      if (wordIndex > 0 && MINOR_WORDS.has(token.toLowerCase())) {
-        return token.toLowerCase();
+      if (MINOR_WORDS.has(token.toLowerCase())) {
+        // Leading minor word is title-cased ("THE A2 MILK" → "The A2 Milk"),
+        // not lowercased and not treated as a short acronym.
+        return wordIndex === 0 ? titleCaseWord(token) : token.toLowerCase();
       }
       // Short all-caps acronyms in a shouted source stay uppercase.
       if (token.length <= 3) return token.toUpperCase();
