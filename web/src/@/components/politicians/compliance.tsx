@@ -136,21 +136,59 @@ export function SourceLine({
 }
 
 /**
+ * What kind of thing a declaration names, for the kinds that can never carry a
+ * ticker. `listed` and `not_an_entity` are absent on purpose: the first is the
+ * only case the "not matched to an ASX listing" line was written for, and the
+ * second never reaches a read surface.
+ *
+ * These describe the VEHICLE the member named, in the register's own vocabulary.
+ * They say nothing about size, and nothing about anyone's conduct.
+ */
+const ENTITY_KIND_COPY: Record<string, { label: string; title: string }> = {
+  private_company: {
+    label: "Private company",
+    title: "A proprietary company. Private companies are not on the ASX, so there is no ticker.",
+  },
+  family_trust: {
+    label: "Family trust",
+    title: "A family trust. Trusts are not on the ASX, so there is no ticker.",
+  },
+  smsf: {
+    label: "Self-managed super fund",
+    title: "A self-managed superannuation fund. These are not on the ASX, so there is no ticker.",
+  },
+  managed_fund: {
+    label: "Managed fund",
+    title: "An unlisted managed fund. Unlisted funds are not on the ASX, so there is no ticker.",
+  },
+  foreign: {
+    label: "Foreign listing",
+    title: "A company listed outside Australia, so it has no ASX ticker.",
+  },
+};
+
+/**
  * A declared entity.
  *
- * Resolved -> a link to the stock page. Unresolved -> the member's own words and
- * NO link, with an explicit reason. Only an exact normalised match, a
- * member-stated ticker or a human-curated alias ever resolves, so an unresolved
- * row is the honest majority case rather than an error.
+ * Resolved -> a link to the stock page. Otherwise the member's own words and no
+ * link, described by WHAT THE THING IS.
+ *
+ * The "not matched to an ASX listing" line is kept for entity_kind='listed'
+ * only, which is the case it was written for: a company we could not match by an
+ * exact normalised name, a member-stated ticker or a curated alias. Saying it
+ * about a family trust reported a failure that never happened — a trust cannot
+ * have a ticker — and left a reader unable to tell the two apart.
  */
 export function DeclaredEntity({
   declaredText,
   stockCode,
   companyName,
+  entityKind,
 }: {
   declaredText: string;
   stockCode?: string;
   companyName?: string;
+  entityKind?: string;
 }) {
   if (stockCode) {
     return (
@@ -160,6 +198,23 @@ export function DeclaredEntity({
       </Link>
     );
   }
+
+  const kind = entityKind ? ENTITY_KIND_COPY[entityKind] : undefined;
+  if (kind) {
+    return (
+      <span className="text-muted-foreground inline-flex flex-wrap items-center gap-1.5">
+        <span className="font-mono text-[11px]">{declaredText}</span>
+        <Badge
+          variant="outline"
+          title={kind.title}
+          className="border-muted-foreground/30 text-muted-foreground font-normal text-[10px] px-1.5 py-0"
+        >
+          {kind.label}
+        </Badge>
+      </span>
+    );
+  }
+
   return (
     <span
       className="text-muted-foreground"

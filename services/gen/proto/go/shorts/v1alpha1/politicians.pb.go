@@ -311,8 +311,16 @@ type DeclaredInterest struct {
 	CurrentlyDeclared bool                   `protobuf:"varint,16,opt,name=currently_declared,json=currentlyDeclared,proto3" json:"currently_declared,omitempty"`
 	SourceUrl         string                 `protobuf:"bytes,17,opt,name=source_url,json=sourceUrl,proto3" json:"source_url,omitempty"` // the aph.gov.au PDF this came from
 	SourceLicence     string                 `protobuf:"bytes,18,opt,name=source_licence,json=sourceLicence,proto3" json:"source_licence,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// What the declared entity IS: listed | private_company | family_trust |
+	// smsf | managed_fund | foreign | not_an_entity.
+	//
+	// A consumer needs this to describe an unmatched row honestly. "Not matched to
+	// an ASX listing" is only true of entity_kind='listed'; saying it about a
+	// family trust reports a system failure that did not happen, because a trust
+	// can never have a ticker.
+	EntityKind    string `protobuf:"bytes,19,opt,name=entity_kind,json=entityKind,proto3" json:"entity_kind,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DeclaredInterest) Reset() {
@@ -467,6 +475,13 @@ func (x *DeclaredInterest) GetSourceUrl() string {
 func (x *DeclaredInterest) GetSourceLicence() string {
 	if x != nil {
 		return x.SourceLicence
+	}
+	return ""
+}
+
+func (x *DeclaredInterest) GetEntityKind() string {
+	if x != nil {
+		return x.EntityKind
 	}
 	return ""
 }
@@ -1817,17 +1832,20 @@ func (x *ListRegisterChangesRequest) GetOffset() int32 {
 }
 
 type RegisterChangeEvent struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Politician    *Politician            `protobuf:"bytes,1,opt,name=politician,proto3" json:"politician,omitempty"`
-	Kind          RegisterChangeKind     `protobuf:"varint,2,opt,name=kind,proto3,enum=shorts.v1alpha1.RegisterChangeKind" json:"kind,omitempty"`
-	ItemNo        int32                  `protobuf:"varint,3,opt,name=item_no,json=itemNo,proto3" json:"item_no,omitempty"`
-	ItemLabel     string                 `protobuf:"bytes,4,opt,name=item_label,json=itemLabel,proto3" json:"item_label,omitempty"`
-	Holder        RegisterHolder         `protobuf:"varint,5,opt,name=holder,proto3,enum=shorts.v1alpha1.RegisterHolder" json:"holder,omitempty"`
-	DeclaredText  string                 `protobuf:"bytes,6,opt,name=declared_text,json=declaredText,proto3" json:"declared_text,omitempty"`
-	StockCode     string                 `protobuf:"bytes,7,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`
-	CompanyName   string                 `protobuf:"bytes,8,opt,name=company_name,json=companyName,proto3" json:"company_name,omitempty"`
-	ChangedOn     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=changed_on,json=changedOn,proto3" json:"changed_on,omitempty"`
-	SourceUrl     string                 `protobuf:"bytes,10,opt,name=source_url,json=sourceUrl,proto3" json:"source_url,omitempty"`
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Politician   *Politician            `protobuf:"bytes,1,opt,name=politician,proto3" json:"politician,omitempty"`
+	Kind         RegisterChangeKind     `protobuf:"varint,2,opt,name=kind,proto3,enum=shorts.v1alpha1.RegisterChangeKind" json:"kind,omitempty"`
+	ItemNo       int32                  `protobuf:"varint,3,opt,name=item_no,json=itemNo,proto3" json:"item_no,omitempty"`
+	ItemLabel    string                 `protobuf:"bytes,4,opt,name=item_label,json=itemLabel,proto3" json:"item_label,omitempty"`
+	Holder       RegisterHolder         `protobuf:"varint,5,opt,name=holder,proto3,enum=shorts.v1alpha1.RegisterHolder" json:"holder,omitempty"`
+	DeclaredText string                 `protobuf:"bytes,6,opt,name=declared_text,json=declaredText,proto3" json:"declared_text,omitempty"`
+	StockCode    string                 `protobuf:"bytes,7,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`
+	CompanyName  string                 `protobuf:"bytes,8,opt,name=company_name,json=companyName,proto3" json:"company_name,omitempty"`
+	ChangedOn    *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=changed_on,json=changedOn,proto3" json:"changed_on,omitempty"`
+	SourceUrl    string                 `protobuf:"bytes,10,opt,name=source_url,json=sourceUrl,proto3" json:"source_url,omitempty"`
+	// Same vocabulary as DeclaredInterest.entity_kind, for the same reason: the
+	// changes feed renders the identical entity component.
+	EntityKind    string `protobuf:"bytes,11,opt,name=entity_kind,json=entityKind,proto3" json:"entity_kind,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1928,6 +1946,13 @@ func (x *RegisterChangeEvent) GetChangedOn() *timestamppb.Timestamp {
 func (x *RegisterChangeEvent) GetSourceUrl() string {
 	if x != nil {
 		return x.SourceUrl
+	}
+	return ""
+}
+
+func (x *RegisterChangeEvent) GetEntityKind() string {
+	if x != nil {
+		return x.EntityKind
 	}
 	return ""
 }
@@ -2214,7 +2239,7 @@ const file_shorts_v1alpha1_politicians_proto_rawDesc = "" +
 	"\x0flast_parliament\x18\f \x01(\x05R\x0elastParliament\x12\x19\n" +
 	"\baph_mpid\x18\r \x01(\tR\aaphMpid\x122\n" +
 	"\x15declared_listed_count\x18\x0e \x01(\x05R\x13declaredListedCount\x126\n" +
-	"\x17declared_property_count\x18\x0f \x01(\x05R\x15declaredPropertyCount\"\xd6\x05\n" +
+	"\x17declared_property_count\x18\x0f \x01(\x05R\x15declaredPropertyCount\"\xf7\x05\n" +
 	"\x10DeclaredInterest\x12\x17\n" +
 	"\aitem_no\x18\x01 \x01(\x05R\x06itemNo\x12\x1d\n" +
 	"\n" +
@@ -2239,7 +2264,9 @@ const file_shorts_v1alpha1_politicians_proto_rawDesc = "" +
 	"\x12currently_declared\x18\x10 \x01(\bR\x11currentlyDeclared\x12\x1d\n" +
 	"\n" +
 	"source_url\x18\x11 \x01(\tR\tsourceUrl\x12%\n" +
-	"\x0esource_licence\x18\x12 \x01(\tR\rsourceLicence\"\xb6\x01\n" +
+	"\x0esource_licence\x18\x12 \x01(\tR\rsourceLicence\x12\x1f\n" +
+	"\ventity_kind\x18\x13 \x01(\tR\n" +
+	"entityKind\"\xb6\x01\n" +
 	"\x0ePoliticianTerm\x12\x1e\n" +
 	"\n" +
 	"parliament\x18\x01 \x01(\x05R\n" +
@@ -2357,7 +2384,7 @@ const file_shorts_v1alpha1_politicians_proto_rawDesc = "" +
 	"\n" +
 	"stock_code\x18\x03 \x01(\tR\tstockCode\x12\x14\n" +
 	"\x05limit\x18\x04 \x01(\x05R\x05limit\x12\x16\n" +
-	"\x06offset\x18\x05 \x01(\x05R\x06offset\"\xbd\x03\n" +
+	"\x06offset\x18\x05 \x01(\x05R\x06offset\"\xde\x03\n" +
 	"\x13RegisterChangeEvent\x12;\n" +
 	"\n" +
 	"politician\x18\x01 \x01(\v2\x1b.shorts.v1alpha1.PoliticianR\n" +
@@ -2375,7 +2402,9 @@ const file_shorts_v1alpha1_politicians_proto_rawDesc = "" +
 	"changed_on\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tchangedOn\x12\x1d\n" +
 	"\n" +
 	"source_url\x18\n" +
-	" \x01(\tR\tsourceUrl\"\x98\x01\n" +
+	" \x01(\tR\tsourceUrl\x12\x1f\n" +
+	"\ventity_kind\x18\v \x01(\tR\n" +
+	"entityKind\"\x98\x01\n" +
 	"\x1bListRegisterChangesResponse\x12<\n" +
 	"\x06events\x18\x01 \x03(\v2$.shorts.v1alpha1.RegisterChangeEventR\x06events\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\x12%\n" +

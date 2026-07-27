@@ -127,4 +127,26 @@ public interface RegisterChangeEventOrBuilder extends
    */
   com.google.protobuf.ByteString
       getSourceUrlBytes();
+
+  /**
+   * <pre>
+   * Same vocabulary as DeclaredInterest.entity_kind, for the same reason: the
+   * changes feed renders the identical entity component.
+   * </pre>
+   *
+   * <code>string entity_kind = 11 [json_name = "entityKind"];</code>
+   * @return The entityKind.
+   */
+  java.lang.String getEntityKind();
+  /**
+   * <pre>
+   * Same vocabulary as DeclaredInterest.entity_kind, for the same reason: the
+   * changes feed renders the identical entity component.
+   * </pre>
+   *
+   * <code>string entity_kind = 11 [json_name = "entityKind"];</code>
+   * @return The bytes for entityKind.
+   */
+  com.google.protobuf.ByteString
+      getEntityKindBytes();
 }

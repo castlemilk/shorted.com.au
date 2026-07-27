@@ -167,6 +167,7 @@ export default async function PoliticianPage({
                         declaredText={i.declaredText}
                         stockCode={i.stockCode}
                         companyName={i.companyName}
+                        entityKind={i.entityKind}
                       />
                       <HolderBadge holder={i.holder} />
                       {i.itemNo === 4 ? (

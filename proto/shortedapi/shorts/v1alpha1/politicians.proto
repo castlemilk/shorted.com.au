@@ -133,6 +133,14 @@ message DeclaredInterest {
   bool currently_declared = 16;
   string source_url = 17;         // the aph.gov.au PDF this came from
   string source_licence = 18;
+  // What the declared entity IS: listed | private_company | family_trust |
+  // smsf | managed_fund | foreign | not_an_entity.
+  //
+  // A consumer needs this to describe an unmatched row honestly. "Not matched to
+  // an ASX listing" is only true of entity_kind='listed'; saying it about a
+  // family trust reports a system failure that did not happen, because a trust
+  // can never have a ticker.
+  string entity_kind = 19;
 }
 
 message PoliticianTerm {
@@ -301,6 +309,9 @@ message RegisterChangeEvent {
   string company_name = 8;
   google.protobuf.Timestamp changed_on = 9;
   string source_url = 10;
+  // Same vocabulary as DeclaredInterest.entity_kind, for the same reason: the
+  // changes feed renders the identical entity component.
+  string entity_kind = 11;
 }
 
 message ListRegisterChangesResponse {

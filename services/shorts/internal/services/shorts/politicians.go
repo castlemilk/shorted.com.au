@@ -148,6 +148,11 @@ func declaredInterestProto(r *shortsstore.DeclaredInterestRow) *shortsv1alpha1.D
 		CurrentlyDeclared: r.CurrentlyDeclared,
 		SourceUrl:         r.SourceURL,
 		SourceLicence:     firstNonBlank(r.SourceLicence, registerLicence),
+		// Defaulted rather than left blank: an empty kind would make a consumer
+		// guess, and the guess it would make ("we failed to match this") is the
+		// wrong one for a trust. 'listed' is what the column defaults to for
+		// every item that has no security candidate.
+		EntityKind: firstNonBlank(r.EntityKind, "listed"),
 	}
 }
 
@@ -512,6 +517,7 @@ func (s *ShortsServer) ListRegisterChanges(
 					DeclaredText: r.DeclaredText,
 					StockCode:    r.StockCode,
 					CompanyName:  r.CompanyName,
+					EntityKind:   firstNonBlank(r.EntityKind, "listed"),
 					ChangedOn:    registerTimestamp(r.ChangedOn),
 					SourceUrl:    r.SourceURL,
 				})

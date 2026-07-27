@@ -49,6 +49,7 @@ private static final long serialVersionUID = 0L;
     matchMethod_ = "";
     sourceUrl_ = "";
     sourceLicence_ = "";
+    entityKind_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -705,6 +706,65 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int ENTITY_KIND_FIELD_NUMBER = 19;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object entityKind_ = "";
+  /**
+   * <pre>
+   * What the declared entity IS: listed | private_company | family_trust |
+   * smsf | managed_fund | foreign | not_an_entity.
+   *
+   * A consumer needs this to describe an unmatched row honestly. "Not matched to
+   * an ASX listing" is only true of entity_kind='listed'; saying it about a
+   * family trust reports a system failure that did not happen, because a trust
+   * can never have a ticker.
+   * </pre>
+   *
+   * <code>string entity_kind = 19 [json_name = "entityKind"];</code>
+   * @return The entityKind.
+   */
+  @java.lang.Override
+  public java.lang.String getEntityKind() {
+    java.lang.Object ref = entityKind_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      entityKind_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * What the declared entity IS: listed | private_company | family_trust |
+   * smsf | managed_fund | foreign | not_an_entity.
+   *
+   * A consumer needs this to describe an unmatched row honestly. "Not matched to
+   * an ASX listing" is only true of entity_kind='listed'; saying it about a
+   * family trust reports a system failure that did not happen, because a trust
+   * can never have a ticker.
+   * </pre>
+   *
+   * <code>string entity_kind = 19 [json_name = "entityKind"];</code>
+   * @return The bytes for entityKind.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getEntityKindBytes() {
+    java.lang.Object ref = entityKind_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      entityKind_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -773,6 +833,9 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sourceLicence_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 18, sourceLicence_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(entityKind_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 19, entityKind_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -836,6 +899,9 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sourceLicence_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(18, sourceLicence_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(entityKind_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(19, entityKind_);
     }
     return size;
   }
@@ -902,6 +968,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getSourceUrl())) return false;
     if (!getSourceLicence()
         .equals(other.getSourceLicence())) return false;
+    if (!getEntityKind()
+        .equals(other.getEntityKind())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -955,6 +1023,8 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getSourceUrl().hashCode();
     hash = (37 * hash) + SOURCE_LICENCE_FIELD_NUMBER;
     hash = (53 * hash) + getSourceLicence().hashCode();
+    hash = (37 * hash) + ENTITY_KIND_FIELD_NUMBER;
+    hash = (53 * hash) + getEntityKind().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -1127,6 +1197,7 @@ private static final long serialVersionUID = 0L;
       currentlyDeclared_ = false;
       sourceUrl_ = "";
       sourceLicence_ = "";
+      entityKind_ = "";
       return this;
     }
 
@@ -1221,6 +1292,9 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00020000) != 0)) {
         result.sourceLicence_ = sourceLicence_;
       }
+      if (((from_bitField0_ & 0x00040000) != 0)) {
+        result.entityKind_ = entityKind_;
+      }
       result.bitField0_ |= to_bitField0_;
     }
 
@@ -1312,6 +1386,11 @@ private static final long serialVersionUID = 0L;
       if (!other.getSourceLicence().isEmpty()) {
         sourceLicence_ = other.sourceLicence_;
         bitField0_ |= 0x00020000;
+        onChanged();
+      }
+      if (!other.getEntityKind().isEmpty()) {
+        entityKind_ = other.entityKind_;
+        bitField0_ |= 0x00040000;
         onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
@@ -1434,6 +1513,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00020000;
               break;
             } // case 146
+            case 154: {
+              entityKind_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00040000;
+              break;
+            } // case 154
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2869,6 +2953,128 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       sourceLicence_ = value;
       bitField0_ |= 0x00020000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object entityKind_ = "";
+    /**
+     * <pre>
+     * What the declared entity IS: listed | private_company | family_trust |
+     * smsf | managed_fund | foreign | not_an_entity.
+     *
+     * A consumer needs this to describe an unmatched row honestly. "Not matched to
+     * an ASX listing" is only true of entity_kind='listed'; saying it about a
+     * family trust reports a system failure that did not happen, because a trust
+     * can never have a ticker.
+     * </pre>
+     *
+     * <code>string entity_kind = 19 [json_name = "entityKind"];</code>
+     * @return The entityKind.
+     */
+    public java.lang.String getEntityKind() {
+      java.lang.Object ref = entityKind_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        entityKind_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * What the declared entity IS: listed | private_company | family_trust |
+     * smsf | managed_fund | foreign | not_an_entity.
+     *
+     * A consumer needs this to describe an unmatched row honestly. "Not matched to
+     * an ASX listing" is only true of entity_kind='listed'; saying it about a
+     * family trust reports a system failure that did not happen, because a trust
+     * can never have a ticker.
+     * </pre>
+     *
+     * <code>string entity_kind = 19 [json_name = "entityKind"];</code>
+     * @return The bytes for entityKind.
+     */
+    public com.google.protobuf.ByteString
+        getEntityKindBytes() {
+      java.lang.Object ref = entityKind_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        entityKind_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * What the declared entity IS: listed | private_company | family_trust |
+     * smsf | managed_fund | foreign | not_an_entity.
+     *
+     * A consumer needs this to describe an unmatched row honestly. "Not matched to
+     * an ASX listing" is only true of entity_kind='listed'; saying it about a
+     * family trust reports a system failure that did not happen, because a trust
+     * can never have a ticker.
+     * </pre>
+     *
+     * <code>string entity_kind = 19 [json_name = "entityKind"];</code>
+     * @param value The entityKind to set.
+     * @return This builder for chaining.
+     */
+    public Builder setEntityKind(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      entityKind_ = value;
+      bitField0_ |= 0x00040000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * What the declared entity IS: listed | private_company | family_trust |
+     * smsf | managed_fund | foreign | not_an_entity.
+     *
+     * A consumer needs this to describe an unmatched row honestly. "Not matched to
+     * an ASX listing" is only true of entity_kind='listed'; saying it about a
+     * family trust reports a system failure that did not happen, because a trust
+     * can never have a ticker.
+     * </pre>
+     *
+     * <code>string entity_kind = 19 [json_name = "entityKind"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearEntityKind() {
+      entityKind_ = getDefaultInstance().getEntityKind();
+      bitField0_ = (bitField0_ & ~0x00040000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * What the declared entity IS: listed | private_company | family_trust |
+     * smsf | managed_fund | foreign | not_an_entity.
+     *
+     * A consumer needs this to describe an unmatched row honestly. "Not matched to
+     * an ASX listing" is only true of entity_kind='listed'; saying it about a
+     * family trust reports a system failure that did not happen, because a trust
+     * can never have a ticker.
+     * </pre>
+     *
+     * <code>string entity_kind = 19 [json_name = "entityKind"];</code>
+     * @param value The bytes for entityKind to set.
+     * @return This builder for chaining.
+     */
+    public Builder setEntityKindBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      entityKind_ = value;
+      bitField0_ |= 0x00040000;
       onChanged();
       return this;
     }

@@ -276,4 +276,36 @@ public interface DeclaredInterestOrBuilder extends
    */
   com.google.protobuf.ByteString
       getSourceLicenceBytes();
+
+  /**
+   * <pre>
+   * What the declared entity IS: listed | private_company | family_trust |
+   * smsf | managed_fund | foreign | not_an_entity.
+   *
+   * A consumer needs this to describe an unmatched row honestly. "Not matched to
+   * an ASX listing" is only true of entity_kind='listed'; saying it about a
+   * family trust reports a system failure that did not happen, because a trust
+   * can never have a ticker.
+   * </pre>
+   *
+   * <code>string entity_kind = 19 [json_name = "entityKind"];</code>
+   * @return The entityKind.
+   */
+  java.lang.String getEntityKind();
+  /**
+   * <pre>
+   * What the declared entity IS: listed | private_company | family_trust |
+   * smsf | managed_fund | foreign | not_an_entity.
+   *
+   * A consumer needs this to describe an unmatched row honestly. "Not matched to
+   * an ASX listing" is only true of entity_kind='listed'; saying it about a
+   * family trust reports a system failure that did not happen, because a trust
+   * can never have a ticker.
+   * </pre>
+   *
+   * <code>string entity_kind = 19 [json_name = "entityKind"];</code>
+   * @return The bytes for entityKind.
+   */
+  com.google.protobuf.ByteString
+      getEntityKindBytes();
 }

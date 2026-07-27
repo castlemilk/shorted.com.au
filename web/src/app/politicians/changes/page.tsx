@@ -95,6 +95,7 @@ export default async function RegisterChangesPage() {
                       declaredText={e.declaredText}
                       stockCode={e.stockCode}
                       companyName={e.companyName}
+                      entityKind={e.entityKind}
                     />
                     <PartyChip partyAb={p?.partyAb} />
                     <span className="text-[10px] text-muted-foreground">{e.itemLabel}</span>

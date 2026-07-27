@@ -71,6 +71,11 @@ type DeclaredInterestRow struct {
 	CurrentlyDeclared bool
 	SourceURL         string
 	SourceLicence     string
+	// EntityKind names WHAT was declared (listed | private_company |
+	// family_trust | smsf | managed_fund | foreign | not_an_entity). A read
+	// surface needs it to describe an unmatched row honestly: "not matched to
+	// an ASX listing" is only true of a listed candidate.
+	EntityKind string
 }
 
 // PartyCountRow counts PEOPLE, never money.
@@ -113,6 +118,7 @@ type RegisterChangeRow struct {
 	DeclaredText string
 	StockCode    string
 	CompanyName  string
+	EntityKind   string
 	ChangedOn    time.Time
 	SourceURL    string
 }
@@ -273,7 +279,7 @@ func (s *postgresStore) GetPolitician(slug string) (*PoliticianRow, []*DeclaredI
 		        COALESCE(stock_code, ''), COALESCE(company_name, ''), COALESCE(industry, ''),
 		        COALESCE(sal_code, ''), COALESCE(sal_name, ''), COALESCE(property_state, ''),
 		        declared_from, declared_from_known, declared_to, currently_declared,
-		        source_url, source_licence
+		        source_url, source_licence, COALESCE(entity_kind, 'listed')
 		 FROM mv_register_public_holdings
 		 WHERE slug = $1
 		 ORDER BY item_no, currently_declared DESC, declared_from DESC NULLS LAST, declared_text`, slug)
@@ -377,7 +383,7 @@ func (s *postgresStore) declaredInterests(ctx context.Context, sql string, args 
 		if err := rows.Scan(&r.ItemNo, &r.Holder, &r.DeclaredText, &r.SecondaryText,
 			&r.StockCode, &r.CompanyName, &r.Industry, &r.SalCode, &r.SuburbName,
 			&r.PropertyState, &from, &r.DeclaredFromKnown, &to, &r.CurrentlyDeclared,
-			&r.SourceURL, &r.SourceLicence); err != nil {
+			&r.SourceURL, &r.SourceLicence, &r.EntityKind); err != nil {
 			return nil, err
 		}
 		if from != nil {
@@ -694,6 +700,7 @@ func (s *postgresStore) ListRegisterChanges(since time.Time, kind, stockCode str
 		           COALESCE(party, '') AS party, COALESCE(party_ab, '') AS party_ab,
 		           'added' AS kind, item_no, holder, declared_text,
 		           COALESCE(stock_code, '') AS stock_code, COALESCE(company_name, '') AS company_name,
+		           COALESCE(entity_kind, 'listed') AS entity_kind,
 		           declared_from AS changed_on, source_url
 		    FROM mv_register_public_holdings
 		    WHERE declared_from IS NOT NULL AND declared_from_known
@@ -703,6 +710,7 @@ func (s *postgresStore) ListRegisterChanges(since time.Time, kind, stockCode str
 		           COALESCE(party, ''), COALESCE(party_ab, ''),
 		           'removed', item_no, holder, declared_text,
 		           COALESCE(stock_code, ''), COALESCE(company_name, ''),
+		           COALESCE(entity_kind, 'listed'),
 		           declared_to, source_url
 		    FROM mv_register_public_holdings
 		    WHERE declared_to IS NOT NULL
@@ -720,7 +728,7 @@ func (s *postgresStore) ListRegisterChanges(since time.Time, kind, stockCode str
 
 	sel := `slug, display_name, chamber, division, member_state, party, party_ab,
 	        kind, item_no, holder, declared_text, stock_code, company_name,
-	        changed_on, source_url`
+	        entity_kind, changed_on, source_url`
 	sql := fmt.Sprintf(base, sel) + where +
 		fmt.Sprintf(" ORDER BY changed_on DESC, display_name LIMIT $%d OFFSET $%d", len(args)+1, len(args)+2)
 	args = append(args, limit, offset)
@@ -739,7 +747,7 @@ func (s *postgresStore) ListRegisterChanges(since time.Time, kind, stockCode str
 		if err := rows.Scan(&p.Slug, &p.DisplayName, &p.Chamber, &p.Division,
 			&p.StateCode, &p.Party, &p.PartyAb,
 			&e.Kind, &e.ItemNo, &e.Holder, &e.DeclaredText, &e.StockCode,
-			&e.CompanyName, &changed, &e.SourceURL); err != nil {
+			&e.CompanyName, &e.EntityKind, &changed, &e.SourceURL); err != nil {
 			return nil, 0, err
 		}
 		if changed != nil {
