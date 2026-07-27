@@ -71,7 +71,7 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string, sum
 	// Returns ~5-10KB instead of ~10MB for 1000 stocks.
 	if summaryOnly {
 		summaryQuery := `
-			SELECT product_name, product_code, current_percent, COALESCE(industry, '')
+			SELECT COALESCE(NULLIF(company_name, ''), product_name), product_code, current_percent, COALESCE(industry, '')
 			FROM mv_top_shorts
 			WHERE product_code ~ '^[A-Z0-9]{3,4}$'
 				AND product_name !~* 'ETF\M'
@@ -101,7 +101,7 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string, sum
 					AND ("TOTAL_PRODUCT_IN_ISSUE" IS NULL OR "TOTAL_PRODUCT_IN_ISSUE" >= 5000000)
 				ORDER BY "PRODUCT_CODE", "DATE" DESC
 			)
-			SELECT ls."PRODUCT", ls."PRODUCT_CODE", ls."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS", COALESCE(cm.industry, '')
+			SELECT COALESCE(NULLIF(cm.company_name, ''), ls."PRODUCT"), ls."PRODUCT_CODE", ls."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS", COALESCE(cm.industry, '')
 			FROM latest_shorts ls
 			LEFT JOIN "company-metadata" cm ON cm.stock_code = ls."PRODUCT_CODE"
 			ORDER BY ls."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" DESC
@@ -136,7 +136,7 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string, sum
 	// Try mv_top_shorts materialized view first (fast path, ~6ms)
 	// Falls back to raw query if MV doesn't exist (dev/test environments, ~2s)
 	topCodesQuery := `
-	SELECT product_name, product_code
+	SELECT COALESCE(NULLIF(company_name, ''), product_name), product_code
 	FROM mv_top_shorts
 	WHERE product_code ~ '^[A-Z0-9]{3,4}$'
 		AND product_name !~* 'ETF\M'
@@ -166,9 +166,10 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string, sum
 				AND ("TOTAL_PRODUCT_IN_ISSUE" IS NULL OR "TOTAL_PRODUCT_IN_ISSUE" >= 5000000)
 			ORDER BY "PRODUCT_CODE", "DATE" DESC
 		)
-		SELECT "PRODUCT", "PRODUCT_CODE"
-		FROM latest_shorts
-		ORDER BY "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" DESC
+		SELECT COALESCE(NULLIF(cm.company_name, ''), ls."PRODUCT"), ls."PRODUCT_CODE"
+		FROM latest_shorts ls
+		LEFT JOIN "company-metadata" cm ON cm.stock_code = ls."PRODUCT_CODE"
+		ORDER BY ls."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" DESC
 		LIMIT $1 OFFSET $2`
 		rows, err = connection.Query(ctx, topCodesQuery, limit, offset)
 		if err != nil {
