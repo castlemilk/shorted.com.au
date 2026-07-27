@@ -129,6 +129,13 @@ ignored every command while appearing to load. Fixed + regression-pinned.
   pipeline's post-promote revalidate step must stay green.
 - Never import `shorts_pb` in web routes (drags the legacy descriptor into
   the bundle); domain `_pb` modules only.
+- Company names reaching the UI come from **two** shapes: enriched
+  `company-metadata` (title-cased) and the raw ASIC `PRODUCT` field off the
+  `shorts` table ("4DMEDICAL LIMITED ORDINARY"). Any new surface that renders
+  names must go through `formatCompanyName` — and the Go `cleanCompanyName`
+  lives in **two mirrored copies** (`services/shorts/.../company_name.go`,
+  `services/market-data-sync/stocklist/company_name.go`, separate Go modules)
+  that must change together.
 
 ---
 
@@ -141,7 +148,7 @@ ignored every command while appearing to load. Fixed + regression-pinned.
 | GA dataLayer `arguments` fix | #351 | 2026-07-25 |
 | Announcement-crawler insert-storm fix (DB health) | #350 | 2026-07-25 |
 | Secret-cleanup safety (outage prevention) | #363 | 2026-07-27 |
-| Roadmap #4 building/covering prose + #5 100-row crawlable table + #7 backend `cleanCompanyName` | TBD | 2026-07-27 |
+| Roadmap #4 building/covering prose + #5 100-row crawlable table + #7 backend `cleanCompanyName` | #365 | 2026-07-27 (merge pending) |
 
 ---
 
