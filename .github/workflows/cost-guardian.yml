@@ -14,6 +14,13 @@ on:
         description: "Dry run (report only, no changes)"
         type: boolean
         default: false
+      destroy_old_secret_versions:
+        description: >-
+          Also DESTROY disabled, unreferenced secret versions older than 90 days.
+          Off by default: destroy is irreversible, and it is the only thing that
+          actually stops Secret Manager billing (disabled versions still bill).
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -289,58 +296,43 @@ jobs:
             wip_provider: projects/334313144667/locations/global/workloadIdentityPools/github-pool/providers/github-provider
             sa_email: github-actions-sa@rosy-clover-477102-t5.iam.gserviceaccount.com
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ matrix.wip_provider }}
           service_account: ${{ matrix.sa_email }}
 
-      - name: Disable old secret versions (keep latest 2 enabled)
+      # The version-selection logic lives in scripts/secret-version-cleanup.sh
+      # so it can be unit tested (scripts/secret-version-cleanup.test.mjs).
+      #
+      # 2026-07-26 INCIDENT: the previous inline version used
+      # `--sort-by="~name"` (LEXICOGRAPHIC). Past 1000 versions "999" sorted
+      # above "1002", so it disabled 1000/1001/1002 of INTERNAL_SERVICE_SECRET
+      # — including the version `latest` resolves to — and every new shorts
+      # Cloud Run instance failed to start. See
+      # docs/incidents/2026-07-26-internal-service-secret.md.
+      #
+      # The script now guarantees: numeric ordering, the numeric-latest version
+      # is never touched, versions referenced by live Cloud Run services/jobs
+      # are never touched, and a failure to enumerate those references is fatal.
+      #
+      # BILLING NOTE: disabling a version does NOT stop it billing — only
+      # DESTROYED versions do. The disable pass is hygiene only; the cost
+      # saving comes from the opt-in destroy pass below.
+      - name: Clean up old secret versions (keep 2 newest enabled, protect in-use)
         env:
           PROJECT: ${{ matrix.project }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
-          # Keep the 2 most recent enabled versions to avoid breaking
-          # Cloud Run services that reference "latest" (which resolves to
-          # a specific version number at deploy time). Destroying the
-          # active version causes container startup failures.
-          KEEP_COUNT: 2
+          DESTROY: ${{ inputs.destroy_old_secret_versions || 'false' }}
         run: |
-          echo "=== Secret Manager cleanup: $PROJECT ==="
-          echo "Disabling old versions (keeping $KEEP_COUNT most recent enabled)"
-          echo ""
-
-          TOTAL_DISABLED=0
-
-          for secret in $(gcloud secrets list --project="$PROJECT" --format="value(name)"); do
-            VERSIONS=$(gcloud secrets versions list "$secret" \
-              --project="$PROJECT" \
-              --filter="state=enabled" \
-              --sort-by="~name" \
-              --format="value(name)" 2>/dev/null)
-
-            COUNT=$(echo "$VERSIONS" | grep -c "." 2>/dev/null || echo "0")
-
-            if [ "$COUNT" -le "$KEEP_COUNT" ]; then
-              continue
-            fi
-
-            # Skip the newest KEEP_COUNT versions, disable the rest
-            OLD_VERSIONS=$(echo "$VERSIONS" | tail -n +$((KEEP_COUNT + 1)))
-            OLD_COUNT=$((COUNT - KEEP_COUNT))
-            echo "$secret: disabling $OLD_COUNT old versions (keeping $KEEP_COUNT)"
-
-            if [ "$DRY_RUN" = "false" ]; then
-              echo "$OLD_VERSIONS" | while read -r ver; do
-                [ -z "$ver" ] && continue
-                gcloud secrets versions disable "$ver" \
-                  --secret="$secret" \
-                  --project="$PROJECT" \
-                  --quiet 2>/dev/null && \
-                  TOTAL_DISABLED=$((TOTAL_DISABLED + 1)) || \
-                  echo "  Failed to disable $secret version $ver"
-              done
-            fi
-          done
-
-          echo ""
-          echo "=== Secret version cleanup complete ==="
+          ARGS=(--project "$PROJECT" --keep 2 --regions "$GCP_REGION us-central1 asia-southeast1")
+          if [ "$DRY_RUN" = "true" ]; then
+            ARGS+=(--dry-run)
+          fi
+          if [ "$DESTROY" = "true" ]; then
+            ARGS+=(--destroy --destroy-age-days 90 --destroy-cap 200)
+          fi
+          bash "$GITHUB_WORKSPACE/scripts/secret-version-cleanup.sh" "${ARGS[@]}"

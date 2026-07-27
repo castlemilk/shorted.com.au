@@ -426,27 +426,13 @@ jobs:
           INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
           OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
         run: |
-          # Ensure a secret exists and only add a new version if the value has changed.
-          # This prevents version bloat ($0.06/version/month) from identical re-deploys.
-          ensure_secret() {
-            local name="$1" value="$2"
-            if [ -z "$value" ]; then
-              echo "⚠️ $name not set, skipping"
-              return 0
-            fi
-            if ! gcloud secrets describe "$name" --project "$GCP_PROJECT_ID" &>/dev/null; then
-              echo "Creating secret: $name"
-              printf "%s" "$value" | gcloud secrets create "$name" --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
-              return 0
-            fi
-            CURRENT=$(gcloud secrets versions access latest --secret="$name" --project "$GCP_PROJECT_ID" 2>/dev/null || true)
-            if [ "$CURRENT" = "$value" ]; then
-              echo "✅ $name unchanged, skipping"
-            else
-              echo "🔄 $name changed, adding new version"
-              printf "%s" "$value" | gcloud secrets versions add "$name" --data-file=- --project "$GCP_PROJECT_ID"
-            fi
-          }
+          # Single source of truth: scripts/ensure-secret.sh. It only adds a new
+          # version when the value actually changed, comparing sha256 of the
+          # trailing-newline-normalised bytes (a raw `$(...)` string compare can
+          # never match a GH secret that carries a trailing newline — that bug
+          # produced 1,002 INTERNAL_SERVICE_SECRET versions and led to the
+          # 2026-07-26 outage; see docs/incidents/).
+          ensure_secret() { bash "$GITHUB_WORKSPACE/scripts/ensure-secret.sh" "$1" "${2:-}"; }
 
           ensure_secret "OPENAI_API_KEY" "$OPENAI_API_KEY"
           ensure_secret "GEMINI_API_KEY_CHAT" "$GEMINI_API_KEY"
@@ -594,19 +580,9 @@ jobs:
           DB_NAME=$(echo $DATABASE_URL | sed -n 's|.*/\([^?]*\).*|\1|p')
           DB_ADDRESS="${DB_HOST}:${DB_PORT}"
 
-          # Ensure secrets exist (only add new version if value changed)
-          ensure_secret() {
-            local name="$1" value="$2"
-            if [ -z "$value" ]; then echo "⚠️ $name not set, skipping"; return 0; fi
-            if ! gcloud secrets describe "$name" --project "$GCP_PROJECT_ID" &>/dev/null; then
-              printf "%s" "$value" | gcloud secrets create "$name" --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
-              return 0
-            fi
-            CURRENT=$(gcloud secrets versions access latest --secret="$name" --project "$GCP_PROJECT_ID" 2>/dev/null || true)
-            if [ "$CURRENT" = "$value" ]; then echo "✅ $name unchanged"; else
-              printf "%s" "$value" | gcloud secrets versions add "$name" --data-file=- --project "$GCP_PROJECT_ID"
-            fi
-          }
+          # Ensure secrets exist (only add new version if value changed).
+          # See scripts/ensure-secret.sh for the trailing-newline churn fix.
+          ensure_secret() { bash "$GITHUB_WORKSPACE/scripts/ensure-secret.sh" "$1" "${2:-}"; }
           ensure_secret "OPENAI_API_KEY" "$OPENAI_API_KEY"
           ensure_secret "INTERNAL_SERVICE_SECRET" "$INTERNAL_SERVICE_SECRET"
 
@@ -952,27 +928,12 @@ jobs:
           ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
           REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}
         run: |
-          # Only add a new version if the value has actually changed.
-          # This prevents version bloat ($0.06/version/month — was costing $130+/month).
-          ensure_secret() {
-            local name="$1" value="$2"
-            if [ -z "$value" ]; then
-              echo "⚠️ $name not set, skipping"
-              return 0
-            fi
-            if ! gcloud secrets describe "$name" --project "$GCP_PROJECT_ID" &>/dev/null; then
-              echo "🆕 Creating secret: $name"
-              printf "%s" "$value" | gcloud secrets create "$name" --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
-              return 0
-            fi
-            CURRENT=$(gcloud secrets versions access latest --secret="$name" --project "$GCP_PROJECT_ID" 2>/dev/null || true)
-            if [ "$CURRENT" = "$value" ]; then
-              echo "✅ $name unchanged, skipping"
-            else
-              echo "🔄 $name changed, adding new version"
-              printf "%s" "$value" | gcloud secrets versions add "$name" --data-file=- --project "$GCP_PROJECT_ID"
-            fi
-          }
+          # Only add a new version if the value has actually changed
+          # ($0.06/version/month, and version bloat is what broke prod on
+          # 2026-07-26). Logic lives in scripts/ensure-secret.sh: sha256 compare
+          # over trailing-newline-normalised bytes, and never add a version when
+          # `versions access latest` fails on an existing secret.
+          ensure_secret() { bash "$GITHUB_WORKSPACE/scripts/ensure-secret.sh" "$1" "${2:-}"; }
 
           # Core secrets
           ensure_secret "OPENAI_API_KEY" "$OPENAI_API_KEY"
