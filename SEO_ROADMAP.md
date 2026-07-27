@@ -3,7 +3,7 @@
 Living roadmap. Current phase: **post head-term retarget (July 2026)** —
 companion to the full research doc at `docs/seo-strategy-2026-07.md`
 (13-agent competitive research, 2026-07-15). The May 2026 wave and its
-tracking table are preserved in §6.
+tracking table are preserved in §7.
 
 Last updated: **2026-07-27**
 
@@ -102,7 +102,7 @@ ignored every command while appearing to load. Fixed + regression-pinned.
 |---|------|-------|--------|-------|
 | 1 | **GSC**: resubmit sitemap; request re-indexing of `/`, `/statistics`, `/scans`; baseline the retargeted queries | Ben | ~30 min | GA is clean from 25 July onward |
 | 2 | **Authority / outreach**: journalists who cite ShortMan (Livewire, Stockhead, Motley Fool's Mickleboro — uses raw ASIC, no tool loyalty); media kit anchored on the `/statistics` $-shorted citation line; embeddable charts/widgets | Ben (+ drafting help) | M | The #1 lever. Strategy doc Phase 2 |
-| 3 | **ASX T+1 gross-short-sales blend** | build | M–L | Parity with ShortInterest.au's freshest-data claim (strategy Phase 3.4). Biggest remaining product differentiator |
+| 3 | **ASX T+1 gross-short-sales blend** — **BLOCKED, needs your call** | Ben | — | Spiked 27 July (§6). Source exists but ASX ToS bans scraping + commercial reuse, and the site is Incapsula-walled. Also: it's *flow*, not short interest |
 | 4 | ~~Auto-generated "shorts building / covering" prose~~ | build | — | **SHIPPED** — `ShortFlowNarrative` on the homepage, prose from the cached 1w movers data (see §5) |
 | 5 | ~~Extend crawlable homepage/top list beyond 20 rows~~ | build | — | **SHIPPED** — homepage SSR table now 100 rows via the summary-only RPC (see §5) |
 | 6 | **Rotate `GEMINI_API_KEY_NEWS`** | Ben | S | News embeddings silently failing for weeks → degrades related-news internal linking (a crawl-graph signal) |
@@ -152,7 +152,48 @@ ignored every command while appearing to load. Fixed + regression-pinned.
 
 ---
 
-## 6. May 2026 wave (historical — all shipped unless noted)
+## 6. Spike: ASX T+1 gross short sales (27 July) — do not build yet
+
+Scouted the repo first: **nothing exists** — no ingest, no migration/table, no
+proto, no web surface. The strategy doc (Phase 3.4) never names a source URL,
+format, universe scope or history depth, and itself calls this *parity* with
+ShortInterest.au, not uniqueness.
+
+**The source is real**: `https://www.asx.com.au/data/shortsell.txt` — fixed-width
+text, published ~11:00–11:20am AEST T+1, consolidated ASX + Cboe (older files say
+CHI-X). Columns: code, company name, product/class, reported gross short sales,
+issued capital, % of issued capital. Only same-day-active tickers appear (no zero
+rows); comma thousands separators; bare-decimal percentages (`.01`).
+
+**Three findings that change the decision:**
+
+1. **It is gross short-sales FLOW, not short interest.** One day's sell volume
+   over issued capital — a much smaller number than the ASIC T+4 *position*
+   percentage and not comparable to it. Any "blend" must present it as a second,
+   separately-labelled series (which is what ShortInterest.au's per-row source
+   labels actually are), never merged into our existing percentages.
+2. **The endpoint is Imperva/Incapsula-walled.** Plain curl, the `stealthhttp`
+   native TLS engine, and headless `NewChromium` are all blocked; it would need
+   the warm-real-Chrome CDP path the housing crawl uses.
+3. **ASX Terms of Use are explicitly prohibitive** (`asx.com.au/legals/terms-of-use`):
+   they bar "modify, copy, reproduce, republish, frame, download onto a computer,
+   upload to a third party, post, transmit or distribute any content"; bar "any
+   spider, screen scraper, robot, other similar software or device"; and bar
+   commercial use without express written consent, defining commercial purpose as
+   "any use other than … your own personal and private decision making". ASX runs
+   a sub-vendor/MarketSource licensing regime and treats processed output as a
+   "New Original Work" needing prior written consent. (robots.txt only disallows
+   `/search*` — the ToS, not robots.txt, is the binding constraint.) That
+   ShortInterest.au publishes this data is not a licence.
+
+**Options**: (a) licence via ASX MarketSource or a data vendor; (b) Cboe's own
+gross short sales publication — separate terms, but partial coverage;
+(c) drop #3 and spend the effort on authority/backlinks, which §3 item 2 already
+names as the #1 lever.
+
+---
+
+## 7. May 2026 wave (historical — all shipped unless noted)
 
 <details>
 <summary>Original Tier 1–4 items + tracking table (last updated 2026-05-17)</summary>
