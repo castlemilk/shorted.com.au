@@ -3,7 +3,7 @@
 Living roadmap. Current phase: **post head-term retarget (July 2026)** —
 companion to the full research doc at `docs/seo-strategy-2026-07.md`
 (13-agent competitive research, 2026-07-15). The May 2026 wave and its
-tracking table are preserved in §7.
+tracking table are preserved in §8.
 
 Last updated: **2026-07-27**
 
@@ -102,11 +102,11 @@ ignored every command while appearing to load. Fixed + regression-pinned.
 |---|------|-------|--------|-------|
 | 1 | **GSC**: resubmit sitemap; request re-indexing of `/`, `/statistics`, `/scans`; baseline the retargeted queries | Ben | ~30 min | GA is clean from 25 July onward |
 | 2 | **Authority / outreach**: journalists who cite ShortMan (Livewire, Stockhead, Motley Fool's Mickleboro — uses raw ASIC, no tool loyalty); media kit anchored on the `/statistics` $-shorted citation line; embeddable charts/widgets | Ben (+ drafting help) | M | The #1 lever. Strategy doc Phase 2 |
-| 3 | **ASX T+1 gross-short-sales blend** — **BLOCKED, needs your call** | Ben | — | Spiked 27 July (§6). Source exists but ASX ToS bans scraping + commercial reuse, and the site is Incapsula-walled. Also: it's *flow*, not short interest |
+| 3 | **ASX T+1 gross-short-sales blend** — **BLOCKED, needs your call** | Ben | — | Spiked 27 July (§7). Source exists but ASX ToS bans scraping + commercial reuse, and the site is Incapsula-walled. Also: it's *flow*, not short interest |
 | 4 | ~~Auto-generated "shorts building / covering" prose~~ | build | — | **SHIPPED** — `ShortFlowNarrative` on the homepage, prose from the cached 1w movers data (see §5) |
 | 5 | ~~Extend crawlable homepage/top list beyond 20 rows~~ | build | — | **SHIPPED** — homepage SSR table now 100 rows via the summary-only RPC (see §5) |
 | 6 | **Rotate `GEMINI_API_KEY_NEWS`** | Ben | S | News embeddings silently failing for weeks → degrades related-news internal linking (a crawl-graph signal) |
-| 7 | ~~Backend `cleanCompanyName` fix~~ + **metadata resync** | build / Ben | S | Both Go copies now mirror the web `formatCompanyName` (acronyms survive). **Remaining op**: re-run market-data-sync stocklist so stored `company-metadata.company_name` values regenerate |
+| 7 | ~~Company-name quality~~ | build | — | **SHIPPED** (§6) — formatter fixed in web + both Go copies, and the read path now prefers the enriched `company-metadata.company_name` over the truncated ASIC `PRODUCT` string (28.5% of names materially better). Resync no longer blocking: the display layer repairs the stored rows |
 | 8 | **Google News Publisher Center** registration | Ben | S | Carried from the May wave — still the unlock for Top Stories/News tab; NewsArticle schema is ready |
 | 9 | **Sector hubs decision** (`/sectors/*` editorial) | Ben | M | Carried from May (deferred on editorial copy). Note `/industry/[slug]` pages now exist — decide whether to invest editorial there instead |
 | 10 | **Watch (2–6 weeks)**: rankings for "most shorted asx stocks" / "asx short selling"; CTR on the new title; whether the freshness stamp earns a SERP date snippet | — | — | Title retargets take 2–6 weeks to settle. **Do not re-tweak titles before then** |
@@ -148,11 +148,66 @@ ignored every command while appearing to load. Fixed + regression-pinned.
 | GA dataLayer `arguments` fix | #351 | 2026-07-25 |
 | Announcement-crawler insert-storm fix (DB health) | #350 | 2026-07-25 |
 | Secret-cleanup safety (outage prevention) | #363 | 2026-07-27 |
-| Roadmap #4 building/covering prose + #5 100-row crawlable table + #7 backend `cleanCompanyName` | #365 | 2026-07-27 (merge pending) |
+| Roadmap #4 building/covering prose + #5 100-row crawlable table + #7 backend `cleanCompanyName` | #365 | 2026-07-27 |
+| Stock-page titles/H1 were shouting the raw ASIC product name | #366 | 2026-07-27 |
+| Cut ASIC instrument metadata at the first security-type token (10.5% → 0%) | #367 | 2026-07-27 |
+| Lowercase the possessive s after an apostrophe | #368 | 2026-07-27 |
+| Prefer enriched company name over truncated ASIC PRODUCT (28.5% better) | #369 | 2026-07-27 |
+| Re-case all-lowercase stored names, drop trailing parenthetical | #370 | 2026-07-27 |
 
 ---
 
-## 6. Spike: ASX T+1 gross short sales (27 July) — do not build yet
+## 6. Company-name quality thread (27 July) — PRs #365–#370
+
+Validating the #365 ship on prod turned into a five-PR thread, because each
+fix exposed the next layer. Worth reading as one story:
+
+1. **#366** — every `/shorts/[code]` page (the largest template) rendered the
+   raw ASIC `PRODUCT` string in `<title>`, `og:title`, H1 and Corporation
+   schema: *"BHP GROUP LIMITED ORDINARY (BHP) Short Interest"*. The page had
+   its own local `cleanCompanyName` that stripped only the security-type word.
+   Note §2's earlier claim that the stock page was repaired was true only of
+   the visible profile card, never the title/H1.
+2. **#367** — spot-checking blue chips said "clean"; running the formatter over
+   **all 819 live names** said **10.5% still carried a descriptor**
+   (`Lendlease Group FPO/Units Stapled`, `Block INC CDI 1:1 Nyse`). Enumerating
+   trailing qualifiers doesn't converge, so we now cut at the FIRST
+   security-type token — the ASIC field is `<company> <security type>
+   [qualifiers…]`. Residual 10.5% → 0%.
+3. **#368** — `Domino'S`: a lone letter after an apostrophe is possessive.
+4. **#369** — the deeper problem was the *source*: ASIC truncates `PRODUCT` to
+   ~20 chars (`Ventiaservicesgroup`, `Clinuvel Pharmaceut`). **28.5% of names
+   (233/818)** had a materially better value already sitting in
+   `company-metadata`. Every affected query already joined that table, so this
+   was SELECT-only with **no migration**. Search now substring-matches
+   `company_name` too.
+5. **#370** — verifying #369 on prod showed 2 stored names entirely lower-case
+   (`4dmedical` — the old title-caser capitalised character 0, a digit) and one
+   blocked by a trailing `(The)`.
+
+**The lesson worth keeping**: every "clean" verdict in this thread that came
+from eyeballing a handful of blue chips was wrong. Only running the real
+formatter over the full live corpus found the 10.5% and the 28.5%.
+
+### Standing rules this leaves behind
+
+- Names reach the UI in **two shapes** — enriched `company-metadata` (mixed
+  case) and raw ASIC `PRODUCT` (SHOUTED, truncated, with instrument metadata).
+  Any new surface rendering a company name must go through `formatCompanyName`.
+- The Go `cleanCompanyName` lives in **two mirrored copies**
+  (`services/shorts/.../company_name.go`,
+  `services/market-data-sync/stocklist/company_name.go` — separate modules,
+  no shared package). Change them together.
+- **Never move the ETF/DEFERRED/coupon exclusions off the raw column.** They
+  live in `WHERE` clauses on `"PRODUCT"`/`product_name` on purpose; the SELECT
+  is what changed. Moving them would silently let ETFs back into the UI.
+- 2 of 818 metadata names are **stale renames** where ASIC is more current
+  (`SGC: Sinclair Gold` vs stored `Sacgasco`; `FDC`). That belongs to
+  enrichment, not the formatter.
+
+---
+
+## 7. Spike: ASX T+1 gross short sales (27 July) — do not build yet
 
 Scouted the repo first: **nothing exists** — no ingest, no migration/table, no
 proto, no web surface. The strategy doc (Phase 3.4) never names a source URL,
@@ -193,7 +248,7 @@ names as the #1 lever.
 
 ---
 
-## 7. May 2026 wave (historical — all shipped unless noted)
+## 8. May 2026 wave (historical — all shipped unless noted)
 
 <details>
 <summary>Original Tier 1–4 items + tracking table (last updated 2026-05-17)</summary>
