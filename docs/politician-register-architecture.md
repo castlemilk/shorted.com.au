@@ -1272,3 +1272,57 @@ Sizing note for the estimate: 44P/45P average **18.8 pages** per document (max 6
 not the 6 pages of the probe document, so the corpus is ~6,500 pages and the drain
 is ~2.5-3 hours at 1.6s/page — matching the original estimate rather than the
 optimistic one extrapolated from small documents.
+
+### 8.9 Full scan corpus drained — and the resolution gate now FAILS
+
+The vision drain finished: **183 extracted, 17 quarantined, 0 failed, 6,815
+declared rows** from the scan corpus. Coverage is now:
+
+| parliament | documents | read |
+|---|---|---|
+| 48th | 151 | **100%** |
+| 47th | 155 | 67% |
+| 46th | 153 | 76% |
+| 45th | 158 | **100%** |
+| 44th | 152 | **100%** |
+
+44P and 45P — the pure-scan parliaments that no deterministic tier could touch —
+are fully read. 46P/47P sit at 67-76% because of the §2.8 centred-label
+quarantine, which is a text-tier gap, not a vision one.
+
+Totals after load + resolve: **324 politicians, 2,755 statements, 21,153 declared
+rows, 0 unresolved identities, 18,993 holding intervals.** Most-declared:
+TLS 38 members, BHP 25, NAB 24, CBA 23, WBC 19.
+
+**The item-1 security resolution gate FAILS: 20.3%, against a documented ≥35%.**
+It was 35.3% on the 48P-heavy corpus. Do NOT read this as the vision tier
+extracting badly — the top unmatched candidates say otherwise:
+
+```
+GIFT            15
+IAG             15
+2017            13
+FLIGHT UPGRADE  13
+MEMBERSHIP      13
+```
+
+Only `IAG` (Insurance Australia Group) is a security. `GIFT`, `2017`,
+`FLIGHT UPGRADE`, `MEMBERSHIP` are items 11/12 content — gifts and sponsored
+travel — being fed through the security splitter and counted in the denominator.
+44P/45P carry far more gift/travel text than 48P, so widening the corpus diluted
+the rate with non-securities rather than with failures.
+
+**Fix, in order of value:**
+
+1. Extend the `not_a_security` vocabulary in `aph_resolve.go` with the gift/travel
+   noise above. Those rows are *correctly* unresolvable and belong outside the
+   denominator — `resolvable = candidates - not_a_security` already exists for
+   exactly this reason.
+2. Re-measure the gate afterwards. The honest threshold may also need
+   recalibrating: 35% was set against a corpus that was almost entirely 48P.
+3. `IAG` should resolve via `ticker_in_text` and does not — worth one look at why
+   a bare three-letter ticker missed.
+
+Until (1) and (2) land, **the launch gate in §6.1 is not met**. That is a
+publishing blocker by design, and `CoverageNote` continues to report per-parliament
+coverage honestly regardless.
