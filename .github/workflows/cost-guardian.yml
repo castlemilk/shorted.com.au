@@ -328,7 +328,7 @@ jobs:
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
           DESTROY: ${{ inputs.destroy_old_secret_versions || 'false' }}
         run: |
-          ARGS=(--project "$PROJECT" --keep 2 --regions "$GCP_REGION us-central1 asia-southeast1")
+          ARGS=(--project "$PROJECT" --keep 2)  # regions are discovered by the script, never hardcoded
           if [ "$DRY_RUN" = "true" ]; then
             ARGS+=(--dry-run)
           fi

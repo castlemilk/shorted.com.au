@@ -34,7 +34,7 @@
 # (d) older than --destroy-age-days, capped at --destroy-cap per secret per run.
 #
 # Usage:
-#   secret-version-cleanup.sh --project P [--regions "r1 r2"] [--keep 2]
+#   secret-version-cleanup.sh --project P [--keep 2]
 #                             [--dry-run] [--destroy] [--destroy-age-days 90]
 #                             [--destroy-cap 200]
 #
@@ -48,7 +48,6 @@ set -euo pipefail
 export LC_ALL=C
 
 PROJECT=""
-REGIONS="australia-southeast2 us-central1 asia-southeast1"
 KEEP_COUNT=2
 DRY_RUN=false
 DO_DESTROY=false
@@ -145,7 +144,11 @@ EOF
 #   v2 env:     valueSource.secretKeyRef {secret, version}
 #   v2 volume:  secret {secret, versions:[{version,...}]}
 extract_secret_refs() {
-  python3 - <<'PY'
+  # NB: the program is fed on fd 3, NOT stdin — `python3 -` would consume the
+  # heredoc AS stdin and leave the piped Cloud Run JSON unread (json.load then
+  # dies on EOF). Caught in review by running against prod; a plain `-` here
+  # made every nightly run fail-closed on the first describe.
+  python3 /dev/fd/3 3<<'PY'
 import json, sys
 
 out = set()
@@ -204,23 +207,30 @@ collect_in_use() {
 
   command -v python3 >/dev/null 2>&1 || die "python3 is required to enumerate Cloud Run secret references"
 
-  for region in $REGIONS; do
-    for res in services jobs; do
-      local listing
-      if ! listing=$(gcloud run "$res" list --project="$project" --region="$region" \
-            --format="value(metadata.name)" 2>&1); then
-        die "failed to list Cloud Run $res in $region ($project): $listing — refusing to disable/destroy anything"
+  # Regions are DISCOVERED, not hardcoded: a region-filtered list silently
+  # misses resources (review found a dev job in asia-northeast1 holding a
+  # secret ref that the old hardcoded list couldn't see — invisible in-use
+  # refs are exactly the outage class this script exists to prevent). A
+  # no-region `gcloud run <res> list` returns every region; the location
+  # label gives us the region for the follow-up describe. The old
+  # --regions flag is gone: discovery covers everything.
+  for res in services jobs; do
+    local listing
+    if ! listing=$(gcloud run "$res" list --project="$project" \
+          --format="value(metadata.name,metadata.labels.'cloud.googleapis.com/location')" 2>&1); then
+      die "failed to list Cloud Run $res across all regions ($project): $listing — refusing to disable/destroy anything"
+    fi
+    while IFS=$'\t' read -r name region; do
+      [ -z "$name" ] && continue
+      [ -z "$region" ] && die "no region label for Cloud Run $res/$name ($project) — refusing to continue with a partial view"
+      local json
+      if ! json=$(gcloud run "$res" describe "$name" --project="$project" --region="$region" \
+            --format=json 2>&1); then
+        die "failed to describe Cloud Run $res/$name in $region ($project) — refusing to disable/destroy anything"
       fi
-      for name in $listing; do
-        local json
-        if ! json=$(gcloud run "$res" describe "$name" --project="$project" --region="$region" \
-              --format=json 2>&1); then
-          die "failed to describe Cloud Run $res/$name in $region ($project) — refusing to disable/destroy anything"
-        fi
-        printf '%s' "$json" | extract_secret_refs >> "$outfile" \
-          || die "failed to extract secret refs from $res/$name in $region ($project)"
-      done
-    done
+      printf '%s' "$json" | extract_secret_refs >> "$outfile" \
+        || die "failed to extract secret refs from $res/$name in $region ($project)"
+    done <<< "$listing"
   done
 
   sort -u -o "$outfile" "$outfile"
@@ -364,7 +374,6 @@ main() {
   while [ $# -gt 0 ]; do
     case "$1" in
       --project) PROJECT="$2"; shift 2 ;;
-      --regions) REGIONS="$2"; shift 2 ;;
       --keep) KEEP_COUNT="$2"; shift 2 ;;
       --dry-run) DRY_RUN=true; shift ;;
       --destroy) DO_DESTROY=true; shift ;;
