@@ -1,3 +1,33 @@
+> **START HERE — measured backlog, 2026-07-27**
+>
+> This is what the console would be pointed at on day one:
+>
+> | queue | rows | note |
+> |---|---|---|
+> | quarantined documents | **88** | `extract_status='partial'` — excluded from public output today |
+> | unmatched securities | **3,636** | frequency-ordered in `register_resolution_backlog` |
+> | ambiguous securities | **18** | >1 listing matched; never auto-resolved by design |
+> | already resolved | 1,197 | 24.7% of resolvable — the gate wants >=35% |
+>
+> **88 documents is the whole document-review job.** It is a sitting of work, not a
+> program. The 3,636 unmatched securities are NOT 3,636 decisions — they collapse
+> to ~2,601 distinct names, and the top of that list repeats (`Woodside` 8,
+> `AGL Ltd` 6), so a few hundred curated aliases covers most of the volume. Build
+> the securities screen FIRST for that reason: it has the best ratio of decisions
+> to rows resolved.
+>
+> **Two things to verify before step 0**, both flagged by the design pass as
+> unverified:
+> 1. `ocr_parse_gates()` is currently DEAD CODE — no stage calls it. Either wire it
+>    into the vision stage or delete it; do not build a queue on a signal nothing
+>    emits.
+> 2. Corpus counts drift as the pipeline runs. Re-measure rather than trusting the
+>    table above.
+>
+> The per-document form the operator fills in is §5 (three keyboard-first screens);
+> the reason it survives the next `register-load` is §3 (correction replay), which
+> is the part to read first and the part most likely to be got wrong.
+
 # Register Review Console — implementation spec
 
 Status: **spec, unimplemented.** Written 2026-07-27.
