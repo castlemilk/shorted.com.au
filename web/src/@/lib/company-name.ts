@@ -20,17 +20,31 @@
  * Pure and dependency-free, so it is safe in both server and client chains.
  */
 
-// Entity/security suffixes that add nothing to a display heading.
+// Entity/security suffixes that add nothing to a display heading. The
+// ORDINARY/ORD/CDI descriptors come from the ASIC PRODUCT field (e.g.
+// "4DMEDICAL LIMITED ORDINARY"), which reaches the UI wherever names are read
+// off the shorts table rather than company-metadata.
 const TRAILING_SUFFIX =
-  /[\s,]+(LIMITED|LTD\.?|CORPORATION|CORP\.?|INCORPORATED|INC\.?|PLC|N\.?L\.?)$/i;
+  /[\s,]+(LIMITED|LTD\.?|CORPORATION|CORP\.?|INCORPORATED|INC\.?|PLC|N\.?L\.?|ORDINARY|ORD|CDI(\s+1:1)?)$/i;
 
 const TOKENS = /([^A-Za-z0-9]+)/;
 
 // Lowercased inside a title-cased name (never as the first word).
 const MINOR_WORDS = new Set(["of", "and", "the", "for", "in", "on", "de"]);
 
+/**
+ * Upper-case the first LETTER, not the first character — a token can start
+ * with a digit ("4DMEDICAL"), and capitalising position 0 there would leave
+ * the whole word lowercase ("4dmedical" instead of "4Dmedical").
+ */
 function titleCaseWord(word: string): string {
-  return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+  const firstLetter = word.search(/[A-Za-z]/);
+  if (firstLetter < 0) return word;
+  return (
+    word.slice(0, firstLetter) +
+    word.charAt(firstLetter).toUpperCase() +
+    word.slice(firstLetter + 1).toLowerCase()
+  );
 }
 
 /**
@@ -52,11 +66,13 @@ export function formatCompanyName(
   if (!name) return code ?? "";
 
   let cleaned = name.trim();
-  // Suffixes can stack ("… LIMITED" after "… CORPORATION").
+  // Suffixes can stack ("… LIMITED" after "… CORPORATION"), and a trailing
+  // full stop ("AGL Energy Limited.") would otherwise block the anchored
+  // match, so drop trailing punctuation on each pass.
   let prev = "";
   while (prev !== cleaned) {
     prev = cleaned;
-    cleaned = cleaned.replace(TRAILING_SUFFIX, "").trim();
+    cleaned = cleaned.replace(/[\s.]+$/, "").replace(TRAILING_SUFFIX, "").trim();
   }
   if (!cleaned) cleaned = name.trim();
 

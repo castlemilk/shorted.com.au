@@ -20,8 +20,6 @@ import (
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -648,35 +646,9 @@ func (s *postgresStore) getMinimalStockDetails(ctx context.Context, stockCode st
 	// Return minimal details with just the stock code and company name from shorts table
 	return &stocksv1alpha1.StockDetails{
 		ProductCode:      productCode,
-		CompanyName:      cleanCompanyName(productName),
+		CompanyName:      cleanCompanyName(productName, productCode),
 		EnrichmentStatus: "pending", // Indicate that enrichment hasn't been done yet
 	}, nil
-}
-
-// cleanCompanyName removes common suffixes like "ORDINARY", "CDI", etc. for cleaner display
-func cleanCompanyName(name string) string {
-	// Remove common suffixes
-	suffixes := []string{
-		" ORDINARY",
-		" ORD",
-		" CDI 1:1",
-		" CDI",
-		" LIMITED",
-		" LTD",
-		" CORPORATION",
-		" CORP",
-		" INC",
-		" PLC",
-	}
-
-	result := strings.ToUpper(name)
-	for _, suffix := range suffixes {
-		result = strings.TrimSuffix(result, suffix)
-	}
-
-	// Title case the result
-	caser := cases.Title(language.English)
-	return caser.String(strings.ToLower(strings.TrimSpace(result)))
 }
 
 type dbPerson struct {
