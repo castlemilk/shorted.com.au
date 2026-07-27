@@ -130,6 +130,29 @@ func main() {
 		runRegisterLoad(ctx, pool, *registerLimit)
 	case "register-resolve":
 		runRegisterResolve(ctx, pool)
+	case "register-propose-aliases":
+		// Writes ONLY register_alias_proposals, which nothing published reads.
+		// A proposal becomes publishable exclusively via a human marking it
+		// 'confirmed' and then -mode register-promote-aliases.
+		limit := *registerLimit
+		if limit <= 0 {
+			limit = 50
+		}
+		n, err := runRegisterAliasPropose(ctx, pool, limit, registerDryRun())
+		if err != nil {
+			log.Fatalf("[register-propose-aliases] %v", err)
+		}
+		log.Printf("[register-propose-aliases] %d proposals written (dry_run=%v)", n, registerDryRun())
+	case "register-promote-aliases":
+		if registerDryRun() {
+			log.Printf("[register-promote-aliases] REGISTER_DRY_RUN is set; no aliases promoted")
+			break
+		}
+		n, err := promoteAliasProposals(ctx, pool)
+		if err != nil {
+			log.Fatalf("[register-promote-aliases] %v", err)
+		}
+		log.Printf("[register-promote-aliases] promoted %d human-confirmed proposals to curated aliases", n)
 	case "register-freshness":
 		// Read-only. Exits non-zero on an alarm so the scheduled workflow that
 		// invokes it fails loudly — same contract as economy-collector's
