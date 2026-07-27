@@ -55,6 +55,10 @@ var nonSecurityRe = regexp.MustCompile(
 		`)\s*$`,
 )
 
+// The WHOLE candidate is an ASX-shaped code. ASX codes are 3 letters, with a few
+// 2- and 4-character exceptions; anchored so it can never fire on a phrase.
+var bareTickerRe = regexp.MustCompile(`^([A-Z0-9]{2,4})$`)
+
 var tickerStopwords = map[string]bool{
 	"ETF": true, "REIT": true, "LIC": true, "FUND": true, "TRUST": true,
 	"LTD": true, "INC": true, "PLC": true, "PTY": true, "SMSF": true,
@@ -195,6 +199,21 @@ func makeCandidate(ordinal int, fragment string) SecurityCandidate {
 	cleaned := qualifierRe.ReplaceAllString(c.Raw, "")
 	cleaned = securitySuffixRe.ReplaceAllString(strings.TrimSpace(cleaned), "")
 	cleaned = strings.TrimSpace(strings.Trim(cleaned, ".,;"))
+
+	// A candidate that is NOTHING BUT a ticker never matched, because
+	// trailingTickerRe only fires on a ticker FOLLOWING other text. Members
+	// routinely write the code alone — "IAG", "QBE", "TLS" — and those then fell
+	// through to name matching, which cannot work: the listing is "Insurance
+	// Australia Group", not "IAG". Measured after the 44P/45P backfill, bare
+	// tickers were the single largest group in the item-1 unmatched pool.
+	//
+	// Safe because resolveSecurityCandidate only accepts a ticker that EXISTS in
+	// the listings map, so a 3-letter word that is not a real code still misses.
+	if c.Ticker == "" && !private {
+		if m := bareTickerRe.FindStringSubmatch(cleaned); m != nil && !tickerStopwords[m[1]] {
+			c.Ticker = m[1]
+		}
+	}
 
 	if c.Ticker == "" && !private {
 		if m := trailingTickerRe.FindStringSubmatch(cleaned); m != nil && !tickerStopwords[m[1]] {

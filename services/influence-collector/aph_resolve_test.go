@@ -311,3 +311,25 @@ func TestRealCompaniesSurviveTheNonSecurityFilter(t *testing.T) {
 		}
 	}
 }
+
+func TestBareTickerIsRecognised(t *testing.T) {
+	// A candidate that is NOTHING BUT a code. trailingTickerRe only fires on a
+	// ticker FOLLOWING other text, so these fell through to name matching, which
+	// cannot work — the listing is "Insurance Australia Group", not "IAG". They
+	// were the largest group in the item-1 unmatched pool after the backfill.
+	for _, raw := range []string{"IAG", "QBE", "TLS", "AGO", "BHP", "CBA"} {
+		if c := makeCandidate(0, raw); c.Ticker != raw {
+			t.Errorf("makeCandidate(%q).Ticker = %q, want %q", raw, c.Ticker, raw)
+		}
+	}
+	// Stopwords stay out: "ETF" as a whole candidate is a fund suffix, and it is a
+	// real listing (UBS IQ MSCI Australia ETF) that every fund name ending in
+	// "ETF" would otherwise resolve to.
+	if c := makeCandidate(0, "ETF"); c.Ticker != "" {
+		t.Errorf("ETF must not be taken as a bare ticker, got %q", c.Ticker)
+	}
+	// A longer name is untouched by the whole-string anchor.
+	if c := makeCandidate(0, "Woodside Energy Group"); c.Ticker != "" {
+		t.Errorf("a company name must not be read as a ticker, got %q", c.Ticker)
+	}
+}

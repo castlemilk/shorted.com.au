@@ -1369,3 +1369,36 @@ This is worth far more than the noise vocabulary: these are real declared holdin
 by named members that currently render as "not matched to an ASX listing". Fixing
 it should move the gate materially, and it should be measured before anyone argues
 about recalibrating the 35% threshold.
+
+### 8.11 Bare tickers were never recognised — gate 20.8% -> 24.7%
+
+Suspect 2 from §8.10, confirmed by probing `makeCandidate` directly:
+
+```
+"IAG"  ticker=""  norm="IAG"       <- and so on for QBE, TLS, AGO, BHP, CBA
+```
+
+`trailingTickerRe` only fires on a ticker FOLLOWING other text, so a candidate that
+is *nothing but* a code never set `c.Ticker`. Those then fell through to name
+matching, which cannot possibly work — the listing is "Insurance Australia Group",
+not "IAG". Members write the bare code constantly, and it was the single largest
+group in the item-1 unmatched pool.
+
+`bareTickerRe` (`^([A-Z0-9]{2,4})$`, whole-string anchored) fixes it. Safe by
+construction: `resolveSecurityCandidate` only accepts a ticker that EXISTS in the
+listings map, so a 3-letter word that is not a real code still misses. Stopwords
+still apply, so a bare "ETF" cannot resolve to UBS IQ MSCI Australia ETF.
+
+| | before | after |
+|---|---|---|
+| resolved | 1,010 (20.8%) | **1,197 (24.7%)** |
+| via ticker_in_text | 141 | **371** |
+| via name_exact | 610 | 567 |
+
+`name_exact` falls because those rows now resolve by ticker instead, which is the
+stronger signal — the member named the listing themselves.
+
+**The gate is still unmet: 24.7% against >=35%.** Remaining suspect from §8.10 is
+`normalizeEntityName` mismatching plain company names ("Woodside" against
+"Woodside Energy Group Ltd"), which is the same class as the ETF-name mangling in
+§2.1 and is the next thing to measure.
