@@ -26,6 +26,8 @@ func TestCleanCompanyName(t *testing.T) {
 		{"BLOCK INC CDI 1:1", "SQ2", "Block"},
 		// Digit-leading tokens capitalise their first LETTER, not char 0.
 		{"4DMEDICAL LIMITED ORDINARY", "4DX", "4Dmedical"},
+		// A leading minor word is title-cased, not shouted or lowercased.
+		{"THE A2 MILK COMPANY ORDINARY", "A2M", "The A2 Milk Company"},
 		// A trailing full stop must not block the anchored suffix match.
 		{"AGL Energy Limited.", "AGL", "AGL Energy"},
 		// Mixed-case input keeps its casing (only suffixes strip).

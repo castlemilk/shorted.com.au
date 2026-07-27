@@ -66,8 +66,14 @@ func cleanCompanyName(name, stockCode string) string {
 			b.WriteString(code)
 		case !isShouting:
 			b.WriteString(token)
-		case wordIndex > 0 && isMinorWord(token):
-			b.WriteString(strings.ToLower(token))
+		case isMinorWord(token):
+			// Leading minor word is title-cased ("THE A2 MILK" -> "The A2
+			// Milk"), not lowercased and not treated as a short acronym.
+			if wordIndex == 0 {
+				b.WriteString(titleCaseWord(token))
+			} else {
+				b.WriteString(strings.ToLower(token))
+			}
 		case len(token) <= 3:
 			// Short all-caps acronyms in a shouted source stay uppercase.
 			b.WriteString(upperToken)

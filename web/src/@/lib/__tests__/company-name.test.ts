@@ -49,6 +49,9 @@ describe("formatCompanyName", () => {
     );
     expect(formatCompanyName("SANTOS LIMITED ORDINARY", "STO")).toBe("Santos");
     expect(formatCompanyName("BLOCK INC CDI 1:1", "SQ2")).toBe("Block");
+    expect(formatCompanyName("THE A2 MILK COMPANY ORDINARY", "A2M")).toBe(
+      "The A2 Milk Company",
+    );
     // A trailing full stop must not block the anchored suffix match.
     expect(formatCompanyName("AGL Energy Limited.", "AGL")).toBe("AGL Energy");
   });
