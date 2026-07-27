@@ -79,6 +79,21 @@ describe("formatCompanyName", () => {
     );
   });
 
+  it("lowercases a possessive s after an apostrophe", () => {
+    expect(
+      formatCompanyName("DOMINO'S PIZZA ENTERPRISES LIMITED", "DMP"),
+    ).toBe("Domino's Pizza Enterprises");
+    // The shape already stored in company-metadata by the old backend
+    // title-caser is repaired too, even though it is mixed-case.
+    expect(formatCompanyName("Domino'S Pizza Enterprises", "DMP")).toBe(
+      "Domino's Pizza Enterprises",
+    );
+    // A multi-letter token after an apostrophe keeps normal title casing.
+    expect(formatCompanyName("O'REILLY GROUP LTD", "ORG")).toBe(
+      "O'Reilly Group",
+    );
+  });
+
   it("falls back to the stock code for empty input", () => {
     expect(formatCompanyName("", "BHP")).toBe("BHP");
     expect(formatCompanyName(undefined, "BHP")).toBe("BHP");

@@ -106,11 +106,23 @@ export function formatCompanyName(
   const isShouting = cleaned === cleaned.toUpperCase();
 
   let wordIndex = -1;
-  return cleaned
-    .split(TOKENS)
-    .map((token) => {
+  const parts = cleaned.split(TOKENS);
+  return parts
+    .map((token, i) => {
       if (!/[A-Za-z]/.test(token)) return token; // separators / numbers
       wordIndex += 1;
+      // A lone letter straight after an apostrophe is a possessive/contraction
+      // suffix, never an acronym: "DOMINO'S" → "Domino's", not "Domino'S".
+      // Applied even to a mixed-case source, because English never capitalises
+      // it — and "Domino'S" is exactly the shape already stored in
+      // company-metadata by the pre-fix backend title-caser.
+      if (
+        wordIndex > 0 &&
+        token.length === 1 &&
+        /['’]$/.test(parts[i - 1] ?? "")
+      ) {
+        return token.toLowerCase();
+      }
       if (
         code &&
         token.toUpperCase() === code &&
