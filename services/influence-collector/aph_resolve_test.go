@@ -333,3 +333,34 @@ func TestBareTickerIsRecognised(t *testing.T) {
 		t.Errorf("a company name must not be read as a ticker, got %q", c.Ticker)
 	}
 }
+
+func TestGiftLogLinesRejected(t *testing.T) {
+	// Items 11-12 log lines leaking into the item-1 candidate pool. All measured
+	// in the real unmatched backlog; none is a security.
+	for _, raw := range []string{
+		"14/11/17 Business Lunch with Bill Shorten Hyatt Regency Sydney",
+		"$50.00. 13 June",
+		"10 x tickets to attend the NAISDA Academy Mid-year Show",
+		"120 pack of Baby Mum-Mum Crackers - approx. value $360",
+	} {
+		if c := makeCandidate(0, raw); c.Reject == "" {
+			t.Errorf("%q should be rejected as a gift log line, got Norm=%q", raw, c.Norm)
+		}
+	}
+}
+
+func TestShareQuantityPrefixStripped(t *testing.T) {
+	// "1000 SHARES IN KWINANA COMMUNITY FINANCIAL SERVICES LTD" is a REAL
+	// holding. Rejecting it on length would silently drop a genuine declaration;
+	// stripping the quantity is what lets the company name match.
+	c := makeCandidate(0, "1000 SHARES IN KWINANA COMMUNITY FINANCIAL SERVICES LTD")
+	if c.Reject != "" {
+		t.Fatalf("a real holding must not be rejected, got %q", c.Reject)
+	}
+	if !strings.Contains(c.Norm, "KWINANA") {
+		t.Errorf("company name should survive the strip, got Norm=%q", c.Norm)
+	}
+	if strings.Contains(c.Norm, "1000") || strings.Contains(c.Norm, "SHARES") {
+		t.Errorf("quantity prefix should be gone, got Norm=%q", c.Norm)
+	}
+}

@@ -59,6 +59,26 @@ var nonSecurityRe = regexp.MustCompile(
 // 2- and 4-character exceptions; anchored so it can never fire on a phrase.
 var bareTickerRe = regexp.MustCompile(`^([A-Z0-9]{2,4})$`)
 
+// A gift/travel LOG LINE, which items 11-12 are full of and which leaks into the
+// item-1 candidate pool. Measured examples:
+//
+//	"14/11/17 Business Lunch with Bill Shorten Hyatt Regency Sydney"
+//	"$50.00. 13 June"
+//	"10 x tickets to attend the NAISDA Academy Mid-year Show"
+//	"120 pack of Baby Mum-Mum Crackers - approx. value $360"
+//
+// They start with a date or a currency amount, or describe a quantity of a thing
+// that is not shares. None is a security, and all of them sat in the resolution
+// denominator as "unmatched".
+var giftLogRe = regexp.MustCompile(
+	`(?i)^\s*(\d{1,2}/\d{1,2}/\d{2,4}|\$\s?[\d,]|\d+\s*(x|pack|bottles?|cases?)\s)`,
+)
+
+// A quantity prefix on a REAL holding: "1000 SHARES IN KWINANA COMMUNITY
+// FINANCIAL SERVICES LTD". Stripping it is what lets the company name match —
+// rejecting the row on length instead would silently drop a genuine declaration.
+var sharesInPrefixRe = regexp.MustCompile(`(?i)^\s*[\d,]+\s+(?:ordinary\s+)?shares?\s+in\s+`)
+
 var tickerStopwords = map[string]bool{
 	"ETF": true, "REIT": true, "LIC": true, "FUND": true, "TRUST": true,
 	"LTD": true, "INC": true, "PLC": true, "PTY": true, "SMSF": true,
@@ -196,7 +216,11 @@ func makeCandidate(ordinal int, fragment string) SecurityCandidate {
 		}
 	}
 
-	cleaned := qualifierRe.ReplaceAllString(c.Raw, "")
+	// Strip a leading share-quantity BEFORE anything else, so the company name
+	// underneath gets a fair chance at every matcher.
+	base := sharesInPrefixRe.ReplaceAllString(c.Raw, "")
+
+	cleaned := qualifierRe.ReplaceAllString(base, "")
 	cleaned = securitySuffixRe.ReplaceAllString(strings.TrimSpace(cleaned), "")
 	cleaned = strings.TrimSpace(strings.Trim(cleaned, ".,;"))
 
@@ -223,6 +247,8 @@ func makeCandidate(ordinal int, fragment string) SecurityCandidate {
 	}
 
 	switch {
+	case giftLogRe.MatchString(c.Raw):
+		c.Reject = "gift_log_line"
 	case nonSecurityRe.MatchString(cleaned):
 		// Items 11 and 12 (gifts, sponsored travel) go through the same splitter
 		// as item 1, so their content lands in the candidate pool. Measured after

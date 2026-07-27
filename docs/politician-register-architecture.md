@@ -1452,6 +1452,53 @@ Recalibrate the threshold against the real corpus with evidence, after the two
 levers above — never by relaxing what counts as a match, because every relaxation
 is a chance to attribute a holding to the wrong named person.
 
+### 8.13 Splitter leakage: partly fixed, and the ceiling is now clear
+
+Two rules added: `giftLogRe` rejects items 11-12 log lines that leak into the
+item-1 pool (measured: `"14/11/17 Business Lunch with Bill Shorten Hyatt Regency
+Sydney"`, `"$50.00. 13 June"`, `"10 x tickets to attend..."`), and
+`sharesInPrefixRe` strips a leading share quantity so a REAL holding
+(`"1000 SHARES IN KWINANA COMMUNITY FINANCIAL SERVICES LTD"`) matches instead of
+being lost to a length rule.
+
+Gate: **24.7% -> 25.2%**, 112 rows reclassified. Honest assessment: less than the
+~510 "prose leak" rows measured, because those are heterogeneous free text rather
+than one pattern. Chasing the remainder with more regexes has poor returns and
+rising risk — each new rule is a chance to reject a real declaration.
+
+**The composition sets the real ceiling.** Of 3,213 unmatched item-1 rows:
+
+| | rows | can it resolve to a ticker? |
+|---|---|---|
+| prose / log leaks | ~510 | no — a defect, partly fixed above |
+| funds, ETFs, index products | 275 | mostly no — belongs in `unlisted_fund` |
+| private companies, trusts, SMSFs | 61 | **no, by definition** |
+| foreign (Inc/LLC/plc) | 64 | no — not ASX |
+| plausible listings | 2,373 | **yes — the addressable set** |
+
+So ~900 rows are CORRECTLY unresolvable. Forcing them to `resolved` would fabricate
+a listed holding for a named person. **100% of candidates is not a target, it is a
+bug.** The target is every candidate correctly CLASSIFIED — resolved /
+unlisted_fund / not_a_security / genuinely unmatched — with the gate measured
+against that denominator.
+
+**On training a custom model.** The bottleneck is not recognition: the vision tier
+already reads "AGL Ltd" at 14/14 accuracy. The hard part is deciding it means AGL
+Energy Limited, which is entity linking against `company-metadata`, not perception.
+And `register_item_securities_public_gate` only permits `curated_alias`,
+`ticker_in_text` or `name_exact` to be `resolved` — a learned fuzzy match is
+`analyst_fuzzy` by definition and is STRUCTURALLY unpublishable. Using one would
+mean weakening the constraint that stops a holding being attributed to the wrong
+company, for a named MP, in a plaintiff-friendly defamation jurisdiction. There is
+also a bootstrap problem: the training data would be the curated aliases that do
+not exist yet, and once they exist the model is redundant.
+
+Where ML does earn its place is **ranking the review queue** — suggest
+`"AGL Ltd -> AGL Energy (AGL), 0.94"` and let a person confirm with one keystroke.
+That is the review console (`docs/register-review-console.md`), and
+`gemini-embedding-001` is already wired elsewhere in this repo for it. The model
+proposes; the constraint still requires a human to dispose.
+
 ---
 
 ## 9. Next steps, in priority order
