@@ -41,7 +41,15 @@ const (
 
 	defaultRegisterFetchDelayMS = 1500
 	defaultRegisterMaxAttempts  = 3
-	defaultRegisterCacheDir     = "/tmp/aph-register"
+	// Crawled documents live on the external volume, NOT /tmp.
+	//
+	// /tmp is cleared on reboot, and this cache is a ~2GB corpus fetched from
+	// aph.gov.au one document at a time at a deliberate 1.5s delay — losing it
+	// means re-crawling a parliamentary website for 20+ minutes for no reason.
+	// Overridable with REGISTER_CACHE_DIR; falls back to /tmp when the volume is
+	// not mounted, so a machine without it still works.
+	defaultRegisterCacheDir  = "/Volumes/gamma-systems-2/shorted-crawl/aph-register"
+	fallbackRegisterCacheDir = "/tmp/aph-register"
 )
 
 // registerRetryBackoff is only ever applied to 429/5xx/transport failures.
@@ -65,6 +73,13 @@ type localSink struct{ dir string }
 func newLocalSink(dir string) (DocumentSink, error) {
 	if dir == "" {
 		dir = defaultRegisterCacheDir
+		// Only fall back when the external volume is genuinely absent — never
+		// silently when it is merely slow to mount.
+		if volume := filepath.Dir(filepath.Dir(defaultRegisterCacheDir)); volume != "" {
+			if _, err := os.Stat(volume); err != nil {
+				dir = fallbackRegisterCacheDir
+			}
+		}
 	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, fmt.Errorf("register cache dir: %w", err)
