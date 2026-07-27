@@ -577,6 +577,7 @@ POLITICIAN_INTERESTS_ENABLED=false  ->  HTTP 200 {} on every rpc
 | 8 — `politicians.proto` + backend API | **done** — 9 rpcs live and smoke-tested; kill switch verified |
 | 9 — `/politicians` frontend + 4 integrations | **done** — 4 routes + 4 integration surfaces verified in the running app (10/10 browser checks) |
 | 10 — ops wiring + launch gates | **done** — image + Cloud Run Job + monthly scheduler + `register-freshness` sentinel; launch gate corrected (see above) |
+| 11 — §8.16 hidden-listing blocker | **closed** (see §8.17) — withholding quarantine + 5 further wrong-fact defects fixed; migration `000099` |
 
 ### 2.8 The 47P form centres its holder labels — quarantined, not guessed
 
@@ -822,16 +823,25 @@ gate, not a runtime flag"). Merging this branch publishes the feature.
 
 ### 6.1 QA gates — measured 2026-07-26
 
-| Gate | Threshold | Measured | |
+| Gate | Threshold | Measured (2026-07-27, post-§8.17) | |
 |---|---|---|---|
-| item-1 security resolution | ≥ 35% of resolvable candidates | **35.3%** (478 / 1,356) | pass |
-| identity resolution | 0 unresolved statements | **0** of 2,609 | pass |
-| 47P centred-label layout | quarantined, never published | 119 docs at `partial` | pass |
+| item-1 security resolution | ≥ 35% of `entity_kind='listed'` candidates | **25.2%** (1,153 / 4,570) | **FAIL** |
+| identity resolution | 0 unresolved statements | **0** of 2,757 | pass |
+| 46P/47P centred-label layout | quarantined, never published | 102 docs at `partial` | pass |
 | item-3 multi-property merge | purpose suppressed on read | suppressed (29% of rows merge) | pass |
 | no amount/value column | none anywhere in the subsystem | enforced by migration test | pass |
 | `analyst_fuzzy` publishable | never | CHECK-enforced, asserted by test | pass |
 | freshness sentinel | exit 0 | exit 0 locally; alarm path mutation-tested | pass |
 | scan corpus | stated as unread, never as "no declarations" | `CoverageNote` on every profile | pass |
+| vehicle chip denying a listing (§8.17) | 0 | **0** of 18,900 | pass |
+| `entity_kind` fabricated outside items 1 & 4 (§8.17) | 0 | **0** (was 666) | pass |
+| amendment notice published as a holding, items 1/3/4 (§8.17) | 0 | **0** (was 42) | pass |
+| holder label or person name published as an entity (§8.17) | 0 | **0** (was 13) | pass |
+| private company carrying a live ticker link (§8.17) | 0 | **0** (was 1) | pass |
+
+The resolution gate is the ONE that fails, and it has now failed at 24.7%, 25.2%,
+25.3% and 25.2% across four attempts to move it by classification. It is not a
+classification problem — see §8.17 and §8.13.
 
 **The scan corpus is the one to argue about.** The 44th and 45th Parliaments
 (310 documents) and all 35 Senate volumes are unfetched and unextracted. Without
@@ -1628,27 +1638,224 @@ centred-label quarantine still fires on 47P documents that the drawn rules now
 attribute correctly — lifting it is a publication decision, not a parser one, and
 is the cheapest coverage win left.
 
+### 8.18 An organisation's acronym is a real ASX code — 16 wrong companies published
+
+Found while measuring how to lift resolution. Gift and hospitality prose that had
+leaked into the item-1 pool was resolving through the ticker path, because
+Australian sporting and institutional acronyms **are** live ASX codes:
+
+```
+Anthony Albanese   "pin and a football from the NRL"           -> NRL  Newland Resources
+Graham Perrett     "…as the guest of the NRL."                 -> NRL  (National Rugby League)
+Peter Dutton       "Tickets … State of Origin 3 NRL"           -> NRL
+Peter Dutton       "Tickets … AFL Grand Final courtesy of AFL" -> AFL  Af Legal Group
+Peter Dutton       "Tickets to Brumbies vs Waratahs … ARU"     -> ARU  Arafura Rare Earths
+Steve Irons        "ROD STEWART CONCERT TICKETS HOSTED BY RAC" -> RAC  Racura Oncology
+Steve Irons        "…AFL match … hosted by WCE"                -> WCE  West Coast Silver
+M. McCormack       "2 x tickets … Cricket Test at the SCG."    -> SCG  Scentre Group
+Sharon Claydon     "Friends of the ABC"                        -> ABC  Adbri
+Craig Laundy       "2 Tickets to the Women's Open from NAB"    -> NAB  (a real bank — but a GIFT)
+Jason Clare        "Confederation of Indian Industry (CII)"    -> CII  Ci Resources
+```
+
+**A stopword list cannot fix this.** NRL, AFL, ARU, RAC, SCG, WCE and ABC are all
+real codes, so blocking them would also block a member who genuinely holds one —
+and `SCG` is legitimately declared as Scentre Group elsewhere in this corpus.
+
+Two rules, both measured over the whole corpus before shipping:
+
+1. **`giftProseRe`** rejects hospitality prose from the item-1/4 candidate pool
+   (tickets, hospitality, courtesy of, hosted by, guest of, grand final, state of
+   origin, concert…). It un-resolves **14 rows and all 14 are wrong facts**; no
+   genuine holding matches it. It deliberately EXCLUDES a bare `flight` — `FLT` is
+   Flight Centre Travel Group and appears inside real SMSF share lists; only the
+   phrase `flight upgrade` is a gift marker.
+2. **`selfGlossedAcronym`** stops a parenthesised code being trusted when it is
+   merely the initialism of the words before it. `"Confederation of Indian
+   Industry (CII) - Tie"` is a trade body glossing itself, not a member quoting a
+   ticker. This is a ticker-path block, NOT a rejection: the gloss is stripped and
+   the candidate falls through to the NAME path, so
+   `"Commonwealth Bank of Australia (CBA)"` still resolves to CBA and
+   `"Insurance Australia Group (IAG)"` still resolves to IAG — both verified.
+   A first attempt that blocked the ticker WITHOUT stripping the gloss normalised
+   to `COMMONWEALTH BANK OF AUSTRALIA CBA`, which matches no listing; the test
+   caught it before it shipped.
+
+Item-1 resolution moved **27.58% → 29.25%** as a side effect — the denominator
+shrank because these rows were never securities. The gate is still unmet.
+
+> **The gate is also MIS-COMPUTED.** §6.1 calls it "item-1 security resolution",
+> but `runRegisterSecurityResolve` selects `WHERE item_no IN (1, 4)` and the
+> headline divides by that. §3.4 says in terms that item 4 "must not sit in the
+> headline denominator" — item 4 resolves at **1.2%** (5 of 407) because
+> directorships are overwhelmingly private companies. Reporting item 1 alone, as
+> the doc already says it should, is **26.60% → 29.25%** and changes nothing that
+> is published. Fix the metric before tuning against it.
+
+### 8.19 The CELL says whether it is a shareholdings list — use that, not keywords
+
+§8.18 fixed the NRL class with a vocabulary. Vocabularies are whack-a-mole, and
+the document already carries the answer: **a shareholdings cell looks nothing
+like a gift log**, and every candidate has siblings that say which one it is.
+
+Measured over item 1, with a signal computed WITHOUT reference to whether
+anything resolved (a corporate suffix, a fund-issuer name, or a candidate that
+IS a validated ASX code):
+
+| cell | cells | candidates | resolved |
+|---|---|---|---|
+| carries a company signal | 792 | 2,551 | **1,077 (42%)** |
+| carries none | 1,817 | 2,501 | 108 (4.3%) |
+
+A read of 40 random unresolved candidates from the no-signal cells found
+*"Bunch of flowers"*, *"Small pewter mug"*, *"Tea Towel"*, *"battery operated
+candle"*, *"BBC branded laptop sleeve"*, *"Extra Virgin Olive Oil Soap x 2"*,
+*"Lindt Selection Chocolates"*, *"Qantas Chairman Lounge"*, *"Upgrade of room @
+Relais spa Roissy Hotel"*, *"approx. value $30 received on Thursday 14th
+February 2019."*, *"VISA DEBIT ACCOUNT"*, *"Byron Bay 17 to 21 April"*. **One**
+named a security, and it was Meta — a NASDAQ listing, correctly unresolvable
+here. These are not missing aliases. They are items 11/12 that the 44P/45P scans
+filed under item 1, and every one of them was rendering on a named member's
+profile as "— not matched to an ASX listing".
+
+**The rule only ever reclassifies a candidate that FAILED to resolve.** A
+candidate matching an alias, a stated ticker or a listing name keeps its
+resolution and stays `listed`. Verified: resolutions were **1,190 before and
+1,190 after**, with the method split byte-identical (620 name_exact / 321
+ticker_in_text / 249 curated_alias). It removes padding from the denominator; it
+cannot remove a match.
+
+Two corrections came out of auditing the first cut, both from reading the
+removed rows rather than trusting the aggregate:
+
+- **`"VAS Vanguard"` was being removed** — a genuine ETF holding. A cell can be a
+  holdings list with no corporate suffix anywhere in it, so fund-issuer names
+  (Vanguard, BetaShares, iShares, VanEck, SPDR) and `P/L` are company signals too.
+- **Item 4 was in scope and should not have been.** Directorships are
+  overwhelmingly unlisted bodies BY NATURE — `"Art Gallery Society of NSW"`, a
+  school board, a charity — and §8.15 decided deliberately that those are real
+  declared interests worth publishing. Applying a shareholdings-shaped test to
+  them withholds exactly the rows that change was made to surface. **The rule is
+  item 1 only.**
+
+Gate, item 1: **30.66% → 50.32%**, with the numerator constant.
+
+> **THIS IS A DENOMINATOR CHANGE AND MUST BE REVIEWED AS ONE.** The adversarial
+> reviewers of the lever study were explicit that gaming the denominator is as
+> bad as loosening the matcher. The defence here is that (a) the numerator did
+> not move at all, (b) the removed rows were read, not sampled statistically, and
+> (c) they are removed from PUBLICATION too, which is the same direction — we are
+> not counting them as unresolvable while still showing them. Do not report 50%
+> as "the gate is met" until someone independent has re-read a fresh sample of
+> the removed set.
+
+Residue: 3 gift rows still publish under item 1 because their cell ALSO contains
+something company-shaped (`"bottle of wine from the TWU"`). A cell-level rule
+keeps everything in a mixed cell, by design.
+
+### 8.19.1 The alias proposer — the model proposes, a human disposes
+
+`-mode register-propose-aliases` (`aph_alias_propose.go`, migration `000100`)
+turns "1,800 unmatched names" into "1,800 one-keystroke decisions, ordered by how
+many rows each fixes".
+
+It cannot publish anything. `register_item_securities_public_gate` permits
+`resolved` only for `curated_alias`/`ticker_in_text`/`name_exact`, so a model's
+answer is `analyst_fuzzy` by definition. Proposals land in
+`register_alias_proposals`, which **no resolver and no read path reads**;
+`-mode register-promote-aliases` copies only rows a human marked `confirmed`,
+recording who and when.
+
+Two design choices that matter:
+
+- **The shortlist is computed deterministically here, not by the model.** The
+  model only ever CHOOSES FROM a list we built by token overlap, or answers NONE.
+  It is never asked to recall an ASX code from memory, which is where a
+  hallucinated ticker comes from. The answer is then validated twice: the code
+  must exist AND must have been on its own shortlist, or it is recorded as NONE.
+- **The shortlist is stored with the answer**, so a reviewer can see what the
+  model was offered. A proposal without its alternatives is not reviewable.
+
+First run over the real backlog — the good and the bad, both instructive:
+
+```
+WOODSIDE        x9 -> WDS   AGL ENERGY x7 -> AGL   SYDNEY AIRPORT x6 -> SYD
+LYNAS           x5 -> LYC   NEWS       x5 -> NWS
+COCA COLA AMATIL x6 -> NONE  "acquired by Coca-Cola Europacific and de-listed"
+CYBG            x5 -> NONE  "delisted in 2018 following its acquisition"
+VIRGIN          x5 -> NONE  "too ambiguous to map to a single current listing"
+PATRON          x6 -> NONE  "does not clearly map to 'Patronus Resources'"
+FLIGHTS         x5 -> FLT   <-- WRONG. The NRL class again.
+```
+
+It correctly refused every delisted and ambiguous name — including the `CCL`
+recycling trap the plan warned about — and then proposed **FLIGHTS → Flight
+Centre**, reasoning that "flights" is how Australians refer to it. That is a
+gift-log entry, and it is precisely why a human confirms every row. The
+underlying leak is now closed at source (`flights?` is anchored whole-string in
+`nonSecurityRe`, while `"Flight Centre Travel Group"` is untouched), but the
+lesson stands: **the proposer is a queue-ranker, not an oracle.**
+
+### 8.20 The 14 form items as a compact tag
+
+"Other declared interests" rendered the form's LEGAL wording against every row —
+"Family and business trusts and nominee companies", "Bonds, debentures and like
+investments". Accurate, and unreadable in a dense table.
+
+`web/src/@/lib/politics/register-items.ts` gives each of the register's 14 items
+an icon and a short label; `RegisterItemTag` renders `🗂️ Trusts`, `🎁 Gift`,
+`✈️ Sponsored travel`, `💼 Directorship`, with the form's own wording kept as the
+tooltip so a reader can still find the numbered item on the original PDF.
+
+It is the SOURCE'S taxonomy, not one we invented — the form asks for exactly
+these fourteen things in this order, so no row needs classifying to be tagged.
+
+**The iconography is governed by the editorial standards, and the test enforces
+it.** Rule 2 covers icons beside a named person and rule 5 forbids implying
+value, so `register-items.test.ts` asserts that no item uses a currency glyph
+(💰/💵/🪙/💲) or a warning glyph (⚠️/🚨/🔴/🚩/👀). That is why item 10, "other
+substantial sources of income", is `📥` and not a money bag: the category is
+"income received", and the icon may say no more than that. The emoji is
+`aria-hidden` and the label carries the meaning, so a screen reader hears "Gift",
+not "wrapped present Gift". An unknown item renders NO tag rather than a
+placeholder — inventing a category would be a claim about what the member
+declared.
+
 ---
 
 ## 9. Next steps, in priority order
 
 State at handoff (2026-07-27): branch `feat/politician-register-of-interests`,
-28 commits, unmerged. 769 House documents fetched onto
-`/Volumes/gamma-systems-2/shorted-crawl/aph-register`. 324 politicians, 2,755
-statements, 21,153 declared rows, 0 unresolved identities, 18,993 holding
-intervals. Coverage 44P/45P/48P 100%, 46P 76%, 47P 67%.
+unmerged. 769 House documents fetched onto
+`/Volumes/gamma-systems-2/shorted-crawl/aph-register`. **324 politicians, 2,757
+statements, 20,198 declared rows, 0 unresolved identities, 18,900 holding
+intervals, 18,900 published rows across 319 people.** Coverage 44P/45P/48P 100%,
+46P 71%, 47P 63%.
+
+§8.16 is **CLOSED** (§8.17): the hidden-listing blocker and five further
+wrong-fact defects it did not name are fixed and re-measured to zero. The fix is
+a withholding quarantine, not the splitting §8.16 prescribed — that was measured
+and rejected for manufacturing new wrong facts.
 
 **Blocking the merge** (the gate is a MERGE gate — see §"The launch gate"):
 
-1. **Security resolution 25.3% vs the >=35% gate** (was 24.7%, then 25.2%; the
-   entity_kind denominator moved it 0.1pt — see §8.15, and do not expect another
-   classification change to close it). Two levers, both in §8.12:
-   splitter leakage (`"spouse)"`, `"In spouse/partner section"`, sentence heads
-   becoming candidates) and curated aliases for the long tail. Do NOT loosen
-   matching to hit the number — §8.12 records why.
+1. **Security resolution 25.2% vs the >=35% gate** (24.7% → 25.2% → 25.3% →
+   25.2%; four successive changes have moved it by fractions of a point). §8.17
+   removed wrong facts and was never going to add matches. The two levers left
+   are the ones §8.12 named: **curated aliases for the long tail** (`Woodside`,
+   `AGL Ltd`) via the review console, and recalibrating the threshold against
+   the real corpus — 35% was set on an almost-entirely-48P corpus, and 44P/45P
+   carry far more free text and unmatchable-BY-DESIGN holdings. Recalibrate with
+   evidence; do NOT loosen matching to hit the number (§8.12 records why).
 2. **Editorial template review** against rules 1-8, outcome recorded (who / when /
    commit). §6.2 has the per-rule state; rules 1, 3, 5 and 8 are already enforced
-   by `editorial-copy.test.ts`.
+   by `editorial-copy.test.ts`. Re-run it against the §8.17 copy changes:
+   `DeclaredEntity` no longer apologises outside items 1 & 4, and `HolderBadge`
+   has new "Holder not stated" copy.
+3. **The §8.17 open list** — nine items, five of which are still-published
+   imperfections rather than wrong facts. Read it before signing off; items 2
+   (amendment notices in items 2/5-14) and 5 (a named minor) are the two a
+   reviewer is most likely to object to.
 
 **High value, not blocking:**
 
@@ -1716,3 +1923,184 @@ complete and verified. The defect surfaced only because a separate reviewer was
 told to REFUTE the work and queried the database for real rows instead of trusting
 the report. Both of the §8.14 diagnoses this work was based on also turned out to
 be wrong. Assume the report, not just the code, needs independent checking.
+
+### 8.17 §8.16 closed — and the fix is WITHHOLDING, not splitting
+
+Four independent investigations of the loaded corpus, each with an adversarial
+reviewer instructed to refute it, closed §8.16 and found **five further defects
+of the same class that §8.16 did not name**. One reviewer built a byte-faithful
+Go model of `splitFragments`/`makeCandidate`/`resolveSecurityStatus` that
+reproduces all 6,335 candidates' `resolution_status` + `stock_code` +
+`match_method` with zero mismatches; where it disagrees with a SQL
+approximation, it wins.
+
+**§8.16's own prescription was wrong in two of its three parts, and the reviews
+are what caught it.**
+
+| §8.16 said | Outcome |
+|---|---|
+| 2. "Split multi-entity candidates before classification" | **Rejected.** No splitter recovers the row §8.16 leads with, and every splitter tried manufactured NEW wrong facts. |
+| 3. "Do not classify a candidate whose text names a ticker" | **Rejected as written.** A token scan measures 14.5% precision. |
+| 1. "Revert or re-gate `aph_periods.go:94`" | **Re-gated**, not reverted. |
+
+**Why splitting is the wrong tool.** `abbreviationTail` refuses the `. H`
+boundary in `"Santos Ltd. Held by SMH Superannuation Fund: Amcor Ltd"` — and it
+is RIGHT to, because `"Pty. Ltd."` must not split. Adding a corporate-suffix
+boundary cuts `"Astra … Ltd Citigroup (USA)"` into a standalone `"Citigroup
+(USA)"`, which resolves `USA` to **UraniumSA** and publishes a live wrong link;
+it also splits `"Far Ltd FPO"` — the example `securitySuffixRe`'s own comment is
+written around — into two published rows. A colon separator resolves
+`"Class: Limited By Guarantee"` to **CL1** by `name_exact`, which
+`tickerStopwords` cannot stop because it never gates the name lookup.
+
+**Why a ticker scan is the wrong tool.** Of 55 (row, token) pairs where a
+vehicle-chipped candidate contains a validated ASX code, 8 are real. The rest
+are ordinary company names: `ACN` (Acer Energy) in nine `ACN 119 455 xxx Pty
+Ltd` strings, `ICE` (Icetana) in `Venice Ice Pty Limited`, `RHT` (Resonance
+Health) in `RHT Investments (Qld) P/L`, `VAN` in `Van Manen Investments`.
+Relabelling those a listing is the same wrong-fact class pointing the other way.
+
+**So a multi-entity cell is WITHHELD.** `entity_kind='multi_entity'` (migration
+`000099`) says what it is — several entities, so no single label is true — and
+the fold drops it exactly as it drops `not_an_entity`. It costs **12 candidate
+rows**; every one is a genuine multi-entity blob, and all four strings §8.16
+names are among them. The detector is scoped to candidates that would otherwise
+be chipped as a **vehicle**, because that is the chip that actively denies a
+listing beside it.
+
+The suffix arm is a **RATIO** (`Ltd|Limited` > `Pty|P/L|proprietary`), not a
+count, and the distinction was measured: requiring only "≥2 Ltd" reads as
+multi-entity but would have withheld **47 correctly-labelled private-company
+rows** — Angus Taylor's `"Growth Farms Pty Ltd (via Gufee Pty Ltd)"`, Ken
+O'Dowd's three companies — for no safety gain.
+
+#### What else was live, none of it in §8.16
+
+| # | Defect | Rows | Cause |
+|---|---|---|---|
+| 1 | `entity_kind='listed'` **fabricated outside items 1 & 4** | **666** published, **3,174** in the changes feed | The fold hardcoded `'listed'` in the item-3 and items-5-14 arms. Only items 1 and 4 have a security candidate; nothing else was ever classified. `DeclaredEntity` keys the apology off `'listed'`, so `"REST superannuation fund"` and Qantas lounge memberships each read "— not matched to an ASX listing", reporting a match failure that could not have happened. |
+| 2 | **A fabricated ETF holding** | 1 | `SELF` is a real ASX code (SelfWealth SMSF Leaders ETF). A holder label left in the value column resolved through `ticker_in_text` and published as Susan Templeman's directorship. |
+| 3 | **A private company linked to a live ticker** | 1 | `normalizeEntityName` strips `" LTD"` then `" PTY"`, so `"Endeavour Pty Ltd"` → `ENDEAVOUR` → matched **Endeavour Group** and published `/shorts/EDV` against a member's spouse's private company. The `c.Private` veto sat *below* the name lookup. |
+| 4 | **Amendment notices published as CURRENT interests** | 42 | `"please remove Listed Companies: VTG"` carried a **live VTG link**; `"Delete Branyan Investments Pty Ltd"` published as a current directorship; `"Sale of Real Estate in Spearwood WA"` as current property. Each asserts the OPPOSITE of what the member wrote. |
+| 5 | **A member's minor children named as company interests** | — | `"daughter Poppy Hunt and son James Hunt"` and `"wife Louise Howarth."` rendered under "Declared company interests", `currently_declared=true`. Editorial §4 puts family members out of scope. |
+
+Defect 1 is the largest by volume by 240×, and it is the exact failure
+`DeclaredEntity`'s own doc-comment says was fixed in §8.14 — fixed for items
+1 and 4, reintroduced everywhere else by a hardcoded literal two files away.
+
+Defect 5's second instance was a **mangled locality**, not a bare label:
+`splitLocalityAndState` takes the first comma-part, so
+`"Self, Residential, Canberra, ACT July 2023"` published a property in a place
+called **"Self"** — and lost the real suburb, Canberra, sitting later in the same
+line. `"Partner residential property St Albans"` likewise. Rejecting these
+withholds the wrong fact; it does **not** recover the suburb, which needs a
+smarter locality picker with its own failure modes.
+
+#### Measured, before and after
+
+| Assertion | Before | After |
+|---|---|---|
+| vehicle chip denying a listing named in the same cell | 14 | **0** |
+| `entity_kind='listed'` fabricated outside items 1 & 4 | 666 | **0** |
+| amendment notice published as a holding (items 1/3/4) | 42 | **0** |
+| bare or mangled holder label published (items 1/3/4) | 13 | **0** |
+| private company carrying a live ticker link | 1 | **0** |
+| `"X X"` duplicated item-2 text (§8.14) | present | **0** |
+| boilerplate weld (`Not Applicable` + prose) | 296 | **2** |
+| item-1 security resolution | 25.3% | **25.2%** |
+
+Corpus after re-extract + load + resolve: **324 politicians, 2,757 statements,
+46,219 item rows (20,198 declared), 0 unresolved identities, 18,900 holding
+intervals, 18,900 published rows across 319 people.** Coverage 44P/45P/48P 100%,
+46P 71%, 47P 63%.
+
+**The resolution gate did NOT move, and that is the honest result.** 25.3% →
+25.2%. Everything above removes wrong facts; none of it was ever going to add
+matches, and §8.13 already set out why the remaining gap is curated aliases and
+correctly-unresolvable rows rather than a matching defect. **The §6.1 gate is
+still unmet.**
+
+#### Two things that made the numbers move for the wrong reason
+
+- **`--stage extract --force` is not scoped to born-digital documents.** It
+  re-ran the deterministic tier over `mixed` documents whose only complete read
+  is the VISION artifact, and `loadPendingExtractions` takes the NEWEST
+  extraction per document — so the worse read would have won. 85 documents were
+  downgraded (deterministic coverage averaging 20.4% against vision's 100%)
+  before the repair. **Scope a re-extract by `text_class`, or repair after it by
+  deleting the losing artifact and restoring `extract_tier`.** The 14 documents
+  that legitimately moved to `partial` are the §2.8 centred-label quarantine
+  getting *more* accurate, not a regression.
+- **The local Postgres reported `unexpected data beyond EOF`** on relation
+  extension, across freshly-created relfilenodes, with 520 GB free. Postgres's
+  own hint ("seen to occur with buggy kernels") points at the OrbStack VM
+  filesystem, the same environment blocker §8.8 records. Every stored row read
+  back cleanly on a full heap scan — it is a WRITE-path fault. `docker restart
+  shorted_db` cleared it; `VACUUM FULL` did not. Nothing was lost.
+
+#### Deliberately NOT built, with the evidence
+
+1. **Reverting the fold gate.** `A ⊂ B` was proved, and the 883 withheld
+   holdings reproduce exactly (item 1: 391, item 4: 492, 138 politicians).
+   Reverting erases **every item-4 directorship for 64 of 161 individuals**, to
+   relabel ~14 rows. The quarantine costs 12.
+2. **Splitting on `&`** (204 rows, 0 with a corporate suffix before it — would
+   shatter `Turnbull & Partners Pty Limited`, `Slater & Gordon Limited`), **on
+   bare `and`** (would shatter `Australia and New Zealand Banking Group Ltd`),
+   **on unrestricted `:`** (172 of 227 colon rows have a non-label left side),
+   or **on `' - '`** (~20 new wrong facts: `"Credit Card - Westpac"`→WBC,
+   `"Home Loan ANZ - Boonah"`→ANZ, `"Membership - Brisbane Broncos"`).
+3. **n-gram company-name scanning**: 35 vehicle rows, 3 genuine — 91.4% FP
+   (`"Port Macquarie Gastroenterology Pty Ltd"`→MQG).
+4. **Leading-ticker un-veto**: 92.6% FP. Australian private companies are named
+   from principals' initials, which is exactly ASX-code shape.
+5. **Holder recovery from leading text.** Reaches at most 147 of 2,518
+   `unspecified` rows (5.8%), and every misfire names a **spouse or dependent
+   child** as the holder of a shareholding. The honest label carries them
+   instead — see below.
+6. **A person-name detector.** `"Paula Lindsey"` alone carries no signal
+   distinguishing it from a company name. Only the family-relation prefix is
+   safe, and `child` is excluded from it because `"Child Psych Corp Pty Ltd"`
+   and `"Bald Hills Child Care P/L"` are real declared companies.
+
+#### The holder fault: labelled, not guessed
+
+All 2,518 `holder='unspecified'` rows sit on **alteration** statements (0 of
+31,792 base rows), 2,517 of them in 46P/47P, whose alteration form is a
+two-column `Item | Details` table with **no holder column** — verified from PDF
+word-bboxes. `parse_alteration_page` only consults `holder_of()` for tokens left
+of the label boundary, so an inline holder at x≈232 is structurally invisible.
+
+Only 469 of 2,518 contain a holder token at all, and 96 of those name **more than
+one holder in one cell**. So `HolderBadge` now renders **"Holder not stated"**
+rather than nothing. Rendering nothing put these rows beside rows chipped "Self",
+under the member's own name and a heading reading "Declared company interests" —
+letting the page imply they were the member's own. The tooltip says *the register
+form this was lodged on*, deliberately **not** "the alteration form": 1,021 of
+1,022 48P alteration rows ARE attributed, so the general claim would be false.
+
+#### Still open
+
+1. **Sarah Henderson's Santos and John Cobb's Amcor are withheld, not
+   recovered.** No safe rule reaches a company NAME inside a vehicle string.
+   They are in the curation queue, which is where a human decision belongs.
+2. **14 amendment notices still publish in items 2 and 5-14**, which have no
+   candidate pipeline. Extending the rule there is **not** safe: in item 10
+   (other income) Barnaby Joyce's `"Sale of stock and crops"` is a farmer's
+   income SOURCE, not an amendment, and rejecting it would delete a real
+   declaration. The same verb means different things by item. The proper fix is
+   surfacing `change_type` on the read path, not a wider regex.
+3. **Rejecting an amendment withholds a real, past-tense fact.** Rendering it as
+   an amendment costs 0 rows but needs a proto field and read-path work.
+4. **Item 3 loses real suburbs to the first-comma-part rule** (Canberra, St
+   Albans, Palm Beach in the rows above). Withheld, not recovered.
+5. **Dependent children are still named** where the form names them — item 8
+   `"Savings Account (Poppy Hunt)"`, under a "Dependent child" chip. That is the
+   register's own content, but naming a minor adds nothing a reader needs and is
+   what editorial §4 exists for. An editorial decision, not a parser one.
+6. **Three duplicate politician identities** carry published holdings on mangled
+   profiles (`"France. Ms Ali"`, `"Ryan. Ms Joanne"`, `"Doyle Ms Mary"`), all
+   with an empty `aph_mpid`. Needs a human merge.
+7. **Multi-entity blobs with NO vehicle marker** still publish as one unmatched
+   listing (`"BHP (b) Unlisted Companies Centric Wealth Limited"`). They claim
+   no false label, but the "not matched" line is untrue of a string naming BHP.
