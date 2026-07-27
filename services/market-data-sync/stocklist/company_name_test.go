@@ -26,6 +26,15 @@ func TestCleanCompanyName(t *testing.T) {
 		{"BLOCK INC CDI 1:1", "SQ2", "Block"},
 		// Digit-leading tokens capitalise their first LETTER, not char 0.
 		{"4DMEDICAL LIMITED ORDINARY", "4DX", "4Dmedical"},
+		// Instrument metadata is cut at the FIRST security-type token, which
+		// removes trailing qualifiers and venue codes without enumerating them.
+		{"FIDUCIAN GROUP LTD ORDINARY FULLY PAID", "FID", "Fiducian Group"},
+		{"LENDLEASE GROUP FPO/UNITS STAPLED", "LLC", "Lendlease Group"},
+		{"FLETCHER BUILDING ORD FOR. EXEMPT NZX", "FBU", "Fletcher Building"},
+		{"GRAINCORP LIMITED A CLASS ORDINARY", "GNC", "Graincorp"},
+		{"NEWMONT CORPORATION CDI1:1FOREXEMPT NYSE", "NEM", "Newmont"},
+		{"OMNI BRIDGEWAY LTD ORD US PROHIBITED", "OBL", "Omni Bridgeway"},
+		{"RURAL FUNDS GROUP UNITS STAPLED", "RFF", "Rural Funds Group"},
 		// A leading minor word is title-cased, not shouted or lowercased.
 		{"THE A2 MILK COMPANY ORDINARY", "A2M", "The A2 Milk Company"},
 		// A trailing full stop must not block the anchored suffix match.
