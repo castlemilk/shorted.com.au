@@ -35,6 +35,7 @@ type holdingEvent struct {
 	SalCode       string
 	DeclaredText  string
 	SecondaryText string
+	EntityKind    string
 	ChangeType    string
 	LodgedDate    *time.Time
 	Parliament    int
@@ -54,6 +55,7 @@ type holdingInterval struct {
 	SecondaryText    string
 	StockCode        string
 	SalCode          string
+	EntityKind       string
 }
 
 // selectHoldingEvents builds the event stream.
@@ -65,8 +67,16 @@ type holdingInterval struct {
 //	item 3       one event per resolved suburb (or per locality)
 //	everything   one event per declared row
 //
-// not_a_security candidates are excluded: prose and private entities are not
-// holdings to track.
+// Candidates are excluded on entity_kind='not_an_entity' — prose, nil markers
+// and gift-log lines — NOT on resolution_status='not_a_security'.
+//
+// The two used to be the same test, and it dropped every private company,
+// family trust and SMSF a member declared under items 1 and 4: 1,140 candidate
+// rows that never reached a read path, in the ONE item (4, directorships) that
+// is almost entirely private entities. A trust is a real declared interest, and
+// often a more interesting one than a CBA shareholding; 'not_a_security' means
+// "not a LISTED security", which is not a reason to withhold it. entity_kind
+// now separates "not listed" from "not a thing", so the filter can too.
 const selectHoldingEventsQuery = `
 	SELECT i.politician_id::text, i.item_no, i.holder,
 	       COALESCE(NULLIF(sec.stock_code, ''), NULLIF(sec.candidate_norm, ''), upper(btrim(i.declared_text))) AS holding_key,
@@ -74,13 +84,14 @@ const selectHoldingEventsQuery = `
 	       '' AS sal_code,
 	       COALESCE(NULLIF(sec.candidate_raw, ''), i.declared_text) AS declared_text,
 	       '' AS secondary_text,
+	       sec.entity_kind,
 	       i.change_type, s.lodged_date, COALESCE(s.parliament, 0), s.id::text, i.source_url
 	FROM register_declared_items i
 	JOIN register_statements s ON s.id = i.statement_id
 	JOIN register_item_securities sec ON sec.item_id = i.id
 	WHERE i.item_no IN (1, 4) AND NOT i.is_nil
 	  AND i.politician_id IS NOT NULL
-	  AND sec.resolution_status <> 'not_a_security'
+	  AND sec.entity_kind <> 'not_an_entity'
 
 	UNION ALL
 
@@ -90,6 +101,7 @@ const selectHoldingEventsQuery = `
 	       COALESCE(loc.sal_code, '') AS sal_code,
 	       COALESCE(NULLIF(loc.locality_raw, ''), i.declared_text) AS declared_text,
 	       COALESCE(loc.purpose_raw, '') AS secondary_text,
+	       'listed' AS entity_kind,
 	       i.change_type, s.lodged_date, COALESCE(s.parliament, 0), s.id::text, i.source_url
 	FROM register_declared_items i
 	JOIN register_statements s ON s.id = i.statement_id
@@ -103,6 +115,7 @@ const selectHoldingEventsQuery = `
 	       upper(btrim(i.declared_text)) AS holding_key,
 	       '' AS stock_code, '' AS sal_code,
 	       i.declared_text, i.secondary_text,
+	       'listed' AS entity_kind,
 	       i.change_type, s.lodged_date, COALESCE(s.parliament, 0), s.id::text, i.source_url
 	FROM register_declared_items i
 	JOIN register_statements s ON s.id = i.statement_id
@@ -122,7 +135,7 @@ func selectHoldingEvents(ctx context.Context, pool *pgxpool.Pool) ([]holdingEven
 		var e holdingEvent
 		if err := rows.Scan(&e.PoliticianID, &e.ItemNo, &e.Holder, &e.HoldingKey,
 			&e.StockCode, &e.SalCode, &e.DeclaredText, &e.SecondaryText,
-			&e.ChangeType, &e.LodgedDate, &e.Parliament, &e.StatementID, &e.SourceURL); err != nil {
+			&e.EntityKind, &e.ChangeType, &e.LodgedDate, &e.Parliament, &e.StatementID, &e.SourceURL); err != nil {
 			return nil, err
 		}
 		if strings.TrimSpace(e.HoldingKey) == "" {
@@ -200,6 +213,7 @@ func foldHoldingEvents(events []holdingEvent) map[holdingGroupKey][]holdingInter
 						SecondaryText:    e.SecondaryText,
 						StockCode:        e.StockCode,
 						SalCode:          e.SalCode,
+						EntityKind:       e.EntityKind,
 					}
 					continue
 				}
@@ -213,6 +227,9 @@ func foldHoldingEvents(events []holdingEvent) map[holdingGroupKey][]holdingInter
 				}
 				if open.SalCode == "" {
 					open.SalCode = e.SalCode
+				}
+				if open.EntityKind == "" {
+					open.EntityKind = e.EntityKind
 				}
 			}
 		}
@@ -295,13 +312,14 @@ func rebuildHoldingPeriods(ctx context.Context, pool *pgxpool.Pool) (holdingFold
 					(politician_id, item_no, holder, holding_key, stock_code, sal_code,
 					 declared_text, secondary_text, declared_from, declared_from_known,
 					 declared_to, first_statement_id, last_statement_id,
-					 first_parliament, source_url)
+					 first_parliament, source_url, entity_kind)
 				VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
-				        NULLIF($12,'')::uuid, NULLIF($13,'')::uuid, NULLIF($14,0), $15)`,
+				        NULLIF($12,'')::uuid, NULLIF($13,'')::uuid, NULLIF($14,0), $15,
+				        COALESCE(NULLIF($16,''), 'listed'))`,
 				key.PoliticianID, key.ItemNo, key.Holder, key.HoldingKey, stock, sal,
 				iv.DeclaredText, iv.SecondaryText, iv.From, iv.FromKnown, iv.To,
 				iv.FirstStatementID, iv.LastStatementID, iv.FirstParliament,
-				sourceByStatement[iv.FirstStatementID])
+				sourceByStatement[iv.FirstStatementID], iv.EntityKind)
 			queued++
 		}
 	}

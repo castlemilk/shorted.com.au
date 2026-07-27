@@ -95,7 +95,74 @@ var securitySuffixRe = regexp.MustCompile(`(?i)\s+(FPO|FPS|CDI|STAPLED|ORD|ORDIN
 // privateCompanyRe marks a line as an unlisted private entity. Its presence
 // vetoes the inline-ticker path: "Gunnedah Industries (NW) Pty Ltd" must never
 // resolve to a listed code that happens to share those letters.
+//
+// It is the UNION of the three markers below and stays a single expression so
+// the veto behaviour is byte-for-byte what it always was. The markers exist only
+// to say WHICH kind of private entity it is (entityKindOf); they never gate a
+// match. entity_kind_union_test.go asserts the union holds.
 var privateCompanyRe = regexp.MustCompile(`(?i)\bp(?:ty|/l)\b|\bproprietary\b|\bfamily trust\b|\bsuperannuation fund\b|\bsmsf\b`)
+
+// The three arms of privateCompanyRe, named. A declaration routinely trips more
+// than one — "Kenley Dale Pty Ltd (trustee of self-managed superannuation fund)"
+// matches the Pty arm AND the super arm — so entityKindOf tests them
+// most-specific first: the VEHICLE is what a reader wants named, and a Pty Ltd
+// that exists only to be a super fund's trustee is editorially an SMSF.
+var (
+	smsfMarkerRe           = regexp.MustCompile(`(?i)\bsuperannuation fund\b|\bsmsf\b`)
+	familyTrustMarkerRe    = regexp.MustCompile(`(?i)\bfamily trust\b`)
+	privateCompanyMarkerRe = regexp.MustCompile(`(?i)\bp(?:ty|/l)\b|\bproprietary\b`)
+)
+
+// Entity kinds. Mirrors register_item_securities_entity_kind_check (000098).
+const (
+	entityKindListed         = "listed"
+	entityKindPrivateCompany = "private_company"
+	entityKindFamilyTrust    = "family_trust"
+	entityKindSMSF           = "smsf"
+	entityKindManagedFund    = "managed_fund"
+	entityKindForeign        = "foreign"
+	entityKindNotAnEntity    = "not_an_entity"
+)
+
+// entityKindOf names WHAT a candidate is, from discriminators that were already
+// computed. It is plumbing, not a new classifier: every branch reads either the
+// resolution the ladder already reached or a regexp that already ran.
+//
+// entityKindForeign is declared and permitted by the CHECK but is never returned
+// here. The only available signal would be an Inc/LLC/plc suffix, and in this
+// corpus four of the fourteen such names are Australian incorporated
+// associations ("Street Law Centre (WA) Inc."). Calling those a foreign listing
+// would be a wrong fact about a named person's directorship, so 'foreign' waits
+// for a curated decision rather than a suffix guess.
+func entityKindOf(c SecurityCandidate, status string) string {
+	switch {
+	case status == "unlisted_fund":
+		// A curated human decision: real declaration, not an ASX listing.
+		return entityKindManagedFund
+	case c.Reject != "":
+		// nonSecurityRe / giftLogRe / proseRe / the length rules. None of these
+		// describes a thing that is held.
+		return entityKindNotAnEntity
+	case status == "resolved":
+		// It matched a listing, so it IS one, whatever suffix it carries.
+		return entityKindListed
+	case smsfMarkerRe.MatchString(c.Raw):
+		return entityKindSMSF
+	case familyTrustMarkerRe.MatchString(c.Raw):
+		return entityKindFamilyTrust
+	case privateCompanyMarkerRe.MatchString(c.Raw):
+		return entityKindPrivateCompany
+	case status == "not_a_security":
+		// The remaining way to reach not_a_security is a curated alias whose
+		// resolution says so — the 'noise' seeds in 000097 ("APPLICABLE",
+		// "SEE ATTACHED", "LTD"). A human already decided these name nothing.
+		return entityKindNotAnEntity
+	default:
+		// A plausible listing we have not matched. This is the ONLY case the
+		// "not matched to an ASX listing" wording was ever written for.
+		return entityKindListed
+	}
+}
 
 // proseRe marks a line as narrative rather than an entity name. Members write
 // sentences into the cell, and the parser preserves them faithfully:
@@ -295,6 +362,9 @@ type SecurityResolution struct {
 	MatchMethod    string
 	Confidence     float64
 	CandidateCount int
+	// EntityKind names WHAT the candidate is. Set by resolveSecurityCandidate
+	// so callers cannot forget it; see entityKindOf.
+	EntityKind string
 }
 
 func loadRegisterSecurityAliases(ctx context.Context, pool *pgxpool.Pool) (map[string]SecurityAlias, error) {
@@ -389,6 +459,18 @@ func resolveSecurityCandidate(
 	names map[string]CompanyNameMapping,
 	ambiguous map[string]int,
 ) SecurityResolution {
+	res := resolveSecurityStatus(c, aliases, codes, names, ambiguous)
+	res.EntityKind = entityKindOf(c, res.Status)
+	return res
+}
+
+func resolveSecurityStatus(
+	c SecurityCandidate,
+	aliases map[string]SecurityAlias,
+	codes map[string]string,
+	names map[string]CompanyNameMapping,
+	ambiguous map[string]int,
+) SecurityResolution {
 	if c.Reject != "" {
 		return SecurityResolution{Status: "not_a_security"}
 	}
@@ -455,12 +537,15 @@ type securityResolveStats struct {
 	NotSecurity int
 	Unlisted    int
 	ByMethod    map[string]int
+	// ByKind is the honest denominator source: only entity_kind='listed'
+	// candidates can ever carry a ticker, so only they belong in the gate.
+	ByKind map[string]int
 }
 
 // runRegisterSecurityResolve rebuilds the auto-derived rows in one transaction,
 // preserving analyst-only curation — the same posture as runMatch.
 func runRegisterSecurityResolve(ctx context.Context, pool *pgxpool.Pool) (securityResolveStats, error) {
-	stats := securityResolveStats{ByMethod: map[string]int{}}
+	stats := securityResolveStats{ByMethod: map[string]int{}, ByKind: map[string]int{}}
 
 	aliases, err := loadRegisterSecurityAliases(ctx, pool)
 	if err != nil {
@@ -524,6 +609,7 @@ func runRegisterSecurityResolve(ctx context.Context, pool *pgxpool.Pool) (securi
 		for _, c := range splitSecurityBlob(item.Lines, item.Text) {
 			res := resolveSecurityCandidate(c, aliases, codes, names, ambiguous)
 			stats.Candidates++
+			stats.ByKind[res.EntityKind]++
 			switch res.Status {
 			case "resolved":
 				stats.Resolved++
@@ -550,8 +636,8 @@ func runRegisterSecurityResolve(ctx context.Context, pool *pgxpool.Pool) (securi
 				INSERT INTO register_item_securities
 					(item_id, candidate_ordinal, candidate_raw, candidate_norm,
 					 stock_code, company_name, resolution_status, match_method,
-					 confidence, candidate_count)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+					 confidence, candidate_count, entity_kind)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 				ON CONFLICT (item_id, candidate_ordinal) DO UPDATE SET
 					candidate_raw     = EXCLUDED.candidate_raw,
 					candidate_norm    = EXCLUDED.candidate_norm,
@@ -561,9 +647,10 @@ func runRegisterSecurityResolve(ctx context.Context, pool *pgxpool.Pool) (securi
 					match_method      = EXCLUDED.match_method,
 					confidence        = EXCLUDED.confidence,
 					candidate_count   = EXCLUDED.candidate_count,
+					entity_kind       = EXCLUDED.entity_kind,
 					resolved_at       = now()`,
 				item.ID, c.Ordinal, c.Raw, c.Norm, code, res.CompanyName,
-				res.Status, method, res.Confidence, res.CandidateCount)
+				res.Status, method, res.Confidence, res.CandidateCount, res.EntityKind)
 			queued++
 		}
 	}

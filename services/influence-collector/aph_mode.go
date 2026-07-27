@@ -387,10 +387,17 @@ func runRegisterResolve(ctx context.Context, pool *pgxpool.Pool) {
 	}
 
 	resolvedPct := 0.0
-	// Denominator excludes non-securities (prose, "Not Applicable", meta
-	// statements): they are not failures to resolve, and leaving them in would
-	// make the headline gauge track how chatty members are.
-	resolvable := stats.Candidates - stats.NotSecurity
+	// Denominator is entity_kind='listed' — the only kind that CAN carry a
+	// ticker. Prose and "Not Applicable" are not failures to resolve (leaving
+	// them in makes the gauge track how chatty members are), and neither is a
+	// family trust: it can never be an ASX listing, so counting it as an
+	// unresolved security is a category error.
+	//
+	// In practice this barely moves the number, because the private vehicles
+	// were ALREADY outside the old denominator: resolveSecurityCandidate sends
+	// them to not_a_security. Recording it this way makes the denominator mean
+	// what it says instead of meaning it by accident.
+	resolvable := stats.ByKind[entityKindListed]
 	if resolvable > 0 {
 		resolvedPct = 100.0 * float64(stats.Resolved) / float64(resolvable)
 	}
@@ -405,6 +412,7 @@ func runRegisterResolve(ctx context.Context, pool *pgxpool.Pool) {
 		"not_a_security":        stats.NotSecurity,
 		"security_resolved_pct": resolvedPct,
 		"by_method":             stats.ByMethod,
+		"by_entity_kind":        stats.ByKind,
 		"location_rows":         locs.Rows,
 		"location_resolved":     locs.Resolved,
 		"location_ambiguous":    locs.Ambiguous,
@@ -422,10 +430,13 @@ func runRegisterResolve(ctx context.Context, pool *pgxpool.Pool) {
 		log.Fatalf("[register-resolve] finish collection run: %v", err)
 	}
 
-	log.Printf("[register-resolve] %d candidates: %d resolved (%.1f%% of %d resolvable), %d ambiguous, %d unmatched, %d not-a-security",
+	log.Printf("[register-resolve] %d candidates: %d resolved (%.1f%% of %d listed candidates), %d ambiguous, %d unmatched, %d not-a-security",
 		stats.Candidates, stats.Resolved, resolvedPct, resolvable, stats.Ambiguous, stats.Unmatched, stats.NotSecurity)
 	for method, n := range stats.ByMethod {
 		log.Printf("[register-resolve]   via %s: %d", method, n)
+	}
+	for kind, n := range stats.ByKind {
+		log.Printf("[register-resolve]   entity_kind %s: %d", kind, n)
 	}
 
 	log.Printf("[register-resolve] locations: %d rows, %d resolved (%.1f%%), %d ambiguous, %d region, %d no-state, %d unmatched",
