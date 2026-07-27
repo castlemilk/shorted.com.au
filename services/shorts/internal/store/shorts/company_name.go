@@ -23,6 +23,8 @@ import (
 // never part of the company name. The trailing guard is "not followed by a
 // letter" so the space-less "CDI1:1FOREXEMPT NYSE" form matches too.
 // Measured over 819 live ASIC names: residual descriptors 10.5%% -> 0%%.
+var trailingParenRe = regexp.MustCompile(`\s*\([^()]*\)$`)
+
 var securityTypeRe = regexp.MustCompile(`(?i)[\s,]+(ORDINARY|ORD|FPO|CDI|UNITS?|STAPLED|NOTES?|[A-Z]\s+CLASS)([^A-Za-z]|$)`)
 
 func cleanCompanyName(name, stockCode string) string {
@@ -54,6 +56,10 @@ func cleanCompanyName(name, stockCode string) string {
 	// suffix match, so drop trailing punctuation on each pass.
 	for {
 		trimmed := strings.TrimRight(cleaned, " .")
+		// A trailing parenthetical is a disambiguator, not part of the name,
+		// and it blocks the suffix match below:
+		// "Environmental Group Limited (The)" -> "Environmental Group".
+		trimmed = strings.TrimSpace(trailingParenRe.ReplaceAllString(trimmed, ""))
 		upper := strings.ToUpper(trimmed)
 		for _, s := range suffixes {
 			if strings.HasSuffix(upper, " "+s) || strings.HasSuffix(upper, ","+s) {
@@ -70,8 +76,13 @@ func cleanCompanyName(name, stockCode string) string {
 		cleaned = strings.TrimSpace(name)
 	}
 
-	// Only re-case a SHOUTED source; mixed case is assumed intentional.
+	// Re-case when the source carries NO case information of its own -- either
+	// SHOUTED ("BHP GROUP") or entirely lower-case ("4dmedical", what the
+	// pre-fix title-caser stored for digit-leading names). A genuinely
+	// mixed-case name is assumed to be intentional and is left alone.
 	isShouting := cleaned == strings.ToUpper(cleaned)
+	isWhispering := cleaned == strings.ToLower(cleaned)
+	needsRecasing := isShouting || isWhispering
 
 	var b strings.Builder
 	wordIndex := -1
@@ -94,7 +105,7 @@ func cleanCompanyName(name, stockCode string) string {
 		switch {
 		case code != "" && upperToken == code && (isShouting || isAcronymLike(token)):
 			b.WriteString(code)
-		case !isShouting:
+		case !needsRecasing:
 			b.WriteString(token)
 		case isMinorWord(token):
 			// Leading minor word is title-cased ("THE A2 MILK" -> "The A2
@@ -104,7 +115,7 @@ func cleanCompanyName(name, stockCode string) string {
 			} else {
 				b.WriteString(strings.ToLower(token))
 			}
-		case len(token) <= 3:
+		case isShouting && len(token) <= 3:
 			// Short all-caps acronyms in a shouted source stay uppercase.
 			b.WriteString(upperToken)
 		default:

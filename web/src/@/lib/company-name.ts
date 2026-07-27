@@ -97,13 +97,25 @@ export function formatCompanyName(
   let prev = "";
   while (prev !== cleaned) {
     prev = cleaned;
-    cleaned = cleaned.replace(/[\s.]+$/, "").replace(TRAILING_SUFFIX, "").trim();
+    cleaned = cleaned
+      .replace(/[\s.]+$/, "")
+      // A trailing parenthetical is a disambiguator, not part of the name,
+      // and it blocks the anchored suffix match below:
+      // "Environmental Group Limited (The)" -> "Environmental Group".
+      .replace(/\s*\([^()]*\)$/, "")
+      .replace(TRAILING_SUFFIX, "")
+      .trim();
   }
   if (!cleaned) cleaned = name.trim();
 
-  // Only re-case when the source is SHOUTED; a mixed-case name is assumed to
-  // already carry intentional casing (e.g. "Bhp Group" from the backend).
+  // Re-case when the source carries NO case information of its own — either
+  // SHOUTED ("BHP GROUP") or entirely lower-case ("4dmedical", which is what
+  // the pre-fix backend title-caser stored for digit-leading names, since it
+  // capitalised character 0 instead of the first letter). A genuinely
+  // mixed-case name is assumed to carry intentional casing and is left alone.
   const isShouting = cleaned === cleaned.toUpperCase();
+  const isWhispering = cleaned === cleaned.toLowerCase();
+  const needsRecasing = isShouting || isWhispering;
 
   let wordIndex = -1;
   const parts = cleaned.split(TOKENS);
@@ -130,14 +142,16 @@ export function formatCompanyName(
       ) {
         return code;
       }
-      if (!isShouting) return token;
+      if (!needsRecasing) return token;
       if (MINOR_WORDS.has(token.toLowerCase())) {
         // Leading minor word is title-cased ("THE A2 MILK" → "The A2 Milk"),
         // not lowercased and not treated as a short acronym.
         return wordIndex === 0 ? titleCaseWord(token) : token.toLowerCase();
       }
-      // Short all-caps acronyms in a shouted source stay uppercase.
-      if (token.length <= 3) return token.toUpperCase();
+      // Short all-caps acronyms in a shouted source stay uppercase. Not
+      // applied to a lower-case source, where a 3-letter token is far more
+      // likely a word than an acronym.
+      if (isShouting && token.length <= 3) return token.toUpperCase();
       return titleCaseWord(token);
     })
     .join("");

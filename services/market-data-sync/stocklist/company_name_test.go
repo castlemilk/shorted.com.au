@@ -35,6 +35,14 @@ func TestCleanCompanyName(t *testing.T) {
 		{"NEWMONT CORPORATION CDI1:1FOREXEMPT NYSE", "NEM", "Newmont"},
 		{"OMNI BRIDGEWAY LTD ORD US PROHIBITED", "OBL", "Omni Bridgeway"},
 		{"RURAL FUNDS GROUP UNITS STAPLED", "RFF", "Rural Funds Group"},
+		// An all-lower-case source carries no case information either: the old
+		// title-caser stored "4dmedical" for digit-leading names.
+		{"4dmedical", "4DX", "4Dmedical"},
+		{"29metals", "29M", "29Metals"},
+		// A trailing parenthetical blocks the suffix match, so it is dropped.
+		{"Environmental Group Limited (The)", "EGL", "Environmental Group"},
+		// A genuinely mixed-case name is still left alone.
+		{"Woolworths Group", "WOW", "Woolworths Group"},
 		// A lone letter after an apostrophe is possessive, not an acronym.
 		{"DOMINO'S PIZZA ENTERPRISES LIMITED", "DMP", "Domino's Pizza Enterprises"},
 		{"Domino'S Pizza Enterprises", "DMP", "Domino's Pizza Enterprises"},
