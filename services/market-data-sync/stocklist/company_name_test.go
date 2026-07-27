@@ -43,6 +43,12 @@ func TestCleanCompanyName(t *testing.T) {
 		{"Environmental Group Limited (The)", "EGL", "Environmental Group"},
 		// A genuinely mixed-case name is still left alone.
 		{"Woolworths Group", "WOW", "Woolworths Group"},
+		// A mid-name minor word is lower-cased even in a mixed-case source.
+		{"Commonwealth Bank Of Australia.", "CBA", "Commonwealth Bank of Australia"},
+		{"Bank Of Queensland Limited.", "BOQ", "Bank of Queensland"},
+		{"Bendigo And Adelaide Bank", "BEN", "Bendigo and Adelaide Bank"},
+		// A LEADING minor word keeps its capital.
+		{"The Star Entertainment Group", "SGR", "The Star Entertainment Group"},
 		// A lone letter after an apostrophe is possessive, not an acronym.
 		{"DOMINO'S PIZZA ENTERPRISES LIMITED", "DMP", "Domino's Pizza Enterprises"},
 		{"Domino'S Pizza Enterprises", "DMP", "Domino's Pizza Enterprises"},

@@ -109,6 +109,23 @@ describe("formatCompanyName", () => {
     );
   });
 
+  it("lowercases a mid-name minor word, keeps a leading one capitalised", () => {
+    // Rows the old backend title-caser stored with every word capitalised.
+    expect(formatCompanyName("Commonwealth Bank Of Australia.", "CBA")).toBe(
+      "Commonwealth Bank of Australia",
+    );
+    expect(formatCompanyName("Bank Of Queensland Limited.", "BOQ")).toBe(
+      "Bank of Queensland",
+    );
+    expect(formatCompanyName("Bendigo And Adelaide Bank", "BEN")).toBe(
+      "Bendigo and Adelaide Bank",
+    );
+    // A LEADING minor word keeps its capital.
+    expect(formatCompanyName("The Star Entertainment Group", "SGR")).toBe(
+      "The Star Entertainment Group",
+    );
+  });
+
   it("falls back to the stock code for empty input", () => {
     expect(formatCompanyName("", "BHP")).toBe("BHP");
     expect(formatCompanyName(undefined, "BHP")).toBe("BHP");
