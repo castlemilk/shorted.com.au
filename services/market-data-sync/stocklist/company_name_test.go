@@ -35,6 +35,10 @@ func TestCleanCompanyName(t *testing.T) {
 		{"NEWMONT CORPORATION CDI1:1FOREXEMPT NYSE", "NEM", "Newmont"},
 		{"OMNI BRIDGEWAY LTD ORD US PROHIBITED", "OBL", "Omni Bridgeway"},
 		{"RURAL FUNDS GROUP UNITS STAPLED", "RFF", "Rural Funds Group"},
+		// A lone letter after an apostrophe is possessive, not an acronym.
+		{"DOMINO'S PIZZA ENTERPRISES LIMITED", "DMP", "Domino's Pizza Enterprises"},
+		{"Domino'S Pizza Enterprises", "DMP", "Domino's Pizza Enterprises"},
+		{"O'REILLY GROUP LTD", "ORG", "O'Reilly Group"},
 		// A leading minor word is title-cased, not shouted or lowercased.
 		{"THE A2 MILK COMPANY ORDINARY", "A2M", "The A2 Milk Company"},
 		// A trailing full stop must not block the anchored suffix match.

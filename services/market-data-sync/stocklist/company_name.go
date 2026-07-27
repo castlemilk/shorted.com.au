@@ -75,13 +75,22 @@ func cleanCompanyName(name, stockCode string) string {
 
 	var b strings.Builder
 	wordIndex := -1
-	for _, token := range splitCompanyTokens(cleaned) {
+	parts := splitCompanyTokens(cleaned)
+	for i, token := range parts {
 		if !strings.ContainsFunc(token, isASCIILetter) {
 			b.WriteString(token) // separators / numbers
 			continue
 		}
 		wordIndex++
 		upperToken := strings.ToUpper(token)
+		// A lone letter straight after an apostrophe is a possessive or
+		// contraction suffix, never an acronym: "DOMINO'S" -> "Domino's".
+		// Applied even to a mixed-case source, because English never
+		// capitalises it.
+		if wordIndex > 0 && len(token) == 1 && i > 0 && endsWithApostrophe(parts[i-1]) {
+			b.WriteString(strings.ToLower(token))
+			continue
+		}
 		switch {
 		case code != "" && upperToken == code && (isShouting || isAcronymLike(token)):
 			b.WriteString(code)
@@ -103,6 +112,12 @@ func cleanCompanyName(name, stockCode string) string {
 		}
 	}
 	return b.String()
+}
+
+// endsWithApostrophe reports whether a separator run ends in an apostrophe
+// (straight or typographic).
+func endsWithApostrophe(sep string) bool {
+	return strings.HasSuffix(sep, "'") || strings.HasSuffix(sep, "\u2019")
 }
 
 func isASCIILetter(r rune) bool {
