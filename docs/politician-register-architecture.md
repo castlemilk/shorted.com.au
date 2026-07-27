@@ -1402,3 +1402,52 @@ stronger signal — the member named the listing themselves.
 `normalizeEntityName` mismatching plain company names ("Woodside" against
 "Woodside Energy Group Ltd"), which is the same class as the ETF-name mangling in
 §2.1 and is the next thing to measure.
+
+### 8.12 Name-prefix matching is NOT the answer — and would be unsafe
+
+Suspect 3 from §8.10, measured before building anything. Of **2,601** distinct
+unmatched item-1 names, treating the candidate as a PREFIX of a listing name would
+resolve:
+
+| | |
+|---|---|
+| exactly one listing (usable) | **23** |
+| more than one listing (unsafe) | **28** |
+
+So prefix matching is both immaterial (23 of 2,601 = 0.9%) and **more often wrong
+than right**. A prefix hitting two listings attaches a real declaration by a named
+member to the wrong company. Do not build it. All three suspects from §8.10 are now
+closed: two wrong, one (bare tickers, §8.11) real and fixed.
+
+What the remaining pool actually is:
+
+```
+Shares                                        10   noise
+Woodside                                       8   REAL - needs a curated alias
+AGL Ltd                                        6   REAL - "AGL Energy" - alias
+Patron                                         6   not a security
+P2P                                            6   not a security
+The following shares have been purchased on    6   PROSE FRAGMENT - splitter leak
+spouse)                                        5   PARENTHETICAL LEAK
+In spouse/partner section                      5   SECTION LABEL LEAK
+```
+
+Two levers remain, in order of value:
+
+1. **Splitter leakage.** `"spouse)"`, `"In spouse/partner section"` and
+   `"The following shares have been purchased on"` are not securities and should
+   never have become candidates. They inflate the denominator exactly as the
+   gift/travel terms did (§8.10) — same fix, same file, and this time the evidence
+   says the fragments are structural (unbalanced parentheticals, section labels,
+   sentence heads) rather than a vocabulary.
+2. **Curated aliases** for the genuine long tail (`Woodside`, `AGL Ltd`). This is
+   the designed mechanism — `register_resolution_backlog` is the worklist, ordered
+   by frequency — and it is deliberately human-in-the-loop because only a person
+   should decide that "AGL Ltd" means AGL Energy.
+
+**Do not "fix" the gate by loosening matching.** The 35% threshold was calibrated
+on an almost entirely 48P corpus; the 44th and 45th Parliaments contain far more
+free text, private companies and foreign holdings that are unmatchable BY DESIGN.
+Recalibrate the threshold against the real corpus with evidence, after the two
+levers above — never by relaxing what counts as a match, because every relaxation
+is a chance to attribute a holding to the wrong named person.
