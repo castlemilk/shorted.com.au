@@ -24,6 +24,10 @@ func TestCleanCompanyName(t *testing.T) {
 		// ASIC PRODUCT security descriptors strip, and suffixes stack.
 		{"SANTOS LIMITED ORDINARY", "STO", "Santos"},
 		{"BLOCK INC CDI 1:1", "SQ2", "Block"},
+		// Digit-leading tokens capitalise their first LETTER, not char 0.
+		{"4DMEDICAL LIMITED ORDINARY", "4DX", "4Dmedical"},
+		// A trailing full stop must not block the anchored suffix match.
+		{"AGL Energy Limited.", "AGL", "AGL Energy"},
 		// Mixed-case input keeps its casing (only suffixes strip).
 		{"Woolworths Group", "WOW", "Woolworths Group"},
 		{"Macquarie Group Limited", "MQG", "Macquarie Group"},

@@ -29,8 +29,10 @@ func cleanCompanyName(name, stockCode string) string {
 		"LIMITED", "LTD", "CORPORATION", "CORP",
 		"INCORPORATED", "INC", "PLC", "NL",
 	}
+	// A trailing full stop ("AGL Energy Limited.") would otherwise block the
+	// suffix match, so drop trailing punctuation on each pass.
 	for {
-		trimmed := cleaned
+		trimmed := strings.TrimRight(cleaned, " .")
 		upper := strings.ToUpper(trimmed)
 		for _, s := range suffixes {
 			if strings.HasSuffix(upper, " "+s) || strings.HasSuffix(upper, ","+s) {
@@ -124,6 +126,13 @@ func isAcronymLike(w string) bool {
 	return !strings.ContainsAny(w[1:], "aeiouAEIOU")
 }
 
+// titleCaseWord upper-cases the first LETTER, not the first character — a
+// token can start with a digit ("4DMEDICAL"), and capitalising position 0
+// there would leave the whole word lowercase ("4dmedical").
 func titleCaseWord(w string) string {
-	return strings.ToUpper(w[:1]) + strings.ToLower(w[1:])
+	i := strings.IndexFunc(w, isASCIILetter)
+	if i < 0 {
+		return w
+	}
+	return w[:i] + strings.ToUpper(w[i:i+1]) + strings.ToLower(w[i+1:])
 }

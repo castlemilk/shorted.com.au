@@ -42,6 +42,17 @@ describe("formatCompanyName", () => {
     );
   });
 
+  it("strips ASIC security descriptors and handles digit-leading names", () => {
+    // Names read off the shorts table carry the raw ASIC PRODUCT field.
+    expect(formatCompanyName("4DMEDICAL LIMITED ORDINARY", "4DX")).toBe(
+      "4Dmedical",
+    );
+    expect(formatCompanyName("SANTOS LIMITED ORDINARY", "STO")).toBe("Santos");
+    expect(formatCompanyName("BLOCK INC CDI 1:1", "SQ2")).toBe("Block");
+    // A trailing full stop must not block the anchored suffix match.
+    expect(formatCompanyName("AGL Energy Limited.", "AGL")).toBe("AGL Energy");
+  });
+
   it("falls back to the stock code for empty input", () => {
     expect(formatCompanyName("", "BHP")).toBe("BHP");
     expect(formatCompanyName(undefined, "BHP")).toBe("BHP");
