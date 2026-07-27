@@ -1499,6 +1499,60 @@ That is the review console (`docs/register-review-console.md`), and
 `gemini-embedding-001` is already wired elsewhere in this repo for it. The model
 proposes; the constraint still requires a human to dispose.
 
+### 8.14 Non-listed interests are NOT failures — surface them as what they are
+
+Correction to the framing in §8.13. A family trust, private company or SMSF is a
+**real declared interest**, often more editorially interesting than a CBA
+shareholding. Treating it as a resolution *failure* is wrong twice: it distorts the
+gate, and it misdescribes the data to a reader.
+
+They are already published — **17,923 of 18,799** rows in
+`mv_register_public_holdings` carry no ticker, and entries like `"The Indinup
+Trust"` do render on profiles. The problem is not that they are missing. It is that
+they are UNLABELLED and, in places, DIRTY.
+
+**Two defects visible in a five-row sample of item-2 rows:**
+
+```
+"Not Applicable the Member, the Member's spouse, fo…"   <- NIL ROW WELDED TO BOILERPLATE
+"The Nirvana Trust The Nirvana Trust"                   <- DUPLICATED (2.i + 2.ii both captured)
+```
+
+Both render as garbage declarations against a named person. The first is the form's
+explanatory note bleeding into a nil cell; the second is the item-2 sub-table pair
+being concatenated rather than kept as two rows.
+
+**The labelling problem.** `DeclaredEntity` renders every unresolved row as
+`<text> — not matched to an ASX listing`. For `"The Indinup Trust"` that is
+technically true and editorially useless: it reads as a system failure when the
+truth is "this is a trust, and trusts are not listed". A reader cannot tell a
+private family trust from a company we simply failed to match.
+
+**The signal already exists and is being thrown away.** `aph_resolve.go` computes
+`c.Private` (Pty/Ltd/trust/SMSF/nominee detection) and `nonSecurityRe`, then
+collapses both into `resolution_status='not_a_security'` — a name that means "not a
+LISTED security" but reads as "not real". Nothing persists WHICH kind it was.
+
+**Design:**
+
+1. Persist an `entity_kind` on `register_item_securities`:
+   `listed | private_company | family_trust | smsf | managed_fund | foreign | not_an_entity`.
+   Derived from the discriminators already computed, so this is plumbing, not new
+   inference.
+2. Render it as a labelled chip — "Family trust", "Private company", "Self-managed
+   super fund" — instead of the "not matched to an ASX listing" apology. Keep that
+   wording ONLY for `entity_kind='listed'` candidates that genuinely failed to
+   match, which is the case it was written for.
+3. Exclude everything except `listed` from the resolution gate's denominator. A
+   trust can never have a ticker, so counting it as an unresolved security is a
+   category error — and it is a large part of why the gate reads 25.2%.
+4. Fix the two extraction defects first: they are wrong facts about named people
+   and no amount of labelling helps a row that says
+   `"The Nirvana Trust The Nirvana Trust"`.
+
+Order: defects (4) before plumbing (1-3), because the dirty rows are the only part
+that is actively misleading.
+
 ---
 
 ## 9. Next steps, in priority order
