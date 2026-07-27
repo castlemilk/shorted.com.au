@@ -30,6 +30,7 @@ import { PremiumUpsellBanner } from "~/@/components/premium/premium-upsell-banne
 import { getEnhancedWeeklyReportData, getAvailableWeekSlugs } from "~/app/actions/reports/getReportData";
 import { BrowseByIndustry } from "./browse-by-industry";
 import { TrendingThisWeek } from "./trending-this-week";
+import { ShortFlowNarrative } from "./short-flow-narrative";
 import { LatestFromBlog } from "./latest-from-blog";
 import { LatestMarketNews } from "./latest-market-news";
 import { FeaturedStory } from "~/@/components/news/masthead/featured-story";
@@ -241,6 +242,12 @@ export default async function Page() {
       {/* Trending This Week — biggest short position changes */}
       <Suspense fallback={null}>
         <TrendingThisWeek />
+      </Suspense>
+
+      {/* Auto-generated building/covering prose — daily-changing indexable
+          text from the same cached 1w movers data TrendingThisWeek uses */}
+      <Suspense fallback={null}>
+        <ShortFlowNarrative />
       </Suspense>
 
       {/* Browse by Industry — server-rendered for SEO internal linking */}
