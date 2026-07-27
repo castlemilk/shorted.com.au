@@ -94,6 +94,21 @@ describe("formatCompanyName", () => {
     );
   });
 
+  it("re-cases an all-lowercase name and drops a trailing parenthetical", () => {
+    // company-metadata rows written by the old backend title-caser, which
+    // capitalised character 0 rather than the first letter.
+    expect(formatCompanyName("4dmedical", "4DX")).toBe("4Dmedical");
+    expect(formatCompanyName("29metals", "29M")).toBe("29Metals");
+    // A trailing parenthetical blocks the anchored entity-suffix match.
+    expect(formatCompanyName("Environmental Group Limited (The)", "EGL")).toBe(
+      "Environmental Group",
+    );
+    // A genuinely mixed-case name still carries intentional casing.
+    expect(formatCompanyName("Woolworths Group", "WOW")).toBe(
+      "Woolworths Group",
+    );
+  });
+
   it("falls back to the stock code for empty input", () => {
     expect(formatCompanyName("", "BHP")).toBe("BHP");
     expect(formatCompanyName(undefined, "BHP")).toBe("BHP");
