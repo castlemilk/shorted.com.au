@@ -1553,6 +1553,81 @@ LISTED security" but reads as "not real". Nothing persists WHICH kind it was.
 Order: defects (4) before plumbing (1-3), because the dirty rows are the only part
 that is actively misleading.
 
+### 8.15 §8.14 built and measured — and point 3 was wrong
+
+All four points are shipped. Three findings, two of which correct §8.14.
+
+**The two defects had different causes from the ones named above.**
+
+`"Not Applicable the Member, the Member's spouse..."` is not "the form's
+explanatory note bleeding into a nil cell" by accident — it is `parse_item_tables`
+extending the open cell from ANY band with words right of the label boundary. The
+`ii.` sub-item note is indented to x≈55-78 and runs past the value column, so the
+last row of sub-table 2.i absorbed it. **437 rows across 436 of 455 born-digital
+documents** — effectively every one.
+
+`"The Nirvana Trust The Nirvana Trust"` is NOT "the 2.i and 2.ii sub-tables
+concatenated". Both bad lines are inside **2.i**; 2.ii is a separate, correctly
+parsed table. The real cause is that the form **centres a holder label against its
+own cell**: where the cell wraps to three lines and the label to two, the label's
+first line sits BELOW the cell's first line, so "most recent label wins" gave
+Spouse/partner's first trust to Self. §2.8 called this a 47P-only trait; it is not
+— 48P centres its labels too, and it is invisible until a cell is multi-line.
+
+**The row boundary never had to be inferred: the form draws it.** `page_row_rules`
+reads the table's horizontal rules out of the PDF's vectors. On the reported page
+the rule at y=322.32 separates the two rows with 16pt of clearance above and 2pt
+below, where nearest-label arithmetic was a 0.3pt coin flip. Rules are additive —
+absent on a scan, an OCR'd page or a test double, and every comparison
+short-circuits, so those paths are untouched. Corpus effect: 437 changed
+documents, 753 rows shortened, 274 re-attributed, boilerplate rows 437 → 1.
+
+**Point 3 does not move the gate, and the reason matters.** Measured with
+`-mode register-resolve` over the loaded corpus:
+
+| | before | after |
+|---|---|---|
+| resolved | 1,197 | 1,197 |
+| denominator | 4,741 (`candidates - not_a_security`) | 4,739 (`entity_kind='listed'`) |
+| **gate** | **25.2%** | **25.3%** |
+
+§8.14 predicted this would move materially "because a trust can never have a
+ticker". It does not, because private vehicles were **already** outside the
+denominator: `resolveSecurityCandidate` sends every one of them to
+`not_a_security` before the count is taken. The change is still right — the
+denominator now means what it says instead of meaning it by coincidence — but the
+gap to 35% is entirely §8.13's other buckets (funds/ETFs, and plausible listings
+awaiting curated aliases). **Do not expect a classification change to close it.**
+
+**What point 1 did change is what gets PUBLISHED.** The fold excluded
+`resolution_status='not_a_security'`, which silently withheld every private
+company, family trust and SMSF declared under items 1 and 4 — including item 4
+(directorships), which turns out to be mostly them. Switching the filter to
+`entity_kind <> 'not_an_entity'` publishes 883 holdings that members declared on a
+public form and that we already publish under items 2 and 5-14:
+
+| item | listed | private_company | family_trust | smsf | managed_fund |
+|---|---|---|---|---|---|
+| 1 shareholdings | 3,641 | 356 | 16 | 23 | 2 |
+| 4 directorships | 328 | **482** | 8 | 6 | 0 |
+
+Candidate totals (6,335): listed 4,739, private_company 1,078, not_an_entity 454,
+smsf 37, family_trust 25, managed_fund 2.
+
+**`foreign` is permitted by the CHECK and deliberately never produced.** The only
+available signal is an Inc/LLC/plc suffix, and four of the fourteen such names in
+this corpus are Australian incorporated ASSOCIATIONS (`Street Law Centre (WA)
+Inc.`, `EMILY'S LIST (AUSTRALIA) INC.`). Labelling those a foreign listing would
+be a wrong fact about a named person's directorship, so the value waits for a
+curated decision.
+
+**Two things this did NOT do.** The gate above is measured against the
+extraction already in the database; the parser fix reaches it only after a
+re-extract and re-load of the 455 born-digital documents. And the §2.8
+centred-label quarantine still fires on 47P documents that the drawn rules now
+attribute correctly — lifting it is a publication decision, not a parser one, and
+is the cheapest coverage win left.
+
 ---
 
 ## 9. Next steps, in priority order
@@ -1565,7 +1640,9 @@ intervals. Coverage 44P/45P/48P 100%, 46P 76%, 47P 67%.
 
 **Blocking the merge** (the gate is a MERGE gate — see §"The launch gate"):
 
-1. **Security resolution 24.7% vs the >=35% gate.** Two levers, both in §8.12:
+1. **Security resolution 25.3% vs the >=35% gate** (was 24.7%, then 25.2%; the
+   entity_kind denominator moved it 0.1pt — see §8.15, and do not expect another
+   classification change to close it). Two levers, both in §8.12:
    splitter leakage (`"spouse)"`, `"In spouse/partner section"`, sentence heads
    becoming candidates) and curated aliases for the long tail. Do NOT loosen
    matching to hit the number — §8.12 records why.
