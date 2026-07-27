@@ -1451,3 +1451,43 @@ free text, private companies and foreign holdings that are unmatchable BY DESIGN
 Recalibrate the threshold against the real corpus with evidence, after the two
 levers above — never by relaxing what counts as a match, because every relaxation
 is a chance to attribute a holding to the wrong named person.
+
+---
+
+## 9. Next steps, in priority order
+
+State at handoff (2026-07-27): branch `feat/politician-register-of-interests`,
+28 commits, unmerged. 769 House documents fetched onto
+`/Volumes/gamma-systems-2/shorted-crawl/aph-register`. 324 politicians, 2,755
+statements, 21,153 declared rows, 0 unresolved identities, 18,993 holding
+intervals. Coverage 44P/45P/48P 100%, 46P 76%, 47P 67%.
+
+**Blocking the merge** (the gate is a MERGE gate — see §"The launch gate"):
+
+1. **Security resolution 24.7% vs the >=35% gate.** Two levers, both in §8.12:
+   splitter leakage (`"spouse)"`, `"In spouse/partner section"`, sentence heads
+   becoming candidates) and curated aliases for the long tail. Do NOT loosen
+   matching to hit the number — §8.12 records why.
+2. **Editorial template review** against rules 1-8, outcome recorded (who / when /
+   commit). §6.2 has the per-rule state; rules 1, 3, 5 and 8 are already enforced
+   by `editorial-copy.test.ts`.
+
+**High value, not blocking:**
+
+3. **Review console** — `docs/register-review-console.md`, 13 ordered steps.
+   Build the securities screen first: 3,636 unmatched rows collapse to ~2,601
+   distinct names with a repeating head, so a few hundred aliases moves item 1
+   above. Verify `ocr_parse_gates()` (dead code today) before step 0.
+4. **46P/47P centred-label quarantine** (§2.8) — 88 documents. The vision tier now
+   exists and reads these layouts correctly, so re-running `--stage vision` over
+   the `partial` set may simply clear it. Measure before parser work.
+5. **Senate**: 35 tabled volumes, still unfetched. Needs the `Form A` splitter
+   (§1.3), not the per-member path.
+
+**Ops, before prod:**
+
+6. `GEMINI_API_KEY` into GCP Secret Manager, injected into the job like
+   `DATABASE_URL` (§8.7). **The key used during development was pasted into a chat
+   transcript and must be rotated.**
+7. First prod run of `-mode register-discover` is manual, and `REGISTER_DRY_RUN`
+   defaults true — see §5.2.
