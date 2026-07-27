@@ -283,3 +283,31 @@ func TestGenericSecurityWordsAreNotTickers(t *testing.T) {
 		t.Errorf("parenthesised ticker lost: %q", c.Ticker)
 	}
 }
+
+func TestNonSecurityTermsRejected(t *testing.T) {
+	// Items 11-12 (gifts, sponsored travel) share the item-1 splitter, so their
+	// content reaches the candidate pool. After the 44P/45P backfill these were
+	// the TOP "unmatched" names — all sitting in the resolution denominator.
+	for _, raw := range []string{
+		"Gift", "GIFT", "Membership", "Flight upgrade", "2017", "2019",
+		"Tickets", "Lounge access", "Hospitality", "Not Applicable", "Same as above",
+	} {
+		if c := makeCandidate(0, raw); c.Reject == "" {
+			t.Errorf("%q should be rejected as a non-security, got Reject=%q Norm=%q", raw, c.Reject, c.Norm)
+		}
+	}
+}
+
+func TestRealCompaniesSurviveTheNonSecurityFilter(t *testing.T) {
+	// Anchored whole-string, so a listing whose name merely CONTAINS one of those
+	// words must be untouched. Over-rejecting here would silently delete real
+	// declared holdings from a named person's profile.
+	for _, raw := range []string{
+		"Gift Holdings Ltd", "Travel Corporation Ltd", "Flight Centre Travel Group",
+		"CBA", "BHP Billiton", "Insurance Australia Group",
+	} {
+		if c := makeCandidate(0, raw); c.Reject == "not_a_security_term" {
+			t.Errorf("%q must NOT be rejected as a non-security term", raw)
+		}
+	}
+}

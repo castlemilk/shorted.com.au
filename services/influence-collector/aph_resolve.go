@@ -42,6 +42,19 @@ var trailingTickerRe = regexp.MustCompile(`\s([A-Z]{3}[A-Z0-9]{0,2})$`)
 //
 // A member who genuinely holds one of these can be given a curated alias, which
 // is checked first.
+// Gift / travel / membership vocabulary, and bare years. These are ITEM 11-12
+// content, never a listing. Anchored whole-string so a real company whose name
+// merely contains one of these words is untouched ("Gift Holdings Ltd" survives).
+var nonSecurityRe = regexp.MustCompile(
+	`(?i)^\s*(` +
+		`gifts?|hampers?|memberships?|subscriptions?|donations?|` +
+		`flight\s+upgrades?|upgrades?|lounge(\s+(access|membership))?|` +
+		`tickets?|complimentary\s+.*|hospitality|accommodation|` +
+		`travel(\s+(costs?|expenses?))?|airfares?|sponsored\s+travel|` +
+		`\d{4}|n/?a|nil|none|not\s+applicable|various|as\s+above|same\s+as\s+above` +
+		`)\s*$`,
+)
+
 var tickerStopwords = map[string]bool{
 	"ETF": true, "REIT": true, "LIC": true, "FUND": true, "TRUST": true,
 	"LTD": true, "INC": true, "PLC": true, "PTY": true, "SMSF": true,
@@ -191,6 +204,17 @@ func makeCandidate(ordinal int, fragment string) SecurityCandidate {
 	}
 
 	switch {
+	case nonSecurityRe.MatchString(cleaned):
+		// Items 11 and 12 (gifts, sponsored travel) go through the same splitter
+		// as item 1, so their content lands in the candidate pool. Measured after
+		// the 44P/45P backfill, the top "unmatched" names were GIFT, 2017,
+		// FLIGHT UPGRADE and MEMBERSHIP — none of them a security, all of them in
+		// the denominator, dragging the item-1 resolution rate from 35.3% to
+		// 20.3% without a single extra failure. Older parliaments carry far more
+		// gift/travel text, so widening the corpus diluted the metric rather than
+		// worsening it. These belong OUTSIDE the denominator, which is what
+		// `resolvable = candidates - not_a_security` exists for.
+		c.Reject = "not_a_security_term"
 	case proseRe.MatchString(c.Raw):
 		c.Reject = "prose"
 	case len(c.Raw) > maxCandidateLen:

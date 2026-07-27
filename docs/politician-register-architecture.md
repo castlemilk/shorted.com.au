@@ -1326,3 +1326,46 @@ the rate with non-securities rather than with failures.
 Until (1) and (2) land, **the launch gate in §6.1 is not met**. That is a
 publishing blocker by design, and `CoverageNote` continues to report per-parliament
 coverage honestly regardless.
+
+### 8.10 CORRECTION: the resolution drop is NOT gift/travel dilution
+
+§8.9 claimed the 35.3% -> 20.3% drop was items 11/12 gift and travel text padding
+the denominator. **That was wrong**, and the fix built on it barely moved the
+number: adding a `not_a_security_term` vocabulary (gifts, memberships, flight
+upgrades, bare years) reclassified only **132** rows and took the gate from
+**20.3% to 20.8%**. The vocabulary is still correct and worth keeping — those rows
+genuinely are not securities — but it is not the explanation.
+
+The real composition, by item:
+
+| item | unmatched |
+|---|---|
+| 1 — shareholdings | **3,399** |
+| 4 — directorships | 424 |
+
+So the unmatched pool is overwhelmingly item 1 — the gate's own metric — and the
+top unmatched item-1 candidates are **real securities**:
+
+```
+IAG       14      <- Insurance Australia Group, a listed ticker
+Shares    10      <- genuine noise
+QBE        9      <- listed ticker
+Woodside   8      <- listed company name
+TLS        7      <- listed ticker, and TLS resolves for 38 members elsewhere
+AGO        7      <- listed ticker
+```
+
+**Bare tickers and plain company names are failing to resolve**, and TLS failing
+here while succeeding for 38 members elsewhere proves the failure is CONDITIONAL,
+not a missing listing. Candidates for the cause, in order:
+
+1. `tickerStopwords` or the `private` path swallowing short all-caps candidates.
+2. `trailingTickerRe` only firing on a ticker in trailing position, so a candidate
+   that is *nothing but* a ticker never sets `c.Ticker`.
+3. `normalizeEntityName` mismatching `"Woodside"` against the stored
+   `company_name` (the ETF-name mangling in §2.1 is the same class of problem).
+
+This is worth far more than the noise vocabulary: these are real declared holdings
+by named members that currently render as "not matched to an ASX listing". Fixing
+it should move the gate materially, and it should be measured before anyone argues
+about recalibrating the 35% threshold.
