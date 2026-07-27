@@ -167,19 +167,19 @@ func TestResolveLadderPrecedence(t *testing.T) {
 	aliases, codes, names, ambiguous := testLadder()
 
 	// A curated alias outranks everything: a human decision beats a coincidence.
-	res := resolveSecurityCandidate(makeCandidate(0, "CBA"), aliases, codes, names, ambiguous)
+	res := resolveSecurityCandidate(makeCandidate(0, "CBA"), aliases, codes, names, ambiguous, emptyWide)
 	if res.Status != "resolved" || res.MatchMethod != "curated_alias" || res.StockCode != "CBA" {
 		t.Errorf("curated alias: %+v", res)
 	}
 
 	// A member-stated ticker resolves once validated against real listings.
-	res = resolveSecurityCandidate(makeCandidate(0, "iShares S&P 500 ETF (IVV)"), aliases, codes, names, ambiguous)
+	res = resolveSecurityCandidate(makeCandidate(0, "iShares S&P 500 ETF (IVV)"), aliases, codes, names, ambiguous, emptyWide)
 	if res.Status != "resolved" || res.MatchMethod != "ticker_in_text" || res.StockCode != "IVV" {
 		t.Errorf("inline ticker: %+v", res)
 	}
 
 	// Exact normalised name.
-	res = resolveSecurityCandidate(makeCandidate(0, "AMP"), aliases, codes, names, ambiguous)
+	res = resolveSecurityCandidate(makeCandidate(0, "AMP"), aliases, codes, names, ambiguous, emptyWide)
 	if res.Status != "resolved" || res.MatchMethod != "name_exact" || res.StockCode != "AMP" {
 		t.Errorf("name exact: %+v", res)
 	}
@@ -192,7 +192,7 @@ func TestResolveLadderPrecedence(t *testing.T) {
 func TestUnlistedFundNeverGetsATicker(t *testing.T) {
 	aliases, codes, names, ambiguous := testLadder()
 	res := resolveSecurityCandidate(
-		makeCandidate(0, "Vanguard Australian Shares Index Fund"), aliases, codes, names, ambiguous)
+		makeCandidate(0, "Vanguard Australian Shares Index Fund"), aliases, codes, names, ambiguous, emptyWide)
 	if res.Status != "unlisted_fund" {
 		t.Errorf("status = %q, want unlisted_fund", res.Status)
 	}
@@ -204,7 +204,7 @@ func TestUnlistedFundNeverGetsATicker(t *testing.T) {
 // A ticker the member wrote that is NOT a real listing must not resolve.
 func TestUnknownTickerDoesNotResolve(t *testing.T) {
 	aliases, codes, names, ambiguous := testLadder()
-	res := resolveSecurityCandidate(makeCandidate(0, "Something Fund (ZZZ)"), aliases, codes, names, ambiguous)
+	res := resolveSecurityCandidate(makeCandidate(0, "Something Fund (ZZZ)"), aliases, codes, names, ambiguous, emptyWide)
 	if res.Status == "resolved" {
 		t.Errorf("an unvalidated ticker resolved: %+v", res)
 	}
@@ -215,12 +215,12 @@ func TestUnknownTickerDoesNotResolve(t *testing.T) {
 func TestAmbiguousNameIsDistinguishedFromUnmatched(t *testing.T) {
 	aliases, codes, names, ambiguous := testLadder()
 
-	res := resolveSecurityCandidate(makeCandidate(0, "Acme"), aliases, codes, names, ambiguous)
+	res := resolveSecurityCandidate(makeCandidate(0, "Acme"), aliases, codes, names, ambiguous, emptyWide)
 	if res.Status != "ambiguous" || res.CandidateCount != 3 {
 		t.Errorf("ambiguous: %+v", res)
 	}
 
-	res = resolveSecurityCandidate(makeCandidate(0, "Totally Unknown Holdings"), aliases, codes, names, ambiguous)
+	res = resolveSecurityCandidate(makeCandidate(0, "Totally Unknown Holdings"), aliases, codes, names, ambiguous, emptyWide)
 	if res.Status != "unmatched" {
 		t.Errorf("unmatched: %+v", res)
 	}
@@ -238,7 +238,7 @@ func TestOnlyPublishableMethodsResolve(t *testing.T) {
 		"Acme", "Totally Unknown Holdings", "Vanguard Australian Shares Index Fund",
 		"On the 19th of August 2025 I ceased", "Not Applicable",
 	} {
-		res := resolveSecurityCandidate(makeCandidate(0, raw), aliases, codes, names, ambiguous)
+		res := resolveSecurityCandidate(makeCandidate(0, raw), aliases, codes, names, ambiguous, emptyWide)
 		if res.Status == "resolved" {
 			if !publishable[res.MatchMethod] {
 				t.Errorf("%q resolved via unpublishable method %q", raw, res.MatchMethod)
@@ -252,7 +252,7 @@ func TestOnlyPublishableMethodsResolve(t *testing.T) {
 
 func TestRejectedCandidatesAreNotSecurities(t *testing.T) {
 	aliases, codes, names, ambiguous := testLadder()
-	res := resolveSecurityCandidate(makeCandidate(0, "All spouse / partner details"), aliases, codes, names, ambiguous)
+	res := resolveSecurityCandidate(makeCandidate(0, "All spouse / partner details"), aliases, codes, names, ambiguous, emptyWide)
 	if res.Status != "not_a_security" {
 		t.Errorf("status = %q, want not_a_security", res.Status)
 	}

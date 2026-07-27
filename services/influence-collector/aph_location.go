@@ -105,6 +105,27 @@ func parseDeclaredLocation(raw string) DeclaredLocation {
 		return loc
 	}
 
+	// A holder label that escaped the form's label column is not a place. Two
+	// were published as declared real estate — "Partner" and "Self" — each
+	// rendered on a member's profile as somewhere they own property. Same rule
+	// and same regexp as the security side; see holderLabelRe.
+	if holderLabelRe.MatchString(work) {
+		loc.Reject = "holder_label"
+		return loc
+	}
+
+	// A disposal is not a holding. "Sale of Real Estate in Spearwood WA
+	// (Investment)" and "Sold family home in Moonee Ponds" published as CURRENT
+	// property against a named member — the opposite of what they wrote.
+	//
+	// Item 3 only. The same verbs are NOT safe corpus-wide: in item 10 (other
+	// income) "Sale of stock and crops" is a farmer's income SOURCE, not an
+	// amendment, and rejecting it would delete a real declaration.
+	if amendmentNoticeRe.MatchString(work) {
+		loc.Reject = "amendment_notice"
+		return loc
+	}
+
 	// Peel the Purpose column off the tail before anything else, so
 	// "Ballarat, VIC, Investment" does not lose VIC to the purpose grab.
 	if m := purposeTailRe.FindStringSubmatch(work); m != nil {
@@ -140,9 +161,26 @@ func parseDeclaredLocation(raw string) DeclaredLocation {
 	loc.Locality = locality
 	loc.LocalityNorm = normaliseLocality(locality)
 
-	if loc.LocalityNorm == "" {
+	// The SAME two tests again, now against the EXTRACTED locality.
+	//
+	// The early checks above only see a cell that is nothing but a label. The
+	// damage is done later, by splitLocalityAndState taking the first
+	// comma-part: "Self, Residential, Canberra, ACT July 2023" yields locality
+	// "Self", and "Partner residential property St Albans" yields "Partner".
+	// Both published as a place the member owns property in, and both LOST the
+	// real suburb (Canberra, St Albans) sitting further along the line.
+	//
+	// Rejecting only withholds the wrong fact; it does not recover the suburb.
+	// Picking the right part of these lines is a separate change with its own
+	// failure modes — see docs/politician-register-architecture.md §8.17.
+	switch {
+	case holderLabelRe.MatchString(loc.Locality):
+		loc.Reject = "holder_label"
+	case amendmentNoticeRe.MatchString(loc.Locality):
+		loc.Reject = "amendment_notice"
+	case loc.LocalityNorm == "":
 		loc.Reject = "no_locality"
-	} else if len(loc.LocalityNorm) < 3 {
+	case len(loc.LocalityNorm) < 3:
 		loc.Reject = "too_short"
 	}
 	return loc
@@ -301,6 +339,17 @@ func resolveDeclaredLocation(
 	byName map[string]suburbMatch,
 ) LocationResolution {
 	if loc.Reject != "" {
+		// A cell that is structurally NOT a place must be distinguishable from a
+		// suburb we merely failed to find, because the fold falls back to the
+		// raw declared_text whenever there is no locality — so 'unmatched'
+		// published the non-place anyway.
+		//
+		// Prose, an unrecognised locality and a too-short fragment stay
+		// 'unmatched' on purpose: those ARE property declarations, and their
+		// declared text is worth publishing even ungeocoded.
+		if loc.Reject == "holder_label" || loc.Reject == "amendment_notice" {
+			return LocationResolution{Status: "not_a_location"}
+		}
 		return LocationResolution{Status: "unmatched"}
 	}
 	if knownRegions[loc.LocalityNorm] {

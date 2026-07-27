@@ -67,16 +67,28 @@ type holdingInterval struct {
 //	item 3       one event per resolved suburb (or per locality)
 //	everything   one event per declared row
 //
-// Candidates are excluded on entity_kind='not_an_entity' — prose, nil markers
-// and gift-log lines — NOT on resolution_status='not_a_security'.
+// Candidates are excluded on entity_kind IN ('not_an_entity','multi_entity') —
+// prose, nil markers and gift-log lines, plus cells naming several entities at
+// once — NOT on resolution_status='not_a_security'.
 //
-// The two used to be the same test, and it dropped every private company,
+// The last two used to be the same test, and it dropped every private company,
 // family trust and SMSF a member declared under items 1 and 4: 1,140 candidate
 // rows that never reached a read path, in the ONE item (4, directorships) that
 // is almost entirely private entities. A trust is a real declared interest, and
 // often a more interesting one than a CBA shareholding; 'not_a_security' means
 // "not a LISTED security", which is not a reason to withhold it. entity_kind
 // now separates "not listed" from "not a thing", so the filter can too.
+//
+// 'multi_entity' closes the hole that widening opened: a cell naming a listing
+// beside a private vehicle was published under the vehicle's chip, which denies
+// the listing (§8.17). Those rows are withheld rather than mislabelled.
+//
+// ENTITY_KIND IS EMPTY OUTSIDE ITEMS 1 AND 4, and that is deliberate. These arms
+// used to hardcode 'listed', which is a fiction — item 8 savings accounts, item
+// 11 gifts and item 12 travel have no security candidate and were never
+// classified. DeclaredEntity keys the "not matched to an ASX listing" line off
+// 'listed', so the fiction put that line under 666 superannuation accounts,
+// trusts and gifts, reporting a match failure that could not have happened.
 const selectHoldingEventsQuery = `
 	SELECT i.politician_id::text, i.item_no, i.holder,
 	       COALESCE(NULLIF(sec.stock_code, ''), NULLIF(sec.candidate_norm, ''), upper(btrim(i.declared_text))) AS holding_key,
@@ -91,7 +103,7 @@ const selectHoldingEventsQuery = `
 	JOIN register_item_securities sec ON sec.item_id = i.id
 	WHERE i.item_no IN (1, 4) AND NOT i.is_nil
 	  AND i.politician_id IS NOT NULL
-	  AND sec.entity_kind <> 'not_an_entity'
+	  AND sec.entity_kind NOT IN ('not_an_entity', 'multi_entity')
 
 	UNION ALL
 
@@ -101,13 +113,14 @@ const selectHoldingEventsQuery = `
 	       COALESCE(loc.sal_code, '') AS sal_code,
 	       COALESCE(NULLIF(loc.locality_raw, ''), i.declared_text) AS declared_text,
 	       COALESCE(loc.purpose_raw, '') AS secondary_text,
-	       'listed' AS entity_kind,
+	       '' AS entity_kind,
 	       i.change_type, s.lodged_date, COALESCE(s.parliament, 0), s.id::text, i.source_url
 	FROM register_declared_items i
 	JOIN register_statements s ON s.id = i.statement_id
 	JOIN register_item_locations loc ON loc.item_id = i.id
 	WHERE i.item_no = 3 AND NOT i.is_nil
 	  AND i.politician_id IS NOT NULL
+	  AND loc.resolution_status <> 'not_a_location'
 
 	UNION ALL
 
@@ -115,7 +128,7 @@ const selectHoldingEventsQuery = `
 	       upper(btrim(i.declared_text)) AS holding_key,
 	       '' AS stock_code, '' AS sal_code,
 	       i.declared_text, i.secondary_text,
-	       'listed' AS entity_kind,
+	       '' AS entity_kind,
 	       i.change_type, s.lodged_date, COALESCE(s.parliament, 0), s.id::text, i.source_url
 	FROM register_declared_items i
 	JOIN register_statements s ON s.id = i.statement_id
@@ -315,7 +328,7 @@ func rebuildHoldingPeriods(ctx context.Context, pool *pgxpool.Pool) (holdingFold
 					 first_parliament, source_url, entity_kind)
 				VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
 				        NULLIF($12,'')::uuid, NULLIF($13,'')::uuid, NULLIF($14,0), $15,
-				        COALESCE(NULLIF($16,''), 'listed'))`,
+				        $16)`,
 				key.PoliticianID, key.ItemNo, key.Holder, key.HoldingKey, stock, sal,
 				iv.DeclaredText, iv.SecondaryText, iv.From, iv.FromKnown, iv.To,
 				iv.FirstStatementID, iv.LastStatementID, iv.FirstParliament,

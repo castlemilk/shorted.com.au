@@ -50,14 +50,60 @@ var nonSecurityRe = regexp.MustCompile(
 		`gifts?|hampers?|memberships?|subscriptions?|donations?|` +
 		`flight\s+upgrades?|upgrades?|lounge(\s+(access|membership))?|` +
 		`tickets?|complimentary\s+.*|hospitality|accommodation|` +
-		`travel(\s+(costs?|expenses?))?|airfares?|sponsored\s+travel|` +
+		`travel(\s+(costs?|expenses?))?|airfares?|sponsored\s+travel|flights?|` +
 		`\d{4}|n/?a|nil|none|not\s+applicable|various|as\s+above|same\s+as\s+above` +
 		`)\s*$`,
+)
+
+// A HOLDER LABEL that escaped the form's label column and became a candidate in
+// its own right. The form's three holder rows are Self / Spouse-Partner /
+// Dependent Children, and when the label bleeds into the value column the label
+// itself gets declared as a thing the member owns.
+//
+// Anchored whole-string so a real company whose NAME contains one of these words
+// is untouched by construction — "Turnbull & Partners Pty Limited", "Save the
+// Children" and "Slater & Gordon Limited" all survive. The leading/trailing \W*
+// is load-bearing: the observed rows are "spouse)" and "Spouse/Partner:", whose
+// punctuation makeCandidate's Trim(".,;") does not remove.
+//
+// This is not cosmetic. "SELF" is a REAL ASX code (SelfWealth SMSF Leaders ETF),
+// so the ticker path resolved it and published a FABRICATED shareholding in a
+// real ETF against a named member.
+//
+// Deliberately NOT applied outside items 1/3/4: Barnaby Joyce's 45P item-12 row
+// is a base statement whose declared value genuinely is the word "Partner".
+var holderLabelRe = regexp.MustCompile(
+	`(?i)^\W*(self|spouses?|partners?|spouse\s*/?\s*partner|` +
+		`dependent(\s+child(ren)?)?|child(ren)?)\W*$`,
 )
 
 // The WHOLE candidate is an ASX-shaped code. ASX codes are 3 letters, with a few
 // 2- and 4-character exceptions; anchored so it can never fire on a phrase.
 var bareTickerRe = regexp.MustCompile(`^([A-Z0-9]{2,4})$`)
+
+// An AMENDMENT NOTICE: the member instructing the registrar to remove, or
+// recording that they sold or resigned. It is a real declaration — of a CHANGE —
+// but it is not a thing that is held, and the fold has no way to know that, so it
+// opened an interval and published the negation as a CURRENT interest.
+//
+// Measured verbatim, every one of these was live with currently_declared=true:
+//
+//	"please remove Listed Companies: VTG"          -> published as a live VTG link
+//	"Remove reference to Westpac (partner)."
+//	"Delete Branyan Investments Pty Ltd for self and spouse"  -> a current DIRECTORSHIP
+//	"Resignation as Director and Secretary of Firebeam Pty Ltd"
+//	"Sale of all AOG (AVEO Group) shares owned by self and husband ... on Monday"
+//	"Disposal of her shareholding in Scintilla Strategic Investments Limited"
+//
+// Rejecting them withholds a past-tense fact. Publishing them asserts the exact
+// OPPOSITE of what the member wrote, against a named person, so the asymmetry
+// rule decides it. Rendering them properly needs change_type on the read path;
+// see docs/politician-register-architecture.md §8.17.
+var amendmentNoticeRe = regexp.MustCompile(
+	`(?i)^\s*(please\s+remove|remove|delete|deletion\s+of|sale\s+of|sold|` +
+		`disposal\s+of|disposed\s+of|resignation\s+as|i\s+resigned|resigned|` +
+		`ceased|no\s+longer)\b`,
+)
 
 // A gift/travel LOG LINE, which items 11-12 are full of and which leaks into the
 // item-1 candidate pool. Measured examples:
@@ -74,6 +120,36 @@ var giftLogRe = regexp.MustCompile(
 	`(?i)^\s*(\d{1,2}/\d{1,2}/\d{2,4}|\$\s?[\d,]|\d+\s*(x|pack|bottles?|cases?)\s)`,
 )
 
+// GIFT / HOSPITALITY PROSE that leaks from items 11-12 into the item-1 pool.
+//
+// This is not cosmetic tidying — it was publishing WRONG COMPANIES against named
+// members, because an organisation's acronym is often also a real ASX code:
+//
+//	Anthony Albanese  "pin and a football from the NRL"            -> NRL, Newland Resources
+//	Peter Dutton      "Tickets ... State of Origin 3 NRL"          -> NRL   (National Rugby League)
+//	Steve Irons       "ROD STEWART CONCERT TICKETS HOSTED BY RAC"  -> RAC   (Royal Automobile Club)
+//	Steve Irons       "2 Tickets to AFL match ... hosted by WCE"   -> WCE   (West Coast Eagles)
+//	M. McCormack      "2 x tickets to the New Year's Test at SCG"  -> SCG   (Sydney Cricket Ground)
+//	Sharon Claydon    "Friends of the ABC"                         -> ABC   (the broadcaster)
+//	Craig Laundy      "2 Tickets to the Women's Open from NAB"     -> NAB   (a real bank, but a GIFT)
+//
+// A stopword list cannot fix this: NRL, AFL, ARU, RAC, SCG, WCE and ABC are all
+// live ASX codes, so blocking them would also block a member who genuinely holds
+// one. The reliable signal is that the CELL is hospitality prose, not a holding.
+//
+// Measured over the whole corpus: rejects 14 currently-'resolved' rows and every
+// one of the 14 is a wrong fact. No genuine holding matches.
+//
+// DELIBERATELY EXCLUDES a bare "flight": "FLT" is Flight Centre Travel Group and
+// appears inside real SMSF share lists. Only the phrase "flight upgrade" is a
+// gift marker.
+var giftProseRe = regexp.MustCompile(
+	`(?i)\b(tickets?|hospitality|courtesy\s+of|hosted\s+by|guest\s+of|` +
+		`invitation|corporate\s+box|grand\s+final|state\s+of\s+origin|` +
+		`test\s+match|concert|gala\s+dinner|christmas\s+ham|football|` +
+		`flight\s+upgrade|pin\s+and)\b`,
+)
+
 // A quantity prefix on a REAL holding: "1000 SHARES IN KWINANA COMMUNITY
 // FINANCIAL SERVICES LTD". Stripping it is what lets the company name match —
 // rejecting the row on length instead would silently drop a genuine declaration.
@@ -84,6 +160,15 @@ var tickerStopwords = map[string]bool{
 	"LTD": true, "INC": true, "PLC": true, "PTY": true, "SMSF": true,
 	"AUD": true, "USD": true, "NIL": true, "ORD": true, "FPO": true,
 	"SHARES": true, "UNITS": true, "GROUP": true, "BANK": true,
+	// Words that are not securities but ARE live ASX codes, so the ticker path
+	// would resolve them against a named person. USA is UraniumSA and SELF is
+	// the SelfWealth SMSF Leaders ETF — SELF published a fabricated ETF holding
+	// for a member whose form simply had the holder label in the wrong column.
+	// ACN/ABN precede a company number; the states appear in ordinary company
+	// names. ALC is deliberately absent: "Alcidion Group Ltd (ALC)" resolves
+	// legitimately on 3 rows.
+	"USA": true, "SELF": true, "SPOUSE": true, "ACN": true, "ABN": true,
+	"QLD": true, "NSW": true, "VIC": true, "TAS": true, "ACT": true, "NZL": true,
 }
 
 // qualifierRe strips declaration bookkeeping that is not part of a name.
@@ -113,7 +198,8 @@ var (
 	privateCompanyMarkerRe = regexp.MustCompile(`(?i)\bp(?:ty|/l)\b|\bproprietary\b`)
 )
 
-// Entity kinds. Mirrors register_item_securities_entity_kind_check (000098).
+// Entity kinds. Mirrors register_item_securities_entity_kind_check
+// (000098, extended by 000099).
 const (
 	entityKindListed         = "listed"
 	entityKindPrivateCompany = "private_company"
@@ -122,7 +208,149 @@ const (
 	entityKindManagedFund    = "managed_fund"
 	entityKindForeign        = "foreign"
 	entityKindNotAnEntity    = "not_an_entity"
+	entityKindMultiEntity    = "multi_entity"
 )
+
+// ---------------------------------------------------------------------------
+// Multi-entity detection
+// ---------------------------------------------------------------------------
+
+// A candidate that names MORE THAN ONE entity cannot be truthfully labelled with
+// any single one of them. That is the §8.16 blocker: a cell naming a real ASX
+// listing alongside a super fund was chipped "Self-managed super fund", whose
+// tooltip says "these are not on the ASX, so there is no ticker" — so the label
+// actively DENIED the shareholding it was hiding, against a named member.
+//
+// Splitting these was tried and rejected. Every splitter measured either failed
+// to recover the listing (abbreviationTail refuses "Santos Ltd. Held", by design
+// and correctly — "Pty. Ltd." must not split) or manufactured NEW wrong facts:
+// a Ltd-run boundary turns "Astra … Ltd Citigroup (USA)" into a standalone
+// "Citigroup (USA)", which resolves USA to UraniumSA and publishes a live wrong
+// link. See docs/politician-register-architecture.md §8.17.
+//
+// So these are WITHHELD, not relabelled and not split. It costs 16 candidate
+// rows of 5,881 published (0.27%); publishing a label that contradicts the
+// declaration beneath it is not a cost we are allowed to pay.
+var (
+	// The member wrote the word themselves: a "Listed Companies:" heading
+	// inside the cell, or a foreign-exchange annotation.
+	multiListedHeadingRe = regexp.MustCompile(`(?i)listed\s+compan`)
+	multiForeignListedRe = regexp.MustCompile(`(?i)\b(uk|us|nyse|nasdaq|lse)\s+listed\b`)
+	multiPlcRe           = regexp.MustCompile(`(?i)\bplc\b`)
+	// An (a)/(b)/(c) enumerator: the member is listing groups within one cell.
+	// Requires the opening paren, so a bare "a)" list does not qualify — those
+	// are caught by the suffix count below.
+	multiEnumeratorRe = regexp.MustCompile(`\([a-c]\)\s`)
+	// Corporate-suffix arithmetic. MORE public-company suffixes than
+	// private-company ones means at least one named entity is not the vehicle.
+	//
+	// This is a RATIO, not a count, and the distinction is load-bearing:
+	// "Growth Farms Pty Ltd (via Gufee Pty Ltd)" is 2 Ltd / 2 Pty and stays
+	// published as the private company it is. Requiring only ">=2 Ltd" was
+	// measured and would have withheld 47 correctly-labelled private-company
+	// rows (Angus Taylor's holdings, Ken O'Dowd's three companies) for no
+	// safety gain.
+	ltdSuffixRe = regexp.MustCompile(`(?i)\b(ltd|limited)\b`)
+	ptySuffixRe = regexp.MustCompile(`(?i)(\bpty\b|\bp/l\b|\bproprietary\b)`)
+	// A validated ticker whose adjacent parenthetical names the same company:
+	// "AOG (AVEO Group)". Self-corroborating, so it needs no stopword list —
+	// unlike a bare token scan, which measured 14.5% precision because ACN,
+	// ICE, RHT and VAN are all real ASX codes and all appear inside ordinary
+	// private-company names.
+	tickerGlossRe = regexp.MustCompile(`\b([A-Z]{3}[A-Z0-9]{0,2})\s*\(([^)]{3,40})\)`)
+)
+
+// namesMoreThanOneEntity reports whether the candidate text names several
+// entities. `codes` may be nil, which disables only the ticker-gloss arm.
+func namesMoreThanOneEntity(raw string, codes map[string]string) bool {
+	switch {
+	case multiListedHeadingRe.MatchString(raw),
+		multiForeignListedRe.MatchString(raw),
+		multiPlcRe.MatchString(raw),
+		multiEnumeratorRe.MatchString(raw):
+		return true
+	case len(ltdSuffixRe.FindAllString(raw, -1)) > len(ptySuffixRe.FindAllString(raw, -1)):
+		return true
+	}
+
+	for _, m := range tickerGlossRe.FindAllStringSubmatch(raw, -1) {
+		listing, ok := codes[strings.ToUpper(m[1])]
+		if !ok {
+			continue
+		}
+		upperListing := strings.ToUpper(listing)
+		for _, word := range strings.FieldsFunc(strings.ToUpper(m[2]), func(r rune) bool {
+			return !('A' <= r && r <= 'Z') && !('0' <= r && r <= '9')
+		}) {
+			// >3 characters so "THE", "PTY" and "AND" cannot corroborate.
+			if len(word) > 3 && strings.Contains(upperListing, word) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// ---------------------------------------------------------------------------
+// Cell context
+// ---------------------------------------------------------------------------
+
+// A SHAREHOLDINGS CELL LOOKS DIFFERENT FROM A GIFT LOG, and the document tells
+// us which one we are reading. Judging each fragment in isolation is what forced
+// the string-by-string vocabularies above; the cell it came from is far stronger
+// evidence than any keyword list.
+//
+// Measured over item 1: cells carrying a company signal hold 2,551 candidates
+// and produce 1,077 resolutions (42%). Cells carrying NONE hold 2,501 candidates
+// and produce 108 (4.3%) — a tenfold difference. A read of 30 random unresolved
+// candidates from the no-signal cells found: "Bunch of flowers", "Small pewter
+// mug", "battery operated candle", "BBC branded laptop sleeve", "Extra Virgin
+// Olive Oil Soap x 2", "Book: Blue Flames", "Upgrade economy to business class
+// Melbourne to Brisbane", "Approximate value $60.", "Westpac Business One
+// Account", "Potts Point". Exactly one named a security, and it was Meta — a
+// NASDAQ listing, correctly unresolvable here.
+//
+// Those rows are not missing aliases. They are gifts, travel, bank accounts and
+// prose that the 44P/45P scans filed under item 1, and today every one of them
+// renders on a named member's profile as "— not matched to an ASX listing".
+//
+// SAFETY: the signal only ever reclassifies a candidate that FAILED to resolve.
+// A candidate that matched an alias, a stated ticker or a listing name keeps its
+// resolution and stays 'listed', so the 108 real resolutions in no-signal cells
+// are preserved exactly. This removes padding from the denominator; it cannot
+// remove a match.
+var cellCompanyShapeRe = regexp.MustCompile(
+	`(?i)(\b(ltd|limited|group|holdings|plc|nl|corporation|corp|company|bank|` +
+		`resources|mining|energy|industries|pty|proprietary|trust|fund|etf|reit|` +
+		`shares|securities|portfolio|equities|` +
+		// Fund issuers: a cell reading "VAS Vanguard" or "Betashares A200"
+		// carries no corporate suffix at all but is unmistakably a holdings list.
+		`vanguard|betashares|ishares|vaneck|spdr|macquarie|colonial|blackrock|` +
+		`bhp|telstra|woodside)\b|\bp/l\b)`,
+)
+
+// cellHasSecuritySignal reports whether ANY candidate in the cell looks like a
+// security, so the cell as a whole can be read as a shareholdings list.
+//
+// `codes` may be nil, which disables only the bare-ticker arm — a cell written
+// as "BHP, CBA, TLS" carries no corporate suffix at all and would otherwise look
+// signal-less.
+func cellHasSecuritySignal(candidates []SecurityCandidate, codes map[string]string) bool {
+	for _, c := range candidates {
+		if c.Ticker != "" {
+			return true
+		}
+		if cellCompanyShapeRe.MatchString(c.Raw) {
+			return true
+		}
+		if codes != nil {
+			if _, ok := codes[strings.ToUpper(strings.TrimSpace(c.Raw))]; ok {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 // entityKindOf names WHAT a candidate is, from discriminators that were already
 // computed. It is plumbing, not a new classifier: every branch reads either the
@@ -146,6 +374,13 @@ func entityKindOf(c SecurityCandidate, status string) string {
 	case status == "resolved":
 		// It matched a listing, so it IS one, whatever suffix it carries.
 		return entityKindListed
+	case c.MultiEntity && privateCompanyRe.MatchString(c.Raw):
+		// About to be labelled a vehicle, but the text names more than one
+		// entity — so no single chip is true, and the vehicle chip is the one
+		// that would actively deny a listing named beside it. Scoped to the
+		// vehicle branches on purpose: a multi-entity string with no vehicle
+		// marker falls through to 'listed', which claims nothing false.
+		return entityKindMultiEntity
 	case smsfMarkerRe.MatchString(c.Raw):
 		return entityKindSMSF
 	case familyTrustMarkerRe.MatchString(c.Raw):
@@ -157,12 +392,47 @@ func entityKindOf(c SecurityCandidate, status string) string {
 		// resolution says so — the 'noise' seeds in 000097 ("APPLICABLE",
 		// "SEE ATTACHED", "LTD"). A human already decided these name nothing.
 		return entityKindNotAnEntity
+	case status == "unmatched" && c.ItemNo == 1 && !c.CellHasSecuritySignal:
+		// Nothing in this cell looks like a security, and this candidate did not
+		// resolve — so the cell is a gift log, a travel log or prose that was
+		// filed under item 1, not a shareholdings list. Calling it a listing we
+		// failed to match would be a claim about a match attempt that never
+		// meaningfully happened, and it publishes "Bunch of flowers" as a
+		// company interest.
+		//
+		// ITEM 1 ONLY. Item 4 (directorships) is overwhelmingly unlisted bodies
+		// by nature — "Art Gallery Society of NSW", a school board, a charity —
+		// and §8.15 decided deliberately that those ARE real declared interests
+		// worth publishing. Applying a shareholdings-shaped test to them would
+		// withhold the very rows that change was made to surface.
+		return entityKindNotAnEntity
 	default:
 		// A plausible listing we have not matched. This is the ONLY case the
 		// "not matched to an ASX listing" wording was ever written for.
 		return entityKindListed
 	}
 }
+
+// A candidate that names a FAMILY MEMBER rather than a company. Members write
+// the relation into the cell, and the splitter turns it into a candidate that
+// then renders on the profile as a declared company interest:
+//
+//	"daughter Poppy Hunt and son James Hunt"   <- a member's MINOR CHILDREN
+//	"wife Louise Howarth."
+//	"My wife has been employed by Valspar Group Pty Ltd."
+//
+// Editorial standards §4 puts private individuals and family members out of
+// scope, and naming a child as a company interest is wrong twice over.
+//
+// "child" is DELIBERATELY ABSENT from the alternation. It is an ordinary word in
+// Australian company names — "Child Psych Corp Pty Ltd" and "Bald Hills Child
+// Care P/L" are real declared private companies, and "Save the Children" is a
+// real directorship. The relation words kept here do not appear at the START of
+// any company name in this corpus.
+var personReferenceRe = regexp.MustCompile(
+	`(?i)^\s*(my\s+)?(wife|husband|daughter|son|mother|father|brother|sister|` +
+		`step-?son|step-?daughter|partner's)\b`,
+)
 
 // proseRe marks a line as narrative rather than an entity name. Members write
 // sentences into the cell, and the parser preserves them faithfully:
@@ -178,9 +448,21 @@ type SecurityCandidate struct {
 	Ordinal int
 	Raw     string
 	Norm    string
+	Wide    string // Norm under the register-scoped widened normalisation
 	Ticker  string // an ASX code the member stated themselves
 	Private bool   // an unlisted private entity (Pty Ltd, family trust, SMSF)
 	Reject  string // non-empty => not a security; carries the reason
+	// MultiEntity: the text names more than one entity, so no single label is
+	// true of it. Set by resolveSecurityCandidate, which has the listings map
+	// the ticker-gloss arm needs.
+	MultiEntity bool
+	// CellHasSecuritySignal: some candidate in the SAME cell looks like a
+	// security, so this cell can be read as a shareholdings list at all. Set by
+	// the caller, which is the only place that can see a candidate's siblings.
+	CellHasSecuritySignal bool
+	// ItemNo is the form item this candidate was declared under. The cell-signal
+	// rule is scoped to item 1; see entityKindOf.
+	ItemNo int
 }
 
 // splitSecurityBlob turns a declared item-1 cell into ordered candidates.
@@ -267,6 +549,46 @@ func normaliseUnicode(s string) string {
 	return strings.Join(strings.Fields(replacer.Replace(s)), " ")
 }
 
+// selfGlossedAcronym reports whether a parenthesised code is simply the
+// INITIALISM of the words before it — an organisation glossing its own name,
+// not a member quoting a ticker.
+//
+// "Confederation of Indian Industry (CII) - Tie" published CII / Ci Resources as
+// a shareholding; "World Trade Centre (WTC) India - Tie" published WTC. Both are
+// gifts of a necktie from a trade body.
+//
+// Blocking the TICKER path here is safe precisely because it is not a rejection:
+// the candidate falls through to the name path, so an organisation that IS a
+// listed company still resolves by its name. Verified on the corpus —
+// "Commonwealth Bank of Australia (CBA)" still reaches CBA and "Insurance
+// Australia Group (IAG)" still reaches IAG, while the two trade bodies match
+// nothing, which is the correct answer for them.
+func selfGlossedAcronym(raw, code string) bool {
+	open := strings.Index(raw, "("+code+")")
+	if open <= 0 {
+		return false
+	}
+	var initials strings.Builder
+	for _, word := range strings.Fields(raw[:open]) {
+		cleaned := strings.Map(func(r rune) rune {
+			if ('a' <= r && r <= 'z') || ('A' <= r && r <= 'Z') {
+				return r
+			}
+			return -1
+		}, word)
+		if cleaned == "" {
+			continue
+		}
+		// Skip the joining words an initialism conventionally drops.
+		switch strings.ToUpper(cleaned) {
+		case "OF", "THE", "AND", "FOR", "A":
+			continue
+		}
+		initials.WriteString(strings.ToUpper(cleaned[:1]))
+	}
+	return initials.String() == strings.ToUpper(code)
+}
+
 func makeCandidate(ordinal int, fragment string) SecurityCandidate {
 	c := SecurityCandidate{Ordinal: ordinal, Raw: strings.TrimSpace(fragment)}
 	if c.Raw == "" {
@@ -277,15 +599,28 @@ func makeCandidate(ordinal int, fragment string) SecurityCandidate {
 	// the line is not an unlisted private entity.
 	private := privateCompanyRe.MatchString(c.Raw)
 	c.Private = private
+	// A parenthesised acronym that is merely the initialism of the words before
+	// it gets STRIPPED rather than trusted, so the name underneath gets a clean
+	// run at the name matcher. Leaving "(CBA)" in place would normalise to
+	// "COMMONWEALTH BANK OF AUSTRALIA CBA", which matches no listing — blocking
+	// the ticker path without stripping would lose a real holding.
+	selfGloss := ""
 	if !private {
 		if m := tickerInTextRe.FindStringSubmatch(c.Raw); m != nil && !tickerStopwords[m[1]] {
-			c.Ticker = m[1]
+			if selfGlossedAcronym(c.Raw, m[1]) {
+				selfGloss = "(" + m[1] + ")"
+			} else {
+				c.Ticker = m[1]
+			}
 		}
 	}
 
 	// Strip a leading share-quantity BEFORE anything else, so the company name
 	// underneath gets a fair chance at every matcher.
 	base := sharesInPrefixRe.ReplaceAllString(c.Raw, "")
+	if selfGloss != "" {
+		base = strings.TrimSpace(strings.Replace(base, selfGloss, "", 1))
+	}
 
 	cleaned := qualifierRe.ReplaceAllString(base, "")
 	cleaned = securitySuffixRe.ReplaceAllString(strings.TrimSpace(cleaned), "")
@@ -300,13 +635,24 @@ func makeCandidate(ordinal int, fragment string) SecurityCandidate {
 	//
 	// Safe because resolveSecurityCandidate only accepts a ticker that EXISTS in
 	// the listings map, so a 3-letter word that is not a real code still misses.
-	if c.Ticker == "" && !private {
+	//
+	// The private veto is deliberately NOT applied to these two arms. A member
+	// who writes "Superannuation Fund - Listed Companies: VCX" has stated the
+	// code themselves, and vetoing it published the row under an SMSF chip with
+	// the shareholding invisible. Measured over the whole corpus, lifting the
+	// veto here resolves exactly 5 rows — MLB, TNE and VCX x3 — all genuine, no
+	// false positives, alone or combined with any splitter.
+	//
+	// It stays on tickerInTextRe above, because the PARENTHESISED arm fires on
+	// exactly one vehicle row and that row is wrong: "… Citigroup (USA)" would
+	// publish a live link to USA / UraniumSA.
+	if c.Ticker == "" {
 		if m := bareTickerRe.FindStringSubmatch(cleaned); m != nil && !tickerStopwords[m[1]] {
 			c.Ticker = m[1]
 		}
 	}
 
-	if c.Ticker == "" && !private {
+	if c.Ticker == "" {
 		if m := trailingTickerRe.FindStringSubmatch(cleaned); m != nil && !tickerStopwords[m[1]] {
 			c.Ticker = m[1]
 			cleaned = strings.TrimSpace(strings.TrimSuffix(cleaned, m[1]))
@@ -314,8 +660,20 @@ func makeCandidate(ordinal int, fragment string) SecurityCandidate {
 	}
 
 	switch {
+	case amendmentNoticeRe.MatchString(c.Raw):
+		// An instruction to the registrar, or a disposal. Publishing it as a
+		// holding asserts the opposite of what the member wrote.
+		c.Reject = "amendment_notice"
+	case holderLabelRe.MatchString(cleaned):
+		c.Reject = "holder_label"
+	case personReferenceRe.MatchString(c.Raw):
+		c.Reject = "person_reference"
 	case giftLogRe.MatchString(c.Raw):
 		c.Reject = "gift_log_line"
+	case giftProseRe.MatchString(c.Raw):
+		// Hospitality prose, not a holding. Must be tested BEFORE any ticker is
+		// trusted: the acronym at the end of "…courtesy of NRL" is a real code.
+		c.Reject = "gift_prose"
 	case nonSecurityRe.MatchString(cleaned):
 		// Items 11 and 12 (gifts, sponsored travel) go through the same splitter
 		// as item 1, so their content lands in the candidate pool. Measured after
@@ -336,6 +694,7 @@ func makeCandidate(ordinal int, fragment string) SecurityCandidate {
 	}
 
 	c.Norm = normalizeEntityName(cleaned)
+	c.Wide = widenEntityName(cleaned)
 	if c.Norm == "" && c.Ticker == "" && c.Reject == "" {
 		c.Reject = "empty_after_normalisation"
 	}
@@ -345,6 +704,107 @@ func makeCandidate(ordinal int, fragment string) SecurityCandidate {
 // ---------------------------------------------------------------------------
 // Matching
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Register-scoped widened normalisation
+// ---------------------------------------------------------------------------
+//
+// A SECOND, more aggressive normalisation, applied only on the register path.
+//
+// It is deliberately NOT a change to normalizeEntityName/normExpr, which are
+// shared with the lobbyist and corporate-tax matchers (runMatch). Widening those
+// would silently re-key every one of their mappings; this layers on top instead,
+// and is consulted only after the strict name match has already missed.
+//
+// What it adds, each taken from a measured miss in this corpus:
+//
+//	leading "THE"          "The Lottery Corporation" vs "Lottery Corporation"
+//	" AND " -> " "         "Bendigo and Adelaide Bank" vs "Bendigo Adelaide Bank"
+//	digit joining          "SOUTH 32" -> "SOUTH32"
+//	a wider suffix list    GRP/CORP/NL/INC/CO/REIT/FPO/UNITS/STAPLED/ORDINARY/LLC
+//	trailing quantity noun "Telstra shares" -> "Telstra"
+//
+// SAFETY: it is applied to BOTH sides — the candidate AND the listing name — and
+// a widened name that maps to more than one listing is DROPPED, exactly as the
+// strict map drops ambiguous names. So it can only ever add a match that is
+// unique under the wider key; it can never pick between two companies.
+var (
+	widenedSuffixRe  = regexp.MustCompile(`(?i)\s+(LIMITED|LTD|GROUP|GRP|HOLDINGS|CORPORATION|CORP|COMPANY|PLC|NL|INC|CO|TRUST|PTY|PROPRIETARY|REIT|FPO|UNITS|STAPLED|ORDINARY|ORD|LLC)\.?$`)
+	widenedLeadingRe = regexp.MustCompile(`(?i)^THE\s+`)
+	widenedAndRe     = regexp.MustCompile(`(?i)\s+AND\s+`)
+	widenedTailNoun  = regexp.MustCompile(`(?i)\s+(SHARES?|STOCK|SECURITIES|SHAREHOLDINGS?)$`)
+	widenedDigitJoin = regexp.MustCompile(`([A-Z])\s+(\d+)$`)
+	widenedNonAlnum  = regexp.MustCompile(`[^A-Z0-9]+`)
+)
+
+func widenEntityName(s string) string {
+	out := strings.ToUpper(strings.TrimSpace(s))
+	out = strings.TrimSpace(widenedNonAlnum.ReplaceAllString(out, " "))
+	out = widenedLeadingRe.ReplaceAllString(out, "")
+	out = widenedAndRe.ReplaceAllString(out, " ")
+	// Strip repeatedly: "Vanguard Australian Shares Index Fund Ltd Ord" needs
+	// more than one pass, same reason normalizeEntityName strips twice.
+	for range 3 {
+		out = strings.TrimSpace(widenedSuffixRe.ReplaceAllString(out, ""))
+		out = strings.TrimSpace(widenedTailNoun.ReplaceAllString(out, ""))
+	}
+	out = widenedDigitJoin.ReplaceAllString(out, "$1$2")
+	return strings.Join(strings.Fields(out), " ")
+}
+
+// loadWidenedCompanyNames builds the widened map IN GO from the same listings
+// the strict map is built from, so the two normalisations can never drift the
+// way a hand-mirrored SQL expression would. Names that widen onto more than one
+// listing are dropped.
+func loadWidenedCompanyNames(ctx context.Context, pool *pgxpool.Pool) (map[string]CompanyNameMapping, error) {
+	rows, err := pool.Query(ctx, `
+		SELECT stock_code, company_name, COALESCE(NULLIF(industry, ''), 'Unclassified')
+		FROM "company-metadata"
+		WHERE company_name IS NOT NULL AND btrim(company_name) <> ''
+		  AND stock_code IS NOT NULL AND btrim(stock_code) <> ''`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	type entry struct {
+		mapping CompanyNameMapping
+		codes   map[string]bool
+	}
+	staged := map[string]*entry{}
+	for rows.Next() {
+		var code, name, industry string
+		if err := rows.Scan(&code, &name, &industry); err != nil {
+			return nil, err
+		}
+		key := widenEntityName(name)
+		if len(key) < 4 {
+			// Too short to be a safe key: "AGL", "CSL" would collide with the
+			// ticker namespace and with each other.
+			continue
+		}
+		e, ok := staged[key]
+		if !ok {
+			e = &entry{
+				mapping: CompanyNameMapping{StockCode: code, CompanyName: name, Industry: industry},
+				codes:   map[string]bool{},
+			}
+			staged[key] = e
+		}
+		e.codes[strings.ToUpper(code)] = true
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	out := map[string]CompanyNameMapping{}
+	for key, e := range staged {
+		if len(e.codes) == 1 {
+			out[key] = e.mapping
+		}
+	}
+	return out, nil
+}
 
 // SecurityAlias is a curated declared-name -> code decision.
 type SecurityAlias struct {
@@ -458,8 +918,10 @@ func resolveSecurityCandidate(
 	codes map[string]string,
 	names map[string]CompanyNameMapping,
 	ambiguous map[string]int,
+	wide map[string]CompanyNameMapping,
 ) SecurityResolution {
-	res := resolveSecurityStatus(c, aliases, codes, names, ambiguous)
+	c.MultiEntity = namesMoreThanOneEntity(c.Raw, codes)
+	res := resolveSecurityStatus(c, aliases, codes, names, ambiguous, wide)
 	res.EntityKind = entityKindOf(c, res.Status)
 	return res
 }
@@ -470,6 +932,7 @@ func resolveSecurityStatus(
 	codes map[string]string,
 	names map[string]CompanyNameMapping,
 	ambiguous map[string]int,
+	wide map[string]CompanyNameMapping,
 ) SecurityResolution {
 	if c.Reject != "" {
 		return SecurityResolution{Status: "not_a_security"}
@@ -498,6 +961,24 @@ func resolveSecurityStatus(
 		}
 	}
 
+	// A "Pty Ltd" / family trust / SMSF that matched nothing is not a listing we
+	// failed to find — it is not a listed security at all. Classifying it as
+	// unmatched buries the real curation work: 171 of a 607-row item-1 backlog
+	// were private entities, and item 4 (directorships) is almost entirely them.
+	// A curated alias and a member-stated ticker still win, because both are
+	// checked first — those are human or member decisions, not coincidences.
+	//
+	// THIS MUST STAY ABOVE THE NAME MATCH. normalizeEntityName strips " LTD" and
+	// then " PTY", so a private company collapses onto a listing's name by
+	// coincidence: "Endeavour Pty Ltd" -> ENDEAVOUR matched Endeavour Group and
+	// published a live /shorts/EDV link against a member's spouse's private
+	// company. Exactly one row corpus-wide, and exactly one wrong fact.
+	// "Metrics Master Income Trust" -> MXT is unaffected: privateCompanyRe wants
+	// a FAMILY trust, not a bare one.
+	if c.Private {
+		return SecurityResolution{Status: "not_a_security"}
+	}
+
 	if mapping, ok := names[c.Norm]; ok {
 		return SecurityResolution{
 			StockCode: mapping.StockCode, CompanyName: mapping.CompanyName,
@@ -505,13 +986,18 @@ func resolveSecurityStatus(
 		}
 	}
 
-	// A "Pty Ltd" / family trust / SMSF that matched nothing is not a listing we
-	// failed to find — it is not a listed security at all. Classifying it as
-	// unmatched buries the real curation work: 171 of a 607-row item-1 backlog
-	// were private entities, and item 4 (directorships) is almost entirely them.
-	// A curated alias still wins, because it is checked first.
-	if c.Private {
-		return SecurityResolution{Status: "not_a_security"}
+	// The widened key, tried only once the strict key has missed. Still
+	// name_exact: both sides go through the SAME deterministic function and a
+	// widened name matching more than one listing was dropped when the map was
+	// built, so this is an exact match on a wider key — never a fuzzy one, and
+	// never a choice between two companies.
+	if c.Wide != "" && len(c.Wide) >= 4 {
+		if mapping, ok := wide[c.Wide]; ok {
+			return SecurityResolution{
+				StockCode: mapping.StockCode, CompanyName: mapping.CompanyName,
+				Status: "resolved", MatchMethod: "name_exact", Confidence: 1.0,
+			}
+		}
 	}
 
 	// collapseCompanyNameMappings drops names that resolve to more than one
@@ -540,6 +1026,16 @@ type securityResolveStats struct {
 	// ByKind is the honest denominator source: only entity_kind='listed'
 	// candidates can ever carry a ticker, so only they belong in the gate.
 	ByKind map[string]int
+	// Item1Listed / Item1Resolved are the GATE's real numbers.
+	//
+	// The headline used to divide by items 1 AND 4 while calling itself "item-1
+	// security resolution". §3.4 says in terms that item 4 must not sit in the
+	// headline denominator: directorships are overwhelmingly private companies
+	// and resolve at ~1%, so including them understates the metric by ~2.7pt and
+	// measures something nobody intended. Item 4 is still resolved and still
+	// published — it just is not the gate.
+	Item1Listed   int
+	Item1Resolved int
 }
 
 // runRegisterSecurityResolve rebuilds the auto-derived rows in one transaction,
@@ -563,14 +1059,19 @@ func runRegisterSecurityResolve(ctx context.Context, pool *pgxpool.Pool) (securi
 	if err != nil {
 		return stats, fmt.Errorf("load ambiguous names: %w", err)
 	}
+	wide, err := loadWidenedCompanyNames(ctx, pool)
+	if err != nil {
+		return stats, fmt.Errorf("load widened names: %w", err)
+	}
 
 	type declaredRow struct {
-		ID    string
-		Text  string
-		Lines []string
+		ID     string
+		ItemNo int
+		Text   string
+		Lines  []string
 	}
 	rows, err := pool.Query(ctx, `
-		SELECT id::text, declared_text, declared_lines
+		SELECT id::text, item_no, declared_text, declared_lines
 		FROM register_declared_items
 		WHERE item_no IN (1, 4) AND NOT is_nil`)
 	if err != nil {
@@ -579,7 +1080,7 @@ func runRegisterSecurityResolve(ctx context.Context, pool *pgxpool.Pool) (securi
 	var items []declaredRow
 	for rows.Next() {
 		var r declaredRow
-		if err := rows.Scan(&r.ID, &r.Text, &r.Lines); err != nil {
+		if err := rows.Scan(&r.ID, &r.ItemNo, &r.Text, &r.Lines); err != nil {
 			rows.Close()
 			return stats, err
 		}
@@ -606,10 +1107,22 @@ func runRegisterSecurityResolve(ctx context.Context, pool *pgxpool.Pool) (securi
 	batch := &pgx.Batch{}
 	queued := 0
 	for _, item := range items {
-		for _, c := range splitSecurityBlob(item.Lines, item.Text) {
-			res := resolveSecurityCandidate(c, aliases, codes, names, ambiguous)
+		cellCandidates := splitSecurityBlob(item.Lines, item.Text)
+		cellSignal := cellHasSecuritySignal(cellCandidates, codes)
+		for _, c := range cellCandidates {
+			c.CellHasSecuritySignal = cellSignal
+			c.ItemNo = item.ItemNo
+			res := resolveSecurityCandidate(c, aliases, codes, names, ambiguous, wide)
 			stats.Candidates++
 			stats.ByKind[res.EntityKind]++
+			if item.ItemNo == 1 {
+				if res.EntityKind == entityKindListed {
+					stats.Item1Listed++
+				}
+				if res.Status == "resolved" {
+					stats.Item1Resolved++
+				}
+			}
 			switch res.Status {
 			case "resolved":
 				stats.Resolved++

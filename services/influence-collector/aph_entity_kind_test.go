@@ -71,6 +71,9 @@ func TestEntityKindOf(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			c := SecurityCandidate{Raw: tc.raw, Reject: tc.reject}
+			// A single-candidate cell: ask the real function whether the cell
+			// carries a security signal, rather than assuming one.
+			c.CellHasSecuritySignal = cellHasSecuritySignal([]SecurityCandidate{c}, nil)
 			if got := entityKindOf(c, tc.status); got != tc.want {
 				t.Fatalf("entityKindOf(%q, %q) = %q, want %q", tc.raw, tc.status, got, tc.want)
 			}
@@ -135,7 +138,7 @@ func TestPrivateCandidatesAreNeverLabelledListed(t *testing.T) {
 		if !c.Private {
 			t.Fatalf("%q: expected privateCompanyRe to fire", raw)
 		}
-		res := resolveSecurityCandidate(c, aliases, codes, names, ambiguous)
+		res := resolveSecurityCandidate(c, aliases, codes, names, ambiguous, emptyWide)
 		if res.Status != "not_a_security" {
 			t.Fatalf("%q: status = %q, want not_a_security", raw, res.Status)
 		}

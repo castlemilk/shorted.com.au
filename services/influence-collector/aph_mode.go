@@ -432,6 +432,18 @@ func runRegisterResolve(ctx context.Context, pool *pgxpool.Pool) {
 
 	log.Printf("[register-resolve] %d candidates: %d resolved (%.1f%% of %d listed candidates), %d ambiguous, %d unmatched, %d not-a-security",
 		stats.Candidates, stats.Resolved, resolvedPct, resolvable, stats.Ambiguous, stats.Unmatched, stats.NotSecurity)
+
+	// THE GATE is item 1 alone. The line above spans items 1 AND 4, which is what
+	// the resolver processes, but item 4 (directorships) is almost entirely
+	// private companies and resolves at ~1% — §3.4 says it must not sit in the
+	// headline denominator. Reporting both makes the difference visible instead
+	// of silently understating the metric by ~2.7 points.
+	item1Pct := 0.0
+	if stats.Item1Listed > 0 {
+		item1Pct = 100.0 * float64(stats.Item1Resolved) / float64(stats.Item1Listed)
+	}
+	log.Printf("[register-resolve] GATE (item 1 only): %d resolved of %d listed candidates = %.2f%%",
+		stats.Item1Resolved, stats.Item1Listed, item1Pct)
 	for method, n := range stats.ByMethod {
 		log.Printf("[register-resolve]   via %s: %d", method, n)
 	}
