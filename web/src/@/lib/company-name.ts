@@ -142,11 +142,18 @@ export function formatCompanyName(
       ) {
         return code;
       }
+      // A minor word mid-name is lower-case in English title case, always —
+      // so this is applied to a mixed-case source too, repairing the rows the
+      // old backend title-caser stored as "Bank Of Queensland" / "Bendigo And
+      // Adelaide Bank". A LEADING minor word keeps its capital ("The A2 Milk").
+      if (wordIndex > 0 && MINOR_WORDS.has(token.toLowerCase())) {
+        return token.toLowerCase();
+      }
       if (!needsRecasing) return token;
       if (MINOR_WORDS.has(token.toLowerCase())) {
         // Leading minor word is title-cased ("THE A2 MILK" → "The A2 Milk"),
-        // not lowercased and not treated as a short acronym.
-        return wordIndex === 0 ? titleCaseWord(token) : token.toLowerCase();
+        // not treated as a short acronym.
+        return titleCaseWord(token);
       }
       // Short all-caps acronyms in a shouted source stay uppercase. Not
       // applied to a lower-case source, where a 3-letter token is far more

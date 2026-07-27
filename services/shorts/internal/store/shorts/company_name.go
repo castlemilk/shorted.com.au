@@ -105,16 +105,18 @@ func cleanCompanyName(name, stockCode string) string {
 		switch {
 		case code != "" && upperToken == code && (isShouting || isAcronymLike(token)):
 			b.WriteString(code)
+		case wordIndex > 0 && isMinorWord(token):
+			// A minor word mid-name is lower-case in English title case,
+			// always -- applied to a mixed-case source too, repairing rows the
+			// old title-caser stored as "Bank Of Queensland".
+			b.WriteString(strings.ToLower(token))
 		case !needsRecasing:
 			b.WriteString(token)
 		case isMinorWord(token):
 			// Leading minor word is title-cased ("THE A2 MILK" -> "The A2
-			// Milk"), not lowercased and not treated as a short acronym.
-			if wordIndex == 0 {
-				b.WriteString(titleCaseWord(token))
-			} else {
-				b.WriteString(strings.ToLower(token))
-			}
+			// Milk"), not treated as a short acronym. (wordIndex == 0 here:
+			// mid-name minor words were handled above.)
+			b.WriteString(titleCaseWord(token))
 		case isShouting && len(token) <= 3:
 			// Short all-caps acronyms in a shouted source stay uppercase.
 			b.WriteString(upperToken)
