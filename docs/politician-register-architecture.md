@@ -1669,3 +1669,50 @@ intervals. Coverage 44P/45P/48P 100%, 46P 76%, 47P 67%.
    transcript and must be rotated.**
 7. First prod run of `-mode register-discover` is manual, and `REGISTER_DRY_RUN`
    defaults true — see §5.2.
+
+### 8.16 BLOCKER — the entity_kind fold change publishes hidden shareholdings
+
+Adversarial review of §8.15 returned a **major** finding. `aph_periods.go:94` now
+gates the fold on `entity_kind <> 'not_an_entity'` instead of
+`resolution_status <> 'not_a_security'`. That publishes multi-entity candidates
+which NAME REAL ASX LISTINGS while being chipped as a super fund — so the label
+hides the shareholding behind it, against a named member:
+
+```
+Sarah Henderson  "Santos Ltd. Held by SMH Superannuation Fund: Amcor Ltd"   -> chip: SMSF
+Ross Vasta       "Superannuation Fund - Listed Companies: VCX"              -> chip: SMSF   (VCX = Vicinity Centres)
+Ross Vasta       "Spouse / Partner: Superannuation Fund ... TNE"            -> holder=unspecified   (TNE = TechnologyOne)
+Meryl Swanson    "Cybg PLC (jointly owned with spouse indirectly via Self Mana…"
+```
+
+Two distinct faults: a real listing rendered under a label that denies it is one,
+and a holder attributed `unspecified` when the row's own text says
+"Spouse / Partner". Both are wrong facts about named individuals.
+
+It passed every aggregate check — gate moved 25.2% -> 25.3%, tests green, chips
+rendered. That is the shape of this failure: it looks like success in the numbers.
+
+**Fix, in order:**
+
+1. **Revert or re-gate `aph_periods.go:94`.** The parser fixes in `b769bf24c` are
+   sound and SEPARABLE — keep them. It is only the fold's inclusion rule that is
+   unsafe.
+2. **Split multi-entity candidates before classification.** `"Santos Ltd. Held by
+   SMH Superannuation Fund: Amcor Ltd"` is two listings and a fund, not one SMSF.
+   `splitSecurityBlob` already exists; these strings are reaching `entityKindOf`
+   unsplit, and a whole-string classifier cannot be right about them.
+3. **Do not classify a candidate whose text names a ticker or a listed company.**
+   A vehicle marker ("Superannuation Fund", "Trust") must not outrank an explicit
+   listing in the same string — that ordering is what produced these rows.
+4. Re-run `--stage extract` + `register-load`: `mv_register_public_holdings` still
+   holds the pre-fix item-2 text, so the two §8.14 strings persist until it lands.
+
+**Do not merge PR #364 until 1-3 are fixed and re-reviewed.** The §6.1 launch gate
+was already unmet at 25.3%; this is a second, independent blocker and a more
+serious one, because it is a wrong fact rather than a missing match.
+
+Method note worth keeping: the implementer's own report said all four parts were
+complete and verified. The defect surfaced only because a separate reviewer was
+told to REFUTE the work and queried the database for real rows instead of trusting
+the report. Both of the §8.14 diagnoses this work was based on also turned out to
+be wrong. Assume the report, not just the code, needs independent checking.
