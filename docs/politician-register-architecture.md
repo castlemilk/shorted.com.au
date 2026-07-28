@@ -1857,6 +1857,13 @@ and rejected for manufacturing new wrong facts.
    (amendment notices in items 2/5-14) and 5 (a named minor) are the two a
    reviewer is most likely to object to.
 
+**The feedback loop:** `analysis/notebooks/register_quality.ipynb` — a per-document
+quality scoreboard, one detector per known failure class, a `inspect_document()`
+drill-down that prints what we extracted beside the source URL and the local PDF,
+and a `flag()` that appends to `register_feedback.csv`. Needs only pandas +
+psycopg2 (deliberately no SQLAlchemy — the kernel does not have it). Runs clean
+end to end; 218 of 769 documents carry at least one quality signal.
+
 **High value, not blocking:**
 
 3. **Review console** — `docs/register-review-console.md`, 13 ordered steps.
