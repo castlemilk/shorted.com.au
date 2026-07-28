@@ -280,17 +280,17 @@ jobs:
           - name: enrichment-processor
             dockerfile: services/enrichment-processor/Dockerfile
             context: services
-          - name: news-aggregator
-            dockerfile: services/news-aggregator/Dockerfile
-            context: services
-          - name: asx-announcement-crawler
-            dockerfile: services/asx-announcement-crawler/Dockerfile
-            context: services
           - name: house-price-collector
             dockerfile: services/house-price-collector/Dockerfile
             context: services
-          - name: economy-collector
-            dockerfile: services/economy-collector/Dockerfile
+          - name: shorted-jobs
+            dockerfile: services/jobs/Dockerfile
+            context: services
+          # Same binary + build stage as shorted-jobs, Debian + Chromium
+          # runtime. Only `shorted discovery` needs it; the distroless image
+          # above stays lean for every other job.
+          - name: shorted-jobs-browser
+            dockerfile: services/jobs/Dockerfile.browser
             context: services
           - name: influence-collector
             dockerfile: services/influence-collector/Dockerfile
@@ -429,27 +429,13 @@ jobs:
           INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
           OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
         run: |
-          # Ensure a secret exists and only add a new version if the value has changed.
-          # This prevents version bloat ($0.06/version/month) from identical re-deploys.
-          ensure_secret() {
-            local name="$1" value="$2"
-            if [ -z "$value" ]; then
-              echo "⚠️ $name not set, skipping"
-              return 0
-            fi
-            if ! gcloud secrets describe "$name" --project "$GCP_PROJECT_ID" &>/dev/null; then
-              echo "Creating secret: $name"
-              printf "%s" "$value" | gcloud secrets create "$name" --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
-              return 0
-            fi
-            CURRENT=$(gcloud secrets versions access latest --secret="$name" --project "$GCP_PROJECT_ID" 2>/dev/null || true)
-            if [ "$CURRENT" = "$value" ]; then
-              echo "✅ $name unchanged, skipping"
-            else
-              echo "🔄 $name changed, adding new version"
-              printf "%s" "$value" | gcloud secrets versions add "$name" --data-file=- --project "$GCP_PROJECT_ID"
-            fi
-          }
+          # Single source of truth: scripts/ensure-secret.sh. It only adds a new
+          # version when the value actually changed, comparing sha256 of the
+          # trailing-newline-normalised bytes (a raw `$(...)` string compare can
+          # never match a GH secret that carries a trailing newline — that bug
+          # produced 1,002 INTERNAL_SERVICE_SECRET versions and led to the
+          # 2026-07-26 outage; see docs/incidents/).
+          ensure_secret() { bash "$GITHUB_WORKSPACE/scripts/ensure-secret.sh" "$1" "${2:-}"; }
 
           ensure_secret "OPENAI_API_KEY" "$OPENAI_API_KEY"
           ensure_secret "GEMINI_API_KEY_CHAT" "$GEMINI_API_KEY"
@@ -477,11 +463,10 @@ jobs:
             -var="market_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="market_data_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="enrichment_processor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/enrichment-processor:${{ needs.determine-environment.outputs.image-tag }}" \
-            -var="news_aggregator_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/news-aggregator:${{ needs.determine-environment.outputs.image-tag }}" \
-            -var="asx_announcement_crawler_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/asx-announcement-crawler:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="weekly_report_generator_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/weekly-report-generator:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="house_price_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/house-price-collector:${{ needs.determine-environment.outputs.image-tag }}" \
-            -var="economy_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/economy-collector:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="shorted_jobs_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorted-jobs:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="shorted_jobs_browser_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorted-jobs-browser:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="signals_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/signals-collector:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="report_extractor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/report-extractor:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="grafana_auth=${{ secrets.GRAFANA_SERVICE_ACCOUNT_TOKEN }}" \
@@ -598,19 +583,9 @@ jobs:
           DB_NAME=$(echo $DATABASE_URL | sed -n 's|.*/\([^?]*\).*|\1|p')
           DB_ADDRESS="${DB_HOST}:${DB_PORT}"
 
-          # Ensure secrets exist (only add new version if value changed)
-          ensure_secret() {
-            local name="$1" value="$2"
-            if [ -z "$value" ]; then echo "⚠️ $name not set, skipping"; return 0; fi
-            if ! gcloud secrets describe "$name" --project "$GCP_PROJECT_ID" &>/dev/null; then
-              printf "%s" "$value" | gcloud secrets create "$name" --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
-              return 0
-            fi
-            CURRENT=$(gcloud secrets versions access latest --secret="$name" --project "$GCP_PROJECT_ID" 2>/dev/null || true)
-            if [ "$CURRENT" = "$value" ]; then echo "✅ $name unchanged"; else
-              printf "%s" "$value" | gcloud secrets versions add "$name" --data-file=- --project "$GCP_PROJECT_ID"
-            fi
-          }
+          # Ensure secrets exist (only add new version if value changed).
+          # See scripts/ensure-secret.sh for the trailing-newline churn fix.
+          ensure_secret() { bash "$GITHUB_WORKSPACE/scripts/ensure-secret.sh" "$1" "${2:-}"; }
           ensure_secret "OPENAI_API_KEY" "$OPENAI_API_KEY"
           ensure_secret "INTERNAL_SERVICE_SECRET" "$INTERNAL_SERVICE_SECRET"
 
@@ -956,27 +931,12 @@ jobs:
           ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
           REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}
         run: |
-          # Only add a new version if the value has actually changed.
-          # This prevents version bloat ($0.06/version/month — was costing $130+/month).
-          ensure_secret() {
-            local name="$1" value="$2"
-            if [ -z "$value" ]; then
-              echo "⚠️ $name not set, skipping"
-              return 0
-            fi
-            if ! gcloud secrets describe "$name" --project "$GCP_PROJECT_ID" &>/dev/null; then
-              echo "🆕 Creating secret: $name"
-              printf "%s" "$value" | gcloud secrets create "$name" --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
-              return 0
-            fi
-            CURRENT=$(gcloud secrets versions access latest --secret="$name" --project "$GCP_PROJECT_ID" 2>/dev/null || true)
-            if [ "$CURRENT" = "$value" ]; then
-              echo "✅ $name unchanged, skipping"
-            else
-              echo "🔄 $name changed, adding new version"
-              printf "%s" "$value" | gcloud secrets versions add "$name" --data-file=- --project "$GCP_PROJECT_ID"
-            fi
-          }
+          # Only add a new version if the value has actually changed
+          # ($0.06/version/month, and version bloat is what broke prod on
+          # 2026-07-26). Logic lives in scripts/ensure-secret.sh: sha256 compare
+          # over trailing-newline-normalised bytes, and never add a version when
+          # `versions access latest` fails on an existing secret.
+          ensure_secret() { bash "$GITHUB_WORKSPACE/scripts/ensure-secret.sh" "$1" "${2:-}"; }
 
           # Core secrets
           ensure_secret "OPENAI_API_KEY" "$OPENAI_API_KEY"
@@ -1124,11 +1084,10 @@ jobs:
             -var="market_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="market_data_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="enrichment_processor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/enrichment-processor:${{ needs.determine-environment.outputs.image-tag }}" \
-            -var="news_aggregator_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/news-aggregator:${{ needs.determine-environment.outputs.image-tag }}" \
-            -var="asx_announcement_crawler_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/asx-announcement-crawler:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="weekly_report_generator_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/weekly-report-generator:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="house_price_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/house-price-collector:${{ needs.determine-environment.outputs.image-tag }}" \
-            -var="economy_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/economy-collector:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="shorted_jobs_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorted-jobs:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="shorted_jobs_browser_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorted-jobs-browser:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="signals_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/signals-collector:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="report_extractor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/report-extractor:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="grafana_auth=${{ secrets.GRAFANA_SERVICE_ACCOUNT_TOKEN }}" \

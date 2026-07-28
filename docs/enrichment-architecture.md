@@ -11,10 +11,10 @@
 ┌──────────────────────────────────────────────────────────────────────────┐
 │ shorted (this repo) — the product + data pipelines                         │
 │   services/enrichment-processor   bespoke 6-phase company enrichment        │
-│   services/asx-announcement-crawler  ASX announcements → director/dividend  │
+│   services/jobs (shorted announcements) ASX announcements → director/divid. │
 │   services/report-extractor       financial-report PDF → metrics + digest   │
 │   services/signals-collector      NEW: risk/reputation signals              │
-│   services/news-aggregator        RSS/news → match → sentiment → embeddings │
+│   services/jobs (shorted news)    RSS/news → match → sentiment → embeddings │
 │   services/pkg/stealthhttp        thin wrapper over the stealth engine      │
 └───────────────┬───────────────────────────────┬───────────────────────────┘
                 │ HTTP (Connect JSON)            │ import (go.mod)
@@ -45,8 +45,8 @@
 - Options: `WithTimeout`, `WithTLSProfile`, `WithProxy`, `WithMaxRedirects`, `WithExecPath`.
 - OTel-instrumented: `shorted.stealth.fetch_{duration,total,errors,bytes}`.
 
-Consumers in shorted: `news-aggregator` (rss_fetcher, googlenews_resolve, image_backfill),
-`asx-announcement-crawler`, `enrichment-processor`, `pkg/enrichment` (logo_discoverer,
+Consumers in shorted: `shorted news` (rss_fetcher, googlenews_resolve, image_backfill),
+`shorted announcements`, `enrichment-processor`, `pkg/enrichment` (logo_discoverer,
 linkedin_person_client, report_crawler, utils).
 
 **Not yet used by shorted:** the waterfall auto-escalation, evasion FSM / RL policy,
@@ -84,9 +84,9 @@ already-completed stocks (`"already enriched, use force=true"`); `unenriched`/`s
 on status/date. There is **no "missing key_people" selector** — targeting that gap requires a
 status reset first.
 
-## 4. Pipeline B — Director trades (`asx-announcement-crawler` + `report-extractor`)
+## 4. Pipeline B — Director trades (`shorted announcements` + `report-extractor`)
 
-1. **Crawl** (`asx-announcement-crawler`): per-stock ASX announcement pages (stealth native),
+1. **Crawl** (`shorted announcements`): per-stock ASX announcement pages (stealth native),
    HTML-parse Appendix 3Y headlines → `director_trades`. Headlines carry **no name in ~59% of
    cases and never carry $ value** → historically dirty (see [director-data-extraction memory]).
 2. **PDF extraction** (`report-extractor/extract_director_trades.py`, NEW): fetch each 3Y PDF,
@@ -123,7 +123,7 @@ half_year 6.7%, annual_report 3%, annual_results 13%. Root cause: the crawler cl
 media releases and CEO letters** (no metric tables), and the digest is **gated on metrics being
 found**. Digests grew 46→115. See research §6.3.
 
-## 7. Pipeline E — News + embeddings (`news-aggregator`)
+## 7. Pipeline E — News + embeddings (`shorted news`)
 
 RSS + Google News (stealth) → stock match → gemini-2.0-flash sentiment → `news_articles` →
 gemini-embedding-001 (MRL-768) embeddings → HNSW related-news + company-summary `similar_to`

@@ -1,6 +1,11 @@
 import Link from "next/link";
-import { getTopShortsData } from "~/app/actions/getTopShorts";
+import {
+  getTopShortsData,
+  getTopShortsSummary,
+} from "~/app/actions/getTopShorts";
 import { sectionTitle } from "~/@/lib/typography";
+import { formatCompanyName } from "~/@/lib/company-name";
+import { filterEligibleTopShorts } from "~/@/lib/top-shorts-filter";
 import {
   AsicDataFreshness,
   latestAsicDataDate,
@@ -10,6 +15,13 @@ import {
  * Server-rendered HTML table of top shorted stocks.
  * Provides crawlable content for search engines while client-side charts
  * hydrate on top via the HomeContent component.
+ *
+ * The table lists the top 100 (not just the visible top 10): each row is an
+ * internal link + entity mention per crawl, which is how rivals that SSR
+ * hundreds of rows win entity coverage. The rows come from the summary-only
+ * RPC (~102KB, no sparkline points) so the extra 90 rows cost almost nothing;
+ * the full top-10 call below is already made by the page and only supplies
+ * the ASIC as-at date.
  */
 export async function TopShortsFallback() {
   let stocks: Array<{
@@ -20,15 +32,22 @@ export async function TopShortsFallback() {
   let asOf: Date | null = null;
 
   try {
-    const data = await getTopShortsData("3m", 10, 0);
-    asOf = latestAsicDataDate(data?.timeSeries);
-    stocks = (data?.timeSeries ?? [])
-      .slice(0, 10)
-      .map((ts) => ({
-        code: ts.productCode,
-        name: ts.name || ts.productCode,
-        percent: ts.latestShortPosition,
-      }));
+    const [top10, summary] = await Promise.all([
+      getTopShortsData("3m", 10, 0),
+      getTopShortsSummary("3m", 120).catch(() => null),
+    ]);
+    asOf = latestAsicDataDate(top10?.timeSeries);
+    // Prefer the 100-row summary; fall back to the top-10 series if the
+    // summary RPC is unavailable. summaryOnly bypasses the action-layer
+    // eligibility filter, so apply it here (drops ETFs/bonds).
+    const rows = summary?.timeSeries?.length
+      ? filterEligibleTopShorts(summary.timeSeries).slice(0, 100)
+      : (top10?.timeSeries ?? []).slice(0, 10);
+    stocks = rows.map((ts) => ({
+      code: ts.productCode,
+      name: formatCompanyName(ts.name, ts.productCode) || ts.productCode,
+      percent: ts.latestShortPosition,
+    }));
   } catch {
     // If fetch fails, render nothing - the client-side component will load
     return null;
@@ -49,7 +68,8 @@ export async function TopShortsFallback() {
       <div className="sr-only">
         <table>
           <caption>
-            Most shorted stocks on the Australian Securities Exchange, sourced from
+            The {stocks.length} most shorted stocks on the Australian
+            Securities Exchange, ranked by short interest, sourced from
             official ASIC short position data with T+4 trading day delay.
           </caption>
           <thead>

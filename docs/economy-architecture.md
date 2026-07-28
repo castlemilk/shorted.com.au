@@ -18,7 +18,7 @@ frontend; adding a chart never touches ingestion.
 ```
 ABS SDMX (7 flows) ─┐                                 ┌─ /economy (map hub, ISR 3600)
 RBA CSV            ─┤                                 ├─ /economy/[state] (SSG ×8, banners)
-ABS GFS XLSX       ─┼→ economy-collector → economic_  ┼─ correlations / dual-axis overlays
+ABS GFS XLSX       ─┼→ shorted economy    → economic_  ┼─ correlations / dual-axis overlays
 DCCEEW APS XLSX    ─┤  (15 modes)          series +   │
 shorts DB (derived)─┘  monthly Cloud Run   observatns └─ industry-intel context (phase 3, unbuilt)
                        Job (5th, 17:00 UTC)     ↑
@@ -113,13 +113,13 @@ cross-validated); JV state rows are original-only and carry blank OBS_VALUE
 cells (`OBS_STATUS=q`) that must skip, not error; RBA D1's "Business" credit
 series (DGFACB12) died 2019-06 — DGFACBNF12 is the live successor.
 
-## 3. Collector — `services/economy-collector`
+## 3. Collector — `shorted economy` (`services/jobs/internal/jobs/economy`)
 
 Single binary, `-mode sources|rba|cpi|labour|trade|gdp|petroleum|govfin|approvals|retail|population|vacancies|wages|spending|lending|construction|business|crime|markets|derived|correlations|all` + standalone `-mode freshness` (staleness sentinel — monthly CI workflow `economy-freshness.yml`; runbook = the `$economy-data` skill)
 (`derived` runs LAST in `all` — it reads series the other modes write).
-Cloud Run Job (min instances 0), monthly scheduler (5th, 17:00 UTC),
-`terraform/modules/economy-collector`, image in `terraform-deploy.yml`'s
-`build-docker-images` matrix.
+Cloud Run Job `shorted-economy` (min instances 0), monthly scheduler (5th,
+17:00 UTC), `terraform/modules/shorted-job` (`module.shorted_job_economy`),
+image `shorted-jobs` in `terraform-deploy.yml`'s `build-docker-images` matrix.
 
 - Store: pgx on the Supabase txn pooler (6543, SimpleProtocol), per-source
   transactions, **0 observations = error** (drift tripwire), catalog identity
@@ -129,7 +129,7 @@ Cloud Run Job (min instances 0), monthly scheduler (5th, 17:00 UTC),
   `shorted-data/1.0 (+https://shorted.com.au)` is WAF-mandatory.
 - Registry: upserts into `industry_intelligence_sources`;
   `public_enabled = existing OR EXCLUDED` (never downgrades).
-- First run in a fresh env: `gcloud run jobs execute economy-collector`.
+- First run in a fresh env: `gcloud run jobs execute shorted-economy`.
 
 ## 4. Company state exposure
 

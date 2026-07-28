@@ -191,6 +191,7 @@ resource "google_cloud_scheduler_job" "weekly_report" {
   attempt_deadline = "1800s"
   region           = var.scheduler_region
   project          = var.project_id
+  paused           = var.scheduler_paused
 
   retry_config {
     retry_count          = 2
@@ -224,6 +225,7 @@ resource "google_cloud_scheduler_job" "monthly_report" {
   attempt_deadline = "1800s"
   region           = var.scheduler_region
   project          = var.project_id
+  paused           = var.scheduler_paused
 
   retry_config {
     retry_count          = 2

@@ -20,8 +20,6 @@ import (
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -77,7 +75,7 @@ const searchStocksQuery = `
 		SELECT
 			s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
 			s."PRODUCT_CODE" as product_code,
-			s."PRODUCT" as name,
+			COALESCE(NULLIF(m.company_name, ''), s."PRODUCT") as name,
 			s."TOTAL_PRODUCT_IN_ISSUE" as total_product_in_issue,
 			s."REPORTED_SHORT_POSITIONS" as reported_short_positions,
 			COALESCE(m.industry, '') as industry,
@@ -88,6 +86,7 @@ const searchStocksQuery = `
 				WHEN s."PRODUCT_CODE" ILIKE $2 THEN 50
 				WHEN m.search_vector @@ plainto_tsquery('english', $1) THEN ts_rank(m.search_vector, plainto_tsquery('english', $1)) * 10
 				WHEN s."PRODUCT" ILIKE $2 THEN 20
+				WHEN m.company_name ILIKE $2 THEN 20
 				ELSE 1
 			END as relevance
 		FROM latest_shorts s
@@ -101,6 +100,7 @@ const searchStocksQuery = `
 				s."PRODUCT_CODE" = $1 OR
 				s."PRODUCT_CODE" ILIKE $2 OR
 				s."PRODUCT" ILIKE $2 OR
+				m.company_name ILIKE $2 OR
 				m.search_vector @@ plainto_tsquery('english', $1)
 			)
 	)
@@ -343,7 +343,7 @@ func (s *postgresStore) GetStock(productCode string) (*stocksv1alpha1.Stock, err
 SELECT 
 	s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
 	s."PRODUCT_CODE" as product_code,
-	s."PRODUCT" as name, 
+	COALESCE(NULLIF(m.company_name, ''), s."PRODUCT") as name, 
 	s."TOTAL_PRODUCT_IN_ISSUE" as total_product_in_issue, 
 	s."REPORTED_SHORT_POSITIONS" as reported_short_positions,
 	COALESCE(m.industry, '') as industry,
@@ -648,35 +648,9 @@ func (s *postgresStore) getMinimalStockDetails(ctx context.Context, stockCode st
 	// Return minimal details with just the stock code and company name from shorts table
 	return &stocksv1alpha1.StockDetails{
 		ProductCode:      productCode,
-		CompanyName:      cleanCompanyName(productName),
+		CompanyName:      cleanCompanyName(productName, productCode),
 		EnrichmentStatus: "pending", // Indicate that enrichment hasn't been done yet
 	}, nil
-}
-
-// cleanCompanyName removes common suffixes like "ORDINARY", "CDI", etc. for cleaner display
-func cleanCompanyName(name string) string {
-	// Remove common suffixes
-	suffixes := []string{
-		" ORDINARY",
-		" ORD",
-		" CDI 1:1",
-		" CDI",
-		" LIMITED",
-		" LTD",
-		" CORPORATION",
-		" CORP",
-		" INC",
-		" PLC",
-	}
-
-	result := strings.ToUpper(name)
-	for _, suffix := range suffixes {
-		result = strings.TrimSuffix(result, suffix)
-	}
-
-	// Title case the result
-	caser := cases.Title(language.English)
-	return caser.String(strings.ToLower(strings.TrimSpace(result)))
 }
 
 type dbPerson struct {
@@ -1267,7 +1241,7 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32) ([]*st
 	query := `
 		SELECT
 			s."PRODUCT_CODE" as product_code,
-			s."PRODUCT" as name,
+			COALESCE(NULLIF(m.company_name, ''), s."PRODUCT") as name,
 			s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
 			s."REPORTED_SHORT_POSITIONS" as reported_short_positions,
 			s."TOTAL_PRODUCT_IN_ISSUE" as total_product_in_issue,

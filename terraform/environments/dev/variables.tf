@@ -34,10 +34,16 @@ variable "influence_collector_image" {
   default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/influence-collector:latest"
 }
 
-variable "economy_collector_image" {
-  description = "Docker image URL for economy-collector job"
+variable "shorted_jobs_image" {
+  description = "Docker image URL for the consolidated `shorted <job>` batch binary (services/jobs)"
   type        = string
-  default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/economy-collector:latest"
+  default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/shorted-jobs:latest"
+}
+
+variable "shorted_jobs_browser_image" {
+  description = "Docker image URL for the browser (Debian + Chromium) variant of the consolidated `shorted <job>` binary (services/jobs/Dockerfile.browser) — used by `shorted discovery`"
+  type        = string
+  default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/shorted-jobs-browser:latest"
 }
 
 variable "shorts_api_image" {
@@ -98,18 +104,6 @@ variable "image_tag" {
   description = "Image tag for forcing new Cloud Run revisions"
   type        = string
   default     = ""
-}
-
-variable "news_aggregator_image" {
-  description = "Docker image URL for news-aggregator job"
-  type        = string
-  default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/news-aggregator:latest"
-}
-
-variable "asx_announcement_crawler_image" {
-  description = "Docker image URL for asx-announcement-crawler job"
-  type        = string
-  default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/asx-announcement-crawler:latest"
 }
 
 variable "signals_collector_image" {
