@@ -80,3 +80,6 @@ venv/
 /*.jpeg
 /*.jpg
 /*.png
+
+# Jupyter checkpoint copies — an editor artifact, never source
+.ipynb_checkpoints/
