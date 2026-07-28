@@ -1,4 +1,5 @@
 import { type Metadata } from "next";
+import { EmbedDialog } from "~/@/components/ui/embed-dialog";
 import Link from "next/link";
 import { siteConfig } from "~/@/config/site";
 import { cn } from "~/@/lib/utils";
@@ -320,9 +321,12 @@ export default async function StatisticsPage() {
             </section>
 
             <section aria-labelledby="bank-basket">
-              <h2 id="bank-basket" className={cn(sectionTitle, "mb-3")}>
-                The bank short basket
-              </h2>
+              <div className="mb-3 flex items-center gap-2">
+                <h2 id="bank-basket" className={sectionTitle}>
+                  The bank short basket
+                </h2>
+                <EmbedDialog target={{ kind: "basket", basket: "banks" }} />
+              </div>
               <p className="mb-3 max-w-3xl text-sm text-muted-foreground">
                 Dollar value of reported short positions against
                 Australia&apos;s big four banks — the market&apos;s

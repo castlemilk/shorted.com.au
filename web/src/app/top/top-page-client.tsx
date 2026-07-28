@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
+import { EmbedDialog } from "~/@/components/ui/embed-dialog";
 import Link from "next/link";
 import {
   TrendingUp,
@@ -309,7 +310,10 @@ export function TopPageClient({
       <section className="container mx-auto px-4 py-8" aria-labelledby="rankings-title">
         {/* Table Controls */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-          <h2 id="rankings-title" className="text-xl font-semibold">Full Rankings</h2>
+          <div className="flex items-center gap-2">
+            <h2 id="rankings-title" className="text-xl font-semibold">Full Rankings</h2>
+            <EmbedDialog target={{ kind: "top-shorts", limit: 20 }} />
+          </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
             <Input

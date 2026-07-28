@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { EmbedDialog } from "~/@/components/ui/embed-dialog";
 import dynamic from "next/dynamic";
 import type { JsonValue } from "@bufbuild/protobuf";
 import { RefreshCw, BarChart3 } from "lucide-react";
@@ -91,6 +92,7 @@ export function HomeContent({
           />
           Refresh
         </Button>
+        <EmbedDialog target={{ kind: "treemap", period: "3m" }} />
       </div>
       <div className="flex flex-col lg:flex-row">
         <div className="lg:w-2/5">

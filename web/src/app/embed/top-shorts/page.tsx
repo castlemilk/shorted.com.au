@@ -113,7 +113,11 @@ function EmbedTopShortsInner() {
 
 /**
  * Embeddable top shorts table widget.
- * Usage: <iframe src="https://shorted.com.au/embed/top-shorts?limit=10&theme=dark" />
+ * Usage: <iframe src="https://shorted.com.au/embed/top-shorts?limit=10" />
+ *
+ * `limit` is the only supported param (clamped to 50). This previously
+ * documented a `theme=dark` param that was never implemented — the widget
+ * inherits the host page's theme tokens.
  */
 export default function EmbedTopShorts() {
   return (
