@@ -14,6 +14,7 @@ import {
   HolderBadge,
   PartyChip,
   RegisterItemTag,
+  SourceDocLink,
   SourceLine,
 } from "@/components/politicians/compliance";
 import { getPolitician } from "~/app/actions/getPoliticians";
@@ -172,6 +173,7 @@ export default async function PoliticianPage({
                       />
                       <HolderBadge holder={i.holder} />
                       {i.itemNo === 4 ? <RegisterItemTag itemNo={4} /> : null}
+                      <SourceDocLink sourceUrl={i.sourceUrl} />
                     </div>
                     <DeclaredPeriod
                       from={toDate(i.declaredFrom)}
@@ -215,6 +217,7 @@ export default async function PoliticianPage({
                       {i.secondaryText ? (
                         <span className="text-[11px] text-muted-foreground">{i.secondaryText}</span>
                       ) : null}
+                      <SourceDocLink sourceUrl={i.sourceUrl} />
                     </div>
                     <DeclaredPeriod
                       from={toDate(i.declaredFrom)}
@@ -257,6 +260,7 @@ export default async function PoliticianPage({
                       <span className="text-sm">{i.declaredText}</span>
                       <HolderBadge holder={i.holder} />
                       <RegisterItemTag itemNo={i.itemNo} />
+                      <SourceDocLink sourceUrl={i.sourceUrl} />
                     </div>
                     {i.secondaryText ? (
                       <span className="text-[11px] text-muted-foreground">{i.secondaryText}</span>
@@ -268,9 +272,20 @@ export default async function PoliticianPage({
           )}
 
           <footer className="space-y-3 border-t pt-6">
+            {/*
+              A profile spans up to five parliaments and many documents, so a
+              single pdfUrl here cited the wrong document for every row but the
+              first. Each row now carries its OWN link (SourceDocLink); this
+              line keeps the attribution, the as-at date and "report an error",
+              and only offers a PDF when every row genuinely shares one.
+            */}
             <SourceLine
               asAt={asAt}
-              pdfUrl={interests[0]?.sourceUrl}
+              pdfUrl={
+                new Set(interests.map((i) => i.sourceUrl).filter(Boolean)).size === 1
+                  ? interests[0]?.sourceUrl
+                  : undefined
+              }
               surface={`profile ${p.displayName}`}
             />
             <CaveatNote />

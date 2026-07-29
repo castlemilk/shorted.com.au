@@ -11,7 +11,7 @@
 
 import { render, screen } from "@testing-library/react";
 
-import { RegisterItemTag } from "../compliance";
+import { RegisterItemTag, SourceDocLink, registerDocLabel } from "../compliance";
 import { REGISTER_ITEMS, registerItem } from "@/lib/politics/register-items";
 
 describe("register items", () => {
@@ -74,5 +74,45 @@ describe("register items", () => {
     expect(container).toBeEmptyDOMElement();
     expect(registerItem(undefined)).toBeUndefined();
     expect(registerItem(0)).toBeUndefined();
+  });
+});
+
+/**
+ * Editorial rule 1: every figure links to the document it came from.
+ *
+ * A profile spans up to five parliaments and a hundred-odd documents. The page
+ * previously rendered ONE source link built from `interests[0]`, which cited the
+ * wrong document for every row but the first — a citation pointing at the wrong
+ * primary source is worse than none, because it invites a reader to "check" a
+ * claim against a PDF that does not contain it.
+ */
+describe("SourceDocLink", () => {
+  it("labels a row with the parliament its document belongs to", () => {
+    expect(registerDocLabel("https://www.aph.gov.au/-/media/.../Register/48p/AB/Albanese_48P.pdf")).toBe("48P");
+    expect(registerDocLabel("https://www.aph.gov.au/-/media/.../Register/45p/SZ/TurnbullM_45P.pdf")).toBe("45P");
+    expect(registerDocLabel("https://www.aph.gov.au/-/media/.../47P/CF/Chandler-Mather_47P.pdf")).toBe("47P");
+  });
+
+  it("falls back rather than guessing when the URL carries no parliament", () => {
+    // Senate tabled volumes are /-/media/<GUID>.ashx and encode nothing.
+    expect(registerDocLabel("https://www.aph.gov.au/-/media/00112233-4455.ashx")).toBe("PDF");
+    expect(registerDocLabel(undefined)).toBe("");
+    expect(registerDocLabel("")).toBe("");
+  });
+
+  it("opens the original in a new tab, safely, and says why", () => {
+    const url = "https://www.aph.gov.au/-/media/.../Register/48p/AB/Albanese_48P.pdf";
+    const { container } = render(<SourceDocLink sourceUrl={url} />);
+    const a = container.querySelector("a")!;
+    expect(a.getAttribute("href")).toBe(url);
+    expect(a.getAttribute("target")).toBe("_blank");
+    // Without noopener the opened tab can reach back into this one.
+    expect(a.getAttribute("rel")).toContain("noopener");
+    expect(a.getAttribute("title")).toMatch(/original register PDF/i);
+  });
+
+  it("renders nothing when a row has no source document", () => {
+    const { container } = render(<SourceDocLink sourceUrl={undefined} />);
+    expect(container).toBeEmptyDOMElement();
   });
 });

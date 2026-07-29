@@ -100,6 +100,49 @@ export function RegisterItemTag({ itemNo, className }: { itemNo?: number; classN
   );
 }
 
+/**
+ * Derive a short label for the document a row came from: "48P", "45P".
+ *
+ * The parliament is not on the wire, but the APH URL encodes it twice —
+ * `/Register/48p/AB/Albanese_48P.pdf`. Senate volumes are `/-/media/<GUID>.ashx`
+ * and carry nothing, so they fall back to "PDF" rather than guessing.
+ */
+export function registerDocLabel(sourceUrl?: string): string {
+  if (!sourceUrl) return "";
+  const fromPath = /\/(\d{2})[pP]\//.exec(sourceUrl);
+  if (fromPath) return `${fromPath[1]}P`;
+  const fromFile = /[_-](\d{2})[pP]\.pdf/i.exec(sourceUrl);
+  if (fromFile) return `${fromFile[1]}P`;
+  return "PDF";
+}
+
+/**
+ * A link to the ORIGINAL document THIS row came from.
+ *
+ * Editorial rule 1 is that every figure links to the document it came from. A
+ * profile spans up to five parliaments and a hundred-odd documents, so a single
+ * page-level link cannot satisfy that — it necessarily cites the wrong document
+ * for every row but one, which is worse than citing nothing.
+ *
+ * Deliberately quiet: this is an affordance for a reader who wants to check a
+ * specific claim, not a call to action.
+ */
+export function SourceDocLink({ sourceUrl }: { sourceUrl?: string }) {
+  if (!sourceUrl) return null;
+  const label = registerDocLabel(sourceUrl);
+  return (
+    <a
+      href={sourceUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      title="Open the original register PDF on aph.gov.au to check this entry"
+      className="text-muted-foreground hover:text-foreground text-[10px] underline decoration-dotted whitespace-nowrap"
+    >
+      {label}&nbsp;↗
+    </a>
+  );
+}
+
 export function PartyChip({ partyAb, className }: { partyAb?: string; className?: string }) {
   if (!partyAb) return null;
   const label = partyLabel(partyAb);
