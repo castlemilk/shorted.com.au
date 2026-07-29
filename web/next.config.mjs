@@ -237,6 +237,13 @@ const config = {
         source: "/embed/:path*",
         headers: [
           {
+            // NOTE: third-party framing is granted by `frame-ancestors *` in
+            // the CSP below, NOT by this header. "ALLOWALL" is not a valid
+            // X-Frame-Options token and every browser ignores it; it is kept
+            // only so this route does not inherit the global SAMEORIGIN (a
+            // more specific Next header rule REPLACES the global one for the
+            // same key rather than appending, so exactly one XFO is served).
+            // Verified 2026-07-28 by framing /embed/chart from example.com.
             key: "X-Frame-Options",
             value: "ALLOWALL",
           },
