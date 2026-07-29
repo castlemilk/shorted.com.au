@@ -1810,6 +1810,17 @@ tooltip so a reader can still find the numbered item on the original PDF.
 It is the SOURCE'S taxonomy, not one we invented — the form asks for exactly
 these fourteen things in this order, so no row needs classifying to be tagged.
 
+**Every row also links to the document it came from.** `SourceDocLink` renders a
+per-row `45P ↗` to the original APH PDF. The page previously rendered ONE link
+built from `interests[0].sourceUrl`, which on a member spanning five parliaments
+cited the wrong document for every row but the first — worse than no citation,
+because it invites a reader to check a claim against a PDF that does not contain
+it. Measured on Mark Butler (44P-48P): 1 linked PDF became 5, across 108 per-row
+links. The page-level `SourceLine` keeps the attribution, as-at date and "report
+an error", and offers a PDF only when every row genuinely shares one. The label
+is derived from the URL, which encodes the parliament twice; Senate volumes are
+`/-/media/<GUID>.ashx` and fall back to "PDF" rather than guessing.
+
 **The iconography is governed by the editorial standards, and the test enforces
 it.** Rule 2 covers icons beside a named person and rule 5 forbids implying
 value, so `register-items.test.ts` asserts that no item uses a currency glyph
