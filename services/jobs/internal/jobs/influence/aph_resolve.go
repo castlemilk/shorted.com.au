@@ -146,8 +146,18 @@ var giftLogRe = regexp.MustCompile(
 var giftProseRe = regexp.MustCompile(
 	`(?i)\b(tickets?|hospitality|courtesy\s+of|hosted\s+by|guest\s+of|` +
 		`invitation|corporate\s+box|grand\s+final|state\s+of\s+origin|` +
-		`test\s+match|concert|gala\s+dinner|christmas\s+ham|football|` +
-		`flight\s+upgrade|pin\s+and)\b`,
+		`test\s+match|concert|christmas\s+ham|football|pin\s+and|` +
+		// Added after the audit: the cell-level test found five MORE wrong facts
+		// that the narrower vocabulary missed. `dinner` not `gala dinner`
+		// ("Nine Entertainment Co, Dinner, November 19 2013" -> NEC) and bare
+		// `upgrade` not `flight upgrade` ("Upgrade, Melbourne to LA, Qantas" ->
+		// QAN; "Complimentary on departure upgrade to Business Class, Virgin
+		// Australia" -> VGN).
+		//
+		// Measured over items 1 and 4 before widening: these four words kill 5
+		// resolved rows and ALL FIVE are wrong facts — every one a flight upgrade
+		// or a dinner published as a shareholding. Zero genuine holdings lost.
+		`dinner|lunch|complimentary|upgrade)\b`,
 )
 
 // A quantity prefix on a REAL holding: "1000 SHARES IN KWINANA COMMUNITY
