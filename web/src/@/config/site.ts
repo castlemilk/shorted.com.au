@@ -6,6 +6,15 @@ export const siteConfig = {
   socialTitle: "Most Shorted ASX Stocks — Official ASIC Short Selling Data",
   url: "https://shorted.com.au",
   ogImage: "https://shorted.com.au/opengraph-image",
+  // Organization logo for schema.org ImageObject. The dimensions MUST match
+  // the real file: eight call sites previously hardcoded 512x512 for a
+  // 213x180 image, which is a factual error in structured data. Keep this the
+  // single source of truth, and re-measure if logo.png is ever replaced.
+  logo: {
+    url: "https://shorted.com.au/logo.png",
+    width: 213,
+    height: 180,
+  },
   description:
     "Shorting the ASX starts with the data. Official ASIC short selling data for every ASX stock — the most shorted stocks, short interest trends and charts, updated daily (T+4).",
   shortDescription:

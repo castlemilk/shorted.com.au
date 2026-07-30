@@ -225,9 +225,9 @@ export default function RootLayout({
                 url: "https://shorted.com.au",
                 logo: {
                   "@type": "ImageObject",
-                  url: "https://shorted.com.au/logo.png",
-                  width: 512,
-                  height: 512,
+                  url: siteConfig.logo.url,
+                  width: siteConfig.logo.width,
+                  height: siteConfig.logo.height,
                 },
               },
               potentialAction: {
