@@ -1482,10 +1482,24 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: |
             services/go.sum
+            services/jobs/go.sum
             test/integration/go.sum
 
       - name: Configure private Go module access
         run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
+
+      # The consolidated `shorted <job>` binary is a SEPARATE Go MODULE, so it is
+      # invisible to `go list ./...` in services and nothing here was running its
+      # tests. The register-of-interests suite moved into that module with the
+      # port, which silently took ~150 assertions out of CI — including every
+      # regression that pins a wrong-fact defect from
+      # docs/politician-register-architecture.md §8.17-§8.19. Those exist to stop
+      # a wrong company being published against a named MP; they are worth a gate.
+      - name: Run jobs-module unit tests
+        run: |
+          echo "🧪 Running services/jobs unit tests (separate module)..."
+          cd services/jobs
+          GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test ./...
 
       - name: Run integration tests
         run: |
