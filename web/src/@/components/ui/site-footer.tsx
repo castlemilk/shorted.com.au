@@ -24,6 +24,8 @@ const productLinks: FooterLink[] = [
   { title: "Reports", href: "/reports" },
   { title: "Market Snapshots", href: "/market" },
   { title: "Company Directory", href: "/directory" },
+  { title: "Short Selling Statistics", href: "/statistics" },
+  { title: "Short Interest Scans", href: "/scans" },
 ];
 
 const resourceLinks: FooterLink[] = [
@@ -35,6 +37,8 @@ const resourceLinks: FooterLink[] = [
   { title: "Compare Stocks", href: "/compare" },
   { title: "Seasonality", href: "/seasonality" },
   { title: "About", href: "/about" },
+  { title: "Press & Media", href: "/press" },
+  { title: "Open Data", href: "/data" },
   { title: "Roadmap", href: "/roadmap" },
 ];
 

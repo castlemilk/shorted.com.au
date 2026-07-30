@@ -521,9 +521,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })),
   ];
 
-  // Open data hub.
+  // Open data hub + press kit — both citation surfaces we point journalists at.
   const dataRoutes = [
     { url: `${baseUrl}/data`, lastModified: latestDataDate },
+    { url: `${baseUrl}/press`, lastModified: latestDataDate },
   ];
 
   // Housing pages: state drilldowns + priced suburbs (thin pages excluded).
