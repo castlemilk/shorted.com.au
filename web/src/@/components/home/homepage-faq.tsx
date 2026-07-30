@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { sectionTitle } from "~/@/lib/typography";
 import { FAQStructuredData } from "~/@/components/seo/enhanced-structured-data";
+import { Disclosure } from "~/@/components/ui/disclosure";
 
 /**
  * Compact homepage FAQ — server-rendered question-form headings plus matching
@@ -89,16 +90,22 @@ export function HomepageFaq() {
       <h2 className={sectionTitle}>
         Short selling on the ASX: common questions
       </h2>
-      <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-        {FAQS.map((faq) => (
-          <div key={faq.question}>
-            <h3 className="text-sm font-semibold text-foreground">
-              {faq.question}
-            </h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {faq.answerNode}
-            </p>
-          </div>
+      {/* Native <details> accordion: answers stay in the server-rendered HTML
+          (so the visible copy still backs the FAQPage schema above) while the
+          page reads as four questions rather than four paragraphs. */}
+      <div className="mt-4 rounded-lg border border-border/60 px-4">
+        {FAQS.map((faq, i) => (
+          <Disclosure
+            key={faq.question}
+            defaultOpen={i === 0}
+            title={
+              <h3 className="text-sm font-semibold text-foreground">
+                {faq.question}
+              </h3>
+            }
+          >
+            <p>{faq.answerNode}</p>
+          </Disclosure>
         ))}
       </div>
       <p className="mt-4 text-sm text-muted-foreground">

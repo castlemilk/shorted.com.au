@@ -4,7 +4,7 @@ import Link from "next/link";
 import { FileText, ChevronRight } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
 import { cn } from "~/@/lib/utils";
-import { pageTitle, eyebrow } from "~/@/lib/typography";
+import { pageTitle, sectionTitle, eyebrow } from "~/@/lib/typography";
 import { weeklyReportPath } from "~/@/lib/reports/weekly-slug";
 import { Suspense } from "react";
 import { HomeContent } from "./home-content";
@@ -26,6 +26,7 @@ import {
 } from "~/@/components/seo/enhanced-structured-data";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { HomepageFaq } from "~/@/components/home/homepage-faq";
+import { Disclosure } from "~/@/components/ui/disclosure";
 import { PremiumUpsellBanner } from "~/@/components/premium/premium-upsell-banner";
 import { getEnhancedWeeklyReportData, getAvailableWeekSlugs } from "~/app/actions/reports/getReportData";
 import { BrowseByIndustry } from "./browse-by-industry";
@@ -195,16 +196,6 @@ export default async function Page() {
           selling data updated daily with T+4 delay. Follow the most shorted ASX
           stocks, analyze short interest trends, and explore industry heatmaps.
         </p>
-        {/* Extended description for SEO - visually hidden but accessible */}
-        <p className="sr-only">
-          Shorted.com.au provides free daily short selling data sourced directly from
-          ASIC (Australian Securities and Investments Commission). See Australia&apos;s
-          most shorted stocks — the top 100 short positions on the ASX — with interactive
-          historical charts, industry sector breakdowns, and comprehensive analysis. Data
-          is updated daily with a T+4 trading day delay as published by ASIC. Track short
-          interest trends, identify heavily shorted companies, and monitor bearish
-          sentiment across the Australian market.
-        </p>
       </header>
 
       {/* Breaking News - Price Sensitive Announcements */}
@@ -301,36 +292,63 @@ export default async function Page() {
         <LatestFromBlog />
       </Suspense>
 
-      {/* Visible intro for SEO — crawlable content explaining the platform */}
+      {/* Background copy, collapsed. Native <details> keeps every word in the
+          server-rendered HTML for crawlers while the page ends on links
+          rather than three paragraphs of prose. */}
       <section className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-muted-foreground">
-          <div>
-            <h2 className="text-sm font-semibold text-foreground mb-1">Official ASIC Data</h2>
+        <h2 className={cn(sectionTitle, "mb-2")}>
+          About this data
+        </h2>
+        <div className="rounded-lg border border-border/60 px-4">
+          <Disclosure
+            title={
+              <h3 className="text-sm font-semibold text-foreground">
+                Where the data comes from
+              </h3>
+            }
+            hint="Official ASIC reports"
+          >
             <p>
-              All short position data is sourced directly from ASIC (Australian Securities
-              and Investments Commission) daily reports. We track over 4,500 ASX-listed
-              securities with historical data from 2010 to present.
+              All short position data is sourced directly from ASIC (Australian
+              Securities and Investments Commission) daily reports. We track over
+              4,500 ASX-listed securities with historical data from 2010 to
+              present — the top 100 short positions on the ASX, with interactive
+              historical charts and industry sector breakdowns.
             </p>
-          </div>
-          <div>
-            <h2 className="text-sm font-semibold text-foreground mb-1">T+4 Trading Day Delay</h2>
+          </Disclosure>
+          <Disclosure
+            title={
+              <h3 className="text-sm font-semibold text-foreground">
+                Why the data is 4 trading days old
+              </h3>
+            }
+            hint="T+4 reporting delay"
+          >
             <p>
-              ASIC publishes short position data with a 4 trading day delay to balance
-              market transparency with preventing potential manipulation. Data shown
-              reflects positions from 4 trading days ago, not real-time figures.
+              ASIC publishes short position data with a 4 trading day delay to
+              balance market transparency with preventing potential manipulation.
+              Data shown reflects positions from 4 trading days ago, not
+              real-time figures.
             </p>
-          </div>
-          <div>
-            <h2 className="text-sm font-semibold text-foreground mb-1">Charts & Analysis</h2>
+          </Disclosure>
+          <Disclosure
+            title={
+              <h3 className="text-sm font-semibold text-foreground">
+                What you can do here
+              </h3>
+            }
+            hint="Charts, screeners and reports"
+          >
             <p>
-              View interactive historical charts, industry heatmaps, and weekly reports.
-              Screen stocks by short interest, days to cover, director trades, and news
-              sentiment. Track the most shorted ASX stocks with daily updates.
+              View interactive historical charts, industry heatmaps, and weekly
+              reports. Screen stocks by short interest, days to cover, director
+              trades, and news sentiment. Track short interest trends, identify
+              heavily shorted companies, and monitor bearish sentiment across the
+              Australian market.
             </p>
-          </div>
+          </Disclosure>
         </div>
-        {/* Crawlable cross-links to the two data surfaces the homepage
-            otherwise never linked to. */}
+        {/* Kept OUT of the expanders: internal links should stay visible. */}
         <p className="mt-4 text-sm text-muted-foreground">
           Go deeper:{" "}
           <Link

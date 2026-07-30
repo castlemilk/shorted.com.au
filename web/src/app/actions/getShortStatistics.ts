@@ -71,8 +71,17 @@ async function fetchShortStatistics(): Promise<ShortStatistics> {
 
   // Full screener universe (equities only — the MV excludes ETFs/bonds per
   // migration 000043). The API validates limit <= 200, so paginate until
-  // totalCount is covered (hard cap 15 pages ≈ 3,000 rows as a backstop).
+  // totalCount is covered.
+  //
+  // The backstop used to be 15 pages = exactly 3,000 rows, which the universe
+  // had already outgrown (totalCount 3,267 on 2026-07-30) — so `stockCount`
+  // was reporting the CAP, not the count, on the page we ask journalists to
+  // cite. Dollar impact was nil (rows past the cap have shortPct ~1e-06, worth
+  // ~$0), but the published count was wrong and would have started truncating
+  // real dollars as the universe grew. The backstop now has genuine headroom
+  // and only exists to bound a runaway loop.
   const PAGE = 200;
+  const MAX_PAGES = 40; // 8,000 rows — ~2.4x the current universe
   const firstPagePromise = screenerClient.screenStocks({
     sortField: ScreenerSortField.SHORT_PCT,
     sortDirection: SortDirection.DESC,
@@ -87,7 +96,7 @@ async function fetchShortStatistics(): Promise<ShortStatistics> {
   const totalCount = firstPage.totalCount ?? allRows.length;
   for (
     let offset = PAGE;
-    offset < totalCount && offset < PAGE * 15;
+    offset < totalCount && offset < PAGE * MAX_PAGES;
     offset += PAGE
   ) {
     const page = await screenerClient.screenStocks({
