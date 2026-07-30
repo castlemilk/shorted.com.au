@@ -894,20 +894,53 @@ the lists rather than as a footnote.
 
 ### 6.2 Editorial template review — rules 1-8
 
-Seven rendering surfaces: the four `/politicians` routes, the stock rail card,
-the suburb property card, the economy state card. Plus OG images, `<title>`,
-descriptions, JSON-LD and alt text.
+Seven rendering surfaces: the four `/politicians` routes, the stock rail card, the
+suburb property card, the economy state card. Plus OG images, `<title>`,
+descriptions, JSON-LD and alt text. `editorial-copy.test.ts` pins the count at
+**9 files / 7 rendering surfaces** — a pinned count, not a floor, so a new surface
+cannot be added without failing the test and re-triggering this review.
 
-| Rule | State |
-|---|---|
-| 1 — citation + as-at on every figure | **enforced by test** — `editorial-copy.test.ts` requires `SourceLine`/`ReportErrorLink` on every rendering surface. Caught `state-politician-holdings.tsx`, which had shipped with neither |
-| 2 — juxtaposition, not accusation | manual: no headline pairs a member with a market metric as cause; `/short-interest` renders `disclosure_note` adjacent to the table; no warning-coloured iconography near a person |
-| 3 — banned verbs | **enforced by test** |
-| 4 — integrity bodies | N/A — no NACC/ICAC data |
-| 5 — what is held, never how much | **enforced by test** (no `$`, no currency formatter) + no amount column + proto carries no amount field |
-| 6 — right of reply | N/A for automated cards; a standing precondition for any newsroom piece |
-| 7 — corrections policy | **closed** — `/disclaimer#corrections` written and linked from `CaveatNote` |
-| 8 — report an error | **enforced by test**. Row-level takedown is still whole-feature only — see below |
+| Rule | Mechanism | State |
+|---|---|---|
+| 1 — citation + as-at on every figure | **test**: every rendering surface must contain `<SourceLine` or `<ReportErrorLink`. Caught `state-politician-holdings.tsx`, which shipped with neither. Since §8.20 every ROW also links its own document — the page-level link previously cited the wrong PDF for every row but the first | enforced |
+| 2 — juxtaposition, not accusation | **human judgement**. No test can decide this. What exists: no headline pairs a member with a market metric as cause; `/short-interest` renders `disclosure_note` adjacent to the table; no warning-coloured iconography near a person; `register-items.test.ts` bans warning glyphs (⚠️🚨🔴🚩👀) and currency glyphs from the item tags | **needs sign-off** |
+| 3 — banned verbs | **test**: `BANNED_VERBS` over prose in all 9 files | enforced |
+| 4 — integrity bodies | no NACC/ICAC data ingested | N/A |
+| 5 — what is held, never how much | **test**: `BANNED_MAGNITUDE`, plus no `$`-and-digit and no currency formatter in politician copy. No amount column exists in the schema (migration test) and the proto carries no amount field. Item 10 is tagged `📥` not a money bag for this reason | enforced |
+| 6 — right of reply | N/A for automated data cards; a standing precondition for any newsroom piece built on this data | N/A |
+| 7 — corrections policy | `/disclaimer#corrections` written and linked from `CaveatNote` | closed |
+| 8 — report an error | **test**, same assertion as rule 1. Row-level takedown still does not exist — see §6.3 | enforced |
+
+**What changed since the review was first drafted, and therefore needs re-reading:**
+
+1. `DeclaredEntity` no longer says "not matched to an ASX listing" outside items 1
+   and 4 (§8.17). Previously 666 published rows and 3,174 changes-feed rows made a
+   match claim about superannuation accounts, trusts and gifts.
+2. `HolderBadge` has new copy — **"Holder not stated"** — on 2,279 rows that
+   previously rendered no chip at all beside rows chipped "Self" (§8.17).
+3. `RegisterItemTag` adds an emoji + short label per form item (§8.20). Rule 2
+   governs iconography; the glyph set is test-constrained but the CHOICE of glyph
+   is a judgement.
+4. Every row now carries a per-row source link (§8.20).
+5. Rows are withheld rather than mislabelled in three new cases: multi-entity cells
+   (§8.17), amendment notices, and no-signal item-1 cells (§8.19). Withholding a
+   real declaration is a coverage decision a reviewer should agree with.
+
+#### Sign-off
+
+The gate in §6 is a MERGE gate enforced by a human. It was **not** recorded before
+PR #364 merged; this block exists so it can be. Rules 3, 5, 7 and 8 are
+test-enforced and need no signature. **Rule 2 and the five items above need a
+person.**
+
+```
+Reviewed by:
+Date:
+Commit reviewed:
+Rule 2 (juxtaposition/iconography):   pass / fail / notes
+Items 1-5 above:                      pass / fail / notes
+Outcome:
+```
 
 ### 6.3 Open items, stated rather than hidden
 
