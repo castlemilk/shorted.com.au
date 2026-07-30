@@ -76,3 +76,48 @@ test("ko setup is pinned so deploy does not depend on GitHub latest-release look
   assert.equal(setupKo.uses, "ko-build/setup-ko@v0.9");
   assert.equal(setupKo.with?.version, "v0.19.1");
 });
+
+// The deploy must not ship over a red test suite.
+//
+// `run-tests` used to run in PARALLEL with the deploy with nothing listing it in
+// `needs`, so a failing suite blocked nothing — the backend applied, the frontend
+// promoted, and CI went red afterwards. That is tolerable for advisory smoke and
+// not tolerable for the register-of-interests suite, whose tests exist to stop a
+// wrong company being published against a named MP.
+//
+// Two assertions, because either alone can be defeated: the `needs` edge, and the
+// explicit result check that survives someone adding always()/!cancelled().
+test("terraform-apply is gated on run-tests", () => {
+  const apply = workflow.jobs?.["terraform-apply"];
+  assert.ok(apply, "missing terraform-apply job");
+  assert.ok(
+    (apply.needs ?? []).includes("run-tests"),
+    "terraform-apply must list run-tests in needs, or a red suite deploys anyway",
+  );
+  assert.match(
+    String(apply.if ?? "").replace(/\s+/g, " "),
+    /needs\.run-tests\.result == 'success'/,
+    "terraform-apply must assert needs.run-tests.result explicitly, so the gate survives always()",
+  );
+});
+
+// The frontend promote inherits the gate through terraform-apply. If that edge is
+// ever cut, the promote must not become reachable over red tests.
+test("the vercel promote inherits the test gate", () => {
+  const vercel = workflow.jobs?.["deploy-vercel-prod"];
+  assert.ok(vercel, "missing deploy-vercel-prod job");
+  const needs = vercel.needs ?? [];
+  assert.ok(
+    needs.includes("terraform-apply") || needs.includes("run-tests"),
+    "deploy-vercel-prod must depend on terraform-apply (which is gated) or on run-tests directly",
+  );
+});
+
+// run-tests must actually run the jobs module. services/jobs is a SEPARATE Go
+// module, invisible to `go list ./...` in services, so the register suite ran
+// nowhere at all until this step existed.
+test("run-tests runs the separate jobs module", () => {
+  const s = step("run-tests", "Run jobs-module unit tests");
+  assert.match(s.run, /cd services\/jobs/, "must cd into the jobs module");
+  assert.match(s.run, /go test \.\/\.\.\./, "must run the whole module's tests");
+});
