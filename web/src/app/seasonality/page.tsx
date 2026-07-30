@@ -30,21 +30,14 @@ export const metadata: Metadata = {
     siteName: siteConfig.name,
     type: "article",
     locale: "en_AU",
-    images: [
-      {
-        url: siteConfig.ogImage,
-        width: 1200,
-        height: 630,
-        alt: "ASX short interest seasonality — Shorted.com.au",
-      },
-    ],
+    // No `images` key: this route ships its own opengraph-image.tsx and an
+    // explicit `images` here would SHADOW the file convention.
   },
   twitter: {
     card: "summary_large_image",
     title: "ASX Short Interest Seasonality",
     description:
       "Calendar patterns in ASX short selling: earnings, dividends, tax-loss, commodity cycles.",
-    images: [siteConfig.ogImage],
   },
   alternates: {
     canonical: `${siteConfig.url}/seasonality`,

@@ -63,6 +63,14 @@ function proseOnly(source: string): string {
  *
  *   compliance.tsx        DEFINES SourceLine/ReportErrorLink; it never calls them
  *   *-loader.tsx          a `dynamic(ssr:false)` import shim — no copy at all
+ *   opengraph-image.tsx   a PNG. It CANNOT carry a clickable dispute path, so
+ *                         rule 8 is unsatisfiable there. The trade is that a
+ *                         share card must therefore never render an individual's
+ *                         data: the card is generic hub copy naming nobody, and
+ *                         it cites the register in its footer. If you ever put a
+ *                         parliamentarian's name or holding on a card, this
+ *                         exemption stops being defensible — put the data behind
+ *                         a page that can cite and be disputed instead.
  *
  * Everything else names parliamentarians and must cite and be disputable.
  */
@@ -70,6 +78,7 @@ const RENDERING_SURFACES = FILES.filter(
   (f) =>
     !f.endsWith("compliance.tsx") &&
     !f.endsWith("-loader.tsx") &&
+    !f.endsWith("opengraph-image.tsx") &&
     !f.includes("__tests__"),
 );
 
@@ -80,7 +89,9 @@ describe("politician surface copy", () => {
   // attribution. Update this number deliberately when adding a surface, and
   // re-run the editorial review when you do.
   it("covers exactly the surfaces it claims to", () => {
-    expect(FILES.length).toBe(9);
+    // 10 = 9 + politicians/opengraph-image.tsx (the share card, exempt from
+    // the dispute-path rule but still subject to every prohibition below).
+    expect(FILES.length).toBe(10);
     expect(RENDERING_SURFACES.length).toBe(7);
   });
 

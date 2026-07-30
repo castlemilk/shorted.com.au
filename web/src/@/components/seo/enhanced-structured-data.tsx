@@ -75,7 +75,9 @@ export function DatasetStructuredData({
       url: siteConfig.url,
       logo: {
         "@type": "ImageObject",
-        url: siteConfig.ogImage,
+        url: siteConfig.logo.url,
+        width: siteConfig.logo.width,
+        height: siteConfig.logo.height,
       },
     },
     creator: {
