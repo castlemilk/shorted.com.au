@@ -75,12 +75,18 @@ function formatAudLong(n: number): string {
 export default async function PressPage() {
   const stats = await getShortStatistics();
 
-  // The suggested-citation sentence mirrors /statistics#cite. When the live
-  // numbers are unavailable (build shell / API down) we fall back to the
-  // template rather than printing a wrong figure.
+  // The suggested-citation sentence mirrors /statistics#cite.
+  //
+  // When the live numbers are unavailable we must NOT render a "$X billion"
+  // template: this block exists to be copy-pasted, and a journalist pasting
+  // placeholder tokens into copy is worse than no snippet. `skipForBuild`
+  // makes this a real state, not a theoretical one — the build prerenders the
+  // shell with stats === null, so the placeholder is what ships until the
+  // first revalidation (which is why /press is in config/isr-pages.json for
+  // the post-deploy warm sweep).
   const citation = stats
     ? `According to Shorted.com.au, ${formatAudLong(stats.totalDollarsShorted)} was short-sold across ${stats.stockCount} ASX-listed companies as of ${stats.asOfDate}, including ${formatAudLong(stats.bankBasketTotal)} against the big four banks.`
-    : "According to Shorted.com.au, $X billion was short-sold across the ASX as of [date], including $Y billion against the big four banks.";
+    : null;
 
   const datasetCitation = `Shorted.com.au (${new Date().getFullYear()}). ASX Short Position Data, aggregated from ASIC daily short position reports. ${siteConfig.url}/data`;
 
@@ -125,12 +131,26 @@ export default async function PressPage() {
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Suggested wording
           </p>
-          <div className="mt-2 flex items-start gap-3">
-            <p className="flex-1 text-sm italic text-foreground">
-              &ldquo;{citation}&rdquo;
+          {citation ? (
+            <div className="mt-2 flex items-start gap-3">
+              <p className="flex-1 text-sm italic text-foreground">
+                &ldquo;{citation}&rdquo;
+              </p>
+              <CopyButton value={citation} />
+            </div>
+          ) : (
+            <p className="mt-2 text-sm text-muted-foreground">
+              Live figures are refreshing — take the current numbers straight
+              from{" "}
+              <Link
+                href="/statistics"
+                className="underline underline-offset-4 hover:text-foreground"
+              >
+                the statistics page
+              </Link>
+              , which carries the same wording with today&apos;s values.
             </p>
-            <CopyButton value={citation} />
-          </div>
+          )}
           <p className="mt-3 text-xs text-muted-foreground">
             Please link to{" "}
             <Link
