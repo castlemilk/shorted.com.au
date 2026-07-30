@@ -13,5 +13,8 @@
   "/economy/nt",
   "/economy/act",
   "/scans",
-  "/statistics"
+  "/statistics",
+  "/politicians",
+  "/politicians/short-interest",
+  "/politicians/changes"
 ]

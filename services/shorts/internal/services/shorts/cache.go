@@ -274,6 +274,50 @@ func (c *MemoryCache) GetAgencyPriceStatsKey(stateCode, sort string, limit int32
 }
 
 // ListEconomicSeriesKey builds a cache key for ListEconomicSeries responses.
+// --- Register of Members'/Senators' Interests ---
+
+func (c *MemoryCache) ParliamentOverviewKey() string {
+	return c.generateKey("register_overview")
+}
+
+func (c *MemoryCache) ListPoliticiansKey(chamber, stateCode, partyAb, query string, limit, offset int32) string {
+	return c.generateKey("politicians_list", chamber, stateCode, partyAb, query, limit, offset)
+}
+
+func (c *MemoryCache) GetPoliticianKey(slug string) string {
+	return c.generateKey("politician_profile", slug)
+}
+
+func (c *MemoryCache) ListStockPoliticiansKey(stockCode string, currentOnly bool) string {
+	return c.generateKey("politicians_by_stock", stockCode, currentOnly)
+}
+
+func (c *MemoryCache) ListPoliticianStocksKey(limit int32, currentOnly bool) string {
+	return c.generateKey("politician_stocks", limit, currentOnly)
+}
+
+func (c *MemoryCache) ListSuburbPoliticiansKey(salCode string) string {
+	return c.generateKey("politicians_by_suburb", salCode)
+}
+
+func (c *MemoryCache) ListStatePoliticianHoldingsKey(stateCode string, limit int32) string {
+	return c.generateKey("politician_state_holdings", stateCode, limit)
+}
+
+func (c *MemoryCache) ListRegisterChangesKey(since time.Time, kind, stockCode string, limit, offset int32) string {
+	// The time is formatted, not passed raw: a time.Time carries a monotonic
+	// clock reading that would make every key unique and defeat the cache.
+	sinceKey := ""
+	if !since.IsZero() {
+		sinceKey = since.UTC().Format("2006-01-02")
+	}
+	return c.generateKey("register_changes", sinceKey, kind, stockCode, limit, offset)
+}
+
+func (c *MemoryCache) ListShortInterestOverlapKey(minShortPercent float64, limit int32) string {
+	return c.generateKey("register_short_overlap", minShortPercent, limit)
+}
+
 func (c *MemoryCache) ListEconomicSeriesKey(topic, metric, regionType, regionCode, product string, limit int32) string {
 	return c.generateKey("economic_series_list", topic, metric, regionType, regionCode, product, limit)
 }

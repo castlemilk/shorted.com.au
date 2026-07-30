@@ -36,6 +36,7 @@ export type SuburbDatum = {
   nearestTrainKm: number; nearestHospitalKm: number; distToCoastKm: number;
   dominantNbnTech: string; connectivityQualityScore: number;
   crimeBreakInsRank: number; crimeViolentRank: number; crimeMotorVehicleRank: number;
+  politicianPropertyCount: number;
 };
 
 const TOOLTIP_W = 224;

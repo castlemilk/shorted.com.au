@@ -223,6 +223,17 @@ type Store interface {
 	GetPriceDropsOverview() ([]*StatePriceDropSummaryRow, error)
 	ListAgencyPriceStats(stateCode, sort string, limit int32) ([]*AgencyPriceStatsRow, error)
 
+	// Register of Members'/Senators' Interests methods
+	GetRegisterOverview() (*RegisterOverviewRow, error)
+	ListPoliticians(chamber, stateCode, partyAb, query string, limit, offset int32) ([]*PoliticianRow, int32, error)
+	GetPolitician(slug string) (*PoliticianRow, []*DeclaredInterestRow, []string, error)
+	ListStockPoliticians(stockCode string, currentOnly bool) (string, []*PoliticianRow, []*DeclaredInterestRow, []*PartyCountRow, error)
+	ListPoliticianStocks(limit int32, currentOnly bool) ([]*PoliticianStockRollupRow, error)
+	ListSuburbPoliticians(salCode string) (string, string, []*PoliticianRow, []*DeclaredInterestRow, error)
+	ListStatePoliticianHoldings(stateCode string, limit int32) ([]*PoliticianStockRollupRow, int32, error)
+	ListRegisterChanges(since time.Time, kind, stockCode string, limit, offset int32) ([]*RegisterChangeRow, int32, error)
+	ListShortInterestOverlap(minShortPercent float64, limit int32) ([]*PoliticianStockRollupRow, error)
+
 	// Economy snapshot methods
 	ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32) ([]*EconomicSeriesRow, error)
 	GetEconomicSeries(seriesKeys []string, startPeriod time.Time, maxObservations int32) ([]*EconomicSeriesDataRow, error)

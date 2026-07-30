@@ -132,6 +132,7 @@ func (s *ShortsServer) ListStateSuburbs(ctx context.Context, req *connect.Reques
 				DominantNbnTech: r.DominantNbnTech, ConnectivityQualityScore: r.ConnectivityQualityScore,
 				CrimeBreakInsRank: r.CrimeBreakInsRank, CrimeViolentRank: r.CrimeViolentRank,
 				CrimeMotorVehicleRank: r.CrimeMotorVehicleRank,
+				PoliticianPropertyCount: r.PoliticianPropertyCount,
 				Amenities: &shortsv1alpha1.SuburbAmenities{
 					SchoolsTotal: r.SchoolsTotal, SupermarketsTotal: r.SupermarketsTotal,
 					ColesCount: r.ColesCount, WoolworthsCount: r.WoolworthsCount,

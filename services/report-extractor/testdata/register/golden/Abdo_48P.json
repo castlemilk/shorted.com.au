@@ -1,0 +1,112 @@
+{
+  "source_url": "https://www.aph.gov.au/-/media/03_Senators_and_Members/32_Members/Register/48p/AB/Abdo_48P.pdf",
+  "document_sha256": "00077d07c0a76f5bf2f089060263d551679c91cdf1cab2722294e3cfbfaee615",
+  "statements": 3,
+  "rows": [
+    [
+      "alteration",
+      9,
+      "self",
+      "addition",
+      "Superannuation - AustralianSuper"
+    ],
+    [
+      "alteration",
+      9,
+      "self",
+      "deletion",
+      "Digital Currency"
+    ],
+    [
+      "alteration",
+      9,
+      "self",
+      "deletion",
+      "Superannuation - AMP Super"
+    ],
+    [
+      "alteration",
+      9,
+      "self",
+      "deletion",
+      "Superannuation - Public Sector Superannuation Accumulation Plan"
+    ],
+    [
+      "alteration",
+      11,
+      "self",
+      "addition",
+      "ETU contribution to catering for Maiden Speech event (valued at $620.40)"
+    ],
+    [
+      "alteration",
+      12,
+      "self",
+      "addition",
+      "Qantas Chairmans Lounge membership"
+    ],
+    [
+      "alteration",
+      12,
+      "self",
+      "addition",
+      "Virgin Australia Beyond membership"
+    ],
+    [
+      "alteration",
+      14,
+      "spouse_partner",
+      "addition",
+      "Spouse receiving Paid Parental Leave"
+    ],
+    [
+      "base",
+      3,
+      "self",
+      "declared",
+      "Greenvale, VIC"
+    ],
+    [
+      "base",
+      6,
+      "self",
+      "declared",
+      "Mortgage on residential home Credit Card"
+    ],
+    [
+      "base",
+      8,
+      "self",
+      "declared",
+      "Savings Savings (Joint) Transaction"
+    ],
+    [
+      "base",
+      8,
+      "spouse_partner",
+      "declared",
+      "Savings (Joint) Savings Business Transaction Account Transaction"
+    ],
+    [
+      "base",
+      9,
+      "self",
+      "declared",
+      "Vehicle Superannuation - AMP Super (disposed of July 2025) Superannuation - Public Sector Superannuation Accumulation Plan (disposed of July 2025) Digital Currency (disposed of June 2025)"
+    ],
+    [
+      "base",
+      10,
+      "spouse_partner",
+      "declared",
+      "Sole Trader for freelance work"
+    ],
+    [
+      "base",
+      13,
+      "self",
+      "declared",
+      "Australian Manufacturing Workers' Union Community and Public Sector Union"
+    ]
+  ]
+}

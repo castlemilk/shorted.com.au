@@ -130,6 +130,17 @@ type ShortsStore interface {
 	ListAgencyPriceStats(stateCode, sort string, limit int32) ([]*shortsstore.AgencyPriceStatsRow, error)
 
 	// Economy snapshot methods
+	// Register of Members'/Senators' Interests methods
+	GetRegisterOverview() (*shortsstore.RegisterOverviewRow, error)
+	ListPoliticians(chamber, stateCode, partyAb, query string, limit, offset int32) ([]*shortsstore.PoliticianRow, int32, error)
+	GetPolitician(slug string) (*shortsstore.PoliticianRow, []*shortsstore.DeclaredInterestRow, []string, error)
+	ListStockPoliticians(stockCode string, currentOnly bool) (string, []*shortsstore.PoliticianRow, []*shortsstore.DeclaredInterestRow, []*shortsstore.PartyCountRow, error)
+	ListPoliticianStocks(limit int32, currentOnly bool) ([]*shortsstore.PoliticianStockRollupRow, error)
+	ListSuburbPoliticians(salCode string) (string, string, []*shortsstore.PoliticianRow, []*shortsstore.DeclaredInterestRow, error)
+	ListStatePoliticianHoldings(stateCode string, limit int32) ([]*shortsstore.PoliticianStockRollupRow, int32, error)
+	ListRegisterChanges(since time.Time, kind, stockCode string, limit, offset int32) ([]*shortsstore.RegisterChangeRow, int32, error)
+	ListShortInterestOverlap(minShortPercent float64, limit int32) ([]*shortsstore.PoliticianStockRollupRow, error)
+
 	ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32) ([]*shortsstore.EconomicSeriesRow, error)
 	GetEconomicSeries(seriesKeys []string, startPeriod time.Time, maxObservations int32) ([]*shortsstore.EconomicSeriesDataRow, error)
 	ListSeriesCorrelations(baseSeriesKey string, windowMonths int32, minAbsR float64, limit int32) ([]*shortsstore.SeriesCorrelationRow, error)
@@ -186,6 +197,17 @@ type Cache interface {
 	GetAddressPriceDropsKey(stateCode, sort string, windowDays, limit int32) string
 	GetPriceDropsOverviewKey() string
 	GetAgencyPriceStatsKey(stateCode, sort string, limit int32) string
+	// Register of Members'/Senators' Interests cache keys
+	ParliamentOverviewKey() string
+	ListPoliticiansKey(chamber, stateCode, partyAb, query string, limit, offset int32) string
+	GetPoliticianKey(slug string) string
+	ListStockPoliticiansKey(stockCode string, currentOnly bool) string
+	ListPoliticianStocksKey(limit int32, currentOnly bool) string
+	ListSuburbPoliticiansKey(salCode string) string
+	ListStatePoliticianHoldingsKey(stateCode string, limit int32) string
+	ListRegisterChangesKey(since time.Time, kind, stockCode string, limit, offset int32) string
+	ListShortInterestOverlapKey(minShortPercent float64, limit int32) string
+
 	ListEconomicSeriesKey(topic, metric, regionType, regionCode, product string, limit int32) string
 	GetEconomicSeriesKey(seriesKeys []string, startPeriod string, maxObservations int32) string
 	ListSeriesCorrelationsKey(baseSeriesKey string, windowMonths int32, minAbsR float64, limit int32) string

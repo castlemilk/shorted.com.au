@@ -176,6 +176,45 @@ export default function DisclaimerPage() {
             with the stock code and date and we will investigate.
           </p>
 
+          {/* Anchor target for CaveatNote on every /politicians surface, which
+              asserts "corrections are annotated, not silently applied". That
+              claim needs somewhere to point or it is an unbacked promise. */}
+          <h2 id="corrections" className="mt-10 text-2xl font-semibold">
+            Corrections policy — register of interests
+          </h2>
+          <p>
+            Pages that reproduce the federal{" "}
+            <Link href="/politicians">Registers of Members&rsquo; and Senators&rsquo; Interests</Link>{" "}
+            concern named individuals, so we hold them to a stricter standard than
+            derived market data.
+          </p>
+          <ul>
+            <li>
+              The registers record <strong>what</strong> is declared — never quantity,
+              value, purchase price or income. We publish no figure of that kind, and
+              nothing on those pages should be read as implying one.
+            </li>
+            <li>
+              Entries are extracted from the primary PDFs published by the Parliament
+              of Australia and always link back to the original document. Where our
+              extraction is incomplete for a period, we say so rather than showing an
+              empty list.
+            </li>
+            <li>
+              Corrections are <strong>annotated, not silently applied</strong>. If we
+              change or withdraw an entry about a named person we record that it
+              changed and why.
+            </li>
+            <li>
+              A member, their representative, or any reader may dispute an entry using
+              the &ldquo;Report an error&rdquo; link carried on every one of those
+              surfaces, or by emailing{" "}
+              <a href="mailto:support@shorted.com.au">support@shorted.com.au</a>. We
+              will review against the source PDF and, where an entry is contested
+              pending review, suppress it.
+            </li>
+          </ul>
+
           <h2 className="mt-10 text-2xl font-semibold">
             AI-generated content
           </h2>

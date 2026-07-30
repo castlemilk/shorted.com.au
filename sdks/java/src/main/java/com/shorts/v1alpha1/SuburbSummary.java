@@ -1015,6 +1015,27 @@ private static final long serialVersionUID = 0L;
     return crimeMotorVehicleRank_;
   }
 
+  public static final int POLITICIAN_PROPERTY_COUNT_FIELD_NUMBER = 31;
+  private int politicianPropertyCount_ = 0;
+  /**
+   * <pre>
+   * Properties declared in the federal Registers of Members'/Senators'
+   * Interests that resolve to this suburb. A COUNT of declarations — the
+   * registers record what is held, never quantity or value.
+   *
+   * A scalar rather than a nested message on purpose: the map needs a value for
+   * every suburb in a state (~5,000 rows per request), and a message would drag
+   * the politicians descriptor into the hot /housing/[state] route bundle.
+   * </pre>
+   *
+   * <code>int32 politician_property_count = 31 [json_name = "politicianPropertyCount"];</code>
+   * @return The politicianPropertyCount.
+   */
+  @java.lang.Override
+  public int getPoliticianPropertyCount() {
+    return politicianPropertyCount_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -1118,6 +1139,9 @@ private static final long serialVersionUID = 0L;
     }
     if (java.lang.Double.doubleToRawLongBits(crimeMotorVehicleRank_) != 0) {
       output.writeDouble(30, crimeMotorVehicleRank_);
+    }
+    if (politicianPropertyCount_ != 0) {
+      output.writeInt32(31, politicianPropertyCount_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -1227,6 +1251,10 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeDoubleSize(30, crimeMotorVehicleRank_);
     }
+    if (politicianPropertyCount_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(31, politicianPropertyCount_);
+    }
     return size;
   }
   @java.lang.Override
@@ -1328,6 +1356,8 @@ private static final long serialVersionUID = 0L;
     if (java.lang.Double.doubleToLongBits(getCrimeMotorVehicleRank())
         != java.lang.Double.doubleToLongBits(
             other.getCrimeMotorVehicleRank())) return false;
+    if (getPoliticianPropertyCount()
+        != other.getPoliticianPropertyCount()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -1414,6 +1444,8 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + CRIME_MOTOR_VEHICLE_RANK_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
         java.lang.Double.doubleToLongBits(getCrimeMotorVehicleRank()));
+    hash = (37 * hash) + POLITICIAN_PROPERTY_COUNT_FIELD_NUMBER;
+    hash = (53 * hash) + getPoliticianPropertyCount();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -1590,6 +1622,7 @@ private static final long serialVersionUID = 0L;
       crimeBreakInsRank_ = 0D;
       crimeViolentRank_ = 0D;
       crimeMotorVehicleRank_ = 0D;
+      politicianPropertyCount_ = 0;
       return this;
     }
 
@@ -1719,6 +1752,9 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x20000000) != 0)) {
         result.crimeMotorVehicleRank_ = crimeMotorVehicleRank_;
+      }
+      if (((from_bitField0_ & 0x40000000) != 0)) {
+        result.politicianPropertyCount_ = politicianPropertyCount_;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -1856,6 +1892,9 @@ private static final long serialVersionUID = 0L;
       }
       if (java.lang.Double.doubleToRawLongBits(other.getCrimeMotorVehicleRank()) != 0) {
         setCrimeMotorVehicleRank(other.getCrimeMotorVehicleRank());
+      }
+      if (other.getPoliticianPropertyCount() != 0) {
+        setPoliticianPropertyCount(other.getPoliticianPropertyCount());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -2037,6 +2076,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x20000000;
               break;
             } // case 241
+            case 248: {
+              politicianPropertyCount_ = input.readInt32();
+              bitField0_ |= 0x40000000;
+              break;
+            } // case 248
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -4206,6 +4250,68 @@ private static final long serialVersionUID = 0L;
     public Builder clearCrimeMotorVehicleRank() {
       bitField0_ = (bitField0_ & ~0x20000000);
       crimeMotorVehicleRank_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private int politicianPropertyCount_ ;
+    /**
+     * <pre>
+     * Properties declared in the federal Registers of Members'/Senators'
+     * Interests that resolve to this suburb. A COUNT of declarations — the
+     * registers record what is held, never quantity or value.
+     *
+     * A scalar rather than a nested message on purpose: the map needs a value for
+     * every suburb in a state (~5,000 rows per request), and a message would drag
+     * the politicians descriptor into the hot /housing/[state] route bundle.
+     * </pre>
+     *
+     * <code>int32 politician_property_count = 31 [json_name = "politicianPropertyCount"];</code>
+     * @return The politicianPropertyCount.
+     */
+    @java.lang.Override
+    public int getPoliticianPropertyCount() {
+      return politicianPropertyCount_;
+    }
+    /**
+     * <pre>
+     * Properties declared in the federal Registers of Members'/Senators'
+     * Interests that resolve to this suburb. A COUNT of declarations — the
+     * registers record what is held, never quantity or value.
+     *
+     * A scalar rather than a nested message on purpose: the map needs a value for
+     * every suburb in a state (~5,000 rows per request), and a message would drag
+     * the politicians descriptor into the hot /housing/[state] route bundle.
+     * </pre>
+     *
+     * <code>int32 politician_property_count = 31 [json_name = "politicianPropertyCount"];</code>
+     * @param value The politicianPropertyCount to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPoliticianPropertyCount(int value) {
+
+      politicianPropertyCount_ = value;
+      bitField0_ |= 0x40000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Properties declared in the federal Registers of Members'/Senators'
+     * Interests that resolve to this suburb. A COUNT of declarations — the
+     * registers record what is held, never quantity or value.
+     *
+     * A scalar rather than a nested message on purpose: the map needs a value for
+     * every suburb in a state (~5,000 rows per request), and a message would drag
+     * the politicians descriptor into the hot /housing/[state] route bundle.
+     * </pre>
+     *
+     * <code>int32 politician_property_count = 31 [json_name = "politicianPropertyCount"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPoliticianPropertyCount() {
+      bitField0_ = (bitField0_ & ~0x40000000);
+      politicianPropertyCount_ = 0;
       onChanged();
       return this;
     }

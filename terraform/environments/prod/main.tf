@@ -478,6 +478,34 @@ module "shorted_job_signals" {
   ]
 }
 
+# Influence Collector Job (ATO tax / CER emissions / AusTender / AEC / lobbyists
+# / trade). The APH register-of-interests crawl runs on the same job but is
+# operator-invoked, never scheduled — see the module header.
+module "influence_collector" {
+  source = "../../modules/influence-collector"
+
+  project_id       = var.project_id
+  region           = var.region
+  scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
+  environment      = "production"
+  # The consolidated `shorted <job>` image: main's jobs consolidation retired the
+  # standalone influence-collector image and CI no longer builds it. The module
+  # passes the `influence` subcommand in its args.
+  image_url = var.shorted_jobs_image
+
+  # Prod is where the register crawl actually runs, so it owns the private PDF
+  # bucket. report-extractor's SA is granted read HERE, not from that module:
+  # binding IAM on another module's bucket produced the getIamPolicy 403 its
+  # `removed {}` block documents.
+  manage_register_bucket  = true
+  reader_service_accounts = [module.report_extractor.service_account_email]
+
+  depends_on = [
+    google_project_service.required_apis,
+    google_artifact_registry_repository.shorted
+  ]
+}
+
 # Shorts API Service
 module "shorts_api" {
   source = "../../modules/shorts-api"

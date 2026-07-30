@@ -22,6 +22,21 @@
 //	-mode public-records  Publish already-ingested tax + external public records.
 //	-mode all    sources + tax + match + public-records.
 //
+// REGISTER OF INTERESTS modes — parliamentarians' declared interests. These are
+// OPERATOR-RUN and deliberately EXCLUDED from -mode all: -mode all runs on every
+// prod deploy, and an 804-document crawl of aph.gov.au must never fire from a
+// deploy step or an unattended timer. REGISTER_DRY_RUN defaults TRUE, so each is
+// a no-op until it is explicitly set false.
+// See docs/politician-register-architecture.md §5.2.
+//
+//	-mode register-discover         scrape the listing pages into the manifest; downloads nothing
+//	-mode register-fetch            drain the fetch queue, streaming PDFs to the content-addressed sink
+//	-mode register-load             load extracted artifacts into politicians / statements / declared items
+//	-mode register-resolve          securities + locations + the holding-interval fold + MV refresh
+//	-mode register-freshness        read-only sentinel; non-zero exit on an alarm
+//	-mode register-propose-aliases  LLM-proposed aliases for human review; publishes nothing
+//	-mode register-promote-aliases  copy human-CONFIRMED proposals into the curated alias table
+//
 // Editorial gate: only exact-ABN or exact-normalized-name matches are ever
 // inserted into entity_asx_map (match_method='name_exact'); fuzzy matching is out
 // of scope here. See docs/influence-editorial-standards.md.
@@ -33,6 +48,7 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/platform"
@@ -58,7 +74,8 @@ func Job() runner.Job {
 // message text, same non-zero exit, no panic-as-control-flow.
 func Run(parent context.Context, args []string) error {
 	fs := flag.NewFlagSet("influence", flag.ContinueOnError)
-	mode := fs.String("mode", "tax", "tax | match | sources | source-registry | source-probe | tax-records | emissions | austender | aec | lobbyists | trade | public-records | all")
+	mode := fs.String("mode", "tax", "tax | match | sources | source-registry | source-probe | tax-records | emissions | austender | aec | lobbyists | trade | public-records | all | register-discover | register-fetch | register-load | register-resolve | register-freshness | register-propose-aliases | register-promote-aliases")
+	registerLimit := fs.Int("register-limit", 0, "cap documents processed per register mode (0 = no cap); the fetch queue is ordered parliament DESC so a cap lands on a parliament boundary")
 	sourceLimit := fs.Int("source-limit", defaultAusTenderResourceCap, "maximum downloadable resources per source for archive-backed collectors")
 	if err := fs.Parse(args); err != nil {
 		if err == flag.ErrHelp {
@@ -67,8 +84,18 @@ func Run(parent context.Context, args []string) error {
 		return err
 	}
 
-	// 15-minute ceiling, same as the standalone binary.
-	ctx, cancel := context.WithTimeout(parent, 15*time.Minute)
+	// 15-minute ceiling for the public-records collectors, same as the standalone
+	// binary. The REGISTER modes get their own, much longer ceiling: they are
+	// operator-run rather than scheduled, and they legitimately take longer than
+	// 15 minutes — a polite serial fetch of 804 PDFs at 1.5s apart is ~20 minutes
+	// by design, and load/resolve walk 769 documents and 6,133 candidates. Capping
+	// them at 15 would kill a healthy run half way through and leave the manifest
+	// looking like a failure.
+	ceiling := 15 * time.Minute
+	if strings.HasPrefix(*mode, "register-") {
+		ceiling = 6 * time.Hour
+	}
+	ctx, cancel := context.WithTimeout(parent, ceiling)
 	defer cancel()
 
 	pool, err := platform.ConnectFromEnv(ctx)
@@ -126,8 +153,26 @@ func Run(parent context.Context, args []string) error {
 		add(sourceRegistry, trade)
 	case "public-records":
 		add(sourceRegistry, taxRecords, emissions, austender, aec, lobbyists, trade)
+
+	// --- register of interests -------------------------------------------
+	// One step each, and NEVER added to "all" above.
+	case "register-discover":
+		add(func(ctx context.Context) error { return runRegisterDiscover(ctx, pool, *registerLimit) })
+	case "register-fetch":
+		add(func(ctx context.Context) error { return runRegisterFetch(ctx, pool, *registerLimit) })
+	case "register-load":
+		add(func(ctx context.Context) error { return runRegisterLoad(ctx, pool, *registerLimit) })
+	case "register-resolve":
+		add(func(ctx context.Context) error { return runRegisterResolve(ctx, pool) })
+	case "register-freshness":
+		add(func(ctx context.Context) error { return runRegisterFreshnessMode(ctx, pool) })
+	case "register-propose-aliases":
+		add(func(ctx context.Context) error { return runRegisterProposeAliasesMode(ctx, pool, *registerLimit) })
+	case "register-promote-aliases":
+		add(func(ctx context.Context) error { return runRegisterPromoteAliasesMode(ctx, pool) })
+
 	default:
-		return fmt.Errorf("unknown -mode %q (want tax|match|sources|source-registry|source-probe|tax-records|emissions|austender|aec|lobbyists|trade|public-records|all)", *mode)
+		return fmt.Errorf("unknown -mode %q (want tax|match|sources|source-registry|source-probe|tax-records|emissions|austender|aec|lobbyists|trade|public-records|all|register-discover|register-fetch|register-load|register-resolve|register-freshness|register-propose-aliases|register-promote-aliases)", *mode)
 	}
 
 	for _, step := range steps {

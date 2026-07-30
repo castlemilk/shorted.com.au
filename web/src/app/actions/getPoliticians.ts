@@ -1,0 +1,326 @@
+import { createConnectTransport } from "@connectrpc/connect-web";
+import { createClient } from "@connectrpc/connect";
+import { fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
+import {
+  PoliticiansService,
+  GetParliamentOverviewResponseSchema,
+  ListPoliticiansResponseSchema,
+  GetPoliticianResponseSchema,
+  ListStockPoliticiansResponseSchema,
+  ListPoliticianStocksResponseSchema,
+  ListSuburbPoliticiansResponseSchema,
+  ListStatePoliticianHoldingsResponseSchema,
+  ListRegisterChangesResponseSchema,
+  ListShortInterestOverlapResponseSchema,
+  type GetParliamentOverviewResponse,
+  type ListPoliticiansResponse,
+  type GetPoliticianResponse,
+  type ListStockPoliticiansResponse,
+  type ListPoliticianStocksResponse,
+  type ListSuburbPoliticiansResponse,
+  type ListStatePoliticianHoldingsResponse,
+  type ListRegisterChangesResponse,
+  type ListShortInterestOverlapResponse,
+} from "~/gen/shorts/v1alpha1/politicians_pb";
+import { cache } from "react";
+import {
+  SERVER_SHORTS_API_URL,
+  serverFetchWithUserAgent,
+  skipForBuild,
+} from "./config";
+import { CACHE_KEYS, POLITICIANS_TTL, getCached, setCached } from "@/lib/kv-cache";
+import { withRetryAndNotFound } from "./withRetry";
+
+// A transport whose fetch tags the request ISR-cacheable.
+//
+// LOAD-BEARING. Without a `next` (or explicit `cache`) option,
+// serverFetchWithUserAgent forces `cache:'no-store'` on POSTs at Vercel runtime,
+// which opts the whole route out of static generation — and worse, throws
+// "Page changed from static to dynamic at runtime" during an ISR regen, baking
+// the placeholder for an hour. Same lesson as getHousing/getEconomy.
+const isrPoliticiansFetch: typeof fetch = (input, init) =>
+  serverFetchWithUserAgent(input, { ...init, next: { revalidate: 3600 } });
+
+function createCacheablePoliticiansClient() {
+  const transport = createConnectTransport({
+    fetch: isrPoliticiansFetch,
+    baseUrl: SERVER_SHORTS_API_URL,
+  });
+  return createClient(PoliticiansService, transport);
+}
+
+/**
+ * Read a cached response, tolerating schema drift.
+ *
+ * A `fromJson` failure means the proto changed since the entry was written; we
+ * fall through to a live fetch rather than serving a broken shape.
+ */
+function readCached<T>(schema: Parameters<typeof fromJson>[0], cached: JsonValue | null): T | undefined {
+  if (cached == null) return undefined;
+  try {
+    return fromJson(schema, cached) as T;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Write a cache entry, fire-and-forget.
+ *
+ * Caches the toJson PROJECTION, never the proto: register messages carry
+ * Timestamps, which are BigInt-backed and make JSON.stringify throw.
+ */
+function writeCached(schema: Parameters<typeof toJson>[0], key: string, value: unknown): void {
+  try {
+    void setCached(key, toJson(schema, value as never) as JsonValue, POLITICIANS_TTL);
+  } catch {
+    // Never let a cache write break a render.
+  }
+}
+
+/** Parliament-wide counts and the as-at date. */
+export const getParliamentOverview = cache(
+  withRetryAndNotFound(async (): Promise<GetParliamentOverviewResponse | undefined> => {
+    if (skipForBuild()) return undefined;
+    const key = CACHE_KEYS.parliamentOverview();
+    const hit = readCached<GetParliamentOverviewResponse>(
+      GetParliamentOverviewResponseSchema,
+      await getCached<JsonValue>(key),
+    );
+    if (hit) return hit;
+
+    const resp = await createCacheablePoliticiansClient().getParliamentOverview({});
+    // NEVER cache an empty response: the kill switch and a cold MV both return
+    // {}, and caching that pins the empty state for 24h.
+    if (resp.politicianCount > 0) {
+      writeCached(GetParliamentOverviewResponseSchema, key, resp);
+    }
+    return resp;
+  }),
+);
+
+/** Browse/filter parliamentarians. */
+export const listPoliticians = cache(
+  withRetryAndNotFound(
+    async (
+      // Types are annotated even where a default would infer them: these
+      // functions are contextual arguments to withRetryAndNotFound's
+      // `TArgs extends unknown[]`, and inference falls back to the constraint
+      // (every parameter becomes `unknown`) unless the annotation is explicit.
+      // Same reason and same eslint-disable as getHousing.ts.
+      chamber: string = "", // eslint-disable-line @typescript-eslint/no-inferrable-types
+      stateCode: string = "", // eslint-disable-line @typescript-eslint/no-inferrable-types
+      partyAb: string = "", // eslint-disable-line @typescript-eslint/no-inferrable-types
+      query: string = "", // eslint-disable-line @typescript-eslint/no-inferrable-types
+      limit: number = 100, // eslint-disable-line @typescript-eslint/no-inferrable-types
+      offset: number = 0, // eslint-disable-line @typescript-eslint/no-inferrable-types
+    ): Promise<ListPoliticiansResponse | undefined> => {
+      if (skipForBuild()) return undefined;
+      const key = CACHE_KEYS.politicianList(chamber, stateCode, partyAb, query, limit, offset);
+      const hit = readCached<ListPoliticiansResponse>(
+        ListPoliticiansResponseSchema,
+        await getCached<JsonValue>(key),
+      );
+      if (hit) return hit;
+
+      const resp = await createCacheablePoliticiansClient().listPoliticians({
+        chamber,
+        stateCode,
+        partyAb,
+        query,
+        limit,
+        offset,
+      });
+      if (resp.politicians.length > 0) {
+        writeCached(ListPoliticiansResponseSchema, key, resp);
+      }
+      return resp;
+    },
+  ),
+);
+
+/** One politician's declared interests and history. */
+export const getPolitician = cache(
+  withRetryAndNotFound(async (slug: string): Promise<GetPoliticianResponse | undefined> => {
+    if (!slug) return undefined;
+    if (skipForBuild()) return undefined;
+    const key = CACHE_KEYS.politicianProfile(slug);
+    const hit = readCached<GetPoliticianResponse>(
+      GetPoliticianResponseSchema,
+      await getCached<JsonValue>(key),
+    );
+    if (hit) return hit;
+
+    const resp = await createCacheablePoliticiansClient().getPolitician({ slug });
+    if (resp.politician) {
+      writeCached(GetPoliticianResponseSchema, key, resp);
+    }
+    return resp;
+  }),
+);
+
+/** Parliamentarians declaring an interest in one company. */
+export const listStockPoliticians = cache(
+  withRetryAndNotFound(
+    async (stockCode: string): Promise<ListStockPoliticiansResponse | undefined> => {
+      if (!stockCode) return undefined;
+      if (skipForBuild()) return undefined;
+      const code = stockCode.toUpperCase();
+      const key = CACHE_KEYS.stockPoliticians(code);
+      const hit = readCached<ListStockPoliticiansResponse>(
+        ListStockPoliticiansResponseSchema,
+        await getCached<JsonValue>(key),
+      );
+      if (hit) return hit;
+
+      const resp = await createCacheablePoliticiansClient().listStockPoliticians({
+        stockCode: code,
+      });
+      if (resp.interests.length > 0) {
+        writeCached(ListStockPoliticiansResponseSchema, key, resp);
+      }
+      return resp;
+    },
+  ),
+);
+
+/** Parliament's most-declared companies. */
+export const listPoliticianStocks = cache(
+  withRetryAndNotFound(
+    async (
+      limit: number = 50, // eslint-disable-line @typescript-eslint/no-inferrable-types
+      currentOnly: boolean = true, // eslint-disable-line @typescript-eslint/no-inferrable-types
+    ): Promise<ListPoliticianStocksResponse | undefined> => {
+      if (skipForBuild()) return undefined;
+      const key = CACHE_KEYS.politicianStocks(limit, currentOnly);
+      const hit = readCached<ListPoliticianStocksResponse>(
+        ListPoliticianStocksResponseSchema,
+        await getCached<JsonValue>(key),
+      );
+      if (hit) return hit;
+
+      const resp = await createCacheablePoliticiansClient().listPoliticianStocks({
+        limit,
+        currentOnly,
+      });
+      if (resp.stocks.length > 0) {
+        writeCached(ListPoliticianStocksResponseSchema, key, resp);
+      }
+      return resp;
+    },
+  ),
+);
+
+/** Parliamentarians declaring real estate in one suburb. */
+export const listSuburbPoliticians = cache(
+  withRetryAndNotFound(
+    async (salCode: string): Promise<ListSuburbPoliticiansResponse | undefined> => {
+      if (!salCode) return undefined;
+      if (skipForBuild()) return undefined;
+      const key = CACHE_KEYS.suburbPoliticians(salCode);
+      const hit = readCached<ListSuburbPoliticiansResponse>(
+        ListSuburbPoliticiansResponseSchema,
+        await getCached<JsonValue>(key),
+      );
+      if (hit) return hit;
+
+      const resp = await createCacheablePoliticiansClient().listSuburbPoliticians({ salCode });
+      if (resp.properties.length > 0) {
+        writeCached(ListSuburbPoliticiansResponseSchema, key, resp);
+      }
+      return resp;
+    },
+  ),
+);
+
+/** Companies declared by one state's parliamentarians. */
+export const listStatePoliticianHoldings = cache(
+  withRetryAndNotFound(
+    async (
+      stateCode: string,
+      limit: number = 20, // eslint-disable-line @typescript-eslint/no-inferrable-types
+    ): Promise<ListStatePoliticianHoldingsResponse | undefined> => {
+      if (!stateCode) return undefined;
+      if (skipForBuild()) return undefined;
+      const code = stateCode.toUpperCase();
+      const key = CACHE_KEYS.statePoliticianHoldings(code, limit);
+      const hit = readCached<ListStatePoliticianHoldingsResponse>(
+        ListStatePoliticianHoldingsResponseSchema,
+        await getCached<JsonValue>(key),
+      );
+      if (hit) return hit;
+
+      const resp = await createCacheablePoliticiansClient().listStatePoliticianHoldings({
+        stateCode: code,
+        limit,
+      });
+      if (resp.stocks.length > 0) {
+        writeCached(ListStatePoliticianHoldingsResponseSchema, key, resp);
+      }
+      return resp;
+    },
+  ),
+);
+
+/** Register additions and removals over time. */
+export const listRegisterChanges = cache(
+  withRetryAndNotFound(
+    async (
+      limit: number = 100, // eslint-disable-line @typescript-eslint/no-inferrable-types
+      offset: number = 0, // eslint-disable-line @typescript-eslint/no-inferrable-types
+    ): Promise<ListRegisterChangesResponse | undefined> => {
+      if (skipForBuild()) return undefined;
+      const key = CACHE_KEYS.registerChanges("", "", limit, offset);
+      const hit = readCached<ListRegisterChangesResponse>(
+        ListRegisterChangesResponseSchema,
+        await getCached<JsonValue>(key),
+      );
+      if (hit) return hit;
+
+      const resp = await createCacheablePoliticiansClient().listRegisterChanges({ limit, offset });
+      if (resp.events.length > 0) {
+        writeCached(ListRegisterChangesResponseSchema, key, resp);
+      }
+      return resp;
+    },
+  ),
+);
+
+/** Declared interests in companies carrying short interest. */
+export const listShortInterestOverlap = cache(
+  withRetryAndNotFound(
+    async (
+      minShortPercent: number = 2, // eslint-disable-line @typescript-eslint/no-inferrable-types
+      limit: number = 50, // eslint-disable-line @typescript-eslint/no-inferrable-types
+    ): Promise<ListShortInterestOverlapResponse | undefined> => {
+      if (skipForBuild()) return undefined;
+      const key = CACHE_KEYS.shortInterestOverlap(minShortPercent, limit);
+      const hit = readCached<ListShortInterestOverlapResponse>(
+        ListShortInterestOverlapResponseSchema,
+        await getCached<JsonValue>(key),
+      );
+      if (hit) return hit;
+
+      const resp = await createCacheablePoliticiansClient().listShortInterestOverlap({
+        minShortPercent,
+        limit,
+      });
+      if (resp.overlaps.length > 0) {
+        writeCached(ListShortInterestOverlapResponseSchema, key, resp);
+      }
+      return resp;
+    },
+  ),
+);
+
+/** Thin slug list for the sitemap. */
+export const getPoliticianSlugs = cache(
+  withRetryAndNotFound(async (): Promise<{ slug: string; hasInterests: boolean }[]> => {
+    if (skipForBuild()) return [];
+    const resp = await createCacheablePoliticiansClient().listPoliticians({ limit: 500 });
+    return resp.politicians.map((p) => ({
+      slug: p.slug,
+      hasInterests: p.declaredListedCount > 0 || p.declaredPropertyCount > 0,
+    }));
+  }),
+);

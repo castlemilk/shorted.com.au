@@ -18,6 +18,7 @@ import "shorts/v1alpha1/housing.proto";
 import "shorts/v1alpha1/industry.proto";
 import "shorts/v1alpha1/market.proto";
 import "shorts/v1alpha1/news.proto";
+import "shorts/v1alpha1/politicians.proto";
 import "shorts/v1alpha1/reports.proto";
 import "shorts/v1alpha1/screener.proto";
 import "shorts/v1alpha1/search.proto";
@@ -808,6 +809,92 @@ service ShortedStocksService {
     option (gnostic.openapi.v3.operation) = {
       summary: "Get Industry Intelligence",
       description: "Imported, cited industry intelligence records for a Shorted industry. Only public-enabled sources and exact-reviewed records are returned."
+    };
+  }
+
+  // ==================== Registers of Interests ====================
+  // Mirrored from PoliticiansService for external API back-compat. The parity
+  // test walks the proto registry and fails if a domain rpc is missing here, or
+  // if the visibility annotations differ.
+
+  // Parliament-wide register counts and the as-at date.
+  rpc GetParliamentOverview (GetParliamentOverviewRequest) returns (GetParliamentOverviewResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Parliament Overview",
+      description: "Counts and as-at date for the Registers of Members' and Senators' Interests."
+    };
+  }
+
+  // Browse/filter parliamentarians.
+  rpc ListPoliticians (ListPoliticiansRequest) returns (ListPoliticiansResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Politicians",
+      description: "Federal parliamentarians covered by the registers, with declared-interest counts."
+    };
+  }
+
+  // One politician's declared interests, property and terms.
+  rpc GetPolitician (GetPoliticianRequest) returns (GetPoliticianResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Politician",
+      description: "One parliamentarian's declared interests and history. The registers record what is held, never quantity or value."
+    };
+  }
+
+  // Which parliamentarians declare an interest in one ASX-listed company.
+  rpc ListStockPoliticians (ListStockPoliticiansRequest) returns (ListStockPoliticiansResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Stock Politicians",
+      description: "Parliamentarians declaring an interest in a company, by holder and declaration period."
+    };
+  }
+
+  // Parliament's most-declared ASX-listed companies.
+  rpc ListPoliticianStocks (ListPoliticianStocksRequest) returns (ListPoliticianStocksResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Politician Stocks",
+      description: "Most-declared ASX-listed companies across federal parliament, counted by people."
+    };
+  }
+
+  // Which parliamentarians declare real estate in one ABS suburb.
+  rpc ListSuburbPoliticians (ListSuburbPoliticiansRequest) returns (ListSuburbPoliticiansResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Suburb Politicians",
+      description: "Parliamentarians declaring real estate in a suburb. The registers record suburb or area only."
+    };
+  }
+
+  // Parliamentarians of one state and the companies they declare.
+  rpc ListStatePoliticianHoldings (ListStatePoliticianHoldingsRequest) returns (ListStatePoliticianHoldingsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List State Politician Holdings",
+      description: "Companies declared by the parliamentarians representing one state or territory."
+    };
+  }
+
+  // Register additions and removals over time.
+  rpc ListRegisterChanges (ListRegisterChangesRequest) returns (ListRegisterChangesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Register Changes",
+      description: "Rows added to or removed from the registers. A removal is not a transaction."
+    };
+  }
+
+  // Declared interests in companies carrying short interest.
+  rpc ListShortInterestOverlap (ListShortInterestOverlapRequest) returns (ListShortInterestOverlapResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Short Interest Overlap",
+      description: "Declared interests in companies carrying short interest. The short percentage describes the company, not any holding."
     };
   }
 }

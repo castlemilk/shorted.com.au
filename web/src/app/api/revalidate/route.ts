@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   deleteCachedByPrefix,
   HOUSING_DATA_CACHE_PREFIXES,
+  POLITICIANS_DATA_CACHE_PREFIXES,
   SHORTS_DATA_CACHE_PREFIXES,
 } from "~/@/lib/kv-cache";
 
@@ -11,6 +12,7 @@ import {
 const FLUSH_PREFIXES: Record<string, readonly string[]> = {
   shorts: SHORTS_DATA_CACHE_PREFIXES,
   housing: HOUSING_DATA_CACHE_PREFIXES,
+  politicians: POLITICIANS_DATA_CACHE_PREFIXES,
 };
 
 /**

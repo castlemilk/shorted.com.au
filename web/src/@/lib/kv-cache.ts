@@ -142,10 +142,32 @@ export const SHORTS_DATA_CACHE_PREFIXES = [
 // housing data-change event (crawl ingest) via /api/revalidate?flush=housing.
 export const HOUSING_DATA_CACHE_PREFIXES = ["cache:housing:"] as const;
 
+// Register-of-interests data changes only when the APH crawl re-ingests (weekly
+// during sitting periods). Cache hard with a 24h ceiling and bust the whole
+// family on the ingest event via /api/revalidate?flush=politicians.
+export const POLITICIANS_TTL = 86400;
+export const POLITICIANS_DATA_CACHE_PREFIXES = ["cache:politicians:"] as const;
+
 /**
  * Cache keys for various data types
  */
 export const CACHE_KEYS = {
+  // --- Registers of Members'/Senators' Interests ---
+  parliamentOverview: () => `cache:politicians:overview`,
+  politicianList: (chamber: string, state: string, party: string, query: string, limit: number, offset: number) =>
+    `cache:politicians:list:${chamber || "all"}:${state || "all"}:${party || "all"}:${query || "-"}:${limit}:${offset}`,
+  politicianProfile: (slug: string) => `cache:politicians:profile:${slug}`,
+  stockPoliticians: (stockCode: string) => `cache:politicians:stock:${stockCode}`,
+  politicianStocks: (limit: number, currentOnly: boolean) =>
+    `cache:politicians:stocks:${limit}:${currentOnly ? "current" : "all"}`,
+  suburbPoliticians: (salCode: string) => `cache:politicians:suburb:${salCode}`,
+  statePoliticianHoldings: (state: string, limit: number) =>
+    `cache:politicians:state:${state}:${limit}`,
+  registerChanges: (since: string, kind: string, limit: number, offset: number) =>
+    `cache:politicians:changes:${since || "all"}:${kind || "all"}:${limit}:${offset}`,
+  shortInterestOverlap: (minPct: number, limit: number) =>
+    `cache:politicians:short-overlap:${minPct}:${limit}`,
+
   statistics: `${CACHE_PREFIX}statistics`,
   topStocks: (limit: number) => `${CACHE_PREFIX}top-stocks:${limit}`,
   // Homepage cache keys

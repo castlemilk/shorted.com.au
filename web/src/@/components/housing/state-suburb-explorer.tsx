@@ -63,6 +63,7 @@ export function StateSuburbExplorer({ stateCode }: StateSuburbExplorerProps) {
       dominantNbnTech: s.dominantNbnTech, connectivityQualityScore: s.connectivityQualityScore,
       crimeBreakInsRank: s.crimeBreakInsRank, crimeViolentRank: s.crimeViolentRank,
       crimeMotorVehicleRank: s.crimeMotorVehicleRank,
+      politicianPropertyCount: s.politicianPropertyCount,
     })),
     [data],
   );

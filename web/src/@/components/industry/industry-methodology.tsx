@@ -1,11 +1,12 @@
 import { ArrowUpRight } from "lucide-react";
+import { REPORT_ERROR_EMAIL } from "@/lib/report-error";
 
 import type {
   EvidenceChannel,
   IndustryEvidenceSourceInput,
 } from "~/@/lib/industry-intelligence";
 
-const REPORT_ERROR_EMAIL = "support@shorted.com.au";
+
 
 /**
  * Data-driven "Sources & methodology" section. Lists every source that is

@@ -1,0 +1,231 @@
+{
+  "source_url": "https://www.aph.gov.au/-/media/03_Senators_and_Members/32_Members/Register/48p/AB/Boele_48P.pdf",
+  "document_sha256": "1e88fd4d990ad19d67c038bd36291e0a386e86b8888bc33920e62cdc664f092d",
+  "statements": 3,
+  "rows": [
+    [
+      "alteration",
+      1,
+      "spouse_partner",
+      "deletion",
+      "All spouse / partner details"
+    ],
+    [
+      "alteration",
+      2,
+      "spouse_partner",
+      "deletion",
+      "All spouse / partner details All spouse / partner details"
+    ],
+    [
+      "alteration",
+      3,
+      "spouse_partner",
+      "deletion",
+      "All spouse / partner details"
+    ],
+    [
+      "alteration",
+      4,
+      "spouse_partner",
+      "deletion",
+      "All spouse / partner details"
+    ],
+    [
+      "alteration",
+      8,
+      "self",
+      "addition",
+      "Business transaction account (Nixs Run Pty Ltd) - Bendigo Bank"
+    ],
+    [
+      "alteration",
+      8,
+      "self",
+      "addition",
+      "Cash Management Accelerator - Macquarie"
+    ],
+    [
+      "alteration",
+      8,
+      "self",
+      "addition",
+      "Cash Management Account - Macquarie"
+    ],
+    [
+      "alteration",
+      8,
+      "self",
+      "addition",
+      "Personal - AMP"
+    ],
+    [
+      "alteration",
+      8,
+      "self",
+      "addition",
+      "Personal transaction account - Bendigo Bank"
+    ],
+    [
+      "alteration",
+      8,
+      "self",
+      "deletion",
+      "Everyday account (joint) Great Southern Bank"
+    ],
+    [
+      "alteration",
+      8,
+      "self",
+      "deletion",
+      "Savings account (joint) Great Southern Bank"
+    ],
+    [
+      "alteration",
+      8,
+      "spouse_partner",
+      "deletion",
+      "All spouse / partner details"
+    ],
+    [
+      "alteration",
+      9,
+      "dependent_children",
+      "deletion",
+      "All dependent details"
+    ],
+    [
+      "alteration",
+      11,
+      "self",
+      "addition",
+      "FIFA World Cup 2026 jerseys"
+    ],
+    [
+      "alteration",
+      12,
+      "self",
+      "addition",
+      "Theatre tickets from Lateral"
+    ],
+    [
+      "alteration",
+      13,
+      "self",
+      "deletion",
+      "Member, Australian Conservation Foundation"
+    ],
+    [
+      "base",
+      1,
+      "self",
+      "declared",
+      "Telstra TLS Ventures 2040 (trading as Climate Venture Capital Fund) (joint) Betashares FAIR (joint) Betashares ERTH (joint) Betashares GBND (joint) Betashares HETH (joint) Australian Ethical Australian Shares Fund (joint) Dimensional Global Bond Sustainability Trust - AUD (joint) Nanuk New World Fund (joint) Stewart Investors Wholesale Worldwide Leaders Sustainability Fund (joint) Vanguard Cash Reserve Fund (joint)"
+    ],
+    [
+      "base",
+      1,
+      "spouse_partner",
+      "declared",
+      "Ventures 2040 (trading as Climate Venture Capital Fund) (joint) Betashares FAIR (joint) Betashares ERTH (joint) Betashares GBND (joint) Betashares HETH (joint) Australian Ethical Australian Shares Fund (joint) Dimensional Global Bond Sustainability Trust - AUD (joint) Nanuk New World Fund (joint) Stewart Investors Wholesale Worldwide Leaders Sustainability Fund (joint) Vanguard Cash Reserve Fund (joint)"
+    ],
+    [
+      "base",
+      2,
+      "self",
+      "declared",
+      "Gerabo Family Trust"
+    ],
+    [
+      "base",
+      2,
+      "spouse_partner",
+      "declared",
+      "Gerabo Family Trust"
+    ],
+    [
+      "base",
+      3,
+      "dependent_children",
+      "declared",
+      "Potato Point, NSW"
+    ],
+    [
+      "base",
+      3,
+      "self",
+      "declared",
+      "North Turramurra, NSW (joint)"
+    ],
+    [
+      "base",
+      3,
+      "spouse_partner",
+      "declared",
+      "North Turramurra, NSW (joint)"
+    ],
+    [
+      "base",
+      4,
+      "self",
+      "declared",
+      "Nixs Run Pty Ltd. Gerabo Pty Ltd."
+    ],
+    [
+      "base",
+      4,
+      "spouse_partner",
+      "declared",
+      "Gerabo Pty Ltd."
+    ],
+    [
+      "base",
+      8,
+      "dependent_children",
+      "declared",
+      "Savings Transaction"
+    ],
+    [
+      "base",
+      8,
+      "self",
+      "declared",
+      "Everyday account 1 (personal) Savings account (personal) Business account transaction 1 (Nixs Run Pty Ltd.) Cash Management Account (Gerabo family trust) (joint) Everyday account (joint) Savings account (joint) Business account transaction 2 (Nixs Run Pty Ltd.) Business account savings (Nixs Run Pty Ltd.)"
+    ],
+    [
+      "base",
+      8,
+      "spouse_partner",
+      "declared",
+      "Everyday account (joint) Savings account (joint) Cash Management Account (Gerabo family trust) (joint)"
+    ],
+    [
+      "base",
+      9,
+      "dependent_children",
+      "declared",
+      "Car Superannuation"
+    ],
+    [
+      "base",
+      9,
+      "self",
+      "declared",
+      "Car Superannuation"
+    ],
+    [
+      "base",
+      9,
+      "spouse_partner",
+      "declared",
+      "Car Superannuation"
+    ],
+    [
+      "base",
+      13,
+      "self",
+      "declared",
+      "Member, Australian Conservation Foundation"
+    ]
+  ]
+}
