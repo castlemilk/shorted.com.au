@@ -28,12 +28,6 @@ variable "house_price_collector_image" {
   default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/house-price-collector:latest"
 }
 
-variable "influence_collector_image" {
-  description = "Docker image URL for influence-collector job"
-  type        = string
-  default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/influence-collector:latest"
-}
-
 variable "shorted_jobs_image" {
   description = "Docker image URL for the consolidated `shorted <job>` batch binary (services/jobs)"
   type        = string

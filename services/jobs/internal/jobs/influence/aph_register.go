@@ -1,4 +1,4 @@
-package main
+package influence
 
 // Discovery for the Registers of Members' and Senators' Interests (aph.gov.au).
 //

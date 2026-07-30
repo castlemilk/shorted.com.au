@@ -18,23 +18,13 @@
 //	-mode public-records  Publish already-ingested tax + external public records.
 //	-mode all    sources + tax + match + public-records.
 //
-//	-mode register-discover  Scrape the APH Registers of Members'/Senators'
-//	                         Interests listing pages into the register_documents
-//	                         manifest. Downloads no PDFs.
-//	-mode register-fetch     Stream queued PDFs into the content-addressed sink
-//	                         (REGISTER_BUCKET, else a local cache) and record
-//	                         sha256/size/storage_uri on the manifest.
-//	-mode register-load      Turn extraction artifacts into normalised
-//	                         statements/items and resolve each document to a
-//	                         person (politicians + politician_terms).
-//	-mode register-resolve   Rebuild declared-name -> ASX code links. Only
-//	                         curated aliases, member-stated tickers and exact
-//	                         name matches are publishable.
+// The REGISTER OF INTERESTS modes (register-discover/fetch/load/resolve/
+// freshness/propose-aliases/promote-aliases) moved to the consolidated binary:
 //
-// The register-* modes are deliberately EXCLUDED from -mode all: -mode all runs
-// on every prod deploy, and an 804-document crawl of aph.gov.au must never fire
-// from a deploy step. They also dry-run by default (REGISTER_DRY_RUN=false to
-// persist).
+//	shorted influence -mode register-discover
+//
+// See services/jobs/internal/jobs/influence and
+// docs/politician-register-architecture.md §5.2.
 //
 // Editorial gate: only exact-ABN or exact-normalized-name matches are ever
 // inserted into entity_asx_map (match_method='name_exact'); fuzzy matching is out
@@ -53,9 +43,8 @@ import (
 )
 
 func main() {
-	mode := flag.String("mode", "tax", "tax | match | sources | source-registry | source-probe | tax-records | emissions | austender | aec | lobbyists | trade | public-records | all | register-discover | register-fetch | register-load | register-resolve | register-freshness")
+	mode := flag.String("mode", "tax", "tax | match | sources | source-registry | source-probe | tax-records | emissions | austender | aec | lobbyists | trade | public-records | all")
 	sourceLimit := flag.Int("source-limit", defaultAusTenderResourceCap, "maximum downloadable resources per source for archive-backed collectors")
-	registerLimit := flag.Int("register-limit", 0, "cap documents processed per register-* run (0 = no cap)")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -122,51 +111,15 @@ func main() {
 		runAECMode(ctx, pool, *sourceLimit)
 		runLobbyistsMode(ctx, pool)
 		runTradeMode(ctx, pool)
-	case "register-discover":
-		runRegisterDiscover(ctx, pool, *registerLimit)
-	case "register-fetch":
-		runRegisterFetch(ctx, pool, *registerLimit)
-	case "register-load":
-		runRegisterLoad(ctx, pool, *registerLimit)
-	case "register-resolve":
-		runRegisterResolve(ctx, pool)
-	case "register-propose-aliases":
-		// Writes ONLY register_alias_proposals, which nothing published reads.
-		// A proposal becomes publishable exclusively via a human marking it
-		// 'confirmed' and then -mode register-promote-aliases.
-		limit := *registerLimit
-		if limit <= 0 {
-			limit = 50
-		}
-		n, err := runRegisterAliasPropose(ctx, pool, limit, registerDryRun())
-		if err != nil {
-			log.Fatalf("[register-propose-aliases] %v", err)
-		}
-		log.Printf("[register-propose-aliases] %d proposals written (dry_run=%v)", n, registerDryRun())
-	case "register-promote-aliases":
-		if registerDryRun() {
-			log.Printf("[register-promote-aliases] REGISTER_DRY_RUN is set; no aliases promoted")
-			break
-		}
-		n, err := promoteAliasProposals(ctx, pool)
-		if err != nil {
-			log.Fatalf("[register-promote-aliases] %v", err)
-		}
-		log.Printf("[register-promote-aliases] promoted %d human-confirmed proposals to curated aliases", n)
-	case "register-freshness":
-		// Read-only. Exits non-zero on an alarm so the scheduled workflow that
-		// invokes it fails loudly — same contract as economy-collector's
-		// -mode freshness. Safe to run any time; writes nothing.
-		checks, err := collectRegisterFreshness(ctx, pool, time.Now())
-		if err != nil {
-			log.Printf("ERROR register-freshness: %v", err)
-			os.Exit(1)
-		}
-		if writeRegisterFreshnessReport(os.Stdout, checks) > 0 {
-			os.Exit(1)
-		}
+	// The REGISTER OF INTERESTS modes moved to the consolidated binary:
+	//   shorted influence -mode register-discover|fetch|load|resolve|freshness|
+	//                            propose-aliases|promote-aliases
+	// (services/jobs/internal/jobs/influence/aph_*.go). Keeping a second copy
+	// here would let two implementations of a subsystem that publishes facts
+	// about named people drift apart — which is exactly the failure §8.x of
+	// docs/politician-register-architecture.md is a record of.
 	default:
-		log.Fatalf("unknown -mode %q (want tax|match|sources|source-registry|source-probe|tax-records|emissions|austender|aec|lobbyists|trade|public-records|all|register-discover|register-fetch|register-load|register-resolve|register-freshness)", *mode)
+		log.Fatalf("unknown -mode %q (want tax|match|sources|source-registry|source-probe|tax-records|emissions|austender|aec|lobbyists|trade|public-records|all)", *mode)
 	}
 }
 

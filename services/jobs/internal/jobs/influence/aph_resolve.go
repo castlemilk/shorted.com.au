@@ -1,4 +1,4 @@
-package main
+package influence
 
 // Resolves declared item-1 text to ASX codes.
 //

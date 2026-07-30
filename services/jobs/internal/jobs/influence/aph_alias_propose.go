@@ -1,4 +1,4 @@
-package main
+package influence
 
 // Proposes declared-name -> ASX-code aliases for a HUMAN to confirm.
 //

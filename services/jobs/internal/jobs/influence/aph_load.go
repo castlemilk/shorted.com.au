@@ -1,4 +1,4 @@
-package main
+package influence
 
 // Loads extraction artifacts into the normalised tables.
 //

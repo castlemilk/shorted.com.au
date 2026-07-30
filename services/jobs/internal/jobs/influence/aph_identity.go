@@ -1,4 +1,4 @@
-package main
+package influence
 
 // Person identity for the register crawl.
 //

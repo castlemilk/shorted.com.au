@@ -1,4 +1,4 @@
-package main
+package influence
 
 // Manifest persistence for the register crawl.
 //

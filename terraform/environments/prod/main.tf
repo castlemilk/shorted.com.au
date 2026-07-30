@@ -488,7 +488,10 @@ module "influence_collector" {
   region           = var.region
   scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
   environment      = "production"
-  image_url        = var.influence_collector_image
+  # The consolidated `shorted <job>` image: main's jobs consolidation retired the
+  # standalone influence-collector image and CI no longer builds it. The module
+  # passes the `influence` subcommand in its args.
+  image_url = var.shorted_jobs_image
 
   # Prod is where the register crawl actually runs, so it owns the private PDF
   # bucket. report-extractor's SA is granted read HERE, not from that module:

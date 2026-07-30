@@ -109,20 +109,30 @@ resource "google_cloud_run_v2_job" "collector" {
       service_account = google_service_account.collector.email
       max_retries     = 2
 
-      # The binary self-cancels at 15 minutes (main.go: context.WithTimeout).
-      # 1200s leaves 5 minutes of container start/shutdown headroom. A larger
-      # value would be decorative and would imply runs can last longer than they
-      # can.
-      timeout = "1200s"
+      # The scheduled `-mode all` pass self-cancels at 15 minutes; 1200s leaves
+      # 5 minutes of container start/shutdown headroom.
+      #
+      # The REGISTER modes are operator-invoked and take longer than that by
+      # design — a polite serial fetch of 804 PDFs at 1.5s apart is ~20 minutes,
+      # and load/resolve walk 769 documents. They carry their own 6-hour ceiling
+      # in the binary, so this Cloud Run timeout is raised to match; the
+      # scheduled pass is unaffected because it still self-cancels at 15.
+      timeout = "21600s"
 
       containers {
         image = var.image_url
 
-        # EXPLICIT, not inherited. This binary's flag default is `-mode tax`,
-        # unlike economy-collector and house-price-collector which default to
-        # `all`. A job created without args would silently ingest ATO corporate
-        # tax only and report success.
-        args = ["-mode", "all"]
+        # EXPLICIT, not inherited, and TWO things matter here.
+        #
+        # 1. The `influence` SUBCOMMAND. This is the consolidated
+        #    `shorted <job>` binary (services/jobs) — main's jobs consolidation
+        #    retired the standalone influence-collector image and CI no longer
+        #    builds it. Without the subcommand the container prints usage and
+        #    exits 2.
+        # 2. `-mode all`. The job's flag default is `-mode tax`, unlike economy
+        #    and house-prices which default to `all`, so an argless run would
+        #    silently ingest ATO corporate tax only and report success.
+        args = ["influence", "-mode", "all"]
 
         env {
           name  = "ENVIRONMENT"

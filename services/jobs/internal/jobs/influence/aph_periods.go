@@ -1,4 +1,4 @@
-package main
+package influence
 
 // Folds the register event stream into point-in-time holding intervals.
 //

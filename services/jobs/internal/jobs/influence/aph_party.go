@@ -1,4 +1,4 @@
-package main
+package influence
 
 // Party seeding for politician_terms.
 //
@@ -104,7 +104,17 @@ func seedTermParties(ctx context.Context, pool *pgxpool.Pool) (partySeedStats, e
 	if err != nil {
 		// A missing file is a configuration gap, not a data error: the rest of the
 		// load is still valid, so warn and carry on rather than failing the run.
-		log.Printf("[register-load] party seed skipped: %v", err)
+		//
+		// SAY SO LOUDLY. The default path is repo-relative and does NOT exist
+		// inside the distroless job image, so a prod run silently skipped this and
+		// every party chip fell back to the suburb_demographics.federal_division
+		// join — which works for House members and yields NOTHING for senators,
+		// who have no division. A quiet "skipped" line in a 700-document run is
+		// not enough to notice that.
+		log.Printf("[register-load] WARNING party seed SKIPPED — no party will be stored on any term: %v", err)
+		log.Printf("[register-load] WARNING set ELECTORATES_DIR to a directory containing %s "+
+			"(the committed copy is web/public/geo/electorates); House members still resolve a party via "+
+			"suburb_demographics.federal_division, senators do not", federalDivisionsFile)
 		stats.SkippedFile = true
 		return stats, nil
 	}

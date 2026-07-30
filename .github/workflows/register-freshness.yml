@@ -51,5 +51,5 @@ jobs:
           gcloud run jobs execute influence-collector \
             --project rosy-clover-477102-t5 \
             --region australia-southeast2 \
-            --args="-mode,register-freshness" \
+            --args="influence,-mode,register-freshness" \
             --wait

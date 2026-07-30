@@ -1,4 +1,4 @@
-package main
+package influence
 
 // Run modes for the register crawl.
 //
@@ -9,6 +9,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"sort"
@@ -21,10 +22,10 @@ import (
 
 // runRegisterDiscover scrapes the five House listing pages plus the Senate
 // tabled-volumes page and writes the manifest. It downloads no PDFs.
-func runRegisterDiscover(ctx context.Context, pool *pgxpool.Pool, limit int) {
+func runRegisterDiscover(ctx context.Context, pool *pgxpool.Pool, limit int) error {
 	runID, err := insertIndustryCollectionRun(ctx, pool, registerSource)
 	if err != nil {
-		log.Fatalf("[register-discover] start collection run: %v", err)
+		return fmt.Errorf("[register-discover] start collection run: %w", err)
 	}
 
 	client := newAPHClient()
@@ -32,12 +33,12 @@ func runRegisterDiscover(ctx context.Context, pool *pgxpool.Pool, limit int) {
 	house, err := discoverHouseRegisterDocuments(ctx, client)
 	if err != nil {
 		registerFinishFailure(ctx, pool, runID, "[register-discover]", err)
-		log.Fatalf("[register-discover] house discovery: %v", err)
+		return fmt.Errorf("[register-discover] house discovery: %w", err)
 	}
 	senate, err := discoverSenateRegisterVolumes(ctx, client)
 	if err != nil {
 		registerFinishFailure(ctx, pool, runID, "[register-discover]", err)
-		log.Fatalf("[register-discover] senate discovery: %v", err)
+		return fmt.Errorf("[register-discover] senate discovery: %w", err)
 	}
 
 	docs := append(house, senate...)
@@ -75,15 +76,15 @@ func runRegisterDiscover(ctx context.Context, pool *pgxpool.Pool, limit int) {
 			"senate_documents":   len(senate),
 			"truncated_by_limit": truncated,
 		}); err != nil {
-			log.Fatalf("[register-discover] finish collection run: %v", err)
+			return fmt.Errorf("[register-discover] finish collection run: %w", err)
 		}
-		return
+		return nil
 	}
 
 	written, err := upsertRegisterDocuments(ctx, pool, docs)
 	if err != nil {
 		registerFinishFailure(ctx, pool, runID, "[register-discover]", err)
-		log.Fatalf("[register-discover] upsert after %d rows: %v", written, err)
+		return fmt.Errorf("[register-discover] upsert after %d rows: %w", written, err)
 	}
 
 	counts, err := countRegisterDocuments(ctx, pool)
@@ -102,11 +103,12 @@ func runRegisterDiscover(ctx context.Context, pool *pgxpool.Pool, limit int) {
 		"pending_fetch":      counts.PendingFetch,
 		"blocked_fetch":      counts.BlockedFetch,
 	}); err != nil {
-		log.Fatalf("[register-discover] finish collection run: %v", err)
+		return fmt.Errorf("[register-discover] finish collection run: %w", err)
 	}
 
 	log.Printf("[register-discover] upserted %d documents; manifest now holds %d (%d house, %d senate, %d pending fetch)",
 		written, counts.Total, counts.House, counts.Senate, counts.PendingFetch)
+	return nil
 }
 
 // runRegisterFetch drains the fetch queue, streaming each PDF into the sink.
@@ -114,24 +116,24 @@ func runRegisterDiscover(ctx context.Context, pool *pgxpool.Pool, limit int) {
 // Politeness is deliberate and serial: one connection, REGISTER_FETCH_DELAY_MS
 // (default 1500ms) between requests. A full 804-document pass therefore takes
 // ~20 minutes, which is invisible to APH and fine for a scheduled job.
-func runRegisterFetch(ctx context.Context, pool *pgxpool.Pool, limit int) {
+func runRegisterFetch(ctx context.Context, pool *pgxpool.Pool, limit int) error {
 	runID, err := insertIndustryCollectionRun(ctx, pool, registerSource)
 	if err != nil {
-		log.Fatalf("[register-fetch] start collection run: %v", err)
+		return fmt.Errorf("[register-fetch] start collection run: %w", err)
 	}
 
 	maxAttempts := envInt("REGISTER_MAX_ATTEMPTS", defaultRegisterMaxAttempts)
 	pending, err := selectPendingDocuments(ctx, pool, maxAttempts, limit)
 	if err != nil {
 		registerFinishFailure(ctx, pool, runID, "[register-fetch]", err)
-		log.Fatalf("[register-fetch] select queue: %v", err)
+		return fmt.Errorf("[register-fetch] select queue: %w", err)
 	}
 	if len(pending) == 0 {
 		log.Printf("[register-fetch] queue empty — nothing to fetch")
 		if err := finishIndustryCollectionRun(ctx, pool, runID, "succeeded", 0, 0, 0, "", map[string]any{"queue_empty": true}); err != nil {
-			log.Fatalf("[register-fetch] finish collection run: %v", err)
+			return fmt.Errorf("[register-fetch] finish collection run: %w", err)
 		}
-		return
+		return nil
 	}
 
 	if registerDryRun() {
@@ -139,15 +141,15 @@ func runRegisterFetch(ctx context.Context, pool *pgxpool.Pool, limit int) {
 		if err := finishIndustryCollectionRun(ctx, pool, runID, "succeeded", len(pending), 0, 0, "", map[string]any{
 			"dry_run": true, "queued": len(pending),
 		}); err != nil {
-			log.Fatalf("[register-fetch] finish collection run: %v", err)
+			return fmt.Errorf("[register-fetch] finish collection run: %w", err)
 		}
-		return
+		return nil
 	}
 
 	sink, err := newRegisterSink(ctx)
 	if err != nil {
 		registerFinishFailure(ctx, pool, runID, "[register-fetch]", err)
-		log.Fatalf("[register-fetch] sink: %v", err)
+		return fmt.Errorf("[register-fetch] sink: %w", err)
 	}
 	client := newAPHClient()
 	delay := registerFetchDelay()
@@ -181,7 +183,7 @@ fetchLoop:
 				blocked++
 				log.Printf("[register-fetch] BLOCKED at %s — aborting run", doc.SourceURL)
 				registerFinishFailure(ctx, pool, runID, "[register-fetch]", err)
-				log.Fatalf("[register-fetch] %v", err)
+				return fmt.Errorf("[register-fetch] %w", err)
 			}
 			failed++
 			log.Printf("[register-fetch] failed %s: %v", doc.SourceURL, err)
@@ -217,33 +219,34 @@ fetchLoop:
 		"bytes":        bytesTotal,
 		"sink":         sink.Describe(),
 	}); err != nil {
-		log.Fatalf("[register-fetch] finish collection run: %v", err)
+		return fmt.Errorf("[register-fetch] finish collection run: %w", err)
 	}
 	log.Printf("[register-fetch] fetched %d of %d (%d byte-identical, %d failed), %.1f MB",
 		fetched, len(pending), deduped, failed, float64(bytesTotal)/(1<<20))
+	return nil
 }
 
 // runRegisterLoad turns extraction artifacts into normalised rows and resolves
 // each document to a person.
-func runRegisterLoad(ctx context.Context, pool *pgxpool.Pool, limit int) {
+func runRegisterLoad(ctx context.Context, pool *pgxpool.Pool, limit int) error {
 	runID, err := insertIndustryCollectionRun(ctx, pool, registerSource)
 	if err != nil {
-		log.Fatalf("[register-load] start collection run: %v", err)
+		return fmt.Errorf("[register-load] start collection run: %w", err)
 	}
 
 	pending, err := selectExtractionsToLoad(ctx, pool, limit)
 	if err != nil {
 		registerFinishFailure(ctx, pool, runID, "[register-load]", err)
-		log.Fatalf("[register-load] select artifacts: %v", err)
+		return fmt.Errorf("[register-load] select artifacts: %w", err)
 	}
 	if registerDryRun() {
 		log.Printf("[register-load] DRY-RUN — %d artifacts ready, loading none (set REGISTER_DRY_RUN=false to load)", len(pending))
 		if err := finishIndustryCollectionRun(ctx, pool, runID, "succeeded", len(pending), 0, 0, "", map[string]any{
 			"dry_run": true, "artifacts": len(pending),
 		}); err != nil {
-			log.Fatalf("[register-load] finish collection run: %v", err)
+			return fmt.Errorf("[register-load] finish collection run: %w", err)
 		}
-		return
+		return nil
 	}
 
 	// Party seeding runs BEFORE the queue-empty return, not after the load loop.
@@ -254,7 +257,7 @@ func runRegisterLoad(ctx context.Context, pool *pgxpool.Pool, limit int) {
 	party, err := seedTermParties(ctx, pool)
 	if err != nil {
 		registerFinishFailure(ctx, pool, runID, "[register-load]", err)
-		log.Fatalf("[register-load] seed term parties: %v", err)
+		return fmt.Errorf("[register-load] seed term parties: %w", err)
 	}
 	if !party.SkippedFile {
 		log.Printf("[register-load] party seed (parliament %d): %d of %d terms carry a party (%d updated from %d divisions)",
@@ -275,9 +278,9 @@ func runRegisterLoad(ctx context.Context, pool *pgxpool.Pool, limit int) {
 			"party_terms_seeded": party.WithParty,
 			"party_terms_total":  party.Terms,
 		}); err != nil {
-			log.Fatalf("[register-load] finish collection run: %v", err)
+			return fmt.Errorf("[register-load] finish collection run: %w", err)
 		}
-		return
+		return nil
 	}
 
 	// Retroactive quarantine: a document downgraded to 'partial' by a re-extract
@@ -286,7 +289,7 @@ func runRegisterLoad(ctx context.Context, pool *pgxpool.Pool, limit int) {
 	purged, err := purgeNonExtractedStatements(ctx, pool)
 	if err != nil {
 		registerFinishFailure(ctx, pool, runID, "[register-load]", err)
-		log.Fatalf("[register-load] purge quarantined statements: %v", err)
+		return fmt.Errorf("[register-load] purge quarantined statements: %w", err)
 	}
 	if purged > 0 {
 		log.Printf("[register-load] purged %d statements belonging to no-longer-extracted documents", purged)
@@ -338,39 +341,40 @@ func runRegisterLoad(ctx context.Context, pool *pgxpool.Pool, limit int) {
 		"party_terms_total":         party.Terms,
 		"party_divisions_unmatched": len(party.Unmatched),
 	}); err != nil {
-		log.Fatalf("[register-load] finish collection run: %v", err)
+		return fmt.Errorf("[register-load] finish collection run: %w", err)
 	}
 
 	log.Printf("[register-load] loaded %d documents (%d failed): %d statements, %d item rows", loaded, failed, statements, items)
 	log.Printf("[register-load] totals: %d politicians, %d statements, %d item rows (%d declared), %d unresolved",
 		stats.Politicians, stats.Statements, stats.Items, stats.Declared, stats.Unresolved)
+	return nil
 }
 
 // runRegisterResolve rebuilds the declared-name -> ASX code links.
-func runRegisterResolve(ctx context.Context, pool *pgxpool.Pool) {
+func runRegisterResolve(ctx context.Context, pool *pgxpool.Pool) error {
 	runID, err := insertIndustryCollectionRun(ctx, pool, registerSource)
 	if err != nil {
-		log.Fatalf("[register-resolve] start collection run: %v", err)
+		return fmt.Errorf("[register-resolve] start collection run: %w", err)
 	}
 
 	if registerDryRun() {
 		log.Printf("[register-resolve] DRY-RUN — resolving nothing (set REGISTER_DRY_RUN=false to write)")
 		if err := finishIndustryCollectionRun(ctx, pool, runID, "succeeded", 0, 0, 0, "", map[string]any{"dry_run": true}); err != nil {
-			log.Fatalf("[register-resolve] finish collection run: %v", err)
+			return fmt.Errorf("[register-resolve] finish collection run: %w", err)
 		}
-		return
+		return nil
 	}
 
 	stats, err := runRegisterSecurityResolve(ctx, pool)
 	if err != nil {
 		registerFinishFailure(ctx, pool, runID, "[register-resolve]", err)
-		log.Fatalf("[register-resolve] securities: %v", err)
+		return fmt.Errorf("[register-resolve] securities: %w", err)
 	}
 
 	locs, err := runRegisterLocationResolve(ctx, pool)
 	if err != nil {
 		registerFinishFailure(ctx, pool, runID, "[register-resolve]", err)
-		log.Fatalf("[register-resolve] locations: %v", err)
+		return fmt.Errorf("[register-resolve] locations: %w", err)
 	}
 
 	// The interval fold must run AFTER both resolvers: it keys holdings on the
@@ -378,12 +382,12 @@ func runRegisterResolve(ctx context.Context, pool *pgxpool.Pool) {
 	fold, err := rebuildHoldingPeriods(ctx, pool)
 	if err != nil {
 		registerFinishFailure(ctx, pool, runID, "[register-resolve]", err)
-		log.Fatalf("[register-resolve] holding periods: %v", err)
+		return fmt.Errorf("[register-resolve] holding periods: %w", err)
 	}
 
 	if err := refreshRegisterMaterializedViews(ctx, pool); err != nil {
 		registerFinishFailure(ctx, pool, runID, "[register-resolve]", err)
-		log.Fatalf("[register-resolve] refresh materialized views: %v", err)
+		return fmt.Errorf("[register-resolve] refresh materialized views: %w", err)
 	}
 
 	resolvedPct := 0.0
@@ -427,7 +431,7 @@ func runRegisterResolve(ctx context.Context, pool *pgxpool.Pool) {
 		"holdings_current":      fold.Current,
 		"holdings_unknown_from": fold.UnknownFrom,
 	}); err != nil {
-		log.Fatalf("[register-resolve] finish collection run: %v", err)
+		return fmt.Errorf("[register-resolve] finish collection run: %w", err)
 	}
 
 	log.Printf("[register-resolve] %d candidates: %d resolved (%.1f%% of %d listed candidates), %d ambiguous, %d unmatched, %d not-a-security",
@@ -461,6 +465,7 @@ func runRegisterResolve(ctx context.Context, pool *pgxpool.Pool) {
 		// the source over-disclosing and we must be seen not to amplify it.
 		log.Printf("[register-resolve] redacted a street address from %d location rows (editorial standards §4)", locs.Redacted)
 	}
+	return nil
 }
 
 func locationPct(s locationResolveStats) float64 {
@@ -506,4 +511,57 @@ func envBool(key string, fallback bool) bool {
 	}
 	log.Printf("[register] ignoring unparseable %s=%q, using %v", key, raw, fallback)
 	return fallback
+}
+
+// ---------------------------------------------------------------------------
+// Register mode wrappers for the shared-binary runner
+// ---------------------------------------------------------------------------
+//
+// The standalone binary did these inline in main.go with log.Fatalf/os.Exit.
+// Inside `shorted` a job must RETURN its failure so deferred cleanup runs and
+// the runner still emits its status line — same posture as economy's
+// runFreshness. Message text is preserved.
+
+// runRegisterFreshnessMode is read-only and fails the job when any check alarms,
+// so the weekly workflow that invokes it goes red. Same contract as the
+// standalone binary's os.Exit(1).
+func runRegisterFreshnessMode(ctx context.Context, pool *pgxpool.Pool) error {
+	checks, err := collectRegisterFreshness(ctx, pool, time.Now())
+	if err != nil {
+		return fmt.Errorf("register-freshness: %w", err)
+	}
+	if alarms := writeRegisterFreshnessReport(os.Stdout, checks); alarms > 0 {
+		return fmt.Errorf("%d register freshness alarm(s)", alarms)
+	}
+	return nil
+}
+
+// runRegisterProposeAliasesMode writes ONLY register_alias_proposals, which no
+// resolver and no read path reads. A proposal becomes publishable exclusively via
+// a human marking it 'confirmed' and then -mode register-promote-aliases.
+func runRegisterProposeAliasesMode(ctx context.Context, pool *pgxpool.Pool, limit int) error {
+	if limit <= 0 {
+		limit = 50
+	}
+	n, err := runRegisterAliasPropose(ctx, pool, limit, registerDryRun())
+	if err != nil {
+		return fmt.Errorf("[register-propose-aliases] %w", err)
+	}
+	log.Printf("[register-propose-aliases] %d proposals written (dry_run=%v)", n, registerDryRun())
+	return nil
+}
+
+// runRegisterPromoteAliasesMode is the ONLY path from a model's proposal to a
+// published link, and it runs only over rows a human already confirmed.
+func runRegisterPromoteAliasesMode(ctx context.Context, pool *pgxpool.Pool) error {
+	if registerDryRun() {
+		log.Printf("[register-promote-aliases] REGISTER_DRY_RUN is set; no aliases promoted")
+		return nil
+	}
+	n, err := promoteAliasProposals(ctx, pool)
+	if err != nil {
+		return fmt.Errorf("[register-promote-aliases] %w", err)
+	}
+	log.Printf("[register-promote-aliases] promoted %d human-confirmed proposals to curated aliases", n)
+	return nil
 }

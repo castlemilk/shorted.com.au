@@ -292,9 +292,6 @@ jobs:
           - name: shorted-jobs-browser
             dockerfile: services/jobs/Dockerfile.browser
             context: services
-          - name: influence-collector
-            dockerfile: services/influence-collector/Dockerfile
-            context: services
           - name: signals-collector
             dockerfile: services/signals-collector/Dockerfile
             context: services/signals-collector

@@ -728,18 +728,19 @@ through it.
 
 | Artifact | Path |
 |---|---|
-| Dockerfile | `services/influence-collector/Dockerfile` (distroless/static, Go only) |
-| CI image build | `terraform-deploy.yml` `build-images` matrix, context `services` |
+| Binary | `services/jobs/cmd/shorted` — the register modes are `shorted influence -mode register-*` (`services/jobs/internal/jobs/influence/aph_*.go`) |
+| Image | `shorted-jobs`, built by the `terraform-deploy.yml` `build-images` matrix |
 | Cloud Run Job + scheduler | `terraform/modules/influence-collector/` |
 | Env wiring | `terraform/environments/{dev,prod}/main.tf` + `variables.tf` |
 
 Three things that will bite:
 
-- **`CMD ["-mode","all"]` is load-bearing.** This binary's flag default is
-  `-mode tax`, unlike economy-collector and house-price-collector which default
-  to `all`. An argless run silently ingests ATO corporate tax only and reports
-  success. Terraform also sets `args` explicitly; the CMD is the safety net for a
-  manual `docker run`.
+- **The `influence` SUBCOMMAND and `-mode all` are both load-bearing.** The
+  register modes now live in the consolidated `shorted <job>` binary, so every
+  invocation needs `influence` first — without it the container prints usage and
+  exits 2. And the job's flag default is `-mode tax`, unlike economy and
+  house-prices which default to `all`, so an argless run silently ingests ATO
+  corporate tax only and reports success. Terraform sets both explicitly.
 - **The stealth bind-mount block is required even though this collector imports
   no stealth code.** A bare `go mod download` resolves every module
   `services/go.mod` requires, including the private `github.com/skunkworq/stealth`
@@ -761,16 +762,44 @@ website must never fire from a deploy step or an unattended timer.
 Operator-run, in order:
 
 ```bash
+# The register modes ship in the CONSOLIDATED `shorted <job>` binary, so every
+# invocation needs the `influence` subcommand first. Without it the container
+# prints usage and exits 2.
 gcloud run jobs execute influence-collector --region australia-southeast2 \
-  --args="-mode,register-discover" --wait     # manifest only, no downloads
+  --args="influence,-mode,register-discover" --wait     # manifest only, no downloads
 gcloud run jobs execute influence-collector --region australia-southeast2 \
-  --args="-mode,register-fetch,-register-limit,260" --wait
+  --args="influence,-mode,register-fetch,-register-limit,260" --wait
 # then the extractor job: --stage classify, then --stage extract
 gcloud run jobs execute influence-collector --region australia-southeast2 \
-  --args="-mode,register-load" --wait
+  --args="influence,-mode,register-load" --wait
 gcloud run jobs execute influence-collector --region australia-southeast2 \
-  --args="-mode,register-resolve" --wait      # also refreshes the MVs
+  --args="influence,-mode,register-resolve" --wait      # also refreshes the MVs
 ```
+
+Locally, the same modes run straight off the shared binary:
+
+```bash
+cd services/jobs && go run ./cmd/shorted influence -mode register-resolve
+```
+
+**`ELECTORATES_DIR` must be set or the party seed silently skips.** The default is
+repo-relative (`../../web/public/geo/electorates`) and resolves only when the
+binary runs from `services/jobs`; it does not exist inside the distroless image at
+all, and the JSON lives outside that image's build context (`services`), so it
+cannot simply be COPYed in. Consequences, in order:
+
+- `register-load` warns LOUDLY and continues — a missing party is a coverage gap,
+  not a wrong fact, so failing the run would be worse.
+- House members still get a party: `postgres_politicians.go` reads
+  `COALESCE(t.party, e.federal_party, '')` and the
+  `suburb_demographics.federal_division` join covers them.
+- **Senators get nothing**, because they have no division. Not yet biting, since
+  the 35 Senate volumes are unfetched.
+
+Until the file is mounted or embedded, run `register-load` with
+`ELECTORATES_DIR=<repo>/web/public/geo/electorates` — verified to seed 152 of 152
+48P terms. Embedding it would duplicate a committed data file whose VINTAGE is
+load-bearing (§2.10), so it is deliberately not duplicated.
 
 `REGISTER_DRY_RUN` defaults **true** and is pinned true in the job definition —
 every one of those is a no-op until it is explicitly set false. The fetch queue is
