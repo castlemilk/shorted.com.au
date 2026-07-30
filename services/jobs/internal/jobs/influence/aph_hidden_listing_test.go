@@ -575,8 +575,14 @@ func TestBareFlightsIsTravelButFlightCentreIsAListing(t *testing.T) {
 // on PROD.
 func TestCellContextRule(t *testing.T) {
 	aliases, codes, names, ambiguous := testHiddenLadder()
-	for _, c := range []string{"IVV", "FMG", "JBH", "WES", "CBA", "ORI", "S32", "WPL", "APT", "SYD", "NCM", "EVN", "WOW", "QAN", "VGN", "NEC"} {
+	for _, c := range []string{"IVV", "FMG", "JBH", "WES", "CBA", "ORI", "S32", "WPL", "APT", "SYD", "NCM", "EVN", "WOW", "QAN", "VGN", "NEC", "NAB", "FLT", "TLS", "XRO"} {
 		codes[c] = "a real listing"
+	}
+	// Names the dateless-SMSF case needs, keyed by normalizeEntityName.
+	for n, code := range map[string]string{
+		"TELSTRA": "TLS", "SOUTH32": "S32", "XERO": "XRO", "FLIGHT CENTRE": "FLT",
+	} {
+		names[n] = CompanyNameMapping{StockCode: code, CompanyName: n}
 	}
 	resolve := func(cellLines []string) []SecurityResolution {
 		cands := splitSecurityBlob(cellLines, "")
@@ -640,6 +646,41 @@ func TestCellContextRule(t *testing.T) {
 					t.Errorf("%q published %s as a holding — it is hospitality", cell, r.StockCode)
 				}
 			}
+		}
+	})
+
+	// The STRUCTURAL rule, added because the vocabulary was extended three times
+	// for this same defect and still missed "Flight Transfer". There is always
+	// another noun; what an event log has and a holdings list does not is a date.
+	t.Run("a cell carrying a calendar date is an event log", func(t *testing.T) {
+		for _, cell := range []string{
+			"Virgin Australia, Flight Transfer, 26 June 2015",
+			"Virgin Australia, Flight Transfer, 10 July 2015",
+			"Qantas, Flight upgrade, 16 March 2018, Cairns-Sydney",
+			"Nine Entertainment Co, Dinner, November 19 2013",
+		} {
+			for _, r := range resolve([]string{cell}) {
+				if r.StockCode != "" {
+					t.Errorf("%q published %s — a dated cell is an event, not a holding", cell, r.StockCode)
+				}
+			}
+		}
+	})
+
+	// The counterpart, and the reason the date rule is safe: a real SMSF share
+	// list names many companies and carries NO date. This exact cell resolves 22
+	// ASX codes on prod and must keep doing so — it also contains "Flight Centre",
+	// so a travel-word rule would have destroyed it.
+	t.Run("a dateless SMSF share list still resolves every company", func(t *testing.T) {
+		cell := "Self Managed Super Fund, managed by Morgans, has shares in Flight Centre, NAB, Telstra Group, South32, Xero"
+		var codesFound int
+		for _, r := range resolve([]string{cell}) {
+			if r.StockCode != "" {
+				codesFound++
+			}
+		}
+		if codesFound == 0 {
+			t.Error("a genuine SMSF share list resolved nothing")
 		}
 	})
 

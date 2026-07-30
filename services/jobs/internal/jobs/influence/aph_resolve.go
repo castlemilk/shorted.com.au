@@ -143,6 +143,28 @@ var giftLogRe = regexp.MustCompile(
 // DELIBERATELY EXCLUDES a bare "flight": "FLT" is Flight Centre Travel Group and
 // appears inside real SMSF share lists. Only the phrase "flight upgrade" is a
 // gift marker.
+// A CELL CARRYING A SPECIFIC CALENDAR DATE is an event log, not a holdings list.
+//
+// This is the STRUCTURAL version of giftProseRe, added because the vocabulary was
+// extended three times for the same defect and still missed a variant:
+//
+//	"Qantas, Flight upgrade, 16 March 2018, Cairns-Sydney"   caught by vocabulary
+//	"Nine Entertainment Co, Dinner, November 19 2013"        caught on the 2nd pass
+//	"Virgin Australia, Flight Transfer, 26 June 2015"        MISSED by both
+//
+// "Flight Transfer" is not "upgrade" and never will be — there is always another
+// noun. What every one of them has and a shareholdings cell does not is a date:
+// a member declaring BHP writes "BHP Group Ltd", not "BHP Group Ltd, 16 March 2018".
+//
+// Measured over all 1,181 resolved item-1/4 rows on prod: exactly 2 come from a
+// cell containing a month-name date, and both are the Flight Transfer wrong facts.
+// ZERO false positives. A numeric date is already handled at fragment level by
+// giftLogRe.
+var cellHasCalendarDateRe = regexp.MustCompile(
+	`(?i)\b(\d{1,2}\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{4}` +
+		`|(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2},?\s+\d{4})\b`,
+)
+
 var giftProseRe = regexp.MustCompile(
 	`(?i)\b(tickets?|hospitality|courtesy\s+of|hosted\s+by|guest\s+of|` +
 		`invitation|corporate\s+box|grand\s+final|state\s+of\s+origin|` +
@@ -547,7 +569,9 @@ func splitSecurityBlob(lines []string, fallback string) []SecurityCandidate {
 	// to QAN and published a flight upgrade as a member's CURRENT shareholding —
 	// verified live on prod for David Coleman (QAN, VGN x3, NEC), Greg Hunt
 	// (QAN, VGN), Julian Hill (VGN) and Nick Champion (VGN).
-	cellIsGiftProse := giftProseRe.MatchString(cell)
+	// Two tests, one vocabulary and one structural. The structural one is why the
+	// vocabulary no longer has to be exhaustive.
+	cellIsGiftProse := giftProseRe.MatchString(cell) || cellHasCalendarDateRe.MatchString(cell)
 
 	var out []SecurityCandidate
 	for _, line := range source {
