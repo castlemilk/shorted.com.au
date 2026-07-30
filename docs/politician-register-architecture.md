@@ -867,7 +867,7 @@ gate, not a runtime flag"). Merging this branch publishes the feature.
 
 | Gate | Threshold | Measured (2026-07-27, post-§8.17) | |
 |---|---|---|---|
-| item-1 security resolution | ≥ 35% of `entity_kind='listed'` candidates | **25.2%** (1,153 / 4,570) | **FAIL** |
+| item-1 security resolution | ≥ 35% of `entity_kind='listed'` candidates | **49.89%** (1,181 / 2,367) — but see §8.19.1: the denominator is a DEFAULT bucket, so this measures explanation rather than resolution. Report the number with its band and method, never "the gate is met" | **contested** |
 | identity resolution | 0 unresolved statements | **0** of 2,757 | pass |
 | 46P/47P centred-label layout | quarantined, never published | 102 docs at `partial` | pass |
 | item-3 multi-property merge | purpose suppressed on read | suppressed (29% of rows merge) | pass |
@@ -1815,14 +1815,70 @@ removed rows rather than trusting the aggregate:
 
 Gate, item 1: **30.66% → 50.32%**, with the numerator constant.
 
-> **THIS IS A DENOMINATOR CHANGE AND MUST BE REVIEWED AS ONE.** The adversarial
-> reviewers of the lever study were explicit that gaming the denominator is as
-> bad as loosening the matcher. The defence here is that (a) the numerator did
-> not move at all, (b) the removed rows were read, not sampled statistically, and
-> (c) they are removed from PUBLICATION too, which is the same direction — we are
-> not counting them as unresolvable while still showing them. Do not report 50%
-> as "the gate is met" until someone independent has re-read a fresh sample of
-> the removed set.
+> **THIS IS A DENOMINATOR CHANGE AND MUST BE REVIEWED AS ONE.** That review has now
+> happened — see §8.19.1. Its verdict: the reclassification is **not** gaming, but
+> **"the gate is met" may not be reported**, and three of the numbers in this
+> section were wrong.
+
+### 8.19.1 The independent audit — and what it corrected
+
+Three independent lenses re-sampled the removed set on PROD with their own seeds,
+then a fourth adjudicated. Verdict: **honest-with-caveats.**
+
+**The reclassification is not gaming.** Uniform draws found **0 securities in 40**,
+**0 in 80** and **0 clear securities in 60**. For the gate to fall back to 35%,
+**68.3%** of the removed rows would have to be real securities; measured leakage is
+**2-3%**, upper bound ~10%. And the errors point BOTH ways — 44% of a random 50 rows
+the rule KEEPS are also not securities, which inflates the denominator and works
+*against* the gate. A change engineered to move a number does not do that.
+
+**Three numbers in §8.19 were wrong, and are corrected here:**
+
+| §8.19 said | Actually |
+|---|---|
+| 2,501 candidates removed | **1,510** — the other ~991 were already `not_a_security` before this change |
+| baseline 27.58% | **30.66%** (`1185/3865`). 27.58% does not reproduce on prod and §9 said 25.2% — three "before" numbers for one change |
+| 50.32% | **~49%**, band 42.8-49.6%, after correcting both sides |
+
+**The audit found defects, all now fixed, each verified on prod:**
+
+1. **Hospitality published as a holding.** `splitFragments` cuts on commas, so
+   `"Qantas, Flight upgrade, 16 March 2018, Cairns-Sydney"` yields a bare
+   `"Qantas"` → QAN. Live on prod: **David Coleman QAN/VGN×3/NEC, Greg Hunt
+   QAN/VGN, Julian Hill VGN, Nick Champion VGN** — flight upgrades and a dinner
+   published as CURRENT shareholdings. `giftProseRe` is now tested against the
+   whole CELL, which poisons every fragment in it.
+2. **28 genuine declarations deleted from the denominator** because the code sat in
+   a position no ticker path reads: `IVV - self and spouse`, `FMG Fortescue`,
+   `JBH JB HiFi`, `WES Wesfarmers`, `CBA (Jointly held with spouse)`, `ORI`, `S32`,
+   `WPL`, `APT- After Pay Touch`, `SYD- Sydney Airport Staple`. A validated ASX
+   code ANYWHERE in the text is now a cell signal. Safe here where it is not for
+   RESOLVING: it only keeps a row in the denominator, so a false positive costs an
+   unmatched row — never a wrong company.
+3. **Two regex holes**: `shares` was plural-only (`Unilife Share Sold` missed by one
+   letter) and `\bbank\b` misses `Commonwealth Banking of Australia`.
+4. **The alias proposer was blind to 1,301 names.** It filtered
+   `entity_kind='listed'`, so the rule's own output was invisible to the one lever
+   §9 names for raising resolution. A name the classifier cannot explain is exactly
+   what a human should be shown.
+5. **The rule had ZERO test coverage.** No test set `ItemNo`, so the `c.ItemNo == 1`
+   arm never fired — the code that moved the headline could have been deleted
+   without failing anything. `TestCellContextRule` now covers all five cases.
+
+After the fixes: **1,181 / 2,367 = 49.89%** locally — landing on the audit's
+independent estimate.
+
+> **THE GATE ITSELF IS THE REAL FINDING, and it is a doc bug rather than a fraud.**
+> §6.1's denominator is `entity_kind='listed'`, which the code assigns **by default
+> to anything it cannot otherwise explain**. On prod item 1: `foreign` = **0 rows**,
+> `managed_fund` = **2**, `unlisted_fund` = **0** — those constants are essentially
+> unused. So §8.13's whole backlog of CORRECTLY unresolvable declarations (foreign
+> listings, ETFs, delistings) still sits inside the denominator, and merely
+> classifying it — zero new matches — would lift the gate toward **~80%**. A metric
+> that travels 30.66% → 49.89% → ~80% with the numerator frozen is measuring our
+> ability to EXPLAIN failures, not to RESOLVE them. §8.13 already said the target
+> should be "every candidate correctly classified"; §6.1 was never updated to match.
+> **Report ~49% with the band and the method, never "the gate is met".**
 
 Residue: 3 gift rows still publish under item 1 because their cell ALSO contains
 something company-shaped (`"bottle of wine from the TWU"`). A cell-level rule

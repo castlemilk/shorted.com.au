@@ -169,6 +169,16 @@ var tickerStopwords = map[string]bool{
 	// legitimately on 3 rows.
 	"USA": true, "SELF": true, "SPOUSE": true, "ACN": true, "ABN": true,
 	"QLD": true, "NSW": true, "VIC": true, "TAS": true, "ACT": true, "NZL": true,
+	// Ordinary English and administrative words that are also live ASX codes.
+	// Measured: a bare token scan over vehicle-chipped candidates matched 149
+	// rows and the top hits were AND(42), FOR(20), ACN(15), SELF(13), ONE(13),
+	// ICE(12) — "Venice Ice Pty Limited", "Van Manen Investments". They must not
+	// count as a member stating a ticker, NOR as evidence that a cell is about
+	// securities.
+	"AND": true, "FOR": true, "ONE": true, "TWO": true, "ALL": true, "ARE": true,
+	"HAS": true, "CAN": true, "ICE": true, "VAN": true, "JAY": true, "HUB": true,
+	"DEV": true, "DNA": true, "EMU": true, "ZIP": true, "AUST": true,
+	"HOME": true, "CASH": true, "LAND": true, "SUPER": true,
 }
 
 // qualifierRe strips declaration bookkeeping that is not part of a name.
@@ -322,7 +332,9 @@ func namesMoreThanOneEntity(raw string, codes map[string]string) bool {
 var cellCompanyShapeRe = regexp.MustCompile(
 	`(?i)(\b(ltd|limited|group|holdings|plc|nl|corporation|corp|company|bank|` +
 		`resources|mining|energy|industries|pty|proprietary|trust|fund|etf|reit|` +
-		`shares|securities|portfolio|equities|` +
+		// `shares?` not `shares`: "Unilife Share Sold" missed by one letter.
+		// `bank(ing)?`: "Commonwealth Banking of Australia" missed on \\bbank\\b.
+		`shares?|securities|portfolio|equities|banking|` +
 		// Fund issuers: a cell reading "VAS Vanguard" or "Betashares A200"
 		// carries no corporate suffix at all but is unmistakably a holdings list.
 		`vanguard|betashares|ishares|vaneck|spdr|macquarie|colonial|blackrock|` +
@@ -343,8 +355,34 @@ func cellHasSecuritySignal(candidates []SecurityCandidate, codes map[string]stri
 		if cellCompanyShapeRe.MatchString(c.Raw) {
 			return true
 		}
-		if codes != nil {
-			if _, ok := codes[strings.ToUpper(strings.TrimSpace(c.Raw))]; ok {
+		if codes == nil {
+			continue
+		}
+		if _, ok := codes[strings.ToUpper(strings.TrimSpace(c.Raw))]; ok {
+			return true
+		}
+		// A VALIDATED ASX CODE ANYWHERE IN THE TEXT is a signal, wherever it sits.
+		//
+		// An independent audit found 28 genuine declarations deleted from the
+		// denominator because the code was in a LEADING or mid-string position
+		// that no ticker path reads: "IVV - self and spouse" (Karen Andrews),
+		// "FMG Fortescue" / "JBH JB HiFi" / "WES Wesfarmers" (Tom Venning),
+		// "CBA (Jointly held with spouse)", "ORI", "S32", "WPL" (Helen Haines),
+		// "APT- After Pay Touch", "SYD- Sydney Airport Staple" (Barnaby Joyce).
+		// Every one of those states a real code and was being silently withheld.
+		//
+		// Using a token scan HERE is safe where using it to RESOLVE is not: this
+		// only decides whether the cell stays in the denominator and keeps
+		// publishing. A false positive costs an unmatched row in the count — the
+		// conservative direction — never a wrong company. The stopword list keeps
+		// AND/FOR/ONE/ICE from firing.
+		for _, tok := range strings.FieldsFunc(c.Raw, func(r rune) bool {
+			return !('A' <= r && r <= 'Z') && !('0' <= r && r <= '9')
+		}) {
+			if len(tok) < 2 || len(tok) > 4 || tickerStopwords[tok] {
+				continue
+			}
+			if _, ok := codes[tok]; ok {
 				return true
 			}
 		}
@@ -460,6 +498,13 @@ type SecurityCandidate struct {
 	// security, so this cell can be read as a shareholdings list at all. Set by
 	// the caller, which is the only place that can see a candidate's siblings.
 	CellHasSecuritySignal bool
+	// CellText is the WHOLE declared cell this fragment came from. Needed because
+	// splitFragments cuts on commas, so the evidence that a cell is a gift log
+	// usually sits in a DIFFERENT fragment than the company name:
+	// "Qantas, Flight upgrade, 16 March 2018, Cairns-Sydney" yields a bare
+	// "Qantas", which resolved to QAN and published a flight upgrade as David
+	// Coleman's current shareholding.
+	CellText string
 	// ItemNo is the form item this candidate was declared under. The cell-signal
 	// rule is scoped to item 1; see entityKindOf.
 	ItemNo int
@@ -480,12 +525,30 @@ func splitSecurityBlob(lines []string, fallback string) []SecurityCandidate {
 		source = []string{fallback}
 	}
 
+	// The WHOLE cell, for the checks that cannot be made on a fragment.
+	cell := strings.TrimSpace(strings.Join(source, " "))
+	if cell == "" {
+		cell = strings.TrimSpace(fallback)
+	}
+	// A HOSPITALITY CELL POISONS EVERY FRAGMENT IN IT. splitFragments cuts on
+	// commas, so the company name and the evidence that it was a gift land in
+	// different fragments: "Qantas, Flight upgrade, 16 March 2018,
+	// Cairns-Sydney" yields a bare "Qantas". Judged per fragment, that resolved
+	// to QAN and published a flight upgrade as a member's CURRENT shareholding —
+	// verified live on prod for David Coleman (QAN, VGN x3, NEC), Greg Hunt
+	// (QAN, VGN), Julian Hill (VGN) and Nick Champion (VGN).
+	cellIsGiftProse := giftProseRe.MatchString(cell)
+
 	var out []SecurityCandidate
 	for _, line := range source {
 		for _, fragment := range splitFragments(line) {
 			candidate := makeCandidate(len(out), fragment)
 			if candidate.Raw == "" {
 				continue
+			}
+			candidate.CellText = cell
+			if cellIsGiftProse && candidate.Reject == "" {
+				candidate.Reject = "gift_prose_cell"
 			}
 			out = append(out, candidate)
 		}

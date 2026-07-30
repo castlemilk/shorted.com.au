@@ -567,3 +567,91 @@ func TestBareFlightsIsTravelButFlightCentreIsAListing(t *testing.T) {
 		}
 	}
 }
+
+// §8.19's cell-context rule had ZERO coverage: no test set ItemNo, so the
+// `c.ItemNo == 1` arm never fired and the code that moved the headline gate from
+// 30.66% to ~49% could have been deleted without failing anything. An independent
+// audit found that, along with the defects below. Each case is a row it verified
+// on PROD.
+func TestCellContextRule(t *testing.T) {
+	aliases, codes, names, ambiguous := testHiddenLadder()
+	for _, c := range []string{"IVV", "FMG", "JBH", "WES", "CBA", "ORI", "S32", "WPL", "APT", "SYD", "NCM", "EVN", "WOW", "QAN", "VGN", "NEC"} {
+		codes[c] = "a real listing"
+	}
+	resolve := func(cellLines []string) []SecurityResolution {
+		cands := splitSecurityBlob(cellLines, "")
+		signal := cellHasSecuritySignal(cands, codes)
+		var out []SecurityResolution
+		for _, c := range cands {
+			c.CellHasSecuritySignal = signal
+			c.ItemNo = 1
+			out = append(out, resolveSecurityCandidate(c, aliases, codes, names, ambiguous, emptyWide))
+		}
+		return out
+	}
+
+	t.Run("a validated ticker anywhere keeps the cell in the denominator", func(t *testing.T) {
+		// Leading, suffixed and parenthesised forms no ticker path reads.
+		for _, cell := range []string{
+			"IVV - self and spouse", "FMG Fortescue", "JBH JB HiFi", "WES Wesfarmers",
+			"CBA (Jointly held with spouse)", "ORI", "S32", "WPL",
+			"APT- After Pay Touch", "SYD- Sydney Airport Staple",
+		} {
+			for _, r := range resolve([]string{cell}) {
+				if r.EntityKind == entityKindNotAnEntity {
+					t.Errorf("%q was deleted from the denominator; it states a real ASX code", cell)
+				}
+			}
+		}
+	})
+
+	t.Run("regex holes the audit named", func(t *testing.T) {
+		for _, cell := range []string{
+			"Unilife Share Sold",                // "shares" was plural-only
+			"Commonwealth Banking of Australia", // \bbank\b misses "Banking"
+		} {
+			for _, r := range resolve([]string{cell}) {
+				if r.EntityKind == entityKindNotAnEntity {
+					t.Errorf("%q was deleted from the denominator", cell)
+				}
+			}
+		}
+	})
+
+	t.Run("a hospitality cell poisons every fragment in it", func(t *testing.T) {
+		// splitFragments cuts on commas, so the company name and the gift
+		// evidence land in different fragments. Judged per fragment these
+		// published flight upgrades as CURRENT shareholdings on prod.
+		for _, cell := range []string{
+			"Qantas, Flight upgrade, 16 March 2018, Cairns-Sydney, Economy-Business",
+			"Virgin Australia, Flight upgrade, Economy – Business, Los Angeles – Sydney",
+			"Ticket to AFL Grand Final, Self +2, Qantas",
+			"Complimentary on departure upgrade to Business Class, Virgin Australia",
+			"Nine Entertainment Co, Dinner, November 19 2013",
+		} {
+			for _, r := range resolve([]string{cell}) {
+				if r.StockCode != "" {
+					t.Errorf("%q published %s as a holding — it is hospitality", cell, r.StockCode)
+				}
+			}
+		}
+	})
+
+	t.Run("a genuine holdings cell still resolves", func(t *testing.T) {
+		got := resolve([]string{"BHP Group Ltd", "Commonwealth Bank of Australia", "Telstra Group"})
+		for _, r := range got {
+			if r.EntityKind == entityKindNotAnEntity {
+				t.Error("a plain holdings list was reclassified as not-an-entity")
+			}
+		}
+	})
+
+	t.Run("the rule is item 1 only", func(t *testing.T) {
+		// Item 4 directorships are unlisted bodies by nature; §8.15 publishes them.
+		c := makeCandidate(0, "Art Gallery Society of NSW")
+		c.ItemNo, c.CellHasSecuritySignal = 4, false
+		if res := resolveSecurityCandidate(c, aliases, codes, names, ambiguous, emptyWide); res.EntityKind == entityKindNotAnEntity {
+			t.Error("an item-4 directorship was withheld by the item-1 cell rule")
+		}
+	})
+}

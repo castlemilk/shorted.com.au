@@ -70,7 +70,19 @@ func loadAliasCandidates(ctx context.Context, pool *pgxpool.Pool, limit int) ([]
 		FROM register_item_securities s
 		JOIN register_declared_items i ON i.id = s.item_id
 		WHERE i.item_no IN (1, 4)
-		  AND s.entity_kind = 'listed'
+		  -- NOT restricted to entity_kind='listed'.
+		  --
+		  -- It was, and that quietly disabled the remedy: §8.19's cell-context rule
+		  -- reclassifies unmatched item-1 candidates to 'not_an_entity', so 1,301
+		  -- distinct names became invisible to the proposer — the one lever §9 names
+		  -- as the legitimate way to raise resolution. A name the classifier could
+		  -- not explain is EXACTLY what a human should be shown.
+		  --
+		  -- 'not_an_entity' is still excluded for candidates the SPLITTER rejected
+		  -- (prose, gift log lines, holder labels): those carry a Reject reason and
+		  -- are not names at all. The distinction is match_method IS NULL AND a
+		  -- non-empty norm, which the length filter below already enforces.
+		  AND s.entity_kind IN ('listed', 'not_an_entity')
 		  AND s.resolution_status IN ('unmatched', 'ambiguous')
 		  AND btrim(s.candidate_norm) <> ''
 		  AND length(s.candidate_norm) >= 3
