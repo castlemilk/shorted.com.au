@@ -628,6 +628,12 @@ func TestCellContextRule(t *testing.T) {
 			"Ticket to AFL Grand Final, Self +2, Qantas",
 			"Complimentary on departure upgrade to Business Class, Virgin Australia",
 			"Nine Entertainment Co, Dinner, November 19 2013",
+			// Found only after the first cell-level fix shipped: the vocabulary
+			// had `gala dinner` and `flight upgrade` but not bare `dinner` or
+			// bare `upgrade`, so these five survived. All were wrong facts.
+			"Upgrade melb -> Canberra Flight, Virgin Australia",
+			"Upgrade, Melbourne to LA, Qantas",
+			"Upgrade from economy to business, Virgin Australia",
 		} {
 			for _, r := range resolve([]string{cell}) {
 				if r.StockCode != "" {
