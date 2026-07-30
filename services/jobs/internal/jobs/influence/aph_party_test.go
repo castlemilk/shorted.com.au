@@ -70,9 +70,9 @@ func TestLoadFederalDivisionsRejectsEmpty(t *testing.T) {
 // the file the seeder depends on, so a refresh that changes its shape fails here
 // rather than quietly blanking every party chip.
 func TestCommittedFederalDivisionsParse(t *testing.T) {
-	byDivision, err := loadFederalDivisions(electoratesDir())
+	byDivision, err := loadFederalDivisions(repoElectoratesDir(t))
 	if err != nil {
-		t.Skipf("committed electorate data not reachable from this working dir: %v", err)
+		t.Fatalf("committed electorate data did not load: %v", err)
 	}
 	if len(byDivision) < 140 {
 		t.Errorf("only %d divisions; the House has 150 seats", len(byDivision))
@@ -85,5 +85,33 @@ func TestCommittedFederalDivisionsParse(t *testing.T) {
 	}
 	if missing > 0 {
 		t.Errorf("%d divisions carry no party", missing)
+	}
+}
+
+// repoElectoratesDir walks up to the repo root to find the COMMITTED electorate
+// data, rather than trusting a relative path.
+//
+// electoratesDir()'s default is relative to the old standalone binary's working
+// directory. After the port into services/jobs the test package sits four levels
+// deeper, so this test began SKIPPING — silently, and it was the only skip in the
+// suite. A test that guards "a refresh must not quietly blank every party chip"
+// is worthless if it opts out whenever it cannot find the file.
+func repoElectoratesDir(t *testing.T) string {
+	t.Helper()
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	for {
+		candidate := filepath.Join(dir, "web", "public", "geo", "electorates")
+		if _, err := os.Stat(filepath.Join(candidate, federalDivisionsFile)); err == nil {
+			return candidate
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			// Genuinely not a full checkout (sparse clone, vendored build).
+			t.Skip("repo root with web/public/geo/electorates not found above the working dir")
+		}
+		dir = parent
 	}
 }

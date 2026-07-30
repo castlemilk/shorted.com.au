@@ -83,6 +83,17 @@ func Run(parent context.Context, args []string) error {
 		}
 		return err
 	}
+	// A BARE mode name is the runbook's most likely typo, and without this guard
+	// it is silently destructive rather than an error: `shorted influence
+	// register-fetch` (dropping "-mode") parses clean, leaves mode at its "tax"
+	// default, and falls into the `case "tax"` arm — ingesting the entire ATO
+	// corporate-tax corpus instead of draining the register fetch queue. The
+	// operator runbook is literally --args="influence,-mode,register-fetch", so
+	// losing one token does it. discovery, house-prices and news already guard
+	// this way.
+	if fs.NArg() > 0 {
+		return fmt.Errorf("unexpected argument %q (influence takes only -mode, -register-limit and -source-limit)", fs.Arg(0))
+	}
 
 	// 15-minute ceiling for the public-records collectors, same as the standalone
 	// binary. The REGISTER modes get their own, much longer ceiling: they are

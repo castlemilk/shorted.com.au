@@ -782,6 +782,19 @@ Locally, the same modes run straight off the shared binary:
 cd services/jobs && go run ./cmd/shorted influence -mode register-resolve
 ```
 
+**The register tests are gated by `run-tests` in `terraform-deploy.yml`.** They had
+to be re-gated after the port: `services/jobs` is a SEPARATE Go module, invisible
+to `go list ./...` in `services`, and nothing in CI ran it — so moving the suite
+into that module silently took every §8.17-§8.19 wrong-fact regression out of CI.
+A step now runs `GOWORK=off go test ./...` in `services/jobs`, which also gates
+economy, marketdata, news and reportextract for the first time.
+
+**A bare mode name is rejected.** `shorted influence register-fetch` — the runbook
+typo of dropping `-mode` — used to parse clean, leave the mode at its `tax`
+default and fall into the `case "tax"` arm, ingesting the whole ATO corporate-tax
+corpus instead of draining the fetch queue. `fs.NArg() > 0` now errors, matching
+discovery/house-prices/news.
+
 **`ELECTORATES_DIR` must be set or the party seed silently skips.** The default is
 repo-relative (`../../web/public/geo/electorates`) and resolves only when the
 binary runs from `services/jobs`; it does not exist inside the distroless image at

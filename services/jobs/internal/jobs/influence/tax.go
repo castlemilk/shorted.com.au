@@ -25,7 +25,7 @@ type TaxRow struct {
 }
 
 var (
-	abnDigits = regexp.MustCompile(`\D`)          // strip everything non-digit
+	abnDigits = regexp.MustCompile(`\D`)              // strip everything non-digit
 	yearRe    = regexp.MustCompile(`(\d{4})-\d{2,4}`) // "2023-24" → start year 2023
 )
 
