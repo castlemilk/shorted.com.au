@@ -878,15 +878,32 @@ jobs:
             }
 
   terraform-apply:
-    needs: [determine-environment, validate-secrets, terraform-plan]
+    # run-tests IS a dependency, deliberately. Until now it ran in PARALLEL with
+    # the deploy and nothing listed it in `needs`, so a red test suite blocked
+    # nothing — the deploy shipped and CI went red afterwards. For a repo that
+    # publishes facts about named people (the register-of-interests surfaces),
+    # advisory-only tests are the wrong default.
+    #
+    # Measured cost: run-tests finishes ~2m10s after terraform-plan, so this adds
+    # about two minutes to a ~20-minute deploy. The cost of the alternative is a
+    # wrong-fact regression reaching production and being noticed by a red tick.
+    #
+    # If a flaky test starts blocking deploys, fix or quarantine the test — do not
+    # remove this edge, or the gate silently becomes decorative again.
+    needs: [determine-environment, validate-secrets, terraform-plan, run-tests]
     runs-on: ubuntu-latest
     # Only apply on main branch push, release, or manual workflow dispatch (unless plan_only)
     # PRs will only plan, not apply
     # Manual dispatches with plan_only=true will skip apply
+    # run-tests.result is asserted EXPLICITLY, mirroring terraform-plan. `needs`
+    # alone would already skip this job when tests fail, but stating it means the
+    # gate survives someone later adding always()/!cancelled() to this `if`, which
+    # would otherwise silently re-enable deploys over red tests.
     if: >-
       github.event_name != 'pull_request' &&
       github.event.inputs.plan_only != 'true' &&
-      needs.terraform-plan.result == 'success'
+      needs.terraform-plan.result == 'success' &&
+      needs.run-tests.result == 'success'
     environment:
       name: ${{ needs.determine-environment.outputs.environment }}
     outputs:
