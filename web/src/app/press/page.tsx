@@ -18,9 +18,9 @@ import { CopyButton } from "~/@/components/docs/copy-button";
  * citation lines here are the same ones on /statistics#cite and /data — this
  * page collects them rather than inventing a third wording.
  *
- * Deliberately honest about assets: we ship the PNG marks we actually have.
- * `public/logo 1.svg` is a 1MB SVG wrapping an embedded raster, i.e. not a
- * real vector, so it is NOT offered here as one.
+ * Deliberately honest about assets: we ship the PNG sizes we actually have of
+ * the ONE canonical mark. `public/logo 1.svg` is a 1MB SVG wrapping an
+ * embedded raster, i.e. not a real vector, so it is NOT offered here as one.
  */
 
 export const revalidate = 3600;
@@ -43,21 +43,22 @@ export const metadata: Metadata = {
   },
 };
 
-const LOGOS: Array<{
-  label: string;
-  file: string;
-  note: string;
-  dark?: boolean;
-}> = [
+// One mark, three sizes. These are all the SAME canonical logo (the orange
+// roaring bear the site header renders) — a size ladder, not a family of
+// variants. logo-minimal.png is deliberately absent: it is a different design
+// (bear + flames + down arrow) and listing it here implied a coherent set that
+// does not exist. There is no vector: "logo 1.svg" is a 1MB SVG wrapping a
+// raster, so the page invites an email instead of shipping a fake one.
+const LOGOS: Array<{ label: string; file: string; note: string }> = [
   {
     label: "Primary logo",
-    file: "/logo.png",
-    note: "512 × 512 PNG — use where the full mark fits",
+    file: "/icon-512.png",
+    note: "512 × 512 PNG — the full mark, best for print and large display",
   },
   {
-    label: "Minimal logo",
-    file: "/logo-minimal.png",
-    note: "PNG — simplified mark for small sizes",
+    label: "Medium",
+    file: "/icon-192.png",
+    note: "192 × 192 PNG — articles, cards, sidebars",
   },
   {
     label: "Icon mark",
@@ -262,8 +263,10 @@ export default async function PressPage() {
           Logos
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Please don&apos;t stretch, recolour or add effects to the mark. Leave
-          clear space around it of at least the height of the icon.
+          One mark in three sizes — pick the closest size rather than scaling a
+          small one up. Please don&apos;t stretch, recolour or add effects to
+          it, and leave clear space around it of at least half the mark&apos;s
+          height.
         </p>
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
           {LOGOS.map((logo) => (

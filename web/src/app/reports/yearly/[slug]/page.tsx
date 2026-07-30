@@ -170,7 +170,7 @@ export default async function YearlyReportPage({ params }: PageProps) {
       "@type": "Organization",
       name: siteConfig.name,
       url: siteConfig.url,
-      logo: { "@type": "ImageObject", url: `${siteConfig.url}/logo.png`, width: 512, height: 512 },
+      logo: { "@type": "ImageObject", url: siteConfig.logo.url, width: siteConfig.logo.width, height: siteConfig.logo.height },
     },
     mainEntityOfPage: `${siteConfig.url}/reports/yearly/${slug}`,
     image: [siteConfig.ogImage],

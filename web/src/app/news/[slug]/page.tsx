@@ -150,9 +150,9 @@ export default async function ShortedTakePage({ params }: Params) {
       url: siteConfig.url,
       logo: {
         "@type": "ImageObject",
-        url: `${siteConfig.url}/logo.png`,
-        width: 512,
-        height: 512,
+        url: siteConfig.logo.url,
+        width: siteConfig.logo.width,
+        height: siteConfig.logo.height,
       },
     },
     isAccessibleForFree: true,
