@@ -3,6 +3,7 @@ import { ImageResponse } from "next/og";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { getStock } from "~/app/actions/getStock";
+import { getCompanyLogo, OgLogoChip } from "~/@/lib/og/card";
 
 export const alt = "Stock Short Position Data - Shorted.com.au";
 export const size = {
@@ -56,6 +57,7 @@ async function getStockData(
 ): Promise<{
   name: string;
   percentageShorted: number;
+  logoUrl: string;
 } | null> {
   try {
     // Reuse the canonical getStock action: it uses the Connect transport
@@ -67,6 +69,7 @@ async function getStockData(
     return {
       name: stock.name ?? "",
       percentageShorted: stock.percentageShorted ?? 0,
+      logoUrl: stock.logoUrl ?? "",
     };
   } catch (err) {
     // Surface failures in Vercel logs — the previous silent catch is why this
@@ -89,6 +92,12 @@ export default async function Image({
     getLogoImage(),
     getStockData(code),
   ]);
+
+  // The company's own mark, on a light chip so it stays legible whatever its
+  // colours (several ASX wordmarks are dark on transparent, invisible against
+  // this card). Optional garnish — a slow or missing logo yields NO_LOGO and
+  // the card renders exactly as before.
+  const brand = await getCompanyLogo(stockData?.logoUrl);
 
   const companyName = stockData?.name ?? "";
   const shortPct =
@@ -156,14 +165,23 @@ export default async function Image({
             <div
               style={{
                 display: "flex",
-                alignItems: "flex-start",
-                justifyContent: "center",
+                flexDirection: "column",
+                alignItems: "center",
                 width: 200,
                 paddingTop: 10,
                 flexShrink: 0,
               }}
             >
               <img src={logoSrc} width={180} height={180} />
+              {/* The company's mark under ours: our brand, then theirs. It
+                  lives in this column because the text column has no vertical
+                  room left — adding a row there pushed the company name into
+                  the footer. */}
+              {brand.src && (
+                <div style={{ display: "flex", marginTop: 18 }}>
+                  <OgLogoChip logo={brand} size={56} />
+                </div>
+              )}
             </div>
           )}
 
