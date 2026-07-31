@@ -103,9 +103,11 @@ const HUB_SECTIONS = ["politician-explorer.tsx", "register-heatmap.tsx"];
  * attribution that actually applies to it — `PortraitCredit`, the CC BY / CC
  * BY-SA credit line — and the assertion below checks it still does. A
  * `SourceLine` inside an avatar would cite the register on a component that
- * renders no register data.
+ * renders no register data. The explorer directory is the same kind of
+ * reusable kit: host pages own its source line and dispute affordance.
  */
 const KIT_PRIMITIVES = ["politician-avatar.tsx"];
+const KIT_PRIMITIVE_DIRS = [`${sep}explorer${sep}`];
 
 const RENDERING_SURFACES = FILES.filter(
   (f) =>
@@ -115,6 +117,7 @@ const RENDERING_SURFACES = FILES.filter(
     !f.includes("__tests__") &&
     !HUB_SECTIONS.some((s) => f.endsWith(s)) &&
     !KIT_PRIMITIVES.some((s) => f.endsWith(s)) &&
+    !KIT_PRIMITIVE_DIRS.some((s) => f.includes(s)) &&
     // The operator console: rule 1 (cite the source) and rule 8 (offer a dispute
     // path) are promises to a READER. The reviewer here IS the dispute path, and
     // every candidate card already links the APH PDF per declaration — which is
@@ -136,7 +139,9 @@ describe("politician surface copy", () => {
   // links the APH PDF per declaration. §6.2 re-review triggered and recorded in
   // docs/feature/politicians/architecture.md.
   it("covers exactly the surfaces it claims to", () => {
-    // 10 (incl. politicians/opengraph-image.tsx, the share card) + the explorer,
+    // 18 existing files + 8 reusable explorer-kit files. The explorer kit is
+    // excluded from RENDERING_SURFACES above because host pages carry its
+    // citation/dispute footer. The remaining inventory includes the explorer,
     // the heatmap, the avatar kit, and 5 operator-console files (securities
     // review + its page, the politician CRM + its index and detail pages).
     //
@@ -144,7 +149,7 @@ describe("politician surface copy", () => {
     // profile facts on an internal screen — bound by the vocabulary rules for
     // the same reason the securities console is, and excluded from
     // RENDERING_SURFACES for the same reason too.
-    expect(FILES.length).toBe(18);
+    expect(FILES.length).toBe(26);
     expect(RENDERING_SURFACES.length).toBe(7);
   });
 
