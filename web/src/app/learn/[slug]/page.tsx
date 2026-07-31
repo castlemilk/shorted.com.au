@@ -25,7 +25,9 @@ interface PageProps {
 }
 
 // Article data - in a real app this would come from MDX files or a CMS
-const articlesData: Record<
+// Exported so the route's opengraph-image.tsx can title the share card from
+// the real article rather than duplicating a title list that would drift.
+export const articlesData: Record<
   string,
   {
     title: string;
@@ -2235,20 +2237,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       siteName: siteConfig.name,
       type: "article",
       locale: "en_AU",
-      images: [
-        {
-          url: siteConfig.ogImage,
-          width: 1200,
-          height: 630,
-          alt: article.title,
-        },
-      ],
+      // No `images` key: this route ships its own opengraph-image.tsx and an
+      // explicit `images` here would SHADOW the file convention.
     },
     twitter: {
       card: "summary_large_image",
       title: article.title,
       description: article.description,
-      images: [siteConfig.ogImage],
     },
     alternates: {
       canonical: `${siteConfig.url}/learn/${slug}`,
@@ -2306,7 +2301,9 @@ export default async function LearnArticlePage({ params }: PageProps) {
         dateModified={article.dateModified}
         url={`${siteConfig.url}/learn/${slug}`}
         authorName={siteConfig.author}
-        image={siteConfig.ogImage}
+        // The article schema should show the ARTICLE card, not the generic
+        // site card, now that this route generates its own.
+        image={`${siteConfig.url}/learn/${slug}/opengraph-image`}
         keywords={[...article.topics, "short selling guide", "ASX education"]}
       />
       {article.faqs.length > 0 && (
