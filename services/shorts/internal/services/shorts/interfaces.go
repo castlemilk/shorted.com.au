@@ -140,6 +140,7 @@ type ShortsStore interface {
 	ListStatePoliticianHoldings(stateCode string, limit int32) ([]*shortsstore.PoliticianStockRollupRow, int32, error)
 	ListRegisterChanges(since time.Time, kind, stockCode string, limit, offset int32) ([]*shortsstore.RegisterChangeRow, int32, error)
 	ListShortInterestOverlap(minShortPercent float64, limit int32) ([]*shortsstore.PoliticianStockRollupRow, error)
+	GetRegisterAnalytics(topIndustries int32, currentOnly bool) (*shortsstore.RegisterAnalytics, error)
 
 	// Register review console — operator only, never cached (see CacheKeyBuilder:
 	// a decision must be visible to the next reviewer immediately, and a stale
@@ -216,6 +217,7 @@ type Cache interface {
 	ListStatePoliticianHoldingsKey(stateCode string, limit int32) string
 	ListRegisterChangesKey(since time.Time, kind, stockCode string, limit, offset int32) string
 	ListShortInterestOverlapKey(minShortPercent float64, limit int32) string
+	GetPoliticianAnalyticsKey(topIndustries int32, currentOnly bool) string
 
 	ListEconomicSeriesKey(topic, metric, regionType, regionCode, product string, limit int32) string
 	GetEconomicSeriesKey(seriesKeys []string, startPeriod string, maxObservations int32) string

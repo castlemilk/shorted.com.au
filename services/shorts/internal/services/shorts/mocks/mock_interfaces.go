@@ -623,6 +623,21 @@ func (mr *MockShortsStoreMockRecorder) GetPropertyValuation(addressKey any) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPropertyValuation", reflect.TypeOf((*MockShortsStore)(nil).GetPropertyValuation), addressKey)
 }
 
+// GetRegisterAnalytics mocks base method.
+func (m *MockShortsStore) GetRegisterAnalytics(topIndustries int32, currentOnly bool) (*shorts.RegisterAnalytics, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRegisterAnalytics", topIndustries, currentOnly)
+	ret0, _ := ret[0].(*shorts.RegisterAnalytics)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRegisterAnalytics indicates an expected call of GetRegisterAnalytics.
+func (mr *MockShortsStoreMockRecorder) GetRegisterAnalytics(topIndustries, currentOnly any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRegisterAnalytics", reflect.TypeOf((*MockShortsStore)(nil).GetRegisterAnalytics), topIndustries, currentOnly)
+}
+
 // GetRegisterCoverageStats mocks base method.
 func (m *MockShortsStore) GetRegisterCoverageStats() (*shorts.RegisterCoverageRow, error) {
 	m.ctrl.T.Helper()
@@ -1873,6 +1888,20 @@ func (m *MockCache) GetPeerComparisonKey(stockCode string, limit int32) string {
 func (mr *MockCacheMockRecorder) GetPeerComparisonKey(stockCode, limit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPeerComparisonKey", reflect.TypeOf((*MockCache)(nil).GetPeerComparisonKey), stockCode, limit)
+}
+
+// GetPoliticianAnalyticsKey mocks base method.
+func (m *MockCache) GetPoliticianAnalyticsKey(topIndustries int32, currentOnly bool) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPoliticianAnalyticsKey", topIndustries, currentOnly)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetPoliticianAnalyticsKey indicates an expected call of GetPoliticianAnalyticsKey.
+func (mr *MockCacheMockRecorder) GetPoliticianAnalyticsKey(topIndustries, currentOnly any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPoliticianAnalyticsKey", reflect.TypeOf((*MockCache)(nil).GetPoliticianAnalyticsKey), topIndustries, currentOnly)
 }
 
 // GetPoliticianKey mocks base method.

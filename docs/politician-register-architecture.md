@@ -2062,6 +2062,86 @@ blast-radius confirmation dialog above a threshold — one admin can still make 
 call. Screens (a) and (c), the corrections ledger, the page-image server and the
 publication-gate flip (steps 2, 4, 7, 9, 11 of the console plan) are untouched.
 
+### 8.22 The explorer: search, and the aggregate shape of the register
+
+`/politicians` was a hub with a 60-card grid. It is now search-first, over the
+SAME published data, with two analytic views beside it.
+
+**Search runs on the existing Algolia integration**, not a new one. A new
+`politicians` index is built by `shorted influence -mode register-index` from
+`mv_register_public_holdings` — the same view the public read path uses, so the
+index CANNOT contain a row the site would not already serve. Nothing in the
+indexer touches `register_declared_items` or `register_item_securities`; a search
+index is a second read path, and §8.16's lesson is that a second path trusting
+its own filter is how a withheld row gets published.
+
+Two changes to the shared Go proxy (`/api/algolia/search`) made it usable:
+
+- **The index is now allowlisted rather than hardcoded.** The handler holds the
+  Algolia key, so a caller-supplied index name would turn it into an open read
+  proxy for every index on the application. `stocks` and `politicians` are the
+  only accepted values; anything else logs and falls back, so a stale client
+  degrades instead of breaking. Verified: `company-metadata-private` served
+  stocks, `politicians` was forwarded.
+- **An empty query no longer 400s.** Algolia treats `""` as "match everything",
+  which is exactly what a facet-driven browse opens with. Rejecting it forced
+  callers to send a junk query, which changes both the ranking and the facet
+  counts they get back.
+
+**`GetPoliticianAnalytics`** (dual-added to the legacy service, per the parity
+test) returns the party x industry matrix, the industry and party axes, and the
+state split. Every figure is a COUNT OF PEOPLE or of COMPANIES:
+
+- **People, not rows.** A member declaring four banks is one person. Counting
+  rows would make a diversified portfolio look like political concentration.
+- **`companies` rides beside `people` in every cell**, because "46 members
+  declare Telstra — one company" and "45 members declare 52 different Materials
+  stocks" are completely different facts that one intensity value cannot
+  separate, and the first is the one a reader will over-read.
+- **A blank party stays blank.** Party is not on the APH listing; it arrives via
+  an electorate join and is genuinely absent for some members (locally the
+  largest single group). It renders as "Not recorded" everywhere — never
+  "Independent", which would attribute a party to named individuals.
+- **The industry cap reports what it dropped.** Showing 14 of 25 industries
+  without saying so reads as the whole picture.
+
+The heatmap uses ONE SEQUENTIAL HUE — the house amber, sampled from the same
+`interpolateOranges(0.18 + 0.74t)` expression `amberScale()` uses, hardcoded as
+six steps so the route does not pull d3 (~20kB) for a bucketed chart. Not a
+red-to-green diverging ramp: diverging implies a good end and a bad end, and rule
+2 forbids that framing beside a named person. A zero cell gets NO ink rather than
+the palest amber, so absence cannot read as faint presence. Every populated cell
+prints its value and a table view exists — the pale steps fall below 3:1 against
+the surface, and that obligates relief rather than being a warning to dismiss.
+
+**A prerender failure this cost a build to find, and now a test prevents.** The
+explorer first imported `PartyChip` from `compliance.tsx`. compliance has no
+`"use client"` and imports `RegisterHolder` from the generated protobuf module,
+so a CLIENT component importing it dragged `@bufbuild/protobuf` across the
+boundary and the whole static build of `/politicians` died with
+
+```
+Error: Element type is invalid: … but got: undefined.  digest: '2911474217'
+```
+
+— minified, with no file name. **Every jest test passed while the build failed**,
+because jest resolves the module graph without the RSC client boundary. The fix
+is `@/lib/politics/party-palette`, which was split out for exactly this reason;
+`client-boundary.test.ts` now asserts it structurally, and exempts only the one
+component that is genuinely `ssr:false` (checking the loader really is).
+
+`/politicians` stays **static ISR** — 12 kB / 137 kB first load. Query state
+lives in the URL and is read client-side under Suspense; reading `searchParams`
+in the server page would silently flip the route to dynamic. The complete member
+roll is still server-rendered inside a `<details>`, so every profile URL stays in
+the HTML for a crawler that never runs the search.
+
+**Ops:** the index build is manual first-run, like every other new pipeline here.
+`ALGOLIA_WRITE_KEY` + `ALGOLIA_APP_ID`, then `-mode register-index` AFTER
+`register-resolve` (it reads the MV that resolve rebuilds). `REGISTER_DRY_RUN`
+defaults true and prints what it would push. `ALGOLIA_POLITICIANS_INDEX`
+overrides the index name for a dev namespace.
+
 ---
 
 ## 9. Next steps, in priority order

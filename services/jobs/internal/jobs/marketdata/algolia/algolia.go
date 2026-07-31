@@ -66,6 +66,18 @@ func (s *Syncer) IsConfigured() bool {
 
 // SyncBatch sends a batch of stock records to Algolia
 func (s *Syncer) SyncBatch(ctx context.Context, records []StockRecord) (int, error) {
+	rows := make([]any, len(records))
+	for i, r := range records {
+		rows[i] = r
+	}
+	return s.syncAny(ctx, rows)
+}
+
+// syncAny is the record-shape-agnostic batch write. Both SyncBatch (stocks) and
+// the register's politician sync go through it, so the retry/error/status
+// handling has exactly one implementation to get right rather than one per
+// index. Callers convert their typed slice; Go will not do it for them.
+func (s *Syncer) syncAny(ctx context.Context, records []any) (int, error) {
 	if len(records) == 0 {
 		return 0, nil
 	}
@@ -162,4 +174,83 @@ func (s *Syncer) SyncInBatches(ctx context.Context, records []StockRecord, batch
 	}
 
 	return totalSynced, nil
+}
+
+// SyncAnyInBatches is SyncInBatches for a non-stock record shape.
+//
+// It exists so the register's politician index reuses this package's batching,
+// retry and status handling instead of growing a second HTTP client that drifts
+// from it. The caller owns the record type; this owns the transport.
+func (s *Syncer) SyncAnyInBatches(ctx context.Context, records []any, batchSize int) (int, error) {
+	if batchSize <= 0 {
+		batchSize = 1000
+	}
+
+	totalSynced := 0
+	for i := 0; i < len(records); i += batchSize {
+		end := i + batchSize
+		if end > len(records) {
+			end = len(records)
+		}
+
+		var count int
+		var err error
+		for attempt := 0; attempt <= 3; attempt++ {
+			if attempt > 0 {
+				backoff := time.Duration(attempt*attempt) * time.Second
+				select {
+				case <-ctx.Done():
+					return totalSynced, ctx.Err()
+				case <-time.After(backoff):
+				}
+			}
+			count, err = s.syncAny(ctx, records[i:end])
+			if err == nil {
+				break
+			}
+			log.Printf("⚠️ Algolia sync attempt %d failed: %v", attempt+1, err)
+		}
+		if err != nil {
+			return totalSynced, fmt.Errorf("failed to sync batch %d-%d: %w", i, end, err)
+		}
+		totalSynced += count
+		log.Printf("🔍 Synced batch %d-%d to Algolia (%d records)", i, end, count)
+	}
+
+	return totalSynced, nil
+}
+
+// ReplaceSettings sets index settings (searchable attributes, facets, ranking).
+//
+// The politician index needs its own settings — faceting on party/chamber/state
+// and searching over name/division/company — and an index with default settings
+// facets nothing, so the explorer's filter rail would come back empty with no
+// error to explain why.
+func (s *Syncer) ReplaceSettings(ctx context.Context, settings map[string]any) error {
+	if !s.IsConfigured() {
+		return fmt.Errorf("algolia is not configured")
+	}
+	bodyBytes, err := json.Marshal(settings)
+	if err != nil {
+		return err
+	}
+	url := fmt.Sprintf("https://%s.algolia.net/1/indexes/%s/settings", s.appID, s.index)
+	req, err := http.NewRequestWithContext(ctx, "PUT", url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("X-Algolia-API-Key", s.adminKey)
+	req.Header.Set("X-Algolia-Application-Id", s.appID)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("algolia settings returned %d: %s", resp.StatusCode, string(respBody))
+	}
+	return nil
 }

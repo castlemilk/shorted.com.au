@@ -66,6 +66,71 @@ service PoliticiansService {
   rpc ListShortInterestOverlap (ListShortInterestOverlapRequest) returns (ListShortInterestOverlapResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
   }
+
+  // Aggregate shape of the register: which parties declare interests in which
+  // industries, and where members are from.
+  //
+  // COUNTS OF PEOPLE AND DECLARATIONS ONLY. There is no weight, size, exposure
+  // or value here and none may be added — the registers do not record any, so
+  // any such figure would be invented. A cell says "N members of this party
+  // declared an interest in a company in this industry", and nothing more.
+  rpc GetPoliticianAnalytics (GetPoliticianAnalyticsRequest) returns (GetPoliticianAnalyticsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+}
+
+// PartyIndustryCell is one cell of the party x industry matrix.
+message PartyIndustryCell {
+  // AEC abbreviation. EMPTY means the party is NOT RECORDED for those members —
+  // party reaches the register through an electorate join, not the APH listing,
+  // so it is genuinely absent for some. Never render an empty value as a party.
+  string party_ab = 1;
+  string industry = 2;
+  // Distinct parliamentarians. This is the honest headline: a member declaring
+  // four banks is one person, not four.
+  int32 people = 3;
+  // Distinct declared companies behind those people, so a reader can tell
+  // "everyone holds the same one stock" from "everyone holds a different one".
+  int32 companies = 4;
+}
+
+message IndustryTotal {
+  string industry = 1;
+  int32 people = 2;
+  int32 companies = 3;
+}
+
+message PartyTotal {
+  string party_ab = 1;
+  int32 people = 2;
+}
+
+message StateTotal {
+  string state_code = 1;
+  int32 people = 2;
+  int32 companies = 3;
+}
+
+message GetPoliticianAnalyticsRequest {
+  // Cap the industry axis to the N most-declared, so the heatmap stays readable.
+  // The remainder is NOT silently dropped — the response reports what was cut.
+  int32 top_industries = 1;
+  // Restrict to interests declared as current, rather than every interest ever
+  // declared across parliaments 44-48.
+  bool current_only = 2;
+}
+
+message GetPoliticianAnalyticsResponse {
+  repeated PartyIndustryCell cells = 1;
+  // The axes, pre-ordered, so the client does not re-derive an ordering and
+  // silently disagree with the server about which industries were included.
+  repeated IndustryTotal industries = 2;
+  repeated PartyTotal parties = 3;
+  repeated StateTotal states = 4;
+  // Industries excluded by top_industries, stated rather than dropped silently.
+  int32 industries_omitted = 5;
+  string source_licence = 6;
+  google.protobuf.Timestamp as_at = 7;
 }
 
 // ==================== Shared enums ====================

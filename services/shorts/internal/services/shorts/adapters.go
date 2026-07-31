@@ -357,6 +357,10 @@ func (s *StoreAdapter) ListShortInterestOverlap(minShortPercent float64, limit i
 	return s.store.ListShortInterestOverlap(minShortPercent, limit)
 }
 
+func (s *StoreAdapter) GetRegisterAnalytics(topIndustries int32, currentOnly bool) (*shorts.RegisterAnalytics, error) {
+	return s.store.GetRegisterAnalytics(topIndustries, currentOnly)
+}
+
 // Register review console. Deliberately NOT routed through the caching adapter
 // arms above: a decision must be visible to the next reviewer immediately, and a
 // cached queue would hand two people the same candidate to decide twice.

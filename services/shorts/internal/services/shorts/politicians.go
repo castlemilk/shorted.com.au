@@ -588,6 +588,71 @@ func (s *ShortsServer) ListShortInterestOverlap(
 	return connect.NewResponse(cached.(*shortsv1alpha1.ListShortInterestOverlapResponse)), nil
 }
 
+// GetPoliticianAnalytics serves the aggregate shape of the register.
+//
+// COUNTS OF PEOPLE, NEVER A MAGNITUDE. Every figure below is a distinct count of
+// parliamentarians or of companies. The registers record no quantity or value,
+// so there is no weighting to apply and none may be invented — a "party exposure
+// score" here would be a number about named individuals that the source cannot
+// support, which is the exact failure editorial rule 5 exists to prevent.
+func (s *ShortsServer) GetPoliticianAnalytics(
+	ctx context.Context,
+	req *connect.Request[shortsv1alpha1.GetPoliticianAnalyticsRequest],
+) (*connect.Response[shortsv1alpha1.GetPoliticianAnalyticsResponse], error) {
+	if !registerEnabled() {
+		return connect.NewResponse(&shortsv1alpha1.GetPoliticianAnalyticsResponse{}), nil
+	}
+
+	topIndustries := req.Msg.TopIndustries
+	if topIndustries <= 0 {
+		topIndustries = 14
+	}
+	currentOnly := req.Msg.CurrentOnly
+
+	cached, err := s.cache.GetOrSet(
+		s.cache.GetPoliticianAnalyticsKey(topIndustries, currentOnly),
+		func() (interface{}, error) {
+			a, err := s.store.GetRegisterAnalytics(topIndustries, currentOnly)
+			if err != nil {
+				return nil, err
+			}
+			out := &shortsv1alpha1.GetPoliticianAnalyticsResponse{
+				IndustriesOmitted: a.IndustriesOmitted,
+				SourceLicence:     registerLicence,
+			}
+			if !a.AsAt.IsZero() {
+				out.AsAt = timestamppb.New(a.AsAt)
+			}
+			for _, c := range a.Cells {
+				out.Cells = append(out.Cells, &shortsv1alpha1.PartyIndustryCell{
+					PartyAb: c.PartyAb, Industry: c.Industry,
+					People: c.People, Companies: c.Companies,
+				})
+			}
+			for _, i := range a.Industries {
+				out.Industries = append(out.Industries, &shortsv1alpha1.IndustryTotal{
+					Industry: i.Industry, People: i.People, Companies: i.Companies,
+				})
+			}
+			for _, p := range a.Parties {
+				out.Parties = append(out.Parties, &shortsv1alpha1.PartyTotal{
+					PartyAb: p.PartyAb, People: p.People,
+				})
+			}
+			for _, st := range a.States {
+				out.States = append(out.States, &shortsv1alpha1.StateTotal{
+					StateCode: st.StateCode, People: st.People, Companies: st.Companies,
+				})
+			}
+			return out, nil
+		})
+	if err != nil {
+		s.logger.Errorf("database error in GetPoliticianAnalytics: %v", err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to build register analytics"))
+	}
+	return connect.NewResponse(cached.(*shortsv1alpha1.GetPoliticianAnalyticsResponse)), nil
+}
+
 // isNoRows distinguishes "this politician does not exist" (a 404) from a real
 // database failure (a 500).
 func isNoRows(err error) bool {

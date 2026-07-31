@@ -82,12 +82,26 @@ function proseOnly(source: string): string {
  *
  * Everything else names parliamentarians and must cite and be disputable.
  */
+/**
+ * Sections of the /politicians hub, as opposed to independently embeddable
+ * cards. They are rendered by exactly one page, which carries the citation and
+ * the dispute link in its footer — so requiring a SECOND SourceLine inside them
+ * would put two citations on one screen.
+ *
+ * This exclusion is only safe while that remains true, so the test below asserts
+ * the host page still carries it. state-politician-holdings.tsx is the
+ * counter-example and is NOT excluded: it is a card dropped onto the economy
+ * state page, and it shipped with no attribution of its own.
+ */
+const HUB_SECTIONS = ["politician-explorer.tsx", "register-heatmap.tsx"];
+
 const RENDERING_SURFACES = FILES.filter(
   (f) =>
     !f.endsWith("compliance.tsx") &&
     !f.endsWith("-loader.tsx") &&
     !f.endsWith("opengraph-image.tsx") &&
     !f.includes("__tests__") &&
+    !HUB_SECTIONS.some((s) => f.endsWith(s)) &&
     // The operator console: rule 1 (cite the source) and rule 8 (offer a dispute
     // path) are promises to a READER. The reviewer here IS the dispute path, and
     // every candidate card already links the APH PDF per declaration — which is
@@ -109,10 +123,22 @@ describe("politician surface copy", () => {
   // links the APH PDF per declaration. §6.2 re-review triggered and recorded in
   // docs/politician-register-architecture.md.
   it("covers exactly the surfaces it claims to", () => {
-    // 10 (incl. politicians/opengraph-image.tsx, the share card) + the 2 operator
-    // console files.
-    expect(FILES.length).toBe(12);
+    // 10 (incl. politicians/opengraph-image.tsx, the share card) + 2 operator
+    // console files + the explorer and the heatmap.
+    expect(FILES.length).toBe(14);
     expect(RENDERING_SURFACES.length).toBe(7);
+  });
+
+  // The exclusion above is conditional on this. If the hub page ever loses its
+  // SourceLine, two surfaces that name parliamentarians lose their citation at
+  // the same moment and nothing else would notice.
+  it("the /politicians hub carries the citation its sections rely on", () => {
+    const hub = readFileSync(join(ROOT, "app", "politicians", "page.tsx"), "utf8");
+    expect(hub).toMatch(/<SourceLine/);
+    for (const section of HUB_SECTIONS) {
+      const importName = section.replace(/\.tsx$/, "");
+      expect(hub).toContain(importName);
+    }
   });
 
   /**

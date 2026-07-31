@@ -13,7 +13,207 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file shorts/v1alpha1/politicians.proto.
  */
 export const file_shorts_v1alpha1_politicians: GenFile = /*@__PURE__*/
-  fileDesc("CiFzaG9ydHMvdjFhbHBoYTEvcG9saXRpY2lhbnMucHJvdG8SD3Nob3J0cy52MWFscGhhMSLGAgoKUG9saXRpY2lhbhIMCgRzbHVnGAEgASgJEhQKDGRpc3BsYXlfbmFtZRgCIAEoCRIPCgdzdXJuYW1lGAMgASgJEhMKC2dpdmVuX25hbWVzGAQgASgJEhEKCWhvbm9yaWZpYxgFIAEoCRIPCgdjaGFtYmVyGAYgASgJEhAKCGRpdmlzaW9uGAcgASgJEhIKCnN0YXRlX2NvZGUYCCABKAkSDQoFcGFydHkYCSABKAkSEAoIcGFydHlfYWIYCiABKAkSGAoQZmlyc3RfcGFybGlhbWVudBgLIAEoBRIXCg9sYXN0X3BhcmxpYW1lbnQYDCABKAUSEAoIYXBoX21waWQYDSABKAkSHQoVZGVjbGFyZWRfbGlzdGVkX2NvdW50GA4gASgFEh8KF2RlY2xhcmVkX3Byb3BlcnR5X2NvdW50GA8gASgFIoYEChBEZWNsYXJlZEludGVyZXN0Eg8KB2l0ZW1fbm8YASABKAUSEgoKaXRlbV9sYWJlbBgCIAEoCRIvCgZob2xkZXIYAyABKA4yHy5zaG9ydHMudjFhbHBoYTEuUmVnaXN0ZXJIb2xkZXISFQoNZGVjbGFyZWRfdGV4dBgEIAEoCRIWCg5zZWNvbmRhcnlfdGV4dBgFIAEoCRISCgpzdG9ja19jb2RlGAYgASgJEhQKDGNvbXBhbnlfbmFtZRgHIAEoCRIQCghpbmR1c3RyeRgIIAEoCRIQCghzYWxfY29kZRgJIAEoCRITCgtzdWJ1cmJfbmFtZRgKIAEoCRIWCg5wcm9wZXJ0eV9zdGF0ZRgLIAEoCRIUCgxtYXRjaF9tZXRob2QYDCABKAkSMQoNZGVjbGFyZWRfZnJvbRgNIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASGwoTZGVjbGFyZWRfZnJvbV9rbm93bhgOIAEoCBIvCgtkZWNsYXJlZF90bxgPIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASGgoSY3VycmVudGx5X2RlY2xhcmVkGBAgASgIEhIKCnNvdXJjZV91cmwYESABKAkSFgoOc291cmNlX2xpY2VuY2UYEiABKAkSEwoLZW50aXR5X2tpbmQYEyABKAkifAoOUG9saXRpY2lhblRlcm0SEgoKcGFybGlhbWVudBgBIAEoBRIPCgdjaGFtYmVyGAIgASgJEhAKCGRpdmlzaW9uGAMgASgJEhIKCnN0YXRlX2NvZGUYBCABKAkSDQoFcGFydHkYBSABKAkSEAoIcGFydHlfYWIYBiABKAkiHgocR2V0UGFybGlhbWVudE92ZXJ2aWV3UmVxdWVzdCLUAgodR2V0UGFybGlhbWVudE92ZXJ2aWV3UmVzcG9uc2USGAoQcG9saXRpY2lhbl9jb3VudBgBIAEoBRIXCg9zdGF0ZW1lbnRfY291bnQYAiABKAUSGgoSZGVjbGFyZWRfcm93X2NvdW50GAMgASgFEh0KFXJlc29sdmVkX2xpc3RlZF9jb3VudBgEIAEoBRIdChVyZXNvbHZlZF9zdWJ1cmJfY291bnQYBSABKAUSGAoQZmlyc3RfcGFybGlhbWVudBgGIAEoBRIXCg9sYXN0X3BhcmxpYW1lbnQYByABKAUSKQoFYXNfYXQYCCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjAKDHJlZnJlc2hlZF9hdBgJIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASFgoOc291cmNlX2xpY2VuY2UYCiABKAkifQoWTGlzdFBvbGl0aWNpYW5zUmVxdWVzdBIPCgdjaGFtYmVyGAEgASgJEhIKCnN0YXRlX2NvZGUYAiABKAkSEAoIcGFydHlfYWIYAyABKAkSDQoFcXVlcnkYBCABKAkSDQoFbGltaXQYBSABKAUSDgoGb2Zmc2V0GAYgASgFIloKF0xpc3RQb2xpdGljaWFuc1Jlc3BvbnNlEjAKC3BvbGl0aWNpYW5zGAEgAygLMhsuc2hvcnRzLnYxYWxwaGExLlBvbGl0aWNpYW4SDQoFdG90YWwYAiABKAUiJAoUR2V0UG9saXRpY2lhblJlcXVlc3QSDAoEc2x1ZxgBIAEoCSK8AgoVR2V0UG9saXRpY2lhblJlc3BvbnNlEi8KCnBvbGl0aWNpYW4YASABKAsyGy5zaG9ydHMudjFhbHBoYTEuUG9saXRpY2lhbhIWCg5jYW5vbmljYWxfc2x1ZxgCIAEoCRIuCgV0ZXJtcxgDIAMoCzIfLnNob3J0cy52MWFscGhhMS5Qb2xpdGljaWFuVGVybRI0CglpbnRlcmVzdHMYBCADKAsyIS5zaG9ydHMudjFhbHBoYTEuRGVjbGFyZWRJbnRlcmVzdBIbChNyZXByZXNlbnRlZF9zdWJ1cmJzGAUgAygJEh0KFWV4dHJhY3RlZF9wYXJsaWFtZW50cxgGIAMoBRIbChNwYXJ0aWFsX3BhcmxpYW1lbnRzGAggAygFEhsKE3BlbmRpbmdfcGFybGlhbWVudHMYByADKAUiRwobTGlzdFN0b2NrUG9saXRpY2lhbnNSZXF1ZXN0EhIKCnN0b2NrX2NvZGUYASABKAkSFAoMY3VycmVudF9vbmx5GAIgASgIIkcKClBhcnR5Q291bnQSEAoIcGFydHlfYWIYASABKAkSDQoFcGFydHkYAiABKAkSGAoQcG9saXRpY2lhbl9jb3VudBgDIAEoBSLqAQocTGlzdFN0b2NrUG9saXRpY2lhbnNSZXNwb25zZRISCgpzdG9ja19jb2RlGAEgASgJEhQKDGNvbXBhbnlfbmFtZRgCIAEoCRIYChBwb2xpdGljaWFuX2NvdW50GAMgASgFEjEKDHBhcnR5X2NvdW50cxgEIAMoCzIbLnNob3J0cy52MWFscGhhMS5QYXJ0eUNvdW50EjsKCWludGVyZXN0cxgFIAMoCzIoLnNob3J0cy52MWFscGhhMS5TdG9ja1BvbGl0aWNpYW5JbnRlcmVzdBIWCg5zb3VyY2VfbGljZW5jZRgGIAEoCSJ/ChdTdG9ja1BvbGl0aWNpYW5JbnRlcmVzdBIvCgpwb2xpdGljaWFuGAEgASgLMhsuc2hvcnRzLnYxYWxwaGExLlBvbGl0aWNpYW4SMwoIaW50ZXJlc3QYAiABKAsyIS5zaG9ydHMudjFhbHBoYTEuRGVjbGFyZWRJbnRlcmVzdCJCChtMaXN0UG9saXRpY2lhblN0b2Nrc1JlcXVlc3QSDQoFbGltaXQYASABKAUSFAoMY3VycmVudF9vbmx5GAIgASgIIrcBChVQb2xpdGljaWFuU3RvY2tSb2xsdXASEgoKc3RvY2tfY29kZRgBIAEoCRIUCgxjb21wYW55X25hbWUYAiABKAkSEAoIaW5kdXN0cnkYAyABKAkSGAoQcG9saXRpY2lhbl9jb3VudBgEIAEoBRIxCgxwYXJ0eV9jb3VudHMYBSADKAsyGy5zaG9ydHMudjFhbHBoYTEuUGFydHlDb3VudBIVCg1zaG9ydF9wZXJjZW50GAYgASgBIm4KHExpc3RQb2xpdGljaWFuU3RvY2tzUmVzcG9uc2USNgoGc3RvY2tzGAEgAygLMiYuc2hvcnRzLnYxYWxwaGExLlBvbGl0aWNpYW5TdG9ja1JvbGx1cBIWCg5zb3VyY2VfbGljZW5jZRgCIAEoCSIwChxMaXN0U3VidXJiUG9saXRpY2lhbnNSZXF1ZXN0EhAKCHNhbF9jb2RlGAEgASgJItEBCh1MaXN0U3VidXJiUG9saXRpY2lhbnNSZXNwb25zZRIQCghzYWxfY29kZRgBIAEoCRITCgtzdWJ1cmJfbmFtZRgCIAEoCRISCgpzdGF0ZV9jb2RlGAMgASgJEh4KFmRlY2xhcmluZ19tZW1iZXJfY291bnQYBCABKAUSPQoKcHJvcGVydGllcxgFIAMoCzIpLnNob3J0cy52MWFscGhhMS5TdWJ1cmJQb2xpdGljaWFuUHJvcGVydHkSFgoOc291cmNlX2xpY2VuY2UYBiABKAkigAEKGFN1YnVyYlBvbGl0aWNpYW5Qcm9wZXJ0eRIvCgpwb2xpdGljaWFuGAEgASgLMhsuc2hvcnRzLnYxYWxwaGExLlBvbGl0aWNpYW4SMwoIaW50ZXJlc3QYAiABKAsyIS5zaG9ydHMudjFhbHBoYTEuRGVjbGFyZWRJbnRlcmVzdCJHCiJMaXN0U3RhdGVQb2xpdGljaWFuSG9sZGluZ3NSZXF1ZXN0EhIKCnN0YXRlX2NvZGUYASABKAkSDQoFbGltaXQYAiABKAUiowEKI0xpc3RTdGF0ZVBvbGl0aWNpYW5Ib2xkaW5nc1Jlc3BvbnNlEhIKCnN0YXRlX2NvZGUYASABKAkSNgoGc3RvY2tzGAIgAygLMiYuc2hvcnRzLnYxYWxwaGExLlBvbGl0aWNpYW5TdG9ja1JvbGx1cBIYChBwb2xpdGljaWFuX2NvdW50GAMgASgFEhYKDnNvdXJjZV9saWNlbmNlGAQgASgJIq0BChpMaXN0UmVnaXN0ZXJDaGFuZ2VzUmVxdWVzdBIpCgVzaW5jZRgBIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASMQoEa2luZBgCIAEoDjIjLnNob3J0cy52MWFscGhhMS5SZWdpc3RlckNoYW5nZUtpbmQSEgoKc3RvY2tfY29kZRgDIAEoCRINCgVsaW1pdBgEIAEoBRIOCgZvZmZzZXQYBSABKAUi6QIKE1JlZ2lzdGVyQ2hhbmdlRXZlbnQSLwoKcG9saXRpY2lhbhgBIAEoCzIbLnNob3J0cy52MWFscGhhMS5Qb2xpdGljaWFuEjEKBGtpbmQYAiABKA4yIy5zaG9ydHMudjFhbHBoYTEuUmVnaXN0ZXJDaGFuZ2VLaW5kEg8KB2l0ZW1fbm8YAyABKAUSEgoKaXRlbV9sYWJlbBgEIAEoCRIvCgZob2xkZXIYBSABKA4yHy5zaG9ydHMudjFhbHBoYTEuUmVnaXN0ZXJIb2xkZXISFQoNZGVjbGFyZWRfdGV4dBgGIAEoCRISCgpzdG9ja19jb2RlGAcgASgJEhQKDGNvbXBhbnlfbmFtZRgIIAEoCRIuCgpjaGFuZ2VkX29uGAkgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBISCgpzb3VyY2VfdXJsGAogASgJEhMKC2VudGl0eV9raW5kGAsgASgJInoKG0xpc3RSZWdpc3RlckNoYW5nZXNSZXNwb25zZRI0CgZldmVudHMYASADKAsyJC5zaG9ydHMudjFhbHBoYTEuUmVnaXN0ZXJDaGFuZ2VFdmVudBINCgV0b3RhbBgCIAEoBRIWCg5zb3VyY2VfbGljZW5jZRgDIAEoCSJLCh9MaXN0U2hvcnRJbnRlcmVzdE92ZXJsYXBSZXF1ZXN0EhkKEW1pbl9zaG9ydF9wZXJjZW50GAEgASgBEg0KBWxpbWl0GAIgASgFIrYBChRTaG9ydEludGVyZXN0T3ZlcmxhcBISCgpzdG9ja19jb2RlGAEgASgJEhQKDGNvbXBhbnlfbmFtZRgCIAEoCRIQCghpbmR1c3RyeRgDIAEoCRIVCg1zaG9ydF9wZXJjZW50GAQgASgBEhgKEHBvbGl0aWNpYW5fY291bnQYBSABKAUSMQoMcGFydHlfY291bnRzGAYgAygLMhsuc2hvcnRzLnYxYWxwaGExLlBhcnR5Q291bnQijAEKIExpc3RTaG9ydEludGVyZXN0T3ZlcmxhcFJlc3BvbnNlEjcKCG92ZXJsYXBzGAEgAygLMiUuc2hvcnRzLnYxYWxwaGExLlNob3J0SW50ZXJlc3RPdmVybGFwEhcKD2Rpc2Nsb3N1cmVfbm90ZRgCIAEoCRIWCg5zb3VyY2VfbGljZW5jZRgDIAEoCSqXAQoOUmVnaXN0ZXJIb2xkZXISHwobUkVHSVNURVJfSE9MREVSX1VOU1BFQ0lGSUVEEAASGAoUUkVHSVNURVJfSE9MREVSX1NFTEYQARIiCh5SRUdJU1RFUl9IT0xERVJfU1BPVVNFX1BBUlRORVIQAhImCiJSRUdJU1RFUl9IT0xERVJfREVQRU5ERU5UX0NISUxEUkVOEAMqfAoSUmVnaXN0ZXJDaGFuZ2VLaW5kEiQKIFJFR0lTVEVSX0NIQU5HRV9LSU5EX1VOU1BFQ0lGSUVEEAASHgoaUkVHSVNURVJfQ0hBTkdFX0tJTkRfQURERUQQARIgChxSRUdJU1RFUl9DSEFOR0VfS0lORF9SRU1PVkVEEAIy6QgKElBvbGl0aWNpYW5zU2VydmljZRJ8ChVHZXRQYXJsaWFtZW50T3ZlcnZpZXcSLS5zaG9ydHMudjFhbHBoYTEuR2V0UGFybGlhbWVudE92ZXJ2aWV3UmVxdWVzdBouLnNob3J0cy52MWFscGhhMS5HZXRQYXJsaWFtZW50T3ZlcnZpZXdSZXNwb25zZSIEgLUYARJqCg9MaXN0UG9saXRpY2lhbnMSJy5zaG9ydHMudjFhbHBoYTEuTGlzdFBvbGl0aWNpYW5zUmVxdWVzdBooLnNob3J0cy52MWFscGhhMS5MaXN0UG9saXRpY2lhbnNSZXNwb25zZSIEgLUYARJkCg1HZXRQb2xpdGljaWFuEiUuc2hvcnRzLnYxYWxwaGExLkdldFBvbGl0aWNpYW5SZXF1ZXN0GiYuc2hvcnRzLnYxYWxwaGExLkdldFBvbGl0aWNpYW5SZXNwb25zZSIEgLUYARJ5ChRMaXN0U3RvY2tQb2xpdGljaWFucxIsLnNob3J0cy52MWFscGhhMS5MaXN0U3RvY2tQb2xpdGljaWFuc1JlcXVlc3QaLS5zaG9ydHMudjFhbHBoYTEuTGlzdFN0b2NrUG9saXRpY2lhbnNSZXNwb25zZSIEgLUYARJ5ChRMaXN0UG9saXRpY2lhblN0b2NrcxIsLnNob3J0cy52MWFscGhhMS5MaXN0UG9saXRpY2lhblN0b2Nrc1JlcXVlc3QaLS5zaG9ydHMudjFhbHBoYTEuTGlzdFBvbGl0aWNpYW5TdG9ja3NSZXNwb25zZSIEgLUYARJ8ChVMaXN0U3VidXJiUG9saXRpY2lhbnMSLS5zaG9ydHMudjFhbHBoYTEuTGlzdFN1YnVyYlBvbGl0aWNpYW5zUmVxdWVzdBouLnNob3J0cy52MWFscGhhMS5MaXN0U3VidXJiUG9saXRpY2lhbnNSZXNwb25zZSIEgLUYARKOAQobTGlzdFN0YXRlUG9saXRpY2lhbkhvbGRpbmdzEjMuc2hvcnRzLnYxYWxwaGExLkxpc3RTdGF0ZVBvbGl0aWNpYW5Ib2xkaW5nc1JlcXVlc3QaNC5zaG9ydHMudjFhbHBoYTEuTGlzdFN0YXRlUG9saXRpY2lhbkhvbGRpbmdzUmVzcG9uc2UiBIC1GAESdgoTTGlzdFJlZ2lzdGVyQ2hhbmdlcxIrLnNob3J0cy52MWFscGhhMS5MaXN0UmVnaXN0ZXJDaGFuZ2VzUmVxdWVzdBosLnNob3J0cy52MWFscGhhMS5MaXN0UmVnaXN0ZXJDaGFuZ2VzUmVzcG9uc2UiBIC1GAEShQEKGExpc3RTaG9ydEludGVyZXN0T3ZlcmxhcBIwLnNob3J0cy52MWFscGhhMS5MaXN0U2hvcnRJbnRlcmVzdE92ZXJsYXBSZXF1ZXN0GjEuc2hvcnRzLnYxYWxwaGExLkxpc3RTaG9ydEludGVyZXN0T3ZlcmxhcFJlc3BvbnNlIgSAtRgBQt8BChNjb20uc2hvcnRzLnYxYWxwaGExQhBQb2xpdGljaWFuc1Byb3RvUAFaWWdpdGh1Yi5jb20vY2FzdGxlbWlsay9zaG9ydGVkLmNvbS5hdS9zZXJ2aWNlcy9nZW4vcHJvdG8vZ28vc2hvcnRzL3YxYWxwaGExO3Nob3J0c3YxYWxwaGExogIDU1hYqgIPU2hvcnRzLlYxYWxwaGExygIPU2hvcnRzXFYxYWxwaGEx4gIbU2hvcnRzXFYxYWxwaGExXEdQQk1ldGFkYXRh6gIQU2hvcnRzOjpWMWFscGhhMWIGcHJvdG8z", [file_google_protobuf_timestamp, file_options_v1_options]);
+  fileDesc("CiFzaG9ydHMvdjFhbHBoYTEvcG9saXRpY2lhbnMucHJvdG8SD3Nob3J0cy52MWFscGhhMSJaChFQYXJ0eUluZHVzdHJ5Q2VsbBIQCghwYXJ0eV9hYhgBIAEoCRIQCghpbmR1c3RyeRgCIAEoCRIOCgZwZW9wbGUYAyABKAUSEQoJY29tcGFuaWVzGAQgASgFIkQKDUluZHVzdHJ5VG90YWwSEAoIaW5kdXN0cnkYASABKAkSDgoGcGVvcGxlGAIgASgFEhEKCWNvbXBhbmllcxgDIAEoBSIuCgpQYXJ0eVRvdGFsEhAKCHBhcnR5X2FiGAEgASgJEg4KBnBlb3BsZRgCIAEoBSJDCgpTdGF0ZVRvdGFsEhIKCnN0YXRlX2NvZGUYASABKAkSDgoGcGVvcGxlGAIgASgFEhEKCWNvbXBhbmllcxgDIAEoBSJNCh1HZXRQb2xpdGljaWFuQW5hbHl0aWNzUmVxdWVzdBIWCg50b3BfaW5kdXN0cmllcxgBIAEoBRIUCgxjdXJyZW50X29ubHkYAiABKAgiwQIKHkdldFBvbGl0aWNpYW5BbmFseXRpY3NSZXNwb25zZRIxCgVjZWxscxgBIAMoCzIiLnNob3J0cy52MWFscGhhMS5QYXJ0eUluZHVzdHJ5Q2VsbBIyCgppbmR1c3RyaWVzGAIgAygLMh4uc2hvcnRzLnYxYWxwaGExLkluZHVzdHJ5VG90YWwSLAoHcGFydGllcxgDIAMoCzIbLnNob3J0cy52MWFscGhhMS5QYXJ0eVRvdGFsEisKBnN0YXRlcxgEIAMoCzIbLnNob3J0cy52MWFscGhhMS5TdGF0ZVRvdGFsEhoKEmluZHVzdHJpZXNfb21pdHRlZBgFIAEoBRIWCg5zb3VyY2VfbGljZW5jZRgGIAEoCRIpCgVhc19hdBgHIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAixgIKClBvbGl0aWNpYW4SDAoEc2x1ZxgBIAEoCRIUCgxkaXNwbGF5X25hbWUYAiABKAkSDwoHc3VybmFtZRgDIAEoCRITCgtnaXZlbl9uYW1lcxgEIAEoCRIRCglob25vcmlmaWMYBSABKAkSDwoHY2hhbWJlchgGIAEoCRIQCghkaXZpc2lvbhgHIAEoCRISCgpzdGF0ZV9jb2RlGAggASgJEg0KBXBhcnR5GAkgASgJEhAKCHBhcnR5X2FiGAogASgJEhgKEGZpcnN0X3BhcmxpYW1lbnQYCyABKAUSFwoPbGFzdF9wYXJsaWFtZW50GAwgASgFEhAKCGFwaF9tcGlkGA0gASgJEh0KFWRlY2xhcmVkX2xpc3RlZF9jb3VudBgOIAEoBRIfChdkZWNsYXJlZF9wcm9wZXJ0eV9jb3VudBgPIAEoBSKGBAoQRGVjbGFyZWRJbnRlcmVzdBIPCgdpdGVtX25vGAEgASgFEhIKCml0ZW1fbGFiZWwYAiABKAkSLwoGaG9sZGVyGAMgASgOMh8uc2hvcnRzLnYxYWxwaGExLlJlZ2lzdGVySG9sZGVyEhUKDWRlY2xhcmVkX3RleHQYBCABKAkSFgoOc2Vjb25kYXJ5X3RleHQYBSABKAkSEgoKc3RvY2tfY29kZRgGIAEoCRIUCgxjb21wYW55X25hbWUYByABKAkSEAoIaW5kdXN0cnkYCCABKAkSEAoIc2FsX2NvZGUYCSABKAkSEwoLc3VidXJiX25hbWUYCiABKAkSFgoOcHJvcGVydHlfc3RhdGUYCyABKAkSFAoMbWF0Y2hfbWV0aG9kGAwgASgJEjEKDWRlY2xhcmVkX2Zyb20YDSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhsKE2RlY2xhcmVkX2Zyb21fa25vd24YDiABKAgSLwoLZGVjbGFyZWRfdG8YDyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhoKEmN1cnJlbnRseV9kZWNsYXJlZBgQIAEoCBISCgpzb3VyY2VfdXJsGBEgASgJEhYKDnNvdXJjZV9saWNlbmNlGBIgASgJEhMKC2VudGl0eV9raW5kGBMgASgJInwKDlBvbGl0aWNpYW5UZXJtEhIKCnBhcmxpYW1lbnQYASABKAUSDwoHY2hhbWJlchgCIAEoCRIQCghkaXZpc2lvbhgDIAEoCRISCgpzdGF0ZV9jb2RlGAQgASgJEg0KBXBhcnR5GAUgASgJEhAKCHBhcnR5X2FiGAYgASgJIh4KHEdldFBhcmxpYW1lbnRPdmVydmlld1JlcXVlc3Qi1AIKHUdldFBhcmxpYW1lbnRPdmVydmlld1Jlc3BvbnNlEhgKEHBvbGl0aWNpYW5fY291bnQYASABKAUSFwoPc3RhdGVtZW50X2NvdW50GAIgASgFEhoKEmRlY2xhcmVkX3Jvd19jb3VudBgDIAEoBRIdChVyZXNvbHZlZF9saXN0ZWRfY291bnQYBCABKAUSHQoVcmVzb2x2ZWRfc3VidXJiX2NvdW50GAUgASgFEhgKEGZpcnN0X3BhcmxpYW1lbnQYBiABKAUSFwoPbGFzdF9wYXJsaWFtZW50GAcgASgFEikKBWFzX2F0GAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIwCgxyZWZyZXNoZWRfYXQYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhYKDnNvdXJjZV9saWNlbmNlGAogASgJIn0KFkxpc3RQb2xpdGljaWFuc1JlcXVlc3QSDwoHY2hhbWJlchgBIAEoCRISCgpzdGF0ZV9jb2RlGAIgASgJEhAKCHBhcnR5X2FiGAMgASgJEg0KBXF1ZXJ5GAQgASgJEg0KBWxpbWl0GAUgASgFEg4KBm9mZnNldBgGIAEoBSJaChdMaXN0UG9saXRpY2lhbnNSZXNwb25zZRIwCgtwb2xpdGljaWFucxgBIAMoCzIbLnNob3J0cy52MWFscGhhMS5Qb2xpdGljaWFuEg0KBXRvdGFsGAIgASgFIiQKFEdldFBvbGl0aWNpYW5SZXF1ZXN0EgwKBHNsdWcYASABKAkivAIKFUdldFBvbGl0aWNpYW5SZXNwb25zZRIvCgpwb2xpdGljaWFuGAEgASgLMhsuc2hvcnRzLnYxYWxwaGExLlBvbGl0aWNpYW4SFgoOY2Fub25pY2FsX3NsdWcYAiABKAkSLgoFdGVybXMYAyADKAsyHy5zaG9ydHMudjFhbHBoYTEuUG9saXRpY2lhblRlcm0SNAoJaW50ZXJlc3RzGAQgAygLMiEuc2hvcnRzLnYxYWxwaGExLkRlY2xhcmVkSW50ZXJlc3QSGwoTcmVwcmVzZW50ZWRfc3VidXJicxgFIAMoCRIdChVleHRyYWN0ZWRfcGFybGlhbWVudHMYBiADKAUSGwoTcGFydGlhbF9wYXJsaWFtZW50cxgIIAMoBRIbChNwZW5kaW5nX3BhcmxpYW1lbnRzGAcgAygFIkcKG0xpc3RTdG9ja1BvbGl0aWNpYW5zUmVxdWVzdBISCgpzdG9ja19jb2RlGAEgASgJEhQKDGN1cnJlbnRfb25seRgCIAEoCCJHCgpQYXJ0eUNvdW50EhAKCHBhcnR5X2FiGAEgASgJEg0KBXBhcnR5GAIgASgJEhgKEHBvbGl0aWNpYW5fY291bnQYAyABKAUi6gEKHExpc3RTdG9ja1BvbGl0aWNpYW5zUmVzcG9uc2USEgoKc3RvY2tfY29kZRgBIAEoCRIUCgxjb21wYW55X25hbWUYAiABKAkSGAoQcG9saXRpY2lhbl9jb3VudBgDIAEoBRIxCgxwYXJ0eV9jb3VudHMYBCADKAsyGy5zaG9ydHMudjFhbHBoYTEuUGFydHlDb3VudBI7CglpbnRlcmVzdHMYBSADKAsyKC5zaG9ydHMudjFhbHBoYTEuU3RvY2tQb2xpdGljaWFuSW50ZXJlc3QSFgoOc291cmNlX2xpY2VuY2UYBiABKAkifwoXU3RvY2tQb2xpdGljaWFuSW50ZXJlc3QSLwoKcG9saXRpY2lhbhgBIAEoCzIbLnNob3J0cy52MWFscGhhMS5Qb2xpdGljaWFuEjMKCGludGVyZXN0GAIgASgLMiEuc2hvcnRzLnYxYWxwaGExLkRlY2xhcmVkSW50ZXJlc3QiQgobTGlzdFBvbGl0aWNpYW5TdG9ja3NSZXF1ZXN0Eg0KBWxpbWl0GAEgASgFEhQKDGN1cnJlbnRfb25seRgCIAEoCCK3AQoVUG9saXRpY2lhblN0b2NrUm9sbHVwEhIKCnN0b2NrX2NvZGUYASABKAkSFAoMY29tcGFueV9uYW1lGAIgASgJEhAKCGluZHVzdHJ5GAMgASgJEhgKEHBvbGl0aWNpYW5fY291bnQYBCABKAUSMQoMcGFydHlfY291bnRzGAUgAygLMhsuc2hvcnRzLnYxYWxwaGExLlBhcnR5Q291bnQSFQoNc2hvcnRfcGVyY2VudBgGIAEoASJuChxMaXN0UG9saXRpY2lhblN0b2Nrc1Jlc3BvbnNlEjYKBnN0b2NrcxgBIAMoCzImLnNob3J0cy52MWFscGhhMS5Qb2xpdGljaWFuU3RvY2tSb2xsdXASFgoOc291cmNlX2xpY2VuY2UYAiABKAkiMAocTGlzdFN1YnVyYlBvbGl0aWNpYW5zUmVxdWVzdBIQCghzYWxfY29kZRgBIAEoCSLRAQodTGlzdFN1YnVyYlBvbGl0aWNpYW5zUmVzcG9uc2USEAoIc2FsX2NvZGUYASABKAkSEwoLc3VidXJiX25hbWUYAiABKAkSEgoKc3RhdGVfY29kZRgDIAEoCRIeChZkZWNsYXJpbmdfbWVtYmVyX2NvdW50GAQgASgFEj0KCnByb3BlcnRpZXMYBSADKAsyKS5zaG9ydHMudjFhbHBoYTEuU3VidXJiUG9saXRpY2lhblByb3BlcnR5EhYKDnNvdXJjZV9saWNlbmNlGAYgASgJIoABChhTdWJ1cmJQb2xpdGljaWFuUHJvcGVydHkSLwoKcG9saXRpY2lhbhgBIAEoCzIbLnNob3J0cy52MWFscGhhMS5Qb2xpdGljaWFuEjMKCGludGVyZXN0GAIgASgLMiEuc2hvcnRzLnYxYWxwaGExLkRlY2xhcmVkSW50ZXJlc3QiRwoiTGlzdFN0YXRlUG9saXRpY2lhbkhvbGRpbmdzUmVxdWVzdBISCgpzdGF0ZV9jb2RlGAEgASgJEg0KBWxpbWl0GAIgASgFIqMBCiNMaXN0U3RhdGVQb2xpdGljaWFuSG9sZGluZ3NSZXNwb25zZRISCgpzdGF0ZV9jb2RlGAEgASgJEjYKBnN0b2NrcxgCIAMoCzImLnNob3J0cy52MWFscGhhMS5Qb2xpdGljaWFuU3RvY2tSb2xsdXASGAoQcG9saXRpY2lhbl9jb3VudBgDIAEoBRIWCg5zb3VyY2VfbGljZW5jZRgEIAEoCSKtAQoaTGlzdFJlZ2lzdGVyQ2hhbmdlc1JlcXVlc3QSKQoFc2luY2UYASABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjEKBGtpbmQYAiABKA4yIy5zaG9ydHMudjFhbHBoYTEuUmVnaXN0ZXJDaGFuZ2VLaW5kEhIKCnN0b2NrX2NvZGUYAyABKAkSDQoFbGltaXQYBCABKAUSDgoGb2Zmc2V0GAUgASgFIukCChNSZWdpc3RlckNoYW5nZUV2ZW50Ei8KCnBvbGl0aWNpYW4YASABKAsyGy5zaG9ydHMudjFhbHBoYTEuUG9saXRpY2lhbhIxCgRraW5kGAIgASgOMiMuc2hvcnRzLnYxYWxwaGExLlJlZ2lzdGVyQ2hhbmdlS2luZBIPCgdpdGVtX25vGAMgASgFEhIKCml0ZW1fbGFiZWwYBCABKAkSLwoGaG9sZGVyGAUgASgOMh8uc2hvcnRzLnYxYWxwaGExLlJlZ2lzdGVySG9sZGVyEhUKDWRlY2xhcmVkX3RleHQYBiABKAkSEgoKc3RvY2tfY29kZRgHIAEoCRIUCgxjb21wYW55X25hbWUYCCABKAkSLgoKY2hhbmdlZF9vbhgJIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEgoKc291cmNlX3VybBgKIAEoCRITCgtlbnRpdHlfa2luZBgLIAEoCSJ6ChtMaXN0UmVnaXN0ZXJDaGFuZ2VzUmVzcG9uc2USNAoGZXZlbnRzGAEgAygLMiQuc2hvcnRzLnYxYWxwaGExLlJlZ2lzdGVyQ2hhbmdlRXZlbnQSDQoFdG90YWwYAiABKAUSFgoOc291cmNlX2xpY2VuY2UYAyABKAkiSwofTGlzdFNob3J0SW50ZXJlc3RPdmVybGFwUmVxdWVzdBIZChFtaW5fc2hvcnRfcGVyY2VudBgBIAEoARINCgVsaW1pdBgCIAEoBSK2AQoUU2hvcnRJbnRlcmVzdE92ZXJsYXASEgoKc3RvY2tfY29kZRgBIAEoCRIUCgxjb21wYW55X25hbWUYAiABKAkSEAoIaW5kdXN0cnkYAyABKAkSFQoNc2hvcnRfcGVyY2VudBgEIAEoARIYChBwb2xpdGljaWFuX2NvdW50GAUgASgFEjEKDHBhcnR5X2NvdW50cxgGIAMoCzIbLnNob3J0cy52MWFscGhhMS5QYXJ0eUNvdW50IowBCiBMaXN0U2hvcnRJbnRlcmVzdE92ZXJsYXBSZXNwb25zZRI3CghvdmVybGFwcxgBIAMoCzIlLnNob3J0cy52MWFscGhhMS5TaG9ydEludGVyZXN0T3ZlcmxhcBIXCg9kaXNjbG9zdXJlX25vdGUYAiABKAkSFgoOc291cmNlX2xpY2VuY2UYAyABKAkqlwEKDlJlZ2lzdGVySG9sZGVyEh8KG1JFR0lTVEVSX0hPTERFUl9VTlNQRUNJRklFRBAAEhgKFFJFR0lTVEVSX0hPTERFUl9TRUxGEAESIgoeUkVHSVNURVJfSE9MREVSX1NQT1VTRV9QQVJUTkVSEAISJgoiUkVHSVNURVJfSE9MREVSX0RFUEVOREVOVF9DSElMRFJFThADKnwKElJlZ2lzdGVyQ2hhbmdlS2luZBIkCiBSRUdJU1RFUl9DSEFOR0VfS0lORF9VTlNQRUNJRklFRBAAEh4KGlJFR0lTVEVSX0NIQU5HRV9LSU5EX0FEREVEEAESIAocUkVHSVNURVJfQ0hBTkdFX0tJTkRfUkVNT1ZFRBACMuoJChJQb2xpdGljaWFuc1NlcnZpY2USfAoVR2V0UGFybGlhbWVudE92ZXJ2aWV3Ei0uc2hvcnRzLnYxYWxwaGExLkdldFBhcmxpYW1lbnRPdmVydmlld1JlcXVlc3QaLi5zaG9ydHMudjFhbHBoYTEuR2V0UGFybGlhbWVudE92ZXJ2aWV3UmVzcG9uc2UiBIC1GAESagoPTGlzdFBvbGl0aWNpYW5zEicuc2hvcnRzLnYxYWxwaGExLkxpc3RQb2xpdGljaWFuc1JlcXVlc3QaKC5zaG9ydHMudjFhbHBoYTEuTGlzdFBvbGl0aWNpYW5zUmVzcG9uc2UiBIC1GAESZAoNR2V0UG9saXRpY2lhbhIlLnNob3J0cy52MWFscGhhMS5HZXRQb2xpdGljaWFuUmVxdWVzdBomLnNob3J0cy52MWFscGhhMS5HZXRQb2xpdGljaWFuUmVzcG9uc2UiBIC1GAESeQoUTGlzdFN0b2NrUG9saXRpY2lhbnMSLC5zaG9ydHMudjFhbHBoYTEuTGlzdFN0b2NrUG9saXRpY2lhbnNSZXF1ZXN0Gi0uc2hvcnRzLnYxYWxwaGExLkxpc3RTdG9ja1BvbGl0aWNpYW5zUmVzcG9uc2UiBIC1GAESeQoUTGlzdFBvbGl0aWNpYW5TdG9ja3MSLC5zaG9ydHMudjFhbHBoYTEuTGlzdFBvbGl0aWNpYW5TdG9ja3NSZXF1ZXN0Gi0uc2hvcnRzLnYxYWxwaGExLkxpc3RQb2xpdGljaWFuU3RvY2tzUmVzcG9uc2UiBIC1GAESfAoVTGlzdFN1YnVyYlBvbGl0aWNpYW5zEi0uc2hvcnRzLnYxYWxwaGExLkxpc3RTdWJ1cmJQb2xpdGljaWFuc1JlcXVlc3QaLi5zaG9ydHMudjFhbHBoYTEuTGlzdFN1YnVyYlBvbGl0aWNpYW5zUmVzcG9uc2UiBIC1GAESjgEKG0xpc3RTdGF0ZVBvbGl0aWNpYW5Ib2xkaW5ncxIzLnNob3J0cy52MWFscGhhMS5MaXN0U3RhdGVQb2xpdGljaWFuSG9sZGluZ3NSZXF1ZXN0GjQuc2hvcnRzLnYxYWxwaGExLkxpc3RTdGF0ZVBvbGl0aWNpYW5Ib2xkaW5nc1Jlc3BvbnNlIgSAtRgBEnYKE0xpc3RSZWdpc3RlckNoYW5nZXMSKy5zaG9ydHMudjFhbHBoYTEuTGlzdFJlZ2lzdGVyQ2hhbmdlc1JlcXVlc3QaLC5zaG9ydHMudjFhbHBoYTEuTGlzdFJlZ2lzdGVyQ2hhbmdlc1Jlc3BvbnNlIgSAtRgBEoUBChhMaXN0U2hvcnRJbnRlcmVzdE92ZXJsYXASMC5zaG9ydHMudjFhbHBoYTEuTGlzdFNob3J0SW50ZXJlc3RPdmVybGFwUmVxdWVzdBoxLnNob3J0cy52MWFscGhhMS5MaXN0U2hvcnRJbnRlcmVzdE92ZXJsYXBSZXNwb25zZSIEgLUYARJ/ChZHZXRQb2xpdGljaWFuQW5hbHl0aWNzEi4uc2hvcnRzLnYxYWxwaGExLkdldFBvbGl0aWNpYW5BbmFseXRpY3NSZXF1ZXN0Gi8uc2hvcnRzLnYxYWxwaGExLkdldFBvbGl0aWNpYW5BbmFseXRpY3NSZXNwb25zZSIEgLUYAULfAQoTY29tLnNob3J0cy52MWFscGhhMUIQUG9saXRpY2lhbnNQcm90b1ABWllnaXRodWIuY29tL2Nhc3RsZW1pbGsvc2hvcnRlZC5jb20uYXUvc2VydmljZXMvZ2VuL3Byb3RvL2dvL3Nob3J0cy92MWFscGhhMTtzaG9ydHN2MWFscGhhMaICA1NYWKoCD1Nob3J0cy5WMWFscGhhMcoCD1Nob3J0c1xWMWFscGhhMeICG1Nob3J0c1xWMWFscGhhMVxHUEJNZXRhZGF0YeoCEFNob3J0czo6VjFhbHBoYTFiBnByb3RvMw", [file_google_protobuf_timestamp, file_options_v1_options]);
+
+/**
+ * PartyIndustryCell is one cell of the party x industry matrix.
+ *
+ * @generated from message shorts.v1alpha1.PartyIndustryCell
+ */
+export type PartyIndustryCell = Message<"shorts.v1alpha1.PartyIndustryCell"> & {
+  /**
+   * AEC abbreviation. EMPTY means the party is NOT RECORDED for those members —
+   * party reaches the register through an electorate join, not the APH listing,
+   * so it is genuinely absent for some. Never render an empty value as a party.
+   *
+   * @generated from field: string party_ab = 1;
+   */
+  partyAb: string;
+
+  /**
+   * @generated from field: string industry = 2;
+   */
+  industry: string;
+
+  /**
+   * Distinct parliamentarians. This is the honest headline: a member declaring
+   * four banks is one person, not four.
+   *
+   * @generated from field: int32 people = 3;
+   */
+  people: number;
+
+  /**
+   * Distinct declared companies behind those people, so a reader can tell
+   * "everyone holds the same one stock" from "everyone holds a different one".
+   *
+   * @generated from field: int32 companies = 4;
+   */
+  companies: number;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.PartyIndustryCell.
+ * Use `create(PartyIndustryCellSchema)` to create a new message.
+ */
+export const PartyIndustryCellSchema: GenMessage<PartyIndustryCell> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_politicians, 0);
+
+/**
+ * @generated from message shorts.v1alpha1.IndustryTotal
+ */
+export type IndustryTotal = Message<"shorts.v1alpha1.IndustryTotal"> & {
+  /**
+   * @generated from field: string industry = 1;
+   */
+  industry: string;
+
+  /**
+   * @generated from field: int32 people = 2;
+   */
+  people: number;
+
+  /**
+   * @generated from field: int32 companies = 3;
+   */
+  companies: number;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.IndustryTotal.
+ * Use `create(IndustryTotalSchema)` to create a new message.
+ */
+export const IndustryTotalSchema: GenMessage<IndustryTotal> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_politicians, 1);
+
+/**
+ * @generated from message shorts.v1alpha1.PartyTotal
+ */
+export type PartyTotal = Message<"shorts.v1alpha1.PartyTotal"> & {
+  /**
+   * @generated from field: string party_ab = 1;
+   */
+  partyAb: string;
+
+  /**
+   * @generated from field: int32 people = 2;
+   */
+  people: number;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.PartyTotal.
+ * Use `create(PartyTotalSchema)` to create a new message.
+ */
+export const PartyTotalSchema: GenMessage<PartyTotal> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_politicians, 2);
+
+/**
+ * @generated from message shorts.v1alpha1.StateTotal
+ */
+export type StateTotal = Message<"shorts.v1alpha1.StateTotal"> & {
+  /**
+   * @generated from field: string state_code = 1;
+   */
+  stateCode: string;
+
+  /**
+   * @generated from field: int32 people = 2;
+   */
+  people: number;
+
+  /**
+   * @generated from field: int32 companies = 3;
+   */
+  companies: number;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.StateTotal.
+ * Use `create(StateTotalSchema)` to create a new message.
+ */
+export const StateTotalSchema: GenMessage<StateTotal> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_politicians, 3);
+
+/**
+ * @generated from message shorts.v1alpha1.GetPoliticianAnalyticsRequest
+ */
+export type GetPoliticianAnalyticsRequest = Message<"shorts.v1alpha1.GetPoliticianAnalyticsRequest"> & {
+  /**
+   * Cap the industry axis to the N most-declared, so the heatmap stays readable.
+   * The remainder is NOT silently dropped — the response reports what was cut.
+   *
+   * @generated from field: int32 top_industries = 1;
+   */
+  topIndustries: number;
+
+  /**
+   * Restrict to interests declared as current, rather than every interest ever
+   * declared across parliaments 44-48.
+   *
+   * @generated from field: bool current_only = 2;
+   */
+  currentOnly: boolean;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.GetPoliticianAnalyticsRequest.
+ * Use `create(GetPoliticianAnalyticsRequestSchema)` to create a new message.
+ */
+export const GetPoliticianAnalyticsRequestSchema: GenMessage<GetPoliticianAnalyticsRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_politicians, 4);
+
+/**
+ * @generated from message shorts.v1alpha1.GetPoliticianAnalyticsResponse
+ */
+export type GetPoliticianAnalyticsResponse = Message<"shorts.v1alpha1.GetPoliticianAnalyticsResponse"> & {
+  /**
+   * @generated from field: repeated shorts.v1alpha1.PartyIndustryCell cells = 1;
+   */
+  cells: PartyIndustryCell[];
+
+  /**
+   * The axes, pre-ordered, so the client does not re-derive an ordering and
+   * silently disagree with the server about which industries were included.
+   *
+   * @generated from field: repeated shorts.v1alpha1.IndustryTotal industries = 2;
+   */
+  industries: IndustryTotal[];
+
+  /**
+   * @generated from field: repeated shorts.v1alpha1.PartyTotal parties = 3;
+   */
+  parties: PartyTotal[];
+
+  /**
+   * @generated from field: repeated shorts.v1alpha1.StateTotal states = 4;
+   */
+  states: StateTotal[];
+
+  /**
+   * Industries excluded by top_industries, stated rather than dropped silently.
+   *
+   * @generated from field: int32 industries_omitted = 5;
+   */
+  industriesOmitted: number;
+
+  /**
+   * @generated from field: string source_licence = 6;
+   */
+  sourceLicence: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp as_at = 7;
+   */
+  asAt?: Timestamp;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.GetPoliticianAnalyticsResponse.
+ * Use `create(GetPoliticianAnalyticsResponseSchema)` to create a new message.
+ */
+export const GetPoliticianAnalyticsResponseSchema: GenMessage<GetPoliticianAnalyticsResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_politicians, 5);
 
 /**
  * @generated from message shorts.v1alpha1.Politician
@@ -112,7 +312,7 @@ export type Politician = Message<"shorts.v1alpha1.Politician"> & {
  * Use `create(PoliticianSchema)` to create a new message.
  */
 export const PoliticianSchema: GenMessage<Politician> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_politicians, 0);
+  messageDesc(file_shorts_v1alpha1_politicians, 6);
 
 /**
  * DeclaredInterest is one holding over one continuous period.
@@ -249,7 +449,7 @@ export type DeclaredInterest = Message<"shorts.v1alpha1.DeclaredInterest"> & {
  * Use `create(DeclaredInterestSchema)` to create a new message.
  */
 export const DeclaredInterestSchema: GenMessage<DeclaredInterest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_politicians, 1);
+  messageDesc(file_shorts_v1alpha1_politicians, 7);
 
 /**
  * @generated from message shorts.v1alpha1.PoliticianTerm
@@ -291,7 +491,7 @@ export type PoliticianTerm = Message<"shorts.v1alpha1.PoliticianTerm"> & {
  * Use `create(PoliticianTermSchema)` to create a new message.
  */
 export const PoliticianTermSchema: GenMessage<PoliticianTerm> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_politicians, 2);
+  messageDesc(file_shorts_v1alpha1_politicians, 8);
 
 /**
  * @generated from message shorts.v1alpha1.GetParliamentOverviewRequest
@@ -304,7 +504,7 @@ export type GetParliamentOverviewRequest = Message<"shorts.v1alpha1.GetParliamen
  * Use `create(GetParliamentOverviewRequestSchema)` to create a new message.
  */
 export const GetParliamentOverviewRequestSchema: GenMessage<GetParliamentOverviewRequest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_politicians, 3);
+  messageDesc(file_shorts_v1alpha1_politicians, 9);
 
 /**
  * @generated from message shorts.v1alpha1.GetParliamentOverviewResponse
@@ -374,7 +574,7 @@ export type GetParliamentOverviewResponse = Message<"shorts.v1alpha1.GetParliame
  * Use `create(GetParliamentOverviewResponseSchema)` to create a new message.
  */
 export const GetParliamentOverviewResponseSchema: GenMessage<GetParliamentOverviewResponse> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_politicians, 4);
+  messageDesc(file_shorts_v1alpha1_politicians, 10);
 
 /**
  * @generated from message shorts.v1alpha1.ListPoliticiansRequest
@@ -426,7 +626,7 @@ export type ListPoliticiansRequest = Message<"shorts.v1alpha1.ListPoliticiansReq
  * Use `create(ListPoliticiansRequestSchema)` to create a new message.
  */
 export const ListPoliticiansRequestSchema: GenMessage<ListPoliticiansRequest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_politicians, 5);
+  messageDesc(file_shorts_v1alpha1_politicians, 11);
 
 /**
  * @generated from message shorts.v1alpha1.ListPoliticiansResponse
@@ -448,7 +648,7 @@ export type ListPoliticiansResponse = Message<"shorts.v1alpha1.ListPoliticiansRe
  * Use `create(ListPoliticiansResponseSchema)` to create a new message.
  */
 export const ListPoliticiansResponseSchema: GenMessage<ListPoliticiansResponse> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_politicians, 6);
+  messageDesc(file_shorts_v1alpha1_politicians, 12);
 
 /**
  * @generated from message shorts.v1alpha1.GetPoliticianRequest
@@ -465,7 +665,7 @@ export type GetPoliticianRequest = Message<"shorts.v1alpha1.GetPoliticianRequest
  * Use `create(GetPoliticianRequestSchema)` to create a new message.
  */
 export const GetPoliticianRequestSchema: GenMessage<GetPoliticianRequest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_politicians, 7);
+  messageDesc(file_shorts_v1alpha1_politicians, 13);
 
 /**
  * @generated from message shorts.v1alpha1.GetPoliticianResponse
@@ -543,7 +743,7 @@ export type GetPoliticianResponse = Message<"shorts.v1alpha1.GetPoliticianRespon
  * Use `create(GetPoliticianResponseSchema)` to create a new message.
  */
 export const GetPoliticianResponseSchema: GenMessage<GetPoliticianResponse> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_politicians, 8);
+  messageDesc(file_shorts_v1alpha1_politicians, 14);
 
 /**
  * @generated from message shorts.v1alpha1.ListStockPoliticiansRequest
@@ -567,7 +767,7 @@ export type ListStockPoliticiansRequest = Message<"shorts.v1alpha1.ListStockPoli
  * Use `create(ListStockPoliticiansRequestSchema)` to create a new message.
  */
 export const ListStockPoliticiansRequestSchema: GenMessage<ListStockPoliticiansRequest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_politicians, 9);
+  messageDesc(file_shorts_v1alpha1_politicians, 15);
 
 /**
  * PartyCount is a count of PEOPLE, never of money.
@@ -596,7 +796,7 @@ export type PartyCount = Message<"shorts.v1alpha1.PartyCount"> & {
  * Use `create(PartyCountSchema)` to create a new message.
  */
 export const PartyCountSchema: GenMessage<PartyCount> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_politicians, 10);
+  messageDesc(file_shorts_v1alpha1_politicians, 16);
 
 /**
  * @generated from message shorts.v1alpha1.ListStockPoliticiansResponse
@@ -638,7 +838,7 @@ export type ListStockPoliticiansResponse = Message<"shorts.v1alpha1.ListStockPol
  * Use `create(ListStockPoliticiansResponseSchema)` to create a new message.
  */
 export const ListStockPoliticiansResponseSchema: GenMessage<ListStockPoliticiansResponse> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_politicians, 11);
+  messageDesc(file_shorts_v1alpha1_politicians, 17);
 
 /**
  * @generated from message shorts.v1alpha1.StockPoliticianInterest
@@ -660,7 +860,7 @@ export type StockPoliticianInterest = Message<"shorts.v1alpha1.StockPoliticianIn
  * Use `create(StockPoliticianInterestSchema)` to create a new message.
  */
 export const StockPoliticianInterestSchema: GenMessage<StockPoliticianInterest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_politicians, 12);
+  messageDesc(file_shorts_v1alpha1_politicians, 18);
 
 /**
  * @generated from message shorts.v1alpha1.ListPoliticianStocksRequest
@@ -684,7 +884,7 @@ export type ListPoliticianStocksRequest = Message<"shorts.v1alpha1.ListPoliticia
  * Use `create(ListPoliticianStocksRequestSchema)` to create a new message.
  */
 export const ListPoliticianStocksRequestSchema: GenMessage<ListPoliticianStocksRequest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_politicians, 13);
+  messageDesc(file_shorts_v1alpha1_politicians, 19);
 
 /**
  * @generated from message shorts.v1alpha1.PoliticianStockRollup
@@ -728,7 +928,7 @@ export type PoliticianStockRollup = Message<"shorts.v1alpha1.PoliticianStockRoll
  * Use `create(PoliticianStockRollupSchema)` to create a new message.
  */
 export const PoliticianStockRollupSchema: GenMessage<PoliticianStockRollup> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_politicians, 14);
+  messageDesc(file_shorts_v1alpha1_politicians, 20);
 
 /**
  * @generated from message shorts.v1alpha1.ListPoliticianStocksResponse
@@ -750,7 +950,7 @@ export type ListPoliticianStocksResponse = Message<"shorts.v1alpha1.ListPolitici
  * Use `create(ListPoliticianStocksResponseSchema)` to create a new message.
  */
 export const ListPoliticianStocksResponseSchema: GenMessage<ListPoliticianStocksResponse> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_politicians, 15);
+  messageDesc(file_shorts_v1alpha1_politicians, 21);
 
 /**
  * @generated from message shorts.v1alpha1.ListSuburbPoliticiansRequest
@@ -767,7 +967,7 @@ export type ListSuburbPoliticiansRequest = Message<"shorts.v1alpha1.ListSuburbPo
  * Use `create(ListSuburbPoliticiansRequestSchema)` to create a new message.
  */
 export const ListSuburbPoliticiansRequestSchema: GenMessage<ListSuburbPoliticiansRequest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_politicians, 16);
+  messageDesc(file_shorts_v1alpha1_politicians, 22);
 
 /**
  * @generated from message shorts.v1alpha1.ListSuburbPoliticiansResponse
@@ -809,7 +1009,7 @@ export type ListSuburbPoliticiansResponse = Message<"shorts.v1alpha1.ListSuburbP
  * Use `create(ListSuburbPoliticiansResponseSchema)` to create a new message.
  */
 export const ListSuburbPoliticiansResponseSchema: GenMessage<ListSuburbPoliticiansResponse> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_politicians, 17);
+  messageDesc(file_shorts_v1alpha1_politicians, 23);
 
 /**
  * @generated from message shorts.v1alpha1.SuburbPoliticianProperty
@@ -831,7 +1031,7 @@ export type SuburbPoliticianProperty = Message<"shorts.v1alpha1.SuburbPolitician
  * Use `create(SuburbPoliticianPropertySchema)` to create a new message.
  */
 export const SuburbPoliticianPropertySchema: GenMessage<SuburbPoliticianProperty> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_politicians, 18);
+  messageDesc(file_shorts_v1alpha1_politicians, 24);
 
 /**
  * @generated from message shorts.v1alpha1.ListStatePoliticianHoldingsRequest
@@ -857,7 +1057,7 @@ export type ListStatePoliticianHoldingsRequest = Message<"shorts.v1alpha1.ListSt
  * Use `create(ListStatePoliticianHoldingsRequestSchema)` to create a new message.
  */
 export const ListStatePoliticianHoldingsRequestSchema: GenMessage<ListStatePoliticianHoldingsRequest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_politicians, 19);
+  messageDesc(file_shorts_v1alpha1_politicians, 25);
 
 /**
  * @generated from message shorts.v1alpha1.ListStatePoliticianHoldingsResponse
@@ -889,7 +1089,7 @@ export type ListStatePoliticianHoldingsResponse = Message<"shorts.v1alpha1.ListS
  * Use `create(ListStatePoliticianHoldingsResponseSchema)` to create a new message.
  */
 export const ListStatePoliticianHoldingsResponseSchema: GenMessage<ListStatePoliticianHoldingsResponse> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_politicians, 20);
+  messageDesc(file_shorts_v1alpha1_politicians, 26);
 
 /**
  * @generated from message shorts.v1alpha1.ListRegisterChangesRequest
@@ -932,7 +1132,7 @@ export type ListRegisterChangesRequest = Message<"shorts.v1alpha1.ListRegisterCh
  * Use `create(ListRegisterChangesRequestSchema)` to create a new message.
  */
 export const ListRegisterChangesRequestSchema: GenMessage<ListRegisterChangesRequest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_politicians, 21);
+  messageDesc(file_shorts_v1alpha1_politicians, 27);
 
 /**
  * @generated from message shorts.v1alpha1.RegisterChangeEvent
@@ -1002,7 +1202,7 @@ export type RegisterChangeEvent = Message<"shorts.v1alpha1.RegisterChangeEvent">
  * Use `create(RegisterChangeEventSchema)` to create a new message.
  */
 export const RegisterChangeEventSchema: GenMessage<RegisterChangeEvent> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_politicians, 22);
+  messageDesc(file_shorts_v1alpha1_politicians, 28);
 
 /**
  * @generated from message shorts.v1alpha1.ListRegisterChangesResponse
@@ -1029,7 +1229,7 @@ export type ListRegisterChangesResponse = Message<"shorts.v1alpha1.ListRegisterC
  * Use `create(ListRegisterChangesResponseSchema)` to create a new message.
  */
 export const ListRegisterChangesResponseSchema: GenMessage<ListRegisterChangesResponse> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_politicians, 23);
+  messageDesc(file_shorts_v1alpha1_politicians, 29);
 
 /**
  * @generated from message shorts.v1alpha1.ListShortInterestOverlapRequest
@@ -1055,7 +1255,7 @@ export type ListShortInterestOverlapRequest = Message<"shorts.v1alpha1.ListShort
  * Use `create(ListShortInterestOverlapRequestSchema)` to create a new message.
  */
 export const ListShortInterestOverlapRequestSchema: GenMessage<ListShortInterestOverlapRequest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_politicians, 24);
+  messageDesc(file_shorts_v1alpha1_politicians, 30);
 
 /**
  * @generated from message shorts.v1alpha1.ShortInterestOverlap
@@ -1100,7 +1300,7 @@ export type ShortInterestOverlap = Message<"shorts.v1alpha1.ShortInterestOverlap
  * Use `create(ShortInterestOverlapSchema)` to create a new message.
  */
 export const ShortInterestOverlapSchema: GenMessage<ShortInterestOverlap> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_politicians, 25);
+  messageDesc(file_shorts_v1alpha1_politicians, 31);
 
 /**
  * @generated from message shorts.v1alpha1.ListShortInterestOverlapResponse
@@ -1129,7 +1329,7 @@ export type ListShortInterestOverlapResponse = Message<"shorts.v1alpha1.ListShor
  * Use `create(ListShortInterestOverlapResponseSchema)` to create a new message.
  */
 export const ListShortInterestOverlapResponseSchema: GenMessage<ListShortInterestOverlapResponse> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_politicians, 26);
+  messageDesc(file_shorts_v1alpha1_politicians, 32);
 
 /**
  * RegisterHolder is whose interest a row records. The register itself attributes
@@ -1303,6 +1503,22 @@ export const PoliticiansService: GenService<{
     methodKind: "unary";
     input: typeof ListShortInterestOverlapRequestSchema;
     output: typeof ListShortInterestOverlapResponseSchema;
+  },
+  /**
+   * Aggregate shape of the register: which parties declare interests in which
+   * industries, and where members are from.
+   *
+   * COUNTS OF PEOPLE AND DECLARATIONS ONLY. There is no weight, size, exposure
+   * or value here and none may be added — the registers do not record any, so
+   * any such figure would be invented. A cell says "N members of this party
+   * declared an interest in a company in this industry", and nothing more.
+   *
+   * @generated from rpc shorts.v1alpha1.PoliticiansService.GetPoliticianAnalytics
+   */
+  getPoliticianAnalytics: {
+    methodKind: "unary";
+    input: typeof GetPoliticianAnalyticsRequestSchema;
+    output: typeof GetPoliticianAnalyticsResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_shorts_v1alpha1_politicians, 0);
