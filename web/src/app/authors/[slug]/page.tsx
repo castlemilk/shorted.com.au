@@ -50,10 +50,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       siteName: siteConfig.name,
       type: "profile",
       locale: "en_AU",
-      ...(author.photoUrl ? { images: [{ url: author.photoUrl }] } : {}),
+      // No `images` key: this route ships its own opengraph-image.tsx and an
+      // explicit `images` SHADOWS the file convention. It used to point at
+      // author.photoUrl, a PORTRAIT (1168x1360) — social cards are 1200x630
+      // landscape, so the portrait was cropped badly in every unfurl.
     },
     twitter: {
-      card: "summary",
+      // Large card now that this route generates a proper 1200x630 image;
+      // "summary" rendered it as a small square thumbnail.
+      card: "summary_large_image",
       title,
       description,
     },
