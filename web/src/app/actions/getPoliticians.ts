@@ -57,10 +57,33 @@ function createCacheablePoliticiansClient() {
  * A `fromJson` failure means the proto changed since the entry was written; we
  * fall through to a live fetch rather than serving a broken shape.
  */
-function readCached<T>(schema: Parameters<typeof fromJson>[0], cached: JsonValue | null): T | undefined {
+function readCached<T>(
+  schema: Parameters<typeof fromJson>[0],
+  cached: JsonValue | null,
+  /**
+   * Non-emptiness test. AN EMPTY CACHE ENTRY IS A MISS, NOT A HIT.
+   *
+   * Every writer here already refuses to cache an empty response — "NEVER cache
+   * an empty response: the kill switch and a cold MV both return {}". The READ
+   * path had no matching guard, and the asymmetry is what makes a bad entry
+   * STICK: `fromJson` parses `{}` into a perfectly valid message whose counts
+   * are all zero, `if (hit)` is truthy for any object, and the function returns
+   * before it ever reaches the fetch that would have corrected it. The entry
+   * then serves zeros for the full 24h TTL and the write guard can never fire.
+   *
+   * That is exactly what /politicians served after the 2026-07-31 deploy: the
+   * API was healthy on every route, and the page still showed 0
+   * parliamentarians / 0 declared entries until the cache was flushed by hand.
+   *
+   * With this, a zeroed entry degrades to a cache miss and the next request
+   * self-heals.
+   */
+  isPopulated: (value: T) => boolean,
+): T | undefined {
   if (cached == null) return undefined;
   try {
-    return fromJson(schema, cached) as T;
+    const parsed = fromJson(schema, cached) as T;
+    return isPopulated(parsed) ? parsed : undefined;
   } catch {
     return undefined;
   }
@@ -88,6 +111,7 @@ export const getParliamentOverview = cache(
     const hit = readCached<GetParliamentOverviewResponse>(
       GetParliamentOverviewResponseSchema,
       await getCached<JsonValue>(key),
+      (v) => v.politicianCount > 0,
     );
     if (hit) return hit;
 
@@ -122,6 +146,7 @@ export const listPoliticians = cache(
       const hit = readCached<ListPoliticiansResponse>(
         ListPoliticiansResponseSchema,
         await getCached<JsonValue>(key),
+        (v) => v.politicians.length > 0,
       );
       if (hit) return hit;
 
@@ -150,6 +175,7 @@ export const getPolitician = cache(
     const hit = readCached<GetPoliticianResponse>(
       GetPoliticianResponseSchema,
       await getCached<JsonValue>(key),
+      (v) => !!v.politician,
     );
     if (hit) return hit;
 
@@ -172,6 +198,7 @@ export const listStockPoliticians = cache(
       const hit = readCached<ListStockPoliticiansResponse>(
         ListStockPoliticiansResponseSchema,
         await getCached<JsonValue>(key),
+        (v) => v.interests.length > 0,
       );
       if (hit) return hit;
 
@@ -198,6 +225,7 @@ export const listPoliticianStocks = cache(
       const hit = readCached<ListPoliticianStocksResponse>(
         ListPoliticianStocksResponseSchema,
         await getCached<JsonValue>(key),
+        (v) => v.stocks.length > 0,
       );
       if (hit) return hit;
 
@@ -231,6 +259,7 @@ export const getPoliticianAnalytics = cache(
       const hit = readCached<GetPoliticianAnalyticsResponse>(
         GetPoliticianAnalyticsResponseSchema,
         await getCached<JsonValue>(key),
+        (v) => v.cells.length > 0,
       );
       if (hit) return hit;
 
@@ -258,6 +287,7 @@ export const listSuburbPoliticians = cache(
       const hit = readCached<ListSuburbPoliticiansResponse>(
         ListSuburbPoliticiansResponseSchema,
         await getCached<JsonValue>(key),
+        (v) => v.properties.length > 0,
       );
       if (hit) return hit;
 
@@ -284,6 +314,7 @@ export const listStatePoliticianHoldings = cache(
       const hit = readCached<ListStatePoliticianHoldingsResponse>(
         ListStatePoliticianHoldingsResponseSchema,
         await getCached<JsonValue>(key),
+        (v) => v.stocks.length > 0,
       );
       if (hit) return hit;
 
@@ -311,6 +342,7 @@ export const listRegisterChanges = cache(
       const hit = readCached<ListRegisterChangesResponse>(
         ListRegisterChangesResponseSchema,
         await getCached<JsonValue>(key),
+        (v) => v.events.length > 0,
       );
       if (hit) return hit;
 
@@ -335,6 +367,7 @@ export const listShortInterestOverlap = cache(
       const hit = readCached<ListShortInterestOverlapResponse>(
         ListShortInterestOverlapResponseSchema,
         await getCached<JsonValue>(key),
+        (v) => v.overlaps.length > 0,
       );
       if (hit) return hit;
 
