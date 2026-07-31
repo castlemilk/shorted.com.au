@@ -2136,11 +2136,36 @@ in the server page would silently flip the route to dynamic. The complete member
 roll is still server-rendered inside a `<details>`, so every profile URL stays in
 the HTML for a crawler that never runs the search.
 
-**Ops:** the index build is manual first-run, like every other new pipeline here.
-`ALGOLIA_WRITE_KEY` + `ALGOLIA_APP_ID`, then `-mode register-index` AFTER
-`register-resolve` (it reads the MV that resolve rebuilds). `REGISTER_DRY_RUN`
-defaults true and prints what it would push. `ALGOLIA_POLITICIANS_INDEX`
-overrides the index name for a dev namespace.
+**Ops — one command, credentials from `services/.env`:**
+
+```
+make register-index-env    # which Algolia creds are visible (values masked)
+make register-index-dry    # reads the DB, writes NOTHING
+make register-index        # builds + pushes
+make register-index ALGOLIA_POLITICIANS_INDEX=politicians_dev   # scratch namespace
+```
+
+`services/.env` is gitignored; the keys are documented in `services/.env.example`.
+**The write key is not the search key** — the search key is served to browsers and
+cannot create an index, so the target refuses up front with that message rather
+than letting Algolia return a permissions error halfway through.
+
+**The `DATABASE_URL` re-export in that target is load-bearing.** `services/.env`
+holds the PRODUCTION Supabase URL — it is the file operators use for prod DDL —
+so sourcing it for the credentials would silently point a "local" index build at
+prod. The target re-exports the Makefile default afterwards, exactly as
+`run.shorts` does, and prints the (password-masked) database it is about to read
+so the target is visible before anything is written. Pass `DATABASE_URL=…`
+explicitly to target prod deliberately.
+
+Run it AFTER `register-resolve`: it reads `mv_register_public_holdings`, which
+resolve rebuilds, so an index built first advertises stale matches.
+
+Verified end to end against a throwaway `politicians_dev_verify` index (since
+deleted): 324 records in 2.8s, facets populated (`party_ab` ALP 94 / LP 19 /
+LNP 16, `state_code` NSW 96 / VIC 77, `has_interests` 165 true / 159 false), and
+a search for "Woodside" returned the 7 members who declare it, ordered by the
+custom ranking.
 
 ---
 

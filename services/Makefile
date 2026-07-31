@@ -584,6 +584,67 @@ run.market-data-sync-with-algolia:
 		cd market-data-sync && go run . \
 	'
 
+# ---------------------------------------------------------------------------
+# Register of Interests -> Algolia `politicians` index
+#
+# CREDENTIALS LIVE IN services/.env (gitignored). See .env.example for the keys.
+# You should never need to export anything by hand.
+#
+# THE DATABASE_URL OVERRIDE BELOW IS LOAD-BEARING, not boilerplate. services/.env
+# holds the PRODUCTION Supabase URL — it is the file operators use for prod DDL.
+# Sourcing it would silently point a "local" index build at prod, so DATABASE_URL
+# is re-exported from the Makefile default AFTER the source, exactly as
+# run.shorts and run.market-data-sync-with-algolia do. Pass DATABASE_URL=... on
+# the command line to target prod deliberately.
+#
+# Run this AFTER register-resolve: it reads mv_register_public_holdings, which
+# resolve rebuilds. An index built before the refresh advertises stale matches.
+ALGOLIA_POLITICIANS_INDEX ?= politicians
+
+.PHONY: register-index register-index-dry register-index-env
+
+define register_index_run
+	@bash -c ' \
+		if [ -f .env ]; then set -a; source .env; set +a; fi; \
+		export DATABASE_URL="$(DATABASE_URL)"; \
+		export ALGOLIA_APP_ID="$${ALGOLIA_APP_ID:-$(ALGOLIA_APP_ID)}"; \
+		export ALGOLIA_POLITICIANS_INDEX="$(ALGOLIA_POLITICIANS_INDEX)"; \
+		export REGISTER_DRY_RUN=$(1); \
+		echo "   database: $$(echo "$$DATABASE_URL" | sed -E "s#//[^@]*@#//***@#")"; \
+		echo "   index:    $$ALGOLIA_POLITICIANS_INDEX  (app $$ALGOLIA_APP_ID)"; \
+		echo "   dry run:  $$REGISTER_DRY_RUN"; \
+		if [ "$(1)" != "true" ] && [ -z "$$ALGOLIA_WRITE_KEY" ] && [ -z "$$ALGOLIA_ADMIN_KEY" ]; then \
+			echo ""; \
+			echo "❌ ALGOLIA_WRITE_KEY is not set."; \
+			echo "   Add it to services/.env (see services/.env.example), then re-run."; \
+			echo "   A search key cannot write an index — this needs the write/admin key."; \
+			exit 1; \
+		fi; \
+		cd jobs && go run ./cmd/shorted influence -mode register-index \
+	'
+endef
+
+register-index-dry: ## Preview the politicians Algolia index — reads the DB, writes NOTHING
+	@echo "🔍 Previewing the politicians search index (no writes)..."
+	$(call register_index_run,true)
+
+register-index: ## Build and push the politicians Algolia index (needs ALGOLIA_WRITE_KEY in .env)
+	@echo "🔎 Building the politicians search index..."
+	$(call register_index_run,false)
+
+register-index-env: ## Show which Algolia credentials the index build can see (values masked)
+	@bash -c ' \
+		if [ -f .env ]; then set -a; source .env; set +a; fi; \
+		mask() { if [ -z "$$2" ]; then echo "   $$1: (not set)"; else echo "   $$1: set, $${#2} chars"; fi; }; \
+		echo "Algolia credentials visible to register-index:"; \
+		mask ALGOLIA_APP_ID "$$ALGOLIA_APP_ID"; \
+		mask ALGOLIA_WRITE_KEY "$$ALGOLIA_WRITE_KEY"; \
+		mask ALGOLIA_ADMIN_KEY "$$ALGOLIA_ADMIN_KEY"; \
+		echo "   ALGOLIA_POLITICIANS_INDEX: $(ALGOLIA_POLITICIANS_INDEX)"; \
+		echo ""; \
+		echo "Source: services/.env (gitignored). Keys are documented in services/.env.example."; \
+	'
+
 test.asx-discovery:
 	@echo "🧪 Running ASX discovery integration tests..."
 	@cd asx-discovery && go test -v -tags=integration ./...

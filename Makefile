@@ -48,6 +48,9 @@ help:
 	@echo "  test-coverage - Run all tests with coverage reporting"
 	@echo "  test-watch    - Run frontend tests in watch mode"
 	@echo "  test-integration-local - Run integration tests with local backend (self-contained)"
+	@echo "  register-index-dry - Preview the politicians search index (writes nothing)"
+	@echo "  register-index     - Build + push the politicians Algolia index (creds: services/.env)"
+	@echo "  register-index-env - Show which Algolia credentials the index build can see"
 	@echo "  test-integration - Run full-stack integration tests"
 	@echo "  verify-fast  - Run fast local verification without booting services"
 	@echo "  verify-full  - Run full local verification; testcontainers run when Docker is available"
@@ -295,6 +298,15 @@ populate-data: dev-db ## Download and populate database with ASIC short selling 
 populate-data-quick: dev-db ## Populate database using existing CSV files (no download)
 	@echo "📊 Quick populating database from existing files..."
 	@cd services && make populate-data-quick
+
+register-index-dry: dev-db ## Preview the politicians search index (reads the DB, writes nothing)
+	@cd services && make register-index-dry
+
+register-index: dev-db ## Build + push the politicians Algolia search index (creds from services/.env)
+	@cd services && make register-index
+
+register-index-env: ## Show which Algolia credentials the index build can see
+	@cd services && make register-index-env
 
 backfill-websites: dev-db ## Backfill company website URLs from metadata CSV
 	@echo "🌐 Backfilling company websites from metadata CSV..."
