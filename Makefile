@@ -51,6 +51,7 @@ help:
 	@echo "  register-index-dry - Preview the politicians search index (writes nothing)"
 	@echo "  register-index     - Build + push the politicians Algolia index (creds: services/.env)"
 	@echo "  register-index-env - Show which Algolia credentials the index build can see"
+	@echo "  register-photos    - Resolve politician portraits from Wikidata/Commons (no creds needed)"
 	@echo "  test-integration - Run full-stack integration tests"
 	@echo "  verify-fast  - Run fast local verification without booting services"
 	@echo "  verify-full  - Run full local verification; testcontainers run when Docker is available"
@@ -307,6 +308,12 @@ register-index: dev-db ## Build + push the politicians Algolia search index (cre
 
 register-index-env: ## Show which Algolia credentials the index build can see
 	@cd services && make register-index-env
+
+register-photos-dry: dev-db ## Preview politician portraits from Wikidata/Commons (writes nothing)
+	@cd services && make register-photos-dry
+
+register-photos: dev-db ## Resolve politician portraits from Wikidata/Commons (no credentials needed)
+	@cd services && make register-photos
 
 backfill-websites: dev-db ## Backfill company website URLs from metadata CSV
 	@echo "🌐 Backfilling company websites from metadata CSV..."

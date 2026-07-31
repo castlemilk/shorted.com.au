@@ -572,6 +572,20 @@ func runRegisterPromoteAliasesMode(ctx context.Context, pool *pgxpool.Pool) erro
 //
 // It runs AFTER register-resolve, never before: resolve rebuilds the MV, and an
 // index built from the pre-refresh view advertises stale matches.
+// runRegisterPhotosMode resolves portrait photographs from Wikidata/Commons.
+//
+// It is INDEPENDENT of the register pipeline and safe to run at any time: it
+// only ever writes the photo_* columns on politicians, and never touches a
+// declaration. Run it before register-index if you want portraits searchable.
+func runRegisterPhotosMode(ctx context.Context, pool *pgxpool.Pool) error {
+	n, err := runRegisterPhotos(ctx, pool, registerDryRun())
+	if err != nil {
+		return fmt.Errorf("[register-photos] %w", err)
+	}
+	log.Printf("[register-photos] %d portraits stored (dry_run=%v)", n, registerDryRun())
+	return nil
+}
+
 func runRegisterIndexMode(ctx context.Context, pool *pgxpool.Pool) error {
 	n, err := runRegisterIndex(ctx, pool, registerDryRun())
 	if err != nil {

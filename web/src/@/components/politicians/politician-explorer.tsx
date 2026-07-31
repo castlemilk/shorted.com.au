@@ -23,6 +23,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { PoliticianAvatar } from "@/components/politicians/politician-avatar";
 import {
   highlightFor,
   searchPoliticians,
@@ -347,7 +348,22 @@ function ResultCard({ hit, active }: { hit: PoliticianHit; active: boolean }) {
 
   return (
     <li className={active ? "bg-muted/50" : undefined}>
-      <Link href={`/politicians/${hit.slug}`} className="block px-2 py-3 hover:bg-muted/40">
+      <Link
+        href={`/politicians/${hit.slug}`}
+        className="flex gap-3 px-2 py-3 hover:bg-muted/40"
+      >
+        <PoliticianAvatar
+          displayName={hit.display_name}
+          partyAb={hit.party_ab}
+          size="md"
+          photo={{
+            photoUrl: hit.photo_url,
+            photoLicence: hit.photo_licence,
+            photoAuthor: hit.photo_author,
+            photoSourceUrl: hit.photo_source_url,
+          }}
+        />
+        <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
           <span className="text-sm font-medium">
             <Highlighted value={highlightFor(hit, "display_name")} fallback={hit.display_name} />
@@ -394,6 +410,7 @@ function ResultCard({ hit, active }: { hit: PoliticianHit; active: boolean }) {
 
         {/* Why this member matched, when it was not their name. */}
         <MatchReason hit={hit} />
+        </div>
       </Link>
     </li>
   );

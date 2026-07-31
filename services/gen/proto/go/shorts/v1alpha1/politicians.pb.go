@@ -546,8 +546,26 @@ type Politician struct {
 	// Counts only. Never a value.
 	DeclaredListedCount   int32 `protobuf:"varint,14,opt,name=declared_listed_count,json=declaredListedCount,proto3" json:"declared_listed_count,omitempty"`
 	DeclaredPropertyCount int32 `protobuf:"varint,15,opt,name=declared_property_count,json=declaredPropertyCount,proto3" json:"declared_property_count,omitempty"`
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	// Portrait photograph, from Wikimedia Commons via Wikidata — NEVER from
+	// aph.gov.au, whose images are Commonwealth artefacts that §3.1's posture
+	// forbids mirroring and which may carry a separate photographer copyright.
+	//
+	// THE ATTRIBUTION FIELDS TRAVEL WITH THE URL AND ARE NOT OPTIONAL. CC BY and
+	// CC BY-SA permit publication only WITH the credit and a link to the terms, so
+	// a consumer that renders photo_url while dropping photo_licence /
+	// photo_source_url is breaching the licence, not just being untidy. A database
+	// CHECK makes the unattributed state unstorable; carrying the fields together
+	// here makes it unrenderable by accident too.
+	//
+	// Empty for ~26% of members: no Wikidata portrait, or the surname+division
+	// match was ambiguous and was withheld rather than guessed. Consumers render a
+	// monogram, never a placeholder face and never another person's photograph.
+	PhotoUrl       string `protobuf:"bytes,16,opt,name=photo_url,json=photoUrl,proto3" json:"photo_url,omitempty"`
+	PhotoLicence   string `protobuf:"bytes,17,opt,name=photo_licence,json=photoLicence,proto3" json:"photo_licence,omitempty"`         // as Commons states it: "CC BY-SA 4.0", "Public domain"
+	PhotoAuthor    string `protobuf:"bytes,18,opt,name=photo_author,json=photoAuthor,proto3" json:"photo_author,omitempty"`            // the credit line the licence requires
+	PhotoSourceUrl string `protobuf:"bytes,19,opt,name=photo_source_url,json=photoSourceUrl,proto3" json:"photo_source_url,omitempty"` // the Commons file page carrying the full terms
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *Politician) Reset() {
@@ -683,6 +701,34 @@ func (x *Politician) GetDeclaredPropertyCount() int32 {
 		return x.DeclaredPropertyCount
 	}
 	return 0
+}
+
+func (x *Politician) GetPhotoUrl() string {
+	if x != nil {
+		return x.PhotoUrl
+	}
+	return ""
+}
+
+func (x *Politician) GetPhotoLicence() string {
+	if x != nil {
+		return x.PhotoLicence
+	}
+	return ""
+}
+
+func (x *Politician) GetPhotoAuthor() string {
+	if x != nil {
+		return x.PhotoAuthor
+	}
+	return ""
+}
+
+func (x *Politician) GetPhotoSourceUrl() string {
+	if x != nil {
+		return x.PhotoSourceUrl
+	}
+	return ""
 }
 
 // DeclaredInterest is one holding over one continuous period.
@@ -2650,7 +2696,7 @@ const file_shorts_v1alpha1_politicians_proto_rawDesc = "" +
 	"\x06states\x18\x04 \x03(\v2\x1b.shorts.v1alpha1.StateTotalR\x06states\x12-\n" +
 	"\x12industries_omitted\x18\x05 \x01(\x05R\x11industriesOmitted\x12%\n" +
 	"\x0esource_licence\x18\x06 \x01(\tR\rsourceLicence\x12/\n" +
-	"\x05as_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\x04asAt\"\xfd\x03\n" +
+	"\x05as_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\x04asAt\"\x8c\x05\n" +
 	"\n" +
 	"Politician\x12\x12\n" +
 	"\x04slug\x18\x01 \x01(\tR\x04slug\x12!\n" +
@@ -2670,7 +2716,11 @@ const file_shorts_v1alpha1_politicians_proto_rawDesc = "" +
 	"\x0flast_parliament\x18\f \x01(\x05R\x0elastParliament\x12\x19\n" +
 	"\baph_mpid\x18\r \x01(\tR\aaphMpid\x122\n" +
 	"\x15declared_listed_count\x18\x0e \x01(\x05R\x13declaredListedCount\x126\n" +
-	"\x17declared_property_count\x18\x0f \x01(\x05R\x15declaredPropertyCount\"\xf7\x05\n" +
+	"\x17declared_property_count\x18\x0f \x01(\x05R\x15declaredPropertyCount\x12\x1b\n" +
+	"\tphoto_url\x18\x10 \x01(\tR\bphotoUrl\x12#\n" +
+	"\rphoto_licence\x18\x11 \x01(\tR\fphotoLicence\x12!\n" +
+	"\fphoto_author\x18\x12 \x01(\tR\vphotoAuthor\x12(\n" +
+	"\x10photo_source_url\x18\x13 \x01(\tR\x0ephotoSourceUrl\"\xf7\x05\n" +
 	"\x10DeclaredInterest\x12\x17\n" +
 	"\aitem_no\x18\x01 \x01(\x05R\x06itemNo\x12\x1d\n" +
 	"\n" +

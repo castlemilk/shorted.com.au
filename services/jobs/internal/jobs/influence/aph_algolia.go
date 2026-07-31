@@ -62,6 +62,15 @@ type politicianRecord struct {
 	// A single flag the UI facets on, so "has declared interests" does not have
 	// to be expressed as a numeric filter on two separate fields.
 	HasInterests bool `json:"has_interests"`
+
+	// Portrait + the attribution its licence requires, carried TOGETHER. A
+	// search result renders the face, so the credit has to reach the client
+	// with it — indexing the URL alone would make an unattributed render the
+	// path of least resistance.
+	PhotoURL       string `json:"photo_url,omitempty"`
+	PhotoLicence   string `json:"photo_licence,omitempty"`
+	PhotoAuthor    string `json:"photo_author,omitempty"`
+	PhotoSourceURL string `json:"photo_source_url,omitempty"`
 }
 
 // maxIndexedFacetValues caps the per-record arrays. Algolia's record ceiling is
@@ -137,7 +146,9 @@ func loadPoliticianRecords(ctx context.Context, pool *pgxpool.Pool) ([]politicia
 		       COALESCE(array_agg(DISTINCT h.stock_code)   FILTER (WHERE h.stock_code IS NOT NULL), '{}'),
 		       COALESCE(array_agg(DISTINCT h.company_name) FILTER (WHERE h.company_name IS NOT NULL AND btrim(h.company_name) <> ''), '{}'),
 		       COALESCE(array_agg(DISTINCT h.industry)     FILTER (WHERE h.industry IS NOT NULL AND btrim(h.industry) <> ''), '{}'),
-		       COALESCE(array_agg(DISTINCT h.sal_name)     FILTER (WHERE h.sal_name IS NOT NULL AND btrim(h.sal_name) <> ''), '{}')
+		       COALESCE(array_agg(DISTINCT h.sal_name)     FILTER (WHERE h.sal_name IS NOT NULL AND btrim(h.sal_name) <> ''), '{}'),
+		       COALESCE(p.photo_url, ''), COALESCE(p.photo_licence, ''),
+		       COALESCE(p.photo_author, ''), COALESCE(p.photo_source_url, '')
 		FROM politicians p
 		LEFT JOIN mv_register_public_holdings h ON h.politician_id = p.id
 		WHERE p.merged_into_id IS NULL
@@ -155,8 +166,14 @@ func loadPoliticianRecords(ctx context.Context, pool *pgxpool.Pool) ([]politicia
 			&r.StateCode, &r.Party, &r.PartyAb, &r.FirstParliament, &r.LastParliament,
 			&r.DeclaredListedCount, &r.DeclaredPropertyCount,
 			&r.StockCodes, &r.CompanyNames, &r.Industries, &r.Suburbs,
+			&r.PhotoURL, &r.PhotoLicence, &r.PhotoAuthor, &r.PhotoSourceURL,
 		); err != nil {
 			return nil, fmt.Errorf("scan politician record: %w", err)
+		}
+		// No licence, no image in the index. Same rule as the read path: we do
+		// not have permission to publish the photo without its terms.
+		if r.PhotoLicence == "" || r.PhotoSourceURL == "" {
+			r.PhotoURL = ""
 		}
 
 		// objectID is the slug: slugs are minted once and never reassigned

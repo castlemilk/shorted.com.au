@@ -2167,6 +2167,67 @@ LNP 16, `state_code` NSW 96 / VIC 77, `has_interests` 165 true / 159 false), and
 a search for "Woodside" returned the 7 members who declare it, ordered by the
 custom ranking.
 
+### 8.23 Portraits — and why they do not come from aph.gov.au
+
+Every sitting member has a portrait on aph.gov.au. We do not use it, and the
+reason is §3.1's own posture: extracted **facts** are publishable with
+attribution, the source's artefacts must not be mirrored, and the GCS bucket is
+kept private precisely so "we do not maintain a mirror" is true in fact. A
+portrait is an artefact, not an extracted fact — and photographs are the likeliest
+part of that corpus to carry a photographer/AUSPIC copyright on top of the
+Commonwealth's. Serving one from our infrastructure is the exact thing that
+posture exists to prevent.
+
+(It was not even available: **`aph_mpid` is 0 of 324 populated**, despite §2.2
+calling it a stable person id. The load never writes it, so the natural key to
+those images does not exist in our data.)
+
+**Source: Wikidata P18 → Wikimedia Commons.** Commons requires a free licence by
+policy — it does not host fair-use files — which is why P18 is materially safer
+than an English Wikipedia page image, where a local fair-use upload is possible.
+Measured: a 20-person sample of enwiki page images returned an *unknown* licence
+for 3 of them; every P18 target resolves to Commons.
+
+**The match is a composite key, never a text search.** A name search over
+Wikipedia matched "Anthony Smith" to **Dean Smith** — a different sitting member.
+Publishing someone else's face beside a named person's declared interests is the
+worst version of the wrong-fact class this subsystem keeps paying for. So the key
+is **surname + electoral division**, and any ambiguity WITHHOLDS.
+
+Measured on this corpus: **241 of 324 (74%)** resolved, **1 withheld** as
+ambiguous, 13 distinct licences (CC BY 4.0 ×69, CC BY-SA 4.0 ×45, CC BY 2.0 ×30,
+CC BY 3.0 ×19, public domain ×18, CC0 ×12, …).
+
+**Attribution is enforced in four places, because it is a licence obligation
+rather than a caption.** CC BY and CC BY-SA permit publication only WITH the
+credit and a link to the terms, so an unattributed portrait is a breach:
+
+1. `politicians_photo_needs_attribution` CHECK — the database cannot hold a photo
+   without a licence and a source URL
+2. `scanPolitician` blanks the URL if either is missing, so a future partial
+   SELECT cannot recreate the state
+3. the proto carries the four fields together, and the Algolia record does too
+4. `PoliticianAvatar` refuses to render an image it cannot attribute, and
+   `PortraitCredit` renders the credit beside the face
+
+The credit also states **"Not a Parliament of Australia image"** — on a
+register-of-interests page a reader would otherwise assume an official portrait.
+
+**The fallback is a designed state, not a broken one.** ~26% have no freely
+licensed portrait, so they get a party-tinted **monogram** carrying their
+initials — never a generic silhouette (which reads as "person unknown" about
+someone we have named) and never another person's photograph.
+
+**No `next/image`.** Its `remotePatterns` allowlist crashes the whole route for
+an unlisted host, and these URLs come from a third party whose shards we do not
+control. A plain `<img>` with explicit dimensions cannot take a page down, and
+Commons already thumbnails to 400px.
+
+**Ops:** `make register-photos` (or `register-photos-dry`). No credentials —
+Wikidata and Commons are open; the collector sends the contactable User-Agent
+they ask for. Independent of the register pipeline and safe to run any time: it
+writes only the `photo_*` columns and never touches a declaration.
+
 ---
 
 ## 9. Next steps, in priority order

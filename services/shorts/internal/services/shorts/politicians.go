@@ -122,6 +122,12 @@ func politicianProto(r *shortsstore.PoliticianRow) *shortsv1alpha1.Politician {
 		AphMpid:               r.APHMPID,
 		DeclaredListedCount:   r.DeclaredListedCount,
 		DeclaredPropertyCount: r.DeclaredPropertyCount,
+		// Never the URL on its own: CC BY / CC BY-SA permit publication only
+		// with the credit and a link to the terms.
+		PhotoUrl:       r.PhotoURL,
+		PhotoLicence:   r.PhotoLicence,
+		PhotoAuthor:    r.PhotoAuthor,
+		PhotoSourceUrl: r.PhotoSourceURL,
 	}
 }
 

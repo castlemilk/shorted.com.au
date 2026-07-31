@@ -39,6 +39,10 @@ private static final long serialVersionUID = 0L;
     party_ = "";
     partyAb_ = "";
     aphMpid_ = "";
+    photoUrl_ = "";
+    photoLicence_ = "";
+    photoAuthor_ = "";
+    photoSourceUrl_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -576,6 +580,220 @@ private static final long serialVersionUID = 0L;
     return declaredPropertyCount_;
   }
 
+  public static final int PHOTO_URL_FIELD_NUMBER = 16;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object photoUrl_ = "";
+  /**
+   * <pre>
+   * Portrait photograph, from Wikimedia Commons via Wikidata — NEVER from
+   * aph.gov.au, whose images are Commonwealth artefacts that §3.1's posture
+   * forbids mirroring and which may carry a separate photographer copyright.
+   *
+   * THE ATTRIBUTION FIELDS TRAVEL WITH THE URL AND ARE NOT OPTIONAL. CC BY and
+   * CC BY-SA permit publication only WITH the credit and a link to the terms, so
+   * a consumer that renders photo_url while dropping photo_licence /
+   * photo_source_url is breaching the licence, not just being untidy. A database
+   * CHECK makes the unattributed state unstorable; carrying the fields together
+   * here makes it unrenderable by accident too.
+   *
+   * Empty for ~26% of members: no Wikidata portrait, or the surname+division
+   * match was ambiguous and was withheld rather than guessed. Consumers render a
+   * monogram, never a placeholder face and never another person's photograph.
+   * </pre>
+   *
+   * <code>string photo_url = 16 [json_name = "photoUrl"];</code>
+   * @return The photoUrl.
+   */
+  @java.lang.Override
+  public java.lang.String getPhotoUrl() {
+    java.lang.Object ref = photoUrl_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      photoUrl_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Portrait photograph, from Wikimedia Commons via Wikidata — NEVER from
+   * aph.gov.au, whose images are Commonwealth artefacts that §3.1's posture
+   * forbids mirroring and which may carry a separate photographer copyright.
+   *
+   * THE ATTRIBUTION FIELDS TRAVEL WITH THE URL AND ARE NOT OPTIONAL. CC BY and
+   * CC BY-SA permit publication only WITH the credit and a link to the terms, so
+   * a consumer that renders photo_url while dropping photo_licence /
+   * photo_source_url is breaching the licence, not just being untidy. A database
+   * CHECK makes the unattributed state unstorable; carrying the fields together
+   * here makes it unrenderable by accident too.
+   *
+   * Empty for ~26% of members: no Wikidata portrait, or the surname+division
+   * match was ambiguous and was withheld rather than guessed. Consumers render a
+   * monogram, never a placeholder face and never another person's photograph.
+   * </pre>
+   *
+   * <code>string photo_url = 16 [json_name = "photoUrl"];</code>
+   * @return The bytes for photoUrl.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getPhotoUrlBytes() {
+    java.lang.Object ref = photoUrl_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      photoUrl_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int PHOTO_LICENCE_FIELD_NUMBER = 17;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object photoLicence_ = "";
+  /**
+   * <pre>
+   * as Commons states it: "CC BY-SA 4.0", "Public domain"
+   * </pre>
+   *
+   * <code>string photo_licence = 17 [json_name = "photoLicence"];</code>
+   * @return The photoLicence.
+   */
+  @java.lang.Override
+  public java.lang.String getPhotoLicence() {
+    java.lang.Object ref = photoLicence_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      photoLicence_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * as Commons states it: "CC BY-SA 4.0", "Public domain"
+   * </pre>
+   *
+   * <code>string photo_licence = 17 [json_name = "photoLicence"];</code>
+   * @return The bytes for photoLicence.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getPhotoLicenceBytes() {
+    java.lang.Object ref = photoLicence_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      photoLicence_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int PHOTO_AUTHOR_FIELD_NUMBER = 18;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object photoAuthor_ = "";
+  /**
+   * <pre>
+   * the credit line the licence requires
+   * </pre>
+   *
+   * <code>string photo_author = 18 [json_name = "photoAuthor"];</code>
+   * @return The photoAuthor.
+   */
+  @java.lang.Override
+  public java.lang.String getPhotoAuthor() {
+    java.lang.Object ref = photoAuthor_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      photoAuthor_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * the credit line the licence requires
+   * </pre>
+   *
+   * <code>string photo_author = 18 [json_name = "photoAuthor"];</code>
+   * @return The bytes for photoAuthor.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getPhotoAuthorBytes() {
+    java.lang.Object ref = photoAuthor_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      photoAuthor_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int PHOTO_SOURCE_URL_FIELD_NUMBER = 19;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object photoSourceUrl_ = "";
+  /**
+   * <pre>
+   * the Commons file page carrying the full terms
+   * </pre>
+   *
+   * <code>string photo_source_url = 19 [json_name = "photoSourceUrl"];</code>
+   * @return The photoSourceUrl.
+   */
+  @java.lang.Override
+  public java.lang.String getPhotoSourceUrl() {
+    java.lang.Object ref = photoSourceUrl_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      photoSourceUrl_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * the Commons file page carrying the full terms
+   * </pre>
+   *
+   * <code>string photo_source_url = 19 [json_name = "photoSourceUrl"];</code>
+   * @return The bytes for photoSourceUrl.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getPhotoSourceUrlBytes() {
+    java.lang.Object ref = photoSourceUrl_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      photoSourceUrl_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -635,6 +853,18 @@ private static final long serialVersionUID = 0L;
     if (declaredPropertyCount_ != 0) {
       output.writeInt32(15, declaredPropertyCount_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(photoUrl_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 16, photoUrl_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(photoLicence_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 17, photoLicence_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(photoAuthor_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 18, photoAuthor_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(photoSourceUrl_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 19, photoSourceUrl_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -687,6 +917,18 @@ private static final long serialVersionUID = 0L;
     if (declaredPropertyCount_ != 0) {
       size += com.google.protobuf.CodedOutputStream
         .computeInt32Size(15, declaredPropertyCount_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(photoUrl_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(16, photoUrl_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(photoLicence_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(17, photoLicence_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(photoAuthor_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(18, photoAuthor_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(photoSourceUrl_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(19, photoSourceUrl_);
     }
     return size;
   }
@@ -742,6 +984,14 @@ private static final long serialVersionUID = 0L;
         != other.getDeclaredListedCount()) return false;
     if (getDeclaredPropertyCount()
         != other.getDeclaredPropertyCount()) return false;
+    if (!getPhotoUrl()
+        .equals(other.getPhotoUrl())) return false;
+    if (!getPhotoLicence()
+        .equals(other.getPhotoLicence())) return false;
+    if (!getPhotoAuthor()
+        .equals(other.getPhotoAuthor())) return false;
+    if (!getPhotoSourceUrl()
+        .equals(other.getPhotoSourceUrl())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -783,6 +1033,14 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getDeclaredListedCount();
     hash = (37 * hash) + DECLARED_PROPERTY_COUNT_FIELD_NUMBER;
     hash = (53 * hash) + getDeclaredPropertyCount();
+    hash = (37 * hash) + PHOTO_URL_FIELD_NUMBER;
+    hash = (53 * hash) + getPhotoUrl().hashCode();
+    hash = (37 * hash) + PHOTO_LICENCE_FIELD_NUMBER;
+    hash = (53 * hash) + getPhotoLicence().hashCode();
+    hash = (37 * hash) + PHOTO_AUTHOR_FIELD_NUMBER;
+    hash = (53 * hash) + getPhotoAuthor().hashCode();
+    hash = (37 * hash) + PHOTO_SOURCE_URL_FIELD_NUMBER;
+    hash = (53 * hash) + getPhotoSourceUrl().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -929,6 +1187,10 @@ private static final long serialVersionUID = 0L;
       aphMpid_ = "";
       declaredListedCount_ = 0;
       declaredPropertyCount_ = 0;
+      photoUrl_ = "";
+      photoLicence_ = "";
+      photoAuthor_ = "";
+      photoSourceUrl_ = "";
       return this;
     }
 
@@ -1006,6 +1268,18 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00004000) != 0)) {
         result.declaredPropertyCount_ = declaredPropertyCount_;
+      }
+      if (((from_bitField0_ & 0x00008000) != 0)) {
+        result.photoUrl_ = photoUrl_;
+      }
+      if (((from_bitField0_ & 0x00010000) != 0)) {
+        result.photoLicence_ = photoLicence_;
+      }
+      if (((from_bitField0_ & 0x00020000) != 0)) {
+        result.photoAuthor_ = photoAuthor_;
+      }
+      if (((from_bitField0_ & 0x00040000) != 0)) {
+        result.photoSourceUrl_ = photoSourceUrl_;
       }
     }
 
@@ -1087,6 +1361,26 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getDeclaredPropertyCount() != 0) {
         setDeclaredPropertyCount(other.getDeclaredPropertyCount());
+      }
+      if (!other.getPhotoUrl().isEmpty()) {
+        photoUrl_ = other.photoUrl_;
+        bitField0_ |= 0x00008000;
+        onChanged();
+      }
+      if (!other.getPhotoLicence().isEmpty()) {
+        photoLicence_ = other.photoLicence_;
+        bitField0_ |= 0x00010000;
+        onChanged();
+      }
+      if (!other.getPhotoAuthor().isEmpty()) {
+        photoAuthor_ = other.photoAuthor_;
+        bitField0_ |= 0x00020000;
+        onChanged();
+      }
+      if (!other.getPhotoSourceUrl().isEmpty()) {
+        photoSourceUrl_ = other.photoSourceUrl_;
+        bitField0_ |= 0x00040000;
+        onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1189,6 +1483,26 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00004000;
               break;
             } // case 120
+            case 130: {
+              photoUrl_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00008000;
+              break;
+            } // case 130
+            case 138: {
+              photoLicence_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00010000;
+              break;
+            } // case 138
+            case 146: {
+              photoAuthor_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00020000;
+              break;
+            } // case 146
+            case 154: {
+              photoSourceUrl_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00040000;
+              break;
+            } // case 154
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2234,6 +2548,439 @@ private static final long serialVersionUID = 0L;
     public Builder clearDeclaredPropertyCount() {
       bitField0_ = (bitField0_ & ~0x00004000);
       declaredPropertyCount_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object photoUrl_ = "";
+    /**
+     * <pre>
+     * Portrait photograph, from Wikimedia Commons via Wikidata — NEVER from
+     * aph.gov.au, whose images are Commonwealth artefacts that §3.1's posture
+     * forbids mirroring and which may carry a separate photographer copyright.
+     *
+     * THE ATTRIBUTION FIELDS TRAVEL WITH THE URL AND ARE NOT OPTIONAL. CC BY and
+     * CC BY-SA permit publication only WITH the credit and a link to the terms, so
+     * a consumer that renders photo_url while dropping photo_licence /
+     * photo_source_url is breaching the licence, not just being untidy. A database
+     * CHECK makes the unattributed state unstorable; carrying the fields together
+     * here makes it unrenderable by accident too.
+     *
+     * Empty for ~26% of members: no Wikidata portrait, or the surname+division
+     * match was ambiguous and was withheld rather than guessed. Consumers render a
+     * monogram, never a placeholder face and never another person's photograph.
+     * </pre>
+     *
+     * <code>string photo_url = 16 [json_name = "photoUrl"];</code>
+     * @return The photoUrl.
+     */
+    public java.lang.String getPhotoUrl() {
+      java.lang.Object ref = photoUrl_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        photoUrl_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Portrait photograph, from Wikimedia Commons via Wikidata — NEVER from
+     * aph.gov.au, whose images are Commonwealth artefacts that §3.1's posture
+     * forbids mirroring and which may carry a separate photographer copyright.
+     *
+     * THE ATTRIBUTION FIELDS TRAVEL WITH THE URL AND ARE NOT OPTIONAL. CC BY and
+     * CC BY-SA permit publication only WITH the credit and a link to the terms, so
+     * a consumer that renders photo_url while dropping photo_licence /
+     * photo_source_url is breaching the licence, not just being untidy. A database
+     * CHECK makes the unattributed state unstorable; carrying the fields together
+     * here makes it unrenderable by accident too.
+     *
+     * Empty for ~26% of members: no Wikidata portrait, or the surname+division
+     * match was ambiguous and was withheld rather than guessed. Consumers render a
+     * monogram, never a placeholder face and never another person's photograph.
+     * </pre>
+     *
+     * <code>string photo_url = 16 [json_name = "photoUrl"];</code>
+     * @return The bytes for photoUrl.
+     */
+    public com.google.protobuf.ByteString
+        getPhotoUrlBytes() {
+      java.lang.Object ref = photoUrl_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        photoUrl_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Portrait photograph, from Wikimedia Commons via Wikidata — NEVER from
+     * aph.gov.au, whose images are Commonwealth artefacts that §3.1's posture
+     * forbids mirroring and which may carry a separate photographer copyright.
+     *
+     * THE ATTRIBUTION FIELDS TRAVEL WITH THE URL AND ARE NOT OPTIONAL. CC BY and
+     * CC BY-SA permit publication only WITH the credit and a link to the terms, so
+     * a consumer that renders photo_url while dropping photo_licence /
+     * photo_source_url is breaching the licence, not just being untidy. A database
+     * CHECK makes the unattributed state unstorable; carrying the fields together
+     * here makes it unrenderable by accident too.
+     *
+     * Empty for ~26% of members: no Wikidata portrait, or the surname+division
+     * match was ambiguous and was withheld rather than guessed. Consumers render a
+     * monogram, never a placeholder face and never another person's photograph.
+     * </pre>
+     *
+     * <code>string photo_url = 16 [json_name = "photoUrl"];</code>
+     * @param value The photoUrl to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPhotoUrl(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      photoUrl_ = value;
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Portrait photograph, from Wikimedia Commons via Wikidata — NEVER from
+     * aph.gov.au, whose images are Commonwealth artefacts that §3.1's posture
+     * forbids mirroring and which may carry a separate photographer copyright.
+     *
+     * THE ATTRIBUTION FIELDS TRAVEL WITH THE URL AND ARE NOT OPTIONAL. CC BY and
+     * CC BY-SA permit publication only WITH the credit and a link to the terms, so
+     * a consumer that renders photo_url while dropping photo_licence /
+     * photo_source_url is breaching the licence, not just being untidy. A database
+     * CHECK makes the unattributed state unstorable; carrying the fields together
+     * here makes it unrenderable by accident too.
+     *
+     * Empty for ~26% of members: no Wikidata portrait, or the surname+division
+     * match was ambiguous and was withheld rather than guessed. Consumers render a
+     * monogram, never a placeholder face and never another person's photograph.
+     * </pre>
+     *
+     * <code>string photo_url = 16 [json_name = "photoUrl"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPhotoUrl() {
+      photoUrl_ = getDefaultInstance().getPhotoUrl();
+      bitField0_ = (bitField0_ & ~0x00008000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Portrait photograph, from Wikimedia Commons via Wikidata — NEVER from
+     * aph.gov.au, whose images are Commonwealth artefacts that §3.1's posture
+     * forbids mirroring and which may carry a separate photographer copyright.
+     *
+     * THE ATTRIBUTION FIELDS TRAVEL WITH THE URL AND ARE NOT OPTIONAL. CC BY and
+     * CC BY-SA permit publication only WITH the credit and a link to the terms, so
+     * a consumer that renders photo_url while dropping photo_licence /
+     * photo_source_url is breaching the licence, not just being untidy. A database
+     * CHECK makes the unattributed state unstorable; carrying the fields together
+     * here makes it unrenderable by accident too.
+     *
+     * Empty for ~26% of members: no Wikidata portrait, or the surname+division
+     * match was ambiguous and was withheld rather than guessed. Consumers render a
+     * monogram, never a placeholder face and never another person's photograph.
+     * </pre>
+     *
+     * <code>string photo_url = 16 [json_name = "photoUrl"];</code>
+     * @param value The bytes for photoUrl to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPhotoUrlBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      photoUrl_ = value;
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object photoLicence_ = "";
+    /**
+     * <pre>
+     * as Commons states it: "CC BY-SA 4.0", "Public domain"
+     * </pre>
+     *
+     * <code>string photo_licence = 17 [json_name = "photoLicence"];</code>
+     * @return The photoLicence.
+     */
+    public java.lang.String getPhotoLicence() {
+      java.lang.Object ref = photoLicence_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        photoLicence_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * as Commons states it: "CC BY-SA 4.0", "Public domain"
+     * </pre>
+     *
+     * <code>string photo_licence = 17 [json_name = "photoLicence"];</code>
+     * @return The bytes for photoLicence.
+     */
+    public com.google.protobuf.ByteString
+        getPhotoLicenceBytes() {
+      java.lang.Object ref = photoLicence_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        photoLicence_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * as Commons states it: "CC BY-SA 4.0", "Public domain"
+     * </pre>
+     *
+     * <code>string photo_licence = 17 [json_name = "photoLicence"];</code>
+     * @param value The photoLicence to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPhotoLicence(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      photoLicence_ = value;
+      bitField0_ |= 0x00010000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * as Commons states it: "CC BY-SA 4.0", "Public domain"
+     * </pre>
+     *
+     * <code>string photo_licence = 17 [json_name = "photoLicence"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPhotoLicence() {
+      photoLicence_ = getDefaultInstance().getPhotoLicence();
+      bitField0_ = (bitField0_ & ~0x00010000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * as Commons states it: "CC BY-SA 4.0", "Public domain"
+     * </pre>
+     *
+     * <code>string photo_licence = 17 [json_name = "photoLicence"];</code>
+     * @param value The bytes for photoLicence to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPhotoLicenceBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      photoLicence_ = value;
+      bitField0_ |= 0x00010000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object photoAuthor_ = "";
+    /**
+     * <pre>
+     * the credit line the licence requires
+     * </pre>
+     *
+     * <code>string photo_author = 18 [json_name = "photoAuthor"];</code>
+     * @return The photoAuthor.
+     */
+    public java.lang.String getPhotoAuthor() {
+      java.lang.Object ref = photoAuthor_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        photoAuthor_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * the credit line the licence requires
+     * </pre>
+     *
+     * <code>string photo_author = 18 [json_name = "photoAuthor"];</code>
+     * @return The bytes for photoAuthor.
+     */
+    public com.google.protobuf.ByteString
+        getPhotoAuthorBytes() {
+      java.lang.Object ref = photoAuthor_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        photoAuthor_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * the credit line the licence requires
+     * </pre>
+     *
+     * <code>string photo_author = 18 [json_name = "photoAuthor"];</code>
+     * @param value The photoAuthor to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPhotoAuthor(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      photoAuthor_ = value;
+      bitField0_ |= 0x00020000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * the credit line the licence requires
+     * </pre>
+     *
+     * <code>string photo_author = 18 [json_name = "photoAuthor"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPhotoAuthor() {
+      photoAuthor_ = getDefaultInstance().getPhotoAuthor();
+      bitField0_ = (bitField0_ & ~0x00020000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * the credit line the licence requires
+     * </pre>
+     *
+     * <code>string photo_author = 18 [json_name = "photoAuthor"];</code>
+     * @param value The bytes for photoAuthor to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPhotoAuthorBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      photoAuthor_ = value;
+      bitField0_ |= 0x00020000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object photoSourceUrl_ = "";
+    /**
+     * <pre>
+     * the Commons file page carrying the full terms
+     * </pre>
+     *
+     * <code>string photo_source_url = 19 [json_name = "photoSourceUrl"];</code>
+     * @return The photoSourceUrl.
+     */
+    public java.lang.String getPhotoSourceUrl() {
+      java.lang.Object ref = photoSourceUrl_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        photoSourceUrl_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * the Commons file page carrying the full terms
+     * </pre>
+     *
+     * <code>string photo_source_url = 19 [json_name = "photoSourceUrl"];</code>
+     * @return The bytes for photoSourceUrl.
+     */
+    public com.google.protobuf.ByteString
+        getPhotoSourceUrlBytes() {
+      java.lang.Object ref = photoSourceUrl_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        photoSourceUrl_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * the Commons file page carrying the full terms
+     * </pre>
+     *
+     * <code>string photo_source_url = 19 [json_name = "photoSourceUrl"];</code>
+     * @param value The photoSourceUrl to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPhotoSourceUrl(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      photoSourceUrl_ = value;
+      bitField0_ |= 0x00040000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * the Commons file page carrying the full terms
+     * </pre>
+     *
+     * <code>string photo_source_url = 19 [json_name = "photoSourceUrl"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPhotoSourceUrl() {
+      photoSourceUrl_ = getDefaultInstance().getPhotoSourceUrl();
+      bitField0_ = (bitField0_ & ~0x00040000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * the Commons file page carrying the full terms
+     * </pre>
+     *
+     * <code>string photo_source_url = 19 [json_name = "photoSourceUrl"];</code>
+     * @param value The bytes for photoSourceUrl to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPhotoSourceUrlBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      photoSourceUrl_ = value;
+      bitField0_ |= 0x00040000;
       onChanged();
       return this;
     }

@@ -172,6 +172,25 @@ message Politician {
   // Counts only. Never a value.
   int32 declared_listed_count = 14;
   int32 declared_property_count = 15;
+
+  // Portrait photograph, from Wikimedia Commons via Wikidata — NEVER from
+  // aph.gov.au, whose images are Commonwealth artefacts that §3.1's posture
+  // forbids mirroring and which may carry a separate photographer copyright.
+  //
+  // THE ATTRIBUTION FIELDS TRAVEL WITH THE URL AND ARE NOT OPTIONAL. CC BY and
+  // CC BY-SA permit publication only WITH the credit and a link to the terms, so
+  // a consumer that renders photo_url while dropping photo_licence /
+  // photo_source_url is breaching the licence, not just being untidy. A database
+  // CHECK makes the unattributed state unstorable; carrying the fields together
+  // here makes it unrenderable by accident too.
+  //
+  // Empty for ~26% of members: no Wikidata portrait, or the surname+division
+  // match was ambiguous and was withheld rather than guessed. Consumers render a
+  // monogram, never a placeholder face and never another person's photograph.
+  string photo_url = 16;
+  string photo_licence = 17;     // as Commons states it: "CC BY-SA 4.0", "Public domain"
+  string photo_author = 18;      // the credit line the licence requires
+  string photo_source_url = 19;  // the Commons file page carrying the full terms
 }
 
 // DeclaredInterest is one holding over one continuous period.

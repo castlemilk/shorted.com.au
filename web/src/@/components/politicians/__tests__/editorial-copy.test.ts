@@ -95,6 +95,18 @@ function proseOnly(source: string): string {
  */
 const HUB_SECTIONS = ["politician-explorer.tsx", "register-heatmap.tsx"];
 
+/**
+ * Presentational primitives — the kit, not a surface. Same class as
+ * compliance.tsx, which is excluded for the same reason.
+ *
+ * politician-avatar.tsx renders a face and a monogram. It carries the ONLY
+ * attribution that actually applies to it — `PortraitCredit`, the CC BY / CC
+ * BY-SA credit line — and the assertion below checks it still does. A
+ * `SourceLine` inside an avatar would cite the register on a component that
+ * renders no register data.
+ */
+const KIT_PRIMITIVES = ["politician-avatar.tsx"];
+
 const RENDERING_SURFACES = FILES.filter(
   (f) =>
     !f.endsWith("compliance.tsx") &&
@@ -102,6 +114,7 @@ const RENDERING_SURFACES = FILES.filter(
     !f.endsWith("opengraph-image.tsx") &&
     !f.includes("__tests__") &&
     !HUB_SECTIONS.some((s) => f.endsWith(s)) &&
+    !KIT_PRIMITIVES.some((s) => f.endsWith(s)) &&
     // The operator console: rule 1 (cite the source) and rule 8 (offer a dispute
     // path) are promises to a READER. The reviewer here IS the dispute path, and
     // every candidate card already links the APH PDF per declaration — which is
@@ -124,9 +137,25 @@ describe("politician surface copy", () => {
   // docs/politician-register-architecture.md.
   it("covers exactly the surfaces it claims to", () => {
     // 10 (incl. politicians/opengraph-image.tsx, the share card) + 2 operator
-    // console files + the explorer and the heatmap.
-    expect(FILES.length).toBe(14);
+    // console files + the explorer, the heatmap and the avatar kit.
+    expect(FILES.length).toBe(15);
     expect(RENDERING_SURFACES.length).toBe(7);
+  });
+
+  // The avatar's exclusion above is conditional on it carrying the credit that
+  // its own licences require. CC BY and CC BY-SA permit publication only WITH
+  // attribution, so if PortraitCredit ever leaves this file, every portrait on
+  // the site becomes an unattributed use.
+  it("the avatar kit still carries the portrait attribution it is excused for", () => {
+    const avatar = readFileSync(
+      join(ROOT, "@", "components", "politicians", "politician-avatar.tsx"),
+      "utf8",
+    );
+    expect(avatar).toMatch(/export function PortraitCredit/);
+    expect(avatar).toMatch(/photoSourceUrl/);
+    expect(avatar).toMatch(/Wikimedia Commons/);
+    // And it must refuse to render an image it cannot attribute.
+    expect(avatar).toMatch(/photoLicence && !!photo\.photoSourceUrl/);
   });
 
   // The exclusion above is conditional on this. If the hub page ever loses its

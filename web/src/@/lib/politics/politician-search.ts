@@ -42,6 +42,12 @@ export interface PoliticianHit {
   industries?: string[];
   suburbs?: string[];
   has_interests?: boolean;
+  // Portrait + the attribution its licence requires. Indexed together; a hit
+  // carrying the URL without the terms is not renderable.
+  photo_url?: string;
+  photo_licence?: string;
+  photo_author?: string;
+  photo_source_url?: string;
   _highlightResult?: Record<
     string,
     { value: string; matchLevel: string } | { value: string; matchLevel: string }[]

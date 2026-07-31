@@ -632,6 +632,31 @@ register-index: ## Build and push the politicians Algolia index (needs ALGOLIA_W
 	@echo "🔎 Building the politicians search index..."
 	$(call register_index_run,false)
 
+# Portraits need NO credentials — Wikidata and Wikimedia Commons are open APIs.
+# The only requirement is a polite User-Agent, which the collector sets. The
+# DATABASE_URL override applies for the same reason as above: services/.env
+# points at prod.
+.PHONY: register-photos register-photos-dry
+
+define register_photos_run
+	@bash -c ' \
+		if [ -f .env ]; then set -a; source .env; set +a; fi; \
+		export DATABASE_URL="$(DATABASE_URL)"; \
+		export REGISTER_DRY_RUN=$(1); \
+		echo "   database: $$(echo "$$DATABASE_URL" | sed -E "s#//[^@]*@#//***@#")"; \
+		echo "   dry run:  $$REGISTER_DRY_RUN"; \
+		cd jobs && go run ./cmd/shorted influence -mode register-photos \
+	'
+endef
+
+register-photos-dry: ## Preview politician portraits from Wikidata/Commons (writes NOTHING)
+	@echo "🖼️  Previewing politician portraits (no writes)..."
+	$(call register_photos_run,true)
+
+register-photos: ## Resolve politician portraits from Wikidata/Commons into the DB
+	@echo "🖼️  Resolving politician portraits (Wikimedia Commons, freely licensed)..."
+	$(call register_photos_run,false)
+
 register-index-env: ## Show which Algolia credentials the index build can see (values masked)
 	@bash -c ' \
 		if [ -f .env ]; then set -a; source .env; set +a; fi; \
