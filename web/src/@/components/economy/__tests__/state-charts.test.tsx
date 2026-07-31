@@ -1,4 +1,6 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
+import type { ReactElement } from "react";
 
 import { STATE_SLUGS, type StateSlug } from "@/lib/economy/map-metrics";
 import { StateCharts } from "../state-charts";
@@ -71,12 +73,29 @@ jest.mock("../state-crime-card", () => ({
   StateCrimeCard: () => <div>Crime card</div>,
 }));
 
+/**
+ * StateCharts renders StatePoliticianHoldings, which calls `useQuery`, so the
+ * tree needs a QueryClient. The app supplies one from the root layout; this
+ * mirrors the wrapper the sibling economy tests already use.
+ *
+ * `retry: false` so a failing query surfaces immediately instead of stalling
+ * the test behind react-query's backoff.
+ */
+function renderWithClient(ui: ReactElement) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
+  );
+}
+
 const seriesKeyFor = (label: string) =>
   screen.getByRole("img", { name: label }).getAttribute("data-series-key");
 
 describe("StateCharts", () => {
   it("surfaces retail, dwelling approvals, population level, and the finance breakdown", () => {
-    render(<StateCharts state="nsw" />);
+    renderWithClient(<StateCharts state="nsw" />);
 
     expect(seriesKeyFor("New South Wales retail turnover")).toBe(
       "retail.turnover.total.nsw.seasadj",
@@ -102,7 +121,7 @@ describe("StateCharts", () => {
   });
 
   it("registers household spending, two-series lending, and construction work done", () => {
-    render(<StateCharts state="nsw" />);
+    renderWithClient(<StateCharts state="nsw" />);
 
     expect(seriesKeyFor("New South Wales household spending")).toBe(
       "spending.household.total.nsw.seasadj",
@@ -127,7 +146,7 @@ describe("StateCharts", () => {
   });
 
   it("viewport-gates the crime card using its loading height", () => {
-    render(<StateCharts state="nsw" />);
+    renderWithClient(<StateCharts state="nsw" />);
 
     const gate = screen.getByTestId("when-visible");
     expect(gate).toHaveAttribute("data-min-height", "h-[340px]");
@@ -147,7 +166,7 @@ describe("StateCharts", () => {
     };
 
     for (const state of STATE_SLUGS) {
-      const { unmount } = render(<StateCharts state={state} />);
+      const { unmount } = renderWithClient(<StateCharts state={state} />);
       const section = screen.getByRole("heading", {
         name: "Sources & further reading",
       }).parentElement!;
