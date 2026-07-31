@@ -31,14 +31,8 @@ export const metadata: Metadata = {
     siteName: siteConfig.name,
     type: "article",
     locale: "en_AU",
-    images: [
-      {
-        url: siteConfig.ogImage,
-        width: 1200,
-        height: 630,
-        alt: "Shorted methodology — ASIC short position data processing",
-      },
-    ],
+    // No `images` key: this route ships its own opengraph-image.tsx and an
+    // explicit `images` here would SHADOW the file convention.
   },
   twitter: {
     card: "summary_large_image",
@@ -46,7 +40,6 @@ export const metadata: Metadata = {
       "Methodology — How Shorted Processes ASIC Short Position Data",
     description:
       "Data sources, T+4 delay, calculation methods, and limitations.",
-    images: [siteConfig.ogImage],
   },
   alternates: {
     canonical: `${siteConfig.url}/methodology`,

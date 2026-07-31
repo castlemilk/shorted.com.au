@@ -51,21 +51,14 @@ export const metadata: Metadata = {
     siteName: siteConfig.name,
     type: "website",
     locale: "en_AU",
-    images: [
-      {
-        url: siteConfig.ogImage,
-        width: 1200,
-        height: 630,
-        alt: "Top 100 Most Shorted ASX Stocks - Official ASIC Data",
-      },
-    ],
+    // No `images` key: this route ships its own data-driven
+    // opengraph-image.tsx; an explicit `images` would shadow it.
   },
   twitter: {
     card: "summary_large_image",
     title: "Most Shorted ASX Stocks — Top 100 Short Positions",
     description:
       "Live rankings of the most shorted ASX stocks. Official ASIC data updated daily.",
-    images: [siteConfig.ogImage],
   },
   alternates: {
     canonical: `${siteConfig.url}/top`,

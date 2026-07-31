@@ -98,9 +98,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       siteName: siteConfig.name,
       type: "article",
       locale: "en_AU",
+      // NO `images` key on purpose: this route ships its own
+      // opengraph-image.tsx rendering the month's real data, and an explicit
+      // `images` here SHADOWS the file convention. It used to point at the
+      // generic /reports card, so the bespoke generator was dead code.
       images: [
         {
-          url: `${siteConfig.url}/reports/opengraph-image`,
+          url: `${siteConfig.url}/reports/monthly/${slug}/opengraph-image`,
           width: 1200,
           height: 630,
           alt: `ASX Short Selling Monthly Report — ${monthTitle}`,
@@ -111,7 +115,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       card: "summary_large_image",
       title,
       description,
-      images: [`${siteConfig.url}/reports/opengraph-image`],
+      images: [`${siteConfig.url}/reports/monthly/${slug}/opengraph-image`],
     },
     alternates: {
       canonical: `${siteConfig.url}/reports/monthly/${slug}`,

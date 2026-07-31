@@ -81,7 +81,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       locale: "en_AU",
       images: [
         {
-          url: `${siteConfig.url}/reports/opengraph-image`,
+          url: `${siteConfig.url}/reports/yearly/${slug}/opengraph-image`,
           width: 1200,
           height: 630,
           alt: `ASX Short Selling Year in Review: ${slug}`,
@@ -92,7 +92,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       card: "summary_large_image",
       title,
       description,
-      images: [`${siteConfig.url}/reports/opengraph-image`],
+      images: [`${siteConfig.url}/reports/yearly/${slug}/opengraph-image`],
     },
     alternates: {
       canonical: `${siteConfig.url}/reports/yearly/${slug}`,
