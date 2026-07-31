@@ -49,10 +49,13 @@ describe("explorer editorial safeguards", () => {
     },
   );
 
+  // The singular used to read "1 entry … are not plotted", and this test locked
+  // the typo in. A copy lock is only worth having when the copy is right, so
+  // both the verb and the noun agree here.
   it("locks singular and plural undated footnote wording", () => {
     const { rerender } = render(<TrendArea points={[]} undatedCount={1} />);
     expect(
-      screen.getByText("1 entry without a stated date are not plotted."),
+      screen.getByText("1 entry without a stated date is not plotted."),
     ).toBeInTheDocument();
 
     rerender(<TrendArea points={[]} undatedCount={3} />);

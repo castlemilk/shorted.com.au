@@ -7,37 +7,80 @@ export interface SparkTrendPoint {
 
 export interface SparkTrendProps {
   points: SparkTrendPoint[];
+  /**
+   * The member has declarations, but none of them carry a date we can plot.
+   *
+   * Only meaningful with no points: it is what lets the caller say "no dated
+   * history" instead of the reader inferring "nothing declared" from an empty
+   * cell. Rule: withhold rather than guess — this marker withholds out loud.
+   */
+  undatedOnly?: boolean;
 }
+
+const PLOT_LEFT = 8;
+const PLOT_RIGHT = 152;
+const PLOT_TOP = 8;
+const PLOT_BOTTOM = 32;
+const MID_Y = (PLOT_TOP + PLOT_BOTTOM) / 2;
 
 function safeCount(count: number): number {
   return Number.isFinite(count) ? Math.max(0, Math.trunc(count)) : 0;
 }
 
-export function SparkTrend({ points }: SparkTrendProps) {
+export function SparkTrend({ points, undatedOnly = false }: SparkTrendProps) {
   const values = points.map((point) => ({
     ...point,
     count: safeCount(point.count),
   }));
   const counts = values.map((point) => point.count);
+  const first = counts[0];
   const isEmpty = values.length === 0;
-  const isFlat = !isEmpty && counts.every((count) => count === counts[0]);
+  const isFlat = !isEmpty && counts.every((count) => count === first);
+
+  /*
+   * A FLAT SERIES IS DATA. It used to render the same muted dash as an empty
+   * one — byte-for-byte identical markup — so a member steady at 12 a month and
+   * a member with no dated history were indistinguishable in the hub table. The
+   * dash now means one thing only: there is nothing to plot.
+   *
+   * A flat line sits at MID height rather than at its scaled level: with a
+   * zero baseline every flat series would otherwise pin to the top of the band
+   * and read as "at maximum", which is a claim about a level the row's own
+   * scale cannot support. Mid reads as "steady", and the number itself is in
+   * the aria-label, the table, and the count column beside it.
+   */
   const max = Math.max(...counts, 0);
   const min = Math.min(...counts, 0);
   const range = max - min || 1;
-  const polyline = values
-    .map((point, index) => {
-      const x =
-        values.length <= 1 ? 80 : 8 + (index / (values.length - 1)) * 144;
-      const y = 32 - ((point.count - min) / range) * 24;
-      return `${x.toFixed(2)},${y.toFixed(2)}`;
-    })
-    .join(" ");
-  const dataState = isEmpty ? "empty" : isFlat ? "flat" : "trend";
+  const polyline = isFlat
+    ? `${PLOT_LEFT},${MID_Y} ${PLOT_RIGHT},${MID_Y}`
+    : values
+        .map((point, index) => {
+          const x =
+            PLOT_LEFT +
+            (index / Math.max(values.length - 1, 1)) * (PLOT_RIGHT - PLOT_LEFT);
+          const y =
+            PLOT_BOTTOM - ((point.count - min) / range) * (PLOT_BOTTOM - PLOT_TOP);
+          return `${x.toFixed(2)},${y.toFixed(2)}`;
+        })
+        .join(" ");
+
+  const dataState = isEmpty
+    ? undatedOnly
+      ? "undated"
+      : "empty"
+    : isFlat
+      ? "flat"
+      : "trend";
   const ariaLabel = isEmpty
-    ? "Monthly count trend: no dated counts."
-    : `Monthly count trend: ${values
-        .map((point) => `${point.month} ${point.count}`)
-        .join(", ")}.`;
+    ? undatedOnly
+      ? "Monthly count trend: no dated history is available for these entries."
+      : "Monthly count trend: no dated counts."
+    : isFlat && values.length > 1
+      ? `Monthly count trend: steady at ${first ?? 0} across ${values.length} months.`
+      : `Monthly count trend: ${values
+          .map((point) => `${point.month} ${point.count}`)
+          .join(", ")}.`;
 
   return (
     <figure>
@@ -48,12 +91,12 @@ export function SparkTrend({ points }: SparkTrendProps) {
         data-state={dataState}
         className="h-10 w-full max-w-52 text-muted-foreground"
       >
-        {isEmpty || isFlat ? (
+        {isEmpty ? (
           <line
-            x1="8"
-            y1="20"
-            x2="152"
-            y2="20"
+            x1={PLOT_LEFT}
+            y1={MID_Y}
+            x2={PLOT_RIGHT}
+            y2={MID_Y}
             stroke="hsl(var(--muted-foreground))"
             strokeWidth="1.5"
             strokeDasharray="3 3"
@@ -87,7 +130,9 @@ export function SparkTrend({ points }: SparkTrendProps) {
             ))
           ) : (
             <tr>
-              <th scope="row">No dated entries</th>
+              <th scope="row">
+                {undatedOnly ? "No dated history" : "No dated entries"}
+              </th>
               <td className="tabular-nums">0</td>
             </tr>
           )}

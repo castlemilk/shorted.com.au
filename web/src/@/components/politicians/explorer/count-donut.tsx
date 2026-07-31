@@ -12,6 +12,23 @@ export interface CountDonutProps {
   title: string;
 }
 
+const RADIUS = 32;
+const STROKE = 16;
+/**
+ * The usable width inside the hole, in viewBox units, less a hair of padding.
+ * Everything in the centre is sized to fit THIS, not to a fixed type scale.
+ */
+const HOLE_WIDTH = 2 * (RADIUS - STROKE / 2) - 4;
+
+/**
+ * The ramp has six steps and `index % length` silently reused them: with seven
+ * segments the seventh arc came back round to the first one's amber, so two
+ * different categories were drawn in the same colour with nothing on screen to
+ * tell them apart. Cap the drawn segments at the ramp length and name the
+ * remainder instead of repeating a colour.
+ */
+const MAX_SEGMENTS = AMBER_STEPS.length;
+
 function safeCount(count: number): number {
   return Number.isFinite(count) ? Math.max(0, Math.trunc(count)) : 0;
 }
@@ -22,18 +39,69 @@ function segmentColor(segment: CountDonutSegment, index: number): string {
   );
 }
 
+/**
+ * Fold everything past the fifth category into one explicitly-labelled segment.
+ *
+ * "Other (4)" states how many categories it stands for, so the arc is not a
+ * mystery and the count still adds up to the total. The full list survives in
+ * the screen-reader table below, which keeps every original category.
+ */
+function drawnSegments(
+  values: CountDonutSegment[],
+): { label: string; count: number; color?: string }[] {
+  if (values.length <= MAX_SEGMENTS) return values;
+  const head = values.slice(0, MAX_SEGMENTS - 1);
+  const tail = values.slice(MAX_SEGMENTS - 1);
+  const tailCount = tail.reduce((sum, segment) => sum + segment.count, 0);
+  return [...head, { label: `Other (${tail.length})`, count: tailCount }];
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+/**
+ * Size type to the hole rather than to a Tailwind step.
+ *
+ * `text-xl` inside a 100-unit viewBox is 20 USER UNITS — a five-digit total was
+ * about 55 units wide in a 48-unit hole, so realistic corpus numbers ran out
+ * over the ring. Advance width per character is approximated at 0.58em for
+ * digits (tabular figures) and 0.52em for a mixed-case label; both are generous
+ * enough to leave the fitted text inside the hole.
+ */
+function fitToHole(
+  text: string,
+  { max, min, per }: { max: number; min: number; per: number },
+): { fontSize: number; text: string } {
+  if (!text.length) return { fontSize: max, text };
+  const ideal = HOLE_WIDTH / (text.length * per);
+  const fontSize = clamp(ideal, min, max);
+  // Shrinking handled it whenever the ideal size is still legible; only a label
+  // that would need type below the floor gets cut, and then it keeps its full
+  // text in a `<title>` so nothing is actually lost.
+  if (ideal >= min) return { fontSize, text };
+  const maxChars = Math.max(1, Math.floor(HOLE_WIDTH / (fontSize * per)));
+  return {
+    fontSize,
+    text: `${text.slice(0, Math.max(1, maxChars - 1)).trimEnd()}…`,
+  };
+}
+
 export function CountDonut({ segments, centerLabel, title }: CountDonutProps) {
   const values = segments.map((segment) => ({
     ...segment,
     count: safeCount(segment.count),
   }));
+  const drawn = drawnSegments(values);
   const total = values.reduce((sum, segment) => sum + segment.count, 0);
-  const radius = 32;
-  const circumference = 2 * Math.PI * radius;
+  const circumference = 2 * Math.PI * RADIUS;
   let offset = 0;
-  const ariaDetails = values.length
-    ? values.map((segment) => `${segment.label}: ${segment.count}`).join("; ")
+  const ariaDetails = drawn.length
+    ? drawn.map((segment) => `${segment.label}: ${segment.count}`).join("; ")
     : "no segments";
+
+  const totalFit = fitToHole(String(total), { max: 20, min: 8, per: 0.58 });
+  const labelFit = fitToHole(centerLabel, { max: 8, min: 4.5, per: 0.52 });
 
   return (
     <figure className="space-y-2">
@@ -50,14 +118,14 @@ export function CountDonut({ segments, centerLabel, title }: CountDonutProps) {
           <circle
             cx="50"
             cy="50"
-            r={radius}
+            r={RADIUS}
             fill="none"
             stroke="hsl(var(--border))"
-            strokeWidth="16"
+            strokeWidth={STROKE}
             className={total > 0 ? "opacity-40" : "opacity-80"}
           />
           <g transform="rotate(-90 50 50)">
-            {values.map((segment, index) => {
+            {drawn.map((segment, index) => {
               if (segment.count === 0 || total === 0) return null;
               const length = (segment.count / total) * circumference;
               const dash = `${length} ${circumference - length}`;
@@ -66,10 +134,10 @@ export function CountDonut({ segments, centerLabel, title }: CountDonutProps) {
                   key={`${segment.label}-${index}`}
                   cx="50"
                   cy="50"
-                  r={radius}
+                  r={RADIUS}
                   fill="none"
                   stroke={segmentColor(segment, index)}
-                  strokeWidth="16"
+                  strokeWidth={STROKE}
                   strokeDasharray={dash}
                   strokeDashoffset={-offset}
                   strokeLinecap="butt"
@@ -81,24 +149,56 @@ export function CountDonut({ segments, centerLabel, title }: CountDonutProps) {
           </g>
           <text
             x="50"
-            y="48"
+            y="50"
             textAnchor="middle"
-            className="text-xl font-semibold tabular-nums"
+            fontSize={totalFit.fontSize}
+            className="font-semibold tabular-nums"
             fill="currentColor"
           >
-            {total}
+            {totalFit.text}
           </text>
           <text
             x="50"
-            y="57"
+            y={50 + labelFit.fontSize + 3}
             textAnchor="middle"
-            className="text-[10px] text-muted-foreground"
+            fontSize={labelFit.fontSize}
+            className="text-muted-foreground"
             fill="currentColor"
           >
-            {centerLabel}
+            {labelFit.text === centerLabel ? null : <title>{centerLabel}</title>}
+            {labelFit.text}
           </text>
         </svg>
       </div>
+      {/*
+        A visible key, because the arcs are six steps of ONE hue and the palest
+        pair are not separable at this size. Counts sit beside the labels so the
+        chart is readable without hovering anything.
+      */}
+      {drawn.length ? (
+        <ul className="flex flex-wrap justify-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+          {drawn.map((segment, index) => (
+            <li
+              key={`legend-${segment.label}-${index}`}
+              className="inline-flex max-w-40 items-center gap-1"
+              title={segment.label}
+            >
+              <span
+                aria-hidden
+                className="inline-block h-2 w-2 shrink-0 rounded-full"
+                style={{ backgroundColor: segmentColor(segment, index) }}
+              />
+              <span className="truncate">{segment.label}</span>
+              <span className="tabular-nums">{segment.count}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {/*
+        The table keeps EVERY original category, including the ones folded into
+        "Other" above — grouping is a drawing decision, not a reason to withhold
+        a count from anyone reading this way.
+      */}
       <table className="sr-only" aria-label={`${title} table`}>
         <caption>{title}</caption>
         <thead>

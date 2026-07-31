@@ -27,10 +27,17 @@ function yearFor(month: string): string {
   return month.match(/(?:19|20)\d{2}/)?.[0] ?? "Undated";
 }
 
+/**
+ * The undated note. The verb agrees with the subject — the first cut read
+ * "1 entry without a stated date are not plotted", and the tests locked that
+ * wording in, which is how a typo becomes a contract.
+ */
 function footnoteFor(count: number): string | undefined {
   const value = Number.isFinite(count) ? Math.max(0, Math.trunc(count)) : 0;
   if (value <= 0) return undefined;
-  return `${value} ${value === 1 ? "entry" : "entries"} without a stated date are not plotted.`;
+  return value === 1
+    ? "1 entry without a stated date is not plotted."
+    : `${value} entries without a stated date are not plotted.`;
 }
 
 export function TrendArea({ points, undatedCount = 0 }: TrendAreaProps) {
@@ -64,6 +71,12 @@ export function TrendArea({ points, undatedCount = 0 }: TrendAreaProps) {
   const yTicks = Array.from(
     new Set([0, Math.round(maxCount / 2), maxCount]),
   ).sort((a, b) => a - b);
+  const singlePoint = values.length === 1 ? values[0] : undefined;
+  const singleY = singlePoint ? yFor(singlePoint.count) : 0;
+  // Keep the value label off the plot edges: below the dot when the dot is at
+  // the top of the band (the usual single-point case, where the one value IS
+  // the maximum), above it when the dot is sitting on the baseline.
+  const singleLabelY = singleY < PLOT_TOP + 24 ? singleY + 18 : singleY - 10;
   const footnote = footnoteFor(undatedCount);
   const ariaData = values.length
     ? values.map((point) => `${point.month} ${point.count}`).join(", ")
@@ -123,7 +136,43 @@ export function TrendArea({ points, undatedCount = 0 }: TrendAreaProps) {
               {tick.year}
             </text>
           ))}
-          {values.length ? (
+          {singlePoint ? (
+            /*
+             * ONE MONTH IS NOT AN EMPTY CHART. A single point makes a
+             * zero-width area and a one-vertex polyline, both of which draw
+             * literally nothing — so a member with one dated month rendered a
+             * blank plot, while the empty-state dash was suppressed because
+             * `values.length` was truthy. A dot at the value with a reference
+             * line across the plot says "one month, this many" instead.
+             */
+            <>
+              <line
+                data-single-point-level
+                x1={PLOT_LEFT}
+                y1={singleY}
+                x2={WIDTH - PLOT_RIGHT}
+                y2={singleY}
+                stroke={AMBER_STEPS[2] ?? AMBER_STEPS[0]}
+                strokeWidth="1.5"
+              />
+              <circle
+                data-single-point
+                cx={xFor(0)}
+                cy={singleY}
+                r="4"
+                fill={AMBER_STEPS[4] ?? AMBER_STEPS[0]}
+              />
+              <text
+                x={xFor(0)}
+                y={singleLabelY}
+                textAnchor="middle"
+                className="text-[10px] tabular-nums text-muted-foreground"
+                fill="currentColor"
+              >
+                {singlePoint.count}
+              </text>
+            </>
+          ) : values.length ? (
             <>
               <path
                 d={areaPath}

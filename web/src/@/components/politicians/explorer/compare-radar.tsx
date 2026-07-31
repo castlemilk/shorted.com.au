@@ -1,3 +1,5 @@
+import { CompareBars } from "./compare-bars";
+
 export interface CompareRadarAxis {
   label: string;
   countA: number;
@@ -12,9 +14,26 @@ export interface CompareRadarProps {
   nameB: string;
 }
 
+const WIDTH = 400;
+const HEIGHT = 260;
 const CENTER_X = 200;
-const CENTER_Y = 132;
-const RADIUS = 88;
+const CENTER_Y = 118;
+const RADIUS = 82;
+/** Where the vertex labels sit — outside the outermost ring, never on it. */
+const LABEL_RADIUS = RADIUS + 14;
+/**
+ * The margin every label must stay inside.
+ *
+ * The bottom label used to be clipped whenever the axis count was even: with an
+ * even count one vertex lands due south, at CENTER_Y + RADIUS, and the label
+ * was drawn a further 14 units below that — past the bottom of the viewBox. It
+ * was invisible for exactly the inputs (2, 4, 6 grouped categories) the compare
+ * page will actually pass.
+ */
+const LABEL_MARGIN = 10;
+
+/** Below three axes a polygon has no area, so the radar stops being a radar. */
+const MIN_RADAR_AXES = 3;
 
 function safeCount(count: number): number {
   return Number.isFinite(count) ? Math.max(0, Math.trunc(count)) : 0;
@@ -47,6 +66,31 @@ function outerPoint(index: number, axisCount: number, radius = RADIUS) {
   };
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+/**
+ * Where a vertex label goes, and which way it reads from there.
+ *
+ * The anchor follows the vertex (text runs away from the chart, never across
+ * it) and the baseline is nudged clear of the ring, then both coordinates are
+ * clamped into the viewBox so no axis count can push a label out of frame.
+ */
+function labelLayout(index: number, axisCount: number) {
+  const point = outerPoint(index, axisCount, LABEL_RADIUS);
+  const dx = point.x - CENTER_X;
+  const dy = point.y - CENTER_Y;
+  const textAnchor: "start" | "middle" | "end" =
+    dx < -2 ? "end" : dx > 2 ? "start" : "middle";
+  const baselineNudge = dy < -2 ? -2 : dy > 2 ? 8 : 3;
+  return {
+    x: clamp(point.x, LABEL_MARGIN, WIDTH - LABEL_MARGIN),
+    y: clamp(point.y + baselineNudge, LABEL_MARGIN, HEIGHT - LABEL_MARGIN),
+    textAnchor,
+  };
+}
+
 function pointsAttribute(points: { x: number; y: number }[]): string {
   return points
     .map((point) => `${point.x.toFixed(2)},${point.y.toFixed(2)}`)
@@ -69,6 +113,31 @@ export function CompareRadar({
     countA: safeCount(axis.countA),
     countB: safeCount(axis.countB),
   }));
+
+  /*
+   * ONE OR TWO AXES IS A LINE, NOT A SHAPE.
+   *
+   * The polygon for a single axis is a point and for two axes a zero-area
+   * segment: both render as nothing visible, while the empty-state fallback
+   * only fired at zero axes — so "these two members declare one category
+   * between them" looked identical to a broken chart. Rather than invent a
+   * degenerate radar nobody can read, fall through to the paired bars, which
+   * carry the same numbers, the same party colours and the same table, and are
+   * the honest presentation at this size. The compare page can hand this kit
+   * whatever the data gives it.
+   */
+  if (values.length > 0 && values.length < MIN_RADAR_AXES) {
+    return (
+      <CompareBars
+        rows={values}
+        colorA={colorA}
+        colorB={colorB}
+        nameA={nameA}
+        nameB={nameB}
+      />
+    );
+  }
+
   const maxCount = values.reduce(
     (max, axis) => Math.max(max, axis.countA, axis.countB),
     0,
@@ -95,7 +164,7 @@ export function CompareRadar({
     <figure className="space-y-2">
       <div className="space-y-2">
         <svg
-          viewBox="0 0 400 230"
+          viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
           role="img"
           aria-label={`Radar comparison of ${nameA} and ${nameB}: ${ariaAxes}.`}
           className="h-auto w-full text-muted-foreground"
@@ -148,9 +217,9 @@ export function CompareRadar({
             </>
           ) : (
             <line
-              x1="150"
+              x1={CENTER_X - 50}
               y1={CENTER_Y}
-              x2="250"
+              x2={CENTER_X + 50}
               y2={CENTER_Y}
               stroke="hsl(var(--muted-foreground))"
               strokeWidth="1.5"
@@ -158,20 +227,13 @@ export function CompareRadar({
             />
           )}
           {values.map((axis, index) => {
-            const point = outerPoints[index] ?? { x: CENTER_X, y: CENTER_Y };
-            const textAnchor =
-              point.x < CENTER_X - 2
-                ? "end"
-                : point.x > CENTER_X + 2
-                  ? "start"
-                  : "middle";
-            const dy = point.y < CENTER_Y ? -6 : point.y > CENTER_Y ? 14 : 4;
+            const layout = labelLayout(index, values.length);
             return (
               <text
                 key={`${axis.label}-${index}`}
-                x={point.x}
-                y={point.y + dy}
-                textAnchor={textAnchor}
+                x={layout.x}
+                y={layout.y}
+                textAnchor={layout.textAnchor}
                 data-axis-label={axis.label}
                 className="text-[10px] text-muted-foreground"
                 fill="currentColor"
