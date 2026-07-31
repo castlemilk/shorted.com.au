@@ -249,3 +249,194 @@ export function OgCard({
     </div>
   );
 }
+
+/**
+ * Head-to-head variant: two subjects either side of a divider.
+ *
+ * Kept in this module rather than hand-rolled at the call site so the VS card
+ * inherits the same canvas, rule and footer as every other card — the exact
+ * drift that produced a white root card and black everything-else.
+ */
+export interface OgVersusProps {
+  eyebrow: string;
+  left: { code: string; name?: string; value: string; caption: string };
+  right: { code: string; name?: string; value: string; caption: string };
+  footer?: string;
+  logoSrc: string;
+}
+
+function VersusSide({
+  side,
+}: {
+  side: { code: string; name?: string; value: string; caption: string };
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        flex: 1,
+        alignItems: "center",
+        textAlign: "center",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          fontSize: 54,
+          fontWeight: 700,
+          color: OG.text,
+          fontFamily: OG_SERIF,
+        }}
+      >
+        {side.code}
+      </div>
+      {side.name && (
+        <div
+          style={{
+            display: "flex",
+            marginTop: 4,
+            fontSize: 22,
+            color: OG.textDim,
+            maxWidth: 420,
+          }}
+        >
+          {side.name}
+        </div>
+      )}
+      <div
+        style={{
+          display: "flex",
+          marginTop: 22,
+          fontSize: 78,
+          fontWeight: 700,
+          color: OG.orange,
+        }}
+      >
+        {side.value}
+      </div>
+      <div
+        style={{
+          display: "flex",
+          marginTop: 6,
+          fontSize: 20,
+          letterSpacing: 1.5,
+          textTransform: "uppercase",
+          color: OG.textDim,
+        }}
+      >
+        {side.caption}
+      </div>
+    </div>
+  );
+}
+
+export function OgVersus({
+  eyebrow,
+  left,
+  right,
+  footer = "shorted.com.au",
+  logoSrc,
+}: OgVersusProps) {
+  return (
+    <div
+      style={{
+        height: "100%",
+        width: "100%",
+        display: "flex",
+        flexDirection: "column",
+        backgroundColor: OG.bg,
+        backgroundImage: `linear-gradient(135deg, ${OG.bg} 0%, ${OG.bgAlt} 55%, ${OG.bg} 100%)`,
+        padding: "56px 64px",
+        position: "relative",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 8,
+          backgroundImage: `linear-gradient(90deg, ${OG.orange} 0%, ${OG.orangeDim} 100%)`,
+        }}
+      />
+
+      <div
+        style={{
+          display: "flex",
+          fontSize: 22,
+          letterSpacing: 3,
+          textTransform: "uppercase",
+          color: OG.orange,
+          fontWeight: 600,
+        }}
+      >
+        {eyebrow}
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          marginTop: 48,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <VersusSide side={left} />
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            padding: "0 28px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              fontSize: 34,
+              fontWeight: 700,
+              color: OG.textDim,
+              fontFamily: OG_SERIF,
+            }}
+          >
+            vs
+          </div>
+        </div>
+        <VersusSide side={right} />
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          marginTop: "auto",
+          alignItems: "center",
+          justifyContent: "space-between",
+          borderTop: `1px solid ${OG.border}`,
+          paddingTop: 24,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          {logoSrc && (
+            <img src={logoSrc} width={48} height={48} style={{ borderRadius: 8 }} />
+          )}
+          <div
+            style={{
+              display: "flex",
+              fontSize: 26,
+              fontWeight: 700,
+              color: OG.text,
+            }}
+          >
+            Shorted
+          </div>
+        </div>
+        <div style={{ display: "flex", fontSize: 22, color: OG.textDim }}>
+          {footer}
+        </div>
+      </div>
+    </div>
+  );
+}

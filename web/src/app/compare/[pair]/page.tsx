@@ -76,20 +76,13 @@ export async function generateMetadata({
       siteName: siteConfig.name,
       type: "article",
       locale: "en_AU",
-      images: [
-        {
-          url: siteConfig.ogImage,
-          width: 1200,
-          height: 630,
-          alt: `${lo} vs ${hi} — ASX short interest comparison`,
-        },
-      ],
+      // No `images` key: this route ships its own opengraph-image.tsx and an
+      // explicit `images` here would SHADOW the file convention.
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [siteConfig.ogImage],
     },
     alternates: {
       canonical: `${siteConfig.url}/compare/${canonical}`,

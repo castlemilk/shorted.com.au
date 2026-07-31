@@ -50,20 +50,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       siteName: siteConfig.name,
       type: "website",
       locale: "en_AU",
-      images: [
-        {
-          url: siteConfig.ogImage,
-          width: 1200,
-          height: 630,
-          alt: scan.h1,
-        },
-      ],
+      // No `images` key: this route ships its own opengraph-image.tsx and an
+      // explicit `images` here would SHADOW the file convention.
     },
     twitter: {
       card: "summary_large_image",
       title: scan.title,
       description: scan.description,
-      images: [siteConfig.ogImage],
     },
     alternates: {
       canonical: url,
