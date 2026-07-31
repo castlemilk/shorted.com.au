@@ -1,7 +1,7 @@
 """Tests for register-of-interests page classification.
 
 The numbers here are measurements from the real corpus, not invented fixtures.
-See docs/politician-register-architecture.md §2.
+See docs/feature/politicians/architecture.md §2.
 """
 
 import unittest

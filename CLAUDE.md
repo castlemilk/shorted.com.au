@@ -602,6 +602,62 @@ read by the public **`EconomyService`** (economy.proto after the proto split):
 Full architecture + extension recipes (new SDMX/XLSX source, new map metric,
 new derived series): `docs/economy-architecture.md`.
 
+## Politicians — register of interests ("Parliament's Portfolio")
+
+What federal MPs and senators declare, from the APH Registers of Members'/
+Senators' Interests. **LIVE on prod**: ~17.1k published rows, 319 politicians,
+296 listed companies, 335 suburbs, 241 portraits, parliaments 44–48.
+
+**Docs: `docs/feature/politicians/`** — start at `README.md`. `data-sources.md`
+(licences + what is ruled out), `data-model.md` (schema + guards), `pipeline.md`
+(job modes), `operations.md` (runbook). `architecture.md` is the 135KB
+decision/incident record — read §8.x before touching resolution logic. The
+editorial gate is `docs/influence-editorial-standards.md` (whole influence layer,
+not just this feature).
+
+Surfaces: `/politicians` (hub: Algolia search + party×industry heatmap, static
+ISR), `/politicians/[slug]`, `/changes`, `/short-interest`, plus cards on
+`/shorts/[code]`, `/housing/[state]/[suburb]`, `/economy/[state]`. Operator
+consoles at `/admin/register/securities` and `/admin/register/politicians[/slug]`.
+
+Jobs: `shorted influence -mode register-{discover,fetch,load,resolve,freshness,
+propose-aliases,promote-aliases,handbook,photos,index}` — all default
+`REGISTER_DRY_RUN=true` and are **excluded from `-mode all`** (an 804-PDF crawl
+must never fire from a deploy). `make register-photos` / `register-index`.
+
+### The rules that shape every change here
+
+- **What is held, never how much.** No amount/quantity/value column exists
+  anywhere in the subsystem; a migration test asserts none appears. Rule 5.
+- **Extracted facts are publishable, source artefacts are not.** We deep-link
+  aph.gov.au; the GCS bucket is a private cache with no CDN. This is why
+  portraits come from Wikimedia Commons and **never** from aph.gov.au — and why
+  **LinkedIn is permanently out** (its UA bans displaying data obtained via third
+  parties, and the clean-licence proxy covers 2.8%).
+- **Withhold rather than guess.** Ambiguity always resolves to publishing
+  nothing. A name search once matched "Anthony Smith" to Dean Smith.
+- **APH is CC BY-NC-**ND**.** NC matters on a paid product; ND means never
+  rewrite an APH prose string — store facts as verbatim atoms.
+- Attribution on a portrait is a **licence obligation** enforced in four places
+  (DB CHECK, store, proto, component), not a caption.
+
+### Landmines
+
+- **The prod deploy does NOT run `migrate up`** — it applies a hardcoded
+  allowlist. Apply new migrations BY HAND (session pooler 5432,
+  `statement_timeout=0`) BEFORE merging, or the API ships selecting columns prod
+  lacks and every politician read path 500s.
+- `run-tests` is `if: github.event_name != 'pull_request'` — Go tests gate the
+  DEPLOY, not the PR. **golangci-lint runs in no CI job at all.**
+- An **empty KV entry used to be served as a hit**, pinning zeros for 24h;
+  `readCached` now takes a non-emptiness predicate. Unblock with
+  `?flush=politicians`.
+- `compliance.tsx` has no `"use client"` and imports generated protobuf —
+  importing it from a client component kills the static build with a minified
+  "Element type is invalid". Use `@/lib/politics/party-palette`.
+- Slugs are minted once and never reassigned; a merge retires a row via
+  `merged_into_id` rather than deleting it.
+
 ## Twitter / X Automation
 
 `@shorted___` is the live X handle. The bot is a self-contained Node + TypeScript project at `scripts/twitter/` that pulls live ASIC short data, market news, and director trades from the public shorted.com.au API and posts curated tweets.

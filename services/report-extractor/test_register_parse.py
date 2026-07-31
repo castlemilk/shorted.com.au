@@ -6,7 +6,7 @@ handles the actual form, not an idealised one.
 
 The source PDFs are NOT committed — the licence permits extracted facts, not a
 mirror — so the whole-document golden set runs only when a local cache is
-present and skips otherwise. See docs/politician-register-architecture.md.
+present and skips otherwise. See docs/feature/politicians/architecture.md.
 """
 
 from __future__ import annotations

@@ -134,7 +134,7 @@ describe("politician surface copy", () => {
   // the vocabulary rules. RENDERING_SURFACES stays 7 — an admin tool owes an
   // operator no reader-facing citation kit, and each candidate card already
   // links the APH PDF per declaration. §6.2 re-review triggered and recorded in
-  // docs/politician-register-architecture.md.
+  // docs/feature/politicians/architecture.md.
   it("covers exactly the surfaces it claims to", () => {
     // 10 (incl. politicians/opengraph-image.tsx, the share card) + the explorer,
     // the heatmap, the avatar kit, and 5 operator-console files (securities

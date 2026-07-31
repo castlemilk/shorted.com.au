@@ -29,7 +29,7 @@
 -- it must never be inverted into a resolver: "names a listing" is evidence that
 -- a chip would be wrong, not evidence of WHICH listing is held.
 --
--- See docs/politician-register-architecture.md §8.17.
+-- See docs/feature/politicians/architecture.md §8.17.
 
 ALTER TABLE register_item_securities
     DROP CONSTRAINT IF EXISTS register_item_securities_entity_kind_check;

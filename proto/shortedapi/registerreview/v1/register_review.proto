@@ -21,7 +21,7 @@ import "options/v1/options.proto";
 // size, and none may be added — not even on an admin surface, because the console
 // reads from and writes to the same tables the public read path uses.
 //
-// See docs/register-review-console.md §6.2 for the screen this serves.
+// See docs/feature/politicians/review-console.md §6.2 for the screen this serves.
 service RegisterReviewService {
   // The undecided backlog, biggest fanout first.
   rpc ListSecurityQueue (ListSecurityQueueRequest) returns (ListSecurityQueueResponse) {

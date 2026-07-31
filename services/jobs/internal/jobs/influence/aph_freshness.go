@@ -184,7 +184,7 @@ func writeRegisterFreshnessReport(w io.Writer, checks []freshnessCheck) int {
 		fmt.Fprintf(w, "%-24s %-6s %s\n", c.Name, c.Status, c.Detail)
 	}
 	if alarms > 0 {
-		fmt.Fprintf(w, "\n%d ALARM(S) — see docs/politician-register-architecture.md\n", alarms)
+		fmt.Fprintf(w, "\n%d ALARM(S) — see docs/feature/politicians/architecture.md\n", alarms)
 	}
 	return alarms
 }

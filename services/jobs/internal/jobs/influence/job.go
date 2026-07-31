@@ -27,7 +27,7 @@
 // prod deploy, and an 804-document crawl of aph.gov.au must never fire from a
 // deploy step or an unattended timer. REGISTER_DRY_RUN defaults TRUE, so each is
 // a no-op until it is explicitly set false.
-// See docs/politician-register-architecture.md §5.2.
+// See docs/feature/politicians/architecture.md §5.2.
 //
 //	-mode register-discover         scrape the listing pages into the manifest; downloads nothing
 //	-mode register-fetch            drain the fetch queue, streaming PDFs to the content-addressed sink

@@ -10,7 +10,7 @@ amount, and none may be added. If a cell appears to contain a figure it is
 transcribed verbatim into `declared_text` and flagged with `contains_amount` for
 review — a flag, never a number.
 
-Design notes: docs/politician-register-architecture.md
+Design notes: docs/feature/politicians/architecture.md
 """
 
 from __future__ import annotations

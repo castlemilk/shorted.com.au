@@ -37,7 +37,7 @@ Three geometries share this file:
   alteration (47P)     ADDITION/DELETION at x≈41, rows are "12. Label | Details",
                        with NO holder rows at all — hence holder='unspecified'
 
-Design notes: docs/politician-register-architecture.md
+Design notes: docs/feature/politicians/architecture.md
 """
 
 from __future__ import annotations
@@ -143,7 +143,7 @@ COLUMN_HEADER_TOKENS = re.compile(
 #
 # So fuzzy matching must be scoped to the OCR path ONLY, threaded as a flag
 # through column_origins/is_column_header and their two callers. Until then, an
-# OCR'd document must not be published: see docs/politician-register-architecture.md.
+# OCR'd document must not be published: see docs/feature/politicians/architecture.md.
 COLUMN_HEADER_VOCAB = (
     "location", "name", "nature", "type", "item", "details", "purpose",
     "activities", "body", "creditor", "beneficial", "beneficiary",

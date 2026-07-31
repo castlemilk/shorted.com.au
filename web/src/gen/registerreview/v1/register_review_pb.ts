@@ -1264,7 +1264,7 @@ export const AliasKindSchema: GenEnum<AliasKind> = /*@__PURE__*/
  * size, and none may be added — not even on an admin surface, because the console
  * reads from and writes to the same tables the public read path uses.
  *
- * See docs/register-review-console.md §6.2 for the screen this serves.
+ * See docs/feature/politicians/review-console.md §6.2 for the screen this serves.
  *
  * @generated from service registerreview.v1.RegisterReviewService
  */

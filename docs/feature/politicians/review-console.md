@@ -1,3 +1,7 @@
+> **Feature index: [README.md](README.md).** This file is the console's design
+> spec. Screen (b) and the per-politician CRM are built; the rest is still spec —
+> see the status block below the title.
+
 > **START HERE — measured backlog, 2026-07-27**
 >
 > This is what the console would be pointed at on day one:
@@ -68,7 +72,7 @@ Owner surface: `/admin/register/*`.
 > Step 10 (suppression reaches the MV) IS done, on all three fold arms. Step 5
 > (auth hygiene) is NOT — `ADMIN_EMAILS` is still case-sensitively split in one
 > place and hardcoded in `middleware_connect.go`.
-Prerequisite reading: `docs/politician-register-architecture.md` (§2.8–2.10 layout
+Prerequisite reading: `docs/feature/politicians/architecture.md` (§2.8–2.10 layout
 failures, §3.2–3.5 resolution, §6–8 gates and open items) and
 `docs/influence-editorial-standards.md` (rules 1, 5, 7, 8).
 
@@ -470,7 +474,7 @@ CREATE TRIGGER register_corrections_immutable
 ### 2.5 Two columns on `register_declared_items`, and the curated locality table
 
 ```sql
--- docs/politician-register-architecture.md §6.3 open item 1: "Row-level takedown
+-- docs/feature/politicians/architecture.md §6.3 open item 1: "Row-level takedown
 -- does not exist... A register_declared_items.suppressed_at column plus a filter
 -- in mv_register_public_holdings would fix it; until then a single contested
 -- declaration means taking the whole surface down."

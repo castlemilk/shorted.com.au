@@ -98,7 +98,7 @@ var bareTickerRe = regexp.MustCompile(`^([A-Z0-9]{2,4})$`)
 // Rejecting them withholds a past-tense fact. Publishing them asserts the exact
 // OPPOSITE of what the member wrote, against a named person, so the asymmetry
 // rule decides it. Rendering them properly needs change_type on the read path;
-// see docs/politician-register-architecture.md §8.17.
+// see docs/feature/politicians/architecture.md §8.17.
 var amendmentNoticeRe = regexp.MustCompile(
 	`(?i)^\s*(please\s+remove|remove|delete|deletion\s+of|sale\s+of|sold|` +
 		`disposal\s+of|disposed\s+of|resignation\s+as|i\s+resigned|resigned|` +
@@ -268,7 +268,7 @@ const (
 // and correctly — "Pty. Ltd." must not split) or manufactured NEW wrong facts:
 // a Ltd-run boundary turns "Astra … Ltd Citigroup (USA)" into a standalone
 // "Citigroup (USA)", which resolves USA to UraniumSA and publishes a live wrong
-// link. See docs/politician-register-architecture.md §8.17.
+// link. See docs/feature/politicians/architecture.md §8.17.
 //
 // So these are WITHHELD, not relabelled and not split. It costs 16 candidate
 // rows of 5,881 published (0.27%); publishing a label that contradicts the

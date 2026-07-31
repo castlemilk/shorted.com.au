@@ -24,7 +24,7 @@
 //	shorted influence -mode register-discover
 //
 // See services/jobs/internal/jobs/influence and
-// docs/politician-register-architecture.md §5.2.
+// docs/feature/politicians/architecture.md §5.2.
 //
 // Editorial gate: only exact-ABN or exact-normalized-name matches are ever
 // inserted into entity_asx_map (match_method='name_exact'); fuzzy matching is out
@@ -117,7 +117,7 @@ func main() {
 	// (services/jobs/internal/jobs/influence/aph_*.go). Keeping a second copy
 	// here would let two implementations of a subsystem that publishes facts
 	// about named people drift apart — which is exactly the failure §8.x of
-	// docs/politician-register-architecture.md is a record of.
+	// docs/feature/politicians/architecture.md is a record of.
 	default:
 		log.Fatalf("unknown -mode %q (want tax|match|sources|source-registry|source-probe|tax-records|emissions|austender|aec|lobbyists|trade|public-records|all)", *mode)
 	}

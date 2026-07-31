@@ -7,7 +7,7 @@ WHY A CLI AND NOT THE GEMINI API
 tier needs no GEMINI_API_KEY and carries no per-token billing. That makes it an
 OPERATOR-MACHINE tier by construction: the report-extractor container is
 python-slim and has no `agy` binary, so `--stage vision` cannot run in Cloud Run.
-The runbook in docs/politician-register-architecture.md says so explicitly.
+The runbook in docs/feature/politicians/architecture.md says so explicitly.
 
 `--sandbox` is MANDATORY and `--dangerously-skip-permissions` is FORBIDDEN. The
 latter disables agy's own approval gate; it is blocked by this environment's

@@ -172,7 +172,7 @@ func parseDeclaredLocation(raw string) DeclaredLocation {
 	//
 	// Rejecting only withholds the wrong fact; it does not recover the suburb.
 	// Picking the right part of these lines is a separate change with its own
-	// failure modes — see docs/politician-register-architecture.md §8.17.
+	// failure modes — see docs/feature/politicians/architecture.md §8.17.
 	switch {
 	case holderLabelRe.MatchString(loc.Locality):
 		loc.Reject = "holder_label"

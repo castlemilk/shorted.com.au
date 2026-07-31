@@ -320,7 +320,7 @@ register-notebook-check:
 	   echo "EMPTY"; \
 	   echo ""; \
 	   echo "   Tables exist but hold nothing. The notebook will open and show zeroes."; \
-	   echo "   Fix (operator pipeline, see docs/politician-register-architecture.md §5.2):"; \
+	   echo "   Fix (operator pipeline, see docs/feature/politicians/architecture.md §5.2):"; \
 	   echo "     cd ../services/influence-collector"; \
 	   echo "     REGISTER_DRY_RUN=false go run . -mode register-load"; \
 	   echo "     REGISTER_DRY_RUN=false go run . -mode register-resolve"; \
