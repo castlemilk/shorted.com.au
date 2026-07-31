@@ -78,6 +78,127 @@ export async function getOgLogo(): Promise<string> {
 }
 
 /**
+ * A company logo as a data URI, or "" when unavailable.
+ *
+ * Remote fetch with a hard timeout, because these come from GCS and an OG
+ * route must not hang a crawler. Any failure yields "" and the card simply
+ * renders without the mark — never a 500.
+ */
+export interface CompanyLogo {
+  /** Data URI, or "" when unavailable. */
+  src: string;
+  /** width / height of the source image. 1 when unknown. */
+  aspect: number;
+}
+
+export const NO_LOGO: CompanyLogo = { src: "", aspect: 1 };
+
+/** Intrinsic size from a PNG IHDR chunk; null for other formats. */
+function pngSize(buf: Buffer): { w: number; h: number } | null {
+  const isPng =
+    buf.length > 24 &&
+    buf[0] === 0x89 &&
+    buf[1] === 0x50 &&
+    buf[2] === 0x4e &&
+    buf[3] === 0x47;
+  if (!isPng) return null;
+  const w = buf.readUInt32BE(16);
+  const h = buf.readUInt32BE(20);
+  if (!w || !h) return null;
+  return { w, h };
+}
+
+/**
+ * A company logo as a data URI plus its aspect ratio.
+ *
+ * Remote fetch with a hard timeout, because these come from GCS and an OG
+ * route must not hang a crawler. Any failure yields NO_LOGO and the card
+ * simply renders without the mark — never a 500.
+ *
+ * The aspect ratio matters: ASX marks range from 111x55 and 418x83 wordmarks
+ * to 512x512 squares. Forcing them all into a square chip renders the wide
+ * ones illegibly small.
+ */
+export async function getCompanyLogo(
+  url: string | undefined | null,
+): Promise<CompanyLogo> {
+  if (!url) return NO_LOGO;
+  try {
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(2500),
+      // Logos change rarely; let the platform cache them alongside the card.
+      next: { revalidate: 86400 },
+    });
+    if (!res.ok) return NO_LOGO;
+    const type = res.headers.get("content-type") ?? "image/png";
+    if (!type.startsWith("image/")) return NO_LOGO;
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length === 0) return NO_LOGO;
+    const dims = pngSize(buf);
+    return {
+      src: `data:${type};base64,${buf.toString("base64")}`,
+      aspect: dims ? dims.w / dims.h : 1,
+    };
+  } catch {
+    return NO_LOGO;
+  }
+}
+
+/**
+ * A company logo on a light tile.
+ *
+ * The tile is not decoration. Company marks arrive in whatever colours the
+ * company uses — 4DMedical's wordmark is dark teal on transparent and would
+ * be invisible on our near-black canvas, while BHP's is orange and CBA's
+ * yellow. Compositing every mark onto a light chip makes all of them legible
+ * and, importantly, consistent: the card looks designed rather than like a
+ * logo dropped on a dark background.
+ *
+ * `objectFit: "contain"` handles the aspect-ratio spread — marks range from
+ * 111x55 wordmarks to 512x512 squares.
+ */
+export function OgLogoChip({
+  logo,
+  size: box = 96,
+}: {
+  logo: CompanyLogo;
+  size?: number;
+}) {
+  if (!logo.src) return null;
+  const pad = Math.round(box * 0.14);
+  const inner = box - pad * 2;
+  // Height is fixed; width follows the mark's aspect so a wide wordmark gets
+  // a pill and a square mark gets a square. Capped so one very wide logo
+  // cannot dominate the card.
+  const maxW = Math.round(box * 3);
+  const chipW = Math.min(
+    maxW,
+    Math.max(box, Math.round(inner * logo.aspect) + pad * 2),
+  );
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: chipW,
+        height: box,
+        padding: pad,
+        borderRadius: Math.round(box * 0.22),
+        backgroundColor: "#ffffff",
+      }}
+    >
+      <img
+        src={logo.src}
+        width={chipW - pad * 2}
+        height={inner}
+        style={{ objectFit: "contain" }}
+      />
+    </div>
+  );
+}
+
+/**
  * The standard card: dark canvas, thin orange top rule, eyebrow, headline,
  * optional stat row, and a footer carrying the brand mark.
  *
@@ -95,6 +216,8 @@ export interface OgCardProps {
   stats?: Array<{ label: string; value: string; tone?: "up" | "down" | "flat" }>;
   /** Footer right-hand text. Defaults to the domain. */
   footer?: string;
+  /** Optional company mark shown beside the eyebrow. */
+  brand?: CompanyLogo;
   logoSrc: string;
 }
 
@@ -110,6 +233,7 @@ export function OgCard({
   subtitle,
   stats,
   footer = "shorted.com.au",
+  brand,
   logoSrc,
 }: OgCardProps) {
   return (
@@ -142,14 +266,23 @@ export function OgCard({
       <div
         style={{
           display: "flex",
-          fontSize: 22,
-          letterSpacing: 3,
-          textTransform: "uppercase",
-          color: OG.orange,
-          fontWeight: 600,
+          alignItems: "center",
+          gap: 20,
         }}
       >
-        {eyebrow}
+        {brand?.src && <OgLogoChip logo={brand} size={84} />}
+        <div
+          style={{
+            display: "flex",
+            fontSize: 22,
+            letterSpacing: 3,
+            textTransform: "uppercase",
+            color: OG.orange,
+            fontWeight: 600,
+          }}
+        >
+          {eyebrow}
+        </div>
       </div>
 
       <div
@@ -257,19 +390,24 @@ export function OgCard({
  * inherits the same canvas, rule and footer as every other card — the exact
  * drift that produced a white root card and black everything-else.
  */
+export interface VersusSideData {
+  code: string;
+  name?: string;
+  value: string;
+  caption: string;
+  /** Optional company mark. */
+  brand?: CompanyLogo;
+}
+
 export interface OgVersusProps {
   eyebrow: string;
-  left: { code: string; name?: string; value: string; caption: string };
-  right: { code: string; name?: string; value: string; caption: string };
+  left: VersusSideData;
+  right: VersusSideData;
   footer?: string;
   logoSrc: string;
 }
 
-function VersusSide({
-  side,
-}: {
-  side: { code: string; name?: string; value: string; caption: string };
-}) {
+function VersusSide({ side }: { side: VersusSideData }) {
   return (
     <div
       style={{
@@ -280,6 +418,11 @@ function VersusSide({
         textAlign: "center",
       }}
     >
+      {side.brand?.src && (
+        <div style={{ display: "flex", marginBottom: 18 }}>
+          <OgLogoChip logo={side.brand} size={92} />
+        </div>
+      )}
       <div
         style={{
           display: "flex",

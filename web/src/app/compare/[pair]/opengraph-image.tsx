@@ -6,6 +6,7 @@ import {
   OG_CONTENT_TYPE,
   OgCard,
   OgVersus,
+  getCompanyLogo,
   getOgLogo,
 } from "~/@/lib/og/card";
 import { getStock } from "~/app/actions/getStock";
@@ -56,6 +57,13 @@ export default async function Image({
 
   if (!stockA || !stockB) return new ImageResponse(generic, size);
 
+  // Company marks are optional garnish — a missing or slow logo must not stop
+  // the card rendering, so these resolve to "" rather than throwing.
+  const [brandA, brandB] = await Promise.all([
+    getCompanyLogo(stockA.logoUrl),
+    getCompanyLogo(stockB.logoUrl),
+  ]);
+
   const pct = (n: number | undefined) =>
     typeof n === "number" && n > 0 ? `${n.toFixed(2)}%` : "—";
 
@@ -68,12 +76,14 @@ export default async function Image({
           name: formatCompanyName(stockA.name, a) || undefined,
           value: pct(stockA.percentageShorted),
           caption: "shorted",
+          brand: brandA,
         }}
         right={{
           code: b,
           name: formatCompanyName(stockB.name, b) || undefined,
           value: pct(stockB.percentageShorted),
           caption: "shorted",
+          brand: brandB,
         }}
         logoSrc={logoSrc}
       />
