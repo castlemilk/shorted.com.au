@@ -586,6 +586,19 @@ func runRegisterPhotosMode(ctx context.Context, pool *pgxpool.Pool) error {
 	return nil
 }
 
+// runRegisterHandbookMode writes aph_phid + structured facts from the APH
+// Parliamentary Handbook and REPORTS duplicate identities. It never merges:
+// a merge moves a whole declared history onto a named person and 000103's CHECK
+// requires a curator and evidence.
+func runRegisterHandbookMode(ctx context.Context, pool *pgxpool.Pool) error {
+	n, err := runRegisterHandbook(ctx, pool, registerDryRun())
+	if err != nil {
+		return fmt.Errorf("[register-handbook] %w", err)
+	}
+	log.Printf("[register-handbook] %d politicians keyed (dry_run=%v)", n, registerDryRun())
+	return nil
+}
+
 func runRegisterIndexMode(ctx context.Context, pool *pgxpool.Pool) error {
 	n, err := runRegisterIndex(ctx, pool, registerDryRun())
 	if err != nil {
