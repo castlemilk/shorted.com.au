@@ -16,6 +16,7 @@ companies · 335 suburbs · parliaments 44–48 · 241 portraits.**
 | **[operations.md](operations.md)** | Runbook: local commands, prod deploy order, and the landmines that have actually bitten |
 | [architecture.md](architecture.md) | The 135KB decision-and-incident record. §8.x is the wrong-fact history — read it before changing resolution logic |
 | [review-console.md](review-console.md) | The operator console spec (13 steps; screen (b) and the CRM are built) |
+| [explorer-ui.md](explorer-ui.md) | Plan of record for the explorer hub / profile / compare redesign (2026-07-31): wireframe→register adaptations, new RPC contracts, work packages |
 | [../../influence-editorial-standards.md](../../influence-editorial-standards.md) | The 8 editorial rules. **Not politician-specific** — it governs the whole influence layer |
 
 ## The three rules that shape everything
