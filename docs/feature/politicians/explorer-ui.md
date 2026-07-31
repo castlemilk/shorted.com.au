@@ -159,16 +159,45 @@ handler never fills it — the store already reads `politician_terms`).
 **Data layer** — migration `000104_add_register_explorer_rollups`:
 
 - `mv_register_politician_rollup`: one row per politician — per-item current
-  counts, holder counts, distinct company/property counts, changes-90d,
+  counts, holder counts, distinct company count, property count, changes-90d,
   undated count. Unique index on `politician_id` (CONCURRENTLY-refreshable).
+  Two measures here are easy to get wrong and are pinned by
+  `register_explorer_rollups.test.mjs` + the store integration tests:
+  - **`property_count` counts currently-declared item-3 ROWS, never distinct
+    `sal_code`.** Only a minority of item-3 rows resolve to an ABS suburb, so a
+    distinct-suburb measure publishes the resolver's hit rate as the member's
+    holdings (members declaring 13–18 entries read as 0; the hub tile read 38
+    against 1,248 rows). Same unit as `mv_register_suburb_property` (000096).
+    It is a **floor on entries declared**, not a property tally — §2.9 of
+    `architecture.md` applies, so no surface may render it as "owns N
+    properties".
+  - **`alltime_company_count` / `alltime_suburb_count`** replicate
+    `politicianSelect`'s all-time distinct counts verbatim, and are what feeds
+    `Politician.declared_listed_count` / `declared_property_count` in the
+    explorer rpcs. Those proto fields are all-time on every other read path;
+    the same person must not report a different number per rpc (a profile page
+    gates indexability on `declaredListedCount > 0`). The currently-declared
+    figures travel on `PoliticianSummary`'s own fields.
 - `mv_register_politician_monthly`: (politician_id, month, current dated
   declared-item count) for the trailing 60 months, from
   `register_holding_periods` dated rows via `mv_register_public_holdings`'s
   publication gates — build it FROM the public MV so every publication
-  guarantee is inherited, exactly as the analytics queries do.
+  guarantee is inherited, exactly as the analytics queries do. The month grid
+  is anchored to `CURRENT_DATE` **at refresh time**, so every reader windows on
+  the view's own `max(month)`, never on wall-clock `CURRENT_DATE`: a query-time
+  anchor drops a point per late refresh and eventually returns nothing while
+  the tiles beside the sparkline keep rendering. An empty view yields an empty
+  trend, not an error.
+- Industry movement (`GetRegisterExplorer`) is **dated-only and symmetric on
+  both sides** — the same predicate evaluated at `CURRENT_DATE` and at
+  `CURRENT_DATE - 90`. ~80% of currently-declared rows are undated, so an
+  undated-inclusive "now" against a dated-only baseline reports every industry
+  as growing by its undated population, and `ORDER BY abs(...)` then ranks the
+  list by that artefact.
 - Wire both into `refresh_register_materialized_views()`.
 - No column may match the banned magnitude vocabulary
-  (`register_of_interests.test.mjs` runs over migration text).
+  (`register_of_interests.test.mjs` runs over migration text;
+  `register_explorer_rollups.test.mjs` does the same for 000104).
 
 Store methods in a new `postgres_politician_explorer.go`; handlers in a new
 `politicians_explorer.go` following `politicians.go` conventions (clamped

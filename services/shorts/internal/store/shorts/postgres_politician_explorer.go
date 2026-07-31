@@ -209,7 +209,17 @@ const politicianSummarySelect = `
 	       COALESCE(t.chamber, ''), COALESCE(t.division, ''), COALESCE(t.state_code, ''),
 	       COALESCE(t.party, e.federal_party, ''), COALESCE(t.party_ab, e.federal_party_ab, ''),
 	       COALESCE(p.first_parliament, 0), COALESCE(p.last_parliament, 0),
-	       COALESCE(p.aph_mpid, ''), r.distinct_company_count, r.property_count,
+	       COALESCE(p.aph_mpid, ''),
+	       -- Slots 14/15 are Politician.declared_listed_count /
+	       -- declared_property_count, which every other rpc fills from
+	       -- politicianSelect's ALL-TIME distinct company/suburb counts. The
+	       -- rollup's all-time columns replicate that projection exactly, so the
+	       -- same person cannot report a different number depending on which rpc
+	       -- was called (and the profile page's declaredListedCount > 0
+	       -- indexability rule cannot flip between read paths). The
+	       -- currently-declared figures ride on PoliticianSummary's own
+	       -- distinct_company_count / property_count fields below.
+	       r.alltime_company_count, r.alltime_suburb_count,
 	       COALESCE(p.photo_url, ''), COALESCE(p.photo_licence, ''),
 	       COALESCE(p.photo_author, ''), COALESCE(p.photo_source_url, ''),
 	       r.item_1_current_count, r.item_2_current_count, r.item_3_current_count,
@@ -295,10 +305,14 @@ func (s *postgresStore) GetRegisterExplorer() (*RegisterExplorerRow, error) {
 		&out.CurrentDeclaredCount, &out.GiftsTravelCount, &out.LiabilityCount); err != nil {
 		return nil, err
 	}
+	// "Properties" is a count of currently-declared item-3 entries, NOT of the
+	// suburbs the resolver managed to place. Distinct suburbs stay available as
+	// the overview's resolved_suburb_count, which is labelled as a resolver
+	// figure; this tile is labelled as holdings and must count holdings.
 	if err := s.db.QueryRow(ctx, `
 		SELECT
 		  count(DISTINCT stock_code) FILTER (WHERE currently_declared AND stock_code IS NOT NULL)::INTEGER,
-		  count(DISTINCT sal_code) FILTER (WHERE currently_declared AND sal_code IS NOT NULL)::INTEGER
+		  count(*) FILTER (WHERE item_no = 3 AND currently_declared)::INTEGER
 		FROM mv_register_public_holdings`).Scan(&out.DistinctCompanyCount, &out.PropertyCount); err != nil {
 		return nil, err
 	}
@@ -322,10 +336,21 @@ func (s *postgresStore) GetRegisterExplorer() (*RegisterExplorerRow, error) {
 		return nil, err
 	}
 
+	// Both sides of the movement are DATED-ONLY and use the identical predicate,
+	// evaluated at two dates. ~80% of currently-declared rows carry no start
+	// date, so an undated-inclusive "now" measured against a dated-only
+	// "90 days ago" reported every industry as growing by roughly its undated
+	// population — a pure artefact, which `ORDER BY abs(...)` then promoted to
+	// the top of the movement list. An industry with no dated activity in the
+	// window must report no movement.
 	trendRows, err := s.db.Query(ctx, `
 		WITH industry_counts AS (
 		    SELECT btrim(industry) AS industry,
-		           count(DISTINCT stock_code) FILTER (WHERE currently_declared)::INTEGER AS current_count,
+		           count(DISTINCT stock_code) FILTER (
+		               WHERE declared_from_known
+		                 AND declared_from <= CURRENT_DATE
+		                 AND (declared_to IS NULL OR declared_to > CURRENT_DATE)
+		           )::INTEGER AS current_count,
 		           count(DISTINCT stock_code) FILTER (
 		               WHERE declared_from_known
 		                 AND declared_from <= CURRENT_DATE - 90
@@ -449,17 +474,42 @@ func (s *postgresStore) ListPoliticianSummaries(chamber, stateCode, partyAb stri
 	return out, total, nil
 }
 
+const registerMonthlySource = "mv_register_politician_monthly"
+
+// summaryTrendQuery windows the monthly snapshot on the SNAPSHOT'S OWN newest
+// month, never on wall-clock CURRENT_DATE. mv_register_politician_monthly's
+// month grid is frozen at REFRESH time, so a CURRENT_DATE window loses one
+// point for every month the refresh is late and returns nothing at all once the
+// snapshot is `points` months old — while the count tiles beside the sparkline,
+// which have no such window, keep rendering. Anchoring on max(month) yields a
+// complete, honestly-dated window from a stale snapshot instead of a silently
+// shrinking one. An empty snapshot makes max(month) NULL, the comparison NULL,
+// and the result an empty trend rather than an error.
+//
+// The source is a parameter so the staleness test can run this exact SQL
+// against a deliberately-aged copy of the snapshot.
+func summaryTrendQuery(source string) string {
+	return fmt.Sprintf(`
+		WITH snapshot AS (
+		    SELECT max(month) AS latest_month FROM %[1]s src
+		)
+		SELECT p.slug, to_char(m.month, 'YYYY-MM'), m.declared_count
+		FROM %[1]s m
+		JOIN politicians p ON p.id = m.politician_id
+		CROSS JOIN snapshot s
+		WHERE p.slug = ANY($1)
+		  AND m.month >= (s.latest_month - make_interval(months => $2::INTEGER - 1))::DATE
+		ORDER BY p.slug, m.month`, source)
+}
+
 func (s *postgresStore) loadSummaryTrends(ctx context.Context, summaries []*PoliticianSummaryRow, slugs []string, points int32) error {
 	if len(slugs) == 0 {
 		return nil
 	}
-	rows, err := s.db.Query(ctx, `
-		SELECT p.slug, to_char(m.month, 'YYYY-MM'), m.declared_count
-		FROM mv_register_politician_monthly m
-		JOIN politicians p ON p.id = m.politician_id
-		WHERE p.slug = ANY($1)
-		  AND m.month >= (date_trunc('month', CURRENT_DATE) - INTERVAL '11 months')::DATE
-		ORDER BY p.slug, m.month`, slugs)
+	if points <= 0 {
+		points = 12
+	}
+	rows, err := s.db.Query(ctx, summaryTrendQuery(registerMonthlySource), slugs, points)
 	if err != nil {
 		return err
 	}

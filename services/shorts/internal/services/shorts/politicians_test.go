@@ -294,6 +294,55 @@ func TestListPoliticianSummariesNormalisesFiltersBeforeStoreAndCache(t *testing.
 	}
 }
 
+// Politician.declared_listed_count / declared_property_count are ALL-TIME
+// counts everywhere else in the API, and the summary must carry them unchanged
+// rather than overwriting them with its currently-declared figures: the same
+// person reporting two different numbers depending on the rpc is a factual
+// defect, and /politicians/[slug] gates indexability on declaredListedCount > 0.
+// The currently-declared figures ride on the summary's own fields.
+func TestPoliticianSummaryKeepsAllTimeAndCurrentCountsApart(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	store := mocks.NewMockShortsStore(ctrl)
+	server := newTestServer(t, store)
+
+	store.EXPECT().ListPoliticianSummaries("", "", "", int32(0), "", "declared_items", int32(50), int32(0)).
+		Return([]*shortsstore.PoliticianSummaryRow{
+			{
+				Politician: &shortsstore.PoliticianRow{
+					Slug: "james-stevens", DisplayName: "James Stevens",
+					// All-time: nine companies declared across the record.
+					DeclaredListedCount: 9, DeclaredPropertyCount: 2,
+				},
+				// Currently declared: none of the nine, and three item-3 entries
+				// whose suburbs never resolved.
+				DistinctCompanyCount: 0,
+				PropertyCount:        3,
+				ItemCounts:           []*shortsstore.RegisterItemCountRow{{ItemNo: 3, CurrentCount: 3, AllTimeCount: 5}},
+			},
+		}, int32(1), nil).Times(1)
+
+	response, err := server.ListPoliticianSummaries(t.Context(),
+		connect.NewRequest(&shortsv1alpha1.ListPoliticianSummariesRequest{}))
+	if err != nil {
+		t.Fatalf("ListPoliticianSummaries: %v", err)
+	}
+	summary := response.Msg.GetSummaries()[0]
+	if got := summary.GetPolitician().GetDeclaredListedCount(); got != 9 {
+		t.Errorf("declared_listed_count = %d, want the all-time 9 every other rpc reports", got)
+	}
+	if got := summary.GetPolitician().GetDeclaredPropertyCount(); got != 2 {
+		t.Errorf("declared_property_count = %d, want the all-time 2", got)
+	}
+	if got := summary.GetDistinctCompanyCount(); got != 0 {
+		t.Errorf("summary distinct_company_count = %d, want the currently-declared 0", got)
+	}
+	// Properties are declared item-3 entries; an unresolved suburb does not
+	// erase a declaration.
+	if got := summary.GetPropertyCount(); got != 3 {
+		t.Errorf("summary property_count = %d, want the 3 currently-declared item-3 entries", got)
+	}
+}
+
 func TestListPoliticianSummariesEmptyPageStillCarriesSnapshotMetadata(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	store := mocks.NewMockShortsStore(ctrl)

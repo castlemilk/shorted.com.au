@@ -40,7 +40,18 @@ WITH holding_counts AS (
         count(*) FILTER (WHERE holder = 'dependent_children' AND currently_declared)::INTEGER AS dependent_children_current_count,
         count(*) FILTER (WHERE holder = 'unspecified' AND currently_declared)::INTEGER AS unspecified_current_count,
         count(DISTINCT stock_code) FILTER (WHERE currently_declared AND stock_code IS NOT NULL)::INTEGER AS distinct_company_count,
-        count(DISTINCT sal_code) FILTER (WHERE currently_declared AND sal_code IS NOT NULL)::INTEGER AS property_count,
+        -- Properties are DECLARED REAL-ESTATE ENTRIES (item 3), not resolved
+        -- suburbs. Only a minority of item-3 rows carry a sal_code, so counting
+        -- distinct sal_code reported the resolver's luck as the member's
+        -- holdings ("0 properties" for a member declaring 13). This is the same
+        -- shape mv_register_suburb_property (000096) counts with.
+        count(*) FILTER (WHERE item_no = 3 AND currently_declared)::INTEGER AS property_count,
+        -- All-time distinct counts, kept byte-for-byte identical to the
+        -- politicianSelect projection in postgres_politicians.go so that
+        -- Politician.declared_listed_count / declared_property_count carry the
+        -- same number no matter which rpc served the row.
+        count(DISTINCT stock_code) FILTER (WHERE stock_code IS NOT NULL)::INTEGER AS alltime_company_count,
+        count(DISTINCT sal_code) FILTER (WHERE sal_code IS NOT NULL)::INTEGER AS alltime_suburb_count,
         count(*) FILTER (WHERE currently_declared AND item_no IN (11, 12))::INTEGER AS gifts_travel_count,
         count(*) FILTER (WHERE currently_declared AND item_no = 6)::INTEGER AS liability_count,
         (
@@ -100,6 +111,8 @@ SELECT
     COALESCE(h.unspecified_current_count, 0)::INTEGER AS unspecified_current_count,
     COALESCE(h.distinct_company_count, 0)::INTEGER AS distinct_company_count,
     COALESCE(h.property_count, 0)::INTEGER AS property_count,
+    COALESCE(h.alltime_company_count, 0)::INTEGER AS alltime_company_count,
+    COALESCE(h.alltime_suburb_count, 0)::INTEGER AS alltime_suburb_count,
     COALESCE(h.gifts_travel_count, 0)::INTEGER AS gifts_travel_count,
     COALESCE(h.liability_count, 0)::INTEGER AS liability_count,
     COALESCE(h.changes_90d_count, 0)::INTEGER AS changes_90d_count,
@@ -111,6 +124,12 @@ LEFT JOIN holding_counts h ON h.politician_id = p.politician_id;
 CREATE UNIQUE INDEX idx_mv_register_politician_rollup
     ON mv_register_politician_rollup (politician_id);
 
+-- The month grid is anchored to CURRENT_DATE at REFRESH time, so the newest
+-- month in this view is the refresh date, not today. Readers must therefore
+-- window on `max(month)` FROM THIS VIEW rather than on wall-clock CURRENT_DATE:
+-- a query-time CURRENT_DATE window silently shortens (and eventually empties)
+-- the sparkline as the snapshot ages, while the tiles beside it keep showing
+-- data from the rollup.
 CREATE MATERIALIZED VIEW mv_register_politician_monthly AS
 WITH months AS (
     SELECT generate_series(
