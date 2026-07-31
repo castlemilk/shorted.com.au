@@ -565,3 +565,32 @@ func runRegisterPromoteAliasesMode(ctx context.Context, pool *pgxpool.Pool) erro
 	log.Printf("[register-promote-aliases] promoted %d human-confirmed proposals to curated aliases", n)
 	return nil
 }
+
+// runRegisterIndexMode pushes the PUBLISHED register to the Algolia search
+// index. It reads mv_register_public_holdings — the same view the public read
+// path uses — so it cannot index a row the site would not already serve.
+//
+// It runs AFTER register-resolve, never before: resolve rebuilds the MV, and an
+// index built from the pre-refresh view advertises stale matches.
+// runRegisterPhotosMode resolves portrait photographs from Wikidata/Commons.
+//
+// It is INDEPENDENT of the register pipeline and safe to run at any time: it
+// only ever writes the photo_* columns on politicians, and never touches a
+// declaration. Run it before register-index if you want portraits searchable.
+func runRegisterPhotosMode(ctx context.Context, pool *pgxpool.Pool) error {
+	n, err := runRegisterPhotos(ctx, pool, registerDryRun())
+	if err != nil {
+		return fmt.Errorf("[register-photos] %w", err)
+	}
+	log.Printf("[register-photos] %d portraits stored (dry_run=%v)", n, registerDryRun())
+	return nil
+}
+
+func runRegisterIndexMode(ctx context.Context, pool *pgxpool.Pool) error {
+	n, err := runRegisterIndex(ctx, pool, registerDryRun())
+	if err != nil {
+		return fmt.Errorf("[register-index] %w", err)
+	}
+	log.Printf("[register-index] %d politicians indexed (dry_run=%v)", n, registerDryRun())
+	return nil
+}

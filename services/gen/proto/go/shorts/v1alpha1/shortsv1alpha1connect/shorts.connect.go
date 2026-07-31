@@ -256,6 +256,9 @@ const (
 	// ShortedStocksServiceListShortInterestOverlapProcedure is the fully-qualified name of the
 	// ShortedStocksService's ListShortInterestOverlap RPC.
 	ShortedStocksServiceListShortInterestOverlapProcedure = "/shorts.v1alpha1.ShortedStocksService/ListShortInterestOverlap"
+	// ShortedStocksServiceGetPoliticianAnalyticsProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetPoliticianAnalytics RPC.
+	ShortedStocksServiceGetPoliticianAnalyticsProcedure = "/shorts.v1alpha1.ShortedStocksService/GetPoliticianAnalytics"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -335,6 +338,7 @@ var (
 	shortedStocksServiceListStatePoliticianHoldingsMethodDescriptor     = shortedStocksServiceServiceDescriptor.Methods().ByName("ListStatePoliticianHoldings")
 	shortedStocksServiceListRegisterChangesMethodDescriptor             = shortedStocksServiceServiceDescriptor.Methods().ByName("ListRegisterChanges")
 	shortedStocksServiceListShortInterestOverlapMethodDescriptor        = shortedStocksServiceServiceDescriptor.Methods().ByName("ListShortInterestOverlap")
+	shortedStocksServiceGetPoliticianAnalyticsMethodDescriptor          = shortedStocksServiceServiceDescriptor.Methods().ByName("GetPoliticianAnalytics")
 )
 
 // ShortedStocksServiceClient is a client for the shorts.v1alpha1.ShortedStocksService service.
@@ -489,6 +493,9 @@ type ShortedStocksServiceClient interface {
 	ListRegisterChanges(context.Context, *connect.Request[v1alpha1.ListRegisterChangesRequest]) (*connect.Response[v1alpha1.ListRegisterChangesResponse], error)
 	// Declared interests in companies carrying short interest.
 	ListShortInterestOverlap(context.Context, *connect.Request[v1alpha1.ListShortInterestOverlapRequest]) (*connect.Response[v1alpha1.ListShortInterestOverlapResponse], error)
+	// Aggregate shape of the register: party x industry, and members by state.
+	// Counts of people and declarations only — the registers record no value.
+	GetPoliticianAnalytics(context.Context, *connect.Request[v1alpha1.GetPoliticianAnalyticsRequest]) (*connect.Response[v1alpha1.GetPoliticianAnalyticsResponse], error)
 }
 
 // NewShortedStocksServiceClient constructs a client for the shorts.v1alpha1.ShortedStocksService
@@ -945,6 +952,12 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(shortedStocksServiceListShortInterestOverlapMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		getPoliticianAnalytics: connect.NewClient[v1alpha1.GetPoliticianAnalyticsRequest, v1alpha1.GetPoliticianAnalyticsResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetPoliticianAnalyticsProcedure,
+			connect.WithSchema(shortedStocksServiceGetPoliticianAnalyticsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -1024,6 +1037,7 @@ type shortedStocksServiceClient struct {
 	listStatePoliticianHoldings     *connect.Client[v1alpha1.ListStatePoliticianHoldingsRequest, v1alpha1.ListStatePoliticianHoldingsResponse]
 	listRegisterChanges             *connect.Client[v1alpha1.ListRegisterChangesRequest, v1alpha1.ListRegisterChangesResponse]
 	listShortInterestOverlap        *connect.Client[v1alpha1.ListShortInterestOverlapRequest, v1alpha1.ListShortInterestOverlapResponse]
+	getPoliticianAnalytics          *connect.Client[v1alpha1.GetPoliticianAnalyticsRequest, v1alpha1.GetPoliticianAnalyticsResponse]
 }
 
 // GetTopShorts calls shorts.v1alpha1.ShortedStocksService.GetTopShorts.
@@ -1400,6 +1414,11 @@ func (c *shortedStocksServiceClient) ListShortInterestOverlap(ctx context.Contex
 	return c.listShortInterestOverlap.CallUnary(ctx, req)
 }
 
+// GetPoliticianAnalytics calls shorts.v1alpha1.ShortedStocksService.GetPoliticianAnalytics.
+func (c *shortedStocksServiceClient) GetPoliticianAnalytics(ctx context.Context, req *connect.Request[v1alpha1.GetPoliticianAnalyticsRequest]) (*connect.Response[v1alpha1.GetPoliticianAnalyticsResponse], error) {
+	return c.getPoliticianAnalytics.CallUnary(ctx, req)
+}
+
 // ShortedStocksServiceHandler is an implementation of the shorts.v1alpha1.ShortedStocksService
 // service.
 type ShortedStocksServiceHandler interface {
@@ -1553,6 +1572,9 @@ type ShortedStocksServiceHandler interface {
 	ListRegisterChanges(context.Context, *connect.Request[v1alpha1.ListRegisterChangesRequest]) (*connect.Response[v1alpha1.ListRegisterChangesResponse], error)
 	// Declared interests in companies carrying short interest.
 	ListShortInterestOverlap(context.Context, *connect.Request[v1alpha1.ListShortInterestOverlapRequest]) (*connect.Response[v1alpha1.ListShortInterestOverlapResponse], error)
+	// Aggregate shape of the register: party x industry, and members by state.
+	// Counts of people and declarations only — the registers record no value.
+	GetPoliticianAnalytics(context.Context, *connect.Request[v1alpha1.GetPoliticianAnalyticsRequest]) (*connect.Response[v1alpha1.GetPoliticianAnalyticsResponse], error)
 }
 
 // NewShortedStocksServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -2005,6 +2027,12 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		connect.WithSchema(shortedStocksServiceListShortInterestOverlapMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	shortedStocksServiceGetPoliticianAnalyticsHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetPoliticianAnalyticsProcedure,
+		svc.GetPoliticianAnalytics,
+		connect.WithSchema(shortedStocksServiceGetPoliticianAnalyticsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/shorts.v1alpha1.ShortedStocksService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ShortedStocksServiceGetTopShortsProcedure:
@@ -2155,6 +2183,8 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceListRegisterChangesHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceListShortInterestOverlapProcedure:
 			shortedStocksServiceListShortInterestOverlapHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetPoliticianAnalyticsProcedure:
+			shortedStocksServiceGetPoliticianAnalyticsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -2458,4 +2488,8 @@ func (UnimplementedShortedStocksServiceHandler) ListRegisterChanges(context.Cont
 
 func (UnimplementedShortedStocksServiceHandler) ListShortInterestOverlap(context.Context, *connect.Request[v1alpha1.ListShortInterestOverlapRequest]) (*connect.Response[v1alpha1.ListShortInterestOverlapResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListShortInterestOverlap is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetPoliticianAnalytics(context.Context, *connect.Request[v1alpha1.GetPoliticianAnalyticsRequest]) (*connect.Response[v1alpha1.GetPoliticianAnalyticsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetPoliticianAnalytics is not implemented"))
 }

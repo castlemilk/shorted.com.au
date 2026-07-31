@@ -36,6 +36,9 @@
 //	-mode register-freshness        read-only sentinel; non-zero exit on an alarm
 //	-mode register-propose-aliases  LLM-proposed aliases for human review; publishes nothing
 //	-mode register-promote-aliases  copy human-CONFIRMED proposals into the curated alias table
+//	-mode register-index            push the PUBLISHED register to the Algolia politicians index
+//	                                (run AFTER register-resolve — it reads the MV that resolve rebuilds)
+//	-mode register-photos           resolve portrait photographs from Wikidata/Commons (never aph.gov.au — §3.1)
 //
 // Editorial gate: only exact-ABN or exact-normalized-name matches are ever
 // inserted into entity_asx_map (match_method='name_exact'); fuzzy matching is out
@@ -74,7 +77,7 @@ func Job() runner.Job {
 // message text, same non-zero exit, no panic-as-control-flow.
 func Run(parent context.Context, args []string) error {
 	fs := flag.NewFlagSet("influence", flag.ContinueOnError)
-	mode := fs.String("mode", "tax", "tax | match | sources | source-registry | source-probe | tax-records | emissions | austender | aec | lobbyists | trade | public-records | all | register-discover | register-fetch | register-load | register-resolve | register-freshness | register-propose-aliases | register-promote-aliases")
+	mode := fs.String("mode", "tax", "tax | match | sources | source-registry | source-probe | tax-records | emissions | austender | aec | lobbyists | trade | public-records | all | register-discover | register-fetch | register-load | register-resolve | register-freshness | register-propose-aliases | register-promote-aliases | register-index | register-photos")
 	registerLimit := fs.Int("register-limit", 0, "cap documents processed per register mode (0 = no cap); the fetch queue is ordered parliament DESC so a cap lands on a parliament boundary")
 	sourceLimit := fs.Int("source-limit", defaultAusTenderResourceCap, "maximum downloadable resources per source for archive-backed collectors")
 	if err := fs.Parse(args); err != nil {
@@ -181,9 +184,13 @@ func Run(parent context.Context, args []string) error {
 		add(func(ctx context.Context) error { return runRegisterProposeAliasesMode(ctx, pool, *registerLimit) })
 	case "register-promote-aliases":
 		add(func(ctx context.Context) error { return runRegisterPromoteAliasesMode(ctx, pool) })
+	case "register-index":
+		add(func(ctx context.Context) error { return runRegisterIndexMode(ctx, pool) })
+	case "register-photos":
+		add(func(ctx context.Context) error { return runRegisterPhotosMode(ctx, pool) })
 
 	default:
-		return fmt.Errorf("unknown -mode %q (want tax|match|sources|source-registry|source-probe|tax-records|emissions|austender|aec|lobbyists|trade|public-records|all|register-discover|register-fetch|register-load|register-resolve|register-freshness|register-propose-aliases|register-promote-aliases)", *mode)
+		return fmt.Errorf("unknown -mode %q (want tax|match|sources|source-registry|source-probe|tax-records|emissions|austender|aec|lobbyists|trade|public-records|all|register-discover|register-fetch|register-load|register-resolve|register-freshness|register-propose-aliases|register-promote-aliases|register-index|register-photos)", *mode)
 	}
 
 	for _, step := range steps {

@@ -37,6 +37,13 @@ type PoliticianRow struct {
 	DeclaredListedCount   int32
 	DeclaredPropertyCount int32
 
+	// Portrait + the attribution its licence requires. Empty together or
+	// populated together; scanPolitician enforces that.
+	PhotoURL       string
+	PhotoLicence   string
+	PhotoAuthor    string
+	PhotoSourceURL string
+
 	// Extraction coverage of the CORPUS, populated by GetPolitician only.
 	//
 	// Corpus-level rather than per-person on purpose: linking an UNextracted
@@ -139,7 +146,15 @@ const politicianSelect = `
 	       COALESCE(t.party, e.federal_party, ''), COALESCE(t.party_ab, e.federal_party_ab, ''),
 	       COALESCE(p.first_parliament, 0), COALESCE(p.last_parliament, 0),
 	       COALESCE(p.aph_mpid, ''),
-	       COALESCE(c.listed_count, 0), COALESCE(c.property_count, 0)
+	       COALESCE(c.listed_count, 0), COALESCE(c.property_count, 0),
+	       -- The portrait and its attribution are selected TOGETHER, always. A
+	       -- read path that returned the URL without the licence would let a
+	       -- consumer publish a CC BY-SA image with no credit, which the licence
+	       -- does not permit. The DB CHECK already refuses to store that state;
+	       -- keeping the columns in one projection stops a partial SELECT
+	       -- recreating it downstream.
+	       COALESCE(p.photo_url, ''), COALESCE(p.photo_licence, ''),
+	       COALESCE(p.photo_author, ''), COALESCE(p.photo_source_url, '')
 	FROM politicians p
 	LEFT JOIN LATERAL (
 	    SELECT chamber, division, state_code, party, party_ab
@@ -169,8 +184,15 @@ func scanPolitician(scan func(dest ...any) error) (*PoliticianRow, error) {
 	if err := scan(&r.Slug, &r.DisplayName, &r.Surname, &r.GivenNames, &r.Honorific,
 		&r.Chamber, &r.Division, &r.StateCode, &r.Party, &r.PartyAb,
 		&r.FirstParliament, &r.LastParliament, &r.APHMPID,
-		&r.DeclaredListedCount, &r.DeclaredPropertyCount); err != nil {
+		&r.DeclaredListedCount, &r.DeclaredPropertyCount,
+		&r.PhotoURL, &r.PhotoLicence, &r.PhotoAuthor, &r.PhotoSourceURL); err != nil {
 		return nil, err
+	}
+	// Defence in depth against a future SELECT that forgets the attribution
+	// columns: without a licence and a source we do not have permission to
+	// publish the image, so it is dropped here rather than served bare.
+	if r.PhotoLicence == "" || r.PhotoSourceURL == "" {
+		r.PhotoURL = ""
 	}
 	return &r, nil
 }

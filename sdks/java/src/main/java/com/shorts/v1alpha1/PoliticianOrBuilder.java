@@ -209,4 +209,110 @@ public interface PoliticianOrBuilder extends
    * @return The declaredPropertyCount.
    */
   int getDeclaredPropertyCount();
+
+  /**
+   * <pre>
+   * Portrait photograph, from Wikimedia Commons via Wikidata — NEVER from
+   * aph.gov.au, whose images are Commonwealth artefacts that §3.1's posture
+   * forbids mirroring and which may carry a separate photographer copyright.
+   *
+   * THE ATTRIBUTION FIELDS TRAVEL WITH THE URL AND ARE NOT OPTIONAL. CC BY and
+   * CC BY-SA permit publication only WITH the credit and a link to the terms, so
+   * a consumer that renders photo_url while dropping photo_licence /
+   * photo_source_url is breaching the licence, not just being untidy. A database
+   * CHECK makes the unattributed state unstorable; carrying the fields together
+   * here makes it unrenderable by accident too.
+   *
+   * Empty for ~26% of members: no Wikidata portrait, or the surname+division
+   * match was ambiguous and was withheld rather than guessed. Consumers render a
+   * monogram, never a placeholder face and never another person's photograph.
+   * </pre>
+   *
+   * <code>string photo_url = 16 [json_name = "photoUrl"];</code>
+   * @return The photoUrl.
+   */
+  java.lang.String getPhotoUrl();
+  /**
+   * <pre>
+   * Portrait photograph, from Wikimedia Commons via Wikidata — NEVER from
+   * aph.gov.au, whose images are Commonwealth artefacts that §3.1's posture
+   * forbids mirroring and which may carry a separate photographer copyright.
+   *
+   * THE ATTRIBUTION FIELDS TRAVEL WITH THE URL AND ARE NOT OPTIONAL. CC BY and
+   * CC BY-SA permit publication only WITH the credit and a link to the terms, so
+   * a consumer that renders photo_url while dropping photo_licence /
+   * photo_source_url is breaching the licence, not just being untidy. A database
+   * CHECK makes the unattributed state unstorable; carrying the fields together
+   * here makes it unrenderable by accident too.
+   *
+   * Empty for ~26% of members: no Wikidata portrait, or the surname+division
+   * match was ambiguous and was withheld rather than guessed. Consumers render a
+   * monogram, never a placeholder face and never another person's photograph.
+   * </pre>
+   *
+   * <code>string photo_url = 16 [json_name = "photoUrl"];</code>
+   * @return The bytes for photoUrl.
+   */
+  com.google.protobuf.ByteString
+      getPhotoUrlBytes();
+
+  /**
+   * <pre>
+   * as Commons states it: "CC BY-SA 4.0", "Public domain"
+   * </pre>
+   *
+   * <code>string photo_licence = 17 [json_name = "photoLicence"];</code>
+   * @return The photoLicence.
+   */
+  java.lang.String getPhotoLicence();
+  /**
+   * <pre>
+   * as Commons states it: "CC BY-SA 4.0", "Public domain"
+   * </pre>
+   *
+   * <code>string photo_licence = 17 [json_name = "photoLicence"];</code>
+   * @return The bytes for photoLicence.
+   */
+  com.google.protobuf.ByteString
+      getPhotoLicenceBytes();
+
+  /**
+   * <pre>
+   * the credit line the licence requires
+   * </pre>
+   *
+   * <code>string photo_author = 18 [json_name = "photoAuthor"];</code>
+   * @return The photoAuthor.
+   */
+  java.lang.String getPhotoAuthor();
+  /**
+   * <pre>
+   * the credit line the licence requires
+   * </pre>
+   *
+   * <code>string photo_author = 18 [json_name = "photoAuthor"];</code>
+   * @return The bytes for photoAuthor.
+   */
+  com.google.protobuf.ByteString
+      getPhotoAuthorBytes();
+
+  /**
+   * <pre>
+   * the Commons file page carrying the full terms
+   * </pre>
+   *
+   * <code>string photo_source_url = 19 [json_name = "photoSourceUrl"];</code>
+   * @return The photoSourceUrl.
+   */
+  java.lang.String getPhotoSourceUrl();
+  /**
+   * <pre>
+   * the Commons file page carrying the full terms
+   * </pre>
+   *
+   * <code>string photo_source_url = 19 [json_name = "photoSourceUrl"];</code>
+   * @return The bytes for photoSourceUrl.
+   */
+  com.google.protobuf.ByteString
+      getPhotoSourceUrlBytes();
 }

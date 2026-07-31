@@ -23,6 +23,7 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/shorts/broadcast"
 
 	"github.com/castlemilk/shorted.com.au/services/gen/proto/go/register/v1/registerv1connect"
+	registerreviewv1connect "github.com/castlemilk/shorted.com.au/services/gen/proto/go/registerreview/v1/registerreviewv1connect"
 	shortsv1alpha1connect "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1/shortsv1alpha1connect"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	"github.com/rakyll/statik/fs"
@@ -32,6 +33,12 @@ import (
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 )
+
+// politiciansAlgoliaIndex is the register-of-interests search index. It is a
+// constant rather than config on purpose: it is the ONLY index name besides the
+// configured default that /api/algolia/search will serve, and keeping the
+// allowlist in code means adding one is a reviewed change, not an env edit.
+const politiciansAlgoliaIndex = "politicians"
 
 // withCORS adds CORS support to a Connect HTTP handler.
 func withCORS(h http.Handler) http.Handler {
@@ -180,6 +187,10 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	mount(shortsv1alpha1connect.NewEconomyServiceHandler(s, interceptors))
 	mount(shortsv1alpha1connect.NewIndustryIntelligenceServiceHandler(s, interceptors))
 	mount(shortsv1alpha1connect.NewPoliticiansServiceHandler(s, interceptors))
+	// Operator console. Its own package, not shorts.v1alpha1: every rpc there
+	// must also exist on the legacy public ShortedStocksService, and admin write
+	// methods do not belong on the surface external API consumers hold.
+	mount(registerreviewv1connect.NewRegisterReviewServiceHandler(s, interceptors))
 
 	// Add health check endpoint
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -347,10 +358,12 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		}
 
 		var query string
+		var requestedIndex string
 		hitsPerPage := 20
 
 		if r.Method == http.MethodGet {
 			query = r.URL.Query().Get("q")
+			requestedIndex = r.URL.Query().Get("index")
 			if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
 				if _, err := fmt.Sscanf(limitStr, "%d", &hitsPerPage); err != nil {
 					logger.Debugf("Error parsing limit parameter '%s': %v", limitStr, err)
@@ -360,6 +373,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 			// Parse POST body
 			var reqBody struct {
 				Query        string        `json:"query"`
+				Index        string        `json:"index"`
 				HitsPerPage  int           `json:"hitsPerPage"`
 				Filters      string        `json:"filters"`
 				FacetFilters []interface{} `json:"facetFilters"`
@@ -370,6 +384,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 				return
 			}
 			query = reqBody.Query
+			requestedIndex = reqBody.Index
 			if reqBody.HitsPerPage > 0 {
 				hitsPerPage = reqBody.HitsPerPage
 			}
@@ -385,20 +400,39 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 			}
 		}
 
-		if query == "" {
-			http.Error(w, "Missing query parameter", http.StatusBadRequest)
-			return
-		}
-
+		// AN EMPTY QUERY IS VALID and must not 400.
+		//
+		// Algolia treats "" as "match everything", which is exactly what a
+		// facet-driven browse UI opens with: the /politicians explorer shows the
+		// full roll with facet counts before anyone types. Rejecting it forced
+		// every such caller to send a junk query, which changes the ranking and
+		// the facet counts it gets back.
+		//
 		// Cap hitsPerPage
 		if hitsPerPage > 100 {
 			hitsPerPage = 100
 		}
 
-		// Build Algolia request
+		// Build Algolia request.
+		//
+		// THE INDEX IS ALLOWLISTED, NEVER TAKEN FROM THE CLIENT VERBATIM. This
+		// handler holds the Algolia search key and proxies with it, so a
+		// caller-supplied index name would turn it into an open read proxy for
+		// every index on the application — including any that is not meant to be
+		// public. The client picks from a fixed set of names; anything else
+		// falls back to the configured default rather than erroring, so a
+		// stale client degrades to stocks instead of breaking.
 		indexName := s.config.AlgoliaIndex
 		if indexName == "" {
 			indexName = "stocks"
+		}
+		switch requestedIndex {
+		case "politicians":
+			indexName = politiciansAlgoliaIndex
+		case "stocks", "":
+			// default, already set
+		default:
+			logger.Warnf("rejected unknown algolia index %q; serving %q", requestedIndex, indexName)
 		}
 
 		algoliaURL := fmt.Sprintf("https://%s-dsn.algolia.net/1/indexes/%s/query",

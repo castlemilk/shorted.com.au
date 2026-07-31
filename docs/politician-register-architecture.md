@@ -867,7 +867,7 @@ gate, not a runtime flag"). Merging this branch publishes the feature.
 
 | Gate | Threshold | Measured (2026-07-27, post-§8.17) | |
 |---|---|---|---|
-| item-1 security resolution | ≥ 35% of `entity_kind='listed'` candidates | **49.89%** (1,181 / 2,367) — but see §8.19.1: the denominator is a DEFAULT bucket, so this measures explanation rather than resolution. Report the number with its band and method, never "the gate is met" | **contested** |
+| item-1 security resolution | ≥ 35% of `entity_kind='listed'` candidates | **51.18%** (1,174 / 2,294, measured 2026-07-31) — but see §8.19.1: the denominator is a DEFAULT bucket, so this measures explanation rather than resolution. Report the number with its band and method, never "the gate is met". §8.21 gives the backlog a screen, which is the only honest way it moves | **contested** |
 | identity resolution | 0 unresolved statements | **0** of 2,757 | pass |
 | 46P/47P centred-label layout | quarantined, never published | 102 docs at `partial` | pass |
 | item-3 multi-property merge | purpose suppressed on read | suppressed (29% of rows merge) | pass |
@@ -926,35 +926,66 @@ cannot be added without failing the test and re-triggering this review.
    (§8.17), amendment notices, and no-signal item-1 cells (§8.19). Withholding a
    real declaration is a coverage decision a reviewer should agree with.
 
+**Added 2026-07-31, and therefore also unreviewed:**
+
+6. **An operator console** (§8.21) at `/admin/register/securities`. It is not a
+   published surface, but it renders declared text beside named
+   parliamentarians, so `editorial-copy.test.ts` now covers it: the pinned count
+   moved **9 → 11 files**, `RENDERING_SURFACES` stays **7**. It is exempt from
+   rules 1 and 8 (cite a source / offer a dispute path) because those are
+   promises to a READER — the reviewer *is* the dispute path — but every
+   candidate card links the APH PDF per declaration anyway. It passes rules 2, 3
+   and 5 under test: no warning or currency glyph, no banned verb, no `$`.
+7. **Withholding became reversible.** A reviewer can now classify a candidate
+   `not_a_security` / `unlisted_fund` / `foreign`, which REMOVES rows from
+   publication. That is a coverage decision a reviewer should agree with, in the
+   same way §6.2's item 5 flagged the withholding quarantine.
+
 #### Sign-off
 
 The gate in §6 is a MERGE gate enforced by a human. It was **not** recorded before
 PR #364 merged; this block exists so it can be. Rules 3, 5, 7 and 8 are
-test-enforced and need no signature. **Rule 2 and the five items above need a
+test-enforced and need no signature. **Rule 2 and the seven items above need a
 person.**
+
+This block is deliberately still blank. An assistant re-running the tests is not
+a sign-off: rule 2 is "no test can decide this" by its own definition, and the
+whole point of a human merge gate is that the human is not the author.
 
 ```
 Reviewed by:
 Date:
 Commit reviewed:
 Rule 2 (juxtaposition/iconography):   pass / fail / notes
-Items 1-5 above:                      pass / fail / notes
+Items 1-7 above:                      pass / fail / notes
 Outcome:
 ```
 
 ### 6.3 Open items, stated rather than hidden
 
-1. **Row-level takedown does not exist.** Rule 8's remedy is implementable only
-   at whole-feature granularity (`POLITICIAN_INTERESTS_ENABLED=false`). A
-   `register_declared_items.suppressed_at` column plus a filter in
-   `mv_register_public_holdings` would fix it; until then a single contested
-   declaration means taking the whole surface down.
-2. **The sitemap and nav are not gated by the kill switch.** With the switch off
-   the rpcs return `{}` but the routes still render, the nav entry still shows,
-   and `sitemap.ts` still advertises three URLs — so a runtime dark period would
-   get empty pages indexed.
+1. ~~**Row-level takedown does not exist.**~~ **CLOSED 2026-07-31.** Migration
+   `000101` adds `register_declared_items.suppressed_at` (+ `suppressed_by`,
+   `suppression_note`) and `selectHoldingEventsQuery` filters it in **all three**
+   fold arms, so a suppressed row leaves `mv_register_public_holdings` and every
+   read path below it. The row is retained with its provenance — suppression is
+   never a delete, because deleting removes a real declaration from a named
+   person's record and breaks the nil-rate tripwire. `aph_suppression_test.go`
+   asserts the arm count, since a filter that reaches two arms of three is worse
+   than none: the operator is told the row is withdrawn and it is still
+   published.
+   **Still missing:** there is no UI for it. A takedown today is a hand-written
+   `UPDATE` followed by `register-load` + `register-resolve`.
+2. ~~**The sitemap and nav are not gated by the kill switch.**~~ **CLOSED
+   2026-07-31.** `sitemap.ts` now emits the three hub URLs only when the register
+   actually returns politicians, and the nav entry is filtered on
+   `NEXT_PUBLIC_POLITICIAN_INTERESTS_ENABLED` (default ON, matching
+   `registerEnabled()` exactly). The sitemap gate is deliberately on the DATA,
+   not a second copy of the env var: one switch with two places to flip is a
+   switch that gets half-flipped. An API **outage** keeps the hubs — a failed
+   call is not evidence of a takedown, and the sitemap must not shrink because
+   the API blipped.
 3. **The review outcome must be recorded** (who / when / commit). The gate says
-   "signed off"; nothing here records a signature.
+   "signed off"; nothing here records a signature. **Still open — see §6.2.**
 ---
 
 ## 7. The vision tier runs on `agy`, not the Gemini API
@@ -1962,6 +1993,240 @@ substantial sources of income", is `📥` and not a money bag: the category is
 not "wrapped present Gift". An unknown item renders NO tag rather than a
 placeholder — inventing a category would be a claim about what the member
 declared.
+
+### 8.21 The backlog gets a screen — and the lever was broken all along
+
+§9 named **curated aliases via the review console** as one of the two legitimate
+ways to raise resolution. The console did not exist, so the lever had never been
+pulled. What was found on picking it up:
+
+**`promoteAliasProposals` could never have worked.** It writes
+`INSERT INTO register_security_aliases (… , notes)`; the column is **`note`**.
+The one path from a human-confirmed proposal to a published link was broken from
+the day it was written, had **zero test coverage**, and was green the whole time —
+because nothing had ever been confirmed. There was no UI to confirm with, so the
+statement had never executed. Verified against the real schema, then fixed.
+`register_review_console.test.mjs` now asserts every column that statement names
+against the migration's own `CREATE TABLE`, which is the check that generalises.
+
+**Both halves of coverage are one table.** `aph_resolve.go` reads
+`register_security_aliases` and nothing else, so a row there is the single
+control surface for both directions the gate can move:
+
+| Decision | `resolution` | Effect on §6.1 |
+|---|---|---|
+| resolve to a code | `resolved` | numerator up — a real new published link |
+| unlisted/wholesale fund | `unlisted_fund` | denominator down — `managed_fund` |
+| names nothing held | `not_a_security` | denominator down — `not_an_entity` |
+| listed, not on the ASX | `foreign` **(new)** | denominator down — `foreign` |
+
+`foreign` is new to the CHECK. `entityKindOf`'s own comment said the constant
+"waits for a curated decision rather than a suffix guess" — but there was no way
+to record that decision, so `alias_kind='foreign'` fell through to
+`not_a_security` and labelled a real foreign listing as naming nothing at all.
+Measured on prod at the time: `foreign` = **0 rows**. The kind is now PINNED by
+the alias rather than derived from the status, because `foreign` and "names
+nothing" share the status `not_a_security` — deriving over the top of it discards
+the human decision.
+
+**Measured queue, 2026-07-31 (local):** 2,070 undecided names across 2,638 rows.
+The slice that can move the gate is **814 names / 1,120 rows**; 208 of those
+names occur more than once and account for 514 rows. The head is real but thin —
+`REFER ATTACHED` ×12, `SHARES` ×10 across 4 members, `WOODSIDE` ×9 across 4,
+`SYDNEY AIRPORT` ×6 across **5**.
+
+**What the screen does that a list could not.** `register_resolution_backlog`
+(000096) is name + example + count: enough to ORDER the work, not enough to
+DECIDE it. `register_review_security_queue` (000101) adds the blast radius in
+NAMED PEOPLE, the parliaments and items, whether the candidate is inside the gate
+denominator at all, and the real `declared_text` strings with a per-row APH link.
+A reviewer deciding `SYDNEY AIRPORT` is deciding for five named members at once,
+and the screen says so before the keystroke.
+
+**Guards, all verified against the running service:** an invented code is
+refused (`ZZZZ` → `invalid_argument`); a `tickerStopwords` code is refused
+without a second confirmation (`ETF` → the trap that once published ten members
+as holding a fund none had declared); `curated_by` is read from the request
+header, never the body; and the decision vocabulary is a **closed proto enum with
+no fuzzy member**, so the UI cannot offer and the server cannot receive the one
+`match_method` the public gate forbids.
+
+**The console publishes nothing by itself.** A decision writes one alias row;
+the next `-mode register-resolve` applies it. Undo deletes the row and returns
+every candidate to `unmatched`, the honest pre-decision state.
+
+Not built, and stated rather than hidden: §7.4 rule 4's **second admin** for
+high-fanout aliases (`occurrences >= 20`) needs a `needs_second_review` column
+and a `confirmed_by <> corrected_by` CHECK. The console instead forces a
+blast-radius confirmation dialog above a threshold — one admin can still make the
+call. Screens (a) and (c), the corrections ledger, the page-image server and the
+publication-gate flip (steps 2, 4, 7, 9, 11 of the console plan) are untouched.
+
+### 8.22 The explorer: search, and the aggregate shape of the register
+
+`/politicians` was a hub with a 60-card grid. It is now search-first, over the
+SAME published data, with two analytic views beside it.
+
+**Search runs on the existing Algolia integration**, not a new one. A new
+`politicians` index is built by `shorted influence -mode register-index` from
+`mv_register_public_holdings` — the same view the public read path uses, so the
+index CANNOT contain a row the site would not already serve. Nothing in the
+indexer touches `register_declared_items` or `register_item_securities`; a search
+index is a second read path, and §8.16's lesson is that a second path trusting
+its own filter is how a withheld row gets published.
+
+Two changes to the shared Go proxy (`/api/algolia/search`) made it usable:
+
+- **The index is now allowlisted rather than hardcoded.** The handler holds the
+  Algolia key, so a caller-supplied index name would turn it into an open read
+  proxy for every index on the application. `stocks` and `politicians` are the
+  only accepted values; anything else logs and falls back, so a stale client
+  degrades instead of breaking. Verified: `company-metadata-private` served
+  stocks, `politicians` was forwarded.
+- **An empty query no longer 400s.** Algolia treats `""` as "match everything",
+  which is exactly what a facet-driven browse opens with. Rejecting it forced
+  callers to send a junk query, which changes both the ranking and the facet
+  counts they get back.
+
+**`GetPoliticianAnalytics`** (dual-added to the legacy service, per the parity
+test) returns the party x industry matrix, the industry and party axes, and the
+state split. Every figure is a COUNT OF PEOPLE or of COMPANIES:
+
+- **People, not rows.** A member declaring four banks is one person. Counting
+  rows would make a diversified portfolio look like political concentration.
+- **`companies` rides beside `people` in every cell**, because "46 members
+  declare Telstra — one company" and "45 members declare 52 different Materials
+  stocks" are completely different facts that one intensity value cannot
+  separate, and the first is the one a reader will over-read.
+- **A blank party stays blank.** Party is not on the APH listing; it arrives via
+  an electorate join and is genuinely absent for some members (locally the
+  largest single group). It renders as "Not recorded" everywhere — never
+  "Independent", which would attribute a party to named individuals.
+- **The industry cap reports what it dropped.** Showing 14 of 25 industries
+  without saying so reads as the whole picture.
+
+The heatmap uses ONE SEQUENTIAL HUE — the house amber, sampled from the same
+`interpolateOranges(0.18 + 0.74t)` expression `amberScale()` uses, hardcoded as
+six steps so the route does not pull d3 (~20kB) for a bucketed chart. Not a
+red-to-green diverging ramp: diverging implies a good end and a bad end, and rule
+2 forbids that framing beside a named person. A zero cell gets NO ink rather than
+the palest amber, so absence cannot read as faint presence. Every populated cell
+prints its value and a table view exists — the pale steps fall below 3:1 against
+the surface, and that obligates relief rather than being a warning to dismiss.
+
+**A prerender failure this cost a build to find, and now a test prevents.** The
+explorer first imported `PartyChip` from `compliance.tsx`. compliance has no
+`"use client"` and imports `RegisterHolder` from the generated protobuf module,
+so a CLIENT component importing it dragged `@bufbuild/protobuf` across the
+boundary and the whole static build of `/politicians` died with
+
+```
+Error: Element type is invalid: … but got: undefined.  digest: '2911474217'
+```
+
+— minified, with no file name. **Every jest test passed while the build failed**,
+because jest resolves the module graph without the RSC client boundary. The fix
+is `@/lib/politics/party-palette`, which was split out for exactly this reason;
+`client-boundary.test.ts` now asserts it structurally, and exempts only the one
+component that is genuinely `ssr:false` (checking the loader really is).
+
+`/politicians` stays **static ISR** — 12 kB / 137 kB first load. Query state
+lives in the URL and is read client-side under Suspense; reading `searchParams`
+in the server page would silently flip the route to dynamic. The complete member
+roll is still server-rendered inside a `<details>`, so every profile URL stays in
+the HTML for a crawler that never runs the search.
+
+**Ops — one command, credentials from `services/.env`:**
+
+```
+make register-index-env    # which Algolia creds are visible (values masked)
+make register-index-dry    # reads the DB, writes NOTHING
+make register-index        # builds + pushes
+make register-index ALGOLIA_POLITICIANS_INDEX=politicians_dev   # scratch namespace
+```
+
+`services/.env` is gitignored; the keys are documented in `services/.env.example`.
+**The write key is not the search key** — the search key is served to browsers and
+cannot create an index, so the target refuses up front with that message rather
+than letting Algolia return a permissions error halfway through.
+
+**The `DATABASE_URL` re-export in that target is load-bearing.** `services/.env`
+holds the PRODUCTION Supabase URL — it is the file operators use for prod DDL —
+so sourcing it for the credentials would silently point a "local" index build at
+prod. The target re-exports the Makefile default afterwards, exactly as
+`run.shorts` does, and prints the (password-masked) database it is about to read
+so the target is visible before anything is written. Pass `DATABASE_URL=…`
+explicitly to target prod deliberately.
+
+Run it AFTER `register-resolve`: it reads `mv_register_public_holdings`, which
+resolve rebuilds, so an index built first advertises stale matches.
+
+Verified end to end against a throwaway `politicians_dev_verify` index (since
+deleted): 324 records in 2.8s, facets populated (`party_ab` ALP 94 / LP 19 /
+LNP 16, `state_code` NSW 96 / VIC 77, `has_interests` 165 true / 159 false), and
+a search for "Woodside" returned the 7 members who declare it, ordered by the
+custom ranking.
+
+### 8.23 Portraits — and why they do not come from aph.gov.au
+
+Every sitting member has a portrait on aph.gov.au. We do not use it, and the
+reason is §3.1's own posture: extracted **facts** are publishable with
+attribution, the source's artefacts must not be mirrored, and the GCS bucket is
+kept private precisely so "we do not maintain a mirror" is true in fact. A
+portrait is an artefact, not an extracted fact — and photographs are the likeliest
+part of that corpus to carry a photographer/AUSPIC copyright on top of the
+Commonwealth's. Serving one from our infrastructure is the exact thing that
+posture exists to prevent.
+
+(It was not even available: **`aph_mpid` is 0 of 324 populated**, despite §2.2
+calling it a stable person id. The load never writes it, so the natural key to
+those images does not exist in our data.)
+
+**Source: Wikidata P18 → Wikimedia Commons.** Commons requires a free licence by
+policy — it does not host fair-use files — which is why P18 is materially safer
+than an English Wikipedia page image, where a local fair-use upload is possible.
+Measured: a 20-person sample of enwiki page images returned an *unknown* licence
+for 3 of them; every P18 target resolves to Commons.
+
+**The match is a composite key, never a text search.** A name search over
+Wikipedia matched "Anthony Smith" to **Dean Smith** — a different sitting member.
+Publishing someone else's face beside a named person's declared interests is the
+worst version of the wrong-fact class this subsystem keeps paying for. So the key
+is **surname + electoral division**, and any ambiguity WITHHOLDS.
+
+Measured on this corpus: **241 of 324 (74%)** resolved, **1 withheld** as
+ambiguous, 13 distinct licences (CC BY 4.0 ×69, CC BY-SA 4.0 ×45, CC BY 2.0 ×30,
+CC BY 3.0 ×19, public domain ×18, CC0 ×12, …).
+
+**Attribution is enforced in four places, because it is a licence obligation
+rather than a caption.** CC BY and CC BY-SA permit publication only WITH the
+credit and a link to the terms, so an unattributed portrait is a breach:
+
+1. `politicians_photo_needs_attribution` CHECK — the database cannot hold a photo
+   without a licence and a source URL
+2. `scanPolitician` blanks the URL if either is missing, so a future partial
+   SELECT cannot recreate the state
+3. the proto carries the four fields together, and the Algolia record does too
+4. `PoliticianAvatar` refuses to render an image it cannot attribute, and
+   `PortraitCredit` renders the credit beside the face
+
+The credit also states **"Not a Parliament of Australia image"** — on a
+register-of-interests page a reader would otherwise assume an official portrait.
+
+**The fallback is a designed state, not a broken one.** ~26% have no freely
+licensed portrait, so they get a party-tinted **monogram** carrying their
+initials — never a generic silhouette (which reads as "person unknown" about
+someone we have named) and never another person's photograph.
+
+**No `next/image`.** Its `remotePatterns` allowlist crashes the whole route for
+an unlisted host, and these URLs come from a third party whose shards we do not
+control. A plain `<img>` with explicit dimensions cannot take a page down, and
+Commons already thumbnails to 400px.
+
+**Ops:** `make register-photos` (or `register-photos-dry`). No credentials —
+Wikidata and Commons are open; the collector sends the contactable User-Agent
+they ask for. Independent of the register pipeline and safe to run any time: it
+writes only the `photo_*` columns and never touches a declaration.
 
 ---
 

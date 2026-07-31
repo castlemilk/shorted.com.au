@@ -318,6 +318,10 @@ func (c *MemoryCache) ListShortInterestOverlapKey(minShortPercent float64, limit
 	return c.generateKey("register_short_overlap", minShortPercent, limit)
 }
 
+func (c *MemoryCache) GetPoliticianAnalyticsKey(topIndustries int32, currentOnly bool) string {
+	return c.generateKey("register_analytics", topIndustries, currentOnly)
+}
+
 func (c *MemoryCache) ListEconomicSeriesKey(topic, metric, regionType, regionCode, product string, limit int32) string {
 	return c.generateKey("economic_series_list", topic, metric, regionType, regionCode, product, limit)
 }

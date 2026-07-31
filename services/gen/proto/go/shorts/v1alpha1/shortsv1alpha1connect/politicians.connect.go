@@ -60,6 +60,9 @@ const (
 	// PoliticiansServiceListShortInterestOverlapProcedure is the fully-qualified name of the
 	// PoliticiansService's ListShortInterestOverlap RPC.
 	PoliticiansServiceListShortInterestOverlapProcedure = "/shorts.v1alpha1.PoliticiansService/ListShortInterestOverlap"
+	// PoliticiansServiceGetPoliticianAnalyticsProcedure is the fully-qualified name of the
+	// PoliticiansService's GetPoliticianAnalytics RPC.
+	PoliticiansServiceGetPoliticianAnalyticsProcedure = "/shorts.v1alpha1.PoliticiansService/GetPoliticianAnalytics"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -74,6 +77,7 @@ var (
 	politiciansServiceListStatePoliticianHoldingsMethodDescriptor = politiciansServiceServiceDescriptor.Methods().ByName("ListStatePoliticianHoldings")
 	politiciansServiceListRegisterChangesMethodDescriptor         = politiciansServiceServiceDescriptor.Methods().ByName("ListRegisterChanges")
 	politiciansServiceListShortInterestOverlapMethodDescriptor    = politiciansServiceServiceDescriptor.Methods().ByName("ListShortInterestOverlap")
+	politiciansServiceGetPoliticianAnalyticsMethodDescriptor      = politiciansServiceServiceDescriptor.Methods().ByName("GetPoliticianAnalytics")
 )
 
 // PoliticiansServiceClient is a client for the shorts.v1alpha1.PoliticiansService service.
@@ -103,6 +107,14 @@ type PoliticiansServiceClient interface {
 	// and cannot be a property of anyone's holding — the registers record no
 	// quantities. Consumers must label it as the company's figure.
 	ListShortInterestOverlap(context.Context, *connect.Request[v1alpha1.ListShortInterestOverlapRequest]) (*connect.Response[v1alpha1.ListShortInterestOverlapResponse], error)
+	// Aggregate shape of the register: which parties declare interests in which
+	// industries, and where members are from.
+	//
+	// COUNTS OF PEOPLE AND DECLARATIONS ONLY. There is no weight, size, exposure
+	// or value here and none may be added — the registers do not record any, so
+	// any such figure would be invented. A cell says "N members of this party
+	// declared an interest in a company in this industry", and nothing more.
+	GetPoliticianAnalytics(context.Context, *connect.Request[v1alpha1.GetPoliticianAnalyticsRequest]) (*connect.Response[v1alpha1.GetPoliticianAnalyticsResponse], error)
 }
 
 // NewPoliticiansServiceClient constructs a client for the shorts.v1alpha1.PoliticiansService
@@ -169,6 +181,12 @@ func NewPoliticiansServiceClient(httpClient connect.HTTPClient, baseURL string, 
 			connect.WithSchema(politiciansServiceListShortInterestOverlapMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		getPoliticianAnalytics: connect.NewClient[v1alpha1.GetPoliticianAnalyticsRequest, v1alpha1.GetPoliticianAnalyticsResponse](
+			httpClient,
+			baseURL+PoliticiansServiceGetPoliticianAnalyticsProcedure,
+			connect.WithSchema(politiciansServiceGetPoliticianAnalyticsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -183,6 +201,7 @@ type politiciansServiceClient struct {
 	listStatePoliticianHoldings *connect.Client[v1alpha1.ListStatePoliticianHoldingsRequest, v1alpha1.ListStatePoliticianHoldingsResponse]
 	listRegisterChanges         *connect.Client[v1alpha1.ListRegisterChangesRequest, v1alpha1.ListRegisterChangesResponse]
 	listShortInterestOverlap    *connect.Client[v1alpha1.ListShortInterestOverlapRequest, v1alpha1.ListShortInterestOverlapResponse]
+	getPoliticianAnalytics      *connect.Client[v1alpha1.GetPoliticianAnalyticsRequest, v1alpha1.GetPoliticianAnalyticsResponse]
 }
 
 // GetParliamentOverview calls shorts.v1alpha1.PoliticiansService.GetParliamentOverview.
@@ -230,6 +249,11 @@ func (c *politiciansServiceClient) ListShortInterestOverlap(ctx context.Context,
 	return c.listShortInterestOverlap.CallUnary(ctx, req)
 }
 
+// GetPoliticianAnalytics calls shorts.v1alpha1.PoliticiansService.GetPoliticianAnalytics.
+func (c *politiciansServiceClient) GetPoliticianAnalytics(ctx context.Context, req *connect.Request[v1alpha1.GetPoliticianAnalyticsRequest]) (*connect.Response[v1alpha1.GetPoliticianAnalyticsResponse], error) {
+	return c.getPoliticianAnalytics.CallUnary(ctx, req)
+}
+
 // PoliticiansServiceHandler is an implementation of the shorts.v1alpha1.PoliticiansService service.
 type PoliticiansServiceHandler interface {
 	// Parliament-wide counts and the as-at date. Cheap; drives the hub tiles.
@@ -257,6 +281,14 @@ type PoliticiansServiceHandler interface {
 	// and cannot be a property of anyone's holding — the registers record no
 	// quantities. Consumers must label it as the company's figure.
 	ListShortInterestOverlap(context.Context, *connect.Request[v1alpha1.ListShortInterestOverlapRequest]) (*connect.Response[v1alpha1.ListShortInterestOverlapResponse], error)
+	// Aggregate shape of the register: which parties declare interests in which
+	// industries, and where members are from.
+	//
+	// COUNTS OF PEOPLE AND DECLARATIONS ONLY. There is no weight, size, exposure
+	// or value here and none may be added — the registers do not record any, so
+	// any such figure would be invented. A cell says "N members of this party
+	// declared an interest in a company in this industry", and nothing more.
+	GetPoliticianAnalytics(context.Context, *connect.Request[v1alpha1.GetPoliticianAnalyticsRequest]) (*connect.Response[v1alpha1.GetPoliticianAnalyticsResponse], error)
 }
 
 // NewPoliticiansServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -319,6 +351,12 @@ func NewPoliticiansServiceHandler(svc PoliticiansServiceHandler, opts ...connect
 		connect.WithSchema(politiciansServiceListShortInterestOverlapMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	politiciansServiceGetPoliticianAnalyticsHandler := connect.NewUnaryHandler(
+		PoliticiansServiceGetPoliticianAnalyticsProcedure,
+		svc.GetPoliticianAnalytics,
+		connect.WithSchema(politiciansServiceGetPoliticianAnalyticsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/shorts.v1alpha1.PoliticiansService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case PoliticiansServiceGetParliamentOverviewProcedure:
@@ -339,6 +377,8 @@ func NewPoliticiansServiceHandler(svc PoliticiansServiceHandler, opts ...connect
 			politiciansServiceListRegisterChangesHandler.ServeHTTP(w, r)
 		case PoliticiansServiceListShortInterestOverlapProcedure:
 			politiciansServiceListShortInterestOverlapHandler.ServeHTTP(w, r)
+		case PoliticiansServiceGetPoliticianAnalyticsProcedure:
+			politiciansServiceGetPoliticianAnalyticsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -382,4 +422,8 @@ func (UnimplementedPoliticiansServiceHandler) ListRegisterChanges(context.Contex
 
 func (UnimplementedPoliticiansServiceHandler) ListShortInterestOverlap(context.Context, *connect.Request[v1alpha1.ListShortInterestOverlapRequest]) (*connect.Response[v1alpha1.ListShortInterestOverlapResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.PoliticiansService.ListShortInterestOverlap is not implemented"))
+}
+
+func (UnimplementedPoliticiansServiceHandler) GetPoliticianAnalytics(context.Context, *connect.Request[v1alpha1.GetPoliticianAnalyticsRequest]) (*connect.Response[v1alpha1.GetPoliticianAnalyticsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.PoliticiansService.GetPoliticianAnalytics is not implemented"))
 }

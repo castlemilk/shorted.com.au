@@ -160,6 +160,8 @@ export const CACHE_KEYS = {
   stockPoliticians: (stockCode: string) => `cache:politicians:stock:${stockCode}`,
   politicianStocks: (limit: number, currentOnly: boolean) =>
     `cache:politicians:stocks:${limit}:${currentOnly ? "current" : "all"}`,
+  politicianAnalytics: (topIndustries: number, currentOnly: boolean) =>
+    `cache:politicians:analytics:${topIndustries}:${currentOnly ? "current" : "all"}`,
   suburbPoliticians: (salCode: string) => `cache:politicians:suburb:${salCode}`,
   statePoliticianHoldings: (state: string, limit: number) =>
     `cache:politicians:state:${state}:${limit}`,

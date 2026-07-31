@@ -201,6 +201,48 @@ func TestUnlistedFundNeverGetsATicker(t *testing.T) {
 	}
 }
 
+// A curated 'foreign' alias keeps an honest label.
+//
+// entityKindOf never GUESSES foreign — its own comment records why: the only
+// automatic signal is an Inc/LLC/plc suffix, and four of the fourteen such names
+// in this corpus are Australian incorporated associations ("Street Law Centre
+// (WA) Inc."), so a suffix rule would publish a wrong fact about a named
+// person's directorship. A human saying so is the only way the label is true.
+//
+// The trap this pins: 'foreign' shares its resolution_status — not_a_security —
+// with "names nothing at all", so deriving the kind from the status alone
+// relabels a real foreign listing as not_an_entity. It must leave the ASX
+// denominator (it is not resolvable here) WITHOUT being called a non-entity.
+func TestCuratedForeignAliasKeepsItsLabel(t *testing.T) {
+	aliases, codes, names, ambiguous := testLadder()
+	aliases["CITIGROUP USA"] = SecurityAlias{AliasKind: "foreign", Resolution: "foreign"}
+
+	res := resolveSecurityCandidate(
+		makeCandidate(0, "Citigroup (USA)"), aliases, codes, names, ambiguous, emptyWide)
+
+	if res.EntityKind != entityKindForeign {
+		t.Errorf("entity kind = %q, want %q", res.EntityKind, entityKindForeign)
+	}
+	if res.Status == "resolved" || res.StockCode != "" {
+		t.Errorf("a foreign listing must not resolve to an ASX code: %+v", res)
+	}
+	if res.MatchMethod != "curated_alias" {
+		t.Errorf("match method = %q, want curated_alias", res.MatchMethod)
+	}
+}
+
+// The pin for the other direction: a curated alias that does NOT name a kind
+// must still be classified by entityKindOf, or every existing 'noise' seed in
+// 000097 would come back with an empty entity_kind and violate the CHECK.
+func TestCuratedAliasWithoutAPinnedKindStillGetsOne(t *testing.T) {
+	aliases, codes, names, ambiguous := testLadder()
+	res := resolveSecurityCandidate(
+		makeCandidate(0, "Not Applicable"), aliases, codes, names, ambiguous, emptyWide)
+	if res.EntityKind == "" {
+		t.Errorf("entity kind is empty; the CHECK would reject this row: %+v", res)
+	}
+}
+
 // A ticker the member wrote that is NOT a real listing must not resolve.
 func TestUnknownTickerDoesNotResolve(t *testing.T) {
 	aliases, codes, names, ambiguous := testLadder()

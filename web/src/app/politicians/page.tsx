@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { toDate } from "@/lib/politics/timestamp";
 import Link from "next/link";
 
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { LLMMeta } from "@/components/seo/llm-meta";
 import { CaveatNote, PartyChip, SourceLine } from "@/components/politicians/compliance";
+import { PoliticianExplorer } from "@/components/politicians/politician-explorer";
+import { RegisterHeatmap } from "@/components/politicians/register-heatmap";
 import {
   getParliamentOverview,
+  getPoliticianAnalytics,
   listPoliticianStocks,
   listPoliticians,
 } from "~/app/actions/getPoliticians";
@@ -57,11 +61,22 @@ function BigStat({ value, label, hint }: { value: string; label: string; hint?: 
   );
 }
 
+/** Shown while the client explorer hydrates, so the section is never a blank gap. */
+function ExplorerFallback() {
+  return (
+    <div className="space-y-3">
+      <div className="h-12 rounded-md border bg-muted/30" />
+      <p className="text-xs text-muted-foreground">Loading search…</p>
+    </div>
+  );
+}
+
 export default async function PoliticiansPage() {
-  const [overview, mostHeld, people] = await Promise.all([
+  const [overview, mostHeld, people, analytics] = await Promise.all([
     getParliamentOverview(),
     listPoliticianStocks(12, true),
-    listPoliticians("", "", "", "", 200, 0),
+    listPoliticians("", "", "", "", 400, 0),
+    getPoliticianAnalytics(14, false),
   ]);
 
   const hasData = (overview?.politicianCount ?? 0) > 0;
@@ -69,6 +84,7 @@ export default async function PoliticiansPage() {
 
   const asAt = toDate(overview?.asAt);
   const maxCount = Math.max(1, ...(mostHeld?.stocks ?? []).map((s) => s.politicianCount));
+  const maxStatePeople = Math.max(1, ...(analytics?.states ?? []).map((s) => s.people));
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -188,33 +204,132 @@ export default async function PoliticiansPage() {
           </section>
 
           <section className="space-y-3">
-            <h2 className={sectionTitle}>Parliamentarians</h2>
+            <h2 className={sectionTitle}>Find a parliamentarian</h2>
             <p className="text-sm text-muted-foreground">
-              {people?.total ?? 0} members and senators covered. Counts are of declared entries that
-              matched a listing or a suburb.
+              {people?.total ?? 0} members and senators covered. Search by name, electorate, or by
+              what they declare — a company or a suburb.
             </p>
-            <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {(people?.politicians ?? []).slice(0, 60).map((p) => (
-                <li key={p.slug} className="rounded-md border p-2.5">
-                  <Link href={`/politicians/${p.slug}`} className="text-sm hover:underline">
-                    {p.displayName}
-                  </Link>
-                  <div className="mt-1 flex flex-wrap items-center gap-2">
-                    <PartyChip partyAb={p.partyAb} />
-                    {p.division ? (
-                      <span className="text-[11px] text-muted-foreground">{p.division}</span>
-                    ) : null}
-                    {p.stateCode ? (
-                      <span className="text-[11px] text-muted-foreground">{p.stateCode}</span>
-                    ) : null}
-                  </div>
-                  <div className="mt-1 flex gap-3 text-[11px] text-muted-foreground">
-                    <span>{p.declaredListedCount} listed</span>
-                    <span>{p.declaredPropertyCount} property</span>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            {/*
+              The explorer reads its query state from the URL, which needs
+              useSearchParams — and that needs a Suspense boundary in a
+              statically rendered route. Reading searchParams on THIS server
+              component instead would silently flip the whole page to dynamic and
+              kill the ISR, which is the trap /price-drops already paid for.
+            */}
+            <Suspense fallback={<ExplorerFallback />}>
+              <PoliticianExplorer />
+            </Suspense>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className={sectionTitle}>Which parties declare interests in which industries</h2>
+            <p className="text-sm text-muted-foreground">
+              Each cell counts <strong>members</strong>, not holdings and not money — a member who
+              declares four banks is one member. The registers record no quantity or value, so
+              nothing here can be weighted by size.
+            </p>
+            <RegisterHeatmap
+              cells={(analytics?.cells ?? []).map((c) => ({
+                partyAb: c.partyAb,
+                industry: c.industry,
+                people: c.people,
+                companies: c.companies,
+              }))}
+              industries={(analytics?.industries ?? []).map((i) => ({
+                industry: i.industry,
+                people: i.people,
+                companies: i.companies,
+              }))}
+              parties={(analytics?.parties ?? []).map((p) => ({
+                partyAb: p.partyAb,
+                people: p.people,
+              }))}
+              industriesOmitted={analytics?.industriesOmitted ?? 0}
+            />
+          </section>
+
+          {(analytics?.states.length ?? 0) > 0 ? (
+            <section className="space-y-3">
+              <h2 className={sectionTitle}>Members declaring company interests, by state</h2>
+              <p className="text-sm text-muted-foreground">
+                Where the members who declare a company interest sit — a count of people, and a
+                function of how many seats a state has as much as anything else.
+              </p>
+              <table className="w-full max-w-xl text-sm">
+                <caption className="sr-only">
+                  Number of federal parliamentarians from each state or territory declaring an
+                  interest in an ASX-listed company.
+                </caption>
+                <thead className="sr-only">
+                  <tr>
+                    <th>State</th>
+                    <th>Members declaring</th>
+                    <th>Distinct companies</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(analytics?.states ?? []).map((s) => (
+                    <tr key={s.stateCode} className="border-b last:border-0">
+                      <th scope="row" className="w-16 py-1.5 text-left font-normal">
+                        {s.stateCode}
+                      </th>
+                      <td className="py-1.5">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="h-3 rounded-sm bg-amber-500/70"
+                            style={{ width: `${(s.people / maxStatePeople) * 100}%` }}
+                            aria-hidden
+                          />
+                          <span className="shrink-0 tabular-nums text-xs text-muted-foreground">
+                            {s.people}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="w-32 py-1.5 text-right text-[11px] text-muted-foreground">
+                        {s.companies} companies
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          ) : null}
+
+          <section className="space-y-3">
+            <h2 className={sectionTitle}>Every parliamentarian</h2>
+            {/*
+              The complete roll, server-rendered. The explorer above is a client
+              island, so its results are invisible to a crawler; this keeps every
+              profile URL in the HTML. <details> keeps them in the DOM while
+              collapsed — the same trick the profile page uses for suburbs.
+            */}
+            <details className="text-sm">
+              <summary className="cursor-pointer text-muted-foreground">
+                {people?.total ?? 0} members and senators
+              </summary>
+              <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {(people?.politicians ?? []).map((p) => (
+                  <li key={p.slug} className="rounded-md border p-2.5">
+                    <Link href={`/politicians/${p.slug}`} className="text-sm hover:underline">
+                      {p.displayName}
+                    </Link>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <PartyChip partyAb={p.partyAb} />
+                      {p.division ? (
+                        <span className="text-[11px] text-muted-foreground">{p.division}</span>
+                      ) : null}
+                      {p.stateCode ? (
+                        <span className="text-[11px] text-muted-foreground">{p.stateCode}</span>
+                      ) : null}
+                    </div>
+                    <div className="mt-1 flex gap-3 text-[11px] text-muted-foreground">
+                      <span>{p.declaredListedCount} listed</span>
+                      <span>{p.declaredPropertyCount} property</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </details>
           </section>
 
           <section className="space-y-3">

@@ -10,7 +10,7 @@
  */
 
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 
 const ROOT = join(__dirname, "..", "..", "..", "..");
 
@@ -20,6 +20,14 @@ const SURFACES = [
   join(ROOT, "app", "politicians"),
   join(ROOT, "@", "components", "company", "politician-interests-card.tsx"),
   join(ROOT, "@", "components", "economy", "state-politician-holdings.tsx"),
+  // The OPERATOR console. It is not published to readers, but it renders
+  // declared text beside named parliamentarians on an internal screen, and the
+  // language rules are about what gets WRITTEN next to a person's name — the
+  // audience does not change whether "profited" is an imputation. It is excluded
+  // from RENDERING_SURFACES below (an admin tool owes an operator no
+  // reader-facing dispute link) but not from the vocabulary rules.
+  join(ROOT, "@", "components", "admin", "register-review"),
+  join(ROOT, "app", "admin", "register"),
 ];
 
 function collect(target: string): string[] {
@@ -74,12 +82,44 @@ function proseOnly(source: string): string {
  *
  * Everything else names parliamentarians and must cite and be disputable.
  */
+/**
+ * Sections of the /politicians hub, as opposed to independently embeddable
+ * cards. They are rendered by exactly one page, which carries the citation and
+ * the dispute link in its footer — so requiring a SECOND SourceLine inside them
+ * would put two citations on one screen.
+ *
+ * This exclusion is only safe while that remains true, so the test below asserts
+ * the host page still carries it. state-politician-holdings.tsx is the
+ * counter-example and is NOT excluded: it is a card dropped onto the economy
+ * state page, and it shipped with no attribution of its own.
+ */
+const HUB_SECTIONS = ["politician-explorer.tsx", "register-heatmap.tsx"];
+
+/**
+ * Presentational primitives — the kit, not a surface. Same class as
+ * compliance.tsx, which is excluded for the same reason.
+ *
+ * politician-avatar.tsx renders a face and a monogram. It carries the ONLY
+ * attribution that actually applies to it — `PortraitCredit`, the CC BY / CC
+ * BY-SA credit line — and the assertion below checks it still does. A
+ * `SourceLine` inside an avatar would cite the register on a component that
+ * renders no register data.
+ */
+const KIT_PRIMITIVES = ["politician-avatar.tsx"];
+
 const RENDERING_SURFACES = FILES.filter(
   (f) =>
     !f.endsWith("compliance.tsx") &&
     !f.endsWith("-loader.tsx") &&
     !f.endsWith("opengraph-image.tsx") &&
-    !f.includes("__tests__"),
+    !f.includes("__tests__") &&
+    !HUB_SECTIONS.some((s) => f.endsWith(s)) &&
+    !KIT_PRIMITIVES.some((s) => f.endsWith(s)) &&
+    // The operator console: rule 1 (cite the source) and rule 8 (offer a dispute
+    // path) are promises to a READER. The reviewer here IS the dispute path, and
+    // every candidate card already links the APH PDF per declaration — which is
+    // the citation, just not via the reader-facing SourceLine kit.
+    !f.includes(`${sep}admin${sep}`),
 );
 
 describe("politician surface copy", () => {
@@ -88,11 +128,46 @@ describe("politician surface copy", () => {
   // which is exactly how state-politician-holdings.tsx shipped with no
   // attribution. Update this number deliberately when adding a surface, and
   // re-run the editorial review when you do.
+  //
+  // 9 -> 11 on 2026-07-31: the operator console (securities-review.tsx and its
+  // page) renders declared text beside named parliamentarians, so it is bound by
+  // the vocabulary rules. RENDERING_SURFACES stays 7 — an admin tool owes an
+  // operator no reader-facing citation kit, and each candidate card already
+  // links the APH PDF per declaration. §6.2 re-review triggered and recorded in
+  // docs/politician-register-architecture.md.
   it("covers exactly the surfaces it claims to", () => {
-    // 10 = 9 + politicians/opengraph-image.tsx (the share card, exempt from
-    // the dispute-path rule but still subject to every prohibition below).
-    expect(FILES.length).toBe(10);
+    // 10 (incl. politicians/opengraph-image.tsx, the share card) + 2 operator
+    // console files + the explorer, the heatmap and the avatar kit.
+    expect(FILES.length).toBe(15);
     expect(RENDERING_SURFACES.length).toBe(7);
+  });
+
+  // The avatar's exclusion above is conditional on it carrying the credit that
+  // its own licences require. CC BY and CC BY-SA permit publication only WITH
+  // attribution, so if PortraitCredit ever leaves this file, every portrait on
+  // the site becomes an unattributed use.
+  it("the avatar kit still carries the portrait attribution it is excused for", () => {
+    const avatar = readFileSync(
+      join(ROOT, "@", "components", "politicians", "politician-avatar.tsx"),
+      "utf8",
+    );
+    expect(avatar).toMatch(/export function PortraitCredit/);
+    expect(avatar).toMatch(/photoSourceUrl/);
+    expect(avatar).toMatch(/Wikimedia Commons/);
+    // And it must refuse to render an image it cannot attribute.
+    expect(avatar).toMatch(/photoLicence && !!photo\.photoSourceUrl/);
+  });
+
+  // The exclusion above is conditional on this. If the hub page ever loses its
+  // SourceLine, two surfaces that name parliamentarians lose their citation at
+  // the same moment and nothing else would notice.
+  it("the /politicians hub carries the citation its sections rely on", () => {
+    const hub = readFileSync(join(ROOT, "app", "politicians", "page.tsx"), "utf8");
+    expect(hub).toMatch(/<SourceLine/);
+    for (const section of HUB_SECTIONS) {
+      const importName = section.replace(/\.tsx$/, "");
+      expect(hub).toContain(importName);
+    }
   });
 
   /**

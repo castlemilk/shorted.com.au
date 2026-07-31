@@ -66,6 +66,71 @@ service PoliticiansService {
   rpc ListShortInterestOverlap (ListShortInterestOverlapRequest) returns (ListShortInterestOverlapResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
   }
+
+  // Aggregate shape of the register: which parties declare interests in which
+  // industries, and where members are from.
+  //
+  // COUNTS OF PEOPLE AND DECLARATIONS ONLY. There is no weight, size, exposure
+  // or value here and none may be added — the registers do not record any, so
+  // any such figure would be invented. A cell says "N members of this party
+  // declared an interest in a company in this industry", and nothing more.
+  rpc GetPoliticianAnalytics (GetPoliticianAnalyticsRequest) returns (GetPoliticianAnalyticsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+}
+
+// PartyIndustryCell is one cell of the party x industry matrix.
+message PartyIndustryCell {
+  // AEC abbreviation. EMPTY means the party is NOT RECORDED for those members —
+  // party reaches the register through an electorate join, not the APH listing,
+  // so it is genuinely absent for some. Never render an empty value as a party.
+  string party_ab = 1;
+  string industry = 2;
+  // Distinct parliamentarians. This is the honest headline: a member declaring
+  // four banks is one person, not four.
+  int32 people = 3;
+  // Distinct declared companies behind those people, so a reader can tell
+  // "everyone holds the same one stock" from "everyone holds a different one".
+  int32 companies = 4;
+}
+
+message IndustryTotal {
+  string industry = 1;
+  int32 people = 2;
+  int32 companies = 3;
+}
+
+message PartyTotal {
+  string party_ab = 1;
+  int32 people = 2;
+}
+
+message StateTotal {
+  string state_code = 1;
+  int32 people = 2;
+  int32 companies = 3;
+}
+
+message GetPoliticianAnalyticsRequest {
+  // Cap the industry axis to the N most-declared, so the heatmap stays readable.
+  // The remainder is NOT silently dropped — the response reports what was cut.
+  int32 top_industries = 1;
+  // Restrict to interests declared as current, rather than every interest ever
+  // declared across parliaments 44-48.
+  bool current_only = 2;
+}
+
+message GetPoliticianAnalyticsResponse {
+  repeated PartyIndustryCell cells = 1;
+  // The axes, pre-ordered, so the client does not re-derive an ordering and
+  // silently disagree with the server about which industries were included.
+  repeated IndustryTotal industries = 2;
+  repeated PartyTotal parties = 3;
+  repeated StateTotal states = 4;
+  // Industries excluded by top_industries, stated rather than dropped silently.
+  int32 industries_omitted = 5;
+  string source_licence = 6;
+  google.protobuf.Timestamp as_at = 7;
 }
 
 // ==================== Shared enums ====================
@@ -107,6 +172,25 @@ message Politician {
   // Counts only. Never a value.
   int32 declared_listed_count = 14;
   int32 declared_property_count = 15;
+
+  // Portrait photograph, from Wikimedia Commons via Wikidata — NEVER from
+  // aph.gov.au, whose images are Commonwealth artefacts that §3.1's posture
+  // forbids mirroring and which may carry a separate photographer copyright.
+  //
+  // THE ATTRIBUTION FIELDS TRAVEL WITH THE URL AND ARE NOT OPTIONAL. CC BY and
+  // CC BY-SA permit publication only WITH the credit and a link to the terms, so
+  // a consumer that renders photo_url while dropping photo_licence /
+  // photo_source_url is breaching the licence, not just being untidy. A database
+  // CHECK makes the unattributed state unstorable; carrying the fields together
+  // here makes it unrenderable by accident too.
+  //
+  // Empty for ~26% of members: no Wikidata portrait, or the surname+division
+  // match was ambiguous and was withheld rather than guessed. Consumers render a
+  // monogram, never a placeholder face and never another person's photograph.
+  string photo_url = 16;
+  string photo_licence = 17;     // as Commons states it: "CC BY-SA 4.0", "Public domain"
+  string photo_author = 18;      // the credit line the licence requires
+  string photo_source_url = 19;  // the Commons file page carrying the full terms
 }
 
 // DeclaredInterest is one holding over one continuous period.

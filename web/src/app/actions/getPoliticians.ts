@@ -12,6 +12,7 @@ import {
   ListStatePoliticianHoldingsResponseSchema,
   ListRegisterChangesResponseSchema,
   ListShortInterestOverlapResponseSchema,
+  GetPoliticianAnalyticsResponseSchema,
   type GetParliamentOverviewResponse,
   type ListPoliticiansResponse,
   type GetPoliticianResponse,
@@ -21,6 +22,7 @@ import {
   type ListStatePoliticianHoldingsResponse,
   type ListRegisterChangesResponse,
   type ListShortInterestOverlapResponse,
+  type GetPoliticianAnalyticsResponse,
 } from "~/gen/shorts/v1alpha1/politicians_pb";
 import { cache } from "react";
 import {
@@ -205,6 +207,41 @@ export const listPoliticianStocks = cache(
       });
       if (resp.stocks.length > 0) {
         writeCached(ListPoliticianStocksResponseSchema, key, resp);
+      }
+      return resp;
+    },
+  ),
+);
+
+/**
+ * Aggregate shape of the register — the party x industry matrix and the state
+ * split behind the analytics views.
+ *
+ * Counts of PEOPLE and of COMPANIES only. There is no value in the registers to
+ * aggregate, so nothing here can be weighted or sized.
+ */
+export const getPoliticianAnalytics = cache(
+  withRetryAndNotFound(
+    async (
+      topIndustries: number = 14, // eslint-disable-line @typescript-eslint/no-inferrable-types
+      currentOnly: boolean = false, // eslint-disable-line @typescript-eslint/no-inferrable-types
+    ): Promise<GetPoliticianAnalyticsResponse | undefined> => {
+      if (skipForBuild()) return undefined;
+      const key = CACHE_KEYS.politicianAnalytics(topIndustries, currentOnly);
+      const hit = readCached<GetPoliticianAnalyticsResponse>(
+        GetPoliticianAnalyticsResponseSchema,
+        await getCached<JsonValue>(key),
+      );
+      if (hit) return hit;
+
+      const resp = await createCacheablePoliticiansClient().getPoliticianAnalytics({
+        topIndustries,
+        currentOnly,
+      });
+      // NEVER cache an empty response: the kill switch and a cold MV both return
+      // {}, and caching that pins the empty state for 24h.
+      if (resp.cells.length > 0) {
+        writeCached(GetPoliticianAnalyticsResponseSchema, key, resp);
       }
       return resp;
     },

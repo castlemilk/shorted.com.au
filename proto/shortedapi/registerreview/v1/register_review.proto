@@ -1,0 +1,251 @@
+syntax = "proto3";
+
+package registerreview.v1;
+
+option go_package = "github.com/castlemilk/shorted.com.au/services/gen/proto/go/registerreview/v1;registerreviewv1";
+
+import "options/v1/options.proto";
+
+// RegisterReviewService is the OPERATOR console behind the Register of
+// Interests. Nothing here is public and nothing here is served to a reader.
+//
+// WHY IT IS ITS OWN PACKAGE, not shorts.v1alpha1. Every rpc in shorts.v1alpha1
+// must also exist on the legacy monolithic ShortedStocksService — proto_parity_test.go
+// enforces that, and ShortedStocksService is the surface external API consumers
+// hold. Admin write methods do not belong on it. A separate package keeps the
+// parity contract honest instead of adding exceptions to it.
+//
+// EDITORIAL CONTRACT (docs/influence-editorial-standards.md rule 5): the
+// registers disclose WHAT is held, NEVER quantity or value. There is deliberately
+// no field in this file for an amount, a share count, a price or a portfolio
+// size, and none may be added — not even on an admin surface, because the console
+// reads from and writes to the same tables the public read path uses.
+//
+// See docs/register-review-console.md §6.2 for the screen this serves.
+service RegisterReviewService {
+  // The undecided backlog, biggest fanout first.
+  rpc ListSecurityQueue (ListSecurityQueueRequest) returns (ListSecurityQueueResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (shortedapi.options.v1.required_role) = "admin";
+  }
+
+  // Search listings for the resolve box. Reads "company-metadata" only.
+  rpc SearchListings (SearchListingsRequest) returns (SearchListingsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (shortedapi.options.v1.required_role) = "admin";
+  }
+
+  // Record ONE human decision about ONE declared name.
+  rpc DecideSecurityCandidate (DecideSecurityCandidateRequest) returns (DecideSecurityCandidateResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (shortedapi.options.v1.required_role) = "admin";
+  }
+
+  // Reverse a decision by deleting its alias row, returning every candidate it
+  // covered to 'unmatched' — the honest pre-decision state. This is the one
+  // screen where a true post-save undo is cheap, so it is offered (§6.2).
+  rpc UndoSecurityDecision (UndoSecurityDecisionRequest) returns (UndoSecurityDecisionResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (shortedapi.options.v1.required_role) = "admin";
+  }
+
+  // The §6.1 gate as it stands right now, with its method attached so it cannot
+  // be quoted as a bare percentage.
+  rpc GetCoverageStats (GetCoverageStatsRequest) returns (GetCoverageStatsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (shortedapi.options.v1.required_role) = "admin";
+  }
+}
+
+// SecurityDecision is the CLOSED vocabulary of what a reviewer may say about a
+// declared name. It maps 1:1 onto register_security_aliases.resolution.
+//
+// THERE IS DELIBERATELY NO "FUZZY" OR "PROBABLE" MEMBER. The public gate
+// (register_item_securities_public_gate) permits a resolved row only for
+// match_method IN ('curated_alias','ticker_in_text','name_exact'); a guess is
+// 'analyst_fuzzy' and is structurally unpublishable. Omitting it from the enum
+// means the UI cannot offer it and the server cannot receive it — a CHECK
+// violation is a terrible way to learn a load-bearing editorial rule after you
+// have already made a decision about a named person (§7.2 item 6).
+enum SecurityDecision {
+  SECURITY_DECISION_UNSPECIFIED = 0;
+  // This name IS this ASX listing. Requires stock_code. Numerator up.
+  SECURITY_DECISION_RESOLVED = 1;
+  // The text names nothing that is held — prose, a gift line, a holder label,
+  // "See attachment". Denominator down.
+  SECURITY_DECISION_NOT_A_SECURITY = 2;
+  // A real holding in an unlisted/wholesale fund. No code, ever: it renders as
+  // declared text with no ticker link. Denominator down.
+  SECURITY_DECISION_UNLISTED_FUND = 3;
+  // A real security, listed somewhere that is not the ASX. Honest label, no link.
+  SECURITY_DECISION_FOREIGN = 4;
+  // "I do not know." Writes no alias; tallies so a repeatedly-skipped candidate
+  // surfaces for a second opinion.
+  SECURITY_DECISION_SKIP = 5;
+}
+
+// AliasKind is descriptive metadata carried on a resolved alias. The resolver
+// reads `resolution`, never this — it exists so a later reviewer can see what
+// kind of instrument a predecessor thought they were linking.
+enum AliasKind {
+  ALIAS_KIND_UNSPECIFIED = 0;
+  ALIAS_KIND_EQUITY = 1;
+  ALIAS_KIND_ETF = 2;
+  ALIAS_KIND_LIC = 3;
+  ALIAS_KIND_MANAGED_FUND = 4;
+}
+
+// DeclaredSample is one real row this candidate came from. The reviewer judges
+// from these, never from the normalised token: "Woodside" could be Woodside
+// Petroleum or Woodside Energy Group, and only the declaration settles it.
+message DeclaredSample {
+  string declared_text = 1;
+  string politician_name = 2;
+  string politician_slug = 3;
+  int32 item_no = 4;
+  int32 parliament = 5;
+  // The APH PDF this row was read from. The anti-guess control: the reviewer can
+  // open the source before deciding. Points at aph.gov.au, never at our copy.
+  string source_url = 6;
+}
+
+// Listing is one ASX company as the reviewer sees it in the search box.
+message Listing {
+  string stock_code = 1;
+  string company_name = 2;
+  // How many register candidates ALREADY resolve to this code. A code with a
+  // large existing footprint is usually the right answer; a code with none is
+  // worth a second look.
+  int32 existing_uses = 3;
+  // True when the code is in tickerStopwords — a token that reads like a ticker
+  // but is overwhelmingly an ordinary word in this corpus. Every fund name
+  // ending in "ETF" once resolved to ticker ETF, publishing ten members as
+  // holding a fund none had declared. The UI must name the trap inline and
+  // require a second confirmation.
+  bool is_stopword_ticker = 4;
+}
+
+// AliasProposal is the model's suggestion for this name, if it has answered.
+// It is a QUEUE RANKER, not an oracle: it once proposed FLIGHTS -> Flight
+// Centre, which is a gift-log entry. It is shown WITH the shortlist it chose
+// from, because a proposal without its alternatives is not reviewable.
+message AliasProposal {
+  string proposed_stock_code = 1;
+  string proposed_company_name = 2;
+  double confidence = 3;
+  string rationale = 4;
+  string model = 5;
+  repeated Listing shortlist = 6;
+  // proposed | confirmed | rejected
+  string status = 7;
+}
+
+// SecurityQueueItem is one undecided declared name and everything needed to
+// decide it without guessing.
+message SecurityQueueItem {
+  string candidate_norm = 1;
+  string example = 2;
+  // Rows this decision would settle.
+  int32 occurrences = 3;
+  // BLAST RADIUS, counted in NAMED PEOPLE. Stated before the decision, because
+  // one alias fans out to this many politicians' published profiles.
+  int32 people = 4;
+  repeated int32 items = 5;
+  repeated int32 parliaments = 6;
+  repeated string entity_kinds = 7;
+  // The subset of `occurrences` inside the §6.1 item-1 gate denominator, so the
+  // console can say honestly what this decision will and will not move.
+  int32 gate_rows = 8;
+  int32 skip_count = 9;
+  repeated DeclaredSample samples = 10;
+  AliasProposal proposal = 11;
+}
+
+message ListSecurityQueueRequest {
+  int32 limit = 1;
+  // Skip the first N of the ordered queue, so a second reviewer can work from
+  // the other end without colliding.
+  int32 offset = 2;
+  // Only candidates that touch the item-1 gate denominator.
+  bool gate_only = 3;
+}
+
+message ListSecurityQueueResponse {
+  repeated SecurityQueueItem items = 1;
+  // Total undecided names, so the console can show progress against the whole.
+  int32 total_candidates = 2;
+  int32 total_rows = 3;
+}
+
+message SearchListingsRequest {
+  string query = 1;
+  int32 limit = 2;
+}
+
+message SearchListingsResponse {
+  repeated Listing listings = 1;
+}
+
+message DecideSecurityCandidateRequest {
+  string candidate_norm = 1;
+  SecurityDecision decision = 2;
+  // Required when decision is RESOLVED, ignored otherwise. Validated against
+  // "company-metadata" server-side: the client may not invent a code.
+  string stock_code = 3;
+  AliasKind alias_kind = 4;
+  // Free text recorded on the alias row. Required for a decision made against a
+  // model proposal the reviewer is overriding.
+  string note = 5;
+  // Set by the caller after the reviewer confirms a tickerStopwords code a
+  // second time. The server refuses such a resolve without it.
+  bool stopword_confirmed = 6;
+}
+
+message DecideSecurityCandidateResponse {
+  // Rows whose resolution the next `-mode register-resolve` will change.
+  int32 rows_affected = 1;
+  // The gate after this decision, recomputed. Lets the screen show the number
+  // moving without a page reload.
+  CoverageStats coverage = 2;
+}
+
+message UndoSecurityDecisionRequest {
+  string candidate_norm = 1;
+}
+
+message UndoSecurityDecisionResponse {
+  bool deleted = 1;
+  CoverageStats coverage = 2;
+}
+
+message GetCoverageStatsRequest {}
+
+// CoverageStats carries the gate WITH its method, never as a bare number.
+//
+// §8.19.1: the denominator is `entity_kind='listed'`, which the resolver assigns
+// BY DEFAULT to anything it cannot otherwise explain. A percentage that travels
+// 30.66% -> 49.89% -> ~80% with the numerator frozen is measuring our ability to
+// EXPLAIN failures, not to RESOLVE them. Both halves are reported separately so
+// nobody can quote the ratio without them.
+message CoverageStats {
+  // Item-1 candidates resolved to an ASX code. The numerator. Only this moves
+  // when a real new link is made.
+  int32 resolved = 1;
+  // Item-1 candidates carrying entity_kind='listed'. The denominator, and a
+  // DEFAULT bucket rather than a measured claim.
+  int32 listed_candidates = 2;
+  // resolved / listed_candidates, as a percentage.
+  double gate_percent = 3;
+  // Undecided names still in the queue, and the rows behind them.
+  int32 backlog_candidates = 4;
+  int32 backlog_rows = 5;
+  // Item-1 candidates a human has explicitly classified out of the denominator.
+  // The honest half of any movement in gate_percent.
+  int32 classified_out = 6;
+  // How the figure was computed, carried with it so it cannot be quoted bare.
+  string method = 7;
+}
+
+message GetCoverageStatsResponse {
+  CoverageStats coverage = 1;
+}

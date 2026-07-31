@@ -17,6 +17,10 @@ import {
   SourceDocLink,
   SourceLine,
 } from "@/components/politicians/compliance";
+import {
+  PoliticianAvatar,
+  PortraitCredit,
+} from "@/components/politicians/politician-avatar";
 import { getPolitician } from "~/app/actions/getPoliticians";
 import { pageTitle, sectionTitle, eyebrow } from "@/lib/typography";
 import { partyLabel } from "@/lib/politics/party-palette";
@@ -130,16 +134,52 @@ export default async function PoliticianPage({
                 Parliament&rsquo;s Portfolio
               </Link>
             </p>
-            <h1 className={pageTitle}>{p.displayName}</h1>
-            <div className="flex flex-wrap items-center gap-3">
-              <PartyChip partyAb={p.partyAb} />
-              <span className="text-sm text-muted-foreground">{role}</span>
-              {p.firstParliament > 0 ? (
-                <span className="text-[11px] text-muted-foreground">
-                  parliaments {p.firstParliament}
-                  {p.lastParliament !== p.firstParliament ? `–${p.lastParliament}` : ""}
-                </span>
-              ) : null}
+            <div className="flex items-start gap-4">
+              {/*
+                A portrait where one is freely licensed, a party-tinted monogram
+                otherwise — roughly one member in four has no Commons photograph,
+                so the fallback is a designed state rather than a broken one.
+                Never an aph.gov.au image: §3.1 publishes extracted facts and
+                does not mirror the source's artefacts.
+              */}
+              <PoliticianAvatar
+                displayName={p.displayName}
+                partyAb={p.partyAb}
+                size="lg"
+                photo={{
+                  photoUrl: p.photoUrl,
+                  photoLicence: p.photoLicence,
+                  photoAuthor: p.photoAuthor,
+                  photoSourceUrl: p.photoSourceUrl,
+                }}
+              />
+              <div className="min-w-0 space-y-2">
+                <h1 className={pageTitle}>{p.displayName}</h1>
+                <div className="flex flex-wrap items-center gap-3">
+                  <PartyChip partyAb={p.partyAb} />
+                  <span className="text-sm text-muted-foreground">{role}</span>
+                  {p.firstParliament > 0 ? (
+                    <span className="text-[11px] text-muted-foreground">
+                      parliaments {p.firstParliament}
+                      {p.lastParliament !== p.firstParliament ? `–${p.lastParliament}` : ""}
+                    </span>
+                  ) : null}
+                </div>
+                {/*
+                  The credit sits with the face, not in the footer: CC BY / CC
+                  BY-SA require attribution alongside the work, and a reader must
+                  be able to tell at a glance that this photograph is NOT a
+                  Parliament of Australia image.
+                */}
+                <PortraitCredit
+                  photo={{
+                    photoUrl: p.photoUrl,
+                    photoLicence: p.photoLicence,
+                    photoAuthor: p.photoAuthor,
+                    photoSourceUrl: p.photoSourceUrl,
+                  }}
+                />
+              </div>
             </div>
           </header>
 

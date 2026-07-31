@@ -897,4 +897,14 @@ service ShortedStocksService {
       description: "Declared interests in companies carrying short interest. The short percentage describes the company, not any holding."
     };
   }
+
+  // Aggregate shape of the register: party x industry, and members by state.
+  // Counts of people and declarations only — the registers record no value.
+  rpc GetPoliticianAnalytics (GetPoliticianAnalyticsRequest) returns (GetPoliticianAnalyticsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Politician Analytics",
+      description: "How many parliamentarians of each party declare an interest in each industry, and how members are distributed by state. Counts only; the registers record no quantity or value."
+    };
+  }
 }

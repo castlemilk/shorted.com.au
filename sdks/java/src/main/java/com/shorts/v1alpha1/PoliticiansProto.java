@@ -27,6 +27,36 @@ public final class PoliticiansProto extends com.google.protobuf.GeneratedFile {
         (com.google.protobuf.ExtensionRegistryLite) registry);
   }
   static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_PartyIndustryCell_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_PartyIndustryCell_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_IndustryTotal_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_IndustryTotal_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_PartyTotal_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_PartyTotal_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_StateTotal_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_StateTotal_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_GetPoliticianAnalyticsRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_GetPoliticianAnalyticsRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_GetPoliticianAnalyticsResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_GetPoliticianAnalyticsResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
     internal_static_shorts_v1alpha1_Politician_descriptor;
   static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
@@ -172,202 +202,231 @@ public final class PoliticiansProto extends com.google.protobuf.GeneratedFile {
     java.lang.String[] descriptorData = {
       "\n!shorts/v1alpha1/politicians.proto\022\017sho" +
       "rts.v1alpha1\032\037google/protobuf/timestamp." +
-      "proto\032\030options/v1/options.proto\"\375\003\n\nPoli" +
-      "tician\022\022\n\004slug\030\001 \001(\tR\004slug\022!\n\014display_na" +
-      "me\030\002 \001(\tR\013displayName\022\030\n\007surname\030\003 \001(\tR\007" +
-      "surname\022\037\n\013given_names\030\004 \001(\tR\ngivenNames" +
-      "\022\034\n\thonorific\030\005 \001(\tR\thonorific\022\030\n\007chambe" +
-      "r\030\006 \001(\tR\007chamber\022\032\n\010division\030\007 \001(\tR\010divi" +
-      "sion\022\035\n\nstate_code\030\010 \001(\tR\tstateCode\022\024\n\005p" +
-      "arty\030\t \001(\tR\005party\022\031\n\010party_ab\030\n \001(\tR\007par" +
-      "tyAb\022)\n\020first_parliament\030\013 \001(\005R\017firstPar" +
-      "liament\022\'\n\017last_parliament\030\014 \001(\005R\016lastPa" +
-      "rliament\022\031\n\010aph_mpid\030\r \001(\tR\007aphMpid\0222\n\025d" +
-      "eclared_listed_count\030\016 \001(\005R\023declaredList" +
-      "edCount\0226\n\027declared_property_count\030\017 \001(\005" +
-      "R\025declaredPropertyCount\"\367\005\n\020DeclaredInte" +
-      "rest\022\027\n\007item_no\030\001 \001(\005R\006itemNo\022\035\n\nitem_la" +
-      "bel\030\002 \001(\tR\titemLabel\0227\n\006holder\030\003 \001(\0162\037.s" +
-      "horts.v1alpha1.RegisterHolderR\006holder\022#\n" +
-      "\rdeclared_text\030\004 \001(\tR\014declaredText\022%\n\016se" +
-      "condary_text\030\005 \001(\tR\rsecondaryText\022\035\n\nsto" +
-      "ck_code\030\006 \001(\tR\tstockCode\022!\n\014company_name" +
-      "\030\007 \001(\tR\013companyName\022\032\n\010industry\030\010 \001(\tR\010i" +
-      "ndustry\022\031\n\010sal_code\030\t \001(\tR\007salCode\022\037\n\013su" +
-      "burb_name\030\n \001(\tR\nsuburbName\022%\n\016property_" +
-      "state\030\013 \001(\tR\rpropertyState\022!\n\014match_meth" +
-      "od\030\014 \001(\tR\013matchMethod\022?\n\rdeclared_from\030\r" +
-      " \001(\0132\032.google.protobuf.TimestampR\014declar" +
-      "edFrom\022.\n\023declared_from_known\030\016 \001(\010R\021dec" +
-      "laredFromKnown\022;\n\013declared_to\030\017 \001(\0132\032.go" +
-      "ogle.protobuf.TimestampR\ndeclaredTo\022-\n\022c" +
-      "urrently_declared\030\020 \001(\010R\021currentlyDeclar" +
-      "ed\022\035\n\nsource_url\030\021 \001(\tR\tsourceUrl\022%\n\016sou" +
-      "rce_licence\030\022 \001(\tR\rsourceLicence\022\037\n\013enti" +
-      "ty_kind\030\023 \001(\tR\nentityKind\"\266\001\n\016Politician" +
-      "Term\022\036\n\nparliament\030\001 \001(\005R\nparliament\022\030\n\007" +
-      "chamber\030\002 \001(\tR\007chamber\022\032\n\010division\030\003 \001(\t" +
-      "R\010division\022\035\n\nstate_code\030\004 \001(\tR\tstateCod" +
-      "e\022\024\n\005party\030\005 \001(\tR\005party\022\031\n\010party_ab\030\006 \001(" +
-      "\tR\007partyAb\"\036\n\034GetParliamentOverviewReque" +
-      "st\"\364\003\n\035GetParliamentOverviewResponse\022)\n\020" +
-      "politician_count\030\001 \001(\005R\017politicianCount\022" +
-      "\'\n\017statement_count\030\002 \001(\005R\016statementCount" +
-      "\022,\n\022declared_row_count\030\003 \001(\005R\020declaredRo" +
-      "wCount\0222\n\025resolved_listed_count\030\004 \001(\005R\023r" +
-      "esolvedListedCount\0222\n\025resolved_suburb_co" +
-      "unt\030\005 \001(\005R\023resolvedSuburbCount\022)\n\020first_" +
-      "parliament\030\006 \001(\005R\017firstParliament\022\'\n\017las" +
-      "t_parliament\030\007 \001(\005R\016lastParliament\022/\n\005as" +
-      "_at\030\010 \001(\0132\032.google.protobuf.TimestampR\004a" +
-      "sAt\022=\n\014refreshed_at\030\t \001(\0132\032.google.proto" +
-      "buf.TimestampR\013refreshedAt\022%\n\016source_lic" +
-      "ence\030\n \001(\tR\rsourceLicence\"\260\001\n\026ListPoliti" +
-      "ciansRequest\022\030\n\007chamber\030\001 \001(\tR\007chamber\022\035" +
-      "\n\nstate_code\030\002 \001(\tR\tstateCode\022\031\n\010party_a" +
-      "b\030\003 \001(\tR\007partyAb\022\024\n\005query\030\004 \001(\tR\005query\022\024" +
-      "\n\005limit\030\005 \001(\005R\005limit\022\026\n\006offset\030\006 \001(\005R\006of" +
-      "fset\"n\n\027ListPoliticiansResponse\022=\n\013polit" +
-      "icians\030\001 \003(\0132\033.shorts.v1alpha1.Politicia" +
-      "nR\013politicians\022\024\n\005total\030\002 \001(\005R\005total\"*\n\024" +
-      "GetPoliticianRequest\022\022\n\004slug\030\001 \001(\tR\004slug" +
-      "\"\273\003\n\025GetPoliticianResponse\022;\n\npolitician" +
-      "\030\001 \001(\0132\033.shorts.v1alpha1.PoliticianR\npol" +
-      "itician\022%\n\016canonical_slug\030\002 \001(\tR\rcanonic" +
-      "alSlug\0225\n\005terms\030\003 \003(\0132\037.shorts.v1alpha1." +
-      "PoliticianTermR\005terms\022?\n\tinterests\030\004 \003(\013" +
-      "2!.shorts.v1alpha1.DeclaredInterestR\tint" +
-      "erests\022/\n\023represented_suburbs\030\005 \003(\tR\022rep" +
-      "resentedSuburbs\0223\n\025extracted_parliaments" +
-      "\030\006 \003(\005R\024extractedParliaments\022/\n\023partial_" +
-      "parliaments\030\010 \003(\005R\022partialParliaments\022/\n" +
-      "\023pending_parliaments\030\007 \003(\005R\022pendingParli" +
-      "aments\"_\n\033ListStockPoliticiansRequest\022\035\n" +
-      "\nstock_code\030\001 \001(\tR\tstockCode\022!\n\014current_" +
-      "only\030\002 \001(\010R\013currentOnly\"h\n\nPartyCount\022\031\n" +
-      "\010party_ab\030\001 \001(\tR\007partyAb\022\024\n\005party\030\002 \001(\tR" +
-      "\005party\022)\n\020politician_count\030\003 \001(\005R\017politi" +
-      "cianCount\"\272\002\n\034ListStockPoliticiansRespon" +
-      "se\022\035\n\nstock_code\030\001 \001(\tR\tstockCode\022!\n\014com" +
-      "pany_name\030\002 \001(\tR\013companyName\022)\n\020politici" +
-      "an_count\030\003 \001(\005R\017politicianCount\022>\n\014party" +
-      "_counts\030\004 \003(\0132\033.shorts.v1alpha1.PartyCou" +
-      "ntR\013partyCounts\022F\n\tinterests\030\005 \003(\0132(.sho" +
-      "rts.v1alpha1.StockPoliticianInterestR\tin" +
-      "terests\022%\n\016source_licence\030\006 \001(\tR\rsourceL" +
-      "icence\"\225\001\n\027StockPoliticianInterest\022;\n\npo" +
-      "litician\030\001 \001(\0132\033.shorts.v1alpha1.Politic" +
-      "ianR\npolitician\022=\n\010interest\030\002 \001(\0132!.shor" +
-      "ts.v1alpha1.DeclaredInterestR\010interest\"V" +
-      "\n\033ListPoliticianStocksRequest\022\024\n\005limit\030\001" +
-      " \001(\005R\005limit\022!\n\014current_only\030\002 \001(\010R\013curre" +
-      "ntOnly\"\205\002\n\025PoliticianStockRollup\022\035\n\nstoc" +
-      "k_code\030\001 \001(\tR\tstockCode\022!\n\014company_name\030" +
-      "\002 \001(\tR\013companyName\022\032\n\010industry\030\003 \001(\tR\010in" +
-      "dustry\022)\n\020politician_count\030\004 \001(\005R\017politi" +
-      "cianCount\022>\n\014party_counts\030\005 \003(\0132\033.shorts" +
-      ".v1alpha1.PartyCountR\013partyCounts\022#\n\rsho" +
-      "rt_percent\030\006 \001(\001R\014shortPercent\"\205\001\n\034ListP" +
-      "oliticianStocksResponse\022>\n\006stocks\030\001 \003(\0132" +
-      "&.shorts.v1alpha1.PoliticianStockRollupR" +
-      "\006stocks\022%\n\016source_licence\030\002 \001(\tR\rsourceL" +
-      "icence\"9\n\034ListSuburbPoliticiansRequest\022\031" +
-      "\n\010sal_code\030\001 \001(\tR\007salCode\"\242\002\n\035ListSuburb" +
-      "PoliticiansResponse\022\031\n\010sal_code\030\001 \001(\tR\007s" +
-      "alCode\022\037\n\013suburb_name\030\002 \001(\tR\nsuburbName\022" +
-      "\035\n\nstate_code\030\003 \001(\tR\tstateCode\0224\n\026declar" +
-      "ing_member_count\030\004 \001(\005R\024declaringMemberC" +
-      "ount\022I\n\nproperties\030\005 \003(\0132).shorts.v1alph" +
-      "a1.SuburbPoliticianPropertyR\nproperties\022" +
-      "%\n\016source_licence\030\006 \001(\tR\rsourceLicence\"\226" +
-      "\001\n\030SuburbPoliticianProperty\022;\n\npoliticia" +
-      "n\030\001 \001(\0132\033.shorts.v1alpha1.PoliticianR\npo" +
-      "litician\022=\n\010interest\030\002 \001(\0132!.shorts.v1al" +
-      "pha1.DeclaredInterestR\010interest\"Y\n\"ListS" +
-      "tatePoliticianHoldingsRequest\022\035\n\nstate_c" +
-      "ode\030\001 \001(\tR\tstateCode\022\024\n\005limit\030\002 \001(\005R\005lim" +
-      "it\"\326\001\n#ListStatePoliticianHoldingsRespon" +
-      "se\022\035\n\nstate_code\030\001 \001(\tR\tstateCode\022>\n\006sto" +
-      "cks\030\002 \003(\0132&.shorts.v1alpha1.PoliticianSt" +
-      "ockRollupR\006stocks\022)\n\020politician_count\030\003 " +
-      "\001(\005R\017politicianCount\022%\n\016source_licence\030\004" +
-      " \001(\tR\rsourceLicence\"\324\001\n\032ListRegisterChan" +
-      "gesRequest\0220\n\005since\030\001 \001(\0132\032.google.proto" +
-      "buf.TimestampR\005since\0227\n\004kind\030\002 \001(\0162#.sho" +
-      "rts.v1alpha1.RegisterChangeKindR\004kind\022\035\n" +
-      "\nstock_code\030\003 \001(\tR\tstockCode\022\024\n\005limit\030\004 " +
-      "\001(\005R\005limit\022\026\n\006offset\030\005 \001(\005R\006offset\"\336\003\n\023R" +
-      "egisterChangeEvent\022;\n\npolitician\030\001 \001(\0132\033" +
-      ".shorts.v1alpha1.PoliticianR\npolitician\022" +
-      "7\n\004kind\030\002 \001(\0162#.shorts.v1alpha1.Register" +
-      "ChangeKindR\004kind\022\027\n\007item_no\030\003 \001(\005R\006itemN" +
-      "o\022\035\n\nitem_label\030\004 \001(\tR\titemLabel\0227\n\006hold" +
-      "er\030\005 \001(\0162\037.shorts.v1alpha1.RegisterHolde" +
-      "rR\006holder\022#\n\rdeclared_text\030\006 \001(\tR\014declar" +
-      "edText\022\035\n\nstock_code\030\007 \001(\tR\tstockCode\022!\n" +
-      "\014company_name\030\010 \001(\tR\013companyName\0229\n\nchan" +
-      "ged_on\030\t \001(\0132\032.google.protobuf.Timestamp" +
-      "R\tchangedOn\022\035\n\nsource_url\030\n \001(\tR\tsourceU" +
-      "rl\022\037\n\013entity_kind\030\013 \001(\tR\nentityKind\"\230\001\n\033" +
-      "ListRegisterChangesResponse\022<\n\006events\030\001 " +
-      "\003(\0132$.shorts.v1alpha1.RegisterChangeEven" +
-      "tR\006events\022\024\n\005total\030\002 \001(\005R\005total\022%\n\016sourc" +
-      "e_licence\030\003 \001(\tR\rsourceLicence\"c\n\037ListSh" +
-      "ortInterestOverlapRequest\022*\n\021min_short_p" +
-      "ercent\030\001 \001(\001R\017minShortPercent\022\024\n\005limit\030\002" +
-      " \001(\005R\005limit\"\204\002\n\024ShortInterestOverlap\022\035\n\n" +
+      "proto\032\030options/v1/options.proto\"\200\001\n\021Part" +
+      "yIndustryCell\022\031\n\010party_ab\030\001 \001(\tR\007partyAb" +
+      "\022\032\n\010industry\030\002 \001(\tR\010industry\022\026\n\006people\030\003" +
+      " \001(\005R\006people\022\034\n\tcompanies\030\004 \001(\005R\tcompani" +
+      "es\"a\n\rIndustryTotal\022\032\n\010industry\030\001 \001(\tR\010i" +
+      "ndustry\022\026\n\006people\030\002 \001(\005R\006people\022\034\n\tcompa" +
+      "nies\030\003 \001(\005R\tcompanies\"?\n\nPartyTotal\022\031\n\010p" +
+      "arty_ab\030\001 \001(\tR\007partyAb\022\026\n\006people\030\002 \001(\005R\006" +
+      "people\"a\n\nStateTotal\022\035\n\nstate_code\030\001 \001(\t" +
+      "R\tstateCode\022\026\n\006people\030\002 \001(\005R\006people\022\034\n\tc" +
+      "ompanies\030\003 \001(\005R\tcompanies\"i\n\035GetPolitici" +
+      "anAnalyticsRequest\022%\n\016top_industries\030\001 \001" +
+      "(\005R\rtopIndustries\022!\n\014current_only\030\002 \001(\010R" +
+      "\013currentOnly\"\215\003\n\036GetPoliticianAnalyticsR" +
+      "esponse\0228\n\005cells\030\001 \003(\0132\".shorts.v1alpha1" +
+      ".PartyIndustryCellR\005cells\022>\n\nindustries\030" +
+      "\002 \003(\0132\036.shorts.v1alpha1.IndustryTotalR\ni" +
+      "ndustries\0225\n\007parties\030\003 \003(\0132\033.shorts.v1al" +
+      "pha1.PartyTotalR\007parties\0223\n\006states\030\004 \003(\013" +
+      "2\033.shorts.v1alpha1.StateTotalR\006states\022-\n" +
+      "\022industries_omitted\030\005 \001(\005R\021industriesOmi" +
+      "tted\022%\n\016source_licence\030\006 \001(\tR\rsourceLice" +
+      "nce\022/\n\005as_at\030\007 \001(\0132\032.google.protobuf.Tim" +
+      "estampR\004asAt\"\214\005\n\nPolitician\022\022\n\004slug\030\001 \001(" +
+      "\tR\004slug\022!\n\014display_name\030\002 \001(\tR\013displayNa" +
+      "me\022\030\n\007surname\030\003 \001(\tR\007surname\022\037\n\013given_na" +
+      "mes\030\004 \001(\tR\ngivenNames\022\034\n\thonorific\030\005 \001(\t" +
+      "R\thonorific\022\030\n\007chamber\030\006 \001(\tR\007chamber\022\032\n" +
+      "\010division\030\007 \001(\tR\010division\022\035\n\nstate_code\030" +
+      "\010 \001(\tR\tstateCode\022\024\n\005party\030\t \001(\tR\005party\022\031" +
+      "\n\010party_ab\030\n \001(\tR\007partyAb\022)\n\020first_parli" +
+      "ament\030\013 \001(\005R\017firstParliament\022\'\n\017last_par" +
+      "liament\030\014 \001(\005R\016lastParliament\022\031\n\010aph_mpi" +
+      "d\030\r \001(\tR\007aphMpid\0222\n\025declared_listed_coun" +
+      "t\030\016 \001(\005R\023declaredListedCount\0226\n\027declared" +
+      "_property_count\030\017 \001(\005R\025declaredPropertyC" +
+      "ount\022\033\n\tphoto_url\030\020 \001(\tR\010photoUrl\022#\n\rpho" +
+      "to_licence\030\021 \001(\tR\014photoLicence\022!\n\014photo_" +
+      "author\030\022 \001(\tR\013photoAuthor\022(\n\020photo_sourc" +
+      "e_url\030\023 \001(\tR\016photoSourceUrl\"\367\005\n\020Declared" +
+      "Interest\022\027\n\007item_no\030\001 \001(\005R\006itemNo\022\035\n\nite" +
+      "m_label\030\002 \001(\tR\titemLabel\0227\n\006holder\030\003 \001(\016" +
+      "2\037.shorts.v1alpha1.RegisterHolderR\006holde" +
+      "r\022#\n\rdeclared_text\030\004 \001(\tR\014declaredText\022%" +
+      "\n\016secondary_text\030\005 \001(\tR\rsecondaryText\022\035\n" +
+      "\nstock_code\030\006 \001(\tR\tstockCode\022!\n\014company_" +
+      "name\030\007 \001(\tR\013companyName\022\032\n\010industry\030\010 \001(" +
+      "\tR\010industry\022\031\n\010sal_code\030\t \001(\tR\007salCode\022\037" +
+      "\n\013suburb_name\030\n \001(\tR\nsuburbName\022%\n\016prope" +
+      "rty_state\030\013 \001(\tR\rpropertyState\022!\n\014match_" +
+      "method\030\014 \001(\tR\013matchMethod\022?\n\rdeclared_fr" +
+      "om\030\r \001(\0132\032.google.protobuf.TimestampR\014de" +
+      "claredFrom\022.\n\023declared_from_known\030\016 \001(\010R" +
+      "\021declaredFromKnown\022;\n\013declared_to\030\017 \001(\0132" +
+      "\032.google.protobuf.TimestampR\ndeclaredTo\022" +
+      "-\n\022currently_declared\030\020 \001(\010R\021currentlyDe" +
+      "clared\022\035\n\nsource_url\030\021 \001(\tR\tsourceUrl\022%\n" +
+      "\016source_licence\030\022 \001(\tR\rsourceLicence\022\037\n\013" +
+      "entity_kind\030\023 \001(\tR\nentityKind\"\266\001\n\016Politi" +
+      "cianTerm\022\036\n\nparliament\030\001 \001(\005R\nparliament" +
+      "\022\030\n\007chamber\030\002 \001(\tR\007chamber\022\032\n\010division\030\003" +
+      " \001(\tR\010division\022\035\n\nstate_code\030\004 \001(\tR\tstat" +
+      "eCode\022\024\n\005party\030\005 \001(\tR\005party\022\031\n\010party_ab\030" +
+      "\006 \001(\tR\007partyAb\"\036\n\034GetParliamentOverviewR" +
+      "equest\"\364\003\n\035GetParliamentOverviewResponse" +
+      "\022)\n\020politician_count\030\001 \001(\005R\017politicianCo" +
+      "unt\022\'\n\017statement_count\030\002 \001(\005R\016statementC" +
+      "ount\022,\n\022declared_row_count\030\003 \001(\005R\020declar" +
+      "edRowCount\0222\n\025resolved_listed_count\030\004 \001(" +
+      "\005R\023resolvedListedCount\0222\n\025resolved_subur" +
+      "b_count\030\005 \001(\005R\023resolvedSuburbCount\022)\n\020fi" +
+      "rst_parliament\030\006 \001(\005R\017firstParliament\022\'\n" +
+      "\017last_parliament\030\007 \001(\005R\016lastParliament\022/" +
+      "\n\005as_at\030\010 \001(\0132\032.google.protobuf.Timestam" +
+      "pR\004asAt\022=\n\014refreshed_at\030\t \001(\0132\032.google.p" +
+      "rotobuf.TimestampR\013refreshedAt\022%\n\016source" +
+      "_licence\030\n \001(\tR\rsourceLicence\"\260\001\n\026ListPo" +
+      "liticiansRequest\022\030\n\007chamber\030\001 \001(\tR\007chamb" +
+      "er\022\035\n\nstate_code\030\002 \001(\tR\tstateCode\022\031\n\010par" +
+      "ty_ab\030\003 \001(\tR\007partyAb\022\024\n\005query\030\004 \001(\tR\005que" +
+      "ry\022\024\n\005limit\030\005 \001(\005R\005limit\022\026\n\006offset\030\006 \001(\005" +
+      "R\006offset\"n\n\027ListPoliticiansResponse\022=\n\013p" +
+      "oliticians\030\001 \003(\0132\033.shorts.v1alpha1.Polit" +
+      "icianR\013politicians\022\024\n\005total\030\002 \001(\005R\005total" +
+      "\"*\n\024GetPoliticianRequest\022\022\n\004slug\030\001 \001(\tR\004" +
+      "slug\"\273\003\n\025GetPoliticianResponse\022;\n\npoliti" +
+      "cian\030\001 \001(\0132\033.shorts.v1alpha1.PoliticianR" +
+      "\npolitician\022%\n\016canonical_slug\030\002 \001(\tR\rcan" +
+      "onicalSlug\0225\n\005terms\030\003 \003(\0132\037.shorts.v1alp" +
+      "ha1.PoliticianTermR\005terms\022?\n\tinterests\030\004" +
+      " \003(\0132!.shorts.v1alpha1.DeclaredInterestR" +
+      "\tinterests\022/\n\023represented_suburbs\030\005 \003(\tR" +
+      "\022representedSuburbs\0223\n\025extracted_parliam" +
+      "ents\030\006 \003(\005R\024extractedParliaments\022/\n\023part" +
+      "ial_parliaments\030\010 \003(\005R\022partialParliament" +
+      "s\022/\n\023pending_parliaments\030\007 \003(\005R\022pendingP" +
+      "arliaments\"_\n\033ListStockPoliticiansReques" +
+      "t\022\035\n\nstock_code\030\001 \001(\tR\tstockCode\022!\n\014curr" +
+      "ent_only\030\002 \001(\010R\013currentOnly\"h\n\nPartyCoun" +
+      "t\022\031\n\010party_ab\030\001 \001(\tR\007partyAb\022\024\n\005party\030\002 " +
+      "\001(\tR\005party\022)\n\020politician_count\030\003 \001(\005R\017po" +
+      "liticianCount\"\272\002\n\034ListStockPoliticiansRe" +
+      "sponse\022\035\n\nstock_code\030\001 \001(\tR\tstockCode\022!\n" +
+      "\014company_name\030\002 \001(\tR\013companyName\022)\n\020poli" +
+      "tician_count\030\003 \001(\005R\017politicianCount\022>\n\014p" +
+      "arty_counts\030\004 \003(\0132\033.shorts.v1alpha1.Part" +
+      "yCountR\013partyCounts\022F\n\tinterests\030\005 \003(\0132(" +
+      ".shorts.v1alpha1.StockPoliticianInterest" +
+      "R\tinterests\022%\n\016source_licence\030\006 \001(\tR\rsou" +
+      "rceLicence\"\225\001\n\027StockPoliticianInterest\022;" +
+      "\n\npolitician\030\001 \001(\0132\033.shorts.v1alpha1.Pol" +
+      "iticianR\npolitician\022=\n\010interest\030\002 \001(\0132!." +
+      "shorts.v1alpha1.DeclaredInterestR\010intere" +
+      "st\"V\n\033ListPoliticianStocksRequest\022\024\n\005lim" +
+      "it\030\001 \001(\005R\005limit\022!\n\014current_only\030\002 \001(\010R\013c" +
+      "urrentOnly\"\205\002\n\025PoliticianStockRollup\022\035\n\n" +
       "stock_code\030\001 \001(\tR\tstockCode\022!\n\014company_n" +
       "ame\030\002 \001(\tR\013companyName\022\032\n\010industry\030\003 \001(\t" +
-      "R\010industry\022#\n\rshort_percent\030\004 \001(\001R\014short" +
-      "Percent\022)\n\020politician_count\030\005 \001(\005R\017polit" +
-      "icianCount\022>\n\014party_counts\030\006 \003(\0132\033.short" +
-      "s.v1alpha1.PartyCountR\013partyCounts\"\265\001\n L" +
-      "istShortInterestOverlapResponse\022A\n\010overl" +
-      "aps\030\001 \003(\0132%.shorts.v1alpha1.ShortInteres" +
-      "tOverlapR\010overlaps\022\'\n\017disclosure_note\030\002 " +
-      "\001(\tR\016disclosureNote\022%\n\016source_licence\030\003 " +
-      "\001(\tR\rsourceLicence*\227\001\n\016RegisterHolder\022\037\n" +
-      "\033REGISTER_HOLDER_UNSPECIFIED\020\000\022\030\n\024REGIST" +
-      "ER_HOLDER_SELF\020\001\022\"\n\036REGISTER_HOLDER_SPOU" +
-      "SE_PARTNER\020\002\022&\n\"REGISTER_HOLDER_DEPENDEN" +
-      "T_CHILDREN\020\003*|\n\022RegisterChangeKind\022$\n RE" +
-      "GISTER_CHANGE_KIND_UNSPECIFIED\020\000\022\036\n\032REGI" +
-      "STER_CHANGE_KIND_ADDED\020\001\022 \n\034REGISTER_CHA" +
-      "NGE_KIND_REMOVED\020\0022\351\010\n\022PoliticiansServic" +
-      "e\022|\n\025GetParliamentOverview\022-.shorts.v1al" +
-      "pha1.GetParliamentOverviewRequest\032..shor" +
-      "ts.v1alpha1.GetParliamentOverviewRespons" +
-      "e\"\004\200\265\030\001\022j\n\017ListPoliticians\022\'.shorts.v1al" +
-      "pha1.ListPoliticiansRequest\032(.shorts.v1a" +
-      "lpha1.ListPoliticiansResponse\"\004\200\265\030\001\022d\n\rG" +
-      "etPolitician\022%.shorts.v1alpha1.GetPoliti" +
-      "cianRequest\032&.shorts.v1alpha1.GetPolitic" +
-      "ianResponse\"\004\200\265\030\001\022y\n\024ListStockPolitician" +
-      "s\022,.shorts.v1alpha1.ListStockPoliticians" +
-      "Request\032-.shorts.v1alpha1.ListStockPolit" +
-      "iciansResponse\"\004\200\265\030\001\022y\n\024ListPoliticianSt" +
-      "ocks\022,.shorts.v1alpha1.ListPoliticianSto" +
-      "cksRequest\032-.shorts.v1alpha1.ListPolitic" +
-      "ianStocksResponse\"\004\200\265\030\001\022|\n\025ListSuburbPol" +
-      "iticians\022-.shorts.v1alpha1.ListSuburbPol" +
-      "iticiansRequest\032..shorts.v1alpha1.ListSu" +
-      "burbPoliticiansResponse\"\004\200\265\030\001\022\216\001\n\033ListSt" +
-      "atePoliticianHoldings\0223.shorts.v1alpha1." +
-      "ListStatePoliticianHoldingsRequest\0324.sho" +
-      "rts.v1alpha1.ListStatePoliticianHoldings" +
-      "Response\"\004\200\265\030\001\022v\n\023ListRegisterChanges\022+." +
-      "shorts.v1alpha1.ListRegisterChangesReque" +
-      "st\032,.shorts.v1alpha1.ListRegisterChanges" +
-      "Response\"\004\200\265\030\001\022\205\001\n\030ListShortInterestOver" +
-      "lap\0220.shorts.v1alpha1.ListShortInterestO" +
-      "verlapRequest\0321.shorts.v1alpha1.ListShor" +
-      "tInterestOverlapResponse\"\004\200\265\030\001B\337\001\n\023com.s" +
-      "horts.v1alpha1B\020PoliticiansProtoP\001ZYgith" +
-      "ub.com/castlemilk/shorted.com.au/service" +
-      "s/gen/proto/go/shorts/v1alpha1;shortsv1a" +
-      "lpha1\242\002\003SXX\252\002\017Shorts.V1alpha1\312\002\017Shorts\\V" +
-      "1alpha1\342\002\033Shorts\\V1alpha1\\GPBMetadata\352\002\020" +
-      "Shorts::V1alpha1b\006proto3"
+      "R\010industry\022)\n\020politician_count\030\004 \001(\005R\017po" +
+      "liticianCount\022>\n\014party_counts\030\005 \003(\0132\033.sh" +
+      "orts.v1alpha1.PartyCountR\013partyCounts\022#\n" +
+      "\rshort_percent\030\006 \001(\001R\014shortPercent\"\205\001\n\034L" +
+      "istPoliticianStocksResponse\022>\n\006stocks\030\001 " +
+      "\003(\0132&.shorts.v1alpha1.PoliticianStockRol" +
+      "lupR\006stocks\022%\n\016source_licence\030\002 \001(\tR\rsou" +
+      "rceLicence\"9\n\034ListSuburbPoliticiansReque" +
+      "st\022\031\n\010sal_code\030\001 \001(\tR\007salCode\"\242\002\n\035ListSu" +
+      "burbPoliticiansResponse\022\031\n\010sal_code\030\001 \001(" +
+      "\tR\007salCode\022\037\n\013suburb_name\030\002 \001(\tR\nsuburbN" +
+      "ame\022\035\n\nstate_code\030\003 \001(\tR\tstateCode\0224\n\026de" +
+      "claring_member_count\030\004 \001(\005R\024declaringMem" +
+      "berCount\022I\n\nproperties\030\005 \003(\0132).shorts.v1" +
+      "alpha1.SuburbPoliticianPropertyR\npropert" +
+      "ies\022%\n\016source_licence\030\006 \001(\tR\rsourceLicen" +
+      "ce\"\226\001\n\030SuburbPoliticianProperty\022;\n\npolit" +
+      "ician\030\001 \001(\0132\033.shorts.v1alpha1.Politician" +
+      "R\npolitician\022=\n\010interest\030\002 \001(\0132!.shorts." +
+      "v1alpha1.DeclaredInterestR\010interest\"Y\n\"L" +
+      "istStatePoliticianHoldingsRequest\022\035\n\nsta" +
+      "te_code\030\001 \001(\tR\tstateCode\022\024\n\005limit\030\002 \001(\005R" +
+      "\005limit\"\326\001\n#ListStatePoliticianHoldingsRe" +
+      "sponse\022\035\n\nstate_code\030\001 \001(\tR\tstateCode\022>\n" +
+      "\006stocks\030\002 \003(\0132&.shorts.v1alpha1.Politici" +
+      "anStockRollupR\006stocks\022)\n\020politician_coun" +
+      "t\030\003 \001(\005R\017politicianCount\022%\n\016source_licen" +
+      "ce\030\004 \001(\tR\rsourceLicence\"\324\001\n\032ListRegister" +
+      "ChangesRequest\0220\n\005since\030\001 \001(\0132\032.google.p" +
+      "rotobuf.TimestampR\005since\0227\n\004kind\030\002 \001(\0162#" +
+      ".shorts.v1alpha1.RegisterChangeKindR\004kin" +
+      "d\022\035\n\nstock_code\030\003 \001(\tR\tstockCode\022\024\n\005limi" +
+      "t\030\004 \001(\005R\005limit\022\026\n\006offset\030\005 \001(\005R\006offset\"\336" +
+      "\003\n\023RegisterChangeEvent\022;\n\npolitician\030\001 \001" +
+      "(\0132\033.shorts.v1alpha1.PoliticianR\npolitic" +
+      "ian\0227\n\004kind\030\002 \001(\0162#.shorts.v1alpha1.Regi" +
+      "sterChangeKindR\004kind\022\027\n\007item_no\030\003 \001(\005R\006i" +
+      "temNo\022\035\n\nitem_label\030\004 \001(\tR\titemLabel\0227\n\006" +
+      "holder\030\005 \001(\0162\037.shorts.v1alpha1.RegisterH" +
+      "olderR\006holder\022#\n\rdeclared_text\030\006 \001(\tR\014de" +
+      "claredText\022\035\n\nstock_code\030\007 \001(\tR\tstockCod" +
+      "e\022!\n\014company_name\030\010 \001(\tR\013companyName\0229\n\n" +
+      "changed_on\030\t \001(\0132\032.google.protobuf.Times" +
+      "tampR\tchangedOn\022\035\n\nsource_url\030\n \001(\tR\tsou" +
+      "rceUrl\022\037\n\013entity_kind\030\013 \001(\tR\nentityKind\"" +
+      "\230\001\n\033ListRegisterChangesResponse\022<\n\006event" +
+      "s\030\001 \003(\0132$.shorts.v1alpha1.RegisterChange" +
+      "EventR\006events\022\024\n\005total\030\002 \001(\005R\005total\022%\n\016s" +
+      "ource_licence\030\003 \001(\tR\rsourceLicence\"c\n\037Li" +
+      "stShortInterestOverlapRequest\022*\n\021min_sho" +
+      "rt_percent\030\001 \001(\001R\017minShortPercent\022\024\n\005lim" +
+      "it\030\002 \001(\005R\005limit\"\204\002\n\024ShortInterestOverlap" +
+      "\022\035\n\nstock_code\030\001 \001(\tR\tstockCode\022!\n\014compa" +
+      "ny_name\030\002 \001(\tR\013companyName\022\032\n\010industry\030\003" +
+      " \001(\tR\010industry\022#\n\rshort_percent\030\004 \001(\001R\014s" +
+      "hortPercent\022)\n\020politician_count\030\005 \001(\005R\017p" +
+      "oliticianCount\022>\n\014party_counts\030\006 \003(\0132\033.s" +
+      "horts.v1alpha1.PartyCountR\013partyCounts\"\265" +
+      "\001\n ListShortInterestOverlapResponse\022A\n\010o" +
+      "verlaps\030\001 \003(\0132%.shorts.v1alpha1.ShortInt" +
+      "erestOverlapR\010overlaps\022\'\n\017disclosure_not" +
+      "e\030\002 \001(\tR\016disclosureNote\022%\n\016source_licenc" +
+      "e\030\003 \001(\tR\rsourceLicence*\227\001\n\016RegisterHolde" +
+      "r\022\037\n\033REGISTER_HOLDER_UNSPECIFIED\020\000\022\030\n\024RE" +
+      "GISTER_HOLDER_SELF\020\001\022\"\n\036REGISTER_HOLDER_" +
+      "SPOUSE_PARTNER\020\002\022&\n\"REGISTER_HOLDER_DEPE" +
+      "NDENT_CHILDREN\020\003*|\n\022RegisterChangeKind\022$" +
+      "\n REGISTER_CHANGE_KIND_UNSPECIFIED\020\000\022\036\n\032" +
+      "REGISTER_CHANGE_KIND_ADDED\020\001\022 \n\034REGISTER" +
+      "_CHANGE_KIND_REMOVED\020\0022\352\t\n\022PoliticiansSe" +
+      "rvice\022|\n\025GetParliamentOverview\022-.shorts." +
+      "v1alpha1.GetParliamentOverviewRequest\032.." +
+      "shorts.v1alpha1.GetParliamentOverviewRes" +
+      "ponse\"\004\200\265\030\001\022j\n\017ListPoliticians\022\'.shorts." +
+      "v1alpha1.ListPoliticiansRequest\032(.shorts" +
+      ".v1alpha1.ListPoliticiansResponse\"\004\200\265\030\001\022" +
+      "d\n\rGetPolitician\022%.shorts.v1alpha1.GetPo" +
+      "liticianRequest\032&.shorts.v1alpha1.GetPol" +
+      "iticianResponse\"\004\200\265\030\001\022y\n\024ListStockPoliti" +
+      "cians\022,.shorts.v1alpha1.ListStockPolitic" +
+      "iansRequest\032-.shorts.v1alpha1.ListStockP" +
+      "oliticiansResponse\"\004\200\265\030\001\022y\n\024ListPolitici" +
+      "anStocks\022,.shorts.v1alpha1.ListPoliticia" +
+      "nStocksRequest\032-.shorts.v1alpha1.ListPol" +
+      "iticianStocksResponse\"\004\200\265\030\001\022|\n\025ListSubur" +
+      "bPoliticians\022-.shorts.v1alpha1.ListSubur" +
+      "bPoliticiansRequest\032..shorts.v1alpha1.Li" +
+      "stSuburbPoliticiansResponse\"\004\200\265\030\001\022\216\001\n\033Li" +
+      "stStatePoliticianHoldings\0223.shorts.v1alp" +
+      "ha1.ListStatePoliticianHoldingsRequest\0324" +
+      ".shorts.v1alpha1.ListStatePoliticianHold" +
+      "ingsResponse\"\004\200\265\030\001\022v\n\023ListRegisterChange" +
+      "s\022+.shorts.v1alpha1.ListRegisterChangesR" +
+      "equest\032,.shorts.v1alpha1.ListRegisterCha" +
+      "ngesResponse\"\004\200\265\030\001\022\205\001\n\030ListShortInterest" +
+      "Overlap\0220.shorts.v1alpha1.ListShortInter" +
+      "estOverlapRequest\0321.shorts.v1alpha1.List" +
+      "ShortInterestOverlapResponse\"\004\200\265\030\001\022\177\n\026Ge" +
+      "tPoliticianAnalytics\022..shorts.v1alpha1.G" +
+      "etPoliticianAnalyticsRequest\032/.shorts.v1" +
+      "alpha1.GetPoliticianAnalyticsResponse\"\004\200" +
+      "\265\030\001B\337\001\n\023com.shorts.v1alpha1B\020Politicians" +
+      "ProtoP\001ZYgithub.com/castlemilk/shorted.c" +
+      "om.au/services/gen/proto/go/shorts/v1alp" +
+      "ha1;shortsv1alpha1\242\002\003SXX\252\002\017Shorts.V1alph" +
+      "a1\312\002\017Shorts\\V1alpha1\342\002\033Shorts\\V1alpha1\\G" +
+      "PBMetadata\352\002\020Shorts::V1alpha1b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -375,164 +434,200 @@ public final class PoliticiansProto extends com.google.protobuf.GeneratedFile {
           com.google.protobuf.TimestampProto.getDescriptor(),
           com.shortedapi.options.v1.OptionsProto.getDescriptor(),
         });
-    internal_static_shorts_v1alpha1_Politician_descriptor =
+    internal_static_shorts_v1alpha1_PartyIndustryCell_descriptor =
       getDescriptor().getMessageType(0);
+    internal_static_shorts_v1alpha1_PartyIndustryCell_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_PartyIndustryCell_descriptor,
+        new java.lang.String[] { "PartyAb", "Industry", "People", "Companies", });
+    internal_static_shorts_v1alpha1_IndustryTotal_descriptor =
+      getDescriptor().getMessageType(1);
+    internal_static_shorts_v1alpha1_IndustryTotal_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_IndustryTotal_descriptor,
+        new java.lang.String[] { "Industry", "People", "Companies", });
+    internal_static_shorts_v1alpha1_PartyTotal_descriptor =
+      getDescriptor().getMessageType(2);
+    internal_static_shorts_v1alpha1_PartyTotal_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_PartyTotal_descriptor,
+        new java.lang.String[] { "PartyAb", "People", });
+    internal_static_shorts_v1alpha1_StateTotal_descriptor =
+      getDescriptor().getMessageType(3);
+    internal_static_shorts_v1alpha1_StateTotal_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_StateTotal_descriptor,
+        new java.lang.String[] { "StateCode", "People", "Companies", });
+    internal_static_shorts_v1alpha1_GetPoliticianAnalyticsRequest_descriptor =
+      getDescriptor().getMessageType(4);
+    internal_static_shorts_v1alpha1_GetPoliticianAnalyticsRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_GetPoliticianAnalyticsRequest_descriptor,
+        new java.lang.String[] { "TopIndustries", "CurrentOnly", });
+    internal_static_shorts_v1alpha1_GetPoliticianAnalyticsResponse_descriptor =
+      getDescriptor().getMessageType(5);
+    internal_static_shorts_v1alpha1_GetPoliticianAnalyticsResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_GetPoliticianAnalyticsResponse_descriptor,
+        new java.lang.String[] { "Cells", "Industries", "Parties", "States", "IndustriesOmitted", "SourceLicence", "AsAt", });
+    internal_static_shorts_v1alpha1_Politician_descriptor =
+      getDescriptor().getMessageType(6);
     internal_static_shorts_v1alpha1_Politician_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_Politician_descriptor,
-        new java.lang.String[] { "Slug", "DisplayName", "Surname", "GivenNames", "Honorific", "Chamber", "Division", "StateCode", "Party", "PartyAb", "FirstParliament", "LastParliament", "AphMpid", "DeclaredListedCount", "DeclaredPropertyCount", });
+        new java.lang.String[] { "Slug", "DisplayName", "Surname", "GivenNames", "Honorific", "Chamber", "Division", "StateCode", "Party", "PartyAb", "FirstParliament", "LastParliament", "AphMpid", "DeclaredListedCount", "DeclaredPropertyCount", "PhotoUrl", "PhotoLicence", "PhotoAuthor", "PhotoSourceUrl", });
     internal_static_shorts_v1alpha1_DeclaredInterest_descriptor =
-      getDescriptor().getMessageType(1);
+      getDescriptor().getMessageType(7);
     internal_static_shorts_v1alpha1_DeclaredInterest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_DeclaredInterest_descriptor,
         new java.lang.String[] { "ItemNo", "ItemLabel", "Holder", "DeclaredText", "SecondaryText", "StockCode", "CompanyName", "Industry", "SalCode", "SuburbName", "PropertyState", "MatchMethod", "DeclaredFrom", "DeclaredFromKnown", "DeclaredTo", "CurrentlyDeclared", "SourceUrl", "SourceLicence", "EntityKind", });
     internal_static_shorts_v1alpha1_PoliticianTerm_descriptor =
-      getDescriptor().getMessageType(2);
+      getDescriptor().getMessageType(8);
     internal_static_shorts_v1alpha1_PoliticianTerm_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_PoliticianTerm_descriptor,
         new java.lang.String[] { "Parliament", "Chamber", "Division", "StateCode", "Party", "PartyAb", });
     internal_static_shorts_v1alpha1_GetParliamentOverviewRequest_descriptor =
-      getDescriptor().getMessageType(3);
+      getDescriptor().getMessageType(9);
     internal_static_shorts_v1alpha1_GetParliamentOverviewRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetParliamentOverviewRequest_descriptor,
         new java.lang.String[] { });
     internal_static_shorts_v1alpha1_GetParliamentOverviewResponse_descriptor =
-      getDescriptor().getMessageType(4);
+      getDescriptor().getMessageType(10);
     internal_static_shorts_v1alpha1_GetParliamentOverviewResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetParliamentOverviewResponse_descriptor,
         new java.lang.String[] { "PoliticianCount", "StatementCount", "DeclaredRowCount", "ResolvedListedCount", "ResolvedSuburbCount", "FirstParliament", "LastParliament", "AsAt", "RefreshedAt", "SourceLicence", });
     internal_static_shorts_v1alpha1_ListPoliticiansRequest_descriptor =
-      getDescriptor().getMessageType(5);
+      getDescriptor().getMessageType(11);
     internal_static_shorts_v1alpha1_ListPoliticiansRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListPoliticiansRequest_descriptor,
         new java.lang.String[] { "Chamber", "StateCode", "PartyAb", "Query", "Limit", "Offset", });
     internal_static_shorts_v1alpha1_ListPoliticiansResponse_descriptor =
-      getDescriptor().getMessageType(6);
+      getDescriptor().getMessageType(12);
     internal_static_shorts_v1alpha1_ListPoliticiansResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListPoliticiansResponse_descriptor,
         new java.lang.String[] { "Politicians", "Total", });
     internal_static_shorts_v1alpha1_GetPoliticianRequest_descriptor =
-      getDescriptor().getMessageType(7);
+      getDescriptor().getMessageType(13);
     internal_static_shorts_v1alpha1_GetPoliticianRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetPoliticianRequest_descriptor,
         new java.lang.String[] { "Slug", });
     internal_static_shorts_v1alpha1_GetPoliticianResponse_descriptor =
-      getDescriptor().getMessageType(8);
+      getDescriptor().getMessageType(14);
     internal_static_shorts_v1alpha1_GetPoliticianResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetPoliticianResponse_descriptor,
         new java.lang.String[] { "Politician", "CanonicalSlug", "Terms", "Interests", "RepresentedSuburbs", "ExtractedParliaments", "PartialParliaments", "PendingParliaments", });
     internal_static_shorts_v1alpha1_ListStockPoliticiansRequest_descriptor =
-      getDescriptor().getMessageType(9);
+      getDescriptor().getMessageType(15);
     internal_static_shorts_v1alpha1_ListStockPoliticiansRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListStockPoliticiansRequest_descriptor,
         new java.lang.String[] { "StockCode", "CurrentOnly", });
     internal_static_shorts_v1alpha1_PartyCount_descriptor =
-      getDescriptor().getMessageType(10);
+      getDescriptor().getMessageType(16);
     internal_static_shorts_v1alpha1_PartyCount_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_PartyCount_descriptor,
         new java.lang.String[] { "PartyAb", "Party", "PoliticianCount", });
     internal_static_shorts_v1alpha1_ListStockPoliticiansResponse_descriptor =
-      getDescriptor().getMessageType(11);
+      getDescriptor().getMessageType(17);
     internal_static_shorts_v1alpha1_ListStockPoliticiansResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListStockPoliticiansResponse_descriptor,
         new java.lang.String[] { "StockCode", "CompanyName", "PoliticianCount", "PartyCounts", "Interests", "SourceLicence", });
     internal_static_shorts_v1alpha1_StockPoliticianInterest_descriptor =
-      getDescriptor().getMessageType(12);
+      getDescriptor().getMessageType(18);
     internal_static_shorts_v1alpha1_StockPoliticianInterest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_StockPoliticianInterest_descriptor,
         new java.lang.String[] { "Politician", "Interest", });
     internal_static_shorts_v1alpha1_ListPoliticianStocksRequest_descriptor =
-      getDescriptor().getMessageType(13);
+      getDescriptor().getMessageType(19);
     internal_static_shorts_v1alpha1_ListPoliticianStocksRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListPoliticianStocksRequest_descriptor,
         new java.lang.String[] { "Limit", "CurrentOnly", });
     internal_static_shorts_v1alpha1_PoliticianStockRollup_descriptor =
-      getDescriptor().getMessageType(14);
+      getDescriptor().getMessageType(20);
     internal_static_shorts_v1alpha1_PoliticianStockRollup_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_PoliticianStockRollup_descriptor,
         new java.lang.String[] { "StockCode", "CompanyName", "Industry", "PoliticianCount", "PartyCounts", "ShortPercent", });
     internal_static_shorts_v1alpha1_ListPoliticianStocksResponse_descriptor =
-      getDescriptor().getMessageType(15);
+      getDescriptor().getMessageType(21);
     internal_static_shorts_v1alpha1_ListPoliticianStocksResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListPoliticianStocksResponse_descriptor,
         new java.lang.String[] { "Stocks", "SourceLicence", });
     internal_static_shorts_v1alpha1_ListSuburbPoliticiansRequest_descriptor =
-      getDescriptor().getMessageType(16);
+      getDescriptor().getMessageType(22);
     internal_static_shorts_v1alpha1_ListSuburbPoliticiansRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListSuburbPoliticiansRequest_descriptor,
         new java.lang.String[] { "SalCode", });
     internal_static_shorts_v1alpha1_ListSuburbPoliticiansResponse_descriptor =
-      getDescriptor().getMessageType(17);
+      getDescriptor().getMessageType(23);
     internal_static_shorts_v1alpha1_ListSuburbPoliticiansResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListSuburbPoliticiansResponse_descriptor,
         new java.lang.String[] { "SalCode", "SuburbName", "StateCode", "DeclaringMemberCount", "Properties", "SourceLicence", });
     internal_static_shorts_v1alpha1_SuburbPoliticianProperty_descriptor =
-      getDescriptor().getMessageType(18);
+      getDescriptor().getMessageType(24);
     internal_static_shorts_v1alpha1_SuburbPoliticianProperty_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_SuburbPoliticianProperty_descriptor,
         new java.lang.String[] { "Politician", "Interest", });
     internal_static_shorts_v1alpha1_ListStatePoliticianHoldingsRequest_descriptor =
-      getDescriptor().getMessageType(19);
+      getDescriptor().getMessageType(25);
     internal_static_shorts_v1alpha1_ListStatePoliticianHoldingsRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListStatePoliticianHoldingsRequest_descriptor,
         new java.lang.String[] { "StateCode", "Limit", });
     internal_static_shorts_v1alpha1_ListStatePoliticianHoldingsResponse_descriptor =
-      getDescriptor().getMessageType(20);
+      getDescriptor().getMessageType(26);
     internal_static_shorts_v1alpha1_ListStatePoliticianHoldingsResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListStatePoliticianHoldingsResponse_descriptor,
         new java.lang.String[] { "StateCode", "Stocks", "PoliticianCount", "SourceLicence", });
     internal_static_shorts_v1alpha1_ListRegisterChangesRequest_descriptor =
-      getDescriptor().getMessageType(21);
+      getDescriptor().getMessageType(27);
     internal_static_shorts_v1alpha1_ListRegisterChangesRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListRegisterChangesRequest_descriptor,
         new java.lang.String[] { "Since", "Kind", "StockCode", "Limit", "Offset", });
     internal_static_shorts_v1alpha1_RegisterChangeEvent_descriptor =
-      getDescriptor().getMessageType(22);
+      getDescriptor().getMessageType(28);
     internal_static_shorts_v1alpha1_RegisterChangeEvent_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_RegisterChangeEvent_descriptor,
         new java.lang.String[] { "Politician", "Kind", "ItemNo", "ItemLabel", "Holder", "DeclaredText", "StockCode", "CompanyName", "ChangedOn", "SourceUrl", "EntityKind", });
     internal_static_shorts_v1alpha1_ListRegisterChangesResponse_descriptor =
-      getDescriptor().getMessageType(23);
+      getDescriptor().getMessageType(29);
     internal_static_shorts_v1alpha1_ListRegisterChangesResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListRegisterChangesResponse_descriptor,
         new java.lang.String[] { "Events", "Total", "SourceLicence", });
     internal_static_shorts_v1alpha1_ListShortInterestOverlapRequest_descriptor =
-      getDescriptor().getMessageType(24);
+      getDescriptor().getMessageType(30);
     internal_static_shorts_v1alpha1_ListShortInterestOverlapRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListShortInterestOverlapRequest_descriptor,
         new java.lang.String[] { "MinShortPercent", "Limit", });
     internal_static_shorts_v1alpha1_ShortInterestOverlap_descriptor =
-      getDescriptor().getMessageType(25);
+      getDescriptor().getMessageType(31);
     internal_static_shorts_v1alpha1_ShortInterestOverlap_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ShortInterestOverlap_descriptor,
         new java.lang.String[] { "StockCode", "CompanyName", "Industry", "ShortPercent", "PoliticianCount", "PartyCounts", });
     internal_static_shorts_v1alpha1_ListShortInterestOverlapResponse_descriptor =
-      getDescriptor().getMessageType(26);
+      getDescriptor().getMessageType(32);
     internal_static_shorts_v1alpha1_ListShortInterestOverlapResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListShortInterestOverlapResponse_descriptor,

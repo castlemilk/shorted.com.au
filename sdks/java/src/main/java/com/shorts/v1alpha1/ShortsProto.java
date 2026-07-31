@@ -50,7 +50,7 @@ public final class ShortsProto extends com.google.protobuf.GeneratedFile {
       "orts/v1alpha1/politicians.proto\032\035shorts/" +
       "v1alpha1/reports.proto\032\036shorts/v1alpha1/" +
       "screener.proto\032\034shorts/v1alpha1/search.p" +
-      "roto\032\033shorts/v1alpha1/stock.proto2\324\230\001\n\024S" +
+      "roto\032\033shorts/v1alpha1/stock.proto2\247\233\001\n\024S" +
       "hortedStocksService\022\206\003\n\014GetTopShorts\022$.s" +
       "horts.v1alpha1.GetTopShortsRequest\032%.sho" +
       "rts.v1alpha1.GetTopShortsResponse\"\250\002\332A\023p" +
@@ -538,19 +538,27 @@ public final class ShortsProto extends com.google.protobuf.GeneratedFile {
       "\224\001\022\033List Short Interest Overlap\032uDeclare" +
       "d interests in companies carrying short " +
       "interest. The short percentage describes" +
-      " the company, not any holding.\200\265\030\001\032\025\312A\022a" +
-      "pi.shorted.com.auB\240\003\n\023com.shorts.v1alpha" +
-      "1B\013ShortsProtoP\001ZYgithub.com/castlemilk/" +
-      "shorted.com.au/services/gen/proto/go/sho" +
-      "rts/v1alpha1;shortsv1alpha1\242\002\003SXX\252\002\017Shor" +
-      "ts.V1alpha1\312\002\017Shorts\\V1alpha1\342\002\033Shorts\\V" +
-      "1alpha1\\GPBMetadata\352\002\020Shorts::V1alpha1\272G" +
-      "\302\001\022\177\n\013Shorted API\022\rShorted API\'s\"(\022\016shor" +
-      "ted.com.au\032\026support@shorted.com.au*3\n\023Pr" +
-      "oprietary license\022\034https://shorted.com.a" +
-      "u/terms2\002v1\032\034\n\032https://api.shorted.com.a" +
-      "u*!:\037\n\035\n\tAuthToken\022\020\n\016\n\004http*\006bearerb\006pr" +
-      "oto3"
+      " the company, not any holding.\200\265\030\001\022\320\002\n\026G" +
+      "etPoliticianAnalytics\022..shorts.v1alpha1." +
+      "GetPoliticianAnalyticsRequest\032/.shorts.v" +
+      "1alpha1.GetPoliticianAnalyticsResponse\"\324" +
+      "\001\272G\314\001\022\030Get Politician Analytics\032\257\001How ma" +
+      "ny parliamentarians of each party declar" +
+      "e an interest in each industry, and how " +
+      "members are distributed by state. Counts" +
+      " only; the registers record no quantity " +
+      "or value.\200\265\030\001\032\025\312A\022api.shorted.com.auB\240\003\n" +
+      "\023com.shorts.v1alpha1B\013ShortsProtoP\001ZYgit" +
+      "hub.com/castlemilk/shorted.com.au/servic" +
+      "es/gen/proto/go/shorts/v1alpha1;shortsv1" +
+      "alpha1\242\002\003SXX\252\002\017Shorts.V1alpha1\312\002\017Shorts\\" +
+      "V1alpha1\342\002\033Shorts\\V1alpha1\\GPBMetadata\352\002" +
+      "\020Shorts::V1alpha1\272G\302\001\022\177\n\013Shorted API\022\rSh" +
+      "orted API\'s\"(\022\016shorted.com.au\032\026support@s" +
+      "horted.com.au*3\n\023Proprietary license\022\034ht" +
+      "tps://shorted.com.au/terms2\002v1\032\034\n\032https:" +
+      "//api.shorted.com.au*!:\037\n\035\n\tAuthToken\022\020\n" +
+      "\016\n\004http*\006bearerb\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
