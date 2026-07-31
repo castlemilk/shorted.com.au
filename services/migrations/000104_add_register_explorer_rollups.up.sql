@@ -54,16 +54,21 @@ WITH holding_counts AS (
         count(DISTINCT sal_code) FILTER (WHERE sal_code IS NOT NULL)::INTEGER AS alltime_suburb_count,
         count(*) FILTER (WHERE currently_declared AND item_no IN (11, 12))::INTEGER AS gifts_travel_count,
         count(*) FILTER (WHERE currently_declared AND item_no = 6)::INTEGER AS liability_count,
-        (
-            count(*) FILTER (
-                WHERE declared_from_known
-                  AND declared_from >= CURRENT_DATE - 90
-            )
-            + count(*) FILTER (
-                WHERE declared_to IS NOT NULL
-                  AND declared_to >= CURRENT_DATE - 90
-            )
-        )::INTEGER AS changes_90d_count,
+        -- NO changes_90d_count HERE, DELIBERATELY. A `CURRENT_DATE - 90` window
+        -- materialised into this view freezes its clock at REFRESH time, while
+        -- the two surfaces rendered beside it -- the hub's 7d/30d activity strip
+        -- (GetRegisterExplorer) and a member's recent-changes list
+        -- (loadRecentRegisterChanges) -- both evaluate CURRENT_DATE at QUERY
+        -- time. The same page then disagrees with itself by one day for every
+        -- day the refresh is late: a member can show "0 changes in 90 days" in
+        -- the table while their own profile lists a change from last week.
+        -- Per-member changes-90d is therefore computed LIVE, in
+        -- politicianSummarySelect, from the same event definition the strip uses
+        -- (a dated declared_from is one event; a declared_to is another), so all
+        -- three windows read one clock. It costs ~11ms over the whole corpus.
+        --
+        -- The rest of this view is legitimately snapshot-shaped: those measures
+        -- describe the holdings as extracted, and carry no window at all.
         count(*) FILTER (WHERE currently_declared AND NOT declared_from_known)::INTEGER AS undated_count,
         max(refreshed_at) AS refreshed_at
     FROM mv_register_public_holdings
@@ -115,7 +120,6 @@ SELECT
     COALESCE(h.alltime_suburb_count, 0)::INTEGER AS alltime_suburb_count,
     COALESCE(h.gifts_travel_count, 0)::INTEGER AS gifts_travel_count,
     COALESCE(h.liability_count, 0)::INTEGER AS liability_count,
-    COALESCE(h.changes_90d_count, 0)::INTEGER AS changes_90d_count,
     COALESCE(h.undated_count, 0)::INTEGER AS undated_count,
     h.refreshed_at
 FROM live_people p

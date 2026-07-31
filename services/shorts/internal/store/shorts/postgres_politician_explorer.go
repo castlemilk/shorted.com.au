@@ -204,6 +204,68 @@ func politicianSummaryFromRollup(politician *PoliticianRow, rollup *politicianRo
 	}
 }
 
+// summaryItemCurrent names a rollup item column with its LEFT JOIN default
+// applied. See politicianSummarySelect: the rollup is an OUTER join, so every
+// expression built over it must survive a missing rollup row.
+func summaryItemCurrent(itemNo int32) string {
+	return fmt.Sprintf("COALESCE(r.item_%d_current_count, 0)", itemNo)
+}
+
+// summaryDeclaredItemsTotal is the 14-item current total, used for the default
+// sort. Built from summaryItemCurrent so the NULL defaults cannot drift apart
+// from the projection.
+func summaryDeclaredItemsTotal() string {
+	parts := make([]string, 0, 14)
+	for itemNo := int32(1); itemNo <= 14; itemNo++ {
+		parts = append(parts, summaryItemCurrent(itemNo))
+	}
+	return strings.Join(parts, " + ")
+}
+
+// changes90dCount is the per-member 90-day change count, evaluated at QUERY
+// time against CURRENT_DATE.
+//
+// It is deliberately NOT a column on mv_register_politician_rollup. A window
+// materialised into that view freezes its clock at refresh time, while the two
+// surfaces rendered beside it — the hub's 7d/30d activity strip in
+// GetRegisterExplorer and a member's recent-changes list in
+// loadRecentRegisterChanges — both evaluate CURRENT_DATE when the query runs.
+// The same page then disagrees with itself by a day for every day the refresh
+// is late: a member reading "0 changes (90d)" in the hub table while their own
+// profile lists a change from last week. All three now read one clock.
+//
+// The event definition is copied from the strip's `events` CTE on purpose: a
+// dated declared_from is one event, a declared_to is another. The strip's 30d
+// total and the sum of these 90d counts are therefore the same measure at two
+// window widths, not two measures that happen to share a label.
+//
+// Cost, measured on the dev corpus (17,144 holdings / 323 members): ~11ms for
+// the whole corpus, planned as one grouped pass and hash-joined — not a
+// per-row correlated subquery.
+const changes90dCount = `
+	    SELECT politician_id, count(*)::INTEGER AS changes_90d_count
+	    FROM (
+	        SELECT politician_id
+	        FROM mv_register_public_holdings
+	        WHERE declared_from_known AND declared_from >= CURRENT_DATE - 90
+	        UNION ALL
+	        SELECT politician_id
+	        FROM mv_register_public_holdings
+	        WHERE declared_to IS NOT NULL AND declared_to >= CURRENT_DATE - 90
+	    ) events
+	    GROUP BY politician_id`
+
+// politicianSummarySelect joins the rollup as an OUTER join, not an inner one.
+//
+// mv_register_politician_rollup is a snapshot: a politician inserted (or
+// un-merged) since the last refresh has no row in it. Under an INNER JOIN that
+// person vanished from ListPoliticianSummaries entirely — not "listed with no
+// declarations", but absent from the hub table AND from its `total`, which is
+// a silent false-absence claim about a sitting member. Every rollup column is
+// therefore COALESCEd to zero so the person appears with empty explorer
+// figures, and the ORDER BY expressions COALESCE too (a bare NULL sorts FIRST
+// under `DESC` in Postgres, which would have floated exactly those unrefreshed
+// rows to the top of the default sort).
 const politicianSummarySelect = `
 	SELECT p.slug, p.display_name, p.surname, p.given_names, p.honorific,
 	       COALESCE(t.chamber, ''), COALESCE(t.division, ''), COALESCE(t.state_code, ''),
@@ -219,25 +281,27 @@ const politicianSummarySelect = `
 	       -- indexability rule cannot flip between read paths). The
 	       -- currently-declared figures ride on PoliticianSummary's own
 	       -- distinct_company_count / property_count fields below.
-	       r.alltime_company_count, r.alltime_suburb_count,
+	       COALESCE(r.alltime_company_count, 0), COALESCE(r.alltime_suburb_count, 0),
 	       COALESCE(p.photo_url, ''), COALESCE(p.photo_licence, ''),
 	       COALESCE(p.photo_author, ''), COALESCE(p.photo_source_url, ''),
-	       r.item_1_current_count, r.item_2_current_count, r.item_3_current_count,
-	       r.item_4_current_count, r.item_5_current_count, r.item_6_current_count,
-	       r.item_7_current_count, r.item_8_current_count, r.item_9_current_count,
-	       r.item_10_current_count, r.item_11_current_count, r.item_12_current_count,
-	       r.item_13_current_count, r.item_14_current_count,
-	       r.item_1_all_time_count, r.item_2_all_time_count, r.item_3_all_time_count,
-	       r.item_4_all_time_count, r.item_5_all_time_count, r.item_6_all_time_count,
-	       r.item_7_all_time_count, r.item_8_all_time_count, r.item_9_all_time_count,
-	       r.item_10_all_time_count, r.item_11_all_time_count, r.item_12_all_time_count,
-	       r.item_13_all_time_count, r.item_14_all_time_count,
-	       r.self_current_count, r.spouse_partner_current_count,
-	       r.dependent_children_current_count, r.unspecified_current_count,
-	       r.distinct_company_count, r.property_count, r.gifts_travel_count,
-	       r.liability_count, r.changes_90d_count, r.undated_count
+	       COALESCE(r.item_1_current_count, 0), COALESCE(r.item_2_current_count, 0), COALESCE(r.item_3_current_count, 0),
+	       COALESCE(r.item_4_current_count, 0), COALESCE(r.item_5_current_count, 0), COALESCE(r.item_6_current_count, 0),
+	       COALESCE(r.item_7_current_count, 0), COALESCE(r.item_8_current_count, 0), COALESCE(r.item_9_current_count, 0),
+	       COALESCE(r.item_10_current_count, 0), COALESCE(r.item_11_current_count, 0), COALESCE(r.item_12_current_count, 0),
+	       COALESCE(r.item_13_current_count, 0), COALESCE(r.item_14_current_count, 0),
+	       COALESCE(r.item_1_all_time_count, 0), COALESCE(r.item_2_all_time_count, 0), COALESCE(r.item_3_all_time_count, 0),
+	       COALESCE(r.item_4_all_time_count, 0), COALESCE(r.item_5_all_time_count, 0), COALESCE(r.item_6_all_time_count, 0),
+	       COALESCE(r.item_7_all_time_count, 0), COALESCE(r.item_8_all_time_count, 0), COALESCE(r.item_9_all_time_count, 0),
+	       COALESCE(r.item_10_all_time_count, 0), COALESCE(r.item_11_all_time_count, 0), COALESCE(r.item_12_all_time_count, 0),
+	       COALESCE(r.item_13_all_time_count, 0), COALESCE(r.item_14_all_time_count, 0),
+	       COALESCE(r.self_current_count, 0), COALESCE(r.spouse_partner_current_count, 0),
+	       COALESCE(r.dependent_children_current_count, 0), COALESCE(r.unspecified_current_count, 0),
+	       COALESCE(r.distinct_company_count, 0), COALESCE(r.property_count, 0), COALESCE(r.gifts_travel_count, 0),
+	       COALESCE(r.liability_count, 0), COALESCE(c.changes_90d_count, 0), COALESCE(r.undated_count, 0)
 	FROM politicians p
-	JOIN mv_register_politician_rollup r ON r.politician_id = p.id
+	LEFT JOIN mv_register_politician_rollup r ON r.politician_id = p.id
+	LEFT JOIN (` + changes90dCount + `
+	) c ON c.politician_id = p.id
 	LEFT JOIN LATERAL (
 	    SELECT chamber, division, state_code, party, party_ab
 	    FROM politician_terms
@@ -411,7 +475,7 @@ func (s *postgresStore) ListPoliticianSummaries(chamber, stateCode, partyAb stri
 		add("upper(COALESCE(t.party_ab, e.federal_party_ab, '')) = $%d", strings.ToUpper(strings.TrimSpace(partyAb)))
 	}
 	if itemNo >= 1 && itemNo <= 14 {
-		conds = append(conds, fmt.Sprintf("r.item_%d_current_count > 0", itemNo))
+		conds = append(conds, summaryItemCurrent(itemNo)+" > 0")
 	}
 	if query != "" {
 		add("p.display_name ILIKE '%%' || $%d || '%%'", strings.TrimSpace(query))
@@ -427,14 +491,17 @@ func (s *postgresStore) ListPoliticianSummaries(chamber, stateCode, partyAb stri
 		return nil, 0, err
 	}
 
-	orderBy := "r.item_1_current_count + r.item_2_current_count + r.item_3_current_count + r.item_4_current_count + r.item_5_current_count + r.item_6_current_count + r.item_7_current_count + r.item_8_current_count + r.item_9_current_count + r.item_10_current_count + r.item_11_current_count + r.item_12_current_count + r.item_13_current_count + r.item_14_current_count DESC, p.surname, p.given_names"
+	// Every sort expression COALESCEs: the rollup is an OUTER join now, and a
+	// bare NULL sorts FIRST under DESC in Postgres, so an unrefreshed member
+	// would otherwise lead the table they are least able to fill.
+	orderBy := summaryDeclaredItemsTotal() + " DESC, p.surname, p.given_names"
 	switch strings.ToLower(strings.TrimSpace(sortKey)) {
 	case "companies":
-		orderBy = "r.distinct_company_count DESC, p.surname, p.given_names"
+		orderBy = "COALESCE(r.distinct_company_count, 0) DESC, p.surname, p.given_names"
 	case "properties":
-		orderBy = "r.property_count DESC, p.surname, p.given_names"
+		orderBy = "COALESCE(r.property_count, 0) DESC, p.surname, p.given_names"
 	case "recent_changes":
-		orderBy = "r.changes_90d_count DESC, p.surname, p.given_names"
+		orderBy = "COALESCE(c.changes_90d_count, 0) DESC, p.surname, p.given_names"
 	case "name":
 		orderBy = "p.surname, p.given_names"
 	}
@@ -792,6 +859,68 @@ func (s *postgresStore) registerAsAt(ctx context.Context) (time.Time, error) {
 	return *asAt, nil
 }
 
+// loadMemberParliaments answers "which parliaments does this person appear in",
+// so a corpus-wide coverage bucket can be narrowed to the parliaments that bear
+// on THEM.
+//
+// Their own terms are the truth where we have them (politician_terms is one row
+// per parliament served, so it also handles a member who came and went and came
+// back). first_parliament..last_parliament is the fallback span.
+//
+// A nil result means WE DO NOT KNOW when they served — no terms and no span.
+// Narrowing on a guess would publish a false coverage claim about a named
+// person, so the caller keeps the corpus-wide buckets whole in that case: a
+// superset is honest, an invented subset is not.
+func (s *postgresStore) loadMemberParliaments(ctx context.Context, slug string) (map[int32]bool, error) {
+	var first, last int32
+	var terms []int32
+	if err := s.db.QueryRow(ctx, `
+		SELECT COALESCE(p.first_parliament, 0)::INTEGER,
+		       COALESCE(p.last_parliament, 0)::INTEGER,
+		       COALESCE(
+		           array_agg(DISTINCT t.parliament) FILTER (WHERE t.parliament IS NOT NULL),
+		           '{}'
+		       )::INTEGER[]
+		FROM politicians p
+		LEFT JOIN politician_terms t ON t.politician_id = p.id
+		WHERE p.slug = $1 AND p.merged_into_id IS NULL
+		GROUP BY p.first_parliament, p.last_parliament`, slug).Scan(&first, &last, &terms); err != nil {
+		return nil, err
+	}
+
+	span := map[int32]bool{}
+	for _, parliament := range terms {
+		if parliament > 0 {
+			span[parliament] = true
+		}
+	}
+	if len(span) == 0 && first > 0 && last >= first {
+		for parliament := first; parliament <= last; parliament++ {
+			span[parliament] = true
+		}
+	}
+	if len(span) == 0 {
+		return nil, nil
+	}
+	return span, nil
+}
+
+// intersectParliaments narrows one corpus coverage bucket to a member's span,
+// preserving the corpus ordering. A nil span means the span is unknown (see
+// loadMemberParliaments) and the bucket is returned whole.
+func intersectParliaments(corpus []int32, span map[int32]bool) []int32 {
+	if span == nil {
+		return append([]int32(nil), corpus...)
+	}
+	var out []int32
+	for _, parliament := range corpus {
+		if span[parliament] {
+			out = append(out, parliament)
+		}
+	}
+	return out
+}
+
 type companyComparisonScanRow struct {
 	StockCode          string
 	CompanyName        string
@@ -889,16 +1018,35 @@ func (s *postgresStore) ComparePoliticians(slugA, slugB string) (*PoliticianComp
 	}
 	out.OnlyCompaniesA, out.OnlyCompaniesB = onlyA, onlyB
 
+	// PER-SIDE coverage. The compare page's caveat exists to say "we have read
+	// different parliaments for these two people, so the raw comparison is
+	// misleading" — and a caveat that fills both sides from the same
+	// corpus-wide buckets can never say that. Filling them identically made the
+	// note decorative: the one fact it exists to carry was structurally
+	// unable to appear.
+	//
+	// So each side's buckets are intersected with the parliaments THAT member
+	// actually sat in. A member first elected at the 48th is not short-changed
+	// by the 46th's partial extraction, and a member who served across 44-48
+	// legitimately shows the partial ones.
 	coverage := &PoliticianRow{}
 	if err := s.loadCoverage(ctx, coverage); err != nil {
 		return nil, err
 	}
-	out.ExtractedParliamentsA = append([]int32(nil), coverage.ExtractedParliaments...)
-	out.PartialParliamentsA = append([]int32(nil), coverage.PartialParliaments...)
-	out.PendingParliamentsA = append([]int32(nil), coverage.PendingParliaments...)
-	out.ExtractedParliamentsB = append([]int32(nil), coverage.ExtractedParliaments...)
-	out.PartialParliamentsB = append([]int32(nil), coverage.PartialParliaments...)
-	out.PendingParliamentsB = append([]int32(nil), coverage.PendingParliaments...)
+	spanA, err := s.loadMemberParliaments(ctx, slugA)
+	if err != nil {
+		return nil, err
+	}
+	spanB, err := s.loadMemberParliaments(ctx, slugB)
+	if err != nil {
+		return nil, err
+	}
+	out.ExtractedParliamentsA = intersectParliaments(coverage.ExtractedParliaments, spanA)
+	out.PartialParliamentsA = intersectParliaments(coverage.PartialParliaments, spanA)
+	out.PendingParliamentsA = intersectParliaments(coverage.PendingParliaments, spanA)
+	out.ExtractedParliamentsB = intersectParliaments(coverage.ExtractedParliaments, spanB)
+	out.PartialParliamentsB = intersectParliaments(coverage.PartialParliaments, spanB)
+	out.PendingParliamentsB = intersectParliaments(coverage.PendingParliaments, spanB)
 	out.AsAt, err = s.registerAsAt(ctx)
 	if err != nil {
 		return nil, err

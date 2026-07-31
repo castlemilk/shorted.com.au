@@ -159,8 +159,12 @@ handler never fills it — the store already reads `politician_terms`).
 **Data layer** — migration `000104_add_register_explorer_rollups`:
 
 - `mv_register_politician_rollup`: one row per politician — per-item current
-  counts, holder counts, distinct company count, property count, changes-90d,
+  counts, holder counts, distinct company count, property count,
   undated count. Unique index on `politician_id` (CONCURRENTLY-refreshable).
+  Changes-90d is deliberately NOT a rollup column: a count frozen at refresh
+  time drifts from the hub strip's live 7d/30d windows, so all change windows
+  are computed live on `CURRENT_DATE` from the same event definition
+  (`TestChanges90dSharesTheStripsClock` pins the agreement).
   Two measures here are easy to get wrong and are pinned by
   `register_explorer_rollups.test.mjs` + the store integration tests:
   - **`property_count` counts currently-declared item-3 ROWS, never distinct

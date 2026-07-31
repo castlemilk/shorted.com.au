@@ -4,6 +4,8 @@ package shorts
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -77,7 +79,11 @@ func TestPoliticianExplorerStoreIntegration(t *testing.T) {
 		}
 	}
 
-	var slugA, slugB string
+	// NULL-tolerant: min()/max() over no rows are NULL, and scanning that into a
+	// plain string fails the query instead of reaching the skip three lines
+	// below — so an empty database reported a test FAILURE rather than "nothing
+	// to test here".
+	var slugANull, slugBNull sql.NullString
 	if err := pool.QueryRow(ctx, `
 		SELECT min(slug), max(slug)
 		FROM (
@@ -87,9 +93,10 @@ func TestPoliticianExplorerStoreIntegration(t *testing.T) {
 			  AND EXISTS (SELECT 1 FROM mv_register_politician_rollup r WHERE r.slug = politicians.slug)
 			ORDER BY slug
 			LIMIT 2
-		) candidates`).Scan(&slugA, &slugB); err != nil {
+		) candidates`).Scan(&slugANull, &slugBNull); err != nil {
 		t.Fatalf("choose explorer politicians: %v", err)
 	}
+	slugA, slugB := slugANull.String, slugBNull.String
 	if slugA == "" {
 		t.Skip("database has no live politician rows to profile")
 	}
@@ -369,6 +376,284 @@ func TestPoliticianCountsAgreeAcrossReadPaths(t *testing.T) {
 					slug, summary.DistinctCompanyCount, summary.Politician.DeclaredListedCount)
 			}
 		}
+	}
+}
+
+// mv_register_politician_rollup is a SNAPSHOT: a politician inserted (or
+// un-merged) since the last refresh has no row in it. Under the INNER JOIN this
+// query used to carry, that person vanished from the hub table and from its
+// `total` altogether — a silent false-absence claim about a sitting member,
+// which is worse than an honest row of zeros. They must appear with empty
+// explorer figures until the next refresh fills them in.
+func TestUnrefreshedPoliticianStillAppearsWithZeroCounts(t *testing.T) {
+	pool, cleanup := openPoliticianExplorerIntegrationDB(t)
+	defer cleanup()
+	ctx := context.Background()
+	store := &postgresStore{db: pool}
+
+	const (
+		slug      = "zz-explorer-unrefreshed-probe"
+		name      = "Zzexplorer Unrefreshedprobe"
+		personKey = "ZZEXPLORER|UNREFRESHEDPROBE"
+	)
+	// Insert WITHOUT refreshing the rollup: that is the whole scenario.
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO politicians (person_key, surname, given_names, display_name, slug, first_parliament, last_parliament)
+		VALUES ($1, 'Unrefreshedprobe', 'Zzexplorer', $2, $3, 48, 48)`,
+		personKey, name, slug); err != nil {
+		t.Fatalf("insert probe politician: %v", err)
+	}
+	defer func() {
+		if _, err := pool.Exec(context.Background(), `DELETE FROM politicians WHERE slug = $1`, slug); err != nil {
+			t.Errorf("clean up probe politician: %v", err)
+		}
+	}()
+
+	var inRollup bool
+	if err := pool.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM mv_register_politician_rollup WHERE slug = $1)`, slug).Scan(&inRollup); err != nil {
+		t.Fatalf("check rollup membership: %v", err)
+	}
+	if inRollup {
+		t.Skip("the rollup was refreshed under the test; the unrefreshed case cannot be exercised")
+	}
+
+	summaries, total, err := store.ListPoliticianSummaries("", "", "", 0, name, "name", 50, 0)
+	if err != nil {
+		t.Fatalf("ListPoliticianSummaries: %v", err)
+	}
+	if total < 1 {
+		t.Fatalf("filtered total = %d, want the unrefreshed member counted", total)
+	}
+	var found *PoliticianSummaryRow
+	for _, summary := range summaries {
+		if summary.Politician.Slug == slug {
+			found = summary
+		}
+	}
+	if found == nil {
+		t.Fatalf("the unrefreshed member is missing from %d summaries — the rollup join dropped them", len(summaries))
+	}
+	if len(found.ItemCounts) != 14 {
+		t.Fatalf("item counts = %d, want all 14 buckets present and zeroed", len(found.ItemCounts))
+	}
+	for _, item := range found.ItemCounts {
+		if item.CurrentCount != 0 || item.AllTimeCount != 0 {
+			t.Errorf("item %d = (%d current, %d all-time), want zeros", item.ItemNo, item.CurrentCount, item.AllTimeCount)
+		}
+	}
+	// Slots 14/15 (declared_listed_count / declared_property_count) fall back to
+	// 0 rather than dropping the row.
+	if found.Politician.DeclaredListedCount != 0 || found.Politician.DeclaredPropertyCount != 0 {
+		t.Errorf("all-time counts = (%d, %d), want zeros",
+			found.Politician.DeclaredListedCount, found.Politician.DeclaredPropertyCount)
+	}
+	if found.DistinctCompanyCount != 0 || found.PropertyCount != 0 || found.GiftsTravelCount != 0 ||
+		found.LiabilityCount != 0 || found.Changes90d != 0 || found.UndatedCount != 0 {
+		t.Errorf("explorer figures are non-zero for a member with no holdings: %+v", found)
+	}
+
+	// The default sort must not float them to the top: a bare NULL sorts FIRST
+	// under DESC in Postgres, so the COALESCE in the ORDER BY is load-bearing.
+	ranked, _, err := store.ListPoliticianSummaries("", "", "", 0, "", "declared_items", 5, 0)
+	if err != nil {
+		t.Fatalf("ranked ListPoliticianSummaries: %v", err)
+	}
+	for i, summary := range ranked {
+		if summary.Politician.Slug == slug {
+			t.Fatalf("the zero-count member ranked #%d by declared items", i+1)
+		}
+	}
+}
+
+// changes-90d must read the SAME clock as the hub's 7d/30d activity strip and a
+// member's recent-changes list. It used to be a `CURRENT_DATE - 90` column
+// frozen into the rollup at refresh time while both of those evaluated
+// CURRENT_DATE live, so the same page disagreed with itself by a day for every
+// day the refresh was late.
+func TestChanges90dSharesTheStripsClock(t *testing.T) {
+	pool, cleanup := openPoliticianExplorerIntegrationDB(t)
+	defer cleanup()
+	ctx := context.Background()
+	store := &postgresStore{db: pool}
+
+	// The frozen column is gone from the snapshot, so nothing can read it back.
+	var frozenColumn int
+	if err := pool.QueryRow(ctx, `
+		SELECT count(*)
+		FROM information_schema.columns
+		WHERE table_name = 'mv_register_politician_rollup'
+		  AND column_name = 'changes_90d_count'`).Scan(&frozenColumn); err != nil {
+		t.Fatalf("inspect rollup columns: %v", err)
+	}
+	if frozenColumn != 0 {
+		t.Fatal("mv_register_politician_rollup still carries a refresh-time changes_90d_count")
+	}
+
+	// Every member's live 90d count, by the strip's own event definition.
+	want := map[string]int32{}
+	rows, err := pool.Query(ctx, `
+		SELECT p.slug, count(e.*)::INTEGER
+		FROM politicians p
+		LEFT JOIN (
+		    SELECT politician_id FROM mv_register_public_holdings
+		     WHERE declared_from_known AND declared_from >= CURRENT_DATE - 90
+		    UNION ALL
+		    SELECT politician_id FROM mv_register_public_holdings
+		     WHERE declared_to IS NOT NULL AND declared_to >= CURRENT_DATE - 90
+		) e ON e.politician_id = p.id
+		WHERE p.merged_into_id IS NULL
+		GROUP BY p.slug`)
+	if err != nil {
+		t.Fatalf("reference 90d counts: %v", err)
+	}
+	for rows.Next() {
+		var slug string
+		var count int32
+		if err := rows.Scan(&slug, &count); err != nil {
+			rows.Close()
+			t.Fatalf("scan reference 90d count: %v", err)
+		}
+		want[slug] = count
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		t.Fatalf("reference 90d counts: %v", err)
+	}
+
+	summaries, _, err := store.ListPoliticianSummaries("", "", "", 0, "", "recent_changes", 50, 0)
+	if err != nil {
+		t.Fatalf("ListPoliticianSummaries: %v", err)
+	}
+	if len(summaries) == 0 {
+		t.Skip("no politicians in this database")
+	}
+	for _, summary := range summaries {
+		expected, ok := want[summary.Politician.Slug]
+		if !ok {
+			t.Errorf("%s is not in the live reference", summary.Politician.Slug)
+			continue
+		}
+		if summary.Changes90d != expected {
+			t.Errorf("%s changes_90d = %d, want the live %d", summary.Politician.Slug, summary.Changes90d, expected)
+		}
+	}
+
+	// The strip's 30d window is a subset of the same events, so no member's 30d
+	// activity may exceed their own 90d count. Under the frozen column this is
+	// exactly what an aged snapshot produced.
+	var strip30d, sum90d int32
+	if err := pool.QueryRow(ctx, `
+		SELECT count(*)::INTEGER
+		FROM (
+		    SELECT politician_id FROM mv_register_public_holdings
+		     WHERE declared_from_known AND declared_from >= CURRENT_DATE - 30
+		    UNION ALL
+		    SELECT politician_id FROM mv_register_public_holdings
+		     WHERE declared_to IS NOT NULL AND declared_to >= CURRENT_DATE - 30
+		) e`).Scan(&strip30d); err != nil {
+		t.Fatalf("strip 30d count: %v", err)
+	}
+	for _, count := range want {
+		sum90d += count
+	}
+	if strip30d > sum90d {
+		t.Fatalf("the strip counts %d events in 30 days but the per-member 90d columns total %d", strip30d, sum90d)
+	}
+
+	explorer, err := store.GetRegisterExplorer()
+	if err != nil {
+		t.Fatalf("GetRegisterExplorer: %v", err)
+	}
+	if explorer.Changes30d != strip30d {
+		t.Fatalf("strip 30d = %d, want the live %d", explorer.Changes30d, strip30d)
+	}
+}
+
+// The compare page's coverage caveat exists to say "we have read different
+// parliaments for these two people". Filling both sides from the same
+// corpus-wide buckets made that structurally impossible to say.
+func TestCompareCoverageIsPerMemberNotCorpusWide(t *testing.T) {
+	pool, cleanup := openPoliticianExplorerIntegrationDB(t)
+	defer cleanup()
+	ctx := context.Background()
+	store := &postgresStore{db: pool}
+
+	corpus := &PoliticianRow{}
+	if err := store.loadCoverage(ctx, corpus); err != nil {
+		t.Fatalf("loadCoverage: %v", err)
+	}
+	if len(corpus.ExtractedParliaments)+len(corpus.PartialParliaments)+len(corpus.PendingParliaments) == 0 {
+		t.Skip("no register documents in this database")
+	}
+
+	// Two members whose service spans genuinely differ.
+	var slugA, slugB sql.NullString
+	if err := pool.QueryRow(ctx, `
+		WITH spans AS (
+		    SELECT p.slug, min(t.parliament) AS first_p, max(t.parliament) AS last_p
+		    FROM politicians p
+		    JOIN politician_terms t ON t.politician_id = p.id
+		    WHERE p.merged_into_id IS NULL
+		    GROUP BY p.slug
+		)
+		SELECT (SELECT slug FROM spans ORDER BY first_p, slug LIMIT 1),
+		       (SELECT slug FROM spans ORDER BY first_p DESC, slug LIMIT 1)`).Scan(&slugA, &slugB); err != nil {
+		t.Fatalf("choose members with different spans: %v", err)
+	}
+	if !slugA.Valid || !slugB.Valid || slugA.String == slugB.String {
+		t.Skip("this database has no two members with different parliament spans")
+	}
+
+	comparison, err := store.ComparePoliticians(slugA.String, slugB.String)
+	if err != nil {
+		t.Fatalf("ComparePoliticians(%q, %q): %v", slugA.String, slugB.String, err)
+	}
+
+	// Each side is a subset of the corpus bucket, restricted to that member's
+	// own parliaments.
+	for _, side := range []struct {
+		slug                        string
+		extracted, partial, pending []int32
+	}{
+		{slugA.String, comparison.ExtractedParliamentsA, comparison.PartialParliamentsA, comparison.PendingParliamentsA},
+		{slugB.String, comparison.ExtractedParliamentsB, comparison.PartialParliamentsB, comparison.PendingParliamentsB},
+	} {
+		span, err := store.loadMemberParliaments(ctx, side.slug)
+		if err != nil {
+			t.Fatalf("loadMemberParliaments(%q): %v", side.slug, err)
+		}
+		if span == nil {
+			continue // unknown span: the corpus buckets stay whole, by design
+		}
+		for _, bucket := range [][]int32{side.extracted, side.partial, side.pending} {
+			for _, parliament := range bucket {
+				if !span[parliament] {
+					t.Errorf("%s coverage names parliament %d, which they did not sit in", side.slug, parliament)
+				}
+			}
+		}
+	}
+
+	same := fmt.Sprint(comparison.ExtractedParliamentsA, comparison.PartialParliamentsA, comparison.PendingParliamentsA) ==
+		fmt.Sprint(comparison.ExtractedParliamentsB, comparison.PartialParliamentsB, comparison.PendingParliamentsB)
+	spanA, err := store.loadMemberParliaments(ctx, slugA.String)
+	if err != nil {
+		t.Fatalf("loadMemberParliaments(%q): %v", slugA.String, err)
+	}
+	spanB, err := store.loadMemberParliaments(ctx, slugB.String)
+	if err != nil {
+		t.Fatalf("loadMemberParliaments(%q): %v", slugB.String, err)
+	}
+	differs := false
+	for _, parliament := range append(append([]int32(nil), corpus.ExtractedParliaments...),
+		append(append([]int32(nil), corpus.PartialParliaments...), corpus.PendingParliaments...)...) {
+		if spanA[parliament] != spanB[parliament] {
+			differs = true
+		}
+	}
+	if differs && same {
+		t.Fatal("two members with different covered parliaments still report identical coverage on both sides")
 	}
 }
 

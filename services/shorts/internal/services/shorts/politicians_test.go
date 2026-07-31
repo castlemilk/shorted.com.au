@@ -470,6 +470,30 @@ func TestExplorerHandlersClampProfileAndNormaliseCompareInputs(t *testing.T) {
 	}
 }
 
+// A member compared with themself produced a WRONG PAGE, not an empty one: the
+// side-attribution keys on count(DISTINCT slug) = 2, so with one slug on both
+// sides every holding fell through to only_a and the compare surface reported
+// that the member shares nothing with themself while listing their own holdings
+// as the difference between them. It must be refused before it reaches a query.
+func TestComparePoliticiansRejectsAMemberAgainstThemself(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	store := mocks.NewMockShortsStore(ctrl)
+	server := newTestServer(t, store)
+
+	// No store call is permitted for any of these — the mock has no EXPECT.
+	for _, pair := range [][2]string{
+		{"alice-example", "alice-example"},
+		{" ALICE-EXAMPLE ", "alice-example"}, // same person after normalisation
+	} {
+		_, err := server.ComparePoliticians(t.Context(), connect.NewRequest(
+			&shortsv1alpha1.ComparePoliticiansRequest{SlugA: pair[0], SlugB: pair[1]},
+		))
+		if connect.CodeOf(err) != connect.CodeInvalidArgument {
+			t.Errorf("ComparePoliticians(%q, %q): code = %v, want InvalidArgument", pair[0], pair[1], connect.CodeOf(err))
+		}
+	}
+}
+
 // Limits are normalised BEFORE the cache key is built, so a key can never
 // describe a different query than the one whose result it holds.
 func TestClampLimit(t *testing.T) {

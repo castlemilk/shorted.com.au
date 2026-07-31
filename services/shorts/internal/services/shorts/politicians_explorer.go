@@ -369,10 +369,22 @@ func (s *ShortsServer) ComparePoliticians(
 	ctx context.Context,
 	req *connect.Request[shortsv1alpha1.ComparePoliticiansRequest],
 ) (*connect.Response[shortsv1alpha1.ComparePoliticiansResponse], error) {
+	// Lower-cased and trimmed IS the canonical form here: slugs are minted once
+	// server-side and never reassigned, and a merged-away person has no live row
+	// to resolve to (the store filters merged_into_id, so that slug 404s).
 	slugA := strings.ToLower(strings.TrimSpace(req.Msg.SlugA))
 	slugB := strings.ToLower(strings.TrimSpace(req.Msg.SlugB))
 	if slugA == "" || slugB == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("both politician slugs are required"))
+	}
+	// A member compared with themself is not a degenerate-but-harmless query, it
+	// is a WRONG ANSWER: the side-attribution keys on `count(DISTINCT slug) = 2`,
+	// so with one slug on both sides every holding lands in only_a and the page
+	// reports that the member shares nothing with themself while listing their
+	// own holdings as the difference. Refuse it rather than render it.
+	if slugA == slugB {
+		return nil, connect.NewError(connect.CodeInvalidArgument,
+			fmt.Errorf("slug_a and slug_b must be different politicians"))
 	}
 	if !registerEnabled() {
 		return connect.NewResponse(&shortsv1alpha1.ComparePoliticiansResponse{}), nil
