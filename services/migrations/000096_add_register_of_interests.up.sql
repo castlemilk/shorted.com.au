@@ -20,7 +20,7 @@
 -- .storage_uri points at a PRIVATE working cache and must never reach a read
 -- path.
 --
--- Design notes: docs/politician-register-architecture.md
+-- Design notes: docs/feature/politicians/architecture.md
 
 -- ---------------------------------------------------------------------------
 -- 1. Identity spine.

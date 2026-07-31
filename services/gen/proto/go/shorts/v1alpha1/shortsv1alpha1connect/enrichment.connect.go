@@ -59,19 +59,6 @@ const (
 	EnrichmentServiceListEnrichmentJobsProcedure = "/shorts.v1alpha1.EnrichmentService/ListEnrichmentJobs"
 )
 
-// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
-var (
-	enrichmentServiceServiceDescriptor                         = v1alpha1.File_shorts_v1alpha1_enrichment_proto.Services().ByName("EnrichmentService")
-	enrichmentServiceSyncKeyMetricsMethodDescriptor            = enrichmentServiceServiceDescriptor.Methods().ByName("SyncKeyMetrics")
-	enrichmentServiceEnrichStockMethodDescriptor               = enrichmentServiceServiceDescriptor.Methods().ByName("EnrichStock")
-	enrichmentServiceGetTopStocksForEnrichmentMethodDescriptor = enrichmentServiceServiceDescriptor.Methods().ByName("GetTopStocksForEnrichment")
-	enrichmentServiceListPendingEnrichmentsMethodDescriptor    = enrichmentServiceServiceDescriptor.Methods().ByName("ListPendingEnrichments")
-	enrichmentServiceGetPendingEnrichmentMethodDescriptor      = enrichmentServiceServiceDescriptor.Methods().ByName("GetPendingEnrichment")
-	enrichmentServiceReviewEnrichmentMethodDescriptor          = enrichmentServiceServiceDescriptor.Methods().ByName("ReviewEnrichment")
-	enrichmentServiceGetEnrichmentJobStatusMethodDescriptor    = enrichmentServiceServiceDescriptor.Methods().ByName("GetEnrichmentJobStatus")
-	enrichmentServiceListEnrichmentJobsMethodDescriptor        = enrichmentServiceServiceDescriptor.Methods().ByName("ListEnrichmentJobs")
-)
-
 // EnrichmentServiceClient is a client for the shorts.v1alpha1.EnrichmentService service.
 type EnrichmentServiceClient interface {
 	// Trigger key metrics sync for specific stocks. Admin only.
@@ -102,53 +89,54 @@ type EnrichmentServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewEnrichmentServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) EnrichmentServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
+	enrichmentServiceMethods := v1alpha1.File_shorts_v1alpha1_enrichment_proto.Services().ByName("EnrichmentService").Methods()
 	return &enrichmentServiceClient{
 		syncKeyMetrics: connect.NewClient[v1alpha1.SyncKeyMetricsRequest, v1alpha1.SyncKeyMetricsResponse](
 			httpClient,
 			baseURL+EnrichmentServiceSyncKeyMetricsProcedure,
-			connect.WithSchema(enrichmentServiceSyncKeyMetricsMethodDescriptor),
+			connect.WithSchema(enrichmentServiceMethods.ByName("SyncKeyMetrics")),
 			connect.WithClientOptions(opts...),
 		),
 		enrichStock: connect.NewClient[v1alpha1.EnrichStockRequest, v1alpha1.EnrichStockResponse](
 			httpClient,
 			baseURL+EnrichmentServiceEnrichStockProcedure,
-			connect.WithSchema(enrichmentServiceEnrichStockMethodDescriptor),
+			connect.WithSchema(enrichmentServiceMethods.ByName("EnrichStock")),
 			connect.WithClientOptions(opts...),
 		),
 		getTopStocksForEnrichment: connect.NewClient[v1alpha1.GetTopStocksForEnrichmentRequest, v1alpha1.GetTopStocksForEnrichmentResponse](
 			httpClient,
 			baseURL+EnrichmentServiceGetTopStocksForEnrichmentProcedure,
-			connect.WithSchema(enrichmentServiceGetTopStocksForEnrichmentMethodDescriptor),
+			connect.WithSchema(enrichmentServiceMethods.ByName("GetTopStocksForEnrichment")),
 			connect.WithClientOptions(opts...),
 		),
 		listPendingEnrichments: connect.NewClient[v1alpha1.ListPendingEnrichmentsRequest, v1alpha1.ListPendingEnrichmentsResponse](
 			httpClient,
 			baseURL+EnrichmentServiceListPendingEnrichmentsProcedure,
-			connect.WithSchema(enrichmentServiceListPendingEnrichmentsMethodDescriptor),
+			connect.WithSchema(enrichmentServiceMethods.ByName("ListPendingEnrichments")),
 			connect.WithClientOptions(opts...),
 		),
 		getPendingEnrichment: connect.NewClient[v1alpha1.GetPendingEnrichmentRequest, v1alpha1.GetPendingEnrichmentResponse](
 			httpClient,
 			baseURL+EnrichmentServiceGetPendingEnrichmentProcedure,
-			connect.WithSchema(enrichmentServiceGetPendingEnrichmentMethodDescriptor),
+			connect.WithSchema(enrichmentServiceMethods.ByName("GetPendingEnrichment")),
 			connect.WithClientOptions(opts...),
 		),
 		reviewEnrichment: connect.NewClient[v1alpha1.ReviewEnrichmentRequest, v1alpha1.ReviewEnrichmentResponse](
 			httpClient,
 			baseURL+EnrichmentServiceReviewEnrichmentProcedure,
-			connect.WithSchema(enrichmentServiceReviewEnrichmentMethodDescriptor),
+			connect.WithSchema(enrichmentServiceMethods.ByName("ReviewEnrichment")),
 			connect.WithClientOptions(opts...),
 		),
 		getEnrichmentJobStatus: connect.NewClient[v1alpha1.GetEnrichmentJobStatusRequest, v1alpha1.GetEnrichmentJobStatusResponse](
 			httpClient,
 			baseURL+EnrichmentServiceGetEnrichmentJobStatusProcedure,
-			connect.WithSchema(enrichmentServiceGetEnrichmentJobStatusMethodDescriptor),
+			connect.WithSchema(enrichmentServiceMethods.ByName("GetEnrichmentJobStatus")),
 			connect.WithClientOptions(opts...),
 		),
 		listEnrichmentJobs: connect.NewClient[v1alpha1.ListEnrichmentJobsRequest, v1alpha1.ListEnrichmentJobsResponse](
 			httpClient,
 			baseURL+EnrichmentServiceListEnrichmentJobsProcedure,
-			connect.WithSchema(enrichmentServiceListEnrichmentJobsMethodDescriptor),
+			connect.WithSchema(enrichmentServiceMethods.ByName("ListEnrichmentJobs")),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -233,52 +221,53 @@ type EnrichmentServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewEnrichmentServiceHandler(svc EnrichmentServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	enrichmentServiceMethods := v1alpha1.File_shorts_v1alpha1_enrichment_proto.Services().ByName("EnrichmentService").Methods()
 	enrichmentServiceSyncKeyMetricsHandler := connect.NewUnaryHandler(
 		EnrichmentServiceSyncKeyMetricsProcedure,
 		svc.SyncKeyMetrics,
-		connect.WithSchema(enrichmentServiceSyncKeyMetricsMethodDescriptor),
+		connect.WithSchema(enrichmentServiceMethods.ByName("SyncKeyMetrics")),
 		connect.WithHandlerOptions(opts...),
 	)
 	enrichmentServiceEnrichStockHandler := connect.NewUnaryHandler(
 		EnrichmentServiceEnrichStockProcedure,
 		svc.EnrichStock,
-		connect.WithSchema(enrichmentServiceEnrichStockMethodDescriptor),
+		connect.WithSchema(enrichmentServiceMethods.ByName("EnrichStock")),
 		connect.WithHandlerOptions(opts...),
 	)
 	enrichmentServiceGetTopStocksForEnrichmentHandler := connect.NewUnaryHandler(
 		EnrichmentServiceGetTopStocksForEnrichmentProcedure,
 		svc.GetTopStocksForEnrichment,
-		connect.WithSchema(enrichmentServiceGetTopStocksForEnrichmentMethodDescriptor),
+		connect.WithSchema(enrichmentServiceMethods.ByName("GetTopStocksForEnrichment")),
 		connect.WithHandlerOptions(opts...),
 	)
 	enrichmentServiceListPendingEnrichmentsHandler := connect.NewUnaryHandler(
 		EnrichmentServiceListPendingEnrichmentsProcedure,
 		svc.ListPendingEnrichments,
-		connect.WithSchema(enrichmentServiceListPendingEnrichmentsMethodDescriptor),
+		connect.WithSchema(enrichmentServiceMethods.ByName("ListPendingEnrichments")),
 		connect.WithHandlerOptions(opts...),
 	)
 	enrichmentServiceGetPendingEnrichmentHandler := connect.NewUnaryHandler(
 		EnrichmentServiceGetPendingEnrichmentProcedure,
 		svc.GetPendingEnrichment,
-		connect.WithSchema(enrichmentServiceGetPendingEnrichmentMethodDescriptor),
+		connect.WithSchema(enrichmentServiceMethods.ByName("GetPendingEnrichment")),
 		connect.WithHandlerOptions(opts...),
 	)
 	enrichmentServiceReviewEnrichmentHandler := connect.NewUnaryHandler(
 		EnrichmentServiceReviewEnrichmentProcedure,
 		svc.ReviewEnrichment,
-		connect.WithSchema(enrichmentServiceReviewEnrichmentMethodDescriptor),
+		connect.WithSchema(enrichmentServiceMethods.ByName("ReviewEnrichment")),
 		connect.WithHandlerOptions(opts...),
 	)
 	enrichmentServiceGetEnrichmentJobStatusHandler := connect.NewUnaryHandler(
 		EnrichmentServiceGetEnrichmentJobStatusProcedure,
 		svc.GetEnrichmentJobStatus,
-		connect.WithSchema(enrichmentServiceGetEnrichmentJobStatusMethodDescriptor),
+		connect.WithSchema(enrichmentServiceMethods.ByName("GetEnrichmentJobStatus")),
 		connect.WithHandlerOptions(opts...),
 	)
 	enrichmentServiceListEnrichmentJobsHandler := connect.NewUnaryHandler(
 		EnrichmentServiceListEnrichmentJobsProcedure,
 		svc.ListEnrichmentJobs,
-		connect.WithSchema(enrichmentServiceListEnrichmentJobsMethodDescriptor),
+		connect.WithSchema(enrichmentServiceMethods.ByName("ListEnrichmentJobs")),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/shorts.v1alpha1.EnrichmentService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

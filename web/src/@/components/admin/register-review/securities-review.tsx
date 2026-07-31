@@ -1,6 +1,6 @@
 "use client";
 
-// Screen (b) of docs/register-review-console.md — the security candidate.
+// Screen (b) of docs/feature/politicians/review-console.md — the security candidate.
 //
 // THE JOB THIS SCREEN DOES. The item-1 gate is 51.18%, and §8.19.1 established
 // that the denominator is a DEFAULT bucket: the resolver labels anything it

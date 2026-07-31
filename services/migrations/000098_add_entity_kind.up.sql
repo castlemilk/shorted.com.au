@@ -19,7 +19,7 @@
 --
 -- This column is PLUMBING: every value is derived from a discriminator that
 -- already existed, so no new inference and no fuzzy matching is introduced. See
--- docs/politician-register-architecture.md §8.14.
+-- docs/feature/politicians/architecture.md §8.14.
 --
 -- 'foreign' is permitted but has NO automatic producer today, deliberately. The
 -- corpus contains 14 distinct Inc/LLC/plc names and four of them are Australian

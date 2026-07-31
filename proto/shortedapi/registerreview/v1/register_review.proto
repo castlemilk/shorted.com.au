@@ -21,7 +21,7 @@ import "options/v1/options.proto";
 // size, and none may be added — not even on an admin surface, because the console
 // reads from and writes to the same tables the public read path uses.
 //
-// See docs/register-review-console.md §6.2 for the screen this serves.
+// See docs/feature/politicians/review-console.md §6.2 for the screen this serves.
 service RegisterReviewService {
   // The undecided backlog, biggest fanout first.
   rpc ListSecurityQueue (ListSecurityQueueRequest) returns (ListSecurityQueueResponse) {
@@ -55,6 +55,184 @@ service RegisterReviewService {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
     option (shortedapi.options.v1.required_role) = "admin";
   }
+
+  // ---- Per-politician CRM -------------------------------------------------
+
+  // The roll, for the CRM index. Surfaces duplicate identities first.
+  rpc ListPoliticianProfiles (ListPoliticianProfilesRequest) returns (ListPoliticianProfilesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (shortedapi.options.v1.required_role) = "admin";
+  }
+
+  // One person: identity, terms, portrait, and every profile fact with its
+  // machine reading beside any curated value.
+  rpc GetPoliticianProfile (GetPoliticianProfileRequest) returns (GetPoliticianProfileResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (shortedapi.options.v1.required_role) = "admin";
+  }
+
+  // Amend, suppress or reinstate ONE profile fact. Append-only: a correction
+  // supersedes, never edits in place.
+  rpc CuratePoliticianFact (CuratePoliticianFactRequest) returns (CuratePoliticianFactResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (shortedapi.options.v1.required_role) = "admin";
+  }
+
+  // Replace or clear a portrait. A photo may not be set without a licence and a
+  // source URL — the same rule the database CHECK enforces.
+  rpc SetPoliticianPhoto (SetPoliticianPhotoRequest) returns (SetPoliticianPhotoResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (shortedapi.options.v1.required_role) = "admin";
+  }
+
+  // Merge one person's record into another. THE HIGHEST-BLAST-RADIUS ACTION IN
+  // THE SUBSYSTEM: it moves an entire declared history onto a named individual.
+  // Requires evidence, and the loser's slug keeps resolving via a redirect
+  // because slugs are minted once and reach OG images and the sitemap (§3.3).
+  rpc MergePoliticians (MergePoliticiansRequest) returns (MergePoliticiansResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (shortedapi.options.v1.required_role) = "admin";
+  }
+}
+
+// ProfileFact is one structured fact, with the machine reading always visible
+// beside whatever a curator decided (§7.4 rule 2).
+message ProfileFact {
+  string field = 1;
+  int32 ordinal = 2;
+  // What is published: the curated value if one exists, else the machine's.
+  string resolved_text = 3;
+  // What the collector read. Rendered beneath the resolved value so a reviewer
+  // is always comparing against the source, never just reading our answer.
+  string machine_text = 4;
+  bool is_curated = 5;
+  string curated_by = 6;
+  string source_key = 7;
+  string source_url = 8;
+  string source_licence = 9;
+}
+
+message PoliticianTermSummary {
+  int32 parliament = 1;
+  string chamber = 2;
+  string division = 3;
+  string state_code = 4;
+  string party_ab = 5;
+}
+
+// DuplicateCandidate is another record sharing this person's APH PHID — i.e.
+// the same human, published twice with a split history.
+message DuplicateCandidate {
+  string slug = 1;
+  string display_name = 2;
+  int32 statement_count = 3;
+  int32 declared_listed_count = 4;
+  string aph_phid = 5;
+}
+
+message PoliticianProfileSummary {
+  string slug = 1;
+  string display_name = 2;
+  string party_ab = 3;
+  string chamber = 4;
+  string division = 5;
+  string state_code = 6;
+  string aph_phid = 7;
+  string photo_url = 8;
+  int32 declared_listed_count = 9;
+  int32 statement_count = 10;
+  // True when another live record shares this PHID.
+  bool has_duplicate = 11;
+  int32 curated_field_count = 12;
+}
+
+message ListPoliticianProfilesRequest {
+  string query = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+  // Show only records that share a PHID with another — the merge queue.
+  bool duplicates_only = 4;
+}
+
+message ListPoliticianProfilesResponse {
+  repeated PoliticianProfileSummary profiles = 1;
+  int32 total = 2;
+  int32 duplicate_count = 3;
+}
+
+message GetPoliticianProfileRequest {
+  string slug = 1;
+}
+
+message GetPoliticianProfileResponse {
+  PoliticianProfileSummary profile = 1;
+  repeated PoliticianTermSummary terms = 2;
+  repeated ProfileFact facts = 3;
+  repeated DuplicateCandidate duplicates = 4;
+  // The portrait and the attribution its licence requires, together.
+  string photo_url = 5;
+  string photo_licence = 6;
+  string photo_author = 7;
+  string photo_source_url = 8;
+}
+
+// FactAction mirrors politician_profile_overrides.action exactly. There is no
+// "delete": a correction supersedes, and a fact is suppressed rather than
+// removed, so the trail stays evidence.
+enum FactAction {
+  FACT_ACTION_UNSPECIFIED = 0;
+  FACT_ACTION_AMEND = 1;
+  FACT_ACTION_SUPPRESS = 2;
+  FACT_ACTION_REINSTATE = 3;
+}
+
+message CuratePoliticianFactRequest {
+  string slug = 1;
+  string field = 2;
+  int32 ordinal = 3;
+  FactAction action = 4;
+  string curated_text = 5;
+  // Mandatory. A correction to a named person's record without a stated reason
+  // is not reviewable, and this is the field a dispute is answered from.
+  string rationale = 6;
+  string evidence_url = 7;
+}
+
+message CuratePoliticianFactResponse {
+  ProfileFact fact = 1;
+}
+
+message SetPoliticianPhotoRequest {
+  string slug = 1;
+  // Empty photo_url CLEARS the portrait (falling back to the monogram).
+  string photo_url = 2;
+  string photo_licence = 3;
+  string photo_author = 4;
+  string photo_source_url = 5;
+  string rationale = 6;
+}
+
+message SetPoliticianPhotoResponse {
+  string photo_url = 1;
+  string photo_licence = 2;
+  string photo_author = 3;
+  string photo_source_url = 4;
+}
+
+message MergePoliticiansRequest {
+  // The record that survives. Its slug stays canonical.
+  string keep_slug = 1;
+  // The record merged away. Its slug keeps resolving, as a redirect.
+  string merge_slug = 2;
+  // Mandatory: what establishes these are one person (e.g. "APH PHID DZS").
+  string evidence = 3;
+}
+
+message MergePoliticiansResponse {
+  string keep_slug = 1;
+  string merge_slug = 2;
+  // Statements that now resolve to the surviving record.
+  int32 statements_moved = 3;
 }
 
 // SecurityDecision is the CLOSED vocabulary of what a reviewer may say about a

@@ -27,7 +27,7 @@
 // prod deploy, and an 804-document crawl of aph.gov.au must never fire from a
 // deploy step or an unattended timer. REGISTER_DRY_RUN defaults TRUE, so each is
 // a no-op until it is explicitly set false.
-// See docs/politician-register-architecture.md §5.2.
+// See docs/feature/politicians/architecture.md §5.2.
 //
 //	-mode register-discover         scrape the listing pages into the manifest; downloads nothing
 //	-mode register-fetch            drain the fetch queue, streaming PDFs to the content-addressed sink
@@ -77,7 +77,7 @@ func Job() runner.Job {
 // message text, same non-zero exit, no panic-as-control-flow.
 func Run(parent context.Context, args []string) error {
 	fs := flag.NewFlagSet("influence", flag.ContinueOnError)
-	mode := fs.String("mode", "tax", "tax | match | sources | source-registry | source-probe | tax-records | emissions | austender | aec | lobbyists | trade | public-records | all | register-discover | register-fetch | register-load | register-resolve | register-freshness | register-propose-aliases | register-promote-aliases | register-index | register-photos")
+	mode := fs.String("mode", "tax", "tax | match | sources | source-registry | source-probe | tax-records | emissions | austender | aec | lobbyists | trade | public-records | all | register-discover | register-fetch | register-load | register-resolve | register-freshness | register-propose-aliases | register-promote-aliases | register-index | register-photos | register-handbook")
 	registerLimit := fs.Int("register-limit", 0, "cap documents processed per register mode (0 = no cap); the fetch queue is ordered parliament DESC so a cap lands on a parliament boundary")
 	sourceLimit := fs.Int("source-limit", defaultAusTenderResourceCap, "maximum downloadable resources per source for archive-backed collectors")
 	if err := fs.Parse(args); err != nil {
@@ -186,11 +186,13 @@ func Run(parent context.Context, args []string) error {
 		add(func(ctx context.Context) error { return runRegisterPromoteAliasesMode(ctx, pool) })
 	case "register-index":
 		add(func(ctx context.Context) error { return runRegisterIndexMode(ctx, pool) })
+	case "register-handbook":
+		add(func(ctx context.Context) error { return runRegisterHandbookMode(ctx, pool) })
 	case "register-photos":
 		add(func(ctx context.Context) error { return runRegisterPhotosMode(ctx, pool) })
 
 	default:
-		return fmt.Errorf("unknown -mode %q (want tax|match|sources|source-registry|source-probe|tax-records|emissions|austender|aec|lobbyists|trade|public-records|all|register-discover|register-fetch|register-load|register-resolve|register-freshness|register-propose-aliases|register-promote-aliases|register-index|register-photos)", *mode)
+		return fmt.Errorf("unknown -mode %q (want tax|match|sources|source-registry|source-probe|tax-records|emissions|austender|aec|lobbyists|trade|public-records|all|register-discover|register-fetch|register-load|register-resolve|register-freshness|register-propose-aliases|register-promote-aliases|register-index|register-photos|register-handbook)", *mode)
 	}
 
 	for _, step := range steps {

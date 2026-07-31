@@ -361,6 +361,22 @@ func (s *StoreAdapter) GetRegisterAnalytics(topIndustries int32, currentOnly boo
 	return s.store.GetRegisterAnalytics(topIndustries, currentOnly)
 }
 
+func (s *StoreAdapter) GetRegisterExplorer() (*shorts.RegisterExplorerRow, error) {
+	return s.store.GetRegisterExplorer()
+}
+
+func (s *StoreAdapter) ListPoliticianSummaries(chamber, stateCode, partyAb string, itemNo int32, query, sortKey string, limit, offset int32) ([]*shorts.PoliticianSummaryRow, int32, error) {
+	return s.store.ListPoliticianSummaries(chamber, stateCode, partyAb, itemNo, query, sortKey, limit, offset)
+}
+
+func (s *StoreAdapter) GetPoliticianExplorerProfile(slug string, topIndustries int32) (*shorts.PoliticianExplorerProfileRow, error) {
+	return s.store.GetPoliticianExplorerProfile(slug, topIndustries)
+}
+
+func (s *StoreAdapter) ComparePoliticians(slugA, slugB string) (*shorts.PoliticianComparisonRow, error) {
+	return s.store.ComparePoliticians(slugA, slugB)
+}
+
 // Register review console. Deliberately NOT routed through the caching adapter
 // arms above: a decision must be visible to the next reviewer immediately, and a
 // cached queue would hand two people the same candidate to decide twice.
@@ -383,6 +399,30 @@ func (s *StoreAdapter) UndoSecurityDecision(candidateNorm string) (bool, error) 
 
 func (s *StoreAdapter) GetRegisterCoverageStats() (*shorts.RegisterCoverageRow, error) {
 	return s.store.GetRegisterCoverageStats()
+}
+
+// Per-politician CRM. Uncached for the same reason as the securities queue: a
+// curator must see their own edit immediately, and a stale profile invites the
+// same correction twice.
+
+func (s *StoreAdapter) ListPoliticianProfiles(query string, limit, offset int32, duplicatesOnly bool) ([]*shorts.PoliticianProfileSummaryRow, int32, int32, error) {
+	return s.store.ListPoliticianProfiles(query, limit, offset, duplicatesOnly)
+}
+
+func (s *StoreAdapter) GetPoliticianProfile(slug string) (*shorts.PoliticianProfileRow, error) {
+	return s.store.GetPoliticianProfile(slug)
+}
+
+func (s *StoreAdapter) CuratePoliticianFact(slug, field string, ordinal int32, action, curatedText, rationale, evidenceURL, curator string) (*shorts.ProfileFactRow, error) {
+	return s.store.CuratePoliticianFact(slug, field, ordinal, action, curatedText, rationale, evidenceURL, curator)
+}
+
+func (s *StoreAdapter) SetPoliticianPhoto(slug, url, licence, author, sourceURL, curator string) error {
+	return s.store.SetPoliticianPhoto(slug, url, licence, author, sourceURL, curator)
+}
+
+func (s *StoreAdapter) MergePoliticians(keepSlug, mergeSlug, evidence, curator string) (int32, error) {
+	return s.store.MergePoliticians(keepSlug, mergeSlug, evidence, curator)
 }
 
 func (s *StoreAdapter) ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32) ([]*shorts.EconomicSeriesRow, error) {

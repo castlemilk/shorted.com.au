@@ -2,7 +2,7 @@ package influence
 
 import "testing"
 
-// Regression tests for docs/politician-register-architecture.md §8.17 — the
+// Regression tests for docs/feature/politicians/architecture.md §8.17 — the
 // defects an adversarial review of the §8.15 fold change found in the LOADED
 // corpus, every one of which was live on a public profile against a named
 // member.

@@ -169,6 +169,25 @@ export const CACHE_KEYS = {
     `cache:politicians:changes:${since || "all"}:${kind || "all"}:${limit}:${offset}`,
   shortInterestOverlap: (minPct: number, limit: number) =>
     `cache:politicians:short-overlap:${minPct}:${limit}`,
+  // The hub explorer aggregates (GetRegisterExplorer). One entry — the rpc takes
+  // no arguments — so nothing can poison it by argument drift.
+  politicianExplorer: () => `cache:politicians:explorer`,
+  // The hub table (ListPoliticianSummaries). EVERY input is in the key, and the
+  // caller normalises/clamps them to the same bounds the backend clamps to
+  // BEFORE building it: a key built from the raw request would give
+  // limit=1000 and limit=200 separate entries for one identical response, and
+  // "house"/"House" two entries for one query.
+  politicianSummaries: (
+    chamber: string,
+    state: string,
+    party: string,
+    itemNo: number,
+    query: string,
+    sort: string,
+    limit: number,
+    offset: number,
+  ) =>
+    `cache:politicians:summaries:${chamber || "all"}:${state || "all"}:${party || "all"}:${itemNo || 0}:${query || "-"}:${sort}:${limit}:${offset}`,
 
   statistics: `${CACHE_PREFIX}statistics`,
   topStocks: (limit: number) => `${CACHE_PREFIX}top-stocks:${limit}`,

@@ -130,7 +130,7 @@ public enum AliasKind
   }
   public static com.google.protobuf.Descriptors.EnumDescriptor
       getDescriptor() {
-    return com.registerreview.v1.RegisterReviewProto.getDescriptor().getEnumType(1);
+    return com.registerreview.v1.RegisterReviewProto.getDescriptor().getEnumType(2);
   }
 
   private static final AliasKind[] VALUES = values();

@@ -2,6 +2,7 @@ import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import {
   PoliticiansService,
+  type ComparePoliticiansResponse,
   type ListStockPoliticiansResponse,
   type ListSuburbPoliticiansResponse,
   type ListStatePoliticianHoldingsResponse,
@@ -68,6 +69,54 @@ export async function listSuburbPoliticiansClient(
   } catch {
     return undefined;
   }
+}
+
+/**
+ * A comparison of two members' register summaries, for /politicians/compare.
+ *
+ * WHY THE `a === b` GUARD IS HERE AND NOT ONLY IN THE UI. The backend rejects a
+ * request naming the same member twice with InvalidArgument, and
+ * `shouldRetryConnectError` (correctly) treats InvalidArgument as terminal — so
+ * the call would throw straight through to the catch below and the page would
+ * report "unavailable" for what is really "you picked one person twice". The
+ * picker states that case in its own words instead, so the request is never
+ * made.
+ *
+ * THE NON-EMPTINESS PREDICATE IS NOT DECORATION. The register read paths have
+ * already been bitten once by a cache that served an EMPTY entry as a hit and
+ * pinned zeros for the whole TTL. A response missing either side is not a
+ * comparison; it is neither stored nor served from the session cache.
+ */
+export async function comparePoliticiansClient(
+  slugA: string,
+  slugB: string,
+): Promise<ComparePoliticiansResponse | undefined> {
+  const a = slugA.trim();
+  const b = slugB.trim();
+  if (!a || !b || a === b) return undefined;
+
+  const cacheKey = `politicians:compare:${a}:${b}`;
+  const cached = getSessionCached<ComparePoliticiansResponse>(cacheKey);
+  if (hasBothSides(cached)) return cached;
+
+  try {
+    const result = await retryWithBackoff(
+      () => client().comparePoliticians({ slugA: a, slugB: b }),
+      RETRY_OPTIONS,
+    );
+    if (hasBothSides(result)) setSessionCached(cacheKey, result);
+    return result;
+  } catch {
+    // The surface renders a neutral "not available" state rather than an error
+    // about two named individuals.
+    return undefined;
+  }
+}
+
+function hasBothSides(
+  response: ComparePoliticiansResponse | null | undefined,
+): response is ComparePoliticiansResponse {
+  return Boolean(response?.a?.politician?.slug && response?.b?.politician?.slug);
 }
 
 /** Companies declared by one state's parliamentarians (economy card). */

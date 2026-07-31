@@ -41,13 +41,6 @@ const (
 	AlertsServiceListAlertMonitorsProcedure = "/shorts.v1alpha1.AlertsService/ListAlertMonitors"
 )
 
-// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
-var (
-	alertsServiceServiceDescriptor                  = v1alpha1.File_shorts_v1alpha1_alerts_proto.Services().ByName("AlertsService")
-	alertsServiceCreateAlertMonitorMethodDescriptor = alertsServiceServiceDescriptor.Methods().ByName("CreateAlertMonitor")
-	alertsServiceListAlertMonitorsMethodDescriptor  = alertsServiceServiceDescriptor.Methods().ByName("ListAlertMonitors")
-)
-
 // AlertsServiceClient is a client for the shorts.v1alpha1.AlertsService service.
 type AlertsServiceClient interface {
 	// Create a premium short-interest alert monitor for the current user.
@@ -65,17 +58,18 @@ type AlertsServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewAlertsServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) AlertsServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
+	alertsServiceMethods := v1alpha1.File_shorts_v1alpha1_alerts_proto.Services().ByName("AlertsService").Methods()
 	return &alertsServiceClient{
 		createAlertMonitor: connect.NewClient[v1alpha1.CreateAlertMonitorRequest, v1alpha1.CreateAlertMonitorResponse](
 			httpClient,
 			baseURL+AlertsServiceCreateAlertMonitorProcedure,
-			connect.WithSchema(alertsServiceCreateAlertMonitorMethodDescriptor),
+			connect.WithSchema(alertsServiceMethods.ByName("CreateAlertMonitor")),
 			connect.WithClientOptions(opts...),
 		),
 		listAlertMonitors: connect.NewClient[v1alpha1.ListAlertMonitorsRequest, v1alpha1.ListAlertMonitorsResponse](
 			httpClient,
 			baseURL+AlertsServiceListAlertMonitorsProcedure,
-			connect.WithSchema(alertsServiceListAlertMonitorsMethodDescriptor),
+			connect.WithSchema(alertsServiceMethods.ByName("ListAlertMonitors")),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -111,16 +105,17 @@ type AlertsServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewAlertsServiceHandler(svc AlertsServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	alertsServiceMethods := v1alpha1.File_shorts_v1alpha1_alerts_proto.Services().ByName("AlertsService").Methods()
 	alertsServiceCreateAlertMonitorHandler := connect.NewUnaryHandler(
 		AlertsServiceCreateAlertMonitorProcedure,
 		svc.CreateAlertMonitor,
-		connect.WithSchema(alertsServiceCreateAlertMonitorMethodDescriptor),
+		connect.WithSchema(alertsServiceMethods.ByName("CreateAlertMonitor")),
 		connect.WithHandlerOptions(opts...),
 	)
 	alertsServiceListAlertMonitorsHandler := connect.NewUnaryHandler(
 		AlertsServiceListAlertMonitorsProcedure,
 		svc.ListAlertMonitors,
-		connect.WithSchema(alertsServiceListAlertMonitorsMethodDescriptor),
+		connect.WithSchema(alertsServiceMethods.ByName("ListAlertMonitors")),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/shorts.v1alpha1.AlertsService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

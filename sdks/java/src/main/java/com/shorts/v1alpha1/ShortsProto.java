@@ -50,7 +50,7 @@ public final class ShortsProto extends com.google.protobuf.GeneratedFile {
       "orts/v1alpha1/politicians.proto\032\035shorts/" +
       "v1alpha1/reports.proto\032\036shorts/v1alpha1/" +
       "screener.proto\032\034shorts/v1alpha1/search.p" +
-      "roto\032\033shorts/v1alpha1/stock.proto2\247\233\001\n\024S" +
+      "roto\032\033shorts/v1alpha1/stock.proto2\255\237\001\n\024S" +
       "hortedStocksService\022\206\003\n\014GetTopShorts\022$.s" +
       "horts.v1alpha1.GetTopShortsRequest\032%.sho" +
       "rts.v1alpha1.GetTopShortsResponse\"\250\002\332A\023p" +
@@ -547,71 +547,82 @@ public final class ShortsProto extends com.google.protobuf.GeneratedFile {
       "e an interest in each industry, and how " +
       "members are distributed by state. Counts" +
       " only; the registers record no quantity " +
-      "or value.\200\265\030\001\032\025\312A\022api.shorted.com.auB\240\003\n" +
-      "\023com.shorts.v1alpha1B\013ShortsProtoP\001ZYgit" +
-      "hub.com/castlemilk/shorted.com.au/servic" +
-      "es/gen/proto/go/shorts/v1alpha1;shortsv1" +
-      "alpha1\242\002\003SXX\252\002\017Shorts.V1alpha1\312\002\017Shorts\\" +
-      "V1alpha1\342\002\033Shorts\\V1alpha1\\GPBMetadata\352\002" +
-      "\020Shorts::V1alpha1\272G\302\001\022\177\n\013Shorted API\022\rSh" +
-      "orted API\'s\"(\022\016shorted.com.au\032\026support@s" +
-      "horted.com.au*3\n\023Proprietary license\022\034ht" +
-      "tps://shorted.com.au/terms2\002v1\032\034\n\032https:" +
-      "//api.shorted.com.au*!:\037\n\035\n\tAuthToken\022\020\n" +
-      "\016\n\004http*\006bearerb\006proto3"
+      "or value.\200\265\030\001\022v\n\023GetRegisterExplorer\022+.s" +
+      "horts.v1alpha1.GetRegisterExplorerReques" +
+      "t\032,.shorts.v1alpha1.GetRegisterExplorerR" +
+      "esponse\"\004\200\265\030\001\022\202\001\n\027ListPoliticianSummarie" +
+      "s\022/.shorts.v1alpha1.ListPoliticianSummar" +
+      "iesRequest\0320.shorts.v1alpha1.ListPolitic" +
+      "ianSummariesResponse\"\004\200\265\030\001\022\221\001\n\034GetPoliti" +
+      "cianExplorerProfile\0224.shorts.v1alpha1.Ge" +
+      "tPoliticianExplorerProfileRequest\0325.shor" +
+      "ts.v1alpha1.GetPoliticianExplorerProfile" +
+      "Response\"\004\200\265\030\001\022s\n\022ComparePoliticians\022*.s" +
+      "horts.v1alpha1.ComparePoliticiansRequest" +
+      "\032+.shorts.v1alpha1.ComparePoliticiansRes" +
+      "ponse\"\004\200\265\030\001\032\025\312A\022api.shorted.com.auB\305\002\n\023c" +
+      "om.shorts.v1alpha1B\013ShortsProtoP\001ZYgithu" +
+      "b.com/castlemilk/shorted.com.au/services" +
+      "/gen/proto/go/shorts/v1alpha1;shortsv1al" +
+      "pha1\272G\302\001\022\177\n\013Shorted API\022\rShorted API\'s\"(" +
+      "\022\016shorted.com.au\032\026support@shorted.com.au" +
+      "*3\n\023Proprietary license\022\034https://shorted" +
+      ".com.au/terms2\002v1\032\034\n\032https://api.shorted" +
+      ".com.au*!:\037\n\035\n\tAuthToken\022\020\n\016\n\004http*\006bear" +
+      "erb\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
         new com.google.protobuf.Descriptors.FileDescriptor[] {
           com.google.api.AnnotationsProto.getDescriptor(),
-          com.gnostic.openapi.v3.AnnotationsProto.getDescriptor(),
+          org.openapi_v3.AnnotationsProto.getDescriptor(),
           com.google.api.ClientProto.getDescriptor(),
           com.google.protobuf.TimestampProto.getDescriptor(),
-          com.stocks.v1alpha1.StocksProto.getDescriptor(),
-          com.shortedapi.options.v1.OptionsProto.getDescriptor(),
-          com.shorts.v1alpha1.AlertsProto.getDescriptor(),
-          com.shorts.v1alpha1.BillingProto.getDescriptor(),
-          com.shorts.v1alpha1.EconomyProto.getDescriptor(),
-          com.shorts.v1alpha1.EnrichmentProto.getDescriptor(),
-          com.shorts.v1alpha1.HousingProto.getDescriptor(),
-          com.shorts.v1alpha1.IndustryProto.getDescriptor(),
-          com.shorts.v1alpha1.MarketProto.getDescriptor(),
-          com.shorts.v1alpha1.NewsProto.getDescriptor(),
+          stocks.v1alpha1.Stocks.getDescriptor(),
+          shortedapi.options.v1.Options.getDescriptor(),
+          shorts.v1alpha1.Alerts.getDescriptor(),
+          shorts.v1alpha1.Billing.getDescriptor(),
+          shorts.v1alpha1.Economy.getDescriptor(),
+          shorts.v1alpha1.Enrichment.getDescriptor(),
+          shorts.v1alpha1.Housing.getDescriptor(),
+          shorts.v1alpha1.Industry.getDescriptor(),
+          shorts.v1alpha1.Market.getDescriptor(),
+          shorts.v1alpha1.News.getDescriptor(),
           com.shorts.v1alpha1.PoliticiansProto.getDescriptor(),
-          com.shorts.v1alpha1.ReportsProto.getDescriptor(),
-          com.shorts.v1alpha1.ScreenerProto.getDescriptor(),
-          com.shorts.v1alpha1.SearchProto.getDescriptor(),
-          com.shorts.v1alpha1.StockProto.getDescriptor(),
+          shorts.v1alpha1.Reports.getDescriptor(),
+          shorts.v1alpha1.Screener.getDescriptor(),
+          shorts.v1alpha1.Search.getDescriptor(),
+          shorts.v1alpha1.Stock.getDescriptor(),
         });
     descriptor.resolveAllFeaturesImmutable();
     com.google.api.AnnotationsProto.getDescriptor();
-    com.gnostic.openapi.v3.AnnotationsProto.getDescriptor();
+    org.openapi_v3.AnnotationsProto.getDescriptor();
     com.google.api.ClientProto.getDescriptor();
     com.google.protobuf.TimestampProto.getDescriptor();
-    com.stocks.v1alpha1.StocksProto.getDescriptor();
-    com.shortedapi.options.v1.OptionsProto.getDescriptor();
-    com.shorts.v1alpha1.AlertsProto.getDescriptor();
-    com.shorts.v1alpha1.BillingProto.getDescriptor();
-    com.shorts.v1alpha1.EconomyProto.getDescriptor();
-    com.shorts.v1alpha1.EnrichmentProto.getDescriptor();
-    com.shorts.v1alpha1.HousingProto.getDescriptor();
-    com.shorts.v1alpha1.IndustryProto.getDescriptor();
-    com.shorts.v1alpha1.MarketProto.getDescriptor();
-    com.shorts.v1alpha1.NewsProto.getDescriptor();
+    stocks.v1alpha1.Stocks.getDescriptor();
+    shortedapi.options.v1.Options.getDescriptor();
+    shorts.v1alpha1.Alerts.getDescriptor();
+    shorts.v1alpha1.Billing.getDescriptor();
+    shorts.v1alpha1.Economy.getDescriptor();
+    shorts.v1alpha1.Enrichment.getDescriptor();
+    shorts.v1alpha1.Housing.getDescriptor();
+    shorts.v1alpha1.Industry.getDescriptor();
+    shorts.v1alpha1.Market.getDescriptor();
+    shorts.v1alpha1.News.getDescriptor();
     com.shorts.v1alpha1.PoliticiansProto.getDescriptor();
-    com.shorts.v1alpha1.ReportsProto.getDescriptor();
-    com.shorts.v1alpha1.ScreenerProto.getDescriptor();
-    com.shorts.v1alpha1.SearchProto.getDescriptor();
-    com.shorts.v1alpha1.StockProto.getDescriptor();
+    shorts.v1alpha1.Reports.getDescriptor();
+    shorts.v1alpha1.Screener.getDescriptor();
+    shorts.v1alpha1.Search.getDescriptor();
+    shorts.v1alpha1.Stock.getDescriptor();
     com.google.protobuf.ExtensionRegistry registry =
         com.google.protobuf.ExtensionRegistry.newInstance();
-    registry.add(com.gnostic.openapi.v3.AnnotationsProto.document);
-    registry.add(com.gnostic.openapi.v3.AnnotationsProto.operation);
+    registry.add(org.openapi_v3.AnnotationsProto.document);
+    registry.add(org.openapi_v3.AnnotationsProto.operation);
     registry.add(com.google.api.ClientProto.defaultHost);
     registry.add(com.google.api.AnnotationsProto.http);
     registry.add(com.google.api.ClientProto.methodSignature);
-    registry.add(com.shortedapi.options.v1.OptionsProto.requiredRole);
-    registry.add(com.shortedapi.options.v1.OptionsProto.visibility);
+    registry.add(shortedapi.options.v1.Options.requiredRole);
+    registry.add(shortedapi.options.v1.Options.visibility);
     com.google.protobuf.Descriptors.FileDescriptor
         .internalUpdateFileDescriptor(descriptor, registry);
   }

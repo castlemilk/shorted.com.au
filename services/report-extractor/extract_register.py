@@ -16,7 +16,7 @@ PDF -> JSON. They meet at register_extractions plus the status columns on
 register_documents. Go never parses a PDF, which is why page classification
 lives here rather than at fetch time.
 
-Design notes: docs/politician-register-architecture.md
+Design notes: docs/feature/politicians/architecture.md
 """
 
 from __future__ import annotations

@@ -200,10 +200,12 @@ func (s *postgresStore) GetRegisterAnalytics(topIndustries int32, currentOnly bo
 		return nil, err
 	}
 
-	var refreshed *time.Time
-	if err := s.db.QueryRow(ctx,
-		`SELECT max(refreshed_at) FROM mv_register_public_holdings`).Scan(&refreshed); err == nil && refreshed != nil {
-		out.AsAt = *refreshed
+	// The register's clock, not ours. This heatmap renders on the same hub page
+	// as the explorer tiles, so reading a different source for `as_at` would put
+	// two contradicting "as at" dates on one screen — and the snapshot-rebuild
+	// timestamp this used to read was the wrong one of the two. See registerAsAt.
+	if asAt, err := s.registerAsAt(ctx); err == nil {
+		out.AsAt = asAt
 	}
 
 	return out, nil

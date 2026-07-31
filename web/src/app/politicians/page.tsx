@@ -1,31 +1,86 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 import { toDate } from "@/lib/politics/timestamp";
 import Link from "next/link";
 
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { LLMMeta } from "@/components/seo/llm-meta";
-import { CaveatNote, PartyChip, SourceLine } from "@/components/politicians/compliance";
+import {
+  CaveatNote,
+  CoverageNote,
+  DeclaredEntity,
+  PartyChip,
+  SourceLine,
+} from "@/components/politicians/compliance";
 import { PoliticianExplorer } from "@/components/politicians/politician-explorer";
+// The component only. NEVER import a plain value from a "use client" module
+// here: a server component receives a client-reference proxy for it and throws
+// "Cannot access <prop>.valueOf on the server" during the prerender.
+import { PoliticianRegisterTable } from "@/components/politicians/politician-register-table";
 import { RegisterHeatmap } from "@/components/politicians/register-heatmap";
+import { AboutThisData } from "@/components/politicians/explorer/about-this-data";
+import { CountDonut } from "@/components/politicians/explorer/count-donut";
+import { CountTile } from "@/components/politicians/explorer/count-tile";
 import {
   getParliamentOverview,
   getPoliticianAnalytics,
+  getRegisterExplorer,
   listPoliticianStocks,
   listPoliticians,
+  listRegisterChanges,
 } from "~/app/actions/getPoliticians";
+import { loadPoliticianTable } from "~/app/actions/politicianTable";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { pageTitle, sectionTitle, eyebrow, lede } from "@/lib/typography";
+import { partyLabel } from "@/lib/politics/party-palette";
+import { REGISTER_ITEMS } from "@/lib/politics/register-items";
+import { REPORT_ERROR_EMAIL } from "@/lib/report-error";
+import { RegisterChangeKind } from "~/gen/shorts/v1alpha1/politicians_pb";
 
 const URL = "https://shorted.com.au/politicians";
 const TITLE = "Parliament's Portfolio — What Federal MPs and Senators Declare";
 const DESCRIPTION =
   "What Australian federal parliamentarians declare in the Registers of Members' and Senators' Interests: ASX-listed companies, real estate by suburb, and how those declarations change over time. The registers record what is held, never quantity or value.";
 
+/**
+ * The APH landing page for the House register.
+ *
+ * The Senate tables its volumes on a different page, so ONE link cannot serve
+ * both registers; this is the entry point APH itself publishes, and every
+ * individual row on a profile deep-links the exact document it came from
+ * (SourceDocLink). We link, never rehost — §3.1's posture publishes extracted
+ * facts, not the source artefacts.
+ */
+const REGISTER_SOURCE_URL =
+  "https://www.aph.gov.au/Senators_and_Members/Members/Register";
+
+/**
+ * The licence the API states for this corpus (registerLicence, politicians.go).
+ * The fallback is the same claim in the same words the CaveatNote uses, so the
+ * band never renders a blank licence line when the rpc is unavailable.
+ */
+const REGISTER_LICENCE_FALLBACK =
+  "Parliamentary material; © Commonwealth of Australia";
+
+const REPORT_ERROR_HREF = `mailto:${REPORT_ERROR_EMAIL}?subject=${encodeURIComponent(
+  "Register of Interests data — politicians hub",
+)}`;
+
+/**
+ * Rows in the first page of the register table.
+ *
+ * Well inside the handler's clamp (default 50, max 200) and deliberately below
+ * its default: this page prerenders the first page into the HTML, and 25 rows
+ * of portraits and sparklines is the point where the payload stops paying for
+ * itself. Everything past it is fetched on demand.
+ */
+const HUB_TABLE_PAGE_SIZE = 25;
+
 // Static ISR. The register corpus changes only when the APH crawl re-ingests, so
 // the server fetches are KV-cached (getPoliticians.ts) and this route prerenders.
 // We deliberately do NOT read searchParams here — doing so silently forces
-// dynamic rendering and kills the ISR.
+// dynamic rendering and kills the ISR. Every interactive control on this page
+// (the Algolia island, the register table) therefore drives itself client-side.
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
@@ -51,16 +106,6 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", creator: "@shorted___" },
 };
 
-function BigStat({ value, label, hint }: { value: string; label: string; hint?: string }) {
-  return (
-    <div className="rounded-lg border p-4">
-      <div className="text-2xl font-semibold tabular-nums">{value}</div>
-      <div className="text-xs text-muted-foreground">{label}</div>
-      {hint ? <div className="mt-1 text-[11px] text-muted-foreground/80">{hint}</div> : null}
-    </div>
-  );
-}
-
 /** Shown while the client explorer hydrates, so the section is never a blank gap. */
 function ExplorerFallback() {
   return (
@@ -71,20 +116,131 @@ function ExplorerFallback() {
   );
 }
 
+function StatusCard({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <article className="space-y-2 rounded-lg border bg-card p-4">
+      <h3 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        {title}
+      </h3>
+      {children}
+    </article>
+  );
+}
+
+function plural(count: number, singular: string, plural_: string): string {
+  return count === 1 ? singular : plural_;
+}
+
+/** A movement, stated as a signed count. No colour, no arrow, no verdict. */
+function signed(value: number): string {
+  return value < 0 ? `−${Math.abs(value)}` : `+${value}`;
+}
+
+/**
+ * The first value that is actually a count.
+ *
+ * Not `??`: a ZERO from the first source has to fall through to the second one.
+ * The overview and the explorer answer the same question from different views,
+ * and either can be cold while the other is healthy.
+ */
+function firstPositive(...values: (number | undefined)[]): number {
+  for (const value of values) {
+    if (typeof value === "number" && value > 0) return value;
+  }
+  return 0;
+}
+
+function shortDate(date?: Date): string {
+  return date
+    ? date.toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })
+    : "";
+}
+
 export default async function PoliticiansPage() {
-  const [overview, mostHeld, people, analytics] = await Promise.all([
+  const [overview, explorer, mostHeld, people, analytics, table, changes] = await Promise.all([
     getParliamentOverview(),
+    getRegisterExplorer(),
     listPoliticianStocks(12, true),
     listPoliticians("", "", "", "", 400, 0),
     getPoliticianAnalytics(14, false),
+    loadPoliticianTable({ limit: HUB_TABLE_PAGE_SIZE }),
+    listRegisterChanges(8, 0),
   ]);
 
-  const hasData = (overview?.politicianCount ?? 0) > 0;
-  if (!hasData) bailOnEmptyRender();
+  // The overview rpc predates the explorer rollups and does not depend on
+  // migration 000104, so it stays the liveness gate: if the explorer view is
+  // missing or cold the hub still renders everything it had before, rather than
+  // bailing the whole page.
+  const politicianCount = firstPositive(overview?.politicianCount, explorer?.politicianCount);
+  if (politicianCount === 0) bailOnEmptyRender();
 
-  const asAt = toDate(overview?.asAt);
+  // THE OVERVIEW'S AS-AT FIRST, and it is not interchangeable with the
+  // explorer's. `overview.as_at` is the newest LODGEMENT date in the corpus —
+  // the pinned semantics the SourceLine and the "About this data" band both
+  // publish ("Register of Members' and Senators' Interests, as at DATE"). The
+  // explorer aggregates a materialized view, so its as-at has read as the
+  // refresh clock, and preferring it printed the day of the last rebuild as the
+  // day parliament last filed something. It stays as the fallback for a cold
+  // overview, never as the first choice.
+  const asAt = toDate(overview?.asAt ?? explorer?.asAt);
+  const asAtIso = asAt ? asAt.toISOString().slice(0, 10) : "";
+  const statedLicence = explorer?.sourceLicence?.trim() ?? "";
+  const licence = statedLicence.length > 0 ? statedLicence : REGISTER_LICENCE_FALLBACK;
+
+  // The explorer aggregates are only rendered when they carry a category total.
+  // A zeroed response (kill switch, cold materialised view, un-applied
+  // migration) would otherwise publish "0 declared entries" — an absence claim
+  // about every member of parliament at once.
+  const itemCounts = explorer?.itemCounts ?? [];
+  const hasExplorer = itemCounts.some((item) => item.currentCount > 0);
+
   const maxCount = Math.max(1, ...(mostHeld?.stocks ?? []).map((s) => s.politicianCount));
   const maxStatePeople = Math.max(1, ...(analytics?.states ?? []).map((s) => s.people));
+
+  const tiles: { count: number; label: string }[] = hasExplorer
+    ? [
+        { count: politicianCount, label: "parliamentarians" },
+        { count: explorer?.currentDeclaredCount ?? 0, label: "entries currently declared" },
+        {
+          count: explorer?.distinctCompanyCount ?? 0,
+          label: "ASX-listed companies declared",
+        },
+        // LABELLING: item-3 register ENTRIES, never "properties". Roughly a
+        // third of item-3 rows merge two or more addresses into one entry, so
+        // this is a floor on what was declared.
+        { count: explorer?.propertyCount ?? 0, label: "declared real-estate entries" },
+        { count: explorer?.giftsTravelCount ?? 0, label: "gifts & sponsored travel entries" },
+        { count: explorer?.liabilityCount ?? 0, label: "declared liabilities entries" },
+      ]
+    : [
+        { count: politicianCount, label: "parliamentarians" },
+        { count: overview?.declaredRowCount ?? 0, label: "declared entries" },
+        { count: overview?.resolvedListedCount ?? 0, label: "ASX-listed companies" },
+        { count: overview?.resolvedSuburbCount ?? 0, label: "suburbs with declared property" },
+      ];
+
+  const extracted = explorer?.extractedParliaments ?? [];
+  const partial = explorer?.partialParliaments ?? [];
+  const pending = explorer?.pendingParliaments ?? [];
+  const industryTrends = explorer?.industryTrends ?? [];
+  const maxIndustryCount = Math.max(1, ...industryTrends.map((t) => t.currentCount));
+
+  const donutSegments = itemCounts
+    .map((item) => ({
+      // The register's own taxonomy, short form. registerItem() carries the
+      // form's legal wording as a tooltip elsewhere; a donut legend needs the
+      // short label.
+      label: REGISTER_ITEMS[item.itemNo]?.label ?? item.itemLabel,
+      count: item.currentCount,
+    }))
+    .filter((segment) => segment.count > 0)
+    .sort((a, b) => b.count - a.count);
+
+  const roll = people?.politicians ?? [];
+  const stateOptions = [...new Set(roll.map((p) => p.stateCode).filter(Boolean))].sort();
+  const partyOptions = [...new Set(roll.map((p) => p.partyAb).filter(Boolean))].sort((a, b) =>
+    partyLabel(a).localeCompare(partyLabel(b)),
+  );
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -95,7 +251,19 @@ export default async function PoliticiansPage() {
     isAccessibleForFree: true,
     creator: { "@type": "Organization", name: "Shorted", url: "https://shorted.com.au" },
     spatialCoverage: "Australia",
-    license: "https://www.aph.gov.au/Help/Disclaimer_Privacy_Copyright",
+    // NO `license` HERE, DELIBERATELY.
+    //
+    // This block declares `creator: Shorted`, so a `license` on it is a
+    // machine-readable claim about OUR terms for OUR dataset. It used to point
+    // at aph.gov.au's copyright page — which is CC BY-NC-ND 4.0. That asserted
+    // a NonCommercial-NoDerivs grant we have no standing to make, on a paid
+    // product, and it contradicts the posture the subsystem is actually built
+    // on: §3.1 publishes extracted FACTS with attribution, and facts carry no
+    // licence to grant.
+    //
+    // The source relationship belongs in `sourceOrganization` (below) and in
+    // the visible SourceLine, both of which say where the data came from
+    // without claiming terms over it.
     sourceOrganization: [
       {
         "@type": "GovernmentOrganization",
@@ -106,6 +274,7 @@ export default async function PoliticiansPage() {
     variableMeasured: [
       { "@type": "PropertyValue", name: "Members declaring an interest in a listed company" },
       { "@type": "PropertyValue", name: "Members declaring real estate in a suburb" },
+      { "@type": "PropertyValue", name: "Register entries currently declared, by category" },
     ],
   };
 
@@ -136,23 +305,208 @@ export default async function PoliticiansPage() {
             </p>
           </header>
 
-          <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <BigStat
-              value={String(overview?.politicianCount ?? 0)}
-              label="parliamentarians"
-              hint={`parliaments ${overview?.firstParliament ?? ""}–${overview?.lastParliament ?? ""}`}
-            />
-            <BigStat value={String(overview?.declaredRowCount ?? 0)} label="declared entries" />
-            <BigStat
-              value={String(overview?.resolvedListedCount ?? 0)}
-              label="ASX-listed companies"
-              hint="matched to a listing"
-            />
-            <BigStat
-              value={String(overview?.resolvedSuburbCount ?? 0)}
-              label="suburbs"
-              hint="with declared property"
-            />
+          {hasExplorer ? (
+            <section className="grid gap-3 md:grid-cols-3">
+              <StatusCard title="Coverage">
+                {extracted.length + partial.length + pending.length > 0 ? (
+                  <CoverageNote extracted={extracted} partial={partial} pending={pending} />
+                ) : (
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">
+                    Register documents published by the Parliament of Australia for parliaments{" "}
+                    {overview?.firstParliament ?? explorer?.firstParliament}–
+                    {overview?.lastParliament ?? explorer?.lastParliament}.
+                  </p>
+                )}
+              </StatusCard>
+
+              <StatusCard title="Recent activity">
+                <p className="text-sm leading-relaxed">
+                  <strong className="tabular-nums">{explorer?.changes7d ?? 0}</strong>{" "}
+                  {plural(explorer?.changes7d ?? 0, "entry", "entries")} entered or left the
+                  registers in the last 7 days, across{" "}
+                  <strong className="tabular-nums">{explorer?.membersChanged7d ?? 0}</strong>{" "}
+                  {plural(explorer?.membersChanged7d ?? 0, "member", "members")}.
+                </p>
+                <p className="text-[11px] leading-relaxed text-muted-foreground">
+                  Over 30 days: {explorer?.changes30d ?? 0}{" "}
+                  {plural(explorer?.changes30d ?? 0, "entry", "entries")} across{" "}
+                  {explorer?.membersChanged30d ?? 0}{" "}
+                  {plural(explorer?.membersChanged30d ?? 0, "member", "members")}. A change is an
+                  entry appearing in or leaving the register — not a transaction.
+                </p>
+                <Link
+                  href="/politicians/changes"
+                  className="inline-block text-[11px] text-muted-foreground underline decoration-dotted hover:text-foreground"
+                >
+                  Every addition and removal →
+                </Link>
+              </StatusCard>
+
+              <StatusCard title="Category movement">
+                {industryTrends.length > 0 ? (
+                  <>
+                    <ul className="space-y-1 text-sm">
+                      {industryTrends.slice(0, 3).map((trend) => (
+                        <li key={trend.industry} className="flex items-baseline justify-between gap-2">
+                          <span className="truncate">{trend.industry}</span>
+                          <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
+                            {trend.count90dAgo} → {trend.currentCount} (
+                            {signed(trend.currentCount - trend.count90dAgo)})
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="text-[11px] leading-relaxed text-muted-foreground">
+                      Distinct ASX-listed companies declared in each industry, now and 90 days
+                      ago. Dated entries only: an entry whose start date the register does not
+                      state is excluded from both sides.
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">
+                    No dated movement to compare over the last 90 days.
+                  </p>
+                )}
+              </StatusCard>
+            </section>
+          ) : null}
+
+          <section className="space-y-2">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              {tiles.map((tile) => (
+                <CountTile key={tile.label} count={tile.count} label={tile.label} />
+              ))}
+            </div>
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              Counts of register entries and of the things they name — never an amount. A
+              real-estate entry can list more than one address, so that figure is a floor on what
+              was declared, not a tally of properties.
+            </p>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className={sectionTitle}>Every parliamentarian, and what they declare</h2>
+            <p className="text-sm text-muted-foreground">
+              Sorted by the number of entries currently declared. Filter by chamber, state, party
+              or register category; the first page is in the HTML, and every other page is
+              fetched on demand.
+            </p>
+            <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_17rem]">
+              <div className="space-y-3">
+                <PoliticianRegisterTable
+                  initialPage={table}
+                  loadPage={loadPoliticianTable}
+                  stateOptions={stateOptions}
+                  partyOptions={partyOptions}
+                />
+                {/*
+                  The citation sits with the data that names people, which is
+                  what editorial-copy.test.ts's hub-section exclusion relies on:
+                  the table island carries no SourceLine of its own because this
+                  one covers it. The "About this data" band at the foot is the
+                  dataset-level statement, not a substitute for this.
+                */}
+                <SourceLine asAt={asAt} surface="politicians hub" />
+              </div>
+
+              <aside className="space-y-8">
+                {donutSegments.length > 0 ? (
+                  <CountDonut
+                    segments={donutSegments}
+                    centerLabel="entries"
+                    title="What is declared, by category"
+                  />
+                ) : null}
+
+                {industryTrends.length > 0 ? (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-medium">Industry movement</h3>
+                    <ul className="space-y-1.5">
+                      {industryTrends.slice(0, 8).map((trend) => (
+                        <li key={trend.industry} className="space-y-0.5">
+                          <div className="flex items-baseline justify-between gap-2 text-[11px]">
+                            <span className="truncate">{trend.industry}</span>
+                            <span className="shrink-0 tabular-nums text-muted-foreground">
+                              {trend.currentCount} ({signed(trend.currentCount - trend.count90dAgo)}
+                              )
+                            </span>
+                          </div>
+                          {/* CSS width, not a chart library: this is a count. */}
+                          <div
+                            className="h-2 rounded-sm bg-amber-500/70"
+                            style={{
+                              width: `${(trend.currentCount / maxIndustryCount) * 100}%`,
+                            }}
+                            aria-hidden
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="text-[10px] leading-relaxed text-muted-foreground">
+                      Distinct ASX-listed companies declared in each industry, with the change
+                      against 90 days ago. Dated entries only.
+                    </p>
+                  </div>
+                ) : null}
+
+                {(changes?.events?.length ?? 0) > 0 ? (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-medium">Recent filings</h3>
+                    <ul className="space-y-2.5">
+                      {(changes?.events ?? []).slice(0, 8).map((event, index) => (
+                        <li key={`${event.politician?.slug ?? "member"}-${index}`}>
+                          <div className="flex flex-wrap items-baseline gap-2 text-[10px] uppercase tracking-wide text-muted-foreground">
+                            <span className="tabular-nums normal-case">
+                              {shortDate(toDate(event.changedOn))}
+                            </span>
+                            <span>
+                              {event.kind === RegisterChangeKind.ADDED ? "added" : "removed"}
+                            </span>
+                          </div>
+                          {event.politician ? (
+                            <Link
+                              href={`/politicians/${event.politician.slug}`}
+                              className="text-xs hover:underline"
+                            >
+                              {event.politician.displayName}
+                            </Link>
+                          ) : null}
+                          <div className="truncate text-[11px]">
+                            <DeclaredEntity
+                              declaredText={event.declaredText}
+                              stockCode={event.stockCode}
+                              companyName={event.companyName}
+                              entityKind={event.entityKind}
+                            />
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                    <Link
+                      href="/politicians/changes"
+                      className="inline-block text-[11px] text-muted-foreground underline decoration-dotted hover:text-foreground"
+                    >
+                      Every addition and removal →
+                    </Link>
+                  </div>
+                ) : null}
+
+                <div className="space-y-2 rounded-lg border bg-card p-4">
+                  <h3 className="text-sm font-medium">Compare two members</h3>
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">
+                    Put two members side by side: what each declares, what both declare, and where
+                    they differ. Counts only, symmetrically — no score and no ranking between
+                    them.
+                  </p>
+                  <Link
+                    href="/politicians/compare"
+                    className="inline-block text-[11px] underline decoration-dotted hover:text-foreground"
+                  >
+                    Open the comparison →
+                  </Link>
+                </div>
+              </aside>
+            </div>
           </section>
 
           <section className="space-y-3">
@@ -298,17 +652,17 @@ export default async function PoliticiansPage() {
           <section className="space-y-3">
             <h2 className={sectionTitle}>Every parliamentarian</h2>
             {/*
-              The complete roll, server-rendered. The explorer above is a client
-              island, so its results are invisible to a crawler; this keeps every
-              profile URL in the HTML. <details> keeps them in the DOM while
-              collapsed — the same trick the profile page uses for suburbs.
+              The complete roll, server-rendered. The table above pages 25 at a
+              time and the explorer is a client island, so neither puts every
+              profile URL in the HTML; this does. <details> keeps them in the DOM
+              while collapsed — the same trick the profile page uses for suburbs.
             */}
             <details className="text-sm">
               <summary className="cursor-pointer text-muted-foreground">
                 {people?.total ?? 0} members and senators
               </summary>
               <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {(people?.politicians ?? []).map((p) => (
+                {roll.map((p) => (
                   <li key={p.slug} className="rounded-md border p-2.5">
                     <Link href={`/politicians/${p.slug}`} className="text-sm hover:underline">
                       {p.displayName}
@@ -345,13 +699,27 @@ export default async function PoliticiansPage() {
                   Recent register additions and removals →
                 </Link>
               </li>
+              <li>
+                <Link href="/politicians/compare" className="hover:underline">
+                  Compare two members side by side →
+                </Link>
+              </li>
             </ul>
           </section>
 
-          <footer className="space-y-3 border-t pt-6">
-            <SourceLine asAt={asAt} surface="politicians hub" />
-            <CaveatNote />
-          </footer>
+          <div className="space-y-6">
+            <AboutThisData
+              sourceHref={REGISTER_SOURCE_URL}
+              licence={licence}
+              asAt={asAtIso}
+              updateCadence="Re-extracted as new register documents are published — continuously during sitting periods."
+              methodologyHref="#method-and-caveats"
+              reportErrorHref={REPORT_ERROR_HREF}
+            />
+            <div id="method-and-caveats" className="scroll-mt-24">
+              <CaveatNote />
+            </div>
+          </div>
         </div>
       </DashboardLayout>
     </>

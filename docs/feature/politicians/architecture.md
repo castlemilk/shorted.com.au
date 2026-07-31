@@ -1,12 +1,20 @@
 # Politician Register of Interests — architecture
 
+> **This is the decision-and-incident record, not the current-state reference.**
+> It is long because it keeps the reasoning and the wrong turns — §8.x in
+> particular is the wrong-fact history, and it is the thing to read before
+> changing resolution logic.
+>
+> For what is true *now* — sources and their licences, the schema, the pipeline
+> and the runbook — start at **[README.md](README.md)**.
+
 The influence-layer dataset that ties a named federal parliamentarian to a
 listed company (item 1 shareholdings) and to a suburb (item 3 real estate).
 Source: the **Register of Members' Interests** (House) and **Register of
 Senators' Interests** (Senate), published as PDFs by aph.gov.au.
 
 `ROADMAP.md` Track A / Phase 4. Editorial gate:
-[`docs/influence-editorial-standards.md`](./influence-editorial-standards.md).
+[`docs/influence-editorial-standards.md`](../../influence-editorial-standards.md).
 
 > **The hard constraint.** The registers disclose *what* is held — **never
 > quantity, value or price**. No share counts, no dollar figures, no returns.
@@ -1611,7 +1619,7 @@ not exist yet, and once they exist the model is redundant.
 
 Where ML does earn its place is **ranking the review queue** — suggest
 `"AGL Ltd -> AGL Energy (AGL), 0.94"` and let a person confirm with one keystroke.
-That is the review console (`docs/register-review-console.md`), and
+That is the review console (`docs/feature/politicians/review-console.md`), and
 `gemini-embedding-001` is already wired elsewhere in this repo for it. The model
 proposes; the constraint still requires a human to dispose.
 
@@ -2273,7 +2281,7 @@ end to end; 218 of 769 documents carry at least one quality signal.
 
 **High value, not blocking:**
 
-3. **Review console** — `docs/register-review-console.md`, 13 ordered steps.
+3. **Review console** — `docs/feature/politicians/review-console.md`, 13 ordered steps.
    Build the securities screen first: 3,636 unmatched rows collapse to ~2,601
    distinct names with a repeating head, so a few hundred aliases moves item 1
    above. Verify `ocr_parse_gates()` (dead code today) before step 0.

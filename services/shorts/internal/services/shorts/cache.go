@@ -322,6 +322,22 @@ func (c *MemoryCache) GetPoliticianAnalyticsKey(topIndustries int32, currentOnly
 	return c.generateKey("register_analytics", topIndustries, currentOnly)
 }
 
+func (c *MemoryCache) GetRegisterExplorerKey() string {
+	return c.generateKey("register_explorer")
+}
+
+func (c *MemoryCache) ListPoliticianSummariesKey(chamber, stateCode, partyAb string, itemNo int32, query, sortKey string, limit, offset int32) string {
+	return c.generateKey("politician_summaries", chamber, stateCode, partyAb, itemNo, query, sortKey, limit, offset)
+}
+
+func (c *MemoryCache) GetPoliticianExplorerProfileKey(slug string, topIndustries int32) string {
+	return c.generateKey("politician_explorer_profile", slug, topIndustries)
+}
+
+func (c *MemoryCache) ComparePoliticiansKey(slugA, slugB string) string {
+	return c.generateKey("politician_compare", slugA, slugB)
+}
+
 func (c *MemoryCache) ListEconomicSeriesKey(topic, metric, regionType, regionCode, product string, limit int32) string {
 	return c.generateKey("economic_series_list", topic, metric, regionType, regionCode, product, limit)
 }

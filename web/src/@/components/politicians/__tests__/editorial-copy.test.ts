@@ -93,7 +93,16 @@ function proseOnly(source: string): string {
  * counter-example and is NOT excluded: it is a card dropped onto the economy
  * state page, and it shipped with no attribution of its own.
  */
-const HUB_SECTIONS = ["politician-explorer.tsx", "register-heatmap.tsx"];
+const HUB_SECTIONS = [
+  "politician-explorer.tsx",
+  "register-heatmap.tsx",
+  // The hub's register table. Same class as the two above, and it CANNOT carry
+  // its own citation: it is a "use client" file, and SourceLine/ReportErrorLink
+  // live in compliance.tsx, which imports the generated protobuf enum. The hub
+  // page renders a SourceLine directly beneath the table for exactly this
+  // reason, and the assertion below checks the page still carries one.
+  "politician-register-table.tsx",
+];
 
 /**
  * Presentational primitives — the kit, not a surface. Same class as
@@ -103,9 +112,28 @@ const HUB_SECTIONS = ["politician-explorer.tsx", "register-heatmap.tsx"];
  * attribution that actually applies to it — `PortraitCredit`, the CC BY / CC
  * BY-SA credit line — and the assertion below checks it still does. A
  * `SourceLine` inside an avatar would cite the register on a component that
- * renders no register data.
+ * renders no register data. The explorer directory is the same kind of
+ * reusable kit: host pages own its source line and dispute affordance.
  */
 const KIT_PRIMITIVES = ["politician-avatar.tsx"];
+const KIT_PRIMITIVE_DIRS = [`${sep}explorer${sep}`];
+
+/**
+ * Sections of the `/politicians/[slug]` profile — the same class as
+ * HUB_SECTIONS, for the same reason.
+ *
+ * `profile/` holds the pieces of ONE page: the row renderer, the filter island,
+ * the rail sections and the key-facts copy generator. That page carries the
+ * SourceLine and the report-an-error affordance in its footer, so a second
+ * citation inside each section would put four of them on one screen. The
+ * assertion below checks the host page still carries it.
+ *
+ * The filter island additionally CANNOT carry one: it is a "use client" file,
+ * and SourceLine/ReportErrorLink live in compliance.tsx, which imports the
+ * generated protobuf enum — importing it from a client component is the
+ * prerender failure client-boundary.test.ts exists to prevent.
+ */
+const PROFILE_SECTION_DIRS = [`${sep}profile${sep}`];
 
 const RENDERING_SURFACES = FILES.filter(
   (f) =>
@@ -115,6 +143,8 @@ const RENDERING_SURFACES = FILES.filter(
     !f.includes("__tests__") &&
     !HUB_SECTIONS.some((s) => f.endsWith(s)) &&
     !KIT_PRIMITIVES.some((s) => f.endsWith(s)) &&
+    !KIT_PRIMITIVE_DIRS.some((s) => f.includes(s)) &&
+    !PROFILE_SECTION_DIRS.some((s) => f.includes(s)) &&
     // The operator console: rule 1 (cite the source) and rule 8 (offer a dispute
     // path) are promises to a READER. The reviewer here IS the dispute path, and
     // every candidate card already links the APH PDF per declaration — which is
@@ -134,12 +164,44 @@ describe("politician surface copy", () => {
   // the vocabulary rules. RENDERING_SURFACES stays 7 — an admin tool owes an
   // operator no reader-facing citation kit, and each candidate card already
   // links the APH PDF per declaration. §6.2 re-review triggered and recorded in
-  // docs/politician-register-architecture.md.
+  // docs/feature/politicians/architecture.md.
   it("covers exactly the surfaces it claims to", () => {
-    // 10 (incl. politicians/opengraph-image.tsx, the share card) + 2 operator
-    // console files + the explorer, the heatmap and the avatar kit.
-    expect(FILES.length).toBe(15);
-    expect(RENDERING_SURFACES.length).toBe(7);
+    // 18 existing files + 8 reusable explorer-kit files. The explorer kit is
+    // excluded from RENDERING_SURFACES above because host pages carry its
+    // citation/dispute footer. The remaining inventory includes the explorer,
+    // the heatmap, the avatar kit, and 5 operator-console files (securities
+    // review + its page, the politician CRM + its index and detail pages).
+    //
+    // The CRM renders a named person's photograph, their terms and their
+    // profile facts on an internal screen — bound by the vocabulary rules for
+    // the same reason the securities console is, and excluded from
+    // RENDERING_SURFACES for the same reason too.
+    //
+    // 26 -> 35 on 2026-08-01, the explorer build (docs/feature/politicians/
+    // explorer-ui.md §5): +1 hub table, +4 `profile/` sections, +4 `compare/`
+    // files. The profile sections are excluded from RENDERING_SURFACES above —
+    // they are one page's sections and that page carries the citation. §6.2
+    // editorial re-review triggered for the new templates.
+    //
+    // THIS NUMBER IS THE COORDINATION POINT for the three explorer waves, which
+    // are landing in parallel. If it fails after a merge, count the tree, re-pin
+    // it deliberately, and re-read the new copy — do not relax the assertion.
+    //
+    // RENDERING_SURFACES 10 -> 9 with the hub table added to HUB_SECTIONS: it
+    // is one page's section, that page carries the SourceLine directly beneath
+    // it, and a client island cannot import the citation kit at all.
+    //
+    // 35 -> 36: `profile/aggregates.ts`, which decides WHICH numbers the profile
+    // publishes (the analytics rpc's, or the ones derivable from the rows on the
+    // page) and which date its "register last updated" tile may carry. It lived
+    // inline in the page, where the fallback silently never fired and a refresh
+    // clock was published as a filing date; it is counted here because it is
+    // register logic beside a named person, and excluded from
+    // RENDERING_SURFACES as a `profile/` section like the four beside it. It
+    // renders nothing and carries no copy — the labels it returns come from the
+    // register's own taxonomy in `@/lib/politics/register-items`.
+    expect(FILES.length).toBe(36);
+    expect(RENDERING_SURFACES.length).toBe(9);
   });
 
   // The avatar's exclusion above is conditional on it carrying the credit that
@@ -168,6 +230,20 @@ describe("politician surface copy", () => {
       const importName = section.replace(/\.tsx$/, "");
       expect(hub).toContain(importName);
     }
+  });
+
+  // The profile-section exclusion above is conditional on this, exactly as the
+  // hub's is. `profile/` holds four files that render a named member's declared
+  // entries and none of them cite anything on their own.
+  it("the /politicians/[slug] profile carries the citation its sections rely on", () => {
+    const profile = readFileSync(
+      join(ROOT, "app", "politicians", "[slug]", "page.tsx"),
+      "utf8",
+    );
+    expect(profile).toMatch(/<SourceLine/);
+    expect(profile).toMatch(/<CaveatNote/);
+    // And the coverage note that carries every absence claim on the page.
+    expect(profile).toMatch(/<CoverageNote/);
   });
 
   /**

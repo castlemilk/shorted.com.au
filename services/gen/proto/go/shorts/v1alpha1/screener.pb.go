@@ -751,8 +751,7 @@ const file_shorts_v1alpha1_screener_proto_rawDesc = "" +
 	"\x13SORT_DIRECTION_DESC\x10\x00\x12\x16\n" +
 	"\x12SORT_DIRECTION_ASC\x10\x012t\n" +
 	"\x0fScreenerService\x12a\n" +
-	"\fScreenStocks\x12$.shorts.v1alpha1.ScreenStocksRequest\x1a%.shorts.v1alpha1.ScreenStocksResponse\"\x04\x80\xb5\x18\x01B\xdc\x01\n" +
-	"\x13com.shorts.v1alpha1B\rScreenerProtoP\x01ZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1\xa2\x02\x03SXX\xaa\x02\x0fShorts.V1alpha1\xca\x02\x0fShorts\\V1alpha1\xe2\x02\x1bShorts\\V1alpha1\\GPBMetadata\xea\x02\x10Shorts::V1alpha1b\x06proto3"
+	"\fScreenStocks\x12$.shorts.v1alpha1.ScreenStocksRequest\x1a%.shorts.v1alpha1.ScreenStocksResponse\"\x04\x80\xb5\x18\x01B[ZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1b\x06proto3"
 
 var (
 	file_shorts_v1alpha1_screener_proto_rawDescOnce sync.Once

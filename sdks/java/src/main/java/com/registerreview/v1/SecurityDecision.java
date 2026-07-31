@@ -192,7 +192,7 @@ public enum SecurityDecision
   }
   public static com.google.protobuf.Descriptors.EnumDescriptor
       getDescriptor() {
-    return com.registerreview.v1.RegisterReviewProto.getDescriptor().getEnumType(0);
+    return com.registerreview.v1.RegisterReviewProto.getDescriptor().getEnumType(1);
   }
 
   private static final SecurityDecision[] VALUES = values();

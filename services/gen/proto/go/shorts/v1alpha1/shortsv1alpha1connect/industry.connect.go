@@ -39,12 +39,6 @@ const (
 	IndustryIntelligenceServiceGetIndustryIntelligenceProcedure = "/shorts.v1alpha1.IndustryIntelligenceService/GetIndustryIntelligence"
 )
 
-// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
-var (
-	industryIntelligenceServiceServiceDescriptor                       = v1alpha1.File_shorts_v1alpha1_industry_proto.Services().ByName("IndustryIntelligenceService")
-	industryIntelligenceServiceGetIndustryIntelligenceMethodDescriptor = industryIntelligenceServiceServiceDescriptor.Methods().ByName("GetIndustryIntelligence")
-)
-
 // IndustryIntelligenceServiceClient is a client for the shorts.v1alpha1.IndustryIntelligenceService
 // service.
 type IndustryIntelligenceServiceClient interface {
@@ -62,11 +56,12 @@ type IndustryIntelligenceServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewIndustryIntelligenceServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) IndustryIntelligenceServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
+	industryIntelligenceServiceMethods := v1alpha1.File_shorts_v1alpha1_industry_proto.Services().ByName("IndustryIntelligenceService").Methods()
 	return &industryIntelligenceServiceClient{
 		getIndustryIntelligence: connect.NewClient[v1alpha1.GetIndustryIntelligenceRequest, v1alpha1.GetIndustryIntelligenceResponse](
 			httpClient,
 			baseURL+IndustryIntelligenceServiceGetIndustryIntelligenceProcedure,
-			connect.WithSchema(industryIntelligenceServiceGetIndustryIntelligenceMethodDescriptor),
+			connect.WithSchema(industryIntelligenceServiceMethods.ByName("GetIndustryIntelligence")),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -96,10 +91,11 @@ type IndustryIntelligenceServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewIndustryIntelligenceServiceHandler(svc IndustryIntelligenceServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	industryIntelligenceServiceMethods := v1alpha1.File_shorts_v1alpha1_industry_proto.Services().ByName("IndustryIntelligenceService").Methods()
 	industryIntelligenceServiceGetIndustryIntelligenceHandler := connect.NewUnaryHandler(
 		IndustryIntelligenceServiceGetIndustryIntelligenceProcedure,
 		svc.GetIndustryIntelligence,
-		connect.WithSchema(industryIntelligenceServiceGetIndustryIntelligenceMethodDescriptor),
+		connect.WithSchema(industryIntelligenceServiceMethods.ByName("GetIndustryIntelligence")),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/shorts.v1alpha1.IndustryIntelligenceService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -57,18 +57,6 @@ const (
 	MarketServiceGetShortCampaignScoreboardProcedure = "/shorts.v1alpha1.MarketService/GetShortCampaignScoreboard"
 )
 
-// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
-var (
-	marketServiceServiceDescriptor                          = v1alpha1.File_shorts_v1alpha1_market_proto.Services().ByName("MarketService")
-	marketServiceGetTopShortsMethodDescriptor               = marketServiceServiceDescriptor.Methods().ByName("GetTopShorts")
-	marketServiceGetIndustryTreeMapMethodDescriptor         = marketServiceServiceDescriptor.Methods().ByName("GetIndustryTreeMap")
-	marketServiceGetMarketByDateMethodDescriptor            = marketServiceServiceDescriptor.Methods().ByName("GetMarketByDate")
-	marketServiceGetAvailableDatesMethodDescriptor          = marketServiceServiceDescriptor.Methods().ByName("GetAvailableDates")
-	marketServiceGetSyncStatusMethodDescriptor              = marketServiceServiceDescriptor.Methods().ByName("GetSyncStatus")
-	marketServiceGetBattlegroundStocksMethodDescriptor      = marketServiceServiceDescriptor.Methods().ByName("GetBattlegroundStocks")
-	marketServiceGetShortCampaignScoreboardMethodDescriptor = marketServiceServiceDescriptor.Methods().ByName("GetShortCampaignScoreboard")
-)
-
 // MarketServiceClient is a client for the shorts.v1alpha1.MarketService service.
 type MarketServiceClient interface {
 	// Shows top 10 short positions on the ASX over different periods of time.
@@ -96,47 +84,48 @@ type MarketServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewMarketServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) MarketServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
+	marketServiceMethods := v1alpha1.File_shorts_v1alpha1_market_proto.Services().ByName("MarketService").Methods()
 	return &marketServiceClient{
 		getTopShorts: connect.NewClient[v1alpha1.GetTopShortsRequest, v1alpha1.GetTopShortsResponse](
 			httpClient,
 			baseURL+MarketServiceGetTopShortsProcedure,
-			connect.WithSchema(marketServiceGetTopShortsMethodDescriptor),
+			connect.WithSchema(marketServiceMethods.ByName("GetTopShorts")),
 			connect.WithClientOptions(opts...),
 		),
 		getIndustryTreeMap: connect.NewClient[v1alpha1.GetIndustryTreeMapRequest, v1alpha11.IndustryTreeMap](
 			httpClient,
 			baseURL+MarketServiceGetIndustryTreeMapProcedure,
-			connect.WithSchema(marketServiceGetIndustryTreeMapMethodDescriptor),
+			connect.WithSchema(marketServiceMethods.ByName("GetIndustryTreeMap")),
 			connect.WithClientOptions(opts...),
 		),
 		getMarketByDate: connect.NewClient[v1alpha1.GetMarketByDateRequest, v1alpha1.GetMarketByDateResponse](
 			httpClient,
 			baseURL+MarketServiceGetMarketByDateProcedure,
-			connect.WithSchema(marketServiceGetMarketByDateMethodDescriptor),
+			connect.WithSchema(marketServiceMethods.ByName("GetMarketByDate")),
 			connect.WithClientOptions(opts...),
 		),
 		getAvailableDates: connect.NewClient[v1alpha1.GetAvailableDatesRequest, v1alpha1.GetAvailableDatesResponse](
 			httpClient,
 			baseURL+MarketServiceGetAvailableDatesProcedure,
-			connect.WithSchema(marketServiceGetAvailableDatesMethodDescriptor),
+			connect.WithSchema(marketServiceMethods.ByName("GetAvailableDates")),
 			connect.WithClientOptions(opts...),
 		),
 		getSyncStatus: connect.NewClient[v1alpha1.GetSyncStatusRequest, v1alpha1.GetSyncStatusResponse](
 			httpClient,
 			baseURL+MarketServiceGetSyncStatusProcedure,
-			connect.WithSchema(marketServiceGetSyncStatusMethodDescriptor),
+			connect.WithSchema(marketServiceMethods.ByName("GetSyncStatus")),
 			connect.WithClientOptions(opts...),
 		),
 		getBattlegroundStocks: connect.NewClient[v1alpha1.GetBattlegroundStocksRequest, v1alpha1.GetBattlegroundStocksResponse](
 			httpClient,
 			baseURL+MarketServiceGetBattlegroundStocksProcedure,
-			connect.WithSchema(marketServiceGetBattlegroundStocksMethodDescriptor),
+			connect.WithSchema(marketServiceMethods.ByName("GetBattlegroundStocks")),
 			connect.WithClientOptions(opts...),
 		),
 		getShortCampaignScoreboard: connect.NewClient[v1alpha1.GetShortCampaignScoreboardRequest, v1alpha1.GetShortCampaignScoreboardResponse](
 			httpClient,
 			baseURL+MarketServiceGetShortCampaignScoreboardProcedure,
-			connect.WithSchema(marketServiceGetShortCampaignScoreboardMethodDescriptor),
+			connect.WithSchema(marketServiceMethods.ByName("GetShortCampaignScoreboard")),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -212,46 +201,47 @@ type MarketServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewMarketServiceHandler(svc MarketServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	marketServiceMethods := v1alpha1.File_shorts_v1alpha1_market_proto.Services().ByName("MarketService").Methods()
 	marketServiceGetTopShortsHandler := connect.NewUnaryHandler(
 		MarketServiceGetTopShortsProcedure,
 		svc.GetTopShorts,
-		connect.WithSchema(marketServiceGetTopShortsMethodDescriptor),
+		connect.WithSchema(marketServiceMethods.ByName("GetTopShorts")),
 		connect.WithHandlerOptions(opts...),
 	)
 	marketServiceGetIndustryTreeMapHandler := connect.NewUnaryHandler(
 		MarketServiceGetIndustryTreeMapProcedure,
 		svc.GetIndustryTreeMap,
-		connect.WithSchema(marketServiceGetIndustryTreeMapMethodDescriptor),
+		connect.WithSchema(marketServiceMethods.ByName("GetIndustryTreeMap")),
 		connect.WithHandlerOptions(opts...),
 	)
 	marketServiceGetMarketByDateHandler := connect.NewUnaryHandler(
 		MarketServiceGetMarketByDateProcedure,
 		svc.GetMarketByDate,
-		connect.WithSchema(marketServiceGetMarketByDateMethodDescriptor),
+		connect.WithSchema(marketServiceMethods.ByName("GetMarketByDate")),
 		connect.WithHandlerOptions(opts...),
 	)
 	marketServiceGetAvailableDatesHandler := connect.NewUnaryHandler(
 		MarketServiceGetAvailableDatesProcedure,
 		svc.GetAvailableDates,
-		connect.WithSchema(marketServiceGetAvailableDatesMethodDescriptor),
+		connect.WithSchema(marketServiceMethods.ByName("GetAvailableDates")),
 		connect.WithHandlerOptions(opts...),
 	)
 	marketServiceGetSyncStatusHandler := connect.NewUnaryHandler(
 		MarketServiceGetSyncStatusProcedure,
 		svc.GetSyncStatus,
-		connect.WithSchema(marketServiceGetSyncStatusMethodDescriptor),
+		connect.WithSchema(marketServiceMethods.ByName("GetSyncStatus")),
 		connect.WithHandlerOptions(opts...),
 	)
 	marketServiceGetBattlegroundStocksHandler := connect.NewUnaryHandler(
 		MarketServiceGetBattlegroundStocksProcedure,
 		svc.GetBattlegroundStocks,
-		connect.WithSchema(marketServiceGetBattlegroundStocksMethodDescriptor),
+		connect.WithSchema(marketServiceMethods.ByName("GetBattlegroundStocks")),
 		connect.WithHandlerOptions(opts...),
 	)
 	marketServiceGetShortCampaignScoreboardHandler := connect.NewUnaryHandler(
 		MarketServiceGetShortCampaignScoreboardProcedure,
 		svc.GetShortCampaignScoreboard,
-		connect.WithSchema(marketServiceGetShortCampaignScoreboardMethodDescriptor),
+		connect.WithSchema(marketServiceMethods.ByName("GetShortCampaignScoreboard")),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/shorts.v1alpha1.MarketService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

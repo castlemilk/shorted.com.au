@@ -234,6 +234,10 @@ type Store interface {
 	ListRegisterChanges(since time.Time, kind, stockCode string, limit, offset int32) ([]*RegisterChangeRow, int32, error)
 	ListShortInterestOverlap(minShortPercent float64, limit int32) ([]*PoliticianStockRollupRow, error)
 	GetRegisterAnalytics(topIndustries int32, currentOnly bool) (*RegisterAnalytics, error)
+	GetRegisterExplorer() (*RegisterExplorerRow, error)
+	ListPoliticianSummaries(chamber, stateCode, partyAb string, itemNo int32, query, sortKey string, limit, offset int32) ([]*PoliticianSummaryRow, int32, error)
+	GetPoliticianExplorerProfile(slug string, topIndustries int32) (*PoliticianExplorerProfileRow, error)
+	ComparePoliticians(slugA, slugB string) (*PoliticianComparisonRow, error)
 
 	// Register review console — OPERATOR ONLY, never a public read path.
 	// A decision here writes register_security_aliases, which is the single
@@ -243,6 +247,13 @@ type Store interface {
 	DecideSecurityCandidate(candidateNorm, decision, stockCode, aliasKind, note, reviewer string, stopwordConfirmed bool) (int32, error)
 	UndoSecurityDecision(candidateNorm string) (bool, error)
 	GetRegisterCoverageStats() (*RegisterCoverageRow, error)
+	// Per-politician CRM (operator only). Reads go through
+	// politician_profile_resolved so a curated value is never bypassed.
+	ListPoliticianProfiles(query string, limit, offset int32, duplicatesOnly bool) ([]*PoliticianProfileSummaryRow, int32, int32, error)
+	GetPoliticianProfile(slug string) (*PoliticianProfileRow, error)
+	CuratePoliticianFact(slug, field string, ordinal int32, action, curatedText, rationale, evidenceURL, curator string) (*ProfileFactRow, error)
+	SetPoliticianPhoto(slug, url, licence, author, sourceURL, curator string) error
+	MergePoliticians(keepSlug, mergeSlug, evidence, curator string) (int32, error)
 
 	// Economy snapshot methods
 	ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32) ([]*EconomicSeriesRow, error)

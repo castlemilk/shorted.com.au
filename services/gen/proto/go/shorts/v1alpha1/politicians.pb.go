@@ -23,6 +23,61 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type PoliticianSummarySort int32
+
+const (
+	PoliticianSummarySort_POLITICIAN_SUMMARY_SORT_DECLARED_ITEMS PoliticianSummarySort = 0
+	PoliticianSummarySort_POLITICIAN_SUMMARY_SORT_COMPANIES      PoliticianSummarySort = 1
+	PoliticianSummarySort_POLITICIAN_SUMMARY_SORT_PROPERTIES     PoliticianSummarySort = 2
+	PoliticianSummarySort_POLITICIAN_SUMMARY_SORT_RECENT_CHANGES PoliticianSummarySort = 3
+	PoliticianSummarySort_POLITICIAN_SUMMARY_SORT_NAME           PoliticianSummarySort = 4
+)
+
+// Enum value maps for PoliticianSummarySort.
+var (
+	PoliticianSummarySort_name = map[int32]string{
+		0: "POLITICIAN_SUMMARY_SORT_DECLARED_ITEMS",
+		1: "POLITICIAN_SUMMARY_SORT_COMPANIES",
+		2: "POLITICIAN_SUMMARY_SORT_PROPERTIES",
+		3: "POLITICIAN_SUMMARY_SORT_RECENT_CHANGES",
+		4: "POLITICIAN_SUMMARY_SORT_NAME",
+	}
+	PoliticianSummarySort_value = map[string]int32{
+		"POLITICIAN_SUMMARY_SORT_DECLARED_ITEMS": 0,
+		"POLITICIAN_SUMMARY_SORT_COMPANIES":      1,
+		"POLITICIAN_SUMMARY_SORT_PROPERTIES":     2,
+		"POLITICIAN_SUMMARY_SORT_RECENT_CHANGES": 3,
+		"POLITICIAN_SUMMARY_SORT_NAME":           4,
+	}
+)
+
+func (x PoliticianSummarySort) Enum() *PoliticianSummarySort {
+	p := new(PoliticianSummarySort)
+	*p = x
+	return p
+}
+
+func (x PoliticianSummarySort) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (PoliticianSummarySort) Descriptor() protoreflect.EnumDescriptor {
+	return file_shorts_v1alpha1_politicians_proto_enumTypes[0].Descriptor()
+}
+
+func (PoliticianSummarySort) Type() protoreflect.EnumType {
+	return &file_shorts_v1alpha1_politicians_proto_enumTypes[0]
+}
+
+func (x PoliticianSummarySort) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use PoliticianSummarySort.Descriptor instead.
+func (PoliticianSummarySort) EnumDescriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{0}
+}
+
 // RegisterHolder is whose interest a row records. The register itself attributes
 // every row to one of these, and surfaces must label which.
 type RegisterHolder int32
@@ -61,11 +116,11 @@ func (x RegisterHolder) String() string {
 }
 
 func (RegisterHolder) Descriptor() protoreflect.EnumDescriptor {
-	return file_shorts_v1alpha1_politicians_proto_enumTypes[0].Descriptor()
+	return file_shorts_v1alpha1_politicians_proto_enumTypes[1].Descriptor()
 }
 
 func (RegisterHolder) Type() protoreflect.EnumType {
-	return &file_shorts_v1alpha1_politicians_proto_enumTypes[0]
+	return &file_shorts_v1alpha1_politicians_proto_enumTypes[1]
 }
 
 func (x RegisterHolder) Number() protoreflect.EnumNumber {
@@ -74,7 +129,7 @@ func (x RegisterHolder) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use RegisterHolder.Descriptor instead.
 func (RegisterHolder) EnumDescriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{0}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{1}
 }
 
 // RegisterChangeKind is why a row entered or left the register. A removal can
@@ -113,11 +168,11 @@ func (x RegisterChangeKind) String() string {
 }
 
 func (RegisterChangeKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_shorts_v1alpha1_politicians_proto_enumTypes[1].Descriptor()
+	return file_shorts_v1alpha1_politicians_proto_enumTypes[2].Descriptor()
 }
 
 func (RegisterChangeKind) Type() protoreflect.EnumType {
-	return &file_shorts_v1alpha1_politicians_proto_enumTypes[1]
+	return &file_shorts_v1alpha1_politicians_proto_enumTypes[2]
 }
 
 func (x RegisterChangeKind) Number() protoreflect.EnumNumber {
@@ -126,7 +181,7 @@ func (x RegisterChangeKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use RegisterChangeKind.Descriptor instead.
 func (RegisterChangeKind) EnumDescriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{1}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{2}
 }
 
 // PartyIndustryCell is one cell of the party x industry matrix.
@@ -528,6 +583,1506 @@ func (x *GetPoliticianAnalyticsResponse) GetAsAt() *timestamppb.Timestamp {
 	return nil
 }
 
+type RegisterItemCount struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	ItemNo          int32                  `protobuf:"varint,1,opt,name=item_no,json=itemNo,proto3" json:"item_no,omitempty"`
+	ItemLabel       string                 `protobuf:"bytes,2,opt,name=item_label,json=itemLabel,proto3" json:"item_label,omitempty"`
+	CurrentCount    int32                  `protobuf:"varint,3,opt,name=current_count,json=currentCount,proto3" json:"current_count,omitempty"`
+	PoliticianCount int32                  `protobuf:"varint,4,opt,name=politician_count,json=politicianCount,proto3" json:"politician_count,omitempty"`
+	AllTimeCount    int32                  `protobuf:"varint,5,opt,name=all_time_count,json=allTimeCount,proto3" json:"all_time_count,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *RegisterItemCount) Reset() {
+	*x = RegisterItemCount{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RegisterItemCount) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RegisterItemCount) ProtoMessage() {}
+
+func (x *RegisterItemCount) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RegisterItemCount.ProtoReflect.Descriptor instead.
+func (*RegisterItemCount) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *RegisterItemCount) GetItemNo() int32 {
+	if x != nil {
+		return x.ItemNo
+	}
+	return 0
+}
+
+func (x *RegisterItemCount) GetItemLabel() string {
+	if x != nil {
+		return x.ItemLabel
+	}
+	return ""
+}
+
+func (x *RegisterItemCount) GetCurrentCount() int32 {
+	if x != nil {
+		return x.CurrentCount
+	}
+	return 0
+}
+
+func (x *RegisterItemCount) GetPoliticianCount() int32 {
+	if x != nil {
+		return x.PoliticianCount
+	}
+	return 0
+}
+
+func (x *RegisterItemCount) GetAllTimeCount() int32 {
+	if x != nil {
+		return x.AllTimeCount
+	}
+	return 0
+}
+
+type RegisterHolderCount struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Holder        RegisterHolder         `protobuf:"varint,1,opt,name=holder,proto3,enum=shorts.v1alpha1.RegisterHolder" json:"holder,omitempty"`
+	CurrentCount  int32                  `protobuf:"varint,2,opt,name=current_count,json=currentCount,proto3" json:"current_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RegisterHolderCount) Reset() {
+	*x = RegisterHolderCount{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RegisterHolderCount) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RegisterHolderCount) ProtoMessage() {}
+
+func (x *RegisterHolderCount) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RegisterHolderCount.ProtoReflect.Descriptor instead.
+func (*RegisterHolderCount) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *RegisterHolderCount) GetHolder() RegisterHolder {
+	if x != nil {
+		return x.Holder
+	}
+	return RegisterHolder_REGISTER_HOLDER_UNSPECIFIED
+}
+
+func (x *RegisterHolderCount) GetCurrentCount() int32 {
+	if x != nil {
+		return x.CurrentCount
+	}
+	return 0
+}
+
+type RegisterMonthlyCount struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Month         string                 `protobuf:"bytes,1,opt,name=month,proto3" json:"month,omitempty"` // YYYY-MM
+	DeclaredCount int32                  `protobuf:"varint,2,opt,name=declared_count,json=declaredCount,proto3" json:"declared_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RegisterMonthlyCount) Reset() {
+	*x = RegisterMonthlyCount{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RegisterMonthlyCount) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RegisterMonthlyCount) ProtoMessage() {}
+
+func (x *RegisterMonthlyCount) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RegisterMonthlyCount.ProtoReflect.Descriptor instead.
+func (*RegisterMonthlyCount) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *RegisterMonthlyCount) GetMonth() string {
+	if x != nil {
+		return x.Month
+	}
+	return ""
+}
+
+func (x *RegisterMonthlyCount) GetDeclaredCount() int32 {
+	if x != nil {
+		return x.DeclaredCount
+	}
+	return 0
+}
+
+type RegisterIndustryTrend struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Industry      string                 `protobuf:"bytes,1,opt,name=industry,proto3" json:"industry,omitempty"`
+	CurrentCount  int32                  `protobuf:"varint,2,opt,name=current_count,json=currentCount,proto3" json:"current_count,omitempty"`
+	Count_90DAgo  int32                  `protobuf:"varint,3,opt,name=count_90d_ago,json=count90dAgo,proto3" json:"count_90d_ago,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RegisterIndustryTrend) Reset() {
+	*x = RegisterIndustryTrend{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RegisterIndustryTrend) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RegisterIndustryTrend) ProtoMessage() {}
+
+func (x *RegisterIndustryTrend) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RegisterIndustryTrend.ProtoReflect.Descriptor instead.
+func (*RegisterIndustryTrend) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *RegisterIndustryTrend) GetIndustry() string {
+	if x != nil {
+		return x.Industry
+	}
+	return ""
+}
+
+func (x *RegisterIndustryTrend) GetCurrentCount() int32 {
+	if x != nil {
+		return x.CurrentCount
+	}
+	return 0
+}
+
+func (x *RegisterIndustryTrend) GetCount_90DAgo() int32 {
+	if x != nil {
+		return x.Count_90DAgo
+	}
+	return 0
+}
+
+type RegisterIndustryCount struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Industry      string                 `protobuf:"bytes,1,opt,name=industry,proto3" json:"industry,omitempty"`
+	CompanyCount  int32                  `protobuf:"varint,2,opt,name=company_count,json=companyCount,proto3" json:"company_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RegisterIndustryCount) Reset() {
+	*x = RegisterIndustryCount{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RegisterIndustryCount) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RegisterIndustryCount) ProtoMessage() {}
+
+func (x *RegisterIndustryCount) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RegisterIndustryCount.ProtoReflect.Descriptor instead.
+func (*RegisterIndustryCount) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *RegisterIndustryCount) GetIndustry() string {
+	if x != nil {
+		return x.Industry
+	}
+	return ""
+}
+
+func (x *RegisterIndustryCount) GetCompanyCount() int32 {
+	if x != nil {
+		return x.CompanyCount
+	}
+	return 0
+}
+
+type RegisterSourceDocument struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Label         string                 `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	SourceUrl     string                 `protobuf:"bytes,2,opt,name=source_url,json=sourceUrl,proto3" json:"source_url,omitempty"`
+	Parliament    int32                  `protobuf:"varint,3,opt,name=parliament,proto3" json:"parliament,omitempty"`
+	Chamber       string                 `protobuf:"bytes,4,opt,name=chamber,proto3" json:"chamber,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RegisterSourceDocument) Reset() {
+	*x = RegisterSourceDocument{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RegisterSourceDocument) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RegisterSourceDocument) ProtoMessage() {}
+
+func (x *RegisterSourceDocument) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RegisterSourceDocument.ProtoReflect.Descriptor instead.
+func (*RegisterSourceDocument) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *RegisterSourceDocument) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *RegisterSourceDocument) GetSourceUrl() string {
+	if x != nil {
+		return x.SourceUrl
+	}
+	return ""
+}
+
+func (x *RegisterSourceDocument) GetParliament() int32 {
+	if x != nil {
+		return x.Parliament
+	}
+	return 0
+}
+
+func (x *RegisterSourceDocument) GetChamber() string {
+	if x != nil {
+		return x.Chamber
+	}
+	return ""
+}
+
+type PoliticianSummary struct {
+	state                protoimpl.MessageState  `protogen:"open.v1"`
+	Politician           *Politician             `protobuf:"bytes,1,opt,name=politician,proto3" json:"politician,omitempty"`
+	ItemCounts           []*RegisterItemCount    `protobuf:"bytes,2,rep,name=item_counts,json=itemCounts,proto3" json:"item_counts,omitempty"`
+	DistinctCompanyCount int32                   `protobuf:"varint,3,opt,name=distinct_company_count,json=distinctCompanyCount,proto3" json:"distinct_company_count,omitempty"`
+	PropertyCount        int32                   `protobuf:"varint,4,opt,name=property_count,json=propertyCount,proto3" json:"property_count,omitempty"`
+	GiftsTravelCount     int32                   `protobuf:"varint,5,opt,name=gifts_travel_count,json=giftsTravelCount,proto3" json:"gifts_travel_count,omitempty"`
+	LiabilityCount       int32                   `protobuf:"varint,6,opt,name=liability_count,json=liabilityCount,proto3" json:"liability_count,omitempty"`
+	Changes_90D          int32                   `protobuf:"varint,7,opt,name=changes_90d,json=changes90d,proto3" json:"changes_90d,omitempty"`
+	Trend                []*RegisterMonthlyCount `protobuf:"bytes,8,rep,name=trend,proto3" json:"trend,omitempty"`
+	UndatedCount         int32                   `protobuf:"varint,9,opt,name=undated_count,json=undatedCount,proto3" json:"undated_count,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *PoliticianSummary) Reset() {
+	*x = PoliticianSummary{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PoliticianSummary) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PoliticianSummary) ProtoMessage() {}
+
+func (x *PoliticianSummary) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PoliticianSummary.ProtoReflect.Descriptor instead.
+func (*PoliticianSummary) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *PoliticianSummary) GetPolitician() *Politician {
+	if x != nil {
+		return x.Politician
+	}
+	return nil
+}
+
+func (x *PoliticianSummary) GetItemCounts() []*RegisterItemCount {
+	if x != nil {
+		return x.ItemCounts
+	}
+	return nil
+}
+
+func (x *PoliticianSummary) GetDistinctCompanyCount() int32 {
+	if x != nil {
+		return x.DistinctCompanyCount
+	}
+	return 0
+}
+
+func (x *PoliticianSummary) GetPropertyCount() int32 {
+	if x != nil {
+		return x.PropertyCount
+	}
+	return 0
+}
+
+func (x *PoliticianSummary) GetGiftsTravelCount() int32 {
+	if x != nil {
+		return x.GiftsTravelCount
+	}
+	return 0
+}
+
+func (x *PoliticianSummary) GetLiabilityCount() int32 {
+	if x != nil {
+		return x.LiabilityCount
+	}
+	return 0
+}
+
+func (x *PoliticianSummary) GetChanges_90D() int32 {
+	if x != nil {
+		return x.Changes_90D
+	}
+	return 0
+}
+
+func (x *PoliticianSummary) GetTrend() []*RegisterMonthlyCount {
+	if x != nil {
+		return x.Trend
+	}
+	return nil
+}
+
+func (x *PoliticianSummary) GetUndatedCount() int32 {
+	if x != nil {
+		return x.UndatedCount
+	}
+	return 0
+}
+
+type GetRegisterExplorerRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetRegisterExplorerRequest) Reset() {
+	*x = GetRegisterExplorerRequest{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetRegisterExplorerRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetRegisterExplorerRequest) ProtoMessage() {}
+
+func (x *GetRegisterExplorerRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetRegisterExplorerRequest.ProtoReflect.Descriptor instead.
+func (*GetRegisterExplorerRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{13}
+}
+
+type GetRegisterExplorerResponse struct {
+	state                protoimpl.MessageState   `protogen:"open.v1"`
+	ItemCounts           []*RegisterItemCount     `protobuf:"bytes,1,rep,name=item_counts,json=itemCounts,proto3" json:"item_counts,omitempty"`
+	HolderCounts         []*RegisterHolderCount   `protobuf:"bytes,2,rep,name=holder_counts,json=holderCounts,proto3" json:"holder_counts,omitempty"`
+	Changes_7D           int32                    `protobuf:"varint,3,opt,name=changes_7d,json=changes7d,proto3" json:"changes_7d,omitempty"`
+	MembersChanged_7D    int32                    `protobuf:"varint,4,opt,name=members_changed_7d,json=membersChanged7d,proto3" json:"members_changed_7d,omitempty"`
+	Changes_30D          int32                    `protobuf:"varint,5,opt,name=changes_30d,json=changes30d,proto3" json:"changes_30d,omitempty"`
+	MembersChanged_30D   int32                    `protobuf:"varint,6,opt,name=members_changed_30d,json=membersChanged30d,proto3" json:"members_changed_30d,omitempty"`
+	IndustryTrends       []*RegisterIndustryTrend `protobuf:"bytes,7,rep,name=industry_trends,json=industryTrends,proto3" json:"industry_trends,omitempty"`
+	ExtractedParliaments []int32                  `protobuf:"varint,8,rep,packed,name=extracted_parliaments,json=extractedParliaments,proto3" json:"extracted_parliaments,omitempty"`
+	PartialParliaments   []int32                  `protobuf:"varint,9,rep,packed,name=partial_parliaments,json=partialParliaments,proto3" json:"partial_parliaments,omitempty"`
+	PendingParliaments   []int32                  `protobuf:"varint,10,rep,packed,name=pending_parliaments,json=pendingParliaments,proto3" json:"pending_parliaments,omitempty"`
+	PoliticianCount      int32                    `protobuf:"varint,11,opt,name=politician_count,json=politicianCount,proto3" json:"politician_count,omitempty"`
+	StatementCount       int32                    `protobuf:"varint,12,opt,name=statement_count,json=statementCount,proto3" json:"statement_count,omitempty"`
+	DeclaredRowCount     int32                    `protobuf:"varint,13,opt,name=declared_row_count,json=declaredRowCount,proto3" json:"declared_row_count,omitempty"`
+	ResolvedListedCount  int32                    `protobuf:"varint,14,opt,name=resolved_listed_count,json=resolvedListedCount,proto3" json:"resolved_listed_count,omitempty"`
+	ResolvedSuburbCount  int32                    `protobuf:"varint,15,opt,name=resolved_suburb_count,json=resolvedSuburbCount,proto3" json:"resolved_suburb_count,omitempty"`
+	FirstParliament      int32                    `protobuf:"varint,16,opt,name=first_parliament,json=firstParliament,proto3" json:"first_parliament,omitempty"`
+	LastParliament       int32                    `protobuf:"varint,17,opt,name=last_parliament,json=lastParliament,proto3" json:"last_parliament,omitempty"`
+	CurrentDeclaredCount int32                    `protobuf:"varint,18,opt,name=current_declared_count,json=currentDeclaredCount,proto3" json:"current_declared_count,omitempty"`
+	DistinctCompanyCount int32                    `protobuf:"varint,19,opt,name=distinct_company_count,json=distinctCompanyCount,proto3" json:"distinct_company_count,omitempty"`
+	PropertyCount        int32                    `protobuf:"varint,20,opt,name=property_count,json=propertyCount,proto3" json:"property_count,omitempty"`
+	GiftsTravelCount     int32                    `protobuf:"varint,21,opt,name=gifts_travel_count,json=giftsTravelCount,proto3" json:"gifts_travel_count,omitempty"`
+	LiabilityCount       int32                    `protobuf:"varint,22,opt,name=liability_count,json=liabilityCount,proto3" json:"liability_count,omitempty"`
+	AsAt                 *timestamppb.Timestamp   `protobuf:"bytes,23,opt,name=as_at,json=asAt,proto3" json:"as_at,omitempty"`
+	SourceLicence        string                   `protobuf:"bytes,24,opt,name=source_licence,json=sourceLicence,proto3" json:"source_licence,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *GetRegisterExplorerResponse) Reset() {
+	*x = GetRegisterExplorerResponse{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetRegisterExplorerResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetRegisterExplorerResponse) ProtoMessage() {}
+
+func (x *GetRegisterExplorerResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetRegisterExplorerResponse.ProtoReflect.Descriptor instead.
+func (*GetRegisterExplorerResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *GetRegisterExplorerResponse) GetItemCounts() []*RegisterItemCount {
+	if x != nil {
+		return x.ItemCounts
+	}
+	return nil
+}
+
+func (x *GetRegisterExplorerResponse) GetHolderCounts() []*RegisterHolderCount {
+	if x != nil {
+		return x.HolderCounts
+	}
+	return nil
+}
+
+func (x *GetRegisterExplorerResponse) GetChanges_7D() int32 {
+	if x != nil {
+		return x.Changes_7D
+	}
+	return 0
+}
+
+func (x *GetRegisterExplorerResponse) GetMembersChanged_7D() int32 {
+	if x != nil {
+		return x.MembersChanged_7D
+	}
+	return 0
+}
+
+func (x *GetRegisterExplorerResponse) GetChanges_30D() int32 {
+	if x != nil {
+		return x.Changes_30D
+	}
+	return 0
+}
+
+func (x *GetRegisterExplorerResponse) GetMembersChanged_30D() int32 {
+	if x != nil {
+		return x.MembersChanged_30D
+	}
+	return 0
+}
+
+func (x *GetRegisterExplorerResponse) GetIndustryTrends() []*RegisterIndustryTrend {
+	if x != nil {
+		return x.IndustryTrends
+	}
+	return nil
+}
+
+func (x *GetRegisterExplorerResponse) GetExtractedParliaments() []int32 {
+	if x != nil {
+		return x.ExtractedParliaments
+	}
+	return nil
+}
+
+func (x *GetRegisterExplorerResponse) GetPartialParliaments() []int32 {
+	if x != nil {
+		return x.PartialParliaments
+	}
+	return nil
+}
+
+func (x *GetRegisterExplorerResponse) GetPendingParliaments() []int32 {
+	if x != nil {
+		return x.PendingParliaments
+	}
+	return nil
+}
+
+func (x *GetRegisterExplorerResponse) GetPoliticianCount() int32 {
+	if x != nil {
+		return x.PoliticianCount
+	}
+	return 0
+}
+
+func (x *GetRegisterExplorerResponse) GetStatementCount() int32 {
+	if x != nil {
+		return x.StatementCount
+	}
+	return 0
+}
+
+func (x *GetRegisterExplorerResponse) GetDeclaredRowCount() int32 {
+	if x != nil {
+		return x.DeclaredRowCount
+	}
+	return 0
+}
+
+func (x *GetRegisterExplorerResponse) GetResolvedListedCount() int32 {
+	if x != nil {
+		return x.ResolvedListedCount
+	}
+	return 0
+}
+
+func (x *GetRegisterExplorerResponse) GetResolvedSuburbCount() int32 {
+	if x != nil {
+		return x.ResolvedSuburbCount
+	}
+	return 0
+}
+
+func (x *GetRegisterExplorerResponse) GetFirstParliament() int32 {
+	if x != nil {
+		return x.FirstParliament
+	}
+	return 0
+}
+
+func (x *GetRegisterExplorerResponse) GetLastParliament() int32 {
+	if x != nil {
+		return x.LastParliament
+	}
+	return 0
+}
+
+func (x *GetRegisterExplorerResponse) GetCurrentDeclaredCount() int32 {
+	if x != nil {
+		return x.CurrentDeclaredCount
+	}
+	return 0
+}
+
+func (x *GetRegisterExplorerResponse) GetDistinctCompanyCount() int32 {
+	if x != nil {
+		return x.DistinctCompanyCount
+	}
+	return 0
+}
+
+func (x *GetRegisterExplorerResponse) GetPropertyCount() int32 {
+	if x != nil {
+		return x.PropertyCount
+	}
+	return 0
+}
+
+func (x *GetRegisterExplorerResponse) GetGiftsTravelCount() int32 {
+	if x != nil {
+		return x.GiftsTravelCount
+	}
+	return 0
+}
+
+func (x *GetRegisterExplorerResponse) GetLiabilityCount() int32 {
+	if x != nil {
+		return x.LiabilityCount
+	}
+	return 0
+}
+
+func (x *GetRegisterExplorerResponse) GetAsAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AsAt
+	}
+	return nil
+}
+
+func (x *GetRegisterExplorerResponse) GetSourceLicence() string {
+	if x != nil {
+		return x.SourceLicence
+	}
+	return ""
+}
+
+type ListPoliticianSummariesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Chamber       string                 `protobuf:"bytes,1,opt,name=chamber,proto3" json:"chamber,omitempty"`
+	StateCode     string                 `protobuf:"bytes,2,opt,name=state_code,json=stateCode,proto3" json:"state_code,omitempty"`
+	PartyAb       string                 `protobuf:"bytes,3,opt,name=party_ab,json=partyAb,proto3" json:"party_ab,omitempty"`
+	ItemNo        int32                  `protobuf:"varint,4,opt,name=item_no,json=itemNo,proto3" json:"item_no,omitempty"` // 0 = all
+	Query         string                 `protobuf:"bytes,5,opt,name=query,proto3" json:"query,omitempty"`
+	Sort          PoliticianSummarySort  `protobuf:"varint,6,opt,name=sort,proto3,enum=shorts.v1alpha1.PoliticianSummarySort" json:"sort,omitempty"`
+	Limit         int32                  `protobuf:"varint,7,opt,name=limit,proto3" json:"limit,omitempty"`
+	Offset        int32                  `protobuf:"varint,8,opt,name=offset,proto3" json:"offset,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListPoliticianSummariesRequest) Reset() {
+	*x = ListPoliticianSummariesRequest{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListPoliticianSummariesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListPoliticianSummariesRequest) ProtoMessage() {}
+
+func (x *ListPoliticianSummariesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListPoliticianSummariesRequest.ProtoReflect.Descriptor instead.
+func (*ListPoliticianSummariesRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *ListPoliticianSummariesRequest) GetChamber() string {
+	if x != nil {
+		return x.Chamber
+	}
+	return ""
+}
+
+func (x *ListPoliticianSummariesRequest) GetStateCode() string {
+	if x != nil {
+		return x.StateCode
+	}
+	return ""
+}
+
+func (x *ListPoliticianSummariesRequest) GetPartyAb() string {
+	if x != nil {
+		return x.PartyAb
+	}
+	return ""
+}
+
+func (x *ListPoliticianSummariesRequest) GetItemNo() int32 {
+	if x != nil {
+		return x.ItemNo
+	}
+	return 0
+}
+
+func (x *ListPoliticianSummariesRequest) GetQuery() string {
+	if x != nil {
+		return x.Query
+	}
+	return ""
+}
+
+func (x *ListPoliticianSummariesRequest) GetSort() PoliticianSummarySort {
+	if x != nil {
+		return x.Sort
+	}
+	return PoliticianSummarySort_POLITICIAN_SUMMARY_SORT_DECLARED_ITEMS
+}
+
+func (x *ListPoliticianSummariesRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *ListPoliticianSummariesRequest) GetOffset() int32 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+type ListPoliticianSummariesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Summaries     []*PoliticianSummary   `protobuf:"bytes,1,rep,name=summaries,proto3" json:"summaries,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	AsAt          *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=as_at,json=asAt,proto3" json:"as_at,omitempty"`
+	SourceLicence string                 `protobuf:"bytes,4,opt,name=source_licence,json=sourceLicence,proto3" json:"source_licence,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListPoliticianSummariesResponse) Reset() {
+	*x = ListPoliticianSummariesResponse{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListPoliticianSummariesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListPoliticianSummariesResponse) ProtoMessage() {}
+
+func (x *ListPoliticianSummariesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListPoliticianSummariesResponse.ProtoReflect.Descriptor instead.
+func (*ListPoliticianSummariesResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *ListPoliticianSummariesResponse) GetSummaries() []*PoliticianSummary {
+	if x != nil {
+		return x.Summaries
+	}
+	return nil
+}
+
+func (x *ListPoliticianSummariesResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *ListPoliticianSummariesResponse) GetAsAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AsAt
+	}
+	return nil
+}
+
+func (x *ListPoliticianSummariesResponse) GetSourceLicence() string {
+	if x != nil {
+		return x.SourceLicence
+	}
+	return ""
+}
+
+type GetPoliticianExplorerProfileRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Slug          string                 `protobuf:"bytes,1,opt,name=slug,proto3" json:"slug,omitempty"`
+	TopIndustries int32                  `protobuf:"varint,2,opt,name=top_industries,json=topIndustries,proto3" json:"top_industries,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPoliticianExplorerProfileRequest) Reset() {
+	*x = GetPoliticianExplorerProfileRequest{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPoliticianExplorerProfileRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPoliticianExplorerProfileRequest) ProtoMessage() {}
+
+func (x *GetPoliticianExplorerProfileRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPoliticianExplorerProfileRequest.ProtoReflect.Descriptor instead.
+func (*GetPoliticianExplorerProfileRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *GetPoliticianExplorerProfileRequest) GetSlug() string {
+	if x != nil {
+		return x.Slug
+	}
+	return ""
+}
+
+func (x *GetPoliticianExplorerProfileRequest) GetTopIndustries() int32 {
+	if x != nil {
+		return x.TopIndustries
+	}
+	return 0
+}
+
+type GetPoliticianExplorerProfileResponse struct {
+	state                protoimpl.MessageState    `protogen:"open.v1"`
+	Politician           *Politician               `protobuf:"bytes,1,opt,name=politician,proto3" json:"politician,omitempty"`
+	CanonicalSlug        string                    `protobuf:"bytes,2,opt,name=canonical_slug,json=canonicalSlug,proto3" json:"canonical_slug,omitempty"`
+	Terms                []*PoliticianTerm         `protobuf:"bytes,3,rep,name=terms,proto3" json:"terms,omitempty"`
+	ItemCounts           []*RegisterItemCount      `protobuf:"bytes,4,rep,name=item_counts,json=itemCounts,proto3" json:"item_counts,omitempty"`
+	HolderCounts         []*RegisterHolderCount    `protobuf:"bytes,5,rep,name=holder_counts,json=holderCounts,proto3" json:"holder_counts,omitempty"`
+	IndustryCounts       []*RegisterIndustryCount  `protobuf:"bytes,6,rep,name=industry_counts,json=industryCounts,proto3" json:"industry_counts,omitempty"`
+	Timeline             []*RegisterMonthlyCount   `protobuf:"bytes,7,rep,name=timeline,proto3" json:"timeline,omitempty"`
+	UndatedCount         int32                     `protobuf:"varint,8,opt,name=undated_count,json=undatedCount,proto3" json:"undated_count,omitempty"`
+	RecentChanges        []*RegisterChangeEvent    `protobuf:"bytes,9,rep,name=recent_changes,json=recentChanges,proto3" json:"recent_changes,omitempty"`
+	SourceDocuments      []*RegisterSourceDocument `protobuf:"bytes,10,rep,name=source_documents,json=sourceDocuments,proto3" json:"source_documents,omitempty"`
+	ExtractedParliaments []int32                   `protobuf:"varint,11,rep,packed,name=extracted_parliaments,json=extractedParliaments,proto3" json:"extracted_parliaments,omitempty"`
+	PartialParliaments   []int32                   `protobuf:"varint,12,rep,packed,name=partial_parliaments,json=partialParliaments,proto3" json:"partial_parliaments,omitempty"`
+	PendingParliaments   []int32                   `protobuf:"varint,13,rep,packed,name=pending_parliaments,json=pendingParliaments,proto3" json:"pending_parliaments,omitempty"`
+	AsAt                 *timestamppb.Timestamp    `protobuf:"bytes,14,opt,name=as_at,json=asAt,proto3" json:"as_at,omitempty"`
+	SourceLicence        string                    `protobuf:"bytes,15,opt,name=source_licence,json=sourceLicence,proto3" json:"source_licence,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *GetPoliticianExplorerProfileResponse) Reset() {
+	*x = GetPoliticianExplorerProfileResponse{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPoliticianExplorerProfileResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPoliticianExplorerProfileResponse) ProtoMessage() {}
+
+func (x *GetPoliticianExplorerProfileResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPoliticianExplorerProfileResponse.ProtoReflect.Descriptor instead.
+func (*GetPoliticianExplorerProfileResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *GetPoliticianExplorerProfileResponse) GetPolitician() *Politician {
+	if x != nil {
+		return x.Politician
+	}
+	return nil
+}
+
+func (x *GetPoliticianExplorerProfileResponse) GetCanonicalSlug() string {
+	if x != nil {
+		return x.CanonicalSlug
+	}
+	return ""
+}
+
+func (x *GetPoliticianExplorerProfileResponse) GetTerms() []*PoliticianTerm {
+	if x != nil {
+		return x.Terms
+	}
+	return nil
+}
+
+func (x *GetPoliticianExplorerProfileResponse) GetItemCounts() []*RegisterItemCount {
+	if x != nil {
+		return x.ItemCounts
+	}
+	return nil
+}
+
+func (x *GetPoliticianExplorerProfileResponse) GetHolderCounts() []*RegisterHolderCount {
+	if x != nil {
+		return x.HolderCounts
+	}
+	return nil
+}
+
+func (x *GetPoliticianExplorerProfileResponse) GetIndustryCounts() []*RegisterIndustryCount {
+	if x != nil {
+		return x.IndustryCounts
+	}
+	return nil
+}
+
+func (x *GetPoliticianExplorerProfileResponse) GetTimeline() []*RegisterMonthlyCount {
+	if x != nil {
+		return x.Timeline
+	}
+	return nil
+}
+
+func (x *GetPoliticianExplorerProfileResponse) GetUndatedCount() int32 {
+	if x != nil {
+		return x.UndatedCount
+	}
+	return 0
+}
+
+func (x *GetPoliticianExplorerProfileResponse) GetRecentChanges() []*RegisterChangeEvent {
+	if x != nil {
+		return x.RecentChanges
+	}
+	return nil
+}
+
+func (x *GetPoliticianExplorerProfileResponse) GetSourceDocuments() []*RegisterSourceDocument {
+	if x != nil {
+		return x.SourceDocuments
+	}
+	return nil
+}
+
+func (x *GetPoliticianExplorerProfileResponse) GetExtractedParliaments() []int32 {
+	if x != nil {
+		return x.ExtractedParliaments
+	}
+	return nil
+}
+
+func (x *GetPoliticianExplorerProfileResponse) GetPartialParliaments() []int32 {
+	if x != nil {
+		return x.PartialParliaments
+	}
+	return nil
+}
+
+func (x *GetPoliticianExplorerProfileResponse) GetPendingParliaments() []int32 {
+	if x != nil {
+		return x.PendingParliaments
+	}
+	return nil
+}
+
+func (x *GetPoliticianExplorerProfileResponse) GetAsAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AsAt
+	}
+	return nil
+}
+
+func (x *GetPoliticianExplorerProfileResponse) GetSourceLicence() string {
+	if x != nil {
+		return x.SourceLicence
+	}
+	return ""
+}
+
+type ComparePoliticiansRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SlugA         string                 `protobuf:"bytes,1,opt,name=slug_a,json=slugA,proto3" json:"slug_a,omitempty"`
+	SlugB         string                 `protobuf:"bytes,2,opt,name=slug_b,json=slugB,proto3" json:"slug_b,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ComparePoliticiansRequest) Reset() {
+	*x = ComparePoliticiansRequest{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ComparePoliticiansRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ComparePoliticiansRequest) ProtoMessage() {}
+
+func (x *ComparePoliticiansRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ComparePoliticiansRequest.ProtoReflect.Descriptor instead.
+func (*ComparePoliticiansRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *ComparePoliticiansRequest) GetSlugA() string {
+	if x != nil {
+		return x.SlugA
+	}
+	return ""
+}
+
+func (x *ComparePoliticiansRequest) GetSlugB() string {
+	if x != nil {
+		return x.SlugB
+	}
+	return ""
+}
+
+type SharedDeclaredCompany struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	StockCode          string                 `protobuf:"bytes,1,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`
+	CompanyName        string                 `protobuf:"bytes,2,opt,name=company_name,json=companyName,proto3" json:"company_name,omitempty"`
+	Industry           string                 `protobuf:"bytes,3,opt,name=industry,proto3" json:"industry,omitempty"`
+	HoldersA           []RegisterHolder       `protobuf:"varint,4,rep,packed,name=holders_a,json=holdersA,proto3,enum=shorts.v1alpha1.RegisterHolder" json:"holders_a,omitempty"`
+	HoldersB           []RegisterHolder       `protobuf:"varint,5,rep,packed,name=holders_b,json=holdersB,proto3,enum=shorts.v1alpha1.RegisterHolder" json:"holders_b,omitempty"`
+	CurrentlyDeclaredA bool                   `protobuf:"varint,6,opt,name=currently_declared_a,json=currentlyDeclaredA,proto3" json:"currently_declared_a,omitempty"`
+	CurrentlyDeclaredB bool                   `protobuf:"varint,7,opt,name=currently_declared_b,json=currentlyDeclaredB,proto3" json:"currently_declared_b,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *SharedDeclaredCompany) Reset() {
+	*x = SharedDeclaredCompany{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SharedDeclaredCompany) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SharedDeclaredCompany) ProtoMessage() {}
+
+func (x *SharedDeclaredCompany) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SharedDeclaredCompany.ProtoReflect.Descriptor instead.
+func (*SharedDeclaredCompany) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *SharedDeclaredCompany) GetStockCode() string {
+	if x != nil {
+		return x.StockCode
+	}
+	return ""
+}
+
+func (x *SharedDeclaredCompany) GetCompanyName() string {
+	if x != nil {
+		return x.CompanyName
+	}
+	return ""
+}
+
+func (x *SharedDeclaredCompany) GetIndustry() string {
+	if x != nil {
+		return x.Industry
+	}
+	return ""
+}
+
+func (x *SharedDeclaredCompany) GetHoldersA() []RegisterHolder {
+	if x != nil {
+		return x.HoldersA
+	}
+	return nil
+}
+
+func (x *SharedDeclaredCompany) GetHoldersB() []RegisterHolder {
+	if x != nil {
+		return x.HoldersB
+	}
+	return nil
+}
+
+func (x *SharedDeclaredCompany) GetCurrentlyDeclaredA() bool {
+	if x != nil {
+		return x.CurrentlyDeclaredA
+	}
+	return false
+}
+
+func (x *SharedDeclaredCompany) GetCurrentlyDeclaredB() bool {
+	if x != nil {
+		return x.CurrentlyDeclaredB
+	}
+	return false
+}
+
+type PoliticianOnlyCompany struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	StockCode         string                 `protobuf:"bytes,1,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`
+	CompanyName       string                 `protobuf:"bytes,2,opt,name=company_name,json=companyName,proto3" json:"company_name,omitempty"`
+	Industry          string                 `protobuf:"bytes,3,opt,name=industry,proto3" json:"industry,omitempty"`
+	Holders           []RegisterHolder       `protobuf:"varint,4,rep,packed,name=holders,proto3,enum=shorts.v1alpha1.RegisterHolder" json:"holders,omitempty"`
+	CurrentlyDeclared bool                   `protobuf:"varint,5,opt,name=currently_declared,json=currentlyDeclared,proto3" json:"currently_declared,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *PoliticianOnlyCompany) Reset() {
+	*x = PoliticianOnlyCompany{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PoliticianOnlyCompany) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PoliticianOnlyCompany) ProtoMessage() {}
+
+func (x *PoliticianOnlyCompany) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PoliticianOnlyCompany.ProtoReflect.Descriptor instead.
+func (*PoliticianOnlyCompany) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *PoliticianOnlyCompany) GetStockCode() string {
+	if x != nil {
+		return x.StockCode
+	}
+	return ""
+}
+
+func (x *PoliticianOnlyCompany) GetCompanyName() string {
+	if x != nil {
+		return x.CompanyName
+	}
+	return ""
+}
+
+func (x *PoliticianOnlyCompany) GetIndustry() string {
+	if x != nil {
+		return x.Industry
+	}
+	return ""
+}
+
+func (x *PoliticianOnlyCompany) GetHolders() []RegisterHolder {
+	if x != nil {
+		return x.Holders
+	}
+	return nil
+}
+
+func (x *PoliticianOnlyCompany) GetCurrentlyDeclared() bool {
+	if x != nil {
+		return x.CurrentlyDeclared
+	}
+	return false
+}
+
+type ComparePoliticiansResponse struct {
+	state                 protoimpl.MessageState   `protogen:"open.v1"`
+	A                     *PoliticianSummary       `protobuf:"bytes,1,opt,name=a,proto3" json:"a,omitempty"`
+	B                     *PoliticianSummary       `protobuf:"bytes,2,opt,name=b,proto3" json:"b,omitempty"`
+	HolderCountsA         []*RegisterHolderCount   `protobuf:"bytes,3,rep,name=holder_counts_a,json=holderCountsA,proto3" json:"holder_counts_a,omitempty"`
+	HolderCountsB         []*RegisterHolderCount   `protobuf:"bytes,4,rep,name=holder_counts_b,json=holderCountsB,proto3" json:"holder_counts_b,omitempty"`
+	SharedCompanies       []*SharedDeclaredCompany `protobuf:"bytes,5,rep,name=shared_companies,json=sharedCompanies,proto3" json:"shared_companies,omitempty"`
+	OnlyACompanies        []*PoliticianOnlyCompany `protobuf:"bytes,6,rep,name=only_a_companies,json=onlyACompanies,proto3" json:"only_a_companies,omitempty"`
+	OnlyBCompanies        []*PoliticianOnlyCompany `protobuf:"bytes,7,rep,name=only_b_companies,json=onlyBCompanies,proto3" json:"only_b_companies,omitempty"`
+	OnlyAMore             int32                    `protobuf:"varint,8,opt,name=only_a_more,json=onlyAMore,proto3" json:"only_a_more,omitempty"`
+	OnlyBMore             int32                    `protobuf:"varint,9,opt,name=only_b_more,json=onlyBMore,proto3" json:"only_b_more,omitempty"`
+	ExtractedParliamentsA []int32                  `protobuf:"varint,10,rep,packed,name=extracted_parliaments_a,json=extractedParliamentsA,proto3" json:"extracted_parliaments_a,omitempty"`
+	PartialParliamentsA   []int32                  `protobuf:"varint,11,rep,packed,name=partial_parliaments_a,json=partialParliamentsA,proto3" json:"partial_parliaments_a,omitempty"`
+	PendingParliamentsA   []int32                  `protobuf:"varint,12,rep,packed,name=pending_parliaments_a,json=pendingParliamentsA,proto3" json:"pending_parliaments_a,omitempty"`
+	ExtractedParliamentsB []int32                  `protobuf:"varint,13,rep,packed,name=extracted_parliaments_b,json=extractedParliamentsB,proto3" json:"extracted_parliaments_b,omitempty"`
+	PartialParliamentsB   []int32                  `protobuf:"varint,14,rep,packed,name=partial_parliaments_b,json=partialParliamentsB,proto3" json:"partial_parliaments_b,omitempty"`
+	PendingParliamentsB   []int32                  `protobuf:"varint,15,rep,packed,name=pending_parliaments_b,json=pendingParliamentsB,proto3" json:"pending_parliaments_b,omitempty"`
+	AsAt                  *timestamppb.Timestamp   `protobuf:"bytes,16,opt,name=as_at,json=asAt,proto3" json:"as_at,omitempty"`
+	SourceLicence         string                   `protobuf:"bytes,17,opt,name=source_licence,json=sourceLicence,proto3" json:"source_licence,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *ComparePoliticiansResponse) Reset() {
+	*x = ComparePoliticiansResponse{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ComparePoliticiansResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ComparePoliticiansResponse) ProtoMessage() {}
+
+func (x *ComparePoliticiansResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ComparePoliticiansResponse.ProtoReflect.Descriptor instead.
+func (*ComparePoliticiansResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *ComparePoliticiansResponse) GetA() *PoliticianSummary {
+	if x != nil {
+		return x.A
+	}
+	return nil
+}
+
+func (x *ComparePoliticiansResponse) GetB() *PoliticianSummary {
+	if x != nil {
+		return x.B
+	}
+	return nil
+}
+
+func (x *ComparePoliticiansResponse) GetHolderCountsA() []*RegisterHolderCount {
+	if x != nil {
+		return x.HolderCountsA
+	}
+	return nil
+}
+
+func (x *ComparePoliticiansResponse) GetHolderCountsB() []*RegisterHolderCount {
+	if x != nil {
+		return x.HolderCountsB
+	}
+	return nil
+}
+
+func (x *ComparePoliticiansResponse) GetSharedCompanies() []*SharedDeclaredCompany {
+	if x != nil {
+		return x.SharedCompanies
+	}
+	return nil
+}
+
+func (x *ComparePoliticiansResponse) GetOnlyACompanies() []*PoliticianOnlyCompany {
+	if x != nil {
+		return x.OnlyACompanies
+	}
+	return nil
+}
+
+func (x *ComparePoliticiansResponse) GetOnlyBCompanies() []*PoliticianOnlyCompany {
+	if x != nil {
+		return x.OnlyBCompanies
+	}
+	return nil
+}
+
+func (x *ComparePoliticiansResponse) GetOnlyAMore() int32 {
+	if x != nil {
+		return x.OnlyAMore
+	}
+	return 0
+}
+
+func (x *ComparePoliticiansResponse) GetOnlyBMore() int32 {
+	if x != nil {
+		return x.OnlyBMore
+	}
+	return 0
+}
+
+func (x *ComparePoliticiansResponse) GetExtractedParliamentsA() []int32 {
+	if x != nil {
+		return x.ExtractedParliamentsA
+	}
+	return nil
+}
+
+func (x *ComparePoliticiansResponse) GetPartialParliamentsA() []int32 {
+	if x != nil {
+		return x.PartialParliamentsA
+	}
+	return nil
+}
+
+func (x *ComparePoliticiansResponse) GetPendingParliamentsA() []int32 {
+	if x != nil {
+		return x.PendingParliamentsA
+	}
+	return nil
+}
+
+func (x *ComparePoliticiansResponse) GetExtractedParliamentsB() []int32 {
+	if x != nil {
+		return x.ExtractedParliamentsB
+	}
+	return nil
+}
+
+func (x *ComparePoliticiansResponse) GetPartialParliamentsB() []int32 {
+	if x != nil {
+		return x.PartialParliamentsB
+	}
+	return nil
+}
+
+func (x *ComparePoliticiansResponse) GetPendingParliamentsB() []int32 {
+	if x != nil {
+		return x.PendingParliamentsB
+	}
+	return nil
+}
+
+func (x *ComparePoliticiansResponse) GetAsAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AsAt
+	}
+	return nil
+}
+
+func (x *ComparePoliticiansResponse) GetSourceLicence() string {
+	if x != nil {
+		return x.SourceLicence
+	}
+	return ""
+}
+
 type Politician struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	Slug            string                 `protobuf:"bytes,1,opt,name=slug,proto3" json:"slug,omitempty"` // canonical; consumers must never derive this
@@ -570,7 +2125,7 @@ type Politician struct {
 
 func (x *Politician) Reset() {
 	*x = Politician{}
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[6]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -582,7 +2137,7 @@ func (x *Politician) String() string {
 func (*Politician) ProtoMessage() {}
 
 func (x *Politician) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[6]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -595,7 +2150,7 @@ func (x *Politician) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Politician.ProtoReflect.Descriptor instead.
 func (*Politician) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{6}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *Politician) GetSlug() string {
@@ -770,7 +2325,7 @@ type DeclaredInterest struct {
 
 func (x *DeclaredInterest) Reset() {
 	*x = DeclaredInterest{}
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[7]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -782,7 +2337,7 @@ func (x *DeclaredInterest) String() string {
 func (*DeclaredInterest) ProtoMessage() {}
 
 func (x *DeclaredInterest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[7]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -795,7 +2350,7 @@ func (x *DeclaredInterest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeclaredInterest.ProtoReflect.Descriptor instead.
 func (*DeclaredInterest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{7}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *DeclaredInterest) GetItemNo() int32 {
@@ -945,7 +2500,7 @@ type PoliticianTerm struct {
 
 func (x *PoliticianTerm) Reset() {
 	*x = PoliticianTerm{}
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[8]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -957,7 +2512,7 @@ func (x *PoliticianTerm) String() string {
 func (*PoliticianTerm) ProtoMessage() {}
 
 func (x *PoliticianTerm) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[8]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -970,7 +2525,7 @@ func (x *PoliticianTerm) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PoliticianTerm.ProtoReflect.Descriptor instead.
 func (*PoliticianTerm) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{8}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *PoliticianTerm) GetParliament() int32 {
@@ -1023,7 +2578,7 @@ type GetParliamentOverviewRequest struct {
 
 func (x *GetParliamentOverviewRequest) Reset() {
 	*x = GetParliamentOverviewRequest{}
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[9]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1035,7 +2590,7 @@ func (x *GetParliamentOverviewRequest) String() string {
 func (*GetParliamentOverviewRequest) ProtoMessage() {}
 
 func (x *GetParliamentOverviewRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[9]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1048,7 +2603,7 @@ func (x *GetParliamentOverviewRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetParliamentOverviewRequest.ProtoReflect.Descriptor instead.
 func (*GetParliamentOverviewRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{9}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{26}
 }
 
 type GetParliamentOverviewResponse struct {
@@ -1069,7 +2624,7 @@ type GetParliamentOverviewResponse struct {
 
 func (x *GetParliamentOverviewResponse) Reset() {
 	*x = GetParliamentOverviewResponse{}
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[10]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1081,7 +2636,7 @@ func (x *GetParliamentOverviewResponse) String() string {
 func (*GetParliamentOverviewResponse) ProtoMessage() {}
 
 func (x *GetParliamentOverviewResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[10]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1094,7 +2649,7 @@ func (x *GetParliamentOverviewResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetParliamentOverviewResponse.ProtoReflect.Descriptor instead.
 func (*GetParliamentOverviewResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{10}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *GetParliamentOverviewResponse) GetPoliticianCount() int32 {
@@ -1181,7 +2736,7 @@ type ListPoliticiansRequest struct {
 
 func (x *ListPoliticiansRequest) Reset() {
 	*x = ListPoliticiansRequest{}
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[11]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1193,7 +2748,7 @@ func (x *ListPoliticiansRequest) String() string {
 func (*ListPoliticiansRequest) ProtoMessage() {}
 
 func (x *ListPoliticiansRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[11]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1206,7 +2761,7 @@ func (x *ListPoliticiansRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPoliticiansRequest.ProtoReflect.Descriptor instead.
 func (*ListPoliticiansRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{11}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *ListPoliticiansRequest) GetChamber() string {
@@ -1261,7 +2816,7 @@ type ListPoliticiansResponse struct {
 
 func (x *ListPoliticiansResponse) Reset() {
 	*x = ListPoliticiansResponse{}
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[12]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1273,7 +2828,7 @@ func (x *ListPoliticiansResponse) String() string {
 func (*ListPoliticiansResponse) ProtoMessage() {}
 
 func (x *ListPoliticiansResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[12]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1286,7 +2841,7 @@ func (x *ListPoliticiansResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPoliticiansResponse.ProtoReflect.Descriptor instead.
 func (*ListPoliticiansResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{12}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *ListPoliticiansResponse) GetPoliticians() []*Politician {
@@ -1312,7 +2867,7 @@ type GetPoliticianRequest struct {
 
 func (x *GetPoliticianRequest) Reset() {
 	*x = GetPoliticianRequest{}
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[13]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1324,7 +2879,7 @@ func (x *GetPoliticianRequest) String() string {
 func (*GetPoliticianRequest) ProtoMessage() {}
 
 func (x *GetPoliticianRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[13]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1337,7 +2892,7 @@ func (x *GetPoliticianRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPoliticianRequest.ProtoReflect.Descriptor instead.
 func (*GetPoliticianRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{13}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *GetPoliticianRequest) GetSlug() string {
@@ -1379,7 +2934,7 @@ type GetPoliticianResponse struct {
 
 func (x *GetPoliticianResponse) Reset() {
 	*x = GetPoliticianResponse{}
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[14]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1391,7 +2946,7 @@ func (x *GetPoliticianResponse) String() string {
 func (*GetPoliticianResponse) ProtoMessage() {}
 
 func (x *GetPoliticianResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[14]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1404,7 +2959,7 @@ func (x *GetPoliticianResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPoliticianResponse.ProtoReflect.Descriptor instead.
 func (*GetPoliticianResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{14}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *GetPoliticianResponse) GetPolitician() *Politician {
@@ -1473,7 +3028,7 @@ type ListStockPoliticiansRequest struct {
 
 func (x *ListStockPoliticiansRequest) Reset() {
 	*x = ListStockPoliticiansRequest{}
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[15]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1485,7 +3040,7 @@ func (x *ListStockPoliticiansRequest) String() string {
 func (*ListStockPoliticiansRequest) ProtoMessage() {}
 
 func (x *ListStockPoliticiansRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[15]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1498,7 +3053,7 @@ func (x *ListStockPoliticiansRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListStockPoliticiansRequest.ProtoReflect.Descriptor instead.
 func (*ListStockPoliticiansRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{15}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *ListStockPoliticiansRequest) GetStockCode() string {
@@ -1527,7 +3082,7 @@ type PartyCount struct {
 
 func (x *PartyCount) Reset() {
 	*x = PartyCount{}
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[16]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1539,7 +3094,7 @@ func (x *PartyCount) String() string {
 func (*PartyCount) ProtoMessage() {}
 
 func (x *PartyCount) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[16]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1552,7 +3107,7 @@ func (x *PartyCount) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PartyCount.ProtoReflect.Descriptor instead.
 func (*PartyCount) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{16}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *PartyCount) GetPartyAb() string {
@@ -1590,7 +3145,7 @@ type ListStockPoliticiansResponse struct {
 
 func (x *ListStockPoliticiansResponse) Reset() {
 	*x = ListStockPoliticiansResponse{}
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[17]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1602,7 +3157,7 @@ func (x *ListStockPoliticiansResponse) String() string {
 func (*ListStockPoliticiansResponse) ProtoMessage() {}
 
 func (x *ListStockPoliticiansResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[17]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1615,7 +3170,7 @@ func (x *ListStockPoliticiansResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListStockPoliticiansResponse.ProtoReflect.Descriptor instead.
 func (*ListStockPoliticiansResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{17}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ListStockPoliticiansResponse) GetStockCode() string {
@@ -1670,7 +3225,7 @@ type StockPoliticianInterest struct {
 
 func (x *StockPoliticianInterest) Reset() {
 	*x = StockPoliticianInterest{}
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[18]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1682,7 +3237,7 @@ func (x *StockPoliticianInterest) String() string {
 func (*StockPoliticianInterest) ProtoMessage() {}
 
 func (x *StockPoliticianInterest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[18]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1695,7 +3250,7 @@ func (x *StockPoliticianInterest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StockPoliticianInterest.ProtoReflect.Descriptor instead.
 func (*StockPoliticianInterest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{18}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *StockPoliticianInterest) GetPolitician() *Politician {
@@ -1722,7 +3277,7 @@ type ListPoliticianStocksRequest struct {
 
 func (x *ListPoliticianStocksRequest) Reset() {
 	*x = ListPoliticianStocksRequest{}
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[19]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1734,7 +3289,7 @@ func (x *ListPoliticianStocksRequest) String() string {
 func (*ListPoliticianStocksRequest) ProtoMessage() {}
 
 func (x *ListPoliticianStocksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[19]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1747,7 +3302,7 @@ func (x *ListPoliticianStocksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPoliticianStocksRequest.ProtoReflect.Descriptor instead.
 func (*ListPoliticianStocksRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{19}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *ListPoliticianStocksRequest) GetLimit() int32 {
@@ -1778,7 +3333,7 @@ type PoliticianStockRollup struct {
 
 func (x *PoliticianStockRollup) Reset() {
 	*x = PoliticianStockRollup{}
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[20]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1790,7 +3345,7 @@ func (x *PoliticianStockRollup) String() string {
 func (*PoliticianStockRollup) ProtoMessage() {}
 
 func (x *PoliticianStockRollup) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[20]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1803,7 +3358,7 @@ func (x *PoliticianStockRollup) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PoliticianStockRollup.ProtoReflect.Descriptor instead.
 func (*PoliticianStockRollup) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{20}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *PoliticianStockRollup) GetStockCode() string {
@@ -1858,7 +3413,7 @@ type ListPoliticianStocksResponse struct {
 
 func (x *ListPoliticianStocksResponse) Reset() {
 	*x = ListPoliticianStocksResponse{}
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[21]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1870,7 +3425,7 @@ func (x *ListPoliticianStocksResponse) String() string {
 func (*ListPoliticianStocksResponse) ProtoMessage() {}
 
 func (x *ListPoliticianStocksResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[21]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1883,7 +3438,7 @@ func (x *ListPoliticianStocksResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPoliticianStocksResponse.ProtoReflect.Descriptor instead.
 func (*ListPoliticianStocksResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{21}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *ListPoliticianStocksResponse) GetStocks() []*PoliticianStockRollup {
@@ -1909,7 +3464,7 @@ type ListSuburbPoliticiansRequest struct {
 
 func (x *ListSuburbPoliticiansRequest) Reset() {
 	*x = ListSuburbPoliticiansRequest{}
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[22]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1921,7 +3476,7 @@ func (x *ListSuburbPoliticiansRequest) String() string {
 func (*ListSuburbPoliticiansRequest) ProtoMessage() {}
 
 func (x *ListSuburbPoliticiansRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[22]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1934,7 +3489,7 @@ func (x *ListSuburbPoliticiansRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSuburbPoliticiansRequest.ProtoReflect.Descriptor instead.
 func (*ListSuburbPoliticiansRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{22}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *ListSuburbPoliticiansRequest) GetSalCode() string {
@@ -1958,7 +3513,7 @@ type ListSuburbPoliticiansResponse struct {
 
 func (x *ListSuburbPoliticiansResponse) Reset() {
 	*x = ListSuburbPoliticiansResponse{}
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[23]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1970,7 +3525,7 @@ func (x *ListSuburbPoliticiansResponse) String() string {
 func (*ListSuburbPoliticiansResponse) ProtoMessage() {}
 
 func (x *ListSuburbPoliticiansResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[23]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1983,7 +3538,7 @@ func (x *ListSuburbPoliticiansResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSuburbPoliticiansResponse.ProtoReflect.Descriptor instead.
 func (*ListSuburbPoliticiansResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{23}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *ListSuburbPoliticiansResponse) GetSalCode() string {
@@ -2038,7 +3593,7 @@ type SuburbPoliticianProperty struct {
 
 func (x *SuburbPoliticianProperty) Reset() {
 	*x = SuburbPoliticianProperty{}
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[24]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2050,7 +3605,7 @@ func (x *SuburbPoliticianProperty) String() string {
 func (*SuburbPoliticianProperty) ProtoMessage() {}
 
 func (x *SuburbPoliticianProperty) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[24]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2063,7 +3618,7 @@ func (x *SuburbPoliticianProperty) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SuburbPoliticianProperty.ProtoReflect.Descriptor instead.
 func (*SuburbPoliticianProperty) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{24}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *SuburbPoliticianProperty) GetPolitician() *Politician {
@@ -2090,7 +3645,7 @@ type ListStatePoliticianHoldingsRequest struct {
 
 func (x *ListStatePoliticianHoldingsRequest) Reset() {
 	*x = ListStatePoliticianHoldingsRequest{}
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[25]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2102,7 +3657,7 @@ func (x *ListStatePoliticianHoldingsRequest) String() string {
 func (*ListStatePoliticianHoldingsRequest) ProtoMessage() {}
 
 func (x *ListStatePoliticianHoldingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[25]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2115,7 +3670,7 @@ func (x *ListStatePoliticianHoldingsRequest) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use ListStatePoliticianHoldingsRequest.ProtoReflect.Descriptor instead.
 func (*ListStatePoliticianHoldingsRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{25}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *ListStatePoliticianHoldingsRequest) GetStateCode() string {
@@ -2144,7 +3699,7 @@ type ListStatePoliticianHoldingsResponse struct {
 
 func (x *ListStatePoliticianHoldingsResponse) Reset() {
 	*x = ListStatePoliticianHoldingsResponse{}
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[26]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2156,7 +3711,7 @@ func (x *ListStatePoliticianHoldingsResponse) String() string {
 func (*ListStatePoliticianHoldingsResponse) ProtoMessage() {}
 
 func (x *ListStatePoliticianHoldingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[26]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2169,7 +3724,7 @@ func (x *ListStatePoliticianHoldingsResponse) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use ListStatePoliticianHoldingsResponse.ProtoReflect.Descriptor instead.
 func (*ListStatePoliticianHoldingsResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{26}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *ListStatePoliticianHoldingsResponse) GetStateCode() string {
@@ -2213,7 +3768,7 @@ type ListRegisterChangesRequest struct {
 
 func (x *ListRegisterChangesRequest) Reset() {
 	*x = ListRegisterChangesRequest{}
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[27]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2225,7 +3780,7 @@ func (x *ListRegisterChangesRequest) String() string {
 func (*ListRegisterChangesRequest) ProtoMessage() {}
 
 func (x *ListRegisterChangesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[27]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2238,7 +3793,7 @@ func (x *ListRegisterChangesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRegisterChangesRequest.ProtoReflect.Descriptor instead.
 func (*ListRegisterChangesRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{27}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *ListRegisterChangesRequest) GetSince() *timestamppb.Timestamp {
@@ -2297,7 +3852,7 @@ type RegisterChangeEvent struct {
 
 func (x *RegisterChangeEvent) Reset() {
 	*x = RegisterChangeEvent{}
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[28]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2309,7 +3864,7 @@ func (x *RegisterChangeEvent) String() string {
 func (*RegisterChangeEvent) ProtoMessage() {}
 
 func (x *RegisterChangeEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[28]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2322,7 +3877,7 @@ func (x *RegisterChangeEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterChangeEvent.ProtoReflect.Descriptor instead.
 func (*RegisterChangeEvent) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{28}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *RegisterChangeEvent) GetPolitician() *Politician {
@@ -2413,7 +3968,7 @@ type ListRegisterChangesResponse struct {
 
 func (x *ListRegisterChangesResponse) Reset() {
 	*x = ListRegisterChangesResponse{}
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[29]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2425,7 +3980,7 @@ func (x *ListRegisterChangesResponse) String() string {
 func (*ListRegisterChangesResponse) ProtoMessage() {}
 
 func (x *ListRegisterChangesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[29]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2438,7 +3993,7 @@ func (x *ListRegisterChangesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRegisterChangesResponse.ProtoReflect.Descriptor instead.
 func (*ListRegisterChangesResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{29}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *ListRegisterChangesResponse) GetEvents() []*RegisterChangeEvent {
@@ -2472,7 +4027,7 @@ type ListShortInterestOverlapRequest struct {
 
 func (x *ListShortInterestOverlapRequest) Reset() {
 	*x = ListShortInterestOverlapRequest{}
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[30]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2484,7 +4039,7 @@ func (x *ListShortInterestOverlapRequest) String() string {
 func (*ListShortInterestOverlapRequest) ProtoMessage() {}
 
 func (x *ListShortInterestOverlapRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[30]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2497,7 +4052,7 @@ func (x *ListShortInterestOverlapRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListShortInterestOverlapRequest.ProtoReflect.Descriptor instead.
 func (*ListShortInterestOverlapRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{30}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *ListShortInterestOverlapRequest) GetMinShortPercent() float64 {
@@ -2530,7 +4085,7 @@ type ShortInterestOverlap struct {
 
 func (x *ShortInterestOverlap) Reset() {
 	*x = ShortInterestOverlap{}
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[31]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2542,7 +4097,7 @@ func (x *ShortInterestOverlap) String() string {
 func (*ShortInterestOverlap) ProtoMessage() {}
 
 func (x *ShortInterestOverlap) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[31]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2555,7 +4110,7 @@ func (x *ShortInterestOverlap) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShortInterestOverlap.ProtoReflect.Descriptor instead.
 func (*ShortInterestOverlap) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{31}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *ShortInterestOverlap) GetStockCode() string {
@@ -2611,7 +4166,7 @@ type ListShortInterestOverlapResponse struct {
 
 func (x *ListShortInterestOverlapResponse) Reset() {
 	*x = ListShortInterestOverlapResponse{}
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[32]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2623,7 +4178,7 @@ func (x *ListShortInterestOverlapResponse) String() string {
 func (*ListShortInterestOverlapResponse) ProtoMessage() {}
 
 func (x *ListShortInterestOverlapResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[32]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2636,7 +4191,7 @@ func (x *ListShortInterestOverlapResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListShortInterestOverlapResponse.ProtoReflect.Descriptor instead.
 func (*ListShortInterestOverlapResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{32}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *ListShortInterestOverlapResponse) GetOverlaps() []*ShortInterestOverlap {
@@ -2696,7 +4251,155 @@ const file_shorts_v1alpha1_politicians_proto_rawDesc = "" +
 	"\x06states\x18\x04 \x03(\v2\x1b.shorts.v1alpha1.StateTotalR\x06states\x12-\n" +
 	"\x12industries_omitted\x18\x05 \x01(\x05R\x11industriesOmitted\x12%\n" +
 	"\x0esource_licence\x18\x06 \x01(\tR\rsourceLicence\x12/\n" +
-	"\x05as_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\x04asAt\"\x8c\x05\n" +
+	"\x05as_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\x04asAt\"\xc1\x01\n" +
+	"\x11RegisterItemCount\x12\x17\n" +
+	"\aitem_no\x18\x01 \x01(\x05R\x06itemNo\x12\x1d\n" +
+	"\n" +
+	"item_label\x18\x02 \x01(\tR\titemLabel\x12#\n" +
+	"\rcurrent_count\x18\x03 \x01(\x05R\fcurrentCount\x12)\n" +
+	"\x10politician_count\x18\x04 \x01(\x05R\x0fpoliticianCount\x12$\n" +
+	"\x0eall_time_count\x18\x05 \x01(\x05R\fallTimeCount\"s\n" +
+	"\x13RegisterHolderCount\x127\n" +
+	"\x06holder\x18\x01 \x01(\x0e2\x1f.shorts.v1alpha1.RegisterHolderR\x06holder\x12#\n" +
+	"\rcurrent_count\x18\x02 \x01(\x05R\fcurrentCount\"S\n" +
+	"\x14RegisterMonthlyCount\x12\x14\n" +
+	"\x05month\x18\x01 \x01(\tR\x05month\x12%\n" +
+	"\x0edeclared_count\x18\x02 \x01(\x05R\rdeclaredCount\"|\n" +
+	"\x15RegisterIndustryTrend\x12\x1a\n" +
+	"\bindustry\x18\x01 \x01(\tR\bindustry\x12#\n" +
+	"\rcurrent_count\x18\x02 \x01(\x05R\fcurrentCount\x12\"\n" +
+	"\rcount_90d_ago\x18\x03 \x01(\x05R\vcount90dAgo\"X\n" +
+	"\x15RegisterIndustryCount\x12\x1a\n" +
+	"\bindustry\x18\x01 \x01(\tR\bindustry\x12#\n" +
+	"\rcompany_count\x18\x02 \x01(\x05R\fcompanyCount\"\x87\x01\n" +
+	"\x16RegisterSourceDocument\x12\x14\n" +
+	"\x05label\x18\x01 \x01(\tR\x05label\x12\x1d\n" +
+	"\n" +
+	"source_url\x18\x02 \x01(\tR\tsourceUrl\x12\x1e\n" +
+	"\n" +
+	"parliament\x18\x03 \x01(\x05R\n" +
+	"parliament\x12\x18\n" +
+	"\achamber\x18\x04 \x01(\tR\achamber\"\xcc\x03\n" +
+	"\x11PoliticianSummary\x12;\n" +
+	"\n" +
+	"politician\x18\x01 \x01(\v2\x1b.shorts.v1alpha1.PoliticianR\n" +
+	"politician\x12C\n" +
+	"\vitem_counts\x18\x02 \x03(\v2\".shorts.v1alpha1.RegisterItemCountR\n" +
+	"itemCounts\x124\n" +
+	"\x16distinct_company_count\x18\x03 \x01(\x05R\x14distinctCompanyCount\x12%\n" +
+	"\x0eproperty_count\x18\x04 \x01(\x05R\rpropertyCount\x12,\n" +
+	"\x12gifts_travel_count\x18\x05 \x01(\x05R\x10giftsTravelCount\x12'\n" +
+	"\x0fliability_count\x18\x06 \x01(\x05R\x0eliabilityCount\x12\x1f\n" +
+	"\vchanges_90d\x18\a \x01(\x05R\n" +
+	"changes90d\x12;\n" +
+	"\x05trend\x18\b \x03(\v2%.shorts.v1alpha1.RegisterMonthlyCountR\x05trend\x12#\n" +
+	"\rundated_count\x18\t \x01(\x05R\fundatedCount\"\x1c\n" +
+	"\x1aGetRegisterExplorerRequest\"\xb3\t\n" +
+	"\x1bGetRegisterExplorerResponse\x12C\n" +
+	"\vitem_counts\x18\x01 \x03(\v2\".shorts.v1alpha1.RegisterItemCountR\n" +
+	"itemCounts\x12I\n" +
+	"\rholder_counts\x18\x02 \x03(\v2$.shorts.v1alpha1.RegisterHolderCountR\fholderCounts\x12\x1d\n" +
+	"\n" +
+	"changes_7d\x18\x03 \x01(\x05R\tchanges7d\x12,\n" +
+	"\x12members_changed_7d\x18\x04 \x01(\x05R\x10membersChanged7d\x12\x1f\n" +
+	"\vchanges_30d\x18\x05 \x01(\x05R\n" +
+	"changes30d\x12.\n" +
+	"\x13members_changed_30d\x18\x06 \x01(\x05R\x11membersChanged30d\x12O\n" +
+	"\x0findustry_trends\x18\a \x03(\v2&.shorts.v1alpha1.RegisterIndustryTrendR\x0eindustryTrends\x123\n" +
+	"\x15extracted_parliaments\x18\b \x03(\x05R\x14extractedParliaments\x12/\n" +
+	"\x13partial_parliaments\x18\t \x03(\x05R\x12partialParliaments\x12/\n" +
+	"\x13pending_parliaments\x18\n" +
+	" \x03(\x05R\x12pendingParliaments\x12)\n" +
+	"\x10politician_count\x18\v \x01(\x05R\x0fpoliticianCount\x12'\n" +
+	"\x0fstatement_count\x18\f \x01(\x05R\x0estatementCount\x12,\n" +
+	"\x12declared_row_count\x18\r \x01(\x05R\x10declaredRowCount\x122\n" +
+	"\x15resolved_listed_count\x18\x0e \x01(\x05R\x13resolvedListedCount\x122\n" +
+	"\x15resolved_suburb_count\x18\x0f \x01(\x05R\x13resolvedSuburbCount\x12)\n" +
+	"\x10first_parliament\x18\x10 \x01(\x05R\x0ffirstParliament\x12'\n" +
+	"\x0flast_parliament\x18\x11 \x01(\x05R\x0elastParliament\x124\n" +
+	"\x16current_declared_count\x18\x12 \x01(\x05R\x14currentDeclaredCount\x124\n" +
+	"\x16distinct_company_count\x18\x13 \x01(\x05R\x14distinctCompanyCount\x12%\n" +
+	"\x0eproperty_count\x18\x14 \x01(\x05R\rpropertyCount\x12,\n" +
+	"\x12gifts_travel_count\x18\x15 \x01(\x05R\x10giftsTravelCount\x12'\n" +
+	"\x0fliability_count\x18\x16 \x01(\x05R\x0eliabilityCount\x12/\n" +
+	"\x05as_at\x18\x17 \x01(\v2\x1a.google.protobuf.TimestampR\x04asAt\x12%\n" +
+	"\x0esource_licence\x18\x18 \x01(\tR\rsourceLicence\"\x8d\x02\n" +
+	"\x1eListPoliticianSummariesRequest\x12\x18\n" +
+	"\achamber\x18\x01 \x01(\tR\achamber\x12\x1d\n" +
+	"\n" +
+	"state_code\x18\x02 \x01(\tR\tstateCode\x12\x19\n" +
+	"\bparty_ab\x18\x03 \x01(\tR\apartyAb\x12\x17\n" +
+	"\aitem_no\x18\x04 \x01(\x05R\x06itemNo\x12\x14\n" +
+	"\x05query\x18\x05 \x01(\tR\x05query\x12:\n" +
+	"\x04sort\x18\x06 \x01(\x0e2&.shorts.v1alpha1.PoliticianSummarySortR\x04sort\x12\x14\n" +
+	"\x05limit\x18\a \x01(\x05R\x05limit\x12\x16\n" +
+	"\x06offset\x18\b \x01(\x05R\x06offset\"\xd1\x01\n" +
+	"\x1fListPoliticianSummariesResponse\x12@\n" +
+	"\tsummaries\x18\x01 \x03(\v2\".shorts.v1alpha1.PoliticianSummaryR\tsummaries\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\x12/\n" +
+	"\x05as_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x04asAt\x12%\n" +
+	"\x0esource_licence\x18\x04 \x01(\tR\rsourceLicence\"`\n" +
+	"#GetPoliticianExplorerProfileRequest\x12\x12\n" +
+	"\x04slug\x18\x01 \x01(\tR\x04slug\x12%\n" +
+	"\x0etop_industries\x18\x02 \x01(\x05R\rtopIndustries\"\x9a\a\n" +
+	"$GetPoliticianExplorerProfileResponse\x12;\n" +
+	"\n" +
+	"politician\x18\x01 \x01(\v2\x1b.shorts.v1alpha1.PoliticianR\n" +
+	"politician\x12%\n" +
+	"\x0ecanonical_slug\x18\x02 \x01(\tR\rcanonicalSlug\x125\n" +
+	"\x05terms\x18\x03 \x03(\v2\x1f.shorts.v1alpha1.PoliticianTermR\x05terms\x12C\n" +
+	"\vitem_counts\x18\x04 \x03(\v2\".shorts.v1alpha1.RegisterItemCountR\n" +
+	"itemCounts\x12I\n" +
+	"\rholder_counts\x18\x05 \x03(\v2$.shorts.v1alpha1.RegisterHolderCountR\fholderCounts\x12O\n" +
+	"\x0findustry_counts\x18\x06 \x03(\v2&.shorts.v1alpha1.RegisterIndustryCountR\x0eindustryCounts\x12A\n" +
+	"\btimeline\x18\a \x03(\v2%.shorts.v1alpha1.RegisterMonthlyCountR\btimeline\x12#\n" +
+	"\rundated_count\x18\b \x01(\x05R\fundatedCount\x12K\n" +
+	"\x0erecent_changes\x18\t \x03(\v2$.shorts.v1alpha1.RegisterChangeEventR\rrecentChanges\x12R\n" +
+	"\x10source_documents\x18\n" +
+	" \x03(\v2'.shorts.v1alpha1.RegisterSourceDocumentR\x0fsourceDocuments\x123\n" +
+	"\x15extracted_parliaments\x18\v \x03(\x05R\x14extractedParliaments\x12/\n" +
+	"\x13partial_parliaments\x18\f \x03(\x05R\x12partialParliaments\x12/\n" +
+	"\x13pending_parliaments\x18\r \x03(\x05R\x12pendingParliaments\x12/\n" +
+	"\x05as_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\x04asAt\x12%\n" +
+	"\x0esource_licence\x18\x0f \x01(\tR\rsourceLicence\"I\n" +
+	"\x19ComparePoliticiansRequest\x12\x15\n" +
+	"\x06slug_a\x18\x01 \x01(\tR\x05slugA\x12\x15\n" +
+	"\x06slug_b\x18\x02 \x01(\tR\x05slugB\"\xd5\x02\n" +
+	"\x15SharedDeclaredCompany\x12\x1d\n" +
+	"\n" +
+	"stock_code\x18\x01 \x01(\tR\tstockCode\x12!\n" +
+	"\fcompany_name\x18\x02 \x01(\tR\vcompanyName\x12\x1a\n" +
+	"\bindustry\x18\x03 \x01(\tR\bindustry\x12<\n" +
+	"\tholders_a\x18\x04 \x03(\x0e2\x1f.shorts.v1alpha1.RegisterHolderR\bholdersA\x12<\n" +
+	"\tholders_b\x18\x05 \x03(\x0e2\x1f.shorts.v1alpha1.RegisterHolderR\bholdersB\x120\n" +
+	"\x14currently_declared_a\x18\x06 \x01(\bR\x12currentlyDeclaredA\x120\n" +
+	"\x14currently_declared_b\x18\a \x01(\bR\x12currentlyDeclaredB\"\xdf\x01\n" +
+	"\x15PoliticianOnlyCompany\x12\x1d\n" +
+	"\n" +
+	"stock_code\x18\x01 \x01(\tR\tstockCode\x12!\n" +
+	"\fcompany_name\x18\x02 \x01(\tR\vcompanyName\x12\x1a\n" +
+	"\bindustry\x18\x03 \x01(\tR\bindustry\x129\n" +
+	"\aholders\x18\x04 \x03(\x0e2\x1f.shorts.v1alpha1.RegisterHolderR\aholders\x12-\n" +
+	"\x12currently_declared\x18\x05 \x01(\bR\x11currentlyDeclared\"\xeb\a\n" +
+	"\x1aComparePoliticiansResponse\x120\n" +
+	"\x01a\x18\x01 \x01(\v2\".shorts.v1alpha1.PoliticianSummaryR\x01a\x120\n" +
+	"\x01b\x18\x02 \x01(\v2\".shorts.v1alpha1.PoliticianSummaryR\x01b\x12L\n" +
+	"\x0fholder_counts_a\x18\x03 \x03(\v2$.shorts.v1alpha1.RegisterHolderCountR\rholderCountsA\x12L\n" +
+	"\x0fholder_counts_b\x18\x04 \x03(\v2$.shorts.v1alpha1.RegisterHolderCountR\rholderCountsB\x12Q\n" +
+	"\x10shared_companies\x18\x05 \x03(\v2&.shorts.v1alpha1.SharedDeclaredCompanyR\x0fsharedCompanies\x12P\n" +
+	"\x10only_a_companies\x18\x06 \x03(\v2&.shorts.v1alpha1.PoliticianOnlyCompanyR\x0eonlyACompanies\x12P\n" +
+	"\x10only_b_companies\x18\a \x03(\v2&.shorts.v1alpha1.PoliticianOnlyCompanyR\x0eonlyBCompanies\x12\x1e\n" +
+	"\vonly_a_more\x18\b \x01(\x05R\tonlyAMore\x12\x1e\n" +
+	"\vonly_b_more\x18\t \x01(\x05R\tonlyBMore\x126\n" +
+	"\x17extracted_parliaments_a\x18\n" +
+	" \x03(\x05R\x15extractedParliamentsA\x122\n" +
+	"\x15partial_parliaments_a\x18\v \x03(\x05R\x13partialParliamentsA\x122\n" +
+	"\x15pending_parliaments_a\x18\f \x03(\x05R\x13pendingParliamentsA\x126\n" +
+	"\x17extracted_parliaments_b\x18\r \x03(\x05R\x15extractedParliamentsB\x122\n" +
+	"\x15partial_parliaments_b\x18\x0e \x03(\x05R\x13partialParliamentsB\x122\n" +
+	"\x15pending_parliaments_b\x18\x0f \x03(\x05R\x13pendingParliamentsB\x12/\n" +
+	"\x05as_at\x18\x10 \x01(\v2\x1a.google.protobuf.TimestampR\x04asAt\x12%\n" +
+	"\x0esource_licence\x18\x11 \x01(\tR\rsourceLicence\"\x8c\x05\n" +
 	"\n" +
 	"Politician\x12\x12\n" +
 	"\x04slug\x18\x01 \x01(\tR\x04slug\x12!\n" +
@@ -2904,7 +4607,13 @@ const file_shorts_v1alpha1_politicians_proto_rawDesc = "" +
 	" ListShortInterestOverlapResponse\x12A\n" +
 	"\boverlaps\x18\x01 \x03(\v2%.shorts.v1alpha1.ShortInterestOverlapR\boverlaps\x12'\n" +
 	"\x0fdisclosure_note\x18\x02 \x01(\tR\x0edisclosureNote\x12%\n" +
-	"\x0esource_licence\x18\x03 \x01(\tR\rsourceLicence*\x97\x01\n" +
+	"\x0esource_licence\x18\x03 \x01(\tR\rsourceLicence*\xe0\x01\n" +
+	"\x15PoliticianSummarySort\x12*\n" +
+	"&POLITICIAN_SUMMARY_SORT_DECLARED_ITEMS\x10\x00\x12%\n" +
+	"!POLITICIAN_SUMMARY_SORT_COMPANIES\x10\x01\x12&\n" +
+	"\"POLITICIAN_SUMMARY_SORT_PROPERTIES\x10\x02\x12*\n" +
+	"&POLITICIAN_SUMMARY_SORT_RECENT_CHANGES\x10\x03\x12 \n" +
+	"\x1cPOLITICIAN_SUMMARY_SORT_NAME\x10\x04*\x97\x01\n" +
 	"\x0eRegisterHolder\x12\x1f\n" +
 	"\x1bREGISTER_HOLDER_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14REGISTER_HOLDER_SELF\x10\x01\x12\"\n" +
@@ -2913,7 +4622,7 @@ const file_shorts_v1alpha1_politicians_proto_rawDesc = "" +
 	"\x12RegisterChangeKind\x12$\n" +
 	" REGISTER_CHANGE_KIND_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aREGISTER_CHANGE_KIND_ADDED\x10\x01\x12 \n" +
-	"\x1cREGISTER_CHANGE_KIND_REMOVED\x10\x022\xea\t\n" +
+	"\x1cREGISTER_CHANGE_KIND_REMOVED\x10\x022\xf0\r\n" +
 	"\x12PoliticiansService\x12|\n" +
 	"\x15GetParliamentOverview\x12-.shorts.v1alpha1.GetParliamentOverviewRequest\x1a..shorts.v1alpha1.GetParliamentOverviewResponse\"\x04\x80\xb5\x18\x01\x12j\n" +
 	"\x0fListPoliticians\x12'.shorts.v1alpha1.ListPoliticiansRequest\x1a(.shorts.v1alpha1.ListPoliticiansResponse\"\x04\x80\xb5\x18\x01\x12d\n" +
@@ -2924,8 +4633,11 @@ const file_shorts_v1alpha1_politicians_proto_rawDesc = "" +
 	"\x1bListStatePoliticianHoldings\x123.shorts.v1alpha1.ListStatePoliticianHoldingsRequest\x1a4.shorts.v1alpha1.ListStatePoliticianHoldingsResponse\"\x04\x80\xb5\x18\x01\x12v\n" +
 	"\x13ListRegisterChanges\x12+.shorts.v1alpha1.ListRegisterChangesRequest\x1a,.shorts.v1alpha1.ListRegisterChangesResponse\"\x04\x80\xb5\x18\x01\x12\x85\x01\n" +
 	"\x18ListShortInterestOverlap\x120.shorts.v1alpha1.ListShortInterestOverlapRequest\x1a1.shorts.v1alpha1.ListShortInterestOverlapResponse\"\x04\x80\xb5\x18\x01\x12\x7f\n" +
-	"\x16GetPoliticianAnalytics\x12..shorts.v1alpha1.GetPoliticianAnalyticsRequest\x1a/.shorts.v1alpha1.GetPoliticianAnalyticsResponse\"\x04\x80\xb5\x18\x01B\xdf\x01\n" +
-	"\x13com.shorts.v1alpha1B\x10PoliticiansProtoP\x01ZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1\xa2\x02\x03SXX\xaa\x02\x0fShorts.V1alpha1\xca\x02\x0fShorts\\V1alpha1\xe2\x02\x1bShorts\\V1alpha1\\GPBMetadata\xea\x02\x10Shorts::V1alpha1b\x06proto3"
+	"\x16GetPoliticianAnalytics\x12..shorts.v1alpha1.GetPoliticianAnalyticsRequest\x1a/.shorts.v1alpha1.GetPoliticianAnalyticsResponse\"\x04\x80\xb5\x18\x01\x12v\n" +
+	"\x13GetRegisterExplorer\x12+.shorts.v1alpha1.GetRegisterExplorerRequest\x1a,.shorts.v1alpha1.GetRegisterExplorerResponse\"\x04\x80\xb5\x18\x01\x12\x82\x01\n" +
+	"\x17ListPoliticianSummaries\x12/.shorts.v1alpha1.ListPoliticianSummariesRequest\x1a0.shorts.v1alpha1.ListPoliticianSummariesResponse\"\x04\x80\xb5\x18\x01\x12\x91\x01\n" +
+	"\x1cGetPoliticianExplorerProfile\x124.shorts.v1alpha1.GetPoliticianExplorerProfileRequest\x1a5.shorts.v1alpha1.GetPoliticianExplorerProfileResponse\"\x04\x80\xb5\x18\x01\x12s\n" +
+	"\x12ComparePoliticians\x12*.shorts.v1alpha1.ComparePoliticiansRequest\x1a+.shorts.v1alpha1.ComparePoliticiansResponse\"\x04\x80\xb5\x18\x01B[ZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1b\x06proto3"
 
 var (
 	file_shorts_v1alpha1_politicians_proto_rawDescOnce sync.Once
@@ -2939,105 +4651,162 @@ func file_shorts_v1alpha1_politicians_proto_rawDescGZIP() []byte {
 	return file_shorts_v1alpha1_politicians_proto_rawDescData
 }
 
-var file_shorts_v1alpha1_politicians_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_shorts_v1alpha1_politicians_proto_msgTypes = make([]protoimpl.MessageInfo, 33)
+var file_shorts_v1alpha1_politicians_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_shorts_v1alpha1_politicians_proto_msgTypes = make([]protoimpl.MessageInfo, 50)
 var file_shorts_v1alpha1_politicians_proto_goTypes = []any{
-	(RegisterHolder)(0),                         // 0: shorts.v1alpha1.RegisterHolder
-	(RegisterChangeKind)(0),                     // 1: shorts.v1alpha1.RegisterChangeKind
-	(*PartyIndustryCell)(nil),                   // 2: shorts.v1alpha1.PartyIndustryCell
-	(*IndustryTotal)(nil),                       // 3: shorts.v1alpha1.IndustryTotal
-	(*PartyTotal)(nil),                          // 4: shorts.v1alpha1.PartyTotal
-	(*StateTotal)(nil),                          // 5: shorts.v1alpha1.StateTotal
-	(*GetPoliticianAnalyticsRequest)(nil),       // 6: shorts.v1alpha1.GetPoliticianAnalyticsRequest
-	(*GetPoliticianAnalyticsResponse)(nil),      // 7: shorts.v1alpha1.GetPoliticianAnalyticsResponse
-	(*Politician)(nil),                          // 8: shorts.v1alpha1.Politician
-	(*DeclaredInterest)(nil),                    // 9: shorts.v1alpha1.DeclaredInterest
-	(*PoliticianTerm)(nil),                      // 10: shorts.v1alpha1.PoliticianTerm
-	(*GetParliamentOverviewRequest)(nil),        // 11: shorts.v1alpha1.GetParliamentOverviewRequest
-	(*GetParliamentOverviewResponse)(nil),       // 12: shorts.v1alpha1.GetParliamentOverviewResponse
-	(*ListPoliticiansRequest)(nil),              // 13: shorts.v1alpha1.ListPoliticiansRequest
-	(*ListPoliticiansResponse)(nil),             // 14: shorts.v1alpha1.ListPoliticiansResponse
-	(*GetPoliticianRequest)(nil),                // 15: shorts.v1alpha1.GetPoliticianRequest
-	(*GetPoliticianResponse)(nil),               // 16: shorts.v1alpha1.GetPoliticianResponse
-	(*ListStockPoliticiansRequest)(nil),         // 17: shorts.v1alpha1.ListStockPoliticiansRequest
-	(*PartyCount)(nil),                          // 18: shorts.v1alpha1.PartyCount
-	(*ListStockPoliticiansResponse)(nil),        // 19: shorts.v1alpha1.ListStockPoliticiansResponse
-	(*StockPoliticianInterest)(nil),             // 20: shorts.v1alpha1.StockPoliticianInterest
-	(*ListPoliticianStocksRequest)(nil),         // 21: shorts.v1alpha1.ListPoliticianStocksRequest
-	(*PoliticianStockRollup)(nil),               // 22: shorts.v1alpha1.PoliticianStockRollup
-	(*ListPoliticianStocksResponse)(nil),        // 23: shorts.v1alpha1.ListPoliticianStocksResponse
-	(*ListSuburbPoliticiansRequest)(nil),        // 24: shorts.v1alpha1.ListSuburbPoliticiansRequest
-	(*ListSuburbPoliticiansResponse)(nil),       // 25: shorts.v1alpha1.ListSuburbPoliticiansResponse
-	(*SuburbPoliticianProperty)(nil),            // 26: shorts.v1alpha1.SuburbPoliticianProperty
-	(*ListStatePoliticianHoldingsRequest)(nil),  // 27: shorts.v1alpha1.ListStatePoliticianHoldingsRequest
-	(*ListStatePoliticianHoldingsResponse)(nil), // 28: shorts.v1alpha1.ListStatePoliticianHoldingsResponse
-	(*ListRegisterChangesRequest)(nil),          // 29: shorts.v1alpha1.ListRegisterChangesRequest
-	(*RegisterChangeEvent)(nil),                 // 30: shorts.v1alpha1.RegisterChangeEvent
-	(*ListRegisterChangesResponse)(nil),         // 31: shorts.v1alpha1.ListRegisterChangesResponse
-	(*ListShortInterestOverlapRequest)(nil),     // 32: shorts.v1alpha1.ListShortInterestOverlapRequest
-	(*ShortInterestOverlap)(nil),                // 33: shorts.v1alpha1.ShortInterestOverlap
-	(*ListShortInterestOverlapResponse)(nil),    // 34: shorts.v1alpha1.ListShortInterestOverlapResponse
-	(*timestamppb.Timestamp)(nil),               // 35: google.protobuf.Timestamp
+	(PoliticianSummarySort)(0),                   // 0: shorts.v1alpha1.PoliticianSummarySort
+	(RegisterHolder)(0),                          // 1: shorts.v1alpha1.RegisterHolder
+	(RegisterChangeKind)(0),                      // 2: shorts.v1alpha1.RegisterChangeKind
+	(*PartyIndustryCell)(nil),                    // 3: shorts.v1alpha1.PartyIndustryCell
+	(*IndustryTotal)(nil),                        // 4: shorts.v1alpha1.IndustryTotal
+	(*PartyTotal)(nil),                           // 5: shorts.v1alpha1.PartyTotal
+	(*StateTotal)(nil),                           // 6: shorts.v1alpha1.StateTotal
+	(*GetPoliticianAnalyticsRequest)(nil),        // 7: shorts.v1alpha1.GetPoliticianAnalyticsRequest
+	(*GetPoliticianAnalyticsResponse)(nil),       // 8: shorts.v1alpha1.GetPoliticianAnalyticsResponse
+	(*RegisterItemCount)(nil),                    // 9: shorts.v1alpha1.RegisterItemCount
+	(*RegisterHolderCount)(nil),                  // 10: shorts.v1alpha1.RegisterHolderCount
+	(*RegisterMonthlyCount)(nil),                 // 11: shorts.v1alpha1.RegisterMonthlyCount
+	(*RegisterIndustryTrend)(nil),                // 12: shorts.v1alpha1.RegisterIndustryTrend
+	(*RegisterIndustryCount)(nil),                // 13: shorts.v1alpha1.RegisterIndustryCount
+	(*RegisterSourceDocument)(nil),               // 14: shorts.v1alpha1.RegisterSourceDocument
+	(*PoliticianSummary)(nil),                    // 15: shorts.v1alpha1.PoliticianSummary
+	(*GetRegisterExplorerRequest)(nil),           // 16: shorts.v1alpha1.GetRegisterExplorerRequest
+	(*GetRegisterExplorerResponse)(nil),          // 17: shorts.v1alpha1.GetRegisterExplorerResponse
+	(*ListPoliticianSummariesRequest)(nil),       // 18: shorts.v1alpha1.ListPoliticianSummariesRequest
+	(*ListPoliticianSummariesResponse)(nil),      // 19: shorts.v1alpha1.ListPoliticianSummariesResponse
+	(*GetPoliticianExplorerProfileRequest)(nil),  // 20: shorts.v1alpha1.GetPoliticianExplorerProfileRequest
+	(*GetPoliticianExplorerProfileResponse)(nil), // 21: shorts.v1alpha1.GetPoliticianExplorerProfileResponse
+	(*ComparePoliticiansRequest)(nil),            // 22: shorts.v1alpha1.ComparePoliticiansRequest
+	(*SharedDeclaredCompany)(nil),                // 23: shorts.v1alpha1.SharedDeclaredCompany
+	(*PoliticianOnlyCompany)(nil),                // 24: shorts.v1alpha1.PoliticianOnlyCompany
+	(*ComparePoliticiansResponse)(nil),           // 25: shorts.v1alpha1.ComparePoliticiansResponse
+	(*Politician)(nil),                           // 26: shorts.v1alpha1.Politician
+	(*DeclaredInterest)(nil),                     // 27: shorts.v1alpha1.DeclaredInterest
+	(*PoliticianTerm)(nil),                       // 28: shorts.v1alpha1.PoliticianTerm
+	(*GetParliamentOverviewRequest)(nil),         // 29: shorts.v1alpha1.GetParliamentOverviewRequest
+	(*GetParliamentOverviewResponse)(nil),        // 30: shorts.v1alpha1.GetParliamentOverviewResponse
+	(*ListPoliticiansRequest)(nil),               // 31: shorts.v1alpha1.ListPoliticiansRequest
+	(*ListPoliticiansResponse)(nil),              // 32: shorts.v1alpha1.ListPoliticiansResponse
+	(*GetPoliticianRequest)(nil),                 // 33: shorts.v1alpha1.GetPoliticianRequest
+	(*GetPoliticianResponse)(nil),                // 34: shorts.v1alpha1.GetPoliticianResponse
+	(*ListStockPoliticiansRequest)(nil),          // 35: shorts.v1alpha1.ListStockPoliticiansRequest
+	(*PartyCount)(nil),                           // 36: shorts.v1alpha1.PartyCount
+	(*ListStockPoliticiansResponse)(nil),         // 37: shorts.v1alpha1.ListStockPoliticiansResponse
+	(*StockPoliticianInterest)(nil),              // 38: shorts.v1alpha1.StockPoliticianInterest
+	(*ListPoliticianStocksRequest)(nil),          // 39: shorts.v1alpha1.ListPoliticianStocksRequest
+	(*PoliticianStockRollup)(nil),                // 40: shorts.v1alpha1.PoliticianStockRollup
+	(*ListPoliticianStocksResponse)(nil),         // 41: shorts.v1alpha1.ListPoliticianStocksResponse
+	(*ListSuburbPoliticiansRequest)(nil),         // 42: shorts.v1alpha1.ListSuburbPoliticiansRequest
+	(*ListSuburbPoliticiansResponse)(nil),        // 43: shorts.v1alpha1.ListSuburbPoliticiansResponse
+	(*SuburbPoliticianProperty)(nil),             // 44: shorts.v1alpha1.SuburbPoliticianProperty
+	(*ListStatePoliticianHoldingsRequest)(nil),   // 45: shorts.v1alpha1.ListStatePoliticianHoldingsRequest
+	(*ListStatePoliticianHoldingsResponse)(nil),  // 46: shorts.v1alpha1.ListStatePoliticianHoldingsResponse
+	(*ListRegisterChangesRequest)(nil),           // 47: shorts.v1alpha1.ListRegisterChangesRequest
+	(*RegisterChangeEvent)(nil),                  // 48: shorts.v1alpha1.RegisterChangeEvent
+	(*ListRegisterChangesResponse)(nil),          // 49: shorts.v1alpha1.ListRegisterChangesResponse
+	(*ListShortInterestOverlapRequest)(nil),      // 50: shorts.v1alpha1.ListShortInterestOverlapRequest
+	(*ShortInterestOverlap)(nil),                 // 51: shorts.v1alpha1.ShortInterestOverlap
+	(*ListShortInterestOverlapResponse)(nil),     // 52: shorts.v1alpha1.ListShortInterestOverlapResponse
+	(*timestamppb.Timestamp)(nil),                // 53: google.protobuf.Timestamp
 }
 var file_shorts_v1alpha1_politicians_proto_depIdxs = []int32{
-	2,  // 0: shorts.v1alpha1.GetPoliticianAnalyticsResponse.cells:type_name -> shorts.v1alpha1.PartyIndustryCell
-	3,  // 1: shorts.v1alpha1.GetPoliticianAnalyticsResponse.industries:type_name -> shorts.v1alpha1.IndustryTotal
-	4,  // 2: shorts.v1alpha1.GetPoliticianAnalyticsResponse.parties:type_name -> shorts.v1alpha1.PartyTotal
-	5,  // 3: shorts.v1alpha1.GetPoliticianAnalyticsResponse.states:type_name -> shorts.v1alpha1.StateTotal
-	35, // 4: shorts.v1alpha1.GetPoliticianAnalyticsResponse.as_at:type_name -> google.protobuf.Timestamp
-	0,  // 5: shorts.v1alpha1.DeclaredInterest.holder:type_name -> shorts.v1alpha1.RegisterHolder
-	35, // 6: shorts.v1alpha1.DeclaredInterest.declared_from:type_name -> google.protobuf.Timestamp
-	35, // 7: shorts.v1alpha1.DeclaredInterest.declared_to:type_name -> google.protobuf.Timestamp
-	35, // 8: shorts.v1alpha1.GetParliamentOverviewResponse.as_at:type_name -> google.protobuf.Timestamp
-	35, // 9: shorts.v1alpha1.GetParliamentOverviewResponse.refreshed_at:type_name -> google.protobuf.Timestamp
-	8,  // 10: shorts.v1alpha1.ListPoliticiansResponse.politicians:type_name -> shorts.v1alpha1.Politician
-	8,  // 11: shorts.v1alpha1.GetPoliticianResponse.politician:type_name -> shorts.v1alpha1.Politician
-	10, // 12: shorts.v1alpha1.GetPoliticianResponse.terms:type_name -> shorts.v1alpha1.PoliticianTerm
-	9,  // 13: shorts.v1alpha1.GetPoliticianResponse.interests:type_name -> shorts.v1alpha1.DeclaredInterest
-	18, // 14: shorts.v1alpha1.ListStockPoliticiansResponse.party_counts:type_name -> shorts.v1alpha1.PartyCount
-	20, // 15: shorts.v1alpha1.ListStockPoliticiansResponse.interests:type_name -> shorts.v1alpha1.StockPoliticianInterest
-	8,  // 16: shorts.v1alpha1.StockPoliticianInterest.politician:type_name -> shorts.v1alpha1.Politician
-	9,  // 17: shorts.v1alpha1.StockPoliticianInterest.interest:type_name -> shorts.v1alpha1.DeclaredInterest
-	18, // 18: shorts.v1alpha1.PoliticianStockRollup.party_counts:type_name -> shorts.v1alpha1.PartyCount
-	22, // 19: shorts.v1alpha1.ListPoliticianStocksResponse.stocks:type_name -> shorts.v1alpha1.PoliticianStockRollup
-	26, // 20: shorts.v1alpha1.ListSuburbPoliticiansResponse.properties:type_name -> shorts.v1alpha1.SuburbPoliticianProperty
-	8,  // 21: shorts.v1alpha1.SuburbPoliticianProperty.politician:type_name -> shorts.v1alpha1.Politician
-	9,  // 22: shorts.v1alpha1.SuburbPoliticianProperty.interest:type_name -> shorts.v1alpha1.DeclaredInterest
-	22, // 23: shorts.v1alpha1.ListStatePoliticianHoldingsResponse.stocks:type_name -> shorts.v1alpha1.PoliticianStockRollup
-	35, // 24: shorts.v1alpha1.ListRegisterChangesRequest.since:type_name -> google.protobuf.Timestamp
-	1,  // 25: shorts.v1alpha1.ListRegisterChangesRequest.kind:type_name -> shorts.v1alpha1.RegisterChangeKind
-	8,  // 26: shorts.v1alpha1.RegisterChangeEvent.politician:type_name -> shorts.v1alpha1.Politician
-	1,  // 27: shorts.v1alpha1.RegisterChangeEvent.kind:type_name -> shorts.v1alpha1.RegisterChangeKind
-	0,  // 28: shorts.v1alpha1.RegisterChangeEvent.holder:type_name -> shorts.v1alpha1.RegisterHolder
-	35, // 29: shorts.v1alpha1.RegisterChangeEvent.changed_on:type_name -> google.protobuf.Timestamp
-	30, // 30: shorts.v1alpha1.ListRegisterChangesResponse.events:type_name -> shorts.v1alpha1.RegisterChangeEvent
-	18, // 31: shorts.v1alpha1.ShortInterestOverlap.party_counts:type_name -> shorts.v1alpha1.PartyCount
-	33, // 32: shorts.v1alpha1.ListShortInterestOverlapResponse.overlaps:type_name -> shorts.v1alpha1.ShortInterestOverlap
-	11, // 33: shorts.v1alpha1.PoliticiansService.GetParliamentOverview:input_type -> shorts.v1alpha1.GetParliamentOverviewRequest
-	13, // 34: shorts.v1alpha1.PoliticiansService.ListPoliticians:input_type -> shorts.v1alpha1.ListPoliticiansRequest
-	15, // 35: shorts.v1alpha1.PoliticiansService.GetPolitician:input_type -> shorts.v1alpha1.GetPoliticianRequest
-	17, // 36: shorts.v1alpha1.PoliticiansService.ListStockPoliticians:input_type -> shorts.v1alpha1.ListStockPoliticiansRequest
-	21, // 37: shorts.v1alpha1.PoliticiansService.ListPoliticianStocks:input_type -> shorts.v1alpha1.ListPoliticianStocksRequest
-	24, // 38: shorts.v1alpha1.PoliticiansService.ListSuburbPoliticians:input_type -> shorts.v1alpha1.ListSuburbPoliticiansRequest
-	27, // 39: shorts.v1alpha1.PoliticiansService.ListStatePoliticianHoldings:input_type -> shorts.v1alpha1.ListStatePoliticianHoldingsRequest
-	29, // 40: shorts.v1alpha1.PoliticiansService.ListRegisterChanges:input_type -> shorts.v1alpha1.ListRegisterChangesRequest
-	32, // 41: shorts.v1alpha1.PoliticiansService.ListShortInterestOverlap:input_type -> shorts.v1alpha1.ListShortInterestOverlapRequest
-	6,  // 42: shorts.v1alpha1.PoliticiansService.GetPoliticianAnalytics:input_type -> shorts.v1alpha1.GetPoliticianAnalyticsRequest
-	12, // 43: shorts.v1alpha1.PoliticiansService.GetParliamentOverview:output_type -> shorts.v1alpha1.GetParliamentOverviewResponse
-	14, // 44: shorts.v1alpha1.PoliticiansService.ListPoliticians:output_type -> shorts.v1alpha1.ListPoliticiansResponse
-	16, // 45: shorts.v1alpha1.PoliticiansService.GetPolitician:output_type -> shorts.v1alpha1.GetPoliticianResponse
-	19, // 46: shorts.v1alpha1.PoliticiansService.ListStockPoliticians:output_type -> shorts.v1alpha1.ListStockPoliticiansResponse
-	23, // 47: shorts.v1alpha1.PoliticiansService.ListPoliticianStocks:output_type -> shorts.v1alpha1.ListPoliticianStocksResponse
-	25, // 48: shorts.v1alpha1.PoliticiansService.ListSuburbPoliticians:output_type -> shorts.v1alpha1.ListSuburbPoliticiansResponse
-	28, // 49: shorts.v1alpha1.PoliticiansService.ListStatePoliticianHoldings:output_type -> shorts.v1alpha1.ListStatePoliticianHoldingsResponse
-	31, // 50: shorts.v1alpha1.PoliticiansService.ListRegisterChanges:output_type -> shorts.v1alpha1.ListRegisterChangesResponse
-	34, // 51: shorts.v1alpha1.PoliticiansService.ListShortInterestOverlap:output_type -> shorts.v1alpha1.ListShortInterestOverlapResponse
-	7,  // 52: shorts.v1alpha1.PoliticiansService.GetPoliticianAnalytics:output_type -> shorts.v1alpha1.GetPoliticianAnalyticsResponse
-	43, // [43:53] is the sub-list for method output_type
-	33, // [33:43] is the sub-list for method input_type
-	33, // [33:33] is the sub-list for extension type_name
-	33, // [33:33] is the sub-list for extension extendee
-	0,  // [0:33] is the sub-list for field type_name
+	3,  // 0: shorts.v1alpha1.GetPoliticianAnalyticsResponse.cells:type_name -> shorts.v1alpha1.PartyIndustryCell
+	4,  // 1: shorts.v1alpha1.GetPoliticianAnalyticsResponse.industries:type_name -> shorts.v1alpha1.IndustryTotal
+	5,  // 2: shorts.v1alpha1.GetPoliticianAnalyticsResponse.parties:type_name -> shorts.v1alpha1.PartyTotal
+	6,  // 3: shorts.v1alpha1.GetPoliticianAnalyticsResponse.states:type_name -> shorts.v1alpha1.StateTotal
+	53, // 4: shorts.v1alpha1.GetPoliticianAnalyticsResponse.as_at:type_name -> google.protobuf.Timestamp
+	1,  // 5: shorts.v1alpha1.RegisterHolderCount.holder:type_name -> shorts.v1alpha1.RegisterHolder
+	26, // 6: shorts.v1alpha1.PoliticianSummary.politician:type_name -> shorts.v1alpha1.Politician
+	9,  // 7: shorts.v1alpha1.PoliticianSummary.item_counts:type_name -> shorts.v1alpha1.RegisterItemCount
+	11, // 8: shorts.v1alpha1.PoliticianSummary.trend:type_name -> shorts.v1alpha1.RegisterMonthlyCount
+	9,  // 9: shorts.v1alpha1.GetRegisterExplorerResponse.item_counts:type_name -> shorts.v1alpha1.RegisterItemCount
+	10, // 10: shorts.v1alpha1.GetRegisterExplorerResponse.holder_counts:type_name -> shorts.v1alpha1.RegisterHolderCount
+	12, // 11: shorts.v1alpha1.GetRegisterExplorerResponse.industry_trends:type_name -> shorts.v1alpha1.RegisterIndustryTrend
+	53, // 12: shorts.v1alpha1.GetRegisterExplorerResponse.as_at:type_name -> google.protobuf.Timestamp
+	0,  // 13: shorts.v1alpha1.ListPoliticianSummariesRequest.sort:type_name -> shorts.v1alpha1.PoliticianSummarySort
+	15, // 14: shorts.v1alpha1.ListPoliticianSummariesResponse.summaries:type_name -> shorts.v1alpha1.PoliticianSummary
+	53, // 15: shorts.v1alpha1.ListPoliticianSummariesResponse.as_at:type_name -> google.protobuf.Timestamp
+	26, // 16: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.politician:type_name -> shorts.v1alpha1.Politician
+	28, // 17: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.terms:type_name -> shorts.v1alpha1.PoliticianTerm
+	9,  // 18: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.item_counts:type_name -> shorts.v1alpha1.RegisterItemCount
+	10, // 19: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.holder_counts:type_name -> shorts.v1alpha1.RegisterHolderCount
+	13, // 20: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.industry_counts:type_name -> shorts.v1alpha1.RegisterIndustryCount
+	11, // 21: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.timeline:type_name -> shorts.v1alpha1.RegisterMonthlyCount
+	48, // 22: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.recent_changes:type_name -> shorts.v1alpha1.RegisterChangeEvent
+	14, // 23: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.source_documents:type_name -> shorts.v1alpha1.RegisterSourceDocument
+	53, // 24: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.as_at:type_name -> google.protobuf.Timestamp
+	1,  // 25: shorts.v1alpha1.SharedDeclaredCompany.holders_a:type_name -> shorts.v1alpha1.RegisterHolder
+	1,  // 26: shorts.v1alpha1.SharedDeclaredCompany.holders_b:type_name -> shorts.v1alpha1.RegisterHolder
+	1,  // 27: shorts.v1alpha1.PoliticianOnlyCompany.holders:type_name -> shorts.v1alpha1.RegisterHolder
+	15, // 28: shorts.v1alpha1.ComparePoliticiansResponse.a:type_name -> shorts.v1alpha1.PoliticianSummary
+	15, // 29: shorts.v1alpha1.ComparePoliticiansResponse.b:type_name -> shorts.v1alpha1.PoliticianSummary
+	10, // 30: shorts.v1alpha1.ComparePoliticiansResponse.holder_counts_a:type_name -> shorts.v1alpha1.RegisterHolderCount
+	10, // 31: shorts.v1alpha1.ComparePoliticiansResponse.holder_counts_b:type_name -> shorts.v1alpha1.RegisterHolderCount
+	23, // 32: shorts.v1alpha1.ComparePoliticiansResponse.shared_companies:type_name -> shorts.v1alpha1.SharedDeclaredCompany
+	24, // 33: shorts.v1alpha1.ComparePoliticiansResponse.only_a_companies:type_name -> shorts.v1alpha1.PoliticianOnlyCompany
+	24, // 34: shorts.v1alpha1.ComparePoliticiansResponse.only_b_companies:type_name -> shorts.v1alpha1.PoliticianOnlyCompany
+	53, // 35: shorts.v1alpha1.ComparePoliticiansResponse.as_at:type_name -> google.protobuf.Timestamp
+	1,  // 36: shorts.v1alpha1.DeclaredInterest.holder:type_name -> shorts.v1alpha1.RegisterHolder
+	53, // 37: shorts.v1alpha1.DeclaredInterest.declared_from:type_name -> google.protobuf.Timestamp
+	53, // 38: shorts.v1alpha1.DeclaredInterest.declared_to:type_name -> google.protobuf.Timestamp
+	53, // 39: shorts.v1alpha1.GetParliamentOverviewResponse.as_at:type_name -> google.protobuf.Timestamp
+	53, // 40: shorts.v1alpha1.GetParliamentOverviewResponse.refreshed_at:type_name -> google.protobuf.Timestamp
+	26, // 41: shorts.v1alpha1.ListPoliticiansResponse.politicians:type_name -> shorts.v1alpha1.Politician
+	26, // 42: shorts.v1alpha1.GetPoliticianResponse.politician:type_name -> shorts.v1alpha1.Politician
+	28, // 43: shorts.v1alpha1.GetPoliticianResponse.terms:type_name -> shorts.v1alpha1.PoliticianTerm
+	27, // 44: shorts.v1alpha1.GetPoliticianResponse.interests:type_name -> shorts.v1alpha1.DeclaredInterest
+	36, // 45: shorts.v1alpha1.ListStockPoliticiansResponse.party_counts:type_name -> shorts.v1alpha1.PartyCount
+	38, // 46: shorts.v1alpha1.ListStockPoliticiansResponse.interests:type_name -> shorts.v1alpha1.StockPoliticianInterest
+	26, // 47: shorts.v1alpha1.StockPoliticianInterest.politician:type_name -> shorts.v1alpha1.Politician
+	27, // 48: shorts.v1alpha1.StockPoliticianInterest.interest:type_name -> shorts.v1alpha1.DeclaredInterest
+	36, // 49: shorts.v1alpha1.PoliticianStockRollup.party_counts:type_name -> shorts.v1alpha1.PartyCount
+	40, // 50: shorts.v1alpha1.ListPoliticianStocksResponse.stocks:type_name -> shorts.v1alpha1.PoliticianStockRollup
+	44, // 51: shorts.v1alpha1.ListSuburbPoliticiansResponse.properties:type_name -> shorts.v1alpha1.SuburbPoliticianProperty
+	26, // 52: shorts.v1alpha1.SuburbPoliticianProperty.politician:type_name -> shorts.v1alpha1.Politician
+	27, // 53: shorts.v1alpha1.SuburbPoliticianProperty.interest:type_name -> shorts.v1alpha1.DeclaredInterest
+	40, // 54: shorts.v1alpha1.ListStatePoliticianHoldingsResponse.stocks:type_name -> shorts.v1alpha1.PoliticianStockRollup
+	53, // 55: shorts.v1alpha1.ListRegisterChangesRequest.since:type_name -> google.protobuf.Timestamp
+	2,  // 56: shorts.v1alpha1.ListRegisterChangesRequest.kind:type_name -> shorts.v1alpha1.RegisterChangeKind
+	26, // 57: shorts.v1alpha1.RegisterChangeEvent.politician:type_name -> shorts.v1alpha1.Politician
+	2,  // 58: shorts.v1alpha1.RegisterChangeEvent.kind:type_name -> shorts.v1alpha1.RegisterChangeKind
+	1,  // 59: shorts.v1alpha1.RegisterChangeEvent.holder:type_name -> shorts.v1alpha1.RegisterHolder
+	53, // 60: shorts.v1alpha1.RegisterChangeEvent.changed_on:type_name -> google.protobuf.Timestamp
+	48, // 61: shorts.v1alpha1.ListRegisterChangesResponse.events:type_name -> shorts.v1alpha1.RegisterChangeEvent
+	36, // 62: shorts.v1alpha1.ShortInterestOverlap.party_counts:type_name -> shorts.v1alpha1.PartyCount
+	51, // 63: shorts.v1alpha1.ListShortInterestOverlapResponse.overlaps:type_name -> shorts.v1alpha1.ShortInterestOverlap
+	29, // 64: shorts.v1alpha1.PoliticiansService.GetParliamentOverview:input_type -> shorts.v1alpha1.GetParliamentOverviewRequest
+	31, // 65: shorts.v1alpha1.PoliticiansService.ListPoliticians:input_type -> shorts.v1alpha1.ListPoliticiansRequest
+	33, // 66: shorts.v1alpha1.PoliticiansService.GetPolitician:input_type -> shorts.v1alpha1.GetPoliticianRequest
+	35, // 67: shorts.v1alpha1.PoliticiansService.ListStockPoliticians:input_type -> shorts.v1alpha1.ListStockPoliticiansRequest
+	39, // 68: shorts.v1alpha1.PoliticiansService.ListPoliticianStocks:input_type -> shorts.v1alpha1.ListPoliticianStocksRequest
+	42, // 69: shorts.v1alpha1.PoliticiansService.ListSuburbPoliticians:input_type -> shorts.v1alpha1.ListSuburbPoliticiansRequest
+	45, // 70: shorts.v1alpha1.PoliticiansService.ListStatePoliticianHoldings:input_type -> shorts.v1alpha1.ListStatePoliticianHoldingsRequest
+	47, // 71: shorts.v1alpha1.PoliticiansService.ListRegisterChanges:input_type -> shorts.v1alpha1.ListRegisterChangesRequest
+	50, // 72: shorts.v1alpha1.PoliticiansService.ListShortInterestOverlap:input_type -> shorts.v1alpha1.ListShortInterestOverlapRequest
+	7,  // 73: shorts.v1alpha1.PoliticiansService.GetPoliticianAnalytics:input_type -> shorts.v1alpha1.GetPoliticianAnalyticsRequest
+	16, // 74: shorts.v1alpha1.PoliticiansService.GetRegisterExplorer:input_type -> shorts.v1alpha1.GetRegisterExplorerRequest
+	18, // 75: shorts.v1alpha1.PoliticiansService.ListPoliticianSummaries:input_type -> shorts.v1alpha1.ListPoliticianSummariesRequest
+	20, // 76: shorts.v1alpha1.PoliticiansService.GetPoliticianExplorerProfile:input_type -> shorts.v1alpha1.GetPoliticianExplorerProfileRequest
+	22, // 77: shorts.v1alpha1.PoliticiansService.ComparePoliticians:input_type -> shorts.v1alpha1.ComparePoliticiansRequest
+	30, // 78: shorts.v1alpha1.PoliticiansService.GetParliamentOverview:output_type -> shorts.v1alpha1.GetParliamentOverviewResponse
+	32, // 79: shorts.v1alpha1.PoliticiansService.ListPoliticians:output_type -> shorts.v1alpha1.ListPoliticiansResponse
+	34, // 80: shorts.v1alpha1.PoliticiansService.GetPolitician:output_type -> shorts.v1alpha1.GetPoliticianResponse
+	37, // 81: shorts.v1alpha1.PoliticiansService.ListStockPoliticians:output_type -> shorts.v1alpha1.ListStockPoliticiansResponse
+	41, // 82: shorts.v1alpha1.PoliticiansService.ListPoliticianStocks:output_type -> shorts.v1alpha1.ListPoliticianStocksResponse
+	43, // 83: shorts.v1alpha1.PoliticiansService.ListSuburbPoliticians:output_type -> shorts.v1alpha1.ListSuburbPoliticiansResponse
+	46, // 84: shorts.v1alpha1.PoliticiansService.ListStatePoliticianHoldings:output_type -> shorts.v1alpha1.ListStatePoliticianHoldingsResponse
+	49, // 85: shorts.v1alpha1.PoliticiansService.ListRegisterChanges:output_type -> shorts.v1alpha1.ListRegisterChangesResponse
+	52, // 86: shorts.v1alpha1.PoliticiansService.ListShortInterestOverlap:output_type -> shorts.v1alpha1.ListShortInterestOverlapResponse
+	8,  // 87: shorts.v1alpha1.PoliticiansService.GetPoliticianAnalytics:output_type -> shorts.v1alpha1.GetPoliticianAnalyticsResponse
+	17, // 88: shorts.v1alpha1.PoliticiansService.GetRegisterExplorer:output_type -> shorts.v1alpha1.GetRegisterExplorerResponse
+	19, // 89: shorts.v1alpha1.PoliticiansService.ListPoliticianSummaries:output_type -> shorts.v1alpha1.ListPoliticianSummariesResponse
+	21, // 90: shorts.v1alpha1.PoliticiansService.GetPoliticianExplorerProfile:output_type -> shorts.v1alpha1.GetPoliticianExplorerProfileResponse
+	25, // 91: shorts.v1alpha1.PoliticiansService.ComparePoliticians:output_type -> shorts.v1alpha1.ComparePoliticiansResponse
+	78, // [78:92] is the sub-list for method output_type
+	64, // [64:78] is the sub-list for method input_type
+	64, // [64:64] is the sub-list for extension type_name
+	64, // [64:64] is the sub-list for extension extendee
+	0,  // [0:64] is the sub-list for field type_name
 }
 
 func init() { file_shorts_v1alpha1_politicians_proto_init() }
@@ -3050,8 +4819,8 @@ func file_shorts_v1alpha1_politicians_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shorts_v1alpha1_politicians_proto_rawDesc), len(file_shorts_v1alpha1_politicians_proto_rawDesc)),
-			NumEnums:      2,
-			NumMessages:   33,
+			NumEnums:      3,
+			NumMessages:   50,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -17,7 +17,7 @@
 -- was between plausible options or a lucky pick from a bad list. A proposal
 -- without its shortlist is not reviewable.
 --
--- See docs/politician-register-architecture.md §8.19.
+-- See docs/feature/politicians/architecture.md §8.19.
 
 CREATE TABLE IF NOT EXISTS register_alias_proposals (
     id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),

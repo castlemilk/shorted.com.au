@@ -43,6 +43,7 @@ type PoliticianRow struct {
 	PhotoLicence   string
 	PhotoAuthor    string
 	PhotoSourceURL string
+	Terms          []*PoliticianTermRow
 
 	// Extraction coverage of the CORPUS, populated by GetPolitician only.
 	//
@@ -181,19 +182,13 @@ const politicianSelect = `
 
 func scanPolitician(scan func(dest ...any) error) (*PoliticianRow, error) {
 	var r PoliticianRow
-	if err := scan(&r.Slug, &r.DisplayName, &r.Surname, &r.GivenNames, &r.Honorific,
-		&r.Chamber, &r.Division, &r.StateCode, &r.Party, &r.PartyAb,
-		&r.FirstParliament, &r.LastParliament, &r.APHMPID,
-		&r.DeclaredListedCount, &r.DeclaredPropertyCount,
-		&r.PhotoURL, &r.PhotoLicence, &r.PhotoAuthor, &r.PhotoSourceURL); err != nil {
+	if err := scan(politicianScanDest(&r)...); err != nil {
 		return nil, err
 	}
 	// Defence in depth against a future SELECT that forgets the attribution
 	// columns: without a licence and a source we do not have permission to
 	// publish the image, so it is dropped here rather than served bare.
-	if r.PhotoLicence == "" || r.PhotoSourceURL == "" {
-		r.PhotoURL = ""
-	}
+	sanitisePoliticianPortrait(&r)
 	return &r, nil
 }
 
@@ -298,6 +293,10 @@ func (s *postgresStore) GetPolitician(slug string) (*PoliticianRow, []*DeclaredI
 
 	sql := politicianSelect + " AND p.slug = $1 LIMIT 1"
 	row, err := scanPolitician(s.db.QueryRow(ctx, sql, slug).Scan)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	row.Terms, err = s.loadPoliticianTerms(ctx, slug)
 	if err != nil {
 		return nil, nil, nil, err
 	}
