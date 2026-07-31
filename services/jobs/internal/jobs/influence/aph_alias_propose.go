@@ -392,13 +392,25 @@ func firstNonEmptyAlias(v, fallback string) string {
 
 // promoteAliasProposals copies CONFIRMED proposals into register_security_aliases.
 //
-// This is the only path from a model's opinion to a published link, and it runs
+// This is the batch path from a model's opinion to a published link, and it runs
 // only over rows a human has already marked 'confirmed'. It is idempotent.
+//
+// THE COLUMN IS `note`, NOT `notes`. This statement shipped naming a column that
+// does not exist, and could not fail in practice because nothing had ever been
+// confirmed — there was no UI to confirm with, so the one path out of the
+// backlog was broken from the day it was written and green the whole time.
+// register_review_console.test.mjs now asserts every column named here against
+// the migration's own CREATE TABLE, which is the check that generalises.
+//
+// alias_kind stays 'equity' here on purpose: the resolver reads only
+// `resolution` (aph_resolve.go:resolveSecurityStatus), alias_kind is descriptive,
+// and a batch promotion has no evidence about whether a code is an equity, an
+// ETF or a LIC. The console asks a human, and writes the answer itself.
 func promoteAliasProposals(ctx context.Context, pool *pgxpool.Pool) (int64, error) {
 	tag, err := pool.Exec(ctx, `
-		INSERT INTO register_security_aliases (alias_norm, stock_code, alias_kind, resolution, display_name, notes)
+		INSERT INTO register_security_aliases (alias_norm, stock_code, alias_kind, resolution, display_name, note, curated_by)
 		SELECT p.candidate_norm, p.proposed_stock_code, 'equity', 'resolved', p.proposed_company_name,
-		       'promoted from register_alias_proposals; confirmed by ' || p.reviewed_by
+		       'promoted from register_alias_proposals', p.reviewed_by
 		FROM register_alias_proposals p
 		WHERE p.status = 'confirmed' AND p.proposed_stock_code IS NOT NULL
 		ON CONFLICT (alias_norm) DO NOTHING`)

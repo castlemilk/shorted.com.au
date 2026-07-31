@@ -567,22 +567,47 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // the sitemap must never advertise a page the route marks noindex.
   // lastModified is a STRING here, matching latestDataDate and every other route
   // array in this file — the dates come off the API as RFC3339 strings, not Dates.
-  let politicianRoutes: Array<{ url: string; lastModified: string }> = [
+  //
+  // THE THREE HUB URLS ARE GATED ON THE REGISTER ACTUALLY BEING ON (§6.3 open
+  // item 2). POLITICIAN_INTERESTS_ENABLED is a takedown switch: with it off the
+  // rpcs return empty by design, but the routes still render — so a sitemap that
+  // advertises them unconditionally hands a crawler three empty pages about
+  // named individuals during exactly the period someone flipped the switch to
+  // stop publishing them.
+  //
+  // The gate is the DATA, not a second copy of the env var. One switch with two
+  // places to flip is a switch that gets half-flipped; an empty register is the
+  // observable consequence of the real one, wherever it is set.
+  const politicianHubs = [
     { url: `${baseUrl}/politicians`, lastModified: latestDataDate },
     { url: `${baseUrl}/politicians/short-interest`, lastModified: latestDataDate },
     { url: `${baseUrl}/politicians/changes`, lastModified: latestDataDate },
   ];
+  let politicianRoutes: Array<{ url: string; lastModified: string }> = politicianHubs;
   if (!skipForBuild()) {
     try {
       const { getPoliticianSlugs } = await import("~/app/actions/getPoliticians");
-      const slugs = await getPoliticianSlugs();
-      politicianRoutes = politicianRoutes.concat(
-        (slugs ?? [])
-          .filter((s) => s.hasInterests)
-          .map((s) => ({ url: `${baseUrl}/politicians/${s.slug}`, lastModified: latestDataDate })),
-      );
+      const slugs = (await getPoliticianSlugs()) ?? [];
+      // Zero politicians means the feature is off (or the corpus is unloaded).
+      // Either way there is nothing to index. Note this tests the FULL list, not
+      // the hasInterests subset: a register that is on but has matched nothing
+      // yet is still a real surface worth advertising.
+      politicianRoutes =
+        slugs.length === 0
+          ? []
+          : politicianHubs.concat(
+              slugs
+                .filter((s) => s.hasInterests)
+                .map((s) => ({
+                  url: `${baseUrl}/politicians/${s.slug}`,
+                  lastModified: latestDataDate,
+                })),
+            );
     } catch {
-      // A register outage must not break the whole sitemap.
+      // An OUTAGE IS NOT A TAKEDOWN. A failed call says nothing about whether
+      // the feature is published, so the hubs stay and the sitemap does not
+      // silently shrink because the API blipped.
+      politicianRoutes = politicianHubs;
     }
   }
 

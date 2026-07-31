@@ -89,6 +89,19 @@ type holdingInterval struct {
 // classified. DeclaredEntity keys the "not matched to an ASX listing" line off
 // 'listed', so the fiction put that line under 666 superannuation accounts,
 // trusts and gifts, reporting a match failure that could not have happened.
+//
+// SUPPRESSION IS FILTERED IN ALL THREE ARMS, and it has to be all three or the
+// remedy is not one. `suppressed_at IS NOT NULL` is row-level takedown
+// (migration 000101, §6.3 open item 1): editorial rule 8 promises a reader they
+// can report an error, and until this existed the only remedy was
+// POLITICIAN_INTERESTS_ENABLED=false — one contested declaration meant
+// withdrawing the whole surface from everyone. The row is NOT deleted; it keeps
+// its provenance in register_declared_items and simply stops folding, so it
+// leaves mv_register_public_holdings and every read path hanging off it.
+//
+// A partial filter here would be the §8.17 defect in a new place: the same
+// fiction was defaulted in three layers, fixed in two, and still served from the
+// third. aph_suppression_test.go asserts the filter appears once per arm.
 const selectHoldingEventsQuery = `
 	SELECT i.politician_id::text, i.item_no, i.holder,
 	       COALESCE(NULLIF(sec.stock_code, ''), NULLIF(sec.candidate_norm, ''), upper(btrim(i.declared_text))) AS holding_key,
@@ -103,6 +116,7 @@ const selectHoldingEventsQuery = `
 	JOIN register_item_securities sec ON sec.item_id = i.id
 	WHERE i.item_no IN (1, 4) AND NOT i.is_nil
 	  AND i.politician_id IS NOT NULL
+	  AND i.suppressed_at IS NULL
 	  AND sec.entity_kind NOT IN ('not_an_entity', 'multi_entity')
 
 	UNION ALL
@@ -120,6 +134,7 @@ const selectHoldingEventsQuery = `
 	JOIN register_item_locations loc ON loc.item_id = i.id
 	WHERE i.item_no = 3 AND NOT i.is_nil
 	  AND i.politician_id IS NOT NULL
+	  AND i.suppressed_at IS NULL
 	  AND loc.resolution_status <> 'not_a_location'
 
 	UNION ALL
@@ -134,6 +149,7 @@ const selectHoldingEventsQuery = `
 	JOIN register_statements s ON s.id = i.statement_id
 	WHERE i.item_no NOT IN (1, 3, 4) AND NOT i.is_nil
 	  AND i.politician_id IS NOT NULL
+	  AND i.suppressed_at IS NULL
 	  AND btrim(i.declared_text) <> ''`
 
 func selectHoldingEvents(ctx context.Context, pool *pgxpool.Pool) ([]holdingEvent, error) {

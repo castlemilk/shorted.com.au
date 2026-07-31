@@ -141,6 +141,15 @@ type ShortsStore interface {
 	ListRegisterChanges(since time.Time, kind, stockCode string, limit, offset int32) ([]*shortsstore.RegisterChangeRow, int32, error)
 	ListShortInterestOverlap(minShortPercent float64, limit int32) ([]*shortsstore.PoliticianStockRollupRow, error)
 
+	// Register review console — operator only, never cached (see CacheKeyBuilder:
+	// a decision must be visible to the next reviewer immediately, and a stale
+	// queue hands two people the same candidate).
+	ListSecurityReviewQueue(limit, offset int32, gateOnly bool) ([]*shortsstore.SecurityQueueRow, int32, int32, error)
+	SearchRegisterListings(query string, limit int32) ([]*shortsstore.RegisterListingRow, error)
+	DecideSecurityCandidate(candidateNorm, decision, stockCode, aliasKind, note, reviewer string, stopwordConfirmed bool) (int32, error)
+	UndoSecurityDecision(candidateNorm string) (bool, error)
+	GetRegisterCoverageStats() (*shortsstore.RegisterCoverageRow, error)
+
 	ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32) ([]*shortsstore.EconomicSeriesRow, error)
 	GetEconomicSeries(seriesKeys []string, startPeriod time.Time, maxObservations int32) ([]*shortsstore.EconomicSeriesDataRow, error)
 	ListSeriesCorrelations(baseSeriesKey string, windowMonths int32, minAbsR float64, limit int32) ([]*shortsstore.SeriesCorrelationRow, error)

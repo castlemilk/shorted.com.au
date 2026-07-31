@@ -105,6 +105,14 @@ export const UserAuthNav = () => {
                   Admin: Enrichments
                 </Link>
               </DropdownMenuItem>
+              <DropdownMenuItem
+                asChild
+                className="cursor-pointer focus:bg-secondary text-purple-500 font-medium"
+              >
+                <Link href="/admin/register/securities" className="w-full">
+                  Admin: Register review
+                </Link>
+              </DropdownMenuItem>
             </>
           )}
         </div>

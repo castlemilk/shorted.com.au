@@ -30,8 +30,44 @@
 
 # Register Review Console — implementation spec
 
-Status: **spec, unimplemented.** Written 2026-07-27.
+Status: **screen (b) SHIPPED 2026-07-31; the rest is still spec.** Written 2026-07-27.
 Owner surface: `/admin/register/*`.
+
+> **WHAT IS BUILT, AND WHAT THE NUMBERS ACTUALLY ARE**
+>
+> `/admin/register/securities` — screen (b), §6.2 — is live behind `requireAdmin()`.
+> Built: migration `000101` (`register_review_security_queue`,
+> `register_review_skips`, `suppressed_at`, `resolution='foreign'`); the
+> `registerreview.v1.RegisterReviewService` API (its own proto package, so
+> `proto_parity_test.go` stays out of scope, exactly as step 3 required); the
+> server actions; and the keyboard screen. See architecture doc §8.21.
+>
+> **Re-measured 2026-07-31 — the day-one table above is stale.** The corpus moved
+> under §8.17/§8.19:
+>
+> | queue | then (07-27) | now (07-31) |
+> |---|---|---|
+> | undecided names | ~2,601 | **2,070** (2,638 rows) |
+> | of those, inside the item-1 gate | — | **814 names / 1,120 rows** |
+> | item-1 resolution | 24.7% | **51.18%** (1,174 / 2,294) — still contested, §8.19.1 |
+>
+> **The lever was broken before it was ever pulled.** `promoteAliasProposals`
+> wrote a column named `notes`; the column is `note`. It had no test and could
+> not fail in practice, because nothing had ever been confirmed — there was no UI
+> to confirm with. Fixed, and now asserted against the migration's own
+> `CREATE TABLE`.
+>
+> **Not built** (and each is a real gap, not a rename): steps 2 (page-image
+> server), 4 (correction replay), 7 (screen (a) document review), 8's screen (c)
+> (locality), 9 (publication-gate flip), 11 (public `Corrected` chip), and §7.4
+> rule 4's **second admin** for aliases with `occurrences >= 20` — the console
+> forces a blast-radius confirmation instead, so one admin can still make a
+> high-fanout call. `ocr_parse_gates()` was NOT verified; it remains dead code
+> and nothing shipped depends on it.
+>
+> Step 10 (suppression reaches the MV) IS done, on all three fold arms. Step 5
+> (auth hygiene) is NOT — `ADMIN_EMAILS` is still case-sensitively split in one
+> place and hardcoded in `middleware_connect.go`.
 Prerequisite reading: `docs/politician-register-architecture.md` (§2.8–2.10 layout
 failures, §3.2–3.5 resolution, §6–8 gates and open items) and
 `docs/influence-editorial-standards.md` (rules 1, 5, 7, 8).

@@ -357,6 +357,30 @@ func (s *StoreAdapter) ListShortInterestOverlap(minShortPercent float64, limit i
 	return s.store.ListShortInterestOverlap(minShortPercent, limit)
 }
 
+// Register review console. Deliberately NOT routed through the caching adapter
+// arms above: a decision must be visible to the next reviewer immediately, and a
+// cached queue would hand two people the same candidate to decide twice.
+
+func (s *StoreAdapter) ListSecurityReviewQueue(limit, offset int32, gateOnly bool) ([]*shorts.SecurityQueueRow, int32, int32, error) {
+	return s.store.ListSecurityReviewQueue(limit, offset, gateOnly)
+}
+
+func (s *StoreAdapter) SearchRegisterListings(query string, limit int32) ([]*shorts.RegisterListingRow, error) {
+	return s.store.SearchRegisterListings(query, limit)
+}
+
+func (s *StoreAdapter) DecideSecurityCandidate(candidateNorm, decision, stockCode, aliasKind, note, reviewer string, stopwordConfirmed bool) (int32, error) {
+	return s.store.DecideSecurityCandidate(candidateNorm, decision, stockCode, aliasKind, note, reviewer, stopwordConfirmed)
+}
+
+func (s *StoreAdapter) UndoSecurityDecision(candidateNorm string) (bool, error) {
+	return s.store.UndoSecurityDecision(candidateNorm)
+}
+
+func (s *StoreAdapter) GetRegisterCoverageStats() (*shorts.RegisterCoverageRow, error) {
+	return s.store.GetRegisterCoverageStats()
+}
+
 func (s *StoreAdapter) ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32) ([]*shorts.EconomicSeriesRow, error) {
 	return s.store.ListEconomicSeries(topic, metric, regionType, regionCode, product, limit)
 }

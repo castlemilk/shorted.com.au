@@ -10,7 +10,7 @@
  */
 
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 
 const ROOT = join(__dirname, "..", "..", "..", "..");
 
@@ -20,6 +20,14 @@ const SURFACES = [
   join(ROOT, "app", "politicians"),
   join(ROOT, "@", "components", "company", "politician-interests-card.tsx"),
   join(ROOT, "@", "components", "economy", "state-politician-holdings.tsx"),
+  // The OPERATOR console. It is not published to readers, but it renders
+  // declared text beside named parliamentarians on an internal screen, and the
+  // language rules are about what gets WRITTEN next to a person's name — the
+  // audience does not change whether "profited" is an imputation. It is excluded
+  // from RENDERING_SURFACES below (an admin tool owes an operator no
+  // reader-facing dispute link) but not from the vocabulary rules.
+  join(ROOT, "@", "components", "admin", "register-review"),
+  join(ROOT, "app", "admin", "register"),
 ];
 
 function collect(target: string): string[] {
@@ -79,7 +87,12 @@ const RENDERING_SURFACES = FILES.filter(
     !f.endsWith("compliance.tsx") &&
     !f.endsWith("-loader.tsx") &&
     !f.endsWith("opengraph-image.tsx") &&
-    !f.includes("__tests__"),
+    !f.includes("__tests__") &&
+    // The operator console: rule 1 (cite the source) and rule 8 (offer a dispute
+    // path) are promises to a READER. The reviewer here IS the dispute path, and
+    // every candidate card already links the APH PDF per declaration — which is
+    // the citation, just not via the reader-facing SourceLine kit.
+    !f.includes(`${sep}admin${sep}`),
 );
 
 describe("politician surface copy", () => {
@@ -88,10 +101,17 @@ describe("politician surface copy", () => {
   // which is exactly how state-politician-holdings.tsx shipped with no
   // attribution. Update this number deliberately when adding a surface, and
   // re-run the editorial review when you do.
+  //
+  // 9 -> 11 on 2026-07-31: the operator console (securities-review.tsx and its
+  // page) renders declared text beside named parliamentarians, so it is bound by
+  // the vocabulary rules. RENDERING_SURFACES stays 7 — an admin tool owes an
+  // operator no reader-facing citation kit, and each candidate card already
+  // links the APH PDF per declaration. §6.2 re-review triggered and recorded in
+  // docs/politician-register-architecture.md.
   it("covers exactly the surfaces it claims to", () => {
-    // 10 = 9 + politicians/opengraph-image.tsx (the share card, exempt from
-    // the dispute-path rule but still subject to every prohibition below).
-    expect(FILES.length).toBe(10);
+    // 10 (incl. politicians/opengraph-image.tsx, the share card) + the 2 operator
+    // console files.
+    expect(FILES.length).toBe(12);
     expect(RENDERING_SURFACES.length).toBe(7);
   });
 

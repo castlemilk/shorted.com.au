@@ -118,6 +118,21 @@ func (mr *MockShortsStoreMockRecorder) CreateEnrichmentJob(stockCode, force any)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateEnrichmentJob", reflect.TypeOf((*MockShortsStore)(nil).CreateEnrichmentJob), stockCode, force)
 }
 
+// DecideSecurityCandidate mocks base method.
+func (m *MockShortsStore) DecideSecurityCandidate(candidateNorm, decision, stockCode, aliasKind, note, reviewer string, stopwordConfirmed bool) (int32, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DecideSecurityCandidate", candidateNorm, decision, stockCode, aliasKind, note, reviewer, stopwordConfirmed)
+	ret0, _ := ret[0].(int32)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DecideSecurityCandidate indicates an expected call of DecideSecurityCandidate.
+func (mr *MockShortsStoreMockRecorder) DecideSecurityCandidate(candidateNorm, decision, stockCode, aliasKind, note, reviewer, stopwordConfirmed any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DecideSecurityCandidate", reflect.TypeOf((*MockShortsStore)(nil).DecideSecurityCandidate), candidateNorm, decision, stockCode, aliasKind, note, reviewer, stopwordConfirmed)
+}
+
 // DeleteEditorialTake mocks base method.
 func (m *MockShortsStore) DeleteEditorialTake(slug string) (bool, error) {
 	m.ctrl.T.Helper()
@@ -608,6 +623,21 @@ func (mr *MockShortsStoreMockRecorder) GetPropertyValuation(addressKey any) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPropertyValuation", reflect.TypeOf((*MockShortsStore)(nil).GetPropertyValuation), addressKey)
 }
 
+// GetRegisterCoverageStats mocks base method.
+func (m *MockShortsStore) GetRegisterCoverageStats() (*shorts.RegisterCoverageRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRegisterCoverageStats")
+	ret0, _ := ret[0].(*shorts.RegisterCoverageRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRegisterCoverageStats indicates an expected call of GetRegisterCoverageStats.
+func (mr *MockShortsStoreMockRecorder) GetRegisterCoverageStats() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRegisterCoverageStats", reflect.TypeOf((*MockShortsStore)(nil).GetRegisterCoverageStats))
+}
+
 // GetRegisterOverview mocks base method.
 func (m *MockShortsStore) GetRegisterOverview() (*shorts.RegisterOverviewRow, error) {
 	m.ctrl.T.Helper()
@@ -1088,6 +1118,23 @@ func (mr *MockShortsStoreMockRecorder) ListReports(reportType, limit any) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListReports", reflect.TypeOf((*MockShortsStore)(nil).ListReports), reportType, limit)
 }
 
+// ListSecurityReviewQueue mocks base method.
+func (m *MockShortsStore) ListSecurityReviewQueue(limit, offset int32, gateOnly bool) ([]*shorts.SecurityQueueRow, int32, int32, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListSecurityReviewQueue", limit, offset, gateOnly)
+	ret0, _ := ret[0].([]*shorts.SecurityQueueRow)
+	ret1, _ := ret[1].(int32)
+	ret2, _ := ret[2].(int32)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
+}
+
+// ListSecurityReviewQueue indicates an expected call of ListSecurityReviewQueue.
+func (mr *MockShortsStoreMockRecorder) ListSecurityReviewQueue(limit, offset, gateOnly any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecurityReviewQueue", reflect.TypeOf((*MockShortsStore)(nil).ListSecurityReviewQueue), limit, offset, gateOnly)
+}
+
 // ListSeriesCorrelations mocks base method.
 func (m *MockShortsStore) ListSeriesCorrelations(baseSeriesKey string, windowMonths int32, minAbsR float64, limit int32) ([]*shorts.SeriesCorrelationRow, error) {
 	m.ctrl.T.Helper()
@@ -1339,6 +1386,21 @@ func (mr *MockShortsStoreMockRecorder) ScreenStocks(filters, sortField, sortDir,
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ScreenStocks", reflect.TypeOf((*MockShortsStore)(nil).ScreenStocks), filters, sortField, sortDir, limit, offset)
 }
 
+// SearchRegisterListings mocks base method.
+func (m *MockShortsStore) SearchRegisterListings(query string, limit int32) ([]*shorts.RegisterListingRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SearchRegisterListings", query, limit)
+	ret0, _ := ret[0].([]*shorts.RegisterListingRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SearchRegisterListings indicates an expected call of SearchRegisterListings.
+func (mr *MockShortsStoreMockRecorder) SearchRegisterListings(query, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SearchRegisterListings", reflect.TypeOf((*MockShortsStore)(nil).SearchRegisterListings), query, limit)
+}
+
 // SearchStocks mocks base method.
 func (m *MockShortsStore) SearchStocks(query string, limit int32) ([]*stocksv1alpha1.Stock, error) {
 	m.ctrl.T.Helper()
@@ -1381,6 +1443,21 @@ func (m *MockShortsStore) StockExists(stockCode string) (bool, error) {
 func (mr *MockShortsStoreMockRecorder) StockExists(stockCode any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StockExists", reflect.TypeOf((*MockShortsStore)(nil).StockExists), stockCode)
+}
+
+// UndoSecurityDecision mocks base method.
+func (m *MockShortsStore) UndoSecurityDecision(candidateNorm string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UndoSecurityDecision", candidateNorm)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UndoSecurityDecision indicates an expected call of UndoSecurityDecision.
+func (mr *MockShortsStoreMockRecorder) UndoSecurityDecision(candidateNorm any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UndoSecurityDecision", reflect.TypeOf((*MockShortsStore)(nil).UndoSecurityDecision), candidateNorm)
 }
 
 // UpdateAPISubscriptionByCustomer mocks base method.

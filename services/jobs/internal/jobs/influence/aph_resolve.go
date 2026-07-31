@@ -1019,7 +1019,13 @@ func resolveSecurityCandidate(
 ) SecurityResolution {
 	c.MultiEntity = namesMoreThanOneEntity(c.Raw, codes)
 	res := resolveSecurityStatus(c, aliases, codes, names, ambiguous, wide)
-	res.EntityKind = entityKindOf(c, res.Status)
+	// entityKindOf derives the kind from the status the ladder reached. A curated
+	// alias may already have PINNED a kind that no status can express (see the
+	// 'foreign' branch above); deriving over the top of it would discard the
+	// human decision and relabel a foreign listing as naming nothing.
+	if res.EntityKind == "" {
+		res.EntityKind = entityKindOf(c, res.Status)
+	}
 	return res
 }
 
@@ -1044,6 +1050,19 @@ func resolveSecurityStatus(
 			}
 		case "unlisted_fund":
 			return SecurityResolution{Status: "unlisted_fund", MatchMethod: "curated_alias"}
+		case "foreign":
+			// A foreign listing IS a security — it is simply not one we can link,
+			// so it must leave the ASX-resolution denominator while keeping an
+			// honest label. entityKindOf deliberately never GUESSES this from an
+			// Inc/LLC/plc suffix (four of the fourteen such names in this corpus
+			// are Australian incorporated associations), so a human saying so is
+			// the only way the label is ever true. Pinned here rather than derived
+			// from Status, because the status it shares — not_a_security — is also
+			// how "names nothing at all" is spelled.
+			return SecurityResolution{
+				Status: "not_a_security", MatchMethod: "curated_alias",
+				EntityKind: entityKindForeign,
+			}
 		default:
 			return SecurityResolution{Status: "not_a_security", MatchMethod: "curated_alias"}
 		}

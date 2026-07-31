@@ -867,7 +867,7 @@ gate, not a runtime flag"). Merging this branch publishes the feature.
 
 | Gate | Threshold | Measured (2026-07-27, post-§8.17) | |
 |---|---|---|---|
-| item-1 security resolution | ≥ 35% of `entity_kind='listed'` candidates | **49.89%** (1,181 / 2,367) — but see §8.19.1: the denominator is a DEFAULT bucket, so this measures explanation rather than resolution. Report the number with its band and method, never "the gate is met" | **contested** |
+| item-1 security resolution | ≥ 35% of `entity_kind='listed'` candidates | **51.18%** (1,174 / 2,294, measured 2026-07-31) — but see §8.19.1: the denominator is a DEFAULT bucket, so this measures explanation rather than resolution. Report the number with its band and method, never "the gate is met". §8.21 gives the backlog a screen, which is the only honest way it moves | **contested** |
 | identity resolution | 0 unresolved statements | **0** of 2,757 | pass |
 | 46P/47P centred-label layout | quarantined, never published | 102 docs at `partial` | pass |
 | item-3 multi-property merge | purpose suppressed on read | suppressed (29% of rows merge) | pass |
@@ -926,35 +926,66 @@ cannot be added without failing the test and re-triggering this review.
    (§8.17), amendment notices, and no-signal item-1 cells (§8.19). Withholding a
    real declaration is a coverage decision a reviewer should agree with.
 
+**Added 2026-07-31, and therefore also unreviewed:**
+
+6. **An operator console** (§8.21) at `/admin/register/securities`. It is not a
+   published surface, but it renders declared text beside named
+   parliamentarians, so `editorial-copy.test.ts` now covers it: the pinned count
+   moved **9 → 11 files**, `RENDERING_SURFACES` stays **7**. It is exempt from
+   rules 1 and 8 (cite a source / offer a dispute path) because those are
+   promises to a READER — the reviewer *is* the dispute path — but every
+   candidate card links the APH PDF per declaration anyway. It passes rules 2, 3
+   and 5 under test: no warning or currency glyph, no banned verb, no `$`.
+7. **Withholding became reversible.** A reviewer can now classify a candidate
+   `not_a_security` / `unlisted_fund` / `foreign`, which REMOVES rows from
+   publication. That is a coverage decision a reviewer should agree with, in the
+   same way §6.2's item 5 flagged the withholding quarantine.
+
 #### Sign-off
 
 The gate in §6 is a MERGE gate enforced by a human. It was **not** recorded before
 PR #364 merged; this block exists so it can be. Rules 3, 5, 7 and 8 are
-test-enforced and need no signature. **Rule 2 and the five items above need a
+test-enforced and need no signature. **Rule 2 and the seven items above need a
 person.**
+
+This block is deliberately still blank. An assistant re-running the tests is not
+a sign-off: rule 2 is "no test can decide this" by its own definition, and the
+whole point of a human merge gate is that the human is not the author.
 
 ```
 Reviewed by:
 Date:
 Commit reviewed:
 Rule 2 (juxtaposition/iconography):   pass / fail / notes
-Items 1-5 above:                      pass / fail / notes
+Items 1-7 above:                      pass / fail / notes
 Outcome:
 ```
 
 ### 6.3 Open items, stated rather than hidden
 
-1. **Row-level takedown does not exist.** Rule 8's remedy is implementable only
-   at whole-feature granularity (`POLITICIAN_INTERESTS_ENABLED=false`). A
-   `register_declared_items.suppressed_at` column plus a filter in
-   `mv_register_public_holdings` would fix it; until then a single contested
-   declaration means taking the whole surface down.
-2. **The sitemap and nav are not gated by the kill switch.** With the switch off
-   the rpcs return `{}` but the routes still render, the nav entry still shows,
-   and `sitemap.ts` still advertises three URLs — so a runtime dark period would
-   get empty pages indexed.
+1. ~~**Row-level takedown does not exist.**~~ **CLOSED 2026-07-31.** Migration
+   `000101` adds `register_declared_items.suppressed_at` (+ `suppressed_by`,
+   `suppression_note`) and `selectHoldingEventsQuery` filters it in **all three**
+   fold arms, so a suppressed row leaves `mv_register_public_holdings` and every
+   read path below it. The row is retained with its provenance — suppression is
+   never a delete, because deleting removes a real declaration from a named
+   person's record and breaks the nil-rate tripwire. `aph_suppression_test.go`
+   asserts the arm count, since a filter that reaches two arms of three is worse
+   than none: the operator is told the row is withdrawn and it is still
+   published.
+   **Still missing:** there is no UI for it. A takedown today is a hand-written
+   `UPDATE` followed by `register-load` + `register-resolve`.
+2. ~~**The sitemap and nav are not gated by the kill switch.**~~ **CLOSED
+   2026-07-31.** `sitemap.ts` now emits the three hub URLs only when the register
+   actually returns politicians, and the nav entry is filtered on
+   `NEXT_PUBLIC_POLITICIAN_INTERESTS_ENABLED` (default ON, matching
+   `registerEnabled()` exactly). The sitemap gate is deliberately on the DATA,
+   not a second copy of the env var: one switch with two places to flip is a
+   switch that gets half-flipped. An API **outage** keeps the hubs — a failed
+   call is not evidence of a takedown, and the sitemap must not shrink because
+   the API blipped.
 3. **The review outcome must be recorded** (who / when / commit). The gate says
-   "signed off"; nothing here records a signature.
+   "signed off"; nothing here records a signature. **Still open — see §6.2.**
 ---
 
 ## 7. The vision tier runs on `agy`, not the Gemini API
@@ -1962,6 +1993,74 @@ substantial sources of income", is `📥` and not a money bag: the category is
 not "wrapped present Gift". An unknown item renders NO tag rather than a
 placeholder — inventing a category would be a claim about what the member
 declared.
+
+### 8.21 The backlog gets a screen — and the lever was broken all along
+
+§9 named **curated aliases via the review console** as one of the two legitimate
+ways to raise resolution. The console did not exist, so the lever had never been
+pulled. What was found on picking it up:
+
+**`promoteAliasProposals` could never have worked.** It writes
+`INSERT INTO register_security_aliases (… , notes)`; the column is **`note`**.
+The one path from a human-confirmed proposal to a published link was broken from
+the day it was written, had **zero test coverage**, and was green the whole time —
+because nothing had ever been confirmed. There was no UI to confirm with, so the
+statement had never executed. Verified against the real schema, then fixed.
+`register_review_console.test.mjs` now asserts every column that statement names
+against the migration's own `CREATE TABLE`, which is the check that generalises.
+
+**Both halves of coverage are one table.** `aph_resolve.go` reads
+`register_security_aliases` and nothing else, so a row there is the single
+control surface for both directions the gate can move:
+
+| Decision | `resolution` | Effect on §6.1 |
+|---|---|---|
+| resolve to a code | `resolved` | numerator up — a real new published link |
+| unlisted/wholesale fund | `unlisted_fund` | denominator down — `managed_fund` |
+| names nothing held | `not_a_security` | denominator down — `not_an_entity` |
+| listed, not on the ASX | `foreign` **(new)** | denominator down — `foreign` |
+
+`foreign` is new to the CHECK. `entityKindOf`'s own comment said the constant
+"waits for a curated decision rather than a suffix guess" — but there was no way
+to record that decision, so `alias_kind='foreign'` fell through to
+`not_a_security` and labelled a real foreign listing as naming nothing at all.
+Measured on prod at the time: `foreign` = **0 rows**. The kind is now PINNED by
+the alias rather than derived from the status, because `foreign` and "names
+nothing" share the status `not_a_security` — deriving over the top of it discards
+the human decision.
+
+**Measured queue, 2026-07-31 (local):** 2,070 undecided names across 2,638 rows.
+The slice that can move the gate is **814 names / 1,120 rows**; 208 of those
+names occur more than once and account for 514 rows. The head is real but thin —
+`REFER ATTACHED` ×12, `SHARES` ×10 across 4 members, `WOODSIDE` ×9 across 4,
+`SYDNEY AIRPORT` ×6 across **5**.
+
+**What the screen does that a list could not.** `register_resolution_backlog`
+(000096) is name + example + count: enough to ORDER the work, not enough to
+DECIDE it. `register_review_security_queue` (000101) adds the blast radius in
+NAMED PEOPLE, the parliaments and items, whether the candidate is inside the gate
+denominator at all, and the real `declared_text` strings with a per-row APH link.
+A reviewer deciding `SYDNEY AIRPORT` is deciding for five named members at once,
+and the screen says so before the keystroke.
+
+**Guards, all verified against the running service:** an invented code is
+refused (`ZZZZ` → `invalid_argument`); a `tickerStopwords` code is refused
+without a second confirmation (`ETF` → the trap that once published ten members
+as holding a fund none had declared); `curated_by` is read from the request
+header, never the body; and the decision vocabulary is a **closed proto enum with
+no fuzzy member**, so the UI cannot offer and the server cannot receive the one
+`match_method` the public gate forbids.
+
+**The console publishes nothing by itself.** A decision writes one alias row;
+the next `-mode register-resolve` applies it. Undo deletes the row and returns
+every candidate to `unmatched`, the honest pre-decision state.
+
+Not built, and stated rather than hidden: §7.4 rule 4's **second admin** for
+high-fanout aliases (`occurrences >= 20`) needs a `needs_second_review` column
+and a `confirmed_by <> corrected_by` CHECK. The console instead forces a
+blast-radius confirmation dialog above a threshold — one admin can still make the
+call. Screens (a) and (c), the corrections ledger, the page-image server and the
+publication-gate flip (steps 2, 4, 7, 9, 11 of the console plan) are untouched.
 
 ---
 

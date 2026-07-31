@@ -234,6 +234,15 @@ type Store interface {
 	ListRegisterChanges(since time.Time, kind, stockCode string, limit, offset int32) ([]*RegisterChangeRow, int32, error)
 	ListShortInterestOverlap(minShortPercent float64, limit int32) ([]*PoliticianStockRollupRow, error)
 
+	// Register review console — OPERATOR ONLY, never a public read path.
+	// A decision here writes register_security_aliases, which is the single
+	// input the resolver reads; nothing below publishes anything by itself.
+	ListSecurityReviewQueue(limit, offset int32, gateOnly bool) ([]*SecurityQueueRow, int32, int32, error)
+	SearchRegisterListings(query string, limit int32) ([]*RegisterListingRow, error)
+	DecideSecurityCandidate(candidateNorm, decision, stockCode, aliasKind, note, reviewer string, stopwordConfirmed bool) (int32, error)
+	UndoSecurityDecision(candidateNorm string) (bool, error)
+	GetRegisterCoverageStats() (*RegisterCoverageRow, error)
+
 	// Economy snapshot methods
 	ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32) ([]*EconomicSeriesRow, error)
 	GetEconomicSeries(seriesKeys []string, startPeriod time.Time, maxObservations int32) ([]*EconomicSeriesDataRow, error)

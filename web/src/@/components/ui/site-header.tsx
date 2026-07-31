@@ -36,11 +36,42 @@ const items: NavItemWithGroup[] = [
   { title: "blog", href: "/blog" },
 ];
 
+/**
+ * The register-of-interests takedown switch, as the nav sees it.
+ *
+ * POLITICIAN_INTERESTS_ENABLED is a takedown control, not a feature flag: it is
+ * ON by default and exists so a contested surface can be withdrawn quickly.
+ * §6.3 open item 2 recorded that flipping it left the nav entry pointing at a
+ * page that now renders empty — an invitation to a reader, mid-takedown, to look
+ * at a page about named individuals that we have deliberately emptied.
+ *
+ * Read at module scope from a NEXT_PUBLIC_ var because this is a client
+ * component. It is deliberately DEFAULT-ON and only an explicit falsey value
+ * hides the entry, matching registerEnabled() in politicians.go exactly — a nav
+ * that hid itself whenever an env var was merely unset would take the feature
+ * down on every environment that had not been told about it.
+ */
+function politicianInterestsEnabled(): boolean {
+  switch ((process.env.NEXT_PUBLIC_POLITICIAN_INTERESTS_ENABLED ?? "").trim().toLowerCase()) {
+    case "false":
+    case "0":
+    case "no":
+    case "off":
+      return false;
+    default:
+      return true;
+  }
+}
+
 const SiteHeader: FC = () => {
+  const navItems = politicianInterestsEnabled()
+    ? items
+    : items.filter((i) => i.href !== "/politicians");
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl saturate-150 supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-16 items-center w-full px-3 sm:px-4 md:px-6">
-        <MainNav items={items} modeToggle={<ModeToggle />} />
+        <MainNav items={navItems} modeToggle={<ModeToggle />} />
       </div>
     </header>
   );

@@ -64,6 +64,19 @@ var internalOnlyMethods = func() map[string]bool {
 			m["shorts.v1alpha1."+svc+"."+method] = true
 		}
 	}
+	// The register review console. required_role="admin" in the proto is not
+	// sufficient on its own: the admin role is auto-granted from an email
+	// allowlist below, so a user who reaches that allowlist by any means could
+	// otherwise call these directly. A decision here writes a curated_alias,
+	// which the public gate then lets publish a live company link against a
+	// named politician — so it is gated on the internal secret as well, and the
+	// only caller that holds it is the web tier's own requireAdmin() actions.
+	for _, method := range []string{
+		"ListSecurityQueue", "SearchListings", "DecideSecurityCandidate",
+		"UndoSecurityDecision", "GetCoverageStats",
+	} {
+		m["registerreview.v1.RegisterReviewService."+method] = true
+	}
 	return m
 }()
 
