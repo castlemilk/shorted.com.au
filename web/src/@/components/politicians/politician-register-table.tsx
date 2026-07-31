@@ -97,6 +97,16 @@ export interface PoliticianTablePage {
   total: number;
   /** The query the SERVER actually ran, after its own clamping. */
   query: PoliticianTableQuery;
+  /**
+   * Did the request actually answer?
+   *
+   * REQUIRED, AND NOT INFERABLE FROM `rows`. A backend outage and a filter
+   * nobody matches both arrive here as zero rows; without this flag the island
+   * words the first as the second and publishes "No members match these
+   * filters" over our own downtime. `false` is a normal result, not an
+   * exception — the action never throws.
+   */
+  ok: boolean;
 }
 
 /*
@@ -291,6 +301,24 @@ export function PoliticianRegisterTable({
   const hasPrevious = query.offset > 0;
   const hasNext = query.offset + rows.length < page.total;
 
+  /*
+   * THE TWO EMPTY TABLES, WHICH MEAN OPPOSITE THINGS.
+   *
+   * An OUTAGE is either a thrown action or a page the server marked `ok: false`
+   * — the request did not answer, whatever the row count says. It used to be
+   * only the thrown case, so a failed fetch that resolved to `{rows: [], total:
+   * 0}` fell through to the empty-state copy below and, with a filter set, read
+   * as "No members match these filters": an absence claim about every member
+   * that filter covers, published on our own downtime.
+   *
+   * An UNFILTERED empty table is an outage too, by arithmetic: parliament is
+   * never empty, so zero rows with no filter set can only be us.
+   *
+   * Everything left over — zero rows, filters set, a response that answered —
+   * is the one case where "no members match" is an honest sentence.
+   */
+  const outage = status === "error" || page.ok === false || (rows.length === 0 && !filtersActive);
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-end gap-2">
@@ -383,10 +411,14 @@ export function PoliticianRegisterTable({
         ) : null}
       </div>
 
-      {status === "error" ? (
+      {outage ? (
+        // One outage paragraph, worded by whether the reader has a filter set —
+        // "these filters could not be applied" is the wrong sentence when they
+        // never applied any. Neither wording claims anything about a member.
         <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
-          These filters could not be applied just now. The full roll of members is further down
-          this page, and nothing here is missing from the register.
+          {filtersActive
+            ? "These filters could not be applied just now. The full roll of members is further down this page, and nothing here is missing from the register."
+            : "This table is unavailable right now. The full roll of members is further down this page, and nothing here is missing from the register."}
         </p>
       ) : null}
 
@@ -486,16 +518,14 @@ export function PoliticianRegisterTable({
         </table>
       </div>
 
-      {rows.length === 0 && status !== "error" ? (
-        // The wording turns on whether a filter is set, because the two empty
-        // states mean opposite things. With filters, no match is an honest
-        // answer about the filter. WITHOUT filters, an empty table can only be
-        // our own outage — and "no members match" would then read as an absence
-        // claim about every member of parliament at once.
+      {rows.length === 0 && !outage ? (
+        // The ONLY empty state that says anything about a result rather than
+        // about us: the request answered, a filter is set, and nothing matched
+        // it. That is an honest answer about the filter — and it says so, so a
+        // reader cannot take it as a statement about anyone's register.
         <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
-          {filtersActive
-            ? "No members match these filters. Widen them, or search by name above — an empty result is a filter, not a statement about anyone’s register."
-            : "This table is unavailable right now. The full roll of members is further down this page, and nothing here is missing from the register."}
+          No members match these filters. Widen them, or search by name above — an empty result is
+          a filter, not a statement about anyone&rsquo;s register.
         </p>
       ) : null}
 

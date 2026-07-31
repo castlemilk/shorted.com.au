@@ -343,14 +343,24 @@ func TestPoliticianSummaryKeepsAllTimeAndCurrentCountsApart(t *testing.T) {
 	}
 }
 
+// The two clocks that must never be confused: `lodged` is the newest lodgement
+// the REGISTER carries, `refreshed` is when WE last rebuilt the snapshot. The
+// proto defines as_at as the former. They are ten days apart on the dev corpus,
+// and a nightly refresh over an unchanged register keeps widening the gap.
+var (
+	registerLodgementMax = time.Date(2026, 7, 21, 0, 0, 0, 0, time.UTC)
+	registerRefreshedAt  = time.Date(2026, 7, 31, 4, 28, 34, 0, time.UTC)
+)
+
 func TestListPoliticianSummariesEmptyPageStillCarriesSnapshotMetadata(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	store := mocks.NewMockShortsStore(ctrl)
 	server := newTestServer(t, store)
 
-	when := time.Date(2026, 7, 31, 0, 0, 0, 0, time.UTC)
 	store.EXPECT().ListPoliticianSummaries("", "", "", int32(0), "nobody", "declared_items", int32(50), int32(0)).Return(nil, int32(0), nil)
-	store.EXPECT().GetRegisterOverview().Return(&shortsstore.RegisterOverviewRow{RefreshedAt: when}, nil)
+	store.EXPECT().GetRegisterOverview().Return(&shortsstore.RegisterOverviewRow{
+		AsAt: registerLodgementMax, RefreshedAt: registerRefreshedAt,
+	}, nil)
 
 	response, err := server.ListPoliticianSummaries(t.Context(), connect.NewRequest(
 		&shortsv1alpha1.ListPoliticianSummariesRequest{Query: "nobody"},
@@ -358,11 +368,71 @@ func TestListPoliticianSummariesEmptyPageStillCarriesSnapshotMetadata(t *testing
 	if err != nil {
 		t.Fatalf("empty ListPoliticianSummaries: %v", err)
 	}
-	if response.Msg.GetAsAt() == nil || !response.Msg.GetAsAt().AsTime().Equal(when) {
-		t.Fatalf("empty page asAt = %v, want %v", response.Msg.GetAsAt(), when)
+	if response.Msg.GetAsAt() == nil || !response.Msg.GetAsAt().AsTime().Equal(registerLodgementMax) {
+		t.Fatalf("empty page asAt = %v, want the newest lodgement %v", response.Msg.GetAsAt(), registerLodgementMax)
+	}
+	if response.Msg.GetAsAt().AsTime().Equal(registerRefreshedAt) {
+		t.Fatal("empty page asAt fell back to our snapshot-rebuild clock")
 	}
 	if response.Msg.GetSourceLicence() == "" {
 		t.Fatal("empty page lost source licence")
+	}
+}
+
+// as_at is "the newest lodgement we hold" (politicians.proto), which every
+// surface renders as "Register of Members' Interests, as at DATE" beside named
+// members. Serving max(refreshed_at) there claimed currency we do not have — it
+// advances every night the snapshot rebuilds, even over an unchanged register.
+func TestRegisterExplorerAsAtIsTheNewestLodgementNotOurRefresh(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	store := mocks.NewMockShortsStore(ctrl)
+	server := newTestServer(t, store)
+
+	// The row's own as-at is left ZERO on purpose: this exercises the overview
+	// fallback, which is the line that used to reach for RefreshedAt.
+	store.EXPECT().GetRegisterExplorer().Return(&shortsstore.RegisterExplorerRow{
+		Overview: &shortsstore.RegisterOverviewRow{
+			PoliticianCount: 323,
+			AsAt:            registerLodgementMax,
+			RefreshedAt:     registerRefreshedAt,
+		},
+	}, nil)
+
+	response, err := server.GetRegisterExplorer(t.Context(),
+		connect.NewRequest(&shortsv1alpha1.GetRegisterExplorerRequest{}))
+	if err != nil {
+		t.Fatalf("GetRegisterExplorer: %v", err)
+	}
+	if response.Msg.GetAsAt() == nil {
+		t.Fatal("as_at is unset even though the register carries a lodgement date")
+	}
+	if got := response.Msg.GetAsAt().AsTime(); !got.Equal(registerLodgementMax) {
+		t.Fatalf("as_at = %v, want the newest lodgement %v (refresh clock is %v)",
+			got, registerLodgementMax, registerRefreshedAt)
+	}
+}
+
+// The compare page names two members side by side, so its as-at is the most
+// load-bearing one in the subsystem: it dates a statement about what two
+// specific people declared.
+func TestComparePoliticiansAsAtIsTheNewestLodgement(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	store := mocks.NewMockShortsStore(ctrl)
+	server := newTestServer(t, store)
+
+	store.EXPECT().ComparePoliticians("alice-example", "bob-example").Return(&shortsstore.PoliticianComparisonRow{
+		SummaryA: &shortsstore.PoliticianSummaryRow{Politician: &shortsstore.PoliticianRow{Slug: "alice-example"}},
+		SummaryB: &shortsstore.PoliticianSummaryRow{Politician: &shortsstore.PoliticianRow{Slug: "bob-example"}},
+		AsAt:     registerLodgementMax,
+	}, nil)
+
+	response, err := server.ComparePoliticians(t.Context(), connect.NewRequest(
+		&shortsv1alpha1.ComparePoliticiansRequest{SlugA: "alice-example", SlugB: "bob-example"}))
+	if err != nil {
+		t.Fatalf("ComparePoliticians: %v", err)
+	}
+	if response.Msg.GetAsAt() == nil || !response.Msg.GetAsAt().AsTime().Equal(registerLodgementMax) {
+		t.Fatalf("compare as_at = %v, want the newest lodgement %v", response.Msg.GetAsAt(), registerLodgementMax)
 	}
 }
 

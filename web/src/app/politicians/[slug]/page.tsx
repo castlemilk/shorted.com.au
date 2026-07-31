@@ -20,6 +20,11 @@ import { CountTile } from "@/components/politicians/explorer/count-tile";
 import { KeyFacts } from "@/components/politicians/explorer/key-facts";
 import { TrendArea } from "@/components/politicians/explorer/trend-area";
 import {
+  registerLastUpdated,
+  selectProfileAggregates,
+  type ProfileItemCount,
+} from "@/components/politicians/profile/aggregates";
+import {
   HOLDER_FILTER,
   buildDeclarationRows,
 } from "@/components/politicians/profile/declaration-rows";
@@ -35,11 +40,9 @@ import { getPolitician } from "~/app/actions/getPoliticians";
 import { getPoliticianExplorerProfile } from "~/app/actions/getPoliticianExplorerProfile";
 import { pageTitle, sectionTitle, eyebrow } from "@/lib/typography";
 import { partyLabel } from "@/lib/politics/party-palette";
-import { registerItem } from "@/lib/politics/register-items";
 import {
   RegisterChangeKind,
   RegisterHolder,
-  type DeclaredInterest,
 } from "~/gen/shorts/v1alpha1/politicians_pb";
 
 // Fully server-rendered: this is the SEO asset. The one client island (the
@@ -95,19 +98,19 @@ const REAL_ESTATE_ITEM = 3;
 const LIABILITY_ITEM = 6;
 const GIFT_TRAVEL_ITEMS = [11, 12];
 
-/** Holder order, fixed so every profile reads the same way. */
-const HOLDER_ORDER = [
+/**
+ * Holder order, fixed so every profile reads the same way.
+ *
+ * Typed as plain numbers: the aggregates these are matched against are
+ * proto-free by design (profile/aggregates.ts is pure and testable without the
+ * protobuf runtime), so the comparison is between numbers on both sides.
+ */
+const HOLDER_ORDER: number[] = [
   RegisterHolder.SELF,
   RegisterHolder.SPOUSE_PARTNER,
   RegisterHolder.DEPENDENT_CHILDREN,
   RegisterHolder.UNSPECIFIED,
 ];
-
-interface ItemCount {
-  itemNo: number;
-  label: string;
-  currentCount: number;
-}
 
 function shortDate(date?: Date): string {
   return date
@@ -115,62 +118,23 @@ function shortDate(date?: Date): string {
     : "";
 }
 
-function itemLabelFor(itemNo: number, formLabel: string): string {
-  return registerItem(itemNo)?.label ?? (formLabel || "Category not stated");
-}
-
-/**
- * Per-item counts of CURRENTLY-DECLARED rows, derived from the rows themselves.
- *
- * THIS FALLBACK IS EDITORIAL, NOT DEFENSIVE PADDING. The explorer rpc reads a
- * materialized view that the prod deploy does NOT create for itself (migrations
- * are hand-applied), and the register kill switch returns an empty response by
- * design. Either one leaves the analytics absent — and a row of zero tiles beside
- * a named person is an absence claim we would be making on our own infrastructure
- * failure. The rows are already on the page, so the same counts are derivable
- * here; when the view is live the rpc's numbers win.
- */
-function itemCountsFrom(interests: DeclaredInterest[]): ItemCount[] {
-  const byItem = new Map<number, ItemCount>();
-  for (const interest of interests) {
-    if (!interest.currentlyDeclared) continue;
-    const existing = byItem.get(interest.itemNo);
-    if (existing) existing.currentCount += 1;
-    else
-      byItem.set(interest.itemNo, {
-        itemNo: interest.itemNo,
-        label: itemLabelFor(interest.itemNo, interest.itemLabel),
-        currentCount: 1,
-      });
-  }
-  return [...byItem.values()].sort((a, b) => a.itemNo - b.itemNo);
-}
-
-function holderCountsFrom(interests: DeclaredInterest[]): { holder: RegisterHolder; currentCount: number }[] {
-  const byHolder = new Map<RegisterHolder, number>();
-  for (const interest of interests) {
-    if (!interest.currentlyDeclared) continue;
-    byHolder.set(interest.holder, (byHolder.get(interest.holder) ?? 0) + 1);
-  }
-  return [...byHolder.entries()].map(([holder, currentCount]) => ({ holder, currentCount }));
-}
-
-/** Current rows whose start date the form never recorded — the timeline cannot plot them. */
-function undatedCountFrom(interests: DeclaredInterest[]): number {
-  return interests.filter((i) => i.currentlyDeclared && !i.declaredFromKnown).length;
-}
-
-function sumItems(counts: ItemCount[], itemNos: number[]): number {
+function sumItems(counts: ProfileItemCount[], itemNos: number[]): number {
   return counts
     .filter((count) => itemNos.includes(count.itemNo))
     .reduce((sum, count) => sum + count.currentCount, 0);
 }
 
-/** A date-shaped tile, matching the count tiles beside it. */
+/**
+ * A date-shaped tile, matching the count tiles beside it.
+ *
+ * Takes a formatted, non-empty string. There is no placeholder state: the
+ * caller renders no tile at all when it holds no date, because a dash here
+ * would still be a tile claiming to report when the register last moved.
+ */
 function AsAtTile({ value, label }: { value: string; label: string }) {
   return (
     <article className="rounded-lg border bg-card p-4">
-      <div className="text-base font-semibold tabular-nums text-foreground">{value || "—"}</div>
+      <div className="text-base font-semibold tabular-nums text-foreground">{value}</div>
       <div className="text-xs text-muted-foreground">{label}</div>
     </article>
   );
@@ -206,26 +170,15 @@ export default async function PoliticianPage({
 
   // The rpc's aggregates where they exist, the rows' own where they do not. ONE
   // condition drives all three: a half-explorer/half-fallback tile row would put
-  // two different denominators on the same screen.
-  const hasExplorerCounts = (explorer?.itemCounts ?? []).length > 0;
-  const itemCounts: ItemCount[] =
-    hasExplorerCounts
-      ? (explorer?.itemCounts ?? []).map((count) => ({
-          itemNo: count.itemNo,
-          label: itemLabelFor(count.itemNo, count.itemLabel),
-          currentCount: count.currentCount,
-        }))
-      : itemCountsFrom(interests);
-  const holderCounts =
-    hasExplorerCounts && (explorer?.holderCounts ?? []).length > 0
-      ? (explorer?.holderCounts ?? []).map((count) => ({
-          holder: count.holder,
-          currentCount: count.currentCount,
-        }))
-      : holderCountsFrom(interests);
-  const undatedCount = hasExplorerCounts
-    ? (explorer?.undatedCount ?? 0)
-    : undatedCountFrom(interests);
+  // two different denominators on the same screen. That condition is "the rpc
+  // reported a nonzero current count", NOT "the rpc returned rows" — it always
+  // returns fourteen, zeroed or not, so a length check let a cold materialized
+  // view publish "0 entries currently declared" above a populated table. See
+  // profile/aggregates.ts.
+  const { itemCounts, holderCounts, undatedCount } = selectProfileAggregates(
+    explorer,
+    interests,
+  );
   const industryCounts = (explorer?.industryCounts ?? []).map((count) => ({
     industry: count.industry,
     companyCount: count.companyCount,
@@ -260,8 +213,11 @@ export default async function PoliticianPage({
     );
   const latestChange = changes.find((change) => !!change.changedOn);
   // "Register last updated": the newest dated change we hold for this member,
-  // falling back to the extraction's as-at. Never today's date.
-  const lastUpdated = latestChange?.changedOn ?? toDate(explorer?.asAt) ?? asAt;
+  // then the newest date this member's own entries carry. NEVER a refresh clock
+  // — the analytics response's as-at is when the rollup was last rebuilt, and
+  // threading it in here printed TODAY on most profiles. Undefined when we hold
+  // neither date, and the tile is then omitted rather than invented.
+  const lastUpdated = registerLastUpdated(latestChange?.changedOn, asAt);
 
   const sourceDocuments = (explorer?.sourceDocuments ?? []).map((doc) => ({
     label: doc.label,
@@ -418,7 +374,11 @@ export default async function PoliticianPage({
               <CountTile count={realEstateCount} label="real-estate declarations" />
               <CountTile count={liabilityCount} label="liabilities entries" />
               <CountTile count={giftTravelCount} label="gifts and sponsored travel" />
-              <AsAtTile value={shortDate(lastUpdated)} label="register last updated" />
+              {/* Omitted, not blanked: a date tile with a dash in it still
+                  asserts we know when this register last moved. */}
+              {lastUpdated ? (
+                <AsAtTile value={shortDate(lastUpdated)} label="register last updated" />
+              ) : null}
             </div>
             <p className="text-[11px] leading-relaxed text-muted-foreground">
               Counts of register <strong>entries</strong> currently declared. The registers record

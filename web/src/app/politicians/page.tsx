@@ -174,7 +174,15 @@ export default async function PoliticiansPage() {
   const politicianCount = firstPositive(overview?.politicianCount, explorer?.politicianCount);
   if (politicianCount === 0) bailOnEmptyRender();
 
-  const asAt = toDate(explorer?.asAt ?? overview?.asAt);
+  // THE OVERVIEW'S AS-AT FIRST, and it is not interchangeable with the
+  // explorer's. `overview.as_at` is the newest LODGEMENT date in the corpus —
+  // the pinned semantics the SourceLine and the "About this data" band both
+  // publish ("Register of Members' and Senators' Interests, as at DATE"). The
+  // explorer aggregates a materialized view, so its as-at has read as the
+  // refresh clock, and preferring it printed the day of the last rebuild as the
+  // day parliament last filed something. It stays as the fallback for a cold
+  // overview, never as the first choice.
+  const asAt = toDate(overview?.asAt ?? explorer?.asAt);
   const asAtIso = asAt ? asAt.toISOString().slice(0, 10) : "";
   const statedLicence = explorer?.sourceLicence?.trim() ?? "";
   const licence = statedLicence.length > 0 ? statedLicence : REGISTER_LICENCE_FALLBACK;

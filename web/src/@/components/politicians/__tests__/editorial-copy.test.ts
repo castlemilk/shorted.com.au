@@ -190,7 +190,17 @@ describe("politician surface copy", () => {
     // RENDERING_SURFACES 10 -> 9 with the hub table added to HUB_SECTIONS: it
     // is one page's section, that page carries the SourceLine directly beneath
     // it, and a client island cannot import the citation kit at all.
-    expect(FILES.length).toBe(35);
+    //
+    // 35 -> 36: `profile/aggregates.ts`, which decides WHICH numbers the profile
+    // publishes (the analytics rpc's, or the ones derivable from the rows on the
+    // page) and which date its "register last updated" tile may carry. It lived
+    // inline in the page, where the fallback silently never fired and a refresh
+    // clock was published as a filing date; it is counted here because it is
+    // register logic beside a named person, and excluded from
+    // RENDERING_SURFACES as a `profile/` section like the four beside it. It
+    // renders nothing and carries no copy — the labels it returns come from the
+    // register's own taxonomy in `@/lib/politics/register-items`.
+    expect(FILES.length).toBe(36);
     expect(RENDERING_SURFACES.length).toBe(9);
   });
 

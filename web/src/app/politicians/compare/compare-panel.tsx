@@ -40,8 +40,8 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -166,6 +166,29 @@ function parliamentRange(member: Member): string {
   return `${member.firstParliament}th–${member.lastParliament}th Parliaments`;
 }
 
+/**
+ * A provisional display name for a slug that arrived in the URL.
+ *
+ * "Compare with…" on a profile links here as `?a=<slug>`, and until BOTH sides
+ * are chosen no compare request fires — so the canonical name never arrives and
+ * the picker sat visibly empty while a member was in fact selected. The reader
+ * saw no selection, no Clear button, and no way to tell what the page thought
+ * they had asked for.
+ *
+ * So the slug is humanised into a stand-in. It is a rendering of the reader's
+ * own URL, not a fact published about anybody — the moment the comparison
+ * responds, the canonical `display_name` replaces it (`displayA`/`displayB`
+ * prefer the response), and every honorific, hyphen and capital the register
+ * actually records comes with it.
+ */
+function humaniseSlug(slug: string): string {
+  return slug
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 function hitRole(hit: PoliticianHit): string {
   if (hit.chamber === "senate") {
     return hit.state_code ? `Senator for ${hit.state_code}` : "Senator";
@@ -185,6 +208,26 @@ interface PickerProps {
   onClear: () => void;
 }
 
+/**
+ * A member picker that works from the keyboard alone.
+ *
+ * THIS WAS A MOUSE-ONLY WIDGET. It announced `role="combobox"` and then
+ * implemented none of the pattern: no key handling at all, so ArrowDown scrolled
+ * the page, Enter submitted nothing, Escape did nothing, and the only way to
+ * choose a member was to see the list and click it. The options were focusable
+ * `<button>`s nested inside `role="option"` `<li>`s, which is an invalid listbox
+ * — a screen reader is told these are options and then finds buttons inside
+ * them — and the list closed on a 120ms blur timer, which is a race, not a
+ * behaviour. Two named parliamentarians beside each other is not a surface that
+ * may be reachable only with a pointer.
+ *
+ * The pattern now: the input keeps focus throughout and carries
+ * `aria-activedescendant`; options are non-focusable `role="option"` elements
+ * chosen on `mousedown` (which fires before the input's blur, so the pointer
+ * path needs no timer either); arrows move the active option, Enter takes it,
+ * Escape closes; and the list closes on blur ONLY when focus has left the whole
+ * widget.
+ */
 function MemberPicker({
   side,
   label,
@@ -192,22 +235,39 @@ function MemberPicker({
   onSelect,
   onClear,
 }: PickerProps) {
-  const [query, setQuery] = useState("");
+  /**
+   * The text the reader has typed, or null when they have not typed anything
+   * since the last selection.
+   *
+   * NULL IS NOT "": the selected member is rendered as the input's VALUE (a
+   * placeholder is grey, disappears the moment anything is typed, and is not a
+   * selection — the field looked empty while a comparison was loading for it),
+   * so the field needs to distinguish "showing the selection" from "the reader
+   * cleared the box and means it".
+   */
+  const [query, setQuery] = useState<string | null>(null);
   const [hits, setHits] = useState<PoliticianHit[]>([]);
   const [open, setOpen] = useState(false);
   const [failed, setFailed] = useState(false);
-  const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Index of the active option, or -1 for none. Nothing is preselected. */
+  const [activeIndex, setActiveIndex] = useState(-1);
   const listId = `compare-picker-${side.toLowerCase()}`;
+  const inputId = `${listId}-input`;
+  const optionId = (index: number) => `${listId}-option-${index}`;
+  const searchTerm = query ?? "";
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     const timer = setTimeout(() => {
-      searchPoliticians(query, { hitsPerPage: 6, facets: [] })
+      searchPoliticians(searchTerm, { hitsPerPage: 6, facets: [] })
         .then((result) => {
           if (cancelled) return;
           setHits(result.hits);
           setFailed(false);
+          // The active option is an index into a list that just changed, so it
+          // is dropped rather than left pointing at whoever now occupies it.
+          setActiveIndex(-1);
         })
         .catch(() => {
           if (!cancelled) setFailed(true);
@@ -217,47 +277,100 @@ function MemberPicker({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [query, open]);
+  }, [searchTerm, open]);
 
-  useEffect(
-    () => () => {
-      if (blurTimer.current) clearTimeout(blurTimer.current);
-    },
-    [],
-  );
+  const choose = (hit: PoliticianHit) => {
+    setQuery(null);
+    setOpen(false);
+    setActiveIndex(-1);
+    onSelect(hit);
+  };
+
+  const onKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      // preventDefault or the arrow scrolls the page / jumps the caret instead
+      // of moving through the list.
+      event.preventDefault();
+      if (!open) {
+        setOpen(true);
+        return;
+      }
+      if (hits.length === 0) return;
+      const step = event.key === "ArrowDown" ? 1 : -1;
+      setActiveIndex((current) => {
+        const next = current + step;
+        // Wrap, so Up from the top lands on the last member rather than on
+        // nothing — a list of six should never need a scroll to reach either end.
+        if (next < 0) return hits.length - 1;
+        if (next >= hits.length) return 0;
+        return next;
+      });
+      return;
+    }
+    if (event.key === "Enter") {
+      const hit = open ? hits[activeIndex] : undefined;
+      if (!hit) return;
+      // Only when a member is actually active: a bare Enter must not submit an
+      // enclosing form or choose whoever happens to be first.
+      event.preventDefault();
+      choose(hit);
+      return;
+    }
+    if (event.key === "Escape") {
+      if (!open) return;
+      event.preventDefault();
+      setOpen(false);
+      setActiveIndex(-1);
+    }
+  };
 
   return (
     <div className="space-y-1.5">
       <label
         className="block text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
-        htmlFor={`${listId}-input`}
+        htmlFor={inputId}
       >
         {label}
       </label>
-      <div className="relative">
+      <div
+        className="relative"
+        onBlur={(event) => {
+          // Only when focus has left the WHOLE widget. Options are chosen on
+          // mousedown and never take focus, so this fires on a genuine exit
+          // rather than on the way to a click — which is what the old 120ms
+          // timer was papering over.
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+            setOpen(false);
+            setActiveIndex(-1);
+          }
+        }}
+      >
         <Input
-          id={`${listId}-input`}
+          id={inputId}
           role="combobox"
           aria-expanded={open}
           aria-controls={listId}
           aria-autocomplete="list"
+          aria-activedescendant={
+            open && activeIndex >= 0 ? optionId(activeIndex) : undefined
+          }
           autoComplete="off"
-          value={query}
-          placeholder={selectedName || "Search a member or senator…"}
-          onChange={(event) => setQuery(event.target.value)}
-          onFocus={() => setOpen(true)}
-          onBlur={() => {
-            // Deferred: a click on an option fires after blur, and closing
-            // synchronously would unmount the option before it is chosen.
-            blurTimer.current = setTimeout(() => setOpen(false), 120);
+          // The selection IS the value. See the `query` docblock above.
+          value={query ?? selectedName}
+          placeholder="Search a member or senator…"
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setOpen(true);
           }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={onKeyDown}
           className="h-11 pr-16"
         />
         {selectedName ? (
           <button
             type="button"
             onClick={() => {
-              setQuery("");
+              setQuery(null);
               onClear();
             }}
             className="absolute right-2 top-1/2 -translate-y-1/2 rounded px-1.5 py-0.5 text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
@@ -273,51 +386,61 @@ function MemberPicker({
             aria-label={`${label} results`}
             className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-md border bg-popover p-1 shadow-md"
           >
+            {/* role="presentation": a status line is not a selectable option,
+                and leaving it as a bare <li> inside a listbox offers a screen
+                reader an option that cannot be chosen. */}
             {failed ? (
-              <li className="px-2 py-2 text-[11px] text-muted-foreground">
+              <li role="presentation" className="px-2 py-2 text-[11px] text-muted-foreground">
                 Search is unavailable right now. Nothing is missing from the
                 register — only the lookup is down.
               </li>
             ) : null}
             {!failed && hits.length === 0 ? (
-              <li className="px-2 py-2 text-[11px] text-muted-foreground">
+              <li role="presentation" className="px-2 py-2 text-[11px] text-muted-foreground">
                 No members match. Try a surname or an electorate.
               </li>
             ) : null}
-            {hits.map((hit) => (
-              <li key={hit.objectID} role="option" aria-selected={false}>
-                <button
-                  type="button"
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => {
-                    setQuery("");
-                    setOpen(false);
-                    onSelect(hit);
+            {hits.map((hit, index) => (
+              <li
+                key={hit.objectID}
+                id={optionId(index)}
+                role="option"
+                aria-selected={index === activeIndex}
+                // mousedown, not click: it fires BEFORE the input's blur, so the
+                // option is still mounted, and preventDefault keeps focus in the
+                // input instead of moving it to the list.
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  choose(hit);
+                }}
+                // Pointer and keyboard agree on which option is active, so a
+                // hover never leaves a stale highlight behind the caret.
+                onMouseEnter={() => setActiveIndex(index)}
+                className={`flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left ${
+                  index === activeIndex ? "bg-muted" : ""
+                }`}
+              >
+                <PoliticianAvatar
+                  displayName={hit.display_name}
+                  partyAb={hit.party_ab}
+                  size="sm"
+                  photo={{
+                    photoUrl: hit.photo_url,
+                    photoLicence: hit.photo_licence,
+                    photoAuthor: hit.photo_author,
+                    photoSourceUrl: hit.photo_source_url,
                   }}
-                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-muted"
-                >
-                  <PoliticianAvatar
-                    displayName={hit.display_name}
-                    partyAb={hit.party_ab}
-                    size="sm"
-                    photo={{
-                      photoUrl: hit.photo_url,
-                      photoLicence: hit.photo_licence,
-                      photoAuthor: hit.photo_author,
-                      photoSourceUrl: hit.photo_source_url,
-                    }}
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm">
-                      {hit.display_name}
-                    </span>
-                    <span className="block truncate text-[11px] text-muted-foreground">
-                      {[partyLabel(hit.party_ab), hitRole(hit)]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </span>
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm">
+                    {hit.display_name}
                   </span>
-                </button>
+                  <span className="block truncate text-[11px] text-muted-foreground">
+                    {[partyLabel(hit.party_ab), hitRole(hit)]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
+                </span>
               </li>
             ))}
           </ul>
@@ -587,8 +710,13 @@ export function ComparePanel() {
 
   const [slugA, setSlugA] = useState(initialA);
   const [slugB, setSlugB] = useState(initialB);
-  const [nameA, setNameA] = useState("");
-  const [nameB, setNameB] = useState("");
+  // Seeded from the slug, not empty: a deep link from a profile carries one
+  // side, which means no compare request fires and no canonical name ever
+  // arrives — so an empty seed left the picker looking unselected forever. See
+  // humaniseSlug: the response's own display name replaces this as soon as
+  // there is one.
+  const [nameA, setNameA] = useState(() => humaniseSlug(initialA));
+  const [nameB, setNameB] = useState(() => humaniseSlug(initialB));
   const [data, setData] = useState<CompareResponse | null>(null);
   // Seeded from the URL rather than defaulting to "idle": a deep link arrives
   // with both slugs and no data, and an "idle" first paint would flash the
@@ -731,6 +859,23 @@ export function ComparePanel() {
     })).filter((row) => row.countA > 0 || row.countB > 0);
   }, [data]);
 
+  /*
+   * EVERY SENTENCE NAMES ITS BASE, because two of them are counted on different
+   * ones and the card puts them side by side.
+   *
+   * The shared and one-sided lists are ALL-TIME: they are drawn from every
+   * declaration in the documents we have read, current or since removed — the
+   * same basis as the "Currently declared" / "Previously declared" chips in the
+   * tables above, which is why a shared row can be marked previously declared.
+   * `distinctCompanyCount` is CURRENTLY DECLARED, the same basis as the count
+   * tiles on the header cards.
+   *
+   * Unlabelled, the three read as arithmetic about named people and contradict
+   * each other: "4 companies appear in both" beside "A declares 4; B declares 2"
+   * cannot both be true of the same set, and a reader resolving that
+   * contradiction is a reader inferring something we did not say. The numbers
+   * are not changed here — only the base each one is counted on is stated.
+   */
   const facts = useMemo(() => {
     if (!data || !summaryA || !summaryB) return [];
     const shared = data.sharedCompanies.length;
@@ -740,16 +885,16 @@ export function ComparePanel() {
       {
         text:
           shared === 1
-            ? "1 ASX-listed company appears in both members' declarations."
-            : `${shared} ASX-listed companies appear in both members' declarations.`,
+            ? "Across the parliaments we have read, 1 ASX-listed company appears in both members' declarations."
+            : `Across the parliaments we have read, ${shared} ASX-listed companies appear in both members' declarations.`,
       },
       {
-        text: `${displayA} declares ${summaryA.distinctCompanyCount} distinct ASX-listed ${
+        text: `${displayA} currently declares ${summaryA.distinctCompanyCount} distinct ASX-listed ${
           summaryA.distinctCompanyCount === 1 ? "company" : "companies"
-        }; ${displayB} declares ${summaryB.distinctCompanyCount}.`,
+        }; ${displayB} currently declares ${summaryB.distinctCompanyCount}.`,
       },
       {
-        text: `${onlyA} ${onlyA === 1 ? "company appears" : "companies appear"} only in ${displayA}'s declarations, and ${onlyB} only in ${displayB}'s.`,
+        text: `Across the parliaments we have read, ${onlyA} ${onlyA === 1 ? "company appears" : "companies appear"} only in ${displayA}'s declarations, and ${onlyB} only in ${displayB}'s.`,
       },
     ];
     const undated = summaryA.undatedCount + summaryB.undatedCount;

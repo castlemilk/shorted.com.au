@@ -20,7 +20,7 @@
  * politician surface in one command.
  */
 
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -180,6 +180,20 @@ const HIT: PoliticianHit = {
   declared_property_count: 4,
 };
 
+/**
+ * Really focus the field, rather than dispatching a focus event at it.
+ *
+ * `toHaveFocus()` is the assertion these tests exist for — the whole point of an
+ * `aria-activedescendant` combobox is that focus NEVER leaves the input — and
+ * only a real `.focus()` moves `document.activeElement`. It is act-wrapped
+ * because it lands a state update (the listbox opens) outside React's batch.
+ */
+function focusInput(input: HTMLElement) {
+  act(() => {
+    input.focus();
+  });
+}
+
 function mockSearch(hits: PoliticianHit[]) {
   searchPoliticians.mockResolvedValue({
     hits,
@@ -282,8 +296,10 @@ describe("compare panel — pickers and URL", () => {
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "memb" } });
 
-    const option = await screen.findByRole("option");
-    fireEvent.click(within(option).getByRole("button"));
+    // mousedown, not click: an option is not a button any more (a focusable
+    // control inside role="option" is an invalid listbox), and mousedown is what
+    // fires before the input's own blur.
+    fireEvent.mouseDown(await screen.findByRole("option"));
 
     await waitFor(() =>
       expect(comparePoliticians).toHaveBeenCalledWith("a-member", "b-member"),
@@ -321,6 +337,100 @@ describe("compare panel — pickers and URL", () => {
     expect(
       screen.getByRole("listbox", { name: /first member results/i }),
     ).toBeInTheDocument();
+  });
+
+  /**
+   * A DEEP LINK MUST SHOW ITS SELECTION.
+   *
+   * Every profile links here as `?a=<slug>`, and with only one side chosen no
+   * compare request fires — so nothing ever supplied the canonical name and the
+   * picker rendered blank while a member was selected. No name, no Clear button,
+   * nothing to tell the reader what the page thought they had asked for.
+   */
+  it("shows the deep-linked member as a visible, clearable selection", async () => {
+    searchParams = new URLSearchParams("a=anthony-albanese");
+    render(<ComparePanel />);
+
+    // The VALUE, not the placeholder: a placeholder is grey, is not a
+    // selection, and vanishes the moment anything is typed.
+    expect(screen.getByLabelText("First member")).toHaveValue("Anthony Albanese");
+    expect(screen.getByRole("button", { name: "Clear" })).toBeInTheDocument();
+    // The unchosen side is genuinely empty, and offers nothing to clear.
+    expect(screen.getByLabelText("Second member")).toHaveValue("");
+    expect(screen.getAllByRole("button", { name: "Clear" })).toHaveLength(1);
+  });
+
+  it("replaces the humanised slug with the canonical name once the comparison lands", async () => {
+    searchParams = new URLSearchParams("a=a-member&b=b-member");
+    comparePoliticians.mockResolvedValue(compareResponse());
+    render(<ComparePanel />);
+
+    await screen.findByRole("link", { name: "A Member" });
+    // "a-member" was the stand-in; the register's own display name wins the
+    // moment there is one.
+    expect(screen.getByLabelText("First member")).toHaveValue("A Member");
+  });
+
+  /**
+   * THE WHOLE FLOW, WITHOUT A POINTER.
+   *
+   * The widget announced role="combobox" and implemented none of the pattern:
+   * no key handler at all, so ArrowDown scrolled the page and the only way to
+   * pick a member was to see the list and click it.
+   */
+  it("selects a member from the keyboard alone", async () => {
+    searchParams = new URLSearchParams("a=a-member");
+    comparePoliticians.mockResolvedValue(compareResponse());
+    render(<ComparePanel />);
+
+    const input = screen.getByLabelText("Second member");
+    focusInput(input);
+    fireEvent.change(input, { target: { value: "memb" } });
+
+    const option = await screen.findByRole("option");
+    expect(option).toHaveAttribute("aria-selected", "false");
+    expect(input).not.toHaveAttribute("aria-activedescendant");
+
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    expect(option).toHaveAttribute("aria-selected", "true");
+    expect(input).toHaveAttribute("aria-activedescendant", option.id);
+    // Focus never leaves the input — that is what makes activedescendant the
+    // thing a screen reader announces.
+    expect(input).toHaveFocus();
+
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() =>
+      expect(comparePoliticians).toHaveBeenCalledWith("a-member", "b-member"),
+    );
+    expect(input).toHaveFocus();
+    expect(screen.queryByRole("listbox", { name: /second member results/i })).toBeNull();
+  });
+
+  it("closes the list on Escape and keeps focus in the field", async () => {
+    render(<ComparePanel />);
+    const input = screen.getByLabelText("First member");
+    focusInput(input);
+    await screen.findByRole("option");
+
+    fireEvent.keyDown(input, { key: "Escape" });
+
+    expect(screen.queryByRole("listbox", { name: /first member results/i })).toBeNull();
+    expect(input).toHaveFocus();
+    expect(input).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("does nothing on Enter until an option is actually active", async () => {
+    searchParams = new URLSearchParams("a=a-member");
+    render(<ComparePanel />);
+    const input = screen.getByLabelText("Second member");
+    focusInput(input);
+    await screen.findByRole("option");
+
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    // No accidental pick of whoever happens to be first.
+    expect(comparePoliticians).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Second member")).toHaveValue("");
   });
 });
 
@@ -403,6 +513,59 @@ describe("compare panel — the comparison", () => {
     expect(screen.getByText(/Register of Members/)).toBeInTheDocument();
     expect(screen.getByText(/as at/i)).toBeInTheDocument();
     expect(screen.getByText(/Report an error/i)).toBeInTheDocument();
+  });
+
+  /**
+   * KEY FACTS: EVERY SENTENCE NAMES THE BASE IT IS COUNTED ON.
+   *
+   * Two of these three are all-time (the shared and one-sided company lists span
+   * every declaration in the documents we have read, current or since removed —
+   * the same basis as the Currently/Previously chips in the tables above) and
+   * one is currently-declared (the same basis as the header cards' tiles).
+   * Unlabelled they read as arithmetic about two named people and contradict
+   * each other: "1 company appears in both" beside "A declares 4; B declares 2"
+   * cannot both describe one set, and a reader who resolves that contradiction
+   * is inferring something we never said. The numbers here are exactly the ones
+   * the panel always rendered; only the base is now stated.
+   */
+  it("states the base each key fact is counted on", async () => {
+    comparePoliticians.mockResolvedValue(compareResponse());
+    render(<ComparePanel />);
+    await screen.findByText("Key facts");
+
+    expect(
+      screen.getByText(
+        "Across the parliaments we have read, 1 ASX-listed company appears in both members' declarations.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "A Member currently declares 4 distinct ASX-listed companies; B Member currently declares 2.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Across the parliaments we have read, 13 companies appear only in A Member's declarations, and 1 only in B Member's.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("leaves no key fact stating a count without its base", async () => {
+    comparePoliticians.mockResolvedValue(compareResponse());
+    render(<ComparePanel />);
+    const card = (await screen.findByText("Key facts")).closest("section");
+    const sentences = Array.from(card?.querySelectorAll("li") ?? []).map(
+      (li) => li.textContent ?? "",
+    );
+    expect(sentences.length).toBeGreaterThan(0);
+    for (const sentence of sentences) {
+      // Either it says when it was counted, or it is the undated-entries note,
+      // which is about entries carrying no date at all rather than about a
+      // population of companies.
+      expect(
+        /currently declares|across the parliaments we have read|no stated date/i.test(sentence),
+      ).toBe(true);
+    }
   });
 
   it("gives every graphic a text fallback", async () => {

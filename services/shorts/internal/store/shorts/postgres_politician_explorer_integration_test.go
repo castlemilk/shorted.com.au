@@ -587,15 +587,17 @@ func TestCompareCoverageIsPerMemberNotCorpusWide(t *testing.T) {
 		t.Skip("no register documents in this database")
 	}
 
-	// Two members whose service spans genuinely differ.
+	// Two members whose service spans genuinely differ. The spans come from the
+	// politicians row, NOT from politician_terms: terms only exist where a
+	// document extracted, so picking candidates by term would pick them by the
+	// same broken measure this test exists to reject.
 	var slugA, slugB sql.NullString
 	if err := pool.QueryRow(ctx, `
 		WITH spans AS (
-		    SELECT p.slug, min(t.parliament) AS first_p, max(t.parliament) AS last_p
+		    SELECT p.slug, p.first_parliament AS first_p, p.last_parliament AS last_p
 		    FROM politicians p
-		    JOIN politician_terms t ON t.politician_id = p.id
 		    WHERE p.merged_into_id IS NULL
-		    GROUP BY p.slug
+		      AND p.first_parliament IS NOT NULL AND p.last_parliament IS NOT NULL
 		)
 		SELECT (SELECT slug FROM spans ORDER BY first_p, slug LIMIT 1),
 		       (SELECT slug FROM spans ORDER BY first_p DESC, slug LIMIT 1)`).Scan(&slugA, &slugB); err != nil {
@@ -619,9 +621,9 @@ func TestCompareCoverageIsPerMemberNotCorpusWide(t *testing.T) {
 		{slugA.String, comparison.ExtractedParliamentsA, comparison.PartialParliamentsA, comparison.PendingParliamentsA},
 		{slugB.String, comparison.ExtractedParliamentsB, comparison.PartialParliamentsB, comparison.PendingParliamentsB},
 	} {
-		span, err := store.loadMemberParliaments(ctx, side.slug)
+		span, err := store.loadMemberParliamentRange(ctx, side.slug)
 		if err != nil {
-			t.Fatalf("loadMemberParliaments(%q): %v", side.slug, err)
+			t.Fatalf("loadMemberParliamentRange(%q): %v", side.slug, err)
 		}
 		if span == nil {
 			continue // unknown span: the corpus buckets stay whole, by design
@@ -637,13 +639,13 @@ func TestCompareCoverageIsPerMemberNotCorpusWide(t *testing.T) {
 
 	same := fmt.Sprint(comparison.ExtractedParliamentsA, comparison.PartialParliamentsA, comparison.PendingParliamentsA) ==
 		fmt.Sprint(comparison.ExtractedParliamentsB, comparison.PartialParliamentsB, comparison.PendingParliamentsB)
-	spanA, err := store.loadMemberParliaments(ctx, slugA.String)
+	spanA, err := store.loadMemberParliamentRange(ctx, slugA.String)
 	if err != nil {
-		t.Fatalf("loadMemberParliaments(%q): %v", slugA.String, err)
+		t.Fatalf("loadMemberParliamentRange(%q): %v", slugA.String, err)
 	}
-	spanB, err := store.loadMemberParliaments(ctx, slugB.String)
+	spanB, err := store.loadMemberParliamentRange(ctx, slugB.String)
 	if err != nil {
-		t.Fatalf("loadMemberParliaments(%q): %v", slugB.String, err)
+		t.Fatalf("loadMemberParliamentRange(%q): %v", slugB.String, err)
 	}
 	differs := false
 	for _, parliament := range append(append([]int32(nil), corpus.ExtractedParliaments...),
@@ -654,6 +656,191 @@ func TestCompareCoverageIsPerMemberNotCorpusWide(t *testing.T) {
 	}
 	if differs && same {
 		t.Fatal("two members with different covered parliaments still report identical coverage on both sides")
+	}
+}
+
+// A member's coverage span must NOT be narrowed by politician_terms, because a
+// term row is written only where that member's document already EXTRACTED
+// (influence/aph_load.go). Intersecting a coverage bucket with it answered
+// "have we read this?" twice and inverted the warning: of two members in a
+// half-read parliament, the one we HAD read kept the caveat and the one still
+// unread — the only one it applies to — lost it.
+func TestCoverageKeepsPartialParliamentsForMembersWeHaveNotRead(t *testing.T) {
+	pool, cleanup := openPoliticianExplorerIntegrationDB(t)
+	defer cleanup()
+	ctx := context.Background()
+	store := &postgresStore{db: pool}
+
+	// The discriminating member: their served range covers a partially-read
+	// parliament for which they have no term row — i.e. their own document in
+	// that parliament is one of the ones that did not parse.
+	var slug sql.NullString
+	var parliament sql.NullInt32
+	if err := pool.QueryRow(ctx, fmt.Sprintf(`
+		WITH corpus AS (
+		    SELECT parliament,
+		           count(*) AS docs,
+		           count(*) FILTER (WHERE extract_status = 'extracted') AS extracted
+		    FROM register_documents
+		    WHERE parliament IS NOT NULL
+		    GROUP BY parliament
+		), partial AS (
+		    SELECT parliament FROM corpus
+		    WHERE extracted > 0 AND 100.0 * extracted / docs < %v
+		)
+		SELECT p.slug, x.parliament
+		FROM politicians p
+		JOIN partial x ON x.parliament BETWEEN p.first_parliament AND p.last_parliament
+		WHERE p.merged_into_id IS NULL
+		  AND NOT EXISTS (
+		      SELECT 1 FROM politician_terms t
+		      WHERE t.politician_id = p.id AND t.parliament = x.parliament
+		  )
+		ORDER BY p.slug, x.parliament
+		LIMIT 1`, fullyReadPct)).Scan(&slug, &parliament); err != nil {
+		t.Fatalf("choose an unread member of a partial parliament: %v", err)
+	}
+	if !slug.Valid || !parliament.Valid {
+		t.Skip("every member of every partially-read parliament has a term row in it")
+	}
+
+	var other sql.NullString
+	if err := pool.QueryRow(ctx, `
+		SELECT slug FROM politicians
+		WHERE merged_into_id IS NULL AND slug <> $1
+		ORDER BY slug LIMIT 1`, slug.String).Scan(&other); err != nil {
+		t.Fatalf("choose a comparison partner: %v", err)
+	}
+	if !other.Valid {
+		t.Skip("only one live politician in this database")
+	}
+
+	comparison, err := store.ComparePoliticians(slug.String, other.String)
+	if err != nil {
+		t.Fatalf("ComparePoliticians(%q, %q): %v", slug.String, other.String, err)
+	}
+	found := false
+	for _, p := range comparison.PartialParliamentsA {
+		if p == parliament.Int32 {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("%s sat across the %dth but their partial bucket is %v — the caveat was dropped for the member it applies to",
+			slug.String, parliament.Int32, comparison.PartialParliamentsA)
+	}
+
+	// And the whole span is present, not just the read part: the range is
+	// contiguous, so nothing inside it may be missing from the union of buckets.
+	span, err := store.loadMemberParliamentRange(ctx, slug.String)
+	if err != nil {
+		t.Fatalf("loadMemberParliamentRange(%q): %v", slug.String, err)
+	}
+	corpus := &PoliticianRow{}
+	if err := store.loadCoverage(ctx, corpus); err != nil {
+		t.Fatalf("loadCoverage: %v", err)
+	}
+	reported := map[int32]bool{}
+	for _, bucket := range [][]int32{comparison.ExtractedParliamentsA, comparison.PartialParliamentsA, comparison.PendingParliamentsA} {
+		for _, p := range bucket {
+			reported[p] = true
+		}
+	}
+	for _, bucket := range [][]int32{corpus.ExtractedParliaments, corpus.PartialParliaments, corpus.PendingParliaments} {
+		for _, p := range bucket {
+			if span[p] && !reported[p] {
+				t.Errorf("parliament %d is inside %s's span but appears in none of their coverage buckets", p, slug.String)
+			}
+		}
+	}
+}
+
+// as_at is defined by the proto as "the newest lodgement we hold" — a fact
+// about the REGISTER. It used to be served as max(refreshed_at), the moment we
+// last rebuilt the snapshot, which is a fact about US: on this corpus that
+// overstated currency by ten days, beside the names of individual members, and
+// it advanced every night whether or not a single new statement arrived.
+func TestRegisterAsAtIsTheNewestLodgementNotOurRefresh(t *testing.T) {
+	pool, cleanup := openPoliticianExplorerIntegrationDB(t)
+	defer cleanup()
+	ctx := context.Background()
+	store := &postgresStore{db: pool}
+
+	var lodged, refreshed *time.Time
+	if err := pool.QueryRow(ctx, `
+		SELECT (SELECT max(lodged_date) FROM register_statements),
+		       (SELECT max(refreshed_at) FROM mv_register_public_holdings)`).Scan(&lodged, &refreshed); err != nil {
+		t.Fatalf("read the two clocks: %v", err)
+	}
+	if lodged == nil {
+		t.Skip("no dated lodgement in this database")
+	}
+
+	asAt, err := store.registerAsAt(ctx)
+	if err != nil {
+		t.Fatalf("registerAsAt: %v", err)
+	}
+	if !asAt.Equal(*lodged) {
+		t.Fatalf("registerAsAt = %v, want the newest lodgement %v", asAt, *lodged)
+	}
+	if refreshed != nil && !refreshed.Truncate(24*time.Hour).Equal(lodged.Truncate(24*time.Hour)) && asAt.Equal(*refreshed) {
+		t.Fatalf("registerAsAt is still the snapshot-rebuild clock %v", *refreshed)
+	}
+
+	explorer, err := store.GetRegisterExplorer()
+	if err != nil {
+		t.Fatalf("GetRegisterExplorer: %v", err)
+	}
+	if !explorer.AsAt.Equal(*lodged) {
+		t.Fatalf("explorer as_at = %v, want the newest lodgement %v", explorer.AsAt, *lodged)
+	}
+	if explorer.Overview == nil || !explorer.Overview.AsAt.Equal(*lodged) {
+		t.Fatalf("the overview's own as-at disagrees with the explorer's")
+	}
+	// The refresh clock is still carried — it is a real staleness signal — just
+	// not as as_at.
+	if refreshed != nil && explorer.Overview.RefreshedAt.IsZero() {
+		t.Fatal("the snapshot-rebuild clock was dropped instead of relocated")
+	}
+
+	var slugA, slugB sql.NullString
+	if err := pool.QueryRow(ctx, `
+		SELECT (SELECT slug FROM politicians WHERE merged_into_id IS NULL ORDER BY slug LIMIT 1),
+		       (SELECT slug FROM politicians WHERE merged_into_id IS NULL ORDER BY slug DESC LIMIT 1)`).
+		Scan(&slugA, &slugB); err != nil {
+		t.Fatalf("choose politicians: %v", err)
+	}
+	if !slugA.Valid {
+		t.Skip("no live politicians in this database")
+	}
+
+	profile, err := store.GetPoliticianExplorerProfile(slugA.String, 5)
+	if err != nil {
+		t.Fatalf("GetPoliticianExplorerProfile(%q): %v", slugA.String, err)
+	}
+	if !profile.AsAt.Equal(*lodged) {
+		t.Fatalf("profile as_at = %v, want the newest lodgement %v", profile.AsAt, *lodged)
+	}
+
+	if !slugB.Valid || slugA.String == slugB.String {
+		return
+	}
+	comparison, err := store.ComparePoliticians(slugA.String, slugB.String)
+	if err != nil {
+		t.Fatalf("ComparePoliticians: %v", err)
+	}
+	if !comparison.AsAt.Equal(*lodged) {
+		t.Fatalf("compare as_at = %v, want the newest lodgement %v", comparison.AsAt, *lodged)
+	}
+
+	analytics, err := store.GetRegisterAnalytics(14, false)
+	if err != nil {
+		t.Fatalf("GetRegisterAnalytics: %v", err)
+	}
+	// The heatmap renders on the same hub page as the tiles; two "as at" dates
+	// on one screen is a self-contradiction the reader cannot resolve.
+	if !analytics.AsAt.Equal(*lodged) {
+		t.Fatalf("analytics as_at = %v, want the same newest lodgement %v the tiles carry", analytics.AsAt, *lodged)
 	}
 }
 

@@ -327,7 +327,11 @@ func (s *postgresStore) GetRegisterExplorer() (*RegisterExplorerRow, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := &RegisterExplorerRow{Overview: overview, AsAt: overview.RefreshedAt}
+	// The overview's own as-at is max(lodged_date) — the newest lodgement we
+	// hold. Its RefreshedAt (our snapshot-rebuild clock) stays on the overview
+	// for the one rpc that publishes it as a separate field; it must never be
+	// served as this surface's as_at. See registerAsAt.
+	out := &RegisterExplorerRow{Overview: overview, AsAt: overview.AsAt}
 
 	itemRows, err := s.db.Query(ctx, `
 		SELECT i.item_no,
@@ -848,9 +852,26 @@ func (s *postgresStore) loadSourceDocuments(ctx context.Context, slug string) ([
 	return out, rows.Err()
 }
 
+// registerAsAt is THE REGISTER'S clock, not ours: the newest lodgement date
+// across the statements we hold, which is what the proto documents `as_at` to
+// be and what every surface renders as "Register of Members' Interests, as at
+// DATE" under editorial rule 1.
+//
+// It used to read max(refreshed_at) from mv_register_public_holdings — the
+// moment WE last rebuilt the snapshot. Those two dates are not close: on the
+// dev corpus the newest lodgement is 2026-07-21 and the last refresh is
+// 2026-07-31, so every explorer surface asserted ten days of currency we do not
+// have, beside the names of individual members, and a nightly refresh over an
+// unchanged corpus would keep advancing the claim forever. When the snapshot
+// clock matters (it is a staleness signal, not a provenance one) it rides on
+// RegisterOverviewRow.RefreshedAt, which the proto carries as its own separate
+// `refreshed_at` field.
+//
+// A zero return means we hold no dated lodgement at all; the caller must leave
+// as_at unset rather than substitute a timestamp of ours.
 func (s *postgresStore) registerAsAt(ctx context.Context) (time.Time, error) {
 	var asAt *time.Time
-	if err := s.db.QueryRow(ctx, `SELECT max(refreshed_at) FROM mv_register_public_holdings`).Scan(&asAt); err != nil {
+	if err := s.db.QueryRow(ctx, `SELECT max(lodged_date) FROM register_statements`).Scan(&asAt); err != nil {
 		return time.Time{}, err
 	}
 	if asAt == nil {
@@ -859,55 +880,64 @@ func (s *postgresStore) registerAsAt(ctx context.Context) (time.Time, error) {
 	return *asAt, nil
 }
 
-// loadMemberParliaments answers "which parliaments does this person appear in",
-// so a corpus-wide coverage bucket can be narrowed to the parliaments that bear
-// on THEM.
+// parliamentRange is the CONTIGUOUS span first..last, as a set.
 //
-// Their own terms are the truth where we have them (politician_terms is one row
-// per parliament served, so it also handles a member who came and went and came
-// back). first_parliament..last_parliament is the fallback span.
+// Deliberately contiguous, and deliberately not derived from politician_terms.
+// A term row is written only when that member's document has been EXTRACTED
+// (influence/aph_load.go's resolvePolitician), so the terms set is a record of
+// what we have READ, not of when the person served — and intersecting a
+// coverage bucket with it silently answers "have we read this?" twice:
 //
-// A nil result means WE DO NOT KNOW when they served — no terms and no span.
-// Narrowing on a guess would publish a false coverage claim about a named
-// person, so the caller keeps the corpus-wide buckets whole in that case: a
-// superset is honest, an invented subset is not.
-func (s *postgresStore) loadMemberParliaments(ctx context.Context, slug string) (map[int32]bool, error) {
+//   - the PENDING bucket became unreachable. A pending parliament is one with
+//     zero extracted documents, so by construction nobody has a term in it, so
+//     `pending ∩ terms` was ALWAYS empty. The one bucket the caveat exists to
+//     announce could never be announced.
+//   - the PARTIAL bucket inverted. Of two members in a half-read parliament,
+//     the one whose document we DID read kept it (they have the term) and the
+//     one whose document is still unread lost it (they do not) — the warning
+//     appeared against the member it did not apply to and vanished from the
+//     member it did, and for a member with no read parliaments at all it
+//     collapsed to "coverage for this member is not recorded".
+//
+// first_parliament/last_parliament are widened by LEAST/GREATEST across every
+// document loaded for the person, so the range between them spans the
+// parliaments they sat in whether or not the middle ones parsed: Dan Tehan's
+// terms are {44,45,48} because the 46th and 47th failed to extract, but his
+// range 44..48 correctly says those two half-read parliaments bear on him.
+//
+// A nil result means WE DO NOT KNOW when they served. Narrowing on a guess
+// would publish a false coverage claim about a named person, so the caller
+// keeps the corpus-wide buckets whole in that case: a superset is honest, an
+// invented subset is not.
+func parliamentRange(first, last int32) map[int32]bool {
+	if first <= 0 || last < first {
+		return nil
+	}
+	span := make(map[int32]bool, last-first+1)
+	for parliament := first; parliament <= last; parliament++ {
+		span[parliament] = true
+	}
+	return span
+}
+
+// loadMemberParliamentRange reads the member's served range from the
+// politicians row — a column pair that is independent of whether any given
+// parliament's documents extracted. See parliamentRange.
+func (s *postgresStore) loadMemberParliamentRange(ctx context.Context, slug string) (map[int32]bool, error) {
 	var first, last int32
-	var terms []int32
 	if err := s.db.QueryRow(ctx, `
 		SELECT COALESCE(p.first_parliament, 0)::INTEGER,
-		       COALESCE(p.last_parliament, 0)::INTEGER,
-		       COALESCE(
-		           array_agg(DISTINCT t.parliament) FILTER (WHERE t.parliament IS NOT NULL),
-		           '{}'
-		       )::INTEGER[]
+		       COALESCE(p.last_parliament, 0)::INTEGER
 		FROM politicians p
-		LEFT JOIN politician_terms t ON t.politician_id = p.id
-		WHERE p.slug = $1 AND p.merged_into_id IS NULL
-		GROUP BY p.first_parliament, p.last_parliament`, slug).Scan(&first, &last, &terms); err != nil {
+		WHERE p.slug = $1 AND p.merged_into_id IS NULL`, slug).Scan(&first, &last); err != nil {
 		return nil, err
 	}
-
-	span := map[int32]bool{}
-	for _, parliament := range terms {
-		if parliament > 0 {
-			span[parliament] = true
-		}
-	}
-	if len(span) == 0 && first > 0 && last >= first {
-		for parliament := first; parliament <= last; parliament++ {
-			span[parliament] = true
-		}
-	}
-	if len(span) == 0 {
-		return nil, nil
-	}
-	return span, nil
+	return parliamentRange(first, last), nil
 }
 
 // intersectParliaments narrows one corpus coverage bucket to a member's span,
 // preserving the corpus ordering. A nil span means the span is unknown (see
-// loadMemberParliaments) and the bucket is returned whole.
+// parliamentRange) and the bucket is returned whole.
 func intersectParliaments(corpus []int32, span map[int32]bool) []int32 {
 	if span == nil {
 		return append([]int32(nil), corpus...)
@@ -1033,11 +1063,11 @@ func (s *postgresStore) ComparePoliticians(slugA, slugB string) (*PoliticianComp
 	if err := s.loadCoverage(ctx, coverage); err != nil {
 		return nil, err
 	}
-	spanA, err := s.loadMemberParliaments(ctx, slugA)
+	spanA, err := s.loadMemberParliamentRange(ctx, slugA)
 	if err != nil {
 		return nil, err
 	}
-	spanB, err := s.loadMemberParliaments(ctx, slugB)
+	spanB, err := s.loadMemberParliamentRange(ctx, slugB)
 	if err != nil {
 		return nil, err
 	}

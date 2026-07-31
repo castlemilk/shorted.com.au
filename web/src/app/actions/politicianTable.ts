@@ -110,9 +110,15 @@ function toTableQuery(query: PoliticianSummaryQuery): PoliticianTableQuery {
  * property access, at prerender time, where neither jest nor tsc can see it.
  *
  * NEVER THROWS. It is awaited by the static page's own render, so a failed fetch
- * must degrade to an empty page rather than take the route down; the island
- * words its empty state according to whether a filter is active, so an outage
- * with no filters set does not read as "no member declares anything".
+ * must degrade to an empty page rather than take the route down.
+ *
+ * WHICH IS WHY IT REPORTS `ok`. A failed fetch and a filter nobody matches both
+ * arrive as zero rows, and the two mean opposite things: one is our outage, the
+ * other is an honest answer about the filter. Collapsing them let the island
+ * word an outage as "No members match these filters" — a false absence claim
+ * about every named member the filter covers, published on our own downtime.
+ * `ok: false` is therefore a FIRST-CLASS RESULT, not an error: the island routes
+ * it to the outage copy it already had, and the page still renders.
  *
  * The echoed `query` is the CLAMPED one, so the island's controls always show
  * what the server actually ran.
@@ -123,10 +129,14 @@ export async function loadPoliticianTable(
   const query = clampPoliticianSummaryQuery(input);
   const echo = toTableQuery(query);
   const resp = await listPoliticianSummaries(query);
-  if (!resp) return { rows: [], total: 0, query: echo };
+  // `undefined` is the retry helper's exhausted/not-found signal: the request
+  // did not answer. A genuinely empty filtered result comes back as a RESPONSE
+  // carrying no summaries, and reaches the `ok: true` return below with zero
+  // rows — which is what lets the island tell the two apart.
+  if (!resp) return { rows: [], total: 0, query: echo, ok: false };
 
   const rows = (resp.summaries ?? [])
     .map(toRow)
     .filter((row): row is PoliticianTableRow => row !== null);
-  return { rows, total: Number(resp.total ?? 0), query: echo };
+  return { rows, total: Number(resp.total ?? 0), query: echo, ok: true };
 }

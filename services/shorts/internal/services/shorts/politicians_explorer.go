@@ -260,7 +260,11 @@ func (s *ShortsServer) GetRegisterExplorer(
 			out.FirstParliament = row.Overview.FirstParliament
 			out.LastParliament = row.Overview.LastParliament
 			if out.AsAt == nil {
-				out.AsAt = registerTimestamp(row.Overview.RefreshedAt)
+				// The overview's as-at is the same lodgement max the row already
+				// carries, so this is a belt-and-braces re-read, NOT a fallback to
+				// RefreshedAt. Substituting our snapshot clock here would restate
+				// the very claim as_at is defined to make.
+				out.AsAt = registerTimestamp(row.Overview.AsAt)
 			}
 		}
 		for _, item := range row.ItemCounts {
@@ -318,13 +322,16 @@ func (s *ShortsServer) ListPoliticianSummaries(
 					out.AsAt = registerTimestamp(row.AsAt)
 				}
 			}
+			// An empty page still states which register it is empty OF — but with
+			// the register's own as-at (the newest lodgement we hold), never the
+			// snapshot-rebuild clock this used to reach for.
 			if len(out.Summaries) == 0 {
 				overview, err := s.store.GetRegisterOverview()
 				if err != nil {
 					return nil, err
 				}
 				if overview != nil {
-					out.AsAt = registerTimestamp(overview.RefreshedAt)
+					out.AsAt = registerTimestamp(overview.AsAt)
 				}
 			}
 			return out, nil

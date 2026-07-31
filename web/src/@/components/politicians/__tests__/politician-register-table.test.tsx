@@ -8,10 +8,12 @@
  *     ENTRIES, and a large minority of those entries list more than one address.
  *     Rendering it as "properties" states a tally the register does not support,
  *     so the column label is asserted here rather than left to review.
- *   - AN EMPTY TABLE MEANS TWO OPPOSITE THINGS. With a filter set it is an
- *     honest answer about the filter; with no filter it can only be our own
- *     outage, and "no members match" would then read as an absence claim about
- *     every member of parliament at once.
+ *   - AN EMPTY TABLE MEANS TWO OPPOSITE THINGS. With a filter set AND a response
+ *     that answered it is an honest answer about the filter; with no filter, or
+ *     with a request that never answered, it can only be our own outage — and
+ *     "no members match" would then read as an absence claim about every member
+ *     the filter covers. The action reports which case it is (`ok`), because
+ *     both arrive here as zero rows and nothing else can tell them apart.
  *   - A SLOW RESPONSE MUST NOT WIN. Two quick filter changes race, and if the
  *     older one is allowed to land the table shows rows matching neither
  *     control while the controls claim otherwise.
@@ -77,13 +79,20 @@ function page(overrides: Partial<PoliticianTablePage> = {}): PoliticianTablePage
     rows: [row()],
     total: 1,
     query: baseQuery(),
+    ok: true,
     ...overrides,
   };
 }
 
-/** A loader that resolves with the query it was handed, echoed back. */
-function echoLoader(rows: PoliticianTableRow[] = [row()], total = rows.length) {
-  return jest.fn(async (query: PoliticianTableQuery) => ({ rows, total, query }));
+/**
+ * A loader that resolves with the query it was handed, echoed back.
+ *
+ * `ok` defaults to true — the request answered. Pass `false` for the outage that
+ * resolves rather than throws, which is the shape the action returns when the
+ * rpc gives it nothing.
+ */
+function echoLoader(rows: PoliticianTableRow[] = [row()], total = rows.length, ok = true) {
+  return jest.fn(async (query: PoliticianTableQuery) => ({ rows, total, query, ok }));
 }
 
 describe("politician register table", () => {
@@ -218,13 +227,19 @@ describe("politician register table", () => {
         (query) =>
           new Promise<PoliticianTablePage>((resolve) => {
             resolveFirst = () =>
-              resolve({ rows: [row({ slug: "stale", displayName: "Stale Member" })], total: 1, query });
+              resolve({
+                rows: [row({ slug: "stale", displayName: "Stale Member" })],
+                total: 1,
+                query,
+                ok: true,
+              });
           }),
       )
       .mockImplementationOnce(async (query) => ({
         rows: [row({ slug: "fresh", displayName: "Fresh Member" })],
         total: 1,
         query,
+        ok: true,
       }));
 
     render(<PoliticianRegisterTable initialPage={page()} loadPage={loadPage} />);
@@ -261,7 +276,7 @@ describe("politician register table", () => {
     expect(screen.queryByText(/No members match/i)).toBeNull();
   });
 
-  it("says nothing is missing from the register when the action fails", async () => {
+  it("says nothing is missing from the register when the action throws", async () => {
     const loadPage = jest.fn(async () => {
       throw new Error("boom");
     });
@@ -273,6 +288,44 @@ describe("politician register table", () => {
         screen.getByText(/nothing here is missing from the register/i),
       ).toBeInTheDocument(),
     );
+  });
+
+  /**
+   * THE OUTAGE THAT RESOLVES INSTEAD OF THROWING — the one the thrown-loader
+   * test above could never reach.
+   *
+   * `loadPoliticianTable` never throws: it is awaited by the static page's own
+   * render, so a dead rpc degrades to zero rows. With a filter set, that used to
+   * render "No members match these filters" — a false absence claim about every
+   * member the filter covers, published on our own downtime. The action now says
+   * `ok: false`, and nothing else in the payload can tell the two apart.
+   */
+  it("words a resolved outage as an outage, never as an empty filter result", async () => {
+    const loadPage = echoLoader([], 0, false);
+    render(<PoliticianRegisterTable initialPage={page()} loadPage={loadPage} />);
+
+    fireEvent.change(screen.getByLabelText("Chamber"), { target: { value: "senate" } });
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/These filters could not be applied just now/i),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(/No members match these filters/i)).toBeNull();
+    expect(screen.getByText(/nothing here is missing from the register/i)).toBeInTheDocument();
+  });
+
+  it("carries the outage through the first server-rendered page too", () => {
+    // The hub awaits this action during its own render, so an outage can arrive
+    // in `initialPage` before the island has fetched anything at all.
+    render(
+      <PoliticianRegisterTable
+        initialPage={page({ rows: [], total: 0, ok: false })}
+        loadPage={echoLoader()}
+      />,
+    );
+    expect(screen.getByText(/table is unavailable right now/i)).toBeInTheDocument();
+    expect(screen.queryByText(/No members match/i)).toBeNull();
   });
 
   it("gives the table a caption and every count column a header", () => {
