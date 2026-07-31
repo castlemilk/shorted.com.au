@@ -95,7 +95,19 @@ export default async function PoliticiansPage() {
     isAccessibleForFree: true,
     creator: { "@type": "Organization", name: "Shorted", url: "https://shorted.com.au" },
     spatialCoverage: "Australia",
-    license: "https://www.aph.gov.au/Help/Disclaimer_Privacy_Copyright",
+    // NO `license` HERE, DELIBERATELY.
+    //
+    // This block declares `creator: Shorted`, so a `license` on it is a
+    // machine-readable claim about OUR terms for OUR dataset. It used to point
+    // at aph.gov.au's copyright page — which is CC BY-NC-ND 4.0. That asserted
+    // a NonCommercial-NoDerivs grant we have no standing to make, on a paid
+    // product, and it contradicts the posture the subsystem is actually built
+    // on: §3.1 publishes extracted FACTS with attribution, and facts carry no
+    // licence to grant.
+    //
+    // The source relationship belongs in `sourceOrganization` (below) and in
+    // the visible SourceLine, both of which say where the data came from
+    // without claiming terms over it.
     sourceOrganization: [
       {
         "@type": "GovernmentOrganization",

@@ -66,12 +66,24 @@ type politicianPhoto struct {
 	EntityID  string
 }
 
+// Q18912794 = member of the Australian House of Representatives (1,249 holders)
+// Q6814428  = member of the Australian Senate (658 holders)
+//
+// THIS SHIPPED WITH THE WRONG SENATE ITEM. It read Q19795070, which has NO
+// English label and ZERO P39 holders — it is a Korean clan-name item, not a
+// parliamentary position. The portrait job was therefore structurally
+// House-only: no senator could ever match, and nothing failed loudly to say so.
+// Verified against the live endpoint before and after the change.
+//
+// The corpus is 100% House today, so the live impact was zero — but §9 lists the
+// 35 Senate volumes as a next step, and this would have silently under-covered
+// them the moment they landed.
 const wikidataMembersQuery = `
 SELECT ?person ?personLabel ?districtLabel ?img WHERE {
   ?person p:P39 ?ps .
   ?ps ps:P39 ?pos .
-  VALUES ?pos { wd:Q18912794 wd:Q19795070 }
-  ?ps pq:P768 ?district .
+  VALUES ?pos { wd:Q18912794 wd:Q6814428 }
+  OPTIONAL { ?ps pq:P768 ?district . }
   ?person wdt:P18 ?img .
   SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
 }`
@@ -252,9 +264,11 @@ func cleanCredit(s string) string {
 
 // ourPolitician is one of our people, with the division the match needs.
 type ourPolitician struct {
-	Slug     string
-	Surname  string
-	Division string
+	Slug      string
+	Surname   string
+	Division  string
+	Chamber   string
+	StateCode string
 }
 
 func loadPoliticiansForPhotos(ctx context.Context, pool *pgxpool.Pool) ([]ourPolitician, error) {
@@ -266,6 +280,14 @@ func loadPoliticiansForPhotos(ctx context.Context, pool *pgxpool.Pool) ([]ourPol
 		       COALESCE((
 		         SELECT s.declared_division FROM register_statements s
 		         WHERE s.politician_id = p.id AND btrim(s.declared_division) <> ''
+		         ORDER BY s.parliament DESC NULLS LAST LIMIT 1), ''),
+		       COALESCE((
+		         SELECT s.chamber FROM register_statements s
+		         WHERE s.politician_id = p.id AND btrim(s.chamber) <> ''
+		         ORDER BY s.parliament DESC NULLS LAST LIMIT 1), ''),
+		       COALESCE((
+		         SELECT s.declared_state FROM register_statements s
+		         WHERE s.politician_id = p.id AND btrim(s.declared_state) <> ''
 		         ORDER BY s.parliament DESC NULLS LAST LIMIT 1), '')
 		FROM politicians p
 		WHERE p.merged_into_id IS NULL`)
@@ -277,7 +299,7 @@ func loadPoliticiansForPhotos(ctx context.Context, pool *pgxpool.Pool) ([]ourPol
 	var out []ourPolitician
 	for rows.Next() {
 		var p ourPolitician
-		if err := rows.Scan(&p.Slug, &p.Surname, &p.Division); err != nil {
+		if err := rows.Scan(&p.Slug, &p.Surname, &p.Division, &p.Chamber, &p.StateCode); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
@@ -303,18 +325,46 @@ func photoMatchKey(s string) string {
 // the count withheld for ambiguity.
 func matchPortraits(ours []ourPolitician, members []wikidataMember) (map[string]wikidataMember, int) {
 	index := map[string][]wikidataMember{}
+	noDistrict := 0
 	for _, m := range members {
+		// P768 CARRIES THE STATE FOR A SENATOR, not a division — measured:
+		// 400 of 400 sampled Senate rows have it, holding "Victoria",
+		// "South Australia" and so on. So one index serves both chambers; what
+		// differs is which of OUR columns supplies the second half of the key.
+		if m.District == "" {
+			noDistrict++
+			continue
+		}
 		key := photoMatchKey(lastWord(m.Label)) + "|" + photoMatchKey(m.District)
 		index[key] = append(index[key], m)
+	}
+	if noDistrict > 0 {
+		log.Printf("[register-photos] %d Wikidata records carry a portrait but no district/state — withheld", noDistrict)
 	}
 
 	matched := map[string]wikidataMember{}
 	ambiguous := 0
 	for _, p := range ours {
-		if p.Division == "" || p.Surname == "" {
+		if p.Surname == "" {
 			continue
 		}
-		candidates := index[photoMatchKey(p.Surname)+"|"+photoMatchKey(p.Division)]
+		// A House member is keyed on their DIVISION; a senator on their STATE,
+		// because that is what each represents and what Wikidata's P768 holds
+		// for them.
+		//
+		// The state key is used ONLY for senators. Applying it to a House member
+		// would key ~30 people in NSW to one bucket — the ambiguity guard would
+		// mostly catch it, but a surname that happens to be unique within a
+		// state would slip through and put a stranger's face on a named person.
+		// Narrow key or nothing.
+		region := p.Division
+		if p.Chamber == "senate" {
+			region = p.StateCode
+		}
+		if region == "" {
+			continue
+		}
+		candidates := index[photoMatchKey(p.Surname)+"|"+photoMatchKey(region)]
 		switch {
 		case len(candidates) == 1:
 			matched[p.Slug] = candidates[0]
