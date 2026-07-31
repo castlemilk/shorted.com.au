@@ -3,9 +3,11 @@
 Living roadmap. Current phase: **post head-term retarget (July 2026)** —
 companion to the full research doc at `docs/seo-strategy-2026-07.md`
 (13-agent competitive research, 2026-07-15). The May 2026 wave and its
-tracking table are preserved in §8.
+tracking table are preserved in §9.
 
-Last updated: **2026-07-27**
+Last updated: **2026-07-31** — the July build queue is CLOSED (§8). What
+remains is owner-action (GSC, outreach, key rotation, Publisher Center) and a
+2–6 week measurement window, not code.
 
 ---
 
@@ -105,6 +107,8 @@ ignored every command while appearing to load. Fixed + regression-pinned.
 | 3 | ~~Auto-generated "shorts building / covering" prose~~ | build | — | **SHIPPED** — `ShortFlowNarrative` on the homepage, prose from the cached 1w movers data (see §5) |
 | 4 | ~~Extend crawlable homepage/top list beyond 20 rows~~ | build | — | **SHIPPED** — homepage SSR table now 100 rows via the summary-only RPC (see §5) |
 | 5 | **Rotate `GEMINI_API_KEY_NEWS`** | Ben | S | News embeddings silently failing for weeks → degrades related-news internal linking (a crawl-graph signal) |
+| 5a | ~~Outreach assets: embeddable widgets + press kit~~ | build | — | **SHIPPED** (§8) — the embed snippet now carries a real backlink, all four widgets have an embed button, and `/press` is the page to point an editor at |
+| 5b | ~~Social cards for every route~~ | build | — | **SHIPPED** (§8) — 34 routes, six of which previously emitted NO `og:image` at all |
 | 6 | ~~Company-name quality~~ | build | — | **SHIPPED** (§6) — formatter fixed in web + both Go copies, and the read path now prefers the enriched `company-metadata.company_name` over the truncated ASIC `PRODUCT` string (28.5% of names materially better). Resync no longer blocking: the display layer repairs the stored rows |
 | 7 | **Google News Publisher Center** registration | Ben | S | Carried from the May wave — still the unlock for Top Stories/News tab; NewsArticle schema is ready |
 | 8 | **Sector hubs decision** (`/sectors/*` editorial) | Ben | M | Carried from May (deferred on editorial copy). Note `/industry/[slug]` pages now exist — decide whether to invest editorial there instead |
@@ -128,6 +132,20 @@ ignored every command while appearing to load. Fixed + regression-pinned.
   pipeline's post-promote revalidate step must stay green.
 - Never import `shorts_pb` in web routes (drags the legacy descriptor into
   the bundle); domain `_pb` modules only.
+- **Next merges page metadata SHALLOWLY.** A page-level `openGraph` without an
+  `images` key does NOT inherit the parent's — it drops it, and the page emits
+  no `og:image` at all. Six pages shipped that way.
+- **An explicit `openGraph.images` SHADOWS `opengraph-image.tsx`.** If a route
+  has its own generator, do not also set `images` (or point it at that route's
+  own card). This made bespoke generators dead code on eleven routes.
+- **Satori: no `radial-gradient`, and flex `gap` collapses.** Use margins, give
+  every multi-child node an explicit `display`, and RENDER the card — neither
+  failure shows up in code review.
+- Any modal/dialog on `/`, `/top` or `/statistics` must be click-loaded via
+  `next/dynamic`; importing one eagerly blew the 5% bundle-budget gate.
+- A capped pagination feeding a published figure must have headroom AND a check
+  that the cap is not being reported as data — `/statistics` published the
+  page cap (3,000) as a company count for months.
 - Company names reaching the UI come from **two** shapes: enriched
   `company-metadata` (title-cased) and the raw ASIC `PRODUCT` field off the
   `shorts` table ("4DMEDICAL LIMITED ORDINARY"). Any new surface that renders
@@ -153,6 +171,16 @@ ignored every command while appearing to load. Fixed + regression-pinned.
 | Lowercase the possessive s after an apostrophe | #368 | 2026-07-27 |
 | Prefer enriched company name over truncated ASIC PRODUCT (28.5% better) | #369 | 2026-07-27 |
 | Re-case all-lowercase stored names, drop trailing parenthetical | #370 | 2026-07-27 |
+| Lowercase mid-name minor words (Bank **Of** → **of**) | #372 | 2026-07-27 |
+| Drop ASX T+1 as an option (§7) | #373 | 2026-07-27 |
+| Embed snippets carry a crawlable host-page backlink | #374 | 2026-07-30 |
+| Press kit `/press` + homepage `<details>` expanders + the 3,267 count fix | #375, #377 | 2026-07-30 |
+| Organization logo schema + canonical mark settled | #380 | 2026-07-30 |
+| Social cards: 22 hub routes, 6 pages had NO `og:image` at all | #383 | 2026-07-31 |
+| Social cards: parameterised routes (`/compare/[pair]` head-to-head, scans, glossary, state) | #384 | 2026-07-31 |
+| Company logos on the share cards (aspect-aware light chip) | #386 | 2026-07-31 |
+| StateCharts test QueryClient — suite back to fully green | #387 | 2026-07-31 |
+| Social cards: final six routes — OG coverage complete | #388 | 2026-07-31 |
 
 ---
 
@@ -232,7 +260,59 @@ authority/backlinks (§3 item 2), which is the actual gap.
 
 ---
 
-## 8. May 2026 wave (historical — all shipped unless noted)
+## 8. Shareability & outreach assets (30–31 July) — PRs #374–#388
+
+The July wave's build queue closed here. Two threads, both aimed at the one
+gap no on-page work can close: **authority**.
+
+### Embeds now actually pass link equity (#374)
+
+The copy-snippet produced a bare `<iframe>` and the only attribution lived
+INSIDE the frame — but `/embed/*` is `noindex,nofollow` AND robots-disallowed,
+so every embed anyone had installed was worth **nothing**. The snippet is now a
+`<figure>` whose `<figcaption>` sits in the HOST page's markup with a deep link
+(keyword anchor) plus the brand link. Embed buttons went from one widget to all
+four.
+
+### `/press` (#375, #377)
+
+One page to point an editor at: copyable live citations, republication rules,
+logo downloads, quick facts, one contact. Also added Statistics / Scans / Open
+Data / Press to the footer — `/data` and `/statistics` had NO footer link.
+
+### Social cards: 0 → 34 routes (#383, #384, #386, #388)
+
+Six major pages emitted **no `og:image` at all** (`/about`, `/data`,
+`/economy`, `/housing`, `/price-drops`, `/politicians`) — shared anywhere they
+were bare text links. Now every public route group has a card, four of them
+data-driven (`/statistics` "$88.3B is short-sold", `/top`'s current leader,
+`/compare/[pair]` head-to-head, `/shorts/[code]`), and stock/compare/director
+cards carry the company's own logo.
+
+### The three traps this thread kept hitting
+
+1. **Next merges metadata SHALLOWLY** — a page-level `openGraph` without an
+   `images` key DROPS the inherited one and emits nothing.
+2. **An explicit `openGraph.images` SHADOWS `opengraph-image.tsx`** — it made
+   bespoke generators dead code on eleven routes, including two report cards
+   rendering real data that nobody ever saw.
+3. **Satori collapses flex `gap`** — a wide logo chip beside the ticker
+   overlapped and hid it. Neither this nor the trap above is visible in code
+   review; you have to RENDER the card.
+
+### Deliberately not done
+
+- **`/politicians/[slug]` cards.** A PNG cannot carry a clickable dispute path,
+  so the editorial exemption in `editorial-copy.test.ts` holds only while the
+  card names nobody. Needs an editorial decision, not a commit.
+- **ASX T+1** — rejected on licensing, see §7.
+- **A true vector logo** — none exists (`logo 1.svg` is a 1MB raster in an SVG
+  wrapper). The press kit ships PNGs and invites an email. Still worth
+  commissioning.
+
+---
+
+## 9. May 2026 wave (historical — all shipped unless noted)
 
 <details>
 <summary>Original Tier 1–4 items + tracking table (last updated 2026-05-17)</summary>
