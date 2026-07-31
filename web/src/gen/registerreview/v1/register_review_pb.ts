@@ -11,7 +11,560 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file registerreview/v1/register_review.proto.
  */
 export const file_registerreview_v1_register_review: GenFile = /*@__PURE__*/
-  fileDesc("CidyZWdpc3RlcnJldmlldy92MS9yZWdpc3Rlcl9yZXZpZXcucHJvdG8SEXJlZ2lzdGVycmV2aWV3LnYxIpIBCg5EZWNsYXJlZFNhbXBsZRIVCg1kZWNsYXJlZF90ZXh0GAEgASgJEhcKD3BvbGl0aWNpYW5fbmFtZRgCIAEoCRIXCg9wb2xpdGljaWFuX3NsdWcYAyABKAkSDwoHaXRlbV9ubxgEIAEoBRISCgpwYXJsaWFtZW50GAUgASgFEhIKCnNvdXJjZV91cmwYBiABKAkiZgoHTGlzdGluZxISCgpzdG9ja19jb2RlGAEgASgJEhQKDGNvbXBhbnlfbmFtZRgCIAEoCRIVCg1leGlzdGluZ191c2VzGAMgASgFEhoKEmlzX3N0b3B3b3JkX3RpY2tlchgEIAEoCCLAAQoNQWxpYXNQcm9wb3NhbBIbChNwcm9wb3NlZF9zdG9ja19jb2RlGAEgASgJEh0KFXByb3Bvc2VkX2NvbXBhbnlfbmFtZRgCIAEoCRISCgpjb25maWRlbmNlGAMgASgBEhEKCXJhdGlvbmFsZRgEIAEoCRINCgVtb2RlbBgFIAEoCRItCglzaG9ydGxpc3QYBiADKAsyGi5yZWdpc3RlcnJldmlldy52MS5MaXN0aW5nEg4KBnN0YXR1cxgHIAEoCSKqAgoRU2VjdXJpdHlRdWV1ZUl0ZW0SFgoOY2FuZGlkYXRlX25vcm0YASABKAkSDwoHZXhhbXBsZRgCIAEoCRITCgtvY2N1cnJlbmNlcxgDIAEoBRIOCgZwZW9wbGUYBCABKAUSDQoFaXRlbXMYBSADKAUSEwoLcGFybGlhbWVudHMYBiADKAUSFAoMZW50aXR5X2tpbmRzGAcgAygJEhEKCWdhdGVfcm93cxgIIAEoBRISCgpza2lwX2NvdW50GAkgASgFEjIKB3NhbXBsZXMYCiADKAsyIS5yZWdpc3RlcnJldmlldy52MS5EZWNsYXJlZFNhbXBsZRIyCghwcm9wb3NhbBgLIAEoCzIgLnJlZ2lzdGVycmV2aWV3LnYxLkFsaWFzUHJvcG9zYWwiTAoYTGlzdFNlY3VyaXR5UXVldWVSZXF1ZXN0Eg0KBWxpbWl0GAEgASgFEg4KBm9mZnNldBgCIAEoBRIRCglnYXRlX29ubHkYAyABKAgifgoZTGlzdFNlY3VyaXR5UXVldWVSZXNwb25zZRIzCgVpdGVtcxgBIAMoCzIkLnJlZ2lzdGVycmV2aWV3LnYxLlNlY3VyaXR5UXVldWVJdGVtEhgKEHRvdGFsX2NhbmRpZGF0ZXMYAiABKAUSEgoKdG90YWxfcm93cxgDIAEoBSI1ChVTZWFyY2hMaXN0aW5nc1JlcXVlc3QSDQoFcXVlcnkYASABKAkSDQoFbGltaXQYAiABKAUiRgoWU2VhcmNoTGlzdGluZ3NSZXNwb25zZRIsCghsaXN0aW5ncxgBIAMoCzIaLnJlZ2lzdGVycmV2aWV3LnYxLkxpc3Rpbmci3wEKHkRlY2lkZVNlY3VyaXR5Q2FuZGlkYXRlUmVxdWVzdBIWCg5jYW5kaWRhdGVfbm9ybRgBIAEoCRI1CghkZWNpc2lvbhgCIAEoDjIjLnJlZ2lzdGVycmV2aWV3LnYxLlNlY3VyaXR5RGVjaXNpb24SEgoKc3RvY2tfY29kZRgDIAEoCRIwCgphbGlhc19raW5kGAQgASgOMhwucmVnaXN0ZXJyZXZpZXcudjEuQWxpYXNLaW5kEgwKBG5vdGUYBSABKAkSGgoSc3RvcHdvcmRfY29uZmlybWVkGAYgASgIImwKH0RlY2lkZVNlY3VyaXR5Q2FuZGlkYXRlUmVzcG9uc2USFQoNcm93c19hZmZlY3RlZBgBIAEoBRIyCghjb3ZlcmFnZRgCIAEoCzIgLnJlZ2lzdGVycmV2aWV3LnYxLkNvdmVyYWdlU3RhdHMiNQobVW5kb1NlY3VyaXR5RGVjaXNpb25SZXF1ZXN0EhYKDmNhbmRpZGF0ZV9ub3JtGAEgASgJImMKHFVuZG9TZWN1cml0eURlY2lzaW9uUmVzcG9uc2USDwoHZGVsZXRlZBgBIAEoCBIyCghjb3ZlcmFnZRgCIAEoCzIgLnJlZ2lzdGVycmV2aWV3LnYxLkNvdmVyYWdlU3RhdHMiGQoXR2V0Q292ZXJhZ2VTdGF0c1JlcXVlc3QirAEKDUNvdmVyYWdlU3RhdHMSEAoIcmVzb2x2ZWQYASABKAUSGQoRbGlzdGVkX2NhbmRpZGF0ZXMYAiABKAUSFAoMZ2F0ZV9wZXJjZW50GAMgASgBEhoKEmJhY2tsb2dfY2FuZGlkYXRlcxgEIAEoBRIUCgxiYWNrbG9nX3Jvd3MYBSABKAUSFgoOY2xhc3NpZmllZF9vdXQYBiABKAUSDgoGbWV0aG9kGAcgASgJIk4KGEdldENvdmVyYWdlU3RhdHNSZXNwb25zZRIyCghjb3ZlcmFnZRgBIAEoCzIgLnJlZ2lzdGVycmV2aWV3LnYxLkNvdmVyYWdlU3RhdHMq2wEKEFNlY3VyaXR5RGVjaXNpb24SIQodU0VDVVJJVFlfREVDSVNJT05fVU5TUEVDSUZJRUQQABIeChpTRUNVUklUWV9ERUNJU0lPTl9SRVNPTFZFRBABEiQKIFNFQ1VSSVRZX0RFQ0lTSU9OX05PVF9BX1NFQ1VSSVRZEAISIwofU0VDVVJJVFlfREVDSVNJT05fVU5MSVNURURfRlVORBADEh0KGVNFQ1VSSVRZX0RFQ0lTSU9OX0ZPUkVJR04QBBIaChZTRUNVUklUWV9ERUNJU0lPTl9TS0lQEAUqgwEKCUFsaWFzS2luZBIaChZBTElBU19LSU5EX1VOU1BFQ0lGSUVEEAASFQoRQUxJQVNfS0lORF9FUVVJVFkQARISCg5BTElBU19LSU5EX0VURhACEhIKDkFMSUFTX0tJTkRfTElDEAMSGwoXQUxJQVNfS0lORF9NQU5BR0VEX0ZVTkQQBDKjBQoVUmVnaXN0ZXJSZXZpZXdTZXJ2aWNlEn0KEUxpc3RTZWN1cml0eVF1ZXVlEisucmVnaXN0ZXJyZXZpZXcudjEuTGlzdFNlY3VyaXR5UXVldWVSZXF1ZXN0GiwucmVnaXN0ZXJyZXZpZXcudjEuTGlzdFNlY3VyaXR5UXVldWVSZXNwb25zZSINgLUYAoq1GAVhZG1pbhJ0Cg5TZWFyY2hMaXN0aW5ncxIoLnJlZ2lzdGVycmV2aWV3LnYxLlNlYXJjaExpc3RpbmdzUmVxdWVzdBopLnJlZ2lzdGVycmV2aWV3LnYxLlNlYXJjaExpc3RpbmdzUmVzcG9uc2UiDYC1GAKKtRgFYWRtaW4SjwEKF0RlY2lkZVNlY3VyaXR5Q2FuZGlkYXRlEjEucmVnaXN0ZXJyZXZpZXcudjEuRGVjaWRlU2VjdXJpdHlDYW5kaWRhdGVSZXF1ZXN0GjIucmVnaXN0ZXJyZXZpZXcudjEuRGVjaWRlU2VjdXJpdHlDYW5kaWRhdGVSZXNwb25zZSINgLUYAoq1GAVhZG1pbhKGAQoUVW5kb1NlY3VyaXR5RGVjaXNpb24SLi5yZWdpc3RlcnJldmlldy52MS5VbmRvU2VjdXJpdHlEZWNpc2lvblJlcXVlc3QaLy5yZWdpc3RlcnJldmlldy52MS5VbmRvU2VjdXJpdHlEZWNpc2lvblJlc3BvbnNlIg2AtRgCirUYBWFkbWluEnoKEEdldENvdmVyYWdlU3RhdHMSKi5yZWdpc3RlcnJldmlldy52MS5HZXRDb3ZlcmFnZVN0YXRzUmVxdWVzdBorLnJlZ2lzdGVycmV2aWV3LnYxLkdldENvdmVyYWdlU3RhdHNSZXNwb25zZSINgLUYAoq1GAVhZG1pbkLwAQoVY29tLnJlZ2lzdGVycmV2aWV3LnYxQhNSZWdpc3RlclJldmlld1Byb3RvUAFaXWdpdGh1Yi5jb20vY2FzdGxlbWlsay9zaG9ydGVkLmNvbS5hdS9zZXJ2aWNlcy9nZW4vcHJvdG8vZ28vcmVnaXN0ZXJyZXZpZXcvdjE7cmVnaXN0ZXJyZXZpZXd2MaICA1JYWKoCEVJlZ2lzdGVycmV2aWV3LlYxygIRUmVnaXN0ZXJyZXZpZXdcVjHiAh1SZWdpc3RlcnJldmlld1xWMVxHUEJNZXRhZGF0YeoCElJlZ2lzdGVycmV2aWV3OjpWMWIGcHJvdG8z", [file_options_v1_options]);
+  fileDesc("CidyZWdpc3RlcnJldmlldy92MS9yZWdpc3Rlcl9yZXZpZXcucHJvdG8SEXJlZ2lzdGVycmV2aWV3LnYxIsIBCgtQcm9maWxlRmFjdBINCgVmaWVsZBgBIAEoCRIPCgdvcmRpbmFsGAIgASgFEhUKDXJlc29sdmVkX3RleHQYAyABKAkSFAoMbWFjaGluZV90ZXh0GAQgASgJEhIKCmlzX2N1cmF0ZWQYBSABKAgSEgoKY3VyYXRlZF9ieRgGIAEoCRISCgpzb3VyY2Vfa2V5GAcgASgJEhIKCnNvdXJjZV91cmwYCCABKAkSFgoOc291cmNlX2xpY2VuY2UYCSABKAkidAoVUG9saXRpY2lhblRlcm1TdW1tYXJ5EhIKCnBhcmxpYW1lbnQYASABKAUSDwoHY2hhbWJlchgCIAEoCRIQCghkaXZpc2lvbhgDIAEoCRISCgpzdGF0ZV9jb2RlGAQgASgJEhAKCHBhcnR5X2FiGAUgASgJIoIBChJEdXBsaWNhdGVDYW5kaWRhdGUSDAoEc2x1ZxgBIAEoCRIUCgxkaXNwbGF5X25hbWUYAiABKAkSFwoPc3RhdGVtZW50X2NvdW50GAMgASgFEh0KFWRlY2xhcmVkX2xpc3RlZF9jb3VudBgEIAEoBRIQCghhcGhfcGhpZBgFIAEoCSKYAgoYUG9saXRpY2lhblByb2ZpbGVTdW1tYXJ5EgwKBHNsdWcYASABKAkSFAoMZGlzcGxheV9uYW1lGAIgASgJEhAKCHBhcnR5X2FiGAMgASgJEg8KB2NoYW1iZXIYBCABKAkSEAoIZGl2aXNpb24YBSABKAkSEgoKc3RhdGVfY29kZRgGIAEoCRIQCghhcGhfcGhpZBgHIAEoCRIRCglwaG90b191cmwYCCABKAkSHQoVZGVjbGFyZWRfbGlzdGVkX2NvdW50GAkgASgFEhcKD3N0YXRlbWVudF9jb3VudBgKIAEoBRIVCg1oYXNfZHVwbGljYXRlGAsgASgIEhsKE2N1cmF0ZWRfZmllbGRfY291bnQYDCABKAUiZgodTGlzdFBvbGl0aWNpYW5Qcm9maWxlc1JlcXVlc3QSDQoFcXVlcnkYASABKAkSDQoFbGltaXQYAiABKAUSDgoGb2Zmc2V0GAMgASgFEhcKD2R1cGxpY2F0ZXNfb25seRgEIAEoCCKHAQoeTGlzdFBvbGl0aWNpYW5Qcm9maWxlc1Jlc3BvbnNlEj0KCHByb2ZpbGVzGAEgAygLMisucmVnaXN0ZXJyZXZpZXcudjEuUG9saXRpY2lhblByb2ZpbGVTdW1tYXJ5Eg0KBXRvdGFsGAIgASgFEhcKD2R1cGxpY2F0ZV9jb3VudBgDIAEoBSIrChtHZXRQb2xpdGljaWFuUHJvZmlsZVJlcXVlc3QSDAoEc2x1ZxgBIAEoCSLZAgocR2V0UG9saXRpY2lhblByb2ZpbGVSZXNwb25zZRI8Cgdwcm9maWxlGAEgASgLMisucmVnaXN0ZXJyZXZpZXcudjEuUG9saXRpY2lhblByb2ZpbGVTdW1tYXJ5EjcKBXRlcm1zGAIgAygLMigucmVnaXN0ZXJyZXZpZXcudjEuUG9saXRpY2lhblRlcm1TdW1tYXJ5Ei0KBWZhY3RzGAMgAygLMh4ucmVnaXN0ZXJyZXZpZXcudjEuUHJvZmlsZUZhY3QSOQoKZHVwbGljYXRlcxgEIAMoCzIlLnJlZ2lzdGVycmV2aWV3LnYxLkR1cGxpY2F0ZUNhbmRpZGF0ZRIRCglwaG90b191cmwYBSABKAkSFQoNcGhvdG9fbGljZW5jZRgGIAEoCRIUCgxwaG90b19hdXRob3IYByABKAkSGAoQcGhvdG9fc291cmNlX3VybBgIIAEoCSK5AQobQ3VyYXRlUG9saXRpY2lhbkZhY3RSZXF1ZXN0EgwKBHNsdWcYASABKAkSDQoFZmllbGQYAiABKAkSDwoHb3JkaW5hbBgDIAEoBRItCgZhY3Rpb24YBCABKA4yHS5yZWdpc3RlcnJldmlldy52MS5GYWN0QWN0aW9uEhQKDGN1cmF0ZWRfdGV4dBgFIAEoCRIRCglyYXRpb25hbGUYBiABKAkSFAoMZXZpZGVuY2VfdXJsGAcgASgJIkwKHEN1cmF0ZVBvbGl0aWNpYW5GYWN0UmVzcG9uc2USLAoEZmFjdBgBIAEoCzIeLnJlZ2lzdGVycmV2aWV3LnYxLlByb2ZpbGVGYWN0IpYBChlTZXRQb2xpdGljaWFuUGhvdG9SZXF1ZXN0EgwKBHNsdWcYASABKAkSEQoJcGhvdG9fdXJsGAIgASgJEhUKDXBob3RvX2xpY2VuY2UYAyABKAkSFAoMcGhvdG9fYXV0aG9yGAQgASgJEhgKEHBob3RvX3NvdXJjZV91cmwYBSABKAkSEQoJcmF0aW9uYWxlGAYgASgJInYKGlNldFBvbGl0aWNpYW5QaG90b1Jlc3BvbnNlEhEKCXBob3RvX3VybBgBIAEoCRIVCg1waG90b19saWNlbmNlGAIgASgJEhQKDHBob3RvX2F1dGhvchgDIAEoCRIYChBwaG90b19zb3VyY2VfdXJsGAQgASgJIlIKF01lcmdlUG9saXRpY2lhbnNSZXF1ZXN0EhEKCWtlZXBfc2x1ZxgBIAEoCRISCgptZXJnZV9zbHVnGAIgASgJEhAKCGV2aWRlbmNlGAMgASgJIlsKGE1lcmdlUG9saXRpY2lhbnNSZXNwb25zZRIRCglrZWVwX3NsdWcYASABKAkSEgoKbWVyZ2Vfc2x1ZxgCIAEoCRIYChBzdGF0ZW1lbnRzX21vdmVkGAMgASgFIpIBCg5EZWNsYXJlZFNhbXBsZRIVCg1kZWNsYXJlZF90ZXh0GAEgASgJEhcKD3BvbGl0aWNpYW5fbmFtZRgCIAEoCRIXCg9wb2xpdGljaWFuX3NsdWcYAyABKAkSDwoHaXRlbV9ubxgEIAEoBRISCgpwYXJsaWFtZW50GAUgASgFEhIKCnNvdXJjZV91cmwYBiABKAkiZgoHTGlzdGluZxISCgpzdG9ja19jb2RlGAEgASgJEhQKDGNvbXBhbnlfbmFtZRgCIAEoCRIVCg1leGlzdGluZ191c2VzGAMgASgFEhoKEmlzX3N0b3B3b3JkX3RpY2tlchgEIAEoCCLAAQoNQWxpYXNQcm9wb3NhbBIbChNwcm9wb3NlZF9zdG9ja19jb2RlGAEgASgJEh0KFXByb3Bvc2VkX2NvbXBhbnlfbmFtZRgCIAEoCRISCgpjb25maWRlbmNlGAMgASgBEhEKCXJhdGlvbmFsZRgEIAEoCRINCgVtb2RlbBgFIAEoCRItCglzaG9ydGxpc3QYBiADKAsyGi5yZWdpc3RlcnJldmlldy52MS5MaXN0aW5nEg4KBnN0YXR1cxgHIAEoCSKqAgoRU2VjdXJpdHlRdWV1ZUl0ZW0SFgoOY2FuZGlkYXRlX25vcm0YASABKAkSDwoHZXhhbXBsZRgCIAEoCRITCgtvY2N1cnJlbmNlcxgDIAEoBRIOCgZwZW9wbGUYBCABKAUSDQoFaXRlbXMYBSADKAUSEwoLcGFybGlhbWVudHMYBiADKAUSFAoMZW50aXR5X2tpbmRzGAcgAygJEhEKCWdhdGVfcm93cxgIIAEoBRISCgpza2lwX2NvdW50GAkgASgFEjIKB3NhbXBsZXMYCiADKAsyIS5yZWdpc3RlcnJldmlldy52MS5EZWNsYXJlZFNhbXBsZRIyCghwcm9wb3NhbBgLIAEoCzIgLnJlZ2lzdGVycmV2aWV3LnYxLkFsaWFzUHJvcG9zYWwiTAoYTGlzdFNlY3VyaXR5UXVldWVSZXF1ZXN0Eg0KBWxpbWl0GAEgASgFEg4KBm9mZnNldBgCIAEoBRIRCglnYXRlX29ubHkYAyABKAgifgoZTGlzdFNlY3VyaXR5UXVldWVSZXNwb25zZRIzCgVpdGVtcxgBIAMoCzIkLnJlZ2lzdGVycmV2aWV3LnYxLlNlY3VyaXR5UXVldWVJdGVtEhgKEHRvdGFsX2NhbmRpZGF0ZXMYAiABKAUSEgoKdG90YWxfcm93cxgDIAEoBSI1ChVTZWFyY2hMaXN0aW5nc1JlcXVlc3QSDQoFcXVlcnkYASABKAkSDQoFbGltaXQYAiABKAUiRgoWU2VhcmNoTGlzdGluZ3NSZXNwb25zZRIsCghsaXN0aW5ncxgBIAMoCzIaLnJlZ2lzdGVycmV2aWV3LnYxLkxpc3Rpbmci3wEKHkRlY2lkZVNlY3VyaXR5Q2FuZGlkYXRlUmVxdWVzdBIWCg5jYW5kaWRhdGVfbm9ybRgBIAEoCRI1CghkZWNpc2lvbhgCIAEoDjIjLnJlZ2lzdGVycmV2aWV3LnYxLlNlY3VyaXR5RGVjaXNpb24SEgoKc3RvY2tfY29kZRgDIAEoCRIwCgphbGlhc19raW5kGAQgASgOMhwucmVnaXN0ZXJyZXZpZXcudjEuQWxpYXNLaW5kEgwKBG5vdGUYBSABKAkSGgoSc3RvcHdvcmRfY29uZmlybWVkGAYgASgIImwKH0RlY2lkZVNlY3VyaXR5Q2FuZGlkYXRlUmVzcG9uc2USFQoNcm93c19hZmZlY3RlZBgBIAEoBRIyCghjb3ZlcmFnZRgCIAEoCzIgLnJlZ2lzdGVycmV2aWV3LnYxLkNvdmVyYWdlU3RhdHMiNQobVW5kb1NlY3VyaXR5RGVjaXNpb25SZXF1ZXN0EhYKDmNhbmRpZGF0ZV9ub3JtGAEgASgJImMKHFVuZG9TZWN1cml0eURlY2lzaW9uUmVzcG9uc2USDwoHZGVsZXRlZBgBIAEoCBIyCghjb3ZlcmFnZRgCIAEoCzIgLnJlZ2lzdGVycmV2aWV3LnYxLkNvdmVyYWdlU3RhdHMiGQoXR2V0Q292ZXJhZ2VTdGF0c1JlcXVlc3QirAEKDUNvdmVyYWdlU3RhdHMSEAoIcmVzb2x2ZWQYASABKAUSGQoRbGlzdGVkX2NhbmRpZGF0ZXMYAiABKAUSFAoMZ2F0ZV9wZXJjZW50GAMgASgBEhoKEmJhY2tsb2dfY2FuZGlkYXRlcxgEIAEoBRIUCgxiYWNrbG9nX3Jvd3MYBSABKAUSFgoOY2xhc3NpZmllZF9vdXQYBiABKAUSDgoGbWV0aG9kGAcgASgJIk4KGEdldENvdmVyYWdlU3RhdHNSZXNwb25zZRIyCghjb3ZlcmFnZRgBIAEoCzIgLnJlZ2lzdGVycmV2aWV3LnYxLkNvdmVyYWdlU3RhdHMqdQoKRmFjdEFjdGlvbhIbChdGQUNUX0FDVElPTl9VTlNQRUNJRklFRBAAEhUKEUZBQ1RfQUNUSU9OX0FNRU5EEAESGAoURkFDVF9BQ1RJT05fU1VQUFJFU1MQAhIZChVGQUNUX0FDVElPTl9SRUlOU1RBVEUQAyrbAQoQU2VjdXJpdHlEZWNpc2lvbhIhCh1TRUNVUklUWV9ERUNJU0lPTl9VTlNQRUNJRklFRBAAEh4KGlNFQ1VSSVRZX0RFQ0lTSU9OX1JFU09MVkVEEAESJAogU0VDVVJJVFlfREVDSVNJT05fTk9UX0FfU0VDVVJJVFkQAhIjCh9TRUNVUklUWV9ERUNJU0lPTl9VTkxJU1RFRF9GVU5EEAMSHQoZU0VDVVJJVFlfREVDSVNJT05fRk9SRUlHThAEEhoKFlNFQ1VSSVRZX0RFQ0lTSU9OX1NLSVAQBSqDAQoJQWxpYXNLaW5kEhoKFkFMSUFTX0tJTkRfVU5TUEVDSUZJRUQQABIVChFBTElBU19LSU5EX0VRVUlUWRABEhIKDkFMSUFTX0tJTkRfRVRGEAISEgoOQUxJQVNfS0lORF9MSUMQAxIbChdBTElBU19LSU5EX01BTkFHRURfRlVORBAEMsMKChVSZWdpc3RlclJldmlld1NlcnZpY2USfQoRTGlzdFNlY3VyaXR5UXVldWUSKy5yZWdpc3RlcnJldmlldy52MS5MaXN0U2VjdXJpdHlRdWV1ZVJlcXVlc3QaLC5yZWdpc3RlcnJldmlldy52MS5MaXN0U2VjdXJpdHlRdWV1ZVJlc3BvbnNlIg2AtRgCirUYBWFkbWluEnQKDlNlYXJjaExpc3RpbmdzEigucmVnaXN0ZXJyZXZpZXcudjEuU2VhcmNoTGlzdGluZ3NSZXF1ZXN0GikucmVnaXN0ZXJyZXZpZXcudjEuU2VhcmNoTGlzdGluZ3NSZXNwb25zZSINgLUYAoq1GAVhZG1pbhKPAQoXRGVjaWRlU2VjdXJpdHlDYW5kaWRhdGUSMS5yZWdpc3RlcnJldmlldy52MS5EZWNpZGVTZWN1cml0eUNhbmRpZGF0ZVJlcXVlc3QaMi5yZWdpc3RlcnJldmlldy52MS5EZWNpZGVTZWN1cml0eUNhbmRpZGF0ZVJlc3BvbnNlIg2AtRgCirUYBWFkbWluEoYBChRVbmRvU2VjdXJpdHlEZWNpc2lvbhIuLnJlZ2lzdGVycmV2aWV3LnYxLlVuZG9TZWN1cml0eURlY2lzaW9uUmVxdWVzdBovLnJlZ2lzdGVycmV2aWV3LnYxLlVuZG9TZWN1cml0eURlY2lzaW9uUmVzcG9uc2UiDYC1GAKKtRgFYWRtaW4SegoQR2V0Q292ZXJhZ2VTdGF0cxIqLnJlZ2lzdGVycmV2aWV3LnYxLkdldENvdmVyYWdlU3RhdHNSZXF1ZXN0GisucmVnaXN0ZXJyZXZpZXcudjEuR2V0Q292ZXJhZ2VTdGF0c1Jlc3BvbnNlIg2AtRgCirUYBWFkbWluEowBChZMaXN0UG9saXRpY2lhblByb2ZpbGVzEjAucmVnaXN0ZXJyZXZpZXcudjEuTGlzdFBvbGl0aWNpYW5Qcm9maWxlc1JlcXVlc3QaMS5yZWdpc3RlcnJldmlldy52MS5MaXN0UG9saXRpY2lhblByb2ZpbGVzUmVzcG9uc2UiDYC1GAKKtRgFYWRtaW4ShgEKFEdldFBvbGl0aWNpYW5Qcm9maWxlEi4ucmVnaXN0ZXJyZXZpZXcudjEuR2V0UG9saXRpY2lhblByb2ZpbGVSZXF1ZXN0Gi8ucmVnaXN0ZXJyZXZpZXcudjEuR2V0UG9saXRpY2lhblByb2ZpbGVSZXNwb25zZSINgLUYAoq1GAVhZG1pbhKGAQoUQ3VyYXRlUG9saXRpY2lhbkZhY3QSLi5yZWdpc3RlcnJldmlldy52MS5DdXJhdGVQb2xpdGljaWFuRmFjdFJlcXVlc3QaLy5yZWdpc3RlcnJldmlldy52MS5DdXJhdGVQb2xpdGljaWFuRmFjdFJlc3BvbnNlIg2AtRgCirUYBWFkbWluEoABChJTZXRQb2xpdGljaWFuUGhvdG8SLC5yZWdpc3RlcnJldmlldy52MS5TZXRQb2xpdGljaWFuUGhvdG9SZXF1ZXN0Gi0ucmVnaXN0ZXJyZXZpZXcudjEuU2V0UG9saXRpY2lhblBob3RvUmVzcG9uc2UiDYC1GAKKtRgFYWRtaW4SegoQTWVyZ2VQb2xpdGljaWFucxIqLnJlZ2lzdGVycmV2aWV3LnYxLk1lcmdlUG9saXRpY2lhbnNSZXF1ZXN0GisucmVnaXN0ZXJyZXZpZXcudjEuTWVyZ2VQb2xpdGljaWFuc1Jlc3BvbnNlIg2AtRgCirUYBWFkbWluQvABChVjb20ucmVnaXN0ZXJyZXZpZXcudjFCE1JlZ2lzdGVyUmV2aWV3UHJvdG9QAVpdZ2l0aHViLmNvbS9jYXN0bGVtaWxrL3Nob3J0ZWQuY29tLmF1L3NlcnZpY2VzL2dlbi9wcm90by9nby9yZWdpc3RlcnJldmlldy92MTtyZWdpc3RlcnJldmlld3YxogIDUlhYqgIRUmVnaXN0ZXJyZXZpZXcuVjHKAhFSZWdpc3RlcnJldmlld1xWMeICHVJlZ2lzdGVycmV2aWV3XFYxXEdQQk1ldGFkYXRh6gISUmVnaXN0ZXJyZXZpZXc6OlYxYgZwcm90bzM", [file_options_v1_options]);
+
+/**
+ * ProfileFact is one structured fact, with the machine reading always visible
+ * beside whatever a curator decided (§7.4 rule 2).
+ *
+ * @generated from message registerreview.v1.ProfileFact
+ */
+export type ProfileFact = Message<"registerreview.v1.ProfileFact"> & {
+  /**
+   * @generated from field: string field = 1;
+   */
+  field: string;
+
+  /**
+   * @generated from field: int32 ordinal = 2;
+   */
+  ordinal: number;
+
+  /**
+   * What is published: the curated value if one exists, else the machine's.
+   *
+   * @generated from field: string resolved_text = 3;
+   */
+  resolvedText: string;
+
+  /**
+   * What the collector read. Rendered beneath the resolved value so a reviewer
+   * is always comparing against the source, never just reading our answer.
+   *
+   * @generated from field: string machine_text = 4;
+   */
+  machineText: string;
+
+  /**
+   * @generated from field: bool is_curated = 5;
+   */
+  isCurated: boolean;
+
+  /**
+   * @generated from field: string curated_by = 6;
+   */
+  curatedBy: string;
+
+  /**
+   * @generated from field: string source_key = 7;
+   */
+  sourceKey: string;
+
+  /**
+   * @generated from field: string source_url = 8;
+   */
+  sourceUrl: string;
+
+  /**
+   * @generated from field: string source_licence = 9;
+   */
+  sourceLicence: string;
+};
+
+/**
+ * Describes the message registerreview.v1.ProfileFact.
+ * Use `create(ProfileFactSchema)` to create a new message.
+ */
+export const ProfileFactSchema: GenMessage<ProfileFact> = /*@__PURE__*/
+  messageDesc(file_registerreview_v1_register_review, 0);
+
+/**
+ * @generated from message registerreview.v1.PoliticianTermSummary
+ */
+export type PoliticianTermSummary = Message<"registerreview.v1.PoliticianTermSummary"> & {
+  /**
+   * @generated from field: int32 parliament = 1;
+   */
+  parliament: number;
+
+  /**
+   * @generated from field: string chamber = 2;
+   */
+  chamber: string;
+
+  /**
+   * @generated from field: string division = 3;
+   */
+  division: string;
+
+  /**
+   * @generated from field: string state_code = 4;
+   */
+  stateCode: string;
+
+  /**
+   * @generated from field: string party_ab = 5;
+   */
+  partyAb: string;
+};
+
+/**
+ * Describes the message registerreview.v1.PoliticianTermSummary.
+ * Use `create(PoliticianTermSummarySchema)` to create a new message.
+ */
+export const PoliticianTermSummarySchema: GenMessage<PoliticianTermSummary> = /*@__PURE__*/
+  messageDesc(file_registerreview_v1_register_review, 1);
+
+/**
+ * DuplicateCandidate is another record sharing this person's APH PHID — i.e.
+ * the same human, published twice with a split history.
+ *
+ * @generated from message registerreview.v1.DuplicateCandidate
+ */
+export type DuplicateCandidate = Message<"registerreview.v1.DuplicateCandidate"> & {
+  /**
+   * @generated from field: string slug = 1;
+   */
+  slug: string;
+
+  /**
+   * @generated from field: string display_name = 2;
+   */
+  displayName: string;
+
+  /**
+   * @generated from field: int32 statement_count = 3;
+   */
+  statementCount: number;
+
+  /**
+   * @generated from field: int32 declared_listed_count = 4;
+   */
+  declaredListedCount: number;
+
+  /**
+   * @generated from field: string aph_phid = 5;
+   */
+  aphPhid: string;
+};
+
+/**
+ * Describes the message registerreview.v1.DuplicateCandidate.
+ * Use `create(DuplicateCandidateSchema)` to create a new message.
+ */
+export const DuplicateCandidateSchema: GenMessage<DuplicateCandidate> = /*@__PURE__*/
+  messageDesc(file_registerreview_v1_register_review, 2);
+
+/**
+ * @generated from message registerreview.v1.PoliticianProfileSummary
+ */
+export type PoliticianProfileSummary = Message<"registerreview.v1.PoliticianProfileSummary"> & {
+  /**
+   * @generated from field: string slug = 1;
+   */
+  slug: string;
+
+  /**
+   * @generated from field: string display_name = 2;
+   */
+  displayName: string;
+
+  /**
+   * @generated from field: string party_ab = 3;
+   */
+  partyAb: string;
+
+  /**
+   * @generated from field: string chamber = 4;
+   */
+  chamber: string;
+
+  /**
+   * @generated from field: string division = 5;
+   */
+  division: string;
+
+  /**
+   * @generated from field: string state_code = 6;
+   */
+  stateCode: string;
+
+  /**
+   * @generated from field: string aph_phid = 7;
+   */
+  aphPhid: string;
+
+  /**
+   * @generated from field: string photo_url = 8;
+   */
+  photoUrl: string;
+
+  /**
+   * @generated from field: int32 declared_listed_count = 9;
+   */
+  declaredListedCount: number;
+
+  /**
+   * @generated from field: int32 statement_count = 10;
+   */
+  statementCount: number;
+
+  /**
+   * True when another live record shares this PHID.
+   *
+   * @generated from field: bool has_duplicate = 11;
+   */
+  hasDuplicate: boolean;
+
+  /**
+   * @generated from field: int32 curated_field_count = 12;
+   */
+  curatedFieldCount: number;
+};
+
+/**
+ * Describes the message registerreview.v1.PoliticianProfileSummary.
+ * Use `create(PoliticianProfileSummarySchema)` to create a new message.
+ */
+export const PoliticianProfileSummarySchema: GenMessage<PoliticianProfileSummary> = /*@__PURE__*/
+  messageDesc(file_registerreview_v1_register_review, 3);
+
+/**
+ * @generated from message registerreview.v1.ListPoliticianProfilesRequest
+ */
+export type ListPoliticianProfilesRequest = Message<"registerreview.v1.ListPoliticianProfilesRequest"> & {
+  /**
+   * @generated from field: string query = 1;
+   */
+  query: string;
+
+  /**
+   * @generated from field: int32 limit = 2;
+   */
+  limit: number;
+
+  /**
+   * @generated from field: int32 offset = 3;
+   */
+  offset: number;
+
+  /**
+   * Show only records that share a PHID with another — the merge queue.
+   *
+   * @generated from field: bool duplicates_only = 4;
+   */
+  duplicatesOnly: boolean;
+};
+
+/**
+ * Describes the message registerreview.v1.ListPoliticianProfilesRequest.
+ * Use `create(ListPoliticianProfilesRequestSchema)` to create a new message.
+ */
+export const ListPoliticianProfilesRequestSchema: GenMessage<ListPoliticianProfilesRequest> = /*@__PURE__*/
+  messageDesc(file_registerreview_v1_register_review, 4);
+
+/**
+ * @generated from message registerreview.v1.ListPoliticianProfilesResponse
+ */
+export type ListPoliticianProfilesResponse = Message<"registerreview.v1.ListPoliticianProfilesResponse"> & {
+  /**
+   * @generated from field: repeated registerreview.v1.PoliticianProfileSummary profiles = 1;
+   */
+  profiles: PoliticianProfileSummary[];
+
+  /**
+   * @generated from field: int32 total = 2;
+   */
+  total: number;
+
+  /**
+   * @generated from field: int32 duplicate_count = 3;
+   */
+  duplicateCount: number;
+};
+
+/**
+ * Describes the message registerreview.v1.ListPoliticianProfilesResponse.
+ * Use `create(ListPoliticianProfilesResponseSchema)` to create a new message.
+ */
+export const ListPoliticianProfilesResponseSchema: GenMessage<ListPoliticianProfilesResponse> = /*@__PURE__*/
+  messageDesc(file_registerreview_v1_register_review, 5);
+
+/**
+ * @generated from message registerreview.v1.GetPoliticianProfileRequest
+ */
+export type GetPoliticianProfileRequest = Message<"registerreview.v1.GetPoliticianProfileRequest"> & {
+  /**
+   * @generated from field: string slug = 1;
+   */
+  slug: string;
+};
+
+/**
+ * Describes the message registerreview.v1.GetPoliticianProfileRequest.
+ * Use `create(GetPoliticianProfileRequestSchema)` to create a new message.
+ */
+export const GetPoliticianProfileRequestSchema: GenMessage<GetPoliticianProfileRequest> = /*@__PURE__*/
+  messageDesc(file_registerreview_v1_register_review, 6);
+
+/**
+ * @generated from message registerreview.v1.GetPoliticianProfileResponse
+ */
+export type GetPoliticianProfileResponse = Message<"registerreview.v1.GetPoliticianProfileResponse"> & {
+  /**
+   * @generated from field: registerreview.v1.PoliticianProfileSummary profile = 1;
+   */
+  profile?: PoliticianProfileSummary;
+
+  /**
+   * @generated from field: repeated registerreview.v1.PoliticianTermSummary terms = 2;
+   */
+  terms: PoliticianTermSummary[];
+
+  /**
+   * @generated from field: repeated registerreview.v1.ProfileFact facts = 3;
+   */
+  facts: ProfileFact[];
+
+  /**
+   * @generated from field: repeated registerreview.v1.DuplicateCandidate duplicates = 4;
+   */
+  duplicates: DuplicateCandidate[];
+
+  /**
+   * The portrait and the attribution its licence requires, together.
+   *
+   * @generated from field: string photo_url = 5;
+   */
+  photoUrl: string;
+
+  /**
+   * @generated from field: string photo_licence = 6;
+   */
+  photoLicence: string;
+
+  /**
+   * @generated from field: string photo_author = 7;
+   */
+  photoAuthor: string;
+
+  /**
+   * @generated from field: string photo_source_url = 8;
+   */
+  photoSourceUrl: string;
+};
+
+/**
+ * Describes the message registerreview.v1.GetPoliticianProfileResponse.
+ * Use `create(GetPoliticianProfileResponseSchema)` to create a new message.
+ */
+export const GetPoliticianProfileResponseSchema: GenMessage<GetPoliticianProfileResponse> = /*@__PURE__*/
+  messageDesc(file_registerreview_v1_register_review, 7);
+
+/**
+ * @generated from message registerreview.v1.CuratePoliticianFactRequest
+ */
+export type CuratePoliticianFactRequest = Message<"registerreview.v1.CuratePoliticianFactRequest"> & {
+  /**
+   * @generated from field: string slug = 1;
+   */
+  slug: string;
+
+  /**
+   * @generated from field: string field = 2;
+   */
+  field: string;
+
+  /**
+   * @generated from field: int32 ordinal = 3;
+   */
+  ordinal: number;
+
+  /**
+   * @generated from field: registerreview.v1.FactAction action = 4;
+   */
+  action: FactAction;
+
+  /**
+   * @generated from field: string curated_text = 5;
+   */
+  curatedText: string;
+
+  /**
+   * Mandatory. A correction to a named person's record without a stated reason
+   * is not reviewable, and this is the field a dispute is answered from.
+   *
+   * @generated from field: string rationale = 6;
+   */
+  rationale: string;
+
+  /**
+   * @generated from field: string evidence_url = 7;
+   */
+  evidenceUrl: string;
+};
+
+/**
+ * Describes the message registerreview.v1.CuratePoliticianFactRequest.
+ * Use `create(CuratePoliticianFactRequestSchema)` to create a new message.
+ */
+export const CuratePoliticianFactRequestSchema: GenMessage<CuratePoliticianFactRequest> = /*@__PURE__*/
+  messageDesc(file_registerreview_v1_register_review, 8);
+
+/**
+ * @generated from message registerreview.v1.CuratePoliticianFactResponse
+ */
+export type CuratePoliticianFactResponse = Message<"registerreview.v1.CuratePoliticianFactResponse"> & {
+  /**
+   * @generated from field: registerreview.v1.ProfileFact fact = 1;
+   */
+  fact?: ProfileFact;
+};
+
+/**
+ * Describes the message registerreview.v1.CuratePoliticianFactResponse.
+ * Use `create(CuratePoliticianFactResponseSchema)` to create a new message.
+ */
+export const CuratePoliticianFactResponseSchema: GenMessage<CuratePoliticianFactResponse> = /*@__PURE__*/
+  messageDesc(file_registerreview_v1_register_review, 9);
+
+/**
+ * @generated from message registerreview.v1.SetPoliticianPhotoRequest
+ */
+export type SetPoliticianPhotoRequest = Message<"registerreview.v1.SetPoliticianPhotoRequest"> & {
+  /**
+   * @generated from field: string slug = 1;
+   */
+  slug: string;
+
+  /**
+   * Empty photo_url CLEARS the portrait (falling back to the monogram).
+   *
+   * @generated from field: string photo_url = 2;
+   */
+  photoUrl: string;
+
+  /**
+   * @generated from field: string photo_licence = 3;
+   */
+  photoLicence: string;
+
+  /**
+   * @generated from field: string photo_author = 4;
+   */
+  photoAuthor: string;
+
+  /**
+   * @generated from field: string photo_source_url = 5;
+   */
+  photoSourceUrl: string;
+
+  /**
+   * @generated from field: string rationale = 6;
+   */
+  rationale: string;
+};
+
+/**
+ * Describes the message registerreview.v1.SetPoliticianPhotoRequest.
+ * Use `create(SetPoliticianPhotoRequestSchema)` to create a new message.
+ */
+export const SetPoliticianPhotoRequestSchema: GenMessage<SetPoliticianPhotoRequest> = /*@__PURE__*/
+  messageDesc(file_registerreview_v1_register_review, 10);
+
+/**
+ * @generated from message registerreview.v1.SetPoliticianPhotoResponse
+ */
+export type SetPoliticianPhotoResponse = Message<"registerreview.v1.SetPoliticianPhotoResponse"> & {
+  /**
+   * @generated from field: string photo_url = 1;
+   */
+  photoUrl: string;
+
+  /**
+   * @generated from field: string photo_licence = 2;
+   */
+  photoLicence: string;
+
+  /**
+   * @generated from field: string photo_author = 3;
+   */
+  photoAuthor: string;
+
+  /**
+   * @generated from field: string photo_source_url = 4;
+   */
+  photoSourceUrl: string;
+};
+
+/**
+ * Describes the message registerreview.v1.SetPoliticianPhotoResponse.
+ * Use `create(SetPoliticianPhotoResponseSchema)` to create a new message.
+ */
+export const SetPoliticianPhotoResponseSchema: GenMessage<SetPoliticianPhotoResponse> = /*@__PURE__*/
+  messageDesc(file_registerreview_v1_register_review, 11);
+
+/**
+ * @generated from message registerreview.v1.MergePoliticiansRequest
+ */
+export type MergePoliticiansRequest = Message<"registerreview.v1.MergePoliticiansRequest"> & {
+  /**
+   * The record that survives. Its slug stays canonical.
+   *
+   * @generated from field: string keep_slug = 1;
+   */
+  keepSlug: string;
+
+  /**
+   * The record merged away. Its slug keeps resolving, as a redirect.
+   *
+   * @generated from field: string merge_slug = 2;
+   */
+  mergeSlug: string;
+
+  /**
+   * Mandatory: what establishes these are one person (e.g. "APH PHID DZS").
+   *
+   * @generated from field: string evidence = 3;
+   */
+  evidence: string;
+};
+
+/**
+ * Describes the message registerreview.v1.MergePoliticiansRequest.
+ * Use `create(MergePoliticiansRequestSchema)` to create a new message.
+ */
+export const MergePoliticiansRequestSchema: GenMessage<MergePoliticiansRequest> = /*@__PURE__*/
+  messageDesc(file_registerreview_v1_register_review, 12);
+
+/**
+ * @generated from message registerreview.v1.MergePoliticiansResponse
+ */
+export type MergePoliticiansResponse = Message<"registerreview.v1.MergePoliticiansResponse"> & {
+  /**
+   * @generated from field: string keep_slug = 1;
+   */
+  keepSlug: string;
+
+  /**
+   * @generated from field: string merge_slug = 2;
+   */
+  mergeSlug: string;
+
+  /**
+   * Statements that now resolve to the surviving record.
+   *
+   * @generated from field: int32 statements_moved = 3;
+   */
+  statementsMoved: number;
+};
+
+/**
+ * Describes the message registerreview.v1.MergePoliticiansResponse.
+ * Use `create(MergePoliticiansResponseSchema)` to create a new message.
+ */
+export const MergePoliticiansResponseSchema: GenMessage<MergePoliticiansResponse> = /*@__PURE__*/
+  messageDesc(file_registerreview_v1_register_review, 13);
 
 /**
  * DeclaredSample is one real row this candidate came from. The reviewer judges
@@ -60,7 +613,7 @@ export type DeclaredSample = Message<"registerreview.v1.DeclaredSample"> & {
  * Use `create(DeclaredSampleSchema)` to create a new message.
  */
 export const DeclaredSampleSchema: GenMessage<DeclaredSample> = /*@__PURE__*/
-  messageDesc(file_registerreview_v1_register_review, 0);
+  messageDesc(file_registerreview_v1_register_review, 14);
 
 /**
  * Listing is one ASX company as the reviewer sees it in the search box.
@@ -104,7 +657,7 @@ export type Listing = Message<"registerreview.v1.Listing"> & {
  * Use `create(ListingSchema)` to create a new message.
  */
 export const ListingSchema: GenMessage<Listing> = /*@__PURE__*/
-  messageDesc(file_registerreview_v1_register_review, 1);
+  messageDesc(file_registerreview_v1_register_review, 15);
 
 /**
  * AliasProposal is the model's suggestion for this name, if it has answered.
@@ -158,7 +711,7 @@ export type AliasProposal = Message<"registerreview.v1.AliasProposal"> & {
  * Use `create(AliasProposalSchema)` to create a new message.
  */
 export const AliasProposalSchema: GenMessage<AliasProposal> = /*@__PURE__*/
-  messageDesc(file_registerreview_v1_register_review, 2);
+  messageDesc(file_registerreview_v1_register_review, 16);
 
 /**
  * SecurityQueueItem is one undecided declared name and everything needed to
@@ -236,7 +789,7 @@ export type SecurityQueueItem = Message<"registerreview.v1.SecurityQueueItem"> &
  * Use `create(SecurityQueueItemSchema)` to create a new message.
  */
 export const SecurityQueueItemSchema: GenMessage<SecurityQueueItem> = /*@__PURE__*/
-  messageDesc(file_registerreview_v1_register_review, 3);
+  messageDesc(file_registerreview_v1_register_review, 17);
 
 /**
  * @generated from message registerreview.v1.ListSecurityQueueRequest
@@ -268,7 +821,7 @@ export type ListSecurityQueueRequest = Message<"registerreview.v1.ListSecurityQu
  * Use `create(ListSecurityQueueRequestSchema)` to create a new message.
  */
 export const ListSecurityQueueRequestSchema: GenMessage<ListSecurityQueueRequest> = /*@__PURE__*/
-  messageDesc(file_registerreview_v1_register_review, 4);
+  messageDesc(file_registerreview_v1_register_review, 18);
 
 /**
  * @generated from message registerreview.v1.ListSecurityQueueResponse
@@ -297,7 +850,7 @@ export type ListSecurityQueueResponse = Message<"registerreview.v1.ListSecurityQ
  * Use `create(ListSecurityQueueResponseSchema)` to create a new message.
  */
 export const ListSecurityQueueResponseSchema: GenMessage<ListSecurityQueueResponse> = /*@__PURE__*/
-  messageDesc(file_registerreview_v1_register_review, 5);
+  messageDesc(file_registerreview_v1_register_review, 19);
 
 /**
  * @generated from message registerreview.v1.SearchListingsRequest
@@ -319,7 +872,7 @@ export type SearchListingsRequest = Message<"registerreview.v1.SearchListingsReq
  * Use `create(SearchListingsRequestSchema)` to create a new message.
  */
 export const SearchListingsRequestSchema: GenMessage<SearchListingsRequest> = /*@__PURE__*/
-  messageDesc(file_registerreview_v1_register_review, 6);
+  messageDesc(file_registerreview_v1_register_review, 20);
 
 /**
  * @generated from message registerreview.v1.SearchListingsResponse
@@ -336,7 +889,7 @@ export type SearchListingsResponse = Message<"registerreview.v1.SearchListingsRe
  * Use `create(SearchListingsResponseSchema)` to create a new message.
  */
 export const SearchListingsResponseSchema: GenMessage<SearchListingsResponse> = /*@__PURE__*/
-  messageDesc(file_registerreview_v1_register_review, 7);
+  messageDesc(file_registerreview_v1_register_review, 21);
 
 /**
  * @generated from message registerreview.v1.DecideSecurityCandidateRequest
@@ -387,7 +940,7 @@ export type DecideSecurityCandidateRequest = Message<"registerreview.v1.DecideSe
  * Use `create(DecideSecurityCandidateRequestSchema)` to create a new message.
  */
 export const DecideSecurityCandidateRequestSchema: GenMessage<DecideSecurityCandidateRequest> = /*@__PURE__*/
-  messageDesc(file_registerreview_v1_register_review, 8);
+  messageDesc(file_registerreview_v1_register_review, 22);
 
 /**
  * @generated from message registerreview.v1.DecideSecurityCandidateResponse
@@ -414,7 +967,7 @@ export type DecideSecurityCandidateResponse = Message<"registerreview.v1.DecideS
  * Use `create(DecideSecurityCandidateResponseSchema)` to create a new message.
  */
 export const DecideSecurityCandidateResponseSchema: GenMessage<DecideSecurityCandidateResponse> = /*@__PURE__*/
-  messageDesc(file_registerreview_v1_register_review, 9);
+  messageDesc(file_registerreview_v1_register_review, 23);
 
 /**
  * @generated from message registerreview.v1.UndoSecurityDecisionRequest
@@ -431,7 +984,7 @@ export type UndoSecurityDecisionRequest = Message<"registerreview.v1.UndoSecurit
  * Use `create(UndoSecurityDecisionRequestSchema)` to create a new message.
  */
 export const UndoSecurityDecisionRequestSchema: GenMessage<UndoSecurityDecisionRequest> = /*@__PURE__*/
-  messageDesc(file_registerreview_v1_register_review, 10);
+  messageDesc(file_registerreview_v1_register_review, 24);
 
 /**
  * @generated from message registerreview.v1.UndoSecurityDecisionResponse
@@ -453,7 +1006,7 @@ export type UndoSecurityDecisionResponse = Message<"registerreview.v1.UndoSecuri
  * Use `create(UndoSecurityDecisionResponseSchema)` to create a new message.
  */
 export const UndoSecurityDecisionResponseSchema: GenMessage<UndoSecurityDecisionResponse> = /*@__PURE__*/
-  messageDesc(file_registerreview_v1_register_review, 11);
+  messageDesc(file_registerreview_v1_register_review, 25);
 
 /**
  * @generated from message registerreview.v1.GetCoverageStatsRequest
@@ -466,7 +1019,7 @@ export type GetCoverageStatsRequest = Message<"registerreview.v1.GetCoverageStat
  * Use `create(GetCoverageStatsRequestSchema)` to create a new message.
  */
 export const GetCoverageStatsRequestSchema: GenMessage<GetCoverageStatsRequest> = /*@__PURE__*/
-  messageDesc(file_registerreview_v1_register_review, 12);
+  messageDesc(file_registerreview_v1_register_review, 26);
 
 /**
  * CoverageStats carries the gate WITH its method, never as a bare number.
@@ -536,7 +1089,7 @@ export type CoverageStats = Message<"registerreview.v1.CoverageStats"> & {
  * Use `create(CoverageStatsSchema)` to create a new message.
  */
 export const CoverageStatsSchema: GenMessage<CoverageStats> = /*@__PURE__*/
-  messageDesc(file_registerreview_v1_register_review, 13);
+  messageDesc(file_registerreview_v1_register_review, 27);
 
 /**
  * @generated from message registerreview.v1.GetCoverageStatsResponse
@@ -553,7 +1106,42 @@ export type GetCoverageStatsResponse = Message<"registerreview.v1.GetCoverageSta
  * Use `create(GetCoverageStatsResponseSchema)` to create a new message.
  */
 export const GetCoverageStatsResponseSchema: GenMessage<GetCoverageStatsResponse> = /*@__PURE__*/
-  messageDesc(file_registerreview_v1_register_review, 14);
+  messageDesc(file_registerreview_v1_register_review, 28);
+
+/**
+ * FactAction mirrors politician_profile_overrides.action exactly. There is no
+ * "delete": a correction supersedes, and a fact is suppressed rather than
+ * removed, so the trail stays evidence.
+ *
+ * @generated from enum registerreview.v1.FactAction
+ */
+export enum FactAction {
+  /**
+   * @generated from enum value: FACT_ACTION_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: FACT_ACTION_AMEND = 1;
+   */
+  AMEND = 1,
+
+  /**
+   * @generated from enum value: FACT_ACTION_SUPPRESS = 2;
+   */
+  SUPPRESS = 2,
+
+  /**
+   * @generated from enum value: FACT_ACTION_REINSTATE = 3;
+   */
+  REINSTATE = 3,
+}
+
+/**
+ * Describes the enum registerreview.v1.FactAction.
+ */
+export const FactActionSchema: GenEnum<FactAction> = /*@__PURE__*/
+  enumDesc(file_registerreview_v1_register_review, 0);
 
 /**
  * SecurityDecision is the CLOSED vocabulary of what a reviewer may say about a
@@ -618,7 +1206,7 @@ export enum SecurityDecision {
  * Describes the enum registerreview.v1.SecurityDecision.
  */
 export const SecurityDecisionSchema: GenEnum<SecurityDecision> = /*@__PURE__*/
-  enumDesc(file_registerreview_v1_register_review, 0);
+  enumDesc(file_registerreview_v1_register_review, 1);
 
 /**
  * AliasKind is descriptive metadata carried on a resolved alias. The resolver
@@ -658,7 +1246,7 @@ export enum AliasKind {
  * Describes the enum registerreview.v1.AliasKind.
  */
 export const AliasKindSchema: GenEnum<AliasKind> = /*@__PURE__*/
-  enumDesc(file_registerreview_v1_register_review, 1);
+  enumDesc(file_registerreview_v1_register_review, 2);
 
 /**
  * RegisterReviewService is the OPERATOR console behind the Register of
@@ -733,6 +1321,62 @@ export const RegisterReviewService: GenService<{
     methodKind: "unary";
     input: typeof GetCoverageStatsRequestSchema;
     output: typeof GetCoverageStatsResponseSchema;
+  },
+  /**
+   * The roll, for the CRM index. Surfaces duplicate identities first.
+   *
+   * @generated from rpc registerreview.v1.RegisterReviewService.ListPoliticianProfiles
+   */
+  listPoliticianProfiles: {
+    methodKind: "unary";
+    input: typeof ListPoliticianProfilesRequestSchema;
+    output: typeof ListPoliticianProfilesResponseSchema;
+  },
+  /**
+   * One person: identity, terms, portrait, and every profile fact with its
+   * machine reading beside any curated value.
+   *
+   * @generated from rpc registerreview.v1.RegisterReviewService.GetPoliticianProfile
+   */
+  getPoliticianProfile: {
+    methodKind: "unary";
+    input: typeof GetPoliticianProfileRequestSchema;
+    output: typeof GetPoliticianProfileResponseSchema;
+  },
+  /**
+   * Amend, suppress or reinstate ONE profile fact. Append-only: a correction
+   * supersedes, never edits in place.
+   *
+   * @generated from rpc registerreview.v1.RegisterReviewService.CuratePoliticianFact
+   */
+  curatePoliticianFact: {
+    methodKind: "unary";
+    input: typeof CuratePoliticianFactRequestSchema;
+    output: typeof CuratePoliticianFactResponseSchema;
+  },
+  /**
+   * Replace or clear a portrait. A photo may not be set without a licence and a
+   * source URL — the same rule the database CHECK enforces.
+   *
+   * @generated from rpc registerreview.v1.RegisterReviewService.SetPoliticianPhoto
+   */
+  setPoliticianPhoto: {
+    methodKind: "unary";
+    input: typeof SetPoliticianPhotoRequestSchema;
+    output: typeof SetPoliticianPhotoResponseSchema;
+  },
+  /**
+   * Merge one person's record into another. THE HIGHEST-BLAST-RADIUS ACTION IN
+   * THE SUBSYSTEM: it moves an entire declared history onto a named individual.
+   * Requires evidence, and the loser's slug keeps resolving via a redirect
+   * because slugs are minted once and reach OG images and the sitemap (§3.3).
+   *
+   * @generated from rpc registerreview.v1.RegisterReviewService.MergePoliticians
+   */
+  mergePoliticians: {
+    methodKind: "unary";
+    input: typeof MergePoliticiansRequestSchema;
+    output: typeof MergePoliticiansResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_registerreview_v1_register_review, 0);

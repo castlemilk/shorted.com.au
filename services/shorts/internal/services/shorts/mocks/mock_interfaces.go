@@ -118,6 +118,21 @@ func (mr *MockShortsStoreMockRecorder) CreateEnrichmentJob(stockCode, force any)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateEnrichmentJob", reflect.TypeOf((*MockShortsStore)(nil).CreateEnrichmentJob), stockCode, force)
 }
 
+// CuratePoliticianFact mocks base method.
+func (m *MockShortsStore) CuratePoliticianFact(slug, field string, ordinal int32, action, curatedText, rationale, evidenceURL, curator string) (*shorts.ProfileFactRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CuratePoliticianFact", slug, field, ordinal, action, curatedText, rationale, evidenceURL, curator)
+	ret0, _ := ret[0].(*shorts.ProfileFactRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CuratePoliticianFact indicates an expected call of CuratePoliticianFact.
+func (mr *MockShortsStoreMockRecorder) CuratePoliticianFact(slug, field, ordinal, action, curatedText, rationale, evidenceURL, curator any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CuratePoliticianFact", reflect.TypeOf((*MockShortsStore)(nil).CuratePoliticianFact), slug, field, ordinal, action, curatedText, rationale, evidenceURL, curator)
+}
+
 // DecideSecurityCandidate mocks base method.
 func (m *MockShortsStore) DecideSecurityCandidate(candidateNorm, decision, stockCode, aliasKind, note, reviewer string, stopwordConfirmed bool) (int32, error) {
 	m.ctrl.T.Helper()
@@ -576,6 +591,21 @@ func (m *MockShortsStore) GetPolitician(slug string) (*shorts.PoliticianRow, []*
 func (mr *MockShortsStoreMockRecorder) GetPolitician(slug any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPolitician", reflect.TypeOf((*MockShortsStore)(nil).GetPolitician), slug)
+}
+
+// GetPoliticianProfile mocks base method.
+func (m *MockShortsStore) GetPoliticianProfile(slug string) (*shorts.PoliticianProfileRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPoliticianProfile", slug)
+	ret0, _ := ret[0].(*shorts.PoliticianProfileRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPoliticianProfile indicates an expected call of GetPoliticianProfile.
+func (mr *MockShortsStoreMockRecorder) GetPoliticianProfile(slug any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPoliticianProfile", reflect.TypeOf((*MockShortsStore)(nil).GetPoliticianProfile), slug)
 }
 
 // GetPriceDropsOverview mocks base method.
@@ -1071,6 +1101,23 @@ func (mr *MockShortsStoreMockRecorder) ListPendingEnrichments(limit, offset any)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListPendingEnrichments", reflect.TypeOf((*MockShortsStore)(nil).ListPendingEnrichments), limit, offset)
 }
 
+// ListPoliticianProfiles mocks base method.
+func (m *MockShortsStore) ListPoliticianProfiles(query string, limit, offset int32, duplicatesOnly bool) ([]*shorts.PoliticianProfileSummaryRow, int32, int32, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListPoliticianProfiles", query, limit, offset, duplicatesOnly)
+	ret0, _ := ret[0].([]*shorts.PoliticianProfileSummaryRow)
+	ret1, _ := ret[1].(int32)
+	ret2, _ := ret[2].(int32)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
+}
+
+// ListPoliticianProfiles indicates an expected call of ListPoliticianProfiles.
+func (mr *MockShortsStoreMockRecorder) ListPoliticianProfiles(query, limit, offset, duplicatesOnly any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListPoliticianProfiles", reflect.TypeOf((*MockShortsStore)(nil).ListPoliticianProfiles), query, limit, offset, duplicatesOnly)
+}
+
 // ListPoliticianStocks mocks base method.
 func (m *MockShortsStore) ListPoliticianStocks(limit int32, currentOnly bool) ([]*shorts.PoliticianStockRollupRow, error) {
 	m.ctrl.T.Helper()
@@ -1322,6 +1369,21 @@ func (mr *MockShortsStoreMockRecorder) MarkTakeTweetPublished(slug any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkTakeTweetPublished", reflect.TypeOf((*MockShortsStore)(nil).MarkTakeTweetPublished), slug)
 }
 
+// MergePoliticians mocks base method.
+func (m *MockShortsStore) MergePoliticians(keepSlug, mergeSlug, evidence, curator string) (int32, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MergePoliticians", keepSlug, mergeSlug, evidence, curator)
+	ret0, _ := ret[0].(int32)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MergePoliticians indicates an expected call of MergePoliticians.
+func (mr *MockShortsStoreMockRecorder) MergePoliticians(keepSlug, mergeSlug, evidence, curator any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MergePoliticians", reflect.TypeOf((*MockShortsStore)(nil).MergePoliticians), keepSlug, mergeSlug, evidence, curator)
+}
+
 // PublishEditorialTake mocks base method.
 func (m *MockShortsStore) PublishEditorialTake(slug string) (*shorts.EditorialTake, error) {
 	m.ctrl.T.Helper()
@@ -1443,6 +1505,20 @@ func (m *MockShortsStore) SetBroadcastStatus(id, status, errMsg string, recipien
 func (mr *MockShortsStoreMockRecorder) SetBroadcastStatus(id, status, errMsg, recipientCount any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBroadcastStatus", reflect.TypeOf((*MockShortsStore)(nil).SetBroadcastStatus), id, status, errMsg, recipientCount)
+}
+
+// SetPoliticianPhoto mocks base method.
+func (m *MockShortsStore) SetPoliticianPhoto(slug, url, licence, author, sourceURL, curator string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetPoliticianPhoto", slug, url, licence, author, sourceURL, curator)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetPoliticianPhoto indicates an expected call of SetPoliticianPhoto.
+func (mr *MockShortsStoreMockRecorder) SetPoliticianPhoto(slug, url, licence, author, sourceURL, curator any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPoliticianPhoto", reflect.TypeOf((*MockShortsStore)(nil).SetPoliticianPhoto), slug, url, licence, author, sourceURL, curator)
 }
 
 // StockExists mocks base method.

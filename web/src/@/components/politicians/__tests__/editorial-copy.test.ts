@@ -136,9 +136,15 @@ describe("politician surface copy", () => {
   // links the APH PDF per declaration. §6.2 re-review triggered and recorded in
   // docs/politician-register-architecture.md.
   it("covers exactly the surfaces it claims to", () => {
-    // 10 (incl. politicians/opengraph-image.tsx, the share card) + 2 operator
-    // console files + the explorer, the heatmap and the avatar kit.
-    expect(FILES.length).toBe(15);
+    // 10 (incl. politicians/opengraph-image.tsx, the share card) + the explorer,
+    // the heatmap, the avatar kit, and 5 operator-console files (securities
+    // review + its page, the politician CRM + its index and detail pages).
+    //
+    // The CRM renders a named person's photograph, their terms and their
+    // profile facts on an internal screen — bound by the vocabulary rules for
+    // the same reason the securities console is, and excluded from
+    // RENDERING_SURFACES for the same reason too.
+    expect(FILES.length).toBe(18);
     expect(RENDERING_SURFACES.length).toBe(7);
   });
 

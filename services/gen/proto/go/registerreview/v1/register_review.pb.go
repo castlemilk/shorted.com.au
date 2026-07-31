@@ -22,6 +22,61 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// FactAction mirrors politician_profile_overrides.action exactly. There is no
+// "delete": a correction supersedes, and a fact is suppressed rather than
+// removed, so the trail stays evidence.
+type FactAction int32
+
+const (
+	FactAction_FACT_ACTION_UNSPECIFIED FactAction = 0
+	FactAction_FACT_ACTION_AMEND       FactAction = 1
+	FactAction_FACT_ACTION_SUPPRESS    FactAction = 2
+	FactAction_FACT_ACTION_REINSTATE   FactAction = 3
+)
+
+// Enum value maps for FactAction.
+var (
+	FactAction_name = map[int32]string{
+		0: "FACT_ACTION_UNSPECIFIED",
+		1: "FACT_ACTION_AMEND",
+		2: "FACT_ACTION_SUPPRESS",
+		3: "FACT_ACTION_REINSTATE",
+	}
+	FactAction_value = map[string]int32{
+		"FACT_ACTION_UNSPECIFIED": 0,
+		"FACT_ACTION_AMEND":       1,
+		"FACT_ACTION_SUPPRESS":    2,
+		"FACT_ACTION_REINSTATE":   3,
+	}
+)
+
+func (x FactAction) Enum() *FactAction {
+	p := new(FactAction)
+	*p = x
+	return p
+}
+
+func (x FactAction) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (FactAction) Descriptor() protoreflect.EnumDescriptor {
+	return file_registerreview_v1_register_review_proto_enumTypes[0].Descriptor()
+}
+
+func (FactAction) Type() protoreflect.EnumType {
+	return &file_registerreview_v1_register_review_proto_enumTypes[0]
+}
+
+func (x FactAction) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use FactAction.Descriptor instead.
+func (FactAction) EnumDescriptor() ([]byte, []int) {
+	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{0}
+}
+
 // SecurityDecision is the CLOSED vocabulary of what a reviewer may say about a
 // declared name. It maps 1:1 onto register_security_aliases.resolution.
 //
@@ -82,11 +137,11 @@ func (x SecurityDecision) String() string {
 }
 
 func (SecurityDecision) Descriptor() protoreflect.EnumDescriptor {
-	return file_registerreview_v1_register_review_proto_enumTypes[0].Descriptor()
+	return file_registerreview_v1_register_review_proto_enumTypes[1].Descriptor()
 }
 
 func (SecurityDecision) Type() protoreflect.EnumType {
-	return &file_registerreview_v1_register_review_proto_enumTypes[0]
+	return &file_registerreview_v1_register_review_proto_enumTypes[1]
 }
 
 func (x SecurityDecision) Number() protoreflect.EnumNumber {
@@ -95,7 +150,7 @@ func (x SecurityDecision) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use SecurityDecision.Descriptor instead.
 func (SecurityDecision) EnumDescriptor() ([]byte, []int) {
-	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{0}
+	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{1}
 }
 
 // AliasKind is descriptive metadata carried on a resolved alias. The resolver
@@ -140,11 +195,11 @@ func (x AliasKind) String() string {
 }
 
 func (AliasKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_registerreview_v1_register_review_proto_enumTypes[1].Descriptor()
+	return file_registerreview_v1_register_review_proto_enumTypes[2].Descriptor()
 }
 
 func (AliasKind) Type() protoreflect.EnumType {
-	return &file_registerreview_v1_register_review_proto_enumTypes[1]
+	return &file_registerreview_v1_register_review_proto_enumTypes[2]
 }
 
 func (x AliasKind) Number() protoreflect.EnumNumber {
@@ -153,7 +208,1096 @@ func (x AliasKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use AliasKind.Descriptor instead.
 func (AliasKind) EnumDescriptor() ([]byte, []int) {
+	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{2}
+}
+
+// ProfileFact is one structured fact, with the machine reading always visible
+// beside whatever a curator decided (§7.4 rule 2).
+type ProfileFact struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Field   string                 `protobuf:"bytes,1,opt,name=field,proto3" json:"field,omitempty"`
+	Ordinal int32                  `protobuf:"varint,2,opt,name=ordinal,proto3" json:"ordinal,omitempty"`
+	// What is published: the curated value if one exists, else the machine's.
+	ResolvedText string `protobuf:"bytes,3,opt,name=resolved_text,json=resolvedText,proto3" json:"resolved_text,omitempty"`
+	// What the collector read. Rendered beneath the resolved value so a reviewer
+	// is always comparing against the source, never just reading our answer.
+	MachineText   string `protobuf:"bytes,4,opt,name=machine_text,json=machineText,proto3" json:"machine_text,omitempty"`
+	IsCurated     bool   `protobuf:"varint,5,opt,name=is_curated,json=isCurated,proto3" json:"is_curated,omitempty"`
+	CuratedBy     string `protobuf:"bytes,6,opt,name=curated_by,json=curatedBy,proto3" json:"curated_by,omitempty"`
+	SourceKey     string `protobuf:"bytes,7,opt,name=source_key,json=sourceKey,proto3" json:"source_key,omitempty"`
+	SourceUrl     string `protobuf:"bytes,8,opt,name=source_url,json=sourceUrl,proto3" json:"source_url,omitempty"`
+	SourceLicence string `protobuf:"bytes,9,opt,name=source_licence,json=sourceLicence,proto3" json:"source_licence,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProfileFact) Reset() {
+	*x = ProfileFact{}
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProfileFact) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProfileFact) ProtoMessage() {}
+
+func (x *ProfileFact) ProtoReflect() protoreflect.Message {
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProfileFact.ProtoReflect.Descriptor instead.
+func (*ProfileFact) Descriptor() ([]byte, []int) {
+	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *ProfileFact) GetField() string {
+	if x != nil {
+		return x.Field
+	}
+	return ""
+}
+
+func (x *ProfileFact) GetOrdinal() int32 {
+	if x != nil {
+		return x.Ordinal
+	}
+	return 0
+}
+
+func (x *ProfileFact) GetResolvedText() string {
+	if x != nil {
+		return x.ResolvedText
+	}
+	return ""
+}
+
+func (x *ProfileFact) GetMachineText() string {
+	if x != nil {
+		return x.MachineText
+	}
+	return ""
+}
+
+func (x *ProfileFact) GetIsCurated() bool {
+	if x != nil {
+		return x.IsCurated
+	}
+	return false
+}
+
+func (x *ProfileFact) GetCuratedBy() string {
+	if x != nil {
+		return x.CuratedBy
+	}
+	return ""
+}
+
+func (x *ProfileFact) GetSourceKey() string {
+	if x != nil {
+		return x.SourceKey
+	}
+	return ""
+}
+
+func (x *ProfileFact) GetSourceUrl() string {
+	if x != nil {
+		return x.SourceUrl
+	}
+	return ""
+}
+
+func (x *ProfileFact) GetSourceLicence() string {
+	if x != nil {
+		return x.SourceLicence
+	}
+	return ""
+}
+
+type PoliticianTermSummary struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Parliament    int32                  `protobuf:"varint,1,opt,name=parliament,proto3" json:"parliament,omitempty"`
+	Chamber       string                 `protobuf:"bytes,2,opt,name=chamber,proto3" json:"chamber,omitempty"`
+	Division      string                 `protobuf:"bytes,3,opt,name=division,proto3" json:"division,omitempty"`
+	StateCode     string                 `protobuf:"bytes,4,opt,name=state_code,json=stateCode,proto3" json:"state_code,omitempty"`
+	PartyAb       string                 `protobuf:"bytes,5,opt,name=party_ab,json=partyAb,proto3" json:"party_ab,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PoliticianTermSummary) Reset() {
+	*x = PoliticianTermSummary{}
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PoliticianTermSummary) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PoliticianTermSummary) ProtoMessage() {}
+
+func (x *PoliticianTermSummary) ProtoReflect() protoreflect.Message {
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PoliticianTermSummary.ProtoReflect.Descriptor instead.
+func (*PoliticianTermSummary) Descriptor() ([]byte, []int) {
 	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *PoliticianTermSummary) GetParliament() int32 {
+	if x != nil {
+		return x.Parliament
+	}
+	return 0
+}
+
+func (x *PoliticianTermSummary) GetChamber() string {
+	if x != nil {
+		return x.Chamber
+	}
+	return ""
+}
+
+func (x *PoliticianTermSummary) GetDivision() string {
+	if x != nil {
+		return x.Division
+	}
+	return ""
+}
+
+func (x *PoliticianTermSummary) GetStateCode() string {
+	if x != nil {
+		return x.StateCode
+	}
+	return ""
+}
+
+func (x *PoliticianTermSummary) GetPartyAb() string {
+	if x != nil {
+		return x.PartyAb
+	}
+	return ""
+}
+
+// DuplicateCandidate is another record sharing this person's APH PHID — i.e.
+// the same human, published twice with a split history.
+type DuplicateCandidate struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	Slug                string                 `protobuf:"bytes,1,opt,name=slug,proto3" json:"slug,omitempty"`
+	DisplayName         string                 `protobuf:"bytes,2,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	StatementCount      int32                  `protobuf:"varint,3,opt,name=statement_count,json=statementCount,proto3" json:"statement_count,omitempty"`
+	DeclaredListedCount int32                  `protobuf:"varint,4,opt,name=declared_listed_count,json=declaredListedCount,proto3" json:"declared_listed_count,omitempty"`
+	AphPhid             string                 `protobuf:"bytes,5,opt,name=aph_phid,json=aphPhid,proto3" json:"aph_phid,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *DuplicateCandidate) Reset() {
+	*x = DuplicateCandidate{}
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DuplicateCandidate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DuplicateCandidate) ProtoMessage() {}
+
+func (x *DuplicateCandidate) ProtoReflect() protoreflect.Message {
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DuplicateCandidate.ProtoReflect.Descriptor instead.
+func (*DuplicateCandidate) Descriptor() ([]byte, []int) {
+	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *DuplicateCandidate) GetSlug() string {
+	if x != nil {
+		return x.Slug
+	}
+	return ""
+}
+
+func (x *DuplicateCandidate) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+func (x *DuplicateCandidate) GetStatementCount() int32 {
+	if x != nil {
+		return x.StatementCount
+	}
+	return 0
+}
+
+func (x *DuplicateCandidate) GetDeclaredListedCount() int32 {
+	if x != nil {
+		return x.DeclaredListedCount
+	}
+	return 0
+}
+
+func (x *DuplicateCandidate) GetAphPhid() string {
+	if x != nil {
+		return x.AphPhid
+	}
+	return ""
+}
+
+type PoliticianProfileSummary struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	Slug                string                 `protobuf:"bytes,1,opt,name=slug,proto3" json:"slug,omitempty"`
+	DisplayName         string                 `protobuf:"bytes,2,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	PartyAb             string                 `protobuf:"bytes,3,opt,name=party_ab,json=partyAb,proto3" json:"party_ab,omitempty"`
+	Chamber             string                 `protobuf:"bytes,4,opt,name=chamber,proto3" json:"chamber,omitempty"`
+	Division            string                 `protobuf:"bytes,5,opt,name=division,proto3" json:"division,omitempty"`
+	StateCode           string                 `protobuf:"bytes,6,opt,name=state_code,json=stateCode,proto3" json:"state_code,omitempty"`
+	AphPhid             string                 `protobuf:"bytes,7,opt,name=aph_phid,json=aphPhid,proto3" json:"aph_phid,omitempty"`
+	PhotoUrl            string                 `protobuf:"bytes,8,opt,name=photo_url,json=photoUrl,proto3" json:"photo_url,omitempty"`
+	DeclaredListedCount int32                  `protobuf:"varint,9,opt,name=declared_listed_count,json=declaredListedCount,proto3" json:"declared_listed_count,omitempty"`
+	StatementCount      int32                  `protobuf:"varint,10,opt,name=statement_count,json=statementCount,proto3" json:"statement_count,omitempty"`
+	// True when another live record shares this PHID.
+	HasDuplicate      bool  `protobuf:"varint,11,opt,name=has_duplicate,json=hasDuplicate,proto3" json:"has_duplicate,omitempty"`
+	CuratedFieldCount int32 `protobuf:"varint,12,opt,name=curated_field_count,json=curatedFieldCount,proto3" json:"curated_field_count,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *PoliticianProfileSummary) Reset() {
+	*x = PoliticianProfileSummary{}
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PoliticianProfileSummary) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PoliticianProfileSummary) ProtoMessage() {}
+
+func (x *PoliticianProfileSummary) ProtoReflect() protoreflect.Message {
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PoliticianProfileSummary.ProtoReflect.Descriptor instead.
+func (*PoliticianProfileSummary) Descriptor() ([]byte, []int) {
+	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *PoliticianProfileSummary) GetSlug() string {
+	if x != nil {
+		return x.Slug
+	}
+	return ""
+}
+
+func (x *PoliticianProfileSummary) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+func (x *PoliticianProfileSummary) GetPartyAb() string {
+	if x != nil {
+		return x.PartyAb
+	}
+	return ""
+}
+
+func (x *PoliticianProfileSummary) GetChamber() string {
+	if x != nil {
+		return x.Chamber
+	}
+	return ""
+}
+
+func (x *PoliticianProfileSummary) GetDivision() string {
+	if x != nil {
+		return x.Division
+	}
+	return ""
+}
+
+func (x *PoliticianProfileSummary) GetStateCode() string {
+	if x != nil {
+		return x.StateCode
+	}
+	return ""
+}
+
+func (x *PoliticianProfileSummary) GetAphPhid() string {
+	if x != nil {
+		return x.AphPhid
+	}
+	return ""
+}
+
+func (x *PoliticianProfileSummary) GetPhotoUrl() string {
+	if x != nil {
+		return x.PhotoUrl
+	}
+	return ""
+}
+
+func (x *PoliticianProfileSummary) GetDeclaredListedCount() int32 {
+	if x != nil {
+		return x.DeclaredListedCount
+	}
+	return 0
+}
+
+func (x *PoliticianProfileSummary) GetStatementCount() int32 {
+	if x != nil {
+		return x.StatementCount
+	}
+	return 0
+}
+
+func (x *PoliticianProfileSummary) GetHasDuplicate() bool {
+	if x != nil {
+		return x.HasDuplicate
+	}
+	return false
+}
+
+func (x *PoliticianProfileSummary) GetCuratedFieldCount() int32 {
+	if x != nil {
+		return x.CuratedFieldCount
+	}
+	return 0
+}
+
+type ListPoliticianProfilesRequest struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Query  string                 `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
+	Limit  int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	Offset int32                  `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"`
+	// Show only records that share a PHID with another — the merge queue.
+	DuplicatesOnly bool `protobuf:"varint,4,opt,name=duplicates_only,json=duplicatesOnly,proto3" json:"duplicates_only,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ListPoliticianProfilesRequest) Reset() {
+	*x = ListPoliticianProfilesRequest{}
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListPoliticianProfilesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListPoliticianProfilesRequest) ProtoMessage() {}
+
+func (x *ListPoliticianProfilesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListPoliticianProfilesRequest.ProtoReflect.Descriptor instead.
+func (*ListPoliticianProfilesRequest) Descriptor() ([]byte, []int) {
+	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *ListPoliticianProfilesRequest) GetQuery() string {
+	if x != nil {
+		return x.Query
+	}
+	return ""
+}
+
+func (x *ListPoliticianProfilesRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *ListPoliticianProfilesRequest) GetOffset() int32 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+func (x *ListPoliticianProfilesRequest) GetDuplicatesOnly() bool {
+	if x != nil {
+		return x.DuplicatesOnly
+	}
+	return false
+}
+
+type ListPoliticianProfilesResponse struct {
+	state          protoimpl.MessageState      `protogen:"open.v1"`
+	Profiles       []*PoliticianProfileSummary `protobuf:"bytes,1,rep,name=profiles,proto3" json:"profiles,omitempty"`
+	Total          int32                       `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	DuplicateCount int32                       `protobuf:"varint,3,opt,name=duplicate_count,json=duplicateCount,proto3" json:"duplicate_count,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ListPoliticianProfilesResponse) Reset() {
+	*x = ListPoliticianProfilesResponse{}
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListPoliticianProfilesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListPoliticianProfilesResponse) ProtoMessage() {}
+
+func (x *ListPoliticianProfilesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListPoliticianProfilesResponse.ProtoReflect.Descriptor instead.
+func (*ListPoliticianProfilesResponse) Descriptor() ([]byte, []int) {
+	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *ListPoliticianProfilesResponse) GetProfiles() []*PoliticianProfileSummary {
+	if x != nil {
+		return x.Profiles
+	}
+	return nil
+}
+
+func (x *ListPoliticianProfilesResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *ListPoliticianProfilesResponse) GetDuplicateCount() int32 {
+	if x != nil {
+		return x.DuplicateCount
+	}
+	return 0
+}
+
+type GetPoliticianProfileRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Slug          string                 `protobuf:"bytes,1,opt,name=slug,proto3" json:"slug,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPoliticianProfileRequest) Reset() {
+	*x = GetPoliticianProfileRequest{}
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPoliticianProfileRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPoliticianProfileRequest) ProtoMessage() {}
+
+func (x *GetPoliticianProfileRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPoliticianProfileRequest.ProtoReflect.Descriptor instead.
+func (*GetPoliticianProfileRequest) Descriptor() ([]byte, []int) {
+	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *GetPoliticianProfileRequest) GetSlug() string {
+	if x != nil {
+		return x.Slug
+	}
+	return ""
+}
+
+type GetPoliticianProfileResponse struct {
+	state      protoimpl.MessageState    `protogen:"open.v1"`
+	Profile    *PoliticianProfileSummary `protobuf:"bytes,1,opt,name=profile,proto3" json:"profile,omitempty"`
+	Terms      []*PoliticianTermSummary  `protobuf:"bytes,2,rep,name=terms,proto3" json:"terms,omitempty"`
+	Facts      []*ProfileFact            `protobuf:"bytes,3,rep,name=facts,proto3" json:"facts,omitempty"`
+	Duplicates []*DuplicateCandidate     `protobuf:"bytes,4,rep,name=duplicates,proto3" json:"duplicates,omitempty"`
+	// The portrait and the attribution its licence requires, together.
+	PhotoUrl       string `protobuf:"bytes,5,opt,name=photo_url,json=photoUrl,proto3" json:"photo_url,omitempty"`
+	PhotoLicence   string `protobuf:"bytes,6,opt,name=photo_licence,json=photoLicence,proto3" json:"photo_licence,omitempty"`
+	PhotoAuthor    string `protobuf:"bytes,7,opt,name=photo_author,json=photoAuthor,proto3" json:"photo_author,omitempty"`
+	PhotoSourceUrl string `protobuf:"bytes,8,opt,name=photo_source_url,json=photoSourceUrl,proto3" json:"photo_source_url,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *GetPoliticianProfileResponse) Reset() {
+	*x = GetPoliticianProfileResponse{}
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPoliticianProfileResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPoliticianProfileResponse) ProtoMessage() {}
+
+func (x *GetPoliticianProfileResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPoliticianProfileResponse.ProtoReflect.Descriptor instead.
+func (*GetPoliticianProfileResponse) Descriptor() ([]byte, []int) {
+	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *GetPoliticianProfileResponse) GetProfile() *PoliticianProfileSummary {
+	if x != nil {
+		return x.Profile
+	}
+	return nil
+}
+
+func (x *GetPoliticianProfileResponse) GetTerms() []*PoliticianTermSummary {
+	if x != nil {
+		return x.Terms
+	}
+	return nil
+}
+
+func (x *GetPoliticianProfileResponse) GetFacts() []*ProfileFact {
+	if x != nil {
+		return x.Facts
+	}
+	return nil
+}
+
+func (x *GetPoliticianProfileResponse) GetDuplicates() []*DuplicateCandidate {
+	if x != nil {
+		return x.Duplicates
+	}
+	return nil
+}
+
+func (x *GetPoliticianProfileResponse) GetPhotoUrl() string {
+	if x != nil {
+		return x.PhotoUrl
+	}
+	return ""
+}
+
+func (x *GetPoliticianProfileResponse) GetPhotoLicence() string {
+	if x != nil {
+		return x.PhotoLicence
+	}
+	return ""
+}
+
+func (x *GetPoliticianProfileResponse) GetPhotoAuthor() string {
+	if x != nil {
+		return x.PhotoAuthor
+	}
+	return ""
+}
+
+func (x *GetPoliticianProfileResponse) GetPhotoSourceUrl() string {
+	if x != nil {
+		return x.PhotoSourceUrl
+	}
+	return ""
+}
+
+type CuratePoliticianFactRequest struct {
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Slug        string                 `protobuf:"bytes,1,opt,name=slug,proto3" json:"slug,omitempty"`
+	Field       string                 `protobuf:"bytes,2,opt,name=field,proto3" json:"field,omitempty"`
+	Ordinal     int32                  `protobuf:"varint,3,opt,name=ordinal,proto3" json:"ordinal,omitempty"`
+	Action      FactAction             `protobuf:"varint,4,opt,name=action,proto3,enum=registerreview.v1.FactAction" json:"action,omitempty"`
+	CuratedText string                 `protobuf:"bytes,5,opt,name=curated_text,json=curatedText,proto3" json:"curated_text,omitempty"`
+	// Mandatory. A correction to a named person's record without a stated reason
+	// is not reviewable, and this is the field a dispute is answered from.
+	Rationale     string `protobuf:"bytes,6,opt,name=rationale,proto3" json:"rationale,omitempty"`
+	EvidenceUrl   string `protobuf:"bytes,7,opt,name=evidence_url,json=evidenceUrl,proto3" json:"evidence_url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CuratePoliticianFactRequest) Reset() {
+	*x = CuratePoliticianFactRequest{}
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CuratePoliticianFactRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CuratePoliticianFactRequest) ProtoMessage() {}
+
+func (x *CuratePoliticianFactRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CuratePoliticianFactRequest.ProtoReflect.Descriptor instead.
+func (*CuratePoliticianFactRequest) Descriptor() ([]byte, []int) {
+	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *CuratePoliticianFactRequest) GetSlug() string {
+	if x != nil {
+		return x.Slug
+	}
+	return ""
+}
+
+func (x *CuratePoliticianFactRequest) GetField() string {
+	if x != nil {
+		return x.Field
+	}
+	return ""
+}
+
+func (x *CuratePoliticianFactRequest) GetOrdinal() int32 {
+	if x != nil {
+		return x.Ordinal
+	}
+	return 0
+}
+
+func (x *CuratePoliticianFactRequest) GetAction() FactAction {
+	if x != nil {
+		return x.Action
+	}
+	return FactAction_FACT_ACTION_UNSPECIFIED
+}
+
+func (x *CuratePoliticianFactRequest) GetCuratedText() string {
+	if x != nil {
+		return x.CuratedText
+	}
+	return ""
+}
+
+func (x *CuratePoliticianFactRequest) GetRationale() string {
+	if x != nil {
+		return x.Rationale
+	}
+	return ""
+}
+
+func (x *CuratePoliticianFactRequest) GetEvidenceUrl() string {
+	if x != nil {
+		return x.EvidenceUrl
+	}
+	return ""
+}
+
+type CuratePoliticianFactResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Fact          *ProfileFact           `protobuf:"bytes,1,opt,name=fact,proto3" json:"fact,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CuratePoliticianFactResponse) Reset() {
+	*x = CuratePoliticianFactResponse{}
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CuratePoliticianFactResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CuratePoliticianFactResponse) ProtoMessage() {}
+
+func (x *CuratePoliticianFactResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CuratePoliticianFactResponse.ProtoReflect.Descriptor instead.
+func (*CuratePoliticianFactResponse) Descriptor() ([]byte, []int) {
+	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *CuratePoliticianFactResponse) GetFact() *ProfileFact {
+	if x != nil {
+		return x.Fact
+	}
+	return nil
+}
+
+type SetPoliticianPhotoRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Slug  string                 `protobuf:"bytes,1,opt,name=slug,proto3" json:"slug,omitempty"`
+	// Empty photo_url CLEARS the portrait (falling back to the monogram).
+	PhotoUrl       string `protobuf:"bytes,2,opt,name=photo_url,json=photoUrl,proto3" json:"photo_url,omitempty"`
+	PhotoLicence   string `protobuf:"bytes,3,opt,name=photo_licence,json=photoLicence,proto3" json:"photo_licence,omitempty"`
+	PhotoAuthor    string `protobuf:"bytes,4,opt,name=photo_author,json=photoAuthor,proto3" json:"photo_author,omitempty"`
+	PhotoSourceUrl string `protobuf:"bytes,5,opt,name=photo_source_url,json=photoSourceUrl,proto3" json:"photo_source_url,omitempty"`
+	Rationale      string `protobuf:"bytes,6,opt,name=rationale,proto3" json:"rationale,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *SetPoliticianPhotoRequest) Reset() {
+	*x = SetPoliticianPhotoRequest{}
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetPoliticianPhotoRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetPoliticianPhotoRequest) ProtoMessage() {}
+
+func (x *SetPoliticianPhotoRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetPoliticianPhotoRequest.ProtoReflect.Descriptor instead.
+func (*SetPoliticianPhotoRequest) Descriptor() ([]byte, []int) {
+	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *SetPoliticianPhotoRequest) GetSlug() string {
+	if x != nil {
+		return x.Slug
+	}
+	return ""
+}
+
+func (x *SetPoliticianPhotoRequest) GetPhotoUrl() string {
+	if x != nil {
+		return x.PhotoUrl
+	}
+	return ""
+}
+
+func (x *SetPoliticianPhotoRequest) GetPhotoLicence() string {
+	if x != nil {
+		return x.PhotoLicence
+	}
+	return ""
+}
+
+func (x *SetPoliticianPhotoRequest) GetPhotoAuthor() string {
+	if x != nil {
+		return x.PhotoAuthor
+	}
+	return ""
+}
+
+func (x *SetPoliticianPhotoRequest) GetPhotoSourceUrl() string {
+	if x != nil {
+		return x.PhotoSourceUrl
+	}
+	return ""
+}
+
+func (x *SetPoliticianPhotoRequest) GetRationale() string {
+	if x != nil {
+		return x.Rationale
+	}
+	return ""
+}
+
+type SetPoliticianPhotoResponse struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	PhotoUrl       string                 `protobuf:"bytes,1,opt,name=photo_url,json=photoUrl,proto3" json:"photo_url,omitempty"`
+	PhotoLicence   string                 `protobuf:"bytes,2,opt,name=photo_licence,json=photoLicence,proto3" json:"photo_licence,omitempty"`
+	PhotoAuthor    string                 `protobuf:"bytes,3,opt,name=photo_author,json=photoAuthor,proto3" json:"photo_author,omitempty"`
+	PhotoSourceUrl string                 `protobuf:"bytes,4,opt,name=photo_source_url,json=photoSourceUrl,proto3" json:"photo_source_url,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *SetPoliticianPhotoResponse) Reset() {
+	*x = SetPoliticianPhotoResponse{}
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetPoliticianPhotoResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetPoliticianPhotoResponse) ProtoMessage() {}
+
+func (x *SetPoliticianPhotoResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetPoliticianPhotoResponse.ProtoReflect.Descriptor instead.
+func (*SetPoliticianPhotoResponse) Descriptor() ([]byte, []int) {
+	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *SetPoliticianPhotoResponse) GetPhotoUrl() string {
+	if x != nil {
+		return x.PhotoUrl
+	}
+	return ""
+}
+
+func (x *SetPoliticianPhotoResponse) GetPhotoLicence() string {
+	if x != nil {
+		return x.PhotoLicence
+	}
+	return ""
+}
+
+func (x *SetPoliticianPhotoResponse) GetPhotoAuthor() string {
+	if x != nil {
+		return x.PhotoAuthor
+	}
+	return ""
+}
+
+func (x *SetPoliticianPhotoResponse) GetPhotoSourceUrl() string {
+	if x != nil {
+		return x.PhotoSourceUrl
+	}
+	return ""
+}
+
+type MergePoliticiansRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The record that survives. Its slug stays canonical.
+	KeepSlug string `protobuf:"bytes,1,opt,name=keep_slug,json=keepSlug,proto3" json:"keep_slug,omitempty"`
+	// The record merged away. Its slug keeps resolving, as a redirect.
+	MergeSlug string `protobuf:"bytes,2,opt,name=merge_slug,json=mergeSlug,proto3" json:"merge_slug,omitempty"`
+	// Mandatory: what establishes these are one person (e.g. "APH PHID DZS").
+	Evidence      string `protobuf:"bytes,3,opt,name=evidence,proto3" json:"evidence,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MergePoliticiansRequest) Reset() {
+	*x = MergePoliticiansRequest{}
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MergePoliticiansRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MergePoliticiansRequest) ProtoMessage() {}
+
+func (x *MergePoliticiansRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MergePoliticiansRequest.ProtoReflect.Descriptor instead.
+func (*MergePoliticiansRequest) Descriptor() ([]byte, []int) {
+	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *MergePoliticiansRequest) GetKeepSlug() string {
+	if x != nil {
+		return x.KeepSlug
+	}
+	return ""
+}
+
+func (x *MergePoliticiansRequest) GetMergeSlug() string {
+	if x != nil {
+		return x.MergeSlug
+	}
+	return ""
+}
+
+func (x *MergePoliticiansRequest) GetEvidence() string {
+	if x != nil {
+		return x.Evidence
+	}
+	return ""
+}
+
+type MergePoliticiansResponse struct {
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	KeepSlug  string                 `protobuf:"bytes,1,opt,name=keep_slug,json=keepSlug,proto3" json:"keep_slug,omitempty"`
+	MergeSlug string                 `protobuf:"bytes,2,opt,name=merge_slug,json=mergeSlug,proto3" json:"merge_slug,omitempty"`
+	// Statements that now resolve to the surviving record.
+	StatementsMoved int32 `protobuf:"varint,3,opt,name=statements_moved,json=statementsMoved,proto3" json:"statements_moved,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *MergePoliticiansResponse) Reset() {
+	*x = MergePoliticiansResponse{}
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MergePoliticiansResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MergePoliticiansResponse) ProtoMessage() {}
+
+func (x *MergePoliticiansResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MergePoliticiansResponse.ProtoReflect.Descriptor instead.
+func (*MergePoliticiansResponse) Descriptor() ([]byte, []int) {
+	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *MergePoliticiansResponse) GetKeepSlug() string {
+	if x != nil {
+		return x.KeepSlug
+	}
+	return ""
+}
+
+func (x *MergePoliticiansResponse) GetMergeSlug() string {
+	if x != nil {
+		return x.MergeSlug
+	}
+	return ""
+}
+
+func (x *MergePoliticiansResponse) GetStatementsMoved() int32 {
+	if x != nil {
+		return x.StatementsMoved
+	}
+	return 0
 }
 
 // DeclaredSample is one real row this candidate came from. The reviewer judges
@@ -175,7 +1319,7 @@ type DeclaredSample struct {
 
 func (x *DeclaredSample) Reset() {
 	*x = DeclaredSample{}
-	mi := &file_registerreview_v1_register_review_proto_msgTypes[0]
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -187,7 +1331,7 @@ func (x *DeclaredSample) String() string {
 func (*DeclaredSample) ProtoMessage() {}
 
 func (x *DeclaredSample) ProtoReflect() protoreflect.Message {
-	mi := &file_registerreview_v1_register_review_proto_msgTypes[0]
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -200,7 +1344,7 @@ func (x *DeclaredSample) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeclaredSample.ProtoReflect.Descriptor instead.
 func (*DeclaredSample) Descriptor() ([]byte, []int) {
-	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{0}
+	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *DeclaredSample) GetDeclaredText() string {
@@ -266,7 +1410,7 @@ type Listing struct {
 
 func (x *Listing) Reset() {
 	*x = Listing{}
-	mi := &file_registerreview_v1_register_review_proto_msgTypes[1]
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -278,7 +1422,7 @@ func (x *Listing) String() string {
 func (*Listing) ProtoMessage() {}
 
 func (x *Listing) ProtoReflect() protoreflect.Message {
-	mi := &file_registerreview_v1_register_review_proto_msgTypes[1]
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -291,7 +1435,7 @@ func (x *Listing) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Listing.ProtoReflect.Descriptor instead.
 func (*Listing) Descriptor() ([]byte, []int) {
-	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{1}
+	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *Listing) GetStockCode() string {
@@ -342,7 +1486,7 @@ type AliasProposal struct {
 
 func (x *AliasProposal) Reset() {
 	*x = AliasProposal{}
-	mi := &file_registerreview_v1_register_review_proto_msgTypes[2]
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -354,7 +1498,7 @@ func (x *AliasProposal) String() string {
 func (*AliasProposal) ProtoMessage() {}
 
 func (x *AliasProposal) ProtoReflect() protoreflect.Message {
-	mi := &file_registerreview_v1_register_review_proto_msgTypes[2]
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -367,7 +1511,7 @@ func (x *AliasProposal) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AliasProposal.ProtoReflect.Descriptor instead.
 func (*AliasProposal) Descriptor() ([]byte, []int) {
-	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{2}
+	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *AliasProposal) GetProposedStockCode() string {
@@ -445,7 +1589,7 @@ type SecurityQueueItem struct {
 
 func (x *SecurityQueueItem) Reset() {
 	*x = SecurityQueueItem{}
-	mi := &file_registerreview_v1_register_review_proto_msgTypes[3]
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -457,7 +1601,7 @@ func (x *SecurityQueueItem) String() string {
 func (*SecurityQueueItem) ProtoMessage() {}
 
 func (x *SecurityQueueItem) ProtoReflect() protoreflect.Message {
-	mi := &file_registerreview_v1_register_review_proto_msgTypes[3]
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -470,7 +1614,7 @@ func (x *SecurityQueueItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SecurityQueueItem.ProtoReflect.Descriptor instead.
 func (*SecurityQueueItem) Descriptor() ([]byte, []int) {
-	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{3}
+	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *SecurityQueueItem) GetCandidateNorm() string {
@@ -564,7 +1708,7 @@ type ListSecurityQueueRequest struct {
 
 func (x *ListSecurityQueueRequest) Reset() {
 	*x = ListSecurityQueueRequest{}
-	mi := &file_registerreview_v1_register_review_proto_msgTypes[4]
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -576,7 +1720,7 @@ func (x *ListSecurityQueueRequest) String() string {
 func (*ListSecurityQueueRequest) ProtoMessage() {}
 
 func (x *ListSecurityQueueRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_registerreview_v1_register_review_proto_msgTypes[4]
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -589,7 +1733,7 @@ func (x *ListSecurityQueueRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSecurityQueueRequest.ProtoReflect.Descriptor instead.
 func (*ListSecurityQueueRequest) Descriptor() ([]byte, []int) {
-	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{4}
+	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ListSecurityQueueRequest) GetLimit() int32 {
@@ -625,7 +1769,7 @@ type ListSecurityQueueResponse struct {
 
 func (x *ListSecurityQueueResponse) Reset() {
 	*x = ListSecurityQueueResponse{}
-	mi := &file_registerreview_v1_register_review_proto_msgTypes[5]
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -637,7 +1781,7 @@ func (x *ListSecurityQueueResponse) String() string {
 func (*ListSecurityQueueResponse) ProtoMessage() {}
 
 func (x *ListSecurityQueueResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_registerreview_v1_register_review_proto_msgTypes[5]
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -650,7 +1794,7 @@ func (x *ListSecurityQueueResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSecurityQueueResponse.ProtoReflect.Descriptor instead.
 func (*ListSecurityQueueResponse) Descriptor() ([]byte, []int) {
-	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{5}
+	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ListSecurityQueueResponse) GetItems() []*SecurityQueueItem {
@@ -684,7 +1828,7 @@ type SearchListingsRequest struct {
 
 func (x *SearchListingsRequest) Reset() {
 	*x = SearchListingsRequest{}
-	mi := &file_registerreview_v1_register_review_proto_msgTypes[6]
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -696,7 +1840,7 @@ func (x *SearchListingsRequest) String() string {
 func (*SearchListingsRequest) ProtoMessage() {}
 
 func (x *SearchListingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_registerreview_v1_register_review_proto_msgTypes[6]
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -709,7 +1853,7 @@ func (x *SearchListingsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchListingsRequest.ProtoReflect.Descriptor instead.
 func (*SearchListingsRequest) Descriptor() ([]byte, []int) {
-	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{6}
+	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *SearchListingsRequest) GetQuery() string {
@@ -735,7 +1879,7 @@ type SearchListingsResponse struct {
 
 func (x *SearchListingsResponse) Reset() {
 	*x = SearchListingsResponse{}
-	mi := &file_registerreview_v1_register_review_proto_msgTypes[7]
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -747,7 +1891,7 @@ func (x *SearchListingsResponse) String() string {
 func (*SearchListingsResponse) ProtoMessage() {}
 
 func (x *SearchListingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_registerreview_v1_register_review_proto_msgTypes[7]
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -760,7 +1904,7 @@ func (x *SearchListingsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchListingsResponse.ProtoReflect.Descriptor instead.
 func (*SearchListingsResponse) Descriptor() ([]byte, []int) {
-	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{7}
+	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *SearchListingsResponse) GetListings() []*Listing {
@@ -790,7 +1934,7 @@ type DecideSecurityCandidateRequest struct {
 
 func (x *DecideSecurityCandidateRequest) Reset() {
 	*x = DecideSecurityCandidateRequest{}
-	mi := &file_registerreview_v1_register_review_proto_msgTypes[8]
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -802,7 +1946,7 @@ func (x *DecideSecurityCandidateRequest) String() string {
 func (*DecideSecurityCandidateRequest) ProtoMessage() {}
 
 func (x *DecideSecurityCandidateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_registerreview_v1_register_review_proto_msgTypes[8]
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -815,7 +1959,7 @@ func (x *DecideSecurityCandidateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DecideSecurityCandidateRequest.ProtoReflect.Descriptor instead.
 func (*DecideSecurityCandidateRequest) Descriptor() ([]byte, []int) {
-	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{8}
+	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *DecideSecurityCandidateRequest) GetCandidateNorm() string {
@@ -873,7 +2017,7 @@ type DecideSecurityCandidateResponse struct {
 
 func (x *DecideSecurityCandidateResponse) Reset() {
 	*x = DecideSecurityCandidateResponse{}
-	mi := &file_registerreview_v1_register_review_proto_msgTypes[9]
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -885,7 +2029,7 @@ func (x *DecideSecurityCandidateResponse) String() string {
 func (*DecideSecurityCandidateResponse) ProtoMessage() {}
 
 func (x *DecideSecurityCandidateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_registerreview_v1_register_review_proto_msgTypes[9]
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -898,7 +2042,7 @@ func (x *DecideSecurityCandidateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DecideSecurityCandidateResponse.ProtoReflect.Descriptor instead.
 func (*DecideSecurityCandidateResponse) Descriptor() ([]byte, []int) {
-	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{9}
+	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *DecideSecurityCandidateResponse) GetRowsAffected() int32 {
@@ -924,7 +2068,7 @@ type UndoSecurityDecisionRequest struct {
 
 func (x *UndoSecurityDecisionRequest) Reset() {
 	*x = UndoSecurityDecisionRequest{}
-	mi := &file_registerreview_v1_register_review_proto_msgTypes[10]
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -936,7 +2080,7 @@ func (x *UndoSecurityDecisionRequest) String() string {
 func (*UndoSecurityDecisionRequest) ProtoMessage() {}
 
 func (x *UndoSecurityDecisionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_registerreview_v1_register_review_proto_msgTypes[10]
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -949,7 +2093,7 @@ func (x *UndoSecurityDecisionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UndoSecurityDecisionRequest.ProtoReflect.Descriptor instead.
 func (*UndoSecurityDecisionRequest) Descriptor() ([]byte, []int) {
-	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{10}
+	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *UndoSecurityDecisionRequest) GetCandidateNorm() string {
@@ -969,7 +2113,7 @@ type UndoSecurityDecisionResponse struct {
 
 func (x *UndoSecurityDecisionResponse) Reset() {
 	*x = UndoSecurityDecisionResponse{}
-	mi := &file_registerreview_v1_register_review_proto_msgTypes[11]
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -981,7 +2125,7 @@ func (x *UndoSecurityDecisionResponse) String() string {
 func (*UndoSecurityDecisionResponse) ProtoMessage() {}
 
 func (x *UndoSecurityDecisionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_registerreview_v1_register_review_proto_msgTypes[11]
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -994,7 +2138,7 @@ func (x *UndoSecurityDecisionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UndoSecurityDecisionResponse.ProtoReflect.Descriptor instead.
 func (*UndoSecurityDecisionResponse) Descriptor() ([]byte, []int) {
-	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{11}
+	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *UndoSecurityDecisionResponse) GetDeleted() bool {
@@ -1019,7 +2163,7 @@ type GetCoverageStatsRequest struct {
 
 func (x *GetCoverageStatsRequest) Reset() {
 	*x = GetCoverageStatsRequest{}
-	mi := &file_registerreview_v1_register_review_proto_msgTypes[12]
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1031,7 +2175,7 @@ func (x *GetCoverageStatsRequest) String() string {
 func (*GetCoverageStatsRequest) ProtoMessage() {}
 
 func (x *GetCoverageStatsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_registerreview_v1_register_review_proto_msgTypes[12]
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1044,7 +2188,7 @@ func (x *GetCoverageStatsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCoverageStatsRequest.ProtoReflect.Descriptor instead.
 func (*GetCoverageStatsRequest) Descriptor() ([]byte, []int) {
-	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{12}
+	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{26}
 }
 
 // CoverageStats carries the gate WITH its method, never as a bare number.
@@ -1078,7 +2222,7 @@ type CoverageStats struct {
 
 func (x *CoverageStats) Reset() {
 	*x = CoverageStats{}
-	mi := &file_registerreview_v1_register_review_proto_msgTypes[13]
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1090,7 +2234,7 @@ func (x *CoverageStats) String() string {
 func (*CoverageStats) ProtoMessage() {}
 
 func (x *CoverageStats) ProtoReflect() protoreflect.Message {
-	mi := &file_registerreview_v1_register_review_proto_msgTypes[13]
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1103,7 +2247,7 @@ func (x *CoverageStats) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CoverageStats.ProtoReflect.Descriptor instead.
 func (*CoverageStats) Descriptor() ([]byte, []int) {
-	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{13}
+	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *CoverageStats) GetResolved() int32 {
@@ -1164,7 +2308,7 @@ type GetCoverageStatsResponse struct {
 
 func (x *GetCoverageStatsResponse) Reset() {
 	*x = GetCoverageStatsResponse{}
-	mi := &file_registerreview_v1_register_review_proto_msgTypes[14]
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1176,7 +2320,7 @@ func (x *GetCoverageStatsResponse) String() string {
 func (*GetCoverageStatsResponse) ProtoMessage() {}
 
 func (x *GetCoverageStatsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_registerreview_v1_register_review_proto_msgTypes[14]
+	mi := &file_registerreview_v1_register_review_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1189,7 +2333,7 @@ func (x *GetCoverageStatsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCoverageStatsResponse.ProtoReflect.Descriptor instead.
 func (*GetCoverageStatsResponse) Descriptor() ([]byte, []int) {
-	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{14}
+	return file_registerreview_v1_register_review_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *GetCoverageStatsResponse) GetCoverage() *CoverageStats {
@@ -1203,7 +2347,105 @@ var File_registerreview_v1_register_review_proto protoreflect.FileDescriptor
 
 const file_registerreview_v1_register_review_proto_rawDesc = "" +
 	"\n" +
-	"'registerreview/v1/register_review.proto\x12\x11registerreview.v1\x1a\x18options/v1/options.proto\"\xdf\x01\n" +
+	"'registerreview/v1/register_review.proto\x12\x11registerreview.v1\x1a\x18options/v1/options.proto\"\xa8\x02\n" +
+	"\vProfileFact\x12\x14\n" +
+	"\x05field\x18\x01 \x01(\tR\x05field\x12\x18\n" +
+	"\aordinal\x18\x02 \x01(\x05R\aordinal\x12#\n" +
+	"\rresolved_text\x18\x03 \x01(\tR\fresolvedText\x12!\n" +
+	"\fmachine_text\x18\x04 \x01(\tR\vmachineText\x12\x1d\n" +
+	"\n" +
+	"is_curated\x18\x05 \x01(\bR\tisCurated\x12\x1d\n" +
+	"\n" +
+	"curated_by\x18\x06 \x01(\tR\tcuratedBy\x12\x1d\n" +
+	"\n" +
+	"source_key\x18\a \x01(\tR\tsourceKey\x12\x1d\n" +
+	"\n" +
+	"source_url\x18\b \x01(\tR\tsourceUrl\x12%\n" +
+	"\x0esource_licence\x18\t \x01(\tR\rsourceLicence\"\xa7\x01\n" +
+	"\x15PoliticianTermSummary\x12\x1e\n" +
+	"\n" +
+	"parliament\x18\x01 \x01(\x05R\n" +
+	"parliament\x12\x18\n" +
+	"\achamber\x18\x02 \x01(\tR\achamber\x12\x1a\n" +
+	"\bdivision\x18\x03 \x01(\tR\bdivision\x12\x1d\n" +
+	"\n" +
+	"state_code\x18\x04 \x01(\tR\tstateCode\x12\x19\n" +
+	"\bparty_ab\x18\x05 \x01(\tR\apartyAb\"\xc3\x01\n" +
+	"\x12DuplicateCandidate\x12\x12\n" +
+	"\x04slug\x18\x01 \x01(\tR\x04slug\x12!\n" +
+	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12'\n" +
+	"\x0fstatement_count\x18\x03 \x01(\x05R\x0estatementCount\x122\n" +
+	"\x15declared_listed_count\x18\x04 \x01(\x05R\x13declaredListedCount\x12\x19\n" +
+	"\baph_phid\x18\x05 \x01(\tR\aaphPhid\"\xab\x03\n" +
+	"\x18PoliticianProfileSummary\x12\x12\n" +
+	"\x04slug\x18\x01 \x01(\tR\x04slug\x12!\n" +
+	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12\x19\n" +
+	"\bparty_ab\x18\x03 \x01(\tR\apartyAb\x12\x18\n" +
+	"\achamber\x18\x04 \x01(\tR\achamber\x12\x1a\n" +
+	"\bdivision\x18\x05 \x01(\tR\bdivision\x12\x1d\n" +
+	"\n" +
+	"state_code\x18\x06 \x01(\tR\tstateCode\x12\x19\n" +
+	"\baph_phid\x18\a \x01(\tR\aaphPhid\x12\x1b\n" +
+	"\tphoto_url\x18\b \x01(\tR\bphotoUrl\x122\n" +
+	"\x15declared_listed_count\x18\t \x01(\x05R\x13declaredListedCount\x12'\n" +
+	"\x0fstatement_count\x18\n" +
+	" \x01(\x05R\x0estatementCount\x12#\n" +
+	"\rhas_duplicate\x18\v \x01(\bR\fhasDuplicate\x12.\n" +
+	"\x13curated_field_count\x18\f \x01(\x05R\x11curatedFieldCount\"\x8c\x01\n" +
+	"\x1dListPoliticianProfilesRequest\x12\x14\n" +
+	"\x05query\x18\x01 \x01(\tR\x05query\x12\x14\n" +
+	"\x05limit\x18\x02 \x01(\x05R\x05limit\x12\x16\n" +
+	"\x06offset\x18\x03 \x01(\x05R\x06offset\x12'\n" +
+	"\x0fduplicates_only\x18\x04 \x01(\bR\x0eduplicatesOnly\"\xa8\x01\n" +
+	"\x1eListPoliticianProfilesResponse\x12G\n" +
+	"\bprofiles\x18\x01 \x03(\v2+.registerreview.v1.PoliticianProfileSummaryR\bprofiles\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\x12'\n" +
+	"\x0fduplicate_count\x18\x03 \x01(\x05R\x0eduplicateCount\"1\n" +
+	"\x1bGetPoliticianProfileRequest\x12\x12\n" +
+	"\x04slug\x18\x01 \x01(\tR\x04slug\"\xb1\x03\n" +
+	"\x1cGetPoliticianProfileResponse\x12E\n" +
+	"\aprofile\x18\x01 \x01(\v2+.registerreview.v1.PoliticianProfileSummaryR\aprofile\x12>\n" +
+	"\x05terms\x18\x02 \x03(\v2(.registerreview.v1.PoliticianTermSummaryR\x05terms\x124\n" +
+	"\x05facts\x18\x03 \x03(\v2\x1e.registerreview.v1.ProfileFactR\x05facts\x12E\n" +
+	"\n" +
+	"duplicates\x18\x04 \x03(\v2%.registerreview.v1.DuplicateCandidateR\n" +
+	"duplicates\x12\x1b\n" +
+	"\tphoto_url\x18\x05 \x01(\tR\bphotoUrl\x12#\n" +
+	"\rphoto_licence\x18\x06 \x01(\tR\fphotoLicence\x12!\n" +
+	"\fphoto_author\x18\a \x01(\tR\vphotoAuthor\x12(\n" +
+	"\x10photo_source_url\x18\b \x01(\tR\x0ephotoSourceUrl\"\xfc\x01\n" +
+	"\x1bCuratePoliticianFactRequest\x12\x12\n" +
+	"\x04slug\x18\x01 \x01(\tR\x04slug\x12\x14\n" +
+	"\x05field\x18\x02 \x01(\tR\x05field\x12\x18\n" +
+	"\aordinal\x18\x03 \x01(\x05R\aordinal\x125\n" +
+	"\x06action\x18\x04 \x01(\x0e2\x1d.registerreview.v1.FactActionR\x06action\x12!\n" +
+	"\fcurated_text\x18\x05 \x01(\tR\vcuratedText\x12\x1c\n" +
+	"\trationale\x18\x06 \x01(\tR\trationale\x12!\n" +
+	"\fevidence_url\x18\a \x01(\tR\vevidenceUrl\"R\n" +
+	"\x1cCuratePoliticianFactResponse\x122\n" +
+	"\x04fact\x18\x01 \x01(\v2\x1e.registerreview.v1.ProfileFactR\x04fact\"\xdc\x01\n" +
+	"\x19SetPoliticianPhotoRequest\x12\x12\n" +
+	"\x04slug\x18\x01 \x01(\tR\x04slug\x12\x1b\n" +
+	"\tphoto_url\x18\x02 \x01(\tR\bphotoUrl\x12#\n" +
+	"\rphoto_licence\x18\x03 \x01(\tR\fphotoLicence\x12!\n" +
+	"\fphoto_author\x18\x04 \x01(\tR\vphotoAuthor\x12(\n" +
+	"\x10photo_source_url\x18\x05 \x01(\tR\x0ephotoSourceUrl\x12\x1c\n" +
+	"\trationale\x18\x06 \x01(\tR\trationale\"\xab\x01\n" +
+	"\x1aSetPoliticianPhotoResponse\x12\x1b\n" +
+	"\tphoto_url\x18\x01 \x01(\tR\bphotoUrl\x12#\n" +
+	"\rphoto_licence\x18\x02 \x01(\tR\fphotoLicence\x12!\n" +
+	"\fphoto_author\x18\x03 \x01(\tR\vphotoAuthor\x12(\n" +
+	"\x10photo_source_url\x18\x04 \x01(\tR\x0ephotoSourceUrl\"q\n" +
+	"\x17MergePoliticiansRequest\x12\x1b\n" +
+	"\tkeep_slug\x18\x01 \x01(\tR\bkeepSlug\x12\x1d\n" +
+	"\n" +
+	"merge_slug\x18\x02 \x01(\tR\tmergeSlug\x12\x1a\n" +
+	"\bevidence\x18\x03 \x01(\tR\bevidence\"\x81\x01\n" +
+	"\x18MergePoliticiansResponse\x12\x1b\n" +
+	"\tkeep_slug\x18\x01 \x01(\tR\bkeepSlug\x12\x1d\n" +
+	"\n" +
+	"merge_slug\x18\x02 \x01(\tR\tmergeSlug\x12)\n" +
+	"\x10statements_moved\x18\x03 \x01(\x05R\x0fstatementsMoved\"\xdf\x01\n" +
 	"\x0eDeclaredSample\x12#\n" +
 	"\rdeclared_text\x18\x01 \x01(\tR\fdeclaredText\x12'\n" +
 	"\x0fpolitician_name\x18\x02 \x01(\tR\x0epoliticianName\x12'\n" +
@@ -1285,7 +2527,13 @@ const file_registerreview_v1_register_review_proto_rawDesc = "" +
 	"\x0eclassified_out\x18\x06 \x01(\x05R\rclassifiedOut\x12\x16\n" +
 	"\x06method\x18\a \x01(\tR\x06method\"X\n" +
 	"\x18GetCoverageStatsResponse\x12<\n" +
-	"\bcoverage\x18\x01 \x01(\v2 .registerreview.v1.CoverageStatsR\bcoverage*\xdb\x01\n" +
+	"\bcoverage\x18\x01 \x01(\v2 .registerreview.v1.CoverageStatsR\bcoverage*u\n" +
+	"\n" +
+	"FactAction\x12\x1b\n" +
+	"\x17FACT_ACTION_UNSPECIFIED\x10\x00\x12\x15\n" +
+	"\x11FACT_ACTION_AMEND\x10\x01\x12\x18\n" +
+	"\x14FACT_ACTION_SUPPRESS\x10\x02\x12\x19\n" +
+	"\x15FACT_ACTION_REINSTATE\x10\x03*\xdb\x01\n" +
 	"\x10SecurityDecision\x12!\n" +
 	"\x1dSECURITY_DECISION_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aSECURITY_DECISION_RESOLVED\x10\x01\x12$\n" +
@@ -1298,13 +2546,19 @@ const file_registerreview_v1_register_review_proto_rawDesc = "" +
 	"\x11ALIAS_KIND_EQUITY\x10\x01\x12\x12\n" +
 	"\x0eALIAS_KIND_ETF\x10\x02\x12\x12\n" +
 	"\x0eALIAS_KIND_LIC\x10\x03\x12\x1b\n" +
-	"\x17ALIAS_KIND_MANAGED_FUND\x10\x042\xa3\x05\n" +
+	"\x17ALIAS_KIND_MANAGED_FUND\x10\x042\xc3\n" +
+	"\n" +
 	"\x15RegisterReviewService\x12}\n" +
 	"\x11ListSecurityQueue\x12+.registerreview.v1.ListSecurityQueueRequest\x1a,.registerreview.v1.ListSecurityQueueResponse\"\r\x80\xb5\x18\x02\x8a\xb5\x18\x05admin\x12t\n" +
 	"\x0eSearchListings\x12(.registerreview.v1.SearchListingsRequest\x1a).registerreview.v1.SearchListingsResponse\"\r\x80\xb5\x18\x02\x8a\xb5\x18\x05admin\x12\x8f\x01\n" +
 	"\x17DecideSecurityCandidate\x121.registerreview.v1.DecideSecurityCandidateRequest\x1a2.registerreview.v1.DecideSecurityCandidateResponse\"\r\x80\xb5\x18\x02\x8a\xb5\x18\x05admin\x12\x86\x01\n" +
 	"\x14UndoSecurityDecision\x12..registerreview.v1.UndoSecurityDecisionRequest\x1a/.registerreview.v1.UndoSecurityDecisionResponse\"\r\x80\xb5\x18\x02\x8a\xb5\x18\x05admin\x12z\n" +
-	"\x10GetCoverageStats\x12*.registerreview.v1.GetCoverageStatsRequest\x1a+.registerreview.v1.GetCoverageStatsResponse\"\r\x80\xb5\x18\x02\x8a\xb5\x18\x05adminB\xf0\x01\n" +
+	"\x10GetCoverageStats\x12*.registerreview.v1.GetCoverageStatsRequest\x1a+.registerreview.v1.GetCoverageStatsResponse\"\r\x80\xb5\x18\x02\x8a\xb5\x18\x05admin\x12\x8c\x01\n" +
+	"\x16ListPoliticianProfiles\x120.registerreview.v1.ListPoliticianProfilesRequest\x1a1.registerreview.v1.ListPoliticianProfilesResponse\"\r\x80\xb5\x18\x02\x8a\xb5\x18\x05admin\x12\x86\x01\n" +
+	"\x14GetPoliticianProfile\x12..registerreview.v1.GetPoliticianProfileRequest\x1a/.registerreview.v1.GetPoliticianProfileResponse\"\r\x80\xb5\x18\x02\x8a\xb5\x18\x05admin\x12\x86\x01\n" +
+	"\x14CuratePoliticianFact\x12..registerreview.v1.CuratePoliticianFactRequest\x1a/.registerreview.v1.CuratePoliticianFactResponse\"\r\x80\xb5\x18\x02\x8a\xb5\x18\x05admin\x12\x80\x01\n" +
+	"\x12SetPoliticianPhoto\x12,.registerreview.v1.SetPoliticianPhotoRequest\x1a-.registerreview.v1.SetPoliticianPhotoResponse\"\r\x80\xb5\x18\x02\x8a\xb5\x18\x05admin\x12z\n" +
+	"\x10MergePoliticians\x12*.registerreview.v1.MergePoliticiansRequest\x1a+.registerreview.v1.MergePoliticiansResponse\"\r\x80\xb5\x18\x02\x8a\xb5\x18\x05adminB\xf0\x01\n" +
 	"\x15com.registerreview.v1B\x13RegisterReviewProtoP\x01Z]github.com/castlemilk/shorted.com.au/services/gen/proto/go/registerreview/v1;registerreviewv1\xa2\x02\x03RXX\xaa\x02\x11Registerreview.V1\xca\x02\x11Registerreview\\V1\xe2\x02\x1dRegisterreview\\V1\\GPBMetadata\xea\x02\x12Registerreview::V1b\x06proto3"
 
 var (
@@ -1319,53 +2573,85 @@ func file_registerreview_v1_register_review_proto_rawDescGZIP() []byte {
 	return file_registerreview_v1_register_review_proto_rawDescData
 }
 
-var file_registerreview_v1_register_review_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_registerreview_v1_register_review_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_registerreview_v1_register_review_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_registerreview_v1_register_review_proto_msgTypes = make([]protoimpl.MessageInfo, 29)
 var file_registerreview_v1_register_review_proto_goTypes = []any{
-	(SecurityDecision)(0),                   // 0: registerreview.v1.SecurityDecision
-	(AliasKind)(0),                          // 1: registerreview.v1.AliasKind
-	(*DeclaredSample)(nil),                  // 2: registerreview.v1.DeclaredSample
-	(*Listing)(nil),                         // 3: registerreview.v1.Listing
-	(*AliasProposal)(nil),                   // 4: registerreview.v1.AliasProposal
-	(*SecurityQueueItem)(nil),               // 5: registerreview.v1.SecurityQueueItem
-	(*ListSecurityQueueRequest)(nil),        // 6: registerreview.v1.ListSecurityQueueRequest
-	(*ListSecurityQueueResponse)(nil),       // 7: registerreview.v1.ListSecurityQueueResponse
-	(*SearchListingsRequest)(nil),           // 8: registerreview.v1.SearchListingsRequest
-	(*SearchListingsResponse)(nil),          // 9: registerreview.v1.SearchListingsResponse
-	(*DecideSecurityCandidateRequest)(nil),  // 10: registerreview.v1.DecideSecurityCandidateRequest
-	(*DecideSecurityCandidateResponse)(nil), // 11: registerreview.v1.DecideSecurityCandidateResponse
-	(*UndoSecurityDecisionRequest)(nil),     // 12: registerreview.v1.UndoSecurityDecisionRequest
-	(*UndoSecurityDecisionResponse)(nil),    // 13: registerreview.v1.UndoSecurityDecisionResponse
-	(*GetCoverageStatsRequest)(nil),         // 14: registerreview.v1.GetCoverageStatsRequest
-	(*CoverageStats)(nil),                   // 15: registerreview.v1.CoverageStats
-	(*GetCoverageStatsResponse)(nil),        // 16: registerreview.v1.GetCoverageStatsResponse
+	(FactAction)(0),                         // 0: registerreview.v1.FactAction
+	(SecurityDecision)(0),                   // 1: registerreview.v1.SecurityDecision
+	(AliasKind)(0),                          // 2: registerreview.v1.AliasKind
+	(*ProfileFact)(nil),                     // 3: registerreview.v1.ProfileFact
+	(*PoliticianTermSummary)(nil),           // 4: registerreview.v1.PoliticianTermSummary
+	(*DuplicateCandidate)(nil),              // 5: registerreview.v1.DuplicateCandidate
+	(*PoliticianProfileSummary)(nil),        // 6: registerreview.v1.PoliticianProfileSummary
+	(*ListPoliticianProfilesRequest)(nil),   // 7: registerreview.v1.ListPoliticianProfilesRequest
+	(*ListPoliticianProfilesResponse)(nil),  // 8: registerreview.v1.ListPoliticianProfilesResponse
+	(*GetPoliticianProfileRequest)(nil),     // 9: registerreview.v1.GetPoliticianProfileRequest
+	(*GetPoliticianProfileResponse)(nil),    // 10: registerreview.v1.GetPoliticianProfileResponse
+	(*CuratePoliticianFactRequest)(nil),     // 11: registerreview.v1.CuratePoliticianFactRequest
+	(*CuratePoliticianFactResponse)(nil),    // 12: registerreview.v1.CuratePoliticianFactResponse
+	(*SetPoliticianPhotoRequest)(nil),       // 13: registerreview.v1.SetPoliticianPhotoRequest
+	(*SetPoliticianPhotoResponse)(nil),      // 14: registerreview.v1.SetPoliticianPhotoResponse
+	(*MergePoliticiansRequest)(nil),         // 15: registerreview.v1.MergePoliticiansRequest
+	(*MergePoliticiansResponse)(nil),        // 16: registerreview.v1.MergePoliticiansResponse
+	(*DeclaredSample)(nil),                  // 17: registerreview.v1.DeclaredSample
+	(*Listing)(nil),                         // 18: registerreview.v1.Listing
+	(*AliasProposal)(nil),                   // 19: registerreview.v1.AliasProposal
+	(*SecurityQueueItem)(nil),               // 20: registerreview.v1.SecurityQueueItem
+	(*ListSecurityQueueRequest)(nil),        // 21: registerreview.v1.ListSecurityQueueRequest
+	(*ListSecurityQueueResponse)(nil),       // 22: registerreview.v1.ListSecurityQueueResponse
+	(*SearchListingsRequest)(nil),           // 23: registerreview.v1.SearchListingsRequest
+	(*SearchListingsResponse)(nil),          // 24: registerreview.v1.SearchListingsResponse
+	(*DecideSecurityCandidateRequest)(nil),  // 25: registerreview.v1.DecideSecurityCandidateRequest
+	(*DecideSecurityCandidateResponse)(nil), // 26: registerreview.v1.DecideSecurityCandidateResponse
+	(*UndoSecurityDecisionRequest)(nil),     // 27: registerreview.v1.UndoSecurityDecisionRequest
+	(*UndoSecurityDecisionResponse)(nil),    // 28: registerreview.v1.UndoSecurityDecisionResponse
+	(*GetCoverageStatsRequest)(nil),         // 29: registerreview.v1.GetCoverageStatsRequest
+	(*CoverageStats)(nil),                   // 30: registerreview.v1.CoverageStats
+	(*GetCoverageStatsResponse)(nil),        // 31: registerreview.v1.GetCoverageStatsResponse
 }
 var file_registerreview_v1_register_review_proto_depIdxs = []int32{
-	3,  // 0: registerreview.v1.AliasProposal.shortlist:type_name -> registerreview.v1.Listing
-	2,  // 1: registerreview.v1.SecurityQueueItem.samples:type_name -> registerreview.v1.DeclaredSample
-	4,  // 2: registerreview.v1.SecurityQueueItem.proposal:type_name -> registerreview.v1.AliasProposal
-	5,  // 3: registerreview.v1.ListSecurityQueueResponse.items:type_name -> registerreview.v1.SecurityQueueItem
-	3,  // 4: registerreview.v1.SearchListingsResponse.listings:type_name -> registerreview.v1.Listing
-	0,  // 5: registerreview.v1.DecideSecurityCandidateRequest.decision:type_name -> registerreview.v1.SecurityDecision
-	1,  // 6: registerreview.v1.DecideSecurityCandidateRequest.alias_kind:type_name -> registerreview.v1.AliasKind
-	15, // 7: registerreview.v1.DecideSecurityCandidateResponse.coverage:type_name -> registerreview.v1.CoverageStats
-	15, // 8: registerreview.v1.UndoSecurityDecisionResponse.coverage:type_name -> registerreview.v1.CoverageStats
-	15, // 9: registerreview.v1.GetCoverageStatsResponse.coverage:type_name -> registerreview.v1.CoverageStats
-	6,  // 10: registerreview.v1.RegisterReviewService.ListSecurityQueue:input_type -> registerreview.v1.ListSecurityQueueRequest
-	8,  // 11: registerreview.v1.RegisterReviewService.SearchListings:input_type -> registerreview.v1.SearchListingsRequest
-	10, // 12: registerreview.v1.RegisterReviewService.DecideSecurityCandidate:input_type -> registerreview.v1.DecideSecurityCandidateRequest
-	12, // 13: registerreview.v1.RegisterReviewService.UndoSecurityDecision:input_type -> registerreview.v1.UndoSecurityDecisionRequest
-	14, // 14: registerreview.v1.RegisterReviewService.GetCoverageStats:input_type -> registerreview.v1.GetCoverageStatsRequest
-	7,  // 15: registerreview.v1.RegisterReviewService.ListSecurityQueue:output_type -> registerreview.v1.ListSecurityQueueResponse
-	9,  // 16: registerreview.v1.RegisterReviewService.SearchListings:output_type -> registerreview.v1.SearchListingsResponse
-	11, // 17: registerreview.v1.RegisterReviewService.DecideSecurityCandidate:output_type -> registerreview.v1.DecideSecurityCandidateResponse
-	13, // 18: registerreview.v1.RegisterReviewService.UndoSecurityDecision:output_type -> registerreview.v1.UndoSecurityDecisionResponse
-	16, // 19: registerreview.v1.RegisterReviewService.GetCoverageStats:output_type -> registerreview.v1.GetCoverageStatsResponse
-	15, // [15:20] is the sub-list for method output_type
-	10, // [10:15] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	6,  // 0: registerreview.v1.ListPoliticianProfilesResponse.profiles:type_name -> registerreview.v1.PoliticianProfileSummary
+	6,  // 1: registerreview.v1.GetPoliticianProfileResponse.profile:type_name -> registerreview.v1.PoliticianProfileSummary
+	4,  // 2: registerreview.v1.GetPoliticianProfileResponse.terms:type_name -> registerreview.v1.PoliticianTermSummary
+	3,  // 3: registerreview.v1.GetPoliticianProfileResponse.facts:type_name -> registerreview.v1.ProfileFact
+	5,  // 4: registerreview.v1.GetPoliticianProfileResponse.duplicates:type_name -> registerreview.v1.DuplicateCandidate
+	0,  // 5: registerreview.v1.CuratePoliticianFactRequest.action:type_name -> registerreview.v1.FactAction
+	3,  // 6: registerreview.v1.CuratePoliticianFactResponse.fact:type_name -> registerreview.v1.ProfileFact
+	18, // 7: registerreview.v1.AliasProposal.shortlist:type_name -> registerreview.v1.Listing
+	17, // 8: registerreview.v1.SecurityQueueItem.samples:type_name -> registerreview.v1.DeclaredSample
+	19, // 9: registerreview.v1.SecurityQueueItem.proposal:type_name -> registerreview.v1.AliasProposal
+	20, // 10: registerreview.v1.ListSecurityQueueResponse.items:type_name -> registerreview.v1.SecurityQueueItem
+	18, // 11: registerreview.v1.SearchListingsResponse.listings:type_name -> registerreview.v1.Listing
+	1,  // 12: registerreview.v1.DecideSecurityCandidateRequest.decision:type_name -> registerreview.v1.SecurityDecision
+	2,  // 13: registerreview.v1.DecideSecurityCandidateRequest.alias_kind:type_name -> registerreview.v1.AliasKind
+	30, // 14: registerreview.v1.DecideSecurityCandidateResponse.coverage:type_name -> registerreview.v1.CoverageStats
+	30, // 15: registerreview.v1.UndoSecurityDecisionResponse.coverage:type_name -> registerreview.v1.CoverageStats
+	30, // 16: registerreview.v1.GetCoverageStatsResponse.coverage:type_name -> registerreview.v1.CoverageStats
+	21, // 17: registerreview.v1.RegisterReviewService.ListSecurityQueue:input_type -> registerreview.v1.ListSecurityQueueRequest
+	23, // 18: registerreview.v1.RegisterReviewService.SearchListings:input_type -> registerreview.v1.SearchListingsRequest
+	25, // 19: registerreview.v1.RegisterReviewService.DecideSecurityCandidate:input_type -> registerreview.v1.DecideSecurityCandidateRequest
+	27, // 20: registerreview.v1.RegisterReviewService.UndoSecurityDecision:input_type -> registerreview.v1.UndoSecurityDecisionRequest
+	29, // 21: registerreview.v1.RegisterReviewService.GetCoverageStats:input_type -> registerreview.v1.GetCoverageStatsRequest
+	7,  // 22: registerreview.v1.RegisterReviewService.ListPoliticianProfiles:input_type -> registerreview.v1.ListPoliticianProfilesRequest
+	9,  // 23: registerreview.v1.RegisterReviewService.GetPoliticianProfile:input_type -> registerreview.v1.GetPoliticianProfileRequest
+	11, // 24: registerreview.v1.RegisterReviewService.CuratePoliticianFact:input_type -> registerreview.v1.CuratePoliticianFactRequest
+	13, // 25: registerreview.v1.RegisterReviewService.SetPoliticianPhoto:input_type -> registerreview.v1.SetPoliticianPhotoRequest
+	15, // 26: registerreview.v1.RegisterReviewService.MergePoliticians:input_type -> registerreview.v1.MergePoliticiansRequest
+	22, // 27: registerreview.v1.RegisterReviewService.ListSecurityQueue:output_type -> registerreview.v1.ListSecurityQueueResponse
+	24, // 28: registerreview.v1.RegisterReviewService.SearchListings:output_type -> registerreview.v1.SearchListingsResponse
+	26, // 29: registerreview.v1.RegisterReviewService.DecideSecurityCandidate:output_type -> registerreview.v1.DecideSecurityCandidateResponse
+	28, // 30: registerreview.v1.RegisterReviewService.UndoSecurityDecision:output_type -> registerreview.v1.UndoSecurityDecisionResponse
+	31, // 31: registerreview.v1.RegisterReviewService.GetCoverageStats:output_type -> registerreview.v1.GetCoverageStatsResponse
+	8,  // 32: registerreview.v1.RegisterReviewService.ListPoliticianProfiles:output_type -> registerreview.v1.ListPoliticianProfilesResponse
+	10, // 33: registerreview.v1.RegisterReviewService.GetPoliticianProfile:output_type -> registerreview.v1.GetPoliticianProfileResponse
+	12, // 34: registerreview.v1.RegisterReviewService.CuratePoliticianFact:output_type -> registerreview.v1.CuratePoliticianFactResponse
+	14, // 35: registerreview.v1.RegisterReviewService.SetPoliticianPhoto:output_type -> registerreview.v1.SetPoliticianPhotoResponse
+	16, // 36: registerreview.v1.RegisterReviewService.MergePoliticians:output_type -> registerreview.v1.MergePoliticiansResponse
+	27, // [27:37] is the sub-list for method output_type
+	17, // [17:27] is the sub-list for method input_type
+	17, // [17:17] is the sub-list for extension type_name
+	17, // [17:17] is the sub-list for extension extendee
+	0,  // [0:17] is the sub-list for field type_name
 }
 
 func init() { file_registerreview_v1_register_review_proto_init() }
@@ -1378,8 +2664,8 @@ func file_registerreview_v1_register_review_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_registerreview_v1_register_review_proto_rawDesc), len(file_registerreview_v1_register_review_proto_rawDesc)),
-			NumEnums:      2,
-			NumMessages:   15,
+			NumEnums:      3,
+			NumMessages:   29,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

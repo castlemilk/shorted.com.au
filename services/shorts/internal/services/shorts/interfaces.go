@@ -150,6 +150,13 @@ type ShortsStore interface {
 	DecideSecurityCandidate(candidateNorm, decision, stockCode, aliasKind, note, reviewer string, stopwordConfirmed bool) (int32, error)
 	UndoSecurityDecision(candidateNorm string) (bool, error)
 	GetRegisterCoverageStats() (*shortsstore.RegisterCoverageRow, error)
+	// Per-politician CRM (operator only). Reads go through
+	// politician_profile_resolved so a curated value is never bypassed.
+	ListPoliticianProfiles(query string, limit, offset int32, duplicatesOnly bool) ([]*shortsstore.PoliticianProfileSummaryRow, int32, int32, error)
+	GetPoliticianProfile(slug string) (*shortsstore.PoliticianProfileRow, error)
+	CuratePoliticianFact(slug, field string, ordinal int32, action, curatedText, rationale, evidenceURL, curator string) (*shortsstore.ProfileFactRow, error)
+	SetPoliticianPhoto(slug, url, licence, author, sourceURL, curator string) error
+	MergePoliticians(keepSlug, mergeSlug, evidence, curator string) (int32, error)
 
 	ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32) ([]*shortsstore.EconomicSeriesRow, error)
 	GetEconomicSeries(seriesKeys []string, startPeriod time.Time, maxObservations int32) ([]*shortsstore.EconomicSeriesDataRow, error)

@@ -48,6 +48,21 @@ const (
 	// RegisterReviewServiceGetCoverageStatsProcedure is the fully-qualified name of the
 	// RegisterReviewService's GetCoverageStats RPC.
 	RegisterReviewServiceGetCoverageStatsProcedure = "/registerreview.v1.RegisterReviewService/GetCoverageStats"
+	// RegisterReviewServiceListPoliticianProfilesProcedure is the fully-qualified name of the
+	// RegisterReviewService's ListPoliticianProfiles RPC.
+	RegisterReviewServiceListPoliticianProfilesProcedure = "/registerreview.v1.RegisterReviewService/ListPoliticianProfiles"
+	// RegisterReviewServiceGetPoliticianProfileProcedure is the fully-qualified name of the
+	// RegisterReviewService's GetPoliticianProfile RPC.
+	RegisterReviewServiceGetPoliticianProfileProcedure = "/registerreview.v1.RegisterReviewService/GetPoliticianProfile"
+	// RegisterReviewServiceCuratePoliticianFactProcedure is the fully-qualified name of the
+	// RegisterReviewService's CuratePoliticianFact RPC.
+	RegisterReviewServiceCuratePoliticianFactProcedure = "/registerreview.v1.RegisterReviewService/CuratePoliticianFact"
+	// RegisterReviewServiceSetPoliticianPhotoProcedure is the fully-qualified name of the
+	// RegisterReviewService's SetPoliticianPhoto RPC.
+	RegisterReviewServiceSetPoliticianPhotoProcedure = "/registerreview.v1.RegisterReviewService/SetPoliticianPhoto"
+	// RegisterReviewServiceMergePoliticiansProcedure is the fully-qualified name of the
+	// RegisterReviewService's MergePoliticians RPC.
+	RegisterReviewServiceMergePoliticiansProcedure = "/registerreview.v1.RegisterReviewService/MergePoliticians"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -58,6 +73,11 @@ var (
 	registerReviewServiceDecideSecurityCandidateMethodDescriptor = registerReviewServiceServiceDescriptor.Methods().ByName("DecideSecurityCandidate")
 	registerReviewServiceUndoSecurityDecisionMethodDescriptor    = registerReviewServiceServiceDescriptor.Methods().ByName("UndoSecurityDecision")
 	registerReviewServiceGetCoverageStatsMethodDescriptor        = registerReviewServiceServiceDescriptor.Methods().ByName("GetCoverageStats")
+	registerReviewServiceListPoliticianProfilesMethodDescriptor  = registerReviewServiceServiceDescriptor.Methods().ByName("ListPoliticianProfiles")
+	registerReviewServiceGetPoliticianProfileMethodDescriptor    = registerReviewServiceServiceDescriptor.Methods().ByName("GetPoliticianProfile")
+	registerReviewServiceCuratePoliticianFactMethodDescriptor    = registerReviewServiceServiceDescriptor.Methods().ByName("CuratePoliticianFact")
+	registerReviewServiceSetPoliticianPhotoMethodDescriptor      = registerReviewServiceServiceDescriptor.Methods().ByName("SetPoliticianPhoto")
+	registerReviewServiceMergePoliticiansMethodDescriptor        = registerReviewServiceServiceDescriptor.Methods().ByName("MergePoliticians")
 )
 
 // RegisterReviewServiceClient is a client for the registerreview.v1.RegisterReviewService service.
@@ -75,6 +95,22 @@ type RegisterReviewServiceClient interface {
 	// The §6.1 gate as it stands right now, with its method attached so it cannot
 	// be quoted as a bare percentage.
 	GetCoverageStats(context.Context, *connect.Request[v1.GetCoverageStatsRequest]) (*connect.Response[v1.GetCoverageStatsResponse], error)
+	// The roll, for the CRM index. Surfaces duplicate identities first.
+	ListPoliticianProfiles(context.Context, *connect.Request[v1.ListPoliticianProfilesRequest]) (*connect.Response[v1.ListPoliticianProfilesResponse], error)
+	// One person: identity, terms, portrait, and every profile fact with its
+	// machine reading beside any curated value.
+	GetPoliticianProfile(context.Context, *connect.Request[v1.GetPoliticianProfileRequest]) (*connect.Response[v1.GetPoliticianProfileResponse], error)
+	// Amend, suppress or reinstate ONE profile fact. Append-only: a correction
+	// supersedes, never edits in place.
+	CuratePoliticianFact(context.Context, *connect.Request[v1.CuratePoliticianFactRequest]) (*connect.Response[v1.CuratePoliticianFactResponse], error)
+	// Replace or clear a portrait. A photo may not be set without a licence and a
+	// source URL — the same rule the database CHECK enforces.
+	SetPoliticianPhoto(context.Context, *connect.Request[v1.SetPoliticianPhotoRequest]) (*connect.Response[v1.SetPoliticianPhotoResponse], error)
+	// Merge one person's record into another. THE HIGHEST-BLAST-RADIUS ACTION IN
+	// THE SUBSYSTEM: it moves an entire declared history onto a named individual.
+	// Requires evidence, and the loser's slug keeps resolving via a redirect
+	// because slugs are minted once and reach OG images and the sitemap (§3.3).
+	MergePoliticians(context.Context, *connect.Request[v1.MergePoliticiansRequest]) (*connect.Response[v1.MergePoliticiansResponse], error)
 }
 
 // NewRegisterReviewServiceClient constructs a client for the
@@ -117,6 +153,36 @@ func NewRegisterReviewServiceClient(httpClient connect.HTTPClient, baseURL strin
 			connect.WithSchema(registerReviewServiceGetCoverageStatsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		listPoliticianProfiles: connect.NewClient[v1.ListPoliticianProfilesRequest, v1.ListPoliticianProfilesResponse](
+			httpClient,
+			baseURL+RegisterReviewServiceListPoliticianProfilesProcedure,
+			connect.WithSchema(registerReviewServiceListPoliticianProfilesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getPoliticianProfile: connect.NewClient[v1.GetPoliticianProfileRequest, v1.GetPoliticianProfileResponse](
+			httpClient,
+			baseURL+RegisterReviewServiceGetPoliticianProfileProcedure,
+			connect.WithSchema(registerReviewServiceGetPoliticianProfileMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		curatePoliticianFact: connect.NewClient[v1.CuratePoliticianFactRequest, v1.CuratePoliticianFactResponse](
+			httpClient,
+			baseURL+RegisterReviewServiceCuratePoliticianFactProcedure,
+			connect.WithSchema(registerReviewServiceCuratePoliticianFactMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		setPoliticianPhoto: connect.NewClient[v1.SetPoliticianPhotoRequest, v1.SetPoliticianPhotoResponse](
+			httpClient,
+			baseURL+RegisterReviewServiceSetPoliticianPhotoProcedure,
+			connect.WithSchema(registerReviewServiceSetPoliticianPhotoMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		mergePoliticians: connect.NewClient[v1.MergePoliticiansRequest, v1.MergePoliticiansResponse](
+			httpClient,
+			baseURL+RegisterReviewServiceMergePoliticiansProcedure,
+			connect.WithSchema(registerReviewServiceMergePoliticiansMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -127,6 +193,11 @@ type registerReviewServiceClient struct {
 	decideSecurityCandidate *connect.Client[v1.DecideSecurityCandidateRequest, v1.DecideSecurityCandidateResponse]
 	undoSecurityDecision    *connect.Client[v1.UndoSecurityDecisionRequest, v1.UndoSecurityDecisionResponse]
 	getCoverageStats        *connect.Client[v1.GetCoverageStatsRequest, v1.GetCoverageStatsResponse]
+	listPoliticianProfiles  *connect.Client[v1.ListPoliticianProfilesRequest, v1.ListPoliticianProfilesResponse]
+	getPoliticianProfile    *connect.Client[v1.GetPoliticianProfileRequest, v1.GetPoliticianProfileResponse]
+	curatePoliticianFact    *connect.Client[v1.CuratePoliticianFactRequest, v1.CuratePoliticianFactResponse]
+	setPoliticianPhoto      *connect.Client[v1.SetPoliticianPhotoRequest, v1.SetPoliticianPhotoResponse]
+	mergePoliticians        *connect.Client[v1.MergePoliticiansRequest, v1.MergePoliticiansResponse]
 }
 
 // ListSecurityQueue calls registerreview.v1.RegisterReviewService.ListSecurityQueue.
@@ -154,6 +225,31 @@ func (c *registerReviewServiceClient) GetCoverageStats(ctx context.Context, req 
 	return c.getCoverageStats.CallUnary(ctx, req)
 }
 
+// ListPoliticianProfiles calls registerreview.v1.RegisterReviewService.ListPoliticianProfiles.
+func (c *registerReviewServiceClient) ListPoliticianProfiles(ctx context.Context, req *connect.Request[v1.ListPoliticianProfilesRequest]) (*connect.Response[v1.ListPoliticianProfilesResponse], error) {
+	return c.listPoliticianProfiles.CallUnary(ctx, req)
+}
+
+// GetPoliticianProfile calls registerreview.v1.RegisterReviewService.GetPoliticianProfile.
+func (c *registerReviewServiceClient) GetPoliticianProfile(ctx context.Context, req *connect.Request[v1.GetPoliticianProfileRequest]) (*connect.Response[v1.GetPoliticianProfileResponse], error) {
+	return c.getPoliticianProfile.CallUnary(ctx, req)
+}
+
+// CuratePoliticianFact calls registerreview.v1.RegisterReviewService.CuratePoliticianFact.
+func (c *registerReviewServiceClient) CuratePoliticianFact(ctx context.Context, req *connect.Request[v1.CuratePoliticianFactRequest]) (*connect.Response[v1.CuratePoliticianFactResponse], error) {
+	return c.curatePoliticianFact.CallUnary(ctx, req)
+}
+
+// SetPoliticianPhoto calls registerreview.v1.RegisterReviewService.SetPoliticianPhoto.
+func (c *registerReviewServiceClient) SetPoliticianPhoto(ctx context.Context, req *connect.Request[v1.SetPoliticianPhotoRequest]) (*connect.Response[v1.SetPoliticianPhotoResponse], error) {
+	return c.setPoliticianPhoto.CallUnary(ctx, req)
+}
+
+// MergePoliticians calls registerreview.v1.RegisterReviewService.MergePoliticians.
+func (c *registerReviewServiceClient) MergePoliticians(ctx context.Context, req *connect.Request[v1.MergePoliticiansRequest]) (*connect.Response[v1.MergePoliticiansResponse], error) {
+	return c.mergePoliticians.CallUnary(ctx, req)
+}
+
 // RegisterReviewServiceHandler is an implementation of the registerreview.v1.RegisterReviewService
 // service.
 type RegisterReviewServiceHandler interface {
@@ -170,6 +266,22 @@ type RegisterReviewServiceHandler interface {
 	// The §6.1 gate as it stands right now, with its method attached so it cannot
 	// be quoted as a bare percentage.
 	GetCoverageStats(context.Context, *connect.Request[v1.GetCoverageStatsRequest]) (*connect.Response[v1.GetCoverageStatsResponse], error)
+	// The roll, for the CRM index. Surfaces duplicate identities first.
+	ListPoliticianProfiles(context.Context, *connect.Request[v1.ListPoliticianProfilesRequest]) (*connect.Response[v1.ListPoliticianProfilesResponse], error)
+	// One person: identity, terms, portrait, and every profile fact with its
+	// machine reading beside any curated value.
+	GetPoliticianProfile(context.Context, *connect.Request[v1.GetPoliticianProfileRequest]) (*connect.Response[v1.GetPoliticianProfileResponse], error)
+	// Amend, suppress or reinstate ONE profile fact. Append-only: a correction
+	// supersedes, never edits in place.
+	CuratePoliticianFact(context.Context, *connect.Request[v1.CuratePoliticianFactRequest]) (*connect.Response[v1.CuratePoliticianFactResponse], error)
+	// Replace or clear a portrait. A photo may not be set without a licence and a
+	// source URL — the same rule the database CHECK enforces.
+	SetPoliticianPhoto(context.Context, *connect.Request[v1.SetPoliticianPhotoRequest]) (*connect.Response[v1.SetPoliticianPhotoResponse], error)
+	// Merge one person's record into another. THE HIGHEST-BLAST-RADIUS ACTION IN
+	// THE SUBSYSTEM: it moves an entire declared history onto a named individual.
+	// Requires evidence, and the loser's slug keeps resolving via a redirect
+	// because slugs are minted once and reach OG images and the sitemap (§3.3).
+	MergePoliticians(context.Context, *connect.Request[v1.MergePoliticiansRequest]) (*connect.Response[v1.MergePoliticiansResponse], error)
 }
 
 // NewRegisterReviewServiceHandler builds an HTTP handler from the service implementation. It
@@ -208,6 +320,36 @@ func NewRegisterReviewServiceHandler(svc RegisterReviewServiceHandler, opts ...c
 		connect.WithSchema(registerReviewServiceGetCoverageStatsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	registerReviewServiceListPoliticianProfilesHandler := connect.NewUnaryHandler(
+		RegisterReviewServiceListPoliticianProfilesProcedure,
+		svc.ListPoliticianProfiles,
+		connect.WithSchema(registerReviewServiceListPoliticianProfilesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	registerReviewServiceGetPoliticianProfileHandler := connect.NewUnaryHandler(
+		RegisterReviewServiceGetPoliticianProfileProcedure,
+		svc.GetPoliticianProfile,
+		connect.WithSchema(registerReviewServiceGetPoliticianProfileMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	registerReviewServiceCuratePoliticianFactHandler := connect.NewUnaryHandler(
+		RegisterReviewServiceCuratePoliticianFactProcedure,
+		svc.CuratePoliticianFact,
+		connect.WithSchema(registerReviewServiceCuratePoliticianFactMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	registerReviewServiceSetPoliticianPhotoHandler := connect.NewUnaryHandler(
+		RegisterReviewServiceSetPoliticianPhotoProcedure,
+		svc.SetPoliticianPhoto,
+		connect.WithSchema(registerReviewServiceSetPoliticianPhotoMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	registerReviewServiceMergePoliticiansHandler := connect.NewUnaryHandler(
+		RegisterReviewServiceMergePoliticiansProcedure,
+		svc.MergePoliticians,
+		connect.WithSchema(registerReviewServiceMergePoliticiansMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/registerreview.v1.RegisterReviewService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case RegisterReviewServiceListSecurityQueueProcedure:
@@ -220,6 +362,16 @@ func NewRegisterReviewServiceHandler(svc RegisterReviewServiceHandler, opts ...c
 			registerReviewServiceUndoSecurityDecisionHandler.ServeHTTP(w, r)
 		case RegisterReviewServiceGetCoverageStatsProcedure:
 			registerReviewServiceGetCoverageStatsHandler.ServeHTTP(w, r)
+		case RegisterReviewServiceListPoliticianProfilesProcedure:
+			registerReviewServiceListPoliticianProfilesHandler.ServeHTTP(w, r)
+		case RegisterReviewServiceGetPoliticianProfileProcedure:
+			registerReviewServiceGetPoliticianProfileHandler.ServeHTTP(w, r)
+		case RegisterReviewServiceCuratePoliticianFactProcedure:
+			registerReviewServiceCuratePoliticianFactHandler.ServeHTTP(w, r)
+		case RegisterReviewServiceSetPoliticianPhotoProcedure:
+			registerReviewServiceSetPoliticianPhotoHandler.ServeHTTP(w, r)
+		case RegisterReviewServiceMergePoliticiansProcedure:
+			registerReviewServiceMergePoliticiansHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -247,4 +399,24 @@ func (UnimplementedRegisterReviewServiceHandler) UndoSecurityDecision(context.Co
 
 func (UnimplementedRegisterReviewServiceHandler) GetCoverageStats(context.Context, *connect.Request[v1.GetCoverageStatsRequest]) (*connect.Response[v1.GetCoverageStatsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("registerreview.v1.RegisterReviewService.GetCoverageStats is not implemented"))
+}
+
+func (UnimplementedRegisterReviewServiceHandler) ListPoliticianProfiles(context.Context, *connect.Request[v1.ListPoliticianProfilesRequest]) (*connect.Response[v1.ListPoliticianProfilesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("registerreview.v1.RegisterReviewService.ListPoliticianProfiles is not implemented"))
+}
+
+func (UnimplementedRegisterReviewServiceHandler) GetPoliticianProfile(context.Context, *connect.Request[v1.GetPoliticianProfileRequest]) (*connect.Response[v1.GetPoliticianProfileResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("registerreview.v1.RegisterReviewService.GetPoliticianProfile is not implemented"))
+}
+
+func (UnimplementedRegisterReviewServiceHandler) CuratePoliticianFact(context.Context, *connect.Request[v1.CuratePoliticianFactRequest]) (*connect.Response[v1.CuratePoliticianFactResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("registerreview.v1.RegisterReviewService.CuratePoliticianFact is not implemented"))
+}
+
+func (UnimplementedRegisterReviewServiceHandler) SetPoliticianPhoto(context.Context, *connect.Request[v1.SetPoliticianPhotoRequest]) (*connect.Response[v1.SetPoliticianPhotoResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("registerreview.v1.RegisterReviewService.SetPoliticianPhoto is not implemented"))
+}
+
+func (UnimplementedRegisterReviewServiceHandler) MergePoliticians(context.Context, *connect.Request[v1.MergePoliticiansRequest]) (*connect.Response[v1.MergePoliticiansResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("registerreview.v1.RegisterReviewService.MergePoliticians is not implemented"))
 }

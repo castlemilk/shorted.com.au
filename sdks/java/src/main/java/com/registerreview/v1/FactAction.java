@@ -7,36 +7,32 @@ package com.registerreview.v1;
 
 /**
  * <pre>
- * AliasKind is descriptive metadata carried on a resolved alias. The resolver
- * reads `resolution`, never this — it exists so a later reviewer can see what
- * kind of instrument a predecessor thought they were linking.
+ * FactAction mirrors politician_profile_overrides.action exactly. There is no
+ * "delete": a correction supersedes, and a fact is suppressed rather than
+ * removed, so the trail stays evidence.
  * </pre>
  *
- * Protobuf enum {@code registerreview.v1.AliasKind}
+ * Protobuf enum {@code registerreview.v1.FactAction}
  */
 @com.google.protobuf.Generated
-public enum AliasKind
+public enum FactAction
     implements com.google.protobuf.ProtocolMessageEnum {
   /**
-   * <code>ALIAS_KIND_UNSPECIFIED = 0;</code>
+   * <code>FACT_ACTION_UNSPECIFIED = 0;</code>
    */
-  ALIAS_KIND_UNSPECIFIED(0),
+  FACT_ACTION_UNSPECIFIED(0),
   /**
-   * <code>ALIAS_KIND_EQUITY = 1;</code>
+   * <code>FACT_ACTION_AMEND = 1;</code>
    */
-  ALIAS_KIND_EQUITY(1),
+  FACT_ACTION_AMEND(1),
   /**
-   * <code>ALIAS_KIND_ETF = 2;</code>
+   * <code>FACT_ACTION_SUPPRESS = 2;</code>
    */
-  ALIAS_KIND_ETF(2),
+  FACT_ACTION_SUPPRESS(2),
   /**
-   * <code>ALIAS_KIND_LIC = 3;</code>
+   * <code>FACT_ACTION_REINSTATE = 3;</code>
    */
-  ALIAS_KIND_LIC(3),
-  /**
-   * <code>ALIAS_KIND_MANAGED_FUND = 4;</code>
-   */
-  ALIAS_KIND_MANAGED_FUND(4),
+  FACT_ACTION_REINSTATE(3),
   UNRECOGNIZED(-1),
   ;
 
@@ -47,28 +43,24 @@ public enum AliasKind
       /* minor= */ 35,
       /* patch= */ 1,
       /* suffix= */ "",
-      "AliasKind");
+      "FactAction");
   }
   /**
-   * <code>ALIAS_KIND_UNSPECIFIED = 0;</code>
+   * <code>FACT_ACTION_UNSPECIFIED = 0;</code>
    */
-  public static final int ALIAS_KIND_UNSPECIFIED_VALUE = 0;
+  public static final int FACT_ACTION_UNSPECIFIED_VALUE = 0;
   /**
-   * <code>ALIAS_KIND_EQUITY = 1;</code>
+   * <code>FACT_ACTION_AMEND = 1;</code>
    */
-  public static final int ALIAS_KIND_EQUITY_VALUE = 1;
+  public static final int FACT_ACTION_AMEND_VALUE = 1;
   /**
-   * <code>ALIAS_KIND_ETF = 2;</code>
+   * <code>FACT_ACTION_SUPPRESS = 2;</code>
    */
-  public static final int ALIAS_KIND_ETF_VALUE = 2;
+  public static final int FACT_ACTION_SUPPRESS_VALUE = 2;
   /**
-   * <code>ALIAS_KIND_LIC = 3;</code>
+   * <code>FACT_ACTION_REINSTATE = 3;</code>
    */
-  public static final int ALIAS_KIND_LIC_VALUE = 3;
-  /**
-   * <code>ALIAS_KIND_MANAGED_FUND = 4;</code>
-   */
-  public static final int ALIAS_KIND_MANAGED_FUND_VALUE = 4;
+  public static final int FACT_ACTION_REINSTATE_VALUE = 3;
 
 
   public final int getNumber() {
@@ -85,7 +77,7 @@ public enum AliasKind
    * @deprecated Use {@link #forNumber(int)} instead.
    */
   @java.lang.Deprecated
-  public static AliasKind valueOf(int value) {
+  public static FactAction valueOf(int value) {
     return forNumber(value);
   }
 
@@ -93,26 +85,25 @@ public enum AliasKind
    * @param value The numeric wire value of the corresponding enum entry.
    * @return The enum associated with the given numeric wire value.
    */
-  public static AliasKind forNumber(int value) {
+  public static FactAction forNumber(int value) {
     switch (value) {
-      case 0: return ALIAS_KIND_UNSPECIFIED;
-      case 1: return ALIAS_KIND_EQUITY;
-      case 2: return ALIAS_KIND_ETF;
-      case 3: return ALIAS_KIND_LIC;
-      case 4: return ALIAS_KIND_MANAGED_FUND;
+      case 0: return FACT_ACTION_UNSPECIFIED;
+      case 1: return FACT_ACTION_AMEND;
+      case 2: return FACT_ACTION_SUPPRESS;
+      case 3: return FACT_ACTION_REINSTATE;
       default: return null;
     }
   }
 
-  public static com.google.protobuf.Internal.EnumLiteMap<AliasKind>
+  public static com.google.protobuf.Internal.EnumLiteMap<FactAction>
       internalGetValueMap() {
     return internalValueMap;
   }
   private static final com.google.protobuf.Internal.EnumLiteMap<
-      AliasKind> internalValueMap =
-        new com.google.protobuf.Internal.EnumLiteMap<AliasKind>() {
-          public AliasKind findValueByNumber(int number) {
-            return AliasKind.forNumber(number);
+      FactAction> internalValueMap =
+        new com.google.protobuf.Internal.EnumLiteMap<FactAction>() {
+          public FactAction findValueByNumber(int number) {
+            return FactAction.forNumber(number);
           }
         };
 
@@ -130,12 +121,12 @@ public enum AliasKind
   }
   public static com.google.protobuf.Descriptors.EnumDescriptor
       getDescriptor() {
-    return com.registerreview.v1.RegisterReviewProto.getDescriptor().getEnumType(2);
+    return com.registerreview.v1.RegisterReviewProto.getDescriptor().getEnumType(0);
   }
 
-  private static final AliasKind[] VALUES = values();
+  private static final FactAction[] VALUES = values();
 
-  public static AliasKind valueOf(
+  public static FactAction valueOf(
       com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
     if (desc.getType() != getDescriptor()) {
       throw new java.lang.IllegalArgumentException(
@@ -149,10 +140,10 @@ public enum AliasKind
 
   private final int value;
 
-  private AliasKind(int value) {
+  private FactAction(int value) {
     this.value = value;
   }
 
-  // @@protoc_insertion_point(enum_scope:registerreview.v1.AliasKind)
+  // @@protoc_insertion_point(enum_scope:registerreview.v1.FactAction)
 }
 

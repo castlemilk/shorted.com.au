@@ -243,6 +243,13 @@ type Store interface {
 	DecideSecurityCandidate(candidateNorm, decision, stockCode, aliasKind, note, reviewer string, stopwordConfirmed bool) (int32, error)
 	UndoSecurityDecision(candidateNorm string) (bool, error)
 	GetRegisterCoverageStats() (*RegisterCoverageRow, error)
+	// Per-politician CRM (operator only). Reads go through
+	// politician_profile_resolved so a curated value is never bypassed.
+	ListPoliticianProfiles(query string, limit, offset int32, duplicatesOnly bool) ([]*PoliticianProfileSummaryRow, int32, int32, error)
+	GetPoliticianProfile(slug string) (*PoliticianProfileRow, error)
+	CuratePoliticianFact(slug, field string, ordinal int32, action, curatedText, rationale, evidenceURL, curator string) (*ProfileFactRow, error)
+	SetPoliticianPhoto(slug, url, licence, author, sourceURL, curator string) error
+	MergePoliticians(keepSlug, mergeSlug, evidence, curator string) (int32, error)
 
 	// Economy snapshot methods
 	ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32) ([]*EconomicSeriesRow, error)
