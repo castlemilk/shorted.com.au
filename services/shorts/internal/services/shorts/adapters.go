@@ -361,6 +361,22 @@ func (s *StoreAdapter) GetRegisterAnalytics(topIndustries int32, currentOnly boo
 	return s.store.GetRegisterAnalytics(topIndustries, currentOnly)
 }
 
+func (s *StoreAdapter) GetRegisterExplorer() (*shorts.RegisterExplorerRow, error) {
+	return s.store.GetRegisterExplorer()
+}
+
+func (s *StoreAdapter) ListPoliticianSummaries(chamber, stateCode, partyAb string, itemNo int32, query, sortKey string, limit, offset int32) ([]*shorts.PoliticianSummaryRow, int32, error) {
+	return s.store.ListPoliticianSummaries(chamber, stateCode, partyAb, itemNo, query, sortKey, limit, offset)
+}
+
+func (s *StoreAdapter) GetPoliticianExplorerProfile(slug string, topIndustries int32) (*shorts.PoliticianExplorerProfileRow, error) {
+	return s.store.GetPoliticianExplorerProfile(slug, topIndustries)
+}
+
+func (s *StoreAdapter) ComparePoliticians(slugA, slugB string) (*shorts.PoliticianComparisonRow, error) {
+	return s.store.ComparePoliticians(slugA, slugB)
+}
+
 // Register review console. Deliberately NOT routed through the caching adapter
 // arms above: a decision must be visible to the next reviewer immediately, and a
 // cached queue would hand two people the same candidate to decide twice.

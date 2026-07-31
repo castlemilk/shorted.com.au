@@ -65,21 +65,6 @@ const (
 	RegisterReviewServiceMergePoliticiansProcedure = "/registerreview.v1.RegisterReviewService/MergePoliticians"
 )
 
-// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
-var (
-	registerReviewServiceServiceDescriptor                       = v1.File_registerreview_v1_register_review_proto.Services().ByName("RegisterReviewService")
-	registerReviewServiceListSecurityQueueMethodDescriptor       = registerReviewServiceServiceDescriptor.Methods().ByName("ListSecurityQueue")
-	registerReviewServiceSearchListingsMethodDescriptor          = registerReviewServiceServiceDescriptor.Methods().ByName("SearchListings")
-	registerReviewServiceDecideSecurityCandidateMethodDescriptor = registerReviewServiceServiceDescriptor.Methods().ByName("DecideSecurityCandidate")
-	registerReviewServiceUndoSecurityDecisionMethodDescriptor    = registerReviewServiceServiceDescriptor.Methods().ByName("UndoSecurityDecision")
-	registerReviewServiceGetCoverageStatsMethodDescriptor        = registerReviewServiceServiceDescriptor.Methods().ByName("GetCoverageStats")
-	registerReviewServiceListPoliticianProfilesMethodDescriptor  = registerReviewServiceServiceDescriptor.Methods().ByName("ListPoliticianProfiles")
-	registerReviewServiceGetPoliticianProfileMethodDescriptor    = registerReviewServiceServiceDescriptor.Methods().ByName("GetPoliticianProfile")
-	registerReviewServiceCuratePoliticianFactMethodDescriptor    = registerReviewServiceServiceDescriptor.Methods().ByName("CuratePoliticianFact")
-	registerReviewServiceSetPoliticianPhotoMethodDescriptor      = registerReviewServiceServiceDescriptor.Methods().ByName("SetPoliticianPhoto")
-	registerReviewServiceMergePoliticiansMethodDescriptor        = registerReviewServiceServiceDescriptor.Methods().ByName("MergePoliticians")
-)
-
 // RegisterReviewServiceClient is a client for the registerreview.v1.RegisterReviewService service.
 type RegisterReviewServiceClient interface {
 	// The undecided backlog, biggest fanout first.
@@ -122,65 +107,66 @@ type RegisterReviewServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewRegisterReviewServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) RegisterReviewServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
+	registerReviewServiceMethods := v1.File_registerreview_v1_register_review_proto.Services().ByName("RegisterReviewService").Methods()
 	return &registerReviewServiceClient{
 		listSecurityQueue: connect.NewClient[v1.ListSecurityQueueRequest, v1.ListSecurityQueueResponse](
 			httpClient,
 			baseURL+RegisterReviewServiceListSecurityQueueProcedure,
-			connect.WithSchema(registerReviewServiceListSecurityQueueMethodDescriptor),
+			connect.WithSchema(registerReviewServiceMethods.ByName("ListSecurityQueue")),
 			connect.WithClientOptions(opts...),
 		),
 		searchListings: connect.NewClient[v1.SearchListingsRequest, v1.SearchListingsResponse](
 			httpClient,
 			baseURL+RegisterReviewServiceSearchListingsProcedure,
-			connect.WithSchema(registerReviewServiceSearchListingsMethodDescriptor),
+			connect.WithSchema(registerReviewServiceMethods.ByName("SearchListings")),
 			connect.WithClientOptions(opts...),
 		),
 		decideSecurityCandidate: connect.NewClient[v1.DecideSecurityCandidateRequest, v1.DecideSecurityCandidateResponse](
 			httpClient,
 			baseURL+RegisterReviewServiceDecideSecurityCandidateProcedure,
-			connect.WithSchema(registerReviewServiceDecideSecurityCandidateMethodDescriptor),
+			connect.WithSchema(registerReviewServiceMethods.ByName("DecideSecurityCandidate")),
 			connect.WithClientOptions(opts...),
 		),
 		undoSecurityDecision: connect.NewClient[v1.UndoSecurityDecisionRequest, v1.UndoSecurityDecisionResponse](
 			httpClient,
 			baseURL+RegisterReviewServiceUndoSecurityDecisionProcedure,
-			connect.WithSchema(registerReviewServiceUndoSecurityDecisionMethodDescriptor),
+			connect.WithSchema(registerReviewServiceMethods.ByName("UndoSecurityDecision")),
 			connect.WithClientOptions(opts...),
 		),
 		getCoverageStats: connect.NewClient[v1.GetCoverageStatsRequest, v1.GetCoverageStatsResponse](
 			httpClient,
 			baseURL+RegisterReviewServiceGetCoverageStatsProcedure,
-			connect.WithSchema(registerReviewServiceGetCoverageStatsMethodDescriptor),
+			connect.WithSchema(registerReviewServiceMethods.ByName("GetCoverageStats")),
 			connect.WithClientOptions(opts...),
 		),
 		listPoliticianProfiles: connect.NewClient[v1.ListPoliticianProfilesRequest, v1.ListPoliticianProfilesResponse](
 			httpClient,
 			baseURL+RegisterReviewServiceListPoliticianProfilesProcedure,
-			connect.WithSchema(registerReviewServiceListPoliticianProfilesMethodDescriptor),
+			connect.WithSchema(registerReviewServiceMethods.ByName("ListPoliticianProfiles")),
 			connect.WithClientOptions(opts...),
 		),
 		getPoliticianProfile: connect.NewClient[v1.GetPoliticianProfileRequest, v1.GetPoliticianProfileResponse](
 			httpClient,
 			baseURL+RegisterReviewServiceGetPoliticianProfileProcedure,
-			connect.WithSchema(registerReviewServiceGetPoliticianProfileMethodDescriptor),
+			connect.WithSchema(registerReviewServiceMethods.ByName("GetPoliticianProfile")),
 			connect.WithClientOptions(opts...),
 		),
 		curatePoliticianFact: connect.NewClient[v1.CuratePoliticianFactRequest, v1.CuratePoliticianFactResponse](
 			httpClient,
 			baseURL+RegisterReviewServiceCuratePoliticianFactProcedure,
-			connect.WithSchema(registerReviewServiceCuratePoliticianFactMethodDescriptor),
+			connect.WithSchema(registerReviewServiceMethods.ByName("CuratePoliticianFact")),
 			connect.WithClientOptions(opts...),
 		),
 		setPoliticianPhoto: connect.NewClient[v1.SetPoliticianPhotoRequest, v1.SetPoliticianPhotoResponse](
 			httpClient,
 			baseURL+RegisterReviewServiceSetPoliticianPhotoProcedure,
-			connect.WithSchema(registerReviewServiceSetPoliticianPhotoMethodDescriptor),
+			connect.WithSchema(registerReviewServiceMethods.ByName("SetPoliticianPhoto")),
 			connect.WithClientOptions(opts...),
 		),
 		mergePoliticians: connect.NewClient[v1.MergePoliticiansRequest, v1.MergePoliticiansResponse](
 			httpClient,
 			baseURL+RegisterReviewServiceMergePoliticiansProcedure,
-			connect.WithSchema(registerReviewServiceMergePoliticiansMethodDescriptor),
+			connect.WithSchema(registerReviewServiceMethods.ByName("MergePoliticians")),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -290,64 +276,65 @@ type RegisterReviewServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewRegisterReviewServiceHandler(svc RegisterReviewServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	registerReviewServiceMethods := v1.File_registerreview_v1_register_review_proto.Services().ByName("RegisterReviewService").Methods()
 	registerReviewServiceListSecurityQueueHandler := connect.NewUnaryHandler(
 		RegisterReviewServiceListSecurityQueueProcedure,
 		svc.ListSecurityQueue,
-		connect.WithSchema(registerReviewServiceListSecurityQueueMethodDescriptor),
+		connect.WithSchema(registerReviewServiceMethods.ByName("ListSecurityQueue")),
 		connect.WithHandlerOptions(opts...),
 	)
 	registerReviewServiceSearchListingsHandler := connect.NewUnaryHandler(
 		RegisterReviewServiceSearchListingsProcedure,
 		svc.SearchListings,
-		connect.WithSchema(registerReviewServiceSearchListingsMethodDescriptor),
+		connect.WithSchema(registerReviewServiceMethods.ByName("SearchListings")),
 		connect.WithHandlerOptions(opts...),
 	)
 	registerReviewServiceDecideSecurityCandidateHandler := connect.NewUnaryHandler(
 		RegisterReviewServiceDecideSecurityCandidateProcedure,
 		svc.DecideSecurityCandidate,
-		connect.WithSchema(registerReviewServiceDecideSecurityCandidateMethodDescriptor),
+		connect.WithSchema(registerReviewServiceMethods.ByName("DecideSecurityCandidate")),
 		connect.WithHandlerOptions(opts...),
 	)
 	registerReviewServiceUndoSecurityDecisionHandler := connect.NewUnaryHandler(
 		RegisterReviewServiceUndoSecurityDecisionProcedure,
 		svc.UndoSecurityDecision,
-		connect.WithSchema(registerReviewServiceUndoSecurityDecisionMethodDescriptor),
+		connect.WithSchema(registerReviewServiceMethods.ByName("UndoSecurityDecision")),
 		connect.WithHandlerOptions(opts...),
 	)
 	registerReviewServiceGetCoverageStatsHandler := connect.NewUnaryHandler(
 		RegisterReviewServiceGetCoverageStatsProcedure,
 		svc.GetCoverageStats,
-		connect.WithSchema(registerReviewServiceGetCoverageStatsMethodDescriptor),
+		connect.WithSchema(registerReviewServiceMethods.ByName("GetCoverageStats")),
 		connect.WithHandlerOptions(opts...),
 	)
 	registerReviewServiceListPoliticianProfilesHandler := connect.NewUnaryHandler(
 		RegisterReviewServiceListPoliticianProfilesProcedure,
 		svc.ListPoliticianProfiles,
-		connect.WithSchema(registerReviewServiceListPoliticianProfilesMethodDescriptor),
+		connect.WithSchema(registerReviewServiceMethods.ByName("ListPoliticianProfiles")),
 		connect.WithHandlerOptions(opts...),
 	)
 	registerReviewServiceGetPoliticianProfileHandler := connect.NewUnaryHandler(
 		RegisterReviewServiceGetPoliticianProfileProcedure,
 		svc.GetPoliticianProfile,
-		connect.WithSchema(registerReviewServiceGetPoliticianProfileMethodDescriptor),
+		connect.WithSchema(registerReviewServiceMethods.ByName("GetPoliticianProfile")),
 		connect.WithHandlerOptions(opts...),
 	)
 	registerReviewServiceCuratePoliticianFactHandler := connect.NewUnaryHandler(
 		RegisterReviewServiceCuratePoliticianFactProcedure,
 		svc.CuratePoliticianFact,
-		connect.WithSchema(registerReviewServiceCuratePoliticianFactMethodDescriptor),
+		connect.WithSchema(registerReviewServiceMethods.ByName("CuratePoliticianFact")),
 		connect.WithHandlerOptions(opts...),
 	)
 	registerReviewServiceSetPoliticianPhotoHandler := connect.NewUnaryHandler(
 		RegisterReviewServiceSetPoliticianPhotoProcedure,
 		svc.SetPoliticianPhoto,
-		connect.WithSchema(registerReviewServiceSetPoliticianPhotoMethodDescriptor),
+		connect.WithSchema(registerReviewServiceMethods.ByName("SetPoliticianPhoto")),
 		connect.WithHandlerOptions(opts...),
 	)
 	registerReviewServiceMergePoliticiansHandler := connect.NewUnaryHandler(
 		RegisterReviewServiceMergePoliticiansProcedure,
 		svc.MergePoliticians,
-		connect.WithSchema(registerReviewServiceMergePoliticiansMethodDescriptor),
+		connect.WithSchema(registerReviewServiceMethods.ByName("MergePoliticians")),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/registerreview.v1.RegisterReviewService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

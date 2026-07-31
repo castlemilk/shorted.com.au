@@ -316,6 +316,9 @@ func (s *ShortsServer) GetPolitician(
 			PartialParliaments:   row.PartialParliaments,
 			PendingParliaments:   row.PendingParliaments,
 		}
+		for _, term := range row.Terms {
+			out.Terms = append(out.Terms, politicianTermProto(term))
+		}
 		for _, i := range interests {
 			out.Interests = append(out.Interests, declaredInterestProto(i))
 		}

@@ -2558,8 +2558,7 @@ const file_registerreview_v1_register_review_proto_rawDesc = "" +
 	"\x14GetPoliticianProfile\x12..registerreview.v1.GetPoliticianProfileRequest\x1a/.registerreview.v1.GetPoliticianProfileResponse\"\r\x80\xb5\x18\x02\x8a\xb5\x18\x05admin\x12\x86\x01\n" +
 	"\x14CuratePoliticianFact\x12..registerreview.v1.CuratePoliticianFactRequest\x1a/.registerreview.v1.CuratePoliticianFactResponse\"\r\x80\xb5\x18\x02\x8a\xb5\x18\x05admin\x12\x80\x01\n" +
 	"\x12SetPoliticianPhoto\x12,.registerreview.v1.SetPoliticianPhotoRequest\x1a-.registerreview.v1.SetPoliticianPhotoResponse\"\r\x80\xb5\x18\x02\x8a\xb5\x18\x05admin\x12z\n" +
-	"\x10MergePoliticians\x12*.registerreview.v1.MergePoliticiansRequest\x1a+.registerreview.v1.MergePoliticiansResponse\"\r\x80\xb5\x18\x02\x8a\xb5\x18\x05adminB\xf0\x01\n" +
-	"\x15com.registerreview.v1B\x13RegisterReviewProtoP\x01Z]github.com/castlemilk/shorted.com.au/services/gen/proto/go/registerreview/v1;registerreviewv1\xa2\x02\x03RXX\xaa\x02\x11Registerreview.V1\xca\x02\x11Registerreview\\V1\xe2\x02\x1dRegisterreview\\V1\\GPBMetadata\xea\x02\x12Registerreview::V1b\x06proto3"
+	"\x10MergePoliticians\x12*.registerreview.v1.MergePoliticiansRequest\x1a+.registerreview.v1.MergePoliticiansResponse\"\r\x80\xb5\x18\x02\x8a\xb5\x18\x05adminB_Z]github.com/castlemilk/shorted.com.au/services/gen/proto/go/registerreview/v1;registerreviewv1b\x06proto3"
 
 var (
 	file_registerreview_v1_register_review_proto_rawDescOnce sync.Once

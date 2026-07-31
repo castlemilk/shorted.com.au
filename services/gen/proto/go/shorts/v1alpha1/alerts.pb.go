@@ -633,8 +633,7 @@ const file_shorts_v1alpha1_alerts_proto_rawDesc = "" +
 	"\x1bALERT_MONITOR_STATUS_PAUSED\x10\x022\xf6\x01\n" +
 	"\rAlertsService\x12s\n" +
 	"\x12CreateAlertMonitor\x12*.shorts.v1alpha1.CreateAlertMonitorRequest\x1a+.shorts.v1alpha1.CreateAlertMonitorResponse\"\x04\x80\xb5\x18\x02\x12p\n" +
-	"\x11ListAlertMonitors\x12).shorts.v1alpha1.ListAlertMonitorsRequest\x1a*.shorts.v1alpha1.ListAlertMonitorsResponse\"\x04\x80\xb5\x18\x02B\xda\x01\n" +
-	"\x13com.shorts.v1alpha1B\vAlertsProtoP\x01ZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1\xa2\x02\x03SXX\xaa\x02\x0fShorts.V1alpha1\xca\x02\x0fShorts\\V1alpha1\xe2\x02\x1bShorts\\V1alpha1\\GPBMetadata\xea\x02\x10Shorts::V1alpha1b\x06proto3"
+	"\x11ListAlertMonitors\x12).shorts.v1alpha1.ListAlertMonitorsRequest\x1a*.shorts.v1alpha1.ListAlertMonitorsResponse\"\x04\x80\xb5\x18\x02B[ZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1b\x06proto3"
 
 var (
 	file_shorts_v1alpha1_alerts_proto_rawDescOnce sync.Once

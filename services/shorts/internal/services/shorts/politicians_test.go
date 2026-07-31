@@ -10,6 +10,7 @@ import (
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/mock/gomock"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 func TestListStockPoliticiansCountsPeopleNotRows(t *testing.T) {
@@ -208,6 +209,215 @@ func TestMissingPoliticianIsNotFoundNotInternal(t *testing.T) {
 		connect.NewRequest(&shortsv1alpha1.GetPoliticianRequest{Slug: "nobody"}))
 	if connect.CodeOf(err) != connect.CodeNotFound {
 		t.Errorf("code = %v, want NotFound", connect.CodeOf(err))
+	}
+}
+
+func TestExplorerRPCsKillSwitchReturnEmptyNotError(t *testing.T) {
+	t.Setenv("POLITICIAN_INTERESTS_ENABLED", "false")
+	ctrl := gomock.NewController(t)
+	store := mocks.NewMockShortsStore(ctrl)
+	server := newTestServer(t, store)
+
+	explorer, err := server.GetRegisterExplorer(t.Context(),
+		connect.NewRequest(&shortsv1alpha1.GetRegisterExplorerRequest{}))
+	if err != nil || explorer.Msg.GetSourceLicence() != "" || explorer.Msg.GetAsAt() != nil {
+		t.Fatalf("GetRegisterExplorer kill switch = (%v, %v), want empty response", explorer, err)
+	}
+
+	summaries, err := server.ListPoliticianSummaries(t.Context(),
+		connect.NewRequest(&shortsv1alpha1.ListPoliticianSummariesRequest{}))
+	if err != nil || len(summaries.Msg.GetSummaries()) != 0 || summaries.Msg.GetTotal() != 0 {
+		t.Fatalf("ListPoliticianSummaries kill switch = (%v, %v), want empty response", summaries, err)
+	}
+
+	profile, err := server.GetPoliticianExplorerProfile(t.Context(),
+		connect.NewRequest(&shortsv1alpha1.GetPoliticianExplorerProfileRequest{Slug: "alice"}))
+	if err != nil || profile.Msg.GetPolitician() != nil || profile.Msg.GetCanonicalSlug() != "" {
+		t.Fatalf("GetPoliticianExplorerProfile kill switch = (%v, %v), want empty response", profile, err)
+	}
+
+	comparison, err := server.ComparePoliticians(t.Context(),
+		connect.NewRequest(&shortsv1alpha1.ComparePoliticiansRequest{SlugA: "alice", SlugB: "bob"}))
+	if err != nil || comparison.Msg.GetA() != nil || comparison.Msg.GetB() != nil {
+		t.Fatalf("ComparePoliticians kill switch = (%v, %v), want empty response", comparison, err)
+	}
+}
+
+func TestListPoliticianSummariesNormalisesFiltersBeforeStoreAndCache(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	store := mocks.NewMockShortsStore(ctrl)
+	server := newTestServer(t, store)
+
+	store.EXPECT().ListPoliticianSummaries(
+		"house", "NSW", "ALP", int32(3), "alice", "declared_items", int32(200), int32(0),
+	).Return([]*shortsstore.PoliticianSummaryRow{
+		{
+			Politician:           &shortsstore.PoliticianRow{Slug: "alice-example", DisplayName: "Alice Example"},
+			ItemCounts:           []*shortsstore.RegisterItemCountRow{{ItemNo: 1, ItemLabel: "Shareholdings", CurrentCount: 2, AllTimeCount: 3}},
+			DistinctCompanyCount: 2,
+			PropertyCount:        1,
+			GiftsTravelCount:     0,
+			LiabilityCount:       1,
+			Changes90d:           2,
+			Trend:                []*shortsstore.RegisterMonthlyCountRow{{Month: "2026-07", DeclaredCount: 2}},
+			UndatedCount:         1,
+		},
+	}, int32(1), nil).Times(1)
+
+	request := &shortsv1alpha1.ListPoliticianSummariesRequest{
+		Chamber:   " HOUSE ",
+		StateCode: " nsw ",
+		PartyAb:   " alp ",
+		ItemNo:    3,
+		Query:     "  alice ",
+		Sort:      shortsv1alpha1.PoliticianSummarySort_POLITICIAN_SUMMARY_SORT_DECLARED_ITEMS,
+		Limit:     999,
+		Offset:    -4,
+	}
+	first, err := server.ListPoliticianSummaries(t.Context(), connect.NewRequest(request))
+	if err != nil {
+		t.Fatalf("first ListPoliticianSummaries: %v", err)
+	}
+	second, err := server.ListPoliticianSummaries(t.Context(), connect.NewRequest(&shortsv1alpha1.ListPoliticianSummariesRequest{
+		Chamber: "house", StateCode: "NSW", PartyAb: "ALP", ItemNo: 3, Query: "alice",
+		Sort:  shortsv1alpha1.PoliticianSummarySort_POLITICIAN_SUMMARY_SORT_DECLARED_ITEMS,
+		Limit: 200, Offset: 0,
+	}))
+	if err != nil {
+		t.Fatalf("second ListPoliticianSummaries: %v", err)
+	}
+	if first.Msg.GetTotal() != 1 || second.Msg.GetTotal() != 1 {
+		t.Fatalf("total = (%d, %d), want 1", first.Msg.GetTotal(), second.Msg.GetTotal())
+	}
+	if got := first.Msg.GetSummaries()[0].GetItemCounts()[0].GetAllTimeCount(); got != 3 {
+		t.Errorf("all-time item count = %d, want 3", got)
+	}
+}
+
+func TestListPoliticianSummariesEmptyPageStillCarriesSnapshotMetadata(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	store := mocks.NewMockShortsStore(ctrl)
+	server := newTestServer(t, store)
+
+	when := time.Date(2026, 7, 31, 0, 0, 0, 0, time.UTC)
+	store.EXPECT().ListPoliticianSummaries("", "", "", int32(0), "nobody", "declared_items", int32(50), int32(0)).Return(nil, int32(0), nil)
+	store.EXPECT().GetRegisterOverview().Return(&shortsstore.RegisterOverviewRow{RefreshedAt: when}, nil)
+
+	response, err := server.ListPoliticianSummaries(t.Context(), connect.NewRequest(
+		&shortsv1alpha1.ListPoliticianSummariesRequest{Query: "nobody"},
+	))
+	if err != nil {
+		t.Fatalf("empty ListPoliticianSummaries: %v", err)
+	}
+	if response.Msg.GetAsAt() == nil || !response.Msg.GetAsAt().AsTime().Equal(when) {
+		t.Fatalf("empty page asAt = %v, want %v", response.Msg.GetAsAt(), when)
+	}
+	if response.Msg.GetSourceLicence() == "" {
+		t.Fatal("empty page lost source licence")
+	}
+}
+
+func TestGetPoliticianMapsTerms(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	store := mocks.NewMockShortsStore(ctrl)
+	server := newTestServer(t, store)
+
+	store.EXPECT().GetPolitician("alice-example").Return(
+		&shortsstore.PoliticianRow{
+			Slug: "alice-example", DisplayName: "Alice Example",
+			Terms: []*shortsstore.PoliticianTermRow{{Parliament: 48, Chamber: "house", Division: "Example", StateCode: "NSW", Party: "Australian Labor Party", PartyAb: "ALP"}},
+		}, nil, nil, nil,
+	)
+
+	response, err := server.GetPolitician(t.Context(), connect.NewRequest(&shortsv1alpha1.GetPoliticianRequest{Slug: "alice-example"}))
+	if err != nil {
+		t.Fatalf("GetPolitician: %v", err)
+	}
+	if len(response.Msg.GetTerms()) != 1 || response.Msg.GetTerms()[0].GetParliament() != 48 || response.Msg.GetTerms()[0].GetParty() != "Australian Labor Party" {
+		t.Fatalf("terms = %v, want the stored term", response.Msg.GetTerms())
+	}
+}
+
+func TestExplorerMappersPreserveProfileAndCompareFacts(t *testing.T) {
+	profile := &shortsstore.PoliticianExplorerProfileRow{
+		Politician:      &shortsstore.PoliticianRow{Slug: "alice-example", DisplayName: "Alice Example"},
+		CanonicalSlug:   "alice-example",
+		ItemCounts:      []*shortsstore.RegisterItemCountRow{{ItemNo: 1, CurrentCount: 2, AllTimeCount: 4}},
+		HolderCounts:    []*shortsstore.RegisterHolderCountRow{{Holder: "spouse_partner", CurrentCount: 1}},
+		IndustryCounts:  []*shortsstore.RegisterIndustryCountRow{{Industry: "Banks", CompanyCount: 2}},
+		Timeline:        []*shortsstore.RegisterMonthlyCountRow{{Month: "2026-07", DeclaredCount: 2}},
+		UndatedCount:    3,
+		SourceDocuments: []*shortsstore.RegisterSourceDocumentRow{{Label: "Volume A", SourceURL: "https://www.aph.gov.au/example.pdf", Parliament: 48, Chamber: "house"}},
+	}
+	gotProfile := politicianExplorerProfileProto(profile)
+	if gotProfile.GetCanonicalSlug() != "alice-example" || gotProfile.GetItemCounts()[0].GetAllTimeCount() != 4 || gotProfile.GetUndatedCount() != 3 {
+		t.Fatalf("profile mapper lost facts: %v", gotProfile)
+	}
+	if gotProfile.GetHolderCounts()[0].GetHolder() != shortsv1alpha1.RegisterHolder_REGISTER_HOLDER_SPOUSE_PARTNER {
+		t.Fatalf("profile holder mapper = %v", gotProfile.GetHolderCounts())
+	}
+
+	comparison := &shortsstore.PoliticianComparisonRow{
+		SummaryA:        &shortsstore.PoliticianSummaryRow{Politician: &shortsstore.PoliticianRow{Slug: "alice-example"}},
+		SummaryB:        &shortsstore.PoliticianSummaryRow{Politician: &shortsstore.PoliticianRow{Slug: "bob-example"}},
+		SharedCompanies: []*shortsstore.SharedDeclaredCompanyRow{{StockCode: "CBA", HoldersA: []string{"self"}, HoldersB: []string{"spouse_partner"}, CurrentlyDeclaredA: true}},
+		OnlyCompaniesA:  []*shortsstore.PoliticianOnlyCompanyRow{{StockCode: "BHP", Holders: []string{"self"}, CurrentlyDeclared: true}},
+		OnlyAMore:       2,
+	}
+	gotCompare := comparePoliticiansProto(comparison)
+	if len(gotCompare.GetSharedCompanies()) != 1 || len(gotCompare.GetOnlyACompanies()) != 1 || gotCompare.GetOnlyAMore() != 2 {
+		t.Fatalf("compare mapper lost company sets: %v", gotCompare)
+	}
+
+	fields := (&shortsv1alpha1.ComparePoliticiansResponse{}).ProtoReflect().Descriptor().Fields()
+	for _, banned := range []string{"score", "winner", "ranking", "advantage", "lead"} {
+		if fields.ByName(protoreflect.Name(banned)) != nil {
+			t.Fatalf("compare response contains editorially forbidden field %q", banned)
+		}
+	}
+}
+
+func TestExplorerHandlersClampProfileAndNormaliseCompareInputs(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	store := mocks.NewMockShortsStore(ctrl)
+	server := newTestServer(t, store)
+
+	store.EXPECT().GetPoliticianExplorerProfile("alice-example", int32(20)).Return(
+		&shortsstore.PoliticianExplorerProfileRow{
+			Politician:    &shortsstore.PoliticianRow{Slug: "alice-example", DisplayName: "Alice Example"},
+			CanonicalSlug: "alice-example",
+		}, nil,
+	).Times(1)
+	firstProfile, err := server.GetPoliticianExplorerProfile(t.Context(), connect.NewRequest(
+		&shortsv1alpha1.GetPoliticianExplorerProfileRequest{Slug: " ALICE-EXAMPLE ", TopIndustries: 999},
+	))
+	if err != nil {
+		t.Fatalf("first profile: %v", err)
+	}
+	secondProfile, err := server.GetPoliticianExplorerProfile(t.Context(), connect.NewRequest(
+		&shortsv1alpha1.GetPoliticianExplorerProfileRequest{Slug: "alice-example", TopIndustries: 20},
+	))
+	if err != nil || firstProfile.Msg.GetCanonicalSlug() != secondProfile.Msg.GetCanonicalSlug() {
+		t.Fatalf("normalised profile cache call = (%v, %v)", secondProfile, err)
+	}
+
+	store.EXPECT().ComparePoliticians("alice-example", "bob-example").Return(
+		&shortsstore.PoliticianComparisonRow{
+			SummaryA: &shortsstore.PoliticianSummaryRow{Politician: &shortsstore.PoliticianRow{Slug: "alice-example"}},
+			SummaryB: &shortsstore.PoliticianSummaryRow{Politician: &shortsstore.PoliticianRow{Slug: "bob-example"}},
+		}, nil,
+	).Times(1)
+	firstCompare, err := server.ComparePoliticians(t.Context(), connect.NewRequest(
+		&shortsv1alpha1.ComparePoliticiansRequest{SlugA: " ALICE-EXAMPLE ", SlugB: " BOB-EXAMPLE "},
+	))
+	if err != nil {
+		t.Fatalf("first compare: %v", err)
+	}
+	secondCompare, err := server.ComparePoliticians(t.Context(), connect.NewRequest(
+		&shortsv1alpha1.ComparePoliticiansRequest{SlugA: "alice-example", SlugB: "bob-example"},
+	))
+	if err != nil || firstCompare.Msg.GetA().GetPolitician().GetSlug() != secondCompare.Msg.GetA().GetPolitician().GetSlug() {
+		t.Fatalf("normalised compare cache call = (%v, %v)", secondCompare, err)
 	}
 }
 

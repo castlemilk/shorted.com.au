@@ -37,6 +37,7 @@ type PoliticianTermRow struct {
 	Chamber    string
 	Division   string
 	StateCode  string
+	Party      string
 	PartyAb    string
 }
 
@@ -199,7 +200,7 @@ func (s *postgresStore) GetPoliticianProfile(slug string) (*PoliticianProfileRow
 
 	termRows, err := s.db.Query(ctx, `
 		SELECT parliament, COALESCE(chamber,''), COALESCE(division,''),
-		       COALESCE(state_code,''), COALESCE(party_ab,'')
+		       COALESCE(state_code,''), COALESCE(party,''), COALESCE(party_ab,'')
 		FROM politician_terms WHERE politician_id = (SELECT id FROM politicians WHERE slug = $1)
 		ORDER BY parliament DESC`, slug)
 	if err != nil {
@@ -208,7 +209,7 @@ func (s *postgresStore) GetPoliticianProfile(slug string) (*PoliticianProfileRow
 	defer termRows.Close()
 	for termRows.Next() {
 		var t PoliticianTermRow
-		if err := termRows.Scan(&t.Parliament, &t.Chamber, &t.Division, &t.StateCode, &t.PartyAb); err != nil {
+		if err := termRows.Scan(&t.Parliament, &t.Chamber, &t.Division, &t.StateCode, &t.Party, &t.PartyAb); err != nil {
 			return nil, err
 		}
 		out.Terms = append(out.Terms, &t)

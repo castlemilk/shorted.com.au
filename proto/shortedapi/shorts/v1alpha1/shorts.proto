@@ -907,4 +907,24 @@ service ShortedStocksService {
       description: "How many parliamentarians of each party declare an interest in each industry, and how members are distributed by state. Counts only; the registers record no quantity or value."
     };
   }
+
+  // Aggregate register counts for the explorer hub.
+  rpc GetRegisterExplorer (GetRegisterExplorerRequest) returns (GetRegisterExplorerResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Filtered politician summaries for the explorer table.
+  rpc ListPoliticianSummaries (ListPoliticianSummariesRequest) returns (ListPoliticianSummariesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Count-based analytics for one politician's explorer profile.
+  rpc GetPoliticianExplorerProfile (GetPoliticianExplorerProfileRequest) returns (GetPoliticianExplorerProfileResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Neutral, symmetric comparison of two politician register summaries.
+  rpc ComparePoliticians (ComparePoliticiansRequest) returns (ComparePoliticiansResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
 }

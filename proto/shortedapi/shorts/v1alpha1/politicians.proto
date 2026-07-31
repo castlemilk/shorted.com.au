@@ -77,6 +77,26 @@ service PoliticiansService {
   rpc GetPoliticianAnalytics (GetPoliticianAnalyticsRequest) returns (GetPoliticianAnalyticsResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
   }
+
+  // Aggregate register counts for the explorer hub.
+  rpc GetRegisterExplorer (GetRegisterExplorerRequest) returns (GetRegisterExplorerResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Filtered politician summaries for the explorer table.
+  rpc ListPoliticianSummaries (ListPoliticianSummariesRequest) returns (ListPoliticianSummariesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Count-based analytics for one politician's explorer profile.
+  rpc GetPoliticianExplorerProfile (GetPoliticianExplorerProfileRequest) returns (GetPoliticianExplorerProfileResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Neutral, symmetric comparison of two politician register summaries.
+  rpc ComparePoliticians (ComparePoliticiansRequest) returns (ComparePoliticiansResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
 }
 
 // PartyIndustryCell is one cell of the party x industry matrix.
@@ -131,6 +151,181 @@ message GetPoliticianAnalyticsResponse {
   int32 industries_omitted = 5;
   string source_licence = 6;
   google.protobuf.Timestamp as_at = 7;
+}
+
+// ==================== Register explorer messages ====================
+
+enum PoliticianSummarySort {
+  POLITICIAN_SUMMARY_SORT_DECLARED_ITEMS = 0;
+  POLITICIAN_SUMMARY_SORT_COMPANIES = 1;
+  POLITICIAN_SUMMARY_SORT_PROPERTIES = 2;
+  POLITICIAN_SUMMARY_SORT_RECENT_CHANGES = 3;
+  POLITICIAN_SUMMARY_SORT_NAME = 4;
+}
+
+message RegisterItemCount {
+  int32 item_no = 1;
+  string item_label = 2;
+  int32 current_count = 3;
+  int32 politician_count = 4;
+  int32 all_time_count = 5;
+}
+
+message RegisterHolderCount {
+  RegisterHolder holder = 1;
+  int32 current_count = 2;
+}
+
+message RegisterMonthlyCount {
+  string month = 1; // YYYY-MM
+  int32 declared_count = 2;
+}
+
+message RegisterIndustryTrend {
+  string industry = 1;
+  int32 current_count = 2;
+  int32 count_90d_ago = 3;
+}
+
+message RegisterIndustryCount {
+  string industry = 1;
+  int32 company_count = 2;
+}
+
+message RegisterSourceDocument {
+  string label = 1;
+  string source_url = 2;
+  int32 parliament = 3;
+  string chamber = 4;
+}
+
+message PoliticianSummary {
+  Politician politician = 1;
+  repeated RegisterItemCount item_counts = 2;
+  int32 distinct_company_count = 3;
+  int32 property_count = 4;
+  int32 gifts_travel_count = 5;
+  int32 liability_count = 6;
+  int32 changes_90d = 7;
+  repeated RegisterMonthlyCount trend = 8;
+  int32 undated_count = 9;
+}
+
+message GetRegisterExplorerRequest {}
+
+message GetRegisterExplorerResponse {
+  repeated RegisterItemCount item_counts = 1;
+  repeated RegisterHolderCount holder_counts = 2;
+  int32 changes_7d = 3;
+  int32 members_changed_7d = 4;
+  int32 changes_30d = 5;
+  int32 members_changed_30d = 6;
+  repeated RegisterIndustryTrend industry_trends = 7;
+
+  repeated int32 extracted_parliaments = 8;
+  repeated int32 partial_parliaments = 9;
+  repeated int32 pending_parliaments = 10;
+
+  int32 politician_count = 11;
+  int32 statement_count = 12;
+  int32 declared_row_count = 13;
+  int32 resolved_listed_count = 14;
+  int32 resolved_suburb_count = 15;
+  int32 first_parliament = 16;
+  int32 last_parliament = 17;
+  int32 current_declared_count = 18;
+  int32 distinct_company_count = 19;
+  int32 property_count = 20;
+  int32 gifts_travel_count = 21;
+  int32 liability_count = 22;
+  google.protobuf.Timestamp as_at = 23;
+  string source_licence = 24;
+}
+
+message ListPoliticianSummariesRequest {
+  string chamber = 1;
+  string state_code = 2;
+  string party_ab = 3;
+  int32 item_no = 4; // 0 = all
+  string query = 5;
+  PoliticianSummarySort sort = 6;
+  int32 limit = 7;
+  int32 offset = 8;
+}
+
+message ListPoliticianSummariesResponse {
+  repeated PoliticianSummary summaries = 1;
+  int32 total = 2;
+  google.protobuf.Timestamp as_at = 3;
+  string source_licence = 4;
+}
+
+message GetPoliticianExplorerProfileRequest {
+  string slug = 1;
+  int32 top_industries = 2;
+}
+
+message GetPoliticianExplorerProfileResponse {
+  Politician politician = 1;
+  string canonical_slug = 2;
+  repeated PoliticianTerm terms = 3;
+  repeated RegisterItemCount item_counts = 4;
+  repeated RegisterHolderCount holder_counts = 5;
+  repeated RegisterIndustryCount industry_counts = 6;
+  repeated RegisterMonthlyCount timeline = 7;
+  int32 undated_count = 8;
+  repeated RegisterChangeEvent recent_changes = 9;
+  repeated RegisterSourceDocument source_documents = 10;
+
+  repeated int32 extracted_parliaments = 11;
+  repeated int32 partial_parliaments = 12;
+  repeated int32 pending_parliaments = 13;
+  google.protobuf.Timestamp as_at = 14;
+  string source_licence = 15;
+}
+
+message ComparePoliticiansRequest {
+  string slug_a = 1;
+  string slug_b = 2;
+}
+
+message SharedDeclaredCompany {
+  string stock_code = 1;
+  string company_name = 2;
+  string industry = 3;
+  repeated RegisterHolder holders_a = 4;
+  repeated RegisterHolder holders_b = 5;
+  bool currently_declared_a = 6;
+  bool currently_declared_b = 7;
+}
+
+message PoliticianOnlyCompany {
+  string stock_code = 1;
+  string company_name = 2;
+  string industry = 3;
+  repeated RegisterHolder holders = 4;
+  bool currently_declared = 5;
+}
+
+message ComparePoliticiansResponse {
+  PoliticianSummary a = 1;
+  PoliticianSummary b = 2;
+  repeated RegisterHolderCount holder_counts_a = 3;
+  repeated RegisterHolderCount holder_counts_b = 4;
+  repeated SharedDeclaredCompany shared_companies = 5;
+  repeated PoliticianOnlyCompany only_a_companies = 6;
+  repeated PoliticianOnlyCompany only_b_companies = 7;
+  int32 only_a_more = 8;
+  int32 only_b_more = 9;
+
+  repeated int32 extracted_parliaments_a = 10;
+  repeated int32 partial_parliaments_a = 11;
+  repeated int32 pending_parliaments_a = 12;
+  repeated int32 extracted_parliaments_b = 13;
+  repeated int32 partial_parliaments_b = 14;
+  repeated int32 pending_parliaments_b = 15;
+  google.protobuf.Timestamp as_at = 16;
+  string source_licence = 17;
 }
 
 // ==================== Shared enums ====================

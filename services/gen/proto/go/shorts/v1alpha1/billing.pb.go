@@ -680,8 +680,7 @@ const file_shorts_v1alpha1_billing_proto_rawDesc = "" +
 	"\tMintToken\x12!.shorts.v1alpha1.MintTokenRequest\x1a\".shorts.v1alpha1.MintTokenResponse\"\x04\x80\xb5\x18\x02\x12\x94\x01\n" +
 	"\x1dHandleStripeCheckoutCompleted\x125.shorts.v1alpha1.HandleStripeCheckoutCompletedRequest\x1a6.shorts.v1alpha1.HandleStripeCheckoutCompletedResponse\"\x04\x80\xb5\x18\x02\x12\x9a\x01\n" +
 	"\x1fHandleStripeSubscriptionUpdated\x127.shorts.v1alpha1.HandleStripeSubscriptionUpdatedRequest\x1a8.shorts.v1alpha1.HandleStripeSubscriptionUpdatedResponse\"\x04\x80\xb5\x18\x02\x12p\n" +
-	"\x11GetMySubscription\x12).shorts.v1alpha1.GetMySubscriptionRequest\x1a*.shorts.v1alpha1.GetMySubscriptionResponse\"\x04\x80\xb5\x18\x02B\xdb\x01\n" +
-	"\x13com.shorts.v1alpha1B\fBillingProtoP\x01ZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1\xa2\x02\x03SXX\xaa\x02\x0fShorts.V1alpha1\xca\x02\x0fShorts\\V1alpha1\xe2\x02\x1bShorts\\V1alpha1\\GPBMetadata\xea\x02\x10Shorts::V1alpha1b\x06proto3"
+	"\x11GetMySubscription\x12).shorts.v1alpha1.GetMySubscriptionRequest\x1a*.shorts.v1alpha1.GetMySubscriptionResponse\"\x04\x80\xb5\x18\x02B[ZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1b\x06proto3"
 
 var (
 	file_shorts_v1alpha1_billing_proto_rawDescOnce sync.Once

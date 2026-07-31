@@ -38,12 +38,6 @@ const (
 	SearchServiceSearchStocksProcedure = "/shorts.v1alpha1.SearchService/SearchStocks"
 )
 
-// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
-var (
-	searchServiceServiceDescriptor            = v1alpha1.File_shorts_v1alpha1_search_proto.Services().ByName("SearchService")
-	searchServiceSearchStocksMethodDescriptor = searchServiceServiceDescriptor.Methods().ByName("SearchStocks")
-)
-
 // SearchServiceClient is a client for the shorts.v1alpha1.SearchService service.
 type SearchServiceClient interface {
 	// Search stocks by symbol or company name
@@ -59,11 +53,12 @@ type SearchServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewSearchServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) SearchServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
+	searchServiceMethods := v1alpha1.File_shorts_v1alpha1_search_proto.Services().ByName("SearchService").Methods()
 	return &searchServiceClient{
 		searchStocks: connect.NewClient[v1alpha1.SearchStocksRequest, v1alpha1.SearchStocksResponse](
 			httpClient,
 			baseURL+SearchServiceSearchStocksProcedure,
-			connect.WithSchema(searchServiceSearchStocksMethodDescriptor),
+			connect.WithSchema(searchServiceMethods.ByName("SearchStocks")),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -91,10 +86,11 @@ type SearchServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewSearchServiceHandler(svc SearchServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	searchServiceMethods := v1alpha1.File_shorts_v1alpha1_search_proto.Services().ByName("SearchService").Methods()
 	searchServiceSearchStocksHandler := connect.NewUnaryHandler(
 		SearchServiceSearchStocksProcedure,
 		svc.SearchStocks,
-		connect.WithSchema(searchServiceSearchStocksMethodDescriptor),
+		connect.WithSchema(searchServiceMethods.ByName("SearchStocks")),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/shorts.v1alpha1.SearchService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

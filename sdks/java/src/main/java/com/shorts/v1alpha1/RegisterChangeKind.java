@@ -112,7 +112,7 @@ public enum RegisterChangeKind
   }
   public static com.google.protobuf.Descriptors.EnumDescriptor
       getDescriptor() {
-    return com.shorts.v1alpha1.PoliticiansProto.getDescriptor().getEnumType(1);
+    return com.shorts.v1alpha1.PoliticiansProto.getDescriptor().getEnumType(2);
   }
 
   private static final RegisterChangeKind[] VALUES = values();

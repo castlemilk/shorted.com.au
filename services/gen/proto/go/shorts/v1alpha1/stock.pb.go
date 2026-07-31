@@ -2412,9 +2412,7 @@ const file_shorts_v1alpha1_stock_proto_rawDesc = "" +
 	"\rGetStockGraph\x12%.shorts.v1alpha1.GetStockGraphRequest\x1a&.shorts.v1alpha1.GetStockGraphResponse\"\x04\x80\xb5\x18\x01\x12m\n" +
 	"\x10GetEventTimeline\x12(.shorts.v1alpha1.GetEventTimelineRequest\x1a).shorts.v1alpha1.GetEventTimelineResponse\"\x04\x80\xb5\x18\x01\x12j\n" +
 	"\x0fGetStockSignals\x12'.shorts.v1alpha1.GetStockSignalsRequest\x1a(.shorts.v1alpha1.GetStockSignalsResponse\"\x04\x80\xb5\x18\x01\x12y\n" +
-	"\x14GetCompanyTaxProfile\x12,.shorts.v1alpha1.GetCompanyTaxProfileRequest\x1a-.shorts.v1alpha1.GetCompanyTaxProfileResponse\"\x04\x80\xb5\x18\x01B\xd9\x01\n" +
-	"\x13com.shorts.v1alpha1B\n" +
-	"StockProtoP\x01ZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1\xa2\x02\x03SXX\xaa\x02\x0fShorts.V1alpha1\xca\x02\x0fShorts\\V1alpha1\xe2\x02\x1bShorts\\V1alpha1\\GPBMetadata\xea\x02\x10Shorts::V1alpha1b\x06proto3"
+	"\x14GetCompanyTaxProfile\x12,.shorts.v1alpha1.GetCompanyTaxProfileRequest\x1a-.shorts.v1alpha1.GetCompanyTaxProfileResponse\"\x04\x80\xb5\x18\x01B[ZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1b\x06proto3"
 
 var (
 	file_shorts_v1alpha1_stock_proto_rawDescOnce sync.Once

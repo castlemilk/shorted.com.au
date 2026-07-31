@@ -234,6 +234,10 @@ type Store interface {
 	ListRegisterChanges(since time.Time, kind, stockCode string, limit, offset int32) ([]*RegisterChangeRow, int32, error)
 	ListShortInterestOverlap(minShortPercent float64, limit int32) ([]*PoliticianStockRollupRow, error)
 	GetRegisterAnalytics(topIndustries int32, currentOnly bool) (*RegisterAnalytics, error)
+	GetRegisterExplorer() (*RegisterExplorerRow, error)
+	ListPoliticianSummaries(chamber, stateCode, partyAb string, itemNo int32, query, sortKey string, limit, offset int32) ([]*PoliticianSummaryRow, int32, error)
+	GetPoliticianExplorerProfile(slug string, topIndustries int32) (*PoliticianExplorerProfileRow, error)
+	ComparePoliticians(slugA, slugB string) (*PoliticianComparisonRow, error)
 
 	// Register review console — OPERATOR ONLY, never a public read path.
 	// A decision here writes register_security_aliases, which is the single
