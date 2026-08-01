@@ -47,6 +47,12 @@ public interface DeclarerCountChangeOrBuilder extends
       getIndustryBytes();
 
   /**
+   * <pre>
+   * Members whose declaration is dated and open today — the SAME predicate
+   * NewlyDeclaredCompany.declarer_count uses, so one response speaks with one
+   * measure of "how many members declare this company".
+   * </pre>
+   *
    * <code>int32 declarers_now = 4 [json_name = "declarersNow"];</code>
    * @return The declarersNow.
    */

@@ -11,16 +11,37 @@ public interface ListRegisterChangesRequestOrBuilder extends
     com.google.protobuf.MessageOrBuilder {
 
   /**
+   * <pre>
+   * Interpreted at UTC DAY granularity: the handler truncates it to UTC
+   * midnight before it reaches either the cache key or the query, so two
+   * timestamps on the same day are one request and cannot be served each
+   * other's results.
+   * </pre>
+   *
    * <code>.google.protobuf.Timestamp since = 1 [json_name = "since"];</code>
    * @return Whether the since field is set.
    */
   boolean hasSince();
   /**
+   * <pre>
+   * Interpreted at UTC DAY granularity: the handler truncates it to UTC
+   * midnight before it reaches either the cache key or the query, so two
+   * timestamps on the same day are one request and cannot be served each
+   * other's results.
+   * </pre>
+   *
    * <code>.google.protobuf.Timestamp since = 1 [json_name = "since"];</code>
    * @return The since.
    */
   com.google.protobuf.Timestamp getSince();
   /**
+   * <pre>
+   * Interpreted at UTC DAY granularity: the handler truncates it to UTC
+   * midnight before it reaches either the cache key or the query, so two
+   * timestamps on the same day are one request and cannot be served each
+   * other's results.
+   * </pre>
+   *
    * <code>.google.protobuf.Timestamp since = 1 [json_name = "since"];</code>
    */
   com.google.protobuf.TimestampOrBuilder getSinceOrBuilder();

@@ -9,6 +9,13 @@ package com.shorts.v1alpha1;
  * <pre>
  * NewlyDeclaredCompany is a company whose FIRST dated declaration anywhere in
  * the corpus falls inside the window.
+ *
+ * WITHHELD RATHER THAN GUESSED: a company is excluded outright if ANY member
+ * currently declares it with no known start date. About 80% of currently
+ * declared rows are undated, so a dated-only minimum cannot prove first-ness
+ * against them — an undated holding of the same company may be decades old.
+ * First-ness is a claim about the whole corpus, so an unprovable one is not
+ * made at all.
  * </pre>
  *
  * Protobuf type {@code shorts.v1alpha1.NewlyDeclaredCompany}
@@ -226,6 +233,11 @@ private static final long serialVersionUID = 0L;
   /**
    * <pre>
    * Members currently declaring the company, corpus-wide. People, never rows.
+   *
+   * The SAME dated predicate as DeclarerCountChange.declarers_now, so the two
+   * rails of one response cannot disagree about how many members declare a
+   * company. (After the exclusion above these companies have no undated current
+   * rows at all, so the dated count is the whole count.)
    * </pre>
    *
    * <code>int32 declarer_count = 5 [json_name = "declarerCount"];</code>
@@ -441,6 +453,13 @@ private static final long serialVersionUID = 0L;
    * <pre>
    * NewlyDeclaredCompany is a company whose FIRST dated declaration anywhere in
    * the corpus falls inside the window.
+   *
+   * WITHHELD RATHER THAN GUESSED: a company is excluded outright if ANY member
+   * currently declares it with no known start date. About 80% of currently
+   * declared rows are undated, so a dated-only minimum cannot prove first-ness
+   * against them — an undated holding of the same company may be decades old.
+   * First-ness is a claim about the whole corpus, so an unprovable one is not
+   * made at all.
    * </pre>
    *
    * Protobuf type {@code shorts.v1alpha1.NewlyDeclaredCompany}
@@ -946,6 +965,11 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Members currently declaring the company, corpus-wide. People, never rows.
+     *
+     * The SAME dated predicate as DeclarerCountChange.declarers_now, so the two
+     * rails of one response cannot disagree about how many members declare a
+     * company. (After the exclusion above these companies have no undated current
+     * rows at all, so the dated count is the whole count.)
      * </pre>
      *
      * <code>int32 declarer_count = 5 [json_name = "declarerCount"];</code>
@@ -958,6 +982,11 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Members currently declaring the company, corpus-wide. People, never rows.
+     *
+     * The SAME dated predicate as DeclarerCountChange.declarers_now, so the two
+     * rails of one response cannot disagree about how many members declare a
+     * company. (After the exclusion above these companies have no undated current
+     * rows at all, so the dated count is the whole count.)
      * </pre>
      *
      * <code>int32 declarer_count = 5 [json_name = "declarerCount"];</code>
@@ -974,6 +1003,11 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Members currently declaring the company, corpus-wide. People, never rows.
+     *
+     * The SAME dated predicate as DeclarerCountChange.declarers_now, so the two
+     * rails of one response cannot disagree about how many members declare a
+     * company. (After the exclusion above these companies have no undated current
+     * rows at all, so the dated count is the whole count.)
      * </pre>
      *
      * <code>int32 declarer_count = 5 [json_name = "declarerCount"];</code>

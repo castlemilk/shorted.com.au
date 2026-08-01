@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/mock/gomock"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // The kill switch must return an EMPTY response, never an error: a takedown or
@@ -56,7 +57,7 @@ func TestRegisterActivityClampsWindowBeforeStoreAndCache(t *testing.T) {
 	server := newTestServer(t, store)
 
 	// 45 and 90 both snap to 90: exactly ONE store call may happen.
-	store.EXPECT().GetRegisterActivity(int32(90)).Return(&shortsstore.RegisterActivityRow{
+	store.EXPECT().GetRegisterActivity(int32(90), shortsstore.RegisterActivityFilter{}).Return(&shortsstore.RegisterActivityRow{
 		WindowDays: 90,
 		Weeks: []*shortsstore.WeeklyEventCountRow{
 			{WeekStart: "2026-07-13", AddedCount: 17, RemovedCount: 0},
@@ -65,6 +66,8 @@ func TestRegisterActivityClampsWindowBeforeStoreAndCache(t *testing.T) {
 		NewlyDeclaredCompanies: []*shortsstore.NewlyDeclaredCompanyRow{{StockCode: "ASX", FirstDeclaredOn: "2026-07-08", DeclarerCount: 2}},
 		DeclarerCountChanges:   []*shortsstore.DeclarerCountChangeRow{{StockCode: "ASX", DeclarersNow: 1, DeclarersAtWindowStart: 0}},
 		UndatedCurrentCount:    13615,
+		FilteredEventCount:     17,
+		FilteredMemberCount:    4,
 		AsAt:                   time.Date(2026, 7, 21, 0, 0, 0, 0, time.UTC),
 	}, nil).Times(1)
 
@@ -102,7 +105,7 @@ func TestRegisterActivityEmptyWindowStillCarriesTheRegistersClock(t *testing.T) 
 	server := newTestServer(t, store)
 
 	lodged := time.Date(2026, 7, 21, 0, 0, 0, 0, time.UTC)
-	store.EXPECT().GetRegisterActivity(int32(30)).
+	store.EXPECT().GetRegisterActivity(int32(30), shortsstore.RegisterActivityFilter{}).
 		Return(&shortsstore.RegisterActivityRow{WindowDays: 30}, nil).Times(1)
 	store.EXPECT().GetRegisterOverview().Return(&shortsstore.RegisterOverviewRow{
 		AsAt: lodged, RefreshedAt: time.Date(2026, 7, 31, 0, 0, 0, 0, time.UTC),
@@ -129,8 +132,8 @@ func TestDistinctiveHoldingsDiscloseShortInterestOnlyWhenPresent(t *testing.T) {
 	store.EXPECT().ListDistinctiveHoldings("ged-kearney").Return(&shortsstore.DistinctiveHoldingsRow{
 		CanonicalSlug: "ged-kearney",
 		Holdings: []*shortsstore.DistinctiveHoldingRow{
-			{StockCode: "BAP", Holder: "unspecified", CurrentlyDeclared: true, CorpusDeclarerCount: 1, ShortPercent: 9.82},
-			{StockCode: "CZR", Holder: "spouse_partner", CurrentlyDeclared: true, CorpusDeclarerCount: 1},
+			{StockCode: "BAP", Holder: "unspecified", CorpusDeclarerCount: 1, ShortPercent: 9.82},
+			{StockCode: "CZR", Holder: "spouse_partner", CorpusDeclarerCount: 1},
 		},
 		MoreCount: 5,
 		AsAt:      time.Date(2026, 7, 21, 0, 0, 0, 0, time.UTC),
@@ -300,7 +303,117 @@ func TestRegisterChangesCacheKeyIncludesTheNewFilters(t *testing.T) {
 			t.Errorf("%s filter does not change the cache key", name)
 		}
 	}
-	if cache.GetRegisterActivityKey(30) == cache.GetRegisterActivityKey(90) {
+	if cache.GetRegisterActivityKey(30, "", "", "", 0, "") == cache.GetRegisterActivityKey(90, "", "", "", 0, "") {
 		t.Error("activity windows must not share a cache key")
+	}
+
+	// The strip now carries FILTERED counts, so a filter-blind key would publish
+	// one member's numbers under another member's name.
+	activityBase := cache.GetRegisterActivityKey(90, "", "", "", 0, "")
+	activityVariants := map[string]string{
+		"slug":    cache.GetRegisterActivityKey(90, "alice-example", "", "", 0, ""),
+		"party":   cache.GetRegisterActivityKey(90, "", "ALP", "", 0, ""),
+		"chamber": cache.GetRegisterActivityKey(90, "", "", "senate", 0, ""),
+		"item_no": cache.GetRegisterActivityKey(90, "", "", "", 3, ""),
+		"kind":    cache.GetRegisterActivityKey(90, "", "", "", 0, "added"),
+	}
+	for name, key := range activityVariants {
+		if key == activityBase {
+			t.Errorf("activity %s filter does not change the cache key", name)
+		}
+	}
+}
+
+// The strip is drawn INSIDE a filtered view, so its filters must reach the
+// store normalised and its filtered counts must be the ones published — a
+// parliament-wide total rendered under one member's name is a misattribution.
+func TestRegisterActivityNarrowsTheStripByTheRequestsFilters(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	store := mocks.NewMockShortsStore(ctrl)
+	server := newTestServer(t, store)
+
+	// Slug lower-cased, party upper-cased, chamber lower-cased, an out-of-range
+	// item collapsed to "all" — the identical rules ListRegisterChanges applies.
+	want := shortsstore.RegisterActivityFilter{
+		Slug: "alice-example", PartyAb: "ALP", Chamber: "senate", ItemNo: 0, Kind: "added",
+	}
+	store.EXPECT().GetRegisterActivity(int32(90), want).Return(&shortsstore.RegisterActivityRow{
+		WindowDays: 90,
+		Weeks: []*shortsstore.WeeklyEventCountRow{
+			{WeekStart: "2026-07-06", AddedCount: 2},
+			{WeekStart: "2026-07-13"}, // a quiet week is present at zero
+			{WeekStart: "2026-07-20", AddedCount: 3},
+		},
+		FilteredEventCount:  5,
+		FilteredMemberCount: 1,
+		UndatedCurrentCount: 13615,
+		AsAt:                time.Date(2026, 7, 21, 0, 0, 0, 0, time.UTC),
+	}, nil).Times(1)
+
+	resp, err := server.GetRegisterActivity(t.Context(),
+		connect.NewRequest(&shortsv1alpha1.GetRegisterActivityRequest{
+			WindowDays:     90,
+			PoliticianSlug: " ALICE-EXAMPLE ",
+			PartyAb:        " alp ",
+			Chamber:        " SENATE ",
+			ItemNo:         99,
+			Kind:           shortsv1alpha1.RegisterChangeKind_REGISTER_CHANGE_KIND_ADDED,
+		}))
+	if err != nil {
+		t.Fatalf("filtered activity: %v", err)
+	}
+	if resp.Msg.GetFilteredEventCount() != 5 || resp.Msg.GetFilteredMemberCount() != 1 {
+		t.Errorf("filtered counts = (%d events, %d members), want the store's (5, 1)",
+			resp.Msg.GetFilteredEventCount(), resp.Msg.GetFilteredMemberCount())
+	}
+	// The published counts must describe the bars beside them.
+	var summed int32
+	for _, week := range resp.Msg.GetWeeks() {
+		summed += week.GetAddedCount() + week.GetRemovedCount()
+	}
+	if summed != resp.Msg.GetFilteredEventCount() {
+		t.Errorf("weeks sum to %d but filteredEventCount = %d", summed, resp.Msg.GetFilteredEventCount())
+	}
+
+	// The unfiltered strip is a DIFFERENT request and must not be served this
+	// member's numbers from cache.
+	store.EXPECT().GetRegisterActivity(int32(90), shortsstore.RegisterActivityFilter{}).
+		Return(&shortsstore.RegisterActivityRow{WindowDays: 90, FilteredEventCount: 812, FilteredMemberCount: 214,
+			AsAt: time.Date(2026, 7, 21, 0, 0, 0, 0, time.UTC)}, nil).Times(1)
+	wide, err := server.GetRegisterActivity(t.Context(),
+		connect.NewRequest(&shortsv1alpha1.GetRegisterActivityRequest{WindowDays: 90}))
+	if err != nil {
+		t.Fatalf("unfiltered activity: %v", err)
+	}
+	if wide.Msg.GetFilteredEventCount() != 812 || wide.Msg.GetFilteredMemberCount() != 214 {
+		t.Errorf("unfiltered strip = (%d, %d), want the parliament-wide (812, 214)",
+			wide.Msg.GetFilteredEventCount(), wide.Msg.GetFilteredMemberCount())
+	}
+}
+
+// `since` is a UTC DAY. The cache key has only ever carried the day, so the
+// handler must truncate before BOTH the key and the store call — otherwise two
+// timestamps on one day are two queries sharing one entry.
+func TestRegisterChangesTruncatesSinceToUTCDayBeforeStoreAndCache(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	store := mocks.NewMockShortsStore(ctrl)
+	server := newTestServer(t, store)
+
+	midnight := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
+	// ONE store call for both timestamps, and it receives UTC midnight.
+	store.EXPECT().ListRegisterChanges(midnight, "", "", "", int32(0), "", "", int32(100), int32(0)).
+		Return(nil, int32(0), nil).Times(1)
+	store.EXPECT().GetRegisterOverview().Return(&shortsstore.RegisterOverviewRow{AsAt: midnight}, nil).Times(1)
+
+	for _, at := range []time.Time{
+		time.Date(2026, 7, 1, 9, 30, 0, 0, time.UTC),
+		time.Date(2026, 7, 1, 23, 59, 59, 0, time.UTC),
+	} {
+		if _, err := server.ListRegisterChanges(t.Context(),
+			connect.NewRequest(&shortsv1alpha1.ListRegisterChangesRequest{
+				Since: timestamppb.New(at),
+			})); err != nil {
+			t.Fatalf("since %v: %v", at, err)
+		}
 	}
 }

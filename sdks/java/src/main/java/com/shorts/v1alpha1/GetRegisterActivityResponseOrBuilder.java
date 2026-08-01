@@ -21,48 +21,103 @@ public interface GetRegisterActivityResponseOrBuilder extends
   int getWindowDays();
 
   /**
+   * <pre>
+   * Contiguous Monday buckets, NARROWED BY THE REQUEST'S FILTERS. The first
+   * bucket is the Monday on or before (today - window_days), so no bucket is a
+   * partial week drawn as a full one.
+   * </pre>
+   *
    * <code>repeated .shorts.v1alpha1.WeeklyEventCount weeks = 2 [json_name = "weeks"];</code>
    */
   java.util.List<com.shorts.v1alpha1.WeeklyEventCount> 
       getWeeksList();
   /**
+   * <pre>
+   * Contiguous Monday buckets, NARROWED BY THE REQUEST'S FILTERS. The first
+   * bucket is the Monday on or before (today - window_days), so no bucket is a
+   * partial week drawn as a full one.
+   * </pre>
+   *
    * <code>repeated .shorts.v1alpha1.WeeklyEventCount weeks = 2 [json_name = "weeks"];</code>
    */
   com.shorts.v1alpha1.WeeklyEventCount getWeeks(int index);
   /**
+   * <pre>
+   * Contiguous Monday buckets, NARROWED BY THE REQUEST'S FILTERS. The first
+   * bucket is the Monday on or before (today - window_days), so no bucket is a
+   * partial week drawn as a full one.
+   * </pre>
+   *
    * <code>repeated .shorts.v1alpha1.WeeklyEventCount weeks = 2 [json_name = "weeks"];</code>
    */
   int getWeeksCount();
   /**
+   * <pre>
+   * Contiguous Monday buckets, NARROWED BY THE REQUEST'S FILTERS. The first
+   * bucket is the Monday on or before (today - window_days), so no bucket is a
+   * partial week drawn as a full one.
+   * </pre>
+   *
    * <code>repeated .shorts.v1alpha1.WeeklyEventCount weeks = 2 [json_name = "weeks"];</code>
    */
   java.util.List<? extends com.shorts.v1alpha1.WeeklyEventCountOrBuilder> 
       getWeeksOrBuilderList();
   /**
+   * <pre>
+   * Contiguous Monday buckets, NARROWED BY THE REQUEST'S FILTERS. The first
+   * bucket is the Monday on or before (today - window_days), so no bucket is a
+   * partial week drawn as a full one.
+   * </pre>
+   *
    * <code>repeated .shorts.v1alpha1.WeeklyEventCount weeks = 2 [json_name = "weeks"];</code>
    */
   com.shorts.v1alpha1.WeeklyEventCountOrBuilder getWeeksOrBuilder(
       int index);
 
   /**
+   * <pre>
+   * The three rails below are CORPUS-WIDE and window-scoped: the request's
+   * filters do not narrow them.
+   * </pre>
+   *
    * <code>repeated .shorts.v1alpha1.ActiveMember active_members = 3 [json_name = "activeMembers"];</code>
    */
   java.util.List<com.shorts.v1alpha1.ActiveMember> 
       getActiveMembersList();
   /**
+   * <pre>
+   * The three rails below are CORPUS-WIDE and window-scoped: the request's
+   * filters do not narrow them.
+   * </pre>
+   *
    * <code>repeated .shorts.v1alpha1.ActiveMember active_members = 3 [json_name = "activeMembers"];</code>
    */
   com.shorts.v1alpha1.ActiveMember getActiveMembers(int index);
   /**
+   * <pre>
+   * The three rails below are CORPUS-WIDE and window-scoped: the request's
+   * filters do not narrow them.
+   * </pre>
+   *
    * <code>repeated .shorts.v1alpha1.ActiveMember active_members = 3 [json_name = "activeMembers"];</code>
    */
   int getActiveMembersCount();
   /**
+   * <pre>
+   * The three rails below are CORPUS-WIDE and window-scoped: the request's
+   * filters do not narrow them.
+   * </pre>
+   *
    * <code>repeated .shorts.v1alpha1.ActiveMember active_members = 3 [json_name = "activeMembers"];</code>
    */
   java.util.List<? extends com.shorts.v1alpha1.ActiveMemberOrBuilder> 
       getActiveMembersOrBuilderList();
   /**
+   * <pre>
+   * The three rails below are CORPUS-WIDE and window-scoped: the request's
+   * filters do not narrow them.
+   * </pre>
+   *
    * <code>repeated .shorts.v1alpha1.ActiveMember active_members = 3 [json_name = "activeMembers"];</code>
    */
   com.shorts.v1alpha1.ActiveMemberOrBuilder getActiveMembersOrBuilder(
@@ -154,4 +209,28 @@ public interface GetRegisterActivityResponseOrBuilder extends
    * <code>.google.protobuf.Timestamp as_at = 8 [json_name = "asAt"];</code>
    */
   com.google.protobuf.TimestampOrBuilder getAsAtOrBuilder();
+
+  /**
+   * <pre>
+   * Dated events matching the request's filters inside the window. Equal to the
+   * sum of every bucket's added_count + removed_count, so a count line beside
+   * the strip states the strip's own total and not the parliament's.
+   * </pre>
+   *
+   * <code>int32 filtered_event_count = 9 [json_name = "filteredEventCount"];</code>
+   * @return The filteredEventCount.
+   */
+  int getFilteredEventCount();
+
+  /**
+   * <pre>
+   * DISTINCT members with at least one such event — PEOPLE, never rows. A
+   * surface can state it exactly instead of counting the members it happens to
+   * have rendered, which is always a floor.
+   * </pre>
+   *
+   * <code>int32 filtered_member_count = 10 [json_name = "filteredMemberCount"];</code>
+   * @return The filteredMemberCount.
+   */
+  int getFilteredMemberCount();
 }

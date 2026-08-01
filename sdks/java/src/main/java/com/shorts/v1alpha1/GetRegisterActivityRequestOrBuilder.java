@@ -21,4 +21,111 @@ public interface GetRegisterActivityRequestOrBuilder extends
    * @return The windowDays.
    */
   int getWindowDays();
+
+  /**
+   * <pre>
+   * The SAME filter set ListRegisterChanges takes, and for one reason: the
+   * weekly strip is drawn above a FILTERED feed, so parliament-wide numbers
+   * rendered there read as the filtered member's own. All optional and all
+   * ADDITIVE — an unfiltered request is byte-identical to the old behaviour.
+   *
+   * They narrow the WEEKLY BUCKETS, filtered_event_count and
+   * filtered_member_count only. The three rails (active_members,
+   * newly_declared_companies, declarer_count_changes) are NOT narrowed by the
+   * filters: they answer corpus-wide questions inside the window, and a
+   * "most active members" rail filtered to one member would be a tautology.
+   * </pre>
+   *
+   * <code>string politician_slug = 2 [json_name = "politicianSlug"];</code>
+   * @return The politicianSlug.
+   */
+  java.lang.String getPoliticianSlug();
+  /**
+   * <pre>
+   * The SAME filter set ListRegisterChanges takes, and for one reason: the
+   * weekly strip is drawn above a FILTERED feed, so parliament-wide numbers
+   * rendered there read as the filtered member's own. All optional and all
+   * ADDITIVE — an unfiltered request is byte-identical to the old behaviour.
+   *
+   * They narrow the WEEKLY BUCKETS, filtered_event_count and
+   * filtered_member_count only. The three rails (active_members,
+   * newly_declared_companies, declarer_count_changes) are NOT narrowed by the
+   * filters: they answer corpus-wide questions inside the window, and a
+   * "most active members" rail filtered to one member would be a tautology.
+   * </pre>
+   *
+   * <code>string politician_slug = 2 [json_name = "politicianSlug"];</code>
+   * @return The bytes for politicianSlug.
+   */
+  com.google.protobuf.ByteString
+      getPoliticianSlugBytes();
+
+  /**
+   * <pre>
+   * AEC abbreviation
+   * </pre>
+   *
+   * <code>string party_ab = 3 [json_name = "partyAb"];</code>
+   * @return The partyAb.
+   */
+  java.lang.String getPartyAb();
+  /**
+   * <pre>
+   * AEC abbreviation
+   * </pre>
+   *
+   * <code>string party_ab = 3 [json_name = "partyAb"];</code>
+   * @return The bytes for partyAb.
+   */
+  com.google.protobuf.ByteString
+      getPartyAbBytes();
+
+  /**
+   * <pre>
+   * 'house' | 'senate'
+   * </pre>
+   *
+   * <code>string chamber = 4 [json_name = "chamber"];</code>
+   * @return The chamber.
+   */
+  java.lang.String getChamber();
+  /**
+   * <pre>
+   * 'house' | 'senate'
+   * </pre>
+   *
+   * <code>string chamber = 4 [json_name = "chamber"];</code>
+   * @return The bytes for chamber.
+   */
+  com.google.protobuf.ByteString
+      getChamberBytes();
+
+  /**
+   * <pre>
+   * register form item 1-14; 0 = all
+   * </pre>
+   *
+   * <code>int32 item_no = 5 [json_name = "itemNo"];</code>
+   * @return The itemNo.
+   */
+  int getItemNo();
+
+  /**
+   * <pre>
+   * UNSPECIFIED = both
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.RegisterChangeKind kind = 6 [json_name = "kind"];</code>
+   * @return The enum numeric value on the wire for kind.
+   */
+  int getKindValue();
+  /**
+   * <pre>
+   * UNSPECIFIED = both
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.RegisterChangeKind kind = 6 [json_name = "kind"];</code>
+   * @return The kind.
+   */
+  com.shorts.v1alpha1.RegisterChangeKind getKind();
 }

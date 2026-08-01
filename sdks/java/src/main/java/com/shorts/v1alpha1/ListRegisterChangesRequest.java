@@ -57,6 +57,13 @@ private static final long serialVersionUID = 0L;
   public static final int SINCE_FIELD_NUMBER = 1;
   private com.google.protobuf.Timestamp since_;
   /**
+   * <pre>
+   * Interpreted at UTC DAY granularity: the handler truncates it to UTC
+   * midnight before it reaches either the cache key or the query, so two
+   * timestamps on the same day are one request and cannot be served each
+   * other's results.
+   * </pre>
+   *
    * <code>.google.protobuf.Timestamp since = 1 [json_name = "since"];</code>
    * @return Whether the since field is set.
    */
@@ -65,6 +72,13 @@ private static final long serialVersionUID = 0L;
     return ((bitField0_ & 0x00000001) != 0);
   }
   /**
+   * <pre>
+   * Interpreted at UTC DAY granularity: the handler truncates it to UTC
+   * midnight before it reaches either the cache key or the query, so two
+   * timestamps on the same day are one request and cannot be served each
+   * other's results.
+   * </pre>
+   *
    * <code>.google.protobuf.Timestamp since = 1 [json_name = "since"];</code>
    * @return The since.
    */
@@ -73,6 +87,13 @@ private static final long serialVersionUID = 0L;
     return since_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : since_;
   }
   /**
+   * <pre>
+   * Interpreted at UTC DAY granularity: the handler truncates it to UTC
+   * midnight before it reaches either the cache key or the query, so two
+   * timestamps on the same day are one request and cannot be served each
+   * other's results.
+   * </pre>
+   *
    * <code>.google.protobuf.Timestamp since = 1 [json_name = "since"];</code>
    */
   @java.lang.Override
@@ -847,6 +868,13 @@ private static final long serialVersionUID = 0L;
     private com.google.protobuf.SingleFieldBuilder<
         com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> sinceBuilder_;
     /**
+     * <pre>
+     * Interpreted at UTC DAY granularity: the handler truncates it to UTC
+     * midnight before it reaches either the cache key or the query, so two
+     * timestamps on the same day are one request and cannot be served each
+     * other's results.
+     * </pre>
+     *
      * <code>.google.protobuf.Timestamp since = 1 [json_name = "since"];</code>
      * @return Whether the since field is set.
      */
@@ -854,6 +882,13 @@ private static final long serialVersionUID = 0L;
       return ((bitField0_ & 0x00000001) != 0);
     }
     /**
+     * <pre>
+     * Interpreted at UTC DAY granularity: the handler truncates it to UTC
+     * midnight before it reaches either the cache key or the query, so two
+     * timestamps on the same day are one request and cannot be served each
+     * other's results.
+     * </pre>
+     *
      * <code>.google.protobuf.Timestamp since = 1 [json_name = "since"];</code>
      * @return The since.
      */
@@ -865,6 +900,13 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
+     * <pre>
+     * Interpreted at UTC DAY granularity: the handler truncates it to UTC
+     * midnight before it reaches either the cache key or the query, so two
+     * timestamps on the same day are one request and cannot be served each
+     * other's results.
+     * </pre>
+     *
      * <code>.google.protobuf.Timestamp since = 1 [json_name = "since"];</code>
      */
     public Builder setSince(com.google.protobuf.Timestamp value) {
@@ -881,6 +923,13 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * Interpreted at UTC DAY granularity: the handler truncates it to UTC
+     * midnight before it reaches either the cache key or the query, so two
+     * timestamps on the same day are one request and cannot be served each
+     * other's results.
+     * </pre>
+     *
      * <code>.google.protobuf.Timestamp since = 1 [json_name = "since"];</code>
      */
     public Builder setSince(
@@ -895,6 +944,13 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * Interpreted at UTC DAY granularity: the handler truncates it to UTC
+     * midnight before it reaches either the cache key or the query, so two
+     * timestamps on the same day are one request and cannot be served each
+     * other's results.
+     * </pre>
+     *
      * <code>.google.protobuf.Timestamp since = 1 [json_name = "since"];</code>
      */
     public Builder mergeSince(com.google.protobuf.Timestamp value) {
@@ -916,6 +972,13 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * Interpreted at UTC DAY granularity: the handler truncates it to UTC
+     * midnight before it reaches either the cache key or the query, so two
+     * timestamps on the same day are one request and cannot be served each
+     * other's results.
+     * </pre>
+     *
      * <code>.google.protobuf.Timestamp since = 1 [json_name = "since"];</code>
      */
     public Builder clearSince() {
@@ -929,6 +992,13 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * Interpreted at UTC DAY granularity: the handler truncates it to UTC
+     * midnight before it reaches either the cache key or the query, so two
+     * timestamps on the same day are one request and cannot be served each
+     * other's results.
+     * </pre>
+     *
      * <code>.google.protobuf.Timestamp since = 1 [json_name = "since"];</code>
      */
     public com.google.protobuf.Timestamp.Builder getSinceBuilder() {
@@ -937,6 +1007,13 @@ private static final long serialVersionUID = 0L;
       return internalGetSinceFieldBuilder().getBuilder();
     }
     /**
+     * <pre>
+     * Interpreted at UTC DAY granularity: the handler truncates it to UTC
+     * midnight before it reaches either the cache key or the query, so two
+     * timestamps on the same day are one request and cannot be served each
+     * other's results.
+     * </pre>
+     *
      * <code>.google.protobuf.Timestamp since = 1 [json_name = "since"];</code>
      */
     public com.google.protobuf.TimestampOrBuilder getSinceOrBuilder() {
@@ -948,6 +1025,13 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
+     * <pre>
+     * Interpreted at UTC DAY granularity: the handler truncates it to UTC
+     * midnight before it reaches either the cache key or the query, so two
+     * timestamps on the same day are one request and cannot be served each
+     * other's results.
+     * </pre>
+     *
      * <code>.google.protobuf.Timestamp since = 1 [json_name = "since"];</code>
      */
     private com.google.protobuf.SingleFieldBuilder<

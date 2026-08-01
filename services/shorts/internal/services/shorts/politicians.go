@@ -508,7 +508,13 @@ func (s *ShortsServer) ListRegisterChanges(
 	m := req.Msg
 	var since time.Time
 	if m.Since != nil {
-		since = m.Since.AsTime()
+		// UTC DAY granularity, applied BEFORE both the cache key and the store
+		// call. The key has only ever carried the day, so an un-truncated
+		// timestamp reaching the store meant two different queries (09:00 and
+		// 17:00 on one day) shared a key and were served each other's rows —
+		// and this is a public rpc taking arbitrary external timestamps.
+		utc := m.Since.AsTime().UTC()
+		since = time.Date(utc.Year(), utc.Month(), utc.Day(), 0, 0, 0, 0, time.UTC)
 	}
 	kind := registerChangeKindString(m.Kind)
 	code := strings.ToUpper(strings.TrimSpace(m.StockCode))

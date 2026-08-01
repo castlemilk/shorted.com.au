@@ -22,25 +22,92 @@ package shorts
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 )
 
 // registerEventsCTE is THE definition of a register event, shared by every
 // discovery measure. It is a verbatim copy of ListRegisterChanges' CTE plus the
-// columns the aggregates group by: the changes feed, the weekly strip and the
-// most-active rail must be one measure at three groupings, not three measures
-// that happen to share a label.
+// columns the aggregates group and FILTER by: the changes feed, the weekly
+// strip and the most-active rail must be one measure at three groupings, not
+// three measures that happen to share a label. The filter columns are carried
+// here for the same reason — a strip drawn above a filtered feed has to be
+// narrowed by exactly the predicates that narrowed the feed.
 const registerEventsCTE = `
 	WITH events AS (
-	    SELECT politician_id, slug, 'added' AS kind, declared_from AS changed_on
+	    SELECT politician_id, slug, item_no,
+	           COALESCE(party_ab, '') AS party_ab, COALESCE(chamber, '') AS chamber,
+	           'added' AS kind, declared_from AS changed_on
 	    FROM mv_register_public_holdings
 	    WHERE declared_from IS NOT NULL AND declared_from_known
 	    UNION ALL
-	    SELECT politician_id, slug, 'removed', declared_to
+	    SELECT politician_id, slug, item_no,
+	           COALESCE(party_ab, ''), COALESCE(chamber, ''),
+	           'removed', declared_to
 	    FROM mv_register_public_holdings
 	    WHERE declared_to IS NOT NULL
 	)`
+
+// RegisterActivityFilter narrows the activity strip to the SAME population
+// ListRegisterChanges' filters select. Every field is optional and the zero
+// value is the unfiltered, parliament-wide strip.
+//
+// It narrows the weekly buckets and the two filtered counts ONLY. The three
+// rails are corpus-wide by design — a "most active members" rail filtered to
+// one member would be a tautology, and "newly declared" is a claim about the
+// whole corpus that a filter cannot restate.
+type RegisterActivityFilter struct {
+	Slug    string
+	PartyAb string
+	Chamber string
+	ItemNo  int32
+	Kind    string // "added" | "removed"; anything else means both
+}
+
+// normalise applies the identical rules the handler applies before the cache
+// key is built, because a store method is its own entry point.
+func (f RegisterActivityFilter) normalise() RegisterActivityFilter {
+	out := RegisterActivityFilter{
+		Slug:    strings.ToLower(strings.TrimSpace(f.Slug)),
+		PartyAb: strings.ToUpper(strings.TrimSpace(f.PartyAb)),
+		Chamber: strings.ToLower(strings.TrimSpace(f.Chamber)),
+		ItemNo:  f.ItemNo,
+	}
+	if out.ItemNo < 1 || out.ItemNo > 14 {
+		out.ItemNo = 0 // 0 = all; the register form has 14 items and no others
+	}
+	if kind := strings.ToLower(strings.TrimSpace(f.Kind)); kind == "added" || kind == "removed" {
+		out.Kind = kind
+	}
+	return out
+}
+
+// conditions renders the filter as SQL predicates over the events CTE,
+// appending to an existing argument list so the caller keeps its own $1.
+func (f RegisterActivityFilter) conditions(args []any) ([]string, []any) {
+	var conds []string
+	add := func(cond string, val any) {
+		args = append(args, val)
+		conds = append(conds, fmt.Sprintf(cond, len(args)))
+	}
+	if f.Slug != "" {
+		add("slug = $%d", f.Slug)
+	}
+	if f.PartyAb != "" {
+		add("upper(party_ab) = $%d", f.PartyAb)
+	}
+	if f.Chamber != "" {
+		add("lower(chamber) = $%d", f.Chamber)
+	}
+	if f.ItemNo != 0 {
+		add("item_no = $%d", f.ItemNo)
+	}
+	if f.Kind != "" {
+		add("kind = $%d", f.Kind)
+	}
+	return conds, args
+}
 
 type WeeklyEventCountRow struct {
 	WeekStart    string // YYYY-MM-DD, Monday
@@ -81,6 +148,10 @@ type RegisterActivityRow struct {
 	DeclarerCountChanges   []*DeclarerCountChangeRow
 	UndatedCurrentCount    int32
 	AsAt                   time.Time
+	// Events under the FILTER, inside the window: the sum of Weeks' counts.
+	FilteredEventCount int32
+	// Distinct members with such an event. People, never rows.
+	FilteredMemberCount int32
 }
 
 type DistinctiveHoldingRow struct {
@@ -88,7 +159,6 @@ type DistinctiveHoldingRow struct {
 	CompanyName         string
 	Industry            string
 	Holder              string
-	CurrentlyDeclared   bool
 	CorpusDeclarerCount int32
 	ShortPercent        float64
 }
@@ -115,39 +185,99 @@ const declarerCountChangeCap = 20
 // windowDays is expected pre-clamped by the handler (30/90/180/365) so the
 // cache key and the query can never describe different windows; it is bounded
 // again here because a store method is a public entry point of this package.
-func (s *postgresStore) GetRegisterActivity(windowDays int32) (*RegisterActivityRow, error) {
+//
+// The filter narrows the weekly strip and the two filtered counts. It does NOT
+// narrow the three rails: those answer corpus-wide questions inside the window
+// and are documented as such on the proto.
+func (s *postgresStore) GetRegisterActivity(windowDays int32, filter RegisterActivityFilter) (*RegisterActivityRow, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
 	windowDays = clampRegisterWindowDays(windowDays)
+	filter = filter.normalise()
 	out := &RegisterActivityRow{WindowDays: windowDays}
+
+	// The strip's start is the Monday ON OR BEFORE (today - window_days), read
+	// from the DATABASE's clock so the buckets and the filters can never be a
+	// day apart. Aligning it is what stops the oldest bucket being a part-week
+	// drawn the same width as a full one.
+	var windowStart, currentWeek time.Time
+	if err := s.db.QueryRow(ctx, `
+		SELECT date_trunc('week', CURRENT_DATE - $1::INTEGER)::date,
+		       date_trunc('week', CURRENT_DATE)::date`, windowDays).
+		Scan(&windowStart, &currentWeek); err != nil {
+		return nil, err
+	}
 
 	// Monday-anchored weeks. date_trunc('week', …) is ISO in Postgres, so the
 	// bucket label is the week's Monday and a consumer can render it directly.
+	weekArgs := []any{windowStart}
+	weekConds, weekArgs := filter.conditions(weekArgs)
+	weekWhere := "WHERE changed_on >= $1::date"
+	if len(weekConds) > 0 {
+		weekWhere += " AND " + strings.Join(weekConds, " AND ")
+	}
 	weekRows, err := s.db.Query(ctx, registerEventsCTE+`
-		SELECT to_char(date_trunc('week', changed_on), 'YYYY-MM-DD'),
+		SELECT date_trunc('week', changed_on)::date,
 		       count(*) FILTER (WHERE kind = 'added')::INTEGER,
 		       count(*) FILTER (WHERE kind = 'removed')::INTEGER
 		FROM events
-		WHERE changed_on >= CURRENT_DATE - $1::INTEGER
+		`+weekWhere+`
 		GROUP BY date_trunc('week', changed_on)
-		ORDER BY date_trunc('week', changed_on)`, windowDays)
+		ORDER BY date_trunc('week', changed_on)`, weekArgs...)
 	if err != nil {
 		return nil, err
 	}
+	present := map[string]*WeeklyEventCountRow{}
+	last := currentWeek
 	for weekRows.Next() {
+		var week time.Time
 		var r WeeklyEventCountRow
-		if err := weekRows.Scan(&r.WeekStart, &r.AddedCount, &r.RemovedCount); err != nil {
+		if err := weekRows.Scan(&week, &r.AddedCount, &r.RemovedCount); err != nil {
 			weekRows.Close()
 			return nil, err
 		}
-		out.Weeks = append(out.Weeks, &r)
+		r.WeekStart = week.Format("2006-01-02")
+		present[r.WeekStart] = &r
+		if week.After(last) {
+			last = week // a future-dated lodgement still gets its bucket
+		}
 	}
 	if err := weekRows.Err(); err != nil {
 		weekRows.Close()
 		return nil, err
 	}
 	weekRows.Close()
+
+	// GAP-FILLED server-side: every Monday in the window is emitted, quiet weeks
+	// at zero. week-bars.tsx draws buckets adjacently, so a missing interior week
+	// silently compresses the timeline and puts a bar under the wrong date.
+	for week := windowStart; !week.After(last); week = week.AddDate(0, 0, 7) {
+		label := week.Format("2006-01-02")
+		if row, ok := present[label]; ok {
+			out.Weeks = append(out.Weeks, row)
+			continue
+		}
+		out.Weeks = append(out.Weeks, &WeeklyEventCountRow{WeekStart: label})
+	}
+
+	// The strip's OWN totals, on the same start and the same filters, so a count
+	// line rendered beside it describes the bars above it rather than the whole
+	// parliament. The member count is distinct PEOPLE — a surface that counted
+	// the members it happened to render would always report a floor.
+	countArgs := []any{windowStart}
+	countConds, countArgs := filter.conditions(countArgs)
+	countWhere := "WHERE changed_on >= $1::date"
+	if len(countConds) > 0 {
+		countWhere += " AND " + strings.Join(countConds, " AND ")
+	}
+	if err := s.db.QueryRow(ctx, registerEventsCTE+`
+		SELECT count(*)::INTEGER, count(DISTINCT politician_id)::INTEGER
+		FROM events
+		`+countWhere, countArgs...).
+		Scan(&out.FilteredEventCount, &out.FilteredMemberCount); err != nil {
+		return nil, err
+	}
 
 	// Most-active members: a COUNT ordering and nothing else. A high count
 	// reflects lodgement and extraction activity; the ordering carries no
@@ -190,19 +320,41 @@ func (s *postgresStore) GetRegisterActivity(windowDays int32) (*RegisterActivity
 	// date across every member. A company one member has declared since 2019 is
 	// not new because a second member declared it last week, and an undated row
 	// cannot make anything new because it carries no date at all.
+	//
+	// WITHHELD RATHER THAN GUESSED: a company with ANY currently-declared row
+	// whose start date is unknown is excluded outright. ~80% of current rows are
+	// undated, so a dated-only minimum proves nothing about them — AGL read
+	// "first declared 2026-04-02" while two members held long-standing undated
+	// AGL declarations. First-ness that cannot be proven is not published.
+	//
+	// declarer_count uses the SAME dated predicate as declarers_now below, so
+	// the two rails of one response cannot disagree about a company's declarers.
+	// (After the exclusion these companies have no undated current rows, so the
+	// dated count is also the whole count — the measures agree by construction
+	// rather than by coincidence.)
 	newRows, err := s.db.Query(ctx, `
 		WITH firsts AS (
 		    SELECT stock_code,
 		           min(declared_from) AS first_declared_on,
 		           COALESCE(max(company_name), '') AS company_name,
 		           COALESCE(max(industry), '') AS industry
-		    FROM mv_register_public_holdings
+		    FROM mv_register_public_holdings h
 		    WHERE stock_code IS NOT NULL AND declared_from_known AND declared_from IS NOT NULL
+		      AND NOT EXISTS (
+		          SELECT 1 FROM mv_register_public_holdings u
+		          WHERE u.stock_code = h.stock_code
+		            AND u.currently_declared AND NOT u.declared_from_known
+		      )
 		    GROUP BY stock_code
 		), declarers AS (
-		    SELECT stock_code, count(DISTINCT politician_id)::INTEGER AS declarer_count
+		    SELECT stock_code,
+		           count(DISTINCT politician_id) FILTER (
+		               WHERE declared_from_known
+		                 AND declared_from <= CURRENT_DATE
+		                 AND (declared_to IS NULL OR declared_to > CURRENT_DATE)
+		           )::INTEGER AS declarer_count
 		    FROM mv_register_public_holdings
-		    WHERE stock_code IS NOT NULL AND currently_declared
+		    WHERE stock_code IS NOT NULL
 		    GROUP BY stock_code
 		)
 		SELECT f.stock_code, f.company_name, f.industry,
@@ -357,7 +509,6 @@ func (s *postgresStore) ListDistinctiveHoldings(slug string) (*DistinctiveHoldin
 		       COALESCE(max(h.company_name), ''),
 		       COALESCE(max(h.industry), ''),
 		       h.holder,
-		       bool_or(h.currently_declared),
 		       max(c.declarer_count),
 		       COALESCE(max(ts.current_percent), 0)
 		FROM mv_register_public_holdings h
@@ -372,8 +523,10 @@ func (s *postgresStore) ListDistinctiveHoldings(slug string) (*DistinctiveHoldin
 	defer rows.Close()
 	for rows.Next() {
 		var r DistinctiveHoldingRow
+		// Every row here is currently declared by construction (the WHERE below
+		// says so), which is why the read model publishes no such field.
 		if err := rows.Scan(&r.StockCode, &r.CompanyName, &r.Industry, &r.Holder,
-			&r.CurrentlyDeclared, &r.CorpusDeclarerCount, &r.ShortPercent); err != nil {
+			&r.CorpusDeclarerCount, &r.ShortPercent); err != nil {
 			return nil, err
 		}
 		out.Holdings = append(out.Holdings, &r)

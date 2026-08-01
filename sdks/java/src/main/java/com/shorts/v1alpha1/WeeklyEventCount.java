@@ -10,6 +10,10 @@ package com.shorts.v1alpha1;
  * WeeklyEventCount is one Monday-anchored week of DATED events. Undated
  * lodgements have no point on a timeline and are excluded — never placed at a
  * parliament's opening, which would fabricate a date.
+ *
+ * The series is CONTIGUOUS: every Monday from the window's start to the current
+ * week is present, weeks with no events included at zero, so a bar chart's gaps
+ * are real quiet weeks rather than missing buckets drawn adjacent.
  * </pre>
  *
  * Protobuf type {@code shorts.v1alpha1.WeeklyEventCount}
@@ -311,6 +315,10 @@ private static final long serialVersionUID = 0L;
    * WeeklyEventCount is one Monday-anchored week of DATED events. Undated
    * lodgements have no point on a timeline and are excluded — never placed at a
    * parliament's opening, which would fabricate a date.
+   *
+   * The series is CONTIGUOUS: every Monday from the window's start to the current
+   * week is present, weeks with no events included at zero, so a bar chart's gaps
+   * are real quiet weeks rather than missing buckets drawn adjacent.
    * </pre>
    *
    * Protobuf type {@code shorts.v1alpha1.WeeklyEventCount}

@@ -9,6 +9,7 @@ package shorts
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 )
@@ -86,9 +87,6 @@ func TestDistinctiveHoldingsPutSoleDeclarerCompaniesFirst(t *testing.T) {
 			t.Errorf("%s: declarer count %d excludes the declaring member themself",
 				holding.StockCode, holding.CorpusDeclarerCount)
 		}
-		if !holding.CurrentlyDeclared {
-			t.Errorf("%s: rail carries a row that is not currently declared", holding.StockCode)
-		}
 		if holding.StockCode == "" {
 			t.Error("rail carries a row with no stock code; the licence gate must be re-asserted")
 		}
@@ -124,7 +122,7 @@ func TestActivityWeeksSumToTheWindowsEventTotal(t *testing.T) {
 	store := &postgresStore{db: pool}
 
 	for _, windowDays := range []int32{30, 90, 180, 365} {
-		activity, err := store.GetRegisterActivity(windowDays)
+		activity, err := store.GetRegisterActivity(windowDays, RegisterActivityFilter{})
 		if err != nil {
 			t.Fatalf("GetRegisterActivity(%d): %v", windowDays, err)
 		}
@@ -132,8 +130,10 @@ func TestActivityWeeksSumToTheWindowsEventTotal(t *testing.T) {
 			t.Errorf("windowDays = %d, want %d", activity.WindowDays, windowDays)
 		}
 
-		// The reference total is ListRegisterChanges' own event definition,
-		// windowed — the two must be the same measure at two groupings.
+		// The reference total is ListRegisterChanges' own event definition, over
+		// the EFFECTIVE window: the Monday on or before (today - window_days), so
+		// no bucket is a part-week drawn as a full one. The two must be the same
+		// measure at two groupings.
 		var wantEvents, wantAdded, wantRemoved, wantMembers int32
 		if err := pool.QueryRow(ctx, registerEventsCTE+`
 			SELECT count(*)::INTEGER,
@@ -141,9 +141,19 @@ func TestActivityWeeksSumToTheWindowsEventTotal(t *testing.T) {
 			       count(*) FILTER (WHERE kind = 'removed')::INTEGER,
 			       count(DISTINCT politician_id)::INTEGER
 			FROM events
-			WHERE changed_on >= CURRENT_DATE - $1::INTEGER`, windowDays).
+			WHERE changed_on >= date_trunc('week', CURRENT_DATE - $1::INTEGER)::date`, windowDays).
 			Scan(&wantEvents, &wantAdded, &wantRemoved, &wantMembers); err != nil {
 			t.Fatalf("reference event totals (%d): %v", windowDays, err)
+		}
+
+		// The published counts must describe the strip, not the parliament.
+		if activity.FilteredEventCount != wantEvents {
+			t.Errorf("window %d: filteredEventCount = %d, want %d",
+				windowDays, activity.FilteredEventCount, wantEvents)
+		}
+		if activity.FilteredMemberCount != wantMembers {
+			t.Errorf("window %d: filteredMemberCount = %d, want the distinct %d members",
+				windowDays, activity.FilteredMemberCount, wantMembers)
 		}
 
 		var added, removed int32
@@ -199,6 +209,135 @@ func TestActivityWeeksSumToTheWindowsEventTotal(t *testing.T) {
 	}
 }
 
+// week-bars.tsx draws buckets adjacently and states a contiguity invariant, so
+// a missing interior week compresses the timeline and puts a bar under the
+// wrong date. Every Monday in the window must be present, quiet weeks at zero,
+// and the first must be the Monday ON OR BEFORE (today - window_days) so the
+// oldest bucket is a whole week rather than a stub drawn full width.
+func TestActivityWeeksAreContiguousMondaysWithNoGaps(t *testing.T) {
+	pool, cleanup := openPoliticianExplorerIntegrationDB(t)
+	defer cleanup()
+	ctx := context.Background()
+	store := &postgresStore{db: pool}
+
+	for _, windowDays := range []int32{30, 90, 180, 365} {
+		activity, err := store.GetRegisterActivity(windowDays, RegisterActivityFilter{})
+		if err != nil {
+			t.Fatalf("GetRegisterActivity(%d): %v", windowDays, err)
+		}
+
+		// The DB's clock decides, not the test process's: the buckets are built
+		// from date_trunc over CURRENT_DATE.
+		var wantFirst, currentWeek time.Time
+		if err := pool.QueryRow(ctx, `
+			SELECT date_trunc('week', CURRENT_DATE - $1::INTEGER)::date,
+			       date_trunc('week', CURRENT_DATE)::date`, windowDays).
+			Scan(&wantFirst, &currentWeek); err != nil {
+			t.Fatalf("window bounds (%d): %v", windowDays, err)
+		}
+		// 365d spans 53 Mondays (54 when the aligned start lands so that an extra
+		// Monday falls inside), which is why the count is derived rather than
+		// pinned — the invariant is contiguity, not a magic number.
+		wantWeeks := int(currentWeek.Sub(wantFirst).Hours()/(24*7)) + 1
+
+		if len(activity.Weeks) == 0 {
+			t.Fatalf("window %d: no weekly buckets at all", windowDays)
+		}
+		if activity.Weeks[0].WeekStart != wantFirst.Format("2006-01-02") {
+			t.Errorf("window %d: first bucket = %s, want the aligned %s",
+				windowDays, activity.Weeks[0].WeekStart, wantFirst.Format("2006-01-02"))
+		}
+		if len(activity.Weeks) < wantWeeks {
+			t.Errorf("window %d: %d buckets, want at least the %d Mondays in the window",
+				windowDays, len(activity.Weeks), wantWeeks)
+		}
+		if windowDays == 365 && len(activity.Weeks) < 53 {
+			t.Errorf("365d returned %d buckets, want the full year of weeks", len(activity.Weeks))
+		}
+
+		previous := time.Time{}
+		for i, week := range activity.Weeks {
+			day, err := time.Parse("2006-01-02", week.WeekStart)
+			if err != nil {
+				t.Fatalf("window %d: bucket %d label %q is not a date", windowDays, i, week.WeekStart)
+			}
+			if day.Weekday() != time.Monday {
+				t.Errorf("window %d: bucket %s is a %s, want a Monday", windowDays, week.WeekStart, day.Weekday())
+			}
+			if i > 0 && day.Sub(previous) != 7*24*time.Hour {
+				t.Errorf("window %d: %s follows %s — the series has a gap",
+					windowDays, week.WeekStart, previous.Format("2006-01-02"))
+			}
+			previous = day
+		}
+		t.Logf("window %dd: %d contiguous weekly buckets from %s",
+			windowDays, len(activity.Weeks), activity.Weeks[0].WeekStart)
+	}
+}
+
+// The strip sits inside a FILTERED view, so its buckets and counts must be the
+// filtered population's. A parliament-wide number rendered under one member's
+// name is the misattribution this filter exists to prevent.
+func TestActivityStripIsNarrowedByTheFilter(t *testing.T) {
+	pool, cleanup := openPoliticianExplorerIntegrationDB(t)
+	defer cleanup()
+	ctx := context.Background()
+	store := &postgresStore{db: pool}
+
+	const windowDays = int32(365)
+	var slug string
+	if err := pool.QueryRow(ctx, registerEventsCTE+`
+		SELECT slug FROM events
+		WHERE changed_on >= date_trunc('week', CURRENT_DATE - $1::INTEGER)::date
+		GROUP BY slug ORDER BY count(*) DESC, slug LIMIT 1`, windowDays).Scan(&slug); err != nil {
+		t.Skipf("no dated events in the window: %v", err)
+	}
+
+	filtered, err := store.GetRegisterActivity(windowDays, RegisterActivityFilter{Slug: " " + strings.ToUpper(slug) + " "})
+	if err != nil {
+		t.Fatalf("filtered GetRegisterActivity: %v", err)
+	}
+	// The store normalises exactly as the handler does, so a shouted slug is the
+	// same request.
+	var wantEvents int32
+	if err := pool.QueryRow(ctx, registerEventsCTE+`
+		SELECT count(*)::INTEGER FROM events
+		WHERE slug = $1 AND changed_on >= date_trunc('week', CURRENT_DATE - $2::INTEGER)::date`,
+		slug, windowDays).Scan(&wantEvents); err != nil {
+		t.Fatalf("reference filtered total: %v", err)
+	}
+	if filtered.FilteredEventCount != wantEvents {
+		t.Errorf("filtered event count = %d, want %s's own %d", filtered.FilteredEventCount, slug, wantEvents)
+	}
+	if filtered.FilteredMemberCount != 1 {
+		t.Errorf("filtered member count = %d, want 1 for a single-member filter", filtered.FilteredMemberCount)
+	}
+	var summed int32
+	for _, week := range filtered.Weeks {
+		summed += week.AddedCount + week.RemovedCount
+	}
+	if summed != wantEvents {
+		t.Errorf("filtered weeks sum to %d, want %d", summed, wantEvents)
+	}
+
+	// The rails are NOT narrowed: they answer corpus-wide questions and a
+	// consumer is told so on the proto.
+	wide, err := store.GetRegisterActivity(windowDays, RegisterActivityFilter{})
+	if err != nil {
+		t.Fatalf("unfiltered GetRegisterActivity: %v", err)
+	}
+	if len(filtered.ActiveMembers) != len(wide.ActiveMembers) ||
+		len(filtered.NewlyDeclaredCompanies) != len(wide.NewlyDeclaredCompanies) ||
+		len(filtered.DeclarerCountChanges) != len(wide.DeclarerCountChanges) {
+		t.Error("a filter narrowed the corpus-wide rails; only the strip may be filtered")
+	}
+	if wide.FilteredEventCount < filtered.FilteredEventCount {
+		t.Errorf("unfiltered total %d is smaller than one member's %d",
+			wide.FilteredEventCount, filtered.FilteredEventCount)
+	}
+	t.Logf("%s: %d of %d events in %dd", slug, filtered.FilteredEventCount, wide.FilteredEventCount, windowDays)
+}
+
 // BOTH sides of a declarer-count change must be dated-only, evaluated with the
 // identical predicate at two dates. This is the failure the industry-movement
 // fix already caught once: ~80% of currently-declared rows are undated, so an
@@ -212,7 +351,7 @@ func TestDeclarerCountChangesAreDatedOnBothSides(t *testing.T) {
 	store := &postgresStore{db: pool}
 
 	const windowDays = int32(90)
-	activity, err := store.GetRegisterActivity(windowDays)
+	activity, err := store.GetRegisterActivity(windowDays, RegisterActivityFilter{})
 	if err != nil {
 		t.Fatalf("GetRegisterActivity: %v", err)
 	}
@@ -318,17 +457,25 @@ func TestNewlyDeclaredCompaniesUseTheCorpusWideMinimumDate(t *testing.T) {
 	store := &postgresStore{db: pool}
 
 	const windowDays = int32(180)
-	activity, err := store.GetRegisterActivity(windowDays)
+	activity, err := store.GetRegisterActivity(windowDays, RegisterActivityFilter{})
 	if err != nil {
 		t.Fatalf("GetRegisterActivity: %v", err)
 	}
 
+	// The reference EXCLUDES any company an undated current declaration could
+	// pre-date: ~80% of current rows are undated, so first-ness against them
+	// cannot be proven and is therefore not published at all.
 	var wantCount int
 	if err := pool.QueryRow(ctx, `
 		SELECT count(*) FROM (
 		    SELECT stock_code, min(declared_from) AS first_declared_on
-		    FROM mv_register_public_holdings
+		    FROM mv_register_public_holdings h
 		    WHERE stock_code IS NOT NULL AND declared_from_known AND declared_from IS NOT NULL
+		      AND NOT EXISTS (
+		          SELECT 1 FROM mv_register_public_holdings u
+		          WHERE u.stock_code = h.stock_code
+		            AND u.currently_declared AND NOT u.declared_from_known
+		      )
 		    GROUP BY stock_code
 		) f
 		WHERE f.first_declared_on >= CURRENT_DATE - $1::INTEGER`, windowDays).Scan(&wantCount); err != nil {
@@ -348,15 +495,35 @@ func TestNewlyDeclaredCompaniesUseTheCorpusWideMinimumDate(t *testing.T) {
 		// The date served must BE the corpus-wide minimum, not this window's.
 		var corpusFirst time.Time
 		var declarers int32
+		// declarer_count is the SAME dated predicate as declarers_now, so the two
+		// rails of one response state one measure of "how many members declare
+		// this company" instead of contradicting each other.
 		if err := pool.QueryRow(ctx, `
 			SELECT min(declared_from),
-			       (SELECT count(DISTINCT politician_id)::INTEGER
+			       (SELECT count(DISTINCT politician_id) FILTER (
+			                  WHERE declared_from_known
+			                    AND declared_from <= CURRENT_DATE
+			                    AND (declared_to IS NULL OR declared_to > CURRENT_DATE)
+			              )::INTEGER
 			          FROM mv_register_public_holdings
-			         WHERE stock_code = $1 AND currently_declared)
+			         WHERE stock_code = $1)
 			FROM mv_register_public_holdings
 			WHERE stock_code = $1 AND declared_from_known AND declared_from IS NOT NULL`,
 			company.StockCode).Scan(&corpusFirst, &declarers); err != nil {
 			t.Fatalf("reference first declaration for %s: %v", company.StockCode, err)
+		}
+
+		// And no surviving company may carry an undated current row at all.
+		var undated int32
+		if err := pool.QueryRow(ctx, `
+			SELECT count(*)::INTEGER FROM mv_register_public_holdings
+			WHERE stock_code = $1 AND currently_declared AND NOT declared_from_known`,
+			company.StockCode).Scan(&undated); err != nil {
+			t.Fatalf("undated current rows for %s: %v", company.StockCode, err)
+		}
+		if undated > 0 {
+			t.Errorf("%s is published as newly declared but has %d undated current declarations",
+				company.StockCode, undated)
 		}
 		if got := corpusFirst.Format("2006-01-02"); company.FirstDeclaredOn != got {
 			t.Errorf("%s first declared on %s, want the corpus-wide minimum %s",

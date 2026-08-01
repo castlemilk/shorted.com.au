@@ -194,17 +194,6 @@ private static final long serialVersionUID = 0L;
     return result == null ? com.shorts.v1alpha1.RegisterHolder.UNRECOGNIZED : result;
   }
 
-  public static final int CURRENTLY_DECLARED_FIELD_NUMBER = 5;
-  private boolean currentlyDeclared_ = false;
-  /**
-   * <code>bool currently_declared = 5 [json_name = "currentlyDeclared"];</code>
-   * @return The currentlyDeclared.
-   */
-  @java.lang.Override
-  public boolean getCurrentlyDeclared() {
-    return currentlyDeclared_;
-  }
-
   public static final int CORPUS_DECLARER_COUNT_FIELD_NUMBER = 6;
   private int corpusDeclarerCount_ = 0;
   /**
@@ -259,9 +248,6 @@ private static final long serialVersionUID = 0L;
     if (holder_ != com.shorts.v1alpha1.RegisterHolder.REGISTER_HOLDER_UNSPECIFIED.getNumber()) {
       output.writeEnum(4, holder_);
     }
-    if (currentlyDeclared_ != false) {
-      output.writeBool(5, currentlyDeclared_);
-    }
     if (corpusDeclarerCount_ != 0) {
       output.writeInt32(6, corpusDeclarerCount_);
     }
@@ -284,10 +270,6 @@ private static final long serialVersionUID = 0L;
     if (holder_ != com.shorts.v1alpha1.RegisterHolder.REGISTER_HOLDER_UNSPECIFIED.getNumber()) {
       size += com.google.protobuf.CodedOutputStream
         .computeEnumSize(4, holder_);
-    }
-    if (currentlyDeclared_ != false) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(5, currentlyDeclared_);
     }
     if (corpusDeclarerCount_ != 0) {
       size += com.google.protobuf.CodedOutputStream
@@ -328,8 +310,6 @@ private static final long serialVersionUID = 0L;
     if (!getIndustry()
         .equals(other.getIndustry())) return false;
     if (holder_ != other.holder_) return false;
-    if (getCurrentlyDeclared()
-        != other.getCurrentlyDeclared()) return false;
     if (getCorpusDeclarerCount()
         != other.getCorpusDeclarerCount()) return false;
     if (java.lang.Double.doubleToLongBits(getShortPercent())
@@ -354,9 +334,6 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getIndustry().hashCode();
     hash = (37 * hash) + HOLDER_FIELD_NUMBER;
     hash = (53 * hash) + holder_;
-    hash = (37 * hash) + CURRENTLY_DECLARED_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-        getCurrentlyDeclared());
     hash = (37 * hash) + CORPUS_DECLARER_COUNT_FIELD_NUMBER;
     hash = (53 * hash) + getCorpusDeclarerCount();
     hash = (37 * hash) + SHORT_PERCENT_FIELD_NUMBER;
@@ -504,7 +481,6 @@ private static final long serialVersionUID = 0L;
       companyName_ = "";
       industry_ = "";
       holder_ = 0;
-      currentlyDeclared_ = false;
       corpusDeclarerCount_ = 0;
       shortPercent_ = 0D;
       return this;
@@ -553,12 +529,9 @@ private static final long serialVersionUID = 0L;
         result.holder_ = holder_;
       }
       if (((from_bitField0_ & 0x00000010) != 0)) {
-        result.currentlyDeclared_ = currentlyDeclared_;
-      }
-      if (((from_bitField0_ & 0x00000020) != 0)) {
         result.corpusDeclarerCount_ = corpusDeclarerCount_;
       }
-      if (((from_bitField0_ & 0x00000040) != 0)) {
+      if (((from_bitField0_ & 0x00000020) != 0)) {
         result.shortPercent_ = shortPercent_;
       }
     }
@@ -592,9 +565,6 @@ private static final long serialVersionUID = 0L;
       }
       if (other.holder_ != 0) {
         setHolderValue(other.getHolderValue());
-      }
-      if (other.getCurrentlyDeclared() != false) {
-        setCurrentlyDeclared(other.getCurrentlyDeclared());
       }
       if (other.getCorpusDeclarerCount() != 0) {
         setCorpusDeclarerCount(other.getCorpusDeclarerCount());
@@ -648,19 +618,14 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000008;
               break;
             } // case 32
-            case 40: {
-              currentlyDeclared_ = input.readBool();
-              bitField0_ |= 0x00000010;
-              break;
-            } // case 40
             case 48: {
               corpusDeclarerCount_ = input.readInt32();
-              bitField0_ |= 0x00000020;
+              bitField0_ |= 0x00000010;
               break;
             } // case 48
             case 57: {
               shortPercent_ = input.readDouble();
-              bitField0_ |= 0x00000040;
+              bitField0_ |= 0x00000020;
               break;
             } // case 57
             default: {
@@ -948,38 +913,6 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private boolean currentlyDeclared_ ;
-    /**
-     * <code>bool currently_declared = 5 [json_name = "currentlyDeclared"];</code>
-     * @return The currentlyDeclared.
-     */
-    @java.lang.Override
-    public boolean getCurrentlyDeclared() {
-      return currentlyDeclared_;
-    }
-    /**
-     * <code>bool currently_declared = 5 [json_name = "currentlyDeclared"];</code>
-     * @param value The currentlyDeclared to set.
-     * @return This builder for chaining.
-     */
-    public Builder setCurrentlyDeclared(boolean value) {
-
-      currentlyDeclared_ = value;
-      bitField0_ |= 0x00000010;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>bool currently_declared = 5 [json_name = "currentlyDeclared"];</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearCurrentlyDeclared() {
-      bitField0_ = (bitField0_ & ~0x00000010);
-      currentlyDeclared_ = false;
-      onChanged();
-      return this;
-    }
-
     private int corpusDeclarerCount_ ;
     /**
      * <code>int32 corpus_declarer_count = 6 [json_name = "corpusDeclarerCount"];</code>
@@ -997,7 +930,7 @@ private static final long serialVersionUID = 0L;
     public Builder setCorpusDeclarerCount(int value) {
 
       corpusDeclarerCount_ = value;
-      bitField0_ |= 0x00000020;
+      bitField0_ |= 0x00000010;
       onChanged();
       return this;
     }
@@ -1006,7 +939,7 @@ private static final long serialVersionUID = 0L;
      * @return This builder for chaining.
      */
     public Builder clearCorpusDeclarerCount() {
-      bitField0_ = (bitField0_ & ~0x00000020);
+      bitField0_ = (bitField0_ & ~0x00000010);
       corpusDeclarerCount_ = 0;
       onChanged();
       return this;
@@ -1041,7 +974,7 @@ private static final long serialVersionUID = 0L;
     public Builder setShortPercent(double value) {
 
       shortPercent_ = value;
-      bitField0_ |= 0x00000040;
+      bitField0_ |= 0x00000020;
       onChanged();
       return this;
     }
@@ -1056,7 +989,7 @@ private static final long serialVersionUID = 0L;
      * @return This builder for chaining.
      */
     public Builder clearShortPercent() {
-      bitField0_ = (bitField0_ & ~0x00000040);
+      bitField0_ = (bitField0_ & ~0x00000020);
       shortPercent_ = 0D;
       onChanged();
       return this;

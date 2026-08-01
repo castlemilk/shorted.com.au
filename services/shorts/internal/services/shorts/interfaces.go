@@ -145,7 +145,7 @@ type ShortsStore interface {
 	ListPoliticianSummaries(chamber, stateCode, partyAb string, itemNo int32, query, sortKey string, limit, offset int32) ([]*shortsstore.PoliticianSummaryRow, int32, error)
 	GetPoliticianExplorerProfile(slug string, topIndustries int32) (*shortsstore.PoliticianExplorerProfileRow, error)
 	ComparePoliticians(slugA, slugB string) (*shortsstore.PoliticianComparisonRow, error)
-	GetRegisterActivity(windowDays int32) (*shortsstore.RegisterActivityRow, error)
+	GetRegisterActivity(windowDays int32, filter shortsstore.RegisterActivityFilter) (*shortsstore.RegisterActivityRow, error)
 	ListDistinctiveHoldings(slug string) (*shortsstore.DistinctiveHoldingsRow, error)
 
 	// Register review console — operator only, never cached (see CacheKeyBuilder:
@@ -235,7 +235,7 @@ type Cache interface {
 	ListPoliticianSummariesKey(chamber, stateCode, partyAb string, itemNo int32, query, sortKey string, limit, offset int32) string
 	GetPoliticianExplorerProfileKey(slug string, topIndustries int32) string
 	ComparePoliticiansKey(slugA, slugB string) string
-	GetRegisterActivityKey(windowDays int32) string
+	GetRegisterActivityKey(windowDays int32, slug, partyAb, chamber string, itemNo int32, kind string) string
 	ListDistinctiveHoldingsKey(slug string) string
 
 	ListEconomicSeriesKey(topic, metric, regionType, regionCode, product string, limit int32) string

@@ -97,6 +97,8 @@ func registerActivityProto(r *shortsstore.RegisterActivityRow) *shortsv1alpha1.G
 	out := &shortsv1alpha1.GetRegisterActivityResponse{
 		WindowDays:          r.WindowDays,
 		UndatedCurrentCount: r.UndatedCurrentCount,
+		FilteredEventCount:  r.FilteredEventCount,
+		FilteredMemberCount: r.FilteredMemberCount,
 		AsAt:                registerTimestamp(r.AsAt),
 		SourceLicence:       registerLicence,
 	}
@@ -121,8 +123,7 @@ func distinctiveHoldingProto(r *shortsstore.DistinctiveHoldingRow) *shortsv1alph
 	}
 	return &shortsv1alpha1.DistinctiveHolding{
 		StockCode: r.StockCode, CompanyName: r.CompanyName, Industry: r.Industry,
-		Holder:            registerHolderProto(r.Holder),
-		CurrentlyDeclared: r.CurrentlyDeclared,
+		Holder: registerHolderProto(r.Holder),
 		// The count IS the fact. Nothing derives a rarity measure from it here
 		// or anywhere downstream; a consumer renders "declared by N members".
 		CorpusDeclarerCount: r.CorpusDeclarerCount,
@@ -152,12 +153,17 @@ func distinctiveHoldingsProto(r *shortsstore.DistinctiveHoldingsRow) *shortsv1al
 	return out
 }
 
-// GetRegisterActivity serves the activity explorer's rails.
+// GetRegisterActivity serves the activity explorer's strip and rails.
 //
 // COUNTS AND DATES ONLY, and the rails are ordered by counts. Nothing here
 // scores, ranks by anything other than a count, or characterises a member — the
 // closest this comes is "most events in the window", which is the same class of
 // claim as "most-declared companies" and is why the ordering is safe to publish.
+//
+// The request's filters narrow the WEEKLY STRIP and the two filtered counts,
+// because a page filtered to one member draws the strip inside that filtered
+// view and parliament-wide bars there read as that named member's activity. The
+// three rails stay corpus-wide (proto: "rails are not narrowed by the filters").
 func (s *ShortsServer) GetRegisterActivity(
 	ctx context.Context,
 	req *connect.Request[shortsv1alpha1.GetRegisterActivityRequest],
@@ -166,9 +172,29 @@ func (s *ShortsServer) GetRegisterActivity(
 		return connect.NewResponse(&shortsv1alpha1.GetRegisterActivityResponse{}), nil
 	}
 
-	windowDays := clampRegisterActivityWindow(req.Msg.WindowDays)
-	cached, err := s.cache.GetOrSet(s.cache.GetRegisterActivityKey(windowDays), func() (interface{}, error) {
-		row, err := s.store.GetRegisterActivity(windowDays)
+	m := req.Msg
+	windowDays := clampRegisterActivityWindow(m.WindowDays)
+	// Normalised BEFORE the cache key, by the SAME rules ListRegisterChanges
+	// uses — the two surfaces must select one population, and a key built from
+	// un-normalised input would serve " ALP " a different entry than "ALP".
+	filter := shortsstore.RegisterActivityFilter{
+		Slug:    strings.ToLower(strings.TrimSpace(m.PoliticianSlug)),
+		PartyAb: strings.ToUpper(strings.TrimSpace(m.PartyAb)),
+		Chamber: strings.ToLower(strings.TrimSpace(m.Chamber)),
+		ItemNo:  m.ItemNo,
+		Kind:    registerChangeKindString(m.Kind),
+	}
+	if filter.ItemNo < 1 || filter.ItemNo > 14 {
+		filter.ItemNo = 0 // 0 = all; the register form has 14 items and no others
+	}
+	if filter.Kind != "added" && filter.Kind != "removed" {
+		filter.Kind = ""
+	}
+
+	key := s.cache.GetRegisterActivityKey(windowDays, filter.Slug, filter.PartyAb,
+		filter.Chamber, filter.ItemNo, filter.Kind)
+	cached, err := s.cache.GetOrSet(key, func() (interface{}, error) {
+		row, err := s.store.GetRegisterActivity(windowDays, filter)
 		if err != nil {
 			return nil, err
 		}

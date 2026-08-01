@@ -182,6 +182,12 @@ private static final long serialVersionUID = 0L;
   public static final int DECLARERS_NOW_FIELD_NUMBER = 4;
   private int declarersNow_ = 0;
   /**
+   * <pre>
+   * Members whose declaration is dated and open today — the SAME predicate
+   * NewlyDeclaredCompany.declarer_count uses, so one response speaks with one
+   * measure of "how many members declare this company".
+   * </pre>
+   *
    * <code>int32 declarers_now = 4 [json_name = "declarersNow"];</code>
    * @return The declarersNow.
    */
@@ -822,6 +828,12 @@ private static final long serialVersionUID = 0L;
 
     private int declarersNow_ ;
     /**
+     * <pre>
+     * Members whose declaration is dated and open today — the SAME predicate
+     * NewlyDeclaredCompany.declarer_count uses, so one response speaks with one
+     * measure of "how many members declare this company".
+     * </pre>
+     *
      * <code>int32 declarers_now = 4 [json_name = "declarersNow"];</code>
      * @return The declarersNow.
      */
@@ -830,6 +842,12 @@ private static final long serialVersionUID = 0L;
       return declarersNow_;
     }
     /**
+     * <pre>
+     * Members whose declaration is dated and open today — the SAME predicate
+     * NewlyDeclaredCompany.declarer_count uses, so one response speaks with one
+     * measure of "how many members declare this company".
+     * </pre>
+     *
      * <code>int32 declarers_now = 4 [json_name = "declarersNow"];</code>
      * @param value The declarersNow to set.
      * @return This builder for chaining.
@@ -842,6 +860,12 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * Members whose declaration is dated and open today — the SAME predicate
+     * NewlyDeclaredCompany.declarer_count uses, so one response speaks with one
+     * measure of "how many members declare this company".
+     * </pre>
+     *
      * <code>int32 declarers_now = 4 [json_name = "declarersNow"];</code>
      * @return This builder for chaining.
      */

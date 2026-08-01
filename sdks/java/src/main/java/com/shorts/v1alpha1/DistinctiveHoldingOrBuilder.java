@@ -58,12 +58,6 @@ public interface DistinctiveHoldingOrBuilder extends
   com.shorts.v1alpha1.RegisterHolder getHolder();
 
   /**
-   * <code>bool currently_declared = 5 [json_name = "currentlyDeclared"];</code>
-   * @return The currentlyDeclared.
-   */
-  boolean getCurrentlyDeclared();
-
-  /**
    * <code>int32 corpus_declarer_count = 6 [json_name = "corpusDeclarerCount"];</code>
    * @return The corpusDeclarerCount.
    */

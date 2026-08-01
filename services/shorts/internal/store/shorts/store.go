@@ -238,7 +238,7 @@ type Store interface {
 	ListPoliticianSummaries(chamber, stateCode, partyAb string, itemNo int32, query, sortKey string, limit, offset int32) ([]*PoliticianSummaryRow, int32, error)
 	GetPoliticianExplorerProfile(slug string, topIndustries int32) (*PoliticianExplorerProfileRow, error)
 	ComparePoliticians(slugA, slugB string) (*PoliticianComparisonRow, error)
-	GetRegisterActivity(windowDays int32) (*RegisterActivityRow, error)
+	GetRegisterActivity(windowDays int32, filter RegisterActivityFilter) (*RegisterActivityRow, error)
 	ListDistinctiveHoldings(slug string) (*DistinctiveHoldingsRow, error)
 
 	// Register review console — OPERATOR ONLY, never a public read path.

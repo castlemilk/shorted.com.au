@@ -69,6 +69,11 @@ public interface NewlyDeclaredCompanyOrBuilder extends
   /**
    * <pre>
    * Members currently declaring the company, corpus-wide. People, never rows.
+   *
+   * The SAME dated predicate as DeclarerCountChange.declarers_now, so the two
+   * rails of one response cannot disagree about how many members declare a
+   * company. (After the exclusion above these companies have no undated current
+   * rows at all, so the dated count is the whole count.)
    * </pre>
    *
    * <code>int32 declarer_count = 5 [json_name = "declarerCount"];</code>

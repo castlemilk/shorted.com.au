@@ -377,8 +377,8 @@ func (s *StoreAdapter) ComparePoliticians(slugA, slugB string) (*shorts.Politici
 	return s.store.ComparePoliticians(slugA, slugB)
 }
 
-func (s *StoreAdapter) GetRegisterActivity(windowDays int32) (*shorts.RegisterActivityRow, error) {
-	return s.store.GetRegisterActivity(windowDays)
+func (s *StoreAdapter) GetRegisterActivity(windowDays int32, filter shorts.RegisterActivityFilter) (*shorts.RegisterActivityRow, error) {
+	return s.store.GetRegisterActivity(windowDays, filter)
 }
 
 func (s *StoreAdapter) ListDistinctiveHoldings(slug string) (*shorts.DistinctiveHoldingsRow, error) {

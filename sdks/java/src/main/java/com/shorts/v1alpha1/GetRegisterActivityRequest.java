@@ -28,6 +28,10 @@ private static final long serialVersionUID = 0L;
     super(builder);
   }
   private GetRegisterActivityRequest() {
+    politicianSlug_ = "";
+    partyAb_ = "";
+    chamber_ = "";
+    kind_ = 0;
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -65,6 +69,206 @@ private static final long serialVersionUID = 0L;
     return windowDays_;
   }
 
+  public static final int POLITICIAN_SLUG_FIELD_NUMBER = 2;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object politicianSlug_ = "";
+  /**
+   * <pre>
+   * The SAME filter set ListRegisterChanges takes, and for one reason: the
+   * weekly strip is drawn above a FILTERED feed, so parliament-wide numbers
+   * rendered there read as the filtered member's own. All optional and all
+   * ADDITIVE — an unfiltered request is byte-identical to the old behaviour.
+   *
+   * They narrow the WEEKLY BUCKETS, filtered_event_count and
+   * filtered_member_count only. The three rails (active_members,
+   * newly_declared_companies, declarer_count_changes) are NOT narrowed by the
+   * filters: they answer corpus-wide questions inside the window, and a
+   * "most active members" rail filtered to one member would be a tautology.
+   * </pre>
+   *
+   * <code>string politician_slug = 2 [json_name = "politicianSlug"];</code>
+   * @return The politicianSlug.
+   */
+  @java.lang.Override
+  public java.lang.String getPoliticianSlug() {
+    java.lang.Object ref = politicianSlug_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      politicianSlug_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The SAME filter set ListRegisterChanges takes, and for one reason: the
+   * weekly strip is drawn above a FILTERED feed, so parliament-wide numbers
+   * rendered there read as the filtered member's own. All optional and all
+   * ADDITIVE — an unfiltered request is byte-identical to the old behaviour.
+   *
+   * They narrow the WEEKLY BUCKETS, filtered_event_count and
+   * filtered_member_count only. The three rails (active_members,
+   * newly_declared_companies, declarer_count_changes) are NOT narrowed by the
+   * filters: they answer corpus-wide questions inside the window, and a
+   * "most active members" rail filtered to one member would be a tautology.
+   * </pre>
+   *
+   * <code>string politician_slug = 2 [json_name = "politicianSlug"];</code>
+   * @return The bytes for politicianSlug.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getPoliticianSlugBytes() {
+    java.lang.Object ref = politicianSlug_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      politicianSlug_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int PARTY_AB_FIELD_NUMBER = 3;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object partyAb_ = "";
+  /**
+   * <pre>
+   * AEC abbreviation
+   * </pre>
+   *
+   * <code>string party_ab = 3 [json_name = "partyAb"];</code>
+   * @return The partyAb.
+   */
+  @java.lang.Override
+  public java.lang.String getPartyAb() {
+    java.lang.Object ref = partyAb_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      partyAb_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * AEC abbreviation
+   * </pre>
+   *
+   * <code>string party_ab = 3 [json_name = "partyAb"];</code>
+   * @return The bytes for partyAb.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getPartyAbBytes() {
+    java.lang.Object ref = partyAb_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      partyAb_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int CHAMBER_FIELD_NUMBER = 4;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object chamber_ = "";
+  /**
+   * <pre>
+   * 'house' | 'senate'
+   * </pre>
+   *
+   * <code>string chamber = 4 [json_name = "chamber"];</code>
+   * @return The chamber.
+   */
+  @java.lang.Override
+  public java.lang.String getChamber() {
+    java.lang.Object ref = chamber_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      chamber_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * 'house' | 'senate'
+   * </pre>
+   *
+   * <code>string chamber = 4 [json_name = "chamber"];</code>
+   * @return The bytes for chamber.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getChamberBytes() {
+    java.lang.Object ref = chamber_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      chamber_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int ITEM_NO_FIELD_NUMBER = 5;
+  private int itemNo_ = 0;
+  /**
+   * <pre>
+   * register form item 1-14; 0 = all
+   * </pre>
+   *
+   * <code>int32 item_no = 5 [json_name = "itemNo"];</code>
+   * @return The itemNo.
+   */
+  @java.lang.Override
+  public int getItemNo() {
+    return itemNo_;
+  }
+
+  public static final int KIND_FIELD_NUMBER = 6;
+  private int kind_ = 0;
+  /**
+   * <pre>
+   * UNSPECIFIED = both
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.RegisterChangeKind kind = 6 [json_name = "kind"];</code>
+   * @return The enum numeric value on the wire for kind.
+   */
+  @java.lang.Override public int getKindValue() {
+    return kind_;
+  }
+  /**
+   * <pre>
+   * UNSPECIFIED = both
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.RegisterChangeKind kind = 6 [json_name = "kind"];</code>
+   * @return The kind.
+   */
+  @java.lang.Override public com.shorts.v1alpha1.RegisterChangeKind getKind() {
+    com.shorts.v1alpha1.RegisterChangeKind result = com.shorts.v1alpha1.RegisterChangeKind.forNumber(kind_);
+    return result == null ? com.shorts.v1alpha1.RegisterChangeKind.UNRECOGNIZED : result;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -82,6 +286,21 @@ private static final long serialVersionUID = 0L;
     if (windowDays_ != 0) {
       output.writeInt32(1, windowDays_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(politicianSlug_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 2, politicianSlug_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(partyAb_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 3, partyAb_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(chamber_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 4, chamber_);
+    }
+    if (itemNo_ != 0) {
+      output.writeInt32(5, itemNo_);
+    }
+    if (kind_ != com.shorts.v1alpha1.RegisterChangeKind.REGISTER_CHANGE_KIND_UNSPECIFIED.getNumber()) {
+      output.writeEnum(6, kind_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -89,6 +308,23 @@ private static final long serialVersionUID = 0L;
     if (windowDays_ != 0) {
       size += com.google.protobuf.CodedOutputStream
         .computeInt32Size(1, windowDays_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(politicianSlug_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(2, politicianSlug_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(partyAb_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(3, partyAb_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(chamber_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(4, chamber_);
+    }
+    if (itemNo_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(5, itemNo_);
+    }
+    if (kind_ != com.shorts.v1alpha1.RegisterChangeKind.REGISTER_CHANGE_KIND_UNSPECIFIED.getNumber()) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeEnumSize(6, kind_);
     }
     return size;
   }
@@ -116,6 +352,15 @@ private static final long serialVersionUID = 0L;
 
     if (getWindowDays()
         != other.getWindowDays()) return false;
+    if (!getPoliticianSlug()
+        .equals(other.getPoliticianSlug())) return false;
+    if (!getPartyAb()
+        .equals(other.getPartyAb())) return false;
+    if (!getChamber()
+        .equals(other.getChamber())) return false;
+    if (getItemNo()
+        != other.getItemNo()) return false;
+    if (kind_ != other.kind_) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -129,6 +374,16 @@ private static final long serialVersionUID = 0L;
     hash = (19 * hash) + getDescriptor().hashCode();
     hash = (37 * hash) + WINDOW_DAYS_FIELD_NUMBER;
     hash = (53 * hash) + getWindowDays();
+    hash = (37 * hash) + POLITICIAN_SLUG_FIELD_NUMBER;
+    hash = (53 * hash) + getPoliticianSlug().hashCode();
+    hash = (37 * hash) + PARTY_AB_FIELD_NUMBER;
+    hash = (53 * hash) + getPartyAb().hashCode();
+    hash = (37 * hash) + CHAMBER_FIELD_NUMBER;
+    hash = (53 * hash) + getChamber().hashCode();
+    hash = (37 * hash) + ITEM_NO_FIELD_NUMBER;
+    hash = (53 * hash) + getItemNo();
+    hash = (37 * hash) + KIND_FIELD_NUMBER;
+    hash = (53 * hash) + kind_;
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -261,6 +516,11 @@ private static final long serialVersionUID = 0L;
       super.clear();
       bitField0_ = 0;
       windowDays_ = 0;
+      politicianSlug_ = "";
+      partyAb_ = "";
+      chamber_ = "";
+      itemNo_ = 0;
+      kind_ = 0;
       return this;
     }
 
@@ -297,6 +557,21 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000001) != 0)) {
         result.windowDays_ = windowDays_;
       }
+      if (((from_bitField0_ & 0x00000002) != 0)) {
+        result.politicianSlug_ = politicianSlug_;
+      }
+      if (((from_bitField0_ & 0x00000004) != 0)) {
+        result.partyAb_ = partyAb_;
+      }
+      if (((from_bitField0_ & 0x00000008) != 0)) {
+        result.chamber_ = chamber_;
+      }
+      if (((from_bitField0_ & 0x00000010) != 0)) {
+        result.itemNo_ = itemNo_;
+      }
+      if (((from_bitField0_ & 0x00000020) != 0)) {
+        result.kind_ = kind_;
+      }
     }
 
     @java.lang.Override
@@ -313,6 +588,27 @@ private static final long serialVersionUID = 0L;
       if (other == com.shorts.v1alpha1.GetRegisterActivityRequest.getDefaultInstance()) return this;
       if (other.getWindowDays() != 0) {
         setWindowDays(other.getWindowDays());
+      }
+      if (!other.getPoliticianSlug().isEmpty()) {
+        politicianSlug_ = other.politicianSlug_;
+        bitField0_ |= 0x00000002;
+        onChanged();
+      }
+      if (!other.getPartyAb().isEmpty()) {
+        partyAb_ = other.partyAb_;
+        bitField0_ |= 0x00000004;
+        onChanged();
+      }
+      if (!other.getChamber().isEmpty()) {
+        chamber_ = other.chamber_;
+        bitField0_ |= 0x00000008;
+        onChanged();
+      }
+      if (other.getItemNo() != 0) {
+        setItemNo(other.getItemNo());
+      }
+      if (other.kind_ != 0) {
+        setKindValue(other.getKindValue());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -345,6 +641,31 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000001;
               break;
             } // case 8
+            case 18: {
+              politicianSlug_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000002;
+              break;
+            } // case 18
+            case 26: {
+              partyAb_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000004;
+              break;
+            } // case 26
+            case 34: {
+              chamber_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000008;
+              break;
+            } // case 34
+            case 40: {
+              itemNo_ = input.readInt32();
+              bitField0_ |= 0x00000010;
+              break;
+            } // case 40
+            case 48: {
+              kind_ = input.readEnum();
+              bitField0_ |= 0x00000020;
+              break;
+            } // case 48
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -408,6 +729,443 @@ private static final long serialVersionUID = 0L;
     public Builder clearWindowDays() {
       bitField0_ = (bitField0_ & ~0x00000001);
       windowDays_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object politicianSlug_ = "";
+    /**
+     * <pre>
+     * The SAME filter set ListRegisterChanges takes, and for one reason: the
+     * weekly strip is drawn above a FILTERED feed, so parliament-wide numbers
+     * rendered there read as the filtered member's own. All optional and all
+     * ADDITIVE — an unfiltered request is byte-identical to the old behaviour.
+     *
+     * They narrow the WEEKLY BUCKETS, filtered_event_count and
+     * filtered_member_count only. The three rails (active_members,
+     * newly_declared_companies, declarer_count_changes) are NOT narrowed by the
+     * filters: they answer corpus-wide questions inside the window, and a
+     * "most active members" rail filtered to one member would be a tautology.
+     * </pre>
+     *
+     * <code>string politician_slug = 2 [json_name = "politicianSlug"];</code>
+     * @return The politicianSlug.
+     */
+    public java.lang.String getPoliticianSlug() {
+      java.lang.Object ref = politicianSlug_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        politicianSlug_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The SAME filter set ListRegisterChanges takes, and for one reason: the
+     * weekly strip is drawn above a FILTERED feed, so parliament-wide numbers
+     * rendered there read as the filtered member's own. All optional and all
+     * ADDITIVE — an unfiltered request is byte-identical to the old behaviour.
+     *
+     * They narrow the WEEKLY BUCKETS, filtered_event_count and
+     * filtered_member_count only. The three rails (active_members,
+     * newly_declared_companies, declarer_count_changes) are NOT narrowed by the
+     * filters: they answer corpus-wide questions inside the window, and a
+     * "most active members" rail filtered to one member would be a tautology.
+     * </pre>
+     *
+     * <code>string politician_slug = 2 [json_name = "politicianSlug"];</code>
+     * @return The bytes for politicianSlug.
+     */
+    public com.google.protobuf.ByteString
+        getPoliticianSlugBytes() {
+      java.lang.Object ref = politicianSlug_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        politicianSlug_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The SAME filter set ListRegisterChanges takes, and for one reason: the
+     * weekly strip is drawn above a FILTERED feed, so parliament-wide numbers
+     * rendered there read as the filtered member's own. All optional and all
+     * ADDITIVE — an unfiltered request is byte-identical to the old behaviour.
+     *
+     * They narrow the WEEKLY BUCKETS, filtered_event_count and
+     * filtered_member_count only. The three rails (active_members,
+     * newly_declared_companies, declarer_count_changes) are NOT narrowed by the
+     * filters: they answer corpus-wide questions inside the window, and a
+     * "most active members" rail filtered to one member would be a tautology.
+     * </pre>
+     *
+     * <code>string politician_slug = 2 [json_name = "politicianSlug"];</code>
+     * @param value The politicianSlug to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPoliticianSlug(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      politicianSlug_ = value;
+      bitField0_ |= 0x00000002;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The SAME filter set ListRegisterChanges takes, and for one reason: the
+     * weekly strip is drawn above a FILTERED feed, so parliament-wide numbers
+     * rendered there read as the filtered member's own. All optional and all
+     * ADDITIVE — an unfiltered request is byte-identical to the old behaviour.
+     *
+     * They narrow the WEEKLY BUCKETS, filtered_event_count and
+     * filtered_member_count only. The three rails (active_members,
+     * newly_declared_companies, declarer_count_changes) are NOT narrowed by the
+     * filters: they answer corpus-wide questions inside the window, and a
+     * "most active members" rail filtered to one member would be a tautology.
+     * </pre>
+     *
+     * <code>string politician_slug = 2 [json_name = "politicianSlug"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPoliticianSlug() {
+      politicianSlug_ = getDefaultInstance().getPoliticianSlug();
+      bitField0_ = (bitField0_ & ~0x00000002);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The SAME filter set ListRegisterChanges takes, and for one reason: the
+     * weekly strip is drawn above a FILTERED feed, so parliament-wide numbers
+     * rendered there read as the filtered member's own. All optional and all
+     * ADDITIVE — an unfiltered request is byte-identical to the old behaviour.
+     *
+     * They narrow the WEEKLY BUCKETS, filtered_event_count and
+     * filtered_member_count only. The three rails (active_members,
+     * newly_declared_companies, declarer_count_changes) are NOT narrowed by the
+     * filters: they answer corpus-wide questions inside the window, and a
+     * "most active members" rail filtered to one member would be a tautology.
+     * </pre>
+     *
+     * <code>string politician_slug = 2 [json_name = "politicianSlug"];</code>
+     * @param value The bytes for politicianSlug to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPoliticianSlugBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      politicianSlug_ = value;
+      bitField0_ |= 0x00000002;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object partyAb_ = "";
+    /**
+     * <pre>
+     * AEC abbreviation
+     * </pre>
+     *
+     * <code>string party_ab = 3 [json_name = "partyAb"];</code>
+     * @return The partyAb.
+     */
+    public java.lang.String getPartyAb() {
+      java.lang.Object ref = partyAb_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        partyAb_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * AEC abbreviation
+     * </pre>
+     *
+     * <code>string party_ab = 3 [json_name = "partyAb"];</code>
+     * @return The bytes for partyAb.
+     */
+    public com.google.protobuf.ByteString
+        getPartyAbBytes() {
+      java.lang.Object ref = partyAb_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        partyAb_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * AEC abbreviation
+     * </pre>
+     *
+     * <code>string party_ab = 3 [json_name = "partyAb"];</code>
+     * @param value The partyAb to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPartyAb(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      partyAb_ = value;
+      bitField0_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * AEC abbreviation
+     * </pre>
+     *
+     * <code>string party_ab = 3 [json_name = "partyAb"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPartyAb() {
+      partyAb_ = getDefaultInstance().getPartyAb();
+      bitField0_ = (bitField0_ & ~0x00000004);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * AEC abbreviation
+     * </pre>
+     *
+     * <code>string party_ab = 3 [json_name = "partyAb"];</code>
+     * @param value The bytes for partyAb to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPartyAbBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      partyAb_ = value;
+      bitField0_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object chamber_ = "";
+    /**
+     * <pre>
+     * 'house' | 'senate'
+     * </pre>
+     *
+     * <code>string chamber = 4 [json_name = "chamber"];</code>
+     * @return The chamber.
+     */
+    public java.lang.String getChamber() {
+      java.lang.Object ref = chamber_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        chamber_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * 'house' | 'senate'
+     * </pre>
+     *
+     * <code>string chamber = 4 [json_name = "chamber"];</code>
+     * @return The bytes for chamber.
+     */
+    public com.google.protobuf.ByteString
+        getChamberBytes() {
+      java.lang.Object ref = chamber_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        chamber_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * 'house' | 'senate'
+     * </pre>
+     *
+     * <code>string chamber = 4 [json_name = "chamber"];</code>
+     * @param value The chamber to set.
+     * @return This builder for chaining.
+     */
+    public Builder setChamber(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      chamber_ = value;
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 'house' | 'senate'
+     * </pre>
+     *
+     * <code>string chamber = 4 [json_name = "chamber"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearChamber() {
+      chamber_ = getDefaultInstance().getChamber();
+      bitField0_ = (bitField0_ & ~0x00000008);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 'house' | 'senate'
+     * </pre>
+     *
+     * <code>string chamber = 4 [json_name = "chamber"];</code>
+     * @param value The bytes for chamber to set.
+     * @return This builder for chaining.
+     */
+    public Builder setChamberBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      chamber_ = value;
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+
+    private int itemNo_ ;
+    /**
+     * <pre>
+     * register form item 1-14; 0 = all
+     * </pre>
+     *
+     * <code>int32 item_no = 5 [json_name = "itemNo"];</code>
+     * @return The itemNo.
+     */
+    @java.lang.Override
+    public int getItemNo() {
+      return itemNo_;
+    }
+    /**
+     * <pre>
+     * register form item 1-14; 0 = all
+     * </pre>
+     *
+     * <code>int32 item_no = 5 [json_name = "itemNo"];</code>
+     * @param value The itemNo to set.
+     * @return This builder for chaining.
+     */
+    public Builder setItemNo(int value) {
+
+      itemNo_ = value;
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * register form item 1-14; 0 = all
+     * </pre>
+     *
+     * <code>int32 item_no = 5 [json_name = "itemNo"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearItemNo() {
+      bitField0_ = (bitField0_ & ~0x00000010);
+      itemNo_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int kind_ = 0;
+    /**
+     * <pre>
+     * UNSPECIFIED = both
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.RegisterChangeKind kind = 6 [json_name = "kind"];</code>
+     * @return The enum numeric value on the wire for kind.
+     */
+    @java.lang.Override public int getKindValue() {
+      return kind_;
+    }
+    /**
+     * <pre>
+     * UNSPECIFIED = both
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.RegisterChangeKind kind = 6 [json_name = "kind"];</code>
+     * @param value The enum numeric value on the wire for kind to set.
+     * @return This builder for chaining.
+     */
+    public Builder setKindValue(int value) {
+      kind_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * UNSPECIFIED = both
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.RegisterChangeKind kind = 6 [json_name = "kind"];</code>
+     * @return The kind.
+     */
+    @java.lang.Override
+    public com.shorts.v1alpha1.RegisterChangeKind getKind() {
+      com.shorts.v1alpha1.RegisterChangeKind result = com.shorts.v1alpha1.RegisterChangeKind.forNumber(kind_);
+      return result == null ? com.shorts.v1alpha1.RegisterChangeKind.UNRECOGNIZED : result;
+    }
+    /**
+     * <pre>
+     * UNSPECIFIED = both
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.RegisterChangeKind kind = 6 [json_name = "kind"];</code>
+     * @param value The kind to set.
+     * @throws IllegalArgumentException if UNRECOGNIZED is provided.
+     * @return This builder for chaining.
+     */
+    public Builder setKind(com.shorts.v1alpha1.RegisterChangeKind value) {
+      if (value == null) { throw new NullPointerException(); }
+      bitField0_ |= 0x00000020;
+      kind_ = value.getNumber();
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * UNSPECIFIED = both
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.RegisterChangeKind kind = 6 [json_name = "kind"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearKind() {
+      bitField0_ = (bitField0_ & ~0x00000020);
+      kind_ = 0;
       onChanged();
       return this;
     }

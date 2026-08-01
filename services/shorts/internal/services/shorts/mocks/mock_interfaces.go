@@ -684,18 +684,18 @@ func (mr *MockShortsStoreMockRecorder) GetPropertyValuation(addressKey any) *gom
 }
 
 // GetRegisterActivity mocks base method.
-func (m *MockShortsStore) GetRegisterActivity(windowDays int32) (*shorts.RegisterActivityRow, error) {
+func (m *MockShortsStore) GetRegisterActivity(windowDays int32, filter shorts.RegisterActivityFilter) (*shorts.RegisterActivityRow, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRegisterActivity", windowDays)
+	ret := m.ctrl.Call(m, "GetRegisterActivity", windowDays, filter)
 	ret0, _ := ret[0].(*shorts.RegisterActivityRow)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetRegisterActivity indicates an expected call of GetRegisterActivity.
-func (mr *MockShortsStoreMockRecorder) GetRegisterActivity(windowDays any) *gomock.Call {
+func (mr *MockShortsStoreMockRecorder) GetRegisterActivity(windowDays, filter any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRegisterActivity", reflect.TypeOf((*MockShortsStore)(nil).GetRegisterActivity), windowDays)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRegisterActivity", reflect.TypeOf((*MockShortsStore)(nil).GetRegisterActivity), windowDays, filter)
 }
 
 // GetRegisterAnalytics mocks base method.
@@ -2142,17 +2142,17 @@ func (mr *MockCacheMockRecorder) GetPropertyHistoryKey(addressKey any) *gomock.C
 }
 
 // GetRegisterActivityKey mocks base method.
-func (m *MockCache) GetRegisterActivityKey(windowDays int32) string {
+func (m *MockCache) GetRegisterActivityKey(windowDays int32, slug, partyAb, chamber string, itemNo int32, kind string) string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRegisterActivityKey", windowDays)
+	ret := m.ctrl.Call(m, "GetRegisterActivityKey", windowDays, slug, partyAb, chamber, itemNo, kind)
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
 // GetRegisterActivityKey indicates an expected call of GetRegisterActivityKey.
-func (mr *MockCacheMockRecorder) GetRegisterActivityKey(windowDays any) *gomock.Call {
+func (mr *MockCacheMockRecorder) GetRegisterActivityKey(windowDays, slug, partyAb, chamber, itemNo, kind any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRegisterActivityKey", reflect.TypeOf((*MockCache)(nil).GetRegisterActivityKey), windowDays)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRegisterActivityKey", reflect.TypeOf((*MockCache)(nil).GetRegisterActivityKey), windowDays, slug, partyAb, chamber, itemNo, kind)
 }
 
 // GetRegisterExplorerKey mocks base method.

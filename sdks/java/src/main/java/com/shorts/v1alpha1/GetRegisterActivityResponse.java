@@ -73,6 +73,12 @@ private static final long serialVersionUID = 0L;
   @SuppressWarnings("serial")
   private java.util.List<com.shorts.v1alpha1.WeeklyEventCount> weeks_;
   /**
+   * <pre>
+   * Contiguous Monday buckets, NARROWED BY THE REQUEST'S FILTERS. The first
+   * bucket is the Monday on or before (today - window_days), so no bucket is a
+   * partial week drawn as a full one.
+   * </pre>
+   *
    * <code>repeated .shorts.v1alpha1.WeeklyEventCount weeks = 2 [json_name = "weeks"];</code>
    */
   @java.lang.Override
@@ -80,6 +86,12 @@ private static final long serialVersionUID = 0L;
     return weeks_;
   }
   /**
+   * <pre>
+   * Contiguous Monday buckets, NARROWED BY THE REQUEST'S FILTERS. The first
+   * bucket is the Monday on or before (today - window_days), so no bucket is a
+   * partial week drawn as a full one.
+   * </pre>
+   *
    * <code>repeated .shorts.v1alpha1.WeeklyEventCount weeks = 2 [json_name = "weeks"];</code>
    */
   @java.lang.Override
@@ -88,6 +100,12 @@ private static final long serialVersionUID = 0L;
     return weeks_;
   }
   /**
+   * <pre>
+   * Contiguous Monday buckets, NARROWED BY THE REQUEST'S FILTERS. The first
+   * bucket is the Monday on or before (today - window_days), so no bucket is a
+   * partial week drawn as a full one.
+   * </pre>
+   *
    * <code>repeated .shorts.v1alpha1.WeeklyEventCount weeks = 2 [json_name = "weeks"];</code>
    */
   @java.lang.Override
@@ -95,6 +113,12 @@ private static final long serialVersionUID = 0L;
     return weeks_.size();
   }
   /**
+   * <pre>
+   * Contiguous Monday buckets, NARROWED BY THE REQUEST'S FILTERS. The first
+   * bucket is the Monday on or before (today - window_days), so no bucket is a
+   * partial week drawn as a full one.
+   * </pre>
+   *
    * <code>repeated .shorts.v1alpha1.WeeklyEventCount weeks = 2 [json_name = "weeks"];</code>
    */
   @java.lang.Override
@@ -102,6 +126,12 @@ private static final long serialVersionUID = 0L;
     return weeks_.get(index);
   }
   /**
+   * <pre>
+   * Contiguous Monday buckets, NARROWED BY THE REQUEST'S FILTERS. The first
+   * bucket is the Monday on or before (today - window_days), so no bucket is a
+   * partial week drawn as a full one.
+   * </pre>
+   *
    * <code>repeated .shorts.v1alpha1.WeeklyEventCount weeks = 2 [json_name = "weeks"];</code>
    */
   @java.lang.Override
@@ -114,6 +144,11 @@ private static final long serialVersionUID = 0L;
   @SuppressWarnings("serial")
   private java.util.List<com.shorts.v1alpha1.ActiveMember> activeMembers_;
   /**
+   * <pre>
+   * The three rails below are CORPUS-WIDE and window-scoped: the request's
+   * filters do not narrow them.
+   * </pre>
+   *
    * <code>repeated .shorts.v1alpha1.ActiveMember active_members = 3 [json_name = "activeMembers"];</code>
    */
   @java.lang.Override
@@ -121,6 +156,11 @@ private static final long serialVersionUID = 0L;
     return activeMembers_;
   }
   /**
+   * <pre>
+   * The three rails below are CORPUS-WIDE and window-scoped: the request's
+   * filters do not narrow them.
+   * </pre>
+   *
    * <code>repeated .shorts.v1alpha1.ActiveMember active_members = 3 [json_name = "activeMembers"];</code>
    */
   @java.lang.Override
@@ -129,6 +169,11 @@ private static final long serialVersionUID = 0L;
     return activeMembers_;
   }
   /**
+   * <pre>
+   * The three rails below are CORPUS-WIDE and window-scoped: the request's
+   * filters do not narrow them.
+   * </pre>
+   *
    * <code>repeated .shorts.v1alpha1.ActiveMember active_members = 3 [json_name = "activeMembers"];</code>
    */
   @java.lang.Override
@@ -136,6 +181,11 @@ private static final long serialVersionUID = 0L;
     return activeMembers_.size();
   }
   /**
+   * <pre>
+   * The three rails below are CORPUS-WIDE and window-scoped: the request's
+   * filters do not narrow them.
+   * </pre>
+   *
    * <code>repeated .shorts.v1alpha1.ActiveMember active_members = 3 [json_name = "activeMembers"];</code>
    */
   @java.lang.Override
@@ -143,6 +193,11 @@ private static final long serialVersionUID = 0L;
     return activeMembers_.get(index);
   }
   /**
+   * <pre>
+   * The three rails below are CORPUS-WIDE and window-scoped: the request's
+   * filters do not narrow them.
+   * </pre>
+   *
    * <code>repeated .shorts.v1alpha1.ActiveMember active_members = 3 [json_name = "activeMembers"];</code>
    */
   @java.lang.Override
@@ -315,6 +370,40 @@ private static final long serialVersionUID = 0L;
     return asAt_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : asAt_;
   }
 
+  public static final int FILTERED_EVENT_COUNT_FIELD_NUMBER = 9;
+  private int filteredEventCount_ = 0;
+  /**
+   * <pre>
+   * Dated events matching the request's filters inside the window. Equal to the
+   * sum of every bucket's added_count + removed_count, so a count line beside
+   * the strip states the strip's own total and not the parliament's.
+   * </pre>
+   *
+   * <code>int32 filtered_event_count = 9 [json_name = "filteredEventCount"];</code>
+   * @return The filteredEventCount.
+   */
+  @java.lang.Override
+  public int getFilteredEventCount() {
+    return filteredEventCount_;
+  }
+
+  public static final int FILTERED_MEMBER_COUNT_FIELD_NUMBER = 10;
+  private int filteredMemberCount_ = 0;
+  /**
+   * <pre>
+   * DISTINCT members with at least one such event — PEOPLE, never rows. A
+   * surface can state it exactly instead of counting the members it happens to
+   * have rendered, which is always a floor.
+   * </pre>
+   *
+   * <code>int32 filtered_member_count = 10 [json_name = "filteredMemberCount"];</code>
+   * @return The filteredMemberCount.
+   */
+  @java.lang.Override
+  public int getFilteredMemberCount() {
+    return filteredMemberCount_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -352,6 +441,12 @@ private static final long serialVersionUID = 0L;
     }
     if (((bitField0_ & 0x00000001) != 0)) {
       output.writeMessage(8, getAsAt());
+    }
+    if (filteredEventCount_ != 0) {
+      output.writeInt32(9, filteredEventCount_);
+    }
+    if (filteredMemberCount_ != 0) {
+      output.writeInt32(10, filteredMemberCount_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -408,6 +503,14 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(8, getAsAt());
     }
+    if (filteredEventCount_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(9, filteredEventCount_);
+    }
+    if (filteredMemberCount_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(10, filteredMemberCount_);
+    }
     return size;
   }
   @java.lang.Override
@@ -451,6 +554,10 @@ private static final long serialVersionUID = 0L;
       if (!getAsAt()
           .equals(other.getAsAt())) return false;
     }
+    if (getFilteredEventCount()
+        != other.getFilteredEventCount()) return false;
+    if (getFilteredMemberCount()
+        != other.getFilteredMemberCount()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -488,6 +595,10 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + AS_AT_FIELD_NUMBER;
       hash = (53 * hash) + getAsAt().hashCode();
     }
+    hash = (37 * hash) + FILTERED_EVENT_COUNT_FIELD_NUMBER;
+    hash = (53 * hash) + getFilteredEventCount();
+    hash = (37 * hash) + FILTERED_MEMBER_COUNT_FIELD_NUMBER;
+    hash = (53 * hash) + getFilteredMemberCount();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -665,6 +776,8 @@ private static final long serialVersionUID = 0L;
         asAtBuilder_.dispose();
         asAtBuilder_ = null;
       }
+      filteredEventCount_ = 0;
+      filteredMemberCount_ = 0;
       return this;
     }
 
@@ -753,6 +866,12 @@ private static final long serialVersionUID = 0L;
             ? asAt_
             : asAtBuilder_.build();
         to_bitField0_ |= 0x00000001;
+      }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.filteredEventCount_ = filteredEventCount_;
+      }
+      if (((from_bitField0_ & 0x00000200) != 0)) {
+        result.filteredMemberCount_ = filteredMemberCount_;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -887,6 +1006,12 @@ private static final long serialVersionUID = 0L;
       if (other.hasAsAt()) {
         mergeAsAt(other.getAsAt());
       }
+      if (other.getFilteredEventCount() != 0) {
+        setFilteredEventCount(other.getFilteredEventCount());
+      }
+      if (other.getFilteredMemberCount() != 0) {
+        setFilteredMemberCount(other.getFilteredMemberCount());
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -987,6 +1112,16 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000080;
               break;
             } // case 66
+            case 72: {
+              filteredEventCount_ = input.readInt32();
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 72
+            case 80: {
+              filteredMemberCount_ = input.readInt32();
+              bitField0_ |= 0x00000200;
+              break;
+            } // case 80
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1061,6 +1196,12 @@ private static final long serialVersionUID = 0L;
         com.shorts.v1alpha1.WeeklyEventCount, com.shorts.v1alpha1.WeeklyEventCount.Builder, com.shorts.v1alpha1.WeeklyEventCountOrBuilder> weeksBuilder_;
 
     /**
+     * <pre>
+     * Contiguous Monday buckets, NARROWED BY THE REQUEST'S FILTERS. The first
+     * bucket is the Monday on or before (today - window_days), so no bucket is a
+     * partial week drawn as a full one.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.WeeklyEventCount weeks = 2 [json_name = "weeks"];</code>
      */
     public java.util.List<com.shorts.v1alpha1.WeeklyEventCount> getWeeksList() {
@@ -1071,6 +1212,12 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
+     * <pre>
+     * Contiguous Monday buckets, NARROWED BY THE REQUEST'S FILTERS. The first
+     * bucket is the Monday on or before (today - window_days), so no bucket is a
+     * partial week drawn as a full one.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.WeeklyEventCount weeks = 2 [json_name = "weeks"];</code>
      */
     public int getWeeksCount() {
@@ -1081,6 +1228,12 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
+     * <pre>
+     * Contiguous Monday buckets, NARROWED BY THE REQUEST'S FILTERS. The first
+     * bucket is the Monday on or before (today - window_days), so no bucket is a
+     * partial week drawn as a full one.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.WeeklyEventCount weeks = 2 [json_name = "weeks"];</code>
      */
     public com.shorts.v1alpha1.WeeklyEventCount getWeeks(int index) {
@@ -1091,6 +1244,12 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
+     * <pre>
+     * Contiguous Monday buckets, NARROWED BY THE REQUEST'S FILTERS. The first
+     * bucket is the Monday on or before (today - window_days), so no bucket is a
+     * partial week drawn as a full one.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.WeeklyEventCount weeks = 2 [json_name = "weeks"];</code>
      */
     public Builder setWeeks(
@@ -1108,6 +1267,12 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * Contiguous Monday buckets, NARROWED BY THE REQUEST'S FILTERS. The first
+     * bucket is the Monday on or before (today - window_days), so no bucket is a
+     * partial week drawn as a full one.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.WeeklyEventCount weeks = 2 [json_name = "weeks"];</code>
      */
     public Builder setWeeks(
@@ -1122,6 +1287,12 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * Contiguous Monday buckets, NARROWED BY THE REQUEST'S FILTERS. The first
+     * bucket is the Monday on or before (today - window_days), so no bucket is a
+     * partial week drawn as a full one.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.WeeklyEventCount weeks = 2 [json_name = "weeks"];</code>
      */
     public Builder addWeeks(com.shorts.v1alpha1.WeeklyEventCount value) {
@@ -1138,6 +1309,12 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * Contiguous Monday buckets, NARROWED BY THE REQUEST'S FILTERS. The first
+     * bucket is the Monday on or before (today - window_days), so no bucket is a
+     * partial week drawn as a full one.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.WeeklyEventCount weeks = 2 [json_name = "weeks"];</code>
      */
     public Builder addWeeks(
@@ -1155,6 +1332,12 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * Contiguous Monday buckets, NARROWED BY THE REQUEST'S FILTERS. The first
+     * bucket is the Monday on or before (today - window_days), so no bucket is a
+     * partial week drawn as a full one.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.WeeklyEventCount weeks = 2 [json_name = "weeks"];</code>
      */
     public Builder addWeeks(
@@ -1169,6 +1352,12 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * Contiguous Monday buckets, NARROWED BY THE REQUEST'S FILTERS. The first
+     * bucket is the Monday on or before (today - window_days), so no bucket is a
+     * partial week drawn as a full one.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.WeeklyEventCount weeks = 2 [json_name = "weeks"];</code>
      */
     public Builder addWeeks(
@@ -1183,6 +1372,12 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * Contiguous Monday buckets, NARROWED BY THE REQUEST'S FILTERS. The first
+     * bucket is the Monday on or before (today - window_days), so no bucket is a
+     * partial week drawn as a full one.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.WeeklyEventCount weeks = 2 [json_name = "weeks"];</code>
      */
     public Builder addAllWeeks(
@@ -1198,6 +1393,12 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * Contiguous Monday buckets, NARROWED BY THE REQUEST'S FILTERS. The first
+     * bucket is the Monday on or before (today - window_days), so no bucket is a
+     * partial week drawn as a full one.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.WeeklyEventCount weeks = 2 [json_name = "weeks"];</code>
      */
     public Builder clearWeeks() {
@@ -1211,6 +1412,12 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * Contiguous Monday buckets, NARROWED BY THE REQUEST'S FILTERS. The first
+     * bucket is the Monday on or before (today - window_days), so no bucket is a
+     * partial week drawn as a full one.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.WeeklyEventCount weeks = 2 [json_name = "weeks"];</code>
      */
     public Builder removeWeeks(int index) {
@@ -1224,6 +1431,12 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * Contiguous Monday buckets, NARROWED BY THE REQUEST'S FILTERS. The first
+     * bucket is the Monday on or before (today - window_days), so no bucket is a
+     * partial week drawn as a full one.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.WeeklyEventCount weeks = 2 [json_name = "weeks"];</code>
      */
     public com.shorts.v1alpha1.WeeklyEventCount.Builder getWeeksBuilder(
@@ -1231,6 +1444,12 @@ private static final long serialVersionUID = 0L;
       return internalGetWeeksFieldBuilder().getBuilder(index);
     }
     /**
+     * <pre>
+     * Contiguous Monday buckets, NARROWED BY THE REQUEST'S FILTERS. The first
+     * bucket is the Monday on or before (today - window_days), so no bucket is a
+     * partial week drawn as a full one.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.WeeklyEventCount weeks = 2 [json_name = "weeks"];</code>
      */
     public com.shorts.v1alpha1.WeeklyEventCountOrBuilder getWeeksOrBuilder(
@@ -1241,6 +1460,12 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
+     * <pre>
+     * Contiguous Monday buckets, NARROWED BY THE REQUEST'S FILTERS. The first
+     * bucket is the Monday on or before (today - window_days), so no bucket is a
+     * partial week drawn as a full one.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.WeeklyEventCount weeks = 2 [json_name = "weeks"];</code>
      */
     public java.util.List<? extends com.shorts.v1alpha1.WeeklyEventCountOrBuilder> 
@@ -1252,6 +1477,12 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
+     * <pre>
+     * Contiguous Monday buckets, NARROWED BY THE REQUEST'S FILTERS. The first
+     * bucket is the Monday on or before (today - window_days), so no bucket is a
+     * partial week drawn as a full one.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.WeeklyEventCount weeks = 2 [json_name = "weeks"];</code>
      */
     public com.shorts.v1alpha1.WeeklyEventCount.Builder addWeeksBuilder() {
@@ -1259,6 +1490,12 @@ private static final long serialVersionUID = 0L;
           com.shorts.v1alpha1.WeeklyEventCount.getDefaultInstance());
     }
     /**
+     * <pre>
+     * Contiguous Monday buckets, NARROWED BY THE REQUEST'S FILTERS. The first
+     * bucket is the Monday on or before (today - window_days), so no bucket is a
+     * partial week drawn as a full one.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.WeeklyEventCount weeks = 2 [json_name = "weeks"];</code>
      */
     public com.shorts.v1alpha1.WeeklyEventCount.Builder addWeeksBuilder(
@@ -1267,6 +1504,12 @@ private static final long serialVersionUID = 0L;
           index, com.shorts.v1alpha1.WeeklyEventCount.getDefaultInstance());
     }
     /**
+     * <pre>
+     * Contiguous Monday buckets, NARROWED BY THE REQUEST'S FILTERS. The first
+     * bucket is the Monday on or before (today - window_days), so no bucket is a
+     * partial week drawn as a full one.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.WeeklyEventCount weeks = 2 [json_name = "weeks"];</code>
      */
     public java.util.List<com.shorts.v1alpha1.WeeklyEventCount.Builder> 
@@ -1301,6 +1544,11 @@ private static final long serialVersionUID = 0L;
         com.shorts.v1alpha1.ActiveMember, com.shorts.v1alpha1.ActiveMember.Builder, com.shorts.v1alpha1.ActiveMemberOrBuilder> activeMembersBuilder_;
 
     /**
+     * <pre>
+     * The three rails below are CORPUS-WIDE and window-scoped: the request's
+     * filters do not narrow them.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.ActiveMember active_members = 3 [json_name = "activeMembers"];</code>
      */
     public java.util.List<com.shorts.v1alpha1.ActiveMember> getActiveMembersList() {
@@ -1311,6 +1559,11 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
+     * <pre>
+     * The three rails below are CORPUS-WIDE and window-scoped: the request's
+     * filters do not narrow them.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.ActiveMember active_members = 3 [json_name = "activeMembers"];</code>
      */
     public int getActiveMembersCount() {
@@ -1321,6 +1574,11 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
+     * <pre>
+     * The three rails below are CORPUS-WIDE and window-scoped: the request's
+     * filters do not narrow them.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.ActiveMember active_members = 3 [json_name = "activeMembers"];</code>
      */
     public com.shorts.v1alpha1.ActiveMember getActiveMembers(int index) {
@@ -1331,6 +1589,11 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
+     * <pre>
+     * The three rails below are CORPUS-WIDE and window-scoped: the request's
+     * filters do not narrow them.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.ActiveMember active_members = 3 [json_name = "activeMembers"];</code>
      */
     public Builder setActiveMembers(
@@ -1348,6 +1611,11 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * The three rails below are CORPUS-WIDE and window-scoped: the request's
+     * filters do not narrow them.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.ActiveMember active_members = 3 [json_name = "activeMembers"];</code>
      */
     public Builder setActiveMembers(
@@ -1362,6 +1630,11 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * The three rails below are CORPUS-WIDE and window-scoped: the request's
+     * filters do not narrow them.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.ActiveMember active_members = 3 [json_name = "activeMembers"];</code>
      */
     public Builder addActiveMembers(com.shorts.v1alpha1.ActiveMember value) {
@@ -1378,6 +1651,11 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * The three rails below are CORPUS-WIDE and window-scoped: the request's
+     * filters do not narrow them.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.ActiveMember active_members = 3 [json_name = "activeMembers"];</code>
      */
     public Builder addActiveMembers(
@@ -1395,6 +1673,11 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * The three rails below are CORPUS-WIDE and window-scoped: the request's
+     * filters do not narrow them.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.ActiveMember active_members = 3 [json_name = "activeMembers"];</code>
      */
     public Builder addActiveMembers(
@@ -1409,6 +1692,11 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * The three rails below are CORPUS-WIDE and window-scoped: the request's
+     * filters do not narrow them.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.ActiveMember active_members = 3 [json_name = "activeMembers"];</code>
      */
     public Builder addActiveMembers(
@@ -1423,6 +1711,11 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * The three rails below are CORPUS-WIDE and window-scoped: the request's
+     * filters do not narrow them.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.ActiveMember active_members = 3 [json_name = "activeMembers"];</code>
      */
     public Builder addAllActiveMembers(
@@ -1438,6 +1731,11 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * The three rails below are CORPUS-WIDE and window-scoped: the request's
+     * filters do not narrow them.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.ActiveMember active_members = 3 [json_name = "activeMembers"];</code>
      */
     public Builder clearActiveMembers() {
@@ -1451,6 +1749,11 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * The three rails below are CORPUS-WIDE and window-scoped: the request's
+     * filters do not narrow them.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.ActiveMember active_members = 3 [json_name = "activeMembers"];</code>
      */
     public Builder removeActiveMembers(int index) {
@@ -1464,6 +1767,11 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * The three rails below are CORPUS-WIDE and window-scoped: the request's
+     * filters do not narrow them.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.ActiveMember active_members = 3 [json_name = "activeMembers"];</code>
      */
     public com.shorts.v1alpha1.ActiveMember.Builder getActiveMembersBuilder(
@@ -1471,6 +1779,11 @@ private static final long serialVersionUID = 0L;
       return internalGetActiveMembersFieldBuilder().getBuilder(index);
     }
     /**
+     * <pre>
+     * The three rails below are CORPUS-WIDE and window-scoped: the request's
+     * filters do not narrow them.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.ActiveMember active_members = 3 [json_name = "activeMembers"];</code>
      */
     public com.shorts.v1alpha1.ActiveMemberOrBuilder getActiveMembersOrBuilder(
@@ -1481,6 +1794,11 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
+     * <pre>
+     * The three rails below are CORPUS-WIDE and window-scoped: the request's
+     * filters do not narrow them.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.ActiveMember active_members = 3 [json_name = "activeMembers"];</code>
      */
     public java.util.List<? extends com.shorts.v1alpha1.ActiveMemberOrBuilder> 
@@ -1492,6 +1810,11 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
+     * <pre>
+     * The three rails below are CORPUS-WIDE and window-scoped: the request's
+     * filters do not narrow them.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.ActiveMember active_members = 3 [json_name = "activeMembers"];</code>
      */
     public com.shorts.v1alpha1.ActiveMember.Builder addActiveMembersBuilder() {
@@ -1499,6 +1822,11 @@ private static final long serialVersionUID = 0L;
           com.shorts.v1alpha1.ActiveMember.getDefaultInstance());
     }
     /**
+     * <pre>
+     * The three rails below are CORPUS-WIDE and window-scoped: the request's
+     * filters do not narrow them.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.ActiveMember active_members = 3 [json_name = "activeMembers"];</code>
      */
     public com.shorts.v1alpha1.ActiveMember.Builder addActiveMembersBuilder(
@@ -1507,6 +1835,11 @@ private static final long serialVersionUID = 0L;
           index, com.shorts.v1alpha1.ActiveMember.getDefaultInstance());
     }
     /**
+     * <pre>
+     * The three rails below are CORPUS-WIDE and window-scoped: the request's
+     * filters do not narrow them.
+     * </pre>
+     *
      * <code>repeated .shorts.v1alpha1.ActiveMember active_members = 3 [json_name = "activeMembers"];</code>
      */
     public java.util.List<com.shorts.v1alpha1.ActiveMember.Builder> 
@@ -2249,6 +2582,106 @@ private static final long serialVersionUID = 0L;
         asAt_ = null;
       }
       return asAtBuilder_;
+    }
+
+    private int filteredEventCount_ ;
+    /**
+     * <pre>
+     * Dated events matching the request's filters inside the window. Equal to the
+     * sum of every bucket's added_count + removed_count, so a count line beside
+     * the strip states the strip's own total and not the parliament's.
+     * </pre>
+     *
+     * <code>int32 filtered_event_count = 9 [json_name = "filteredEventCount"];</code>
+     * @return The filteredEventCount.
+     */
+    @java.lang.Override
+    public int getFilteredEventCount() {
+      return filteredEventCount_;
+    }
+    /**
+     * <pre>
+     * Dated events matching the request's filters inside the window. Equal to the
+     * sum of every bucket's added_count + removed_count, so a count line beside
+     * the strip states the strip's own total and not the parliament's.
+     * </pre>
+     *
+     * <code>int32 filtered_event_count = 9 [json_name = "filteredEventCount"];</code>
+     * @param value The filteredEventCount to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFilteredEventCount(int value) {
+
+      filteredEventCount_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Dated events matching the request's filters inside the window. Equal to the
+     * sum of every bucket's added_count + removed_count, so a count line beside
+     * the strip states the strip's own total and not the parliament's.
+     * </pre>
+     *
+     * <code>int32 filtered_event_count = 9 [json_name = "filteredEventCount"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearFilteredEventCount() {
+      bitField0_ = (bitField0_ & ~0x00000100);
+      filteredEventCount_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int filteredMemberCount_ ;
+    /**
+     * <pre>
+     * DISTINCT members with at least one such event — PEOPLE, never rows. A
+     * surface can state it exactly instead of counting the members it happens to
+     * have rendered, which is always a floor.
+     * </pre>
+     *
+     * <code>int32 filtered_member_count = 10 [json_name = "filteredMemberCount"];</code>
+     * @return The filteredMemberCount.
+     */
+    @java.lang.Override
+    public int getFilteredMemberCount() {
+      return filteredMemberCount_;
+    }
+    /**
+     * <pre>
+     * DISTINCT members with at least one such event — PEOPLE, never rows. A
+     * surface can state it exactly instead of counting the members it happens to
+     * have rendered, which is always a floor.
+     * </pre>
+     *
+     * <code>int32 filtered_member_count = 10 [json_name = "filteredMemberCount"];</code>
+     * @param value The filteredMemberCount to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFilteredMemberCount(int value) {
+
+      filteredMemberCount_ = value;
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * DISTINCT members with at least one such event — PEOPLE, never rows. A
+     * surface can state it exactly instead of counting the members it happens to
+     * have rendered, which is always a floor.
+     * </pre>
+     *
+     * <code>int32 filtered_member_count = 10 [json_name = "filteredMemberCount"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearFilteredMemberCount() {
+      bitField0_ = (bitField0_ & ~0x00000200);
+      filteredMemberCount_ = 0;
+      onChanged();
+      return this;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.GetRegisterActivityResponse)
