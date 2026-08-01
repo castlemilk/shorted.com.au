@@ -29,6 +29,7 @@ import {
   buildDeclarationRows,
 } from "@/components/politicians/profile/declaration-rows";
 import { DeclarationsTable } from "@/components/politicians/profile/declarations-table";
+import { DistinctiveHoldings } from "@/components/politicians/profile/distinctive-holdings";
 import { buildProfileKeyFacts } from "@/components/politicians/profile/key-facts";
 import {
   IndustryBars,
@@ -36,6 +37,7 @@ import {
   ServiceHistory,
   SourceDocuments,
 } from "@/components/politicians/profile/sections";
+import { getDistinctiveHoldings } from "~/app/actions/getDistinctiveHoldings";
 import { getPolitician } from "~/app/actions/getPoliticians";
 import { getPoliticianExplorerProfile } from "~/app/actions/getPoliticianExplorerProfile";
 import { pageTitle, sectionTitle, eyebrow } from "@/lib/typography";
@@ -146,9 +148,10 @@ export default async function PoliticianPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const [data, explorer] = await Promise.all([
+  const [data, explorer, distinctive] = await Promise.all([
     getPolitician(slug),
     getPoliticianExplorerProfile(slug),
+    getDistinctiveHoldings(slug),
   ]);
   const p = data?.politician;
   if (!p) notFound();
@@ -466,6 +469,24 @@ export default async function PoliticianPage({
               {keyFacts.length > 0 ? <KeyFacts facts={keyFacts} /> : null}
               <RecentChanges changes={changes} />
               <SourceDocuments documents={sourceDocuments} />
+              {/*
+                Renders NOTHING when the rpc is unavailable or the member has no
+                sole-declared company. The rail is a fact about the register's
+                other 318 members, not a claim about this one, so an empty frame
+                or a "none" line would be an absence claim the data cannot carry.
+              */}
+              <DistinctiveHoldings
+                holdings={(distinctive?.holdings ?? []).map((holding) => ({
+                  stockCode: holding.stockCode,
+                  companyName: holding.companyName,
+                  industry: holding.industry,
+                  holder: holding.holder,
+                  corpusDeclarerCount: holding.corpusDeclarerCount,
+                  shortPercent: holding.shortPercent,
+                }))}
+                disclosureNote={distinctive?.disclosureNote}
+                moreCount={distinctive?.moreCount ?? 0}
+              />
               <section className="rounded-lg border bg-card p-4">
                 <h2 className={sectionTitle}>Compare</h2>
                 <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
