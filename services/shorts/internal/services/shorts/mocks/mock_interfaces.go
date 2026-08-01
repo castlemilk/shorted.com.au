@@ -683,6 +683,21 @@ func (mr *MockShortsStoreMockRecorder) GetPropertyValuation(addressKey any) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPropertyValuation", reflect.TypeOf((*MockShortsStore)(nil).GetPropertyValuation), addressKey)
 }
 
+// GetRegisterActivity mocks base method.
+func (m *MockShortsStore) GetRegisterActivity(windowDays int32, filter shorts.RegisterActivityFilter) (*shorts.RegisterActivityRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRegisterActivity", windowDays, filter)
+	ret0, _ := ret[0].(*shorts.RegisterActivityRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRegisterActivity indicates an expected call of GetRegisterActivity.
+func (mr *MockShortsStoreMockRecorder) GetRegisterActivity(windowDays, filter any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRegisterActivity", reflect.TypeOf((*MockShortsStore)(nil).GetRegisterActivity), windowDays, filter)
+}
+
 // GetRegisterAnalytics mocks base method.
 func (m *MockShortsStore) GetRegisterAnalytics(topIndustries int32, currentOnly bool) (*shorts.RegisterAnalytics, error) {
 	m.ctrl.T.Helper()
@@ -1068,6 +1083,21 @@ func (mr *MockShortsStoreMockRecorder) ListBroadcasts(limit any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListBroadcasts", reflect.TypeOf((*MockShortsStore)(nil).ListBroadcasts), limit)
 }
 
+// ListDistinctiveHoldings mocks base method.
+func (m *MockShortsStore) ListDistinctiveHoldings(slug string) (*shorts.DistinctiveHoldingsRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListDistinctiveHoldings", slug)
+	ret0, _ := ret[0].(*shorts.DistinctiveHoldingsRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListDistinctiveHoldings indicates an expected call of ListDistinctiveHoldings.
+func (mr *MockShortsStoreMockRecorder) ListDistinctiveHoldings(slug any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListDistinctiveHoldings", reflect.TypeOf((*MockShortsStore)(nil).ListDistinctiveHoldings), slug)
+}
+
 // ListEconomicSeries mocks base method.
 func (m *MockShortsStore) ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32) ([]*shorts.EconomicSeriesRow, error) {
 	m.ctrl.T.Helper()
@@ -1211,9 +1241,9 @@ func (mr *MockShortsStoreMockRecorder) ListPoliticians(chamber, stateCode, party
 }
 
 // ListRegisterChanges mocks base method.
-func (m *MockShortsStore) ListRegisterChanges(since time.Time, kind, stockCode string, limit, offset int32) ([]*shorts.RegisterChangeRow, int32, error) {
+func (m *MockShortsStore) ListRegisterChanges(since time.Time, kind, stockCode, slug string, itemNo int32, partyAb, chamber string, limit, offset int32) ([]*shorts.RegisterChangeRow, int32, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListRegisterChanges", since, kind, stockCode, limit, offset)
+	ret := m.ctrl.Call(m, "ListRegisterChanges", since, kind, stockCode, slug, itemNo, partyAb, chamber, limit, offset)
 	ret0, _ := ret[0].([]*shorts.RegisterChangeRow)
 	ret1, _ := ret[1].(int32)
 	ret2, _ := ret[2].(error)
@@ -1221,9 +1251,9 @@ func (m *MockShortsStore) ListRegisterChanges(since time.Time, kind, stockCode s
 }
 
 // ListRegisterChanges indicates an expected call of ListRegisterChanges.
-func (mr *MockShortsStoreMockRecorder) ListRegisterChanges(since, kind, stockCode, limit, offset any) *gomock.Call {
+func (mr *MockShortsStoreMockRecorder) ListRegisterChanges(since, kind, stockCode, slug, itemNo, partyAb, chamber, limit, offset any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRegisterChanges", reflect.TypeOf((*MockShortsStore)(nil).ListRegisterChanges), since, kind, stockCode, limit, offset)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRegisterChanges", reflect.TypeOf((*MockShortsStore)(nil).ListRegisterChanges), since, kind, stockCode, slug, itemNo, partyAb, chamber, limit, offset)
 }
 
 // ListReports mocks base method.
@@ -2111,6 +2141,20 @@ func (mr *MockCacheMockRecorder) GetPropertyHistoryKey(addressKey any) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPropertyHistoryKey", reflect.TypeOf((*MockCache)(nil).GetPropertyHistoryKey), addressKey)
 }
 
+// GetRegisterActivityKey mocks base method.
+func (m *MockCache) GetRegisterActivityKey(windowDays int32, slug, partyAb, chamber string, itemNo int32, kind string) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRegisterActivityKey", windowDays, slug, partyAb, chamber, itemNo, kind)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetRegisterActivityKey indicates an expected call of GetRegisterActivityKey.
+func (mr *MockCacheMockRecorder) GetRegisterActivityKey(windowDays, slug, partyAb, chamber, itemNo, kind any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRegisterActivityKey", reflect.TypeOf((*MockCache)(nil).GetRegisterActivityKey), windowDays, slug, partyAb, chamber, itemNo, kind)
+}
+
 // GetRegisterExplorerKey mocks base method.
 func (m *MockCache) GetRegisterExplorerKey() string {
 	m.ctrl.T.Helper()
@@ -2363,6 +2407,20 @@ func (mr *MockCacheMockRecorder) GetTopShortsKey(period, limit, offset any) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTopShortsKey", reflect.TypeOf((*MockCache)(nil).GetTopShortsKey), period, limit, offset)
 }
 
+// ListDistinctiveHoldingsKey mocks base method.
+func (m *MockCache) ListDistinctiveHoldingsKey(slug string) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListDistinctiveHoldingsKey", slug)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ListDistinctiveHoldingsKey indicates an expected call of ListDistinctiveHoldingsKey.
+func (mr *MockCacheMockRecorder) ListDistinctiveHoldingsKey(slug any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListDistinctiveHoldingsKey", reflect.TypeOf((*MockCache)(nil).ListDistinctiveHoldingsKey), slug)
+}
+
 // ListEconomicSeriesKey mocks base method.
 func (m *MockCache) ListEconomicSeriesKey(topic, metric, regionType, regionCode, product string, limit int32) string {
 	m.ctrl.T.Helper()
@@ -2420,17 +2478,17 @@ func (mr *MockCacheMockRecorder) ListPoliticiansKey(chamber, stateCode, partyAb,
 }
 
 // ListRegisterChangesKey mocks base method.
-func (m *MockCache) ListRegisterChangesKey(since time.Time, kind, stockCode string, limit, offset int32) string {
+func (m *MockCache) ListRegisterChangesKey(since time.Time, kind, stockCode, slug string, itemNo int32, partyAb, chamber string, limit, offset int32) string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListRegisterChangesKey", since, kind, stockCode, limit, offset)
+	ret := m.ctrl.Call(m, "ListRegisterChangesKey", since, kind, stockCode, slug, itemNo, partyAb, chamber, limit, offset)
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
 // ListRegisterChangesKey indicates an expected call of ListRegisterChangesKey.
-func (mr *MockCacheMockRecorder) ListRegisterChangesKey(since, kind, stockCode, limit, offset any) *gomock.Call {
+func (mr *MockCacheMockRecorder) ListRegisterChangesKey(since, kind, stockCode, slug, itemNo, partyAb, chamber, limit, offset any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRegisterChangesKey", reflect.TypeOf((*MockCache)(nil).ListRegisterChangesKey), since, kind, stockCode, limit, offset)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRegisterChangesKey", reflect.TypeOf((*MockCache)(nil).ListRegisterChangesKey), since, kind, stockCode, slug, itemNo, partyAb, chamber, limit, offset)
 }
 
 // ListSeriesCorrelationsKey mocks base method.

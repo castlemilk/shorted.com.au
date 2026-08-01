@@ -1,20 +1,18 @@
 import type { Metadata } from "next";
-import { toDate } from "@/lib/politics/timestamp";
 import Link from "next/link";
 
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { LLMMeta } from "@/components/seo/llm-meta";
+import { CaveatNote, SourceLine } from "@/components/politicians/compliance";
+import { RegisterActivityExplorer } from "@/components/politicians/register-activity-explorer";
 import {
-  CaveatNote,
-  DeclaredEntity,
-  HolderBadge,
-  PartyChip,
-  SourceLine,
-} from "@/components/politicians/compliance";
-import { listRegisterChanges } from "~/app/actions/getPoliticians";
+  getRegisterActivityAsAt,
+  loadRegisterActivity,
+} from "~/app/actions/registerActivity";
+import { listPoliticians } from "~/app/actions/getPoliticians";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { pageTitle, eyebrow, lede } from "@/lib/typography";
-import { RegisterChangeKind } from "~/gen/shorts/v1alpha1/politicians_pb";
+import { partyLabel } from "@/lib/politics/party-palette";
 
 const URL = "https://shorted.com.au/politicians/changes";
 const TITLE = "Register of Interests — Recent Additions and Removals";
@@ -31,13 +29,43 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", creator: "@shorted___" },
 };
 
-function fmt(d?: Date): string {
-  return d ? d.toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }) : "";
-}
-
+/**
+ * The register activity explorer.
+ *
+ * A SERVER PAGE THAT NEVER READS `searchParams`. This is a static-ISR route, and
+ * reading the query string here silently flips it to dynamic and kills the ISR —
+ * the trap /price-drops already paid for. Filter state therefore lives in the
+ * island below, which re-queries through a server action; the DEFAULT window's
+ * strip, feed and rails are rendered into this HTML, so a crawler and a reader
+ * with JavaScript off still get the real thing.
+ *
+ * EDITORIAL. Every row names a real person. The page publishes counts and dates
+ * and nothing else, its strongest characterisation is "most dated register
+ * events" (a count ordering), and the method note below states the three things
+ * a reader must know to read any of it correctly: the measures are dated-only,
+ * undated entries are excluded from every count, and activity reflects our
+ * extraction coverage as much as anyone's lodgement.
+ */
 export default async function RegisterChangesPage() {
-  const data = await listRegisterChanges(150, 0);
-  if (!data || data.events.length === 0) bailOnEmptyRender();
+  // The default view: no filters, the 90-day window the backend defaults to.
+  const page = await loadRegisterActivity({});
+  const asAt = await getRegisterActivityAsAt(page.windowDays);
+  // `railsOk` is in here for the same reason `ok` is: this is an ISR route, so
+  // whatever renders now is BAKED for an hour. A transient aggregate failure
+  // during a regen would otherwise freeze the strip's outage copy and three
+  // "unavailable" rails into a static page long after the rpc recovered — the
+  // outage wording is honest live and stale within minutes. Bailing keeps the
+  // last good page instead.
+  if (!page.ok || !page.railsOk || page.events.length === 0) bailOnEmptyRender();
+
+  // The party filter's options come from the ROLL, never from the palette:
+  // PARTY_LABEL maps both LP and LIB onto "Liberal", and the backend filters on
+  // the abbreviation — so a palette-derived list would pick one and silently
+  // drop every member recorded under the other.
+  const roll = await listPoliticians("", "", "", "", 500, 0);
+  const partyOptions = [
+    ...new Set((roll?.politicians ?? []).map((p) => p.partyAb).filter(Boolean)),
+  ].sort((a, b) => partyLabel(a).localeCompare(partyLabel(b)));
 
   return (
     <>
@@ -49,7 +77,7 @@ export default async function RegisterChangesPage() {
         dataFrequency="continuous during sitting periods"
       />
       <DashboardLayout>
-        <div className="mx-auto max-w-4xl space-y-8 px-4 py-8">
+        <div className="mx-auto max-w-6xl space-y-8 px-4 py-8">
           <header className="space-y-3">
             <p className={eyebrow}>
               <Link href="/politicians" className="hover:underline">
@@ -58,55 +86,28 @@ export default async function RegisterChangesPage() {
             </p>
             <h1 className={pageTitle}>Register additions and removals</h1>
             <p className={lede}>
-              Entries that entered or left the registers, newest first. These are register events,
-              not transactions — an entry can disappear because an asset was disposed of, because a
-              declaration was corrected, or because the member left parliament.
+              Entries that entered or left the registers, newest first. These are register
+              events, not transactions — an entry can disappear because an asset was disposed
+              of, because a declaration was corrected, or because the member left parliament.
             </p>
           </header>
 
-          <ul className="divide-y">
-            {(data?.events ?? []).map((e, idx) => {
-              const p = e.politician;
-              const added = e.kind === RegisterChangeKind.ADDED;
-              return (
-                <li key={`${p?.slug}-${idx}`} className="flex flex-col gap-1 py-2.5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="w-24 shrink-0 text-[11px] tabular-nums text-muted-foreground">
-                      {fmt(toDate(e.changedOn))}
-                    </span>
-                    <span
-                      className={
-                        added
-                          ? "text-[10px] uppercase tracking-wide text-emerald-600/80"
-                          : "text-[10px] uppercase tracking-wide text-muted-foreground"
-                      }
-                    >
-                      {added ? "added" : "removed"}
-                    </span>
-                    {p ? (
-                      <Link href={`/politicians/${p.slug}`} className="text-sm hover:underline">
-                        {p.displayName}
-                      </Link>
-                    ) : null}
-                    <HolderBadge holder={e.holder} />
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 pl-24">
-                    <DeclaredEntity
-                      declaredText={e.declaredText}
-                      stockCode={e.stockCode}
-                      companyName={e.companyName}
-                      entityKind={e.entityKind}
-                    />
-                    <PartyChip partyAb={p?.partyAb} />
-                    <span className="text-[10px] text-muted-foreground">{e.itemLabel}</span>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+          <RegisterActivityExplorer
+            initialPage={page}
+            loadPage={loadRegisterActivity}
+            partyOptions={partyOptions}
+          />
 
           <footer className="space-y-3 border-t pt-6">
-            <SourceLine surface="register changes" />
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              Method: every count on this page is of DATED register events — an entry whose
+              start date the register never stated has no point on a timeline and is excluded
+              rather than placed at a parliament&rsquo;s opening. Counts are of entries and of
+              people; the registers record no quantity and no value. A member&rsquo;s event
+              count reflects how much of their register we have read as well as what they
+              lodged, so a low count is coverage, not a finding.
+            </p>
+            <SourceLine surface="register changes" asAt={asAt} />
             <CaveatNote />
           </footer>
         </div>

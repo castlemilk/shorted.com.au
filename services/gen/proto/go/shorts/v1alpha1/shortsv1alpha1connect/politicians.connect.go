@@ -75,6 +75,33 @@ const (
 	// PoliticiansServiceComparePoliticiansProcedure is the fully-qualified name of the
 	// PoliticiansService's ComparePoliticians RPC.
 	PoliticiansServiceComparePoliticiansProcedure = "/shorts.v1alpha1.PoliticiansService/ComparePoliticians"
+	// PoliticiansServiceGetRegisterActivityProcedure is the fully-qualified name of the
+	// PoliticiansService's GetRegisterActivity RPC.
+	PoliticiansServiceGetRegisterActivityProcedure = "/shorts.v1alpha1.PoliticiansService/GetRegisterActivity"
+	// PoliticiansServiceListDistinctiveHoldingsProcedure is the fully-qualified name of the
+	// PoliticiansService's ListDistinctiveHoldings RPC.
+	PoliticiansServiceListDistinctiveHoldingsProcedure = "/shorts.v1alpha1.PoliticiansService/ListDistinctiveHoldings"
+)
+
+// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
+var (
+	politiciansServiceServiceDescriptor                            = v1alpha1.File_shorts_v1alpha1_politicians_proto.Services().ByName("PoliticiansService")
+	politiciansServiceGetParliamentOverviewMethodDescriptor        = politiciansServiceServiceDescriptor.Methods().ByName("GetParliamentOverview")
+	politiciansServiceListPoliticiansMethodDescriptor              = politiciansServiceServiceDescriptor.Methods().ByName("ListPoliticians")
+	politiciansServiceGetPoliticianMethodDescriptor                = politiciansServiceServiceDescriptor.Methods().ByName("GetPolitician")
+	politiciansServiceListStockPoliticiansMethodDescriptor         = politiciansServiceServiceDescriptor.Methods().ByName("ListStockPoliticians")
+	politiciansServiceListPoliticianStocksMethodDescriptor         = politiciansServiceServiceDescriptor.Methods().ByName("ListPoliticianStocks")
+	politiciansServiceListSuburbPoliticiansMethodDescriptor        = politiciansServiceServiceDescriptor.Methods().ByName("ListSuburbPoliticians")
+	politiciansServiceListStatePoliticianHoldingsMethodDescriptor  = politiciansServiceServiceDescriptor.Methods().ByName("ListStatePoliticianHoldings")
+	politiciansServiceListRegisterChangesMethodDescriptor          = politiciansServiceServiceDescriptor.Methods().ByName("ListRegisterChanges")
+	politiciansServiceListShortInterestOverlapMethodDescriptor     = politiciansServiceServiceDescriptor.Methods().ByName("ListShortInterestOverlap")
+	politiciansServiceGetPoliticianAnalyticsMethodDescriptor       = politiciansServiceServiceDescriptor.Methods().ByName("GetPoliticianAnalytics")
+	politiciansServiceGetRegisterExplorerMethodDescriptor          = politiciansServiceServiceDescriptor.Methods().ByName("GetRegisterExplorer")
+	politiciansServiceListPoliticianSummariesMethodDescriptor      = politiciansServiceServiceDescriptor.Methods().ByName("ListPoliticianSummaries")
+	politiciansServiceGetPoliticianExplorerProfileMethodDescriptor = politiciansServiceServiceDescriptor.Methods().ByName("GetPoliticianExplorerProfile")
+	politiciansServiceComparePoliticiansMethodDescriptor           = politiciansServiceServiceDescriptor.Methods().ByName("ComparePoliticians")
+	politiciansServiceGetRegisterActivityMethodDescriptor          = politiciansServiceServiceDescriptor.Methods().ByName("GetRegisterActivity")
+	politiciansServiceListDistinctiveHoldingsMethodDescriptor      = politiciansServiceServiceDescriptor.Methods().ByName("ListDistinctiveHoldings")
 )
 
 // PoliticiansServiceClient is a client for the shorts.v1alpha1.PoliticiansService service.
@@ -120,6 +147,18 @@ type PoliticiansServiceClient interface {
 	GetPoliticianExplorerProfile(context.Context, *connect.Request[v1alpha1.GetPoliticianExplorerProfileRequest]) (*connect.Response[v1alpha1.GetPoliticianExplorerProfileResponse], error)
 	// Neutral, symmetric comparison of two politician register summaries.
 	ComparePoliticians(context.Context, *connect.Request[v1alpha1.ComparePoliticiansRequest]) (*connect.Response[v1alpha1.ComparePoliticiansResponse], error)
+	// Aggregate lodgement activity over a window: weekly event counts, the
+	// members with the most dated events, companies first declared in the window,
+	// and companies whose declarer count moved.
+	//
+	// COUNTS AND DATES ONLY. "Most active" is a count ordering, and is the
+	// strongest characterisation permitted beside a named member — nothing here
+	// may become "unusual", "spike", "watch" or a flag of any kind.
+	GetRegisterActivity(context.Context, *connect.Request[v1alpha1.GetRegisterActivityRequest]) (*connect.Response[v1alpha1.GetRegisterActivityResponse], error)
+	// One member's currently-declared listed companies, each with how many
+	// members in total currently declare it. A count of one is the plain fact
+	// "no other member currently declares this"; it is not a label.
+	ListDistinctiveHoldings(context.Context, *connect.Request[v1alpha1.ListDistinctiveHoldingsRequest]) (*connect.Response[v1alpha1.ListDistinctiveHoldingsResponse], error)
 }
 
 // NewPoliticiansServiceClient constructs a client for the shorts.v1alpha1.PoliticiansService
@@ -131,90 +170,101 @@ type PoliticiansServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewPoliticiansServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) PoliticiansServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
-	politiciansServiceMethods := v1alpha1.File_shorts_v1alpha1_politicians_proto.Services().ByName("PoliticiansService").Methods()
 	return &politiciansServiceClient{
 		getParliamentOverview: connect.NewClient[v1alpha1.GetParliamentOverviewRequest, v1alpha1.GetParliamentOverviewResponse](
 			httpClient,
 			baseURL+PoliticiansServiceGetParliamentOverviewProcedure,
-			connect.WithSchema(politiciansServiceMethods.ByName("GetParliamentOverview")),
+			connect.WithSchema(politiciansServiceGetParliamentOverviewMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listPoliticians: connect.NewClient[v1alpha1.ListPoliticiansRequest, v1alpha1.ListPoliticiansResponse](
 			httpClient,
 			baseURL+PoliticiansServiceListPoliticiansProcedure,
-			connect.WithSchema(politiciansServiceMethods.ByName("ListPoliticians")),
+			connect.WithSchema(politiciansServiceListPoliticiansMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getPolitician: connect.NewClient[v1alpha1.GetPoliticianRequest, v1alpha1.GetPoliticianResponse](
 			httpClient,
 			baseURL+PoliticiansServiceGetPoliticianProcedure,
-			connect.WithSchema(politiciansServiceMethods.ByName("GetPolitician")),
+			connect.WithSchema(politiciansServiceGetPoliticianMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listStockPoliticians: connect.NewClient[v1alpha1.ListStockPoliticiansRequest, v1alpha1.ListStockPoliticiansResponse](
 			httpClient,
 			baseURL+PoliticiansServiceListStockPoliticiansProcedure,
-			connect.WithSchema(politiciansServiceMethods.ByName("ListStockPoliticians")),
+			connect.WithSchema(politiciansServiceListStockPoliticiansMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listPoliticianStocks: connect.NewClient[v1alpha1.ListPoliticianStocksRequest, v1alpha1.ListPoliticianStocksResponse](
 			httpClient,
 			baseURL+PoliticiansServiceListPoliticianStocksProcedure,
-			connect.WithSchema(politiciansServiceMethods.ByName("ListPoliticianStocks")),
+			connect.WithSchema(politiciansServiceListPoliticianStocksMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listSuburbPoliticians: connect.NewClient[v1alpha1.ListSuburbPoliticiansRequest, v1alpha1.ListSuburbPoliticiansResponse](
 			httpClient,
 			baseURL+PoliticiansServiceListSuburbPoliticiansProcedure,
-			connect.WithSchema(politiciansServiceMethods.ByName("ListSuburbPoliticians")),
+			connect.WithSchema(politiciansServiceListSuburbPoliticiansMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listStatePoliticianHoldings: connect.NewClient[v1alpha1.ListStatePoliticianHoldingsRequest, v1alpha1.ListStatePoliticianHoldingsResponse](
 			httpClient,
 			baseURL+PoliticiansServiceListStatePoliticianHoldingsProcedure,
-			connect.WithSchema(politiciansServiceMethods.ByName("ListStatePoliticianHoldings")),
+			connect.WithSchema(politiciansServiceListStatePoliticianHoldingsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listRegisterChanges: connect.NewClient[v1alpha1.ListRegisterChangesRequest, v1alpha1.ListRegisterChangesResponse](
 			httpClient,
 			baseURL+PoliticiansServiceListRegisterChangesProcedure,
-			connect.WithSchema(politiciansServiceMethods.ByName("ListRegisterChanges")),
+			connect.WithSchema(politiciansServiceListRegisterChangesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listShortInterestOverlap: connect.NewClient[v1alpha1.ListShortInterestOverlapRequest, v1alpha1.ListShortInterestOverlapResponse](
 			httpClient,
 			baseURL+PoliticiansServiceListShortInterestOverlapProcedure,
-			connect.WithSchema(politiciansServiceMethods.ByName("ListShortInterestOverlap")),
+			connect.WithSchema(politiciansServiceListShortInterestOverlapMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getPoliticianAnalytics: connect.NewClient[v1alpha1.GetPoliticianAnalyticsRequest, v1alpha1.GetPoliticianAnalyticsResponse](
 			httpClient,
 			baseURL+PoliticiansServiceGetPoliticianAnalyticsProcedure,
-			connect.WithSchema(politiciansServiceMethods.ByName("GetPoliticianAnalytics")),
+			connect.WithSchema(politiciansServiceGetPoliticianAnalyticsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getRegisterExplorer: connect.NewClient[v1alpha1.GetRegisterExplorerRequest, v1alpha1.GetRegisterExplorerResponse](
 			httpClient,
 			baseURL+PoliticiansServiceGetRegisterExplorerProcedure,
-			connect.WithSchema(politiciansServiceMethods.ByName("GetRegisterExplorer")),
+			connect.WithSchema(politiciansServiceGetRegisterExplorerMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listPoliticianSummaries: connect.NewClient[v1alpha1.ListPoliticianSummariesRequest, v1alpha1.ListPoliticianSummariesResponse](
 			httpClient,
 			baseURL+PoliticiansServiceListPoliticianSummariesProcedure,
-			connect.WithSchema(politiciansServiceMethods.ByName("ListPoliticianSummaries")),
+			connect.WithSchema(politiciansServiceListPoliticianSummariesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getPoliticianExplorerProfile: connect.NewClient[v1alpha1.GetPoliticianExplorerProfileRequest, v1alpha1.GetPoliticianExplorerProfileResponse](
 			httpClient,
 			baseURL+PoliticiansServiceGetPoliticianExplorerProfileProcedure,
-			connect.WithSchema(politiciansServiceMethods.ByName("GetPoliticianExplorerProfile")),
+			connect.WithSchema(politiciansServiceGetPoliticianExplorerProfileMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		comparePoliticians: connect.NewClient[v1alpha1.ComparePoliticiansRequest, v1alpha1.ComparePoliticiansResponse](
 			httpClient,
 			baseURL+PoliticiansServiceComparePoliticiansProcedure,
-			connect.WithSchema(politiciansServiceMethods.ByName("ComparePoliticians")),
+			connect.WithSchema(politiciansServiceComparePoliticiansMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getRegisterActivity: connect.NewClient[v1alpha1.GetRegisterActivityRequest, v1alpha1.GetRegisterActivityResponse](
+			httpClient,
+			baseURL+PoliticiansServiceGetRegisterActivityProcedure,
+			connect.WithSchema(politiciansServiceGetRegisterActivityMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listDistinctiveHoldings: connect.NewClient[v1alpha1.ListDistinctiveHoldingsRequest, v1alpha1.ListDistinctiveHoldingsResponse](
+			httpClient,
+			baseURL+PoliticiansServiceListDistinctiveHoldingsProcedure,
+			connect.WithSchema(politiciansServiceListDistinctiveHoldingsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -236,6 +286,8 @@ type politiciansServiceClient struct {
 	listPoliticianSummaries      *connect.Client[v1alpha1.ListPoliticianSummariesRequest, v1alpha1.ListPoliticianSummariesResponse]
 	getPoliticianExplorerProfile *connect.Client[v1alpha1.GetPoliticianExplorerProfileRequest, v1alpha1.GetPoliticianExplorerProfileResponse]
 	comparePoliticians           *connect.Client[v1alpha1.ComparePoliticiansRequest, v1alpha1.ComparePoliticiansResponse]
+	getRegisterActivity          *connect.Client[v1alpha1.GetRegisterActivityRequest, v1alpha1.GetRegisterActivityResponse]
+	listDistinctiveHoldings      *connect.Client[v1alpha1.ListDistinctiveHoldingsRequest, v1alpha1.ListDistinctiveHoldingsResponse]
 }
 
 // GetParliamentOverview calls shorts.v1alpha1.PoliticiansService.GetParliamentOverview.
@@ -309,6 +361,16 @@ func (c *politiciansServiceClient) ComparePoliticians(ctx context.Context, req *
 	return c.comparePoliticians.CallUnary(ctx, req)
 }
 
+// GetRegisterActivity calls shorts.v1alpha1.PoliticiansService.GetRegisterActivity.
+func (c *politiciansServiceClient) GetRegisterActivity(ctx context.Context, req *connect.Request[v1alpha1.GetRegisterActivityRequest]) (*connect.Response[v1alpha1.GetRegisterActivityResponse], error) {
+	return c.getRegisterActivity.CallUnary(ctx, req)
+}
+
+// ListDistinctiveHoldings calls shorts.v1alpha1.PoliticiansService.ListDistinctiveHoldings.
+func (c *politiciansServiceClient) ListDistinctiveHoldings(ctx context.Context, req *connect.Request[v1alpha1.ListDistinctiveHoldingsRequest]) (*connect.Response[v1alpha1.ListDistinctiveHoldingsResponse], error) {
+	return c.listDistinctiveHoldings.CallUnary(ctx, req)
+}
+
 // PoliticiansServiceHandler is an implementation of the shorts.v1alpha1.PoliticiansService service.
 type PoliticiansServiceHandler interface {
 	// Parliament-wide counts and the as-at date. Cheap; drives the hub tiles.
@@ -352,6 +414,18 @@ type PoliticiansServiceHandler interface {
 	GetPoliticianExplorerProfile(context.Context, *connect.Request[v1alpha1.GetPoliticianExplorerProfileRequest]) (*connect.Response[v1alpha1.GetPoliticianExplorerProfileResponse], error)
 	// Neutral, symmetric comparison of two politician register summaries.
 	ComparePoliticians(context.Context, *connect.Request[v1alpha1.ComparePoliticiansRequest]) (*connect.Response[v1alpha1.ComparePoliticiansResponse], error)
+	// Aggregate lodgement activity over a window: weekly event counts, the
+	// members with the most dated events, companies first declared in the window,
+	// and companies whose declarer count moved.
+	//
+	// COUNTS AND DATES ONLY. "Most active" is a count ordering, and is the
+	// strongest characterisation permitted beside a named member — nothing here
+	// may become "unusual", "spike", "watch" or a flag of any kind.
+	GetRegisterActivity(context.Context, *connect.Request[v1alpha1.GetRegisterActivityRequest]) (*connect.Response[v1alpha1.GetRegisterActivityResponse], error)
+	// One member's currently-declared listed companies, each with how many
+	// members in total currently declare it. A count of one is the plain fact
+	// "no other member currently declares this"; it is not a label.
+	ListDistinctiveHoldings(context.Context, *connect.Request[v1alpha1.ListDistinctiveHoldingsRequest]) (*connect.Response[v1alpha1.ListDistinctiveHoldingsResponse], error)
 }
 
 // NewPoliticiansServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -360,89 +434,100 @@ type PoliticiansServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewPoliticiansServiceHandler(svc PoliticiansServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	politiciansServiceMethods := v1alpha1.File_shorts_v1alpha1_politicians_proto.Services().ByName("PoliticiansService").Methods()
 	politiciansServiceGetParliamentOverviewHandler := connect.NewUnaryHandler(
 		PoliticiansServiceGetParliamentOverviewProcedure,
 		svc.GetParliamentOverview,
-		connect.WithSchema(politiciansServiceMethods.ByName("GetParliamentOverview")),
+		connect.WithSchema(politiciansServiceGetParliamentOverviewMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	politiciansServiceListPoliticiansHandler := connect.NewUnaryHandler(
 		PoliticiansServiceListPoliticiansProcedure,
 		svc.ListPoliticians,
-		connect.WithSchema(politiciansServiceMethods.ByName("ListPoliticians")),
+		connect.WithSchema(politiciansServiceListPoliticiansMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	politiciansServiceGetPoliticianHandler := connect.NewUnaryHandler(
 		PoliticiansServiceGetPoliticianProcedure,
 		svc.GetPolitician,
-		connect.WithSchema(politiciansServiceMethods.ByName("GetPolitician")),
+		connect.WithSchema(politiciansServiceGetPoliticianMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	politiciansServiceListStockPoliticiansHandler := connect.NewUnaryHandler(
 		PoliticiansServiceListStockPoliticiansProcedure,
 		svc.ListStockPoliticians,
-		connect.WithSchema(politiciansServiceMethods.ByName("ListStockPoliticians")),
+		connect.WithSchema(politiciansServiceListStockPoliticiansMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	politiciansServiceListPoliticianStocksHandler := connect.NewUnaryHandler(
 		PoliticiansServiceListPoliticianStocksProcedure,
 		svc.ListPoliticianStocks,
-		connect.WithSchema(politiciansServiceMethods.ByName("ListPoliticianStocks")),
+		connect.WithSchema(politiciansServiceListPoliticianStocksMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	politiciansServiceListSuburbPoliticiansHandler := connect.NewUnaryHandler(
 		PoliticiansServiceListSuburbPoliticiansProcedure,
 		svc.ListSuburbPoliticians,
-		connect.WithSchema(politiciansServiceMethods.ByName("ListSuburbPoliticians")),
+		connect.WithSchema(politiciansServiceListSuburbPoliticiansMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	politiciansServiceListStatePoliticianHoldingsHandler := connect.NewUnaryHandler(
 		PoliticiansServiceListStatePoliticianHoldingsProcedure,
 		svc.ListStatePoliticianHoldings,
-		connect.WithSchema(politiciansServiceMethods.ByName("ListStatePoliticianHoldings")),
+		connect.WithSchema(politiciansServiceListStatePoliticianHoldingsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	politiciansServiceListRegisterChangesHandler := connect.NewUnaryHandler(
 		PoliticiansServiceListRegisterChangesProcedure,
 		svc.ListRegisterChanges,
-		connect.WithSchema(politiciansServiceMethods.ByName("ListRegisterChanges")),
+		connect.WithSchema(politiciansServiceListRegisterChangesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	politiciansServiceListShortInterestOverlapHandler := connect.NewUnaryHandler(
 		PoliticiansServiceListShortInterestOverlapProcedure,
 		svc.ListShortInterestOverlap,
-		connect.WithSchema(politiciansServiceMethods.ByName("ListShortInterestOverlap")),
+		connect.WithSchema(politiciansServiceListShortInterestOverlapMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	politiciansServiceGetPoliticianAnalyticsHandler := connect.NewUnaryHandler(
 		PoliticiansServiceGetPoliticianAnalyticsProcedure,
 		svc.GetPoliticianAnalytics,
-		connect.WithSchema(politiciansServiceMethods.ByName("GetPoliticianAnalytics")),
+		connect.WithSchema(politiciansServiceGetPoliticianAnalyticsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	politiciansServiceGetRegisterExplorerHandler := connect.NewUnaryHandler(
 		PoliticiansServiceGetRegisterExplorerProcedure,
 		svc.GetRegisterExplorer,
-		connect.WithSchema(politiciansServiceMethods.ByName("GetRegisterExplorer")),
+		connect.WithSchema(politiciansServiceGetRegisterExplorerMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	politiciansServiceListPoliticianSummariesHandler := connect.NewUnaryHandler(
 		PoliticiansServiceListPoliticianSummariesProcedure,
 		svc.ListPoliticianSummaries,
-		connect.WithSchema(politiciansServiceMethods.ByName("ListPoliticianSummaries")),
+		connect.WithSchema(politiciansServiceListPoliticianSummariesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	politiciansServiceGetPoliticianExplorerProfileHandler := connect.NewUnaryHandler(
 		PoliticiansServiceGetPoliticianExplorerProfileProcedure,
 		svc.GetPoliticianExplorerProfile,
-		connect.WithSchema(politiciansServiceMethods.ByName("GetPoliticianExplorerProfile")),
+		connect.WithSchema(politiciansServiceGetPoliticianExplorerProfileMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	politiciansServiceComparePoliticiansHandler := connect.NewUnaryHandler(
 		PoliticiansServiceComparePoliticiansProcedure,
 		svc.ComparePoliticians,
-		connect.WithSchema(politiciansServiceMethods.ByName("ComparePoliticians")),
+		connect.WithSchema(politiciansServiceComparePoliticiansMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	politiciansServiceGetRegisterActivityHandler := connect.NewUnaryHandler(
+		PoliticiansServiceGetRegisterActivityProcedure,
+		svc.GetRegisterActivity,
+		connect.WithSchema(politiciansServiceGetRegisterActivityMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	politiciansServiceListDistinctiveHoldingsHandler := connect.NewUnaryHandler(
+		PoliticiansServiceListDistinctiveHoldingsProcedure,
+		svc.ListDistinctiveHoldings,
+		connect.WithSchema(politiciansServiceListDistinctiveHoldingsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/shorts.v1alpha1.PoliticiansService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -475,6 +560,10 @@ func NewPoliticiansServiceHandler(svc PoliticiansServiceHandler, opts ...connect
 			politiciansServiceGetPoliticianExplorerProfileHandler.ServeHTTP(w, r)
 		case PoliticiansServiceComparePoliticiansProcedure:
 			politiciansServiceComparePoliticiansHandler.ServeHTTP(w, r)
+		case PoliticiansServiceGetRegisterActivityProcedure:
+			politiciansServiceGetRegisterActivityHandler.ServeHTTP(w, r)
+		case PoliticiansServiceListDistinctiveHoldingsProcedure:
+			politiciansServiceListDistinctiveHoldingsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -538,4 +627,12 @@ func (UnimplementedPoliticiansServiceHandler) GetPoliticianExplorerProfile(conte
 
 func (UnimplementedPoliticiansServiceHandler) ComparePoliticians(context.Context, *connect.Request[v1alpha1.ComparePoliticiansRequest]) (*connect.Response[v1alpha1.ComparePoliticiansResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.PoliticiansService.ComparePoliticians is not implemented"))
+}
+
+func (UnimplementedPoliticiansServiceHandler) GetRegisterActivity(context.Context, *connect.Request[v1alpha1.GetRegisterActivityRequest]) (*connect.Response[v1alpha1.GetRegisterActivityResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.PoliticiansService.GetRegisterActivity is not implemented"))
+}
+
+func (UnimplementedPoliticiansServiceHandler) ListDistinctiveHoldings(context.Context, *connect.Request[v1alpha1.ListDistinctiveHoldingsRequest]) (*connect.Response[v1alpha1.ListDistinctiveHoldingsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.PoliticiansService.ListDistinctiveHoldings is not implemented"))
 }

@@ -11,16 +11,37 @@ public interface ListRegisterChangesRequestOrBuilder extends
     com.google.protobuf.MessageOrBuilder {
 
   /**
+   * <pre>
+   * Interpreted at UTC DAY granularity: the handler truncates it to UTC
+   * midnight before it reaches either the cache key or the query, so two
+   * timestamps on the same day are one request and cannot be served each
+   * other's results.
+   * </pre>
+   *
    * <code>.google.protobuf.Timestamp since = 1 [json_name = "since"];</code>
    * @return Whether the since field is set.
    */
   boolean hasSince();
   /**
+   * <pre>
+   * Interpreted at UTC DAY granularity: the handler truncates it to UTC
+   * midnight before it reaches either the cache key or the query, so two
+   * timestamps on the same day are one request and cannot be served each
+   * other's results.
+   * </pre>
+   *
    * <code>.google.protobuf.Timestamp since = 1 [json_name = "since"];</code>
    * @return The since.
    */
   com.google.protobuf.Timestamp getSince();
   /**
+   * <pre>
+   * Interpreted at UTC DAY granularity: the handler truncates it to UTC
+   * midnight before it reaches either the cache key or the query, so two
+   * timestamps on the same day are one request and cannot be served each
+   * other's results.
+   * </pre>
+   *
    * <code>.google.protobuf.Timestamp since = 1 [json_name = "since"];</code>
    */
   com.google.protobuf.TimestampOrBuilder getSinceOrBuilder();
@@ -79,4 +100,76 @@ public interface ListRegisterChangesRequestOrBuilder extends
    * @return The offset.
    */
   int getOffset();
+
+  /**
+   * <pre>
+   * Discovery-layer filters. All optional and all ADDITIVE — the unfiltered
+   * feed is unchanged when they are left empty.
+   * </pre>
+   *
+   * <code>string politician_slug = 6 [json_name = "politicianSlug"];</code>
+   * @return The politicianSlug.
+   */
+  java.lang.String getPoliticianSlug();
+  /**
+   * <pre>
+   * Discovery-layer filters. All optional and all ADDITIVE — the unfiltered
+   * feed is unchanged when they are left empty.
+   * </pre>
+   *
+   * <code>string politician_slug = 6 [json_name = "politicianSlug"];</code>
+   * @return The bytes for politicianSlug.
+   */
+  com.google.protobuf.ByteString
+      getPoliticianSlugBytes();
+
+  /**
+   * <pre>
+   * register form item 1-14; 0 = all
+   * </pre>
+   *
+   * <code>int32 item_no = 7 [json_name = "itemNo"];</code>
+   * @return The itemNo.
+   */
+  int getItemNo();
+
+  /**
+   * <pre>
+   * AEC abbreviation
+   * </pre>
+   *
+   * <code>string party_ab = 8 [json_name = "partyAb"];</code>
+   * @return The partyAb.
+   */
+  java.lang.String getPartyAb();
+  /**
+   * <pre>
+   * AEC abbreviation
+   * </pre>
+   *
+   * <code>string party_ab = 8 [json_name = "partyAb"];</code>
+   * @return The bytes for partyAb.
+   */
+  com.google.protobuf.ByteString
+      getPartyAbBytes();
+
+  /**
+   * <pre>
+   * 'house' | 'senate'
+   * </pre>
+   *
+   * <code>string chamber = 9 [json_name = "chamber"];</code>
+   * @return The chamber.
+   */
+  java.lang.String getChamber();
+  /**
+   * <pre>
+   * 'house' | 'senate'
+   * </pre>
+   *
+   * <code>string chamber = 9 [json_name = "chamber"];</code>
+   * @return The bytes for chamber.
+   */
+  com.google.protobuf.ByteString
+      getChamberBytes();
 }

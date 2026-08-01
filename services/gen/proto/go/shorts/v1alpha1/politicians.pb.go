@@ -3756,14 +3756,24 @@ func (x *ListStatePoliticianHoldingsResponse) GetSourceLicence() string {
 }
 
 type ListRegisterChangesRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Since         *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=since,proto3" json:"since,omitempty"`
-	Kind          RegisterChangeKind     `protobuf:"varint,2,opt,name=kind,proto3,enum=shorts.v1alpha1.RegisterChangeKind" json:"kind,omitempty"` // UNSPECIFIED = both
-	StockCode     string                 `protobuf:"bytes,3,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`               // optional
-	Limit         int32                  `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`                                       // default 100, max 500
-	Offset        int32                  `protobuf:"varint,5,opt,name=offset,proto3" json:"offset,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Interpreted at UTC DAY granularity: the handler truncates it to UTC
+	// midnight before it reaches either the cache key or the query, so two
+	// timestamps on the same day are one request and cannot be served each
+	// other's results.
+	Since     *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=since,proto3" json:"since,omitempty"`
+	Kind      RegisterChangeKind     `protobuf:"varint,2,opt,name=kind,proto3,enum=shorts.v1alpha1.RegisterChangeKind" json:"kind,omitempty"` // UNSPECIFIED = both
+	StockCode string                 `protobuf:"bytes,3,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`               // optional
+	Limit     int32                  `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`                                       // default 100, max 500
+	Offset    int32                  `protobuf:"varint,5,opt,name=offset,proto3" json:"offset,omitempty"`
+	// Discovery-layer filters. All optional and all ADDITIVE — the unfiltered
+	// feed is unchanged when they are left empty.
+	PoliticianSlug string `protobuf:"bytes,6,opt,name=politician_slug,json=politicianSlug,proto3" json:"politician_slug,omitempty"` // canonical slug; consumers never derive one
+	ItemNo         int32  `protobuf:"varint,7,opt,name=item_no,json=itemNo,proto3" json:"item_no,omitempty"`                        // register form item 1-14; 0 = all
+	PartyAb        string `protobuf:"bytes,8,opt,name=party_ab,json=partyAb,proto3" json:"party_ab,omitempty"`                      // AEC abbreviation
+	Chamber        string `protobuf:"bytes,9,opt,name=chamber,proto3" json:"chamber,omitempty"`                                     // 'house' | 'senate'
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *ListRegisterChangesRequest) Reset() {
@@ -3829,6 +3839,34 @@ func (x *ListRegisterChangesRequest) GetOffset() int32 {
 		return x.Offset
 	}
 	return 0
+}
+
+func (x *ListRegisterChangesRequest) GetPoliticianSlug() string {
+	if x != nil {
+		return x.PoliticianSlug
+	}
+	return ""
+}
+
+func (x *ListRegisterChangesRequest) GetItemNo() int32 {
+	if x != nil {
+		return x.ItemNo
+	}
+	return 0
+}
+
+func (x *ListRegisterChangesRequest) GetPartyAb() string {
+	if x != nil {
+		return x.PartyAb
+	}
+	return ""
+}
+
+func (x *ListRegisterChangesRequest) GetChamber() string {
+	if x != nil {
+		return x.Chamber
+	}
+	return ""
 }
 
 type RegisterChangeEvent struct {
@@ -3962,6 +4000,9 @@ type ListRegisterChangesResponse struct {
 	Events        []*RegisterChangeEvent `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`
 	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
 	SourceLicence string                 `protobuf:"bytes,3,opt,name=source_licence,json=sourceLicence,proto3" json:"source_licence,omitempty"`
+	// The register's own clock: the newest lodgement we hold, never the moment we
+	// rebuilt our snapshot.
+	AsAt          *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=as_at,json=asAt,proto3" json:"as_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4017,6 +4058,793 @@ func (x *ListRegisterChangesResponse) GetSourceLicence() string {
 	return ""
 }
 
+func (x *ListRegisterChangesResponse) GetAsAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AsAt
+	}
+	return nil
+}
+
+type GetRegisterActivityRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 30 | 90 | 180 | 365. Anything else is clamped to the next value up (0 and
+	// negatives default to 90), so a cache key can never describe a window other
+	// than the one that produced it.
+	WindowDays int32 `protobuf:"varint,1,opt,name=window_days,json=windowDays,proto3" json:"window_days,omitempty"`
+	// The SAME filter set ListRegisterChanges takes, and for one reason: the
+	// weekly strip is drawn above a FILTERED feed, so parliament-wide numbers
+	// rendered there read as the filtered member's own. All optional and all
+	// ADDITIVE — an unfiltered request is byte-identical to the old behaviour.
+	//
+	// They narrow the WEEKLY BUCKETS, filtered_event_count and
+	// filtered_member_count only. The three rails (active_members,
+	// newly_declared_companies, declarer_count_changes) are NOT narrowed by the
+	// filters: they answer corpus-wide questions inside the window, and a
+	// "most active members" rail filtered to one member would be a tautology.
+	PoliticianSlug string             `protobuf:"bytes,2,opt,name=politician_slug,json=politicianSlug,proto3" json:"politician_slug,omitempty"` // canonical slug; consumers never derive one
+	PartyAb        string             `protobuf:"bytes,3,opt,name=party_ab,json=partyAb,proto3" json:"party_ab,omitempty"`                      // AEC abbreviation
+	Chamber        string             `protobuf:"bytes,4,opt,name=chamber,proto3" json:"chamber,omitempty"`                                     // 'house' | 'senate'
+	ItemNo         int32              `protobuf:"varint,5,opt,name=item_no,json=itemNo,proto3" json:"item_no,omitempty"`                        // register form item 1-14; 0 = all
+	Kind           RegisterChangeKind `protobuf:"varint,6,opt,name=kind,proto3,enum=shorts.v1alpha1.RegisterChangeKind" json:"kind,omitempty"`  // UNSPECIFIED = both
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *GetRegisterActivityRequest) Reset() {
+	*x = GetRegisterActivityRequest{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetRegisterActivityRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetRegisterActivityRequest) ProtoMessage() {}
+
+func (x *GetRegisterActivityRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetRegisterActivityRequest.ProtoReflect.Descriptor instead.
+func (*GetRegisterActivityRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *GetRegisterActivityRequest) GetWindowDays() int32 {
+	if x != nil {
+		return x.WindowDays
+	}
+	return 0
+}
+
+func (x *GetRegisterActivityRequest) GetPoliticianSlug() string {
+	if x != nil {
+		return x.PoliticianSlug
+	}
+	return ""
+}
+
+func (x *GetRegisterActivityRequest) GetPartyAb() string {
+	if x != nil {
+		return x.PartyAb
+	}
+	return ""
+}
+
+func (x *GetRegisterActivityRequest) GetChamber() string {
+	if x != nil {
+		return x.Chamber
+	}
+	return ""
+}
+
+func (x *GetRegisterActivityRequest) GetItemNo() int32 {
+	if x != nil {
+		return x.ItemNo
+	}
+	return 0
+}
+
+func (x *GetRegisterActivityRequest) GetKind() RegisterChangeKind {
+	if x != nil {
+		return x.Kind
+	}
+	return RegisterChangeKind_REGISTER_CHANGE_KIND_UNSPECIFIED
+}
+
+// WeeklyEventCount is one Monday-anchored week of DATED events. Undated
+// lodgements have no point on a timeline and are excluded — never placed at a
+// parliament's opening, which would fabricate a date.
+//
+// The series is CONTIGUOUS: every Monday from the window's start to the current
+// week is present, weeks with no events included at zero, so a bar chart's gaps
+// are real quiet weeks rather than missing buckets drawn adjacent.
+type WeeklyEventCount struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	WeekStart     string                 `protobuf:"bytes,1,opt,name=week_start,json=weekStart,proto3" json:"week_start,omitempty"` // YYYY-MM-DD, Monday
+	AddedCount    int32                  `protobuf:"varint,2,opt,name=added_count,json=addedCount,proto3" json:"added_count,omitempty"`
+	RemovedCount  int32                  `protobuf:"varint,3,opt,name=removed_count,json=removedCount,proto3" json:"removed_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WeeklyEventCount) Reset() {
+	*x = WeeklyEventCount{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WeeklyEventCount) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WeeklyEventCount) ProtoMessage() {}
+
+func (x *WeeklyEventCount) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WeeklyEventCount.ProtoReflect.Descriptor instead.
+func (*WeeklyEventCount) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *WeeklyEventCount) GetWeekStart() string {
+	if x != nil {
+		return x.WeekStart
+	}
+	return ""
+}
+
+func (x *WeeklyEventCount) GetAddedCount() int32 {
+	if x != nil {
+		return x.AddedCount
+	}
+	return 0
+}
+
+func (x *WeeklyEventCount) GetRemovedCount() int32 {
+	if x != nil {
+		return x.RemovedCount
+	}
+	return 0
+}
+
+// ActiveMember is a member ordered by their COUNT of dated events in the
+// window. A high count reflects lodgement and extraction activity, not conduct.
+type ActiveMember struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Slug          string                 `protobuf:"bytes,1,opt,name=slug,proto3" json:"slug,omitempty"`
+	DisplayName   string                 `protobuf:"bytes,2,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	PartyAb       string                 `protobuf:"bytes,3,opt,name=party_ab,json=partyAb,proto3" json:"party_ab,omitempty"`
+	Chamber       string                 `protobuf:"bytes,4,opt,name=chamber,proto3" json:"chamber,omitempty"`
+	Division      string                 `protobuf:"bytes,5,opt,name=division,proto3" json:"division,omitempty"`
+	EventCount    int32                  `protobuf:"varint,6,opt,name=event_count,json=eventCount,proto3" json:"event_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ActiveMember) Reset() {
+	*x = ActiveMember{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ActiveMember) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ActiveMember) ProtoMessage() {}
+
+func (x *ActiveMember) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ActiveMember.ProtoReflect.Descriptor instead.
+func (*ActiveMember) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *ActiveMember) GetSlug() string {
+	if x != nil {
+		return x.Slug
+	}
+	return ""
+}
+
+func (x *ActiveMember) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+func (x *ActiveMember) GetPartyAb() string {
+	if x != nil {
+		return x.PartyAb
+	}
+	return ""
+}
+
+func (x *ActiveMember) GetChamber() string {
+	if x != nil {
+		return x.Chamber
+	}
+	return ""
+}
+
+func (x *ActiveMember) GetDivision() string {
+	if x != nil {
+		return x.Division
+	}
+	return ""
+}
+
+func (x *ActiveMember) GetEventCount() int32 {
+	if x != nil {
+		return x.EventCount
+	}
+	return 0
+}
+
+// NewlyDeclaredCompany is a company whose FIRST dated declaration anywhere in
+// the corpus falls inside the window.
+//
+// WITHHELD RATHER THAN GUESSED: a company is excluded outright if ANY member
+// currently declares it with no known start date. About 80% of currently
+// declared rows are undated, so a dated-only minimum cannot prove first-ness
+// against them — an undated holding of the same company may be decades old.
+// First-ness is a claim about the whole corpus, so an unprovable one is not
+// made at all.
+type NewlyDeclaredCompany struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	StockCode       string                 `protobuf:"bytes,1,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`
+	CompanyName     string                 `protobuf:"bytes,2,opt,name=company_name,json=companyName,proto3" json:"company_name,omitempty"`
+	Industry        string                 `protobuf:"bytes,3,opt,name=industry,proto3" json:"industry,omitempty"`
+	FirstDeclaredOn string                 `protobuf:"bytes,4,opt,name=first_declared_on,json=firstDeclaredOn,proto3" json:"first_declared_on,omitempty"` // YYYY-MM-DD
+	// Members currently declaring the company, corpus-wide. People, never rows.
+	//
+	// The SAME dated predicate as DeclarerCountChange.declarers_now, so the two
+	// rails of one response cannot disagree about how many members declare a
+	// company. (After the exclusion above these companies have no undated current
+	// rows at all, so the dated count is the whole count.)
+	DeclarerCount int32 `protobuf:"varint,5,opt,name=declarer_count,json=declarerCount,proto3" json:"declarer_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NewlyDeclaredCompany) Reset() {
+	*x = NewlyDeclaredCompany{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NewlyDeclaredCompany) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NewlyDeclaredCompany) ProtoMessage() {}
+
+func (x *NewlyDeclaredCompany) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NewlyDeclaredCompany.ProtoReflect.Descriptor instead.
+func (*NewlyDeclaredCompany) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *NewlyDeclaredCompany) GetStockCode() string {
+	if x != nil {
+		return x.StockCode
+	}
+	return ""
+}
+
+func (x *NewlyDeclaredCompany) GetCompanyName() string {
+	if x != nil {
+		return x.CompanyName
+	}
+	return ""
+}
+
+func (x *NewlyDeclaredCompany) GetIndustry() string {
+	if x != nil {
+		return x.Industry
+	}
+	return ""
+}
+
+func (x *NewlyDeclaredCompany) GetFirstDeclaredOn() string {
+	if x != nil {
+		return x.FirstDeclaredOn
+	}
+	return ""
+}
+
+func (x *NewlyDeclaredCompany) GetDeclarerCount() int32 {
+	if x != nil {
+		return x.DeclarerCount
+	}
+	return 0
+}
+
+// DeclarerCountChange is a company whose number of declaring members differs
+// between the window's start and now.
+//
+// BOTH sides are dated-only and use the identical predicate at two dates. About
+// 80% of currently-declared rows carry no start date, so an undated-inclusive
+// "now" against a dated-only baseline would report every company as growing by
+// its undated population, and an abs() ordering would then rank the list by
+// that artefact.
+type DeclarerCountChange struct {
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	StockCode   string                 `protobuf:"bytes,1,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`
+	CompanyName string                 `protobuf:"bytes,2,opt,name=company_name,json=companyName,proto3" json:"company_name,omitempty"`
+	Industry    string                 `protobuf:"bytes,3,opt,name=industry,proto3" json:"industry,omitempty"`
+	// Members whose declaration is dated and open today — the SAME predicate
+	// NewlyDeclaredCompany.declarer_count uses, so one response speaks with one
+	// measure of "how many members declare this company".
+	DeclarersNow           int32 `protobuf:"varint,4,opt,name=declarers_now,json=declarersNow,proto3" json:"declarers_now,omitempty"`
+	DeclarersAtWindowStart int32 `protobuf:"varint,5,opt,name=declarers_at_window_start,json=declarersAtWindowStart,proto3" json:"declarers_at_window_start,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *DeclarerCountChange) Reset() {
+	*x = DeclarerCountChange{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeclarerCountChange) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeclarerCountChange) ProtoMessage() {}
+
+func (x *DeclarerCountChange) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeclarerCountChange.ProtoReflect.Descriptor instead.
+func (*DeclarerCountChange) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *DeclarerCountChange) GetStockCode() string {
+	if x != nil {
+		return x.StockCode
+	}
+	return ""
+}
+
+func (x *DeclarerCountChange) GetCompanyName() string {
+	if x != nil {
+		return x.CompanyName
+	}
+	return ""
+}
+
+func (x *DeclarerCountChange) GetIndustry() string {
+	if x != nil {
+		return x.Industry
+	}
+	return ""
+}
+
+func (x *DeclarerCountChange) GetDeclarersNow() int32 {
+	if x != nil {
+		return x.DeclarersNow
+	}
+	return 0
+}
+
+func (x *DeclarerCountChange) GetDeclarersAtWindowStart() int32 {
+	if x != nil {
+		return x.DeclarersAtWindowStart
+	}
+	return 0
+}
+
+type GetRegisterActivityResponse struct {
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	WindowDays int32                  `protobuf:"varint,1,opt,name=window_days,json=windowDays,proto3" json:"window_days,omitempty"` // the clamped window actually used
+	// Contiguous Monday buckets, NARROWED BY THE REQUEST'S FILTERS. The first
+	// bucket is the Monday on or before (today - window_days), so no bucket is a
+	// partial week drawn as a full one.
+	Weeks []*WeeklyEventCount `protobuf:"bytes,2,rep,name=weeks,proto3" json:"weeks,omitempty"`
+	// The three rails below are CORPUS-WIDE and window-scoped: the request's
+	// filters do not narrow them.
+	ActiveMembers          []*ActiveMember         `protobuf:"bytes,3,rep,name=active_members,json=activeMembers,proto3" json:"active_members,omitempty"`
+	NewlyDeclaredCompanies []*NewlyDeclaredCompany `protobuf:"bytes,4,rep,name=newly_declared_companies,json=newlyDeclaredCompanies,proto3" json:"newly_declared_companies,omitempty"`
+	DeclarerCountChanges   []*DeclarerCountChange  `protobuf:"bytes,5,rep,name=declarer_count_changes,json=declarerCountChanges,proto3" json:"declarer_count_changes,omitempty"`
+	// Currently-declared rows with no known start date, and therefore absent from
+	// every measure above. Stated rather than dropped silently: a surface must be
+	// able to caption what its timeline does not contain.
+	UndatedCurrentCount int32                  `protobuf:"varint,6,opt,name=undated_current_count,json=undatedCurrentCount,proto3" json:"undated_current_count,omitempty"`
+	SourceLicence       string                 `protobuf:"bytes,7,opt,name=source_licence,json=sourceLicence,proto3" json:"source_licence,omitempty"`
+	AsAt                *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=as_at,json=asAt,proto3" json:"as_at,omitempty"`
+	// Dated events matching the request's filters inside the window. Equal to the
+	// sum of every bucket's added_count + removed_count, so a count line beside
+	// the strip states the strip's own total and not the parliament's.
+	FilteredEventCount int32 `protobuf:"varint,9,opt,name=filtered_event_count,json=filteredEventCount,proto3" json:"filtered_event_count,omitempty"`
+	// DISTINCT members with at least one such event — PEOPLE, never rows. A
+	// surface can state it exactly instead of counting the members it happens to
+	// have rendered, which is always a floor.
+	FilteredMemberCount int32 `protobuf:"varint,10,opt,name=filtered_member_count,json=filteredMemberCount,proto3" json:"filtered_member_count,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *GetRegisterActivityResponse) Reset() {
+	*x = GetRegisterActivityResponse{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetRegisterActivityResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetRegisterActivityResponse) ProtoMessage() {}
+
+func (x *GetRegisterActivityResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetRegisterActivityResponse.ProtoReflect.Descriptor instead.
+func (*GetRegisterActivityResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{52}
+}
+
+func (x *GetRegisterActivityResponse) GetWindowDays() int32 {
+	if x != nil {
+		return x.WindowDays
+	}
+	return 0
+}
+
+func (x *GetRegisterActivityResponse) GetWeeks() []*WeeklyEventCount {
+	if x != nil {
+		return x.Weeks
+	}
+	return nil
+}
+
+func (x *GetRegisterActivityResponse) GetActiveMembers() []*ActiveMember {
+	if x != nil {
+		return x.ActiveMembers
+	}
+	return nil
+}
+
+func (x *GetRegisterActivityResponse) GetNewlyDeclaredCompanies() []*NewlyDeclaredCompany {
+	if x != nil {
+		return x.NewlyDeclaredCompanies
+	}
+	return nil
+}
+
+func (x *GetRegisterActivityResponse) GetDeclarerCountChanges() []*DeclarerCountChange {
+	if x != nil {
+		return x.DeclarerCountChanges
+	}
+	return nil
+}
+
+func (x *GetRegisterActivityResponse) GetUndatedCurrentCount() int32 {
+	if x != nil {
+		return x.UndatedCurrentCount
+	}
+	return 0
+}
+
+func (x *GetRegisterActivityResponse) GetSourceLicence() string {
+	if x != nil {
+		return x.SourceLicence
+	}
+	return ""
+}
+
+func (x *GetRegisterActivityResponse) GetAsAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AsAt
+	}
+	return nil
+}
+
+func (x *GetRegisterActivityResponse) GetFilteredEventCount() int32 {
+	if x != nil {
+		return x.FilteredEventCount
+	}
+	return 0
+}
+
+func (x *GetRegisterActivityResponse) GetFilteredMemberCount() int32 {
+	if x != nil {
+		return x.FilteredMemberCount
+	}
+	return 0
+}
+
+type ListDistinctiveHoldingsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Slug          string                 `protobuf:"bytes,1,opt,name=slug,proto3" json:"slug,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDistinctiveHoldingsRequest) Reset() {
+	*x = ListDistinctiveHoldingsRequest{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDistinctiveHoldingsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDistinctiveHoldingsRequest) ProtoMessage() {}
+
+func (x *ListDistinctiveHoldingsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDistinctiveHoldingsRequest.ProtoReflect.Descriptor instead.
+func (*ListDistinctiveHoldingsRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{53}
+}
+
+func (x *ListDistinctiveHoldingsRequest) GetSlug() string {
+	if x != nil {
+		return x.Slug
+	}
+	return ""
+}
+
+// DistinctiveHolding is one currently-declared listed company of one member.
+//
+// corpus_declarer_count is the whole fact: 1 means no other member currently
+// declares it. The field carries no adjective and consumers must not add one.
+type DistinctiveHolding struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	StockCode           string                 `protobuf:"bytes,1,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`
+	CompanyName         string                 `protobuf:"bytes,2,opt,name=company_name,json=companyName,proto3" json:"company_name,omitempty"`
+	Industry            string                 `protobuf:"bytes,3,opt,name=industry,proto3" json:"industry,omitempty"`
+	Holder              RegisterHolder         `protobuf:"varint,4,opt,name=holder,proto3,enum=shorts.v1alpha1.RegisterHolder" json:"holder,omitempty"`
+	CorpusDeclarerCount int32                  `protobuf:"varint,6,opt,name=corpus_declarer_count,json=corpusDeclarerCount,proto3" json:"corpus_declarer_count,omitempty"`
+	// THE COMPANY's ASIC short interest, market-wide; 0 when the company is not
+	// in the short-interest set. It says nothing about any member's holding, its
+	// size, or any gain or loss — disclosure_note carries that in full.
+	ShortPercent  float64 `protobuf:"fixed64,7,opt,name=short_percent,json=shortPercent,proto3" json:"short_percent,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DistinctiveHolding) Reset() {
+	*x = DistinctiveHolding{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[54]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DistinctiveHolding) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DistinctiveHolding) ProtoMessage() {}
+
+func (x *DistinctiveHolding) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[54]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DistinctiveHolding.ProtoReflect.Descriptor instead.
+func (*DistinctiveHolding) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{54}
+}
+
+func (x *DistinctiveHolding) GetStockCode() string {
+	if x != nil {
+		return x.StockCode
+	}
+	return ""
+}
+
+func (x *DistinctiveHolding) GetCompanyName() string {
+	if x != nil {
+		return x.CompanyName
+	}
+	return ""
+}
+
+func (x *DistinctiveHolding) GetIndustry() string {
+	if x != nil {
+		return x.Industry
+	}
+	return ""
+}
+
+func (x *DistinctiveHolding) GetHolder() RegisterHolder {
+	if x != nil {
+		return x.Holder
+	}
+	return RegisterHolder_REGISTER_HOLDER_UNSPECIFIED
+}
+
+func (x *DistinctiveHolding) GetCorpusDeclarerCount() int32 {
+	if x != nil {
+		return x.CorpusDeclarerCount
+	}
+	return 0
+}
+
+func (x *DistinctiveHolding) GetShortPercent() float64 {
+	if x != nil {
+		return x.ShortPercent
+	}
+	return 0
+}
+
+type ListDistinctiveHoldingsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	CanonicalSlug string                 `protobuf:"bytes,1,opt,name=canonical_slug,json=canonicalSlug,proto3" json:"canonical_slug,omitempty"` // consumers redirect when it differs from the request
+	Holdings      []*DistinctiveHolding  `protobuf:"bytes,2,rep,name=holdings,proto3" json:"holdings,omitempty"`
+	// Holdings beyond the cap, stated rather than dropped silently.
+	MoreCount int32 `protobuf:"varint,3,opt,name=more_count,json=moreCount,proto3" json:"more_count,omitempty"`
+	// The mandatory short-interest caveat, served WITH the data. Empty when no
+	// row carries a short percentage.
+	DisclosureNote string                 `protobuf:"bytes,4,opt,name=disclosure_note,json=disclosureNote,proto3" json:"disclosure_note,omitempty"`
+	SourceLicence  string                 `protobuf:"bytes,5,opt,name=source_licence,json=sourceLicence,proto3" json:"source_licence,omitempty"`
+	AsAt           *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=as_at,json=asAt,proto3" json:"as_at,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ListDistinctiveHoldingsResponse) Reset() {
+	*x = ListDistinctiveHoldingsResponse{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDistinctiveHoldingsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDistinctiveHoldingsResponse) ProtoMessage() {}
+
+func (x *ListDistinctiveHoldingsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDistinctiveHoldingsResponse.ProtoReflect.Descriptor instead.
+func (*ListDistinctiveHoldingsResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{55}
+}
+
+func (x *ListDistinctiveHoldingsResponse) GetCanonicalSlug() string {
+	if x != nil {
+		return x.CanonicalSlug
+	}
+	return ""
+}
+
+func (x *ListDistinctiveHoldingsResponse) GetHoldings() []*DistinctiveHolding {
+	if x != nil {
+		return x.Holdings
+	}
+	return nil
+}
+
+func (x *ListDistinctiveHoldingsResponse) GetMoreCount() int32 {
+	if x != nil {
+		return x.MoreCount
+	}
+	return 0
+}
+
+func (x *ListDistinctiveHoldingsResponse) GetDisclosureNote() string {
+	if x != nil {
+		return x.DisclosureNote
+	}
+	return ""
+}
+
+func (x *ListDistinctiveHoldingsResponse) GetSourceLicence() string {
+	if x != nil {
+		return x.SourceLicence
+	}
+	return ""
+}
+
+func (x *ListDistinctiveHoldingsResponse) GetAsAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AsAt
+	}
+	return nil
+}
+
 type ListShortInterestOverlapRequest struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	MinShortPercent float64                `protobuf:"fixed64,1,opt,name=min_short_percent,json=minShortPercent,proto3" json:"min_short_percent,omitempty"` // default 2.0
@@ -4027,7 +4855,7 @@ type ListShortInterestOverlapRequest struct {
 
 func (x *ListShortInterestOverlapRequest) Reset() {
 	*x = ListShortInterestOverlapRequest{}
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[47]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4039,7 +4867,7 @@ func (x *ListShortInterestOverlapRequest) String() string {
 func (*ListShortInterestOverlapRequest) ProtoMessage() {}
 
 func (x *ListShortInterestOverlapRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[47]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4052,7 +4880,7 @@ func (x *ListShortInterestOverlapRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListShortInterestOverlapRequest.ProtoReflect.Descriptor instead.
 func (*ListShortInterestOverlapRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{47}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *ListShortInterestOverlapRequest) GetMinShortPercent() float64 {
@@ -4085,7 +4913,7 @@ type ShortInterestOverlap struct {
 
 func (x *ShortInterestOverlap) Reset() {
 	*x = ShortInterestOverlap{}
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[48]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4097,7 +4925,7 @@ func (x *ShortInterestOverlap) String() string {
 func (*ShortInterestOverlap) ProtoMessage() {}
 
 func (x *ShortInterestOverlap) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[48]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4110,7 +4938,7 @@ func (x *ShortInterestOverlap) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShortInterestOverlap.ProtoReflect.Descriptor instead.
 func (*ShortInterestOverlap) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{48}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *ShortInterestOverlap) GetStockCode() string {
@@ -4166,7 +4994,7 @@ type ListShortInterestOverlapResponse struct {
 
 func (x *ListShortInterestOverlapResponse) Reset() {
 	*x = ListShortInterestOverlapResponse{}
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[49]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4178,7 +5006,7 @@ func (x *ListShortInterestOverlapResponse) String() string {
 func (*ListShortInterestOverlapResponse) ProtoMessage() {}
 
 func (x *ListShortInterestOverlapResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[49]
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4191,7 +5019,7 @@ func (x *ListShortInterestOverlapResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListShortInterestOverlapResponse.ProtoReflect.Descriptor instead.
 func (*ListShortInterestOverlapResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{49}
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *ListShortInterestOverlapResponse) GetOverlaps() []*ShortInterestOverlap {
@@ -4561,14 +5389,18 @@ const file_shorts_v1alpha1_politicians_proto_rawDesc = "" +
 	"state_code\x18\x01 \x01(\tR\tstateCode\x12>\n" +
 	"\x06stocks\x18\x02 \x03(\v2&.shorts.v1alpha1.PoliticianStockRollupR\x06stocks\x12)\n" +
 	"\x10politician_count\x18\x03 \x01(\x05R\x0fpoliticianCount\x12%\n" +
-	"\x0esource_licence\x18\x04 \x01(\tR\rsourceLicence\"\xd4\x01\n" +
+	"\x0esource_licence\x18\x04 \x01(\tR\rsourceLicence\"\xcb\x02\n" +
 	"\x1aListRegisterChangesRequest\x120\n" +
 	"\x05since\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x05since\x127\n" +
 	"\x04kind\x18\x02 \x01(\x0e2#.shorts.v1alpha1.RegisterChangeKindR\x04kind\x12\x1d\n" +
 	"\n" +
 	"stock_code\x18\x03 \x01(\tR\tstockCode\x12\x14\n" +
 	"\x05limit\x18\x04 \x01(\x05R\x05limit\x12\x16\n" +
-	"\x06offset\x18\x05 \x01(\x05R\x06offset\"\xde\x03\n" +
+	"\x06offset\x18\x05 \x01(\x05R\x06offset\x12'\n" +
+	"\x0fpolitician_slug\x18\x06 \x01(\tR\x0epoliticianSlug\x12\x17\n" +
+	"\aitem_no\x18\a \x01(\x05R\x06itemNo\x12\x19\n" +
+	"\bparty_ab\x18\b \x01(\tR\apartyAb\x12\x18\n" +
+	"\achamber\x18\t \x01(\tR\achamber\"\xde\x03\n" +
 	"\x13RegisterChangeEvent\x12;\n" +
 	"\n" +
 	"politician\x18\x01 \x01(\v2\x1b.shorts.v1alpha1.PoliticianR\n" +
@@ -4588,11 +5420,79 @@ const file_shorts_v1alpha1_politicians_proto_rawDesc = "" +
 	"source_url\x18\n" +
 	" \x01(\tR\tsourceUrl\x12\x1f\n" +
 	"\ventity_kind\x18\v \x01(\tR\n" +
-	"entityKind\"\x98\x01\n" +
+	"entityKind\"\xc9\x01\n" +
 	"\x1bListRegisterChangesResponse\x12<\n" +
 	"\x06events\x18\x01 \x03(\v2$.shorts.v1alpha1.RegisterChangeEventR\x06events\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\x12%\n" +
-	"\x0esource_licence\x18\x03 \x01(\tR\rsourceLicence\"c\n" +
+	"\x0esource_licence\x18\x03 \x01(\tR\rsourceLicence\x12/\n" +
+	"\x05as_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x04asAt\"\xed\x01\n" +
+	"\x1aGetRegisterActivityRequest\x12\x1f\n" +
+	"\vwindow_days\x18\x01 \x01(\x05R\n" +
+	"windowDays\x12'\n" +
+	"\x0fpolitician_slug\x18\x02 \x01(\tR\x0epoliticianSlug\x12\x19\n" +
+	"\bparty_ab\x18\x03 \x01(\tR\apartyAb\x12\x18\n" +
+	"\achamber\x18\x04 \x01(\tR\achamber\x12\x17\n" +
+	"\aitem_no\x18\x05 \x01(\x05R\x06itemNo\x127\n" +
+	"\x04kind\x18\x06 \x01(\x0e2#.shorts.v1alpha1.RegisterChangeKindR\x04kind\"w\n" +
+	"\x10WeeklyEventCount\x12\x1d\n" +
+	"\n" +
+	"week_start\x18\x01 \x01(\tR\tweekStart\x12\x1f\n" +
+	"\vadded_count\x18\x02 \x01(\x05R\n" +
+	"addedCount\x12#\n" +
+	"\rremoved_count\x18\x03 \x01(\x05R\fremovedCount\"\xb7\x01\n" +
+	"\fActiveMember\x12\x12\n" +
+	"\x04slug\x18\x01 \x01(\tR\x04slug\x12!\n" +
+	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12\x19\n" +
+	"\bparty_ab\x18\x03 \x01(\tR\apartyAb\x12\x18\n" +
+	"\achamber\x18\x04 \x01(\tR\achamber\x12\x1a\n" +
+	"\bdivision\x18\x05 \x01(\tR\bdivision\x12\x1f\n" +
+	"\vevent_count\x18\x06 \x01(\x05R\n" +
+	"eventCount\"\xc7\x01\n" +
+	"\x14NewlyDeclaredCompany\x12\x1d\n" +
+	"\n" +
+	"stock_code\x18\x01 \x01(\tR\tstockCode\x12!\n" +
+	"\fcompany_name\x18\x02 \x01(\tR\vcompanyName\x12\x1a\n" +
+	"\bindustry\x18\x03 \x01(\tR\bindustry\x12*\n" +
+	"\x11first_declared_on\x18\x04 \x01(\tR\x0ffirstDeclaredOn\x12%\n" +
+	"\x0edeclarer_count\x18\x05 \x01(\x05R\rdeclarerCount\"\xd3\x01\n" +
+	"\x13DeclarerCountChange\x12\x1d\n" +
+	"\n" +
+	"stock_code\x18\x01 \x01(\tR\tstockCode\x12!\n" +
+	"\fcompany_name\x18\x02 \x01(\tR\vcompanyName\x12\x1a\n" +
+	"\bindustry\x18\x03 \x01(\tR\bindustry\x12#\n" +
+	"\rdeclarers_now\x18\x04 \x01(\x05R\fdeclarersNow\x129\n" +
+	"\x19declarers_at_window_start\x18\x05 \x01(\x05R\x16declarersAtWindowStart\"\xec\x04\n" +
+	"\x1bGetRegisterActivityResponse\x12\x1f\n" +
+	"\vwindow_days\x18\x01 \x01(\x05R\n" +
+	"windowDays\x127\n" +
+	"\x05weeks\x18\x02 \x03(\v2!.shorts.v1alpha1.WeeklyEventCountR\x05weeks\x12D\n" +
+	"\x0eactive_members\x18\x03 \x03(\v2\x1d.shorts.v1alpha1.ActiveMemberR\ractiveMembers\x12_\n" +
+	"\x18newly_declared_companies\x18\x04 \x03(\v2%.shorts.v1alpha1.NewlyDeclaredCompanyR\x16newlyDeclaredCompanies\x12Z\n" +
+	"\x16declarer_count_changes\x18\x05 \x03(\v2$.shorts.v1alpha1.DeclarerCountChangeR\x14declarerCountChanges\x122\n" +
+	"\x15undated_current_count\x18\x06 \x01(\x05R\x13undatedCurrentCount\x12%\n" +
+	"\x0esource_licence\x18\a \x01(\tR\rsourceLicence\x12/\n" +
+	"\x05as_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\x04asAt\x120\n" +
+	"\x14filtered_event_count\x18\t \x01(\x05R\x12filteredEventCount\x122\n" +
+	"\x15filtered_member_count\x18\n" +
+	" \x01(\x05R\x13filteredMemberCount\"4\n" +
+	"\x1eListDistinctiveHoldingsRequest\x12\x12\n" +
+	"\x04slug\x18\x01 \x01(\tR\x04slug\"\x9e\x02\n" +
+	"\x12DistinctiveHolding\x12\x1d\n" +
+	"\n" +
+	"stock_code\x18\x01 \x01(\tR\tstockCode\x12!\n" +
+	"\fcompany_name\x18\x02 \x01(\tR\vcompanyName\x12\x1a\n" +
+	"\bindustry\x18\x03 \x01(\tR\bindustry\x127\n" +
+	"\x06holder\x18\x04 \x01(\x0e2\x1f.shorts.v1alpha1.RegisterHolderR\x06holder\x122\n" +
+	"\x15corpus_declarer_count\x18\x06 \x01(\x05R\x13corpusDeclarerCount\x12#\n" +
+	"\rshort_percent\x18\a \x01(\x01R\fshortPercentJ\x04\b\x05\x10\x06R\x12currently_declared\"\xa9\x02\n" +
+	"\x1fListDistinctiveHoldingsResponse\x12%\n" +
+	"\x0ecanonical_slug\x18\x01 \x01(\tR\rcanonicalSlug\x12?\n" +
+	"\bholdings\x18\x02 \x03(\v2#.shorts.v1alpha1.DistinctiveHoldingR\bholdings\x12\x1d\n" +
+	"\n" +
+	"more_count\x18\x03 \x01(\x05R\tmoreCount\x12'\n" +
+	"\x0fdisclosure_note\x18\x04 \x01(\tR\x0edisclosureNote\x12%\n" +
+	"\x0esource_licence\x18\x05 \x01(\tR\rsourceLicence\x12/\n" +
+	"\x05as_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\x04asAt\"c\n" +
 	"\x1fListShortInterestOverlapRequest\x12*\n" +
 	"\x11min_short_percent\x18\x01 \x01(\x01R\x0fminShortPercent\x12\x14\n" +
 	"\x05limit\x18\x02 \x01(\x05R\x05limit\"\x84\x02\n" +
@@ -4622,7 +5522,7 @@ const file_shorts_v1alpha1_politicians_proto_rawDesc = "" +
 	"\x12RegisterChangeKind\x12$\n" +
 	" REGISTER_CHANGE_KIND_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aREGISTER_CHANGE_KIND_ADDED\x10\x01\x12 \n" +
-	"\x1cREGISTER_CHANGE_KIND_REMOVED\x10\x022\xf0\r\n" +
+	"\x1cREGISTER_CHANGE_KIND_REMOVED\x10\x022\xed\x0f\n" +
 	"\x12PoliticiansService\x12|\n" +
 	"\x15GetParliamentOverview\x12-.shorts.v1alpha1.GetParliamentOverviewRequest\x1a..shorts.v1alpha1.GetParliamentOverviewResponse\"\x04\x80\xb5\x18\x01\x12j\n" +
 	"\x0fListPoliticians\x12'.shorts.v1alpha1.ListPoliticiansRequest\x1a(.shorts.v1alpha1.ListPoliticiansResponse\"\x04\x80\xb5\x18\x01\x12d\n" +
@@ -4637,7 +5537,10 @@ const file_shorts_v1alpha1_politicians_proto_rawDesc = "" +
 	"\x13GetRegisterExplorer\x12+.shorts.v1alpha1.GetRegisterExplorerRequest\x1a,.shorts.v1alpha1.GetRegisterExplorerResponse\"\x04\x80\xb5\x18\x01\x12\x82\x01\n" +
 	"\x17ListPoliticianSummaries\x12/.shorts.v1alpha1.ListPoliticianSummariesRequest\x1a0.shorts.v1alpha1.ListPoliticianSummariesResponse\"\x04\x80\xb5\x18\x01\x12\x91\x01\n" +
 	"\x1cGetPoliticianExplorerProfile\x124.shorts.v1alpha1.GetPoliticianExplorerProfileRequest\x1a5.shorts.v1alpha1.GetPoliticianExplorerProfileResponse\"\x04\x80\xb5\x18\x01\x12s\n" +
-	"\x12ComparePoliticians\x12*.shorts.v1alpha1.ComparePoliticiansRequest\x1a+.shorts.v1alpha1.ComparePoliticiansResponse\"\x04\x80\xb5\x18\x01B[ZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1b\x06proto3"
+	"\x12ComparePoliticians\x12*.shorts.v1alpha1.ComparePoliticiansRequest\x1a+.shorts.v1alpha1.ComparePoliticiansResponse\"\x04\x80\xb5\x18\x01\x12v\n" +
+	"\x13GetRegisterActivity\x12+.shorts.v1alpha1.GetRegisterActivityRequest\x1a,.shorts.v1alpha1.GetRegisterActivityResponse\"\x04\x80\xb5\x18\x01\x12\x82\x01\n" +
+	"\x17ListDistinctiveHoldings\x12/.shorts.v1alpha1.ListDistinctiveHoldingsRequest\x1a0.shorts.v1alpha1.ListDistinctiveHoldingsResponse\"\x04\x80\xb5\x18\x01B\xdf\x01\n" +
+	"\x13com.shorts.v1alpha1B\x10PoliticiansProtoP\x01ZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1\xa2\x02\x03SXX\xaa\x02\x0fShorts.V1alpha1\xca\x02\x0fShorts\\V1alpha1\xe2\x02\x1bShorts\\V1alpha1\\GPBMetadata\xea\x02\x10Shorts::V1alpha1b\x06proto3"
 
 var (
 	file_shorts_v1alpha1_politicians_proto_rawDescOnce sync.Once
@@ -4652,7 +5555,7 @@ func file_shorts_v1alpha1_politicians_proto_rawDescGZIP() []byte {
 }
 
 var file_shorts_v1alpha1_politicians_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_shorts_v1alpha1_politicians_proto_msgTypes = make([]protoimpl.MessageInfo, 50)
+var file_shorts_v1alpha1_politicians_proto_msgTypes = make([]protoimpl.MessageInfo, 59)
 var file_shorts_v1alpha1_politicians_proto_goTypes = []any{
 	(PoliticianSummarySort)(0),                   // 0: shorts.v1alpha1.PoliticianSummarySort
 	(RegisterHolder)(0),                          // 1: shorts.v1alpha1.RegisterHolder
@@ -4704,17 +5607,26 @@ var file_shorts_v1alpha1_politicians_proto_goTypes = []any{
 	(*ListRegisterChangesRequest)(nil),           // 47: shorts.v1alpha1.ListRegisterChangesRequest
 	(*RegisterChangeEvent)(nil),                  // 48: shorts.v1alpha1.RegisterChangeEvent
 	(*ListRegisterChangesResponse)(nil),          // 49: shorts.v1alpha1.ListRegisterChangesResponse
-	(*ListShortInterestOverlapRequest)(nil),      // 50: shorts.v1alpha1.ListShortInterestOverlapRequest
-	(*ShortInterestOverlap)(nil),                 // 51: shorts.v1alpha1.ShortInterestOverlap
-	(*ListShortInterestOverlapResponse)(nil),     // 52: shorts.v1alpha1.ListShortInterestOverlapResponse
-	(*timestamppb.Timestamp)(nil),                // 53: google.protobuf.Timestamp
+	(*GetRegisterActivityRequest)(nil),           // 50: shorts.v1alpha1.GetRegisterActivityRequest
+	(*WeeklyEventCount)(nil),                     // 51: shorts.v1alpha1.WeeklyEventCount
+	(*ActiveMember)(nil),                         // 52: shorts.v1alpha1.ActiveMember
+	(*NewlyDeclaredCompany)(nil),                 // 53: shorts.v1alpha1.NewlyDeclaredCompany
+	(*DeclarerCountChange)(nil),                  // 54: shorts.v1alpha1.DeclarerCountChange
+	(*GetRegisterActivityResponse)(nil),          // 55: shorts.v1alpha1.GetRegisterActivityResponse
+	(*ListDistinctiveHoldingsRequest)(nil),       // 56: shorts.v1alpha1.ListDistinctiveHoldingsRequest
+	(*DistinctiveHolding)(nil),                   // 57: shorts.v1alpha1.DistinctiveHolding
+	(*ListDistinctiveHoldingsResponse)(nil),      // 58: shorts.v1alpha1.ListDistinctiveHoldingsResponse
+	(*ListShortInterestOverlapRequest)(nil),      // 59: shorts.v1alpha1.ListShortInterestOverlapRequest
+	(*ShortInterestOverlap)(nil),                 // 60: shorts.v1alpha1.ShortInterestOverlap
+	(*ListShortInterestOverlapResponse)(nil),     // 61: shorts.v1alpha1.ListShortInterestOverlapResponse
+	(*timestamppb.Timestamp)(nil),                // 62: google.protobuf.Timestamp
 }
 var file_shorts_v1alpha1_politicians_proto_depIdxs = []int32{
 	3,  // 0: shorts.v1alpha1.GetPoliticianAnalyticsResponse.cells:type_name -> shorts.v1alpha1.PartyIndustryCell
 	4,  // 1: shorts.v1alpha1.GetPoliticianAnalyticsResponse.industries:type_name -> shorts.v1alpha1.IndustryTotal
 	5,  // 2: shorts.v1alpha1.GetPoliticianAnalyticsResponse.parties:type_name -> shorts.v1alpha1.PartyTotal
 	6,  // 3: shorts.v1alpha1.GetPoliticianAnalyticsResponse.states:type_name -> shorts.v1alpha1.StateTotal
-	53, // 4: shorts.v1alpha1.GetPoliticianAnalyticsResponse.as_at:type_name -> google.protobuf.Timestamp
+	62, // 4: shorts.v1alpha1.GetPoliticianAnalyticsResponse.as_at:type_name -> google.protobuf.Timestamp
 	1,  // 5: shorts.v1alpha1.RegisterHolderCount.holder:type_name -> shorts.v1alpha1.RegisterHolder
 	26, // 6: shorts.v1alpha1.PoliticianSummary.politician:type_name -> shorts.v1alpha1.Politician
 	9,  // 7: shorts.v1alpha1.PoliticianSummary.item_counts:type_name -> shorts.v1alpha1.RegisterItemCount
@@ -4722,10 +5634,10 @@ var file_shorts_v1alpha1_politicians_proto_depIdxs = []int32{
 	9,  // 9: shorts.v1alpha1.GetRegisterExplorerResponse.item_counts:type_name -> shorts.v1alpha1.RegisterItemCount
 	10, // 10: shorts.v1alpha1.GetRegisterExplorerResponse.holder_counts:type_name -> shorts.v1alpha1.RegisterHolderCount
 	12, // 11: shorts.v1alpha1.GetRegisterExplorerResponse.industry_trends:type_name -> shorts.v1alpha1.RegisterIndustryTrend
-	53, // 12: shorts.v1alpha1.GetRegisterExplorerResponse.as_at:type_name -> google.protobuf.Timestamp
+	62, // 12: shorts.v1alpha1.GetRegisterExplorerResponse.as_at:type_name -> google.protobuf.Timestamp
 	0,  // 13: shorts.v1alpha1.ListPoliticianSummariesRequest.sort:type_name -> shorts.v1alpha1.PoliticianSummarySort
 	15, // 14: shorts.v1alpha1.ListPoliticianSummariesResponse.summaries:type_name -> shorts.v1alpha1.PoliticianSummary
-	53, // 15: shorts.v1alpha1.ListPoliticianSummariesResponse.as_at:type_name -> google.protobuf.Timestamp
+	62, // 15: shorts.v1alpha1.ListPoliticianSummariesResponse.as_at:type_name -> google.protobuf.Timestamp
 	26, // 16: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.politician:type_name -> shorts.v1alpha1.Politician
 	28, // 17: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.terms:type_name -> shorts.v1alpha1.PoliticianTerm
 	9,  // 18: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.item_counts:type_name -> shorts.v1alpha1.RegisterItemCount
@@ -4734,7 +5646,7 @@ var file_shorts_v1alpha1_politicians_proto_depIdxs = []int32{
 	11, // 21: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.timeline:type_name -> shorts.v1alpha1.RegisterMonthlyCount
 	48, // 22: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.recent_changes:type_name -> shorts.v1alpha1.RegisterChangeEvent
 	14, // 23: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.source_documents:type_name -> shorts.v1alpha1.RegisterSourceDocument
-	53, // 24: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.as_at:type_name -> google.protobuf.Timestamp
+	62, // 24: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.as_at:type_name -> google.protobuf.Timestamp
 	1,  // 25: shorts.v1alpha1.SharedDeclaredCompany.holders_a:type_name -> shorts.v1alpha1.RegisterHolder
 	1,  // 26: shorts.v1alpha1.SharedDeclaredCompany.holders_b:type_name -> shorts.v1alpha1.RegisterHolder
 	1,  // 27: shorts.v1alpha1.PoliticianOnlyCompany.holders:type_name -> shorts.v1alpha1.RegisterHolder
@@ -4745,12 +5657,12 @@ var file_shorts_v1alpha1_politicians_proto_depIdxs = []int32{
 	23, // 32: shorts.v1alpha1.ComparePoliticiansResponse.shared_companies:type_name -> shorts.v1alpha1.SharedDeclaredCompany
 	24, // 33: shorts.v1alpha1.ComparePoliticiansResponse.only_a_companies:type_name -> shorts.v1alpha1.PoliticianOnlyCompany
 	24, // 34: shorts.v1alpha1.ComparePoliticiansResponse.only_b_companies:type_name -> shorts.v1alpha1.PoliticianOnlyCompany
-	53, // 35: shorts.v1alpha1.ComparePoliticiansResponse.as_at:type_name -> google.protobuf.Timestamp
+	62, // 35: shorts.v1alpha1.ComparePoliticiansResponse.as_at:type_name -> google.protobuf.Timestamp
 	1,  // 36: shorts.v1alpha1.DeclaredInterest.holder:type_name -> shorts.v1alpha1.RegisterHolder
-	53, // 37: shorts.v1alpha1.DeclaredInterest.declared_from:type_name -> google.protobuf.Timestamp
-	53, // 38: shorts.v1alpha1.DeclaredInterest.declared_to:type_name -> google.protobuf.Timestamp
-	53, // 39: shorts.v1alpha1.GetParliamentOverviewResponse.as_at:type_name -> google.protobuf.Timestamp
-	53, // 40: shorts.v1alpha1.GetParliamentOverviewResponse.refreshed_at:type_name -> google.protobuf.Timestamp
+	62, // 37: shorts.v1alpha1.DeclaredInterest.declared_from:type_name -> google.protobuf.Timestamp
+	62, // 38: shorts.v1alpha1.DeclaredInterest.declared_to:type_name -> google.protobuf.Timestamp
+	62, // 39: shorts.v1alpha1.GetParliamentOverviewResponse.as_at:type_name -> google.protobuf.Timestamp
+	62, // 40: shorts.v1alpha1.GetParliamentOverviewResponse.refreshed_at:type_name -> google.protobuf.Timestamp
 	26, // 41: shorts.v1alpha1.ListPoliticiansResponse.politicians:type_name -> shorts.v1alpha1.Politician
 	26, // 42: shorts.v1alpha1.GetPoliticianResponse.politician:type_name -> shorts.v1alpha1.Politician
 	28, // 43: shorts.v1alpha1.GetPoliticianResponse.terms:type_name -> shorts.v1alpha1.PoliticianTerm
@@ -4765,48 +5677,62 @@ var file_shorts_v1alpha1_politicians_proto_depIdxs = []int32{
 	26, // 52: shorts.v1alpha1.SuburbPoliticianProperty.politician:type_name -> shorts.v1alpha1.Politician
 	27, // 53: shorts.v1alpha1.SuburbPoliticianProperty.interest:type_name -> shorts.v1alpha1.DeclaredInterest
 	40, // 54: shorts.v1alpha1.ListStatePoliticianHoldingsResponse.stocks:type_name -> shorts.v1alpha1.PoliticianStockRollup
-	53, // 55: shorts.v1alpha1.ListRegisterChangesRequest.since:type_name -> google.protobuf.Timestamp
+	62, // 55: shorts.v1alpha1.ListRegisterChangesRequest.since:type_name -> google.protobuf.Timestamp
 	2,  // 56: shorts.v1alpha1.ListRegisterChangesRequest.kind:type_name -> shorts.v1alpha1.RegisterChangeKind
 	26, // 57: shorts.v1alpha1.RegisterChangeEvent.politician:type_name -> shorts.v1alpha1.Politician
 	2,  // 58: shorts.v1alpha1.RegisterChangeEvent.kind:type_name -> shorts.v1alpha1.RegisterChangeKind
 	1,  // 59: shorts.v1alpha1.RegisterChangeEvent.holder:type_name -> shorts.v1alpha1.RegisterHolder
-	53, // 60: shorts.v1alpha1.RegisterChangeEvent.changed_on:type_name -> google.protobuf.Timestamp
+	62, // 60: shorts.v1alpha1.RegisterChangeEvent.changed_on:type_name -> google.protobuf.Timestamp
 	48, // 61: shorts.v1alpha1.ListRegisterChangesResponse.events:type_name -> shorts.v1alpha1.RegisterChangeEvent
-	36, // 62: shorts.v1alpha1.ShortInterestOverlap.party_counts:type_name -> shorts.v1alpha1.PartyCount
-	51, // 63: shorts.v1alpha1.ListShortInterestOverlapResponse.overlaps:type_name -> shorts.v1alpha1.ShortInterestOverlap
-	29, // 64: shorts.v1alpha1.PoliticiansService.GetParliamentOverview:input_type -> shorts.v1alpha1.GetParliamentOverviewRequest
-	31, // 65: shorts.v1alpha1.PoliticiansService.ListPoliticians:input_type -> shorts.v1alpha1.ListPoliticiansRequest
-	33, // 66: shorts.v1alpha1.PoliticiansService.GetPolitician:input_type -> shorts.v1alpha1.GetPoliticianRequest
-	35, // 67: shorts.v1alpha1.PoliticiansService.ListStockPoliticians:input_type -> shorts.v1alpha1.ListStockPoliticiansRequest
-	39, // 68: shorts.v1alpha1.PoliticiansService.ListPoliticianStocks:input_type -> shorts.v1alpha1.ListPoliticianStocksRequest
-	42, // 69: shorts.v1alpha1.PoliticiansService.ListSuburbPoliticians:input_type -> shorts.v1alpha1.ListSuburbPoliticiansRequest
-	45, // 70: shorts.v1alpha1.PoliticiansService.ListStatePoliticianHoldings:input_type -> shorts.v1alpha1.ListStatePoliticianHoldingsRequest
-	47, // 71: shorts.v1alpha1.PoliticiansService.ListRegisterChanges:input_type -> shorts.v1alpha1.ListRegisterChangesRequest
-	50, // 72: shorts.v1alpha1.PoliticiansService.ListShortInterestOverlap:input_type -> shorts.v1alpha1.ListShortInterestOverlapRequest
-	7,  // 73: shorts.v1alpha1.PoliticiansService.GetPoliticianAnalytics:input_type -> shorts.v1alpha1.GetPoliticianAnalyticsRequest
-	16, // 74: shorts.v1alpha1.PoliticiansService.GetRegisterExplorer:input_type -> shorts.v1alpha1.GetRegisterExplorerRequest
-	18, // 75: shorts.v1alpha1.PoliticiansService.ListPoliticianSummaries:input_type -> shorts.v1alpha1.ListPoliticianSummariesRequest
-	20, // 76: shorts.v1alpha1.PoliticiansService.GetPoliticianExplorerProfile:input_type -> shorts.v1alpha1.GetPoliticianExplorerProfileRequest
-	22, // 77: shorts.v1alpha1.PoliticiansService.ComparePoliticians:input_type -> shorts.v1alpha1.ComparePoliticiansRequest
-	30, // 78: shorts.v1alpha1.PoliticiansService.GetParliamentOverview:output_type -> shorts.v1alpha1.GetParliamentOverviewResponse
-	32, // 79: shorts.v1alpha1.PoliticiansService.ListPoliticians:output_type -> shorts.v1alpha1.ListPoliticiansResponse
-	34, // 80: shorts.v1alpha1.PoliticiansService.GetPolitician:output_type -> shorts.v1alpha1.GetPoliticianResponse
-	37, // 81: shorts.v1alpha1.PoliticiansService.ListStockPoliticians:output_type -> shorts.v1alpha1.ListStockPoliticiansResponse
-	41, // 82: shorts.v1alpha1.PoliticiansService.ListPoliticianStocks:output_type -> shorts.v1alpha1.ListPoliticianStocksResponse
-	43, // 83: shorts.v1alpha1.PoliticiansService.ListSuburbPoliticians:output_type -> shorts.v1alpha1.ListSuburbPoliticiansResponse
-	46, // 84: shorts.v1alpha1.PoliticiansService.ListStatePoliticianHoldings:output_type -> shorts.v1alpha1.ListStatePoliticianHoldingsResponse
-	49, // 85: shorts.v1alpha1.PoliticiansService.ListRegisterChanges:output_type -> shorts.v1alpha1.ListRegisterChangesResponse
-	52, // 86: shorts.v1alpha1.PoliticiansService.ListShortInterestOverlap:output_type -> shorts.v1alpha1.ListShortInterestOverlapResponse
-	8,  // 87: shorts.v1alpha1.PoliticiansService.GetPoliticianAnalytics:output_type -> shorts.v1alpha1.GetPoliticianAnalyticsResponse
-	17, // 88: shorts.v1alpha1.PoliticiansService.GetRegisterExplorer:output_type -> shorts.v1alpha1.GetRegisterExplorerResponse
-	19, // 89: shorts.v1alpha1.PoliticiansService.ListPoliticianSummaries:output_type -> shorts.v1alpha1.ListPoliticianSummariesResponse
-	21, // 90: shorts.v1alpha1.PoliticiansService.GetPoliticianExplorerProfile:output_type -> shorts.v1alpha1.GetPoliticianExplorerProfileResponse
-	25, // 91: shorts.v1alpha1.PoliticiansService.ComparePoliticians:output_type -> shorts.v1alpha1.ComparePoliticiansResponse
-	78, // [78:92] is the sub-list for method output_type
-	64, // [64:78] is the sub-list for method input_type
-	64, // [64:64] is the sub-list for extension type_name
-	64, // [64:64] is the sub-list for extension extendee
-	0,  // [0:64] is the sub-list for field type_name
+	62, // 62: shorts.v1alpha1.ListRegisterChangesResponse.as_at:type_name -> google.protobuf.Timestamp
+	2,  // 63: shorts.v1alpha1.GetRegisterActivityRequest.kind:type_name -> shorts.v1alpha1.RegisterChangeKind
+	51, // 64: shorts.v1alpha1.GetRegisterActivityResponse.weeks:type_name -> shorts.v1alpha1.WeeklyEventCount
+	52, // 65: shorts.v1alpha1.GetRegisterActivityResponse.active_members:type_name -> shorts.v1alpha1.ActiveMember
+	53, // 66: shorts.v1alpha1.GetRegisterActivityResponse.newly_declared_companies:type_name -> shorts.v1alpha1.NewlyDeclaredCompany
+	54, // 67: shorts.v1alpha1.GetRegisterActivityResponse.declarer_count_changes:type_name -> shorts.v1alpha1.DeclarerCountChange
+	62, // 68: shorts.v1alpha1.GetRegisterActivityResponse.as_at:type_name -> google.protobuf.Timestamp
+	1,  // 69: shorts.v1alpha1.DistinctiveHolding.holder:type_name -> shorts.v1alpha1.RegisterHolder
+	57, // 70: shorts.v1alpha1.ListDistinctiveHoldingsResponse.holdings:type_name -> shorts.v1alpha1.DistinctiveHolding
+	62, // 71: shorts.v1alpha1.ListDistinctiveHoldingsResponse.as_at:type_name -> google.protobuf.Timestamp
+	36, // 72: shorts.v1alpha1.ShortInterestOverlap.party_counts:type_name -> shorts.v1alpha1.PartyCount
+	60, // 73: shorts.v1alpha1.ListShortInterestOverlapResponse.overlaps:type_name -> shorts.v1alpha1.ShortInterestOverlap
+	29, // 74: shorts.v1alpha1.PoliticiansService.GetParliamentOverview:input_type -> shorts.v1alpha1.GetParliamentOverviewRequest
+	31, // 75: shorts.v1alpha1.PoliticiansService.ListPoliticians:input_type -> shorts.v1alpha1.ListPoliticiansRequest
+	33, // 76: shorts.v1alpha1.PoliticiansService.GetPolitician:input_type -> shorts.v1alpha1.GetPoliticianRequest
+	35, // 77: shorts.v1alpha1.PoliticiansService.ListStockPoliticians:input_type -> shorts.v1alpha1.ListStockPoliticiansRequest
+	39, // 78: shorts.v1alpha1.PoliticiansService.ListPoliticianStocks:input_type -> shorts.v1alpha1.ListPoliticianStocksRequest
+	42, // 79: shorts.v1alpha1.PoliticiansService.ListSuburbPoliticians:input_type -> shorts.v1alpha1.ListSuburbPoliticiansRequest
+	45, // 80: shorts.v1alpha1.PoliticiansService.ListStatePoliticianHoldings:input_type -> shorts.v1alpha1.ListStatePoliticianHoldingsRequest
+	47, // 81: shorts.v1alpha1.PoliticiansService.ListRegisterChanges:input_type -> shorts.v1alpha1.ListRegisterChangesRequest
+	59, // 82: shorts.v1alpha1.PoliticiansService.ListShortInterestOverlap:input_type -> shorts.v1alpha1.ListShortInterestOverlapRequest
+	7,  // 83: shorts.v1alpha1.PoliticiansService.GetPoliticianAnalytics:input_type -> shorts.v1alpha1.GetPoliticianAnalyticsRequest
+	16, // 84: shorts.v1alpha1.PoliticiansService.GetRegisterExplorer:input_type -> shorts.v1alpha1.GetRegisterExplorerRequest
+	18, // 85: shorts.v1alpha1.PoliticiansService.ListPoliticianSummaries:input_type -> shorts.v1alpha1.ListPoliticianSummariesRequest
+	20, // 86: shorts.v1alpha1.PoliticiansService.GetPoliticianExplorerProfile:input_type -> shorts.v1alpha1.GetPoliticianExplorerProfileRequest
+	22, // 87: shorts.v1alpha1.PoliticiansService.ComparePoliticians:input_type -> shorts.v1alpha1.ComparePoliticiansRequest
+	50, // 88: shorts.v1alpha1.PoliticiansService.GetRegisterActivity:input_type -> shorts.v1alpha1.GetRegisterActivityRequest
+	56, // 89: shorts.v1alpha1.PoliticiansService.ListDistinctiveHoldings:input_type -> shorts.v1alpha1.ListDistinctiveHoldingsRequest
+	30, // 90: shorts.v1alpha1.PoliticiansService.GetParliamentOverview:output_type -> shorts.v1alpha1.GetParliamentOverviewResponse
+	32, // 91: shorts.v1alpha1.PoliticiansService.ListPoliticians:output_type -> shorts.v1alpha1.ListPoliticiansResponse
+	34, // 92: shorts.v1alpha1.PoliticiansService.GetPolitician:output_type -> shorts.v1alpha1.GetPoliticianResponse
+	37, // 93: shorts.v1alpha1.PoliticiansService.ListStockPoliticians:output_type -> shorts.v1alpha1.ListStockPoliticiansResponse
+	41, // 94: shorts.v1alpha1.PoliticiansService.ListPoliticianStocks:output_type -> shorts.v1alpha1.ListPoliticianStocksResponse
+	43, // 95: shorts.v1alpha1.PoliticiansService.ListSuburbPoliticians:output_type -> shorts.v1alpha1.ListSuburbPoliticiansResponse
+	46, // 96: shorts.v1alpha1.PoliticiansService.ListStatePoliticianHoldings:output_type -> shorts.v1alpha1.ListStatePoliticianHoldingsResponse
+	49, // 97: shorts.v1alpha1.PoliticiansService.ListRegisterChanges:output_type -> shorts.v1alpha1.ListRegisterChangesResponse
+	61, // 98: shorts.v1alpha1.PoliticiansService.ListShortInterestOverlap:output_type -> shorts.v1alpha1.ListShortInterestOverlapResponse
+	8,  // 99: shorts.v1alpha1.PoliticiansService.GetPoliticianAnalytics:output_type -> shorts.v1alpha1.GetPoliticianAnalyticsResponse
+	17, // 100: shorts.v1alpha1.PoliticiansService.GetRegisterExplorer:output_type -> shorts.v1alpha1.GetRegisterExplorerResponse
+	19, // 101: shorts.v1alpha1.PoliticiansService.ListPoliticianSummaries:output_type -> shorts.v1alpha1.ListPoliticianSummariesResponse
+	21, // 102: shorts.v1alpha1.PoliticiansService.GetPoliticianExplorerProfile:output_type -> shorts.v1alpha1.GetPoliticianExplorerProfileResponse
+	25, // 103: shorts.v1alpha1.PoliticiansService.ComparePoliticians:output_type -> shorts.v1alpha1.ComparePoliticiansResponse
+	55, // 104: shorts.v1alpha1.PoliticiansService.GetRegisterActivity:output_type -> shorts.v1alpha1.GetRegisterActivityResponse
+	58, // 105: shorts.v1alpha1.PoliticiansService.ListDistinctiveHoldings:output_type -> shorts.v1alpha1.ListDistinctiveHoldingsResponse
+	90, // [90:106] is the sub-list for method output_type
+	74, // [74:90] is the sub-list for method input_type
+	74, // [74:74] is the sub-list for extension type_name
+	74, // [74:74] is the sub-list for extension extendee
+	0,  // [0:74] is the sub-list for field type_name
 }
 
 func init() { file_shorts_v1alpha1_politicians_proto_init() }
@@ -4820,7 +5746,7 @@ func file_shorts_v1alpha1_politicians_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shorts_v1alpha1_politicians_proto_rawDesc), len(file_shorts_v1alpha1_politicians_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   50,
+			NumMessages:   59,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

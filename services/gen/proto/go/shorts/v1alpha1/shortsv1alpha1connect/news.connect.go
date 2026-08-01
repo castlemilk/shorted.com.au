@@ -68,6 +68,22 @@ const (
 	NewsServiceListTweetPublishQueueProcedure = "/shorts.v1alpha1.NewsService/ListTweetPublishQueue"
 )
 
+// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
+var (
+	newsServiceServiceDescriptor                       = v1alpha1.File_shorts_v1alpha1_news_proto.Services().ByName("NewsService")
+	newsServiceGetStockNewsMethodDescriptor            = newsServiceServiceDescriptor.Methods().ByName("GetStockNews")
+	newsServiceGetRelatedNewsMethodDescriptor          = newsServiceServiceDescriptor.Methods().ByName("GetRelatedNews")
+	newsServiceGetMarketNewsMethodDescriptor           = newsServiceServiceDescriptor.Methods().ByName("GetMarketNews")
+	newsServiceGetEditorialTakeMethodDescriptor        = newsServiceServiceDescriptor.Methods().ByName("GetEditorialTake")
+	newsServiceListEditorialTakesMethodDescriptor      = newsServiceServiceDescriptor.Methods().ByName("ListEditorialTakes")
+	newsServiceListEditorialTakesAdminMethodDescriptor = newsServiceServiceDescriptor.Methods().ByName("ListEditorialTakesAdmin")
+	newsServicePublishEditorialTakeMethodDescriptor    = newsServiceServiceDescriptor.Methods().ByName("PublishEditorialTake")
+	newsServiceUpdateEditorialTakeMethodDescriptor     = newsServiceServiceDescriptor.Methods().ByName("UpdateEditorialTake")
+	newsServiceDeleteEditorialTakeMethodDescriptor     = newsServiceServiceDescriptor.Methods().ByName("DeleteEditorialTake")
+	newsServiceMarkTakeTweetPublishedMethodDescriptor  = newsServiceServiceDescriptor.Methods().ByName("MarkTakeTweetPublished")
+	newsServiceListTweetPublishQueueMethodDescriptor   = newsServiceServiceDescriptor.Methods().ByName("ListTweetPublishQueue")
+)
+
 // NewsServiceClient is a client for the shorts.v1alpha1.NewsService service.
 type NewsServiceClient interface {
 	// Get recent news articles for a specific stock
@@ -104,72 +120,71 @@ type NewsServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewNewsServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) NewsServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
-	newsServiceMethods := v1alpha1.File_shorts_v1alpha1_news_proto.Services().ByName("NewsService").Methods()
 	return &newsServiceClient{
 		getStockNews: connect.NewClient[v1alpha1.GetStockNewsRequest, v1alpha1.GetStockNewsResponse](
 			httpClient,
 			baseURL+NewsServiceGetStockNewsProcedure,
-			connect.WithSchema(newsServiceMethods.ByName("GetStockNews")),
+			connect.WithSchema(newsServiceGetStockNewsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getRelatedNews: connect.NewClient[v1alpha1.GetRelatedNewsRequest, v1alpha1.GetRelatedNewsResponse](
 			httpClient,
 			baseURL+NewsServiceGetRelatedNewsProcedure,
-			connect.WithSchema(newsServiceMethods.ByName("GetRelatedNews")),
+			connect.WithSchema(newsServiceGetRelatedNewsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getMarketNews: connect.NewClient[v1alpha1.GetMarketNewsRequest, v1alpha1.GetMarketNewsResponse](
 			httpClient,
 			baseURL+NewsServiceGetMarketNewsProcedure,
-			connect.WithSchema(newsServiceMethods.ByName("GetMarketNews")),
+			connect.WithSchema(newsServiceGetMarketNewsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getEditorialTake: connect.NewClient[v1alpha1.GetEditorialTakeRequest, v1alpha1.GetEditorialTakeResponse](
 			httpClient,
 			baseURL+NewsServiceGetEditorialTakeProcedure,
-			connect.WithSchema(newsServiceMethods.ByName("GetEditorialTake")),
+			connect.WithSchema(newsServiceGetEditorialTakeMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listEditorialTakes: connect.NewClient[v1alpha1.ListEditorialTakesRequest, v1alpha1.ListEditorialTakesResponse](
 			httpClient,
 			baseURL+NewsServiceListEditorialTakesProcedure,
-			connect.WithSchema(newsServiceMethods.ByName("ListEditorialTakes")),
+			connect.WithSchema(newsServiceListEditorialTakesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listEditorialTakesAdmin: connect.NewClient[v1alpha1.ListEditorialTakesAdminRequest, v1alpha1.ListEditorialTakesAdminResponse](
 			httpClient,
 			baseURL+NewsServiceListEditorialTakesAdminProcedure,
-			connect.WithSchema(newsServiceMethods.ByName("ListEditorialTakesAdmin")),
+			connect.WithSchema(newsServiceListEditorialTakesAdminMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		publishEditorialTake: connect.NewClient[v1alpha1.PublishEditorialTakeRequest, v1alpha1.PublishEditorialTakeResponse](
 			httpClient,
 			baseURL+NewsServicePublishEditorialTakeProcedure,
-			connect.WithSchema(newsServiceMethods.ByName("PublishEditorialTake")),
+			connect.WithSchema(newsServicePublishEditorialTakeMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		updateEditorialTake: connect.NewClient[v1alpha1.UpdateEditorialTakeRequest, v1alpha1.UpdateEditorialTakeResponse](
 			httpClient,
 			baseURL+NewsServiceUpdateEditorialTakeProcedure,
-			connect.WithSchema(newsServiceMethods.ByName("UpdateEditorialTake")),
+			connect.WithSchema(newsServiceUpdateEditorialTakeMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		deleteEditorialTake: connect.NewClient[v1alpha1.DeleteEditorialTakeRequest, v1alpha1.DeleteEditorialTakeResponse](
 			httpClient,
 			baseURL+NewsServiceDeleteEditorialTakeProcedure,
-			connect.WithSchema(newsServiceMethods.ByName("DeleteEditorialTake")),
+			connect.WithSchema(newsServiceDeleteEditorialTakeMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		markTakeTweetPublished: connect.NewClient[v1alpha1.MarkTakeTweetPublishedRequest, v1alpha1.MarkTakeTweetPublishedResponse](
 			httpClient,
 			baseURL+NewsServiceMarkTakeTweetPublishedProcedure,
-			connect.WithSchema(newsServiceMethods.ByName("MarkTakeTweetPublished")),
+			connect.WithSchema(newsServiceMarkTakeTweetPublishedMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listTweetPublishQueue: connect.NewClient[v1alpha1.ListTweetPublishQueueRequest, v1alpha1.ListTweetPublishQueueResponse](
 			httpClient,
 			baseURL+NewsServiceListTweetPublishQueueProcedure,
-			connect.WithSchema(newsServiceMethods.ByName("ListTweetPublishQueue")),
+			connect.WithSchema(newsServiceListTweetPublishQueueMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -278,71 +293,70 @@ type NewsServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewNewsServiceHandler(svc NewsServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	newsServiceMethods := v1alpha1.File_shorts_v1alpha1_news_proto.Services().ByName("NewsService").Methods()
 	newsServiceGetStockNewsHandler := connect.NewUnaryHandler(
 		NewsServiceGetStockNewsProcedure,
 		svc.GetStockNews,
-		connect.WithSchema(newsServiceMethods.ByName("GetStockNews")),
+		connect.WithSchema(newsServiceGetStockNewsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	newsServiceGetRelatedNewsHandler := connect.NewUnaryHandler(
 		NewsServiceGetRelatedNewsProcedure,
 		svc.GetRelatedNews,
-		connect.WithSchema(newsServiceMethods.ByName("GetRelatedNews")),
+		connect.WithSchema(newsServiceGetRelatedNewsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	newsServiceGetMarketNewsHandler := connect.NewUnaryHandler(
 		NewsServiceGetMarketNewsProcedure,
 		svc.GetMarketNews,
-		connect.WithSchema(newsServiceMethods.ByName("GetMarketNews")),
+		connect.WithSchema(newsServiceGetMarketNewsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	newsServiceGetEditorialTakeHandler := connect.NewUnaryHandler(
 		NewsServiceGetEditorialTakeProcedure,
 		svc.GetEditorialTake,
-		connect.WithSchema(newsServiceMethods.ByName("GetEditorialTake")),
+		connect.WithSchema(newsServiceGetEditorialTakeMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	newsServiceListEditorialTakesHandler := connect.NewUnaryHandler(
 		NewsServiceListEditorialTakesProcedure,
 		svc.ListEditorialTakes,
-		connect.WithSchema(newsServiceMethods.ByName("ListEditorialTakes")),
+		connect.WithSchema(newsServiceListEditorialTakesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	newsServiceListEditorialTakesAdminHandler := connect.NewUnaryHandler(
 		NewsServiceListEditorialTakesAdminProcedure,
 		svc.ListEditorialTakesAdmin,
-		connect.WithSchema(newsServiceMethods.ByName("ListEditorialTakesAdmin")),
+		connect.WithSchema(newsServiceListEditorialTakesAdminMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	newsServicePublishEditorialTakeHandler := connect.NewUnaryHandler(
 		NewsServicePublishEditorialTakeProcedure,
 		svc.PublishEditorialTake,
-		connect.WithSchema(newsServiceMethods.ByName("PublishEditorialTake")),
+		connect.WithSchema(newsServicePublishEditorialTakeMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	newsServiceUpdateEditorialTakeHandler := connect.NewUnaryHandler(
 		NewsServiceUpdateEditorialTakeProcedure,
 		svc.UpdateEditorialTake,
-		connect.WithSchema(newsServiceMethods.ByName("UpdateEditorialTake")),
+		connect.WithSchema(newsServiceUpdateEditorialTakeMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	newsServiceDeleteEditorialTakeHandler := connect.NewUnaryHandler(
 		NewsServiceDeleteEditorialTakeProcedure,
 		svc.DeleteEditorialTake,
-		connect.WithSchema(newsServiceMethods.ByName("DeleteEditorialTake")),
+		connect.WithSchema(newsServiceDeleteEditorialTakeMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	newsServiceMarkTakeTweetPublishedHandler := connect.NewUnaryHandler(
 		NewsServiceMarkTakeTweetPublishedProcedure,
 		svc.MarkTakeTweetPublished,
-		connect.WithSchema(newsServiceMethods.ByName("MarkTakeTweetPublished")),
+		connect.WithSchema(newsServiceMarkTakeTweetPublishedMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	newsServiceListTweetPublishQueueHandler := connect.NewUnaryHandler(
 		NewsServiceListTweetPublishQueueProcedure,
 		svc.ListTweetPublishQueue,
-		connect.WithSchema(newsServiceMethods.ByName("ListTweetPublishQueue")),
+		connect.WithSchema(newsServiceListTweetPublishQueueMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/shorts.v1alpha1.NewsService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

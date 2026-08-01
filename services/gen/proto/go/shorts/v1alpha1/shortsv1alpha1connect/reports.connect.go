@@ -41,6 +41,13 @@ const (
 	ReportsServiceListReportsProcedure = "/shorts.v1alpha1.ReportsService/ListReports"
 )
 
+// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
+var (
+	reportsServiceServiceDescriptor               = v1alpha1.File_shorts_v1alpha1_reports_proto.Services().ByName("ReportsService")
+	reportsServiceGetWeeklyReportMethodDescriptor = reportsServiceServiceDescriptor.Methods().ByName("GetWeeklyReport")
+	reportsServiceListReportsMethodDescriptor     = reportsServiceServiceDescriptor.Methods().ByName("ListReports")
+)
+
 // ReportsServiceClient is a client for the shorts.v1alpha1.ReportsService service.
 type ReportsServiceClient interface {
 	// Get a weekly short report with narrative analysis
@@ -58,18 +65,17 @@ type ReportsServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewReportsServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) ReportsServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
-	reportsServiceMethods := v1alpha1.File_shorts_v1alpha1_reports_proto.Services().ByName("ReportsService").Methods()
 	return &reportsServiceClient{
 		getWeeklyReport: connect.NewClient[v1alpha1.GetWeeklyReportRequest, v1alpha1.GetWeeklyReportResponse](
 			httpClient,
 			baseURL+ReportsServiceGetWeeklyReportProcedure,
-			connect.WithSchema(reportsServiceMethods.ByName("GetWeeklyReport")),
+			connect.WithSchema(reportsServiceGetWeeklyReportMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listReports: connect.NewClient[v1alpha1.ListReportsRequest, v1alpha1.ListReportsResponse](
 			httpClient,
 			baseURL+ReportsServiceListReportsProcedure,
-			connect.WithSchema(reportsServiceMethods.ByName("ListReports")),
+			connect.WithSchema(reportsServiceListReportsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -105,17 +111,16 @@ type ReportsServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewReportsServiceHandler(svc ReportsServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	reportsServiceMethods := v1alpha1.File_shorts_v1alpha1_reports_proto.Services().ByName("ReportsService").Methods()
 	reportsServiceGetWeeklyReportHandler := connect.NewUnaryHandler(
 		ReportsServiceGetWeeklyReportProcedure,
 		svc.GetWeeklyReport,
-		connect.WithSchema(reportsServiceMethods.ByName("GetWeeklyReport")),
+		connect.WithSchema(reportsServiceGetWeeklyReportMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	reportsServiceListReportsHandler := connect.NewUnaryHandler(
 		ReportsServiceListReportsProcedure,
 		svc.ListReports,
-		connect.WithSchema(reportsServiceMethods.ByName("ListReports")),
+		connect.WithSchema(reportsServiceListReportsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/shorts.v1alpha1.ReportsService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

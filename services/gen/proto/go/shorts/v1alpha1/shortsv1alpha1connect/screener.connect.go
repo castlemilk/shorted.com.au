@@ -38,6 +38,12 @@ const (
 	ScreenerServiceScreenStocksProcedure = "/shorts.v1alpha1.ScreenerService/ScreenStocks"
 )
 
+// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
+var (
+	screenerServiceServiceDescriptor            = v1alpha1.File_shorts_v1alpha1_screener_proto.Services().ByName("ScreenerService")
+	screenerServiceScreenStocksMethodDescriptor = screenerServiceServiceDescriptor.Methods().ByName("ScreenStocks")
+)
+
 // ScreenerServiceClient is a client for the shorts.v1alpha1.ScreenerService service.
 type ScreenerServiceClient interface {
 	// Screen stocks using compound filters across shorts, price, fundamentals, director trades, and news
@@ -53,12 +59,11 @@ type ScreenerServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewScreenerServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) ScreenerServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
-	screenerServiceMethods := v1alpha1.File_shorts_v1alpha1_screener_proto.Services().ByName("ScreenerService").Methods()
 	return &screenerServiceClient{
 		screenStocks: connect.NewClient[v1alpha1.ScreenStocksRequest, v1alpha1.ScreenStocksResponse](
 			httpClient,
 			baseURL+ScreenerServiceScreenStocksProcedure,
-			connect.WithSchema(screenerServiceMethods.ByName("ScreenStocks")),
+			connect.WithSchema(screenerServiceScreenStocksMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -86,11 +91,10 @@ type ScreenerServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewScreenerServiceHandler(svc ScreenerServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	screenerServiceMethods := v1alpha1.File_shorts_v1alpha1_screener_proto.Services().ByName("ScreenerService").Methods()
 	screenerServiceScreenStocksHandler := connect.NewUnaryHandler(
 		ScreenerServiceScreenStocksProcedure,
 		svc.ScreenStocks,
-		connect.WithSchema(screenerServiceMethods.ByName("ScreenStocks")),
+		connect.WithSchema(screenerServiceScreenStocksMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/shorts.v1alpha1.ScreenerService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

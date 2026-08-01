@@ -700,7 +700,12 @@ func (s *postgresStore) ListStatePoliticianHoldings(stateCode string, limit int3
 //
 // An "added" event needs a KNOWN date: an undated base declaration has no point
 // on a timeline, and placing it at the parliament's opening would fabricate one.
-func (s *postgresStore) ListRegisterChanges(since time.Time, kind, stockCode string, limit, offset int32) ([]*RegisterChangeRow, int32, error) {
+//
+// The member/item/party/chamber filters are extra predicates over the SAME
+// events CTE, deliberately: the discovery layer's weekly strip and its feed have
+// to describe one population, so a filter may narrow the event set but must
+// never change what counts as an event.
+func (s *postgresStore) ListRegisterChanges(since time.Time, kind, stockCode, slug string, itemNo int32, partyAb, chamber string, limit, offset int32) ([]*RegisterChangeRow, int32, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
@@ -718,6 +723,18 @@ func (s *postgresStore) ListRegisterChanges(since time.Time, kind, stockCode str
 	}
 	if stockCode != "" {
 		add("stock_code = $%d", strings.ToUpper(stockCode))
+	}
+	if slug = strings.ToLower(strings.TrimSpace(slug)); slug != "" {
+		add("slug = $%d", slug)
+	}
+	if itemNo >= 1 && itemNo <= 14 {
+		add("item_no = $%d", itemNo)
+	}
+	if partyAb = strings.ToUpper(strings.TrimSpace(partyAb)); partyAb != "" {
+		add("upper(party_ab) = $%d", partyAb)
+	}
+	if chamber = strings.ToLower(strings.TrimSpace(chamber)); chamber != "" {
+		add("lower(chamber) = $%d", chamber)
 	}
 
 	base := `

@@ -68,6 +68,22 @@ const (
 	HousingServiceListAgencyPriceStatsProcedure = "/shorts.v1alpha1.HousingService/ListAgencyPriceStats"
 )
 
+// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
+var (
+	housingServiceServiceDescriptor                      = v1alpha1.File_shorts_v1alpha1_housing_proto.Services().ByName("HousingService")
+	housingServiceGetHousingOverviewMethodDescriptor     = housingServiceServiceDescriptor.Methods().ByName("GetHousingOverview")
+	housingServiceGetHousePriceSeriesMethodDescriptor    = housingServiceServiceDescriptor.Methods().ByName("GetHousePriceSeries")
+	housingServiceListStateSuburbsMethodDescriptor       = housingServiceServiceDescriptor.Methods().ByName("ListStateSuburbs")
+	housingServiceGetSuburbProfileMethodDescriptor       = housingServiceServiceDescriptor.Methods().ByName("GetSuburbProfile")
+	housingServiceListHousingRegionsMethodDescriptor     = housingServiceServiceDescriptor.Methods().ByName("ListHousingRegions")
+	housingServiceListSuburbPriceDropsMethodDescriptor   = housingServiceServiceDescriptor.Methods().ByName("ListSuburbPriceDrops")
+	housingServiceListSuburbDropListingsMethodDescriptor = housingServiceServiceDescriptor.Methods().ByName("ListSuburbDropListings")
+	housingServiceGetPropertyHistoryMethodDescriptor     = housingServiceServiceDescriptor.Methods().ByName("GetPropertyHistory")
+	housingServiceListAddressPriceDropsMethodDescriptor  = housingServiceServiceDescriptor.Methods().ByName("ListAddressPriceDrops")
+	housingServiceGetPriceDropsOverviewMethodDescriptor  = housingServiceServiceDescriptor.Methods().ByName("GetPriceDropsOverview")
+	housingServiceListAgencyPriceStatsMethodDescriptor   = housingServiceServiceDescriptor.Methods().ByName("ListAgencyPriceStats")
+)
+
 // HousingServiceClient is a client for the shorts.v1alpha1.HousingService service.
 type HousingServiceClient interface {
 	// Latest house-price headline metrics by region (national/state/capital city).
@@ -103,72 +119,71 @@ type HousingServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewHousingServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) HousingServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
-	housingServiceMethods := v1alpha1.File_shorts_v1alpha1_housing_proto.Services().ByName("HousingService").Methods()
 	return &housingServiceClient{
 		getHousingOverview: connect.NewClient[v1alpha1.GetHousingOverviewRequest, v1alpha1.GetHousingOverviewResponse](
 			httpClient,
 			baseURL+HousingServiceGetHousingOverviewProcedure,
-			connect.WithSchema(housingServiceMethods.ByName("GetHousingOverview")),
+			connect.WithSchema(housingServiceGetHousingOverviewMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getHousePriceSeries: connect.NewClient[v1alpha1.GetHousePriceSeriesRequest, v1alpha1.GetHousePriceSeriesResponse](
 			httpClient,
 			baseURL+HousingServiceGetHousePriceSeriesProcedure,
-			connect.WithSchema(housingServiceMethods.ByName("GetHousePriceSeries")),
+			connect.WithSchema(housingServiceGetHousePriceSeriesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listStateSuburbs: connect.NewClient[v1alpha1.ListStateSuburbsRequest, v1alpha1.ListStateSuburbsResponse](
 			httpClient,
 			baseURL+HousingServiceListStateSuburbsProcedure,
-			connect.WithSchema(housingServiceMethods.ByName("ListStateSuburbs")),
+			connect.WithSchema(housingServiceListStateSuburbsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getSuburbProfile: connect.NewClient[v1alpha1.GetSuburbProfileRequest, v1alpha1.GetSuburbProfileResponse](
 			httpClient,
 			baseURL+HousingServiceGetSuburbProfileProcedure,
-			connect.WithSchema(housingServiceMethods.ByName("GetSuburbProfile")),
+			connect.WithSchema(housingServiceGetSuburbProfileMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listHousingRegions: connect.NewClient[v1alpha1.ListHousingRegionsRequest, v1alpha1.ListHousingRegionsResponse](
 			httpClient,
 			baseURL+HousingServiceListHousingRegionsProcedure,
-			connect.WithSchema(housingServiceMethods.ByName("ListHousingRegions")),
+			connect.WithSchema(housingServiceListHousingRegionsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listSuburbPriceDrops: connect.NewClient[v1alpha1.ListSuburbPriceDropsRequest, v1alpha1.ListSuburbPriceDropsResponse](
 			httpClient,
 			baseURL+HousingServiceListSuburbPriceDropsProcedure,
-			connect.WithSchema(housingServiceMethods.ByName("ListSuburbPriceDrops")),
+			connect.WithSchema(housingServiceListSuburbPriceDropsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listSuburbDropListings: connect.NewClient[v1alpha1.ListSuburbDropListingsRequest, v1alpha1.ListSuburbDropListingsResponse](
 			httpClient,
 			baseURL+HousingServiceListSuburbDropListingsProcedure,
-			connect.WithSchema(housingServiceMethods.ByName("ListSuburbDropListings")),
+			connect.WithSchema(housingServiceListSuburbDropListingsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getPropertyHistory: connect.NewClient[v1alpha1.GetPropertyHistoryRequest, v1alpha1.GetPropertyHistoryResponse](
 			httpClient,
 			baseURL+HousingServiceGetPropertyHistoryProcedure,
-			connect.WithSchema(housingServiceMethods.ByName("GetPropertyHistory")),
+			connect.WithSchema(housingServiceGetPropertyHistoryMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listAddressPriceDrops: connect.NewClient[v1alpha1.ListAddressPriceDropsRequest, v1alpha1.ListAddressPriceDropsResponse](
 			httpClient,
 			baseURL+HousingServiceListAddressPriceDropsProcedure,
-			connect.WithSchema(housingServiceMethods.ByName("ListAddressPriceDrops")),
+			connect.WithSchema(housingServiceListAddressPriceDropsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getPriceDropsOverview: connect.NewClient[v1alpha1.GetPriceDropsOverviewRequest, v1alpha1.GetPriceDropsOverviewResponse](
 			httpClient,
 			baseURL+HousingServiceGetPriceDropsOverviewProcedure,
-			connect.WithSchema(housingServiceMethods.ByName("GetPriceDropsOverview")),
+			connect.WithSchema(housingServiceGetPriceDropsOverviewMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listAgencyPriceStats: connect.NewClient[v1alpha1.ListAgencyPriceStatsRequest, v1alpha1.ListAgencyPriceStatsResponse](
 			httpClient,
 			baseURL+HousingServiceListAgencyPriceStatsProcedure,
-			connect.WithSchema(housingServiceMethods.ByName("ListAgencyPriceStats")),
+			connect.WithSchema(housingServiceListAgencyPriceStatsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -276,71 +291,70 @@ type HousingServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewHousingServiceHandler(svc HousingServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	housingServiceMethods := v1alpha1.File_shorts_v1alpha1_housing_proto.Services().ByName("HousingService").Methods()
 	housingServiceGetHousingOverviewHandler := connect.NewUnaryHandler(
 		HousingServiceGetHousingOverviewProcedure,
 		svc.GetHousingOverview,
-		connect.WithSchema(housingServiceMethods.ByName("GetHousingOverview")),
+		connect.WithSchema(housingServiceGetHousingOverviewMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	housingServiceGetHousePriceSeriesHandler := connect.NewUnaryHandler(
 		HousingServiceGetHousePriceSeriesProcedure,
 		svc.GetHousePriceSeries,
-		connect.WithSchema(housingServiceMethods.ByName("GetHousePriceSeries")),
+		connect.WithSchema(housingServiceGetHousePriceSeriesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	housingServiceListStateSuburbsHandler := connect.NewUnaryHandler(
 		HousingServiceListStateSuburbsProcedure,
 		svc.ListStateSuburbs,
-		connect.WithSchema(housingServiceMethods.ByName("ListStateSuburbs")),
+		connect.WithSchema(housingServiceListStateSuburbsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	housingServiceGetSuburbProfileHandler := connect.NewUnaryHandler(
 		HousingServiceGetSuburbProfileProcedure,
 		svc.GetSuburbProfile,
-		connect.WithSchema(housingServiceMethods.ByName("GetSuburbProfile")),
+		connect.WithSchema(housingServiceGetSuburbProfileMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	housingServiceListHousingRegionsHandler := connect.NewUnaryHandler(
 		HousingServiceListHousingRegionsProcedure,
 		svc.ListHousingRegions,
-		connect.WithSchema(housingServiceMethods.ByName("ListHousingRegions")),
+		connect.WithSchema(housingServiceListHousingRegionsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	housingServiceListSuburbPriceDropsHandler := connect.NewUnaryHandler(
 		HousingServiceListSuburbPriceDropsProcedure,
 		svc.ListSuburbPriceDrops,
-		connect.WithSchema(housingServiceMethods.ByName("ListSuburbPriceDrops")),
+		connect.WithSchema(housingServiceListSuburbPriceDropsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	housingServiceListSuburbDropListingsHandler := connect.NewUnaryHandler(
 		HousingServiceListSuburbDropListingsProcedure,
 		svc.ListSuburbDropListings,
-		connect.WithSchema(housingServiceMethods.ByName("ListSuburbDropListings")),
+		connect.WithSchema(housingServiceListSuburbDropListingsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	housingServiceGetPropertyHistoryHandler := connect.NewUnaryHandler(
 		HousingServiceGetPropertyHistoryProcedure,
 		svc.GetPropertyHistory,
-		connect.WithSchema(housingServiceMethods.ByName("GetPropertyHistory")),
+		connect.WithSchema(housingServiceGetPropertyHistoryMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	housingServiceListAddressPriceDropsHandler := connect.NewUnaryHandler(
 		HousingServiceListAddressPriceDropsProcedure,
 		svc.ListAddressPriceDrops,
-		connect.WithSchema(housingServiceMethods.ByName("ListAddressPriceDrops")),
+		connect.WithSchema(housingServiceListAddressPriceDropsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	housingServiceGetPriceDropsOverviewHandler := connect.NewUnaryHandler(
 		HousingServiceGetPriceDropsOverviewProcedure,
 		svc.GetPriceDropsOverview,
-		connect.WithSchema(housingServiceMethods.ByName("GetPriceDropsOverview")),
+		connect.WithSchema(housingServiceGetPriceDropsOverviewMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	housingServiceListAgencyPriceStatsHandler := connect.NewUnaryHandler(
 		HousingServiceListAgencyPriceStatsProcedure,
 		svc.ListAgencyPriceStats,
-		connect.WithSchema(housingServiceMethods.ByName("ListAgencyPriceStats")),
+		connect.WithSchema(housingServiceListAgencyPriceStatsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/shorts.v1alpha1.HousingService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

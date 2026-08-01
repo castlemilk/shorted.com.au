@@ -508,21 +508,46 @@ func (s *ShortsServer) ListRegisterChanges(
 	m := req.Msg
 	var since time.Time
 	if m.Since != nil {
-		since = m.Since.AsTime()
+		// UTC DAY granularity, applied BEFORE both the cache key and the store
+		// call. The key has only ever carried the day, so an un-truncated
+		// timestamp reaching the store meant two different queries (09:00 and
+		// 17:00 on one day) shared a key and were served each other's rows —
+		// and this is a public rpc taking arbitrary external timestamps.
+		utc := m.Since.AsTime().UTC()
+		since = time.Date(utc.Year(), utc.Month(), utc.Day(), 0, 0, 0, 0, time.UTC)
 	}
 	kind := registerChangeKindString(m.Kind)
 	code := strings.ToUpper(strings.TrimSpace(m.StockCode))
+	// Every filter is normalised BEFORE the cache key is built, so a key can
+	// never describe a different query than the one whose result it holds.
+	slug := strings.ToLower(strings.TrimSpace(m.PoliticianSlug))
+	itemNo := m.ItemNo
+	if itemNo < 1 || itemNo > 14 {
+		itemNo = 0 // 0 = all; the register form has 14 items and no others
+	}
+	party := strings.ToUpper(strings.TrimSpace(m.PartyAb))
+	chamber := strings.ToLower(strings.TrimSpace(m.Chamber))
 	limit := clampLimit(m.Limit, 100, 500)
 	offset := max32(m.Offset, 0)
 
 	cached, err := s.cache.GetOrSet(
-		s.cache.ListRegisterChangesKey(since, kind, code, limit, offset),
+		s.cache.ListRegisterChangesKey(since, kind, code, slug, itemNo, party, chamber, limit, offset),
 		func() (interface{}, error) {
-			rows, total, err := s.store.ListRegisterChanges(since, kind, code, limit, offset)
+			rows, total, err := s.store.ListRegisterChanges(since, kind, code, slug, itemNo, party, chamber, limit, offset)
 			if err != nil {
 				return nil, err
 			}
 			out := &shortsv1alpha1.ListRegisterChangesResponse{Total: total, SourceLicence: registerLicence}
+			// The register's own clock, from the same source every other
+			// surface reads it from. A filtered, empty feed still has to state
+			// which register it is empty of.
+			overview, err := s.store.GetRegisterOverview()
+			if err != nil {
+				return nil, err
+			}
+			if overview != nil {
+				out.AsAt = registerTimestamp(overview.AsAt)
+			}
 			for _, r := range rows {
 				out.Events = append(out.Events, &shortsv1alpha1.RegisterChangeEvent{
 					Politician:   politicianProto(r.Politician),

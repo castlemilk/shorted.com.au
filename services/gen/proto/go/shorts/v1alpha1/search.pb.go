@@ -159,7 +159,8 @@ const file_shorts_v1alpha1_search_proto_rawDesc = "" +
 	"\x06stocks\x18\x02 \x03(\v2\x16.stocks.v1alpha1.StockR\x06stocks\x12\x14\n" +
 	"\x05count\x18\x03 \x01(\x05R\x05count2r\n" +
 	"\rSearchService\x12a\n" +
-	"\fSearchStocks\x12$.shorts.v1alpha1.SearchStocksRequest\x1a%.shorts.v1alpha1.SearchStocksResponse\"\x04\x80\xb5\x18\x01B[ZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1b\x06proto3"
+	"\fSearchStocks\x12$.shorts.v1alpha1.SearchStocksRequest\x1a%.shorts.v1alpha1.SearchStocksResponse\"\x04\x80\xb5\x18\x01B\xda\x01\n" +
+	"\x13com.shorts.v1alpha1B\vSearchProtoP\x01ZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1\xa2\x02\x03SXX\xaa\x02\x0fShorts.V1alpha1\xca\x02\x0fShorts\\V1alpha1\xe2\x02\x1bShorts\\V1alpha1\\GPBMetadata\xea\x02\x10Shorts::V1alpha1b\x06proto3"
 
 var (
 	file_shorts_v1alpha1_search_proto_rawDescOnce sync.Once

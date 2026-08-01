@@ -349,8 +349,8 @@ func (s *StoreAdapter) ListStatePoliticianHoldings(stateCode string, limit int32
 	return s.store.ListStatePoliticianHoldings(stateCode, limit)
 }
 
-func (s *StoreAdapter) ListRegisterChanges(since time.Time, kind, stockCode string, limit, offset int32) ([]*shorts.RegisterChangeRow, int32, error) {
-	return s.store.ListRegisterChanges(since, kind, stockCode, limit, offset)
+func (s *StoreAdapter) ListRegisterChanges(since time.Time, kind, stockCode, slug string, itemNo int32, partyAb, chamber string, limit, offset int32) ([]*shorts.RegisterChangeRow, int32, error) {
+	return s.store.ListRegisterChanges(since, kind, stockCode, slug, itemNo, partyAb, chamber, limit, offset)
 }
 
 func (s *StoreAdapter) ListShortInterestOverlap(minShortPercent float64, limit int32) ([]*shorts.PoliticianStockRollupRow, error) {
@@ -375,6 +375,14 @@ func (s *StoreAdapter) GetPoliticianExplorerProfile(slug string, topIndustries i
 
 func (s *StoreAdapter) ComparePoliticians(slugA, slugB string) (*shorts.PoliticianComparisonRow, error) {
 	return s.store.ComparePoliticians(slugA, slugB)
+}
+
+func (s *StoreAdapter) GetRegisterActivity(windowDays int32, filter shorts.RegisterActivityFilter) (*shorts.RegisterActivityRow, error) {
+	return s.store.GetRegisterActivity(windowDays, filter)
+}
+
+func (s *StoreAdapter) ListDistinctiveHoldings(slug string) (*shorts.DistinctiveHoldingsRow, error) {
+	return s.store.ListDistinctiveHoldings(slug)
 }
 
 // Register review console. Deliberately NOT routed through the caching adapter

@@ -587,11 +587,11 @@ func TestRegisterChangesCacheKeyIsStableForTheSameDay(t *testing.T) {
 	cache := NewMemoryCache(time.Minute)
 	a := time.Date(2026, 7, 1, 9, 30, 0, 0, time.UTC)
 	b := time.Date(2026, 7, 1, 21, 45, 12, 500, time.UTC)
-	if cache.ListRegisterChangesKey(a, "added", "CBA", 100, 0) != cache.ListRegisterChangesKey(b, "added", "CBA", 100, 0) {
+	if cache.ListRegisterChangesKey(a, "added", "CBA", "", 0, "", "", 100, 0) != cache.ListRegisterChangesKey(b, "added", "CBA", "", 0, "", "", 100, 0) {
 		t.Error("keys differ for the same day; the cache would never hit")
 	}
 	other := time.Date(2026, 7, 2, 9, 30, 0, 0, time.UTC)
-	if cache.ListRegisterChangesKey(a, "added", "CBA", 100, 0) == cache.ListRegisterChangesKey(other, "added", "CBA", 100, 0) {
+	if cache.ListRegisterChangesKey(a, "added", "CBA", "", 0, "", "", 100, 0) == cache.ListRegisterChangesKey(other, "added", "CBA", "", 0, "", "", 100, 0) {
 		t.Error("different days must not share a key")
 	}
 }

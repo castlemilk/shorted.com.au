@@ -51,4 +51,34 @@ public interface ListRegisterChangesResponseOrBuilder extends
    */
   com.google.protobuf.ByteString
       getSourceLicenceBytes();
+
+  /**
+   * <pre>
+   * The register's own clock: the newest lodgement we hold, never the moment we
+   * rebuilt our snapshot.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp as_at = 4 [json_name = "asAt"];</code>
+   * @return Whether the asAt field is set.
+   */
+  boolean hasAsAt();
+  /**
+   * <pre>
+   * The register's own clock: the newest lodgement we hold, never the moment we
+   * rebuilt our snapshot.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp as_at = 4 [json_name = "asAt"];</code>
+   * @return The asAt.
+   */
+  com.google.protobuf.Timestamp getAsAt();
+  /**
+   * <pre>
+   * The register's own clock: the newest lodgement we hold, never the moment we
+   * rebuilt our snapshot.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp as_at = 4 [json_name = "asAt"];</code>
+   */
+  com.google.protobuf.TimestampOrBuilder getAsAtOrBuilder();
 }

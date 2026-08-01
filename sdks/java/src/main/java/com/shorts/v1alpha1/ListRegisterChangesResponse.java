@@ -50,6 +50,7 @@ private static final long serialVersionUID = 0L;
             com.shorts.v1alpha1.ListRegisterChangesResponse.class, com.shorts.v1alpha1.ListRegisterChangesResponse.Builder.class);
   }
 
+  private int bitField0_;
   public static final int EVENTS_FIELD_NUMBER = 1;
   @SuppressWarnings("serial")
   private java.util.List<com.shorts.v1alpha1.RegisterChangeEvent> events_;
@@ -141,6 +142,47 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int AS_AT_FIELD_NUMBER = 4;
+  private com.google.protobuf.Timestamp asAt_;
+  /**
+   * <pre>
+   * The register's own clock: the newest lodgement we hold, never the moment we
+   * rebuilt our snapshot.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp as_at = 4 [json_name = "asAt"];</code>
+   * @return Whether the asAt field is set.
+   */
+  @java.lang.Override
+  public boolean hasAsAt() {
+    return ((bitField0_ & 0x00000001) != 0);
+  }
+  /**
+   * <pre>
+   * The register's own clock: the newest lodgement we hold, never the moment we
+   * rebuilt our snapshot.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp as_at = 4 [json_name = "asAt"];</code>
+   * @return The asAt.
+   */
+  @java.lang.Override
+  public com.google.protobuf.Timestamp getAsAt() {
+    return asAt_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : asAt_;
+  }
+  /**
+   * <pre>
+   * The register's own clock: the newest lodgement we hold, never the moment we
+   * rebuilt our snapshot.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp as_at = 4 [json_name = "asAt"];</code>
+   */
+  @java.lang.Override
+  public com.google.protobuf.TimestampOrBuilder getAsAtOrBuilder() {
+    return asAt_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : asAt_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -164,6 +206,9 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sourceLicence_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 3, sourceLicence_);
     }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      output.writeMessage(4, getAsAt());
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -183,6 +228,10 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sourceLicence_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(3, sourceLicence_);
+    }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(4, getAsAt());
     }
     return size;
   }
@@ -214,6 +263,11 @@ private static final long serialVersionUID = 0L;
         != other.getTotal()) return false;
     if (!getSourceLicence()
         .equals(other.getSourceLicence())) return false;
+    if (hasAsAt() != other.hasAsAt()) return false;
+    if (hasAsAt()) {
+      if (!getAsAt()
+          .equals(other.getAsAt())) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -233,6 +287,10 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getTotal();
     hash = (37 * hash) + SOURCE_LICENCE_FIELD_NUMBER;
     hash = (53 * hash) + getSourceLicence().hashCode();
+    if (hasAsAt()) {
+      hash = (37 * hash) + AS_AT_FIELD_NUMBER;
+      hash = (53 * hash) + getAsAt().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -352,13 +410,20 @@ private static final long serialVersionUID = 0L;
 
     // Construct using com.shorts.v1alpha1.ListRegisterChangesResponse.newBuilder()
     private Builder() {
-
+      maybeForceBuilderInitialization();
     }
 
     private Builder(
         com.google.protobuf.GeneratedMessage.BuilderParent parent) {
       super(parent);
-
+      maybeForceBuilderInitialization();
+    }
+    private void maybeForceBuilderInitialization() {
+      if (com.google.protobuf.GeneratedMessage
+              .alwaysUseFieldBuilders) {
+        internalGetEventsFieldBuilder();
+        internalGetAsAtFieldBuilder();
+      }
     }
     @java.lang.Override
     public Builder clear() {
@@ -373,6 +438,11 @@ private static final long serialVersionUID = 0L;
       bitField0_ = (bitField0_ & ~0x00000001);
       total_ = 0;
       sourceLicence_ = "";
+      asAt_ = null;
+      if (asAtBuilder_ != null) {
+        asAtBuilder_.dispose();
+        asAtBuilder_ = null;
+      }
       return this;
     }
 
@@ -425,6 +495,14 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000004) != 0)) {
         result.sourceLicence_ = sourceLicence_;
       }
+      int to_bitField0_ = 0;
+      if (((from_bitField0_ & 0x00000008) != 0)) {
+        result.asAt_ = asAtBuilder_ == null
+            ? asAt_
+            : asAtBuilder_.build();
+        to_bitField0_ |= 0x00000001;
+      }
+      result.bitField0_ |= to_bitField0_;
     }
 
     @java.lang.Override
@@ -472,6 +550,9 @@ private static final long serialVersionUID = 0L;
         sourceLicence_ = other.sourceLicence_;
         bitField0_ |= 0x00000004;
         onChanged();
+      }
+      if (other.hasAsAt()) {
+        mergeAsAt(other.getAsAt());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -522,6 +603,13 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000004;
               break;
             } // case 26
+            case 34: {
+              input.readMessage(
+                  internalGetAsAtFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000008;
+              break;
+            } // case 34
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -881,6 +969,172 @@ private static final long serialVersionUID = 0L;
       bitField0_ |= 0x00000004;
       onChanged();
       return this;
+    }
+
+    private com.google.protobuf.Timestamp asAt_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> asAtBuilder_;
+    /**
+     * <pre>
+     * The register's own clock: the newest lodgement we hold, never the moment we
+     * rebuilt our snapshot.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp as_at = 4 [json_name = "asAt"];</code>
+     * @return Whether the asAt field is set.
+     */
+    public boolean hasAsAt() {
+      return ((bitField0_ & 0x00000008) != 0);
+    }
+    /**
+     * <pre>
+     * The register's own clock: the newest lodgement we hold, never the moment we
+     * rebuilt our snapshot.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp as_at = 4 [json_name = "asAt"];</code>
+     * @return The asAt.
+     */
+    public com.google.protobuf.Timestamp getAsAt() {
+      if (asAtBuilder_ == null) {
+        return asAt_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : asAt_;
+      } else {
+        return asAtBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * The register's own clock: the newest lodgement we hold, never the moment we
+     * rebuilt our snapshot.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp as_at = 4 [json_name = "asAt"];</code>
+     */
+    public Builder setAsAt(com.google.protobuf.Timestamp value) {
+      if (asAtBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        asAt_ = value;
+      } else {
+        asAtBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The register's own clock: the newest lodgement we hold, never the moment we
+     * rebuilt our snapshot.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp as_at = 4 [json_name = "asAt"];</code>
+     */
+    public Builder setAsAt(
+        com.google.protobuf.Timestamp.Builder builderForValue) {
+      if (asAtBuilder_ == null) {
+        asAt_ = builderForValue.build();
+      } else {
+        asAtBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The register's own clock: the newest lodgement we hold, never the moment we
+     * rebuilt our snapshot.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp as_at = 4 [json_name = "asAt"];</code>
+     */
+    public Builder mergeAsAt(com.google.protobuf.Timestamp value) {
+      if (asAtBuilder_ == null) {
+        if (((bitField0_ & 0x00000008) != 0) &&
+          asAt_ != null &&
+          asAt_ != com.google.protobuf.Timestamp.getDefaultInstance()) {
+          getAsAtBuilder().mergeFrom(value);
+        } else {
+          asAt_ = value;
+        }
+      } else {
+        asAtBuilder_.mergeFrom(value);
+      }
+      if (asAt_ != null) {
+        bitField0_ |= 0x00000008;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The register's own clock: the newest lodgement we hold, never the moment we
+     * rebuilt our snapshot.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp as_at = 4 [json_name = "asAt"];</code>
+     */
+    public Builder clearAsAt() {
+      bitField0_ = (bitField0_ & ~0x00000008);
+      asAt_ = null;
+      if (asAtBuilder_ != null) {
+        asAtBuilder_.dispose();
+        asAtBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The register's own clock: the newest lodgement we hold, never the moment we
+     * rebuilt our snapshot.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp as_at = 4 [json_name = "asAt"];</code>
+     */
+    public com.google.protobuf.Timestamp.Builder getAsAtBuilder() {
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return internalGetAsAtFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * The register's own clock: the newest lodgement we hold, never the moment we
+     * rebuilt our snapshot.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp as_at = 4 [json_name = "asAt"];</code>
+     */
+    public com.google.protobuf.TimestampOrBuilder getAsAtOrBuilder() {
+      if (asAtBuilder_ != null) {
+        return asAtBuilder_.getMessageOrBuilder();
+      } else {
+        return asAt_ == null ?
+            com.google.protobuf.Timestamp.getDefaultInstance() : asAt_;
+      }
+    }
+    /**
+     * <pre>
+     * The register's own clock: the newest lodgement we hold, never the moment we
+     * rebuilt our snapshot.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp as_at = 4 [json_name = "asAt"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> 
+        internalGetAsAtFieldBuilder() {
+      if (asAtBuilder_ == null) {
+        asAtBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder>(
+                getAsAt(),
+                getParentForChildren(),
+                isClean());
+        asAt_ = null;
+      }
+      return asAtBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.ListRegisterChangesResponse)

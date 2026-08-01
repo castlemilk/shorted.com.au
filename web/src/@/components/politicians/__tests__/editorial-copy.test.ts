@@ -105,6 +105,19 @@ const HUB_SECTIONS = [
 ];
 
 /**
+ * The /politicians/changes activity explorer's island — the same class as
+ * HUB_SECTIONS, for the same two reasons, but kept in its own list because the
+ * hub does not import it and the assertion below checks each list against ITS
+ * OWN host page.
+ *
+ * It is one page's whole body, and it CANNOT carry its own citation: it is a
+ * "use client" file and SourceLine/ReportErrorLink live in compliance.tsx,
+ * which imports the generated protobuf enum. The changes page renders the
+ * SourceLine, the CaveatNote and the method note in its footer.
+ */
+const CHANGES_SECTIONS = ["register-activity-explorer.tsx"];
+
+/**
  * Presentational primitives — the kit, not a surface. Same class as
  * compliance.tsx, which is excluded for the same reason.
  *
@@ -142,6 +155,7 @@ const RENDERING_SURFACES = FILES.filter(
     !f.endsWith("opengraph-image.tsx") &&
     !f.includes("__tests__") &&
     !HUB_SECTIONS.some((s) => f.endsWith(s)) &&
+    !CHANGES_SECTIONS.some((s) => f.endsWith(s)) &&
     !KIT_PRIMITIVES.some((s) => f.endsWith(s)) &&
     !KIT_PRIMITIVE_DIRS.some((s) => f.includes(s)) &&
     !PROFILE_SECTION_DIRS.some((s) => f.includes(s)) &&
@@ -200,8 +214,50 @@ describe("politician surface copy", () => {
     // RENDERING_SURFACES as a `profile/` section like the four beside it. It
     // renders nothing and carries no copy — the labels it returns come from the
     // register's own taxonomy in `@/lib/politics/register-items`.
-    expect(FILES.length).toBe(36);
+    //
+    // 36 -> 37: `profile/distinctive-holdings.tsx`, the "Declared by no other
+    // member" rail (explorer-ui.md §7b). It publishes a COUNT OF MEMBERS and
+    // the company's own market-wide short interest beside a named member, which
+    // is exactly the copy this file governs — the heading is the whole claim,
+    // and the word "distinctive" (the rpc's name) appears in no reader-facing
+    // string. Excluded from RENDERING_SURFACES as a `profile/` section like the
+    // five beside it: it is one page's rail and that page carries the citation
+    // and the dispute affordance. §6.2 editorial re-review triggered for the new
+    // heading, the long-tail line and the short-interest chip.
+    //
+    // 37 -> 39: the activity explorer (explorer-ui.md §7a) —
+    // `register-activity-explorer.tsx`, the /politicians/changes island, and
+    // `explorer/week-bars.tsx`, the weekly paired-bar strip it renders. The
+    // island names members beside dated counts and is excluded from
+    // RENDERING_SURFACES as a HUB_SECTIONS-class file (a client island cannot
+    // import the citation kit; its page carries the SourceLine, the CaveatNote
+    // and the method note). The strip is kit, excluded by KIT_PRIMITIVE_DIRS
+    // like the eight files beside it. §6.2 editorial re-review triggered for
+    // the filter copy, the two outage paragraphs, the count line and the three
+    // rail headings — "most dated register events" is the strongest
+    // characterisation any of them makes, and it is a count ordering.
+    expect(FILES.length).toBe(39);
     expect(RENDERING_SURFACES.length).toBe(9);
+  });
+
+  // The activity explorer's exclusion above is conditional on this, exactly as
+  // the hub's and the profile's are. The island renders every dated event on the
+  // page beside a named member and cites nothing on its own.
+  it("the /politicians/changes page carries the citation its island relies on", () => {
+    const changes = readFileSync(
+      join(ROOT, "app", "politicians", "changes", "page.tsx"),
+      "utf8",
+    );
+    expect(changes).toMatch(/<SourceLine/);
+    expect(changes).toMatch(/<CaveatNote/);
+    for (const section of CHANGES_SECTIONS) {
+      expect(changes).toContain(section.replace(/\.tsx$/, ""));
+    }
+    // The method note is what makes every count on the page readable: dated
+    // events only, undated entries excluded, and activity reflecting extraction
+    // coverage as much as lodgement.
+    expect(changes).toMatch(/DATED register events/);
+    expect(changes).toMatch(/coverage, not a finding/);
   });
 
   // The avatar's exclusion above is conditional on it carrying the credit that

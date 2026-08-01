@@ -97,6 +97,24 @@ service PoliticiansService {
   rpc ComparePoliticians (ComparePoliticiansRequest) returns (ComparePoliticiansResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
   }
+
+  // Aggregate lodgement activity over a window: weekly event counts, the
+  // members with the most dated events, companies first declared in the window,
+  // and companies whose declarer count moved.
+  //
+  // COUNTS AND DATES ONLY. "Most active" is a count ordering, and is the
+  // strongest characterisation permitted beside a named member — nothing here
+  // may become "unusual", "spike", "watch" or a flag of any kind.
+  rpc GetRegisterActivity (GetRegisterActivityRequest) returns (GetRegisterActivityResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // One member's currently-declared listed companies, each with how many
+  // members in total currently declare it. A count of one is the plain fact
+  // "no other member currently declares this"; it is not a label.
+  rpc ListDistinctiveHoldings (ListDistinctiveHoldingsRequest) returns (ListDistinctiveHoldingsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
 }
 
 // PartyIndustryCell is one cell of the party x industry matrix.
@@ -570,11 +588,22 @@ message ListStatePoliticianHoldingsResponse {
 }
 
 message ListRegisterChangesRequest {
+  // Interpreted at UTC DAY granularity: the handler truncates it to UTC
+  // midnight before it reaches either the cache key or the query, so two
+  // timestamps on the same day are one request and cannot be served each
+  // other's results.
   google.protobuf.Timestamp since = 1;
   RegisterChangeKind kind = 2;  // UNSPECIFIED = both
   string stock_code = 3;        // optional
   int32 limit = 4;              // default 100, max 500
   int32 offset = 5;
+
+  // Discovery-layer filters. All optional and all ADDITIVE — the unfiltered
+  // feed is unchanged when they are left empty.
+  string politician_slug = 6;   // canonical slug; consumers never derive one
+  int32 item_no = 7;            // register form item 1-14; 0 = all
+  string party_ab = 8;          // AEC abbreviation
+  string chamber = 9;           // 'house' | 'senate'
 }
 
 message RegisterChangeEvent {
@@ -597,6 +626,167 @@ message ListRegisterChangesResponse {
   repeated RegisterChangeEvent events = 1;
   int32 total = 2;
   string source_licence = 3;
+  // The register's own clock: the newest lodgement we hold, never the moment we
+  // rebuilt our snapshot.
+  google.protobuf.Timestamp as_at = 4;
+}
+
+// ==================== Discovery layer ====================
+//
+// Everything here derives live from the published holdings surface. It exists
+// so that unusual patterns are FINDABLE as counts and dates; no field labels a
+// member, a company or a pattern, and none may be added.
+
+message GetRegisterActivityRequest {
+  // 30 | 90 | 180 | 365. Anything else is clamped to the next value up (0 and
+  // negatives default to 90), so a cache key can never describe a window other
+  // than the one that produced it.
+  int32 window_days = 1;
+
+  // The SAME filter set ListRegisterChanges takes, and for one reason: the
+  // weekly strip is drawn above a FILTERED feed, so parliament-wide numbers
+  // rendered there read as the filtered member's own. All optional and all
+  // ADDITIVE — an unfiltered request is byte-identical to the old behaviour.
+  //
+  // They narrow the WEEKLY BUCKETS, filtered_event_count and
+  // filtered_member_count only. The three rails (active_members,
+  // newly_declared_companies, declarer_count_changes) are NOT narrowed by the
+  // filters: they answer corpus-wide questions inside the window, and a
+  // "most active members" rail filtered to one member would be a tautology.
+  string politician_slug = 2;  // canonical slug; consumers never derive one
+  string party_ab = 3;         // AEC abbreviation
+  string chamber = 4;          // 'house' | 'senate'
+  int32 item_no = 5;           // register form item 1-14; 0 = all
+  RegisterChangeKind kind = 6;  // UNSPECIFIED = both
+}
+
+// WeeklyEventCount is one Monday-anchored week of DATED events. Undated
+// lodgements have no point on a timeline and are excluded — never placed at a
+// parliament's opening, which would fabricate a date.
+//
+// The series is CONTIGUOUS: every Monday from the window's start to the current
+// week is present, weeks with no events included at zero, so a bar chart's gaps
+// are real quiet weeks rather than missing buckets drawn adjacent.
+message WeeklyEventCount {
+  string week_start = 1;   // YYYY-MM-DD, Monday
+  int32 added_count = 2;
+  int32 removed_count = 3;
+}
+
+// ActiveMember is a member ordered by their COUNT of dated events in the
+// window. A high count reflects lodgement and extraction activity, not conduct.
+message ActiveMember {
+  string slug = 1;
+  string display_name = 2;
+  string party_ab = 3;
+  string chamber = 4;
+  string division = 5;
+  int32 event_count = 6;
+}
+
+// NewlyDeclaredCompany is a company whose FIRST dated declaration anywhere in
+// the corpus falls inside the window.
+//
+// WITHHELD RATHER THAN GUESSED: a company is excluded outright if ANY member
+// currently declares it with no known start date. About 80% of currently
+// declared rows are undated, so a dated-only minimum cannot prove first-ness
+// against them — an undated holding of the same company may be decades old.
+// First-ness is a claim about the whole corpus, so an unprovable one is not
+// made at all.
+message NewlyDeclaredCompany {
+  string stock_code = 1;
+  string company_name = 2;
+  string industry = 3;
+  string first_declared_on = 4;  // YYYY-MM-DD
+  // Members currently declaring the company, corpus-wide. People, never rows.
+  //
+  // The SAME dated predicate as DeclarerCountChange.declarers_now, so the two
+  // rails of one response cannot disagree about how many members declare a
+  // company. (After the exclusion above these companies have no undated current
+  // rows at all, so the dated count is the whole count.)
+  int32 declarer_count = 5;
+}
+
+// DeclarerCountChange is a company whose number of declaring members differs
+// between the window's start and now.
+//
+// BOTH sides are dated-only and use the identical predicate at two dates. About
+// 80% of currently-declared rows carry no start date, so an undated-inclusive
+// "now" against a dated-only baseline would report every company as growing by
+// its undated population, and an abs() ordering would then rank the list by
+// that artefact.
+message DeclarerCountChange {
+  string stock_code = 1;
+  string company_name = 2;
+  string industry = 3;
+  // Members whose declaration is dated and open today — the SAME predicate
+  // NewlyDeclaredCompany.declarer_count uses, so one response speaks with one
+  // measure of "how many members declare this company".
+  int32 declarers_now = 4;
+  int32 declarers_at_window_start = 5;
+}
+
+message GetRegisterActivityResponse {
+  int32 window_days = 1;  // the clamped window actually used
+  // Contiguous Monday buckets, NARROWED BY THE REQUEST'S FILTERS. The first
+  // bucket is the Monday on or before (today - window_days), so no bucket is a
+  // partial week drawn as a full one.
+  repeated WeeklyEventCount weeks = 2;
+  // The three rails below are CORPUS-WIDE and window-scoped: the request's
+  // filters do not narrow them.
+  repeated ActiveMember active_members = 3;
+  repeated NewlyDeclaredCompany newly_declared_companies = 4;
+  repeated DeclarerCountChange declarer_count_changes = 5;
+  // Currently-declared rows with no known start date, and therefore absent from
+  // every measure above. Stated rather than dropped silently: a surface must be
+  // able to caption what its timeline does not contain.
+  int32 undated_current_count = 6;
+  string source_licence = 7;
+  google.protobuf.Timestamp as_at = 8;
+  // Dated events matching the request's filters inside the window. Equal to the
+  // sum of every bucket's added_count + removed_count, so a count line beside
+  // the strip states the strip's own total and not the parliament's.
+  int32 filtered_event_count = 9;
+  // DISTINCT members with at least one such event — PEOPLE, never rows. A
+  // surface can state it exactly instead of counting the members it happens to
+  // have rendered, which is always a floor.
+  int32 filtered_member_count = 10;
+}
+
+message ListDistinctiveHoldingsRequest {
+  string slug = 1;
+}
+
+// DistinctiveHolding is one currently-declared listed company of one member.
+//
+// corpus_declarer_count is the whole fact: 1 means no other member currently
+// declares it. The field carries no adjective and consumers must not add one.
+message DistinctiveHolding {
+  string stock_code = 1;
+  string company_name = 2;
+  string industry = 3;
+  RegisterHolder holder = 4;
+  // 5 was currently_declared: the rail only ever contains currently-declared
+  // rows, so the field was true by construction and told a consumer nothing.
+  reserved 5;
+  reserved "currently_declared";
+  int32 corpus_declarer_count = 6;
+  // THE COMPANY's ASIC short interest, market-wide; 0 when the company is not
+  // in the short-interest set. It says nothing about any member's holding, its
+  // size, or any gain or loss — disclosure_note carries that in full.
+  double short_percent = 7;
+}
+
+message ListDistinctiveHoldingsResponse {
+  string canonical_slug = 1;  // consumers redirect when it differs from the request
+  repeated DistinctiveHolding holdings = 2;
+  // Holdings beyond the cap, stated rather than dropped silently.
+  int32 more_count = 3;
+  // The mandatory short-interest caveat, served WITH the data. Empty when no
+  // row carries a short percentage.
+  string disclosure_note = 4;
+  string source_licence = 5;
+  google.protobuf.Timestamp as_at = 6;
 }
 
 message ListShortInterestOverlapRequest {

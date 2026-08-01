@@ -50,7 +50,7 @@ public final class ShortsProto extends com.google.protobuf.GeneratedFile {
       "orts/v1alpha1/politicians.proto\032\035shorts/" +
       "v1alpha1/reports.proto\032\036shorts/v1alpha1/" +
       "screener.proto\032\034shorts/v1alpha1/search.p" +
-      "roto\032\033shorts/v1alpha1/stock.proto2\255\237\001\n\024S" +
+      "roto\032\033shorts/v1alpha1/stock.proto2\324\244\001\n\024S" +
       "hortedStocksService\022\206\003\n\014GetTopShorts\022$.s" +
       "horts.v1alpha1.GetTopShortsRequest\032%.sho" +
       "rts.v1alpha1.GetTopShortsResponse\"\250\002\332A\023p" +
@@ -560,69 +560,88 @@ public final class ShortsProto extends com.google.protobuf.GeneratedFile {
       "Response\"\004\200\265\030\001\022s\n\022ComparePoliticians\022*.s" +
       "horts.v1alpha1.ComparePoliticiansRequest" +
       "\032+.shorts.v1alpha1.ComparePoliticiansRes" +
-      "ponse\"\004\200\265\030\001\032\025\312A\022api.shorted.com.auB\305\002\n\023c" +
-      "om.shorts.v1alpha1B\013ShortsProtoP\001ZYgithu" +
-      "b.com/castlemilk/shorted.com.au/services" +
-      "/gen/proto/go/shorts/v1alpha1;shortsv1al" +
-      "pha1\272G\302\001\022\177\n\013Shorted API\022\rShorted API\'s\"(" +
-      "\022\016shorted.com.au\032\026support@shorted.com.au" +
-      "*3\n\023Proprietary license\022\034https://shorted" +
-      ".com.au/terms2\002v1\032\034\n\032https://api.shorted" +
-      ".com.au*!:\037\n\035\n\tAuthToken\022\020\n\016\n\004http*\006bear" +
-      "erb\006proto3"
+      "ponse\"\004\200\265\030\001\022\311\002\n\023GetRegisterActivity\022+.sh" +
+      "orts.v1alpha1.GetRegisterActivityRequest" +
+      "\032,.shorts.v1alpha1.GetRegisterActivityRe" +
+      "sponse\"\326\001\272G\316\001\022\025Get Register Activity\032\264\001W" +
+      "eekly counts of dated register events, t" +
+      "he members with the most events, compani" +
+      "es first declared in the window, and com" +
+      "panies whose declarer count changed. Cou" +
+      "nts and dates only.\200\265\030\001\022\330\002\n\027ListDistinct" +
+      "iveHoldings\022/.shorts.v1alpha1.ListDistin" +
+      "ctiveHoldingsRequest\0320.shorts.v1alpha1.L" +
+      "istDistinctiveHoldingsResponse\"\331\001\272G\321\001\022\031L" +
+      "ist Distinctive Holdings\032\263\001A member\'s cu" +
+      "rrently-declared listed companies, each " +
+      "with the number of members declaring it " +
+      "across the whole register. A count of on" +
+      "e means no other member currently declar" +
+      "es it.\200\265\030\001\032\025\312A\022api.shorted.com.auB\240\003\n\023co" +
+      "m.shorts.v1alpha1B\013ShortsProtoP\001ZYgithub" +
+      ".com/castlemilk/shorted.com.au/services/" +
+      "gen/proto/go/shorts/v1alpha1;shortsv1alp" +
+      "ha1\242\002\003SXX\252\002\017Shorts.V1alpha1\312\002\017Shorts\\V1a" +
+      "lpha1\342\002\033Shorts\\V1alpha1\\GPBMetadata\352\002\020Sh" +
+      "orts::V1alpha1\272G\302\001\022\177\n\013Shorted API\022\rShort" +
+      "ed API\'s\"(\022\016shorted.com.au\032\026support@shor" +
+      "ted.com.au*3\n\023Proprietary license\022\034https" +
+      "://shorted.com.au/terms2\002v1\032\034\n\032https://a" +
+      "pi.shorted.com.au*!:\037\n\035\n\tAuthToken\022\020\n\016\n\004" +
+      "http*\006bearerb\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
         new com.google.protobuf.Descriptors.FileDescriptor[] {
           com.google.api.AnnotationsProto.getDescriptor(),
-          org.openapi_v3.AnnotationsProto.getDescriptor(),
+          com.gnostic.openapi.v3.AnnotationsProto.getDescriptor(),
           com.google.api.ClientProto.getDescriptor(),
           com.google.protobuf.TimestampProto.getDescriptor(),
-          stocks.v1alpha1.Stocks.getDescriptor(),
-          shortedapi.options.v1.Options.getDescriptor(),
-          shorts.v1alpha1.Alerts.getDescriptor(),
-          shorts.v1alpha1.Billing.getDescriptor(),
-          shorts.v1alpha1.Economy.getDescriptor(),
-          shorts.v1alpha1.Enrichment.getDescriptor(),
-          shorts.v1alpha1.Housing.getDescriptor(),
-          shorts.v1alpha1.Industry.getDescriptor(),
-          shorts.v1alpha1.Market.getDescriptor(),
-          shorts.v1alpha1.News.getDescriptor(),
+          com.stocks.v1alpha1.StocksProto.getDescriptor(),
+          com.shortedapi.options.v1.OptionsProto.getDescriptor(),
+          com.shorts.v1alpha1.AlertsProto.getDescriptor(),
+          com.shorts.v1alpha1.BillingProto.getDescriptor(),
+          com.shorts.v1alpha1.EconomyProto.getDescriptor(),
+          com.shorts.v1alpha1.EnrichmentProto.getDescriptor(),
+          com.shorts.v1alpha1.HousingProto.getDescriptor(),
+          com.shorts.v1alpha1.IndustryProto.getDescriptor(),
+          com.shorts.v1alpha1.MarketProto.getDescriptor(),
+          com.shorts.v1alpha1.NewsProto.getDescriptor(),
           com.shorts.v1alpha1.PoliticiansProto.getDescriptor(),
-          shorts.v1alpha1.Reports.getDescriptor(),
-          shorts.v1alpha1.Screener.getDescriptor(),
-          shorts.v1alpha1.Search.getDescriptor(),
-          shorts.v1alpha1.Stock.getDescriptor(),
+          com.shorts.v1alpha1.ReportsProto.getDescriptor(),
+          com.shorts.v1alpha1.ScreenerProto.getDescriptor(),
+          com.shorts.v1alpha1.SearchProto.getDescriptor(),
+          com.shorts.v1alpha1.StockProto.getDescriptor(),
         });
     descriptor.resolveAllFeaturesImmutable();
     com.google.api.AnnotationsProto.getDescriptor();
-    org.openapi_v3.AnnotationsProto.getDescriptor();
+    com.gnostic.openapi.v3.AnnotationsProto.getDescriptor();
     com.google.api.ClientProto.getDescriptor();
     com.google.protobuf.TimestampProto.getDescriptor();
-    stocks.v1alpha1.Stocks.getDescriptor();
-    shortedapi.options.v1.Options.getDescriptor();
-    shorts.v1alpha1.Alerts.getDescriptor();
-    shorts.v1alpha1.Billing.getDescriptor();
-    shorts.v1alpha1.Economy.getDescriptor();
-    shorts.v1alpha1.Enrichment.getDescriptor();
-    shorts.v1alpha1.Housing.getDescriptor();
-    shorts.v1alpha1.Industry.getDescriptor();
-    shorts.v1alpha1.Market.getDescriptor();
-    shorts.v1alpha1.News.getDescriptor();
+    com.stocks.v1alpha1.StocksProto.getDescriptor();
+    com.shortedapi.options.v1.OptionsProto.getDescriptor();
+    com.shorts.v1alpha1.AlertsProto.getDescriptor();
+    com.shorts.v1alpha1.BillingProto.getDescriptor();
+    com.shorts.v1alpha1.EconomyProto.getDescriptor();
+    com.shorts.v1alpha1.EnrichmentProto.getDescriptor();
+    com.shorts.v1alpha1.HousingProto.getDescriptor();
+    com.shorts.v1alpha1.IndustryProto.getDescriptor();
+    com.shorts.v1alpha1.MarketProto.getDescriptor();
+    com.shorts.v1alpha1.NewsProto.getDescriptor();
     com.shorts.v1alpha1.PoliticiansProto.getDescriptor();
-    shorts.v1alpha1.Reports.getDescriptor();
-    shorts.v1alpha1.Screener.getDescriptor();
-    shorts.v1alpha1.Search.getDescriptor();
-    shorts.v1alpha1.Stock.getDescriptor();
+    com.shorts.v1alpha1.ReportsProto.getDescriptor();
+    com.shorts.v1alpha1.ScreenerProto.getDescriptor();
+    com.shorts.v1alpha1.SearchProto.getDescriptor();
+    com.shorts.v1alpha1.StockProto.getDescriptor();
     com.google.protobuf.ExtensionRegistry registry =
         com.google.protobuf.ExtensionRegistry.newInstance();
-    registry.add(org.openapi_v3.AnnotationsProto.document);
-    registry.add(org.openapi_v3.AnnotationsProto.operation);
+    registry.add(com.gnostic.openapi.v3.AnnotationsProto.document);
+    registry.add(com.gnostic.openapi.v3.AnnotationsProto.operation);
     registry.add(com.google.api.ClientProto.defaultHost);
     registry.add(com.google.api.AnnotationsProto.http);
     registry.add(com.google.api.ClientProto.methodSignature);
-    registry.add(shortedapi.options.v1.Options.requiredRole);
-    registry.add(shortedapi.options.v1.Options.visibility);
+    registry.add(com.shortedapi.options.v1.OptionsProto.requiredRole);
+    registry.add(com.shortedapi.options.v1.OptionsProto.visibility);
     com.google.protobuf.Descriptors.FileDescriptor
         .internalUpdateFileDescriptor(descriptor, registry);
   }

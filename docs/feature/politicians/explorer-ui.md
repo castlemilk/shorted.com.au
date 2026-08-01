@@ -273,3 +273,64 @@ each with a non-emptiness predicate on BOTH reader and writer.
   changed, so template review re-triggers per the standards doc).
 - PR prepared; merge and the hand-applied `000104` on prod stay with the
   operator.
+
+## 7. Discovery layer (2026-08-01 addendum) — finding the unusual without saying "unusual"
+
+**Status: BUILT** (branch feat/politician-discovery). Post-review deltas from the
+plan: the weekly strip and its counts are FILTER-scoped (the rpc takes the same
+filters as the feed and returns filtered_event_count/filtered_member_count);
+the three rails stay corpus-wide and say so; newly-declared withholds any
+company carrying an undated current declaration (first-ness cannot be proven
+over an 80%-undated corpus); weeks are gap-filled contiguous Mondays; the
+sole-declarer rail scopes its claim to the registers we have read.
+
+The ask is anomaly-findability. The editorial rules forbid labelling a named
+member's interests anomalous (the banned risk/monitor class), so the design is
+**neutral surfaces where unusual patterns become findable facts** — the reader
+draws the inference, we publish only counts, dates and juxtapositions. No
+donations: the AEC ingest does not exist yet and register counts must not wear
+donation labels (§1). Everything below derives LIVE from the existing MVs —
+**zero new migrations**, so deploy is code-only.
+
+Measured on the corpus before design (all non-empty): 212 sole-declarer
+companies · 13 companies first-declared in 180d · 384 dated events / 25 weeks /
+94 members · 67 currently-declared companies carrying ≥2% short interest.
+
+### 7a. `/politicians/changes` → the register activity explorer
+
+Today a flat unfiltered 150-row list. Becomes:
+
+1. **Filters**: member (slug typeahead), party, chamber, register category
+   (item 1–14), kind (added/removed), window (30/90/180d/all) — additive
+   fields on `ListRegisterChangesRequest` (slug, item_no, party_ab, chamber).
+2. **Weekly activity strip** — SVG bar-per-week of dated events for the
+   current filter (kit-style, amber), so bursts of lodgement activity are
+   visible at a glance.
+3. **Grouped feed** — events grouped by day, each row: member + party chip +
+   category tag + entity + holder + link to profile/company.
+4. **Rails** (new `GetRegisterActivity` aggregate rpc): most-active members by
+   dated events in the window (counts, no adjectives); companies **first
+   declared by any member** in the window; companies whose **declarer count
+   changed** in the window (+N/−N members). Method note: dated events only,
+   undated lodgements excluded, and activity reflects extraction coverage.
+5. Hub status-strip "Recent activity" card deep-links here.
+
+### 7b. Profile: sole-declarer holdings + short-interest juxtaposition
+
+1. **"Declared by no other member"** — rail section listing this member's
+   currently-declared companies that no other member currently declares
+   (pure fact, phrased exactly so; new `ListDistinctiveHoldings(slug)` rpc
+   also returns each company's total-declarer count for the "declared by only
+   N members" long tail). No "distinctive/unusual" wording.
+2. **Short-interest chips** on declared listed-company rows: current short %
+   where the company sits in `mv_top_shorts` (the `/short-interest` join,
+   carried to the profile), always accompanied by the existing
+   `ShortInterestCaveat` disclosure note.
+
+### Editorial gates for this layer
+
+Counts/dates/percentages only; "most active" is the strongest permitted
+superlative (a count ordering, same class as "most-declared companies");
+never "anomalous/unusual/spike/red flag/watch" beside a named member; every
+surface carries as-at + source + the dated-only caveat; short-interest
+juxtaposition never implies causation (plain dates, no "coincided with").

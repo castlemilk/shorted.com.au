@@ -1,6 +1,7 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
+import { timestampFromDate } from "@bufbuild/protobuf/wkt";
 import {
   PoliticiansService,
   GetParliamentOverviewResponseSchema,
@@ -15,7 +16,9 @@ import {
   GetPoliticianAnalyticsResponseSchema,
   GetRegisterExplorerResponseSchema,
   ListPoliticianSummariesResponseSchema,
+  GetRegisterActivityResponseSchema,
   PoliticianSummarySort,
+  RegisterChangeKind,
   type GetParliamentOverviewResponse,
   type ListPoliticiansResponse,
   type GetPoliticianResponse,
@@ -28,6 +31,7 @@ import {
   type GetPoliticianAnalyticsResponse,
   type GetRegisterExplorerResponse,
   type ListPoliticianSummariesResponse,
+  type GetRegisterActivityResponse,
 } from "~/gen/shorts/v1alpha1/politicians_pb";
 import { cache } from "react";
 import {
@@ -500,6 +504,249 @@ export const listRegisterChanges = cache(
       if (hit) return hit;
 
       const resp = await createCacheablePoliticiansClient().listRegisterChanges({ limit, offset });
+      if (resp.events.length > 0) {
+        writeCached(ListRegisterChangesResponseSchema, key, resp);
+      }
+      return resp;
+    },
+  ),
+);
+
+/*
+ * ---------------------------------------------------------------------------
+ * The register ACTIVITY explorer (/politicians/changes).
+ *
+ * Two rpcs feed one surface: `GetRegisterActivity` for the weekly strip and the
+ * rails, `ListRegisterChanges` for the feed. They are cached separately because
+ * they have different inputs — the rails move only with the WINDOW, the feed
+ * moves with every filter — and sharing a key would make one filter's feed
+ * invalidate every reader's rails.
+ * ---------------------------------------------------------------------------
+ */
+
+/**
+ * The only windows the activity rpc serves.
+ *
+ * Mirrors `registerActivityWindows` in politicians_discovery.go. Kept as a
+ * literal rather than derived from anything: the backend's list IS the contract,
+ * and a client that offers a fifth window silently gets one of these four back.
+ */
+export const REGISTER_ACTIVITY_WINDOWS = [30, 90, 180, 365] as const;
+
+/**
+ * Normalise a window to one the backend actually serves.
+ *
+ * ROUNDS UP, exactly as `clampRegisterActivityWindow` does in
+ * politicians_discovery.go: a request between two windows gets the LARGER one
+ * (45 -> 90) so a caller never receives less than it asked for. Zero and
+ * negatives default to 90.
+ *
+ * This runs BEFORE the cache key is built, for the reason the backend gives:
+ * a key must never describe a window other than the one that produced it.
+ */
+export function clampRegisterActivityWindow(windowDays: number): number {
+  const days = Math.trunc(Number(windowDays));
+  if (!Number.isFinite(days) || days <= 0) return 90;
+  for (const window of REGISTER_ACTIVITY_WINDOWS) {
+    if (days <= window) return window;
+  }
+  return REGISTER_ACTIVITY_WINDOWS[REGISTER_ACTIVITY_WINDOWS.length - 1] as number;
+}
+
+/**
+ * The activity explorer's weekly strip and rails.
+ *
+ * Counts and dates only.
+ *
+ * TWO SCOPES IN ONE RESPONSE, WHICH IS WHY THE ARGUMENTS LOOK REDUNDANT. The
+ * filters narrow the WEEKLY BUCKETS and the two filtered counts, because the
+ * strip is drawn above a filtered feed and a parliament-wide bar there reads as
+ * the filtered member's own. They do NOT narrow the three rails: those answer
+ * corpus-wide questions inside the window (a "most dated events" rail filtered
+ * to one member is a tautology), so a surface must never caption them as though
+ * they described the feed's current filter.
+ *
+ * POSITIONAL PRIMITIVES, NOT AN OPTIONS OBJECT: `cache()` memoises on argument
+ * identity, and an object literal is a fresh reference per call — the page's own
+ * render and its as-at read would then each fire the rpc instead of sharing one.
+ */
+export const getRegisterActivity = cache(
+  withRetryAndNotFound(
+    async (
+      windowDays: number = 90, // eslint-disable-line @typescript-eslint/no-inferrable-types
+      kind: RegisterChangeKindKey = "", // eslint-disable-line @typescript-eslint/no-inferrable-types
+      politicianSlug: string = "", // eslint-disable-line @typescript-eslint/no-inferrable-types
+      itemNo: number = 0, // eslint-disable-line @typescript-eslint/no-inferrable-types
+      partyAb: string = "", // eslint-disable-line @typescript-eslint/no-inferrable-types
+      chamber: string = "", // eslint-disable-line @typescript-eslint/no-inferrable-types
+    ): Promise<GetRegisterActivityResponse | undefined> => {
+      if (skipForBuild()) return undefined;
+      const window = clampRegisterActivityWindow(windowDays);
+      // The SAME normalisation the feed uses, so the strip and the feed beneath
+      // it can never be narrowed by two different readings of one filter set.
+      const filters = clampRegisterChangeFeedQuery({
+        kind,
+        politicianSlug,
+        itemNo,
+        partyAb,
+        chamber,
+      });
+      const key = CACHE_KEYS.registerActivity(
+        window,
+        filters.kind,
+        filters.politicianSlug,
+        filters.itemNo,
+        filters.partyAb,
+        filters.chamber,
+      );
+      const hit = readCached<GetRegisterActivityResponse>(
+        GetRegisterActivityResponseSchema,
+        await getCached<JsonValue>(key),
+        // Not `undatedCurrentCount > 0`: that field is populated even when every
+        // dated measure is empty, so it cannot distinguish a live answer from a
+        // cold MV. The weeks and the members are what the surface renders.
+        (v) => v.weeks.length > 0 || v.activeMembers.length > 0,
+      );
+      if (hit) return hit;
+
+      const resp = await createCacheablePoliticiansClient().getRegisterActivity({
+        windowDays: window,
+        kind: CHANGE_KIND_ENUM[filters.kind],
+        politicianSlug: filters.politicianSlug,
+        itemNo: filters.itemNo,
+        partyAb: filters.partyAb,
+        chamber: filters.chamber,
+      });
+      // NEVER cache an empty response: the kill switch and a cold MV both return
+      // {}, and caching that pins the empty state for 24h.
+      if (resp.weeks.length > 0 || resp.activeMembers.length > 0) {
+        writeCached(GetRegisterActivityResponseSchema, key, resp);
+      }
+      return resp;
+    },
+  ),
+);
+
+/** The kinds of register event the feed can be narrowed to. `""` is both. */
+export type RegisterChangeKindKey = "" | "added" | "removed";
+
+const CHANGE_KIND_ENUM: Record<RegisterChangeKindKey, RegisterChangeKind> = {
+  "": RegisterChangeKind.UNSPECIFIED,
+  added: RegisterChangeKind.ADDED,
+  removed: RegisterChangeKind.REMOVED,
+};
+
+/** Mirrors `clampLimit(m.Limit, 100, 500)` in politicians.go. */
+export const CHANGE_FEED_LIMIT_DEFAULT = 100;
+export const CHANGE_FEED_LIMIT_MAX = 500;
+
+export interface RegisterChangeFeedQuery {
+  /**
+   * The window's first day, as `YYYY-MM-DD`.
+   *
+   * A DAY, not an instant: the window is a count of days, and anchoring it to a
+   * UTC midnight means the cache key turns over once a day instead of once a
+   * request. Empty means no lower bound.
+   */
+  since: string;
+  kind: RegisterChangeKindKey;
+  /** A canonical slug. Never derived here — it comes from search or a link. */
+  politicianSlug: string;
+  /** 1–14, or 0 for every register item. */
+  itemNo: number;
+  partyAb: string;
+  chamber: string;
+  limit: number;
+  offset: number;
+}
+
+/** `YYYY-MM-DD` for the UTC day `windowDays` before now. */
+export function registerWindowStart(windowDays: number, now: Date = new Date()): string {
+  const start = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) -
+      clampRegisterActivityWindow(windowDays) * 86_400_000,
+  );
+  return start.toISOString().slice(0, 10);
+}
+
+/**
+ * Normalise a feed request to exactly what the backend will do with it.
+ *
+ * THE CACHE KEY IS BUILT FROM THE RESULT, NEVER FROM THE RAW INPUT — the same
+ * rule, and the same reasons, as `clampPoliticianSummaryQuery`: the handler
+ * lower-cases the slug and the chamber, upper-cases the party, drops an item
+ * number outside 1–14, clamps the limit into [1, 500] with a default of 100 and
+ * floors the offset at zero.
+ */
+export function clampRegisterChangeFeedQuery(
+  input: Partial<RegisterChangeFeedQuery> = {},
+): RegisterChangeFeedQuery {
+  const itemNo = Math.trunc(Number(input.itemNo ?? 0));
+  const rawLimit = Math.trunc(Number(input.limit ?? 0));
+  const rawOffset = Math.trunc(Number(input.offset ?? 0));
+  const kind = input.kind && input.kind in CHANGE_KIND_ENUM ? input.kind : "";
+  const since = (input.since ?? "").trim();
+  return {
+    // A malformed date is dropped rather than passed on: an unparseable string
+    // would become an Invalid Date and reach the wire as a nonsense instant.
+    since: /^\d{4}-\d{2}-\d{2}$/.test(since) ? since : "",
+    kind,
+    politicianSlug: (input.politicianSlug ?? "").trim().toLowerCase(),
+    itemNo: Number.isFinite(itemNo) && itemNo >= 1 && itemNo <= 14 ? itemNo : 0,
+    partyAb: (input.partyAb ?? "").trim().toUpperCase(),
+    chamber: (input.chamber ?? "").trim().toLowerCase(),
+    limit:
+      !Number.isFinite(rawLimit) || rawLimit <= 0
+        ? CHANGE_FEED_LIMIT_DEFAULT
+        : Math.min(rawLimit, CHANGE_FEED_LIMIT_MAX),
+    offset: Number.isFinite(rawOffset) && rawOffset > 0 ? rawOffset : 0,
+  };
+}
+
+/**
+ * The activity feed: register additions and removals under the discovery
+ * filters.
+ *
+ * Takes an already-clamped query so the cache key, the request and the echoed
+ * state can never disagree — pass `clampRegisterChangeFeedQuery(...)`.
+ */
+export const listRegisterChangeFeed = cache(
+  withRetryAndNotFound(
+    async (query: RegisterChangeFeedQuery): Promise<ListRegisterChangesResponse | undefined> => {
+      if (skipForBuild()) return undefined;
+      const key = CACHE_KEYS.registerChangeFeed(
+        query.since,
+        query.kind,
+        query.politicianSlug,
+        query.itemNo,
+        query.partyAb,
+        query.chamber,
+        query.limit,
+        query.offset,
+      );
+      const hit = readCached<ListRegisterChangesResponse>(
+        ListRegisterChangesResponseSchema,
+        await getCached<JsonValue>(key),
+        (v) => v.events.length > 0,
+      );
+      if (hit) return hit;
+
+      const resp = await createCacheablePoliticiansClient().listRegisterChanges({
+        // `T00:00:00Z`, not the bare date: parsing "YYYY-MM-DD" is UTC in every
+        // engine, but the explicit instant is what the field actually is.
+        since: query.since ? timestampFromDate(new Date(`${query.since}T00:00:00Z`)) : undefined,
+        kind: CHANGE_KIND_ENUM[query.kind],
+        politicianSlug: query.politicianSlug,
+        itemNo: query.itemNo,
+        partyAb: query.partyAb,
+        chamber: query.chamber,
+        limit: query.limit,
+        offset: query.offset,
+      });
+      // A filter combination with no events is a legitimate empty answer, but it
+      // is indistinguishable on the wire from the kill switch and a cold MV — so
+      // it is never cached. The cost is one live call for an empty filter; the
+      // alternative is pinning an outage for 24h.
       if (resp.events.length > 0) {
         writeCached(ListRegisterChangesResponseSchema, key, resp);
       }

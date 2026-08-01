@@ -776,7 +776,8 @@ const file_shorts_v1alpha1_industry_proto_rawDesc = "" +
 	"\ftime_buckets\x18\x06 \x03(\v2/.shorts.v1alpha1.IndustryIntelligenceTimeBucketR\vtimeBuckets\x12U\n" +
 	"\rentity_totals\x18\a \x03(\v20.shorts.v1alpha1.IndustryIntelligenceEntityTotalR\fentityTotals2\xa2\x01\n" +
 	"\x1bIndustryIntelligenceService\x12\x82\x01\n" +
-	"\x17GetIndustryIntelligence\x12/.shorts.v1alpha1.GetIndustryIntelligenceRequest\x1a0.shorts.v1alpha1.GetIndustryIntelligenceResponse\"\x04\x80\xb5\x18\x01B[ZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1b\x06proto3"
+	"\x17GetIndustryIntelligence\x12/.shorts.v1alpha1.GetIndustryIntelligenceRequest\x1a0.shorts.v1alpha1.GetIndustryIntelligenceResponse\"\x04\x80\xb5\x18\x01B\xdc\x01\n" +
+	"\x13com.shorts.v1alpha1B\rIndustryProtoP\x01ZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1\xa2\x02\x03SXX\xaa\x02\x0fShorts.V1alpha1\xca\x02\x0fShorts\\V1alpha1\xe2\x02\x1bShorts\\V1alpha1\\GPBMetadata\xea\x02\x10Shorts::V1alpha1b\x06proto3"
 
 var (
 	file_shorts_v1alpha1_industry_proto_rawDescOnce sync.Once

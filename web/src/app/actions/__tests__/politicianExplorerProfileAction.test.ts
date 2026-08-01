@@ -116,6 +116,18 @@ describe("politician explorer profile action", () => {
     );
   });
 
+  it("normalises the slug into the key the way the handler normalises it", async () => {
+    const getPoliticianExplorerProfile = await loadAction();
+
+    // The handler trims and lower-cases: one member, one entry, whatever casing
+    // the link that reached this render happened to carry.
+    await getPoliticianExplorerProfile(" Anthony-Albanese  ");
+
+    expect(getCachedMock).toHaveBeenCalledWith(
+      "cache:politicians:explorer-profile:anthony-albanese",
+    );
+  });
+
   it("asks for the five industries the profile actually renders", async () => {
     const getPoliticianExplorerProfile = await loadAction();
 

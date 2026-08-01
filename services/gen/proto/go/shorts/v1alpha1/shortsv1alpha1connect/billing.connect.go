@@ -47,6 +47,15 @@ const (
 	BillingServiceGetMySubscriptionProcedure = "/shorts.v1alpha1.BillingService/GetMySubscription"
 )
 
+// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
+var (
+	billingServiceServiceDescriptor                               = v1alpha1.File_shorts_v1alpha1_billing_proto.Services().ByName("BillingService")
+	billingServiceMintTokenMethodDescriptor                       = billingServiceServiceDescriptor.Methods().ByName("MintToken")
+	billingServiceHandleStripeCheckoutCompletedMethodDescriptor   = billingServiceServiceDescriptor.Methods().ByName("HandleStripeCheckoutCompleted")
+	billingServiceHandleStripeSubscriptionUpdatedMethodDescriptor = billingServiceServiceDescriptor.Methods().ByName("HandleStripeSubscriptionUpdated")
+	billingServiceGetMySubscriptionMethodDescriptor               = billingServiceServiceDescriptor.Methods().ByName("GetMySubscription")
+)
+
 // BillingServiceClient is a client for the shorts.v1alpha1.BillingService service.
 type BillingServiceClient interface {
 	// Mint an API token for the user. Requires valid authentication.
@@ -68,30 +77,29 @@ type BillingServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewBillingServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) BillingServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
-	billingServiceMethods := v1alpha1.File_shorts_v1alpha1_billing_proto.Services().ByName("BillingService").Methods()
 	return &billingServiceClient{
 		mintToken: connect.NewClient[v1alpha1.MintTokenRequest, v1alpha1.MintTokenResponse](
 			httpClient,
 			baseURL+BillingServiceMintTokenProcedure,
-			connect.WithSchema(billingServiceMethods.ByName("MintToken")),
+			connect.WithSchema(billingServiceMintTokenMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		handleStripeCheckoutCompleted: connect.NewClient[v1alpha1.HandleStripeCheckoutCompletedRequest, v1alpha1.HandleStripeCheckoutCompletedResponse](
 			httpClient,
 			baseURL+BillingServiceHandleStripeCheckoutCompletedProcedure,
-			connect.WithSchema(billingServiceMethods.ByName("HandleStripeCheckoutCompleted")),
+			connect.WithSchema(billingServiceHandleStripeCheckoutCompletedMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		handleStripeSubscriptionUpdated: connect.NewClient[v1alpha1.HandleStripeSubscriptionUpdatedRequest, v1alpha1.HandleStripeSubscriptionUpdatedResponse](
 			httpClient,
 			baseURL+BillingServiceHandleStripeSubscriptionUpdatedProcedure,
-			connect.WithSchema(billingServiceMethods.ByName("HandleStripeSubscriptionUpdated")),
+			connect.WithSchema(billingServiceHandleStripeSubscriptionUpdatedMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getMySubscription: connect.NewClient[v1alpha1.GetMySubscriptionRequest, v1alpha1.GetMySubscriptionResponse](
 			httpClient,
 			baseURL+BillingServiceGetMySubscriptionProcedure,
-			connect.WithSchema(billingServiceMethods.ByName("GetMySubscription")),
+			connect.WithSchema(billingServiceGetMySubscriptionMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -144,29 +152,28 @@ type BillingServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewBillingServiceHandler(svc BillingServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	billingServiceMethods := v1alpha1.File_shorts_v1alpha1_billing_proto.Services().ByName("BillingService").Methods()
 	billingServiceMintTokenHandler := connect.NewUnaryHandler(
 		BillingServiceMintTokenProcedure,
 		svc.MintToken,
-		connect.WithSchema(billingServiceMethods.ByName("MintToken")),
+		connect.WithSchema(billingServiceMintTokenMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	billingServiceHandleStripeCheckoutCompletedHandler := connect.NewUnaryHandler(
 		BillingServiceHandleStripeCheckoutCompletedProcedure,
 		svc.HandleStripeCheckoutCompleted,
-		connect.WithSchema(billingServiceMethods.ByName("HandleStripeCheckoutCompleted")),
+		connect.WithSchema(billingServiceHandleStripeCheckoutCompletedMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	billingServiceHandleStripeSubscriptionUpdatedHandler := connect.NewUnaryHandler(
 		BillingServiceHandleStripeSubscriptionUpdatedProcedure,
 		svc.HandleStripeSubscriptionUpdated,
-		connect.WithSchema(billingServiceMethods.ByName("HandleStripeSubscriptionUpdated")),
+		connect.WithSchema(billingServiceHandleStripeSubscriptionUpdatedMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	billingServiceGetMySubscriptionHandler := connect.NewUnaryHandler(
 		BillingServiceGetMySubscriptionProcedure,
 		svc.GetMySubscription,
-		connect.WithSchema(billingServiceMethods.ByName("GetMySubscription")),
+		connect.WithSchema(billingServiceGetMySubscriptionMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/shorts.v1alpha1.BillingService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

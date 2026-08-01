@@ -46,6 +46,15 @@ const (
 	ChatServiceDeleteConversationProcedure = "/chat.v1.ChatService/DeleteConversation"
 )
 
+// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
+var (
+	chatServiceServiceDescriptor                      = v1.File_chat_v1_chat_proto.Services().ByName("ChatService")
+	chatServiceSendMessageMethodDescriptor            = chatServiceServiceDescriptor.Methods().ByName("SendMessage")
+	chatServiceGetConversationHistoryMethodDescriptor = chatServiceServiceDescriptor.Methods().ByName("GetConversationHistory")
+	chatServiceListConversationsMethodDescriptor      = chatServiceServiceDescriptor.Methods().ByName("ListConversations")
+	chatServiceDeleteConversationMethodDescriptor     = chatServiceServiceDescriptor.Methods().ByName("DeleteConversation")
+)
+
 // ChatServiceClient is a client for the chat.v1.ChatService service.
 type ChatServiceClient interface {
 	// Send a message and receive a streaming response
@@ -67,30 +76,29 @@ type ChatServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewChatServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) ChatServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
-	chatServiceMethods := v1.File_chat_v1_chat_proto.Services().ByName("ChatService").Methods()
 	return &chatServiceClient{
 		sendMessage: connect.NewClient[v1.SendMessageRequest, v1.SendMessageResponse](
 			httpClient,
 			baseURL+ChatServiceSendMessageProcedure,
-			connect.WithSchema(chatServiceMethods.ByName("SendMessage")),
+			connect.WithSchema(chatServiceSendMessageMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getConversationHistory: connect.NewClient[v1.GetConversationHistoryRequest, v1.GetConversationHistoryResponse](
 			httpClient,
 			baseURL+ChatServiceGetConversationHistoryProcedure,
-			connect.WithSchema(chatServiceMethods.ByName("GetConversationHistory")),
+			connect.WithSchema(chatServiceGetConversationHistoryMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listConversations: connect.NewClient[v1.ListConversationsRequest, v1.ListConversationsResponse](
 			httpClient,
 			baseURL+ChatServiceListConversationsProcedure,
-			connect.WithSchema(chatServiceMethods.ByName("ListConversations")),
+			connect.WithSchema(chatServiceListConversationsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		deleteConversation: connect.NewClient[v1.DeleteConversationRequest, v1.DeleteConversationResponse](
 			httpClient,
 			baseURL+ChatServiceDeleteConversationProcedure,
-			connect.WithSchema(chatServiceMethods.ByName("DeleteConversation")),
+			connect.WithSchema(chatServiceDeleteConversationMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -142,29 +150,28 @@ type ChatServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewChatServiceHandler(svc ChatServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	chatServiceMethods := v1.File_chat_v1_chat_proto.Services().ByName("ChatService").Methods()
 	chatServiceSendMessageHandler := connect.NewServerStreamHandler(
 		ChatServiceSendMessageProcedure,
 		svc.SendMessage,
-		connect.WithSchema(chatServiceMethods.ByName("SendMessage")),
+		connect.WithSchema(chatServiceSendMessageMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	chatServiceGetConversationHistoryHandler := connect.NewUnaryHandler(
 		ChatServiceGetConversationHistoryProcedure,
 		svc.GetConversationHistory,
-		connect.WithSchema(chatServiceMethods.ByName("GetConversationHistory")),
+		connect.WithSchema(chatServiceGetConversationHistoryMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	chatServiceListConversationsHandler := connect.NewUnaryHandler(
 		ChatServiceListConversationsProcedure,
 		svc.ListConversations,
-		connect.WithSchema(chatServiceMethods.ByName("ListConversations")),
+		connect.WithSchema(chatServiceListConversationsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	chatServiceDeleteConversationHandler := connect.NewUnaryHandler(
 		ChatServiceDeleteConversationProcedure,
 		svc.DeleteConversation,
-		connect.WithSchema(chatServiceMethods.ByName("DeleteConversation")),
+		connect.WithSchema(chatServiceDeleteConversationMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/chat.v1.ChatService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

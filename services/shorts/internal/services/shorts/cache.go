@@ -304,14 +304,19 @@ func (c *MemoryCache) ListStatePoliticianHoldingsKey(stateCode string, limit int
 	return c.generateKey("politician_state_holdings", stateCode, limit)
 }
 
-func (c *MemoryCache) ListRegisterChangesKey(since time.Time, kind, stockCode string, limit, offset int32) string {
+func (c *MemoryCache) ListRegisterChangesKey(since time.Time, kind, stockCode, slug string, itemNo int32, partyAb, chamber string, limit, offset int32) string {
 	// The time is formatted, not passed raw: a time.Time carries a monotonic
 	// clock reading that would make every key unique and defeat the cache.
+	//
+	// The DAY is the whole key because the handler has already truncated `since`
+	// to UTC midnight before both this call and the store call. Formatting a
+	// finer timestamp down to a day HERE would let two different queries share
+	// one key and be served each other's results.
 	sinceKey := ""
 	if !since.IsZero() {
 		sinceKey = since.UTC().Format("2006-01-02")
 	}
-	return c.generateKey("register_changes", sinceKey, kind, stockCode, limit, offset)
+	return c.generateKey("register_changes", sinceKey, kind, stockCode, slug, itemNo, partyAb, chamber, limit, offset)
 }
 
 func (c *MemoryCache) ListShortInterestOverlapKey(minShortPercent float64, limit int32) string {
@@ -336,6 +341,20 @@ func (c *MemoryCache) GetPoliticianExplorerProfileKey(slug string, topIndustries
 
 func (c *MemoryCache) ComparePoliticiansKey(slugA, slugB string) string {
 	return c.generateKey("politician_compare", slugA, slugB)
+}
+
+// GetRegisterActivityKey keys on the CLAMPED window AND on every filter, all
+// normalised by the handler first. The window part means the four supported
+// widths are the only widths a key can describe; the filter part means one
+// member's strip can never be served as another's — the response now carries
+// filtered counts, so a filter-blind key would publish the wrong member's
+// numbers under the right member's name.
+func (c *MemoryCache) GetRegisterActivityKey(windowDays int32, slug, partyAb, chamber string, itemNo int32, kind string) string {
+	return c.generateKey("register_activity", windowDays, slug, partyAb, chamber, itemNo, kind)
+}
+
+func (c *MemoryCache) ListDistinctiveHoldingsKey(slug string) string {
+	return c.generateKey("register_distinctive_holdings", slug)
 }
 
 func (c *MemoryCache) ListEconomicSeriesKey(topic, metric, regionType, regionCode, product string, limit int32) string {
