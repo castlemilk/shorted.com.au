@@ -169,6 +169,32 @@ export const CACHE_KEYS = {
     `cache:politicians:changes:${since || "all"}:${kind || "all"}:${limit}:${offset}`,
   shortInterestOverlap: (minPct: number, limit: number) =>
     `cache:politicians:short-overlap:${minPct}:${limit}`,
+  // The activity explorer's rails and weekly strip (GetRegisterActivity). The
+  // window is the ONLY input, and it is the CLAMPED one: the handler rounds a
+  // request UP to the next supported window (45 -> 90), so a key built from the
+  // raw request would give 45 and 90 two entries for one identical response —
+  // and, worse, an entry whose key claims a window the response does not have.
+  registerActivity: (windowDays: number) => `cache:politicians:activity:${windowDays}`,
+  // The activity explorer's feed (ListRegisterChanges with the discovery
+  // filters). EVERY input is in the key, including the ones the older
+  // `registerChanges` key above predates — a key that omits an input serves one
+  // filter's rows under another filter's name, which on this surface means
+  // publishing one member's register events beside a different member's name.
+  //
+  // `since` is a YYYY-MM-DD DAY, not an instant: the window is a number of days
+  // and the caller anchors it to a UTC midnight, so the key changes once a day
+  // rather than once a request.
+  registerChangeFeed: (
+    since: string,
+    kind: string,
+    slug: string,
+    itemNo: number,
+    party: string,
+    chamber: string,
+    limit: number,
+    offset: number,
+  ) =>
+    `cache:politicians:changes:v2:${since || "all"}:${kind || "all"}:${slug || "all"}:${itemNo || 0}:${party || "all"}:${chamber || "all"}:${limit}:${offset}`,
   // The hub explorer aggregates (GetRegisterExplorer). One entry — the rpc takes
   // no arguments — so nothing can poison it by argument drift.
   politicianExplorer: () => `cache:politicians:explorer`,
