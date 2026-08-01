@@ -37,10 +37,33 @@ describe("week bars", () => {
     expect(figure.getAttribute("aria-label")).toContain("Dated events only");
   });
 
+  it("carries the caller's scope in both text labels", () => {
+    // The buckets are narrowed by the feed's filters, so a screen-reader user
+    // told only "over the last 90 days" hears the parliament's counts where a
+    // sighted reader is told one member's — the misattribution the visible
+    // caption exists to prevent.
+    render(
+      <WeekBars
+        weeks={WEEKS}
+        windowLabel="the last 90 days"
+        scopeNote="under the filters set above"
+      />,
+    );
+
+    expect(screen.getByRole("img").getAttribute("aria-label")).toContain(
+      "the last 90 days, under the filters set above",
+    );
+    expect(
+      screen.getByRole("table", {
+        name: /the last 90 days, under the filters set above/,
+      }),
+    ).toBeInTheDocument();
+  });
+
   it("carries an sr-only table with every week's two counts", () => {
     render(<WeekBars weeks={WEEKS} windowLabel="the last 90 days" />);
 
-    const table = screen.getByRole("table", { name: "Register events by week" });
+    const table = screen.getByRole("table", { name: /^Register events by week over / });
     expect(table).toHaveClass("sr-only");
     for (const week of WEEKS) {
       expect(screen.getByRole("rowheader", { name: week.weekStart })).toBeInTheDocument();

@@ -34,7 +34,15 @@
  */
 
 import Link from "next/link";
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 
 import { WeekBars } from "@/components/politicians/explorer/week-bars";
 import { partyColorFromAb, partyLabel } from "@/lib/politics/party-palette";
@@ -138,6 +146,17 @@ export interface RegisterActivityPage {
    * every dated measure on this page. Published rather than dropped silently.
    */
   undatedCurrentCount: number;
+  /**
+   * Dated events matching THESE FILTERS in the window — the strip's own total,
+   * equal to the sum of every bucket above it.
+   */
+  filteredEventCount: number;
+  /**
+   * DISTINCT members with at least one such event. People, never rows, and never
+   * counted from the rendered page: `events` is one page of a paginated feed, so
+   * a count taken from it is a floor that shrinks as the reader pages forward.
+   */
+  filteredMemberCount: number;
   /**
    * Did the FEED request answer?
    *
@@ -299,27 +318,62 @@ export function RegisterActivityExplorer({
   partyOptions = [],
 }: RegisterActivityExplorerProps) {
   const [page, setPage] = useState<RegisterActivityPage>(initialPage);
+  /**
+   * THE CONTROLS' OWN STATE, which is not the last response's echoed query.
+   *
+   * Building each request from `page.query` meant building it from the last
+   * response, so two changes in flight composed wrongly: change the chamber, then
+   * the party before the first landed, and the second request carried the OLD
+   * chamber — and when it landed, the chamber control snapped back to it. The
+   * selection the reader had made undid itself in front of them.
+   *
+   * So the controls render from `pendingQuery` and every request is built from
+   * it. A response RECONCILES it (the backend clamps: an out-of-range item number
+   * comes back as 0, a window as the one it served), which is safe because a
+   * newer request has already bumped the sequence and a stale response never
+   * reaches here.
+   */
+  const [pendingQuery, setPendingQuery] = useState<RegisterActivityQuery>(initialPage.query);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [memberName, setMemberName] = useState(initialMemberName);
   const [memberQuery, setMemberQuery] = useState("");
   const [memberHits, setMemberHits] = useState<{ slug: string; displayName: string }[]>([]);
   const [memberSearchFailed, setMemberSearchFailed] = useState(false);
+  const [memberOpen, setMemberOpen] = useState(false);
+  /** Index of the active option, or -1 for none. Nothing is preselected. */
+  const [memberActiveIndex, setMemberActiveIndex] = useState(-1);
+  /**
+   * Where focus must land after the member field swaps between its input and its
+   * selection chip. Without this, choosing a member unmounts the focused input
+   * and focus falls to `<body>` — a keyboard reader loses their place on the page
+   * entirely, and the very control describing their selection is unreachable.
+   */
+  const [focusTarget, setFocusTarget] = useState<"chip" | "input" | null>(null);
+  const memberInputRef = useRef<HTMLInputElement>(null);
+  const memberChipRef = useRef<HTMLButtonElement>(null);
   // Every request carries a sequence number and only the newest may write state:
   // two fast filter changes otherwise race and the SLOWER one wins, leaving the
   // page showing events that match neither control.
   const sequence = useRef(0);
   const controlsId = useId();
+  const memberListId = `${controlsId}-member-results`;
+  const memberOptionId = (index: number) => `${memberListId}-option-${index}`;
 
+  /** The query that produced what is on screen — the copy's authority. */
   const query = page.query;
 
   const run = useCallback(
     (next: RegisterActivityQuery) => {
       const ticket = (sequence.current += 1);
+      setPendingQuery(next);
       setStatus("loading");
       loadPage(next)
         .then((result) => {
           if (sequence.current !== ticket) return;
           setPage(result);
+          // The backend's clamp wins over what was asked for: it is the only
+          // description of the numbers now on screen.
+          setPendingQuery(result.query);
           setStatus("idle");
         })
         .catch(() => {
@@ -333,8 +387,8 @@ export function RegisterActivityExplorer({
   // Any filter change resets to the first page: keeping the offset would land a
   // reader on page 4 of a 2-page result and show them nothing.
   const setFilter = useCallback(
-    (patch: Partial<RegisterActivityQuery>) => run({ ...query, ...patch, offset: 0 }),
-    [query, run],
+    (patch: Partial<RegisterActivityQuery>) => run({ ...pendingQuery, ...patch, offset: 0 }),
+    [pendingQuery, run],
   );
 
   // The member typeahead, over the same Algolia plumbing the hub search uses.
@@ -343,6 +397,7 @@ export function RegisterActivityExplorer({
     if (needle.length < 2) {
       setMemberHits([]);
       setMemberSearchFailed(false);
+      setMemberActiveIndex(-1);
       return;
     }
     let cancelled = false;
@@ -357,6 +412,9 @@ export function RegisterActivityExplorer({
               displayName: hit.display_name,
             })),
           );
+          // The active option indexes a list that just changed, so it is dropped
+          // rather than left pointing at whoever now occupies that position.
+          setMemberActiveIndex(-1);
         })
         .catch(() => {
           if (cancelled) return;
@@ -364,6 +422,7 @@ export function RegisterActivityExplorer({
           // the filters keep working.
           setMemberSearchFailed(true);
           setMemberHits([]);
+          setMemberActiveIndex(-1);
         });
     }, 180);
     return () => {
@@ -372,41 +431,115 @@ export function RegisterActivityExplorer({
     };
   }, [memberQuery]);
 
+  // Focus follows the swap between the input and the chip, once, after the
+  // element it is aimed at has actually rendered.
+  useEffect(() => {
+    if (!focusTarget) return;
+    if (focusTarget === "chip") memberChipRef.current?.focus();
+    else memberInputRef.current?.focus();
+    setFocusTarget(null);
+  }, [focusTarget]);
+
   const chooseMember = useCallback(
     (hit: { slug: string; displayName: string }) => {
       setMemberName(hit.displayName);
       setMemberQuery("");
       setMemberHits([]);
+      setMemberOpen(false);
+      setMemberActiveIndex(-1);
+      setFocusTarget("chip");
       setFilter({ politicianSlug: hit.slug });
     },
     [setFilter],
+  );
+
+  /**
+   * The list is open only once there is something to say — the same two-character
+   * threshold the search itself uses, so an open-but-silent popup never covers
+   * the controls beneath it.
+   */
+  const memberListOpen = memberOpen && memberQuery.trim().length >= 2;
+
+  const onMemberKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLInputElement>) => {
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        // preventDefault, or the arrow scrolls the page / jumps the caret
+        // instead of moving through the list.
+        event.preventDefault();
+        if (!memberListOpen) {
+          setMemberOpen(true);
+          return;
+        }
+        if (memberHits.length === 0) return;
+        const step = event.key === "ArrowDown" ? 1 : -1;
+        setMemberActiveIndex((current) => {
+          const next = current + step;
+          // Wrap: Up from the top lands on the last member rather than on
+          // nothing — six options should never need a scroll to reach either end.
+          if (next < 0) return memberHits.length - 1;
+          if (next >= memberHits.length) return 0;
+          return next;
+        });
+        return;
+      }
+      if (event.key === "Enter") {
+        const hit = memberListOpen ? memberHits[memberActiveIndex] : undefined;
+        // Only when a member is actually active: a bare Enter must not choose
+        // whoever happens to be first, which would filter the page to a named
+        // person the reader never picked.
+        if (!hit) return;
+        event.preventDefault();
+        chooseMember(hit);
+        return;
+      }
+      if (event.key === "Escape") {
+        if (!memberListOpen) return;
+        event.preventDefault();
+        setMemberOpen(false);
+        setMemberActiveIndex(-1);
+      }
+    },
+    [chooseMember, memberActiveIndex, memberHits, memberListOpen],
   );
 
   const clearMember = useCallback(() => {
     setMemberName("");
     setMemberQuery("");
     setMemberHits([]);
+    setMemberOpen(false);
+    setMemberActiveIndex(-1);
+    setFocusTarget("input");
     setFilter({ politicianSlug: "" });
   }, [setFilter]);
 
   const events = page.events;
   const groups = useMemo(() => groupByDay(events), [events]);
+  /** What the RENDERED page was narrowed by — what the copy may describe. */
   const filtersActive =
     !!query.kind ||
     !!query.chamber ||
     !!query.partyAb ||
     query.itemNo > 0 ||
     !!query.politicianSlug;
+  /** What the CONTROLS currently hold — what "Clear filters" would clear. */
+  const controlsFiltered =
+    !!pendingQuery.kind ||
+    !!pendingQuery.chamber ||
+    !!pendingQuery.partyAb ||
+    pendingQuery.itemNo > 0 ||
+    !!pendingQuery.politicianSlug;
 
-  const datedEvents = page.weeks.reduce(
-    (sum, week) => sum + week.addedCount + week.removedCount,
-    0,
-  );
-  // Exact only when the feed holds every matching event; otherwise the distinct
-  // members visible are a floor, and the page does not claim a number it cannot
-  // support.
-  const feedComplete = events.length >= page.total;
-  const memberCount = new Set(events.map((event) => event.slug)).size;
+  /**
+   * What the strip and its count line are ABOUT, in the caption's own words.
+   *
+   * The backend narrows the weekly buckets and both filtered counts by the same
+   * filters the feed uses, so the strip is the filter's strip — and it says so.
+   * An unfiltered view says so too rather than saying nothing: "5 dated register
+   * events" with no scope is read as whichever scope the reader last saw.
+   */
+  const stripScope = filtersActive
+    ? "under the filters set above"
+    : "across all members";
 
   const hasPrevious = query.offset > 0;
   const hasNext = query.offset + events.length < page.total;
@@ -438,7 +571,7 @@ export function RegisterActivityExplorer({
           <select
             id={`${controlsId}-window`}
             className={SELECT_CLASS}
-            value={String(query.windowDays)}
+            value={String(pendingQuery.windowDays)}
             onChange={(e) => setFilter({ windowDays: Number(e.target.value) })}
           >
             {WINDOW_OPTIONS.map((option) => (
@@ -454,7 +587,7 @@ export function RegisterActivityExplorer({
           <select
             id={`${controlsId}-kind`}
             className={SELECT_CLASS}
-            value={query.kind}
+            value={pendingQuery.kind}
             onChange={(e) =>
               setFilter({ kind: e.target.value as RegisterActivityQuery["kind"] })
             }
@@ -472,7 +605,7 @@ export function RegisterActivityExplorer({
           <select
             id={`${controlsId}-chamber`}
             className={SELECT_CLASS}
-            value={query.chamber}
+            value={pendingQuery.chamber}
             onChange={(e) => setFilter({ chamber: e.target.value })}
           >
             {CHAMBER_OPTIONS.map((option) => (
@@ -488,7 +621,7 @@ export function RegisterActivityExplorer({
           <select
             id={`${controlsId}-party`}
             className={SELECT_CLASS}
-            value={query.partyAb}
+            value={pendingQuery.partyAb}
             onChange={(e) => setFilter({ partyAb: e.target.value })}
           >
             <option value="">All parties</option>
@@ -505,7 +638,7 @@ export function RegisterActivityExplorer({
           <select
             id={`${controlsId}-item`}
             className={SELECT_CLASS}
-            value={String(query.itemNo)}
+            value={String(pendingQuery.itemNo)}
             onChange={(e) => setFilter({ itemNo: Number(e.target.value) })}
           >
             {ITEM_OPTIONS.map((option) => (
@@ -520,11 +653,12 @@ export function RegisterActivityExplorer({
           <label className={FIELD_LABEL_CLASS} htmlFor={`${controlsId}-member`}>
             Member
           </label>
-          {query.politicianSlug ? (
+          {pendingQuery.politicianSlug ? (
             <span className="flex h-8 items-center gap-2 rounded-md border border-input px-2 text-xs">
-              <span>{memberName || query.politicianSlug}</span>
+              <span>{memberName || pendingQuery.politicianSlug}</span>
               <button
                 type="button"
+                ref={memberChipRef}
                 onClick={clearMember}
                 className="text-muted-foreground underline underline-offset-2 hover:text-foreground"
               >
@@ -532,33 +666,87 @@ export function RegisterActivityExplorer({
               </button>
             </span>
           ) : (
-            <div className="relative">
+            /*
+             * A REAL COMBOBOX, ported from the compare panel's picker — see its
+             * docblock for the failure this pattern replaces. The input keeps
+             * focus and carries `aria-activedescendant`; the options are
+             * non-focusable `role="option"` elements chosen on mousedown (which
+             * fires before the input's blur, so the pointer path needs no timer);
+             * arrows move the active option and wrap, Enter takes only an active
+             * one, Escape closes, and blur closes only when focus has left the
+             * whole widget. A page naming parliamentarians may not be reachable
+             * by pointer alone.
+             */
+            <div
+              className="relative"
+              onBlur={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                  setMemberOpen(false);
+                  setMemberActiveIndex(-1);
+                }
+              }}
+            >
               <input
                 id={`${controlsId}-member`}
+                ref={memberInputRef}
                 type="search"
                 role="combobox"
-                aria-expanded={memberHits.length > 0}
-                aria-controls={`${controlsId}-member-results`}
+                aria-expanded={memberListOpen}
+                aria-controls={memberListId}
                 aria-autocomplete="list"
+                aria-activedescendant={
+                  memberListOpen && memberActiveIndex >= 0
+                    ? memberOptionId(memberActiveIndex)
+                    : undefined
+                }
+                autoComplete="off"
                 className={`${SELECT_CLASS} w-56`}
                 placeholder="Search a member…"
                 value={memberQuery}
-                onChange={(e) => setMemberQuery(e.target.value)}
+                onChange={(e) => {
+                  setMemberQuery(e.target.value);
+                  setMemberOpen(true);
+                }}
+                onFocus={() => setMemberOpen(true)}
+                onKeyDown={onMemberKeyDown}
               />
-              {memberHits.length > 0 ? (
+              {memberListOpen ? (
                 <ul
-                  id={`${controlsId}-member-results`}
+                  id={memberListId}
+                  role="listbox"
+                  aria-label="Member results"
                   className="absolute z-10 mt-1 w-56 rounded-md border bg-background p-1 shadow-sm"
                 >
-                  {memberHits.map((hit) => (
-                    <li key={hit.slug}>
-                      <button
-                        type="button"
-                        onClick={() => chooseMember(hit)}
-                        className="w-full rounded px-2 py-1 text-left text-xs hover:bg-muted"
-                      >
-                        {hit.displayName}
-                      </button>
+                  {/* role="presentation": a status line is not a selectable
+                      option, and a bare <li> in a listbox offers a screen reader
+                      an option that cannot be chosen. */}
+                  {memberSearchFailed ? (
+                    <li role="presentation" className="px-2 py-1.5 text-[11px] text-muted-foreground">
+                      Member search is unavailable right now. Nothing is missing from the
+                      register — only the lookup is down.
+                    </li>
+                  ) : null}
+                  {!memberSearchFailed && memberHits.length === 0 ? (
+                    <li role="presentation" className="px-2 py-1.5 text-[11px] text-muted-foreground">
+                      No members match. Try a surname or an electorate.
+                    </li>
+                  ) : null}
+                  {memberHits.map((hit, index) => (
+                    <li
+                      key={hit.slug}
+                      id={memberOptionId(index)}
+                      role="option"
+                      aria-selected={index === memberActiveIndex}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        chooseMember(hit);
+                      }}
+                      onMouseEnter={() => setMemberActiveIndex(index)}
+                      className={`cursor-pointer rounded px-2 py-1 text-left text-xs ${
+                        index === memberActiveIndex ? "bg-muted" : ""
+                      }`}
+                    >
+                      {hit.displayName}
                     </li>
                   ))}
                 </ul>
@@ -567,13 +755,15 @@ export function RegisterActivityExplorer({
           )}
         </div>
 
-        {filtersActive ? (
+        {controlsFiltered ? (
           <button
             type="button"
             onClick={() => {
               setMemberName("");
               setMemberQuery("");
               setMemberHits([]);
+              setMemberOpen(false);
+              setMemberActiveIndex(-1);
               setFilter({
                 kind: "",
                 chamber: "",
@@ -589,8 +779,11 @@ export function RegisterActivityExplorer({
         ) : null}
       </div>
 
+      {/* role="status": these paragraphs REPLACE content that was there a moment
+          ago, and a reader who is not looking at the region otherwise learns
+          nothing changed. */}
       {memberSearchFailed ? (
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-[11px] text-muted-foreground" role="status">
           Member search is unavailable right now. The other filters still work, and nothing here
           is missing from the register.
         </p>
@@ -599,7 +792,7 @@ export function RegisterActivityExplorer({
       {outage ? (
         // One outage paragraph, worded by whether the reader has a filter set.
         // Neither wording claims anything about a member.
-        <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+        <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground" role="status">
           {filtersActive
             ? "These filters could not be applied just now. Nothing here is missing from the register — this is our end."
             : "This feed is unavailable right now. Nothing here is missing from the register — this is our end."}
@@ -610,35 +803,51 @@ export function RegisterActivityExplorer({
         <h2 id={`${controlsId}-strip-heading`} className="text-sm font-medium">
           Register events by week
         </h2>
+        {/*
+          EVERY MEASURE HERE COMES FROM THE ONE RPC, so every one of them is
+          gated on it. When the aggregate request does not answer, its arrays and
+          its counts arrive empty — and rendering that as "0 dated register
+          events" publishes an absence claim about every member the filter covers,
+          on our own downtime. One outage paragraph replaces the strip AND the
+          count line; neither states a number.
+        */}
         {page.railsOk ? (
-          <WeekBars weeks={page.weeks} windowLabel={windowLabel(page.windowDays)} />
+          <>
+            <WeekBars
+              weeks={page.weeks}
+              windowLabel={windowLabel(page.windowDays)}
+              scopeNote={stripScope}
+            />
+            <p className="text-[11px] leading-relaxed text-muted-foreground" role="status">
+              <span className="tabular-nums">
+                {page.filteredEventCount.toLocaleString()}
+              </span>{" "}
+              dated register events in {windowLabel(page.windowDays)}, from{" "}
+              <span className="tabular-nums">
+                {page.filteredMemberCount.toLocaleString()}
+              </span>{" "}
+              {page.filteredMemberCount === 1 ? "member" : "members"} {stripScope}.{" "}
+              {page.undatedCurrentCount > 0 ? (
+                <>
+                  A further{" "}
+                  <span className="tabular-nums">
+                    {page.undatedCurrentCount.toLocaleString()}
+                  </span>{" "}
+                  currently-declared entries state no start date, so they appear in no count on
+                  this page.
+                </>
+              ) : null}
+            </p>
+          </>
         ) : (
-          <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+          <p
+            className="rounded-md border border-dashed p-3 text-sm text-muted-foreground"
+            role="status"
+          >
             The weekly counts are unavailable right now. Nothing here is missing from the
             register — this is our end.
           </p>
         )}
-        <p className="text-[11px] leading-relaxed text-muted-foreground" role="status">
-          <span className="tabular-nums">{datedEvents.toLocaleString()}</span> dated register
-          events in {windowLabel(page.windowDays)}
-          {feedComplete && events.length > 0 ? (
-            <>
-              , from <span className="tabular-nums">{memberCount.toLocaleString()}</span>{" "}
-              {memberCount === 1 ? "member" : "members"} in this view
-            </>
-          ) : null}
-          .{" "}
-          {page.undatedCurrentCount > 0 ? (
-            <>
-              A further{" "}
-              <span className="tabular-nums">
-                {page.undatedCurrentCount.toLocaleString()}
-              </span>{" "}
-              currently-declared entries state no start date, so they appear in no count on this
-              page.
-            </>
-          ) : null}
-        </p>
       </section>
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
@@ -705,7 +914,12 @@ export function RegisterActivityExplorer({
               <button
                 type="button"
                 disabled={!hasPrevious || status === "loading"}
-                onClick={() => run({ ...query, offset: Math.max(0, query.offset - query.limit) })}
+                onClick={() =>
+                  // The FILTERS come from the controls, the OFFSET from the page
+                  // on screen: paging must move from what the reader is looking
+                  // at, under whatever they have currently selected.
+                  run({ ...pendingQuery, offset: Math.max(0, query.offset - query.limit) })
+                }
                 className="rounded border px-2 py-1 disabled:opacity-40 enabled:hover:text-foreground"
               >
                 Previous
@@ -713,7 +927,7 @@ export function RegisterActivityExplorer({
               <button
                 type="button"
                 disabled={!hasNext || status === "loading"}
-                onClick={() => run({ ...query, offset: query.offset + query.limit })}
+                onClick={() => run({ ...pendingQuery, offset: query.offset + query.limit })}
                 className="rounded border px-2 py-1 disabled:opacity-40 enabled:hover:text-foreground"
               >
                 Next
@@ -724,12 +938,24 @@ export function RegisterActivityExplorer({
 
         <aside className="space-y-6">
           {/*
-            THE RAILS DESCRIBE THE WINDOW, NOT THE FILTER. The aggregate rpc
-            takes only a window, so captioning these with the member or party
-            filter set above them would attribute parliament-wide counts to one
-            member. Each heading says the window, and the note below says it
-            once more.
+            THE RAILS DESCRIBE THE WINDOW, NOT THE FILTER. The request now
+            carries the feed's filters, but they narrow the strip only: these
+            three lists answer corpus-wide questions inside the window, so
+            captioning them with the member or party filter set above would
+            attribute parliament-wide counts to one member.
+
+            The note sits HERE, at the top of the aside and before the first
+            heading, because a scope note beneath three lists is read after the
+            lists it governs — which is after the misreading has happened. It
+            does not claim to cover "the whole register": these measures are
+            DATED-ONLY, and about 80% of currently-declared rows carry no start
+            date.
           */}
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            These three lists count dated declarations across all members, over{" "}
+            {windowLabel(page.windowDays)}. They are not narrowed by the filters above.
+          </p>
+
           <section className="space-y-2">
             <h2 className="text-sm font-medium">
               Most dated register events, {windowLabel(page.windowDays)}
@@ -754,8 +980,13 @@ export function RegisterActivityExplorer({
                 ))}
               </ul>
             ) : (
-              <p className="text-[11px] text-muted-foreground">
-                No dated events in this window.
+              // Absence and outage, told apart. An empty rail from a request
+              // that never answered is OUR failure, and "no dated events in this
+              // window" would publish it as a statement about parliament.
+              <p className="text-[11px] text-muted-foreground" role="status">
+                {page.railsOk
+                  ? "No dated events in this window."
+                  : "This list is unavailable right now — this is our end."}
               </p>
             )}
           </section>
@@ -779,23 +1010,33 @@ export function RegisterActivityExplorer({
                         {company.firstDeclaredLabel || company.firstDeclaredOn}
                       </span>
                     </span>
+                    {/*
+                      LABELLED, because the rail below states a member count for
+                      a company too. Both are now the SAME dated measure (the
+                      backend's own note on the two fields says so), and two
+                      unlabelled member-counts for one company that could be read
+                      as different measures is how a page contradicts itself.
+                    */}
                     <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
                       {company.declarerCount}{" "}
-                      {company.declarerCount === 1 ? "member" : "members"}
+                      {company.declarerCount === 1 ? "member" : "members"} with dated
+                      declarations
                     </span>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-[11px] text-muted-foreground">
-                No company was first declared in this window.
+              <p className="text-[11px] text-muted-foreground" role="status">
+                {page.railsOk
+                  ? "No company was first declared in this window."
+                  : "This list is unavailable right now — this is our end."}
               </p>
             )}
           </section>
 
           <section className="space-y-2">
             <h2 className="text-sm font-medium">
-              Members declaring, compared with {page.windowDays} days ago
+              Members with dated declarations, compared with {page.windowDays} days ago
             </h2>
             {page.declarerCountChanges.length ? (
               <ul className="space-y-1">
@@ -817,24 +1058,22 @@ export function RegisterActivityExplorer({
                       </Link>
                       <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
                         {difference > 0 ? `+${difference}` : `−${Math.abs(difference)}`}{" "}
-                        {Math.abs(difference) === 1 ? "member" : "members"} (
-                        {company.declarersAtWindowStart} → {company.declarersNow})
+                        {Math.abs(difference) === 1 ? "member" : "members"} with dated
+                        declarations ({company.declarersAtWindowStart} →{" "}
+                        {company.declarersNow})
                       </span>
                     </li>
                   );
                 })}
               </ul>
             ) : (
-              <p className="text-[11px] text-muted-foreground">
-                No company&rsquo;s declaring-member count changed on a dated basis in this window.
+              <p className="text-[11px] text-muted-foreground" role="status">
+                {page.railsOk
+                  ? "No company’s declaring-member count changed on a dated basis in this window."
+                  : "This list is unavailable right now — this is our end."}
               </p>
             )}
           </section>
-
-          <p className="text-[11px] leading-relaxed text-muted-foreground">
-            These three lists cover the whole register over {windowLabel(page.windowDays)}. They
-            are not narrowed by the filters above.
-          </p>
         </aside>
       </div>
     </div>

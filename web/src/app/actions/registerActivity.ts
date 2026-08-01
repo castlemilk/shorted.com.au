@@ -150,7 +150,20 @@ export async function loadRegisterActivity(
   // The rails first: their response is the authority on the window (see the
   // file docblock). A failure here leaves the feed to run on the clamp we
   // already applied, which agrees with the backend's by construction.
-  const activity = await getRegisterActivity(query.windowDays).catch(() => undefined);
+  //
+  // The SAME filters the feed gets. The weekly buckets and the two filtered
+  // counts are narrowed by them — a strip drawn above one member's feed must
+  // count that member's events and not the parliament's — while the three rails
+  // in the same response stay corpus-wide, which is why the island captions them
+  // separately.
+  const activity = await getRegisterActivity(
+    query.windowDays,
+    query.kind,
+    query.politicianSlug,
+    query.itemNo,
+    query.partyAb,
+    query.chamber,
+  ).catch(() => undefined);
   const windowDays = activity?.windowDays
     ? clampRegisterActivityWindow(activity.windowDays)
     : query.windowDays;
@@ -232,6 +245,12 @@ export async function loadRegisterActivity(
         declarersAtWindowStart: Number(company.declarersAtWindowStart ?? 0),
       })),
     undatedCurrentCount: Number(activity?.undatedCurrentCount ?? 0),
+    // The strip's own totals, under the SAME filters. Taken from the response
+    // rather than counted from `events`: the feed is one page of rows, so a
+    // member count derived from it is a floor, and a page-2 read would state a
+    // smaller "number of members in this view" than page 1 for one filter set.
+    filteredEventCount: Number(activity?.filteredEventCount ?? 0),
+    filteredMemberCount: Number(activity?.filteredMemberCount ?? 0),
     // `undefined` is the retry helper's exhausted/not-found signal: the request
     // did not answer. A genuinely empty filtered result comes back as a RESPONSE
     // carrying no events and reaches `ok: true` with zero rows — which is what
@@ -241,7 +260,13 @@ export async function loadRegisterActivity(
   };
 }
 
-/** The register's own as-at, for the page footer's citation. */
+/**
+ * The register's own as-at, for the page footer's citation.
+ *
+ * UNFILTERED on purpose: the as-at is a property of the corpus, not of a filter,
+ * and asking for it unfiltered also shares the page's own default-view rpc call
+ * through `cache()` instead of firing a second one.
+ */
 export async function getRegisterActivityAsAt(windowDays = 90): Promise<Date | undefined> {
   const activity = await getRegisterActivity(clampRegisterActivityWindow(windowDays)).catch(
     () => undefined,

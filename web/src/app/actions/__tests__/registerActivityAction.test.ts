@@ -163,7 +163,9 @@ describe("register activity action", () => {
     // 45 is not a window the backend serves; 90 is what produced these numbers.
     expect(page.windowDays).toBe(90);
     expect(page.query.windowDays).toBe(90);
-    expect(clientMock.getRegisterActivity).toHaveBeenCalledWith({ windowDays: 90 });
+    expect(clientMock.getRegisterActivity).toHaveBeenCalledWith(
+      expect.objectContaining({ windowDays: 90 }),
+    );
 
     // And the feed's lower bound comes from the SAME window, so the strip and
     // the feed below it can never describe different spans.
@@ -228,9 +230,61 @@ describe("register activity action", () => {
       CACHE_KEYS.registerChangeFeed("2026-04-03", "added", "b-member", 3, "ALP", "house", 100, 0),
     );
 
-    // The rails key is the CLAMPED window, so 45 and 90 cannot hold two entries
-    // for one identical response.
-    expect(CACHE_KEYS.registerActivity(90)).toBe("cache:politicians:activity:90");
+    // The activity key is the CLAMPED window plus EVERY filter, for the same two
+    // reasons: 45 and 90 cannot hold two entries for one identical response, and
+    // two filters cannot share one entry now that the filters narrow the weekly
+    // buckets and both filtered counts.
+    expect(CACHE_KEYS.registerActivity(90, "", "", 0, "", "")).toBe(
+      "cache:politicians:activity:90:all:all:0:all:all",
+    );
+    expect(CACHE_KEYS.registerActivity(90, "added", "a-member", 3, "ALP", "house")).toContain(
+      "a-member",
+    );
+    expect(CACHE_KEYS.registerActivity(90, "added", "a-member", 3, "ALP", "house")).not.toBe(
+      CACHE_KEYS.registerActivity(90, "added", "b-member", 3, "ALP", "house"),
+    );
+  });
+
+  it("narrows the strip by the SAME filters the feed uses", async () => {
+    const { loadRegisterActivity } = await loadActions();
+
+    await loadRegisterActivity({
+      windowDays: 30,
+      kind: "added",
+      politicianSlug: " A-Member ",
+      itemNo: 3,
+      partyAb: "alp",
+      chamber: "House",
+    });
+
+    // Clamped exactly as the feed's own query is, so the strip above the feed
+    // and the feed below it can never be narrowed by two different readings of
+    // one filter set.
+    expect(clientMock.getRegisterActivity).toHaveBeenCalledWith({
+      windowDays: 30,
+      kind: KIND_ADDED,
+      politicianSlug: "a-member",
+      itemNo: 3,
+      partyAb: "ALP",
+      chamber: "house",
+    });
+  });
+
+  it("publishes the response's own filtered counts, never a count of the rows", async () => {
+    clientMock.getRegisterActivity.mockResolvedValue({
+      ...ACTIVITY,
+      filteredEventCount: 7,
+      filteredMemberCount: 4,
+    });
+    const { loadRegisterActivity } = await loadActions();
+
+    const page = await loadRegisterActivity({});
+
+    // `events` is one page of a paginated feed: a member count derived from it
+    // is a floor that shrinks as the reader pages forward.
+    expect(page.filteredEventCount).toBe(7);
+    expect(page.filteredMemberCount).toBe(4);
+    expect(page.events).toHaveLength(1);
   });
 
   it("maps an event to plain JSON with the register's own holder wording", async () => {

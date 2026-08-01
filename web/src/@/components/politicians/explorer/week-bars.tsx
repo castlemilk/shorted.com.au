@@ -45,6 +45,18 @@ export interface WeekBarsProps {
    * RESPONSE reported, which the caller holds and this component does not.
    */
   windowLabel: string;
+  /**
+   * What the buckets are narrowed to, e.g. "under the filters set above" or
+   * "across all members".
+   *
+   * THE SAME SCOPE THE VISIBLE CAPTION CARRIES. These bars are drawn above a
+   * filtered feed, so a screen-reader user who hears only "Register events by
+   * week over the last 90 days" is told the parliament's counts where a sighted
+   * reader is told the filter's — the exact misattribution the caption exists to
+   * prevent. Optional so an unscoped caller still renders truthfully; supplied by
+   * the explorer, which knows the filter and this component does not.
+   */
+  scopeNote?: string;
 }
 
 /** The lighter step reads as the first of the pair; both are the house amber. */
@@ -71,7 +83,10 @@ export function weekLabel(weekStart: string): string {
   return date.toLocaleDateString("en-AU", { day: "numeric", month: "short", timeZone: "UTC" });
 }
 
-export function WeekBars({ weeks, windowLabel }: WeekBarsProps) {
+export function WeekBars({ weeks, windowLabel, scopeNote = "" }: WeekBarsProps) {
+  const scope = scopeNote.trim();
+  /** "the last 90 days, across all members" — one phrase, used in both labels. */
+  const scopedWindow = scope ? `${windowLabel}, ${scope}` : windowLabel;
   const points = weeks.map((week) => ({
     weekStart: week.weekStart,
     addedCount: safeCount(week.addedCount),
@@ -93,8 +108,8 @@ export function WeekBars({ weeks, windowLabel }: WeekBarsProps) {
     max <= 0 || count <= 0 ? 0 : ((PLOT_BOTTOM - PLOT_TOP) * count) / max;
 
   const ariaLabel = points.length
-    ? `Register events by week over ${windowLabel}: ${totalAdded} entries added and ${totalRemoved} entries removed across ${points.length} ${points.length === 1 ? "week" : "weeks"}. Dated events only.`
-    : `Register events by week over ${windowLabel}: no dated events.`;
+    ? `Register events by week over ${scopedWindow}: ${totalAdded} entries added and ${totalRemoved} entries removed across ${points.length} ${points.length === 1 ? "week" : "weeks"}. Dated events only.`
+    : `Register events by week over ${scopedWindow}: no dated events.`;
 
   return (
     <figure className="space-y-1.5">
@@ -169,8 +184,13 @@ export function WeekBars({ weeks, windowLabel }: WeekBarsProps) {
         ) : null}
       </figcaption>
 
-      <table className="sr-only" aria-label="Register events by week">
-        <caption>Register events by week, dated events only</caption>
+      {/* The table's own name carries the scope too: an aria-label OVERRIDES the
+          caption, so a scoped caption under an unscoped label is heard as
+          unscoped. */}
+      <table className="sr-only" aria-label={`Register events by week over ${scopedWindow}`}>
+        <caption>
+          Register events by week over {scopedWindow}, dated events only
+        </caption>
         <thead>
           <tr>
             <th scope="col">Week beginning</th>

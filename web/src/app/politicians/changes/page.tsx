@@ -50,7 +50,13 @@ export default async function RegisterChangesPage() {
   // The default view: no filters, the 90-day window the backend defaults to.
   const page = await loadRegisterActivity({});
   const asAt = await getRegisterActivityAsAt(page.windowDays);
-  if (!page.ok || page.events.length === 0) bailOnEmptyRender();
+  // `railsOk` is in here for the same reason `ok` is: this is an ISR route, so
+  // whatever renders now is BAKED for an hour. A transient aggregate failure
+  // during a regen would otherwise freeze the strip's outage copy and three
+  // "unavailable" rails into a static page long after the rpc recovered — the
+  // outage wording is honest live and stale within minutes. Bailing keeps the
+  // last good page instead.
+  if (!page.ok || !page.railsOk || page.events.length === 0) bailOnEmptyRender();
 
   // The party filter's options come from the ROLL, never from the palette:
   // PARTY_LABEL maps both LP and LIB onto "Liberal", and the backend filters on

@@ -32,9 +32,17 @@ import {
 import { POLITICIANS_TTL, getCached, setCached } from "@/lib/kv-cache";
 import { withRetryAndNotFound } from "./withRetry";
 
-/** See the file header — the `cache:politicians:` prefix is load-bearing. */
+/**
+ * See the file header — the `cache:politicians:` prefix is load-bearing.
+ *
+ * THE SLUG IS NORMALISED THE WAY THE HANDLER NORMALISES IT (trim + lower-case),
+ * which is the same rule the feed's key follows: a key built from the raw string
+ * gives `Anthony-Albanese` and `anthony-albanese` two entries for one identical
+ * response, so one link's warm cache is another link's miss and a flush that
+ * clears one leaves the other serving the pre-flush rows.
+ */
 function distinctiveHoldingsKey(slug: string): string {
-  return `cache:politicians:distinctive:${slug}`;
+  return `cache:politicians:distinctive:${slug.trim().toLowerCase()}`;
 }
 
 // A transport whose fetch tags the request ISR-cacheable.

@@ -74,7 +74,6 @@ const POPULATED = {
       companyName: "Vagabond Ltd",
       industry: "Software",
       holder: 1,
-      currentlyDeclared: true,
       corpusDeclarerCount: 1,
       shortPercent: 0,
     },
@@ -126,6 +125,17 @@ describe("distinctive holdings action", () => {
     expect(getCachedMock.mock.calls[0]?.[0]).not.toBe(
       "cache:politicians:distinctive:someone-else",
     );
+  });
+
+  it("normalises the slug into the key the way the handler normalises it", async () => {
+    const getDistinctiveHoldings = await loadAction();
+
+    // The handler trims and lower-cases, so these are ONE member and must be one
+    // entry: two keys would give one link a warm cache and the other a miss, and
+    // a flush that clears one would leave the other serving pre-flush rows.
+    await getDistinctiveHoldings("  Anthony-Albanese ");
+
+    expect(getCachedMock).toHaveBeenCalledWith("cache:politicians:distinctive:anthony-albanese");
   });
 
   it("asks the rpc for exactly the requested member", async () => {

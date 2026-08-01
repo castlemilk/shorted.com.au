@@ -556,18 +556,49 @@ export function clampRegisterActivityWindow(windowDays: number): number {
 /**
  * The activity explorer's weekly strip and rails.
  *
- * Counts and dates only. The rails are count orderings over the WHOLE register
- * in the window — the rpc takes no member/party filter — so a surface must never
- * caption them as though they described the feed's current filter.
+ * Counts and dates only.
+ *
+ * TWO SCOPES IN ONE RESPONSE, WHICH IS WHY THE ARGUMENTS LOOK REDUNDANT. The
+ * filters narrow the WEEKLY BUCKETS and the two filtered counts, because the
+ * strip is drawn above a filtered feed and a parliament-wide bar there reads as
+ * the filtered member's own. They do NOT narrow the three rails: those answer
+ * corpus-wide questions inside the window (a "most dated events" rail filtered
+ * to one member is a tautology), so a surface must never caption them as though
+ * they described the feed's current filter.
+ *
+ * POSITIONAL PRIMITIVES, NOT AN OPTIONS OBJECT: `cache()` memoises on argument
+ * identity, and an object literal is a fresh reference per call — the page's own
+ * render and its as-at read would then each fire the rpc instead of sharing one.
  */
 export const getRegisterActivity = cache(
   withRetryAndNotFound(
     async (
       windowDays: number = 90, // eslint-disable-line @typescript-eslint/no-inferrable-types
+      kind: RegisterChangeKindKey = "", // eslint-disable-line @typescript-eslint/no-inferrable-types
+      politicianSlug: string = "", // eslint-disable-line @typescript-eslint/no-inferrable-types
+      itemNo: number = 0, // eslint-disable-line @typescript-eslint/no-inferrable-types
+      partyAb: string = "", // eslint-disable-line @typescript-eslint/no-inferrable-types
+      chamber: string = "", // eslint-disable-line @typescript-eslint/no-inferrable-types
     ): Promise<GetRegisterActivityResponse | undefined> => {
       if (skipForBuild()) return undefined;
       const window = clampRegisterActivityWindow(windowDays);
-      const key = CACHE_KEYS.registerActivity(window);
+      // The SAME normalisation the feed uses, so the strip and the feed beneath
+      // it can never be narrowed by two different readings of one filter set.
+      const filters = clampRegisterChangeFeedQuery({
+        kind,
+        politicianSlug,
+        itemNo,
+        partyAb,
+        chamber,
+      });
+      const key = CACHE_KEYS.registerActivity(
+        window,
+        filters.kind,
+        filters.politicianSlug,
+        filters.itemNo,
+        filters.partyAb,
+        filters.chamber,
+      );
       const hit = readCached<GetRegisterActivityResponse>(
         GetRegisterActivityResponseSchema,
         await getCached<JsonValue>(key),
@@ -580,6 +611,11 @@ export const getRegisterActivity = cache(
 
       const resp = await createCacheablePoliticiansClient().getRegisterActivity({
         windowDays: window,
+        kind: CHANGE_KIND_ENUM[filters.kind],
+        politicianSlug: filters.politicianSlug,
+        itemNo: filters.itemNo,
+        partyAb: filters.partyAb,
+        chamber: filters.chamber,
       });
       // NEVER cache an empty response: the kill switch and a cold MV both return
       // {}, and caching that pins the empty state for 24h.

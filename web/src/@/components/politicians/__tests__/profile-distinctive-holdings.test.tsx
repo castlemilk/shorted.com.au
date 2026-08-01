@@ -129,6 +129,34 @@ describe("declared by no other member", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  it("scopes the claim to the registers we have read, and says coverage varies", () => {
+    render(<DistinctiveHoldings holdings={[holding("VGN", 1)]} />);
+    const section = screen.getByRole("region", { name: "Declared by no other member" });
+
+    // "No other member declares these" is a claim about the WHOLE parliament,
+    // made from a count over OUR corpus: a member whose volume we have not
+    // extracted cannot appear in it, so an unread register reads here as an
+    // absence of one. The body copy scopes the claim…
+    expect(
+      within(section).getByText(/In the registers we have read, no other member currently declares these\./),
+    ).toBeInTheDocument();
+    // …and the coverage sentence says the same thing the activity page says.
+    expect(
+      within(section).getByText(
+        /Coverage varies by member and parliament — an absence here can be an unread register, not an absence in the register\./,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the heading itself short and factual", () => {
+    render(<DistinctiveHoldings holdings={[holding("VGN", 1)]} />);
+    // The scoping lives in the body copy: a heading carrying the caveat would be
+    // a paragraph, and headings are what a reader skims.
+    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(
+      /^Declared by no other member$/,
+    );
+  });
+
   it("labels the section with exactly its visible heading", () => {
     render(<DistinctiveHoldings holdings={[holding("VGN", 1)]} />);
     const section = screen.getByRole("region", { name: "Declared by no other member" });

@@ -169,12 +169,27 @@ export const CACHE_KEYS = {
     `cache:politicians:changes:${since || "all"}:${kind || "all"}:${limit}:${offset}`,
   shortInterestOverlap: (minPct: number, limit: number) =>
     `cache:politicians:short-overlap:${minPct}:${limit}`,
-  // The activity explorer's rails and weekly strip (GetRegisterActivity). The
-  // window is the ONLY input, and it is the CLAMPED one: the handler rounds a
-  // request UP to the next supported window (45 -> 90), so a key built from the
-  // raw request would give 45 and 90 two entries for one identical response —
-  // and, worse, an entry whose key claims a window the response does not have.
-  registerActivity: (windowDays: number) => `cache:politicians:activity:${windowDays}`,
+  // The activity explorer's rails and weekly strip (GetRegisterActivity).
+  //
+  // EVERY input is in the key, and every one of them CLAMPED. The window is
+  // clamped because the handler rounds a request UP to the next supported window
+  // (45 -> 90), so a key built from the raw request would give 45 and 90 two
+  // entries for one identical response — and, worse, an entry whose key claims a
+  // window the response does not have. The five filters are in the key because
+  // the rpc now narrows the weekly buckets and the two filtered counts by them:
+  // omitting one would serve a member's own weekly strip under the whole
+  // parliament's name, or the reverse. The three rails inside the response are
+  // corpus-wide either way, so a filtered entry is a superset, never a
+  // contradiction.
+  registerActivity: (
+    windowDays: number,
+    kind: string,
+    slug: string,
+    itemNo: number,
+    party: string,
+    chamber: string,
+  ) =>
+    `cache:politicians:activity:${windowDays}:${kind || "all"}:${slug || "all"}:${itemNo || 0}:${party || "all"}:${chamber || "all"}`,
   // The activity explorer's feed (ListRegisterChanges with the discovery
   // filters). EVERY input is in the key, including the ones the older
   // `registerChanges` key above predates — a key that omits an input serves one

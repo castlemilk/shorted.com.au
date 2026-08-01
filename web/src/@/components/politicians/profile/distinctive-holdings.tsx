@@ -159,10 +159,22 @@ export function DistinctiveHoldings({
       <h2 id="declared-by-no-other-member" className={sectionTitle}>
         Declared by no other member
       </h2>
+      {/*
+        THE CLAIM IS SCOPED TO WHAT WE HAVE READ, because it is a claim about
+        every OTHER member. "No other member declares these" is a statement about
+        the whole parliament, and the count behind it is a count over our corpus:
+        a member whose volume we have not extracted cannot appear in it, so an
+        unread register reads here as an absence of one. The coverage sentence
+        below says so in the same words the activity page uses.
+      */}
       <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-        ASX-listed companies this member currently declares that no other member currently
-        declares. A count of members, not an amount — the registers record what is held and not
-        quantity or value.
+        ASX-listed companies this member currently declares. In the registers we have read, no
+        other member currently declares these. A count of members, not an amount — the registers
+        record what is held and not quantity or value.
+      </p>
+      <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+        Coverage varies by member and parliament — an absence here can be an unread register, not
+        an absence in the register.
       </p>
       <ul className="mt-3 space-y-2.5">
         {sole.map((row) => (

@@ -42,9 +42,14 @@ import { withRetryAndNotFound } from "./withRetry";
  */
 const TOP_INDUSTRIES = 5;
 
-/** See the file header — the `cache:politicians:` prefix is load-bearing. */
+/**
+ * See the file header — the `cache:politicians:` prefix is load-bearing.
+ *
+ * The slug is normalised as the HANDLER normalises it (trim + lower-case), so
+ * two spellings of one member cannot hold two entries for one response.
+ */
 function explorerProfileKey(slug: string): string {
-  return `cache:politicians:explorer-profile:${slug}`;
+  return `cache:politicians:explorer-profile:${slug.trim().toLowerCase()}`;
 }
 
 // A transport whose fetch tags the request ISR-cacheable.
