@@ -276,6 +276,14 @@ each with a non-emptiness predicate on BOTH reader and writer.
 
 ## 7. Discovery layer (2026-08-01 addendum) — finding the unusual without saying "unusual"
 
+**Status: BUILT** (branch feat/politician-discovery). Post-review deltas from the
+plan: the weekly strip and its counts are FILTER-scoped (the rpc takes the same
+filters as the feed and returns filtered_event_count/filtered_member_count);
+the three rails stay corpus-wide and say so; newly-declared withholds any
+company carrying an undated current declaration (first-ness cannot be proven
+over an 80%-undated corpus); weeks are gap-filled contiguous Mondays; the
+sole-declarer rail scopes its claim to the registers we have read.
+
 The ask is anomaly-findability. The editorial rules forbid labelling a named
 member's interests anomalous (the banned risk/monitor class), so the design is
 **neutral surfaces where unusual patterns become findable facts** — the reader
