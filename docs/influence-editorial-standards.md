@@ -62,10 +62,14 @@ or selective emphasis.
   public) until verified.
 - **Same-name traps**: donor names are free text; "XYZ Pty Ltd" ≠ "XYZ
   Holdings". When in doubt, don't join.
-- **Temporal honesty**: AEC disclosure thresholds changed 1 July 2026
-  ($16.9k → $5k, near-real-time). Never chart pre/post series as one line
-  without a break annotation; totals across the boundary need a methodology
-  note.
+- **Temporal honesty**: the AEC funding-and-disclosure reform **commences
+  1 January 2027** ($16.9k → $5k threshold, near-real-time notices, donation
+  and expenditure caps); 1 July 2026 brought transitional rules only, and the
+  last old-scheme annual corpus is FY2024-25 (verified against aec.gov.au/
+  FADReform and the live bulk exports, 2026-08-01). Never chart pre/post-reform
+  series as one line without a break annotation; totals across the boundary
+  need a methodology note. Old-scheme data is right-censored at each year's
+  threshold — a low declared total is a disclosure fact, not a funding fact.
 - **AusTender values are life-of-contract maximums**, not annual spend —
   label every dollar figure accordingly.
 - **Tax ≠ wrongdoing**: the ATO dataset states plainly that nil tax payable
