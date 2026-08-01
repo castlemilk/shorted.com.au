@@ -2048,7 +2048,8 @@ const file_shorts_v1alpha1_enrichment_proto_rawDesc = "" +
 	"\x14GetPendingEnrichment\x12,.shorts.v1alpha1.GetPendingEnrichmentRequest\x1a-.shorts.v1alpha1.GetPendingEnrichmentResponse\"\r\x80\xb5\x18\x02\x8a\xb5\x18\x05admin\x12v\n" +
 	"\x10ReviewEnrichment\x12(.shorts.v1alpha1.ReviewEnrichmentRequest\x1a).shorts.v1alpha1.ReviewEnrichmentResponse\"\r\x80\xb5\x18\x02\x8a\xb5\x18\x05admin\x12\x88\x01\n" +
 	"\x16GetEnrichmentJobStatus\x12..shorts.v1alpha1.GetEnrichmentJobStatusRequest\x1a/.shorts.v1alpha1.GetEnrichmentJobStatusResponse\"\r\x80\xb5\x18\x02\x8a\xb5\x18\x05admin\x12|\n" +
-	"\x12ListEnrichmentJobs\x12*.shorts.v1alpha1.ListEnrichmentJobsRequest\x1a+.shorts.v1alpha1.ListEnrichmentJobsResponse\"\r\x80\xb5\x18\x02\x8a\xb5\x18\x05adminB[ZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1b\x06proto3"
+	"\x12ListEnrichmentJobs\x12*.shorts.v1alpha1.ListEnrichmentJobsRequest\x1a+.shorts.v1alpha1.ListEnrichmentJobsResponse\"\r\x80\xb5\x18\x02\x8a\xb5\x18\x05adminB\xde\x01\n" +
+	"\x13com.shorts.v1alpha1B\x0fEnrichmentProtoP\x01ZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1\xa2\x02\x03SXX\xaa\x02\x0fShorts.V1alpha1\xca\x02\x0fShorts\\V1alpha1\xe2\x02\x1bShorts\\V1alpha1\\GPBMetadata\xea\x02\x10Shorts::V1alpha1b\x06proto3"
 
 var (
 	file_shorts_v1alpha1_enrichment_proto_rawDescOnce sync.Once

@@ -221,7 +221,8 @@ const file_register_v1_register_proto_rawDesc = "" +
 	"#A successful registration response.\x12(\n" +
 	"\x03400\x12!\n" +
 	"\x1f\n" +
-	"\x1dInvalid email address format.\x80\xb5\x18\x01BSZQgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/register/v1;registerv1b\x06proto3"
+	"\x1dInvalid email address format.\x80\xb5\x18\x01B\xc0\x01\n" +
+	"\x0fcom.register.v1B\rRegisterProtoP\x01ZQgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/register/v1;registerv1\xa2\x02\x03RXX\xaa\x02\vRegister.V1\xca\x02\vRegister\\V1\xe2\x02\x17Register\\V1\\GPBMetadata\xea\x02\fRegister::V1b\x06proto3"
 
 var (
 	file_register_v1_register_proto_rawDescOnce sync.Once

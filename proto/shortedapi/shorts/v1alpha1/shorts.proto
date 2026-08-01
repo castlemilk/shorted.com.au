@@ -927,4 +927,22 @@ service ShortedStocksService {
   rpc ComparePoliticians (ComparePoliticiansRequest) returns (ComparePoliticiansResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
   }
+
+  // Aggregate register lodgement activity over a window.
+  rpc GetRegisterActivity (GetRegisterActivityRequest) returns (GetRegisterActivityResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Register Activity",
+      description: "Weekly counts of dated register events, the members with the most events, companies first declared in the window, and companies whose declarer count changed. Counts and dates only."
+    };
+  }
+
+  // One member's currently-declared companies with corpus-wide declarer counts.
+  rpc ListDistinctiveHoldings (ListDistinctiveHoldingsRequest) returns (ListDistinctiveHoldingsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Distinctive Holdings",
+      description: "A member's currently-declared listed companies, each with the number of members declaring it across the whole register. A count of one means no other member currently declares it."
+    };
+  }
 }

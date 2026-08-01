@@ -271,6 +271,98 @@ const (
 	// ShortedStocksServiceComparePoliticiansProcedure is the fully-qualified name of the
 	// ShortedStocksService's ComparePoliticians RPC.
 	ShortedStocksServiceComparePoliticiansProcedure = "/shorts.v1alpha1.ShortedStocksService/ComparePoliticians"
+	// ShortedStocksServiceGetRegisterActivityProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetRegisterActivity RPC.
+	ShortedStocksServiceGetRegisterActivityProcedure = "/shorts.v1alpha1.ShortedStocksService/GetRegisterActivity"
+	// ShortedStocksServiceListDistinctiveHoldingsProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListDistinctiveHoldings RPC.
+	ShortedStocksServiceListDistinctiveHoldingsProcedure = "/shorts.v1alpha1.ShortedStocksService/ListDistinctiveHoldings"
+)
+
+// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
+var (
+	shortedStocksServiceServiceDescriptor                               = v1alpha1.File_shorts_v1alpha1_shorts_proto.Services().ByName("ShortedStocksService")
+	shortedStocksServiceGetTopShortsMethodDescriptor                    = shortedStocksServiceServiceDescriptor.Methods().ByName("GetTopShorts")
+	shortedStocksServiceGetIndustryTreeMapMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("GetIndustryTreeMap")
+	shortedStocksServiceGetStockMethodDescriptor                        = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStock")
+	shortedStocksServiceGetStockDetailsMethodDescriptor                 = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockDetails")
+	shortedStocksServiceGetStockDataMethodDescriptor                    = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockData")
+	shortedStocksServiceGetMarketByDateMethodDescriptor                 = shortedStocksServiceServiceDescriptor.Methods().ByName("GetMarketByDate")
+	shortedStocksServiceGetAvailableDatesMethodDescriptor               = shortedStocksServiceServiceDescriptor.Methods().ByName("GetAvailableDates")
+	shortedStocksServiceSearchStocksMethodDescriptor                    = shortedStocksServiceServiceDescriptor.Methods().ByName("SearchStocks")
+	shortedStocksServiceGetSyncStatusMethodDescriptor                   = shortedStocksServiceServiceDescriptor.Methods().ByName("GetSyncStatus")
+	shortedStocksServiceMintTokenMethodDescriptor                       = shortedStocksServiceServiceDescriptor.Methods().ByName("MintToken")
+	shortedStocksServiceSyncKeyMetricsMethodDescriptor                  = shortedStocksServiceServiceDescriptor.Methods().ByName("SyncKeyMetrics")
+	shortedStocksServiceEnrichStockMethodDescriptor                     = shortedStocksServiceServiceDescriptor.Methods().ByName("EnrichStock")
+	shortedStocksServiceGetTopStocksForEnrichmentMethodDescriptor       = shortedStocksServiceServiceDescriptor.Methods().ByName("GetTopStocksForEnrichment")
+	shortedStocksServiceListPendingEnrichmentsMethodDescriptor          = shortedStocksServiceServiceDescriptor.Methods().ByName("ListPendingEnrichments")
+	shortedStocksServiceGetPendingEnrichmentMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("GetPendingEnrichment")
+	shortedStocksServiceReviewEnrichmentMethodDescriptor                = shortedStocksServiceServiceDescriptor.Methods().ByName("ReviewEnrichment")
+	shortedStocksServiceGetEnrichmentJobStatusMethodDescriptor          = shortedStocksServiceServiceDescriptor.Methods().ByName("GetEnrichmentJobStatus")
+	shortedStocksServiceListEnrichmentJobsMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("ListEnrichmentJobs")
+	shortedStocksServiceHandleStripeCheckoutCompletedMethodDescriptor   = shortedStocksServiceServiceDescriptor.Methods().ByName("HandleStripeCheckoutCompleted")
+	shortedStocksServiceHandleStripeSubscriptionUpdatedMethodDescriptor = shortedStocksServiceServiceDescriptor.Methods().ByName("HandleStripeSubscriptionUpdated")
+	shortedStocksServiceGetMySubscriptionMethodDescriptor               = shortedStocksServiceServiceDescriptor.Methods().ByName("GetMySubscription")
+	shortedStocksServiceCreateAlertMonitorMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("CreateAlertMonitor")
+	shortedStocksServiceListAlertMonitorsMethodDescriptor               = shortedStocksServiceServiceDescriptor.Methods().ByName("ListAlertMonitors")
+	shortedStocksServiceGetWeeklyReportMethodDescriptor                 = shortedStocksServiceServiceDescriptor.Methods().ByName("GetWeeklyReport")
+	shortedStocksServiceListReportsMethodDescriptor                     = shortedStocksServiceServiceDescriptor.Methods().ByName("ListReports")
+	shortedStocksServiceGetStockFinancialHighlightsMethodDescriptor     = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockFinancialHighlights")
+	shortedStocksServiceGetStockNewsMethodDescriptor                    = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockNews")
+	shortedStocksServiceGetRelatedNewsMethodDescriptor                  = shortedStocksServiceServiceDescriptor.Methods().ByName("GetRelatedNews")
+	shortedStocksServiceGetMarketNewsMethodDescriptor                   = shortedStocksServiceServiceDescriptor.Methods().ByName("GetMarketNews")
+	shortedStocksServiceGetEditorialTakeMethodDescriptor                = shortedStocksServiceServiceDescriptor.Methods().ByName("GetEditorialTake")
+	shortedStocksServiceListEditorialTakesMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("ListEditorialTakes")
+	shortedStocksServiceListEditorialTakesAdminMethodDescriptor         = shortedStocksServiceServiceDescriptor.Methods().ByName("ListEditorialTakesAdmin")
+	shortedStocksServicePublishEditorialTakeMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("PublishEditorialTake")
+	shortedStocksServiceUpdateEditorialTakeMethodDescriptor             = shortedStocksServiceServiceDescriptor.Methods().ByName("UpdateEditorialTake")
+	shortedStocksServiceDeleteEditorialTakeMethodDescriptor             = shortedStocksServiceServiceDescriptor.Methods().ByName("DeleteEditorialTake")
+	shortedStocksServiceMarkTakeTweetPublishedMethodDescriptor          = shortedStocksServiceServiceDescriptor.Methods().ByName("MarkTakeTweetPublished")
+	shortedStocksServiceListTweetPublishQueueMethodDescriptor           = shortedStocksServiceServiceDescriptor.Methods().ByName("ListTweetPublishQueue")
+	shortedStocksServiceGetDirectorTradesMethodDescriptor               = shortedStocksServiceServiceDescriptor.Methods().ByName("GetDirectorTrades")
+	shortedStocksServiceGetDividendHistoryMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("GetDividendHistory")
+	shortedStocksServiceGetPeerComparisonMethodDescriptor               = shortedStocksServiceServiceDescriptor.Methods().ByName("GetPeerComparison")
+	shortedStocksServiceScreenStocksMethodDescriptor                    = shortedStocksServiceServiceDescriptor.Methods().ByName("ScreenStocks")
+	shortedStocksServiceGetBattlegroundStocksMethodDescriptor           = shortedStocksServiceServiceDescriptor.Methods().ByName("GetBattlegroundStocks")
+	shortedStocksServiceGetStockVerdictMethodDescriptor                 = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockVerdict")
+	shortedStocksServiceGetShortCampaignScoreboardMethodDescriptor      = shortedStocksServiceServiceDescriptor.Methods().ByName("GetShortCampaignScoreboard")
+	shortedStocksServiceGetStockGraphMethodDescriptor                   = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockGraph")
+	shortedStocksServiceGetEventTimelineMethodDescriptor                = shortedStocksServiceServiceDescriptor.Methods().ByName("GetEventTimeline")
+	shortedStocksServiceGetStockSignalsMethodDescriptor                 = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockSignals")
+	shortedStocksServiceGetHousingOverviewMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("GetHousingOverview")
+	shortedStocksServiceGetHousePriceSeriesMethodDescriptor             = shortedStocksServiceServiceDescriptor.Methods().ByName("GetHousePriceSeries")
+	shortedStocksServiceListStateSuburbsMethodDescriptor                = shortedStocksServiceServiceDescriptor.Methods().ByName("ListStateSuburbs")
+	shortedStocksServiceGetSuburbProfileMethodDescriptor                = shortedStocksServiceServiceDescriptor.Methods().ByName("GetSuburbProfile")
+	shortedStocksServiceListHousingRegionsMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("ListHousingRegions")
+	shortedStocksServiceListSuburbPriceDropsMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("ListSuburbPriceDrops")
+	shortedStocksServiceListSuburbDropListingsMethodDescriptor          = shortedStocksServiceServiceDescriptor.Methods().ByName("ListSuburbDropListings")
+	shortedStocksServiceGetPropertyHistoryMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("GetPropertyHistory")
+	shortedStocksServiceListAddressPriceDropsMethodDescriptor           = shortedStocksServiceServiceDescriptor.Methods().ByName("ListAddressPriceDrops")
+	shortedStocksServiceGetPriceDropsOverviewMethodDescriptor           = shortedStocksServiceServiceDescriptor.Methods().ByName("GetPriceDropsOverview")
+	shortedStocksServiceListAgencyPriceStatsMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("ListAgencyPriceStats")
+	shortedStocksServiceListEconomicSeriesMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("ListEconomicSeries")
+	shortedStocksServiceGetEconomicSeriesMethodDescriptor               = shortedStocksServiceServiceDescriptor.Methods().ByName("GetEconomicSeries")
+	shortedStocksServiceListSeriesCorrelationsMethodDescriptor          = shortedStocksServiceServiceDescriptor.Methods().ByName("ListSeriesCorrelations")
+	shortedStocksServiceListStateCompaniesMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("ListStateCompanies")
+	shortedStocksServiceGetStateCompanyAggregatesMethodDescriptor       = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStateCompanyAggregates")
+	shortedStocksServiceGetCompanyTaxProfileMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("GetCompanyTaxProfile")
+	shortedStocksServiceGetIndustryIntelligenceMethodDescriptor         = shortedStocksServiceServiceDescriptor.Methods().ByName("GetIndustryIntelligence")
+	shortedStocksServiceGetParliamentOverviewMethodDescriptor           = shortedStocksServiceServiceDescriptor.Methods().ByName("GetParliamentOverview")
+	shortedStocksServiceListPoliticiansMethodDescriptor                 = shortedStocksServiceServiceDescriptor.Methods().ByName("ListPoliticians")
+	shortedStocksServiceGetPoliticianMethodDescriptor                   = shortedStocksServiceServiceDescriptor.Methods().ByName("GetPolitician")
+	shortedStocksServiceListStockPoliticiansMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("ListStockPoliticians")
+	shortedStocksServiceListPoliticianStocksMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("ListPoliticianStocks")
+	shortedStocksServiceListSuburbPoliticiansMethodDescriptor           = shortedStocksServiceServiceDescriptor.Methods().ByName("ListSuburbPoliticians")
+	shortedStocksServiceListStatePoliticianHoldingsMethodDescriptor     = shortedStocksServiceServiceDescriptor.Methods().ByName("ListStatePoliticianHoldings")
+	shortedStocksServiceListRegisterChangesMethodDescriptor             = shortedStocksServiceServiceDescriptor.Methods().ByName("ListRegisterChanges")
+	shortedStocksServiceListShortInterestOverlapMethodDescriptor        = shortedStocksServiceServiceDescriptor.Methods().ByName("ListShortInterestOverlap")
+	shortedStocksServiceGetPoliticianAnalyticsMethodDescriptor          = shortedStocksServiceServiceDescriptor.Methods().ByName("GetPoliticianAnalytics")
+	shortedStocksServiceGetRegisterExplorerMethodDescriptor             = shortedStocksServiceServiceDescriptor.Methods().ByName("GetRegisterExplorer")
+	shortedStocksServiceListPoliticianSummariesMethodDescriptor         = shortedStocksServiceServiceDescriptor.Methods().ByName("ListPoliticianSummaries")
+	shortedStocksServiceGetPoliticianExplorerProfileMethodDescriptor    = shortedStocksServiceServiceDescriptor.Methods().ByName("GetPoliticianExplorerProfile")
+	shortedStocksServiceComparePoliticiansMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("ComparePoliticians")
+	shortedStocksServiceGetRegisterActivityMethodDescriptor             = shortedStocksServiceServiceDescriptor.Methods().ByName("GetRegisterActivity")
+	shortedStocksServiceListDistinctiveHoldingsMethodDescriptor         = shortedStocksServiceServiceDescriptor.Methods().ByName("ListDistinctiveHoldings")
 )
 
 // ShortedStocksServiceClient is a client for the shorts.v1alpha1.ShortedStocksService service.
@@ -436,6 +528,10 @@ type ShortedStocksServiceClient interface {
 	GetPoliticianExplorerProfile(context.Context, *connect.Request[v1alpha1.GetPoliticianExplorerProfileRequest]) (*connect.Response[v1alpha1.GetPoliticianExplorerProfileResponse], error)
 	// Neutral, symmetric comparison of two politician register summaries.
 	ComparePoliticians(context.Context, *connect.Request[v1alpha1.ComparePoliticiansRequest]) (*connect.Response[v1alpha1.ComparePoliticiansResponse], error)
+	// Aggregate register lodgement activity over a window.
+	GetRegisterActivity(context.Context, *connect.Request[v1alpha1.GetRegisterActivityRequest]) (*connect.Response[v1alpha1.GetRegisterActivityResponse], error)
+	// One member's currently-declared companies with corpus-wide declarer counts.
+	ListDistinctiveHoldings(context.Context, *connect.Request[v1alpha1.ListDistinctiveHoldingsRequest]) (*connect.Response[v1alpha1.ListDistinctiveHoldingsResponse], error)
 }
 
 // NewShortedStocksServiceClient constructs a client for the shorts.v1alpha1.ShortedStocksService
@@ -447,480 +543,491 @@ type ShortedStocksServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) ShortedStocksServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
-	shortedStocksServiceMethods := v1alpha1.File_shorts_v1alpha1_shorts_proto.Services().ByName("ShortedStocksService").Methods()
 	return &shortedStocksServiceClient{
 		getTopShorts: connect.NewClient[v1alpha1.GetTopShortsRequest, v1alpha1.GetTopShortsResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetTopShortsProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetTopShorts")),
+			connect.WithSchema(shortedStocksServiceGetTopShortsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getIndustryTreeMap: connect.NewClient[v1alpha1.GetIndustryTreeMapRequest, v1alpha11.IndustryTreeMap](
 			httpClient,
 			baseURL+ShortedStocksServiceGetIndustryTreeMapProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetIndustryTreeMap")),
+			connect.WithSchema(shortedStocksServiceGetIndustryTreeMapMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getStock: connect.NewClient[v1alpha1.GetStockRequest, v1alpha11.Stock](
 			httpClient,
 			baseURL+ShortedStocksServiceGetStockProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetStock")),
+			connect.WithSchema(shortedStocksServiceGetStockMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getStockDetails: connect.NewClient[v1alpha1.GetStockDetailsRequest, v1alpha11.StockDetails](
 			httpClient,
 			baseURL+ShortedStocksServiceGetStockDetailsProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetStockDetails")),
+			connect.WithSchema(shortedStocksServiceGetStockDetailsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getStockData: connect.NewClient[v1alpha1.GetStockDataRequest, v1alpha11.TimeSeriesData](
 			httpClient,
 			baseURL+ShortedStocksServiceGetStockDataProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetStockData")),
+			connect.WithSchema(shortedStocksServiceGetStockDataMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getMarketByDate: connect.NewClient[v1alpha1.GetMarketByDateRequest, v1alpha1.GetMarketByDateResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetMarketByDateProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetMarketByDate")),
+			connect.WithSchema(shortedStocksServiceGetMarketByDateMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getAvailableDates: connect.NewClient[v1alpha1.GetAvailableDatesRequest, v1alpha1.GetAvailableDatesResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetAvailableDatesProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetAvailableDates")),
+			connect.WithSchema(shortedStocksServiceGetAvailableDatesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		searchStocks: connect.NewClient[v1alpha1.SearchStocksRequest, v1alpha1.SearchStocksResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceSearchStocksProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("SearchStocks")),
+			connect.WithSchema(shortedStocksServiceSearchStocksMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getSyncStatus: connect.NewClient[v1alpha1.GetSyncStatusRequest, v1alpha1.GetSyncStatusResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetSyncStatusProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetSyncStatus")),
+			connect.WithSchema(shortedStocksServiceGetSyncStatusMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		mintToken: connect.NewClient[v1alpha1.MintTokenRequest, v1alpha1.MintTokenResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceMintTokenProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("MintToken")),
+			connect.WithSchema(shortedStocksServiceMintTokenMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		syncKeyMetrics: connect.NewClient[v1alpha1.SyncKeyMetricsRequest, v1alpha1.SyncKeyMetricsResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceSyncKeyMetricsProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("SyncKeyMetrics")),
+			connect.WithSchema(shortedStocksServiceSyncKeyMetricsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		enrichStock: connect.NewClient[v1alpha1.EnrichStockRequest, v1alpha1.EnrichStockResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceEnrichStockProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("EnrichStock")),
+			connect.WithSchema(shortedStocksServiceEnrichStockMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getTopStocksForEnrichment: connect.NewClient[v1alpha1.GetTopStocksForEnrichmentRequest, v1alpha1.GetTopStocksForEnrichmentResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetTopStocksForEnrichmentProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetTopStocksForEnrichment")),
+			connect.WithSchema(shortedStocksServiceGetTopStocksForEnrichmentMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listPendingEnrichments: connect.NewClient[v1alpha1.ListPendingEnrichmentsRequest, v1alpha1.ListPendingEnrichmentsResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceListPendingEnrichmentsProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("ListPendingEnrichments")),
+			connect.WithSchema(shortedStocksServiceListPendingEnrichmentsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getPendingEnrichment: connect.NewClient[v1alpha1.GetPendingEnrichmentRequest, v1alpha1.GetPendingEnrichmentResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetPendingEnrichmentProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetPendingEnrichment")),
+			connect.WithSchema(shortedStocksServiceGetPendingEnrichmentMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		reviewEnrichment: connect.NewClient[v1alpha1.ReviewEnrichmentRequest, v1alpha1.ReviewEnrichmentResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceReviewEnrichmentProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("ReviewEnrichment")),
+			connect.WithSchema(shortedStocksServiceReviewEnrichmentMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getEnrichmentJobStatus: connect.NewClient[v1alpha1.GetEnrichmentJobStatusRequest, v1alpha1.GetEnrichmentJobStatusResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetEnrichmentJobStatusProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetEnrichmentJobStatus")),
+			connect.WithSchema(shortedStocksServiceGetEnrichmentJobStatusMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listEnrichmentJobs: connect.NewClient[v1alpha1.ListEnrichmentJobsRequest, v1alpha1.ListEnrichmentJobsResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceListEnrichmentJobsProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("ListEnrichmentJobs")),
+			connect.WithSchema(shortedStocksServiceListEnrichmentJobsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		handleStripeCheckoutCompleted: connect.NewClient[v1alpha1.HandleStripeCheckoutCompletedRequest, v1alpha1.HandleStripeCheckoutCompletedResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceHandleStripeCheckoutCompletedProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("HandleStripeCheckoutCompleted")),
+			connect.WithSchema(shortedStocksServiceHandleStripeCheckoutCompletedMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		handleStripeSubscriptionUpdated: connect.NewClient[v1alpha1.HandleStripeSubscriptionUpdatedRequest, v1alpha1.HandleStripeSubscriptionUpdatedResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceHandleStripeSubscriptionUpdatedProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("HandleStripeSubscriptionUpdated")),
+			connect.WithSchema(shortedStocksServiceHandleStripeSubscriptionUpdatedMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getMySubscription: connect.NewClient[v1alpha1.GetMySubscriptionRequest, v1alpha1.GetMySubscriptionResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetMySubscriptionProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetMySubscription")),
+			connect.WithSchema(shortedStocksServiceGetMySubscriptionMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		createAlertMonitor: connect.NewClient[v1alpha1.CreateAlertMonitorRequest, v1alpha1.CreateAlertMonitorResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceCreateAlertMonitorProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("CreateAlertMonitor")),
+			connect.WithSchema(shortedStocksServiceCreateAlertMonitorMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listAlertMonitors: connect.NewClient[v1alpha1.ListAlertMonitorsRequest, v1alpha1.ListAlertMonitorsResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceListAlertMonitorsProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("ListAlertMonitors")),
+			connect.WithSchema(shortedStocksServiceListAlertMonitorsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getWeeklyReport: connect.NewClient[v1alpha1.GetWeeklyReportRequest, v1alpha1.GetWeeklyReportResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetWeeklyReportProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetWeeklyReport")),
+			connect.WithSchema(shortedStocksServiceGetWeeklyReportMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listReports: connect.NewClient[v1alpha1.ListReportsRequest, v1alpha1.ListReportsResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceListReportsProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("ListReports")),
+			connect.WithSchema(shortedStocksServiceListReportsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getStockFinancialHighlights: connect.NewClient[v1alpha1.GetStockFinancialHighlightsRequest, v1alpha1.GetStockFinancialHighlightsResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetStockFinancialHighlightsProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetStockFinancialHighlights")),
+			connect.WithSchema(shortedStocksServiceGetStockFinancialHighlightsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getStockNews: connect.NewClient[v1alpha1.GetStockNewsRequest, v1alpha1.GetStockNewsResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetStockNewsProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetStockNews")),
+			connect.WithSchema(shortedStocksServiceGetStockNewsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getRelatedNews: connect.NewClient[v1alpha1.GetRelatedNewsRequest, v1alpha1.GetRelatedNewsResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetRelatedNewsProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetRelatedNews")),
+			connect.WithSchema(shortedStocksServiceGetRelatedNewsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getMarketNews: connect.NewClient[v1alpha1.GetMarketNewsRequest, v1alpha1.GetMarketNewsResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetMarketNewsProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetMarketNews")),
+			connect.WithSchema(shortedStocksServiceGetMarketNewsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getEditorialTake: connect.NewClient[v1alpha1.GetEditorialTakeRequest, v1alpha1.GetEditorialTakeResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetEditorialTakeProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetEditorialTake")),
+			connect.WithSchema(shortedStocksServiceGetEditorialTakeMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listEditorialTakes: connect.NewClient[v1alpha1.ListEditorialTakesRequest, v1alpha1.ListEditorialTakesResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceListEditorialTakesProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("ListEditorialTakes")),
+			connect.WithSchema(shortedStocksServiceListEditorialTakesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listEditorialTakesAdmin: connect.NewClient[v1alpha1.ListEditorialTakesAdminRequest, v1alpha1.ListEditorialTakesAdminResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceListEditorialTakesAdminProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("ListEditorialTakesAdmin")),
+			connect.WithSchema(shortedStocksServiceListEditorialTakesAdminMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		publishEditorialTake: connect.NewClient[v1alpha1.PublishEditorialTakeRequest, v1alpha1.PublishEditorialTakeResponse](
 			httpClient,
 			baseURL+ShortedStocksServicePublishEditorialTakeProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("PublishEditorialTake")),
+			connect.WithSchema(shortedStocksServicePublishEditorialTakeMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		updateEditorialTake: connect.NewClient[v1alpha1.UpdateEditorialTakeRequest, v1alpha1.UpdateEditorialTakeResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceUpdateEditorialTakeProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("UpdateEditorialTake")),
+			connect.WithSchema(shortedStocksServiceUpdateEditorialTakeMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		deleteEditorialTake: connect.NewClient[v1alpha1.DeleteEditorialTakeRequest, v1alpha1.DeleteEditorialTakeResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceDeleteEditorialTakeProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("DeleteEditorialTake")),
+			connect.WithSchema(shortedStocksServiceDeleteEditorialTakeMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		markTakeTweetPublished: connect.NewClient[v1alpha1.MarkTakeTweetPublishedRequest, v1alpha1.MarkTakeTweetPublishedResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceMarkTakeTweetPublishedProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("MarkTakeTweetPublished")),
+			connect.WithSchema(shortedStocksServiceMarkTakeTweetPublishedMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listTweetPublishQueue: connect.NewClient[v1alpha1.ListTweetPublishQueueRequest, v1alpha1.ListTweetPublishQueueResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceListTweetPublishQueueProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("ListTweetPublishQueue")),
+			connect.WithSchema(shortedStocksServiceListTweetPublishQueueMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getDirectorTrades: connect.NewClient[v1alpha1.GetDirectorTradesRequest, v1alpha1.GetDirectorTradesResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetDirectorTradesProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetDirectorTrades")),
+			connect.WithSchema(shortedStocksServiceGetDirectorTradesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getDividendHistory: connect.NewClient[v1alpha1.GetDividendHistoryRequest, v1alpha1.GetDividendHistoryResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetDividendHistoryProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetDividendHistory")),
+			connect.WithSchema(shortedStocksServiceGetDividendHistoryMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getPeerComparison: connect.NewClient[v1alpha1.GetPeerComparisonRequest, v1alpha1.GetPeerComparisonResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetPeerComparisonProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetPeerComparison")),
+			connect.WithSchema(shortedStocksServiceGetPeerComparisonMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		screenStocks: connect.NewClient[v1alpha1.ScreenStocksRequest, v1alpha1.ScreenStocksResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceScreenStocksProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("ScreenStocks")),
+			connect.WithSchema(shortedStocksServiceScreenStocksMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getBattlegroundStocks: connect.NewClient[v1alpha1.GetBattlegroundStocksRequest, v1alpha1.GetBattlegroundStocksResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetBattlegroundStocksProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetBattlegroundStocks")),
+			connect.WithSchema(shortedStocksServiceGetBattlegroundStocksMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getStockVerdict: connect.NewClient[v1alpha1.GetStockVerdictRequest, v1alpha1.GetStockVerdictResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetStockVerdictProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetStockVerdict")),
+			connect.WithSchema(shortedStocksServiceGetStockVerdictMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getShortCampaignScoreboard: connect.NewClient[v1alpha1.GetShortCampaignScoreboardRequest, v1alpha1.GetShortCampaignScoreboardResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetShortCampaignScoreboardProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetShortCampaignScoreboard")),
+			connect.WithSchema(shortedStocksServiceGetShortCampaignScoreboardMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getStockGraph: connect.NewClient[v1alpha1.GetStockGraphRequest, v1alpha1.GetStockGraphResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetStockGraphProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetStockGraph")),
+			connect.WithSchema(shortedStocksServiceGetStockGraphMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getEventTimeline: connect.NewClient[v1alpha1.GetEventTimelineRequest, v1alpha1.GetEventTimelineResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetEventTimelineProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetEventTimeline")),
+			connect.WithSchema(shortedStocksServiceGetEventTimelineMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getStockSignals: connect.NewClient[v1alpha1.GetStockSignalsRequest, v1alpha1.GetStockSignalsResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetStockSignalsProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetStockSignals")),
+			connect.WithSchema(shortedStocksServiceGetStockSignalsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getHousingOverview: connect.NewClient[v1alpha1.GetHousingOverviewRequest, v1alpha1.GetHousingOverviewResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetHousingOverviewProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetHousingOverview")),
+			connect.WithSchema(shortedStocksServiceGetHousingOverviewMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getHousePriceSeries: connect.NewClient[v1alpha1.GetHousePriceSeriesRequest, v1alpha1.GetHousePriceSeriesResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetHousePriceSeriesProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetHousePriceSeries")),
+			connect.WithSchema(shortedStocksServiceGetHousePriceSeriesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listStateSuburbs: connect.NewClient[v1alpha1.ListStateSuburbsRequest, v1alpha1.ListStateSuburbsResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceListStateSuburbsProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("ListStateSuburbs")),
+			connect.WithSchema(shortedStocksServiceListStateSuburbsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getSuburbProfile: connect.NewClient[v1alpha1.GetSuburbProfileRequest, v1alpha1.GetSuburbProfileResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetSuburbProfileProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetSuburbProfile")),
+			connect.WithSchema(shortedStocksServiceGetSuburbProfileMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listHousingRegions: connect.NewClient[v1alpha1.ListHousingRegionsRequest, v1alpha1.ListHousingRegionsResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceListHousingRegionsProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("ListHousingRegions")),
+			connect.WithSchema(shortedStocksServiceListHousingRegionsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listSuburbPriceDrops: connect.NewClient[v1alpha1.ListSuburbPriceDropsRequest, v1alpha1.ListSuburbPriceDropsResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceListSuburbPriceDropsProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("ListSuburbPriceDrops")),
+			connect.WithSchema(shortedStocksServiceListSuburbPriceDropsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listSuburbDropListings: connect.NewClient[v1alpha1.ListSuburbDropListingsRequest, v1alpha1.ListSuburbDropListingsResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceListSuburbDropListingsProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("ListSuburbDropListings")),
+			connect.WithSchema(shortedStocksServiceListSuburbDropListingsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getPropertyHistory: connect.NewClient[v1alpha1.GetPropertyHistoryRequest, v1alpha1.GetPropertyHistoryResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetPropertyHistoryProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetPropertyHistory")),
+			connect.WithSchema(shortedStocksServiceGetPropertyHistoryMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listAddressPriceDrops: connect.NewClient[v1alpha1.ListAddressPriceDropsRequest, v1alpha1.ListAddressPriceDropsResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceListAddressPriceDropsProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("ListAddressPriceDrops")),
+			connect.WithSchema(shortedStocksServiceListAddressPriceDropsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getPriceDropsOverview: connect.NewClient[v1alpha1.GetPriceDropsOverviewRequest, v1alpha1.GetPriceDropsOverviewResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetPriceDropsOverviewProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetPriceDropsOverview")),
+			connect.WithSchema(shortedStocksServiceGetPriceDropsOverviewMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listAgencyPriceStats: connect.NewClient[v1alpha1.ListAgencyPriceStatsRequest, v1alpha1.ListAgencyPriceStatsResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceListAgencyPriceStatsProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("ListAgencyPriceStats")),
+			connect.WithSchema(shortedStocksServiceListAgencyPriceStatsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listEconomicSeries: connect.NewClient[v1alpha1.ListEconomicSeriesRequest, v1alpha1.ListEconomicSeriesResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceListEconomicSeriesProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("ListEconomicSeries")),
+			connect.WithSchema(shortedStocksServiceListEconomicSeriesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getEconomicSeries: connect.NewClient[v1alpha1.GetEconomicSeriesRequest, v1alpha1.GetEconomicSeriesResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetEconomicSeriesProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetEconomicSeries")),
+			connect.WithSchema(shortedStocksServiceGetEconomicSeriesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listSeriesCorrelations: connect.NewClient[v1alpha1.ListSeriesCorrelationsRequest, v1alpha1.ListSeriesCorrelationsResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceListSeriesCorrelationsProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("ListSeriesCorrelations")),
+			connect.WithSchema(shortedStocksServiceListSeriesCorrelationsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listStateCompanies: connect.NewClient[v1alpha1.ListStateCompaniesRequest, v1alpha1.ListStateCompaniesResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceListStateCompaniesProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("ListStateCompanies")),
+			connect.WithSchema(shortedStocksServiceListStateCompaniesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getStateCompanyAggregates: connect.NewClient[v1alpha1.GetStateCompanyAggregatesRequest, v1alpha1.GetStateCompanyAggregatesResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetStateCompanyAggregatesProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetStateCompanyAggregates")),
+			connect.WithSchema(shortedStocksServiceGetStateCompanyAggregatesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getCompanyTaxProfile: connect.NewClient[v1alpha1.GetCompanyTaxProfileRequest, v1alpha1.GetCompanyTaxProfileResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetCompanyTaxProfileProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetCompanyTaxProfile")),
+			connect.WithSchema(shortedStocksServiceGetCompanyTaxProfileMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getIndustryIntelligence: connect.NewClient[v1alpha1.GetIndustryIntelligenceRequest, v1alpha1.GetIndustryIntelligenceResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetIndustryIntelligenceProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetIndustryIntelligence")),
+			connect.WithSchema(shortedStocksServiceGetIndustryIntelligenceMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getParliamentOverview: connect.NewClient[v1alpha1.GetParliamentOverviewRequest, v1alpha1.GetParliamentOverviewResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetParliamentOverviewProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetParliamentOverview")),
+			connect.WithSchema(shortedStocksServiceGetParliamentOverviewMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listPoliticians: connect.NewClient[v1alpha1.ListPoliticiansRequest, v1alpha1.ListPoliticiansResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceListPoliticiansProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("ListPoliticians")),
+			connect.WithSchema(shortedStocksServiceListPoliticiansMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getPolitician: connect.NewClient[v1alpha1.GetPoliticianRequest, v1alpha1.GetPoliticianResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetPoliticianProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetPolitician")),
+			connect.WithSchema(shortedStocksServiceGetPoliticianMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listStockPoliticians: connect.NewClient[v1alpha1.ListStockPoliticiansRequest, v1alpha1.ListStockPoliticiansResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceListStockPoliticiansProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("ListStockPoliticians")),
+			connect.WithSchema(shortedStocksServiceListStockPoliticiansMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listPoliticianStocks: connect.NewClient[v1alpha1.ListPoliticianStocksRequest, v1alpha1.ListPoliticianStocksResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceListPoliticianStocksProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("ListPoliticianStocks")),
+			connect.WithSchema(shortedStocksServiceListPoliticianStocksMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listSuburbPoliticians: connect.NewClient[v1alpha1.ListSuburbPoliticiansRequest, v1alpha1.ListSuburbPoliticiansResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceListSuburbPoliticiansProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("ListSuburbPoliticians")),
+			connect.WithSchema(shortedStocksServiceListSuburbPoliticiansMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listStatePoliticianHoldings: connect.NewClient[v1alpha1.ListStatePoliticianHoldingsRequest, v1alpha1.ListStatePoliticianHoldingsResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceListStatePoliticianHoldingsProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("ListStatePoliticianHoldings")),
+			connect.WithSchema(shortedStocksServiceListStatePoliticianHoldingsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listRegisterChanges: connect.NewClient[v1alpha1.ListRegisterChangesRequest, v1alpha1.ListRegisterChangesResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceListRegisterChangesProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("ListRegisterChanges")),
+			connect.WithSchema(shortedStocksServiceListRegisterChangesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listShortInterestOverlap: connect.NewClient[v1alpha1.ListShortInterestOverlapRequest, v1alpha1.ListShortInterestOverlapResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceListShortInterestOverlapProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("ListShortInterestOverlap")),
+			connect.WithSchema(shortedStocksServiceListShortInterestOverlapMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getPoliticianAnalytics: connect.NewClient[v1alpha1.GetPoliticianAnalyticsRequest, v1alpha1.GetPoliticianAnalyticsResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetPoliticianAnalyticsProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetPoliticianAnalytics")),
+			connect.WithSchema(shortedStocksServiceGetPoliticianAnalyticsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getRegisterExplorer: connect.NewClient[v1alpha1.GetRegisterExplorerRequest, v1alpha1.GetRegisterExplorerResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetRegisterExplorerProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetRegisterExplorer")),
+			connect.WithSchema(shortedStocksServiceGetRegisterExplorerMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listPoliticianSummaries: connect.NewClient[v1alpha1.ListPoliticianSummariesRequest, v1alpha1.ListPoliticianSummariesResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceListPoliticianSummariesProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("ListPoliticianSummaries")),
+			connect.WithSchema(shortedStocksServiceListPoliticianSummariesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getPoliticianExplorerProfile: connect.NewClient[v1alpha1.GetPoliticianExplorerProfileRequest, v1alpha1.GetPoliticianExplorerProfileResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetPoliticianExplorerProfileProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetPoliticianExplorerProfile")),
+			connect.WithSchema(shortedStocksServiceGetPoliticianExplorerProfileMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		comparePoliticians: connect.NewClient[v1alpha1.ComparePoliticiansRequest, v1alpha1.ComparePoliticiansResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceComparePoliticiansProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("ComparePoliticians")),
+			connect.WithSchema(shortedStocksServiceComparePoliticiansMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getRegisterActivity: connect.NewClient[v1alpha1.GetRegisterActivityRequest, v1alpha1.GetRegisterActivityResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetRegisterActivityProcedure,
+			connect.WithSchema(shortedStocksServiceGetRegisterActivityMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listDistinctiveHoldings: connect.NewClient[v1alpha1.ListDistinctiveHoldingsRequest, v1alpha1.ListDistinctiveHoldingsResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListDistinctiveHoldingsProcedure,
+			connect.WithSchema(shortedStocksServiceListDistinctiveHoldingsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -1007,6 +1114,8 @@ type shortedStocksServiceClient struct {
 	listPoliticianSummaries         *connect.Client[v1alpha1.ListPoliticianSummariesRequest, v1alpha1.ListPoliticianSummariesResponse]
 	getPoliticianExplorerProfile    *connect.Client[v1alpha1.GetPoliticianExplorerProfileRequest, v1alpha1.GetPoliticianExplorerProfileResponse]
 	comparePoliticians              *connect.Client[v1alpha1.ComparePoliticiansRequest, v1alpha1.ComparePoliticiansResponse]
+	getRegisterActivity             *connect.Client[v1alpha1.GetRegisterActivityRequest, v1alpha1.GetRegisterActivityResponse]
+	listDistinctiveHoldings         *connect.Client[v1alpha1.ListDistinctiveHoldingsRequest, v1alpha1.ListDistinctiveHoldingsResponse]
 }
 
 // GetTopShorts calls shorts.v1alpha1.ShortedStocksService.GetTopShorts.
@@ -1409,6 +1518,16 @@ func (c *shortedStocksServiceClient) ComparePoliticians(ctx context.Context, req
 	return c.comparePoliticians.CallUnary(ctx, req)
 }
 
+// GetRegisterActivity calls shorts.v1alpha1.ShortedStocksService.GetRegisterActivity.
+func (c *shortedStocksServiceClient) GetRegisterActivity(ctx context.Context, req *connect.Request[v1alpha1.GetRegisterActivityRequest]) (*connect.Response[v1alpha1.GetRegisterActivityResponse], error) {
+	return c.getRegisterActivity.CallUnary(ctx, req)
+}
+
+// ListDistinctiveHoldings calls shorts.v1alpha1.ShortedStocksService.ListDistinctiveHoldings.
+func (c *shortedStocksServiceClient) ListDistinctiveHoldings(ctx context.Context, req *connect.Request[v1alpha1.ListDistinctiveHoldingsRequest]) (*connect.Response[v1alpha1.ListDistinctiveHoldingsResponse], error) {
+	return c.listDistinctiveHoldings.CallUnary(ctx, req)
+}
+
 // ShortedStocksServiceHandler is an implementation of the shorts.v1alpha1.ShortedStocksService
 // service.
 type ShortedStocksServiceHandler interface {
@@ -1573,6 +1692,10 @@ type ShortedStocksServiceHandler interface {
 	GetPoliticianExplorerProfile(context.Context, *connect.Request[v1alpha1.GetPoliticianExplorerProfileRequest]) (*connect.Response[v1alpha1.GetPoliticianExplorerProfileResponse], error)
 	// Neutral, symmetric comparison of two politician register summaries.
 	ComparePoliticians(context.Context, *connect.Request[v1alpha1.ComparePoliticiansRequest]) (*connect.Response[v1alpha1.ComparePoliticiansResponse], error)
+	// Aggregate register lodgement activity over a window.
+	GetRegisterActivity(context.Context, *connect.Request[v1alpha1.GetRegisterActivityRequest]) (*connect.Response[v1alpha1.GetRegisterActivityResponse], error)
+	// One member's currently-declared companies with corpus-wide declarer counts.
+	ListDistinctiveHoldings(context.Context, *connect.Request[v1alpha1.ListDistinctiveHoldingsRequest]) (*connect.Response[v1alpha1.ListDistinctiveHoldingsResponse], error)
 }
 
 // NewShortedStocksServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -1581,479 +1704,490 @@ type ShortedStocksServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	shortedStocksServiceMethods := v1alpha1.File_shorts_v1alpha1_shorts_proto.Services().ByName("ShortedStocksService").Methods()
 	shortedStocksServiceGetTopShortsHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetTopShortsProcedure,
 		svc.GetTopShorts,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetTopShorts")),
+		connect.WithSchema(shortedStocksServiceGetTopShortsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetIndustryTreeMapHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetIndustryTreeMapProcedure,
 		svc.GetIndustryTreeMap,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetIndustryTreeMap")),
+		connect.WithSchema(shortedStocksServiceGetIndustryTreeMapMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetStockHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetStockProcedure,
 		svc.GetStock,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetStock")),
+		connect.WithSchema(shortedStocksServiceGetStockMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetStockDetailsHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetStockDetailsProcedure,
 		svc.GetStockDetails,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetStockDetails")),
+		connect.WithSchema(shortedStocksServiceGetStockDetailsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetStockDataHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetStockDataProcedure,
 		svc.GetStockData,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetStockData")),
+		connect.WithSchema(shortedStocksServiceGetStockDataMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetMarketByDateHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetMarketByDateProcedure,
 		svc.GetMarketByDate,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetMarketByDate")),
+		connect.WithSchema(shortedStocksServiceGetMarketByDateMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetAvailableDatesHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetAvailableDatesProcedure,
 		svc.GetAvailableDates,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetAvailableDates")),
+		connect.WithSchema(shortedStocksServiceGetAvailableDatesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceSearchStocksHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceSearchStocksProcedure,
 		svc.SearchStocks,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("SearchStocks")),
+		connect.WithSchema(shortedStocksServiceSearchStocksMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetSyncStatusHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetSyncStatusProcedure,
 		svc.GetSyncStatus,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetSyncStatus")),
+		connect.WithSchema(shortedStocksServiceGetSyncStatusMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceMintTokenHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceMintTokenProcedure,
 		svc.MintToken,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("MintToken")),
+		connect.WithSchema(shortedStocksServiceMintTokenMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceSyncKeyMetricsHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceSyncKeyMetricsProcedure,
 		svc.SyncKeyMetrics,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("SyncKeyMetrics")),
+		connect.WithSchema(shortedStocksServiceSyncKeyMetricsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceEnrichStockHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceEnrichStockProcedure,
 		svc.EnrichStock,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("EnrichStock")),
+		connect.WithSchema(shortedStocksServiceEnrichStockMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetTopStocksForEnrichmentHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetTopStocksForEnrichmentProcedure,
 		svc.GetTopStocksForEnrichment,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetTopStocksForEnrichment")),
+		connect.WithSchema(shortedStocksServiceGetTopStocksForEnrichmentMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceListPendingEnrichmentsHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceListPendingEnrichmentsProcedure,
 		svc.ListPendingEnrichments,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("ListPendingEnrichments")),
+		connect.WithSchema(shortedStocksServiceListPendingEnrichmentsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetPendingEnrichmentHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetPendingEnrichmentProcedure,
 		svc.GetPendingEnrichment,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetPendingEnrichment")),
+		connect.WithSchema(shortedStocksServiceGetPendingEnrichmentMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceReviewEnrichmentHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceReviewEnrichmentProcedure,
 		svc.ReviewEnrichment,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("ReviewEnrichment")),
+		connect.WithSchema(shortedStocksServiceReviewEnrichmentMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetEnrichmentJobStatusHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetEnrichmentJobStatusProcedure,
 		svc.GetEnrichmentJobStatus,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetEnrichmentJobStatus")),
+		connect.WithSchema(shortedStocksServiceGetEnrichmentJobStatusMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceListEnrichmentJobsHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceListEnrichmentJobsProcedure,
 		svc.ListEnrichmentJobs,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("ListEnrichmentJobs")),
+		connect.WithSchema(shortedStocksServiceListEnrichmentJobsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceHandleStripeCheckoutCompletedHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceHandleStripeCheckoutCompletedProcedure,
 		svc.HandleStripeCheckoutCompleted,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("HandleStripeCheckoutCompleted")),
+		connect.WithSchema(shortedStocksServiceHandleStripeCheckoutCompletedMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceHandleStripeSubscriptionUpdatedHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceHandleStripeSubscriptionUpdatedProcedure,
 		svc.HandleStripeSubscriptionUpdated,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("HandleStripeSubscriptionUpdated")),
+		connect.WithSchema(shortedStocksServiceHandleStripeSubscriptionUpdatedMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetMySubscriptionHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetMySubscriptionProcedure,
 		svc.GetMySubscription,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetMySubscription")),
+		connect.WithSchema(shortedStocksServiceGetMySubscriptionMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceCreateAlertMonitorHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceCreateAlertMonitorProcedure,
 		svc.CreateAlertMonitor,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("CreateAlertMonitor")),
+		connect.WithSchema(shortedStocksServiceCreateAlertMonitorMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceListAlertMonitorsHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceListAlertMonitorsProcedure,
 		svc.ListAlertMonitors,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("ListAlertMonitors")),
+		connect.WithSchema(shortedStocksServiceListAlertMonitorsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetWeeklyReportHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetWeeklyReportProcedure,
 		svc.GetWeeklyReport,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetWeeklyReport")),
+		connect.WithSchema(shortedStocksServiceGetWeeklyReportMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceListReportsHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceListReportsProcedure,
 		svc.ListReports,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("ListReports")),
+		connect.WithSchema(shortedStocksServiceListReportsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetStockFinancialHighlightsHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetStockFinancialHighlightsProcedure,
 		svc.GetStockFinancialHighlights,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetStockFinancialHighlights")),
+		connect.WithSchema(shortedStocksServiceGetStockFinancialHighlightsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetStockNewsHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetStockNewsProcedure,
 		svc.GetStockNews,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetStockNews")),
+		connect.WithSchema(shortedStocksServiceGetStockNewsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetRelatedNewsHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetRelatedNewsProcedure,
 		svc.GetRelatedNews,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetRelatedNews")),
+		connect.WithSchema(shortedStocksServiceGetRelatedNewsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetMarketNewsHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetMarketNewsProcedure,
 		svc.GetMarketNews,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetMarketNews")),
+		connect.WithSchema(shortedStocksServiceGetMarketNewsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetEditorialTakeHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetEditorialTakeProcedure,
 		svc.GetEditorialTake,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetEditorialTake")),
+		connect.WithSchema(shortedStocksServiceGetEditorialTakeMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceListEditorialTakesHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceListEditorialTakesProcedure,
 		svc.ListEditorialTakes,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("ListEditorialTakes")),
+		connect.WithSchema(shortedStocksServiceListEditorialTakesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceListEditorialTakesAdminHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceListEditorialTakesAdminProcedure,
 		svc.ListEditorialTakesAdmin,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("ListEditorialTakesAdmin")),
+		connect.WithSchema(shortedStocksServiceListEditorialTakesAdminMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServicePublishEditorialTakeHandler := connect.NewUnaryHandler(
 		ShortedStocksServicePublishEditorialTakeProcedure,
 		svc.PublishEditorialTake,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("PublishEditorialTake")),
+		connect.WithSchema(shortedStocksServicePublishEditorialTakeMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceUpdateEditorialTakeHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceUpdateEditorialTakeProcedure,
 		svc.UpdateEditorialTake,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("UpdateEditorialTake")),
+		connect.WithSchema(shortedStocksServiceUpdateEditorialTakeMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceDeleteEditorialTakeHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceDeleteEditorialTakeProcedure,
 		svc.DeleteEditorialTake,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("DeleteEditorialTake")),
+		connect.WithSchema(shortedStocksServiceDeleteEditorialTakeMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceMarkTakeTweetPublishedHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceMarkTakeTweetPublishedProcedure,
 		svc.MarkTakeTweetPublished,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("MarkTakeTweetPublished")),
+		connect.WithSchema(shortedStocksServiceMarkTakeTweetPublishedMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceListTweetPublishQueueHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceListTweetPublishQueueProcedure,
 		svc.ListTweetPublishQueue,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("ListTweetPublishQueue")),
+		connect.WithSchema(shortedStocksServiceListTweetPublishQueueMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetDirectorTradesHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetDirectorTradesProcedure,
 		svc.GetDirectorTrades,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetDirectorTrades")),
+		connect.WithSchema(shortedStocksServiceGetDirectorTradesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetDividendHistoryHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetDividendHistoryProcedure,
 		svc.GetDividendHistory,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetDividendHistory")),
+		connect.WithSchema(shortedStocksServiceGetDividendHistoryMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetPeerComparisonHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetPeerComparisonProcedure,
 		svc.GetPeerComparison,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetPeerComparison")),
+		connect.WithSchema(shortedStocksServiceGetPeerComparisonMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceScreenStocksHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceScreenStocksProcedure,
 		svc.ScreenStocks,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("ScreenStocks")),
+		connect.WithSchema(shortedStocksServiceScreenStocksMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetBattlegroundStocksHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetBattlegroundStocksProcedure,
 		svc.GetBattlegroundStocks,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetBattlegroundStocks")),
+		connect.WithSchema(shortedStocksServiceGetBattlegroundStocksMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetStockVerdictHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetStockVerdictProcedure,
 		svc.GetStockVerdict,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetStockVerdict")),
+		connect.WithSchema(shortedStocksServiceGetStockVerdictMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetShortCampaignScoreboardHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetShortCampaignScoreboardProcedure,
 		svc.GetShortCampaignScoreboard,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetShortCampaignScoreboard")),
+		connect.WithSchema(shortedStocksServiceGetShortCampaignScoreboardMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetStockGraphHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetStockGraphProcedure,
 		svc.GetStockGraph,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetStockGraph")),
+		connect.WithSchema(shortedStocksServiceGetStockGraphMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetEventTimelineHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetEventTimelineProcedure,
 		svc.GetEventTimeline,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetEventTimeline")),
+		connect.WithSchema(shortedStocksServiceGetEventTimelineMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetStockSignalsHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetStockSignalsProcedure,
 		svc.GetStockSignals,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetStockSignals")),
+		connect.WithSchema(shortedStocksServiceGetStockSignalsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetHousingOverviewHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetHousingOverviewProcedure,
 		svc.GetHousingOverview,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetHousingOverview")),
+		connect.WithSchema(shortedStocksServiceGetHousingOverviewMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetHousePriceSeriesHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetHousePriceSeriesProcedure,
 		svc.GetHousePriceSeries,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetHousePriceSeries")),
+		connect.WithSchema(shortedStocksServiceGetHousePriceSeriesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceListStateSuburbsHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceListStateSuburbsProcedure,
 		svc.ListStateSuburbs,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("ListStateSuburbs")),
+		connect.WithSchema(shortedStocksServiceListStateSuburbsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetSuburbProfileHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetSuburbProfileProcedure,
 		svc.GetSuburbProfile,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetSuburbProfile")),
+		connect.WithSchema(shortedStocksServiceGetSuburbProfileMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceListHousingRegionsHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceListHousingRegionsProcedure,
 		svc.ListHousingRegions,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("ListHousingRegions")),
+		connect.WithSchema(shortedStocksServiceListHousingRegionsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceListSuburbPriceDropsHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceListSuburbPriceDropsProcedure,
 		svc.ListSuburbPriceDrops,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("ListSuburbPriceDrops")),
+		connect.WithSchema(shortedStocksServiceListSuburbPriceDropsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceListSuburbDropListingsHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceListSuburbDropListingsProcedure,
 		svc.ListSuburbDropListings,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("ListSuburbDropListings")),
+		connect.WithSchema(shortedStocksServiceListSuburbDropListingsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetPropertyHistoryHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetPropertyHistoryProcedure,
 		svc.GetPropertyHistory,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetPropertyHistory")),
+		connect.WithSchema(shortedStocksServiceGetPropertyHistoryMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceListAddressPriceDropsHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceListAddressPriceDropsProcedure,
 		svc.ListAddressPriceDrops,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("ListAddressPriceDrops")),
+		connect.WithSchema(shortedStocksServiceListAddressPriceDropsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetPriceDropsOverviewHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetPriceDropsOverviewProcedure,
 		svc.GetPriceDropsOverview,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetPriceDropsOverview")),
+		connect.WithSchema(shortedStocksServiceGetPriceDropsOverviewMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceListAgencyPriceStatsHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceListAgencyPriceStatsProcedure,
 		svc.ListAgencyPriceStats,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("ListAgencyPriceStats")),
+		connect.WithSchema(shortedStocksServiceListAgencyPriceStatsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceListEconomicSeriesHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceListEconomicSeriesProcedure,
 		svc.ListEconomicSeries,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("ListEconomicSeries")),
+		connect.WithSchema(shortedStocksServiceListEconomicSeriesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetEconomicSeriesHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetEconomicSeriesProcedure,
 		svc.GetEconomicSeries,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetEconomicSeries")),
+		connect.WithSchema(shortedStocksServiceGetEconomicSeriesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceListSeriesCorrelationsHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceListSeriesCorrelationsProcedure,
 		svc.ListSeriesCorrelations,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("ListSeriesCorrelations")),
+		connect.WithSchema(shortedStocksServiceListSeriesCorrelationsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceListStateCompaniesHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceListStateCompaniesProcedure,
 		svc.ListStateCompanies,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("ListStateCompanies")),
+		connect.WithSchema(shortedStocksServiceListStateCompaniesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetStateCompanyAggregatesHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetStateCompanyAggregatesProcedure,
 		svc.GetStateCompanyAggregates,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetStateCompanyAggregates")),
+		connect.WithSchema(shortedStocksServiceGetStateCompanyAggregatesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetCompanyTaxProfileHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetCompanyTaxProfileProcedure,
 		svc.GetCompanyTaxProfile,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetCompanyTaxProfile")),
+		connect.WithSchema(shortedStocksServiceGetCompanyTaxProfileMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetIndustryIntelligenceHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetIndustryIntelligenceProcedure,
 		svc.GetIndustryIntelligence,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetIndustryIntelligence")),
+		connect.WithSchema(shortedStocksServiceGetIndustryIntelligenceMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetParliamentOverviewHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetParliamentOverviewProcedure,
 		svc.GetParliamentOverview,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetParliamentOverview")),
+		connect.WithSchema(shortedStocksServiceGetParliamentOverviewMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceListPoliticiansHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceListPoliticiansProcedure,
 		svc.ListPoliticians,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("ListPoliticians")),
+		connect.WithSchema(shortedStocksServiceListPoliticiansMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetPoliticianHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetPoliticianProcedure,
 		svc.GetPolitician,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetPolitician")),
+		connect.WithSchema(shortedStocksServiceGetPoliticianMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceListStockPoliticiansHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceListStockPoliticiansProcedure,
 		svc.ListStockPoliticians,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("ListStockPoliticians")),
+		connect.WithSchema(shortedStocksServiceListStockPoliticiansMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceListPoliticianStocksHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceListPoliticianStocksProcedure,
 		svc.ListPoliticianStocks,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("ListPoliticianStocks")),
+		connect.WithSchema(shortedStocksServiceListPoliticianStocksMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceListSuburbPoliticiansHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceListSuburbPoliticiansProcedure,
 		svc.ListSuburbPoliticians,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("ListSuburbPoliticians")),
+		connect.WithSchema(shortedStocksServiceListSuburbPoliticiansMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceListStatePoliticianHoldingsHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceListStatePoliticianHoldingsProcedure,
 		svc.ListStatePoliticianHoldings,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("ListStatePoliticianHoldings")),
+		connect.WithSchema(shortedStocksServiceListStatePoliticianHoldingsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceListRegisterChangesHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceListRegisterChangesProcedure,
 		svc.ListRegisterChanges,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("ListRegisterChanges")),
+		connect.WithSchema(shortedStocksServiceListRegisterChangesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceListShortInterestOverlapHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceListShortInterestOverlapProcedure,
 		svc.ListShortInterestOverlap,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("ListShortInterestOverlap")),
+		connect.WithSchema(shortedStocksServiceListShortInterestOverlapMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetPoliticianAnalyticsHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetPoliticianAnalyticsProcedure,
 		svc.GetPoliticianAnalytics,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetPoliticianAnalytics")),
+		connect.WithSchema(shortedStocksServiceGetPoliticianAnalyticsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetRegisterExplorerHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetRegisterExplorerProcedure,
 		svc.GetRegisterExplorer,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetRegisterExplorer")),
+		connect.WithSchema(shortedStocksServiceGetRegisterExplorerMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceListPoliticianSummariesHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceListPoliticianSummariesProcedure,
 		svc.ListPoliticianSummaries,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("ListPoliticianSummaries")),
+		connect.WithSchema(shortedStocksServiceListPoliticianSummariesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetPoliticianExplorerProfileHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetPoliticianExplorerProfileProcedure,
 		svc.GetPoliticianExplorerProfile,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetPoliticianExplorerProfile")),
+		connect.WithSchema(shortedStocksServiceGetPoliticianExplorerProfileMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceComparePoliticiansHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceComparePoliticiansProcedure,
 		svc.ComparePoliticians,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("ComparePoliticians")),
+		connect.WithSchema(shortedStocksServiceComparePoliticiansMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceGetRegisterActivityHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetRegisterActivityProcedure,
+		svc.GetRegisterActivity,
+		connect.WithSchema(shortedStocksServiceGetRegisterActivityMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceListDistinctiveHoldingsHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListDistinctiveHoldingsProcedure,
+		svc.ListDistinctiveHoldings,
+		connect.WithSchema(shortedStocksServiceListDistinctiveHoldingsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/shorts.v1alpha1.ShortedStocksService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -2216,6 +2350,10 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceGetPoliticianExplorerProfileHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceComparePoliticiansProcedure:
 			shortedStocksServiceComparePoliticiansHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetRegisterActivityProcedure:
+			shortedStocksServiceGetRegisterActivityHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListDistinctiveHoldingsProcedure:
+			shortedStocksServiceListDistinctiveHoldingsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -2539,4 +2677,12 @@ func (UnimplementedShortedStocksServiceHandler) GetPoliticianExplorerProfile(con
 
 func (UnimplementedShortedStocksServiceHandler) ComparePoliticians(context.Context, *connect.Request[v1alpha1.ComparePoliticiansRequest]) (*connect.Response[v1alpha1.ComparePoliticiansResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ComparePoliticians is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetRegisterActivity(context.Context, *connect.Request[v1alpha1.GetRegisterActivityRequest]) (*connect.Response[v1alpha1.GetRegisterActivityResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetRegisterActivity is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListDistinctiveHoldings(context.Context, *connect.Request[v1alpha1.ListDistinctiveHoldingsRequest]) (*connect.Response[v1alpha1.ListDistinctiveHoldingsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListDistinctiveHoldings is not implemented"))
 }

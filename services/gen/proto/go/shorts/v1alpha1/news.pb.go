@@ -1987,7 +1987,8 @@ const file_shorts_v1alpha1_news_proto_rawDesc = "" +
 	"\x13UpdateEditorialTake\x12+.shorts.v1alpha1.UpdateEditorialTakeRequest\x1a,.shorts.v1alpha1.UpdateEditorialTakeResponse\"\x04\x80\xb5\x18\x02\x12v\n" +
 	"\x13DeleteEditorialTake\x12+.shorts.v1alpha1.DeleteEditorialTakeRequest\x1a,.shorts.v1alpha1.DeleteEditorialTakeResponse\"\x04\x80\xb5\x18\x02\x12\x7f\n" +
 	"\x16MarkTakeTweetPublished\x12..shorts.v1alpha1.MarkTakeTweetPublishedRequest\x1a/.shorts.v1alpha1.MarkTakeTweetPublishedResponse\"\x04\x80\xb5\x18\x02\x12|\n" +
-	"\x15ListTweetPublishQueue\x12-.shorts.v1alpha1.ListTweetPublishQueueRequest\x1a..shorts.v1alpha1.ListTweetPublishQueueResponse\"\x04\x80\xb5\x18\x02B[ZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1b\x06proto3"
+	"\x15ListTweetPublishQueue\x12-.shorts.v1alpha1.ListTweetPublishQueueRequest\x1a..shorts.v1alpha1.ListTweetPublishQueueResponse\"\x04\x80\xb5\x18\x02B\xd8\x01\n" +
+	"\x13com.shorts.v1alpha1B\tNewsProtoP\x01ZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1\xa2\x02\x03SXX\xaa\x02\x0fShorts.V1alpha1\xca\x02\x0fShorts\\V1alpha1\xe2\x02\x1bShorts\\V1alpha1\\GPBMetadata\xea\x02\x10Shorts::V1alpha1b\x06proto3"
 
 var (
 	file_shorts_v1alpha1_news_proto_rawDescOnce sync.Once

@@ -512,17 +512,36 @@ func (s *ShortsServer) ListRegisterChanges(
 	}
 	kind := registerChangeKindString(m.Kind)
 	code := strings.ToUpper(strings.TrimSpace(m.StockCode))
+	// Every filter is normalised BEFORE the cache key is built, so a key can
+	// never describe a different query than the one whose result it holds.
+	slug := strings.ToLower(strings.TrimSpace(m.PoliticianSlug))
+	itemNo := m.ItemNo
+	if itemNo < 1 || itemNo > 14 {
+		itemNo = 0 // 0 = all; the register form has 14 items and no others
+	}
+	party := strings.ToUpper(strings.TrimSpace(m.PartyAb))
+	chamber := strings.ToLower(strings.TrimSpace(m.Chamber))
 	limit := clampLimit(m.Limit, 100, 500)
 	offset := max32(m.Offset, 0)
 
 	cached, err := s.cache.GetOrSet(
-		s.cache.ListRegisterChangesKey(since, kind, code, limit, offset),
+		s.cache.ListRegisterChangesKey(since, kind, code, slug, itemNo, party, chamber, limit, offset),
 		func() (interface{}, error) {
-			rows, total, err := s.store.ListRegisterChanges(since, kind, code, limit, offset)
+			rows, total, err := s.store.ListRegisterChanges(since, kind, code, slug, itemNo, party, chamber, limit, offset)
 			if err != nil {
 				return nil, err
 			}
 			out := &shortsv1alpha1.ListRegisterChangesResponse{Total: total, SourceLicence: registerLicence}
+			// The register's own clock, from the same source every other
+			// surface reads it from. A filtered, empty feed still has to state
+			// which register it is empty of.
+			overview, err := s.store.GetRegisterOverview()
+			if err != nil {
+				return nil, err
+			}
+			if overview != nil {
+				out.AsAt = registerTimestamp(overview.AsAt)
+			}
 			for _, r := range rows {
 				out.Events = append(out.Events, &shortsv1alpha1.RegisterChangeEvent{
 					Politician:   politicianProto(r.Politician),

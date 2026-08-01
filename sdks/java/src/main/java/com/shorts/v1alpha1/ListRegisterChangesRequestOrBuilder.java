@@ -79,4 +79,76 @@ public interface ListRegisterChangesRequestOrBuilder extends
    * @return The offset.
    */
   int getOffset();
+
+  /**
+   * <pre>
+   * Discovery-layer filters. All optional and all ADDITIVE — the unfiltered
+   * feed is unchanged when they are left empty.
+   * </pre>
+   *
+   * <code>string politician_slug = 6 [json_name = "politicianSlug"];</code>
+   * @return The politicianSlug.
+   */
+  java.lang.String getPoliticianSlug();
+  /**
+   * <pre>
+   * Discovery-layer filters. All optional and all ADDITIVE — the unfiltered
+   * feed is unchanged when they are left empty.
+   * </pre>
+   *
+   * <code>string politician_slug = 6 [json_name = "politicianSlug"];</code>
+   * @return The bytes for politicianSlug.
+   */
+  com.google.protobuf.ByteString
+      getPoliticianSlugBytes();
+
+  /**
+   * <pre>
+   * register form item 1-14; 0 = all
+   * </pre>
+   *
+   * <code>int32 item_no = 7 [json_name = "itemNo"];</code>
+   * @return The itemNo.
+   */
+  int getItemNo();
+
+  /**
+   * <pre>
+   * AEC abbreviation
+   * </pre>
+   *
+   * <code>string party_ab = 8 [json_name = "partyAb"];</code>
+   * @return The partyAb.
+   */
+  java.lang.String getPartyAb();
+  /**
+   * <pre>
+   * AEC abbreviation
+   * </pre>
+   *
+   * <code>string party_ab = 8 [json_name = "partyAb"];</code>
+   * @return The bytes for partyAb.
+   */
+  com.google.protobuf.ByteString
+      getPartyAbBytes();
+
+  /**
+   * <pre>
+   * 'house' | 'senate'
+   * </pre>
+   *
+   * <code>string chamber = 9 [json_name = "chamber"];</code>
+   * @return The chamber.
+   */
+  java.lang.String getChamber();
+  /**
+   * <pre>
+   * 'house' | 'senate'
+   * </pre>
+   *
+   * <code>string chamber = 9 [json_name = "chamber"];</code>
+   * @return The bytes for chamber.
+   */
+  com.google.protobuf.ByteString
+      getChamberBytes();
 }

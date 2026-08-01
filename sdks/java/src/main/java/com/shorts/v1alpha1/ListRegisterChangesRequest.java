@@ -30,6 +30,9 @@ private static final long serialVersionUID = 0L;
   private ListRegisterChangesRequest() {
     kind_ = 0;
     stockCode_ = "";
+    politicianSlug_ = "";
+    partyAb_ = "";
+    chamber_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -176,6 +179,164 @@ private static final long serialVersionUID = 0L;
     return offset_;
   }
 
+  public static final int POLITICIAN_SLUG_FIELD_NUMBER = 6;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object politicianSlug_ = "";
+  /**
+   * <pre>
+   * Discovery-layer filters. All optional and all ADDITIVE — the unfiltered
+   * feed is unchanged when they are left empty.
+   * </pre>
+   *
+   * <code>string politician_slug = 6 [json_name = "politicianSlug"];</code>
+   * @return The politicianSlug.
+   */
+  @java.lang.Override
+  public java.lang.String getPoliticianSlug() {
+    java.lang.Object ref = politicianSlug_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      politicianSlug_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Discovery-layer filters. All optional and all ADDITIVE — the unfiltered
+   * feed is unchanged when they are left empty.
+   * </pre>
+   *
+   * <code>string politician_slug = 6 [json_name = "politicianSlug"];</code>
+   * @return The bytes for politicianSlug.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getPoliticianSlugBytes() {
+    java.lang.Object ref = politicianSlug_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      politicianSlug_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int ITEM_NO_FIELD_NUMBER = 7;
+  private int itemNo_ = 0;
+  /**
+   * <pre>
+   * register form item 1-14; 0 = all
+   * </pre>
+   *
+   * <code>int32 item_no = 7 [json_name = "itemNo"];</code>
+   * @return The itemNo.
+   */
+  @java.lang.Override
+  public int getItemNo() {
+    return itemNo_;
+  }
+
+  public static final int PARTY_AB_FIELD_NUMBER = 8;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object partyAb_ = "";
+  /**
+   * <pre>
+   * AEC abbreviation
+   * </pre>
+   *
+   * <code>string party_ab = 8 [json_name = "partyAb"];</code>
+   * @return The partyAb.
+   */
+  @java.lang.Override
+  public java.lang.String getPartyAb() {
+    java.lang.Object ref = partyAb_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      partyAb_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * AEC abbreviation
+   * </pre>
+   *
+   * <code>string party_ab = 8 [json_name = "partyAb"];</code>
+   * @return The bytes for partyAb.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getPartyAbBytes() {
+    java.lang.Object ref = partyAb_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      partyAb_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int CHAMBER_FIELD_NUMBER = 9;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object chamber_ = "";
+  /**
+   * <pre>
+   * 'house' | 'senate'
+   * </pre>
+   *
+   * <code>string chamber = 9 [json_name = "chamber"];</code>
+   * @return The chamber.
+   */
+  @java.lang.Override
+  public java.lang.String getChamber() {
+    java.lang.Object ref = chamber_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      chamber_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * 'house' | 'senate'
+   * </pre>
+   *
+   * <code>string chamber = 9 [json_name = "chamber"];</code>
+   * @return The bytes for chamber.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getChamberBytes() {
+    java.lang.Object ref = chamber_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      chamber_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -205,6 +366,18 @@ private static final long serialVersionUID = 0L;
     if (offset_ != 0) {
       output.writeInt32(5, offset_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(politicianSlug_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 6, politicianSlug_);
+    }
+    if (itemNo_ != 0) {
+      output.writeInt32(7, itemNo_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(partyAb_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 8, partyAb_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(chamber_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 9, chamber_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -227,6 +400,19 @@ private static final long serialVersionUID = 0L;
     if (offset_ != 0) {
       size += com.google.protobuf.CodedOutputStream
         .computeInt32Size(5, offset_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(politicianSlug_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(6, politicianSlug_);
+    }
+    if (itemNo_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(7, itemNo_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(partyAb_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(8, partyAb_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(chamber_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(9, chamber_);
     }
     return size;
   }
@@ -264,6 +450,14 @@ private static final long serialVersionUID = 0L;
         != other.getLimit()) return false;
     if (getOffset()
         != other.getOffset()) return false;
+    if (!getPoliticianSlug()
+        .equals(other.getPoliticianSlug())) return false;
+    if (getItemNo()
+        != other.getItemNo()) return false;
+    if (!getPartyAb()
+        .equals(other.getPartyAb())) return false;
+    if (!getChamber()
+        .equals(other.getChamber())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -287,6 +481,14 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getLimit();
     hash = (37 * hash) + OFFSET_FIELD_NUMBER;
     hash = (53 * hash) + getOffset();
+    hash = (37 * hash) + POLITICIAN_SLUG_FIELD_NUMBER;
+    hash = (53 * hash) + getPoliticianSlug().hashCode();
+    hash = (37 * hash) + ITEM_NO_FIELD_NUMBER;
+    hash = (53 * hash) + getItemNo();
+    hash = (37 * hash) + PARTY_AB_FIELD_NUMBER;
+    hash = (53 * hash) + getPartyAb().hashCode();
+    hash = (37 * hash) + CHAMBER_FIELD_NUMBER;
+    hash = (53 * hash) + getChamber().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -433,6 +635,10 @@ private static final long serialVersionUID = 0L;
       stockCode_ = "";
       limit_ = 0;
       offset_ = 0;
+      politicianSlug_ = "";
+      itemNo_ = 0;
+      partyAb_ = "";
+      chamber_ = "";
       return this;
     }
 
@@ -485,6 +691,18 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000010) != 0)) {
         result.offset_ = offset_;
       }
+      if (((from_bitField0_ & 0x00000020) != 0)) {
+        result.politicianSlug_ = politicianSlug_;
+      }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.itemNo_ = itemNo_;
+      }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.partyAb_ = partyAb_;
+      }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.chamber_ = chamber_;
+      }
       result.bitField0_ |= to_bitField0_;
     }
 
@@ -516,6 +734,24 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getOffset() != 0) {
         setOffset(other.getOffset());
+      }
+      if (!other.getPoliticianSlug().isEmpty()) {
+        politicianSlug_ = other.politicianSlug_;
+        bitField0_ |= 0x00000020;
+        onChanged();
+      }
+      if (other.getItemNo() != 0) {
+        setItemNo(other.getItemNo());
+      }
+      if (!other.getPartyAb().isEmpty()) {
+        partyAb_ = other.partyAb_;
+        bitField0_ |= 0x00000080;
+        onChanged();
+      }
+      if (!other.getChamber().isEmpty()) {
+        chamber_ = other.chamber_;
+        bitField0_ |= 0x00000100;
+        onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -570,6 +806,26 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000010;
               break;
             } // case 40
+            case 50: {
+              politicianSlug_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000020;
+              break;
+            } // case 50
+            case 56: {
+              itemNo_ = input.readInt32();
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 56
+            case 66: {
+              partyAb_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000080;
+              break;
+            } // case 66
+            case 74: {
+              chamber_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 74
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -944,6 +1200,331 @@ private static final long serialVersionUID = 0L;
     public Builder clearOffset() {
       bitField0_ = (bitField0_ & ~0x00000010);
       offset_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object politicianSlug_ = "";
+    /**
+     * <pre>
+     * Discovery-layer filters. All optional and all ADDITIVE — the unfiltered
+     * feed is unchanged when they are left empty.
+     * </pre>
+     *
+     * <code>string politician_slug = 6 [json_name = "politicianSlug"];</code>
+     * @return The politicianSlug.
+     */
+    public java.lang.String getPoliticianSlug() {
+      java.lang.Object ref = politicianSlug_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        politicianSlug_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Discovery-layer filters. All optional and all ADDITIVE — the unfiltered
+     * feed is unchanged when they are left empty.
+     * </pre>
+     *
+     * <code>string politician_slug = 6 [json_name = "politicianSlug"];</code>
+     * @return The bytes for politicianSlug.
+     */
+    public com.google.protobuf.ByteString
+        getPoliticianSlugBytes() {
+      java.lang.Object ref = politicianSlug_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        politicianSlug_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Discovery-layer filters. All optional and all ADDITIVE — the unfiltered
+     * feed is unchanged when they are left empty.
+     * </pre>
+     *
+     * <code>string politician_slug = 6 [json_name = "politicianSlug"];</code>
+     * @param value The politicianSlug to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPoliticianSlug(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      politicianSlug_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Discovery-layer filters. All optional and all ADDITIVE — the unfiltered
+     * feed is unchanged when they are left empty.
+     * </pre>
+     *
+     * <code>string politician_slug = 6 [json_name = "politicianSlug"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPoliticianSlug() {
+      politicianSlug_ = getDefaultInstance().getPoliticianSlug();
+      bitField0_ = (bitField0_ & ~0x00000020);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Discovery-layer filters. All optional and all ADDITIVE — the unfiltered
+     * feed is unchanged when they are left empty.
+     * </pre>
+     *
+     * <code>string politician_slug = 6 [json_name = "politicianSlug"];</code>
+     * @param value The bytes for politicianSlug to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPoliticianSlugBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      politicianSlug_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+
+    private int itemNo_ ;
+    /**
+     * <pre>
+     * register form item 1-14; 0 = all
+     * </pre>
+     *
+     * <code>int32 item_no = 7 [json_name = "itemNo"];</code>
+     * @return The itemNo.
+     */
+    @java.lang.Override
+    public int getItemNo() {
+      return itemNo_;
+    }
+    /**
+     * <pre>
+     * register form item 1-14; 0 = all
+     * </pre>
+     *
+     * <code>int32 item_no = 7 [json_name = "itemNo"];</code>
+     * @param value The itemNo to set.
+     * @return This builder for chaining.
+     */
+    public Builder setItemNo(int value) {
+
+      itemNo_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * register form item 1-14; 0 = all
+     * </pre>
+     *
+     * <code>int32 item_no = 7 [json_name = "itemNo"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearItemNo() {
+      bitField0_ = (bitField0_ & ~0x00000040);
+      itemNo_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object partyAb_ = "";
+    /**
+     * <pre>
+     * AEC abbreviation
+     * </pre>
+     *
+     * <code>string party_ab = 8 [json_name = "partyAb"];</code>
+     * @return The partyAb.
+     */
+    public java.lang.String getPartyAb() {
+      java.lang.Object ref = partyAb_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        partyAb_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * AEC abbreviation
+     * </pre>
+     *
+     * <code>string party_ab = 8 [json_name = "partyAb"];</code>
+     * @return The bytes for partyAb.
+     */
+    public com.google.protobuf.ByteString
+        getPartyAbBytes() {
+      java.lang.Object ref = partyAb_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        partyAb_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * AEC abbreviation
+     * </pre>
+     *
+     * <code>string party_ab = 8 [json_name = "partyAb"];</code>
+     * @param value The partyAb to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPartyAb(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      partyAb_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * AEC abbreviation
+     * </pre>
+     *
+     * <code>string party_ab = 8 [json_name = "partyAb"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPartyAb() {
+      partyAb_ = getDefaultInstance().getPartyAb();
+      bitField0_ = (bitField0_ & ~0x00000080);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * AEC abbreviation
+     * </pre>
+     *
+     * <code>string party_ab = 8 [json_name = "partyAb"];</code>
+     * @param value The bytes for partyAb to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPartyAbBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      partyAb_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object chamber_ = "";
+    /**
+     * <pre>
+     * 'house' | 'senate'
+     * </pre>
+     *
+     * <code>string chamber = 9 [json_name = "chamber"];</code>
+     * @return The chamber.
+     */
+    public java.lang.String getChamber() {
+      java.lang.Object ref = chamber_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        chamber_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * 'house' | 'senate'
+     * </pre>
+     *
+     * <code>string chamber = 9 [json_name = "chamber"];</code>
+     * @return The bytes for chamber.
+     */
+    public com.google.protobuf.ByteString
+        getChamberBytes() {
+      java.lang.Object ref = chamber_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        chamber_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * 'house' | 'senate'
+     * </pre>
+     *
+     * <code>string chamber = 9 [json_name = "chamber"];</code>
+     * @param value The chamber to set.
+     * @return This builder for chaining.
+     */
+    public Builder setChamber(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      chamber_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 'house' | 'senate'
+     * </pre>
+     *
+     * <code>string chamber = 9 [json_name = "chamber"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearChamber() {
+      chamber_ = getDefaultInstance().getChamber();
+      bitField0_ = (bitField0_ & ~0x00000100);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 'house' | 'senate'
+     * </pre>
+     *
+     * <code>string chamber = 9 [json_name = "chamber"];</code>
+     * @param value The bytes for chamber to set.
+     * @return This builder for chaining.
+     */
+    public Builder setChamberBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      chamber_ = value;
+      bitField0_ |= 0x00000100;
       onChanged();
       return this;
     }

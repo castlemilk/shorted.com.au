@@ -138,13 +138,15 @@ type ShortsStore interface {
 	ListPoliticianStocks(limit int32, currentOnly bool) ([]*shortsstore.PoliticianStockRollupRow, error)
 	ListSuburbPoliticians(salCode string) (string, string, []*shortsstore.PoliticianRow, []*shortsstore.DeclaredInterestRow, error)
 	ListStatePoliticianHoldings(stateCode string, limit int32) ([]*shortsstore.PoliticianStockRollupRow, int32, error)
-	ListRegisterChanges(since time.Time, kind, stockCode string, limit, offset int32) ([]*shortsstore.RegisterChangeRow, int32, error)
+	ListRegisterChanges(since time.Time, kind, stockCode, slug string, itemNo int32, partyAb, chamber string, limit, offset int32) ([]*shortsstore.RegisterChangeRow, int32, error)
 	ListShortInterestOverlap(minShortPercent float64, limit int32) ([]*shortsstore.PoliticianStockRollupRow, error)
 	GetRegisterAnalytics(topIndustries int32, currentOnly bool) (*shortsstore.RegisterAnalytics, error)
 	GetRegisterExplorer() (*shortsstore.RegisterExplorerRow, error)
 	ListPoliticianSummaries(chamber, stateCode, partyAb string, itemNo int32, query, sortKey string, limit, offset int32) ([]*shortsstore.PoliticianSummaryRow, int32, error)
 	GetPoliticianExplorerProfile(slug string, topIndustries int32) (*shortsstore.PoliticianExplorerProfileRow, error)
 	ComparePoliticians(slugA, slugB string) (*shortsstore.PoliticianComparisonRow, error)
+	GetRegisterActivity(windowDays int32) (*shortsstore.RegisterActivityRow, error)
+	ListDistinctiveHoldings(slug string) (*shortsstore.DistinctiveHoldingsRow, error)
 
 	// Register review console — operator only, never cached (see CacheKeyBuilder:
 	// a decision must be visible to the next reviewer immediately, and a stale
@@ -226,13 +228,15 @@ type Cache interface {
 	ListPoliticianStocksKey(limit int32, currentOnly bool) string
 	ListSuburbPoliticiansKey(salCode string) string
 	ListStatePoliticianHoldingsKey(stateCode string, limit int32) string
-	ListRegisterChangesKey(since time.Time, kind, stockCode string, limit, offset int32) string
+	ListRegisterChangesKey(since time.Time, kind, stockCode, slug string, itemNo int32, partyAb, chamber string, limit, offset int32) string
 	ListShortInterestOverlapKey(minShortPercent float64, limit int32) string
 	GetPoliticianAnalyticsKey(topIndustries int32, currentOnly bool) string
 	GetRegisterExplorerKey() string
 	ListPoliticianSummariesKey(chamber, stateCode, partyAb string, itemNo int32, query, sortKey string, limit, offset int32) string
 	GetPoliticianExplorerProfileKey(slug string, topIndustries int32) string
 	ComparePoliticiansKey(slugA, slugB string) string
+	GetRegisterActivityKey(windowDays int32) string
+	ListDistinctiveHoldingsKey(slug string) string
 
 	ListEconomicSeriesKey(topic, metric, regionType, regionCode, product string, limit int32) string
 	GetEconomicSeriesKey(seriesKeys []string, startPeriod string, maxObservations int32) string

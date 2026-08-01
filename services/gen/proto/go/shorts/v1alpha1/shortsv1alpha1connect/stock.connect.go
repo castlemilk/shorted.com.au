@@ -71,6 +71,23 @@ const (
 	StockServiceGetCompanyTaxProfileProcedure = "/shorts.v1alpha1.StockService/GetCompanyTaxProfile"
 )
 
+// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
+var (
+	stockServiceServiceDescriptor                           = v1alpha1.File_shorts_v1alpha1_stock_proto.Services().ByName("StockService")
+	stockServiceGetStockMethodDescriptor                    = stockServiceServiceDescriptor.Methods().ByName("GetStock")
+	stockServiceGetStockDetailsMethodDescriptor             = stockServiceServiceDescriptor.Methods().ByName("GetStockDetails")
+	stockServiceGetStockDataMethodDescriptor                = stockServiceServiceDescriptor.Methods().ByName("GetStockData")
+	stockServiceGetStockFinancialHighlightsMethodDescriptor = stockServiceServiceDescriptor.Methods().ByName("GetStockFinancialHighlights")
+	stockServiceGetDirectorTradesMethodDescriptor           = stockServiceServiceDescriptor.Methods().ByName("GetDirectorTrades")
+	stockServiceGetDividendHistoryMethodDescriptor          = stockServiceServiceDescriptor.Methods().ByName("GetDividendHistory")
+	stockServiceGetPeerComparisonMethodDescriptor           = stockServiceServiceDescriptor.Methods().ByName("GetPeerComparison")
+	stockServiceGetStockVerdictMethodDescriptor             = stockServiceServiceDescriptor.Methods().ByName("GetStockVerdict")
+	stockServiceGetStockGraphMethodDescriptor               = stockServiceServiceDescriptor.Methods().ByName("GetStockGraph")
+	stockServiceGetEventTimelineMethodDescriptor            = stockServiceServiceDescriptor.Methods().ByName("GetEventTimeline")
+	stockServiceGetStockSignalsMethodDescriptor             = stockServiceServiceDescriptor.Methods().ByName("GetStockSignals")
+	stockServiceGetCompanyTaxProfileMethodDescriptor        = stockServiceServiceDescriptor.Methods().ByName("GetCompanyTaxProfile")
+)
+
 // StockServiceClient is a client for the shorts.v1alpha1.StockService service.
 type StockServiceClient interface {
 	// Provides an overview of a specific stock based on PRODUCT_CODE.
@@ -108,78 +125,77 @@ type StockServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewStockServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) StockServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
-	stockServiceMethods := v1alpha1.File_shorts_v1alpha1_stock_proto.Services().ByName("StockService").Methods()
 	return &stockServiceClient{
 		getStock: connect.NewClient[v1alpha1.GetStockRequest, v1alpha11.Stock](
 			httpClient,
 			baseURL+StockServiceGetStockProcedure,
-			connect.WithSchema(stockServiceMethods.ByName("GetStock")),
+			connect.WithSchema(stockServiceGetStockMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getStockDetails: connect.NewClient[v1alpha1.GetStockDetailsRequest, v1alpha11.StockDetails](
 			httpClient,
 			baseURL+StockServiceGetStockDetailsProcedure,
-			connect.WithSchema(stockServiceMethods.ByName("GetStockDetails")),
+			connect.WithSchema(stockServiceGetStockDetailsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getStockData: connect.NewClient[v1alpha1.GetStockDataRequest, v1alpha11.TimeSeriesData](
 			httpClient,
 			baseURL+StockServiceGetStockDataProcedure,
-			connect.WithSchema(stockServiceMethods.ByName("GetStockData")),
+			connect.WithSchema(stockServiceGetStockDataMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getStockFinancialHighlights: connect.NewClient[v1alpha1.GetStockFinancialHighlightsRequest, v1alpha1.GetStockFinancialHighlightsResponse](
 			httpClient,
 			baseURL+StockServiceGetStockFinancialHighlightsProcedure,
-			connect.WithSchema(stockServiceMethods.ByName("GetStockFinancialHighlights")),
+			connect.WithSchema(stockServiceGetStockFinancialHighlightsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getDirectorTrades: connect.NewClient[v1alpha1.GetDirectorTradesRequest, v1alpha1.GetDirectorTradesResponse](
 			httpClient,
 			baseURL+StockServiceGetDirectorTradesProcedure,
-			connect.WithSchema(stockServiceMethods.ByName("GetDirectorTrades")),
+			connect.WithSchema(stockServiceGetDirectorTradesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getDividendHistory: connect.NewClient[v1alpha1.GetDividendHistoryRequest, v1alpha1.GetDividendHistoryResponse](
 			httpClient,
 			baseURL+StockServiceGetDividendHistoryProcedure,
-			connect.WithSchema(stockServiceMethods.ByName("GetDividendHistory")),
+			connect.WithSchema(stockServiceGetDividendHistoryMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getPeerComparison: connect.NewClient[v1alpha1.GetPeerComparisonRequest, v1alpha1.GetPeerComparisonResponse](
 			httpClient,
 			baseURL+StockServiceGetPeerComparisonProcedure,
-			connect.WithSchema(stockServiceMethods.ByName("GetPeerComparison")),
+			connect.WithSchema(stockServiceGetPeerComparisonMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getStockVerdict: connect.NewClient[v1alpha1.GetStockVerdictRequest, v1alpha1.GetStockVerdictResponse](
 			httpClient,
 			baseURL+StockServiceGetStockVerdictProcedure,
-			connect.WithSchema(stockServiceMethods.ByName("GetStockVerdict")),
+			connect.WithSchema(stockServiceGetStockVerdictMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getStockGraph: connect.NewClient[v1alpha1.GetStockGraphRequest, v1alpha1.GetStockGraphResponse](
 			httpClient,
 			baseURL+StockServiceGetStockGraphProcedure,
-			connect.WithSchema(stockServiceMethods.ByName("GetStockGraph")),
+			connect.WithSchema(stockServiceGetStockGraphMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getEventTimeline: connect.NewClient[v1alpha1.GetEventTimelineRequest, v1alpha1.GetEventTimelineResponse](
 			httpClient,
 			baseURL+StockServiceGetEventTimelineProcedure,
-			connect.WithSchema(stockServiceMethods.ByName("GetEventTimeline")),
+			connect.WithSchema(stockServiceGetEventTimelineMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getStockSignals: connect.NewClient[v1alpha1.GetStockSignalsRequest, v1alpha1.GetStockSignalsResponse](
 			httpClient,
 			baseURL+StockServiceGetStockSignalsProcedure,
-			connect.WithSchema(stockServiceMethods.ByName("GetStockSignals")),
+			connect.WithSchema(stockServiceGetStockSignalsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getCompanyTaxProfile: connect.NewClient[v1alpha1.GetCompanyTaxProfileRequest, v1alpha1.GetCompanyTaxProfileResponse](
 			httpClient,
 			baseURL+StockServiceGetCompanyTaxProfileProcedure,
-			connect.WithSchema(stockServiceMethods.ByName("GetCompanyTaxProfile")),
+			connect.WithSchema(stockServiceGetCompanyTaxProfileMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -295,77 +311,76 @@ type StockServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewStockServiceHandler(svc StockServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	stockServiceMethods := v1alpha1.File_shorts_v1alpha1_stock_proto.Services().ByName("StockService").Methods()
 	stockServiceGetStockHandler := connect.NewUnaryHandler(
 		StockServiceGetStockProcedure,
 		svc.GetStock,
-		connect.WithSchema(stockServiceMethods.ByName("GetStock")),
+		connect.WithSchema(stockServiceGetStockMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	stockServiceGetStockDetailsHandler := connect.NewUnaryHandler(
 		StockServiceGetStockDetailsProcedure,
 		svc.GetStockDetails,
-		connect.WithSchema(stockServiceMethods.ByName("GetStockDetails")),
+		connect.WithSchema(stockServiceGetStockDetailsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	stockServiceGetStockDataHandler := connect.NewUnaryHandler(
 		StockServiceGetStockDataProcedure,
 		svc.GetStockData,
-		connect.WithSchema(stockServiceMethods.ByName("GetStockData")),
+		connect.WithSchema(stockServiceGetStockDataMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	stockServiceGetStockFinancialHighlightsHandler := connect.NewUnaryHandler(
 		StockServiceGetStockFinancialHighlightsProcedure,
 		svc.GetStockFinancialHighlights,
-		connect.WithSchema(stockServiceMethods.ByName("GetStockFinancialHighlights")),
+		connect.WithSchema(stockServiceGetStockFinancialHighlightsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	stockServiceGetDirectorTradesHandler := connect.NewUnaryHandler(
 		StockServiceGetDirectorTradesProcedure,
 		svc.GetDirectorTrades,
-		connect.WithSchema(stockServiceMethods.ByName("GetDirectorTrades")),
+		connect.WithSchema(stockServiceGetDirectorTradesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	stockServiceGetDividendHistoryHandler := connect.NewUnaryHandler(
 		StockServiceGetDividendHistoryProcedure,
 		svc.GetDividendHistory,
-		connect.WithSchema(stockServiceMethods.ByName("GetDividendHistory")),
+		connect.WithSchema(stockServiceGetDividendHistoryMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	stockServiceGetPeerComparisonHandler := connect.NewUnaryHandler(
 		StockServiceGetPeerComparisonProcedure,
 		svc.GetPeerComparison,
-		connect.WithSchema(stockServiceMethods.ByName("GetPeerComparison")),
+		connect.WithSchema(stockServiceGetPeerComparisonMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	stockServiceGetStockVerdictHandler := connect.NewUnaryHandler(
 		StockServiceGetStockVerdictProcedure,
 		svc.GetStockVerdict,
-		connect.WithSchema(stockServiceMethods.ByName("GetStockVerdict")),
+		connect.WithSchema(stockServiceGetStockVerdictMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	stockServiceGetStockGraphHandler := connect.NewUnaryHandler(
 		StockServiceGetStockGraphProcedure,
 		svc.GetStockGraph,
-		connect.WithSchema(stockServiceMethods.ByName("GetStockGraph")),
+		connect.WithSchema(stockServiceGetStockGraphMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	stockServiceGetEventTimelineHandler := connect.NewUnaryHandler(
 		StockServiceGetEventTimelineProcedure,
 		svc.GetEventTimeline,
-		connect.WithSchema(stockServiceMethods.ByName("GetEventTimeline")),
+		connect.WithSchema(stockServiceGetEventTimelineMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	stockServiceGetStockSignalsHandler := connect.NewUnaryHandler(
 		StockServiceGetStockSignalsProcedure,
 		svc.GetStockSignals,
-		connect.WithSchema(stockServiceMethods.ByName("GetStockSignals")),
+		connect.WithSchema(stockServiceGetStockSignalsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	stockServiceGetCompanyTaxProfileHandler := connect.NewUnaryHandler(
 		StockServiceGetCompanyTaxProfileProcedure,
 		svc.GetCompanyTaxProfile,
-		connect.WithSchema(stockServiceMethods.ByName("GetCompanyTaxProfile")),
+		connect.WithSchema(stockServiceGetCompanyTaxProfileMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/shorts.v1alpha1.StockService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

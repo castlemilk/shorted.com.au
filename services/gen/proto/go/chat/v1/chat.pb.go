@@ -887,7 +887,8 @@ const file_chat_v1_chat_proto_rawDesc = "" +
 	"\vSendMessage\x12\x1b.chat.v1.SendMessageRequest\x1a\x1c.chat.v1.SendMessageResponse\"\x04\x80\xb5\x18\x020\x01\x12o\n" +
 	"\x16GetConversationHistory\x12&.chat.v1.GetConversationHistoryRequest\x1a'.chat.v1.GetConversationHistoryResponse\"\x04\x80\xb5\x18\x02\x12`\n" +
 	"\x11ListConversations\x12!.chat.v1.ListConversationsRequest\x1a\".chat.v1.ListConversationsResponse\"\x04\x80\xb5\x18\x02\x12c\n" +
-	"\x12DeleteConversation\x12\".chat.v1.DeleteConversationRequest\x1a#.chat.v1.DeleteConversationResponse\"\x04\x80\xb5\x18\x02BKZIgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/chat/v1;chatv1b\x06proto3"
+	"\x12DeleteConversation\x12\".chat.v1.DeleteConversationRequest\x1a#.chat.v1.DeleteConversationResponse\"\x04\x80\xb5\x18\x02B\xa0\x01\n" +
+	"\vcom.chat.v1B\tChatProtoP\x01ZIgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/chat/v1;chatv1\xa2\x02\x03CXX\xaa\x02\aChat.V1\xca\x02\aChat\\V1\xe2\x02\x13Chat\\V1\\GPBMetadata\xea\x02\bChat::V1b\x06proto3"
 
 var (
 	file_chat_v1_chat_proto_rawDescOnce sync.Once

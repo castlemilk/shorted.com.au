@@ -50,6 +50,16 @@ const (
 	EconomyServiceGetStateCompanyAggregatesProcedure = "/shorts.v1alpha1.EconomyService/GetStateCompanyAggregates"
 )
 
+// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
+var (
+	economyServiceServiceDescriptor                         = v1alpha1.File_shorts_v1alpha1_economy_proto.Services().ByName("EconomyService")
+	economyServiceListEconomicSeriesMethodDescriptor        = economyServiceServiceDescriptor.Methods().ByName("ListEconomicSeries")
+	economyServiceGetEconomicSeriesMethodDescriptor         = economyServiceServiceDescriptor.Methods().ByName("GetEconomicSeries")
+	economyServiceListSeriesCorrelationsMethodDescriptor    = economyServiceServiceDescriptor.Methods().ByName("ListSeriesCorrelations")
+	economyServiceListStateCompaniesMethodDescriptor        = economyServiceServiceDescriptor.Methods().ByName("ListStateCompanies")
+	economyServiceGetStateCompanyAggregatesMethodDescriptor = economyServiceServiceDescriptor.Methods().ByName("GetStateCompanyAggregates")
+)
+
 // EconomyServiceClient is a client for the shorts.v1alpha1.EconomyService service.
 type EconomyServiceClient interface {
 	// List economic series catalog entries (Australian economy snapshot layer).
@@ -73,36 +83,35 @@ type EconomyServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewEconomyServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) EconomyServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
-	economyServiceMethods := v1alpha1.File_shorts_v1alpha1_economy_proto.Services().ByName("EconomyService").Methods()
 	return &economyServiceClient{
 		listEconomicSeries: connect.NewClient[v1alpha1.ListEconomicSeriesRequest, v1alpha1.ListEconomicSeriesResponse](
 			httpClient,
 			baseURL+EconomyServiceListEconomicSeriesProcedure,
-			connect.WithSchema(economyServiceMethods.ByName("ListEconomicSeries")),
+			connect.WithSchema(economyServiceListEconomicSeriesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getEconomicSeries: connect.NewClient[v1alpha1.GetEconomicSeriesRequest, v1alpha1.GetEconomicSeriesResponse](
 			httpClient,
 			baseURL+EconomyServiceGetEconomicSeriesProcedure,
-			connect.WithSchema(economyServiceMethods.ByName("GetEconomicSeries")),
+			connect.WithSchema(economyServiceGetEconomicSeriesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listSeriesCorrelations: connect.NewClient[v1alpha1.ListSeriesCorrelationsRequest, v1alpha1.ListSeriesCorrelationsResponse](
 			httpClient,
 			baseURL+EconomyServiceListSeriesCorrelationsProcedure,
-			connect.WithSchema(economyServiceMethods.ByName("ListSeriesCorrelations")),
+			connect.WithSchema(economyServiceListSeriesCorrelationsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		listStateCompanies: connect.NewClient[v1alpha1.ListStateCompaniesRequest, v1alpha1.ListStateCompaniesResponse](
 			httpClient,
 			baseURL+EconomyServiceListStateCompaniesProcedure,
-			connect.WithSchema(economyServiceMethods.ByName("ListStateCompanies")),
+			connect.WithSchema(economyServiceListStateCompaniesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getStateCompanyAggregates: connect.NewClient[v1alpha1.GetStateCompanyAggregatesRequest, v1alpha1.GetStateCompanyAggregatesResponse](
 			httpClient,
 			baseURL+EconomyServiceGetStateCompanyAggregatesProcedure,
-			connect.WithSchema(economyServiceMethods.ByName("GetStateCompanyAggregates")),
+			connect.WithSchema(economyServiceGetStateCompanyAggregatesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -162,35 +171,34 @@ type EconomyServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewEconomyServiceHandler(svc EconomyServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	economyServiceMethods := v1alpha1.File_shorts_v1alpha1_economy_proto.Services().ByName("EconomyService").Methods()
 	economyServiceListEconomicSeriesHandler := connect.NewUnaryHandler(
 		EconomyServiceListEconomicSeriesProcedure,
 		svc.ListEconomicSeries,
-		connect.WithSchema(economyServiceMethods.ByName("ListEconomicSeries")),
+		connect.WithSchema(economyServiceListEconomicSeriesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	economyServiceGetEconomicSeriesHandler := connect.NewUnaryHandler(
 		EconomyServiceGetEconomicSeriesProcedure,
 		svc.GetEconomicSeries,
-		connect.WithSchema(economyServiceMethods.ByName("GetEconomicSeries")),
+		connect.WithSchema(economyServiceGetEconomicSeriesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	economyServiceListSeriesCorrelationsHandler := connect.NewUnaryHandler(
 		EconomyServiceListSeriesCorrelationsProcedure,
 		svc.ListSeriesCorrelations,
-		connect.WithSchema(economyServiceMethods.ByName("ListSeriesCorrelations")),
+		connect.WithSchema(economyServiceListSeriesCorrelationsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	economyServiceListStateCompaniesHandler := connect.NewUnaryHandler(
 		EconomyServiceListStateCompaniesProcedure,
 		svc.ListStateCompanies,
-		connect.WithSchema(economyServiceMethods.ByName("ListStateCompanies")),
+		connect.WithSchema(economyServiceListStateCompaniesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	economyServiceGetStateCompanyAggregatesHandler := connect.NewUnaryHandler(
 		EconomyServiceGetStateCompanyAggregatesProcedure,
 		svc.GetStateCompanyAggregates,
-		connect.WithSchema(economyServiceMethods.ByName("GetStateCompanyAggregates")),
+		connect.WithSchema(economyServiceGetStateCompanyAggregatesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/shorts.v1alpha1.EconomyService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
