@@ -77,7 +77,19 @@ export default async function DonationsPage() {
   // during a regen would otherwise freeze the outage copy into a static page
   // long after the rpc recovered — honest live, stale within minutes. Bailing
   // keeps the last good page instead.
-  if (!page.overviewOk || page.parties.length === 0) bailOnEmptyRender();
+  //
+  // ALL THREE FLAGS, not just the overview's. The three rpcs fail independently
+  // and each one has its own outage panel, so a healthy overview beside a dead
+  // payer table would have baked "the payer list is unavailable" into a static
+  // page for an hour — the outage copy outliving the outage by a wide margin.
+  if (
+    !page.overviewOk ||
+    !page.payersOk ||
+    !page.listedOk ||
+    page.parties.length === 0
+  ) {
+    bailOnEmptyRender();
+  }
 
   const corpus = page.corpus;
   const yearsCovered =
@@ -161,9 +173,38 @@ export default async function DonationsPage() {
                   {formatCount(corpus.candidateReturnResolvedCount)}
                 </span>{" "}
                 linked election returns.{" "}
+                {/*
+                  WHAT THE MATCH FIGURE COUNTS, said in the sentence itself. The
+                  number here is PAYER AND DONOR NAMES FOUND IN THE RETURNS — not
+                  the company names the matcher can match against, which is a
+                  property of our own metadata, reads an order of magnitude
+                  higher and describes no donation at all. That substrate appears
+                  only where it belongs: as the denominator, named as such.
+                */}
                 <span className="tabular-nums">{formatCount(corpus.matchedPayerNameCount)}</span>{" "}
-                payer or donor names across the corpus match an ASX listing by exact name or a
-                human-verified alias.
+                payer or donor names lodged in these returns match an ASX listing by exact name or
+                a human-verified alias
+                {corpus.matchedPayerCodeCount > 0 ? (
+                  <>
+                    , resolving to{" "}
+                    <span className="tabular-nums">
+                      {formatCount(corpus.matchedPayerCodeCount)}
+                    </span>{" "}
+                    distinct listings
+                  </>
+                ) : null}
+                {corpus.matchableCompanyNameCount > 0 ? (
+                  <>
+                    {" "}
+                    — matched against{" "}
+                    <span className="tabular-nums">
+                      {formatCount(corpus.matchableCompanyNameCount)}
+                    </span>{" "}
+                    listed company names we hold, which is the size of what could be matched and
+                    not a count of payers
+                  </>
+                ) : null}
+                .
               </p>
             ) : null}
             <p className="text-[11px] leading-relaxed text-muted-foreground">

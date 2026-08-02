@@ -329,7 +329,7 @@ describe("politician surface copy", () => {
     const src = readFileSync(file!, "utf8");
     // Either it formats amounts (via the shared module) or it renders none at
     // all and merely passes them through.
-    if (/formatCents|formatCentsCompact/.test(src)) {
+    if (/formatCents/.test(src)) {
       expect(src).toMatch(/from "@\/lib\/politics\/funding-money"/);
     }
     // And never its own currency formatter, whichever way it is spelled.

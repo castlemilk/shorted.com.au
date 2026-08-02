@@ -18,9 +18,9 @@
  * here and only here.
  *
  * NO ROUNDING THAT CHANGES A CLAIM. `formatCents` prints whole dollars, which is
- * the grain the AEC's own returns are read at; `formatCentsCompact` is for chart
- * labels and axis ticks ONLY, where the exact figure is one line away in the
- * table beside it. A compact figure is never the sole rendering of an amount.
+ * the grain the AEC's own returns are read at, and it is the ONLY formatter here:
+ * every amount in this layer sits beside a named party or a named payer, so
+ * there is no place an abbreviated figure would be the honest rendering.
  */
 
 /**
@@ -52,26 +52,16 @@ export function formatCents(cents: number | undefined | null): string {
   return DOLLARS.format(Math.round(value) / 100);
 }
 
-/**
- * Cents to a short label: `$205.4m`, `$54.1m`, `$920k`, `$1,204`.
+/*
+ * THERE IS NO COMPACT FORMATTER, deliberately.
  *
- * FOR LABELS BESIDE AN EXACT FIGURE, never as the only rendering of an amount.
- * The suffixes are lower case so a label never reads as an initialism.
+ * One lived here for chart labels and no surface ever called it: every amount in
+ * this layer is rendered beside a named party or a named payer, where the exact
+ * figure is the point. It also rounded wrongly at two boundaries ($999,500 came
+ * out as "$1000k", and nothing above a billion had a suffix at all), which is
+ * how an abbreviation of an AEC figure becomes a figure the AEC never published.
+ * If a chart ever needs axis ticks, write it then and test the boundaries.
  */
-export function formatCentsCompact(cents: number | undefined | null): string {
-  const value = Number(cents ?? 0);
-  if (!Number.isFinite(value)) return DOLLARS.format(0);
-  const dollars = Math.round(value) / 100;
-  const magnitude = Math.abs(dollars);
-  const sign = dollars < 0 ? "-" : "";
-  if (magnitude >= 1_000_000) {
-    return `${sign}$${(magnitude / 1_000_000).toFixed(1)}m`;
-  }
-  if (magnitude >= 10_000) {
-    return `${sign}$${Math.round(magnitude / 1_000)}k`;
-  }
-  return DOLLARS.format(dollars);
-}
 
 /** A plain count, grouped. Counts of people, payers, returns — never money. */
 export function formatCount(value: number | undefined | null): string {

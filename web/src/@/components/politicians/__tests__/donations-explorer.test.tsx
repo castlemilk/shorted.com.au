@@ -92,8 +92,8 @@ function page(overrides: Partial<DonationsPage> = {}): DonationsPage {
     query: baseQuery(),
     financialYear: "2024-25",
     years: [
-      { financialYear: "2024-25", partyGroupCount: 42 },
-      { financialYear: "2023-24", partyGroupCount: 40 },
+      { financialYear: "2024-25", partyGroupCount: 42, listedGroupCount: 4 },
+      { financialYear: "2023-24", partyGroupCount: 40, listedGroupCount: 3 },
     ],
     parties: [party(), party({ partyGroup: "Liberal", totalReceiptsCents: 20_544_268_400 })],
     corpus: undefined,
@@ -112,6 +112,7 @@ function page(overrides: Partial<DonationsPage> = {}): DonationsPage {
     ],
     listedGroups: ["Australian Labor Party", "Liberal"],
     listedOmittedGroupCount: 0,
+    listedGroupCountKnown: true,
     listedTotal: 1,
     notes: {
       censoring: "SERVED CENSORING NOTE.",
@@ -167,7 +168,10 @@ describe("donations explorer", () => {
   it("renders every served note rather than words of its own", () => {
     render(<DonationsExplorer initialPage={page()} loadPage={noopLoad()} />);
 
-    expect(screen.getByText("SERVED CENSORING NOTE.")).toBeInTheDocument();
+    // The censoring note travels with every list of figures — the charts, the
+    // payer table and the listed rail — because each is read as complete
+    // without it. The others belong to one place each.
+    expect(screen.getAllByText("SERVED CENSORING NOTE.").length).toBeGreaterThan(0);
     expect(screen.getByText("SERVED REFORM NOTE.")).toBeInTheDocument();
     expect(screen.getByText("SERVED DONOR SCOPE NOTE.")).toBeInTheDocument();
   });
@@ -352,7 +356,18 @@ describe("donations explorer", () => {
   it("offers a usable year control even when the overview did not answer", () => {
     render(
       <DonationsExplorer
-        initialPage={page({ years: [], overviewOk: false, parties: [] })}
+        initialPage={page({
+          years: [],
+          overviewOk: false,
+          parties: [],
+          // THE WHOLE OUTAGE, not half of one. A dead overview leaves no party
+          // rows, so the listed rail has nothing to fan out over and no year to
+          // be about — it cannot be healthy while the overview is not, and this
+          // fixture used to pin the contradiction it was meant to catch.
+          listedOk: false,
+          listedPayers: [],
+          listedGroups: [],
+        })}
         loadPage={noopLoad()}
       />,
     );
@@ -361,5 +376,131 @@ describe("donations explorer", () => {
     expect(within(select).getAllByRole("option")).toHaveLength(1);
     // And the charts say it is our outage rather than drawing zero bars.
     expect(screen.getAllByText(/this is our end/).length).toBeGreaterThan(0);
+  });
+
+  it("never claims nothing matched an ASX listing when the rail did not answer", () => {
+    // The empty fan-out: an outage produces zero listed rows, and wording that
+    // as "no payer matched" publishes an affirmative claim about a year's
+    // returns out of our own downtime.
+    render(
+      <DonationsExplorer
+        initialPage={page({ listedOk: false, listedPayers: [], listedGroups: [] })}
+        loadPage={noopLoad()}
+      />,
+    );
+
+    expect(screen.queryByText(/matched an ASX listing under these rules/)).not.toBeInTheDocument();
+    expect(screen.getByText(/The listed-company list is unavailable/)).toBeInTheDocument();
+  });
+
+  it("says nothing matched only when the rail actually answered", () => {
+    render(
+      <DonationsExplorer
+        initialPage={page({ listedOk: true, listedPayers: [], listedTotal: 0 })}
+        loadPage={noopLoad()}
+      />,
+    );
+
+    expect(screen.getByText(/matched an ASX listing under these rules/)).toBeInTheDocument();
+  });
+
+  it("blanks the listed rail when the reader's own request failed", async () => {
+    // `status === "error"` describes the LAST request, which the flags on the
+    // page still on screen cannot: without it the rail keeps rendering stale
+    // rows beside two panels saying the request failed.
+    const loadPage = jest.fn().mockRejectedValue(new Error("cold start"));
+    render(<DonationsExplorer initialPage={page()} loadPage={loadPage} />);
+
+    fireEvent.change(screen.getByLabelText("Financial year"), {
+      target: { value: "2023-24" },
+    });
+
+    await waitFor(() =>
+      expect(screen.getByText(/The listed-company list is unavailable/)).toBeInTheDocument(),
+    );
+    expect(screen.queryByText("BHP Group Limited")).not.toBeInTheDocument();
+  });
+
+  it("states how many party groups the charts are a slice of", () => {
+    render(<DonationsExplorer initialPage={page()} loadPage={noopLoad()} />);
+
+    // Two rows drawn, forty-two groups lodged: three charts with no statement of
+    // that read as the whole field.
+    expect(screen.getByText(/2 largest of 42 party groups/)).toBeInTheDocument();
+  });
+
+  it("says when a chart drew only the groups with a figure for its measure", () => {
+    render(
+      <DonationsExplorer
+        initialPage={page({
+          parties: [
+            party(),
+            party({ partyGroup: "Liberal", declaredDonationsCents: 0 }),
+          ],
+        })}
+        loadPage={noopLoad()}
+      />,
+    );
+
+    // The donations chart drops the zero row; the other two do not. Filtering
+    // silently would read as "this party lodged nothing at all". Twice for that
+    // one chart: the visible caption and the sr-only table's, which is the
+    // parity the bars kit promises.
+    expect(
+      screen.getAllByText(/Only party groups with a non-zero figure for this measure/).length,
+    ).toBe(2);
+  });
+
+  it("counts omitted groups from the year's population, or says it cannot", () => {
+    const { unmount } = render(
+      <DonationsExplorer
+        initialPage={page({ listedGroups: ["Australian Labor Party"], listedOmittedGroupCount: 3 })}
+        loadPage={noopLoad()}
+      />,
+    );
+    expect(screen.getByText(/further party groups recorded a listed payer/)).toBeInTheDocument();
+    unmount();
+
+    // Without the population there is no honest count, so the limitation is
+    // stated rather than a zero that reads as "these are all of them".
+    render(
+      <DonationsExplorer
+        initialPage={page({
+          listedGroups: ["Australian Labor Party"],
+          listedOmittedGroupCount: 0,
+          listedGroupCountKnown: false,
+        })}
+        loadPage={noopLoad()}
+      />,
+    );
+    expect(
+      screen.getByText(/not available here, so groups beyond those named cannot be counted/),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the censoring note beside the payer table and the listed rail too", () => {
+    render(<DonationsExplorer initialPage={page()} loadPage={noopLoad()} />);
+
+    // Once with the charts, once with the payer list, once with the rail: every
+    // list of figures on this page carries it, because each of the three is read
+    // as complete without it.
+    expect(screen.getAllByText("SERVED CENSORING NOTE.")).toHaveLength(3);
+  });
+
+  it("names which rule linked a payer to a listing, visibly", () => {
+    render(<DonationsExplorer initialPage={page()} loadPage={noopLoad()} />);
+
+    // A title attribute is invisible to a touch reader and to a screen reader
+    // alike: an exact-name match and a human-verified alias are our decision and
+    // the source's arithmetic respectively, and a reader must be able to tell.
+    expect(screen.getAllByText(/matched by exact name/).length).toBeGreaterThan(0);
+  });
+
+  it("explains the public-funding bucket where the split is legended", () => {
+    render(<DonationsExplorer initialPage={page()} loadPage={noopLoad()} />);
+
+    // It heads payer lists in several years, and unexplained it reads as the
+    // largest donation of the year.
+    expect(screen.getByText(/it is a receipt, not a donation/)).toBeInTheDocument();
   });
 });

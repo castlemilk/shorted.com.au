@@ -67,7 +67,17 @@ export function ReceiptSplit({ split, subject, compact = false }: ReceiptSplitPr
           />
         ))}
       </span>
-      <ul className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] leading-relaxed text-muted-foreground">
+      {/*
+        ARIA-HIDDEN, BECAUSE THE `sr-only` SENTENCE BELOW SAYS THE SAME THING.
+        Announced as well, a screen reader hears all five labels and all five
+        amounts twice — once as a bare list with no subject, then again inside
+        the sentence that names the subject and states that the five are the
+        whole of the total. The sentence is the one worth hearing.
+      */}
+      <ul
+        aria-hidden
+        className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] leading-relaxed text-muted-foreground"
+      >
         {segments.map((segment) => (
           <li key={segment.key} className="flex items-center gap-1">
             <span
@@ -99,4 +109,6 @@ export function ReceiptSplit({ split, subject, compact = false }: ReceiptSplitPr
 export const RECEIPT_SPLIT_NOTE =
   "Receipt types are the AEC's own: a subscription, a conference fee or another " +
   "receipt is recorded separately from a donation, and the five types shown add up " +
-  "to the total beside them.";
+  "to the total beside them. Public funding is election funding paid under the " +
+  "Commonwealth Electoral Act on first-preference votes received — it is a receipt, " +
+  "not a donation, and it is why a public body can head a list of payers.";

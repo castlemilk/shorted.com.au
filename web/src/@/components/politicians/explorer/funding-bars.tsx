@@ -51,6 +51,14 @@ export interface FundingBarsProps {
   /** Who declared it, in one line. Rendered under the heading. */
   measureNote: string;
   rows: FundingBarRow[];
+  /**
+   * Said when this chart draws a SUBSET of the set beside it — a group with
+   * nothing lodged for this measure is filtered out rather than drawn as a
+   * zero-length bar, and a chart that drops rows silently reads as an absence.
+   * Rendered under the heading and carried into the table caption, so a screen
+   * reader meets it too.
+   */
+  subsetNote?: string;
   /** Said plainly when there is nothing to draw. Never a zero bar. */
   emptyLabel?: string;
 }
@@ -63,6 +71,7 @@ export function FundingBars({
   measureLabel,
   measureNote,
   rows,
+  subsetNote,
   emptyLabel = "No party group lodged this measure in this year.",
 }: FundingBarsProps) {
   const values = rows.map((row) => ({ ...row, valueCents: safeCents(row.valueCents) }));
@@ -73,6 +82,9 @@ export function FundingBars({
       <figcaption className="space-y-0.5">
         <h3 className="text-sm font-medium text-foreground">{measureLabel}</h3>
         <p className="text-[11px] leading-relaxed text-muted-foreground">{measureNote}</p>
+        {subsetNote ? (
+          <p className="text-[11px] leading-relaxed text-muted-foreground">{subsetNote}</p>
+        ) : null}
       </figcaption>
 
       {values.length === 0 ? (
@@ -128,6 +140,7 @@ export function FundingBars({
           <table className="sr-only">
             <caption>
               {measureLabel}. {measureNote}
+              {subsetNote ? ` ${subsetNote}` : ""}
             </caption>
             <thead>
               <tr>
@@ -138,7 +151,16 @@ export function FundingBars({
             <tbody>
               {values.map((row) => (
                 <tr key={row.label}>
-                  <th scope="row">{row.label}</th>
+                  {/*
+                    THE MARKER TRAVELS WITH THE ROW, in the table as well as in
+                    the chart. A set mixing pre- and post-1-Jan-2027 years is two
+                    regimes drawn as one, and a screen-reader table without the
+                    marker is the one rendering where that is invisible.
+                  */}
+                  <th scope="row">
+                    {row.label}
+                    {row.postReformScheme ? " (reformed scheme)" : ""}
+                  </th>
                   <td className="tabular-nums">
                     {formatCents(row.valueCents)}
                     {row.countLabel ? ` — ${row.countLabel}` : ""}

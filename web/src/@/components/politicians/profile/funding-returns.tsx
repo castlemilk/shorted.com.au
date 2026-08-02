@@ -225,6 +225,11 @@ export function FundingReturns({
           <ul className="space-y-3">
             {candidates.map((row) => {
               const context = candidateContext(row);
+              // One condition, used twice: what the row states, and whether the
+              // donor-coverage caveat below it means anything. A return that
+              // declares no gifts has no donors to have named.
+              const declaresNoGifts =
+                row.nilReturn || (row.totalGiftCents === 0 && row.donorCount === 0);
               return (
                 <li key={`${row.event}-${row.returnType}-${row.candidateName}`} className="space-y-1">
                   <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
@@ -238,9 +243,30 @@ export function FundingReturns({
                       {context ? (
                         <span className="block text-[10px] text-muted-foreground">{context}</span>
                       ) : null}
+                      {/*
+                        THE NAME ON THE RETURN, VERBATIM, on the row it belongs
+                        to. Candidate returns are linked to a member by matching
+                        a lodged name, and a namesake once landed on the wrong
+                        member's page. Printing the name the return actually
+                        carries puts every future misattribution in front of the
+                        reader instead of hiding it behind our own resolution.
+                      */}
+                      {row.candidateName ? (
+                        <span className="block text-[10px] text-muted-foreground">
+                          Lodged as &ldquo;{row.candidateName}&rdquo;
+                        </span>
+                      ) : null}
                     </span>
                     <span className="flex shrink-0 items-baseline gap-2">
-                      {row.nilReturn ? (
+                      {/*
+                        THE ANNUAL BRANCH'S OWN DOCTRINE, APPLIED HERE TOO. "$0 ·
+                        0 donors" beside a named candidate reads as a
+                        measurement; a return declaring nothing is a statement,
+                        and it is the same statement whether or not the source
+                        set the nil flag on it. The flag is one way a return says
+                        it; declaring nothing is the other.
+                      */}
+                      {declaresNoGifts ? (
                         // A FACT, stated as one. Not an empty state.
                         <span className="text-[11px] text-muted-foreground">
                           Lodged a return declaring no gifts
@@ -311,7 +337,7 @@ export function FundingReturns({
                         </li>
                       ))}
                     </ul>
-                  ) : !row.nilReturn && row.eventReturnCount > 0 ? (
+                  ) : !declaresNoGifts && row.eventReturnCount > 0 ? (
                     /*
                       AN EMPTY DONATION LIST IS NOT "NO DONORS". Most returns
                       lodged for an election declare a total without naming the

@@ -245,32 +245,88 @@ export async function loadDonationsExplorer(
         .filter((party) => party.listedPayerCount > 0)
         .map((party) => party.partyGroup);
   const fetchedGroups = groupsWithListed.slice(0, LISTED_GROUP_FANOUT);
-  const omittedGroupCount = groupsWithListed.length - fetchedGroups.length;
 
   const listedResponses = await Promise.all(
     fetchedGroups.map((group) =>
       listPartyFunding(group, servedYear, PARTY_PAYER_LIMIT).catch(() => undefined),
     ),
   );
-  // A fan-out is "ok" only when EVERY leg answered: a partial merge renders a
-  // company's total across two party groups when three contributed, which is a
-  // wrong figure rather than a missing one.
-  const listedOk = listedResponses.every((response) => response !== undefined);
-  const allListed = mergeListedPayers(
-    listedResponses.map((response) =>
-      (response?.listedCompanyPayers ?? []).map(payerRow),
-    ),
-  );
+
+  /*
+   * A LEG THAT ANSWERED FOR ANOTHER YEAR IS NOT AN ANSWER.
+   *
+   * `ListPartyFunding` falls back to the group's own latest year when the
+   * requested one holds nothing for it, so a leg can come back captioned
+   * 2023-24 while the page is captioned 2024-25. Merging it would put last
+   * year's receipts under this year's heading — a wrong figure, not a missing
+   * one. Such a leg is dropped and counted out loud, exactly like a group the
+   * fan-out never reached.
+   */
+  const usableGroups: string[] = [];
+  const usableRows: PayerRow[][] = [];
+  let yearMismatchCount = 0;
+  fetchedGroups.forEach((group, index) => {
+    const response = listedResponses[index];
+    if (!response) return;
+    if (clampFinancialYear(response.financialYear) !== servedYear) {
+      yearMismatchCount += 1;
+      return;
+    }
+    usableGroups.push(group);
+    usableRows.push((response.listedCompanyPayers ?? []).map(payerRow));
+  });
+
+  /*
+   * THE FAN-OUT IS "OK" ONLY WHEN THE OVERVIEW ANSWERED AND EVERY LEG DID TOO.
+   *
+   * `[].every()` is VACUOUSLY TRUE, so a dead overview — which leaves no party
+   * rows, therefore no groups to fan out over, therefore no legs — used to
+   * report a healthy rail with zero rows, and the island published "no payer in
+   * this year matched an ASX listing": an affirmative absence claim manufactured
+   * out of our own outage. The overview is also the authority on the year every
+   * leg was pinned to, so without it the rail has no year to be about.
+   *
+   * A partial fan-out is not ok either: merging two legs of three renders a
+   * company's total across two party groups when three contributed.
+   */
+  const listedOk =
+    overview !== undefined &&
+    listedResponses.every((response) => response !== undefined) &&
+    yearMismatchCount === 0;
+  const allListed = mergeListedPayers(usableRows);
+
+  /*
+   * THE OMITTED-GROUP COUNT IS OVER THE WHOLE YEAR, NOT OVER THE PAGE.
+   *
+   * `parties` is the overview's TOP 25 groups, so counting omissions from it
+   * makes "and N more" a function of our page size rather than of the year. The
+   * backend serves `listed_group_count` per financial year — every group in the
+   * year with a matched payer — and that is the population this subtracts from.
+   *
+   * When the field is absent (an older API, a response that did not carry the
+   * year row) the population is UNKNOWN, and the surface says so rather than
+   * publishing the page-shaped number as though it were the true one.
+   */
+  const years = (overview?.availableFinancialYears ?? []).map((year) => ({
+    financialYear: year.financialYear,
+    partyGroupCount: Number(year.partyGroupCount ?? 0),
+    listedGroupCount: Number(year.listedGroupCount ?? 0),
+  }));
+  const listedGroupPopulation =
+    years.find((year) => year.financialYear === servedYear)?.listedGroupCount ?? 0;
+  const listedGroupCountKnown =
+    listedGroupPopulation > 0 || groupsWithListed.length === 0;
+  const observedOmitted = Math.max(0, groupsWithListed.length - usableGroups.length);
+  const listedOmittedGroupCount = listedGroupCountKnown
+    ? Math.max(0, listedGroupPopulation - usableGroups.length)
+    : observedOmitted;
 
   const notesFrom = overview ?? payers;
 
   return {
     query: { ...query, financialYear: servedYear },
     financialYear: servedYear,
-    years: (overview?.availableFinancialYears ?? []).map((year) => ({
-      financialYear: year.financialYear,
-      partyGroupCount: Number(year.partyGroupCount ?? 0),
-    })),
+    years,
     parties,
     corpus: overview?.corpus
       ? {
@@ -287,15 +343,27 @@ export async function loadDonationsExplorer(
           candidateDonationCount: Number(overview.corpus.candidateDonationCount ?? 0),
           firstFinancialYearEnd: Number(overview.corpus.firstFinancialYearEnd ?? 0),
           lastFinancialYearEnd: Number(overview.corpus.lastFinancialYearEnd ?? 0),
+          // The three MATCH counts, kept apart because they count three
+          // different things: names found in the corpus, the listings those
+          // names resolve to, and the size of the substrate they were matched
+          // against. The last is a property of the company metadata and
+          // describes no donation at all.
           matchedPayerNameCount: Number(overview.corpus.matchedPayerNameCount ?? 0),
+          matchedPayerCodeCount: Number(overview.corpus.matchedPayerCodeCount ?? 0),
+          matchableCompanyNameCount: Number(
+            overview.corpus.matchableCompanyNameCount ?? 0,
+          ),
         }
       : undefined,
     payers: (payers?.donors ?? []).map(payerRow),
     payerTotal: Number(payers?.total ?? 0),
     payerFinancialYear: payers?.financialYear ?? servedYear,
     listedPayers: allListed.slice(0, LISTED_PAYER_ROWS),
-    listedGroups: fetchedGroups,
-    listedOmittedGroupCount: Math.max(0, omittedGroupCount),
+    // The groups actually MERGED, not the groups requested: a leg that failed
+    // or answered for another year is named nowhere and counted as omitted.
+    listedGroups: usableGroups,
+    listedOmittedGroupCount,
+    listedGroupCountKnown,
     listedTotal: allListed.length,
     // EVERY note comes off the wire. The API is the single source for this copy
     // precisely so no surface can paraphrase a caveat into a claim; an empty

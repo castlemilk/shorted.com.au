@@ -102,6 +102,13 @@ export interface PartyFundingRow {
 export interface FinancialYearRow {
   financialYear: string;
   partyGroupCount: number;
+  /**
+   * Party groups in this year holding a payer matched to an ASX listing, over
+   * EVERY group in the year — not over the page of groups a response carried.
+   * Zero means the API did not serve the figure, which the surface states rather
+   * than counting from the page it happens to hold.
+   */
+  listedGroupCount: number;
 }
 
 export interface PayerRecipientRow {
@@ -137,10 +144,14 @@ export interface DonationsCorpusRow {
   candidateDonationCount: number;
   firstFinancialYearEnd: number;
   lastFinancialYearEnd: number;
-  // Payer/donor NAMES in the corpus that resolve to an ASX listing. NOT the
-  // number of company names the matcher could match against — that substrate is
-  // an order of magnitude larger and describes no donation.
+  // Payer/donor NAMES in the corpus that resolve to an ASX listing, and the
+  // number of distinct listings they resolve to.
   matchedPayerNameCount: number;
+  matchedPayerCodeCount: number;
+  // How many company names the matcher can match AGAINST. A property of the
+  // company metadata — an order of magnitude larger, and it describes no
+  // donation. Publishable only as the denominator, never as a count of payers.
+  matchableCompanyNameCount: number;
 }
 
 /** Every mandatory note, exactly as the API served it. Never paraphrased. */
@@ -178,8 +189,18 @@ export interface DonationsPage {
   listedPayers: PayerRow[];
   /** Which party groups the listed rail actually covers, named rather than implied. */
   listedGroups: string[];
-  /** Groups with listed payers that the rail did not fetch. Stated, never hidden. */
+  /**
+   * Groups with listed payers this year that the rail does not cover — over the
+   * WHOLE year, not over the page of groups the overview carried. Stated, never
+   * hidden.
+   */
   listedOmittedGroupCount: number;
+  /**
+   * FALSE when the API served no per-year population to subtract from. The count
+   * above is then a floor observed from the page, and the surface says so
+   * instead of publishing a confident zero it cannot support.
+   */
+  listedGroupCountKnown: boolean;
   /** Matched payers within those groups, of which the rail renders the largest. */
   listedTotal: number;
   notes: DonationsNotes;
@@ -222,8 +243,25 @@ const OUTAGE_CLASS = "rounded-md border border-dashed p-3 text-sm text-muted-for
  * "not a listed company". The match method is on the chip's title so a reader
  * can see which of the two rules linked this payer.
  */
+/**
+ * WHICH OF THE TWO RULES LINKED A PAYER, in words.
+ *
+ * A title attribute is invisible to a touch reader and to a screen reader alike,
+ * so the provenance of a link between a lodged name and a listed company was
+ * effectively unpublished. The two rules are not equivalent — one is arithmetic
+ * on a normalised string, the other is a human decision that is ours and not the
+ * AEC's — and a reader deciding how much weight to put on a chip needs to know
+ * which they are looking at.
+ */
+function matchMethodLabel(matchMethod: string): string {
+  return matchMethod === "curated_alias"
+    ? "matched by a human-verified alias"
+    : "matched by exact name";
+}
+
 function ListedCompanyChip({ payer }: { payer: PayerRow }) {
   if (!payer.stockCode) return null;
+  const provenance = matchMethodLabel(payer.matchMethod);
   return (
     <Link
       href={`/shorts/${payer.stockCode}`}
@@ -238,6 +276,8 @@ function ListedCompanyChip({ payer }: { payer: PayerRow }) {
       {payer.companyName ? (
         <span className="text-muted-foreground">{payer.companyName}</span>
       ) : null}
+      {/* Visible, and part of the link's accessible name rather than a tooltip. */}
+      <span className="text-muted-foreground">· {provenance}</span>
     </Link>
   );
 }
@@ -340,7 +380,7 @@ export function DonationsExplorer({ initialPage, loadPage }: DonationsExplorerPr
     page.years.length > 0
       ? page.years
       : servedYear
-        ? [{ financialYear: servedYear, partyGroupCount: parties.length }]
+        ? [{ financialYear: servedYear, partyGroupCount: parties.length, listedGroupCount: 0 }]
         : [];
 
   const barRows = useCallback(
@@ -358,6 +398,50 @@ export function DonationsExplorer({ initialPage, loadPage }: DonationsExplorerPr
         .filter((row) => row.valueCents > 0)
         .sort((a, b) => b.valueCents - a.valueCents),
     [parties],
+  );
+
+  /**
+   * THE SUBSET SENTENCE FOR ONE CHART.
+   *
+   * A group with nothing lodged for a measure is filtered out of that measure's
+   * chart — drawing a zero-length bar beside a party's name is not a reading a
+   * bar chart supports. But a chart that silently drops rows the chart beside it
+   * shows reads as "this party lodged nothing at all", so where filtering
+   * happened the chart says so. Nothing is rendered when nothing was dropped.
+   */
+  const subsetNote = useCallback(
+    (rows: FundingBarRow[]): string | undefined =>
+      rows.length < parties.length
+        ? "Only party groups with a non-zero figure for this measure appear here."
+        : undefined,
+    [parties.length],
+  );
+
+  /**
+   * How many party groups the year holds, against how many these charts draw.
+   *
+   * The overview serves the LARGEST 25 groups and a year can hold seventy-odd,
+   * so three charts with no statement of that read as the whole field. The
+   * population is the response's own figure for the served year; when the year
+   * row is missing there is nothing honest to say and the sentence is omitted.
+   */
+  const partyGroupPopulation =
+    page.years.find((year) => year.financialYear === servedYear)?.partyGroupCount ?? 0;
+  const partyGroupsShown = parties.length;
+
+  // One row set per measure, built once: each is also the input to that chart's
+  // own subset sentence, and building them twice would let the two disagree.
+  const totalReceiptsRows = barRows(
+    (party) => party.totalReceiptsCents,
+    (party) => returnCountLabel(party.partyReturnCount),
+  );
+  const itemisedReceiptsRows = barRows(
+    (party) => party.itemisedReceiptsCents,
+    (party) => payerCountLabel(party.distinctPayerCount),
+  );
+  const declaredDonationsRows = barRows(
+    (party) => party.declaredDonationsCents,
+    (party) => donorCountLabel(party.distinctDonorCount),
   );
 
   const hasPrevious = page.query.offset > 0;
@@ -447,6 +531,18 @@ export function DonationsExplorer({ initialPage, loadPage }: DonationsExplorerPr
             return, the receipts its branches itemised, and the amounts donors declared giving
             it do not reconcile with one another.
           </p>
+          {/*
+            WHAT THESE CHARTS ARE A SLICE OF. The response carries the largest
+            party groups, not every one in the year, and a chart that does not
+            say so is read as the whole field.
+          */}
+          {partyGroupPopulation > partyGroupsShown ? (
+            <p className="text-[11px] leading-relaxed tabular-nums text-muted-foreground">
+              Each chart shows the {formatCount(partyGroupsShown)} largest of{" "}
+              {formatCount(partyGroupPopulation)} party groups that lodged for {servedYear}, by
+              the measure that chart names.
+            </p>
+          ) : null}
         </div>
 
         {overviewOutage ? (
@@ -462,26 +558,20 @@ export function DonationsExplorer({ initialPage, loadPage }: DonationsExplorerPr
             <FundingBars
               measureLabel="Total receipts, as the party declared them"
               measureNote="From each party group's own annual return."
-              rows={barRows(
-                (party) => party.totalReceiptsCents,
-                (party) => returnCountLabel(party.partyReturnCount),
-              )}
+              rows={totalReceiptsRows}
+              subsetNote={subsetNote(totalReceiptsRows)}
             />
             <FundingBars
               measureLabel="Itemised receipts, declared by the recipient"
               measureNote="Transaction rows the party branches themselves itemised."
-              rows={barRows(
-                (party) => party.itemisedReceiptsCents,
-                (party) => payerCountLabel(party.distinctPayerCount),
-              )}
+              rows={itemisedReceiptsRows}
+              subsetNote={subsetNote(itemisedReceiptsRows)}
             />
             <FundingBars
               measureLabel="Donations, declared by the donor"
               measureNote="Transaction rows lodged on the other side of the ledger, by the giver."
-              rows={barRows(
-                (party) => party.declaredDonationsCents,
-                (party) => donorCountLabel(party.distinctDonorCount),
-              )}
+              rows={declaredDonationsRows}
+              subsetNote={subsetNote(declaredDonationsRows)}
             />
           </div>
         )}
@@ -510,6 +600,17 @@ export function DonationsExplorer({ initialPage, loadPage }: DonationsExplorerPr
             {RECEIPT_SPLIT_NOTE} Names appear exactly as lodged; the source is not normalised, so
             one organisation can appear under more than one spelling.
           </p>
+          {/*
+            THE CENSORING NOTE TRAVELS WITH EVERY LIST OF FIGURES, not just with
+            the charts at the top of the page. The rpc behind this table serves
+            its own copy of it for exactly this reason: a payer list read without
+            it looks like the whole of what a party received.
+          */}
+          {page.notes.censoring ? (
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              {page.notes.censoring}
+            </p>
+          ) : null}
         </div>
 
         {payerOutage ? (
@@ -614,11 +715,41 @@ export function DonationsExplorer({ initialPage, loadPage }: DonationsExplorerPr
                   included here.
                 </>
               ) : null}
+              {/*
+                THE POPULATION, OR A STATEMENT THAT WE DO NOT HAVE IT. The count
+                above is a subtraction from how many party groups the whole year
+                holds with a matched payer; without that figure the only honest
+                thing to publish is the limitation, never a zero that reads as
+                "these are all of them".
+              */}
+              {!page.listedGroupCountKnown ? (
+                <>
+                  {" "}
+                  How many party groups recorded a matched payer across the whole of this year is
+                  not available here, so groups beyond those named cannot be counted.
+                </>
+              ) : null}
+            </p>
+          ) : null}
+          {/*
+            The same censoring note the charts carry, served per rpc so it can
+            travel with this rail too: a list of matched companies read without
+            it looks like every listed company that paid a party this year.
+          */}
+          {page.notes.censoring ? (
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              {page.notes.censoring}
             </p>
           ) : null}
         </div>
 
-        {!page.listedOk ? (
+        {/*
+          `status === "error"` is an outage of the LAST REQUEST the reader made,
+          which the flags on the page they are still looking at cannot describe:
+          without it this rail renders the previous year's rows beside two panels
+          saying the request failed.
+        */}
+        {status === "error" || !page.listedOk ? (
           <p className={OUTAGE_CLASS} role="status">
             The listed-company list is unavailable right now — this is our end.
           </p>
@@ -652,7 +783,7 @@ export function DonationsExplorer({ initialPage, loadPage }: DonationsExplorerPr
                   </span>
                 </div>
                 <p className="text-[10px] text-muted-foreground">
-                  Lodged as &ldquo;{payer.donorName}&rdquo;
+                  Lodged as &ldquo;{payer.donorName}&rdquo; · {matchMethodLabel(payer.matchMethod)}
                 </p>
                 <RecipientList recipients={payer.recipients} />
                 <ReceiptSplit split={payer.split} subject={payer.donorName} compact />

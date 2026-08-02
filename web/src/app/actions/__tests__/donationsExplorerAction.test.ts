@@ -92,8 +92,12 @@ function overview(overrides: Record<string, unknown> = {}) {
       },
     ],
     availableFinancialYears: [
-      { financialYear: "2024-25", financialYearEnd: 2025, partyGroupCount: 42 },
-      { financialYear: "2023-24", financialYearEnd: 2024, partyGroupCount: 40 },
+      // `listedGroupCount` is over EVERY group in the year, not over the 25 the
+      // overview carries — it is the population the omitted count subtracts
+      // from, and counting from the page would make "and N more" a function of
+      // our page size.
+      { financialYear: "2024-25", financialYearEnd: 2025, partyGroupCount: 42, listedGroupCount: 2 },
+      { financialYear: "2023-24", financialYearEnd: 2024, partyGroupCount: 40, listedGroupCount: 3 },
     ],
     corpus: {
       partyReturnCount: 4000,
@@ -108,6 +112,10 @@ function overview(overrides: Record<string, unknown> = {}) {
       firstFinancialYearEnd: 1999,
       lastFinancialYearEnd: 2025,
       matchedPayerNameCount: 185,
+      matchedPayerCodeCount: 96,
+      // The SUBSTRATE, an order of magnitude larger and describing no donation:
+      // it is a denominator, never a count of payers.
+      matchableCompanyNameCount: 4330,
     },
     censoringNote: "SERVED CENSORING NOTE.",
     reformNote: "SERVED REFORM NOTE.",
@@ -308,6 +316,122 @@ describe("donations explorer action", () => {
     expect(page.parties).toEqual([]);
     // And no note is invented to fill the gap: an empty string renders nothing.
     expect(page.notes.censoring).toBe("");
+  });
+
+  it("never reports a healthy listed rail off an empty fan-out", async () => {
+    // THE VACUOUS TRUTH. A dead overview leaves no party rows, so no group to
+    // fan out over, so no leg to fail — and `[].every()` is true. Reported ok,
+    // the island words zero rows as "no payer in this year matched an ASX
+    // listing": an affirmative claim about a year's returns, manufactured out of
+    // our own outage.
+    getDonationsOverviewMock.mockRejectedValue(new Error("cold start"));
+    const load = await loadAction();
+
+    const page = await load({});
+
+    expect(page.listedOk).toBe(false);
+    expect(page.listedPayers).toEqual([]);
+    expect(listPartyFundingMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps the rail ok when the overview answered and no group holds a listed payer", async () => {
+    // The true combination the flag exists to express: the request answered,
+    // and the honest answer is that nothing matched.
+    getDonationsOverviewMock.mockResolvedValue(
+      overview({
+        parties: overview()
+          .parties.map((party) => ({ ...party, listedPayerCount: 0 })),
+        availableFinancialYears: [
+          {
+            financialYear: "2024-25",
+            financialYearEnd: 2025,
+            partyGroupCount: 42,
+            listedGroupCount: 0,
+          },
+        ],
+      }),
+    );
+    const load = await loadAction();
+
+    const page = await load({});
+
+    expect(page.listedOk).toBe(true);
+    expect(page.listedPayers).toEqual([]);
+    expect(page.listedGroupCountKnown).toBe(true);
+    expect(page.listedOmittedGroupCount).toBe(0);
+  });
+
+  it("drops a leg that answered for another year and counts it as omitted", async () => {
+    // ListPartyFunding falls back to the group's own latest year, so a leg can
+    // answer for 2023-24 while the page is captioned 2024-25. Merging it puts
+    // last year's receipts under this year's heading.
+    listPartyFundingMock.mockImplementation(async (group: string) => ({
+      ...partyFunding(group, [listedBhp(group, 3_000_000n)]),
+      financialYear: group === "Liberal" ? "2023-24" : "2024-25",
+    }));
+    const load = await loadAction();
+
+    const page = await load({});
+
+    expect(page.listedGroups).toEqual(["Australian Labor Party"]);
+    // Only the year-matched leg's amount, never the two summed across years.
+    expect(page.listedPayers[0]!.totalCents).toBe(3_000_000);
+    expect(page.listedOk).toBe(false);
+    expect(page.listedOmittedGroupCount).toBe(1);
+  });
+
+  it("counts omitted groups from the year's population, not from the page", async () => {
+    // Three groups in the year hold a listed payer; the overview's page carries
+    // two of them. Counting from the page publishes zero omissions.
+    getDonationsOverviewMock.mockResolvedValue(
+      overview({
+        availableFinancialYears: [
+          {
+            financialYear: "2024-25",
+            financialYearEnd: 2025,
+            partyGroupCount: 42,
+            listedGroupCount: 5,
+          },
+        ],
+      }),
+    );
+    const load = await loadAction();
+
+    const page = await load({});
+
+    expect(page.listedGroups).toHaveLength(2);
+    expect(page.listedGroupCountKnown).toBe(true);
+    expect(page.listedOmittedGroupCount).toBe(3);
+  });
+
+  it("says the population is unknown rather than publishing a wrong zero", async () => {
+    // An API that does not serve the per-year figure leaves nothing honest to
+    // subtract from, and the surface states that instead of counting.
+    getDonationsOverviewMock.mockResolvedValue(
+      overview({
+        availableFinancialYears: [
+          { financialYear: "2024-25", financialYearEnd: 2025, partyGroupCount: 42 },
+        ],
+      }),
+    );
+    const load = await loadAction();
+
+    const page = await load({});
+
+    expect(page.listedGroupCountKnown).toBe(false);
+  });
+
+  it("carries the three match counts apart, substrate included", async () => {
+    const load = await loadAction();
+
+    const page = await load({});
+
+    // Names found in the returns, listings they resolve to, and the size of what
+    // they were matched against. The last describes no donation and is only ever
+    // a denominator.
+    expect(page.corpus?.matchedPayerNameCount).toBe(185);
+    expect(page.corpus?.matchedPayerCodeCount).toBe(96);
+    expect(page.corpus?.matchableCompanyNameCount).toBe(4330);
   });
 
   it("maps every amount to a plain number so the page can cross the RSC boundary", async () => {

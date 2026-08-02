@@ -175,6 +175,32 @@ describe("profile funding returns", () => {
     expect(screen.queryByText("$0")).not.toBeInTheDocument();
   });
 
+  it("words a zero-gift return as a declaration even without the nil flag", () => {
+    // The annual branch's own doctrine, applied to candidate returns: "$0 · 0
+    // donors" beside a named candidate reads as a measurement, and a return
+    // declaring nothing makes the same statement whether or not the source set
+    // the flag on it.
+    renderSection({
+      annualReturns: [],
+      candidateReturns: [candidate({ nilReturn: false, totalGiftCents: 0, donorCount: 0 })],
+    });
+
+    expect(screen.getByText("Lodged a return declaring no gifts")).toBeInTheDocument();
+    expect(screen.queryByText("$0")).not.toBeInTheDocument();
+    expect(screen.queryByText(/0 donors/)).not.toBeInTheDocument();
+  });
+
+  it("prints the name each return was lodged under, verbatim", () => {
+    // Candidate returns are linked by matching a lodged name, and a namesake has
+    // landed on the wrong member's page before. The name on the return is what
+    // makes any future misattribution visible to the reader.
+    renderSection({
+      candidateReturns: [candidate({ candidateName: "HAINES, Helen" })],
+    });
+
+    expect(screen.getByText(/Lodged as “HAINES, Helen”/)).toBeInTheDocument();
+  });
+
   it("presents election returns as linked returns, with no gap and no year axis", () => {
     renderSection({
       // One linked return only. The member stood at other elections; those are

@@ -38,6 +38,7 @@ import {
   ServiceHistory,
   SourceDocuments,
 } from "@/components/politicians/profile/sections";
+import { bailOnEmptyRender } from "~/app/actions/config";
 import { getDistinctiveHoldings } from "~/app/actions/getDistinctiveHoldings";
 import { getPoliticianFunding } from "~/app/actions/getPoliticianFunding";
 import { getPolitician } from "~/app/actions/getPoliticians";
@@ -181,6 +182,15 @@ export default async function PoliticianPage({
   ]);
   const p = data?.politician;
   if (!p) notFound();
+
+  // SILENCE IS A CLAIM ON THIS SECTION, so an outage may not be baked as one.
+  // `undefined` is the retry helper's exhausted signal — the request did not
+  // answer — and the funding section renders NOTHING in that case, which on this
+  // feature's own doctrine reads as "no return names this member". This page is
+  // cached for 24h, so a regen that caught a cold rpc would publish that absence
+  // about a named person for a day. A populated-but-empty response is a genuine
+  // answer and is left alone.
+  if (funding === undefined) bailOnEmptyRender();
 
   // Slugs are minted server-side and never derived by the client. If the request
   // used an old one, redirect to the canonical.
