@@ -40,6 +40,18 @@
 //	                                (run AFTER register-resolve — it reads the MV that resolve rebuilds)
 //	-mode register-photos           resolve portrait photographs from Wikidata/Commons (never aph.gov.au — §3.1)
 //
+// AEC FUNDING LAYER — the political donations corpus behind
+// /politicians/donations. Also EXCLUDED from -mode all, for the same reason the
+// register modes are: it downloads three bulk archives and snapshot-REPLACES
+// every aec_* table, which is an operator's decision rather than a side effect
+// of a deploy. It is a SEPARATE path from -mode aec, which only projects a
+// couple of the same CSVs into the industry-intelligence evidence feed and is
+// untouched by it. See docs/feature/politicians/donations.md.
+//
+//	-mode aec-donations   load party/receipt/donation/member/candidate returns, resolve, refresh the rollup
+//	                      -dry parses and prints counts, writing nothing
+//	                      AEC_SNAPSHOT_DIR=<dir> reads a local corpus instead of downloading
+//
 // Editorial gate: only exact-ABN or exact-normalized-name matches are ever
 // inserted into entity_asx_map (match_method='name_exact'); fuzzy matching is out
 // of scope here. See docs/influence-editorial-standards.md.
@@ -77,9 +89,10 @@ func Job() runner.Job {
 // message text, same non-zero exit, no panic-as-control-flow.
 func Run(parent context.Context, args []string) error {
 	fs := flag.NewFlagSet("influence", flag.ContinueOnError)
-	mode := fs.String("mode", "tax", "tax | match | sources | source-registry | source-probe | tax-records | emissions | austender | aec | lobbyists | trade | public-records | all | register-discover | register-fetch | register-load | register-resolve | register-freshness | register-propose-aliases | register-promote-aliases | register-index | register-photos | register-handbook")
+	mode := fs.String("mode", "tax", "tax | match | sources | source-registry | source-probe | tax-records | emissions | austender | aec | lobbyists | trade | aec-donations | public-records | all | register-discover | register-fetch | register-load | register-resolve | register-freshness | register-propose-aliases | register-promote-aliases | register-index | register-photos | register-handbook")
 	registerLimit := fs.Int("register-limit", 0, "cap documents processed per register mode (0 = no cap); the fetch queue is ordered parliament DESC so a cap lands on a parliament boundary")
 	sourceLimit := fs.Int("source-limit", defaultAusTenderResourceCap, "maximum downloadable resources per source for archive-backed collectors")
+	dry := fs.Bool("dry", false, "aec-donations: parse and report counts without writing, resolving or refreshing")
 	if err := fs.Parse(args); err != nil {
 		if err == flag.ErrHelp {
 			return runner.ErrUsage
@@ -95,7 +108,7 @@ func Run(parent context.Context, args []string) error {
 	// losing one token does it. discovery, house-prices and news already guard
 	// this way.
 	if fs.NArg() > 0 {
-		return fmt.Errorf("unexpected argument %q (influence takes only -mode, -register-limit and -source-limit)", fs.Arg(0))
+		return fmt.Errorf("unexpected argument %q (influence takes only -mode, -register-limit, -source-limit and -dry)", fs.Arg(0))
 	}
 
 	// 15-minute ceiling for the public-records collectors, same as the standalone
@@ -108,6 +121,12 @@ func Run(parent context.Context, args []string) error {
 	ceiling := 15 * time.Minute
 	if strings.HasPrefix(*mode, "register-") {
 		ceiling = 6 * time.Hour
+	}
+	// aec-downloads three archives and replaces ~209k rows; the 15-minute
+	// collector ceiling would kill a healthy run mid-load and leave the funding
+	// tables looking like a failure. Operator-run, like the register modes.
+	if *mode == "aec-donations" {
+		ceiling = 1 * time.Hour
 	}
 	ctx, cancel := context.WithTimeout(parent, ceiling)
 	defer cancel()
@@ -134,6 +153,7 @@ func Run(parent context.Context, args []string) error {
 	aec := func(ctx context.Context) error { return runAECMode(ctx, pool, *sourceLimit) }
 	lobbyists := func(ctx context.Context) error { return runLobbyistsMode(ctx, pool) }
 	trade := func(ctx context.Context) error { return runTradeMode(ctx, pool) }
+	aecDonations := func(ctx context.Context) error { return runAECDonationsMode(ctx, pool, *dry) }
 
 	switch *mode {
 	case "tax", "all":
@@ -168,6 +188,11 @@ func Run(parent context.Context, args []string) error {
 	case "public-records":
 		add(sourceRegistry, taxRecords, emissions, austender, aec, lobbyists, trade)
 
+	// --- AEC funding layer ------------------------------------------------
+	// One step, and NEVER added to "all" above.
+	case "aec-donations":
+		add(aecDonations)
+
 	// --- register of interests -------------------------------------------
 	// One step each, and NEVER added to "all" above.
 	case "register-discover":
@@ -192,7 +217,7 @@ func Run(parent context.Context, args []string) error {
 		add(func(ctx context.Context) error { return runRegisterPhotosMode(ctx, pool) })
 
 	default:
-		return fmt.Errorf("unknown -mode %q (want tax|match|sources|source-registry|source-probe|tax-records|emissions|austender|aec|lobbyists|trade|public-records|all|register-discover|register-fetch|register-load|register-resolve|register-freshness|register-propose-aliases|register-promote-aliases|register-index|register-photos|register-handbook)", *mode)
+		return fmt.Errorf("unknown -mode %q (want tax|match|sources|source-registry|source-probe|tax-records|emissions|austender|aec|lobbyists|trade|aec-donations|public-records|all|register-discover|register-fetch|register-load|register-resolve|register-freshness|register-propose-aliases|register-promote-aliases|register-index|register-photos|register-handbook)", *mode)
 	}
 
 	for _, step := range steps {

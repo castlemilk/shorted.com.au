@@ -20,12 +20,10 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
-	"encoding/csv"
 	"fmt"
 	"io"
 	"log"
 	"path"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -38,18 +36,10 @@ const (
 	// aecSource matches the "aec-transparency-register" entry already present
 	// in sources.go (signal_kind=policy_footprint, ExactEntityRequired=true).
 	aecSource              = "aec-transparency-register"
-	aecAllAnnualDataURL    = "https://transparency.aec.gov.au/Download/AllAnnualData"
-	aecDownloadPage        = "https://transparency.aec.gov.au/Download"
 	defaultAECFileCap      = 2
 	aecDonorReturnType     = "Annual donor return"
 	aecKindDonationMade    = "donation_made"
 	aecKindDetailedReceipt = "detailed_receipt"
-
-	// aecThresholdNote annotates FY2026-27+ records: disclosure rules changed
-	// with transitional rules from 1 July 2026 and a $5,000 threshold from
-	// 1 January 2027 (Electoral Legislation Amendment (Electoral Reform) Act
-	// 2025), so totals are not comparable across the boundary.
-	aecThresholdNote = "Disclosure threshold changed 1 Jul 2026: transitional rules apply from 1 July 2026 and a $5,000 disclosure threshold commences 1 January 2027 (Electoral Legislation Amendment (Electoral Reform) Act 2025). Figures are not directly comparable with earlier financial years."
 )
 
 // AECReceiptRow is one declared money-flow row from the AEC annual bulk data:
@@ -152,15 +142,6 @@ func parseAECArchive(data []byte, fileCap int) ([]AECReceiptRow, int, error) {
 		return nil, len(selected), fmt.Errorf("no AEC rows parsed")
 	}
 	return all, len(selected), nil
-}
-
-func newAECCSVReader(data []byte) *csv.Reader {
-	data = bytes.TrimPrefix(data, []byte{0xEF, 0xBB, 0xBF}) // some exports carry a UTF-8 BOM
-	reader := csv.NewReader(bytes.NewReader(data))
-	reader.FieldsPerRecord = -1
-	reader.LazyQuotes = true
-	reader.TrimLeadingSpace = true
-	return reader
 }
 
 // parseAECDonationsMadeCSV parses "Donations Made.csv":
@@ -295,54 +276,6 @@ func parseAECDetailedReceiptsCSV(data []byte, sourceURL string) ([]AECReceiptRow
 		return nil, fmt.Errorf("no AEC receipt rows parsed")
 	}
 	return out, nil
-}
-
-var aecYearStartRe = regexp.MustCompile(`(\d{4})`)
-
-// parseAECFinancialYear reads both AEC financial-year label formats
-// ("1998-1999" and "2011-12"): the first 4-digit year is the start year, and
-// the financial year ends the following calendar year.
-func parseAECFinancialYear(s string) (int, bool) {
-	m := aecYearStartRe.FindStringSubmatch(strings.TrimSpace(s))
-	if m == nil {
-		return 0, false
-	}
-	start, err := strconv.Atoi(m[1])
-	if err != nil || start < 1900 || start > 2200 {
-		return 0, false
-	}
-	return start + 1, true
-}
-
-// parseAECDate parses the strictly d/mm/yyyy transaction dates; empty cells
-// (95 rows in the current export) return nil so callers fall back to the
-// financial-year period end.
-func parseAECDate(s string) *time.Time {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return nil
-	}
-	for _, layout := range []string{"2/01/2006", "02/01/2006"} {
-		if t, err := time.ParseInLocation(layout, s, time.UTC); err == nil {
-			return &t
-		}
-	}
-	return nil
-}
-
-var (
-	aecNonAlphaNumeric = regexp.MustCompile(`[^A-Z0-9]+`)
-	aecCorporateSuffix = regexp.MustCompile(` (LIMITED|LTD|GROUP|HOLDINGS|CORPORATION|PLC|TRUST|PTY|PROPRIETARY)$`)
-)
-
-// normalizeAECEntityName is the Go port of store.go's normExpr: upper-case,
-// punctuation → single space, then strip a trailing corporate suffix TWICE
-// (so "Woodside Energy Group Ltd" → "WOODSIDE ENERGY GROUP" → "WOODSIDE ENERGY").
-func normalizeAECEntityName(s string) string {
-	s = strings.TrimSpace(aecNonAlphaNumeric.ReplaceAllString(strings.ToUpper(s), " "))
-	s = strings.TrimSpace(aecCorporateSuffix.ReplaceAllString(s, ""))
-	s = strings.TrimSpace(aecCorporateSuffix.ReplaceAllString(s, ""))
-	return s
 }
 
 // buildAECNameIndex derives an exact-normalized-name index from the ABN-keyed
