@@ -36,6 +36,7 @@ type aecResolutionCounts struct {
 	CandidateTotal             int
 	CandidateResolvedAlias     int
 	CandidateResolvedExact     int
+	CandidateResolvedSenate    int
 	CandidateWithheldNoEvent   int
 	CandidateWithheldNoSeat    int
 	CandidateWithheldNameParty int
@@ -483,6 +484,79 @@ func resolveAECDonations(ctx context.Context, tx pgx.Tx) (*aecResolutionCounts, 
 	}
 	counts.CandidateResolvedExact += int(tag.RowsAffected())
 
+	// --- 3c. SENATE candidate returns: state + surname + given name.
+	//
+	// A Senate candidate contests a STATE, not a division, so rules 3 and 3b
+	// could never touch one: `electorate_name` holds "Victoria", which matches
+	// no division, and 4,339 candidate returns withheld structurally rather than
+	// on any evidence about the person. That was correct while the politicians
+	// table was House-only and there was nothing to join to. register-senators
+	// creates the other side of the join, so the rule can now exist.
+	//
+	// IT IS THE SAME RULE AS 3, WITH ONE COLUMN SWAPPED. Every guard is carried
+	// over unchanged, because each of them stops a failure that does not care
+	// which chamber it happens in:
+	//
+	//   * given names must agree by exact token — the "Tony" / "Anthony John"
+	//     withhold, which is what stops a losing namesake from collecting a
+	//     sitting senator's money;
+	//   * the party must not CONTRADICT the term's party;
+	//   * an 'ignore' alias suppresses the row, so a curator's correction cannot
+	//     be silently re-made;
+	//   * HAVING count(DISTINCT p.id) = 1 — and this matters MORE here than in
+	//     rule 3. A division has ONE member per parliament; a state has TWELVE
+	//     senators. The state key is therefore ~12x coarser, and it is only the
+	//     surname + given-name agreement that narrows it back to one person. Any
+	//     state where two senators share a surname and an agreeing given name
+	//     withholds both, which is the intended outcome.
+	//
+	// The state is matched on the CODE column (electorate_state), with
+	// electorate_name required to be the matching full state name. Requiring
+	// both is what keeps a division that happens to share a state's name — none
+	// exists today, and a redistribution is not this rule's business — out.
+	//
+	// SENATE GROUP RETURNS STAY UNRESOLVABLE, FOREVER. return_type is filtered
+	// to 'Candidate'. A Senate Group return is lodged by a party's ticket, not
+	// by a person; attributing it to the lead candidate would put a whole
+	// ticket's money under one named individual's profile. That is a category
+	// error, not a coverage gap, and the existing test asserting those 166 rows
+	// never resolve is CORRECT and stays.
+	tag, err = tx.Exec(ctx, `
+		UPDATE aec_candidate_returns c
+		SET politician_id = m.politician_id, resolution_method = 'state_surname_given_exact'
+		FROM (
+			SELECT c.id, (array_agg(p.id))[1] AS politician_id
+			FROM aec_candidate_returns c
+			JOIN politician_terms t
+			  ON t.parliament = c.event_parliament
+			 AND t.chamber = 'senate'
+			 AND t.state_code IS NOT NULL
+			 AND upper(t.state_code) = upper(c.electorate_state)
+			 AND NOT aec_party_contradicts(c.party_name, t.party)
+			JOIN politicians p
+			  ON p.id = t.politician_id
+			 AND upper(p.surname) = upper(c.surname)
+			 AND p.merged_into_id IS NULL
+			 AND aec_given_names_agree(c.given_names, p.given_names)
+			WHERE c.politician_id IS NULL
+			  AND c.return_type = 'Candidate'
+			  AND c.event_parliament IS NOT NULL
+			  AND c.electorate_state <> '' AND c.surname <> ''
+			  AND upper(btrim(c.electorate_name)) = upper(aec_state_full_name(c.electorate_state))
+			  AND NOT EXISTS (
+				  SELECT 1 FROM aec_entity_aliases i
+				  WHERE i.alias_norm = upper(c.surname) || '|' || upper(c.given_names)
+				    AND i.target_layer = 'candidate_name'
+				    AND i.target_kind = 'ignore')
+			GROUP BY c.id
+			HAVING count(DISTINCT p.id) = 1
+		) m
+		WHERE c.id = m.id AND c.politician_id IS NULL`)
+	if err != nil {
+		return nil, fmt.Errorf("resolve senate candidate returns by state: %w", err)
+	}
+	counts.CandidateResolvedSenate = int(tag.RowsAffected())
+
 	// --- 4. Link itemised candidate donations to their summary return.
 	// Same discipline: link only when exactly one return matches, so a donation
 	// is never attached to the wrong one of two same-named candidates.
@@ -697,11 +771,11 @@ func runAECDonationsMode(ctx context.Context, pool *pgxpool.Pool, dry bool) erro
 		counts.MPResolvedAlias, counts.MPResolvedExact,
 		counts.MPTotal-counts.MPResolvedAlias-counts.MPResolvedExact,
 		counts.MPWithheldNoMatch, counts.MPWithheldAmbig, counts.MPWithheldNoGiven)
-	log.Printf("[aec-donations] candidate returns: %d total, %d resolved (%d alias, %d division+surname+given), %d withheld (%d event not mapped to a parliament, %d no term for that seat and surname, %d the seat's member is a different person by given name or party, %d ambiguous)",
+	log.Printf("[aec-donations] candidate returns: %d total, %d resolved (%d alias, %d division+surname+given, %d state+surname+given [senate]), %d withheld (%d event not mapped to a parliament, %d no term for that seat and surname, %d the seat's member is a different person by given name or party, %d ambiguous)",
 		counts.CandidateTotal,
-		counts.CandidateResolvedAlias+counts.CandidateResolvedExact,
-		counts.CandidateResolvedAlias, counts.CandidateResolvedExact,
-		counts.CandidateTotal-counts.CandidateResolvedAlias-counts.CandidateResolvedExact,
+		counts.CandidateResolvedAlias+counts.CandidateResolvedExact+counts.CandidateResolvedSenate,
+		counts.CandidateResolvedAlias, counts.CandidateResolvedExact, counts.CandidateResolvedSenate,
+		counts.CandidateTotal-counts.CandidateResolvedAlias-counts.CandidateResolvedExact-counts.CandidateResolvedSenate,
 		counts.CandidateWithheldNoEvent, counts.CandidateWithheldNoSeat,
 		counts.CandidateWithheldNameParty, counts.CandidateWithheldAmbig)
 	log.Printf("[aec-donations] candidate donations: %d linked to a return, %d unlinked",

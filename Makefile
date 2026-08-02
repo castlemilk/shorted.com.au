@@ -51,6 +51,7 @@ help:
 	@echo "  register-index-dry - Preview the politicians search index (writes nothing)"
 	@echo "  register-index     - Build + push the politicians Algolia index (creds: services/.env)"
 	@echo "  register-index-env - Show which Algolia credentials the index build can see"
+	@echo "  register-senators  - Mint senator identity from the APH Handbook (dry: register-senators-dry)"
 	@echo "  register-photos    - Resolve politician portraits from Wikidata/Commons (no creds needed)"
 	@echo "  test-integration - Run full-stack integration tests"
 	@echo "  verify-fast  - Run fast local verification without booting services"
@@ -314,6 +315,12 @@ register-photos-dry: dev-db ## Preview politician portraits from Wikidata/Common
 
 register-photos: dev-db ## Resolve politician portraits from Wikidata/Commons (no credentials needed)
 	@cd services && make register-photos
+
+register-senators-dry: dev-db ## Preview senator identity from the APH Handbook (writes nothing)
+	@cd services && make register-senators-dry
+
+register-senators: dev-db ## Mint senator identity + Senate terms from the APH Handbook
+	@cd services && make register-senators
 
 backfill-websites: dev-db ## Backfill company website URLs from metadata CSV
 	@echo "🌐 Backfilling company websites from metadata CSV..."

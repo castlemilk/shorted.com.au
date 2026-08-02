@@ -848,3 +848,215 @@ func TestResolveIgnoresMergedPoliticians(t *testing.T) {
 		t.Errorf("slug = %q, want the live row", got)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Rule 3c — the SENATE arm.
+//
+// A Senate candidate contests a STATE, so the division join could never reach
+// one and 4,339 candidate returns withheld structurally. The rule joins on
+// state instead, and it is the SAME rule otherwise: the state key is ~12x
+// coarser than a division (twelve senators to a state, one member to a
+// division), so the given-name and party guards are not decoration here, they
+// are the only thing narrowing it back to one person.
+// ---------------------------------------------------------------------------
+
+// senateTerm files a SENATE term keyed on a state rather than a division.
+func (f *aecResolveFixture) senateTerm(politicianID string, parliament int, stateCode, party string) {
+	f.t.Helper()
+	if _, err := f.tx.Exec(f.ctx, `
+		INSERT INTO politician_terms (politician_id, parliament, chamber, state_code, party)
+		VALUES ($1, $2, 'senate', $3, NULLIF($4, ''))`,
+		politicianID, parliament, stateCode, party); err != nil {
+		f.t.Fatalf("insert senate term: %v", err)
+	}
+}
+
+// senateCandidateReturn files a return whose electorate is a STATE. Both the
+// code and the full name are written, exactly as the AEC files them — the rule
+// requires the two to agree.
+func (f *aecResolveFixture) senateCandidateReturn(event string, parliament int, returnType, name, stateCode, stateName, party string) {
+	f.t.Helper()
+	given, surname := splitAECCandidateName(name)
+	if _, err := f.tx.Exec(f.ctx, `
+		INSERT INTO aec_candidate_returns (event, event_parliament, return_type, candidate_name,
+			surname, given_names, party_name, electorate_name, electorate_state, source_url)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'https://transparency.aec.gov.au/Download/AllElectionsData')`,
+		event, parliament, returnType, name, surname, given, party, stateName, stateCode); err != nil {
+		f.t.Fatalf("insert senate candidate return %q: %v", name, err)
+	}
+}
+
+func senateFixture(t *testing.T) (*aecResolveFixture, string) {
+	t.Helper()
+	f := newAECResolveFixture(t)
+	id := f.politician("Quathorne", "Matthew", "matthew-quathorne")
+	f.senateTerm(id, 48, "QLD", "The Nationals")
+	return f, id
+}
+
+func TestResolveSenateCandidateReturnByStateSurnameAndGivenName(t *testing.T) {
+	f, _ := senateFixture(t)
+	f.senateCandidateReturn("2025 Federal Election", 48, "Candidate",
+		"QUATHORNE, Matthew James", "QLD", "Queensland", "The Nationals")
+
+	counts := f.resolve()
+	if got := f.candidateSlug("QUATHORNE, Matthew James"); got != "matthew-quathorne" {
+		t.Fatalf("slug = %q, want matthew-quathorne", got)
+	}
+	if counts.CandidateResolvedSenate != 1 {
+		t.Fatalf("senate resolutions = %d, want 1", counts.CandidateResolvedSenate)
+	}
+	// It must be counted as its OWN method, not folded into the division rule's
+	// number — an operator reading "division+surname" resolutions has to be able
+	// to tell which chamber they came from.
+	if counts.CandidateResolvedExact != 0 {
+		t.Errorf("the senate rule was counted as a division resolution (%d)", counts.CandidateResolvedExact)
+	}
+	var method string
+	if err := f.tx.QueryRow(f.ctx, `
+		SELECT resolution_method FROM aec_candidate_returns WHERE candidate_name = $1`,
+		"QUATHORNE, Matthew James").Scan(&method); err != nil {
+		t.Fatal(err)
+	}
+	if method != "state_surname_given_exact" {
+		t.Errorf("resolution_method = %q", method)
+	}
+}
+
+// A SENATE GROUP return is lodged by a party's TICKET, not by a person.
+// Attributing it to the lead candidate would put a whole ticket's money under
+// one named individual's profile. This must never resolve — not as a coverage
+// gap, but as a category error.
+func TestSenateGroupReturnsNeverResolve(t *testing.T) {
+	f, _ := senateFixture(t)
+	f.senateCandidateReturn("2025 Federal Election", 48, "Senate Group",
+		"QUATHORNE, Matthew James", "QLD", "Queensland", "The Nationals")
+
+	counts := f.resolve()
+	if got := f.candidateSlug("QUATHORNE, Matthew James"); got != "" {
+		t.Fatalf("a Senate Group return resolved to %q", got)
+	}
+	if counts.CandidateResolvedSenate != 0 {
+		t.Fatalf("senate resolutions = %d, want 0", counts.CandidateResolvedSenate)
+	}
+}
+
+// The state must be the state the person held a term for. A senator for
+// Queensland does not collect a Victorian candidate's return.
+func TestSenateReturnFromAnotherStateWithholds(t *testing.T) {
+	f, _ := senateFixture(t)
+	f.senateCandidateReturn("2025 Federal Election", 48, "Candidate",
+		"QUATHORNE, Matthew James", "VIC", "Victoria", "The Nationals")
+
+	if got := f.candidateSlug("QUATHORNE, Matthew James"); got != "" {
+		t.Fatalf("a Victorian return resolved to a Queensland senator: %q", got)
+	}
+}
+
+// 'Tony' IS NOT 'Anthony'. No prefix, nickname or distance rule — the state key
+// is coarse enough that a loose name rule would collect a stranger, and the
+// curated alias table is where a diminutive becomes a human decision on the
+// record.
+func TestSenateReturnWithADiminutiveGivenNameWithholds(t *testing.T) {
+	f := newAECResolveFixture(t)
+	id := f.politician("Quathorne", "Anthony", "anthony-quathorne")
+	f.senateTerm(id, 48, "QLD", "Australian Labor Party")
+	f.senateCandidateReturn("2025 Federal Election", 48, "Candidate",
+		"QUATHORNE, Tony", "QLD", "Queensland", "Australian Labor Party")
+
+	counts := f.resolve()
+	if got := f.candidateSlug("QUATHORNE, Tony"); got != "" {
+		t.Fatalf("'Tony' resolved to Anthony: %q", got)
+	}
+	if counts.CandidateResolvedSenate != 0 {
+		t.Fatalf("senate resolutions = %d, want 0", counts.CandidateResolvedSenate)
+	}
+}
+
+// The party guard carries over unchanged. It only ever WITHHOLDS: a branch name
+// and a federal party name are never comparable as strings, so it compares
+// families and an unclassifiable label contradicts nothing.
+func TestSenateReturnFromAContradictingPartyWithholds(t *testing.T) {
+	f, _ := senateFixture(t)
+	f.senateCandidateReturn("2025 Federal Election", 48, "Candidate",
+		"QUATHORNE, Matthew James", "QLD", "Queensland", "Australian Labor Party")
+
+	if got := f.candidateSlug("QUATHORNE, Matthew James"); got != "" {
+		t.Fatalf("a Labor candidate resolved to a Nationals senator: %q", got)
+	}
+}
+
+// Twelve senators to a state means two sharing a surname is ordinary, not
+// exotic. Both withhold.
+func TestSenateReturnAmbiguousBetweenTwoSameSurnameSenatorsWithholds(t *testing.T) {
+	f := newAECResolveFixture(t)
+	a := f.politician("Quathorne", "Matthew", "matthew-quathorne-a")
+	b := f.politician("Quathorne", "Matthew", "matthew-quathorne-b")
+	f.senateTerm(a, 48, "QLD", "")
+	f.senateTerm(b, 48, "QLD", "")
+	f.senateCandidateReturn("2025 Federal Election", 48, "Candidate",
+		"QUATHORNE, Matthew", "QLD", "Queensland", "")
+
+	counts := f.resolve()
+	if got := f.candidateSlug("QUATHORNE, Matthew"); got != "" {
+		t.Fatalf("an ambiguous senate return resolved to %q", got)
+	}
+	if counts.CandidateResolvedSenate != 0 {
+		t.Fatalf("senate resolutions = %d, want 0", counts.CandidateResolvedSenate)
+	}
+}
+
+// The curated 'ignore' suppression reaches the senate rule too. A remedy that
+// works on two of three rules is not a remedy.
+func TestSenateReturnHonoursAnIgnoreAlias(t *testing.T) {
+	f, _ := senateFixture(t)
+	f.senateCandidateReturn("2025 Federal Election", 48, "Candidate",
+		"QUATHORNE, Matthew James", "QLD", "Queensland", "The Nationals")
+	f.candidateAlias("QUATHORNE", "Matthew James", "ignore", nil)
+
+	if got := f.candidateSlug("QUATHORNE, Matthew James"); got != "" {
+		t.Fatalf("resolved %q despite an ignore alias", got)
+	}
+}
+
+// A HOUSE candidate return must not reach the senate rule, and a senate term
+// must not satisfy the division rule. The two arms are keyed on different
+// columns and stay that way.
+func TestSenateRuleDoesNotTouchDivisionReturns(t *testing.T) {
+	f, _ := senateFixture(t)
+	// electorate_name is a DIVISION here, so it cannot equal the state's full
+	// name and the senate rule's own filter rejects it.
+	f.senateCandidateReturn("2025 Federal Election", 48, "Candidate",
+		"QUATHORNE, Matthew James", "QLD", "Fictionia", "The Nationals")
+
+	counts := f.resolve()
+	if got := f.candidateSlug("QUATHORNE, Matthew James"); got != "" {
+		t.Fatalf("a division return resolved through the senate rule: %q", got)
+	}
+	if counts.CandidateResolvedSenate != 0 {
+		t.Fatalf("senate resolutions = %d, want 0", counts.CandidateResolvedSenate)
+	}
+}
+
+// The senator ANNUAL returns (11 of the 52) resolve through rule 2, which needs
+// no new rule — only a politicians row to join to. Before senator identity
+// existed there was none, and every one of them withheld.
+func TestSenatorAnnualReturnResolvesOnceTheSenatorExists(t *testing.T) {
+	f := newAECResolveFixture(t)
+	id := f.politician("Quathorne", "Matthew", "matthew-quathorne")
+	f.senateTerm(id, 48, "QLD", "The Nationals")
+	if _, err := f.tx.Exec(f.ctx, `
+		INSERT INTO aec_mp_returns (financial_year, financial_year_end, return_type, chamber,
+			member_name, member_name_norm, surname, given_names, source_url)
+		VALUES ('2024-25', 2025, 'Senator Return', 'senate', $1, $2, 'Quathorne', 'Matthew',
+			'https://transparency.aec.gov.au/Download/AllAnnualData')`,
+		"Senator Matthew Quathorne",
+		normalizeAECEntityName(stripAECHonorifics("Senator Matthew Quathorne"))); err != nil {
+		t.Fatalf("insert senator return: %v", err)
+	}
+
+	f.resolve()
+	if got := f.mpSlug("Senator Matthew Quathorne"); got != "matthew-quathorne" {
+		t.Fatalf("senator return resolved to %q, want matthew-quathorne", got)
+	}
+}

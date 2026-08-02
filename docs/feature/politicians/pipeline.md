@@ -15,6 +15,8 @@ entire ATO corporate-tax corpus.
 ## Order
 
 ```
+register-senators ──────────────────────────────┐   (identity, no documents)
+                                                ▼
 register-discover ─→ register-fetch ─→ [python extract] ─→ register-load ─→ register-resolve
                                                                                  │
                                     ┌────────────────────────────────────────────┤
@@ -35,6 +37,7 @@ which `register-resolve` rebuilds. An index built first advertises stale matches
 | `register-freshness` | — | Read-only sentinel; non-zero exit on alarm |
 | `register-propose-aliases` | `register_alias_proposals` | LLM proposals. Publishes nothing; no resolver reads that table |
 | `register-promote-aliases` | `register_security_aliases` | Copies only human-`confirmed` rows |
+| `register-senators` | `politicians`, `politician_terms`, `politician_aliases` | **The only mode that MINTS people.** No document behind it |
 | `register-handbook` | `aph_phid`, `politician_profile_facts` | **Reports duplicate PHIDs; never merges** |
 | `register-photos` | `politicians.photo_*` | Wikidata/Commons. No credentials needed |
 | `register-index` | Algolia `politicians` | Needs `ALGOLIA_WRITE_KEY` |
@@ -72,6 +75,45 @@ the Handbook publishes**, never rewritten. APH is ND; no prose is adapted.
 declared history onto a named individual; detection is a machine job, disposition
 is not. The 000103 CHECK refuses a merge without a curator and evidence.
 
+### `register-senators`
+
+The same Handbook feed as `register-handbook`, doing the opposite job: that mode
+**annotates** people the crawl produced, this one **mints** them. It is the first
+thing in the subsystem to create a `politicians` row from something other than a
+lodged document, because the Senate register volumes are not loaded and every
+senator was therefore invisible to the photo job, the search index, the funding
+resolver and every read path that starts at `politicians`.
+
+Filter: `MPorSenator ∋ Senator` (a LIST — 14 people are both) **and**
+`max(RepresentedParliaments) ≥ 44`. **180 people; 171 minted, 8 matched to rows
+we already held, 1 withheld.**
+
+**The dual-chamber derivation.** `RepresentedParliaments` is flat across both
+chambers, so for those 14 it cannot say which parliaments were Senate ones. The
+dated `ElectorateService` (House) intervals are **subtracted** from the dated
+`PartyParliamentaryService` (whole career) intervals, and what survives is mapped
+back onto parliaments through the static election-day map in
+`aph_parliaments.go` (38–48, each boundary cross-checked against the Handbook's
+own House service records). Hanson → 45–48; Henderson → 46–48 (a casual vacancy
+four months into the 46th); Ananda-Rajah → 48; Joyce and Bishop → **none**, their
+Senate service is entirely below the floor.
+
+**`1900-01-01` is the Handbook's "ongoing" marker**, not a date — it sorts before
+every real date in the corpus, so parsing it inverts every interval comparison.
+An ongoing interval also comes back ending **today**, because the payload is
+generated per request; both are normalised to an open end.
+
+**Two keys, one person.** `person_key` is minted from the **formal** given name
+(`CANAVAN|MATTHEW`) while the slug and display name come from the **preferred**
+one (`matt-canavan`), and the preferred-name key is seeded into
+`politician_aliases`. `resolvePolitician` consults that table before minting, so a
+future Senate register volume writing "Matt Canavan" lands on this row instead of
+forking a second identity — the mechanism that produced the 28 published
+duplicates.
+
+Upsert precedence is **PHID → person_key → preferred key → mint**. A PHID held by
+**two** rows is a disputed identity and writes nothing at all.
+
 ### `register-photos`
 
 Wikidata P18 → Commons. 241/324. See
@@ -93,6 +135,8 @@ search hit cannot render an unattributed face.
 ## Commands
 
 ```bash
+make register-senators-dry   # preview senator identity, writes nothing
+make register-senators       # mint identity + Senate terms (no credentials)
 make register-photos-dry     # preview portraits, writes nothing
 make register-photos         # no credentials needed
 make register-index-dry      # preview the index build

@@ -118,3 +118,40 @@ func TestAECDonationsDryFlagIsPlumbed(t *testing.T) {
 		t.Error("the -dry flag is not passed to the funding ingest")
 	}
 }
+
+// register-senators is the FIRST mode in this subsystem that CREATES people,
+// so its wiring carries more weight than the others': a deploy that ran it
+// would mint identity in production without an operator. It gets its own case,
+// its own dry run (defaulting TRUE like every register mode), and no place in
+// any fan-out.
+func TestRegisterSenatorsIsWiredAndOperatorOnly(t *testing.T) {
+	src := aecJobSource(t)
+	cases := modeSwitchCases(t, src)
+
+	body, ok := cases["register-senators"]
+	if !ok {
+		t.Fatal(`-mode register-senators is not wired in job.go`)
+	}
+	if !strings.Contains(body, "runRegisterSenatorsMode") {
+		t.Errorf("the register-senators case does not run the senator ingest: %q", body)
+	}
+	// A mode nobody can discover is a mode nobody can run: the flag help and
+	// the unknown-mode error must both name it.
+	if strings.Count(src, "register-senators") < 3 {
+		t.Error("register-senators is missing from the -mode flag usage or the unknown-mode error")
+	}
+	// It shares the register modes' 6-hour ceiling rather than the collectors'
+	// 15-minute one, by virtue of its prefix.
+	if !strings.HasPrefix("register-senators", "register-") {
+		t.Error("the mode name must keep the register- prefix that selects the longer ceiling")
+	}
+
+	// And it defaults to a dry run, like every other register mode.
+	mode, err := os.ReadFile("aph_mode.go")
+	if err != nil {
+		t.Fatalf("read aph_mode.go: %v", err)
+	}
+	if !strings.Contains(string(mode), "runRegisterSenators(ctx, pool, registerDryRun())") {
+		t.Error("register-senators does not honour REGISTER_DRY_RUN, which defaults to true")
+	}
+}

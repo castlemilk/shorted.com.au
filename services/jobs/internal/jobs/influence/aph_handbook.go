@@ -51,14 +51,47 @@ type handbookIndividual struct {
 	PHID                 string   `json:"PHID"`
 	DisplayName          string   `json:"DisplayName"`
 	GivenName            string   `json:"GivenName"`
+	MiddleNames          string   `json:"MiddleNames"`
 	FamilyName           string   `json:"FamilyName"`
 	PreferredName        string   `json:"PreferredName"`
 	Electorate           string   `json:"Electorate"`
 	SenateState          string   `json:"SenateState"`
+	State                string   `json:"State"`
+	StateAbbrev          string   `json:"StateAbbrev"`
+	Party                string   `json:"Party"`
+	PartyAbbrev          string   `json:"PartyAbbrev"`
 	InCurrentParliament  string   `json:"InCurrentParliament"`
 	Occupations          []string `json:"Occupations"`
 	SecondaryOccupations []string `json:"SecondaryOccupations"`
 	Qualifications       []string `json:"Qualifications"`
+
+	// The chamber flags and the dated service records the Senate derivation
+	// needs. MPorSenator is a LIST because 14 people are both; the flat
+	// RepresentedParliaments list cannot say which parliaments belong to which
+	// chamber, which is exactly what aph_parliaments.go's subtraction recovers.
+	MPorSenator               []string                  `json:"MPorSenator"`
+	RepresentedParliaments    []int                     `json:"RepresentedParliaments"`
+	ElectorateService         []handbookElectorateTerm  `json:"ElectorateService"`
+	PartyParliamentaryService []handbookServiceInterval `json:"PartyParliamentaryService"`
+}
+
+// handbookElectorateTerm is one dated HOUSE interval — the thing that gets
+// subtracted out to leave Senate service behind.
+type handbookElectorateTerm struct {
+	Electorate   string `json:"Electorate"`
+	State        string `json:"State"`
+	ServiceStart string `json:"ServiceStart"`
+	ServiceEnd   string `json:"ServiceEnd"`
+}
+
+// handbookServiceInterval is one dated parliamentary-service interval, with the
+// dated party affiliations that ran inside it nested underneath.
+type handbookServiceInterval struct {
+	RoSType          string                    `json:"RoSType"`
+	Value            string                    `json:"Value"`
+	DateStart        string                    `json:"DateStart"`
+	DateEnd          string                    `json:"DateEnd"`
+	SecondaryService []handbookServiceInterval `json:"SecondaryService"`
 }
 
 func fetchHandbookIndividuals(ctx context.Context) ([]handbookIndividual, error) {
@@ -147,7 +180,8 @@ func matchHandbook(ours []ourPolitician, individuals []handbookIndividual) (map[
 	for _, p := range ours {
 		region := p.Division
 		if p.Chamber == "senate" {
-			region = p.StateCode
+			// SenateState is the full name; our column holds the code.
+			region = stateRegionName(p.StateCode)
 		}
 		if p.Surname == "" || region == "" {
 			missed++

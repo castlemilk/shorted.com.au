@@ -657,6 +657,32 @@ register-photos: ## Resolve politician portraits from Wikidata/Commons into the 
 	@echo "🖼️  Resolving politician portraits (Wikimedia Commons, freely licensed)..."
 	$(call register_photos_run,false)
 
+# Senator identity. The APH Handbook needs no credentials — an honest
+# User-Agent is the whole requirement — but this mode MINTS politicians rows,
+# so the dry run is the default entry point and the DATABASE_URL override
+# matters more here than anywhere else in this file: services/.env points at
+# PROD, and a stray run there mints identity in production.
+.PHONY: register-senators register-senators-dry
+
+define register_senators_run
+	@bash -c ' \
+		if [ -f .env ]; then set -a; source .env; set +a; fi; \
+		export DATABASE_URL="$(DATABASE_URL)"; \
+		export REGISTER_DRY_RUN=$(1); \
+		echo "   database: $$(echo "$$DATABASE_URL" | sed -E "s#//[^@]*@#//***@#")"; \
+		echo "   dry run:  $$REGISTER_DRY_RUN"; \
+		cd jobs && go run ./cmd/shorted influence -mode register-senators \
+	'
+endef
+
+register-senators-dry: ## Preview senator identity from the APH Handbook (writes NOTHING)
+	@echo "🔍 Previewing senator identity from the APH Parliamentary Handbook (no writes)..."
+	$(call register_senators_run,true)
+
+register-senators: ## Mint senator identity + Senate terms from the APH Handbook
+	@echo "🏛️  Minting senator identity from the APH Parliamentary Handbook..."
+	$(call register_senators_run,false)
+
 register-index-env: ## Show which Algolia credentials the index build can see (values masked)
 	@bash -c ' \
 		if [ -f .env ]; then set -a; source .env; set +a; fi; \

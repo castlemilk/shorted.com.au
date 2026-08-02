@@ -154,16 +154,27 @@ func TestFundingResponsesAlwaysCarryLicenceAndNotes(t *testing.T) {
 	}
 }
 
-// The coverage note must name the Senate limitation explicitly. Senator returns
-// exist in the corpus (11 of the 52) and resolve to nobody, because the
-// politicians table is House-only. A surface that does not say so implies the
-// absence of a senator's return is evidence about that senator.
-func TestMemberCoverageNoteStatesTheSenateLimitation(t *testing.T) {
+// The coverage note must name senator returns and state the SIZE of the corpus.
+// 11 of the 52 annual returns are senators', and a surface that does not say
+// how thin the whole layer is implies the absence of a return is evidence about
+// the person who did not lodge one.
+//
+// IT NO LONGER DEMANDS THE PHRASE "not yet linked". That phrase described a
+// real limitation — the politicians table was House-only, so no senator return
+// could resolve — and register-senators removed it. Asserting the wording of a
+// limitation that no longer holds would force the copy to keep saying something
+// untrue; the size disclosure is the part that is permanently required, so that
+// is what this asserts. The replacement copy belongs with the rest of the web
+// wave's wording.
+func TestMemberCoverageNoteStatesItsCoverage(t *testing.T) {
 	if !containsFold(aecMemberCoverageNote, "senator") {
 		t.Errorf("coverage note does not mention senator returns: %q", aecMemberCoverageNote)
 	}
-	if !containsFold(aecMemberCoverageNote, "not yet linked") {
-		t.Errorf("coverage note does not state that senator returns are unlinked: %q", aecMemberCoverageNote)
+	if !containsFold(aecMemberCoverageNote, "52") {
+		t.Errorf("coverage note does not state the size of the member layer: %q", aecMemberCoverageNote)
+	}
+	if !containsFold(aecMemberCoverageNote, "has not been shown") {
+		t.Errorf("coverage note does not say that a missing return is not evidence: %q", aecMemberCoverageNote)
 	}
 	// And the verbatim note has to say the figures are as lodged and can move.
 	if !containsFold(aecVerbatimNote, "as lodged") {

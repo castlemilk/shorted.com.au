@@ -43,7 +43,10 @@ would re-run 76–95. Apply only what you need, directly.
 1. Migrations by hand
 2. **API before web** — a new RPC 404s on prod until the API ships. The web
    degrades gracefully (verified), but sections render empty
-3. `make register-photos` / `make register-index`
+3. `make register-senators` (before the two below — it MINTS the identity they
+   read; migration `000106` must already be applied, and the run must be dry-run
+   previewed first because it creates people), then `make register-photos` /
+   `make register-index`
 4. **Revalidate**: a promote resets ISR pages to their build-time placeholder
 5. Verify the *page*, not just the API
 
