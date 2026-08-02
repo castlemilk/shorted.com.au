@@ -253,6 +253,13 @@ class Statement:
     date_is_stated: bool = False
     items: list[Item] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    # Senate volumes only: the statement's own header block, because a volume
+    # holds many senators and identity cannot come from the document manifest.
+    # Empty for House documents. VERBATIM from the form — the loader resolves,
+    # never this parser.
+    declared_surname: str = ""
+    declared_other_names: str = ""
+    declared_state: str = ""
 
 
 @dataclass
