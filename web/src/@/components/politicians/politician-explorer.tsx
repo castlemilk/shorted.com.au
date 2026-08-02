@@ -404,10 +404,15 @@ function ResultCard({ hit, active }: { hit: PoliticianHit; active: boolean }) {
             </Badge>
           ) : null}
           {!hit.has_interests ? (
-            // Coverage, not a finding. We have not read every document for the
-            // 44th and 45th parliaments, so an empty profile is our gap.
+            // Coverage, not a finding — but WHICH gap differs by chamber, and
+            // the House sentence is wrong for a senator. "Nothing matched yet in
+            // the documents read" says we read their document and found
+            // nothing; we have read NO Senate volume, so for a senator the only
+            // true statement is that the register is unread.
             <span className="text-[10px] text-muted-foreground">
-              nothing matched yet in the documents read
+              {hit.chamber === "senate"
+                ? "Senate register not read yet"
+                : "nothing matched yet in the documents read"}
             </span>
           ) : null}
           {hit.first_parliament ? (

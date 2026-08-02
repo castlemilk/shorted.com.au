@@ -34,6 +34,7 @@ import { bailOnEmptyRender } from "~/app/actions/config";
 import { pageTitle, sectionTitle, eyebrow, lede } from "@/lib/typography";
 import { partyLabel } from "@/lib/politics/party-palette";
 import { REGISTER_ITEMS } from "@/lib/politics/register-items";
+import { SENATE_REGISTER_GAP_CORPUS } from "@/lib/politics/register-coverage";
 import { registerItemIcon } from "@/lib/politics/register-item-icons";
 import { PoliticsIcon, SectionIcon } from "@/components/politicians/politics-icon";
 import { REPORT_ERROR_EMAIL } from "@/lib/report-error";
@@ -159,15 +160,24 @@ function shortDate(date?: Date): string {
 }
 
 export default async function PoliticiansPage() {
-  const [overview, explorer, mostHeld, people, analytics, table, changes] = await Promise.all([
-    getParliamentOverview(),
-    getRegisterExplorer(),
-    listPoliticianStocks(12, true),
-    listPoliticians("", "", "", "", 400, 0),
-    getPoliticianAnalytics(14, false),
-    loadPoliticianTable({ limit: HUB_TABLE_PAGE_SIZE }),
-    listRegisterChanges(8, 0),
-  ]);
+  const [overview, explorer, mostHeld, people, senators, analytics, table, changes] =
+    await Promise.all([
+      getParliamentOverview(),
+      getRegisterExplorer(),
+      listPoliticianStocks(12, true),
+      // 500, NOT 400. The identity layer minted 171 senators (495 rows against
+      // the 324 this list was sized for), and a roll that silently stops at 400
+      // drops 95 named people out of the only server-rendered index of them.
+      // 500 is the handler's own clamp ceiling.
+      listPoliticians("", "", "", "", 500, 0),
+      // ONE ROW, FOR ITS TOTAL. The chamber split is a coverage fact the hub has
+      // to state — the Senate volumes are unread — and stating it needs a count
+      // that comes from the data rather than a number typed into the copy.
+      listPoliticians("senate", "", "", "", 1, 0),
+      getPoliticianAnalytics(14, false),
+      loadPoliticianTable({ limit: HUB_TABLE_PAGE_SIZE }),
+      listRegisterChanges(8, 0),
+    ]);
 
   // The overview rpc predates the explorer rollups and does not depend on
   // migration 000104, so it stays the liveness gate: if the explorer view is
@@ -242,6 +252,11 @@ export default async function PoliticiansPage() {
     }))
     .filter((segment) => segment.count > 0)
     .sort((a, b) => b.count - a.count);
+
+  // The Senate half of the roll, from the rpc's own total rather than counted
+  // over `roll` — the roll is one page, and a count taken from it would shrink
+  // the moment the page size changed.
+  const senatorCount = senators?.total ?? 0;
 
   const roll = people?.politicians ?? [];
   const stateOptions = [...new Set(roll.map((p) => p.stateCode).filter(Boolean))].sort();
@@ -389,6 +404,32 @@ export default async function PoliticiansPage() {
               real-estate entry can list more than one address, so that figure is a floor on what
               was declared, not a tally of properties.
             </p>
+            {/*
+              THE TILE ROW SPANS TWO DIFFERENT LAYERS, AND THE SPLIT IS STATED
+              RATHER THAN QUIETLY AVERAGED.
+
+              The first tile counts the IDENTITY layer — everyone we hold a
+              person for, both chambers, which is what the roll, the search
+              index and the funding layer are all sized by. Every other tile
+              counts the REGISTER. Those two numbers used to be the same and are
+              not any more: senator identity was minted from the Parliamentary
+              Handbook while the Senate's tabled register volumes remain
+              unread, so a "parliamentarians" figure beside "entries currently
+              declared" now implies register coverage for people whose register
+              we have never opened.
+
+              The alternative was to shrink the first tile back to the register's
+              own population, which would have hidden the senators from the one
+              place the hub states its size — so the tile keeps the honest
+              denominator and this line carries the split.
+            */}
+            {senatorCount > 0 ? (
+              <p className="text-[11px] leading-relaxed text-muted-foreground">
+                The first tile counts everyone we hold an identity for, in both chambers;{" "}
+                <strong className="tabular-nums">{senatorCount}</strong> of them are senators. The
+                remaining tiles count the register. {SENATE_REGISTER_GAP_CORPUS}
+              </p>
+            ) : null}
           </section>
 
           <section className="space-y-3">
@@ -648,10 +689,20 @@ export default async function PoliticiansPage() {
 
           <section className="space-y-3">
             <h2 className={sectionTitle}>Find a parliamentarian</h2>
+            {/* "COVERED" IS THE WORD THAT HAD TO GO. On a page about the
+                register, "N members and senators covered" reads as "we hold the
+                register for N people" — untrue of 171 senators. The count is
+                the searchable roll, and the sentence now says only that. */}
             <p className="text-sm text-muted-foreground">
-              {people?.total ?? 0} members and senators covered. Search by name, electorate, or by
-              what they declare — a company or a suburb.
+              {people?.total ?? 0} members and senators are searchable here. Search by name,
+              electorate, or by what they declare — a company or a suburb.
             </p>
+            {senatorCount > 0 ? (
+              <p className="text-[11px] leading-relaxed text-muted-foreground">
+                Senators are searchable by name, state and party like everyone else.{" "}
+                {SENATE_REGISTER_GAP_CORPUS}
+              </p>
+            ) : null}
             {/*
               The explorer reads its query state from the URL, which needs
               useSearchParams — and that needs a Suspense boundary in a
@@ -755,6 +806,15 @@ export default async function PoliticiansPage() {
               profile URL in the HTML; this does. <details> keeps them in the DOM
               while collapsed — the same trick the profile page uses for suburbs.
             */}
+            {/* THE COVERAGE CONTEXT HAS TO BE REACHABLE FROM THE ROLL ITSELF.
+                Every senator's card below shows "0 listed / 0 property", which
+                is the data — but a column of zeroes with nothing beside it is
+                read as a finding about 171 named people. */}
+            {senatorCount > 0 ? (
+              <p className="text-[11px] leading-relaxed text-muted-foreground">
+                {SENATE_REGISTER_GAP_CORPUS}
+              </p>
+            ) : null}
             <details className="text-sm">
               <summary className="cursor-pointer text-muted-foreground">
                 {people?.total ?? 0} members and senators

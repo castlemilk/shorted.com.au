@@ -176,6 +176,20 @@ func TestMemberCoverageNoteStatesItsCoverage(t *testing.T) {
 	if !containsFold(aecMemberCoverageNote, "has not been shown") {
 		t.Errorf("coverage note does not say that a missing return is not evidence: %q", aecMemberCoverageNote)
 	}
+	// THE NEW LOCKED SUBSTANCE, and the reason this note was rewritten.
+	//
+	// Senator returns resolve now, so a senator's profile can carry a funding
+	// figure while its register section is empty — because the Registers of
+	// Senators' Interests have not been read into this site. A funding total
+	// standing alone under an empty register reads as everything we hold about
+	// that person; the note has to say the register is UNREAD, and that the gap
+	// is ours. Both halves are asserted by substance, never by phrasing.
+	if !containsFold(aecMemberCoverageNote, "not been read") {
+		t.Errorf("coverage note does not say the senate registers are unread: %q", aecMemberCoverageNote)
+	}
+	if !containsFold(aecMemberCoverageNote, "coverage") {
+		t.Errorf("coverage note does not name the gap as ours: %q", aecMemberCoverageNote)
+	}
 	// And the verbatim note has to say the figures are as lodged and can move.
 	if !containsFold(aecVerbatimNote, "as lodged") {
 		t.Errorf("verbatim note does not state the figures are as lodged: %q", aecVerbatimNote)

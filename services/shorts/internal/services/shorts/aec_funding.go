@@ -66,12 +66,27 @@ const (
 		"can change after a financial year closes."
 
 	// The member layer's coverage, stated wherever the member layer is
-	// implicated. The Senate sentence is the honest form of a known limitation:
-	// the politicians table is House-only, so no Senator return resolves to a
-	// member page and none is served on one.
+	// implicated.
+	//
+	// THE SENATE SENTENCE INVERTED, and it had to. It used to say senator
+	// returns were "not yet linked to profiles here", which was true while the
+	// politicians table was House-only: no senator existed to resolve a return
+	// onto. register-senators minted 180 of them, so senator returns now DO
+	// resolve and are served on senator profiles.
+	//
+	// That created a new thing a reader can misread, and it is the reason the
+	// second sentence exists: a senator's page can carry a funding return while
+	// showing no declared interests at all, because the Registers of Senators'
+	// Interests have not been read into this site. Without the sentence, a
+	// funding figure sitting alone under an empty register reads as "this is
+	// everything we found about them", which is an absence claim about a named
+	// person that the corpus cannot support.
 	aecMemberCoverageNote = "Annual member and senator returns are lodged by a small number of " +
-		"parliamentarians: the whole corpus holds 52 of them. Senator returns are not yet linked " +
-		"to profiles here. A parliamentarian with no return has not been shown to have received " +
+		"parliamentarians: the whole corpus holds 52 of them. Returns lodged by senators are " +
+		"linked to their profiles, but the Registers of Senators' Interests have not been read " +
+		"into this site yet — so a senator can appear here with a funding return and no declared " +
+		"interests beside it, which is a gap in our coverage rather than a record of what they " +
+		"declared. A parliamentarian with no return has not been shown to have received " +
 		"nothing — most never lodge one."
 
 	// The rule that makes a member funding surface honest at all.
@@ -434,10 +449,13 @@ func (s *ShortsServer) ListPartyFunding(
 // GetPoliticianFunding serves the funding returns that NAME one member.
 //
 // It never returns a party figure, and it never returns a return the ingest
-// resolver would not commit to a politician id — which includes every Senator
-// return, because the politicians table is House-only. That is a coverage fact,
-// not a bug, and coverage_note states it on every response including the empty
-// ones: a member with no returns has not been shown to have received nothing.
+// resolver would not commit to a politician id. Senator returns DO resolve now
+// (register-senators minted the identities they attach to), so a senator's
+// profile can carry funding while its register section is empty — the Senate
+// volumes are unread. coverage_note states that on every response including the
+// empty ones: a parliamentarian with no returns has not been shown to have
+// received nothing, and a senator with no declared interests has not been shown
+// to have declared none.
 func (s *ShortsServer) GetPoliticianFunding(
 	ctx context.Context,
 	req *connect.Request[shortsv1alpha1.GetPoliticianFundingRequest],

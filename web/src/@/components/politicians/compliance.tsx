@@ -18,6 +18,10 @@ import { Flag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { partyLabel } from "@/lib/politics/party-palette";
+import {
+  SENATE_ABSENCE_IS_OURS,
+  SENATE_REGISTER_UNREAD,
+} from "@/lib/politics/register-coverage";
 import { REPORT_ERROR_EMAIL } from "@/lib/report-error";
 import { registerItem } from "@/lib/politics/register-items";
 import { HOLDER_ICON, registerItemIcon } from "@/lib/politics/register-item-icons";
@@ -480,11 +484,43 @@ export function CoverageNote({
   extracted,
   partial = [],
   pending,
+  chamber,
+  hasRegisterEntries = true,
 }: {
   extracted: number[];
   partial?: number[];
   pending: number[];
+  /** 'house' | 'senate', as the register records it. */
+  chamber?: string;
+  /**
+   * Whether this profile has ANY register row behind it. Defaults true so every
+   * existing caller keeps its old behaviour; only the senate branch reads it.
+   */
+  hasRegisterEntries?: boolean;
 }) {
+  /*
+   * THE SENATE BRANCH, AND WHY IT OVERRIDES THE PARLIAMENT SENTENCES.
+   *
+   * The parliament lists below describe the HOUSE corpus: they are the
+   * parliaments whose per-member PDFs we fetched and extracted. Printing "this
+   * page covers the 46th, 47th and 48th Parliaments in full" above a senator's
+   * empty page would be exactly backwards — we have read none of the Senate's
+   * volumes for any of those parliaments, and the sentence would turn our gap
+   * into a statement that a named senator declared nothing across three
+   * parliaments.
+   *
+   * So a senator with no register rows gets the Senate sentence INSTEAD of the
+   * House coverage sentences, and it renders whether or not the House lists are
+   * complete — this branch may never return null.
+   */
+  if (chamber === "senate" && !hasRegisterEntries) {
+    return (
+      <p className="rounded-md border border-muted-foreground/20 bg-muted/30 p-2.5 text-[11px] leading-relaxed text-muted-foreground">
+        {SENATE_REGISTER_UNREAD} {SENATE_ABSENCE_IS_OURS}
+      </p>
+    );
+  }
+
   if (extracted.length === 0 && partial.length === 0 && pending.length === 0) return null;
 
   const incomplete = partial.length > 0 || pending.length > 0;
