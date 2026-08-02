@@ -184,20 +184,54 @@ private static final long serialVersionUID = 0L;
     return lastFinancialYearEnd_;
   }
 
-  public static final int LISTED_COMPANY_MATCH_COUNT_FIELD_NUMBER = 12;
-  private int listedCompanyMatchCount_ = 0;
+  public static final int MATCHED_PAYER_NAME_COUNT_FIELD_NUMBER = 12;
+  private int matchedPayerNameCount_ = 0;
   /**
    * <pre>
-   * Donors/payers matched to an ASX listing anywhere in the corpus, by exact
-   * normalised name or a curated alias. Never fuzzy.
+   * Donor/payer NAMES appearing in this corpus that resolve to an ASX listing,
+   * and the codes they resolve to (exact normalised name or curated alias,
+   * never fuzzy). These describe the corpus.
+   *
+   * They replace `listed_company_match_count`, which published the size of the
+   * matching SUBSTRATE — every listed company whose name COULD be matched — as
+   * though it were a count of companies found in the data. It read an order of
+   * magnitude high.
    * </pre>
    *
-   * <code>int32 listed_company_match_count = 12 [json_name = "listedCompanyMatchCount"];</code>
-   * @return The listedCompanyMatchCount.
+   * <code>int32 matched_payer_name_count = 12 [json_name = "matchedPayerNameCount"];</code>
+   * @return The matchedPayerNameCount.
    */
   @java.lang.Override
-  public int getListedCompanyMatchCount() {
-    return listedCompanyMatchCount_;
+  public int getMatchedPayerNameCount() {
+    return matchedPayerNameCount_;
+  }
+
+  public static final int MATCHED_PAYER_CODE_COUNT_FIELD_NUMBER = 13;
+  private int matchedPayerCodeCount_ = 0;
+  /**
+   * <code>int32 matched_payer_code_count = 13 [json_name = "matchedPayerCodeCount"];</code>
+   * @return The matchedPayerCodeCount.
+   */
+  @java.lang.Override
+  public int getMatchedPayerCodeCount() {
+    return matchedPayerCodeCount_;
+  }
+
+  public static final int MATCHABLE_COMPANY_NAME_COUNT_FIELD_NUMBER = 14;
+  private int matchableCompanyNameCount_ = 0;
+  /**
+   * <pre>
+   * How many company names the match layer can match against at all. A property
+   * of the company metadata, kept as the denominator that makes the matched
+   * figures legible, and never to be rendered as a number of donors.
+   * </pre>
+   *
+   * <code>int32 matchable_company_name_count = 14 [json_name = "matchableCompanyNameCount"];</code>
+   * @return The matchableCompanyNameCount.
+   */
+  @java.lang.Override
+  public int getMatchableCompanyNameCount() {
+    return matchableCompanyNameCount_;
   }
 
   private byte memoizedIsInitialized = -1;
@@ -247,8 +281,14 @@ private static final long serialVersionUID = 0L;
     if (lastFinancialYearEnd_ != 0) {
       output.writeInt32(11, lastFinancialYearEnd_);
     }
-    if (listedCompanyMatchCount_ != 0) {
-      output.writeInt32(12, listedCompanyMatchCount_);
+    if (matchedPayerNameCount_ != 0) {
+      output.writeInt32(12, matchedPayerNameCount_);
+    }
+    if (matchedPayerCodeCount_ != 0) {
+      output.writeInt32(13, matchedPayerCodeCount_);
+    }
+    if (matchableCompanyNameCount_ != 0) {
+      output.writeInt32(14, matchableCompanyNameCount_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -298,9 +338,17 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeInt32Size(11, lastFinancialYearEnd_);
     }
-    if (listedCompanyMatchCount_ != 0) {
+    if (matchedPayerNameCount_ != 0) {
       size += com.google.protobuf.CodedOutputStream
-        .computeInt32Size(12, listedCompanyMatchCount_);
+        .computeInt32Size(12, matchedPayerNameCount_);
+    }
+    if (matchedPayerCodeCount_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(13, matchedPayerCodeCount_);
+    }
+    if (matchableCompanyNameCount_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(14, matchableCompanyNameCount_);
     }
     return size;
   }
@@ -348,8 +396,12 @@ private static final long serialVersionUID = 0L;
         != other.getFirstFinancialYearEnd()) return false;
     if (getLastFinancialYearEnd()
         != other.getLastFinancialYearEnd()) return false;
-    if (getListedCompanyMatchCount()
-        != other.getListedCompanyMatchCount()) return false;
+    if (getMatchedPayerNameCount()
+        != other.getMatchedPayerNameCount()) return false;
+    if (getMatchedPayerCodeCount()
+        != other.getMatchedPayerCodeCount()) return false;
+    if (getMatchableCompanyNameCount()
+        != other.getMatchableCompanyNameCount()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -383,8 +435,12 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getFirstFinancialYearEnd();
     hash = (37 * hash) + LAST_FINANCIAL_YEAR_END_FIELD_NUMBER;
     hash = (53 * hash) + getLastFinancialYearEnd();
-    hash = (37 * hash) + LISTED_COMPANY_MATCH_COUNT_FIELD_NUMBER;
-    hash = (53 * hash) + getListedCompanyMatchCount();
+    hash = (37 * hash) + MATCHED_PAYER_NAME_COUNT_FIELD_NUMBER;
+    hash = (53 * hash) + getMatchedPayerNameCount();
+    hash = (37 * hash) + MATCHED_PAYER_CODE_COUNT_FIELD_NUMBER;
+    hash = (53 * hash) + getMatchedPayerCodeCount();
+    hash = (37 * hash) + MATCHABLE_COMPANY_NAME_COUNT_FIELD_NUMBER;
+    hash = (53 * hash) + getMatchableCompanyNameCount();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -533,7 +589,9 @@ private static final long serialVersionUID = 0L;
       candidateDonationCount_ = 0;
       firstFinancialYearEnd_ = 0;
       lastFinancialYearEnd_ = 0;
-      listedCompanyMatchCount_ = 0;
+      matchedPayerNameCount_ = 0;
+      matchedPayerCodeCount_ = 0;
+      matchableCompanyNameCount_ = 0;
       return this;
     }
 
@@ -601,7 +659,13 @@ private static final long serialVersionUID = 0L;
         result.lastFinancialYearEnd_ = lastFinancialYearEnd_;
       }
       if (((from_bitField0_ & 0x00000800) != 0)) {
-        result.listedCompanyMatchCount_ = listedCompanyMatchCount_;
+        result.matchedPayerNameCount_ = matchedPayerNameCount_;
+      }
+      if (((from_bitField0_ & 0x00001000) != 0)) {
+        result.matchedPayerCodeCount_ = matchedPayerCodeCount_;
+      }
+      if (((from_bitField0_ & 0x00002000) != 0)) {
+        result.matchableCompanyNameCount_ = matchableCompanyNameCount_;
       }
     }
 
@@ -650,8 +714,14 @@ private static final long serialVersionUID = 0L;
       if (other.getLastFinancialYearEnd() != 0) {
         setLastFinancialYearEnd(other.getLastFinancialYearEnd());
       }
-      if (other.getListedCompanyMatchCount() != 0) {
-        setListedCompanyMatchCount(other.getListedCompanyMatchCount());
+      if (other.getMatchedPayerNameCount() != 0) {
+        setMatchedPayerNameCount(other.getMatchedPayerNameCount());
+      }
+      if (other.getMatchedPayerCodeCount() != 0) {
+        setMatchedPayerCodeCount(other.getMatchedPayerCodeCount());
+      }
+      if (other.getMatchableCompanyNameCount() != 0) {
+        setMatchableCompanyNameCount(other.getMatchableCompanyNameCount());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -735,10 +805,20 @@ private static final long serialVersionUID = 0L;
               break;
             } // case 88
             case 96: {
-              listedCompanyMatchCount_ = input.readInt32();
+              matchedPayerNameCount_ = input.readInt32();
               bitField0_ |= 0x00000800;
               break;
             } // case 96
+            case 104: {
+              matchedPayerCodeCount_ = input.readInt32();
+              bitField0_ |= 0x00001000;
+              break;
+            } // case 104
+            case 112: {
+              matchableCompanyNameCount_ = input.readInt32();
+              bitField0_ |= 0x00002000;
+              break;
+            } // case 112
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1135,49 +1215,149 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int listedCompanyMatchCount_ ;
+    private int matchedPayerNameCount_ ;
     /**
      * <pre>
-     * Donors/payers matched to an ASX listing anywhere in the corpus, by exact
-     * normalised name or a curated alias. Never fuzzy.
+     * Donor/payer NAMES appearing in this corpus that resolve to an ASX listing,
+     * and the codes they resolve to (exact normalised name or curated alias,
+     * never fuzzy). These describe the corpus.
+     *
+     * They replace `listed_company_match_count`, which published the size of the
+     * matching SUBSTRATE — every listed company whose name COULD be matched — as
+     * though it were a count of companies found in the data. It read an order of
+     * magnitude high.
      * </pre>
      *
-     * <code>int32 listed_company_match_count = 12 [json_name = "listedCompanyMatchCount"];</code>
-     * @return The listedCompanyMatchCount.
+     * <code>int32 matched_payer_name_count = 12 [json_name = "matchedPayerNameCount"];</code>
+     * @return The matchedPayerNameCount.
      */
     @java.lang.Override
-    public int getListedCompanyMatchCount() {
-      return listedCompanyMatchCount_;
+    public int getMatchedPayerNameCount() {
+      return matchedPayerNameCount_;
     }
     /**
      * <pre>
-     * Donors/payers matched to an ASX listing anywhere in the corpus, by exact
-     * normalised name or a curated alias. Never fuzzy.
+     * Donor/payer NAMES appearing in this corpus that resolve to an ASX listing,
+     * and the codes they resolve to (exact normalised name or curated alias,
+     * never fuzzy). These describe the corpus.
+     *
+     * They replace `listed_company_match_count`, which published the size of the
+     * matching SUBSTRATE — every listed company whose name COULD be matched — as
+     * though it were a count of companies found in the data. It read an order of
+     * magnitude high.
      * </pre>
      *
-     * <code>int32 listed_company_match_count = 12 [json_name = "listedCompanyMatchCount"];</code>
-     * @param value The listedCompanyMatchCount to set.
+     * <code>int32 matched_payer_name_count = 12 [json_name = "matchedPayerNameCount"];</code>
+     * @param value The matchedPayerNameCount to set.
      * @return This builder for chaining.
      */
-    public Builder setListedCompanyMatchCount(int value) {
+    public Builder setMatchedPayerNameCount(int value) {
 
-      listedCompanyMatchCount_ = value;
+      matchedPayerNameCount_ = value;
       bitField0_ |= 0x00000800;
       onChanged();
       return this;
     }
     /**
      * <pre>
-     * Donors/payers matched to an ASX listing anywhere in the corpus, by exact
-     * normalised name or a curated alias. Never fuzzy.
+     * Donor/payer NAMES appearing in this corpus that resolve to an ASX listing,
+     * and the codes they resolve to (exact normalised name or curated alias,
+     * never fuzzy). These describe the corpus.
+     *
+     * They replace `listed_company_match_count`, which published the size of the
+     * matching SUBSTRATE — every listed company whose name COULD be matched — as
+     * though it were a count of companies found in the data. It read an order of
+     * magnitude high.
      * </pre>
      *
-     * <code>int32 listed_company_match_count = 12 [json_name = "listedCompanyMatchCount"];</code>
+     * <code>int32 matched_payer_name_count = 12 [json_name = "matchedPayerNameCount"];</code>
      * @return This builder for chaining.
      */
-    public Builder clearListedCompanyMatchCount() {
+    public Builder clearMatchedPayerNameCount() {
       bitField0_ = (bitField0_ & ~0x00000800);
-      listedCompanyMatchCount_ = 0;
+      matchedPayerNameCount_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int matchedPayerCodeCount_ ;
+    /**
+     * <code>int32 matched_payer_code_count = 13 [json_name = "matchedPayerCodeCount"];</code>
+     * @return The matchedPayerCodeCount.
+     */
+    @java.lang.Override
+    public int getMatchedPayerCodeCount() {
+      return matchedPayerCodeCount_;
+    }
+    /**
+     * <code>int32 matched_payer_code_count = 13 [json_name = "matchedPayerCodeCount"];</code>
+     * @param value The matchedPayerCodeCount to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMatchedPayerCodeCount(int value) {
+
+      matchedPayerCodeCount_ = value;
+      bitField0_ |= 0x00001000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>int32 matched_payer_code_count = 13 [json_name = "matchedPayerCodeCount"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearMatchedPayerCodeCount() {
+      bitField0_ = (bitField0_ & ~0x00001000);
+      matchedPayerCodeCount_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int matchableCompanyNameCount_ ;
+    /**
+     * <pre>
+     * How many company names the match layer can match against at all. A property
+     * of the company metadata, kept as the denominator that makes the matched
+     * figures legible, and never to be rendered as a number of donors.
+     * </pre>
+     *
+     * <code>int32 matchable_company_name_count = 14 [json_name = "matchableCompanyNameCount"];</code>
+     * @return The matchableCompanyNameCount.
+     */
+    @java.lang.Override
+    public int getMatchableCompanyNameCount() {
+      return matchableCompanyNameCount_;
+    }
+    /**
+     * <pre>
+     * How many company names the match layer can match against at all. A property
+     * of the company metadata, kept as the denominator that makes the matched
+     * figures legible, and never to be rendered as a number of donors.
+     * </pre>
+     *
+     * <code>int32 matchable_company_name_count = 14 [json_name = "matchableCompanyNameCount"];</code>
+     * @param value The matchableCompanyNameCount to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMatchableCompanyNameCount(int value) {
+
+      matchableCompanyNameCount_ = value;
+      bitField0_ |= 0x00002000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * How many company names the match layer can match against at all. A property
+     * of the company metadata, kept as the denominator that makes the matched
+     * figures legible, and never to be rendered as a number of donors.
+     * </pre>
+     *
+     * <code>int32 matchable_company_name_count = 14 [json_name = "matchableCompanyNameCount"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearMatchableCompanyNameCount() {
+      bitField0_ = (bitField0_ & ~0x00002000);
+      matchableCompanyNameCount_ = 0;
       onChanged();
       return this;
     }

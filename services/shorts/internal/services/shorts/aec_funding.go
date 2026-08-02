@@ -286,6 +286,9 @@ func (s *ShortsServer) GetDonationsOverview(
 					FinancialYear:    y.FinancialYear,
 					FinancialYearEnd: y.FinancialYearEnd,
 					PartyGroupCount:  y.PartyGroupCount,
+					// Over every group in the year, so a consumer's "and N more
+					// with listed payers" cannot be a function of the page size.
+					ListedGroupCount: y.ListedGroupCount,
 				})
 		}
 		if c := row.Corpus; c != nil {
@@ -301,7 +304,12 @@ func (s *ShortsServer) GetDonationsOverview(
 				CandidateDonationCount:       c.CandidateDonationCount,
 				FirstFinancialYearEnd:        c.FirstFinancialYearEnd,
 				LastFinancialYearEnd:         c.LastFinancialYearEnd,
-				ListedCompanyMatchCount:      c.ListedCompanyMatchCount,
+				// The matched figures describe THIS CORPUS; the substrate is
+				// published beside them under a name that says what it is,
+				// never as a count of companies found in the data.
+				MatchedPayerNameCount:     c.MatchedPayerNameCount,
+				MatchedPayerCodeCount:     c.MatchedPayerCodeCount,
+				MatchableCompanyNameCount: c.MatchableCompanyNameCount,
 			}
 		}
 		return out, nil

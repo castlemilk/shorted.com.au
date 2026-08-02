@@ -24,8 +24,11 @@ package shorts
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // AEC vocabulary. The receipt-type buckets are exhaustive over the source's own
@@ -73,6 +76,13 @@ type FinancialYearOptionRow struct {
 	FinancialYear    string
 	FinancialYearEnd int32
 	PartyGroupCount  int32
+	// Party groups in this year with at least one payer matched to an ASX
+	// listing, counted over EVERY group in the year rather than over whatever
+	// page the caller asked for. A surface that counts "groups with listed
+	// payers we did not show" from a 25-row page undercounts by construction:
+	// the Australian Democrats rank 38th on receipts and had 10 listed payers,
+	// which a page-scoped count reports as zero.
+	ListedGroupCount int32
 }
 
 // DonationsCorpusRow is what the corpus actually contains. It exists so a
@@ -90,7 +100,20 @@ type DonationsCorpusRow struct {
 	CandidateDonationCount       int32
 	FirstFinancialYearEnd        int32
 	LastFinancialYearEnd         int32
-	ListedCompanyMatchCount      int32
+
+	// Donor/payer NAMES in this corpus that resolve to an ASX listing, and the
+	// codes they resolve to. Counted over the names that actually appear in
+	// aec_receipts and aec_donations_made — 363 names → 363 codes as measured —
+	// not over the match layer's population.
+	MatchedPayerNameCount int32
+	MatchedPayerCodeCount int32
+	// The SUBSTRATE: how many company names the match layer could match against
+	// at all (4,330). This is a property of company-metadata, not of the AEC
+	// corpus, and it was previously published as `listed_company_match_count` —
+	// a matched-payer count an order of magnitude larger than any payer ever
+	// matched. It is kept only because a denominator makes the matched figure
+	// legible, and only under a name that says what it is.
+	MatchableCompanyNameCount int32
 }
 
 // DonationsOverviewRow is the funding explorer's landing payload.
@@ -235,13 +258,42 @@ func scanPartyFunding(scan func(dest ...any) error) (*PartyFundingRow, error) {
 	return &r, nil
 }
 
-// aecSnapshotAt is the ingest clock, taken from the party returns table because
-// the whole corpus is snapshot-replaced in ONE transaction — any of the tables
-// would give the same instant, and using one of them consistently means two
-// responses of one page can never disagree about when the data was taken.
+// aecSnapshotAt is the ingest clock for figures read from the BASE TABLES,
+// taken from the party returns table because the whole corpus is
+// snapshot-replaced in ONE transaction — any of the tables would give the same
+// instant, and using one of them consistently means two responses of one page
+// can never disagree about when the data was taken.
 func (s *postgresStore) aecSnapshotAt(ctx context.Context) (time.Time, error) {
 	var at *time.Time
 	if err := s.db.QueryRow(ctx, `SELECT max(snapshot_at) FROM aec_party_returns`).Scan(&at); err != nil {
+		return time.Time{}, err
+	}
+	if at == nil {
+		return time.Time{}, nil
+	}
+	return *at, nil
+}
+
+// aecRollupSnapshotAt is the clock for figures read from mv_aec_party_funding,
+// and it is DELIBERATELY A DIFFERENT CLOCK from aecSnapshotAt.
+//
+// The base tables and the rollup are only the same age when the refresh that
+// followed the load succeeded. When it did not, the base tables hold the new
+// snapshot and the MV still describes the old one — and captioning the old
+// figures with the new timestamp is the failure that made a swallowed refresh
+// error invisible. So MV-backed responses are captioned with the snapshot the
+// LAST SUCCESSFUL REFRESH rebuilt from, recorded by the refresh function itself.
+//
+// No successful refresh on record means no honest caption exists, and the zero
+// time is returned rather than borrowing the ingest's.
+func (s *postgresStore) aecRollupSnapshotAt(ctx context.Context) (time.Time, error) {
+	var at *time.Time
+	if err := s.db.QueryRow(ctx, `
+		SELECT corpus_snapshot_at FROM aec_refresh_log
+		WHERE succeeded ORDER BY refreshed_at DESC LIMIT 1`).Scan(&at); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return time.Time{}, nil
+		}
 		return time.Time{}, err
 	}
 	if at == nil {
@@ -300,7 +352,11 @@ func (s *postgresStore) GetDonationsOverview(financialYear string, limit int32) 
 		return nil, err
 	}
 	out := &DonationsOverviewRow{FinancialYear: fy}
-	if out.AsAt, err = s.aecSnapshotAt(ctx); err != nil {
+	// Every party figure on this response comes out of mv_aec_party_funding, so
+	// it is captioned with the rollup's clock, not the ingest's. The two differ
+	// exactly when a refresh failed, which is precisely when a reader must not
+	// be told the stale figures are current.
+	if out.AsAt, err = s.aecRollupSnapshotAt(ctx); err != nil {
 		return nil, err
 	}
 
@@ -327,8 +383,13 @@ func (s *postgresStore) GetDonationsOverview(financialYear string, limit int32) 
 		}
 	}
 
+	// listed_group_count is computed over EVERY group in the year, in the same
+	// statement as the group count it sits beside. A consumer counting "groups
+	// with listed payers that this page did not show" needs the population, and
+	// deriving it from the page would make the answer depend on the page size.
 	yearRows, err := s.db.Query(ctx, `
-		SELECT financial_year, financial_year_end, count(*)::INTEGER
+		SELECT financial_year, financial_year_end, count(*)::INTEGER,
+		       count(*) FILTER (WHERE listed_payer_count > 0)::INTEGER
 		FROM mv_aec_party_funding
 		GROUP BY financial_year, financial_year_end
 		ORDER BY financial_year_end DESC, financial_year DESC`)
@@ -338,7 +399,8 @@ func (s *postgresStore) GetDonationsOverview(financialYear string, limit int32) 
 	defer yearRows.Close()
 	for yearRows.Next() {
 		var y FinancialYearOptionRow
-		if err := yearRows.Scan(&y.FinancialYear, &y.FinancialYearEnd, &y.PartyGroupCount); err != nil {
+		if err := yearRows.Scan(&y.FinancialYear, &y.FinancialYearEnd, &y.PartyGroupCount,
+			&y.ListedGroupCount); err != nil {
 			return nil, err
 		}
 		out.AvailableYears = append(out.AvailableYears, &y)
@@ -365,13 +427,31 @@ func (s *postgresStore) GetDonationsOverview(financialYear string, limit int32) 
 			(SELECT count(*)::INTEGER FROM aec_candidate_donations),
 			(SELECT COALESCE(min(financial_year_end), 0)::INTEGER FROM aec_party_returns),
 			(SELECT COALESCE(max(financial_year_end), 0)::INTEGER FROM aec_party_returns),
+			-- The MATCHED figure: names that actually appear as a payer or a
+			-- donor in this corpus AND resolve to a listing. Not the size of the
+			-- layer they were matched against, which is a fact about
+			-- company-metadata and describes no donation at all.
+			(SELECT count(*)::INTEGER FROM (
+				SELECT m.name_norm FROM aec_receipts r
+				JOIN v_aec_company_name_matches m ON m.name_norm = r.received_from_norm
+				UNION
+				SELECT m.name_norm FROM aec_donations_made d
+				JOIN v_aec_company_name_matches m ON m.name_norm = d.donor_name_norm) n),
+			(SELECT count(*)::INTEGER FROM (
+				SELECT m.stock_code FROM aec_receipts r
+				JOIN v_aec_company_name_matches m ON m.name_norm = r.received_from_norm
+				UNION
+				SELECT m.stock_code FROM aec_donations_made d
+				JOIN v_aec_company_name_matches m ON m.name_norm = d.donor_name_norm) s),
+			-- The substrate, named as such.
 			(SELECT count(DISTINCT stock_code)::INTEGER FROM v_aec_company_name_matches)`).
 		Scan(&c.PartyReturnCount, &c.ReceiptCount, &c.DonationMadeCount,
 			&c.MPReturnCount, &c.MPReturnResolvedCount,
 			&c.CandidateReturnCount, &c.CandidateReturnResolvedCount,
 			&c.NilCandidateReturnCount, &c.CandidateDonationCount,
 			&c.FirstFinancialYearEnd, &c.LastFinancialYearEnd,
-			&c.ListedCompanyMatchCount); err != nil {
+			&c.MatchedPayerNameCount, &c.MatchedPayerCodeCount,
+			&c.MatchableCompanyNameCount); err != nil {
 		return nil, err
 	}
 	out.Corpus = &c
@@ -393,7 +473,14 @@ const topDonorsScopeCTE = `
 	    SELECT r.received_from, r.received_from_norm, r.receipt_type,
 	           r.amount_cents, g.party_group_key
 	    FROM aec_receipts r
-	    JOIN v_aec_party_group_names g ON g.name_norm = r.recipient_name_norm
+	    -- The branch → group map is keyed PER FINANCIAL YEAR: a party's group
+	    -- label is a property of the return it was lodged on, not of its name
+	    -- forever. Joining on the name alone rolled historical receipts under a
+	    -- later year's label. The rollup MV joins identically, which is what
+	    -- makes a payer total here reconcile to itemised_receipts_cents there.
+	    JOIN v_aec_party_group_names g
+	      ON g.name_norm = r.recipient_name_norm
+	     AND g.financial_year = r.financial_year
 	    WHERE r.financial_year = $1
 	      AND ($2 = '' OR g.party_group_key = $2)
 	),
@@ -457,7 +544,9 @@ func (s *postgresStore) loadDonorRecipients(ctx context.Context, fy, partyGroup 
 		WITH scoped AS (
 		    SELECT r.received_from_norm, r.amount_cents, g.party_group_key
 		    FROM aec_receipts r
-		    JOIN v_aec_party_group_names g ON g.name_norm = r.recipient_name_norm
+		    JOIN v_aec_party_group_names g
+		      ON g.name_norm = r.recipient_name_norm
+		     AND g.financial_year = r.financial_year
 		    WHERE r.financial_year = $1
 		      AND ($2 = '' OR g.party_group_key = $2)
 		      AND r.received_from_norm = ANY($3)
@@ -598,7 +687,12 @@ func (s *postgresStore) ListPartyFunding(partyGroup, financialYear string, limit
 
 	out := &PartyFundingDetailRow{PartyGroup: partyGroup}
 	var err error
-	if out.AsAt, err = s.aecSnapshotAt(ctx); err != nil {
+	// The headline of this response is the MV-backed series, so it takes the
+	// rollup's clock for the same reason the overview does. The payer lists
+	// beside it come from the base tables, which are never OLDER than the
+	// rollup: captioning them with the rollup's snapshot can understate their
+	// freshness but can never overstate it, and only the overstatement misleads.
+	if out.AsAt, err = s.aecRollupSnapshotAt(ctx); err != nil {
 		return nil, err
 	}
 	if partyGroup == "" {

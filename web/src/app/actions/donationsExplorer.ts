@@ -287,7 +287,7 @@ export async function loadDonationsExplorer(
           candidateDonationCount: Number(overview.corpus.candidateDonationCount ?? 0),
           firstFinancialYearEnd: Number(overview.corpus.firstFinancialYearEnd ?? 0),
           lastFinancialYearEnd: Number(overview.corpus.lastFinancialYearEnd ?? 0),
-          listedCompanyMatchCount: Number(overview.corpus.listedCompanyMatchCount ?? 0),
+          matchedPayerNameCount: Number(overview.corpus.matchedPayerNameCount ?? 0),
         }
       : undefined,
     payers: (payers?.donors ?? []).map(payerRow),

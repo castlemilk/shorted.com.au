@@ -5335,6 +5335,11 @@ type FinancialYearOption struct {
 	FinancialYear    string                 `protobuf:"bytes,1,opt,name=financial_year,json=financialYear,proto3" json:"financial_year,omitempty"`
 	FinancialYearEnd int32                  `protobuf:"varint,2,opt,name=financial_year_end,json=financialYearEnd,proto3" json:"financial_year_end,omitempty"`
 	PartyGroupCount  int32                  `protobuf:"varint,3,opt,name=party_group_count,json=partyGroupCount,proto3" json:"party_group_count,omitempty"`
+	// Party groups in this year with at least one payer matched to an ASX
+	// listing, over EVERY group in the year — not over the page of groups a
+	// response happened to carry. A surface counting groups it did not show needs
+	// the population, or its "and N more" is a function of the page size.
+	ListedGroupCount int32 `protobuf:"varint,4,opt,name=listed_group_count,json=listedGroupCount,proto3" json:"listed_group_count,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -5390,6 +5395,13 @@ func (x *FinancialYearOption) GetPartyGroupCount() int32 {
 	return 0
 }
 
+func (x *FinancialYearOption) GetListedGroupCount() int32 {
+	if x != nil {
+		return x.ListedGroupCount
+	}
+	return 0
+}
+
 // DonationsCorpusCounts is the methodology band's raw material: what the corpus
 // actually contains, so a surface can state its own boundaries instead of
 // implying completeness.
@@ -5409,11 +5421,22 @@ type DonationsCorpusCounts struct {
 	CandidateDonationCount  int32 `protobuf:"varint,9,opt,name=candidate_donation_count,json=candidateDonationCount,proto3" json:"candidate_donation_count,omitempty"`
 	FirstFinancialYearEnd   int32 `protobuf:"varint,10,opt,name=first_financial_year_end,json=firstFinancialYearEnd,proto3" json:"first_financial_year_end,omitempty"`
 	LastFinancialYearEnd    int32 `protobuf:"varint,11,opt,name=last_financial_year_end,json=lastFinancialYearEnd,proto3" json:"last_financial_year_end,omitempty"`
-	// Donors/payers matched to an ASX listing anywhere in the corpus, by exact
-	// normalised name or a curated alias. Never fuzzy.
-	ListedCompanyMatchCount int32 `protobuf:"varint,12,opt,name=listed_company_match_count,json=listedCompanyMatchCount,proto3" json:"listed_company_match_count,omitempty"`
-	unknownFields           protoimpl.UnknownFields
-	sizeCache               protoimpl.SizeCache
+	// Donor/payer NAMES appearing in this corpus that resolve to an ASX listing,
+	// and the codes they resolve to (exact normalised name or curated alias,
+	// never fuzzy). These describe the corpus.
+	//
+	// They replace `listed_company_match_count`, which published the size of the
+	// matching SUBSTRATE — every listed company whose name COULD be matched — as
+	// though it were a count of companies found in the data. It read an order of
+	// magnitude high.
+	MatchedPayerNameCount int32 `protobuf:"varint,12,opt,name=matched_payer_name_count,json=matchedPayerNameCount,proto3" json:"matched_payer_name_count,omitempty"`
+	MatchedPayerCodeCount int32 `protobuf:"varint,13,opt,name=matched_payer_code_count,json=matchedPayerCodeCount,proto3" json:"matched_payer_code_count,omitempty"`
+	// How many company names the match layer can match against at all. A property
+	// of the company metadata, kept as the denominator that makes the matched
+	// figures legible, and never to be rendered as a number of donors.
+	MatchableCompanyNameCount int32 `protobuf:"varint,14,opt,name=matchable_company_name_count,json=matchableCompanyNameCount,proto3" json:"matchable_company_name_count,omitempty"`
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
 }
 
 func (x *DonationsCorpusCounts) Reset() {
@@ -5523,9 +5546,23 @@ func (x *DonationsCorpusCounts) GetLastFinancialYearEnd() int32 {
 	return 0
 }
 
-func (x *DonationsCorpusCounts) GetListedCompanyMatchCount() int32 {
+func (x *DonationsCorpusCounts) GetMatchedPayerNameCount() int32 {
 	if x != nil {
-		return x.ListedCompanyMatchCount
+		return x.MatchedPayerNameCount
+	}
+	return 0
+}
+
+func (x *DonationsCorpusCounts) GetMatchedPayerCodeCount() int32 {
+	if x != nil {
+		return x.MatchedPayerCodeCount
+	}
+	return 0
+}
+
+func (x *DonationsCorpusCounts) GetMatchableCompanyNameCount() int32 {
+	if x != nil {
+		return x.MatchableCompanyNameCount
 	}
 	return 0
 }
@@ -7290,11 +7327,12 @@ const file_shorts_v1alpha1_politicians_proto_rawDesc = "" +
 	"\x12listed_donor_count\x18\x10 \x01(\x05R\x10listedDonorCount\x12,\n" +
 	"\x12listed_donor_cents\x18\x11 \x01(\x03R\x10listedDonorCents\x12-\n" +
 	"\x12threshold_censored\x18\x12 \x01(\bR\x11thresholdCensored\x12,\n" +
-	"\x12post_reform_scheme\x18\x13 \x01(\bR\x10postReformScheme\"\x96\x01\n" +
+	"\x12post_reform_scheme\x18\x13 \x01(\bR\x10postReformScheme\"\xc4\x01\n" +
 	"\x13FinancialYearOption\x12%\n" +
 	"\x0efinancial_year\x18\x01 \x01(\tR\rfinancialYear\x12,\n" +
 	"\x12financial_year_end\x18\x02 \x01(\x05R\x10financialYearEnd\x12*\n" +
-	"\x11party_group_count\x18\x03 \x01(\x05R\x0fpartyGroupCount\"\x9c\x05\n" +
+	"\x11party_group_count\x18\x03 \x01(\x05R\x0fpartyGroupCount\x12,\n" +
+	"\x12listed_group_count\x18\x04 \x01(\x05R\x10listedGroupCount\"\x92\x06\n" +
 	"\x15DonationsCorpusCounts\x12,\n" +
 	"\x12party_return_count\x18\x01 \x01(\x05R\x10partyReturnCount\x12#\n" +
 	"\rreceipt_count\x18\x02 \x01(\x05R\freceiptCount\x12.\n" +
@@ -7307,8 +7345,10 @@ const file_shorts_v1alpha1_politicians_proto_rawDesc = "" +
 	"\x18candidate_donation_count\x18\t \x01(\x05R\x16candidateDonationCount\x127\n" +
 	"\x18first_financial_year_end\x18\n" +
 	" \x01(\x05R\x15firstFinancialYearEnd\x125\n" +
-	"\x17last_financial_year_end\x18\v \x01(\x05R\x14lastFinancialYearEnd\x12;\n" +
-	"\x1alisted_company_match_count\x18\f \x01(\x05R\x17listedCompanyMatchCount\"Z\n" +
+	"\x17last_financial_year_end\x18\v \x01(\x05R\x14lastFinancialYearEnd\x127\n" +
+	"\x18matched_payer_name_count\x18\f \x01(\x05R\x15matchedPayerNameCount\x127\n" +
+	"\x18matched_payer_code_count\x18\r \x01(\x05R\x15matchedPayerCodeCount\x12?\n" +
+	"\x1cmatchable_company_name_count\x18\x0e \x01(\x05R\x19matchableCompanyNameCount\"Z\n" +
 	"\x1bGetDonationsOverviewRequest\x12%\n" +
 	"\x0efinancial_year\x18\x01 \x01(\tR\rfinancialYear\x12\x14\n" +
 	"\x05limit\x18\x02 \x01(\x05R\x05limit\"\xb3\x04\n" +

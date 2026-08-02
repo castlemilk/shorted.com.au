@@ -246,6 +246,43 @@ test("the alias table cannot hold a target-less curated decision", () => {
   assert.match(body, /target_kind <> 'party_group' OR party_group <> ''/);
 });
 
+// Two key formats share alias_norm: the normalised entity name and the election
+// files' 'SURNAME|GIVEN NAMES'. Without a discriminator a curator could file a
+// key in the format the layer they meant will never read, and nothing would say
+// so — the entry would simply never match.
+test("the alias table discriminates its two key spaces structurally", () => {
+  const body = tableBody("aec_entity_aliases");
+  assert.match(body, /\btarget_layer\s+TEXT NOT NULL/, "aec_entity_aliases lacks a layer discriminator");
+  assert.match(body, /target_layer IN \('entity_name', 'candidate_name'\)/);
+  assert.match(
+    body,
+    /target_layer <> 'candidate_name' OR strpos\(alias_norm, '\|'\) > 0/,
+    "a candidate-layer key must be in the SURNAME|GIVEN NAMES format",
+  );
+  assert.match(
+    body,
+    /target_layer <> 'entity_name' OR strpos\(alias_norm, '\|'\) = 0/,
+    "an entity-layer key must not be in the candidate format",
+  );
+  // And the contract must be WRITTEN DOWN where a curator will find it.
+  assert.match(
+    up,
+    /SURNAME\|GIVEN NAMES/,
+    "the candidate alias key format is undocumented in the migration",
+  );
+});
+
+test("the company match layer reads only entity-layer aliases", () => {
+  const start = upCode.indexOf("CREATE OR REPLACE VIEW v_aec_company_name_matches");
+  const body = upCode.slice(start, upCode.indexOf("COMMENT ON VIEW v_aec_company_name_matches"));
+  const layerFilters = body.match(/target_layer = 'entity_name'/g) || [];
+  assert.equal(
+    layerFilters.length,
+    2,
+    "both the curated arm and the suppression check must name the key space they read",
+  );
+});
+
 // ---------------------------------------------------------------------------
 // Duplicate source rows are real; the natural keys must accommodate them.
 // ---------------------------------------------------------------------------
@@ -311,6 +348,101 @@ test("the refresh function is aec-scoped and clears the statement timeout", () =
     upCode,
     /ALTER FUNCTION refresh_aec_donations_materialized_views\(\) SET statement_timeout TO '0'/,
   );
+});
+
+// ---------------------------------------------------------------------------
+// A failed refresh must be LOUD. Swallowed into a WARNING it let the ingest log
+// success while the rollup still described the snapshot the load had truncated,
+// and as_at — read from the freshly written base tables — captioned those stale
+// figures with the new timestamp.
+// ---------------------------------------------------------------------------
+test("the refresh reports its outcome instead of swallowing failure", () => {
+  const start = upCode.indexOf("CREATE OR REPLACE FUNCTION refresh_aec_donations_materialized_views");
+  assert.notEqual(start, -1);
+  const body = upCode.slice(start, upCode.indexOf("ALTER FUNCTION refresh_aec_donations"));
+  assert.match(body, /RETURNS BOOLEAN/i, "the refresh function returns nothing a caller can check");
+  // Exactly one handler: the concurrent attempt may fall back, and a failure of
+  // the fallback must propagate.
+  const handlers = body.match(/EXCEPTION WHEN/g) || [];
+  assert.equal(
+    handlers.length,
+    1,
+    "a second exception handler would swallow the failure of the non-concurrent fallback",
+  );
+  assert.match(body, /INSERT INTO aec_refresh_log/, "a successful refresh is not recorded");
+  assert.doesNotMatch(
+    body,
+    /RAISE WARNING 'Skipping/,
+    "the refresh still degrades a failure to a warning",
+  );
+});
+
+test("the refresh log records what the rollup was rebuilt from", () => {
+  const body = tableBody("aec_refresh_log");
+  assert.match(body, /\bsucceeded\s+BOOLEAN NOT NULL/);
+  assert.match(
+    body,
+    /\bcorpus_snapshot_at\s+TIMESTAMPTZ/,
+    "without the corpus snapshot there is no honest clock for an MV-backed figure",
+  );
+});
+
+// ---------------------------------------------------------------------------
+// The branch → group map is a property of a RETURN, not of a name for all time.
+// ---------------------------------------------------------------------------
+test("the party group map is keyed per financial year, and every consumer joins on it", () => {
+  const start = upCode.indexOf("CREATE OR REPLACE VIEW v_aec_party_group_names");
+  assert.notEqual(start, -1, "v_aec_party_group_names not found");
+  const view = upCode.slice(start, upCode.indexOf("CREATE MATERIALIZED VIEW mv_aec_party_funding"));
+  assert.match(
+    view,
+    /SELECT DISTINCT ON \(financial_year, party_name_norm\)/,
+    "one group per branch name for all years misrolls historical receipts under a later label",
+  );
+  assert.match(view, /\bfinancial_year\b/, "the view must expose the year it applies to");
+
+  // Both rollup arms must join on the year, or the fix stops at the view.
+  const mv = upCode.slice(upCode.indexOf("CREATE MATERIALIZED VIEW mv_aec_party_funding"));
+  const joins = mv.match(/JOIN v_aec_party_group_names g\s+ON g\.name_norm = \w+\.\w+\s+AND g\.financial_year = \w+\.financial_year/g) || [];
+  assert.equal(joins.length, 2, "a rollup arm joins the party group map without the financial year");
+});
+
+// ---------------------------------------------------------------------------
+// Losing a politician must DEGRADE a return, not fail. The SET NULL FK and the
+// resolution CHECK contradict each other without this.
+// ---------------------------------------------------------------------------
+test("unlinking a politician resets the resolution method in the same statement", () => {
+  assert.match(upCode, /CREATE OR REPLACE FUNCTION aec_reset_resolution_on_unlink\(\)/);
+  for (const t of ["aec_mp_returns", "aec_candidate_returns"]) {
+    assert.match(
+      upCode,
+      new RegExp(
+        `BEFORE UPDATE OF politician_id ON ${t}\\s+FOR EACH ROW EXECUTE FUNCTION aec_reset_resolution_on_unlink\\(\\)`,
+      ),
+      `${t} has no trigger to degrade a row when its politician goes away`,
+    );
+  }
+  // The CHECK stays: a method without its join is exactly the incoherence worth
+  // forbidding, and the trigger is what makes it satisfiable.
+  assert.match(
+    tableBody("aec_mp_returns"),
+    /CHECK \(\(politician_id IS NULL\) = \(resolution_method = 'unresolved'\)\)/,
+  );
+});
+
+// ---------------------------------------------------------------------------
+// The candidate rule's guards are the fix for a real misattribution, so their
+// predicates must exist and must be exact-only.
+// ---------------------------------------------------------------------------
+test("the resolution predicates match exactly and only ever withhold", () => {
+  assert.match(upCode, /CREATE OR REPLACE FUNCTION aec_given_names_agree\(a TEXT, b TEXT\)/);
+  assert.match(upCode, /CREATE OR REPLACE FUNCTION aec_party_contradicts\(a TEXT, b TEXT\)/);
+  const start = upCode.indexOf("CREATE OR REPLACE FUNCTION aec_given_names_agree");
+  const given = upCode.slice(start, upCode.indexOf("CREATE OR REPLACE FUNCTION aec_party_family"));
+  // Token equality only: no prefix, substring or distance rule may creep in.
+  assert.doesNotMatch(given, /\bsubstr|left\s*\(|starts_with|position\s*\(/i,
+    "given-name agreement must be exact token equality, never a prefix rule");
+  assert.match(given, /at\[1\] = bt\[1\]/, "the first given names must be compared exactly");
 });
 
 // ---------------------------------------------------------------------------

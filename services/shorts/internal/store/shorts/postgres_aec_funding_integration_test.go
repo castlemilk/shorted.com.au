@@ -101,14 +101,145 @@ func TestDonationsOverviewPartyTotalsMatchTheRawReturns(t *testing.T) {
 	if c == nil {
 		t.Fatal("corpus counts are required: a surface must be able to state its own boundaries")
 	}
-	t.Logf("corpus: party_returns=%d receipts=%d donations_made=%d mp_returns=%d (%d resolved) candidate_returns=%d (%d resolved, %d nil) candidate_donations=%d listed_matches=%d FY%d-FY%d",
+	t.Logf("corpus: party_returns=%d receipts=%d donations_made=%d mp_returns=%d (%d resolved) candidate_returns=%d (%d resolved, %d nil) candidate_donations=%d matched_payer_names=%d FY%d-FY%d",
 		c.PartyReturnCount, c.ReceiptCount, c.DonationMadeCount,
 		c.MPReturnCount, c.MPReturnResolvedCount,
 		c.CandidateReturnCount, c.CandidateReturnResolvedCount, c.NilCandidateReturnCount,
-		c.CandidateDonationCount, c.ListedCompanyMatchCount,
+		c.CandidateDonationCount, c.MatchedPayerNameCount,
 		c.FirstFinancialYearEnd, c.LastFinancialYearEnd)
 	if c.MPReturnResolvedCount > c.MPReturnCount || c.CandidateReturnResolvedCount > c.CandidateReturnCount {
 		t.Error("more returns resolved than exist")
+	}
+}
+
+// The matched-payer counters must describe THE CORPUS, not the layer the corpus
+// was matched against. The first cut published the substrate — every listed
+// company whose name could conceivably be matched — as a matched count, which
+// read an order of magnitude high and would have been rendered as "N listed
+// companies appear in the data".
+func TestDonationsCorpusPublishesMatchedPayersNotTheMatchSubstrate(t *testing.T) {
+	store, cleanup, ctx := openAECFundingDB(t)
+	defer cleanup()
+
+	overview, err := store.GetDonationsOverview("", 25)
+	if err != nil {
+		t.Fatalf("GetDonationsOverview: %v", err)
+	}
+	c := overview.Corpus
+	if c == nil {
+		t.Fatal("corpus counts are required")
+	}
+
+	// Measured from the raw tables, not copied from the store.
+	var names, codes, substrate int32
+	if err := store.db.QueryRow(ctx, `
+		SELECT
+			(SELECT count(*)::INTEGER FROM (
+				SELECT m.name_norm FROM aec_receipts r
+				JOIN v_aec_company_name_matches m ON m.name_norm = r.received_from_norm
+				UNION
+				SELECT m.name_norm FROM aec_donations_made d
+				JOIN v_aec_company_name_matches m ON m.name_norm = d.donor_name_norm) n),
+			(SELECT count(*)::INTEGER FROM (
+				SELECT m.stock_code FROM aec_receipts r
+				JOIN v_aec_company_name_matches m ON m.name_norm = r.received_from_norm
+				UNION
+				SELECT m.stock_code FROM aec_donations_made d
+				JOIN v_aec_company_name_matches m ON m.name_norm = d.donor_name_norm) s),
+			(SELECT count(DISTINCT stock_code)::INTEGER FROM v_aec_company_name_matches)`).
+		Scan(&names, &codes, &substrate); err != nil {
+		t.Fatalf("measure matched payers: %v", err)
+	}
+	t.Logf("matched payer names=%d codes=%d against a substrate of %d company names",
+		names, codes, substrate)
+
+	if c.MatchedPayerNameCount != names {
+		t.Errorf("matched_payer_name_count = %d, corpus holds %d", c.MatchedPayerNameCount, names)
+	}
+	if c.MatchedPayerCodeCount != codes {
+		t.Errorf("matched_payer_code_count = %d, corpus holds %d", c.MatchedPayerCodeCount, codes)
+	}
+	if c.MatchableCompanyNameCount != substrate {
+		t.Errorf("matchable_company_name_count = %d, the match layer holds %d",
+			c.MatchableCompanyNameCount, substrate)
+	}
+	// The property that made the old field a lie: the substrate is much larger
+	// than anything the corpus matched, so publishing it as a matched count
+	// overstates the company presence in the data.
+	if names > 0 && c.MatchedPayerNameCount == c.MatchableCompanyNameCount {
+		t.Error("the matched count equals the substrate; one of them is not measuring what it says")
+	}
+}
+
+// listed_group_count must be a property of the YEAR, not of the page. The
+// explorer renders a top-N of party groups and tells a reader how many groups
+// with listed payers it did not show; computing that from the page would report
+// zero for the Australian Democrats, who rank 38th on receipts and had ten.
+func TestFinancialYearOptionsCountListedGroupsOverTheWholeYear(t *testing.T) {
+	store, cleanup, ctx := openAECFundingDB(t)
+	defer cleanup()
+
+	// A deliberately tiny page: the year counts must not move with it.
+	overview, err := store.GetDonationsOverview("", 1)
+	if err != nil {
+		t.Fatalf("GetDonationsOverview: %v", err)
+	}
+	if len(overview.AvailableYears) == 0 {
+		t.Skip("no financial years in this corpus")
+	}
+	for _, y := range overview.AvailableYears {
+		var groups, listed int32
+		if err := store.db.QueryRow(ctx, `
+			SELECT count(*)::INTEGER, count(*) FILTER (WHERE listed_payer_count > 0)::INTEGER
+			FROM mv_aec_party_funding WHERE financial_year = $1`, y.FinancialYear).
+			Scan(&groups, &listed); err != nil {
+			t.Fatalf("measure %s: %v", y.FinancialYear, err)
+		}
+		if y.PartyGroupCount != groups {
+			t.Errorf("%s party_group_count = %d, year holds %d", y.FinancialYear, y.PartyGroupCount, groups)
+		}
+		if y.ListedGroupCount != listed {
+			t.Errorf("%s listed_group_count = %d, year holds %d", y.FinancialYear, y.ListedGroupCount, listed)
+		}
+		if y.ListedGroupCount > y.PartyGroupCount {
+			t.Errorf("%s counts more groups with listed payers than groups", y.FinancialYear)
+		}
+	}
+}
+
+// The rollup's caption must come from the rollup's own clock. If as_at were read
+// from the base tables, a failed refresh would put a fresh timestamp on the
+// figures of the snapshot the load replaced.
+func TestDonationsOverviewAsAtComesFromTheLastSuccessfulRefresh(t *testing.T) {
+	store, cleanup, ctx := openAECFundingDB(t)
+	defer cleanup()
+
+	var logged *string
+	if err := store.db.QueryRow(ctx, `
+		SELECT to_char(corpus_snapshot_at, 'YYYY-MM-DD"T"HH24:MI:SS.USOF')
+		FROM aec_refresh_log WHERE succeeded ORDER BY refreshed_at DESC LIMIT 1`).Scan(&logged); err != nil {
+		t.Skipf("no successful refresh recorded in this database: %v", err)
+	}
+	overview, err := store.GetDonationsOverview("", 1)
+	if err != nil {
+		t.Fatalf("GetDonationsOverview: %v", err)
+	}
+	if logged == nil {
+		if !overview.AsAt.IsZero() {
+			t.Error("as_at is set from a refresh that recorded no corpus snapshot")
+		}
+		return
+	}
+	var matches bool
+	if err := store.db.QueryRow(ctx, `
+		SELECT (SELECT corpus_snapshot_at FROM aec_refresh_log
+		        WHERE succeeded ORDER BY refreshed_at DESC LIMIT 1) = $1::timestamptz`,
+		overview.AsAt).Scan(&matches); err != nil {
+		t.Fatalf("compare as_at: %v", err)
+	}
+	if !matches {
+		t.Errorf("as_at %s is not the snapshot the rollup was last rebuilt from (%s)",
+			overview.AsAt, *logged)
 	}
 }
 

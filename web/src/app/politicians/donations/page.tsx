@@ -161,8 +161,8 @@ export default async function DonationsPage() {
                   {formatCount(corpus.candidateReturnResolvedCount)}
                 </span>{" "}
                 linked election returns.{" "}
-                <span className="tabular-nums">{formatCount(corpus.listedCompanyMatchCount)}</span>{" "}
-                payers or donors across the corpus match an ASX listing by exact name or a
+                <span className="tabular-nums">{formatCount(corpus.matchedPayerNameCount)}</span>{" "}
+                payer or donor names across the corpus match an ASX listing by exact name or a
                 human-verified alias.
               </p>
             ) : null}

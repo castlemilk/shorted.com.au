@@ -107,7 +107,7 @@ function overview(overrides: Record<string, unknown> = {}) {
       candidateDonationCount: 900,
       firstFinancialYearEnd: 1999,
       lastFinancialYearEnd: 2025,
-      listedCompanyMatchCount: 185,
+      matchedPayerNameCount: 185,
     },
     censoringNote: "SERVED CENSORING NOTE.",
     reformNote: "SERVED REFORM NOTE.",

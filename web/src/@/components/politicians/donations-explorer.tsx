@@ -137,7 +137,10 @@ export interface DonationsCorpusRow {
   candidateDonationCount: number;
   firstFinancialYearEnd: number;
   lastFinancialYearEnd: number;
-  listedCompanyMatchCount: number;
+  // Payer/donor NAMES in the corpus that resolve to an ASX listing. NOT the
+  // number of company names the matcher could match against — that substrate is
+  // an order of magnitude larger and describes no donation.
+  matchedPayerNameCount: number;
 }
 
 /** Every mandatory note, exactly as the API served it. Never paraphrased. */

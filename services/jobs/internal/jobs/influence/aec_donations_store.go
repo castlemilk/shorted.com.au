@@ -33,12 +33,13 @@ type aecResolutionCounts struct {
 	MPWithheldAmbig   int
 	MPWithheldNoGiven int
 
-	CandidateTotal           int
-	CandidateResolvedAlias   int
-	CandidateResolvedExact   int
-	CandidateWithheldNoEvent int
-	CandidateWithheldNoSeat  int
-	CandidateWithheldAmbig   int
+	CandidateTotal             int
+	CandidateResolvedAlias     int
+	CandidateResolvedExact     int
+	CandidateWithheldNoEvent   int
+	CandidateWithheldNoSeat    int
+	CandidateWithheldNameParty int
+	CandidateWithheldAmbig     int
 
 	DonationsLinked   int
 	DonationsUnlinked int
@@ -307,11 +308,19 @@ func resolveAECDonations(ctx context.Context, tx pgx.Tx) (*aecResolutionCounts, 
 	}
 
 	// --- 1. Curated aliases, for both member layers. ------------------------
+	//
+	// The two layers are keyed in DIFFERENT formats — an MP return by its
+	// normalised member name, a candidate return by 'SURNAME|GIVEN NAMES' — and
+	// each pass names the layer it reads. Before target_layer existed, a curator
+	// filing a key in the wrong format wrote a row that could never match and
+	// never said so; now the table's CHECKs reject it at entry and these filters
+	// make the intended layer explicit at read.
 	tag, err := tx.Exec(ctx, `
 		UPDATE aec_mp_returns r
 		SET politician_id = a.politician_id, resolution_method = 'curated_alias'
 		FROM aec_entity_aliases a
 		WHERE a.target_kind = 'politician'
+		  AND a.target_layer = 'entity_name'
 		  AND a.alias_norm = r.member_name_norm
 		  AND r.politician_id IS NULL`)
 	if err != nil {
@@ -324,6 +333,7 @@ func resolveAECDonations(ctx context.Context, tx pgx.Tx) (*aecResolutionCounts, 
 		SET politician_id = a.politician_id, resolution_method = 'curated_alias'
 		FROM aec_entity_aliases a
 		WHERE a.target_kind = 'politician'
+		  AND a.target_layer = 'candidate_name'
 		  AND a.alias_norm = upper(c.surname) || '|' || upper(c.given_names)
 		  AND c.politician_id IS NULL`)
 	if err != nil {
@@ -349,7 +359,9 @@ func resolveAECDonations(ctx context.Context, tx pgx.Tx) (*aecResolutionCounts, 
 			  AND p.merged_into_id IS NULL
 			  AND NOT EXISTS (
 				  SELECT 1 FROM aec_entity_aliases i
-				  WHERE i.alias_norm = r.member_name_norm AND i.target_kind = 'ignore')
+				  WHERE i.alias_norm = r.member_name_norm
+				    AND i.target_layer = 'entity_name'
+				    AND i.target_kind = 'ignore')
 			GROUP BY r.id
 			HAVING count(DISTINCT p.id) = 1
 		) m
@@ -359,17 +371,38 @@ func resolveAECDonations(ctx context.Context, tx pgx.Tx) (*aecResolutionCounts, 
 	}
 	counts.MPResolvedExact = int(tag.RowsAffected())
 
-	// --- 3. Candidate returns: division + surname within the parliament the
-	// event elected, optionally narrowed by party.
+	// --- 3. Candidate returns: division + surname + GIVEN NAME within the
+	// parliament the event elected, and never against a contradicting party.
 	//
-	// A division has one member per parliament, so this rule resolves the
-	// candidates who WON and withholds everyone else. That is the intended
-	// semantic: we can only name a candidate we independently hold a term for.
+	// A division has one member per parliament, so the division+surname join
+	// resolves the candidates who WON and withholds everyone else. That much was
+	// the intended semantic. What it MISSED is that a LOSING candidate who shares
+	// the winner's surname also satisfies it: 'RISHWORTH, James Philip' (Liberal,
+	// Kingston 2025) resolved to Amanda Rishworth (ALP), and 'LE, Nguyen-Tu'
+	// (ALP, Fowler 2025) resolved to Dai Le (IND). Both are the cardinal sin —
+	// another person's declared money attributed to a named living person — and
+	// both were live in the corpus.
+	//
+	// So the rule now demands two more agreements, each of which independently
+	// rejects both of those rows:
+	//
+	//   * GIVEN NAMES must agree by exact token (aec_given_names_agree). No
+	//     prefix, nickname or distance rule: 'Tony' does not match 'Anthony
+	//     John', and that return withholds rather than being matched by a rule
+	//     loose enough to also match a namesake. The curated alias table is where
+	//     a diminutive is resolved, because that is a human decision on the
+	//     record.
+	//   * The candidate's party must not CONTRADICT the party of the term
+	//     (aec_party_contradicts). Branch names and federal party names are never
+	//     comparable as strings, so this compares FAMILIES and only ever
+	//     withholds — it never makes a match. An unclassifiable label contradicts
+	//     nothing.
+	//
 	// Senate Group returns carry a STATE in electorate_name and match no
-	// division, so they withhold without a special case.
+	// division, so they still withhold without a special case.
 	tag, err = tx.Exec(ctx, `
 		UPDATE aec_candidate_returns c
-		SET politician_id = m.politician_id, resolution_method = 'division_surname_exact'
+		SET politician_id = m.politician_id, resolution_method = 'division_surname_given_exact'
 		FROM (
 			SELECT c.id, (array_agg(p.id))[1] AS politician_id
 			FROM aec_candidate_returns c
@@ -377,16 +410,19 @@ func resolveAECDonations(ctx context.Context, tx pgx.Tx) (*aecResolutionCounts, 
 			  ON t.parliament = c.event_parliament
 			 AND t.division IS NOT NULL
 			 AND upper(t.division) = upper(c.electorate_name)
+			 AND NOT aec_party_contradicts(c.party_name, t.party)
 			JOIN politicians p
 			  ON p.id = t.politician_id
 			 AND upper(p.surname) = upper(c.surname)
 			 AND p.merged_into_id IS NULL
+			 AND aec_given_names_agree(c.given_names, p.given_names)
 			WHERE c.politician_id IS NULL
 			  AND c.event_parliament IS NOT NULL
 			  AND c.electorate_name <> '' AND c.surname <> ''
 			  AND NOT EXISTS (
 				  SELECT 1 FROM aec_entity_aliases i
 				  WHERE i.alias_norm = upper(c.surname) || '|' || upper(c.given_names)
+				    AND i.target_layer = 'candidate_name'
 				    AND i.target_kind = 'ignore')
 			GROUP BY c.id
 			HAVING count(DISTINCT p.id) = 1
@@ -406,9 +442,16 @@ func resolveAECDonations(ctx context.Context, tx pgx.Tx) (*aecResolutionCounts, 
 	// Branch)") while politician_terms records the federal party, so a prefix
 	// match would be a fuzzy match wearing a disguise, and inexactness here
 	// costs a misattribution.
+	//
+	// It carries rule 3's GUARDS, not just its shape. This pass used to skip the
+	// 'ignore' suppression that rule 3 honours, which made the curated table a
+	// remedy that silently failed on exactly the rows it was written for — a
+	// curator suppressing a wrong match would have watched 3b re-make it. Given
+	// names are required here for the same reason: a tiebreaker that resolves
+	// what the primary rule refused to is not a tiebreaker, it is a bypass.
 	tag, err = tx.Exec(ctx, `
 		UPDATE aec_candidate_returns c
-		SET politician_id = m.politician_id, resolution_method = 'division_surname_exact'
+		SET politician_id = m.politician_id, resolution_method = 'division_surname_given_exact'
 		FROM (
 			SELECT c.id, (array_agg(p.id))[1] AS politician_id
 			FROM aec_candidate_returns c
@@ -422,9 +465,15 @@ func resolveAECDonations(ctx context.Context, tx pgx.Tx) (*aecResolutionCounts, 
 			  ON p.id = t.politician_id
 			 AND upper(p.surname) = upper(c.surname)
 			 AND p.merged_into_id IS NULL
+			 AND aec_given_names_agree(c.given_names, p.given_names)
 			WHERE c.politician_id IS NULL
 			  AND c.event_parliament IS NOT NULL
 			  AND c.electorate_name <> '' AND c.surname <> '' AND c.party_name <> ''
+			  AND NOT EXISTS (
+				  SELECT 1 FROM aec_entity_aliases i
+				  WHERE i.alias_norm = upper(c.surname) || '|' || upper(c.given_names)
+				    AND i.target_layer = 'candidate_name'
+				    AND i.target_kind = 'ignore')
 			GROUP BY c.id
 			HAVING count(DISTINCT p.id) = 1
 		) m
@@ -490,11 +539,18 @@ func countAECWithheld(ctx context.Context, tx pgx.Tx, counts *aecResolutionCount
 		return fmt.Errorf("count withheld mp returns: %w", err)
 	}
 
+	// The candidate reasons are counted in the SAME ORDER the rule applies them,
+	// so "no term for that seat and surname" and "the seat's member is a
+	// different person" are never conflated. The second is the interesting
+	// number: it is the losing-namesake population the given-name and party
+	// guards now withhold, and it must be visible or the guards look like a
+	// resolver that quietly stopped matching.
 	err = tx.QueryRow(ctx, `
 		SELECT
 			count(*) FILTER (WHERE event_parliament IS NULL),
-			count(*) FILTER (WHERE event_parliament IS NOT NULL AND holders = 0),
-			count(*) FILTER (WHERE event_parliament IS NOT NULL AND holders > 1)
+			count(*) FILTER (WHERE event_parliament IS NOT NULL AND surname_holders = 0),
+			count(*) FILTER (WHERE event_parliament IS NOT NULL AND surname_holders > 0 AND agreeing = 0),
+			count(*) FILTER (WHERE event_parliament IS NOT NULL AND agreeing > 1)
 		FROM (
 			SELECT c.event_parliament,
 			       (SELECT count(DISTINCT p.id)
@@ -503,10 +559,20 @@ func countAECWithheld(ctx context.Context, tx pgx.Tx, counts *aecResolutionCount
 			        WHERE t.parliament = c.event_parliament
 			          AND t.division IS NOT NULL
 			          AND upper(t.division) = upper(c.electorate_name)
-			          AND upper(p.surname) = upper(c.surname)) AS holders
+			          AND upper(p.surname) = upper(c.surname)) AS surname_holders,
+			       (SELECT count(DISTINCT p.id)
+			        FROM politician_terms t
+			        JOIN politicians p ON p.id = t.politician_id AND p.merged_into_id IS NULL
+			        WHERE t.parliament = c.event_parliament
+			          AND t.division IS NOT NULL
+			          AND upper(t.division) = upper(c.electorate_name)
+			          AND upper(p.surname) = upper(c.surname)
+			          AND aec_given_names_agree(c.given_names, p.given_names)
+			          AND NOT aec_party_contradicts(c.party_name, t.party)) AS agreeing
 			FROM aec_candidate_returns c
 			WHERE c.politician_id IS NULL
-		) x`).Scan(&counts.CandidateWithheldNoEvent, &counts.CandidateWithheldNoSeat, &counts.CandidateWithheldAmbig)
+		) x`).Scan(&counts.CandidateWithheldNoEvent, &counts.CandidateWithheldNoSeat,
+		&counts.CandidateWithheldNameParty, &counts.CandidateWithheldAmbig)
 	if err != nil {
 		return fmt.Errorf("count withheld candidate returns: %w", err)
 	}
@@ -516,11 +582,36 @@ func countAECWithheld(ctx context.Context, tx pgx.Tx, counts *aecResolutionCount
 // refreshAECDonationsViews rebuilds the party funding rollup. It runs OUTSIDE
 // the load transaction because REFRESH MATERIALIZED VIEW CONCURRENTLY cannot
 // run inside a transaction block.
+//
+// IT FAILS LOUDLY. The refresh function used to catch every error into a
+// WARNING, so this call could not fail: the mode logged a successful run while
+// mv_aec_party_funding still described the snapshot the load had just
+// TRUNCATEd, and the explorer captioned those stale figures with the new
+// snapshot's timestamp. The function now returns a boolean and lets a failed
+// fallback propagate; a failure is recorded in aec_refresh_log (best effort —
+// the failure itself is what the caller acts on) and returned.
 func refreshAECDonationsViews(ctx context.Context, pool *pgxpool.Pool) error {
-	if _, err := pool.Exec(ctx, `SELECT refresh_aec_donations_materialized_views()`); err != nil {
+	var refreshed bool
+	if err := pool.QueryRow(ctx, `SELECT refresh_aec_donations_materialized_views()`).Scan(&refreshed); err != nil {
+		recordAECRefreshFailure(ctx, pool, err.Error())
 		return fmt.Errorf("refresh aec materialized views: %w", err)
 	}
+	if !refreshed {
+		recordAECRefreshFailure(ctx, pool, "refresh function reported failure")
+		return fmt.Errorf("refresh aec materialized views: the refresh function reported failure; mv_aec_party_funding still describes the previous snapshot")
+	}
 	return nil
+}
+
+// recordAECRefreshFailure leaves the failed attempt in the log beside the
+// successes. Without it the log would only ever show refreshes that worked,
+// which is the same lie in a different table.
+func recordAECRefreshFailure(ctx context.Context, pool *pgxpool.Pool, detail string) {
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO aec_refresh_log (succeeded, method, detail)
+		VALUES (FALSE, 'failed', $1)`, detail); err != nil {
+		log.Printf("[aec-donations] could not record the refresh failure: %v", err)
+	}
 }
 
 // aecCompanyMatchCounts reports how many donors and payers resolve to a listed
@@ -606,12 +697,13 @@ func runAECDonationsMode(ctx context.Context, pool *pgxpool.Pool, dry bool) erro
 		counts.MPResolvedAlias, counts.MPResolvedExact,
 		counts.MPTotal-counts.MPResolvedAlias-counts.MPResolvedExact,
 		counts.MPWithheldNoMatch, counts.MPWithheldAmbig, counts.MPWithheldNoGiven)
-	log.Printf("[aec-donations] candidate returns: %d total, %d resolved (%d alias, %d division+surname), %d withheld (%d event not mapped to a parliament, %d no term for that seat and surname, %d ambiguous)",
+	log.Printf("[aec-donations] candidate returns: %d total, %d resolved (%d alias, %d division+surname+given), %d withheld (%d event not mapped to a parliament, %d no term for that seat and surname, %d the seat's member is a different person by given name or party, %d ambiguous)",
 		counts.CandidateTotal,
 		counts.CandidateResolvedAlias+counts.CandidateResolvedExact,
 		counts.CandidateResolvedAlias, counts.CandidateResolvedExact,
 		counts.CandidateTotal-counts.CandidateResolvedAlias-counts.CandidateResolvedExact,
-		counts.CandidateWithheldNoEvent, counts.CandidateWithheldNoSeat, counts.CandidateWithheldAmbig)
+		counts.CandidateWithheldNoEvent, counts.CandidateWithheldNoSeat,
+		counts.CandidateWithheldNameParty, counts.CandidateWithheldAmbig)
 	log.Printf("[aec-donations] candidate donations: %d linked to a return, %d unlinked",
 		counts.DonationsLinked, counts.DonationsUnlinked)
 

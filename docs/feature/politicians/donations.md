@@ -94,20 +94,70 @@ register migrations and must stay untouched. All tables carry
 - `aec_candidate_donations` — election event, candidate name verbatim, donor,
   date, amount_cents, `candidate_return` linkage.
 - `aec_entity_aliases` — the single curated control surface (mirrors
-  `register_security_aliases`): normalised name → {company stock_code |
-  politician_id | party group | ignore}, curated_by/at, note. The resolvers
-  read this FIRST, then exact rules, never fuzzy.
+  `register_security_aliases`): key → {company stock_code | politician_id |
+  party group | ignore}, curated_by/at, note. The resolvers read this FIRST,
+  then exact rules, never fuzzy. **Two key spaces share the table and
+  `target_layer` says which one a row is in**, enforced by CHECK so a curator
+  cannot file a key in a format the layer they meant will never read:
+  - `target_layer='entity_name'` — `alias_norm` is `normalizeAECEntityName(x)`
+    (upper-cased, punctuation collapsed, corporate suffix stripped twice). This
+    is the key for company donors/payers, party branches and MP-return member
+    names (`ANTONIO ZAPPIA`). Must NOT contain a pipe.
+  - `target_layer='candidate_name'` — `alias_norm` is the election files'
+    `SURNAME|GIVEN NAMES` key, upper-cased, exactly as `SURNAME, Given Names`
+    splits (`RISHWORTH|JAMES PHILIP`). Must contain the pipe, and only
+    `politician`/`ignore` rows may use it.
 - `mv_aec_party_funding` — party group × FY rollups (receipts, donations,
-  donor counts, listed-company donor counts/amounts) for the explorer.
+  donor counts, listed-company donor counts/amounts) for the explorer. Receipts
+  and donations reach a group through `v_aec_party_group_names`, which is keyed
+  **(financial_year, party_name_norm)**: Party Group is a property of a lodged
+  return, not of a branch name for all time, and a name-only map rolled $7.6m of
+  historical receipts under a later year's label and invented 20 group/year rows
+  that lodged no return at all.
+- `aec_refresh_log` — one row per attempted rollup refresh, carrying the corpus
+  snapshot the MV was rebuilt from. The refresh function returns a boolean, the
+  ingest fails on a false or an error, and **`GetDonationsOverview`'s `as_at`
+  comes from this log**, not from the base tables: those two clocks differ
+  exactly when a refresh failed, which is when a reader must not be told the
+  stale figures are current.
 - Company matching table/view: normalised-name exact join to
   `company-metadata` excluding the 82 ambiguous names, plus curated aliases.
+  The overview publishes `matched_payer_name_count` / `matched_payer_code_count`
+  — donor and payer names **that actually appear in this corpus** and resolve to
+  a listing (measured: 363 names → 363 codes) — beside
+  `matchable_company_name_count` (4,330), which is the size of the matching
+  substrate and a fact about `company-metadata`, not about donations. The
+  substrate was once published as `listed_company_match_count`; rendering it as
+  a count of listed companies found in the data overstated it by an order of
+  magnitude.
 
 Politician resolution rules (order): curated alias → MP-return name matched to
-exactly one politician by honorific-stripped surname + given name →
-candidate matched by division + surname + (party where recorded) to exactly
-one politician holding that division in the matching parliament. Anything else
-stays NULL (published under its verbatim name only on party-level surfaces,
+exactly one politician by honorific-stripped surname + given name → candidate
+matched by division + surname + **given name** + a **non-contradicting party**
+to exactly one politician holding that division in the matching parliament, with
+exact party equality available only as a tiebreaker inside that set. Anything
+else stays NULL (published under its verbatim name only on party-level surfaces,
 never on a member page).
+
+Division + surname alone is NOT sufficient and never was: it also fits the
+candidate who LOST that division to a same-surname winner. Measured on the 2025
+corpus it resolved `RISHWORTH, James Philip` (Liberal, Kingston) to Amanda
+Rishworth (ALP) and `LE, Nguyen-Tu` (ALP, Fowler) to Dai Le (IND). So:
+
+- **Given names must agree by exact token** (`aec_given_names_agree`): first
+  names equal, or one side's first given name appearing among the other's given
+  names (a register row recording a middle name as the everyday name). No
+  prefix, nickname or distance rule — a diminutive (`Tony` against `Anthony
+  John`) withholds and is resolved by a curated `candidate_name` alias instead.
+  This costs coverage deliberately: 668 → **547** candidate returns resolved on
+  the measured corpus, 121 of the difference being diminutives.
+- **The candidate's party must not contradict the term's party**
+  (`aec_party_contradicts`): branch names and federal party names are compared
+  as FAMILIES, never as strings, and an unclassifiable label contradicts
+  nothing. The predicate only ever withholds; it never makes a match.
+- The `ignore` suppression applies to **every** candidate rule including the
+  party tiebreaker — an override that a later pass can re-make is not an
+  override.
 
 ## 4. Pipeline — `shorted influence -mode aec-donations`
 

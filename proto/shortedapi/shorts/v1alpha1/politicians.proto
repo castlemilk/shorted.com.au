@@ -928,6 +928,11 @@ message FinancialYearOption {
   string financial_year = 1;
   int32 financial_year_end = 2;
   int32 party_group_count = 3;
+  // Party groups in this year with at least one payer matched to an ASX
+  // listing, over EVERY group in the year — not over the page of groups a
+  // response happened to carry. A surface counting groups it did not show needs
+  // the population, or its "and N more" is a function of the page size.
+  int32 listed_group_count = 4;
 }
 
 // DonationsCorpusCounts is the methodology band's raw material: what the corpus
@@ -948,9 +953,20 @@ message DonationsCorpusCounts {
   int32 candidate_donation_count = 9;
   int32 first_financial_year_end = 10;
   int32 last_financial_year_end = 11;
-  // Donors/payers matched to an ASX listing anywhere in the corpus, by exact
-  // normalised name or a curated alias. Never fuzzy.
-  int32 listed_company_match_count = 12;
+  // Donor/payer NAMES appearing in this corpus that resolve to an ASX listing,
+  // and the codes they resolve to (exact normalised name or curated alias,
+  // never fuzzy). These describe the corpus.
+  //
+  // They replace `listed_company_match_count`, which published the size of the
+  // matching SUBSTRATE — every listed company whose name COULD be matched — as
+  // though it were a count of companies found in the data. It read an order of
+  // magnitude high.
+  int32 matched_payer_name_count = 12;
+  int32 matched_payer_code_count = 13;
+  // How many company names the match layer can match against at all. A property
+  // of the company metadata, kept as the denominator that makes the matched
+  // figures legible, and never to be rendered as a number of donors.
+  int32 matchable_company_name_count = 14;
 }
 
 message GetDonationsOverviewRequest {

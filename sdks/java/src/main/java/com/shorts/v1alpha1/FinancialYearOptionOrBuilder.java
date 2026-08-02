@@ -33,4 +33,17 @@ public interface FinancialYearOptionOrBuilder extends
    * @return The partyGroupCount.
    */
   int getPartyGroupCount();
+
+  /**
+   * <pre>
+   * Party groups in this year with at least one payer matched to an ASX
+   * listing, over EVERY group in the year — not over the page of groups a
+   * response happened to carry. A surface counting groups it did not show needs
+   * the population, or its "and N more" is a function of the page size.
+   * </pre>
+   *
+   * <code>int32 listed_group_count = 4 [json_name = "listedGroupCount"];</code>
+   * @return The listedGroupCount.
+   */
+  int getListedGroupCount();
 }

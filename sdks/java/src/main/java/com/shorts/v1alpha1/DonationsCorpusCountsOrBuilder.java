@@ -87,12 +87,36 @@ public interface DonationsCorpusCountsOrBuilder extends
 
   /**
    * <pre>
-   * Donors/payers matched to an ASX listing anywhere in the corpus, by exact
-   * normalised name or a curated alias. Never fuzzy.
+   * Donor/payer NAMES appearing in this corpus that resolve to an ASX listing,
+   * and the codes they resolve to (exact normalised name or curated alias,
+   * never fuzzy). These describe the corpus.
+   *
+   * They replace `listed_company_match_count`, which published the size of the
+   * matching SUBSTRATE — every listed company whose name COULD be matched — as
+   * though it were a count of companies found in the data. It read an order of
+   * magnitude high.
    * </pre>
    *
-   * <code>int32 listed_company_match_count = 12 [json_name = "listedCompanyMatchCount"];</code>
-   * @return The listedCompanyMatchCount.
+   * <code>int32 matched_payer_name_count = 12 [json_name = "matchedPayerNameCount"];</code>
+   * @return The matchedPayerNameCount.
    */
-  int getListedCompanyMatchCount();
+  int getMatchedPayerNameCount();
+
+  /**
+   * <code>int32 matched_payer_code_count = 13 [json_name = "matchedPayerCodeCount"];</code>
+   * @return The matchedPayerCodeCount.
+   */
+  int getMatchedPayerCodeCount();
+
+  /**
+   * <pre>
+   * How many company names the match layer can match against at all. A property
+   * of the company metadata, kept as the denominator that makes the matched
+   * figures legible, and never to be rendered as a number of donors.
+   * </pre>
+   *
+   * <code>int32 matchable_company_name_count = 14 [json_name = "matchableCompanyNameCount"];</code>
+   * @return The matchableCompanyNameCount.
+   */
+  int getMatchableCompanyNameCount();
 }
