@@ -321,6 +321,91 @@ public final class PoliticiansProto extends com.google.protobuf.GeneratedFile {
   static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_shorts_v1alpha1_ListShortInterestOverlapResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_ReceiptTypeSplit_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_ReceiptTypeSplit_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_PartyFundingSummary_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_PartyFundingSummary_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_FinancialYearOption_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_FinancialYearOption_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_DonationsCorpusCounts_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_DonationsCorpusCounts_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_GetDonationsOverviewRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_GetDonationsOverviewRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_GetDonationsOverviewResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_GetDonationsOverviewResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_DonorRecipientGroup_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_DonorRecipientGroup_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_TopDonor_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_TopDonor_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_ListTopDonorsRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_ListTopDonorsRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_ListTopDonorsResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_ListTopDonorsResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_ListPartyFundingRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_ListPartyFundingRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_ListPartyFundingResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_ListPartyFundingResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_MemberAnnualReturn_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_MemberAnnualReturn_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_CandidateDonation_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_CandidateDonation_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_CandidateElectionReturn_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_CandidateElectionReturn_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_GetPoliticianFundingRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_GetPoliticianFundingRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_GetPoliticianFundingResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_GetPoliticianFundingResponse_fieldAccessorTable;
 
   public static com.google.protobuf.Descriptors.FileDescriptor
       getDescriptor() {
@@ -712,77 +797,242 @@ public final class PoliticiansProto extends com.google.protobuf.GeneratedFile {
       "e\022A\n\010overlaps\030\001 \003(\0132%.shorts.v1alpha1.Sh" +
       "ortInterestOverlapR\010overlaps\022\'\n\017disclosu" +
       "re_note\030\002 \001(\tR\016disclosureNote\022%\n\016source_" +
-      "licence\030\003 \001(\tR\rsourceLicence*\340\001\n\025Politic" +
-      "ianSummarySort\022*\n&POLITICIAN_SUMMARY_SOR" +
-      "T_DECLARED_ITEMS\020\000\022%\n!POLITICIAN_SUMMARY" +
-      "_SORT_COMPANIES\020\001\022&\n\"POLITICIAN_SUMMARY_" +
-      "SORT_PROPERTIES\020\002\022*\n&POLITICIAN_SUMMARY_" +
-      "SORT_RECENT_CHANGES\020\003\022 \n\034POLITICIAN_SUMM" +
-      "ARY_SORT_NAME\020\004*\227\001\n\016RegisterHolder\022\037\n\033RE" +
-      "GISTER_HOLDER_UNSPECIFIED\020\000\022\030\n\024REGISTER_" +
-      "HOLDER_SELF\020\001\022\"\n\036REGISTER_HOLDER_SPOUSE_" +
-      "PARTNER\020\002\022&\n\"REGISTER_HOLDER_DEPENDENT_C" +
-      "HILDREN\020\003*|\n\022RegisterChangeKind\022$\n REGIS" +
-      "TER_CHANGE_KIND_UNSPECIFIED\020\000\022\036\n\032REGISTE" +
-      "R_CHANGE_KIND_ADDED\020\001\022 \n\034REGISTER_CHANGE" +
-      "_KIND_REMOVED\020\0022\355\017\n\022PoliticiansService\022|" +
-      "\n\025GetParliamentOverview\022-.shorts.v1alpha" +
-      "1.GetParliamentOverviewRequest\032..shorts." +
-      "v1alpha1.GetParliamentOverviewResponse\"\004" +
-      "\200\265\030\001\022j\n\017ListPoliticians\022\'.shorts.v1alpha",
-      "1.ListPoliticiansRequest\032(.shorts.v1alph" +
-      "a1.ListPoliticiansResponse\"\004\200\265\030\001\022d\n\rGetP" +
-      "olitician\022%.shorts.v1alpha1.GetPoliticia" +
-      "nRequest\032&.shorts.v1alpha1.GetPolitician" +
-      "Response\"\004\200\265\030\001\022y\n\024ListStockPoliticians\022," +
-      ".shorts.v1alpha1.ListStockPoliticiansReq" +
-      "uest\032-.shorts.v1alpha1.ListStockPolitici" +
-      "ansResponse\"\004\200\265\030\001\022y\n\024ListPoliticianStock" +
-      "s\022,.shorts.v1alpha1.ListPoliticianStocks" +
-      "Request\032-.shorts.v1alpha1.ListPolitician" +
-      "StocksResponse\"\004\200\265\030\001\022|\n\025ListSuburbPoliti" +
-      "cians\022-.shorts.v1alpha1.ListSuburbPoliti" +
-      "ciansRequest\032..shorts.v1alpha1.ListSubur" +
-      "bPoliticiansResponse\"\004\200\265\030\001\022\216\001\n\033ListState" +
-      "PoliticianHoldings\0223.shorts.v1alpha1.Lis" +
-      "tStatePoliticianHoldingsRequest\0324.shorts" +
-      ".v1alpha1.ListStatePoliticianHoldingsRes" +
-      "ponse\"\004\200\265\030\001\022v\n\023ListRegisterChanges\022+.sho" +
-      "rts.v1alpha1.ListRegisterChangesRequest\032" +
-      ",.shorts.v1alpha1.ListRegisterChangesRes" +
-      "ponse\"\004\200\265\030\001\022\205\001\n\030ListShortInterestOverlap" +
-      "\0220.shorts.v1alpha1.ListShortInterestOver" +
-      "lapRequest\0321.shorts.v1alpha1.ListShortIn" +
-      "terestOverlapResponse\"\004\200\265\030\001\022\177\n\026GetPoliti" +
-      "cianAnalytics\022..shorts.v1alpha1.GetPolit" +
-      "icianAnalyticsRequest\032/.shorts.v1alpha1." +
-      "GetPoliticianAnalyticsResponse\"\004\200\265\030\001\022v\n\023" +
-      "GetRegisterExplorer\022+.shorts.v1alpha1.Ge" +
-      "tRegisterExplorerRequest\032,.shorts.v1alph" +
-      "a1.GetRegisterExplorerResponse\"\004\200\265\030\001\022\202\001\n" +
-      "\027ListPoliticianSummaries\022/.shorts.v1alph" +
-      "a1.ListPoliticianSummariesRequest\0320.shor" +
-      "ts.v1alpha1.ListPoliticianSummariesRespo" +
-      "nse\"\004\200\265\030\001\022\221\001\n\034GetPoliticianExplorerProfi" +
-      "le\0224.shorts.v1alpha1.GetPoliticianExplor" +
-      "erProfileRequest\0325.shorts.v1alpha1.GetPo" +
-      "liticianExplorerProfileResponse\"\004\200\265\030\001\022s\n" +
-      "\022ComparePoliticians\022*.shorts.v1alpha1.Co" +
-      "mparePoliticiansRequest\032+.shorts.v1alpha" +
-      "1.ComparePoliticiansResponse\"\004\200\265\030\001\022v\n\023Ge" +
-      "tRegisterActivity\022+.shorts.v1alpha1.GetR" +
-      "egisterActivityRequest\032,.shorts.v1alpha1" +
-      ".GetRegisterActivityResponse\"\004\200\265\030\001\022\202\001\n\027L" +
-      "istDistinctiveHoldings\022/.shorts.v1alpha1" +
-      ".ListDistinctiveHoldingsRequest\0320.shorts" +
-      ".v1alpha1.ListDistinctiveHoldingsRespons" +
-      "e\"\004\200\265\030\001B\337\001\n\023com.shorts.v1alpha1B\020Politic" +
-      "iansProtoP\001ZYgithub.com/castlemilk/short" +
-      "ed.com.au/services/gen/proto/go/shorts/v" +
-      "1alpha1;shortsv1alpha1\242\002\003SXX\252\002\017Shorts.V1" +
-      "alpha1\312\002\017Shorts\\V1alpha1\342\002\033Shorts\\V1alph" +
-      "a1\\GPBMetadata\352\002\020Shorts::V1alpha1b\006proto" +
-      "3"
+      "licence\030\003 \001(\tR\rsourceLicence\"\367\001\n\020Receipt" +
+      "TypeSplit\022%\n\016donation_cents\030\001 \001(\003R\rdonat" +
+      "ionCents\022.\n\023other_receipt_cents\030\002 \001(\003R\021o" +
+      "therReceiptCents\022-\n\022subscription_cents\030\003" +
+      " \001(\003R\021subscriptionCents\0220\n\024public_fundin" +
+      "g_cents\030\004 \001(\003R\022publicFundingCents\022+\n\021uns" +
+      "pecified_cents\030\005 \001(\003R\020unspecifiedCents\"\221" +
+      "\007\n\023PartyFundingSummary\022\037\n\013party_group\030\001 " +
+      "\001(\tR\npartyGroup\022%\n\016financial_year\030\002 \001(\tR" +
+      "\rfinancialYear\022,\n\022financial_year_end\030\003 \001" +
+      "(\005R\020financialYearEnd\022,\n\022party_return_cou" +
+      "nt\030\004 \001(\005R\020partyReturnCount\0220\n\024total_rece" +
+      "ipts_cents\030\005 \001(\003R\022totalReceiptsCents\0220\n\024" +
+      "total_payments_cents\030\006 \001(\003R\022totalPayment" +
+      "sCents\022*\n\021total_debts_cents\030\007 \001(\003R\017total" +
+      "DebtsCents\0224\n\026itemised_receipt_count\030\010 \001" +
+      "(\005R\024itemisedReceiptCount\0226\n\027itemised_rec" +
+      "eipts_cents\030\t \001(\003R\025itemisedReceiptsCents",
+      "\0220\n\024distinct_payer_count\030\n \001(\005R\022distinct" +
+      "PayerCount\022,\n\022listed_payer_count\030\013 \001(\005R\020" +
+      "listedPayerCount\022,\n\022listed_payer_cents\030\014" +
+      " \001(\003R\020listedPayerCents\022%\n\016donation_count" +
+      "\030\r \001(\005R\rdonationCount\0228\n\030declared_donati" +
+      "ons_cents\030\016 \001(\003R\026declaredDonationsCents\022" +
+      "0\n\024distinct_donor_count\030\017 \001(\005R\022distinctD" +
+      "onorCount\022,\n\022listed_donor_count\030\020 \001(\005R\020l" +
+      "istedDonorCount\022,\n\022listed_donor_cents\030\021 " +
+      "\001(\003R\020listedDonorCents\022-\n\022threshold_censo" +
+      "red\030\022 \001(\010R\021thresholdCensored\022,\n\022post_ref" +
+      "orm_scheme\030\023 \001(\010R\020postReformScheme\"\226\001\n\023F" +
+      "inancialYearOption\022%\n\016financial_year\030\001 \001" +
+      "(\tR\rfinancialYear\022,\n\022financial_year_end\030" +
+      "\002 \001(\005R\020financialYearEnd\022*\n\021party_group_c" +
+      "ount\030\003 \001(\005R\017partyGroupCount\"\234\005\n\025Donation" +
+      "sCorpusCounts\022,\n\022party_return_count\030\001 \001(" +
+      "\005R\020partyReturnCount\022#\n\rreceipt_count\030\002 \001" +
+      "(\005R\014receiptCount\022.\n\023donation_made_count\030" +
+      "\003 \001(\005R\021donationMadeCount\022&\n\017mp_return_co" +
+      "unt\030\004 \001(\005R\rmpReturnCount\0227\n\030mp_return_re" +
+      "solved_count\030\005 \001(\005R\025mpReturnResolvedCoun" +
+      "t\0224\n\026candidate_return_count\030\006 \001(\005R\024candi" +
+      "dateReturnCount\022E\n\037candidate_return_reso" +
+      "lved_count\030\007 \001(\005R\034candidateReturnResolve" +
+      "dCount\022;\n\032nil_candidate_return_count\030\010 \001" +
+      "(\005R\027nilCandidateReturnCount\0228\n\030candidate" +
+      "_donation_count\030\t \001(\005R\026candidateDonation" +
+      "Count\0227\n\030first_financial_year_end\030\n \001(\005R" +
+      "\025firstFinancialYearEnd\0225\n\027last_financial" +
+      "_year_end\030\013 \001(\005R\024lastFinancialYearEnd\022;\n" +
+      "\032listed_company_match_count\030\014 \001(\005R\027liste" +
+      "dCompanyMatchCount\"Z\n\033GetDonationsOvervi" +
+      "ewRequest\022%\n\016financial_year\030\001 \001(\tR\rfinan" +
+      "cialYear\022\024\n\005limit\030\002 \001(\005R\005limit\"\263\004\n\034GetDo" +
+      "nationsOverviewResponse\022%\n\016financial_yea" +
+      "r\030\001 \001(\tR\rfinancialYear\022>\n\007parties\030\002 \003(\0132" +
+      "$.shorts.v1alpha1.PartyFundingSummaryR\007p" +
+      "arties\022`\n\031available_financial_years\030\003 \003(" +
+      "\0132$.shorts.v1alpha1.FinancialYearOptionR" +
+      "\027availableFinancialYears\022>\n\006corpus\030\004 \001(\013" +
+      "2&.shorts.v1alpha1.DonationsCorpusCounts" +
+      "R\006corpus\022%\n\016censoring_note\030\005 \001(\tR\rcensor" +
+      "ingNote\022\037\n\013reform_note\030\006 \001(\tR\nreformNote" +
+      "\022#\n\rcoverage_note\030\007 \001(\tR\014coverageNote\022#\n" +
+      "\rverbatim_note\030\010 \001(\tR\014verbatimNote\022%\n\016so" +
+      "urce_licence\030\t \001(\tR\rsourceLicence\022 \n\013att" +
+      "ribution\030\n \001(\tR\013attribution\022/\n\005as_at\030\013 \001" +
+      "(\0132\032.google.protobuf.TimestampR\004asAt\"Y\n\023" +
+      "DonorRecipientGroup\022\037\n\013party_group\030\001 \001(\t" +
+      "R\npartyGroup\022!\n\014amount_cents\030\002 \001(\003R\013amou" +
+      "ntCents\"\212\003\n\010TopDonor\022\035\n\ndonor_name\030\001 \001(\t" +
+      "R\tdonorName\022&\n\017donor_name_norm\030\002 \001(\tR\rdo" +
+      "norNameNorm\022\037\n\013total_cents\030\003 \001(\003R\ntotalC" +
+      "ents\022F\n\rreceipt_types\030\004 \001(\0132!.shorts.v1a" +
+      "lpha1.ReceiptTypeSplitR\014receiptTypes\022#\n\r" +
+      "receipt_count\030\005 \001(\005R\014receiptCount\022D\n\nrec" +
+      "ipients\030\006 \003(\0132$.shorts.v1alpha1.DonorRec" +
+      "ipientGroupR\nrecipients\022\035\n\nstock_code\030\007 " +
+      "\001(\tR\tstockCode\022!\n\014company_name\030\010 \001(\tR\013co" +
+      "mpanyName\022!\n\014match_method\030\t \001(\tR\013matchMe" +
+      "thod\"\214\001\n\024ListTopDonorsRequest\022%\n\016financi" +
+      "al_year\030\001 \001(\tR\rfinancialYear\022\037\n\013party_gr" +
+      "oup\030\002 \001(\tR\npartyGroup\022\024\n\005limit\030\003 \001(\005R\005li" +
+      "mit\022\026\n\006offset\030\004 \001(\005R\006offset\"\256\003\n\025ListTopD" +
+      "onorsResponse\022%\n\016financial_year\030\001 \001(\tR\rf" +
+      "inancialYear\022\037\n\013party_group\030\002 \001(\tR\nparty" +
+      "Group\0221\n\006donors\030\003 \003(\0132\031.shorts.v1alpha1." +
+      "TopDonorR\006donors\022\024\n\005total\030\004 \001(\005R\005total\022\035" +
+      "\n\nscope_note\030\005 \001(\tR\tscopeNote\022%\n\016censori" +
+      "ng_note\030\006 \001(\tR\rcensoringNote\022\037\n\013reform_n" +
+      "ote\030\007 \001(\tR\nreformNote\022#\n\rverbatim_note\030\010" +
+      " \001(\tR\014verbatimNote\022%\n\016source_licence\030\t \001" +
+      "(\tR\rsourceLicence\022 \n\013attribution\030\n \001(\tR\013" +
+      "attribution\022/\n\005as_at\030\013 \001(\0132\032.google.prot" +
+      "obuf.TimestampR\004asAt\"w\n\027ListPartyFunding" +
+      "Request\022\037\n\013party_group\030\001 \001(\tR\npartyGroup" +
+      "\022%\n\016financial_year\030\002 \001(\tR\rfinancialYear\022" +
+      "\024\n\005limit\030\003 \001(\005R\005limit\"\263\004\n\030ListPartyFundi" +
+      "ngResponse\022\037\n\013party_group\030\001 \001(\tR\npartyGr" +
+      "oup\022<\n\006series\030\002 \003(\0132$.shorts.v1alpha1.Pa" +
+      "rtyFundingSummaryR\006series\022%\n\016financial_y" +
+      "ear\030\003 \001(\tR\rfinancialYear\0228\n\ntop_donors\030\004" +
+      " \003(\0132\031.shorts.v1alpha1.TopDonorR\ttopDono" +
+      "rs\022M\n\025listed_company_payers\030\005 \003(\0132\031.shor" +
+      "ts.v1alpha1.TopDonorR\023listedCompanyPayer" +
+      "s\022!\n\014branch_names\030\006 \003(\tR\013branchNames\022%\n\016" +
+      "censoring_note\030\007 \001(\tR\rcensoringNote\022\037\n\013r" +
+      "eform_note\030\010 \001(\tR\nreformNote\022#\n\rverbatim" +
+      "_note\030\t \001(\tR\014verbatimNote\022%\n\016source_lice" +
+      "nce\030\n \001(\tR\rsourceLicence\022 \n\013attribution\030" +
+      "\013 \001(\tR\013attribution\022/\n\005as_at\030\014 \001(\0132\032.goog" +
+      "le.protobuf.TimestampR\004asAt\"\271\002\n\022MemberAn" +
+      "nualReturn\022%\n\016financial_year\030\001 \001(\tR\rfina" +
+      "ncialYear\022,\n\022financial_year_end\030\002 \001(\005R\020f" +
+      "inancialYearEnd\022\037\n\013return_type\030\003 \001(\tR\nre" +
+      "turnType\022\030\n\007chamber\030\004 \001(\tR\007chamber\022\037\n\013me" +
+      "mber_name\030\005 \001(\tR\nmemberName\0222\n\025total_don" +
+      "ations_cents\030\006 \001(\003R\023totalDonationsCents\022" +
+      "\037\n\013donor_count\030\007 \001(\005R\ndonorCount\022\035\n\nsour" +
+      "ce_url\030\010 \001(\tR\tsourceUrl\"z\n\021CandidateDona" +
+      "tion\022\035\n\ndonor_name\030\001 \001(\tR\tdonorName\022#\n\rd" +
+      "onation_date\030\002 \001(\tR\014donationDate\022!\n\014amou" +
+      "nt_cents\030\003 \001(\003R\013amountCents\"\302\005\n\027Candidat" +
+      "eElectionReturn\022\024\n\005event\030\001 \001(\tR\005event\022\035\n" +
+      "\nevent_year\030\002 \001(\005R\teventYear\022\037\n\013return_t" +
+      "ype\030\003 \001(\tR\nreturnType\022%\n\016candidate_name\030" +
+      "\004 \001(\tR\rcandidateName\022\035\n\nparty_name\030\005 \001(\t" +
+      "R\tpartyName\022\'\n\017electorate_name\030\006 \001(\tR\016el" +
+      "ectorateName\022)\n\020electorate_state\030\007 \001(\tR\017" +
+      "electorateState\022\035\n\nnil_return\030\010 \001(\010R\tnil" +
+      "Return\022!\n\014amendment_no\030\t \001(\005R\013amendmentN" +
+      "o\022(\n\020total_gift_cents\030\n \001(\003R\016totalGiftCe" +
+      "nts\022\037\n\013donor_count\030\013 \001(\005R\ndonorCount\022+\n\021" +
+      "expenditure_cents\030\014 \001(\003R\020expenditureCent" +
+      "s\022/\n\023discretionary_cents\030\r \001(\003R\022discreti" +
+      "onaryCents\022@\n\tdonations\030\016 \003(\0132\".shorts.v" +
+      "1alpha1.CandidateDonationR\tdonations\022,\n\022" +
+      "event_return_count\030\017 \001(\005R\020eventReturnCou" +
+      "nt\022=\n\033event_itemised_return_count\030\020 \001(\005R" +
+      "\030eventItemisedReturnCount\022\035\n\nsource_url\030" +
+      "\021 \001(\tR\tsourceUrl\"1\n\033GetPoliticianFunding" +
+      "Request\022\022\n\004slug\030\001 \001(\tR\004slug\"\237\004\n\034GetPolit" +
+      "icianFundingResponse\022%\n\016canonical_slug\030\001" +
+      " \001(\tR\rcanonicalSlug\022J\n\016annual_returns\030\002 " +
+      "\003(\0132#.shorts.v1alpha1.MemberAnnualReturn" +
+      "R\rannualReturns\022U\n\021candidate_returns\030\003 \003" +
+      "(\0132(.shorts.v1alpha1.CandidateElectionRe" +
+      "turnR\020candidateReturns\022#\n\rcoverage_note\030" +
+      "\004 \001(\tR\014coverageNote\022)\n\020attribution_note\030" +
+      "\005 \001(\tR\017attributionNote\022%\n\016censoring_note" +
+      "\030\006 \001(\tR\rcensoringNote\022\037\n\013reform_note\030\007 \001" +
+      "(\tR\nreformNote\022#\n\rverbatim_note\030\010 \001(\tR\014v" +
+      "erbatimNote\022%\n\016source_licence\030\t \001(\tR\rsou" +
+      "rceLicence\022 \n\013attribution\030\n \001(\tR\013attribu" +
+      "tion\022/\n\005as_at\030\013 \001(\0132\032.google.protobuf.Ti" +
+      "mestampR\004asAt*\340\001\n\025PoliticianSummarySort\022" +
+      "*\n&POLITICIAN_SUMMARY_SORT_DECLARED_ITEM" +
+      "S\020\000\022%\n!POLITICIAN_SUMMARY_SORT_COMPANIES" +
+      "\020\001\022&\n\"POLITICIAN_SUMMARY_SORT_PROPERTIES" +
+      "\020\002\022*\n&POLITICIAN_SUMMARY_SORT_RECENT_CHA" +
+      "NGES\020\003\022 \n\034POLITICIAN_SUMMARY_SORT_NAME\020\004" +
+      "*\227\001\n\016RegisterHolder\022\037\n\033REGISTER_HOLDER_U" +
+      "NSPECIFIED\020\000\022\030\n\024REGISTER_HOLDER_SELF\020\001\022\"" +
+      "\n\036REGISTER_HOLDER_SPOUSE_PARTNER\020\002\022&\n\"RE" +
+      "GISTER_HOLDER_DEPENDENT_CHILDREN\020\003*|\n\022Re" +
+      "gisterChangeKind\022$\n REGISTER_CHANGE_KIND" +
+      "_UNSPECIFIED\020\000\022\036\n\032REGISTER_CHANGE_KIND_A" +
+      "DDED\020\001\022 \n\034REGISTER_CHANGE_KIND_REMOVED\020\002" +
+      "2\270\023\n\022PoliticiansService\022|\n\025GetParliament" +
+      "Overview\022-.shorts.v1alpha1.GetParliament" +
+      "OverviewRequest\032..shorts.v1alpha1.GetPar" +
+      "liamentOverviewResponse\"\004\200\265\030\001\022j\n\017ListPol" +
+      "iticians\022\'.shorts.v1alpha1.ListPoliticia" +
+      "nsRequest\032(.shorts.v1alpha1.ListPolitici" +
+      "ansResponse\"\004\200\265\030\001\022d\n\rGetPolitician\022%.sho" +
+      "rts.v1alpha1.GetPoliticianRequest\032&.shor" +
+      "ts.v1alpha1.GetPoliticianResponse\"\004\200\265\030\001\022" +
+      "y\n\024ListStockPoliticians\022,.shorts.v1alpha" +
+      "1.ListStockPoliticiansRequest\032-.shorts.v" +
+      "1alpha1.ListStockPoliticiansResponse\"\004\200\265" +
+      "\030\001\022y\n\024ListPoliticianStocks\022,.shorts.v1al" +
+      "pha1.ListPoliticianStocksRequest\032-.short" +
+      "s.v1alpha1.ListPoliticianStocksResponse\"" +
+      "\004\200\265\030\001\022|\n\025ListSuburbPoliticians\022-.shorts." +
+      "v1alpha1.ListSuburbPoliticiansRequest\032.." +
+      "shorts.v1alpha1.ListSuburbPoliticiansRes" +
+      "ponse\"\004\200\265\030\001\022\216\001\n\033ListStatePoliticianHoldi" +
+      "ngs\0223.shorts.v1alpha1.ListStatePoliticia" +
+      "nHoldingsRequest\0324.shorts.v1alpha1.ListS" +
+      "tatePoliticianHoldingsResponse\"\004\200\265\030\001\022v\n\023" +
+      "ListRegisterChanges\022+.shorts.v1alpha1.Li" +
+      "stRegisterChangesRequest\032,.shorts.v1alph" +
+      "a1.ListRegisterChangesResponse\"\004\200\265\030\001\022\205\001\n" +
+      "\030ListShortInterestOverlap\0220.shorts.v1alp" +
+      "ha1.ListShortInterestOverlapRequest\0321.sh" +
+      "orts.v1alpha1.ListShortInterestOverlapRe" +
+      "sponse\"\004\200\265\030\001\022\177\n\026GetPoliticianAnalytics\022." +
+      ".shorts.v1alpha1.GetPoliticianAnalyticsR" +
+      "equest\032/.shorts.v1alpha1.GetPoliticianAn" +
+      "alyticsResponse\"\004\200\265\030\001\022v\n\023GetRegisterExpl" +
+      "orer\022+.shorts.v1alpha1.GetRegisterExplor" +
+      "erRequest\032,.shorts.v1alpha1.GetRegisterE" +
+      "xplorerResponse\"\004\200\265\030\001\022\202\001\n\027ListPolitician" +
+      "Summaries\022/.shorts.v1alpha1.ListPolitici" +
+      "anSummariesRequest\0320.shorts.v1alpha1.Lis" +
+      "tPoliticianSummariesResponse\"\004\200\265\030\001\022\221\001\n\034G" +
+      "etPoliticianExplorerProfile\0224.shorts.v1a" +
+      "lpha1.GetPoliticianExplorerProfileReques" +
+      "t\0325.shorts.v1alpha1.GetPoliticianExplore" +
+      "rProfileResponse\"\004\200\265\030\001\022s\n\022ComparePolitic" +
+      "ians\022*.shorts.v1alpha1.ComparePolitician" +
+      "sRequest\032+.shorts.v1alpha1.ComparePoliti" +
+      "ciansResponse\"\004\200\265\030\001\022v\n\023GetRegisterActivi" +
+      "ty\022+.shorts.v1alpha1.GetRegisterActivity" +
+      "Request\032,.shorts.v1alpha1.GetRegisterAct" +
+      "ivityResponse\"\004\200\265\030\001\022\202\001\n\027ListDistinctiveH" +
+      "oldings\022/.shorts.v1alpha1.ListDistinctiv" +
+      "eHoldingsRequest\0320.shorts.v1alpha1.ListD" +
+      "istinctiveHoldingsResponse\"\004\200\265\030\001\022y\n\024GetD" +
+      "onationsOverview\022,.shorts.v1alpha1.GetDo" +
+      "nationsOverviewRequest\032-.shorts.v1alpha1" +
+      ".GetDonationsOverviewResponse\"\004\200\265\030\001\022d\n\rL" +
+      "istTopDonors\022%.shorts.v1alpha1.ListTopDo" +
+      "norsRequest\032&.shorts.v1alpha1.ListTopDon" +
+      "orsResponse\"\004\200\265\030\001\022m\n\020ListPartyFunding\022(." +
+      "shorts.v1alpha1.ListPartyFundingRequest\032" +
+      ").shorts.v1alpha1.ListPartyFundingRespon" +
+      "se\"\004\200\265\030\001\022y\n\024GetPoliticianFunding\022,.short" +
+      "s.v1alpha1.GetPoliticianFundingRequest\032-" +
+      ".shorts.v1alpha1.GetPoliticianFundingRes" +
+      "ponse\"\004\200\265\030\001B\337\001\n\023com.shorts.v1alpha1B\020Pol" +
+      "iticiansProtoP\001ZYgithub.com/castlemilk/s" +
+      "horted.com.au/services/gen/proto/go/shor" +
+      "ts/v1alpha1;shortsv1alpha1\242\002\003SXX\252\002\017Short" +
+      "s.V1alpha1\312\002\017Shorts\\V1alpha1\342\002\033Shorts\\V1" +
+      "alpha1\\GPBMetadata\352\002\020Shorts::V1alpha1b\006p" +
+      "roto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -1144,6 +1394,108 @@ public final class PoliticiansProto extends com.google.protobuf.GeneratedFile {
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListShortInterestOverlapResponse_descriptor,
         new java.lang.String[] { "Overlaps", "DisclosureNote", "SourceLicence", });
+    internal_static_shorts_v1alpha1_ReceiptTypeSplit_descriptor =
+      getDescriptor().getMessageType(59);
+    internal_static_shorts_v1alpha1_ReceiptTypeSplit_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_ReceiptTypeSplit_descriptor,
+        new java.lang.String[] { "DonationCents", "OtherReceiptCents", "SubscriptionCents", "PublicFundingCents", "UnspecifiedCents", });
+    internal_static_shorts_v1alpha1_PartyFundingSummary_descriptor =
+      getDescriptor().getMessageType(60);
+    internal_static_shorts_v1alpha1_PartyFundingSummary_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_PartyFundingSummary_descriptor,
+        new java.lang.String[] { "PartyGroup", "FinancialYear", "FinancialYearEnd", "PartyReturnCount", "TotalReceiptsCents", "TotalPaymentsCents", "TotalDebtsCents", "ItemisedReceiptCount", "ItemisedReceiptsCents", "DistinctPayerCount", "ListedPayerCount", "ListedPayerCents", "DonationCount", "DeclaredDonationsCents", "DistinctDonorCount", "ListedDonorCount", "ListedDonorCents", "ThresholdCensored", "PostReformScheme", });
+    internal_static_shorts_v1alpha1_FinancialYearOption_descriptor =
+      getDescriptor().getMessageType(61);
+    internal_static_shorts_v1alpha1_FinancialYearOption_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_FinancialYearOption_descriptor,
+        new java.lang.String[] { "FinancialYear", "FinancialYearEnd", "PartyGroupCount", });
+    internal_static_shorts_v1alpha1_DonationsCorpusCounts_descriptor =
+      getDescriptor().getMessageType(62);
+    internal_static_shorts_v1alpha1_DonationsCorpusCounts_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_DonationsCorpusCounts_descriptor,
+        new java.lang.String[] { "PartyReturnCount", "ReceiptCount", "DonationMadeCount", "MpReturnCount", "MpReturnResolvedCount", "CandidateReturnCount", "CandidateReturnResolvedCount", "NilCandidateReturnCount", "CandidateDonationCount", "FirstFinancialYearEnd", "LastFinancialYearEnd", "ListedCompanyMatchCount", });
+    internal_static_shorts_v1alpha1_GetDonationsOverviewRequest_descriptor =
+      getDescriptor().getMessageType(63);
+    internal_static_shorts_v1alpha1_GetDonationsOverviewRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_GetDonationsOverviewRequest_descriptor,
+        new java.lang.String[] { "FinancialYear", "Limit", });
+    internal_static_shorts_v1alpha1_GetDonationsOverviewResponse_descriptor =
+      getDescriptor().getMessageType(64);
+    internal_static_shorts_v1alpha1_GetDonationsOverviewResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_GetDonationsOverviewResponse_descriptor,
+        new java.lang.String[] { "FinancialYear", "Parties", "AvailableFinancialYears", "Corpus", "CensoringNote", "ReformNote", "CoverageNote", "VerbatimNote", "SourceLicence", "Attribution", "AsAt", });
+    internal_static_shorts_v1alpha1_DonorRecipientGroup_descriptor =
+      getDescriptor().getMessageType(65);
+    internal_static_shorts_v1alpha1_DonorRecipientGroup_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_DonorRecipientGroup_descriptor,
+        new java.lang.String[] { "PartyGroup", "AmountCents", });
+    internal_static_shorts_v1alpha1_TopDonor_descriptor =
+      getDescriptor().getMessageType(66);
+    internal_static_shorts_v1alpha1_TopDonor_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_TopDonor_descriptor,
+        new java.lang.String[] { "DonorName", "DonorNameNorm", "TotalCents", "ReceiptTypes", "ReceiptCount", "Recipients", "StockCode", "CompanyName", "MatchMethod", });
+    internal_static_shorts_v1alpha1_ListTopDonorsRequest_descriptor =
+      getDescriptor().getMessageType(67);
+    internal_static_shorts_v1alpha1_ListTopDonorsRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_ListTopDonorsRequest_descriptor,
+        new java.lang.String[] { "FinancialYear", "PartyGroup", "Limit", "Offset", });
+    internal_static_shorts_v1alpha1_ListTopDonorsResponse_descriptor =
+      getDescriptor().getMessageType(68);
+    internal_static_shorts_v1alpha1_ListTopDonorsResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_ListTopDonorsResponse_descriptor,
+        new java.lang.String[] { "FinancialYear", "PartyGroup", "Donors", "Total", "ScopeNote", "CensoringNote", "ReformNote", "VerbatimNote", "SourceLicence", "Attribution", "AsAt", });
+    internal_static_shorts_v1alpha1_ListPartyFundingRequest_descriptor =
+      getDescriptor().getMessageType(69);
+    internal_static_shorts_v1alpha1_ListPartyFundingRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_ListPartyFundingRequest_descriptor,
+        new java.lang.String[] { "PartyGroup", "FinancialYear", "Limit", });
+    internal_static_shorts_v1alpha1_ListPartyFundingResponse_descriptor =
+      getDescriptor().getMessageType(70);
+    internal_static_shorts_v1alpha1_ListPartyFundingResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_ListPartyFundingResponse_descriptor,
+        new java.lang.String[] { "PartyGroup", "Series", "FinancialYear", "TopDonors", "ListedCompanyPayers", "BranchNames", "CensoringNote", "ReformNote", "VerbatimNote", "SourceLicence", "Attribution", "AsAt", });
+    internal_static_shorts_v1alpha1_MemberAnnualReturn_descriptor =
+      getDescriptor().getMessageType(71);
+    internal_static_shorts_v1alpha1_MemberAnnualReturn_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_MemberAnnualReturn_descriptor,
+        new java.lang.String[] { "FinancialYear", "FinancialYearEnd", "ReturnType", "Chamber", "MemberName", "TotalDonationsCents", "DonorCount", "SourceUrl", });
+    internal_static_shorts_v1alpha1_CandidateDonation_descriptor =
+      getDescriptor().getMessageType(72);
+    internal_static_shorts_v1alpha1_CandidateDonation_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_CandidateDonation_descriptor,
+        new java.lang.String[] { "DonorName", "DonationDate", "AmountCents", });
+    internal_static_shorts_v1alpha1_CandidateElectionReturn_descriptor =
+      getDescriptor().getMessageType(73);
+    internal_static_shorts_v1alpha1_CandidateElectionReturn_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_CandidateElectionReturn_descriptor,
+        new java.lang.String[] { "Event", "EventYear", "ReturnType", "CandidateName", "PartyName", "ElectorateName", "ElectorateState", "NilReturn", "AmendmentNo", "TotalGiftCents", "DonorCount", "ExpenditureCents", "DiscretionaryCents", "Donations", "EventReturnCount", "EventItemisedReturnCount", "SourceUrl", });
+    internal_static_shorts_v1alpha1_GetPoliticianFundingRequest_descriptor =
+      getDescriptor().getMessageType(74);
+    internal_static_shorts_v1alpha1_GetPoliticianFundingRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_GetPoliticianFundingRequest_descriptor,
+        new java.lang.String[] { "Slug", });
+    internal_static_shorts_v1alpha1_GetPoliticianFundingResponse_descriptor =
+      getDescriptor().getMessageType(75);
+    internal_static_shorts_v1alpha1_GetPoliticianFundingResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_GetPoliticianFundingResponse_descriptor,
+        new java.lang.String[] { "CanonicalSlug", "AnnualReturns", "CandidateReturns", "CoverageNote", "AttributionNote", "CensoringNote", "ReformNote", "VerbatimNote", "SourceLicence", "Attribution", "AsAt", });
     descriptor.resolveAllFeaturesImmutable();
     com.google.protobuf.TimestampProto.getDescriptor();
     com.shortedapi.options.v1.OptionsProto.getDescriptor();

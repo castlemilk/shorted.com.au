@@ -357,6 +357,30 @@ func (c *MemoryCache) ListDistinctiveHoldingsKey(slug string) string {
 	return c.generateKey("register_distinctive_holdings", slug)
 }
 
+// --- AEC funding layer ---
+//
+// Every component below is normalised and CLAMPED by the handler before the key
+// is built, by the same rules the store applies again on the way in. A key
+// built from raw input would let ' 2024-25 ' and '2024-25' hold two entries of
+// one year, and an unclamped limit would let one key describe pages of two
+// different sizes.
+
+func (c *MemoryCache) GetDonationsOverviewKey(financialYear string, limit int32) string {
+	return c.generateKey("aec_donations_overview", financialYear, limit)
+}
+
+func (c *MemoryCache) ListTopDonorsKey(financialYear, partyGroup string, limit, offset int32) string {
+	return c.generateKey("aec_top_donors", financialYear, partyGroup, limit, offset)
+}
+
+func (c *MemoryCache) ListPartyFundingKey(partyGroup, financialYear string, limit int32) string {
+	return c.generateKey("aec_party_funding", partyGroup, financialYear, limit)
+}
+
+func (c *MemoryCache) GetPoliticianFundingKey(slug string) string {
+	return c.generateKey("aec_politician_funding", slug)
+}
+
 func (c *MemoryCache) ListEconomicSeriesKey(topic, metric, regionType, regionCode, product string, limit int32) string {
 	return c.generateKey("economic_series_list", topic, metric, regionType, regionCode, product, limit)
 }

@@ -115,6 +115,52 @@ service PoliticiansService {
   rpc ListDistinctiveHoldings (ListDistinctiveHoldingsRequest) returns (ListDistinctiveHoldingsResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
   }
+
+  // ---------------------------------------------------------------------
+  // The AEC funding layer.
+  //
+  // AMOUNTS LIVE HERE AND NOWHERE ELSE IN THIS FILE. The register of
+  // interests discloses WHAT is held and never how much; the AEC
+  // Transparency Register publishes lodged FUNDING FIGURES under CC BY 4.0,
+  // and the two are deliberately separate subsystems that share only a
+  // politician id. No message below may gain a register field, and no
+  // register message above may gain a *_cents field.
+  //
+  // Three properties bind every response here:
+  //
+  //   1. Amounts are int64 CENTS, verbatim as lodged. No ratio, share,
+  //      index, rank or score is derived from them — the only ordering is
+  //      by an amount that the source itself published.
+  //   2. Every total is RIGHT-CENSORED at the disclosure threshold in force
+  //      for its year, and the 1 Jan 2027 reform makes any series crossing
+  //      it a spliced regime. Both facts ship as response strings so every
+  //      consumer renders the same words from one server-side source.
+  //   3. ATTRIBUTION HONESTY: money given to a party is never rendered as
+  //      money given to a member. GetPoliticianFunding serves only returns
+  //      that NAME the member, and states its own coverage.
+  // ---------------------------------------------------------------------
+
+  // Party-group funding rollups for one financial year, plus the corpus
+  // counts and disclosure notes a funding surface must render.
+  rpc GetDonationsOverview (GetDonationsOverviewRequest) returns (GetDonationsOverviewResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Payers into party branches for one financial year, ordered by the total
+  // they were declared to have paid.
+  rpc ListTopDonors (ListTopDonorsRequest) returns (ListTopDonorsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // One party group's funding across every financial year it lodged in.
+  rpc ListPartyFunding (ListPartyFundingRequest) returns (ListPartyFundingResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // The funding returns that NAME one member. Never party money.
+  rpc GetPoliticianFunding (GetPoliticianFundingRequest) returns (GetPoliticianFundingResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
 }
 
 // PartyIndustryCell is one cell of the party x industry matrix.
@@ -809,4 +855,283 @@ message ListShortInterestOverlapResponse {
   repeated ShortInterestOverlap overlaps = 1;
   string disclosure_note = 2;  // the mandatory caveat, served with the data
   string source_licence = 3;
+}
+
+// ===========================================================================
+// The AEC funding layer (migration 000105).
+//
+// Source: AEC Transparency Register bulk exports, CC BY 4.0, Crown copyright.
+// Every response carries source_licence, attribution and as_at — the as_at is
+// the INGEST SNAPSHOT, which is this data's own honest clock: the AEC
+// regenerates the bulk zips continuously as amendments land, so a published
+// financial year is never frozen and "as at" cannot mean anything else.
+// ===========================================================================
+
+// ReceiptTypeSplit is the source's own distinction between kinds of money, and
+// it MUST be rendered rather than summed away: a conference fee is not a
+// donation. The five buckets are exhaustive over the source vocabulary
+// ('Donation Received', 'Other Receipt', 'Subscription', 'Public Funding',
+// 'Unspecified' and blank, the last two folded into unspecified_cents), so
+// their sum is exactly total_cents and a consumer can prove it.
+message ReceiptTypeSplit {
+  int64 donation_cents = 1;
+  int64 other_receipt_cents = 2;
+  int64 subscription_cents = 3;
+  int64 public_funding_cents = 4;
+  int64 unspecified_cents = 5;
+}
+
+// PartyFundingSummary is one party group in one financial year, straight from
+// mv_aec_party_funding. Nothing here is derived: each figure is a sum or a
+// distinct count over lodged returns.
+//
+// The two sides of the ledger are kept apart on purpose. total_receipts_cents
+// is what the party's OWN annual return declares it received; the itemised and
+// declared_donations figures are the transaction-level rows from the recipient
+// side and the donor side respectively. They do not reconcile to each other and
+// must never be presented as if they should.
+message PartyFundingSummary {
+  string party_group = 1;         // party_group_key: the source Party Group, or the party's own name
+  string financial_year = 2;      // verbatim label, e.g. '2024-25'
+  int32 financial_year_end = 3;
+  int32 party_return_count = 4;   // returns lodged under this group (branches lodge separately)
+
+  // From the party's own annual return.
+  int64 total_receipts_cents = 5;
+  int64 total_payments_cents = 6;
+  int64 total_debts_cents = 7;
+
+  // From itemised receipts — the RECIPIENT-declared side.
+  int32 itemised_receipt_count = 8;
+  int64 itemised_receipts_cents = 9;
+  int32 distinct_payer_count = 10;
+  int32 listed_payer_count = 11;   // payers matched to an ASX code, exact/curated only
+  int64 listed_payer_cents = 12;
+
+  // From donations made — the DONOR-declared side.
+  int32 donation_count = 13;
+  int64 declared_donations_cents = 14;
+  int32 distinct_donor_count = 15;
+  int32 listed_donor_count = 16;
+  int64 listed_donor_cents = 17;
+
+  // TRUE for every row under the old scheme: figures below the year's
+  // disclosure threshold are absent from the source entirely.
+  bool threshold_censored = 18;
+  // TRUE from FY2027, the first year of the reformed scheme. A series crossing
+  // this boundary is two regimes and must carry a break annotation.
+  bool post_reform_scheme = 19;
+}
+
+// FinancialYearOption is one selectable year, with how much is in it.
+message FinancialYearOption {
+  string financial_year = 1;
+  int32 financial_year_end = 2;
+  int32 party_group_count = 3;
+}
+
+// DonationsCorpusCounts is the methodology band's raw material: what the corpus
+// actually contains, so a surface can state its own boundaries instead of
+// implying completeness.
+message DonationsCorpusCounts {
+  int32 party_return_count = 1;
+  int32 receipt_count = 2;
+  int32 donation_made_count = 3;
+  // The member layer, and why it is thin. A member with no row here has NOT
+  // been shown to have received nothing — most members never lodge this return.
+  int32 mp_return_count = 4;
+  int32 mp_return_resolved_count = 5;
+  int32 candidate_return_count = 6;
+  int32 candidate_return_resolved_count = 7;
+  // A lodged nil return is a publishable fact, not missing data.
+  int32 nil_candidate_return_count = 8;
+  int32 candidate_donation_count = 9;
+  int32 first_financial_year_end = 10;
+  int32 last_financial_year_end = 11;
+  // Donors/payers matched to an ASX listing anywhere in the corpus, by exact
+  // normalised name or a curated alias. Never fuzzy.
+  int32 listed_company_match_count = 12;
+}
+
+message GetDonationsOverviewRequest {
+  // Verbatim FY label ('2024-25'). Empty selects the latest year held.
+  string financial_year = 1;
+  // Party groups returned, ordered by total_receipts_cents desc. Default 25,
+  // max 100.
+  int32 limit = 2;
+}
+
+message GetDonationsOverviewResponse {
+  string financial_year = 1;               // the year actually served
+  repeated PartyFundingSummary parties = 2;
+  repeated FinancialYearOption available_financial_years = 3;
+  DonationsCorpusCounts corpus = 4;
+
+  // The mandatory notes, single-sourced HERE so every surface renders the same
+  // words and none can paraphrase them into a claim the data cannot support.
+  string censoring_note = 5;   // right-censoring at the disclosure threshold
+  string reform_note = 6;      // the 1 Jan 2027 scheme change / break annotation
+  string coverage_note = 7;    // what the member layer does and does not cover
+  string verbatim_note = 8;    // figures are as lodged, amendments land continuously
+
+  string source_licence = 9;   // 'CC-BY-4.0'
+  string attribution = 10;     // Crown copyright credit; required by the licence
+  google.protobuf.Timestamp as_at = 11;  // ingest snapshot
+}
+
+// DonorRecipientGroup is what one payer paid into one party group. Party groups
+// are the source's own rollup key, never inferred from a branch name.
+message DonorRecipientGroup {
+  string party_group = 1;
+  int64 amount_cents = 2;
+}
+
+// TopDonor is one payer's itemised receipts into party branches for one
+// financial year.
+//
+// donor_name is VERBATIM as lodged — the source is unnormalised and one entity
+// can appear under several spellings. donor_name_norm is the key those spellings
+// were grouped by, published so a reader can see exactly what was combined.
+message TopDonor {
+  string donor_name = 1;
+  string donor_name_norm = 2;
+  int64 total_cents = 3;
+  ReceiptTypeSplit receipt_types = 4;  // sums to total_cents
+  int32 receipt_count = 5;
+  repeated DonorRecipientGroup recipients = 6;
+  // Set ONLY on an exact normalised-name match or a curated alias. A normalised
+  // name that collides across stock codes is excluded entirely — when in doubt,
+  // no link. Empty means "not matched", never "not listed".
+  string stock_code = 7;
+  string company_name = 8;
+  string match_method = 9;  // 'name_exact' | 'curated_alias'; empty when unmatched
+}
+
+message ListTopDonorsRequest {
+  string financial_year = 1;  // empty = latest year held
+  string party_group = 2;     // empty = every party group
+  int32 limit = 3;            // default 50, max 200
+  int32 offset = 4;
+}
+
+message ListTopDonorsResponse {
+  string financial_year = 1;
+  string party_group = 2;
+  repeated TopDonor donors = 3;
+  // Distinct payers matching the filters, NOT the page size — a surface states
+  // the real population rather than the rows it happens to have rendered.
+  int32 total = 4;
+  // What this list is over, stated rather than assumed: itemised receipts whose
+  // recipient is a party branch that rolls up to a party group. Receipts into
+  // associated entities and third parties that never lodged a party return
+  // belong to no group and are not counted here.
+  string scope_note = 5;
+  string censoring_note = 6;
+  string reform_note = 7;
+  string verbatim_note = 8;
+  string source_licence = 9;
+  string attribution = 10;
+  google.protobuf.Timestamp as_at = 11;
+}
+
+message ListPartyFundingRequest {
+  string party_group = 1;     // required; the source's own rollup key
+  string financial_year = 2;  // the focus year for the donor lists; empty = latest held
+  int32 limit = 3;            // donors per list; default 25, max 200
+}
+
+message ListPartyFundingResponse {
+  string party_group = 1;
+  // Every financial year this group lodged in, ASCENDING. post_reform_scheme
+  // marks where the chart must break.
+  repeated PartyFundingSummary series = 2;
+  string financial_year = 3;             // the focus year served
+  repeated TopDonor top_donors = 4;      // focus-year payers, amount desc
+  // Focus-year payers matched to an ASX listing, with their receipt-type split.
+  repeated TopDonor listed_company_payers = 5;
+  // The branch names that lodged under this group, verbatim. Published so the
+  // rollup is inspectable rather than asserted.
+  repeated string branch_names = 6;
+  string censoring_note = 7;
+  string reform_note = 8;
+  string verbatim_note = 9;
+  string source_licence = 10;
+  string attribution = 11;
+  google.protobuf.Timestamp as_at = 12;
+}
+
+// MemberAnnualReturn is one lodged Member of the House of Representatives /
+// Senator annual return. 52 exist in the whole corpus.
+message MemberAnnualReturn {
+  string financial_year = 1;
+  int32 financial_year_end = 2;
+  string return_type = 3;   // verbatim, e.g. 'Member of House of Representatives Return'
+  string chamber = 4;       // 'house' | 'senate'
+  string member_name = 5;   // verbatim as lodged, honorifics intact
+  int64 total_donations_cents = 6;
+  int32 donor_count = 7;
+  string source_url = 8;
+}
+
+// CandidateDonation is one itemised gift named in a candidate's election return.
+message CandidateDonation {
+  string donor_name = 1;      // verbatim
+  string donation_date = 2;   // YYYY-MM-DD; empty when the return omits it
+  int64 amount_cents = 3;
+}
+
+// CandidateElectionReturn is one election return lodged by the member as a
+// candidate — the honest member layer, because it names the person.
+//
+// A NIL RETURN IS A FACT, not missing data: nil_return true means "lodged a
+// return declaring no gifts", which is publishable exactly as that.
+message CandidateElectionReturn {
+  string event = 1;             // verbatim, e.g. '2025 Federal Election'
+  int32 event_year = 2;
+  string return_type = 3;       // 'Candidate' | 'Senate Group'
+  string candidate_name = 4;    // verbatim 'SURNAME, Given Names'
+  string party_name = 5;
+  string electorate_name = 6;
+  string electorate_state = 7;
+  bool nil_return = 8;
+  // Amendments land continuously; the number is published so a reader knows the
+  // figure was revised rather than wondering why it moved.
+  int32 amendment_no = 9;
+  int64 total_gift_cents = 10;
+  int32 donor_count = 11;
+  int64 expenditure_cents = 12;
+  int64 discretionary_cents = 13;
+  // Itemised gifts, where the return names them. Empty is NOT "no gifts" — see
+  // the event coverage counts below.
+  repeated CandidateDonation donations = 14;
+  // CORPUS-WIDE coverage for this event, carried on the row it caveats: of
+  // event_return_count returns lodged, event_itemised_return_count name their
+  // donors individually. Without this an empty donations list reads as a claim.
+  int32 event_return_count = 15;
+  int32 event_itemised_return_count = 16;
+  string source_url = 17;
+}
+
+message GetPoliticianFundingRequest {
+  string slug = 1;
+}
+
+message GetPoliticianFundingResponse {
+  // Echoed from the store like GetPolitician's, so a consumer redirects on a
+  // retired slug rather than deriving one.
+  string canonical_slug = 1;
+  // ONLY returns that name this member. Party money is never attributed here.
+  repeated MemberAnnualReturn annual_returns = 2;
+  repeated CandidateElectionReturn candidate_returns = 3;
+  // Always served, empty response or not: this layer is thin and a surface that
+  // does not state its coverage lies by construction.
+  string coverage_note = 4;
+  // Money given to a party is not money given to a member.
+  string attribution_note = 5;
+  string censoring_note = 6;
+  string reform_note = 7;
+  string verbatim_note = 8;
+  string source_licence = 9;
+  string attribution = 10;
+  google.protobuf.Timestamp as_at = 11;
 }

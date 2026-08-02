@@ -385,6 +385,26 @@ func (s *StoreAdapter) ListDistinctiveHoldings(slug string) (*shorts.Distinctive
 	return s.store.ListDistinctiveHoldings(slug)
 }
 
+// AEC funding layer. Pass-through like the register arms above: the handlers
+// own the caching, and the notes those responses carry are handler constants so
+// no adapter can serve an amount without them.
+
+func (s *StoreAdapter) GetDonationsOverview(financialYear string, limit int32) (*shorts.DonationsOverviewRow, error) {
+	return s.store.GetDonationsOverview(financialYear, limit)
+}
+
+func (s *StoreAdapter) ListTopDonors(financialYear, partyGroup string, limit, offset int32) (*shorts.TopDonorsRow, error) {
+	return s.store.ListTopDonors(financialYear, partyGroup, limit, offset)
+}
+
+func (s *StoreAdapter) ListPartyFunding(partyGroup, financialYear string, limit int32) (*shorts.PartyFundingDetailRow, error) {
+	return s.store.ListPartyFunding(partyGroup, financialYear, limit)
+}
+
+func (s *StoreAdapter) GetPoliticianFunding(slug string) (*shorts.PoliticianFundingRow, error) {
+	return s.store.GetPoliticianFunding(slug)
+}
+
 // Register review console. Deliberately NOT routed through the caching adapter
 // arms above: a decision must be visible to the next reviewer immediately, and a
 // cached queue would hand two people the same candidate to decide twice.

@@ -277,6 +277,18 @@ const (
 	// ShortedStocksServiceListDistinctiveHoldingsProcedure is the fully-qualified name of the
 	// ShortedStocksService's ListDistinctiveHoldings RPC.
 	ShortedStocksServiceListDistinctiveHoldingsProcedure = "/shorts.v1alpha1.ShortedStocksService/ListDistinctiveHoldings"
+	// ShortedStocksServiceGetDonationsOverviewProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetDonationsOverview RPC.
+	ShortedStocksServiceGetDonationsOverviewProcedure = "/shorts.v1alpha1.ShortedStocksService/GetDonationsOverview"
+	// ShortedStocksServiceListTopDonorsProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListTopDonors RPC.
+	ShortedStocksServiceListTopDonorsProcedure = "/shorts.v1alpha1.ShortedStocksService/ListTopDonors"
+	// ShortedStocksServiceListPartyFundingProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListPartyFunding RPC.
+	ShortedStocksServiceListPartyFundingProcedure = "/shorts.v1alpha1.ShortedStocksService/ListPartyFunding"
+	// ShortedStocksServiceGetPoliticianFundingProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetPoliticianFunding RPC.
+	ShortedStocksServiceGetPoliticianFundingProcedure = "/shorts.v1alpha1.ShortedStocksService/GetPoliticianFunding"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -363,6 +375,10 @@ var (
 	shortedStocksServiceComparePoliticiansMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("ComparePoliticians")
 	shortedStocksServiceGetRegisterActivityMethodDescriptor             = shortedStocksServiceServiceDescriptor.Methods().ByName("GetRegisterActivity")
 	shortedStocksServiceListDistinctiveHoldingsMethodDescriptor         = shortedStocksServiceServiceDescriptor.Methods().ByName("ListDistinctiveHoldings")
+	shortedStocksServiceGetDonationsOverviewMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("GetDonationsOverview")
+	shortedStocksServiceListTopDonorsMethodDescriptor                   = shortedStocksServiceServiceDescriptor.Methods().ByName("ListTopDonors")
+	shortedStocksServiceListPartyFundingMethodDescriptor                = shortedStocksServiceServiceDescriptor.Methods().ByName("ListPartyFunding")
+	shortedStocksServiceGetPoliticianFundingMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("GetPoliticianFunding")
 )
 
 // ShortedStocksServiceClient is a client for the shorts.v1alpha1.ShortedStocksService service.
@@ -532,6 +548,14 @@ type ShortedStocksServiceClient interface {
 	GetRegisterActivity(context.Context, *connect.Request[v1alpha1.GetRegisterActivityRequest]) (*connect.Response[v1alpha1.GetRegisterActivityResponse], error)
 	// One member's currently-declared companies with corpus-wide declarer counts.
 	ListDistinctiveHoldings(context.Context, *connect.Request[v1alpha1.ListDistinctiveHoldingsRequest]) (*connect.Response[v1alpha1.ListDistinctiveHoldingsResponse], error)
+	// Party-group funding rollups for one financial year.
+	GetDonationsOverview(context.Context, *connect.Request[v1alpha1.GetDonationsOverviewRequest]) (*connect.Response[v1alpha1.GetDonationsOverviewResponse], error)
+	// Payers into party branches for one financial year, amount ordered.
+	ListTopDonors(context.Context, *connect.Request[v1alpha1.ListTopDonorsRequest]) (*connect.Response[v1alpha1.ListTopDonorsResponse], error)
+	// One party group's funding across every financial year it lodged in.
+	ListPartyFunding(context.Context, *connect.Request[v1alpha1.ListPartyFundingRequest]) (*connect.Response[v1alpha1.ListPartyFundingResponse], error)
+	// The funding returns that name one member.
+	GetPoliticianFunding(context.Context, *connect.Request[v1alpha1.GetPoliticianFundingRequest]) (*connect.Response[v1alpha1.GetPoliticianFundingResponse], error)
 }
 
 // NewShortedStocksServiceClient constructs a client for the shorts.v1alpha1.ShortedStocksService
@@ -1030,6 +1054,30 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(shortedStocksServiceListDistinctiveHoldingsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		getDonationsOverview: connect.NewClient[v1alpha1.GetDonationsOverviewRequest, v1alpha1.GetDonationsOverviewResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetDonationsOverviewProcedure,
+			connect.WithSchema(shortedStocksServiceGetDonationsOverviewMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listTopDonors: connect.NewClient[v1alpha1.ListTopDonorsRequest, v1alpha1.ListTopDonorsResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListTopDonorsProcedure,
+			connect.WithSchema(shortedStocksServiceListTopDonorsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listPartyFunding: connect.NewClient[v1alpha1.ListPartyFundingRequest, v1alpha1.ListPartyFundingResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListPartyFundingProcedure,
+			connect.WithSchema(shortedStocksServiceListPartyFundingMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getPoliticianFunding: connect.NewClient[v1alpha1.GetPoliticianFundingRequest, v1alpha1.GetPoliticianFundingResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetPoliticianFundingProcedure,
+			connect.WithSchema(shortedStocksServiceGetPoliticianFundingMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -1116,6 +1164,10 @@ type shortedStocksServiceClient struct {
 	comparePoliticians              *connect.Client[v1alpha1.ComparePoliticiansRequest, v1alpha1.ComparePoliticiansResponse]
 	getRegisterActivity             *connect.Client[v1alpha1.GetRegisterActivityRequest, v1alpha1.GetRegisterActivityResponse]
 	listDistinctiveHoldings         *connect.Client[v1alpha1.ListDistinctiveHoldingsRequest, v1alpha1.ListDistinctiveHoldingsResponse]
+	getDonationsOverview            *connect.Client[v1alpha1.GetDonationsOverviewRequest, v1alpha1.GetDonationsOverviewResponse]
+	listTopDonors                   *connect.Client[v1alpha1.ListTopDonorsRequest, v1alpha1.ListTopDonorsResponse]
+	listPartyFunding                *connect.Client[v1alpha1.ListPartyFundingRequest, v1alpha1.ListPartyFundingResponse]
+	getPoliticianFunding            *connect.Client[v1alpha1.GetPoliticianFundingRequest, v1alpha1.GetPoliticianFundingResponse]
 }
 
 // GetTopShorts calls shorts.v1alpha1.ShortedStocksService.GetTopShorts.
@@ -1528,6 +1580,26 @@ func (c *shortedStocksServiceClient) ListDistinctiveHoldings(ctx context.Context
 	return c.listDistinctiveHoldings.CallUnary(ctx, req)
 }
 
+// GetDonationsOverview calls shorts.v1alpha1.ShortedStocksService.GetDonationsOverview.
+func (c *shortedStocksServiceClient) GetDonationsOverview(ctx context.Context, req *connect.Request[v1alpha1.GetDonationsOverviewRequest]) (*connect.Response[v1alpha1.GetDonationsOverviewResponse], error) {
+	return c.getDonationsOverview.CallUnary(ctx, req)
+}
+
+// ListTopDonors calls shorts.v1alpha1.ShortedStocksService.ListTopDonors.
+func (c *shortedStocksServiceClient) ListTopDonors(ctx context.Context, req *connect.Request[v1alpha1.ListTopDonorsRequest]) (*connect.Response[v1alpha1.ListTopDonorsResponse], error) {
+	return c.listTopDonors.CallUnary(ctx, req)
+}
+
+// ListPartyFunding calls shorts.v1alpha1.ShortedStocksService.ListPartyFunding.
+func (c *shortedStocksServiceClient) ListPartyFunding(ctx context.Context, req *connect.Request[v1alpha1.ListPartyFundingRequest]) (*connect.Response[v1alpha1.ListPartyFundingResponse], error) {
+	return c.listPartyFunding.CallUnary(ctx, req)
+}
+
+// GetPoliticianFunding calls shorts.v1alpha1.ShortedStocksService.GetPoliticianFunding.
+func (c *shortedStocksServiceClient) GetPoliticianFunding(ctx context.Context, req *connect.Request[v1alpha1.GetPoliticianFundingRequest]) (*connect.Response[v1alpha1.GetPoliticianFundingResponse], error) {
+	return c.getPoliticianFunding.CallUnary(ctx, req)
+}
+
 // ShortedStocksServiceHandler is an implementation of the shorts.v1alpha1.ShortedStocksService
 // service.
 type ShortedStocksServiceHandler interface {
@@ -1696,6 +1768,14 @@ type ShortedStocksServiceHandler interface {
 	GetRegisterActivity(context.Context, *connect.Request[v1alpha1.GetRegisterActivityRequest]) (*connect.Response[v1alpha1.GetRegisterActivityResponse], error)
 	// One member's currently-declared companies with corpus-wide declarer counts.
 	ListDistinctiveHoldings(context.Context, *connect.Request[v1alpha1.ListDistinctiveHoldingsRequest]) (*connect.Response[v1alpha1.ListDistinctiveHoldingsResponse], error)
+	// Party-group funding rollups for one financial year.
+	GetDonationsOverview(context.Context, *connect.Request[v1alpha1.GetDonationsOverviewRequest]) (*connect.Response[v1alpha1.GetDonationsOverviewResponse], error)
+	// Payers into party branches for one financial year, amount ordered.
+	ListTopDonors(context.Context, *connect.Request[v1alpha1.ListTopDonorsRequest]) (*connect.Response[v1alpha1.ListTopDonorsResponse], error)
+	// One party group's funding across every financial year it lodged in.
+	ListPartyFunding(context.Context, *connect.Request[v1alpha1.ListPartyFundingRequest]) (*connect.Response[v1alpha1.ListPartyFundingResponse], error)
+	// The funding returns that name one member.
+	GetPoliticianFunding(context.Context, *connect.Request[v1alpha1.GetPoliticianFundingRequest]) (*connect.Response[v1alpha1.GetPoliticianFundingResponse], error)
 }
 
 // NewShortedStocksServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -2190,6 +2270,30 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		connect.WithSchema(shortedStocksServiceListDistinctiveHoldingsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	shortedStocksServiceGetDonationsOverviewHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetDonationsOverviewProcedure,
+		svc.GetDonationsOverview,
+		connect.WithSchema(shortedStocksServiceGetDonationsOverviewMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceListTopDonorsHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListTopDonorsProcedure,
+		svc.ListTopDonors,
+		connect.WithSchema(shortedStocksServiceListTopDonorsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceListPartyFundingHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListPartyFundingProcedure,
+		svc.ListPartyFunding,
+		connect.WithSchema(shortedStocksServiceListPartyFundingMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceGetPoliticianFundingHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetPoliticianFundingProcedure,
+		svc.GetPoliticianFunding,
+		connect.WithSchema(shortedStocksServiceGetPoliticianFundingMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/shorts.v1alpha1.ShortedStocksService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ShortedStocksServiceGetTopShortsProcedure:
@@ -2354,6 +2458,14 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceGetRegisterActivityHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceListDistinctiveHoldingsProcedure:
 			shortedStocksServiceListDistinctiveHoldingsHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetDonationsOverviewProcedure:
+			shortedStocksServiceGetDonationsOverviewHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListTopDonorsProcedure:
+			shortedStocksServiceListTopDonorsHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListPartyFundingProcedure:
+			shortedStocksServiceListPartyFundingHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetPoliticianFundingProcedure:
+			shortedStocksServiceGetPoliticianFundingHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -2685,4 +2797,20 @@ func (UnimplementedShortedStocksServiceHandler) GetRegisterActivity(context.Cont
 
 func (UnimplementedShortedStocksServiceHandler) ListDistinctiveHoldings(context.Context, *connect.Request[v1alpha1.ListDistinctiveHoldingsRequest]) (*connect.Response[v1alpha1.ListDistinctiveHoldingsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListDistinctiveHoldings is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetDonationsOverview(context.Context, *connect.Request[v1alpha1.GetDonationsOverviewRequest]) (*connect.Response[v1alpha1.GetDonationsOverviewResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetDonationsOverview is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListTopDonors(context.Context, *connect.Request[v1alpha1.ListTopDonorsRequest]) (*connect.Response[v1alpha1.ListTopDonorsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListTopDonors is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListPartyFunding(context.Context, *connect.Request[v1alpha1.ListPartyFundingRequest]) (*connect.Response[v1alpha1.ListPartyFundingResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListPartyFunding is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetPoliticianFunding(context.Context, *connect.Request[v1alpha1.GetPoliticianFundingRequest]) (*connect.Response[v1alpha1.GetPoliticianFundingResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetPoliticianFunding is not implemented"))
 }

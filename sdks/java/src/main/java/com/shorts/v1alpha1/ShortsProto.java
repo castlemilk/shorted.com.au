@@ -50,7 +50,7 @@ public final class ShortsProto extends com.google.protobuf.GeneratedFile {
       "orts/v1alpha1/politicians.proto\032\035shorts/" +
       "v1alpha1/reports.proto\032\036shorts/v1alpha1/" +
       "screener.proto\032\034shorts/v1alpha1/search.p" +
-      "roto\032\033shorts/v1alpha1/stock.proto2\324\244\001\n\024S" +
+      "roto\032\033shorts/v1alpha1/stock.proto2\244\260\001\n\024S" +
       "hortedStocksService\022\206\003\n\014GetTopShorts\022$.s" +
       "horts.v1alpha1.GetTopShortsRequest\032%.sho" +
       "rts.v1alpha1.GetTopShortsResponse\"\250\002\332A\023p" +
@@ -577,18 +577,55 @@ public final class ShortsProto extends com.google.protobuf.GeneratedFile {
       "with the number of members declaring it " +
       "across the whole register. A count of on" +
       "e means no other member currently declar" +
-      "es it.\200\265\030\001\032\025\312A\022api.shorted.com.auB\240\003\n\023co" +
-      "m.shorts.v1alpha1B\013ShortsProtoP\001ZYgithub" +
-      ".com/castlemilk/shorted.com.au/services/" +
-      "gen/proto/go/shorts/v1alpha1;shortsv1alp" +
-      "ha1\242\002\003SXX\252\002\017Shorts.V1alpha1\312\002\017Shorts\\V1a" +
-      "lpha1\342\002\033Shorts\\V1alpha1\\GPBMetadata\352\002\020Sh" +
-      "orts::V1alpha1\272G\302\001\022\177\n\013Shorted API\022\rShort" +
-      "ed API\'s\"(\022\016shorted.com.au\032\026support@shor" +
-      "ted.com.au*3\n\023Proprietary license\022\034https" +
-      "://shorted.com.au/terms2\002v1\032\034\n\032https://a" +
-      "pi.shorted.com.au*!:\037\n\035\n\tAuthToken\022\020\n\016\n\004" +
-      "http*\006bearerb\006proto3"
+      "es it.\200\265\030\001\022\200\003\n\024GetDonationsOverview\022,.sh" +
+      "orts.v1alpha1.GetDonationsOverviewReques" +
+      "t\032-.shorts.v1alpha1.GetDonationsOverview" +
+      "Response\"\212\002\272G\202\002\022\026Get Donations Overview\032" +
+      "\347\001Party-group funding rollups from AEC a" +
+      "nnual returns for one financial year, wi" +
+      "th the available years, corpus counts, a" +
+      "nd the right-censoring and 2027 reform n" +
+      "otes every surface must render. Amounts " +
+      "are in cents, verbatim as lodged.\200\265\030\001\022\332\002" +
+      "\n\rListTopDonors\022%.shorts.v1alpha1.ListTo" +
+      "pDonorsRequest\032&.shorts.v1alpha1.ListTop" +
+      "DonorsResponse\"\371\001\272G\361\001\022\017List Top Donors\032\335" +
+      "\001Payers named in itemised AEC receipts i" +
+      "nto party branches for one financial yea" +
+      "r, with the source\'s receipt-type split " +
+      "(a conference fee is not a donation) and" +
+      " an ASX code only where an exact or cura" +
+      "ted name match exists.\200\265\030\001\022\336\002\n\020ListParty" +
+      "Funding\022(.shorts.v1alpha1.ListPartyFundi" +
+      "ngRequest\032).shorts.v1alpha1.ListPartyFun" +
+      "dingResponse\"\364\001\272G\354\001\022\022List Party Funding\032" +
+      "\325\001One party group\'s AEC funding series b" +
+      "y financial year, plus that year\'s top p" +
+      "ayers and listed-company payers. Rows fr" +
+      "om FY2027 are the reformed scheme and mu" +
+      "st not be charted continuously with what" +
+      " precedes them.\200\265\030\001\022\214\003\n\024GetPoliticianFun" +
+      "ding\022,.shorts.v1alpha1.GetPoliticianFund" +
+      "ingRequest\032-.shorts.v1alpha1.GetPolitici" +
+      "anFundingResponse\"\226\002\272G\216\002\022\026Get Politician" +
+      " Funding\032\363\001AEC returns that NAME one mem" +
+      "ber: their annual member/senator returns" +
+      " and their election candidate returns in" +
+      "cluding lodged nil returns, with the cor" +
+      "pus coverage those figures sit inside. M" +
+      "oney given to a party is never attribute" +
+      "d to a member.\200\265\030\001\032\025\312A\022api.shorted.com.a" +
+      "uB\240\003\n\023com.shorts.v1alpha1B\013ShortsProtoP\001" +
+      "ZYgithub.com/castlemilk/shorted.com.au/s" +
+      "ervices/gen/proto/go/shorts/v1alpha1;sho" +
+      "rtsv1alpha1\242\002\003SXX\252\002\017Shorts.V1alpha1\312\002\017Sh" +
+      "orts\\V1alpha1\342\002\033Shorts\\V1alpha1\\GPBMetad" +
+      "ata\352\002\020Shorts::V1alpha1\272G\302\001\022\177\n\013Shorted AP" +
+      "I\022\rShorted API\'s\"(\022\016shorted.com.au\032\026supp" +
+      "ort@shorted.com.au*3\n\023Proprietary licens" +
+      "e\022\034https://shorted.com.au/terms2\002v1\032\034\n\032h" +
+      "ttps://api.shorted.com.au*!:\037\n\035\n\tAuthTok" +
+      "en\022\020\n\016\n\004http*\006bearerb\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,

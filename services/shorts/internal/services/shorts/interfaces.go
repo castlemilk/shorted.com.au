@@ -148,6 +148,12 @@ type ShortsStore interface {
 	GetRegisterActivity(windowDays int32, filter shortsstore.RegisterActivityFilter) (*shortsstore.RegisterActivityRow, error)
 	ListDistinctiveHoldings(slug string) (*shortsstore.DistinctiveHoldingsRow, error)
 
+	// AEC funding layer — the only methods here that return an amount.
+	GetDonationsOverview(financialYear string, limit int32) (*shortsstore.DonationsOverviewRow, error)
+	ListTopDonors(financialYear, partyGroup string, limit, offset int32) (*shortsstore.TopDonorsRow, error)
+	ListPartyFunding(partyGroup, financialYear string, limit int32) (*shortsstore.PartyFundingDetailRow, error)
+	GetPoliticianFunding(slug string) (*shortsstore.PoliticianFundingRow, error)
+
 	// Register review console — operator only, never cached (see CacheKeyBuilder:
 	// a decision must be visible to the next reviewer immediately, and a stale
 	// queue hands two people the same candidate).
@@ -237,6 +243,11 @@ type Cache interface {
 	ComparePoliticiansKey(slugA, slugB string) string
 	GetRegisterActivityKey(windowDays int32, slug, partyAb, chamber string, itemNo int32, kind string) string
 	ListDistinctiveHoldingsKey(slug string) string
+	// AEC funding layer cache keys
+	GetDonationsOverviewKey(financialYear string, limit int32) string
+	ListTopDonorsKey(financialYear, partyGroup string, limit, offset int32) string
+	ListPartyFundingKey(partyGroup, financialYear string, limit int32) string
+	GetPoliticianFundingKey(slug string) string
 
 	ListEconomicSeriesKey(topic, metric, regionType, regionCode, product string, limit int32) string
 	GetEconomicSeriesKey(seriesKeys []string, startPeriod string, maxObservations int32) string
