@@ -353,6 +353,58 @@ describe("donations explorer", () => {
     expect(loadPage.mock.calls[0]?.[0]).toMatchObject({ offset: 25 });
   });
 
+  /*
+   * The measured bug (2026-08-02): `Next` rendered DISABLED at the default page
+   * size, so the payer list — 1,768 payers in FY2024-25 — could not be paged at
+   * all without first narrowing it, and the range beside it read "1–25 of 0".
+   *
+   * The cause is a MISSING total, not a wrong one: `listTopDonors` reads through
+   * a KV cache whose stored value is a serialised response, and an entry written
+   * without the field deserialises with `total` at its zero value while `donors`
+   * is a full, correct page. `Number(payers?.total ?? 0)` then publishes a
+   * confident 0. A full page is the fallback signal, and it is also what the
+   * reader would infer from twenty-five rows.
+   */
+  it("still offers Next when the response carried no usable total", async () => {
+    const loadPage = noopLoad();
+    render(
+      <DonationsExplorer
+        initialPage={page({
+          query: baseQuery({ offset: 0, limit: 2 }),
+          payers: [payer(), payer({ id: "second", donorName: "Second Payer Pty Ltd" })],
+          payerTotal: 0,
+        })}
+        loadPage={loadPage}
+      />,
+    );
+
+    const next = screen.getByRole("button", { name: "Next" });
+    expect(next).toBeEnabled();
+    // …and the contradiction is not printed either: a range, but no "of 0".
+    expect(screen.getByText("1–2")).toBeInTheDocument();
+
+    fireEvent.click(next);
+    await waitFor(() => expect(loadPage).toHaveBeenCalled());
+    expect(loadPage.mock.calls[0]?.[0]).toMatchObject({ offset: 2 });
+  });
+
+  it("stops offering Next on a short page with no usable total", () => {
+    render(
+      <DonationsExplorer
+        initialPage={page({
+          query: baseQuery({ offset: 0, limit: 25 }),
+          payers: [payer()],
+          payerTotal: 0,
+        })}
+        loadPage={noopLoad()}
+      />,
+    );
+
+    // One row against a page size of 25 is the last page, whatever the total
+    // says or fails to say.
+    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+  });
+
   it("offers a usable year control even when the overview did not answer", () => {
     render(
       <DonationsExplorer

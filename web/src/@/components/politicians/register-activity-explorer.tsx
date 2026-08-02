@@ -48,6 +48,12 @@ import { WeekBars } from "@/components/politicians/explorer/week-bars";
 import { partyColorFromAb, partyLabel } from "@/lib/politics/party-palette";
 import { REGISTER_ITEMS } from "@/lib/politics/register-items";
 import { searchPoliticians } from "@/lib/politics/politician-search";
+import {
+  POLITICS_FILTER_BUTTON_CLASS,
+  POLITICS_PAGER_BUTTON_CLASS,
+  POLITICS_SELECT_CLASS,
+} from "@/lib/politics/control-classes";
+import { TypeaheadStatus } from "@/components/politicians/explorer/typeahead-status";
 
 /* ------------------------------------------------------------------ shapes */
 
@@ -220,8 +226,7 @@ const ITEM_OPTIONS: { value: number; label: string }[] = [
   })),
 ];
 
-const SELECT_CLASS =
-  "h-8 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring";
+const SELECT_CLASS = POLITICS_SELECT_CLASS;
 
 const FIELD_LABEL_CLASS = "text-[10px] uppercase tracking-wide text-muted-foreground";
 
@@ -339,6 +344,8 @@ export function RegisterActivityExplorer({
   const [memberQuery, setMemberQuery] = useState("");
   const [memberHits, setMemberHits] = useState<{ slug: string; displayName: string }[]>([]);
   const [memberSearchFailed, setMemberSearchFailed] = useState(false);
+  /** True from the keystroke until the lookup answers. See the effect below. */
+  const [memberSearching, setMemberSearching] = useState(false);
   const [memberOpen, setMemberOpen] = useState(false);
   /** Index of the active option, or -1 for none. Nothing is preselected. */
   const [memberActiveIndex, setMemberActiveIndex] = useState(-1);
@@ -391,20 +398,42 @@ export function RegisterActivityExplorer({
     [pendingQuery, run],
   );
 
-  // The member typeahead, over the same Algolia plumbing the hub search uses.
+  /*
+   * The member typeahead, over the same Algolia plumbing the hub search uses.
+   *
+   * WHY `memberSearching` EXISTS. Measured 2026-08-02: typing "alba" took 657 ms
+   * end to end — ~420 ms of it AFTER the last keystroke — and a busy affordance
+   * appeared in 0 of 5 runs. The listbox simply sat there holding stale options,
+   * or nothing, with no indication that anything was happening. That was the
+   * single largest perceived-responsiveness gap in the whole feature.
+   *
+   * The floor is not ours to remove: `/api/algolia/search` is a flat 205 ms
+   * whether it is called through the Next rewrite or straight at the Go proxy,
+   * i.e. it is the wire to Algolia. The debounce is already at the useful limit
+   * (180 ms here, 160 ms on /compare) and SHORTENING IT WOULD MAKE THINGS WORSE
+   * — more requests, same wire. So the fix is to say what is happening, not to
+   * try to be faster.
+   *
+   * The flag is set the moment the query is worth searching — during the
+   * debounce window as well as during the request — because from the reader's
+   * side those are one uninterrupted wait.
+   */
   useEffect(() => {
     const needle = memberQuery.trim();
     if (needle.length < 2) {
       setMemberHits([]);
       setMemberSearchFailed(false);
+      setMemberSearching(false);
       setMemberActiveIndex(-1);
       return;
     }
     let cancelled = false;
+    setMemberSearching(true);
     const timer = setTimeout(() => {
       searchPoliticians(needle, { hitsPerPage: 6, facets: [] })
         .then((result) => {
           if (cancelled) return;
+          setMemberSearching(false);
           setMemberSearchFailed(false);
           setMemberHits(
             (result.hits ?? []).map((hit) => ({
@@ -420,6 +449,7 @@ export function RegisterActivityExplorer({
           if (cancelled) return;
           // Search being down says nothing about the register, and the rest of
           // the filters keep working.
+          setMemberSearching(false);
           setMemberSearchFailed(true);
           setMemberHits([]);
           setMemberActiveIndex(-1);
@@ -560,7 +590,22 @@ export function RegisterActivityExplorer({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end gap-2">
+      {/*
+        A TWO-COLUMN GRID ON A PHONE, THE SAME FLEX ROW FROM `sm:` UP.
+
+        Six controls in a `flex-wrap` row each took a full line at 375 px: the
+        bar wrapped to SIX lines and 346 px, so the entire first screen below
+        the hero was filters and a reader had to scroll past all of them to
+        reach a single register event. A 2-column grid caps it at three rows and
+        roughly halves that height, and it costs nothing above `sm` where the
+        flex row already fitted.
+
+        `[&>*]:min-w-0` because these children are labels wrapping `<select>`s:
+        a grid item defaults to `min-width:auto`, and the longest option text
+        ("Any register category", every party name) would otherwise push the
+        column wider than its share and reintroduce the overflow this is fixing.
+      */}
+      <div className="grid grid-cols-2 items-end gap-2 [&>*]:min-w-0 sm:flex sm:flex-wrap">
         {/*
           Native selects, not the Radix kit: this is a filter surface on a route
           whose bundle size has a budget, and its filter BEHAVIOUR is what the tests
@@ -649,12 +694,14 @@ export function RegisterActivityExplorer({
           </select>
         </label>
 
-        <div className="flex flex-col gap-1">
+        {/* The member picker gets the full width on a phone: its input is wider
+            than a select and its listbox is wider still. */}
+        <div className="col-span-2 flex flex-col gap-1 sm:col-span-1">
           <label className={FIELD_LABEL_CLASS} htmlFor={`${controlsId}-member`}>
             Member
           </label>
           {pendingQuery.politicianSlug ? (
-            <span className="flex h-8 items-center gap-2 rounded-md border border-input px-2 text-xs">
+            <span className="flex h-11 items-center gap-2 rounded-md border border-input px-2 text-xs sm:h-8">
               <span>{memberName || pendingQuery.politicianSlug}</span>
               <button
                 type="button"
@@ -720,13 +767,19 @@ export function RegisterActivityExplorer({
                   {/* role="presentation": a status line is not a selectable
                       option, and a bare <li> in a listbox offers a screen reader
                       an option that cannot be chosen. */}
+                  <TypeaheadStatus searching={memberSearching} />
                   {memberSearchFailed ? (
                     <li role="presentation" className="px-2 py-1.5 text-[11px] text-muted-foreground">
                       Member search is unavailable right now. Nothing is missing from the
                       register — only the lookup is down.
                     </li>
                   ) : null}
-                  {!memberSearchFailed && memberHits.length === 0 ? (
+                  {/*
+                    NOT WHILE SEARCHING. "No members match" during the wait is a
+                    false answer that then flips to the real one — the reader
+                    reads the first, and it is about named people.
+                  */}
+                  {!memberSearchFailed && !memberSearching && memberHits.length === 0 ? (
                     <li role="presentation" className="px-2 py-1.5 text-[11px] text-muted-foreground">
                       No members match. Try a surname or an electorate.
                     </li>
@@ -772,7 +825,7 @@ export function RegisterActivityExplorer({
                 politicianSlug: "",
               });
             }}
-            className="h-8 text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            className={POLITICS_FILTER_BUTTON_CLASS}
           >
             Clear filters
           </button>
@@ -869,9 +922,19 @@ export function RegisterActivityExplorer({
                         <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
                           {row.kind === "added" ? "added" : "removed"}
                         </span>
+                        {/*
+                          `prefetch={false}`: the event feed is a bulk list, and
+                          Next was prefetching the RSC payload of every member
+                          row in the viewport — 49 profile payloads, 1,035 KB,
+                          on the first load of this page, for navigation that
+                          mostly will not happen. `inline-block py-1` gives the
+                          20 px-tall link a 44 px tap area without changing the
+                          type scale.
+                        */}
                         <Link
                           href={`/politicians/${row.slug}`}
-                          className="text-sm hover:underline"
+                          prefetch={false}
+                          className="inline-block py-1 text-sm hover:underline"
                         >
                           {row.displayName}
                         </Link>
@@ -920,7 +983,7 @@ export function RegisterActivityExplorer({
                   // at, under whatever they have currently selected.
                   run({ ...pendingQuery, offset: Math.max(0, query.offset - query.limit) })
                 }
-                className="rounded border px-2 py-1 disabled:opacity-40 enabled:hover:text-foreground"
+                className={POLITICS_PAGER_BUTTON_CLASS}
               >
                 Previous
               </button>
@@ -928,7 +991,7 @@ export function RegisterActivityExplorer({
                 type="button"
                 disabled={!hasNext || status === "loading"}
                 onClick={() => run({ ...pendingQuery, offset: query.offset + query.limit })}
-                className="rounded border px-2 py-1 disabled:opacity-40 enabled:hover:text-foreground"
+                className={POLITICS_PAGER_BUTTON_CLASS}
               >
                 Next
               </button>
@@ -967,7 +1030,8 @@ export function RegisterActivityExplorer({
                     <span className="min-w-0">
                       <Link
                         href={`/politicians/${member.slug}`}
-                        className="text-sm hover:underline"
+                        prefetch={false}
+                        className="inline-block py-1 text-sm hover:underline"
                       >
                         {member.displayName}
                       </Link>{" "}

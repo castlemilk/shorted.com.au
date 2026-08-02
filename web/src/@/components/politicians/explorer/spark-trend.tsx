@@ -1,4 +1,5 @@
 import { AMBER_STEPS } from "@/lib/politics/analytics-palette";
+import { ScreenReaderTable } from "@/components/politicians/explorer/screen-reader-table";
 
 export interface SparkTrendPoint {
   month: string;
@@ -112,7 +113,7 @@ export function SparkTrend({ points, undatedOnly = false }: SparkTrendProps) {
           />
         )}
       </svg>
-      <table className="sr-only" aria-label="Monthly count trend table">
+      <ScreenReaderTable ariaLabel="Monthly count trend table">
         <caption>Monthly count trend</caption>
         <thead>
           <tr>
@@ -137,7 +138,7 @@ export function SparkTrend({ points, undatedOnly = false }: SparkTrendProps) {
             </tr>
           )}
         </tbody>
-      </table>
+      </ScreenReaderTable>
     </figure>
   );
 }

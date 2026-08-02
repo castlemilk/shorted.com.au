@@ -391,8 +391,22 @@ export default async function PoliticiansPage() {
               or register category; the first page is in the HTML, and every other page is
               fetched on demand.
             </p>
+            {/*
+              `min-w-0` ON BOTH GRID ITEMS, AND IT IS LOAD-BEARING. A grid item
+              defaults to `min-width:auto`, which means "at least as wide as my
+              content". The register table below sets `min-w-[52rem]` (832 px)
+              inside an `overflow-x-auto` wrapper, and that 832 px propagated
+              straight up through this item — so at 375 px the scroller never
+              engaged and the WHOLE PAGE scrolled sideways instead, dragging the
+              sticky header with it (measured +511 px of document overflow, with
+              4 of the 7 table columns and 2 of the 4 filters off-screen).
+              `minmax(0,1fr)` on the template fixes the same thing, but only at
+              `lg:` — which is exactly the breakpoint where the bug did not
+              matter. These two classes are what make the table scroll instead of
+              the document.
+            */}
             <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_17rem]">
-              <div className="space-y-3">
+              <div className="min-w-0 space-y-3">
                 <PoliticianRegisterTable
                   initialPage={table}
                   loadPage={loadPoliticianTable}
@@ -409,7 +423,7 @@ export default async function PoliticiansPage() {
                 <SourceLine asAt={asAt} surface="politicians hub" />
               </div>
 
-              <aside className="space-y-8">
+              <aside className="min-w-0 space-y-8">
                 {donutSegments.length > 0 ? (
                   <CountDonut
                     segments={donutSegments}
@@ -466,7 +480,8 @@ export default async function PoliticiansPage() {
                           {event.politician ? (
                             <Link
                               href={`/politicians/${event.politician.slug}`}
-                              className="text-xs hover:underline"
+                              prefetch={false}
+                              className="inline-block py-1 text-xs hover:underline"
                             >
                               {event.politician.displayName}
                             </Link>
@@ -687,9 +702,21 @@ export default async function PoliticiansPage() {
                 {people?.total ?? 0} members and senators
               </summary>
               <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {/*
+                  `prefetch={false}` — this is the single biggest source of the
+                  hub's load-time request storm. 400 member links in the HTML is
+                  400 candidate RSC prefetches (~23 KB each); the measured first
+                  load pulled 1,179 KB across 56 requests before the reader had
+                  clicked anything. A roll is a directory, not a set of likely
+                  next steps.
+                */}
                 {roll.map((p) => (
                   <li key={p.slug} className="rounded-md border p-2.5">
-                    <Link href={`/politicians/${p.slug}`} className="text-sm hover:underline">
+                    <Link
+                      href={`/politicians/${p.slug}`}
+                      prefetch={false}
+                      className="inline-block py-1 text-sm hover:underline"
+                    >
                       {p.displayName}
                     </Link>
                     <div className="mt-1 flex flex-wrap items-center gap-2">

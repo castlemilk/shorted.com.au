@@ -126,6 +126,29 @@ export function registerDocLabel(sourceUrl?: string): string {
  *
  * Deliberately quiet: this is an affordance for a reader who wants to check a
  * specific claim, not a call to action.
+ *
+ * QUIET IS NOT THE SAME AS UNTAPPABLE, AND THE HIT AREA IS NOT THE INK.
+ * Measured on Albanese's profile: 243 of these, at **30 x 15 px each**, against
+ * a 44 px target floor — the densest cluster of undersized targets in the
+ * feature, and the one where a mis-tap opens the wrong document.
+ *
+ * The obvious fix is padding, and it was tried and reverted: `min-h-11` plus
+ * `py-3` did reach 44 px, but these sit inline at the end of a declaration row,
+ * so 243 taller rows pushed the profile from 37,868 px to **44,519 px** — a 17%
+ * longer page to fix a tap target, on the surface the audit already flags as
+ * far too long (finding #13). Trading scroll length for hit area is a bad deal
+ * when there is a version with no trade at all.
+ *
+ * So the target is grown with an ABSOLUTELY POSITIONED `::after` OVERLAY
+ * instead. It is a child box of the anchor, so a pointer landing on it
+ * dispatches to the anchor, and being out of flow it contributes NOTHING to the
+ * row's height. 44 x 44, centred on the link. The visible 10 px citation is
+ * untouched — which is the point: this is an affordance for a reader checking a
+ * claim, not a call to action, and it should not start shouting to be tappable.
+ *
+ * `sm:after:hidden` drops the overlay on a pointer device, where 44 px is not
+ * the relevant minimum and overlapping invisible boxes would only get in the way
+ * of text selection.
  */
 export function SourceDocLink({ sourceUrl }: { sourceUrl?: string }) {
   if (!sourceUrl) return null;
@@ -136,7 +159,7 @@ export function SourceDocLink({ sourceUrl }: { sourceUrl?: string }) {
       target="_blank"
       rel="noopener noreferrer"
       title="Open the original register PDF on aph.gov.au to check this entry"
-      className="text-muted-foreground hover:text-foreground text-[10px] underline decoration-dotted whitespace-nowrap"
+      className="text-muted-foreground hover:text-foreground relative inline-block text-[10px] underline decoration-dotted whitespace-nowrap after:absolute after:left-1/2 after:top-1/2 after:h-11 after:w-11 after:-translate-x-1/2 after:-translate-y-1/2 after:content-[''] sm:after:hidden"
     >
       {label}&nbsp;↗
     </a>

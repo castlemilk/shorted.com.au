@@ -1,4 +1,5 @@
 import { AMBER_STEPS } from "@/lib/politics/analytics-palette";
+import { ScreenReaderTable } from "@/components/politicians/explorer/screen-reader-table";
 
 export interface TrendAreaPoint {
   month: string;
@@ -202,7 +203,7 @@ export function TrendArea({ points, undatedCount = 0 }: TrendAreaProps) {
           )}
         </svg>
       </div>
-      <table className="sr-only" aria-label="Monthly declaration count table">
+      <ScreenReaderTable ariaLabel="Monthly declaration count table">
         <caption>Monthly declaration counts</caption>
         <thead>
           <tr>
@@ -225,7 +226,7 @@ export function TrendArea({ points, undatedCount = 0 }: TrendAreaProps) {
             </tr>
           )}
         </tbody>
-      </table>
+      </ScreenReaderTable>
       {footnote ? (
         <p className="text-[11px] text-muted-foreground">{footnote}</p>
       ) : null}

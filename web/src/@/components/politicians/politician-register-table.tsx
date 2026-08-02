@@ -36,6 +36,11 @@ import { SparkTrend } from "@/components/politicians/explorer/spark-trend";
 import { PoliticianAvatar } from "@/components/politicians/politician-avatar";
 import { partyColorFromAb, partyLabel } from "@/lib/politics/party-palette";
 import { REGISTER_ITEMS } from "@/lib/politics/register-items";
+import {
+  POLITICS_FILTER_BUTTON_CLASS,
+  POLITICS_PAGER_BUTTON_CLASS,
+  POLITICS_SELECT_CLASS,
+} from "@/lib/politics/control-classes";
 
 /** Mirrors `PoliticianSummarySort` without importing the generated enum. */
 export type PoliticianTableSort =
@@ -161,8 +166,7 @@ const SORTABLE: Partial<Record<PoliticianTableSort, string>> = {
   recent_changes: "Changes (90d)",
 };
 
-const SELECT_CLASS =
-  "h-8 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring";
+const SELECT_CLASS = POLITICS_SELECT_CLASS;
 
 /**
  * The party chip, rendered locally rather than imported from `compliance.tsx`.
@@ -321,7 +325,14 @@ export function PoliticianRegisterTable({
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-end gap-2">
+      {/*
+        Two columns on a phone, the flex row from `sm:` up. In a `flex-wrap` row
+        at 375 px the four filters ran off the right edge — "Party" was clipped
+        mid-word and "Register category" was entirely off screen and unreachable
+        without scrolling the whole document sideways. See `control-classes.ts`
+        for why the selects also need `w-full` here.
+      */}
+      <div className="grid grid-cols-2 items-end gap-2 [&>*]:min-w-0 sm:flex sm:flex-wrap">
         {/*
           Native selects, not the Radix kit: this island is a filter surface on
           a route whose bundle budget is watched, and its filter BEHAVIOUR is
@@ -404,7 +415,7 @@ export function PoliticianRegisterTable({
             onClick={() =>
               setFilter({ chamber: "", stateCode: "", partyAb: "", itemNo: 0 })
             }
-            className="h-8 text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            className={POLITICS_FILTER_BUTTON_CLASS}
           >
             Clear filters
           </button>
@@ -422,9 +433,29 @@ export function PoliticianRegisterTable({
         </p>
       ) : null}
 
+      {/*
+        THE TABLE IS A DIFFERENT TABLE ON A PHONE, not the same table squeezed.
+        At 375 px the seven-column layout put FOUR columns (Companies,
+        Real-estate entries, Changes 90d, and the trend sparkline) off the right
+        edge, and the `min-w-[52rem]` that forced them there also defeated this
+        scroller — see the `min-w-0` note on the grid in page.tsx.
+
+        Two changes, and they work together:
+          - `min-w-[52rem]` is now `sm:` only, so below `sm` the table lays out
+            inside the viewport and there is nothing to scroll horizontally at
+            all. From `sm:` up the dense seven-column table and its scroller are
+            exactly what they were.
+          - the five count/trend columns are `hidden sm:table-cell`, and the
+            counts they carry are re-rendered underneath the member's name as a
+            wrapped summary line (`sm:hidden`). Nothing is withheld from a
+            narrow reader; it is stacked instead of scrolled.
+
+        The `<caption>`/`<thead>` semantics are untouched, so the screen-reader
+        reading order is unchanged at every width.
+      */}
       <div className="overflow-x-auto" aria-busy={status === "loading"}>
         <table
-          className={`w-full min-w-[52rem] text-sm ${status === "loading" ? "opacity-60" : ""}`}
+          className={`w-full sm:min-w-[52rem] text-sm ${status === "loading" ? "opacity-60" : ""}`}
         >
           <caption className="sr-only">
             Federal parliamentarians and what they currently declare in the Registers of
@@ -449,24 +480,24 @@ export function PoliticianRegisterTable({
                 sort="companies"
                 activeSort={query.sort}
                 onSort={toggleSort}
-                className="py-2 pr-3 text-right font-normal"
+                className="hidden py-2 pr-3 text-right font-normal sm:table-cell"
               />
               <SortHeader
                 sort="properties"
                 activeSort={query.sort}
                 onSort={toggleSort}
-                className="py-2 pr-3 text-right font-normal"
+                className="hidden py-2 pr-3 text-right font-normal sm:table-cell"
               />
-              <th scope="col" className="py-2 pr-3 text-right font-normal">
+              <th scope="col" className="hidden py-2 pr-3 text-right font-normal sm:table-cell">
                 Gifts &amp; travel
               </th>
               <SortHeader
                 sort="recent_changes"
                 activeSort={query.sort}
                 onSort={toggleSort}
-                className="py-2 pr-3 text-right font-normal"
+                className="hidden py-2 pr-3 text-right font-normal sm:table-cell"
               />
-              <th scope="col" className="w-40 py-2 text-left font-normal">
+              <th scope="col" className="hidden w-40 py-2 text-left font-normal sm:table-cell">
                 12-month trend
               </th>
             </tr>
@@ -488,9 +519,22 @@ export function PoliticianRegisterTable({
                       }}
                     />
                     <div className="min-w-0">
+                      {/*
+                        `prefetch={false}` ON A BULK LINK LIST. Next prefetches
+                        the RSC payload of every `<Link>` in the viewport, and a
+                        page of 25 member rows is 25 x ~23 KB of profile payload
+                        for navigation that mostly will not happen — measured at
+                        1,179 KB across 56 requests on the hub's first load,
+                        roughly DOUBLING the page's transfer. Prefetch is kept
+                        for the handful of primary CTAs, not spent on a roll.
+                        `inline-block py-1` is the tap target: these links were
+                        18 px tall against a 44 px floor, and padding buys the
+                        height without touching the type scale.
+                      */}
                       <Link
                         href={`/politicians/${row.slug}`}
-                        className="font-medium hover:underline"
+                        prefetch={false}
+                        className="inline-block py-1 font-medium hover:underline"
                       >
                         {row.displayName}
                       </Link>
@@ -500,13 +544,56 @@ export function PoliticianRegisterTable({
                       </div>
                     </div>
                   </div>
+                  {/*
+                    THE COLUMNS THIS WIDTH CANNOT SHOW, STACKED INSTEAD.
+
+                    Rendered only below `sm:`, where the matching cells are
+                    `hidden` — so no figure is ever on screen twice and no figure
+                    is ever withheld from a narrow reader. `aria-hidden` because
+                    the real cells are still in the accessibility tree with their
+                    column headers attached: a screen reader should hear
+                    "Companies, 4" once, not this shorthand as well.
+
+                    A 2-COLUMN GRID, AND IT SITS OUTSIDE THE AVATAR ROW. Both
+                    details are measured, not stylistic. Inside the name block it
+                    only had 146 px (the cell is 201 px, less a 32 px avatar and
+                    the gap), so four items became four lines — 86 px per row, on
+                    25 rows. Out here it gets the full cell and a fixed 2x2, which
+                    is 2 lines. The labels stay the column headers' own words so a
+                    reader moving between the phone and the desktop layout is
+                    reading the same table.
+                  */}
+                  <div
+                    aria-hidden
+                    className="mt-1 grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] tabular-nums text-muted-foreground sm:hidden"
+                  >
+                    <span>{row.companies} companies</span>
+                    <span>{row.realEstateEntries} real-estate</span>
+                    {/*
+                      "gifts/travel", not "gifts & travel": the ampersand form is
+                      the only one of the four that does not fit an 83 px grid
+                      cell at 10 px, and a cell that wraps costs every row a line.
+                      Both words are kept — this is an abbreviation of the column
+                      header, not a different measure.
+                    */}
+                    <span>{row.giftsTravel} gifts/travel</span>
+                    <span>{row.changes90d} changes 90d</span>
+                  </div>
                 </th>
                 <td className="py-2 pr-3 text-right tabular-nums">{row.declaredItems}</td>
-                <td className="py-2 pr-3 text-right tabular-nums">{row.companies}</td>
-                <td className="py-2 pr-3 text-right tabular-nums">{row.realEstateEntries}</td>
-                <td className="py-2 pr-3 text-right tabular-nums">{row.giftsTravel}</td>
-                <td className="py-2 pr-3 text-right tabular-nums">{row.changes90d}</td>
-                <td className="py-2">
+                <td className="hidden py-2 pr-3 text-right tabular-nums sm:table-cell">
+                  {row.companies}
+                </td>
+                <td className="hidden py-2 pr-3 text-right tabular-nums sm:table-cell">
+                  {row.realEstateEntries}
+                </td>
+                <td className="hidden py-2 pr-3 text-right tabular-nums sm:table-cell">
+                  {row.giftsTravel}
+                </td>
+                <td className="hidden py-2 pr-3 text-right tabular-nums sm:table-cell">
+                  {row.changes90d}
+                </td>
+                <td className="hidden py-2 sm:table-cell">
                   <SparkTrend
                     points={row.trend}
                     undatedOnly={row.trend.length === 0 && row.undatedCount > 0}
@@ -538,7 +625,7 @@ export function PoliticianRegisterTable({
             onClick={() =>
               run({ ...query, offset: Math.max(0, query.offset - query.limit) })
             }
-            className="rounded border px-2 py-1 disabled:opacity-40 enabled:hover:text-foreground"
+            className={POLITICS_PAGER_BUTTON_CLASS}
           >
             Previous
           </button>
@@ -546,7 +633,7 @@ export function PoliticianRegisterTable({
             type="button"
             disabled={!hasNext || status === "loading"}
             onClick={() => run({ ...query, offset: query.offset + query.limit })}
-            className="rounded border px-2 py-1 disabled:opacity-40 enabled:hover:text-foreground"
+            className={POLITICS_PAGER_BUTTON_CLASS}
           >
             Next
           </button>

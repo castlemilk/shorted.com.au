@@ -62,6 +62,11 @@ import {
   type ReceiptSplitCents,
 } from "@/lib/politics/funding-money";
 import { partyGroupColor } from "@/lib/politics/party-group-palette";
+import {
+  POLITICS_FILTER_BUTTON_CLASS,
+  POLITICS_PAGER_BUTTON_CLASS,
+  POLITICS_SELECT_CLASS,
+} from "@/lib/politics/control-classes";
 
 /* ------------------------------------------------------------------ shapes */
 
@@ -226,8 +231,7 @@ export interface DonationsExplorerProps {
 
 /* ----------------------------------------------------------------- styling */
 
-const SELECT_CLASS =
-  "h-8 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring";
+const SELECT_CLASS = POLITICS_SELECT_CLASS;
 
 const FIELD_LABEL_CLASS = "text-[10px] uppercase tracking-wide text-muted-foreground";
 
@@ -445,7 +449,31 @@ export function DonationsExplorer({ initialPage, loadPage }: DonationsExplorerPr
   );
 
   const hasPrevious = page.query.offset > 0;
-  const hasNext = page.query.offset + page.payers.length < page.payerTotal;
+  /*
+   * NEXT MUST NOT DEPEND ON A TOTAL THAT CAN BE ABSENT.
+   *
+   * Measured 2026-08-02: `Next` rendered DISABLED at the default page size, so
+   * the payer list — 1,768 payers in FY2024-25 — was unpageable, and the range
+   * line beside it read "1–25 of 0". The rpc does serve a real `count(*)`, so
+   * the failure is not arithmetic: it is that `total` can be MISSING from what
+   * this component is handed. `listTopDonors` reads through a KV cache
+   * (`cache:politicians:donations:donors:…`) whose stored value is a serialised
+   * response, and an entry written before the field existed — or by any build
+   * that did not carry it — deserialises with `total` at its zero value while
+   * `donors` is a full, correct page. `Number(payers?.total ?? 0)` then makes it
+   * a confident 0, and `offset + 25 < 0` is false.
+   *
+   * So the total is used as an upper bound WHEN IT IS CREDIBLE, and a full page
+   * is the fallback signal when it is not. A full page meaning "there is more"
+   * is the same inference the reader would make, and its worst case is one
+   * empty page — where `Previous` still works — instead of a permanently dead
+   * control over 1,768 rows.
+   */
+  const pageIsFull = page.query.limit > 0 && page.payers.length >= page.query.limit;
+  const hasNext =
+    page.payerTotal > 0
+      ? page.query.offset + page.payers.length < page.payerTotal
+      : pageIsFull;
 
   /*
    * THE TWO EMPTY RESULTS, WHICH MEAN OPPOSITE THINGS.
@@ -465,7 +493,15 @@ export function DonationsExplorer({ initialPage, loadPage }: DonationsExplorerPr
 
   return (
     <div className="space-y-10">
-      <div className="flex flex-wrap items-end gap-2">
+      {/*
+        Two columns on a phone, the flex row from `sm:` up. At 375 px the Party
+        group `<select>` ran off the right edge — its right border was not on
+        screen — because a `flex-wrap` row gives each control its natural width
+        and the longest party-group key is wider than the viewport.
+        `[&>*]:min-w-0` caps the grid items so the select shrinks to its column
+        instead of overflowing it.
+      */}
+      <div className="grid grid-cols-2 items-end gap-2 [&>*]:min-w-0 sm:flex sm:flex-wrap">
         {/*
           Native selects, not the Radix kit: this is a filter surface on a route
           with a bundle budget, and its filter BEHAVIOUR is what the tests drive —
@@ -508,7 +544,7 @@ export function DonationsExplorer({ initialPage, loadPage }: DonationsExplorerPr
           <button
             type="button"
             onClick={() => setFilter({ partyGroup: "" })}
-            className="h-8 text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            className={POLITICS_FILTER_BUTTON_CLASS}
           >
             Clear party filter
           </button>
@@ -551,9 +587,19 @@ export function DonationsExplorer({ initialPage, loadPage }: DonationsExplorerPr
             — this is our end.
           </p>
         ) : (
+          // `[&>*]:min-w-0` — each FundingBars chart is a grid item, and a grid
+          // item's default `min-width:auto` means "at least my content width".
+          // The bar rows carry a party-group name and a dollar figure on one
+          // line, so at 375 px the figures pushed each `<figure>` out to 403 px
+          // inside a 279 px column and EVERY DOLLAR VALUE — the headline numbers
+          // of this page — sat off the right edge, unreachable without dragging
+          // the whole document sideways. With `min-w-0` the item is capped at
+          // the column and the row's own `flex-wrap` puts the amount on its own
+          // line instead. The bars themselves are `w-full` percentages, so they
+          // scale to whatever the column is.
           <div
             aria-busy={status === "loading"}
-            className={`grid gap-8 md:grid-cols-3 ${status === "loading" ? "opacity-60" : ""}`}
+            className={`grid gap-8 [&>*]:min-w-0 md:grid-cols-3 ${status === "loading" ? "opacity-60" : ""}`}
           >
             <FundingBars
               measureLabel="Total receipts, as the party declared them"
@@ -654,10 +700,18 @@ export function DonationsExplorer({ initialPage, loadPage }: DonationsExplorerPr
             ) : null}
 
             <div className="flex flex-wrap items-center justify-between gap-2 pt-3 text-[11px] text-muted-foreground">
+              {/*
+                The range without the total when the total is not credible —
+                "1–25 of 0" is a contradiction printed beside twenty-five
+                visible rows, and it is better to say less than to say that.
+                Same condition as `hasNext` above.
+              */}
               <span className="tabular-nums">
                 {page.payers.length === 0
                   ? "0 payers"
-                  : `${page.query.offset + 1}–${page.query.offset + page.payers.length} of ${formatCount(page.payerTotal)}`}
+                  : page.payerTotal > 0
+                    ? `${page.query.offset + 1}–${page.query.offset + page.payers.length} of ${formatCount(page.payerTotal)}`
+                    : `${page.query.offset + 1}–${page.query.offset + page.payers.length}`}
               </span>
               <span className="flex items-center gap-2">
                 <button
@@ -672,7 +726,7 @@ export function DonationsExplorer({ initialPage, loadPage }: DonationsExplorerPr
                       offset: Math.max(0, page.query.offset - page.query.limit),
                     })
                   }
-                  className="rounded border px-2 py-1 disabled:opacity-40 enabled:hover:text-foreground"
+                  className={POLITICS_PAGER_BUTTON_CLASS}
                 >
                   Previous
                 </button>
@@ -682,7 +736,7 @@ export function DonationsExplorer({ initialPage, loadPage }: DonationsExplorerPr
                   onClick={() =>
                     run({ ...pendingQuery, offset: page.query.offset + page.query.limit })
                   }
-                  className="rounded border px-2 py-1 disabled:opacity-40 enabled:hover:text-foreground"
+                  className={POLITICS_PAGER_BUTTON_CLASS}
                 >
                   Next
                 </button>

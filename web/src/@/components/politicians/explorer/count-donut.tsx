@@ -1,4 +1,5 @@
 import { AMBER_STEPS } from "@/lib/politics/analytics-palette";
+import { ScreenReaderTable } from "@/components/politicians/explorer/screen-reader-table";
 
 export interface CountDonutSegment {
   label: string;
@@ -100,6 +101,26 @@ export function CountDonut({ segments, centerLabel, title }: CountDonutProps) {
     ? drawn.map((segment) => `${segment.label}: ${segment.count}`).join("; ")
     : "no segments";
 
+  /*
+   * THESE NUMBERS ARE viewBox USER UNITS, NOT CSS PIXELS. Do not "fix" them
+   * against a px floor.
+   *
+   * A responsiveness audit on 2026-08-02 reported these donut labels rendering
+   * at "5.6 px — unreadable" and filed it as an accessibility defect. That was a
+   * measurement artefact, and the trap is worth writing down because it will be
+   * re-measured the same way: the audit read `getComputedStyle(text).fontSize`,
+   * which for an SVG resolves in the LOCAL coordinate system, BEFORE the viewBox
+   * transform. This svg is `viewBox="0 0 100 100"` drawn into a 208 px box
+   * (`max-w-52`), so the scale factor is 2.08 and the label that measured
+   * "5.64 px" is **~11.7 CSS px on screen** — larger than the 10 px chrome type
+   * beside it. Verified: the same audit records `w: 208, h: 208` for these very
+   * elements, and it reports an identical 5.64 at 375 px AND at 768 px, which a
+   * genuinely viewport-relative size could not do.
+   *
+   * Raising `min` to a px-looking floor was tried and reverted: it does not make
+   * anything bigger, it only pushes `fitToHole` into its truncation branch and
+   * clips labels that currently fit whole.
+   */
   const totalFit = fitToHole(String(total), { max: 20, min: 8, per: 0.58 });
   const labelFit = fitToHole(centerLabel, { max: 8, min: 4.5, per: 0.52 });
 
@@ -199,7 +220,7 @@ export function CountDonut({ segments, centerLabel, title }: CountDonutProps) {
         "Other" above — grouping is a drawing decision, not a reason to withhold
         a count from anyone reading this way.
       */}
-      <table className="sr-only" aria-label={`${title} table`}>
+      <ScreenReaderTable ariaLabel={`${title} table`}>
         <caption>{title}</caption>
         <thead>
           <tr>
@@ -219,7 +240,7 @@ export function CountDonut({ segments, centerLabel, title }: CountDonutProps) {
             <td className="tabular-nums">{total}</td>
           </tr>
         </tbody>
-      </table>
+      </ScreenReaderTable>
     </figure>
   );
 }

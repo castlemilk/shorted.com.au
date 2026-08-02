@@ -64,7 +64,19 @@ describe("week bars", () => {
     render(<WeekBars weeks={WEEKS} windowLabel="the last 90 days" />);
 
     const table = screen.getByRole("table", { name: /^Register events by week over / });
-    expect(table).toHaveClass("sr-only");
+    // RE-PINNED 2026-08-02, and the inversion is the point. `sr-only` used to
+    // sit on the <table> itself, which does NOT hide it: `width:1px` on a
+    // `display:table` box is a minimum, not a cap, so the table laid out at its
+    // full content width and — being absolutely positioned — added that width to
+    // the document's scroll width. Measured +1352 px of horizontal overflow at
+    // 375 px on /donations, +1428 px at 768 px, +479 px on /changes.
+    //
+    // The clip now lives on a plain block wrapper, which really is 1 px wide
+    // with `overflow:hidden`. So the assertion is that the table is hidden BY AN
+    // ANCESTOR and does not carry the class itself — putting it back on the
+    // table is the regression this pins against.
+    expect(table).not.toHaveClass("sr-only");
+    expect(table.parentElement).toHaveClass("sr-only");
     for (const week of WEEKS) {
       expect(screen.getByRole("rowheader", { name: week.weekStart })).toBeInTheDocument();
     }

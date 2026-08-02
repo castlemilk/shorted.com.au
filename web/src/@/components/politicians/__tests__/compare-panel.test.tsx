@@ -578,7 +578,19 @@ describe("compare panel — the comparison", () => {
       expect(graphic.getAttribute("aria-label")).toBeTruthy();
     }
     // …and a real table behind each chart, not just a label.
-    expect(container.querySelectorAll("table.sr-only").length).toBeGreaterThan(0);
+    //
+    // RE-PINNED 2026-08-02: the selector was `table.sr-only`, which pinned the
+    // exact bug it was meant to guard against. `sr-only` sets `width:1px`, and
+    // on a `display:table` box that is a MINIMUM, not a cap — so the table laid
+    // out at full content width and, being absolutely positioned, added that to
+    // the document's scroll width (+354 px of horizontal overflow on this route
+    // at 375 px, +1352 px on /donations). The clip now lives on a block wrapper.
+    // What this test actually cares about is unchanged: a real <table>, hidden
+    // from sighted readers, behind every chart.
+    const hiddenTables = container.querySelectorAll(".sr-only table");
+    expect(hiddenTables.length).toBeGreaterThan(0);
+    // The class must NOT be back on the table itself — that is the regression.
+    expect(container.querySelectorAll("table.sr-only").length).toBe(0);
   });
 });
 
