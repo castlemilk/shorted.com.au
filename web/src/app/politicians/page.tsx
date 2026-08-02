@@ -491,6 +491,31 @@ export default async function PoliticiansPage() {
                   </div>
                 ) : null}
 
+                {/*
+                  THE ONE CROSS-LINK TO THE FUNDING LAYER, and its copy does the
+                  work of keeping the two apart. The register above records what
+                  a member holds and never how much; the AEC Transparency
+                  Register records what PARTIES declared receiving, and money
+                  given to a party is not money given to a member. The card says
+                  so rather than leaving a reader to assume the link continues
+                  the same subject.
+                */}
+                <div className="space-y-2 rounded-lg border bg-card p-4">
+                  <h3 className="text-sm font-medium">Party funding and donations</h3>
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">
+                    A separate source: what registered parties declared receiving each financial
+                    year, who the payers were, and which of them are ASX-listed companies, as
+                    lodged with the AEC. Party money is not attributable to any individual
+                    member.
+                  </p>
+                  <Link
+                    href="/politicians/donations"
+                    className="inline-block text-[11px] underline decoration-dotted hover:text-foreground"
+                  >
+                    Open the funding explorer →
+                  </Link>
+                </div>
+
                 <div className="space-y-2 rounded-lg border bg-card p-4">
                   <h3 className="text-sm font-medium">Compare two members</h3>
                   <p className="text-[11px] leading-relaxed text-muted-foreground">
