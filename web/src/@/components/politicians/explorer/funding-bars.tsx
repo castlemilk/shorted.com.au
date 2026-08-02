@@ -23,6 +23,7 @@
  */
 
 import { formatCents, formatCount } from "@/lib/politics/funding-money";
+import { ScreenReaderTable } from "@/components/politicians/explorer/screen-reader-table";
 
 export interface FundingBarRow {
   /** The party group's own verbatim key. Never re-labelled. */
@@ -137,7 +138,7 @@ export function FundingBars({
             kit uses: an aria-label listing twenty parties and twenty amounts is
             one unnavigable sentence, whereas a table can be read row by row.
           */}
-          <table className="sr-only">
+          <ScreenReaderTable>
             <caption>
               {measureLabel}. {measureNote}
               {subsetNote ? ` ${subsetNote}` : ""}
@@ -168,7 +169,7 @@ export function FundingBars({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </ScreenReaderTable>
         </>
       )}
     </figure>

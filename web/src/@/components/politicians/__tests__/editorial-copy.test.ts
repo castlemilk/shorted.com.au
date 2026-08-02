@@ -292,7 +292,24 @@ describe("politician surface copy", () => {
     // attribution line and the ReportErrorLink for its island. The island, the
     // kit files and the profile section are excluded exactly as their
     // equivalents in the three waves before this one are.
-    expect(FILES.length).toBe(44);
+    //
+    // 44 -> 46, the responsiveness pass (2026-08-02): two new kit primitives
+    // under `explorer/`, both excluded from RENDERING_SURFACES by
+    // KIT_PRIMITIVE_DIRS like the ten files beside them.
+    //
+    //   - `explorer/screen-reader-table.tsx` carries NO reader-facing copy at
+    //     all. It is the `<div class="sr-only"><table>` wrapper that stops a
+    //     `display:table` box from escaping the 1 px clip and dragging the
+    //     document sideways (+1352 px at 375 px on /donations). The strings it
+    //     renders are its callers' captions, unchanged, so §6.2 has nothing new
+    //     to review here.
+    //   - `explorer/typeahead-status.tsx` DOES carry copy — "Searching
+    //     members…" — and §6.2 review covers it. It says only that a lookup is
+    //     in flight. It makes no claim about the register, about a member, or
+    //     about whether anyone matches: the "No members match" line is now
+    //     explicitly suppressed while this one shows, precisely so a reader is
+    //     never told an absence that is really a wait.
+    expect(FILES.length).toBe(46);
     expect(RENDERING_SURFACES.length).toBe(10);
   });
 

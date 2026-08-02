@@ -1,3 +1,5 @@
+import { ScreenReaderTable } from "@/components/politicians/explorer/screen-reader-table";
+
 export interface CompareBarRow {
   label: string;
   countA: number;
@@ -97,10 +99,7 @@ export function CompareBars({
           </div>
         ))}
       </div>
-      <table
-        className="sr-only"
-        aria-label={`Comparison table for ${nameA} and ${nameB}`}
-      >
+      <ScreenReaderTable ariaLabel={`Comparison table for ${nameA} and ${nameB}`}>
         <caption>
           Comparison of {nameA} and {nameB}
         </caption>
@@ -120,7 +119,7 @@ export function CompareBars({
             </tr>
           ))}
         </tbody>
-      </table>
+      </ScreenReaderTable>
     </figure>
   );
 }

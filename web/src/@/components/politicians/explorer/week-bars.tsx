@@ -29,6 +29,7 @@
  */
 
 import { AMBER_STEPS } from "@/lib/politics/analytics-palette";
+import { ScreenReaderTable } from "@/components/politicians/explorer/screen-reader-table";
 
 export interface WeekBarsPoint {
   /** `YYYY-MM-DD`, the Monday the week starts on. */
@@ -187,7 +188,7 @@ export function WeekBars({ weeks, windowLabel, scopeNote = "" }: WeekBarsProps) 
       {/* The table's own name carries the scope too: an aria-label OVERRIDES the
           caption, so a scoped caption under an unscoped label is heard as
           unscoped. */}
-      <table className="sr-only" aria-label={`Register events by week over ${scopedWindow}`}>
+      <ScreenReaderTable ariaLabel={`Register events by week over ${scopedWindow}`}>
         <caption>
           Register events by week over {scopedWindow}, dated events only
         </caption>
@@ -215,7 +216,7 @@ export function WeekBars({ weeks, windowLabel, scopeNote = "" }: WeekBarsProps) 
             </tr>
           )}
         </tbody>
-      </table>
+      </ScreenReaderTable>
     </figure>
   );
 }

@@ -62,6 +62,7 @@ import { registerItem } from "@/lib/politics/register-items";
 import { toDate } from "@/lib/politics/timestamp";
 import { sectionTitle } from "@/lib/typography";
 import { comparePoliticiansClient } from "~/app/actions/client/getPoliticiansClient";
+import { TypeaheadStatus } from "@/components/politicians/explorer/typeahead-status";
 
 /*
  * The response types, derived from the action rather than imported from
@@ -249,6 +250,15 @@ function MemberPicker({
   const [hits, setHits] = useState<PoliticianHit[]>([]);
   const [open, setOpen] = useState(false);
   const [failed, setFailed] = useState(false);
+  /**
+   * True from the keystroke until the lookup answers, debounce included.
+   *
+   * This picker was the SLOWEST measured interaction in the feature — 1,192 ms
+   * median for "dutton", ~830 ms of it after the last keystroke — with a busy
+   * affordance in 0 of 5 runs. See `TypeaheadStatus` for why the wait itself
+   * cannot be shortened and why saying so is the fix.
+   */
+  const [searching, setSearching] = useState(false);
   /** Index of the active option, or -1 for none. Nothing is preselected. */
   const [activeIndex, setActiveIndex] = useState(-1);
   const listId = `compare-picker-${side.toLowerCase()}`;
@@ -259,10 +269,12 @@ function MemberPicker({
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
+    setSearching(true);
     const timer = setTimeout(() => {
       searchPoliticians(searchTerm, { hitsPerPage: 6, facets: [] })
         .then((result) => {
           if (cancelled) return;
+          setSearching(false);
           setHits(result.hits);
           setFailed(false);
           // The active option is an index into a list that just changed, so it
@@ -270,7 +282,9 @@ function MemberPicker({
           setActiveIndex(-1);
         })
         .catch(() => {
-          if (!cancelled) setFailed(true);
+          if (cancelled) return;
+          setSearching(false);
+          setFailed(true);
         });
     }, 160);
     return () => {
@@ -373,7 +387,10 @@ function MemberPicker({
               setQuery(null);
               onClear();
             }}
-            className="absolute right-2 top-1/2 -translate-y-1/2 rounded px-1.5 py-0.5 text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            // 45 x 21 px was the ONLY `target-size` failure Lighthouse sampled
+            // on this route. Padding buys the 44 px; the type stays at 11 px so
+            // the control keeps its weight relative to the field it sits in.
+            className="absolute right-1 top-1/2 flex min-h-11 -translate-y-1/2 items-center rounded px-3 text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
           >
             Clear
           </button>
@@ -389,13 +406,15 @@ function MemberPicker({
             {/* role="presentation": a status line is not a selectable option,
                 and leaving it as a bare <li> inside a listbox offers a screen
                 reader an option that cannot be chosen. */}
+            <TypeaheadStatus searching={searching} />
             {failed ? (
               <li role="presentation" className="px-2 py-2 text-[11px] text-muted-foreground">
                 Search is unavailable right now. Nothing is missing from the
                 register — only the lookup is down.
               </li>
             ) : null}
-            {!failed && hits.length === 0 ? (
+            {/* Not while searching: see the same guard on /changes. */}
+            {!failed && !searching && hits.length === 0 ? (
               <li role="presentation" className="px-2 py-2 text-[11px] text-muted-foreground">
                 No members match. Try a surname or an electorate.
               </li>

@@ -1,4 +1,5 @@
 import { CompareBars } from "./compare-bars";
+import { ScreenReaderTable } from "@/components/politicians/explorer/screen-reader-table";
 
 export interface CompareRadarAxis {
   label: string;
@@ -262,10 +263,7 @@ export function CompareRadar({
           </span>
         </div>
       </div>
-      <table
-        className="sr-only"
-        aria-label={`Radar table for ${nameA} and ${nameB}`}
-      >
+      <ScreenReaderTable ariaLabel={`Radar table for ${nameA} and ${nameB}`}>
         <caption>
           Radar comparison of {nameA} and {nameB}
         </caption>
@@ -285,7 +283,7 @@ export function CompareRadar({
             </tr>
           ))}
         </tbody>
-      </table>
+      </ScreenReaderTable>
     </figure>
   );
 }

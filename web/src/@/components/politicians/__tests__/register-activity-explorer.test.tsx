@@ -524,7 +524,20 @@ describe("register activity explorer", () => {
     fireEvent.change(screen.getByLabelText("Member"), { target: { value: "Zzz" } });
 
     const listbox = await screen.findByRole("listbox", { name: "Member results" });
-    expect(within(listbox).getByText(/no members match/i)).toBeInTheDocument();
+    // EXTENDED 2026-08-02. The lookup is now announced while it is in flight,
+    // and "no members match" is suppressed until it has actually answered — so
+    // this has to WAIT for the answer rather than reading the first frame.
+    // That ordering is the point of the change: the typeahead measured 657 ms
+    // (~420 ms after the last keystroke) with no busy affordance in 5 of 5
+    // runs, and the copy on screen during that wait was an absence claim about
+    // named people that had not been established yet.
+    expect(within(listbox).getByText(/searching members/i)).toBeInTheDocument();
+    expect(within(listbox).queryByText(/no members match/i)).toBeNull();
+
+    expect(
+      await within(listbox).findByText(/no members match/i),
+    ).toBeInTheDocument();
+    expect(within(listbox).queryByText(/searching members/i)).toBeNull();
     expect(within(listbox).queryAllByRole("option")).toHaveLength(0);
   });
 

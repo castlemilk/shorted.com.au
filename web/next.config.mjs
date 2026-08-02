@@ -454,6 +454,14 @@ export default withBundleAnalyzer(
         { protocol: "https", hostname: "www.fool.com.au" },
         { protocol: "https", hostname: "kalkinemedia.com" },
         { protocol: "https", hostname: "www.kalkinemedia.com" },
+        // Wikimedia Commons — the ONLY host `politicians.photo_url` holds
+        // (measured: 241/241 non-empty URLs). Portraits are served into 32-96px
+        // avatar boxes and Commons ships 300-500px PNG/JPEG originals, so
+        // routing them through the optimizer is the single biggest transfer win
+        // on /politicians. KEEP IN SYNC with OPTIMIZED_PORTRAIT_HOSTS in
+        // src/@/components/politicians/politician-avatar.tsx — an unlisted host
+        // there falls back to a plain <img>, so drift degrades, never crashes.
+        { protocol: "https", hostname: "upload.wikimedia.org" },
       ],
       formats: ["image/avif", "image/webp"],
       deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
