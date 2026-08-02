@@ -17,9 +17,12 @@ import Link from "next/link";
 import { Flag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { partyColorFromAb, partyLabel } from "@/lib/politics/party-palette";
+import { partyLabel } from "@/lib/politics/party-palette";
 import { REPORT_ERROR_EMAIL } from "@/lib/report-error";
 import { registerItem } from "@/lib/politics/register-items";
+import { HOLDER_ICON, registerItemIcon } from "@/lib/politics/register-item-icons";
+import { PoliticsIcon } from "@/components/politicians/politics-icon";
+import { PartyMark } from "@/components/politicians/party-mark";
 import { RegisterHolder } from "~/gen/shorts/v1alpha1/politicians_pb";
 
 /** Exact holder copy. Locked by test — never paraphrase these. */
@@ -57,20 +60,44 @@ const HOLDER_COPY: Record<number, { label: string; title: string }> = {
 };
 
 /**
+ * The sprite id for each holder kind, or none.
+ *
+ * UNSPECIFIED IS DELIBERATELY ABSENT. "Holder not stated" is the absence of a
+ * fact, and the icon set holds no glyph for one — a question mark or a blank
+ * silhouette beside a named member's family would depict a gap in the FORM as a
+ * gap in the declaration. The label says it in words instead, which is the only
+ * rendering that cannot be misread.
+ */
+const HOLDER_ICON_BY_KIND: Partial<Record<number, "self" | "spouse" | "dependent">> = {
+  [RegisterHolder.SELF]: "self",
+  [RegisterHolder.SPOUSE_PARTNER]: "spouse",
+  [RegisterHolder.DEPENDENT_CHILDREN]: "dependent",
+};
+
+/**
  * Whose interest a row records.
  *
  * Muted outline only — NEVER a warning colour or icon. Editorial rule 2 covers
  * iconography, and a warning badge next to a family member is an accusation.
+ *
+ * The icon is decorative and the label carries the meaning, exactly as on
+ * RegisterItemTag: a screen reader hears "Spouse/partner", never a description
+ * of two figures. It is NEVER icon-only — the three holder kinds are register
+ * semantics about a member's family, and a glyph a reader has to decode is not
+ * a thing to make them decode beside a named person.
  */
 export function HolderBadge({ holder }: { holder: RegisterHolder }) {
   const copy = HOLDER_COPY[holder];
   if (!copy) return null;
+  const iconKey = HOLDER_ICON_BY_KIND[holder];
+  const icon = iconKey ? HOLDER_ICON[iconKey] : undefined;
   return (
     <Badge
       variant="outline"
       title={copy.title}
-      className="border-muted-foreground/30 text-muted-foreground font-normal text-[10px] px-1.5 py-0"
+      className="border-muted-foreground/30 text-muted-foreground inline-flex items-center gap-1 font-normal text-[10px] px-1.5 py-0"
     >
+      {icon ? <PoliticsIcon name={icon} size={12} /> : null}
       {copy.label}
     </Badge>
   );
@@ -79,13 +106,22 @@ export function HolderBadge({ holder }: { holder: RegisterHolder }) {
 /**
  * Which of the register's 14 items a row came from.
  *
- * The emoji is aria-hidden and the label carries the meaning, so a screen reader
- * hears "Gift", not "wrapped present Gift". The form's own wording is the
- * tooltip — that is what lets a reader find the row on the original PDF.
+ * THE SPRITE ICON, NOT THE EMOJI. `register-items.ts` still carries an emoji per
+ * item — it is the taxonomy's first rendering and the operator console reads it
+ * — but every reader-facing surface draws the commissioned set instead, so the
+ * fourteen categories look like one another and like the housing and economy
+ * sets beside them. The emoji remains only as the fallback for an item the
+ * sprite has no cell for, which the manifest test makes impossible today.
+ *
+ * The icon is aria-hidden and the label carries the meaning, so a screen reader
+ * hears "Gift", not "wrapped present Gift" — the same contract the emoji had.
+ * The form's own wording is the tooltip: that is what lets a reader find the row
+ * on the original PDF. Never icon-only.
  */
 export function RegisterItemTag({ itemNo, className }: { itemNo?: number; className?: string }) {
   const item = registerItem(itemNo);
   if (!item) return null;
+  const icon = registerItemIcon(itemNo);
   return (
     <span
       className={cn(
@@ -94,7 +130,7 @@ export function RegisterItemTag({ itemNo, className }: { itemNo?: number; classN
       )}
       title={item.formLabel}
     >
-      <span aria-hidden>{item.emoji}</span>
+      {icon ? <PoliticsIcon name={icon} size={14} /> : <span aria-hidden>{item.emoji}</span>}
       {item.label}
     </span>
   );
@@ -166,20 +202,30 @@ export function SourceDocLink({ sourceUrl }: { sourceUrl?: string }) {
   );
 }
 
+/**
+ * A party, as a mark and its name.
+ *
+ * THE 8 px COLOUR DOT IS GONE, and the reason is legibility rather than taste:
+ * the palette has more parties in it than a reader can hold apart at that size,
+ * and several of the crossbench colours are a shade apart. `<PartyMark>` draws
+ * the AEC abbreviation on a tile of the same palette colour, so the mark is
+ * self-describing at a glance and the colour is a reinforcement rather than the
+ * whole signal. It is emphatically NOT the party's own logo — see party-mark.tsx
+ * for the trademark and no-endorsement reasons that is never on the table.
+ *
+ * The mark carries its own accessible name, so the visible label beside it is
+ * hidden from assistive tech: without that a screen reader hears "Australian
+ * Labor Party Australian Labor Party" on every row.
+ */
 export function PartyChip({ partyAb, className }: { partyAb?: string; className?: string }) {
   if (!partyAb) return null;
   const label = partyLabel(partyAb);
   return (
     <span
-      className={cn("inline-flex items-center gap-1 text-xs text-muted-foreground", className)}
-      title={label}
+      className={cn("inline-flex items-center gap-1.5 text-xs text-muted-foreground", className)}
     >
-      <span
-        aria-hidden
-        className="inline-block h-2 w-2 rounded-full"
-        style={{ backgroundColor: partyColorFromAb(partyAb) }}
-      />
-      {label}
+      <PartyMark abbreviation={partyAb} size="sm" />
+      <span aria-hidden>{label}</span>
     </span>
   );
 }

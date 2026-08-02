@@ -45,12 +45,16 @@ import {
 } from "react";
 
 import { WeekBars } from "@/components/politicians/explorer/week-bars";
-import { partyColorFromAb, partyLabel } from "@/lib/politics/party-palette";
+import { PartyMark } from "@/components/politicians/party-mark";
+import { PoliticsIcon, SectionIcon } from "@/components/politicians/politics-icon";
+import { partyLabel } from "@/lib/politics/party-palette";
 import { REGISTER_ITEMS } from "@/lib/politics/register-items";
+import { registerItemIcon } from "@/lib/politics/register-item-icons";
 import { searchPoliticians } from "@/lib/politics/politician-search";
 import {
   POLITICS_FILTER_BUTTON_CLASS,
   POLITICS_PAGER_BUTTON_CLASS,
+  POLITICS_SEARCH_INPUT_CLASS,
   POLITICS_SELECT_CLASS,
 } from "@/lib/politics/control-classes";
 import { TypeaheadStatus } from "@/components/politicians/explorer/typeahead-status";
@@ -227,6 +231,7 @@ const ITEM_OPTIONS: { value: number; label: string }[] = [
 ];
 
 const SELECT_CLASS = POLITICS_SELECT_CLASS;
+const SEARCH_INPUT_CLASS = POLITICS_SEARCH_INPUT_CLASS;
 
 const FIELD_LABEL_CLASS = "text-[10px] uppercase tracking-wide text-muted-foreground";
 
@@ -247,14 +252,13 @@ function ActivityPartyChip({ partyAb }: { partyAb?: string }) {
     // listing, so absence is real and is labelled as absence — never guessed.
     return <span className="text-[11px] text-muted-foreground">Party not recorded</span>;
   }
+  // The mark carries the party's full name as its own accessible name, so the
+  // visible label is aria-hidden — without that a feed of fifty events
+  // announces each party twice.
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-      <span
-        aria-hidden
-        className="inline-block h-2 w-2 rounded-full"
-        style={{ backgroundColor: partyColorFromAb(partyAb) }}
-      />
-      {partyLabel(partyAb)}
+    <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+      <PartyMark abbreviation={partyAb} size="sm" />
+      <span aria-hidden>{partyLabel(partyAb)}</span>
     </span>
   );
 }
@@ -733,6 +737,17 @@ export function RegisterActivityExplorer({
                 }
               }}
             >
+              {/*
+                THE ONE PLACE THE MAGNIFIER IS ALLOWED. It marks the field as a
+                search field and nothing else; `aria-hidden` because the label
+                above already names it, and `pointer-events-none` so it cannot
+                intercept a tap aimed at the input underneath it.
+              */}
+              <PoliticsIcon
+                name="search"
+                size={13}
+                className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 opacity-70"
+              />
               <input
                 id={`${controlsId}-member`}
                 ref={memberInputRef}
@@ -747,7 +762,7 @@ export function RegisterActivityExplorer({
                     : undefined
                 }
                 autoComplete="off"
-                className={`${SELECT_CLASS} w-56`}
+                className={`${SEARCH_INPUT_CLASS} sm:w-56`}
                 placeholder="Search a member…"
                 value={memberQuery}
                 onChange={(e) => {
@@ -854,6 +869,7 @@ export function RegisterActivityExplorer({
 
       <section aria-labelledby={`${controlsId}-strip-heading`} className="space-y-2">
         <h2 id={`${controlsId}-strip-heading`} className="text-sm font-medium">
+          <SectionIcon name="timeline" size="sm" />
           Register events by week
         </h2>
         {/*
@@ -906,6 +922,7 @@ export function RegisterActivityExplorer({
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <section aria-labelledby={`${controlsId}-feed-heading`} className="space-y-4">
           <h2 id={`${controlsId}-feed-heading`} className="text-sm font-medium">
+            <SectionIcon name="coverage" size="sm" />
             Additions and removals
           </h2>
 
@@ -917,9 +934,20 @@ export function RegisterActivityExplorer({
                 </h3>
                 <ul className="divide-y">
                   {group.rows.map((row) => (
-                    <li key={row.id} className="flex flex-col gap-1 py-2.5">
+                    <li
+                      key={row.id}
+                      className="-mx-2 flex flex-col gap-1 rounded-md px-2 py-2.5 transition-colors hover:bg-muted/40"
+                    >
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                        {/*
+                          Same ink, same weight, for both kinds — see the hub's
+                          note. A removal is a register event, not a verdict.
+                        */}
+                        <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                          <PoliticsIcon
+                            name={row.kind === "added" ? "entry-added" : "entry-removed"}
+                            size={12}
+                          />
                           {row.kind === "added" ? "added" : "removed"}
                         </span>
                         {/*
@@ -945,7 +973,17 @@ export function RegisterActivityExplorer({
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
                         <ActivityEntity row={row} />
-                        <span className="text-[10px] text-muted-foreground">
+                        {/*
+                          The register category, with its own icon — the same
+                          pairing the declaration rows on a profile use, so a
+                          category looks the same wherever a reader meets it.
+                          `row.itemNo` is the register's own item number, so an
+                          item we cannot name renders the label alone.
+                        */}
+                        <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                          {registerItemIcon(row.itemNo) ? (
+                            <PoliticsIcon name={registerItemIcon(row.itemNo)!} size={12} />
+                          ) : null}
                           {row.itemLabel}
                         </span>
                       </div>
@@ -1021,6 +1059,7 @@ export function RegisterActivityExplorer({
 
           <section className="space-y-2">
             <h2 className="text-sm font-medium">
+              <SectionIcon name="parliament" size="sm" />
               Most dated register events, {windowLabel(page.windowDays)}
             </h2>
             {page.activeMembers.length ? (
@@ -1057,6 +1096,7 @@ export function RegisterActivityExplorer({
 
           <section className="space-y-2">
             <h2 className="text-sm font-medium">
+              <SectionIcon name="shareholdings" size="sm" />
               First declared by any member, {windowLabel(page.windowDays)}
             </h2>
             {page.newlyDeclaredCompanies.length ? (
@@ -1100,6 +1140,7 @@ export function RegisterActivityExplorer({
 
           <section className="space-y-2">
             <h2 className="text-sm font-medium">
+              <SectionIcon name="compare" size="sm" />
               Members with dated declarations, compared with {page.windowDays} days ago
             </h2>
             {page.declarerCountChanges.length ? (

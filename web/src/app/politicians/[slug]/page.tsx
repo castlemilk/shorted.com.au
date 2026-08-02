@@ -45,6 +45,9 @@ import { getPolitician } from "~/app/actions/getPoliticians";
 import { getPoliticianExplorerProfile } from "~/app/actions/getPoliticianExplorerProfile";
 import { pageTitle, sectionTitle, eyebrow } from "@/lib/typography";
 import { partyLabel } from "@/lib/politics/party-palette";
+import { HOLDER_ICON, registerItemIcon } from "@/lib/politics/register-item-icons";
+import { SectionIcon } from "@/components/politicians/politics-icon";
+import type { PoliticsIconName } from "@/components/politicians/politics-icons.generated";
 import {
   RegisterChangeKind,
   RegisterHolder,
@@ -116,6 +119,17 @@ const HOLDER_ORDER: number[] = [
   RegisterHolder.DEPENDENT_CHILDREN,
   RegisterHolder.UNSPECIFIED,
 ];
+
+/**
+ * The holder donut's icons. UNSPECIFIED is deliberately absent — "Holder not
+ * stated" is the absence of a fact and the set holds no glyph for one, for the
+ * same reason HolderBadge draws none.
+ */
+const HOLDER_SEGMENT_ICON: Partial<Record<number, PoliticsIconName>> = {
+  [RegisterHolder.SELF]: HOLDER_ICON.self,
+  [RegisterHolder.SPOUSE_PARTNER]: HOLDER_ICON.spouse,
+  [RegisterHolder.DEPENDENT_CHILDREN]: HOLDER_ICON.dependent,
+};
 
 function shortDate(date?: Date): string {
   return date
@@ -281,10 +295,21 @@ export default async function PoliticianPage({
   const categorySegments = [...itemCounts]
     .filter((count) => count.currentCount > 0)
     .sort((a, b) => b.currentCount - a.currentCount || a.itemNo - b.itemNo)
-    .map((count) => ({ label: count.label, count: count.currentCount }));
+    .map((count) => ({
+      label: count.label,
+      count: count.currentCount,
+      // The register category's own icon, so the donut legend, the category
+      // tabs beneath it and every declaration row agree on what a category
+      // looks like.
+      icon: registerItemIcon(count.itemNo),
+    }));
   const holderSegments = HOLDER_ORDER.map((holder) => ({
     label: (HOLDER_FILTER[holder] ?? HOLDER_FILTER[RegisterHolder.UNSPECIFIED]!).label,
     count: holderCounts.find((count) => count.holder === holder)?.currentCount ?? 0,
+    // Only the three holder kinds have a figure; "Holder not stated" is the
+    // absence of one and the set holds no glyph for it, deliberately — see
+    // HolderBadge. That segment renders its label alone.
+    icon: HOLDER_SEGMENT_ICON[holder],
   })).filter((segment) => segment.count > 0);
   const timelinePoints = (explorer?.timeline ?? []).map((point) => ({
     month: point.month,
@@ -431,7 +456,10 @@ export default async function PoliticianPage({
             <div className="min-w-0 space-y-10">
               {currentEntryCount > 0 || timelinePoints.length > 0 ? (
                 <section className="space-y-6">
-                  <h2 className={sectionTitle}>What is declared, at a glance</h2>
+                  <h2 className={sectionTitle}>
+                    <SectionIcon name="coverage" />
+                    What is declared, at a glance
+                  </h2>
                   <div className="grid gap-8 md:grid-cols-2">
                     {categorySegments.length > 0 ? (
                       <CountDonut
@@ -450,6 +478,7 @@ export default async function PoliticianPage({
                   </div>
                   <div className="space-y-2">
                     <h3 className="text-sm font-medium text-foreground">
+                      <SectionIcon name="timeline" size="sm" />
                       Entries declared over time
                     </h3>
                     <p className="text-[11px] leading-relaxed text-muted-foreground">
@@ -463,7 +492,10 @@ export default async function PoliticianPage({
               ) : null}
 
               <section className="space-y-4">
-                <h2 className={sectionTitle}>Declared interests</h2>
+                <h2 className={sectionTitle}>
+                  <SectionIcon name="other-interests" />
+                  Declared interests
+                </h2>
                 {rows.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     Nothing appears in this member&rsquo;s register entries for the parliaments
@@ -537,7 +569,10 @@ export default async function PoliticianPage({
 
               {(data?.representedSuburbs?.length ?? 0) > 0 && (
                 <section className="space-y-2">
-                  <h2 className={sectionTitle}>Suburbs represented</h2>
+                  <h2 className={sectionTitle}>
+                    <SectionIcon name="electorate" />
+                    Suburbs represented
+                  </h2>
                   <p className="text-[11px] text-muted-foreground">
                     Suburbs in {p.division}. Representing a suburb has nothing to do with owning
                     anything in it.
@@ -578,7 +613,10 @@ export default async function PoliticianPage({
                 moreCount={distinctive?.moreCount ?? 0}
               />
               <section className="rounded-lg border bg-card p-4">
-                <h2 className={sectionTitle}>Compare</h2>
+                <h2 className={sectionTitle}>
+                  <SectionIcon name="compare" />
+                  Compare
+                </h2>
                 <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
                   Put this member&rsquo;s declared entries side by side with another
                   member&rsquo;s. Counts only, both sides the same.

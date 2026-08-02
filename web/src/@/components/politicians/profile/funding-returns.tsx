@@ -35,6 +35,7 @@
  */
 
 import { formatCents, formatCount } from "@/lib/politics/funding-money";
+import { PoliticsIcon, SectionIcon } from "@/components/politicians/politics-icon";
 import { sectionTitle } from "@/lib/typography";
 
 /** One lodged annual member/senator return, as the rpc serves it. */
@@ -100,8 +101,16 @@ function SourceReturnLink({ sourceUrl }: { sourceUrl: string }) {
       target="_blank"
       rel="noopener noreferrer"
       title="Open this return on the AEC Transparency Register"
-      className="whitespace-nowrap text-[10px] text-muted-foreground underline decoration-dotted hover:text-foreground"
+      className="inline-flex items-center gap-1 whitespace-nowrap text-[10px] text-muted-foreground underline decoration-dotted hover:text-foreground"
     >
+      {/*
+        The filed-document mark. Decorative — "AEC return" is the link text and
+        carries the whole meaning. A stamped page, deliberately not a seal: the
+        icon set's config records that a round seal kept coming back with ribbon
+        tails and reading as a MEDAL, which is imagery this feature will not put
+        beside a named member.
+      */}
+      <PoliticsIcon name="source-document" size={11} />
       AEC return&nbsp;↗
     </a>
   );
@@ -143,6 +152,7 @@ export function FundingReturns({
   return (
     <section className="space-y-4 rounded-lg border bg-card p-4" aria-labelledby="funding-returns">
       <h2 id="funding-returns" className={sectionTitle}>
+        <SectionIcon name="other-receipt" />
         Funding returns lodged with the AEC
       </h2>
       {/*
@@ -156,6 +166,7 @@ export function FundingReturns({
       {annual.length > 0 ? (
         <div className="space-y-2">
           <h3 className="text-sm font-medium text-foreground">
+            <SectionIcon name="subscription" size="sm" />
             Annual returns lodged by this member
           </h3>
           <ul className="divide-y">
@@ -210,6 +221,7 @@ export function FundingReturns({
       {candidates.length > 0 ? (
         <div className="space-y-2">
           <h3 className="text-sm font-medium text-foreground">
+            <SectionIcon name="public-funding" size="sm" />
             Election returns linked to this member
           </h3>
           {/*

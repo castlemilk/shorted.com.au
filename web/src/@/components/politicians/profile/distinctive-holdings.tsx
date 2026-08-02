@@ -32,6 +32,7 @@
 import Link from "next/link";
 
 import { HolderBadge, ShortInterestCaveat } from "@/components/politicians/compliance";
+import { PoliticsIcon, SectionIcon } from "@/components/politicians/politics-icon";
 import { sectionTitle } from "@/lib/typography";
 import type { RegisterHolder } from "~/gen/shorts/v1alpha1/politicians_pb";
 
@@ -157,6 +158,7 @@ export function DistinctiveHoldings({
   return (
     <section className="rounded-lg border bg-card p-4" aria-labelledby="declared-by-no-other-member">
       <h2 id="declared-by-no-other-member" className={sectionTitle}>
+        <SectionIcon name="shareholdings" />
         Declared by no other member
       </h2>
       {/*
@@ -200,7 +202,8 @@ export function DistinctiveHoldings({
 
       {shownTail.length > 0 ? (
         <div className="mt-4 border-t pt-3">
-          <h3 className="text-[11px] font-medium text-foreground">
+          <h3 className="inline-flex items-center gap-1.5 text-[11px] font-medium text-foreground">
+            <PoliticsIcon name="partnerships" size={13} />
             Declared by two or three members
           </h3>
           <ul className="mt-1.5 space-y-1 text-[11px] text-muted-foreground">

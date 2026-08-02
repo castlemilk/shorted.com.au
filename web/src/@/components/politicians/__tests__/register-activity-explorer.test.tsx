@@ -187,9 +187,16 @@ describe("register activity explorer", () => {
     expect(screen.getByRole("status")).toHaveTextContent(/under the filters set above/i);
     // The chart carries the same scope, so a screen reader is not told the
     // parliament's counts where a sighted reader is told one member's.
-    expect(screen.getByRole("img").getAttribute("aria-label")).toContain(
-      "under the filters set above",
-    );
+    //
+    // NAMED, not `getByRole("img")` bare: since the iconography wave every
+    // <PartyMark> in the feed is a labelled `role="img"` too, so a bare query
+    // matches the chart AND every party mark beside a member's name. Asking for
+    // the chart by its own accessible name is what this assertion always meant.
+    expect(
+      screen
+        .getByRole("img", { name: /Register events by week/i })
+        .getAttribute("aria-label"),
+    ).toContain("under the filters set above");
   });
 
   it("passes the island's current filters to the action, not just the window", async () => {

@@ -34,6 +34,8 @@ import { bailOnEmptyRender } from "~/app/actions/config";
 import { pageTitle, sectionTitle, eyebrow, lede } from "@/lib/typography";
 import { partyLabel } from "@/lib/politics/party-palette";
 import { REGISTER_ITEMS } from "@/lib/politics/register-items";
+import { registerItemIcon } from "@/lib/politics/register-item-icons";
+import { PoliticsIcon, SectionIcon } from "@/components/politicians/politics-icon";
 import { REPORT_ERROR_EMAIL } from "@/lib/report-error";
 import { RegisterChangeKind } from "~/gen/shorts/v1alpha1/politicians_pb";
 
@@ -232,6 +234,11 @@ export default async function PoliticiansPage() {
       // short label.
       label: REGISTER_ITEMS[item.itemNo]?.label ?? item.itemLabel,
       count: item.currentCount,
+      // The category's own icon, so the legend reads the same way the
+      // declaration rows and the activity feed do. `undefined` for an item
+      // number the taxonomy does not hold — the legend then shows the label
+      // alone rather than a stand-in glyph for a category we cannot name.
+      icon: registerItemIcon(item.itemNo),
     }))
     .filter((segment) => segment.count > 0)
     .sort((a, b) => b.count - a.count);
@@ -385,7 +392,17 @@ export default async function PoliticiansPage() {
           </section>
 
           <section className="space-y-3">
-            <h2 className={sectionTitle}>Every parliamentarian, and what they declare</h2>
+            {/*
+              ONE ACCENT PER SECTION, from the `ui` group where the section is
+              about the chamber rather than about a register category. The icon
+              is decorative and the heading text is unchanged — rule 2 treats an
+              icon beside a named person as copy, so an accent may only restate
+              what the heading already says.
+            */}
+            <h2 className={sectionTitle}>
+              <SectionIcon name="parliament" />
+              Every parliamentarian, and what they declare
+            </h2>
             <p className="text-sm text-muted-foreground">
               Sorted by the number of entries currently declared. Filter by chamber, state, party
               or register category; the first page is in the HTML, and every other page is
@@ -434,7 +451,10 @@ export default async function PoliticiansPage() {
 
                 {industryTrends.length > 0 ? (
                   <div className="space-y-2">
-                    <h3 className="text-sm font-medium">Industry movement</h3>
+                    <h3 className="text-sm font-medium">
+                      <SectionIcon name="directorships" size="sm" />
+                      Industry movement
+                    </h3>
                     <ul className="space-y-1.5">
                       {industryTrends.slice(0, 8).map((trend) => (
                         <li key={trend.industry} className="space-y-0.5">
@@ -465,7 +485,10 @@ export default async function PoliticiansPage() {
 
                 {(changes?.events?.length ?? 0) > 0 ? (
                   <div className="space-y-2">
-                    <h3 className="text-sm font-medium">Recent filings</h3>
+                    <h3 className="text-sm font-medium">
+                      <SectionIcon name="source-document" size="sm" />
+                      Recent filings
+                    </h3>
                     <ul className="space-y-2.5">
                       {(changes?.events ?? []).slice(0, 8).map((event, index) => (
                         <li key={`${event.politician?.slug ?? "member"}-${index}`}>
@@ -473,7 +496,24 @@ export default async function PoliticiansPage() {
                             <span className="tabular-nums normal-case">
                               {shortDate(toDate(event.changedOn))}
                             </span>
-                            <span>
+                            {/*
+                              THE TWO ICONS ARE THE SAME WEIGHT AND THE SAME
+                              INK. A page sits into a folder or slides out of
+                              one; neither is coloured, and neither is a tick or
+                              a cross. A removal can mean an asset was disposed
+                              of, a declaration was corrected, or the member left
+                              parliament — the icon may not pick one, and it may
+                              not read as the bad half of a good/bad pair.
+                            */}
+                            <span className="inline-flex items-center gap-1">
+                              <PoliticsIcon
+                                name={
+                                  event.kind === RegisterChangeKind.ADDED
+                                    ? "entry-added"
+                                    : "entry-removed"
+                                }
+                                size={12}
+                              />
                               {event.kind === RegisterChangeKind.ADDED ? "added" : "removed"}
                             </span>
                           </div>
@@ -516,7 +556,10 @@ export default async function PoliticiansPage() {
                   the same subject.
                 */}
                 <div className="space-y-2 rounded-lg border bg-card p-4">
-                  <h3 className="text-sm font-medium">Party funding and donations</h3>
+                  <h3 className="text-sm font-medium">
+                    <SectionIcon name="donation-receipt" size="sm" />
+                    Party funding and donations
+                  </h3>
                   <p className="text-[11px] leading-relaxed text-muted-foreground">
                     A separate source: what registered parties declared receiving each financial
                     year, who the payers were, and which of them are ASX-listed companies, as
@@ -532,7 +575,10 @@ export default async function PoliticiansPage() {
                 </div>
 
                 <div className="space-y-2 rounded-lg border bg-card p-4">
-                  <h3 className="text-sm font-medium">Compare two members</h3>
+                  <h3 className="text-sm font-medium">
+                    <SectionIcon name="compare" size="sm" />
+                    Compare two members
+                  </h3>
                   <p className="text-[11px] leading-relaxed text-muted-foreground">
                     Put two members side by side: what each declares, what both declare, and where
                     they differ. Counts only, symmetrically — no score and no ranking between
@@ -550,7 +596,10 @@ export default async function PoliticiansPage() {
           </section>
 
           <section className="space-y-3">
-            <h2 className={sectionTitle}>Most-declared ASX-listed companies</h2>
+            <h2 className={sectionTitle}>
+              <SectionIcon name="shareholdings" />
+              Most-declared ASX-listed companies
+            </h2>
             <p className="text-sm text-muted-foreground">
               Counted by <strong>number of members declaring an interest</strong> — not by any
               amount. The bars compare people, nothing more.
@@ -616,7 +665,10 @@ export default async function PoliticiansPage() {
           </section>
 
           <section className="space-y-3">
-            <h2 className={sectionTitle}>Which parties declare interests in which industries</h2>
+            <h2 className={sectionTitle}>
+              <SectionIcon name="directorships" />
+              Which parties declare interests in which industries
+            </h2>
             <p className="text-sm text-muted-foreground">
               Each cell counts <strong>members</strong>, not holdings and not money — a member who
               declares four banks is one member. The registers record no quantity or value, so
@@ -644,7 +696,10 @@ export default async function PoliticiansPage() {
 
           {(analytics?.states.length ?? 0) > 0 ? (
             <section className="space-y-3">
-              <h2 className={sectionTitle}>Members declaring company interests, by state</h2>
+              <h2 className={sectionTitle}>
+                <SectionIcon name="electorate" />
+                Members declaring company interests, by state
+              </h2>
               <p className="text-sm text-muted-foreground">
                 Where the members who declare a company interest sit — a count of people, and a
                 function of how many seats a state has as much as anything else.
@@ -690,7 +745,10 @@ export default async function PoliticiansPage() {
           ) : null}
 
           <section className="space-y-3">
-            <h2 className={sectionTitle}>Every parliamentarian</h2>
+            <h2 className={sectionTitle}>
+              <SectionIcon name="coverage" />
+              Every parliamentarian
+            </h2>
             {/*
               The complete roll, server-rendered. The table above pages 25 at a
               time and the explorer is a client island, so neither puts every
