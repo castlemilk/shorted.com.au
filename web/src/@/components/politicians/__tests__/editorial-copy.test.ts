@@ -168,7 +168,27 @@ const FUNDING_SURFACES = [
  * renders no register data. The explorer directory is the same kind of
  * reusable kit: host pages own its source line and dispute affordance.
  */
-const KIT_PRIMITIVES = ["politician-avatar.tsx"];
+const KIT_PRIMITIVES = [
+  "politician-avatar.tsx",
+  // The iconography kit (2026-08-02). Three files that render NO register data:
+  //
+  //   politics-icon.tsx             slices one cell out of the sprite
+  //   politics-icons.generated.ts   the packer's coords table — no copy at all
+  //   party-mark.tsx                a monogram tile drawn from a party
+  //                                 abbreviation and a palette colour
+  //
+  // A SourceLine inside any of them would cite the register on a component that
+  // renders nothing from it. They are still swept by the VOCABULARY rules below,
+  // and the icon set has a gate of its own: politics-icon-subjects.test.ts reads
+  // web/scripts/politics-icons/icon-set.config.mjs and enforces that no subject
+  // depicts money, a warning, a gavel or scales, or a trophy — rule 1 lists
+  // iconography as an imputation vector, and rule 5 forbids implying value.
+  // party-mark.tsx additionally asserts it is not a party LOGO: a registered
+  // trademark we hold no licence to, and an affiliation we do not claim.
+  "politics-icon.tsx",
+  "politics-icons.generated.ts",
+  "party-mark.tsx",
+];
 const KIT_PRIMITIVE_DIRS = [`${sep}explorer${sep}`];
 
 /**
@@ -309,7 +329,22 @@ describe("politician surface copy", () => {
     //     about whether anyone matches: the "No members match" line is now
     //     explicitly suppressed while this one shows, precisely so a reader is
     //     never told an absence that is really a wait.
-    expect(FILES.length).toBe(46);
+    //
+    // 46 -> 49, the iconography wave (web/scripts/politics-icons): the sprite
+    // component, its generated coords table, and <PartyMark>. All three are kit
+    // — see KIT_PRIMITIVES above for why they carry no citation of their own —
+    // so RENDERING_SURFACES stays 10. They render no register data at all, but
+    // they are counted here BECAUSE THE ARTWORK IS COPY: rule 1 lists
+    // iconography as an imputation vector, so an icon subject is governed the
+    // same way a sentence is. The §6.2 editorial re-review covered the 31
+    // subjects (no money, no warning, no gavel or scales, no trophy — item 10 is
+    // an inbox tray for the same reason it is 📥 today) and the decision that a
+    // party is a monogram we draw, never the party's own logo.
+    //
+    // The two waves land on the same tree: 44 + 2 responsiveness primitives + 3
+    // iconography kit files = 49. Both sets are kit, so RENDERING_SURFACES is
+    // untouched at 10.
+    expect(FILES.length).toBe(49);
     expect(RENDERING_SURFACES.length).toBe(10);
   });
 
