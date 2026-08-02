@@ -130,15 +130,31 @@ func loadPoliticianRecords(ctx context.Context, pool *pgxpool.Pool) ([]politicia
 	// joined for the identity columns the MV does not carry (surname), and
 	// merged-away identities are excluded so a slug that redirects is not
 	// independently searchable.
+	//
+	// THE FACET FIELDS FALL BACK TO politician_terms. chamber/division/state/
+	// party reach this query through mv_register_public_holdings, which only has
+	// a row for someone who DECLARED something. A senator minted by
+	// register-senators declares nothing here — there is no Senate register
+	// corpus — so every facet came back empty and the explorer's chamber and
+	// state rails would have shown 180 people as unfacetable rather than as
+	// senators. The fallback reads the identity layer, which is where a term
+	// belongs anyway; it adds no holding and no count, so a person with no
+	// declared interest still indexes with has_interests = false.
 	rows, err := pool.Query(ctx, `
+		WITH latest_term AS (
+			SELECT DISTINCT ON (politician_id)
+			       politician_id, chamber, division, state_code, party, party_ab
+			FROM politician_terms
+			ORDER BY politician_id, parliament DESC, term_start DESC NULLS LAST, chamber
+		)
 		SELECT p.slug,
 		       p.display_name,
 		       COALESCE(p.surname, ''),
-		       COALESCE(max(h.chamber), ''),
-		       COALESCE(max(h.division), ''),
-		       COALESCE(max(h.member_state), ''),
-		       COALESCE(max(h.party), ''),
-		       COALESCE(max(h.party_ab), ''),
+		       COALESCE(max(h.chamber), max(lt.chamber), ''),
+		       COALESCE(max(h.division), max(lt.division), ''),
+		       COALESCE(max(h.member_state), max(lt.state_code), ''),
+		       COALESCE(max(h.party), max(lt.party), ''),
+		       COALESCE(max(h.party_ab), max(lt.party_ab), ''),
 		       COALESCE(p.first_parliament, 0),
 		       COALESCE(p.last_parliament, 0),
 		       count(DISTINCT h.stock_code) FILTER (WHERE h.stock_code IS NOT NULL),
@@ -151,6 +167,7 @@ func loadPoliticianRecords(ctx context.Context, pool *pgxpool.Pool) ([]politicia
 		       COALESCE(p.photo_author, ''), COALESCE(p.photo_source_url, '')
 		FROM politicians p
 		LEFT JOIN mv_register_public_holdings h ON h.politician_id = p.id
+		LEFT JOIN latest_term lt ON lt.politician_id = p.id
 		WHERE p.merged_into_id IS NULL
 		GROUP BY p.id, p.slug, p.display_name, p.surname, p.first_parliament, p.last_parliament`)
 	if err != nil {

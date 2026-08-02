@@ -278,9 +278,44 @@ func (s *postgresStore) ListPoliticians(chamber, stateCode, partyAb, query strin
 		return nil, 0, err
 	}
 
+	// THE TOTAL MUST BE THE FILTER'S TOTAL, NOT THE CORPUS'S.
+	//
+	// It used to be an unconditional `count(*) FROM politicians`, so every
+	// filtered call reported the whole roll: `chamber=senate` answered 494 for a
+	// 173-row result. That is a paginator that never ends, and — now that the
+	// hub states the chamber split in prose — a sentence that would have
+	// published "494 of them are senators" about a 495-person roll.
+	//
+	// The count reuses the SAME conditions and the SAME lateral joins as the
+	// page above it, because the chamber/state/party filters read the LATEST
+	// TERM (`t`) rather than a column on `politicians`. Counting without those
+	// joins would silently be a different question.
+	countSQL := `
+		SELECT count(*)
+		FROM politicians p
+		LEFT JOIN LATERAL (
+		    SELECT chamber, division, state_code, party, party_ab
+		    FROM politician_terms
+		    WHERE politician_id = p.id
+		    ORDER BY parliament DESC
+		    LIMIT 1
+		) t ON TRUE
+		LEFT JOIN LATERAL (
+		    SELECT federal_party, federal_party_ab
+		    FROM suburb_demographics
+		    WHERE t.division IS NOT NULL
+		      AND upper(btrim(federal_division)) = upper(btrim(t.division))
+		      AND federal_party IS NOT NULL
+		    LIMIT 1
+		) e ON TRUE
+		WHERE p.merged_into_id IS NULL`
+	if len(conds) > 0 {
+		countSQL += " AND " + strings.Join(conds, " AND ")
+	}
+	// args carries the LIMIT/OFFSET appended above; the count takes only the
+	// filter arguments that precede them.
 	var total int32
-	if err := s.db.QueryRow(ctx,
-		`SELECT count(*) FROM politicians WHERE merged_into_id IS NULL`).Scan(&total); err != nil {
+	if err := s.db.QueryRow(ctx, countSQL, args[:len(args)-2]...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 	return out, total, nil

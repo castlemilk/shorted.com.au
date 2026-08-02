@@ -26,20 +26,30 @@ import (
 // what resolved, but what was WITHHELD and why. A resolver that only reports its
 // hits hides the day it stops matching anything.
 type aecResolutionCounts struct {
-	MPTotal           int
-	MPResolvedAlias   int
-	MPResolvedExact   int
-	MPWithheldNoMatch int
-	MPWithheldAmbig   int
-	MPWithheldNoGiven int
+	MPTotal         int
+	MPResolvedAlias int
+	MPResolvedExact int
+	// The share of MPResolvedExact that came through politician_aliases rather
+	// than off the politicians row itself (rule 2b). Reported separately because
+	// it is the only number that says whether the alias seed is doing work.
+	MPResolvedAliasKey int
+	MPWithheldNoMatch  int
+	MPWithheldAmbig    int
+	MPWithheldNoGiven  int
 
 	CandidateTotal             int
 	CandidateResolvedAlias     int
 	CandidateResolvedExact     int
+	CandidateResolvedSenate    int
 	CandidateWithheldNoEvent   int
 	CandidateWithheldNoSeat    int
 	CandidateWithheldNameParty int
 	CandidateWithheldAmbig     int
+	// Senate candidate returns that matched a sitting senator on every other
+	// test and were withheld because that senator's mandate did not start at the
+	// event the return belongs to. Its own reason, because it is the one
+	// withhold that looks like a resolver fault and is not.
+	CandidateWithheldStaleMandate int
 
 	DonationsLinked   int
 	DonationsUnlinked int
@@ -371,6 +381,58 @@ func resolveAECDonations(ctx context.Context, tx pgx.Tx) (*aecResolutionCounts, 
 	}
 	counts.MPResolvedExact = int(tag.RowsAffected())
 
+	// --- 2b. MP returns: the SAME rule, read through politician_aliases. -----
+	//
+	// WHY RULE 2 ALONE WAS NOT ENOUGH. It joins `politicians` directly and
+	// compares the FIRST GIVEN NAME as the politicians row records it. That row
+	// records the FORMAL name for anyone minted from the Parliamentary Handbook
+	// — Katy Gallagher is stored as "Katherine" — while the AEC lodges the name
+	// the member actually uses. The return then withheld on a name difference we
+	// already hold the answer to: register-senators seeds exactly this mapping
+	// into politician_aliases as GALLAGHER|KATY, and rule 2 never looked at it.
+	//
+	// The alias table is the subsystem's ONE record of "these two names are the
+	// same person", written by a job or a curator rather than inferred here, so
+	// reading it is not a loosening of the rule — it is the rule applied to a
+	// name we have already decided about. Every guard rule 2 carries is carried:
+	// the surname must match, the given name must match the alias key EXACTLY
+	// (no prefix, no nickname distance), an 'ignore' alias still suppresses the
+	// row, merged people are excluded, and HAVING count(DISTINCT p.id) = 1 means
+	// two aliases pointing at two people withhold both.
+	//
+	// The method stays 'surname_given_exact': it is the same evidence — a
+	// surname and an exact given name — reached through a recorded alias. The
+	// CHECK on this column admits no third value, and inventing one would be a
+	// migration for no gain in what a reader is told.
+	tag, err = tx.Exec(ctx, `
+		UPDATE aec_mp_returns r
+		SET politician_id = m.politician_id, resolution_method = 'surname_given_exact'
+		FROM (
+			SELECT r.id, (array_agg(p.id))[1] AS politician_id
+			FROM aec_mp_returns r
+			JOIN politician_aliases a
+			  ON a.alias_key = upper(r.surname) || '|' || upper(split_part(r.given_names, ' ', 1))
+			JOIN politicians p
+			  ON p.id = a.politician_id
+			 AND upper(p.surname) = upper(r.surname)
+			 AND p.merged_into_id IS NULL
+			WHERE r.politician_id IS NULL
+			  AND r.surname <> '' AND r.given_names <> ''
+			  AND NOT EXISTS (
+				  SELECT 1 FROM aec_entity_aliases i
+				  WHERE i.alias_norm = r.member_name_norm
+				    AND i.target_layer = 'entity_name'
+				    AND i.target_kind = 'ignore')
+			GROUP BY r.id
+			HAVING count(DISTINCT p.id) = 1
+		) m
+		WHERE r.id = m.id AND r.politician_id IS NULL`)
+	if err != nil {
+		return nil, fmt.Errorf("resolve mp returns by politician alias: %w", err)
+	}
+	counts.MPResolvedAliasKey = int(tag.RowsAffected())
+	counts.MPResolvedExact += counts.MPResolvedAliasKey
+
 	// --- 3. Candidate returns: division + surname + GIVEN NAME within the
 	// parliament the event elected, and never against a contradicting party.
 	//
@@ -483,6 +545,157 @@ func resolveAECDonations(ctx context.Context, tx pgx.Tx) (*aecResolutionCounts, 
 	}
 	counts.CandidateResolvedExact += int(tag.RowsAffected())
 
+	// --- 3c. SENATE candidate returns: state + surname + given name.
+	//
+	// A Senate candidate contests a STATE, not a division, so rules 3 and 3b
+	// could never touch one: `electorate_name` holds "Victoria", which matches
+	// no division, and 4,339 candidate returns withheld structurally rather than
+	// on any evidence about the person. That was correct while the politicians
+	// table was House-only and there was nothing to join to. register-senators
+	// creates the other side of the join, so the rule can now exist.
+	//
+	// IT IS THE SAME RULE AS 3, WITH ONE COLUMN SWAPPED. Every guard is carried
+	// over unchanged, because each of them stops a failure that does not care
+	// which chamber it happens in:
+	//
+	//   * given names must agree by exact token — the "Tony" / "Anthony John"
+	//     withhold, which is what stops a losing namesake from collecting a
+	//     sitting senator's money;
+	//   * the party must not CONTRADICT the term's party;
+	//   * an 'ignore' alias suppresses the row, so a curator's correction cannot
+	//     be silently re-made;
+	//   * HAVING count(DISTINCT p.id) = 1 — and this matters MORE here than in
+	//     rule 3. A division has ONE member per parliament; a state has TWELVE
+	//     senators. The state key is therefore ~12x coarser, and it is only the
+	//     surname + given-name agreement that narrows it back to one person. Any
+	//     state where two senators share a surname and an agreeing given name
+	//     withholds both, which is the intended outcome.
+	//
+	// The state is matched on the CODE column (electorate_state), with
+	// electorate_name required to be the matching full state name. Requiring
+	// both is what keeps a division that happens to share a state's name — none
+	// exists today, and a redistribution is not this rule's business — out.
+	//
+	// SENATE GROUP RETURNS STAY UNRESOLVABLE, FOREVER. return_type is filtered
+	// to 'Candidate'. A Senate Group return is lodged by a party's ticket, not
+	// by a person; attributing it to the lead candidate would put a whole
+	// ticket's money under one named individual's profile. That is a category
+	// error, not a coverage gap, and the existing test asserting those 166 rows
+	// never resolve is CORRECT and stays.
+	//
+	// ------------------------------------------------------------------
+	// THE FRESH-MANDATE GUARD, and why the rule above is unsafe without it.
+	//
+	// A DIVISION IS RE-CONTESTED AT EVERY ELECTION; A SENATE SEAT IS NOT. The
+	// member for a division in parliament N stood at the election that returned
+	// parliament N — that is what makes rule 3's join sound. A senator's term
+	// runs SIX YEARS, so more than half the senators sitting in parliament N did
+	// not stand at the election that returned it. "Senator for this state in
+	// this parliament" is therefore NOT evidence of having been a candidate at
+	// that event, and the rule above treated it as though it were.
+	//
+	// The cost is the cardinal sin. A fabricated 2025 One Nation Queensland
+	// Senate return under the surname HANSON and the given name Pauline
+	// resolved, verbatim through the rule above, to Pauline Hanson — who was
+	// elected in 2022 to a six-year term and was not a candidate in 2025. The
+	// live corpus holds 21 near-miss namesakes that are one shared given name
+	// away from the same outcome: a stranger's declared money published under a
+	// named sitting senator.
+	//
+	// So the term must ALSO show a mandate that began at this event. Two shapes
+	// of evidence, either of which is sufficient, both read off the data we
+	// already store:
+	//
+	//   (a) NO SENATE TERM IN THE PRECEDING PARLIAMENT. A senator serving
+	//       mid-term necessarily sat in the parliament before; someone who did
+	//       not sit then and sits now can only have arrived at this event (or
+	//       through a casual vacancy, which (b) covers with a date). This is the
+	//       shape that rescues a DOUBLE DISSOLUTION, where the whole Senate is
+	//       returned on election day and the term therefore starts exactly at
+	//       the parliament's own span start — carrying no distinguishing date at
+	//       all (2016 writes 68 of its 69 terms that way).
+	//
+	//       It is only available where we can OBSERVE the preceding parliament.
+	//       Senate terms start at parliament 44 (minSenateParliament), so for an
+	//       event that elected parliament 44 the absence of a 43rd-parliament
+	//       term means nothing and this arm is switched off — a guard that is
+	//       vacuously true is not a guard.
+	//
+	//   (b) A DATED START INSIDE A WINDOW AROUND THE ELECTION. politician_terms
+	//       records term_start only where the term did NOT run the whole
+	//       parliament, which is exactly the fresh-commencement case: a
+	//       half-Senate senator's term begins on the 1 July after the election
+	//       (up to ~14 months later where an election falls early in a cycle),
+	//       and a casual vacancy confirmed at the following election is dated
+	//       later still. The window is [election day - 60 days, election day +
+	//       420 days]: the lower bound is slack for a term confirmed just before
+	//       polling day, the upper bound clears 1 July of the following year and
+	//       stops short of the next election.
+	//
+	// WHAT THIS DELIBERATELY GIVES UP. A sitting senator RE-ELECTED at the event
+	// has continuous service, so their term starts at the parliament's own span
+	// start and carries no date, and they sat in the preceding parliament — they
+	// are indistinguishable, in this data, from a senator who was mid-term and
+	// did not stand. Both withhold. That loses real links (Pauline Hanson's 2022
+	// return, Sarah Henderson's 2022 return) and it is the intended trade:
+	// ambiguity resolves to publishing nothing, and the alternative is a rule
+	// that cannot tell a stranger's money from a member's.
+	//
+	// A curated alias remains the way back for any of those: rule 1 runs first
+	// and is a human decision on the record.
+	// ------------------------------------------------------------------
+	tag, err = tx.Exec(ctx, `
+		UPDATE aec_candidate_returns c
+		SET politician_id = m.politician_id, resolution_method = 'state_surname_given_exact'
+		FROM (
+			SELECT c.id, (array_agg(p.id))[1] AS politician_id
+			FROM aec_candidate_returns c
+			JOIN politician_terms t
+			  ON t.parliament = c.event_parliament
+			 AND t.chamber = 'senate'
+			 AND t.state_code IS NOT NULL
+			 AND upper(t.state_code) = upper(c.electorate_state)
+			 AND NOT aec_party_contradicts(c.party_name, t.party)
+			JOIN politicians p
+			  ON p.id = t.politician_id
+			 AND upper(p.surname) = upper(c.surname)
+			 AND p.merged_into_id IS NULL
+			 AND aec_given_names_agree(c.given_names, p.given_names)
+			WHERE c.politician_id IS NULL
+			  AND c.return_type = 'Candidate'
+			  AND c.event_parliament IS NOT NULL
+			  AND c.electorate_state <> '' AND c.surname <> ''
+			  AND upper(btrim(c.electorate_name)) = upper(aec_state_full_name(c.electorate_state))
+			  -- The fresh-mandate guard: (a) no term in the preceding
+			  -- parliament, where that parliament is observable at all, or
+			  -- (b) a start date inside the window around this election.
+			  AND (
+				  (c.event_parliament - 1 >= 44
+				   AND NOT EXISTS (
+					   SELECT 1 FROM politician_terms prev
+					   WHERE prev.politician_id = t.politician_id
+					     AND prev.chamber = 'senate'
+					     AND prev.parliament = c.event_parliament - 1))
+				  OR (t.term_start IS NOT NULL
+				      AND aec_parliament_election_date(c.event_parliament) IS NOT NULL
+				      AND t.term_start BETWEEN
+				          aec_parliament_election_date(c.event_parliament) - 60
+				          AND aec_parliament_election_date(c.event_parliament) + 420)
+			  )
+			  AND NOT EXISTS (
+				  SELECT 1 FROM aec_entity_aliases i
+				  WHERE i.alias_norm = upper(c.surname) || '|' || upper(c.given_names)
+				    AND i.target_layer = 'candidate_name'
+				    AND i.target_kind = 'ignore')
+			GROUP BY c.id
+			HAVING count(DISTINCT p.id) = 1
+		) m
+		WHERE c.id = m.id AND c.politician_id IS NULL`)
+	if err != nil {
+		return nil, fmt.Errorf("resolve senate candidate returns by state: %w", err)
+	}
+	counts.CandidateResolvedSenate = int(tag.RowsAffected())
+
 	// --- 4. Link itemised candidate donations to their summary return.
 	// Same discipline: link only when exactly one return matches, so a donation
 	// is never attached to the wrong one of two same-named candidates.
@@ -575,6 +788,39 @@ func countAECWithheld(ctx context.Context, tx pgx.Tx, counts *aecResolutionCount
 		&counts.CandidateWithheldNameParty, &counts.CandidateWithheldAmbig)
 	if err != nil {
 		return fmt.Errorf("count withheld candidate returns: %w", err)
+	}
+
+	// The Senate withhold that is NOT a name failure, counted on its own.
+	//
+	// These rows agree on state, surname, given name and party with exactly one
+	// sitting senator and are withheld ONLY because that senator's mandate did
+	// not begin at the event the return belongs to — either a namesake's money
+	// that would otherwise have landed on them, or a re-elected senator we
+	// cannot distinguish from a mid-term one. Folded into "the seat's member is
+	// a different person" it would look like the resolver had stopped matching
+	// senators; named, it is the guard reporting its own cost.
+	err = tx.QueryRow(ctx, `
+		SELECT count(*)
+		FROM aec_candidate_returns c
+		WHERE c.politician_id IS NULL
+		  AND c.return_type = 'Candidate'
+		  AND c.event_parliament IS NOT NULL
+		  AND c.electorate_state <> '' AND c.surname <> ''
+		  AND upper(btrim(c.electorate_name)) = upper(aec_state_full_name(c.electorate_state))
+		  AND (
+			  SELECT count(DISTINCT p.id)
+			  FROM politician_terms t
+			  JOIN politicians p ON p.id = t.politician_id AND p.merged_into_id IS NULL
+			  WHERE t.parliament = c.event_parliament
+			    AND t.chamber = 'senate'
+			    AND t.state_code IS NOT NULL
+			    AND upper(t.state_code) = upper(c.electorate_state)
+			    AND NOT aec_party_contradicts(c.party_name, t.party)
+			    AND upper(p.surname) = upper(c.surname)
+			    AND aec_given_names_agree(c.given_names, p.given_names)
+		  ) = 1`).Scan(&counts.CandidateWithheldStaleMandate)
+	if err != nil {
+		return fmt.Errorf("count senate mandate withholds: %w", err)
 	}
 	return nil
 }
@@ -691,19 +937,20 @@ func runAECDonationsMode(ctx context.Context, pool *pgxpool.Pool, dry bool) erro
 		return fmt.Errorf("[aec-donations] store error: %w", err)
 	}
 
-	log.Printf("[aec-donations] mp returns: %d total, %d resolved (%d alias, %d surname+given), %d withheld (%d no matching politician, %d ambiguous, %d no given name)",
+	log.Printf("[aec-donations] mp returns: %d total, %d resolved (%d alias, %d surname+given — %d of those through a politician alias), %d withheld (%d no matching politician, %d ambiguous, %d no given name)",
 		counts.MPTotal,
 		counts.MPResolvedAlias+counts.MPResolvedExact,
-		counts.MPResolvedAlias, counts.MPResolvedExact,
+		counts.MPResolvedAlias, counts.MPResolvedExact, counts.MPResolvedAliasKey,
 		counts.MPTotal-counts.MPResolvedAlias-counts.MPResolvedExact,
 		counts.MPWithheldNoMatch, counts.MPWithheldAmbig, counts.MPWithheldNoGiven)
-	log.Printf("[aec-donations] candidate returns: %d total, %d resolved (%d alias, %d division+surname+given), %d withheld (%d event not mapped to a parliament, %d no term for that seat and surname, %d the seat's member is a different person by given name or party, %d ambiguous)",
+	log.Printf("[aec-donations] candidate returns: %d total, %d resolved (%d alias, %d division+surname+given, %d state+surname+given [senate]), %d withheld (%d event not mapped to a parliament, %d no term for that seat and surname, %d the seat's member is a different person by given name or party, %d ambiguous, %d senate name matches whose mandate did not start at that election)",
 		counts.CandidateTotal,
-		counts.CandidateResolvedAlias+counts.CandidateResolvedExact,
-		counts.CandidateResolvedAlias, counts.CandidateResolvedExact,
-		counts.CandidateTotal-counts.CandidateResolvedAlias-counts.CandidateResolvedExact,
+		counts.CandidateResolvedAlias+counts.CandidateResolvedExact+counts.CandidateResolvedSenate,
+		counts.CandidateResolvedAlias, counts.CandidateResolvedExact, counts.CandidateResolvedSenate,
+		counts.CandidateTotal-counts.CandidateResolvedAlias-counts.CandidateResolvedExact-counts.CandidateResolvedSenate,
 		counts.CandidateWithheldNoEvent, counts.CandidateWithheldNoSeat,
-		counts.CandidateWithheldNameParty, counts.CandidateWithheldAmbig)
+		counts.CandidateWithheldNameParty, counts.CandidateWithheldAmbig,
+		counts.CandidateWithheldStaleMandate)
 	log.Printf("[aec-donations] candidate donations: %d linked to a return, %d unlinked",
 		counts.DonationsLinked, counts.DonationsUnlinked)
 

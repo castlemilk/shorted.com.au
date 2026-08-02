@@ -126,6 +126,29 @@ func resolvePolitician(ctx context.Context, tx pgx.Tx, id PersonIdentity, stateH
 		return "", err
 	}
 
+	// THEN THE ALIAS TABLE, before minting anybody.
+	//
+	// person_key keeps only the first given name, so it cannot collapse the
+	// FORMAL name against the PREFERRED one — CANAVAN|MATTHEW and CANAVAN|MATT
+	// are two keys for one man, and this is exactly how the 28 published
+	// duplicates were made. politician_aliases is where that equivalence is
+	// already recorded (register-senators seeds it for 42 senators; the
+	// promote-aliases mode seeds curated ones), and consulting it here is the
+	// difference between a Senate register volume landing on the senator we
+	// already hold and minting a second one beside them.
+	//
+	// This is not a fuzzy match. An alias row is an exact key that a machine
+	// with an authoritative source or a human curator put there on purpose.
+	if politicianID == "" {
+		err = tx.QueryRow(ctx, `
+			SELECT p.id::text FROM politician_aliases a
+			JOIN politicians p ON p.id = a.politician_id AND p.merged_into_id IS NULL
+			WHERE a.alias_key = $1`, id.PersonKey).Scan(&politicianID)
+		if err != nil && err != pgx.ErrNoRows {
+			return "", err
+		}
+	}
+
 	if politicianID == "" {
 		slug, serr := mintSlug(ctx, tx, id, stateHint)
 		if serr != nil {

@@ -18,6 +18,12 @@ import { Flag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { partyLabel } from "@/lib/politics/party-palette";
+import {
+  SENATE_REGISTER_GAP,
+  senateParliaments,
+  splitCoverageByChamber,
+  type CoverageTerm,
+} from "@/lib/politics/register-coverage";
 import { REPORT_ERROR_EMAIL } from "@/lib/report-error";
 import { registerItem } from "@/lib/politics/register-items";
 import { HOLDER_ICON, registerItemIcon } from "@/lib/politics/register-item-icons";
@@ -480,12 +486,88 @@ export function CoverageNote({
   extracted,
   partial = [],
   pending,
+  chamber,
+  hasRegisterEntries = true,
+  terms = [],
 }: {
   extracted: number[];
   partial?: number[];
   pending: number[];
+  /** 'house' | 'senate', as the register records it. */
+  chamber?: string;
+  /**
+   * Whether this profile has ANY register row behind it. Defaults true so every
+   * existing caller keeps its old behaviour; only the senate branch reads it.
+   */
+  hasRegisterEntries?: boolean;
+  /**
+   * This member's terms, so every parliament claim can be made against the
+   * chamber they actually sat in for it.
+   *
+   * Defaults to empty, which reproduces the old behaviour exactly: with no
+   * terms, no parliament is a Senate one and every bucket renders whole. The
+   * hub passes none because it speaks about the CORPUS rather than about a
+   * person, and the corpus is the House corpus.
+   */
+  terms?: readonly CoverageTerm[];
 }) {
-  if (extracted.length === 0 && partial.length === 0 && pending.length === 0) return null;
+  /*
+   * THE SENATE BRANCH, AND WHY IT OVERRIDES THE PARLIAMENT SENTENCES.
+   *
+   * The parliament lists below describe the HOUSE corpus: they are the
+   * parliaments whose per-member PDFs we fetched and extracted. Printing "this
+   * page covers the 46th, 47th and 48th Parliaments in full" above a senator's
+   * empty page would be exactly backwards — we have read none of the Senate's
+   * volumes for any of those parliaments, and the sentence would turn our gap
+   * into a statement that a named senator declared nothing across three
+   * parliaments.
+   *
+   * So a senator with no register rows gets the Senate sentence INSTEAD of the
+   * House coverage sentences, and it renders whether or not the House lists are
+   * complete — this branch may never return null.
+   */
+  if (chamber === "senate" && !hasRegisterEntries) {
+    return (
+      <p className="rounded-md border border-muted-foreground/20 bg-muted/30 p-2.5 text-[11px] leading-relaxed text-muted-foreground">
+        {SENATE_REGISTER_GAP}
+      </p>
+    );
+  }
+
+  /*
+   * THE DUAL-CHAMBER CARVE-OUT, and why the branch above does not cover it.
+   *
+   * The branch above is all-or-nothing: a senator with no rows gets the Senate
+   * sentence, and anyone with rows gets the parliament sentences. That left a
+   * third case saying the wrong thing about itself. Sarah Henderson HAS
+   * register rows — 142 of them, from the House, in the 44th and 45th — so she
+   * took the second path and the note read "This page covers the 44th, 45th and
+   * 48th Parliaments in full". She has spent the 48th entirely in the Senate.
+   * We have read none of it. "In full" over that parliament is the same absence
+   * claim the branch above exists to prevent, made about the same person by the
+   * same paragraph.
+   *
+   * So the claim is made PER PARLIAMENT, against the chamber she sat in for it.
+   * House parliaments keep their bucket; Senate ones leave it and are covered by
+   * the Senate sentence instead, which renders whenever any of them was removed.
+   * The removal is never silent — a bucket that quietly shrank would be a
+   * narrower claim with no explanation attached.
+   */
+  const senateSet = senateParliaments(terms);
+  const extractedSplit = splitCoverageByChamber(extracted, senateSet);
+  const partialSplit = splitCoverageByChamber(partial, senateSet);
+  const pendingSplit = splitCoverageByChamber(pending, senateSet);
+  const senateCarveOut =
+    extractedSplit.senate.length > 0 ||
+    partialSplit.senate.length > 0 ||
+    pendingSplit.senate.length > 0;
+  extracted = extractedSplit.house;
+  partial = partialSplit.house;
+  pending = pendingSplit.house;
+
+  if (extracted.length === 0 && partial.length === 0 && pending.length === 0 && !senateCarveOut) {
+    return null;
+  }
 
   const incomplete = partial.length > 0 || pending.length > 0;
 
@@ -518,9 +600,13 @@ export function CoverageNote({
       {incomplete ? (
         <>
           An empty section below means we have no recorded entry — <strong>not</strong> that the
-          member declared nothing.
+          member declared nothing.{" "}
         </>
       ) : null}
+      {/* The parliaments removed from the buckets above, and why. Without this
+          the sentences are simply narrower than they were, which reads as a
+          smaller corpus rather than as a chamber we have not opened. */}
+      {senateCarveOut ? <>{SENATE_REGISTER_GAP}</> : null}
     </p>
   );
 }

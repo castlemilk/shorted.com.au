@@ -275,20 +275,38 @@ func loadPoliticiansForPhotos(ctx context.Context, pool *pgxpool.Pool) ([]ourPol
 	// Division lives on the statements, not on the identity row, and a member
 	// can appear under more than one over five parliaments — so take the most
 	// recent, which is the one their current Wikidata term will name.
+	//
+	// AND WHEN THERE ARE NO STATEMENTS, FALL BACK TO politician_terms. Reading
+	// register_statements alone made this query structurally House-only, in the
+	// same silent way the Wikidata Senate item was: a senator minted by
+	// register-senators has no lodged statement, so every one of these three
+	// columns came back empty, `region == ""` skipped them in matchPortraits,
+	// and 180 people were dropped without a line of output saying so. The
+	// portrait matcher's ambiguity guard is unchanged — this only supplies the
+	// key it needs.
 	rows, err := pool.Query(ctx, `
 		SELECT p.slug, p.surname,
 		       COALESCE((
 		         SELECT s.declared_division FROM register_statements s
 		         WHERE s.politician_id = p.id AND btrim(s.declared_division) <> ''
-		         ORDER BY s.parliament DESC NULLS LAST LIMIT 1), ''),
+		         ORDER BY s.parliament DESC NULLS LAST LIMIT 1),
+		         (SELECT t.division FROM politician_terms t
+		          WHERE t.politician_id = p.id AND btrim(COALESCE(t.division, '')) <> ''
+		          ORDER BY t.parliament DESC NULLS LAST LIMIT 1), ''),
 		       COALESCE((
 		         SELECT s.chamber FROM register_statements s
 		         WHERE s.politician_id = p.id AND btrim(s.chamber) <> ''
-		         ORDER BY s.parliament DESC NULLS LAST LIMIT 1), ''),
+		         ORDER BY s.parliament DESC NULLS LAST LIMIT 1),
+		         (SELECT t.chamber FROM politician_terms t
+		          WHERE t.politician_id = p.id AND btrim(COALESCE(t.chamber, '')) <> ''
+		          ORDER BY t.parliament DESC, t.term_start DESC NULLS LAST LIMIT 1), ''),
 		       COALESCE((
 		         SELECT s.declared_state FROM register_statements s
 		         WHERE s.politician_id = p.id AND btrim(s.declared_state) <> ''
-		         ORDER BY s.parliament DESC NULLS LAST LIMIT 1), '')
+		         ORDER BY s.parliament DESC NULLS LAST LIMIT 1),
+		         (SELECT t.state_code FROM politician_terms t
+		          WHERE t.politician_id = p.id AND btrim(COALESCE(t.state_code, '')) <> ''
+		          ORDER BY t.parliament DESC NULLS LAST LIMIT 1), '')
 		FROM politicians p
 		WHERE p.merged_into_id IS NULL`)
 	if err != nil {
@@ -359,7 +377,11 @@ func matchPortraits(ours []ourPolitician, members []wikidataMember) (map[string]
 		// Narrow key or nothing.
 		region := p.Division
 		if p.Chamber == "senate" {
-			region = p.StateCode
+			// Wikidata's P768 holds a senator's state as its FULL NAME
+			// ("Victoria"); politician_terms holds the code ("VIC"). Keying one
+			// against the other matches nothing and looks exactly like a
+			// senator having no portrait, so the code is expanded here.
+			region = stateRegionName(p.StateCode)
 		}
 		if region == "" {
 			continue

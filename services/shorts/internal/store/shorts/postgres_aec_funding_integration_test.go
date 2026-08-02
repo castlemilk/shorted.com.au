@@ -557,17 +557,45 @@ func TestUnresolvedReturnsAppearInNoMemberResponse(t *testing.T) {
 		t.Skip("every return resolved; nothing to withhold")
 	}
 
-	var senateUnresolved, senateTotal int
+	// SENATOR RETURNS NOW RESOLVE, AND THIS ASSERTION IS THE INVERSE OF WHAT IT
+	// WAS. It used to ERROR if a single senator return found a politician,
+	// because the politicians table was House-only and any such join could only
+	// be a mis-join onto a same-named member. register-senators mints senator
+	// identity from the APH Handbook, so the join is now the correct outcome and
+	// a table of zero resolved senators means the identity ingest has not been
+	// run — which is a coverage regression the surface would otherwise report as
+	// a deliberate limitation.
+	//
+	// It is a THRESHOLD, not an equality. A senator whose AEC given name is a
+	// diminutive of their Handbook one ("Katy" against "Katherine") withholds by
+	// design and is remedied with a curated alias, so demanding 100% would make
+	// a correct withhold look like a break.
+	var senateResolved, senateTotal int
 	if err := store.db.QueryRow(ctx, `
-		SELECT count(*) FILTER (WHERE politician_id IS NULL), count(*)
-		FROM aec_mp_returns WHERE chamber = 'senate'`).Scan(&senateUnresolved, &senateTotal); err != nil {
+		SELECT count(*) FILTER (WHERE politician_id IS NOT NULL), count(*)
+		FROM aec_mp_returns WHERE chamber = 'senate'`).Scan(&senateResolved, &senateTotal); err != nil {
 		t.Fatalf("senate counts: %v", err)
 	}
-	t.Logf("%d distinct unresolved names; %d of %d senator returns are unresolved by design (the politicians table is House-only)",
-		len(unresolved), senateUnresolved, senateTotal)
-	if senateTotal > 0 && senateUnresolved != senateTotal {
-		t.Errorf("%d of %d senator returns resolved to a member; the politicians table is House-only, so any of these is a mis-join",
-			senateTotal-senateUnresolved, senateTotal)
+	t.Logf("%d distinct unresolved names; %d of %d senator returns resolve to a senator",
+		len(unresolved), senateResolved, senateTotal)
+	if senateTotal > 0 && senateResolved == 0 {
+		t.Errorf("0 of %d senator returns resolved; senator identity is missing — run `-mode register-senators`", senateTotal)
+	}
+
+	// And no senator return may resolve to a HOUSE-only person. That is the
+	// mis-join the old assertion was really guarding against, and it survives
+	// the inversion — a senator's money never lands on a member's profile.
+	var senateOnHouse int
+	if err := store.db.QueryRow(ctx, `
+		SELECT count(*) FROM aec_mp_returns r
+		JOIN politicians p ON p.id = r.politician_id
+		WHERE r.chamber = 'senate'
+		  AND NOT EXISTS (SELECT 1 FROM politician_terms t
+		                  WHERE t.politician_id = p.id AND t.chamber = 'senate')`).Scan(&senateOnHouse); err != nil {
+		t.Fatalf("senate mis-join count: %v", err)
+	}
+	if senateOnHouse > 0 {
+		t.Errorf("%d senator returns resolved to a person who has never held a Senate term — a mis-join", senateOnHouse)
 	}
 
 	// Every member who has ANY funding row. If an unresolved name surfaced on

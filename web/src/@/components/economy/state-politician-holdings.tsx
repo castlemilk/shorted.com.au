@@ -31,10 +31,20 @@ export function StatePoliticianHoldings({ state }: { state: StateSlug }) {
         <EconomyIcon name="company-footprint" className="h-4 w-4" />
         Declared by {STATE_NAMES[state] ?? state.toUpperCase()} members
       </h4>
+      {/*
+        THIS DESCRIBES A REGISTER-ONLY SET, SO IT MAY NOT PROMISE THE SENATE.
+        "senators for the state, and members for its divisions" named a
+        population half of which contributes nothing here: every row comes from
+        the House registers, and the Registers of Senators' Interests have not
+        been read into this site — so a reader was told senators were counted
+        and shown a list they are absent from. The sentence now says what the
+        data is: the members whose registers we have read.
+      */}
       <p className="text-[11px] text-muted-foreground">
         ASX-listed companies declared in the registers of interests by the{" "}
-        {data.politicianCount} federal parliamentarians representing this state or territory —
-        senators for the state, and members for its divisions.
+        {data.politicianCount} federal parliamentarians representing this state or territory whose
+        registers we have read. That is the House registers; the Registers of Senators&rsquo;
+        Interests have not been read into this site yet, so senators are not counted here.
       </p>
       <ul className="divide-y">
         {data.stocks.map((s) => (

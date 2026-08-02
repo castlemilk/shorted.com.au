@@ -81,15 +81,32 @@ describe("politician explorer", () => {
     searchPoliticians.mockReset();
   });
 
-  it("states an empty profile as coverage, never as a finding", async () => {
+  // THE FIXTURE IS A SENATOR, AND THAT NOW CHANGES THE SENTENCE.
+  //
+  // "Nothing matched yet in the documents read" says we read this person's
+  // document and matched nothing in it. True of a House member whose PDF we
+  // extracted; FALSE of a senator, because none of the Senate's tabled volumes
+  // has been read. Both branches are pinned here rather than the House one
+  // being asserted over a senate fixture.
+  it("states a senator's empty profile as an unread register, never as a finding", async () => {
     mockResults([NO_INTERESTS]);
+    render(<PoliticianExplorer />);
+    await waitFor(() =>
+      expect(screen.getByText(/senate register not read yet/i)).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(/nothing matched yet in the documents read/i)).toBeNull();
+    // Not "0 declared companies", and not "declared nothing".
+    expect(screen.queryByText(/declared nothing/i)).toBeNull();
+    expect(screen.queryByText(/^0 declared/)).toBeNull();
+  });
+
+  it("states a member's empty profile as coverage, never as a finding", async () => {
+    mockResults([{ ...NO_INTERESTS, chamber: "house", division: "Wills" }]);
     render(<PoliticianExplorer />);
     await waitFor(() =>
       expect(screen.getByText(/nothing matched yet in the documents read/i)).toBeInTheDocument(),
     );
-    // Not "0 declared companies", and not "declared nothing".
     expect(screen.queryByText(/declared nothing/i)).toBeNull();
-    expect(screen.queryByText(/^0 declared/)).toBeNull();
   });
 
   it("labels counts as declared things, never as a value", async () => {

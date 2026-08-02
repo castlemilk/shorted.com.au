@@ -925,3 +925,143 @@ func TestSummaryTrendWindowIsAnchoredOnTheSnapshot(t *testing.T) {
 		t.Fatalf("control: a wall-clock window over a 30-month-old snapshot returned %d points, expected 0", wallClockPoints)
 	}
 }
+
+// A SENATOR HAS AN IDENTITY AND NO HOLDINGS, and every read path has to survive
+// that.
+//
+// register-senators mints 171 people from the APH Handbook. There is no Senate
+// register corpus behind them, so not one has a row in
+// mv_register_public_holdings — and every explorer query in this file reaches
+// its counts through that view or the rollup built from it. An INNER join
+// anywhere in that chain drops them silently: the person exists, their profile
+// 404s, and the hub's total quietly excludes them.
+//
+// This is the same failure the unrefreshed-member test guards, but arriving
+// from the other direction and permanently rather than for one refresh cycle.
+func TestSenatorWithNoHoldingsSurvivesEveryReadPath(t *testing.T) {
+	pool, cleanup := openPoliticianExplorerIntegrationDB(t)
+	defer cleanup()
+	ctx := context.Background()
+	store := &postgresStore{db: pool}
+
+	var slug, displayName string
+	err := pool.QueryRow(ctx, `
+		SELECT p.slug, p.display_name
+		FROM politicians p
+		JOIN politician_terms t ON t.politician_id = p.id AND t.chamber = 'senate'
+		WHERE p.merged_into_id IS NULL
+		  AND NOT EXISTS (SELECT 1 FROM mv_register_public_holdings h WHERE h.politician_id = p.id)
+		ORDER BY p.slug
+		LIMIT 1`).Scan(&slug, &displayName)
+	if err != nil {
+		t.Skipf("no senator without holdings in this database (run -mode register-senators): %v", err)
+	}
+	t.Logf("probing %s (%s): a senate term, no declared holdings", slug, displayName)
+
+	// 1. The profile read path.
+	politician, declared, _, err := store.GetPolitician(slug)
+	if err != nil {
+		t.Fatalf("GetPolitician(%s): %v — a senator's profile is unreachable", slug, err)
+	}
+	if politician == nil || politician.Slug != slug {
+		t.Fatalf("GetPolitician returned %+v", politician)
+	}
+	if len(declared) != 0 {
+		t.Errorf("%d declared interests for a senator we hold no register volume for", len(declared))
+	}
+
+	// 2. The list read path, and the corpus total.
+	summaries, total, err := store.ListPoliticianSummaries("", "", "", 0, displayName, "name", 50, 0)
+	if err != nil {
+		t.Fatalf("ListPoliticianSummaries: %v", err)
+	}
+	if total < 1 {
+		t.Fatalf("the senator is not counted in the filtered total")
+	}
+	found := false
+	for _, summary := range summaries {
+		if summary.Politician.Slug == slug {
+			found = true
+			if len(summary.ItemCounts) != 14 {
+				t.Errorf("item counts = %d, want all 14 buckets zeroed rather than absent", len(summary.ItemCounts))
+			}
+			if summary.DistinctCompanyCount != 0 || summary.PropertyCount != 0 {
+				t.Errorf("a member with no holdings reported counts: %+v", summary)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("the senator is missing from %d summaries — a join dropped them", len(summaries))
+	}
+
+	// 3. The compare read path. A senator on one side of a comparison must not
+	//    error out or come back empty just because they declared nothing.
+	var other string
+	if err := pool.QueryRow(ctx, `
+		SELECT slug FROM mv_register_politician_rollup WHERE slug <> $1 ORDER BY slug LIMIT 1`,
+		slug).Scan(&other); err != nil {
+		t.Fatalf("pick a comparison partner: %v", err)
+	}
+	comparison, err := store.ComparePoliticians(slug, other)
+	if err != nil {
+		t.Fatalf("ComparePoliticians(%s, %s): %v", slug, other, err)
+	}
+	if comparison == nil || comparison.SummaryA == nil || comparison.SummaryA.Politician.Slug != slug {
+		t.Fatalf("the senator side of the comparison came back empty: %+v", comparison)
+	}
+
+	// 4. The rollup itself. Every LIVE person gets a row whether or not they
+	//    declared anything — the rollup LEFT JOINs holdings onto politicians,
+	//    and if that ever became an inner join this is where it shows first.
+	var inRollup bool
+	if err := pool.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM mv_register_politician_rollup WHERE slug = $1)`, slug).Scan(&inRollup); err != nil {
+		t.Fatalf("rollup membership: %v", err)
+	}
+	if !inRollup {
+		t.Errorf("%s is absent from mv_register_politician_rollup — refresh it, or the LEFT JOIN regressed", slug)
+	}
+}
+
+// The search index is a SECOND read path, and §8.16's lesson is that a second
+// path trusting its own filter is how a row goes wrong. It is built from the
+// same MV, so a senator with no holdings must still be indexed — with their
+// chamber and state facets populated from politician_terms, or the explorer's
+// filter rail shows 171 people as unfacetable.
+func TestSenatorIsIndexableWithFacetsFromTheirTerm(t *testing.T) {
+	pool, cleanup := openPoliticianExplorerIntegrationDB(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	var senators, faceted int
+	err := pool.QueryRow(ctx, `
+		WITH latest_term AS (
+			SELECT DISTINCT ON (politician_id)
+			       politician_id, chamber, division, state_code, party, party_ab
+			FROM politician_terms
+			ORDER BY politician_id, parliament DESC, term_start DESC NULLS FIRST, chamber
+		),
+		indexed AS (
+			SELECT p.id,
+			       COALESCE(max(h.chamber), max(lt.chamber), '') AS chamber,
+			       COALESCE(max(h.member_state), max(lt.state_code), '') AS state_code
+			FROM politicians p
+			LEFT JOIN mv_register_public_holdings h ON h.politician_id = p.id
+			LEFT JOIN latest_term lt ON lt.politician_id = p.id
+			WHERE p.merged_into_id IS NULL
+			GROUP BY p.id
+		)
+		SELECT count(*) FILTER (WHERE chamber = 'senate'),
+		       count(*) FILTER (WHERE chamber = 'senate' AND state_code <> '')
+		FROM indexed`).Scan(&senators, &faceted)
+	if err != nil {
+		t.Fatalf("index facet probe: %v", err)
+	}
+	if senators == 0 {
+		t.Skip("no senators in this database (run -mode register-senators)")
+	}
+	t.Logf("%d senators would index, %d of them with a state facet", senators, faceted)
+	if faceted != senators {
+		t.Errorf("%d of %d senators would index with an EMPTY state facet", senators-faceted, senators)
+	}
+}

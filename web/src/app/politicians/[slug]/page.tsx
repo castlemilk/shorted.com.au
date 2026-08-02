@@ -45,6 +45,11 @@ import { getPolitician } from "~/app/actions/getPoliticians";
 import { getPoliticianExplorerProfile } from "~/app/actions/getPoliticianExplorerProfile";
 import { pageTitle, sectionTitle, eyebrow } from "@/lib/typography";
 import { partyLabel } from "@/lib/politics/party-palette";
+import {
+  hasRegisterEntries,
+  profileIsIndexable,
+  SENATE_REGISTER_GAP,
+} from "@/lib/politics/register-coverage";
 import { HOLDER_ICON, registerItemIcon } from "@/lib/politics/register-item-icons";
 import { SectionIcon } from "@/components/politicians/politics-icon";
 import type { PoliticsIconName } from "@/components/politicians/politics-icons.generated";
@@ -78,11 +83,25 @@ export async function generateMetadata({
   const url = `https://shorted.com.au/politicians/${p.slug}`;
   const role = p.chamber === "senate" ? `Senator for ${p.stateCode}` : `Member for ${p.division}`;
   const title = `${p.displayName} — Declared Interests (${role})`;
-  const description = `What ${p.displayName} declares in the federal register of interests: ${p.declaredListedCount} ASX-listed interests and ${p.declaredPropertyCount} declared properties. The register records what is held, never quantity or value.`;
+  // A DESCRIPTION MAY NOT REPORT ZEROES IT CANNOT STAND BEHIND. "0 ASX-listed
+  // interests and 0 declared properties" is a finding about a named person, and
+  // for a senator whose volume we have not read it is simply false. The senate
+  // branch states the coverage gap instead. (This string is noindexed on those
+  // profiles anyway — but it is also what a link preview shows.)
+  const description =
+    p.chamber === "senate" && !hasRegisterEntries(p)
+      ? `${p.displayName}, ${role}. ${SENATE_REGISTER_GAP}`
+      : `What ${p.displayName} declares in the federal register of interests: ${p.declaredListedCount} ASX-listed interests and ${p.declaredPropertyCount} declared properties. The register records what is held, never quantity or value.`;
 
   // Thin profiles are noindexed: a member with nothing matched adds no value to
   // the index and risks reading as a page about a named person with no content.
-  const indexable = p.declaredListedCount > 0 || p.declaredPropertyCount > 0;
+  //
+  // The predicate is shared with the sitemap (register-coverage.ts) so the two
+  // can never disagree, and it is deliberately blind to AEC funding: a senator
+  // whose only content is a lodged return still has an empty register section
+  // as the page's main heading. They remain searchable on this site and
+  // reachable from the hub roll — just not advertised to a crawler.
+  const indexable = profileIsIndexable(p);
 
   return {
     title,
@@ -216,6 +235,14 @@ export default async function PoliticianPage({
   const role = p.chamber === "senate" ? `Senator for ${p.stateCode}` : `Member for ${p.division}`;
   const interests = data?.interests ?? [];
   const rows = buildDeclarationRows(interests);
+  /*
+   * ONE PREDICATE FOR EVERY SENTENCE ON THIS PAGE THAT EXPLAINS AN EMPTY
+   * REGISTER: the CoverageNote, the empty declarations section, and the two
+   * LLMMeta strings. It reads the ROWS THIS PAGE RENDERS rather than the
+   * listed/property counts the index gate uses, so the explanation and the
+   * thing it explains can never disagree.
+   */
+  const senateRegisterGap = p.chamber === "senate" && rows.length === 0;
   const asAt = interests
     .map((i) => toDate(i.declaredFrom))
     .filter((d): d is Date => !!d)
@@ -336,11 +363,32 @@ export default async function PoliticianPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      {/*
+        THE MACHINE-READABLE TWINS OF THE META DESCRIPTION, BRANCHED ON THE SAME
+        PREDICATE.
+
+        `generateMetadata` already refuses to describe a senator's page as
+        "register of interests entries" — there are none, because we have read
+        none. These two strings said it anyway, to the audience least able to
+        check: an LLM reading `dataSource` as "Registers of Members' and
+        Senators' Interests" is being told this page is sourced from a document
+        we have never opened, and `description` as "Register of interests
+        entries for X" asserts entries exist. Same predicate, same branch, so
+        the two can never drift apart.
+      */}
       <LLMMeta
         title={`${p.displayName} — declared interests`}
-        description={`Register of interests entries for ${p.displayName}, ${role}.`}
+        description={
+          senateRegisterGap
+            ? `${p.displayName}, ${role}. ${SENATE_REGISTER_GAP}`
+            : `Register of interests entries for ${p.displayName}, ${role}.`
+        }
         url={url}
-        dataSource="Registers of Members' and Senators' Interests, Parliament of Australia"
+        dataSource={
+          senateRegisterGap
+            ? "AEC Transparency Register (funding) and the Parliamentary Handbook (identity); the Register of Senators' Interests has not been read into this site"
+            : "Registers of Members' and Senators' Interests, Parliament of Australia"
+        }
         dataFrequency="continuous during sitting periods"
       />
       <DashboardLayout>
@@ -425,10 +473,29 @@ export default async function PoliticianPage({
               heading reads as "declared nothing"; that is an absence claim about
               a named person, and it is false wherever we simply have not read
               the documents yet. */}
+          {/* The senate branch is inside CoverageNote and replaces the House
+              parliament sentences outright — see compliance.tsx. It reads the
+              ROW COUNTS, not the chamber alone, so a dual-chamber senator with
+              House rows keeps the ordinary note. */}
           <CoverageNote
             extracted={data?.extractedParliaments ?? []}
             partial={data?.partialParliaments ?? []}
             pending={data?.pendingParliaments ?? []}
+            chamber={p.chamber}
+            /* The ROWS THIS PAGE ACTUALLY RENDERS, not the listed/property
+               counts the index gate uses. A register row that resolved to
+               neither a company nor a suburb is still a register row, and the
+               note and the section below it must agree about whether this page
+               has one. */
+            hasRegisterEntries={rows.length > 0}
+            /* The terms are what make each parliament claim CHAMBER-AWARE. A
+               dual-chamber member's House parliaments keep the "read in full"
+               sentences; the ones they spent in the Senate leave them, because
+               no Senate volume has been read for any parliament. */
+            terms={(data?.terms ?? []).map((term) => ({
+              parliament: term.parliament,
+              chamber: term.chamber,
+            }))}
           />
 
           <section className="space-y-2">
@@ -454,7 +521,22 @@ export default async function PoliticianPage({
 
           <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_320px]">
             <div className="min-w-0 space-y-10">
-              {currentEntryCount > 0 || timelinePoints.length > 0 ? (
+              {/*
+                A CHART OF ZEROES IS AN ABSENCE CLAIM WITH A PICTURE ON IT.
+
+                `rows.length > 0` is the new outer gate, and it is here because
+                of the senators. The timeline rpc returns a month bucket per
+                month in the window whether or not anything is in it, so a
+                senator with no register rows rendered "Entries declared over
+                time" as a flat zero line across five years — a drawn statement
+                that this named person declared nothing in any of them, sitting
+                directly beneath a note explaining that we have not read their
+                register at all.
+
+                It costs nothing elsewhere: a profile with no rows has an empty
+                donut and an empty chart whatever chamber it belongs to.
+              */}
+              {rows.length > 0 && (currentEntryCount > 0 || timelinePoints.length > 0) ? (
                 <section className="space-y-6">
                   <h2 className={sectionTitle}>
                     <SectionIcon name="coverage" />
@@ -497,9 +579,23 @@ export default async function PoliticianPage({
                   Declared interests
                 </h2>
                 {rows.length === 0 ? (
+                  /*
+                   * TWO DIFFERENT ABSENCES, AND THEY MAY NOT SHARE A SENTENCE.
+                   *
+                   * For a member, "nothing appears ... for the parliaments
+                   * listed above" is true and bounded: the note above names the
+                   * parliaments we read, and the sentence is scoped to them.
+                   *
+                   * For a senator it would be a lie by omission. We have read
+                   * NONE of the Senate's tabled volumes, so there are no
+                   * parliaments listed above to scope the sentence to, and the
+                   * only honest thing to say is that the document is unread and
+                   * the gap is ours.
+                   */
                   <p className="text-sm text-muted-foreground">
-                    Nothing appears in this member&rsquo;s register entries for the parliaments
-                    listed above.
+                    {senateRegisterGap
+                      ? SENATE_REGISTER_GAP
+                      : "Nothing appears in this member’s register entries for the parliaments listed above."}
                   </p>
                 ) : (
                   <>
@@ -617,9 +713,12 @@ export default async function PoliticianPage({
                   <SectionIcon name="compare" />
                   Compare
                 </h2>
+                {/* "Parliamentarian", not "member": this rail is on senator
+                    profiles now, and the comparison itself already uses the
+                    word that covers both chambers. */}
                 <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                  Put this member&rsquo;s declared entries side by side with another
-                  member&rsquo;s. Counts only, both sides the same.
+                  Put this parliamentarian&rsquo;s declared entries side by side with
+                  another&rsquo;s. Counts only, both sides the same.
                 </p>
                 <Link
                   href={`/politicians/compare?a=${p.slug}`}

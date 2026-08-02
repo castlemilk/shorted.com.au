@@ -40,6 +40,7 @@ import {
   skipForBuild,
 } from "./config";
 import { CACHE_KEYS, POLITICIANS_TTL, getCached, setCached } from "@/lib/kv-cache";
+import { profileIsIndexable } from "@/lib/politics/register-coverage";
 import { withRetryAndNotFound } from "./withRetry";
 
 // A transport whose fetch tags the request ISR-cacheable.
@@ -788,9 +789,14 @@ export const getPoliticianSlugs = cache(
   withRetryAndNotFound(async (): Promise<{ slug: string; hasInterests: boolean }[]> => {
     if (skipForBuild()) return [];
     const resp = await createCacheablePoliticiansClient().listPoliticians({ limit: 500 });
+    // The SHARED predicate (register-coverage.ts), so the sitemap and the
+    // profile's own robots tag can never disagree about a given slug. It is
+    // blind to AEC funding on purpose: a senator with a lodged return but no
+    // register rows stays out of the sitemap and noindexed, while remaining
+    // searchable here and reachable from the hub roll.
     return resp.politicians.map((p) => ({
       slug: p.slug,
-      hasInterests: p.declaredListedCount > 0 || p.declaredPropertyCount > 0,
+      hasInterests: profileIsIndexable(p),
     }));
   }),
 );

@@ -599,6 +599,21 @@ func runRegisterHandbookMode(ctx context.Context, pool *pgxpool.Pool) error {
 	return nil
 }
 
+// runRegisterSenatorsMode MINTS senator identity from the same Handbook feed.
+//
+// A SIBLING of register-handbook, not a part of it: that mode annotates people
+// the register crawl already produced, this one creates rows. Creating identity
+// deserves its own dry run and its own line in the runbook, and folding it into
+// an annotation pass would hide a mint behind a mode named for a lookup.
+func runRegisterSenatorsMode(ctx context.Context, pool *pgxpool.Pool) error {
+	n, err := runRegisterSenators(ctx, pool, registerDryRun())
+	if err != nil {
+		return fmt.Errorf("[register-senators] %w", err)
+	}
+	log.Printf("[register-senators] %d senators resolved (dry_run=%v)", n, registerDryRun())
+	return nil
+}
+
 func runRegisterIndexMode(ctx context.Context, pool *pgxpool.Pool) error {
 	n, err := runRegisterIndex(ctx, pool, registerDryRun())
 	if err != nil {

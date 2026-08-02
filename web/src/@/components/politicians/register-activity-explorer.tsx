@@ -50,6 +50,7 @@ import { PoliticsIcon, SectionIcon } from "@/components/politicians/politics-ico
 import { partyLabel } from "@/lib/politics/party-palette";
 import { REGISTER_ITEMS } from "@/lib/politics/register-items";
 import { registerItemIcon } from "@/lib/politics/register-item-icons";
+import { SENATE_REGISTER_GAP_CORPUS } from "@/lib/politics/register-coverage";
 import { searchPoliticians } from "@/lib/politics/politician-search";
 import {
   POLITICS_FILTER_BUTTON_CLASS,
@@ -1002,6 +1003,16 @@ export function RegisterActivityExplorer({
               No register events match these filters in this window. Widen the window or the
               filters — an empty result is a filter, not a statement about anyone&rsquo;s
               register.
+              {/*
+                THE SENATE FILTER IS EMPTY FOR A REASON THIS SENTENCE CANNOT
+                CARRY ON ITS OWN. Every other filter combination returns nothing
+                because nothing matched it; chamber=senate returns nothing
+                because there is no Senate register corpus behind this feed at
+                all — the tabled volumes are unread. "Widen the window" is
+                advice that cannot work there, and leaving it as the only
+                explanation implies senators simply did not file anything.
+              */}
+              {query.chamber === "senate" ? <> {SENATE_REGISTER_GAP_CORPUS}</> : null}
             </p>
           ) : null}
 

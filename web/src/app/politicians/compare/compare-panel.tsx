@@ -61,6 +61,7 @@ import {
   type PoliticianHit,
 } from "@/lib/politics/politician-search";
 import { registerItem } from "@/lib/politics/register-items";
+import { SENATE_REGISTER_GAP } from "@/lib/politics/register-coverage";
 import { registerItemIcon } from "@/lib/politics/register-item-icons";
 import { toDate } from "@/lib/politics/timestamp";
 import { sectionTitle } from "@/lib/typography";
@@ -516,10 +517,17 @@ function MemberCard({
   summary,
   color,
   colorNote,
+  senateGap = false,
 }: {
   summary: CompareSummary;
   color: string;
   colorNote?: string;
+  /**
+   * True when this side is a senator with no register behind them, in which
+   * case the tile row below is six drawn zeroes about a named person and is
+   * replaced by the sentence that says whose absence it really is.
+   */
+  senateGap?: boolean;
 }) {
   const member = summary.politician;
   if (!member) return null;
@@ -562,6 +570,19 @@ function MemberCard({
         </div>
       </div>
 
+      {senateGap ? (
+        /*
+          SIX ZEROES, OR THE REASON THERE ARE NONE. A tile reading 0 beside
+          "declared entries now" under a named senator's photograph is the
+          plainest absence claim on the page, and it is one we cannot make: the
+          Senate's registers are tabled as combined volumes and we have read
+          none of them. The tiles are omitted rather than blanked — a dash still
+          asserts we looked.
+        */
+        <p className="rounded-md border border-dashed p-3 text-[11px] leading-relaxed text-muted-foreground">
+          {SENATE_REGISTER_GAP}
+        </p>
+      ) : (
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         <CountTile count={totalDeclared(summary)} label="declared entries now" />
         <CountTile
@@ -585,6 +606,7 @@ function MemberCard({
           label="register changes, 90 days"
         />
       </div>
+      )}
     </article>
   );
 }
@@ -844,6 +866,54 @@ export function ComparePanel() {
   const displayB = memberB?.displayName ?? nameB;
 
   /*
+   * THE SENATE SIDE, AND EVERYTHING THIS PAGE MUST NOT DRAW FOR IT.
+   *
+   * A senator's register is not empty; it is UNREAD. The Senate tables its
+   * registers as combined volumes and none of them has been read into this
+   * site, so a senator's side of this comparison has no data behind it at all —
+   * and every symmetric surface on the page was rendering that as a measurement.
+   * Five zero tiles, a bar of length nothing against a real member's bar, a
+   * radar polygon collapsed to a point, `Senator 0` read out of an aria-label,
+   * and a coverage card announcing "Read in full: the 45th and 48th
+   * Parliaments" over the top of it. Every one of those is a drawn claim that a
+   * named person declared nothing, and it is false.
+   *
+   * WHY THE PREDICATE IS BROAD. It asks whether ANY register signal exists —
+   * the profile's own listed/property counts, or any item count current or
+   * all-time — and only calls it a gap when all of them are silent. A senator
+   * whose volume HAS been read stops being a gap the moment one row lands,
+   * without a copy change; a genuinely zero HOUSE member is never a gap at all,
+   * because their zeros are an established fact about a document we read.
+   */
+  const senateGap = useCallback((summary: CompareSummary | undefined) => {
+    if (!summary?.politician) return false;
+    if (summary.politician.chamber !== "senate") return false;
+    if (
+      summary.politician.declaredListedCount > 0 ||
+      summary.politician.declaredPropertyCount > 0
+    ) {
+      return false;
+    }
+    return !summary.itemCounts.some(
+      (count) => count.currentCount > 0 || count.allTimeCount > 0,
+    );
+  }, []);
+  const senateGapA = senateGap(summaryA);
+  const senateGapB = senateGap(summaryB);
+  /*
+   * A PAIRING IS ONLY LIKE-FOR-LIKE WHEN BOTH SIDES HAVE A READ REGISTER.
+   *
+   * The per-category bars, the radar and the holder bars are all COMPARISONS:
+   * their whole content is the difference between two shapes. With one side
+   * unread there is no difference to draw — the picture is 100% our coverage
+   * gap, rendered as though it were a finding about a person. So the charts do
+   * not render at all for such a pairing, and the sections that carry real
+   * facts (funding, the shared/one-sided company lists, each side's coverage)
+   * stay exactly as they are.
+   */
+  const chartsAreLikeForLike = !senateGapA && !senateGapB;
+
+  /*
    * The names the charts label their series with. When both sides share a party
    * the colour alone cannot say which polygon is whose, so the legend names
    * carry the mapping instead of leaving it to be inferred.
@@ -929,15 +999,33 @@ export function ComparePanel() {
             ? "Across the parliaments we have read, 1 ASX-listed company appears in both members' declarations."
             : `Across the parliaments we have read, ${shared} ASX-listed companies appear in both members' declarations.`,
       },
-      {
+    ];
+    /*
+     * "CURRENTLY DECLARES 0" IS THE SENTENCE THAT MUST NOT BE WRITTEN.
+     *
+     * It is a finding about a named person, and for a senator whose volume we
+     * have not read it is simply false — the zero is our reading, not their
+     * declaration. So the sentence is only built when BOTH sides have a read
+     * register; where one does not, the side is named as a coverage gap
+     * instead, in the same words every other surface uses. Which side is stated
+     * explicitly, so the reader is never left to work out which of the two
+     * numbers was missing.
+     */
+    if (!senateGapA && !senateGapB) {
+      out.push({
         text: `${displayA} currently declares ${summaryA.distinctCompanyCount} distinct ASX-listed ${
           summaryA.distinctCompanyCount === 1 ? "company" : "companies"
         }; ${displayB} currently declares ${summaryB.distinctCompanyCount}.`,
-      },
-      {
-        text: `Across the parliaments we have read, ${onlyA} ${onlyA === 1 ? "company appears" : "companies appear"} only in ${displayA}'s declarations, and ${onlyB} only in ${displayB}'s.`,
-      },
-    ];
+      });
+    } else {
+      const gapped = senateGapA && senateGapB ? `${displayA} and ${displayB}` : senateGapA ? displayA : displayB;
+      out.push({
+        text: `No count of declared companies is stated for ${gapped}. ${SENATE_REGISTER_GAP}`,
+      });
+    }
+    out.push({
+      text: `Across the parliaments we have read, ${onlyA} ${onlyA === 1 ? "company appears" : "companies appear"} only in ${displayA}'s declarations, and ${onlyB} only in ${displayB}'s.`,
+    });
     const undated = summaryA.undatedCount + summaryB.undatedCount;
     if (undated > 0) {
       out.push({
@@ -945,7 +1033,7 @@ export function ComparePanel() {
       });
     }
     return out;
-  }, [data, summaryA, summaryB, displayA, displayB]);
+  }, [data, summaryA, summaryB, displayA, displayB, senateGapA, senateGapB]);
 
   const asAt = toDate(data?.asAt);
 
@@ -1032,41 +1120,68 @@ export function ComparePanel() {
     body = (
       <div className="space-y-10">
         <section className="grid gap-4 md:grid-cols-2">
-          <MemberCard summary={summaryA} color={series.colorA} />
+          <MemberCard summary={summaryA} color={series.colorA} senateGap={senateGapA} />
           <MemberCard
             summary={summaryB}
             color={series.colorB}
             colorNote={series.sameParty ? "shown in slate" : undefined}
+            senateGap={senateGapB}
           />
         </section>
 
-        <section className="space-y-3">
-          <h2 className={sectionTitle}>
-            <SectionIcon name="other-interests" />
-            Entries by register category
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            The register has fourteen numbered items and each bar counts the
-            entries currently declared under one of them. A bar is a number of
-            form entries and nothing else — not a quantity, not a value, and not
-            a total that can be compared across categories.
-          </p>
-          {categoryRows.length > 0 ? (
-            <CompareBars
-              rows={categoryRows}
-              colorA={series.colorA}
-              colorB={series.colorB}
-              nameA={seriesNameA}
-              nameB={seriesNameB}
-            />
-          ) : (
-            <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-              Neither member has a current entry in the documents we have read.
+        {/*
+          THE THREE COMPARISON CHARTS, AND THE PAIRING THEY MAY NOT BE DRAWN
+          FOR. See `chartsAreLikeForLike`: with one side's register unread there
+          is nothing to compare, and every mark, axis and sr-only cell would be
+          drawing our coverage gap as a measurement of a named person. They are
+          replaced by the plain statement of what is missing — not by an empty
+          chart, which is the same claim with a frame around it.
+        */}
+        {chartsAreLikeForLike ? (
+          <section className="space-y-3">
+            <h2 className={sectionTitle}>
+              <SectionIcon name="other-interests" />
+              Entries by register category
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              The register has fourteen numbered items and each bar counts the
+              entries currently declared under one of them. A bar is a number of
+              form entries and nothing else — not a quantity, not a value, and
+              not a total that can be compared across categories.
             </p>
-          )}
-        </section>
+            {categoryRows.length > 0 ? (
+              <CompareBars
+                rows={categoryRows}
+                colorA={series.colorA}
+                colorB={series.colorB}
+                nameA={seriesNameA}
+                nameB={seriesNameB}
+              />
+            ) : (
+              <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                Neither member has a current entry in the documents we have read.
+              </p>
+            )}
+          </section>
+        ) : (
+          <section className="space-y-3">
+            <h2 className={sectionTitle}>
+              <SectionIcon name="other-interests" />
+              Entries by register category
+            </h2>
+            <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+              No category comparison is drawn for this pair.{" "}
+              {senateGapA && senateGapB
+                ? `Neither ${displayA} nor ${displayB} has a register we have read.`
+                : `${senateGapA ? displayA : displayB}'s register is one we have not read.`}{" "}
+              {SENATE_REGISTER_GAP} Everything below that does not depend on it —
+              the companies each declares, and any funding lodged with the AEC —
+              is unchanged.
+            </p>
+          </section>
+        )}
 
-        {radarAxes.length > 0 ? (
+        {chartsAreLikeForLike && radarAxes.length > 0 ? (
           <section className="space-y-3">
             <h2 className={sectionTitle}>
               <SectionIcon name="compare" />
@@ -1089,7 +1204,7 @@ export function ComparePanel() {
           </section>
         ) : null}
 
-        {holderRows.length > 0 ? (
+        {chartsAreLikeForLike && holderRows.length > 0 ? (
           <section className="space-y-3">
             <h2 className={sectionTitle}>
               <SectionIcon name="holder-spouse" />
@@ -1176,6 +1291,7 @@ export function ComparePanel() {
               partial={data.partialParliamentsA}
               pending={data.pendingParliamentsA}
               undated={summaryA.undatedCount}
+              senateGap={senateGapA}
             />
             <CoverageForMember
               name={displayB}
@@ -1183,6 +1299,7 @@ export function ComparePanel() {
               partial={data.partialParliamentsB}
               pending={data.pendingParliamentsB}
               undated={summaryB.undatedCount}
+              senateGap={senateGapB}
             />
           </div>
         </section>
@@ -1223,21 +1340,51 @@ export function ComparePanel() {
   );
 }
 
+/**
+ * One side's coverage, in the same words the profile page uses.
+ *
+ * THE SENATE BRANCH, AND THE SENTENCE IT REPLACES. The parliament lists below
+ * describe the HOUSE register corpus — they are the parliaments whose per-member
+ * documents we fetched and extracted. Printed over a senator whose volume we
+ * have never opened they said "Read in full: the 45th and 48th Parliaments"
+ * above five zero tiles, which converts our coverage gap into a statement that
+ * a named person declared nothing across two parliaments. It is the same bug
+ * `compliance.tsx`'s CoverageNote was fixed for, and it survived here because
+ * this panel is a client island that CANNOT import that module: `compliance.tsx`
+ * reaches the generated protobuf enum, and a `"use client"` politician module
+ * that does takes the static build down.
+ *
+ * So the WORDS are shared instead of the component — `SENATE_REGISTER_GAP` in
+ * `@/lib/politics/register-coverage` is plain strings, imported by both, and a
+ * rewording lands on the profile and on this card together.
+ */
 function CoverageForMember({
   name,
   extracted,
   partial,
   pending,
   undated,
+  senateGap,
 }: {
   name: string;
   extracted: number[];
   partial: number[];
   pending: number[];
   undated: number;
+  /** True when this side is a senator with no register behind them. */
+  senateGap: boolean;
 }) {
   const hasCoverage =
     extracted.length > 0 || partial.length > 0 || pending.length > 0;
+
+  if (senateGap) {
+    return (
+      <div className="rounded-md border border-muted-foreground/20 bg-muted/30 p-3 text-[11px] leading-relaxed text-muted-foreground">
+        <p className="font-medium text-foreground/80">{name}</p>
+        <p className="mt-1">{SENATE_REGISTER_GAP}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-md border border-muted-foreground/20 bg-muted/30 p-3 text-[11px] leading-relaxed text-muted-foreground">
