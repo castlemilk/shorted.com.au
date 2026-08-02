@@ -527,6 +527,23 @@ def parse_senate_volume(
             statement.warnings.extend(warnings)
 
         out.statements.append(statement)
-        out.pages_attributed += len(section.pages)
+
+        # Attribute a statement's pages ONLY when its tables actually parsed.
+        # Splitting is much more OCR-robust than table parsing — the 2013
+        # volume split into 129 statements while yielding 27 item tables — and
+        # counting split-but-unparsed pages as attributed reports ~98% coverage
+        # for a volume that was barely read, sailing past the partial
+        # quarantine and publishing near-empty statements under named people.
+        # A base statement must surface at least half of the form's 14 item
+        # tables; an alteration must yield at least one row (an alteration
+        # that alters nothing does not exist — a rowless one is a parse miss).
+        if section.kind == STATEMENT_ALTERATION:
+            parsed_ok = any(i.rows for i in statement.items)
+        else:
+            parsed_ok = len(statement.items) >= 7
+        if parsed_ok:
+            out.pages_attributed += len(section.pages)
+        else:
+            statement.warnings.append("tables_unparsed")
 
     return out

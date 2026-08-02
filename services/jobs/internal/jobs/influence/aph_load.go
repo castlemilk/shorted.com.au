@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -41,9 +42,18 @@ type artifactStatement struct {
 	// header block. A volume binds many senators' statements together, so
 	// identity is per STATEMENT, not per document — the House manifest hint is
 	// empty for these documents. Verbatim from the form.
-	DeclaredSurname    string `json:"declared_surname"`
-	DeclaredOtherNames string `json:"declared_other_names"`
-	DeclaredState      string `json:"declared_state"`
+	DeclaredSurname    string   `json:"declared_surname"`
+	DeclaredOtherNames string   `json:"declared_other_names"`
+	DeclaredState      string   `json:"declared_state"`
+	Warnings           []string `json:"warnings"`
+}
+
+// tablesUnparsed reports a statement the parser split but could not read the
+// tables of (an OCR miss). Loading it would publish an empty declaration list
+// under a named person — an absence claim — so it is skipped entirely and the
+// person keeps their honest "not read yet" coverage note instead.
+func (s artifactStatement) tablesUnparsed() bool {
+	return slices.Contains(s.Warnings, "tables_unparsed")
 }
 
 type artifactItem struct {
@@ -297,6 +307,9 @@ func loadExtraction(ctx context.Context, pool *pgxpool.Pool, p pendingExtraction
 	}
 
 	for _, s := range artifact.Statements {
+		if s.tablesUnparsed() {
+			continue
+		}
 		var lodged *time.Time
 		if s.LodgedDate != nil && *s.LodgedDate != "" {
 			if t, perr := time.Parse("2006-01-02", *s.LodgedDate); perr == nil {
