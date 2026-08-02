@@ -30,6 +30,7 @@ import {
 } from "@/components/politicians/profile/declaration-rows";
 import { DeclarationsTable } from "@/components/politicians/profile/declarations-table";
 import { DistinctiveHoldings } from "@/components/politicians/profile/distinctive-holdings";
+import { FundingReturns } from "@/components/politicians/profile/funding-returns";
 import { buildProfileKeyFacts } from "@/components/politicians/profile/key-facts";
 import {
   IndustryBars,
@@ -37,7 +38,9 @@ import {
   ServiceHistory,
   SourceDocuments,
 } from "@/components/politicians/profile/sections";
+import { bailOnEmptyRender } from "~/app/actions/config";
 import { getDistinctiveHoldings } from "~/app/actions/getDistinctiveHoldings";
+import { getPoliticianFunding } from "~/app/actions/getPoliticianFunding";
 import { getPolitician } from "~/app/actions/getPoliticians";
 import { getPoliticianExplorerProfile } from "~/app/actions/getPoliticianExplorerProfile";
 import { pageTitle, sectionTitle, eyebrow } from "@/lib/typography";
@@ -120,6 +123,25 @@ function shortDate(date?: Date): string {
     : "";
 }
 
+/**
+ * `2025-04-17` -> `17 Apr 2025`, or "" when the AEC return omitted the date.
+ *
+ * Formatted in UTC on purpose: `new Date("2025-04-17")` is UTC midnight, and
+ * formatting that in a timezone behind UTC prints the previous day — a donation
+ * dated one day off its return is a wrong fact, not a cosmetic one.
+ */
+function isoDayLabel(iso: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return "";
+  const date = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("en-AU", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 function sumItems(counts: ProfileItemCount[], itemNos: number[]): number {
   return counts
     .filter((count) => itemNos.includes(count.itemNo))
@@ -148,13 +170,27 @@ export default async function PoliticianPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const [data, explorer, distinctive] = await Promise.all([
+  const [data, explorer, distinctive, funding] = await Promise.all([
     getPolitician(slug),
     getPoliticianExplorerProfile(slug),
     getDistinctiveHoldings(slug),
+    // The AEC funding layer. A SEPARATE SOURCE from everything else on this
+    // page: the registers record what is held and never how much, while these
+    // are lodged funding figures published under CC BY 4.0. Most members have no
+    // linked return and the section then renders nothing at all.
+    getPoliticianFunding(slug),
   ]);
   const p = data?.politician;
   if (!p) notFound();
+
+  // SILENCE IS A CLAIM ON THIS SECTION, so an outage may not be baked as one.
+  // `undefined` is the retry helper's exhausted signal — the request did not
+  // answer — and the funding section renders NOTHING in that case, which on this
+  // feature's own doctrine reads as "no return names this member". This page is
+  // cached for 24h, so a regen that caught a cold rpc would publish that absence
+  // about a named person for a day. A populated-but-empty response is a genuine
+  // answer and is left alone.
+  if (funding === undefined) bailOnEmptyRender();
 
   // Slugs are minted server-side and never derived by the client. If the request
   // used an old one, redirect to the canonical.
@@ -444,6 +480,60 @@ export default async function PoliticianPage({
                   </>
                 )}
               </section>
+
+              {/*
+                A DIFFERENT SOURCE, AND A DIFFERENT RULE. Everything above is
+                the register of interests, which records what is held and never
+                how much. This is the AEC Transparency Register, whose whole
+                purpose is to state amounts and which is published under CC BY
+                4.0 — so amounts appear here and only here.
+
+                It renders NOTHING unless a return actually names this member:
+                no heading, no frame, no "no returns" line. Party money is never
+                on the response behind it, and most parliamentarians never lodge
+                an annual return, so an empty frame would read as "received
+                nothing" — an absence claim the corpus cannot support.
+              */}
+              <FundingReturns
+                annualReturns={(funding?.annualReturns ?? []).map((row) => ({
+                  financialYear: row.financialYear,
+                  financialYearEnd: row.financialYearEnd,
+                  returnType: row.returnType,
+                  chamber: row.chamber,
+                  memberName: row.memberName,
+                  totalDonationsCents: Number(row.totalDonationsCents),
+                  donorCount: row.donorCount,
+                  sourceUrl: row.sourceUrl,
+                }))}
+                candidateReturns={(funding?.candidateReturns ?? []).map((row) => ({
+                  event: row.event,
+                  eventYear: row.eventYear,
+                  returnType: row.returnType,
+                  candidateName: row.candidateName,
+                  partyName: row.partyName,
+                  electorateName: row.electorateName,
+                  electorateState: row.electorateState,
+                  nilReturn: row.nilReturn,
+                  amendmentNo: row.amendmentNo,
+                  totalGiftCents: Number(row.totalGiftCents),
+                  donorCount: row.donorCount,
+                  expenditureCents: Number(row.expenditureCents),
+                  discretionaryCents: Number(row.discretionaryCents),
+                  donations: (row.donations ?? []).map((donation) => ({
+                    donorName: donation.donorName,
+                    // Formatted server-side so the server and hydrated renders
+                    // cannot differ.
+                    dateLabel: isoDayLabel(donation.donationDate),
+                    amountCents: Number(donation.amountCents),
+                  })),
+                  eventReturnCount: row.eventReturnCount,
+                  eventItemisedReturnCount: row.eventItemisedReturnCount,
+                  sourceUrl: row.sourceUrl,
+                }))}
+                coverageNote={funding?.coverageNote}
+                attributionNote={funding?.attributionNote}
+                censoringNote={funding?.censoringNote}
+              />
 
               {(data?.representedSuburbs?.length ?? 0) > 0 && (
                 <section className="space-y-2">

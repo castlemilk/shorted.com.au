@@ -241,6 +241,14 @@ type Store interface {
 	GetRegisterActivity(windowDays int32, filter RegisterActivityFilter) (*RegisterActivityRow, error)
 	ListDistinctiveHoldings(slug string) (*DistinctiveHoldingsRow, error)
 
+	// AEC funding layer (migration 000105). A SEPARATE subsystem from the
+	// register above: these are the only methods in this interface that return
+	// an amount, and they may never read a register_ table.
+	GetDonationsOverview(financialYear string, limit int32) (*DonationsOverviewRow, error)
+	ListTopDonors(financialYear, partyGroup string, limit, offset int32) (*TopDonorsRow, error)
+	ListPartyFunding(partyGroup, financialYear string, limit int32) (*PartyFundingDetailRow, error)
+	GetPoliticianFunding(slug string) (*PoliticianFundingRow, error)
+
 	// Register review console — OPERATOR ONLY, never a public read path.
 	// A decision here writes register_security_aliases, which is the single
 	// input the resolver reads; nothing below publishes anything by itself.

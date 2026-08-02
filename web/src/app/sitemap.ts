@@ -582,6 +582,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/politicians`, lastModified: latestDataDate },
     { url: `${baseUrl}/politicians/short-interest`, lastModified: latestDataDate },
     { url: `${baseUrl}/politicians/changes`, lastModified: latestDataDate },
+    // The AEC funding explorer. Gated with the other three on the REGISTER
+    // actually being on, deliberately: the two data sets have separate kill
+    // switches, but a takedown of the register empties the politician corpus
+    // that every one of these hubs is reached through — and a funding page
+    // advertised from a hub nobody can navigate is a page about named parties
+    // hanging off a surface that stopped publishing. It has its own switch
+    // (AEC_DONATIONS_ENABLED) for a funding-specific dispute, which empties the
+    // page's data the same way.
+    { url: `${baseUrl}/politicians/donations`, lastModified: latestDataDate },
   ];
   let politicianRoutes: Array<{ url: string; lastModified: string }> = politicianHubs;
   if (!skipForBuild()) {

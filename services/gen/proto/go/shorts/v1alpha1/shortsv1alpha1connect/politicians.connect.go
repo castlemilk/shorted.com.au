@@ -81,6 +81,18 @@ const (
 	// PoliticiansServiceListDistinctiveHoldingsProcedure is the fully-qualified name of the
 	// PoliticiansService's ListDistinctiveHoldings RPC.
 	PoliticiansServiceListDistinctiveHoldingsProcedure = "/shorts.v1alpha1.PoliticiansService/ListDistinctiveHoldings"
+	// PoliticiansServiceGetDonationsOverviewProcedure is the fully-qualified name of the
+	// PoliticiansService's GetDonationsOverview RPC.
+	PoliticiansServiceGetDonationsOverviewProcedure = "/shorts.v1alpha1.PoliticiansService/GetDonationsOverview"
+	// PoliticiansServiceListTopDonorsProcedure is the fully-qualified name of the PoliticiansService's
+	// ListTopDonors RPC.
+	PoliticiansServiceListTopDonorsProcedure = "/shorts.v1alpha1.PoliticiansService/ListTopDonors"
+	// PoliticiansServiceListPartyFundingProcedure is the fully-qualified name of the
+	// PoliticiansService's ListPartyFunding RPC.
+	PoliticiansServiceListPartyFundingProcedure = "/shorts.v1alpha1.PoliticiansService/ListPartyFunding"
+	// PoliticiansServiceGetPoliticianFundingProcedure is the fully-qualified name of the
+	// PoliticiansService's GetPoliticianFunding RPC.
+	PoliticiansServiceGetPoliticianFundingProcedure = "/shorts.v1alpha1.PoliticiansService/GetPoliticianFunding"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -102,6 +114,10 @@ var (
 	politiciansServiceComparePoliticiansMethodDescriptor           = politiciansServiceServiceDescriptor.Methods().ByName("ComparePoliticians")
 	politiciansServiceGetRegisterActivityMethodDescriptor          = politiciansServiceServiceDescriptor.Methods().ByName("GetRegisterActivity")
 	politiciansServiceListDistinctiveHoldingsMethodDescriptor      = politiciansServiceServiceDescriptor.Methods().ByName("ListDistinctiveHoldings")
+	politiciansServiceGetDonationsOverviewMethodDescriptor         = politiciansServiceServiceDescriptor.Methods().ByName("GetDonationsOverview")
+	politiciansServiceListTopDonorsMethodDescriptor                = politiciansServiceServiceDescriptor.Methods().ByName("ListTopDonors")
+	politiciansServiceListPartyFundingMethodDescriptor             = politiciansServiceServiceDescriptor.Methods().ByName("ListPartyFunding")
+	politiciansServiceGetPoliticianFundingMethodDescriptor         = politiciansServiceServiceDescriptor.Methods().ByName("GetPoliticianFunding")
 )
 
 // PoliticiansServiceClient is a client for the shorts.v1alpha1.PoliticiansService service.
@@ -159,6 +175,16 @@ type PoliticiansServiceClient interface {
 	// members in total currently declare it. A count of one is the plain fact
 	// "no other member currently declares this"; it is not a label.
 	ListDistinctiveHoldings(context.Context, *connect.Request[v1alpha1.ListDistinctiveHoldingsRequest]) (*connect.Response[v1alpha1.ListDistinctiveHoldingsResponse], error)
+	// Party-group funding rollups for one financial year, plus the corpus
+	// counts and disclosure notes a funding surface must render.
+	GetDonationsOverview(context.Context, *connect.Request[v1alpha1.GetDonationsOverviewRequest]) (*connect.Response[v1alpha1.GetDonationsOverviewResponse], error)
+	// Payers into party branches for one financial year, ordered by the total
+	// they were declared to have paid.
+	ListTopDonors(context.Context, *connect.Request[v1alpha1.ListTopDonorsRequest]) (*connect.Response[v1alpha1.ListTopDonorsResponse], error)
+	// One party group's funding across every financial year it lodged in.
+	ListPartyFunding(context.Context, *connect.Request[v1alpha1.ListPartyFundingRequest]) (*connect.Response[v1alpha1.ListPartyFundingResponse], error)
+	// The funding returns that NAME one member. Never party money.
+	GetPoliticianFunding(context.Context, *connect.Request[v1alpha1.GetPoliticianFundingRequest]) (*connect.Response[v1alpha1.GetPoliticianFundingResponse], error)
 }
 
 // NewPoliticiansServiceClient constructs a client for the shorts.v1alpha1.PoliticiansService
@@ -267,6 +293,30 @@ func NewPoliticiansServiceClient(httpClient connect.HTTPClient, baseURL string, 
 			connect.WithSchema(politiciansServiceListDistinctiveHoldingsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		getDonationsOverview: connect.NewClient[v1alpha1.GetDonationsOverviewRequest, v1alpha1.GetDonationsOverviewResponse](
+			httpClient,
+			baseURL+PoliticiansServiceGetDonationsOverviewProcedure,
+			connect.WithSchema(politiciansServiceGetDonationsOverviewMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listTopDonors: connect.NewClient[v1alpha1.ListTopDonorsRequest, v1alpha1.ListTopDonorsResponse](
+			httpClient,
+			baseURL+PoliticiansServiceListTopDonorsProcedure,
+			connect.WithSchema(politiciansServiceListTopDonorsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listPartyFunding: connect.NewClient[v1alpha1.ListPartyFundingRequest, v1alpha1.ListPartyFundingResponse](
+			httpClient,
+			baseURL+PoliticiansServiceListPartyFundingProcedure,
+			connect.WithSchema(politiciansServiceListPartyFundingMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getPoliticianFunding: connect.NewClient[v1alpha1.GetPoliticianFundingRequest, v1alpha1.GetPoliticianFundingResponse](
+			httpClient,
+			baseURL+PoliticiansServiceGetPoliticianFundingProcedure,
+			connect.WithSchema(politiciansServiceGetPoliticianFundingMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -288,6 +338,10 @@ type politiciansServiceClient struct {
 	comparePoliticians           *connect.Client[v1alpha1.ComparePoliticiansRequest, v1alpha1.ComparePoliticiansResponse]
 	getRegisterActivity          *connect.Client[v1alpha1.GetRegisterActivityRequest, v1alpha1.GetRegisterActivityResponse]
 	listDistinctiveHoldings      *connect.Client[v1alpha1.ListDistinctiveHoldingsRequest, v1alpha1.ListDistinctiveHoldingsResponse]
+	getDonationsOverview         *connect.Client[v1alpha1.GetDonationsOverviewRequest, v1alpha1.GetDonationsOverviewResponse]
+	listTopDonors                *connect.Client[v1alpha1.ListTopDonorsRequest, v1alpha1.ListTopDonorsResponse]
+	listPartyFunding             *connect.Client[v1alpha1.ListPartyFundingRequest, v1alpha1.ListPartyFundingResponse]
+	getPoliticianFunding         *connect.Client[v1alpha1.GetPoliticianFundingRequest, v1alpha1.GetPoliticianFundingResponse]
 }
 
 // GetParliamentOverview calls shorts.v1alpha1.PoliticiansService.GetParliamentOverview.
@@ -371,6 +425,26 @@ func (c *politiciansServiceClient) ListDistinctiveHoldings(ctx context.Context, 
 	return c.listDistinctiveHoldings.CallUnary(ctx, req)
 }
 
+// GetDonationsOverview calls shorts.v1alpha1.PoliticiansService.GetDonationsOverview.
+func (c *politiciansServiceClient) GetDonationsOverview(ctx context.Context, req *connect.Request[v1alpha1.GetDonationsOverviewRequest]) (*connect.Response[v1alpha1.GetDonationsOverviewResponse], error) {
+	return c.getDonationsOverview.CallUnary(ctx, req)
+}
+
+// ListTopDonors calls shorts.v1alpha1.PoliticiansService.ListTopDonors.
+func (c *politiciansServiceClient) ListTopDonors(ctx context.Context, req *connect.Request[v1alpha1.ListTopDonorsRequest]) (*connect.Response[v1alpha1.ListTopDonorsResponse], error) {
+	return c.listTopDonors.CallUnary(ctx, req)
+}
+
+// ListPartyFunding calls shorts.v1alpha1.PoliticiansService.ListPartyFunding.
+func (c *politiciansServiceClient) ListPartyFunding(ctx context.Context, req *connect.Request[v1alpha1.ListPartyFundingRequest]) (*connect.Response[v1alpha1.ListPartyFundingResponse], error) {
+	return c.listPartyFunding.CallUnary(ctx, req)
+}
+
+// GetPoliticianFunding calls shorts.v1alpha1.PoliticiansService.GetPoliticianFunding.
+func (c *politiciansServiceClient) GetPoliticianFunding(ctx context.Context, req *connect.Request[v1alpha1.GetPoliticianFundingRequest]) (*connect.Response[v1alpha1.GetPoliticianFundingResponse], error) {
+	return c.getPoliticianFunding.CallUnary(ctx, req)
+}
+
 // PoliticiansServiceHandler is an implementation of the shorts.v1alpha1.PoliticiansService service.
 type PoliticiansServiceHandler interface {
 	// Parliament-wide counts and the as-at date. Cheap; drives the hub tiles.
@@ -426,6 +500,16 @@ type PoliticiansServiceHandler interface {
 	// members in total currently declare it. A count of one is the plain fact
 	// "no other member currently declares this"; it is not a label.
 	ListDistinctiveHoldings(context.Context, *connect.Request[v1alpha1.ListDistinctiveHoldingsRequest]) (*connect.Response[v1alpha1.ListDistinctiveHoldingsResponse], error)
+	// Party-group funding rollups for one financial year, plus the corpus
+	// counts and disclosure notes a funding surface must render.
+	GetDonationsOverview(context.Context, *connect.Request[v1alpha1.GetDonationsOverviewRequest]) (*connect.Response[v1alpha1.GetDonationsOverviewResponse], error)
+	// Payers into party branches for one financial year, ordered by the total
+	// they were declared to have paid.
+	ListTopDonors(context.Context, *connect.Request[v1alpha1.ListTopDonorsRequest]) (*connect.Response[v1alpha1.ListTopDonorsResponse], error)
+	// One party group's funding across every financial year it lodged in.
+	ListPartyFunding(context.Context, *connect.Request[v1alpha1.ListPartyFundingRequest]) (*connect.Response[v1alpha1.ListPartyFundingResponse], error)
+	// The funding returns that NAME one member. Never party money.
+	GetPoliticianFunding(context.Context, *connect.Request[v1alpha1.GetPoliticianFundingRequest]) (*connect.Response[v1alpha1.GetPoliticianFundingResponse], error)
 }
 
 // NewPoliticiansServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -530,6 +614,30 @@ func NewPoliticiansServiceHandler(svc PoliticiansServiceHandler, opts ...connect
 		connect.WithSchema(politiciansServiceListDistinctiveHoldingsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	politiciansServiceGetDonationsOverviewHandler := connect.NewUnaryHandler(
+		PoliticiansServiceGetDonationsOverviewProcedure,
+		svc.GetDonationsOverview,
+		connect.WithSchema(politiciansServiceGetDonationsOverviewMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	politiciansServiceListTopDonorsHandler := connect.NewUnaryHandler(
+		PoliticiansServiceListTopDonorsProcedure,
+		svc.ListTopDonors,
+		connect.WithSchema(politiciansServiceListTopDonorsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	politiciansServiceListPartyFundingHandler := connect.NewUnaryHandler(
+		PoliticiansServiceListPartyFundingProcedure,
+		svc.ListPartyFunding,
+		connect.WithSchema(politiciansServiceListPartyFundingMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	politiciansServiceGetPoliticianFundingHandler := connect.NewUnaryHandler(
+		PoliticiansServiceGetPoliticianFundingProcedure,
+		svc.GetPoliticianFunding,
+		connect.WithSchema(politiciansServiceGetPoliticianFundingMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/shorts.v1alpha1.PoliticiansService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case PoliticiansServiceGetParliamentOverviewProcedure:
@@ -564,6 +672,14 @@ func NewPoliticiansServiceHandler(svc PoliticiansServiceHandler, opts ...connect
 			politiciansServiceGetRegisterActivityHandler.ServeHTTP(w, r)
 		case PoliticiansServiceListDistinctiveHoldingsProcedure:
 			politiciansServiceListDistinctiveHoldingsHandler.ServeHTTP(w, r)
+		case PoliticiansServiceGetDonationsOverviewProcedure:
+			politiciansServiceGetDonationsOverviewHandler.ServeHTTP(w, r)
+		case PoliticiansServiceListTopDonorsProcedure:
+			politiciansServiceListTopDonorsHandler.ServeHTTP(w, r)
+		case PoliticiansServiceListPartyFundingProcedure:
+			politiciansServiceListPartyFundingHandler.ServeHTTP(w, r)
+		case PoliticiansServiceGetPoliticianFundingProcedure:
+			politiciansServiceGetPoliticianFundingHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -635,4 +751,20 @@ func (UnimplementedPoliticiansServiceHandler) GetRegisterActivity(context.Contex
 
 func (UnimplementedPoliticiansServiceHandler) ListDistinctiveHoldings(context.Context, *connect.Request[v1alpha1.ListDistinctiveHoldingsRequest]) (*connect.Response[v1alpha1.ListDistinctiveHoldingsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.PoliticiansService.ListDistinctiveHoldings is not implemented"))
+}
+
+func (UnimplementedPoliticiansServiceHandler) GetDonationsOverview(context.Context, *connect.Request[v1alpha1.GetDonationsOverviewRequest]) (*connect.Response[v1alpha1.GetDonationsOverviewResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.PoliticiansService.GetDonationsOverview is not implemented"))
+}
+
+func (UnimplementedPoliticiansServiceHandler) ListTopDonors(context.Context, *connect.Request[v1alpha1.ListTopDonorsRequest]) (*connect.Response[v1alpha1.ListTopDonorsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.PoliticiansService.ListTopDonors is not implemented"))
+}
+
+func (UnimplementedPoliticiansServiceHandler) ListPartyFunding(context.Context, *connect.Request[v1alpha1.ListPartyFundingRequest]) (*connect.Response[v1alpha1.ListPartyFundingResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.PoliticiansService.ListPartyFunding is not implemented"))
+}
+
+func (UnimplementedPoliticiansServiceHandler) GetPoliticianFunding(context.Context, *connect.Request[v1alpha1.GetPoliticianFundingRequest]) (*connect.Response[v1alpha1.GetPoliticianFundingResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.PoliticiansService.GetPoliticianFunding is not implemented"))
 }

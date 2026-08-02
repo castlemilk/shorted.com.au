@@ -118,6 +118,46 @@ const HUB_SECTIONS = [
 const CHANGES_SECTIONS = ["register-activity-explorer.tsx"];
 
 /**
+ * The /politicians/donations funding explorer's island — the same class as
+ * CHANGES_SECTIONS, for the same two reasons, and kept in its own list so the
+ * assertion below checks it against ITS OWN host page.
+ *
+ * It is one page's whole body, and it CANNOT carry its own citation: it is a
+ * "use client" file and SourceLine/ReportErrorLink live in compliance.tsx, which
+ * imports the generated protobuf enum. The donations page renders the AEC
+ * attribution line, the ReportErrorLink and the methodology band.
+ */
+const DONATIONS_SECTIONS = ["donations-explorer.tsx"];
+
+/**
+ * THE ONE PLACE MONEY IS PERMITTED next to a parliamentarian, and why.
+ *
+ * Every other file in this sweep renders the Registers of Members'/Senators'
+ * Interests, which record WHAT is held and never how much — there is no figure
+ * to format, so a currency amount in one of those files is always an invented
+ * one, and the assertion below bans it outright.
+ *
+ * These files render the AEC Transparency Register instead. That is a different
+ * source under a different licence (CC BY 4.0), lodged on forms whose entire
+ * purpose is to state amounts, and the editorial standards' own worked example
+ * blesses publishing them. So the currency rule is lifted HERE and nowhere else,
+ * and the assertion beneath it checks the exemption is not a licence to
+ * hand-roll a formatter: every amount goes through `@/lib/politics/funding-money`
+ * so one rounding rule governs the whole layer.
+ *
+ * Adding a file to this list is an editorial decision, not a build fix. If a
+ * REGISTER surface ever needs to be added here, it does not — it needs the
+ * figure removed.
+ */
+const FUNDING_SURFACES = [
+  "donations-explorer.tsx",
+  join("explorer", "funding-bars.tsx"),
+  join("explorer", "receipt-split.tsx"),
+  join("profile", "funding-returns.tsx"),
+  join("donations", "page.tsx"),
+];
+
+/**
  * Presentational primitives — the kit, not a surface. Same class as
  * compliance.tsx, which is excluded for the same reason.
  *
@@ -156,6 +196,7 @@ const RENDERING_SURFACES = FILES.filter(
     !f.includes("__tests__") &&
     !HUB_SECTIONS.some((s) => f.endsWith(s)) &&
     !CHANGES_SECTIONS.some((s) => f.endsWith(s)) &&
+    !DONATIONS_SECTIONS.some((s) => f.endsWith(s)) &&
     !KIT_PRIMITIVES.some((s) => f.endsWith(s)) &&
     !KIT_PRIMITIVE_DIRS.some((s) => f.includes(s)) &&
     !PROFILE_SECTION_DIRS.some((s) => f.includes(s)) &&
@@ -236,8 +277,63 @@ describe("politician surface copy", () => {
     // the filter copy, the two outage paragraphs, the count line and the three
     // rail headings — "most dated register events" is the strongest
     // characterisation any of them makes, and it is a count ordering.
-    expect(FILES.length).toBe(39);
-    expect(RENDERING_SURFACES.length).toBe(9);
+    //
+    // 39 -> 44, the AEC funding layer (docs/feature/politicians/donations.md
+    // §5): `donations-explorer.tsx` (the /politicians/donations island),
+    // `explorer/funding-bars.tsx` and `explorer/receipt-split.tsx` (its kit),
+    // `profile/funding-returns.tsx` (the profile section) and the donations
+    // page. These are the FIRST politician surfaces permitted to render a
+    // currency amount — a different source under a different licence, see
+    // FUNDING_SURFACES above — so the §6.2 editorial re-review covered the money
+    // formatting, the three-measure separation, the receipt-type split and the
+    // linked-returns framing on the profile section as well as the copy.
+    //
+    // RENDERING_SURFACES 9 -> 10: the donations page, which carries the AEC
+    // attribution line and the ReportErrorLink for its island. The island, the
+    // kit files and the profile section are excluded exactly as their
+    // equivalents in the three waves before this one are.
+    expect(FILES.length).toBe(44);
+    expect(RENDERING_SURFACES.length).toBe(10);
+  });
+
+  // The donations island's exclusion above is conditional on this, exactly as
+  // the changes island's is. The island renders every figure on the page beside
+  // a named party and a named payer and cites nothing on its own.
+  it("the /politicians/donations page carries the citation its island relies on", () => {
+    const donations = readFileSync(
+      join(ROOT, "app", "politicians", "donations", "page.tsx"),
+      "utf8",
+    );
+    expect(donations).toMatch(/<ReportErrorLink/);
+    for (const section of DONATIONS_SECTIONS) {
+      expect(donations).toContain(section.replace(/\.tsx$/, ""));
+    }
+    // The licence obligations: the Crown-copyright credit CC BY 4.0 requires,
+    // and the no-endorsement posture the AEC's own terms require. Both are
+    // conditions of using this data at all.
+    expect(donations).toMatch(/Commonwealth of Australia/);
+    expect(donations).toMatch(/does not endorse/);
+  });
+
+  /**
+   * The currency exemption is NOT a licence to hand-roll a formatter.
+   *
+   * One rounding rule for the whole funding layer, in one module: two formatters
+   * disagreeing by a dollar on the same figure, on two surfaces about the same
+   * party, is the kind of inconsistency a reader reasonably reads as an error in
+   * the underlying data rather than in ours.
+   */
+  it.each(FUNDING_SURFACES)("%s formats money through the one shared formatter", (name) => {
+    const file = FILES.find((f) => f.endsWith(name));
+    expect(file).toBeDefined();
+    const src = readFileSync(file!, "utf8");
+    // Either it formats amounts (via the shared module) or it renders none at
+    // all and merely passes them through.
+    if (/formatCents/.test(src)) {
+      expect(src).toMatch(/from "@\/lib\/politics\/funding-money"/);
+    }
+    // And never its own currency formatter, whichever way it is spelled.
+    expect(src).not.toMatch(/style:\s*["']currency["']/);
   });
 
   // The activity explorer's exclusion above is conditional on this, exactly as
@@ -326,9 +422,22 @@ describe("politician surface copy", () => {
     expect(match?.[0] ?? null).toBeNull();
   });
 
-  it.each(FILES)("%s renders no currency amount for a holding", (file) => {
+  // The AEC funding files are exempt BY NAME, not by accident. See
+  // FUNDING_SURFACES above for why the exemption exists and what it costs.
+  const REGISTER_ONLY_FILES = FILES.filter(
+    (f) => !FUNDING_SURFACES.some((name) => f.endsWith(name)),
+  );
+
+  it("the currency exemption covers exactly the funding layer", () => {
+    // A guard on the exemption: a renamed or moved funding file would otherwise
+    // silently rejoin the ban (a visible failure) or, worse, a register file
+    // could be quietly added to the list. Both lists are pinned.
+    expect(FILES.length - REGISTER_ONLY_FILES.length).toBe(FUNDING_SURFACES.length);
+  });
+
+  it.each(REGISTER_ONLY_FILES)("%s renders no currency amount for a holding", (file) => {
     const prose = proseOnly(readFileSync(file, "utf8"));
-    // A "$" followed by a digit or a formatter in politician copy would be a
+    // A "$" followed by a digit or a formatter in register copy would be a
     // holding value. The registers record none, so there is nothing to format.
     const match = prose.match(/\$\{?\s*\d|toLocaleString\([^)]*currency/i);
     expect(match?.[0] ?? null).toBeNull();

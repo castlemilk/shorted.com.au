@@ -364,6 +364,21 @@ func (mr *MockShortsStoreMockRecorder) GetDividendHistory(stockCode, years any) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDividendHistory", reflect.TypeOf((*MockShortsStore)(nil).GetDividendHistory), stockCode, years)
 }
 
+// GetDonationsOverview mocks base method.
+func (m *MockShortsStore) GetDonationsOverview(financialYear string, limit int32) (*shorts.DonationsOverviewRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDonationsOverview", financialYear, limit)
+	ret0, _ := ret[0].(*shorts.DonationsOverviewRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDonationsOverview indicates an expected call of GetDonationsOverview.
+func (mr *MockShortsStoreMockRecorder) GetDonationsOverview(financialYear, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDonationsOverview", reflect.TypeOf((*MockShortsStore)(nil).GetDonationsOverview), financialYear, limit)
+}
+
 // GetEconomicSeries mocks base method.
 func (m *MockShortsStore) GetEconomicSeries(seriesKeys []string, startPeriod time.Time, maxObservations int32) ([]*shorts.EconomicSeriesDataRow, error) {
 	m.ctrl.T.Helper()
@@ -621,6 +636,21 @@ func (m *MockShortsStore) GetPoliticianExplorerProfile(slug string, topIndustrie
 func (mr *MockShortsStoreMockRecorder) GetPoliticianExplorerProfile(slug, topIndustries any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPoliticianExplorerProfile", reflect.TypeOf((*MockShortsStore)(nil).GetPoliticianExplorerProfile), slug, topIndustries)
+}
+
+// GetPoliticianFunding mocks base method.
+func (m *MockShortsStore) GetPoliticianFunding(slug string) (*shorts.PoliticianFundingRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPoliticianFunding", slug)
+	ret0, _ := ret[0].(*shorts.PoliticianFundingRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPoliticianFunding indicates an expected call of GetPoliticianFunding.
+func (mr *MockShortsStoreMockRecorder) GetPoliticianFunding(slug any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPoliticianFunding", reflect.TypeOf((*MockShortsStore)(nil).GetPoliticianFunding), slug)
 }
 
 // GetPoliticianProfile mocks base method.
@@ -1161,6 +1191,21 @@ func (mr *MockShortsStoreMockRecorder) ListEnrichmentJobs(limit, offset, status 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListEnrichmentJobs", reflect.TypeOf((*MockShortsStore)(nil).ListEnrichmentJobs), limit, offset, status)
 }
 
+// ListPartyFunding mocks base method.
+func (m *MockShortsStore) ListPartyFunding(partyGroup, financialYear string, limit int32) (*shorts.PartyFundingDetailRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListPartyFunding", partyGroup, financialYear, limit)
+	ret0, _ := ret[0].(*shorts.PartyFundingDetailRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListPartyFunding indicates an expected call of ListPartyFunding.
+func (mr *MockShortsStoreMockRecorder) ListPartyFunding(partyGroup, financialYear, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListPartyFunding", reflect.TypeOf((*MockShortsStore)(nil).ListPartyFunding), partyGroup, financialYear, limit)
+}
+
 // ListPendingEnrichments mocks base method.
 func (m *MockShortsStore) ListPendingEnrichments(limit, offset int32) ([]*shortsv1alpha1.PendingEnrichmentSummary, error) {
 	m.ctrl.T.Helper()
@@ -1428,6 +1473,21 @@ func (m *MockShortsStore) ListSuburbPriceDrops(stateCode, sort string, limit int
 func (mr *MockShortsStoreMockRecorder) ListSuburbPriceDrops(stateCode, sort, limit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSuburbPriceDrops", reflect.TypeOf((*MockShortsStore)(nil).ListSuburbPriceDrops), stateCode, sort, limit)
+}
+
+// ListTopDonors mocks base method.
+func (m *MockShortsStore) ListTopDonors(financialYear, partyGroup string, limit, offset int32) (*shorts.TopDonorsRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListTopDonors", financialYear, partyGroup, limit, offset)
+	ret0, _ := ret[0].(*shorts.TopDonorsRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListTopDonors indicates an expected call of ListTopDonors.
+func (mr *MockShortsStoreMockRecorder) ListTopDonors(financialYear, partyGroup, limit, offset any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTopDonors", reflect.TypeOf((*MockShortsStore)(nil).ListTopDonors), financialYear, partyGroup, limit, offset)
 }
 
 // ListTweetPublishQueue mocks base method.
@@ -1916,6 +1976,20 @@ func (mr *MockCacheMockRecorder) GetDividendHistoryKey(stockCode, years any) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDividendHistoryKey", reflect.TypeOf((*MockCache)(nil).GetDividendHistoryKey), stockCode, years)
 }
 
+// GetDonationsOverviewKey mocks base method.
+func (m *MockCache) GetDonationsOverviewKey(financialYear string, limit int32) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDonationsOverviewKey", financialYear, limit)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetDonationsOverviewKey indicates an expected call of GetDonationsOverviewKey.
+func (mr *MockCacheMockRecorder) GetDonationsOverviewKey(financialYear, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDonationsOverviewKey", reflect.TypeOf((*MockCache)(nil).GetDonationsOverviewKey), financialYear, limit)
+}
+
 // GetEconomicSeriesKey mocks base method.
 func (m *MockCache) GetEconomicSeriesKey(seriesKeys []string, startPeriod string, maxObservations int32) string {
 	m.ctrl.T.Helper()
@@ -2097,6 +2171,20 @@ func (m *MockCache) GetPoliticianExplorerProfileKey(slug string, topIndustries i
 func (mr *MockCacheMockRecorder) GetPoliticianExplorerProfileKey(slug, topIndustries any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPoliticianExplorerProfileKey", reflect.TypeOf((*MockCache)(nil).GetPoliticianExplorerProfileKey), slug, topIndustries)
+}
+
+// GetPoliticianFundingKey mocks base method.
+func (m *MockCache) GetPoliticianFundingKey(slug string) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPoliticianFundingKey", slug)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetPoliticianFundingKey indicates an expected call of GetPoliticianFundingKey.
+func (mr *MockCacheMockRecorder) GetPoliticianFundingKey(slug any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPoliticianFundingKey", reflect.TypeOf((*MockCache)(nil).GetPoliticianFundingKey), slug)
 }
 
 // GetPoliticianKey mocks base method.
@@ -2435,6 +2523,20 @@ func (mr *MockCacheMockRecorder) ListEconomicSeriesKey(topic, metric, regionType
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListEconomicSeriesKey", reflect.TypeOf((*MockCache)(nil).ListEconomicSeriesKey), topic, metric, regionType, regionCode, product, limit)
 }
 
+// ListPartyFundingKey mocks base method.
+func (m *MockCache) ListPartyFundingKey(partyGroup, financialYear string, limit int32) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListPartyFundingKey", partyGroup, financialYear, limit)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ListPartyFundingKey indicates an expected call of ListPartyFundingKey.
+func (mr *MockCacheMockRecorder) ListPartyFundingKey(partyGroup, financialYear, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListPartyFundingKey", reflect.TypeOf((*MockCache)(nil).ListPartyFundingKey), partyGroup, financialYear, limit)
+}
+
 // ListPoliticianStocksKey mocks base method.
 func (m *MockCache) ListPoliticianStocksKey(limit int32, currentOnly bool) string {
 	m.ctrl.T.Helper()
@@ -2573,6 +2675,20 @@ func (m *MockCache) ListSuburbPoliticiansKey(salCode string) string {
 func (mr *MockCacheMockRecorder) ListSuburbPoliticiansKey(salCode any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSuburbPoliticiansKey", reflect.TypeOf((*MockCache)(nil).ListSuburbPoliticiansKey), salCode)
+}
+
+// ListTopDonorsKey mocks base method.
+func (m *MockCache) ListTopDonorsKey(financialYear, partyGroup string, limit, offset int32) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListTopDonorsKey", financialYear, partyGroup, limit, offset)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ListTopDonorsKey indicates an expected call of ListTopDonorsKey.
+func (mr *MockCacheMockRecorder) ListTopDonorsKey(financialYear, partyGroup, limit, offset any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTopDonorsKey", reflect.TypeOf((*MockCache)(nil).ListTopDonorsKey), financialYear, partyGroup, limit, offset)
 }
 
 // ParliamentOverviewKey mocks base method.

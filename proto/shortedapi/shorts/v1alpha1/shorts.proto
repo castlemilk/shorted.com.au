@@ -945,4 +945,42 @@ service ShortedStocksService {
       description: "A member's currently-declared listed companies, each with the number of members declaring it across the whole register. A count of one means no other member currently declares it."
     };
   }
+
+  // --- AEC funding layer (amounts; CC BY 4.0). See politicians.proto. ---
+
+  // Party-group funding rollups for one financial year.
+  rpc GetDonationsOverview (GetDonationsOverviewRequest) returns (GetDonationsOverviewResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Donations Overview",
+      description: "Party-group funding rollups from AEC annual returns for one financial year, with the available years, corpus counts, and the right-censoring and 2027 reform notes every surface must render. Amounts are in cents, verbatim as lodged."
+    };
+  }
+
+  // Payers into party branches for one financial year, amount ordered.
+  rpc ListTopDonors (ListTopDonorsRequest) returns (ListTopDonorsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Top Donors",
+      description: "Payers named in itemised AEC receipts into party branches for one financial year, with the source's receipt-type split (a conference fee is not a donation) and an ASX code only where an exact or curated name match exists."
+    };
+  }
+
+  // One party group's funding across every financial year it lodged in.
+  rpc ListPartyFunding (ListPartyFundingRequest) returns (ListPartyFundingResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Party Funding",
+      description: "One party group's AEC funding series by financial year, plus that year's top payers and listed-company payers. Rows from FY2027 are the reformed scheme and must not be charted continuously with what precedes them."
+    };
+  }
+
+  // The funding returns that name one member.
+  rpc GetPoliticianFunding (GetPoliticianFundingRequest) returns (GetPoliticianFundingResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Politician Funding",
+      description: "AEC returns that NAME one member: their annual member/senator returns and their election candidate returns including lodged nil returns, with the corpus coverage those figures sit inside. Money given to a party is never attributed to a member."
+    };
+  }
 }

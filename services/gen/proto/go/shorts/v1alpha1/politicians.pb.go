@@ -5043,6 +5043,1798 @@ func (x *ListShortInterestOverlapResponse) GetSourceLicence() string {
 	return ""
 }
 
+// ReceiptTypeSplit is the source's own distinction between kinds of money, and
+// it MUST be rendered rather than summed away: a conference fee is not a
+// donation. The five buckets are exhaustive over the source vocabulary
+// ('Donation Received', 'Other Receipt', 'Subscription', 'Public Funding',
+// 'Unspecified' and blank, the last two folded into unspecified_cents), so
+// their sum is exactly total_cents and a consumer can prove it.
+type ReceiptTypeSplit struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	DonationCents      int64                  `protobuf:"varint,1,opt,name=donation_cents,json=donationCents,proto3" json:"donation_cents,omitempty"`
+	OtherReceiptCents  int64                  `protobuf:"varint,2,opt,name=other_receipt_cents,json=otherReceiptCents,proto3" json:"other_receipt_cents,omitempty"`
+	SubscriptionCents  int64                  `protobuf:"varint,3,opt,name=subscription_cents,json=subscriptionCents,proto3" json:"subscription_cents,omitempty"`
+	PublicFundingCents int64                  `protobuf:"varint,4,opt,name=public_funding_cents,json=publicFundingCents,proto3" json:"public_funding_cents,omitempty"`
+	UnspecifiedCents   int64                  `protobuf:"varint,5,opt,name=unspecified_cents,json=unspecifiedCents,proto3" json:"unspecified_cents,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *ReceiptTypeSplit) Reset() {
+	*x = ReceiptTypeSplit{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[59]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReceiptTypeSplit) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReceiptTypeSplit) ProtoMessage() {}
+
+func (x *ReceiptTypeSplit) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[59]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReceiptTypeSplit.ProtoReflect.Descriptor instead.
+func (*ReceiptTypeSplit) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{59}
+}
+
+func (x *ReceiptTypeSplit) GetDonationCents() int64 {
+	if x != nil {
+		return x.DonationCents
+	}
+	return 0
+}
+
+func (x *ReceiptTypeSplit) GetOtherReceiptCents() int64 {
+	if x != nil {
+		return x.OtherReceiptCents
+	}
+	return 0
+}
+
+func (x *ReceiptTypeSplit) GetSubscriptionCents() int64 {
+	if x != nil {
+		return x.SubscriptionCents
+	}
+	return 0
+}
+
+func (x *ReceiptTypeSplit) GetPublicFundingCents() int64 {
+	if x != nil {
+		return x.PublicFundingCents
+	}
+	return 0
+}
+
+func (x *ReceiptTypeSplit) GetUnspecifiedCents() int64 {
+	if x != nil {
+		return x.UnspecifiedCents
+	}
+	return 0
+}
+
+// PartyFundingSummary is one party group in one financial year, straight from
+// mv_aec_party_funding. Nothing here is derived: each figure is a sum or a
+// distinct count over lodged returns.
+//
+// The two sides of the ledger are kept apart on purpose. total_receipts_cents
+// is what the party's OWN annual return declares it received; the itemised and
+// declared_donations figures are the transaction-level rows from the recipient
+// side and the donor side respectively. They do not reconcile to each other and
+// must never be presented as if they should.
+type PartyFundingSummary struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	PartyGroup       string                 `protobuf:"bytes,1,opt,name=party_group,json=partyGroup,proto3" json:"party_group,omitempty"`          // party_group_key: the source Party Group, or the party's own name
+	FinancialYear    string                 `protobuf:"bytes,2,opt,name=financial_year,json=financialYear,proto3" json:"financial_year,omitempty"` // verbatim label, e.g. '2024-25'
+	FinancialYearEnd int32                  `protobuf:"varint,3,opt,name=financial_year_end,json=financialYearEnd,proto3" json:"financial_year_end,omitempty"`
+	PartyReturnCount int32                  `protobuf:"varint,4,opt,name=party_return_count,json=partyReturnCount,proto3" json:"party_return_count,omitempty"` // returns lodged under this group (branches lodge separately)
+	// From the party's own annual return.
+	TotalReceiptsCents int64 `protobuf:"varint,5,opt,name=total_receipts_cents,json=totalReceiptsCents,proto3" json:"total_receipts_cents,omitempty"`
+	TotalPaymentsCents int64 `protobuf:"varint,6,opt,name=total_payments_cents,json=totalPaymentsCents,proto3" json:"total_payments_cents,omitempty"`
+	TotalDebtsCents    int64 `protobuf:"varint,7,opt,name=total_debts_cents,json=totalDebtsCents,proto3" json:"total_debts_cents,omitempty"`
+	// From itemised receipts — the RECIPIENT-declared side.
+	ItemisedReceiptCount  int32 `protobuf:"varint,8,opt,name=itemised_receipt_count,json=itemisedReceiptCount,proto3" json:"itemised_receipt_count,omitempty"`
+	ItemisedReceiptsCents int64 `protobuf:"varint,9,opt,name=itemised_receipts_cents,json=itemisedReceiptsCents,proto3" json:"itemised_receipts_cents,omitempty"`
+	DistinctPayerCount    int32 `protobuf:"varint,10,opt,name=distinct_payer_count,json=distinctPayerCount,proto3" json:"distinct_payer_count,omitempty"`
+	ListedPayerCount      int32 `protobuf:"varint,11,opt,name=listed_payer_count,json=listedPayerCount,proto3" json:"listed_payer_count,omitempty"` // payers matched to an ASX code, exact/curated only
+	ListedPayerCents      int64 `protobuf:"varint,12,opt,name=listed_payer_cents,json=listedPayerCents,proto3" json:"listed_payer_cents,omitempty"`
+	// From donations made — the DONOR-declared side.
+	DonationCount          int32 `protobuf:"varint,13,opt,name=donation_count,json=donationCount,proto3" json:"donation_count,omitempty"`
+	DeclaredDonationsCents int64 `protobuf:"varint,14,opt,name=declared_donations_cents,json=declaredDonationsCents,proto3" json:"declared_donations_cents,omitempty"`
+	DistinctDonorCount     int32 `protobuf:"varint,15,opt,name=distinct_donor_count,json=distinctDonorCount,proto3" json:"distinct_donor_count,omitempty"`
+	ListedDonorCount       int32 `protobuf:"varint,16,opt,name=listed_donor_count,json=listedDonorCount,proto3" json:"listed_donor_count,omitempty"`
+	ListedDonorCents       int64 `protobuf:"varint,17,opt,name=listed_donor_cents,json=listedDonorCents,proto3" json:"listed_donor_cents,omitempty"`
+	// TRUE for every row under the old scheme: figures below the year's
+	// disclosure threshold are absent from the source entirely.
+	ThresholdCensored bool `protobuf:"varint,18,opt,name=threshold_censored,json=thresholdCensored,proto3" json:"threshold_censored,omitempty"`
+	// TRUE from FY2027, the first year of the reformed scheme. A series crossing
+	// this boundary is two regimes and must carry a break annotation.
+	PostReformScheme bool `protobuf:"varint,19,opt,name=post_reform_scheme,json=postReformScheme,proto3" json:"post_reform_scheme,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *PartyFundingSummary) Reset() {
+	*x = PartyFundingSummary{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[60]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PartyFundingSummary) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PartyFundingSummary) ProtoMessage() {}
+
+func (x *PartyFundingSummary) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[60]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PartyFundingSummary.ProtoReflect.Descriptor instead.
+func (*PartyFundingSummary) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{60}
+}
+
+func (x *PartyFundingSummary) GetPartyGroup() string {
+	if x != nil {
+		return x.PartyGroup
+	}
+	return ""
+}
+
+func (x *PartyFundingSummary) GetFinancialYear() string {
+	if x != nil {
+		return x.FinancialYear
+	}
+	return ""
+}
+
+func (x *PartyFundingSummary) GetFinancialYearEnd() int32 {
+	if x != nil {
+		return x.FinancialYearEnd
+	}
+	return 0
+}
+
+func (x *PartyFundingSummary) GetPartyReturnCount() int32 {
+	if x != nil {
+		return x.PartyReturnCount
+	}
+	return 0
+}
+
+func (x *PartyFundingSummary) GetTotalReceiptsCents() int64 {
+	if x != nil {
+		return x.TotalReceiptsCents
+	}
+	return 0
+}
+
+func (x *PartyFundingSummary) GetTotalPaymentsCents() int64 {
+	if x != nil {
+		return x.TotalPaymentsCents
+	}
+	return 0
+}
+
+func (x *PartyFundingSummary) GetTotalDebtsCents() int64 {
+	if x != nil {
+		return x.TotalDebtsCents
+	}
+	return 0
+}
+
+func (x *PartyFundingSummary) GetItemisedReceiptCount() int32 {
+	if x != nil {
+		return x.ItemisedReceiptCount
+	}
+	return 0
+}
+
+func (x *PartyFundingSummary) GetItemisedReceiptsCents() int64 {
+	if x != nil {
+		return x.ItemisedReceiptsCents
+	}
+	return 0
+}
+
+func (x *PartyFundingSummary) GetDistinctPayerCount() int32 {
+	if x != nil {
+		return x.DistinctPayerCount
+	}
+	return 0
+}
+
+func (x *PartyFundingSummary) GetListedPayerCount() int32 {
+	if x != nil {
+		return x.ListedPayerCount
+	}
+	return 0
+}
+
+func (x *PartyFundingSummary) GetListedPayerCents() int64 {
+	if x != nil {
+		return x.ListedPayerCents
+	}
+	return 0
+}
+
+func (x *PartyFundingSummary) GetDonationCount() int32 {
+	if x != nil {
+		return x.DonationCount
+	}
+	return 0
+}
+
+func (x *PartyFundingSummary) GetDeclaredDonationsCents() int64 {
+	if x != nil {
+		return x.DeclaredDonationsCents
+	}
+	return 0
+}
+
+func (x *PartyFundingSummary) GetDistinctDonorCount() int32 {
+	if x != nil {
+		return x.DistinctDonorCount
+	}
+	return 0
+}
+
+func (x *PartyFundingSummary) GetListedDonorCount() int32 {
+	if x != nil {
+		return x.ListedDonorCount
+	}
+	return 0
+}
+
+func (x *PartyFundingSummary) GetListedDonorCents() int64 {
+	if x != nil {
+		return x.ListedDonorCents
+	}
+	return 0
+}
+
+func (x *PartyFundingSummary) GetThresholdCensored() bool {
+	if x != nil {
+		return x.ThresholdCensored
+	}
+	return false
+}
+
+func (x *PartyFundingSummary) GetPostReformScheme() bool {
+	if x != nil {
+		return x.PostReformScheme
+	}
+	return false
+}
+
+// FinancialYearOption is one selectable year, with how much is in it.
+type FinancialYearOption struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	FinancialYear    string                 `protobuf:"bytes,1,opt,name=financial_year,json=financialYear,proto3" json:"financial_year,omitempty"`
+	FinancialYearEnd int32                  `protobuf:"varint,2,opt,name=financial_year_end,json=financialYearEnd,proto3" json:"financial_year_end,omitempty"`
+	PartyGroupCount  int32                  `protobuf:"varint,3,opt,name=party_group_count,json=partyGroupCount,proto3" json:"party_group_count,omitempty"`
+	// Party groups in this year with at least one payer matched to an ASX
+	// listing, over EVERY group in the year — not over the page of groups a
+	// response happened to carry. A surface counting groups it did not show needs
+	// the population, or its "and N more" is a function of the page size.
+	ListedGroupCount int32 `protobuf:"varint,4,opt,name=listed_group_count,json=listedGroupCount,proto3" json:"listed_group_count,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *FinancialYearOption) Reset() {
+	*x = FinancialYearOption{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[61]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FinancialYearOption) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FinancialYearOption) ProtoMessage() {}
+
+func (x *FinancialYearOption) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[61]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FinancialYearOption.ProtoReflect.Descriptor instead.
+func (*FinancialYearOption) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{61}
+}
+
+func (x *FinancialYearOption) GetFinancialYear() string {
+	if x != nil {
+		return x.FinancialYear
+	}
+	return ""
+}
+
+func (x *FinancialYearOption) GetFinancialYearEnd() int32 {
+	if x != nil {
+		return x.FinancialYearEnd
+	}
+	return 0
+}
+
+func (x *FinancialYearOption) GetPartyGroupCount() int32 {
+	if x != nil {
+		return x.PartyGroupCount
+	}
+	return 0
+}
+
+func (x *FinancialYearOption) GetListedGroupCount() int32 {
+	if x != nil {
+		return x.ListedGroupCount
+	}
+	return 0
+}
+
+// DonationsCorpusCounts is the methodology band's raw material: what the corpus
+// actually contains, so a surface can state its own boundaries instead of
+// implying completeness.
+type DonationsCorpusCounts struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	PartyReturnCount  int32                  `protobuf:"varint,1,opt,name=party_return_count,json=partyReturnCount,proto3" json:"party_return_count,omitempty"`
+	ReceiptCount      int32                  `protobuf:"varint,2,opt,name=receipt_count,json=receiptCount,proto3" json:"receipt_count,omitempty"`
+	DonationMadeCount int32                  `protobuf:"varint,3,opt,name=donation_made_count,json=donationMadeCount,proto3" json:"donation_made_count,omitempty"`
+	// The member layer, and why it is thin. A member with no row here has NOT
+	// been shown to have received nothing — most members never lodge this return.
+	MpReturnCount                int32 `protobuf:"varint,4,opt,name=mp_return_count,json=mpReturnCount,proto3" json:"mp_return_count,omitempty"`
+	MpReturnResolvedCount        int32 `protobuf:"varint,5,opt,name=mp_return_resolved_count,json=mpReturnResolvedCount,proto3" json:"mp_return_resolved_count,omitempty"`
+	CandidateReturnCount         int32 `protobuf:"varint,6,opt,name=candidate_return_count,json=candidateReturnCount,proto3" json:"candidate_return_count,omitempty"`
+	CandidateReturnResolvedCount int32 `protobuf:"varint,7,opt,name=candidate_return_resolved_count,json=candidateReturnResolvedCount,proto3" json:"candidate_return_resolved_count,omitempty"`
+	// A lodged nil return is a publishable fact, not missing data.
+	NilCandidateReturnCount int32 `protobuf:"varint,8,opt,name=nil_candidate_return_count,json=nilCandidateReturnCount,proto3" json:"nil_candidate_return_count,omitempty"`
+	CandidateDonationCount  int32 `protobuf:"varint,9,opt,name=candidate_donation_count,json=candidateDonationCount,proto3" json:"candidate_donation_count,omitempty"`
+	FirstFinancialYearEnd   int32 `protobuf:"varint,10,opt,name=first_financial_year_end,json=firstFinancialYearEnd,proto3" json:"first_financial_year_end,omitempty"`
+	LastFinancialYearEnd    int32 `protobuf:"varint,11,opt,name=last_financial_year_end,json=lastFinancialYearEnd,proto3" json:"last_financial_year_end,omitempty"`
+	// Donor/payer NAMES appearing in this corpus that resolve to an ASX listing,
+	// and the codes they resolve to (exact normalised name or curated alias,
+	// never fuzzy). These describe the corpus.
+	//
+	// They replace `listed_company_match_count`, which published the size of the
+	// matching SUBSTRATE — every listed company whose name COULD be matched — as
+	// though it were a count of companies found in the data. It read an order of
+	// magnitude high.
+	MatchedPayerNameCount int32 `protobuf:"varint,12,opt,name=matched_payer_name_count,json=matchedPayerNameCount,proto3" json:"matched_payer_name_count,omitempty"`
+	MatchedPayerCodeCount int32 `protobuf:"varint,13,opt,name=matched_payer_code_count,json=matchedPayerCodeCount,proto3" json:"matched_payer_code_count,omitempty"`
+	// How many company names the match layer can match against at all. A property
+	// of the company metadata, kept as the denominator that makes the matched
+	// figures legible, and never to be rendered as a number of donors.
+	MatchableCompanyNameCount int32 `protobuf:"varint,14,opt,name=matchable_company_name_count,json=matchableCompanyNameCount,proto3" json:"matchable_company_name_count,omitempty"`
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
+}
+
+func (x *DonationsCorpusCounts) Reset() {
+	*x = DonationsCorpusCounts{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[62]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DonationsCorpusCounts) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DonationsCorpusCounts) ProtoMessage() {}
+
+func (x *DonationsCorpusCounts) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[62]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DonationsCorpusCounts.ProtoReflect.Descriptor instead.
+func (*DonationsCorpusCounts) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{62}
+}
+
+func (x *DonationsCorpusCounts) GetPartyReturnCount() int32 {
+	if x != nil {
+		return x.PartyReturnCount
+	}
+	return 0
+}
+
+func (x *DonationsCorpusCounts) GetReceiptCount() int32 {
+	if x != nil {
+		return x.ReceiptCount
+	}
+	return 0
+}
+
+func (x *DonationsCorpusCounts) GetDonationMadeCount() int32 {
+	if x != nil {
+		return x.DonationMadeCount
+	}
+	return 0
+}
+
+func (x *DonationsCorpusCounts) GetMpReturnCount() int32 {
+	if x != nil {
+		return x.MpReturnCount
+	}
+	return 0
+}
+
+func (x *DonationsCorpusCounts) GetMpReturnResolvedCount() int32 {
+	if x != nil {
+		return x.MpReturnResolvedCount
+	}
+	return 0
+}
+
+func (x *DonationsCorpusCounts) GetCandidateReturnCount() int32 {
+	if x != nil {
+		return x.CandidateReturnCount
+	}
+	return 0
+}
+
+func (x *DonationsCorpusCounts) GetCandidateReturnResolvedCount() int32 {
+	if x != nil {
+		return x.CandidateReturnResolvedCount
+	}
+	return 0
+}
+
+func (x *DonationsCorpusCounts) GetNilCandidateReturnCount() int32 {
+	if x != nil {
+		return x.NilCandidateReturnCount
+	}
+	return 0
+}
+
+func (x *DonationsCorpusCounts) GetCandidateDonationCount() int32 {
+	if x != nil {
+		return x.CandidateDonationCount
+	}
+	return 0
+}
+
+func (x *DonationsCorpusCounts) GetFirstFinancialYearEnd() int32 {
+	if x != nil {
+		return x.FirstFinancialYearEnd
+	}
+	return 0
+}
+
+func (x *DonationsCorpusCounts) GetLastFinancialYearEnd() int32 {
+	if x != nil {
+		return x.LastFinancialYearEnd
+	}
+	return 0
+}
+
+func (x *DonationsCorpusCounts) GetMatchedPayerNameCount() int32 {
+	if x != nil {
+		return x.MatchedPayerNameCount
+	}
+	return 0
+}
+
+func (x *DonationsCorpusCounts) GetMatchedPayerCodeCount() int32 {
+	if x != nil {
+		return x.MatchedPayerCodeCount
+	}
+	return 0
+}
+
+func (x *DonationsCorpusCounts) GetMatchableCompanyNameCount() int32 {
+	if x != nil {
+		return x.MatchableCompanyNameCount
+	}
+	return 0
+}
+
+type GetDonationsOverviewRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Verbatim FY label ('2024-25'). Empty selects the latest year held.
+	FinancialYear string `protobuf:"bytes,1,opt,name=financial_year,json=financialYear,proto3" json:"financial_year,omitempty"`
+	// Party groups returned, ordered by total_receipts_cents desc. Default 25,
+	// max 100.
+	Limit         int32 `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetDonationsOverviewRequest) Reset() {
+	*x = GetDonationsOverviewRequest{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[63]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetDonationsOverviewRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDonationsOverviewRequest) ProtoMessage() {}
+
+func (x *GetDonationsOverviewRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[63]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDonationsOverviewRequest.ProtoReflect.Descriptor instead.
+func (*GetDonationsOverviewRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{63}
+}
+
+func (x *GetDonationsOverviewRequest) GetFinancialYear() string {
+	if x != nil {
+		return x.FinancialYear
+	}
+	return ""
+}
+
+func (x *GetDonationsOverviewRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type GetDonationsOverviewResponse struct {
+	state                   protoimpl.MessageState `protogen:"open.v1"`
+	FinancialYear           string                 `protobuf:"bytes,1,opt,name=financial_year,json=financialYear,proto3" json:"financial_year,omitempty"` // the year actually served
+	Parties                 []*PartyFundingSummary `protobuf:"bytes,2,rep,name=parties,proto3" json:"parties,omitempty"`
+	AvailableFinancialYears []*FinancialYearOption `protobuf:"bytes,3,rep,name=available_financial_years,json=availableFinancialYears,proto3" json:"available_financial_years,omitempty"`
+	Corpus                  *DonationsCorpusCounts `protobuf:"bytes,4,opt,name=corpus,proto3" json:"corpus,omitempty"`
+	// The mandatory notes, single-sourced HERE so every surface renders the same
+	// words and none can paraphrase them into a claim the data cannot support.
+	CensoringNote string                 `protobuf:"bytes,5,opt,name=censoring_note,json=censoringNote,proto3" json:"censoring_note,omitempty"` // right-censoring at the disclosure threshold
+	ReformNote    string                 `protobuf:"bytes,6,opt,name=reform_note,json=reformNote,proto3" json:"reform_note,omitempty"`          // the 1 Jan 2027 scheme change / break annotation
+	CoverageNote  string                 `protobuf:"bytes,7,opt,name=coverage_note,json=coverageNote,proto3" json:"coverage_note,omitempty"`    // what the member layer does and does not cover
+	VerbatimNote  string                 `protobuf:"bytes,8,opt,name=verbatim_note,json=verbatimNote,proto3" json:"verbatim_note,omitempty"`    // figures are as lodged, amendments land continuously
+	SourceLicence string                 `protobuf:"bytes,9,opt,name=source_licence,json=sourceLicence,proto3" json:"source_licence,omitempty"` // 'CC-BY-4.0'
+	Attribution   string                 `protobuf:"bytes,10,opt,name=attribution,proto3" json:"attribution,omitempty"`                         // Crown copyright credit; required by the licence
+	AsAt          *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=as_at,json=asAt,proto3" json:"as_at,omitempty"`                           // ingest snapshot
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetDonationsOverviewResponse) Reset() {
+	*x = GetDonationsOverviewResponse{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[64]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetDonationsOverviewResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDonationsOverviewResponse) ProtoMessage() {}
+
+func (x *GetDonationsOverviewResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[64]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDonationsOverviewResponse.ProtoReflect.Descriptor instead.
+func (*GetDonationsOverviewResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{64}
+}
+
+func (x *GetDonationsOverviewResponse) GetFinancialYear() string {
+	if x != nil {
+		return x.FinancialYear
+	}
+	return ""
+}
+
+func (x *GetDonationsOverviewResponse) GetParties() []*PartyFundingSummary {
+	if x != nil {
+		return x.Parties
+	}
+	return nil
+}
+
+func (x *GetDonationsOverviewResponse) GetAvailableFinancialYears() []*FinancialYearOption {
+	if x != nil {
+		return x.AvailableFinancialYears
+	}
+	return nil
+}
+
+func (x *GetDonationsOverviewResponse) GetCorpus() *DonationsCorpusCounts {
+	if x != nil {
+		return x.Corpus
+	}
+	return nil
+}
+
+func (x *GetDonationsOverviewResponse) GetCensoringNote() string {
+	if x != nil {
+		return x.CensoringNote
+	}
+	return ""
+}
+
+func (x *GetDonationsOverviewResponse) GetReformNote() string {
+	if x != nil {
+		return x.ReformNote
+	}
+	return ""
+}
+
+func (x *GetDonationsOverviewResponse) GetCoverageNote() string {
+	if x != nil {
+		return x.CoverageNote
+	}
+	return ""
+}
+
+func (x *GetDonationsOverviewResponse) GetVerbatimNote() string {
+	if x != nil {
+		return x.VerbatimNote
+	}
+	return ""
+}
+
+func (x *GetDonationsOverviewResponse) GetSourceLicence() string {
+	if x != nil {
+		return x.SourceLicence
+	}
+	return ""
+}
+
+func (x *GetDonationsOverviewResponse) GetAttribution() string {
+	if x != nil {
+		return x.Attribution
+	}
+	return ""
+}
+
+func (x *GetDonationsOverviewResponse) GetAsAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AsAt
+	}
+	return nil
+}
+
+// DonorRecipientGroup is what one payer paid into one party group. Party groups
+// are the source's own rollup key, never inferred from a branch name.
+type DonorRecipientGroup struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PartyGroup    string                 `protobuf:"bytes,1,opt,name=party_group,json=partyGroup,proto3" json:"party_group,omitempty"`
+	AmountCents   int64                  `protobuf:"varint,2,opt,name=amount_cents,json=amountCents,proto3" json:"amount_cents,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DonorRecipientGroup) Reset() {
+	*x = DonorRecipientGroup{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[65]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DonorRecipientGroup) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DonorRecipientGroup) ProtoMessage() {}
+
+func (x *DonorRecipientGroup) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[65]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DonorRecipientGroup.ProtoReflect.Descriptor instead.
+func (*DonorRecipientGroup) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{65}
+}
+
+func (x *DonorRecipientGroup) GetPartyGroup() string {
+	if x != nil {
+		return x.PartyGroup
+	}
+	return ""
+}
+
+func (x *DonorRecipientGroup) GetAmountCents() int64 {
+	if x != nil {
+		return x.AmountCents
+	}
+	return 0
+}
+
+// TopDonor is one payer's itemised receipts into party branches for one
+// financial year.
+//
+// donor_name is VERBATIM as lodged — the source is unnormalised and one entity
+// can appear under several spellings. donor_name_norm is the key those spellings
+// were grouped by, published so a reader can see exactly what was combined.
+type TopDonor struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DonorName     string                 `protobuf:"bytes,1,opt,name=donor_name,json=donorName,proto3" json:"donor_name,omitempty"`
+	DonorNameNorm string                 `protobuf:"bytes,2,opt,name=donor_name_norm,json=donorNameNorm,proto3" json:"donor_name_norm,omitempty"`
+	TotalCents    int64                  `protobuf:"varint,3,opt,name=total_cents,json=totalCents,proto3" json:"total_cents,omitempty"`
+	ReceiptTypes  *ReceiptTypeSplit      `protobuf:"bytes,4,opt,name=receipt_types,json=receiptTypes,proto3" json:"receipt_types,omitempty"` // sums to total_cents
+	ReceiptCount  int32                  `protobuf:"varint,5,opt,name=receipt_count,json=receiptCount,proto3" json:"receipt_count,omitempty"`
+	Recipients    []*DonorRecipientGroup `protobuf:"bytes,6,rep,name=recipients,proto3" json:"recipients,omitempty"`
+	// Set ONLY on an exact normalised-name match or a curated alias. A normalised
+	// name that collides across stock codes is excluded entirely — when in doubt,
+	// no link. Empty means "not matched", never "not listed".
+	StockCode     string `protobuf:"bytes,7,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`
+	CompanyName   string `protobuf:"bytes,8,opt,name=company_name,json=companyName,proto3" json:"company_name,omitempty"`
+	MatchMethod   string `protobuf:"bytes,9,opt,name=match_method,json=matchMethod,proto3" json:"match_method,omitempty"` // 'name_exact' | 'curated_alias'; empty when unmatched
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TopDonor) Reset() {
+	*x = TopDonor{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[66]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TopDonor) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TopDonor) ProtoMessage() {}
+
+func (x *TopDonor) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[66]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TopDonor.ProtoReflect.Descriptor instead.
+func (*TopDonor) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{66}
+}
+
+func (x *TopDonor) GetDonorName() string {
+	if x != nil {
+		return x.DonorName
+	}
+	return ""
+}
+
+func (x *TopDonor) GetDonorNameNorm() string {
+	if x != nil {
+		return x.DonorNameNorm
+	}
+	return ""
+}
+
+func (x *TopDonor) GetTotalCents() int64 {
+	if x != nil {
+		return x.TotalCents
+	}
+	return 0
+}
+
+func (x *TopDonor) GetReceiptTypes() *ReceiptTypeSplit {
+	if x != nil {
+		return x.ReceiptTypes
+	}
+	return nil
+}
+
+func (x *TopDonor) GetReceiptCount() int32 {
+	if x != nil {
+		return x.ReceiptCount
+	}
+	return 0
+}
+
+func (x *TopDonor) GetRecipients() []*DonorRecipientGroup {
+	if x != nil {
+		return x.Recipients
+	}
+	return nil
+}
+
+func (x *TopDonor) GetStockCode() string {
+	if x != nil {
+		return x.StockCode
+	}
+	return ""
+}
+
+func (x *TopDonor) GetCompanyName() string {
+	if x != nil {
+		return x.CompanyName
+	}
+	return ""
+}
+
+func (x *TopDonor) GetMatchMethod() string {
+	if x != nil {
+		return x.MatchMethod
+	}
+	return ""
+}
+
+type ListTopDonorsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	FinancialYear string                 `protobuf:"bytes,1,opt,name=financial_year,json=financialYear,proto3" json:"financial_year,omitempty"` // empty = latest year held
+	PartyGroup    string                 `protobuf:"bytes,2,opt,name=party_group,json=partyGroup,proto3" json:"party_group,omitempty"`          // empty = every party group
+	Limit         int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`                                     // default 50, max 200
+	Offset        int32                  `protobuf:"varint,4,opt,name=offset,proto3" json:"offset,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListTopDonorsRequest) Reset() {
+	*x = ListTopDonorsRequest{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[67]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListTopDonorsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListTopDonorsRequest) ProtoMessage() {}
+
+func (x *ListTopDonorsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[67]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListTopDonorsRequest.ProtoReflect.Descriptor instead.
+func (*ListTopDonorsRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{67}
+}
+
+func (x *ListTopDonorsRequest) GetFinancialYear() string {
+	if x != nil {
+		return x.FinancialYear
+	}
+	return ""
+}
+
+func (x *ListTopDonorsRequest) GetPartyGroup() string {
+	if x != nil {
+		return x.PartyGroup
+	}
+	return ""
+}
+
+func (x *ListTopDonorsRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *ListTopDonorsRequest) GetOffset() int32 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+type ListTopDonorsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	FinancialYear string                 `protobuf:"bytes,1,opt,name=financial_year,json=financialYear,proto3" json:"financial_year,omitempty"`
+	PartyGroup    string                 `protobuf:"bytes,2,opt,name=party_group,json=partyGroup,proto3" json:"party_group,omitempty"`
+	Donors        []*TopDonor            `protobuf:"bytes,3,rep,name=donors,proto3" json:"donors,omitempty"`
+	// Distinct payers matching the filters, NOT the page size — a surface states
+	// the real population rather than the rows it happens to have rendered.
+	Total int32 `protobuf:"varint,4,opt,name=total,proto3" json:"total,omitempty"`
+	// What this list is over, stated rather than assumed: itemised receipts whose
+	// recipient is a party branch that rolls up to a party group. Receipts into
+	// associated entities and third parties that never lodged a party return
+	// belong to no group and are not counted here.
+	ScopeNote     string                 `protobuf:"bytes,5,opt,name=scope_note,json=scopeNote,proto3" json:"scope_note,omitempty"`
+	CensoringNote string                 `protobuf:"bytes,6,opt,name=censoring_note,json=censoringNote,proto3" json:"censoring_note,omitempty"`
+	ReformNote    string                 `protobuf:"bytes,7,opt,name=reform_note,json=reformNote,proto3" json:"reform_note,omitempty"`
+	VerbatimNote  string                 `protobuf:"bytes,8,opt,name=verbatim_note,json=verbatimNote,proto3" json:"verbatim_note,omitempty"`
+	SourceLicence string                 `protobuf:"bytes,9,opt,name=source_licence,json=sourceLicence,proto3" json:"source_licence,omitempty"`
+	Attribution   string                 `protobuf:"bytes,10,opt,name=attribution,proto3" json:"attribution,omitempty"`
+	AsAt          *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=as_at,json=asAt,proto3" json:"as_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListTopDonorsResponse) Reset() {
+	*x = ListTopDonorsResponse{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[68]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListTopDonorsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListTopDonorsResponse) ProtoMessage() {}
+
+func (x *ListTopDonorsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[68]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListTopDonorsResponse.ProtoReflect.Descriptor instead.
+func (*ListTopDonorsResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{68}
+}
+
+func (x *ListTopDonorsResponse) GetFinancialYear() string {
+	if x != nil {
+		return x.FinancialYear
+	}
+	return ""
+}
+
+func (x *ListTopDonorsResponse) GetPartyGroup() string {
+	if x != nil {
+		return x.PartyGroup
+	}
+	return ""
+}
+
+func (x *ListTopDonorsResponse) GetDonors() []*TopDonor {
+	if x != nil {
+		return x.Donors
+	}
+	return nil
+}
+
+func (x *ListTopDonorsResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *ListTopDonorsResponse) GetScopeNote() string {
+	if x != nil {
+		return x.ScopeNote
+	}
+	return ""
+}
+
+func (x *ListTopDonorsResponse) GetCensoringNote() string {
+	if x != nil {
+		return x.CensoringNote
+	}
+	return ""
+}
+
+func (x *ListTopDonorsResponse) GetReformNote() string {
+	if x != nil {
+		return x.ReformNote
+	}
+	return ""
+}
+
+func (x *ListTopDonorsResponse) GetVerbatimNote() string {
+	if x != nil {
+		return x.VerbatimNote
+	}
+	return ""
+}
+
+func (x *ListTopDonorsResponse) GetSourceLicence() string {
+	if x != nil {
+		return x.SourceLicence
+	}
+	return ""
+}
+
+func (x *ListTopDonorsResponse) GetAttribution() string {
+	if x != nil {
+		return x.Attribution
+	}
+	return ""
+}
+
+func (x *ListTopDonorsResponse) GetAsAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AsAt
+	}
+	return nil
+}
+
+type ListPartyFundingRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PartyGroup    string                 `protobuf:"bytes,1,opt,name=party_group,json=partyGroup,proto3" json:"party_group,omitempty"`          // required; the source's own rollup key
+	FinancialYear string                 `protobuf:"bytes,2,opt,name=financial_year,json=financialYear,proto3" json:"financial_year,omitempty"` // the focus year for the donor lists; empty = latest held
+	Limit         int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`                                     // donors per list; default 25, max 200
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListPartyFundingRequest) Reset() {
+	*x = ListPartyFundingRequest{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[69]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListPartyFundingRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListPartyFundingRequest) ProtoMessage() {}
+
+func (x *ListPartyFundingRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[69]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListPartyFundingRequest.ProtoReflect.Descriptor instead.
+func (*ListPartyFundingRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{69}
+}
+
+func (x *ListPartyFundingRequest) GetPartyGroup() string {
+	if x != nil {
+		return x.PartyGroup
+	}
+	return ""
+}
+
+func (x *ListPartyFundingRequest) GetFinancialYear() string {
+	if x != nil {
+		return x.FinancialYear
+	}
+	return ""
+}
+
+func (x *ListPartyFundingRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type ListPartyFundingResponse struct {
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	PartyGroup string                 `protobuf:"bytes,1,opt,name=party_group,json=partyGroup,proto3" json:"party_group,omitempty"`
+	// Every financial year this group lodged in, ASCENDING. post_reform_scheme
+	// marks where the chart must break.
+	Series        []*PartyFundingSummary `protobuf:"bytes,2,rep,name=series,proto3" json:"series,omitempty"`
+	FinancialYear string                 `protobuf:"bytes,3,opt,name=financial_year,json=financialYear,proto3" json:"financial_year,omitempty"` // the focus year served
+	TopDonors     []*TopDonor            `protobuf:"bytes,4,rep,name=top_donors,json=topDonors,proto3" json:"top_donors,omitempty"`             // focus-year payers, amount desc
+	// Focus-year payers matched to an ASX listing, with their receipt-type split.
+	ListedCompanyPayers []*TopDonor `protobuf:"bytes,5,rep,name=listed_company_payers,json=listedCompanyPayers,proto3" json:"listed_company_payers,omitempty"`
+	// The branch names that lodged under this group, verbatim. Published so the
+	// rollup is inspectable rather than asserted.
+	BranchNames   []string               `protobuf:"bytes,6,rep,name=branch_names,json=branchNames,proto3" json:"branch_names,omitempty"`
+	CensoringNote string                 `protobuf:"bytes,7,opt,name=censoring_note,json=censoringNote,proto3" json:"censoring_note,omitempty"`
+	ReformNote    string                 `protobuf:"bytes,8,opt,name=reform_note,json=reformNote,proto3" json:"reform_note,omitempty"`
+	VerbatimNote  string                 `protobuf:"bytes,9,opt,name=verbatim_note,json=verbatimNote,proto3" json:"verbatim_note,omitempty"`
+	SourceLicence string                 `protobuf:"bytes,10,opt,name=source_licence,json=sourceLicence,proto3" json:"source_licence,omitempty"`
+	Attribution   string                 `protobuf:"bytes,11,opt,name=attribution,proto3" json:"attribution,omitempty"`
+	AsAt          *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=as_at,json=asAt,proto3" json:"as_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListPartyFundingResponse) Reset() {
+	*x = ListPartyFundingResponse{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[70]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListPartyFundingResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListPartyFundingResponse) ProtoMessage() {}
+
+func (x *ListPartyFundingResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[70]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListPartyFundingResponse.ProtoReflect.Descriptor instead.
+func (*ListPartyFundingResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{70}
+}
+
+func (x *ListPartyFundingResponse) GetPartyGroup() string {
+	if x != nil {
+		return x.PartyGroup
+	}
+	return ""
+}
+
+func (x *ListPartyFundingResponse) GetSeries() []*PartyFundingSummary {
+	if x != nil {
+		return x.Series
+	}
+	return nil
+}
+
+func (x *ListPartyFundingResponse) GetFinancialYear() string {
+	if x != nil {
+		return x.FinancialYear
+	}
+	return ""
+}
+
+func (x *ListPartyFundingResponse) GetTopDonors() []*TopDonor {
+	if x != nil {
+		return x.TopDonors
+	}
+	return nil
+}
+
+func (x *ListPartyFundingResponse) GetListedCompanyPayers() []*TopDonor {
+	if x != nil {
+		return x.ListedCompanyPayers
+	}
+	return nil
+}
+
+func (x *ListPartyFundingResponse) GetBranchNames() []string {
+	if x != nil {
+		return x.BranchNames
+	}
+	return nil
+}
+
+func (x *ListPartyFundingResponse) GetCensoringNote() string {
+	if x != nil {
+		return x.CensoringNote
+	}
+	return ""
+}
+
+func (x *ListPartyFundingResponse) GetReformNote() string {
+	if x != nil {
+		return x.ReformNote
+	}
+	return ""
+}
+
+func (x *ListPartyFundingResponse) GetVerbatimNote() string {
+	if x != nil {
+		return x.VerbatimNote
+	}
+	return ""
+}
+
+func (x *ListPartyFundingResponse) GetSourceLicence() string {
+	if x != nil {
+		return x.SourceLicence
+	}
+	return ""
+}
+
+func (x *ListPartyFundingResponse) GetAttribution() string {
+	if x != nil {
+		return x.Attribution
+	}
+	return ""
+}
+
+func (x *ListPartyFundingResponse) GetAsAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AsAt
+	}
+	return nil
+}
+
+// MemberAnnualReturn is one lodged Member of the House of Representatives /
+// Senator annual return. 52 exist in the whole corpus.
+type MemberAnnualReturn struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	FinancialYear       string                 `protobuf:"bytes,1,opt,name=financial_year,json=financialYear,proto3" json:"financial_year,omitempty"`
+	FinancialYearEnd    int32                  `protobuf:"varint,2,opt,name=financial_year_end,json=financialYearEnd,proto3" json:"financial_year_end,omitempty"`
+	ReturnType          string                 `protobuf:"bytes,3,opt,name=return_type,json=returnType,proto3" json:"return_type,omitempty"` // verbatim, e.g. 'Member of House of Representatives Return'
+	Chamber             string                 `protobuf:"bytes,4,opt,name=chamber,proto3" json:"chamber,omitempty"`                         // 'house' | 'senate'
+	MemberName          string                 `protobuf:"bytes,5,opt,name=member_name,json=memberName,proto3" json:"member_name,omitempty"` // verbatim as lodged, honorifics intact
+	TotalDonationsCents int64                  `protobuf:"varint,6,opt,name=total_donations_cents,json=totalDonationsCents,proto3" json:"total_donations_cents,omitempty"`
+	DonorCount          int32                  `protobuf:"varint,7,opt,name=donor_count,json=donorCount,proto3" json:"donor_count,omitempty"`
+	SourceUrl           string                 `protobuf:"bytes,8,opt,name=source_url,json=sourceUrl,proto3" json:"source_url,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *MemberAnnualReturn) Reset() {
+	*x = MemberAnnualReturn{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[71]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MemberAnnualReturn) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MemberAnnualReturn) ProtoMessage() {}
+
+func (x *MemberAnnualReturn) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[71]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MemberAnnualReturn.ProtoReflect.Descriptor instead.
+func (*MemberAnnualReturn) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{71}
+}
+
+func (x *MemberAnnualReturn) GetFinancialYear() string {
+	if x != nil {
+		return x.FinancialYear
+	}
+	return ""
+}
+
+func (x *MemberAnnualReturn) GetFinancialYearEnd() int32 {
+	if x != nil {
+		return x.FinancialYearEnd
+	}
+	return 0
+}
+
+func (x *MemberAnnualReturn) GetReturnType() string {
+	if x != nil {
+		return x.ReturnType
+	}
+	return ""
+}
+
+func (x *MemberAnnualReturn) GetChamber() string {
+	if x != nil {
+		return x.Chamber
+	}
+	return ""
+}
+
+func (x *MemberAnnualReturn) GetMemberName() string {
+	if x != nil {
+		return x.MemberName
+	}
+	return ""
+}
+
+func (x *MemberAnnualReturn) GetTotalDonationsCents() int64 {
+	if x != nil {
+		return x.TotalDonationsCents
+	}
+	return 0
+}
+
+func (x *MemberAnnualReturn) GetDonorCount() int32 {
+	if x != nil {
+		return x.DonorCount
+	}
+	return 0
+}
+
+func (x *MemberAnnualReturn) GetSourceUrl() string {
+	if x != nil {
+		return x.SourceUrl
+	}
+	return ""
+}
+
+// CandidateDonation is one itemised gift named in a candidate's election return.
+type CandidateDonation struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DonorName     string                 `protobuf:"bytes,1,opt,name=donor_name,json=donorName,proto3" json:"donor_name,omitempty"`          // verbatim
+	DonationDate  string                 `protobuf:"bytes,2,opt,name=donation_date,json=donationDate,proto3" json:"donation_date,omitempty"` // YYYY-MM-DD; empty when the return omits it
+	AmountCents   int64                  `protobuf:"varint,3,opt,name=amount_cents,json=amountCents,proto3" json:"amount_cents,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CandidateDonation) Reset() {
+	*x = CandidateDonation{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[72]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CandidateDonation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CandidateDonation) ProtoMessage() {}
+
+func (x *CandidateDonation) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[72]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CandidateDonation.ProtoReflect.Descriptor instead.
+func (*CandidateDonation) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{72}
+}
+
+func (x *CandidateDonation) GetDonorName() string {
+	if x != nil {
+		return x.DonorName
+	}
+	return ""
+}
+
+func (x *CandidateDonation) GetDonationDate() string {
+	if x != nil {
+		return x.DonationDate
+	}
+	return ""
+}
+
+func (x *CandidateDonation) GetAmountCents() int64 {
+	if x != nil {
+		return x.AmountCents
+	}
+	return 0
+}
+
+// CandidateElectionReturn is one election return lodged by the member as a
+// candidate — the honest member layer, because it names the person.
+//
+// A NIL RETURN IS A FACT, not missing data: nil_return true means "lodged a
+// return declaring no gifts", which is publishable exactly as that.
+type CandidateElectionReturn struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Event           string                 `protobuf:"bytes,1,opt,name=event,proto3" json:"event,omitempty"` // verbatim, e.g. '2025 Federal Election'
+	EventYear       int32                  `protobuf:"varint,2,opt,name=event_year,json=eventYear,proto3" json:"event_year,omitempty"`
+	ReturnType      string                 `protobuf:"bytes,3,opt,name=return_type,json=returnType,proto3" json:"return_type,omitempty"`          // 'Candidate' | 'Senate Group'
+	CandidateName   string                 `protobuf:"bytes,4,opt,name=candidate_name,json=candidateName,proto3" json:"candidate_name,omitempty"` // verbatim 'SURNAME, Given Names'
+	PartyName       string                 `protobuf:"bytes,5,opt,name=party_name,json=partyName,proto3" json:"party_name,omitempty"`
+	ElectorateName  string                 `protobuf:"bytes,6,opt,name=electorate_name,json=electorateName,proto3" json:"electorate_name,omitempty"`
+	ElectorateState string                 `protobuf:"bytes,7,opt,name=electorate_state,json=electorateState,proto3" json:"electorate_state,omitempty"`
+	NilReturn       bool                   `protobuf:"varint,8,opt,name=nil_return,json=nilReturn,proto3" json:"nil_return,omitempty"`
+	// Amendments land continuously; the number is published so a reader knows the
+	// figure was revised rather than wondering why it moved.
+	AmendmentNo        int32 `protobuf:"varint,9,opt,name=amendment_no,json=amendmentNo,proto3" json:"amendment_no,omitempty"`
+	TotalGiftCents     int64 `protobuf:"varint,10,opt,name=total_gift_cents,json=totalGiftCents,proto3" json:"total_gift_cents,omitempty"`
+	DonorCount         int32 `protobuf:"varint,11,opt,name=donor_count,json=donorCount,proto3" json:"donor_count,omitempty"`
+	ExpenditureCents   int64 `protobuf:"varint,12,opt,name=expenditure_cents,json=expenditureCents,proto3" json:"expenditure_cents,omitempty"`
+	DiscretionaryCents int64 `protobuf:"varint,13,opt,name=discretionary_cents,json=discretionaryCents,proto3" json:"discretionary_cents,omitempty"`
+	// Itemised gifts, where the return names them. Empty is NOT "no gifts" — see
+	// the event coverage counts below.
+	Donations []*CandidateDonation `protobuf:"bytes,14,rep,name=donations,proto3" json:"donations,omitempty"`
+	// CORPUS-WIDE coverage for this event, carried on the row it caveats: of
+	// event_return_count returns lodged, event_itemised_return_count name their
+	// donors individually. Without this an empty donations list reads as a claim.
+	EventReturnCount         int32  `protobuf:"varint,15,opt,name=event_return_count,json=eventReturnCount,proto3" json:"event_return_count,omitempty"`
+	EventItemisedReturnCount int32  `protobuf:"varint,16,opt,name=event_itemised_return_count,json=eventItemisedReturnCount,proto3" json:"event_itemised_return_count,omitempty"`
+	SourceUrl                string `protobuf:"bytes,17,opt,name=source_url,json=sourceUrl,proto3" json:"source_url,omitempty"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
+}
+
+func (x *CandidateElectionReturn) Reset() {
+	*x = CandidateElectionReturn{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[73]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CandidateElectionReturn) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CandidateElectionReturn) ProtoMessage() {}
+
+func (x *CandidateElectionReturn) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[73]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CandidateElectionReturn.ProtoReflect.Descriptor instead.
+func (*CandidateElectionReturn) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{73}
+}
+
+func (x *CandidateElectionReturn) GetEvent() string {
+	if x != nil {
+		return x.Event
+	}
+	return ""
+}
+
+func (x *CandidateElectionReturn) GetEventYear() int32 {
+	if x != nil {
+		return x.EventYear
+	}
+	return 0
+}
+
+func (x *CandidateElectionReturn) GetReturnType() string {
+	if x != nil {
+		return x.ReturnType
+	}
+	return ""
+}
+
+func (x *CandidateElectionReturn) GetCandidateName() string {
+	if x != nil {
+		return x.CandidateName
+	}
+	return ""
+}
+
+func (x *CandidateElectionReturn) GetPartyName() string {
+	if x != nil {
+		return x.PartyName
+	}
+	return ""
+}
+
+func (x *CandidateElectionReturn) GetElectorateName() string {
+	if x != nil {
+		return x.ElectorateName
+	}
+	return ""
+}
+
+func (x *CandidateElectionReturn) GetElectorateState() string {
+	if x != nil {
+		return x.ElectorateState
+	}
+	return ""
+}
+
+func (x *CandidateElectionReturn) GetNilReturn() bool {
+	if x != nil {
+		return x.NilReturn
+	}
+	return false
+}
+
+func (x *CandidateElectionReturn) GetAmendmentNo() int32 {
+	if x != nil {
+		return x.AmendmentNo
+	}
+	return 0
+}
+
+func (x *CandidateElectionReturn) GetTotalGiftCents() int64 {
+	if x != nil {
+		return x.TotalGiftCents
+	}
+	return 0
+}
+
+func (x *CandidateElectionReturn) GetDonorCount() int32 {
+	if x != nil {
+		return x.DonorCount
+	}
+	return 0
+}
+
+func (x *CandidateElectionReturn) GetExpenditureCents() int64 {
+	if x != nil {
+		return x.ExpenditureCents
+	}
+	return 0
+}
+
+func (x *CandidateElectionReturn) GetDiscretionaryCents() int64 {
+	if x != nil {
+		return x.DiscretionaryCents
+	}
+	return 0
+}
+
+func (x *CandidateElectionReturn) GetDonations() []*CandidateDonation {
+	if x != nil {
+		return x.Donations
+	}
+	return nil
+}
+
+func (x *CandidateElectionReturn) GetEventReturnCount() int32 {
+	if x != nil {
+		return x.EventReturnCount
+	}
+	return 0
+}
+
+func (x *CandidateElectionReturn) GetEventItemisedReturnCount() int32 {
+	if x != nil {
+		return x.EventItemisedReturnCount
+	}
+	return 0
+}
+
+func (x *CandidateElectionReturn) GetSourceUrl() string {
+	if x != nil {
+		return x.SourceUrl
+	}
+	return ""
+}
+
+type GetPoliticianFundingRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Slug          string                 `protobuf:"bytes,1,opt,name=slug,proto3" json:"slug,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPoliticianFundingRequest) Reset() {
+	*x = GetPoliticianFundingRequest{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[74]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPoliticianFundingRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPoliticianFundingRequest) ProtoMessage() {}
+
+func (x *GetPoliticianFundingRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[74]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPoliticianFundingRequest.ProtoReflect.Descriptor instead.
+func (*GetPoliticianFundingRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{74}
+}
+
+func (x *GetPoliticianFundingRequest) GetSlug() string {
+	if x != nil {
+		return x.Slug
+	}
+	return ""
+}
+
+type GetPoliticianFundingResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Echoed from the store like GetPolitician's, so a consumer redirects on a
+	// retired slug rather than deriving one.
+	CanonicalSlug string `protobuf:"bytes,1,opt,name=canonical_slug,json=canonicalSlug,proto3" json:"canonical_slug,omitempty"`
+	// ONLY returns that name this member. Party money is never attributed here.
+	AnnualReturns    []*MemberAnnualReturn      `protobuf:"bytes,2,rep,name=annual_returns,json=annualReturns,proto3" json:"annual_returns,omitempty"`
+	CandidateReturns []*CandidateElectionReturn `protobuf:"bytes,3,rep,name=candidate_returns,json=candidateReturns,proto3" json:"candidate_returns,omitempty"`
+	// Always served, empty response or not: this layer is thin and a surface that
+	// does not state its coverage lies by construction.
+	CoverageNote string `protobuf:"bytes,4,opt,name=coverage_note,json=coverageNote,proto3" json:"coverage_note,omitempty"`
+	// Money given to a party is not money given to a member.
+	AttributionNote string                 `protobuf:"bytes,5,opt,name=attribution_note,json=attributionNote,proto3" json:"attribution_note,omitempty"`
+	CensoringNote   string                 `protobuf:"bytes,6,opt,name=censoring_note,json=censoringNote,proto3" json:"censoring_note,omitempty"`
+	ReformNote      string                 `protobuf:"bytes,7,opt,name=reform_note,json=reformNote,proto3" json:"reform_note,omitempty"`
+	VerbatimNote    string                 `protobuf:"bytes,8,opt,name=verbatim_note,json=verbatimNote,proto3" json:"verbatim_note,omitempty"`
+	SourceLicence   string                 `protobuf:"bytes,9,opt,name=source_licence,json=sourceLicence,proto3" json:"source_licence,omitempty"`
+	Attribution     string                 `protobuf:"bytes,10,opt,name=attribution,proto3" json:"attribution,omitempty"`
+	AsAt            *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=as_at,json=asAt,proto3" json:"as_at,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *GetPoliticianFundingResponse) Reset() {
+	*x = GetPoliticianFundingResponse{}
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[75]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPoliticianFundingResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPoliticianFundingResponse) ProtoMessage() {}
+
+func (x *GetPoliticianFundingResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_politicians_proto_msgTypes[75]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPoliticianFundingResponse.ProtoReflect.Descriptor instead.
+func (*GetPoliticianFundingResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_politicians_proto_rawDescGZIP(), []int{75}
+}
+
+func (x *GetPoliticianFundingResponse) GetCanonicalSlug() string {
+	if x != nil {
+		return x.CanonicalSlug
+	}
+	return ""
+}
+
+func (x *GetPoliticianFundingResponse) GetAnnualReturns() []*MemberAnnualReturn {
+	if x != nil {
+		return x.AnnualReturns
+	}
+	return nil
+}
+
+func (x *GetPoliticianFundingResponse) GetCandidateReturns() []*CandidateElectionReturn {
+	if x != nil {
+		return x.CandidateReturns
+	}
+	return nil
+}
+
+func (x *GetPoliticianFundingResponse) GetCoverageNote() string {
+	if x != nil {
+		return x.CoverageNote
+	}
+	return ""
+}
+
+func (x *GetPoliticianFundingResponse) GetAttributionNote() string {
+	if x != nil {
+		return x.AttributionNote
+	}
+	return ""
+}
+
+func (x *GetPoliticianFundingResponse) GetCensoringNote() string {
+	if x != nil {
+		return x.CensoringNote
+	}
+	return ""
+}
+
+func (x *GetPoliticianFundingResponse) GetReformNote() string {
+	if x != nil {
+		return x.ReformNote
+	}
+	return ""
+}
+
+func (x *GetPoliticianFundingResponse) GetVerbatimNote() string {
+	if x != nil {
+		return x.VerbatimNote
+	}
+	return ""
+}
+
+func (x *GetPoliticianFundingResponse) GetSourceLicence() string {
+	if x != nil {
+		return x.SourceLicence
+	}
+	return ""
+}
+
+func (x *GetPoliticianFundingResponse) GetAttribution() string {
+	if x != nil {
+		return x.Attribution
+	}
+	return ""
+}
+
+func (x *GetPoliticianFundingResponse) GetAsAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AsAt
+	}
+	return nil
+}
+
 var File_shorts_v1alpha1_politicians_proto protoreflect.FileDescriptor
 
 const file_shorts_v1alpha1_politicians_proto_rawDesc = "" +
@@ -5507,7 +7299,195 @@ const file_shorts_v1alpha1_politicians_proto_rawDesc = "" +
 	" ListShortInterestOverlapResponse\x12A\n" +
 	"\boverlaps\x18\x01 \x03(\v2%.shorts.v1alpha1.ShortInterestOverlapR\boverlaps\x12'\n" +
 	"\x0fdisclosure_note\x18\x02 \x01(\tR\x0edisclosureNote\x12%\n" +
-	"\x0esource_licence\x18\x03 \x01(\tR\rsourceLicence*\xe0\x01\n" +
+	"\x0esource_licence\x18\x03 \x01(\tR\rsourceLicence\"\xf7\x01\n" +
+	"\x10ReceiptTypeSplit\x12%\n" +
+	"\x0edonation_cents\x18\x01 \x01(\x03R\rdonationCents\x12.\n" +
+	"\x13other_receipt_cents\x18\x02 \x01(\x03R\x11otherReceiptCents\x12-\n" +
+	"\x12subscription_cents\x18\x03 \x01(\x03R\x11subscriptionCents\x120\n" +
+	"\x14public_funding_cents\x18\x04 \x01(\x03R\x12publicFundingCents\x12+\n" +
+	"\x11unspecified_cents\x18\x05 \x01(\x03R\x10unspecifiedCents\"\x91\a\n" +
+	"\x13PartyFundingSummary\x12\x1f\n" +
+	"\vparty_group\x18\x01 \x01(\tR\n" +
+	"partyGroup\x12%\n" +
+	"\x0efinancial_year\x18\x02 \x01(\tR\rfinancialYear\x12,\n" +
+	"\x12financial_year_end\x18\x03 \x01(\x05R\x10financialYearEnd\x12,\n" +
+	"\x12party_return_count\x18\x04 \x01(\x05R\x10partyReturnCount\x120\n" +
+	"\x14total_receipts_cents\x18\x05 \x01(\x03R\x12totalReceiptsCents\x120\n" +
+	"\x14total_payments_cents\x18\x06 \x01(\x03R\x12totalPaymentsCents\x12*\n" +
+	"\x11total_debts_cents\x18\a \x01(\x03R\x0ftotalDebtsCents\x124\n" +
+	"\x16itemised_receipt_count\x18\b \x01(\x05R\x14itemisedReceiptCount\x126\n" +
+	"\x17itemised_receipts_cents\x18\t \x01(\x03R\x15itemisedReceiptsCents\x120\n" +
+	"\x14distinct_payer_count\x18\n" +
+	" \x01(\x05R\x12distinctPayerCount\x12,\n" +
+	"\x12listed_payer_count\x18\v \x01(\x05R\x10listedPayerCount\x12,\n" +
+	"\x12listed_payer_cents\x18\f \x01(\x03R\x10listedPayerCents\x12%\n" +
+	"\x0edonation_count\x18\r \x01(\x05R\rdonationCount\x128\n" +
+	"\x18declared_donations_cents\x18\x0e \x01(\x03R\x16declaredDonationsCents\x120\n" +
+	"\x14distinct_donor_count\x18\x0f \x01(\x05R\x12distinctDonorCount\x12,\n" +
+	"\x12listed_donor_count\x18\x10 \x01(\x05R\x10listedDonorCount\x12,\n" +
+	"\x12listed_donor_cents\x18\x11 \x01(\x03R\x10listedDonorCents\x12-\n" +
+	"\x12threshold_censored\x18\x12 \x01(\bR\x11thresholdCensored\x12,\n" +
+	"\x12post_reform_scheme\x18\x13 \x01(\bR\x10postReformScheme\"\xc4\x01\n" +
+	"\x13FinancialYearOption\x12%\n" +
+	"\x0efinancial_year\x18\x01 \x01(\tR\rfinancialYear\x12,\n" +
+	"\x12financial_year_end\x18\x02 \x01(\x05R\x10financialYearEnd\x12*\n" +
+	"\x11party_group_count\x18\x03 \x01(\x05R\x0fpartyGroupCount\x12,\n" +
+	"\x12listed_group_count\x18\x04 \x01(\x05R\x10listedGroupCount\"\x92\x06\n" +
+	"\x15DonationsCorpusCounts\x12,\n" +
+	"\x12party_return_count\x18\x01 \x01(\x05R\x10partyReturnCount\x12#\n" +
+	"\rreceipt_count\x18\x02 \x01(\x05R\freceiptCount\x12.\n" +
+	"\x13donation_made_count\x18\x03 \x01(\x05R\x11donationMadeCount\x12&\n" +
+	"\x0fmp_return_count\x18\x04 \x01(\x05R\rmpReturnCount\x127\n" +
+	"\x18mp_return_resolved_count\x18\x05 \x01(\x05R\x15mpReturnResolvedCount\x124\n" +
+	"\x16candidate_return_count\x18\x06 \x01(\x05R\x14candidateReturnCount\x12E\n" +
+	"\x1fcandidate_return_resolved_count\x18\a \x01(\x05R\x1ccandidateReturnResolvedCount\x12;\n" +
+	"\x1anil_candidate_return_count\x18\b \x01(\x05R\x17nilCandidateReturnCount\x128\n" +
+	"\x18candidate_donation_count\x18\t \x01(\x05R\x16candidateDonationCount\x127\n" +
+	"\x18first_financial_year_end\x18\n" +
+	" \x01(\x05R\x15firstFinancialYearEnd\x125\n" +
+	"\x17last_financial_year_end\x18\v \x01(\x05R\x14lastFinancialYearEnd\x127\n" +
+	"\x18matched_payer_name_count\x18\f \x01(\x05R\x15matchedPayerNameCount\x127\n" +
+	"\x18matched_payer_code_count\x18\r \x01(\x05R\x15matchedPayerCodeCount\x12?\n" +
+	"\x1cmatchable_company_name_count\x18\x0e \x01(\x05R\x19matchableCompanyNameCount\"Z\n" +
+	"\x1bGetDonationsOverviewRequest\x12%\n" +
+	"\x0efinancial_year\x18\x01 \x01(\tR\rfinancialYear\x12\x14\n" +
+	"\x05limit\x18\x02 \x01(\x05R\x05limit\"\xb3\x04\n" +
+	"\x1cGetDonationsOverviewResponse\x12%\n" +
+	"\x0efinancial_year\x18\x01 \x01(\tR\rfinancialYear\x12>\n" +
+	"\aparties\x18\x02 \x03(\v2$.shorts.v1alpha1.PartyFundingSummaryR\aparties\x12`\n" +
+	"\x19available_financial_years\x18\x03 \x03(\v2$.shorts.v1alpha1.FinancialYearOptionR\x17availableFinancialYears\x12>\n" +
+	"\x06corpus\x18\x04 \x01(\v2&.shorts.v1alpha1.DonationsCorpusCountsR\x06corpus\x12%\n" +
+	"\x0ecensoring_note\x18\x05 \x01(\tR\rcensoringNote\x12\x1f\n" +
+	"\vreform_note\x18\x06 \x01(\tR\n" +
+	"reformNote\x12#\n" +
+	"\rcoverage_note\x18\a \x01(\tR\fcoverageNote\x12#\n" +
+	"\rverbatim_note\x18\b \x01(\tR\fverbatimNote\x12%\n" +
+	"\x0esource_licence\x18\t \x01(\tR\rsourceLicence\x12 \n" +
+	"\vattribution\x18\n" +
+	" \x01(\tR\vattribution\x12/\n" +
+	"\x05as_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\x04asAt\"Y\n" +
+	"\x13DonorRecipientGroup\x12\x1f\n" +
+	"\vparty_group\x18\x01 \x01(\tR\n" +
+	"partyGroup\x12!\n" +
+	"\famount_cents\x18\x02 \x01(\x03R\vamountCents\"\x8a\x03\n" +
+	"\bTopDonor\x12\x1d\n" +
+	"\n" +
+	"donor_name\x18\x01 \x01(\tR\tdonorName\x12&\n" +
+	"\x0fdonor_name_norm\x18\x02 \x01(\tR\rdonorNameNorm\x12\x1f\n" +
+	"\vtotal_cents\x18\x03 \x01(\x03R\n" +
+	"totalCents\x12F\n" +
+	"\rreceipt_types\x18\x04 \x01(\v2!.shorts.v1alpha1.ReceiptTypeSplitR\freceiptTypes\x12#\n" +
+	"\rreceipt_count\x18\x05 \x01(\x05R\freceiptCount\x12D\n" +
+	"\n" +
+	"recipients\x18\x06 \x03(\v2$.shorts.v1alpha1.DonorRecipientGroupR\n" +
+	"recipients\x12\x1d\n" +
+	"\n" +
+	"stock_code\x18\a \x01(\tR\tstockCode\x12!\n" +
+	"\fcompany_name\x18\b \x01(\tR\vcompanyName\x12!\n" +
+	"\fmatch_method\x18\t \x01(\tR\vmatchMethod\"\x8c\x01\n" +
+	"\x14ListTopDonorsRequest\x12%\n" +
+	"\x0efinancial_year\x18\x01 \x01(\tR\rfinancialYear\x12\x1f\n" +
+	"\vparty_group\x18\x02 \x01(\tR\n" +
+	"partyGroup\x12\x14\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\x12\x16\n" +
+	"\x06offset\x18\x04 \x01(\x05R\x06offset\"\xae\x03\n" +
+	"\x15ListTopDonorsResponse\x12%\n" +
+	"\x0efinancial_year\x18\x01 \x01(\tR\rfinancialYear\x12\x1f\n" +
+	"\vparty_group\x18\x02 \x01(\tR\n" +
+	"partyGroup\x121\n" +
+	"\x06donors\x18\x03 \x03(\v2\x19.shorts.v1alpha1.TopDonorR\x06donors\x12\x14\n" +
+	"\x05total\x18\x04 \x01(\x05R\x05total\x12\x1d\n" +
+	"\n" +
+	"scope_note\x18\x05 \x01(\tR\tscopeNote\x12%\n" +
+	"\x0ecensoring_note\x18\x06 \x01(\tR\rcensoringNote\x12\x1f\n" +
+	"\vreform_note\x18\a \x01(\tR\n" +
+	"reformNote\x12#\n" +
+	"\rverbatim_note\x18\b \x01(\tR\fverbatimNote\x12%\n" +
+	"\x0esource_licence\x18\t \x01(\tR\rsourceLicence\x12 \n" +
+	"\vattribution\x18\n" +
+	" \x01(\tR\vattribution\x12/\n" +
+	"\x05as_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\x04asAt\"w\n" +
+	"\x17ListPartyFundingRequest\x12\x1f\n" +
+	"\vparty_group\x18\x01 \x01(\tR\n" +
+	"partyGroup\x12%\n" +
+	"\x0efinancial_year\x18\x02 \x01(\tR\rfinancialYear\x12\x14\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\"\xb3\x04\n" +
+	"\x18ListPartyFundingResponse\x12\x1f\n" +
+	"\vparty_group\x18\x01 \x01(\tR\n" +
+	"partyGroup\x12<\n" +
+	"\x06series\x18\x02 \x03(\v2$.shorts.v1alpha1.PartyFundingSummaryR\x06series\x12%\n" +
+	"\x0efinancial_year\x18\x03 \x01(\tR\rfinancialYear\x128\n" +
+	"\n" +
+	"top_donors\x18\x04 \x03(\v2\x19.shorts.v1alpha1.TopDonorR\ttopDonors\x12M\n" +
+	"\x15listed_company_payers\x18\x05 \x03(\v2\x19.shorts.v1alpha1.TopDonorR\x13listedCompanyPayers\x12!\n" +
+	"\fbranch_names\x18\x06 \x03(\tR\vbranchNames\x12%\n" +
+	"\x0ecensoring_note\x18\a \x01(\tR\rcensoringNote\x12\x1f\n" +
+	"\vreform_note\x18\b \x01(\tR\n" +
+	"reformNote\x12#\n" +
+	"\rverbatim_note\x18\t \x01(\tR\fverbatimNote\x12%\n" +
+	"\x0esource_licence\x18\n" +
+	" \x01(\tR\rsourceLicence\x12 \n" +
+	"\vattribution\x18\v \x01(\tR\vattribution\x12/\n" +
+	"\x05as_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\x04asAt\"\xb9\x02\n" +
+	"\x12MemberAnnualReturn\x12%\n" +
+	"\x0efinancial_year\x18\x01 \x01(\tR\rfinancialYear\x12,\n" +
+	"\x12financial_year_end\x18\x02 \x01(\x05R\x10financialYearEnd\x12\x1f\n" +
+	"\vreturn_type\x18\x03 \x01(\tR\n" +
+	"returnType\x12\x18\n" +
+	"\achamber\x18\x04 \x01(\tR\achamber\x12\x1f\n" +
+	"\vmember_name\x18\x05 \x01(\tR\n" +
+	"memberName\x122\n" +
+	"\x15total_donations_cents\x18\x06 \x01(\x03R\x13totalDonationsCents\x12\x1f\n" +
+	"\vdonor_count\x18\a \x01(\x05R\n" +
+	"donorCount\x12\x1d\n" +
+	"\n" +
+	"source_url\x18\b \x01(\tR\tsourceUrl\"z\n" +
+	"\x11CandidateDonation\x12\x1d\n" +
+	"\n" +
+	"donor_name\x18\x01 \x01(\tR\tdonorName\x12#\n" +
+	"\rdonation_date\x18\x02 \x01(\tR\fdonationDate\x12!\n" +
+	"\famount_cents\x18\x03 \x01(\x03R\vamountCents\"\xc2\x05\n" +
+	"\x17CandidateElectionReturn\x12\x14\n" +
+	"\x05event\x18\x01 \x01(\tR\x05event\x12\x1d\n" +
+	"\n" +
+	"event_year\x18\x02 \x01(\x05R\teventYear\x12\x1f\n" +
+	"\vreturn_type\x18\x03 \x01(\tR\n" +
+	"returnType\x12%\n" +
+	"\x0ecandidate_name\x18\x04 \x01(\tR\rcandidateName\x12\x1d\n" +
+	"\n" +
+	"party_name\x18\x05 \x01(\tR\tpartyName\x12'\n" +
+	"\x0felectorate_name\x18\x06 \x01(\tR\x0eelectorateName\x12)\n" +
+	"\x10electorate_state\x18\a \x01(\tR\x0felectorateState\x12\x1d\n" +
+	"\n" +
+	"nil_return\x18\b \x01(\bR\tnilReturn\x12!\n" +
+	"\famendment_no\x18\t \x01(\x05R\vamendmentNo\x12(\n" +
+	"\x10total_gift_cents\x18\n" +
+	" \x01(\x03R\x0etotalGiftCents\x12\x1f\n" +
+	"\vdonor_count\x18\v \x01(\x05R\n" +
+	"donorCount\x12+\n" +
+	"\x11expenditure_cents\x18\f \x01(\x03R\x10expenditureCents\x12/\n" +
+	"\x13discretionary_cents\x18\r \x01(\x03R\x12discretionaryCents\x12@\n" +
+	"\tdonations\x18\x0e \x03(\v2\".shorts.v1alpha1.CandidateDonationR\tdonations\x12,\n" +
+	"\x12event_return_count\x18\x0f \x01(\x05R\x10eventReturnCount\x12=\n" +
+	"\x1bevent_itemised_return_count\x18\x10 \x01(\x05R\x18eventItemisedReturnCount\x12\x1d\n" +
+	"\n" +
+	"source_url\x18\x11 \x01(\tR\tsourceUrl\"1\n" +
+	"\x1bGetPoliticianFundingRequest\x12\x12\n" +
+	"\x04slug\x18\x01 \x01(\tR\x04slug\"\x9f\x04\n" +
+	"\x1cGetPoliticianFundingResponse\x12%\n" +
+	"\x0ecanonical_slug\x18\x01 \x01(\tR\rcanonicalSlug\x12J\n" +
+	"\x0eannual_returns\x18\x02 \x03(\v2#.shorts.v1alpha1.MemberAnnualReturnR\rannualReturns\x12U\n" +
+	"\x11candidate_returns\x18\x03 \x03(\v2(.shorts.v1alpha1.CandidateElectionReturnR\x10candidateReturns\x12#\n" +
+	"\rcoverage_note\x18\x04 \x01(\tR\fcoverageNote\x12)\n" +
+	"\x10attribution_note\x18\x05 \x01(\tR\x0fattributionNote\x12%\n" +
+	"\x0ecensoring_note\x18\x06 \x01(\tR\rcensoringNote\x12\x1f\n" +
+	"\vreform_note\x18\a \x01(\tR\n" +
+	"reformNote\x12#\n" +
+	"\rverbatim_note\x18\b \x01(\tR\fverbatimNote\x12%\n" +
+	"\x0esource_licence\x18\t \x01(\tR\rsourceLicence\x12 \n" +
+	"\vattribution\x18\n" +
+	" \x01(\tR\vattribution\x12/\n" +
+	"\x05as_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\x04asAt*\xe0\x01\n" +
 	"\x15PoliticianSummarySort\x12*\n" +
 	"&POLITICIAN_SUMMARY_SORT_DECLARED_ITEMS\x10\x00\x12%\n" +
 	"!POLITICIAN_SUMMARY_SORT_COMPANIES\x10\x01\x12&\n" +
@@ -5522,7 +7502,7 @@ const file_shorts_v1alpha1_politicians_proto_rawDesc = "" +
 	"\x12RegisterChangeKind\x12$\n" +
 	" REGISTER_CHANGE_KIND_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aREGISTER_CHANGE_KIND_ADDED\x10\x01\x12 \n" +
-	"\x1cREGISTER_CHANGE_KIND_REMOVED\x10\x022\xed\x0f\n" +
+	"\x1cREGISTER_CHANGE_KIND_REMOVED\x10\x022\xb8\x13\n" +
 	"\x12PoliticiansService\x12|\n" +
 	"\x15GetParliamentOverview\x12-.shorts.v1alpha1.GetParliamentOverviewRequest\x1a..shorts.v1alpha1.GetParliamentOverviewResponse\"\x04\x80\xb5\x18\x01\x12j\n" +
 	"\x0fListPoliticians\x12'.shorts.v1alpha1.ListPoliticiansRequest\x1a(.shorts.v1alpha1.ListPoliticiansResponse\"\x04\x80\xb5\x18\x01\x12d\n" +
@@ -5539,7 +7519,11 @@ const file_shorts_v1alpha1_politicians_proto_rawDesc = "" +
 	"\x1cGetPoliticianExplorerProfile\x124.shorts.v1alpha1.GetPoliticianExplorerProfileRequest\x1a5.shorts.v1alpha1.GetPoliticianExplorerProfileResponse\"\x04\x80\xb5\x18\x01\x12s\n" +
 	"\x12ComparePoliticians\x12*.shorts.v1alpha1.ComparePoliticiansRequest\x1a+.shorts.v1alpha1.ComparePoliticiansResponse\"\x04\x80\xb5\x18\x01\x12v\n" +
 	"\x13GetRegisterActivity\x12+.shorts.v1alpha1.GetRegisterActivityRequest\x1a,.shorts.v1alpha1.GetRegisterActivityResponse\"\x04\x80\xb5\x18\x01\x12\x82\x01\n" +
-	"\x17ListDistinctiveHoldings\x12/.shorts.v1alpha1.ListDistinctiveHoldingsRequest\x1a0.shorts.v1alpha1.ListDistinctiveHoldingsResponse\"\x04\x80\xb5\x18\x01B\xdf\x01\n" +
+	"\x17ListDistinctiveHoldings\x12/.shorts.v1alpha1.ListDistinctiveHoldingsRequest\x1a0.shorts.v1alpha1.ListDistinctiveHoldingsResponse\"\x04\x80\xb5\x18\x01\x12y\n" +
+	"\x14GetDonationsOverview\x12,.shorts.v1alpha1.GetDonationsOverviewRequest\x1a-.shorts.v1alpha1.GetDonationsOverviewResponse\"\x04\x80\xb5\x18\x01\x12d\n" +
+	"\rListTopDonors\x12%.shorts.v1alpha1.ListTopDonorsRequest\x1a&.shorts.v1alpha1.ListTopDonorsResponse\"\x04\x80\xb5\x18\x01\x12m\n" +
+	"\x10ListPartyFunding\x12(.shorts.v1alpha1.ListPartyFundingRequest\x1a).shorts.v1alpha1.ListPartyFundingResponse\"\x04\x80\xb5\x18\x01\x12y\n" +
+	"\x14GetPoliticianFunding\x12,.shorts.v1alpha1.GetPoliticianFundingRequest\x1a-.shorts.v1alpha1.GetPoliticianFundingResponse\"\x04\x80\xb5\x18\x01B\xdf\x01\n" +
 	"\x13com.shorts.v1alpha1B\x10PoliticiansProtoP\x01ZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1\xa2\x02\x03SXX\xaa\x02\x0fShorts.V1alpha1\xca\x02\x0fShorts\\V1alpha1\xe2\x02\x1bShorts\\V1alpha1\\GPBMetadata\xea\x02\x10Shorts::V1alpha1b\x06proto3"
 
 var (
@@ -5555,7 +7539,7 @@ func file_shorts_v1alpha1_politicians_proto_rawDescGZIP() []byte {
 }
 
 var file_shorts_v1alpha1_politicians_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_shorts_v1alpha1_politicians_proto_msgTypes = make([]protoimpl.MessageInfo, 59)
+var file_shorts_v1alpha1_politicians_proto_msgTypes = make([]protoimpl.MessageInfo, 76)
 var file_shorts_v1alpha1_politicians_proto_goTypes = []any{
 	(PoliticianSummarySort)(0),                   // 0: shorts.v1alpha1.PoliticianSummarySort
 	(RegisterHolder)(0),                          // 1: shorts.v1alpha1.RegisterHolder
@@ -5619,120 +7603,161 @@ var file_shorts_v1alpha1_politicians_proto_goTypes = []any{
 	(*ListShortInterestOverlapRequest)(nil),      // 59: shorts.v1alpha1.ListShortInterestOverlapRequest
 	(*ShortInterestOverlap)(nil),                 // 60: shorts.v1alpha1.ShortInterestOverlap
 	(*ListShortInterestOverlapResponse)(nil),     // 61: shorts.v1alpha1.ListShortInterestOverlapResponse
-	(*timestamppb.Timestamp)(nil),                // 62: google.protobuf.Timestamp
+	(*ReceiptTypeSplit)(nil),                     // 62: shorts.v1alpha1.ReceiptTypeSplit
+	(*PartyFundingSummary)(nil),                  // 63: shorts.v1alpha1.PartyFundingSummary
+	(*FinancialYearOption)(nil),                  // 64: shorts.v1alpha1.FinancialYearOption
+	(*DonationsCorpusCounts)(nil),                // 65: shorts.v1alpha1.DonationsCorpusCounts
+	(*GetDonationsOverviewRequest)(nil),          // 66: shorts.v1alpha1.GetDonationsOverviewRequest
+	(*GetDonationsOverviewResponse)(nil),         // 67: shorts.v1alpha1.GetDonationsOverviewResponse
+	(*DonorRecipientGroup)(nil),                  // 68: shorts.v1alpha1.DonorRecipientGroup
+	(*TopDonor)(nil),                             // 69: shorts.v1alpha1.TopDonor
+	(*ListTopDonorsRequest)(nil),                 // 70: shorts.v1alpha1.ListTopDonorsRequest
+	(*ListTopDonorsResponse)(nil),                // 71: shorts.v1alpha1.ListTopDonorsResponse
+	(*ListPartyFundingRequest)(nil),              // 72: shorts.v1alpha1.ListPartyFundingRequest
+	(*ListPartyFundingResponse)(nil),             // 73: shorts.v1alpha1.ListPartyFundingResponse
+	(*MemberAnnualReturn)(nil),                   // 74: shorts.v1alpha1.MemberAnnualReturn
+	(*CandidateDonation)(nil),                    // 75: shorts.v1alpha1.CandidateDonation
+	(*CandidateElectionReturn)(nil),              // 76: shorts.v1alpha1.CandidateElectionReturn
+	(*GetPoliticianFundingRequest)(nil),          // 77: shorts.v1alpha1.GetPoliticianFundingRequest
+	(*GetPoliticianFundingResponse)(nil),         // 78: shorts.v1alpha1.GetPoliticianFundingResponse
+	(*timestamppb.Timestamp)(nil),                // 79: google.protobuf.Timestamp
 }
 var file_shorts_v1alpha1_politicians_proto_depIdxs = []int32{
-	3,  // 0: shorts.v1alpha1.GetPoliticianAnalyticsResponse.cells:type_name -> shorts.v1alpha1.PartyIndustryCell
-	4,  // 1: shorts.v1alpha1.GetPoliticianAnalyticsResponse.industries:type_name -> shorts.v1alpha1.IndustryTotal
-	5,  // 2: shorts.v1alpha1.GetPoliticianAnalyticsResponse.parties:type_name -> shorts.v1alpha1.PartyTotal
-	6,  // 3: shorts.v1alpha1.GetPoliticianAnalyticsResponse.states:type_name -> shorts.v1alpha1.StateTotal
-	62, // 4: shorts.v1alpha1.GetPoliticianAnalyticsResponse.as_at:type_name -> google.protobuf.Timestamp
-	1,  // 5: shorts.v1alpha1.RegisterHolderCount.holder:type_name -> shorts.v1alpha1.RegisterHolder
-	26, // 6: shorts.v1alpha1.PoliticianSummary.politician:type_name -> shorts.v1alpha1.Politician
-	9,  // 7: shorts.v1alpha1.PoliticianSummary.item_counts:type_name -> shorts.v1alpha1.RegisterItemCount
-	11, // 8: shorts.v1alpha1.PoliticianSummary.trend:type_name -> shorts.v1alpha1.RegisterMonthlyCount
-	9,  // 9: shorts.v1alpha1.GetRegisterExplorerResponse.item_counts:type_name -> shorts.v1alpha1.RegisterItemCount
-	10, // 10: shorts.v1alpha1.GetRegisterExplorerResponse.holder_counts:type_name -> shorts.v1alpha1.RegisterHolderCount
-	12, // 11: shorts.v1alpha1.GetRegisterExplorerResponse.industry_trends:type_name -> shorts.v1alpha1.RegisterIndustryTrend
-	62, // 12: shorts.v1alpha1.GetRegisterExplorerResponse.as_at:type_name -> google.protobuf.Timestamp
-	0,  // 13: shorts.v1alpha1.ListPoliticianSummariesRequest.sort:type_name -> shorts.v1alpha1.PoliticianSummarySort
-	15, // 14: shorts.v1alpha1.ListPoliticianSummariesResponse.summaries:type_name -> shorts.v1alpha1.PoliticianSummary
-	62, // 15: shorts.v1alpha1.ListPoliticianSummariesResponse.as_at:type_name -> google.protobuf.Timestamp
-	26, // 16: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.politician:type_name -> shorts.v1alpha1.Politician
-	28, // 17: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.terms:type_name -> shorts.v1alpha1.PoliticianTerm
-	9,  // 18: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.item_counts:type_name -> shorts.v1alpha1.RegisterItemCount
-	10, // 19: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.holder_counts:type_name -> shorts.v1alpha1.RegisterHolderCount
-	13, // 20: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.industry_counts:type_name -> shorts.v1alpha1.RegisterIndustryCount
-	11, // 21: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.timeline:type_name -> shorts.v1alpha1.RegisterMonthlyCount
-	48, // 22: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.recent_changes:type_name -> shorts.v1alpha1.RegisterChangeEvent
-	14, // 23: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.source_documents:type_name -> shorts.v1alpha1.RegisterSourceDocument
-	62, // 24: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.as_at:type_name -> google.protobuf.Timestamp
-	1,  // 25: shorts.v1alpha1.SharedDeclaredCompany.holders_a:type_name -> shorts.v1alpha1.RegisterHolder
-	1,  // 26: shorts.v1alpha1.SharedDeclaredCompany.holders_b:type_name -> shorts.v1alpha1.RegisterHolder
-	1,  // 27: shorts.v1alpha1.PoliticianOnlyCompany.holders:type_name -> shorts.v1alpha1.RegisterHolder
-	15, // 28: shorts.v1alpha1.ComparePoliticiansResponse.a:type_name -> shorts.v1alpha1.PoliticianSummary
-	15, // 29: shorts.v1alpha1.ComparePoliticiansResponse.b:type_name -> shorts.v1alpha1.PoliticianSummary
-	10, // 30: shorts.v1alpha1.ComparePoliticiansResponse.holder_counts_a:type_name -> shorts.v1alpha1.RegisterHolderCount
-	10, // 31: shorts.v1alpha1.ComparePoliticiansResponse.holder_counts_b:type_name -> shorts.v1alpha1.RegisterHolderCount
-	23, // 32: shorts.v1alpha1.ComparePoliticiansResponse.shared_companies:type_name -> shorts.v1alpha1.SharedDeclaredCompany
-	24, // 33: shorts.v1alpha1.ComparePoliticiansResponse.only_a_companies:type_name -> shorts.v1alpha1.PoliticianOnlyCompany
-	24, // 34: shorts.v1alpha1.ComparePoliticiansResponse.only_b_companies:type_name -> shorts.v1alpha1.PoliticianOnlyCompany
-	62, // 35: shorts.v1alpha1.ComparePoliticiansResponse.as_at:type_name -> google.protobuf.Timestamp
-	1,  // 36: shorts.v1alpha1.DeclaredInterest.holder:type_name -> shorts.v1alpha1.RegisterHolder
-	62, // 37: shorts.v1alpha1.DeclaredInterest.declared_from:type_name -> google.protobuf.Timestamp
-	62, // 38: shorts.v1alpha1.DeclaredInterest.declared_to:type_name -> google.protobuf.Timestamp
-	62, // 39: shorts.v1alpha1.GetParliamentOverviewResponse.as_at:type_name -> google.protobuf.Timestamp
-	62, // 40: shorts.v1alpha1.GetParliamentOverviewResponse.refreshed_at:type_name -> google.protobuf.Timestamp
-	26, // 41: shorts.v1alpha1.ListPoliticiansResponse.politicians:type_name -> shorts.v1alpha1.Politician
-	26, // 42: shorts.v1alpha1.GetPoliticianResponse.politician:type_name -> shorts.v1alpha1.Politician
-	28, // 43: shorts.v1alpha1.GetPoliticianResponse.terms:type_name -> shorts.v1alpha1.PoliticianTerm
-	27, // 44: shorts.v1alpha1.GetPoliticianResponse.interests:type_name -> shorts.v1alpha1.DeclaredInterest
-	36, // 45: shorts.v1alpha1.ListStockPoliticiansResponse.party_counts:type_name -> shorts.v1alpha1.PartyCount
-	38, // 46: shorts.v1alpha1.ListStockPoliticiansResponse.interests:type_name -> shorts.v1alpha1.StockPoliticianInterest
-	26, // 47: shorts.v1alpha1.StockPoliticianInterest.politician:type_name -> shorts.v1alpha1.Politician
-	27, // 48: shorts.v1alpha1.StockPoliticianInterest.interest:type_name -> shorts.v1alpha1.DeclaredInterest
-	36, // 49: shorts.v1alpha1.PoliticianStockRollup.party_counts:type_name -> shorts.v1alpha1.PartyCount
-	40, // 50: shorts.v1alpha1.ListPoliticianStocksResponse.stocks:type_name -> shorts.v1alpha1.PoliticianStockRollup
-	44, // 51: shorts.v1alpha1.ListSuburbPoliticiansResponse.properties:type_name -> shorts.v1alpha1.SuburbPoliticianProperty
-	26, // 52: shorts.v1alpha1.SuburbPoliticianProperty.politician:type_name -> shorts.v1alpha1.Politician
-	27, // 53: shorts.v1alpha1.SuburbPoliticianProperty.interest:type_name -> shorts.v1alpha1.DeclaredInterest
-	40, // 54: shorts.v1alpha1.ListStatePoliticianHoldingsResponse.stocks:type_name -> shorts.v1alpha1.PoliticianStockRollup
-	62, // 55: shorts.v1alpha1.ListRegisterChangesRequest.since:type_name -> google.protobuf.Timestamp
-	2,  // 56: shorts.v1alpha1.ListRegisterChangesRequest.kind:type_name -> shorts.v1alpha1.RegisterChangeKind
-	26, // 57: shorts.v1alpha1.RegisterChangeEvent.politician:type_name -> shorts.v1alpha1.Politician
-	2,  // 58: shorts.v1alpha1.RegisterChangeEvent.kind:type_name -> shorts.v1alpha1.RegisterChangeKind
-	1,  // 59: shorts.v1alpha1.RegisterChangeEvent.holder:type_name -> shorts.v1alpha1.RegisterHolder
-	62, // 60: shorts.v1alpha1.RegisterChangeEvent.changed_on:type_name -> google.protobuf.Timestamp
-	48, // 61: shorts.v1alpha1.ListRegisterChangesResponse.events:type_name -> shorts.v1alpha1.RegisterChangeEvent
-	62, // 62: shorts.v1alpha1.ListRegisterChangesResponse.as_at:type_name -> google.protobuf.Timestamp
-	2,  // 63: shorts.v1alpha1.GetRegisterActivityRequest.kind:type_name -> shorts.v1alpha1.RegisterChangeKind
-	51, // 64: shorts.v1alpha1.GetRegisterActivityResponse.weeks:type_name -> shorts.v1alpha1.WeeklyEventCount
-	52, // 65: shorts.v1alpha1.GetRegisterActivityResponse.active_members:type_name -> shorts.v1alpha1.ActiveMember
-	53, // 66: shorts.v1alpha1.GetRegisterActivityResponse.newly_declared_companies:type_name -> shorts.v1alpha1.NewlyDeclaredCompany
-	54, // 67: shorts.v1alpha1.GetRegisterActivityResponse.declarer_count_changes:type_name -> shorts.v1alpha1.DeclarerCountChange
-	62, // 68: shorts.v1alpha1.GetRegisterActivityResponse.as_at:type_name -> google.protobuf.Timestamp
-	1,  // 69: shorts.v1alpha1.DistinctiveHolding.holder:type_name -> shorts.v1alpha1.RegisterHolder
-	57, // 70: shorts.v1alpha1.ListDistinctiveHoldingsResponse.holdings:type_name -> shorts.v1alpha1.DistinctiveHolding
-	62, // 71: shorts.v1alpha1.ListDistinctiveHoldingsResponse.as_at:type_name -> google.protobuf.Timestamp
-	36, // 72: shorts.v1alpha1.ShortInterestOverlap.party_counts:type_name -> shorts.v1alpha1.PartyCount
-	60, // 73: shorts.v1alpha1.ListShortInterestOverlapResponse.overlaps:type_name -> shorts.v1alpha1.ShortInterestOverlap
-	29, // 74: shorts.v1alpha1.PoliticiansService.GetParliamentOverview:input_type -> shorts.v1alpha1.GetParliamentOverviewRequest
-	31, // 75: shorts.v1alpha1.PoliticiansService.ListPoliticians:input_type -> shorts.v1alpha1.ListPoliticiansRequest
-	33, // 76: shorts.v1alpha1.PoliticiansService.GetPolitician:input_type -> shorts.v1alpha1.GetPoliticianRequest
-	35, // 77: shorts.v1alpha1.PoliticiansService.ListStockPoliticians:input_type -> shorts.v1alpha1.ListStockPoliticiansRequest
-	39, // 78: shorts.v1alpha1.PoliticiansService.ListPoliticianStocks:input_type -> shorts.v1alpha1.ListPoliticianStocksRequest
-	42, // 79: shorts.v1alpha1.PoliticiansService.ListSuburbPoliticians:input_type -> shorts.v1alpha1.ListSuburbPoliticiansRequest
-	45, // 80: shorts.v1alpha1.PoliticiansService.ListStatePoliticianHoldings:input_type -> shorts.v1alpha1.ListStatePoliticianHoldingsRequest
-	47, // 81: shorts.v1alpha1.PoliticiansService.ListRegisterChanges:input_type -> shorts.v1alpha1.ListRegisterChangesRequest
-	59, // 82: shorts.v1alpha1.PoliticiansService.ListShortInterestOverlap:input_type -> shorts.v1alpha1.ListShortInterestOverlapRequest
-	7,  // 83: shorts.v1alpha1.PoliticiansService.GetPoliticianAnalytics:input_type -> shorts.v1alpha1.GetPoliticianAnalyticsRequest
-	16, // 84: shorts.v1alpha1.PoliticiansService.GetRegisterExplorer:input_type -> shorts.v1alpha1.GetRegisterExplorerRequest
-	18, // 85: shorts.v1alpha1.PoliticiansService.ListPoliticianSummaries:input_type -> shorts.v1alpha1.ListPoliticianSummariesRequest
-	20, // 86: shorts.v1alpha1.PoliticiansService.GetPoliticianExplorerProfile:input_type -> shorts.v1alpha1.GetPoliticianExplorerProfileRequest
-	22, // 87: shorts.v1alpha1.PoliticiansService.ComparePoliticians:input_type -> shorts.v1alpha1.ComparePoliticiansRequest
-	50, // 88: shorts.v1alpha1.PoliticiansService.GetRegisterActivity:input_type -> shorts.v1alpha1.GetRegisterActivityRequest
-	56, // 89: shorts.v1alpha1.PoliticiansService.ListDistinctiveHoldings:input_type -> shorts.v1alpha1.ListDistinctiveHoldingsRequest
-	30, // 90: shorts.v1alpha1.PoliticiansService.GetParliamentOverview:output_type -> shorts.v1alpha1.GetParliamentOverviewResponse
-	32, // 91: shorts.v1alpha1.PoliticiansService.ListPoliticians:output_type -> shorts.v1alpha1.ListPoliticiansResponse
-	34, // 92: shorts.v1alpha1.PoliticiansService.GetPolitician:output_type -> shorts.v1alpha1.GetPoliticianResponse
-	37, // 93: shorts.v1alpha1.PoliticiansService.ListStockPoliticians:output_type -> shorts.v1alpha1.ListStockPoliticiansResponse
-	41, // 94: shorts.v1alpha1.PoliticiansService.ListPoliticianStocks:output_type -> shorts.v1alpha1.ListPoliticianStocksResponse
-	43, // 95: shorts.v1alpha1.PoliticiansService.ListSuburbPoliticians:output_type -> shorts.v1alpha1.ListSuburbPoliticiansResponse
-	46, // 96: shorts.v1alpha1.PoliticiansService.ListStatePoliticianHoldings:output_type -> shorts.v1alpha1.ListStatePoliticianHoldingsResponse
-	49, // 97: shorts.v1alpha1.PoliticiansService.ListRegisterChanges:output_type -> shorts.v1alpha1.ListRegisterChangesResponse
-	61, // 98: shorts.v1alpha1.PoliticiansService.ListShortInterestOverlap:output_type -> shorts.v1alpha1.ListShortInterestOverlapResponse
-	8,  // 99: shorts.v1alpha1.PoliticiansService.GetPoliticianAnalytics:output_type -> shorts.v1alpha1.GetPoliticianAnalyticsResponse
-	17, // 100: shorts.v1alpha1.PoliticiansService.GetRegisterExplorer:output_type -> shorts.v1alpha1.GetRegisterExplorerResponse
-	19, // 101: shorts.v1alpha1.PoliticiansService.ListPoliticianSummaries:output_type -> shorts.v1alpha1.ListPoliticianSummariesResponse
-	21, // 102: shorts.v1alpha1.PoliticiansService.GetPoliticianExplorerProfile:output_type -> shorts.v1alpha1.GetPoliticianExplorerProfileResponse
-	25, // 103: shorts.v1alpha1.PoliticiansService.ComparePoliticians:output_type -> shorts.v1alpha1.ComparePoliticiansResponse
-	55, // 104: shorts.v1alpha1.PoliticiansService.GetRegisterActivity:output_type -> shorts.v1alpha1.GetRegisterActivityResponse
-	58, // 105: shorts.v1alpha1.PoliticiansService.ListDistinctiveHoldings:output_type -> shorts.v1alpha1.ListDistinctiveHoldingsResponse
-	90, // [90:106] is the sub-list for method output_type
-	74, // [74:90] is the sub-list for method input_type
-	74, // [74:74] is the sub-list for extension type_name
-	74, // [74:74] is the sub-list for extension extendee
-	0,  // [0:74] is the sub-list for field type_name
+	3,   // 0: shorts.v1alpha1.GetPoliticianAnalyticsResponse.cells:type_name -> shorts.v1alpha1.PartyIndustryCell
+	4,   // 1: shorts.v1alpha1.GetPoliticianAnalyticsResponse.industries:type_name -> shorts.v1alpha1.IndustryTotal
+	5,   // 2: shorts.v1alpha1.GetPoliticianAnalyticsResponse.parties:type_name -> shorts.v1alpha1.PartyTotal
+	6,   // 3: shorts.v1alpha1.GetPoliticianAnalyticsResponse.states:type_name -> shorts.v1alpha1.StateTotal
+	79,  // 4: shorts.v1alpha1.GetPoliticianAnalyticsResponse.as_at:type_name -> google.protobuf.Timestamp
+	1,   // 5: shorts.v1alpha1.RegisterHolderCount.holder:type_name -> shorts.v1alpha1.RegisterHolder
+	26,  // 6: shorts.v1alpha1.PoliticianSummary.politician:type_name -> shorts.v1alpha1.Politician
+	9,   // 7: shorts.v1alpha1.PoliticianSummary.item_counts:type_name -> shorts.v1alpha1.RegisterItemCount
+	11,  // 8: shorts.v1alpha1.PoliticianSummary.trend:type_name -> shorts.v1alpha1.RegisterMonthlyCount
+	9,   // 9: shorts.v1alpha1.GetRegisterExplorerResponse.item_counts:type_name -> shorts.v1alpha1.RegisterItemCount
+	10,  // 10: shorts.v1alpha1.GetRegisterExplorerResponse.holder_counts:type_name -> shorts.v1alpha1.RegisterHolderCount
+	12,  // 11: shorts.v1alpha1.GetRegisterExplorerResponse.industry_trends:type_name -> shorts.v1alpha1.RegisterIndustryTrend
+	79,  // 12: shorts.v1alpha1.GetRegisterExplorerResponse.as_at:type_name -> google.protobuf.Timestamp
+	0,   // 13: shorts.v1alpha1.ListPoliticianSummariesRequest.sort:type_name -> shorts.v1alpha1.PoliticianSummarySort
+	15,  // 14: shorts.v1alpha1.ListPoliticianSummariesResponse.summaries:type_name -> shorts.v1alpha1.PoliticianSummary
+	79,  // 15: shorts.v1alpha1.ListPoliticianSummariesResponse.as_at:type_name -> google.protobuf.Timestamp
+	26,  // 16: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.politician:type_name -> shorts.v1alpha1.Politician
+	28,  // 17: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.terms:type_name -> shorts.v1alpha1.PoliticianTerm
+	9,   // 18: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.item_counts:type_name -> shorts.v1alpha1.RegisterItemCount
+	10,  // 19: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.holder_counts:type_name -> shorts.v1alpha1.RegisterHolderCount
+	13,  // 20: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.industry_counts:type_name -> shorts.v1alpha1.RegisterIndustryCount
+	11,  // 21: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.timeline:type_name -> shorts.v1alpha1.RegisterMonthlyCount
+	48,  // 22: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.recent_changes:type_name -> shorts.v1alpha1.RegisterChangeEvent
+	14,  // 23: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.source_documents:type_name -> shorts.v1alpha1.RegisterSourceDocument
+	79,  // 24: shorts.v1alpha1.GetPoliticianExplorerProfileResponse.as_at:type_name -> google.protobuf.Timestamp
+	1,   // 25: shorts.v1alpha1.SharedDeclaredCompany.holders_a:type_name -> shorts.v1alpha1.RegisterHolder
+	1,   // 26: shorts.v1alpha1.SharedDeclaredCompany.holders_b:type_name -> shorts.v1alpha1.RegisterHolder
+	1,   // 27: shorts.v1alpha1.PoliticianOnlyCompany.holders:type_name -> shorts.v1alpha1.RegisterHolder
+	15,  // 28: shorts.v1alpha1.ComparePoliticiansResponse.a:type_name -> shorts.v1alpha1.PoliticianSummary
+	15,  // 29: shorts.v1alpha1.ComparePoliticiansResponse.b:type_name -> shorts.v1alpha1.PoliticianSummary
+	10,  // 30: shorts.v1alpha1.ComparePoliticiansResponse.holder_counts_a:type_name -> shorts.v1alpha1.RegisterHolderCount
+	10,  // 31: shorts.v1alpha1.ComparePoliticiansResponse.holder_counts_b:type_name -> shorts.v1alpha1.RegisterHolderCount
+	23,  // 32: shorts.v1alpha1.ComparePoliticiansResponse.shared_companies:type_name -> shorts.v1alpha1.SharedDeclaredCompany
+	24,  // 33: shorts.v1alpha1.ComparePoliticiansResponse.only_a_companies:type_name -> shorts.v1alpha1.PoliticianOnlyCompany
+	24,  // 34: shorts.v1alpha1.ComparePoliticiansResponse.only_b_companies:type_name -> shorts.v1alpha1.PoliticianOnlyCompany
+	79,  // 35: shorts.v1alpha1.ComparePoliticiansResponse.as_at:type_name -> google.protobuf.Timestamp
+	1,   // 36: shorts.v1alpha1.DeclaredInterest.holder:type_name -> shorts.v1alpha1.RegisterHolder
+	79,  // 37: shorts.v1alpha1.DeclaredInterest.declared_from:type_name -> google.protobuf.Timestamp
+	79,  // 38: shorts.v1alpha1.DeclaredInterest.declared_to:type_name -> google.protobuf.Timestamp
+	79,  // 39: shorts.v1alpha1.GetParliamentOverviewResponse.as_at:type_name -> google.protobuf.Timestamp
+	79,  // 40: shorts.v1alpha1.GetParliamentOverviewResponse.refreshed_at:type_name -> google.protobuf.Timestamp
+	26,  // 41: shorts.v1alpha1.ListPoliticiansResponse.politicians:type_name -> shorts.v1alpha1.Politician
+	26,  // 42: shorts.v1alpha1.GetPoliticianResponse.politician:type_name -> shorts.v1alpha1.Politician
+	28,  // 43: shorts.v1alpha1.GetPoliticianResponse.terms:type_name -> shorts.v1alpha1.PoliticianTerm
+	27,  // 44: shorts.v1alpha1.GetPoliticianResponse.interests:type_name -> shorts.v1alpha1.DeclaredInterest
+	36,  // 45: shorts.v1alpha1.ListStockPoliticiansResponse.party_counts:type_name -> shorts.v1alpha1.PartyCount
+	38,  // 46: shorts.v1alpha1.ListStockPoliticiansResponse.interests:type_name -> shorts.v1alpha1.StockPoliticianInterest
+	26,  // 47: shorts.v1alpha1.StockPoliticianInterest.politician:type_name -> shorts.v1alpha1.Politician
+	27,  // 48: shorts.v1alpha1.StockPoliticianInterest.interest:type_name -> shorts.v1alpha1.DeclaredInterest
+	36,  // 49: shorts.v1alpha1.PoliticianStockRollup.party_counts:type_name -> shorts.v1alpha1.PartyCount
+	40,  // 50: shorts.v1alpha1.ListPoliticianStocksResponse.stocks:type_name -> shorts.v1alpha1.PoliticianStockRollup
+	44,  // 51: shorts.v1alpha1.ListSuburbPoliticiansResponse.properties:type_name -> shorts.v1alpha1.SuburbPoliticianProperty
+	26,  // 52: shorts.v1alpha1.SuburbPoliticianProperty.politician:type_name -> shorts.v1alpha1.Politician
+	27,  // 53: shorts.v1alpha1.SuburbPoliticianProperty.interest:type_name -> shorts.v1alpha1.DeclaredInterest
+	40,  // 54: shorts.v1alpha1.ListStatePoliticianHoldingsResponse.stocks:type_name -> shorts.v1alpha1.PoliticianStockRollup
+	79,  // 55: shorts.v1alpha1.ListRegisterChangesRequest.since:type_name -> google.protobuf.Timestamp
+	2,   // 56: shorts.v1alpha1.ListRegisterChangesRequest.kind:type_name -> shorts.v1alpha1.RegisterChangeKind
+	26,  // 57: shorts.v1alpha1.RegisterChangeEvent.politician:type_name -> shorts.v1alpha1.Politician
+	2,   // 58: shorts.v1alpha1.RegisterChangeEvent.kind:type_name -> shorts.v1alpha1.RegisterChangeKind
+	1,   // 59: shorts.v1alpha1.RegisterChangeEvent.holder:type_name -> shorts.v1alpha1.RegisterHolder
+	79,  // 60: shorts.v1alpha1.RegisterChangeEvent.changed_on:type_name -> google.protobuf.Timestamp
+	48,  // 61: shorts.v1alpha1.ListRegisterChangesResponse.events:type_name -> shorts.v1alpha1.RegisterChangeEvent
+	79,  // 62: shorts.v1alpha1.ListRegisterChangesResponse.as_at:type_name -> google.protobuf.Timestamp
+	2,   // 63: shorts.v1alpha1.GetRegisterActivityRequest.kind:type_name -> shorts.v1alpha1.RegisterChangeKind
+	51,  // 64: shorts.v1alpha1.GetRegisterActivityResponse.weeks:type_name -> shorts.v1alpha1.WeeklyEventCount
+	52,  // 65: shorts.v1alpha1.GetRegisterActivityResponse.active_members:type_name -> shorts.v1alpha1.ActiveMember
+	53,  // 66: shorts.v1alpha1.GetRegisterActivityResponse.newly_declared_companies:type_name -> shorts.v1alpha1.NewlyDeclaredCompany
+	54,  // 67: shorts.v1alpha1.GetRegisterActivityResponse.declarer_count_changes:type_name -> shorts.v1alpha1.DeclarerCountChange
+	79,  // 68: shorts.v1alpha1.GetRegisterActivityResponse.as_at:type_name -> google.protobuf.Timestamp
+	1,   // 69: shorts.v1alpha1.DistinctiveHolding.holder:type_name -> shorts.v1alpha1.RegisterHolder
+	57,  // 70: shorts.v1alpha1.ListDistinctiveHoldingsResponse.holdings:type_name -> shorts.v1alpha1.DistinctiveHolding
+	79,  // 71: shorts.v1alpha1.ListDistinctiveHoldingsResponse.as_at:type_name -> google.protobuf.Timestamp
+	36,  // 72: shorts.v1alpha1.ShortInterestOverlap.party_counts:type_name -> shorts.v1alpha1.PartyCount
+	60,  // 73: shorts.v1alpha1.ListShortInterestOverlapResponse.overlaps:type_name -> shorts.v1alpha1.ShortInterestOverlap
+	63,  // 74: shorts.v1alpha1.GetDonationsOverviewResponse.parties:type_name -> shorts.v1alpha1.PartyFundingSummary
+	64,  // 75: shorts.v1alpha1.GetDonationsOverviewResponse.available_financial_years:type_name -> shorts.v1alpha1.FinancialYearOption
+	65,  // 76: shorts.v1alpha1.GetDonationsOverviewResponse.corpus:type_name -> shorts.v1alpha1.DonationsCorpusCounts
+	79,  // 77: shorts.v1alpha1.GetDonationsOverviewResponse.as_at:type_name -> google.protobuf.Timestamp
+	62,  // 78: shorts.v1alpha1.TopDonor.receipt_types:type_name -> shorts.v1alpha1.ReceiptTypeSplit
+	68,  // 79: shorts.v1alpha1.TopDonor.recipients:type_name -> shorts.v1alpha1.DonorRecipientGroup
+	69,  // 80: shorts.v1alpha1.ListTopDonorsResponse.donors:type_name -> shorts.v1alpha1.TopDonor
+	79,  // 81: shorts.v1alpha1.ListTopDonorsResponse.as_at:type_name -> google.protobuf.Timestamp
+	63,  // 82: shorts.v1alpha1.ListPartyFundingResponse.series:type_name -> shorts.v1alpha1.PartyFundingSummary
+	69,  // 83: shorts.v1alpha1.ListPartyFundingResponse.top_donors:type_name -> shorts.v1alpha1.TopDonor
+	69,  // 84: shorts.v1alpha1.ListPartyFundingResponse.listed_company_payers:type_name -> shorts.v1alpha1.TopDonor
+	79,  // 85: shorts.v1alpha1.ListPartyFundingResponse.as_at:type_name -> google.protobuf.Timestamp
+	75,  // 86: shorts.v1alpha1.CandidateElectionReturn.donations:type_name -> shorts.v1alpha1.CandidateDonation
+	74,  // 87: shorts.v1alpha1.GetPoliticianFundingResponse.annual_returns:type_name -> shorts.v1alpha1.MemberAnnualReturn
+	76,  // 88: shorts.v1alpha1.GetPoliticianFundingResponse.candidate_returns:type_name -> shorts.v1alpha1.CandidateElectionReturn
+	79,  // 89: shorts.v1alpha1.GetPoliticianFundingResponse.as_at:type_name -> google.protobuf.Timestamp
+	29,  // 90: shorts.v1alpha1.PoliticiansService.GetParliamentOverview:input_type -> shorts.v1alpha1.GetParliamentOverviewRequest
+	31,  // 91: shorts.v1alpha1.PoliticiansService.ListPoliticians:input_type -> shorts.v1alpha1.ListPoliticiansRequest
+	33,  // 92: shorts.v1alpha1.PoliticiansService.GetPolitician:input_type -> shorts.v1alpha1.GetPoliticianRequest
+	35,  // 93: shorts.v1alpha1.PoliticiansService.ListStockPoliticians:input_type -> shorts.v1alpha1.ListStockPoliticiansRequest
+	39,  // 94: shorts.v1alpha1.PoliticiansService.ListPoliticianStocks:input_type -> shorts.v1alpha1.ListPoliticianStocksRequest
+	42,  // 95: shorts.v1alpha1.PoliticiansService.ListSuburbPoliticians:input_type -> shorts.v1alpha1.ListSuburbPoliticiansRequest
+	45,  // 96: shorts.v1alpha1.PoliticiansService.ListStatePoliticianHoldings:input_type -> shorts.v1alpha1.ListStatePoliticianHoldingsRequest
+	47,  // 97: shorts.v1alpha1.PoliticiansService.ListRegisterChanges:input_type -> shorts.v1alpha1.ListRegisterChangesRequest
+	59,  // 98: shorts.v1alpha1.PoliticiansService.ListShortInterestOverlap:input_type -> shorts.v1alpha1.ListShortInterestOverlapRequest
+	7,   // 99: shorts.v1alpha1.PoliticiansService.GetPoliticianAnalytics:input_type -> shorts.v1alpha1.GetPoliticianAnalyticsRequest
+	16,  // 100: shorts.v1alpha1.PoliticiansService.GetRegisterExplorer:input_type -> shorts.v1alpha1.GetRegisterExplorerRequest
+	18,  // 101: shorts.v1alpha1.PoliticiansService.ListPoliticianSummaries:input_type -> shorts.v1alpha1.ListPoliticianSummariesRequest
+	20,  // 102: shorts.v1alpha1.PoliticiansService.GetPoliticianExplorerProfile:input_type -> shorts.v1alpha1.GetPoliticianExplorerProfileRequest
+	22,  // 103: shorts.v1alpha1.PoliticiansService.ComparePoliticians:input_type -> shorts.v1alpha1.ComparePoliticiansRequest
+	50,  // 104: shorts.v1alpha1.PoliticiansService.GetRegisterActivity:input_type -> shorts.v1alpha1.GetRegisterActivityRequest
+	56,  // 105: shorts.v1alpha1.PoliticiansService.ListDistinctiveHoldings:input_type -> shorts.v1alpha1.ListDistinctiveHoldingsRequest
+	66,  // 106: shorts.v1alpha1.PoliticiansService.GetDonationsOverview:input_type -> shorts.v1alpha1.GetDonationsOverviewRequest
+	70,  // 107: shorts.v1alpha1.PoliticiansService.ListTopDonors:input_type -> shorts.v1alpha1.ListTopDonorsRequest
+	72,  // 108: shorts.v1alpha1.PoliticiansService.ListPartyFunding:input_type -> shorts.v1alpha1.ListPartyFundingRequest
+	77,  // 109: shorts.v1alpha1.PoliticiansService.GetPoliticianFunding:input_type -> shorts.v1alpha1.GetPoliticianFundingRequest
+	30,  // 110: shorts.v1alpha1.PoliticiansService.GetParliamentOverview:output_type -> shorts.v1alpha1.GetParliamentOverviewResponse
+	32,  // 111: shorts.v1alpha1.PoliticiansService.ListPoliticians:output_type -> shorts.v1alpha1.ListPoliticiansResponse
+	34,  // 112: shorts.v1alpha1.PoliticiansService.GetPolitician:output_type -> shorts.v1alpha1.GetPoliticianResponse
+	37,  // 113: shorts.v1alpha1.PoliticiansService.ListStockPoliticians:output_type -> shorts.v1alpha1.ListStockPoliticiansResponse
+	41,  // 114: shorts.v1alpha1.PoliticiansService.ListPoliticianStocks:output_type -> shorts.v1alpha1.ListPoliticianStocksResponse
+	43,  // 115: shorts.v1alpha1.PoliticiansService.ListSuburbPoliticians:output_type -> shorts.v1alpha1.ListSuburbPoliticiansResponse
+	46,  // 116: shorts.v1alpha1.PoliticiansService.ListStatePoliticianHoldings:output_type -> shorts.v1alpha1.ListStatePoliticianHoldingsResponse
+	49,  // 117: shorts.v1alpha1.PoliticiansService.ListRegisterChanges:output_type -> shorts.v1alpha1.ListRegisterChangesResponse
+	61,  // 118: shorts.v1alpha1.PoliticiansService.ListShortInterestOverlap:output_type -> shorts.v1alpha1.ListShortInterestOverlapResponse
+	8,   // 119: shorts.v1alpha1.PoliticiansService.GetPoliticianAnalytics:output_type -> shorts.v1alpha1.GetPoliticianAnalyticsResponse
+	17,  // 120: shorts.v1alpha1.PoliticiansService.GetRegisterExplorer:output_type -> shorts.v1alpha1.GetRegisterExplorerResponse
+	19,  // 121: shorts.v1alpha1.PoliticiansService.ListPoliticianSummaries:output_type -> shorts.v1alpha1.ListPoliticianSummariesResponse
+	21,  // 122: shorts.v1alpha1.PoliticiansService.GetPoliticianExplorerProfile:output_type -> shorts.v1alpha1.GetPoliticianExplorerProfileResponse
+	25,  // 123: shorts.v1alpha1.PoliticiansService.ComparePoliticians:output_type -> shorts.v1alpha1.ComparePoliticiansResponse
+	55,  // 124: shorts.v1alpha1.PoliticiansService.GetRegisterActivity:output_type -> shorts.v1alpha1.GetRegisterActivityResponse
+	58,  // 125: shorts.v1alpha1.PoliticiansService.ListDistinctiveHoldings:output_type -> shorts.v1alpha1.ListDistinctiveHoldingsResponse
+	67,  // 126: shorts.v1alpha1.PoliticiansService.GetDonationsOverview:output_type -> shorts.v1alpha1.GetDonationsOverviewResponse
+	71,  // 127: shorts.v1alpha1.PoliticiansService.ListTopDonors:output_type -> shorts.v1alpha1.ListTopDonorsResponse
+	73,  // 128: shorts.v1alpha1.PoliticiansService.ListPartyFunding:output_type -> shorts.v1alpha1.ListPartyFundingResponse
+	78,  // 129: shorts.v1alpha1.PoliticiansService.GetPoliticianFunding:output_type -> shorts.v1alpha1.GetPoliticianFundingResponse
+	110, // [110:130] is the sub-list for method output_type
+	90,  // [90:110] is the sub-list for method input_type
+	90,  // [90:90] is the sub-list for extension type_name
+	90,  // [90:90] is the sub-list for extension extendee
+	0,   // [0:90] is the sub-list for field type_name
 }
 
 func init() { file_shorts_v1alpha1_politicians_proto_init() }
@@ -5746,7 +7771,7 @@ func file_shorts_v1alpha1_politicians_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shorts_v1alpha1_politicians_proto_rawDesc), len(file_shorts_v1alpha1_politicians_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   59,
+			NumMessages:   76,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
