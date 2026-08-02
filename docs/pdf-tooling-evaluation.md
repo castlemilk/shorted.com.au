@@ -57,3 +57,31 @@ regressions tolerated), Gemini input tokens (adopt needs ≥20% reduction), adde
 wall time. Rationale: that path pays per token (`resolve_gemini_run_budget`),
 so structure-preserving Markdown input is the one place the tool touches real
 dollars.
+
+## Trial outcome (2026-08-02) — do not integrate
+
+Ran per the design above (10 stratified ASX filings pulled through the
+extractor's own resolve+download path; baseline validated byte-for-byte
+against `financial_report_extractions.raw_text_length`; artifacts in
+`/Volumes/gamma-systems-2/dev-caches/pdf-tools-eval/trial/RESULTS.md`):
+
+- **Token reduction −2.5%** against the ≥20% adopt threshold — and the digest
+  window (16,000 chars) is already saturated on 8/10 docs, so the billed call
+  is identical either way.
+- **Structural results mixed**: ruled financial tables genuinely reconstruct
+  (CBA capital ratios, BXB income statement — the baseline emits one cell per
+  line), but WBC's bar-chart value labels were silently DROPPED (the headline
+  deposit/loan figures), designed pages grow invented grids, and the same
+  multi-line-cell flattening appeared again. Numeric-token recall 98.6%;
+  invents nothing (reverse recall 1.000 on 9/10).
+- **Wall time**: fine typically; WBC 10.99s vs 0.054s baseline (203×,
+  reproducible) — a bad tail for a batch job.
+- Field-accuracy comparison NOT run (needs paid Gemini spend ×~400 calls);
+  no accuracy numbers are claimed.
+
+**Final position: both tools skipped everywhere.** If Gemini cost on
+report-extractor matters, the levers the trial actually exposed are the digest
+constants (`max_char_buffer=2000` multiplies call count; the 16k window is the
+binding cap) and page SELECTION — for which pdf-inspector's `--analyze`
+(pdf_type / pages_with_tables, ms-fast, correct on all 10) would be a
+defensible narrow import if ever needed. Nothing adopted now.
