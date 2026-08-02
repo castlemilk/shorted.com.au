@@ -40,7 +40,7 @@
  * without the second still reads as a finding about the person.
  */
 export const SENATE_REGISTER_UNREAD =
-  "The Registers of Senators’ Interests are tabled as combined Senate volumes, and we have not read them into this site yet.";
+  "The Registers of Senators’ Interests are tabled as combined Senate volumes, and the volumes covering this senator’s lodgements are ones we have not read into this site yet.";
 
 /** Whose gap it is. This sentence is the whole point of the branch. */
 export const SENATE_ABSENCE_IS_OURS =
@@ -72,7 +72,7 @@ export const SENATE_REGISTER_GAP = `${SENATE_REGISTER_UNREAD} ${SENATE_ABSENCE_I
  * this file.
  */
 export const SENATE_REGISTER_GAP_CORPUS =
-  "The Registers of Senators’ Interests are tabled as combined Senate volumes and have not been read into this site yet, so a senator’s declared interests appear here only where they also served in the House. What is missing is our coverage, not their declarations.";
+  "The Registers of Senators’ Interests are tabled as combined Senate volumes. We have read the recent volumes into this site; older, scanned volumes are not read yet, so a senator’s declared interests can be incomplete for their earlier parliaments. What is missing is our coverage, not their declarations.";
 
 /**
  * Whether a profile has anything from the register behind it.

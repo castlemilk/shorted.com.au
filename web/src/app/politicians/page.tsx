@@ -720,16 +720,17 @@ export default async function PoliticiansPage() {
               <SectionIcon name="directorships" />
               Which parties declare interests in which industries
             </h2>
-            {/* A party's row is a count over the registers WE HAVE READ, which
-                are the House ones. Unsaid, an empty or short row reads as a
-                party that declares little, when for a Senate-heavy party it is
-                mostly a chamber we have not opened. */}
+            {/* A party's row is a count over the registers WE HAVE READ. Both
+                chambers contribute now, but the older, scanned Senate volumes
+                are still unread — unsaid, a short row reads as a party that
+                declares little, when for a Senate-heavy party part of it can
+                still be volumes we have not opened. */}
             <p className="text-sm text-muted-foreground">
               Each cell counts <strong>members</strong>, not holdings and not money — a member who
               declares four banks is one member. The registers record no quantity or value, so
               nothing here can be weighted by size. Every cell is counted over the registers we
-              have read, which are the House registers — a party&rsquo;s senators are not in these
-              rows, so a small row can be our coverage rather than that party&rsquo;s declarations.
+              have read — both chambers, though older, scanned Senate volumes are not read yet —
+              so a small row can be our coverage rather than that party&rsquo;s declarations.
             </p>
             <RegisterHeatmap
               cells={(analytics?.cells ?? []).map((c) => ({
