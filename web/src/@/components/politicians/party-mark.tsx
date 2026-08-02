@@ -141,16 +141,32 @@ function monogram(abbreviation: string | undefined | null): string {
 export function PartyMark({
   abbreviation,
   size = "sm",
+  background: backgroundOverride,
   className,
 }: {
   /** AEC party abbreviation, e.g. "ALP". Absent → the neutral variant. */
   abbreviation?: string | null;
   size?: PartyMarkSize;
+  /**
+   * A tile colour to use INSTEAD of the party's palette colour.
+   *
+   * ONE CALLER, AND IT IS NOT A THEMING HOOK. /compare draws each member as a
+   * series, and when both members sit in the same party the second series falls
+   * back to slate so two polygons are not one colour. A mark in the party's own
+   * colour there would key the reader to the wrong series — so the compare
+   * header cards hand the SERIES colour in, and the monogram goes on carrying
+   * the party. The override still runs through `markTile`, so a colour chosen
+   * for a polygon cannot arrive here as unreadable type.
+   *
+   * Everywhere else this is absent and the palette decides, which is what keeps
+   * one party one colour across the feature.
+   */
+  background?: string;
   className?: string;
 }) {
   const recorded = Boolean((abbreviation ?? "").trim());
   const { background, ink } = markTile(
-    recorded ? partyColorFromAb(abbreviation) : PARTY_OTHER_COLOR,
+    backgroundOverride ?? (recorded ? partyColorFromAb(abbreviation) : PARTY_OTHER_COLOR),
   );
   const label = partyMarkLabel(abbreviation);
   const text = monogram(abbreviation);

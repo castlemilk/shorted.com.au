@@ -30,6 +30,9 @@
 import { useMemo, useState, type ReactNode } from "react";
 
 import { Input } from "@/components/ui/input";
+import { PoliticsIcon } from "@/components/politicians/politics-icon";
+import { HOLDER_FILTER_ICON, registerItemIcon } from "@/lib/politics/register-item-icons";
+import { POLITICS_FOCUS_RING } from "@/lib/politics/control-classes";
 
 export interface DeclarationRow {
   /** Stable within one render of one profile. */
@@ -144,6 +147,10 @@ export function DeclarationsTable({ rows }: DeclarationsTableProps) {
               onSelect={() => setCategory(entry.key)}
               label={entry.label}
               count={entry.count}
+              // Derived from the register's own item number, which already
+              // crosses the RSC boundary on every row — the icon map is pure
+              // data over a generated manifest, so nothing new crosses with it.
+              icon={registerItemIcon(entry.itemNo)}
             />
           ))}
         </div>
@@ -178,6 +185,10 @@ export function DeclarationsTable({ rows }: DeclarationsTableProps) {
                   onSelect={() => setHolder(entry.key)}
                   label={entry.label}
                   count={entry.count}
+                  // Keyed off the holder key the server row already carries.
+                  // "not-stated" is absent from the map on purpose, so that
+                  // button renders its label alone — see HOLDER_FILTER_ICON.
+                  icon={HOLDER_FILTER_ICON[entry.key]}
                 />
               ))}
             </div>
@@ -217,9 +228,14 @@ export function DeclarationsTable({ rows }: DeclarationsTableProps) {
             {groups.map((group) => (
               <section key={group.key} className="space-y-1">
                 {groups.length > 1 ? (
-                  <h3 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                    {group.label}{" "}
-                    <span className="tabular-nums font-normal">({group.rows.length})</span>
+                  <h3 className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                    {registerItemIcon(group.rows[0]?.itemNo) ? (
+                      <PoliticsIcon name={registerItemIcon(group.rows[0]!.itemNo)!} size={14} />
+                    ) : null}
+                    <span>
+                      {group.label}{" "}
+                      <span className="tabular-nums font-normal">({group.rows.length})</span>
+                    </span>
                   </h3>
                 ) : null}
                 <ul className="divide-y">
@@ -243,11 +259,13 @@ function FilterTab({
   onSelect,
   label,
   count,
+  icon,
 }: {
   selected: boolean;
   onSelect: () => void;
   label: string;
   count: number;
+  icon?: ReturnType<typeof registerItemIcon>;
 }) {
   return (
     <button
@@ -256,11 +274,17 @@ function FilterTab({
       aria-selected={selected}
       aria-controls="declaration-panel"
       onClick={onSelect}
-      className={`rounded-md border px-2 py-1 text-xs ${
+      // NEVER ICON-ONLY. A tab is how a reader narrows what a named person is
+      // shown to have declared, so the category has to be readable as a word —
+      // the icon is a second cue beside it, never the whole control.
+      className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors ${POLITICS_FOCUS_RING} ${
         selected ? "bg-muted font-medium" : "text-muted-foreground hover:bg-muted/50"
       }`}
     >
-      {label} <span className="tabular-nums">{count}</span>
+      {icon ? <PoliticsIcon name={icon} size={14} /> : null}
+      <span>
+        {label} <span className="tabular-nums">{count}</span>
+      </span>
     </button>
   );
 }
@@ -270,23 +294,28 @@ function HolderFilterButton({
   onSelect,
   label,
   count,
+  icon,
 }: {
   selected: boolean;
   onSelect: () => void;
   label: string;
   count?: number;
+  icon?: ReturnType<typeof registerItemIcon>;
 }) {
   return (
     <button
       type="button"
       aria-pressed={selected}
       onClick={onSelect}
-      className={`rounded-md border px-2 py-1 text-[11px] ${
+      className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] transition-colors ${POLITICS_FOCUS_RING} ${
         selected ? "bg-muted font-medium" : "text-muted-foreground hover:bg-muted/50"
       }`}
     >
-      {label}
-      {count === undefined ? null : <span className="ml-1 tabular-nums">{count}</span>}
+      {icon ? <PoliticsIcon name={icon} size={13} /> : null}
+      <span>
+        {label}
+        {count === undefined ? null : <span className="ml-1 tabular-nums">{count}</span>}
+      </span>
     </button>
   );
 }

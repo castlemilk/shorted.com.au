@@ -62,3 +62,40 @@ export function PoliticsIcon({
     />
   );
 }
+
+/**
+ * The leading accent on a major section heading. ONE PER SECTION, never more.
+ *
+ * Two sizes, matched to the two heading tokens rather than to a Tailwind step:
+ * `sectionTitle` is `text-2xl` (24 px serif) and takes a 20 px icon, and the
+ * `text-sm` sub-headings the client islands use take 16 px. Both are optically
+ * nudged onto the text baseline — a box aligned to the FONT baseline sits high
+ * against a cap-height-dominated serif line, and the difference reads as a
+ * misalignment even when nobody can say why.
+ *
+ * DIMENSIONS ARE FIXED AND THE ICON IS `shrink-0`, so a heading's height is the
+ * same before and after the sprite loads. An accent that reflows its own heading
+ * is a layout shift on the one element a reader is using to navigate.
+ */
+export function SectionIcon({
+  name,
+  size = "lg",
+  className,
+}: {
+  name: PoliticsIconName;
+  /** `lg` for a `sectionTitle` h2, `sm` for a `text-sm` island heading. */
+  size?: "lg" | "sm";
+  className?: string;
+}) {
+  return (
+    <PoliticsIcon
+      name={name}
+      size={size === "lg" ? 20 : 16}
+      className={cn(
+        "mr-2",
+        size === "lg" ? "align-[-0.12em]" : "align-[-0.18em]",
+        className,
+      )}
+    />
+  );
+}

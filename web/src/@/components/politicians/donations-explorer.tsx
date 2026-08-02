@@ -61,6 +61,7 @@ import {
   formatCount,
   type ReceiptSplitCents,
 } from "@/lib/politics/funding-money";
+import { SectionIcon } from "@/components/politicians/politics-icon";
 import { partyGroupColor } from "@/lib/politics/party-group-palette";
 import {
   POLITICS_FILTER_BUTTON_CLASS,
@@ -554,6 +555,7 @@ export function DonationsExplorer({ initialPage, loadPage }: DonationsExplorerPr
       <section aria-labelledby={`${controlsId}-measures`} className="space-y-4">
         <div className="space-y-1">
           <h2 id={`${controlsId}-measures`} className="text-sm font-medium">
+            <SectionIcon name="donation-receipt" size="sm" />
             Party funding declared for {servedYear}
           </h2>
           {/*
@@ -636,6 +638,7 @@ export function DonationsExplorer({ initialPage, loadPage }: DonationsExplorerPr
       <section aria-labelledby={`${controlsId}-payers`} className="space-y-3">
         <div className="space-y-1">
           <h2 id={`${controlsId}-payers`} className="text-sm font-medium">
+            <SectionIcon name="other-receipt" size="sm" />
             Payers named in itemised receipts, {page.payerFinancialYear || servedYear}
             {partyFilter ? ` — ${partyFilter}` : ""}
           </h2>
@@ -669,7 +672,10 @@ export function DonationsExplorer({ initialPage, loadPage }: DonationsExplorerPr
           <div aria-busy={status === "loading"} className={status === "loading" ? "opacity-60" : ""}>
             <ul className="divide-y">
               {page.payers.map((payer) => (
-                <li key={payer.id} className="space-y-1 py-3">
+                <li
+                  key={payer.id}
+                  className="-mx-2 space-y-1 rounded-md px-2 py-3 transition-colors hover:bg-muted/40"
+                >
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <span className="flex min-w-0 flex-wrap items-center gap-2">
                       <span className="text-sm">{payer.donorName}</span>
@@ -749,6 +755,7 @@ export function DonationsExplorer({ initialPage, loadPage }: DonationsExplorerPr
       <section aria-labelledby={`${controlsId}-listed`} className="space-y-3">
         <div className="space-y-1">
           <h2 id={`${controlsId}-listed`} className="text-sm font-medium">
+            <SectionIcon name="shareholdings" size="sm" />
             ASX-listed payers, {page.payerFinancialYear || servedYear}
           </h2>
           <p className="text-[11px] leading-relaxed text-muted-foreground">
@@ -821,7 +828,10 @@ export function DonationsExplorer({ initialPage, loadPage }: DonationsExplorerPr
             ) : null}
             <ul className="grid gap-3 sm:grid-cols-2">
             {page.listedPayers.map((payer) => (
-              <li key={payer.id} className="space-y-1 rounded-lg border bg-card p-3">
+              <li
+                key={payer.id}
+                className="space-y-1 rounded-lg border bg-card p-3 transition-colors hover:border-foreground/20"
+              >
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <Link
                     href={`/shorts/${payer.stockCode}`}

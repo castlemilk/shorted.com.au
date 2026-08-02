@@ -12,6 +12,7 @@ import {
 } from "~/app/actions/donationsExplorer";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { formatCount } from "@/lib/politics/funding-money";
+import { PoliticsIcon, SectionIcon } from "@/components/politicians/politics-icon";
 import { REPORT_ERROR_EMAIL } from "@/lib/report-error";
 import { pageTitle, sectionTitle, eyebrow, lede } from "@/lib/typography";
 
@@ -128,9 +129,17 @@ export default async function DonationsPage() {
             className="space-y-3 rounded-lg border bg-card p-4"
           >
             <h2 id="how-to-read-these-figures" className={sectionTitle}>
+              <SectionIcon name="coverage" />
               How to read these figures
             </h2>
             <p className="text-[11px] leading-relaxed text-muted-foreground">
+              {/*
+                THE DEFINITION PARAGRAPH GETS THE FILED-DOCUMENT MARK, because
+                the thing it defines is a document. One accent, floated into the
+                first line rather than given its own row — it is punctuation for
+                the paragraph, not a heading of its own.
+              */}
+              <PoliticsIcon name="source-document" size={13} className="mr-1.5" />
               A <strong>return</strong> is a disclosure form lodged with the AEC. Parties lodge an
               annual return of what they received, paid and owed; party branches itemise the
               receipts above the year&rsquo;s threshold; donors lodge their own return of what

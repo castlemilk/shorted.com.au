@@ -73,3 +73,24 @@ export const HOLDER_ICON: Record<string, PoliticsIconName> = {
   spouse: "holder-spouse",
   dependent: "holder-dependent",
 };
+
+/**
+ * The profile filter's OWN holder keys → the holder icons.
+ *
+ * A second map rather than string surgery on the first. `HOLDER_FILTER` in
+ * `profile/declaration-rows.tsx` mints serialisable keys for the filter island
+ * ("spouse-partner", "dependent-child") and they are deliberately not the sprite
+ * ids; deriving one from the other with `replace()` is the kind of thing that
+ * keeps working until someone renames a filter key and a silent `undefined`
+ * drops an icon nobody notices.
+ *
+ * "not-stated" IS ABSENT ON PURPOSE, and it is the same decision HolderBadge
+ * makes: the set holds no glyph for the absence of a fact, because a question
+ * mark or a blank silhouette beside a named member's family depicts a gap in the
+ * FORM as a gap in the declaration. That button renders its label alone.
+ */
+export const HOLDER_FILTER_ICON: Record<string, PoliticsIconName> = {
+  self: "holder-self",
+  "spouse-partner": "holder-spouse",
+  "dependent-child": "holder-dependent",
+};

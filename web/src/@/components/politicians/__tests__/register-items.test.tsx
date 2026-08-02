@@ -13,6 +13,8 @@ import { render, screen } from "@testing-library/react";
 
 import { RegisterItemTag, SourceDocLink, registerDocLabel } from "../compliance";
 import { REGISTER_ITEMS, registerItem } from "@/lib/politics/register-items";
+import { REGISTER_ITEM_ICON } from "@/lib/politics/register-item-icons";
+import { POLITICS_ICONS } from "../politics-icons.generated";
 
 describe("register items", () => {
   it("covers all 14 form items exactly", () => {
@@ -58,12 +60,45 @@ describe("register items", () => {
     }
   });
 
-  it("renders the icon decoratively, with the label carrying the meaning", () => {
+  /**
+   * THE TAG RENDERS THE SPRITE ICON, NOT THE EMOJI.
+   *
+   * The emoji above is still the taxonomy's own glyph and the two BANNED-glyph
+   * assertions above still police it — that is the data module's contract, and
+   * the operator console reads it. What changed on 2026-08-02 is the RENDERING:
+   * every reader-facing surface now draws the commissioned set, so this
+   * assertion follows the tag rather than the taxonomy.
+   *
+   * The equivalent editorial gate on the ARTWORK is
+   * `politics-icon-subjects.test.ts`, which reads the icon-set config and
+   * enforces the same two bans on the subjects (no money, no warning, no gavel
+   * or scales, no trophy) that the glyph assertions above enforce on the emoji.
+   * Neither is redundant: one governs what the sprite depicts, the other what
+   * `register-items.ts` still carries.
+   */
+  it("renders the category icon decoratively, with the label carrying the meaning", () => {
     const { container } = render(<RegisterItemTag itemNo={11} />);
     expect(screen.getByText("Gift")).toBeInTheDocument();
-    // The emoji must be aria-hidden so a screen reader hears "Gift", not
-    // "wrapped present Gift".
-    expect(container.querySelector('[aria-hidden="true"]')?.textContent).toBe("🎁");
+
+    const decorative = container.querySelector('[aria-hidden="true"]')!;
+    // Decorative, so a screen reader hears "Gift" and not a description of a
+    // wrapped parcel followed by "Gift".
+    expect(decorative).toBeInTheDocument();
+    expect(decorative.getAttribute("role")).toBeNull();
+    expect(decorative.getAttribute("aria-label")).toBeNull();
+    // It is the SPRITE, sliced at item 11's cell — not the emoji, and not a
+    // separate network request per icon.
+    expect((decorative as HTMLElement).style.backgroundImage).toContain(
+      POLITICS_ICONS.sheet,
+    );
+    const gifts = POLITICS_ICONS.icons[REGISTER_ITEM_ICON[11]!];
+    const scale = 14 / POLITICS_ICONS.cell;
+    expect((decorative as HTMLElement).style.backgroundPosition).toBe(
+      `-${gifts.x * scale}px -${gifts.y * scale}px`,
+    );
+    // And the emoji is no longer rendered anywhere in the tag.
+    expect(container.textContent).not.toContain("🎁");
+
     // The form's legal wording is the tooltip — it is how a reader finds the
     // row on the original PDF.
     expect(container.firstElementChild?.getAttribute("title")).toBe("Gifts");

@@ -53,12 +53,15 @@ import { CompareBars } from "@/components/politicians/explorer/compare-bars";
 import { CompareRadar } from "@/components/politicians/explorer/compare-radar";
 import { CountTile } from "@/components/politicians/explorer/count-tile";
 import { KeyFacts } from "@/components/politicians/explorer/key-facts";
+import { PartyMark } from "@/components/politicians/party-mark";
+import { PoliticsIcon, SectionIcon } from "@/components/politicians/politics-icon";
 import { partyColorFromAb, partyLabel } from "@/lib/politics/party-palette";
 import {
   searchPoliticians,
   type PoliticianHit,
 } from "@/lib/politics/politician-search";
 import { registerItem } from "@/lib/politics/register-items";
+import { registerItemIcon } from "@/lib/politics/register-item-icons";
 import { toDate } from "@/lib/politics/timestamp";
 import { sectionTitle } from "@/lib/typography";
 import { comparePoliticiansClient } from "~/app/actions/client/getPoliticiansClient";
@@ -359,6 +362,17 @@ function MemberPicker({
           }
         }}
       >
+        {/*
+          THE ONE PLACE THE MAGNIFIER IS ALLOWED, and it is a property of the
+          FIELD, not of the members it finds — see the icon set's config for why
+          a magnifier pointed at a person is banned outright. `pointer-events-none`
+          so it cannot swallow a tap meant for the input.
+        */}
+        <PoliticsIcon
+          name="search"
+          size={14}
+          className="pointer-events-none absolute left-2.5 top-1/2 z-10 -translate-y-1/2 opacity-70"
+        />
         <Input
           id={inputId}
           role="combobox"
@@ -378,7 +392,7 @@ function MemberPicker({
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
-          className="h-11 pr-16"
+          className="h-11 pl-8 pr-16"
         />
         {selectedName ? (
           <button
@@ -481,15 +495,18 @@ function SeriesChip({
   note?: string;
 }) {
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-      <span
-        aria-hidden
-        className="inline-block h-2 w-2 rounded-full"
-        style={{ backgroundColor: color }}
-      />
+    <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+      {/*
+        THE SERIES COLOUR OVERRIDES THE PARTY'S OWN, and it has to. When both
+        members sit in the same party the second series is drawn in slate, so a
+        mark in the party colour here would key the reader to the WRONG polygon.
+        The tile therefore takes the series colour and the monogram still names
+        the party — which is exactly the mapping `colorNote` states in words.
+      */}
+      <PartyMark abbreviation={partyAb} size="sm" background={color} />
       {/* Party reaches the register through an electorate join, not the APH
           listing, so absence is real and is labelled as absence. */}
-      {partyAb ? partyLabel(partyAb) : "Party not recorded"}
+      <span aria-hidden>{partyAb ? partyLabel(partyAb) : "Party not recorded"}</span>
       {note ? <span className="text-muted-foreground/80">· {note}</span> : null}
     </span>
   );
@@ -848,6 +865,11 @@ export function ComparePanel() {
     return itemNos
       .map((itemNo) => ({
         label: registerItem(itemNo)?.label ?? `Item ${itemNo}`,
+        // The same category icon the profile rows and the activity feed use, so
+        // "Shareholdings" looks like itself on every surface. Undefined for an
+        // item number outside the taxonomy — the label stands alone rather than
+        // borrowing a glyph from a category we did not identify.
+        icon: registerItemIcon(itemNo),
         countA: countForItem(summaryA.itemCounts, itemNo),
         countB: countForItem(summaryB.itemCounts, itemNo),
       }))
@@ -1019,7 +1041,10 @@ export function ComparePanel() {
         </section>
 
         <section className="space-y-3">
-          <h2 className={sectionTitle}>Entries by register category</h2>
+          <h2 className={sectionTitle}>
+            <SectionIcon name="other-interests" />
+            Entries by register category
+          </h2>
           <p className="text-sm text-muted-foreground">
             The register has fourteen numbered items and each bar counts the
             entries currently declared under one of them. A bar is a number of
@@ -1043,7 +1068,10 @@ export function ComparePanel() {
 
         {radarAxes.length > 0 ? (
           <section className="space-y-3">
-            <h2 className={sectionTitle}>The same counts, grouped</h2>
+            <h2 className={sectionTitle}>
+              <SectionIcon name="compare" />
+              The same counts, grouped
+            </h2>
             <p className="text-sm text-muted-foreground">
               The fourteen items folded into eight groups, drawn on a square-root
               axis so a large group does not flatten the small ones. Same
@@ -1063,7 +1091,10 @@ export function ComparePanel() {
 
         {holderRows.length > 0 ? (
           <section className="space-y-3">
-            <h2 className={sectionTitle}>Whose interest each entry records</h2>
+            <h2 className={sectionTitle}>
+              <SectionIcon name="holder-spouse" />
+              Whose interest each entry records
+            </h2>
             <p className="text-sm text-muted-foreground">
               The register asks members to declare interests held by themselves,
               by a spouse or partner, and by a dependent child. Where the form a
@@ -1081,7 +1112,10 @@ export function ComparePanel() {
         ) : null}
 
         <section className="space-y-3">
-          <h2 className={sectionTitle}>Companies in both sets of declarations</h2>
+          <h2 className={sectionTitle}>
+            <SectionIcon name="shareholdings" />
+            Companies in both sets of declarations
+          </h2>
           <p className="text-sm text-muted-foreground">
             ASX-listed companies that appear in the declarations of both members.
             A company is listed here because both registers name it, which says
@@ -1095,7 +1129,10 @@ export function ComparePanel() {
         </section>
 
         <section className="space-y-3">
-          <h2 className={sectionTitle}>Companies in only one</h2>
+          <h2 className={sectionTitle}>
+            <SectionIcon name="partnerships" />
+            Companies in only one
+          </h2>
           <div className="grid gap-4 md:grid-cols-2">
             <OnlyList
               title={`Only in ${displayA}'s declarations`}
@@ -1113,7 +1150,10 @@ export function ComparePanel() {
         {facts.length > 0 ? <KeyFacts facts={facts} /> : null}
 
         <section className="space-y-3">
-          <h2 className={sectionTitle}>What has been read, for each member</h2>
+          <h2 className={sectionTitle}>
+            <SectionIcon name="coverage" />
+            What has been read, for each member
+          </h2>
           {/*
             THE MOST IMPORTANT PARAGRAPH ON THE PAGE. Two members' registers are
             not read to the same depth, and a difference in a count can be a

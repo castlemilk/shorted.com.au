@@ -34,7 +34,8 @@ import { useCallback, useId, useRef, useState } from "react";
 
 import { SparkTrend } from "@/components/politicians/explorer/spark-trend";
 import { PoliticianAvatar } from "@/components/politicians/politician-avatar";
-import { partyColorFromAb, partyLabel } from "@/lib/politics/party-palette";
+import { PartyMark } from "@/components/politicians/party-mark";
+import { partyLabel } from "@/lib/politics/party-palette";
 import { REGISTER_ITEMS } from "@/lib/politics/register-items";
 import {
   POLITICS_FILTER_BUTTON_CLASS,
@@ -175,7 +176,12 @@ const SELECT_CLASS = POLITICS_SELECT_CLASS;
  * imports the generated `RegisterHolder`, so pulling a chip from it drags the
  * protobuf runtime into this bundle and takes the static build of /politicians
  * down with an "Element type is invalid" error. `party-palette.ts` is pure data
- * and exists for exactly this.
+ * and exists for exactly this — and `<PartyMark>` is client-safe by the same
+ * construction, so the MARK is shared even though this wrapper is not.
+ *
+ * The mark carries the party's full name as its own accessible name, so the
+ * visible label is `aria-hidden`: otherwise every one of 25 rows announces the
+ * party twice.
  */
 function TablePartyChip({ partyAb }: { partyAb?: string }) {
   if (!partyAb) {
@@ -184,13 +190,9 @@ function TablePartyChip({ partyAb }: { partyAb?: string }) {
     return <span className="text-[11px] text-muted-foreground">Party not recorded</span>;
   }
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-      <span
-        aria-hidden
-        className="inline-block h-2 w-2 rounded-full"
-        style={{ backgroundColor: partyColorFromAb(partyAb) }}
-      />
-      {partyLabel(partyAb)}
+    <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+      <PartyMark abbreviation={partyAb} size="sm" />
+      <span aria-hidden>{partyLabel(partyAb)}</span>
     </span>
   );
 }
@@ -504,7 +506,15 @@ export function PoliticianRegisterTable({
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={row.slug} className="border-b last:border-0 align-middle">
+              // A hover tint on the whole row, because the row is a unit: the
+              // member's name is the only link in it and the four counts to its
+              // right belong to that person. `transition-colors` only — no
+              // transform, no shadow, nothing that could move a row under a
+              // pointer that is already travelling towards a name.
+              <tr
+                key={row.slug}
+                className="border-b last:border-0 align-middle transition-colors hover:bg-muted/40"
+              >
                 <th scope="row" className="py-2 pr-3 text-left font-normal">
                   <div className="flex items-center gap-2.5">
                     <PoliticianAvatar

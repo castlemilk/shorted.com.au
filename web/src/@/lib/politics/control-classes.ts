@@ -31,18 +31,49 @@
  */
 
 /**
+ * ONE FOCUS TREATMENT FOR EVERY CONTROL IN THE FEATURE.
+ *
+ * The selects had a ring and the buttons beside them had nothing, so tabbing
+ * across a filter bar showed a keyboard reader where they were on two controls
+ * out of six and then lost them. `focus-visible` rather than `focus` so the ring
+ * appears for the keyboard and not on every mouse click.
+ */
+export const POLITICS_FOCUS_RING =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background";
+
+/**
  * A filter `<select>`: 44 px tall where a finger is the pointer, back to the
  * dense 32 px from `sm:` up where a mouse is.
  */
 export const POLITICS_SELECT_CLASS =
-  "h-11 sm:h-8 w-full sm:w-auto min-w-0 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring";
+  "h-11 sm:h-8 w-full sm:w-auto min-w-0 rounded-md border border-input bg-background px-2 text-xs " +
+  POLITICS_FOCUS_RING;
 
 /**
  * A bare text button sitting in a filter row ("Clear filters"), matched to the
  * selects beside it so the row's controls share one baseline and one hit area.
  */
 export const POLITICS_FILTER_BUTTON_CLASS =
-  "h-11 sm:h-8 px-1 text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground";
+  "h-11 sm:h-8 rounded px-1 text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground " +
+  POLITICS_FOCUS_RING;
+
+/**
+ * A member typeahead `<input>`: the select's box, plus room for the magnifier.
+ *
+ * `pl-7` IS RESERVED SPACE, NOT PADDING TASTE. The icon is absolutely positioned
+ * over the field, so without the inset the reader's own text runs underneath it.
+ * Reserving the space in the class rather than at each call site is what keeps
+ * the three search fields in this feature the same field.
+ *
+ * THE MAGNIFIER BELONGS HERE AND NOWHERE ELSE. The icon set's own config
+ * constrains it to the search box, because a magnifying glass pointed at a
+ * person reads as investigation — which is why the set carries no eye, no
+ * binoculars and no detective at all. It may never appear beside a member's
+ * name, in a heading about members, or on a profile.
+ */
+export const POLITICS_SEARCH_INPUT_CLASS =
+  "h-11 sm:h-8 w-full min-w-0 rounded-md border border-input bg-background pl-7 pr-2 text-xs " +
+  POLITICS_FOCUS_RING;
 
 /**
  * A bordered pagination / toggle button. `min-h-11` rather than `h-11` so it can
@@ -50,4 +81,5 @@ export const POLITICS_FILTER_BUTTON_CLASS =
  * dense height on a pointer device.
  */
 export const POLITICS_PAGER_BUTTON_CLASS =
-  "min-h-11 sm:min-h-0 rounded border px-3 py-1 disabled:opacity-40 enabled:hover:text-foreground";
+  "min-h-11 sm:min-h-0 rounded border px-3 py-1 transition-colors disabled:opacity-40 enabled:hover:bg-muted/50 enabled:hover:text-foreground " +
+  POLITICS_FOCUS_RING;

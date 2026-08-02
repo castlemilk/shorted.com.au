@@ -18,6 +18,8 @@
  * PROPS-ONLY KIT: no fetching, no generated protobuf, no compliance import.
  */
 
+import { PoliticsIcon } from "@/components/politicians/politics-icon";
+import { RECEIPT_TYPE_ICON } from "@/lib/politics/register-item-icons";
 import {
   RECEIPT_TYPE_COLOR,
   RECEIPT_TYPE_LABEL,
@@ -44,6 +46,11 @@ export function ReceiptSplit({ split, subject, compact = false }: ReceiptSplitPr
     key,
     label: RECEIPT_TYPE_LABEL[key],
     color: RECEIPT_TYPE_COLOR[key],
+    // The bucket's own icon. THE FIVE ARE NOT INTERCHANGEABLE — a subscription
+    // is not a donation, which is the whole reason this component exists — so
+    // each gets its own subject and none of them is a money glyph: a parcel into
+    // a tray, a receipt slip, a membership card, a ballot box, a blank sheet.
+    icon: RECEIPT_TYPE_ICON[key],
     cents: Math.max(0, Number(split[key] ?? 0)),
   }));
 
@@ -80,11 +87,18 @@ export function ReceiptSplit({ split, subject, compact = false }: ReceiptSplitPr
       >
         {segments.map((segment) => (
           <li key={segment.key} className="flex items-center gap-1">
+            {/*
+              THE SWATCH STAYS BESIDE THE ICON. The swatch is what ties a row to
+              its segment in the bar above; the icon is what distinguishes the
+              five types at a glance. Dropping either leaves one of those two
+              jobs undone.
+            */}
             <span
               aria-hidden
               className="inline-block h-1.5 w-1.5 rounded-[1px]"
               style={{ backgroundColor: segment.color }}
             />
+            {segment.icon ? <PoliticsIcon name={segment.icon} size={12} /> : null}
             <span>{segment.label}</span>
             <span className="tabular-nums">{formatCents(segment.cents)}</span>
           </li>

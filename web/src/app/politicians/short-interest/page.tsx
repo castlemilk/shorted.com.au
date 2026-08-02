@@ -73,7 +73,10 @@ export default async function ShortInterestOverlapPage() {
             </thead>
             <tbody>
               {(data?.overlaps ?? []).map((o) => (
-                <tr key={o.stockCode} className="border-b last:border-0">
+                <tr
+                  key={o.stockCode}
+                  className="border-b last:border-0 transition-colors hover:bg-muted/40"
+                >
                   <th scope="row" className="py-2 text-left font-normal">
                     <Link href={`/shorts/${o.stockCode}`} className="hover:underline">
                       <span className="font-medium">{o.stockCode}</span>

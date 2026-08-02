@@ -1,10 +1,21 @@
 import { AMBER_STEPS } from "@/lib/politics/analytics-palette";
 import { ScreenReaderTable } from "@/components/politicians/explorer/screen-reader-table";
+import { PoliticsIcon, type PoliticsIconName } from "@/components/politicians/politics-icon";
 
 export interface CountDonutSegment {
   label: string;
   count: number;
   color?: string;
+  /**
+   * The sprite id for this category, when the caller has one.
+   *
+   * OPTIONAL BY DESIGN. This is generic kit — it draws register categories on
+   * the hub and could draw anything counted elsewhere — so an icon is something
+   * a caller may supply, never something this component derives. A folded
+   * "Other (n)" segment carries none: it stands for several categories at once,
+   * and borrowing one of their icons would name a group after its first member.
+   */
+  icon?: PoliticsIconName;
 }
 
 export interface CountDonutProps {
@@ -47,9 +58,7 @@ function segmentColor(segment: CountDonutSegment, index: number): string {
  * mystery and the count still adds up to the total. The full list survives in
  * the screen-reader table below, which keeps every original category.
  */
-function drawnSegments(
-  values: CountDonutSegment[],
-): { label: string; count: number; color?: string }[] {
+function drawnSegments(values: CountDonutSegment[]): CountDonutSegment[] {
   if (values.length <= MAX_SEGMENTS) return values;
   const head = values.slice(0, MAX_SEGMENTS - 1);
   const tail = values.slice(MAX_SEGMENTS - 1);
@@ -209,6 +218,13 @@ export function CountDonut({ segments, centerLabel, title }: CountDonutProps) {
                 className="inline-block h-2 w-2 shrink-0 rounded-full"
                 style={{ backgroundColor: segmentColor(segment, index) }}
               />
+              {/*
+                THE SWATCH STAYS. The icon says WHICH category and the swatch
+                says which arc — six steps of one hue are not separable by name,
+                so replacing the swatch with the icon would break the only link
+                between a legend row and the ring above it.
+              */}
+              {segment.icon ? <PoliticsIcon name={segment.icon} size={14} /> : null}
               <span className="truncate">{segment.label}</span>
               <span className="tabular-nums">{segment.count}</span>
             </li>

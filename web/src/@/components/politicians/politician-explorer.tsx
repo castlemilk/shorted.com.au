@@ -23,6 +23,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { PartyMark } from "@/components/politicians/party-mark";
+import { PoliticsIcon } from "@/components/politicians/politics-icon";
 import { PoliticianAvatar } from "@/components/politicians/politician-avatar";
 import {
   highlightFor,
@@ -31,7 +33,7 @@ import {
   type PoliticianHit,
   type PoliticianSearchResponse,
 } from "@/lib/politics/politician-search";
-import { PARTY_LABEL, partyColorFromAb, partyLabel } from "@/lib/politics/party-palette";
+import { PARTY_LABEL, partyLabel } from "@/lib/politics/party-palette";
 
 /**
  * The party chip, rendered locally rather than imported from `compliance.tsx`.
@@ -53,14 +55,13 @@ function ExplorerPartyChip({ partyAb }: { partyAb?: string }) {
     // listing, so absence is real and is labelled as absence — never guessed.
     return <span className="text-[11px] text-muted-foreground">Party not recorded</span>;
   }
+  // The mark carries the party's full name as its own accessible name, so the
+  // visible label is aria-hidden — a result list would otherwise announce the
+  // party twice on every hit.
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-      <span
-        aria-hidden
-        className="inline-block h-2 w-2 rounded-full"
-        style={{ backgroundColor: partyColorFromAb(partyAb) }}
-      />
-      {partyLabel(partyAb)}
+    <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+      <PartyMark abbreviation={partyAb} size="sm" />
+      <span aria-hidden>{partyLabel(partyAb)}</span>
     </span>
   );
 }
@@ -200,12 +201,24 @@ export function PoliticianExplorer({ initialQuery = "" }: { initialQuery?: strin
   return (
     <div className="space-y-4">
       <div className="relative">
+        {/*
+          THE MAGNIFIER LIVES IN THE SEARCH BOX AND NOWHERE ELSE. The icon set's
+          config constrains it here on purpose — a magnifying glass pointed at a
+          person reads as investigation, which is why the set carries no eye, no
+          binoculars and no detective subject at all. `pointer-events-none` so it
+          cannot eat a tap meant for the field it sits on.
+        */}
+        <PoliticsIcon
+          name="search"
+          size={18}
+          className="pointer-events-none absolute left-3.5 top-1/2 z-10 -translate-y-1/2 opacity-70"
+        />
         <Input
           ref={inputRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search a member, an electorate, a company or a suburb…   ( / )"
-          className="h-12 pl-4 pr-28 text-base"
+          className="h-12 pl-10 pr-28 text-base"
           aria-label="Search parliamentarians"
         />
         <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[11px] tabular-nums text-muted-foreground">

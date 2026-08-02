@@ -1,9 +1,21 @@
 import { ScreenReaderTable } from "@/components/politicians/explorer/screen-reader-table";
+import { PoliticsIcon, type PoliticsIconName } from "@/components/politicians/politics-icon";
 
 export interface CompareBarRow {
   label: string;
   countA: number;
   countB: number;
+  /**
+   * The category's sprite id, when the caller has one.
+   *
+   * OPTIONAL, because this kit draws two different row sets: the register's
+   * fourteen items (which have icons) and the three holder kinds plus "not
+   * stated" (where the absence has none — see HolderBadge for why a glyph for a
+   * missing fact is not a thing this set will ever hold). Decorative in both
+   * cases: the centre label is the row's name and the `sr-only` table below
+   * repeats every figure.
+   */
+  icon?: PoliticsIconName;
 }
 
 export interface CompareBarsProps {
@@ -76,10 +88,11 @@ export function CompareBars({
               </span>
             </div>
             <span
-              className="truncate text-center text-[11px] text-foreground"
+              className="flex min-w-0 items-center justify-center gap-1 text-center text-[11px] text-foreground"
               title={row.label}
             >
-              {row.label}
+              {row.icon ? <PoliticsIcon name={row.icon} size={13} /> : null}
+              <span className="truncate">{row.label}</span>
             </span>
             <div className="flex min-w-0 items-center gap-2">
               <span className="flex h-2 w-full max-w-40 rounded-sm bg-muted">
