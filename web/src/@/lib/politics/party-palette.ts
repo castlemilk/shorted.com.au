@@ -43,6 +43,27 @@ export const PARTY_LABEL: Record<string, string> = {
   AC: "Australian Conservatives",
   FF: "Family First",
   DLP: "Democratic Labour",
+  /*
+   * SENATE-ONLY CODES. The Senate seats micro-parties the House almost never
+   * does, so senator identity brought in a set of abbreviations this map had
+   * never seen and every one of them rendered as a grey "Other" chip beside a
+   * named person's photograph — six of them, on real parliamentarians who sat
+   * for real parties.
+   *
+   * Two of the six were NOT missing labels and are not fixed here: PHON is One
+   * Nation under a second code and "UAP [2018]" is UAP with the AEC's
+   * re-registration qualifier attached. Adding those as separate entries would
+   * have given One Nation two chips, two colours and two facet buckets, so they
+   * are normalised to ON and UAP at the point the term is written
+   * (`normalisePartyAbbrev` in aph_senators.go). One party, one key, everywhere.
+   *
+   * These four are genuinely absent labels. FFP is the same party FF already
+   * names — the Senate's code for it — and shares its colour deliberately.
+   */
+  FFP: "Family First",
+  GLT: "Glenn Lazarus Team",
+  AMEP: "Australian Motoring Enthusiast",
+  AV: "Australia's Voice",
 };
 
 export const PARTY_COLORS: Record<string, string> = {
@@ -67,6 +88,12 @@ export const PARTY_COLORS: Record<string, string> = {
   "Australian Conservatives": "#5a6f9c",
   "Family First": "#a05a7a",
   "Democratic Labour": "#b06a5a",
+  // Senate micro-parties. Each is separable from every colour above and from
+  // the neutral "Other" grey — a party chip that cannot be told from "we do not
+  // know" is the same failure as no chip.
+  "Glenn Lazarus Team": "#8a7f4f",
+  "Australian Motoring Enthusiast": "#6f7f96",
+  "Australia's Voice": "#a86a4f",
   Other: PARTY_OTHER_COLOR,
 };
 
@@ -93,6 +120,9 @@ export const PARTY_ORDER = [
   "Derryn Hinch's Justice",
   "Family First",
   "Democratic Labour",
+  "Glenn Lazarus Team",
+  "Australian Motoring Enthusiast",
+  "Australia's Voice",
   "Other",
 ];
 

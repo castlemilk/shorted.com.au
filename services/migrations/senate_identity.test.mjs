@@ -232,3 +232,48 @@ test("both migrations are transactional", () => {
     assert.ok(code.trimEnd().endsWith("COMMIT;"), `${name} does not commit`);
   }
 });
+
+/*
+ * The election-date map exists in TWO places by necessity: the job needs it in
+ * Go to derive Senate terms from dated intervals, and the resolver needs it in
+ * SQL for a set-based fresh-mandate guard. A divergence would move the window
+ * away from the election it is meant to bracket, and the failure would be
+ * silent — returns quietly resolving to, or withholding from, the wrong people.
+ */
+test("the SQL election-date map matches aph_parliaments.go", () => {
+  const go = readFileSync(
+    new URL("../jobs/internal/jobs/influence/aph_parliaments.go", import.meta.url),
+    "utf8",
+  );
+  const goMap = new Map();
+  const goBlock = go.slice(
+    go.indexOf("var parliamentElectionDates"),
+    go.indexOf("// firstMappedParliament"),
+  );
+  for (const [, p, d] of goBlock.matchAll(/(\d+):\s*"(\d{4}-\d{2}-\d{2})"/g)) {
+    goMap.set(Number(p), d);
+  }
+  assert.ok(goMap.size >= 11, "the Go map was not parsed");
+
+  const sqlBlock = upCode.slice(
+    upCode.indexOf("CREATE OR REPLACE FUNCTION aec_parliament_election_date"),
+    upCode.indexOf("COMMENT ON FUNCTION aec_parliament_election_date"),
+  );
+  const sqlMap = new Map();
+  for (const [, p, d] of sqlBlock.matchAll(/WHEN (\d+) THEN DATE '(\d{4}-\d{2}-\d{2})'/g)) {
+    sqlMap.set(Number(p), d);
+  }
+
+  assert.deepEqual(
+    [...sqlMap.entries()].sort((a, b) => a[0] - b[0]),
+    [...goMap.entries()].sort((a, b) => a[0] - b[0]),
+    "the SQL and Go election-date maps disagree",
+  );
+  // Anything unmapped must be NULL, so a BETWEEN against it withholds rather
+  // than matching on a guessed election day.
+  assert.match(sqlBlock, /ELSE NULL/);
+});
+
+test("down drops the election-date function it added", () => {
+  assert.ok(downCode.includes("DROP FUNCTION IF EXISTS aec_parliament_election_date"));
+});

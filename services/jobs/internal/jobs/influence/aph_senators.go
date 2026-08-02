@@ -236,9 +236,91 @@ func partyForSpan(h handbookIndividual, span dateInterval) (string, string) {
 	// pairing it with a historical party name would invent an abbreviation.
 	ab := ""
 	if strings.EqualFold(strings.TrimSpace(h.Party), best) {
-		ab = strings.TrimSpace(h.PartyAbbrev)
+		ab = normalisePartyAbbrev(h.PartyAbbrev)
 	}
 	return best, ab
+}
+
+// normalisePartyAbbrev makes the Handbook's abbreviation the SAME CODE the rest
+// of the product already uses for that party.
+//
+// THIS IS A CODE, NOT PROSE. The ND term on aph.gov.au forbids rewriting APH's
+// words, and `party` — the party's NAME — is stored verbatim for exactly that
+// reason. `party_ab` is a machine key: it is never the label a reader sees, it
+// is what the palette, the party chips and the Algolia facet look a party up
+// BY, and two codes for one party split that party in every one of them.
+//
+// Two rewrites, and only these two, because only these two are the same party
+// under a second code:
+//
+//   - PHON -> ON. The Handbook writes PHON for "Pauline Hanson's One Nation"
+//     and ON for "One Nation". One party, two codes — and the product's palette
+//     knows ON. Left alone they were two facet buckets and two colours, one of
+//     them a grey "Other".
+//   - "UAP [2018]" -> UAP. The bracketed year is a DISAMBIGUATOR for a party's
+//     re-registration, not part of the abbreviation; nothing downstream keys on
+//     it and every consumer that tries reads it as an unknown party. Stripped
+//     generically, so any future qualifier lands the same way. The party NAME
+//     keeps the qualifier, verbatim, which is where that distinction is
+//     actually recorded.
+//
+// Everything else passes through untouched. A code we do not recognise is not
+// this function's business — the fix for an unknown party is a palette entry,
+// not a rewrite here.
+func normalisePartyAbbrev(raw string) string {
+	ab := strings.TrimSpace(raw)
+	// Strip a trailing bracketed qualifier: "UAP [2018]" -> "UAP".
+	if i := strings.Index(ab, "["); i > 0 {
+		ab = strings.TrimSpace(ab[:i])
+	}
+	if strings.EqualFold(ab, "PHON") {
+		return "ON"
+	}
+	return ab
+}
+
+// stateCodeOf normalises anything the Handbook writes for a state — a full name
+// ("New South Wales"), an abbreviation ("NSW"), or the mixed case it uses in
+// RepresentedStates ("Qld") — to the single upper-case code politician_terms
+// stores. Anything unrecognised is upper-cased and passed through, so it
+// compares as itself rather than silently collapsing into another state.
+func stateCodeOf(s string) string {
+	trimmed := strings.TrimSpace(s)
+	if code, ok := senateStateCodes[strings.ToLower(trimmed)]; ok {
+		return code
+	}
+	return strings.ToUpper(trimmed)
+}
+
+// senateStatesAmbiguous reports whether this person's SENATE state cannot be
+// read off the single `SenateState` field.
+//
+// `RepresentedStates` spans the WHOLE CAREER AND BOTH CHAMBERS, so a
+// dual-chamber person lists their House state in it too: Barnaby Joyce reads
+// ['NSW', 'Qld'] — New England in the House, Queensland in the Senate — and
+// naively counting that as two Senate states would withhold a state we know
+// perfectly well. The House states come out first, from the person's own dated
+// ElectorateService, and only what remains is a candidate Senate state.
+//
+// More than one left over is the case this file cannot represent, and it
+// withholds. Measured against the live payload: zero of the 180 senators in
+// range. This is a tripwire, not a live branch.
+func senateStatesAmbiguous(h handbookIndividual) bool {
+	house := map[string]bool{}
+	for _, es := range h.ElectorateService {
+		if code := stateCodeOf(es.State); code != "" {
+			house[code] = true
+		}
+	}
+	senate := map[string]bool{}
+	for _, s := range h.RepresentedStates {
+		code := stateCodeOf(s)
+		if code == "" || house[code] {
+			continue
+		}
+		senate[code] = true
+	}
+	return len(senate) > 1
 }
 
 // deriveSenateTerms turns one Handbook record into Senate terms.
@@ -255,7 +337,33 @@ func deriveSenateTerms(h handbookIndividual) []senateTerm {
 	intervals := senateIntervals(h)
 	covered := parliamentsCovered(intervals)
 
-	stateCode := senateStateCodes[strings.ToLower(strings.TrimSpace(h.SenateState))]
+	// THE STATE IS CAREER-WIDE, AND IT IS STAMPED ON EVERY TERM. A KNOWN
+	// LIMITATION.
+	//
+	// `SenateState` is ONE field on the Handbook person: it names the state they
+	// represent, not the state they represented in each parliament. There is no
+	// per-parliament state anywhere in the payload, so every Senate term this
+	// function writes carries the same code — which is correct for a senator who
+	// never changed state and WRONG for one who did.
+	//
+	// It is safe TODAY because nobody in range did: across all 180 senators the
+	// mode considers, ZERO have more than one Senate state once their House
+	// states are set aside (measured against the live payload). But "safe today"
+	// is not a property of the code, so `senateStatesAmbiguous` makes it one:
+	// when the Handbook's own `RepresentedStates` cannot be reduced to a single
+	// Senate state, the code is WITHHELD rather than guessed, and the term
+	// renders as a senator with no state instead of a senator for the wrong one.
+	//
+	// A wrong state here is not cosmetic. Rule 3c joins Senate candidate returns
+	// on `state_code`, so a stale state would offer one state's whole slate of
+	// declared money to somebody who was never on it. When the withhold ever
+	// fires, the fix is a real per-term state — the dated-interval treatment
+	// `partyForSpan` already applies to party, applied to state — not a looser
+	// guess here.
+	stateCode := ""
+	if !senateStatesAmbiguous(h) {
+		stateCode = senateStateCodes[strings.ToLower(strings.TrimSpace(h.SenateState))]
+	}
 
 	parliaments := make([]int, 0, len(covered))
 	for p := range covered {

@@ -720,10 +720,16 @@ export default async function PoliticiansPage() {
               <SectionIcon name="directorships" />
               Which parties declare interests in which industries
             </h2>
+            {/* A party's row is a count over the registers WE HAVE READ, which
+                are the House ones. Unsaid, an empty or short row reads as a
+                party that declares little, when for a Senate-heavy party it is
+                mostly a chamber we have not opened. */}
             <p className="text-sm text-muted-foreground">
               Each cell counts <strong>members</strong>, not holdings and not money — a member who
               declares four banks is one member. The registers record no quantity or value, so
-              nothing here can be weighted by size.
+              nothing here can be weighted by size. Every cell is counted over the registers we
+              have read, which are the House registers — a party&rsquo;s senators are not in these
+              rows, so a small row can be our coverage rather than that party&rsquo;s declarations.
             </p>
             <RegisterHeatmap
               cells={(analytics?.cells ?? []).map((c) => ({
@@ -751,9 +757,15 @@ export default async function PoliticiansPage() {
                 <SectionIcon name="electorate" />
                 Members declaring company interests, by state
               </h2>
+              {/* "the members who declare" would read across both chambers.
+                  Every row here comes from the House registers, so the sentence
+                  names the corpus it is counted over rather than leaving a
+                  reader to assume senators are in it. */}
               <p className="text-sm text-muted-foreground">
-                Where the members who declare a company interest sit — a count of people, and a
-                function of how many seats a state has as much as anything else.
+                Where the members whose registers we have read sit, among those declaring a company
+                interest — a count of people, and a function of how many seats a state has as much
+                as anything else. Senators are not in this count: their registers have not been
+                read into this site.
               </p>
               <table className="w-full max-w-xl text-sm">
                 <caption className="sr-only">

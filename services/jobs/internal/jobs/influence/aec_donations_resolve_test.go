@@ -1060,3 +1060,332 @@ func TestSenatorAnnualReturnResolvesOnceTheSenatorExists(t *testing.T) {
 		t.Fatalf("senator return resolved to %q, want matthew-quathorne", got)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Rule 2b — an MP/senator return read through politician_aliases.
+//
+// The politicians row holds the name the SOURCE THAT MINTED IT used. For anyone
+// minted from the Parliamentary Handbook that is the FORMAL given name, while
+// the AEC lodges the name the member actually uses. Rule 2 compared the two
+// directly and withheld on a difference we already hold the answer to.
+// ---------------------------------------------------------------------------
+
+// politicianAlias files a name equivalence of the kind register-senators seeds:
+// 'SURNAME|GIVEN', the same key space politicians.person_key lives in.
+func (f *aecResolveFixture) politicianAlias(surname, given, politicianID string) {
+	f.t.Helper()
+	if _, err := f.tx.Exec(f.ctx, `
+		INSERT INTO politician_aliases (alias_key, politician_id, alias_raw, alias_kind)
+		VALUES ($1, $2, $3, 'observed')`,
+		strings.ToUpper(surname)+"|"+strings.ToUpper(given), politicianID, given+" "+surname); err != nil {
+		f.t.Fatalf("insert politician alias: %v", err)
+	}
+}
+
+func (f *aecResolveFixture) senatorAnnualReturn(memberName, surname, given string) {
+	f.t.Helper()
+	if _, err := f.tx.Exec(f.ctx, `
+		INSERT INTO aec_mp_returns (financial_year, financial_year_end, return_type, chamber,
+			member_name, member_name_norm, surname, given_names, source_url)
+		VALUES ('2024-25', 2025, 'Senator Return', 'senate', $1, $2, $3, $4,
+			'https://transparency.aec.gov.au/Download/AllAnnualData')`,
+		memberName, normalizeAECEntityName(stripAECHonorifics(memberName)), surname, given); err != nil {
+		f.t.Fatalf("insert senator return %q: %v", memberName, err)
+	}
+}
+
+// THE KATY GALLAGHER CASE, generalised. The Handbook records the formal given
+// name; the AEC lodges the used one; register-senators already seeded the
+// mapping. Rule 2 never looked at it, so the return withheld on a name
+// difference the subsystem had already decided about.
+func TestResolveSenatorReturnThroughAPoliticianAlias(t *testing.T) {
+	f := newAECResolveFixture(t)
+	id := f.politician("Quathorne", "Katherine", "katherine-quathorne")
+	f.senateTerm(id, 48, "ACT", "Australian Labor Party")
+	f.politicianAlias("Quathorne", "Katy", id)
+	f.senatorAnnualReturn("Senator the Hon Katy Quathorne", "Quathorne", "Katy")
+
+	counts := f.resolve()
+	if got := f.mpSlug("Senator the Hon Katy Quathorne"); got != "katherine-quathorne" {
+		t.Fatalf("slug = %q, want katherine-quathorne", got)
+	}
+	if counts.MPResolvedAliasKey != 1 {
+		t.Errorf("alias-key resolutions = %d, want 1 — the number is what says the seed is doing work",
+			counts.MPResolvedAliasKey)
+	}
+	var method string
+	if err := f.tx.QueryRow(f.ctx, `
+		SELECT resolution_method FROM aec_mp_returns WHERE member_name = $1`,
+		"Senator the Hon Katy Quathorne").Scan(&method); err != nil {
+		t.Fatal(err)
+	}
+	// Same evidence — a surname and an exact given name — reached through a
+	// recorded alias. Not a looser rule, so not a new method.
+	if method != "surname_given_exact" {
+		t.Errorf("resolution_method = %q", method)
+	}
+}
+
+// The SURNAME still has to match. An alias is a given-name equivalence, not a
+// licence to join two different people.
+func TestPoliticianAliasStillRequiresTheSurnameToMatch(t *testing.T) {
+	f := newAECResolveFixture(t)
+	id := f.politician("Quathorne", "Katherine", "katherine-quathorne")
+	f.politicianAlias("Quilberro", "Katy", id)
+	f.senatorAnnualReturn("Senator Katy Quilberro", "Quilberro", "Katy")
+
+	f.resolve()
+	if got := f.mpSlug("Senator Katy Quilberro"); got != "" {
+		t.Fatalf("an alias whose surname disagrees resolved to %q", got)
+	}
+}
+
+// Two aliases, two people, one name: both withhold. HAVING count(DISTINCT p.id)
+// = 1 is carried over from rule 2 and is not decoration.
+func TestPoliticianAliasAmbiguityWithholds(t *testing.T) {
+	f := newAECResolveFixture(t)
+	a := f.politician("Quathorne", "Katherine", "katherine-quathorne-a")
+	b := f.politician("Quathorne", "Kathleen", "kathleen-quathorne-b")
+	// One alias key can only belong to one person, so ambiguity here is two
+	// politicians reachable under the SAME surname+given: the alias points at
+	// one and the direct rule-2 join at the other.
+	f.politicianAlias("Quathorne", "Katy", a)
+	_ = b
+	f.senatorAnnualReturn("Senator Katy Quathorne", "Quathorne", "Katy")
+	// A second politicians row whose own first given name IS "Katy" makes the
+	// name genuinely ambiguous across the two rules.
+	f.politician("Quathorne", "Katy", "katy-quathorne-c")
+
+	f.resolve()
+	// Rule 2 runs first and withholds on the ambiguity; 2b must not then
+	// resolve what rule 2 refused.
+	if got := f.mpSlug("Senator Katy Quathorne"); got == "katherine-quathorne-a" {
+		t.Fatalf("2b resolved a name rule 2 withheld as ambiguous: %q", got)
+	}
+}
+
+// An 'ignore' alias suppresses 2b exactly as it suppresses rule 2. A curated
+// correction that works on two of three passes is not a correction.
+func TestPoliticianAliasHonoursAnIgnoreAlias(t *testing.T) {
+	f := newAECResolveFixture(t)
+	id := f.politician("Quathorne", "Katherine", "katherine-quathorne")
+	f.politicianAlias("Quathorne", "Katy", id)
+	f.senatorAnnualReturn("Senator Katy Quathorne", "Quathorne", "Katy")
+	f.alias(normalizeAECEntityName(stripAECHonorifics("Senator Katy Quathorne")), "ignore", nil)
+
+	f.resolve()
+	if got := f.mpSlug("Senator Katy Quathorne"); got != "" {
+		t.Fatalf("resolved %q despite an ignore alias", got)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Rule 3c — the FRESH-MANDATE guard.
+//
+// A division is re-contested at every election; a Senate seat is not. "Senator
+// for this state in this parliament" is satisfied by senators who were mid-term
+// and did not stand at all, so it is not evidence of having been a candidate.
+// ---------------------------------------------------------------------------
+
+// senateTermDated files a Senate term that began mid-parliament — a half-Senate
+// 1 July commencement, or a casual vacancy.
+func (f *aecResolveFixture) senateTermDated(politicianID string, parliament int, stateCode, party, start string) {
+	f.t.Helper()
+	if _, err := f.tx.Exec(f.ctx, `
+		INSERT INTO politician_terms (politician_id, parliament, chamber, state_code, party, term_start)
+		VALUES ($1, $2, 'senate', $3, NULLIF($4, ''), $5::date)`,
+		politicianID, parliament, stateCode, party, start); err != nil {
+		f.t.Fatalf("insert dated senate term: %v", err)
+	}
+}
+
+// THE PAULINE HANSON 2025 CASE, with the names changed.
+//
+// A senator elected in 2022 to a six-year term sat through the 48th Parliament
+// and was not a candidate at the 2025 election. A namesake's 2025 Senate return
+// from the same state and the same party satisfied every other test in rule 3c
+// and landed on them. This is the fabrication the reviewer built, and it is the
+// cardinal sin: a stranger's declared money published under a named living
+// person.
+func TestSenateReturnWithholdsFromASenatorWhoWasNotACandidate(t *testing.T) {
+	f := newAECResolveFixture(t)
+	sitting := f.politician("Quathorne", "Pauline", "pauline-quathorne")
+	// Elected at the 2022 election, so a continuous term through both
+	// parliaments and no distinguishing start date on either.
+	f.senateTerm(sitting, 47, "QLD", "Pauline Hanson's One Nation")
+	f.senateTerm(sitting, 48, "QLD", "Pauline Hanson's One Nation")
+
+	f.senateCandidateReturn("2025 Federal Election", 48, "Candidate",
+		"QUATHORNE, Pauline", "QLD", "Queensland", "Pauline Hanson's One Nation")
+
+	counts := f.resolve()
+	if got := f.candidateSlug("QUATHORNE, Pauline"); got != "" {
+		t.Fatalf("a 2025 return resolved to a senator elected in 2022: %q", got)
+	}
+	if counts.CandidateResolvedSenate != 0 {
+		t.Fatalf("senate resolutions = %d, want 0", counts.CandidateResolvedSenate)
+	}
+	// And it is withheld for a NAMED reason, not lost in "no term for that seat".
+	if counts.CandidateWithheldStaleMandate != 1 {
+		t.Errorf("stale-mandate withholds = %d, want 1 — the guard has to report its own cost",
+			counts.CandidateWithheldStaleMandate)
+	}
+}
+
+// The other half of the guard: a senator who arrived AT this election resolves.
+// (a) They held no Senate term in the preceding parliament, so they cannot have
+// been mid-term.
+func TestSenateReturnResolvesForASenatorWhoArrivedAtThatElection(t *testing.T) {
+	f := newAECResolveFixture(t)
+	id := f.politician("Quathorne", "Matthew", "matthew-quathorne")
+	f.senateTerm(id, 48, "QLD", "The Nationals")
+	f.senateCandidateReturn("2025 Federal Election", 48, "Candidate",
+		"QUATHORNE, Matthew James", "QLD", "Queensland", "The Nationals")
+
+	counts := f.resolve()
+	if got := f.candidateSlug("QUATHORNE, Matthew James"); got != "matthew-quathorne" {
+		t.Fatalf("slug = %q, want matthew-quathorne", got)
+	}
+	if counts.CandidateResolvedSenate != 1 {
+		t.Fatalf("senate resolutions = %d, want 1", counts.CandidateResolvedSenate)
+	}
+}
+
+// (b) A dated start inside the window around the election. A half-Senate term
+// begins on the 1 July after polling day, so the senator sat in the preceding
+// parliament AND has a fresh mandate — the date is the only thing that says so.
+func TestSenateReturnResolvesOnADatedFreshCommencement(t *testing.T) {
+	f := newAECResolveFixture(t)
+	id := f.politician("Quathorne", "Matthew", "matthew-quathorne")
+	f.senateTerm(id, 47, "QLD", "The Nationals")
+	f.senateTermDated(id, 48, "QLD", "The Nationals", "2025-07-01")
+	f.senateCandidateReturn("2025 Federal Election", 48, "Candidate",
+		"QUATHORNE, Matthew James", "QLD", "Queensland", "The Nationals")
+
+	counts := f.resolve()
+	if got := f.candidateSlug("QUATHORNE, Matthew James"); got != "matthew-quathorne" {
+		t.Fatalf("slug = %q, want matthew-quathorne", got)
+	}
+	if counts.CandidateResolvedSenate != 1 {
+		t.Fatalf("senate resolutions = %d, want 1", counts.CandidateResolvedSenate)
+	}
+}
+
+// A start date from a DIFFERENT election is not a fresh mandate. A casual
+// vacancy filled two years into a parliament is dated, and dated is not enough
+// on its own — it has to be dated near THIS election.
+func TestSenateReturnWithholdsADatedStartOutsideTheWindow(t *testing.T) {
+	f := newAECResolveFixture(t)
+	id := f.politician("Quathorne", "Matthew", "matthew-quathorne")
+	f.senateTerm(id, 47, "QLD", "The Nationals")
+	// 2019-05-18 + 420 days is well short of this; the 46th's own window.
+	f.senateTermDated(id, 48, "QLD", "The Nationals", "2027-02-01")
+	f.senateCandidateReturn("2025 Federal Election", 48, "Candidate",
+		"QUATHORNE, Matthew James", "QLD", "Queensland", "The Nationals")
+
+	counts := f.resolve()
+	if got := f.candidateSlug("QUATHORNE, Matthew James"); got != "" {
+		t.Fatalf("a start two years after the election resolved: %q", got)
+	}
+	if counts.CandidateResolvedSenate != 0 {
+		t.Fatalf("senate resolutions = %d, want 0", counts.CandidateResolvedSenate)
+	}
+}
+
+// THE HENDERSON / BRITTNEY CASE, live in the corpus today.
+//
+// "HENDERSON, Brittney Louise" (Greens, Victoria, 2025) is a real return from a
+// real different person who shares a surname with Senator Sarah Henderson. It is
+// withheld by the GIVEN-NAME guard, before the mandate guard is even reached —
+// and it must stay withheld whatever else changes here.
+func TestSenateReturnWithholdsANamesakeOfASittingSenator(t *testing.T) {
+	f := newAECResolveFixture(t)
+	sitting := f.politician("Quathorne", "Sarah", "sarah-quathorne")
+	f.senateTermDated(sitting, 46, "VIC", "Liberal Party of Australia", "2019-09-11")
+	f.senateTerm(sitting, 47, "VIC", "Liberal Party of Australia")
+	f.senateTerm(sitting, 48, "VIC", "Liberal Party of Australia")
+
+	f.senateCandidateReturn("2025 Federal Election", 48, "Candidate",
+		"QUATHORNE, Brittney Louise", "VIC", "Victoria", "Australian Greens Victoria")
+
+	counts := f.resolve()
+	if got := f.candidateSlug("QUATHORNE, Brittney Louise"); got != "" {
+		t.Fatalf("a different person's 2025 return resolved to a sitting senator: %q", got)
+	}
+	if counts.CandidateResolvedSenate != 0 {
+		t.Fatalf("senate resolutions = %d, want 0", counts.CandidateResolvedSenate)
+	}
+	// A name that never agreed is not a mandate withhold — it never reached the
+	// guard, and conflating the two would hide whichever one broke.
+	if counts.CandidateWithheldStaleMandate != 0 {
+		t.Errorf("stale-mandate withholds = %d, want 0 — this is a NAME withhold",
+			counts.CandidateWithheldStaleMandate)
+	}
+}
+
+// The (a) arm is switched off where the preceding parliament cannot be
+// observed. Senate terms start at parliament 44, so for an event that elected
+// the 44th "no term in the 43rd" is true of everybody and would be no guard at
+// all.
+func TestSenateMandateGuardIsNotVacuousAtTheCorpusFloor(t *testing.T) {
+	f := newAECResolveFixture(t)
+	id := f.politician("Quathorne", "Matthew", "matthew-quathorne")
+	// Undated 44th term: served the whole parliament, no evidence of arriving
+	// at the 2013 election, and no 43rd to compare against.
+	f.senateTerm(id, 44, "QLD", "The Nationals")
+	f.senateCandidateReturn("2013 Federal election", 44, "Candidate",
+		"QUATHORNE, Matthew James", "QLD", "Queensland", "The Nationals")
+
+	counts := f.resolve()
+	if got := f.candidateSlug("QUATHORNE, Matthew James"); got != "" {
+		t.Fatalf("the floor parliament resolved without any mandate evidence: %q", got)
+	}
+	if counts.CandidateResolvedSenate != 0 {
+		t.Fatalf("senate resolutions = %d, want 0", counts.CandidateResolvedSenate)
+	}
+}
+
+// ...and the (b) arm still reaches the floor parliament. A SEPARATE test, not a
+// second fixture inside the one above: each fixture TRUNCATEs the aec_* tables
+// inside its own transaction, so two live at once deadlock on the same locks.
+func TestSenateMandateGuardStillResolvesADatedFloorCommencement(t *testing.T) {
+	f := newAECResolveFixture(t)
+	id := f.politician("Quathorne", "Matthew", "matthew-quathorne")
+	f.senateTermDated(id, 44, "QLD", "The Nationals", "2014-07-01")
+	f.senateCandidateReturn("2013 Federal election", 44, "Candidate",
+		"QUATHORNE, Matthew James", "QLD", "Queensland", "The Nationals")
+
+	counts := f.resolve()
+	if got := f.candidateSlug("QUATHORNE, Matthew James"); got != "matthew-quathorne" {
+		t.Fatalf("a dated 44th commencement withheld: %q", got)
+	}
+	if counts.CandidateResolvedSenate != 1 {
+		t.Fatalf("senate resolutions = %d, want 1", counts.CandidateResolvedSenate)
+	}
+}
+
+// The election-date map the guard reads must agree with the one the term
+// derivation uses. Two copies, one truth: a divergence would move the window
+// away from the election it is meant to bracket.
+func TestSQLElectionDatesMatchTheGoMap(t *testing.T) {
+	f := newAECResolveFixture(t)
+	for parliament, want := range parliamentElectionDates {
+		var got *string
+		if err := f.tx.QueryRow(f.ctx,
+			`SELECT to_char(aec_parliament_election_date($1), 'YYYY-MM-DD')`, parliament).Scan(&got); err != nil {
+			t.Fatalf("parliament %d: %v", parliament, err)
+		}
+		if got == nil || *got != want {
+			t.Errorf("aec_parliament_election_date(%d) = %v, want %s", parliament, got, want)
+		}
+	}
+	// Unmapped returns NULL, so a BETWEEN against it is NULL and withholds.
+	var got *string
+	if err := f.tx.QueryRow(f.ctx,
+		`SELECT to_char(aec_parliament_election_date($1), 'YYYY-MM-DD')`, lastMappedParliament+1).Scan(&got); err != nil {
+		t.Fatal(err)
+	}
+	if got != nil {
+		t.Errorf("an unmapped parliament produced %q — a guessed election day is a wrong window", *got)
+	}
+}

@@ -73,6 +73,49 @@ $$;
 COMMENT ON FUNCTION aec_state_full_name(TEXT) IS
     'AEC state code to full name. Returns empty string for anything unrecognised, so a comparison against it withholds rather than matching.';
 
+-- ---------------------------------------------------------------------------
+-- aec_parliament_election_date: the election that returned each parliament.
+--
+-- Rule 3c needs it for the FRESH-MANDATE GUARD. A Senate candidate return is
+-- money declared by somebody who CONTESTED that election, and a senator's term
+-- runs six years — so "senator for this state in the parliament the event
+-- elected" is satisfied by senators who were mid-term and did not stand at all.
+-- Without a date to compare a term's start against, a namesake's return can
+-- land on a sitting senator who could not have lodged it.
+--
+-- The dates are ELECTION DAYS and are the same map the job carries in
+-- aph_parliaments.go (parliamentElectionDates), hand-verified against the
+-- Handbook's own ElectorateService boundaries. Both copies exist because the
+-- job needs them in Go for the term derivation and the resolver needs them in
+-- SQL for a set-based rule; senate_identity.test.mjs asserts they agree.
+--
+-- NULL for anything unmapped, so a BETWEEN against it is NULL and the guard
+-- withholds rather than matching.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION aec_parliament_election_date(parliament INT)
+RETURNS DATE
+LANGUAGE sql
+IMMUTABLE
+AS $$
+    SELECT CASE parliament
+        WHEN 38 THEN DATE '1996-03-02'
+        WHEN 39 THEN DATE '1998-10-03'
+        WHEN 40 THEN DATE '2001-11-10'
+        WHEN 41 THEN DATE '2004-10-09'
+        WHEN 42 THEN DATE '2007-11-24'
+        WHEN 43 THEN DATE '2010-08-21'
+        WHEN 44 THEN DATE '2013-09-07'
+        WHEN 45 THEN DATE '2016-07-02'
+        WHEN 46 THEN DATE '2019-05-18'
+        WHEN 47 THEN DATE '2022-05-21'
+        WHEN 48 THEN DATE '2025-05-03'
+        ELSE NULL
+    END;
+$$;
+
+COMMENT ON FUNCTION aec_parliament_election_date(INT) IS
+    'Election day of each parliament, 38-48. NULL for anything unmapped, so a date comparison against it withholds rather than matching.';
+
 ALTER TABLE aec_candidate_returns
     DROP CONSTRAINT IF EXISTS aec_candidate_returns_resolution_check;
 ALTER TABLE aec_candidate_returns

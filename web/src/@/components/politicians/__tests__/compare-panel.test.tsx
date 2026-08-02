@@ -699,3 +699,153 @@ describe("compare panel — editorial", () => {
     expect(text).not.toMatch(/\$\s*\d/);
   });
 });
+
+/* ---------------------------------------------------- the unread Senate side */
+
+/**
+ * A senator whose register we have NOT read, on one side of the comparison.
+ *
+ * This is not "a member who declares nothing". The Registers of Senators'
+ * Interests are tabled as combined volumes and none of them has been read into
+ * this site, so this side has no data at all — and every symmetric surface on
+ * the page was rendering that absence as a measurement of a named person.
+ */
+function senateGapSummary() {
+  return summary({
+    politician: member({
+      slug: "s-senator",
+      displayName: "S Senator",
+      chamber: "senate",
+      division: "",
+      stateCode: "QLD",
+      partyAb: "GRN",
+      declaredListedCount: 0,
+      declaredPropertyCount: 0,
+    }),
+    itemCounts: [],
+    distinctCompanyCount: 0,
+    propertyCount: 0,
+    giftsTravelCount: 0,
+    liabilityCount: 0,
+    changes90d: 0,
+    undatedCount: 0,
+  });
+}
+
+function senateGapResponse() {
+  return compareResponse({
+    b: senateGapSummary(),
+    holderCountsB: [],
+    sharedCompanies: [],
+    onlyBCompanies: [],
+    onlyBMore: 0,
+    // The buckets the panel used to print verbatim over an empty senator:
+    // "Read in full: the 45th and 48th Parliaments".
+    extractedParliamentsB: [45, 48],
+    partialParliamentsB: [],
+    pendingParliamentsB: [],
+  });
+}
+
+async function renderSenateGap() {
+  searchParams = new URLSearchParams("a=a-member&b=s-senator");
+  comparePoliticians.mockResolvedValue(senateGapResponse());
+  render(<ComparePanel />);
+  await waitFor(() =>
+    expect(screen.getByText(/What has been read, for each member/i)).toBeInTheDocument(),
+  );
+}
+
+const SENATE_GAP_SENTENCE = /tabled as combined Senate volumes/i;
+
+describe("compare panel — a senator whose register is unread", () => {
+  it("never claims a parliament has been read in full for that side", async () => {
+    await renderSenateGap();
+    // The bug: "Read in full: the 45th and 48th Parliaments" above five zero
+    // tiles, for a chamber whose volumes we have never opened.
+    expect(screen.queryByText(/45th and 48th/)).not.toBeInTheDocument();
+    // The member's own coverage is unaffected — his registers WERE read.
+    expect(screen.getByText(/47th and 48th/)).toBeInTheDocument();
+  });
+
+  it("states whose absence it is, in the shared wording", async () => {
+    await renderSenateGap();
+    expect(screen.getAllByText(SENATE_GAP_SENTENCE).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/our coverage gap — not a record that this senator declared nothing/i)
+        .length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("does not say the senator currently declares 0", async () => {
+    await renderSenateGap();
+    expect(screen.queryByText(/currently declares 0/i)).not.toBeInTheDocument();
+    // And it names the side that has no count, rather than leaving a gap.
+    expect(screen.getByText(/No count of declared companies is stated for S Senator/i))
+      .toBeInTheDocument();
+  });
+
+  it("draws no comparison chart for the pairing", async () => {
+    await renderSenateGap();
+    // Every mark, axis and sr-only cell in these three would be our coverage
+    // gap drawn as a measurement of a named person.
+    expect(screen.queryByText(/The same counts, grouped/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Whose interest each entry records/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/No category comparison is drawn for this pair/i))
+      .toBeInTheDocument();
+  });
+
+  it("announces no zero for that side anywhere a screen reader can reach", async () => {
+    await renderSenateGap();
+    // "Senator 0" came out of the compare-bar aria-labels and the sr-only
+    // tables. With the charts gone there is nothing left to read it out of.
+    const labels = Array.from(document.querySelectorAll("[aria-label]")).map(
+      (el) => el.getAttribute("aria-label") ?? "",
+    );
+    for (const label of labels) {
+      expect(label).not.toMatch(/S Senator[^.]*\b0\b/);
+    }
+    expect(document.body.textContent).not.toMatch(/S Senator[^.]*\b0 entries\b/);
+  });
+
+  it("keeps the sections that carry real facts", async () => {
+    await renderSenateGap();
+    // Shared/one-sided companies and each side's coverage are not drawn
+    // absence — they are what we do hold — and they stay.
+    expect(screen.getByText(/Companies in both sets of declarations/i)).toBeInTheDocument();
+    expect(screen.getByText(/Companies in only one/i)).toBeInTheDocument();
+    expect(screen.getByText(/What has been read, for each member/i)).toBeInTheDocument();
+  });
+
+  it("leaves a genuinely zero HOUSE member alone", async () => {
+    // A member whose documents WE READ and which contained nothing is an
+    // established fact, not a coverage gap. Their zeros stay drawn.
+    searchParams = new URLSearchParams("a=a-member&b=z-member");
+    comparePoliticians.mockResolvedValue(
+      compareResponse({
+        b: summary({
+          politician: member({
+            slug: "z-member",
+            displayName: "Z Member",
+            chamber: "house",
+            declaredListedCount: 0,
+            declaredPropertyCount: 0,
+          }),
+          itemCounts: [],
+          distinctCompanyCount: 0,
+          propertyCount: 0,
+          giftsTravelCount: 0,
+          liabilityCount: 0,
+          changes90d: 0,
+          undatedCount: 0,
+        }),
+      }),
+    );
+    render(<ComparePanel />);
+    await waitFor(() =>
+      expect(screen.getByText(/What has been read, for each member/i)).toBeInTheDocument(),
+    );
+    expect(screen.getByText(/currently declares 0/i)).toBeInTheDocument();
+    expect(screen.queryByText(/No category comparison is drawn/i)).not.toBeInTheDocument();
+  });
+});

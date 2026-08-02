@@ -48,8 +48,7 @@ import { partyLabel } from "@/lib/politics/party-palette";
 import {
   hasRegisterEntries,
   profileIsIndexable,
-  SENATE_ABSENCE_IS_OURS,
-  SENATE_REGISTER_UNREAD,
+  SENATE_REGISTER_GAP,
 } from "@/lib/politics/register-coverage";
 import { HOLDER_ICON, registerItemIcon } from "@/lib/politics/register-item-icons";
 import { SectionIcon } from "@/components/politicians/politics-icon";
@@ -91,7 +90,7 @@ export async function generateMetadata({
   // profiles anyway — but it is also what a link preview shows.)
   const description =
     p.chamber === "senate" && !hasRegisterEntries(p)
-      ? `${p.displayName}, ${role}. ${SENATE_REGISTER_UNREAD} ${SENATE_ABSENCE_IS_OURS}`
+      ? `${p.displayName}, ${role}. ${SENATE_REGISTER_GAP}`
       : `What ${p.displayName} declares in the federal register of interests: ${p.declaredListedCount} ASX-listed interests and ${p.declaredPropertyCount} declared properties. The register records what is held, never quantity or value.`;
 
   // Thin profiles are noindexed: a member with nothing matched adds no value to
@@ -236,6 +235,14 @@ export default async function PoliticianPage({
   const role = p.chamber === "senate" ? `Senator for ${p.stateCode}` : `Member for ${p.division}`;
   const interests = data?.interests ?? [];
   const rows = buildDeclarationRows(interests);
+  /*
+   * ONE PREDICATE FOR EVERY SENTENCE ON THIS PAGE THAT EXPLAINS AN EMPTY
+   * REGISTER: the CoverageNote, the empty declarations section, and the two
+   * LLMMeta strings. It reads the ROWS THIS PAGE RENDERS rather than the
+   * listed/property counts the index gate uses, so the explanation and the
+   * thing it explains can never disagree.
+   */
+  const senateRegisterGap = p.chamber === "senate" && rows.length === 0;
   const asAt = interests
     .map((i) => toDate(i.declaredFrom))
     .filter((d): d is Date => !!d)
@@ -356,11 +363,32 @@ export default async function PoliticianPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      {/*
+        THE MACHINE-READABLE TWINS OF THE META DESCRIPTION, BRANCHED ON THE SAME
+        PREDICATE.
+
+        `generateMetadata` already refuses to describe a senator's page as
+        "register of interests entries" — there are none, because we have read
+        none. These two strings said it anyway, to the audience least able to
+        check: an LLM reading `dataSource` as "Registers of Members' and
+        Senators' Interests" is being told this page is sourced from a document
+        we have never opened, and `description` as "Register of interests
+        entries for X" asserts entries exist. Same predicate, same branch, so
+        the two can never drift apart.
+      */}
       <LLMMeta
         title={`${p.displayName} — declared interests`}
-        description={`Register of interests entries for ${p.displayName}, ${role}.`}
+        description={
+          senateRegisterGap
+            ? `${p.displayName}, ${role}. ${SENATE_REGISTER_GAP}`
+            : `Register of interests entries for ${p.displayName}, ${role}.`
+        }
         url={url}
-        dataSource="Registers of Members' and Senators' Interests, Parliament of Australia"
+        dataSource={
+          senateRegisterGap
+            ? "AEC Transparency Register (funding) and the Parliamentary Handbook (identity); the Register of Senators' Interests has not been read into this site"
+            : "Registers of Members' and Senators' Interests, Parliament of Australia"
+        }
         dataFrequency="continuous during sitting periods"
       />
       <DashboardLayout>
@@ -460,6 +488,14 @@ export default async function PoliticianPage({
                note and the section below it must agree about whether this page
                has one. */
             hasRegisterEntries={rows.length > 0}
+            /* The terms are what make each parliament claim CHAMBER-AWARE. A
+               dual-chamber member's House parliaments keep the "read in full"
+               sentences; the ones they spent in the Senate leave them, because
+               no Senate volume has been read for any parliament. */
+            terms={(data?.terms ?? []).map((term) => ({
+              parliament: term.parliament,
+              chamber: term.chamber,
+            }))}
           />
 
           <section className="space-y-2">
@@ -557,8 +593,8 @@ export default async function PoliticianPage({
                    * the gap is ours.
                    */
                   <p className="text-sm text-muted-foreground">
-                    {p.chamber === "senate"
-                      ? `${SENATE_REGISTER_UNREAD} ${SENATE_ABSENCE_IS_OURS}`
+                    {senateRegisterGap
+                      ? SENATE_REGISTER_GAP
                       : "Nothing appears in this member’s register entries for the parliaments listed above."}
                   </p>
                 ) : (

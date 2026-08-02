@@ -1,17 +1,26 @@
 /**
  * The senator coverage gap, pinned.
  *
- * 171 senator profiles carry ZERO register rows, because the Registers of
- * Senators' Interests are tabled as combined volumes and none of them has been
- * read into this site. Every surface that can render one of those profiles has
- * to say so. This file is the copy-lock and the posture-lock for that:
+ * Almost every senator profile carries ZERO register rows, because the
+ * Registers of Senators' Interests are tabled as combined volumes and none of
+ * them has been read into this site. (Measured at the ingest these tests were
+ * written against: 176 people hold a Senate term, 172 carry no register row,
+ * and 4 carry House rows. The file's old header said 171 of 180 with 9
+ * dual-chamber; both figures were wrong, and no assertion below depends on
+ * either — a count that drifts with every ingest is not a thing to test.)
+ *
+ * Every surface that can render one of those profiles has to say so. This file
+ * is the copy-lock and the posture-lock for that:
  *
  *   1. CoverageNote's senate branch renders, and NEVER returns null for a
  *      senator with no rows — including when House coverage is complete, which
  *      is exactly the case the old early-return silently swallowed.
  *   2. It does not print the House parliament sentences over a senator, which
  *      would turn our gap into "declared nothing across three parliaments".
- *   3. A senator with AEC funding but no register rows is SEARCHABLE here,
+ *   3. The claim is made PER PARLIAMENT against the chamber that parliament was
+ *      served in, so a dual-chamber member's Senate parliaments never appear in
+ *      a "read in full" sentence.
+ *   4. A senator with AEC funding but no register rows is SEARCHABLE here,
  *      NOINDEXED, and ABSENT FROM THE SITEMAP — one coherent posture, and
  *      funding deliberately does not flip indexability.
  *
@@ -27,10 +36,13 @@ import { render, screen } from "@testing-library/react";
 import { CoverageNote } from "@/components/politicians/compliance";
 import {
   SENATE_ABSENCE_IS_OURS,
+  SENATE_REGISTER_GAP,
   SENATE_REGISTER_GAP_CORPUS,
   SENATE_REGISTER_UNREAD,
   hasRegisterEntries,
   profileIsIndexable,
+  senateParliaments,
+  splitCoverageByChamber,
 } from "@/lib/politics/register-coverage";
 
 /** `web/src` — this file sits at `src/@/components/politicians/__tests__`. */
@@ -101,18 +113,93 @@ describe("CoverageNote — the senate branch", () => {
     expect(container.textContent).toContain("not read them into this site yet");
   });
 
-  it("leaves a dual-chamber senator with House rows on the ordinary note", () => {
+  /*
+   * THE DUAL-CHAMBER CARVE-OUT.
+   *
+   * This test used to assert the opposite — that a senator WITH House rows got
+   * the ordinary note, whole — and that assertion enshrined the bug. Sarah
+   * Henderson is the named case: member for Corangamite in the 44th and 45th,
+   * senator for Victoria in the 46th, 47th and 48th, 142 register rows, all of
+   * them from the House. She took the "has rows" path and her profile read
+   * "This page covers the 44th, 45th and 48th Parliaments in full" — the 48th
+   * being a parliament she has spent entirely in the Senate, whose volumes we
+   * have never opened. That is the exact absence claim this component exists to
+   * prevent, made by the component itself.
+   */
+  const HENDERSON_TERMS = [
+    { parliament: 44, chamber: "house" },
+    { parliament: 45, chamber: "house" },
+    { parliament: 46, chamber: "senate" },
+    { parliament: 47, chamber: "senate" },
+    { parliament: 48, chamber: "senate" },
+  ];
+
+  it("keeps a dual-chamber member's HOUSE parliaments in the coverage sentence", () => {
+    const { container } = render(
+      <CoverageNote
+        extracted={[44, 45, 48]}
+        partial={[]}
+        pending={[]}
+        chamber="senate"
+        hasRegisterEntries
+        terms={HENDERSON_TERMS}
+      />,
+    );
+    // Her House parliaments ARE read in full, and saying so is true.
+    expect(container.textContent).toMatch(/covers the/i);
+    expect(container.textContent).toContain("44th and 45th");
+  });
+
+  it("never claims a parliament the member spent in the Senate", () => {
+    const { container } = render(
+      <CoverageNote
+        extracted={[44, 45, 48]}
+        partial={[]}
+        pending={[]}
+        chamber="senate"
+        hasRegisterEntries
+        terms={HENDERSON_TERMS}
+      />,
+    );
+    // The 48th must not appear in the "in full" list at all.
+    const inFull = container.textContent?.slice(
+      0,
+      container.textContent.indexOf("in full"),
+    );
+    expect(inFull).not.toContain("48th");
+  });
+
+  it("says WHY those parliaments left the sentence, rather than quietly shrinking it", () => {
+    const { container } = render(
+      <CoverageNote
+        extracted={[44, 45, 48]}
+        partial={[]}
+        pending={[]}
+        chamber="senate"
+        hasRegisterEntries
+        terms={HENDERSON_TERMS}
+      />,
+    );
+    // A narrower claim with no explanation reads as a smaller corpus. The
+    // Senate sentence is what makes the removal legible.
+    expect(container.textContent).toContain(SENATE_REGISTER_UNREAD);
+    expect(container.textContent).toContain(SENATE_ABSENCE_IS_OURS);
+  });
+
+  it("leaves a member with no Senate terms exactly as it was", () => {
     const { container } = render(
       <CoverageNote
         extracted={[46, 47]}
         partial={[]}
         pending={[44, 45]}
-        chamber="senate"
+        chamber="house"
         hasRegisterEntries
+        terms={[
+          { parliament: 46, chamber: "house" },
+          { parliament: 47, chamber: "house" },
+        ]}
       />,
     );
-    // The branch follows the DATA, not the chamber label: this senator has rows
-    // and the parliament sentences are true of them.
     expect(container.textContent).toMatch(/covers the/i);
     expect(container.textContent).not.toContain(SENATE_REGISTER_UNREAD);
   });
@@ -152,9 +239,53 @@ describe("the senate copy itself", () => {
   });
 
   it("says the dual-chamber case out loud in the corpus form", () => {
-    // 9 of the 180 senators carry House register rows, so a blanket "senators
+    // A handful of senators carry House register rows, so a blanket "senators
     // have no declared interests here" would be wrong for them.
     expect(SENATE_REGISTER_GAP_CORPUS).toMatch(/served in the House/i);
+  });
+
+  it("carries no count, in any form", () => {
+    // Every one of these numbers moves with every ingest, and a published
+    // figure that drifts is a wrong fact rather than a stale one. The branches
+    // are gated on a profile ACTUALLY having no rows, never on a count, so no
+    // sentence needs one.
+    for (const copy of [
+      SENATE_REGISTER_UNREAD,
+      SENATE_ABSENCE_IS_OURS,
+      SENATE_REGISTER_GAP,
+      SENATE_REGISTER_GAP_CORPUS,
+    ]) {
+      expect(copy).not.toMatch(/\b\d+\b/);
+    }
+  });
+
+  it("is ONE string, so every surface says the same words", () => {
+    // The comparison panel cannot import compliance.tsx (protobuf in a client
+    // island kills the static build), so the words are shared instead of the
+    // component. If these ever drift apart, one of two surfaces is paraphrasing
+    // an absence claim.
+    expect(SENATE_REGISTER_GAP).toBe(`${SENATE_REGISTER_UNREAD} ${SENATE_ABSENCE_IS_OURS}`);
+
+    const panel = readFileSync(
+      join(ROOT, "app", "politicians", "compare", "compare-panel.tsx"),
+      "utf8",
+    );
+    expect(panel).toContain("SENATE_REGISTER_GAP");
+    // And it must not have grown its own paraphrase beside the shared one.
+    expect(panel).not.toMatch(/tabled as combined Senate volumes/);
+  });
+
+  it("is rendered inside the hub's register table, not only above it", () => {
+    // The hub's own paragraph sits hundreds of pixels above a table the reader
+    // scrolls, sorts and re-filters, and it is server-rendered — so it cannot
+    // change when the island re-renders under a Senate filter, which is exactly
+    // when 173 all-zero named rows appear.
+    const table = readFileSync(
+      join(ROOT, "@", "components", "politicians", "politician-register-table.tsx"),
+      "utf8",
+    );
+    expect(table).toContain("SENATE_REGISTER_GAP_CORPUS");
+    expect(table).toMatch(/query\.chamber !== "house"/);
   });
 });
 
@@ -217,3 +348,41 @@ describe("a senator with funding but no register rows", () => {
 function escape(copy: string): string {
   return copy.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
+
+/*
+ * The split itself, tested directly. The component tests above prove the
+ * rendering; these prove the rule, including the case a fixture would not
+ * naturally produce.
+ */
+describe("splitCoverageByChamber", () => {
+  it("keeps House parliaments and removes Senate ones", () => {
+    const senate = senateParliaments([
+      { parliament: 44, chamber: "house" },
+      { parliament: 46, chamber: "senate" },
+      { parliament: 48, chamber: "senate" },
+    ]);
+    expect(splitCoverageByChamber([44, 46, 48], senate)).toEqual({
+      house: [44],
+      senate: [46, 48],
+    });
+  });
+
+  it("is a no-op for a member with no Senate service", () => {
+    const senate = senateParliaments([
+      { parliament: 46, chamber: "house" },
+      { parliament: 47, chamber: "house" },
+    ]);
+    expect(splitCoverageByChamber([46, 47], senate)).toEqual({ house: [46, 47], senate: [] });
+  });
+
+  it("counts a parliament served in BOTH chambers as a Senate one", () => {
+    // A mid-parliament transfer. The register volume for that parliament is
+    // still half unread, so "in full" is not available for it either way, and
+    // the safe reading is the one that withholds the claim.
+    const senate = senateParliaments([
+      { parliament: 45, chamber: "house" },
+      { parliament: 45, chamber: "senate" },
+    ]);
+    expect(splitCoverageByChamber([45], senate)).toEqual({ house: [], senate: [45] });
+  });
+});

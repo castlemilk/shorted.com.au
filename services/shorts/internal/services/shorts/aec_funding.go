@@ -81,13 +81,26 @@ const (
 	// funding figure sitting alone under an empty register reads as "this is
 	// everything we found about them", which is an absence claim about a named
 	// person that the corpus cannot support.
+	//
+	// "LINKED WHERE THE LODGED NAME MATCHES OUR RECORDS", NOT "LINKED". The flat
+	// claim was an overclaim and the corpus proved it: Katy Gallagher's annual
+	// return withheld for a run because the AEC lodges the name she uses while
+	// the Handbook records "Katherine", and the resolver did not read the alias
+	// that says they are the same person. That specific gap is closed (rule 2b),
+	// but the class of it is permanent — a resolver that withholds on ambiguity
+	// will always leave some returns unlinked, and the note has to be true of
+	// the ones it leaves. It states the CONDITION rather than the outcome, and
+	// it says the withhold is about a NAME rather than about a person, so no
+	// reader can take an unlinked return as evidence about anybody.
 	aecMemberCoverageNote = "Annual member and senator returns are lodged by a small number of " +
 		"parliamentarians: the whole corpus holds 52 of them. Returns lodged by senators are " +
-		"linked to their profiles, but the Registers of Senators' Interests have not been read " +
-		"into this site yet — so a senator can appear here with a funding return and no declared " +
-		"interests beside it, which is a gap in our coverage rather than a record of what they " +
-		"declared. A parliamentarian with no return has not been shown to have received " +
-		"nothing — most never lodge one."
+		"linked to their profiles where the name on the lodged return matches the name we hold " +
+		"for them; where it does not, the return stays here unlinked rather than being attached " +
+		"to a guess. The Registers of Senators' Interests have not been read into this site yet, " +
+		"so a senator can appear here with a funding return and no declared interests beside it, " +
+		"which is a gap in our coverage rather than a record of what they declared. A " +
+		"parliamentarian with no return has not been shown to have received nothing — most " +
+		"never lodge one."
 
 	// The rule that makes a member funding surface honest at all.
 	aecAttributionNote = "Only returns that name this parliamentarian are shown. Money declared as " +

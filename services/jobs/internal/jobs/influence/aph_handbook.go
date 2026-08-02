@@ -69,8 +69,15 @@ type handbookIndividual struct {
 	// needs. MPorSenator is a LIST because 14 people are both; the flat
 	// RepresentedParliaments list cannot say which parliaments belong to which
 	// chamber, which is exactly what aph_parliaments.go's subtraction recovers.
-	MPorSenator               []string                  `json:"MPorSenator"`
-	RepresentedParliaments    []int                     `json:"RepresentedParliaments"`
+	MPorSenator            []string `json:"MPorSenator"`
+	RepresentedParliaments []int    `json:"RepresentedParliaments"`
+	// Every state this person has represented, in EITHER chamber and across
+	// their whole career — the Handbook publishes no per-parliament state. It is
+	// read for one purpose only: to detect the case `SenateState` cannot
+	// describe, a senator who represented two states, so that
+	// deriveSenateTerms can withhold rather than stamp one of them on every
+	// term. See the note there.
+	RepresentedStates         []string                  `json:"RepresentedStates"`
 	ElectorateService         []handbookElectorateTerm  `json:"ElectorateService"`
 	PartyParliamentaryService []handbookServiceInterval `json:"PartyParliamentaryService"`
 }

@@ -37,6 +37,7 @@ import { PoliticianAvatar } from "@/components/politicians/politician-avatar";
 import { PartyMark } from "@/components/politicians/party-mark";
 import { partyLabel } from "@/lib/politics/party-palette";
 import { REGISTER_ITEMS } from "@/lib/politics/register-items";
+import { SENATE_REGISTER_GAP_CORPUS } from "@/lib/politics/register-coverage";
 import {
   POLITICS_FILTER_BUTTON_CLASS,
   POLITICS_PAGER_BUTTON_CLASS,
@@ -423,6 +424,37 @@ export function PoliticianRegisterTable({
           </button>
         ) : null}
       </div>
+
+      {/*
+        THE CHAMBER NOTE, AND WHY IT LIVES INSIDE THE ISLAND.
+
+        Set the chamber filter to Senate and this table answers with 173 named
+        rows whose every count is zero. Nothing on screen said why. A reader —
+        or a crawler — reads a page of named senators against columns of zeros
+        as a finding about those people, and it is not one: the Registers of
+        Senators' Interests are tabled as combined volumes and we have read none
+        of them.
+
+        The hub already carries this sentence, once, up beside the tile row. It
+        is not enough. That paragraph is hundreds of pixels above a table the
+        reader scrolls, sorts and re-filters without it ever being in view, and
+        it is rendered by the SERVER PAGE — so it does not change, and cannot,
+        when this island re-renders under a Senate filter. The explanation has
+        to sit with the rows it explains and re-render with them, which means it
+        has to be here.
+
+        ONE SENTENCE FOR BOTH STATES, not two. Under a Senate filter every row
+        is affected; unfiltered, the senators are mixed in among the members and
+        the zeros are the same zeros. Wording it twice would invite the two to
+        drift, and there is only one fact. It is suppressed only where no
+        senator can be on screen at all — the House filter — because a caveat
+        that is always present stops being read.
+      */}
+      {query.chamber !== "house" ? (
+        <p className="rounded-md border border-muted-foreground/20 bg-muted/30 p-2.5 text-[11px] leading-relaxed text-muted-foreground">
+          {SENATE_REGISTER_GAP_CORPUS}
+        </p>
+      ) : null}
 
       {outage ? (
         // One outage paragraph, worded by whether the reader has a filter set —

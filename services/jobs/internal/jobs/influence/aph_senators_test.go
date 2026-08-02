@@ -436,3 +436,123 @@ func TestStateCodesRoundTrip(t *testing.T) {
 		t.Errorf("stateRegionName passed an unknown value through as %q", got)
 	}
 }
+
+// F6. THE ABBREVIATION IS A KEY, AND TWO KEYS FOR ONE PARTY SPLIT IT.
+//
+// The palette, the party chips and the Algolia party facet all look a party up
+// by `party_ab`. The Handbook writes PHON for Pauline Hanson's One Nation and ON
+// for One Nation — the same party, in the same room — and it writes the AEC's
+// re-registration qualifier into "UAP [2018]". Stored raw, One Nation was two
+// buckets and six real historical parties rendered as a grey "Other".
+func TestPartyAbbrevIsNormalisedToTheProductsCode(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{"PHON", "ON"},         // same party, second code
+		{"phon", "ON"},         // case is not a different party
+		{"ON", "ON"},           // already canonical
+		{"UAP [2018]", "UAP"},  // a re-registration qualifier, not an abbreviation
+		{"UAP  [2013]", "UAP"}, // any qualifier, generically
+		{"ALP", "ALP"},         // untouched
+		{"", ""},               // nothing to normalise
+		{"[2018]", "[2018]"},   // no abbreviation to keep: passed through, never emptied
+	}
+	for _, c := range cases {
+		if got := normalisePartyAbbrev(c.in); got != c.want {
+			t.Errorf("normalisePartyAbbrev(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+// The normalisation happens at MINT, where the term is written — not in a read
+// path that some future consumer could bypass.
+func TestPartyAbbrevIsNormalisedOnTheTermItself(t *testing.T) {
+	span, _ := parliamentSpan(47)
+	h := handbookIndividual{
+		Party: "Pauline Hanson's One Nation", PartyAbbrev: "PHON",
+		PartyParliamentaryService: []handbookServiceInterval{
+			service("2022-05-21", "2025-05-03",
+				[3]string{"Pauline Hanson's One Nation", "2022-05-21", "2025-05-03"}),
+		},
+	}
+	party, ab := partyForSpan(h, span)
+	// The NAME is APH's prose and is stored verbatim — ND forbids rewriting it.
+	if party != "Pauline Hanson's One Nation" {
+		t.Errorf("party name = %q, want it verbatim from the source", party)
+	}
+	if ab != "ON" {
+		t.Errorf("party_ab = %q, want ON", ab)
+	}
+}
+
+// F11. THE TRIPWIRE FOR THE CAREER-WIDE STATE.
+//
+// deriveSenateTerms stamps ONE state — the Handbook's single `SenateState` —
+// on every term it writes, because there is no per-parliament state anywhere in
+// the payload. That is correct for everyone in range today and wrong the moment
+// somebody represents two states in the Senate. Rule 3c joins candidate returns
+// on state_code, so a stale state would offer a whole state's declared money to
+// somebody who was never on its ballot: the ambiguous case WITHHOLDS the code
+// rather than picking one, and this test is what fails if the withhold is ever
+// removed.
+func TestSenateStateWithheldWhenACareerSpansTwoSenateStates(t *testing.T) {
+	// The live shape this must NOT fire on: Barnaby Joyce reads
+	// ['NSW', 'Qld'] because New England is a HOUSE seat. One Senate state.
+	joyce := handbookIndividual{
+		SenateState:       "Queensland",
+		RepresentedStates: []string{"NSW", "Qld"},
+		ElectorateService: []handbookElectorateTerm{
+			{Electorate: "New England", State: "New South Wales",
+				ServiceStart: "2013-09-07", ServiceEnd: today},
+		},
+	}
+	if senateStatesAmbiguous(joyce) {
+		t.Error("a dual-chamber career must not read its HOUSE state as a second Senate state")
+	}
+
+	// The case the field cannot describe: two states, neither of them a House
+	// seat. Nobody in range today; the guard exists for the day there is.
+	twoStates := handbookIndividual{
+		SenateState:       "Queensland",
+		RepresentedStates: []string{"Qld", "NSW"},
+	}
+	if !senateStatesAmbiguous(twoStates) {
+		t.Fatal("two Senate states must be detected as ambiguous")
+	}
+
+	terms := deriveSenateTerms(handbookIndividual{
+		SenateState:            "Queensland",
+		RepresentedStates:      []string{"Qld", "NSW"},
+		RepresentedParliaments: []int{47, 48},
+		PartyParliamentaryService: []handbookServiceInterval{
+			service("2022-05-21", today),
+		},
+	})
+	if len(terms) == 0 {
+		t.Fatal("the fixture produced no terms to check")
+	}
+	for _, term := range terms {
+		if term.StateCode != "" {
+			t.Errorf("parliament %d carries state %q — an ambiguous state must be withheld, not guessed",
+				term.Parliament, term.StateCode)
+		}
+	}
+}
+
+// The state IS written for everybody else — the guard must not be a blanket.
+func TestSenateStateIsWrittenWhenItIsUnambiguous(t *testing.T) {
+	terms := deriveSenateTerms(handbookIndividual{
+		SenateState:            "Queensland",
+		RepresentedStates:      []string{"Qld"},
+		RepresentedParliaments: []int{47, 48},
+		PartyParliamentaryService: []handbookServiceInterval{
+			service("2022-05-21", today),
+		},
+	})
+	if len(terms) == 0 {
+		t.Fatal("no terms derived")
+	}
+	for _, term := range terms {
+		if term.StateCode != "QLD" {
+			t.Errorf("parliament %d state = %q, want QLD", term.Parliament, term.StateCode)
+		}
+	}
+}

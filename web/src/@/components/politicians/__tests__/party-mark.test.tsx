@@ -15,7 +15,13 @@ import { join } from "node:path";
 import { render } from "@testing-library/react";
 
 import { PartyMark, partyMarkLabel, markInk, markTile } from "../party-mark";
-import { PARTY_LABEL, PARTY_OTHER_COLOR, PARTY_COLORS, partyColorFromAb } from "@/lib/politics/party-palette";
+import {
+  PARTY_LABEL,
+  PARTY_OTHER_COLOR,
+  PARTY_COLORS,
+  partyColorFromAb,
+  partyLabel,
+} from "@/lib/politics/party-palette";
 
 const SOURCE = readFileSync(join(__dirname, "..", "party-mark.tsx"), "utf8");
 /**
@@ -186,5 +192,64 @@ describe("sizes", () => {
     const dflt = render(<PartyMark abbreviation="ALP" />).container
       .firstElementChild as HTMLElement;
     expect(dflt.style.width).toBe("20px");
+  });
+});
+
+/*
+ * THE SENATE'S PARTIES.
+ *
+ * Senator identity brought in abbreviations this palette had never seen — the
+ * Senate seats micro-parties the House almost never does — and every one of
+ * them rendered as a grey "Other" chip beside a named person. Six of them, on
+ * real parliamentarians who sat for real parties.
+ *
+ * Two of the six were a different failure and are fixed at the WRITE side, not
+ * here: PHON is One Nation under a second code, and "UAP [2018]" is UAP with a
+ * re-registration qualifier attached. Both are normalised when the term is
+ * minted, so they never reach this map — adding them as entries would have
+ * given One Nation two chips, two colours and two facet buckets.
+ */
+describe("the party palette reads the Senate's abbreviations", () => {
+  it("labels every party the senate mint writes", () => {
+    const expected: Record<string, string> = {
+      // Normalised at mint, so these are the codes that actually arrive.
+      ON: "One Nation",
+      UAP: "United Australia",
+      // Genuinely absent labels, added.
+      FFP: "Family First",
+      GLT: "Glenn Lazarus Team",
+      AMEP: "Australian Motoring Enthusiast",
+      AV: "Australia's Voice",
+      // Already known, asserted so a future edit cannot drop them.
+      JLN: "Jacqui Lambie Network",
+      LDP: "Liberal Democrats",
+      XEN: "Centre Alliance",
+      CA: "Centre Alliance",
+      PUP: "Palmer United",
+      DHJP: "Derryn Hinch's Justice",
+    };
+    for (const [ab, label] of Object.entries(expected)) {
+      expect(partyLabel(ab)).toBe(label);
+    }
+  });
+
+  it("gives each of them a colour that is not the Other grey", () => {
+    for (const ab of ["ON", "UAP", "FFP", "GLT", "AMEP", "AV"]) {
+      expect(partyColorFromAb(ab)).not.toBe(PARTY_OTHER_COLOR);
+    }
+  });
+
+  it("puts One Nation's two source codes on ONE chip", () => {
+    // PHON never reaches the palette — it is normalised to ON at mint — but if
+    // it ever did, it must not become a second One Nation.
+    expect(partyLabel("ON")).toBe("One Nation");
+    expect(partyLabel("PHON")).toBe("Other");
+  });
+
+  it("still says Other for something genuinely unknown", () => {
+    // A caveat that covers everything covers nothing: an unrecognised party
+    // must still be visibly unrecognised rather than mislabelled.
+    expect(partyLabel("ZZZ")).toBe("Other");
+    expect(partyColorFromAb("ZZZ")).toBe(PARTY_OTHER_COLOR);
   });
 });

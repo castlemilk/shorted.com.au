@@ -26,6 +26,7 @@ ALTER TABLE aec_candidate_returns
         'unresolved', 'curated_alias', 'division_surname_given_exact'));
 
 DROP FUNCTION IF EXISTS aec_state_full_name(TEXT);
+DROP FUNCTION IF EXISTS aec_parliament_election_date(INT);
 
 DROP MATERIALIZED VIEW IF EXISTS mv_register_politician_monthly;
 DROP MATERIALIZED VIEW IF EXISTS mv_register_politician_rollup;
