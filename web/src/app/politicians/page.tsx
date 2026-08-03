@@ -30,7 +30,7 @@ import {
 } from "~/app/actions/getPoliticians";
 import { loadPoliticianTable } from "~/app/actions/politicianTable";
 import { bailOnEmptyRender } from "~/app/actions/config";
-import { pageTitle, sectionTitle, eyebrow, lede } from "@/lib/typography";
+import { pageTitle, sectionTitle, eyebrow } from "@/lib/typography";
 import { partyLabel } from "@/lib/politics/party-palette";
 import { REGISTER_ITEMS } from "@/lib/politics/register-items";
 import { SENATE_REGISTER_GAP_CORPUS } from "@/lib/politics/register-coverage";
@@ -328,82 +328,22 @@ export default async function PoliticiansPage() {
       />
       <DashboardLayout>
         <div className="mx-auto max-w-6xl space-y-8 px-4 py-6">
-          <header className="space-y-3">
-            <p className={eyebrow}>Influence layer</p>
-            <h1 className={pageTitle}>Parliament&rsquo;s Portfolio</h1>
-            <p className={lede}>
+          {/* A working header, not a hero: the reader landed on an analytics
+              surface and the data should own the first screenful. The full
+              editorial lede keeps every word — it is the load-bearing
+              what-not-how-much claim — but at body size on one measure. */}
+          <header className="space-y-1.5">
+            <div className="flex flex-wrap items-baseline gap-x-3">
+              <h1 className={pageTitle}>Parliament&rsquo;s Portfolio</h1>
+              <p className={`${eyebrow} translate-y-[-2px]`}>Influence layer</p>
+            </div>
+            <p className="max-w-[70ch] text-sm leading-relaxed text-muted-foreground">
               What federal parliamentarians declare in the Registers of Members&rsquo; and
               Senators&rsquo; Interests — the companies, the suburbs, and how the declarations
               change. The registers record <strong>what</strong> is held; they do not record
               quantity or value.
             </p>
           </header>
-
-          {hasExplorer ? (
-            <section className="grid gap-2.5 md:grid-cols-3">
-              <StatusCard title="Coverage">
-                {extracted.length + partial.length + pending.length > 0 ? (
-                  <CoverageNote extracted={extracted} partial={partial} pending={pending} />
-                ) : (
-                  <p className="text-[11px] leading-relaxed text-muted-foreground">
-                    Register documents published by the Parliament of Australia for parliaments{" "}
-                    {overview?.firstParliament ?? explorer?.firstParliament}–
-                    {overview?.lastParliament ?? explorer?.lastParliament}.
-                  </p>
-                )}
-              </StatusCard>
-
-              <StatusCard title="Recent activity">
-                <p className="text-sm leading-relaxed">
-                  <strong className="tabular-nums">{explorer?.changes7d ?? 0}</strong>{" "}
-                  {plural(explorer?.changes7d ?? 0, "entry", "entries")} entered or left the
-                  registers in the last 7 days, across{" "}
-                  <strong className="tabular-nums">{explorer?.membersChanged7d ?? 0}</strong>{" "}
-                  {plural(explorer?.membersChanged7d ?? 0, "member", "members")}.
-                </p>
-                <p className="text-[11px] leading-relaxed text-muted-foreground">
-                  Over 30 days: {explorer?.changes30d ?? 0}{" "}
-                  {plural(explorer?.changes30d ?? 0, "entry", "entries")} across{" "}
-                  {explorer?.membersChanged30d ?? 0}{" "}
-                  {plural(explorer?.membersChanged30d ?? 0, "member", "members")}. A change is an
-                  entry appearing in or leaving the register — not a transaction.
-                </p>
-                <Link
-                  href="/politicians/changes"
-                  className="inline-block text-[11px] text-muted-foreground underline decoration-dotted hover:text-foreground"
-                >
-                  Every addition and removal →
-                </Link>
-              </StatusCard>
-
-              <StatusCard title="Category movement">
-                {industryTrends.length > 0 ? (
-                  <>
-                    <ul className="space-y-1 text-sm">
-                      {industryTrends.slice(0, 3).map((trend) => (
-                        <li key={trend.industry} className="flex items-baseline justify-between gap-2">
-                          <span className="truncate">{trend.industry}</span>
-                          <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
-                            {trend.count90dAgo} → {trend.currentCount} (
-                            {signed(trend.currentCount - trend.count90dAgo)})
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                    <p className="text-[11px] leading-relaxed text-muted-foreground">
-                      Distinct ASX-listed companies declared in each industry, now and 90 days
-                      ago. Dated entries only: an entry whose start date the register does not
-                      state is excluded from both sides.
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-[11px] leading-relaxed text-muted-foreground">
-                    No dated movement to compare over the last 90 days.
-                  </p>
-                )}
-              </StatusCard>
-            </section>
-          ) : null}
 
           <section className="space-y-1.5">
             {/* ONE strip, not six cards: the container draws the border and
@@ -463,10 +403,6 @@ export default async function PoliticiansPage() {
               <SectionIcon name="parliament" />
               Every parliamentarian, and what they declare
             </h2>
-            <p className="max-w-prose text-sm text-muted-foreground">
-              Search by name, electorate, or a declared company or suburb — or scroll the roll,
-              sorted by entries currently declared.
-            </p>
             {/*
               `min-w-0` ON BOTH GRID ITEMS, AND IT IS LOAD-BEARING. A grid item
               defaults to `min-width:auto`, which means "at least as wide as my
@@ -653,6 +589,72 @@ export default async function PoliticiansPage() {
               </aside>
             </div>
           </section>
+
+          {hasExplorer ? (
+            <section className="grid gap-2.5 md:grid-cols-3">
+              <StatusCard title="Coverage">
+                {extracted.length + partial.length + pending.length > 0 ? (
+                  <CoverageNote extracted={extracted} partial={partial} pending={pending} />
+                ) : (
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">
+                    Register documents published by the Parliament of Australia for parliaments{" "}
+                    {overview?.firstParliament ?? explorer?.firstParliament}–
+                    {overview?.lastParliament ?? explorer?.lastParliament}.
+                  </p>
+                )}
+              </StatusCard>
+
+              <StatusCard title="Recent activity">
+                <p className="text-sm leading-relaxed">
+                  <strong className="tabular-nums">{explorer?.changes7d ?? 0}</strong>{" "}
+                  {plural(explorer?.changes7d ?? 0, "entry", "entries")} entered or left the
+                  registers in the last 7 days, across{" "}
+                  <strong className="tabular-nums">{explorer?.membersChanged7d ?? 0}</strong>{" "}
+                  {plural(explorer?.membersChanged7d ?? 0, "member", "members")}.
+                </p>
+                <p className="text-[11px] leading-relaxed text-muted-foreground">
+                  Over 30 days: {explorer?.changes30d ?? 0}{" "}
+                  {plural(explorer?.changes30d ?? 0, "entry", "entries")} across{" "}
+                  {explorer?.membersChanged30d ?? 0}{" "}
+                  {plural(explorer?.membersChanged30d ?? 0, "member", "members")}. A change is an
+                  entry appearing in or leaving the register — not a transaction.
+                </p>
+                <Link
+                  href="/politicians/changes"
+                  className="inline-block text-[11px] text-muted-foreground underline decoration-dotted hover:text-foreground"
+                >
+                  Every addition and removal →
+                </Link>
+              </StatusCard>
+
+              <StatusCard title="Category movement">
+                {industryTrends.length > 0 ? (
+                  <>
+                    <ul className="space-y-1 text-sm">
+                      {industryTrends.slice(0, 3).map((trend) => (
+                        <li key={trend.industry} className="flex items-baseline justify-between gap-2">
+                          <span className="truncate">{trend.industry}</span>
+                          <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
+                            {trend.count90dAgo} → {trend.currentCount} (
+                            {signed(trend.currentCount - trend.count90dAgo)})
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="text-[11px] leading-relaxed text-muted-foreground">
+                      Distinct ASX-listed companies declared in each industry, now and 90 days
+                      ago. Dated entries only: an entry whose start date the register does not
+                      state is excluded from both sides.
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">
+                    No dated movement to compare over the last 90 days.
+                  </p>
+                )}
+              </StatusCard>
+            </section>
+          ) : null}
 
           <section className="space-y-3">
             <h2 className={sectionTitle}>
