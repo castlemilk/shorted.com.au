@@ -120,7 +120,7 @@ export const metadata: Metadata = {
 function FinePrint({ lead, summary, children }: { lead: ReactNode; summary: string; children: ReactNode }) {
   return (
     <div className="text-[11px] leading-relaxed text-muted-foreground">
-      <p className="max-w-prose">{lead}</p>
+      {lead ? <p className="max-w-prose">{lead}</p> : null}
       <details className="mt-0.5">
         <summary className="cursor-pointer select-none underline decoration-dotted underline-offset-2 hover:text-foreground">
           {summary}
@@ -133,8 +133,8 @@ function FinePrint({ lead, summary, children }: { lead: ReactNode; summary: stri
 
 function StatusCard({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <article className="space-y-2 rounded-lg border bg-card p-4">
-      <h3 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+    <article className="space-y-1.5 rounded-lg border bg-card p-3">
+      <h3 className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
         {title}
       </h3>
       {children}
@@ -327,7 +327,7 @@ export default async function PoliticiansPage() {
         keywords={["register of interests", "MP shareholdings", "declared interests"]}
       />
       <DashboardLayout>
-        <div className="mx-auto max-w-6xl space-y-14 px-4 py-8">
+        <div className="mx-auto max-w-6xl space-y-8 px-4 py-6">
           <header className="space-y-3">
             <p className={eyebrow}>Influence layer</p>
             <h1 className={pageTitle}>Parliament&rsquo;s Portfolio</h1>
@@ -340,7 +340,7 @@ export default async function PoliticiansPage() {
           </header>
 
           {hasExplorer ? (
-            <section className="grid gap-3 md:grid-cols-3">
+            <section className="grid gap-2.5 md:grid-cols-3">
               <StatusCard title="Coverage">
                 {extracted.length + partial.length + pending.length > 0 ? (
                   <CoverageNote extracted={extracted} partial={partial} pending={pending} />
@@ -405,10 +405,13 @@ export default async function PoliticiansPage() {
             </section>
           ) : null}
 
-          <section className="space-y-2">
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <section className="space-y-1.5">
+            {/* ONE strip, not six cards: the container draws the border and
+                the hairlines (gap-px over bg-border), each tile is a segment.
+                Six separate cards with gutters read as six floating objects. */}
+            <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-3 lg:grid-cols-6">
               {tiles.map((tile) => (
-                <CountTile key={tile.label} count={tile.count} label={tile.label} />
+                <CountTile key={tile.label} count={tile.count} label={tile.label} flush />
               ))}
             </div>
             <FinePrint
@@ -419,7 +422,6 @@ export default async function PoliticiansPage() {
                 A real-estate entry can list more than one address, so that figure is a floor on
                 what was declared, not a tally of properties.
               </p>
-            </FinePrint>
             {/*
               THE TILE ROW SPANS TWO DIFFERENT LAYERS, AND THE SPLIT IS STATED
               RATHER THAN QUIETLY AVERAGED.
@@ -440,19 +442,13 @@ export default async function PoliticiansPage() {
               denominator and this line carries the split.
             */}
             {senatorCount > 0 ? (
-              <FinePrint
-                lead={
-                  <>
-                    The first tile counts everyone we hold an identity for, in both chambers;{" "}
-                    <strong className="tabular-nums">{senatorCount}</strong> of them are senators.
-                    The remaining tiles count the register.
-                  </>
-                }
-                summary="What the register covers"
-              >
-                <p>{SENATE_REGISTER_GAP_CORPUS}</p>
-              </FinePrint>
-            ) : null}
+                <p>
+                  The first tile counts everyone we hold an identity for, in both chambers;{" "}
+                  <strong className="tabular-nums">{senatorCount}</strong> of them are senators.
+                  The remaining tiles count the register. {SENATE_REGISTER_GAP_CORPUS}
+                </p>
+              ) : null}
+            </FinePrint>
           </section>
 
           <section className="space-y-3">
@@ -485,7 +481,7 @@ export default async function PoliticiansPage() {
               matter. These two classes are what make the table scroll instead of
               the document.
             */}
-            <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_17rem]">
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_17rem]">
               <div className="min-w-0 space-y-3">
                 <PoliticianRegisterTable
                   initialPage={table}
@@ -503,7 +499,7 @@ export default async function PoliticiansPage() {
                 <SourceLine asAt={asAt} surface="politicians hub" />
               </div>
 
-              <aside className="min-w-0 space-y-8">
+              <aside className="min-w-0 space-y-4 rounded-xl border bg-card p-3 lg:self-start">
                 {donutSegments.length > 0 ? (
                   <CountDonut
                     segments={donutSegments}
