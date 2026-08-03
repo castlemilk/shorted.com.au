@@ -33,6 +33,8 @@ import Link from "next/link";
 import { useCallback, useId, useRef, useState } from "react";
 
 import { SparkTrend } from "@/components/politicians/explorer/spark-trend";
+import { PoliticsIcon } from "@/components/politicians/politics-icon";
+import type { PoliticsIconName } from "@/components/politicians/politics-icons.generated";
 import { PoliticianAvatar } from "@/components/politicians/politician-avatar";
 import { PartyMark } from "@/components/politicians/party-mark";
 import { partyLabel } from "@/lib/politics/party-palette";
@@ -168,6 +170,19 @@ const SORTABLE: Partial<Record<PoliticianTableSort, string>> = {
   recent_changes: "Changes (90d)",
 };
 
+/**
+ * Column iconography — the same sprite ids the register categories carry
+ * everywhere else, so a reader who learned the glyphs on a profile reads this
+ * header without relearning them. Purely decorative beside the word
+ * (`aria-hidden` inside PoliticsIcon): the LABEL is the header.
+ */
+const SORT_ICONS: Partial<Record<PoliticianTableSort, PoliticsIconName>> = {
+  declared_items: "other-interests",
+  companies: "shareholdings",
+  properties: "real-estate",
+  recent_changes: "entry-added",
+};
+
 const SELECT_CLASS = POLITICS_SELECT_CLASS;
 
 /**
@@ -229,10 +244,11 @@ function SortHeader({
       <button
         type="button"
         onClick={() => onSort(sort)}
-        className={`hover:text-foreground ${
+        className={`inline-flex items-center gap-1 hover:text-foreground ${
           active ? "text-foreground underline decoration-dotted underline-offset-4" : ""
         }`}
       >
+        {SORT_ICONS[sort] ? <PoliticsIcon name={SORT_ICONS[sort]!} size={13} /> : null}
         {SORTABLE[sort]}
       </button>
     </th>
@@ -428,12 +444,12 @@ export function PoliticianRegisterTable({
       {/*
         THE CHAMBER NOTE, AND WHY IT LIVES INSIDE THE ISLAND.
 
-        Set the chamber filter to Senate and this table answers with 173 named
-        rows whose every count is zero. Nothing on screen said why. A reader —
-        or a crawler — reads a page of named senators against columns of zeros
-        as a finding about those people, and it is not one: the Registers of
-        Senators' Interests are tabled as combined volumes and we have read none
-        of them.
+        Filter to the Senate and some named rows still answer with zeros, and
+        nothing on screen says why. A reader — or a crawler — reads named
+        senators against columns of zeros as a finding about those people, and
+        it is not one: the recent Senate volumes are read, but the older,
+        scanned ones are not, so a zero can be our coverage rather than their
+        register.
 
         The hub already carries this sentence, once, up beside the tile row. It
         is not enough. That paragraph is hundreds of pixels above a table the
@@ -523,7 +539,10 @@ export function PoliticianRegisterTable({
                 className="hidden py-2 pr-3 text-right font-normal sm:table-cell"
               />
               <th scope="col" className="hidden py-2 pr-3 text-right font-normal sm:table-cell">
-                Gifts &amp; travel
+                <span className="inline-flex items-center gap-1">
+                  <PoliticsIcon name="gifts" size={13} />
+                  Gifts &amp; travel
+                </span>
               </th>
               <SortHeader
                 sort="recent_changes"
@@ -532,7 +551,10 @@ export function PoliticianRegisterTable({
                 className="hidden py-2 pr-3 text-right font-normal sm:table-cell"
               />
               <th scope="col" className="hidden w-40 py-2 text-left font-normal sm:table-cell">
-                12-month trend
+                <span className="inline-flex items-center gap-1">
+                  <PoliticsIcon name="timeline" size={13} />
+                  12-month trend
+                </span>
               </th>
             </tr>
           </thead>

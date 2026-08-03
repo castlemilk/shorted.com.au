@@ -1,16 +1,23 @@
 /**
- * One published register row, rendered on the SERVER.
+ * One published register row, rendered on the SERVER — as table CELLS.
  *
  * This is the half of the declarations surface that must never cross the client
  * boundary: it uses the frozen compliance kit (which imports the generated
  * RegisterHolder enum) and it is what puts every row into the server HTML. The
- * client island beside it takes these as opaque `content` nodes plus the plain
- * fields its filters read — see declarations-table.tsx for why.
+ * client island beside it takes these as opaque per-column nodes plus the
+ * plain, serialisable fields its filters and sort read — see
+ * declarations-table.tsx for why.
  *
- * The row markup is unchanged from the three static lists it replaces: the
- * member's own words in mono, the holder, the register item, the declaration
- * period, and a link to the ORIGINAL document THIS row came from. Nothing here
- * states or implies an amount, because the registers record none.
+ * WHY CELLS RATHER THAN ONE BLOB. The old shape shipped each row as a single
+ * `content` node: entity, holder chip, category chip, source link and period
+ * all wrapped in one flex line. That reads as a tag cloud — the same holder
+ * and category chips repeat down the list, and nothing lines up. The island
+ * now renders a real `<table>` (TanStack-driven), so the server ships one node
+ * per column and the columns align: what is declared, whose it is, since when,
+ * and the document it came from. Nothing new crosses the boundary — the same
+ * frozen kit renders each cell, just not all in one line.
+ *
+ * Nothing here states or implies an amount, because the registers record none.
  */
 
 import type { ReactNode } from "react";
@@ -20,7 +27,6 @@ import {
   DeclaredLocation,
   DeclaredPeriod,
   HolderBadge,
-  RegisterItemTag,
   SourceDocLink,
 } from "@/components/politicians/compliance";
 import { registerItem } from "@/lib/politics/register-items";
@@ -71,79 +77,51 @@ function holderFor(holder: RegisterHolder): { key: string; label: string } {
   return HOLDER_FILTER[holder] ?? HOLDER_FILTER[RegisterHolder.UNSPECIFIED]!;
 }
 
-function DeclarationRowContent({ interest }: { interest: DeclaredInterest }) {
-  const period = (
-    <DeclaredPeriod
-      from={toDate(interest.declaredFrom)}
-      fromKnown={interest.declaredFromKnown}
-      to={toDate(interest.declaredTo)}
-      currentlyDeclared={interest.currentlyDeclared}
-    />
-  );
-
+/** The "what is declared" cell: entity, place, or the member's own words. */
+function EntityCell({ interest }: { interest: DeclaredInterest }) {
   if (COMPANY_ITEMS.has(interest.itemNo)) {
     return (
-      <>
-        <div className="flex flex-wrap items-center gap-2">
-          <DeclaredEntity
-            declaredText={interest.declaredText}
-            stockCode={interest.stockCode}
-            companyName={interest.companyName}
-            entityKind={interest.entityKind}
-          />
-          <HolderBadge holder={interest.holder} />
-          <RegisterItemTag itemNo={interest.itemNo} />
-          <SourceDocLink sourceUrl={interest.sourceUrl} />
-        </div>
-        {period}
-      </>
+      <DeclaredEntity
+        declaredText={interest.declaredText}
+        stockCode={interest.stockCode}
+        companyName={interest.companyName}
+        entityKind={interest.entityKind}
+      />
     );
   }
 
   if (interest.itemNo === REAL_ESTATE_ITEM) {
     return (
-      <>
-        <div className="flex flex-wrap items-center gap-2">
-          <DeclaredLocation
-            declaredText={interest.declaredText}
-            suburbName={interest.suburbName}
-            stateCode={interest.propertyState}
-            salCode={interest.salCode}
-            href={
-              interest.salCode && interest.suburbName && interest.propertyState
-                ? `/housing/${stateSlug(interest.propertyState)}/${suburbSlug(interest.suburbName, "")}?sal=${interest.salCode}`
-                : undefined
-            }
-          />
-          <HolderBadge holder={interest.holder} />
-          <RegisterItemTag itemNo={interest.itemNo} />
-          {interest.secondaryText ? (
-            <span className="text-[11px] text-muted-foreground">{interest.secondaryText}</span>
-          ) : null}
-          <SourceDocLink sourceUrl={interest.sourceUrl} />
-        </div>
-        {period}
-      </>
+      <span className="inline-flex flex-wrap items-center gap-2">
+        <DeclaredLocation
+          declaredText={interest.declaredText}
+          suburbName={interest.suburbName}
+          stateCode={interest.propertyState}
+          salCode={interest.salCode}
+          href={
+            interest.salCode && interest.suburbName && interest.propertyState
+              ? `/housing/${stateSlug(interest.propertyState)}/${suburbSlug(interest.suburbName, "")}?sal=${interest.salCode}`
+              : undefined
+          }
+        />
+        {interest.secondaryText ? (
+          <span className="text-[11px] text-muted-foreground">{interest.secondaryText}</span>
+        ) : null}
+      </span>
     );
   }
 
   return (
-    <>
-      <div className="flex flex-wrap items-center gap-2">
-        {/* The member's own words, verbatim. The registers are CC BY-NC-ND, so a
-            declared string is stored and shown as written, never rewritten. */}
-        <span className="font-mono text-[11px] text-muted-foreground">
-          {interest.declaredText}
-        </span>
-        <HolderBadge holder={interest.holder} />
-        <RegisterItemTag itemNo={interest.itemNo} />
-        <SourceDocLink sourceUrl={interest.sourceUrl} />
-      </div>
+    <span className="inline-flex flex-wrap items-baseline gap-2">
+      {/* The member's own words, verbatim. The registers are CC BY-NC-ND, so a
+          declared string is stored and shown as written, never rewritten. */}
+      <span className="font-mono text-[11px] text-muted-foreground">
+        {interest.declaredText}
+      </span>
       {interest.secondaryText ? (
-        <span className="text-[11px] text-muted-foreground">{interest.secondaryText}</span>
+        <span className="text-[11px] text-muted-foreground/80">{interest.secondaryText}</span>
       ) : null}
-      {period}
-    </>
+    </span>
   );
 }
 
@@ -151,8 +129,9 @@ function DeclarationRowContent({ interest }: { interest: DeclaredInterest }) {
  * Every published row, grouped by register item and rendered server-side.
  *
  * Order is item number ascending, then the order the API returned — so the
- * unfiltered HTML reads as the three static lists did, category by category,
- * and the island's filtered views inherit that order rather than inventing one.
+ * unfiltered HTML reads as the register does, category by category, and the
+ * island's filtered and sorted views inherit that order rather than inventing
+ * one.
  */
 export function buildDeclarationRows(interests: DeclaredInterest[]): DeclarationRow[] {
   return interests
@@ -175,6 +154,8 @@ export function buildDeclarationRows(interests: DeclaredInterest[]): Declaration
         .join(" ")
         .toLowerCase();
 
+      const from = interest.declaredFromKnown ? toDate(interest.declaredFrom) : undefined;
+
       return {
         id: `${interest.itemNo}-${index}`,
         itemNo: interest.itemNo,
@@ -183,7 +164,22 @@ export function buildDeclarationRows(interests: DeclaredInterest[]): Declaration
         holderKey: holder.key,
         holderLabel: holder.label,
         searchText: haystack,
-        content: (<DeclarationRowContent interest={interest} />) as ReactNode,
+        /** What the sort reads for the Declared column: the visible name. */
+        entityText: (interest.companyName || interest.suburbName || interest.declaredText || "")
+          .toLowerCase(),
+        /** Epoch ms of the declared-from date; 0 = the register states none. */
+        sinceEpoch: from ? from.getTime() : 0,
+        entity: (<EntityCell interest={interest} />) as ReactNode,
+        holder: (<HolderBadge holder={interest.holder} />) as ReactNode,
+        period: (
+          <DeclaredPeriod
+            from={toDate(interest.declaredFrom)}
+            fromKnown={interest.declaredFromKnown}
+            to={toDate(interest.declaredTo)}
+            currentlyDeclared={interest.currentlyDeclared}
+          />
+        ) as ReactNode,
+        source: (<SourceDocLink sourceUrl={interest.sourceUrl} />) as ReactNode,
       };
     });
 }
