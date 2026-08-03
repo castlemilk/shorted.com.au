@@ -32,19 +32,16 @@ export function StatePoliticianHoldings({ state }: { state: StateSlug }) {
         Declared by {STATE_NAMES[state] ?? state.toUpperCase()} members
       </h4>
       {/*
-        THIS DESCRIBES A REGISTER-ONLY SET, SO IT MAY NOT PROMISE THE SENATE.
-        "senators for the state, and members for its divisions" named a
-        population half of which contributes nothing here: every row comes from
-        the House registers, and the Registers of Senators' Interests have not
-        been read into this site — so a reader was told senators were counted
-        and shown a list they are absent from. The sentence now says what the
-        data is: the members whose registers we have read.
+        THIS DESCRIBES A REGISTER-ONLY SET, SO IT SAYS EXACTLY WHAT WAS READ.
+        Both chambers contribute now that the recent Senate volumes are loaded,
+        but the older, scanned Senate volumes are still unread — a senator can
+        be under-counted, and the sentence must not promise otherwise.
       */}
       <p className="text-[11px] text-muted-foreground">
         ASX-listed companies declared in the registers of interests by the{" "}
         {data.politicianCount} federal parliamentarians representing this state or territory whose
-        registers we have read. That is the House registers; the Registers of Senators&rsquo;
-        Interests have not been read into this site yet, so senators are not counted here.
+        registers we have read. Older, scanned Senate volumes are not read into this site yet, so
+        senators&rsquo; earlier declarations can be missing here.
       </p>
       <ul className="divide-y">
         {data.stocks.map((s) => (

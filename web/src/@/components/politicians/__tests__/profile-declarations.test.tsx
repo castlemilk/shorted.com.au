@@ -32,6 +32,7 @@ function row(
   holderKey: string,
   holderLabel: string,
   text: string,
+  sinceEpoch = 0,
 ): DeclarationRow {
   return {
     id,
@@ -41,16 +42,21 @@ function row(
     holderKey,
     holderLabel,
     searchText: `${text} ${categoryLabel} ${holderLabel}`.toLowerCase(),
-    content: <span>{text}</span>,
+    entityText: text.toLowerCase(),
+    sinceEpoch,
+    entity: <span>{text}</span>,
+    holder: <span>{holderLabel}</span>,
+    period: <span>{sinceEpoch ? `since ${sinceEpoch}` : "Date not stated"}</span>,
+    source: <a href="https://example.test">PDF</a>,
   };
 }
 
 const ROWS: DeclarationRow[] = [
-  row("a", 1, "Shareholdings", "self", "Self", "BHP Group Limited"),
-  row("b", 1, "Shareholdings", "spouse-partner", "Spouse/partner", "Woodside Energy"),
-  row("c", 3, "Real estate", "self", "Self", "Residence, Coogee NSW"),
+  row("a", 1, "Shareholdings", "self", "Self", "BHP Group Limited", 300),
+  row("b", 1, "Shareholdings", "spouse-partner", "Spouse/partner", "Woodside Energy", 100),
+  row("c", 3, "Real estate", "self", "Self", "Residence, Coogee NSW", 200),
   row("d", 3, "Real estate", "dependent-child", "Dependent child", "Investment, Manly NSW"),
-  row("e", 6, "Liability", "not-stated", "Holder not stated", "Mortgage with a bank"),
+  row("e", 6, "Liability", "not-stated", "Holder not stated", "Mortgage with a bank", 400),
 ];
 
 function renderTable(rows: DeclarationRow[] = ROWS) {
@@ -58,10 +64,13 @@ function renderTable(rows: DeclarationRow[] = ROWS) {
 }
 
 function visibleTexts(): string[] {
+  // Data rows only: the header row carries columnheaders and a category group
+  // row carries a th, so "has at least one cell" selects exactly the entries.
   const panel = screen.getByRole("tabpanel");
   return within(panel)
-    .queryAllByRole("listitem")
-    .map((item) => item.textContent ?? "");
+    .queryAllByRole("row")
+    .filter((r) => within(r).queryAllByRole("cell").length > 0)
+    .map((r) => within(r).queryAllByRole("cell")[0]?.textContent ?? "");
 }
 
 describe("profile declarations island", () => {
@@ -72,7 +81,7 @@ describe("profile declarations island", () => {
     renderTable();
     expect(visibleTexts()).toHaveLength(ROWS.length);
     for (const entry of ROWS) {
-      expect(screen.getByText((entry.content as { props: { children: string } }).props.children))
+      expect(screen.getByText((entry.entity as { props: { children: string } }).props.children))
         .toBeInTheDocument();
     }
     expect(screen.getByRole("tab", { name: /All 5/ })).toHaveAttribute("aria-selected", "true");
@@ -163,6 +172,34 @@ describe("profile declarations island", () => {
     expect(screen.getByRole("tabpanel")).toHaveAttribute("id", "declaration-panel");
     expect(screen.getByLabelText(/Filter declarations by text/i)).toBeInTheDocument();
     expect(screen.getByRole("status")).toBeInTheDocument();
+  });
+
+  it("sorts by period with undated entries always last, and resets", () => {
+    renderTable();
+    fireEvent.click(screen.getByRole("button", { name: /Period/ }));
+    // Ascending by declared-from; the undated Manly entry sorts last rather
+    // than masquerading as 1970.
+    expect(visibleTexts()).toEqual([
+      "Woodside Energy",
+      "Residence, Coogee NSW",
+      "BHP Group Limited",
+      "Mortgage with a bank",
+      "Investment, Manly NSW",
+    ]);
+    fireEvent.click(screen.getByRole("button", { name: /Period/ }));
+    expect(visibleTexts()[0]).toBe("Mortgage with a bank");
+    expect(visibleTexts()[4]).toBe("Investment, Manly NSW");
+    // A user-applied sort interleaves categories, so the group headings leave.
+    expect(screen.queryByRole("heading", { name: /Shareholdings/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Reset order/ }));
+    expect(screen.getByRole("heading", { name: /Shareholdings/ })).toBeInTheDocument();
+  });
+
+  it("sorts by what is declared, alphabetically over the visible name", () => {
+    renderTable();
+    fireEvent.click(screen.getByRole("button", { name: "Declared" }));
+    expect(visibleTexts()[0]).toBe("BHP Group Limited");
+    expect(visibleTexts()[4]).toBe("Woodside Energy");
   });
 
   it("carries no currency, warning or trophy iconography and no accusatory verb", () => {

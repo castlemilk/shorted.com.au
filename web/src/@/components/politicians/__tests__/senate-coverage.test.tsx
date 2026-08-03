@@ -110,7 +110,7 @@ describe("CoverageNote — the senate branch", () => {
       />,
     );
     expect(container.textContent?.trim()).not.toHaveLength(0);
-    expect(container.textContent).toContain("not read them into this site yet");
+    expect(container.textContent).toContain("we have not read into this site yet");
   });
 
   /*
@@ -238,10 +238,14 @@ describe("the senate copy itself", () => {
     expect(SENATE_REGISTER_GAP_CORPUS).toMatch(/our coverage/i);
   });
 
-  it("says the dual-chamber case out loud in the corpus form", () => {
-    // A handful of senators carry House register rows, so a blanket "senators
-    // have no declared interests here" would be wrong for them.
-    expect(SENATE_REGISTER_GAP_CORPUS).toMatch(/served in the House/i);
+  it("says the partial-coverage case out loud in the corpus form", () => {
+    // The recent Senate volumes are read; the older, scanned ones are not. The
+    // corpus form must say BOTH halves — claiming the registers wholesale
+    // would over-promise, and claiming them unread would deny senators the
+    // rows they now have.
+    expect(SENATE_REGISTER_GAP_CORPUS).toMatch(/read the recent volumes/i);
+    expect(SENATE_REGISTER_GAP_CORPUS).toMatch(/not read yet/i);
+    expect(SENATE_REGISTER_GAP_CORPUS).toMatch(/incomplete/i);
   });
 
   it("carries no count, in any form", () => {

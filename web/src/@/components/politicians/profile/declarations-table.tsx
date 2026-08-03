@@ -1,33 +1,50 @@
 "use client";
 
 /**
- * The declarations surface on a member's profile.
+ * The declarations surface on a member's profile — a real, sortable table.
  *
  * PROGRESSIVE ENHANCEMENT IS THE BAR, not a nice-to-have. This page is the SEO
  * asset for a named person, so EVERY published row has to be in the server HTML:
  * a crawler, a reader with JavaScript off, and a reader-mode extraction all see
  * the complete set. This island therefore does not FETCH anything and does not
- * paginate — it receives every row already rendered and only narrows what is on
- * screen once a reader asks it to. The first paint (server and hydrated) is
- * unfiltered by construction.
+ * paginate — it receives every row already rendered and only narrows or
+ * re-orders what is on screen once a reader asks it to. The first paint (server
+ * and hydrated) is unfiltered and in register order by construction.
  *
- * WHY THE ROWS ARRIVE AS `content: ReactNode`. Each row is built on the SERVER
- * from the frozen compliance kit (RegisterItemTag, HolderBadge, DeclaredPeriod,
- * SourceDocLink, the deep links). compliance.tsx has no "use client" and imports
- * the generated protobuf enum, so importing it from here would drag
- * @bufbuild/protobuf across the RSC boundary and take the route's build down
- * with the undiagnosable "Element type is invalid … got: undefined" — the
- * failure documented in CLAUDE.md and pinned by client-boundary.test.ts. The row
- * MARKUP stays server-side; only the plain, serialisable fields the filters read
- * (category, holder, a lowercase haystack) cross the boundary.
+ * WHY THE CELLS ARRIVE AS `ReactNode`s. Each cell is built on the SERVER from
+ * the frozen compliance kit (DeclaredEntity, HolderBadge, DeclaredPeriod,
+ * SourceDocLink). compliance.tsx has no "use client" and imports the generated
+ * protobuf enum, so importing it from here would drag @bufbuild/protobuf across
+ * the RSC boundary and take the route's build down with the undiagnosable
+ * "Element type is invalid … got: undefined" — the failure documented in
+ * CLAUDE.md and pinned by client-boundary.test.ts. The cell MARKUP stays
+ * server-side; only plain, serialisable fields (category, holder, sort keys, a
+ * lowercase haystack) cross the boundary for TanStack to filter and sort on.
  *
- * EDITORIAL. Filtering is a view control and says nothing about the member. The
- * empty state is about the FILTER ("no entries match"), never about the register
- * — an absence claim about a named person belongs to the CoverageNote above,
- * which states what we have actually read.
+ * WHY TANSTACK AND A `<table>`. The previous list rendered each entry as one
+ * wrapped flex line — entity, holder chip, category chip, source link — so the
+ * same chips repeated down the page and nothing aligned. Columns give each
+ * fact a fixed place (what · whose · since when · source), the header row
+ * names them once instead of per-row chips, and sorting is genuinely useful
+ * ("what did they declare most recently"). The semantics also improve: a
+ * crawler now sees a captioned table, not a div soup.
+ *
+ * EDITORIAL. Filtering and sorting are view controls and say nothing about the
+ * member. The empty state is about the FILTER ("no entries match"), never about
+ * the register — an absence claim about a named person belongs to the
+ * CoverageNote above, which states what we have actually read. No column is an
+ * amount, because the registers record none.
  */
 
 import { useMemo, useState, type ReactNode } from "react";
+import {
+  flexRender,
+  getCoreRowModel,
+  getSortedRowModel,
+  useReactTable,
+  type ColumnDef,
+  type SortingState,
+} from "@tanstack/react-table";
 
 import { Input } from "@/components/ui/input";
 import { PoliticsIcon } from "@/components/politicians/politics-icon";
@@ -49,8 +66,15 @@ export interface DeclarationRow {
   holderLabel: string;
   /** Lowercased haystack for the text filter. Built server-side. */
   searchText: string;
-  /** The row itself, rendered on the server with the compliance kit. */
-  content: ReactNode;
+  /** Lowercased visible name, for sorting the Declared column. */
+  entityText: string;
+  /** Epoch ms of the declared-from date; 0 when the register states none. */
+  sinceEpoch: number;
+  /** The four cells, rendered on the server with the compliance kit. */
+  entity: ReactNode;
+  holder: ReactNode;
+  period: ReactNode;
+  source: ReactNode;
 }
 
 export interface DeclarationsTableProps {
@@ -63,10 +87,50 @@ function countLabel(count: number): string {
   return count === 1 ? "1 entry" : `${count} entries`;
 }
 
+/**
+ * The column model.
+ *
+ * Sorting reads ONLY the plain fields — the nodes are opaque to TanStack. An
+ * unsorted table keeps the incoming order (register item, then the document
+ * order), which is what groups the category sections below.
+ */
+const COLUMNS: ColumnDef<DeclarationRow>[] = [
+  {
+    id: "entity",
+    accessorKey: "entityText",
+    header: "Declared",
+    cell: ({ row }) => row.original.entity,
+  },
+  {
+    id: "holder",
+    accessorKey: "holderLabel",
+    header: "Declared for",
+    cell: ({ row }) => row.original.holder,
+  },
+  {
+    id: "since",
+    // A 0 epoch is "the register states no date" — surfacing it as undefined
+    // lets sortUndefined keep those entries at the END in both directions,
+    // rather than masquerading as 1970.
+    accessorFn: (row) => (row.sinceEpoch === 0 ? undefined : row.sinceEpoch),
+    header: "Period",
+    cell: ({ row }) => row.original.period,
+    sortUndefined: "last",
+    sortDescFirst: false,
+  },
+  {
+    id: "source",
+    header: "Source",
+    enableSorting: false,
+    cell: ({ row }) => row.original.source,
+  },
+];
+
 export function DeclarationsTable({ rows }: DeclarationsTableProps) {
   const [category, setCategory] = useState<string>(ALL);
   const [holder, setHolder] = useState<string>(ALL);
   const [query, setQuery] = useState("");
+  const [sorting, setSorting] = useState<SortingState>([]);
 
   // Tabs in register-item order, each carrying its own count. Derived from the
   // rows rather than from the 14-item taxonomy: a tab for a category this member
@@ -110,19 +174,21 @@ export function DeclarationsTable({ rows }: DeclarationsTableProps) {
     [rows, category, holder, needle],
   );
 
-  // Groups preserve the server's order, so the filtered view reads the same way
-  // the unfiltered HTML does.
-  const groups = useMemo(() => {
-    const out: { key: string; label: string; rows: DeclarationRow[] }[] = [];
-    for (const row of visible) {
-      const last = out[out.length - 1];
-      if (last && last.key === row.categoryKey) last.rows.push(row);
-      else out.push({ key: row.categoryKey, label: row.categoryLabel, rows: [row] });
-    }
-    return out;
-  }, [visible]);
+  const table = useReactTable({
+    data: visible,
+    columns: COLUMNS,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getRowId: (row) => row.id,
+  });
 
   const filtered = category !== ALL || holder !== ALL || needle !== "";
+  // Category section headers only make sense while the rows are still in
+  // register order — a user-applied sort interleaves categories on purpose.
+  const grouped = sorting.length === 0;
+  const tableRows = table.getRowModel().rows;
 
   if (rows.length === 0) return null;
 
@@ -197,7 +263,7 @@ export function DeclarationsTable({ rows }: DeclarationsTableProps) {
 
         <p className="text-[11px] text-muted-foreground" role="status">
           Showing {visible.length} of {countLabel(rows.length)}.
-          {filtered ? (
+          {filtered || sorting.length > 0 ? (
             <>
               {" "}
               <button
@@ -206,10 +272,11 @@ export function DeclarationsTable({ rows }: DeclarationsTableProps) {
                   setCategory(ALL);
                   setHolder(ALL);
                   setQuery("");
+                  setSorting([]);
                 }}
                 className="underline decoration-dotted underline-offset-2 hover:text-foreground"
               >
-                Clear filters
+                {filtered ? "Clear filters" : "Reset order"}
               </button>
             </>
           ) : null}
@@ -217,41 +284,119 @@ export function DeclarationsTable({ rows }: DeclarationsTableProps) {
       </div>
 
       <div id="declaration-panel" role="tabpanel" aria-label="Declared entries">
-        {groups.length === 0 ? (
+        {tableRows.length === 0 ? (
           // About the FILTER, never about the register. What the member has or
           // has not declared is the CoverageNote's job, above.
           <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
             No entries match this filter.
           </p>
         ) : (
-          <div className="space-y-6">
-            {groups.map((group) => (
-              <section key={group.key} className="space-y-1">
-                {groups.length > 1 ? (
-                  <h3 className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                    {registerItemIcon(group.rows[0]?.itemNo) ? (
-                      <PoliticsIcon name={registerItemIcon(group.rows[0]!.itemNo)!} size={14} />
-                    ) : null}
-                    <span>
-                      {group.label}{" "}
-                      <span className="tabular-nums font-normal">({group.rows.length})</span>
-                    </span>
-                  </h3>
-                ) : null}
-                <ul className="divide-y">
-                  {group.rows.map((row) => (
-                    <li key={row.id} className="flex flex-col gap-1 py-2">
-                      {row.content}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ))}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <caption className="sr-only">
+                Declared entries from the Registers of Members&rsquo; and Senators&rsquo;
+                Interests, in the register&rsquo;s own words. No column is a quantity or a value;
+                the registers record none.
+              </caption>
+              <thead className="border-b text-[11px] uppercase tracking-wide text-muted-foreground">
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <tr key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => {
+                      const sortable = header.column.getCanSort();
+                      const dir = header.column.getIsSorted();
+                      return (
+                        <th
+                          key={header.id}
+                          scope="col"
+                          aria-sort={
+                            dir === "asc" ? "ascending" : dir === "desc" ? "descending" : undefined
+                          }
+                          className={`py-2 pr-3 text-left font-normal ${columnHeadClass(header.id)}`}
+                        >
+                          {sortable ? (
+                            <button
+                              type="button"
+                              onClick={header.column.getToggleSortingHandler()}
+                              className={`inline-flex items-center gap-1 ${POLITICS_FOCUS_RING} hover:text-foreground`}
+                            >
+                              {flexRender(header.column.columnDef.header, header.getContext())}
+                              <span aria-hidden className="text-[9px] leading-none">
+                                {dir === "asc" ? "▲" : dir === "desc" ? "▼" : "△▽"}
+                              </span>
+                            </button>
+                          ) : (
+                            flexRender(header.column.columnDef.header, header.getContext())
+                          )}
+                        </th>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </thead>
+              <tbody>
+                {tableRows.map((row, index) => {
+                  const previous = tableRows[index - 1];
+                  const showGroupHead =
+                    grouped &&
+                    (category === ALL ? categories.length > 1 : false) &&
+                    (!previous || previous.original.categoryKey !== row.original.categoryKey);
+                  return [
+                    showGroupHead ? (
+                      <tr key={`${row.id}-group`} className="border-b bg-muted/30">
+                        {/* A real heading inside the th, so the category keeps
+                            its place in the document outline the way the old
+                            list's <h3>s did. */}
+                        <th
+                          scope="colgroup"
+                          colSpan={COLUMNS.length}
+                          className="py-1.5 pr-3 text-left"
+                        >
+                          <h3 className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                            {registerItemIcon(row.original.itemNo) ? (
+                              <PoliticsIcon
+                                name={registerItemIcon(row.original.itemNo)!}
+                                size={14}
+                              />
+                            ) : null}
+                            <span>
+                              {row.original.categoryLabel}{" "}
+                              <span className="tabular-nums font-normal">
+                                (
+                                {
+                                  tableRows.filter(
+                                    (r) => r.original.categoryKey === row.original.categoryKey,
+                                  ).length
+                                }
+                                )
+                              </span>
+                            </span>
+                          </h3>
+                        </th>
+                      </tr>
+                    ) : null,
+                    <tr
+                      key={row.id}
+                      className="border-b align-top transition-colors last:border-0 hover:bg-muted/40"
+                    >
+                      <td className="py-2 pr-3">{row.original.entity}</td>
+                      <td className="py-2 pr-3">{row.original.holder}</td>
+                      <td className="py-2 pr-3 whitespace-nowrap">{row.original.period}</td>
+                      <td className="py-2 text-right">{row.original.source}</td>
+                    </tr>,
+                  ];
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
     </div>
   );
+}
+
+function columnHeadClass(id: string): string {
+  if (id === "source") return "text-right";
+  return "";
 }
 
 function FilterTab({

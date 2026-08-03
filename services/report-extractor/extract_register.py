@@ -393,6 +393,15 @@ def build_artifact(row, parsed, page_count: int, tier: str = TIER_DETERMINISTIC)
             {
                 "ordinal": s.ordinal,
                 "kind": s.kind,
+                # Senate volumes: per-statement identity from the form's own
+                # header block (empty for House documents, where identity comes
+                # from the manifest hint). Additive fields — SCHEMA_VERSION is
+                # deliberately NOT bumped: a bump would make every House
+                # document re-eligible for an unforced deterministic re-run,
+                # which is the §8 coverage-downgrade landmine.
+                "declared_surname": getattr(s, "declared_surname", ""),
+                "declared_other_names": getattr(s, "declared_other_names", ""),
+                "declared_state": getattr(s, "declared_state", ""),
                 "lodged_date": s.lodged_date.isoformat() if s.lodged_date else None,
                 "date_is_stated": s.date_is_stated,
                 "page_from": s.page_from,
@@ -588,7 +597,16 @@ def run_extract(args) -> int:
         try:
             doc, temp_path = open_document(row["storage_uri"])
             try:
-                parsed = parse_house_document(doc)
+                if row["chamber"] == "senate":
+                    # A tabled volume of many senators' statements; the parser
+                    # splits on each statement's own Surname header block and
+                    # OCRs scanned pages in place (Apple Vision — operator
+                    # machine, like the vision tier).
+                    from register_parse_senate import parse_senate_volume
+
+                    parsed = parse_senate_volume(doc)
+                else:
+                    parsed = parse_house_document(doc)
                 page_count = row["page_count"] or doc.page_count
             finally:
                 doc.close()

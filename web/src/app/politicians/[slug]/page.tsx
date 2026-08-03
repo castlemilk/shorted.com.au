@@ -573,7 +573,7 @@ export default async function PoliticianPage({
                 </section>
               ) : null}
 
-              <section className="space-y-4">
+              <section className="space-y-4 border-t border-border/60 pt-8">
                 <h2 className={sectionTitle}>
                   <SectionIcon name="other-interests" />
                   Declared interests
@@ -664,7 +664,7 @@ export default async function PoliticianPage({
               />
 
               {(data?.representedSuburbs?.length ?? 0) > 0 && (
-                <section className="space-y-2">
+                <section className="space-y-2 border-t border-border/60 pt-8">
                   <h2 className={sectionTitle}>
                     <SectionIcon name="electorate" />
                     Suburbs represented

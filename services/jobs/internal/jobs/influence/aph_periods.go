@@ -104,7 +104,7 @@ type holdingInterval struct {
 // third. aph_suppression_test.go asserts the filter appears once per arm.
 const selectHoldingEventsQuery = `
 	SELECT i.politician_id::text, i.item_no, i.holder,
-	       COALESCE(NULLIF(sec.stock_code, ''), NULLIF(sec.candidate_norm, ''), upper(btrim(i.declared_text))) AS holding_key,
+	       COALESCE(NULLIF(sec.stock_code, ''), NULLIF(sec.candidate_norm, ''), CASE WHEN length(i.declared_text) > 1000 THEN upper(left(btrim(i.declared_text), 960)) || '|MD5:' || md5(i.declared_text) ELSE upper(btrim(i.declared_text)) END) AS holding_key,
 	       COALESCE(sec.stock_code, '') AS stock_code,
 	       '' AS sal_code,
 	       COALESCE(NULLIF(sec.candidate_raw, ''), i.declared_text) AS declared_text,
@@ -122,7 +122,7 @@ const selectHoldingEventsQuery = `
 	UNION ALL
 
 	SELECT i.politician_id::text, i.item_no, i.holder,
-	       COALESCE(NULLIF(loc.sal_code, ''), NULLIF(loc.locality_norm, ''), upper(btrim(i.declared_text))) AS holding_key,
+	       COALESCE(NULLIF(loc.sal_code, ''), NULLIF(loc.locality_norm, ''), CASE WHEN length(i.declared_text) > 1000 THEN upper(left(btrim(i.declared_text), 960)) || '|MD5:' || md5(i.declared_text) ELSE upper(btrim(i.declared_text)) END) AS holding_key,
 	       '' AS stock_code,
 	       COALESCE(loc.sal_code, '') AS sal_code,
 	       COALESCE(NULLIF(loc.locality_raw, ''), i.declared_text) AS declared_text,
@@ -140,7 +140,7 @@ const selectHoldingEventsQuery = `
 	UNION ALL
 
 	SELECT i.politician_id::text, i.item_no, i.holder,
-	       upper(btrim(i.declared_text)) AS holding_key,
+	       CASE WHEN length(i.declared_text) > 1000 THEN upper(left(btrim(i.declared_text), 960)) || '|MD5:' || md5(i.declared_text) ELSE upper(btrim(i.declared_text)) END AS holding_key,
 	       '' AS stock_code, '' AS sal_code,
 	       i.declared_text, i.secondary_text,
 	       '' AS entity_kind,
@@ -346,7 +346,7 @@ func rebuildHoldingPeriods(ctx context.Context, pool *pgxpool.Pool) (holdingFold
 				        NULLIF($12,'')::uuid, NULLIF($13,'')::uuid, NULLIF($14,0), $15,
 				        $16)`,
 				key.PoliticianID, key.ItemNo, key.Holder, key.HoldingKey, stock, sal,
-				iv.DeclaredText, iv.SecondaryText, iv.From, iv.FromKnown, iv.To,
+				capDeclaredText(iv.DeclaredText), iv.SecondaryText, iv.From, iv.FromKnown, iv.To,
 				iv.FirstStatementID, iv.LastStatementID, iv.FirstParliament,
 				sourceByStatement[iv.FirstStatementID], iv.EntityKind)
 			queued++
@@ -367,6 +367,27 @@ func rebuildHoldingPeriods(ctx context.Context, pool *pgxpool.Pool) (holdingFold
 	}
 
 	return stats, tx.Commit(ctx)
+}
+
+// The ceiling for a holding period's DISPLAY text.
+//
+// mv_register_public_holdings carries declared_text inside the unique btree
+// index CONCURRENT refresh requires, and a btree index row must fit in 8,191
+// bytes — the Senate's 16-page donor-list entry (17,344 bytes) broke the MV
+// refresh, and the guarded refresh function swallowed the error, leaving the
+// view silently stale. This caps the DERIVED row only: the member's words stay
+// verbatim and complete in register_declared_items, the truncation is stated
+// in the row itself, and every row links to the source document. 2,000 chars
+// is far under the ceiling even at four bytes a character.
+const declaredTextDisplayCap = 2000
+
+func capDeclaredText(text string) string {
+	runes := []rune(text)
+	if len(runes) <= declaredTextDisplayCap {
+		return text
+	}
+	return string(runes[:declaredTextDisplayCap]) +
+		" … [entry truncated — the full text is in the source document]"
 }
 
 // refreshRegisterMaterializedViews runs the guarded refresh function.

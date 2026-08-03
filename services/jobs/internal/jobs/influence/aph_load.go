@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -37,6 +38,22 @@ type artifactStatement struct {
 	PageFrom     int            `json:"page_from"`
 	PageTo       int            `json:"page_to"`
 	Items        []artifactItem `json:"items"`
+	// Senate volumes only: the statement's own Surname/Other names/State
+	// header block. A volume binds many senators' statements together, so
+	// identity is per STATEMENT, not per document — the House manifest hint is
+	// empty for these documents. Verbatim from the form.
+	DeclaredSurname    string   `json:"declared_surname"`
+	DeclaredOtherNames string   `json:"declared_other_names"`
+	DeclaredState      string   `json:"declared_state"`
+	Warnings           []string `json:"warnings"`
+}
+
+// tablesUnparsed reports a statement the parser split but could not read the
+// tables of (an OCR miss). Loading it would publish an empty declaration list
+// under a named person — an absence claim — so it is skipped entirely and the
+// person keeps their honest "not read yet" coverage note instead.
+func (s artifactStatement) tablesUnparsed() bool {
+	return slices.Contains(s.Warnings, "tables_unparsed")
 }
 
 type artifactItem struct {
@@ -70,6 +87,7 @@ type pendingExtraction struct {
 	MemberHint   string
 	DivisionHint string
 	StateHint    string
+	TabledFrom   *time.Time
 	Payload      []byte
 }
 
@@ -83,7 +101,7 @@ func selectExtractionsToLoad(ctx context.Context, pool *pgxpool.Pool, limit int)
 		SELECT DISTINCT ON (e.document_id)
 		       e.id::text, e.document_id::text, d.source_url, d.chamber,
 		       COALESCE(d.parliament, 0), d.member_hint, d.division_hint,
-		       d.state_hint, e.payload
+		       d.state_hint, d.tabled_from, e.payload
 		FROM register_extractions e
 		JOIN register_documents d ON d.id = e.document_id
 		WHERE d.extract_status = 'extracted'
@@ -102,7 +120,7 @@ func selectExtractionsToLoad(ctx context.Context, pool *pgxpool.Pool, limit int)
 	for rows.Next() {
 		var p pendingExtraction
 		if err := rows.Scan(&p.ExtractionID, &p.DocumentID, &p.SourceURL, &p.Chamber,
-			&p.Parliament, &p.MemberHint, &p.DivisionHint, &p.StateHint, &p.Payload); err != nil {
+			&p.Parliament, &p.MemberHint, &p.DivisionHint, &p.StateHint, &p.TabledFrom, &p.Payload); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
@@ -218,6 +236,46 @@ func mintSlug(ctx context.Context, tx pgx.Tx, id PersonIdentity, stateHint strin
 	return "", fmt.Errorf("no free slug for %q", id.DisplayName)
 }
 
+// lookupPoliticianByKey finds an existing person by person_key, then by the
+// alias table — the same two steps resolvePolitician takes before minting,
+// WITHOUT the mint. The Senate load path may only land on people the Handbook
+// identity pass created; an unmatched header withholds rather than forking a
+// second identity (the mechanism that produced the 28 published duplicates).
+func lookupPoliticianByKey(ctx context.Context, tx pgx.Tx, key string) (string, error) {
+	var id string
+	err := tx.QueryRow(ctx, `
+		SELECT id::text FROM politicians
+		WHERE person_key = $1 AND merged_into_id IS NULL`, key).Scan(&id)
+	if err != nil && err != pgx.ErrNoRows {
+		return "", err
+	}
+	if id == "" {
+		err = tx.QueryRow(ctx, `
+			SELECT p.id::text FROM politician_aliases a
+			JOIN politicians p ON p.id = a.politician_id AND p.merged_into_id IS NULL
+			WHERE a.alias_key = $1`, key).Scan(&id)
+		if err != nil && err != pgx.ErrNoRows {
+			return "", err
+		}
+	}
+	return id, nil
+}
+
+// parliamentAt maps a lodgement date onto the parliament sitting that day,
+// via the same election-day spans the senator identity derivation uses.
+// Senate volume manifests carry no parliament (the listing page doesn't say),
+// so the statement's own date is the only honest source.
+func parliamentAt(t time.Time) int {
+	for pn := 48; pn >= 38; pn-- {
+		if span, ok := parliamentSpan(pn); ok {
+			if !t.Before(span.From) && t.Before(span.To) {
+				return pn
+			}
+		}
+	}
+	return 0
+}
+
 // loadExtraction writes one artifact's statements and items in a single
 // transaction, so a document is either wholly loaded or not at all.
 func loadExtraction(ctx context.Context, pool *pgxpool.Pool, p pendingExtraction) (statements, items int, err error) {
@@ -250,10 +308,52 @@ func loadExtraction(ctx context.Context, pool *pgxpool.Pool, p pendingExtraction
 	}
 
 	for _, s := range artifact.Statements {
+		if s.tablesUnparsed() {
+			continue
+		}
 		var lodged *time.Time
 		if s.LodgedDate != nil && *s.LodgedDate != "" {
 			if t, perr := time.Parse("2006-01-02", *s.LodgedDate); perr == nil {
 				lodged = &t
+			}
+		}
+
+		// Per-statement identity. House documents belong wholly to the person
+		// in the manifest hint; a Senate volume binds many senators, and each
+		// statement carries its own header block. The Senate path RESOLVES
+		// AGAINST EXISTING IDENTITY ONLY — register-senators already minted
+		// every senator from parliament 44 on out of the Handbook, so a miss
+		// here means the header is damaged (an OCR'd scan) or ambiguous, and
+		// the statement stays unresolved rather than minting a duplicate
+		// beside the senator we already hold. It also writes no
+		// politician_terms: the Handbook owns Senate terms.
+		stmtPoliticianID, stmtStatus := politicianID, identityStatus
+		stmtSurname, stmtGiven, stmtState := identity.Surname, identity.GivenNames, p.StateHint
+		stmtParliament := p.Parliament
+		if s.DeclaredSurname != "" {
+			key := personKey(s.DeclaredSurname, s.DeclaredOtherNames)
+			stmtSurname, stmtGiven, stmtState = s.DeclaredSurname, s.DeclaredOtherNames, s.DeclaredState
+			stmtPoliticianID, stmtStatus = "", "unresolved"
+			if key != "" {
+				found, lerr := lookupPoliticianByKey(ctx, tx, key)
+				if lerr != nil {
+					return 0, 0, lerr
+				}
+				if found != "" {
+					stmtPoliticianID, stmtStatus = found, "resolved"
+				}
+			}
+			if lodged != nil {
+				if pn := parliamentAt(*lodged); pn > 0 {
+					stmtParliament = pn
+				}
+			}
+			// A statement with no legible date still belongs to the volume's
+			// own tabled window — "lodged between 1 July 2025 and …" is the
+			// listing's claim, not ours, and leaving parliament NULL made 24
+			// loaded statements invisible to every per-parliament read path.
+			if stmtParliament == 0 && p.TabledFrom != nil {
+				stmtParliament = parliamentAt(*p.TabledFrom)
 			}
 		}
 
@@ -268,10 +368,10 @@ func loadExtraction(ctx context.Context, pool *pgxpool.Pool, p pendingExtraction
 			VALUES ($1, $2, NULLIF($3, '')::uuid, $4, $5, $6, NULLIF($7, 0), $8, $9,
 			        $10, $11, $12, $13, $14, $15, $16, $17)
 			RETURNING id::text`,
-			p.DocumentID, p.ExtractionID, politicianID, s.Ordinal, s.Kind, p.Chamber,
-			p.Parliament, identity.Surname, identity.GivenNames, p.DivisionHint,
-			p.StateHint, lodged, s.DateIsStated, s.PageFrom, s.PageTo,
-			identityStatus, p.SourceURL).Scan(&statementID); err != nil {
+			p.DocumentID, p.ExtractionID, stmtPoliticianID, s.Ordinal, s.Kind, p.Chamber,
+			stmtParliament, stmtSurname, stmtGiven, p.DivisionHint,
+			stmtState, lodged, s.DateIsStated, s.PageFrom, s.PageTo,
+			stmtStatus, p.SourceURL).Scan(&statementID); err != nil {
 			return 0, 0, fmt.Errorf("insert statement %d: %w", s.Ordinal, err)
 		}
 		statements++
@@ -294,7 +394,7 @@ func loadExtraction(ctx context.Context, pool *pgxpool.Pool, p pendingExtraction
 					        $10, $11, $12, NULLIF($13, 0), $14, $15, $16)
 					ON CONFLICT (statement_id, item_no, holder, change_type, row_ordinal)
 					DO NOTHING`,
-					statementID, politicianID, item.ItemNo, item.ItemLabel, r.Holder,
+					statementID, stmtPoliticianID, item.ItemNo, item.ItemLabel, r.Holder,
 					r.ChangeType, r.Ordinal, r.DeclaredText, lines, r.SecondaryText,
 					r.TertiaryText, r.IsNil, r.PageNo, p.ExtractionID, r.ContainsAmount,
 					p.SourceURL)
