@@ -345,7 +345,13 @@ describe("politician surface copy", () => {
     // The two waves land on the same tree: 44 + 2 responsiveness primitives + 3
     // iconography kit files = 49; minus politician-explorer.tsx, retired
     // 2026-08-03 when the hub's search moved inside the register table = 48.
-    expect(FILES.length).toBe(48);
+    //
+    // 48 -> 49: `explorer/top-companies.tsx`, the rail's most-declared companies
+    // summary list. Kit, excluded from RENDERING_SURFACES by KIT_PRIMITIVE_DIRS
+    // like the thirteen files beside it, and it names no member at all: each row
+    // is a company code, its name, and a count of the MEMBERS declaring it, with
+    // the "not an amount" footnote carried on the surface itself.
+    expect(FILES.length).toBe(49);
     expect(RENDERING_SURFACES.length).toBe(10);
   });
 
