@@ -468,7 +468,7 @@ export function PoliticianRegisterTable({
   const outage = status === "error" || page.ok === false || (rows.length === 0 && !filtersActive);
 
   return (
-    <div className="space-y-3 rounded-[20px] border bg-card p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.04)] sm:p-4">
+    <div className="space-y-2.5 rounded-2xl border bg-card p-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.04)] sm:p-3">
       {/*
         Two columns on a phone, the flex row from `sm:` up. In a `flex-wrap` row
         at 375 px the four filters ran off the right edge — "Party" was clipped

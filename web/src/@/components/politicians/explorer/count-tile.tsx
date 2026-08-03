@@ -7,6 +7,13 @@ export interface CountTileProps {
   count: number;
   label: string;
   delta?: CountTileDelta;
+  /**
+   * Render as a segment of a joined KPI strip rather than a free-standing
+   * card: the container owns the border and the corners, the cell owns only
+   * its padding. Six separate cards with gaps between them read as six
+   * floating objects; one segmented strip reads as one instrument.
+   */
+  flush?: boolean;
 }
 
 function safeCount(count: number): number {
@@ -34,9 +41,9 @@ function signedCount(count: number): string {
   return `+${groupDigits(value)}`;
 }
 
-export function CountTile({ count, label, delta }: CountTileProps) {
+export function CountTile({ count, label, delta, flush }: CountTileProps) {
   return (
-    <article className="rounded-lg border bg-card p-4">
+    <article className={flush ? "bg-card p-3" : "rounded-lg border bg-card p-4"}>
       <div className="text-3xl font-semibold tabular-nums tracking-tight text-foreground">
         {groupDigits(safeCount(count))}
       </div>
