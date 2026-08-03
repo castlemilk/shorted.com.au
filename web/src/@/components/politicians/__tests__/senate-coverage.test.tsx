@@ -322,29 +322,25 @@ describe("a senator with funding but no register rows", () => {
 
   it("stays searchable: nothing filters the index by has_interests", () => {
     // The Algolia index carries every parliamentarian, has_interests false and
-    // all — a reader looking for a senator by name must find them. The facet
-    // groups are the only filters the explorer applies, and has_interests is
-    // not among them.
-    const explorer = readFileSync(
-      join(ROOT, "@", "components", "politicians", "politician-explorer.tsx"),
+    // all — a reader looking for a senator by name must find them. The hub's
+    // search (inside the register-table island since 2026-08-03) forwards only
+    // the chamber/state/party filters as facets, never has_interests.
+    const island = readFileSync(
+      join(ROOT, "@", "components", "politicians", "politician-register-table.tsx"),
       "utf8",
     );
-    const groups = explorer.slice(
-      explorer.indexOf("FACET_GROUPS"),
-      explorer.indexOf("FACET_GROUPS") + 600,
-    );
-    expect(groups).not.toContain("has_interests");
-    expect(explorer).not.toMatch(/filters:\s*["'`]has_interests/);
+    expect(island).not.toMatch(/facetFilters\.push\(\[`?has_interests/);
+    expect(island).not.toMatch(/["'`]has_interests:/);
   });
 
   it("says WHICH gap it is in a search hit", () => {
-    const explorer = readFileSync(
-      join(ROOT, "@", "components", "politicians", "politician-explorer.tsx"),
+    const island = readFileSync(
+      join(ROOT, "@", "components", "politicians", "politician-register-table.tsx"),
       "utf8",
     );
-    // "nothing matched yet in the documents read" claims we read their
-    // document. For a senator we have read none.
-    expect(explorer).toContain("Senate register not read yet");
+    // A hit with no register rows must say the document is unread rather than
+    // showing zeros — zeros beside a name read as "declared nothing".
+    expect(island).toContain("register not read yet");
   });
 });
 

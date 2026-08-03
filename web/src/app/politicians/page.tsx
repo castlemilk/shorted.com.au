@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Suspense, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { toDate } from "@/lib/politics/timestamp";
 import Link from "next/link";
 
@@ -12,7 +12,6 @@ import {
   PartyChip,
   SourceLine,
 } from "@/components/politicians/compliance";
-import { PoliticianExplorer } from "@/components/politicians/politician-explorer";
 // The component only. NEVER import a plain value from a "use client" module
 // here: a server component receives a client-reference proxy for it and throws
 // "Cannot access <prop>.valueOf on the server" during the prerender.
@@ -109,12 +108,25 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", creator: "@shorted___" },
 };
 
-/** Shown while the client explorer hydrates, so the section is never a blank gap. */
-function ExplorerFallback() {
+/**
+ * A one-line claim with its full explanation folded underneath.
+ *
+ * The visible line carries the part a reader must not miss (the "never an
+ * amount" class of sentence); the details element holds the how and the why.
+ * Everything stays in the server HTML — a crawler and a reader who expands see
+ * the same words — the page just stops fronting whole paragraphs of
+ * methodology at people who came to read a table.
+ */
+function FinePrint({ lead, summary, children }: { lead: ReactNode; summary: string; children: ReactNode }) {
   return (
-    <div className="space-y-3">
-      <div className="h-12 rounded-md border bg-muted/30" />
-      <p className="text-xs text-muted-foreground">Loading search…</p>
+    <div className="text-[11px] leading-relaxed text-muted-foreground">
+      <p className="max-w-prose">{lead}</p>
+      <details className="mt-0.5">
+        <summary className="cursor-pointer select-none underline decoration-dotted underline-offset-2 hover:text-foreground">
+          {summary}
+        </summary>
+        <div className="mt-1.5 max-w-prose space-y-1.5">{children}</div>
+      </details>
     </div>
   );
 }
@@ -399,11 +411,15 @@ export default async function PoliticiansPage() {
                 <CountTile key={tile.label} count={tile.count} label={tile.label} />
               ))}
             </div>
-            <p className="text-[11px] leading-relaxed text-muted-foreground">
-              Counts of register entries and of the things they name — never an amount. A
-              real-estate entry can list more than one address, so that figure is a floor on what
-              was declared, not a tally of properties.
-            </p>
+            <FinePrint
+              lead="Counts of register entries and of the things they name — never an amount."
+              summary="About these counts"
+            >
+              <p>
+                A real-estate entry can list more than one address, so that figure is a floor on
+                what was declared, not a tally of properties.
+              </p>
+            </FinePrint>
             {/*
               THE TILE ROW SPANS TWO DIFFERENT LAYERS, AND THE SPLIT IS STATED
               RATHER THAN QUIETLY AVERAGED.
@@ -424,11 +440,18 @@ export default async function PoliticiansPage() {
               denominator and this line carries the split.
             */}
             {senatorCount > 0 ? (
-              <p className="text-[11px] leading-relaxed text-muted-foreground">
-                The first tile counts everyone we hold an identity for, in both chambers;{" "}
-                <strong className="tabular-nums">{senatorCount}</strong> of them are senators. The
-                remaining tiles count the register. {SENATE_REGISTER_GAP_CORPUS}
-              </p>
+              <FinePrint
+                lead={
+                  <>
+                    The first tile counts everyone we hold an identity for, in both chambers;{" "}
+                    <strong className="tabular-nums">{senatorCount}</strong> of them are senators.
+                    The remaining tiles count the register.
+                  </>
+                }
+                summary="What the register covers"
+              >
+                <p>{SENATE_REGISTER_GAP_CORPUS}</p>
+              </FinePrint>
             ) : null}
           </section>
 
@@ -444,10 +467,9 @@ export default async function PoliticiansPage() {
               <SectionIcon name="parliament" />
               Every parliamentarian, and what they declare
             </h2>
-            <p className="text-sm text-muted-foreground">
-              Sorted by the number of entries currently declared. Filter by chamber, state, party
-              or register category; the first page is in the HTML, and every other page is
-              fetched on demand.
+            <p className="max-w-prose text-sm text-muted-foreground">
+              Search by name, electorate, or a declared company or suburb — or scroll the roll,
+              sorted by entries currently declared.
             </p>
             {/*
               `min-w-0` ON BOTH GRID ITEMS, AND IT IS LOAD-BEARING. A grid item
@@ -688,34 +710,6 @@ export default async function PoliticiansPage() {
           </section>
 
           <section className="space-y-3">
-            <h2 className={sectionTitle}>Find a parliamentarian</h2>
-            {/* "COVERED" IS THE WORD THAT HAD TO GO. On a page about the
-                register, "N members and senators covered" reads as "we hold the
-                register for N people" — untrue of 171 senators. The count is
-                the searchable roll, and the sentence now says only that. */}
-            <p className="text-sm text-muted-foreground">
-              {people?.total ?? 0} members and senators are searchable here. Search by name,
-              electorate, or by what they declare — a company or a suburb.
-            </p>
-            {senatorCount > 0 ? (
-              <p className="text-[11px] leading-relaxed text-muted-foreground">
-                Senators are searchable by name, state and party like everyone else.{" "}
-                {SENATE_REGISTER_GAP_CORPUS}
-              </p>
-            ) : null}
-            {/*
-              The explorer reads its query state from the URL, which needs
-              useSearchParams — and that needs a Suspense boundary in a
-              statically rendered route. Reading searchParams on THIS server
-              component instead would silently flip the whole page to dynamic and
-              kill the ISR, which is the trap /price-drops already paid for.
-            */}
-            <Suspense fallback={<ExplorerFallback />}>
-              <PoliticianExplorer />
-            </Suspense>
-          </section>
-
-          <section className="space-y-3">
             <h2 className={sectionTitle}>
               <SectionIcon name="directorships" />
               Which parties declare interests in which industries
@@ -725,13 +719,18 @@ export default async function PoliticiansPage() {
                 are still unread — unsaid, a short row reads as a party that
                 declares little, when for a Senate-heavy party part of it can
                 still be volumes we have not opened. */}
-            <p className="text-sm text-muted-foreground">
+            <p className="max-w-prose text-sm text-muted-foreground">
               Each cell counts <strong>members</strong>, not holdings and not money — a member who
-              declares four banks is one member. The registers record no quantity or value, so
-              nothing here can be weighted by size. Every cell is counted over the registers we
-              have read — both chambers, though older, scanned Senate volumes are not read yet —
-              so a small row can be our coverage rather than that party&rsquo;s declarations.
+              declares four banks is one member.
             </p>
+            <FinePrint lead="" summary="How these cells are counted">
+              <p>
+                The registers record no quantity or value, so nothing here can be weighted by
+                size. Every cell is counted over the registers we have read — both chambers,
+                though older, scanned Senate volumes are not read yet — so a small row can be our
+                coverage rather than that party&rsquo;s declarations.
+              </p>
+            </FinePrint>
             <RegisterHeatmap
               cells={(analytics?.cells ?? []).map((c) => ({
                 partyAb: c.partyAb,

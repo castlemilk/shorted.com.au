@@ -94,7 +94,8 @@ function proseOnly(source: string): string {
  * state page, and it shipped with no attribution of its own.
  */
 const HUB_SECTIONS = [
-  "politician-explorer.tsx",
+  // politician-explorer.tsx was retired 2026-08-03: the hub's search lives
+  // inside the register table island now, one window for search and roll.
   "register-heatmap.tsx",
   // The hub's register table. Same class as the two above, and it CANNOT carry
   // its own citation: it is a "use client" file, and SourceLine/ReportErrorLink
@@ -342,9 +343,9 @@ describe("politician surface copy", () => {
     // party is a monogram we draw, never the party's own logo.
     //
     // The two waves land on the same tree: 44 + 2 responsiveness primitives + 3
-    // iconography kit files = 49. Both sets are kit, so RENDERING_SURFACES is
-    // untouched at 10.
-    expect(FILES.length).toBe(49);
+    // iconography kit files = 49; minus politician-explorer.tsx, retired
+    // 2026-08-03 when the hub's search moved inside the register table = 48.
+    expect(FILES.length).toBe(48);
     expect(RENDERING_SURFACES.length).toBe(10);
   });
 
