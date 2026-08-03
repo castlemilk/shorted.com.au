@@ -511,12 +511,21 @@ export default async function PoliticianPage({
                 <AsAtTile value={shortDate(lastUpdated)} label="register last updated" />
               ) : null}
             </div>
-            <p className="text-[11px] leading-relaxed text-muted-foreground">
-              Counts of register <strong>entries</strong> currently declared. The registers record
-              what is held and not quantity or value, so none of these is an amount. One real-estate
-              entry can cover more than one property, so that figure is a floor rather than a count
-              of properties.
-            </p>
+            <div className="text-[11px] leading-relaxed text-muted-foreground">
+              <p className="max-w-prose">
+                Counts of register <strong>entries</strong> currently declared — never an amount.
+              </p>
+              <details className="mt-0.5">
+                <summary className="cursor-pointer select-none underline decoration-dotted underline-offset-2 hover:text-foreground">
+                  About these counts
+                </summary>
+                <p className="mt-1.5 max-w-prose">
+                  The registers record what is held and not quantity or value, so none of these is
+                  an amount. One real-estate entry can cover more than one property, so that
+                  figure is a floor rather than a count of properties.
+                </p>
+              </details>
+            </div>
           </section>
 
           <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_320px]">

@@ -206,16 +206,20 @@ describe("politician register table", () => {
     );
   });
 
-  it("pages forward and back by the server's own limit", async () => {
+  it("extends the roll in place from where it ends, never re-fetching page one", async () => {
+    // Infinite scroll's manual counterpart: "Show more" asks the server for
+    // the stretch AFTER the rows already on screen and APPENDS it, so the
+    // reader keeps their place and the earlier rows never flicker away.
     const loadPage = echoLoader();
     render(
       <PoliticianRegisterTable initialPage={page({ total: 300 })} loadPage={loadPage} />,
     );
 
-    expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show more" }));
+    // The fixture page holds ONE row, so the next stretch starts at 1: the
+    // offset is "the rows already on screen", not a page-size multiple.
     await waitFor(() =>
-      expect(loadPage).toHaveBeenLastCalledWith(expect.objectContaining({ offset: 25 })),
+      expect(loadPage).toHaveBeenLastCalledWith(expect.objectContaining({ offset: 1 })),
     );
   });
 

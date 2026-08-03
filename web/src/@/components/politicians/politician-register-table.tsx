@@ -30,7 +30,12 @@
  */
 
 import Link from "next/link";
-import { useCallback, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+
+import {
+  searchPoliticians,
+  type PoliticianHit,
+} from "@/lib/politics/politician-search";
 
 import { SparkTrend } from "@/components/politicians/explorer/spark-trend";
 import { PoliticsIcon } from "@/components/politicians/politics-icon";
@@ -279,6 +284,9 @@ export function PoliticianRegisterTable({
   partyOptions = [],
 }: PoliticianRegisterTableProps) {
   const [page, setPage] = useState<PoliticianTablePage>(initialPage);
+  // The ACCUMULATED roll: page after page appends here, so scrolling reads as
+  // one continuous list rather than 25-row screens with a pager between them.
+  const [rows, setRows] = useState<PoliticianTableRow[]>(initialPage.rows);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   // Every request carries a sequence number and only the newest one may write
   // state: two fast filter changes otherwise race, and the SLOWER one wins,
@@ -296,6 +304,11 @@ export function PoliticianRegisterTable({
         .then((result) => {
           if (sequence.current !== ticket) return;
           setPage(result);
+          // Offset 0 is a fresh view (a filter or sort change); anything else
+          // is the next stretch of the same view and appends.
+          setRows((previous) =>
+            result.query.offset === 0 ? result.rows : [...previous, ...result.rows],
+          );
           setStatus("idle");
         })
         .catch(() => {
@@ -307,7 +320,7 @@ export function PoliticianRegisterTable({
   );
 
   // Any filter change resets to the first page: keeping the offset would land a
-  // reader on page 4 of a 2-page result and show them nothing.
+  // reader deep in a list most of which no longer exists.
   const setFilter = useCallback(
     (patch: Partial<PoliticianTableQuery>) => run({ ...query, ...patch, offset: 0 }),
     [query, run],
@@ -318,11 +331,98 @@ export function PoliticianRegisterTable({
     [query, run],
   );
 
-  const rows = page.rows;
   const filtersActive =
     !!query.chamber || !!query.stateCode || !!query.partyAb || query.itemNo > 0;
-  const hasPrevious = query.offset > 0;
-  const hasNext = query.offset + rows.length < page.total;
+  const hasNext = rows.length < page.total;
+  const loadMore = useCallback(() => {
+    run({ ...query, offset: rows.length });
+  }, [query, rows.length, run]);
+
+  /*
+   * THE SEARCH AND THE ROLL ARE ONE SURFACE.
+   *
+   * Typing a name, a company or a suburb swaps the window's body from the
+   * server-paged roll to Algolia hits; clearing it swaps back, with the roll
+   * exactly where it was. The chamber/state/party filters apply to BOTH — they
+   * become Algolia facet filters while searching, so the two views never
+   * disagree about what "filtered to Senate" means. (The register-category
+   * filter has no search facet and applies to the roll only; its select says
+   * so while a search is active.)
+   */
+  const [search, setSearch] = useState("");
+  const [hits, setHits] = useState<PoliticianHit[] | null>(null);
+  const [searchStatus, setSearchStatus] = useState<"idle" | "loading" | "error">("idle");
+  const searching = search.trim().length >= 2;
+
+  useEffect(() => {
+    if (!searching) {
+      setHits(null);
+      setSearchStatus("idle");
+      return;
+    }
+    let cancelled = false;
+    setSearchStatus("loading");
+    const facetFilters: string[][] = [];
+    if (query.chamber) facetFilters.push([`chamber:${query.chamber}`]);
+    if (query.stateCode) facetFilters.push([`state_code:${query.stateCode}`]);
+    if (query.partyAb) facetFilters.push([`party_ab:${query.partyAb}`]);
+    const timer = setTimeout(() => {
+      searchPoliticians(search.trim(), { hitsPerPage: 30, facetFilters, facets: [] })
+        .then((result) => {
+          if (cancelled) return;
+          setHits(result.hits);
+          setSearchStatus("idle");
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setSearchStatus("error");
+        });
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [search, searching, query.chamber, query.stateCode, query.partyAb]);
+
+  /*
+   * INFINITE SCROLL, WITH A BUTTON UNDERNEATH IT.
+   *
+   * The sentinel auto-loads the next stretch as it scrolls into the window's
+   * view. The "Show more" button stays rendered below it because the observer
+   * is an enhancement, not the mechanism: keyboard readers, jsdom, and any
+   * browser where IntersectionObserver misfires still have a working control,
+   * and the button doubles as the visible "there is more" signal.
+   */
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const loadMoreRef = useRef(loadMore);
+  loadMoreRef.current = loadMore;
+  // The observer stops feeding past this many rows and the button takes over.
+  // Without a ceiling, one fling to the window's bottom left the sentinel in
+  // view after every append and CHAINED the fetches — measured 28 back-to-back
+  // action calls loading the entire roll (and a Wikimedia 429 storm from 700
+  // portraits at once). A reader who truly wants the whole roll still gets it,
+  // one press at a time.
+  const AUTO_LOAD_CEILING = 150;
+  const canAutoLoad =
+    hasNext &&
+    status === "idle" &&
+    !searching &&
+    page.ok !== false &&
+    rows.length < AUTO_LOAD_CEILING;
+  useEffect(() => {
+    if (!canAutoLoad || typeof IntersectionObserver === "undefined") return;
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) loadMoreRef.current();
+      },
+      { root: scrollRef.current, rootMargin: "240px" },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [canAutoLoad]);
 
   /*
    * THE TWO EMPTY TABLES, WHICH MEAN OPPOSITE THINGS.
@@ -351,6 +451,24 @@ export function PoliticianRegisterTable({
         without scrolling the whole document sideways. See `control-classes.ts`
         for why the selects also need `w-full` here.
       */}
+      {/* The one search box for the roll. Name, electorate, a declared company
+          or a suburb — the same index the old separate explorer used, now in
+          the same window as the list it searches. */}
+      <div>
+        <label htmlFor={`${controlsId}-search`} className="sr-only">
+          Search parliamentarians by name, electorate, company or suburb
+        </label>
+        <input
+          id={`${controlsId}-search`}
+          type="search"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search a parliamentarian — a name, an electorate, a company, a suburb…"
+          autoComplete="off"
+          className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none transition-shadow placeholder:text-muted-foreground/70 focus-visible:ring-2 focus-visible:ring-ring"
+        />
+      </div>
+
       <div className="grid grid-cols-2 items-end gap-2 [&>*]:min-w-0 sm:flex sm:flex-wrap">
         {/*
           Native selects, not the Radix kit: this island is a filter surface on
@@ -503,22 +621,39 @@ export function PoliticianRegisterTable({
         The `<caption>`/`<thead>` semantics are untouched, so the screen-reader
         reading order is unchanged at every width.
       */}
-      <div className="overflow-x-auto" aria-busy={status === "loading"}>
+      <div
+        ref={scrollRef}
+        aria-busy={status === "loading" || searchStatus === "loading"}
+        // ONE fixed window for both bodies. The roll grows inside it by
+        // infinite scroll; a search swaps its contents. The page's own height
+        // never depends on how many rows are loaded. `overscroll-contain`
+        // keeps a trackpad fling from grabbing the document when the window's
+        // scroll ends.
+        className="max-h-[38rem] overflow-auto overscroll-contain rounded-lg border"
+      >
+        {searching ? (
+          <SearchHits
+            hits={hits}
+            status={searchStatus}
+            query={search.trim()}
+            filtersActive={filtersActive}
+          />
+        ) : (
         <table
-          className={`w-full sm:min-w-[52rem] text-sm ${status === "loading" ? "opacity-60" : ""}`}
+          className={`w-full sm:min-w-[52rem] text-sm ${status === "loading" && rows.length === 0 ? "opacity-60" : ""}`}
         >
           <caption className="sr-only">
             Federal parliamentarians and what they currently declare in the Registers of
             Members&rsquo; and Senators&rsquo; Interests. Every column is a count of declared
             entries; the registers record no quantity or value.
           </caption>
-          <thead className="border-b text-[11px] uppercase tracking-wide text-muted-foreground">
+          <thead className="sticky top-0 z-10 border-b bg-background text-[11px] uppercase tracking-wide text-muted-foreground">
             <tr>
               <SortHeader
                 sort="name"
                 activeSort={query.sort}
                 onSort={toggleSort}
-                className="py-2 pr-3 text-left font-normal"
+                className="py-2 pl-2 pr-3 text-left font-normal"
               />
               <SortHeader
                 sort="declared_items"
@@ -569,7 +704,7 @@ export function PoliticianRegisterTable({
                 key={row.slug}
                 className="border-b last:border-0 align-middle transition-colors hover:bg-muted/40"
               >
-                <th scope="row" className="py-2 pr-3 text-left font-normal">
+                <th scope="row" className="py-2 pl-2 pr-3 text-left font-normal">
                   <div className="flex items-center gap-2.5">
                     <PoliticianAvatar
                       displayName={row.displayName}
@@ -667,49 +802,161 @@ export function PoliticianRegisterTable({
             ))}
           </tbody>
         </table>
+        )}
+
+        {!searching && rows.length === 0 && !outage ? (
+          // The ONLY empty state that says anything about a result rather than
+          // about us: the request answered, a filter is set, and nothing matched
+          // it. That is an honest answer about the filter — and it says so, so a
+          // reader cannot take it as a statement about anyone's register.
+          <p className="m-3 rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+            No members match these filters. Widen them, or search by name above — an empty result
+            is a filter, not a statement about anyone&rsquo;s register.
+          </p>
+        ) : null}
+
+        {/* The auto-load sentinel and its always-there manual counterpart. */}
+        {!searching ? <div ref={sentinelRef} aria-hidden className="h-px" /> : null}
+        {!searching && hasNext && !outage ? (
+          <div className="flex justify-center border-t bg-muted/20 py-2">
+            <button
+              type="button"
+              disabled={status === "loading"}
+              onClick={loadMore}
+              className={POLITICS_PAGER_BUTTON_CLASS}
+            >
+              {status === "loading" ? "Loading…" : "Show more"}
+            </button>
+          </div>
+        ) : null}
       </div>
 
-      {rows.length === 0 && !outage ? (
-        // The ONLY empty state that says anything about a result rather than
-        // about us: the request answered, a filter is set, and nothing matched
-        // it. That is an honest answer about the filter — and it says so, so a
-        // reader cannot take it as a statement about anyone's register.
-        <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
-          No members match these filters. Widen them, or search by name above — an empty result is
-          a filter, not a statement about anyone&rsquo;s register.
-        </p>
-      ) : null}
-
-      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
-        <span className="tabular-nums">{rangeLabel(query.offset, rows.length, page.total)}</span>
-        <span className="flex items-center gap-2">
-          <button
-            type="button"
-            disabled={!hasPrevious || status === "loading"}
-            onClick={() =>
-              run({ ...query, offset: Math.max(0, query.offset - query.limit) })
-            }
-            className={POLITICS_PAGER_BUTTON_CLASS}
-          >
-            Previous
-          </button>
-          <button
-            type="button"
-            disabled={!hasNext || status === "loading"}
-            onClick={() => run({ ...query, offset: query.offset + query.limit })}
-            className={POLITICS_PAGER_BUTTON_CLASS}
-          >
-            Next
-          </button>
-        </span>
-      </div>
-
-      <p className="text-[11px] leading-relaxed text-muted-foreground">
-        Counts are of entries currently declared. Real-estate entries are register entries under
-        item 3 — some entries list more than one address, so the column is a floor on what was
-        declared, not a tally of properties. The trend plots only entries whose start date the
-        register states; entries with no stated date are not plotted.
+      <p role="status" className="text-[11px] tabular-nums text-muted-foreground">
+        {searching
+          ? hits
+            ? `${hits.length === 1 ? "1 match" : `${hits.length} matches`}${hits.length === 30 ? " shown" : ""}.`
+            : ""
+          : `Showing ${rangeLabel(0, rows.length, page.total)}.`}
       </p>
+
+      <details className="text-[11px] leading-relaxed text-muted-foreground">
+        <summary className="cursor-pointer select-none underline decoration-dotted underline-offset-2 hover:text-foreground">
+          How to read these counts
+        </summary>
+        <p className="mt-1.5 max-w-prose">
+          Counts are of entries currently declared. Real-estate entries are register entries under
+          item 3 — some entries list more than one address, so the column is a floor on what was
+          declared, not a tally of properties. The trend plots only entries whose start date the
+          register states; entries with no stated date are not plotted.
+        </p>
+      </details>
     </div>
+  );
+}
+
+/**
+ * Search results, in the same window the roll occupies.
+ *
+ * Compact person rows rather than the seven-column table: a search answers
+ * "take me to this person", so the row is the name, the seat, the party, and —
+ * when the match came from a declaration — the declared thing that matched, so
+ * a reader who typed a company sees WHY each person is in the list. Counts of
+ * declared things ride on the right; never a value. A hit whose register we
+ * have not read says so rather than showing zeros.
+ */
+function SearchHits({
+  hits,
+  status,
+  query,
+  filtersActive,
+}: {
+  hits: PoliticianHit[] | null;
+  status: "idle" | "loading" | "error";
+  query: string;
+  filtersActive: boolean;
+}) {
+  if (status === "error") {
+    return (
+      <p className="m-3 rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+        Search is unavailable right now. The roll below the search box still works, and nothing is
+        missing from the register.
+      </p>
+    );
+  }
+  if (!hits) {
+    return <p className="m-3 text-sm text-muted-foreground">Searching…</p>;
+  }
+  if (hits.length === 0) {
+    return (
+      <p className="m-3 rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+        No parliamentarian matches &ldquo;{query}&rdquo;
+        {filtersActive ? " with these filters" : ""}. An empty result is a search result, not a
+        statement about anyone&rsquo;s register.
+      </p>
+    );
+  }
+
+  const needle = query.toLowerCase();
+  return (
+    <ul className="divide-y">
+      {hits.map((hit) => {
+        // The declared string that put this hit in the list, when one did.
+        const matched =
+          [...(hit.company_names ?? []), ...(hit.suburbs ?? []), ...(hit.stock_codes ?? [])].find(
+            (value) => value.toLowerCase().includes(needle),
+          ) ?? null;
+        const seat =
+          hit.chamber === "senate"
+            ? hit.state_code
+              ? `Senator for ${hit.state_code}`
+              : "Senator"
+            : hit.division
+              ? `${hit.division}${hit.state_code ? ` · ${hit.state_code}` : ""}`
+              : (hit.state_code ?? "");
+        return (
+          <li key={hit.objectID}>
+            <Link
+              href={`/politicians/${hit.slug}`}
+              prefetch={false}
+              className="flex items-center gap-2.5 px-2 py-2 transition-colors hover:bg-muted/40"
+            >
+              <PoliticianAvatar
+                displayName={hit.display_name}
+                partyAb={hit.party_ab}
+                size="sm"
+                photo={{
+                  photoUrl: hit.photo_url ?? "",
+                  photoLicence: hit.photo_licence ?? "",
+                  photoAuthor: hit.photo_author ?? "",
+                  photoSourceUrl: hit.photo_source_url ?? "",
+                }}
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">{hit.display_name}</span>
+                <span className="flex flex-wrap items-center gap-x-2 text-[11px] text-muted-foreground">
+                  {seat ? <span>{seat}</span> : null}
+                  <TablePartyChip partyAb={hit.party_ab} />
+                  {matched ? <span className="truncate">declares: {matched}</span> : null}
+                </span>
+              </span>
+              <span className="shrink-0 text-right text-[11px] tabular-nums text-muted-foreground">
+                {hit.has_interests === false ? (
+                  <span className="font-sans">register not read yet</span>
+                ) : (
+                  <>
+                    {hit.declared_listed_count}{" "}
+                    {hit.declared_listed_count === 1 ? "company" : "companies"}
+                    <span className="block">
+                      {hit.declared_property_count} real-estate{" "}
+                      {hit.declared_property_count === 1 ? "entry" : "entries"}
+                    </span>
+                  </>
+                )}
+              </span>
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

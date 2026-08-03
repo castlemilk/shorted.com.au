@@ -36,7 +36,7 @@
  * amount, because the registers record none.
  */
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   flexRender,
   getCoreRowModel,
@@ -45,6 +45,7 @@ import {
   type ColumnDef,
   type SortingState,
 } from "@tanstack/react-table";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { Input } from "@/components/ui/input";
 import { PoliticsIcon } from "@/components/politicians/politics-icon";
@@ -82,6 +83,14 @@ export interface DeclarationsTableProps {
 }
 
 const ALL = "all";
+
+/**
+ * Above this many render items the table becomes a fixed window with
+ * virtualised rows. Chosen so a typical member (a few dozen entries) reads as
+ * a plain table, while the long corpuses (a Cabinet minister runs to ~250)
+ * stop dictating the height of the whole document.
+ */
+const WINDOW_THRESHOLD = 60;
 
 function countLabel(count: number): string {
   return count === 1 ? "1 entry" : `${count} entries`;
@@ -190,6 +199,75 @@ export function DeclarationsTable({ rows }: DeclarationsTableProps) {
   const grouped = sorting.length === 0;
   const tableRows = table.getRowModel().rows;
 
+  /**
+   * The flat render list: category heading rows interleaved with entry rows.
+   *
+   * One list rather than nested groups because the VIRTUALIZER needs a single
+   * indexable sequence — a heading is just an item that happens to render as a
+   * full-width row.
+   */
+  const displayItems = useMemo(() => {
+    type Item =
+      | { kind: "group"; key: string; itemNo: number; label: string; count: number }
+      | { kind: "row"; key: string; row: (typeof tableRows)[number] };
+    const out: Item[] = [];
+    const showGroups = grouped && category === ALL && categories.length > 1;
+    for (let i = 0; i < tableRows.length; i++) {
+      const row = tableRows[i]!;
+      const previous = tableRows[i - 1];
+      if (
+        showGroups &&
+        (!previous || previous.original.categoryKey !== row.original.categoryKey)
+      ) {
+        out.push({
+          kind: "group",
+          key: `group-${row.original.categoryKey}`,
+          itemNo: row.original.itemNo,
+          label: row.original.categoryLabel,
+          count: tableRows.filter(
+            (r) => r.original.categoryKey === row.original.categoryKey,
+          ).length,
+        });
+      }
+      out.push({ kind: "row", key: row.id, row });
+    }
+    return out;
+  }, [tableRows, grouped, category, categories.length]);
+
+  /**
+   * WINDOW, THEN VIRTUALISE — BUT ONLY AFTER HYDRATION.
+   *
+   * This page is the SEO asset for a named person: the SERVER render (and the
+   * first client render, which must match it) contains EVERY row, so a
+   * crawler, a reader with JavaScript off, and reader-mode all get the
+   * complete set — profile-declarations.test.tsx pins that contract. Only
+   * after mount, and only when the set is genuinely long, does the table trade
+   * the full column for a fixed window with virtualised rows. A short set
+   * never gets a scrollbar-in-a-box it doesn't need.
+   */
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const windowed = displayItems.length > WINDOW_THRESHOLD;
+  const virtual = windowed && mounted;
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: displayItems.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 44,
+    overscan: 16,
+    enabled: virtual,
+  });
+  const virtualItems = virtualizer.getVirtualItems();
+  const topPad = virtual && virtualItems.length > 0 ? virtualItems[0]!.start : 0;
+  const bottomPad =
+    virtual && virtualItems.length > 0
+      ? virtualizer.getTotalSize() - virtualItems[virtualItems.length - 1]!.end
+      : 0;
+  const renderedItems = virtual
+    ? virtualItems.map((v) => ({ item: displayItems[v.index]!, index: v.index }))
+    : displayItems.map((item, index) => ({ item, index }));
+
   if (rows.length === 0) return null;
 
   return (
@@ -291,14 +369,27 @@ export function DeclarationsTable({ rows }: DeclarationsTableProps) {
             No entries match this filter.
           </p>
         ) : (
-          <div className="overflow-x-auto">
+          <div
+            ref={scrollRef}
+            // The fixed window. `overscroll-contain` stops a fast trackpad
+            // fling from grabbing the page once the table's own scroll ends.
+            className={
+              windowed
+                ? "max-h-[34rem] overflow-y-auto overscroll-contain rounded-lg border"
+                : "overflow-x-auto"
+            }
+          >
             <table className="w-full text-sm">
               <caption className="sr-only">
                 Declared entries from the Registers of Members&rsquo; and Senators&rsquo;
                 Interests, in the register&rsquo;s own words. No column is a quantity or a value;
                 the registers record none.
               </caption>
-              <thead className="border-b text-[11px] uppercase tracking-wide text-muted-foreground">
+              <thead
+                className={`border-b text-[11px] uppercase tracking-wide text-muted-foreground ${
+                  windowed ? "sticky top-0 z-10 bg-background" : ""
+                }`}
+              >
                 {table.getHeaderGroups().map((headerGroup) => (
                   <tr key={headerGroup.id}>
                     {headerGroup.headers.map((header) => {
@@ -334,57 +425,57 @@ export function DeclarationsTable({ rows }: DeclarationsTableProps) {
                 ))}
               </thead>
               <tbody>
-                {tableRows.map((row, index) => {
-                  const previous = tableRows[index - 1];
-                  const showGroupHead =
-                    grouped &&
-                    (category === ALL ? categories.length > 1 : false) &&
-                    (!previous || previous.original.categoryKey !== row.original.categoryKey);
-                  return [
-                    showGroupHead ? (
-                      <tr key={`${row.id}-group`} className="border-b bg-muted/30">
-                        {/* A real heading inside the th, so the category keeps
-                            its place in the document outline the way the old
-                            list's <h3>s did. */}
-                        <th
-                          scope="colgroup"
-                          colSpan={COLUMNS.length}
-                          className="py-1.5 pr-3 text-left"
-                        >
-                          <h3 className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                            {registerItemIcon(row.original.itemNo) ? (
-                              <PoliticsIcon
-                                name={registerItemIcon(row.original.itemNo)!}
-                                size={14}
-                              />
-                            ) : null}
-                            <span>
-                              {row.original.categoryLabel}{" "}
-                              <span className="tabular-nums font-normal">
-                                (
-                                {
-                                  tableRows.filter(
-                                    (r) => r.original.categoryKey === row.original.categoryKey,
-                                  ).length
-                                }
-                                )
-                              </span>
-                            </span>
-                          </h3>
-                        </th>
-                      </tr>
-                    ) : null,
+                {topPad > 0 ? (
+                  <tr aria-hidden style={{ height: topPad }}>
+                    <td colSpan={COLUMNS.length} className="p-0" />
+                  </tr>
+                ) : null}
+                {renderedItems.map(({ item, index }) =>
+                  item.kind === "group" ? (
                     <tr
-                      key={row.id}
+                      key={item.key}
+                      data-index={index}
+                      ref={virtual ? virtualizer.measureElement : undefined}
+                      className="border-b bg-muted/30"
+                    >
+                      {/* A real heading inside the th, so the category keeps
+                          its place in the document outline the way the old
+                          list's <h3>s did. */}
+                      <th scope="colgroup" colSpan={COLUMNS.length} className="py-1.5 pr-3 text-left">
+                        <h3 className="inline-flex items-center gap-1.5 pl-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                          {registerItemIcon(item.itemNo) ? (
+                            <PoliticsIcon name={registerItemIcon(item.itemNo)!} size={14} />
+                          ) : null}
+                          <span>
+                            {item.label}{" "}
+                            <span className="tabular-nums font-normal">({item.count})</span>
+                          </span>
+                        </h3>
+                      </th>
+                    </tr>
+                  ) : (
+                    <tr
+                      key={item.key}
+                      data-index={index}
+                      ref={virtual ? virtualizer.measureElement : undefined}
                       className="border-b align-top transition-colors last:border-0 hover:bg-muted/40"
                     >
-                      <td className="py-2 pr-3">{row.original.entity}</td>
-                      <td className="py-2 pr-3">{row.original.holder}</td>
-                      <td className="py-2 pr-3 whitespace-nowrap">{row.original.period}</td>
-                      <td className="py-2 text-right">{row.original.source}</td>
-                    </tr>,
-                  ];
-                })}
+                      <td className={`py-2 pr-3 ${windowed ? "pl-2" : ""}`}>
+                        {item.row.original.entity}
+                      </td>
+                      <td className="py-2 pr-3">{item.row.original.holder}</td>
+                      <td className="py-2 pr-3 whitespace-nowrap">{item.row.original.period}</td>
+                      <td className={`py-2 text-right ${windowed ? "pr-2" : ""}`}>
+                        {item.row.original.source}
+                      </td>
+                    </tr>
+                  ),
+                )}
+                {bottomPad > 0 ? (
+                  <tr aria-hidden style={{ height: bottomPad }}>
+                    <td colSpan={COLUMNS.length} className="p-0" />
+                  </tr>
+                ) : null}
               </tbody>
             </table>
           </div>
