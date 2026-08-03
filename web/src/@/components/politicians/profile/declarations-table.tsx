@@ -513,7 +513,7 @@ function FilterTab({
       // NEVER ICON-ONLY. A tab is how a reader narrows what a named person is
       // shown to have declared, so the category has to be readable as a word —
       // the icon is a second cue beside it, never the whole control.
-      className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors ${POLITICS_FOCUS_RING} ${
+      className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-[background-color,color,transform] active:scale-[0.98] ${POLITICS_FOCUS_RING} ${
         selected ? "bg-muted font-medium" : "text-muted-foreground hover:bg-muted/50"
       }`}
     >
@@ -543,7 +543,7 @@ function HolderFilterButton({
       type="button"
       aria-pressed={selected}
       onClick={onSelect}
-      className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] transition-colors ${POLITICS_FOCUS_RING} ${
+      className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] transition-[background-color,color,transform] active:scale-[0.98] ${POLITICS_FOCUS_RING} ${
         selected ? "bg-muted font-medium" : "text-muted-foreground hover:bg-muted/50"
       }`}
     >

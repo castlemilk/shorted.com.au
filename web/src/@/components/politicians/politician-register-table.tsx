@@ -47,6 +47,7 @@ import { REGISTER_ITEMS } from "@/lib/politics/register-items";
 import { SENATE_REGISTER_GAP_CORPUS } from "@/lib/politics/register-coverage";
 import {
   POLITICS_FILTER_BUTTON_CLASS,
+  POLITICS_FOCUS_RING,
   POLITICS_PAGER_BUTTON_CLASS,
   POLITICS_SELECT_CLASS,
 } from "@/lib/politics/control-classes";
@@ -353,6 +354,30 @@ export function PoliticianRegisterTable({
   const [hits, setHits] = useState<PoliticianHit[] | null>(null);
   const [searchStatus, setSearchStatus] = useState<"idle" | "loading" | "error">("idle");
   const searching = search.trim().length >= 2;
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // `/` focuses the command bar, the way every search-first tool does. Only
+  // when the reader is not already typing somewhere: a `/` inside a text field
+  // is a character, not a command.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      event.preventDefault();
+      searchInputRef.current?.focus();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
 
   useEffect(() => {
     if (!searching) {
@@ -443,7 +468,7 @@ export function PoliticianRegisterTable({
   const outage = status === "error" || page.ok === false || (rows.length === 0 && !filtersActive);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 rounded-[20px] border bg-card p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.04)] sm:p-4">
       {/*
         Two columns on a phone, the flex row from `sm:` up. In a `flex-wrap` row
         at 375 px the four filters ran off the right edge — "Party" was clipped
@@ -451,22 +476,49 @@ export function PoliticianRegisterTable({
         without scrolling the whole document sideways. See `control-classes.ts`
         for why the selects also need `w-full` here.
       */}
-      {/* The one search box for the roll. Name, electorate, a declared company
-          or a suburb — the same index the old separate explorer used, now in
-          the same window as the list it searches. */}
-      <div>
+      {/* THE COMMAND BAR. This is the section's primary control — the one
+          thing a reader who wants a person should see first — so it reads as
+          one: full width, tall, a magnifier, a layered shadow that lifts it
+          off the panel, and a `/` shortcut for keyboard readers. The same
+          index the old separate explorer used, now in the same window as the
+          list it searches. */}
+      <div className="relative">
         <label htmlFor={`${controlsId}-search`} className="sr-only">
           Search parliamentarians by name, electorate, company or suburb
         </label>
+        <span
+          aria-hidden
+          className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+        >
+          <PoliticsIcon name="search" size={18} />
+        </span>
         <input
+          ref={searchInputRef}
           id={`${controlsId}-search`}
           type="search"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search a parliamentarian — a name, an electorate, a company, a suburb…"
+          placeholder="Search a name, an electorate, a company, a suburb…"
           autoComplete="off"
-          className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none transition-shadow placeholder:text-muted-foreground/70 focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-12 w-full rounded-xl border bg-background pl-11 pr-12 text-[15px] [&::-webkit-search-cancel-button]:hidden shadow-[0_1px_2px_rgba(0,0,0,0.05),0_4px_14px_rgba(0,0,0,0.05)] outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/60"
         />
+        {search ? (
+          <button
+            type="button"
+            onClick={() => setSearch("")}
+            aria-label="Clear search"
+            className={`absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-[background-color,transform] hover:bg-muted active:scale-[0.96] ${POLITICS_FOCUS_RING}`}
+          >
+            ✕
+          </button>
+        ) : (
+          <kbd
+            aria-hidden
+            className="absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground sm:block"
+          >
+            /
+          </kbd>
+        )}
       </div>
 
       <div className="grid grid-cols-2 items-end gap-2 [&>*]:min-w-0 sm:flex sm:flex-wrap">
@@ -585,7 +637,7 @@ export function PoliticianRegisterTable({
         that is always present stops being read.
       */}
       {query.chamber !== "house" ? (
-        <p className="rounded-md border border-muted-foreground/20 bg-muted/30 p-2.5 text-[11px] leading-relaxed text-muted-foreground">
+        <p className="rounded-r-md border-l-2 border-primary/40 bg-muted/20 py-1.5 pl-3 pr-2 text-[11px] leading-relaxed text-muted-foreground">
           {SENATE_REGISTER_GAP_CORPUS}
         </p>
       ) : null}
@@ -629,7 +681,7 @@ export function PoliticianRegisterTable({
         // never depends on how many rows are loaded. `overscroll-contain`
         // keeps a trackpad fling from grabbing the document when the window's
         // scroll ends.
-        className="max-h-[38rem] overflow-auto overscroll-contain rounded-lg border"
+        className="max-h-[38rem] overflow-auto overscroll-contain rounded-lg border bg-background"
       >
         {searching ? (
           <SearchHits
@@ -685,10 +737,11 @@ export function PoliticianRegisterTable({
                 onSort={toggleSort}
                 className="hidden py-2 pr-3 text-right font-normal sm:table-cell"
               />
-              <th scope="col" className="hidden w-40 py-2 text-left font-normal sm:table-cell">
-                <span className="inline-flex items-center gap-1">
+              <th scope="col" className="hidden w-28 py-2 text-left font-normal sm:table-cell">
+                <span className="inline-flex items-center gap-1 whitespace-nowrap">
                   <PoliticsIcon name="timeline" size={13} />
-                  12-month trend
+                  <span aria-hidden>Trend</span>
+                  <span className="sr-only">12-month trend</span>
                 </span>
               </th>
             </tr>

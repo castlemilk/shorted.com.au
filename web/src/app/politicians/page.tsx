@@ -327,7 +327,7 @@ export default async function PoliticiansPage() {
         keywords={["register of interests", "MP shareholdings", "declared interests"]}
       />
       <DashboardLayout>
-        <div className="mx-auto max-w-6xl space-y-12 px-4 py-8">
+        <div className="mx-auto max-w-6xl space-y-14 px-4 py-8">
           <header className="space-y-3">
             <p className={eyebrow}>Influence layer</p>
             <h1 className={pageTitle}>Parliament&rsquo;s Portfolio</h1>
