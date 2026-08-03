@@ -37,7 +37,7 @@ function signedCount(count: number): string {
 export function CountTile({ count, label, delta }: CountTileProps) {
   return (
     <article className="rounded-lg border bg-card p-4">
-      <div className="text-2xl font-semibold tabular-nums text-foreground">
+      <div className="text-3xl font-semibold tabular-nums tracking-tight text-foreground">
         {groupDigits(safeCount(count))}
       </div>
       {/*
@@ -46,7 +46,9 @@ export function CountTile({ count, label, delta }: CountTileProps) {
         375 px. A label that wraps to two lines is right; a label that silently
         loses a character is a different word.
       */}
-      <div className="text-xs text-muted-foreground break-words">{label}</div>
+      <div className="mt-0.5 text-[11px] uppercase tracking-wide text-muted-foreground break-words">
+        {label}
+      </div>
       {delta ? (
         <div className="mt-1 flex gap-1 text-[11px] text-muted-foreground">
           <span className="tabular-nums text-muted-foreground">
