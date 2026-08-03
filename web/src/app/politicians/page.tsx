@@ -20,6 +20,7 @@ import { RegisterHeatmap } from "@/components/politicians/register-heatmap";
 import { AboutThisData } from "@/components/politicians/explorer/about-this-data";
 import { CountDonut } from "@/components/politicians/explorer/count-donut";
 import { CountTile } from "@/components/politicians/explorer/count-tile";
+import { TopCompanies } from "@/components/politicians/explorer/top-companies";
 import {
   getParliamentOverview,
   getPoliticianAnalytics,
@@ -36,6 +37,9 @@ import { REGISTER_ITEMS } from "@/lib/politics/register-items";
 import { SENATE_REGISTER_GAP_CORPUS } from "@/lib/politics/register-coverage";
 import { registerItemIcon } from "@/lib/politics/register-item-icons";
 import { PoliticsIcon, SectionIcon } from "@/components/politicians/politics-icon";
+// The LEAF union, not a group name: "register" and "activity" are groups and do
+// not typecheck as an icon.
+import type { PoliticsIconName } from "@/components/politicians/politics-icons.generated";
 import { REPORT_ERROR_EMAIL } from "@/lib/report-error";
 import { RegisterChangeKind } from "~/gen/shorts/v1alpha1/politicians_pb";
 
@@ -221,26 +225,71 @@ export default async function PoliticiansPage() {
   const maxCount = Math.max(1, ...(mostHeld?.stocks ?? []).map((s) => s.politicianCount));
   const maxStatePeople = Math.max(1, ...(analytics?.states ?? []).map((s) => s.people));
 
-  const tiles: { count: number; label: string }[] = hasExplorer
+  // THE 30-DAY FIGURE IS UNSIGNED, AND THAT IS THE WHOLE POINT. A change is an
+  // entry appearing in or leaving the register; the two directions are counted
+  // together and neither is the good half of a pair. Writing it as "+34" would
+  // state net growth in holdings, which is not something the register records —
+  // and it is not what this number is.
+  const changes30d = explorer?.changes30d ?? 0;
+
+  const tiles: {
+    count: number;
+    label: string;
+    icon: PoliticsIconName;
+    meta?: string;
+  }[] = hasExplorer
     ? [
-        { count: politicianCount, label: "parliamentarians" },
-        { count: explorer?.currentDeclaredCount ?? 0, label: "entries currently declared" },
+        { count: politicianCount, label: "parliamentarians", icon: "parliament" },
+        {
+          count: explorer?.currentDeclaredCount ?? 0,
+          label: "entries currently declared",
+          icon: "other-interests",
+          // Only when there is movement to state. A "0 changes" line under the
+          // corpus-scale tile reads as a claim that the registers have stopped,
+          // when it usually means we are between crawls.
+          meta: changes30d > 0 ? `${changes30d} changes · 30 days` : undefined,
+        },
         {
           count: explorer?.distinctCompanyCount ?? 0,
           label: "ASX-listed companies declared",
+          icon: "shareholdings",
         },
         // LABELLING: item-3 register ENTRIES, never "properties". Roughly a
         // third of item-3 rows merge two or more addresses into one entry, so
         // this is a floor on what was declared.
-        { count: explorer?.propertyCount ?? 0, label: "declared real-estate entries" },
-        { count: explorer?.giftsTravelCount ?? 0, label: "gifts & sponsored travel entries" },
-        { count: explorer?.liabilityCount ?? 0, label: "declared liabilities entries" },
+        {
+          count: explorer?.propertyCount ?? 0,
+          label: "declared real-estate entries",
+          icon: "real-estate",
+        },
+        {
+          count: explorer?.giftsTravelCount ?? 0,
+          label: "gifts & sponsored travel entries",
+          icon: "gifts",
+        },
+        {
+          count: explorer?.liabilityCount ?? 0,
+          label: "declared liabilities entries",
+          icon: "liabilities",
+        },
       ]
     : [
-        { count: politicianCount, label: "parliamentarians" },
-        { count: overview?.declaredRowCount ?? 0, label: "declared entries" },
-        { count: overview?.resolvedListedCount ?? 0, label: "ASX-listed companies" },
-        { count: overview?.resolvedSuburbCount ?? 0, label: "suburbs with declared property" },
+        { count: politicianCount, label: "parliamentarians", icon: "parliament" },
+        {
+          count: overview?.declaredRowCount ?? 0,
+          label: "declared entries",
+          icon: "other-interests",
+        },
+        {
+          count: overview?.resolvedListedCount ?? 0,
+          label: "ASX-listed companies",
+          icon: "shareholdings",
+        },
+        {
+          count: overview?.resolvedSuburbCount ?? 0,
+          label: "suburbs with declared property",
+          icon: "real-estate",
+        },
       ];
 
   const extracted = explorer?.extractedParliaments ?? [];
@@ -351,7 +400,14 @@ export default async function PoliticiansPage() {
                 Six separate cards with gutters read as six floating objects. */}
             <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-3 lg:grid-cols-6">
               {tiles.map((tile) => (
-                <CountTile key={tile.label} count={tile.count} label={tile.label} flush />
+                <CountTile
+                  key={tile.label}
+                  count={tile.count}
+                  label={tile.label}
+                  icon={tile.icon}
+                  meta={tile.meta}
+                  flush
+                />
               ))}
             </div>
             <FinePrint
@@ -443,6 +499,22 @@ export default async function PoliticiansPage() {
                     title="What is declared, by category"
                   />
                 ) : null}
+
+                {/*
+                  THE RAIL ECHOES THE SECTIONS BELOW, IT DOES NOT ADD A CLAIM.
+                  These five are the head of the "Most-declared ASX-listed
+                  companies" table further down the page, so a reader who never
+                  scrolls still sees the same five names and the same figures.
+                  Each one counts MEMBERS declaring an interest — never an
+                  amount, and never a ranking of anything but people.
+                */}
+                <TopCompanies
+                  stocks={(mostHeld?.stocks ?? []).slice(0, 5).map((s) => ({
+                    stockCode: s.stockCode,
+                    companyName: s.companyName,
+                    politicianCount: s.politicianCount,
+                  }))}
+                />
 
                 {industryTrends.length > 0 ? (
                   <div className="space-y-2">
