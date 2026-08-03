@@ -24,7 +24,7 @@ export const pageTitle =
  * title. For standalone section breaks with whitespace around them — not for
  * dense in-card sub-labels (those stay mono).
  */
-export const sectionTitle = "font-serif text-2xl font-semibold tracking-tight";
+export const sectionTitle = "font-serif text-2xl font-semibold tracking-tight text-balance";
 
 /**
  * Eyebrow / kicker label — the small uppercase mono lead-in above a headline.

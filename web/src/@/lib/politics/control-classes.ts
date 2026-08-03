@@ -81,5 +81,8 @@ export const POLITICS_SEARCH_INPUT_CLASS =
  * dense height on a pointer device.
  */
 export const POLITICS_PAGER_BUTTON_CLASS =
-  "min-h-11 sm:min-h-0 rounded border px-3 py-1 transition-colors disabled:opacity-40 enabled:hover:bg-muted/50 enabled:hover:text-foreground " +
+  // transition-[…] names the properties: `transition-colors` and a scale can't
+  // share an element (the later utility wins), and `transition-all` is banned.
+  // The 0.98 press is the physical-push cue every enabled button here gets.
+  "min-h-11 sm:min-h-0 rounded border px-3 py-1 transition-[background-color,color,transform] disabled:opacity-40 enabled:hover:bg-muted/50 enabled:hover:text-foreground enabled:active:scale-[0.98] " +
   POLITICS_FOCUS_RING;
