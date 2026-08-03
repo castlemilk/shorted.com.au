@@ -50,12 +50,19 @@ from datetime import date, datetime
 from typing import Optional
 
 from register_parse import (
+    AMOUNT_RE,
     Band,
+    ITEM_HEADING_RE,
     Item,
+    OCR_DPI_DEFAULT,
     ParsedDocument,
+    PROCESSED_RE,
     Row,
+    SECTION_ADDITION_RE,
+    SECTION_DELETION_RE,
     Statement,
     assign_columns,
+    cell_at,
     cell_text,
     column_origins,
     is_column_header,
@@ -63,13 +70,14 @@ from register_parse import (
     merge_cells,
     page_bands,
     page_row_rules,
-    parse_alteration_page,
+    parse_form_date,
     rule_slot,
-    AMOUNT_RE,
-    OCR_DPI_DEFAULT,
 )
+from register_parse import DATE_LABEL_RE as FORM_DATE_LABEL_RE
 from register_schema import (
+    CHANGE_ADDITION,
     CHANGE_DECLARED,
+    CHANGE_DELETION,
     HOLDER_UNSPECIFIED,
     ITEM_LABELS,
     PAGE_KIND_SCAN,
@@ -176,7 +184,28 @@ class HeaderBlock:
 
 
 def _value_of(band: Band) -> str:
+    """The value cell of a `Label: value` band.
+
+    Prefer everything AFTER the last leading label word (one ending with a
+    colon, within the first three words): the older printed form puts the
+    value inline right after the label at x≈110, where an x-threshold cuts the
+    name in half — measured on Keneally 2019, whose surname value became
+    "Other Names: Kristina Kerscher". Falls back to the x threshold when OCR
+    dropped the colon entirely.
+    """
+    label_end = -1
+    for i, w in enumerate(band.words[:3]):
+        if w.text.endswith(":"):
+            label_end = i
+    if label_end >= 0:
+        return " ".join(w.text for w in band.words[label_end + 1 :]).strip()
     return " ".join(w.text for w in band.words if w.x0 >= HEADER_VALUE_X_MIN).strip()
+
+
+# The older printed form runs "Surname: Keneally Other Names: Kristina
+# Kerscher" as ONE line, so the surname value must be split at the inline
+# label. Labels are boilerplate and may be matched loosely.
+INLINE_OTHER_NAMES_RE = re.compile(r"^(.*?)\s*other\s*names?\s*:?\s+(.+)$", re.I)
 
 
 def find_header_block(bands: list[Band]) -> Optional[HeaderBlock]:
@@ -201,7 +230,15 @@ def find_header_block(bands: list[Band]) -> Optional[HeaderBlock]:
             if block is None:
                 block = HeaderBlock()
             if not block.surname:
-                block.surname = _value_of(band)
+                value = _value_of(band)
+                inline = INLINE_OTHER_NAMES_RE.match(value)
+                if inline:
+                    # "Keneally Other Names: Kristina Kerscher" on one line.
+                    block.surname = inline.group(1).strip()
+                    if not block.other_names:
+                        block.other_names = inline.group(2).strip()
+                else:
+                    block.surname = value
         elif block is not None and OTHER_NAMES_LABEL_RE.match(token):
             if not block.other_names:
                 block.other_names = _value_of(band)
@@ -404,6 +441,120 @@ def parse_senate_base_items(
     return items, warnings
 
 
+def parse_senate_alteration_pages(
+    pages: list[tuple[int, list[Band]]],
+    fuzzy_pages: Optional[set[int]] = None,
+) -> tuple[list[Item], Optional[date], bool]:
+    """Parse one senate alteration statement ACROSS its pages.
+
+    The House parser reads an alteration one page at a time, which loses every
+    row after page 1 of a long one: the column header and the Addition marker
+    live on the first page, so later pages parse with no origins and commit
+    nothing. Measured on Hanson-Young's 16-page donor-list alteration in the
+    2021 volume — 0 rows, and the tables_unparsed quarantine then sank the
+    whole volume (with two other senators' base statements inside it). State
+    (origins, section, the open row) carries across the page boundary here.
+    """
+    fuzzy_pages = fuzzy_pages or set()
+    items: dict[tuple[int, str], Item] = {}
+    ordinals: dict[tuple[int, str], int] = {}
+    change_type = CHANGE_ADDITION
+    origins: list[float] = []
+    label_x_max = 95.0
+    pending: Optional[tuple[int, list[list[str]], int]] = None  # (item_no, cells, page_no)
+    lodged, stated = None, False
+
+    def commit() -> None:
+        nonlocal pending
+        if pending is None:
+            return
+        item_no, cells, page_no = pending
+        pending = None
+        lines = cells[-1] if cells else []
+        detail = cell_text(lines)
+        if not detail.strip():
+            return
+        key = (item_no, change_type)
+        item = items.get(key)
+        if item is None:
+            item = Item(item_no=item_no, item_label=ITEM_LABELS.get(item_no, ""), page_no=page_no)
+            items[key] = item
+        n = ordinals.get(key, 0)
+        ordinals[key] = n + 1
+        item.rows.append(
+            Row(
+                holder=HOLDER_UNSPECIFIED,
+                change_type=change_type,
+                ordinal=n,
+                declared_text=detail,
+                is_nil=is_nil_value(detail),
+                page_no=page_no,
+                declared_lines=[l for l in lines if l],
+                contains_amount=bool(AMOUNT_RE.search(detail)),
+            )
+        )
+
+    for page_no, bands in pages:
+        fuzzy = page_no in fuzzy_pages
+        for band in bands:
+            if not band.words:
+                continue
+            first = band.words[0]
+            token = first.text
+            text = band.text.strip()
+
+            # Page chrome and the writable template's own boilerplate.
+            if FORM_HEADER_RE.match(token) and band.y < 60.0:
+                continue
+            if TEMPLATE_PERIOD_RE.match(text) or EXAMPLE_LINE_RE.match(text) or NOTE_LINE_RE.match(text):
+                continue
+
+            if SECTION_ADDITION_RE.match(token):
+                commit()
+                change_type = CHANGE_ADDITION
+                continue
+            if SECTION_DELETION_RE.match(token):
+                commit()
+                change_type = CHANGE_DELETION
+                continue
+
+            if is_column_header(band, 0.0, fuzzy=fuzzy):
+                commit()
+                origins = column_origins(band, fuzzy=fuzzy)
+                if origins:
+                    label_x_max = min(95.0, origins[0] - 5.0)
+                continue
+
+            if FORM_DATE_LABEL_RE.search(text) or PROCESSED_RE.match(token):
+                found, ok = parse_form_date(text)
+                if ok and (not stated or (found and lodged and found < lodged)):
+                    lodged, stated = found, True
+                continue
+
+            if not origins:
+                continue
+
+            cells = assign_columns([w for w in band.words if w.x0 > label_x_max], origins)
+            head = cell_text(cell_at(cells, 0))
+            m = ITEM_HEADING_RE.match(head) if head else None
+            if m and 1 <= int(m.group(1)) <= 14:
+                commit()
+                pending = (int(m.group(1)), cells[1:] or [[]], page_no)
+                continue
+
+            # Wrapped continuation: label-column words (the wrapped item label)
+            # are dropped; detail-column words extend the open row's last cell.
+            if pending is not None:
+                values = [w for w in band.words if w.x0 > label_x_max]
+                if values:
+                    item_no, cells_open, pno = pending
+                    addition = assign_columns(values, origins)
+                    pending = (item_no, merge_cells(cells_open, addition[1:] or addition), pno)
+
+    commit()
+    return list(items.values()), lodged, stated
+
+
 def _page_kind(page) -> str:
     """Per-page text/scan/blank verdict, same signals the classify stage uses."""
     try:
@@ -513,11 +664,12 @@ def parse_senate_volume(
 
         fuzzy_pages = {p for p, _, _, used in section.pages if used}
         if section.kind == STATEMENT_ALTERATION:
-            for page_no, bands, _, used in section.pages:
-                items, lodged, stated = parse_alteration_page(page_no, bands, fuzzy=used)
-                statement.items.extend(items)
-                if stated and not statement.date_is_stated:
-                    statement.lodged_date, statement.date_is_stated = lodged, True
+            items, lodged, stated = parse_senate_alteration_pages(
+                [(p, b) for p, b, _, _ in section.pages], fuzzy_pages=fuzzy_pages
+            )
+            statement.items.extend(items)
+            if stated and not statement.date_is_stated:
+                statement.lodged_date, statement.date_is_stated = lodged, True
         else:
             items, warnings = parse_senate_base_items(
                 [(p, b, r) for p, b, r, _ in section.pages],

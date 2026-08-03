@@ -87,6 +87,7 @@ type pendingExtraction struct {
 	MemberHint   string
 	DivisionHint string
 	StateHint    string
+	TabledFrom   *time.Time
 	Payload      []byte
 }
 
@@ -100,7 +101,7 @@ func selectExtractionsToLoad(ctx context.Context, pool *pgxpool.Pool, limit int)
 		SELECT DISTINCT ON (e.document_id)
 		       e.id::text, e.document_id::text, d.source_url, d.chamber,
 		       COALESCE(d.parliament, 0), d.member_hint, d.division_hint,
-		       d.state_hint, e.payload
+		       d.state_hint, d.tabled_from, e.payload
 		FROM register_extractions e
 		JOIN register_documents d ON d.id = e.document_id
 		WHERE d.extract_status = 'extracted'
@@ -119,7 +120,7 @@ func selectExtractionsToLoad(ctx context.Context, pool *pgxpool.Pool, limit int)
 	for rows.Next() {
 		var p pendingExtraction
 		if err := rows.Scan(&p.ExtractionID, &p.DocumentID, &p.SourceURL, &p.Chamber,
-			&p.Parliament, &p.MemberHint, &p.DivisionHint, &p.StateHint, &p.Payload); err != nil {
+			&p.Parliament, &p.MemberHint, &p.DivisionHint, &p.StateHint, &p.TabledFrom, &p.Payload); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
@@ -346,6 +347,13 @@ func loadExtraction(ctx context.Context, pool *pgxpool.Pool, p pendingExtraction
 				if pn := parliamentAt(*lodged); pn > 0 {
 					stmtParliament = pn
 				}
+			}
+			// A statement with no legible date still belongs to the volume's
+			// own tabled window — "lodged between 1 July 2025 and …" is the
+			// listing's claim, not ours, and leaving parliament NULL made 24
+			// loaded statements invisible to every per-parliament read path.
+			if stmtParliament == 0 && p.TabledFrom != nil {
+				stmtParliament = parliamentAt(*p.TabledFrom)
 			}
 		}
 

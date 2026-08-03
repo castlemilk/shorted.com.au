@@ -104,7 +104,7 @@ type holdingInterval struct {
 // third. aph_suppression_test.go asserts the filter appears once per arm.
 const selectHoldingEventsQuery = `
 	SELECT i.politician_id::text, i.item_no, i.holder,
-	       COALESCE(NULLIF(sec.stock_code, ''), NULLIF(sec.candidate_norm, ''), upper(btrim(i.declared_text))) AS holding_key,
+	       COALESCE(NULLIF(sec.stock_code, ''), NULLIF(sec.candidate_norm, ''), CASE WHEN length(i.declared_text) > 1000 THEN upper(left(btrim(i.declared_text), 960)) || '|MD5:' || md5(i.declared_text) ELSE upper(btrim(i.declared_text)) END) AS holding_key,
 	       COALESCE(sec.stock_code, '') AS stock_code,
 	       '' AS sal_code,
 	       COALESCE(NULLIF(sec.candidate_raw, ''), i.declared_text) AS declared_text,
@@ -122,7 +122,7 @@ const selectHoldingEventsQuery = `
 	UNION ALL
 
 	SELECT i.politician_id::text, i.item_no, i.holder,
-	       COALESCE(NULLIF(loc.sal_code, ''), NULLIF(loc.locality_norm, ''), upper(btrim(i.declared_text))) AS holding_key,
+	       COALESCE(NULLIF(loc.sal_code, ''), NULLIF(loc.locality_norm, ''), CASE WHEN length(i.declared_text) > 1000 THEN upper(left(btrim(i.declared_text), 960)) || '|MD5:' || md5(i.declared_text) ELSE upper(btrim(i.declared_text)) END) AS holding_key,
 	       '' AS stock_code,
 	       COALESCE(loc.sal_code, '') AS sal_code,
 	       COALESCE(NULLIF(loc.locality_raw, ''), i.declared_text) AS declared_text,
@@ -140,7 +140,7 @@ const selectHoldingEventsQuery = `
 	UNION ALL
 
 	SELECT i.politician_id::text, i.item_no, i.holder,
-	       upper(btrim(i.declared_text)) AS holding_key,
+	       CASE WHEN length(i.declared_text) > 1000 THEN upper(left(btrim(i.declared_text), 960)) || '|MD5:' || md5(i.declared_text) ELSE upper(btrim(i.declared_text)) END AS holding_key,
 	       '' AS stock_code, '' AS sal_code,
 	       i.declared_text, i.secondary_text,
 	       '' AS entity_kind,
