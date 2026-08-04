@@ -65,7 +65,7 @@ export function SaveStatusIndicator({
 
       case "saved":
         return (
-          <div className="flex items-center gap-1.5 text-green-600 dark:text-green-500">
+          <div className="flex items-center gap-1.5 text-lime-700 dark:text-lime-300">
             <Check className="h-3 w-3" />
             <span className="text-xs">Saved</span>
           </div>
@@ -80,7 +80,7 @@ export function SaveStatusIndicator({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-5 px-1.5 text-xs"
+                className="h-5 px-1.5 text-xs hit-target"
                 onClick={onRetry}
               >
                 Retry

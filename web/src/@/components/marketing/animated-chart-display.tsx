@@ -45,7 +45,7 @@ export function AnimatedChartDisplay({ className }: AnimatedChartDisplayProps) {
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm">
+            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">
               ASX
             </div>
             <div>
@@ -174,17 +174,13 @@ export function AnimatedChartDisplay({ className }: AnimatedChartDisplayProps) {
                   {stock.name}
                 </span>
               </div>
-              <span className="font-mono text-sm font-semibold text-blue-500">
+              <span className="font-mono text-sm font-semibold text-primary">
                 {stock.pct}
               </span>
             </div>
           ))}
         </div>
       </div>
-
-      {/* Decorative elements */}
-      <div className="absolute -top-3 -right-3 w-24 h-24 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-full blur-2xl" />
-      <div className="absolute -bottom-3 -left-3 w-20 h-20 bg-gradient-to-tr from-emerald-500/20 to-blue-500/20 rounded-full blur-2xl" />
 
       {/* Global styles for animations */}
       <style dangerouslySetInnerHTML={{ __html: `

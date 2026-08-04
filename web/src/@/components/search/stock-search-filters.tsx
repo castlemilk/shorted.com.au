@@ -86,7 +86,7 @@ export function StockSearchFiltersView({
           </div>
           <span className="font-medium">Filters</span>
           {activeFilterCount > 0 && (
-            <span className="flex items-center justify-center w-5 h-5 rounded-full bg-blue-500 text-white text-[10px] font-bold">
+            <span className="flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
               {activeFilterCount}
             </span>
           )}
@@ -102,9 +102,9 @@ export function StockSearchFiltersView({
           <SelectTrigger 
             className={cn(
               "w-auto min-w-[160px] h-9 rounded-xl border-border/50 bg-muted/50",
-              "hover:bg-muted hover:border-border transition-all duration-200",
-              "focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50",
-              filters.industry && "bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400"
+              "hover:bg-muted hover:border-border transition-colors duration-200 ease-out",
+              "focus:ring-2 focus:ring-ring focus:border-ring",
+              filters.industry && "bg-primary/10 border-primary/30 text-primary"
             )}
           >
             <div className="flex items-center gap-2">
@@ -140,9 +140,9 @@ export function StockSearchFiltersView({
           <SelectTrigger 
             className={cn(
               "w-auto min-w-[150px] h-9 rounded-xl border-border/50 bg-muted/50",
-              "hover:bg-muted hover:border-border transition-all duration-200",
-              "focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50",
-              filters.marketCap && "bg-purple-500/10 border-purple-500/30 text-purple-600 dark:text-purple-400"
+              "hover:bg-muted hover:border-border transition-colors duration-200 ease-out",
+              "focus:ring-2 focus:ring-ring focus:border-ring",
+              filters.marketCap && "bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300"
             )}
           >
             <div className="flex items-center gap-2">
@@ -176,8 +176,8 @@ export function StockSearchFiltersView({
             onClick={onClearFilters}
             className={cn(
               "h-9 px-3 rounded-xl text-muted-foreground",
-              "hover:text-red-600 hover:bg-red-500/10 dark:hover:text-red-400",
-              "transition-all duration-200"
+              "hover:text-destructive hover:bg-destructive/10",
+              "transition-colors duration-200 ease-out"
             )}
           >
             <span>Clear all</span>
@@ -192,18 +192,18 @@ export function StockSearchFiltersView({
           {filters.industry && (
             <div className={cn(
               "inline-flex items-center gap-2 px-3 py-1.5 rounded-full",
-              "bg-gradient-to-r from-blue-500/10 to-blue-600/5",
-              "border border-blue-500/20 text-sm",
+              "bg-primary/10",
+              "border border-primary/25 text-sm",
               "animate-in fade-in zoom-in-95 duration-200"
             )}>
-              <span className="text-blue-600 dark:text-blue-400 font-medium">
+              <span className="text-primary font-medium">
                 {getIndustryIcon(filters.industry)} {filters.industry}
               </span>
               <button
                 onClick={() => onUpdateFilter("industry", null)}
-                className="p-0.5 rounded-full hover:bg-blue-500/20 transition-colors"
+                className="p-0.5 rounded-full hover:bg-primary/20 transition-colors"
               >
-                <X className="h-3 w-3 text-blue-500" />
+                <X className="h-3 w-3 text-primary" />
               </button>
             </div>
           )}
@@ -211,19 +211,19 @@ export function StockSearchFiltersView({
           {filters.marketCap && (
             <div className={cn(
               "inline-flex items-center gap-2 px-3 py-1.5 rounded-full",
-              "bg-gradient-to-r from-purple-500/10 to-purple-600/5",
-              "border border-purple-500/20 text-sm",
+              "bg-orange-500/10",
+              "border border-orange-500/25 text-sm",
               "animate-in fade-in zoom-in-95 duration-200"
             )}>
-              <Coins className="w-3.5 h-3.5 text-purple-500" />
-              <span className="text-purple-600 dark:text-purple-400 font-medium">
+              <Coins className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400" />
+              <span className="text-orange-700 dark:text-orange-300 font-medium">
                 {MARKET_CAP_RANGES.find((r) => r.value === filters.marketCap)?.label}
               </span>
               <button
                 onClick={() => onUpdateFilter("marketCap", null)}
-                className="p-0.5 rounded-full hover:bg-purple-500/20 transition-colors"
+                className="p-0.5 rounded-full hover:bg-orange-500/20 transition-colors"
               >
-                <X className="h-3 w-3 text-purple-500" />
+                <X className="h-3 w-3 text-orange-600 dark:text-orange-400" />
               </button>
             </div>
           )}
@@ -233,13 +233,13 @@ export function StockSearchFiltersView({
               key={tag}
               className={cn(
                 "inline-flex items-center gap-2 px-3 py-1.5 rounded-full",
-                "bg-gradient-to-r from-amber-500/10 to-amber-600/5",
-                "border border-amber-500/20 text-sm",
+                "bg-amber-500/10",
+                "border border-amber-500/25 text-sm",
                 "animate-in fade-in zoom-in-95 duration-200"
               )}
             >
-              <Tag className="w-3 h-3 text-amber-500" />
-              <span className="text-amber-600 dark:text-amber-400 font-medium">
+              <Tag className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+              <span className="text-amber-700 dark:text-amber-300 font-medium">
                 #{tag}
               </span>
               <button
@@ -251,7 +251,7 @@ export function StockSearchFiltersView({
                 }
                 className="p-0.5 rounded-full hover:bg-amber-500/20 transition-colors"
               >
-                <X className="h-3 w-3 text-amber-500" />
+                <X className="h-3 w-3 text-amber-600 dark:text-amber-400" />
               </button>
             </div>
           ))}

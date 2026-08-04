@@ -8,7 +8,7 @@ interface InfoProps {
 
 const Info: React.FC<InfoProps> = ({ title, children }) => {
   return (
-    <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-6 relative overflow-visible">
+    <div className="bg-muted rounded-lg p-6 relative overflow-visible">
       <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
       {/* Quarter circle border in top-left corner */}
       <svg

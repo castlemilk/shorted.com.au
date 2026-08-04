@@ -376,7 +376,7 @@ export function FinancialStatementsCard({
                     onClick={() => setMode(m)}
                     aria-pressed={activeMode === m}
                     className={cn(
-                      "rounded-md px-2.5 py-1 text-xs font-medium transition-all",
+                      "rounded-md px-2.5 py-1 text-xs font-medium transition-[background-color,color,box-shadow] duration-200 ease-out",
                       activeMode === m &&
                         "bg-background text-foreground shadow",
                     )}

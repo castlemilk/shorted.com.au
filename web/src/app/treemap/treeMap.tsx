@@ -382,7 +382,7 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
                                 <rect
                                   width={nodeWidth}
                                   height={nodeHeight}
-                                  stroke="#114b5f"
+                                  stroke="hsl(var(--border))"
                                   fill={colorScale(node.value ?? 0)}
                                   pointerEvents={"all"}
                                   cursor={"pointer"}

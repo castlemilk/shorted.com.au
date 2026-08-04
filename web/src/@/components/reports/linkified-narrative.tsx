@@ -81,7 +81,7 @@ export function LinkifiedNarrative({
           // Reports get an amber pill with an "R" prefix so readers can
           // tell at a glance which citations are primary-source filings.
           const pillClass = isReport
-            ? "relative -top-1 inline-flex h-4 min-w-5 items-center justify-center rounded bg-amber-500/15 px-0.5 text-[10px] font-semibold text-amber-300 no-underline transition-colors hover:bg-amber-500/25"
+            ? "relative -top-1 inline-flex h-4 min-w-5 items-center justify-center rounded bg-amber-500/15 px-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300 no-underline transition-colors hover:bg-amber-500/25"
             : "relative -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded bg-primary/10 px-0.5 text-[10px] font-semibold text-primary no-underline transition-colors hover:bg-primary/20";
           return [
             <a

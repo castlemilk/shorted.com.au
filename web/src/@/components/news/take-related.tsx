@@ -33,7 +33,7 @@ export async function TakeRelated({ stockCode, excludeSlug }: TakeRelatedProps) 
     <aside className="mt-12 grid gap-6 border-t border-border pt-8 md:grid-cols-3">
       {/* Stock context */}
       <section className="md:col-span-1">
-        <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-orange-400">
+        <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-primary">
           About ${stockCode}
         </h2>
         {stock ? (
@@ -60,19 +60,19 @@ export async function TakeRelated({ stockCode, excludeSlug }: TakeRelatedProps) 
               </div>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-orange-300">
+              <span className="text-2xl font-bold text-primary">
                 {stock.percentageShorted?.toFixed(2) ?? "—"}%
               </span>
               <span className="text-xs text-muted-foreground">shorted</span>
             </div>
-            <div className="mt-3 text-xs text-orange-400">
+            <div className="mt-3 text-xs text-primary">
               See full position →
             </div>
           </Link>
         ) : (
           <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
             Stock info unavailable.{" "}
-            <Link href={`/shorts/${stockCode}`} className="text-orange-400 hover:text-orange-300">
+            <Link href={`/shorts/${stockCode}`} className="text-primary hover:text-primary/80">
               View ${stockCode}
             </Link>
           </div>
@@ -81,7 +81,7 @@ export async function TakeRelated({ stockCode, excludeSlug }: TakeRelatedProps) 
 
       {/* Recent news for the stock */}
       <section className="md:col-span-2">
-        <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-orange-400">
+        <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-primary">
           More on ${stockCode}
         </h2>
         {recentNews.length > 0 ? (
@@ -97,14 +97,14 @@ export async function TakeRelated({ stockCode, excludeSlug }: TakeRelatedProps) 
                   <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
                     <span className="uppercase">{a.source}</span>
                     {a.isPriceSensitive ? (
-                      <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
+                      <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300">
                         PRICE SENSITIVE
                       </span>
                     ) : null}
                     {a.sentiment ? (
                       <span className={`text-[10px] uppercase ${
-                        a.sentiment === "positive" ? "text-emerald-400" :
-                        a.sentiment === "negative" ? "text-red-400" : "text-muted-foreground"
+                        a.sentiment === "positive" ? "text-emerald-700 dark:text-emerald-400" :
+                        a.sentiment === "negative" ? "text-red-700 dark:text-red-400" : "text-muted-foreground"
                       }`}>
                         {a.sentiment}
                       </span>
@@ -124,7 +124,7 @@ export async function TakeRelated({ stockCode, excludeSlug }: TakeRelatedProps) 
           </p>
         )}
         <div className="mt-3 text-right text-xs">
-          <Link href={`/shorts/${stockCode}/news`} className="text-orange-400 hover:text-orange-300">
+          <Link href={`/shorts/${stockCode}/news`} className="text-primary hover:text-primary/80">
             All ${stockCode} news →
           </Link>
         </div>
@@ -133,7 +133,7 @@ export async function TakeRelated({ stockCode, excludeSlug }: TakeRelatedProps) 
       {/* Other Takes about same stock */}
       {otherTakes.length > 0 ? (
         <section className="md:col-span-3">
-          <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-orange-400">
+          <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-primary">
             More Shorted Takes on ${stockCode}
           </h2>
           <ul className="grid gap-3 md:grid-cols-2">

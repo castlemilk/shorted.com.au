@@ -8,10 +8,10 @@ export default function NotFound() {
       <div className="max-w-md text-center">
         <div className="mb-6 flex justify-center">
           <div className="relative select-none">
-            <span className="text-8xl font-black tracking-tighter font-mono text-amber-500 drop-shadow-[0_0_24px_rgba(245,158,11,0.3)]">
+            <span className="text-8xl font-black tracking-tighter font-mono text-primary text-glow">
               404
             </span>
-            <span className="absolute -right-3 top-1 inline-block h-8 w-[3px] bg-amber-500 animate-pulse" />
+            <span className="absolute -right-3 top-1 inline-block h-8 w-[3px] bg-primary animate-pulse" />
           </div>
         </div>
 
@@ -21,10 +21,7 @@ export default function NotFound() {
         </p>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-          <Button
-            asChild
-            className="bg-amber-600 hover:bg-amber-700 text-white"
-          >
+          <Button asChild>
             <Link href="/">
               <Home className="mr-2 h-4 w-4" />
               Go Home

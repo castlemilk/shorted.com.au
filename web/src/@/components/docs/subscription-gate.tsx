@@ -127,13 +127,13 @@ export function SubscriptionGate({
         {/* Subscription management link */}
         <div className="flex items-center justify-between text-xs text-muted-foreground bg-muted p-3 rounded-lg">
           <div className="flex items-center gap-2">
-            <Check className={cn("h-4 w-4", subscription.cancelAtPeriodEnd ? "text-yellow-500" : "text-green-500")} />
+            <Check className={cn("h-4 w-4", subscription.cancelAtPeriodEnd ? "text-amber-600 dark:text-amber-400" : "text-lime-700 dark:text-lime-300")} />
             <span>
               {subscription.tier.charAt(0).toUpperCase() +
                 subscription.tier.slice(1)}{" "}
               plan {subscription.cancelAtPeriodEnd ? "canceling" : "active"}
               {subscription.currentPeriodEnd && (
-                <span className="text-zinc-500">
+                <span className="text-muted-foreground">
                   {" "}
                   · {subscription.cancelAtPeriodEnd ? "Ends" : "Renews"}{" "}
                   {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
@@ -166,7 +166,7 @@ export function SubscriptionGate({
   return (
     <Card
       className={cn(
-        "relative overflow-hidden transition-all duration-300",
+        "relative overflow-hidden transition-[border-color,box-shadow] duration-200 ease-out",
         "border-primary/30 shadow-lg shadow-primary/5"
       )}
     >
@@ -192,19 +192,19 @@ export function SubscriptionGate({
       <CardContent className="space-y-4">
         <ul className="space-y-2 text-sm">
           <li className="flex items-center gap-2">
-            <Check className="h-4 w-4 text-green-500 shrink-0" />
+            <Check className="h-4 w-4 text-lime-700 dark:text-lime-300 shrink-0" />
             <span>All API endpoints</span>
           </li>
           <li className="flex items-center gap-2">
-            <Check className="h-4 w-4 text-green-500 shrink-0" />
+            <Check className="h-4 w-4 text-lime-700 dark:text-lime-300 shrink-0" />
             <span>10,000 requests per day</span>
           </li>
           <li className="flex items-center gap-2">
-            <Check className="h-4 w-4 text-green-500 shrink-0" />
+            <Check className="h-4 w-4 text-lime-700 dark:text-lime-300 shrink-0" />
             <span>Token management</span>
           </li>
           <li className="flex items-center gap-2">
-            <Check className="h-4 w-4 text-green-500 shrink-0" />
+            <Check className="h-4 w-4 text-lime-700 dark:text-lime-300 shrink-0" />
             <span>Priority support</span>
           </li>
         </ul>
@@ -223,7 +223,7 @@ export function SubscriptionGate({
           <ExternalLink className="h-3 w-3 ml-2" />
         </Button>
 
-        {error && <p className="text-xs text-red-500 text-center">{error}</p>}
+        {error && <p className="text-xs text-destructive text-center">{error}</p>}
 
         <p className="text-[10px] text-center text-muted-foreground">
           Cancel anytime. Secure payment via Stripe.

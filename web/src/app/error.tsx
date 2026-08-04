@@ -38,8 +38,8 @@ export default function Error({
     <div className="flex min-h-[50vh] items-center justify-center p-8">
       <div className="max-w-md text-center">
         <div className="mb-6 flex justify-center">
-          <div className="rounded-full bg-red-100 p-4 dark:bg-red-900/30">
-            <AlertTriangle className="h-12 w-12 text-red-500" />
+          <div className="rounded-full bg-destructive/10 p-4">
+            <AlertTriangle className="h-12 w-12 text-destructive" />
           </div>
         </div>
 

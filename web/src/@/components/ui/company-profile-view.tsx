@@ -53,7 +53,7 @@ export function CompanyProfileView({
                     title="AI-Enhanced Data Available"
                     className="shrink-0"
                   >
-                    <Sparkles className="h-4 w-4 text-purple-500" aria-hidden />
+                    <Sparkles className="h-4 w-4 text-primary" aria-hidden />
                   </span>
                 )}
               </div>

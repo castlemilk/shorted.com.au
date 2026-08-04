@@ -16,7 +16,11 @@ interface CommunityThreadCardProps {
 
 export function CommunityThreadCard({ thread }: CommunityThreadCardProps) {
   return (
-    <Card className="border-border/70 bg-card/90 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+    <Card
+      // Was the last Card opting into a resting grey shadow. Flat at rest
+      // like every other card now; amber answers the pointer instead.
+      className="border-border/70 bg-card/90 transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-amber-sm"
+    >
       <CardHeader className="space-y-3 pb-3">
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="secondary" className="uppercase tracking-[0.16em]">

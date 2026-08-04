@@ -166,7 +166,7 @@ export function BroadcastsClient({ initial }: { initial: Broadcast[] }) {
                     )}
                     {b.error && (
                       <span
-                        className="text-xs text-red-500 truncate max-w-[320px] cursor-help"
+                        className="text-xs text-destructive truncate max-w-[320px] cursor-help"
                         title={b.error}
                       >
                         {b.error}

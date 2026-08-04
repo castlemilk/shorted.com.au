@@ -80,8 +80,8 @@ export function SearchDialog({ endpoints, open, onOpenChange }: SearchDialogProp
                 >
                   <div className={cn(
                     "flex items-center justify-center w-8 h-8 rounded border text-[10px] font-bold uppercase shrink-0",
-                    result.method === 'GET' && "text-green-500 border-green-500/20 bg-green-500/5",
-                    result.method === 'POST' && "text-blue-500 border-blue-500/20 bg-blue-500/5",
+                    result.method === 'GET' && "text-lime-700 dark:text-lime-300 border-lime-600/25 bg-lime-600/5",
+                    result.method === 'POST' && "text-primary border-primary/25 bg-primary/5",
                   )}>
                     {result.method}
                   </div>

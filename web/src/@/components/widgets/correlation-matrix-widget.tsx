@@ -7,9 +7,11 @@ import { getCorrelationMatrix } from "@/lib/stock-data-service";
 import { ParentSize } from "@visx/responsive";
 import { scaleLinear } from "@visx/scale";
 
+// Diverging correlation ramp on the warm chart palette (rust <-> avocado),
+// not the off-brand red/blue default. Mid-point is the warm paper border.
 const cool = scaleLinear<string>({
   domain: [-1, 0, 1],
-  range: ["#dc2626", "#ffffff", "#2563eb"],
+  range: ["#D16A47", "#E5E1DC", "#87A96B"],
 });
 
 const DEFAULT_STOCKS = ["CBA", "BHP", "CSL", "WBC", "ANZ"];
@@ -171,15 +173,15 @@ export function CorrelationMatrixWidget({ config }: WidgetProps) {
       <div className="p-4 pt-0">
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-red-600 rounded" />
+            <div className="w-4 h-4 rounded bg-[#D16A47]" />
             Strong Negative (-1)
           </span>
           <span className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-gray-300 rounded" />
+            <div className="w-4 h-4 rounded bg-[#E5E1DC]" />
             No Correlation (0)
           </span>
           <span className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-blue-600 rounded" />
+            <div className="w-4 h-4 rounded bg-[#87A96B]" />
             Strong Positive (+1)
           </span>
         </div>

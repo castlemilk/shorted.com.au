@@ -44,8 +44,8 @@ export function SpotlightCard({ children, className = "" }: SpotlightCardProps) 
     <div
       ref={cardRef}
       className={cn(
-        "relative group rounded-xl border bg-card p-6 transition-all duration-300 overflow-hidden",
-        "hover:shadow-2xl hover:shadow-blue-500/20",
+        "relative group rounded-xl border bg-card p-6 transition-shadow duration-200 ease-out overflow-hidden",
+        "hover:shadow-amber-lg",
         className
       )}
     >

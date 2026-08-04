@@ -265,7 +265,7 @@ export default async function ShortedTakePage({ params }: Params) {
                 href={take.sourceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-medium text-orange-400 hover:text-orange-300"
+                className="font-medium text-primary hover:underline"
               >
                 {take.sourceName || take.sourceUrl}
               </a>

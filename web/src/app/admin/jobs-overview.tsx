@@ -88,7 +88,7 @@ function JobHealthBadge({ job }: { job: JobStatus }) {
       );
     case "running":
       return (
-        <Badge variant="outline" className="gap-1 animate-pulse border-blue-300 text-blue-700 dark:text-blue-400">
+        <Badge variant="outline" className="gap-1 animate-pulse border-primary/40 text-primary">
           <Activity className="h-3 w-3" />
           {label}
         </Badge>
@@ -175,7 +175,7 @@ export function JobsOverview({ overview }: { overview: JobsOverviewData }) {
             </CardDescription>
           </div>
           {stale && (
-            <Badge variant="outline" className="gap-1 text-amber-600 w-fit">
+            <Badge variant="outline" className="gap-1 text-amber-600 dark:text-amber-400 w-fit">
               <Clock className="h-3 w-3" />
               showing cached data
             </Badge>
@@ -185,7 +185,7 @@ export function JobsOverview({ overview }: { overview: JobsOverviewData }) {
       <CardContent className="space-y-4">
         {errored ? (
           <div className="flex flex-col items-center gap-2 py-10 text-center text-muted-foreground">
-            <AlertTriangle className="h-8 w-8 text-amber-500" />
+            <AlertTriangle className="h-8 w-8 text-amber-600 dark:text-amber-400" />
             <span className="font-medium">Couldn&apos;t load job status</span>
             <span className="text-xs max-w-md">
               The backend /api/admin/jobs call failed. Confirm INTERNAL_SERVICE_SECRET is set in the
@@ -241,7 +241,7 @@ export function JobsOverview({ overview }: { overview: JobsOverviewData }) {
                         </span>
                         {job.message && (
                           <span
-                            className="text-xs text-red-500/90 max-w-[420px] truncate cursor-help mt-0.5"
+                            className="text-xs text-destructive/90 max-w-[420px] truncate cursor-help mt-0.5"
                             title={job.message}
                           >
                             {job.message}
@@ -256,7 +256,7 @@ export function JobsOverview({ overview }: { overview: JobsOverviewData }) {
                           {job.scheduleHuman || "–"}
                         </span>
                         {job.schedulerState && job.schedulerState !== "ENABLED" && (
-                          <span className="text-[10px] text-amber-600">{job.schedulerState}</span>
+                          <span className="text-[10px] text-amber-600 dark:text-amber-400">{job.schedulerState}</span>
                         )}
                       </div>
                     </TableCell>

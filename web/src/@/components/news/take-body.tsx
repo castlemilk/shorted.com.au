@@ -248,7 +248,7 @@ export function TakeBody({ bodyMd, citations, inlineImages = [], layoutImages, s
         const textCol = <div className="min-w-0">{mdFor(textIdx)}</div>;
         const imageCol = (
           <figure className="min-w-0">
-            <div className="overflow-hidden rounded-xl border border-border bg-zinc-950">{layoutImg(li)}</div>
+            <div className="overflow-hidden rounded-xl border border-border bg-muted">{layoutImg(li)}</div>
             {li.caption ? (
               <figcaption className="mt-2 text-xs italic leading-snug text-muted-foreground">{li.caption}</figcaption>
             ) : null}
@@ -279,7 +279,7 @@ export function TakeBody({ bodyMd, citations, inlineImages = [], layoutImages, s
         const li = fullAfter.get(i)!;
         bodyNodes.push(
           <figure key={`full-${i}`} className="my-6">
-            <div className="overflow-hidden rounded-xl border border-border bg-zinc-950">{layoutImg(li)}</div>
+            <div className="overflow-hidden rounded-xl border border-border bg-muted">{layoutImg(li)}</div>
             {li.caption ? (
               <figcaption className="mt-2 text-xs italic leading-snug text-muted-foreground">{li.caption}</figcaption>
             ) : null}
@@ -316,7 +316,7 @@ export function TakeBody({ bodyMd, citations, inlineImages = [], layoutImages, s
                 const img = inlineImages[slotIndex];
                 if (img) {
                   nodes.push(
-                    <figure key={`img-${i}`} className="my-2 overflow-hidden rounded-xl border border-border bg-zinc-950">
+                    <figure key={`img-${i}`} className="my-2 overflow-hidden rounded-xl border border-border bg-muted">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={img.url}

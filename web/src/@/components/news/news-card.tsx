@@ -37,7 +37,7 @@ const sentimentBorder = (sentiment?: string) => {
     case "negative":
       return "border-l-rose-500/60";
     default:
-      return "border-l-slate-300/40 dark:border-l-slate-700/40";
+      return "border-l-border";
   }
 };
 
@@ -53,7 +53,9 @@ export function NewsCard({ article, variant = "default", showStockChip = true, c
   return (
     <article
       className={cn(
-        "group relative overflow-hidden rounded-xl border-l-4 border bg-card transition-all hover:shadow-md",
+        // Flat at rest, amber on hover — the wire card's response, not a grey
+        // drop shadow. The sentiment `border-l-4` stripe is untouched.
+        "group relative overflow-hidden rounded-xl border-l-4 border bg-card transition-shadow duration-200 ease-out hover:shadow-amber-sm",
         sentimentBorder(article.sentiment),
         isHero && "md:flex md:gap-5",
         className,

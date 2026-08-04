@@ -40,9 +40,13 @@ export function MobileNav({ items }: MobileNavProps) {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
+        {/* The header has to survive a 320px viewport (see main-nav), so the
+            trigger keeps its 24px drawn width and grows only the tap target
+            to 40px. The 8px it gains on each side lands inside `mr-2` and
+            the header's own padding, clear of the logo link. */}
         <Button
           variant="ghost"
-          className="mr-2 px-0 text-base hover:bg-transparent focus-visible:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 lg:hidden"
+          className="hit-target-touch mr-2 px-0 text-base hover:bg-transparent focus-visible:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 lg:hidden"
         >
           <Menu className="h-6 w-6" />
           <span className="sr-only">Toggle Menu</span>
@@ -57,8 +61,12 @@ export function MobileNav({ items }: MobileNavProps) {
           <Icons.logo className="h-6 w-6" />
           <span className="font-bold">{siteConfig.name}</span>
         </Link>
-        <div className="my-4 h-[calc(100vh-8rem)] pb-10 pl-6">
-          <div className="flex flex-col space-y-3">
+        {/* This is the product's primary touch surface, so rows are padded to
+            a 40px target rather than left at their 24px line box. The row gap
+            tightens to compensate; `overflow-y-auto` keeps a long nav list
+            reachable on a short phone instead of clipping it. */}
+        <div className="my-4 h-[calc(100vh-8rem)] overflow-y-auto pb-10 pl-6 pr-6">
+          <div className="flex flex-col space-y-1">
             {items?.map((item) => {
               if (!item.href) return null;
               const isLocked = item.requiresAuth && !session;
@@ -73,10 +81,10 @@ export function MobileNav({ items }: MobileNavProps) {
                   href={item.href}
                   prefetch={false}
                   className={cn(
-                    "flex items-center gap-2 transition-colors",
+                    "-mx-2 flex items-center gap-2 rounded-md px-2 py-2 transition-colors",
                     isLocked
                       ? "text-muted-foreground/40"
-                      : "text-muted-foreground hover:text-foreground",
+                      : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground",
                     pathname === item.href && !isLocked && "text-foreground font-bold"
                   )}
                   onClick={(e) => {
@@ -94,18 +102,18 @@ export function MobileNav({ items }: MobileNavProps) {
                   {getIcon(item.title)}
                   {item.title}
                   {isLocked && (
-                    <Lock className="h-3 w-3 ml-auto mr-6" aria-hidden="true" />
+                    <Lock className="h-3 w-3 ml-auto" aria-hidden="true" />
                   )}
                 </Link>
               );
             })}
-            <div className="pt-4 mt-4 border-t border-border pr-6">
+            <div className="pt-4 mt-4 border-t border-border">
               <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Resources</h4>
               <Link
                 href="/docs/api"
                 prefetch={false}
                 className={cn(
-                  "flex items-center gap-2 text-muted-foreground transition-colors hover:text-foreground",
+                  "-mx-2 flex items-center gap-2 rounded-md px-2 py-2 text-muted-foreground transition-colors hover:bg-secondary/50 hover:text-foreground",
                   pathname.startsWith("/docs/api") && "text-foreground font-bold"
                 )}
                 onClick={() => setOpen(false)}

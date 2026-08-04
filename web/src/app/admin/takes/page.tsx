@@ -14,9 +14,9 @@ function statusBadge(take: {
 }): { label: string; className: string } {
   const hasPub = !!take.publishedAt;
   const hasTweet = !!take.tweetPublishedAt;
-  if (hasTweet) return { label: "Tweeted", className: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" };
-  if (hasPub) return { label: "Published", className: "bg-blue-500/10 text-blue-400 border-blue-500/30" };
-  return { label: "Draft", className: "bg-amber-500/10 text-amber-400 border-amber-500/30" };
+  if (hasTweet) return { label: "Tweeted", className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30" };
+  if (hasPub) return { label: "Published", className: "bg-primary/10 text-primary border-primary/30" };
+  return { label: "Draft", className: "bg-muted text-muted-foreground border-border" };
 }
 
 function fmtDate(ts: { seconds?: bigint | number } | undefined): string {
@@ -55,7 +55,7 @@ export default async function AdminTakesPage({ searchParams }: PageProps) {
             href={tab.key ? `/admin/takes?filter=${tab.key}` : "/admin/takes"}
             className={`rounded-md border px-3 py-1.5 transition-colors ${
               valid === tab.key
-                ? "border-orange-500/40 bg-orange-500/10 text-orange-300"
+                ? "border-primary/40 bg-primary/10 text-primary"
                 : "border-border text-muted-foreground hover:border-border/60 hover:text-foreground"
             }`}
           >
@@ -78,14 +78,14 @@ export default async function AdminTakesPage({ searchParams }: PageProps) {
               <Link
                 key={take.id}
                 href={`/admin/takes/${take.slug}`}
-                className="block rounded-lg border border-border bg-card p-4 transition-colors hover:border-orange-500/30 hover:bg-orange-500/5"
+                className="block rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/30 hover:bg-primary/5"
               >
                 <div className="mb-2 flex items-center gap-2">
                   <span className={`inline-flex rounded border px-2 py-0.5 text-xs font-medium ${badge.className}`}>
                     {badge.label}
                   </span>
                   {take.stockCode ? (
-                    <span className="font-mono text-xs text-orange-300">${take.stockCode}</span>
+                    <span className="font-mono text-xs text-primary">${take.stockCode}</span>
                   ) : null}
                   <span className="ml-auto text-xs text-muted-foreground">
                     {take.publishedAt ? `Published ${published}` : `Created ${created}`}

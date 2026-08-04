@@ -27,7 +27,7 @@ export function SchemaViewer({ schema, name, required, depth = 0 }: SchemaViewer
   if (schema.allOf) {
     return (
       <div className="space-y-2">
-        <span className="text-[10px] font-bold text-zinc-500 uppercase">All Of:</span>
+        <span className="text-[10px] font-bold text-muted-foreground uppercase">All Of:</span>
         {schema.allOf.map((s: any, i: number) => (
           <SchemaViewer key={i} schema={s} depth={depth} />
         ))}
@@ -38,8 +38,8 @@ export function SchemaViewer({ schema, name, required, depth = 0 }: SchemaViewer
   if (schema.oneOf || schema.anyOf) {
     const list = schema.oneOf || schema.anyOf;
     return (
-      <div className="space-y-2 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-md p-2">
-        <span className="text-[10px] font-bold text-blue-500 uppercase">{schema.oneOf ? 'One Of' : 'Any Of'}:</span>
+      <div className="space-y-2 border border-dashed border-border rounded-md p-2">
+        <span className="text-[10px] font-bold text-primary uppercase">{schema.oneOf ? 'One Of' : 'Any Of'}:</span>
         {list.map((s: any, i: number) => (
           <SchemaViewer key={i} schema={s} depth={depth + 1} />
         ))}
@@ -54,11 +54,11 @@ export function SchemaViewer({ schema, name, required, depth = 0 }: SchemaViewer
   const toggle = () => setIsOpen(!isOpen);
 
   return (
-    <div className={cn("text-sm", depth > 0 && "ml-4 border-l border-zinc-200 dark:border-zinc-800 pl-4 my-2")}>
+    <div className={cn("text-sm", depth > 0 && "ml-4 border-l border-border pl-4 my-2")}>
       <div
         className={cn(
           "flex items-start gap-2 py-1 group rounded px-1 transition-colors",
-          hasChildren && "cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900"
+          hasChildren && "cursor-pointer hover:bg-muted/60"
         )}
         onClick={hasChildren ? toggle : undefined}
         onKeyDown={hasChildren ? (e) => {
@@ -72,28 +72,28 @@ export function SchemaViewer({ schema, name, required, depth = 0 }: SchemaViewer
         aria-expanded={hasChildren ? isOpen : undefined}
       >
         {hasChildren ? (
-          isOpen ? <ChevronDown className="h-4 w-4 mt-0.5 text-zinc-400" /> : <ChevronRight className="h-4 w-4 mt-0.5 text-zinc-400" />
+          isOpen ? <ChevronDown className="h-4 w-4 mt-0.5 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 mt-0.5 text-muted-foreground" />
         ) : (
           <div className="w-4" />
         )}
         
         <div className="flex flex-col flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            {name && <span className="font-mono font-semibold text-blue-600 dark:text-blue-400">{name}</span>}
-            <span className="text-xs text-zinc-500 font-mono">
+            {name && <span className="font-mono font-semibold text-primary">{name}</span>}
+            <span className="text-xs text-muted-foreground font-mono">
               {schema.type || (schema.properties ? 'object' : 'any')}
               {schema.format && ` <${schema.format}>`}
               {schema.enum && ` [${schema.enum.join(', ')}]`}
-              {required && <span className="text-red-500 ml-1 font-bold" title="Required">*</span>}
+              {required && <span className="text-destructive ml-1 font-bold" title="Required">*</span>}
             </span>
             {schema.default !== undefined && (
-              <span className="text-[10px] bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 px-1 rounded">
+              <span className="text-[10px] bg-muted text-muted-foreground px-1 rounded">
                 default: {JSON.stringify(schema.default)}
               </span>
             )}
           </div>
           {schema.description && (
-            <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">{schema.description}</p>
+            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{schema.description}</p>
           )}
         </div>
       </div>
@@ -111,7 +111,7 @@ export function SchemaViewer({ schema, name, required, depth = 0 }: SchemaViewer
           ))}
           {isArray && schema.items && (
             <div className="space-y-1">
-              <span className="text-[10px] font-bold text-zinc-400 uppercase ml-4">Array Items:</span>
+              <span className="text-[10px] font-bold text-muted-foreground uppercase ml-4">Array Items:</span>
               <SchemaViewer
                 schema={schema.items}
                 depth={depth + 1}

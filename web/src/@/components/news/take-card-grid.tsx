@@ -65,7 +65,10 @@ export async function TakeCardGrid({
           <Link
             key={t.id}
             href={`/news/${t.slug}`}
-            className={`group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card ring-1 ring-transparent transition-all hover:-translate-y-0.5 hover:border-orange-500/40 hover:shadow-lg hover:shadow-orange-950/40 ${sentimentRing(t.sentiment)}`}
+            // Same hover contract as its sibling <TakeHero>: the amber bloom,
+            // not a dark orange drop shadow (which only read as depth on the
+            // CRT-black theme and as grime on warm paper).
+            className={`group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card ring-1 ring-transparent transition-[transform,border-color,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-amber ${sentimentRing(t.sentiment)}`}
           >
             {t.heroImageUrl ? (
               <div className="relative aspect-[16/9] overflow-hidden bg-muted/20">
@@ -78,7 +81,7 @@ export async function TakeCardGrid({
                   className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
                 />
                 {/* Bottom gradient fade so the ticker chip reads against any image */}
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-zinc-950 via-zinc-950/60 to-transparent" />
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-stone-950 via-stone-950/60 to-transparent" />
                 {/* Ticker chip — bottom-left over the image */}
                 {t.stockCode ? (
                   <span className={`absolute bottom-2 left-2 rounded-md border px-2 py-0.5 font-mono text-xs font-semibold backdrop-blur ${stockChipPalette(t.stockCode).onImage}`}>
@@ -86,12 +89,12 @@ export async function TakeCardGrid({
                   </span>
                 ) : null}
                 {/* Take stamp — top-right */}
-                <span className="absolute right-2 top-2 rounded-md border border-orange-500/30 bg-zinc-950/70 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-orange-300 backdrop-blur">
+                <span className="absolute right-2 top-2 rounded-md border border-orange-500/30 bg-stone-950/70 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-orange-300 backdrop-blur">
                   Take
                 </span>
               </div>
             ) : (
-              <div className="relative flex aspect-[16/9] items-center justify-center overflow-hidden bg-gradient-to-br from-orange-950/40 via-zinc-950 to-zinc-950">
+              <div className="relative flex aspect-[16/9] items-center justify-center overflow-hidden bg-gradient-to-br from-orange-950/40 via-stone-950 to-stone-950">
                 <div
                   className="pointer-events-none absolute inset-0 opacity-30"
                   style={{
@@ -108,13 +111,13 @@ export async function TakeCardGrid({
                     Shorted Take
                   </span>
                 )}
-                <span className="absolute right-2 top-2 rounded-md border border-orange-500/30 bg-zinc-950/70 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-orange-300 backdrop-blur">
+                <span className="absolute right-2 top-2 rounded-md border border-orange-500/30 bg-stone-950/70 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-orange-300 backdrop-blur">
                   Take
                 </span>
               </div>
             )}
             <div className="flex flex-1 flex-col p-4">
-              <h3 className="line-clamp-3 text-sm font-semibold leading-snug text-foreground transition-colors group-hover:text-orange-300 md:text-base">
+              <h3 className="line-clamp-3 text-sm font-semibold leading-snug text-foreground transition-colors group-hover:text-primary md:text-base">
                 {t.headline}
               </h3>
               <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground">

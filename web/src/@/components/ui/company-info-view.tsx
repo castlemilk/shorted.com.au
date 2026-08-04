@@ -101,7 +101,7 @@ export function CompanyInfoView({
                     href={stockDetails.website}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                    className="text-primary hover:underline font-medium"
                   >
                     {
                       stockDetails.website

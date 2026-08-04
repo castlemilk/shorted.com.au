@@ -622,8 +622,8 @@ export async function generateMetadata({
 function CodeBlock({ code, language }: { code: string; language: string }) {
   return (
     <div className="relative">
-      <pre className="bg-zinc-950 border border-zinc-800 rounded-lg p-4 overflow-x-auto">
-        <code className={`text-sm text-zinc-300 language-${language}`}>
+      <pre className="bg-muted border border-border rounded-lg p-4 overflow-x-auto">
+        <code className={`text-sm text-foreground language-${language}`}>
           {code}
         </code>
       </pre>
@@ -727,7 +727,7 @@ export default async function ClientGuidePage({
         <h2 className="text-2xl font-bold tracking-tight">All Endpoints</h2>
         <p className="text-muted-foreground">
           See the{' '}
-          <Link href="/docs/api" className="text-blue-500 hover:underline">
+          <Link href="/docs/api" className="text-primary hover:underline">
             full API reference
           </Link>{' '}
           for all available endpoints, request/response schemas, and the interactive

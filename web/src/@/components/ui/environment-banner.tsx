@@ -81,13 +81,13 @@ export function DevelopmentBanner() {
   if (!isVisible) return null;
 
   return (
-    <div className="bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800">
+    <div className="bg-primary/10 border-b border-primary/25">
       <div className="container mx-auto px-4 py-1">
-        <div className="flex items-center gap-2 text-xs text-blue-800 dark:text-blue-200">
+        <div className="flex items-center gap-2 text-xs text-foreground">
           <AlertTriangle className="h-3 w-3" />
           <span>Development Mode</span>
-          <span className="text-blue-600 dark:text-blue-400">•</span>
-          <span className="font-mono text-blue-600 dark:text-blue-400">
+          <span className="text-primary">•</span>
+          <span className="font-mono text-primary">
             API: {config.api.url}
           </span>
         </div>

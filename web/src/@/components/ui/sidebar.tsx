@@ -130,7 +130,10 @@ export function Sidebar({ className }: SidebarProps) {
       {/* Sidebar - Always visible, icons on small/medium, full labels on large */}
       <aside
         className={cn(
-          "flex flex-col bg-background border-r transition-all duration-300",
+          // Width is the only thing that moves here, and only when the viewport
+          // crosses `lg`. Naming it keeps the rail from implicitly animating
+          // everything else it inherits.
+          "flex flex-col bg-background border-r transition-[width] duration-200 ease-out",
           "w-16 lg:w-64",
           className,
         )}

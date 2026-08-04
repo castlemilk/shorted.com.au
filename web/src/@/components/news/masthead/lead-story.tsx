@@ -35,7 +35,7 @@ export function LeadStory({ take }: { take: TakeLike }) {
               />
             </div>
           ) : (
-            <div className="relative flex aspect-[16/9] items-center justify-center overflow-hidden bg-gradient-to-br from-orange-950/40 via-zinc-950 to-zinc-950">
+            <div className="relative flex aspect-[16/9] items-center justify-center overflow-hidden bg-gradient-to-br from-orange-950/40 via-stone-950 to-stone-950">
               <div
                 className="pointer-events-none absolute inset-0 opacity-30"
                 style={{

@@ -200,7 +200,7 @@ export function StockSearchField({
             <Button
               variant="ghost"
               size="icon"
-              className="h-4 w-4 ml-1"
+              className="h-4 w-4 ml-1 hit-target"
               onClick={() => removeStock(stock)}
             >
               <X className="h-3 w-3" />
@@ -281,7 +281,7 @@ export function StockSearchField({
                               </span>
                             )}
                             {alreadyAdded && (
-                              <span className="text-[10px] px-1 py-0.5 rounded bg-green-500/20 text-green-600">
+                              <span className="text-[10px] px-1 py-0.5 rounded bg-lime-600/20 text-lime-800 dark:text-lime-300">
                                 Added
                               </span>
                             )}

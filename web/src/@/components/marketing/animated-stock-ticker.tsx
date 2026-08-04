@@ -100,7 +100,7 @@ export function AnimatedStockTicker() {
           <div className="grid grid-cols-3 gap-4">
             <div>
               <div className="text-xs text-muted-foreground mb-1">Short %</div>
-              <div className="text-2xl font-bold text-blue-500">
+              <div className="text-2xl font-bold text-primary">
                 {currentStock.shortPercentage.toFixed(1)}%
               </div>
             </div>
@@ -132,7 +132,7 @@ export function AnimatedStockTicker() {
           <div className="mt-4">
             <div className="h-2 bg-muted rounded-full overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-1000 ease-out"
+                className="h-full bg-primary transition-[width] duration-1000 ease-out"
                 style={{ width: `${Math.min(currentStock.shortPercentage * 5, 100)}%` }}
               />
             </div>
@@ -147,9 +147,9 @@ export function AnimatedStockTicker() {
             key={stock.code}
             onClick={() => setCurrentIndex(index)}
             className={cn(
-              "h-2 rounded-full transition-all duration-300",
+              "h-2 rounded-full transition-[width,background-color] duration-200 ease-out",
               index === currentIndex
-                ? "w-8 bg-blue-500"
+                ? "w-8 bg-primary"
                 : "w-2 bg-muted-foreground/30 hover:bg-muted-foreground/50"
             )}
             aria-label={`View ${stock.code}`}

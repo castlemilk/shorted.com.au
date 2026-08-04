@@ -189,7 +189,7 @@ export default async function MarketDatePage({ params }: PageProps) {
             label="Stocks with Short Positions"
             value={totalStocks.toString()}
             icon={<Building2 className="h-4 w-4" />}
-            color="blue"
+            color="amber"
           />
           <StatCard
             label="Highest Short %"
@@ -202,7 +202,7 @@ export default async function MarketDatePage({ params }: PageProps) {
             label="Total Short Positions"
             value={totalReportedPositions.toLocaleString()}
             icon={<BarChart3 className="h-4 w-4" />}
-            color="purple"
+            color="rust"
             subtext="Shares reported"
           />
         </section>
@@ -315,19 +315,21 @@ function StatCard({
   label: string;
   value: string;
   icon: React.ReactNode;
-  color: "red" | "blue" | "purple";
+  color: "red" | "amber" | "rust";
   subtext?: string;
 }) {
+  // Flat tinted surfaces, no decorative gradient. Amber/rust carry the
+  // non-directional stats; red stays on the short-interest heat ramp.
   const colorClasses = {
-    red: "from-red-500/20 to-red-500/5 border-red-500/30 text-red-500",
-    blue: "from-blue-500/20 to-blue-500/5 border-blue-500/30 text-blue-500",
-    purple: "from-purple-500/20 to-purple-500/5 border-purple-500/30 text-purple-500",
+    red: "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400",
+    amber: "bg-primary/10 border-primary/30 text-primary",
+    rust: "bg-accent/10 border-accent/30 text-accent",
   };
 
   return (
     <div
       className={cn(
-        "rounded-lg border bg-gradient-to-br p-4 backdrop-blur-sm",
+        "rounded-lg border p-4",
         colorClasses[color]
       )}
     >

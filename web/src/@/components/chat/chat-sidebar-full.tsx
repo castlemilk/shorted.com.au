@@ -120,8 +120,13 @@ export function ChatSidebarFull({ stockCode, initialOpen = false }: ChatSidebarF
           )}
         </Button>
       </SheetTrigger>
-      <SheetContent className="w-[400px] sm:w-[450px] flex flex-col p-0">
-        <SheetHeader className="px-4 py-3 border-b flex-row items-center justify-between space-y-0">
+      {/* max-w-full: the 400px floor overhangs a 375px phone by 25px, and the
+          sheet is right-anchored, so the overhang clips off the LEFT edge and
+          takes the back button and title with it. */}
+      <SheetContent className="w-[400px] max-w-full sm:w-[450px] flex flex-col p-0">
+        {/* pr-12 reserves the corner for the sheet's own close button, which
+            is absolutely positioned and otherwise lands on top of "New chat". */}
+        <SheetHeader className="pl-4 pr-12 py-3 border-b flex-row items-center justify-between space-y-0">
           <SheetTitle className="text-base flex items-center gap-2">
             {showHistory && (
               <Button
