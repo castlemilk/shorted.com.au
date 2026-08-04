@@ -24,9 +24,9 @@ export function LoginPromptBanner() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Sparkles className="h-5 w-5 text-primary" />
-            <p className="text-sm text-gray-700 dark:text-gray-300">
+            <p className="text-sm text-foreground">
               <span className="font-medium">Unlock advanced features:</span>{" "}
-              <span className="text-gray-600 dark:text-gray-400">
+              <span className="text-muted-foreground">
                 Custom dashboards, portfolio tracking, real-time alerts, and more
               </span>
             </p>

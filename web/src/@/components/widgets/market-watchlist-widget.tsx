@@ -392,7 +392,7 @@ export function MarketWatchlistWidget({
                                 </span>
                               )}
                               {alreadyAdded && (
-                                <span className="text-[10px] px-1 py-0.5 rounded bg-green-500/20 text-green-600">
+                                <span className="text-[10px] px-1 py-0.5 rounded bg-lime-600/20 text-lime-800 dark:text-lime-300">
                                   Added
                                 </span>
                               )}

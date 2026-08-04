@@ -138,7 +138,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
             <li key={s.productCode}>
               <Link
                 href={`/shorts/${s.productCode}`}
-                className="group flex items-center gap-3 rounded-lg border bg-card p-4 transition-all hover:border-primary/40 hover:shadow-md"
+                className="group flex items-center gap-3 rounded-lg border bg-card p-4 transition-[border-color,box-shadow] duration-200 ease-out hover:border-primary/40 hover:shadow-md"
               >
                 <span className="rounded-md bg-muted px-2 py-1 font-mono text-xs font-semibold tracking-wide">
                   {s.productCode}

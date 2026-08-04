@@ -158,7 +158,7 @@ export function StockSelector({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-4 w-4 ml-1 hover:bg-destructive/20"
+                className="h-4 w-4 ml-1 hover:bg-destructive/20 hit-target"
                 onClick={() => removeStock(stock)}
               >
                 <X className="h-3 w-3" />

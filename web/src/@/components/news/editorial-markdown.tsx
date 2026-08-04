@@ -26,7 +26,7 @@ interface EditorialMarkdownProps {
  */
 export function EditorialMarkdown({ content, inlineImages = [] }: EditorialMarkdownProps) {
   const proseClasses =
-    "prose prose-base dark:prose-invert max-w-none text-base leading-relaxed [&_p]:my-5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_a]:text-orange-400 [&_a:hover]:text-orange-300 [&_strong]:text-foreground [&_em]:italic";
+    "prose prose-base dark:prose-invert max-w-none text-base leading-relaxed [&_p]:my-5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_a]:text-primary [&_a:hover]:text-primary/80 [&_strong]:text-foreground [&_em]:italic";
 
   if (inlineImages.length === 0) {
     return (

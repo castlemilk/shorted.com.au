@@ -177,7 +177,7 @@ export function StocksSearchClient({ popularStocks }: StocksSearchClientProps) {
                       <span className="font-mono text-base font-semibold tracking-tight text-foreground">
                         {stock.code}
                       </span>
-                      <ArrowRight className="h-3.5 w-3.5 -translate-x-2 text-primary opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100" />
+                      <ArrowRight className="h-3.5 w-3.5 -translate-x-2 text-primary opacity-0 transition-[transform,opacity] duration-200 ease-out group-hover:translate-x-0 group-hover:opacity-100" />
                     </div>
                     <span className="w-full truncate text-xs text-muted-foreground">
                       {stock.name}

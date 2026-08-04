@@ -51,7 +51,7 @@ const ELEMENT_COMPONENTS = {
   ),
   em: ({ children }: { children?: React.ReactNode }) => <em>{children}</em>,
   blockquote: ({ children }: { children?: React.ReactNode }) => (
-    <blockquote className="border-l-2 border-orange-400/50 pl-4 italic text-foreground/80">{children}</blockquote>
+    <blockquote className="border-l-2 border-primary/40 pl-4 italic text-foreground/80">{children}</blockquote>
   ),
   a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
     <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline-offset-2 hover:underline">

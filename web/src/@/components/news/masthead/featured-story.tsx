@@ -42,7 +42,7 @@ export function FeaturedStory({
       >
         <div className="grid md:grid-cols-2">
           {/* visual */}
-          <div className="relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-orange-950/50 via-zinc-950 to-zinc-950 md:aspect-auto md:min-h-[240px]">
+          <div className="relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-orange-950/50 via-stone-950 to-stone-950 md:aspect-auto md:min-h-[240px]">
             <div
               aria-hidden
               className="absolute inset-0"

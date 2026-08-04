@@ -337,7 +337,7 @@ export default function FAQPage() {
               <a
                 key={category.id}
                 href={`#${category.id}`}
-                className="flex flex-col items-center gap-2 p-4 rounded-lg border border-border/60 hover:border-primary/50 hover:bg-muted/50 transition-all text-center"
+                className="flex flex-col items-center gap-2 p-4 rounded-lg border border-border/60 hover:border-primary/50 hover:bg-muted/50 transition-colors duration-200 ease-out text-center"
               >
                 <Icon className="h-5 w-5 text-primary" />
                 <span className="text-sm font-medium">{category.title}</span>
@@ -396,7 +396,7 @@ export default function FAQPage() {
           <h2 className="text-xl font-semibold mb-4">Still Have Questions?</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Link href="/learn">
-              <Card className="h-full hover:shadow-md transition-all duration-200 hover:border-primary/50">
+              <Card className="h-full hover:shadow-md transition-[box-shadow,border-color] duration-200 ease-out hover:border-primary/50">
                 <CardContent className="pt-6">
                   <div className="flex items-start gap-3">
                     <BookOpen className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
@@ -411,7 +411,7 @@ export default function FAQPage() {
               </Card>
             </Link>
             <Link href="/glossary">
-              <Card className="h-full hover:shadow-md transition-all duration-200 hover:border-primary/50">
+              <Card className="h-full hover:shadow-md transition-[box-shadow,border-color] duration-200 ease-out hover:border-primary/50">
                 <CardContent className="pt-6">
                   <div className="flex items-start gap-3">
                     <TrendingDown className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
@@ -426,7 +426,7 @@ export default function FAQPage() {
               </Card>
             </Link>
             <Link href="/about">
-              <Card className="h-full hover:shadow-md transition-all duration-200 hover:border-primary/50">
+              <Card className="h-full hover:shadow-md transition-[box-shadow,border-color] duration-200 ease-out hover:border-primary/50">
                 <CardContent className="pt-6">
                   <div className="flex items-start gap-3">
                     <ExternalLink className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />

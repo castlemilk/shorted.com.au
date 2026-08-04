@@ -17,7 +17,7 @@ export function FloatingApiDocsLink() {
       <Link
         href="/docs/api"
         className={cn(
-          "flex items-center gap-3 px-5 py-3.5 bg-foreground dark:bg-foreground text-background dark:text-background rounded-full shadow-2xl shadow-primary/40 hover:scale-105 hover:shadow-primary/60 transition-all active:scale-95 group border border-border",
+          "flex items-center gap-3 px-5 py-3.5 bg-foreground dark:bg-foreground text-background dark:text-background rounded-full shadow-2xl shadow-primary/40 hover:scale-105 hover:shadow-primary/60 transition-[transform,box-shadow] duration-200 ease-out active:scale-95 group border border-border",
         )}
       >
         <div className="relative flex h-2.5 w-2.5 mr-0.5">

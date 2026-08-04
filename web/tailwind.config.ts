@@ -127,14 +127,6 @@ module.exports = {
   					height: 0
   				}
   			},
-  			gradient: {
-  				'0%, 100%': {
-  					backgroundPosition: '0% 50%'
-  				},
-  				'50%': {
-  					backgroundPosition: '100% 50%'
-  				}
-  			},
   			shimmer: {
   				'0%': {
   					backgroundPosition: '-200% 0'
@@ -227,7 +219,6 @@ module.exports = {
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
   			'accordion-up': 'accordion-up 0.2s ease-out',
-  			gradient: 'gradient 3s ease infinite',
   			shimmer: 'shimmer 2s infinite',
   			'pulse-glow': 'pulse-glow 3s ease-in-out infinite',
   			float: 'float 4s ease-in-out infinite',

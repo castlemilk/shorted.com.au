@@ -49,7 +49,7 @@ export function SuburbTooltip({
       {onClose ? (
         <button
           type="button" aria-label="Clear selection" onClick={onClose}
-          className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="hit-target absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <span className="text-sm leading-none">×</span>
         </button>

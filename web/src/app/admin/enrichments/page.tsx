@@ -246,12 +246,12 @@ export default async function AdminEnrichmentsPage({
         </div>
 
         {error && (
-          <Card className="border-red-200 bg-red-50 dark:bg-red-950/20">
+          <Card className="border-destructive/30 bg-destructive/10">
             <CardHeader>
-              <CardTitle className="text-red-700 dark:text-red-400">
+              <CardTitle className="text-destructive">
                 Error Loading Data
               </CardTitle>
-              <CardDescription className="text-red-600/80 dark:text-red-400/80">
+              <CardDescription className="text-destructive/80">
                 {error}
               </CardDescription>
             </CardHeader>
@@ -301,7 +301,7 @@ export default async function AdminEnrichmentsPage({
                         id="force"
                         name="force"
                         value="true"
-                        className="h-4 w-4 rounded border-gray-300"
+                        className="h-4 w-4 rounded border-input"
                       />
                       <Label htmlFor="force" className="text-xs cursor-pointer">
                         Force re-enrichment (even if already enriched)
@@ -432,7 +432,7 @@ export default async function AdminEnrichmentsPage({
                                         href={f.v1}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="text-xs text-blue-600 hover:underline"
+                                        className="text-xs text-primary hover:underline"
                                       >
                                         View full size
                                       </a>
@@ -468,7 +468,7 @@ export default async function AdminEnrichmentsPage({
                                         href={f.v2}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="text-xs text-blue-600 hover:underline"
+                                        className="text-xs text-primary hover:underline"
                                       >
                                         View full size
                                       </a>
@@ -530,7 +530,7 @@ export default async function AdminEnrichmentsPage({
                             type="submit"
                             name="decision"
                             value="approve"
-                            className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+                            className="rounded-md bg-secondary px-3 py-2 text-sm font-medium text-secondary-foreground hover:bg-secondary/80"
                           >
                             Approve
                           </button>
@@ -538,7 +538,7 @@ export default async function AdminEnrichmentsPage({
                             type="submit"
                             name="decision"
                             value="reject"
-                            className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700"
+                            className="rounded-md bg-destructive px-3 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90"
                           >
                             Reject
                           </button>

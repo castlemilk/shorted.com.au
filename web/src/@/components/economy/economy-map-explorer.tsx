@@ -302,7 +302,7 @@ export function EconomyMapExplorer() {
           </DropdownMenu>
         ) : null}
         {isError && (
-          <button type="button" onClick={() => refetch()} className="ml-2 text-xs text-red-600 underline">
+          <button type="button" onClick={() => refetch()} className="ml-2 text-xs text-destructive underline">
             data unavailable — retry
           </button>
         )}

@@ -21,14 +21,14 @@ export function RelatedPosts({ currentSlug, maxPosts = 3 }: RelatedPostsProps) {
   }
 
   return (
-    <section className="mt-16 pt-8 border-t border-gray-200">
+    <section className="mt-16 pt-8 border-t border-border">
       <h2 className="text-2xl font-bold mb-6">Related Articles</h2>
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {relatedPosts.map((post) => (
           <Card key={post.slug} className="p-6 hover:shadow-lg transition-shadow">
             <article>
               <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm text-gray-500">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <time dateTime={post.date}>
                     {new Date(post.date).toLocaleDateString('en-AU', {
                       year: 'numeric',
@@ -43,14 +43,14 @@ export function RelatedPosts({ currentSlug, maxPosts = 3 }: RelatedPostsProps) {
                 <h3 className="text-lg font-semibold line-clamp-2">
                   <Link 
                     href={`/blog/${post.slug}`}
-                    className="hover:text-blue-600 transition-colors"
+                    className="hover:text-primary transition-colors"
                   >
                     {post.title}
                   </Link>
                 </h3>
                 
                 {post.excerpt && (
-                  <p className="text-gray-600 text-sm line-clamp-3">
+                  <p className="text-muted-foreground text-sm line-clamp-3">
                     {post.excerpt}
                   </p>
                 )}
@@ -58,7 +58,7 @@ export function RelatedPosts({ currentSlug, maxPosts = 3 }: RelatedPostsProps) {
                 <div className="pt-2">
                   <Link 
                     href={`/blog/${post.slug}`}
-                    className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                    className="text-primary hover:text-primary/80 text-sm font-medium"
                   >
                     Read more →
                   </Link>

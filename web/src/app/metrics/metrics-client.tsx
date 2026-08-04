@@ -257,7 +257,7 @@ export default function MetricsClient({ statistics }: MetricsClientProps) {
                 <Link href="/">
                   <Button
                     size="lg"
-                    className="text-base px-8 py-6 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25 transition-all duration-300 hover:shadow-xl hover:shadow-primary/30"
+                    className="text-base px-8 py-6 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25 transition-[background-color,box-shadow] duration-200 ease-out hover:shadow-xl hover:shadow-primary/30"
                   >
                     View Top Shorts
                     <ChevronRight className="w-5 h-5 ml-2" />
@@ -267,7 +267,7 @@ export default function MetricsClient({ statistics }: MetricsClientProps) {
                   <Button
                     size="lg"
                     variant="outline"
-                    className="text-base px-8 py-6 border-2 hover:bg-muted/50 transition-all duration-300"
+                    className="text-base px-8 py-6 border-2 hover:bg-muted/50 transition-colors duration-200 ease-out"
                   >
                     View Technology
                   </Button>
@@ -320,7 +320,7 @@ interface PipelineCardProps {
 
 function PipelineCard({ icon, title, stat, description }: PipelineCardProps) {
   return (
-    <div className="bg-card rounded-2xl border p-6 transition-all duration-300 hover:shadow-lg">
+    <div className="bg-card rounded-2xl border p-6 transition-shadow duration-200 ease-out hover:shadow-lg">
       <div className="flex items-center justify-between mb-4">
         <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
           {icon}

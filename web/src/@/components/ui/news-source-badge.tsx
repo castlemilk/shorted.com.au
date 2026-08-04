@@ -7,85 +7,101 @@ interface NewsSourceConfig {
   bgClass: string;
 }
 
+// Source badges are differentiated inside the warm amber family only (see
+// DESIGN.md): no cool hues, and no true red/green, which stay quarantined for
+// market direction. The badge already carries a name and often a logo, so the
+// tint is a secondary cue rather than the identity. Alpha tints read correctly
+// on warm paper and on CRT black, so only the text needs a `dark:` sibling.
+const AMBER =
+  "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30";
+const ORANGE =
+  "bg-orange-500/10 text-orange-700 dark:text-orange-300 border-orange-500/30";
+const YELLOW =
+  "bg-yellow-500/10 text-yellow-800 dark:text-yellow-300 border-yellow-500/30";
+const OLIVE =
+  "bg-lime-600/10 text-lime-800 dark:text-lime-300 border-lime-600/30";
+const STONE =
+  "bg-stone-500/10 text-stone-700 dark:text-stone-300 border-stone-500/30";
+
 // Logos served from /assets/news-sources/ to avoid CORS/blocking issues with remote favicons
 const NEWS_SOURCES: Record<string, NewsSourceConfig> = {
   asx: {
     name: "ASX",
     url: "https://www.asx.com.au",
     logo: "/assets/news-sources/asx.png",
-    bgClass: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border-yellow-300 dark:border-yellow-700",
+    bgClass: AMBER,
   },
   stockhead: {
     name: "Stockhead",
     url: "https://stockhead.com.au",
     logo: "/assets/news-sources/stockhead.png",
-    bgClass: "bg-sky-50 dark:bg-sky-900/20 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-700",
+    bgClass: STONE,
   },
   smallcaps: {
     name: "Small Caps",
     url: "https://smallcaps.com.au",
     logo: "/assets/news-sources/smallcaps.png",
-    bgClass: "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700",
+    bgClass: OLIVE,
   },
   motleyfool: {
     name: "Motley Fool",
     url: "https://www.fool.com.au",
     logo: "/assets/news-sources/motleyfool.png",
-    bgClass: "bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-700",
+    bgClass: ORANGE,
   },
   kalkine: {
     name: "Kalkine",
     url: "https://kalkinemedia.com/au",
     logo: "/assets/news-sources/kalkine.png",
-    bgClass: "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700",
+    bgClass: YELLOW,
   },
   googlenews: {
     name: "Google News",
     url: "https://news.google.com",
     logo: "/assets/news-sources/googlenews.png",
-    bgClass: "bg-slate-50 dark:bg-slate-800/40 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700",
+    bgClass: STONE,
   },
   livewire: {
     name: "Livewire",
     url: "https://www.livewiremarkets.com",
     logo: "",
-    bgClass: "bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-700",
+    bgClass: ORANGE,
   },
   marketindex: {
     name: "Market Index",
     url: "https://www.marketindex.com.au",
     logo: "",
-    bgClass: "bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-700",
+    bgClass: OLIVE,
   },
   abc: {
     name: "ABC News",
     url: "https://www.abc.net.au/news",
     logo: "",
-    bgClass: "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-700",
+    bgClass: AMBER,
   },
   smh: {
     name: "SMH",
     url: "https://www.smh.com.au/business",
     logo: "",
-    bgClass: "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-700",
+    bgClass: STONE,
   },
   theage: {
     name: "The Age",
     url: "https://www.theage.com.au/business",
     logo: "",
-    bgClass: "bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-cyan-300 border-cyan-200 dark:border-cyan-700",
+    bgClass: YELLOW,
   },
   afr: {
     name: "AFR",
     url: "https://www.afr.com/markets",
     logo: "",
-    bgClass: "bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-700",
+    bgClass: ORANGE,
   },
   businessnews: {
     name: "Business News AU",
     url: "https://www.businessnewsaustralia.com",
     logo: "",
-    bgClass: "bg-lime-50 dark:bg-lime-900/20 text-lime-700 dark:text-lime-300 border-lime-200 dark:border-lime-700",
+    bgClass: OLIVE,
   },
 };
 

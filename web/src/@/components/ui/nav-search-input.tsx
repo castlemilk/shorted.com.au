@@ -180,7 +180,7 @@ export function NavSearchInput() {
             "hidden md:flex items-center gap-2.5 h-9 rounded-lg px-3 pr-4",
             "bg-muted/30 border border-border/40",
             "hover:bg-muted/50 hover:border-primary/30",
-            "transition-all duration-300 ease-out group cursor-pointer",
+            "transition-colors duration-200 ease-out group cursor-pointer",
             "w-[220px]"
           )}
         >
@@ -397,7 +397,7 @@ export function NavSearchInput() {
             "bg-muted/30 border border-border/40",
             "placeholder:text-muted-foreground",
             "focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 focus:bg-background/80",
-            "transition-all duration-300 ease-out",
+            "transition-[width,background-color,border-color,box-shadow] duration-200 ease-out",
             "w-[200px] focus:w-[280px]"
           )}
         />
@@ -675,7 +675,7 @@ function ResultsContent({
             }}
             onMouseEnter={() => onHighlight(index)}
             className={cn(
-              "relative flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-all duration-150",
+              "relative flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors duration-150 ease-out",
               selectedIndex === index
                 ? "bg-accent/80"
                 : "hover:bg-accent/40"
@@ -728,7 +728,7 @@ function ResultsContent({
             {/* Arrow indicator on selected */}
             <ArrowRight
               className={cn(
-                "flex-shrink-0 h-3.5 w-3.5 transition-all duration-150",
+                "flex-shrink-0 h-3.5 w-3.5 transition-[opacity,transform] duration-150 ease-out",
                 selectedIndex === index
                   ? "opacity-100 text-muted-foreground translate-x-0"
                   : "opacity-0 -translate-x-1"

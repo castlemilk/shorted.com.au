@@ -119,7 +119,7 @@ export function preprocessCitationMarkers(source: string): string {
 const REF_PILL_CLASS =
   "relative -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded bg-primary/10 px-0.5 text-[10px] font-semibold text-primary no-underline transition-colors hover:bg-primary/20";
 const REPORT_PILL_CLASS =
-  "relative -top-1 inline-flex h-4 min-w-5 items-center justify-center rounded bg-amber-500/15 px-0.5 text-[10px] font-semibold text-amber-300 no-underline transition-colors hover:bg-amber-500/25";
+  "relative -top-1 inline-flex h-4 min-w-5 items-center justify-center rounded bg-amber-500/15 px-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300 no-underline transition-colors hover:bg-amber-500/25";
 
 /**
  * Numbered inline citation pill — links to the matching entry in the
@@ -163,13 +163,13 @@ export function CitationSources({ citations }: { citations: TakeCitation[] }) {
   if (citations.length === 0) return null;
   return (
     <aside className="mt-12 border-t border-border pt-6">
-      <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-orange-400">Sources</h2>
+      <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-primary">Sources</h2>
       <ol className="space-y-3">
         {citations.map((c) => {
           const isReport = c.type === "report";
           const label = isReport ? c.refId.replace("report-", "R") : c.refId.replace("ref-", "");
           const pillClass = isReport
-            ? "h-5 min-w-6 rounded bg-amber-500/15 px-1 text-amber-300"
+            ? "h-5 min-w-6 rounded bg-amber-500/15 px-1 text-amber-700 dark:text-amber-300"
             : "h-5 min-w-5 rounded bg-primary/10 px-1 text-primary";
           return (
             <li key={c.refId} id={c.refId} className="flex gap-3 scroll-mt-20">
@@ -181,13 +181,13 @@ export function CitationSources({ citations }: { citations: TakeCitation[] }) {
                   href={c.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm font-medium text-foreground hover:text-orange-300"
+                  className="text-sm font-medium text-foreground hover:text-primary"
                 >
                   {c.headline}
                 </a>
                 <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
                   {isReport ? (
-                    <span className="rounded border border-amber-500/40 bg-amber-500/10 px-1 py-px text-[9px] font-medium uppercase tracking-wider text-amber-300">
+                    <span className="rounded border border-amber-500/40 bg-amber-500/10 px-1 py-px text-[9px] font-medium uppercase tracking-wider text-amber-700 dark:text-amber-300">
                       Report
                     </span>
                   ) : null}

@@ -82,7 +82,7 @@ export function TopShortsClient({
     const getChangeColor = () => {
       if (type === "gainer") return "text-red-600";
       if (type === "loser") return "text-green-600";
-      return "text-blue-600";
+      return "text-primary";
     };
 
     const getChangeIcon = () => {
@@ -104,7 +104,10 @@ export function TopShortsClient({
 
     return (
       <Card
-        className="cursor-pointer hover:shadow-md transition-shadow"
+        // Flat at rest; the pointer is what lights it. Amber warms the
+        // hairline and blooms behind the card instead of the grey drop
+        // shadow this system doesn't have.
+        className="cursor-pointer transition-[border-color,box-shadow] duration-200 ease-out hover:border-primary/40 hover:shadow-amber-sm"
         onClick={() => router.push(`/shorts/${stock.productCode}`)}
       >
         <CardHeader className="pb-3">
@@ -266,7 +269,7 @@ export function TopShortsClient({
                 <div className="space-y-3">
                   {moversData.biggestGainers.map((stock, index) => (
                     <div key={stock.productCode} className="relative">
-                      <div className="absolute -top-1 -left-1 bg-red-100 text-red-800 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                      <div className="absolute -top-1 -left-1 bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
                         {index + 1}
                       </div>
                       <StockCard stock={stock} type="gainer" />
@@ -288,7 +291,7 @@ export function TopShortsClient({
                 <div className="space-y-3">
                   {moversData.biggestLosers.map((stock, index) => (
                     <div key={stock.productCode} className="relative">
-                      <div className="absolute -top-1 -left-1 bg-green-100 text-green-800 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                      <div className="absolute -top-1 -left-1 bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
                         {index + 1}
                       </div>
                       <StockCard stock={stock} type="loser" />
@@ -302,7 +305,7 @@ export function TopShortsClient({
           <TabsContent value="volatility" className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold flex items-center gap-2">
-                <BarChart3 className="h-5 w-5 text-blue-600" />
+                <BarChart3 className="h-5 w-5 text-primary" />
                 Most Volatile Short Positions
               </h2>
               <Badge variant="outline">{PERIOD_LABELS[selectedPeriod]}</Badge>
@@ -310,7 +313,7 @@ export function TopShortsClient({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {moversData.mostVolatile.map((stock, index) => (
                 <div key={stock.productCode} className="relative">
-                  <div className="absolute -top-2 -left-2 bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">
+                  <div className="absolute -top-2 -left-2 bg-primary/15 text-primary rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">
                     {index + 1}
                   </div>
                   <StockCard stock={stock} type="volatile" />

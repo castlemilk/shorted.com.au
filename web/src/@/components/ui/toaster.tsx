@@ -71,7 +71,7 @@ export function Toaster() {
       case "warning":
         return "border-amber-500 bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-100";
       default:
-        return "border-gray-200 bg-white text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100";
+        return "border-border bg-card text-card-foreground";
     }
   };
 
@@ -92,7 +92,7 @@ export function Toaster() {
         <div
           key={t.id}
           className={`
-            relative flex items-start gap-3 rounded-lg border p-4 pr-10 shadow-lg transition-all
+            relative flex items-start gap-3 rounded-lg border p-4 pr-10 shadow-lg transition-colors duration-200 ease-out
             ${getVariantStyles(t.variant)}
           `}
         >

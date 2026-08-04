@@ -180,7 +180,7 @@ const Chart = ({ width, height, data }: SparklineProps) => {
             <Line
               from={{ x: tooltipLeft ?? 0, y: margin.top }}
               to={{ x: tooltipLeft ?? 0, y: height - margin.bottom }}
-              stroke="rgba(255,255,255,0.3)"
+              stroke="hsl(var(--muted-foreground) / 0.5)"
               strokeWidth={1}
               strokeDasharray="4,3"
               pointerEvents="none"
@@ -191,7 +191,7 @@ const Chart = ({ width, height, data }: SparklineProps) => {
               cy={tooltipTop ?? 0}
               r={5}
               fill={strokeColor}
-              stroke="white"
+              stroke="hsl(var(--background))"
               strokeWidth={2}
               pointerEvents="none"
             />
@@ -213,16 +213,16 @@ const Chart = ({ width, height, data }: SparklineProps) => {
           }}
         >
           <div style={{ 
-            background: "rgba(15, 23, 42, 0.95)", 
-            padding: "8px 12px", 
-            borderRadius: "8px",
-            border: "1px solid rgba(255,255,255,0.1)",
-            boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+            background: "hsl(var(--popover))",
+            padding: "8px 12px",
+            borderRadius: "var(--radius)",
+            border: "1px solid hsl(var(--border))",
+            boxShadow: "0 0 20px -5px hsl(var(--primary) / 0.4)",
           }}>
-            <div style={{ fontWeight: "500", color: "white", fontSize: "11px", opacity: 0.8 }}>
+            <div style={{ fontWeight: "500", color: "hsl(var(--popover-foreground))", fontSize: "11px", opacity: 0.8 }}>
               {formatDate(accessors.xAccessor(tooltipData))}
             </div>
-            <div style={{ color: "#60a5fa", fontWeight: "700", fontSize: "14px", marginTop: "2px" }}>
+            <div style={{ color: "hsl(var(--primary))", fontWeight: "700", fontSize: "14px", marginTop: "2px" }}>
               {`${accessors.yAccessor(tooltipData).toFixed(2)}%`}
             </div>
           </div>

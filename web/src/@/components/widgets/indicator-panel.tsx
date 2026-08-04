@@ -170,22 +170,22 @@ export function IndicatorPanel({
                     className={cn(
                       "ml-1 text-[10px] px-1 rounded",
                       indicator.dataSource === "shorts"
-                        ? "bg-orange-500/20 text-orange-600"
-                        : "bg-blue-500/20 text-blue-600"
+                        ? "bg-orange-500/20 text-orange-700 dark:text-orange-300"
+                        : "bg-lime-600/20 text-lime-800 dark:text-lime-300"
                     )}
                   >
                     {indicator.dataSource === "shorts" ? "S" : "M"}
                   </span>
                 )}
                 {isOsc && (
-                  <span className="ml-1 text-[10px] px-1 rounded bg-purple-500/20 text-purple-600">
+                  <span className="ml-1 text-[10px] px-1 rounded bg-stone-500/20 text-stone-700 dark:text-stone-300">
                     OSC
                   </span>
                 )}
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-4 w-4 ml-1 hover:bg-destructive/20"
+                  className="h-4 w-4 ml-1 hover:bg-destructive/20 hit-target"
                   onClick={(e) => {
                     e.stopPropagation();
                     removeIndicator(index);
@@ -294,7 +294,7 @@ export function IndicatorPanel({
                               <div className="flex flex-col items-start">
                                 <span className="font-medium">{meta.shortName}</span>
                                 {meta.isOscillator && (
-                                  <span className="text-[9px] text-purple-500">
+                                  <span className="text-[9px] text-muted-foreground">
                                     Oscillator
                                   </span>
                                 )}

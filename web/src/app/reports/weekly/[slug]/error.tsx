@@ -24,7 +24,7 @@ export default function WeeklyReportError({ error, reset }: ReportErrorProps) {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
-      <Card className="border-l-4 border-l-amber-500">
+      <Card className="border-l-4 border-l-primary">
         <CardHeader className="pb-4">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-amber-100 dark:bg-amber-900/40 rounded-lg">

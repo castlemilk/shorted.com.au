@@ -35,7 +35,7 @@ export default async function EndpointPage({ params }: EndpointPageProps) {
         </div>
       </div>
       {/* Mobile Code Panel (shows at bottom) */}
-      <div className="xl:hidden px-4 md:px-8 py-8 border-t border-zinc-200 dark:border-zinc-800">
+      <div className="xl:hidden px-4 md:px-8 py-8 border-t border-border">
         <CodePanel endpoint={endpoint} />
       </div>
     </div>

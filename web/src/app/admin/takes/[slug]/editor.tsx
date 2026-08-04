@@ -107,12 +107,12 @@ export function AdminTakeEditor({ takeJSON }: { takeJSON: string }) {
         {isTweeted ? (
           <Badge color="emerald">Tweeted</Badge>
         ) : isPublished ? (
-          <Badge color="blue">Published — awaiting tweet (≤5 min)</Badge>
+          <Badge color="amber">Published — awaiting tweet (≤5 min)</Badge>
         ) : (
-          <Badge color="amber">Draft</Badge>
+          <Badge color="muted">Draft</Badge>
         )}
         {initial.stockCode ? (
-          <span className="font-mono text-sm text-orange-300">${initial.stockCode}</span>
+          <span className="font-mono text-sm text-primary">${initial.stockCode}</span>
         ) : null}
         <span className="ml-auto text-xs text-muted-foreground">{wordCount} words</span>
       </div>
@@ -159,7 +159,7 @@ export function AdminTakeEditor({ takeJSON }: { takeJSON: string }) {
       {initial.sourceUrl ? (
         <div className="mb-6 rounded border border-border bg-muted/20 p-3 text-sm">
           Source:{" "}
-          <a href={initial.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:text-orange-300">
+          <a href={initial.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
             {initial.sourceName ?? initial.sourceUrl}
           </a>
         </div>
@@ -167,7 +167,7 @@ export function AdminTakeEditor({ takeJSON }: { takeJSON: string }) {
 
       {/* Error surface */}
       {error ? (
-        <div className="mb-4 rounded border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">{error}</div>
+        <div className="mb-4 rounded border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
       ) : null}
 
       {/* Action bar */}
@@ -177,7 +177,7 @@ export function AdminTakeEditor({ takeJSON }: { takeJSON: string }) {
             <button
               onClick={handleSave}
               disabled={pending || !dirty}
-              className="rounded bg-orange-500 px-4 py-2 text-sm font-medium text-black hover:bg-orange-400 disabled:opacity-50"
+              className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
               {pending ? "Saving…" : "Save"}
             </button>
@@ -214,7 +214,7 @@ export function AdminTakeEditor({ takeJSON }: { takeJSON: string }) {
           <button
             onClick={handlePublish}
             disabled={pending}
-            className="rounded bg-emerald-500 px-4 py-2 text-sm font-medium text-black hover:bg-emerald-400 disabled:opacity-50"
+            className="rounded bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50"
           >
             {pending ? "Publishing…" : "Publish"}
           </button>
@@ -222,7 +222,7 @@ export function AdminTakeEditor({ takeJSON }: { takeJSON: string }) {
         <button
           onClick={handleDelete}
           disabled={pending}
-          className="rounded border border-red-500/40 px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 disabled:opacity-50"
+          className="rounded border border-destructive/40 px-4 py-2 text-sm text-destructive hover:bg-destructive/10 disabled:opacity-50"
         >
           Delete
         </button>
@@ -231,11 +231,11 @@ export function AdminTakeEditor({ takeJSON }: { takeJSON: string }) {
   );
 }
 
-function Badge({ color, children }: { color: "emerald" | "blue" | "amber"; children: React.ReactNode }) {
+function Badge({ color, children }: { color: "emerald" | "amber" | "muted"; children: React.ReactNode }) {
   const classes = {
-    emerald: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
-    blue: "bg-blue-500/10 text-blue-400 border-blue-500/30",
-    amber: "bg-amber-500/10 text-amber-400 border-amber-500/30",
+    emerald: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
+    amber: "bg-primary/10 text-primary border-primary/30",
+    muted: "bg-muted text-muted-foreground border-border",
   }[color];
   return <span className={`inline-flex rounded border px-2 py-0.5 text-xs font-medium ${classes}`}>{children}</span>;
 }

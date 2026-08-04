@@ -134,7 +134,7 @@ const SiteFooter = () => {
             </div>
             <p className="text-sm text-muted-foreground mb-3">
               Built with{" "}
-              <span aria-label="love" role="img" className="text-rose-500">
+              <span aria-label="love" role="img" className="text-accent">
                 ❤️
               </span>{" "}
               in{" "}

@@ -29,13 +29,10 @@ interface DividendHistoryProps {
 }
 
 const dividendTypeStyles: Record<string, string> = {
-  ordinary: "bg-blue-100 text-blue-800 dark:bg-blue-950/30 dark:text-blue-400",
-  special:
-    "bg-purple-100 text-purple-800 dark:bg-purple-950/30 dark:text-purple-400",
-  interim:
-    "bg-amber-100 text-amber-800 dark:bg-amber-950/30 dark:text-amber-400",
-  final:
-    "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400",
+  ordinary: "bg-stone-500/15 text-stone-700 dark:text-stone-300",
+  special: "bg-orange-500/15 text-orange-700 dark:text-orange-300",
+  interim: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+  final: "bg-lime-600/15 text-lime-800 dark:text-lime-300",
 };
 
 export function DividendHistory({
@@ -99,7 +96,7 @@ export function DividendHistory({
           {data.totalCount} dividend{data.totalCount !== 1 ? "s" : ""} in last{" "}
           {years} years
           {data.trailingYield > 0 && (
-            <span className="ml-2 font-medium text-emerald-700 dark:text-emerald-400">
+            <span className="ml-2 font-medium text-lime-700 dark:text-lime-300">
               Trailing yield: ${data.trailingYield.toFixed(4)}/share
             </span>
           )}

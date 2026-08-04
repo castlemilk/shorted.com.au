@@ -33,8 +33,8 @@ export function SocialShare({ url, title }: SocialShareProps) {
   };
 
   return (
-    <div className="flex items-center gap-2 py-4 border-t border-b border-gray-200">
-      <span className="text-sm text-gray-600 mr-2">Share this article:</span>
+    <div className="flex items-center gap-2 py-4 border-t border-b border-border">
+      <span className="text-sm text-muted-foreground mr-2">Share this article:</span>
       
       <Button
         variant="outline"
@@ -64,7 +64,7 @@ export function SocialShare({ url, title }: SocialShareProps) {
       >
         {copied ? (
           <>
-            <Check className="h-4 w-4 text-green-600" />
+            <Check className="h-4 w-4 text-lime-700 dark:text-lime-300" />
             Copied!
           </>
         ) : (

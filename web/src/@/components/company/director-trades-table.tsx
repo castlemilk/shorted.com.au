@@ -31,8 +31,7 @@ interface DirectorTradesTableProps {
 const tradeTypeStyles: Record<string, string> = {
   buy: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400",
   sell: "bg-red-100 text-red-800 dark:bg-red-950/30 dark:text-red-400",
-  exercise_options:
-    "bg-blue-100 text-blue-800 dark:bg-blue-950/30 dark:text-blue-400",
+  exercise_options: "bg-stone-500/15 text-stone-700 dark:text-stone-300",
 };
 
 export function DirectorTradesTable({

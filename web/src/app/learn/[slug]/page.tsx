@@ -68,9 +68,9 @@ export function generateStaticParams() {
 }
 
 const levelColors = {
-  Beginner: "bg-green-500/10 text-green-600 border-green-500/30",
-  Intermediate: "bg-yellow-500/10 text-yellow-600 border-yellow-500/30",
-  Advanced: "bg-red-500/10 text-red-600 border-red-500/30",
+  Beginner: "bg-secondary/15 text-secondary-foreground dark:text-secondary border-secondary/40",
+  Intermediate: "bg-primary/10 text-primary border-primary/30",
+  Advanced: "bg-accent/15 text-accent border-accent/40",
 };
 
 export default async function LearnArticlePage({ params }: PageProps) {

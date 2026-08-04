@@ -38,14 +38,14 @@ const EVENT_CONFIG: Record<
 > = {
   announcement: {
     icon: Megaphone,
-    color: "text-blue-500",
-    dotColor: "bg-blue-500",
+    color: "text-primary",
+    dotColor: "bg-primary",
     label: "Announcement",
   },
   director_trade: {
     icon: ArrowLeftRight,
-    color: "text-violet-500",
-    dotColor: "bg-violet-500",
+    color: "text-lime-700 dark:text-lime-300",
+    dotColor: "bg-lime-600 dark:bg-lime-400",
     label: "Director trade",
   },
   news: {

@@ -28,7 +28,7 @@ const AccordionTrigger = React.forwardRef<
     <AccordionPrimitive.Trigger
       ref={ref}
       className={cn(
-        "flex flex-1 items-center justify-between py-4 font-medium transition-all hover:underline [&[data-state=open]>svg]:rotate-180",
+        "flex flex-1 items-center justify-between py-4 font-medium transition-colors duration-200 ease-out hover:underline [&[data-state=open]>svg]:rotate-180",
         className
       )}
       {...props}
@@ -46,7 +46,10 @@ const AccordionContent = React.forwardRef<
 >(({ className, children, ...props }, ref) => (
   <AccordionPrimitive.Content
     ref={ref}
-    className="overflow-hidden text-sm transition-all data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down"
+    // The open/close height is owned by the two keyframe animations below, so
+    // the transition here only needs to cover colour. `transition-all` would
+    // additionally arm an implicit height transition against them.
+    className="overflow-hidden text-sm transition-colors duration-200 ease-out data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down"
     {...props}
   >
     <div className={cn("pb-4 pt-0", className)}>{children}</div>

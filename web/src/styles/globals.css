@@ -42,9 +42,9 @@
     --destructive-foreground: 0 0% 98%;
 
     /* Borders & inputs - warm undertone */
-    --border: 32 15% 88%;              /* Subtle warm border */
-    --input: 40 15% 94%;               /* Subtle warm input bg */
-    --ring: 32 100% 65%;               /* Amber focus ring */
+    --border: 32 15% 88%;              /* Subtle warm border - decorative separators */
+    --input: 32 20% 50%;               /* Warm taupe control boundary - 3.47:1 on bg (WCAG 1.4.11) */
+    --ring: 28 82% 34%;                /* Burnt amber focus ring - 5.40:1 on bg (WCAG 2.4.11) */
 
     --radius: 0.375rem;                /* Slightly softer corners */
 
@@ -99,9 +99,9 @@
     --destructive-foreground: 48 52% 90%;
 
     /* Borders & inputs - subtle warmth */
-    --border: 32 15% 18%;              /* Warm dark border */
-    --input: 0 0% 12%;
-    --ring: 32 100% 65%;               /* Amber glow ring */
+    --border: 32 15% 18%;              /* Warm dark border - decorative separators */
+    --input: 32 20% 40%;               /* Warm taupe control boundary - 3.62:1 on bg (WCAG 1.4.11) */
+    --ring: 32 100% 65%;               /* Phosphor amber glow ring - 10.42:1 on bg */
 
     /* Chart colors - luminescent */
     --red: #E07E50;                    /* Tawny */
@@ -126,6 +126,55 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   HIT TARGETS
+
+   This is a dense instrument, so a handful of controls are drawn smaller
+   than they can be comfortably tapped: chip-dismiss crosses, inline row
+   actions, the hamburger in a header that has to survive a 320px viewport.
+   Growing them would cost the density that is the point of the product.
+
+   These utilities grow only the POINTER target. A transparent, centred
+   pseudo-element enlarges the hit box while the drawn control, its layout
+   box and the surrounding rhythm all stay exactly as designed. Reach for
+   padding first; use these when padding would move something.
+
+   - `.hit-target`       ≥24px, the WCAG 2.5.8 (AA) minimum. Dense chrome.
+   - `.hit-target-touch` ≥40px, the product's primary-action floor. Use on
+                         controls a phone user is expected to hit first.
+
+   Declared in the `components` layer so a Tailwind positioning utility
+   (`absolute`, `fixed`, `sticky`) still wins over the `relative` default.
+   Never stack one on a control that has a positioned neighbour within
+   half the growth: an invisible target that steals a tap is worse than a
+   small one.
+   ═══════════════════════════════════════════════════════════════════ */
+@layer components {
+  .hit-target,
+  .hit-target-touch {
+    position: relative;
+  }
+
+  .hit-target::after,
+  .hit-target-touch::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: max(100%, var(--hit-target-size));
+    height: max(100%, var(--hit-target-size));
+  }
+
+  .hit-target {
+    --hit-target-size: 24px;
+  }
+
+  .hit-target-touch {
+    --hit-target-size: 40px;
   }
 }
 
@@ -167,21 +216,6 @@
 
 .custom-mdx-content code {
   @apply font-mono text-sm;
-}
-
-@keyframes gradient {
-  0%,
-  100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-}
-
-.animate-gradient {
-  background-size: 200% auto;
-  animation: gradient 3s ease infinite;
 }
 
 /* Enhanced animations for stock search */
@@ -407,6 +441,86 @@
   box-shadow:
     inset 0 1px 0 hsl(var(--primary) / 0.05),
     0 0 20px -10px hsl(var(--primary) / 0.3);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   REDUCED MOTION
+
+   The global honour of `prefers-reduced-motion: reduce`. Everything below
+   is deliberately NOT `animation: none !important`, because "reduce" is not
+   "delete": a blanket kill drops elements at whatever state the missing
+   animation left them in, and it silently breaks anything that waits on an
+   animation to finish.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Slowed, shallower replacements for the two loops that report STATUS.
+   Held here rather than in the Tailwind config so a spinner is never left
+   depending on a keyframe set the purge step might drop. */
+@keyframes reduced-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes reduced-pulse {
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* COLLAPSE, don't remove. A 0.01ms duration still fires `animationend` and
+     still honours `animation-fill-mode`, so Radix enter/exit (dialog, sheet,
+     dropdown, popover, select, toast, accordion) still resolves and unmounts,
+     and anything set to `forwards` still lands on its final keyframe. The
+     motion is gone; the state machine is untouched. Delays go to zero so a
+     staggered list appears at once instead of trickling in. */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
+
+  html {
+    scroll-behavior: auto !important;
+  }
+
+  /* Decoration is switched off outright. These are infinite loops that carry
+     no information, and several of them end on a hidden or dimmed keyframe
+     (`cursor-blink` ends at `opacity: 0`, `pulse-glow` at `opacity: 0.4`), so
+     collapsing them to their end state would leave the element invisible.
+     With no animation at all each one renders in its natural resting state. */
+  .cursor-blink,
+  .typewriter,
+  .animate-float,
+  .animate-shimmer,
+  .animate-ping,
+  .animate-pulse-glow,
+  .animate-amber-glow,
+  .animate-glow-pulse,
+  .animate-text-glow-pulse,
+  .animate-scanline {
+    animation: none !important;
+  }
+
+  /* Loading indicators are the exception, because they are status rather than
+     decoration: a spinner frozen mid-request reads as a hung page, and a
+     skeleton that stops breathing reads as content that failed to arrive. Both
+     keep running, slowed and softened. `animate-pulse` is opacity-only, which
+     is the motion class the reduced-motion guidance actively recommends, and
+     `animate-spin` only ever rotates a 12-20px glyph, far below the
+     large-area movement that provokes vestibular symptoms. */
+  .animate-spin {
+    animation: reduced-spin 1.5s linear infinite !important;
+  }
+
+  .animate-pulse {
+    animation: reduced-pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite !important;
+  }
 }
 
 /* API Documentation Styles */

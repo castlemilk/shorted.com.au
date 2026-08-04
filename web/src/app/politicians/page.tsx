@@ -534,7 +534,7 @@ export default async function PoliticiansPage() {
                           </div>
                           {/* CSS width, not a chart library: this is a count. */}
                           <div
-                            className="h-2 rounded-sm bg-amber-500/70"
+                            className="h-2 rounded-sm bg-primary/70"
                             style={{
                               width: `${(trend.currentCount / maxIndustryCount) * 100}%`,
                             }}
@@ -764,7 +764,7 @@ export default async function PoliticiansPage() {
                         {/* CSS width, not a chart library: this is a count, and a
                             plain bar keeps it accessible and bundle-free. */}
                         <div
-                          className="h-3 rounded-sm bg-amber-500/70"
+                          className="h-3 rounded-sm bg-primary/70"
                           style={{ width: `${(s.politicianCount / maxCount) * 100}%` }}
                           aria-hidden
                         />
@@ -858,7 +858,7 @@ export default async function PoliticiansPage() {
                       <td className="py-1.5">
                         <div className="flex items-center gap-2">
                           <div
-                            className="h-3 rounded-sm bg-amber-500/70"
+                            className="h-3 rounded-sm bg-primary/70"
                             style={{ width: `${(s.people / maxStatePeople) * 100}%` }}
                             aria-hidden
                           />

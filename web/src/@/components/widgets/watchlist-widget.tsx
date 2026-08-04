@@ -234,7 +234,7 @@ export function WatchlistWidget({ config, onSettingsChange, sizeVariant = "stand
                   <Card
                     key={symbol}
                     className={cn(
-                      "p-3 transition-all",
+                      "p-3 transition-[box-shadow,transform] duration-200 ease-out",
                       hoveredStock === symbol && "shadow-md scale-[1.02]"
                     )}
                     onMouseEnter={() => setHoveredStock(symbol)}

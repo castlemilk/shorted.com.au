@@ -69,14 +69,14 @@ export function TryItPanel({ endpoint }: TryItPanelProps) {
   };
 
   return (
-    <div className="flex flex-col gap-4 p-4 h-full bg-zinc-950 overflow-auto">
+    <div className="flex flex-col gap-4 p-4 h-full bg-muted/30 overflow-auto">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-zinc-100 uppercase tracking-wider">Test Request</h3>
+        <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Test Request</h3>
         <Button 
           size="sm" 
           onClick={handleSend} 
           disabled={loading}
-          className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
+          className="gap-2"
         >
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
           Send
@@ -84,11 +84,11 @@ export function TryItPanel({ endpoint }: TryItPanelProps) {
       </div>
 
       <div className="space-y-2">
-        <label htmlFor="auth-token" className="text-xs font-medium text-zinc-400">Authentication Token (Optional)</label>
+        <label htmlFor="auth-token" className="text-xs font-medium text-muted-foreground">Authentication Token (Optional)</label>
         <div className="flex gap-2">
           <Input
             id="auth-token"
-            className="h-8 bg-zinc-900 border-zinc-800 text-xs font-mono text-blue-400"
+            className="h-8 text-xs font-mono"
             placeholder="Bearer token..."
             value={token}
             onChange={(e) => setToken(e.target.value)}
@@ -97,24 +97,24 @@ export function TryItPanel({ endpoint }: TryItPanelProps) {
             <Button 
               variant="ghost" 
               size="sm" 
-              className="h-8 text-[10px] text-zinc-500 hover:text-red-400"
+              className="h-8 text-[10px] text-muted-foreground hover:text-destructive"
               onClick={() => setToken('')}
             >
               Clear
             </Button>
           )}
         </div>
-        <p className="text-[10px] text-zinc-500">
-          Generate a token on the <a href="/docs/api#authentication" className="text-blue-500 hover:underline">main page</a>.
+        <p className="text-[10px] text-muted-foreground">
+          Generate a token on the <a href="/docs/api#authentication" className="text-primary hover:underline">main page</a>.
         </p>
       </div>
 
       {endpoint.method !== 'GET' && (
         <div className="space-y-2">
-          <label htmlFor="request-body" className="text-xs font-medium text-zinc-400">Request Body (JSON)</label>
+          <label htmlFor="request-body" className="text-xs font-medium text-muted-foreground">Request Body (JSON)</label>
           <textarea
             id="request-body"
-            className="w-full h-40 bg-zinc-900 border border-zinc-800 rounded-md p-2 text-xs font-mono text-zinc-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full h-40 bg-background border border-input rounded-md p-2 text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             value={body}
             onChange={(e) => setBody(e.target.value)}
             placeholder='{ "key": "value" }'
@@ -123,7 +123,7 @@ export function TryItPanel({ endpoint }: TryItPanelProps) {
       )}
 
       {error && (
-        <div className="p-3 bg-red-900/20 border border-red-900/50 rounded-md text-xs text-red-400">
+        <div className="p-3 bg-destructive/10 border border-destructive/40 rounded-md text-xs text-destructive">
           {error}
         </div>
       )}
@@ -131,9 +131,9 @@ export function TryItPanel({ endpoint }: TryItPanelProps) {
       {response && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-zinc-400">Response</span>
+            <span className="text-xs font-medium text-muted-foreground">Response</span>
             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-              response.status >= 200 && response.status < 300 ? 'bg-green-900/20 text-green-500' : 'bg-red-900/20 text-red-500'
+              response.status >= 200 && response.status < 300 ? 'bg-lime-600/15 text-lime-700 dark:text-lime-300' : 'bg-destructive/15 text-destructive'
             }`}>
               {response.status} {response.statusText}
             </span>

@@ -417,7 +417,7 @@ export function PortfolioSummaryWidget({ config, onSettingsChange }: WidgetProps
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-5 w-5 p-0"
+                          className="h-5 w-5 p-0 hit-target"
                           onClick={() => updateHoldingShares(holding.symbol, parseInt(editShares, 10))}
                         >
                           <Check className="h-3 w-3" />
@@ -426,7 +426,7 @@ export function PortfolioSummaryWidget({ config, onSettingsChange }: WidgetProps
                     ) : (
                       <button
                         type="button"
-                        className="text-muted-foreground cursor-pointer hover:text-foreground bg-transparent border-none p-0 font-inherit"
+                        className="text-muted-foreground cursor-pointer hover:text-foreground bg-transparent border-none p-0 font-inherit hit-target"
                         onClick={() => {
                           setEditingHolding(holding.symbol);
                           setEditShares(holding.shares.toString());
@@ -447,7 +447,7 @@ export function PortfolioSummaryWidget({ config, onSettingsChange }: WidgetProps
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="h-5 w-5 p-0 opacity-50 hover:opacity-100"
+                      className="h-5 w-5 p-0 opacity-50 hover:opacity-100 hit-target"
                       onClick={() => removeHolding(holding.symbol)}
                     >
                       <X className="h-3 w-3" />

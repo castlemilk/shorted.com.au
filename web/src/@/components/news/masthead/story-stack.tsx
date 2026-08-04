@@ -52,7 +52,7 @@ export function StoryStack({ takes }: { takes: TakeLike[] }) {
                   />
                 </div>
               ) : (
-                <div className="flex aspect-[3/2] w-[160px] items-center justify-center bg-gradient-to-br from-orange-950/40 via-zinc-950 to-zinc-950">
+                <div className="flex aspect-[3/2] w-[160px] items-center justify-center bg-gradient-to-br from-orange-950/40 via-stone-950 to-stone-950">
                   <span
                     className={`font-mono text-lg font-bold ${
                       chip.onImage

@@ -2,6 +2,18 @@ import * as React from "react";
 
 import { cn } from "~/@/lib/utils";
 
+/**
+ * The Flat-By-Default Rule (DESIGN.md §4 Elevation).
+ *
+ * No drop shadow at rest. Depth here is tonal, not cast: in light mode the
+ * card lifts TOWARD white (Paper Card #FDFDFC on Warm Paper #F9F8F5), in dark
+ * mode it lifts two points off CRT black (#121212 on #0D0D0D), and the 1px
+ * warm hairline border does the separating. This system has no grey
+ * drop-shadow vocabulary — its only shadow is amber light, and that is a
+ * RESPONSE to state (hover / focus / a data condition), never a property of
+ * a surface. Call sites that are genuinely interactive add the response
+ * themselves (`hover:shadow-amber-sm`); they do not get it for free.
+ */
 const Card = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
@@ -9,7 +21,7 @@ const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "rounded-lg border bg-card text-card-foreground shadow-sm",
+      "rounded-lg border bg-card text-card-foreground",
       className,
     )}
     {...props}

@@ -86,7 +86,7 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <Card className="p-6 m-4">
           <div className="flex flex-col items-center justify-center space-y-4 text-center">
-            <AlertCircle className="h-12 w-12 text-red-500" />
+            <AlertCircle className="h-12 w-12 text-destructive" />
             <div className="space-y-2">
               <h3 className="text-lg font-semibold">Something went wrong</h3>
               <p className="text-sm text-muted-foreground">

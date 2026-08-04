@@ -43,7 +43,7 @@ export function ApiHeader({ endpoints }: ApiHeaderProps) {
               </Button>
             </div>
             {session && (
-              <Button variant="ghost" size="sm" asChild className="hidden md:flex gap-2 text-blue-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20">
+              <Button variant="ghost" size="sm" asChild className="hidden md:flex gap-2 text-primary hover:text-primary hover:bg-primary/10">
                 <Link href="/docs/api#authentication">
                   <Image src="/assets/api-access-small.png" alt="" width={16} height={16} className="h-4 w-4" />
                   Mint Token

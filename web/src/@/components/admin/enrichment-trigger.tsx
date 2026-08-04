@@ -55,10 +55,10 @@ export function EnrichmentTrigger({ stockCode }: EnrichmentTriggerProps) {
   };
 
   return (
-    <Card className="border-dashed border-purple-300 dark:border-purple-800">
+    <Card className="border-dashed border-orange-500/40">
       <CardHeader className="pb-3">
         <CardTitle className="text-sm flex items-center gap-2">
-          <span className="text-purple-600 dark:text-purple-400">Admin:</span>
+          <span className="text-orange-700 dark:text-orange-300">Admin:</span>
           Trigger Enrichment
         </CardTitle>
         <CardDescription className="text-xs">
@@ -74,7 +74,7 @@ export function EnrichmentTrigger({ stockCode }: EnrichmentTriggerProps) {
               id={`force-${stockCode}`}
               name="force"
               value="true"
-              className="h-4 w-4 rounded border-gray-300"
+              className="h-4 w-4 rounded border-input"
             />
             <Label
               htmlFor={`force-${stockCode}`}
@@ -84,12 +84,12 @@ export function EnrichmentTrigger({ stockCode }: EnrichmentTriggerProps) {
             </Label>
           </div>
           {error && (
-            <div className="text-xs text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/20 p-2 rounded">
+            <div className="text-xs text-destructive bg-destructive/10 p-2 rounded">
               {error}
             </div>
           )}
           {successMessage && (
-            <div className="text-xs text-green-600 dark:text-green-400 bg-green-50 dark:green-950/20 p-2 rounded">
+            <div className="text-xs text-lime-700 dark:text-lime-300 bg-lime-600/10 p-2 rounded">
               {successMessage}
               {jobId && (
                 <div className="mt-1 text-xs opacity-75">

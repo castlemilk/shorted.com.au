@@ -52,7 +52,7 @@ export function EmbedDialogContent({
           <div className="absolute right-2 top-2">
             <CopyButton value={snippet.html} />
           </div>
-          <pre className="overflow-x-auto whitespace-pre-wrap break-all rounded-lg bg-zinc-950 p-4 pr-12 font-mono text-xs leading-relaxed text-zinc-100">
+          <pre className="overflow-x-auto whitespace-pre-wrap break-all rounded-lg bg-muted p-4 pr-12 font-mono text-xs leading-relaxed text-foreground">
             <code>{snippet.html}</code>
           </pre>
         </div>

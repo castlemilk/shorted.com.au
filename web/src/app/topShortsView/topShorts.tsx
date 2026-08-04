@@ -255,7 +255,7 @@ export const TopShorts: FC<TopShortsProps> = ({
 
 const loadingPlaceholder = (
   <div className="">
-    <Card className="w-[500px] overflow-y-auto">
+    <Card className="w-[500px] max-w-full overflow-y-auto">
       <div className="flex justify-between h-[80px]">
         <Skeleton className="h-[40px] w-[200px] rounded-xl m-3"></Skeleton>
         <Skeleton className="h-[40px] w-[200px] rounded-xl m-3"></Skeleton>

@@ -16,7 +16,14 @@ import { TrendingDown, RefreshCwIcon } from "lucide-react";
  */
 export function CompanyStatsView({ stock }: { stock: Stock }) {
   return (
-    <Card className="h-full flex flex-col">
+    // The One Bloom Rule (DESIGN.md §4): this is the single lit surface on
+    // /shorts/[stockCode]. It is the readout the visitor actually came for —
+    // the short position — so it gets `terminal-inset`, the vocabulary's
+    // "inner phosphor bloom for terminal-style panels". Everything else on
+    // the page is flat: the chart is deliberately unframed, and Card no
+    // longer ships a resting shadow. Squint at the view and exactly one
+    // thing is bright. Do not add a second.
+    <Card className="h-full flex flex-col shadow-terminal-inset">
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
           <TrendingDown className="h-5 w-5" />

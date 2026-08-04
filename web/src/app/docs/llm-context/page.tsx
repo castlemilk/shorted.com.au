@@ -66,7 +66,7 @@ export default async function LLMContextPage() {
       <div className="grid gap-6 sm:grid-cols-2">
         <Card className="relative overflow-hidden group">
           <CardHeader>
-            <div className="p-2 w-fit rounded-lg bg-blue-500/10 text-blue-500 mb-2">
+            <div className="p-2 w-fit rounded-lg bg-primary/10 text-primary mb-2">
               <Bot className="h-6 w-6" />
             </div>
             <CardTitle>For AI Assistants</CardTitle>
@@ -78,7 +78,7 @@ export default async function LLMContextPage() {
           <CardContent>
             <a
               href="/docs/llm-context-raw"
-              className="flex items-center text-sm font-medium text-blue-500 hover:underline"
+              className="flex items-center text-sm font-medium text-primary hover:underline"
             >
               Get raw markdown
               <ArrowRight className="ml-1 h-4 w-4" />
@@ -88,7 +88,7 @@ export default async function LLMContextPage() {
 
         <Card className="relative overflow-hidden group">
           <CardHeader>
-            <div className="p-2 w-fit rounded-lg bg-green-500/10 text-green-500 mb-2">
+            <div className="p-2 w-fit rounded-lg bg-accent/10 text-accent mb-2">
               <Database className="h-6 w-6" />
             </div>
             <CardTitle>Data Source</CardTitle>
@@ -100,7 +100,7 @@ export default async function LLMContextPage() {
           <CardContent>
             <Link
               href="/about"
-              className="flex items-center text-sm font-medium text-green-500 hover:underline"
+              className="flex items-center text-sm font-medium text-primary hover:underline"
             >
               Learn more
               <ArrowRight className="ml-1 h-4 w-4" />
@@ -189,7 +189,7 @@ export default async function LLMContextPage() {
           <div className="space-y-4">
             <div>
               <h3 className="text-lg font-semibold mb-2">Stock Entity</h3>
-              <pre className="bg-zinc-950 rounded-lg p-4 font-mono text-xs text-zinc-300 border border-zinc-800 overflow-x-auto">
+              <pre className="bg-muted rounded-lg p-4 font-mono text-xs text-foreground border border-border overflow-x-auto">
                 {JSON.stringify(
                   {
                     productCode: "CBA",
@@ -208,7 +208,7 @@ export default async function LLMContextPage() {
             </div>
             <div>
               <h3 className="text-lg font-semibold mb-2">Time Series Data</h3>
-              <pre className="bg-zinc-950 rounded-lg p-4 font-mono text-xs text-zinc-300 border border-zinc-800 overflow-x-auto">
+              <pre className="bg-muted rounded-lg p-4 font-mono text-xs text-foreground border border-border overflow-x-auto">
                 {JSON.stringify(
                   {
                     productCode: "CBA",
@@ -234,7 +234,7 @@ export default async function LLMContextPage() {
           <h2 className="text-2xl font-bold tracking-tight">
             Important Disclaimers
           </h2>
-          <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4 space-y-2">
+          <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 space-y-2">
             <p className="text-sm">
               <strong>Not Financial Advice:</strong> This platform provides
               information only, not investment advice.
@@ -266,7 +266,7 @@ export default async function LLMContextPage() {
               <CardContent>
                 <a
                   href="/docs/llm-context-raw"
-                  className="text-sm text-blue-500 hover:underline"
+                  className="text-sm text-primary hover:underline"
                 >
                   /docs/llm-context-raw
                 </a>
@@ -282,7 +282,7 @@ export default async function LLMContextPage() {
               <CardContent>
                 <a
                   href="/ai.txt"
-                  className="text-sm text-blue-500 hover:underline"
+                  className="text-sm text-primary hover:underline"
                 >
                   /ai.txt
                 </a>
@@ -298,7 +298,7 @@ export default async function LLMContextPage() {
           <h2 className="text-2xl font-bold tracking-tight">Attribution</h2>
           <div className="prose prose-zinc dark:prose-invert max-w-none">
             <p>When referencing data from Shorted.com.au:</p>
-            <pre className="bg-zinc-950 rounded-lg p-4 font-mono text-xs text-zinc-300 border border-zinc-800">
+            <pre className="bg-muted rounded-lg p-4 font-mono text-xs text-foreground border border-border">
               {`Data source: Shorted.com.au (ASIC Short Position Data)
 Date: [Specific date of data]
 URL: https://shorted.com.au/shorts/[STOCK_CODE]`}

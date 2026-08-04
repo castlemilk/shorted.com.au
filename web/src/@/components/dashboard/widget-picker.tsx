@@ -265,7 +265,7 @@ function WidgetCard({ definition, info, onAdd }: WidgetCardProps) {
   return (
     <div
       className={cn(
-        "group relative rounded-lg border bg-card p-4 transition-all",
+        "group relative rounded-lg border bg-card p-4 transition-[border-color,box-shadow] duration-200 ease-out",
         "hover:border-primary/50 hover:shadow-sm"
       )}
     >

@@ -98,7 +98,11 @@ export function StockEvidencePanelView({
     <section
       aria-labelledby="stock-evidence-heading"
       data-testid="stock-evidence-panel"
-      className="min-w-0 rounded-lg border border-border/60 bg-card/80 shadow-amber-sm"
+      // Flat at rest. The One Bloom Rule (DESIGN.md §4) allows exactly one lit
+      // surface per view, and on /shorts/[stockCode] that is the short-position
+      // readout (CompanyStatsView, `shadow-terminal-inset`). A second resting
+      // glow here left both reading as signal, so neither did.
+      className="min-w-0 rounded-lg border border-border/60 bg-card/80"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 border-b border-border/60 px-5 py-4">
         <div className="min-w-0">

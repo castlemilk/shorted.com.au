@@ -48,10 +48,8 @@ export default function TechnologyClient({ statistics }: TechnologyClientProps) 
               AI-Native Platform
             </div>
             <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl md:text-6xl mb-6">
-              <span className="block text-foreground">Built with AI</span>
-              <span className="block bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent bg-[length:200%_auto] animate-gradient">
-                at the Core
-              </span>
+              <span className="block font-semibold text-foreground">Built with AI</span>
+              <span className="block text-primary">at the Core</span>
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
               Shorted is an AI-native platform built on Google Cloud. From conversational stock analysis
@@ -316,7 +314,7 @@ export default function TechnologyClient({ statistics }: TechnologyClientProps) 
                 <Link href="/chat">
                   <Button
                     size="lg"
-                    className="text-base px-8 py-6 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25 transition-all duration-300 hover:shadow-xl hover:shadow-primary/30"
+                    className="text-base px-8 py-6 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25 transition-[background-color,box-shadow] duration-200 ease-out hover:shadow-xl hover:shadow-primary/30"
                   >
                     Try Shorted AI
                     <ChevronRight className="w-5 h-5 ml-2" />
@@ -326,7 +324,7 @@ export default function TechnologyClient({ statistics }: TechnologyClientProps) 
                   <Button
                     size="lg"
                     variant="outline"
-                    className="text-base px-8 py-6 border-2 hover:bg-muted/50 transition-all duration-300"
+                    className="text-base px-8 py-6 border-2 hover:bg-muted/50 transition-colors duration-200 ease-out"
                   >
                     API Documentation
                   </Button>
@@ -382,7 +380,7 @@ interface GCPCardProps {
 
 function GCPCard({ icon, title, description }: GCPCardProps) {
   return (
-    <div className="bg-card rounded-2xl border p-6 transition-all duration-300 hover:shadow-lg">
+    <div className="bg-card rounded-2xl border p-6 transition-shadow duration-200 ease-out hover:shadow-lg">
       <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-4">
         {icon}
       </div>
