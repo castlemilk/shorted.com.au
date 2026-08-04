@@ -533,7 +533,7 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 		// Trace-only, and only ever attempted when the active fetcher implements
 		// pageScreenshotter (cdpFetcher — see crawl_cdp.go); a silent no-op
 		// otherwise (fileFetcher/playwrightFetcher, i.e. every unit test).
-		if shooter, ok := lc.fetcher.(pageScreenshotter); ok && tw.enabled() {
+		if shooter, ok := lc.fetcher.(pageScreenshotter); ok && tw.capturesArtefacts() {
 			if png, serr := shooter.screenshot(ctx, urlFor(page)); serr == nil {
 				tw.WriteScreenshot(page, png)
 			} else {
