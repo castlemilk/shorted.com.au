@@ -577,7 +577,10 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 	anyRewarm := false
 	wroteAny := false
 	done := 0
-	consecBlocked := 0
+	// Escalates only when DISTINCT suburbs block back to back (see blockTracker).
+	// CRAWL_AGENT_BLOCK_TRIP defaults to 2, preserving today's threshold; a long
+	// full-catalog pass, where isolated bad targets are expected, can raise it.
+	blocks := newBlockTracker(envInt("CRAWL_AGENT_BLOCK_TRIP", 2))
 	// Health-record accumulators for this round (see crawl_run_status.go): counts of
 	// suburbs, listings, events, and blocked sweeps, plus whether a fatal (claim)
 	// error ended the round having accomplished nothing.
@@ -657,15 +660,21 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 		// attempts<max_attempts, so a later warm run retries them for free.
 		// (Observed live: New Farm then Toowong both blocked back-to-back once
 		// the session throttled.)
-		if status == "failed" && summary.Events == 0 && summary.BlockedSweeps > 0 {
-			consecBlocked++
-			if consecBlocked >= 2 {
-				log.Printf("[agent] %d consecutive blocked sweeps — session degraded; stopping to re-warm before the queue is burned", consecBlocked)
-				anyRewarm = true
-				break
-			}
-		} else {
-			consecBlocked = 0
+		// A job that wrote no events off a blocked sweep is either a cold session
+		// or a single bad target; blockTracker tells them apart by suburb, so one
+		// pathological suburb re-served by the queue no longer halts a healthy
+		// pass. Observed live: Hinchinbrook/rea blocked twice 41s apart and
+		// stopped a drain that had just crawled 6 suburbs cleanly, leaving 300
+		// healthy pending jobs untouched. The bad target still fails and still
+		// burns its attempts toward max_attempts, so it goes terminal on its own.
+		degraded, sameSuburb := blocks.record(job.Suburb, status == "failed" && summary.Events == 0 && summary.BlockedSweeps > 0)
+		if sameSuburb {
+			log.Printf("[agent] %s blocked again — same suburb re-served, treating as a bad target rather than a cold session; continuing", job.Suburb)
+		}
+		if degraded {
+			log.Printf("[agent] %d consecutive blocked sweeps across DIFFERENT suburbs — session degraded; stopping to re-warm before the queue is burned", blocks.consec)
+			anyRewarm = true
+			break
 		}
 	}
 
@@ -884,6 +893,48 @@ func agentJobOutcome(events, blockedSweeps int) string {
 		return "failed"
 	}
 	return "succeeded"
+}
+
+// blockTracker decides when a run of blocked sweeps means the BROWSER SESSION
+// has gone cold (Kasada/Akamai serving stubs, or an IP throttle) — the case
+// where continuing would burn the rest of the pending queue on a session that
+// will keep returning blocked — versus a single bad TARGET, which should just
+// fail and be stepped over.
+//
+// The distinction is the suburb. A failed job re-pends immediately and claim
+// hands the same one straight back, so a naive counter sees one pathological
+// suburb as two blocks and halts a healthy run. Only blocks from DISTINCT
+// suburbs escalate.
+type blockTracker struct {
+	consec int    // consecutive blocked sweeps across distinct suburbs
+	last   string // suburb of the most recent blocked job
+	trip   int    // distinct blocked suburbs that mean "session degraded"
+}
+
+func newBlockTracker(trip int) *blockTracker {
+	if trip < 1 {
+		trip = 1
+	}
+	return &blockTracker{trip: trip}
+}
+
+// record folds one completed job into the tracker. blocked reports whether the
+// job ended blocked having written no events. It returns whether the session
+// should be considered degraded (stop claiming and re-warm), and whether this
+// was the same suburb blocking again (a re-served bad target, worth logging
+// but never an escalation).
+func (b *blockTracker) record(suburb string, blocked bool) (degraded, sameSuburb bool) {
+	if !blocked {
+		b.consec = 0
+		b.last = ""
+		return false, false
+	}
+	if suburb != "" && suburb == b.last {
+		return false, true
+	}
+	b.last = suburb
+	b.consec++
+	return b.consec >= b.trip, false
 }
 
 type crawlPurgeRequest struct {

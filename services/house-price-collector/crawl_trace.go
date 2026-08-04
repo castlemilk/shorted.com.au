@@ -49,6 +49,7 @@ type traceConfig struct {
 	enabled bool
 	dir     string // CRAWL_TRACE_DIR (default "traces")
 	suburb  string // CRAWL_TRACE_SUBURB (optional filter, case-insensitive on Display; empty traces every swept suburb)
+	light   bool   // CRAWL_TRACE_LIGHT — decisions only: no p<N>.html, no p<N>.png
 	runID   string // one directory per process run
 }
 
@@ -56,6 +57,15 @@ type traceConfig struct {
 // CRAWL_TRACE_DIR to enable tracing; CRAWL_TRACE_SUBURB optionally restricts
 // tracing to one suburb's Display name so a targeted debug run doesn't dump
 // every suburb in the catalog. Off by default — zero footprint unless opted in.
+//
+// CRAWL_TRACE_LIGHT keeps trace.jsonl + summary.json but drops the p<N>.html
+// and p<N>.png artefacts. Those are what make full tracing unusable on a real
+// run: ~1.5MB of HTML per page, plus a CDP screenshot round-trip that adds
+// latency to every fetch, over hundreds of suburbs. The per-page DECISION
+// record is the diagnostic that actually explains a sweep (why it stopped, what
+// the portal claimed existed, how many were on-target) and it costs a few
+// hundred bytes, so light mode is cheap enough to leave on across a full pass.
+// It also carries no portal HTML, which keeps the licence posture simple.
 func loadTraceConfig() traceConfig {
 	dir := strings.TrimSpace(os.Getenv("CRAWL_TRACE_DIR"))
 	enabled := truthyEnv("CRAWL_TRACE") || dir != ""
@@ -66,6 +76,7 @@ func loadTraceConfig() traceConfig {
 		enabled: enabled,
 		dir:     dir,
 		suburb:  strings.TrimSpace(os.Getenv("CRAWL_TRACE_SUBURB")),
+		light:   truthyEnv("CRAWL_TRACE_LIGHT"),
 		runID:   time.Now().UTC().Format("20060102T150405Z"),
 	}
 }
@@ -123,8 +134,9 @@ type traceSummary struct {
 // summary for one (suburb,source) sweep. The zero value (dir=="") is a safe
 // no-op for every method.
 type traceWriter struct {
-	dir string // "" = disabled (no-op)
-	mu  sync.Mutex
+	dir   string // "" = disabled (no-op)
+	light bool   // decisions only: WriteHTML/WriteScreenshot are no-ops
+	mu    sync.Mutex
 }
 
 // newTraceWriter creates CRAWL_TRACE_DIR/<runId>/<suburb>-<source>/ and
@@ -140,7 +152,7 @@ func newTraceWriter(cfg traceConfig, suburb, source string) *traceWriter {
 		log.Printf("[trace] mkdir %s failed: %v — tracing disabled for %s/%s this sweep", dir, err, suburb, source)
 		return &traceWriter{}
 	}
-	return &traceWriter{dir: dir}
+	return &traceWriter{dir: dir, light: cfg.light}
 }
 
 // traceSlug lowercases and hyphenates a display name for a filesystem-safe
@@ -185,9 +197,20 @@ func (tw *traceWriter) WritePage(rec tracePageRecord) {
 	}
 }
 
-// WriteHTML saves one page's raw HTML as p<N>.html.
+// capturesArtefacts reports whether this sweep should collect the heavyweight
+// per-page artefacts (HTML + screenshot). Callers must gate the CAPTURE on this,
+// not just the write: a screenshot is a CDP round-trip on the live browser, so
+// in light mode taking one and discarding it would pay the whole cost tracing
+// is meant to avoid.
+func (tw *traceWriter) capturesArtefacts() bool {
+	return tw.enabled() && !tw.light
+}
+
+// WriteHTML saves one page's raw HTML as p<N>.html. Skipped in light mode —
+// the HTML is the bulk of a trace (~1.5MB/page) and carries portal content,
+// which is exactly what makes full tracing unusable on a production pass.
 func (tw *traceWriter) WriteHTML(page int, html []byte) {
-	if !tw.enabled() {
+	if !tw.enabled() || tw.light {
 		return
 	}
 	path := filepath.Join(tw.dir, "p"+strconv.Itoa(page)+".html")
@@ -201,7 +224,7 @@ func (tw *traceWriter) WriteHTML(page int, html []byte) {
 // (fileFetcher/playwrightFetcher — the expected case for every unit test and
 // for -mode crawl) or the capture failed upstream (logged at that call site).
 func (tw *traceWriter) WriteScreenshot(page int, png []byte) {
-	if !tw.enabled() || len(png) == 0 {
+	if !tw.enabled() || tw.light || len(png) == 0 {
 		return
 	}
 	path := filepath.Join(tw.dir, "p"+strconv.Itoa(page)+".png")
