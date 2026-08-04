@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-04T00:00:00Z",
+  "title": "Design System: Shorted",
+  "extensions": {
+    "colorMeta": {
+      "burnt-amber": { "role": "primary", "displayName": "Burnt Amber", "canonical": "oklch(52.1% 0.123 54.3)", "tonalRamp": ["oklch(15% 0.041 54.3)", "oklch(26% 0.064 54.3)", "oklch(37% 0.086 54.3)", "oklch(48% 0.109 54.3)", "oklch(59% 0.115 54.3)", "oklch(70% 0.092 54.3)", "oklch(82% 0.068 54.3)", "oklch(95% 0.041 54.3)"] },
+      "phosphor-amber": { "role": "primary", "displayName": "Phosphor Amber", "canonical": "oklch(80.9% 0.146 66.5)", "tonalRamp": ["oklch(15% 0.049 66.5)", "oklch(26% 0.075 66.5)", "oklch(37% 0.102 66.5)", "oklch(48% 0.129 66.5)", "oklch(59% 0.136 66.5)", "oklch(70% 0.109 66.5)", "oklch(82% 0.08 66.5)", "oklch(95% 0.049 66.5)"] },
+      "avocado": { "role": "secondary", "displayName": "Avocado", "canonical": "oklch(69.2% 0.093 131.5)", "tonalRamp": ["oklch(15% 0.031 131.5)", "oklch(26% 0.048 131.5)", "oklch(37% 0.065 131.5)", "oklch(48% 0.082 131.5)", "oklch(59% 0.087 131.5)", "oklch(70% 0.07 131.5)", "oklch(82% 0.051 131.5)", "oklch(95% 0.031 131.5)"] },
+      "sage": { "role": "secondary", "displayName": "Sage", "canonical": "oklch(76.4% 0.094 133.8)", "tonalRamp": ["oklch(15% 0.031 133.8)", "oklch(26% 0.049 133.8)", "oklch(37% 0.066 133.8)", "oklch(48% 0.083 133.8)", "oklch(59% 0.088 133.8)", "oklch(70% 0.071 133.8)", "oklch(82% 0.052 133.8)", "oklch(95% 0.031 133.8)"] },
+      "clay-rust": { "role": "tertiary", "displayName": "Clay Rust", "canonical": "oklch(64.2% 0.135 40.3)", "tonalRamp": ["oklch(15% 0.045 40.3)", "oklch(26% 0.07 40.3)", "oklch(37% 0.095 40.3)", "oklch(48% 0.119 40.3)", "oklch(59% 0.126 40.3)", "oklch(70% 0.101 40.3)", "oklch(82% 0.074 40.3)", "oklch(95% 0.045 40.3)"] },
+      "tawny-rust": { "role": "tertiary", "displayName": "Tawny", "canonical": "oklch(69.3% 0.136 44.3)", "tonalRamp": ["oklch(15% 0.045 44.3)", "oklch(26% 0.07 44.3)", "oklch(37% 0.095 44.3)", "oklch(48% 0.12 44.3)", "oklch(59% 0.127 44.3)", "oklch(70% 0.102 44.3)", "oklch(82% 0.075 44.3)", "oklch(95% 0.045 44.3)"] },
+      "warm-paper": { "role": "neutral", "displayName": "Warm Paper", "canonical": "oklch(97.9% 0.004 91.4)", "tonalRamp": ["oklch(15% 0.001 91.4)", "oklch(26% 0.002 91.4)", "oklch(37% 0.003 91.4)", "oklch(48% 0.004 91.4)", "oklch(59% 0.004 91.4)", "oklch(70% 0.003 91.4)", "oklch(82% 0.002 91.4)", "oklch(95% 0.001 91.4)"] },
+      "chocolate-ink": { "role": "neutral", "displayName": "Chocolate Ink", "canonical": "oklch(35.9% 0.024 46.4)", "tonalRamp": ["oklch(15% 0.008 46.4)", "oklch(26% 0.012 46.4)", "oklch(37% 0.017 46.4)", "oklch(48% 0.021 46.4)", "oklch(59% 0.022 46.4)", "oklch(70% 0.018 46.4)", "oklch(82% 0.013 46.4)", "oklch(95% 0.008 46.4)"] },
+      "muted-ink": { "role": "neutral", "displayName": "Muted Ink", "canonical": "oklch(50.9% 0.024 48.2)", "tonalRamp": ["oklch(15% 0.008 48.2)", "oklch(26% 0.012 48.2)", "oklch(37% 0.017 48.2)", "oklch(48% 0.021 48.2)", "oklch(59% 0.022 48.2)", "oklch(70% 0.018 48.2)", "oklch(82% 0.013 48.2)", "oklch(95% 0.008 48.2)"] },
+      "paper-border": { "role": "neutral", "displayName": "Paper Border", "canonical": "oklch(91.1% 0.008 73.7)", "tonalRamp": ["oklch(15% 0.003 73.7)", "oklch(26% 0.004 73.7)", "oklch(37% 0.006 73.7)", "oklch(48% 0.007 73.7)", "oklch(59% 0.007 73.7)", "oklch(70% 0.006 73.7)", "oklch(82% 0.004 73.7)", "oklch(95% 0.003 73.7)"] },
+      "crt-black": { "role": "neutral", "displayName": "CRT Black", "canonical": "oklch(15.9% 0.0 89.9)", "tonalRamp": ["oklch(15% 0.0 89.9)", "oklch(26% 0.0 89.9)", "oklch(37% 0.0 89.9)", "oklch(48% 0.0 89.9)", "oklch(59% 0.0 89.9)", "oklch(70% 0.0 89.9)", "oklch(82% 0.0 89.9)", "oklch(95% 0.0 89.9)"] },
+      "warm-sand": { "role": "neutral", "displayName": "Warm Sand", "canonical": "oklch(89.8% 0.055 95.9)", "tonalRamp": ["oklch(15% 0.018 95.9)", "oklch(26% 0.028 95.9)", "oklch(37% 0.038 95.9)", "oklch(48% 0.049 95.9)", "oklch(59% 0.051 95.9)", "oklch(70% 0.041 95.9)", "oklch(82% 0.03 95.9)", "oklch(95% 0.018 95.9)"] },
+      "terminal-border": { "role": "neutral", "displayName": "Terminal Border", "canonical": "oklch(30.6% 0.016 67.2)", "tonalRamp": ["oklch(15% 0.005 67.2)", "oklch(26% 0.008 67.2)", "oklch(37% 0.011 67.2)", "oklch(48% 0.014 67.2)", "oklch(59% 0.015 67.2)", "oklch(70% 0.012 67.2)", "oklch(82% 0.009 67.2)", "oklch(95% 0.005 67.2)"] },
+      "signal-red": { "role": "neutral", "displayName": "Signal Red", "canonical": "oklch(63.7% 0.208 25.3)", "tonalRamp": ["oklch(15% 0.069 25.3)", "oklch(26% 0.107 25.3)", "oklch(37% 0.146 25.3)", "oklch(48% 0.184 25.3)", "oklch(59% 0.194 25.3)", "oklch(70% 0.156 25.3)", "oklch(82% 0.114 25.3)", "oklch(95% 0.069 25.3)"] },
+      "signal-green": { "role": "neutral", "displayName": "Signal Green", "canonical": "oklch(72.3% 0.192 149.6)", "tonalRamp": ["oklch(15% 0.064 149.6)", "oklch(26% 0.099 149.6)", "oklch(37% 0.134 149.6)", "oklch(48% 0.17 149.6)", "oklch(59% 0.179 149.6)", "oklch(70% 0.144 149.6)", "oklch(82% 0.106 149.6)", "oklch(95% 0.064 149.6)"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Page Title", "purpose": "Newsreader serif h1. One per page. Token `pageTitle`." },
+      "headline": { "displayName": "Section Title", "purpose": "Newsreader serif h2 for standalone section breaks. Token `sectionTitle`." },
+      "title": { "displayName": "Card Title", "purpose": "Mono card and widget header via shadcn <CardTitle> at text-lg, usually with an inline 20px lucide icon. Deliberately not a token." },
+      "body": { "displayName": "Body", "purpose": "IBM Plex Mono. Default reading and chrome text. Editorial measure capped at 65-75ch via the `lede` token." },
+      "label": { "displayName": "Eyebrow", "purpose": "Uppercase mono kicker at 0.16em tracking above a headline or card group. Token `eyebrow`." }
+    },
+    "shadows": [
+      { "name": "amber-sm", "value": "0 0 10px -3px hsl(32 100% 65% / 0.3)", "purpose": "Subtle hover lift on compact controls." },
+      { "name": "amber", "value": "0 0 20px -5px hsl(32 100% 65% / 0.4)", "purpose": "Standard hover and active emphasis." },
+      { "name": "amber-lg", "value": "0 0 30px -5px hsl(32 100% 65% / 0.5)", "purpose": "A single hero moment per view. Never stack two." },
+      { "name": "amber-glow", "value": "0 0 0 1px hsl(32 100% 65% / 0.2), 0 0 30px -5px hsl(32 100% 65% / 0.4)", "purpose": "Ring-plus-bloom for focus and selected state." },
+      { "name": "terminal-inset", "value": "inset 0 0 20px -10px hsl(32 100% 65% / 0.2)", "purpose": "Inner phosphor bloom for terminal-style panels." },
+      { "name": "text-glow", "value": "0 0 4px hsl(var(--primary) / 0.4), 0 0 8px hsl(var(--primary) / 0.2)", "purpose": "Amber text halo; gains a third 24px layer in dark mode." },
+      { "name": "box-glow", "value": "0 0 0 1px hsl(var(--primary) / 0.1), 0 0 20px -5px hsl(var(--primary) / 0.3)", "purpose": "Surface bloom; gains an inset layer in dark mode." }
+    ],
+    "motion": [
+      { "name": "phosphor-in", "value": "opacity 0->1 with filter blur(var(--phosphor-blur))->0", "purpose": "CRT warm-up entrance. Blur is 0px in light, 1px in dark." },
+      { "name": "glow-pulse", "value": "box-shadow 0 0 20px 0 hsl(32 100% 65% / 0.3) <-> 0 0 40px 5px hsl(32 100% 65% / 0.5)", "purpose": "Breathing amber emphasis for live or alerting state." },
+      { "name": "cursor-blink", "value": "opacity 1 (0-50%) -> 0 (51-100%)", "purpose": "Terminal caret. The system's one piece of pure personality." },
+      { "name": "slide-up-fade", "value": "opacity 0 + translateY(10px) -> opacity 1 + translateY(0)", "purpose": "Standard content entrance." },
+      { "name": "scanlines", "value": "repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,0,0,var(--scanline-opacity)) 2px 4px)", "purpose": "CRT texture overlay. Opacity 0.03 light, 0.05 dark. Terminal surfaces only." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" },
+      { "name": "2xl", "value": "1400px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The default filled action. Burnt Amber in light, Phosphor Amber in dark; hover drops to 90% opacity, focus shows the amber ring.",
+      "html": "<button class=\"ds-btn-primary\">View short interest</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; height: 40px; padding: 8px 16px; border: none; border-radius: 4px; background: hsl(var(--primary, 28 82% 34%)); color: hsl(var(--primary-foreground, 40 25% 97%)); font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 0.875rem; font-weight: 500; white-space: nowrap; cursor: pointer; transition: background-color 0.15s ease-out, box-shadow 0.15s ease-out; } .ds-btn-primary:hover { background: hsl(var(--primary, 28 82% 34%) / 0.9); box-shadow: 0 0 10px -3px hsl(32 100% 65% / 0.3); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--background, 40 25% 97%)), 0 0 0 4px hsl(32 100% 65%); } .ds-btn-primary:active { background: hsl(var(--primary, 28 82% 34%) / 0.85); }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Secondary action carrying a 1px warm hairline. The border does the work; no fill until hover.",
+      "html": "<button class=\"ds-btn-outline\">Compare peers</button>",
+      "css": ".ds-btn-outline { display: inline-flex; align-items: center; justify-content: center; height: 40px; padding: 8px 16px; border: 1px solid hsl(var(--border, 32 15% 88%)); border-radius: 4px; background: hsl(var(--background, 40 25% 97%)); color: hsl(var(--foreground, 19 18% 24%)); font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: background-color 0.15s ease-out, color 0.15s ease-out; } .ds-btn-outline:hover { background: hsl(var(--accent, 16 59% 55%)); color: hsl(var(--accent-foreground, 16 50% 98%)); border-color: transparent; } .ds-btn-outline:focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--background, 40 25% 97%)), 0 0 0 4px hsl(32 100% 65%); }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Lowest-emphasis action for dense toolbars. Invisible until hover so it never competes with data.",
+      "html": "<button class=\"ds-btn-ghost\">Reset filters</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; height: 40px; padding: 8px 16px; border: none; border-radius: 4px; background: transparent; color: hsl(var(--foreground, 19 18% 24%)); font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: background-color 0.15s ease-out; } .ds-btn-ghost:hover { background: hsl(var(--accent, 16 59% 55%)); color: hsl(var(--accent-foreground, 16 50% 98%)); } .ds-btn-ghost:focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--background, 40 25% 97%)), 0 0 0 4px hsl(32 100% 65%); }"
+    },
+    {
+      "name": "Data Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "The default surface grammar: CardHeader pb-3, mono CardTitle at text-lg with an inline 20px lucide icon, a muted count line, then tabular figures. Flat at rest.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-header\"><h3 class=\"ds-card-title\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 3v18h18\"/><path d=\"m19 9-5 5-4-4-3 3\"/></svg>Top shorted</h3><p class=\"ds-card-desc\">50 stocks &middot; as at 28 Jul 2026</p></div><div class=\"ds-card-content\"><div class=\"ds-row\"><span>CTT</span><span class=\"ds-num\">18.42%</span></div><div class=\"ds-row\"><span>PLS</span><span class=\"ds-num\">17.09%</span></div><div class=\"ds-row\"><span>BOE</span><span class=\"ds-num\">14.87%</span></div></div></div>",
+      "css": ".ds-card { border: 1px solid hsl(var(--border, 32 15% 88%)); border-radius: 6px; background: hsl(var(--card, 40 20% 99%)); color: hsl(var(--card-foreground, 19 18% 24%)); font-family: 'IBM Plex Mono', ui-monospace, monospace; max-width: 340px; } .ds-card-header { display: flex; flex-direction: column; gap: 6px; padding: 24px 24px 12px; } .ds-card-title { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.125rem; font-weight: 600; line-height: 1; letter-spacing: -0.025em; } .ds-card-title svg { color: hsl(var(--primary, 28 82% 34%)); flex: none; } .ds-card-desc { margin: 0; font-size: 0.75rem; color: hsl(var(--muted-foreground, 19 12% 40%)); } .ds-card-content { padding: 0 24px 24px; } .ds-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 0.875rem; border-bottom: 1px solid hsl(var(--border, 32 15% 88%)); } .ds-row:last-child { border-bottom: none; } .ds-num { font-variant-numeric: tabular-nums; text-align: right; }"
+    },
+    {
+      "name": "Search Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "40px field with a warm hairline border. Focus is the amber ring plus offset; the ring IS the glow.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Search ASX code or company\" />",
+      "css": ".ds-input { display: flex; height: 40px; width: 280px; padding: 8px 12px; border: 1px solid hsl(var(--input, 40 15% 94%)); border-radius: 4px; background: hsl(var(--background, 40 25% 97%)); color: hsl(var(--foreground, 19 18% 24%)); font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 0.875rem; transition: box-shadow 0.15s ease-out; } .ds-input::placeholder { color: hsl(var(--muted-foreground, 19 12% 40%)); } .ds-input:focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--background, 40 25% 97%)), 0 0 0 4px hsl(32 100% 65%); } .ds-input:disabled { cursor: not-allowed; opacity: 0.5; }"
+    },
+    {
+      "name": "Eyebrow Label",
+      "kind": "chip",
+      "refersTo": "eyebrow",
+      "description": "The uppercase mono kicker at 0.16em tracking. Muted by default; the accent variant adds the primary colour and medium weight.",
+      "html": "<div><span class=\"ds-eyebrow\">ASIC disclosure</span><span class=\"ds-eyebrow ds-eyebrow-accent\">Live</span></div>",
+      "css": ".ds-eyebrow { display: inline-block; margin-right: 16px; font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.16em; line-height: 1; color: hsl(var(--muted-foreground, 19 12% 40%)); } .ds-eyebrow-accent { color: hsl(var(--primary, 28 82% 34%)); font-weight: 500; }"
+    },
+    {
+      "name": "Nav Link",
+      "kind": "nav",
+      "refersTo": "button-ghost",
+      "description": "Mono navigation. Active carries the primary; hover warms toward it. Never serif.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-link ds-nav-link-active\" href=\"#\">Top</a><a class=\"ds-nav-link\" href=\"#\">Screener</a><a class=\"ds-nav-link\" href=\"#\">Reports</a></nav>",
+      "css": ".ds-nav { display: flex; gap: 4px; font-family: 'IBM Plex Mono', ui-monospace, monospace; } .ds-nav-link { padding: 8px 12px; border-radius: 4px; font-size: 0.875rem; text-decoration: none; color: hsl(var(--muted-foreground, 19 12% 40%)); transition: color 0.15s ease-out, background-color 0.15s ease-out; } .ds-nav-link:hover { color: hsl(var(--foreground, 19 18% 24%)); background: hsl(var(--muted, 40 15% 94%)); } .ds-nav-link-active { color: hsl(var(--primary, 28 82% 34%)); font-weight: 500; } .ds-nav-link:focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--background, 40 25% 97%)), 0 0 0 4px hsl(32 100% 65%); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Melbourne Terminal",
+    "overview": "Shorted is institutional-grade market instrumentation that grew up somewhere warm. It takes the density, precision and numeric discipline of a trading terminal, then refuses the coldness that usually comes with it: no navy, no steel, no glass. Every neutral is tinted toward amber, the default typeface across the entire application is a monospace, and the two themes read as two rooms rather than two palettes. Light mode is a daylight desk, warm paper under a window. Dark mode is the same desk after hours, lit only by the phosphor of the screen.\n\nThe system is monospace-first in a way that is unusual and load-bearing. IBM Plex Mono is not the code face here, it is the app face: chrome, labels, tables, buttons, navigation and every numeral. That single decision does most of the identity work. Newsreader serif appears only where the product stops being an instrument and starts being a publication, on page titles, standalone section headlines and the editorial surfaces at /news and /features. The boundary between those two faces is the boundary between reading and operating, and it is never blurred for decoration.\n\nData provenance is a visual obligation, not a footnote. ASIC sourcing, T+4 disclosure lag, as-at dates and methodology links are part of the composition. The voice is factual, precise and lightly wry, never hypey. What this system explicitly rejects, carried from PRODUCT.md: purple-blue gradients, gradient text, glassmorphism-by-default, and identical icon-card grids. If a screen could belong to any generic fintech SaaS product, it has failed.",
+    "keyCharacteristics": [
+      "Monospace-first: IBM Plex Mono is the application default, not an accent",
+      "Warm-tinted neutrals; no pure #000 or #fff anywhere in the system",
+      "Two rooms, not two palettes: warm paper by day, CRT black after hours",
+      "Numbers are first-class: tabular-nums, right-aligned, compact AUD formatting",
+      "Flat surfaces at rest; amber light is a response, never a texture",
+      "Provenance visible: source, lag and methodology travel with the data"
+    ],
+    "rules": [
+      { "name": "The Two Rooms Rule", "body": "The primary is theme-split by lightness, never by hue. Burnt Amber is ink on paper; Phosphor Amber is light from a screen. Never use the dark-mode amber as text on a light background, and never dim the light-mode amber to fake a glow.", "section": "colors" },
+      { "name": "The Semantic Quarantine Rule", "body": "True red and green mean direction of a number and nothing else. Never use them for brand accent, decoration, generic success/error styling, or any surface that isn't reporting a market movement. Everything else warms to rust or olive.", "section": "colors" },
+      { "name": "The One Type System Rule", "body": "Never hand-roll a heading class stack. Import pageTitle, sectionTitle, eyebrow or lede from web/src/@/lib/typography.ts, or use <CardTitle>. Equivalent heading levels drifting in weight, size or tracking is the exact failure these tokens exist to prevent.", "section": "typography" },
+      { "name": "The Serif Boundary Rule", "body": "Serif is permitted on page titles (h1), standalone section headlines (h2), and editorial display heroes (/news, /features, the housing tracker). Serif is forbidden on card titles, dashboard and widget labels, control bars, table headers, buttons, navigation, and every numeral. If it is chrome or a number, it is mono.", "section": "typography" },
+      { "name": "The Tabular Rule", "body": "Every numeral is tabular-nums and right-aligned in tables. Currency uses compact AUD ($1.2B / $340M / 11.62%). Columns of numbers must align on the decimal without exception.", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "Surfaces are flat at rest. Amber light appears only as a response to state: hover, focus, active, or a data condition that demands attention. A glow that is always on is decoration, and decoration is prohibited.", "section": "elevation" },
+      { "name": "The One Bloom Rule", "body": "At most one amber-lg or box-glow element per view, and scanlines only on genuine terminal surfaces. If two things glow at once, neither reads as signal. Audit test: screenshot the view, squint, and count the bright spots. More than one means the hierarchy has failed.", "section": "elevation" },
+      { "name": "The Chrome Recedes Rule", "body": "Borders are 1px. Radii are 6px or less. Icons are 16-20px. If chrome competes with a number for attention, the number loses, and that is a bug.", "section": "components" }
+    ],
+    "dos": [
+      "Do tint every neutral toward the amber hue. Warm Paper (hsl(40 25% 97%)) and CRT Black (hsl(0 0% 5%)), never #fff or #000.",
+      "Do import type tokens from web/src/@/lib/typography.ts (pageTitle, sectionTitle, eyebrow, lede) instead of hand-rolling class stacks.",
+      "Do keep every numeral mono and tabular-nums, right-aligned in tables, with compact AUD formatting.",
+      "Do reserve true red and green for market direction only.",
+      "Do keep surfaces flat at rest and let amber glow respond to state.",
+      "Do ship data provenance with the data: ASIC source, T+4 lag, as-at dates, methodology and disclaimer links. \"Not financial advice\" is load-bearing.",
+      "Do treat SEO as a design constraint on public pages: crawlable facts, JSON-LD, stable slugs and heading order.",
+      "Do hold WCAG AA contrast, 40px hit areas, keyboard reachability, and honour prefers-reduced-motion for any non-trivial animation."
+    ],
+    "donts": [
+      "Don't use purple-blue gradients, gradient text (background-clip: text), glassmorphism-by-default, or identical icon-card grids. These are the named anti-references from PRODUCT.md and they are prohibited outright.",
+      "Don't put serif on card titles, dashboard or widget labels, control bars, table headers, buttons, navigation, or numerals. Chrome is mono, always.",
+      "Don't use border-left or border-right greater than 1px as a coloured accent stripe. The one sanctioned exception is the existing hero-card border-l-4, capped at one to two per view; do not spread the pattern to standard cards, list items, callouts or alerts.",
+      "Don't leave a glow switched on at rest, stack multiple amber-lg blooms in one view, or apply scanlines to non-terminal surfaces.",
+      "Don't use the dark-mode Phosphor Amber as text on light backgrounds. It fails AA. Burnt Amber exists precisely for that job.",
+      "Don't introduce a conventional grey drop shadow. This system has no drop-shadow vocabulary; depth is tonal.",
+      "Don't reach for --font-display. Space Grotesk was removed in 2026-07 with zero usages and the CSS variable in globals.css is now dead; it silently falls back to system sans. Use mono or the serif tokens.",
+      "Don't reach for a modal as the first answer, or wrap content in nested cards. Exhaust inline and progressive disclosure first.",
+      "Don't write em dashes in UI copy. Use commas, colons, semicolons, periods or parentheses."
+    ]
+  }
+}
