@@ -54,9 +54,12 @@ chrome stays terminal.
   there).
 - Charts: shared `@visx` StockChart core; semantic up/down =
   emerald/red pairs; amber series for housing/terminal surfaces.
-- Accessibility floor: WCAG AA contrast, 40px hit areas, keyboard-reachable
-  interactive elements, `prefers-reduced-motion` honored for any
-  non-trivial animation.
+- Accessibility floor: WCAG AA contrast; hit areas at or above the WCAG
+  2.5.8 (AA) 24px minimum, rising to 40px for primary actions and anything
+  a phone user reaches for first (nav, first-touch controls) — dense
+  terminal chrome deliberately sits between the two, see "The Two Floors
+  Rule" in DESIGN.md; keyboard-reachable interactive elements;
+  `prefers-reduced-motion` honored for any non-trivial animation.
 
 ## Non-negotiables
 - Data provenance framing stays (ASIC source, T+4 delay, methodology and
