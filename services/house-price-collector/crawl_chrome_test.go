@@ -231,3 +231,24 @@ func TestChromeLaunchArgs_OnScreenEscapeHatch(t *testing.T) {
 		t.Errorf("startURL must stay last: %v", args)
 	}
 }
+
+// TestChromeLaunchArgs_DisablesBackgroundMode is the regression for the wedge
+// loop. With background-capable extensions on the profile, Chrome keeps running
+// after its last window closes and RESURRECTS itself windowless after a kill:
+//
+//	Google Chrome --no-startup-window --remote-debugging-port=9333 --user-data-dir=...
+//
+// exposing zero `page` targets. That is self-sustaining — the CDP port answers so
+// ensureChromeWarm never launches, the warm probe finds no usable context, the
+// recovery kills Chrome, and Chrome comes straight back. It also silently
+// discards every launch flag we add, so the off-screen window never appears.
+func TestChromeLaunchArgs_DisablesBackgroundMode(t *testing.T) {
+	args := chromeLaunchArgs(chromeConfig{profileDir: "/tmp/p", startURL: "https://x/"}, "9333")
+	if !strings.Contains(strings.Join(args, " "), "--disable-background-mode") {
+		t.Fatalf("Chrome must not be allowed to survive/resurrect windowless: %v", args)
+	}
+	// Still last, still not headless — the native startup nav is what clears Kasada.
+	if args[len(args)-1] != "https://x/" {
+		t.Errorf("startURL must stay last: %v", args)
+	}
+}

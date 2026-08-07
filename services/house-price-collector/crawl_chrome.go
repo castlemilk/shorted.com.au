@@ -183,17 +183,33 @@ func dedicatedChromePIDs(profileDir string) []int {
 // for it to actually exit. Returns true if it is gone. NEVER touches any Chrome
 // without the dedicated --user-data-dir.
 func killDedicatedChrome(profileDir string) bool {
-	for _, pid := range dedicatedChromePIDs(profileDir) {
-		_ = syscall.Kill(pid, syscall.SIGKILL)
-	}
-	for i := 0; i < 10; i++ {
-		if len(dedicatedChromePIDs(profileDir)) == 0 {
+	// A single kill pass is not enough on a profile with background-capable
+	// extensions: Chrome RESURRECTS itself windowless (--no-startup-window) after
+	// the kill, so the old wait loop just watched new PIDs appear and gave up with
+	// "still alive — not relaunching", leaving the profile permanently wedged.
+	// Re-kill anything that comes back, so recovery ends with Chrome actually gone
+	// and our own launch (which passes --disable-background-mode) is the one that
+	// sticks.
+	for i := range chromeKillRounds {
+		pids := dedicatedChromePIDs(profileDir)
+		if len(pids) == 0 {
 			return true
 		}
-		time.Sleep(1 * time.Second)
+		if i > 0 {
+			log.Printf("[chrome] dedicated Chrome came back after SIGKILL (%d pid(s)) — re-killing (round %d/%d)", len(pids), i+1, chromeKillRounds)
+		}
+		for _, pid := range pids {
+			_ = syscall.Kill(pid, syscall.SIGKILL)
+		}
+		time.Sleep(time.Second)
 	}
 	return len(dedicatedChromePIDs(profileDir)) == 0
 }
+
+// chromeKillRounds bounds the re-kill loop above. Enough to outlast Chrome's
+// background-mode relaunch, low enough that a genuinely unkillable Chrome still
+// fails fast rather than spinning.
+const chromeKillRounds = 12
 
 // clearSingletonLocks removes the profile lock files a SIGKILLed Chrome leaves
 // behind, which would otherwise make a relaunch hand off to (a non-existent)
@@ -227,6 +243,22 @@ func chromeLaunchArgs(cfg chromeConfig, port string) []string {
 	args := []string{
 		"--remote-debugging-port=" + port,
 		"--user-data-dir=" + cfg.profileDir,
+		// Chrome's BACKGROUND MODE is what makes this profile un-warmable. The
+		// profile has accumulated extensions, and any extension with background
+		// permission keeps Chrome alive after its last window closes — and
+		// resurrects it, windowless, after a kill. Observed live: after SIGKILL a
+		// Chrome reappeared as
+		//   Google Chrome --no-startup-window --remote-debugging-port=9333 --user-data-dir=...
+		// with flags this code never passes and NO startURL, exposing zero `page`
+		// targets (only a background_page and 6 extension service workers).
+		//
+		// That is precisely the wedged state, and it is self-sustaining: the CDP
+		// port answers, so ensureChromeWarm's reachability check passes and never
+		// launches; the warm probe then finds no usable context, recovers by
+		// killing Chrome, and Chrome resurrects windowless again. The loop also
+		// silently discards any launch flag we add, which is why an off-screen or
+		// re-warmed window would never actually appear.
+		"--disable-background-mode",
 	}
 	if !truthyEnv("HOUSING_CRAWL_CHROME_ONSCREEN") {
 		args = append(args,
