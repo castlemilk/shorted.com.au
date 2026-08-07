@@ -193,3 +193,41 @@ func TestEnsureChromeWarm(t *testing.T) {
 		}
 	})
 }
+
+// TestChromeLaunchArgs_OffScreenByDefault covers the unattended-rig behaviour: the
+// warm window must not appear on the desktop or steal focus on every re-warm.
+func TestChromeLaunchArgs_OffScreenByDefault(t *testing.T) {
+	t.Setenv("HOUSING_CRAWL_CHROME_ONSCREEN", "")
+	cfg := chromeConfig{profileDir: "/tmp/p", startURL: "https://www.realestate.com.au/"}
+	args := chromeLaunchArgs(cfg, "9333")
+
+	joined := strings.Join(args, " ")
+	for _, want := range []string{"--remote-debugging-port=9333", "--user-data-dir=/tmp/p", "--window-position=-32000,-32000", "--window-size=1440,900"} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("missing %q in %v", want, args)
+		}
+	}
+	// NEVER headless: headless is detected and would lose the Kasada clearance
+	// the entire listings tier depends on.
+	if strings.Contains(joined, "--headless") {
+		t.Errorf("the dedicated Chrome must never be headless — Kasada detects it")
+	}
+	// The startup URL must be LAST: Chrome opens the first non-flag argument, and
+	// that native navigation is what clears Kasada.
+	if args[len(args)-1] != cfg.startURL {
+		t.Errorf("startURL must be the final argument, got %v", args)
+	}
+}
+
+// TestChromeLaunchArgs_OnScreenEscapeHatch keeps a way to see the window when a
+// warm refuses to clear and someone needs to watch it happen.
+func TestChromeLaunchArgs_OnScreenEscapeHatch(t *testing.T) {
+	t.Setenv("HOUSING_CRAWL_CHROME_ONSCREEN", "true")
+	args := chromeLaunchArgs(chromeConfig{profileDir: "/tmp/p", startURL: "https://x/"}, "9333")
+	if strings.Contains(strings.Join(args, " "), "--window-position") {
+		t.Errorf("ONSCREEN=true must not force the window off-screen: %v", args)
+	}
+	if args[len(args)-1] != "https://x/" {
+		t.Errorf("startURL must stay last: %v", args)
+	}
+}

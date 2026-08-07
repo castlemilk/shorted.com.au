@@ -204,6 +204,39 @@ func clearSingletonLocks(profileDir string) {
 	}
 }
 
+// chromeLaunchArgs builds the dedicated Chrome command line.
+//
+// The warm window is positioned OFF-SCREEN by default so an unattended rig does
+// not have Chrome windows appearing and stealing focus every time a sweep
+// re-warms. It cannot simply run headless: headless is reliably detected, and
+// this whole tier depends on Chrome's own NATIVE startup navigation clearing
+// Kasada (a Playwright-driven nav does not). So the window stays real, natively
+// navigated and rendered at a normal viewport — it just sits outside the visible
+// desktop.
+//
+// Verified rather than assumed: a COLD profile launched at -32000,-32000 with a
+// 1440x900 viewport loaded live REA and warmcheck reported
+// "REA warm (1542006 bytes, ArgonautExchange present)" — the same clearance an
+// on-screen window gets.
+//
+// HOUSING_CRAWL_CHROME_ONSCREEN=true restores an on-desktop window, which is what
+// you want when debugging a warm that will not clear. The startURL MUST stay last:
+// Chrome treats the first non-flag argument as the page to open, and that startup
+// navigation is the load-bearing part.
+func chromeLaunchArgs(cfg chromeConfig, port string) []string {
+	args := []string{
+		"--remote-debugging-port=" + port,
+		"--user-data-dir=" + cfg.profileDir,
+	}
+	if !truthyEnv("HOUSING_CRAWL_CHROME_ONSCREEN") {
+		args = append(args,
+			"--window-position="+envStr("HOUSING_CRAWL_CHROME_POSITION", "-32000,-32000"),
+			"--window-size="+envStr("HOUSING_CRAWL_CHROME_SIZE", "1440,900"),
+		)
+	}
+	return append(args, cfg.startURL)
+}
+
 // launchDedicatedChrome starts the dedicated Chrome with the remote-debugging port
 // and a REA startup URL (whose native nav clears Kasada), detached, and waits for
 // the CDP port to answer. It is the port of the shell's warm_chrome.
@@ -212,11 +245,7 @@ func launchDedicatedChrome(cfg chromeConfig) error {
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command(cfg.bin,
-		"--remote-debugging-port="+port,
-		"--user-data-dir="+cfg.profileDir,
-		cfg.startURL,
-	)
+	cmd := exec.Command(cfg.bin, chromeLaunchArgs(cfg, port)...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true} // detach from the collector
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("start dedicated Chrome: %w", err)
