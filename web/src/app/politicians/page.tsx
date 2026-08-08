@@ -209,7 +209,12 @@ export default async function PoliticiansPage() {
   ] = await Promise.all([
     getParliamentOverview(),
     getRegisterExplorer(),
-    listPoliticianStocks(12, true),
+    // 200 IS THE RPC'S OWN CLAMP CEILING, and the whole ranked head is wanted:
+    // the most-declared section renders the full list inside a fixed-height
+    // scroller (top ~10 visible, the rest reached by scrolling), so the fetch
+    // size is a completeness question, not a layout one. The request has no
+    // offset, so this is the deepest the list can go without a proto change.
+    listPoliticianStocks(200, true),
     // 500, NOT 400. The identity layer minted 171 senators (495 rows against
     // the 324 this list was sized for), and a roll that silently stops at 400
     // drops 95 named people out of the only server-rendered index of them.
@@ -258,6 +263,16 @@ export default async function PoliticiansPage() {
   const maxCount = Math.max(
     1,
     ...(mostHeld?.stocks ?? []).map((s) => s.politicianCount),
+  );
+  const mostHeldCount = mostHeld?.stocks?.length ?? 0;
+  // The corpus total for the most-declared count line. firstPositive, not `??`:
+  // either aggregate source can be cold while the list itself is healthy, and a
+  // zero total would misprint the window as the whole register. Falls back to
+  // the list's own length, which turns the line into the honest "all N" form.
+  const declaredCompanyTotal = firstPositive(
+    explorer?.distinctCompanyCount,
+    overview?.resolvedListedCount,
+    mostHeldCount,
   );
   const maxStatePeople = Math.max(
     1,
@@ -843,55 +858,80 @@ export default async function PoliticiansPage() {
                 <strong>number of members declaring an interest</strong> — not
                 by any amount. The bars compare people, nothing more.
               </p>
-              <table className="w-full text-sm">
-                <caption className="sr-only">
-                  Number of federal parliamentarians declaring an interest in
-                  each ASX-listed company. A count of declarations, not an
-                  amount invested.
-                </caption>
-                <thead className="sr-only">
-                  <tr>
-                    <th>Company</th>
-                    <th>Members declaring</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(mostHeld?.stocks ?? []).map((s) => (
-                    <tr key={s.stockCode} className="border-b last:border-0">
-                      <th
-                        scope="row"
-                        className="w-40 py-1.5 pr-3 text-left font-normal"
-                      >
-                        <Link
-                          href={`/shorts/${s.stockCode}`}
-                          className="hover:underline"
-                        >
-                          <span className="font-medium">{s.stockCode}</span>
-                        </Link>
-                        <span className="block truncate text-[11px] text-muted-foreground">
-                          {s.companyName}
-                        </span>
-                      </th>
-                      <td className="py-1.5">
-                        <div className="flex items-center gap-2">
-                          {/* CSS width, not a chart library: this is a count, and a
-                            plain bar keeps it accessible and bundle-free. */}
-                          <div
-                            className="h-3 rounded-sm bg-primary/70"
-                            style={{
-                              width: `${(s.politicianCount / maxCount) * 100}%`,
-                            }}
-                            aria-hidden
-                          />
-                          <span className="shrink-0 tabular-nums text-xs text-muted-foreground">
-                            {s.politicianCount}
-                          </span>
-                        </div>
-                      </td>
+              {/*
+                THE WHOLE RANKED HEAD, IN A FIXED WINDOW. The list used to stop
+                at 12 rows rendered flat; it now carries every company the rpc
+                can return (its 200-row ceiling) inside the same fixed-height
+                scroller pattern the register table uses — the top ~10 are the
+                initial view, a partly-cut row signals the scroll, and the
+                section's height (and the page's) no longer depends on how many
+                companies parliament declares. All rows are server-rendered
+                into the ISR HTML; nothing loads on scroll, it is simply there.
+                `prefetch={false}` on every row link — 200 bulk links would
+                otherwise re-create the roll's measured prefetch storm.
+              */}
+              {/* 33rem ≈ ten 53px rows with the tenth partly cut — the cut row
+                  is the scroll affordance. */}
+              <div className="max-h-[33rem] overflow-auto overscroll-contain rounded-lg border bg-background px-3">
+                <table className="w-full text-sm">
+                  <caption className="sr-only">
+                    Number of federal parliamentarians declaring an interest in
+                    each ASX-listed company. A count of declarations, not an
+                    amount invested.
+                  </caption>
+                  <thead className="sr-only">
+                    <tr>
+                      <th>Company</th>
+                      <th>Members declaring</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {(mostHeld?.stocks ?? []).map((s) => (
+                      <tr key={s.stockCode} className="border-b last:border-0">
+                        <th
+                          scope="row"
+                          className="w-40 py-1.5 pr-3 text-left font-normal"
+                        >
+                          <Link
+                            href={`/shorts/${s.stockCode}`}
+                            prefetch={false}
+                            className="hover:underline"
+                          >
+                            <span className="font-medium">{s.stockCode}</span>
+                          </Link>
+                          <span className="block truncate text-[11px] text-muted-foreground">
+                            {s.companyName}
+                          </span>
+                        </th>
+                        <td className="py-1.5">
+                          <div className="flex items-center gap-2">
+                            {/* CSS width, not a chart library: this is a count, and a
+                            plain bar keeps it accessible and bundle-free. */}
+                            <div
+                              className="h-3 rounded-sm bg-primary/70"
+                              style={{
+                                width: `${(s.politicianCount / maxCount) * 100}%`,
+                              }}
+                              aria-hidden
+                            />
+                            <span className="shrink-0 tabular-nums text-xs text-muted-foreground">
+                              {s.politicianCount}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {/* The count line states the window honestly: the rpc's 200-row
+                  ceiling is below the corpus total, and a scroller that ends
+                  must not read as the end of the register. */}
+              <p className="text-[11px] tabular-nums text-muted-foreground">
+                {mostHeldCount < declaredCompanyTotal
+                  ? `Showing the ${mostHeldCount} most-declared of ${declaredCompanyTotal} companies declared in the registers.`
+                  : `Showing all ${mostHeldCount} companies declared in the registers.`}
+              </p>
             </section>
 
             {(analytics?.states.length ?? 0) > 0 ? (
