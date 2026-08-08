@@ -209,7 +209,11 @@ function TablePartyChip({ partyAb }: { partyAb?: string }) {
   if (!partyAb) {
     // Party reaches the register through an electorate join, not the APH
     // listing, so absence is real and is labelled as absence — never guessed.
-    return <span className="text-[11px] text-muted-foreground">Party not recorded</span>;
+    return (
+      <span className="text-[11px] text-muted-foreground">
+        Party not recorded
+      </span>
+    );
   }
   return (
     <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
@@ -251,10 +255,14 @@ function SortHeader({
         type="button"
         onClick={() => onSort(sort)}
         className={`inline-flex items-center gap-1 hover:text-foreground ${
-          active ? "text-foreground underline decoration-dotted underline-offset-4" : ""
+          active
+            ? "text-foreground underline decoration-dotted underline-offset-4"
+            : ""
         }`}
       >
-        {SORT_ICONS[sort] ? <PoliticsIcon name={SORT_ICONS[sort]!} size={13} /> : null}
+        {SORT_ICONS[sort] ? (
+          <PoliticsIcon name={SORT_ICONS[sort]!} size={13} />
+        ) : null}
         {SORTABLE[sort]}
       </button>
     </th>
@@ -308,7 +316,9 @@ export function PoliticianRegisterTable({
           // Offset 0 is a fresh view (a filter or sort change); anything else
           // is the next stretch of the same view and appends.
           setRows((previous) =>
-            result.query.offset === 0 ? result.rows : [...previous, ...result.rows],
+            result.query.offset === 0
+              ? result.rows
+              : [...previous, ...result.rows],
           );
           setStatus("idle");
         })
@@ -323,7 +333,8 @@ export function PoliticianRegisterTable({
   // Any filter change resets to the first page: keeping the offset would land a
   // reader deep in a list most of which no longer exists.
   const setFilter = useCallback(
-    (patch: Partial<PoliticianTableQuery>) => run({ ...query, ...patch, offset: 0 }),
+    (patch: Partial<PoliticianTableQuery>) =>
+      run({ ...query, ...patch, offset: 0 }),
     [query, run],
   );
 
@@ -352,7 +363,9 @@ export function PoliticianRegisterTable({
    */
   const [search, setSearch] = useState("");
   const [hits, setHits] = useState<PoliticianHit[] | null>(null);
-  const [searchStatus, setSearchStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [searchStatus, setSearchStatus] = useState<
+    "idle" | "loading" | "error"
+  >("idle");
   const searching = search.trim().length >= 2;
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -361,7 +374,8 @@ export function PoliticianRegisterTable({
   // is a character, not a command.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey)
+        return;
       const target = event.target as HTMLElement | null;
       if (
         target &&
@@ -392,7 +406,11 @@ export function PoliticianRegisterTable({
     if (query.stateCode) facetFilters.push([`state_code:${query.stateCode}`]);
     if (query.partyAb) facetFilters.push([`party_ab:${query.partyAb}`]);
     const timer = setTimeout(() => {
-      searchPoliticians(search.trim(), { hitsPerPage: 30, facetFilters, facets: [] })
+      searchPoliticians(search.trim(), {
+        hitsPerPage: 30,
+        facetFilters,
+        facets: [],
+      })
         .then((result) => {
           if (cancelled) return;
           setHits(result.hits);
@@ -441,7 +459,8 @@ export function PoliticianRegisterTable({
     if (!sentinel) return;
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) loadMoreRef.current();
+        if (entries.some((entry) => entry.isIntersecting))
+          loadMoreRef.current();
       },
       { root: scrollRef.current, rootMargin: "240px" },
     );
@@ -465,7 +484,10 @@ export function PoliticianRegisterTable({
    * Everything left over — zero rows, filters set, a response that answered —
    * is the one case where "no members match" is an honest sentence.
    */
-  const outage = status === "error" || page.ok === false || (rows.length === 0 && !filtersActive);
+  const outage =
+    status === "error" ||
+    page.ok === false ||
+    (rows.length === 0 && !filtersActive);
 
   return (
     <div className="space-y-2.5 rounded-2xl border bg-card p-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.04)] sm:p-3">
@@ -481,134 +503,151 @@ export function PoliticianRegisterTable({
           one: full width, tall, a magnifier, a layered shadow that lifts it
           off the panel, and a `/` shortcut for keyboard readers. The same
           index the old separate explorer used, now in the same window as the
-          list it searches. */}
-      <div className="relative">
-        <label htmlFor={`${controlsId}-search`} className="sr-only">
-          Search parliamentarians by name, electorate, company or suburb
-        </label>
-        <span
-          aria-hidden
-          className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground"
-        >
-          <PoliticsIcon name="search" size={18} />
-        </span>
-        <input
-          ref={searchInputRef}
-          id={`${controlsId}-search`}
-          type="search"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search a name, an electorate, a company, a suburb…"
-          autoComplete="off"
-          className="h-12 w-full rounded-xl border bg-background pl-11 pr-12 text-[15px] [&::-webkit-search-cancel-button]:hidden shadow-[0_1px_2px_rgba(0,0,0,0.05),0_4px_14px_rgba(0,0,0,0.05)] outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/60"
-        />
-        {search ? (
-          <button
-            type="button"
-            onClick={() => setSearch("")}
-            aria-label="Clear search"
-            className={`absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-[background-color,transform] hover:bg-muted active:scale-[0.96] ${POLITICS_FOCUS_RING}`}
-          >
-            ✕
-          </button>
-        ) : (
-          <kbd
-            aria-hidden
-            className="absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground sm:block"
-          >
-            /
-          </kbd>
-        )}
-      </div>
+          list it searches.
 
-      <div className="grid grid-cols-2 items-end gap-2 [&>*]:min-w-0 sm:flex sm:flex-wrap">
-        {/*
+          From `xl:` the search and the four filters share ONE row (`items-end`
+          seats the h-8 selects on the input's baseline, their 10px labels
+          floating above): the controls read as a single instrument strip and
+          the two stacked control rows stop costing the scroller ~60px of
+          window height. Below `xl:` nothing changes. */}
+      <div className="space-y-2.5 xl:flex xl:items-end xl:gap-3 xl:space-y-0">
+        <div className="relative xl:min-w-64 xl:flex-1">
+          <label htmlFor={`${controlsId}-search`} className="sr-only">
+            Search parliamentarians by name, electorate, company or suburb
+          </label>
+          <span
+            aria-hidden
+            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+          >
+            <PoliticsIcon name="search" size={18} />
+          </span>
+          <input
+            ref={searchInputRef}
+            id={`${controlsId}-search`}
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search a name, an electorate, a company, a suburb…"
+            autoComplete="off"
+            className="h-12 w-full rounded-xl border bg-background pl-11 pr-12 text-[15px] [&::-webkit-search-cancel-button]:hidden shadow-[0_1px_2px_rgba(0,0,0,0.05),0_4px_14px_rgba(0,0,0,0.05)] outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/60"
+          />
+          {search ? (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              aria-label="Clear search"
+              className={`absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-[background-color,transform] hover:bg-muted active:scale-[0.96] ${POLITICS_FOCUS_RING}`}
+            >
+              ✕
+            </button>
+          ) : (
+            <kbd
+              aria-hidden
+              className="absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground sm:block"
+            >
+              /
+            </kbd>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 items-end gap-2 [&>*]:min-w-0 sm:flex sm:flex-wrap xl:shrink-0 xl:flex-nowrap">
+          {/*
           Native selects, not the Radix kit: this island is a filter surface on
           a route whose bundle budget is watched, and its filter BEHAVIOUR is
           what the tests drive — the repo's Radix select mock renders inert
           divs, so a shadcn Select here would be untestable as well as heavier.
         */}
-        <label className="flex flex-col gap-1">
-          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-            Chamber
-          </span>
-          <select
-            id={`${controlsId}-chamber`}
-            className={SELECT_CLASS}
-            value={query.chamber}
-            onChange={(e) => setFilter({ chamber: e.target.value })}
-          >
-            {CHAMBER_OPTIONS.map((option) => (
-              <option key={option.value || "all"} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              Chamber
+            </span>
+            <select
+              id={`${controlsId}-chamber`}
+              className={SELECT_CLASS}
+              value={query.chamber}
+              onChange={(e) => setFilter({ chamber: e.target.value })}
+            >
+              {CHAMBER_OPTIONS.map((option) => (
+                <option key={option.value || "all"} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
 
-        <label className="flex flex-col gap-1">
-          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">State</span>
-          <select
-            id={`${controlsId}-state`}
-            className={SELECT_CLASS}
-            value={query.stateCode}
-            onChange={(e) => setFilter({ stateCode: e.target.value })}
-          >
-            <option value="">All states</option>
-            {stateOptions.map((code) => (
-              <option key={code} value={code}>
-                {code}
-              </option>
-            ))}
-          </select>
-        </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              State
+            </span>
+            <select
+              id={`${controlsId}-state`}
+              className={SELECT_CLASS}
+              value={query.stateCode}
+              onChange={(e) => setFilter({ stateCode: e.target.value })}
+            >
+              <option value="">All states</option>
+              {stateOptions.map((code) => (
+                <option key={code} value={code}>
+                  {code}
+                </option>
+              ))}
+            </select>
+          </label>
 
-        <label className="flex flex-col gap-1">
-          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Party</span>
-          <select
-            id={`${controlsId}-party`}
-            className={SELECT_CLASS}
-            value={query.partyAb}
-            onChange={(e) => setFilter({ partyAb: e.target.value })}
-          >
-            <option value="">All parties</option>
-            {partyOptions.map((ab) => (
-              <option key={ab} value={ab}>
-                {partyLabel(ab)}
-              </option>
-            ))}
-          </select>
-        </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              Party
+            </span>
+            <select
+              id={`${controlsId}-party`}
+              className={SELECT_CLASS}
+              value={query.partyAb}
+              onChange={(e) => setFilter({ partyAb: e.target.value })}
+            >
+              <option value="">All parties</option>
+              {partyOptions.map((ab) => (
+                <option key={ab} value={ab}>
+                  {partyLabel(ab)}
+                </option>
+              ))}
+            </select>
+          </label>
 
-        <label className="flex flex-col gap-1">
-          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-            Register category
-          </span>
-          <select
-            id={`${controlsId}-item`}
-            className={SELECT_CLASS}
-            value={String(query.itemNo)}
-            onChange={(e) => setFilter({ itemNo: Number(e.target.value) })}
-          >
-            {ITEM_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              Register category
+            </span>
+            <select
+              id={`${controlsId}-item`}
+              className={SELECT_CLASS}
+              value={String(query.itemNo)}
+              onChange={(e) => setFilter({ itemNo: Number(e.target.value) })}
+            >
+              {ITEM_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
 
-        {filtersActive ? (
-          <button
-            type="button"
-            onClick={() =>
-              setFilter({ chamber: "", stateCode: "", partyAb: "", itemNo: 0 })
-            }
-            className={POLITICS_FILTER_BUTTON_CLASS}
-          >
-            Clear filters
-          </button>
-        ) : null}
+          {filtersActive ? (
+            <button
+              type="button"
+              onClick={() =>
+                setFilter({
+                  chamber: "",
+                  stateCode: "",
+                  partyAb: "",
+                  itemNo: 0,
+                })
+              }
+              className={POLITICS_FILTER_BUTTON_CLASS}
+            >
+              Clear filters
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {/*
@@ -654,21 +693,22 @@ export function PoliticianRegisterTable({
       ) : null}
 
       {/*
-        THE TABLE IS A DIFFERENT TABLE ON A PHONE, not the same table squeezed.
-        At 375 px the seven-column layout put FOUR columns (Companies,
-        Real-estate entries, Changes 90d, and the trend sparkline) off the right
-        edge, and the `min-w-[52rem]` that forced them there also defeated this
-        scroller — see the `min-w-0` note on the grid in page.tsx.
+        THE TABLE IS A DIFFERENT TABLE BELOW `lg:`, not the same table squeezed.
+        The seven-column layout needs ~830 px. It used to demand it from `sm:`
+        up (`sm:min-w-[52rem]`), which put a PERMANENT horizontal scrollbar
+        inside this scroller on every container narrower than that — including
+        the hub's own desktop two-column layout, where the trend and gifts
+        columns sat off-screen behind a second scroll axis.
 
         Two changes, and they work together:
-          - `min-w-[52rem]` is now `sm:` only, so below `sm` the table lays out
-            inside the viewport and there is nothing to scroll horizontally at
-            all. From `sm:` up the dense seven-column table and its scroller are
-            exactly what they were.
-          - the five count/trend columns are `hidden sm:table-cell`, and the
-            counts they carry are re-rendered underneath the member's name as a
-            wrapped summary line (`sm:hidden`). Nothing is withheld from a
+          - the five count/trend columns are `hidden lg:table-cell`: below `lg`
+            the counts they carry are re-rendered underneath the member's name
+            as a wrapped summary line (`lg:hidden`). Nothing is withheld from a
             narrow reader; it is stacked instead of scrolled.
+          - `min-w-[44rem]` engages only from `lg:` — the narrowest container
+            the hub gives this island at `lg` is ~736 px, so all seven columns
+            fit and the min-width is a floor for squeezed edge cases, not a
+            standing demand for a scrollbar.
 
         The `<caption>`/`<thead>` semantics are untouched, so the screen-reader
         reading order is unchanged at every width.
@@ -678,10 +718,14 @@ export function PoliticianRegisterTable({
         aria-busy={status === "loading" || searchStatus === "loading"}
         // ONE fixed window for both bodies. The roll grows inside it by
         // infinite scroll; a search swaps its contents. The page's own height
-        // never depends on how many rows are loaded. `overscroll-contain`
-        // keeps a trackpad fling from grabbing the document when the window's
-        // scroll ends.
-        className="max-h-[38rem] overflow-auto overscroll-contain rounded-lg border bg-background"
+        // never depends on how many rows are loaded — the `xl:` cap is
+        // VIEWPORT-relative (dvh), not content-relative, so that invariant
+        // holds while a tall desktop screen gets ~13 visible rows instead of
+        // the 7 the old flat 38rem cap allowed. The `max()` keeps 38rem as the
+        // floor on short landscape viewports. `overscroll-contain` keeps a
+        // trackpad fling from grabbing the document when the window's scroll
+        // ends.
+        className="max-h-[38rem] overflow-auto overscroll-contain rounded-lg border bg-background xl:max-h-[max(38rem,calc(100dvh-21rem))]"
       >
         {searching ? (
           <SearchHits
@@ -691,87 +735,97 @@ export function PoliticianRegisterTable({
             filtersActive={filtersActive}
           />
         ) : (
-        <table
-          className={`w-full sm:min-w-[52rem] text-sm ${status === "loading" && rows.length === 0 ? "opacity-60" : ""}`}
-        >
-          <caption className="sr-only">
-            Federal parliamentarians and what they currently declare in the Registers of
-            Members&rsquo; and Senators&rsquo; Interests. Every column is a count of declared
-            entries; the registers record no quantity or value.
-          </caption>
-          <thead className="sticky top-0 z-10 border-b bg-background text-[11px] uppercase tracking-wide text-muted-foreground">
-            <tr>
-              <SortHeader
-                sort="name"
-                activeSort={query.sort}
-                onSort={toggleSort}
-                className="py-2 pl-2 pr-3 text-left font-normal"
-              />
-              <SortHeader
-                sort="declared_items"
-                activeSort={query.sort}
-                onSort={toggleSort}
-                className="py-2 pr-3 text-right font-normal"
-              />
-              <SortHeader
-                sort="companies"
-                activeSort={query.sort}
-                onSort={toggleSort}
-                className="hidden py-2 pr-3 text-right font-normal sm:table-cell"
-              />
-              <SortHeader
-                sort="properties"
-                activeSort={query.sort}
-                onSort={toggleSort}
-                className="hidden py-2 pr-3 text-right font-normal sm:table-cell"
-              />
-              <th scope="col" className="hidden py-2 pr-3 text-right font-normal sm:table-cell">
-                <span className="inline-flex items-center gap-1">
-                  <PoliticsIcon name="gifts" size={13} />
-                  Gifts &amp; travel
-                </span>
-              </th>
-              <SortHeader
-                sort="recent_changes"
-                activeSort={query.sort}
-                onSort={toggleSort}
-                className="hidden py-2 pr-3 text-right font-normal sm:table-cell"
-              />
-              <th scope="col" className="hidden w-28 py-2 text-left font-normal sm:table-cell">
-                <span className="inline-flex items-center gap-1 whitespace-nowrap">
-                  <PoliticsIcon name="timeline" size={13} />
-                  <span aria-hidden>Trend</span>
-                  <span className="sr-only">12-month trend</span>
-                </span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              // A hover tint on the whole row, because the row is a unit: the
-              // member's name is the only link in it and the four counts to its
-              // right belong to that person. `transition-colors` only — no
-              // transform, no shadow, nothing that could move a row under a
-              // pointer that is already travelling towards a name.
-              <tr
-                key={row.slug}
-                className="border-b last:border-0 align-middle transition-colors hover:bg-muted/40"
-              >
-                <th scope="row" className="py-2 pl-2 pr-3 text-left font-normal">
-                  <div className="flex items-center gap-2.5">
-                    <PoliticianAvatar
-                      displayName={row.displayName}
-                      partyAb={row.partyAb}
-                      size="sm"
-                      photo={{
-                        photoUrl: row.photoUrl,
-                        photoLicence: row.photoLicence,
-                        photoAuthor: row.photoAuthor,
-                        photoSourceUrl: row.photoSourceUrl,
-                      }}
-                    />
-                    <div className="min-w-0">
-                      {/*
+          <table
+            className={`w-full lg:min-w-[44rem] text-sm ${status === "loading" && rows.length === 0 ? "opacity-60" : ""}`}
+          >
+            <caption className="sr-only">
+              Federal parliamentarians and what they currently declare in the
+              Registers of Members&rsquo; and Senators&rsquo; Interests. Every
+              column is a count of declared entries; the registers record no
+              quantity or value.
+            </caption>
+            <thead className="sticky top-0 z-10 border-b bg-background text-[11px] uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <SortHeader
+                  sort="name"
+                  activeSort={query.sort}
+                  onSort={toggleSort}
+                  className="py-2 pl-2 pr-3 text-left font-normal"
+                />
+                <SortHeader
+                  sort="declared_items"
+                  activeSort={query.sort}
+                  onSort={toggleSort}
+                  className="py-2 pr-3 text-right font-normal"
+                />
+                <SortHeader
+                  sort="companies"
+                  activeSort={query.sort}
+                  onSort={toggleSort}
+                  className="hidden py-2 pr-3 text-right font-normal lg:table-cell"
+                />
+                <SortHeader
+                  sort="properties"
+                  activeSort={query.sort}
+                  onSort={toggleSort}
+                  className="hidden py-2 pr-3 text-right font-normal lg:table-cell"
+                />
+                <th
+                  scope="col"
+                  className="hidden py-2 pr-3 text-right font-normal lg:table-cell"
+                >
+                  <span className="inline-flex items-center gap-1">
+                    <PoliticsIcon name="gifts" size={13} />
+                    Gifts &amp; travel
+                  </span>
+                </th>
+                <SortHeader
+                  sort="recent_changes"
+                  activeSort={query.sort}
+                  onSort={toggleSort}
+                  className="hidden py-2 pr-3 text-right font-normal lg:table-cell"
+                />
+                <th
+                  scope="col"
+                  className="hidden w-28 py-2 text-left font-normal lg:table-cell xl:w-40"
+                >
+                  <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                    <PoliticsIcon name="timeline" size={13} />
+                    <span aria-hidden>Trend</span>
+                    <span className="sr-only">12-month trend</span>
+                  </span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                // A hover tint on the whole row, because the row is a unit: the
+                // member's name is the only link in it and the four counts to its
+                // right belong to that person. `transition-colors` only — no
+                // transform, no shadow, nothing that could move a row under a
+                // pointer that is already travelling towards a name.
+                <tr
+                  key={row.slug}
+                  className="border-b last:border-0 align-middle transition-colors hover:bg-muted/40"
+                >
+                  <th
+                    scope="row"
+                    className="py-2 pl-2 pr-3 text-left font-normal"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <PoliticianAvatar
+                        displayName={row.displayName}
+                        partyAb={row.partyAb}
+                        size="sm"
+                        photo={{
+                          photoUrl: row.photoUrl,
+                          photoLicence: row.photoLicence,
+                          photoAuthor: row.photoAuthor,
+                          photoSourceUrl: row.photoSourceUrl,
+                        }}
+                      />
+                      <div className="min-w-0">
+                        {/*
                         `prefetch={false}` ON A BULK LINK LIST. Next prefetches
                         the RSC payload of every `<Link>` in the viewport, and a
                         page of 25 member rows is 25 x ~23 KB of profile payload
@@ -783,23 +837,25 @@ export function PoliticianRegisterTable({
                         18 px tall against a 44 px floor, and padding buys the
                         height without touching the type scale.
                       */}
-                      <Link
-                        href={`/politicians/${row.slug}`}
-                        prefetch={false}
-                        className="inline-block py-1 font-medium hover:underline"
-                      >
-                        {row.displayName}
-                      </Link>
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                        <span className="text-[11px] text-muted-foreground">{seatOf(row)}</span>
-                        <TablePartyChip partyAb={row.partyAb} />
+                        <Link
+                          href={`/politicians/${row.slug}`}
+                          prefetch={false}
+                          className="inline-block py-1 font-medium hover:underline"
+                        >
+                          {row.displayName}
+                        </Link>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                          <span className="text-[11px] text-muted-foreground">
+                            {seatOf(row)}
+                          </span>
+                          <TablePartyChip partyAb={row.partyAb} />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  {/*
+                    {/*
                     THE COLUMNS THIS WIDTH CANNOT SHOW, STACKED INSTEAD.
 
-                    Rendered only below `sm:`, where the matching cells are
+                    Rendered only below `lg:`, where the matching cells are
                     `hidden` — so no figure is ever on screen twice and no figure
                     is ever withheld from a narrow reader. `aria-hidden` because
                     the real cells are still in the accessibility tree with their
@@ -815,46 +871,50 @@ export function PoliticianRegisterTable({
                     reader moving between the phone and the desktop layout is
                     reading the same table.
                   */}
-                  <div
-                    aria-hidden
-                    className="mt-1 grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] tabular-nums text-muted-foreground sm:hidden"
-                  >
-                    <span>{row.companies} companies</span>
-                    <span>{row.realEstateEntries} real-estate</span>
-                    {/*
+                    <div
+                      aria-hidden
+                      className="mt-1 grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] tabular-nums text-muted-foreground lg:hidden"
+                    >
+                      <span>{row.companies} companies</span>
+                      <span>{row.realEstateEntries} real-estate</span>
+                      {/*
                       "gifts/travel", not "gifts & travel": the ampersand form is
                       the only one of the four that does not fit an 83 px grid
                       cell at 10 px, and a cell that wraps costs every row a line.
                       Both words are kept — this is an abbreviation of the column
                       header, not a different measure.
                     */}
-                    <span>{row.giftsTravel} gifts/travel</span>
-                    <span>{row.changes90d} changes 90d</span>
-                  </div>
-                </th>
-                <td className="py-2 pr-3 text-right tabular-nums">{row.declaredItems}</td>
-                <td className="hidden py-2 pr-3 text-right tabular-nums sm:table-cell">
-                  {row.companies}
-                </td>
-                <td className="hidden py-2 pr-3 text-right tabular-nums sm:table-cell">
-                  {row.realEstateEntries}
-                </td>
-                <td className="hidden py-2 pr-3 text-right tabular-nums sm:table-cell">
-                  {row.giftsTravel}
-                </td>
-                <td className="hidden py-2 pr-3 text-right tabular-nums sm:table-cell">
-                  {row.changes90d}
-                </td>
-                <td className="hidden py-2 sm:table-cell">
-                  <SparkTrend
-                    points={row.trend}
-                    undatedOnly={row.trend.length === 0 && row.undatedCount > 0}
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                      <span>{row.giftsTravel} gifts/travel</span>
+                      <span>{row.changes90d} changes 90d</span>
+                    </div>
+                  </th>
+                  <td className="py-2 pr-3 text-right tabular-nums">
+                    {row.declaredItems}
+                  </td>
+                  <td className="hidden py-2 pr-3 text-right tabular-nums lg:table-cell">
+                    {row.companies}
+                  </td>
+                  <td className="hidden py-2 pr-3 text-right tabular-nums lg:table-cell">
+                    {row.realEstateEntries}
+                  </td>
+                  <td className="hidden py-2 pr-3 text-right tabular-nums lg:table-cell">
+                    {row.giftsTravel}
+                  </td>
+                  <td className="hidden py-2 pr-3 text-right tabular-nums lg:table-cell">
+                    {row.changes90d}
+                  </td>
+                  <td className="hidden py-2 lg:table-cell">
+                    <SparkTrend
+                      points={row.trend}
+                      undatedOnly={
+                        row.trend.length === 0 && row.undatedCount > 0
+                      }
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
 
         {!searching && rows.length === 0 && !outage ? (
@@ -863,13 +923,16 @@ export function PoliticianRegisterTable({
           // it. That is an honest answer about the filter — and it says so, so a
           // reader cannot take it as a statement about anyone's register.
           <p className="m-3 rounded-md border border-dashed p-3 text-sm text-muted-foreground">
-            No members match these filters. Widen them, or search by name above — an empty result
-            is a filter, not a statement about anyone&rsquo;s register.
+            No members match these filters. Widen them, or search by name above
+            — an empty result is a filter, not a statement about anyone&rsquo;s
+            register.
           </p>
         ) : null}
 
         {/* The auto-load sentinel and its always-there manual counterpart. */}
-        {!searching ? <div ref={sentinelRef} aria-hidden className="h-px" /> : null}
+        {!searching ? (
+          <div ref={sentinelRef} aria-hidden className="h-px" />
+        ) : null}
         {!searching && hasNext && !outage ? (
           <div className="flex justify-center border-t bg-muted/20 py-2">
             <button
@@ -884,7 +947,10 @@ export function PoliticianRegisterTable({
         ) : null}
       </div>
 
-      <p role="status" className="text-[11px] tabular-nums text-muted-foreground">
+      <p
+        role="status"
+        className="text-[11px] tabular-nums text-muted-foreground"
+      >
         {searching
           ? hits
             ? `${hits.length === 1 ? "1 match" : `${hits.length} matches`}${hits.length === 30 ? " shown" : ""}.`
@@ -897,10 +963,11 @@ export function PoliticianRegisterTable({
           How to read these counts
         </summary>
         <p className="mt-1.5 max-w-prose">
-          Counts are of entries currently declared. Real-estate entries are register entries under
-          item 3 — some entries list more than one address, so the column is a floor on what was
-          declared, not a tally of properties. The trend plots only entries whose start date the
-          register states; entries with no stated date are not plotted.
+          Counts are of entries currently declared. Real-estate entries are
+          register entries under item 3 — some entries list more than one
+          address, so the column is a floor on what was declared, not a tally of
+          properties. The trend plots only entries whose start date the register
+          states; entries with no stated date are not plotted.
         </p>
       </details>
     </div>
@@ -931,8 +998,8 @@ function SearchHits({
   if (status === "error") {
     return (
       <p className="m-3 rounded-md border border-dashed p-3 text-sm text-muted-foreground">
-        Search is unavailable right now. The roll below the search box still works, and nothing is
-        missing from the register.
+        Search is unavailable right now. The roll below the search box still
+        works, and nothing is missing from the register.
       </p>
     );
   }
@@ -943,8 +1010,8 @@ function SearchHits({
     return (
       <p className="m-3 rounded-md border border-dashed p-3 text-sm text-muted-foreground">
         No parliamentarian matches &ldquo;{query}&rdquo;
-        {filtersActive ? " with these filters" : ""}. An empty result is a search result, not a
-        statement about anyone&rsquo;s register.
+        {filtersActive ? " with these filters" : ""}. An empty result is a
+        search result, not a statement about anyone&rsquo;s register.
       </p>
     );
   }
@@ -955,9 +1022,11 @@ function SearchHits({
       {hits.map((hit) => {
         // The declared string that put this hit in the list, when one did.
         const matched =
-          [...(hit.company_names ?? []), ...(hit.suburbs ?? []), ...(hit.stock_codes ?? [])].find(
-            (value) => value.toLowerCase().includes(needle),
-          ) ?? null;
+          [
+            ...(hit.company_names ?? []),
+            ...(hit.suburbs ?? []),
+            ...(hit.stock_codes ?? []),
+          ].find((value) => value.toLowerCase().includes(needle)) ?? null;
         const seat =
           hit.chamber === "senate"
             ? hit.state_code
@@ -985,11 +1054,15 @@ function SearchHits({
                 }}
               />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium">{hit.display_name}</span>
+                <span className="block truncate text-sm font-medium">
+                  {hit.display_name}
+                </span>
                 <span className="flex flex-wrap items-center gap-x-2 text-[11px] text-muted-foreground">
                   {seat ? <span>{seat}</span> : null}
                   <TablePartyChip partyAb={hit.party_ab} />
-                  {matched ? <span className="truncate">declares: {matched}</span> : null}
+                  {matched ? (
+                    <span className="truncate">declares: {matched}</span>
+                  ) : null}
                 </span>
               </span>
               <span className="shrink-0 text-right text-[11px] tabular-nums text-muted-foreground">
