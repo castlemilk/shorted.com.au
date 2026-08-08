@@ -13,6 +13,7 @@
  * is honest; an explicit negative is not.
  */
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toDate } from "@/lib/politics/timestamp";
 import Link from "next/link";
@@ -28,7 +29,11 @@ import {
 } from "@/components/politicians/compliance";
 import { partyColorFromAb } from "@/lib/politics/party-palette";
 
+/** Rows shown before the reader asks for the rest. */
+const COLLAPSED_ROWS = 8;
+
 export function PoliticianInterestsCard({ stockCode }: { stockCode: string }) {
+  const [showAll, setShowAll] = useState(false);
   const { data, isLoading } = useQuery({
     queryKey: ["politician-interests", stockCode],
     queryFn: () => listStockPoliticiansClient(stockCode),
@@ -70,7 +75,9 @@ export function PoliticianInterestsCard({ stockCode }: { stockCode: string }) {
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <span className="text-2xl font-semibold tabular-nums">{data.politicianCount}</span>
+          <span className="text-2xl font-semibold tabular-nums">
+            {data.politicianCount}
+          </span>
           <span className="text-xs text-muted-foreground">
             {data.politicianCount === 1 ? "member" : "members"}
           </span>
@@ -98,14 +105,23 @@ export function PoliticianInterestsCard({ stockCode }: { stockCode: string }) {
         )}
 
         <ul className="divide-y">
-          {data.interests.slice(0, 8).map((row, idx) => {
+          {(showAll
+            ? data.interests
+            : data.interests.slice(0, COLLAPSED_ROWS)
+          ).map((row, idx) => {
             const p = row.politician;
             const i = row.interest;
             if (!p || !i) return null;
             return (
-              <li key={`${p.slug}-${i.holder}-${idx}`} className="flex flex-col gap-1 py-2">
+              <li
+                key={`${p.slug}-${i.holder}-${idx}`}
+                className="flex flex-col gap-1 py-2"
+              >
                 <div className="flex flex-wrap items-center gap-2">
-                  <Link href={`/politicians/${p.slug}`} className="text-sm hover:underline">
+                  <Link
+                    href={`/politicians/${p.slug}`}
+                    className="text-sm hover:underline"
+                  >
                     {p.displayName}
                   </Link>
                   <HolderBadge holder={i.holder} />
@@ -124,14 +140,38 @@ export function PoliticianInterestsCard({ stockCode }: { stockCode: string }) {
           })}
         </ul>
 
-        {data.interests.length > 8 && (
-          <p className="text-xs text-muted-foreground">
-            +{data.interests.length - 8} more declarations
-          </p>
+        {/* The truncation used to be dead text ("+45 more declarations") with
+            no way to the rest. The full list is already in this component's
+            data, so it expands in place — no fetch, no route. */}
+        {data.interests.length > COLLAPSED_ROWS && (
+          <button
+            type="button"
+            onClick={() => setShowAll((v) => !v)}
+            className="py-1 text-xs text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground"
+          >
+            {showAll
+              ? "Show fewer"
+              : `Show all ${data.interests.length} declarations`}
+          </button>
         )}
 
+        {/* The one route from a stock's card into the politician layer itself.
+            The link text is the hub's own section heading, reused verbatim —
+            names already link to individual profiles above; this carries the
+            reader to the register as a whole. prefetch={false}: this card
+            renders on every stock page and the hub payload is not a likely
+            next step on most of them. */}
+        <Link
+          href="/politicians"
+          prefetch={false}
+          className="inline-block py-1 text-[11px] underline decoration-dotted underline-offset-2 hover:text-foreground"
+        >
+          Every parliamentarian, and what they declare →
+        </Link>
+
         <p className="text-[11px] leading-relaxed text-muted-foreground">
-          The registers record <strong>what</strong> is held, never quantity or value.
+          The registers record <strong>what</strong> is held, never quantity or
+          value.
         </p>
         <SourceLine asAt={asAt} surface={`stock ${stockCode}`} />
       </CardContent>
