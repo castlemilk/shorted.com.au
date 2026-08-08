@@ -62,7 +62,7 @@ func TestBrandbrainAgentClient_Submit(t *testing.T) {
 
 	c := newBrandbrainAgentClient(agentConfig{brandbrainURL: srv.URL, token: "t", agentID: "a"})
 	summary := &crawlJobSummary{Suburbs: 1, Listings: 158, Events: 158, BlockedSweeps: 0}
-	if err := c.submit(context.Background(), "job-1", "succeeded", summary, ""); err != nil {
+	if err := c.submit(context.Background(), "job-1", "succeeded", summary, "", 0); err != nil {
 		t.Fatalf("submit error: %v", err)
 	}
 	if body["job_id"] != "job-1" || body["status"] != "succeeded" {
@@ -81,7 +81,7 @@ func TestBrandbrainAgentClient_SubmitHTTPError(t *testing.T) {
 	defer srv.Close()
 
 	c := newBrandbrainAgentClient(agentConfig{brandbrainURL: srv.URL, token: "bad", agentID: "a"})
-	if err := c.submit(context.Background(), "job-1", "succeeded", &crawlJobSummary{}, ""); err == nil {
+	if err := c.submit(context.Background(), "job-1", "succeeded", &crawlJobSummary{}, "", 0); err == nil {
 		t.Fatal("expected an error on 401")
 	}
 }
