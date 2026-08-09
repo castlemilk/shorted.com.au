@@ -588,21 +588,37 @@ export default async function PoliticiansPage() {
               a full-width three-module band under the table instead.
             */}
             <div className="grid gap-5 min-[1460px]:grid-cols-[minmax(0,1fr)_20rem]">
-              <div className="min-w-0 space-y-3">
-                <PoliticianRegisterTable
-                  initialPage={table}
-                  loadPage={loadPoliticianTable}
-                  stateOptions={stateOptions}
-                  partyOptions={partyOptions}
-                />
-                {/*
+              {/*
+                THE RAIL SETS THE ROW'S HEIGHT; THE TABLE FILLS TO IT — via
+                ABSOLUTE FILL, not flex alone. A stretched flex child still
+                feeds its content height into the grid row's auto sizing (the
+                vertical twin of the `min-w-0` story above), so the row would
+                size to the full loaded table and the rail could never cap it.
+                From the split, this item goes `relative` and its content
+                fills it absolutely: the item contributes ~nothing to row
+                sizing, the ASIDE's natural height (donut + companies +
+                industry, ~11 member rows' worth) becomes the row, and the
+                card + SourceLine bottom lands exactly on the rail's bottom at
+                every screen size. The island's root is the flex-1 filler and
+                its scroller the basis-0 window.
+              */}
+              <div className="min-w-0 min-[1460px]:relative">
+                <div className="space-y-3 min-[1460px]:absolute min-[1460px]:inset-0 min-[1460px]:flex min-[1460px]:flex-col min-[1460px]:gap-3 min-[1460px]:space-y-0">
+                  <PoliticianRegisterTable
+                    initialPage={table}
+                    loadPage={loadPoliticianTable}
+                    stateOptions={stateOptions}
+                    partyOptions={partyOptions}
+                  />
+                  {/*
                   The citation sits with the data that names people, which is
                   what editorial-copy.test.ts's hub-section exclusion relies on:
                   the table island carries no SourceLine of its own because this
                   one covers it. The "About this data" band at the foot is the
                   dataset-level statement, not a substitute for this.
                 */}
-                <SourceLine asAt={asAt} surface="politicians hub" />
+                  <SourceLine asAt={asAt} surface="politicians hub" />
+                </div>
               </div>
 
               {/*
