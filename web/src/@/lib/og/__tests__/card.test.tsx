@@ -1,4 +1,11 @@
-import { OG, OG_SIZE, OG_CONTENT_TYPE, OgCard, OgVersus } from "../card";
+import {
+  OG,
+  OG_SIZE,
+  OG_CONTENT_TYPE,
+  OgCard,
+  OgSilhouetteCard,
+  OgVersus,
+} from "../card";
 
 /**
  * The generators themselves need a real satori render to prove they work, so
@@ -8,7 +15,10 @@ import { OG, OG_SIZE, OG_CONTENT_TYPE, OgCard, OgVersus } from "../card";
 
 type El = {
   type: unknown;
-  props: Record<string, unknown> & { children?: unknown; style?: Record<string, unknown> };
+  props: Record<string, unknown> & {
+    children?: unknown;
+    style?: Record<string, unknown>;
+  };
 };
 
 /**
@@ -71,7 +81,8 @@ describe("OgCard", () => {
     walk(CARD, (el) => {
       const kids = el.props.children;
       const count = Array.isArray(kids)
-        ? kids.filter((k) => k !== null && k !== undefined && k !== false).length
+        ? kids.filter((k) => k !== null && k !== undefined && k !== false)
+            .length
         : kids === undefined
           ? 0
           : 1;
@@ -121,10 +132,64 @@ describe("OgCard", () => {
   });
 });
 
+describe("OgSilhouetteCard", () => {
+  const SIL = OgSilhouetteCard({
+    eyebrow: "Macro dashboard",
+    title: "The Victoria economy",
+    subtitle: "Unemployment, trade and demand from ABS open data.",
+    silhouette: { d: "M0,0L10,0L10,10Z", width: 360, height: 260 },
+    logoSrc: "data:image/png;base64,AAAA",
+  });
+
+  it("obeys the same satori rules as the standard card", () => {
+    const radial: string[] = [];
+    const missingDisplay: string[] = [];
+    walk(SIL, (el) => {
+      const bgi = el.props.style?.backgroundImage;
+      if (typeof bgi === "string" && bgi.includes("radial-gradient")) {
+        radial.push(bgi);
+      }
+      // <svg>/<path> children are satori-native and exempt from the flex rule.
+      if (el.type === "svg" || el.type === "path") return;
+      const kids = el.props.children;
+      const count = Array.isArray(kids)
+        ? kids.filter((k) => k !== null && k !== undefined && k !== false)
+            .length
+        : kids === undefined
+          ? 0
+          : 1;
+      if (count > 1 && el.props.style?.display === undefined) {
+        missingDisplay.push(JSON.stringify(el.props.style ?? {}).slice(0, 80));
+      }
+    });
+    expect(radial).toEqual([]);
+    expect(missingDisplay).toEqual([]);
+  });
+
+  it("renders the copy and embeds the silhouette path", () => {
+    const text: string[] = [];
+    let pathD: unknown;
+    walk(SIL, (el) => {
+      const k = el.props.children;
+      if (typeof k === "string") text.push(k);
+      if (el.type === "path") pathD = el.props.d;
+    });
+    expect(text).toEqual(
+      expect.arrayContaining(["Macro dashboard", "The Victoria economy"]),
+    );
+    expect(pathD).toBe("M0,0L10,0L10,10Z");
+  });
+});
+
 describe("OgVersus", () => {
   const VS = OgVersus({
     eyebrow: "ASX short interest",
-    left: { code: "BHP", name: "BHP Group", value: "1.47%", caption: "shorted" },
+    left: {
+      code: "BHP",
+      name: "BHP Group",
+      value: "1.47%",
+      caption: "shorted",
+    },
     right: {
       code: "CBA",
       name: "Commonwealth Bank of Australia",
@@ -144,7 +209,8 @@ describe("OgVersus", () => {
       }
       const kids = el.props.children;
       const count = Array.isArray(kids)
-        ? kids.filter((k) => k !== null && k !== undefined && k !== false).length
+        ? kids.filter((k) => k !== null && k !== undefined && k !== false)
+            .length
         : kids === undefined
           ? 0
           : 1;
