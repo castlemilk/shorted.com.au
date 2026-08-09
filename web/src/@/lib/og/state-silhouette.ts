@@ -34,19 +34,34 @@ let cachedTopology: Topology | null | undefined;
 function loadStatesTopology(): Topology | null {
   if (cachedTopology !== undefined) return cachedTopology;
   // process.cwd() at runtime can resolve to either the repo root or web/ —
-  // same dual-path dance as the suburb OG card's banner read.
-  for (const rel of [
-    join("public", "geo", "states.topojson"),
-    join("web", "public", "geo", "states.topojson"),
-  ]) {
-    try {
-      cachedTopology = JSON.parse(
-        readFileSync(join(process.cwd(), rel), "utf8"),
-      ) as Topology;
-      return cachedTopology;
-    } catch {
-      // try the next candidate
-    }
+  // same dual-path dance as the suburb OG card's banner read. INLINE LITERAL
+  // paths on each call, NOT a loop over a path array: Vercel's file tracer
+  // only bundles what it can statically resolve, and the loop variant shipped
+  // to prod with no topojson in the lambda — every state card silently fell
+  // back to the plain layout (measured on /housing/opengraph-image, same
+  // failure). The suburb card's literal reads have traced correctly since it
+  // shipped; mirror them exactly.
+  try {
+    cachedTopology = JSON.parse(
+      readFileSync(
+        join(process.cwd(), "public", "geo", "states.topojson"),
+        "utf8",
+      ),
+    ) as Topology;
+    return cachedTopology;
+  } catch {
+    // try the repo-root variant
+  }
+  try {
+    cachedTopology = JSON.parse(
+      readFileSync(
+        join(process.cwd(), "web", "public", "geo", "states.topojson"),
+        "utf8",
+      ),
+    ) as Topology;
+    return cachedTopology;
+  } catch {
+    // fall through to null
   }
   cachedTopology = null;
   return cachedTopology;
