@@ -2,14 +2,30 @@ package platform
 
 import (
 	"bytes"
+	"errors"
+	"io"
 	"log"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
 	"time"
 )
+
+type platformRoundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f platformRoundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func usePlatformTransport(t *testing.T, fn platformRoundTripFunc) {
+	t.Helper()
+	previous := http.DefaultClient.Transport
+	http.DefaultClient.Transport = fn
+	t.Cleanup(func() { http.DefaultClient.Transport = previous })
+}
+
+func platformResponse(status int, body string) *http.Response {
+	return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}
+}
 
 // captureLog redirects the standard logger for the duration of fn.
 func captureLog(t *testing.T, fn func()) string {
@@ -31,17 +47,17 @@ const testSecret = "s3cr3t-revalidation-token"
 
 func TestPingRevalidateNoOpsWhenUnconfigured(t *testing.T) {
 	var hits int
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	usePlatformTransport(t, func(r *http.Request) (*http.Response, error) {
 		hits++
-	}))
-	defer srv.Close()
+		return platformResponse(http.StatusOK, ""), nil
+	})
 
 	tests := []struct {
 		name        string
 		url, secret string
 	}{
 		{"both unset", "", ""},
-		{"url only", srv.URL, ""},
+		{"url only", "https://revalidate.invalid", ""},
 		{"secret only", "", testSecret},
 	}
 	for _, tt := range tests {
@@ -70,15 +86,15 @@ func TestPingRevalidateSuccess(t *testing.T) {
 		method string
 		path   string
 		query  url.Values
+		secret string
 	}
 	var got capture
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		got = capture{method: r.Method, path: r.URL.Path, query: r.URL.Query()}
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer srv.Close()
+	usePlatformTransport(t, func(r *http.Request) (*http.Response, error) {
+		got = capture{method: r.Method, path: r.URL.Path, query: r.URL.Query(), secret: r.Header.Get("X-Revalidate-Secret")}
+		return platformResponse(http.StatusOK, ""), nil
+	})
 
-	t.Setenv("REVALIDATION_URL", srv.URL+"/api/revalidate")
+	t.Setenv("REVALIDATION_URL", "https://revalidate.invalid/api/revalidate")
 	t.Setenv("REVALIDATION_SECRET", testSecret)
 
 	out := captureLog(t, func() {
@@ -101,8 +117,11 @@ func TestPingRevalidateSuccess(t *testing.T) {
 	if f := got.query.Get("flush"); f != "shorts,housing" {
 		t.Errorf("want flush families, got %q", f)
 	}
-	if s := got.query.Get("secret"); s != testSecret {
-		t.Errorf("secret not forwarded, got %q", s)
+	if got.secret != testSecret {
+		t.Errorf("header secret not forwarded, got %q", got.secret)
+	}
+	if _, ok := got.query["secret"]; ok {
+		t.Errorf("secret must not ride in query string: %v", got.query)
 	}
 	if !strings.Contains(out, "cache bust ok (status 200)") {
 		t.Errorf("want success log, got %q", out)
@@ -116,13 +135,14 @@ func TestPingRevalidateSuccess(t *testing.T) {
 // query string and no empty path/flush params may be sent.
 func TestPingRevalidateTagOnly(t *testing.T) {
 	var query url.Values
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	var secret string
+	usePlatformTransport(t, func(r *http.Request) (*http.Response, error) {
 		query = r.URL.Query()
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer srv.Close()
+		secret = r.Header.Get("X-Revalidate-Secret")
+		return platformResponse(http.StatusOK, ""), nil
+	})
 
-	t.Setenv("REVALIDATION_URL", srv.URL+"/api/revalidate")
+	t.Setenv("REVALIDATION_URL", "https://revalidate.invalid/api/revalidate")
 	t.Setenv("REVALIDATION_SECRET", testSecret)
 
 	out := captureLog(t, func() {
@@ -138,8 +158,11 @@ func TestPingRevalidateTagOnly(t *testing.T) {
 	if _, ok := query["flush"]; ok {
 		t.Errorf("flush must be omitted when unset: %v", query)
 	}
-	if query.Get("secret") != testSecret {
-		t.Errorf("secret not forwarded: %v", query)
+	if secret != testSecret {
+		t.Errorf("header secret not forwarded: %q", secret)
+	}
+	if _, ok := query["secret"]; ok {
+		t.Errorf("secret must not ride in query string: %v", query)
 	}
 	if strings.Contains(out, testSecret) {
 		t.Errorf("secret leaked into logs: %q", out)
@@ -147,13 +170,11 @@ func TestPingRevalidateTagOnly(t *testing.T) {
 }
 
 func TestPingRevalidateNonSuccessWarnsWithoutSecret(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusUnauthorized)
-		_, _ = w.Write([]byte("invalid secret"))
-	}))
-	defer srv.Close()
+	usePlatformTransport(t, func(r *http.Request) (*http.Response, error) {
+		return platformResponse(http.StatusUnauthorized, "invalid secret"), nil
+	})
 
-	t.Setenv("REVALIDATION_URL", srv.URL)
+	t.Setenv("REVALIDATION_URL", "https://revalidate.invalid")
 	t.Setenv("REVALIDATION_SECRET", testSecret)
 
 	out := captureLog(t, func() {
@@ -170,12 +191,13 @@ func TestPingRevalidateNonSuccessWarnsWithoutSecret(t *testing.T) {
 	}
 }
 
-// A transport failure yields a *url.Error carrying the full URL — including
-// ?secret=. The log line must never contain it.
+// A transport failure yields a *url.Error carrying the full URL. The log line
+// must redact it even though the secret now travels in a header.
 func TestPingRevalidateTransportErrorRedactsURL(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
-	closed := srv.URL
-	srv.Close() // nothing is listening now
+	closed := "https://revalidate.invalid"
+	usePlatformTransport(t, func(r *http.Request) (*http.Response, error) {
+		return nil, errors.New("dial failed")
+	})
 
 	t.Setenv("REVALIDATION_URL", closed)
 	t.Setenv("REVALIDATION_SECRET", testSecret)

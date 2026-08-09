@@ -345,7 +345,8 @@ listings`, and the official `-mode all`/`crawl`/`refresh` paths), the collector
 pings the web tier so it busts its long-TTL SSR caches the instant the data
 changes — `/price-drops` and `/housing` re-render fresh instead of waiting out
 their ISR ceiling. The ping POSTs to
-`<REVALIDATION_URL>?secret=<REVALIDATION_SECRET>&path=/price-drops,/housing&flush=housing`.
+`<REVALIDATION_URL>?path=/price-drops,/housing&flush=housing` with
+`X-Revalidate-Secret: <REVALIDATION_SECRET>`.
 
 It is **best-effort and optional**: a failure only WARN-logs and never fails a
 run, and when either env var is unset the collector logs a skip and moves on

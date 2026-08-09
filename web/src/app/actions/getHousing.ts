@@ -1,7 +1,7 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
-import { GetHousingOverviewResponseSchema, GetPriceDropsOverviewResponseSchema, ListSuburbPriceDropsResponseSchema, ListAgencyPriceStatsResponseSchema, ListAddressPriceDropsResponseSchema, type GetHousingOverviewResponse, type GetHousePriceSeriesResponse, type ListStateSuburbsResponse, type GetSuburbProfileResponse, type ListSuburbPriceDropsResponse, type ListSuburbDropListingsResponse, type GetPriceDropsOverviewResponse, type ListAgencyPriceStatsResponse, type ListAddressPriceDropsResponse } from "~/gen/shorts/v1alpha1/housing_pb";
+import { GetHousingOverviewResponseSchema, GetPriceDropsOverviewResponseSchema, ListSuburbPriceDropsResponseSchema, type GetHousingOverviewResponse, type GetHousePriceSeriesResponse, type ListStateSuburbsResponse, type GetSuburbProfileResponse, type ListSuburbPriceDropsResponse, type ListSuburbDropListingsResponse, type GetPriceDropsOverviewResponse, type ListAgencyPriceStatsResponse, type ListAddressPriceDropsResponse } from "~/gen/shorts/v1alpha1/housing_pb";
 import { HousingService } from "~/gen/shorts/v1alpha1/housing_pb";
 import { cache } from "react";
 import {
@@ -131,15 +131,14 @@ export const getSuburbProfile = cache(
   ),
 );
 
-// The /price-drops board is static ISR (data changes ~once/day after the crawl),
-// so its three server actions get the same treatment as getHousingOverview:
+// The /price-drops board is static ISR (data changes ~once/day after the crawl).
+// Its anonymous aggregate actions get the same treatment as getHousingOverview:
 // skipForBuild() during the prerender, an Upstash KV layer keyed under
 // cache:housing:drops: (busted on the crawl event via
 // /api/revalidate?flush=housing), and the ISR-cacheable transport — WITHOUT the
 // `next:{revalidate}` tag serverFetchWithUserAgent forces cache:'no-store' on the
-// POST and silently opts the whole route back into dynamic rendering (the P1
-// trap). Cache the JSON projection (toJson) and fromJson-rehydrate so any int64
-// consumers keep working; on schema drift we fall through to a live fetch.
+// POST and silently opts the whole route back into dynamic rendering. Flag-gated
+// agency/address reads retain the ISR-cacheable transport but bypass shared KV.
 
 /** Suburbs ranked by recent for-sale asking-price drops (derived aggregate). */
 export const listSuburbPriceDrops = cache(
@@ -215,35 +214,19 @@ export const getPriceDropsOverview = cache(
   ),
 );
 
-/** Agencies ranked by recent asking-price cuts (derived aggregate). */
+/**
+ * Agencies ranked by recent asking-price cuts. This flag-gated surface carries
+ * agency/agent names, so it deliberately bypasses the shared 24h KV layer. The
+ * takedown runbook's revalidation clears ISR/Data Cache so subsequent renders
+ * reach the backend kill switch instead of replaying pre-takedown data.
+ */
 export const listAgencyPriceStats = cache(
   withRetryAndNotFound(
     async (stateCode: string = "", sort: string = "drops", limit: number = 20): Promise<ListAgencyPriceStatsResponse | undefined> => { // eslint-disable-line @typescript-eslint/no-inferrable-types
       if (skipForBuild()) return undefined;
 
-      const cacheKey = CACHE_KEYS.agencyPriceStats(stateCode, sort, limit);
-      const cached = await getCached<JsonValue>(cacheKey);
-      if (cached != null) {
-        try {
-          return fromJson(ListAgencyPriceStatsResponseSchema, cached);
-        } catch {
-          // Schema drift / bad entry — fall through to a live fetch.
-        }
-      }
-
       const client = createCacheableHousingClient();
-      const resp = await client.listAgencyPriceStats({ stateCode, sort, limit });
-      // Never cache an EMPTY response (same guard as getHousingOverview). Also
-      // covers the kill switch: a flagged-off backend returns [] and must not
-      // pin the agency board's KV entry.
-      if (resp.agencies.length > 0) {
-        try {
-          void setCached(cacheKey, toJson(ListAgencyPriceStatsResponseSchema, resp), PRICE_DROPS_TTL);
-        } catch {
-          // Serialization/caching must never break the request.
-        }
-      }
-      return resp;
+      return client.listAgencyPriceStats({ stateCode, sort, limit });
     },
   ),
 );
@@ -251,35 +234,17 @@ export const listAgencyPriceStats = cache(
 /**
  * Individual addresses ranked by asking-price drop — the /price-drops address
  * board's default (all-states, biggest-%) view, fetched server-side to seed the
- * client board without a first-paint round-trip. Same KV+ISR treatment as above.
+ * client board without a first-paint round-trip. Like the agency read, it
+ * bypasses shared KV; the takedown revalidation clears ISR/Data Cache so later
+ * renders consult the backend kill switch.
  */
 export const listAddressPriceDrops = cache(
   withRetryAndNotFound(
     async (stateCode: string = "", windowDays: number = 90, limit: number = 50, sort: string = "pct"): Promise<ListAddressPriceDropsResponse | undefined> => { // eslint-disable-line @typescript-eslint/no-inferrable-types
       if (skipForBuild()) return undefined;
 
-      const cacheKey = CACHE_KEYS.addressPriceDrops(stateCode, windowDays, limit, sort);
-      const cached = await getCached<JsonValue>(cacheKey);
-      if (cached != null) {
-        try {
-          return fromJson(ListAddressPriceDropsResponseSchema, cached);
-        } catch {
-          // Schema drift / bad entry — fall through to a live fetch.
-        }
-      }
-
       const client = createCacheableHousingClient();
-      const resp = await client.listAddressPriceDrops({ stateCode, windowDays, limit, sort });
-      // Never cache an EMPTY response (same guard as getHousingOverview + the
-      // kill-switch case — [] must not pin the board's KV entry).
-      if (resp.addresses.length > 0) {
-        try {
-          void setCached(cacheKey, toJson(ListAddressPriceDropsResponseSchema, resp), PRICE_DROPS_TTL);
-        } catch {
-          // Serialization/caching must never break the request.
-        }
-      }
-      return resp;
+      return client.listAddressPriceDrops({ stateCode, windowDays, limit, sort });
     },
   ),
 );

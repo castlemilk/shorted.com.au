@@ -53,7 +53,6 @@ func PingRevalidate(req RevalidateRequest) {
 	}
 
 	q := url.Values{}
-	q.Set("secret", secret)
 	if len(req.Paths) > 0 {
 		q.Set("path", strings.Join(req.Paths, ","))
 	}
@@ -63,12 +62,6 @@ func PingRevalidate(req RevalidateRequest) {
 	if req.Tag != "" {
 		q.Set("tag", req.Tag)
 	}
-	//
-	// TODO: the secret rides in the QUERY STRING because that is what the web
-	// tier's /api/revalidate reads. Moving it to a header (and keeping the query
-	// param as a deprecated fallback) needs a matching web-side change, so it is
-	// a follow-up; until then errors from this request MUST be redacted before
-	// logging (see redactURLError) — *url.Error embeds the full URL.
 	reqURL := endpoint + "?" + q.Encode()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
@@ -80,6 +73,7 @@ func PingRevalidate(req RevalidateRequest) {
 		return
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("X-Revalidate-Secret", secret)
 
 	resp, err := http.DefaultClient.Do(httpReq)
 	if err != nil {
@@ -97,10 +91,9 @@ func PingRevalidate(req RevalidateRequest) {
 	log.Printf("[revalidate:%s] cache bust ok (status %d)", req.Reason, resp.StatusCode)
 }
 
-// redactURLError strips the URL out of transport errors before they are logged.
-// net/http wraps failures in *url.Error, whose Error() renders the FULL request
-// URL — including the ?secret=... query param. Logging that raw would leak the
-// revalidation secret into Cloud Run logs.
+// redactURLError keeps endpoint details out of transport-error logs. The secret
+// now rides in a header, but retaining URL redaction avoids leaking other query
+// inputs or deployment host details.
 func redactURLError(err error) error {
 	var uerr *url.Error
 	if errors.As(err, &uerr) {

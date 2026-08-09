@@ -167,8 +167,8 @@ type SuburbSummaryRow struct {
 	NearestTrainKm       float64
 	// Declared properties resolving to this suburb (registers of interests).
 	PoliticianPropertyCount int32
-	NearestHospitalKm    float64
-	DistToCoastKm        float64
+	NearestHospitalKm       float64
+	DistToCoastKm           float64
 	// school sector/type split (per-state CC-BY open data)
 	SchoolsGov         int32
 	SchoolsCatholic    int32
@@ -461,9 +461,13 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 	}
 	if sim, err := s.similarSuburbs(ctx, salCode, 6); err == nil {
 		p.Similar = sim
+	} else {
+		log.Warnf("GetSuburbProfile(%s): similar suburbs unavailable: %v", salCode, err)
 	}
 	if crime, err := s.suburbCrime(ctx, salCode); err == nil {
 		p.Crime = crime
+	} else {
+		log.Warnf("GetSuburbProfile(%s): suburb crime unavailable: %v", salCode, err)
 	}
 	return &p, nil
 }
@@ -962,6 +966,7 @@ func (s *postgresStore) GetPropertyHistory(addressKey string) (*PropertyHistoryR
 		       COALESCE(listing_status, ''), COALESCE(prev_status, '')
 		FROM property_price_events
 		WHERE address_key = $1
+		  AND (event_type <> 'price_drop' OR COALESCE(drop_pct, 0) <= 0.40)
 		ORDER BY observed_at ASC, id ASC`
 
 	rows, err := s.db.Query(ctx, eventsQuery, addressKey)

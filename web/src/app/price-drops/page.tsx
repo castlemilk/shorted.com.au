@@ -26,8 +26,9 @@ const DESCRIPTION =
   "Where Australian asking prices are falling: price cuts ranked by state, suburb, individual address and real-estate agency, tracked daily from realestate.com.au and Domain listings.";
 
 // Static ISR — the price-drop corpus changes ~once/day after the crawl re-ingest,
-// so the three server fetches are KV-cached (getHousing.ts) and the route is
-// prerendered. We deliberately do NOT read the request query in this server page
+// so anonymous aggregate fetches are KV-cached while flag-gated agency/address
+// fetches consult the backend on each render; the route itself is prerendered.
+// We deliberately do NOT read the request query in this server page
 // (doing so forces dynamic rendering). The ?state= deep link is instead read
 // client-side by AddressDropsBoard (under a Suspense boundary). Busted on the
 // crawl event via /api/revalidate?path=/price-drops&flush=housing and warmed

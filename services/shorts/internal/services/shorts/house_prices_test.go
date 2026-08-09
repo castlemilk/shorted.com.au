@@ -49,6 +49,209 @@ func TestListStateSuburbs_MapsCrimeRanks(t *testing.T) {
 	}
 }
 
+func TestHousingHandlers_NormalizeBeforeStoreAndCache(t *testing.T) {
+	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "true")
+
+	t.Run("overview", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		store := mocks.NewMockShortsStore(ctrl)
+		store.EXPECT().GetHousingOverview("state").Return([]*shortsstore.HousingMetricRow{}, nil).Times(1)
+		srv := newTestServer(t, store)
+		for _, regionType := range []string{" STATE ", "state"} {
+			if _, err := srv.GetHousingOverview(context.Background(), connect.NewRequest(
+				&shortsv1alpha1.GetHousingOverviewRequest{RegionType: regionType})); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		}
+	})
+
+	t.Run("state suburbs", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		store := mocks.NewMockShortsStore(ctrl)
+		store.EXPECT().ListStateSuburbs("NSW", "", int32(5000)).Return([]*shortsstore.SuburbSummaryRow{}, nil).Times(1)
+		srv := newTestServer(t, store)
+		for _, req := range []*shortsv1alpha1.ListStateSuburbsRequest{
+			{StateCode: " nsw ", Limit: 0},
+			{StateCode: "NSW", Limit: 5000},
+		} {
+			if _, err := srv.ListStateSuburbs(context.Background(), connect.NewRequest(req)); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		}
+	})
+
+	t.Run("housing regions", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		store := mocks.NewMockShortsStore(ctrl)
+		store.EXPECT().GetHousingRegions("suburb", "SA", "", int32(2000)).Return([]*shortsstore.HousingRegionRow{}, nil).Times(1)
+		srv := newTestServer(t, store)
+		for _, req := range []*shortsv1alpha1.ListHousingRegionsRequest{
+			{RegionType: " SUBURB ", StateCode: " sa ", Limit: 0},
+			{RegionType: "suburb", StateCode: "SA", Limit: 2000},
+		} {
+			if _, err := srv.ListHousingRegions(context.Background(), connect.NewRequest(req)); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		}
+	})
+
+	t.Run("suburb drops", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		store := mocks.NewMockShortsStore(ctrl)
+		store.EXPECT().ListSuburbPriceDrops("VIC", "asking", int32(50)).Return([]*shortsstore.SuburbPriceDropRow{}, nil).Times(1)
+		srv := newTestServer(t, store)
+		for _, req := range []*shortsv1alpha1.ListSuburbPriceDropsRequest{
+			{StateCode: " vic ", Sort: " ASKING ", Limit: 0},
+			{StateCode: "VIC", Sort: "asking", Limit: 50},
+		} {
+			if _, err := srv.ListSuburbPriceDrops(context.Background(), connect.NewRequest(req)); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		}
+	})
+
+	t.Run("suburb drop listings", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		store := mocks.NewMockShortsStore(ctrl)
+		store.EXPECT().ListSuburbDropListings("123", "SUBURB:VIC-RICHMOND", int32(30), int32(30)).Return([]*shortsstore.SuburbDropListingRow{}, nil).Times(1)
+		srv := newTestServer(t, store)
+		for _, req := range []*shortsv1alpha1.ListSuburbDropListingsRequest{
+			{SalCode: " 123 ", RegionCode: " suburb:vic-richmond ", WindowDays: 0, Limit: 0},
+			{SalCode: "123", RegionCode: "SUBURB:VIC-RICHMOND", WindowDays: 30, Limit: 30},
+		} {
+			if _, err := srv.ListSuburbDropListings(context.Background(), connect.NewRequest(req)); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		}
+	})
+
+	t.Run("address drops", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		store := mocks.NewMockShortsStore(ctrl)
+		store.EXPECT().ListAddressPriceDrops("NSW", "recent", int32(90), int32(50)).Return([]*shortsstore.AddressPriceDropRow{}, nil).Times(1)
+		srv := newTestServer(t, store)
+		for _, req := range []*shortsv1alpha1.ListAddressPriceDropsRequest{
+			{StateCode: " nsw ", Sort: " RECENT ", WindowDays: 0, Limit: 0},
+			{StateCode: "NSW", Sort: "recent", WindowDays: 90, Limit: 50},
+		} {
+			if _, err := srv.ListAddressPriceDrops(context.Background(), connect.NewRequest(req)); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		}
+	})
+
+	t.Run("agency stats", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		store := mocks.NewMockShortsStore(ctrl)
+		store.EXPECT().ListAgencyPriceStats("QLD", "avg_cut", int32(20)).Return([]*shortsstore.AgencyPriceStatsRow{}, nil).Times(1)
+		srv := newTestServer(t, store)
+		for _, req := range []*shortsv1alpha1.ListAgencyPriceStatsRequest{
+			{StateCode: " qld ", Sort: " AVG_CUT ", Limit: 0},
+			{StateCode: "QLD", Sort: "avg_cut", Limit: 20},
+		} {
+			if _, err := srv.ListAgencyPriceStats(context.Background(), connect.NewRequest(req)); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		}
+	})
+
+	t.Run("property history", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		store := mocks.NewMockShortsStore(ctrl)
+		store.EXPECT().GetPropertyHistory("vic-richmond-1-smith-st").Return(&shortsstore.PropertyHistoryResult{
+			AddressKey: "vic-richmond-1-smith-st",
+			Current:    &shortsstore.PropertyListingSnapshotRow{ListingID: "listing-1"},
+		}, nil).Times(1)
+		srv := newTestServer(t, store)
+		for _, addressKey := range []string{" VIC-RICHMOND-1-SMITH-ST ", "vic-richmond-1-smith-st"} {
+			if _, err := srv.GetPropertyHistory(context.Background(), connect.NewRequest(
+				&shortsv1alpha1.GetPropertyHistoryRequest{AddressKey: addressKey})); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		}
+	})
+}
+
+func TestHousingHandlers_RejectMalformedStateCodes(t *testing.T) {
+	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "true")
+
+	tests := []struct {
+		name string
+		call func(*ShortsServer) error
+	}{
+		{"state suburbs", func(s *ShortsServer) error {
+			_, err := s.ListStateSuburbs(context.Background(), connect.NewRequest(&shortsv1alpha1.ListStateSuburbsRequest{StateCode: "Atlantis"}))
+			return err
+		}},
+		{"housing regions", func(s *ShortsServer) error {
+			_, err := s.ListHousingRegions(context.Background(), connect.NewRequest(&shortsv1alpha1.ListHousingRegionsRequest{StateCode: "XX"}))
+			return err
+		}},
+		{"housing overview region type", func(s *ShortsServer) error {
+			_, err := s.GetHousingOverview(context.Background(), connect.NewRequest(&shortsv1alpha1.GetHousingOverviewRequest{RegionType: "postcode"}))
+			return err
+		}},
+		{"suburb drops", func(s *ShortsServer) error {
+			_, err := s.ListSuburbPriceDrops(context.Background(), connect.NewRequest(&shortsv1alpha1.ListSuburbPriceDropsRequest{StateCode: "AU"}))
+			return err
+		}},
+		{"address drops", func(s *ShortsServer) error {
+			_, err := s.ListAddressPriceDrops(context.Background(), connect.NewRequest(&shortsv1alpha1.ListAddressPriceDropsRequest{StateCode: "V1C"}))
+			return err
+		}},
+		{"agency stats", func(s *ShortsServer) error {
+			_, err := s.ListAgencyPriceStats(context.Background(), connect.NewRequest(&shortsv1alpha1.ListAgencyPriceStatsRequest{StateCode: "ZZ"}))
+			return err
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			srv := newTestServer(t, mocks.NewMockShortsStore(ctrl))
+			if err := tt.call(srv); connect.CodeOf(err) != connect.CodeInvalidArgument {
+				t.Fatalf("want InvalidArgument, got %v", err)
+			}
+		})
+	}
+}
+
+func TestHousingSearchQueriesBypassMemoryCache(t *testing.T) {
+	t.Run("state suburbs", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		store := mocks.NewMockShortsStore(ctrl)
+		store.EXPECT().ListStateSuburbs("NSW", "new town", int32(5000)).Return([]*shortsstore.SuburbSummaryRow{}, nil).Times(2)
+		srv := newTestServer(t, store)
+
+		for _, query := range []string{" New   Town ", "new town"} {
+			if _, err := srv.ListStateSuburbs(context.Background(), connect.NewRequest(
+				&shortsv1alpha1.ListStateSuburbsRequest{StateCode: "nsw", Query: query})); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		}
+		if got := srv.cache.Size(); got != 0 {
+			t.Fatalf("free-text searches must not fill the shared cache, size = %d", got)
+		}
+	})
+
+	t.Run("housing regions", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		store := mocks.NewMockShortsStore(ctrl)
+		store.EXPECT().GetHousingRegions("suburb", "VIC", "new town", int32(2000)).Return([]*shortsstore.HousingRegionRow{}, nil).Times(2)
+		srv := newTestServer(t, store)
+
+		for _, query := range []string{" New   Town ", "new town"} {
+			if _, err := srv.ListHousingRegions(context.Background(), connect.NewRequest(
+				&shortsv1alpha1.ListHousingRegionsRequest{RegionType: "suburb", StateCode: "vic", Query: query})); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		}
+		if got := srv.cache.Size(); got != 0 {
+			t.Fatalf("free-text searches must not fill the shared cache, size = %d", got)
+		}
+	})
+}
+
 // TestGetPropertyHistory_FlagGate_ReturnsEmptyWhenDisabled asserts GetPropertyHistory
 // reads the SAME ToS-restricted per-listing data as ListSuburbDropListings, so the
 // HOUSING_DROP_LISTINGS_ENABLED kill switch (enabled by default, an explicit
@@ -73,8 +276,8 @@ func TestGetPropertyHistory_FlagGate_ReturnsEmptyWhenDisabled(t *testing.T) {
 	}
 }
 
-// TestGetPropertyHistory_RequiresAddressKey asserts an empty address_key returns
-// an empty response (not an error) even with the flag enabled.
+// TestGetPropertyHistory_RequiresAddressKey asserts malformed requests are not
+// indistinguishable from an unknown/disabled address surface.
 func TestGetPropertyHistory_RequiresAddressKey(t *testing.T) {
 	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "true")
 
@@ -83,13 +286,35 @@ func TestGetPropertyHistory_RequiresAddressKey(t *testing.T) {
 	mockStore := mocks.NewMockShortsStore(ctrl)
 	srv := newTestServer(t, mockStore)
 
-	resp, err := srv.GetPropertyHistory(context.Background(),
-		connect.NewRequest(&shortsv1alpha1.GetPropertyHistoryRequest{AddressKey: ""}))
-	if err != nil {
-		t.Fatalf("want nil error for empty address_key, got %v", err)
+	_, err := srv.GetPropertyHistory(context.Background(),
+		connect.NewRequest(&shortsv1alpha1.GetPropertyHistoryRequest{AddressKey: "  "}))
+	if connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Fatalf("want InvalidArgument for empty address_key, got %v", err)
 	}
-	if resp.Msg.AddressKey != "" {
-		t.Fatalf("want empty response for empty address_key, got %+v", resp.Msg)
+}
+
+func TestGetPropertyHistory_EmptyResultIsNotCached(t *testing.T) {
+	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "true")
+	t.Setenv("HOUSING_VALUATIONS_ENABLED", "false")
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	mockStore.EXPECT().GetPropertyHistory("missing-address").Return(&shortsstore.PropertyHistoryResult{}, nil).Times(2)
+
+	srv := newTestServer(t, mockStore)
+	for range 2 {
+		resp, err := srv.GetPropertyHistory(context.Background(),
+			connect.NewRequest(&shortsv1alpha1.GetPropertyHistoryRequest{AddressKey: " missing-address "}))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if resp.Msg.Current != nil {
+			t.Fatalf("want empty unknown-address response, got %+v", resp.Msg)
+		}
+	}
+	if got := srv.cache.Size(); got != 0 {
+		t.Fatalf("empty property history must not be cached, cache size = %d", got)
 	}
 }
 
@@ -219,7 +444,7 @@ func propertyHistoryForValuation(addressKey string) *shortsstore.PropertyHistory
 
 func TestGetPropertyHistory_ValuationExact_MapsAllFields(t *testing.T) {
 	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "true")
-	t.Setenv("HOUSING_VALUATIONS_ENABLED", "")
+	t.Setenv("HOUSING_VALUATIONS_ENABLED", "true")
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -275,7 +500,7 @@ func TestGetPropertyHistory_ValuationExact_MapsAllFields(t *testing.T) {
 
 func TestGetPropertyHistory_ValuationBuilding_PreservesGranularity(t *testing.T) {
 	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "true")
-	t.Setenv("HOUSING_VALUATIONS_ENABLED", "")
+	t.Setenv("HOUSING_VALUATIONS_ENABLED", "true")
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -302,7 +527,7 @@ func TestGetPropertyHistory_ValuationBuilding_PreservesGranularity(t *testing.T)
 
 func TestGetPropertyHistory_ValuationMissing_KeepsHistory(t *testing.T) {
 	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "true")
-	t.Setenv("HOUSING_VALUATIONS_ENABLED", "")
+	t.Setenv("HOUSING_VALUATIONS_ENABLED", "true")
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -328,7 +553,7 @@ func TestGetPropertyHistory_ValuationMissing_KeepsHistory(t *testing.T) {
 
 func TestGetPropertyHistory_ValuationError_IsWarnOnly(t *testing.T) {
 	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "true")
-	t.Setenv("HOUSING_VALUATIONS_ENABLED", "")
+	t.Setenv("HOUSING_VALUATIONS_ENABLED", "true")
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -381,7 +606,7 @@ func TestGetPropertyHistory_ValuationFlagDisabled_SkipsStore(t *testing.T) {
 
 func TestGetPropertyHistory_ValuationSalesHistory_MapsUndisclosedPrice(t *testing.T) {
 	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "true")
-	t.Setenv("HOUSING_VALUATIONS_ENABLED", "")
+	t.Setenv("HOUSING_VALUATIONS_ENABLED", "true")
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -413,6 +638,87 @@ func TestGetPropertyHistory_ValuationSalesHistory_MapsUndisclosedPrice(t *testin
 	}
 	if got := resp.Msg.Valuation.SalesHistory[1]; got.Price != 0 || got.EventType != "Listed for sale" {
 		t.Fatalf("want nil price mapped to zero, got %+v", got)
+	}
+}
+
+func TestGetPropertyHistory_ValuationDefaultsOff(t *testing.T) {
+	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "true")
+	t.Setenv("HOUSING_VALUATIONS_ENABLED", "")
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	const addressKey = "1-smith-street-richmond-vic-3121"
+	mockStore.EXPECT().GetPropertyHistory(addressKey).Return(propertyHistoryForValuation(addressKey), nil)
+
+	srv := newTestServer(t, mockStore)
+	resp, err := srv.GetPropertyHistory(context.Background(),
+		connect.NewRequest(&shortsv1alpha1.GetPropertyHistoryRequest{AddressKey: addressKey}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Msg.Valuation != nil {
+		t.Fatalf("valuation must require explicit opt-in, got %+v", resp.Msg.Valuation)
+	}
+}
+
+func TestGetPropertyHistory_ValuationKillSwitchRedactsWarmCache(t *testing.T) {
+	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "true")
+	t.Setenv("HOUSING_VALUATIONS_ENABLED", "true")
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	const addressKey = "1-smith-street-richmond-vic-3121"
+	mockStore.EXPECT().GetPropertyHistory(addressKey).Return(propertyHistoryForValuation(addressKey), nil).Times(1)
+	mockStore.EXPECT().GetPropertyValuation(addressKey).Return(&shortsstore.PropertyValuationRow{
+		FetchedAt:   time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC),
+		EstimateMid: 1_200_000,
+	}, nil).Times(1)
+
+	srv := newTestServer(t, mockStore)
+	first, err := srv.GetPropertyHistory(context.Background(),
+		connect.NewRequest(&shortsv1alpha1.GetPropertyHistoryRequest{AddressKey: addressKey}))
+	if err != nil || first.Msg.Valuation == nil {
+		t.Fatalf("want explicitly enabled valuation, got response=%+v err=%v", first, err)
+	}
+
+	t.Setenv("HOUSING_VALUATIONS_ENABLED", "false")
+	second, err := srv.GetPropertyHistory(context.Background(),
+		connect.NewRequest(&shortsv1alpha1.GetPropertyHistoryRequest{AddressKey: addressKey}))
+	if err != nil {
+		t.Fatalf("unexpected error after kill-switch flip: %v", err)
+	}
+	if second.Msg.Valuation != nil {
+		t.Fatalf("warm cached valuation survived kill-switch flip: %+v", second.Msg.Valuation)
+	}
+}
+
+func TestGetPropertyHistory_FiltersLikelyCorrectionEvents(t *testing.T) {
+	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "true")
+	t.Setenv("HOUSING_VALUATIONS_ENABLED", "false")
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	const addressKey = "1-smith-street-richmond-vic-3121"
+	history := propertyHistoryForValuation(addressKey)
+	history.Events = append(history.Events,
+		&shortsstore.PropertyPriceEventRow{EventType: "price_drop", DropPct: 0.40},
+		&shortsstore.PropertyPriceEventRow{EventType: "price_drop", DropPct: 0.91},
+	)
+	mockStore.EXPECT().GetPropertyHistory(addressKey).Return(history, nil)
+
+	srv := newTestServer(t, mockStore)
+	resp, err := srv.GetPropertyHistory(context.Background(),
+		connect.NewRequest(&shortsv1alpha1.GetPropertyHistoryRequest{AddressKey: addressKey}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, event := range resp.Msg.Events {
+		if event.EventType == "price_drop" && event.DropPct > 0.40 {
+			t.Fatalf("likely correction leaked into timeline: %+v", event)
+		}
 	}
 }
 
@@ -449,7 +755,7 @@ func TestListAddressPriceDrops_FlagEnabled_ReturnsRanked(t *testing.T) {
 	mockStore := mocks.NewMockShortsStore(ctrl)
 
 	lastObs := time.Date(2026, 3, 10, 0, 0, 0, 0, time.UTC)
-	mockStore.EXPECT().ListAddressPriceDrops("VIC", "", int32(90), int32(50)).Return([]*shortsstore.AddressPriceDropRow{
+	mockStore.EXPECT().ListAddressPriceDrops("VIC", "pct", int32(90), int32(50)).Return([]*shortsstore.AddressPriceDropRow{
 		{
 			AddressKey: "vic-brighton-1-centre-rd", DisplayAddress: "1 Centre Road",
 			Suburb: "Brighton", StateCode: "VIC", Postcode: "3186",
