@@ -296,6 +296,29 @@ export default async function HousingPage() {
           </>
         )}
 
+        <section>
+          <Link
+            href="/features/the-widow-maker"
+            className="group flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 p-5 transition-colors hover:border-primary/60"
+          >
+            <div>
+              <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-primary">
+                Featured investigation
+              </p>
+              <h2 className="mt-1 font-serif text-xl text-foreground">
+                Why betting against Australian housing keeps failing
+              </h2>
+              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                The tax settings, bank credit and global cautionary tales behind
+                Australia&apos;s widow-maker trade.
+              </p>
+            </div>
+            <span className="font-mono text-sm text-primary transition-transform group-hover:translate-x-0.5">
+              Read the investigation →
+            </span>
+          </Link>
+        </section>
+
         <p className="border-t border-border pt-4 text-xs text-muted-foreground">
           Sources: Australian Bureau of Statistics (Residential Dwellings, CC BY 4.0)
           and Reserve Bank of Australia. Quarterly; the most recent quarter may be

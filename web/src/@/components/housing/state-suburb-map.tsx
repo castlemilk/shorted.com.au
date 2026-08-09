@@ -75,11 +75,9 @@ export function StateSuburbMap({
     };
   }, [topo]);
 
-  // Suburb-level price coverage is SA & VIC only; other states have 0 priced
-  // suburbs, so defaulting to "price" paints a blank map. When a state has no
-  // priced suburbs, fall back to colouring by population (always populated from
-  // the Census) so the map is immediately useful — unless the user has picked a
-  // metric themselves.
+  // When the loaded state has no priced suburbs, defaulting to "price" paints a
+  // blank map. Fall back to population (always populated from the Census) so
+  // the map is immediately useful — unless the user picked a metric themselves.
   const userPickedMetric = useRef(false);
   useEffect(() => {
     if (userPickedMetric.current || suburbs.length === 0) return;

@@ -157,8 +157,8 @@ export function SuburbProfile({
               <HousingSeriesChart regionCode={chartRegion} measure="median_price" dwellingType="house" ariaLabel={`${s.salName} median house price`} format="aud" height={280} />
             ) : (
               <div className="flex h-[160px] flex-col items-center justify-center gap-1 text-center text-sm text-muted-foreground">
-                <p>No median price series for {stateName} suburbs yet.</p>
-                <p className="text-xs">Valuer-General price coverage currently spans <span className="text-foreground">SA &amp; VIC</span>.{b?.stateMedianPrice ? ` ${stateName} suburb median: ${fmtPriceShort(b.stateMedianPrice)}.` : ""}</p>
+                <p>No median price series for {s.salName} yet.</p>
+                <p className="text-xs">Valuer-General pricing is unavailable for this suburb.{b?.stateMedianPrice ? ` ${stateName} suburb median: ${fmtPriceShort(b.stateMedianPrice)}.` : ""}</p>
               </div>
             )}
           </div>
@@ -172,7 +172,6 @@ export function SuburbProfile({
               ["Household income / wk", d?.medianWeeklyHhdIncome ? fmtMoney(d.medianWeeklyHhdIncome) : "—", "income"],
             ]} />
             <DemoGroup title="Housing" icon="dwellings" stats={[
-              ["Dwellings", d?.dwellingCount ? d.dwellingCount.toLocaleString() : "—", "dwellings"],
               ["Median rent / wk", d?.medianWeeklyRent ? fmtMoney(d.medianWeeklyRent) : "—", "rent"],
               ["Mortgage / month", d?.medianMonthlyMortgage ? fmtMoney(d.medianMonthlyMortgage) : "—", "mortgage"],
             ]} />

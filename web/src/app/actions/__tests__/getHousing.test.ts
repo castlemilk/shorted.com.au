@@ -13,6 +13,8 @@ const createConnectTransportMock = jest.fn();
 const createClientMock = jest.fn();
 const clientMock = {
   getHousingOverview: jest.fn(),
+  getSuburbProfile: jest.fn(),
+  listStateSuburbs: jest.fn(),
 };
 
 jest.mock("@connectrpc/connect-web", () => ({
@@ -45,6 +47,8 @@ describe("housing server actions", () => {
     createConnectTransportMock.mockReturnValue({});
     createClientMock.mockReturnValue(clientMock);
     clientMock.getHousingOverview.mockResolvedValue({ metrics: [] });
+    clientMock.getSuburbProfile.mockResolvedValue({ summary: undefined });
+    clientMock.listStateSuburbs.mockResolvedValue({ suburbs: [] });
   });
 
   afterEach(() => {
@@ -106,5 +110,53 @@ describe("housing server actions", () => {
     const headers = fetchMock.mock.calls[0]?.[1]?.headers as Headers;
     expect(headers.get("User-Agent")).toBe("shorted-web-ssr/1.0 (+https://shorted.com.au)");
     expect(headers.get("X-Shorted-Test")).toBe("1");
+  });
+
+  it("resolves already-indexed suburb slugs with one trailing hyphen", async () => {
+    clientMock.listStateSuburbs.mockResolvedValue({
+      suburbs: [{
+        salCode: "206041122",
+        salName: "Abbotsford (Vic.)",
+        postcode: "",
+      }],
+    });
+    const { resolveSuburbSalCode } = await import("../getHousing");
+
+    await expect(resolveSuburbSalCode("VIC", "abbotsford-vic-")).resolves.toBe("206041122");
+  });
+
+  it("returns null only when a suburb slug is a genuine miss", async () => {
+    clientMock.listStateSuburbs.mockResolvedValue({ suburbs: [] });
+    const { resolveSuburbSalCode } = await import("../getHousing");
+
+    await expect(resolveSuburbSalCode("VIC", "not-a-real-suburb")).resolves.toBeNull();
+  });
+
+  it("throws when the state suburb index is unavailable", async () => {
+    clientMock.listStateSuburbs.mockRejectedValue(Object.assign(new Error("backend unavailable"), { code: 5 }));
+    const { resolveSuburbSalCode } = await import("../getHousing");
+
+    await expect(resolveSuburbSalCode("VIC", "abbotsford-vic")).rejects.toThrow(
+      "Unable to resolve suburb slug",
+    );
+  });
+
+  it("marks suburb list and profile RPC fetches as ISR-cacheable", async () => {
+    const { getSuburbProfile, listStateSuburbs } = await import("../getHousing");
+    await listStateSuburbs("VIC", "", 5000);
+    await getSuburbProfile("206041122");
+
+    for (const call of createConnectTransportMock.mock.calls.slice(0, 2)) {
+      const transportFetch = call[0]?.fetch as typeof fetch;
+      const fetchMock = jest.fn().mockResolvedValue(new Response("{}"));
+      global.fetch = fetchMock;
+      await transportFetch("https://shorts-prod.run.app/shorts.v1alpha1.HousingService/Test", {
+        method: "POST",
+      });
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ next: { revalidate: 86400 } }),
+      );
+    }
   });
 });

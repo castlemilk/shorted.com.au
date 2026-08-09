@@ -415,6 +415,36 @@ export default function WidowMakerFeature() {
             show up first.
           </p>
 
+          <div className="mt-10 rounded-xl border border-primary/30 bg-primary/5 p-6 shadow-amber-sm">
+            <p className="font-serif text-lg text-foreground">
+              Follow the housing market in live data.
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Explore suburb prices and demographics, current asking-price cuts,
+              or model a deposit and mortgage.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2 font-mono text-sm">
+              <Link
+                href="/housing"
+                className="rounded-md border border-border bg-background px-3 py-1.5 text-foreground transition-colors hover:border-primary hover:text-primary"
+              >
+                House prices →
+              </Link>
+              <Link
+                href="/price-drops"
+                className="rounded-md border border-border bg-background px-3 py-1.5 text-foreground transition-colors hover:border-primary hover:text-primary"
+              >
+                Price drops →
+              </Link>
+              <Link
+                href="/housing/calculators"
+                className="rounded-md border border-border bg-background px-3 py-1.5 text-foreground transition-colors hover:border-primary hover:text-primary"
+              >
+                Calculators →
+              </Link>
+            </div>
+          </div>
+
           <div className="mt-10 rounded-xl border border-primary/30 bg-card p-6 shadow-amber-sm">
             <p className="font-serif text-lg text-foreground">
               Track the live short positions in the big four.

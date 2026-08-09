@@ -393,7 +393,19 @@ export default withBundleAnalyzer(
         "/housing/[state]/[suburb]/opengraph-image": [
           "./public/housing-banners/og/**/*",
         ],
-        "/housing/[state]/opengraph-image": ["./public/geo/states.topojson"],
+        "/housing/[state]/opengraph-image": [
+          "./public/geo/states.topojson",
+          "./public/icon-512.png",
+          "./public/logo.png",
+        ],
+        "/housing/calculators/opengraph-image": [
+          "./public/icon-512.png",
+          "./public/logo.png",
+        ],
+        "/price-drops/opengraph-image": [
+          "./public/icon-512.png",
+          "./public/logo.png",
+        ],
         "/economy/[state]/opengraph-image": ["./public/geo/states.topojson"],
       },
       // Externalize protobuf and connect packages to prevent SSR bundling issues

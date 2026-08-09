@@ -16,7 +16,7 @@ import {
   getCached,
   setCached,
 } from "@/lib/kv-cache";
-import { withRetryAndNotFound } from "./withRetry";
+import { withRetryAndNotFound, withRetryAndThrowNotFound } from "./withRetry";
 import { suburbSlug } from "@/lib/housing/states";
 
 function createHousingClient() {
@@ -34,14 +34,28 @@ function createHousingClient() {
 // visitor's TTFB despite `export const revalidate = 3600`. Tagging the fetch
 // revalidate-cacheable lets /housing render as static ISR (the sanctioned
 // pattern from getIndustryData / fetchTreeMap3m). Scoped to getHousingOverview
-// only — the suburb/state routes (listStateSuburbs/getSuburbProfile) keep the
-// default transport and their own generateStaticParams setup.
+// only — suburb profile routes use their separate daily on-demand ISR transport
+// below, while other housing actions retain the default transport.
 const isrHousingFetch: typeof fetch = (input, init) =>
   serverFetchWithUserAgent(input, { ...init, next: { revalidate: 3600 } });
+
+// The on-demand ISR suburb route regenerates daily. These requests must be
+// explicitly cacheable because Connect uses POST; an untagged POST becomes
+// `no-store` on Vercel and silently opts the route back into dynamic rendering.
+const suburbIsrFetch: typeof fetch = (input, init) =>
+  serverFetchWithUserAgent(input, { ...init, next: { revalidate: 86400 } });
 
 function createCacheableHousingClient() {
   const transport = createConnectTransport({
     fetch: isrHousingFetch,
+    baseUrl: SERVER_SHORTS_API_URL,
+  });
+  return createClient(HousingService, transport);
+}
+
+function createSuburbIsrHousingClient() {
+  const transport = createConnectTransport({
+    fetch: suburbIsrFetch,
     baseUrl: SERVER_SHORTS_API_URL,
   });
   return createClient(HousingService, transport);
@@ -115,7 +129,7 @@ export const getHousePriceSeries = cache(
 export const listStateSuburbs = cache(
   withRetryAndNotFound(
     async (stateCode: string, query: string = "", limit: number = 5000): Promise<ListStateSuburbsResponse> => { // eslint-disable-line @typescript-eslint/no-inferrable-types
-      const client = createHousingClient();
+      const client = createSuburbIsrHousingClient();
       return client.listStateSuburbs({ stateCode, query, limit });
     },
   ),
@@ -123,9 +137,9 @@ export const listStateSuburbs = cache(
 
 /** Full per-suburb profile by ABS SAL code. */
 export const getSuburbProfile = cache(
-  withRetryAndNotFound(
+  withRetryAndThrowNotFound(
     async (salCode: string): Promise<GetSuburbProfileResponse> => {
-      const client = createHousingClient();
+      const client = createSuburbIsrHousingClient();
       return client.getSuburbProfile({ salCode });
     },
   ),
@@ -291,8 +305,14 @@ export const listAddressPriceDrops = cache(
  */
 export const resolveSuburbSalCode = cache(
   async (stateCode: string, slug: string): Promise<string | null> => {
-    const res = await listStateSuburbs(stateCode, "", 5000).catch(() => null);
-    const match = res?.suburbs.find((s) => suburbSlug(s.salName, s.postcode) === slug);
+    const res = await listStateSuburbs(stateCode, "", 5000);
+    if (!res) {
+      throw new Error(`Unable to resolve suburb slug while ${stateCode} suburb data is unavailable`);
+    }
+    // Recover the bare trailing hyphen emitted by the old sitemap while Google
+    // and other crawlers replace those URLs with the canonical form.
+    const normalizedSlug = slug.endsWith("-") ? slug.slice(0, -1) : slug;
+    const match = res.suburbs.find((s) => suburbSlug(s.salName, s.postcode) === normalizedSlug);
     return match?.salCode ?? null;
   },
 );

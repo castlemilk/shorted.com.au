@@ -49,8 +49,8 @@ export default async function Image({
       stateName = STATE_NAMES[code] ?? code;
       const sal = await resolveSuburbSalCode(code, suburb);
       if (sal) {
-        // withRetryAndNotFound swallows all errors as `undefined` rather than
-        // throwing — guard explicitly rather than relying on the catch below.
+        // Transient failures return undefined and real misses throw; either way
+        // this best-effort card falls back to its slug-derived content.
         const profile = await getSuburbProfile(sal);
         if (profile?.summary?.salName) name = profile.summary.salName;
         if (profile?.banner?.archetype) archetype = profile.banner.archetype;
