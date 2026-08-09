@@ -3,19 +3,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { getHousePriceSeriesClient } from "~/app/actions/client/getHousingClient";
 import { ArticleSeriesChart } from "@/components/news/mdx/article-series-chart";
-
-// Formatter chosen by a serializable key — functions can't cross the
-// server→client component boundary, so the server page passes `format`.
-const FORMATTERS: Record<string, (v: number) => string> = {
-  aud: (v) =>
-    v >= 1_000_000
-      ? `$${(v / 1_000_000).toFixed(2)}M`
-      : v >= 1_000
-        ? `$${Math.round(v / 1000)}k`
-        : `$${Math.round(v)}`,
-  percent: (v) => `${v.toFixed(0)}%`,
-  index: (v) => v.toFixed(0),
-};
+import {
+  formatHousingValue,
+  toSeriesPoints,
+  transformSeries,
+  type HousingSeriesFormat,
+  type HousingSeriesTransform,
+} from "./series-data";
 
 /**
  * Fetches a single house-price series client-side and renders it as an amber
@@ -28,13 +22,15 @@ export function HousingSeriesChart({
   dwellingType = "",
   ariaLabel,
   format = "aud",
+  transform = "level",
   height = 280,
 }: {
   regionCode: string;
   measure: string;
   dwellingType?: string;
   ariaLabel: string;
-  format?: "aud" | "percent" | "index";
+  format?: HousingSeriesFormat;
+  transform?: HousingSeriesTransform;
   height?: number;
 }) {
   const { data, isLoading } = useQuery({
@@ -47,12 +43,7 @@ export function HousingSeriesChart({
     return <div className="w-full animate-pulse rounded bg-muted" style={{ height }} />;
   }
 
-  const points = (data?.points ?? [])
-    .map((p) => ({
-      date: new Date(Number(p.period?.seconds ?? 0n) * 1000),
-      value: p.value,
-    }))
-    .filter((p) => !Number.isNaN(p.date.getTime()));
+  const points = transformSeries(toSeriesPoints(data?.points ?? []), transform);
 
   if (points.length < 2) {
     return (
@@ -69,7 +60,7 @@ export function HousingSeriesChart({
     <ArticleSeriesChart
       points={points}
       ariaLabel={ariaLabel}
-      formatValue={FORMATTERS[format]}
+      formatValue={(value) => formatHousingValue(value, format)}
       height={height}
       gradientId={`housing-${regionCode}-${measure}`}
     />
