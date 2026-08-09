@@ -19,16 +19,34 @@ export const revalidate = 86400;
  * missing file degrades to the gradient-only look, never a 500.
  */
 export default async function Image() {
+  // INLINE LITERAL paths, not a loop over a path array: Vercel's file tracer
+  // only bundles what it can statically resolve, and the loop variant shipped
+  // to prod with no JPEG in the lambda — the card silently lost its scene.
+  // The per-suburb card's literal reads have traced correctly since it
+  // shipped; mirror them exactly.
   let bgDataUri = "";
-  for (const rel of [
-    join("public", "housing-banners", "og", "leafy-suburban.jpg"),
-    join("web", "public", "housing-banners", "og", "leafy-suburban.jpg"),
-  ]) {
+  try {
+    const p = join(
+      process.cwd(),
+      "public",
+      "housing-banners",
+      "og",
+      "leafy-suburban.jpg",
+    );
+    bgDataUri = `data:image/jpeg;base64,${readFileSync(p).toString("base64")}`;
+  } catch {
     try {
-      bgDataUri = `data:image/jpeg;base64,${readFileSync(join(process.cwd(), rel)).toString("base64")}`;
-      break;
+      const p = join(
+        process.cwd(),
+        "web",
+        "public",
+        "housing-banners",
+        "og",
+        "leafy-suburban.jpg",
+      );
+      bgDataUri = `data:image/jpeg;base64,${readFileSync(p).toString("base64")}`;
     } catch {
-      // try the next candidate
+      // fall back to the gradient-only look below
     }
   }
 
