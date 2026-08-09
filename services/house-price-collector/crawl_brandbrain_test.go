@@ -3,21 +3,29 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 )
 
 // These tests cover the fetch-INDEPENDENT brandbrain enrichment core: the
-// ExtractRealEstate client (POST + retry + decode) and the aggregate-field →
-// validated-Observation mapping. The real page FETCH is out of scope; the caller
-// supplies rawHTML.
+// counts/aggregate-only outbound contract, ExtractRealEstate client (POST + retry
+// + decode), and aggregate-field → validated-Observation mapping. The real page
+// FETCH is out of scope; the caller supplies rawHTML, which is projected locally.
 
 // bondi is the canonical CrawlTarget used across these tests. Its capital GCCSA
 // (1GSYD) is the key into the crawler's trusted ABS baseline map.
 var bondi = CrawlTarget{Suburb: "bondi", Display: "Bondi", Postcode: "2026", State: "NSW", Capital: "1GSYD"}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
 
 // Real Bondi suburb-aggregate numbers used as the canned brandbrain response.
 const (
@@ -86,6 +94,45 @@ func TestBrandbrain_ExtractRealEstate_ParsesBondi(t *testing.T) {
 	if l.RentalYield != bondiRentalYield || l.DaysOnMarket != bondiDaysOnMarket || l.AnnualGrowth != bondiAnnualGrowth {
 		t.Errorf("metrics = %.4f/%.0f/%.4f, want %.4f/%.0f/%.4f",
 			l.RentalYield, l.DaysOnMarket, l.AnnualGrowth, bondiRentalYield, bondiDaysOnMarket, bondiAnnualGrowth)
+	}
+}
+
+func TestBrandbrain_ExtractRealEstate_SendsAggregateOnlyPayload(t *testing.T) {
+	rawHTML := `<html><body><script>window.portal = {
+		"listing":{"id":"listing-id-must-not-cross","address":"10 Private Street","price":"$1,234,567","agent":{"name":"Private Agent"},"vendorSecret":"private-value"},
+		"suburbInsights":{"medianHousePrice":1850000,"medianUnitPrice":920000,"rentalYield":0.031,"avgDaysOnMarket":42,"auctionClearanceRate":0.67},
+		"encoded":"{\"annualGrowth\":0.045,\"address\":\"Nested Private Street\"}",
+		"listings_total":2,"totalResultsCount":104,"pageSize":25
+	};</script></body></html>`
+
+	originalClient := brandbrainHTTPClient
+	brandbrainHTTPClient = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		var req extractRealEstateReq
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+
+		for _, want := range []string{"median_house_price", "median_unit_price", "rental_yield", "days_on_market", "clearance_rate", "annual_growth", "listings_total", "total_results", "page_size"} {
+			if !strings.Contains(req.HTML, want) {
+				t.Errorf("aggregate payload missing %q: %s", want, req.HTML)
+			}
+		}
+		for _, forbidden := range []string{"listing-id-must-not-cross", "10 Private Street", "Nested Private Street", "$1,234,567", "Private Agent", "private-value", "vendorSecret"} {
+			if strings.Contains(req.HTML, forbidden) {
+				t.Errorf("listing-level field leaked to brandbrain: %q in %s", forbidden, req.HTML)
+			}
+		}
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(bondiExtractJSON())),
+		}, nil
+	})}
+	defer func() { brandbrainHTTPClient = originalClient }()
+
+	if _, err := extractRealEstate(context.Background(), "http://brandbrain.test/extract", rawHTML, bondi.reaURL(), "Bondi", "NSW"); err != nil {
+		t.Fatalf("extractRealEstate: %v", err)
 	}
 }
 

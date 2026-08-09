@@ -16,10 +16,11 @@ import (
 
 // These tests exercise the rewired Tier-3 crawl ORCHESTRATION end-to-end with a
 // fake htmlFetcher (canned HTML, no browser) and a fake brandbrain server (no live
-// REA/Domain). They assert that both sources are fetched, the rendered HTML is
-// routed to brandbrain's ExtractRealEstate, the returned aggregates are mapped to
-// Observations with the correct Source, and the pacing / circuit-breaker / dry-run
-// scaffolding still holds. NO browser and NO live anti-bot site are touched.
+// REA/Domain). They assert that both sources are fetched, an aggregate-only
+// projection is routed to brandbrain's ExtractRealEstate, the returned aggregates
+// are mapped to Observations with the correct Source, and the pacing /
+// circuit-breaker / dry-run scaffolding still holds. NO browser and NO live
+// anti-bot site are touched.
 
 // fakeFetcher is a scripted htmlFetcher: it returns canned HTML keyed by a
 // substring of the URL (so REA vs Domain can return different bodies), records
@@ -93,7 +94,7 @@ func brandbrainServer(t *testing.T, body string) (*httptest.Server, *int32) {
 			t.Errorf("brandbrain: bad request body: %v", err)
 		}
 		if req.HTML == "" {
-			t.Errorf("brandbrain: empty HTML forwarded")
+			t.Errorf("brandbrain: empty aggregate projection forwarded")
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(body))

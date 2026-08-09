@@ -548,6 +548,76 @@ func TestSweep_ThinPage1IsBlocked(t *testing.T) {
 	}
 }
 
+func TestSweep_PageClassificationMatrix(t *testing.T) {
+	tests := []struct {
+		name       string
+		source     string
+		urlFor     func(int) string
+		pages      map[string]string
+		wantStatus sweepStatus
+		wantBlocks int
+	}{
+		{
+			name:   "small suburb with authoritative on-target total is exhausted",
+			source: "rea",
+			urlFor: bondi.reaSearchURL,
+			pages: map[string]string{
+				bondi.reaSearchURL(1): reaPageWithMeta([]string{"a", "b"}, "2026", 104, 2, 25),
+			},
+			wantStatus: sweepComplete,
+			wantBlocks: 0,
+		},
+		{
+			name:   "poisoned early page that should have stock remains blocked",
+			source: "rea",
+			urlFor: bondi.reaSearchURL,
+			pages: map[string]string{
+				bondi.reaSearchURL(1): reaPageWithMeta([]string{"a", "b"}, "2026", 110, 8, 25),
+			},
+			wantStatus: sweepBlocked,
+			wantBlocks: 1,
+		},
+		{
+			name:   "healthy sweep completes",
+			source: "rea",
+			urlFor: bondi.reaSearchURL,
+			pages: map[string]string{
+				bondi.reaSearchURL(1): reaPageWithMeta([]string{"a", "b", "c", "d", "e"}, "2026", 105, 5, 25),
+			},
+			wantStatus: sweepComplete,
+			wantBlocks: 0,
+		},
+		{
+			name:   "late broadening preserves healthy inventory",
+			source: "domain",
+			urlFor: bondi.domainSearchURL,
+			pages: map[string]string{
+				bondi.domainSearchURL(1): domainPageHTML([]string{"a", "b", "c", "d", "e"}, "2026"),
+				bondi.domainSearchURL(2): domainPageHTML([]string{"f", "g", "h", "i", "j"}, "9999"),
+			},
+			wantStatus: sweepPartial,
+			wantBlocks: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lc := testLC()
+			lc.fetcher = &pagedFetcher{pages: tt.pages}
+			blocks := 0
+
+			sw := lc.sweepSuburbSource(context.Background(), bondi, tt.source, tt.urlFor, &blocks)
+
+			if sw.status != tt.wantStatus {
+				t.Errorf("status = %s, want %s", sw.status, tt.wantStatus)
+			}
+			if blocks != tt.wantBlocks {
+				t.Errorf("blocks = %d, want %d", blocks, tt.wantBlocks)
+			}
+		})
+	}
+}
+
 func TestSweep_MismatchPoisonIsBlocked(t *testing.T) {
 	// 5 listings, 3 with the WRONG postcode -> 60% mismatch -> poison -> blocked.
 	html := `<html><body><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"listings":[` +

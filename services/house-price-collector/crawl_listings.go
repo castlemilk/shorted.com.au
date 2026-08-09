@@ -614,6 +614,15 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 			return finish(sweepBlocked)
 		}
 		if page == 1 && len(matched) < lc.cfg.minPerPage {
+			// REA's listings_total is an authoritative on-target count. When it
+			// confirms that the entire suburb has fewer listings than the thin-page
+			// threshold, page 1 is genuine exhaustion rather than a Kasada stub.
+			// Stay conservative when metadata is absent (Domain), zero/unusable, or
+			// claims stock that the rendered page did not actually contain.
+			if metaOK && onTargetResults > 0 && onTargetResults < lc.cfg.minPerPage && onTargetResults <= len(matched) {
+				tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), Extracted: len(raw), Matched: len(matched), Mismatch: mismatch, TotalResults: totalResults, OnTargetResults: onTargetResults, WantPages: wantPages, Outcome: "ok", Status: sweepComplete.String(), Decision: "stop-thin-page1-exhausted"})
+				return finish(sweepComplete)
+			}
 			*blockCounter++ // page rendered but nothing believable — empty/poisoned
 			tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), Extracted: len(raw), Matched: len(matched), Mismatch: mismatch, TotalResults: totalResults, OnTargetResults: onTargetResults, WantPages: wantPages, Outcome: "ok", Status: sweepBlocked.String(), Decision: "stop-thin-page1"})
 			return finish(sweepBlocked)

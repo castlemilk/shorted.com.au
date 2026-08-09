@@ -9,13 +9,19 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
+	"strings"
 	"time"
+
+	"github.com/PuerkitoBio/goquery"
 )
 
 // crawl_brandbrain.go is the FETCH-INDEPENDENT enrichment core of the Tier-3
-// crawl: given already-fetched, real-browser-rendered suburb-page HTML, it calls
-// brandbrain's ExtractRealEstate RPC (an LLM extractor) and maps the suburb
-// AGGREGATE fields it returns into validated EAV Observations.
+// crawl: given already-fetched, real-browser-rendered suburb-page HTML, it
+// extracts an allowlisted counts/aggregate-only projection, calls brandbrain's
+// ExtractRealEstate RPC with that projection, and maps the suburb AGGREGATE
+// fields it returns into validated EAV Observations. Raw portal HTML and listing
+// rows never cross this boundary.
 //
 // The page FETCH is deliberately NOT wired here — the caller will pass `rawHTML`
 // from a real-browser fetch in a later step. This separation keeps the
@@ -69,23 +75,148 @@ type extractRealEstateReq struct {
 	StateHint  string `json:"state_hint"`
 }
 
+type brandbrainAggregateField struct {
+	Name  string `json:"name"`
+	Value any    `json:"value"`
+}
+
+type brandbrainMediansContract struct {
+	AggregateFields []brandbrainAggregateField `json:"aggregate_fields"`
+}
+
+// brandbrainMediansPayload reduces rendered portal HTML to an allowlisted set
+// of suburb aggregate metrics and result counts before it leaves the crawl rig.
+// It deliberately has no raw-page fallback: schema drift may cost the dormant
+// medians tier an observation, but must never silently widen the data contract
+// back to listing IDs, addresses, asking prices, agents, or arbitrary fields.
+func brandbrainMediansPayload(rawHTML string) string {
+	contract := brandbrainMediansContract{AggregateFields: []brandbrainAggregateField{}}
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(rawHTML))
+	if err == nil {
+		seen := make(map[string]struct{})
+		doc.Find("script").Each(func(_ int, script *goquery.Selection) {
+			for _, blob := range jsonBlobs(script.Text()) {
+				var value any
+				if err := json.Unmarshal([]byte(blob), &value); err == nil {
+					walkBrandbrainAggregates(value, &contract.AggregateFields, seen, 0)
+				}
+			}
+		})
+	}
+	payload, _ := json.Marshal(contract) // scalar allowlist values are always JSON-safe
+	return string(payload)
+}
+
+func walkBrandbrainAggregates(value any, fields *[]brandbrainAggregateField, seen map[string]struct{}, depth int) {
+	if depth > 40 {
+		return
+	}
+	switch typed := value.(type) {
+	case map[string]any:
+		keys := make([]string, 0, len(typed))
+		for key := range typed {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
+			child := typed[key]
+			if name := brandbrainAggregateName(key); name != "" && isBrandbrainAggregateScalar(child) {
+				encoded, _ := json.Marshal(child)
+				dedupeKey := name + "\x00" + string(encoded)
+				if _, exists := seen[dedupeKey]; !exists {
+					seen[dedupeKey] = struct{}{}
+					*fields = append(*fields, brandbrainAggregateField{Name: name, Value: child})
+				}
+			}
+			walkBrandbrainAggregates(child, fields, seen, depth+1)
+		}
+	case []any:
+		for _, child := range typed {
+			walkBrandbrainAggregates(child, fields, seen, depth+1)
+		}
+	case string:
+		trimmed := strings.TrimSpace(typed)
+		if len(trimmed) > 1 && (trimmed[0] == '{' || trimmed[0] == '[') {
+			var nested any
+			if err := json.Unmarshal([]byte(trimmed), &nested); err == nil {
+				walkBrandbrainAggregates(nested, fields, seen, depth+1)
+			}
+		}
+	}
+}
+
+func brandbrainAggregateName(key string) string {
+	normalized := strings.Map(func(r rune) rune {
+		switch {
+		case r >= 'A' && r <= 'Z':
+			return r + ('a' - 'A')
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+			return r
+		default:
+			return -1
+		}
+	}, key)
+
+	switch normalized {
+	case "listingstotal":
+		return "listings_total"
+	case "totalresultscount", "totalresults", "actualtotalresults", "totallistings":
+		return "total_results"
+	case "pagesize":
+		return "page_size"
+	case "totalpages", "maxpagenumberavailable":
+		return "total_pages"
+	}
+
+	switch {
+	case strings.Contains(normalized, "median") && strings.Contains(normalized, "price") && !strings.Contains(normalized, "rent"):
+		switch {
+		case strings.Contains(normalized, "house"):
+			return "median_house_price"
+		case strings.Contains(normalized, "unit"), strings.Contains(normalized, "apartment"):
+			return "median_unit_price"
+		default:
+			return "median_sale_price"
+		}
+	case strings.Contains(normalized, "rentalyield"):
+		return "rental_yield"
+	case strings.Contains(normalized, "daysonmarket"):
+		return "days_on_market"
+	case strings.Contains(normalized, "clearance") && strings.Contains(normalized, "rate"):
+		return "clearance_rate"
+	case strings.Contains(normalized, "annualgrowth"), strings.Contains(normalized, "pricegrowth"):
+		return "annual_growth"
+	default:
+		return ""
+	}
+}
+
+func isBrandbrainAggregateScalar(value any) bool {
+	switch value.(type) {
+	case float64, string, bool:
+		return true
+	default:
+		return false
+	}
+}
+
 // brandbrainBackoffs is the serial retry schedule for the (sometimes 502-ing
 // under load) brandbrain RPC: 3 tries total, sleeping 1s/3s/6s between them.
 var brandbrainBackoffs = []time.Duration{1 * time.Second, 3 * time.Second, 6 * time.Second}
 
 // brandbrainHTTPClient is the shared client for the RPC call. It has a generous
-// timeout because the extractor runs an LLM over a full rendered page.
+// timeout because the extractor still runs an LLM over the aggregate projection.
 var brandbrainHTTPClient = &http.Client{Timeout: 90 * time.Second}
 
-// extractRealEstate POSTs the rendered HTML to brandbrain's ExtractRealEstate RPC
-// and decodes the response. It retries on 5xx (brandbrain 502s under load) with
-// the 1s/3s/6s backoff; 4xx and decode errors fail fast.
+// extractRealEstate POSTs an aggregate-only projection to brandbrain's
+// ExtractRealEstate RPC and decodes the response. It retries on 5xx (brandbrain
+// 502s under load) with the 1s/3s/6s backoff; 4xx and decode errors fail fast.
 func extractRealEstate(ctx context.Context, endpoint, rawHTML, pageURL, suburb, state string) (*reaExtract, error) {
 	if endpoint == "" {
 		endpoint = brandbrainEndpoint()
 	}
 	body, err := json.Marshal(extractRealEstateReq{
-		HTML:       rawHTML,
+		HTML:       brandbrainMediansPayload(rawHTML),
 		URL:        pageURL,
 		SuburbHint: suburb,
 		StateHint:  state,
