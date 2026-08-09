@@ -57,7 +57,11 @@ func run() int {
 	switch *mode {
 	case "official", "abs", "all":
 		runOfficial(ctx, pool)
+		vgFreshnessExitCode := assertOfficialVGFreshness(ctx, pool, vgFreshnessPolicies)
 		refresh(ctx, pool)
+		if vgFreshnessExitCode != 0 {
+			return 1
+		}
 	case "crawl":
 		// Supplementary suburb crawl — opt-in only, never part of the default
 		// scheduled run (it's slow, adversarial and licence-gated). Drives a HEADED,
