@@ -382,6 +382,19 @@ export default withBundleAnalyzer(
       outputFileTracingIncludes: {
         "/sitemap.xml": ["./_blogs/**/*"],
         "/feed.xml": ["./_blogs/**/*"],
+        // OG card assets. The scene JPEGs and the state-boundary topojson are
+        // read with readFileSync at REQUEST time inside opengraph-image
+        // lambdas, and nft does not trace those reads — measured on prod
+        // 2026-08-09: the suburb card had shipped scene-less since it landed,
+        // and the state silhouettes fell back to plain cards. Inline-literal
+        // paths did NOT fix it (tried); these explicit includes are the same
+        // mechanism the sitemap/feed routes above rely on.
+        "/housing/opengraph-image": ["./public/housing-banners/og/**/*"],
+        "/housing/[state]/[suburb]/opengraph-image": [
+          "./public/housing-banners/og/**/*",
+        ],
+        "/housing/[state]/opengraph-image": ["./public/geo/states.topojson"],
+        "/economy/[state]/opengraph-image": ["./public/geo/states.topojson"],
       },
       // Externalize protobuf and connect packages to prevent SSR bundling issues
       serverComponentsExternalPackages: [
