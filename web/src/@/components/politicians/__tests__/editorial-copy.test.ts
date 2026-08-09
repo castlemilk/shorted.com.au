@@ -54,15 +54,18 @@ const BANNED_VERBS =
   /\b(bribed?|bought influence|rigged|corrupt\w*|rorted|kickback|profit(?:ed|ing|s)?|insider|cash for|bet against|portfolio size|self-?enrich\w*|feathering)\b/i;
 
 /** Rule 5: no surface may state or imply a holding's magnitude. */
-const BANNED_MAGNITUDE = /\b(worth|valued at \$|portfolio value|holdings? worth|stake worth|net worth)\b/i;
+const BANNED_MAGNITUDE =
+  /\b(worth|valued at \$|portfolio value|holdings? worth|stake worth|net worth)\b/i;
 
 /** Strip code so an identifier like `shortPercent` cannot trip a prose rule. */
 function proseOnly(source: string): string {
-  return source
-    // JSX text and string literals are where prose lives; comments explain the
-    // rules themselves and legitimately quote the banned words.
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/^\s*\/\/.*$/gm, "");
+  return (
+    source
+      // JSX text and string literals are where prose lives; comments explain the
+      // rules themselves and legitimately quote the banned words.
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "")
+  );
 }
 
 /**
@@ -351,7 +354,22 @@ describe("politician surface copy", () => {
     // like the thirteen files beside it, and it names no member at all: each row
     // is a company code, its name, and a count of the MEMBERS declaring it, with
     // the "not an amount" footnote carried on the surface itself.
-    expect(FILES.length).toBe(49);
+    //
+    // 49 -> 53, the OG-card wave (2026-08-09): opengraph-image.tsx for
+    // `[slug]/`, `changes/`, `donations/` and `short-interest/` — the four
+    // politician routes that shipped NO og:image at all (their page-level
+    // openGraph config wipes any inherited image; a same-segment file is the
+    // only fix). All four hold the rule-8 exemption's bargain, stated at the
+    // top of this file: each card names NO parliamentarian and renders no
+    // individual's data — the [slug] card, on the one route that IS a person,
+    // deliberately renders the register-layer aggregate instead. Figures are
+    // register-wide counts with the hub tiles' own labels; the donations card
+    // carries no figures at all (currency stays off share cards even on the
+    // funding surface). RENDERING_SURFACES stays 10 — opengraph-image.tsx is
+    // name-excluded above. §6.2 editorial re-review covered the four
+    // eyebrow/title/subtitle/footer sets; every sentence is reused from
+    // reviewed page copy or restates the what-not-how-much rule.
+    expect(FILES.length).toBe(53);
     expect(RENDERING_SURFACES.length).toBe(10);
   });
 
@@ -382,18 +400,21 @@ describe("politician surface copy", () => {
    * party, is the kind of inconsistency a reader reasonably reads as an error in
    * the underlying data rather than in ours.
    */
-  it.each(FUNDING_SURFACES)("%s formats money through the one shared formatter", (name) => {
-    const file = FILES.find((f) => f.endsWith(name));
-    expect(file).toBeDefined();
-    const src = readFileSync(file!, "utf8");
-    // Either it formats amounts (via the shared module) or it renders none at
-    // all and merely passes them through.
-    if (/formatCents/.test(src)) {
-      expect(src).toMatch(/from "@\/lib\/politics\/funding-money"/);
-    }
-    // And never its own currency formatter, whichever way it is spelled.
-    expect(src).not.toMatch(/style:\s*["']currency["']/);
-  });
+  it.each(FUNDING_SURFACES)(
+    "%s formats money through the one shared formatter",
+    (name) => {
+      const file = FILES.find((f) => f.endsWith(name));
+      expect(file).toBeDefined();
+      const src = readFileSync(file!, "utf8");
+      // Either it formats amounts (via the shared module) or it renders none at
+      // all and merely passes them through.
+      if (/formatCents/.test(src)) {
+        expect(src).toMatch(/from "@\/lib\/politics\/funding-money"/);
+      }
+      // And never its own currency formatter, whichever way it is spelled.
+      expect(src).not.toMatch(/style:\s*["']currency["']/);
+    },
+  );
 
   // The activity explorer's exclusion above is conditional on this, exactly as
   // the hub's and the profile's are. The island renders every dated event on the
@@ -435,7 +456,10 @@ describe("politician surface copy", () => {
   // SourceLine, two surfaces that name parliamentarians lose their citation at
   // the same moment and nothing else would notice.
   it("the /politicians hub carries the citation its sections rely on", () => {
-    const hub = readFileSync(join(ROOT, "app", "politicians", "page.tsx"), "utf8");
+    const hub = readFileSync(
+      join(ROOT, "app", "politicians", "page.tsx"),
+      "utf8",
+    );
     expect(hub).toMatch(/<SourceLine/);
     for (const section of HUB_SECTIONS) {
       const importName = section.replace(/\.tsx$/, "");
@@ -464,10 +488,13 @@ describe("politician surface copy", () => {
    * can name parliamentarians, cite nothing, offer no dispute path, and still
    * pass every other assertion. state-politician-holdings.tsx did exactly that.
    */
-  it.each(RENDERING_SURFACES)("%s cites its source and offers a dispute path", (file) => {
-    const src = readFileSync(file, "utf8");
-    expect(src).toMatch(/<SourceLine|<ReportErrorLink/);
-  });
+  it.each(RENDERING_SURFACES)(
+    "%s cites its source and offers a dispute path",
+    (file) => {
+      const src = readFileSync(file, "utf8");
+      expect(src).toMatch(/<SourceLine|<ReportErrorLink/);
+    },
+  );
 
   it.each(FILES)("%s uses no accusatory verb", (file) => {
     const prose = proseOnly(readFileSync(file, "utf8"));
@@ -491,23 +518,30 @@ describe("politician surface copy", () => {
     // A guard on the exemption: a renamed or moved funding file would otherwise
     // silently rejoin the ban (a visible failure) or, worse, a register file
     // could be quietly added to the list. Both lists are pinned.
-    expect(FILES.length - REGISTER_ONLY_FILES.length).toBe(FUNDING_SURFACES.length);
+    expect(FILES.length - REGISTER_ONLY_FILES.length).toBe(
+      FUNDING_SURFACES.length,
+    );
   });
 
-  it.each(REGISTER_ONLY_FILES)("%s renders no currency amount for a holding", (file) => {
-    const prose = proseOnly(readFileSync(file, "utf8"));
-    // A "$" followed by a digit or a formatter in register copy would be a
-    // holding value. The registers record none, so there is nothing to format.
-    const match = prose.match(/\$\{?\s*\d|toLocaleString\([^)]*currency/i);
-    expect(match?.[0] ?? null).toBeNull();
-  });
+  it.each(REGISTER_ONLY_FILES)(
+    "%s renders no currency amount for a holding",
+    (file) => {
+      const prose = proseOnly(readFileSync(file, "utf8"));
+      // A "$" followed by a digit or a formatter in register copy would be a
+      // holding value. The registers record none, so there is nothing to format.
+      const match = prose.match(/\$\{?\s*\d|toLocaleString\([^)]*currency/i);
+      expect(match?.[0] ?? null).toBeNull();
+    },
+  );
 
   it("states the what-not-how-much constraint somewhere in the kit", () => {
     const compliance = readFileSync(
       join(ROOT, "@", "components", "politicians", "compliance.tsx"),
       "utf8",
     );
-    expect(compliance).toMatch(/never.{0,20}quantity|not.{0,20}record quantity/i);
+    expect(compliance).toMatch(
+      /never.{0,20}quantity|not.{0,20}record quantity/i,
+    );
   });
 
   it("locks the exact holder labels", () => {
@@ -534,6 +568,8 @@ describe("politician surface copy", () => {
       "utf8",
     );
     expect(compliance).toContain("Report an error");
-    expect(compliance).toMatch(/Parliament of\s*\n?\s*Australia|Parliament of Australia/);
+    expect(compliance).toMatch(
+      /Parliament of\s*\n?\s*Australia|Parliament of Australia/,
+    );
   });
 });
