@@ -571,6 +571,28 @@ func TestGetSuburbProfile_MapsCrimeAndEmbeddedSummaryRanks(t *testing.T) {
 	}
 }
 
+func TestGetSuburbProfile_MapsPoliticianPropertyCount(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	mockStore.EXPECT().GetSuburbProfile("121041416").Return(&shortsstore.SuburbProfileRow{
+		Summary: shortsstore.SuburbSummaryRow{
+			SALCode: "121041416", SALName: "Newtown", StateCode: "NSW",
+			PoliticianPropertyCount: 7,
+		},
+	}, nil)
+
+	srv := newTestServer(t, mockStore)
+	resp, err := srv.GetSuburbProfile(context.Background(),
+		connect.NewRequest(&shortsv1alpha1.GetSuburbProfileRequest{SalCode: "121041416"}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Msg.Summary.PoliticianPropertyCount != 7 {
+		t.Fatalf("want politician_property_count=7, got %d", resp.Msg.Summary.PoliticianPropertyCount)
+	}
+}
+
 func TestGetSuburbProfile_OmitsCrimeWhenNoReliableData(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

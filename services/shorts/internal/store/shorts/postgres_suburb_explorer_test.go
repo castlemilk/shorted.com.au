@@ -118,6 +118,13 @@ func setupSuburbExplorerSchema(t *testing.T, pool *pgxpool.Pool) {
 		fin_source          TEXT,
 		fin_year            TEXT
 	);
+
+	CREATE MATERIALIZED VIEW mv_register_suburb_property AS
+	SELECT '20604'::text AS sal_code,
+	       1::int AS declaring_member_count,
+	       2::int AS declared_property_count,
+	       2::int AS current_property_count,
+	       now() AS refreshed_at;
 	`
 	_, err := pool.Exec(ctx, schema)
 	require.NoError(t, err, "failed to create suburb-explorer schema")
@@ -199,6 +206,8 @@ func TestHousingLicenceGate_SuburbProfile(t *testing.T) {
 
 	assert.InDelta(t, 1250000.0, p.Summary.LatestMedianPrice, 0.5,
 		"headline median must be the public value")
+	assert.Equal(t, int32(2), p.Summary.PoliticianPropertyCount,
+		"profile summary must carry the register MV's declared-property count")
 
 	// State baseline = avg latest public median across priced VIC suburbs
 	// (RICHMOND 1,250,000; CROWNLAND excluded — proprietary only).
