@@ -477,11 +477,15 @@ export function PoliticianRegisterTable({
         if (entries.some((entry) => entry.isIntersecting))
           loadMoreRef.current();
       },
-      // ~1.3 window-heights of lead: the next append is in flight before the
-      // reader reaches the loaded rows' end, so the scroll never visibly
-      // stalls at a page boundary (240px started the fetch ~4 rows out, which
-      // was inside the stall).
-      { root: scrollRef.current, rootMargin: "1000px" },
+      // ~one window-height of lead: enough that the next append is in flight
+      // before the reader reaches the loaded rows' end (240px started the
+      // fetch ~4 rows out, inside the stall), but NOT enough to reach the
+      // sentinel on a freshly-landed page — 1000px pre-fired on load and the
+      // range line greeted readers with "Showing 1–125" before they had
+      // touched anything. With 25 initial rows (~1,425px of content) the
+      // sentinel sits ~800px below the fold, so 600px only fires once the
+      // reader actually scrolls.
+      { root: scrollRef.current, rootMargin: "600px" },
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
@@ -509,7 +513,7 @@ export function PoliticianRegisterTable({
     (rows.length === 0 && !filtersActive);
 
   return (
-    <div className="space-y-2.5 rounded-2xl border bg-card p-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.04)] sm:p-3">
+    <div className="space-y-2.5 rounded-2xl border bg-card p-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.04)] sm:p-3 min-[1460px]:flex min-[1460px]:min-h-0 min-[1460px]:flex-1 min-[1460px]:flex-col">
       {/*
         Two columns on a phone, the flex row from `sm:` up. In a `flex-wrap` row
         at 375 px the four filters ran off the right edge — "Party" was clipped
@@ -737,14 +741,20 @@ export function PoliticianRegisterTable({
         aria-busy={status === "loading" || searchStatus === "loading"}
         // ONE fixed window for both bodies. The roll grows inside it by
         // infinite scroll; a search swaps its contents. The page's own height
-        // never depends on how many rows are loaded — the `xl:` cap is
-        // VIEWPORT-relative (dvh), not content-relative, so that invariant
-        // holds while a tall desktop screen gets ~13 visible rows instead of
-        // the 7 the old flat 38rem cap allowed. The `max()` keeps 38rem as the
-        // floor on short landscape viewports. `overscroll-contain` keeps a
-        // trackpad fling from grabbing the document when the window's scroll
-        // ends.
-        className="max-h-[38rem] overflow-auto overscroll-contain rounded-lg border bg-background xl:max-h-[max(38rem,calc(100dvh-21rem))]"
+        // never depends on how many rows are loaded. Three height regimes:
+        //   - below `xl:` a flat 38rem cap;
+        //   - `xl:` to the 1460px two-column split, VIEWPORT-relative (dvh) —
+        //     the table is alone at full width there, so the screen is the
+        //     right thing to fill (max() keeps 38rem as the floor);
+        //   - from the split, the RAIL's natural height is the cap: the card
+        //     is a flex column stretched to the grid row (whose height the
+        //     rail sets) and this window is the flex-1/basis-0 filler, so the
+        //     table's bottom lands exactly on the rail's bottom (~11 rows) at
+        //     every screen size. A dvh cap here grew the card past the rail
+        //     on tall screens and the two columns read as misaligned.
+        // `overscroll-contain` keeps a trackpad fling from grabbing the
+        // document when the window's scroll ends.
+        className="max-h-[38rem] overflow-auto overscroll-contain rounded-lg border bg-background xl:max-h-[max(38rem,calc(100dvh-21rem))] min-[1460px]:min-h-0 min-[1460px]:max-h-none min-[1460px]:flex-1 min-[1460px]:basis-0"
       >
         {searching ? (
           <SearchHits
