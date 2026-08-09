@@ -346,8 +346,20 @@ export function PoliticianRegisterTable({
   const filtersActive =
     !!query.chamber || !!query.stateCode || !!query.partyAb || query.itemNo > 0;
   const hasNext = rows.length < page.total;
+  /*
+   * APPENDS FETCH 100 ROWS, NOT THE INITIAL 25. The 25 is a server-HTML
+   * payload decision (portraits and sparklines prerendered into the ISR page);
+   * an action append carries no such cost, and at 25 the roll advanced one
+   * screenful per round-trip — a reader scrolling the window sat through a
+   * visible stall every ~7 rows and read "Showing 1–50" as the table's end.
+   * 100 is half the handler's own clamp (max 200), so the server accepts it
+   * as-is. Avatars are `loading="lazy"` (politician-avatar.tsx), so a bigger
+   * append does not fetch a bigger portrait burst — only what scrolls into
+   * view.
+   */
+  const APPEND_PAGE_SIZE = 100;
   const loadMore = useCallback(() => {
-    run({ ...query, offset: rows.length });
+    run({ ...query, limit: APPEND_PAGE_SIZE, offset: rows.length });
   }, [query, rows.length, run]);
 
   /*
@@ -441,12 +453,15 @@ export function PoliticianRegisterTable({
   const loadMoreRef = useRef(loadMore);
   loadMoreRef.current = loadMore;
   // The observer stops feeding past this many rows and the button takes over.
-  // Without a ceiling, one fling to the window's bottom left the sentinel in
-  // view after every append and CHAINED the fetches — measured 28 back-to-back
-  // action calls loading the entire roll (and a Wikimedia 429 storm from 700
-  // portraits at once). A reader who truly wants the whole roll still gets it,
-  // one press at a time.
-  const AUTO_LOAD_CEILING = 150;
+  // The ceiling exists because an UNCAPPED sentinel once chained 28
+  // back-to-back action calls (and a Wikimedia 429 storm from 700 eager
+  // portraits). Both halves of that incident have since shrunk: appends are
+  // 100 rows (the full 491-member roll is at most 5 chained calls, not 28)
+  // and avatars are `loading="lazy"`, so off-screen rows fetch no portraits.
+  // 600 therefore covers the whole roll — a reader who scrolls the window
+  // flows through every member without hitting a button — while still
+  // backstopping a future corpus that outgrows it.
+  const AUTO_LOAD_CEILING = 600;
   const canAutoLoad =
     hasNext &&
     status === "idle" &&
@@ -462,7 +477,11 @@ export function PoliticianRegisterTable({
         if (entries.some((entry) => entry.isIntersecting))
           loadMoreRef.current();
       },
-      { root: scrollRef.current, rootMargin: "240px" },
+      // ~1.3 window-heights of lead: the next append is in flight before the
+      // reader reaches the loaded rows' end, so the scroll never visibly
+      // stalls at a page boundary (240px started the fetch ~4 rows out, which
+      // was inside the stall).
+      { root: scrollRef.current, rootMargin: "1000px" },
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
