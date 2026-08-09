@@ -1,12 +1,25 @@
 # Residential housing-crawl deploy (macOS, launchd)
 
-Two residential Macs each crawl a disjoint suburb shard. No Docker, no Cloud Run —
-the crawl only works from a residential IP driving the host's warm Chrome. See the
-design/plan in `docs/superpowers/{specs,plans}/2026-07-13-realestate-*`.
+The supported deployment is the queue-backed daily delta plus fortnightly full
+scheduler. It runs on residential Macs because the crawl needs a residential IP
+and the host's dedicated warm Chrome. The older static-shard and whole-catalog
+agent launchd jobs remain documented only as deprecated compatibility paths.
 
-## One-time per Mac
+## Supported deployment — delta + full
 
-1. Build the collector for this Mac's arch:
+- `com.shorted.housing-delta`: daily at **10:00 local**, selecting only
+  never-crawled, stale, or churny suburbs.
+- `com.shorted.housing-full`: on the **1st and 15th at 08:00 local**, rechecking
+  the full catalog.
+
+These daytime hours are intentional. Observed REA/Kasada clearance and block
+reliability degrades late at night; do not restore the retired overnight schedule.
+Both wrappers drain the queue to empty, share a single-drainer lock, and run the
+freshness alarm afterward.
+
+### One-time setup per Mac
+
+1. Build the collector for this Mac's architecture:
    ```bash
    cd services && go build -o "$HOME/bin/house-price-collector" ./house-price-collector/
    ```
@@ -15,54 +28,75 @@ design/plan in `docs/superpowers/{specs,plans}/2026-07-13-realestate-*`.
    ```bash
    cd services && go run github.com/playwright-community/playwright-go/cmd/playwright install chromium
    ```
-3. (Optional first warm-up — the launcher now does this itself, see below.)
-   Launch the DEDICATED-profile Chrome (NEVER the personal profile) with a **REA URL
-   as its startup page**. Chrome's own (non-automated) startup navigation clears REA's
-   Kasada challenge and sets a session cookie, so the crawl's Playwright REA fetches
-   work. A Playwright-driven warm, or warming Domain, does NOT clear Kasada — REA then
-   returns an ~870-byte KPSDK stub and the sweep is marked `blocked`. No manual clicking:
+3. Optionally do a first warm-up. The collector now self-warms, but this is a
+   useful ready-check. Launch the DEDICATED profile (never the personal profile)
+   with a REA URL as Chrome's startup page:
+   Chrome's own (non-automated) startup navigation clears REA's Kasada challenge
+   and sets a session cookie. A Playwright-driven warm, or warming Domain, does
+   not clear Kasada; REA then returns an ~870-byte KPSDK stub and the sweep is
+   marked `blocked`. No manual clicking:
    ```bash
    /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
      --remote-debugging-port=9222 \
      --user-data-dir="$HOME/.shorted-housing-crawl-chrome" \
      "https://www.realestate.com.au/"
    ```
-4. Create `~/.shorted-housing-crawl.env` (chmod 600, NOT committed):
+4. Create `~/.shorted-housing-crawl.env` (`chmod 600`; never commit it):
    ```bash
    DATABASE_URL=postgresql://...            # prod Supabase (transaction pooler)
    CRAWL_CDP_URL=http://localhost:9222
-   BRANDBRAIN_URL=https://api.brandbrain.dev
+   BRANDBRAIN_AGENT_URL=https://api.brandbrain.dev
+   CRAWL_LISTINGS_MIN_PER_PAGE=1            # avoids thin-suburb false blocks
    # CRAWL_DRY_RUN defaults to false in the wrapper; set true to rehearse.
    # --- Event-driven cache busting (optional; see "Cache revalidation" below) ---
    REVALIDATION_URL=https://shorted-com-au-document-analyser.vercel.app/api/revalidate
    REVALIDATION_SECRET=...                   # same value as the Vercel frontend env
    ```
-5. Install the launchd job:
+5. Retire both older jobs, then install the supported delta/full pair. This is
+   the only launchd install procedure in this runbook:
    ```bash
    cd services/house-price-collector/deploy
    REPO="$(cd ../../.. && pwd)"   # repo root
-   sed -e "s#__REPO__#$REPO#g" -e "s#__HOME__#$HOME#g" \
-     com.shorted.housing-crawl.plist.template \
-     > "$HOME/Library/LaunchAgents/com.shorted.housing-crawl.plist"
-   # Set CRAWL_SHARD_INDEX to 1 on the SECOND Mac before loading.
+
    launchctl unload "$HOME/Library/LaunchAgents/com.shorted.housing-crawl.plist" 2>/dev/null
-   launchctl load  "$HOME/Library/LaunchAgents/com.shorted.housing-crawl.plist"
+   launchctl unload "$HOME/Library/LaunchAgents/com.shorted.housing-agent.plist" 2>/dev/null
+   rm -f "$HOME/Library/LaunchAgents/com.shorted.housing-crawl.plist" \
+         "$HOME/Library/LaunchAgents/com.shorted.housing-agent.plist"
+
+   for job in housing-delta housing-full; do
+     sed -e "s#__REPO__#$REPO#g" -e "s#__HOME__#$HOME#g" \
+       "com.shorted.$job.plist.template" \
+       > "$HOME/Library/LaunchAgents/com.shorted.$job.plist"
+     launchctl unload "$HOME/Library/LaunchAgents/com.shorted.$job.plist" 2>/dev/null
+     launchctl load "$HOME/Library/LaunchAgents/com.shorted.$job.plist"
+   done
    ```
 
-## Rehearse before going live
+### Rehearse and operate
+
 ```bash
-CRAWL_DRY_RUN=true CRAWL_SHARD_INDEX=0 CRAWL_SHARD_COUNT=2 \
-  bash run-housing-crawl.sh   # writes nothing; check ~/Library/Logs/shorted-housing-crawl.log
+# Rehearse the supported delta wrapper without writes:
+CRAWL_DRY_RUN=true bash run-housing-delta.sh
+
+# Kick the supported daily job now:
+launchctl start com.shorted.housing-delta
+
+# Read-only freshness check:
+~/bin/house-price-collector -mode freshness; echo $?
 ```
 
-## Kick a real run now
-```bash
-launchctl start com.shorted.housing-crawl
-```
+Exit codes: `0` ok · `3` re-warm signalled · `4` Chrome unreachable · `5` REA
+warmcheck failed · `6` freshness alarm.
 
-Exit codes: `0` ok · `3` re-warm the Chrome profile (notification fired) · `4` Chrome not reachable (even after the launcher's own auto-launch attempt) · `5` REA warmcheck failed (could not clear Kasada, even after the launcher's auto re-warm retries).
+## Deprecated compatibility paths
 
-## Reliability: the launcher is now self-healing
+Do not install `com.shorted.housing-crawl.plist.template` (static shards) or
+`com.shorted.housing-agent.plist.template` (whole-catalog drainer). The former is
+manual-only and has no schedule; the latter is superseded by both the delta/full
+pair and BrandBrain 1.8.0+'s in-app auto-crawl. Their scripts remain for manual
+compatibility and troubleshooting, not as supported scheduled deployment.
+
+### Legacy standalone launcher reliability
 
 `run-housing-crawl.sh` no longer depends on an operator remembering to launch
 Chrome with a REA startup URL by hand. Before every run it: (1) auto-launches
@@ -73,7 +107,7 @@ Chrome + re-checking up to twice if it's cold, and (3) only then runs the real
 crawl. The manual launch command in step 3 above is still useful for a first
 warm-up / manual rehearsal, but the scheduled launchd run does it itself.
 
-## Queue mode (`-mode agent`) — auth via the co-located BrandBrain agent
+### Queue mode (`-mode agent`) — auth via the co-located BrandBrain agent
 
 The launcher above runs the STANDALONE path (`-mode listings` / `-mode crawl`,
 each Mac crawling its own shard directly). To instead drain the shared
@@ -119,7 +153,7 @@ scopes is a drop-in. Mint via `POST /api/v1/ml/auth/tokens`
 `ML_TOKEN_MINT_SECRET` on the brandbrain env), or bridge with the 24h
 `POST /api/v1/agent/refresh`.
 
-## Seamless auto-drainer (launchd) — hands-off corpus growth
+### Deprecated whole-catalog auto-drainer
 
 The queue steps above (`-mode enqueue` then `-mode agent`) are wrapped into ONE
 self-healing, scheduled job so nobody has to run anything per-crawl:
@@ -132,20 +166,8 @@ self-healing, scheduled job so nobody has to run anything per-crawl:
 - `com.shorted.housing-agent.plist.template` — launchd schedule (twice daily by
   default; adjust freely, every run is idempotent).
 
-Install on any residential Mac that has the dedicated crawl Chrome + a signed-in
-BrandBrain macOS agent (for token auto-refresh):
-
-```bash
-cd services/house-price-collector/deploy
-REPO="$(cd ../../.. && pwd)"
-sed -e "s#__REPO__#$REPO#g" -e "s#__HOME__#$HOME#g" \
-  com.shorted.housing-agent.plist.template \
-  > "$HOME/Library/LaunchAgents/com.shorted.housing-agent.plist"
-launchctl unload "$HOME/Library/LaunchAgents/com.shorted.housing-agent.plist" 2>/dev/null
-launchctl load  "$HOME/Library/LaunchAgents/com.shorted.housing-agent.plist"
-# Kick one now:
-launchctl start com.shorted.housing-agent
-```
+Do not install this plist on a current rig. Use the supported delta/full setup
+above. `run-housing-agent.sh` may still be invoked manually for compatibility.
 
 **One-time credential**: `run-housing-agent.sh` requires `DATABASE_URL` (prod
 Supabase, transaction pooler 6543) in `~/.shorted-housing-crawl.env` so the
@@ -175,8 +197,8 @@ Sketch (needs sign-off on auth + where the catalog lives before building):
   both the collector and the endpoint read, to avoid duplicating the 115-suburb
   list. Prefer (b).
 
-Until then, "trigger a crawl" = `launchctl start com.shorted.housing-agent` on the
-rig (or wait for the schedule).
+Until then, trigger the supported queue-backed crawl with
+`launchctl start com.shorted.housing-delta` on the rig (or wait for the schedule).
 
 ## Demand-right-sizing scheduler — daily delta + fortnightly full + freshness alarm
 
@@ -218,7 +240,7 @@ Three pieces:
 
 **Single-drainer lock (important).** A full pass is NOT a ~1-hour job: **500
 suburbs × 2 portals at ~14 suburbs/hr ≈ 30+ HOURS (~1.5 days)**, so it is still
-running when the next daily 03:00 delta fires — and rescheduling can't fix a
+running when the next daily 10:00 delta fires — and rescheduling can't fix a
 >1-day job. All three wrappers (delta, full, **and** the legacy
 `run-housing-agent.sh`) share ONE host Chrome (`localhost:9222`) + ONE residential
 IP, so two concurrent `-mode agent` drainers just halve the pacing and raise the
@@ -242,35 +264,83 @@ Env knobs (all optional; put them in `~/.shorted-housing-crawl.env`):
 | `CRAWL_FRESHNESS_ALARM_HOURS` | `72` | oldest-covered-suburb horizon that alarms |
 | `CRAWL_FRESHNESS_WEBHOOK` | _unset_ | optional POST target for the freshness alarm |
 
-Install both launchd jobs (daily 03:00 delta, fortnightly 1st/15th 02:00 full):
-
-```bash
-cd services/house-price-collector/deploy
-REPO="$(cd ../../.. && pwd)"
-
-# FIRST: retire the legacy whole-catalog drainer if it's installed — otherwise the
-# rig runs THREE overlapping drainers (agent + delta + full) fighting for the one
-# host Chrome. The lock would serialize them, but you'd still be scheduling a job
-# whose work the delta/full already cover, so just remove it.
-launchctl unload "$HOME/Library/LaunchAgents/com.shorted.housing-agent.plist" 2>/dev/null
-rm -f "$HOME/Library/LaunchAgents/com.shorted.housing-agent.plist"
-
-for job in housing-delta housing-full; do
-  sed -e "s#__REPO__#$REPO#g" -e "s#__HOME__#$HOME#g" \
-    "com.shorted.$job.plist.template" \
-    > "$HOME/Library/LaunchAgents/com.shorted.$job.plist"
-  launchctl unload "$HOME/Library/LaunchAgents/com.shorted.$job.plist" 2>/dev/null
-  launchctl load  "$HOME/Library/LaunchAgents/com.shorted.$job.plist"
-done
-# Rehearse without writing: CRAWL_DRY_RUN=true bash run-housing-delta.sh
-# Kick one now:            launchctl start com.shorted.housing-delta
-# Freshness only (read-only): ~/bin/house-price-collector -mode freshness ; echo $?
-```
+Install the jobs with the single canonical one-time procedure at the top of this
+runbook: daily delta at **10:00**, and full on the 1st/15th at **08:00**.
 
 Multiple residential Macs can install both jobs — they fan the queue out via SKIP
 LOCKED, and every mode is idempotent. Prefer running the **delta** on every rig and
 the **full** on one (or stagger the full across rigs) to avoid a fortnightly
 thundering herd. Exit `6` from a wrapper = the freshness alarm tripped.
+
+## Silent-outage diagnosis and recovery
+
+`-mode warmcheck` passing proves only the browser session; it does not prove the
+crawl is healthy. Use this **fastest diagnosis order**:
+
+1. `lsof -nP -iTCP:$(cat ~/.brandbrain/diag-port) -sTCP:LISTEN` — is the
+   BrandBrain agent control API alive? Never hardcode this re-minted port.
+2. `ps -o pid,etime,stat -p $(pgrep -f "house-price-collector -mode agent")` —
+   has a collector round exceeded about one hour?
+3. `tail ~/Library/Logs/shorted-housing-scheduler.log` — distinguish `401` auth
+   failures from `blocked=1`; round output should now stream live.
+4. Run `SELECT max(created_at) FROM property_price_events;` on prod — this is the
+   true database freshness check, regardless of queue terminal status.
+5. Inspect queue state with
+   `GET https://api.brandbrain.dev/api/v1/agent/crawl-jobs?status=pending|failed`
+   (query each status separately), then inspect `status=in_progress` as below.
+
+The five silent outage modes are:
+
+1. **BrandBrainAgent.app auth death.** The collector borrows auth from the running
+   macOS agent; the token snapshot in the env file quickly goes stale. Read the
+   current port from `~/.brandbrain/diag-port` and the secret from
+   `~/.brandbrain/control_secret`. If the port is not listening, run
+   `open -a /Applications/BrandBrainAgent.app`, wait for startup, repeat the
+   `lsof` check, and confirm `GET /control/v1/auth/session/export` returns 200
+   using that control secret. The refresh token normally survives, so a new login
+   should not be necessary.
+
+2. **Thin-suburb queue wedge.** A real low-inventory page can look blocked at the
+   default minimum and two consecutive blocked jobs stop a drain. Set
+   `CRAWL_LISTINGS_MIN_PER_PAGE=1` in the scheduled env; a genuine block still
+   extracts zero. Do not try to purge one suburb: purge filters are coarse and do
+   not select by suburb.
+
+3. **Hung drain round.** `CRAWL_TIMEOUT_MIN` cannot interrupt a CDP driver call
+   stuck on its pipe. Use the `ps -o pid,etime,stat ...` command above; elapsed
+   time beyond about one hour is a hang. `kill <collector-pid>` to release the
+   host lock. The wrapper will continue on its next pass, and a hung round with no
+   writes has no completed in-flight work to preserve.
+
+4. **Orphaned `in_progress` leases.** Query the exact status
+   `GET /api/v1/agent/crawl-jobs?status=in_progress` (`running` and `claimed` are
+   wrong). Sort by `updated_at`; anything older than ~2h is orphaned. First run a
+   purge dry-run:
+
+   ```bash
+   PURGE_STATUSES=in_progress PURGE_TIER=listings \
+     "$HOME/bin/house-price-collector" -mode purge
+   ```
+
+   Review it carefully: purge is a coarse DELETE and may include a legitimately
+   active job. Only then repeat with `PURGE_DRY_RUN=false`, followed immediately
+   by `"$HOME/bin/house-price-collector" -mode enqueue` to re-enqueue the deleted
+   suburbs. Purging without re-enqueue creates a coverage gap.
+
+5. **Never-attempted jobs reported as false success.** When every owned source was
+   skipped by an open circuit, older collectors banked the job as succeeded even
+   though no DB write occurred. The deployed compatibility contract is the
+   `deferred` outcome: it re-pends the job, refunds the claimed attempt, and sets
+   `not_before` for the remaining circuit cooldown. Deploy BrandBrain's deferred /
+   `not_before` / refund support before a collector that emits it; against an older
+   queue the collector intentionally falls back to `failed`. Diagnose this mode by
+   comparing queue successes with the real DB freshness query above.
+
+Direct `-mode agent` invocations default to **`CRAWL_DRY_RUN=true`**. They write
+nothing unless `CRAWL_DRY_RUN=false` is explicitly exported; verify the startup
+log's `dryRun=` value before trusting a hand-run recovery. Configure
+`CRAWL_FRESHNESS_WEBHOOK` so `freshness rc=6` reaches Slack/Discord instead of
+remaining only in the scheduler log.
 
 ### Tracked as a scheduled job in the admin dashboard
 
@@ -314,7 +384,7 @@ blindly walking a fixed page cap:
 - **Adaptive page cap** — a per-suburb soft cap seeded from ABS size (`Dwellings`).
 - **Adaptive pacing** — page-delay jitter widens after a blocked/high-mismatch page,
   tightens after clean pages.
-- **Checkpoint / resume** — set `CRAWL_RESUME_WINDOW_H=20` to skip a (source,suburb)
+- **Checkpoint / resume** — set `CRAWL_LISTINGS_RESUME_WINDOW_H=20` to skip a (source,suburb)
   swept within the window (default `0` = disabled) so an interrupted run resumes
   mid-catalog and repeat runs spread over time.
 

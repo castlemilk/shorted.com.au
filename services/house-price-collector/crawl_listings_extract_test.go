@@ -8,12 +8,9 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-// extractPageMeta fixtures are trimmed captures of the Phase-0 live New Farm
-// SRP dumps (/tmp/rea-srp.html, /tmp/domain-srp.html — 2026-07-15), hand-built
-// to the CONFIRMED key paths (see PageMeta's doc comment) rather than a raw
-// byte-slice of the 1.5-2MB originals: same nesting/escaping shape, same
-// values, a couple of listings, none of the unrelated bulk (images, agent
-// bios, long descriptions).
+// extractPageMeta fixtures are deliberately synthetic. They preserve the
+// nested JSON-string and pagination shapes the extractor supports without
+// republishing portal payloads, listing data, or real-world identities.
 
 func TestExtractPageMeta_REA(t *testing.T) {
 	html, err := os.ReadFile("testdata/rea-pagemeta.html")
@@ -28,26 +25,25 @@ func TestExtractPageMeta_REA(t *testing.T) {
 	if !m.OK || m.TotalResults <= 0 || m.PageSize <= 0 {
 		t.Fatalf("rea pagemeta = %+v", m)
 	}
-	// Confirmed live values: totalResultsCount=969 (BROADENED, not on-target),
-	// pagination.maxPageNumberAvailable=39, savedSearchQuery.pageSize=25,
+	// Synthetic structural values: totalResultsCount=47 (broadened),
+	// pagination.maxPageNumberAvailable=3, savedSearchQuery.pageSize=20,
 	// savedSearchQuery.filters.surroundingSuburbs=true.
-	if m.TotalResults != 969 {
-		t.Errorf("rea TotalResults = %d, want 969", m.TotalResults)
+	if m.TotalResults != 47 {
+		t.Errorf("rea TotalResults = %d, want 47", m.TotalResults)
 	}
-	if m.PageSize != 25 {
-		t.Errorf("rea PageSize = %d, want 25", m.PageSize)
+	if m.PageSize != 20 {
+		t.Errorf("rea PageSize = %d, want 20", m.PageSize)
 	}
-	if m.TotalPages != 39 {
-		t.Errorf("rea TotalPages = %d, want 39 (from maxPageNumberAvailable, not a ceil() computation)", m.TotalPages)
+	if m.TotalPages != 3 {
+		t.Errorf("rea TotalPages = %d, want 3 (from maxPageNumberAvailable, not a ceil() computation)", m.TotalPages)
 	}
 	if !m.SurroundingSuburbs {
-		t.Error("rea SurroundingSuburbs should be true (confirmed live: New Farm SRP broadens)")
+		t.Error("rea SurroundingSuburbs should be true in the synthetic pagination shape")
 	}
-	// Confirmed live: the SRP blob also carries the exact on-target count under
-	// "listings_total" (969 broadened − 906 surrounding = 63), distinct from the
-	// broadened TotalResults above.
-	if m.OnTargetResults != 63 {
-		t.Errorf("rea OnTargetResults = %d, want 63 (the exact on-target listings_total, not the broadened total)", m.OnTargetResults)
+	// The synthetic blob also carries a distinct exact on-target count under
+	// "listings_total" so both sizing signals remain covered.
+	if m.OnTargetResults != 7 {
+		t.Errorf("rea OnTargetResults = %d, want 7 (the exact on-target listings_total, not the broadened total)", m.OnTargetResults)
 	}
 }
 
@@ -55,6 +51,13 @@ func TestExtractPageMeta_Domain(t *testing.T) {
 	html, err := os.ReadFile("testdata/domain-pagemeta.html")
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)
+	}
+	fixture := string(html)
+	if !strings.Contains(fixture, `"totalListings":61`) {
+		t.Fatal("synthetic Domain fixture must exercise componentProps.totalListings")
+	}
+	if !strings.Contains(fixture, `"searchRequest":`) {
+		t.Fatal("synthetic Domain fixture must exercise pageViewMetadata.searchRequest")
 	}
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(string(html)))
 	if err != nil {
@@ -64,26 +67,35 @@ func TestExtractPageMeta_Domain(t *testing.T) {
 	if !m.OK || m.TotalResults <= 0 || m.PageSize <= 0 {
 		t.Fatalf("domain pagemeta = %+v", m)
 	}
-	// Confirmed live values: totalListings/totalResults=608 (BROADENED),
-	// totalPages=30, pageViewMetadata.searchRequest.pageSize=20,
+	// Synthetic structural values: totalResults=61 (broadened), totalPages=3,
+	// pageViewMetadata.searchRequest.pageSize=20,
 	// locations[0].includeSurroundingSuburbs=true.
-	if m.TotalResults != 608 {
-		t.Errorf("domain TotalResults = %d, want 608", m.TotalResults)
+	if m.TotalResults != 61 {
+		t.Errorf("domain TotalResults = %d, want 61", m.TotalResults)
 	}
 	if m.PageSize != 20 {
 		t.Errorf("domain PageSize = %d, want 20", m.PageSize)
 	}
-	if m.TotalPages != 30 {
-		t.Errorf("domain TotalPages = %d, want 30 (the portal's own field — NOT ceil(608/20)=31, it's capped upstream)", m.TotalPages)
+	if m.TotalPages != 3 {
+		t.Errorf("domain TotalPages = %d, want 3 (the explicit field, not ceil(61/20)=4)", m.TotalPages)
 	}
 	if !m.SurroundingSuburbs {
-		t.Error("domain SurroundingSuburbs should be true (confirmed live: New Farm SRP broadens)")
+		t.Error("domain SurroundingSuburbs should be true in the synthetic pagination shape")
 	}
-	// Domain exposes no equivalent exact on-target field (only the broadened
-	// totalListings + a boolean includeSurroundingSuburbs) — OnTargetResults
-	// must stay 0 so the sizing falls back to the broadened-TotalPages clamp.
+	// This Domain-like shape intentionally has no exact on-target field, so
+	// OnTargetResults must stay 0 and callers retain their fallback behavior.
 	if m.OnTargetResults != 0 {
 		t.Errorf("domain OnTargetResults = %d, want 0 (Domain has no on-target field)", m.OnTargetResults)
+	}
+}
+
+func TestExtractPageMeta_DomainProductionAliases(t *testing.T) {
+	html := `<html><body><script type="application/json">` +
+		`{"componentProps":{"totalListings":61,"totalPages":3,"pageViewMetadata":{"searchRequest":{"pageSize":20,"locations":[{"includeSurroundingSuburbs":true}]}}}}` +
+		`</script></body></html>`
+	m := extractPageMeta(docFrom(html), "domain")
+	if !m.OK || m.TotalResults != 61 || m.PageSize != 20 || m.TotalPages != 3 || !m.SurroundingSuburbs {
+		t.Fatalf("Domain production aliases were not extracted: %+v", m)
 	}
 }
 
