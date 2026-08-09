@@ -334,7 +334,7 @@ adjusted to allow it.
 
 ### The exit-code contract (the thing that shapes this port)
 
-Every other job in this binary has ONE failure code. house-prices has five, and
+Every other job in this binary has ONE failure code. house-prices has six, and
 the rig launchers branch on them:
 
 | Code | Meaning | Who branches on it |
@@ -344,6 +344,7 @@ the rig launchers branch on them:
 | 4 | fetcher init failed — Chrome/CDP unusable (wedged tab / stale `SingletonLock`) | `run-housing-crawl.sh` hard-recovers (SIGKILL + clear lock + relaunch) — a plain relaunch loop would spin forever |
 | 5 | warmcheck says the REA session is cold (Kasada stub) | `run-housing-crawl.sh` re-warms, retries twice, then exits 5 |
 | 6 | crawl-freshness ALARM | `run-housing-delta.sh` / `run-housing-full.sh` propagate it |
+| 7 | agent infrastructure failed before any jobs completed | drain wrappers notify and preserve it; a failure after completed work remains 0 |
 
 The runner maps *every* error to exit 1, so this needed an explicit mechanism.
 Three options were considered:
@@ -688,7 +689,7 @@ display-URL → PDF-URL resolution and the browser-header contract.
    instead of calling `os.Exit` — `main` maps it through `runner.ExitCodeOf`.
    Document the codes at the job, and keep the job's own helpers returning
    whatever they returned before (convert once, at the dispatch). Today only
-   `house-prices` needs this (3/4/5/6 for the residential-rig launchers).
+   `house-prices` needs this (3/4/5/6/7 for the residential-rig launchers).
 6. Register it in `cmd/shorted/main.go`.
 
 ## Building the image

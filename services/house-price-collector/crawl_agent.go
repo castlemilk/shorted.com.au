@@ -327,11 +327,10 @@ func (c *brandbrainAgentClient) enqueue(ctx context.Context, jobs []crawlEnqueue
 //   - "delta" — DEMAND-RIGHT-SIZING: only never-crawled / stale / churny suburbs,
 //     ranked + capped (see selectDeltaSuburbs / crawl_delta.go). Reads freshness
 //     read-only from prod; needs the pool, hence it is passed through here.
-func runEnqueue(ctx context.Context, pool *pgxpool.Pool) {
+func runEnqueue(ctx context.Context, pool *pgxpool.Pool) error {
 	acfg := loadAgentConfig()
 	if acfg.brandbrainURL == "" || (acfg.token == "" && acfg.controlURL == "") {
-		log.Printf("[enqueue] BRANDBRAIN_AGENT_URL + a token (BRANDBRAIN_AGENT_TOKEN, or a local agent control API for auto-refresh) required — nothing to do")
-		return
+		return fmt.Errorf("BRANDBRAIN_AGENT_URL + a token (BRANDBRAIN_AGENT_TOKEN, or a local agent control API for auto-refresh) required")
 	}
 	sources := enqueueSources(envStr("CRAWL_ENQUEUE_SOURCE", "split"))
 	tier := envStr("CRAWL_ENQUEUE_TIER", "listings")
@@ -343,15 +342,14 @@ func runEnqueue(ctx context.Context, pool *pgxpool.Pool) {
 		dcfg := loadDeltaConfig()
 		fresh, err := queryCatalogFreshness(ctx, pool, crawlTargets, dcfg.churnDays)
 		if err != nil {
-			log.Printf("[enqueue] delta: freshness query failed (%v) — aborting (NOT falling back to a full enqueue, which would defeat the point)", err)
-			return
+			return fmt.Errorf("delta freshness query failed (not falling back to full enqueue): %w", err)
 		}
 		sel := selectDeltaSuburbs(fresh, dcfg, time.Now().UTC())
 		log.Printf("[enqueue] delta selection: %d/%d suburb(s) selected — %d never-crawled, %d stale (>%s), %d churny (>=%d ev/%dd); %d capped off (NOT crawled this run)",
 			len(sel.Targets), len(crawlTargets), sel.Never, sel.Stale, dcfg.ttl, sel.Churny, dcfg.churnMin, dcfg.churnDays, sel.Dropped)
 		if len(sel.Targets) == 0 {
 			log.Printf("[enqueue] delta: nothing stale/churny — queue left as-is (nothing to enqueue)")
-			return
+			return nil
 		}
 		targets = sel.Targets
 	}
@@ -387,12 +385,12 @@ func runEnqueue(ctx context.Context, pool *pgxpool.Pool) {
 		}
 		n, err := client.enqueue(ctx, jobs[i:end])
 		if err != nil {
-			log.Printf("[enqueue] error on batch %d-%d (%d already enqueued): %v", i, end, total, err)
-			return
+			return fmt.Errorf("batch %d-%d failed (%d already enqueued): %w", i, end, total, err)
 		}
 		total += n
 	}
 	log.Printf("[enqueue] enqueued %d new job(s) of %d target(s) × sources=%v (tier=%s)", total, len(targets), sources, tier)
+	return nil
 }
 
 // enqueueSources maps CRAWL_ENQUEUE_SOURCE to the set of source jobs to create
@@ -461,12 +459,10 @@ func titleCaseSuburb(s string) string {
 	return strings.Join(fields, " ")
 }
 
-// runAgent is the -mode=agent entry point. Returns true if any job detected the
-// browser needs a human re-warm (surfaces via exit code 3 for launchd).
 // runAgent drains the brandbrain crawl queue and returns a process EXIT CODE:
 // 0 = ok / nothing to do, 3 = a sweep tripped the re-warm signal, 4 = the crawl
-// fetcher couldn't init (wedged/cold host Chrome — the runner should hard-recover
-// Chrome and retry, same convention as -mode warmcheck).
+// fetcher couldn't init, and 7 = fatal agent infrastructure failure before any
+// jobs completed.
 func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 	acfg := loadAgentConfig()
 	if acfg.brandbrainURL == "" || (acfg.token == "" && acfg.controlURL == "") {
@@ -730,9 +726,24 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 	// the "processed N job(s)" count out of this exact line to decide whether to
 	// loop again — keep the "done: processed <N> job" shape stable.
 	log.Printf("[agent] done: processed %d job(s)", done)
-	if anyRewarm {
+	code := agentExitCode(anyRewarm, fatalErr, done)
+	if code == 3 {
 		log.Printf("[agent] REWARM REQUIRED: a sweep tripped the circuit breaker — re-warm the crawl Chrome profile")
+	} else if code == 7 {
+		log.Printf("[agent] FATAL: agent infrastructure failed before any jobs completed")
+	}
+	return code
+}
+
+// agentExitCode keeps the existing re-warm signal highest priority. A claim
+// failure is fatal only when the round completed no work; failures after one or
+// more completed jobs retain the established successful-partial-run contract.
+func agentExitCode(anyRewarm, fatalErr bool, done int) int {
+	if anyRewarm {
 		return 3
+	}
+	if fatalErr && done == 0 {
+		return 7
 	}
 	return 0
 }

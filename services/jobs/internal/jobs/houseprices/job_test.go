@@ -128,6 +128,7 @@ func TestExitForPreservesRigContract(t *testing.T) {
 		{"agent", 4, "Chrome/CDP unusable"},
 		{"warmcheck", 5, "cold"},
 		{"freshness", 6, "ALARM"},
+		{"agent", 7, "infrastructure"},
 	} {
 		err := exitFor(tc.mode, tc.code)
 		require.Error(t, err)

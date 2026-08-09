@@ -1485,6 +1485,29 @@ jobs:
           echo "### Backend Services" >> $GITHUB_STEP_SUMMARY
           echo "- **Shorts API**: ${{ steps.resolve-urls.outputs.shorts_url }}" >> $GITHUB_STEP_SUMMARY
 
+  housing-contract-tests:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: services/go.sum
+
+      - name: Configure private Go module access
+        run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
+
+      - name: Run housing workflow contract tests
+        run: node --test .github/workflows/housing-lifecycle.test.mjs
+
+      - name: Run housing service contract tests
+        working-directory: services
+        run: GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test ./shorts/internal/services/shorts
+
   run-tests:
     needs: [determine-environment, build-docker-images, build-ko-images]
     runs-on: ubuntu-latest

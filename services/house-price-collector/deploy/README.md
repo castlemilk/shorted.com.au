@@ -270,7 +270,11 @@ done
 Multiple residential Macs can install both jobs — they fan the queue out via SKIP
 LOCKED, and every mode is idempotent. Prefer running the **delta** on every rig and
 the **full** on one (or stagger the full across rigs) to avoid a fortnightly
-thundering herd. Exit `6` from a wrapper = the freshness alarm tripped.
+thundering herd. Exit `6` from a wrapper = the freshness alarm tripped. Exit
+`7` = agent infrastructure failed before it completed any jobs; the drain
+wrappers notify and preserve that status after still running freshness. Delta
+and full wrappers always attempt enqueue, drain, and freshness; final failure
+precedence is enqueue, then drain, then freshness.
 
 ### Tracked as a scheduled job in the admin dashboard
 
