@@ -727,7 +727,7 @@ Work top-to-bottom; each step compiles/passes before the next.
      section (and no zeros anywhere).
    - Sanity-gate check: flip one seeded row to `small_pop = true`, re-`REFRESH`
      the MV, confirm that suburb now hatches / loses its section.
-10. **Docs** — add the crime rows to `docs/housing-architecture.md` §5.1 table
+10. **Docs** — add the crime rows to `docs/feature/housing/architecture.md` §5.1 table
     + §5.6 metric list + §7 licensing table; add
     `mv_suburb_crime_latest`/000092 to the CLAUDE.md housing migrations line.
 11. **Prod rollout (owner-run)** — apply 000092 (session pooler runbook §5),

@@ -3113,7 +3113,7 @@ type GetPropertyHistoryResponse struct {
 	// physical dwelling. Counting bedrooms (not raw bed/bath/type tuples) keeps
 	// cross-portal label noise from falsely flagging a single dwelling. A search-
 	// results crawl cannot recover the missing unit number, so the view warns
-	// instead of silently merging. See docs/housing-architecture.md.
+	// instead of silently merging. See docs/feature/housing/architecture.md.
 	DistinctDwellings int32 `protobuf:"varint,11,opt,name=distinct_dwellings,json=distinctDwellings,proto3" json:"distinct_dwellings,omitempty"`
 	// AVM valuation for this address (property.com.au). Unset when none exists,
 	// fetch_status != 'ok', or HOUSING_VALUATIONS_ENABLED is off.

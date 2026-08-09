@@ -935,7 +935,7 @@ git commit -m "feat(housing): OSM staging gitignore + map data attribution"
 ## Task 10: Foundation smoke + docs note
 
 **Files:**
-- Modify: `docs/housing-architecture.md` (collector modes line)
+- Modify: `docs/feature/housing/architecture.md` (collector modes line)
 
 - [ ] **Step 1: Run the full W0 test surface**
 
@@ -949,12 +949,12 @@ Expected: all green.
 
 - [ ] **Step 2: Update the collector modes mention in the architecture doc**
 
-In `docs/housing-architecture.md`, update the `-mode` enumeration (§5/§8 mention `official|census|electorates|crawl|refresh|all`) to include `amenities`, and add a one-line note under §8 "Manual ingest runs" that `suburb_amenities`/`lga`/`suburb_lga`/`suburb_connectivity`/`suburb_funding` (migrations 000061–000064) back the Local Insights workstreams. Keep it to ≤3 lines — full detail lives in the design doc.
+In `docs/feature/housing/architecture.md`, update the `-mode` enumeration (§5/§8 mention `official|census|electorates|crawl|refresh|all`) to include `amenities`, and add a one-line note under §8 "Manual ingest runs" that `suburb_amenities`/`lga`/`suburb_lga`/`suburb_connectivity`/`suburb_funding` (migrations 000061–000064) back the Local Insights workstreams. Keep it to ≤3 lines — full detail lives in the design doc.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add docs/housing-architecture.md
+git add docs/feature/housing/architecture.md
 git commit -m "docs(housing): note Local Insights tables + amenities mode (W0)"
 ```
 

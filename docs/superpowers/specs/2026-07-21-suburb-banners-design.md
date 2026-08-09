@@ -3,7 +3,7 @@
 **Date:** 2026-07-21
 **Status:** Draft for review
 **Surface:** `/housing/[state]/[suburb]` profile pages (`web/src/@/components/housing/suburb-profile.tsx`)
-**Related:** `docs/housing-architecture.md`, the housing iconography flow (`web/scripts/housing-icons/`), memory `brandbrain-mcp-icon-flow`, `local-insights`, `housing-map`.
+**Related:** `docs/feature/housing/architecture.md`, the housing iconography flow (`web/scripts/housing-icons/`), memory `brandbrain-mcp-icon-flow`, `local-insights`, `housing-map`.
 
 ---
 

@@ -1,0 +1,7 @@
+Implement the housing work package "repo-hygiene" for the Shorted repo checkout you are in - a dedicated git worktree on branch feat/housing-repo-hygiene, base commit 8c120a352.
+
+FIRST read the full spec at /Users/benebsworth/projects/shorted/.claude/housing-program/repo-hygiene.md and follow it exactly: the ground rules, the findings, the QA requirements, and the commit requirements. If you cannot read that file, stop and report that instead of guessing.
+
+Scope reminder - the two findings: F13 real captured REA/Domain portal content committed in 4 testdata files (replace with synthetic fixtures + add a CI provenance gate), F27 committed deploy artifacts that rebuild the rejected rig configuration and block-prone schedule.
+
+Commit ALL your work on this branch with conventional-commit messages (one commit per logical unit is fine). Never push, never merge, never switch branches. End with a summary: changes per finding, the actual test results you observed, and what needs hand-verification.

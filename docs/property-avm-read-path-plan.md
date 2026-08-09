@@ -36,7 +36,7 @@ on the #340 branch):
 | `content_hash` | internal, not exposed |
 | `valuation_granularity TEXT` (migration 000091) | `'exact'` \| `'building'` \| NULL. **`'building'` = a unit address that fell back to its whole-BUILDING AVM.** The UI MUST label it "building estimate" and must not present it as unit-precise. NULL only on notfound/error/blocked rows (which we never serve). |
 
-Licence posture (mirrors the listings tier, `docs/housing-architecture.md` §10.2): derived
+Licence posture (mirrors the listings tier, `docs/feature/housing/architecture.md` §10.2): derived
 figures are displayable; per-address surfaces deep-link OUT to the live portal; raw is
 never republished; the surface sits behind a kill switch.
 
@@ -413,7 +413,7 @@ Phase 2 ships, if ever, as its own PR with its own review of the licence posture
    list is the enforcement point — never `SELECT *` from `property_valuations`.
 3. **ToS display posture**: derived figures + deep-link-out + attribution + kill switch
    (`HOUSING_VALUATIONS_ENABLED`), mirroring the listings tier
-   (`docs/housing-architecture.md` §10.2). No bulk/exportable valuation surface; the
+   (`docs/feature/housing/architecture.md` §10.2). No bulk/exportable valuation surface; the
    only read is keyed by a single `address_key`.
 4. **Staleness**: always render `fetched_at` (§4.2.7). The crawl is batch/residential-rig
    driven; a row can be weeks old.
