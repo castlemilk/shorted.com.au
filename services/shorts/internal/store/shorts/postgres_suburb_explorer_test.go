@@ -63,7 +63,13 @@ func setupSuburbExplorerSchema(t *testing.T, pool *pgxpool.Pool) {
 		census_year              INT,
 		pct_english_only         DOUBLE PRECISION,
 		pct_top_religion         DOUBLE PRECISION,
-		pct_no_religion          DOUBLE PRECISION
+		pct_no_religion          DOUBLE PRECISION,
+		banner_archetype         TEXT,
+		banner_blurb             TEXT,
+		banner_landmarks         JSONB,
+		banner_bg_key            TEXT,
+		banner_bg_url            TEXT,
+		banner_generated_at      TIMESTAMPTZ
 	);
 
 	CREATE TABLE IF NOT EXISTS suburb_amenities (
@@ -125,6 +131,15 @@ func setupSuburbExplorerSchema(t *testing.T, pool *pgxpool.Pool) {
 	       2::int AS declared_property_count,
 	       2::int AS current_property_count,
 	       now() AS refreshed_at;
+
+	CREATE MATERIALIZED VIEW mv_suburb_crime_latest AS
+	SELECT '20604'::text AS sal_code, crime_type,
+	       2025::smallint AS fy_ending, 0::numeric AS rate_per_100k,
+	       0.04::numeric AS pct_rank, 26000::int AS population,
+	       false AS small_pop, false AS unreliable,
+	       'VIC'::text AS source_jurisdiction, 'test'::text AS source,
+	       'CC-BY-4.0'::text AS source_licence
+	FROM (VALUES ('break_ins'::text), ('violent'::text), ('motor_vehicle'::text)) crime(crime_type);
 	`
 	_, err := pool.Exec(ctx, schema)
 	require.NoError(t, err, "failed to create suburb-explorer schema")
@@ -183,12 +198,24 @@ func TestHousingLicenceGate_StateSuburbs(t *testing.T) {
 	require.Contains(t, byCode, salRichmond, "RICHMOND should be listed for VIC")
 	assert.InDelta(t, 1250000.0, byCode[salRichmond].LatestMedianPrice, 0.5,
 		"RICHMOND must report its public latest median")
+	assert.Equal(t, 0.1, byCode[salRichmond].CrimeBreakInsRank,
+		"a covered rank below display precision must remain distinguishable from no data")
+	assert.Equal(t, 0.1, byCode[salRichmond].CrimeViolentRank,
+		"a covered rank below display precision must remain distinguishable from no data")
+	assert.Equal(t, 0.1, byCode[salRichmond].CrimeMotorVehicleRank,
+		"a covered rank below display precision must remain distinguishable from no data")
 
 	// CROWNLAND is priced ONLY by a proprietary row: it must still list (LEFT
 	// join on demographics) but with a gated-out, zeroed price.
 	require.Contains(t, byCode, salCrownland, "CROWNLAND should still be listed")
 	assert.Equal(t, 0.0, byCode[salCrownland].LatestMedianPrice,
 		"proprietary-only suburb must report 0, not the ToS-restricted value")
+	assert.Zero(t, byCode[salCrownland].CrimeBreakInsRank,
+		"a suburb without crime data must retain the no-data sentinel")
+	assert.Zero(t, byCode[salCrownland].CrimeViolentRank,
+		"a suburb without crime data must retain the no-data sentinel")
+	assert.Zero(t, byCode[salCrownland].CrimeMotorVehicleRank,
+		"a suburb without crime data must retain the no-data sentinel")
 }
 
 // TestHousingLicenceGate_SuburbProfile asserts GetSuburbProfile serves the

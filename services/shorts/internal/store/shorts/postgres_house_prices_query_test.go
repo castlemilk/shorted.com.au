@@ -1,6 +1,7 @@
 package shorts
 
 import (
+	"database/sql"
 	"os"
 	"strings"
 	"testing"
@@ -40,13 +41,23 @@ func TestSuburbCrimeQuery_ReassertsReliabilityGateWithoutGatingZeroRates(t *test
 	}
 }
 
-func TestListStateSuburbsQuery_SeparatesCoveredLowRanksFromNoData(t *testing.T) {
-	source := postgresHousePricesSource(t)
-	for _, rank := range []string{"break_ins_rank", "violent_rank", "motor_vehicle_rank"} {
-		want := "COALESCE(GREATEST(ROUND(cr." + rank + "::numeric, 1), 0.1), 0)"
-		if !strings.Contains(source, want) {
-			t.Errorf("ListStateSuburbs must floor covered %s at 0.1 while retaining 0 for no data", rank)
-		}
+func TestDisplayCrimeRank_SeparatesCoveredLowRanksFromNoData(t *testing.T) {
+	tests := []struct {
+		name string
+		rank sql.NullFloat64
+		want float64
+	}{
+		{name: "no data", rank: sql.NullFloat64{}, want: 0},
+		{name: "covered below display precision", rank: sql.NullFloat64{Float64: 0.04, Valid: true}, want: 0.1},
+		{name: "covered rank rounded to one decimal", rank: sql.NullFloat64{Float64: 87.44, Valid: true}, want: 87.4},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := displayCrimeRank(tt.rank); got != tt.want {
+				t.Fatalf("displayCrimeRank(%+v) = %v, want %v", tt.rank, got, tt.want)
+			}
+		})
 	}
 }
 

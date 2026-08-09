@@ -2,8 +2,10 @@ package shorts
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
+	"math"
 	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
@@ -270,6 +272,13 @@ const listStateSuburbsCrimeJoin = `
 			GROUP BY sal_code
 		) cr ON cr.sal_code = d.sal_code`
 
+func displayCrimeRank(rank sql.NullFloat64) float64 {
+	if !rank.Valid {
+		return 0
+	}
+	return math.Max(math.Round(rank.Float64*10)/10, 0.1)
+}
+
 // ListStateSuburbs returns every SAL suburb in a state, LEFT JOINed to its latest
 // median price (via the sal_code bridge) and headline demographics.
 func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) ([]*SuburbSummaryRow, error) {
@@ -299,9 +308,7 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 		       COALESCE(a.schools_gov,0), COALESCE(a.schools_catholic,0), COALESCE(a.schools_independent,0),
 		       COALESCE(a.schools_primary,0), COALESCE(a.schools_secondary,0), COALESCE(a.nearest_secondary_km,0),
 		       COALESCE(c.dominant_nbn_tech,''), COALESCE(c.connectivity_quality_score,0),
-		       COALESCE(GREATEST(ROUND(cr.break_ins_rank::numeric, 1), 0.1), 0),
-		       COALESCE(GREATEST(ROUND(cr.violent_rank::numeric, 1), 0.1), 0),
-		       COALESCE(GREATEST(ROUND(cr.motor_vehicle_rank::numeric, 1), 0.1), 0),
+		       cr.break_ins_rank, cr.violent_rank, cr.motor_vehicle_rank,
 		       COALESCE(rp.declared_property_count, 0)
 		FROM suburb_demographics d
 		LEFT JOIN house_price_regions r ON r.sal_code = d.sal_code AND r.region_type = 'suburb'
@@ -336,6 +343,7 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 	var out []*SuburbSummaryRow
 	for rows.Next() {
 		var r SuburbSummaryRow
+		var breakInsRank, violentRank, motorVehicleRank sql.NullFloat64
 		if err := rows.Scan(&r.SALCode, &r.SALName, &r.StateCode, &r.Postcode,
 			&r.LatestMedianPrice, &r.LatestPeriod, &r.YoYPct,
 			&r.Population, &r.MedianAge, &r.MedianWeeklyHhdIncome, &r.RegionCode,
@@ -348,10 +356,13 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 			&r.DistToCoastKm,
 			&r.SchoolsGov, &r.SchoolsCatholic, &r.SchoolsIndependent, &r.SchoolsPrimary, &r.SchoolsSecondary, &r.NearestSecondaryKm,
 			&r.DominantNbnTech, &r.ConnectivityQualityScore,
-			&r.CrimeBreakInsRank, &r.CrimeViolentRank, &r.CrimeMotorVehicleRank,
+			&breakInsRank, &violentRank, &motorVehicleRank,
 			&r.PoliticianPropertyCount); err != nil {
 			return nil, err
 		}
+		r.CrimeBreakInsRank = displayCrimeRank(breakInsRank)
+		r.CrimeViolentRank = displayCrimeRank(violentRank)
+		r.CrimeMotorVehicleRank = displayCrimeRank(motorVehicleRank)
 		out = append(out, &r)
 	}
 	return out, rows.Err()
