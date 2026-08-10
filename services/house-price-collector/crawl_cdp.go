@@ -132,6 +132,11 @@ func (f *cdpFetcher) fetch(ctx context.Context, url string) ([]byte, string, err
 // wedged call.
 var errCDPStalled = errors.New("cdp fetch stalled: target closed by watchdog")
 
+// errCDPScreenshotStalled is the trace-only counterpart to errCDPStalled. A
+// screenshot timeout is best-effort and does not reconnect by itself, but it
+// must release f.mu so the next real fetch can run (and reconnect if needed).
+var errCDPScreenshotStalled = errors.New("cdp screenshot stalled: target closed by watchdog")
+
 // errNoBrowserContext means the fetcher holds no usable context — the state a
 // failed reconnect leaves behind. Worded to match isCDPConnLost so it recovers.
 var errNoBrowserContext = errors.New("no browser context: browser has been closed")
@@ -232,9 +237,9 @@ func isCDPConnLost(err error) bool {
 	}
 	s := strings.ToLower(err.Error())
 	for _, m := range []string{
-		"has been closed",       // "Target page, context or browser has been closed"
-		"connection closed",     // driver/transport dropped
-		"websocket",             // CDP WebSocket error
+		"has been closed",   // "Target page, context or browser has been closed"
+		"connection closed", // driver/transport dropped
+		"websocket",         // CDP WebSocket error
 		"browser has been closed",
 		"target closed",
 		"connect over cdp",   // a reconnect that itself failed to re-attach
@@ -271,8 +276,9 @@ func (f *cdpFetcher) Close() {
 // crawl_trace.go). fileFetcher/playwrightFetcher do NOT implement this
 // interface, so tracing safely no-ops for them; only a live -mode
 // listings/-mode agent run driven by CRAWL_CDP_URL against a real warm host
-// Chrome exercises this method — it is NOT covered by the fixture-based unit
-// tests (operationally verified by the operator, plan Task 10).
+// Chrome exercises the real capture. The nil-context/watchdog paths are covered
+// with a synthetic BrowserContext; successful browser capture still needs an
+// operator against the live host Chrome.
 //
 // This opens its OWN short-lived page independent of fetch()'s page lifecycle
 // (fetch already closed its page by the time a caller decides to trace it),
@@ -286,27 +292,59 @@ func (f *cdpFetcher) screenshot(ctx context.Context, url string) ([]byte, error)
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
-	page, err := f.ctx.NewPage()
-	if err != nil {
-		return nil, fmt.Errorf("trace screenshot new page: %w", err)
-	}
-	defer func() { _ = page.Close() }()
 
-	gotoTimeout := float64(f.cfg.fetchTimeout / time.Millisecond)
-	if gotoTimeout < 45000 {
-		gotoTimeout = 45000
+	bctx := f.ctx // capture: a later fetch may reconnect after this watchdog fires
+	if bctx == nil {
+		return nil, fmt.Errorf("trace screenshot: %w", errNoBrowserContext)
 	}
-	if _, err := page.Goto(url, playwright.PageGotoOptions{
-		WaitUntil: playwright.WaitUntilStateDomcontentloaded,
-		Timeout:   playwright.Float(gotoTimeout),
-	}); err != nil {
-		return nil, fmt.Errorf("trace screenshot goto %s: %w", url, err)
+
+	type result struct {
+		png []byte
+		err error
 	}
-	png, err := page.Screenshot(playwright.PageScreenshotOptions{FullPage: playwright.Bool(false)})
-	if err != nil {
-		return nil, fmt.Errorf("trace screenshot capture: %w", err)
+	done := make(chan result, 1) // buffered so an abandoned worker can still exit
+	go func() {
+		var r result
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				r = result{err: fmt.Errorf("trace screenshot panicked (target closed): %v", recovered)}
+			}
+			done <- r
+		}()
+
+		page, err := bctx.NewPage()
+		if err != nil {
+			r.err = fmt.Errorf("trace screenshot new page: %w", err)
+			return
+		}
+		defer func() { _ = page.Close() }()
+
+		gotoTimeout := float64(f.cfg.fetchTimeout / time.Millisecond)
+		if gotoTimeout < 45000 {
+			gotoTimeout = 45000
+		}
+		if _, err := page.Goto(url, playwright.PageGotoOptions{
+			WaitUntil: playwright.WaitUntilStateDomcontentloaded,
+			Timeout:   playwright.Float(gotoTimeout),
+		}); err != nil {
+			r.err = fmt.Errorf("trace screenshot goto %s: %w", url, err)
+			return
+		}
+		r.png, r.err = page.Screenshot(playwright.PageScreenshotOptions{FullPage: playwright.Bool(false)})
+		if r.err != nil {
+			r.err = fmt.Errorf("trace screenshot capture: %w", r.err)
+		}
+	}()
+
+	timer := time.NewTimer(f.watchdog())
+	defer timer.Stop()
+	select {
+	case r := <-done:
+		return r.png, r.err
+	case <-timer.C:
+		log.Printf("[cdp] screenshot exceeded the %s watchdog (%s) — abandoning the call", f.watchdog(), url)
+		return nil, errCDPScreenshotStalled
 	}
-	return png, nil
 }
 
 // compile-time assertions that cdpFetcher satisfies all three seams.

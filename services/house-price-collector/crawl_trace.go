@@ -41,8 +41,8 @@ import (
 // fileFetcher/playwrightFetcher do not, so the type-assertion in
 // sweepSuburbSource simply misses for them — the expected no-op for anything
 // but a live CDP-driven -mode listings/-mode agent trace run. Operationally
-// verified against the real host Chrome by the operator (plan Task 10), not
-// exercised by the fixture-based unit tests here.
+// verified against the real host Chrome by the operator; resilience tests cover
+// the nil-context/watchdog behavior without attempting a real browser capture.
 type pageScreenshotter interface {
 	screenshot(ctx context.Context, url string) ([]byte, error)
 }
@@ -152,7 +152,7 @@ type tracePageRecord struct {
 	NewIDs          int     `json:"new_ids"`           // ids added to `collected` this page
 	Outcome         string  `json:"outcome"`           // ok|blocked|error
 	Status          string  `json:"status"`            // the sweepStatus this page's decision resolved to (or "continuing")
-	Decision        string  `json:"decision"`          // short machine-readable reason: continue|stop-blocked|stop-error|stop-parse-error|stop-poison-blocked|stop-broadening|stop-thin-page1|stop-duplicate-page|stop-empty-page|stop-yield-decay
+	Decision        string  `json:"decision"`          // short machine-readable reason: continue|stop-blocked|stop-error|stop-parse-error|stop-poison-blocked|stop-broadening|stop-thin-page1|stop-thin-page1-exhausted|stop-duplicate-page|stop-empty-page|stop-yield-decay
 }
 
 // traceSummary is the final sweep outcome, written once per (suburb,source).
