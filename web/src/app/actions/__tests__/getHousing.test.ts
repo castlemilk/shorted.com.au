@@ -17,6 +17,11 @@ const clientMock = {
   listStateSuburbs: jest.fn(),
 };
 
+const connectError = (code: number, message: string) => Object.assign(new Error(message), {
+  code,
+  metadata: { get: jest.fn(() => null) },
+});
+
 jest.mock("@connectrpc/connect-web", () => ({
   createConnectTransport: (...args: unknown[]) => createConnectTransportMock(...args),
 }));
@@ -133,12 +138,36 @@ describe("housing server actions", () => {
   });
 
   it("throws when the state suburb index is unavailable", async () => {
-    clientMock.listStateSuburbs.mockRejectedValue(Object.assign(new Error("backend unavailable"), { code: 5 }));
+    clientMock.listStateSuburbs.mockRejectedValue(connectError(14, "backend unavailable"));
     const { resolveSuburbSalCode } = await import("../getHousing");
 
     await expect(resolveSuburbSalCode("VIC", "abbotsford-vic")).rejects.toThrow(
       "Unable to resolve suburb slug",
     );
+  });
+
+  it("preserves profile NotFound separately from backend unavailability", async () => {
+    clientMock.getSuburbProfile.mockRejectedValue(connectError(5, "suburb not found"));
+    const { getSuburbProfile } = await import("../getHousing");
+
+    await expect(getSuburbProfile("missing-sal")).rejects.toMatchObject({
+      name: "NotFoundError",
+      message: "suburb not found",
+    });
+  });
+
+  it("does not turn a transient profile failure into NotFound", async () => {
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    clientMock.getSuburbProfile.mockRejectedValue(connectError(14, "backend unavailable"));
+    const { getSuburbProfile } = await import("../getHousing");
+
+    await expect(getSuburbProfile("206041122")).resolves.toBeUndefined();
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringContaining("withRetryAndThrowNotFound"),
+      "backend unavailable",
+      expect.any(Object),
+    );
+    consoleError.mockRestore();
   });
 
   it("marks suburb list and profile RPC fetches as ISR-cacheable", async () => {

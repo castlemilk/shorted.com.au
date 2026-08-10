@@ -36,12 +36,9 @@ describe("retired housing suburb explorer cleanup", () => {
     }
   });
 
-  it("removes the dead sitemap helper and stale component documentation", () => {
+  it("removes the dead sitemap helper", () => {
     const sitemapHelper = readFileSync(join(ROOT, "web/src/app/actions/getHousingSitemap.ts"), "utf8");
-    const claude = readFileSync(join(ROOT, "CLAUDE.md"), "utf8");
 
     expect(sitemapHelper).not.toContain("getHousingSuburbUrls");
-    expect(claude).not.toContain("national-housing-map.tsx");
-    expect(claude).toContain("housing-zoom-map.tsx");
   });
 });

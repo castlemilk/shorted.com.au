@@ -26,5 +26,11 @@ describe("suburb profile route caching contract", () => {
   it("does not collapse backend failures into not-found responses", () => {
     expect(source).not.toContain(".catch(() => null)");
     expect(source).toContain("NotFoundError");
+    expect(source).toContain("throw new Error(`Unable to load suburb profile");
+  });
+
+  it("redirects legacy or mismatched paths to the profile-derived canonical URL", () => {
+    expect(source).toContain("const canonicalSlug = suburbSlug(profile.summary.salName, profile.summary.postcode)");
+    expect(source).toContain("permanentRedirect(`/housing/${stateSlug(profileState)}/${canonicalSlug}`)");
   });
 });

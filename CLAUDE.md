@@ -512,7 +512,7 @@ That crawl corpus now powers **`/price-drops`** (PR #315) — a flagship price-c
 | `web/src/@/components/housing/` | `housing-tiles.tsx`, `housing-charts.tsx` (dynamic wrapper), `housing-series-chart.tsx` (live RPC + format-key) |
 | `web/src/app/actions/getHousing.ts` / `client/getHousingClient.ts` | SSR action (`cache()`+retry) / client action (session cache + backoff) |
 | `web/src/@/components/housing/choropleth-map.tsx` | Shared d3-geo/d3-zoom choropleth (continuous **or** categorical fill, `focusId` zoom-to-feature, `MAX_SCALE=48`, `non-scaling-stroke`) |
-| `web/src/@/components/housing/` (suburb) | `housing-zoom-map.tsx`, `state-suburb-explorer.tsx`, `state-suburb-map.tsx`, `suburb-tooltip.tsx`, `suburb-profile.tsx`, `categorical-legend.tsx`, `map-legend.tsx` |
+| `web/src/@/components/housing/` (suburb) | `national-housing-map.tsx`, `state-suburb-explorer.tsx`, `state-suburb-map.tsx`, `suburb-tooltip.tsx`, `suburb-profile.tsx`, `categorical-legend.tsx`, `map-legend.tsx` |
 | `web/src/@/lib/housing/highlight-metrics.ts` | `HIGHLIGHT_METRICS` "Colour by" registry — continuous (amber/diverging `federal_lean`/yellow→red crime danger ramp) + categorical (religion/language/`federal_party`/`state_party` palettes) |
 | `web/public/geo/{states.topojson,suburbs/<ST>.topojson}` | ABS ASGS 2021 boundaries (built by `web/scripts/geo/build-boundaries.mjs`) |
 | `web/public/geo/electorates/*.json` | Precomputed federal/state spatial-join output (see data-prep below) |
