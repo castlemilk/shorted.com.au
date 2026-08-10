@@ -474,6 +474,25 @@ func reaPageWithMeta(ids []string, postcode string, totalResults, onTarget, page
 		strings.Join(items, ","), totalResults, onTarget, pageSize)
 }
 
+func reaBroadenedPageWithMeta(onTargetIDs, offTargetIDs []string, totalResults, onTarget, pageSize int) string {
+	items := make([]string, 0, len(onTargetIDs)+len(offTargetIDs))
+	for _, listing := range []struct {
+		ids      []string
+		postcode string
+	}{
+		{ids: onTargetIDs, postcode: "2026"},
+		{ids: offTargetIDs, postcode: "9999"},
+	} {
+		for _, id := range listing.ids {
+			items = append(items, fmt.Sprintf(
+				`{"id":"%s","_links":{"canonical":{"href":"https://www.realestate.com.au/property/%s"}},"price":{"display":"$1,200,000"},"address":{"suburb":"Bondi","state":"NSW","postcode":"%s","display":{"fullAddress":"%s Test St"}}}`,
+				id, id, listing.postcode, id))
+		}
+	}
+	return fmt.Sprintf(`<html><body><script>window.ArgonautExchange = {"results":{"exchangeState":{"resolvedListings":[%s]}},"totalResultsCount":%d,"listings_total":%d,"pageSize":%d};</script></body></html>`,
+		strings.Join(items, ","), totalResults, onTarget, pageSize)
+}
+
 func sweepWith(pages map[string]string) suburbSweep {
 	lc := testLC()
 	lc.fetcher = &pagedFetcher{pages: pages}
@@ -550,12 +569,13 @@ func TestSweep_ThinPage1IsBlocked(t *testing.T) {
 
 func TestSweep_PageClassificationMatrix(t *testing.T) {
 	tests := []struct {
-		name       string
-		source     string
-		urlFor     func(int) string
-		pages      map[string]string
-		wantStatus sweepStatus
-		wantBlocks int
+		name         string
+		source       string
+		urlFor       func(int) string
+		pages        map[string]string
+		wantStatus   sweepStatus
+		wantBlocks   int
+		wantListings int
 	}{
 		{
 			name:   "small suburb with authoritative on-target total is exhausted",
@@ -564,8 +584,24 @@ func TestSweep_PageClassificationMatrix(t *testing.T) {
 			pages: map[string]string{
 				bondi.reaSearchURL(1): reaPageWithMeta([]string{"a", "b"}, "2026", 104, 2, 25),
 			},
-			wantStatus: sweepComplete,
-			wantBlocks: 0,
+			wantStatus:   sweepComplete,
+			wantBlocks:   0,
+			wantListings: 2,
+		},
+		{
+			name:   "small suburb broadened with surrounding stock is exhausted",
+			source: "rea",
+			urlFor: bondi.reaSearchURL,
+			pages: map[string]string{
+				bondi.reaSearchURL(1): reaBroadenedPageWithMeta(
+					[]string{"a", "b"},
+					[]string{"off-01", "off-02", "off-03", "off-04", "off-05", "off-06", "off-07", "off-08", "off-09", "off-10", "off-11", "off-12", "off-13", "off-14", "off-15", "off-16", "off-17", "off-18", "off-19", "off-20", "off-21", "off-22", "off-23"},
+					25, 2, 25,
+				),
+			},
+			wantStatus:   sweepComplete,
+			wantBlocks:   0,
+			wantListings: 2,
 		},
 		{
 			name:   "poisoned early page that should have stock remains blocked",
@@ -574,8 +610,9 @@ func TestSweep_PageClassificationMatrix(t *testing.T) {
 			pages: map[string]string{
 				bondi.reaSearchURL(1): reaPageWithMeta([]string{"a", "b"}, "2026", 110, 8, 25),
 			},
-			wantStatus: sweepBlocked,
-			wantBlocks: 1,
+			wantStatus:   sweepBlocked,
+			wantBlocks:   1,
+			wantListings: 0,
 		},
 		{
 			name:   "healthy sweep completes",
@@ -584,8 +621,9 @@ func TestSweep_PageClassificationMatrix(t *testing.T) {
 			pages: map[string]string{
 				bondi.reaSearchURL(1): reaPageWithMeta([]string{"a", "b", "c", "d", "e"}, "2026", 105, 5, 25),
 			},
-			wantStatus: sweepComplete,
-			wantBlocks: 0,
+			wantStatus:   sweepComplete,
+			wantBlocks:   0,
+			wantListings: 5,
 		},
 		{
 			name:   "late broadening preserves healthy inventory",
@@ -595,8 +633,9 @@ func TestSweep_PageClassificationMatrix(t *testing.T) {
 				bondi.domainSearchURL(1): domainPageHTML([]string{"a", "b", "c", "d", "e"}, "2026"),
 				bondi.domainSearchURL(2): domainPageHTML([]string{"f", "g", "h", "i", "j"}, "9999"),
 			},
-			wantStatus: sweepPartial,
-			wantBlocks: 0,
+			wantStatus:   sweepPartial,
+			wantBlocks:   0,
+			wantListings: 5,
 		},
 	}
 
@@ -613,6 +652,9 @@ func TestSweep_PageClassificationMatrix(t *testing.T) {
 			}
 			if blocks != tt.wantBlocks {
 				t.Errorf("blocks = %d, want %d", blocks, tt.wantBlocks)
+			}
+			if len(sw.listings) != tt.wantListings {
+				t.Errorf("listings = %d, want %d", len(sw.listings), tt.wantListings)
 			}
 		})
 	}
