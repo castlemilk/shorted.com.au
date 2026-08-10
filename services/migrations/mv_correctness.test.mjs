@@ -41,15 +41,18 @@ test("000107 hardens every housing MV refresh against query cancellation", () =>
   );
 });
 
-test("collector disables its caller-side timeout before invoking the housing refresh", () => {
-  const store = readFileSync(
-    new URL("../house-price-collector/store.go", import.meta.url),
-    "utf8",
-  );
-  assert.match(
-    store,
-    /SET statement_timeout\s*=\s*0;\s*SELECT refresh_housing_materialized_views\(\)/i,
-  );
+test("both housing collectors disable caller-side timeout before refreshing", () => {
+  for (const path of [
+    "../house-price-collector/store.go",
+    "../jobs/internal/jobs/houseprices/store.go",
+  ]) {
+    const store = readFileSync(new URL(path, import.meta.url), "utf8");
+    assert.match(
+      store,
+      /SET statement_timeout\s*=\s*0;\s*SELECT refresh_housing_materialized_views\(\)/i,
+      `${path} must disarm the calling statement timeout`,
+    );
+  }
 });
 
 test("000108 computes headline deltas within each source", () => {
@@ -76,12 +79,21 @@ test("000109 aligns privacy floors, address units, sold windows, and drop shares
   const down = migration("000109_fix_listing_rollup_correctness", "down");
 
   assert.match(up, /interval '12 months'/i, "sold aggregates need an explicit window");
-  assert.match(up, /event_type IN \('first_seen', 'status_change'\)/i);
+  assert.equal(
+    (up.match(/event_type IN \('first_seen', 'status_change', 'relisted'\)/gi) ?? [])
+      .length,
+    2,
+    "both suburb and state sold windows must admit relisted sold markers",
+  );
   assert.match(up, /listing_status = 'sold'/i);
 
   assert.match(up, /CASE WHEN[\s\S]*for_sale_priced[\s\S]*>= 3 THEN[\s\S]*avg_asking/i);
   assert.match(up, /CASE WHEN[\s\S]*sold_count[\s\S]*>= 3 THEN[\s\S]*avg_sold/i);
-  assert.match(up, /CASE WHEN COUNT\(\*\) >= 3 THEN COUNT\(\*\) END AS dropped_count/i);
+  assert.match(up, /COUNT\(\*\) AS dropped_count/i);
+  assert.match(up, /COALESCE\(da\.dropped_count, 0\) AS dropped_count/i);
+  assert.match(up, /'\{\}'::text\[\] AS agent_names/i);
+  assert.match(up, /NULL::double precision AS max_drop_pct/i);
+  assert.match(up, /NULL::double precision AS max_drop_abs/i);
   assert.match(up, /CASE WHEN d\.dropped_count >= 3 THEN d\.avg_drop_pct END/i);
   assert.match(up, /CASE WHEN ag\.priced_listings >= 3 THEN ag\.avg_asking END/i);
   assert.doesNotMatch(up, /ARRAY_AGG[\s\S]*agent_names/i);

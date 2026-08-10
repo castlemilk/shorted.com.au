@@ -1324,14 +1324,14 @@ func (s *postgresStore) ListAgencyPriceStats(stateCode, sort string, limit int32
 		limit = 20
 	}
 	// Whitelist the sort column (never interpolate user input into SQL).
-	orderBy := "dropped_count DESC, total_drop_value DESC, active_listings DESC"
+	orderBy := "dropped_count DESC NULLS LAST, total_drop_value DESC NULLS LAST, active_listings DESC NULLS LAST"
 	switch sort {
 	case "listings":
-		orderBy = "active_listings DESC, dropped_count DESC"
+		orderBy = "active_listings DESC NULLS LAST, dropped_count DESC NULLS LAST"
 	case "avg_cut":
-		orderBy = "avg_drop_pct DESC NULLS LAST, dropped_count DESC"
+		orderBy = "avg_drop_pct DESC NULLS LAST, dropped_count DESC NULLS LAST"
 	case "value":
-		orderBy = "total_drop_value DESC, dropped_count DESC"
+		orderBy = "total_drop_value DESC NULLS LAST, dropped_count DESC NULLS LAST"
 	}
 
 	query := `

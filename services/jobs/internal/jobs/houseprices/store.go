@@ -123,7 +123,11 @@ func updateRun(ctx context.Context, pool *pgxpool.Pool, source string, lastPerio
 }
 
 func refreshHousingMV(ctx context.Context, pool *pgxpool.Pool) error {
-	_, err := pool.Exec(ctx, `SELECT refresh_housing_materialized_views()`)
+	// The function-scoped GUC cannot disarm a timeout already armed for the
+	// calling command. Simple protocol keeps these statements on one pooler
+	// connection, so disable it before the function call in the same command.
+	_, err := pool.Exec(ctx, `SET statement_timeout = 0;
+		SELECT refresh_housing_materialized_views()`)
 	return err
 }
 

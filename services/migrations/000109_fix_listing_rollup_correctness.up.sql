@@ -35,7 +35,7 @@ WITH asking_addresses AS (
     SELECT DISTINCT ON (e.listing_pk)
            e.listing_pk, e.observed_at AS sold_at
     FROM property_price_events e
-    WHERE e.event_type IN ('first_seen', 'status_change')
+    WHERE e.event_type IN ('first_seen', 'status_change', 'relisted')
       AND e.listing_status = 'sold'
     ORDER BY e.listing_pk, e.observed_at DESC
 ), sold_addresses AS (
@@ -90,13 +90,12 @@ WITH ev AS (
 ), per_source AS (
     SELECT region_code, dedup_key, source,
            MAX(drop_pct) AS max_pct,
-           MAX(drop_abs) AS max_abs,
            SUM(drop_abs) AS total_abs
     FROM ev
     GROUP BY region_code, dedup_key, source
 ), win AS (
     SELECT DISTINCT ON (region_code, dedup_key)
-           region_code, dedup_key, max_pct, max_abs, total_abs
+           region_code, dedup_key, max_pct, total_abs
     FROM per_source
     ORDER BY region_code, dedup_key, total_abs DESC, source
 ), agg AS (
@@ -104,8 +103,6 @@ WITH ev AS (
            COUNT(*) AS dropped_listing_count,
            AVG(max_pct) AS avg_drop_pct,
            PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY max_pct) AS median_drop_pct,
-           MAX(max_pct) AS max_drop_pct,
-           MAX(max_abs) AS max_drop_abs,
            SUM(total_abs) AS dropped_value
     FROM win
     GROUP BY region_code
@@ -119,8 +116,8 @@ SELECT a.region_code,
        a.dropped_listing_count,
        a.avg_drop_pct,
        a.median_drop_pct,
-       a.max_drop_pct,
-       a.max_drop_abs,
+       NULL::double precision AS max_drop_pct,
+       NULL::double precision AS max_drop_abs,
        a.dropped_value,
        COALESCE(ac.total_active_listings, 0) AS total_active_listings,
        a.dropped_listing_count::float / NULLIF(ac.total_active_listings, 0) AS dropped_share
@@ -192,7 +189,7 @@ WITH ev AS (
     SELECT DISTINCT ON (e.listing_pk)
            e.listing_pk, e.observed_at AS sold_at
     FROM property_price_events e
-    WHERE e.event_type IN ('first_seen', 'status_change')
+    WHERE e.event_type IN ('first_seen', 'status_change', 'relisted')
       AND e.listing_status = 'sold'
     ORDER BY e.listing_pk, e.observed_at DESC
 ), sold_addresses AS (
@@ -274,7 +271,7 @@ WITH base AS (
     GROUP BY source, agency_id, state_code, dedup_key
 ), da AS (
     SELECT source, agency_id, state_code,
-           CASE WHEN COUNT(*) >= 3 THEN COUNT(*) END AS dropped_count,
+           COUNT(*) AS dropped_count,
            CASE WHEN COUNT(*) >= 3 THEN AVG(max_pct) END AS avg_drop_pct,
            CASE WHEN COUNT(*) >= 3 THEN SUM(total_abs) END AS total_drop_value
     FROM per_addr
@@ -295,9 +292,10 @@ SELECT ag.source, ag.agency_id, ag.agency_name, ag.state_code,
        CASE WHEN ag.priced_listings >= 3 THEN ag.avg_asking END AS avg_asking,
        CASE WHEN ag.priced_listings >= 3 THEN ag.median_asking END AS median_asking,
        ag.suburbs_covered,
-       da.dropped_count,
+       COALESCE(da.dropped_count, 0) AS dropped_count,
        da.avg_drop_pct,
-       da.total_drop_value
+       da.total_drop_value,
+       '{}'::text[] AS agent_names
 FROM ag
 LEFT JOIN da USING (source, agency_id, state_code)
 WHERE ag.active_listings >= 3;
