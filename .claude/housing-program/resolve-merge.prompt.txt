@@ -1,0 +1,29 @@
+You are resolving a git merge conflict in this worktree (branch integration/housing-trial). A merge of feat/housing-collector-lifecycle is IN PROGRESS and two files have conflict markers:
+- services/house-price-collector/main.go
+- services/jobs/internal/jobs/houseprices/job.go
+
+Both sides are wanted. They are two complementary designs that must COMPOSE, not one replacing the other:
+
+SIDE A (already merged, "HEAD") — from feat/housing-collector-vg:
+- type `officialJob` + `scheduledOfficialJobs()`, which deliberately EXCLUDES `vg_nsw` from the Cloud Run schedule (its Cloudflare challenge only clears from residential egress).
+- `runOfficial(ctx, pool, jobs []officialJob)` — takes the job list.
+- `runOfficialJob` / `runOfficialJobWith` returning bool (success).
+- `assertOfficialVGFreshness(...)` + `freshnessPoliciesForOfficialJobs(jobs, vgFreshnessPolicies)` — a persisted-period freshness gate.
+- a dedicated `case "vg-nsw":` mode calling `runNSWVG(ctx, pool)`, plus `runNSWVGRig`.
+- `refresh(ctx, pool)` with no return value.
+
+SIDE B (incoming, "feat/housing-collector-lifecycle"):
+- `runOfficial(ctx, pool) (total, failures int)` — counts sources and failures.
+- `refresh(ctx, pool) error` — surfaces MV-refresh failure.
+- `officialLifecycleFatal(total, failures, maxFailures, refreshErr) bool` and `officialRunFatal(...)`, with `HOUSING_OFFICIAL_MAX_FAILURES` (default total-1), so a run where everything fails exits non-zero instead of reporting success to Cloud Run.
+
+REQUIRED COMBINED BEHAVIOUR:
+- Keep `refresh` returning `error` (side B) and keep every caller correct.
+- `runOfficial` must take the job list (side A) AND return `(total, failures int)` (side B): `runOfficial(ctx context.Context, pool *pgxpool.Pool, jobs []officialJob) (total, failures int)`. Count failures from the existing bool-returning `runOfficialJob`.
+- `case "official", "abs", "all":` must: build `jobs := scheduledOfficialJobs()`, run `total, failures := runOfficial(ctx, pool, jobs)`, run the VG freshness assertion over `freshnessPoliciesForOfficialJobs(jobs, vgFreshnessPolicies)`, call `refreshErr := refresh(ctx, pool)`, then apply the lifecycle fatal policy AND the VG freshness result — returning 1 if EITHER says fail.
+- Keep `case "vg-nsw":` returning `runNSWVG(ctx, pool)` unchanged.
+- CRITICAL correctness requirement: a source that this environment deliberately does NOT run (vg_nsw on Cloud Run) must NEVER make the scheduled job exit non-zero. Both branches already fixed this in their own way — make sure the composition preserves it: "not attempted in this environment" is not a failure, while "attempted and failed" and "stale beyond the horizon" both are.
+- Update the `run()` doc comment to describe the FULL combined exit-code contract (0 ok; 1 official-ingest/VG failure; 3 re-warm Chrome; 7 agent infrastructure failed before any job completed; plus any others present).
+- Apply the same composition to services/jobs/internal/jobs/houseprices/job.go, which is the parallel copy in the consolidated jobs binary.
+
+Rules: resolve ONLY these conflicts and whatever they require to compile. Do NOT commit (leave it staged or unstaged, I will commit). Do NOT push, merge, abort the merge, or switch branches. Remove every conflict marker. Then verify it compiles: `cd services && go build ./house-price-collector/ ./jobs/...` and run `go test ./house-price-collector/ -run 'Official|Lifecycle|VG|Freshness' -count=1`. Report the ACTUAL build and test output. If the sandbox blocks the build, say so plainly rather than claiming success.

@@ -1,0 +1,11 @@
+Implement the housing work package "collector-vg" for the Shorted repo checkout you are in - a dedicated git worktree on branch feat/housing-collector-vg, base commit 8c120a352.
+
+FIRST read the full spec at /Users/benebsworth/projects/shorted/.claude/housing-program/collector-vg.md and follow it exactly: the ground rules, finding F01, the three deliverables, QA requirements and commit requirements. If you cannot read that file, stop and report that instead of guessing.
+
+Scope reminder - finding F01: the state Valuer-General suburb-median tier is broken on prod. NSW (vg_nsw) has NEVER landed a single row because Cloud Run's datacenter egress cannot clear the Valuer-General's Cloudflare challenge; VIC (vg_vic) is pinned to a hardcoded 2014-2024 workbook asset so it can never advance past Dec-2024, and the fetch is currently 403-ing. Live impact: NSW 0/4,544 suburbs priced, QLD 0/3,235, WA 0/1,701, versus VIC 739/3,076 and SA 426/1,764.
+
+Three deliverables: (1) VIC - discover the latest houses-by-suburb-*.xlsx asset at run time instead of the pinned asset id, keeping the pinned URL as a fallback, with the browser-realistic fetch posture the repo already uses (stealthhttp native engine - do NOT hand-set a User-Agent there). (2) NSW - make the PSI ingest runnable from a residential rig the way the listings crawl tier is (env-driven, documented in the collector's deploy directory). Do NOT attempt to defeat the Cloudflare challenge from datacenter IPs - "routing around a block" is a settled OUT ruling in this codebase. (3) Loudness - a per-source "has never succeeded in prod" / "stale beyond threshold" assertion so a tier that silently never lands surfaces as an error row and a non-zero exit.
+
+Note: a sibling branch feat/housing-collector-lifecycle is concurrently changing runOfficial's exit-code semantics in main.go. Keep your exit-code touch minimal and additive so the two merge cleanly.
+
+Commit ALL work on this branch with conventional-commit messages. Never push, never merge, never switch branches. End with a summary: what you changed, the actual test results you observed, and what needs hand-verification.
