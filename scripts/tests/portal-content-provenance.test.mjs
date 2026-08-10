@@ -160,9 +160,12 @@ test("workflow runs the provenance tests and gate for every protected path", () 
 
   for (const protectedPath of [
     "services/**/testdata/**",
+    "services/house-price-collector/deploy/**",
     "web/**",
+    "docs/housing-architecture.md",
     "scripts/check-portal-content-provenance.mjs",
     "scripts/generate-synthetic-housing-pagemeta-fixtures.mjs",
+    "scripts/tests/housing-deploy-hygiene.test.mjs",
     "scripts/tests/portal-content-provenance.test.mjs",
     ".github/workflows/repo-hygiene.yml",
   ]) {
@@ -171,7 +174,10 @@ test("workflow runs the provenance tests and gate for every protected path", () 
   assert.match(source, /actions\/checkout@v5/);
   assert.match(source, /actions\/setup-node@v5/);
   assert.match(source, /node-version:\s*["']?24\b/);
-  assert.match(source, /node --test scripts\/tests\/portal-content-provenance\.test\.mjs/);
+  assert.match(
+    source,
+    /node --test scripts\/tests\/portal-content-provenance\.test\.mjs scripts\/tests\/housing-deploy-hygiene\.test\.mjs/,
+  );
   assert.match(source, /node scripts\/check-portal-content-provenance\.mjs/);
 });
 

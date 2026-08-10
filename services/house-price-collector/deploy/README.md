@@ -436,10 +436,13 @@ ping when the run actually wrote data.
 
 ## Debug tracing (`CRAWL_TRACE`)
 
-To debug/tune collection against live REA/Domain, set `CRAWL_TRACE=1` (or
-`CRAWL_TRACE_DIR=<path>`; optional `CRAWL_TRACE_SUBURB=<Display>` to trace one
-suburb). Off by default = zero overhead. Per swept `(suburb,source)` it writes to
-`<CRAWL_TRACE_DIR>/<runId>/<suburb>-<source>/`:
+To debug/tune collection against live REA/Domain, set `CRAWL_TRACE=1`. With no
+`CRAWL_TRACE_DIR`, the collector allocates a unique private directory under the
+absolute OS temp directory, keeping raw portal artifacts outside the checkout.
+Set `CRAWL_TRACE_DIR` to an explicit path to retain traces in a known local
+location; optional `CRAWL_TRACE_SUBURB=<Display>` traces one suburb. Off by
+default = zero overhead. Per swept `(suburb,source)` it writes to
+`<trace-root>/<runId>/<suburb>-<source>/`:
 
 - `p{N}.png` — a screenshot of each rendered SRP (via the CDP fetcher),
 - `p{N}.html` — the raw fetched blob (offline re-parse),
@@ -448,7 +451,7 @@ suburb). Off by default = zero overhead. Per swept `(suburb,source)` it writes t
 - `summary.json` — the final sweep status + counts.
 
 Trace artifacts contain portal listing data + screenshots → they stay **local to the
-rig** (gitignored, never uploaded to brandbrain).
+rig** (outside the checkout by default, never uploaded to brandbrain).
 
 ## Live telemetry (`CRAWL_TELEMETRY`) — extraction in-flight
 

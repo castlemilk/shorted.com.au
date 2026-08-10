@@ -15,6 +15,7 @@ import test from "node:test";
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const deployDir = join(repoRoot, "services/house-price-collector/deploy");
 const commonScript = join(deployDir, "housing-crawl-common.sh");
+const housingArchitecture = join(repoRoot, "docs/housing-architecture.md");
 
 function readDeploy(file) {
   return readFileSync(join(deployDir, file), "utf8");
@@ -144,10 +145,23 @@ test("README leads with the supported delta/full setup and retires legacy jobs",
   assert.doesNotMatch(readme, /\b(?:0[0-5]):[0-5][0-9]\b/, "runbook must not recommend block-prone 00:00–05:59 schedules");
 });
 
-test("README documents only the collector's real resume-window variable", () => {
+test("housing docs document only the collector's real resume-window variable", () => {
   const readme = readDeploy("README.md");
-  assert.match(readme, /CRAWL_LISTINGS_RESUME_WINDOW_H=20/);
-  assert.doesNotMatch(readme, /(?<!LISTINGS_)CRAWL_RESUME_WINDOW_H/);
+  const architecture = readFileSync(housingArchitecture, "utf8");
+  for (const [name, source] of [["deploy README", readme], ["housing architecture", architecture]]) {
+    assert.match(source, /CRAWL_LISTINGS_RESUME_WINDOW_H/);
+    assert.doesNotMatch(source, /(?<!LISTINGS_)CRAWL_RESUME_WINDOW_H/, `${name} documents a dead resume variable`);
+  }
+});
+
+test("housing docs explain that implicit trace output stays outside the checkout", () => {
+  for (const [name, source] of [
+    ["deploy README", readDeploy("README.md")],
+    ["housing architecture", readFileSync(housingArchitecture, "utf8")],
+  ]) {
+    assert.match(source, /CRAWL_TRACE=1[\s\S]*private[\s\S]*(?:OS )?temp/i, `${name} omits the safe implicit trace directory`);
+    assert.match(source, /CRAWL_TRACE_DIR[\s\S]*explicit/i, `${name} omits the explicit trace-directory override`);
+  }
 });
 
 test("README carries the five silent-outage modes and fastest diagnosis path", () => {
