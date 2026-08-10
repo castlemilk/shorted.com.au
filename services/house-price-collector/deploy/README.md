@@ -1,8 +1,81 @@
-# Residential housing-crawl deploy (macOS, launchd)
+# Residential housing collector deploy (macOS, launchd)
 
-Two residential Macs each crawl a disjoint suburb shard. No Docker, no Cloud Run —
-the crawl only works from a residential IP driving the host's warm Chrome. See the
-design/plan in `docs/superpowers/{specs,plans}/2026-07-13-realestate-*`.
+This directory contains the macOS launchd paths for sources that require
+residential egress. The real-estate crawl uses two Macs with disjoint suburb
+shards and a warm host Chrome. NSW Valuer-General PSI uses a separate,
+non-browser collector mode because its public yearly ZIPs do not clear the
+Cloudflare challenge from Cloud Run.
+
+## NSW Valuer-General PSI (`-mode vg-nsw`)
+
+The normal Cloud Run `official`/`all` schedule deliberately skips `vg_nsw` so it
+does not repeatedly challenge the NSW site from datacenter egress. It still runs
+the persisted-period freshness assertion: a missing `vg_nsw` source or a period
+older than the configured 550-day horizon writes an error to
+`house_price_ingest_runs` and exits non-zero. The dedicated `vg-nsw` mode fetches
+only NSW PSI from an approved residential Mac, writes regions/facts/run status,
+asserts NSW freshness, refreshes housing views after a successful ingest, and
+propagates exit `1` on failure.
+
+No Chrome or Playwright setup is needed for this source. Build the same collector
+binary used by the crawl:
+
+```bash
+cd services
+go build -o "$HOME/bin/house-price-collector" ./house-price-collector/
+```
+
+Create a dedicated machine-local env file (never commit it):
+
+```bash
+cat > "$HOME/.shorted-housing-vg.env" <<'ENV'
+DATABASE_URL=postgresql://...  # prod Supabase transaction pooler, port 6543
+# VG_NSW_TIMEOUT_MIN=240
+# HOUSING_VG_BIN=/absolute/path/to/house-price-collector
+# HOUSING_VG_LOG=/absolute/path/to/shorted-housing-vg-nsw.log
+ENV
+chmod 600 "$HOME/.shorted-housing-vg.env"
+```
+
+Run it manually first and check the propagated status/log:
+
+```bash
+cd services/house-price-collector/deploy
+bash run-housing-vg-nsw.sh
+echo "$?"  # 0 = ingested and fresh; 1 = fetch/persist/freshness failure
+tail -100 "$HOME/Library/Logs/shorted-housing-vg-nsw.log"
+```
+
+Install the monthly launchd job (8th at 04:30 local):
+
+```bash
+cd services/house-price-collector/deploy
+REPO="$(cd ../../.. && pwd)"
+sed -e "s#__REPO__#$REPO#g" -e "s#__HOME__#$HOME#g" \
+  com.shorted.housing-vg-nsw.plist.template \
+  > "$HOME/Library/LaunchAgents/com.shorted.housing-vg-nsw.plist"
+plutil -lint "$HOME/Library/LaunchAgents/com.shorted.housing-vg-nsw.plist"
+launchctl unload "$HOME/Library/LaunchAgents/com.shorted.housing-vg-nsw.plist" 2>/dev/null
+launchctl load "$HOME/Library/LaunchAgents/com.shorted.housing-vg-nsw.plist"
+launchctl start com.shorted.housing-vg-nsw
+```
+
+After the first real run, verify persistence rather than relying only on the
+process log:
+
+```sql
+SELECT count(*) AS rows, MAX(period) AS max_period, MAX(fetched_at) AS fetched_at
+FROM house_prices WHERE source = 'vg_nsw';
+
+SELECT source, last_period, last_fetched_at, rows_upserted, status, detail
+FROM house_price_ingest_runs WHERE source = 'vg_nsw';
+```
+
+Do not schedule this mode on Cloud Run and do not add a challenge-bypass or
+user-agent-only workaround. If the residential run is challenged, leave the
+non-zero status/error row intact and investigate the official source manually.
+
+## Real-estate crawl: one-time per Mac
 
 ## One-time per Mac
 
