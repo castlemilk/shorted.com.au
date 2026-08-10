@@ -11,8 +11,8 @@ import (
 // listing detail_status='error' for 90 days. This proves the guard fires exactly
 // on stubs (block path → nothing written) and not on real pages.
 func TestDetailStubTreatedAsBlock(t *testing.T) {
-	reaStub := []byte(`<html><body><script>window.kpsdk={};</script>blocked</body></html>`)   // no ArgonautExchange
-	domainStub := []byte(`<html><body><h1>Just a moment...</h1></body></html>`)                // no __NEXT_DATA__
+	reaStub := []byte(`<html><body><script>window.kpsdk={};</script>blocked</body></html>`) // no ArgonautExchange
+	domainStub := []byte(`<html><body><h1>Just a moment...</h1></body></html>`)             // no __NEXT_DATA__
 
 	// Stubs: pageLooksStub true (→ block path, not stamped), and extractDetail would
 	// have found no payload (the false 'error' stamp the guard prevents).
@@ -35,8 +35,8 @@ func TestDetailStubTreatedAsBlock(t *testing.T) {
 		t.Error("a real Domain LDP must not be flagged a stub")
 	}
 	rea := reaDoubleStringifiedLDP(map[string]any{
-		"id": "140123456", "price": map[string]any{"display": "Auction"},
-		"address": map[string]any{"suburb": "New Farm"}, "propertyType": "House",
+		"id": "synthetic-rea-listing-004", "price": map[string]any{"display": "Auction"},
+		"address": map[string]any{"suburb": "Synthetic Suburb"}, "propertyType": "House",
 	})
 	if pageLooksStub([]byte(rea), "rea") {
 		t.Error("a real REA LDP must not be flagged a stub")
@@ -55,15 +55,15 @@ func TestIsDelistedDetail(t *testing.T) {
 		want     bool
 	}{
 		// Healthy detail URLs (final path ends in the >=6-digit advert id) — NOT delisted.
-		{"domain live LDP", "https://www.domain.com.au/12-smith-street-bondi-nsw-2026-2020524930", "domain", healthy, false},
-		{"rea live LDP", "https://www.realestate.com.au/property-house-qld-new+farm-140123456", "rea", healthy, false},
+		{"domain synthetic LDP", "https://www.domain.com.au/synthetic-listing-100001", "domain", healthy, false},
+		{"rea synthetic LDP", "https://www.realestate.com.au/synthetic-listing-100001", "rea", healthy, false},
 		// R2: bounced to the portal's search shape.
-		{"domain -> /sale/ search", "https://www.domain.com.au/sale/bondi-nsw-2026/", "domain", healthy, true},
-		{"rea -> /buy/ search", "https://www.realestate.com.au/buy/in-new+farm,+qld+4005/list-1", "rea", healthy, true},
+		{"domain -> /sale/ search", "https://www.domain.com.au/sale/synthetic-suburb-zz-0000/", "domain", healthy, true},
+		{"rea -> /buy/ search", "https://www.realestate.com.au/buy/in-synthetic+suburb,+zz+0000/list-1", "rea", healthy, true},
 		// R3: explicit not-found path.
 		{"rea property-not-found", "https://www.realestate.com.au/property-not-found", "rea", healthy, true},
 		// R4: lost the id on a recognized portal host (a sold/suburb index page).
-		{"domain sold index (no id)", "https://www.domain.com.au/sold/bondi-nsw-2026", "domain", healthy, true},
+		{"domain sold index (no id)", "https://www.domain.com.au/sold/synthetic-suburb-zz-0000", "domain", healthy, true},
 		// R1: explicit removal marker in the page — fires even with an empty final URL.
 		{"removal marker, empty url", "", "rea", removed, true},
 		// Empty URL + healthy page: trust only markers → NOT delisted.
@@ -83,12 +83,12 @@ func TestFinalURLHasListingID(t *testing.T) {
 		url  string
 		want bool
 	}{
-		{"https://www.domain.com.au/12-smith-street-bondi-nsw-2026-2020524930", true},
-		{"https://www.realestate.com.au/property-house-qld-new+farm-140123456", true},
-		{"https://www.domain.com.au/12-smith-street-bondi-nsw-2026-2020524930?utm=x", true}, // query stripped
-		{"https://www.domain.com.au/12-smith-street-bondi-nsw-2026-2020524930/", true},      // trailing slash trimmed
-		{"https://www.domain.com.au/sale/bondi-nsw-2026/", false},                           // postcode (4 digits) is not an id
-		{"https://www.realestate.com.au/buy/in-bondi,+nsw+2026/list-1", false},
+		{"https://www.domain.com.au/synthetic-listing-100001", true},
+		{"https://www.realestate.com.au/synthetic-listing-100001", true},
+		{"https://www.domain.com.au/synthetic-listing-100001?utm=x", true},  // query stripped
+		{"https://www.domain.com.au/synthetic-listing-100001/", true},       // trailing slash trimmed
+		{"https://www.domain.com.au/sale/synthetic-suburb-zz-0000/", false}, // postcode (4 digits) is not an id
+		{"https://www.realestate.com.au/buy/in-synthetic+suburb,+zz+0000/list-1", false},
 	}
 	for _, c := range cases {
 		if got := finalURLHasListingID(strings.ToLower(c.url)); got != c.want {

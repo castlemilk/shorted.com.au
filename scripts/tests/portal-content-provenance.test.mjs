@@ -63,6 +63,18 @@ test("rejects captured REA search payloads in nonstandard fixture extensions", (
   assert.match(output(result), new RegExp(path.replaceAll("/", "\\/")));
 });
 
+test("scans service source files outside testdata", () => {
+  const root = temporaryRoot();
+  const path = "services/example/captured_listing_test.go";
+  write(root, path, `const captured = \`{"canonicalSearchId":"captured-search-identity"}\``);
+
+  const result = run(checker, root);
+
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /REA canonical search payload/i);
+  assert.match(output(result), new RegExp(path.replaceAll("/", "\\/")));
+});
+
 test("rejects captured Domain search bootstrap markup with its relative path and signature", () => {
   const root = temporaryRoot();
   const path = "web/test-fixtures/domain-capture.html";
@@ -108,6 +120,15 @@ test("allows ordinary portal hyperlinks and source attribution", () => {
   assert.equal(result.status, 0, output(result));
 });
 
+test("allows the REA property-not-found route", () => {
+  const root = temporaryRoot();
+  write(root, "services/example/crawl_test.go", `const removed = "https://www.realestate.com.au/property-not-found"`);
+
+  const result = run(checker, root);
+
+  assert.equal(result.status, 0, output(result));
+});
+
 test("allows synthetic structural pagination data", () => {
   const root = temporaryRoot();
   write(
@@ -124,6 +145,58 @@ test("allows synthetic structural pagination data", () => {
   const result = run(checker, root);
 
   assert.equal(result.status, 0, output(result));
+});
+
+test("allows portal wrapper syntax only in explicit parser-shape test files", () => {
+  const root = temporaryRoot();
+  write(
+    root,
+    "services/house-price-collector/crawl_listings_test.go",
+    `const synthetic = \`<script>window.ArgonautExchange = {"fixtureProvenance":"synthetic"};</script>\``,
+  );
+
+  const result = run(checker, root);
+
+  assert.equal(result.status, 0, output(result));
+});
+
+test("rejects captured listing content independently of portal wrapper names", async (t) => {
+  const cases = [
+    {
+      name: "REA canonical listing URL",
+      signature: /REA canonical listing URL/i,
+      contents: `window.RenamedBootstrap = {"url":"https://www.realestate.com.au/property-house-vic-exampleville-123456789"}`,
+    },
+    {
+      name: "Domain canonical listing URL",
+      signature: /Domain canonical listing URL/i,
+      contents: `window.RenamedBootstrap = {"url":"https://www.domain.com.au/example-avenue-exampleville-vic-3000-123456789"}`,
+    },
+    {
+      name: "numbered listing address",
+      signature: /numbered listing address/i,
+      contents: `window.RenamedBootstrap = {"fullAddress":"10 Example Avenue, Exampleville, VIC 3000"}`,
+    },
+    {
+      name: "Australian listing locality",
+      signature: /Australian listing locality/i,
+      contents: `window.RenamedBootstrap = {"listingcompany":{"name":"Example Realty"},"state":"VIC","postcode":"3000"}`,
+    },
+  ];
+
+  for (const fixture of cases) {
+    await t.test(fixture.name, () => {
+      const root = temporaryRoot();
+      const path = "services/house-price-collector/crawl_listings_test.go";
+      write(root, path, fixture.contents);
+
+      const result = run(checker, root);
+
+      assert.notEqual(result.status, 0, output(result));
+      assert.match(output(result), fixture.signature);
+      assert.match(output(result), new RegExp(path.replaceAll("/", "\\/")));
+    });
+  }
 });
 
 test("Git checkouts scan every tracked extension without traversing untracked dependency output", () => {
@@ -159,8 +232,7 @@ test("workflow runs the provenance tests and gate for every protected path", () 
   const source = readFileSync(workflow, "utf8");
 
   for (const protectedPath of [
-    "services/**/testdata/**",
-    "services/house-price-collector/deploy/**",
+    "services/**",
     "web/**",
     "docs/housing-architecture.md",
     "scripts/check-portal-content-provenance.mjs",
@@ -169,7 +241,10 @@ test("workflow runs the provenance tests and gate for every protected path", () 
     "scripts/tests/portal-content-provenance.test.mjs",
     ".github/workflows/repo-hygiene.yml",
   ]) {
-    assert.match(source, new RegExp(protectedPath.replaceAll("/", "\\/").replaceAll("*", "\\*")));
+    assert.match(
+      source,
+      new RegExp(`^\\s+- ["']${protectedPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}["']\\s*$`, "m"),
+    );
   }
   assert.match(source, /actions\/checkout@v5/);
   assert.match(source, /actions\/setup-node@v5/);

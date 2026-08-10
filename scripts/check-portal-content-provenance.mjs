@@ -6,6 +6,20 @@ import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const defaultRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const portalWrapperShapeAllowlist = new Set([
+  "services/house-price-collector/crawl_details_extract_test.go",
+  "services/house-price-collector/crawl_listings_extract_test.go",
+  "services/house-price-collector/crawl_listings_test.go",
+  "services/house-price-collector/crawl_property_extract_test.go",
+  "services/house-price-collector/crawl_test.go",
+  "services/house-price-collector/crawl_warmcheck_test.go",
+  "services/jobs/internal/jobs/houseprices/crawl_details_extract_test.go",
+  "services/jobs/internal/jobs/houseprices/crawl_listings_extract_test.go",
+  "services/jobs/internal/jobs/houseprices/crawl_listings_test.go",
+  "services/jobs/internal/jobs/houseprices/crawl_property_extract_test.go",
+  "services/jobs/internal/jobs/houseprices/crawl_test.go",
+  "services/jobs/internal/jobs/houseprices/crawl_warmcheck_test.go",
+]);
 
 function parseRoot(argv) {
   if (argv.length === 0) {
@@ -47,7 +61,7 @@ function collectFiles(directory, { insideTestdata = true } = {}) {
 }
 
 function isInScope(path) {
-  return path.startsWith("web/") || (path.startsWith("services/") && path.includes("/testdata/"));
+  return path.startsWith("web/") || path.startsWith("services/");
 }
 
 function isRegularFile(path) {
@@ -85,21 +99,38 @@ function scopedFiles(root) {
     return tracked;
   }
   return [
-    ...collectFiles(join(root, "services"), { insideTestdata: false }),
+    ...collectFiles(join(root, "services")),
     ...collectFiles(join(root, "web")),
   ];
 }
 
-function signatures(source) {
+function signatures(source, path) {
   const matches = [];
-  if (/window\s*\.\s*ArgonautExchange\s*=/.test(source)) {
+  const allowPortalWrapperShape = portalWrapperShapeAllowlist.has(path);
+  if (!allowPortalWrapperShape && /window\s*\.\s*ArgonautExchange\s*=/.test(source)) {
     matches.push("REA Argonaut bootstrap");
   }
-  if (/canonicalSearchId/.test(source)) {
+  if (!allowPortalWrapperShape && /canonicalSearchId/.test(source)) {
     matches.push("REA canonical search payload");
   }
-  if (/__NEXT_DATA__/.test(source) && /["']?totalListings["']?\s*:/.test(source) && /["']?searchRequest["']?\s*:/.test(source)) {
+  if (!allowPortalWrapperShape && /__NEXT_DATA__/.test(source) && /["']?totalListings["']?\s*:/.test(source) && /["']?searchRequest["']?\s*:/.test(source)) {
     matches.push("Domain search bootstrap");
+  }
+  if (/https?:\/\/(?:www\.)?realestate\.com\.au\/property(?:\/[a-z0-9]|-(?!not-found(?:[/?#"']|$))[a-z0-9])/i.test(source)) {
+    matches.push("REA canonical listing URL");
+  }
+  if (/https?:\/\/(?:www\.)?domain\.com\.au\/[a-z0-9][a-z0-9+_/-]*-\d{9,}(?:[/?#"']|$)/i.test(source)) {
+    matches.push("Domain canonical listing URL");
+  }
+  if (/["'](?:fulladdress|shortaddress|streetaddress|street)["']\s*:\s*["']\d+(?:[/ -])/i.test(source)) {
+    matches.push("numbered listing address");
+  }
+  const hasListingShape = /["'](?:listingcompany|listingModel|listingId|resolvedListings)["']\s*:/i.test(source);
+  const hasAustralianLocality =
+    /["']state["']\s*:\s*["'](?:NSW|VIC|QLD|SA|WA|TAS|NT|ACT)["'][\s\S]{0,160}["'](?:postCode|postcode)["']\s*:\s*["'](?!0000)\d{4}["']/i.test(source) ||
+    /["'](?:postCode|postcode)["']\s*:\s*["'](?!0000)\d{4}["'][\s\S]{0,160}["']state["']\s*:\s*["'](?:NSW|VIC|QLD|SA|WA|TAS|NT|ACT)["']/i.test(source);
+  if (hasListingShape && hasAustralianLocality) {
+    matches.push("Australian listing locality");
   }
   return matches;
 }
@@ -111,9 +142,10 @@ function main() {
 
   for (const file of files) {
     const source = readFileSync(file).toString("utf8");
-    for (const signature of signatures(source)) {
+    const path = relative(root, file).split(sep).join("/");
+    for (const signature of signatures(source, path)) {
       findings.push({
-        path: relative(root, file).split(sep).join("/"),
+        path,
         signature,
       });
     }

@@ -26,7 +26,7 @@ func TestExtractPageMeta_REA(t *testing.T) {
 		t.Fatalf("rea pagemeta = %+v", m)
 	}
 	// Synthetic structural values: totalResultsCount=47 (broadened),
-	// pagination.maxPageNumberAvailable=3, savedSearchQuery.pageSize=20,
+	// pagination.maxPageNumberAvailable=5, savedSearchQuery.pageSize=20,
 	// savedSearchQuery.filters.surroundingSuburbs=true.
 	if m.TotalResults != 47 {
 		t.Errorf("rea TotalResults = %d, want 47", m.TotalResults)
@@ -34,8 +34,8 @@ func TestExtractPageMeta_REA(t *testing.T) {
 	if m.PageSize != 20 {
 		t.Errorf("rea PageSize = %d, want 20", m.PageSize)
 	}
-	if m.TotalPages != 3 {
-		t.Errorf("rea TotalPages = %d, want 3 (from maxPageNumberAvailable, not a ceil() computation)", m.TotalPages)
+	if m.TotalPages != 5 {
+		t.Errorf("rea TotalPages = %d, want 5 (from maxPageNumberAvailable, not ceil(47/20)=3)", m.TotalPages)
 	}
 	if !m.SurroundingSuburbs {
 		t.Error("rea SurroundingSuburbs should be true in the synthetic pagination shape")
@@ -126,27 +126,27 @@ func TestExtractPageMeta_TotalPagesFallsBackToCeil(t *testing.T) {
 }
 
 // TestHarvestListing_AgencyAndAgents verifies the agency (listingCompany) + agent
-// (listers) fields are pulled from the same REA search-results listing object.
+// (listers) fields are pulled from one synthetic REA-shaped listing object.
 func TestHarvestListing_AgencyAndAgents(t *testing.T) {
 	lm := map[string]any{
-		"id":             "151008144",
-		"price":          map[string]any{"display": "$2,310,000"},
-		"address":        map[string]any{"display": map[string]any{"fulladdress": "67 Alma Street, Paddington, Qld 4064"}},
-		"listingcompany": map[string]any{"id": "PRDPAD", "name": "Place - Paddington"},
+		"id":             "synthetic-rea-listing-001",
+		"price":          map[string]any{"display": "$765,432"},
+		"address":        map[string]any{"display": map[string]any{"fulladdress": "Example Avenue, Synthetic Suburb, ZZ 0000"}},
+		"listingcompany": map[string]any{"id": "SYNTHETIC-AGENCY", "name": "Example Realty - Synthetic Suburb"},
 		"listers": []any{
-			map[string]any{"name": "Tim Douglas"},
-			map[string]any{"name": "Jane Smith"},
-			map[string]any{"name": "Tim Douglas"}, // dup — must be deduped
+			map[string]any{"name": "Alex Example"},
+			map[string]any{"name": "Sam Example"},
+			map[string]any{"name": "Alex Example"}, // dup — must be deduped
 		},
 	}
 	l, ok := harvestListing(lm, "rea")
 	if !ok {
 		t.Fatal("expected listing to harvest")
 	}
-	if l.AgencyID != "PRDPAD" || l.AgencyName != "Place - Paddington" {
+	if l.AgencyID != "SYNTHETIC-AGENCY" || l.AgencyName != "Example Realty - Synthetic Suburb" {
 		t.Fatalf("agency not extracted: id=%q name=%q", l.AgencyID, l.AgencyName)
 	}
-	if len(l.AgentNames) != 2 || l.AgentNames[0] != "Tim Douglas" || l.AgentNames[1] != "Jane Smith" {
+	if len(l.AgentNames) != 2 || l.AgentNames[0] != "Alex Example" || l.AgentNames[1] != "Sam Example" {
 		t.Fatalf("agents not extracted/deduped: %v", l.AgentNames)
 	}
 }

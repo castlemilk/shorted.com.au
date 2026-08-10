@@ -3,8 +3,7 @@ name: Repository Hygiene
 on:
   pull_request:
     paths:
-      - "services/**/testdata/**"
-      - "services/house-price-collector/deploy/**"
+      - "services/**"
       - "web/**"
       - "docs/housing-architecture.md"
       - "scripts/check-portal-content-provenance.mjs"

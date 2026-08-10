@@ -262,7 +262,7 @@ func isListingObject(lm map[string]any) bool {
 }
 
 // trailingIDRe matches a portal listing id embedded in a URL (Domain/REA ids are
-// long numbers, e.g. .../bondi-nsw-2026-2020524930). ≥6 digits excludes postcodes.
+// long numbers, e.g. .../synthetic-suburb-zz-0000-100001). ≥6 digits excludes postcodes.
 var trailingIDRe = regexp.MustCompile(`\d{6,}`)
 
 // listingIDFromURL recovers a stable listing id from the URL's trailing number —

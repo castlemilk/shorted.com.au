@@ -39,7 +39,7 @@ function reaFixture() {
       results: {
         totalResultsCount: 47,
         listings_total: 7,
-        pagination: { moreResultsAvailable: true, maxPageNumberAvailable: 3, page: 1 },
+        pagination: { moreResultsAvailable: true, maxPageNumberAvailable: 5, page: 1 },
         exact: { items: [] },
         surrounding: { items: [] },
       },
