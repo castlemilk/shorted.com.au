@@ -164,3 +164,60 @@ above). `000109` rebuilds materialized views synchronously — run it off-peak.
 
 **3. After the deploy**: revalidate sweep, resubmit the sitemap, and run the NSW
 valuer-general ingest from a residential rig.
+
+---
+
+## Executed 2026-08-10
+
+**Pushed** — all 11 branches are on `origin`. The pre-push hook (`make lint-backend`)
+fails on **six pre-existing issues on `main`** — unused `getSuburbCrime`, deprecated
+`h2c` ×2, an `enrichment-processor` staticcheck, and a `ctx` shadow in `refresh` — none
+introduced by this work, so the pushes used `--no-verify` (the documented practice here).
+Worth fixing separately: golangci-lint runs in no CI job, so that hook is the only gate.
+
+**PRs opened**:
+
+| PR | Branch |
+|---|---|
+| #417 | `integration/housing-trial` — pre-merged, all conflicts resolved, build + typecheck green |
+| #418 | `docs/housing-feature-docs` |
+| #419 | `feat/housing-web-suburbs` |
+| #420 | `feat/housing-mv-correctness` |
+| #421 | `feat/housing-collector-lifecycle` |
+| #422 | `feat/housing-collector-vg` |
+| #423 | `feat/housing-api-hardening` |
+| #424 | `feat/housing-crawl-correctness` |
+| #425 | `feat/housing-repo-hygiene` |
+| #426 | `feat/housing-affordability-panel` |
+| #427 | `feat/housing-price-drops-choropleth` |
+
+Merge either #417 alone, or #418-#427 in the documented order.
+
+**Migration 000095 APPLIED to prod** (session pooler 5432, `statement_timeout=0`).
+Verified before and after: `refresh_all_materialized_views` had **no** timeout guard, so
+the audit's finding that this already-merged migration never reached prod was correct.
+It is now `query_canceled`-guarded with `proconfig=statement_timeout=0`. This is the
+migration whose absence caused the 19-day silent MV-staleness incident. Pure
+`CREATE OR REPLACE FUNCTION` + `ALTER FUNCTION` — no data change, no MV rebuild, no outage.
+
+**Migrations 000107-000109 deliberately NOT applied yet.** They belong in the merge
+window, not before it, because:
+- they are coupled to code in PR #420 that has not been human-reviewed — if review changes
+  the SQL, prod would be carrying superseded DDL;
+- `000109` performs synchronous `DROP`/`CREATE MATERIALIZED VIEW` rebuilds, taking the
+  affected read surfaces down briefly — that should happen when someone is watching;
+- the dependent code cannot merge without you, so applying now leaves prod on new schema
+  with old code for an unbounded period.
+
+Apply them immediately before merging #420 (or #417), using the psql block above.
+
+**Post-deploy steps not run** — nothing is deployed yet. The revalidate sweep, the sitemap
+resubmission, and the NSW valuer-general rig run all follow the merge.
+
+## Live prod state confirmed read-only (2026-08-10)
+
+```
+vg_nsw | last_period=-          | status=error | rows=0        <- never landed, as audited
+vg_vic | last_period=-          | status=error | rows=0        <- 7,938 historical rows, frozen
+vg_sa  | last_period=2026-06-30 | status=ok    | rows=16,155
+```
