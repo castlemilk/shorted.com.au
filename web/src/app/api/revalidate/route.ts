@@ -1,5 +1,7 @@
+import { createHash, timingSafeEqual } from "node:crypto";
+
 import { revalidatePath, revalidateTag } from "next/cache";
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import {
   deleteCachedByPrefix,
   HOUSING_DATA_CACHE_PREFIXES,
@@ -15,6 +17,18 @@ const FLUSH_PREFIXES: Record<string, readonly string[]> = {
   politicians: POLITICIANS_DATA_CACHE_PREFIXES,
 };
 
+function revalidationSecretsMatch(
+  provided: string | null,
+  expected: string,
+): boolean {
+  if (provided == null) return false;
+  // Hash to fixed-size buffers before timingSafeEqual so different input
+  // lengths are handled without a direct secret comparison or an exception.
+  const providedDigest = createHash("sha256").update(provided).digest();
+  const expectedDigest = createHash("sha256").update(expected).digest();
+  return timingSafeEqual(providedDigest, expectedDigest);
+}
+
 /**
  * On-demand revalidation endpoint (event-driven caching).
  *
@@ -23,8 +37,9 @@ const FLUSH_PREFIXES: Record<string, readonly string[]> = {
  * flushes the Redis layer so the next request re-renders fresh — instead of
  * waiting for a time-based TTL.
  *
- *   POST /api/revalidate?secret=<REVALIDATION_SECRET>
- *        &tag=report-2026-W06,top-shorts      (comma-separated, optional)
+ *   POST /api/revalidate
+ *        X-Revalidate-Secret: <REVALIDATION_SECRET>
+ *        ?tag=report-2026-W06,top-shorts      (comma-separated, optional)
  *        &path=/,/top,/news,/shorts/[stockCode]  (comma-separated, optional;
  *                                                 patterns with [..] revalidate
  *                                                 the whole dynamic route)
@@ -32,14 +47,16 @@ const FLUSH_PREFIXES: Record<string, readonly string[]> = {
  *                                                 families to flush; `shorts` and
  *                                                 `housing` are the current names)
  *
- * Backward compatible with the existing single `?tag=` and `?flush=shorts` callers.
+ * The legacy `?secret=` input remains a temporary one-release fallback for old
+ * jobs. A supplied header always wins, including when it is invalid.
  */
 export async function POST(request: NextRequest) {
   const sp = request.nextUrl.searchParams;
-  const secret = sp.get("secret");
+  const headerSecret = request.headers.get("x-revalidate-secret");
+  const secret = headerSecret ?? sp.get("secret");
 
   const expectedSecret = process.env.REVALIDATION_SECRET;
-  if (!expectedSecret || secret !== expectedSecret) {
+  if (!expectedSecret || !revalidationSecretsMatch(secret, expectedSecret)) {
     return NextResponse.json({ error: "Invalid secret" }, { status: 401 });
   }
 

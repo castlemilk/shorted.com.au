@@ -11,8 +11,12 @@ if (!globalThis.TextDecoder) {
 
 const createConnectTransportMock = jest.fn();
 const createClientMock = jest.fn();
+const getCachedMock = jest.fn();
+const setCachedMock = jest.fn();
 const clientMock = {
   getHousingOverview: jest.fn(),
+  listAgencyPriceStats: jest.fn(),
+  listAddressPriceDrops: jest.fn(),
 };
 
 jest.mock("@connectrpc/connect-web", () => ({
@@ -21,6 +25,19 @@ jest.mock("@connectrpc/connect-web", () => ({
 
 jest.mock("@connectrpc/connect", () => ({
   createClient: (...args: unknown[]) => createClientMock(...args),
+}));
+
+jest.mock("@/lib/kv-cache", () => ({
+  CACHE_KEYS: {
+    housingOverview: (regionType: string) => `housing:overview:${regionType}`,
+    priceDropsOverview: () => "housing:price-drops:overview",
+    suburbPriceDrops: (state: string, sort: string, limit: number) =>
+      `housing:price-drops:suburbs:${state}:${sort}:${limit}`,
+  },
+  HOUSING_TTL: 300,
+  PRICE_DROPS_TTL: 300,
+  getCached: (...args: unknown[]) => getCachedMock(...args),
+  setCached: (...args: unknown[]) => setCachedMock(...args),
 }));
 
 describe("housing server actions", () => {
@@ -44,7 +61,11 @@ describe("housing server actions", () => {
     };
     createConnectTransportMock.mockReturnValue({});
     createClientMock.mockReturnValue(clientMock);
+    getCachedMock.mockResolvedValue(null);
+    setCachedMock.mockResolvedValue(undefined);
     clientMock.getHousingOverview.mockResolvedValue({ metrics: [] });
+    clientMock.listAgencyPriceStats.mockResolvedValue({ agencies: [] });
+    clientMock.listAddressPriceDrops.mockResolvedValue({ addresses: [] });
   });
 
   afterEach(() => {
@@ -106,5 +127,34 @@ describe("housing server actions", () => {
     const headers = fetchMock.mock.calls[0]?.[1]?.headers as Headers;
     expect(headers.get("User-Agent")).toBe("shorted-web-ssr/1.0 (+https://shorted.com.au)");
     expect(headers.get("X-Shorted-Test")).toBe("1");
+  });
+
+  it("bypasses shared KV for the flag-gated agency read", async () => {
+    const { listAgencyPriceStats } = await import("../getHousing");
+
+    await listAgencyPriceStats("", "drops", 12);
+
+    expect(clientMock.listAgencyPriceStats).toHaveBeenCalledWith({
+      stateCode: "",
+      sort: "drops",
+      limit: 12,
+    });
+    expect(getCachedMock).not.toHaveBeenCalled();
+    expect(setCachedMock).not.toHaveBeenCalled();
+  });
+
+  it("bypasses shared KV for the flag-gated address read", async () => {
+    const { listAddressPriceDrops } = await import("../getHousing");
+
+    await listAddressPriceDrops("VIC", 90, 50, "pct");
+
+    expect(clientMock.listAddressPriceDrops).toHaveBeenCalledWith({
+      stateCode: "VIC",
+      windowDays: 90,
+      limit: 50,
+      sort: "pct",
+    });
+    expect(getCachedMock).not.toHaveBeenCalled();
+    expect(setCachedMock).not.toHaveBeenCalled();
   });
 });

@@ -22,7 +22,7 @@ var housingRevalidatePaths = []string{"/price-drops", "/housing"}
 //
 // This service ORIGINATED platform.PingRevalidate (the shared helper was lifted
 // from this file), and the shared helper covers the housing contract exactly:
-// `?secret=…&path=/price-drops,/housing&flush=housing`, no `tag`, POST,
+// `?path=/price-drops,/housing&flush=housing` plus X-Revalidate-Secret, no `tag`, POST,
 // Content-Type application/json, non-2xx tolerated, 45s deadline on a DETACHED
 // context — so a run's CRAWL_TIMEOUT_MIN expiring between the write and the ping
 // can't kill the cache bust for data that is already committed. This is

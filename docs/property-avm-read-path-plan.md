@@ -74,12 +74,11 @@ Why extend rather than add `GetPropertyValuation(address_key)`:
 Proto-3 message fields are inherently optional: `valuation` is simply unset (`undefined`
 in connect-es) when no valuation exists — old clients ignore it, new clients null-check.
 
-### Gating: one new kill switch, ON by default
+### Gating: one new kill switch, OFF by default
 
 The valuation block inherits `HOUSING_DROP_LISTINGS_ENABLED` (whole response is gated)
-**and** gets its own independent kill switch **`HOUSING_VALUATIONS_ENABLED`** (default
-ON; only `"false"/"0"/"off"/"no"` disables — copy the `dropListingsEnabled()` idiom at
-`house_prices.go:380-...`). Rationale: property.com.au's robots.txt names aggregators
+**and** gets its own independent opt-in **`HOUSING_VALUATIONS_ENABLED`** (default
+OFF; only `"true"/"1"/"on"/"yes"` enables). Rationale: property.com.au's robots.txt names aggregators
 explicitly (ToS escalation over REA/Domain — see memory `property-com-au-crawler.md`),
 so the operator must be able to pull the AVM surface without killing the whole
 price-history page. Same pattern as the `ListAgencyPriceStats` dedicated gate. When off:
@@ -239,7 +238,7 @@ before constructing the response at line 474):
 
 ```go
 var valuation *shortsv1alpha1.PropertyValuation
-if valuationsEnabled() { // new gate, ON by default — see §1
+if valuationsEnabled() { // explicit opt-in gate, OFF by default — see §1
     v, verr := s.store.GetPropertyValuation(m.AddressKey)
     if verr != nil {
         // WARN-ONLY degradation: the valuation is an enrichment. A failure here
@@ -259,13 +258,13 @@ RFC3339-string convention, e.g. `FirstSeenAt` at line 458); sale rows map
 (line 474-480).
 
 - **Caching**: no new cache key — the valuation is cached inside the existing
-  `property_history:<addressKey>` MemoryCache entry. Flag flips take effect after cache
-  expiry/restart; acceptable for a kill switch.
+  `property_history:<addressKey>` backend MemoryCache entry when explicitly enabled.
+  The web tier does not add KV caching to this per-address read.
 - **Gating recap**: `dropListingsEnabled()` off → whole response empty (unchanged);
   `valuationsEnabled()` off → history serves, `valuation` omitted.
 - Add `valuationsEnabled()` next to `dropListingsEnabled()` (line 374-386), reading
-  `HOUSING_VALUATIONS_ENABLED`, identical falsey-only-off semantics, with a comment
-  citing the property.com.au ToS escalation.
+  `HOUSING_VALUATIONS_ENABLED`, with explicit truthy-only opt-in semantics and a
+  comment citing the property.com.au ToS escalation.
 
 ### 3.4 Backend tests — `house_prices_test.go`
 

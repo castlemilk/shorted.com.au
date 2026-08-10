@@ -17,10 +17,99 @@ import (
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 )
 
+var australianStateCodes = map[string]struct{}{
+	"ACT": {}, "NSW": {}, "NT": {}, "QLD": {},
+	"SA": {}, "TAS": {}, "VIC": {}, "WA": {},
+}
+
+var housingRegionTypes = map[string]struct{}{
+	"national": {}, "state": {}, "gccsa": {}, "rest_of_state": {},
+	"suburb": {}, "lga": {},
+}
+
+type housingParams struct {
+	stateCode, query, regionType, sort string
+	salCode, regionCode, addressKey    string
+	measure, dwellingType              string
+	limit, windowDays                  int32
+}
+
+type housingParamRules struct {
+	requireState        bool
+	validateRegionType  bool
+	defaultSort         string
+	allowedSorts        map[string]struct{}
+	defaultLimit        int32
+	maxLimit            int32
+	defaultWindowDays   int32
+	maxWindowDays       int32
+	defaultDwellingType string
+}
+
+// normalizeHousingParams is the single normalization boundary for housing RPC
+// store calls and cache keys. Free-text queries are additionally kept out of the
+// shared MemoryCache by their handlers so anonymous searches cannot mint one
+// large entry per request.
+func normalizeHousingParams(raw housingParams, rules housingParamRules) (housingParams, error) {
+	normalized := raw
+	normalized.stateCode = strings.ToUpper(strings.TrimSpace(raw.stateCode))
+	if rules.requireState && normalized.stateCode == "" {
+		return housingParams{}, fmt.Errorf("state_code is required")
+	}
+	if normalized.stateCode != "" {
+		if _, ok := australianStateCodes[normalized.stateCode]; !ok {
+			return housingParams{}, fmt.Errorf("state_code must be an Australian state or territory code")
+		}
+	}
+
+	normalized.query = strings.ToLower(strings.Join(strings.Fields(raw.query), " "))
+	normalized.regionType = strings.ToLower(strings.TrimSpace(raw.regionType))
+	if rules.validateRegionType && normalized.regionType != "" {
+		if _, ok := housingRegionTypes[normalized.regionType]; !ok {
+			return housingParams{}, fmt.Errorf("invalid region_type")
+		}
+	}
+
+	normalized.sort = strings.ToLower(strings.TrimSpace(raw.sort))
+	if rules.allowedSorts != nil {
+		if _, ok := rules.allowedSorts[normalized.sort]; !ok {
+			normalized.sort = rules.defaultSort
+		}
+	}
+	if rules.defaultLimit > 0 && (normalized.limit <= 0 || normalized.limit > rules.maxLimit) {
+		normalized.limit = rules.defaultLimit
+	}
+	if rules.defaultWindowDays > 0 && (normalized.windowDays <= 0 || normalized.windowDays > rules.maxWindowDays) {
+		normalized.windowDays = rules.defaultWindowDays
+	}
+
+	normalized.salCode = strings.TrimSpace(raw.salCode)
+	normalized.regionCode = strings.ToUpper(strings.TrimSpace(raw.regionCode))
+	normalized.addressKey = strings.ToLower(strings.TrimSpace(raw.addressKey))
+	normalized.measure = strings.ToLower(strings.TrimSpace(raw.measure))
+	normalized.dwellingType = strings.ToLower(strings.TrimSpace(raw.dwellingType))
+	if rules.defaultDwellingType != "" && normalized.dwellingType == "" {
+		normalized.dwellingType = rules.defaultDwellingType
+	}
+
+	return normalized, nil
+}
+
+func (s *ShortsServer) getHousingCached(cacheable bool, key string, compute func() (interface{}, error)) (interface{}, error) {
+	if !cacheable {
+		return compute()
+	}
+	return s.cache.GetOrSet(key, compute)
+}
+
 // GetHousingOverview returns the latest house-price headline metrics (mean/median
 // price, price index, debt-to-income) per region with QoQ/YoY change.
 func (s *ShortsServer) GetHousingOverview(ctx context.Context, req *connect.Request[shortsv1alpha1.GetHousingOverviewRequest]) (*connect.Response[shortsv1alpha1.GetHousingOverviewResponse], error) {
-	regionType := req.Msg.RegionType
+	params, paramErr := normalizeHousingParams(housingParams{regionType: req.Msg.RegionType}, housingParamRules{validateRegionType: true})
+	if paramErr != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, paramErr)
+	}
+	regionType := params.regionType
 
 	cacheKey := s.cache.GetHousingOverviewKey(regionType)
 	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
@@ -65,13 +154,16 @@ func (s *ShortsServer) GetHousingOverview(ctx context.Context, req *connect.Requ
 // GetHousePriceSeries returns a single quarterly time series for a region and measure.
 func (s *ShortsServer) GetHousePriceSeries(ctx context.Context, req *connect.Request[shortsv1alpha1.GetHousePriceSeriesRequest]) (*connect.Response[shortsv1alpha1.GetHousePriceSeriesResponse], error) {
 	m := req.Msg
-	if m.RegionCode == "" || m.Measure == "" {
+	params, _ := normalizeHousingParams(housingParams{
+		regionCode: m.RegionCode, measure: m.Measure, dwellingType: m.DwellingType,
+	}, housingParamRules{defaultDwellingType: "all"})
+	if params.regionCode == "" || params.measure == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("region_code and measure are required"))
 	}
 
-	cacheKey := s.cache.GetHousePriceSeriesKey(m.RegionCode, m.Measure, m.DwellingType)
+	cacheKey := s.cache.GetHousePriceSeriesKey(params.regionCode, params.measure, params.dwellingType)
 	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
-		res, err := s.store.GetHousePriceSeries(m.RegionCode, m.Measure, m.DwellingType)
+		res, err := s.store.GetHousePriceSeries(params.regionCode, params.measure, params.dwellingType)
 		if err != nil {
 			return nil, err
 		}
@@ -104,12 +196,15 @@ func (s *ShortsServer) GetHousePriceSeries(ctx context.Context, req *connect.Req
 // ListStateSuburbs lists every suburb in a state with price + headline demographics.
 func (s *ShortsServer) ListStateSuburbs(ctx context.Context, req *connect.Request[shortsv1alpha1.ListStateSuburbsRequest]) (*connect.Response[shortsv1alpha1.ListStateSuburbsResponse], error) {
 	m := req.Msg
-	if m.StateCode == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("state_code is required"))
+	params, paramErr := normalizeHousingParams(housingParams{
+		stateCode: m.StateCode, query: m.Query, limit: m.Limit,
+	}, housingParamRules{requireState: true, defaultLimit: 5000, maxLimit: 20000})
+	if paramErr != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, paramErr)
 	}
-	cacheKey := s.cache.GetStateSuburbsKey(m.StateCode, m.Query, m.Limit)
-	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
-		rows, err := s.store.ListStateSuburbs(m.StateCode, m.Query, m.Limit)
+	cacheKey := s.cache.GetStateSuburbsKey(params.stateCode, params.query, params.limit)
+	cached, err := s.getHousingCached(params.query == "", cacheKey, func() (interface{}, error) {
+		rows, err := s.store.ListStateSuburbs(params.stateCode, params.query, params.limit)
 		if err != nil {
 			return nil, err
 		}
@@ -192,12 +287,13 @@ func bannerFallbackBlurb(archetype, salName, lgaName string) string {
 // GetSuburbProfile returns one suburb's full profile.
 func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Request[shortsv1alpha1.GetSuburbProfileRequest]) (*connect.Response[shortsv1alpha1.GetSuburbProfileResponse], error) {
 	m := req.Msg
-	if m.SalCode == "" {
+	params, _ := normalizeHousingParams(housingParams{salCode: m.SalCode}, housingParamRules{})
+	if params.salCode == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("sal_code is required"))
 	}
-	cacheKey := s.cache.GetSuburbProfileKey(m.SalCode)
+	cacheKey := s.cache.GetSuburbProfileKey(params.salCode)
 	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
-		p, err := s.store.GetSuburbProfile(m.SalCode)
+		p, err := s.store.GetSuburbProfile(params.salCode)
 		if err != nil {
 			return nil, err
 		}
@@ -327,10 +423,16 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 // optionally filtered by region_type, state, or name — powers the suburb explorer.
 func (s *ShortsServer) ListHousingRegions(ctx context.Context, req *connect.Request[shortsv1alpha1.ListHousingRegionsRequest]) (*connect.Response[shortsv1alpha1.ListHousingRegionsResponse], error) {
 	m := req.Msg
+	params, paramErr := normalizeHousingParams(housingParams{
+		regionType: m.RegionType, stateCode: m.StateCode, query: m.Query, limit: m.Limit,
+	}, housingParamRules{validateRegionType: true, defaultLimit: 2000, maxLimit: 5000})
+	if paramErr != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, paramErr)
+	}
 
-	cacheKey := s.cache.GetHousingRegionsKey(m.RegionType, m.StateCode, m.Query, m.Limit)
-	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
-		rows, err := s.store.GetHousingRegions(m.RegionType, m.StateCode, m.Query, m.Limit)
+	cacheKey := s.cache.GetHousingRegionsKey(params.regionType, params.stateCode, params.query, params.limit)
+	cached, err := s.getHousingCached(params.query == "", cacheKey, func() (interface{}, error) {
+		rows, err := s.store.GetHousingRegions(params.regionType, params.stateCode, params.query, params.limit)
 		if err != nil {
 			return nil, err
 		}
@@ -366,9 +468,18 @@ func (s *ShortsServer) ListHousingRegions(ctx context.Context, req *connect.Requ
 // individual listings are returned, so it is always public.
 func (s *ShortsServer) ListSuburbPriceDrops(ctx context.Context, req *connect.Request[shortsv1alpha1.ListSuburbPriceDropsRequest]) (*connect.Response[shortsv1alpha1.ListSuburbPriceDropsResponse], error) {
 	m := req.Msg
-	cacheKey := s.cache.GetSuburbPriceDropsKey(m.StateCode, m.Sort, m.Limit)
+	params, paramErr := normalizeHousingParams(housingParams{
+		stateCode: m.StateCode, sort: m.Sort, limit: m.Limit,
+	}, housingParamRules{
+		defaultSort: "count", allowedSorts: map[string]struct{}{"count": {}, "avg": {}, "max": {}, "asking": {}, "sold": {}},
+		defaultLimit: 50, maxLimit: 500,
+	})
+	if paramErr != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, paramErr)
+	}
+	cacheKey := s.cache.GetSuburbPriceDropsKey(params.stateCode, params.sort, params.limit)
 	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
-		rows, err := s.store.ListSuburbPriceDrops(m.StateCode, m.Sort, m.Limit)
+		rows, err := s.store.ListSuburbPriceDrops(params.stateCode, params.sort, params.limit)
 		if err != nil {
 			return nil, err
 		}
@@ -396,15 +507,18 @@ func (s *ShortsServer) ListSuburbPriceDrops(ctx context.Context, req *connect.Re
 	return connect.NewResponse(cached.(*shortsv1alpha1.ListSuburbPriceDropsResponse)), nil
 }
 
-// dropListingsEnabled gates the per-listing deep-link drill-down. That path reads
-// ToS-restricted listing rows, so it is OFF by default and enabled only once the
-// operator has confirmed the publish posture (HOUSING_DROP_LISTINGS_ENABLED=true).
 // dropListingsEnabled gates the per-address / per-listing surfaces (the
 // drops-by-address board, per-address history, suburb-drop deep-links, and the
 // suburb drops panel) that read the ToS-restricted REA/Domain listing rows.
 // Enabled by DEFAULT — no opt-in env is needed to ship it live. Set
 // HOUSING_DROP_LISTINGS_ENABLED to a falsey value ("false"/"0"/"off"/"no") only
-// as an explicit kill switch (e.g. a takedown request).
+// as an explicit kill switch.
+//
+// Takedown runbook (both steps are required):
+//  1. Set HOUSING_DROP_LISTINGS_ENABLED=false and restart/deploy the API.
+//  2. Flush KV and ISR immediately:
+//     curl -X POST -H "X-Revalidate-Secret: $REVALIDATION_SECRET" \
+//     "$REVALIDATION_URL?path=/price-drops,/housing&flush=housing"
 func dropListingsEnabled() bool {
 	switch strings.ToLower(strings.TrimSpace(os.Getenv("HOUSING_DROP_LISTINGS_ENABLED"))) {
 	case "false", "0", "off", "no":
@@ -414,9 +528,13 @@ func dropListingsEnabled() bool {
 	}
 }
 
-// valuationsEnabled independently gates the property.com.au AVM enrichment.
-// It is enabled by default, with an explicit kill switch for the source's
-// heightened ToS posture.
+// valuationsEnabled independently gates the per-address property.com.au AVM and
+// sales-history enrichment. Enabled by DEFAULT, like dropListingsEnabled: the card
+// attributes the source, deep-links to the property.com.au profile, disclaims that
+// the figures are model estimates, and labels a whole-building estimate as such
+// (see valuation_granularity, migration 000091). Set HOUSING_VALUATIONS_ENABLED to
+// a falsey value ("false"/"0"/"off"/"no") as an explicit kill switch — this source
+// carries a heightened ToS posture, so a takedown must be one env flip away.
 func valuationsEnabled() bool {
 	switch strings.ToLower(strings.TrimSpace(os.Getenv("HOUSING_VALUATIONS_ENABLED"))) {
 	case "false", "0", "off", "no":
@@ -431,15 +549,18 @@ func valuationsEnabled() bool {
 // disabled so the UI degrades cleanly to the aggregate-only surface.
 func (s *ShortsServer) ListSuburbDropListings(ctx context.Context, req *connect.Request[shortsv1alpha1.ListSuburbDropListingsRequest]) (*connect.Response[shortsv1alpha1.ListSuburbDropListingsResponse], error) {
 	m := req.Msg
-	if m.SalCode == "" && m.RegionCode == "" {
+	params, _ := normalizeHousingParams(housingParams{
+		salCode: m.SalCode, regionCode: m.RegionCode, windowDays: m.WindowDays, limit: m.Limit,
+	}, housingParamRules{defaultWindowDays: 30, maxWindowDays: 365, defaultLimit: 30, maxLimit: 200})
+	if params.salCode == "" && params.regionCode == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("sal_code or region_code is required"))
 	}
 	if !dropListingsEnabled() {
 		return connect.NewResponse(&shortsv1alpha1.ListSuburbDropListingsResponse{}), nil
 	}
-	cacheKey := s.cache.GetSuburbDropListingsKey(m.SalCode, m.RegionCode, m.WindowDays, m.Limit)
+	cacheKey := s.cache.GetSuburbDropListingsKey(params.salCode, params.regionCode, params.windowDays, params.limit)
 	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
-		rows, err := s.store.ListSuburbDropListings(m.SalCode, m.RegionCode, m.WindowDays, m.Limit)
+		rows, err := s.store.ListSuburbDropListings(params.salCode, params.regionCode, params.windowDays, params.limit)
 		if err != nil {
 			return nil, err
 		}
@@ -473,15 +594,16 @@ func (s *ShortsServer) ListSuburbDropListings(ctx context.Context, req *connect.
 // degrades cleanly to the aggregate-only surface.
 func (s *ShortsServer) GetPropertyHistory(ctx context.Context, req *connect.Request[shortsv1alpha1.GetPropertyHistoryRequest]) (*connect.Response[shortsv1alpha1.GetPropertyHistoryResponse], error) {
 	m := req.Msg
-	if m.AddressKey == "" {
-		return connect.NewResponse(&shortsv1alpha1.GetPropertyHistoryResponse{}), nil
+	params, _ := normalizeHousingParams(housingParams{addressKey: m.AddressKey}, housingParamRules{})
+	if params.addressKey == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("address_key is required"))
 	}
 	if !dropListingsEnabled() {
 		return connect.NewResponse(&shortsv1alpha1.GetPropertyHistoryResponse{}), nil
 	}
-	cacheKey := s.cache.GetPropertyHistoryKey(m.AddressKey)
+	cacheKey := s.cache.GetPropertyHistoryKey(params.addressKey)
 	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
-		res, err := s.store.GetPropertyHistory(m.AddressKey)
+		res, err := s.store.GetPropertyHistory(params.addressKey)
 		if err != nil {
 			return nil, err
 		}
@@ -506,6 +628,11 @@ func (s *ShortsServer) GetPropertyHistory(ctx context.Context, req *connect.Requ
 			if e == nil {
 				continue
 			}
+			// All other price-drop surfaces cap >40% as likely listing typo
+			// corrections. Re-assert the same publish rule at the response edge.
+			if e.EventType == "price_drop" && e.DropPct > 0.40 {
+				continue
+			}
 			events = append(events, &shortsv1alpha1.PropertyPriceEvent{
 				ObservedAt: e.ObservedAt.Format(time.RFC3339), EventType: e.EventType,
 				Source: e.Source, ListingId: e.ListingID,
@@ -515,12 +642,12 @@ func (s *ShortsServer) GetPropertyHistory(ctx context.Context, req *connect.Requ
 		}
 		var valuation *shortsv1alpha1.PropertyValuation
 		if valuationsEnabled() {
-			v, verr := s.store.GetPropertyValuation(m.AddressKey)
+			v, verr := s.store.GetPropertyValuation(params.addressKey)
 			if verr != nil {
 				// The valuation is an enrichment. A failure here, including a
 				// pre-migration environment without property_valuations, must never
 				// fail the property-history page.
-				s.logger.Warnf("GetPropertyValuation(%s): %v", m.AddressKey, verr)
+				s.logger.Warnf("GetPropertyValuation(%s): %v", params.addressKey, verr)
 			} else if v != nil {
 				valuation = toPropertyValuationProto(v)
 			}
@@ -538,7 +665,21 @@ func (s *ShortsServer) GetPropertyHistory(ctx context.Context, req *connect.Requ
 		s.logger.Errorf("database error in GetPropertyHistory: %v", err)
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get property history"))
 	}
-	return connect.NewResponse(cached.(*shortsv1alpha1.GetPropertyHistoryResponse)), nil
+	response := cached.(*shortsv1alpha1.GetPropertyHistoryResponse)
+	if response.Current == nil {
+		// GetOrSet inserts before returning. Remove empty/unknown responses
+		// immediately so a transient miss is not negative-cached for five minutes.
+		s.cache.Delete(cacheKey)
+	}
+	if !valuationsEnabled() && response.Valuation != nil {
+		// The valuation flag may change while a history response is warm. Return a
+		// shallow redacted copy so the kill switch takes effect immediately without
+		// mutating the shared cached message for a later explicit re-enable.
+		redacted := *response
+		redacted.Valuation = nil
+		response = &redacted
+	}
+	return connect.NewResponse(response), nil
 }
 
 func toPropertyValuationProto(row *shortsstore.PropertyValuationRow) *shortsv1alpha1.PropertyValuation {
@@ -590,12 +731,21 @@ func derefOrZero(value *float64) float64 {
 // flag is off, so the UI degrades cleanly to the aggregate-only surface.
 func (s *ShortsServer) ListAddressPriceDrops(ctx context.Context, req *connect.Request[shortsv1alpha1.ListAddressPriceDropsRequest]) (*connect.Response[shortsv1alpha1.ListAddressPriceDropsResponse], error) {
 	m := req.Msg
+	params, paramErr := normalizeHousingParams(housingParams{
+		stateCode: m.StateCode, sort: m.Sort, windowDays: m.WindowDays, limit: m.Limit,
+	}, housingParamRules{
+		defaultSort: "pct", allowedSorts: map[string]struct{}{"pct": {}, "abs": {}, "recent": {}},
+		defaultWindowDays: 90, maxWindowDays: 365, defaultLimit: 50, maxLimit: 200,
+	})
+	if paramErr != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, paramErr)
+	}
 	if !dropListingsEnabled() {
 		return connect.NewResponse(&shortsv1alpha1.ListAddressPriceDropsResponse{}), nil
 	}
-	cacheKey := s.cache.GetAddressPriceDropsKey(m.StateCode, m.Sort, m.WindowDays, m.Limit)
+	cacheKey := s.cache.GetAddressPriceDropsKey(params.stateCode, params.sort, params.windowDays, params.limit)
 	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
-		rows, err := s.store.ListAddressPriceDrops(m.StateCode, m.Sort, m.WindowDays, m.Limit)
+		rows, err := s.store.ListAddressPriceDrops(params.stateCode, params.sort, params.windowDays, params.limit)
 		if err != nil {
 			return nil, err
 		}
@@ -675,25 +825,21 @@ func (s *ShortsServer) GetPriceDropsOverview(ctx context.Context, req *connect.R
 // error) when disabled.
 func (s *ShortsServer) ListAgencyPriceStats(ctx context.Context, req *connect.Request[shortsv1alpha1.ListAgencyPriceStatsRequest]) (*connect.Response[shortsv1alpha1.ListAgencyPriceStatsResponse], error) {
 	m := req.Msg
+	params, paramErr := normalizeHousingParams(housingParams{
+		stateCode: m.StateCode, sort: m.Sort, limit: m.Limit,
+	}, housingParamRules{
+		defaultSort: "drops", allowedSorts: map[string]struct{}{"drops": {}, "listings": {}, "avg_cut": {}, "value": {}},
+		defaultLimit: 20, maxLimit: 100,
+	})
+	if paramErr != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, paramErr)
+	}
 	if !dropListingsEnabled() {
 		return connect.NewResponse(&shortsv1alpha1.ListAgencyPriceStatsResponse{}), nil
 	}
-	// Normalize BEFORE the cache key so casing/junk variants of the same query
-	// can't fan out into distinct cache entries.
-	stateCode := strings.ToUpper(strings.TrimSpace(m.StateCode))
-	sort := m.Sort
-	switch sort {
-	case "drops", "listings", "avg_cut", "value":
-	default:
-		sort = "drops"
-	}
-	limit := m.Limit
-	if limit <= 0 || limit > 100 {
-		limit = 20
-	}
-	cacheKey := s.cache.GetAgencyPriceStatsKey(stateCode, sort, limit)
+	cacheKey := s.cache.GetAgencyPriceStatsKey(params.stateCode, params.sort, params.limit)
 	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
-		rows, err := s.store.ListAgencyPriceStats(stateCode, sort, limit)
+		rows, err := s.store.ListAgencyPriceStats(params.stateCode, params.sort, params.limit)
 		if err != nil {
 			return nil, err
 		}

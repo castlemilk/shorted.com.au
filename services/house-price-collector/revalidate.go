@@ -35,7 +35,6 @@ func pingRevalidate(reason string) {
 	}
 
 	q := url.Values{}
-	q.Set("secret", secret)
 	q.Set("path", "/price-drops,/housing")
 	q.Set("flush", "housing")
 	// tag is intentionally unset — the flush=housing branch busts the housing
@@ -51,6 +50,7 @@ func pingRevalidate(reason string) {
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Revalidate-Secret", secret)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

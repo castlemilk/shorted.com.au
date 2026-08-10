@@ -585,7 +585,8 @@ TTLs only as self-healing ceilings:
 crawl batch (rig -mode agent / -mode listings / official refresh)
   └─ refreshHousingMV()  — SQL refresh of all housing MVs
       └─ pingRevalidate() — services/house-price-collector/revalidate.go
-          POST $REVALIDATION_URL?secret=…&path=/price-drops,/housing&flush=housing
+          POST $REVALIDATION_URL?path=/price-drops,/housing&flush=housing
+          X-Revalidate-Secret: $REVALIDATION_SECRET
           (detached 45s ctx; warn-only; NO-OP when env unset)
               ├─ revalidatePath(/price-drops, /housing)   — busts the ISR route cache
               └─ flush=housing → deleteCachedByPrefix(cache:housing:*)  — busts KV
@@ -598,7 +599,7 @@ Layer map for one `/price-drops` view:
 | Layer | TTL | Notes |
 |-------|-----|-------|
 | Vercel route cache (static ISR) | 1h ceiling | `revalidate = 3600`; page is prerendered — **do not read `searchParams` in the server page** (forces dynamic); the `?state=` deep link is read client-side via `useSearchParams` under a `<Suspense>` boundary |
-| Upstash KV (`cache:housing:drops:*`) | 24h ceiling | `getHousing.ts` actions: skipForBuild guard + toJson/fromJson projections + ISR-cacheable transport (`next:{revalidate}` — without it the no-store POST silently flips the route dynamic); **empty responses are never cached** |
+| Upstash KV (`cache:housing:drops:*`) | 24h ceiling | Anonymous aggregate actions use KV with skipForBuild + toJson/fromJson projections. Flag-gated agency/address actions deliberately bypass KV; the takedown runbook's `revalidatePath` call is still required to clear ISR/Data Cache before subsequent renders consult the backend kill switch. **Empty responses are never cached**. |
 | Backend MemoryCache | 5 min | per-Cloud-Run-instance L2, singleflight-deduped |
 | Browser | 30 min TanStack / 5 min sessionStorage | address board only; default view is server-seeded via `initialAddresses` → `useQuery initialData` (never seed an EMPTY array — initialData suppresses the client fetch for the whole staleTime) |
 
@@ -624,8 +625,15 @@ Cloud Run RPC volume for the page down to ~hourly worst case.
   cloudflare-edge carries a skip rule for `/api/revalidate`) + `REVALIDATION_SECRET` (prod
   Secret Manager, shared with short-data-sync). Cloud Run job: Terraform
   `manage_revalidation_secret = true` (prod) mirrors the short-data-sync module.
-- **Kill switch**: `HOUSING_DROP_LISTINGS_ENABLED` (default ON; falsey disables) empties the
-  per-listing boards AND the agency leaderboard; the anonymous suburb/state aggregates stay up.
+- **Listing takedown runbook**: set `HOUSING_DROP_LISTINGS_ENABLED=false` (falsey disables),
+  restart/deploy the API, then immediately run
+  `curl -X POST -H "X-Revalidate-Secret: $REVALIDATION_SECRET" "$REVALIDATION_URL?path=/price-drops,/housing&flush=housing"`.
+  The flush removes any pre-change housing KV entries and revalidates the static ISR pages;
+  the flag-gated agency/address server reads bypass KV on every render. The anonymous
+  suburb/state aggregates stay up.
+- **AVM takedown/default**: `HOUSING_VALUATIONS_ENABLED` is OFF by default and must be set
+  explicitly true to expose the property.com.au per-address AVM/sales-history enrichment.
+  False/unset omits only the valuation block while listing history follows the listing gate.
 - **Blurb backfill** (optional): cost-lean runner pattern = target only the ~115 crawl-catalog
   suburbs (`property_listings` sal link) + shim `agy --effort low` (~7s/call) ≈ 15–20 min ≈ $1–2,
   vs ~18h/$30–60 for the full priced set. No overwrite flag; a valid LLM `archetype_hint`
