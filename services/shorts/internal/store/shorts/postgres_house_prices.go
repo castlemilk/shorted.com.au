@@ -167,8 +167,8 @@ type SuburbSummaryRow struct {
 	NearestTrainKm       float64
 	// Declared properties resolving to this suburb (registers of interests).
 	PoliticianPropertyCount int32
-	NearestHospitalKm    float64
-	DistToCoastKm        float64
+	NearestHospitalKm       float64
+	DistToCoastKm           float64
 	// school sector/type split (per-state CC-BY open data)
 	SchoolsGov         int32
 	SchoolsCatholic    int32
@@ -256,6 +256,34 @@ type SimilarSuburbRow struct {
 	Distance          float64
 }
 
+// preferredSuburbRegionJoin resolves the one public suburb-price identity for a
+// SAL. Crawled listing keys can share a SAL with Valuer-General keys, but their
+// observations are proprietary and must not fan out list rows or win a profile's
+// bare LIMIT 1. Ties between public sources are newest-first and deterministic.
+const preferredSuburbRegionJoin = `
+		LEFT JOIN LATERAL (
+			SELECT sr.region_code, hp.value, hp.period, hp.yoy_pct
+			FROM house_price_regions sr
+			LEFT JOIN LATERAL (
+				SELECT latest.value, latest.period,
+				       (latest.value / NULLIF((
+				          SELECT prior.value FROM house_prices prior
+				          WHERE prior.region_code = sr.region_code AND prior.measure = 'median_price'
+				            AND prior.dwelling_type = 'house' AND prior.source_licence <> 'proprietary-tos-restricted'
+				            AND prior.period <= latest.period - INTERVAL '11 months'
+				          ORDER BY prior.period DESC LIMIT 1), 0) - 1) * 100 AS yoy_pct
+				FROM house_prices latest
+				WHERE latest.region_code = sr.region_code AND latest.measure = 'median_price'
+				  AND latest.dwelling_type = 'house' AND latest.source_licence <> 'proprietary-tos-restricted'
+				ORDER BY latest.period DESC LIMIT 1
+			) hp ON true
+			WHERE sr.sal_code = d.sal_code AND sr.region_type = 'suburb'
+			ORDER BY (hp.value IS NOT NULL) DESC,
+			         hp.period DESC NULLS LAST,
+			         sr.region_code
+			LIMIT 1
+		) r ON true`
+
 const listStateSuburbsCrimeJoin = `
 		LEFT JOIN (
 			-- Latest pooled, CVS-adjusted crime ranks, pivoted per suburb. The MV
@@ -280,7 +308,7 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 	}
 	const q = `
 		SELECT d.sal_code, d.sal_name, d.state_code, COALESCE(d.postcode, ''),
-		       COALESCE(h.value, 0), h.period, COALESCE(h.yoy_pct, 0),
+		       COALESCE(r.value, 0), r.period, COALESCE(r.yoy_pct, 0),
 		       COALESCE(d.population, 0), COALESCE(d.median_age, 0),
 		       COALESCE(d.median_weekly_hhd_income, 0), COALESCE(r.region_code, ''),
 		       COALESCE(d.pct_born_overseas, 0), COALESCE(d.top_religion, ''),
@@ -303,27 +331,12 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 		       COALESCE(ROUND(cr.violent_rank::numeric, 1), 0),
 		       COALESCE(ROUND(cr.motor_vehicle_rank::numeric, 1), 0),
 		       COALESCE(rp.declared_property_count, 0)
-		FROM suburb_demographics d
-		LEFT JOIN house_price_regions r ON r.sal_code = d.sal_code AND r.region_type = 'suburb'
+		FROM suburb_demographics d` + preferredSuburbRegionJoin + `
 		LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
 		LEFT JOIN suburb_connectivity c ON c.sal_code = d.sal_code
 		-- Register-of-interests property counts. Read from the MV, never a
 		-- per-request aggregate: this query returns ~5,000 rows per state.
 		LEFT JOIN mv_register_suburb_property rp ON rp.sal_code = d.sal_code` + listStateSuburbsCrimeJoin + `
-		-- Latest median from house_prices directly (NOT the quarterly-only MV) so annual
-		-- Valuer-General states (VIC) light up too; YoY computed vs the obs ~1yr prior.
-		LEFT JOIN LATERAL (
-			SELECT hp.value, hp.period,
-			       (hp.value / NULLIF((
-			          SELECT p.value FROM house_prices p
-			          WHERE p.region_code = r.region_code AND p.measure = 'median_price'
-			            AND p.dwelling_type = 'house' AND p.source_licence <> 'proprietary-tos-restricted' AND p.period <= hp.period - INTERVAL '11 months'
-			          ORDER BY p.period DESC LIMIT 1), 0) - 1) * 100 AS yoy_pct
-			FROM house_prices hp
-			WHERE hp.region_code = r.region_code AND hp.measure = 'median_price' AND hp.dwelling_type = 'house'
-			  AND hp.source_licence <> 'proprietary-tos-restricted'
-			ORDER BY hp.period DESC LIMIT 1
-		) h ON true
 		WHERE d.state_code = $1
 		  AND ($2 = '' OR d.sal_name ILIKE '%' || $2 || '%')
 		ORDER BY d.sal_name
@@ -364,7 +377,7 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 	defer cancel()
 	const q = `
 		SELECT d.sal_code, d.sal_name, d.state_code, COALESCE(d.postcode, ''),
-		       COALESCE(h.value, 0), h.period, COALESCE(h.yoy_pct, 0),
+		       COALESCE(r.value, 0), r.period, COALESCE(r.yoy_pct, 0),
 		       COALESCE(d.population, 0), COALESCE(d.median_age, 0),
 		       COALESCE(d.median_weekly_hhd_income, 0), COALESCE(r.region_code, ''),
 		       COALESCE(d.pct_born_overseas, 0), COALESCE(d.top_religion, ''),
@@ -413,24 +426,11 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		       COALESCE(d.banner_archetype,''), COALESCE(d.banner_blurb,''),
 		       COALESCE(d.banner_landmarks, '[]'::jsonb),
 		       COALESCE(d.banner_bg_key,''), COALESCE(d.banner_bg_url,'')
-		FROM suburb_demographics d
-		LEFT JOIN house_price_regions r ON r.sal_code = d.sal_code AND r.region_type = 'suburb'
+		FROM suburb_demographics d` + preferredSuburbRegionJoin + `
 		LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
 		LEFT JOIN suburb_connectivity c ON c.sal_code = d.sal_code
 		LEFT JOIN suburb_lga sl ON sl.sal_code = d.sal_code
 		LEFT JOIN lga lg ON lg.lga_code24 = sl.lga_code24
-		LEFT JOIN LATERAL (
-			SELECT hp.value, hp.period,
-			       (hp.value / NULLIF((
-			          SELECT p.value FROM house_prices p
-			          WHERE p.region_code = r.region_code AND p.measure = 'median_price'
-			            AND p.dwelling_type = 'house' AND p.source_licence <> 'proprietary-tos-restricted' AND p.period <= hp.period - INTERVAL '11 months'
-			          ORDER BY p.period DESC LIMIT 1), 0) - 1) * 100 AS yoy_pct
-			FROM house_prices hp
-			WHERE hp.region_code = r.region_code AND hp.measure = 'median_price' AND hp.dwelling_type = 'house'
-			  AND hp.source_licence <> 'proprietary-tos-restricted'
-			ORDER BY hp.period DESC LIMIT 1
-		) h ON true
 		WHERE d.sal_code = $1
 		LIMIT 1`
 	var p SuburbProfileRow

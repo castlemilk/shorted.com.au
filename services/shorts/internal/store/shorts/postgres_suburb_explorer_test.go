@@ -17,6 +17,7 @@ const (
 	salRichmond  = "20604" // VIC, public + proprietary priced
 	salNorwood   = "40001" // SA,  public + proprietary priced
 	salCrownland = "29999" // VIC, proprietary-ONLY priced
+	salAscotVale = "20075" // VIC, duplicate crawl + Valuer-General region keys
 )
 
 // setupSuburbExplorerSchema extends the base housing schema (from
@@ -146,6 +147,36 @@ func setupSuburbExplorerSchema(t *testing.T, pool *pgxpool.Pool) {
 	require.NoError(t, err)
 }
 
+// seedDuplicateSuburbRegion reproduces the production shape where a crawl key
+// and a Valuer-General key share one SAL. The crawl key is inserted first so a
+// bare LIMIT 1 deterministically exposes the wrong, proprietary-only region.
+func seedDuplicateSuburbRegion(t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
+	ctx := context.Background()
+
+	_, err := pool.Exec(ctx, `
+		INSERT INTO suburb_demographics
+			(sal_code, sal_name, state_code, postcode, population, median_age, median_weekly_hhd_income)
+		VALUES ($1, 'Ascot Vale', 'VIC', '3032', 15000, 36, 2100)`, salAscotVale)
+	require.NoError(t, err)
+
+	_, err = pool.Exec(ctx, `
+		INSERT INTO house_price_regions
+			(region_code, region_type, region_name, state_code, postcode, sal_code)
+		VALUES
+			('SUBURB:VIC-3032-ASCOT-VALE', 'suburb', 'ASCOT VALE', 'VIC', '3032', $1),
+			('SUBURB:VIC-ASCOT VALE',      'suburb', 'ASCOT VALE', 'VIC', '3032', $1)`, salAscotVale)
+	require.NoError(t, err)
+
+	_, err = pool.Exec(ctx, `
+		INSERT INTO house_prices
+			(region_code, measure, dwelling_type, period, period_freq, value, unit, source, source_licence, content_hash)
+		VALUES
+			('SUBURB:VIC-3032-ASCOT-VALE', 'median_price', 'house', '2024-06-30', 'Q', 1500000, 'AUD', 'crawl_domain', 'proprietary-tos-restricted', 'ascot-crawl'),
+			('SUBURB:VIC-ASCOT VALE',      'median_price', 'house', '2024-06-30', 'Q', 1300000, 'AUD', 'vg_vic',       'CC-BY-4.0',                  'ascot-vg')`)
+	require.NoError(t, err)
+}
+
 // proprietaryValues are the ToS-restricted medians seeded by loadHousingTestData;
 // none may ever surface through a public read path.
 var proprietaryValues = []float64{9999999, 8888888, 7777777}
@@ -211,4 +242,33 @@ func TestHousingLicenceGate_SuburbProfile(t *testing.T) {
 		assert.NotEqual(t, pv, p.StateMedianPrice, "proprietary median leaked into state baseline")
 		assert.NotEqual(t, pv, p.NationalMedianPrice, "proprietary median leaked into national baseline")
 	}
+}
+
+func TestListStateSuburbs_DuplicateSALChoosesPublicPricedRegionOnce(t *testing.T) {
+	pool, cleanup := setupHousingTestDatabase(t)
+	defer cleanup()
+	setupSuburbExplorerSchema(t, pool)
+	seedDuplicateSuburbRegion(t, pool)
+	s := &postgresStore{db: pool}
+
+	rows, err := s.ListStateSuburbs("VIC", "Ascot Vale", 50)
+	require.NoError(t, err)
+	require.Len(t, rows, 1, "one demographic suburb must not fan out per matching region key")
+	assert.Equal(t, salAscotVale, rows[0].SALCode)
+	assert.Equal(t, "SUBURB:VIC-ASCOT VALE", rows[0].RegionCode)
+	assert.InDelta(t, 1300000.0, rows[0].LatestMedianPrice, 0.5)
+}
+
+func TestGetSuburbProfile_DuplicateSALChoosesPublicPricedRegion(t *testing.T) {
+	pool, cleanup := setupHousingTestDatabase(t)
+	defer cleanup()
+	setupSuburbExplorerSchema(t, pool)
+	seedDuplicateSuburbRegion(t, pool)
+	s := &postgresStore{db: pool}
+
+	profile, err := s.GetSuburbProfile(salAscotVale)
+	require.NoError(t, err)
+	require.NotNil(t, profile)
+	assert.Equal(t, "SUBURB:VIC-ASCOT VALE", profile.Summary.RegionCode)
+	assert.InDelta(t, 1300000.0, profile.Summary.LatestMedianPrice, 0.5)
 }

@@ -18,6 +18,17 @@ describe("suburb profile route caching contract", () => {
     expect(PageModule.generateStaticParams()).toEqual([]);
   });
 
+  it("opts the dynamic OG segment into on-demand ISR", async () => {
+    jest.mock("@connectrpc/connect", () => ({ createClient: jest.fn(() => ({})) }));
+    jest.mock("@connectrpc/connect-web", () => ({ createConnectTransport: jest.fn(() => ({})) }));
+
+    const OgModule = await import("../opengraph-image");
+
+    expect(OgModule.revalidate).toBe(86400);
+    expect(OgModule.generateStaticParams).toBeDefined();
+    expect(OgModule.generateStaticParams()).toEqual([]);
+  });
+
   it("keeps the sal query parameter out of the server render path", () => {
     expect(source).not.toContain("searchParams");
     expect(source).not.toMatch(/\.sal\b/);

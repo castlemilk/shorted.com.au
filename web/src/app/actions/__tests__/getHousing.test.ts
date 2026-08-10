@@ -128,6 +128,50 @@ describe("housing server actions", () => {
     const { resolveSuburbSalCode } = await import("../getHousing");
 
     await expect(resolveSuburbSalCode("VIC", "abbotsford-vic-")).resolves.toBe("206041122");
+    expect(clientMock.listStateSuburbs).toHaveBeenCalledWith({
+      stateCode: "VIC",
+      query: "abbotsford",
+      limit: 50,
+    });
+  });
+
+  it("resolves a canonical suburb slug with a narrow name query", async () => {
+    clientMock.listStateSuburbs.mockResolvedValue({
+      suburbs: [{
+        salCode: "20075",
+        salName: "Ascot Vale",
+        postcode: "3032",
+      }],
+    });
+    const { resolveSuburbSalCode } = await import("../getHousing");
+
+    await expect(resolveSuburbSalCode("VIC", "ascot-vale-3032")).resolves.toBe("20075");
+    expect(clientMock.listStateSuburbs).toHaveBeenCalledWith({
+      stateCode: "VIC",
+      query: "ascot vale",
+      limit: 50,
+    });
+  });
+
+  it("retries punctuation-normalized names with a bounded final-word query", async () => {
+    clientMock.listStateSuburbs.mockImplementation(async ({ query }: { query: string }) => ({
+      suburbs: query === "connor"
+        ? [{ salCode: "80004", salName: "O'Connor", postcode: "2602" }]
+        : [],
+    }));
+    const { resolveSuburbSalCode } = await import("../getHousing");
+
+    await expect(resolveSuburbSalCode("ACT", "o-connor-2602")).resolves.toBe("80004");
+    expect(clientMock.listStateSuburbs).toHaveBeenNthCalledWith(1, {
+      stateCode: "ACT",
+      query: "o connor",
+      limit: 50,
+    });
+    expect(clientMock.listStateSuburbs).toHaveBeenNthCalledWith(2, {
+      stateCode: "ACT",
+      query: "connor",
+      limit: 50,
+    });
   });
 
   it("returns null only when a suburb slug is a genuine miss", async () => {
@@ -170,7 +214,7 @@ describe("housing server actions", () => {
     consoleError.mockRestore();
   });
 
-  it("marks suburb list and profile RPC fetches as ISR-cacheable", async () => {
+  it("keeps the ISR guard on suburb list and profile RPC fetches", async () => {
     const { getSuburbProfile, listStateSuburbs } = await import("../getHousing");
     await listStateSuburbs("VIC", "", 5000);
     await getSuburbProfile("206041122");

@@ -39,9 +39,10 @@ function createHousingClient() {
 const isrHousingFetch: typeof fetch = (input, init) =>
   serverFetchWithUserAgent(input, { ...init, next: { revalidate: 3600 } });
 
-// The on-demand ISR suburb route regenerates daily. These requests must be
-// explicitly cacheable because Connect uses POST; an untagged POST becomes
-// `no-store` on Vercel and silently opts the route back into dynamic rendering.
+// The on-demand ISR suburb route regenerates daily. This metadata is an ISR
+// guard: without it serverFetchWithUserAgent marks Connect POSTs `no-store` and
+// opts the route into dynamic rendering. Next cannot fetch-cache Connect's
+// Uint8Array request bodies, so callers must still keep response payloads small.
 const suburbIsrFetch: typeof fetch = (input, init) =>
   serverFetchWithUserAgent(input, { ...init, next: { revalidate: 86400 } });
 
@@ -305,14 +306,32 @@ export const listAddressPriceDrops = cache(
  */
 export const resolveSuburbSalCode = cache(
   async (stateCode: string, slug: string): Promise<string | null> => {
-    const res = await listStateSuburbs(stateCode, "", 5000);
+    // Strip the canonical postcode and optional ABS state qualifier before
+    // searching. This keeps the resolver response to a handful of rows instead
+    // of downloading the state's multi-megabyte suburb index on every ISR.
+    const normalizedSlug = slug
+      .replace(/-+$/, "")
+      .replace(/-\d{4}$/, "")
+      .replace(new RegExp(`-${stateCode.toLowerCase()}$`), "");
+    const query = normalizedSlug.replace(/-/g, " ");
+    let res = await listStateSuburbs(stateCode, query, 50);
     if (!res) {
       throw new Error(`Unable to resolve suburb slug while ${stateCode} suburb data is unavailable`);
     }
-    // Recover the bare trailing hyphen emitted by the old sitemap while Google
-    // and other crawlers replace those URLs with the canonical form.
-    const normalizedSlug = slug.endsWith("-") ? slug.slice(0, -1) : slug;
-    const match = res.suburbs.find((s) => suburbSlug(s.salName, s.postcode) === normalizedSlug);
+    const canonicalSlug = slug.replace(/-+$/, "");
+    let match = res.suburbs.find((s) => suburbSlug(s.salName, s.postcode) === canonicalSlug);
+
+    // Names containing punctuation (for example O'Connor) do not match their
+    // space-normalised slug through ILIKE. Retry with the final word, still a
+    // bounded query, and verify the full canonical slug locally.
+    const fallbackQuery = normalizedSlug.split("-").at(-1) ?? query;
+    if (!match && fallbackQuery !== query) {
+      res = await listStateSuburbs(stateCode, fallbackQuery, 50);
+      if (!res) {
+        throw new Error(`Unable to resolve suburb slug while ${stateCode} suburb data is unavailable`);
+      }
+      match = res.suburbs.find((s) => suburbSlug(s.salName, s.postcode) === canonicalSlug);
+    }
     return match?.salCode ?? null;
   },
 );

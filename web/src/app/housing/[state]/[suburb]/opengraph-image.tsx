@@ -17,6 +17,12 @@ export const runtime = "nodejs";
 // the card for a full year (same rationale as the stock OG route).
 export const revalidate = 86400;
 
+// An empty list enables on-demand ISR for this dynamic metadata route without
+// prebuilding the full suburb corpus.
+export function generateStaticParams(): Array<{ state: string; suburb: string }> {
+  return [];
+}
+
 /** kebab-slug -> Title Case, dropping a trailing postcode segment (e.g.
  * "bondi-beach-2026" -> "Bondi Beach"). This is the guaranteed fallback name
  * — it needs no DB access, so it renders even against an empty local DB. */
