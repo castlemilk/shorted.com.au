@@ -47,6 +47,11 @@ test("housing freshness workflow enforces the read-only production sentinel cont
     "freshness SQL must not mutate the database",
   );
   assert.match(workflow, /house_price_ingest_runs[\s\S]*status\s*=\s*'error'/);
+  assert.match(
+    workflow,
+    /FROM\s+house_price_ingest_runs\s+AS\s+r\s+JOIN\s+expected_fact_sources\s+AS\s+e\s+ON\s+e\.cursor_source\s*=\s*r\.source\s+WHERE\s+r\.status\s*=\s*'error'/i,
+    "ingest errors must be limited to official fact-source cursors",
+  );
 
   assert.match(
     workflow,
@@ -76,6 +81,16 @@ test("housing freshness workflow enforces the read-only production sentinel cont
   assert.match(workflow, /Default event silence threshold[^\n]*72 hours/i);
 
   assert.match(workflow, /GITHUB_STEP_SUMMARY/);
+  assert.match(
+    workflow,
+    /query_error=.*query_error_file[\s\S]*cut\s+-c1-2000/,
+    "psql stderr must be read and bounded before reporting",
+  );
+  assert.match(
+    workflow,
+    /CHECK_FAILURE[^\n]*read-only freshness query failed[^\n]*%s[^\n]*\\n'[\s\S]*"\$query_error"/,
+    "the bounded psql diagnostic must be included in the failure report",
+  );
   assert.match(workflow, /CRAWL_FRESHNESS_WEBHOOK:\s*\$\{\{\s*secrets\.CRAWL_FRESHNESS_WEBHOOK\s*\}\}/);
   assert.match(workflow, /if\s+\[\[\s+-n\s+"\$CRAWL_FRESHNESS_WEBHOOK"\s+\]\]/);
   assert.match(workflow, /curl[\s\S]*-X\s+POST/);
@@ -105,18 +120,23 @@ test("terraform deploy workflow gates housing contracts on open pull requests", 
   assert.match(job, /uses: actions\/checkout@v5/);
   assert.match(job, /uses: actions\/setup-go@v6/);
   assert.match(job, /go-version: \$\{\{ env\.GO_VERSION \}\}/);
-  assert.match(job, /cache-dependency-path: services\/go\.sum/);
+  assert.match(job, /cache-dependency-path:\s*\|\s*services\/go\.sum\s*services\/jobs\/go\.sum/);
   assert.match(
     job,
     /git config --global url\."https:\/\/x-access-token:\$\{\{ secrets\.STEALTH_PAT \}\}@github\.com\/skunkworq\/"\.insteadOf "https:\/\/github\.com\/skunkworq\/"/,
   );
 
   assert.match(job, /node --test \.github\/workflows\/housing-lifecycle\.test\.mjs/);
-  assert.match(job, /working-directory: services/);
   assert.match(
     job,
-    /GOWORK=off GOPRIVATE='github\.com\/skunkworq\/\*' go test \.\/shorts\/internal\/services\/shorts/,
+    /working-directory:\s*services\s+run:\s*GOWORK=off GOPRIVATE='github\.com\/skunkworq\/\*' go test \.\/house-price-collector/,
   );
+  assert.match(
+    job,
+    /working-directory:\s*services\/jobs\s+run:\s*GOWORK=off GOPRIVATE='github\.com\/skunkworq\/\*' go test \.\/internal\/jobs\/houseprices\/\.\.\./,
+  );
+  assert.match(job, /bash services\/house-price-collector\/deploy\/housing-lifecycle-exit\.test\.sh/);
+  assert.doesNotMatch(job, /go test \.\/shorts\/internal\/services\/shorts/);
   assert.doesNotMatch(job, /make\s+(?:test-)?integration|test\/integration/);
 });
 

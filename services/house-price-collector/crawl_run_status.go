@@ -77,8 +77,8 @@ func crawlHost() string {
 
 // deriveCrawlRunStatus maps a round's outcome to the health status enum, in
 // descending severity:
-//   - "error"   : a fatal error and nothing got done (e.g. the claim call failed
-//     before any suburb ran) — the round accomplished nothing.
+//   - "error"   : a fatal queue or finalizer error. Completed writes remain
+//     counted, but the round did not complete its lifecycle successfully.
 //   - "rewarm"  : the session tripped the re-warm signal (circuit breaker) — Chrome
 //     needs a re-warm before the next run.
 //   - "blocked" : sweeps were blocked and NO events were written — a fully wasted
@@ -88,7 +88,7 @@ func crawlHost() string {
 //   - "ok"      : clean run (or a legitimate no-change sweep).
 func deriveCrawlRunStatus(events, blocked, done int, rewarm, fatalErr bool) string {
 	switch {
-	case fatalErr && done == 0:
+	case fatalErr:
 		return "error"
 	case rewarm:
 		return "rewarm"

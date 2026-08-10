@@ -78,7 +78,7 @@ func TestAgentExitCode(t *testing.T) {
 	}{
 		{name: "rewarm keeps priority", rewarm: true, fatalErr: true, done: 0, want: 3},
 		{name: "fatal before any work is distinct", fatalErr: true, done: 0, want: 7},
-		{name: "fatal after completed work remains success", fatalErr: true, done: 1, want: 0},
+		{name: "mv refresh failure after completed work remains fatal", fatalErr: true, done: 1, want: 7},
 		{name: "empty queue remains success", fatalErr: false, done: 0, want: 0},
 	}
 

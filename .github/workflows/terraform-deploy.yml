@@ -1496,7 +1496,9 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: services/go.sum
+          cache-dependency-path: |
+            services/go.sum
+            services/jobs/go.sum
 
       - name: Configure private Go module access
         run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
@@ -1504,9 +1506,16 @@ jobs:
       - name: Run housing workflow contract tests
         run: node --test .github/workflows/housing-lifecycle.test.mjs
 
-      - name: Run housing service contract tests
+      - name: Run deployed housing collector tests
         working-directory: services
-        run: GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test ./shorts/internal/services/shorts
+        run: GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test ./house-price-collector
+
+      - name: Run housing jobs mirror tests
+        working-directory: services/jobs
+        run: GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test ./internal/jobs/houseprices/...
+
+      - name: Run housing wrapper lifecycle tests
+        run: bash services/house-price-collector/deploy/housing-lifecycle-exit.test.sh
 
   run-tests:
     needs: [determine-environment, build-docker-images, build-ko-images]

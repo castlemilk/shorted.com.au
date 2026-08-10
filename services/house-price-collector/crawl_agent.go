@@ -463,8 +463,7 @@ func titleCaseSuburb(s string) string {
 
 // runAgent drains the brandbrain crawl queue and returns a process EXIT CODE:
 // 0 = ok / nothing to do, 3 = a sweep tripped the re-warm signal, 4 = the crawl
-// fetcher couldn't init, and 7 = fatal agent infrastructure failure before any
-// jobs completed.
+// fetcher couldn't init, and 7 = fatal agent infrastructure or finalizer failure.
 func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 	acfg := loadAgentConfig()
 	if acfg.brandbrainURL == "" || (acfg.token == "" && acfg.controlURL == "") {
@@ -580,13 +579,14 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 	// full-catalog pass, where isolated bad targets are expected, can raise it.
 	blocks := newBlockTracker(envInt("CRAWL_AGENT_BLOCK_TRIP", 2))
 	// Health-record accumulators for this round (see crawl_run_status.go): counts of
-	// suburbs, listings, events, and blocked sweeps, plus whether a fatal (claim)
-	// error ended the round having accomplished nothing.
+	// suburbs, listings, events, and blocked sweeps, plus any fatal queue/finalizer
+	// error that prevented the round from completing its lifecycle.
 	succeeded := 0
 	totalListings := 0
 	totalEvents := 0
 	totalBlocked := 0
 	fatalErr := false
+	fatalDetail := ""
 	for i := 0; i < acfg.maxJobs; i++ {
 		// If EVERY source is circuit-open, the whole session is blocked: stop
 		// claiming (leaving those suburbs pending for the next warm run) rather
@@ -600,6 +600,7 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 		if err != nil {
 			log.Printf("[agent] claim error: %v", err)
 			fatalErr = true
+			fatalDetail = "claim failed: " + err.Error()
 			break
 		}
 		if job == nil {
@@ -694,6 +695,8 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 		}
 		if err := refreshHousingMV(finCtx, pool); err != nil {
 			log.Printf("[agent] mv refresh failed: %v", err)
+			fatalErr = true
+			fatalDetail = "mv refresh failed: " + err.Error()
 		} else {
 			// Data changed (wroteAny) + MVs refreshed → bust the web tier's
 			// long-TTL housing caches now. Best-effort, never fails the run.
@@ -707,6 +710,11 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 	// CRAWL_RUN_ID accumulate into one row for the whole launchd run.
 	if !cfg.dryRun {
 		runStatus := deriveCrawlRunStatus(totalEvents, totalBlocked, done, anyRewarm, fatalErr)
+		detail := fmt.Sprintf("%d/%d suburbs done, %d listings, %d events, %d blocked sweep(s)",
+			succeeded, done, totalListings, totalEvents, totalBlocked)
+		if fatalDetail != "" {
+			detail += "; " + fatalDetail
+		}
 		writeCrawlRunStatus(crawlRunStatusRecord{
 			RunType:         runType,
 			Host:            host,
@@ -719,8 +727,7 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 			EventsWritten:   totalEvents,
 			BlockedCount:    totalBlocked,
 			RewarmNeeded:    anyRewarm,
-			Detail: fmt.Sprintf("%d/%d suburbs done, %d listings, %d events, %d blocked sweep(s)",
-				succeeded, done, totalListings, totalEvents, totalBlocked),
+			Detail:          detail,
 		}, pool)
 	}
 
@@ -732,19 +739,18 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 	if code == 3 {
 		log.Printf("[agent] REWARM REQUIRED: a sweep tripped the circuit breaker — re-warm the crawl Chrome profile")
 	} else if code == 7 {
-		log.Printf("[agent] FATAL: agent infrastructure failed before any jobs completed")
+		log.Printf("[agent] FATAL: agent infrastructure or finalizer failed")
 	}
 	return code
 }
 
-// agentExitCode keeps the existing re-warm signal highest priority. A claim
-// failure is fatal only when the round completed no work; failures after one or
-// more completed jobs retain the established successful-partial-run contract.
-func agentExitCode(anyRewarm, fatalErr bool, done int) int {
+// agentExitCode keeps the existing re-warm signal highest priority. Any fatal
+// queue or finalizer error is non-zero even when earlier jobs committed writes.
+func agentExitCode(anyRewarm, fatalErr bool, _ int) int {
 	if anyRewarm {
 		return 3
 	}
-	if fatalErr && done == 0 {
+	if fatalErr {
 		return 7
 	}
 	return 0

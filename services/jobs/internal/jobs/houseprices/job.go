@@ -157,10 +157,9 @@ func Run(parent context.Context, args []string) error {
 		// scheduled run. Sweeps portal search-results pages for individual for-sale
 		// listings, diffs asking prices across runs into price-drop events, and
 		// refreshes mv_suburb_price_drops. Same residential-rig posture as -mode crawl
-		// (headed host-Chrome over CDP); dry-run defaults ON. Self-refreshes internally.
-		if runListings(ctx, pool) {
-			return exitFor("listings", 3)
-		}
+		// (headed host-Chrome over CDP); dry-run defaults ON. Self-refreshes internally
+		// and returns 7 if materialized-view finalization fails.
+		return exitFor("listings", runListings(ctx, pool))
 	case "details":
 		// Supplementary listing DETAIL-page crawl — opt-in only, never part of the
 		// scheduled run. Visits each active listing's own detail page to close the
@@ -186,7 +185,7 @@ func Run(parent context.Context, args []string) error {
 		// BrandBrain URL/token-or-control infrastructure exits 7.
 		// runAgent returns the process exit code directly: 0 ok, 3 re-warm needed,
 		// 4 fetcher init failed (wedged/cold Chrome — the runner hard-recovers),
-		// 7 agent infrastructure failed before any work.
+		// 7 agent infrastructure or finalizer failed.
 		return exitFor("agent", runAgent(ctx, pool))
 	case "enqueue":
 		// Post suburbs to the brandbrain crawl queue so pollers (-mode agent) have

@@ -88,6 +88,8 @@ jobs:
                 'no detail recorded'
               ) AS detail
             FROM house_price_ingest_runs AS r
+            JOIN expected_fact_sources AS e
+              ON e.cursor_source = r.source
             WHERE r.status = 'error'
 
             UNION ALL
@@ -132,8 +134,12 @@ jobs:
           set -e
 
           if (( check_rc != 0 )); then
-            printf 'CHECK_FAILURE\tpsql\tread-only freshness query failed (exit %d)\n' \
-              "$check_rc" >"$report_file"
+            query_error="$(sed -n '1,20p' "$query_error_file" | tr '\r\n\t' '   ' | sed -E 's/[[:space:]]+/ /g' | cut -c1-2000)"
+            if [[ -z "$query_error" ]]; then
+              query_error="psql produced no stderr"
+            fi
+            printf 'CHECK_FAILURE\tpsql\tread-only freshness query failed (exit %d): %s\n' \
+              "$check_rc" "$query_error" >"$report_file"
           elif [[ -s "$report_file" ]]; then
             check_rc=1
           fi
