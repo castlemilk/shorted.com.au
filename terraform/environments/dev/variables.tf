@@ -28,6 +28,20 @@ variable "house_price_collector_image" {
   default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/house-price-collector:latest"
 }
 
+variable "house_price_collector_official_max_failures" {
+  description = "Maximum official housing sources that may fail before the collector job exits non-zero"
+  type        = number
+  default     = 15
+
+  validation {
+    condition = (
+      var.house_price_collector_official_max_failures >= 0 &&
+      floor(var.house_price_collector_official_max_failures) == var.house_price_collector_official_max_failures
+    )
+    error_message = "house_price_collector_official_max_failures must be a non-negative integer."
+  }
+}
+
 variable "shorted_jobs_image" {
   description = "Docker image URL for the consolidated `shorted <job>` batch binary (services/jobs)"
   type        = string

@@ -18,7 +18,7 @@ func TestDeriveCrawlRunStatus(t *testing.T) {
 		{"blocked, no events", 0, 3, 2, false, false, "blocked"},
 		{"partial: some blocked, some events", 8, 2, 4, false, false, "partial"},
 		{"fatal claim error, nothing done", 0, 0, 0, false, true, "error"},
-		{"fatal error but work done → not error", 5, 0, 2, false, true, "ok"},
+		{"fatal finalizer error after work", 5, 0, 2, false, true, "error"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

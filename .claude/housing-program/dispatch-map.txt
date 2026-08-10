@@ -1,0 +1,16 @@
+wave1 codex dispatch 2026-08-09 (agentId -> track)
+a642576faf9ff74cc web-suburbs
+aa35b77d4c4425d9b collector-lifecycle
+aee45dfea89edf54f collector-vg
+a48e41a71f6d6f1cf mv-correctness
+a4ed8b22871131b58 api-hardening
+a33055eb1abe15f8c crawl-correctness
+aa5b9baaff1be8917 repo-hygiene
+--- re-dispatch (direct companion, durable worktrees ~/projects/.worktrees/shorted-hw-*, branches feat/housing-*) ---
+b4iam678k collector-lifecycle
+b0zdencq2 mv-correctness
+bf7z83ceh api-hardening
+b4wmfxy0x repo-hygiene
+bspzmt8ie crawl-correctness
+still-on-original-agents: web-suburbs (agent worktree a642...), collector-vg (agent worktree aee45...)
+orphaned-codex-task-ids (dead, superseded): task-msll9wqh task-msllags6 task-msllahpb task-msllajc4

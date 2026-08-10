@@ -18,10 +18,10 @@ import (
 func domainLDPHTML() string {
 	payload := map[string]any{
 		"props": map[string]any{"pageProps": map[string]any{"componentProps": map[string]any{
-			"listingId":      "2020524930",
-			"listingSummary": map[string]any{"description": "Sun-drenched semi steps from the beach.", "propertyType": "House"},
-			"address":        map[string]any{"street": "12 Smith Street", "suburb": "Bondi", "state": "NSW", "postcode": "2026"},
-			"geoLocation":    map[string]any{"latitude": -33.891, "longitude": 151.276},
+			"listingId":      "synthetic-domain-listing-001",
+			"listingSummary": map[string]any{"description": "Synthetic listing description.", "propertyType": "House"},
+			"address":        map[string]any{"street": "Example Avenue", "suburb": "Synthetic Suburb", "state": "ZZ", "postcode": "0000"},
+			"geoLocation":    map[string]any{"latitude": -25.0, "longitude": 135.0},
 			"propertySizes": map[string]any{
 				"land":     map[string]any{"displayValue": "610 m²", "sizeUnit": "m²", "value": 610},
 				"building": map[string]any{"displayValue": "220 m²"},
@@ -35,8 +35,8 @@ func domainLDPHTML() string {
 			"inspectionDetails": map[string]any{"inspections": []any{map[string]any{"startTime": "2026-08-01T10:00:00"}}},
 			"auction":           map[string]any{"dateTime": "2026-08-10T13:00:00"},
 			"listedDate":        "2026-07-15",
-			"agencyProfile":     map[string]any{"name": "Ray White Bondi"},
-			"contactAgents":     []any{map[string]any{"name": "Jane Agent", "phoneNumber": "0400111222"}},
+			"agencyProfile":     map[string]any{"name": "Example Realty - Synthetic Suburb"},
+			"contactAgents":     []any{map[string]any{"name": "Alex Example", "phoneNumber": "00 0000 0000"}},
 		}}},
 	}
 	b, _ := json.Marshal(payload)
@@ -47,10 +47,10 @@ func domainLDPHTML() string {
 // ArgonautExchange → urqlClientCache → data chain (a JSON string inside a JSON
 // string inside a JSON string), which the walk must transparently descend.
 func reaDoubleStringifiedLDP(listing map[string]any) string {
-	s2, _ := json.Marshal(listing)                                                    // the listing object
-	inner, _ := json.Marshal(map[string]any{"data": string(s2)})                      // query result: {"data":"<listing>"}
-	cache, _ := json.Marshal(map[string]any{"listingResolver:140123456": string(inner)}) // urql cache keyed by query
-	arg, _ := json.Marshal(map[string]any{"urqlClientCache": string(cache)})          // ArgonautExchange
+	s2, _ := json.Marshal(listing)                                                                       // the listing object
+	inner, _ := json.Marshal(map[string]any{"data": string(s2)})                                         // query result: {"data":"<listing>"}
+	cache, _ := json.Marshal(map[string]any{"listingResolver:synthetic-rea-listing-003": string(inner)}) // urql cache keyed by query
+	arg, _ := json.Marshal(map[string]any{"urqlClientCache": string(cache)})                             // ArgonautExchange
 	return `<html><body><script>window.ArgonautExchange = ` + string(arg) + `;</script></body></html>`
 }
 
@@ -59,13 +59,13 @@ func TestExtractDetail_DomainAllFields(t *testing.T) {
 	if !ok {
 		t.Fatal("expected a recognizable Domain LDP payload")
 	}
-	if rec.Description != "Sun-drenched semi steps from the beach." {
+	if rec.Description != "Synthetic listing description." {
 		t.Errorf("description = %q", rec.Description)
 	}
 	if rec.PropertyType != "House" {
 		t.Errorf("property_type = %q", rec.PropertyType)
 	}
-	if rec.Lat == nil || rec.Lng == nil || *rec.Lat != -33.891 || *rec.Lng != 151.276 {
+	if rec.Lat == nil || rec.Lng == nil || *rec.Lat != -25.0 || *rec.Lng != 135.0 {
 		t.Errorf("geo = %v,%v", rec.Lat, rec.Lng)
 	}
 	if rec.LandSizeSqm == nil || *rec.LandSizeSqm != 610 {
@@ -89,10 +89,10 @@ func TestExtractDetail_DomainAllFields(t *testing.T) {
 	if rec.ListedAt == nil || !rec.ListedAt.Equal(time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC)) {
 		t.Errorf("listed_at = %v", rec.ListedAt)
 	}
-	if rec.AgencyName != "Ray White Bondi" {
+	if rec.AgencyName != "Example Realty - Synthetic Suburb" {
 		t.Errorf("agency = %q (Domain SRP has none — this is the gap the LDP closes)", rec.AgencyName)
 	}
-	if len(rec.AgentPhones) != 1 || rec.AgentPhones[0] != "0400111222" {
+	if len(rec.AgentPhones) != 1 || rec.AgentPhones[0] != "00 0000 0000" {
 		t.Errorf("agent_phones = %v", rec.AgentPhones)
 	}
 	// raw must be valid JSON carrying the recognized fields (feeds the JSONB column
@@ -108,24 +108,24 @@ func TestExtractDetail_DomainAllFields(t *testing.T) {
 
 func TestExtractDetail_READoubleStringified(t *testing.T) {
 	listing := map[string]any{
-		"id":             "140123456",
-		"description":    "Charming Queenslander in the heart of New Farm.",
+		"id":             "synthetic-rea-listing-003",
+		"description":    "Synthetic REA-shaped listing description.",
 		"propertyType":   "House",
 		"price":          map[string]any{"display": "Auction"},
-		"address":        map[string]any{"display": map[string]any{"fullAddress": "12 Terrace St, New Farm QLD 4005"}, "suburb": "New Farm", "state": "QLD", "postcode": "4005"},
-		"geoLocation":    map[string]any{"latitude": -27.467, "longitude": 153.052},
+		"address":        map[string]any{"display": map[string]any{"fullAddress": "Example Avenue, Synthetic Suburb ZZ 0000"}, "suburb": "Synthetic Suburb", "state": "ZZ", "postcode": "0000"},
+		"geoLocation":    map[string]any{"latitude": -25.0, "longitude": 135.0},
 		"propertySizes":  map[string]any{"land": map[string]any{"displayValue": "405m²"}},
 		"features":       []any{"Ducted air", "Pool", "Study"},
 		"images":         []any{map[string]any{"i": 1}, map[string]any{"i": 2}, map[string]any{"i": 3}, map[string]any{"i": 4}, map[string]any{"i": 5}},
-		"listingCompany": map[string]any{"id": "PLACE", "name": "Place New Farm"},
-		"listers":        []any{map[string]any{"name": "Tim Douglas", "phoneNumber": "07 3000 0000"}},
+		"listingCompany": map[string]any{"id": "SYNTHETIC-AGENCY", "name": "Example Realty - Synthetic Suburb"},
+		"listers":        []any{map[string]any{"name": "Alex Example", "phoneNumber": "00 0000 0000"}},
 	}
 	rec, ok := extractDetail(reaDoubleStringifiedLDP(listing), "rea")
 	if !ok {
 		t.Fatal("expected the double-stringified REA listing to be recognized")
 	}
 	// The whole point of the REA LDP: the geo/land/property-type the SRP blob lacks.
-	if rec.Lat == nil || rec.Lng == nil || *rec.Lat != -27.467 {
+	if rec.Lat == nil || rec.Lng == nil || *rec.Lat != -25.0 {
 		t.Errorf("geo not harvested from REA LDP: %v,%v (this is REA's SRP gap)", rec.Lat, rec.Lng)
 	}
 	if rec.LandSizeSqm == nil || *rec.LandSizeSqm != 405 {
@@ -140,10 +140,10 @@ func TestExtractDetail_READoubleStringified(t *testing.T) {
 	if rec.ImageCount == nil || *rec.ImageCount != 5 {
 		t.Errorf("image_count = %v, want 5", rec.ImageCount)
 	}
-	if rec.AgencyName != "Place New Farm" {
+	if rec.AgencyName != "Example Realty - Synthetic Suburb" {
 		t.Errorf("agency = %q", rec.AgencyName)
 	}
-	if len(rec.AgentPhones) != 1 || rec.AgentPhones[0] != "07 3000 0000" {
+	if len(rec.AgentPhones) != 1 || rec.AgentPhones[0] != "00 0000 0000" {
 		t.Errorf("agent_phones = %v", rec.AgentPhones)
 	}
 }

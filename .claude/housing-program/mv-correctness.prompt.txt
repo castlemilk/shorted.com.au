@@ -1,0 +1,7 @@
+Implement the housing work package "mv-correctness" for the Shorted repo checkout you are in - a dedicated git worktree on branch feat/housing-mv-correctness, base commit 8c120a352.
+
+FIRST read the full spec at /Users/benebsworth/projects/shorted/.claude/housing-program/mv-correctness.md and follow it exactly: the ground rules, the findings, the QA requirements, and the commit requirements. If you cannot read that file, stop and report that instead of guessing.
+
+Scope reminder - the seven findings: F05 refresh hardening to the 000095 pattern, F07 k-anon floor for n<3 samples, F14 address-dedup axes, F15 sold time windows + dropped_share denominator, F16 headline LAG partitioning by source, F17 politician_property_count store bug, F33 crime rank-0 sentinel collision. You own migration numbers 000107-000110 (both .up and .down; use only what you need). Update matching Go store queries/tests coherently. Include the exact prod hand-apply order in your summary.
+
+Commit ALL your work on this branch with conventional-commit messages (one commit per logical unit is fine). Never push, never merge, never switch branches. End with a summary: changes per finding, the actual test results you observed, and what needs hand-verification.

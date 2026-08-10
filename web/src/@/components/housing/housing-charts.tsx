@@ -13,3 +13,12 @@ export const HousingSeriesChart = dynamic(
     loading: () => <div className="h-[280px] w-full animate-pulse rounded bg-muted" />,
   },
 );
+
+export const HousingComparisonChart = dynamic(
+  () =>
+    import("./housing-comparison-chart").then((m) => m.HousingComparisonChart),
+  {
+    ssr: false,
+    loading: () => <div className="h-[280px] w-full animate-pulse rounded bg-muted" />,
+  },
+);

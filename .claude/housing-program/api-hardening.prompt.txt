@@ -1,0 +1,7 @@
+Implement the housing work package "api-hardening" for the Shorted repo checkout you are in - a dedicated git worktree on branch feat/housing-api-hardening, base commit 8c120a352.
+
+FIRST read the full spec at /Users/benebsworth/projects/shorted/.claude/housing-program/api-hardening.md and follow it exactly: the ground rules, the findings, the QA requirements, and the commit requirements. If you cannot read that file, stop and report that instead of guessing.
+
+Scope reminder - the four findings: F08 per-address AVM/sales-history read path contradicting the stored licence posture, F34 kill-switch takedown gaps leaving KV/ISR serving, F18 case-sensitive state codes + empty-200s, F19 un-normalized cache keys. Do not touch proto files.
+
+Commit ALL your work on this branch with conventional-commit messages (one commit per logical unit is fine). Never push, never merge, never switch branches. End with a summary: changes per finding, the actual test results you observed, and what needs hand-verification.

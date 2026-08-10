@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { preload } from "react-dom";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -6,6 +7,7 @@ import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { HousingIcon } from "@/components/housing/housing-icon";
 import { AddressDropsBoard } from "@/components/housing/address-drops-board-loader";
 import { NationalPulse } from "@/components/housing/price-drops/national-pulse";
+import { StateDropsMap } from "@/components/housing/price-drops/state-drops-map-loader";
 import { StateDropsBoard } from "@/components/housing/price-drops/state-drops-board";
 import { SuburbDropsLeaderboard } from "@/components/housing/price-drops/suburb-drops-leaderboard";
 import { AgencyDropsBoard } from "@/components/housing/price-drops/agency-drops-board";
@@ -26,8 +28,9 @@ const DESCRIPTION =
   "Where Australian asking prices are falling: price cuts ranked by state, suburb, individual address and real-estate agency, tracked daily from realestate.com.au and Domain listings.";
 
 // Static ISR — the price-drop corpus changes ~once/day after the crawl re-ingest,
-// so the three server fetches are KV-cached (getHousing.ts) and the route is
-// prerendered. We deliberately do NOT read the request query in this server page
+// so anonymous aggregate fetches are KV-cached while flag-gated agency/address
+// fetches consult the backend on each render; the route itself is prerendered.
+// We deliberately do NOT read the request query in this server page
 // (doing so forces dynamic rendering). The ?state= deep link is instead read
 // client-side by AddressDropsBoard (under a Suspense boundary). Busted on the
 // crawl event via /api/revalidate?path=/price-drops&flush=housing and warmed
@@ -87,6 +90,13 @@ export default async function PriceDropsPage() {
   // A failed/cold fetch must not bake the "data is loading" shell into the
   // route cache for the whole revalidate window.
   if (!hasData) bailOnEmptyRender();
+
+  // Start the 493KB CF-edge-cached boundary fetch while the client-only map
+  // chunk hydrates. Matching crossOrigin is required for useTopojson's fetch()
+  // to reuse this preload instead of downloading the asset twice.
+  if (states.length > 0) {
+    preload("/geo/states.topojson", { as: "fetch", crossOrigin: "anonymous" });
+  }
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -151,8 +161,15 @@ export default async function PriceDropsPage() {
               <SectionHeader
                 icon="location"
                 title="Drops by state"
-                sub="Share of tracked listings that cut their asking price in the last 30 days, with each state's median cut and asking/sold price aggregates across every tracked listing. Click a state for its suburb explorer."
+                sub="Share of tracked listings that cut their asking price in the last 30 days. Select a state on the map to filter the address board below; use the table for exact asking/sold aggregates and suburb explorers."
               />
+              {/* useSearchParams stays inside this client-only island and under
+                  Suspense so the server page remains static ISR. */}
+              <Suspense
+                fallback={<div className="h-[380px] w-full animate-pulse rounded-xl bg-muted" />}
+              >
+                <StateDropsMap states={states} />
+              </Suspense>
               <StateDropsBoard states={states} />
             </section>
 

@@ -24,7 +24,7 @@
 #   # CRAWL_FRESHNESS_ALARM_HOURS, CRAWL_FRESHNESS_WEBHOOK.
 #
 # Exit codes: 0 ok · 3 re-warm needed (collector self-warms next run) · 4 Chrome
-# unusable · 6 freshness ALARM (board is going stale).
+# unusable · 6 freshness ALARM · 7 agent infrastructure failed before any work.
 set -uo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -51,7 +51,8 @@ echo "=== $(date -u +%FT%TZ) housing-delta (selection=delta ttl=${CRAWL_DELTA_TT
 # 1. Enqueue ONLY the stale/churny slice (delta selection logs its own why + cap).
 # shellcheck disable=SC2209  # intentional one-shot env var prefixing the command
 CRAWL_ENQUEUE_SELECTION=delta "$BIN" -mode enqueue >>"$LOG" 2>&1
-echo "$(date -u +%FT%TZ) delta enqueue rc=$?" >>"$LOG"
+enqueue_rc=$?
+echo "$(date -u +%FT%TZ) delta enqueue rc=$enqueue_rc" >>"$LOG"
 
 # 2. Drain the queue to empty (bounded, re-warm/Chrome aware).
 hc_drain_until_empty
@@ -62,8 +63,10 @@ drain_rc=$?
 hc_freshness
 fresh_rc=$?
 
-echo "$(date -u +%FT%TZ) housing-delta done: drain_rc=$drain_rc fresh_rc=$fresh_rc" >>"$LOG"
-# Surface a re-warm / Chrome failure first, then a freshness alarm, else ok.
-case "$drain_rc" in 3 | 4) exit "$drain_rc" ;; esac
+echo "$(date -u +%FT%TZ) housing-delta done: enqueue_rc=$enqueue_rc drain_rc=$drain_rc fresh_rc=$fresh_rc" >>"$LOG"
+# All three phases run for observability and existing-queue progress. Final
+# precedence is enqueue failure, then drain failure, then freshness alarm.
+[[ "$enqueue_rc" -ne 0 ]] && exit "$enqueue_rc"
+[[ "$drain_rc" -ne 0 ]] && exit "$drain_rc"
 [[ "$fresh_rc" -ne 0 ]] && exit "$fresh_rc"
 exit 0

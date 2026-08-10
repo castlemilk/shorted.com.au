@@ -16,14 +16,15 @@
     <string>__REPO__/services/house-price-collector/deploy/run-housing-delta.sh</string>
   </array>
 
-  <!-- Daily 03:00 local — quiet hours, and the freshest re-crawl before the morning
-       board views. Every run is idempotent; adjust the hour to taste. While a
+  <!-- Daily 10:00 local. Daytime is intentional: observed REA/Kasada clearance and
+       block reliability degrades late at night, so do not move this back to the
+       legacy overnight window. Every run is idempotent. While a
        fortnightly full pass is still draining (it runs ~1.5 days), the shared
        single-drainer lock makes this delta SKIP cleanly — no contention on the one
        host Chrome / residential IP. -->
   <key>StartCalendarInterval</key>
   <dict>
-    <key>Hour</key><integer>3</integer>
+    <key>Hour</key><integer>10</integer>
     <key>Minute</key><integer>0</integer>
   </dict>
 

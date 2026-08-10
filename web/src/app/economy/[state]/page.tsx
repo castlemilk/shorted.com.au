@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
@@ -243,6 +244,27 @@ export default async function EconomyStatePage({ params }: PageProps) {
         ) : null}
 
         <StateCharts state={state} />
+
+        <Link
+          href={`/housing/${state}`}
+          className="group flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/50"
+        >
+          <div>
+            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-primary">
+              Local housing
+            </p>
+            <h2 className="mt-1 font-serif text-xl text-foreground">
+              Explore {name} suburb house prices
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Compare suburb medians, Census demographics and local trends on
+              the matching state map.
+            </p>
+          </div>
+          <span className="font-mono text-sm text-primary transition-transform group-hover:translate-x-0.5">
+            Open {name} housing →
+          </span>
+        </Link>
 
         <p className="border-t border-border pt-4 text-xs text-muted-foreground">
           Sources: Australian Bureau of Statistics (Labour Force, National

@@ -259,7 +259,7 @@ zip revision simply overlays newer FYs.
 ### 4.2 Census extensions (`-mode census` + new `-mode seifa`)
 
 - Extend `census.go` (`CensusRow`, `parseG01`, new `parseTenure`, new `parseG43`) +
-  `upsertDemographics` per recipe H (docs/housing-architecture.md §9-H). Re-run needs
+  `upsertDemographics` per recipe H (docs/feature/housing/architecture.md §9-H). Re-run needs
   `CENSUS_DATAPACK_PATH` + `CENSUS_GEO_DIR`; **re-apply migration `000056`** (sal_code
   backfill) after re-running, per the documented recipe.
 - `-mode seifa` (new `seifa.go`): download/read the ABS SEIFA 2021 SAL file (env

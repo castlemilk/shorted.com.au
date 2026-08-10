@@ -1,0 +1,5 @@
+Implement the wave-2 housing enhancement package "housing-embeds" for the Shorted repo checkout you are in - a dedicated git worktree on branch feat/housing-housing-embeds.
+
+FIRST read the full spec at /Users/benebsworth/projects/shorted/.claude/housing-program/w2-housing-embeds.md and follow it exactly: ground rules, track notes, the enhancement details, QA requirements and commit requirements. If you cannot read that file, stop and report that instead of guessing.
+
+Commit ALL work on this branch with conventional-commit messages. Never push, never merge, never switch branches. End with a summary: what you built, deliberate omissions, the actual test results you observed, and what needs hand-verification.

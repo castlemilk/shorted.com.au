@@ -1,0 +1,174 @@
+# Housing official-ingest and listings-event freshness sentinel.
+#
+# This runs daily against the production database using read-only transactions.
+# The default property_price_events silence threshold is exactly 72 hours: long
+# enough for a missed residential-rig cycle, short enough to expose a dead rig.
+name: Housing Freshness
+
+on:
+  schedule:
+    # Daily at 22:11 UTC (08:11 AEST / 09:11 AEDT).
+    - cron: "11 22 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DATABASE_URL: ${{ secrets.DATABASE_URL_PROD }}
+  CRAWL_FRESHNESS_WEBHOOK: ${{ secrets.CRAWL_FRESHNESS_WEBHOOK }}
+  # PostgreSQL enforces read-only access even if this workflow is edited badly.
+  PGOPTIONS: "-c default_transaction_read_only=on -c statement_timeout=60000"
+
+jobs:
+  freshness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check housing freshness
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          report_file="$RUNNER_TEMP/housing-freshness-report.txt"
+          query_error_file="$RUNNER_TEMP/housing-freshness-query-error.txt"
+
+          # Cursor names do not always equal fact-source names. Keeping this map
+          # explicit also excludes non-fact cursors such as listings and census.
+          set +e
+          psql --no-psqlrc --set=ON_ERROR_STOP=1 --dbname="$DATABASE_URL" \
+            --tuples-only --no-align --quiet \
+            >"$report_file" 2>"$query_error_file" <<'SQL'
+          WITH expected_fact_sources(cursor_source, fact_source, fact_measure) AS (
+            VALUES
+              ('abs_res_dwell_st', 'abs_res_dwell_st', NULL),
+              ('abs_res_dwell', 'abs_res_dwell', 'median_price'),
+              ('abs_rppi', 'abs_rppi', 'price_index'),
+              ('abs_lend_housing', 'abs_lend_housing', NULL),
+              ('abs_derived_index', 'abs_derived', 'price_index_derived'),
+              ('rba', 'rba', 'debt_to_income'),
+              ('rba_f6_rates', 'rba_f6', NULL),
+              ('rba_cash_rate', 'rba_f11', 'cash_rate'),
+              ('rba_housing_credit', 'rba_d1', NULL),
+              ('rba_balance_sheet', 'rba_e1', NULL),
+              ('abs_wpi', 'abs_wpi', 'wage_index'),
+              ('abs_cpi_rents', 'abs_cpi', 'rents_index'),
+              ('abs_price_to_income', 'abs_derived', 'price_to_income'),
+              ('vg_sa', 'vg_sa', 'median_price'),
+              ('vg_vic', 'vg_vic', 'median_price'),
+              ('vg_nsw', 'vg_nsw', 'median_price')
+          ),
+          fact_maxima AS (
+            SELECT source, measure, MAX(period) AS max_period
+            FROM house_prices
+            GROUP BY source, measure
+          ),
+          mapped_fact_maxima AS (
+            SELECT
+              e.cursor_source,
+              e.fact_source,
+              e.fact_measure,
+              MAX(f.max_period) AS max_period
+            FROM expected_fact_sources AS e
+            LEFT JOIN fact_maxima AS f
+              ON f.source = e.fact_source
+             AND (e.fact_measure IS NULL OR f.measure = e.fact_measure)
+            GROUP BY e.cursor_source, e.fact_source, e.fact_measure
+          ),
+          event_maximum AS (
+            SELECT MAX(observed_at) AS max_observed_at
+            FROM property_price_events
+          ),
+          violations AS (
+            SELECT
+              'INGEST_ERROR'::text AS check_name,
+              r.source,
+              COALESCE(
+                NULLIF(regexp_replace(r.detail, E'[\\n\\r\\t]+', ' ', 'g'), ''),
+                'no detail recorded'
+              ) AS detail
+            FROM house_price_ingest_runs AS r
+            JOIN expected_fact_sources AS e
+              ON e.cursor_source = r.source
+            WHERE r.status = 'error'
+
+            UNION ALL
+
+            SELECT
+              'PERIOD_REGRESSION',
+              m.cursor_source,
+              format(
+                'preserved cursor=%s fact max=%s (fact source=%s measure=%s)',
+                r.last_period,
+                COALESCE(m.max_period::text, 'NULL'),
+                m.fact_source,
+                COALESCE(m.fact_measure, '*')
+              )
+            FROM mapped_fact_maxima AS m
+            JOIN house_price_ingest_runs AS r
+              ON r.source = m.cursor_source
+            WHERE r.last_period IS NOT NULL
+              AND (m.max_period IS NULL OR m.max_period < r.last_period)
+
+            UNION ALL
+
+            SELECT
+              'EVENT_SILENCE',
+              'property_price_events',
+              CASE
+                WHEN max_observed_at IS NULL THEN 'MAX(observed_at) is NULL'
+                ELSE format(
+                  'latest event=%s; older than the 72-hour threshold',
+                  max_observed_at
+                )
+              END
+            FROM event_maximum
+            WHERE max_observed_at IS NULL
+               OR max_observed_at < now() - interval '72 hours'
+          )
+          SELECT concat_ws(E'\t', check_name, source, detail)
+          FROM violations
+          ORDER BY check_name, source;
+          SQL
+          check_rc=$?
+          set -e
+
+          if (( check_rc != 0 )); then
+            query_error="$(sed -n '1,20p' "$query_error_file" | tr '\r\n\t' '   ' | sed -E 's/[[:space:]]+/ /g' | cut -c1-2000)"
+            if [[ -z "$query_error" ]]; then
+              query_error="psql produced no stderr"
+            fi
+            printf 'CHECK_FAILURE\tpsql\tread-only freshness query failed (exit %d): %s\n' \
+              "$check_rc" "$query_error" >"$report_file"
+          elif [[ -s "$report_file" ]]; then
+            check_rc=1
+          fi
+
+          {
+            echo "## Housing freshness report"
+            echo
+            echo "Default event silence threshold: **72 hours**."
+            echo
+            if [[ -s "$report_file" ]]; then
+              echo '```text'
+              echo -e "CHECK\tSOURCE\tDETAIL"
+              sed -n '1,100p' "$report_file"
+              echo '```'
+            else
+              echo "All checks passed: no ingest errors, period regressions, or event silence."
+            fi
+          } >>"$GITHUB_STEP_SUMMARY"
+
+          if (( check_rc != 0 )); then
+            if [[ -n "$CRAWL_FRESHNESS_WEBHOOK" ]]; then
+              violation_count="$(wc -l <"$report_file" | tr -d ' ')"
+              payload="$(jq -cn \
+                --arg text "Housing freshness failed ($violation_count check(s)): https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+                '{text: $text}')"
+              curl --fail --silent --show-error --max-time 10 \
+                -X POST -H 'Content-Type: application/json' \
+                --data "$payload" "$CRAWL_FRESHNESS_WEBHOOK" >/dev/null \
+                || echo "::warning::Housing freshness webhook delivery failed"
+            fi
+            exit "$check_rc"
+          fi

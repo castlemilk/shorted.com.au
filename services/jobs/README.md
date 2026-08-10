@@ -334,7 +334,7 @@ adjusted to allow it.
 
 ### The exit-code contract (the thing that shapes this port)
 
-Every other job in this binary has ONE failure code. house-prices has five, and
+Every other job in this binary has ONE failure code. house-prices has six, and
 the rig launchers branch on them:
 
 | Code | Meaning | Who branches on it |
@@ -344,6 +344,7 @@ the rig launchers branch on them:
 | 4 | fetcher init failed — Chrome/CDP unusable (wedged tab / stale `SingletonLock`) | `run-housing-crawl.sh` hard-recovers (SIGKILL + clear lock + relaunch) — a plain relaunch loop would spin forever |
 | 5 | warmcheck says the REA session is cold (Kasada stub) | `run-housing-crawl.sh` re-warms, retries twice, then exits 5 |
 | 6 | crawl-freshness ALARM | `run-housing-delta.sh` / `run-housing-full.sh` propagate it |
+| 7 | agent infrastructure failed before any jobs completed | drain wrappers notify and preserve it; a failure after completed work remains 0 |
 
 The runner maps *every* error to exit 1, so this needed an explicit mechanism.
 Three options were considered:
@@ -405,17 +406,17 @@ the same reason `market-data` doesn't.
 ### `revalidate.go` — this service originated `platform.PingRevalidate`
 
 The shared helper was lifted from this file, and it still covers the housing
-contract exactly: POST `?secret=…&path=/price-drops,/housing&flush=housing`, no
-`tag`, `Content-Type: application/json`, non-2xx tolerated, 45s deadline on a
+contract exactly: POST `?path=/price-drops,/housing&flush=housing` with the
+secret in `X-Revalidate-Secret`, no `tag`, `Content-Type: application/json`,
+non-2xx tolerated, 45s deadline on a
 **detached** context (so a run's `CRAWL_TIMEOUT_MIN` expiring between the write
 and the ping can't kill the cache bust for already-committed data). So the local
 copy became a thin adapter that fills a `platform.RevalidateRequest` — the ~10
 crawl-side `pingRevalidate("agent")` call sites stay byte-identical, and the
-ported `revalidate_test.go` still asserts the query contract end-to-end through
-an `httptest` server. The only observable change is the log text
-(`cache bust ok` instead of `housing cache bust ok`) and that transport errors
-are now URL-redacted before logging (the local copy logged the raw `*url.Error`,
-which embeds `?secret=`).
+ported `revalidate_test.go` still asserts the path/flush query and secret-header
+contract end-to-end. The only observable change is the log text (`cache bust
+ok` instead of `housing cache bust ok`) and that transport errors are
+URL-redacted before logging.
 
 ### Deliberate divergences
 
@@ -688,7 +689,7 @@ display-URL → PDF-URL resolution and the browser-header contract.
    instead of calling `os.Exit` — `main` maps it through `runner.ExitCodeOf`.
    Document the codes at the job, and keep the job's own helpers returning
    whatever they returned before (convert once, at the dispatch). Today only
-   `house-prices` needs this (3/4/5/6 for the residential-rig launchers).
+   `house-prices` needs this (3/4/5/6/7 for the residential-rig launchers).
 6. Register it in `cmd/shorted/main.go`.
 
 ## Building the image

@@ -15,9 +15,11 @@
     <string>__REPO__/services/house-price-collector/deploy/run-housing-full.sh</string>
   </array>
 
-  <!-- Fortnightly: the 1st and 15th at 02:00 local. A full pass over the whole
+  <!-- Fortnightly: the 1st and 15th at 08:00 local. Daytime is intentional:
+       observed REA/Kasada clearance and block reliability degrades late at night,
+       so do not move this back to the legacy overnight window. A full pass over the whole
        catalog (500 suburbs x 2 portals at ~14 suburbs/hr) takes ~1.5 DAYS on one
-       residential IP, so it DOES overrun the daily 03:00 delta — rescheduling can't
+       residential IP, so it DOES overrun the daily 10:00 delta — rescheduling can't
        fix a >1-day job. The wrappers share a cross-run lock (hc_acquire_lock in
        housing-crawl-common.sh): while a full pass holds it, each daily delta SKIPS
        cleanly (the full already re-crawls everything), so they never contend for the
@@ -27,12 +29,12 @@
   <array>
     <dict>
       <key>Day</key><integer>1</integer>
-      <key>Hour</key><integer>2</integer>
+      <key>Hour</key><integer>8</integer>
       <key>Minute</key><integer>0</integer>
     </dict>
     <dict>
       <key>Day</key><integer>15</integer>
-      <key>Hour</key><integer>2</integer>
+      <key>Hour</key><integer>8</integer>
       <key>Minute</key><integer>0</integer>
     </dict>
   </array>

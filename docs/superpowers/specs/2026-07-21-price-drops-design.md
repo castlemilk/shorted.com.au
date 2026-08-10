@@ -127,7 +127,7 @@ The design above shipped across four PRs, all live on prod:
   crawl ping existed. The `?state=` searchParams read moved client-side to keep
   the route static.
 
-**Canonical architecture doc:** `docs/housing-architecture.md` §10 (data model,
+**Canonical architecture doc:** `docs/feature/housing/architecture.md` §10 (data model,
 gating, the caching loop, ops, extension recipes J/K).
 
 **Open follow-ups:** rent crawl channel (no rent data anywhere); dedicated /sold

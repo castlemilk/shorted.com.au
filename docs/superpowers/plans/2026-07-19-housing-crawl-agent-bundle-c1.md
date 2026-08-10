@@ -696,7 +696,7 @@ Document the outcomes (paste the key log lines) in the PR description. No commit
 
 **Files:**
 - Modify: `services/house-price-collector/deploy/run-housing-agent.sh` (header comment only)
-- Modify: `docs/housing-architecture.md` (the crawl-ops section that references the wrapper)
+- Modify: `docs/feature/housing/architecture.md` (the crawl-ops section that references the wrapper)
 
 - [ ] **Step 1: Update the shell script header**
 
@@ -712,12 +712,12 @@ Add a note near the top of `run-housing-agent.sh` (after the existing purpose co
 
 - [ ] **Step 2: Update the architecture doc**
 
-In `docs/housing-architecture.md`, find the §6 crawl-ops paragraph that describes `run-housing-crawl.sh` / `run-housing-agent.sh` as the self-healing launcher and add one sentence: the self-warm now lives in the collector binary (`crawl_chrome.go`, `-mode agent`), so the macOS/scheduler path no longer depends on the shell wrapper for warming.
+In `docs/feature/housing/architecture.md`, find the §6 crawl-ops paragraph that describes `run-housing-crawl.sh` / `run-housing-agent.sh` as the self-healing launcher and add one sentence: the self-warm now lives in the collector binary (`crawl_chrome.go`, `-mode agent`), so the macOS/scheduler path no longer depends on the shell wrapper for warming.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add services/house-price-collector/deploy/run-housing-agent.sh docs/housing-architecture.md
+git add services/house-price-collector/deploy/run-housing-agent.sh docs/feature/housing/architecture.md
 git commit -m "docs(collector): note -mode agent self-warms; wrapper is now fallback (C1)"
 ```
 

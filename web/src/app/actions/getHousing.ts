@@ -1,7 +1,7 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
-import { GetHousingOverviewResponseSchema, GetPriceDropsOverviewResponseSchema, ListSuburbPriceDropsResponseSchema, ListAgencyPriceStatsResponseSchema, ListAddressPriceDropsResponseSchema, type GetHousingOverviewResponse, type GetHousePriceSeriesResponse, type ListStateSuburbsResponse, type GetSuburbProfileResponse, type ListSuburbPriceDropsResponse, type ListSuburbDropListingsResponse, type GetPriceDropsOverviewResponse, type ListAgencyPriceStatsResponse, type ListAddressPriceDropsResponse } from "~/gen/shorts/v1alpha1/housing_pb";
+import { GetHousingOverviewResponseSchema, GetPriceDropsOverviewResponseSchema, ListSuburbPriceDropsResponseSchema, type GetHousingOverviewResponse, type GetHousePriceSeriesResponse, type ListStateSuburbsResponse, type GetSuburbProfileResponse, type ListSuburbPriceDropsResponse, type ListSuburbDropListingsResponse, type GetPriceDropsOverviewResponse, type ListAgencyPriceStatsResponse, type ListAddressPriceDropsResponse } from "~/gen/shorts/v1alpha1/housing_pb";
 import { HousingService } from "~/gen/shorts/v1alpha1/housing_pb";
 import { cache } from "react";
 import {
@@ -16,7 +16,7 @@ import {
   getCached,
   setCached,
 } from "@/lib/kv-cache";
-import { withRetryAndNotFound } from "./withRetry";
+import { withRetryAndNotFound, withRetryAndThrowNotFound } from "./withRetry";
 import { suburbSlug } from "@/lib/housing/states";
 
 function createHousingClient() {
@@ -34,14 +34,29 @@ function createHousingClient() {
 // visitor's TTFB despite `export const revalidate = 3600`. Tagging the fetch
 // revalidate-cacheable lets /housing render as static ISR (the sanctioned
 // pattern from getIndustryData / fetchTreeMap3m). Scoped to getHousingOverview
-// only — the suburb/state routes (listStateSuburbs/getSuburbProfile) keep the
-// default transport and their own generateStaticParams setup.
+// only — suburb profile routes use their separate daily on-demand ISR transport
+// below, while other housing actions retain the default transport.
 const isrHousingFetch: typeof fetch = (input, init) =>
   serverFetchWithUserAgent(input, { ...init, next: { revalidate: 3600 } });
+
+// The on-demand ISR suburb route regenerates daily. This metadata is an ISR
+// guard: without it serverFetchWithUserAgent marks Connect POSTs `no-store` and
+// opts the route into dynamic rendering. Next cannot fetch-cache Connect's
+// Uint8Array request bodies, so callers must still keep response payloads small.
+const suburbIsrFetch: typeof fetch = (input, init) =>
+  serverFetchWithUserAgent(input, { ...init, next: { revalidate: 86400 } });
 
 function createCacheableHousingClient() {
   const transport = createConnectTransport({
     fetch: isrHousingFetch,
+    baseUrl: SERVER_SHORTS_API_URL,
+  });
+  return createClient(HousingService, transport);
+}
+
+function createSuburbIsrHousingClient() {
+  const transport = createConnectTransport({
+    fetch: suburbIsrFetch,
     baseUrl: SERVER_SHORTS_API_URL,
   });
   return createClient(HousingService, transport);
@@ -115,7 +130,7 @@ export const getHousePriceSeries = cache(
 export const listStateSuburbs = cache(
   withRetryAndNotFound(
     async (stateCode: string, query: string = "", limit: number = 5000): Promise<ListStateSuburbsResponse> => { // eslint-disable-line @typescript-eslint/no-inferrable-types
-      const client = createHousingClient();
+      const client = createSuburbIsrHousingClient();
       return client.listStateSuburbs({ stateCode, query, limit });
     },
   ),
@@ -123,23 +138,22 @@ export const listStateSuburbs = cache(
 
 /** Full per-suburb profile by ABS SAL code. */
 export const getSuburbProfile = cache(
-  withRetryAndNotFound(
+  withRetryAndThrowNotFound(
     async (salCode: string): Promise<GetSuburbProfileResponse> => {
-      const client = createHousingClient();
+      const client = createSuburbIsrHousingClient();
       return client.getSuburbProfile({ salCode });
     },
   ),
 );
 
-// The /price-drops board is static ISR (data changes ~once/day after the crawl),
-// so its three server actions get the same treatment as getHousingOverview:
+// The /price-drops board is static ISR (data changes ~once/day after the crawl).
+// Its anonymous aggregate actions get the same treatment as getHousingOverview:
 // skipForBuild() during the prerender, an Upstash KV layer keyed under
 // cache:housing:drops: (busted on the crawl event via
 // /api/revalidate?flush=housing), and the ISR-cacheable transport — WITHOUT the
 // `next:{revalidate}` tag serverFetchWithUserAgent forces cache:'no-store' on the
-// POST and silently opts the whole route back into dynamic rendering (the P1
-// trap). Cache the JSON projection (toJson) and fromJson-rehydrate so any int64
-// consumers keep working; on schema drift we fall through to a live fetch.
+// POST and silently opts the whole route back into dynamic rendering. Flag-gated
+// agency/address reads retain the ISR-cacheable transport but bypass shared KV.
 
 /** Suburbs ranked by recent for-sale asking-price drops (derived aggregate). */
 export const listSuburbPriceDrops = cache(
@@ -215,35 +229,19 @@ export const getPriceDropsOverview = cache(
   ),
 );
 
-/** Agencies ranked by recent asking-price cuts (derived aggregate). */
+/**
+ * Agencies ranked by recent asking-price cuts. This flag-gated surface carries
+ * agency/agent names, so it deliberately bypasses the shared 24h KV layer. The
+ * takedown runbook's revalidation clears ISR/Data Cache so subsequent renders
+ * reach the backend kill switch instead of replaying pre-takedown data.
+ */
 export const listAgencyPriceStats = cache(
   withRetryAndNotFound(
     async (stateCode: string = "", sort: string = "drops", limit: number = 20): Promise<ListAgencyPriceStatsResponse | undefined> => { // eslint-disable-line @typescript-eslint/no-inferrable-types
       if (skipForBuild()) return undefined;
 
-      const cacheKey = CACHE_KEYS.agencyPriceStats(stateCode, sort, limit);
-      const cached = await getCached<JsonValue>(cacheKey);
-      if (cached != null) {
-        try {
-          return fromJson(ListAgencyPriceStatsResponseSchema, cached);
-        } catch {
-          // Schema drift / bad entry — fall through to a live fetch.
-        }
-      }
-
       const client = createCacheableHousingClient();
-      const resp = await client.listAgencyPriceStats({ stateCode, sort, limit });
-      // Never cache an EMPTY response (same guard as getHousingOverview). Also
-      // covers the kill switch: a flagged-off backend returns [] and must not
-      // pin the agency board's KV entry.
-      if (resp.agencies.length > 0) {
-        try {
-          void setCached(cacheKey, toJson(ListAgencyPriceStatsResponseSchema, resp), PRICE_DROPS_TTL);
-        } catch {
-          // Serialization/caching must never break the request.
-        }
-      }
-      return resp;
+      return client.listAgencyPriceStats({ stateCode, sort, limit });
     },
   ),
 );
@@ -251,35 +249,17 @@ export const listAgencyPriceStats = cache(
 /**
  * Individual addresses ranked by asking-price drop — the /price-drops address
  * board's default (all-states, biggest-%) view, fetched server-side to seed the
- * client board without a first-paint round-trip. Same KV+ISR treatment as above.
+ * client board without a first-paint round-trip. Like the agency read, it
+ * bypasses shared KV; the takedown revalidation clears ISR/Data Cache so later
+ * renders consult the backend kill switch.
  */
 export const listAddressPriceDrops = cache(
   withRetryAndNotFound(
     async (stateCode: string = "", windowDays: number = 90, limit: number = 50, sort: string = "pct"): Promise<ListAddressPriceDropsResponse | undefined> => { // eslint-disable-line @typescript-eslint/no-inferrable-types
       if (skipForBuild()) return undefined;
 
-      const cacheKey = CACHE_KEYS.addressPriceDrops(stateCode, windowDays, limit, sort);
-      const cached = await getCached<JsonValue>(cacheKey);
-      if (cached != null) {
-        try {
-          return fromJson(ListAddressPriceDropsResponseSchema, cached);
-        } catch {
-          // Schema drift / bad entry — fall through to a live fetch.
-        }
-      }
-
       const client = createCacheableHousingClient();
-      const resp = await client.listAddressPriceDrops({ stateCode, windowDays, limit, sort });
-      // Never cache an EMPTY response (same guard as getHousingOverview + the
-      // kill-switch case — [] must not pin the board's KV entry).
-      if (resp.addresses.length > 0) {
-        try {
-          void setCached(cacheKey, toJson(ListAddressPriceDropsResponseSchema, resp), PRICE_DROPS_TTL);
-        } catch {
-          // Serialization/caching must never break the request.
-        }
-      }
-      return resp;
+      return client.listAddressPriceDrops({ stateCode, windowDays, limit, sort });
     },
   ),
 );
@@ -291,8 +271,32 @@ export const listAddressPriceDrops = cache(
  */
 export const resolveSuburbSalCode = cache(
   async (stateCode: string, slug: string): Promise<string | null> => {
-    const res = await listStateSuburbs(stateCode, "", 5000).catch(() => null);
-    const match = res?.suburbs.find((s) => suburbSlug(s.salName, s.postcode) === slug);
+    // Strip the canonical postcode and optional ABS state qualifier before
+    // searching. This keeps the resolver response to a handful of rows instead
+    // of downloading the state's multi-megabyte suburb index on every ISR.
+    const normalizedSlug = slug
+      .replace(/-+$/, "")
+      .replace(/-\d{4}$/, "")
+      .replace(new RegExp(`-${stateCode.toLowerCase()}$`), "");
+    const query = normalizedSlug.replace(/-/g, " ");
+    let res = await listStateSuburbs(stateCode, query, 50);
+    if (!res) {
+      throw new Error(`Unable to resolve suburb slug while ${stateCode} suburb data is unavailable`);
+    }
+    const canonicalSlug = slug.replace(/-+$/, "");
+    let match = res.suburbs.find((s) => suburbSlug(s.salName, s.postcode) === canonicalSlug);
+
+    // Names containing punctuation (for example O'Connor) do not match their
+    // space-normalised slug through ILIKE. Retry with the final word, still a
+    // bounded query, and verify the full canonical slug locally.
+    const fallbackQuery = normalizedSlug.split("-").at(-1) ?? query;
+    if (!match && fallbackQuery !== query) {
+      res = await listStateSuburbs(stateCode, fallbackQuery, 50);
+      if (!res) {
+        throw new Error(`Unable to resolve suburb slug while ${stateCode} suburb data is unavailable`);
+      }
+      match = res.suburbs.find((s) => suburbSlug(s.salName, s.postcode) === canonicalSlug);
+    }
     return match?.salCode ?? null;
   },
 );
