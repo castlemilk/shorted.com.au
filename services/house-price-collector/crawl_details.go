@@ -360,7 +360,7 @@ func previewDetail(rec detailRecord) string {
 }
 
 // detailIDSuffixRe matches a portal listing id at the END of a URL path segment
-// (portal advert ids are >=6-digit numbers, e.g. .../...-2020524930). Postcodes
+// (portal advert ids are >=6-digit numbers, e.g. .../synthetic-listing-100001). Postcodes
 // (4 digits) don't match, so a suburb-search path like /sale/bondi-nsw-2026/ is
 // correctly seen as "no listing id".
 var detailIDSuffixRe = regexp.MustCompile(`\d{6,}$`)

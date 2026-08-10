@@ -35,7 +35,7 @@ hc_load_env() {
 	export CRAWL_TIMEOUT_MIN="${CRAWL_TIMEOUT_MIN:-240}"
 	export BRANDBRAIN_AGENT_URL="${BRANDBRAIN_AGENT_URL:-https://api.brandbrain.dev}"
 	# Conservative pacing — keep the residential IP well under portal rate limits.
-	# Block-free matters more than speed for an unattended nightly run, and it's how
+	# Block-free matters more than speed for an unattended scheduled run, and it's how
 	# we scale by "right-sizing demand" instead of spending on proxies.
 	export CRAWL_MIN_DELAY_MS="${CRAWL_MIN_DELAY_MS:-20000}"
 	export CRAWL_MAX_DELAY_MS="${CRAWL_MAX_DELAY_MS:-45000}"
@@ -122,12 +122,18 @@ hc_acquire_lock() {
 # a comment pinning that contract).
 hc_drain_until_empty() {
 	local max_rounds="${CRAWL_DRAIN_MAX_ROUNDS:-30}"
-	local round=0 rc=0 out processed
+	local round=0 rc=0 out processed capture_file
+	capture_file="$(mktemp "${TMPDIR:-/tmp}/shorted-housing-drain.XXXXXX")" || {
+		echo "$(date -u +%FT%TZ) drain: could not create round capture file" >>"$LOG"
+		return 1
+	}
+	trap 'rm -f "$capture_file"; trap - RETURN' RETURN
 	while ((round < max_rounds)); do
 		round=$((round + 1))
-		out="$("$BIN" -mode agent 2>&1)"
-		rc=$?
-		printf '%s\n' "$out" >>"$LOG"
+		: >"$capture_file"
+		"$BIN" -mode agent 2>&1 | /usr/bin/tee -a "$LOG" "$capture_file" >/dev/null
+		rc=${PIPESTATUS[0]}
+		out="$(/bin/cat "$capture_file")"
 		processed="$(printf '%s\n' "$out" | /usr/bin/sed -n 's/.*done: processed \([0-9][0-9]*\) job.*/\1/p' | tail -1)"
 		processed="${processed:-0}"
 		echo "$(date -u +%FT%TZ) drain round $round/$max_rounds: rc=$rc processed=$processed" >>"$LOG"

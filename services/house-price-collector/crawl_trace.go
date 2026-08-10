@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -28,9 +29,11 @@ import (
 //
 // Trace artifacts are LOCAL-only debugging aids: they never cross to
 // brandbrain (the agent submit path stays counts-only — see crawlJobSummary
-// in crawl_agent.go) and are gitignored (traces/, *.png). Off (the default),
-// every method on traceWriter is a zero-cost no-op — sweepSuburbSource
-// doesn't need to branch on "is tracing enabled" at each call site.
+// in crawl_agent.go). The default output gets a unique private directory under
+// an absolute OS temp directory so raw portal artifacts are not created in the
+// repository tree or shared between runs. Off (the default), every method on
+// traceWriter is a zero-cost no-op — sweepSuburbSource doesn't need to branch
+// on "is tracing enabled" at each call site.
 
 // pageScreenshotter is an OPTIONAL capability a crawlFetcher may implement:
 // capture a screenshot of a URL on the fetcher's live browser. Only cdpFetcher
@@ -47,7 +50,7 @@ type pageScreenshotter interface {
 // traceConfig controls whether/where the debug-trace mode writes.
 type traceConfig struct {
 	enabled bool
-	dir     string // CRAWL_TRACE_DIR (default "traces")
+	dir     string // explicit CRAWL_TRACE_DIR or a unique private directory under os.TempDir()
 	suburb  string // CRAWL_TRACE_SUBURB (optional filter, case-insensitive on Display; empty traces every swept suburb)
 	light   bool   // CRAWL_TRACE_LIGHT — decisions only: no p<N>.html, no p<N>.png
 	runID   string // one directory per process run
@@ -56,7 +59,11 @@ type traceConfig struct {
 // loadTraceConfig reads CRAWL_TRACE (truthy "1"/"true"/"yes") or a non-empty
 // CRAWL_TRACE_DIR to enable tracing; CRAWL_TRACE_SUBURB optionally restricts
 // tracing to one suburb's Display name so a targeted debug run doesn't dump
-// every suburb in the catalog. Off by default — zero footprint unless opted in.
+// every suburb in the catalog. When tracing is enabled without an explicit
+// CRAWL_TRACE_DIR, a unique private shorted-crawl-traces-* directory is
+// allocated under an absolute, existing os.TempDir(). Invalid temp bases or
+// allocation failures disable tracing rather than falling back into the
+// working tree. Off by default — zero footprint unless opted in.
 //
 // CRAWL_TRACE_LIGHT keeps trace.jsonl + summary.json but drops the p<N>.html
 // and p<N>.png artefacts. Those are what make full tracing unusable on a real
@@ -69,8 +76,16 @@ type traceConfig struct {
 func loadTraceConfig() traceConfig {
 	dir := strings.TrimSpace(os.Getenv("CRAWL_TRACE_DIR"))
 	enabled := truthyEnv("CRAWL_TRACE") || dir != ""
-	if dir == "" {
-		dir = "traces"
+	if enabled && dir == "" {
+		var err error
+		dir, err = allocateDefaultTraceDir()
+		if err != nil {
+			log.Printf("[trace] disabled: cannot allocate default trace directory: %v", err)
+			enabled = false
+			dir = ""
+		} else {
+			log.Printf("[trace] CRAWL_TRACE_DIR unset; using private temp directory %s", dir)
+		}
 	}
 	return traceConfig{
 		enabled: enabled,
@@ -79,6 +94,25 @@ func loadTraceConfig() traceConfig {
 		light:   truthyEnv("CRAWL_TRACE_LIGHT"),
 		runID:   time.Now().UTC().Format("20060102T150405Z"),
 	}
+}
+
+func allocateDefaultTraceDir() (string, error) {
+	base := os.TempDir()
+	if !filepath.IsAbs(base) {
+		return "", fmt.Errorf("TMPDIR must resolve to an absolute path, got %q", base)
+	}
+	info, err := os.Stat(base)
+	if err != nil {
+		return "", fmt.Errorf("stat temp base %q: %w", base, err)
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("temp base %q is not a directory", base)
+	}
+	dir, err := os.MkdirTemp(base, "shorted-crawl-traces-")
+	if err != nil {
+		return "", fmt.Errorf("create private trace directory under %q: %w", base, err)
+	}
+	return dir, nil
 }
 
 func truthyEnv(key string) bool {

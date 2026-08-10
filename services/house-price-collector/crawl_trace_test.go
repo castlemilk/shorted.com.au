@@ -143,21 +143,51 @@ func TestTraceConfig_Wants(t *testing.T) {
 }
 
 func TestLoadTraceConfig(t *testing.T) {
+	base := t.TempDir()
+	t.Setenv("TMPDIR", base)
 	t.Setenv("CRAWL_TRACE", "")
 	t.Setenv("CRAWL_TRACE_DIR", "")
 	t.Setenv("CRAWL_TRACE_SUBURB", "")
-	if got := loadTraceConfig(); got.enabled {
+	if got := loadTraceConfig(); got.enabled || got.dir != "" {
 		t.Errorf("tracing must be OFF by default, got %+v", got)
+	}
+	if entries, err := os.ReadDir(base); err != nil || len(entries) != 0 {
+		t.Fatalf("disabled tracing must not allocate a temp directory: entries=%v err=%v", entries, err)
 	}
 
 	t.Setenv("CRAWL_TRACE", "1")
-	if got := loadTraceConfig(); !got.enabled {
-		t.Errorf("CRAWL_TRACE=1 should enable tracing, got %+v", got)
+	first := loadTraceConfig()
+	second := loadTraceConfig()
+	for _, got := range []traceConfig{first, second} {
+		if !got.enabled || !filepath.IsAbs(got.dir) || filepath.Dir(got.dir) != base || !strings.HasPrefix(filepath.Base(got.dir), "shorted-crawl-traces-") {
+			t.Errorf("default trace directory must be unique and absolute inside %q, got %+v", base, got)
+			continue
+		}
+		info, err := os.Stat(got.dir)
+		if err != nil || !info.IsDir() || info.Mode().Perm() != 0o700 {
+			t.Errorf("default trace directory must exist with mode 0700: info=%v err=%v", info, err)
+		}
+	}
+	if first.dir == second.dir {
+		t.Errorf("default trace directories must be unique, both were %q", first.dir)
+	}
+
+	relativeBase := filepath.Join("relative-trace-temp", filepath.Base(t.TempDir()))
+	if _, err := os.Stat(relativeBase); !os.IsNotExist(err) {
+		t.Fatalf("relative TMPDIR test path must not exist before loadTraceConfig: %v", err)
+	}
+	t.Setenv("TMPDIR", relativeBase)
+	if got := loadTraceConfig(); got.enabled || got.dir != "" {
+		t.Errorf("relative TMPDIR must fail closed, got %+v", got)
+	}
+	if _, err := os.Stat(relativeBase); !os.IsNotExist(err) {
+		t.Fatalf("relative TMPDIR must not be created: %v", err)
 	}
 
 	t.Setenv("CRAWL_TRACE", "")
-	t.Setenv("CRAWL_TRACE_DIR", "/tmp/whatever-trace-dir")
-	if got := loadTraceConfig(); !got.enabled || got.dir != "/tmp/whatever-trace-dir" {
+	explicitDir := filepath.Join(base, "explicit-trace-dir")
+	t.Setenv("CRAWL_TRACE_DIR", explicitDir)
+	if got := loadTraceConfig(); !got.enabled || got.dir != explicitDir {
 		t.Errorf("a non-empty CRAWL_TRACE_DIR should enable tracing with that dir, got %+v", got)
 	}
 
@@ -304,6 +334,7 @@ func TestTraceWriter_LightModeSkipsScreenshotCapture(t *testing.T) {
 // opt-in so today's full-trace debugging is unchanged.
 func TestLoadTraceConfig_Light(t *testing.T) {
 	t.Setenv("CRAWL_TRACE", "1")
+	t.Setenv("CRAWL_TRACE_DIR", t.TempDir())
 	t.Setenv("CRAWL_TRACE_LIGHT", "")
 	if loadTraceConfig().light {
 		t.Errorf("light must default off")
