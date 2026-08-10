@@ -7,6 +7,7 @@ import HousingPage, { revalidate } from "../page";
 const mockHousingSeriesChart = jest.fn((props: Record<string, unknown>) => (
   <div role="img" aria-label={String(props.ariaLabel)} data-measure={props.measure} />
 ));
+const mockLLMMeta = jest.fn((_props: Record<string, unknown>) => null);
 
 jest.mock("~/app/actions/getHousing", () => ({
   getHousingOverview: jest.fn(),
@@ -23,7 +24,9 @@ jest.mock("~/@/components/layouts/dashboard-layout", () => ({
   ),
 }));
 
-jest.mock("@/components/seo/llm-meta", () => ({ LLMMeta: () => null }));
+jest.mock("@/components/seo/llm-meta", () => ({
+  LLMMeta: (props: Record<string, unknown>) => mockLLMMeta(props),
+}));
 jest.mock("@/components/housing/housing-zoom-map-loader", () => ({
   HousingZoomMap: () => <div>Housing map</div>,
 }));
@@ -150,5 +153,20 @@ describe("/housing affordability integration", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Affordability panel")).toBeInTheDocument();
     expect(screen.queryByText(/RPPI|8-capital|to 2021/i)).not.toBeInTheDocument();
+  });
+
+  it("describes the full rendered dataset cadence and temporal coverage", async () => {
+    const { container } = render(await HousingPage());
+
+    const datasetScript = container.querySelector(
+      'script[type="application/ld+json"]',
+    );
+    expect(datasetScript).not.toBeNull();
+    expect(JSON.parse(datasetScript?.textContent ?? "{}")).toEqual(
+      expect.objectContaining({ temporalCoverage: "1977/.." }),
+    );
+    expect(mockLLMMeta).toHaveBeenCalledWith(
+      expect.objectContaining({ dataFrequency: "monthly and quarterly" }),
+    );
   });
 });

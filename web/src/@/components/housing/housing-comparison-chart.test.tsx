@@ -150,6 +150,49 @@ describe("HousingComparisonChart", () => {
     });
   });
 
+  it("aligns every series to their shared date range when requested", async () => {
+    mockGetHousePriceSeriesClient.mockImplementation(async (_regionCode, measure) => {
+      if (measure === "cash_rate") {
+        return response(measure, [
+          { iso: "1990-08-31T00:00:00.000Z", value: 14 },
+          { iso: "2019-07-31T00:00:00.000Z", value: 1 },
+          { iso: "2026-05-31T00:00:00.000Z", value: 3.85 },
+          { iso: "2026-07-31T00:00:00.000Z", value: 3.6 },
+        ]);
+      }
+      return response(measure, [
+        { iso: "2019-07-31T00:00:00.000Z", value: 3 },
+        { iso: "2026-05-31T00:00:00.000Z", value: 6.5 },
+      ]);
+    });
+
+    renderWithQueryClient(
+      <HousingComparisonChart
+        regionCode="AUS"
+        definitions={definitions}
+        ariaLabel="Australian housing rates"
+        format="percent"
+        align="intersection"
+      />,
+    );
+
+    await waitFor(() => expect(mockHousingMultiLineChart).toHaveBeenCalledTimes(1));
+
+    const renderedSeries = mockHousingMultiLineChart.mock.calls[0]?.[0].series;
+    expect(renderedSeries).toHaveLength(3);
+    for (const item of renderedSeries) {
+      expect(item.points[0]?.date).toEqual(
+        new Date("2019-07-31T00:00:00.000Z"),
+      );
+      expect(item.points.at(-1)?.date).toEqual(
+        new Date("2026-05-31T00:00:00.000Z"),
+      );
+    }
+    expect(renderedSeries[0]?.points).not.toContainEqual(
+      expect.objectContaining({ value: 14 }),
+    );
+  });
+
   it("renders no data at the requested height when every series is empty", async () => {
     mockGetHousePriceSeriesClient.mockImplementation(async (_regionCode, measure) =>
       measure === "cash_rate"

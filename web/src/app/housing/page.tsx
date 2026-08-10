@@ -144,7 +144,7 @@ export default async function HousingPage() {
     isAccessibleForFree: true,
     license: "https://creativecommons.org/licenses/by/4.0/",
     spatialCoverage: "Australia",
-    temporalCoverage: "2003/..",
+    temporalCoverage: "1977/..",
     sourceOrganization: [
       { "@type": "GovernmentOrganization", name: "Australian Bureau of Statistics", url: "https://abs.gov.au" },
       { "@type": "Organization", name: "Reserve Bank of Australia", url: "https://rba.gov.au" },
@@ -158,7 +158,7 @@ export default async function HousingPage() {
         description={DESCRIPTION}
         url={URL}
         dataSource="ABS, RBA"
-        dataFrequency="quarterly"
+        dataFrequency="monthly and quarterly"
         keywords={["Australian house prices", "ABS residential property", "household debt to income"]}
       />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />

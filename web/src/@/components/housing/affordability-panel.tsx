@@ -45,7 +45,7 @@ const MEASURE_TILES = [
   {
     icon: "income",
     label: "Affordability",
-    detail: "Monthly/quarterly · index, YoY & share",
+    detail: "Quarterly · index, YoY & share",
     description: "Rents, wages, price-to-income and investor lending share.",
   },
   {
@@ -148,6 +148,7 @@ export function AffordabilityPanel() {
                 definitions={RATE_SERIES}
                 ariaLabel="Australian cash and mortgage rates"
                 format="percent"
+                align="intersection"
               />
             </ChartCard>
           </div>

@@ -30,6 +30,7 @@ export interface HousingComparisonChartProps {
   ariaLabel: string;
   format: HousingSeriesFormat;
   transform?: HousingSeriesTransform;
+  align?: "union" | "intersection";
   height?: number;
 }
 
@@ -40,6 +41,7 @@ export function HousingComparisonChart({
   ariaLabel,
   format,
   transform = "level",
+  align = "union",
   height = 280,
 }: HousingComparisonChartProps) {
   const { data, isLoading } = useQuery({
@@ -57,9 +59,8 @@ export function HousingComparisonChart({
     staleTime: 60 * 60 * 1000,
   });
 
-  const series = useMemo(
-    () =>
-      (data ?? []).flatMap((response, index) => {
+  const series = useMemo(() => {
+    const availableSeries = (data ?? []).flatMap((response, index) => {
         const definition = definitions[index];
         if (!response || !definition) return [];
 
@@ -74,9 +75,30 @@ export function HousingComparisonChart({
         return points.length >= 2
           ? [{ label: definition.label, points }]
           : [];
-      }),
-    [data, definitions, transform],
-  );
+      });
+
+    if (align !== "intersection" || availableSeries.length < 2) {
+      return availableSeries;
+    }
+
+    const starts = availableSeries.map(({ points }) =>
+      Math.min(...points.map(({ date }) => date.getTime())),
+    );
+    const ends = availableSeries.map(({ points }) =>
+      Math.max(...points.map(({ date }) => date.getTime())),
+    );
+    const sharedStart = Math.max(...starts);
+    const sharedEnd = Math.min(...ends);
+    if (sharedStart > sharedEnd) return [];
+
+    return availableSeries.flatMap(({ label, points }) => {
+      const alignedPoints = points.filter(({ date }) => {
+        const timestamp = date.getTime();
+        return timestamp >= sharedStart && timestamp <= sharedEnd;
+      });
+      return alignedPoints.length >= 2 ? [{ label, points: alignedPoints }] : [];
+    });
+  }, [align, data, definitions, transform]);
 
   if (isLoading) {
     return (

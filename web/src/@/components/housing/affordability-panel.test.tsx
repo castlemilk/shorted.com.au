@@ -105,6 +105,12 @@ describe("AffordabilityPanel", () => {
         ],
       }),
     );
+    expect(mockComparisonChart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ariaLabel: "Australian cash and mortgage rates",
+        align: "intersection",
+      }),
+    );
   });
 
   it("labels measure cadence, units, sources, tables, and licences", () => {
@@ -113,7 +119,7 @@ describe("AffordabilityPanel", () => {
     expect(screen.getByText("Monthly · % p.a.")).toBeInTheDocument();
     expect(screen.getByText("Monthly · annual % change")).toBeInTheDocument();
     expect(
-      screen.getByText("Monthly/quarterly · index, YoY & share"),
+      screen.getByText("Quarterly · index, YoY & share"),
     ).toBeInTheDocument();
     expect(screen.getByText("Quarterly · AUD")).toBeInTheDocument();
 
