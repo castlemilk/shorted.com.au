@@ -527,16 +527,19 @@ func dropListingsEnabled() bool {
 	}
 }
 
-// valuationsEnabled independently gates the raw per-address property.com.au AVM
-// and sales-history enrichment. It is OFF by default: the public housing surface
-// remains aggregate-only unless an operator explicitly accepts this source's
-// heightened licence posture.
+// valuationsEnabled independently gates the per-address property.com.au AVM and
+// sales-history enrichment. Enabled by DEFAULT, like dropListingsEnabled: the card
+// attributes the source, deep-links to the property.com.au profile, disclaims that
+// the figures are model estimates, and labels a whole-building estimate as such
+// (see valuation_granularity, migration 000091). Set HOUSING_VALUATIONS_ENABLED to
+// a falsey value ("false"/"0"/"off"/"no") as an explicit kill switch — this source
+// carries a heightened ToS posture, so a takedown must be one env flip away.
 func valuationsEnabled() bool {
 	switch strings.ToLower(strings.TrimSpace(os.Getenv("HOUSING_VALUATIONS_ENABLED"))) {
-	case "true", "1", "on", "yes":
-		return true
-	default:
+	case "false", "0", "off", "no":
 		return false
+	default:
+		return true
 	}
 }
 

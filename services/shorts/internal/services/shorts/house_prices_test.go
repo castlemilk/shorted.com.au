@@ -641,7 +641,7 @@ func TestGetPropertyHistory_ValuationSalesHistory_MapsUndisclosedPrice(t *testin
 	}
 }
 
-func TestGetPropertyHistory_ValuationDefaultsOff(t *testing.T) {
+func TestGetPropertyHistory_ValuationDefaultsOn(t *testing.T) {
 	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "true")
 	t.Setenv("HOUSING_VALUATIONS_ENABLED", "")
 
@@ -650,6 +650,12 @@ func TestGetPropertyHistory_ValuationDefaultsOff(t *testing.T) {
 	mockStore := mocks.NewMockShortsStore(ctrl)
 	const addressKey = "1-smith-street-richmond-vic-3121"
 	mockStore.EXPECT().GetPropertyHistory(addressKey).Return(propertyHistoryForValuation(addressKey), nil)
+	mockStore.EXPECT().GetPropertyValuation(addressKey).Return(&shortsstore.PropertyValuationRow{
+		Source:               "property.com.au",
+		FetchedAt:            time.Date(2026, 7, 20, 9, 30, 0, 0, time.UTC),
+		EstimateMid:          1_200_000,
+		ValuationGranularity: "exact",
+	}, nil)
 
 	srv := newTestServer(t, mockStore)
 	resp, err := srv.GetPropertyHistory(context.Background(),
@@ -657,8 +663,8 @@ func TestGetPropertyHistory_ValuationDefaultsOff(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if resp.Msg.Valuation != nil {
-		t.Fatalf("valuation must require explicit opt-in, got %+v", resp.Msg.Valuation)
+	if resp.Msg.Valuation == nil {
+		t.Fatal("valuation must be served by default; HOUSING_VALUATIONS_ENABLED is a kill switch, not an opt-in")
 	}
 }
 
