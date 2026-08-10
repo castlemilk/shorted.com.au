@@ -166,6 +166,50 @@ func TestFetchVICSuburbWorkbookFallsBackWhenDiscoveryFails(t *testing.T) {
 	}
 }
 
+func TestFetchVICSuburbWorkbookFallsBackWithoutFetchingOlderDiscoveredWorkbook(t *testing.T) {
+	older := "https://www.land.vic.gov.au/__data/houses-by-suburb-2013-2023.xlsx"
+	want := vicFixture(t)
+	fetcher := &fakeVICFetcher{
+		listingDoc: vicListingDocument(t, `<a href="`+older+`">earlier statistics</a>`),
+		listingURL: mustURL(t, vicListingPageURL),
+		workbooks: map[string]fakeVICWorkbookResponse{
+			older:      {body: want},
+			vicXLSXURL: {body: want},
+		},
+	}
+
+	got, err := fetchVICSuburbWorkbook(context.Background(), fetcher)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, want) {
+		t.Fatalf("workbook = %q, want pinned fallback", got)
+	}
+	if len(fetcher.byteCalls) != 1 || fetcher.byteCalls[0] != vicXLSXURL {
+		t.Fatalf("workbook calls = %v, want only pinned fallback; older discovery must not be fetched", fetcher.byteCalls)
+	}
+}
+
+func TestFetchVICSuburbWorkbookFallsBackWithoutFetchingSameYearDiscoveredWorkbook(t *testing.T) {
+	sameYear := "https://www.land.vic.gov.au/__data/archive/houses-by-suburb-2010-2024.xlsx"
+	want := vicFixture(t)
+	fetcher := &fakeVICFetcher{
+		listingDoc: vicListingDocument(t, `<a href="`+sameYear+`">alternate archive</a>`),
+		listingURL: mustURL(t, vicListingPageURL),
+		workbooks: map[string]fakeVICWorkbookResponse{
+			sameYear:   {body: want},
+			vicXLSXURL: {body: want},
+		},
+	}
+
+	if _, err := fetchVICSuburbWorkbook(context.Background(), fetcher); err != nil {
+		t.Fatal(err)
+	}
+	if len(fetcher.byteCalls) != 1 || fetcher.byteCalls[0] != vicXLSXURL {
+		t.Fatalf("workbook calls = %v, want only pinned fallback when discovery does not advance the end year", fetcher.byteCalls)
+	}
+}
+
 func TestFetchVICSuburbWorkbookFallsBackWhenDiscoveredAssetIsNotXLSX(t *testing.T) {
 	discovered := "https://www.land.vic.gov.au/__data/houses-by-suburb-2015-2025.xlsx"
 	want := vicFixture(t)

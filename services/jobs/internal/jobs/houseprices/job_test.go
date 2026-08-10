@@ -90,7 +90,7 @@ func TestModeListCoversEveryDispatchCase(t *testing.T) {
 	// The dispatch switch in Run, in source order. "abs" is a documented
 	// undocumented alias for "official" and is deliberately NOT in modeList.
 	dispatch := []string{
-		"official", "all", "crawl", "listings", "details", "property", "agent",
+		"official", "vg-nsw", "all", "crawl", "listings", "details", "property", "agent",
 		"enqueue", "freshness", "purge", "warmcheck", "backfill-address",
 		"census", "electorates", "banners", "amenities", "lga", "connectivity",
 		"funding", "council-financials", "crime", "refresh",

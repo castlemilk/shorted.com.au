@@ -62,9 +62,14 @@ func selectVICWorkbookURL(doc *goquery.Document, pageURL *url.URL) (string, erro
 	if doc == nil || pageURL == nil {
 		return "", fmt.Errorf("VIC workbook listing has no document or final URL")
 	}
+	fallbackMatch := vicWorkbookNameRe.FindStringSubmatch(path.Base(vicXLSXURL))
+	if fallbackMatch == nil {
+		return "", fmt.Errorf("VIC pinned fallback URL has an unrecognised workbook name")
+	}
+	fallbackEnd, _ := strconv.Atoi(fallbackMatch[2])
 
 	bestURL := ""
-	bestStart, bestEnd := -1, -1
+	bestStart, bestEnd := -1, fallbackEnd
 	doc.Find("a[href]").Each(func(_ int, link *goquery.Selection) {
 		href, ok := link.Attr("href")
 		if !ok {
@@ -84,14 +89,14 @@ func selectVICWorkbookURL(doc *goquery.Document, pageURL *url.URL) (string, erro
 		}
 		start, _ := strconv.Atoi(match[1])
 		end, _ := strconv.Atoi(match[2])
-		if end > bestEnd || (end == bestEnd && start > bestStart) {
+		if end > bestEnd || (bestURL != "" && end == bestEnd && start > bestStart) {
 			bestURL = candidate.String()
 			bestStart, bestEnd = start, end
 		}
 	})
 
 	if bestURL == "" {
-		return "", fmt.Errorf("no same-host houses-by-suburb annual workbook link found")
+		return "", fmt.Errorf("no same-host houses-by-suburb annual workbook newer than pinned %d fallback found", fallbackEnd)
 	}
 	return bestURL, nil
 }

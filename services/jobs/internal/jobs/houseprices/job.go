@@ -5,7 +5,7 @@
 // backbone, RBA, state-government granular, and an optional supplementary
 // crawl) into the house_prices fact store, then refreshes the housing
 // materialized views. Run-mode is selected with -mode — the same flag, the same
-// 21 values, the same environment contract as the standalone binary, so the
+// mode values, the same environment contract as the standalone binary, so the
 // residential-rig launchers can swap `house-price-collector -mode X` for
 // `shorted house-prices -mode X` with no other change.
 //
@@ -31,9 +31,22 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+type officialJob struct {
+	name string
+	fn   func(context.Context) ([]Observation, error)
+}
+
+type officialJobIO struct {
+	lockSource         func(context.Context, string) (func(), error)
+	loadLastPeriod     func(context.Context, string) (*time.Time, error)
+	upsertRegions      func(context.Context, []Observation) error
+	upsertObservations func(context.Context, []Observation) (int, error)
+	updateRun          func(context.Context, string, *time.Time, int, string, string) error
+}
+
 // modeList is the -mode help/validation string, unchanged from the standalone
 // binary's flag usage text.
-const modeList = "official | crawl | listings | details | property | agent | enqueue | freshness | purge | warmcheck | backfill-address | census | electorates | banners | amenities | lga | connectivity | funding | council-financials | crime | refresh | all"
+const modeList = "official | vg-nsw | crawl | listings | details | property | agent | enqueue | freshness | purge | warmcheck | backfill-address | census | electorates | banners | amenities | lga | connectivity | funding | council-financials | crime | refresh | all"
 
 // Job returns the `shorted house-prices` subcommand.
 //
@@ -103,21 +116,12 @@ func Run(parent context.Context, args []string) error {
 	// no CRAWL_TIMEOUT_MIN — the bundled macOS agent's Auto-crawl among them —
 	// were getting the 15-min default and self-aborting a healthy batch a few
 	// suburbs in, killing the in-flight suburb's writes with it.
-	defaultTimeoutMin := 15
-	switch *mode {
-	case "agent", "listings", "crawl", "details", "property":
-		defaultTimeoutMin = 240
-	case "crime":
-		// Downloads the 436MB BOCSAR CSV + CVS/ERP, melts, scales, ranks and
-		// upserts ~1M+ rows — well beyond the 15-min quick-run default.
-		defaultTimeoutMin = 240
-	}
 	// The parent context is the runner's signal context, so SIGTERM now
 	// cancels the run in addition to the CRAWL_TIMEOUT_MIN ceiling. The
 	// standalone binary derived from context.Background() and had no signal
 	// handling at all; every crawl-internal circuit-breaker, resume cursor and
 	// detached finalizer is unchanged underneath.
-	ctx, cancel := context.WithTimeout(parent, time.Duration(envInt("CRAWL_TIMEOUT_MIN", defaultTimeoutMin))*time.Minute)
+	ctx, cancel := context.WithTimeout(parent, time.Duration(collectorTimeoutMinutes(*mode))*time.Minute)
 	defer cancel()
 
 	pool, err := connect(ctx, dbURL)
@@ -128,8 +132,19 @@ func Run(parent context.Context, args []string) error {
 
 	switch *mode {
 	case "official", "abs", "all":
-		runOfficial(ctx, pool)
+		jobs := scheduledOfficialJobs()
+		runOfficial(ctx, pool, jobs)
+		freshnessExitCode := assertOfficialVGFreshness(
+			ctx,
+			pool,
+			freshnessPoliciesForOfficialJobs(jobs, vgFreshnessPolicies),
+		)
 		refresh(ctx, pool)
+		if freshnessExitCode != 0 {
+			return exitFor("official", 1)
+		}
+	case "vg-nsw":
+		return exitFor("vg-nsw", runNSWVG(ctx, pool))
 	case "crawl":
 		// Supplementary suburb crawl — opt-in only, never part of the default
 		// scheduled run (it's slow, adversarial and licence-gated). Drives a HEADED,
@@ -241,7 +256,7 @@ func Run(parent context.Context, args []string) error {
 	case "refresh":
 		refresh(ctx, pool)
 	default:
-		return fmt.Errorf("unknown -mode %q (want official|crawl|listings|details|property|agent|enqueue|freshness|warmcheck|backfill-address|census|electorates|banners|amenities|lga|connectivity|funding|council-financials|crime|refresh|all)", *mode)
+		return fmt.Errorf("unknown -mode %q (want official|vg-nsw|crawl|listings|details|property|agent|enqueue|freshness|warmcheck|backfill-address|census|electorates|banners|amenities|lga|connectivity|funding|council-financials|crime|refresh|all)", *mode)
 	}
 	// A cancelled run must never exit 0: the old binary died on SIGTERM with
 	// the default disposition (143), and the rig drain wrapper
@@ -254,6 +269,19 @@ func Run(parent context.Context, args []string) error {
 		return fmt.Errorf("-mode %s: run interrupted: %w", *mode, err)
 	}
 	return nil
+}
+
+func collectorTimeoutMinutes(mode string) int {
+	if mode == "vg-nsw" {
+		return envInt("VG_NSW_TIMEOUT_MIN", 240)
+	}
+
+	defaultTimeoutMin := 15
+	switch mode {
+	case "agent", "listings", "crawl", "details", "property", "crime":
+		defaultTimeoutMin = 240
+	}
+	return envInt("CRAWL_TIMEOUT_MIN", defaultTimeoutMin)
 }
 
 // runVICFinancials fetches the VIC LGPRF full council data set and attaches each
@@ -423,13 +451,8 @@ func refresh(ctx context.Context, pool *pgxpool.Pool) {
 	pingRevalidate("refresh")
 }
 
-// runOfficial pulls each official (ABS + RBA) source, upserts regions + facts,
-// and records the run cursor.
-func runOfficial(ctx context.Context, pool *pgxpool.Pool) {
-	jobs := []struct {
-		name string
-		fn   func(context.Context) ([]Observation, error)
-	}{
+func scheduledOfficialJobs() []officialJob {
+	return []officialJob{
 		{"abs_res_dwell_st", ingestRESDWELLST},
 		{"abs_res_dwell", ingestRESDWELL},
 		{"abs_rppi", ingestRPPI},
@@ -445,35 +468,129 @@ func runOfficial(ctx context.Context, pool *pgxpool.Pool) {
 		{"abs_price_to_income", ingestPriceToIncome},
 		{"vg_sa", ingestSAMetroMedians},
 		{"vg_vic", ingestVICSuburbMedians},
-		{"vg_nsw", ingestNSWSuburbMedians},
 	}
-	for _, j := range jobs {
-		obs, err := j.fn(ctx)
-		if err != nil {
-			log.Printf("[%s] fetch error: %v", j.name, err)
-			_ = updateRun(ctx, pool, j.name, nil, 0, "error", err.Error())
-			continue
-		}
-		if len(obs) == 0 {
-			log.Printf("[%s] no observations returned", j.name)
-			_ = updateRun(ctx, pool, j.name, nil, 0, "error", "no observations")
-			continue
-		}
-		if err := upsertRegions(ctx, pool, obs); err != nil {
-			log.Printf("[%s] region upsert error: %v", j.name, err)
-			_ = updateRun(ctx, pool, j.name, nil, 0, "error", err.Error())
-			continue
-		}
-		n, err := upsertObservations(ctx, pool, obs)
-		if err != nil {
-			log.Printf("[%s] fact upsert error after %d: %v", j.name, n, err)
-			_ = updateRun(ctx, pool, j.name, nil, n, "error", err.Error())
-			continue
-		}
-		last := latestPeriod(obs)
-		_ = updateRun(ctx, pool, j.name, last, n, "ok", "")
-		log.Printf("[%s] upserted %d observations (latest %s)", j.name, n, fmtPeriod(last))
+}
+
+func freshnessPoliciesForOfficialJobs(jobs []officialJob, policies []vgFreshnessPolicy) []vgFreshnessPolicy {
+	attempted := make(map[string]struct{}, len(jobs))
+	for _, job := range jobs {
+		attempted[job.name] = struct{}{}
 	}
+	applicable := make([]vgFreshnessPolicy, 0, len(policies))
+	for _, policy := range policies {
+		if _, ok := attempted[policy.source]; ok {
+			applicable = append(applicable, policy)
+		}
+	}
+	return applicable
+}
+
+func runOfficial(ctx context.Context, pool *pgxpool.Pool, jobs []officialJob) {
+	for _, job := range jobs {
+		_ = runOfficialJob(ctx, pool, job)
+	}
+}
+
+func runOfficialJob(ctx context.Context, pool *pgxpool.Pool, job officialJob) bool {
+	return runOfficialJobWith(ctx, job, officialJobIO{
+		lockSource: func(ctx context.Context, source string) (func(), error) {
+			return lockOfficialJobSource(ctx, pool, source)
+		},
+		loadLastPeriod: func(ctx context.Context, source string) (*time.Time, error) {
+			return loadRunLastPeriod(ctx, pool, source)
+		},
+		upsertRegions: func(ctx context.Context, obs []Observation) error {
+			return upsertRegions(ctx, pool, obs)
+		},
+		upsertObservations: func(ctx context.Context, obs []Observation) (int, error) {
+			return upsertObservations(ctx, pool, obs)
+		},
+		updateRun: func(ctx context.Context, source string, lastPeriod *time.Time, rows int, status, detail string) error {
+			return updateRun(ctx, pool, source, lastPeriod, rows, status, detail)
+		},
+	})
+}
+
+func runOfficialJobWith(ctx context.Context, job officialJob, io officialJobIO) bool {
+	unlock, err := io.lockSource(ctx, job.name)
+	if err != nil {
+		log.Printf("[%s] acquire source lock: %v", job.name, err)
+		return false
+	}
+	defer unlock()
+
+	persistedPeriod, err := io.loadLastPeriod(ctx, job.name)
+	if err != nil {
+		log.Printf("[%s] load persisted cursor: %v", job.name, err)
+		return false
+	}
+	obs, err := job.fn(ctx)
+	if err != nil {
+		log.Printf("[%s] fetch error: %v", job.name, err)
+		_ = io.updateRun(ctx, job.name, persistedPeriod, 0, "error", err.Error())
+		return false
+	}
+	if len(obs) == 0 {
+		log.Printf("[%s] no observations returned", job.name)
+		_ = io.updateRun(ctx, job.name, persistedPeriod, 0, "error", "no observations")
+		return false
+	}
+	last := latestPeriod(obs)
+	if persistedPeriod != nil && last != nil && last.Before(*persistedPeriod) {
+		detail := fmt.Sprintf("latest period regressed from %s to %s", fmtPeriod(persistedPeriod), fmtPeriod(last))
+		log.Printf("[%s] %s", job.name, detail)
+		_ = io.updateRun(ctx, job.name, persistedPeriod, 0, "error", detail)
+		return false
+	}
+	if err := io.upsertRegions(ctx, obs); err != nil {
+		log.Printf("[%s] region upsert error: %v", job.name, err)
+		_ = io.updateRun(ctx, job.name, persistedPeriod, 0, "error", err.Error())
+		return false
+	}
+	n, err := io.upsertObservations(ctx, obs)
+	if err != nil {
+		log.Printf("[%s] fact upsert error after %d: %v", job.name, n, err)
+		_ = io.updateRun(ctx, job.name, persistedPeriod, n, "error", err.Error())
+		return false
+	}
+	if err := io.updateRun(ctx, job.name, last, n, "ok", ""); err != nil {
+		log.Printf("[%s] persist successful run cursor: %v", job.name, err)
+		return false
+	}
+	log.Printf("[%s] upserted %d observations (latest %s)", job.name, n, fmtPeriod(last))
+	return true
+}
+
+func runNSWVGRig(ingest func() bool, assertFreshness func() int, refreshViews func()) int {
+	if !ingest() {
+		return 1
+	}
+	freshnessExitCode := assertFreshness()
+	refreshViews()
+	if freshnessExitCode != 0 {
+		return 1
+	}
+	return 0
+}
+
+func runNSWVG(ctx context.Context, pool *pgxpool.Pool) int {
+	var policies []vgFreshnessPolicy
+	for _, policy := range vgFreshnessPolicies {
+		if policy.source == nswSource {
+			policies = append(policies, policy)
+		}
+	}
+	return runNSWVGRig(
+		func() bool {
+			return runOfficialJob(ctx, pool, officialJob{name: nswSource, fn: ingestNSWSuburbMedians})
+		},
+		func() int {
+			return assertOfficialVGFreshness(ctx, pool, policies)
+		},
+		func() {
+			refresh(ctx, pool)
+		},
+	)
 }
 
 func latestPeriod(obs []Observation) *time.Time {

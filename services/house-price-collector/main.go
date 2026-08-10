@@ -7,6 +7,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -17,6 +18,14 @@ import (
 type officialJob struct {
 	name string
 	fn   func(context.Context) ([]Observation, error)
+}
+
+type officialJobIO struct {
+	lockSource         func(context.Context, string) (func(), error)
+	loadLastPeriod     func(context.Context, string) (*time.Time, error)
+	upsertRegions      func(context.Context, []Observation) error
+	upsertObservations func(context.Context, []Observation) (int, error)
+	updateRun          func(context.Context, string, *time.Time, int, string, string) error
 }
 
 func main() {
@@ -47,8 +56,13 @@ func run() int {
 
 	switch *mode {
 	case "official", "abs", "all":
-		runOfficial(ctx, pool)
-		vgFreshnessExitCode := assertOfficialVGFreshness(ctx, pool, vgFreshnessPolicies)
+		jobs := scheduledOfficialJobs()
+		runOfficial(ctx, pool, jobs)
+		vgFreshnessExitCode := assertOfficialVGFreshness(
+			ctx,
+			pool,
+			freshnessPoliciesForOfficialJobs(jobs, vgFreshnessPolicies),
+		)
 		refresh(ctx, pool)
 		if vgFreshnessExitCode != 0 {
 			return 1
@@ -386,11 +400,26 @@ func scheduledOfficialJobs() []officialJob {
 	}
 }
 
+func freshnessPoliciesForOfficialJobs(jobs []officialJob, policies []vgFreshnessPolicy) []vgFreshnessPolicy {
+	attempted := make(map[string]struct{}, len(jobs))
+	for _, job := range jobs {
+		attempted[job.name] = struct{}{}
+	}
+
+	applicable := make([]vgFreshnessPolicy, 0, len(policies))
+	for _, policy := range policies {
+		if _, ok := attempted[policy.source]; ok {
+			applicable = append(applicable, policy)
+		}
+	}
+	return applicable
+}
+
 // runOfficial pulls each Cloud-Run-safe official source, upserts regions + facts,
 // and records the run cursor. Per-source failures remain best-effort here; the
 // persisted VG freshness assertion in run() supplies the aggregate exit status.
-func runOfficial(ctx context.Context, pool *pgxpool.Pool) {
-	for _, job := range scheduledOfficialJobs() {
+func runOfficial(ctx context.Context, pool *pgxpool.Pool, jobs []officialJob) {
+	for _, job := range jobs {
 		_ = runOfficialJob(ctx, pool, job)
 	}
 }
@@ -399,30 +428,75 @@ func runOfficial(ctx context.Context, pool *pgxpool.Pool) {
 // one official source. The bool is used by source-specific rig modes that must
 // propagate failures, while the scheduled multi-source job can continue onward.
 func runOfficialJob(ctx context.Context, pool *pgxpool.Pool, job officialJob) bool {
+	return runOfficialJobWith(ctx, job, officialJobIO{
+		lockSource: func(ctx context.Context, source string) (func(), error) {
+			return lockOfficialJobSource(ctx, pool, source)
+		},
+		loadLastPeriod: func(ctx context.Context, source string) (*time.Time, error) {
+			return loadRunLastPeriod(ctx, pool, source)
+		},
+		upsertRegions: func(ctx context.Context, obs []Observation) error {
+			return upsertRegions(ctx, pool, obs)
+		},
+		upsertObservations: func(ctx context.Context, obs []Observation) (int, error) {
+			return upsertObservations(ctx, pool, obs)
+		},
+		updateRun: func(ctx context.Context, source string, lastPeriod *time.Time, rows int, status, detail string) error {
+			return updateRun(ctx, pool, source, lastPeriod, rows, status, detail)
+		},
+	})
+}
+
+func runOfficialJobWith(ctx context.Context, job officialJob, io officialJobIO) bool {
+	unlock, err := io.lockSource(ctx, job.name)
+	if err != nil {
+		log.Printf("[%s] acquire source lock: %v", job.name, err)
+		return false
+	}
+	defer unlock()
+
+	persistedPeriod, err := io.loadLastPeriod(ctx, job.name)
+	if err != nil {
+		log.Printf("[%s] load persisted cursor: %v", job.name, err)
+		return false
+	}
+
 	obs, err := job.fn(ctx)
 	if err != nil {
 		log.Printf("[%s] fetch error: %v", job.name, err)
-		_ = updateRun(ctx, pool, job.name, nil, 0, "error", err.Error())
+		_ = io.updateRun(ctx, job.name, persistedPeriod, 0, "error", err.Error())
 		return false
 	}
 	if len(obs) == 0 {
 		log.Printf("[%s] no observations returned", job.name)
-		_ = updateRun(ctx, pool, job.name, nil, 0, "error", "no observations")
-		return false
-	}
-	if err := upsertRegions(ctx, pool, obs); err != nil {
-		log.Printf("[%s] region upsert error: %v", job.name, err)
-		_ = updateRun(ctx, pool, job.name, nil, 0, "error", err.Error())
-		return false
-	}
-	n, err := upsertObservations(ctx, pool, obs)
-	if err != nil {
-		log.Printf("[%s] fact upsert error after %d: %v", job.name, n, err)
-		_ = updateRun(ctx, pool, job.name, nil, n, "error", err.Error())
+		_ = io.updateRun(ctx, job.name, persistedPeriod, 0, "error", "no observations")
 		return false
 	}
 	last := latestPeriod(obs)
-	_ = updateRun(ctx, pool, job.name, last, n, "ok", "")
+	if persistedPeriod != nil && last != nil && last.Before(*persistedPeriod) {
+		detail := fmt.Sprintf(
+			"latest period regressed from %s to %s",
+			fmtPeriod(persistedPeriod), fmtPeriod(last),
+		)
+		log.Printf("[%s] %s", job.name, detail)
+		_ = io.updateRun(ctx, job.name, persistedPeriod, 0, "error", detail)
+		return false
+	}
+	if err := io.upsertRegions(ctx, obs); err != nil {
+		log.Printf("[%s] region upsert error: %v", job.name, err)
+		_ = io.updateRun(ctx, job.name, persistedPeriod, 0, "error", err.Error())
+		return false
+	}
+	n, err := io.upsertObservations(ctx, obs)
+	if err != nil {
+		log.Printf("[%s] fact upsert error after %d: %v", job.name, n, err)
+		_ = io.updateRun(ctx, job.name, persistedPeriod, n, "error", err.Error())
+		return false
+	}
+	if err := io.updateRun(ctx, job.name, last, n, "ok", ""); err != nil {
+		log.Printf("[%s] persist successful run cursor: %v", job.name, err)
+		return false
+	}
 	log.Printf("[%s] upserted %d observations (latest %s)", job.name, n, fmtPeriod(last))
 	return true
 }
