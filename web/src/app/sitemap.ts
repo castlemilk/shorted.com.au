@@ -19,6 +19,7 @@ import { weeklyReportPath } from "~/@/lib/reports/weekly-slug";
 import { SCAN_SLUGS } from "~/@/lib/scans/registry";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 import { createSlug } from "~/@/lib/industry-slug";
+import { ALL_STATES, stateSlug, suburbSlug } from "~/@/lib/housing/states";
 
 // Render at request time, never from build output. The build runs with
 // SKIP_STATIC_GENERATION=1 so its prerender only ever contains the 20-stock
@@ -530,21 +531,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Housing pages: state drilldowns + priced suburbs (thin pages excluded).
   // Suburbs are fetched directly on the ISR-safe client, states in parallel
   // (8 sequential RPCs through the shared action previously helped blow the
-  // function time limit). Slug shape mirrors actions/getHousingSitemap.ts.
+  // function time limit). Slugs come from the same helper as every housing URL.
   let housingStateSlugs: string[] = [];
   let housingSuburbUrls: { state: string; suburb: string }[] = [];
   try { housingStateSlugs = await getHousingStateSlugs(); } catch (e) { console.error("housing state slugs:", e); }
   if (!skipForBuild()) {
-    const slugifySuburb = (name: string, postcode: string) =>
-      `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}-${postcode}`;
-    const { ALL_STATES, stateSlug } = await import("~/@/lib/housing/states");
     const perState = await Promise.all(
       ALL_STATES.map(async (st) => {
         try {
           const res = await housingClient.listStateSuburbs({ stateCode: st, query: "", limit: 5000 });
           return res.suburbs
             .filter((s) => s.latestMedianPrice > 0) // only real price data (avoid thin pages)
-            .map((s) => ({ state: stateSlug(st), suburb: slugifySuburb(s.salName, s.postcode) }));
+            .map((s) => ({ state: stateSlug(st), suburb: suburbSlug(s.salName, s.postcode) }));
         } catch (e) {
           console.error(`housing suburb urls (${st}):`, e);
           return [];

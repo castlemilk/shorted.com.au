@@ -96,3 +96,25 @@ func TestListAgencyPriceStatsQuery_DoesNotReadRemovedAgentNamesColumn(t *testing
 		t.Fatal("agency query must return an empty compatibility array without reading agent_names from the MV")
 	}
 }
+
+func TestSuburbReaders_PreferOnePublicPricedRegionPerSAL(t *testing.T) {
+	querySource := postgresHousePricesSource(t)
+
+	if strings.Contains(querySource, "LEFT JOIN house_price_regions r ON r.sal_code = d.sal_code AND r.region_type = 'suburb'") {
+		t.Fatal("suburb readers must not fan demographics out across every region sharing a SAL")
+	}
+	for _, want := range []string{
+		"const preferredSuburbRegionJoin",
+		"ORDER BY (hp.value IS NOT NULL) DESC",
+		"hp.period DESC NULLS LAST",
+		"sr.region_code",
+		"LIMIT 1",
+	} {
+		if !strings.Contains(querySource, want) {
+			t.Errorf("preferred suburb-region join missing %q", want)
+		}
+	}
+	if got := strings.Count(querySource, "` + preferredSuburbRegionJoin + `"); got != 2 {
+		t.Errorf("preferred suburb-region join must be shared by list and profile queries; got %d uses", got)
+	}
+}

@@ -17,7 +17,14 @@ const clientMock = {
   getHousingOverview: jest.fn(),
   listAgencyPriceStats: jest.fn(),
   listAddressPriceDrops: jest.fn(),
+  getSuburbProfile: jest.fn(),
+  listStateSuburbs: jest.fn(),
 };
+
+const connectError = (code: number, message: string) => Object.assign(new Error(message), {
+  code,
+  metadata: { get: jest.fn(() => null) },
+});
 
 jest.mock("@connectrpc/connect-web", () => ({
   createConnectTransport: (...args: unknown[]) => createConnectTransportMock(...args),
@@ -66,6 +73,8 @@ describe("housing server actions", () => {
     clientMock.getHousingOverview.mockResolvedValue({ metrics: [] });
     clientMock.listAgencyPriceStats.mockResolvedValue({ agencies: [] });
     clientMock.listAddressPriceDrops.mockResolvedValue({ addresses: [] });
+    clientMock.getSuburbProfile.mockResolvedValue({ summary: undefined });
+    clientMock.listStateSuburbs.mockResolvedValue({ suburbs: [] });
   });
 
   afterEach(() => {
@@ -156,5 +165,121 @@ describe("housing server actions", () => {
     });
     expect(getCachedMock).not.toHaveBeenCalled();
     expect(setCachedMock).not.toHaveBeenCalled();
+  });
+
+  it("resolves already-indexed suburb slugs with one trailing hyphen", async () => {
+    clientMock.listStateSuburbs.mockResolvedValue({
+      suburbs: [{
+        salCode: "206041122",
+        salName: "Abbotsford (Vic.)",
+        postcode: "",
+      }],
+    });
+    const { resolveSuburbSalCode } = await import("../getHousing");
+
+    await expect(resolveSuburbSalCode("VIC", "abbotsford-vic-")).resolves.toBe("206041122");
+    expect(clientMock.listStateSuburbs).toHaveBeenCalledWith({
+      stateCode: "VIC",
+      query: "abbotsford",
+      limit: 50,
+    });
+  });
+
+  it("resolves a canonical suburb slug with a narrow name query", async () => {
+    clientMock.listStateSuburbs.mockResolvedValue({
+      suburbs: [{
+        salCode: "20075",
+        salName: "Ascot Vale",
+        postcode: "3032",
+      }],
+    });
+    const { resolveSuburbSalCode } = await import("../getHousing");
+
+    await expect(resolveSuburbSalCode("VIC", "ascot-vale-3032")).resolves.toBe("20075");
+    expect(clientMock.listStateSuburbs).toHaveBeenCalledWith({
+      stateCode: "VIC",
+      query: "ascot vale",
+      limit: 50,
+    });
+  });
+
+  it("retries punctuation-normalized names with a bounded final-word query", async () => {
+    clientMock.listStateSuburbs.mockImplementation(async ({ query }: { query: string }) => ({
+      suburbs: query === "connor"
+        ? [{ salCode: "80004", salName: "O'Connor", postcode: "2602" }]
+        : [],
+    }));
+    const { resolveSuburbSalCode } = await import("../getHousing");
+
+    await expect(resolveSuburbSalCode("ACT", "o-connor-2602")).resolves.toBe("80004");
+    expect(clientMock.listStateSuburbs).toHaveBeenNthCalledWith(1, {
+      stateCode: "ACT",
+      query: "o connor",
+      limit: 50,
+    });
+    expect(clientMock.listStateSuburbs).toHaveBeenNthCalledWith(2, {
+      stateCode: "ACT",
+      query: "connor",
+      limit: 50,
+    });
+  });
+
+  it("returns null only when a suburb slug is a genuine miss", async () => {
+    clientMock.listStateSuburbs.mockResolvedValue({ suburbs: [] });
+    const { resolveSuburbSalCode } = await import("../getHousing");
+
+    await expect(resolveSuburbSalCode("VIC", "not-a-real-suburb")).resolves.toBeNull();
+  });
+
+  it("throws when the state suburb index is unavailable", async () => {
+    clientMock.listStateSuburbs.mockRejectedValue(connectError(14, "backend unavailable"));
+    const { resolveSuburbSalCode } = await import("../getHousing");
+
+    await expect(resolveSuburbSalCode("VIC", "abbotsford-vic")).rejects.toThrow(
+      "Unable to resolve suburb slug",
+    );
+  });
+
+  it("preserves profile NotFound separately from backend unavailability", async () => {
+    clientMock.getSuburbProfile.mockRejectedValue(connectError(5, "suburb not found"));
+    const { getSuburbProfile } = await import("../getHousing");
+
+    await expect(getSuburbProfile("missing-sal")).rejects.toMatchObject({
+      name: "NotFoundError",
+      message: "suburb not found",
+    });
+  });
+
+  it("does not turn a transient profile failure into NotFound", async () => {
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    clientMock.getSuburbProfile.mockRejectedValue(connectError(14, "backend unavailable"));
+    const { getSuburbProfile } = await import("../getHousing");
+
+    await expect(getSuburbProfile("206041122")).resolves.toBeUndefined();
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringContaining("withRetryAndThrowNotFound"),
+      "backend unavailable",
+      expect.any(Object),
+    );
+    consoleError.mockRestore();
+  });
+
+  it("keeps the ISR guard on suburb list and profile RPC fetches", async () => {
+    const { getSuburbProfile, listStateSuburbs } = await import("../getHousing");
+    await listStateSuburbs("VIC", "", 5000);
+    await getSuburbProfile("206041122");
+
+    for (const call of createConnectTransportMock.mock.calls.slice(0, 2)) {
+      const transportFetch = call[0]?.fetch as typeof fetch;
+      const fetchMock = jest.fn().mockResolvedValue(new Response("{}"));
+      global.fetch = fetchMock;
+      await transportFetch("https://shorts-prod.run.app/shorts.v1alpha1.HousingService/Test", {
+        method: "POST",
+      });
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ next: { revalidate: 86400 } }),
+      );
+    }
   });
 });

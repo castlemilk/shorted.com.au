@@ -16,7 +16,7 @@ import {
   getCached,
   setCached,
 } from "@/lib/kv-cache";
-import { withRetryAndNotFound } from "./withRetry";
+import { withRetryAndNotFound, withRetryAndThrowNotFound } from "./withRetry";
 import { suburbSlug } from "@/lib/housing/states";
 
 function createHousingClient() {
@@ -34,14 +34,29 @@ function createHousingClient() {
 // visitor's TTFB despite `export const revalidate = 3600`. Tagging the fetch
 // revalidate-cacheable lets /housing render as static ISR (the sanctioned
 // pattern from getIndustryData / fetchTreeMap3m). Scoped to getHousingOverview
-// only — the suburb/state routes (listStateSuburbs/getSuburbProfile) keep the
-// default transport and their own generateStaticParams setup.
+// only — suburb profile routes use their separate daily on-demand ISR transport
+// below, while other housing actions retain the default transport.
 const isrHousingFetch: typeof fetch = (input, init) =>
   serverFetchWithUserAgent(input, { ...init, next: { revalidate: 3600 } });
+
+// The on-demand ISR suburb route regenerates daily. This metadata is an ISR
+// guard: without it serverFetchWithUserAgent marks Connect POSTs `no-store` and
+// opts the route into dynamic rendering. Next cannot fetch-cache Connect's
+// Uint8Array request bodies, so callers must still keep response payloads small.
+const suburbIsrFetch: typeof fetch = (input, init) =>
+  serverFetchWithUserAgent(input, { ...init, next: { revalidate: 86400 } });
 
 function createCacheableHousingClient() {
   const transport = createConnectTransport({
     fetch: isrHousingFetch,
+    baseUrl: SERVER_SHORTS_API_URL,
+  });
+  return createClient(HousingService, transport);
+}
+
+function createSuburbIsrHousingClient() {
+  const transport = createConnectTransport({
+    fetch: suburbIsrFetch,
     baseUrl: SERVER_SHORTS_API_URL,
   });
   return createClient(HousingService, transport);
@@ -115,7 +130,7 @@ export const getHousePriceSeries = cache(
 export const listStateSuburbs = cache(
   withRetryAndNotFound(
     async (stateCode: string, query: string = "", limit: number = 5000): Promise<ListStateSuburbsResponse> => { // eslint-disable-line @typescript-eslint/no-inferrable-types
-      const client = createHousingClient();
+      const client = createSuburbIsrHousingClient();
       return client.listStateSuburbs({ stateCode, query, limit });
     },
   ),
@@ -123,9 +138,9 @@ export const listStateSuburbs = cache(
 
 /** Full per-suburb profile by ABS SAL code. */
 export const getSuburbProfile = cache(
-  withRetryAndNotFound(
+  withRetryAndThrowNotFound(
     async (salCode: string): Promise<GetSuburbProfileResponse> => {
-      const client = createHousingClient();
+      const client = createSuburbIsrHousingClient();
       return client.getSuburbProfile({ salCode });
     },
   ),
@@ -256,8 +271,32 @@ export const listAddressPriceDrops = cache(
  */
 export const resolveSuburbSalCode = cache(
   async (stateCode: string, slug: string): Promise<string | null> => {
-    const res = await listStateSuburbs(stateCode, "", 5000).catch(() => null);
-    const match = res?.suburbs.find((s) => suburbSlug(s.salName, s.postcode) === slug);
+    // Strip the canonical postcode and optional ABS state qualifier before
+    // searching. This keeps the resolver response to a handful of rows instead
+    // of downloading the state's multi-megabyte suburb index on every ISR.
+    const normalizedSlug = slug
+      .replace(/-+$/, "")
+      .replace(/-\d{4}$/, "")
+      .replace(new RegExp(`-${stateCode.toLowerCase()}$`), "");
+    const query = normalizedSlug.replace(/-/g, " ");
+    let res = await listStateSuburbs(stateCode, query, 50);
+    if (!res) {
+      throw new Error(`Unable to resolve suburb slug while ${stateCode} suburb data is unavailable`);
+    }
+    const canonicalSlug = slug.replace(/-+$/, "");
+    let match = res.suburbs.find((s) => suburbSlug(s.salName, s.postcode) === canonicalSlug);
+
+    // Names containing punctuation (for example O'Connor) do not match their
+    // space-normalised slug through ILIKE. Retry with the final word, still a
+    // bounded query, and verify the full canonical slug locally.
+    const fallbackQuery = normalizedSlug.split("-").at(-1) ?? query;
+    if (!match && fallbackQuery !== query) {
+      res = await listStateSuburbs(stateCode, fallbackQuery, 50);
+      if (!res) {
+        throw new Error(`Unable to resolve suburb slug while ${stateCode} suburb data is unavailable`);
+      }
+      match = res.suburbs.find((s) => suburbSlug(s.salName, s.postcode) === canonicalSlug);
+    }
     return match?.salCode ?? null;
   },
 );
