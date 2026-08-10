@@ -221,3 +221,36 @@ vg_nsw | last_period=-          | status=error | rows=0        <- never landed, 
 vg_vic | last_period=-          | status=error | rows=0        <- 7,938 historical rows, frozen
 vg_sa  | last_period=2026-06-30 | status=ok    | rows=16,155
 ```
+
+---
+
+## COMPLETED 2026-08-10
+
+Merged, deployed and verified on prod.
+
+- **#417 merged** to `main` (`b36b6a94d`); #418-#427 closed as superseded.
+- **Migrations applied**: 000095 (was missing from prod entirely), 000107, 000108, 000109.
+  Verified: `dropped_count` NULL-count 0 (the ordering blocker), no k-anon depth leak,
+  no drop over 40%, extremes suppressed below k but present (232 rows). MV row counts
+  after rebuild: listing_stats 500, suburb_drops 232, state_drops 6, agency 3,323.
+  `refresh_housing_materialized_views()` runs clean under the new guard.
+- **Deploy** green; revalidate sweep (19 pages, 35 keys) + `static-pages/warm-cache` (5/5).
+- **Live verification**: `/price-drops` renders real data (2,378 cuts, deepest −40%,
+  500 suburbs) with the new state choropleth; `/housing` shows the Affordability & credit
+  section; sitemap emits **1,165 suburb URLs with zero trailing hyphens**, and legacy
+  `…-vic-` URLs now *redirect* rather than 404.
+- **NSW valuer-general ingest RUN from this residential Mac** — the gap that had never
+  closed. 95,243 + 103,994 + 129,756 sales parsed → **5,937 suburb-year medians**,
+  2,433 NSW suburbs linked to `sal_code`, run status `ok` (was `error`, 0 rows).
+  Live API confirms e.g. Abbotsbury `latestMedianPrice: 1,727,500`.
+  It took **~30 seconds**, not the 4 hours the runbook budgets.
+
+### Notes for next time
+
+- `REVALIDATION_SECRET`: gcloud auth had expired (needs interactive login) and
+  `vercel env pull` **masks** encrypted values. The working copy is in
+  `~/.shorted-housing-crawl.env`.
+- The pre-push hook (`make lint-backend`) fails on **six pre-existing issues on main** —
+  worth a cleanup PR, since golangci-lint runs in no CI job.
+- `housing-contract-tests` was **skipped** in the deploy run; confirm it actually gates
+  on the next PR.
