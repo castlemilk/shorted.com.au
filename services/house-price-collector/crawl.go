@@ -348,6 +348,12 @@ func (cr *crawler) crawlSource(ctx context.Context, t CrawlTarget, site, url str
 
 	x, err := extractRealEstate(ctx, cr.cfg.brandbrainURL, string(html), finalURL, t.Display, t.State)
 	if err != nil {
+		if err == errBrandbrainProjectionEmpty {
+			cr.stats.rejected++
+			log.Printf("[crawl] %s %s: brandbrain skipped: local aggregate projection empty", t.Display, site)
+			cr.crossCheck(t, site, html, nil)
+			return nil
+		}
 		log.Printf("[crawl] %s %s: brandbrain extract failed: %v", t.Display, site, err)
 		return nil
 	}

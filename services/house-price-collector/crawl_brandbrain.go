@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -103,6 +106,7 @@ func brandbrainMediansPayload(rawHTML string) string {
 			}
 		})
 	}
+	contract.AggregateFields = withoutAmbiguousBrandbrainMedians(contract.AggregateFields)
 	payload, _ := json.Marshal(contract) // scalar allowlist values are always JSON-safe
 	return string(payload)
 }
@@ -120,12 +124,17 @@ func walkBrandbrainAggregates(value any, fields *[]brandbrainAggregateField, see
 		sort.Strings(keys)
 		for _, key := range keys {
 			child := typed[key]
-			if name := brandbrainAggregateName(key); name != "" && isBrandbrainAggregateScalar(child) {
-				encoded, _ := json.Marshal(child)
+			if name := brandbrainAggregateName(key); name != "" {
+				number, ok := brandbrainAggregateNumber(name, child)
+				if !ok {
+					walkBrandbrainAggregates(child, fields, seen, depth+1)
+					continue
+				}
+				encoded, _ := json.Marshal(number)
 				dedupeKey := name + "\x00" + string(encoded)
 				if _, exists := seen[dedupeKey]; !exists {
 					seen[dedupeKey] = struct{}{}
-					*fields = append(*fields, brandbrainAggregateField{Name: name, Value: child})
+					*fields = append(*fields, brandbrainAggregateField{Name: name, Value: number})
 				}
 			}
 			walkBrandbrainAggregates(child, fields, seen, depth+1)
@@ -166,38 +175,90 @@ func brandbrainAggregateName(key string) string {
 		return "page_size"
 	case "totalpages", "maxpagenumberavailable":
 		return "total_pages"
-	}
-
-	switch {
-	case strings.Contains(normalized, "median") && strings.Contains(normalized, "price") && !strings.Contains(normalized, "rent"):
-		switch {
-		case strings.Contains(normalized, "house"):
-			return "median_house_price"
-		case strings.Contains(normalized, "unit"), strings.Contains(normalized, "apartment"):
-			return "median_unit_price"
-		default:
-			return "median_sale_price"
-		}
-	case strings.Contains(normalized, "rentalyield"):
+	case "medianhouseprice", "housemedianprice", "medianpricehouse":
+		return "median_house_price"
+	case "medianunitprice", "unitmedianprice", "medianpriceunit", "medianapartmentprice", "apartmentmedianprice", "medianpriceapartment":
+		return "median_unit_price"
+	case "medianprice", "mediansaleprice", "mediansoldprice":
+		return "median_sale_price"
+	case "rentalyield", "grossrentalyield":
 		return "rental_yield"
-	case strings.Contains(normalized, "daysonmarket"):
+	case "daysonmarket", "avgdaysonmarket", "averagedaysonmarket":
 		return "days_on_market"
-	case strings.Contains(normalized, "clearance") && strings.Contains(normalized, "rate"):
+	case "clearancerate", "auctionclearancerate":
 		return "clearance_rate"
-	case strings.Contains(normalized, "annualgrowth"), strings.Contains(normalized, "pricegrowth"):
+	case "annualgrowth", "annualpricegrowth", "pricegrowth", "pricegrowth12m":
 		return "annual_growth"
 	default:
 		return ""
 	}
 }
 
-func isBrandbrainAggregateScalar(value any) bool {
-	switch value.(type) {
-	case float64, string, bool:
-		return true
+const maxBrandbrainNumericStringLength = 32
+
+func brandbrainAggregateNumber(name string, value any) (float64, bool) {
+	switch typed := value.(type) {
+	case float64:
+		return typed, !math.IsNaN(typed) && !math.IsInf(typed, 0)
+	case string:
+		trimmed := strings.TrimSpace(typed)
+		if trimmed == "" || len(trimmed) > maxBrandbrainNumericStringLength {
+			return 0, false
+		}
+		if strings.HasPrefix(name, "median_") {
+			if !isBrandbrainMoneyString(trimmed) {
+				return 0, false
+			}
+			number, ok := toMoney(trimmed)
+			return number, ok && !math.IsNaN(number) && !math.IsInf(number, 0)
+		}
+		number, err := strconv.ParseFloat(trimmed, 64)
+		return number, err == nil && !math.IsNaN(number) && !math.IsInf(number, 0)
 	default:
-		return false
+		return 0, false
 	}
+}
+
+func isBrandbrainMoneyString(value string) bool {
+	for _, r := range value {
+		switch {
+		case r >= '0' && r <= '9':
+		case r == '$', r == ',', r == '.', r == ' ', r == '\t', r == 'm', r == 'M', r == 'k', r == 'K':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+func withoutAmbiguousBrandbrainMedians(fields []brandbrainAggregateField) []brandbrainAggregateField {
+	medianValues := make(map[string]float64)
+	ambiguous := make(map[string]bool)
+	for _, field := range fields {
+		if !strings.HasPrefix(field.Name, "median_") {
+			continue
+		}
+		value, ok := field.Value.(float64)
+		if !ok {
+			ambiguous[field.Name] = true
+			continue
+		}
+		if previous, exists := medianValues[field.Name]; exists && previous != value {
+			ambiguous[field.Name] = true
+		} else {
+			medianValues[field.Name] = value
+		}
+	}
+	if len(ambiguous) == 0 {
+		return fields
+	}
+	filtered := make([]brandbrainAggregateField, 0, len(fields))
+	for _, field := range fields {
+		if !ambiguous[field.Name] {
+			filtered = append(filtered, field)
+		}
+	}
+	return filtered
 }
 
 // brandbrainBackoffs is the serial retry schedule for the (sometimes 502-ing
@@ -208,6 +269,8 @@ var brandbrainBackoffs = []time.Duration{1 * time.Second, 3 * time.Second, 6 * t
 // timeout because the extractor still runs an LLM over the aggregate projection.
 var brandbrainHTTPClient = &http.Client{Timeout: 90 * time.Second}
 
+var errBrandbrainProjectionEmpty = errors.New("brandbrain aggregate projection is empty")
+
 // extractRealEstate POSTs an aggregate-only projection to brandbrain's
 // ExtractRealEstate RPC and decodes the response. It retries on 5xx (brandbrain
 // 502s under load) with the 1s/3s/6s backoff; 4xx and decode errors fail fast.
@@ -215,8 +278,16 @@ func extractRealEstate(ctx context.Context, endpoint, rawHTML, pageURL, suburb, 
 	if endpoint == "" {
 		endpoint = brandbrainEndpoint()
 	}
+	projection := brandbrainMediansPayload(rawHTML)
+	var contract brandbrainMediansContract
+	if err := json.Unmarshal([]byte(projection), &contract); err != nil {
+		return nil, fmt.Errorf("decode local aggregate projection: %w", err)
+	}
+	if len(contract.AggregateFields) == 0 {
+		return nil, errBrandbrainProjectionEmpty
+	}
 	body, err := json.Marshal(extractRealEstateReq{
-		HTML:       brandbrainMediansPayload(rawHTML),
+		HTML:       projection,
 		URL:        pageURL,
 		SuburbHint: suburb,
 		StateHint:  state,

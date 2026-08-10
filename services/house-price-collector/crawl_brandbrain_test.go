@@ -36,6 +36,8 @@ const (
 	bondiAnnualGrowth = 0.0364
 )
 
+const bondiProjectionHTML = `<html><body><script type="application/json">{"medianHousePrice":1850000}</script></body></html>`
+
 // bondiExtractJSON is a realistic ExtractRealEstate response body (snake_case,
 // protojson shape). The aggregate measures live on the listing object(s).
 func bondiExtractJSON() string {
@@ -80,7 +82,7 @@ func TestBrandbrain_ExtractRealEstate_ParsesBondi(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	x, err := extractRealEstate(context.Background(), srv.URL, "<html>...</html>", bondi.reaURL(), "Bondi", "NSW")
+	x, err := extractRealEstate(context.Background(), srv.URL, bondiProjectionHTML, bondi.reaURL(), "Bondi", "NSW")
 	if err != nil {
 		t.Fatalf("extractRealEstate: %v", err)
 	}
@@ -133,6 +135,91 @@ func TestBrandbrain_ExtractRealEstate_SendsAggregateOnlyPayload(t *testing.T) {
 
 	if _, err := extractRealEstate(context.Background(), "http://brandbrain.test/extract", rawHTML, bondi.reaURL(), "Bondi", "NSW"); err != nil {
 		t.Fatalf("extractRealEstate: %v", err)
+	}
+}
+
+func TestBrandbrainMediansPayload_RejectsHostileValuesUnderAllowedKeys(t *testing.T) {
+	tests := []struct {
+		name  string
+		key   string
+		value any
+	}{
+		{name: "address agent and asking price", key: "medianHousePrice", value: "Sold by Jane Agent of 12 Smith St for $2,100,000"},
+		{name: "raw html", key: "medianUnitPrice", value: `<div data-listing-id="listing-99887">Private Agent</div>`},
+		{name: "listing id and address", key: "daysOnMarket", value: "listing-id-99887 at 4 Ocean Rd"},
+		{name: "arbitrary label", key: "rentalYield", value: "Contact Ray White Bondi"},
+		{name: "boolean", key: "auctionClearanceRate", value: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			blob, err := json.Marshal(map[string]any{tt.key: tt.value})
+			if err != nil {
+				t.Fatal(err)
+			}
+			rawHTML := `<script type="application/json">` + string(blob) + `</script>`
+			contract := decodeBrandbrainContract(t, brandbrainMediansPayload(rawHTML))
+			if len(contract.AggregateFields) != 0 {
+				t.Fatalf("hostile value under %q survived projection: %+v", tt.key, contract.AggregateFields)
+			}
+		})
+	}
+}
+
+func TestBrandbrainMediansPayload_ParsesMoneyStringToNumber(t *testing.T) {
+	rawHTML := `<script type="application/json">{"medianHousePrice":"$1,850,000"}</script>`
+	contract := decodeBrandbrainContract(t, brandbrainMediansPayload(rawHTML))
+	if len(contract.AggregateFields) != 1 {
+		t.Fatalf("aggregate fields = %+v, want one parsed median", contract.AggregateFields)
+	}
+	field := contract.AggregateFields[0]
+	if field.Name != "median_house_price" || field.Value != float64(1_850_000) {
+		t.Fatalf("parsed field = %+v, want numeric median_house_price=1850000", field)
+	}
+}
+
+func TestBrandbrainMediansPayload_RejectsContextualMedianKeys(t *testing.T) {
+	rawHTML := `<script type="application/json">{
+		"medianHousePrice12MonthsAgo":1620000,
+		"nearbySuburbMedianHousePrice":1710000,
+		"medianPriceHouse2019":1450000,
+		"daysOnMarket":42
+	}</script>`
+	contract := decodeBrandbrainContract(t, brandbrainMediansPayload(rawHTML))
+	if len(contract.AggregateFields) != 1 || contract.AggregateFields[0].Name != "days_on_market" {
+		t.Fatalf("contextual medians must not be projected as current medians: %+v", contract.AggregateFields)
+	}
+}
+
+func TestBrandbrainMediansPayload_DropsAmbiguousCanonicalMedian(t *testing.T) {
+	rawHTML := `<script type="application/json">{
+		"medianHousePrice":1850000,
+		"houseMedianPrice":1620000,
+		"rentalYield":0.031
+	}</script>`
+	contract := decodeBrandbrainContract(t, brandbrainMediansPayload(rawHTML))
+	if len(contract.AggregateFields) != 1 || contract.AggregateFields[0].Name != "rental_yield" {
+		t.Fatalf("distinct house medians must remove the ambiguous canonical field: %+v", contract.AggregateFields)
+	}
+}
+
+func TestBrandbrain_ExtractRealEstate_SkipsEmptyProjection(t *testing.T) {
+	originalClient := brandbrainHTTPClient
+	var calls int32
+	brandbrainHTTPClient = &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		atomic.AddInt32(&calls, 1)
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(bondiExtractJSON())),
+		}, nil
+	})}
+	defer func() { brandbrainHTTPClient = originalClient }()
+
+	if _, err := extractRealEstate(context.Background(), "http://brandbrain.test/extract", "<html><body>no aggregate scripts</body></html>", bondi.reaURL(), "Bondi", "NSW"); err == nil || !strings.Contains(err.Error(), "aggregate projection is empty") {
+		t.Fatalf("extractRealEstate error = %v, want empty-projection error", err)
+	}
+	if got := atomic.LoadInt32(&calls); got != 0 {
+		t.Fatalf("empty projection made %d HTTP call(s), want 0", got)
 	}
 }
 
@@ -289,7 +376,7 @@ func TestBrandbrain_ExtractRealEstate_RetriesOn5xx(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	x, err := extractRealEstate(context.Background(), srv.URL, "<html>", bondi.reaURL(), "Bondi", "NSW")
+	x, err := extractRealEstate(context.Background(), srv.URL, bondiProjectionHTML, bondi.reaURL(), "Bondi", "NSW")
 	if err != nil {
 		t.Fatalf("extractRealEstate should succeed after a 502 retry: %v", err)
 	}
@@ -313,12 +400,21 @@ func TestBrandbrain_ExtractRealEstate_GivesUpAfterAll5xx(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	if _, err := extractRealEstate(context.Background(), srv.URL, "<html>", bondi.reaURL(), "Bondi", "NSW"); err == nil {
+	if _, err := extractRealEstate(context.Background(), srv.URL, bondiProjectionHTML, bondi.reaURL(), "Bondi", "NSW"); err == nil {
 		t.Fatal("expected error after exhausting retries on persistent 5xx")
 	}
 	if got := atomic.LoadInt32(&calls); got != int32(len(brandbrainBackoffs)) {
 		t.Errorf("expected %d attempts, got %d", len(brandbrainBackoffs), got)
 	}
+}
+
+func decodeBrandbrainContract(t *testing.T, payload string) brandbrainMediansContract {
+	t.Helper()
+	var contract brandbrainMediansContract
+	if err := json.Unmarshal([]byte(payload), &contract); err != nil {
+		t.Fatalf("decode aggregate projection: %v (payload %q)", err, payload)
+	}
+	return contract
 }
 
 // extractFromJSON is a tiny test helper that decodes a canned response body the
