@@ -21,7 +21,7 @@ WITH asking_addresses AS (
     WHERE pl.is_active
       AND pl.listing_status IN ('for_sale', 'under_offer')
       AND NULLIF(pl.address_key, '') IS NOT NULL
-    ORDER BY pl.address_key, pl.last_seen_at DESC, pl.source
+    ORDER BY pl.address_key, pl.last_seen_at DESC, pl.source, pl.listing_id
 ), fs AS (
     SELECT region_code,
            COUNT(*) AS for_sale_count,
@@ -47,7 +47,7 @@ WITH asking_addresses AS (
       AND pl.price IS NOT NULL
       AND NULLIF(pl.address_key, '') IS NOT NULL
       AND st.sold_at >= now() - interval '12 months'
-    ORDER BY pl.address_key, st.sold_at DESC, pl.last_seen_at DESC, pl.source
+    ORDER BY pl.address_key, st.sold_at DESC, pl.last_seen_at DESC, pl.source, pl.listing_id
 ), sold AS (
     SELECT region_code,
            COUNT(*) AS sold_count,
@@ -90,12 +90,13 @@ WITH ev AS (
 ), per_source AS (
     SELECT region_code, dedup_key, source,
            MAX(drop_pct) AS max_pct,
+           MAX(drop_abs) AS max_abs,
            SUM(drop_abs) AS total_abs
     FROM ev
     GROUP BY region_code, dedup_key, source
 ), win AS (
     SELECT DISTINCT ON (region_code, dedup_key)
-           region_code, dedup_key, max_pct, total_abs
+           region_code, dedup_key, max_pct, max_abs, total_abs
     FROM per_source
     ORDER BY region_code, dedup_key, total_abs DESC, source
 ), agg AS (
@@ -103,6 +104,8 @@ WITH ev AS (
            COUNT(*) AS dropped_listing_count,
            AVG(max_pct) AS avg_drop_pct,
            PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY max_pct) AS median_drop_pct,
+           MAX(max_pct) AS max_drop_pct,
+           MAX(max_abs) AS max_drop_abs,
            SUM(total_abs) AS dropped_value
     FROM win
     GROUP BY region_code
@@ -116,8 +119,8 @@ SELECT a.region_code,
        a.dropped_listing_count,
        a.avg_drop_pct,
        a.median_drop_pct,
-       NULL::double precision AS max_drop_pct,
-       NULL::double precision AS max_drop_abs,
+       CASE WHEN a.dropped_listing_count >= 3 THEN a.max_drop_pct END AS max_drop_pct,
+       CASE WHEN a.dropped_listing_count >= 3 THEN a.max_drop_abs END AS max_drop_abs,
        a.dropped_value,
        COALESCE(ac.total_active_listings, 0) AS total_active_listings,
        a.dropped_listing_count::float / NULLIF(ac.total_active_listings, 0) AS dropped_share
@@ -173,7 +176,7 @@ WITH ev AS (
     WHERE pl.is_active
       AND NULLIF(pl.address_key, '') IS NOT NULL
       AND pl.state_code IS NOT NULL AND pl.state_code <> '' AND pl.state_code <> 'AU'
-    ORDER BY pl.address_key, pl.last_seen_at DESC, pl.source
+    ORDER BY pl.address_key, pl.last_seen_at DESC, pl.source, pl.listing_id
 ), l AS (
     SELECT COALESCE(state_code, 'AU') AS state_code,
            COUNT(*) AS total_active_listings,
@@ -181,8 +184,7 @@ WITH ev AS (
            COUNT(price) FILTER (WHERE listing_status IN ('for_sale', 'under_offer')) AS for_sale_priced,
            AVG(price) FILTER (WHERE listing_status IN ('for_sale', 'under_offer')) AS avg_asking,
            PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY price)
-               FILTER (WHERE listing_status IN ('for_sale', 'under_offer') AND price IS NOT NULL) AS median_asking,
-           COUNT(DISTINCT region_code) AS suburbs_tracked
+               FILTER (WHERE listing_status IN ('for_sale', 'under_offer') AND price IS NOT NULL) AS median_asking
     FROM active_addresses
     GROUP BY GROUPING SETS ((state_code), ())
 ), sold_transitions AS (
@@ -194,7 +196,7 @@ WITH ev AS (
     ORDER BY e.listing_pk, e.observed_at DESC
 ), sold_addresses AS (
     SELECT DISTINCT ON (pl.address_key)
-           pl.state_code, pl.address_key, pl.price, st.sold_at
+           pl.state_code, pl.region_code, pl.address_key, pl.price, st.sold_at
     FROM sold_transitions st
     JOIN property_listings pl ON pl.id = st.listing_pk
     WHERE pl.listing_status = 'sold'
@@ -202,7 +204,7 @@ WITH ev AS (
       AND NULLIF(pl.address_key, '') IS NOT NULL
       AND pl.state_code IS NOT NULL AND pl.state_code <> '' AND pl.state_code <> 'AU'
       AND st.sold_at >= now() - interval '12 months'
-    ORDER BY pl.address_key, st.sold_at DESC, pl.last_seen_at DESC, pl.source
+    ORDER BY pl.address_key, st.sold_at DESC, pl.last_seen_at DESC, pl.source, pl.listing_id
 ), sold AS (
     SELECT COALESCE(state_code, 'AU') AS state_code,
            COUNT(*) AS sold_count,
@@ -210,24 +212,37 @@ WITH ev AS (
            PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY price) AS median_sold
     FROM sold_addresses
     GROUP BY GROUPING SETS ((state_code), ())
+), tracked_addresses AS (
+    SELECT state_code, region_code, address_key
+    FROM active_addresses
+    UNION
+    SELECT state_code, region_code, address_key
+    FROM sold_addresses
+), u AS (
+    SELECT COALESCE(state_code, 'AU') AS state_code,
+           COUNT(DISTINCT region_code) AS suburbs_tracked
+    FROM tracked_addresses
+    GROUP BY GROUPING SETS ((state_code), ())
 )
-SELECT l.state_code,
+SELECT u.state_code,
        COALESCE(d.dropped_count, 0) AS dropped_count,
        CASE WHEN d.dropped_count >= 3 THEN d.avg_drop_pct END AS avg_drop_pct,
        CASE WHEN d.dropped_count >= 3 THEN d.median_drop_pct END AS median_drop_pct,
        CASE WHEN d.dropped_count >= 3 THEN d.max_drop_pct END AS max_drop_pct,
        CASE WHEN d.dropped_count >= 3 THEN d.dropped_value END AS dropped_value,
-       l.total_active_listings,
-       COALESCE(d.dropped_count, 0)::float / NULLIF(l.total_active_listings, 0) AS dropped_share,
-       l.for_sale_count,
-       l.for_sale_priced,
-       CASE WHEN l.for_sale_priced >= 3 THEN l.avg_asking END AS avg_asking,
-       CASE WHEN l.for_sale_priced >= 3 THEN l.median_asking END AS median_asking,
+       COALESCE(l.total_active_listings, 0) AS total_active_listings,
+       COALESCE(d.dropped_count, 0)::float
+           / NULLIF(COALESCE(l.total_active_listings, 0), 0) AS dropped_share,
+       COALESCE(l.for_sale_count, 0) AS for_sale_count,
+       COALESCE(l.for_sale_priced, 0) AS for_sale_priced,
+       CASE WHEN COALESCE(l.for_sale_priced, 0) >= 3 THEN l.avg_asking END AS avg_asking,
+       CASE WHEN COALESCE(l.for_sale_priced, 0) >= 3 THEN l.median_asking END AS median_asking,
        COALESCE(sold.sold_count, 0) AS sold_count,
        CASE WHEN sold.sold_count >= 3 THEN sold.avg_sold END AS avg_sold,
        CASE WHEN sold.sold_count >= 3 THEN sold.median_sold END AS median_sold,
-       l.suburbs_tracked
-FROM l
+       u.suburbs_tracked
+FROM u
+LEFT JOIN l USING (state_code)
 LEFT JOIN d USING (state_code)
 LEFT JOIN sold USING (state_code);
 
