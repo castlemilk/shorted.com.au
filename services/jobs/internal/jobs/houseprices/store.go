@@ -164,7 +164,12 @@ func lockOfficialJobSource(ctx context.Context, pool *pgxpool.Pool, source strin
 }
 
 func refreshHousingMV(ctx context.Context, pool *pgxpool.Pool) error {
-	_, err := pool.Exec(ctx, `SELECT refresh_housing_materialized_views()`)
+	// The function-scoped GUC cannot disarm a timeout already armed for the
+	// calling command, so the override must precede the function call. Simple
+	// protocol wraps this multi-statement command in an implicit transaction;
+	// SET LOCAL scopes the override to that transaction and expires with it.
+	_, err := pool.Exec(ctx, `SET LOCAL statement_timeout = 0;
+		SELECT refresh_housing_materialized_views()`)
 	return err
 }
 

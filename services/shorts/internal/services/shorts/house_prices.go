@@ -131,7 +131,7 @@ func (s *ShortsServer) ListStateSuburbs(ctx context.Context, req *connect.Reques
 				StateMember: r.StateMember, StateParty: r.StateParty, StatePartyAb: r.StatePartyAb,
 				DominantNbnTech: r.DominantNbnTech, ConnectivityQualityScore: r.ConnectivityQualityScore,
 				CrimeBreakInsRank: r.CrimeBreakInsRank, CrimeViolentRank: r.CrimeViolentRank,
-				CrimeMotorVehicleRank: r.CrimeMotorVehicleRank,
+				CrimeMotorVehicleRank:   r.CrimeMotorVehicleRank,
 				PoliticianPropertyCount: r.PoliticianPropertyCount,
 				Amenities: &shortsv1alpha1.SuburbAmenities{
 					SchoolsTotal: r.SchoolsTotal, SupermarketsTotal: r.SupermarketsTotal,
@@ -212,7 +212,8 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 			FederalParty: p.Summary.FederalParty, FederalPartyAb: p.Summary.FederalPartyAb,
 			FederalTppAlp: p.Summary.FederalTppAlp, StateDistrict: p.Summary.StateDistrict,
 			StateMember: p.Summary.StateMember, StateParty: p.Summary.StateParty, StatePartyAb: p.Summary.StatePartyAb,
-			DominantNbnTech: p.Summary.DominantNbnTech, ConnectivityQualityScore: p.Summary.ConnectivityQualityScore,
+			PoliticianPropertyCount: p.Summary.PoliticianPropertyCount,
+			DominantNbnTech:         p.Summary.DominantNbnTech, ConnectivityQualityScore: p.Summary.ConnectivityQualityScore,
 			Amenities: &shortsv1alpha1.SuburbAmenities{
 				SchoolsTotal: p.Summary.SchoolsTotal, SupermarketsTotal: p.Summary.SupermarketsTotal,
 				ColesCount: p.Summary.ColesCount, WoolworthsCount: p.Summary.WoolworthsCount,
@@ -666,11 +667,11 @@ func (s *ShortsServer) GetPriceDropsOverview(ctx context.Context, req *connect.R
 
 // ListAgencyPriceStats ranks real-estate agencies by recent asking-price cuts
 // (or listing footprint) from mv_agency_stats (>=3 active listings floor; drop
-// depth/value suppressed below 3 dropped addresses). Although the rows are
-// derived aggregates, they carry agency + agent NAMES harvested from the
-// ToS-restricted listing rows — so unlike the anonymous suburb/state
-// aggregates, this surface sits behind the same HOUSING_DROP_LISTINGS_ENABLED
-// kill switch as the per-listing boards and returns an empty list (not an
+// count/depth/value suppressed below 3 dropped addresses). Agent personal names
+// are intentionally absent from this aggregate; they remain available only on
+// the flag-gated per-listing drill-down. The agency identity itself is harvested
+// from ToS-restricted rows, so this surface retains the same
+// HOUSING_DROP_LISTINGS_ENABLED kill switch and returns an empty list (not an
 // error) when disabled.
 func (s *ShortsServer) ListAgencyPriceStats(ctx context.Context, req *connect.Request[shortsv1alpha1.ListAgencyPriceStatsRequest]) (*connect.Response[shortsv1alpha1.ListAgencyPriceStatsResponse], error) {
 	m := req.Msg
