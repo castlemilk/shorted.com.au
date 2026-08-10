@@ -1,25 +1,16 @@
 # Housing Architecture
 
-> **This is the decision-and-incident record, not the current-state reference.**
-> It was `docs/housing-architecture.md` until 2026-08-09 and is kept for the
-> *why* behind crawl classification, caching, the warm-Chrome mechanism and the
-> extension recipes. For anything factual — counts, modes, licences, schema,
-> runbook — [README.md](README.md), [data-sources.md](data-sources.md),
-> [data-model.md](data-model.md), [pipeline.md](pipeline.md) and
-> [operations.md](operations.md) **take precedence**; where this file disagreed
-> with the code it has been corrected inline, but assume residual drift.
-
 The "housing" surface on Shorted is three products plus a speculative data tier, all sharing one chart system and one Connect-RPC service:
 
 1. **The Widow-Maker editorial feature** (`/features/the-widow-maker`) — a hand-built investigative long-read with embedded interactive dashboards. Data is **baked** (curated research arrays). — §1
 2. **The House Prices Tracker** (`/housing`) — a **live** national/state/GCCSA price dashboard fed by a real ABS/RBA/Valuer-General ingest pipeline. — §4
 3. **The suburb explorer** (`/housing` national map → `/housing/[state]` → `/housing/[state]/[suburb]`) — a national → state → suburb **choropleth drilldown** over real ABS boundaries, with a "Colour by" toggle across house price, ABS Census demographics + culture (religion, language, born-overseas), and **electoral representation** (federal + state member/party + two-party-preferred). — §5
-4. **A Tier-3 residential real-estate crawl** of REA/Domain — **LIVE**: suburb medians (`-mode crawl`) and individual for-sale listings (`-mode listings` / queue-distributed `-mode agent`), distributed across residential Macs via a brandbrain-hosted job queue and a warm host-Chrome CDP fetch that clears REA's Kasada challenge; still anti-poisoning-gated and licence-gated. A **500-suburb** catalog has crawled **88,689** listings across the 5 mainland capitals (prod, 2026-08-09). — §6
+4. **A Tier-3 residential real-estate crawl** of REA/Domain — **LIVE**: suburb medians (`-mode crawl`) and individual for-sale listings (`-mode listings` / queue-distributed `-mode agent`), distributed across residential Macs via a brandbrain-hosted job queue and a warm host-Chrome CDP fetch that clears REA's Kasada challenge; still anti-poisoning-gated and licence-gated. A 115-suburb catalog (25 seed + 90 ABS-population metro) has crawled ~22k listings across the 5 mainland capitals. — §6
 5. **The price-drops flagship** (`/price-drops`) — **LIVE**: asking-price cuts from the listings crawl rolled up by **state, suburb, individual address and agency**, on a crawl-aligned caching architecture (static ISR + KV, busted by a collector ping the moment a crawl lands). `/housing/drops` 308-redirects into it. — §10
 
-Products 2 + 3 share one fact/dimension data model (`house_prices` + `house_price_regions` + `suburb_demographics`) and one collector (`house-price-collector`, **22 modes** — the authoritative table is [pipeline.md](pipeline.md), not this list).
+Products 2 + 3 share one fact/dimension data model (`house_prices` + `house_price_regions` + `suburb_demographics`) and one collector (`house-price-collector`, `-mode official|vg-nsw|census|electorates|amenities|crawl|refresh|all`).
 
-> **Local Insights (shipped + live — PRs #229/#232).** A program to enrich the suburb explorer with amenities (schools/supermarkets/pubs/parks/transport/health), council/LGA context, NBN connectivity, federal funding, and a geographic knowledge graph. New tables `lga`, `suburb_lga`, `suburb_amenities`, `suburb_connectivity`, `suburb_funding` (migrations **000061–000064**); a reusable spatial-join harness at `web/scripts/geo/geo-index.mjs` (grid point-in-polygon + haversine nearest); collector `-mode amenities`. Full design: `docs/superpowers/specs/2026-06-30-local-insights-design.md`; W0 plan: `docs/superpowers/plans/2026-06-30-local-insights-w0-foundation.md`.
+> **Local Insights (in progress).** A program to enrich the suburb explorer with amenities (schools/supermarkets/pubs/parks/transport/health), council/LGA context, NBN connectivity, federal funding, and a geographic knowledge graph. New tables `lga`, `suburb_lga`, `suburb_amenities`, `suburb_connectivity`, `suburb_funding` (migrations **000061–000064**); a reusable spatial-join harness at `web/scripts/geo/geo-index.mjs` (grid point-in-polygon + haversine nearest); collector `-mode amenities`. Full design: `docs/superpowers/specs/2026-06-30-local-insights-design.md`; W0 plan: `docs/superpowers/plans/2026-06-30-local-insights-w0-foundation.md`.
 
 This document is an extension guide. Read the section matching what you're building, then the matching "Future extensions" recipe at the end (§9).
 
@@ -143,19 +134,20 @@ End to end: **ABS/RBA → collector → `house_prices` → MV → RPC → action
 
 ### Collector (`services/house-price-collector/`)
 
-- `main.go` — `-mode official|crawl|refresh|all` (default `all` = official ingest + MV refresh). `runOfficial()` runs a `jobs` slice: `{abs_res_dwell_st: ingestRESDWELLST}`, `{abs_res_dwell: ingestRESDWELL}`, `{abs_rppi: ingestRPPI}`, `{rba: ingestRBADebtToIncome}`; for each: fetch → `upsertRegions` → `upsertObservations` → `updateRun` cursor. 15-minute context timeout. `crawl` mode is opt-in and never in the default schedule.
+- `main.go` — `-mode official|vg-nsw|crawl|refresh|all` (default `all` = Cloud-Run-safe official ingest + VG freshness assertion + MV refresh). `runOfficial()` runs each scheduled source through fetch → `upsertRegions` → `upsertObservations` → `updateRun`; `vg_nsw` is deliberately excluded because its public PSI ZIPs are challenged from Cloud Run. Dedicated `-mode vg-nsw` runs only that source from residential egress (240-minute default, `VG_NSW_TIMEOUT_MIN` override), returns exit 1 on ingest/freshness failure, and refreshes after success. `crawl` remains opt-in.
+- `official_freshness.go` — after the scheduled official ingest, queries persisted `MAX(period)` for `vg_nsw`, `vg_sa`, and `vg_vic`. Missing sources and periods beyond their explicit annual/quarterly horizons overwrite the per-source run cursor with a loud error and make the process exit 1; freshness is based on source period, never a recently failed refetch timestamp.
 - `abs.go` — generic ABS Data API (SDMX-CSV) parser. Base `https://data.api.abs.gov.au/rest/data`; **mandatory** `User-Agent: shorted-housing/1.0 (+https://shorted.com.au)` + `Accept: application/vnd.sdmx.data+csv;labels=both` (WAF-gated). Utilities: `fetchABSCSV`, `absColIndex`, `absCode`/`absLabel` (split `"code: label"` cells), `quarterEnd`, `applyMult` (UNIT_MULT power-of-10), `isPrelim`. `absStateAbbrev` maps `1..8` → `NSW..ACT`. Dataflow keys (exact): `RES_DWELL_ST` = `"1+5..Q"` (1=total_value, 5=mean_price), `RES_DWELL` = `"3+4..Q"` (3=established_house, 4=attached), `RPPI` = `"1.3.100.Q"` (8-cap index, frozen 2021-Q4 upstream).
 - `rba.go` — RBA Table E2 CSV (`https://www.rba.gov.au/statistics/tables/csv/e2-data.csv`), series `BHFDDIT`, measure `debt_to_income`, unit `ratio`, national; parses `DD/MM/YYYY` or legacy `Mon-YYYY` → quarter-end.
 - `store.go` — `connect()` uses **port 6543 + `pgx.QueryExecModeSimpleProtocol`** (Supabase txn pooler), `MaxConns=4`. `contentHash` = `sha1(region|measure|dwelling|period|source|value)`. `upsertRegions`/`upsertObservations` are idempotent batch INSERT…ON CONFLICT; `updateRun` upserts the cursor; `refreshHousingMV` calls the refresh function.
 
 ### RPC layer
 
-- Proto (`proto/shortedapi/shorts/v1alpha1/housing.proto`, `HousingService` — dual-added to the legacy `ShortedStocksService` in `shorts.proto` for the public API): `GetHousingOverview(region_type)` → `repeated HousingMetric + as_of`; `GetHousePriceSeries(region_code, measure, dwelling_type)` → series of `HousePricePoint`.
+- Proto (`proto/shortedapi/shorts/v1alpha1/shorts.proto`): `GetHousingOverview(region_type)` → `repeated HousingMetric + as_of`; `GetHousePriceSeries(region_code, measure, dwelling_type)` → series of `HousePricePoint`.
 - Handlers `services/shorts/internal/services/shorts/house_prices.go`; queries `store/shorts/postgres_house_prices.go`. `GetHousingOverview` reads `mv_housing_headline` JOIN `house_price_regions` filtered by `region_type` (`$1='' OR r.region_type=$1`), cached via `s.cache.GetHousingOverviewKey`. `GetHousePriceSeries` reads `house_prices` ASC by period, cached via `GetHousePriceSeriesKey`.
 
 ### Frontend
 
-- SSR action `web/src/app/actions/getHousing.ts` — `getHousingOverview`, `getHousePriceSeries`; `createClient(HousingService, transport)` from `~/gen/shorts/v1alpha1/housing_pb` to `SHORTS_API_URL` (**never** `shorts_pb` — it drags the full legacy descriptor into the route bundle; `bundle:budget` catches it), wrapped in `cache()` + `withRetryAndNotFound()`.
+- SSR action `web/src/app/actions/getHousing.ts` — `getHousingOverview`, `getHousePriceSeries`; `createClient(ShortedStocksService, transport)` to `SHORTS_API_URL`, wrapped in `cache()` + `withRetryAndNotFound()`.
 - Client action `web/src/app/actions/client/getHousingClient.ts` — `getHousePriceSeriesClient`; session in-memory cache, `retryWithBackoff` (≤3, 500–5000ms).
 - `web/src/app/housing/page.tsx` — server page (`revalidate: 3600`): `getHousingOverview("")`, picks national `mean_price`/`debt_to_income`/`price_index` → 3 `BigStat`s; GCCSA `median_price` established_house sorted desc → `HousingTiles`; two `HousingSeriesChart`s; Dataset JSON-LD; `<LLMMeta dataSource="ABS, RBA">`.
 - `web/src/@/components/housing/` — `housing-tiles.tsx`, `housing-charts.tsx` (`dynamic(ssr:false)` wrapper of `HousingSeriesChart`), `housing-series-chart.tsx`.
@@ -285,7 +277,7 @@ The production fetch is **Playwright's `ConnectOverCDP`** (`crawl_cdp.go`) attac
 
 Per-fetch retry with quadratic backoff (attempt² seconds) for transient failures; hard blocks return immediately. Jittered delay between suburbs (20–45s for the headed browser — heavier than the old stealth-tier pacing, to look human). Per-site circuit breaker trips after `CRAWL_MAX_CONSEC_BLOCKS` (default 3) and signals a re-warm is needed (see §6.5).
 
-Env: `CRAWL_MAX_SUBURBS`, `CRAWL_MIN_DELAY_MS`/`CRAWL_MAX_DELAY_MS`, `CRAWL_CDP_URL`, `CRAWL_FETCH_MODE` (`gateway|cdp|playwright` override), `CRAWL_DRY_RUN`, `CRAWL_MAX_CONSEC_BLOCKS`, `CRAWL_FETCH_TIMEOUT_S`, `CRAWL_LISTINGS_SOURCES` (allowlist, e.g. run Domain-only while REA is being re-warmed). Smart-pagination + trace add `CRAWL_LISTINGS_RESUME_WINDOW_H` and `CRAWL_TRACE`/`CRAWL_TRACE_DIR`/`CRAWL_TRACE_SUBURB` (§6.6/§6.7). Suburb catalog in `crawl_targets.go` — **115 suburbs** (25 hand-seeded + 90 ABS-population metro, 18 per mainland capital; see §6.8).
+Env: `CRAWL_MAX_SUBURBS`, `CRAWL_MIN_DELAY_MS`/`CRAWL_MAX_DELAY_MS`, `CRAWL_CDP_URL`, `CRAWL_FETCH_MODE` (`gateway|cdp|playwright` override), `CRAWL_DRY_RUN`, `CRAWL_MAX_CONSEC_BLOCKS`, `CRAWL_FETCH_TIMEOUT_S`, `CRAWL_LISTINGS_SOURCES` (allowlist, e.g. run Domain-only while REA is being re-warmed). Smart-pagination + trace add `CRAWL_RESUME_WINDOW_H` and `CRAWL_TRACE`/`CRAWL_TRACE_DIR`/`CRAWL_TRACE_SUBURB` (§6.6/§6.7). Suburb catalog in `crawl_targets.go` — **115 suburbs** (25 hand-seeded + 90 ABS-population metro, 18 per mainland capital; see §6.8).
 
 ### 6.4 The brandbrain crawl-jobs queue (distributed residential agents)
 
@@ -342,11 +334,11 @@ Earlier sweeps walked a fixed page budget and always came back `partial`; the li
 - **Cross-page `fieldScore`-max dedup.** A thin page-1 row is upgraded in place by a richer later copy of the same listing (keep the max-`fieldScore` version).
 - **Adaptive page cap.** Seeded from the ABS size hint (`CrawlTarget.Dwellings`).
 - **Adaptive pacing.** The inter-page delay jitter **widens** after a blocked/high-mismatch page and **tightens** after clean pages.
-- **Checkpoint/resume.** `CRAWL_LISTINGS_RESUME_WINDOW_H` (default `0` = disabled) skips a `(source, suburb)` already swept within the window, so an interrupted batch resumes without re-crawling.
+- **Checkpoint/resume.** `CRAWL_RESUME_WINDOW_H` (default `0` = disabled) skips a `(source, suburb)` already swept within the window, so an interrupted batch resumes without re-crawling.
 
 ### 6.7 Debug trace mode (local-only)
 
-`crawl_trace.go` adds an opt-in, zero-overhead-when-off trace. With `CRAWL_TRACE=1` and no `CRAWL_TRACE_DIR`, it allocates a unique private directory under the absolute OS temp directory, keeping raw portal artifacts outside the checkout. Set `CRAWL_TRACE_DIR` to an explicit path to retain traces in a known local location; optionally scope to one suburb with `CRAWL_TRACE_SUBURB=<Display>`. For each swept `(suburb, source)` it writes to `<trace-root>/<runId>/<suburb>-<source>/`:
+`crawl_trace.go` adds an opt-in, zero-overhead-when-off trace. Enable with `CRAWL_TRACE=1` (or set `CRAWL_TRACE_DIR`; optionally scope to one suburb with `CRAWL_TRACE_SUBURB=<Display>`). For each swept `(suburb, source)` it writes to `<CRAWL_TRACE_DIR>/<runId>/<suburb>-<source>/`:
 
 - `p{N}.png` — per-page SRP **screenshot** (captured through the same CDP fetcher the crawl uses),
 - `p{N}.html` — the raw page blob,
@@ -359,13 +351,13 @@ Because these artifacts contain portal HTML **and screenshots**, they are **loca
 
 The suburb-median tier (`-mode crawl`, `crawl_targets.go`) and the listings tier (`-mode listings`, plus the queue-distributed `-mode agent`) are both live and share the fetch/reliability/anti-poisoning machinery above. Domain (Akamai) has always worked cold; REA (Kasada) now works reliably too, given the warm-Chrome mechanism in §6.5 — the earlier "REA actively serves false data to bots" characterization no longer holds now that the warm-session fact is understood and automated.
 
-**Corpus.** **88,689** `property_listings` across **500** suburbs (prod, 2026-08-09; ~12,151/67 mid-cycle, ~2,654/25 at the start). The dated figure lives in [README.md](README.md) — don't re-inline a count here.
+**Corpus.** ~**12,151** `property_listings` across **67** suburbs (up from ~2,654 across 25 earlier this cycle); the most recent 40-suburb `-mode agent` batch returned 40/40 clean.
 
-**Catalog.** `crawl_targets.go` now holds **500** suburbs. It grew **25 → 115 → 500**: the 25 hand-seeded plus **90 top-metro suburbs** (18 each across Sydney / Melbourne / Brisbane / Adelaide / Perth), generated from the ABS SAL gazetteer (population, from `suburb_demographics`) joined to Australia Post postcodes, filtered to Greater-Capital-City postcode ranges, and **deduped globally by slug** (the brandbrain queue keys on suburb *name*, so same-named cross-state suburbs would collide). Each entry carries `{Suburb slug, Display, Postcode, State, Capital (GCCSA code), Dwellings (ABS size hint, 0 until backfilled)}` — `Dwellings` seeds the adaptive page-cap (§6.6).
+**Catalog.** `crawl_targets.go` was expanded **25 → 115** suburbs: the 25 hand-seeded plus **90 top-metro suburbs** (18 each across Sydney / Melbourne / Brisbane / Adelaide / Perth), generated from the ABS SAL gazetteer (population, from `suburb_demographics`) joined to Australia Post postcodes, filtered to Greater-Capital-City postcode ranges, and **deduped globally by slug** (the brandbrain queue keys on suburb *name*, so same-named cross-state suburbs would collide). Each entry carries `{Suburb slug, Display, Postcode, State, Capital (GCCSA code), Dwellings (ABS size hint, 0 until backfilled)}` — `Dwellings` seeds the adaptive page-cap (§6.6).
 
-**Remaining scope-out.** The median tier isn't yet agent/queue-distributed (still a single static `crawlTargets` list per rig); scaling past 500 to the full ABS gazetteer (8000+) is future work — see §9 recipe E.
+**Remaining scope-out.** The median tier isn't yet agent/queue-distributed (still a single static `crawlTargets` list per rig); scaling past 115 to the full ABS gazetteer (8000+) is future work — see §9 recipe E.
 
-**Auto-retry (shipped).** brandbrain **PR #168** (**merged + deployed 2026-07-16**) makes a submitted **`failed`** job **re-pend while `attempts < max_attempts`**, so a blocked suburb auto-retries across warm runs — **no manual re-enqueue is needed**; `crawl_agent_retry_test.go` covers it.
+**Open follow-up (unmerged).** brandbrain **PR #168** makes a submitted **`failed`** job **re-pend while `attempts < max_attempts`** (auto-retrying a blocked suburb across warm runs) instead of terminal-failing. Until it merges, a blocked suburb terminal-fails and must be re-enqueued (`-mode enqueue`).
 
 ### 6.9 Demand-right-sizing scheduler (daily delta + periodic full + freshness alarm)
 
@@ -397,7 +389,7 @@ The live data sits in **`house_prices`** (narrow EAV: one row per region × meas
 | ABS RPPI | price_index | national | LIVE (frozen 2021-Q4 upstream) | CC-BY-4.0 | none |
 | RBA E2/F1/F6/D1/E1 | debt_to_income, cash/mortgage rates, housing credit, balance sheet | national | LIVE | CC-BY-4.0 | none |
 | ABS WPI / CPI / Lending | wage_index, rents_index, loan commitments, price_to_income | national | LIVE | CC-BY-4.0 | none |
-| State Valuer-General (SA CKAN, VIC XLSX) | median_price | suburb (SA, VIC) | LIVE | CC-BY-4.0 | none |
+| State Valuer-General (SA CKAN, VIC XLSX, NSW PSI) | median_price | suburb (SA, VIC, NSW) | LIVE (`vg_nsw` residential-only) | CC-BY attribution per source | persisted-period freshness gate; NSW not fetched from Cloud Run |
 | **ABS Census 2021 GCP SAL** (G01/G02/G13/G14) | population, medians, tenure, religion, language, born-overseas | suburb (SAL) | LIVE (`-mode census`) | CC-BY-4.0 | none |
 | **AEC 2025 election** (boundaries + event 31496 CSVs) | federal division, member, party, two-party-preferred | suburb (SAL via spatial join) | LIVE (`-mode electorates`) | CC-BY-4.0 | none |
 | **ABS SED_2025** | state electoral district | suburb (SAL via spatial join) | LIVE (`-mode electorates`) | CC-BY-4.0 | none |
@@ -438,11 +430,11 @@ Keyed by `sal_code` (ABS SAL_CODE21, PK). Indexed on `(state_code)` and `(sal_na
 
 `services/house-price-collector/Dockerfile` — multi-stage distroless (`gcr.io/distroless/static-debian12`), static `CGO_ENABLED=0` build. Uses the project's **stealth bind-mount/PAT pattern**: secret-mount a GitHub token (CI) or bind-mount local stealth (`--mount=type=bind,from=stealth`) with `go.mod` replace, `GOPRIVATE=github.com/skunkworq/*`. Default `ENTRYPOINT` runs `-mode all`. No GCS — it fetches HTTPS and writes Postgres directly.
 
-### Terraform module (WIRED and deploying since PR #211)
+### Terraform module (built, NOT yet wired)
 
 `terraform/modules/house-price-collector/` exists (`main.tf`, `variables.tf`, `outputs.tf`): collector service account, Secret Manager IAM read on `DATABASE_URL`, `google_cloud_run_v2_job.collector` (1 task, 1800s timeout, 1 vCPU / 512Mi, DATABASE_URL from Secret Manager), a scheduler-invoker SA with `run.invoker`, and `google_cloud_scheduler_job.monthly` (`0 16 5 * *` = 5th of month 16:00 UTC ≈ 2-3 AM AEST, `scheduler_region` must be `australia-southeast1`). Variable: `image_url`. Outputs: `job_name`, `service_account_email`, `scheduler_job_name`.
 
-**Wired** (PR #211): the module is instantiated in **both** `environments/dev` and `environments/prod`, `house_price_collector_image` is a variable passed by the plan step, and `house-price-collector` is in the `terraform-deploy.yml` build matrix — **a merge to `main` deploys the job**, and the monthly schedule is live. (An earlier revision of this file claimed the opposite; it was wrong.) Prod sets `manage_revalidation_secret = true`, dev does not, so a dev run's revalidate ping no-ops.
+**Not yet done** (verified — no references in `terraform/environments/` or the CI matrix): the module is not instantiated in `environments/dev` or `environments/prod`, there is no `house_price_collector_image` variable, and `house-price-collector` is absent from the `terraform-deploy.yml` build matrix. See the wiring recipe below.
 
 ### Prod DDL procedure
 
@@ -498,19 +490,19 @@ See §2 "Recipe". Pick the closest of the five patterns, add baked data to `seri
 3. No schema change — `house_prices` is EAV; just document the new `measure` string. New `region_type`s flow through `GetHousingOverview`'s `region_type` filter with no RPC change.
 
 ### D. Add a **new RPC / new dashboard panel**
-Follow the project's 4-layer store pattern + Connect-RPC handler convention. Add the rpc to **`housing.proto`** (`HousingService`) *and* dual-add the same rpc to the legacy `ShortedStocksService` in `shorts.proto` for public-API back-compat (`proto_parity_test.go` enforces it); web code imports from `housing_pb` only. Handler in `house_prices.go` (cache via `s.cache.GetXKey`), query in `postgres_house_prices.go`, SSR action in `getHousing.ts` (`cache()`+`withRetryAndNotFound`), client action in `getHousingClient.ts` (session cache + backoff), then a `web/src/@/components/housing/*` panel and an entry in `housing/page.tsx`'s `ChartCard` grid.
+Follow the project's 4-layer store pattern + Connect-RPC handler convention. Proto in `shorts.proto`, handler in `house_prices.go` (cache via `s.cache.GetXKey`), query in `postgres_house_prices.go`, SSR action in `getHousing.ts` (`cache()`+`withRetryAndNotFound`), client action in `getHousingClient.ts` (session cache + backoff), then a `web/src/@/components/housing/*` panel and an entry in `housing/page.tsx`'s `ChartCard` grid.
 
 ### E. Scale the **residential crawl** beyond the curated catalog
 
-The crawl is live (§6) — a real host Chrome over CDP, warmed via a native REA startup URL and kept warm by `-mode warmcheck` + the self-healing launcher. What's left is scale, not defenses: (1) grow `crawl_targets.go` from its current **500** suburbs toward the full ABS gazetteer (8000+) — enqueue in batches via `-mode enqueue`, let more `-mode agent` residential pollers (one per Mac, identified by `CRAWL_AGENT_ID`) drain the brandbrain queue concurrently (`SKIP LOCKED` already handles the fan-out safely); (2) wire the suburb-**median** tier (`-mode crawl`) into agent/queue mode — today only the listings tier is queue-distributed, medians still run off the static per-rig `crawlTargets`/`CRAWL_SHARD_INDEX`/`CRAWL_SHARD_COUNT` partition; (3) a **Domain developer API** path as a legitimate, trusted alternative (`source='domain_api'`, skips the paranoia — `upsertObservations` handles any `source` string) — Domain already works cold so this is a nice-to-have, not a blocker. The four validation gates (§6.1) stay intact regardless of scale. Never relax the `source_licence='proprietary-tos-restricted'` republish gate.
+The crawl is live (§6) — a real host Chrome over CDP, warmed via a native REA startup URL and kept warm by `-mode warmcheck` + the self-healing launcher. What's left is scale, not defenses: (1) grow `crawl_targets.go` from its current **115** suburbs (25 seed + 90 ABS-population metro, 18 per mainland capital) toward the full ABS gazetteer (8000+) — enqueue in batches via `-mode enqueue`, let more `-mode agent` residential pollers (one per Mac, identified by `CRAWL_AGENT_ID`) drain the brandbrain queue concurrently (`SKIP LOCKED` already handles the fan-out safely); (2) wire the suburb-**median** tier (`-mode crawl`) into agent/queue mode — today only the listings tier is queue-distributed, medians still run off the static per-rig `crawlTargets`/`CRAWL_SHARD_INDEX`/`CRAWL_SHARD_COUNT` partition; (3) a **Domain developer API** path as a legitimate, trusted alternative (`source='domain_api'`, skips the paranoia — `upsertObservations` handles any `source` string) — Domain already works cold so this is a nice-to-have, not a blocker. The four validation gates (§6.1) stay intact regardless of scale. Never relax the `source_licence='proprietary-tos-restricted'` republish gate.
 
-### F. Change the **collector's Cloud Run job / schedule**
-**The wiring is already done (PR #211) — do not redo it.** CI matrix entry, `house_price_collector_image` variable, plan var and `module "house_price_collector"` in both `environments/{dev,prod}/main.tf` all exist, so a merge to `main` deploys the job. What's left is editing, not wiring:
-1. **Env var / secret** — add it to `terraform/modules/house-price-collector/main.tf` (`env` block; secrets via Secret Manager IAM, as `DATABASE_URL` and the `manage_revalidation_secret`-gated `REVALIDATION_SECRET` do).
-2. **Schedule** — `google_cloud_scheduler_job.monthly`, `0 16 5 * *`, `scheduler_region` must stay `australia-southeast1` (the job itself is `australia-southeast2`).
-3. **Resources/timeout** — `timeout = "1800s"`, `max_retries = 2` on the job.
-4. **Never schedule a crawl mode here.** The entrypoint is `-mode all` = official ingest + MV refresh only; the adversarial crawl runs on residential rigs under launchd ([pipeline.md](pipeline.md)).
-Confirm `min_instance_count` stays 0 per the project cost guardrail (Cloud Run **Jobs** scale to zero by nature, but keep the rule in mind for any added service).
+### F. Finish the **Terraform wiring**
+The module is built; to schedule the collector in prod:
+1. **CI matrix** — add to `.github/workflows/terraform-deploy.yml` `build-docker-images` matrix: `{name: house-price-collector, dockerfile: services/house-price-collector/Dockerfile, context: services}` (it pushes `…/shorted/house-price-collector:${tag}`, needs the stealth `github_token` secret-mount like other services).
+2. **Variable** — add `house_price_collector_image` to `terraform/environments/{dev,prod}/variables.tf`.
+3. **Module** — instantiate `module "house_price_collector"` in `environments/{dev,prod}/main.tf` (`source = "../../modules/house-price-collector"`, `scheduler_region = "australia-southeast1"`, `image_url = var.house_price_collector_image`).
+4. **Plan var** — add `-var="house_price_collector_image=…:${image-tag}"` to the `terraform-plan` step.
+Follow the existing `short_data_sync` module/variable/image-tag flow as the template. Confirm `min_instance_count` stays 0 per the project cost guardrail (Cloud Run **Jobs** scale to zero by nature, but keep the rule in mind for any added service).
 
 ### G. Add a **new suburb-map highlight metric** (§5.6)
 
@@ -635,8 +627,8 @@ Cloud Run RPC volume for the page down to ~hourly worst case.
   `manage_revalidation_secret = true` (prod) mirrors the short-data-sync module.
 - **Kill switch**: `HOUSING_DROP_LISTINGS_ENABLED` (default ON; falsey disables) empties the
   per-listing boards AND the agency leaderboard; the anonymous suburb/state aggregates stay up.
-- **Blurb backfill** (optional): cost-lean runner pattern = target only the **500** crawl-catalog
-  suburbs (`property_listings` sal link) + shim `agy --effort low` (~7s/call) ≈ 1–1.5 h ≈ $4–9,
+- **Blurb backfill** (optional): cost-lean runner pattern = target only the ~115 crawl-catalog
+  suburbs (`property_listings` sal link) + shim `agy --effort low` (~7s/call) ≈ 15–20 min ≈ $1–2,
   vs ~18h/$30–60 for the full priced set. No overwrite flag; a valid LLM `archetype_hint`
   OVERWRITES the classifier's background choice.
 - **Bundle-weight landmine — RECLAIMED 2026-07-22**: protobuf-es schemas reference the

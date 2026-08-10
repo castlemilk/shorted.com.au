@@ -122,6 +122,43 @@ func updateRun(ctx context.Context, pool *pgxpool.Pool, source string, lastPerio
 	return err
 }
 
+func loadRunLastPeriod(ctx context.Context, pool *pgxpool.Pool, source string) (*time.Time, error) {
+	var lastPeriod *time.Time
+	err := pool.QueryRow(ctx, `
+		SELECT last_period
+		FROM house_price_ingest_runs
+		WHERE source = $1`, source).Scan(&lastPeriod)
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return lastPeriod, nil
+}
+
+// lockOfficialJobSource serializes the cursor check and all subsequent writes
+// for one source across processes. The otherwise-empty transaction owns a
+// transaction-scoped advisory lock while the job uses ordinary pool operations.
+func lockOfficialJobSource(ctx context.Context, pool *pgxpool.Pool, source string) (func(), error) {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	release := func() {
+		releaseCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := tx.Rollback(releaseCtx); err != nil && err != pgx.ErrTxClosed {
+			log.Printf("[%s] release source lock: %v", source, err)
+		}
+	}
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, source); err != nil {
+		release()
+		return nil, err
+	}
+	return release, nil
+}
+
 func refreshHousingMV(ctx context.Context, pool *pgxpool.Pool) error {
 	_, err := pool.Exec(ctx, `SELECT refresh_housing_materialized_views()`)
 	return err
