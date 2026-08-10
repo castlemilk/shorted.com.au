@@ -32,9 +32,11 @@ func main() {
 	os.Exit(run())
 }
 
-// run executes the selected mode and returns a process exit code: 0 = ok,
-// 1 = dedicated VG ingest or scheduled VG freshness failure, 3 = a crawl needs
-// a human to re-warm the Chrome profile (Kasada/Akamai clearance expired).
+// run executes the selected mode and returns a process exit code: 0 = ok;
+// 1 = official-ingest, VG freshness, or materialized-view finalization failure;
+// 3 = re-warm the Chrome profile; 4 = Chrome/CDP unusable; 5 = REA session
+// cold; 6 = crawl freshness alarm; and 7 = agent infrastructure failed before
+// any jobs completed (also used for enqueue/listings finalization failures).
 // Wrapping the body lets deferred cleanup run before exit.
 func run() int {
 	mode := flag.String("mode", "all", "official | vg-nsw | crawl | listings | details | property | agent | enqueue | freshness | purge | warmcheck | backfill-address | census | electorates | banners | amenities | lga | connectivity | funding | council-financials | crime | refresh | all")
@@ -57,21 +59,25 @@ func run() int {
 	switch *mode {
 	case "official", "abs", "all":
 		jobs := scheduledOfficialJobs()
-		runOfficial(ctx, pool, jobs)
+		total, failures := runOfficial(ctx, pool, jobs)
 		vgFreshnessExitCode := assertOfficialVGFreshness(
 			ctx,
 			pool,
 			freshnessPoliciesForOfficialJobs(jobs, vgFreshnessPolicies),
 		)
-		refresh(ctx, pool)
-		if vgFreshnessExitCode != 0 {
+		refreshErr := refresh(ctx, pool)
+		maxFailures := envInt("HOUSING_OFFICIAL_MAX_FAILURES", total-1)
+		if officialLifecycleFatal(total, failures, maxFailures, refreshErr) || vgFreshnessExitCode != 0 {
+			if officialRunFatal(total, failures, maxFailures) {
+				log.Printf("official ingest failed policy: %d/%d sources failed (maximum %d)", failures, total, boundedOfficialMaxFailures(total, maxFailures))
+			}
 			return 1
 		}
 	case "vg-nsw":
 		// NSW Valuer-General PSI is Cloudflare-challenged from Cloud Run and must
 		// run from approved residential egress. This dedicated mode is used by the
-		// macOS wrapper in deploy/ and returns non-zero on any ingest/freshness
-		// failure so launchd cannot report a silent success.
+		// macOS wrapper in deploy/ and returns non-zero on any ingest, freshness,
+		// or refresh failure so launchd cannot report a silent success.
 		return runNSWVG(ctx, pool)
 	case "crawl":
 		// Supplementary suburb crawl — opt-in only, never part of the default
@@ -79,19 +85,21 @@ func run() int {
 		// persistent-profile Playwright browser, so it runs ONLY on the residential
 		// cuttlefish rig under xvfb (see Dockerfile.crawl), never on Cloud Run.
 		rewarm := runCrawl(ctx, pool)
-		refresh(ctx, pool)
+		refreshErr := refresh(ctx, pool)
 		if rewarm {
 			return 3
+		}
+		if refreshErr != nil {
+			return 1
 		}
 	case "listings":
 		// Supplementary property-LISTING crawl — opt-in only, never part of the
 		// scheduled run. Sweeps portal search-results pages for individual for-sale
 		// listings, diffs asking prices across runs into price-drop events, and
 		// refreshes mv_suburb_price_drops. Same residential-rig posture as -mode crawl
-		// (headed host-Chrome over CDP); dry-run defaults ON. Self-refreshes internally.
-		if runListings(ctx, pool) {
-			return 3
-		}
+		// (headed host-Chrome over CDP); dry-run defaults ON. Self-refreshes internally
+		// and returns 7 if materialized-view finalization fails.
+		return runListings(ctx, pool)
 	case "details":
 		// Supplementary listing DETAIL-page crawl — opt-in only, never part of the
 		// scheduled run. Visits each active listing's own detail page to close the
@@ -113,17 +121,21 @@ func run() int {
 	case "agent":
 		// Poll the brandbrain-native crawl queue for suburbs to crawl, run the
 		// existing per-suburb listings sweep (residential host-Chrome over CDP),
-		// and report a counts-only summary back. Residential-rig only; requires
-		// BRANDBRAIN_AGENT_URL + BRANDBRAIN_AGENT_TOKEN (no-op without them).
+		// and report a counts-only summary back. Residential-rig only; missing
+		// BrandBrain URL/token-or-control infrastructure exits 7.
 		// runAgent returns the process exit code directly: 0 ok, 3 re-warm needed,
-		// 4 fetcher init failed (wedged/cold Chrome — the runner hard-recovers).
+		// 4 fetcher init failed (wedged/cold Chrome — the runner hard-recovers),
+		// 7 agent infrastructure or finalizer failed.
 		return runAgent(ctx, pool)
 	case "enqueue":
 		// Post suburbs to the brandbrain crawl queue so pollers (-mode agent) have
 		// work to claim. Requires BRANDBRAIN_AGENT_URL + _TOKEN. CRAWL_ENQUEUE_SELECTION
 		// picks the set: "all" (default, whole catalog) or "delta" (demand-right-sizing
 		// — only never-crawled/stale/churny suburbs, ranked + capped; see crawl_delta.go).
-		runEnqueue(ctx, pool)
+		if err := runEnqueue(ctx, pool); err != nil {
+			log.Printf("[enqueue] fatal: %v", err)
+			return enqueueExitCode(err)
+		}
 	case "freshness":
 		// READ-ONLY staleness guard: report per-suburb crawl freshness across the
 		// catalog and ALARM (non-zero exit 6 + optional CRAWL_FRESHNESS_WEBHOOK POST)
@@ -182,7 +194,9 @@ func run() int {
 		// yearly; DRY-RUN by default. Refreshes the housing MVs internally on write.
 		runCrime(ctx, pool)
 	case "refresh":
-		refresh(ctx, pool)
+		if refresh(ctx, pool) != nil {
+			return 1
+		}
 	default:
 		log.Fatalf("unknown -mode %q (want official|vg-nsw|crawl|listings|details|property|agent|enqueue|freshness|warmcheck|backfill-address|census|electorates|banners|amenities|lga|connectivity|funding|council-financials|crime|refresh|all)", *mode)
 	}
@@ -352,7 +366,7 @@ func runBanners(ctx context.Context, pool *pgxpool.Pool) {
 	_ = updateRun(ctx, pool, "suburb_archetypes", nil, n, "ok", "")
 }
 
-func refresh(ctx context.Context, pool *pgxpool.Pool) {
+func refresh(ctx context.Context, pool *pgxpool.Pool) error {
 	// Finalize on a DETACHED context (not the caller's run deadline): this links
 	// + refreshes writes that already committed, and `-mode crawl` shares the
 	// same long-deadline class as agent/listings — a deadline firing mid-crawl
@@ -369,12 +383,13 @@ func refresh(ctx context.Context, pool *pgxpool.Pool) {
 	}
 	if err := refreshHousingMV(ctx, pool); err != nil {
 		log.Printf("mv refresh failed: %v", err)
-		return
+		return err
 	}
 	log.Println("refreshed mv_housing_headline")
 	// Official/crawl ingest refreshed the housing MVs → bust the web tier's
 	// long-TTL housing caches now. Best-effort, never fails the run.
 	pingRevalidate("refresh")
+	return nil
 }
 
 // scheduledOfficialJobs contains sources safe to run from the Cloud Run job.
@@ -416,12 +431,16 @@ func freshnessPoliciesForOfficialJobs(jobs []officialJob, policies []vgFreshness
 }
 
 // runOfficial pulls each Cloud-Run-safe official source, upserts regions + facts,
-// and records the run cursor. Per-source failures remain best-effort here; the
-// persisted VG freshness assertion in run() supplies the aggregate exit status.
-func runOfficial(ctx context.Context, pool *pgxpool.Pool, jobs []officialJob) {
+// and records the run cursor. Only attempted jobs contribute to total, and an
+// attempted job contributes one failure when its shared runner returns false.
+func runOfficial(ctx context.Context, pool *pgxpool.Pool, jobs []officialJob) (total, failures int) {
+	total = len(jobs)
 	for _, job := range jobs {
-		_ = runOfficialJob(ctx, pool, job)
+		if !runOfficialJob(ctx, pool, job) {
+			failures++
+		}
 	}
+	return total, failures
 }
 
 // runOfficialJob runs the shared fetch -> region -> fact -> cursor pipeline for
@@ -522,7 +541,8 @@ func runNSWVG(ctx context.Context, pool *pgxpool.Pool) int {
 			policies = append(policies, policy)
 		}
 	}
-	return runNSWVGRig(
+	var refreshErr error
+	exitCode := runNSWVGRig(
 		func() bool {
 			return runOfficialJob(ctx, pool, officialJob{name: nswSource, fn: ingestNSWSuburbMedians})
 		},
@@ -530,9 +550,44 @@ func runNSWVG(ctx context.Context, pool *pgxpool.Pool) int {
 			return assertOfficialVGFreshness(ctx, pool, policies)
 		},
 		func() {
-			refresh(ctx, pool)
+			refreshErr = refresh(ctx, pool)
 		},
 	)
+	if exitCode != 0 || refreshErr != nil {
+		return 1
+	}
+	return 0
+}
+
+func boundedOfficialMaxFailures(total, configured int) int {
+	if total <= 0 || configured < 0 {
+		return 0
+	}
+	if configured >= total {
+		return total - 1
+	}
+	return configured
+}
+
+// officialRunFatal is the pure lifecycle decision shared by configured and
+// default policy. The bound ensures even an oversized setting cannot make a
+// total upstream failure look successful.
+func officialRunFatal(total, failures, maxFailures int) bool {
+	if total <= 0 {
+		return true
+	}
+	return failures > boundedOfficialMaxFailures(total, maxFailures)
+}
+
+func officialLifecycleFatal(total, failures, maxFailures int, refreshErr error) bool {
+	return refreshErr != nil || officialRunFatal(total, failures, maxFailures)
+}
+
+func enqueueExitCode(err error) int {
+	if err != nil {
+		return 7
+	}
+	return 0
 }
 
 func latestPeriod(obs []Observation) *time.Time {

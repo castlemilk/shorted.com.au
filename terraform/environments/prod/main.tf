@@ -185,11 +185,12 @@ module "short_data_sync" {
 module "house_price_collector" {
   source = "../../modules/house-price-collector"
 
-  project_id       = var.project_id
-  region           = var.region
-  scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
-  environment      = "production"
-  image_url        = var.house_price_collector_image
+  project_id            = var.project_id
+  region                = var.region
+  scheduler_region      = "australia-southeast1" # Cloud Scheduler only available in southeast1
+  environment           = "production"
+  image_url             = var.house_price_collector_image
+  official_max_failures = var.house_price_collector_official_max_failures
   # REVALIDATION_SECRET exists in prod Secret Manager (shared with short-data-sync)
   # + the matching value is set in the Vercel frontend env, so enable event-driven
   # housing cache busting after a crawl-driven MV refresh.

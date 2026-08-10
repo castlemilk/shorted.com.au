@@ -130,11 +130,12 @@ module "short_data_sync" {
 module "house_price_collector" {
   source = "../../modules/house-price-collector"
 
-  project_id       = var.project_id
-  region           = var.region
-  scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
-  environment      = "production"
-  image_url        = var.house_price_collector_image
+  project_id            = var.project_id
+  region                = var.region
+  scheduler_region      = "australia-southeast1" # Cloud Scheduler only available in southeast1
+  environment           = "production"
+  image_url             = var.house_price_collector_image
+  official_max_failures = var.house_price_collector_official_max_failures
 }
 
 # ---------------------------------------------------------------------------

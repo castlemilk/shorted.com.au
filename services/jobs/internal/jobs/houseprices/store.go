@@ -111,14 +111,18 @@ func upsertObservations(ctx context.Context, pool *pgxpool.Pool, obs []Observati
 	return n, nil
 }
 
+const updateRunSQL = `
+	INSERT INTO house_price_ingest_runs (source, last_period, last_fetched_at, rows_upserted, status, detail)
+	VALUES ($1, $2, now(), $3, $4, NULLIF($5, ''))
+	ON CONFLICT (source) DO UPDATE SET
+		last_period = CASE WHEN EXCLUDED.status = 'error' THEN house_price_ingest_runs.last_period ELSE EXCLUDED.last_period END,
+		last_fetched_at = now(),
+		rows_upserted = CASE WHEN EXCLUDED.status = 'error' THEN house_price_ingest_runs.rows_upserted ELSE EXCLUDED.rows_upserted END,
+		status = EXCLUDED.status,
+		detail = EXCLUDED.detail`
+
 func updateRun(ctx context.Context, pool *pgxpool.Pool, source string, lastPeriod *time.Time, rows int, status, detail string) error {
-	_, err := pool.Exec(ctx, `
-		INSERT INTO house_price_ingest_runs (source, last_period, last_fetched_at, rows_upserted, status, detail)
-		VALUES ($1, $2, now(), $3, $4, NULLIF($5, ''))
-		ON CONFLICT (source) DO UPDATE SET
-			last_period = EXCLUDED.last_period, last_fetched_at = now(),
-			rows_upserted = EXCLUDED.rows_upserted, status = EXCLUDED.status, detail = EXCLUDED.detail`,
-		source, lastPeriod, rows, status, detail)
+	_, err := pool.Exec(ctx, updateRunSQL, source, lastPeriod, rows, status, detail)
 	return err
 }
 

@@ -253,9 +253,9 @@ type listingsCrawler struct {
 	tel *telemetryWriter
 }
 
-// runListings returns true when the run detected that the browser profile needs a
-// human to re-warm its anti-bot clearance (the per-source circuit breaker tripped).
-func runListings(ctx context.Context, pool *pgxpool.Pool) bool {
+// runListings returns the process exit code: 0 on success, 3 when the browser
+// needs re-warming, and 7 when lifecycle finalization fails.
+func runListings(ctx context.Context, pool *pgxpool.Pool) int {
 	cfg := loadListingsConfig()
 
 	var fetcher crawlFetcher
@@ -267,7 +267,7 @@ func runListings(ctx context.Context, pool *pgxpool.Pool) bool {
 		if err != nil {
 			log.Printf("[listings] crawl fetcher init failed (%v) — aborting (non-fatal; official backbone unaffected)", err)
 			_ = updateRun(ctx, pool, "listings_rea", nil, 0, "error", "fetcher init: "+err.Error())
-			return false
+			return 0
 		}
 		fetcher = f
 	}
@@ -284,7 +284,7 @@ func runListings(ctx context.Context, pool *pgxpool.Pool) bool {
 		if err := upsertRegions(ctx, pool, listingRegionObs(targets)); err != nil {
 			log.Printf("[listings] region upsert failed: %v", err)
 			_ = updateRun(ctx, pool, "listings_rea", nil, 0, "error", "region upsert: "+err.Error())
-			return false
+			return 0
 		}
 	}
 
@@ -301,6 +301,7 @@ func runListings(ctx context.Context, pool *pgxpool.Pool) bool {
 	}
 
 	reaEvents, domEvents := 0, 0
+	var refreshErr error
 	for i, t := range targets {
 		if i > 0 {
 			jitterSleep(ctx, cfg.minDelay, cfg.maxDelay)
@@ -350,15 +351,19 @@ func runListings(ctx context.Context, pool *pgxpool.Pool) bool {
 		} else if n > 0 {
 			log.Printf("[listings] linked %d price event(s) to sal_code", n)
 		}
-		if err := refreshHousingMV(finCtx, pool); err != nil {
-			log.Printf("[listings] mv refresh failed: %v", err)
+		if refreshErr = refreshHousingMV(finCtx, pool); refreshErr != nil {
+			log.Printf("[listings] mv refresh failed: %v", refreshErr)
 		} else if reaEvents+domEvents > 0 {
 			// New price-drop/relist events landed + MVs refreshed → bust the web
 			// tier's long-TTL housing caches now. Best-effort, never fails the run.
 			pingRevalidate("listings")
 		}
-		_ = updateRun(finCtx, pool, "listings_rea", nil, reaEvents, "ok", "")
-		_ = updateRun(finCtx, pool, "listings_domain", nil, domEvents, "ok", "")
+		status, detail := "ok", ""
+		if refreshErr != nil {
+			status, detail = "error", "mv refresh failed: "+refreshErr.Error()
+		}
+		_ = updateRun(finCtx, pool, "listings_rea", nil, reaEvents, status, detail)
+		_ = updateRun(finCtx, pool, "listings_domain", nil, domEvents, status, detail)
 		finCancel()
 	}
 
@@ -379,7 +384,7 @@ func runListings(ctx context.Context, pool *pgxpool.Pool) bool {
 	s := lc.stats
 	log.Printf("[listings] done: suburbs=%d pages=%d listings=%d new=%d drops=%d rises=%d relisted=%d delisted=%d status=%d blockedSweeps=%d diffErrors=%d skippedRows=%d addressRelistDrops=%d addressRelistRises=%d events(rea=%d,domain=%d)",
 		s.suburbs, s.pages, s.seen, s.newListings, s.drops, s.rises, s.relisted, s.delisted, s.statusChanges, s.blockedSweeps, s.diffErrors, s.skippedRows, s.addressRelistDrops, s.addressRelistRises, reaEvents, domEvents)
-	return rewarm
+	return agentExitCode(rewarm, refreshErr != nil, 0)
 }
 
 // crawlSuburbSource sweeps one source for one suburb and (unless dry-run, or the
