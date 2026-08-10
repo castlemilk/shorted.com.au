@@ -52,7 +52,9 @@ export function transformSeries(
 }
 
 export function formatHousingValue(value: number, format: HousingSeriesFormat): string {
-  if (format === "percent") return `${value.toFixed(0)}%`;
+  if (format === "percent") {
+    return `${value.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1")}%`;
+  }
   if (format === "index") return value.toFixed(0);
 
   if (value >= 1_000_000_000_000) return `$${(value / 1_000_000_000_000).toFixed(2)}T`;

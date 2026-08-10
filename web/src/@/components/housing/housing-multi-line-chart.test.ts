@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import {
   getCombinedDomains,
   getSharedObservation,
@@ -110,7 +110,7 @@ describe("HousingMultiLineChart accessibility", () => {
     ).toBeInTheDocument();
   });
 
-  it("selects the latest shared date on focus and navigates exact union dates", () => {
+  it("selects the latest shared date on focus and navigates exact union dates", async () => {
     render(
       createElement(HousingMultiLineChart, {
         series: sparseSeries,
@@ -123,19 +123,25 @@ describe("HousingMultiLineChart accessibility", () => {
     const chart = screen.getByRole("img", { name: "Australian housing rates" });
     fireEvent.focus(chart);
 
-    let status = screen.getByRole("status");
+    let status = await screen.findByRole("status");
     expect(within(status).getByText("Mar 2024")).toBeInTheDocument();
     expect(within(status).getByText("4.35%")).toBeInTheDocument();
     expect(within(status).getByText("6.1%")).toBeInTheDocument();
 
     fireEvent.keyDown(chart, { key: "ArrowLeft" });
 
-    status = screen.getByRole("status");
-    expect(within(status).getByText("Feb 2024")).toBeInTheDocument();
-    expect(within(status).getByText("6.2%")).toBeInTheDocument();
-    expect(within(status).getByText("—")).toBeInTheDocument();
+    await waitFor(() => {
+      status = screen.getByRole("status");
+      expect(within(status).getByText("Feb 2024")).toBeInTheDocument();
+      expect(within(status).getByText("6.2%")).toBeInTheDocument();
+      expect(within(status).getByText("—")).toBeInTheDocument();
+    });
 
     fireEvent.keyDown(chart, { key: "ArrowRight" });
-    expect(within(screen.getByRole("status")).getByText("Mar 2024")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole("status")).getByText("Mar 2024"),
+      ).toBeInTheDocument(),
+    );
   });
 });

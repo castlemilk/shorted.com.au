@@ -81,8 +81,11 @@ export function HousingComparisonChart({
   if (isLoading) {
     return (
       <div
-        className="w-full animate-pulse rounded bg-muted"
+        className="w-full animate-pulse rounded bg-muted motion-reduce:animate-none"
         style={{ height }}
+        role="status"
+        aria-busy="true"
+        aria-label={`Loading ${ariaLabel}`}
       />
     );
   }
@@ -90,8 +93,10 @@ export function HousingComparisonChart({
   if (series.length === 0) {
     return (
       <div
-        className="flex items-center justify-center text-sm text-muted-foreground"
+        className="flex items-center justify-center text-sm text-muted-foreground motion-reduce:animate-none"
         style={{ height }}
+        role="status"
+        aria-busy="false"
       >
         No data available
       </div>
