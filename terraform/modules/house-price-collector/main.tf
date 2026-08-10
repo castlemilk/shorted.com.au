@@ -69,6 +69,10 @@ resource "google_cloud_run_v2_job" "collector" {
           value = var.project_id
         }
         env {
+          name  = "HOUSING_OFFICIAL_MAX_FAILURES"
+          value = tostring(var.official_max_failures)
+        }
+        env {
           name = "DATABASE_URL"
           value_source {
             secret_key_ref {

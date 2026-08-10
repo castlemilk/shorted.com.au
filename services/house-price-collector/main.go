@@ -108,10 +108,11 @@ func run() int {
 	case "agent":
 		// Poll the brandbrain-native crawl queue for suburbs to crawl, run the
 		// existing per-suburb listings sweep (residential host-Chrome over CDP),
-		// and report a counts-only summary back. Residential-rig only; requires
-		// BRANDBRAIN_AGENT_URL + BRANDBRAIN_AGENT_TOKEN (no-op without them).
+		// and report a counts-only summary back. Residential-rig only; missing
+		// BrandBrain URL/token-or-control infrastructure exits 7.
 		// runAgent returns the process exit code directly: 0 ok, 3 re-warm needed,
-		// 4 fetcher init failed (wedged/cold Chrome — the runner hard-recovers).
+		// 4 fetcher init failed (wedged/cold Chrome — the runner hard-recovers),
+		// 7 agent infrastructure failed before any work.
 		return runAgent(ctx, pool)
 	case "enqueue":
 		// Post suburbs to the brandbrain crawl queue so pollers (-mode agent) have

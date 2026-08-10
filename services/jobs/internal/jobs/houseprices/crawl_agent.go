@@ -24,8 +24,10 @@ import (
 // claiming from the one queue fan suburbs out via SKIP LOCKED. brandbrain owns the
 // queue + tracking; no listing rows / addresses / PII ever cross to brandbrain.
 //
-// Auth: BRANDBRAIN_AGENT_URL + BRANDBRAIN_AGENT_TOKEN (a scoped brandbrain agent
-// token). Absent either → the mode is a no-op (safe to ship dark).
+// Auth: BRANDBRAIN_AGENT_URL plus either BRANDBRAIN_AGENT_TOKEN (a scoped
+// brandbrain agent token) or the co-located control API. Missing required queue
+// infrastructure is fatal (exit 7), so an unattended scheduler cannot report a
+// successful empty drain when the agent was never configured.
 
 type agentConfig struct {
 	brandbrainURL string // BRANDBRAIN_AGENT_URL, e.g. https://api.brandbrain.dev
@@ -466,8 +468,8 @@ func titleCaseSuburb(s string) string {
 func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 	acfg := loadAgentConfig()
 	if acfg.brandbrainURL == "" || (acfg.token == "" && acfg.controlURL == "") {
-		log.Printf("[agent] BRANDBRAIN_AGENT_URL + a token (BRANDBRAIN_AGENT_TOKEN, or a local agent control API for auto-refresh) required — nothing to do")
-		return 0
+		log.Printf("[agent] FATAL: BRANDBRAIN_AGENT_URL + a token (BRANDBRAIN_AGENT_TOKEN, or a local agent control API for auto-refresh) required")
+		return 7
 	}
 
 	cfg := loadListingsConfig()

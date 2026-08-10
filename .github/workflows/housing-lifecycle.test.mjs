@@ -9,6 +9,26 @@ const deployWorkflowPath = fileURLToPath(new URL("./terraform-deploy.yml", impor
 const deployWorkflow = existsSync(deployWorkflowPath)
   ? readFileSync(deployWorkflowPath, "utf8")
   : "";
+const collectorModuleMainPath = fileURLToPath(
+  new URL("../../terraform/modules/house-price-collector/main.tf", import.meta.url),
+);
+const collectorModuleVariablesPath = fileURLToPath(
+  new URL("../../terraform/modules/house-price-collector/variables.tf", import.meta.url),
+);
+const devMainPath = fileURLToPath(
+  new URL("../../terraform/environments/dev/main.tf", import.meta.url),
+);
+const devVariablesPath = fileURLToPath(
+  new URL("../../terraform/environments/dev/variables.tf", import.meta.url),
+);
+const prodMainPath = fileURLToPath(
+  new URL("../../terraform/environments/prod/main.tf", import.meta.url),
+);
+const prodVariablesPath = fileURLToPath(
+  new URL("../../terraform/environments/prod/variables.tf", import.meta.url),
+);
+
+const readContractFile = (path) => (existsSync(path) ? readFileSync(path, "utf8") : "");
 
 test("housing freshness workflow enforces the read-only production sentinel contract", () => {
   assert.ok(workflow, "housing-freshness.yml must exist");
@@ -98,4 +118,46 @@ test("terraform deploy workflow gates housing contracts on open pull requests", 
     /GOWORK=off GOPRIVATE='github\.com\/skunkworq\/\*' go test \.\/shorts\/internal\/services\/shorts/,
   );
   assert.doesNotMatch(job, /make\s+(?:test-)?integration|test\/integration/);
+});
+
+test("terraform manages the official-source failure threshold in dev and prod", () => {
+  const moduleMain = readContractFile(collectorModuleMainPath);
+  const moduleVariables = readContractFile(collectorModuleVariablesPath);
+  const devMain = readContractFile(devMainPath);
+  const devVariables = readContractFile(devVariablesPath);
+  const prodMain = readContractFile(prodMainPath);
+  const prodVariables = readContractFile(prodVariablesPath);
+
+  assert.match(moduleVariables, /variable\s+"official_max_failures"\s*\{/);
+  assert.match(moduleVariables, /default\s*=\s*15/);
+  assert.match(moduleVariables, /var\.official_max_failures\s*>=\s*0/);
+  assert.match(
+    moduleVariables,
+    /floor\(var\.official_max_failures\)\s*==\s*var\.official_max_failures/,
+  );
+  assert.match(
+    moduleMain,
+    /name\s*=\s*"HOUSING_OFFICIAL_MAX_FAILURES"[\s\S]*?value\s*=\s*tostring\(var\.official_max_failures\)/,
+  );
+
+  for (const [environment, main, variables] of [
+    ["dev", devMain, devVariables],
+    ["prod", prodMain, prodVariables],
+  ]) {
+    assert.match(
+      variables,
+      /variable\s+"house_price_collector_official_max_failures"\s*\{/,
+      `${environment} must expose the threshold`,
+    );
+    assert.match(
+      variables,
+      /floor\(var\.house_price_collector_official_max_failures\)\s*==\s*var\.house_price_collector_official_max_failures/,
+      `${environment} must reject fractional thresholds that the Go env parser cannot read`,
+    );
+    assert.match(
+      main,
+      /official_max_failures\s*=\s*var\.house_price_collector_official_max_failures/,
+      `${environment} must pass the threshold to the collector module`,
+    );
+  }
 });

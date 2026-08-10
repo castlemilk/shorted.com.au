@@ -1,9 +1,22 @@
 package houseprices
 
 import (
+	"context"
 	"errors"
 	"testing"
 )
+
+func TestRunAgentMissingQueueConfigurationIsFatal(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("BRANDBRAIN_AGENT_URL", "")
+	t.Setenv("BRANDBRAIN_AGENT_TOKEN", "")
+	t.Setenv("BRANDBRAIN_CONTROL_PORT", "")
+	t.Setenv("BRANDBRAIN_CONTROL_SECRET", "")
+
+	if got := runAgent(context.Background(), nil); got != 7 {
+		t.Fatalf("runAgent without BrandBrain queue configuration = %d, want 7", got)
+	}
+}
 
 func TestOfficialLifecycleFatalWhenRefreshFailsWithHealthySources(t *testing.T) {
 	t.Parallel()
