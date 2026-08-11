@@ -376,3 +376,95 @@ import edit that is silent at runtime.
 **This unblocks the rest of the SEO backlog** — widening the indexation gate,
 `generateStaticParams`, and the embeds all assumed real pages underneath. It also
 means the sitemap is worth resubmitting once this deploys.
+
+---
+
+## Session 2026-08-11 (part 2) — the follow-up gaps, closed
+
+PR #429, merged as `60caae4a7`, deployed and verified.
+
+### The MV hardening now survives a deploy
+
+This is the proof the #428 fix worked. After a full `terraform-apply` on prod:
+
+```
+refresh_all_materialized_views  qc=true  cfg=statement_timeout=0
+```
+
+Before, every deploy reverted it (000083 replays a pre-hardening
+`CREATE OR REPLACE`). It is now self-healing; no hand-apply is load-bearing.
+
+### VIC Valuer-General is live — all three VG sources `ok` for the first time
+
+`land.vic.gov.au` Cloudflare-challenges datacenter egress, so the Cloud Run job
+recorded a 403 and VIC sat frozen at 2024-12-31 for 588 days. There was a
+`vg-nsw` rig mode for exactly this and no VIC equivalent; `runNSWVGRig` was
+already source-agnostic, so it generalised to `runVGRig` + **`-mode vg-vic`**.
+
+Measured from this Mac before writing anything: listing 149ms, discovery found
+`houses-by-suburb-2015-2025.xlsx` (newer than the pinned 2014-2024 fallback),
+workbook 63ms, 8,739 observations in 275ms. Then run against prod:
+
+| | before | after |
+|---|---|---|
+| `vg_vic` status | `error` (403) | **ok** |
+| latest period | 2024-12-31 (frozen) | **2025-12-31** |
+| rows | 7,938 | **9,589** |
+| SAL-linked suburbs | 739 | **766** |
+
+Live: `/housing/vic/toorak` server-renders **$6.11M**, a 2025 median that did not
+exist in prod before. Repeatable via `-mode vg-vic`; worth a launchd wrapper like
+NSW's.
+
+### Go quality actually gates
+
+`golangci-lint` ran in **no** CI job and nothing ran `go test` over the main
+`services` module. New `go-quality.yml` runs both, **on PRs as well as pushes**
+(`run-tests` is `if: github.event_name != 'pull_request'`, so it gates the deploy,
+not the PR). Pinned to golangci-lint v2.10.1 so CI and `make lint-backend` agree.
+
+**Landmine for whoever touches it:** `services/go.work` has
+`replace github.com/skunkworq/stealth => ../../stealth`, a sibling checkout that
+exists only on a dev machine. Any CI step touching Go must set `GOWORK=off` or
+every package fails typecheck. That is why the lint job failed first time.
+
+### The freshness sentinel can notify
+
+`CRAWL_FRESHNESS_WEBHOOK` was never set, so the check could only redden a page
+nobody opens. It now files a GitHub issue on failure and closes it on the next
+green run — no external secret, and **one reused issue**, because a daily
+sentinel that opens a daily issue is noise within a week.
+
+### The mirror is reconciled — and I had it backwards
+
+`services/jobs/internal/jobs/houseprices` had drifted from the collector across
+14 of 109 shared files. I reported after #428 that the mirror held a circuit
+breaker the collector lacked. **That was wrong.** The collector's `blockTracker`
+*superseded* the mirror's naive `consecBlocked >= 2` counter, adding same-suburb
+suppression (one bad suburb re-served by the queue used to abort a healthy drain)
+and a `CRAWL_AGENT_BLOCK_TRIP` knob.
+
+One genuine mirror-only behaviour did exist and is now ported **into** the
+collector: `revalidate.go` logged a raw `*url.Error`, which stringifies the full
+request URL — putting the revalidation endpoint and its query into the Cloud Run
+log. The jobs copy redacted it; the copy prod runs did not.
+
+13 files synced + 4 collector-only test files copied across (22 tests with no
+mirror coverage). Mirror suite 357 → 423. `revalidate.go` deliberately not
+byte-synced (the jobs copy delegates to a shared platform helper);
+`main.go`/`job.go` stay divergent by design.
+
+### Notes for next time
+
+- **The prod deploy is coupled to live third-party ingests.** Two consecutive
+  deploys failed `terraform-apply` on unrelated transients — a Grafana 504 and a
+  `data.gov.au` timeout in the austender bootstrap. Both passed on retry. Worth
+  decoupling the data bootstrap from the infra apply.
+- **`npm run test:workflow` used to miss `.github/workflows/*.test.mjs`**, so a
+  contract test could go red in CI while `local-verify.sh` was green. Fixed; the
+  glob now covers both directories (42 → 45 tests).
+- **Sitemap resubmission still needs a human.** `gcloud` requires interactive
+  reauth and there is no Search Console secret; Google's sitemap ping endpoint was
+  deprecated in 2023, so there is no API workaround. The sitemap is live and
+  healthy (6,924 URLs) and Google recrawls on its own schedule — resubmission only
+  hastens it.
