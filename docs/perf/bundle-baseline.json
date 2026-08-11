@@ -254,7 +254,7 @@
       "firstLoadKB": 160
     },
     "/housing/[state]/[suburb]": {
-      "firstLoadKB": 160
+      "firstLoadKB": 172
     },
     "/housing/[state]/[suburb]/opengraph-image": {
       "firstLoadKB": 0
