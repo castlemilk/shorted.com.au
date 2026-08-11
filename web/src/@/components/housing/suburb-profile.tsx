@@ -378,8 +378,10 @@ export function CrimeCard({ crime }: { crime: Crime | undefined }) {
       <p className="mt-2 text-[11px] text-muted-foreground opacity-70">
         {fyLabel(fy)}, 2-yr pooled. Recorded incidents: NSW Bureau of Crime Statistics
         and Research (BOCSAR); adjusted to the ABS Crime Victimisation Survey; ABS ERP
-        population denominator. All CC BY 4.0. Percentile is the national
-        population-weighted rank — higher means more reported crime.
+        population denominator. All CC BY 4.0. Percentile is the population-weighted
+        rank <strong>among suburbs in the same state</strong> — higher means more
+        reported crime. Ranks are never compared across states, because each police
+        force counts offences under its own rules.
       </p>
     </div>
   );

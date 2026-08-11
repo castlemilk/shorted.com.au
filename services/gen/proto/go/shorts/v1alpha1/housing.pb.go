@@ -791,12 +791,17 @@ type SuburbSummary struct {
 	// NBN connectivity (Local Insights); ” until ingested.
 	DominantNbnTech          string  `protobuf:"bytes,26,opt,name=dominant_nbn_tech,json=dominantNbnTech,proto3" json:"dominant_nbn_tech,omitempty"`                              // Fixed Line | Fixed Wireless | Satellite
 	ConnectivityQualityScore float64 `protobuf:"fixed64,27,opt,name=connectivity_quality_score,json=connectivityQualityScore,proto3" json:"connectivity_quality_score,omitempty"` // 0..100 (tech-tier proxy)
-	// Crime percentile ranks (national population-weighted, 0..100, higher =
-	// more reported crime; latest 2-yr-pooled FY, CVS-adjusted). 0 = no data —
-	// pct_rank is strictly > 0 whenever a reliable observation exists. Small-
-	// population and statistically-unreliable suburbs are gated server-side
+	// Crime percentile ranks (0..100, higher = more reported crime; latest
+	// 2-yr-pooled FY, CVS-adjusted). 0 = no data — pct_rank is strictly > 0
+	// whenever a reliable observation exists. Small-population and
+	// statistically-unreliable suburbs are gated server-side
 	// (mv_suburb_crime_latest) and read as no-data. NSW (BOCSAR) only in
 	// Phase 1; uncovered states/TAS/NT stay 0. CC-BY sources.
+	//
+	// The rank is population-weighted WITHIN THE SUBURB'S OWN STATE, never across
+	// states: each police force counts offences under its own rules, so a
+	// cross-jurisdiction pool would compare incomparable counts. Read "82nd
+	// percentile" as "82nd of that state", and label it that way in any client.
 	CrimeBreakInsRank     float64 `protobuf:"fixed64,28,opt,name=crime_break_ins_rank,json=crimeBreakInsRank,proto3" json:"crime_break_ins_rank,omitempty"`
 	CrimeViolentRank      float64 `protobuf:"fixed64,29,opt,name=crime_violent_rank,json=crimeViolentRank,proto3" json:"crime_violent_rank,omitempty"`
 	CrimeMotorVehicleRank float64 `protobuf:"fixed64,30,opt,name=crime_motor_vehicle_rank,json=crimeMotorVehicleRank,proto3" json:"crime_motor_vehicle_rank,omitempty"`

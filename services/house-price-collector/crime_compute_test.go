@@ -207,3 +207,93 @@ func TestCVSStateBaseFor_GrowthIndexed(t *testing.T) {
 	// violent → persons15 base
 	crimeApprox(t, "violent2024", cvsStateBaseFor(cvs, erp, "NSW", crimeViolent, 2024), 2000, 1e-6)
 }
+
+
+// Two jurisdictions whose offence rates are genuinely incomparable: after CVS
+// scaling, BOTH VIC suburbs sit above BOTH NSW suburbs (VIC's victimisation
+// anchor is 10x NSW's, so its scaled rates are an order of magnitude higher).
+//
+//	NSW break_ins FY2025: raw 1 / 4, Σ=5, CVS 3% x 1,000,000 households
+//	                      → 30,000 victims → scale 6,000
+//	                      → adjusted 6,000 / 24,000 → rate/100k 60,000 / 240,000
+//	VIC break_ins FY2025: raw 100 / 400, Σ=500, CVS 30% x 1,000,000 households
+//	                      → 300,000 victims → scale 600
+//	                      → adjusted 60,000 / 240,000 → rate/100k 600,000 / 2,400,000
+//
+// Pooled nationally (equal 10,000 ERP each, Σpop 40,000) the four suburbs form
+// ONE ladder — 12.5 / 37.5 / 62.5 / 87.5 — and NSW's WORST suburb (37.5) lands
+// below VIC's BEST (62.5). A reader of the NSW suburb page would be told its
+// break-in rate is unremarkable when it is the worst in its state, purely
+// because another state's police count offences differently.
+//
+// Scoped per jurisdiction, each state gets its own ladder: 25 / 75 in both.
+//
+// This is the regression guard for that scoping. It fails under national pooling.
+func TestComputeCrime_RanksAreScopedPerJurisdiction(t *testing.T) {
+	nsw := &jurisdictionData{
+		jurisdiction: "NSW", source: "bocsar", licence: "CC-BY",
+		rows: []crimeRaw{
+			{salCode: "N_LOW", state: "NSW", crimeType: crimeBreakIns, fy: 2025, count: 1},
+			{salCode: "N_HIGH", state: "NSW", crimeType: crimeBreakIns, fy: 2025, count: 4},
+		},
+	}
+	vic := &jurisdictionData{
+		jurisdiction: "VIC", source: "csa", licence: "CC-BY-4.0",
+		rows: []crimeRaw{
+			{salCode: "V_LOW", state: "VIC", crimeType: crimeBreakIns, fy: 2025, count: 100},
+			{salCode: "V_HIGH", state: "VIC", crimeType: crimeBreakIns, fy: 2025, count: 400},
+		},
+	}
+	cvs := &CVSData{
+		Rate: map[string]map[crimeType]map[int]cvsCell{
+			"NSW": {crimeBreakIns: {2025: {rate: 3.0, reportingRate: 50.0, hasRate: true}}},
+			"VIC": {crimeBreakIns: {2025: {rate: 30.0, reportingRate: 50.0, hasRate: true}}},
+		},
+		StateBase: map[string]cvsStateBase{
+			"NSW": {households: 1_000_000, persons15: 800_000},
+			"VIC": {households: 1_000_000, persons15: 800_000},
+		},
+		BaseFY: 2025,
+	}
+	// Equal populations everywhere, so population weighting cannot explain any
+	// rank difference — only the pooling scope can.
+	erp := newTestERP(
+		map[string]int{"N_LOW": 10000, "N_HIGH": 10000, "V_LOW": 10000, "V_HIGH": 10000},
+		map[string]string{"N_LOW": "NSW", "N_HIGH": "NSW", "V_LOW": "VIC", "V_HIGH": "VIC"},
+		map[string]map[int]float64{"NSW": {2021: 100, 2025: 100}, "VIC": {2021: 100, 2025: 100}},
+	)
+
+	rows, _ := computeCrime([]*jurisdictionData{nsw, vic}, cvs, erp, scalerVictimEstimate)
+	rank, rate := map[string]float64{}, map[string]float64{}
+	for _, r := range rows {
+		if !r.Pooled {
+			rank[r.SalCode] = r.PctRank
+			rate[r.SalCode] = r.RatePer100k
+		}
+	}
+	if len(rank) != 4 {
+		t.Fatalf("want 4 single-FY rows, got %d: %v", len(rank), rank)
+	}
+
+	// Precondition: the fixture really is incomparable — VIC's BEST suburb has a
+	// higher scaled rate than NSW's WORST. Without this the test proves nothing.
+	if rate["V_LOW"] <= rate["N_HIGH"] {
+		t.Fatalf("fixture broken: V_LOW rate %.0f must exceed N_HIGH rate %.0f",
+			rate["V_LOW"], rate["N_HIGH"])
+	}
+
+	// Each state gets its own 0..100 ladder, so the low/high suburb of EACH
+	// state lands on the same pair of ranks.
+	crimeApprox(t, "N_LOW.rank", rank["N_LOW"], 25, 1e-6)
+	crimeApprox(t, "N_HIGH.rank", rank["N_HIGH"], 75, 1e-6)
+	crimeApprox(t, "V_LOW.rank", rank["V_LOW"], 25, 1e-6)
+	crimeApprox(t, "V_HIGH.rank", rank["V_HIGH"], 75, 1e-6)
+
+	// The load-bearing assertion: NSW's worst suburb must not be pushed below
+	// VIC's best merely because VIC's police count more offences per head.
+	// Under national pooling this is 37.5 vs 62.5 and fails.
+	if rank["N_HIGH"] <= rank["V_LOW"] {
+		t.Errorf("NSW's worst suburb (%.2f) ranked at or below VIC's best (%.2f) — "+
+			"ranks are being pooled across jurisdictions", rank["N_HIGH"], rank["V_LOW"])
+	}
+}
