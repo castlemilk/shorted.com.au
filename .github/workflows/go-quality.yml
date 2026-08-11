@@ -53,6 +53,15 @@ jobs:
 
       - name: Lint services
         uses: golangci/golangci-lint-action@v8
+        env:
+          # services/go.work carries `replace github.com/skunkworq/stealth =>
+          # ../../stealth`, a sibling checkout that exists on a developer machine
+          # and never on a runner. With the workspace active the linter cannot
+          # resolve it and every package fails typecheck. GOWORK=off makes CI
+          # resolve stealth from the module proxy via STEALTH_PAT, which is the
+          # same thing every `go test` invocation in this repo already does.
+          GOWORK: "off"
+          GOPRIVATE: github.com/skunkworq/*
         with:
           version: ${{ env.GOLANGCI_VERSION }}
           working-directory: services

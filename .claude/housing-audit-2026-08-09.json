@@ -1,0 +1,1140 @@
+{
+ "ranked": [
+  {
+   "id": "F01",
+   "area": "official ingest \u2014 state VG suburb medians",
+   "severity": "high",
+   "type": "bug",
+   "title": "State VG suburb-median ingest is broken: NSW has never landed a prod row; VIC is 403-blocked AND pinned to a 2014-2024 workbook",
+   "detail": "runOfficial() wires vg_nsw and vg_vic (main.go:364-366) but both fail on every scheduled run. NSW: prod house_prices has ZERO source='vg_nsw' rows \u2014 the tier shipped in PR #237/#239 has never populated prod ('no NSW PSI years fetched'; valuergeneral.nsw.gov.au sits behind a Cloudflare challenge that Cloud Run's datacenter egress does not clear; the code comment's 'verified: 200' was almost certainly a residential-IP check). Live product impact: NSW 0/4,544 suburbs priced, QLD 0/3,235, WA 0/1,701 vs VIC 739/3,076 and SA 426/1,764 \u2014 the flagship state's map silently falls back to population colouring and contributes 0 sitemap URLs. VIC: last success 2026-07-05 (7,938 rows), now 403-ing, and even when the fetch works it can never advance past Dec-2024 because vicXLSXURL is hardcoded to the 'houses-by-suburb-2014-2024.xlsx' asset (vic_vpsr.go:24) \u2014 every VIC suburb serves ~20-month-old official medians.",
+   "evidence": "Prod: SELECT count(*) FROM house_prices WHERE source='vg_nsw' \u2192 0; vg_vic \u2192 7,938 rows, max(period)=2024-12-31, last success 2026-07-05. house_price_ingest_runs 2026-08-05: vg_nsw|error|'no NSW PSI years fetched'; vg_vic|error|'fetch VIC xlsx: unexpected status: 403'. Live ListStateSuburbs: NSW 0/4,544 priced. Code: main.go:344-366; vic_vpsr.go:24 (pinned asset 756581); nsw_vg.go:34.",
+   "suggested_fix": "Run the NSW PSI ingest from an egress that clears the Cloudflare challenge (residential rig path like the listings tier, or a one-off scoped local run); discover the latest houses-by-suburb-*.xlsx asset at run time instead of pinning; add per-source 'has never succeeded' assertions so a source that never landed is loud.",
+   "effort": "M",
+   "merged_from": "pipeline (NSW+VIC VG failures), data (VIC pinned workbook + 403), data (NSW zero rows ever), product (NSW 0/4,544 priced, live RPC evidence)"
+  },
+  {
+   "id": "F02",
+   "area": "run lifecycle / monitoring & alerting (official + crawl tiers)",
+   "severity": "high",
+   "type": "bug",
+   "title": "Housing pipelines fail silently end-to-end: official runs exit 0 on total failure, nothing reads house_price_ingest_runs, no freshness workflow, crawl outages also exit 0 and the alarm has no push sink",
+   "detail": "Official tier: runOfficial() handles every per-source error with log+continue (main.go:368-394), refresh() failure is logged only (main.go:334-337), and run() returns 0 (main.go:174) \u2014 a run where all 16 sources AND the MV refresh fail reports SUCCESS, so Cloud Run max_retries, scheduler retry_config, and the GCP-native jobmonitor all see green. house_price_ingest_runs.status='error' has ZERO readers anywhere, and unlike register/economy there is no housing-freshness.yml. This is exactly why the F01 VG breakage sat unnoticed for a month+ (plus property_valuations CDP failure since 2026-07-24). Crawl tier compounds it: a total auth outage (dead BrandBrainAgent.app) breaks the drain loop but runAgent still returns 0 (crawl_agent.go:601-605, 732-737) so a multi-day outage looks like 'nothing to do'; the freshness guard's CRAWL_FRESHNESS_WEBHOOK is UNSET on the live rig (alarm fired for days into an unread log during the 2026-08 outages); and classifyFreshness excludes never-crawled suburbs \u2014 over half the 500-suburb catalog is structurally invisible to it forever. The listings_rea/listings_domain cursor rows also stopped 2026-07-13 because agent mode bypasses updateRun, so the cursor table can't serve as a crawl freshness signal either.",
+   "evidence": "main.go:368-394, :174; terraform/modules/house-price-collector/main.tf:56; grep house_price_ingest_runs \u2192 writers only (collector store.go:116 + jobs fork copy); no housing-freshness workflow vs economy-freshness.yml/register-freshness.yml; crawl_agent.go:601-605/732-737; housing-crawl-common.sh:148-151 (processed==0 \u2192 rc 0); crawl_freshness.go:61-65 (never-crawled excluded), webhook unset in ~/.shorted-housing-crawl.env (verified 2026-08-09); prod: vg errors 2026-08-05 + property_valuations error since 2026-07-24 unalerted; listings_* cursors 2026-07-13 vs events through 2026-08-09.",
+   "suggested_fix": "Non-zero exit when any/most official sources error (engages Cloud Run retry + failure alerting); distinct exit code from runAgent when fatalErr && done==0 with wrapper notification + agent-relaunch preflight; add housing-freshness.yml (fail on error rows, max(period) regression, event silence); provision the webhook; add a coverage-trend alarm (Covered stops growing / NeverCrawled grows).",
+   "effort": "M",
+   "merged_from": "pipeline (exit-0 official), data (no freshness sentinel + stale cursors), crawl (auth outage exits 0), crawl (webhook unset + never-crawled invisible)"
+  },
+  {
+   "id": "F03",
+   "area": "web sitemap / SEO (suburb corpus)",
+   "severity": "high",
+   "type": "bug",
+   "title": "All 1,165 suburb URLs in the live prod sitemap 404 (trailing-hyphen slug divergence)",
+   "detail": "The sitemap's inline slugifySuburb (sitemap.ts:538-539, duplicated in getHousingSitemap.ts:5-6) unconditionally appends `-${postcode}`, but suburb_demographics.postcode is never populated (the census upsert omits it; only migration 000055 defines the column), so every emitted slug ends with a bare dash. The canonical suburbSlug (states.ts:24-26) omits the suffix when postcode is empty, and resolveSuburbSalCode does an exact-equality match \u2014 so every sitemap-advertised suburb URL hard-404s while the real URLs are absent from the sitemap entirely. The whole priced-suburb SEO corpus is invisible to crawlers and the sitemap feeds Google 1,165 dead links (crawl-budget + trust damage).",
+   "evidence": "Live prod sitemap.xml: 1,165/1,165 two-segment /housing/<state>/<suburb> URLs end with '-' (e.g. /housing/vic/abbotsford-vic-). Live: /housing/vic/abbotsford-vic- \u2192 404; /housing/vic/abbotsford-vic \u2192 200 (independently reproduced by two finders incl. Playwright on /housing/vic/aberfeldie-). Code: sitemap.ts:539 `...-${postcode}` vs states.ts:25 `${postcode ? `-${postcode}` : \"\"}`; grep: no writer of suburb_demographics.postcode in census.go/store.go.",
+   "suggested_fix": "Delete both local slugify copies and import the shared suburbSlug from @/lib/housing/states (getHousingSuburbUrls in getHousingSitemap.ts is unimported dead code \u2014 fix-and-use or delete); make resolveSuburbSalCode tolerate a trailing hyphen so already-indexed bad URLs recover; resubmit the sitemap in Search Console.",
+   "effort": "S",
+   "merged_from": "frontend (slug divergence + Playwright repro), product (root cause: postcode never populated; live sitemap fetch)"
+  },
+  {
+   "id": "F04",
+   "area": "web /housing/[state]/[suburb] rendering + slug resolution",
+   "severity": "high",
+   "type": "bug",
+   "title": "Suburb pages are silently fully dynamic; every view pays a full-state ~5,000-row RPC, backend failures serve soft-404s, and ?sal= is unvalidated",
+   "detail": "page.tsx reads searchParams (?sal=) in the server page (:24, :43), which forces dynamic rendering \u2014 the exported `revalidate = 86400` (:13) is dead (the exact trap this repo already fixed on /price-drops). With no generateStaticParams and no KV layer, every request to any of the ~15k reachable suburb URLs runs resolveSuburbSalCode \u2192 listStateSuburbs(code, \"\", 5000) on a no-store transport (NSW \u2248 4,544 rows \u00d7 ~40 fields, running the heaviest housing query server-side) plus getSuburbProfile, on the TTFB path; the opengraph-image route repeats the resolution per scrape. Two secondary defects on the same path: (a) resolveSuburbSalCode swallows ALL errors (withRetryAndNotFound + .catch(() => null)), so a Cloud Run blip yields notFound() \u2014 soft-404s on real suburb URLs, a deindexing vector this repo has been burned by before; (b) the ?sal= fast-path is never validated against the state/slug in the path, so /housing/nsw/bondi-beach?sal=<SA code> renders an SA suburb's profile, title and banner under the NSW URL. Note ?sal= is load-bearing (politicians declaration links use it) so it can't simply be deleted.",
+   "evidence": "page.tsx:13 (dead revalidate), :24/:43-46 (searchParams read; sal never cross-checked; !sal \u2192 notFound()); getHousing.ts:115-122, 292-298 (listStateSuburbs(stateCode, \"\", 5000), .catch(() => null)); price-drops/page.tsx:30-34 documents the identical searchParams trap; NSW.topojson = 4,544 SALs; store query postgres_house_prices.go:281-330 (per-suburb LATERAL + year-ago probe); CLAUDE.md contract 'withRetryAndNotFound returns undefined for ALL errors'.",
+   "suggested_fix": "Read ?sal= client-side (useSearchParams under Suspense, mirroring AddressDropsBoard) or fold sal into fallback slug matching, restoring on-demand ISR; KV-cache a per-state slug\u2192sal index so resolution is a ~5ms GET; return a {miss|unavailable} union from resolveSuburbSalCode so backend failures 5xx instead of 404; after fetch, verify profile.summary.stateCode matches the path and redirect to canonical on mismatch.",
+   "effort": "M",
+   "merged_from": "frontend (dynamic + full-state RPC), api (5,000-row slug resolution cost), frontend (soft-404 on backend failure), frontend (unvalidated ?sal=)"
+  },
+  {
+   "id": "F05",
+   "area": "refresh_housing_materialized_views() (migration 000092)",
+   "severity": "high",
+   "type": "bug",
+   "title": "Housing MV refresh lacks the 000095 hardening that a 19-day prod incident forced onto the shorts refresh \u2014 one timeout silently starves every MV after it",
+   "detail": "The live definition (000092:28-58) refreshes mv_housing_headline UNGUARDED (any failure aborts the whole function, skipping mv_suburb_price_drops, mv_suburb_listing_stats, mv_state_price_drops, mv_agency_stats, mv_suburb_crime_latest), and the five guarded blocks use plain EXCEPTION WHEN OTHERS \u2014 which per PL/pgSQL does NOT catch query_canceled (57014), the exact error statement_timeout raises. Migration 000095 documents precisely this failure class ('WHEN query_canceled OR OTHERS', function-scoped SET statement_timeout '0') after 5 shorts MVs silently starved for 19 days \u2014 the housing function was never given the same treatment. The collector calls it over the Supabase transaction pooler (port 6543) without setting statement_timeout, under a context where prod refresh 'can take minutes', and a failure is only log.Printf'd with exit 0 (compounding F02). Coverage itself is complete (all 6 housing MVs are in the function) \u2014 the gap is purely resilience, and it is the proven mechanism of a prior multi-week silent-staleness incident.",
+   "evidence": "migrations/000092_crime_read_gating.up.sql:31 (unguarded first REFRESH), :34/:39/:44/:49/:54 (grep 'WHEN OTHERS' = 5, 'query_canceled' = 0); migrations/000095_harden_mv_refresh.up.sql:19-32 (corrected pattern + 19-day incident rationale); services/house-price-collector/store.go:34-43,125-128 (pooler 6543, no statement_timeout); crawl_listings_store.go:284-288.",
+   "suggested_fix": "One migration mirroring 000095: guard mv_housing_headline in its own block, change all guards to WHEN query_canceled OR OTHERS (concurrent \u2192 blocking fallback \u2192 RAISE WARNING skip), ALTER FUNCTION ... SET statement_timeout TO '0', and have the collector SET statement_timeout = 0 before invoking.",
+   "effort": "S",
+   "merged_from": "pipeline (unguarded headline + WHEN OTHERS gap), schema (same, with grep counts + outer-guard analysis)"
+  },
+  {
+   "id": "F06",
+   "area": "prod deploy / housing DDL management",
+   "severity": "high",
+   "type": "risk",
+   "title": "Housing prod DDL is completely unmanaged: CI applies a hardcoded 8-migration allowlist with zero housing files, force-pins schema_migrations to 75 every deploy, and the hand-apply doc checklist is missing 13 migrations",
+   "detail": "The prod 'Run database migrations' step applies exactly 8 files (000070/71/74/75/81/82/83/85) \u2014 none of the ~20 housing migrations \u2014 then runs `DELETE FROM schema_migrations; INSERT ... VALUES (75, false)` on EVERY deploy, so prod migration bookkeeping is permanently fictional (prod is really at ~000106). Every housing migration must be applied by hand before the code selecting its columns merges, or read paths 500 (the documented politicians landmine, equally applicable here). Drift is already real, admitted in-repo: 000092's header states '000090 was hand-applied to prod; the committed version lacks unreliable/population' \u2014 prod's MV shape diverged and 000092 had to DROP+CREATE to make it deterministic. Worse, the doc that operators hand-apply FROM (housing-architecture.md \u00a78 'full housing migration set') lists only 10 migrations, omitting 13 applied housing-family ones (000061-064, 000066-068, 000084, 000086-089, 000091) \u2014 a bootstrap/rebuild from that table skips them and the API 500s selecting absent columns.",
+   "evidence": ".github/workflows/terraform-deploy.yml:1021-1032 (allowlist + INSERT schema_migrations VALUES (75, false)); migrations/000092_crime_read_gating.up.sql:7-8 (in-repo admission of hand-apply drift); docs/housing-architecture.md:440-451 (10 rows) vs ls services/migrations (000061-064, 000066-068, 000084, 000086-089, 000091 all exist); the doc contradicts itself at \u00a710.1/\u00a76.10/\u00a77 which reference the missing numbers.",
+   "suggested_fix": "Extend the allowlist mechanically from a checked-in manifest so merged housing migrations are CI-applied idempotently (or add a deploy-blocking preflight diffing information_schema against shipped queries); stop rewriting schema_migrations to 75; regenerate the doc table from ls services/migrations and move it to docs/feature/housing/data-model.md as the single migration map.",
+   "effort": "M",
+   "merged_from": "schema (allowlist + pin-75 + 000090 drift), docs (\u00a78 checklist missing 13 migrations)"
+  },
+  {
+   "id": "F07",
+   "area": "publishable MV k-anonymity (mv_suburb_listing_stats, mv_agency_stats)",
+   "severity": "high",
+   "type": "risk",
+   "title": "K-anon floors are incomplete: a 1-listing suburb publishes that exact proprietary asking price as its 'average', and mv_agency_stats still publishes agent personal names + dropped_count at n=1-2",
+   "detail": "The always-public ListSuburbPriceDrops reads mv_suburb_listing_stats, whose SQL (000077) has no HAVING/count floor: any suburb with a single active priced listing publishes avg_asking = median_asking = that one ToS-restricted listing's exact price, with for_sale_count=1 confirming n=1 \u2014 violating the project's own standard baked into 000086 ('no published figure can be reversed into a single listing's exact numbers'; the drops MVs got a >=3 floor). Broadening-bleed makes tiny suburbs real: prod had 43 bleed suburbs carrying 142 listings (avg 3.3/suburb) as of 2026-07-22, so n=1/n=2 rows almost certainly exist today; same gap on avg_sold/median_sold at sold_count=1. Adjacent gap in mv_agency_stats: the >=3-dropped-addresses suppression covers only drop depth/value \u2014 dropped_count is published unsuppressed at 1-2, and agent_names exposes up to six real people's names per agency row with no floor beyond 3 active listings; named individuals + a 1-2 drop count narrow to identifiable listings in small agencies, gated only by the runtime kill switch.",
+   "evidence": "migrations/000077_add_suburb_listing_stats.up.sql:5-32 (no floor) vs 000086_price_drops_rollups.up.sql:21-23 (stated reversibility standard), :80 (drops >=3 floor), :205-206 (depth/value CASE WHEN COUNT(*) >= 3), :222-226/:231/:238 (agent_names [1:6], unsuppressed dropped_count, only active>=3 floor); public read at postgres_house_prices.go:694-711.",
+   "suggested_fix": "Rebuild mv_suburb_listing_stats to NULL avg/median asking below for_sale_priced >= 3 and avg/median sold below sold_count >= 3 (keep counts), mirroring the mv_agency_stats CASE pattern; in mv_agency_stats, null dropped_count below 3 alongside depth/value and drop agent_names from the MV (fetch names only in the flag-gated per-listing drill-down, which already reads raw rows). Guarded-refresh wiring already exists.",
+   "effort": "S",
+   "merged_from": "licence (listing-stats no floor + bleed quantification), schema (agency agent_names + unsuppressed dropped_count)"
+  },
+  {
+   "id": "F08",
+   "area": "property.com.au AVM read path / licence posture",
+   "severity": "high",
+   "type": "risk",
+   "title": "Per-address AVM estimates + full sales history are served verbatim, directly contradicting migration 000088's own written licence posture",
+   "detail": "Migration 000088's header states the harvested property.com.au profile 'MUST NEVER be republished raw. Only DERIVED aggregates are a publishable surface; the raw profile is stored for internal enrichment only.' But the live read path publishes per-address raw extracted facts: GetPropertyHistory embeds a PropertyValuation with estimate_low/mid/high, estimate_confidence, rent_estimate_mid, year_built, land/building size, and the FULL per-sale sales_history (date, price, agency, type) verbatim. property.com.au's ToS posture is ESCALATED vs REA/Domain listings \u2014 its robots.txt explicitly bans aggregators (acknowledged in the same migration header). The HOUSING_VALUATIONS_ENABLED kill switch exists but defaults ON. The store does exclude raw/content_hash/lat/lng, and the owner consciously accepted the risk per memory \u2014 but the written posture and the code directly contradict each other, and if a takedown/legal letter arrives the migration text is discoverable evidence the team knew the surface wasn't publishable.",
+   "evidence": "migrations/000088_add_property_valuations.up.sql:9-13 ('MUST NEVER be republished raw... internal enrichment only') vs services/shorts/internal/services/shorts/house_prices.go:543-575 (verbatim EstimateLow/Mid/High + SalesHistory proto) and :419-426 (valuationsEnabled default true); postgres_house_prices.go:899-901 (raw/lat/lng excluded).",
+   "suggested_fix": "Make posture and code agree: either amend 000088/docs to record the accepted per-address publish posture and its kill switch, or reduce the surface to banded estimates ($50k bands) and sale-year-only history. Document HOUSING_VALUATIONS_ENABLED in the takedown runbook.",
+   "effort": "M",
+   "merged_from": "licence (sole reporter; kept as-is)"
+  },
+  {
+   "id": "F09",
+   "area": "crawl event semantics / /price-drops sold metrics",
+   "severity": "high",
+   "type": "bug",
+   "title": "Portal status-detection asymmetry: 'sold' is Domain-only (REA has 0 sold listings ever) so market-wide sold stats are biased, and relist events are Domain sold-tag flapping (9,270 vs REA's 1)",
+   "detail": "Sold detection relies on Domain's UPVSoldListings tag mechanism; nothing equivalent fires for REA, so all 48,452 REA listings resolve to for_sale (45,955) or withdrawn (2,497) \u2014 zero sold, zero status_change events. mv_state_price_drops.sold_count (5,715 nationally) and derived avg_sold/median_sold are computed from Domain's ~45% of the corpus with portal-specific selection bias, yet rendered as market-wide figures in three prod components (state board, suburb leaderboard, suburb panel). The same asymmetry corrupts relist semantics: Domain generates 9,270 relist vs 1,354 delist events (6.8x) \u2014 consistent with sold-tag flapping (cards tagged sold \u2192 inactive, reappearing untagged next sweep) \u2014 while REA produced exactly 1 relist ever, so 'relisted at a lower price' signals are effectively Domain-only and flapping cycles pollute the merged address timelines served by GetPropertyHistory.",
+   "evidence": "Prod: property_listings by source/status \u2014 rea: for_sale 45,955 / withdrawn 2,497 / sold 0; domain: for_sale 33,213 / sold 5,715 / withdrawn 1,309. property_price_events \u2014 domain: relisted 9,270 / delisted 1,354 / status_change 510; rea: relisted 1 / delisted 2,498 / status_change 0. Code: crawl_listings_extract.go:357-361 (Domain-only sold tag); crawl_listings_diff.go:252-261 (relist emit). Display: state-drops-board.tsx:79-80, suburb-drops-leaderboard.tsx:66-67, suburb-price-drops-panel.tsx:97-98.",
+   "suggested_fix": "Detect REA sold disposition (sold-search sweep, or infer from withdrawal + relist absence) or label sold columns as Domain-sourced and exclude them from cross-portal framing; debounce status-driven inactivity (require M consecutive sweeps, or collapse sold\u2192for_sale\u2192sold cycles within N days) so relist means an actual market re-listing.",
+   "effort": "M",
+   "merged_from": "data (sold Domain-only), data (relist asymmetry/flapping)"
+  },
+  {
+   "id": "F10",
+   "area": "crawl agent / brandbrain queue",
+   "severity": "high",
+   "type": "bug",
+   "title": "Circuit-open portal skips are banked as 'succeeded' \u2014 25% of reported successes were sweeps that never ran; fix pair (#408 + brandbrain #192) still unmerged",
+   "detail": "In crawlAgentJob, a source skipped because its circuit breaker is OPEN (portal actively blocking) sets skippedRea/skippedDomain exactly like a resume-window skip, and the 'both sources skipped' branch returns status \"succeeded\" with the misleading detail 'both sources skipped (swept within the resume window)'. For the default per-source enqueue (one portal per job), a single open circuit means the job never runs any sweep yet leaves the queue as done: last_crawled never advances and the suburb silently stops being crawled. Measured 2026-08-08: 114 of 459 reported successes (25%) were sweeps that never ran. The fix (a 'deferred' outcome that re-pends, refunds the attempt, honours a not_before cooldown) exists but shorted PR #408 and brandbrain PR #192 are both still OPEN (verified via gh 2026-08-09); brandbrain must deploy first.",
+   "evidence": "crawl_agent.go:775-777,789-791 (cb.skip sets skipped*), :808-811 (returns \"succeeded\"); grep 'deferred|not_before' crawl_agent.go = 0; gh pr view 408 \u2192 OPEN; brandbrain gh pr view 192 \u2192 OPEN; memory housing-crawl-outage-modes.md \u00a75 (114/459 measured).",
+   "suggested_fix": "Merge brandbrain #192 then shorted #408 (in that order). Until then, at minimum correct the detail string so a circuit-open skip is distinguishable from a resume-window skip in queue history.",
+   "effort": "M",
+   "merged_from": "crawl (sole reporter; kept as-is)"
+  },
+  {
+   "id": "F11",
+   "area": "brandbrain queue leases",
+   "severity": "high",
+   "type": "bug",
+   "title": "Orphaned in_progress leases are never reclaimed \u2014 ReclaimExpired has no caller, the collector never renews, and a crash/dry-run permanently orphans up to 20 jobs per round",
+   "detail": "brandbrain's crawl-job Claim selects only status='pending'; ReclaimExpired (re-pend expired in_progress jobs) exists but has no caller in server main or the agent handler, so the 10-minute crawlJobLeaseTTL is dead code. Any collector crash/kill leaves its claimed job in_progress forever, invisible to pending and never retried. The collector-side comment ('the claim's lease simply expires and the job re-pends', crawl_agent.go:632-633) is false in practice \u2014 and DRY runs deliberately skip submit, so a hand-run dry drain (the default for direct -mode agent) permanently orphans up to 20 jobs per round. Measured 2026-08-07: 7 orphans aged 47h-467h vs 1 genuinely active job. The collector also never calls the existing Renew endpoint, so if reclaim IS ever wired, any paced sweep longer than 10 min gets double-claimed and its submit fails.",
+   "evidence": "brandbrain crawl_job_repository.go Claim (WHERE status='pending' only) + ReclaimExpired:242 with no caller in cmd/server/main.go or agent_crawl_jobs_handler.go (crawlJobLeaseTTL=10*time.Minute:25); grep 'Renew' in shorted crawl_agent.go/crawl_brandbrain.go = 0; memory housing-crawl-outage-modes.md \u00a74 (7 orphans measured).",
+   "suggested_fix": "Wire ReclaimExpired into the claim path (lazy, before the pending SELECT) or a server ticker; raise lease TTL to ~30min or add a per-page Renew heartbeat; fix the wrong comment at crawl_agent.go:632.",
+   "effort": "S",
+   "merged_from": "crawl (sole reporter; kept as-is)"
+  },
+  {
+   "id": "F12",
+   "area": "crawl listings block classification",
+   "severity": "high",
+   "type": "bug",
+   "title": "Thin-suburb false-block root cause unfixed: a genuinely small suburb's page 1 still reads as a Kasada block, burns attempts, trips circuits, and can stop the whole drain",
+   "detail": "A suburb with fewer than CRAWL_LISTINGS_MIN_PER_PAGE (default 5) on-target listings on page 1 is classified sweepBlocked (stop-thin-page1) and increments the block counter \u2014 indistinguishable from a real Kasada stub. Consequences: (a) the job fails and burns queue attempts; (b) two consecutive thin jobs on one source open that source's circuit (circuitTrip default 2), after which healthy suburbs get skipped (and, per F10, banked 'succeeded'); (c) two DISTINCT thin suburbs back-to-back still trip blockTracker (default 2) and stop the drain with exit 3 \u2014 #401 only fixed the same-suburb re-serve case; (d) delta enqueue ranks never-crawled suburbs FIRST, so permanently-failing thin suburbs cluster at the head of every daily run. The live rig env and all deploy wrappers set no override, so scheduled runs can re-wedge exactly as observed with Lane Cove North. REA's already-extracted PageMeta.OnTargetResults provides ground truth (a portal-reported on-target count < 5 proves real inventory, not a block) but the gate ignores it.",
+   "evidence": "crawl_listings.go:105 (default 5), :616-620 (stop-thin-page1 \u2192 sweepBlocked + blockCounter++); crawl_agent.go:583 (trip default 2), :670-678 (distinct-suburb degraded stop); crawl_delta.go:93-96 (never-first ranking); grep MIN_PER_PAGE in deploy/*.sh = comment-only; ~/.shorted-housing-crawl.env has no override (verified).",
+   "suggested_fix": "When metaOK && meta.OnTargetResults < minPerPage, classify a thin page 1 as sweepComplete (delist-safe genuine exhaustion) instead of sweepBlocked; keep the blocked classification only when meta is absent or claims more inventory than rendered.",
+   "effort": "M",
+   "merged_from": "crawl (sole reporter; kept as-is)"
+  },
+  {
+   "id": "F13",
+   "area": "public repo hygiene / ToS-restricted content",
+   "severity": "medium",
+   "type": "risk",
+   "title": "Real captured REA/Domain portal content is committed to the PUBLIC repo in 4 testdata files, and CRAWL_TRACE's default relative output dir is gitignored in only one directory",
+   "detail": "The repo is PUBLIC, and testdata/rea-pagemeta.html + domain-pagemeta.html (duplicated in the jobs fork) contain genuinely captured portal payloads: real New Farm QLD listings with full addresses ('33/75 Welsby Street', '312 Bowen Terrace'), real listing IDs, prices ('Offers over $2.4m', '$1,050,000'), lat/lng, and a live canonicalSearchId \u2014 contradicting the repo's own rules (000076: raw listing rows 'MUST NEVER be republished'; stated fixture hygiene: proprietary fixtures live outside the repo, NOT committed). Scale is small (~5KB) but it is verbatim ToS-restricted content republished on GitHub. Compounding the leak path: crawl_trace.go writes per-page portal screenshots + raw HTML to a CWD-relative 'traces' dir whose only .gitignore coverage is anchored inside services/house-price-collector/ \u2014 running with CRAWL_TRACE=1 from repo root, services/, or the jobs fork drops full portal pages into unignored paths of the public working tree (the testdata files prove this class of commit happens in practice).",
+   "evidence": "git ls-files \u2192 4 files; rea-pagemeta.html contains fullAddress '33/75 Welsby Street, New Farm, Qld 4005' + id 151775764; domain-pagemeta.html '312 Bowen Terrace' + '$1,050,000' + lat -27.462; gh repo view = PUBLIC; crawl_trace.go:50,73 (relative 'traces' default); grep traces in root/services .gitignore = 0 matches; only services/house-price-collector/.gitignore:5-7 covers it.",
+   "suggested_fix": "Replace all 4 fixtures with synthetic data preserving the exact JSON shape (tests only assert structure/counts); optionally purge blobs from history; add unanchored 'traces/' to the root .gitignore and/or default CRAWL_TRACE_DIR to an absolute os.TempDir()/$HOME path.",
+   "effort": "S",
+   "merged_from": "licence (committed testdata), licence (trace gitignore gap)"
+  },
+  {
+   "id": "F14",
+   "area": "cross-portal address dedup contract (000086)",
+   "severity": "medium",
+   "type": "bug",
+   "title": "The address-dedup contract is violated on two axes: the suburb drill-down dedups by listing_pk (dual-listed cuts show twice), and 5.8% of listings have empty address_key and are counted once per portal in the MVs",
+   "detail": "mv_suburb_price_drops was rebuilt in 000086 specifically so 'every aggregate counts each physical address once' via dedup_key = COALESCE(address_key, source:listing_id). But: (a) the flag-gated per-suburb drill-down uses `SELECT DISTINCT ON (e.listing_pk)`, so an address cross-listed on REA and Domain (~6.5k such rows per the migration header) that took a cut on both portals renders as two rows for one physical property, and the drill-down can show more entries than the board's deduped dropped_listing_count (the 0.40 cap IS consistently applied \u2014 only the dedup axis diverges); (b) 5,170 of 88,689 listings (2,603 REA + 2,567 Domain) have address_key='' \u2014 ListAddressPriceDrops correctly excludes them, but the suburb/state/agency aggregate MVs still count them, so a dual-listed cut on an address-less listing counts once per portal, biasing dropped_count upward in suburbs with poor address extraction.",
+   "evidence": "postgres_house_prices.go:776 (DISTINCT ON (e.listing_pk)) vs migrations/000086_price_drops_rollups.up.sql:9-14,32,47-50 (~6.5k cross-listed; address-level contract); cap parity at :802; prod: SELECT count(*) FILTER (WHERE address_key IS NULL OR address_key='') FROM property_listings \u2192 5,170/88,689 (5.8%); exclusion only at postgres_house_prices.go:1141.",
+   "suggested_fix": "Dedup the drill-down on the same COALESCE(NULLIF(address_key,''), source||':'||listing_id) key (keep the portal with the largest cut, optionally both deep-links on one row); backfill address_key from lat/lng proximity or listing_url slugs and report the empty-key rate in the crawl run summary so extraction regressions are visible.",
+   "effort": "M",
+   "merged_from": "schema (drill-down listing_pk dedup), data (5.8% empty address_key)"
+  },
+  {
+   "id": "F15",
+   "area": "price-drops MV semantics (000077 / 000086)",
+   "severity": "medium",
+   "type": "bug",
+   "title": "'Sold' aggregates have no time window (all-time blend labelled 'recent sales') and dropped_share divides a 30-day numerator by the current-active denominator \u2014 the ratio can exceed 1",
+   "detail": "mv_suburb_listing_stats' sold CTE is `WHERE listing_status='sold' AND price IS NOT NULL` with no time bound (comment says 'recent sales'); mv_state_price_drops repeats the unbounded FILTERs \u2014 while the drop-side numerators are strictly 30-day windowed. As the corpus ages, the board's sold medians/counts become an all-time blend across market conditions sitting next to 30-day drop stats (sold_count grows monotonically forever). Separately, dropped_share divides a 30-day windowed, event-derived address count (retaining addresses that have since sold/delisted) by the CURRENT active-listing count (`WHERE is_active`, no window): in fast-turnover suburbs the share drifts upward and is not bounded by 1, yet renders as 'X% of listings cut'. (Prod currently shows 0 rows with share>1 \u2014 a latent, not live, overflow; the epoch mismatch is live.)",
+   "evidence": "migrations/000077_add_suburb_listing_stats.up.sql:16-23 ('recent sales' comment, no time predicate); 000086_price_drops_rollups.up.sql:135-140 vs :36/:97/:192 (30-day windows on drops only); :36-38+61-80 and :97-100+121-153 (windowed numerator / unwindowed is_active denominator, dropped_listing_count/total_active_listings); data-finder prod check 2026-08-09: 0 rows dropped_share>1 today.",
+   "suggested_fix": "Rebuild with a rolling sold window (6-12 months keyed off the sold-status transition timestamp) and rename/annotate the columns; for the share, either restrict the numerator to still-active addresses or denominate by addresses active within the same 30-day window; document the chosen semantics on the MV.",
+   "effort": "M",
+   "merged_from": "schema (sold window), schema (dropped_share populations)"
+  },
+  {
+   "id": "F16",
+   "area": "mv_housing_headline window definition (000054)",
+   "severity": "medium",
+   "type": "risk",
+   "title": "mv_housing_headline QoQ/YoY LAG windows do not partition by source \u2014 a second quarterly public source for any existing region\u00d7measure\u00d7dwelling silently corrupts deltas",
+   "detail": "The base table's unique key includes source, but the MV's LAG window is PARTITION BY region_code, measure, dwelling_type ORDER BY period with no source term. Today each quarterly public source owns disjoint keys (abs_res_dwell_st\u2192national/state, abs_res_dwell\u2192GCCSA, sa_metro\u2192SA suburbs; crawl rows excluded by the licence gate; annual VG rows by period_freq) so no collision exists yet \u2014 but the schema explicitly anticipates more sources ('vic_vpsr | sa_metro | nsw_psi | domain_api'). The moment two Q-frequency public sources cover the same key, rows interleave in one window: LAG(1) can land on the SAME period from the other source (QoQ becomes a source-vs-source delta), LAG(4) stops meaning one year, and the rn=1 tie-break is arbitrary. LAG(4)=YoY also silently mis-computes across any gap quarter within a single source.",
+   "evidence": "migrations/000054_housing_licence_gate.up.sql:16-29 (window sans source; LAG(1)/LAG(4)); 000053_add_house_prices.up.sql:28-34 (multi-source design + per-source unique key).",
+   "suggested_fix": "Rebuild the MV to pick one preferred source per (region, measure, dwelling, period) via ranked DISTINCT ON before windowing, or add source to the window partition + MV key and let the read path choose.",
+   "effort": "M",
+   "merged_from": "schema (sole reporter; kept as-is)"
+  },
+  {
+   "id": "F17",
+   "area": "HousingService API \u2014 GetSuburbProfile",
+   "severity": "medium",
+   "type": "bug",
+   "title": "GetSuburbProfile always returns politician_property_count=0 while ListStateSuburbs returns the real count \u2014 a public documented field is wrong on 1 of the 2 RPCs carrying it",
+   "detail": "SuburbSummary.politician_property_count (field 31) is populated only by ListStateSuburbs. GetSuburbProfile's store query has no join to mv_register_suburb_property and the handler's summary construction never sets PoliticianPropertyCount, so any API consumer reading profile.summary.politician_property_count gets a hard 0 even for the ~335 suburbs with declared register properties. The site dodges it (suburb pages use the separate ListSuburbPoliticians RPC), so the wrong value is API-surface-only today \u2014 but it is a documented VISIBILITY_PUBLIC field returning wrong data.",
+   "evidence": "house_prices.go:204-228 (no PoliticianPropertyCount in the summary literal) vs :135; postgres_house_prices.go:362-435 (no mv_register_suburb_property join) vs :310-312 + scan :352; housing.proto:206.",
+   "suggested_fix": "Add the mv_register_suburb_property LEFT JOIN + scan to GetSuburbProfile's query and copy the field in the handler (mirroring the crime-rank copy at house_prices.go:275-282).",
+   "effort": "S",
+   "merged_from": "api (sole reporter; kept as-is)"
+  },
+  {
+   "id": "F18",
+   "area": "public housing API contract consistency",
+   "severity": "medium",
+   "type": "bug",
+   "title": "Public API contract inconsistencies: case-sensitive state codes on 2 of 4 RPCs, empty-200 instead of InvalidArgument (negative-cached 5 min), silent degradation with zero logging, stale proto docs, and uncapped >40% typo events in raw history",
+   "detail": "(a) ListSuburbPriceDrops and ListStateSuburbs filter state_code case-sensitively while ListAddressPriceDrops/ListAgencyPriceStats normalize \u2014 `state_code:\"nsw\"` silently returns an empty 200 (then negative-cached) on two of four public RPCs while identical requests work on the others. (b) GetPropertyHistory returns an empty 200 for a missing address_key (sibling RPCs return CodeInvalidArgument), so consumers can't distinguish bad request / unknown address / kill-switch-off; the empty result is produced inside GetOrSet so unknowns are cached 5 min \u2014 the server layer has no equivalent of the web KV never-cache-empty guard. (c) GetSuburbProfile swallows similarSuburbs/suburbCrime errors with no logging, so a persistent failure (e.g. MV missing pre-hand-apply) silently strips profile sections. (d) housing.proto documents sort as count|avg|max but the store+UI also support 'asking' and 'sold', and window_days is declared reserved and silently ignored \u2014 the stale doc is duplicated on the legacy service the public OpenAPI is generated from. (e) GetPropertyHistory's raw timeline returns 65 uncapped price_drop events >40% (max 91.8% \u2014 listing-typo corrections) that every board/aggregate path caps, so a viewed address can render '-91.8%' as a real cut, unannotated.",
+   "evidence": "postgres_house_prices.go:709/:327 (= $1) vs :1146/:1328 (UPPER); house_prices.go:682 (only ListAgencyPriceStats normalizes), :475-477 vs :433-435, :482-491 + cache.go:107-113 (empty cached); postgres_house_prices.go:462-467 (two `if err == nil` blocks, no log) vs house_prices.go:518-523; housing.proto:341-343 vs postgres_house_prices.go:676-687 + suburb-price-drops-panel.tsx:11; prod: 65 events drop_pct>0.4, max 0.9179, uncapped query at postgres_house_prices.go:959-965.",
+   "suggested_fix": "Uppercase/trim state_code in all four handlers before cache key + store call; return CodeInvalidArgument for empty address_key and skip Set for empty responses; log degradations at Warn; fix the proto field comments on both copies; tag >40% events as 'likely correction' in the timeline response.",
+   "effort": "S",
+   "merged_from": "api (state-code case), api (empty-200 + negative caching), api (silent swallow), api (stale proto sort docs + dead window_days), data (65 uncapped >40% events)"
+  },
+  {
+   "id": "F19",
+   "area": "housing handler cache keys",
+   "severity": "medium",
+   "type": "risk",
+   "title": "Cache keys built from raw un-normalized params on 5 of 6 drops/suburb RPCs \u2014 duplicate-entry fanout and unbounded distinct-key cache fill by anonymous callers",
+   "detail": "Only ListAgencyPriceStats normalizes inputs before building its cache key. ListSuburbPriceDrops, ListSuburbDropListings, ListAddressPriceDrops, ListStateSuburbs and ListHousingRegions key on raw request values while the store clamps them afterwards (limit<=0||>200 \u2192 50; windowDays<=0||>365 \u2192 90), so windowDays=0 and 90, limit=0 and 50 hold duplicate entries for identical responses \u2014 and free-text params (ListStateSuburbs.query, ListHousingRegions.query, GetHousingOverview.region_type) let an anonymous caller (30 req/min/IP) mint one new in-memory cache entry per request, each ListStateSuburbs entry up to a ~5,000-row response, with cleanup only evicting expired entries every 5 min. All inputs are IN the keys, so this is fanout/memory growth, not cross-poisoning.",
+   "evidence": "house_prices.go:368,439,595,110,330 (raw m.* into key builders) vs :680-693 (normalized, with explanatory comment); store clamps at postgres_house_prices.go:1103-1108 etc.; NewMemoryCache(5*time.Minute) at server.go:35; cache.go:147-165 (eviction).",
+   "suggested_fix": "Hoist the store's clamp/normalize rules into the handlers (shared helper) before cache-key construction, matching the ListAgencyPriceStats and register-layer patterns.",
+   "effort": "S",
+   "merged_from": "api (sole reporter; kept as-is)"
+  },
+  {
+   "id": "F20",
+   "area": "CI test gating (housing licence controls)",
+   "severity": "medium",
+   "type": "risk",
+   "title": "The dual-service proto parity test and all 20+ kill-switch regression tests do not gate PRs \u2014 a drifted visibility annotation or broken kill switch merges green",
+   "detail": "proto_parity_test.go is the sole enforcement of the housing dual-add contract (each of the 11 HousingService rpcs must exist on the legacy service with identical types and visibility/required_role annotations), and house_prices_test.go holds the HOUSING_DROP_LISTINGS_ENABLED kill-switch regression suite. Both live in the run-tests job skipped on PRs (`if: github.event_name != 'pull_request'`). A drifted visibility annotation (silently making one mounted path auth-required or public) or a broken kill switch merges green and only fails post-merge at deploy time. Known repo-wide gap (documented for politicians), but here it specifically guards the housing licence-exposure controls (F07/F08's only runtime gate).",
+   "evidence": "terraform-deploy.yml:1488-1491 (run-tests skipped on PRs); proto_parity_test.go:19-83; house_prices_test.go has 13+ t.Setenv(\"HOUSING_DROP_LISTINGS_ENABLED\", ...) tests.",
+   "suggested_fix": "Run at minimum the fast unit slice (proto parity + house_prices kill-switch tests) in a PR-triggered job; keep testcontainers integration post-merge if cost is the concern.",
+   "effort": "M",
+   "merged_from": "api (sole reporter; kept as-is)"
+  },
+  {
+   "id": "F21",
+   "area": "house_price_ingest_runs cursor",
+   "severity": "medium",
+   "type": "bug",
+   "title": "A failed run clobbers the source's cursor \u2014 last_period and rows_upserted overwritten with NULL/0, destroying the 'when did this last succeed' forensics",
+   "detail": "On any error, runOfficial calls updateRun(..., nil, 0, 'error', ...) and the ON CONFLICT DO UPDATE unconditionally overwrites last_period, rows_upserted and status. The table is one-row-per-source (PK source) with no history. Live proof: prod vg_vic has last_period=NULL and rows_upserted=0 despite 7,938 vg_vic rows to 2024-12-31 in house_prices \u2014 after one failed run you can no longer tell when a source last worked or how much it loaded, which is exactly the forensics needed for the F01 breakage.",
+   "evidence": "store.go:114-123 (unconditional overwrite); main.go:372,377,382,388; migrations/000053:44-51 (PK source); prod: vg_vic \u2192 last_period NULL / rows 0 vs house_prices vg_vic 7,938 rows max(period) 2024-12-31.",
+   "suggested_fix": "On status='error', preserve last_period/rows_upserted (COALESCE against the existing row) and only update status/detail/last_fetched_at; or add an append-only run-history table.",
+   "effort": "S",
+   "merged_from": "pipeline (sole reporter; kept as-is)"
+  },
+  {
+   "id": "F22",
+   "area": "jobs consolidation \u2014 services/jobs/internal/jobs/houseprices",
+   "severity": "medium",
+   "type": "cleanup",
+   "title": "The jobs-binary houseprices fork is a ~100-file copy of the collector, drifting since PR #358 and wired into nothing \u2014 a future cutover would silently ship stale code",
+   "detail": "The Phase-2d port (#358, the only commit ever to that dir) copied essentially the entire collector. The standalone has since received #404/#405/#407 (delist completeness, CDP crash isolation, Chrome wedge fixes) which the fork lacks: diff -rq shows ~100 differing files plus 3 test files that exist only in the standalone, with size drift on behavioral files (crawl_cdp.go 13.2K vs 9.5K, crawl_chrome.go 12.3K vs 9.1K). Meanwhile the deployed artifact is still the standalone (CI builds services/house-price-collector/Dockerfile; both envs use module house_price_collector; no 'houseprices' shorted-job module in either env). Every fix needs double maintenance, and a future cutover to the jobs binary would silently ship the stale fork.",
+   "evidence": "git log services/jobs/internal/jobs/houseprices \u2192 single commit 011259088 (#358); git log services/house-price-collector \u2192 #404/#405/#407 after it; diff -rq \u2192 ~100 files differ + 3 standalone-only tests; grep houseprices terraform/environments/{dev,prod}/main.tf \u2192 0.",
+   "suggested_fix": "Either finish the cutover now (re-sync from the standalone, add the shorted-job module, delete the standalone) or delete the fork until the consolidation wave reaches housing \u2014 do not leave both.",
+   "effort": "L",
+   "merged_from": "pipeline (sole reporter; kept as-is)"
+  },
+  {
+   "id": "F23",
+   "area": "official ingest \u2014 derived index + dead measures",
+   "severity": "medium",
+   "type": "bug",
+   "title": "price_index_derived was built to replace the frozen 2021-Q4 RPPI on /housing but was never wired \u2014 and 15 of 21 ingested measures (~7,800 rows) have no consumer while the overview RPC ships them all",
+   "detail": "ingestDerivedPriceIndex exists explicitly to give /housing a current-quarter index line (RPPI is frozen at 2021-Q4 upstream). The data is live in prod (531 rows, latest 2026-03-31) but has ZERO consumers \u2014 the '8-capital price index' BigStat still reads measure='price_index' and renders the RPPI value frozen at 2021-12-31 (labelled '(to 2021)', so stale-but-honest). More broadly only 6 of 21 measures are consumed anywhere; the rba_f6/f11/d1/e1 ingests exist purely to feed measures nothing reads (~7,800 rows re-fetched and re-upserted monthly as dead weight), GetHousingOverview returns every quarterly measure unfiltered so unconsumed series pad the /housing payload on every request, and idx_house_prices_source is pure write amplification (no query filters house_prices by source; the hot-query index fit is otherwise verified good).",
+   "evidence": "abs.go:364-368 (stated intent); prod: price_index_derived 531 rows max 2026-03-31 vs price_index 74 rows max 2021-12-31; grep price_index_derived web/src services/shorts \u2192 0 hits; housing/page.tsx:98,211-212; prod measure counts (21 measures, 6 consumed); rba.go:118-150; postgres_house_prices.go:54-67 (no measure filter); migrations/000053:41 + grep 'WHERE source' \u2192 zero house_prices hits.",
+   "suggested_fix": "Switch the tile (and/or a series chart) to price_index_derived with 'derived from mean price' labelling; demote abs_rppi to a one-time historical load; either build the rates/credit panel the other measures were ingested for or drop the four unused RBA ingests and filter the overview to a measure allowlist; drop idx_house_prices_source in the next housing migration.",
+   "effort": "M",
+   "merged_from": "pipeline (derived index unwired), pipeline (15 unconsumed measures + unfiltered overview), schema (unused idx_house_prices_source)"
+  },
+  {
+   "id": "F24",
+   "area": "housing maps accessibility & input handling",
+   "severity": "medium",
+   "type": "bug",
+   "title": "Flagship housing maps are keyboard/screen-reader inaccessible or unusable: zoom map has zero keyboard access, state maps expose ~4.5k sequential tab stops, and touch/wheel handling hijacks page scroll",
+   "detail": "(a) housing-zoom-map.tsx state and suburb paths have onClick/onPointerMove only \u2014 no tabIndex, role, aria-label or onKeyDown anywhere; StateHoverCard stats are hover-only. Keyboard and SR users cannot enter a state or open a suburb from /housing at all \u2014 a regression vs the shared ChoroplethMap which implements the full pattern. (b) On /housing/[state], StateSuburbMap passes the whole topology to ChoroplethMap which maps ALL features (NSW 4,544; VIC 2,946 \u2014 the LOD/culling work was only applied to the zoom map); every data-bearing polygon gets tabIndex=0, so a keyboard user faces ~4.5k sequential tab stops, and each hovered-id change re-renders all paths (renderPath unmemoized). (c) Both maps set touchAction:'pan-y' so a zoomed-in map can't be one-finger repositioned on touch, while d3-zoom's unfiltered wheel handler captures plain scroll over the 460-520px map on desktop with no escape affordance.",
+   "evidence": "rg 'tabIndex|onKeyDown|aria-label' housing-zoom-map.tsx \u2192 only the svg aria-label (line 273) vs choropleth-map.tsx:238-246 (full keyboard pattern); choropleth-map.tsx:274 (features.map, no culling), :238 (tabIndex=0 per polygon); NSW.topojson = 4,544 geometries; touchAction at choropleth-map.tsx:263 + housing-zoom-map.tsx:274; rg '\\.filter\\(' on both zoom behaviours \u2192 0.",
+   "suggested_fix": "Reuse the ChoroplethMap keyboard pattern on the zoom map's state layer; adopt a roving tabindex (one tab stop, arrow keys move selection) on both maps; memoize paths or apply the existing cullFeatures helper at deep zoom; gate wheel-zoom behind ctrl/\u2318 via d3-zoom .filter() and allow two-finger touch pan.",
+   "effort": "M",
+   "merged_from": "frontend (zoom map a11y), frontend (4.5k tab stops + unmemoized renders), frontend (touch/wheel handling)"
+  },
+  {
+   "id": "F25",
+   "area": "OG share cards (housing/price-drops routes)",
+   "severity": "medium",
+   "type": "risk",
+   "title": "The OG brand logo (icon-512.png) is not traced into the housing/price-drops card lambdas \u2014 the fs fallback is a network fetch that Cloudflare bot-protection 403s",
+   "detail": "getOgLogo reads public/icon-512.png via a for-loop over a path array \u2014 commit 8c120a352 (#416) measured that nft does not trace readFileSync in the OG card routes at all, and its fix only added the scene JPEGs and states.topojson to outputFileTracingIncludes, never icon-512.png. In the lambda the fs read fails and falls through to a network fetch of shorted.com.au/icon-512.png \u2014 the class of server-side fetch Cloudflare bot-protection 403s (reproduced in this audit: curl with a full browser UA \u2192 403). Likely result: /housing/[state], /price-drops and /housing/calculators share cards render without the brand logo chip on prod.",
+   "evidence": "card.tsx getOgLogo for-loop over [\"public/icon-512.png\", \"public/logo.png\"]; next.config.mjs:392-397 outputFileTracingIncludes has no icon/logo entry for any og route; commit message 8c120a352; curl -A <Chrome UA> https://shorted.com.au/housing/vic/aberfeldie \u2192 403 (same CF posture applies to the icon fetch).",
+   "suggested_fix": "Add ./public/icon-512.png (and logo.png) to outputFileTracingIncludes for every OgCard-based route (or one wildcard entry), then verify the route's .nft.json lists it, as #416 did.",
+   "effort": "S",
+   "merged_from": "frontend (sole reporter; kept as-is)"
+  },
+  {
+   "id": "F26",
+   "area": "dead legacy suburb-explorer + hardcoded coverage copy",
+   "severity": "medium",
+   "type": "cleanup",
+   "title": "The redirected /housing/suburbs page and its whole component cluster still build and ship, and 'Valuer-General coverage spans SA & VIC' is string-hardcoded in 3 live places",
+   "detail": "next.config.mjs permanently 301s /housing/suburbs \u2192 /housing (deprecated 2026-06-29), yet the route + chain still compile: page.tsx (ISR, 131kB first-load per bundle-baseline), suburb-explorer.tsx, suburb-explorer-loader.tsx, suburb-map.tsx and its 50.3K suburb-centroids.json \u2014 none reachable. getHousingSuburbUrls in getHousingSitemap.ts is likewise unimported (sitemap.ts re-implements it inline \u2014 see F03). Separately, the VG coverage claim 'SA & VIC' is hardcoded in the state-explorer empty state, the suburb-profile chart empty state, and the dead page's metadata (plus a comment) \u2014 accurate today only because the NSW ingest hasn't landed (F01); the moment vg_nsw flows, three user-facing strings silently become wrong. CLAUDE.md:515 also still documents a national-housing-map.tsx that no longer exists (replaced by housing-zoom-map.tsx).",
+   "evidence": "next.config.mjs:274 (redirect); importer graph: suburb-explorer \u2190 only the redirected page; suburb-centroids.json \u2190 only suburb-map; getHousingSuburbUrls \u2192 0 importers; docs/perf/bundle-baseline.json /housing/suburbs 131kB; grep 'SA & VIC|SA &amp; VIC' \u2192 5 hits (state-suburb-explorer.tsx:139, suburb-profile.tsx:161, suburb-explorer.tsx:164, state-suburb-map.tsx:78, housing/suburbs/page.tsx:52); rg 'national-housing-map' \u2192 only CLAUDE.md:515.",
+   "suggested_fix": "Delete the page + explorer/map/loader/centroids cluster and getHousingSuburbUrls (after F03 reuses or removes it); derive the covered-states list from the data (states where any suburb has latestMedianPrice > 0 \u2014 already fetched by both components); fix the CLAUDE.md housing table row.",
+   "effort": "S",
+   "merged_from": "frontend (dead cluster), product (hardcoded 'SA & VIC' copy + dead page)"
+  },
+  {
+   "id": "F27",
+   "area": "crawl deploy artifacts & operator runbook",
+   "severity": "medium",
+   "type": "risk",
+   "title": "Committed deploy artifacts rebuild the rejected rig: templates schedule the block-prone night hours, the README installs the retired legacy runner and documents a wrong env var, and drain rounds buffer ~48 min of logs",
+   "detail": "(a) The committed launchd templates fire at 03:00 (delta) / 02:00 (full), but REA/Kasada clearance measurably degrades late-night (twin rc=3 circuit trips ~00:22-00:30), which is why the ACTUALLY-INSTALLED plists run 10:00/08:00 \u2014 a fresh operator or new rig following deploy/README.md restores the bad night schedule the production experience rejected. (b) README traps: it documents CRAWL_RESUME_WINDOW_H but the code reads CRAWL_LISTINGS_RESUME_WINDOW_H (setting the documented var is a silent no-op); its 'One-time per Mac' section installs the LEGACY com.shorted.housing-crawl static-shard runner, retired on the live rig in favour of delta/full; and the five-silent-outage-modes diagnosis checklist exists only in auto-memory, not the runbook. (c) hc_drain_until_empty captures a whole -mode agent round (out=\"$($BIN -mode agent 2>&1)\") and only appends to the log at round end (~48 min for 20 jobs), which already caused a live run to be misdiagnosed as a stall.",
+   "evidence": "deploy/com.shorted.housing-delta.plist.template Hour=3 / housing-full Hour=2 vs installed ~/Library/LaunchAgents Hour=10/8 (verified 2026-08-09); memory residential-ip-scaling.md (daytime-on-purpose); deploy/README.md:317 vs crawl_listings.go:114 (env name); README:40-61 (legacy runner install); housing-crawl-common.sh:128-131 (buffered capture); memory housing-crawl-outage-modes.md diagnosis note.",
+   "suggested_fix": "Change the templates to the proven daytime hours with the Kasada rationale in a comment; fix the env name; restructure the README so delta/full is the primary path (legacy runner marked deprecated) and port the outage-modes checklist into it; stream drain output via tee -a while capturing (preserves the grep contracts).",
+   "effort": "S",
+   "merged_from": "crawl (night-hour templates), crawl (runbook drift: env name / legacy runner / missing checklist), crawl (buffered drain logs)"
+  },
+  {
+   "id": "F28",
+   "area": "docs/housing-architecture.md \u2014 actively false guidance",
+   "severity": "medium",
+   "type": "docs",
+   "title": "The monolith gives actively wrong instructions: \u00a78/recipe F claim the collector Terraform is 'NOT yet wired' (it is live in both envs + CI), and \u00a74/recipe D direct new RPC work at shorts.proto \u2014 the forbidden bundle-budget import path",
+   "detail": "(a) \u00a78 says 'Terraform module (built, NOT yet wired)' and even claims this was 'verified \u2014 no references in terraform/environments/ or the CI matrix'; recipe F is a 4-step guide to finish the wiring. All false: the module is instantiated in both environments, the image is in the CI build matrix, and the plan var is passed (PR #211). An agent following it would re-do the wiring or assume no scheduled prod ingest exists and double-run manual ingests against prod. (b) \u00a74 says 'Proto (\u2026shorts.proto)' and shows createClient(ShortedStocksService, transport); recipe D says 'Proto in shorts.proto'. Post proto-split (#326/#327), housing rpcs live in housing.proto under HousingService and importing shorts_pb from web code drags the full legacy descriptor into the route bundle (bundle:budget catches it). \u00a710.4 documents the split correctly, so the doc contradicts itself; CLAUDE.md is correct on both points \u2014 the monolith was never updated.",
+   "evidence": "docs/housing-architecture.md:432-436, 460, 498-504 vs terraform/environments/dev/main.tf:130, prod/main.tf:185, terraform-deploy.yml:283-284/464/1102 (grep house_price_collector = 10 hits); housing-architecture.md:144,149,492 vs housing.proto:12-62 + getHousing.ts:5,27 (HousingService from housing_pb).",
+   "suggested_fix": "Rewrite \u00a78 as 'wired since PR #211; a merge to main deploys it; monthly scheduler'; delete recipe F or repoint it at adding env vars to the existing module; rewrite \u00a74/recipe D to: rpc in housing.proto + dual-add to the legacy service, web imports from housing_pb only.",
+   "effort": "S",
+   "merged_from": "docs (TF 'not wired' claim, orig high), docs (\u00a74/recipe D shorts.proto guidance)"
+  },
+  {
+   "id": "F29",
+   "area": "docs coverage \u2014 collector modes, subsystems, RPCs",
+   "severity": "medium",
+   "type": "docs",
+   "title": "The canonical docs cover a fraction of the shipped surface: 7 of 22 collector modes in the monolith, 11 of 22 in CLAUDE.md, 7 of 11 RPCs, 4 of 16 official jobs, no NSW-VG licence row, entire subsystems (details/property/local-insights) and no package README",
+   "detail": "main.go accepts 22 modes; the monolith's intro lists 7 and \u00a74 lists 4. Entire shipped subsystems have zero mentions: -mode details (listing detail pages, 000087, ~55KB of code), -mode property (property.com.au AVM: 000088/000091, ~104KB, its own launchd wrapper), purge, backfill-address, and the local-insights modes (lga/connectivity/funding/council-financials) \u2014 Local Insights is still labelled '(in progress)' in the intro despite being merged and live (#229/#232). \u00a74 documents 4 official-ingest jobs vs runOfficial's 16, and \u00a77's licence table omits the NSW Valuer-General \u2014 the audit surface for what is republishable. The always-injected CLAUDE.md housing section lists 11/22 modes and 7/11 housing RPCs (omitting ListSuburbPriceDrops, ListSuburbDropListings, ListAddressPriceDrops, GetPropertyHistory). The ~110-file collector package has no README \u2014 orientation requires reverse-engineering main.go's 22-way switch. This drift propagates into every agent session's working model.",
+   "evidence": "main.go:25 (22 modes) vs housing-architecture.md:11 (7), :137 (4); grep -c 'mode details|mode property|property_valuations|listing_details' housing-architecture.md = 0; :13 ('in progress') vs migrations 000061-064/066/067 on main + amenities.go/lga.go/connectivity.go/fags.go/vic_council_financials.go; :391 (VG 'SA, VIC' \u2014 nsw_vg.go absent); CLAUDE.md housing rows vs housing.proto:12-62; ls services/house-price-collector/README* \u2192 none.",
+   "suggested_fix": "Execute the docs/feature/housing/ split with pipeline.md as the canonical mode/job table (regenerated from main.go), data-sources.md carrying the licence table incl. NSW VG, and a two-screen package README; shrink the CLAUDE.md housing section to a pointer block like the politicians section, removing every enumerated list that can drift.",
+   "effort": "M",
+   "merged_from": "docs (7/22 modes, orig high), docs (4/16 jobs + NSW VG licence row), docs (Local Insights 'in progress'), docs (CLAUDE.md 11/22 modes + 7/11 RPCs), docs (no package README)"
+  },
+  {
+   "id": "F30",
+   "area": "docs/memory \u2014 stale scale figures and resolved-issue status",
+   "severity": "medium",
+   "type": "docs",
+   "title": "Docs and memory understate crawl scale ~7x and record fixed issues as open: catalog '115' (actual 500), corpus '~12k/22k/26k' (actual 88,689), delist asymmetry inverted, brandbrain #168 'unmerged' (merged 2026-07-16), property AVM 'branch-only' (merged with scheduler)",
+   "detail": "crawl_targets.go holds 500 entries but '115 suburbs' persists in the monolith (lines 279, 355, 496, and 629 \u2014 where the blurb-backfill cost estimate is therefore ~4.3x understated; line 363 correctly says 25\u2192115\u2192500, so the doc contradicts itself) and in CLAUDE.md. The corpus is stated as ~22k (monolith intro), ~12,151 across 67 suburbs (\u00a76.8), ~12k (CLAUDE.md) and ~26k (memory) \u2014 actual prod: 88,689 listings across 500 suburbs, none of the figures dated. Status drift is worse than scale drift: \u00a76.8 lists brandbrain #168 as 'Open follow-up (unmerged)' instructing manual re-enqueues no longer needed (it MERGED 2026-07-16; crawl_agent_retry_test.go covers it); memory housing-crawl-rea-truncation.md says REA delisting 'NEVER runs (19 vs Domain 2,574)' \u2014 fixed and inverted (REA 2,498 vs Domain 1,354); memory property-com-au-crawler.md says the AVM crawler is an unmerged branch scaffold \u2014 it is on main with 000088/000091 and its own launchd wrapper. Future sessions will mis-scope by ~7x, chase fixed bugs, or re-scope shipped work.",
+   "evidence": "grep -cE crawl_targets.go = 500 (one finder counted 501); housing-architecture.md:8,279,353,355,363,496,629; CLAUDE.md '115-suburb catalog'/'~12k \u2026 67 suburbs'; prod: 88,689 listings / 500 distinct region_codes; gh pr view 168 -R skunkworq/brandbrain \u2192 MERGED 2026-07-16; delist events rea 2,498 / domain 1,354 vs documented 19/2,574; ls: crawl_property*.go + 000088/000091 + run-housing-property.sh + com.shorted.housing-property.plist.template all on main.",
+   "suggested_fix": "One dated corpus/catalog stat line in docs/feature/housing/README.md refreshed from a query (politicians-README pattern), deleting every other inline count; fix \u00a76.8 to 'blocked suburbs auto-retry (brandbrain #168, live 2026-07-16)'; mark the rea-truncation memory resolved with current numbers; update the property-com-au memory to merged status.",
+   "effort": "S",
+   "merged_from": "docs (115 in five places), docs (contradictory corpus counts), docs (#168 stale), data (CLAUDE.md/memory scale + delist asymmetry), docs (property AVM memory stale)"
+  },
+  {
+   "id": "F31",
+   "area": "official ingest plumbing",
+   "severity": "low",
+   "type": "cleanup",
+   "title": "Official-tier plumbing debt: RES_DWELL_ST fetched 3x + WPI 2x per run, the extracted absdata client unused by the tier it was extracted from, and content_hash is write-only with docs claiming change-gating that doesn't exist",
+   "detail": "(a) Each monthly run hits ABS for RES_DWELL_ST three times (ingestRESDWELLST, ingestDerivedPriceIndex, ingestPriceToIncome) and WPI twice \u2014 redundant downloads against a WAF-fronted endpoint, and a partial failure can leave derived indexes one quarter behind their base data. (b) pkg/absdata declares itself 'Extracted from house-price-collector' yet only crime_erp.go imports it; the 16-job official tier runs on private abs.go/rba.go duplicates with a diverged User-Agent \u2014 WAF-posture fixes must land twice (three times counting the jobs fork). (c) content_hash is computed and stored but nothing reads it: the TF module comment claims the revalidation ping 'fires only when the data changed' but pingRevalidate fires unconditionally after every refresh and upsertObservations rewrites all rows regardless of change; the 000053 column comment also mis-describes the hash as excluding the value (it includes it). Behavior is safe today (idempotent ping) \u2014 the docs describe a mechanism never implemented.",
+   "evidence": "abs.go:122, abs.go:369, abs_affordability.go:85-92 (five fetchABSCSV calls, two dataflows); pkg/absdata/absdata.go:1-3 vs grep absdata in collector \u2192 only crime_erp.go; abs.go:19-22 (diverged UA); modules/house-price-collector/main.tf:81-83 vs main.go:340-342; store.go:45-49,90-93 (hash written, includes value, never read) vs migrations/000053:32; prod/main.tf:193-196.",
+   "suggested_fix": "Fetch each dataflow once per run and pass rows to the parsers (already [][]string); port the fetch/parse helpers onto absdata and delete the private layer; either fix the TF comment or implement it (WHERE content_hash IS DISTINCT FROM EXCLUDED.content_hash + gate the ping on changed-rows > 0); correct the 000053 column comment.",
+   "effort": "M",
+   "merged_from": "pipeline (triple fetch), pipeline (absdata unused), pipeline (revalidation comment + write-only content_hash), schema (content_hash comment wrong)"
+  },
+  {
+   "id": "F32",
+   "area": "migration hygiene",
+   "severity": "low",
+   "type": "cleanup",
+   "title": "Migration hygiene debt: five stale 000083-era pointers land hand-appliers on economy migrations, a dead to_jsonb compat shim runs per-row, 000090+000092 must be treated as an atomic pair, and 000056's down wipes all sal_code links",
+   "detail": "(a) After the 000083\u2192000084/000086 renumber, stale references remain: postgres_house_prices.go comments at :689/:800/:1188 cite '000083' (actually 000086), 000086's down.sql is headed 'Revert 000083', and banners.go:17 says the banner columns come from '000081' (actually 000084) \u2014 under the hand-apply prod regime (F06) these pointers land operators on state-exposure/economic-series files. The related shim `COALESCE((to_jsonb(d) ->> 'dropped_value')::float8, 0)` still serializes every MV row to jsonb per output row though the rebuild has been live on prod since 2026-07-21. (b) The committed 000090 crime MV lacks the `unreliable` column both store read paths filter on \u2014 an environment stopped at 000090/000091 breaks ListStateSuburbs (whole state map) with undefined-column until 000092 lands; treat them as atomic in any hand-apply runbook (or squash). (c) 000056's down is `UPDATE ... SET sal_code = NULL WHERE region_type='suburb'` \u2014 it wipes every suburb\u2192SAL bridge including collector-created links, blanking price data on every suburb page until the next ingest re-links (re-derivable, but worth documenting as lossy).",
+   "evidence": "grep '000083' postgres_house_prices.go \u2192 :689,:800,:1188; 000086_price_drops_rollups.down.sql:1; banners.go:17; postgres_house_prices.go:689-704 (shim); 000090:52-59 vs 000092:10-19 + store filters at postgres_house_prices.go:269,475; 000056_backfill_region_sal_code.down.sql:1 + read-path joins at postgres_house_prices.go:307,417.",
+   "suggested_fix": "Sed the five comments; select d.dropped_value directly and drop the shim; note the 000090+000092 pairing in the (F06) migration map; document the lossy 000056 down.",
+   "effort": "S",
+   "merged_from": "schema (stale renumber pointers), api (to_jsonb shim), schema (000090/000092 pair), schema (lossy 000056 down)"
+  },
+  {
+   "id": "F33",
+   "area": "suburb crime publication",
+   "severity": "low",
+   "type": "bug",
+   "title": "Crime rank 0 'no data' sentinel collides with genuinely safest suburbs after 1-decimal rounding, and the editorial-standards doc has no crime section despite governing the surface",
+   "detail": "(a) The population-weighted percentile guarantees pct_rank > 0 for every covered suburb \u2014 which is what makes 0 usable as the no-data sentinel (highlight-metrics maps 0 \u2192 no-data hatch). But ListStateSuburbs rounds to 1 decimal, so any covered suburb with true rank < 0.05 (each state's safest gated suburb is always in this zone) rounds to 0.0 and renders 'no data' instead of 'safest' on the choropleth crime metrics; the profile CrimeCard path is unaffected. (b) The suburb crime surface labels named suburbs on a yellow\u2192red 'danger ramp' \u2014 reputationally sensitive publication of exactly the character docs/influence-editorial-standards.md exists to govern, yet it contains zero crime coverage (it scopes itself to Track A). The implemented gating is strong (small_pop + unreliable baked into the MV, WA ToU rows excluded, BOCSAR attribution inline) but exists only as code+migration comments \u2014 a future contributor adding VIC/QLD crime or a 'most dangerous suburbs' page has no written rule against ungated small-pop publication or league-table framing.",
+   "evidence": "crime_compute.go:16 (min rank > 0); postgres_house_prices.go:302-304 (ROUND(...,1) + COALESCE 0); highlight-metrics.ts:41,289 (0 \u2192 null); grep -rn crime docs/influence-editorial-standards.md = 0; gating at 000092:9-19 + postgres_house_prices.go:259-271,471-476; attribution at suburb-profile.tsx:380-381.",
+   "suggested_fix": "Use -1 as the no-data sentinel (or per-type has_data booleans on SuburbSummary), or floor covered rows at 0.1 (GREATEST(ROUND(...,1), 0.1)); add a short 'sensitive area statistics' section to the standards doc codifying mandatory suppression on every read path, CVS-adjusted attributed rates, and no superlative framing on named suburbs.",
+   "effort": "S",
+   "merged_from": "licence (rank-0 sentinel collision), licence (no crime editorial standard)"
+  },
+  {
+   "id": "F34",
+   "area": "takedown / secret operational readiness",
+   "severity": "low",
+   "type": "risk",
+   "title": "Takedown-response gaps: flipping the drops kill switch leaves agency/agent/address data serving from web KV + ISR up to 24h, and REVALIDATION_SECRET travels as a URL query param with non-constant-time comparison",
+   "detail": "(a) HOUSING_DROP_LISTINGS_ENABLED is correctly checked before the backend cache, but the web layer independently caches flag-on responses \u2014 including agency names, agent personal names and per-address drops \u2014 in Upstash under PRICE_DROPS_TTL = 86400s, and /price-drops is static ISR (1h). A takedown response therefore needs three separate actions (env flip + ?flush=housing KV purge + ISR revalidate) that no runbook bundles; miss one and the content the switch exists to pull keeps serving up to 24h. (b) pingRevalidate puts the shared secret in the query string and /api/revalidate reads it from searchParams \u2014 recorded in Vercel edge/function logs and any intermediate proxy logs \u2014 and the comparison is non-constant-time. Storage is otherwise clean (Secret Manager mount, local rig env file).",
+   "evidence": "kv-cache.ts:124 (PRICE_DROPS_TTL 86400); getHousing.ts:167-277 (caches the four drops actions); house_prices.go:436,478,592,677 (backend-only flag check); revalidate.go:37-38 (q.Set(\"secret\", ...)); route.ts:39-43 (searchParams read, secret !== expectedSecret).",
+   "suggested_fix": "Add a one-shot takedown path (make target or admin flush endpoint) that flushes cache:housing:drops:* and revalidates /price-drops + /housing/[state], documented as one runbook step with the env flip; move the secret to an Authorization/X-Revalidate-Secret header (query fallback one release), compare with crypto.timingSafeEqual, rotate after cutover.",
+   "effort": "S",
+   "merged_from": "licence (kill-switch KV/ISR latency), licence (secret in query param)"
+  },
+  {
+   "id": "F35",
+   "area": "brandbrain data-contract scope (medians tier)",
+   "severity": "low",
+   "type": "risk",
+   "title": "The 'counts-only, no listing data crosses to brandbrain' contract holds for the listings/agent tier but not the medians tier, which POSTs full portal HTML to brandbrain's ExtractRealEstate",
+   "detail": "crawl_agent.go:24-25 and CLAUDE.md state 'no listing rows / addresses / PII ever cross to brandbrain', and the agent-queue path honours that (crawlJobSummary is tallies only). But the median tier (-mode crawl) deliberately POSTs entire rendered suburb SRP HTML \u2014 addresses, prices, agents \u2014 to api.brandbrain.dev's ExtractRealEstate LLM RPC. brandbrain is first-party infrastructure, but proprietary-ToS portal content leaving the rig contradicts the stated contract and the trace-hygiene posture ('trace artifacts hold portal data \u2192 local-only, never uploaded'). The contract statement is scoped wrong rather than the behaviour being new \u2014 but an auditor or maintainer reading either doc will draw the wrong conclusion.",
+   "evidence": "crawl_agent.go:24-25 (contract claim) vs crawl_brandbrain.go:15-30 + crawl.go:307 (extractRealEstate POSTs rendered HTML); deploy/README.md:380-381 (trace 'never uploaded to brandbrain').",
+   "suggested_fix": "Amend the contract comments/docs to scope counts-only to the listings/agent tier and explicitly document the medians tier's HTML\u2192ExtractRealEstate flow (retention + purpose), or retire the medians brandbrain path if the tier is dormant.",
+   "effort": "S",
+   "merged_from": "crawl (sole reporter; kept as-is)"
+  },
+  {
+   "id": "F36",
+   "area": "crawl CDP trace path",
+   "severity": "low",
+   "type": "bug",
+   "title": "Trace screenshot path lacks the #405 protections: nil-context panic can take the collector down and an unbounded Goto under the mutex can deadlock subsequent fetches",
+   "detail": "PR #405 hardened cdpFetcher.fetch with a nil-ctx guard, a wall-clock watchdog, and panic recovery. cdpFetcher.screenshot (CRAWL_TRACE full mode only) got none: it calls f.ctx.NewPage() with no nil check \u2014 after a failed reconnect nils f.ctx, a traced sweep panics on the main goroutine \u2014 and its page.Goto runs unbounded under f.mu, the exact pipe-hang class the fetch watchdog exists for (a hung screenshot also deadlocks subsequent fetches waiting on the mutex). Only reachable with tracing enabled, so blast radius is a debug run \u2014 but that is precisely when an operator is already fighting a flaky Chrome.",
+   "evidence": "crawl_cdp.go:282-310 (screenshot: f.ctx.NewPage() at :289, no nil guard, no watchdog) vs :107-111 (fetch nil guard) and :151-187 (fetchGuarded watchdog + recover).",
+   "suggested_fix": "Route screenshot through the same guarded pattern (nil-ctx check + watchdog goroutine with recover), or drop the screenshot on any error without touching shared state.",
+   "effort": "S",
+   "merged_from": "crawl (sole reporter; kept as-is)"
+  },
+  {
+   "id": "F37",
+   "area": "product polish \u2014 suburb profiles & internal linking",
+   "severity": "low",
+   "type": "bug",
+   "title": "'Dwellings' renders a permanent em-dash on all ~15.3k suburb profiles, and the flagship editorial + economy state pages are internal-linking dead-ends for the housing cluster",
+   "detail": "(a) suburb_demographics.dwelling_count exists in the schema (000055) and the profile UI renders a 'Dwellings' row, but the census ingester never populates it (census.go has zero dwelling mentions; the upsert column list omits it) \u2014 the stat has shown '\u2014' on every suburb page since launch, reading as a data bug. (b) The Widow-Maker (FEATURED[0] on the /news masthead) links only /shorts/[code] bank tickers \u2014 no link to /housing, /price-drops or /housing/calculators, all shipped after it; /housing never links the feature back; and /economy/[state] pages contain no link to the matching /housing/[state] suburb explorer. The strongest editorial asset and the state economy pages send zero internal-link equity to the housing surfaces.",
+   "evidence": "grep 'DwellingCount|dwelling' census.go \u2192 0; suburb-profile.tsx:175 (d?.dwellingCount ?? '\u2014'); live GetSuburbProfile(10463) has no dwellingCount; grep href /housing in the-widow-maker/page.tsx \u2192 0 (only /shorts/${c} at :429); grep '/housing' in app/economy/[state]/ + components/economy/ \u2192 0; grep 'the-widow-maker' across app/housing + components/housing \u2192 0.",
+   "suggested_fix": "Ingest G-table total private dwellings from the same 2021 GCP SAL DataPack (small census.go addition + re-run -mode census) or drop the row; add a live-data CTA block to the feature, a feature card on /housing, and a housing tile/link on /economy/[state] (state median already derivable from GetHousingOverview).",
+   "effort": "S",
+   "merged_from": "product (dwellings em-dash), product (internal-linking dead-ends)"
+  },
+  {
+   "id": "F38",
+   "area": "verified-clean baseline (context for synthesis)",
+   "severity": "low",
+   "type": "cleanup",
+   "title": "Verified-clean baseline: licence gate, kill-switch ordering, dual-proto visibility, KV empty-guard, MV k-anon depth suppression, crawl freshness and all 8 perf wins confirmed intact \u2014 plus three micro-cleanups",
+   "detail": "Recorded so synthesis does not re-flag: (1) all public house-price queries filter source_licence='proprietary-tos-restricted' (10 sites \u2014 the 2026-07 audit's 'housing licence-gate leak' is fully CLOSED, with integration tests asserting it; the memory note's 'uncommitted' framing is stale); (2) all four name-carrying RPCs check dropListingsEnabled() BEFORE the cache; (3) all 11 rpcs carry VISIBILITY_PUBLIC on both proto copies with the parity test comparing annotations; (4) the web KV layer never caches empty responses; (5) prod data guards hold as of 2026-08-09: drops MV max 39.8% \u2264 cap, 0 share>1 rows, agency k-anon depth suppression leak-free across all 880 n<3 rows, crime ranks in (0.01,99.9), 500/500 suburbs crawled within 7 days, ABS/RBA measures within normal lag; (6) all 8 housing perf wins (P1-P9) verified landed on main despite the memory index saying 'uncommitted'. Micro-cleanups carried from these verifications: delete the stale 'OFF by default' paragraph stacked above the newer on-by-default comment at house_prices.go:398-400; drop the dead `revalidate = 3600` export in calculators/page.tsx (page reads searchParams, deliberately dynamic); update the two stale memory index lines.",
+   "evidence": "grep -c source_licence filter in postgres_house_prices.go = 10; house_prices.go:436,478,592,677; housing.proto:12-64 + shorts.proto:628-740; getHousing.ts:162-171,236-245; prod aggregate SELECTs 2026-08-09 (drops/agency/crime/freshness/official-lag); git status main-local == origin/main with all P1-P9 cites confirmed; house_prices.go:398-406 (contradictory stacked comments); calculators/page.tsx:20 vs :57.",
+   "suggested_fix": "Keep as baseline numbers for the next audit; apply the three micro-cleanups (stale comment paragraph, dead revalidate export, memory index lines).",
+   "effort": "S",
+   "merged_from": "api (verified-clean controls), data (verified-clean rollup guards), frontend (perf wins all landed + calculators note), licence (licence-gate leak verified fixed + stale comment)"
+  }
+ ],
+ "verified": [
+  {
+   "id": "F01",
+   "area": "official ingest \u2014 state VG suburb medians",
+   "severity": "high",
+   "type": "bug",
+   "title": "State VG suburb-median ingest is broken: NSW has never landed a prod row; VIC is 403-blocked AND pinned to a 2014-2024 workbook",
+   "detail": "runOfficial() wires vg_nsw and vg_vic (main.go:364-366) but both fail on every scheduled run. NSW: prod house_prices has ZERO source='vg_nsw' rows \u2014 the tier shipped in PR #237/#239 has never populated prod ('no NSW PSI years fetched'; valuergeneral.nsw.gov.au sits behind a Cloudflare challenge that Cloud Run's datacenter egress does not clear; the code comment's 'verified: 200' was almost certainly a residential-IP check). Live product impact: NSW 0/4,544 suburbs priced, QLD 0/3,235, WA 0/1,701 vs VIC 739/3,076 and SA 426/1,764 \u2014 the flagship state's map silently falls back to population colouring and contributes 0 sitemap URLs. VIC: last success 2026-07-05 (7,938 rows), now 403-ing, and even when the fetch works it can never advance past Dec-2024 because vicXLSXURL is hardcoded to the 'houses-by-suburb-2014-2024.xlsx' asset (vic_vpsr.go:24) \u2014 every VIC suburb serves ~20-month-old official medians.",
+   "evidence": "Prod: SELECT count(*) FROM house_prices WHERE source='vg_nsw' \u2192 0; vg_vic \u2192 7,938 rows, max(period)=2024-12-31, last success 2026-07-05. house_price_ingest_runs 2026-08-05: vg_nsw|error|'no NSW PSI years fetched'; vg_vic|error|'fetch VIC xlsx: unexpected status: 403'. Live ListStateSuburbs: NSW 0/4,544 priced. Code: main.go:344-366; vic_vpsr.go:24 (pinned asset 756581); nsw_vg.go:34.",
+   "suggested_fix": "Run the NSW PSI ingest from an egress that clears the Cloudflare challenge (residential rig path like the listings tier, or a one-off scoped local run); discover the latest houses-by-suburb-*.xlsx asset at run time instead of pinning; add per-source 'has never succeeded' assertions so a source that never landed is loud.",
+   "effort": "M",
+   "merged_from": "pipeline (NSW+VIC VG failures), data (VIC pinned workbook + 403), data (NSW zero rows ever), product (NSW 0/4,544 priced, live RPC evidence)",
+   "verdict": {
+    "verdict": "CONFIRMED",
+    "severity": "high",
+    "note": "Every claim reproduced against code + prod. Code: main.go:364-366 wires vg_vic/vg_nsw; vic_vpsr.go:24 pins the 2014-2024 workbook (asset 756581) so VIC can never advance past Dec-2024; nsw_vg.go:100 'no NSW PSI years fetched' fires only when ALL yearly zip fetches fail. Prod DB: vg_nsw rows = 0 (never landed since #237/#239); vg_vic = 7,938 rows, max(period)=2024-12-31, max(fetched_at)=2026-07-05; house_price_ingest_runs 2026-08-05 shows vg_nsw error 'no NSW PSI years fetched' and vg_vic error 'fetch VIC xlsx: unexpected status: 403'. Coverage query reproduced exactly: NSW 0/4,544 priced, QLD 0/3,235, WA 0/1,701 vs VIC 739/3,076, SA 426/1,764. Product impact confirmed: state-suburb-map.tsx:78-88 silently falls back to population colouring when no suburb is priced, and sitemap.ts:546 gates suburb URLs on latestMedianPrice>0 so NSW/QLD/WA contribute zero suburb sitemap URLs. No later commit, open PR, or branch fixes any of this (git log on nsw_vg.go/vic_vpsr.go ends at #239; gh pr list has nothing relevant). Only the aside that the 'verified: 200' comment was a residential-IP check is unverifiable speculation, and it is not load-bearing. Severity stays high (not critical): data is absent/stale with graceful UI fallback rather than wrong, but it is a genuine shipped-and-never-worked reliability gap on the flagship state."
+   }
+  },
+  {
+   "id": "F02",
+   "area": "run lifecycle / monitoring & alerting (official + crawl tiers)",
+   "severity": "high",
+   "type": "bug",
+   "title": "Housing pipelines fail silently end-to-end: official runs exit 0 on total failure, nothing reads house_price_ingest_runs, no freshness workflow, crawl outages also exit 0 and the alarm has no push sink",
+   "detail": "Official tier: runOfficial() handles every per-source error with log+continue (main.go:368-394), refresh() failure is logged only (main.go:334-337), and run() returns 0 (main.go:174) \u2014 a run where all 16 sources AND the MV refresh fail reports SUCCESS, so Cloud Run max_retries, scheduler retry_config, and the GCP-native jobmonitor all see green. house_price_ingest_runs.status='error' has ZERO readers anywhere, and unlike register/economy there is no housing-freshness.yml. This is exactly why the F01 VG breakage sat unnoticed for a month+ (plus property_valuations CDP failure since 2026-07-24). Crawl tier compounds it: a total auth outage (dead BrandBrainAgent.app) breaks the drain loop but runAgent still returns 0 (crawl_agent.go:601-605, 732-737) so a multi-day outage looks like 'nothing to do'; the freshness guard's CRAWL_FRESHNESS_WEBHOOK is UNSET on the live rig (alarm fired for days into an unread log during the 2026-08 outages); and classifyFreshness excludes never-crawled suburbs \u2014 over half the 500-suburb catalog is structurally invisible to it forever. The listings_rea/listings_domain cursor rows also stopped 2026-07-13 because agent mode bypasses updateRun, so the cursor table can't serve as a crawl freshness signal either.",
+   "evidence": "main.go:368-394, :174; terraform/modules/house-price-collector/main.tf:56; grep house_price_ingest_runs \u2192 writers only (collector store.go:116 + jobs fork copy); no housing-freshness workflow vs economy-freshness.yml/register-freshness.yml; crawl_agent.go:601-605/732-737; housing-crawl-common.sh:148-151 (processed==0 \u2192 rc 0); crawl_freshness.go:61-65 (never-crawled excluded), webhook unset in ~/.shorted-housing-crawl.env (verified 2026-08-09); prod: vg errors 2026-08-05 + property_valuations error since 2026-07-24 unalerted; listings_* cursors 2026-07-13 vs events through 2026-08-09.",
+   "suggested_fix": "Non-zero exit when any/most official sources error (engages Cloud Run retry + failure alerting); distinct exit code from runAgent when fatalErr && done==0 with wrapper notification + agent-relaunch preflight; add housing-freshness.yml (fail on error rows, max(period) regression, event silence); provision the webhook; add a coverage-trend alarm (Covered stops growing / NeverCrawled grows).",
+   "effort": "M",
+   "merged_from": "pipeline (exit-0 official), data (no freshness sentinel + stale cursors), crawl (auth outage exits 0), crawl (webhook unset + never-crawled invisible)",
+   "verdict": {
+    "note": "CONFIRMED with two peripheral overstatements. Core evidence holds exactly: (1) main.go:368-394 log+continue for all 16 official sources, refresh() failure log-only (334-337), run() returns 0 (174) \u2014 a total-failure official run exits 0, so Cloud Run max_retries=2 (module main.tf ~56), scheduler retries, and jobmonitor all see success. (2) house_price_ingest_runs is write-only (collector store.go:116 + jobs fork copy; zero readers in services/shorts, web/src, .github) and no housing-freshness.yml exists while economy-freshness.yml/register-freshness.yml do; no later fix in git log. (3) crawl_agent.go:603-605 (claim error \u2192 fatalErr, break) + :732-737 (return 0 unless rewarm) and housing-crawl-common.sh processed==0 \u2192 rc 0 confirmed; CRAWL_FRESHNESS_WEBHOOK verified absent from ~/.shorted-housing-crawl.env today. (4) Prod verified live: vg_nsw + vg_vic status='error' at latest run 2026-08-05 (vg_nsw has ZERO rows ever in house_prices; vg_vic frozen at 2024-12-31), property_valuations 'error' since 2026-07-24, listings_rea/domain cursors frozen 2026-07-13 while property_price_events flow through 2026-08-09 (agent mode has no updateRun \u2014 only crawl_listings.go writes those cursors). Overstatements: (a) \"over half the 500-suburb catalog structurally invisible forever\" is wrong today \u2014 replicating crawl_delta.go's exact freshnessKey join against prod gives 500/500 covered, 0 never-crawled, and the alarm is actually in firing range (oldest covered ~100h > 72h); the exclusion mechanism is real but currently moot. (b) The crawl tier is not fully unmonitored: runAgent writes an 'error'/stale crawl_run_status row merged into the admin jobs dashboard (crawl_jobs.go, migration 000089), and hc_freshness posts a macOS banner \u2014 the true gap is exit codes + durable push alerting, not total absence of signal. Severity stays high: this is a real reliability/alerting gap already demonstrated by live unnoticed prod breakage (vg_nsw never ingested, vg_vic 19 months stale, property_valuations dead 2+ weeks), but it is not itself wrong published data or a security/licence exposure.",
+    "severity": "high",
+    "verdict": "CONFIRMED"
+   }
+  },
+  {
+   "id": "F03",
+   "area": "web sitemap / SEO (suburb corpus)",
+   "severity": "high",
+   "type": "bug",
+   "title": "All 1,165 suburb URLs in the live prod sitemap 404 (trailing-hyphen slug divergence)",
+   "detail": "The sitemap's inline slugifySuburb (sitemap.ts:538-539, duplicated in getHousingSitemap.ts:5-6) unconditionally appends `-${postcode}`, but suburb_demographics.postcode is never populated (the census upsert omits it; only migration 000055 defines the column), so every emitted slug ends with a bare dash. The canonical suburbSlug (states.ts:24-26) omits the suffix when postcode is empty, and resolveSuburbSalCode does an exact-equality match \u2014 so every sitemap-advertised suburb URL hard-404s while the real URLs are absent from the sitemap entirely. The whole priced-suburb SEO corpus is invisible to crawlers and the sitemap feeds Google 1,165 dead links (crawl-budget + trust damage).",
+   "evidence": "Live prod sitemap.xml: 1,165/1,165 two-segment /housing/<state>/<suburb> URLs end with '-' (e.g. /housing/vic/abbotsford-vic-). Live: /housing/vic/abbotsford-vic- \u2192 404; /housing/vic/abbotsford-vic \u2192 200 (independently reproduced by two finders incl. Playwright on /housing/vic/aberfeldie-). Code: sitemap.ts:539 `...-${postcode}` vs states.ts:25 `${postcode ? `-${postcode}` : \"\"}`; grep: no writer of suburb_demographics.postcode in census.go/store.go.",
+   "suggested_fix": "Delete both local slugify copies and import the shared suburbSlug from @/lib/housing/states (getHousingSuburbUrls in getHousingSitemap.ts is unimported dead code \u2014 fix-and-use or delete); make resolveSuburbSalCode tolerate a trailing hyphen so already-indexed bad URLs recover; resubmit the sitemap in Search Console.",
+   "effort": "S",
+   "merged_from": "frontend (slug divergence + Playwright repro), product (root cause: postcode never populated; live sitemap fetch)",
+   "verdict": {
+    "note": "CONFIRMED on all four legs. (1) Code: sitemap.ts:538-539 and getHousingSitemap.ts:5-6 both define an inline slugifySuburb that unconditionally appends `-${postcode}`, while the canonical suburbSlug (states.ts:24-25) appends only when postcode is non-empty; resolveSuburbSalCode (getHousing.ts:292-298) does exact `===` matching against the canonical slug, so trailing-hyphen slugs can never resolve. (2) Data: no writer of suburb_demographics.postcode exists anywhere in services/ \u2014 the census upsert (house-price-collector/store.go:162-209, mirrored in services/jobs/.../houseprices/store.go) omits the column entirely; only migration 000055 defines it; the RPC read path COALESCEs it to ''. (3) Live prod reproduced 2026-08-09: shorted.com.au/sitemap.xml contains exactly 1,165 two-segment /housing/<state>/<suburb> URLs and 1,165/1,165 end with a bare '-'; Playwright shows /housing/vic/abbotsford-vic- \u2192 HTTP 404 while /housing/vic/abbotsford-vic \u2192 200. (4) Not fixed: origin/main still carries both buggy copies, no fix commit in git log on any cited path; the secondary claim that getHousingSuburbUrls is unimported dead code also holds (definition only, zero importers). Severity high (not critical): whole priced-suburb sitemap corpus is dead links with the real URLs absent \u2014 concrete SEO/crawl-budget damage, but no data corruption, security, or licence exposure.",
+    "severity": "high",
+    "verdict": "CONFIRMED"
+   }
+  },
+  {
+   "id": "F04",
+   "area": "web /housing/[state]/[suburb] rendering + slug resolution",
+   "severity": "high",
+   "type": "bug",
+   "title": "Suburb pages are silently fully dynamic; every view pays a full-state ~5,000-row RPC, backend failures serve soft-404s, and ?sal= is unvalidated",
+   "detail": "page.tsx reads searchParams (?sal=) in the server page (:24, :43), which forces dynamic rendering \u2014 the exported `revalidate = 86400` (:13) is dead (the exact trap this repo already fixed on /price-drops). With no generateStaticParams and no KV layer, every request to any of the ~15k reachable suburb URLs runs resolveSuburbSalCode \u2192 listStateSuburbs(code, \"\", 5000) on a no-store transport (NSW \u2248 4,544 rows \u00d7 ~40 fields, running the heaviest housing query server-side) plus getSuburbProfile, on the TTFB path; the opengraph-image route repeats the resolution per scrape. Two secondary defects on the same path: (a) resolveSuburbSalCode swallows ALL errors (withRetryAndNotFound + .catch(() => null)), so a Cloud Run blip yields notFound() \u2014 soft-404s on real suburb URLs, a deindexing vector this repo has been burned by before; (b) the ?sal= fast-path is never validated against the state/slug in the path, so /housing/nsw/bondi-beach?sal=<SA code> renders an SA suburb's profile, title and banner under the NSW URL. Note ?sal= is load-bearing (politicians declaration links use it) so it can't simply be deleted.",
+   "evidence": "page.tsx:13 (dead revalidate), :24/:43-46 (searchParams read; sal never cross-checked; !sal \u2192 notFound()); getHousing.ts:115-122, 292-298 (listStateSuburbs(stateCode, \"\", 5000), .catch(() => null)); price-drops/page.tsx:30-34 documents the identical searchParams trap; NSW.topojson = 4,544 SALs; store query postgres_house_prices.go:281-330 (per-suburb LATERAL + year-ago probe); CLAUDE.md contract 'withRetryAndNotFound returns undefined for ALL errors'.",
+   "suggested_fix": "Read ?sal= client-side (useSearchParams under Suspense, mirroring AddressDropsBoard) or fold sal into fallback slug matching, restoring on-demand ISR; KV-cache a per-state slug\u2192sal index so resolution is a ~5ms GET; return a {miss|unavailable} union from resolveSuburbSalCode so backend failures 5xx instead of 404; after fetch, verify profile.summary.stateCode matches the path and redirect to canonical on mismatch.",
+   "effort": "M",
+   "merged_from": "frontend (dynamic + full-state RPC), api (5,000-row slug resolution cost), frontend (soft-404 on backend failure), frontend (unvalidated ?sal=)",
+   "verdict": {
+    "verdict": "CONFIRMED",
+    "severity": "high",
+    "note": "Every cited fact holds in the current tree, and the core claim is proven by build artifacts, not just inference. (1) Dynamic rendering: web/src/app/housing/[state]/[suburb]/page.tsx:13 exports revalidate=86400 but reads searchParams at :24/:43; today's local build (web/.next, Aug 9 15:47) shows /housing/[state]/[suburb] AND its opengraph-image are absent from prerender-manifest.json routes+dynamicRoutes while siblings (/housing/[state], /economy/[state], /shorts/[stockCode]\u2026) are ISR \u2014 the route is fully dynamic (\u03bb) and the revalidate export is dead, exactly the trap the repo documents in price-drops/page.tsx:28-34. (2) Cost: getHousing.ts:115-122 listStateSuburbs uses the default no-store transport (config.ts:266-272 forces cache:'no-store' on POSTs) with no KV layer; resolveSuburbSalCode (:292-298) loads the full state (NSW.topojson = exactly 4,544 SALs; 15,345 nationally) through postgres_house_prices.go:281-330 \u2014 a ~50-column 5-way join with a per-row LATERAL + nested year-ago subquery, the heaviest housing read \u2014 on the TTFB path. Sitemap.ts:561-563 advertises the CLEAN URLs (no ?sal=), so all crawler traffic takes the slow path. (3) Soft-404: withRetry.ts withRetryAndNotFound returns undefined for ALL errors after retries, then resolveSuburbSalCode adds .catch(() => null), and page.tsx:44 maps null \u2192 notFound() \u2014 a Cloud Run blip 404s real suburb URLs. (4) ?sal= spoof: page.tsx never cross-checks the sal against path state/slug (profile fetched purely by sal, breadcrumb/state from path), and ?sal= is genuinely load-bearing (states.ts:27-31 suburbHref, politicians declaration-rows.tsx:103). No later commit fixes any of this (latest touches: dd9d0b3ba proto migration, fa9add423 which ADDED the slug fallback). One minor overstatement, not verdict-changing: views arriving WITH ?sal= (internal app links) skip the 5,000-row resolution and pay only getSuburbProfile \u2014 'every view pays the full-state RPC' is strictly true only for clean/canonical/crawler URLs; every view does pay a per-request RPC render. Severity stays high (real perf/reliability gap + a proven deindexing vector on ~15k URLs), not critical: no data corruption, security, or licence exposure \u2014 pages render correctly when the backend is healthy."
+   }
+  },
+  {
+   "id": "F05",
+   "area": "refresh_housing_materialized_views() (migration 000092)",
+   "severity": "high",
+   "type": "bug",
+   "title": "Housing MV refresh lacks the 000095 hardening that a 19-day prod incident forced onto the shorts refresh \u2014 one timeout silently starves every MV after it",
+   "detail": "The live definition (000092:28-58) refreshes mv_housing_headline UNGUARDED (any failure aborts the whole function, skipping mv_suburb_price_drops, mv_suburb_listing_stats, mv_state_price_drops, mv_agency_stats, mv_suburb_crime_latest), and the five guarded blocks use plain EXCEPTION WHEN OTHERS \u2014 which per PL/pgSQL does NOT catch query_canceled (57014), the exact error statement_timeout raises. Migration 000095 documents precisely this failure class ('WHEN query_canceled OR OTHERS', function-scoped SET statement_timeout '0') after 5 shorts MVs silently starved for 19 days \u2014 the housing function was never given the same treatment. The collector calls it over the Supabase transaction pooler (port 6543) without setting statement_timeout, under a context where prod refresh 'can take minutes', and a failure is only log.Printf'd with exit 0 (compounding F02). Coverage itself is complete (all 6 housing MVs are in the function) \u2014 the gap is purely resilience, and it is the proven mechanism of a prior multi-week silent-staleness incident.",
+   "evidence": "migrations/000092_crime_read_gating.up.sql:31 (unguarded first REFRESH), :34/:39/:44/:49/:54 (grep 'WHEN OTHERS' = 5, 'query_canceled' = 0); migrations/000095_harden_mv_refresh.up.sql:19-32 (corrected pattern + 19-day incident rationale); services/house-price-collector/store.go:34-43,125-128 (pooler 6543, no statement_timeout); crawl_listings_store.go:284-288.",
+   "suggested_fix": "One migration mirroring 000095: guard mv_housing_headline in its own block, change all guards to WHEN query_canceled OR OTHERS (concurrent \u2192 blocking fallback \u2192 RAISE WARNING skip), ALTER FUNCTION ... SET statement_timeout TO '0', and have the collector SET statement_timeout = 0 before invoking.",
+   "effort": "S",
+   "merged_from": "pipeline (unguarded headline + WHEN OTHERS gap), schema (same, with grep counts + outer-guard analysis)",
+   "verdict": {
+    "verdict": "CONFIRMED",
+    "severity": "high",
+    "note": "Every cited fact holds, and live-prod checks strengthen the finding. (1) Prod's live refresh_housing_materialized_views (pg_get_functiondef via services/.env, read-only) is byte-identical to 000092:28-58: mv_housing_headline refreshed UNGUARDED first, then exactly 5 plain WHEN OTHERS guards, zero query_canceled, proconfig=NONE; no migration through 000101 nor any branch commit (git log --all -S) redefines it. (2) The semantics claim was empirically re-proven ON THE PROD SERVER with a no-write DO block: WHEN OTHERS did NOT catch a statement_timeout cancellation (block aborted with 'canceling statement due to statement timeout'), so one timeout aborts the whole function and starves every MV after it. (3) The hazard is armed: the prod session as the postgres role arrives with statement_timeout=2min, and the repo's own comment (crawl_listings_store.go:285-287) says the housing refresh 'on prod Supabase can take minutes'. (4) Collector has zero defense: no statement_timeout anywhere in house-price-collector (grep=0), store.go:125-128 bare SELECT, main.go:334-337 log.Printf-only + exit 0, which ALSO skips pingRevalidate so stale MVs keep serving from unbusted KV/ISR caches. Severity high (not critical): mechanism proven and armed with a prior 19-day-incident precedent, but no direct evidence housing MVs are wrongly stale today. ADJACENT DISCOVERY for the audit: prod's refresh_all_materialized_views is ALSO a pre-000095 body (unguarded, no query_canceled, cfg=NONE) \u2014 000095 appears never hand-applied to prod, so the shorts-side 'fixed baseline' is repo-only; the suggested-fix migration should be applied by hand to prod (session pooler 5432, statement_timeout=0) alongside re-applying 000095."
+   }
+  },
+  {
+   "id": "F06",
+   "area": "prod deploy / housing DDL management",
+   "severity": "high",
+   "type": "risk",
+   "title": "Housing prod DDL is completely unmanaged: CI applies a hardcoded 8-migration allowlist with zero housing files, force-pins schema_migrations to 75 every deploy, and the hand-apply doc checklist is missing 13 migrations",
+   "detail": "The prod 'Run database migrations' step applies exactly 8 files (000070/71/74/75/81/82/83/85) \u2014 none of the ~20 housing migrations \u2014 then runs `DELETE FROM schema_migrations; INSERT ... VALUES (75, false)` on EVERY deploy, so prod migration bookkeeping is permanently fictional (prod is really at ~000106). Every housing migration must be applied by hand before the code selecting its columns merges, or read paths 500 (the documented politicians landmine, equally applicable here). Drift is already real, admitted in-repo: 000092's header states '000090 was hand-applied to prod; the committed version lacks unreliable/population' \u2014 prod's MV shape diverged and 000092 had to DROP+CREATE to make it deterministic. Worse, the doc that operators hand-apply FROM (housing-architecture.md \u00a78 'full housing migration set') lists only 10 migrations, omitting 13 applied housing-family ones (000061-064, 000066-068, 000084, 000086-089, 000091) \u2014 a bootstrap/rebuild from that table skips them and the API 500s selecting absent columns.",
+   "evidence": ".github/workflows/terraform-deploy.yml:1021-1032 (allowlist + INSERT schema_migrations VALUES (75, false)); migrations/000092_crime_read_gating.up.sql:7-8 (in-repo admission of hand-apply drift); docs/housing-architecture.md:440-451 (10 rows) vs ls services/migrations (000061-064, 000066-068, 000084, 000086-089, 000091 all exist); the doc contradicts itself at \u00a710.1/\u00a76.10/\u00a77 which reference the missing numbers.",
+   "suggested_fix": "Extend the allowlist mechanically from a checked-in manifest so merged housing migrations are CI-applied idempotently (or add a deploy-blocking preflight diffing information_schema against shipped queries); stop rewriting schema_migrations to 75; regenerate the doc table from ls services/migrations and move it to docs/feature/housing/data-model.md as the single migration map.",
+   "effort": "M",
+   "merged_from": "schema (allowlist + pin-75 + 000090 drift), docs (\u00a78 checklist missing 13 migrations)",
+   "verdict": {
+    "verdict": "CONFIRMED",
+    "severity": "high",
+    "note": "Every evidence item verified exactly as claimed. (1) terraform-deploy.yml prod migration step applies exactly 8 hardcoded files (000070/71/74/75/81/82/83/85 \u2014 zero housing) then runs `DELETE FROM schema_migrations; INSERT ... VALUES (75, false)` on every deploy; git log shows no later fix. (2) Live prod check (read-only): schema_migrations = 75|f while prod demonstrably contains DDL from 000076 (property_listings), 000084 (banner_archetype), 000086 (mv_state_price_drops + mv_agency_stats), 000090 (suburb_crime_stats), 000092 (crime MV population col), 000096-103 (politicians tables) and 000105 (AEC donations) \u2014 prod really is at ~000106 with fictional bookkeeping. (3) 000092_crime_read_gating.up.sql:7-8 contains the verbatim drift admission ('000090 was hand-applied to prod; the committed version lacks unreliable/population'). (4) housing-architecture.md \u00a78 table lists only 10 migrations, omitting all 13 cited (000061-064, 000066-068, 000084, 000086-089, 000091), and self-contradicts (line 416 documents 000084, \u00a710.1 line 536 documents 000086); the finding UNDERSTATES it \u2014 000076-079 are also housing-family and also missing, and \u00a78 additionally still claims the collector TF module is 'NOT yet wired' (stale vs PR #211). Severity stays high (not critical): prod schema is currently correct because hand-applies did land and 000092 repaired the one drift, so nothing is broken today \u2014 but it is a real reliability gap with an admitted prior drift incident and a runbook that would 500 the API if used for a rebuild."
+   }
+  },
+  {
+   "id": "F07",
+   "area": "publishable MV k-anonymity (mv_suburb_listing_stats, mv_agency_stats)",
+   "severity": "high",
+   "type": "risk",
+   "title": "K-anon floors are incomplete: a 1-listing suburb publishes that exact proprietary asking price as its 'average', and mv_agency_stats still publishes agent personal names + dropped_count at n=1-2",
+   "detail": "The always-public ListSuburbPriceDrops reads mv_suburb_listing_stats, whose SQL (000077) has no HAVING/count floor: any suburb with a single active priced listing publishes avg_asking = median_asking = that one ToS-restricted listing's exact price, with for_sale_count=1 confirming n=1 \u2014 violating the project's own standard baked into 000086 ('no published figure can be reversed into a single listing's exact numbers'; the drops MVs got a >=3 floor). Broadening-bleed makes tiny suburbs real: prod had 43 bleed suburbs carrying 142 listings (avg 3.3/suburb) as of 2026-07-22, so n=1/n=2 rows almost certainly exist today; same gap on avg_sold/median_sold at sold_count=1. Adjacent gap in mv_agency_stats: the >=3-dropped-addresses suppression covers only drop depth/value \u2014 dropped_count is published unsuppressed at 1-2, and agent_names exposes up to six real people's names per agency row with no floor beyond 3 active listings; named individuals + a 1-2 drop count narrow to identifiable listings in small agencies, gated only by the runtime kill switch.",
+   "evidence": "migrations/000077_add_suburb_listing_stats.up.sql:5-32 (no floor) vs 000086_price_drops_rollups.up.sql:21-23 (stated reversibility standard), :80 (drops >=3 floor), :205-206 (depth/value CASE WHEN COUNT(*) >= 3), :222-226/:231/:238 (agent_names [1:6], unsuppressed dropped_count, only active>=3 floor); public read at postgres_house_prices.go:694-711.",
+   "suggested_fix": "Rebuild mv_suburb_listing_stats to NULL avg/median asking below for_sale_priced >= 3 and avg/median sold below sold_count >= 3 (keep counts), mirroring the mv_agency_stats CASE pattern; in mv_agency_stats, null dropped_count below 3 alongside depth/value and drop agent_names from the MV (fetch names only in the flag-gated per-listing drill-down, which already reads raw rows). Guarded-refresh wiring already exists.",
+   "effort": "S",
+   "merged_from": "licence (listing-stats no floor + bleed quantification), schema (agency agent_names + unsuppressed dropped_count)",
+   "verdict": {
+    "verdict": "CONFIRMED",
+    "severity": "high",
+    "note": "Structural claim verified exactly: 000077's mv_suburb_listing_stats has no count floor (no later migration fixes it; store postgres_house_prices.go:694-711 and the VISIBILITY_PUBLIC, un-gated ListSuburbPriceDrops handler add none), and 000086's mv_agency_stats suppresses only depth/value at <3 \u2014 dropped_count is published raw and agent_names[1:6] has no floor beyond active_listings>=3. Agency exposure is LIVE in prod: 880/3,546 MV rows publish dropped_count=1-2, 850 of them with agent personal names, and an unauthenticated curl to ListAgencyPriceStats on api.shorted.com.au returned real agent names (kill switch is ON). One empirical sub-claim is stale, however: prod today has ZERO n=1/n=2 suburb rows (min for_sale_priced=4, min non-zero sold_count=10 across all 500 suburbs; re-running the MV's defining query over property_listings also yields none). The 2026-07-22 \"43 bleed suburbs\" corpus was cleaned from prod, and #284 (b700a35c7, postcode+suburb target match; partitionByTarget drops off-target rows, stored RegionCode comes from the crawl target) prevents new bleed \u2014 so the 1-listing-suburb exact-price publication is a latent gap reachable via listing churn (a 4-priced suburb selling down to 1) or a new suburb's transient sold_count=1, not a currently-manifest one. Severity stays high (not critical): the suburb half publishes nothing reversible today, and the agent-names surface was a deliberate, documented, kill-switched decision \u2014 but the finding's suggested fix (floor asking/sold stats at n>=3, null dropped_count<3, move agent_names to the flag-gated drill-down) is sound and closes a real violation of the project's own 000086 reversibility standard."
+   }
+  },
+  {
+   "id": "F08",
+   "area": "property.com.au AVM read path / licence posture",
+   "severity": "high",
+   "type": "risk",
+   "title": "Per-address AVM estimates + full sales history are served verbatim, directly contradicting migration 000088's own written licence posture",
+   "detail": "Migration 000088's header states the harvested property.com.au profile 'MUST NEVER be republished raw. Only DERIVED aggregates are a publishable surface; the raw profile is stored for internal enrichment only.' But the live read path publishes per-address raw extracted facts: GetPropertyHistory embeds a PropertyValuation with estimate_low/mid/high, estimate_confidence, rent_estimate_mid, year_built, land/building size, and the FULL per-sale sales_history (date, price, agency, type) verbatim. property.com.au's ToS posture is ESCALATED vs REA/Domain listings \u2014 its robots.txt explicitly bans aggregators (acknowledged in the same migration header). The HOUSING_VALUATIONS_ENABLED kill switch exists but defaults ON. The store does exclude raw/content_hash/lat/lng, and the owner consciously accepted the risk per memory \u2014 but the written posture and the code directly contradict each other, and if a takedown/legal letter arrives the migration text is discoverable evidence the team knew the surface wasn't publishable.",
+   "evidence": "migrations/000088_add_property_valuations.up.sql:9-13 ('MUST NEVER be republished raw... internal enrichment only') vs services/shorts/internal/services/shorts/house_prices.go:543-575 (verbatim EstimateLow/Mid/High + SalesHistory proto) and :419-426 (valuationsEnabled default true); postgres_house_prices.go:899-901 (raw/lat/lng excluded).",
+   "suggested_fix": "Make posture and code agree: either amend 000088/docs to record the accepted per-address publish posture and its kill switch, or reduce the surface to banded estimates ($50k bands) and sale-year-only history. Document HOUSING_VALUATIONS_ENABLED in the takedown runbook.",
+   "effort": "M",
+   "merged_from": "licence (sole reporter; kept as-is)",
+   "verdict": {
+    "verdict": "CONFIRMED",
+    "severity": "high",
+    "note": "All four evidence citations verified verbatim: 000088 header (lines 9-13) forbids raw republication and limits publishing to derived aggregates; house_prices.go:543-575 serves per-address EstimateLow/Mid/High, confidence, rent estimate, year built, land/building size and the FULL sales_history verbatim; valuationsEnabled() (419-426) defaults ON; the store excludes only raw/content_hash/lat/lng. Not fixed later: the migration header was never amended (git log: only the original PR #335 scaffold commits), the read path merged to origin/main via PR #341 (842505bab), the frontend renders it (property-valuation-card.tsx), and prod Supabase currently holds 34 rows / 20 servable ok-status valuations (all 20 with sales histories, 9 with AVM estimates, fetched 2026-07-23/24) \u2014 so the surface is live today. Refutation attempt found one nuance: docs/property-avm-read-path-plan.md (shipped with #341) DOES record the accepted per-address posture + kill switch (half the suggested fix exists), but it inverts the migration's rule (calls per-suburb aggregates 'licence amplification' and per-address display 'the defensible surface'), so the repo now contains two directly contradictory written postures plus a live surface matching neither the migration text \u2014 the finding's core claim and discoverable-evidence concern stand. Severity stays high (not critical): exposure is real and live but tiny (~20 addresses), deliberately mitigated (kill switch, deep-link-out, no raw/lat-lng/bulk), and the actionable defect is posture reconciliation rather than an accidental leak."
+   }
+  },
+  {
+   "id": "F09",
+   "area": "crawl event semantics / /price-drops sold metrics",
+   "severity": "high",
+   "type": "bug",
+   "title": "Portal status-detection asymmetry: 'sold' is Domain-only (REA has 0 sold listings ever) so market-wide sold stats are biased, and relist events are Domain sold-tag flapping (9,270 vs REA's 1)",
+   "detail": "Sold detection relies on Domain's UPVSoldListings tag mechanism; nothing equivalent fires for REA, so all 48,452 REA listings resolve to for_sale (45,955) or withdrawn (2,497) \u2014 zero sold, zero status_change events. mv_state_price_drops.sold_count (5,715 nationally) and derived avg_sold/median_sold are computed from Domain's ~45% of the corpus with portal-specific selection bias, yet rendered as market-wide figures in three prod components (state board, suburb leaderboard, suburb panel). The same asymmetry corrupts relist semantics: Domain generates 9,270 relist vs 1,354 delist events (6.8x) \u2014 consistent with sold-tag flapping (cards tagged sold \u2192 inactive, reappearing untagged next sweep) \u2014 while REA produced exactly 1 relist ever, so 'relisted at a lower price' signals are effectively Domain-only and flapping cycles pollute the merged address timelines served by GetPropertyHistory.",
+   "evidence": "Prod: property_listings by source/status \u2014 rea: for_sale 45,955 / withdrawn 2,497 / sold 0; domain: for_sale 33,213 / sold 5,715 / withdrawn 1,309. property_price_events \u2014 domain: relisted 9,270 / delisted 1,354 / status_change 510; rea: relisted 1 / delisted 2,498 / status_change 0. Code: crawl_listings_extract.go:357-361 (Domain-only sold tag); crawl_listings_diff.go:252-261 (relist emit). Display: state-drops-board.tsx:79-80, suburb-drops-leaderboard.tsx:66-67, suburb-price-drops-panel.tsx:97-98.",
+   "suggested_fix": "Detect REA sold disposition (sold-search sweep, or infer from withdrawal + relist absence) or label sold columns as Domain-sourced and exclude them from cross-portal framing; debounce status-driven inactivity (require M consecutive sweeps, or collapse sold\u2192for_sale\u2192sold cycles within N days) so relist means an actual market re-listing.",
+   "effort": "M",
+   "merged_from": "data (sold Domain-only), data (relist asymmetry/flapping)",
+   "verdict": {
+    "verdict": "CONFIRMED",
+    "severity": "high",
+    "note": "Every element re-verified against code and prod (2026-08-09). (1) Sold detection is structurally Domain-only: crawl_listings_extract.go:357-361 sets sold via a status field or Domain's sold tags (tagsContainSold; comment cites Domain's UPVSoldListings), and no REA sold path exists anywhere (crawl_details.go only infers delisted). Prod: rea 45,913 for_sale / 2,539 withdrawn / 0 sold ever vs domain 33,212/5,716 sold/1,313. (2) mv_state_price_drops (migration 000086:135-140) computes sold_count/avg_sold/median_sold with no source filter, so they are de-facto Domain-only yet rendered market-wide in all three cited components (actual paths: web/src/@/components/housing/price-drops/state-drops-board.tsx:79-80, price-drops/suburb-drops-leaderboard.tsx:66-67 \u2014 finding omitted the price-drops/ subdir \u2014 and suburb-price-drops-panel.tsx:97-98); /price-drops page copy frames data as \"realestate.com.au and Domain\" with no Domain-only caveat. (3) Relist flapping confirmed and strengthened: domain 9,299 relisted vs rea 1; 9,266/9,299 Domain relists have prev_status='sold'; 2,823/4,136 relisting listings flapped 2-7 times, mostly within ~5-day gaps \u2014 mechanism is statusActive() (crawl_listings_store.go:209) flipping sold cards inactive, then the untagged next-sweep reappearance firing relisted (crawl_listings_diff.go:252-261). GetPropertyHistory (postgres_house_prices.go:918+) serves the unfiltered event timeline including these flaps. (4) No later fix: git log on the collector files and migrations shows nothing addressing this; no migration after 000086 touches sold aggregates. Bonus: mv sum(sold_count) is now 11,430 vs 5,716 actual Domain sold listings (state-row double-count), so displayed sold counts are even less trustworthy than the finding claims. Severity stays high: biased prod-rendered figures and corrupted relist semantics, but not a security/licence exposure or core-data corruption."
+   }
+  },
+  {
+   "id": "F10",
+   "area": "crawl agent / brandbrain queue",
+   "severity": "high",
+   "type": "bug",
+   "title": "Circuit-open portal skips are banked as 'succeeded' \u2014 25% of reported successes were sweeps that never ran; fix pair (#408 + brandbrain #192) still unmerged",
+   "detail": "In crawlAgentJob, a source skipped because its circuit breaker is OPEN (portal actively blocking) sets skippedRea/skippedDomain exactly like a resume-window skip, and the 'both sources skipped' branch returns status \"succeeded\" with the misleading detail 'both sources skipped (swept within the resume window)'. For the default per-source enqueue (one portal per job), a single open circuit means the job never runs any sweep yet leaves the queue as done: last_crawled never advances and the suburb silently stops being crawled. Measured 2026-08-08: 114 of 459 reported successes (25%) were sweeps that never ran. The fix (a 'deferred' outcome that re-pends, refunds the attempt, honours a not_before cooldown) exists but shorted PR #408 and brandbrain PR #192 are both still OPEN (verified via gh 2026-08-09); brandbrain must deploy first.",
+   "evidence": "crawl_agent.go:775-777,789-791 (cb.skip sets skipped*), :808-811 (returns \"succeeded\"); grep 'deferred|not_before' crawl_agent.go = 0; gh pr view 408 \u2192 OPEN; brandbrain gh pr view 192 \u2192 OPEN; memory housing-crawl-outage-modes.md \u00a75 (114/459 measured).",
+   "suggested_fix": "Merge brandbrain #192 then shorted #408 (in that order). Until then, at minimum correct the detail string so a circuit-open skip is distinguishable from a resume-window skip in queue history.",
+   "effort": "M",
+   "merged_from": "crawl (sole reporter; kept as-is)",
+   "verdict": {
+    "verdict": "CONFIRMED",
+    "severity": "high",
+    "note": "Every element of F10 verified today. crawl_agent.go:775-777/789-791 set skippedRea/skippedDomain on circuit-open identically to a resume-window skip, and :808-811 return \"succeeded\" with the misleading detail \"both sources skipped (swept within the resume window)\". Default enqueue IS per-source (crawl_agent.go:336, CRAWL_ENQUEUE_SOURCE default \"split\") and wantSource auto-skips the non-owned portal, so a single open circuit banks the job as done with no sweep run; the submit path (line 640) makes that terminal in the queue. grep 'deferred|not_before' in crawl_agent.go = 0 \u2014 the fix is not on main (last commit touching the file is #401). gh confirms shorted PR #408 (fix/crawl-defer-circuit-open) and brandbrain PR #192 both still OPEN (updated 2026-08-08). The 114/459 (25%) measurement is documented in memory housing-crawl-outage-modes.md \u00a75 (112 Domain / 2 REA, Unley SA 5061 freshness alarm). Severity high (not critical): the effect is silent coverage staleness / suburbs dropping out of the crawl, not wrong published data or a licence/security exposure, and the deferred-outcome fix pair exists awaiting merge (brandbrain #192 must deploy first)."
+   }
+  },
+  {
+   "id": "F11",
+   "area": "brandbrain queue leases",
+   "severity": "high",
+   "type": "bug",
+   "title": "Orphaned in_progress leases are never reclaimed \u2014 ReclaimExpired has no caller, the collector never renews, and a crash/dry-run permanently orphans up to 20 jobs per round",
+   "detail": "brandbrain's crawl-job Claim selects only status='pending'; ReclaimExpired (re-pend expired in_progress jobs) exists but has no caller in server main or the agent handler, so the 10-minute crawlJobLeaseTTL is dead code. Any collector crash/kill leaves its claimed job in_progress forever, invisible to pending and never retried. The collector-side comment ('the claim's lease simply expires and the job re-pends', crawl_agent.go:632-633) is false in practice \u2014 and DRY runs deliberately skip submit, so a hand-run dry drain (the default for direct -mode agent) permanently orphans up to 20 jobs per round. Measured 2026-08-07: 7 orphans aged 47h-467h vs 1 genuinely active job. The collector also never calls the existing Renew endpoint, so if reclaim IS ever wired, any paced sweep longer than 10 min gets double-claimed and its submit fails.",
+   "evidence": "brandbrain crawl_job_repository.go Claim (WHERE status='pending' only) + ReclaimExpired:242 with no caller in cmd/server/main.go or agent_crawl_jobs_handler.go (crawlJobLeaseTTL=10*time.Minute:25); grep 'Renew' in shorted crawl_agent.go/crawl_brandbrain.go = 0; memory housing-crawl-outage-modes.md \u00a74 (7 orphans measured).",
+   "suggested_fix": "Wire ReclaimExpired into the claim path (lazy, before the pending SELECT) or a server ticker; raise lease TTL to ~30min or add a per-page Renew heartbeat; fix the wrong comment at crawl_agent.go:632.",
+   "effort": "S",
+   "merged_from": "crawl (sole reporter; kept as-is)",
+   "verdict": {
+    "verdict": "REFUTED",
+    "severity": "low",
+    "note": "Already fixed and deployed to prod before this audit. brandbrain PR #187 (commit 765b3625, \"fix(crawl-jobs): actually call ReclaimExpired \u2014 dead agents orphaned leases forever\", merged 2026-08-07 21:58 +1000) wires exactly the suggested fix: NewAgentHandler now spawns `go h.reclaimExpiredCrawlJobsLoop()` (backend/internal/adapters/http/agent_handler.go:108) \u2014 a 1-minute ticker (crawlLeaseReclaimInterval, :116) calling `crawlJobRepo.ReclaimExpired` (:153), with 3 tests (agent_crawl_lease_reclaim_test.go). The commit message cites the identical measurement the finding cites (7 orphans aged 47h\u2013467h vs 1 active job, 2026-08-07, shorted#405/#407) \u2014 this finding is a restatement of the incident that PR #187 already closed. Deploy verified: 765b3625 is an ancestor of successful deploy-prod.yml runs c8fbfbaf (2026-08-07T13:20Z), 2f19e208 (2026-08-08T01:28Z) and 46a5f6c2 (2026-08-09T04:35Z), and brandbrain auto-deploys main. Why the finder missed it: the local brandbrain checkout is on branch `nurture-landing-flows` (predates the crawl-jobs feature \u2014 no crawl_job_repository.go at all) and none of the five .worktrees contain reclaimExpiredCrawlJobsLoop; the grep \"no caller in agent handler\" only holds on those stale trees, not on origin/main (note the loop lives in agent_handler.go, not agent_crawl_jobs_handler.go). Consequences of the fix: the crawl_agent.go:632 comment (\"the claim's lease simply expires and the job re-pends\") is now TRUE, and a dry-run drain no longer permanently orphans jobs \u2014 they re-pend \u2264~11 min after the 10-min lease expires while attempts<max_attempts, then fail terminally. RESIDUAL (real but minor, worth a follow-up ticket, severity low/medium): the shorted collector still never calls the Renew endpoint (0 matches in services/house-price-collector/*.go; only unrelated \"asset_renewal\" hits) and crawlJobLeaseTTL is still 10*time.Minute (agent_crawl_jobs_handler.go:25), so with reclaim now active a sweep exceeding 10 min gets re-pended mid-flight (double-claim; original submit fails \"not held by agent\"). Measured bound: per-source jobs (PR #290) cap at CRAWL_LISTINGS_MAX_PAGES_HARD=15 pages \u00d7 8\u201320s page delays \u2248 ~4\u20137 min worst case, so overrun is plausible mainly for legacy source='both' jobs or throttled sessions \u2014 listings/events are still written (DB writes happen during the sweep); only queue bookkeeping and duplicate-crawl waste are at stake."
+   }
+  },
+  {
+   "id": "F12",
+   "area": "crawl listings block classification",
+   "severity": "high",
+   "type": "bug",
+   "title": "Thin-suburb false-block root cause unfixed: a genuinely small suburb's page 1 still reads as a Kasada block, burns attempts, trips circuits, and can stop the whole drain",
+   "detail": "A suburb with fewer than CRAWL_LISTINGS_MIN_PER_PAGE (default 5) on-target listings on page 1 is classified sweepBlocked (stop-thin-page1) and increments the block counter \u2014 indistinguishable from a real Kasada stub. Consequences: (a) the job fails and burns queue attempts; (b) two consecutive thin jobs on one source open that source's circuit (circuitTrip default 2), after which healthy suburbs get skipped (and, per F10, banked 'succeeded'); (c) two DISTINCT thin suburbs back-to-back still trip blockTracker (default 2) and stop the drain with exit 3 \u2014 #401 only fixed the same-suburb re-serve case; (d) delta enqueue ranks never-crawled suburbs FIRST, so permanently-failing thin suburbs cluster at the head of every daily run. The live rig env and all deploy wrappers set no override, so scheduled runs can re-wedge exactly as observed with Lane Cove North. REA's already-extracted PageMeta.OnTargetResults provides ground truth (a portal-reported on-target count < 5 proves real inventory, not a block) but the gate ignores it.",
+   "evidence": "crawl_listings.go:105 (default 5), :616-620 (stop-thin-page1 \u2192 sweepBlocked + blockCounter++); crawl_agent.go:583 (trip default 2), :670-678 (distinct-suburb degraded stop); crawl_delta.go:93-96 (never-first ranking); grep MIN_PER_PAGE in deploy/*.sh = comment-only; ~/.shorted-housing-crawl.env has no override (verified).",
+   "suggested_fix": "When metaOK && meta.OnTargetResults < minPerPage, classify a thin page 1 as sweepComplete (delist-safe genuine exhaustion) instead of sweepBlocked; keep the blocked classification only when meta is absent or claims more inventory than rendered.",
+   "effort": "M",
+   "merged_from": "crawl (sole reporter; kept as-is)",
+   "verdict": {
+    "verdict": "CONFIRMED",
+    "severity": "high",
+    "note": "Every evidence point verified at HEAD. crawl_listings.go:105 defaults CRAWL_LISTINGS_MIN_PER_PAGE=5; lines 616-620 classify a thin page 1 as sweepBlocked (stop-thin-page1) + blockCounter++ with NO consult of the metaOK/meta.OnTargetResults values extracted just above (553-566) \u2014 the suggested fix's premise is accurate (REA-only; Domain lacks OnTargetResults). Full consequence chain confirmed: (a) blocked sweeps are discarded wholesale so Events==0 && BlockedSweeps>0 \u2192 agentJobTerminal \"failed\" \u2192 burns queue attempts; (b) cb.record(source, reaBlocks>0) at crawl_agent.go:780/794 with circuitTrip default 2 (crawl_listings.go:118) \u2192 2 consecutive thin jobs open the source circuit, and circuit-skipped jobs are banked \"succeeded\" (crawl_agent.go:808-811) \u2014 the fix for that banking (6a99b853f) lives only on unmerged branch fix/crawl-defer-circuit-open; (c) blockTracker (crawl_agent.go:583 trip=2; record 926-938) escalates on DISTINCT suburbs \u2192 degraded break \u2192 return 3 (line 735); #401 (f85f685e7) only exempted same-suburb re-serve; (d) crawl_delta.go:93-97 ranks never-crawled first and queryCatalogFreshness derives LastCrawled from property_listings.max(last_seen_at), so a permanently-blocked suburb stays \"never-crawled\" and heads every delta run. No deploy wrapper or ~/.shorted-housing-crawl.env override exists (grep = comment-only in run-housing-rescan.sh:25). git log -S stop-thin-page1 shows the gate unchanged since introduction (691878444); no later fix on main. Live incident corroborated by memory/housing-crawl-outage-modes.md \u00a72 (Lane Cove North NSW 2066: drain died after 2 jobs, 300 healthy jobs untouched; scheduled runs can re-wedge). Severity high: real, live-observed reliability gap that silently stops the production crawl drain, but no data corruption/security/licence exposure (a false block delists nothing by design), so not critical."
+   }
+  },
+  {
+   "id": "F14",
+   "area": "cross-portal address dedup contract (000086)",
+   "severity": "medium",
+   "type": "bug",
+   "title": "The address-dedup contract is violated on two axes: the suburb drill-down dedups by listing_pk (dual-listed cuts show twice), and 5.8% of listings have empty address_key and are counted once per portal in the MVs",
+   "detail": "mv_suburb_price_drops was rebuilt in 000086 specifically so 'every aggregate counts each physical address once' via dedup_key = COALESCE(address_key, source:listing_id). But: (a) the flag-gated per-suburb drill-down uses `SELECT DISTINCT ON (e.listing_pk)`, so an address cross-listed on REA and Domain (~6.5k such rows per the migration header) that took a cut on both portals renders as two rows for one physical property, and the drill-down can show more entries than the board's deduped dropped_listing_count (the 0.40 cap IS consistently applied \u2014 only the dedup axis diverges); (b) 5,170 of 88,689 listings (2,603 REA + 2,567 Domain) have address_key='' \u2014 ListAddressPriceDrops correctly excludes them, but the suburb/state/agency aggregate MVs still count them, so a dual-listed cut on an address-less listing counts once per portal, biasing dropped_count upward in suburbs with poor address extraction.",
+   "evidence": "postgres_house_prices.go:776 (DISTINCT ON (e.listing_pk)) vs migrations/000086_price_drops_rollups.up.sql:9-14,32,47-50 (~6.5k cross-listed; address-level contract); cap parity at :802; prod: SELECT count(*) FILTER (WHERE address_key IS NULL OR address_key='') FROM property_listings \u2192 5,170/88,689 (5.8%); exclusion only at postgres_house_prices.go:1141.",
+   "suggested_fix": "Dedup the drill-down on the same COALESCE(NULLIF(address_key,''), source||':'||listing_id) key (keep the portal with the largest cut, optionally both deep-links on one row); backfill address_key from lat/lng proximity or listing_url slugs and report the empty-key rate in the crawl run summary so extraction regressions are visible.",
+   "effort": "M",
+   "merged_from": "schema (drill-down listing_pk dedup), data (5.8% empty address_key)",
+   "verdict": {
+    "verdict": "CONFIRMED",
+    "severity": "medium",
+    "note": "Both axes verified against current code and prod. (a) postgres_house_prices.go:776 ListSuburbDropListings dedups by DISTINCT ON (e.listing_pk) while migration 000086 dedups every aggregate by COALESCE(NULLIF(address_key,''), source||':'||listing_id) (up.sql:9-14,32,47-50); cap parity at :802 holds; no later commit fixes it. Prod (30-day window, drill-down's own filters): 3,432 drill-down rows collapse to 2,323 addresses \u2014 1,109 duplicate rows (32%), and 1,003 of 1,042 duplicated addresses are cross-portal REA+Domain, the exact claimed mechanism. Concrete suburb divergences vs mv_suburb_price_drops.dropped_listing_count: Ivanhoe VIC 30 vs 4, Berwick 79 vs 54, Point Cook 59 vs 39. Flag is ON by default and the drill-down renders in suburb-profile.tsx, so user-visible. (b) Prod today: 5,172/88,700 (5.8%) listings with empty address_key (REA 2,603 / Domain 2,569) \u2014 matches the claim; ListAddressPriceDrops excludes them at :1141 while the MVs count them once per portal via the source:listing_id fallback. One caveat: axis (b) is a *documented* approximation (000086 header explicitly notes the fallback for \"~4% of rows\"), so it's a drifting known limitation (now 5.8%) rather than an unnoticed contract breach \u2014 the genuinely unnoticed defect is axis (a). Severity stays medium: headline aggregates are correctly deduped; cost is a visible drill-down inconsistency (near-high given 32% duplication) plus a modest documented count bias, not wrong headline data or licence exposure."
+   }
+  },
+  {
+   "id": "F15",
+   "area": "price-drops MV semantics (000077 / 000086)",
+   "severity": "medium",
+   "type": "bug",
+   "title": "'Sold' aggregates have no time window (all-time blend labelled 'recent sales') and dropped_share divides a 30-day numerator by the current-active denominator \u2014 the ratio can exceed 1",
+   "detail": "mv_suburb_listing_stats' sold CTE is `WHERE listing_status='sold' AND price IS NOT NULL` with no time bound (comment says 'recent sales'); mv_state_price_drops repeats the unbounded FILTERs \u2014 while the drop-side numerators are strictly 30-day windowed. As the corpus ages, the board's sold medians/counts become an all-time blend across market conditions sitting next to 30-day drop stats (sold_count grows monotonically forever). Separately, dropped_share divides a 30-day windowed, event-derived address count (retaining addresses that have since sold/delisted) by the CURRENT active-listing count (`WHERE is_active`, no window): in fast-turnover suburbs the share drifts upward and is not bounded by 1, yet renders as 'X% of listings cut'. (Prod currently shows 0 rows with share>1 \u2014 a latent, not live, overflow; the epoch mismatch is live.)",
+   "evidence": "migrations/000077_add_suburb_listing_stats.up.sql:16-23 ('recent sales' comment, no time predicate); 000086_price_drops_rollups.up.sql:135-140 vs :36/:97/:192 (30-day windows on drops only); :36-38+61-80 and :97-100+121-153 (windowed numerator / unwindowed is_active denominator, dropped_listing_count/total_active_listings); data-finder prod check 2026-08-09: 0 rows dropped_share>1 today.",
+   "suggested_fix": "Rebuild with a rolling sold window (6-12 months keyed off the sold-status transition timestamp) and rename/annotate the columns; for the share, either restrict the numerator to still-active addresses or denominate by addresses active within the same 30-day window; document the chosen semantics on the MV.",
+   "effort": "M",
+   "merged_from": "schema (sold window), schema (dropped_share populations)",
+   "verdict": {
+    "verdict": "CONFIRMED",
+    "severity": "medium",
+    "note": "All cited evidence holds exactly. (1) 000077:16-23 sold CTE has no time bound under a \"recent sales\" comment; 000086 repeats unbounded sold FILTERs (:135-140) while drop numerators are 30-day windowed (:36/:97/:192); dropped_share (:77/:153) divides a 30-day event-derived address count by the current unwindowed is_active count with no clamp. (2) Not fixed: 000090/000092 only re-wire the refresh function, no later migration/commit rebuilds these MVs, and prod pg_matviews definitions match the repo SQL verbatim (mv_suburb_listing_stats has zero interval predicates). (3) Frontend renders it as claimed: state-drops-board.tsx:29 \"Share of listings cut (30d)\" + unclamped percent; suburb-price-drops-panel.tsx:62 labels the unbounded sold aggregates \"recent sold prices\". (4) Prod read-only check 2026-08-09 reproduces the finding's own qualifier: 0 rows dropped_share>1 (max 0.267) \u2014 latent, not live; mechanism verified (41 of 3,476 30-day drop addresses already inactive, retained in numerator only). (5) Sold corpus is 5,716 rows spanning 2026-07-13\u21922026-08-09 with no pruning code in the collector, so sold_count grows monotonically \u2014 one nuance: the corpus is only ~4 weeks old, so the all-time sold blend is today still effectively \"recent\"; the mismatch is live in the SQL but its displayed-data distortion accrues from here. Severity stays medium: no wrong prod data or licence exposure today, but structural debt with a concrete accruing cost on a public board."
+   }
+  }
+ ],
+ "enhancements": [
+  {
+   "finder": "pipeline",
+   "title": "Official-tier ingest health: non-zero exits + an ingest-runs freshness sentinel",
+   "detail": "Make run() exit non-zero when any official source records status='error' (Cloud Run max_retries=2 and execution-failure alerting then work for free), and add a monthly CI freshness check over house_price_ingest_runs (age of last ok per source vs expected cadence) mirroring the economy platform's sentinel ($economy-data skill, 'monthly CI red = real alarm'). This one change would have caught the live vg_nsw/vg_vic breakage on day one.",
+   "value": "high",
+   "effort": "S"
+  },
+  {
+   "finder": "pipeline",
+   "title": "Wire price_index_derived into /housing and retire the frozen RPPI tile",
+   "detail": "The current-quarter national + per-state derived index (531 rows, live to 2026-03-31, refreshed monthly) already exists in prod precisely for this \u2014 swap the '8-capital price index (to 2021)' BigStat and add a HousingSeriesChart for it (format='index' already supported). Zero new ingest work; pure read-path wiring in web/src/app/housing/page.tsx.",
+   "value": "high",
+   "effort": "S"
+  },
+  {
+   "finder": "pipeline",
+   "title": "Rates & credit panel from already-ingested RBA series",
+   "detail": "cash_rate (432 rows, monthly to 2026-07-31), mortgage_rate_oo/investor (F6), housing_credit_growth \u00d73 (D1) and the E1 household balance sheet are all in house_prices with no reader. A '/housing' rates panel (cash rate vs outstanding mortgage rates vs credit growth) is a pure frontend + one-RPC job \u2014 note mv_housing_headline is quarterly-only (period_freq='Q' filter, 000053:67), so monthly series need GetHousePriceSeries or an MV tweak.",
+   "value": "medium",
+   "effort": "M"
+  },
+  {
+   "finder": "pipeline",
+   "title": "Harden refresh_housing_materialized_views to the 000095 pattern",
+   "detail": "One migration: function-scoped SET statement_timeout TO '0', per-MV guards including mv_housing_headline, and WHEN query_canceled OR OTHERS everywhere. The shorts refresh already proved this pattern after a 19-day silent-staleness incident; the housing function is the last refresh routine without it.",
+   "value": "high",
+   "effort": "S"
+  },
+  {
+   "finder": "pipeline",
+   "title": "Content-hash-driven change detection and revalidation gating",
+   "detail": "Add 'WHERE house_prices.content_hash IS DISTINCT FROM EXCLUDED.content_hash' to upsertObservations and return (upserted, changed) counts. This gives per-run 'new ABS quarter landed: N changed rows' logging, makes fetched_at meaningful (currently rewritten on every row every run), lets pingRevalidate fire only on real change (making the TF module's comment true), and provides the signal for a 'new quarter' hook (e.g. auto-tweet / newsroom prompt when a new RES_DWELL quarter arrives).",
+   "value": "medium",
+   "effort": "S"
+  },
+  {
+   "finder": "pipeline",
+   "title": "Append-only ingest run history",
+   "detail": "Replace the PK-per-source overwrite in house_price_ingest_runs with (or add alongside) an append-only history table (source, started_at, status, rows, last_period, detail). Enables 'last success age' queries, failure-streak detection, and post-incident forensics \u2014 today it is impossible to tell when vg_vic last succeeded from the cursor table alone. Cheap: the collector already funnels every outcome through updateRun().",
+   "value": "medium",
+   "effort": "M"
+  },
+  {
+   "finder": "crawl",
+   "title": "Wire lease reclaim + collector heartbeat renew into the queue coupling",
+   "detail": "Both halves already exist unused: brandbrain has ReclaimExpired (re-pend expired in_progress with attempts left, fail the exhausted) and a Renew endpoint; the collector has a natural heartbeat point (per-page loop in sweepSuburbSource). Calling ReclaimExpired lazily at the top of Claim plus a per-suburb Renew from crawl_agent.go permanently closes outage mode #4 (orphaned leases) including the dry-run-claim orphan case, with no schema change (lease_expires_at is already populated).",
+   "value": "high",
+   "effort": "S"
+  },
+  {
+   "finder": "crawl",
+   "title": "Queue-vs-corpus reconciliation check: assert 'succeeded' implies data written",
+   "detail": "The three silent stoppers (thin-suburb wedge, orphaned leases, circuit-open banked success) share one shape: the queue's terminal status diverges from what actually landed in property_listings. A read-only nightly job that joins brandbrain's succeeded jobs (by suburb/source/completed_at) against property_listings.last_seen_at and writes a mismatch count into crawl_run_status would have caught all three within a day. agentJobTerminal already encodes this instinct per-job; this generalises it across the system.",
+   "value": "high",
+   "effort": "M"
+  },
+  {
+   "finder": "crawl",
+   "title": "PageMeta-aware thin-page gate (replaces the MIN_PER_PAGE hand-tuning)",
+   "detail": "REA's extractPageMeta already returns the portal's own exact on-target inventory count (OnTargetResults, present on 483/483 measured REA page-1 records). Using it to classify a sub-threshold page 1 \u2014 meta says <5 on-target \u2192 sweepComplete (genuine small suburb, delist-safe); meta absent or claims more \u2192 keep sweepBlocked \u2014 eliminates the thin-suburb false-block class the same way #404 used wantPages<softCap to fix REA delisting, and removes the CRAWL_LISTINGS_MIN_PER_PAGE=1 operational workaround.",
+   "value": "high",
+   "effort": "M"
+  },
+  {
+   "finder": "crawl",
+   "title": "Agent-app self-heal preflight in the scheduled wrappers",
+   "detail": "The wrappers already do Chrome self-healing; the analogous auth self-heal is missing. Before draining: read ~/.brandbrain/diag-port, probe /control/v1/auth/session/export, and on failure `open -a /Applications/BrandBrainAgent.app`, wait ~20s, re-probe (the 30-day refresh token survives, so no re-login is needed). Closes outage mode #1 for scheduled runs \u2014 the exact failure that killed the crawl for 2+ days on 2026-08-01.",
+   "value": "high",
+   "effort": "S"
+  },
+  {
+   "finder": "crawl",
+   "title": "Trace-replay regression bench for sweep classification",
+   "detail": "The #404 completeness fix was derived by hand from 861 light-mode traces / 3,179 page records. The pieces for automating that exist: trace.jsonl records every pagination signal + decision, and fileFetcher/CRAWL_LISTINGS_FIXTURE_DIR already replays saved HTML offline. A bench that replays a committed (sanitised, jsonl-only \u2014 no portal HTML) trace corpus through sweepSuburbSource and diffs the decision distribution would let future gate changes (like enhancement 3) be measured against real portal behaviour before deploy instead of after a fortnight of prod sweeps.",
+   "value": "medium",
+   "effort": "M"
+  },
+  {
+   "finder": "crawl",
+   "title": "Unified crawl alerting: webhook the run-status transitions, not just freshness",
+   "detail": "postFreshnessAlarm already implements a redaction-safe Slack/Discord POST helper. Reusing it from writeCrawlRunStatus when a round derives 'error', 'blocked', or 'rewarm' (deriveCrawlRunStatus) turns the existing health taxonomy into push alerts \u2014 an auth-dead rig or fully-blocked session then pages within one round instead of surfacing via a 72h freshness horizon on a dashboard nobody was watching during the August outages. Pair with setting CRAWL_FRESHNESS_WEBHOOK on the rigs.",
+   "value": "medium",
+   "effort": "S"
+  },
+  {
+   "finder": "schema",
+   "title": "Prod schema-drift sentinel for the hand-apply regime",
+   "detail": "A read-only CI job (or make target) that connects to prod, introspects information_schema + pg_matviews for the tables/columns/MVs the committed store queries reference (house_prices, property_listings, suburb_demographics banner_*/crime columns, the 6 housing MV shapes), and fails red on mismatch. Directly de-fangs the class of incident already documented twice in-repo (000092's '000090 was hand-applied to prod' drift; the politicians allowlist landmine). The column list can be generated from the migrations dir so it stays current.",
+   "value": "high",
+   "effort": "M"
+  },
+  {
+   "finder": "schema",
+   "title": "Housing MV refresh bookkeeping + admin-jobs surfacing",
+   "detail": "Mirror the 000094 refreshed_at pattern: a small housing_mv_refresh_runs table (view_name, started_at, finished_at, concurrent bool, error text) written from inside refresh_housing_materialized_views(), merged into the existing /api/admin/jobs dashboard the way crawl_run_status (000089) already is. The 19-day silent-staleness incident on the shorts MVs shows exactly why per-view refresh outcomes need to be observable; today a failed housing refresh is only a collector log line on a residential Mac.",
+   "value": "high",
+   "effort": "M"
+  },
+  {
+   "finder": "schema",
+   "title": "Time-anchored sold-price layer from status_change events",
+   "detail": "property_price_events already records status_change transitions with observed_at, so a derived sold_at per listing is one query away. Build rolling 3/6/12-month sold aggregates (per suburb + state) to replace the unbounded 'sold' FILTERs in mv_suburb_listing_stats/mv_state_price_drops \u2014 and it unlocks a genuinely new surface: asking-vs-sold discount (final sold price vs first ask) per suburb, which no free AU site publishes and which the crawl corpus uniquely supports.",
+   "value": "high",
+   "effort": "M"
+  },
+  {
+   "finder": "schema",
+   "title": "Ship the single-FY crime trend read path (Phase 3)",
+   "detail": "suburb_crime_stats already stores the pooled=false per-FY series and the collector contains a ready reference reader (getSuburbCrime, store.go:478-508, whose comment says 'used by GetSuburbProfile once the Phase-3 read wiring lands'). Adding a gated crime-trend repeated field to GetSuburbProfile (same NOT small_pop/NOT unreliable/licence predicate as 000092) gives suburb profiles a multi-year crime sparkline from data that is already ingested and ranked \u2014 pure read wiring, no new pipeline.",
+   "value": "medium",
+   "effort": "M"
+  },
+  {
+   "finder": "schema",
+   "title": "Source-preference layer for mv_housing_headline (multi-tier medians)",
+   "detail": "Rebuild the headline MV with a ranked DISTINCT ON per (region, measure, dwelling, period) before windowing (e.g. prefer abs_res_dwell > state VG > others). Beyond fixing the latent multi-source LAG trap, it is the schema prerequisite for the pending state-government tiers (house-price-multistate memory: NSW built, more states planned) to coexist with ABS on the same regions without corrupting QoQ/YoY \u2014 currently every new quarterly source must avoid every existing region\u00d7measure key.",
+   "value": "medium",
+   "effort": "M"
+  },
+  {
+   "finder": "schema",
+   "title": "Retention + BRIN policy for property_price_events",
+   "detail": "Every sweep appends events forever; all read paths and MVs window at most 365 days (drill-down cap) and usually 30. Add a BRIN index on observed_at (near-free, the table is append-ordered) and a cleanup function pruning events older than ~18 months for delisted listings \u2014 same pattern as the news 90-day TTL (migration 000029). Keeps refresh and the firstp/address-board scans flat as the corpus compounds, before the table gets big enough that pruning itself becomes a Supabase pooler problem (cf. the 527k-row crime upsert chunking lesson).",
+   "value": "medium",
+   "effort": "S"
+  },
+  {
+   "finder": "api",
+   "title": "Slug-resolution RPC for suburb pages",
+   "detail": "Add ResolveSuburbSlug(state_code, slug) \u2192 sal_code (or a slug filter on ListStateSuburbs) and precompute the slug in suburb_demographics. Kills the pattern where every /housing/[state]/[suburb] SSR miss pulls the full ~5,000-row, 54-field state payload just to find one row (getHousing.ts:292-298). Pairs naturally with a redirect map for renamed suburbs.",
+   "value": "high",
+   "effort": "M"
+  },
+  {
+   "finder": "api",
+   "title": "Lightweight map-projection variant of ListStateSuburbs",
+   "detail": "The state choropleth's 'Colour by' toggle needs ~6-8 fields per suburb per metric (highlight-metrics.ts), but ListStateSuburbs always ships all 31 summary + 23 amenity fields for up to 5,000 suburbs. A field-mask param or a ListStateSuburbMetrics(metric_key) RPC would cut the hot /housing/[state] payload substantially and make the per-suburb LATERAL price probe skippable for non-price metrics (postgres_house_prices.go:315-326).",
+   "value": "medium",
+   "effort": "M"
+  },
+  {
+   "finder": "api",
+   "title": "Server action + KV layer for GetPropertyHistory",
+   "detail": "The per-address history surface is client-only today (getHousingClient.ts:171-187); there is no server action in getHousing.ts. Adding one with the same skipForBuild + cache:housing: KV + never-cache-empty treatment as the drops boards would let /housing/property/[addressKey] render ISR with last-good protection, and the existing flush=housing event already busts the right prefix.",
+   "value": "medium",
+   "effort": "S"
+  },
+  {
+   "finder": "api",
+   "title": "Shared request-normalization helper for housing handlers",
+   "detail": "One helper (uppercase/trim state_code, whitelist sort, clamp limit/window_days) applied in every housing handler before both the cache key and the store call \u2014 the pattern ListAgencyPriceStats already proves (house_prices.go:680-693). Fixes the case-sensitivity inconsistency and the cache-key fanout class in one place, and gives the store clamps a single authoritative twin.",
+   "value": "medium",
+   "effort": "S"
+  },
+  {
+   "finder": "api",
+   "title": "Wire window_days on ListSuburbPriceDrops via the existing event query",
+   "detail": "The proto already reserves window_days (housing.proto:341) and ListSuburbDropListings already has the parametrized-window event SQL with the 0.40 sanity cap (postgres_house_prices.go:770-806). A windowed on-the-fly aggregate (fallback to the MV for the default 30d) would let the board answer 'cuts this week vs this quarter' \u2014 a real product axis the crawl data supports today.",
+   "value": "medium",
+   "effort": "M"
+  },
+  {
+   "finder": "api",
+   "title": "REST (google.api.http) bindings for the 7 unexposed housing RPCs",
+   "detail": "Only the 4 price-drops rpcs have google.api.http annotations (shorts.proto:693, 706, 719, 732 \u2014 4 of the 9 total in the whole 86-rpc legacy service). Annotating GetHousingOverview/GetHousePriceSeries/ListStateSuburbs/GetSuburbProfile/ListHousingRegions/ListSuburbPriceDrops/ListSuburbDropListings gives paying API customers a consistent REST surface over the whole housing dataset and makes the OpenAPI docs complete.",
+   "value": "low",
+   "effort": "S"
+  },
+  {
+   "finder": "frontend",
+   "title": "Choropleth board on /price-drops (drop-share by state)",
+   "detail": "Everything needed is already committed: ChoroplethMap supports continuous fills + legends, states.topojson (493KB, CF-edge-cached) is in /public/geo, and GetPriceDropsOverview already returns per-state drop share / median cut (StateDropsBoard consumes it as a table). A small ssr:false map shading states by dropSharePct with click-through to ?state= would give the flagship board the same visual identity as /housing and make the state comparison legible at a glance.",
+   "value": "high",
+   "effort": "M"
+  },
+  {
+   "finder": "frontend",
+   "title": "KV-backed slug\u2192SAL resolution index (kills the 5,000-row lookup)",
+   "detail": "resolveSuburbSalCode currently fetches the entire state's suburb list (up to 4,544 rows) just to find one slug \u2014 on the TTFB path of every suburb page AND the suburb OG card. A per-state {slug: sal} map cached in Upstash under cache:housing: (flushed by the existing ?flush=housing crawl ping) or a tiny ResolveSuburbSlug RPC turns this into a ~5ms GET, and is the prerequisite for cheaply re-enabling ISR on the 15k suburb pages (finding #2) and for static suburb OG cards.",
+   "value": "high",
+   "effort": "M"
+  },
+  {
+   "finder": "frontend",
+   "title": "generateStaticParams + post-deploy warm for the ~1,165 priced suburbs",
+   "detail": "The priced suburbs are exactly the pages the sitemap promotes and the ones with the richest content (banners, blurbs, price-drop panels, crime layers). Pre-rendering them (the 115 crawl-catalog suburbs at minimum) with revalidate + the existing /api/static-pages/warm-cache + bailOnEmptyRender pattern (already proven on /housing, /price-drops, /economy) would give static TTFB on the highest-value housing URLs instead of today's two-RPC dynamic render.",
+   "value": "high",
+   "effort": "M"
+  },
+  {
+   "finder": "frontend",
+   "title": "Shared roving-tabindex keyboard layer for both housing maps",
+   "detail": "One hook (arrow keys move the focused feature, Enter selects/drills, Escape resets; single tab stop) would fix both a11y findings at once and is reusable by the economy map explorer, which imports the same MapLegend/choropleth primitives. ChoroplethMap already has the per-feature focus\u2192highlight plumbing (onFocus\u2192setHover at choropleth-map.tsx:245) to build on.",
+   "value": "medium",
+   "effort": "M"
+  },
+  {
+   "finder": "frontend",
+   "title": "Data-driven state OG cards (median + YoY on the silhouette)",
+   "detail": "/housing/[state]/opengraph-image already renders the state boundary silhouette but with static copy. getHousingOverview is KV-cached (24h TTL) and carries each capital's median + YoY/QoQ \u2014 overlaying '$941k median \u00b7 +4.2% yr' would match the per-suburb card's median treatment and make state shares meaningfully richer for ~20 lines of code.",
+   "value": "medium",
+   "effort": "S"
+  },
+  {
+   "finder": "frontend",
+   "title": "Suburb comparison surface (/housing/compare)",
+   "detail": "suburb-profile.tsx already computes baselines deltas (suburb vs state vs national) and a nearest-6 'similar suburbs' rail (backend similarSuburbs z-score space), and state-suburb-explorer already normalises 40+ metrics into SuburbDatum with the highlight-metrics registry. A 2-3 suburb side-by-side (URL-driven, like the existing stock /compare) would reuse all of it and is a natural internal-linking magnet for the 1,165 priced-suburb pages.",
+   "value": "medium",
+   "effort": "L"
+  },
+  {
+   "finder": "docs",
+   "title": "Docs-drift guard test for collector modes",
+   "detail": "A small Go test in services/house-price-collector (same pattern as the proto dual-add contract enforced by proto_parity_test.go) that parses main.go's mode switch (or a shared []string modes registry) and asserts every mode name appears in docs/feature/housing/pipeline.md and deploy/README.md. This mechanically prevents the exact defect found here (monolith at 7/22, CLAUDE.md at 11/22 mode coverage) and fails the deploy-gating test run when someone adds a mode without documenting it.",
+   "value": "high",
+   "effort": "S"
+  },
+  {
+   "finder": "docs",
+   "title": "Shrink CLAUDE.md's housing section to a politicians-style pointer block",
+   "detail": "The politicians CLAUDE.md section proves the shape: ~30 lines of rules-that-shape-everything + landmines + a pointer to docs/feature/politicians/. The housing section is ~3x longer and carries five enumerated lists (modes, RPCs, migrations, key files, gotchas) that all drifted. Once docs/feature/housing/ exists, replacing the section cuts always-loaded token weight in every session and removes four of the drift surfaces found in this audit.",
+   "value": "high",
+   "effort": "S"
+  },
+  {
+   "finder": "docs",
+   "title": "An 'OUT \u2014 settled, not deferred' rulings section in the new data-sources.md",
+   "detail": "Politicians' data-sources.md has a decisive ruled-out section (LinkedIn/X/Hansard) that prevents re-proposal. Housing's equivalent rulings exist but are scattered across memory files: ASX T+1 gross short sales (REJECTED 2026-07-28, do-not-re-propose), property.com.au ToS ban on aggregators, residential proxies (rejected \u2014 block is fingerprint-scoped), REA/Domain no-republish (source_licence gate), CRAWL_TRACE artifacts local-only, wa-tou-noncommercial exclusion (000092). Consolidating them with the reasoning makes each ruling durable and citable.",
+   "value": "high",
+   "effort": "M"
+  },
+  {
+   "finder": "docs",
+   "title": "Dated corpus stat line generated from -mode freshness",
+   "detail": "crawl_freshness.go already computes per-suburb coverage read-only from prod. Extend its output with a one-line corpus summary (total property_listings, covered suburbs, price events, as-at date) that operators paste into the docs/feature/housing/README.md header \u2014 mirroring politicians' 'Prod, as at 2026-07-31: 17,153 rows...' line. Eliminates the three contradictory undated counts (~22k / ~12,151 / ~12k) found in prose.",
+   "value": "medium",
+   "effort": "S"
+  },
+  {
+   "finder": "docs",
+   "title": "Package README for services/house-price-collector",
+   "detail": "Two screens at the package root: what the binary is, the 22 modes grouped into their 7 families (official / census / electoral / listings-crawl / property-AVM / crime / local-insights), which env vars gate each family, and pointers to deploy/README.md (rig ops) and docs/feature/housing/ (architecture). Grounded in the fact the package has ~110 Go files and currently zero orientation docs.",
+   "value": "medium",
+   "effort": "S"
+  },
+  {
+   "finder": "docs",
+   "title": "Machine-readable mode registry powering both main.go usage and pipeline.md",
+   "detail": "main.go's flag usage string and 22-way switch are hand-maintained in parallel. A single []modeSpec{name, family, writes, envs, timeout} table in main.go can drive the flag usage, the switch dispatch, the default-timeout selection (the agent/listings/crime 240-min cases already special-case by name), and a `-mode help` JSON dump that a script renders into the pipeline.md mode table \u2014 making the docs a build artifact of the code rather than a copy.",
+   "value": "medium",
+   "effort": "M"
+  },
+  {
+   "finder": "licence",
+   "title": "Centralise the licence gate in a house_prices_public SQL view",
+   "detail": "The source_licence <> 'proprietary-tos-restricted' predicate is hand-copied 10 times across postgres_house_prices.go, and history shows it gets forgotten (the 2026-07 audit found 3+ missing sites). Migration 000092 already proved the pattern for crime: bake the gate into the relation so readers structurally cannot bypass it. Create a view (or MV) house_prices_public AS SELECT ... WHERE source_licence <> 'proprietary-tos-restricted' and point every public reader at it; keep the base table for collector/internal paths. New endpoints then inherit the gate for free.",
+   "value": "high",
+   "effort": "S"
+  },
+  {
+   "finder": "licence",
+   "title": "One-shot housing takedown command",
+   "detail": "The kill switches (HOUSING_DROP_LISTINGS_ENABLED, HOUSING_VALUATIONS_ENABLED) exist but a real takedown needs env flip + Upstash cache:housing:* flush + ISR revalidation of /price-drops and suburb pages, spread across Vercel, Cloud Run and the revalidate API. Build a `make housing-takedown` (or an /api/admin/flush-cache target extension \u2014 the admin-gated route and TARGETS map already exist at web/src/app/api/admin/flush-cache/route.ts) that executes the flush+revalidate half and prints the exact env-flip commands, so the whole response is one action under time pressure.",
+   "value": "high",
+   "effort": "S"
+  },
+  {
+   "finder": "licence",
+   "title": "CI provenance gate blocking committed portal content",
+   "detail": "The property-crawl work already has a provenance classifier concept ('provenance classifier blocks it' per the crawl memory) but nothing enforces it at commit/CI time \u2014 which is exactly how the real New Farm payloads landed in testdata/. Add a cheap CI (and pre-commit) check that fails on staged files matching portal markers: ArgonautExchange, urqlClientCache, listingsMap, UPVSoldListings, realestate.com.au/property-, domain.com.au listing URL shapes \u2014 with an allowlist for the synthetic fixtures. Extends naturally to CRAWL_TRACE artifact patterns (traces/**, p*.html).",
+   "value": "high",
+   "effort": "S"
+  },
+  {
+   "finder": "licence",
+   "title": "Synthetic portal-fixture builder for extraction tests",
+   "detail": "The pagemeta extraction tests need the exact REA ArgonautExchange / Domain __NEXT_DATA__ JSON shapes but not real content. Build a small Go fixture generator (testdata builder emitting fake addresses/IDs/prices in the locked payload shapes from crawl_listings_extract.go) shared by both the collector and the services/jobs/internal/jobs/houseprices port, replacing all 4 captured HTML files and removing any future temptation to capture-and-trim live pages into the repo.",
+   "value": "medium",
+   "effort": "S"
+  },
+  {
+   "finder": "licence",
+   "title": "Licence-gate regression tests over the flag-gated + aggregate surfaces",
+   "detail": "postgres_suburb_explorer_test.go already proves the pattern (TestHousingLicenceGate_StateSuburbs/_SuburbProfile with testcontainers): extend it with seeded proprietary rows asserting (a) mv_suburb_listing_stats never publishes sub-floor avg/median once the k-floor lands, (b) ListAgencyPriceStats depth suppression below 3 dropped addresses survives MV rebuilds, (c) GetPropertyHistory returns empty under the kill switches, and (d) a grep-style meta-test that every `FROM house_prices` in the store carries the licence predicate (or uses the public view).",
+   "value": "medium",
+   "effort": "M"
+  },
+  {
+   "finder": "licence",
+   "title": "Admin licence/provenance dashboard panel",
+   "detail": "The admin jobs page already surfaces sync health; add a small housing-provenance card showing live counts by source_licence across house_prices / property_listings / property_valuations / suburb_crime_stats, the current kill-switch states as the backend actually resolves them (dropListingsEnabled()/valuationsEnabled() readback), and the row-counts of each publishable MV vs its floor. Makes 'what proprietary data do we hold and what of it is publishable right now' a glanceable operator fact instead of a psql session.",
+   "value": "medium",
+   "effort": "M"
+  },
+  {
+   "finder": "data",
+   "title": "Housing freshness sentinel workflow over house_price_ingest_runs",
+   "detail": "The monitoring table already exists and faithfully records per-source status/detail/last_period (it captured both VG failures) \u2014 it is simply unwatched. Clone economy-freshness.yml: red on any error-status source in the latest run, on per-source max(period) regression, and on property_price_events silence >3 days. Cheapest possible fix for the class of month-long silent breakage found in this audit.",
+   "value": "high",
+   "effort": "S"
+  },
+  {
+   "finder": "data",
+   "title": "Crawl-derived suburb asking-price medians where VG data is missing or stale",
+   "detail": "NSW/QLD/WA have zero official suburb medians and VIC is frozen at Dec-2024, yet the crawl corpus now covers 500 suburbs with 88.7k listings and mv_suburb_listing_stats already aggregates per-suburb asking stats. Publishing a clearly-labelled 'median asking price (portal-derived)' series for suburbs lacking VG coverage would fill the biggest data hole on suburb profiles using data already in the DB \u2014 as a derived aggregate it stays inside the counts-only/no-republish licence posture already applied to mv_agency_stats.",
+   "value": "high",
+   "effort": "M"
+  },
+  {
+   "finder": "data",
+   "title": "Crime data Phase 2: extend beyond NSW",
+   "detail": "mv_suburb_crime_latest covers 975 suburbs \u2014 6.4% of the 15,345 in suburb_demographics \u2014 because only NSW BOCSAR is ingested (527k rows, FY2025, mode=victim_estimate). The pipeline (000090/000092 + -mode crime, small-pop/unreliable gating) is proven; VIC CSA and QLD QPS publish open LGA/suburb-level tables under compatible licences. Extending to VIC+QLD roughly triples the addressable suburb count for the crime colour-by metric.",
+   "value": "high",
+   "effort": "L"
+  },
+  {
+   "finder": "data",
+   "title": "Route VG fetches (VIC xlsx, NSW PSI zips) through the residential crawl rigs",
+   "detail": "Both official VG sources are now Cloudflare-blocked from Cloud Run's datacenter IP, while the brandbrain agent rigs on residential Macs already clear Cloudflare/Kasada daily for the listings tier. Adding a 'vg' job kind to the existing counts-only queue (fetch file \u2192 parse locally \u2192 upsert to house_prices) reuses the whole self-healing agent infrastructure and permanently fixes the fetch-posture problem for any future state VG source.",
+   "value": "medium",
+   "effort": "M"
+  },
+  {
+   "finder": "data",
+   "title": "REA sold-disposition detection",
+   "detail": "2,497 REA withdrawn listings have unknown disposition (sold vs withdrawn), which is why sold metrics are Domain-only. REA exposes a sold-search SRP per suburb; a low-frequency sold-sweep (monthly, reusing the warmed-Chrome CDP path and smart pagination) could classify recent REA withdrawals and make soldCount/medianSold genuinely cross-portal \u2014 the single highest-leverage fix for /price-drops metric fidelity.",
+   "value": "medium",
+   "effort": "M"
+  },
+  {
+   "finder": "data",
+   "title": "Per-source data-quality gauges in the crawl run summary",
+   "detail": "The run-summary log line (crawl_listings.go:386) already counts drops/rises/relists/delists; adding empty-address_key rate, price-parse rate (currently ~34-36% of active listings are unpriced 'contact agent'), and per-portal sold/relist ratios would turn the three portal asymmetries this audit found (sold 0-vs-5,715; relist 1-vs-9,270; addr-key gaps) into visible per-run metrics instead of archaeology.",
+   "value": "medium",
+   "effort": "S"
+  },
+  {
+   "finder": "product",
+   "title": "Widen the suburb indexation gate from 1,165 priced suburbs to the full rich-profile corpus",
+   "detail": "Exists: 15,345 suburb profiles (census rows) with banner heroes (000084, all 15,329 classified), demographics + culture, federal/state electoral representation (000058-60), crime (NSW), amenities/council, politician property cards and OG scene cards \u2014 but the sitemap only lists suburbs with latestMedianPrice > 0 (sitemap.ts:545 filter \u2192 1,165 live URLs, all currently 404 per finding 1). These pages are no longer 'thin'. Increment: after fixing the slugs, gate on richer-content signals instead (e.g. population \u2265 200 OR has crime/amenity data), lifting the indexable corpus to ~8-12k pages; add per-state <lastmod>. Value: the single biggest programmatic-SEO lever in the feature (suburb-name + 'house prices'/'demographics'/'crime' queries).",
+   "value": "high",
+   "effort": "S"
+  },
+  {
+   "finder": "product",
+   "title": "Surface the ~12 dark national measures as an 'Affordability & credit' section on /housing",
+   "detail": "Exists: runOfficial already ingests mortgage_rate_oo/mortgage_rate_investor (RBA F6, rba.go:118), cash_rate (F1.1), housing_credit_growth \u00d73 (D1), household_dwelling_assets/net_worth/liabilities (E1), wage_index (WPI), rents_index (CPI, abs_affordability.go:26), price_to_income (abs_affordability.go:84), investor_loan_share and price_index_derived \u2014 but the web UI charts only mean_price, debt_to_income and median_price (grep measure= across housing pages \u2192 3 distinct). GetHousePriceSeries accepts any measure and HousingSeriesChart already takes a measure prop. Increment: add tiles + WhenVisible charts (mortgage rates vs cash rate, rents inflation YoY, investor vs OO credit growth, price-to-income) and replace the '8-capital price index (to 2021)' tile \u2014 frozen upstream \u2014 with price_index_derived, which abs.go:368 explicitly built 'to give /housing a current-quarter index line'.",
+   "value": "high",
+   "effort": "M"
+  },
+  {
+   "finder": "product",
+   "title": "Housing embeds + open-data hub listing for the backlink/Dataset-Search program",
+   "detail": "Exists: a proven embed-backlink program for shorts (/embed/chart, /embed/treemap, /embed/top-shorts, /embed/bank-basket; PR #374 live) and a /data open-data hub with Dataset JSON-LD \u2014 but the DATASETS array is shorts-only (grep housing \u2192 0) and no housing embed exists. The ABS/RBA house_prices series are CC-BY (republishable) and the price-drop rollups are own-derived aggregates. Increment: /embed/housing-series (region\u00d7measure chart) + /embed/price-drops (state board) with the same attribution-link pattern, plus 2-3 housing Dataset entries (national prices, suburb medians, price-drop aggregates) with CSV endpoints on /data. Value: backlinks from property/finance bloggers + Google Dataset Search visibility for 'australian house prices dataset'.",
+   "value": "high",
+   "effort": "M"
+  },
+  {
+   "finder": "product",
+   "title": "Suburb watchlists + weekly price-cut email digest",
+   "detail": "Exists: daily property_price_events from the live crawl (~12k listings, 67+ suburbs), mv_suburb_price_drops refreshed per run with instant revalidation (pingRevalidate), a full Resend email stack with broadcasts + HMAC unsubscribe (migrations 000065, PRs #222-#228), user auth, and a stocks-only /alerts page (grep housing \u2192 0). Increment: 'Watch this suburb' on the profile + price-drops rows persisting (user_id, sal_code), and a weekly digest job (new cuts, median move, biggest drop) reusing the broadcast templates. Value: converts one-shot SEO landings into returning users and gives the paid tier a concrete housing perk.",
+   "value": "high",
+   "effort": "L"
+  },
+  {
+   "finder": "product",
+   "title": "Expand the crime layer beyond NSW (VIC/QLD/SA/WA)",
+   "detail": "Exists: a deliberately state-pluggable pipeline \u2014 crime.go builds the SAL registry for ALL states and applies the ABS CVS scaler + ERP denominators, but only crime_nsw.go (BOCSAR) exists as a source; the CrimeCard (suburb-profile.tsx:352-354) and the crime map metrics silently vanish for 10k+ non-NSW suburbs. VIC (Crime Statistics Agency LGA/suburb tables), QLD (QPS open data), SA and WA all publish downloadable offence tables under open licences. Increment: one crime_<state>.go per state feeding the existing compute/rank/gate machinery (000090/000092). Value: the highest-engagement metric on the map toggle, currently available to only ~30% of profiles.",
+   "value": "high",
+   "effort": "M"
+  },
+  {
+   "finder": "product",
+   "title": "Wire the Widow-Maker feature charts to live series and add product CTAs",
+   "detail": "Exists: the flagship editorial's four visx dashboards run on baked arrays ending 2025 (data/series.ts, dossier dated 2026-06-23) while the live house_prices store now carries every ingredient it charts \u2014 cash_rate, mortgage rates, credit growth, price_to_income, debt_to_income \u2014 and the HousingSeriesChart format-key pattern already solves the RSC serialization problem. Increment: feed the policy-price and buying-power charts a live-series overlay (baked history + live tail), refresh the stat-strip numbers from GetHousingOverview, and add the missing CTAs into /housing + /price-drops (finding 4). Value: keeps the highest-authority page perpetually current (its meta still says '23 June 2026') and funnels its backlink traffic into the product.",
+   "value": "medium",
+   "effort": "M"
+  },
+  {
+   "finder": "product",
+   "title": "Suburb comparison pages ('X vs Y') from the similarity data already computed",
+   "detail": "Exists: GetSuburbProfile already returns baselines (state/national medians), CompareBar deltas, 'Nearby & comparable' (postcode/price proximity) and 'Similar suburbs' with server-computed similarity scores (data.similar, nationally ranked). Increment: /housing/compare/[a]-vs-[b] pages \u2014 two-profile side-by-side (price series overlay via the existing series chart, demographic deltas, crime/electoral contrast) \u2014 statically generated for each suburb's top-3 similar/nearby pairs (~5-10k pages, all data from two existing RPCs). Value: 'Bondi vs Bronte' style queries are high-intent, zero-competition programmatic SEO, and the pages interlink the suburb corpus densely.",
+   "value": "medium",
+   "effort": "M"
+  },
+  {
+   "finder": "product",
+   "title": "SSR-seed and selectively index the per-address price-history pages",
+   "detail": "Exists: /housing/property/[addressKey] is live (linked from every address-drops row and suburb Recent-price-drops panel) but deliberately noindex (page.tsx:41) and renders client-side only \u2014 the server page ships just a prettified address string. The corpus behind it (~12k property_listings + property_price_events with address_key on ~96% of events, plus the backfill-address mode) is stable and dedup-hardened. Increment: seed the page with an SSR payload (mirror the suburb page's initialProfileJson pattern), then lift noindex for addresses with \u22652 price events and a populated display address. Caveat: this is the one surface where the ToS-restricted crawl licence posture must be re-confirmed before indexing \u2014 derived facts only, keep the portal deep-links.",
+   "value": "high",
+   "effort": "M"
+  },
+  {
+   "finder": "product",
+   "title": "Rent tracking: surface rents_index now, add a rental crawl channel later",
+   "detail": "Exists: the only rent data anywhere is the static Census 2021 median_weekly_rent per suburb and a dark national rents_index (ABS CPI rents, already ingested monthly \u2014 abs_affordability.go:26 \u2014 never charted). The entire crawl stack (brandbrain queue, -mode agent CDP pollers, suburb catalog, price-event diffing) is channel-agnostic. Increment S: chart rents inflation on /housing and the suburb profile ('Census median vs national rent inflation since 2021'). Increment L: a rental-SRP sweep mode reusing the listings pipeline \u2192 suburb advertised median rent + rent-cut events, unlocking a /rents board twin of /price-drops. Value: rental-market queries currently dwarf sale queries and no surface answers them.",
+   "value": "high",
+   "effort": "L"
+  },
+  {
+   "finder": "product",
+   "title": "Reciprocal cross-surface linking mesh (economy \u2194 housing \u2194 politicians)",
+   "detail": "Exists: one-way links only \u2014 suburb profiles embed SuburbPoliticianPropertyCard (suburb-profile.tsx:184) and /economy hub links /housing once (economy/page.tsx:200), but /economy/[state] has zero housing links, politician profiles never link back to the suburb pages their declared properties sit in (grep '\"/housing' in components/politicians \u2192 0), and state suburb explorers never link the state economy page. Increment: a compact housing tile on /economy/[state] (median + YoY from GetHousingOverview via GCCSA_TO_STATE, already fetched on /housing), suburb links on politician property declarations (sal_code is already matched \u2014 335 suburbs live), and an economy link in the state explorer stat strip. Value: distributes the politicians/economy authority into the 15k-page housing corpus and improves crawl depth for finding-1's newly fixed URLs.",
+   "value": "medium",
+   "effort": "S"
+  }
+ ],
+ "splitPlan": [
+  {
+   "file": "docs/feature/housing/README.md",
+   "purpose": "Orientation in the politicians-README shape: the five products (widow-maker feature, /housing tracker, suburb explorer, listings crawl, /price-drops) with a dated prod-corpus stat line, a read-these-in-order doc table, the rules that shape everything (source_licence gates republication and proprietary-tos-restricted never reaches a public surface; never store an unvalidated crawl value \u2014 the four anti-poisoning gates; counts-only summaries cross to brandbrain, listing rows never do; prod DDL is manual, DB-before-code), the surfaces table (/housing, /housing/[state], /housing/[state]/[suburb], /price-drops, /features/the-widow-maker, admin jobs dashboard), and a dated known-open list (median tier not queue-distributed; REA 25-listing truncation means delisting effectively never fires for REA; gazetteer scale-out beyond 500; TAS/ACT state members NULL by design; SA ~7% district-without-MP). Answers: what is this, what must never happen, what is knowingly broken.",
+   "sources": "housing-architecture.md intro (lines 1-15), \u00a76.1, \u00a76.8, \u00a710.2 licence posture; CLAUDE.md housing intro paragraphs; memory: housing-crawl-rea-truncation.md, residential-ip-scaling.md, price-drops-flagship.md"
+  },
+  {
+   "file": "docs/feature/housing/data-sources.md",
+   "purpose": "Every source, its licence, and what is ruled out and why \u2014 the audit surface for republishability. IN: ABS SDMX flows (RES_DWELL_ST/RES_DWELL/RPPI/WPI/CPI-rents/Lending/derived index, with the mandatory WAF UA + Accept headers), RBA CSVs (E2 plus F6/cash-rate/housing-credit/balance-sheet), state Valuer-General (SA CKAN, VIC XLSX, NSW \u2014 fixing the monolith's SA/VIC-only claim), ABS Census 2021 GCP SAL DataPack (G01/G02/G13A-E/G14 and what -mode census does NOT populate), AEC 2025 + ABS SED_2025 + Wikipedia state-member tables, NSW BOCSAR + ABS CVS/ERP crime, REA/Domain listings crawl and property.com.au AVM (both proprietary-tos-restricted), baked BIS/FRED/OECD/ATO arrays. OUT \u2014 settled: ASX T+1 (rejected 2026-07-28), residential proxies, republishing any crawl row, uploading CRAWL_TRACE artifacts, wa-tou-noncommercial rows. Answers: can I show this on a page, and has this source already been rejected.",
+   "sources": "housing-architecture.md \u00a77 table + licence notes, \u00a75.3, \u00a75.4, \u00a76.1-6.2; main.go runOfficial jobs list (code truth); migration 000092; memory: asx-t1-gross-short-sales-spike.md, property-com-au-crawler.md, crime-data-pipeline.md, house-price-multistate.md"
+  },
+  {
+   "file": "docs/feature/housing/data-model.md",
+   "purpose": "Tables, MVs and the guards enforced in the database rather than by review. Fact/dimension core (house_prices EAV, house_price_regions, house_price_ingest_runs), the suburb spine (suburb_demographics full column inventory by migration incl. 000084 banners), the crawl pair (property_listings/property_price_events) plus listing_details (000087) and property_valuations (000088/000091), crime (suburb_crime_stats + gated mv_suburb_crime_latest), crawl_run_status (000089), local-insights tables (lga/suburb_amenities/suburb_connectivity/suburb_funding, 000061-000064/000066-000067), the MV layer (mv_housing_headline + the price-drops trio) and refresh_housing_materialized_views(). DB-enforced guards get their own section: licence exclusion in the MV (000054), 40% drop-pct cap, cross-portal address dedup, k-anon \u22653 dropped addresses, the AU GROUPING-SETS guard, crime NOT small_pop AND NOT unreliable. Ends with the COMPLETE regenerated migration map 000053-000092 (fixing the 13 omissions found). Answers: where does a number live, and which invariants does the schema itself refuse to break.",
+   "sources": "housing-architecture.md \u00a74 schema, \u00a75.1, \u00a77 + column inventory, \u00a710.1, \u00a76.10; services/migrations/000053-000092 filenames (code truth); memory: price-drops-flagship.md, crime-data-pipeline.md, local-insights.md, suburb-banners.md"
+  },
+  {
+   "file": "docs/feature/housing/pipeline.md",
+   "purpose": "The collector's 22 modes as a table grouped by family (official ingest / census / electorates / banners / listings crawl: enqueue-agent-listings-crawl-freshness-purge-warmcheck-backfill-address / property AVM: details-property / crime / local insights: amenities-lga-connectivity-funding-council-financials / refresh / all), what each writes, required env, and the order dependencies (census \u2192 re-apply 000056 backfill \u2192 electorates; official \u2192 refresh; enqueue \u2192 agent drain \u2192 freshness; warm before any REA fetch). Also the per-mode timeout defaults (240 min for crawl/crime vs 15 min quick modes), the exit-code contract (0/3/4/5/6), and which modes -mode all does and does not run. Mirrors politicians pipeline.md's order-diagram + mode-table shape. Answers: what do I run, in what order, and what does each mode touch.",
+   "sources": "main.go:25 + mode switch (code truth, the doc's source of record); housing-architecture.md \u00a74 collector, \u00a75.3-5.4, \u00a76.4-6.9, \u00a78 manual-ingest commands; deploy/README.md scheduler sections; memory: housing-crawl-outage-modes.md"
+  },
+  {
+   "file": "docs/feature/housing/operations.md",
+   "purpose": "Runbook plus the landmines that actually bit, in politicians-operations voice. Prod: session pooler 5432 + statement_timeout=0 DDL, DB-before-code, migrations by hand because the deploy allowlist skips housing, MV refresh decoupling, the revalidate ping (path=/price-drops,/housing&flush=housing) and the three empty-shell defenses, post-deploy ISR warm. Rig: ~/.shorted-housing-crawl.env, the REA warm-Chrome mechanism + warmcheck + self-warm C1, drain-until-empty, launchd templates (delta/full/agent/property/rescan), token auto-refresh via the loopback control API, dead-rig detection in the admin dashboard. Landmines: distrust terminal statuses first (never-attempted jobs banked 'succeeded'), sweep-poison vs broadening, pgx.Batch hangs on the txn pooler, blocked-suburb auto-retry now live (#168 merged), searchParams-in-server-page kills ISR. Answers: how do I run/recover this, and what has silently broken before.",
+   "sources": "housing-architecture.md \u00a76.5, \u00a76.9, \u00a76.10, \u00a78, \u00a710.3-10.4; deploy/README.md + deploy/*.sh (code truth); CLAUDE.md prod-ops gotchas; memory: housing-crawl-outage-modes.md, price-drops-caching.md, housing-prod-ops.md, crime-data-pipeline.md (pooler chunking)"
+  },
+  {
+   "file": "docs/feature/housing/architecture.md",
+   "purpose": "The decision-and-incident record, mirroring politicians architecture.md's role: keep the existing 75KB monolith's narrative content here (moved or stubbed from docs/housing-architecture.md with a redirect note at the old path) rather than deleting it, because \u00a76.3/\u00a76.5/\u00a76.6 encode hard-won decisions the summary docs compress away \u2014 the stealth-engine \u2192 gateway \u2192 warm-CDP pivot, the Kasada native-startup-navigation discovery, the broadening-aware poison verdict, the 000083\u2192000086 migration renumber history, and the crawl-aligned caching rationale. New decisions and incidents append here with dated anchors; the extension recipes (\u00a79, corrected per the findings: recipe D \u2192 housing.proto/HousingService, recipe F deleted) move to the end of this file. Answers: why is it built this way, and what already failed.",
+   "sources": "the whole of docs/housing-architecture.md (corrected per findings 1-9), especially \u00a76.3, \u00a76.5, \u00a76.6, \u00a79, \u00a710.1's renumber note, \u00a710.3; memory: housing-residential-crawl.md, crawler-hardening-audit.md for incident dates"
+  }
+ ]
+}
