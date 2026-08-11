@@ -41,11 +41,24 @@ test("housing freshness workflow enforces the read-only production sentinel cont
   assert.match(workflow, /default_transaction_read_only=on/);
   assert.match(workflow, /--set=ON_ERROR_STOP=1/);
   assert.match(workflow, /\bWITH\b[\s\S]*\bSELECT\b/);
-  assert.doesNotMatch(
-    workflow,
-    /\b(?:INSERT|UPDATE|DELETE|MERGE|TRUNCATE|ALTER|CREATE|DROP|GRANT|REVOKE)\b/i,
-    "freshness SQL must not mutate the database",
-  );
+
+  // Scope the mutation check to the SQL heredoc, not the whole YAML. The rule is
+  // "the freshness QUERY is read-only" — asserting it over the entire file also
+  // forbids the word "create" anywhere in it, which made an ordinary
+  // `gh issue create` alerting step look like a database mutation. Extracting the
+  // heredoc keeps the guard aimed at what it is actually protecting, and makes it
+  // strictly tighter: it now fails if the heredoc is missing altogether.
+  // The heredoc body and its terminator are YAML-indented, so match the
+  // terminator on its own (whitespace-only prefixed) line rather than at column 0.
+  const sqlBlocks = [...workflow.matchAll(/<<'SQL'\n([\s\S]*?)\n[ \t]*SQL$/gm)].map((m) => m[1]);
+  assert.ok(sqlBlocks.length > 0, "freshness workflow must embed its query as a quoted SQL heredoc");
+  for (const sql of sqlBlocks) {
+    assert.doesNotMatch(
+      sql,
+      /\b(?:INSERT|UPDATE|DELETE|MERGE|TRUNCATE|ALTER|CREATE|DROP|GRANT|REVOKE)\b/i,
+      "freshness SQL must not mutate the database",
+    );
+  }
   assert.match(workflow, /house_price_ingest_runs[\s\S]*status\s*=\s*'error'/);
   assert.match(
     workflow,

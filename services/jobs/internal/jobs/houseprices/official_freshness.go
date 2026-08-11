@@ -28,6 +28,16 @@ const vgFreshnessQuery = `
 	GROUP BY source
 	ORDER BY source`
 
+type vgFreshnessLoader func(context.Context) (map[string]*time.Time, error)
+
+type vgFreshnessRecorder func(
+	context.Context,
+	string,
+	*time.Time,
+	string,
+	string,
+) error
+
 func loadVGFreshness(ctx context.Context, pool *pgxpool.Pool) (map[string]*time.Time, error) {
 	rows, err := pool.Query(ctx, vgFreshnessQuery)
 	if err != nil {
@@ -72,7 +82,7 @@ func enforceVGFreshness(
 	now time.Time,
 	policies []vgFreshnessPolicy,
 	maxPeriods map[string]*time.Time,
-	record func(context.Context, string, *time.Time, string, string) error,
+	record vgFreshnessRecorder,
 ) int {
 	ordered := append([]vgFreshnessPolicy(nil), policies...)
 	sort.Slice(ordered, func(i, j int) bool { return ordered[i].source < ordered[j].source })
@@ -93,17 +103,32 @@ func enforceVGFreshness(
 	return exitCode
 }
 
-func assertOfficialVGFreshness(ctx context.Context, pool *pgxpool.Pool, policies []vgFreshnessPolicy) int {
-	maxPeriods, err := loadVGFreshness(ctx, pool)
+func assertVGFreshness(
+	ctx context.Context,
+	now time.Time,
+	policies []vgFreshnessPolicy,
+	load vgFreshnessLoader,
+	record vgFreshnessRecorder,
+) int {
+	maxPeriods, err := load(ctx)
 	if err != nil {
 		log.Printf("[vg-freshness] LOUD: failed to load persisted MAX(period) freshness: %v", err)
 		return 1
 	}
-	return enforceVGFreshness(
+	return enforceVGFreshness(ctx, now, policies, maxPeriods, record)
+}
+
+// assertOfficialVGFreshness verifies persisted VG data after the normal official
+// ingest. policies remains an argument so a dedicated rig mode can later assert
+// only its own source without changing the persistence or classification path.
+func assertOfficialVGFreshness(ctx context.Context, pool *pgxpool.Pool, policies []vgFreshnessPolicy) int {
+	return assertVGFreshness(
 		ctx,
 		time.Now(),
 		policies,
-		maxPeriods,
+		func(ctx context.Context) (map[string]*time.Time, error) {
+			return loadVGFreshness(ctx, pool)
+		},
 		func(ctx context.Context, source string, lastPeriod *time.Time, status, detail string) error {
 			return updateRun(ctx, pool, source, lastPeriod, 0, status, detail)
 		},

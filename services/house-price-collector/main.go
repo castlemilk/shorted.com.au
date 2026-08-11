@@ -39,7 +39,7 @@ func main() {
 // any jobs completed (also used for enqueue/listings finalization failures).
 // Wrapping the body lets deferred cleanup run before exit.
 func run() int {
-	mode := flag.String("mode", "all", "official | vg-nsw | crawl | listings | details | property | agent | enqueue | freshness | purge | warmcheck | backfill-address | census | electorates | banners | amenities | lga | connectivity | funding | council-financials | crime | refresh | all")
+	mode := flag.String("mode", "all", "official | vg-nsw | vg-vic | crawl | listings | details | property | agent | enqueue | freshness | purge | warmcheck | backfill-address | census | electorates | banners | amenities | lga | connectivity | funding | council-financials | crime | refresh | all")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -79,6 +79,12 @@ func run() int {
 		// macOS wrapper in deploy/ and returns non-zero on any ingest, freshness,
 		// or refresh failure so launchd cannot report a silent success.
 		return runNSWVG(ctx, pool)
+	case "vg-vic":
+		// Same rationale as vg-nsw: land.vic.gov.au Cloudflare-challenges
+		// datacenter egress, so the scheduled Cloud Run run records a 403 and the
+		// VIC medians go stale. This mode runs the one source from a residential
+		// rig and propagates ingest/freshness/refresh failures as a non-zero exit.
+		return runVICVG(ctx, pool)
 	case "crawl":
 		// Supplementary suburb crawl — opt-in only, never part of the default
 		// scheduled run (it's slow, adversarial and licence-gated). Drives a HEADED,
@@ -198,7 +204,7 @@ func run() int {
 			return 1
 		}
 	default:
-		log.Fatalf("unknown -mode %q (want official|vg-nsw|crawl|listings|details|property|agent|enqueue|freshness|warmcheck|backfill-address|census|electorates|banners|amenities|lga|connectivity|funding|council-financials|crime|refresh|all)", *mode)
+		log.Fatalf("unknown -mode %q (want official|vg-nsw|vg-vic|crawl|listings|details|property|agent|enqueue|freshness|warmcheck|backfill-address|census|electorates|banners|amenities|lga|connectivity|funding|council-financials|crime|refresh|all)", *mode)
 	}
 	return 0
 }
@@ -536,17 +542,21 @@ func runNSWVGRig(ingest func() bool, assertFreshness func() int, refreshViews fu
 	return 0
 }
 
-func runNSWVG(ctx context.Context, pool *pgxpool.Pool) int {
+// runVGRig is the shared residential-rig path for a single Valuer-General
+// source: ingest it, assert its own freshness policy, refresh the views, and
+// return a non-zero exit code if either the ingest or the freshness gate failed
+// — so launchd cannot report a silent success.
+func runVGRig(ctx context.Context, pool *pgxpool.Pool, source string, ingest func(context.Context) ([]Observation, error)) int {
 	var policies []vgFreshnessPolicy
 	for _, policy := range vgFreshnessPolicies {
-		if policy.source == nswSource {
+		if policy.source == source {
 			policies = append(policies, policy)
 		}
 	}
 	var refreshErr error
 	exitCode := runNSWVGRig(
 		func() bool {
-			return runOfficialJob(ctx, pool, officialJob{name: nswSource, fn: ingestNSWSuburbMedians})
+			return runOfficialJob(ctx, pool, officialJob{name: source, fn: ingest})
 		},
 		func() int {
 			return assertOfficialVGFreshness(ctx, pool, policies)
@@ -559,6 +569,19 @@ func runNSWVG(ctx context.Context, pool *pgxpool.Pool) int {
 		return 1
 	}
 	return 0
+}
+
+func runNSWVG(ctx context.Context, pool *pgxpool.Pool) int {
+	return runVGRig(ctx, pool, nswSource, ingestNSWSuburbMedians)
+}
+
+// runVICVG is the VIC counterpart. land.vic.gov.au is Cloudflare-challenged from
+// datacenter egress — the scheduled Cloud Run job has recorded
+// `fetch VIC xlsx: unexpected status: 403` and left prod frozen at 2024-12-31 —
+// so, like NSW, it needs a residential rig. Measured from one: listing page
+// 149ms, workbook 63ms, 8,739 suburb-year observations parsed in 275ms.
+func runVICVG(ctx context.Context, pool *pgxpool.Pool) int {
+	return runVGRig(ctx, pool, vicSource, ingestVICSuburbMedians)
 }
 
 func boundedOfficialMaxFailures(total, configured int) int {

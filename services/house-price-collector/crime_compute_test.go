@@ -208,7 +208,6 @@ func TestCVSStateBaseFor_GrowthIndexed(t *testing.T) {
 	crimeApprox(t, "violent2024", cvsStateBaseFor(cvs, erp, "NSW", crimeViolent, 2024), 2000, 1e-6)
 }
 
-
 // Two jurisdictions whose offence rates are genuinely incomparable: after CVS
 // scaling, BOTH VIC suburbs sit above BOTH NSW suburbs (VIC's victimisation
 // anchor is 10x NSW's, so its scaled rates are an order of magnitude higher).
