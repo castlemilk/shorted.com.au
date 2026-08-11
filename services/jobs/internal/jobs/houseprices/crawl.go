@@ -19,8 +19,9 @@ import (
 // is reliably DETECTED and blocked/poisoned from a residential IP, so the page
 // FETCH is now done with a real, HEADED, persistent-profile browser (see
 // crawl_playwright.go) — the only client that survives Kasada/Akamai from a
-// residential egress. The rendered HTML is then handed to brandbrain's
-// ExtractRealEstate LLM (crawl_brandbrain.go) for the suburb-aggregate fields.
+// residential egress. An allowlisted counts/aggregate-only projection of the
+// rendered HTML is then handed to brandbrain's ExtractRealEstate LLM
+// (crawl_brandbrain.go) for the suburb-aggregate fields; listing rows stay local.
 //
 // This tier is built to FAIL SAFE: it never blocks the pipeline, never stores a
 // value that fails validation, and self-throttles via a per-site circuit breaker.
@@ -303,9 +304,10 @@ func runCrawl(ctx context.Context, pool *pgxpool.Pool) bool {
 	return rewarm
 }
 
-// crawlSuburb fetches both sources via the headed browser, hands each rendered
-// page to brandbrain's ExtractRealEstate, and maps the returned suburb-aggregate
-// fields into validated Observations. Returns everything to store (0..N).
+// crawlSuburb fetches both sources via the headed browser, hands an allowlisted
+// aggregate projection of each page to brandbrain's ExtractRealEstate, and maps
+// the returned suburb-aggregate fields into validated Observations. Returns
+// everything to store (0..N).
 func (cr *crawler) crawlSuburb(ctx context.Context, t CrawlTarget) []Observation {
 	cr.stats.attempted++
 
@@ -321,9 +323,10 @@ func (cr *crawler) crawlSuburb(ctx context.Context, t CrawlTarget) []Observation
 }
 
 // crawlSource fetches ONE source's rendered page (honouring the per-site circuit
-// breaker), routes the HTML through brandbrain's extractor, and returns the
-// validated brandbrain Observations. The legacy extractSaleMedians path is run as
-// a non-blocking cross-check against the same rendered HTML (logged only).
+// breaker), routes its aggregate-only projection through brandbrain's extractor,
+// and returns the validated brandbrain Observations. The legacy
+// extractSaleMedians path is run as a non-blocking local cross-check against the
+// same rendered HTML (logged only).
 func (cr *crawler) crawlSource(ctx context.Context, t CrawlTarget, site, url string, blockCounter *int) []Observation {
 	if *blockCounter >= cr.cfg.maxConsecBlocks {
 		return nil // breaker open: stop hammering this source for the rest of the run
@@ -345,6 +348,12 @@ func (cr *crawler) crawlSource(ctx context.Context, t CrawlTarget, site, url str
 
 	x, err := extractRealEstate(ctx, cr.cfg.brandbrainURL, string(html), finalURL, t.Display, t.State)
 	if err != nil {
+		if err == errBrandbrainProjectionEmpty {
+			cr.stats.rejected++
+			log.Printf("[crawl] %s %s: brandbrain skipped: local aggregate projection empty", t.Display, site)
+			cr.crossCheck(t, site, html, nil)
+			return nil
+		}
 		log.Printf("[crawl] %s %s: brandbrain extract failed: %v", t.Display, site, err)
 		return nil
 	}

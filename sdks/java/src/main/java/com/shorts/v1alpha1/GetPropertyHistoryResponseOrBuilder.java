@@ -171,7 +171,7 @@ public interface GetPropertyHistoryResponseOrBuilder extends
    * physical dwelling. Counting bedrooms (not raw bed/bath/type tuples) keeps
    * cross-portal label noise from falsely flagging a single dwelling. A search-
    * results crawl cannot recover the missing unit number, so the view warns
-   * instead of silently merging. See docs/housing-architecture.md.
+   * instead of silently merging. See docs/feature/housing/architecture.md.
    * </pre>
    *
    * <code>int32 distinct_dwellings = 11 [json_name = "distinctDwellings"];</code>

@@ -31,6 +31,8 @@ import (
 	_ "github.com/castlemilk/shorted.com.au/services/shorts/internal/api/schema/statik"
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 	"golang.org/x/net/http2"
+	//nolint:staticcheck // SA1019: deprecated, but still the only h2c that serves the
+	// HTTP/1.1 Upgrade handshake — see the h2c.NewHandler call for the full rationale.
 	"golang.org/x/net/http2/h2c"
 )
 
@@ -869,6 +871,14 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	return http.ListenAndServe(
 		address,
 		// Use h2c so we can serve HTTP/2 without TLS.
+		//
+		// Deprecated in favour of http.Server.Protocols + SetUnencryptedHTTP2, but
+		// that is a NARROWING, not a drop-in: net/http only detects the HTTP/2
+		// client preface (prior knowledge, server.go maybeServeUnencryptedHTTP2),
+		// while h2c.NewHandler also serves the HTTP/1.1 `Upgrade: h2c` handshake.
+		// Swapping it is a change to how this API negotiates every connection and
+		// belongs in its own change with its own verification, not here.
+		//nolint:staticcheck // SA1019: see above — deliberate, tracked separately.
 		h2c.NewHandler(handler, &http2.Server{}),
 	)
 }

@@ -15,7 +15,10 @@ import test from "node:test";
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const deployDir = join(repoRoot, "services/house-price-collector/deploy");
 const commonScript = join(deployDir, "housing-crawl-common.sh");
-const housingArchitecture = join(repoRoot, "docs/housing-architecture.md");
+// docs/housing-architecture.md is a redirect stub since the doc set was split
+// into docs/feature/housing/ — point the drift guards at the real file, or they
+// silently assert against a nine-line stub and pass for the wrong reason.
+const housingArchitecture = join(repoRoot, "docs/feature/housing/architecture.md");
 
 function readDeploy(file) {
   return readFileSync(join(deployDir, file), "utf8");
@@ -132,8 +135,11 @@ test("legacy crawl plist is manual-only and prominently deprecated", () => {
 
 test("README leads with the supported delta/full setup and retires legacy jobs", () => {
   const readme = readDeploy("README.md");
-  const supported = readme.indexOf("## Supported deployment");
-  const deprecated = readme.indexOf("## Deprecated");
+  // The heading gained a "Real-estate crawl —" qualifier when the NSW VG
+  // deployment section landed in the same README, so match the section by its
+  // distinguishing phrase rather than a literal prefix.
+  const supported = readme.search(/^## .*supported deployment/im);
+  const deprecated = readme.search(/^## Deprecated/im);
   assert.ok(supported >= 0 && deprecated > supported, "supported delta/full deployment must precede deprecated paths");
   assert.match(readme.slice(supported, deprecated), /housing-delta[\s\S]*housing-full/);
   assert.match(readme.slice(supported, deprecated), /daily[^\n]*10:00/i);
@@ -142,7 +148,13 @@ test("README leads with the supported delta/full setup and retires legacy jobs",
   assert.match(readme.slice(supported, deprecated), /launchctl unload[^\n]*com\.shorted\.housing-crawl\.plist/);
   assert.match(readme.slice(supported, deprecated), /launchctl unload[^\n]*com\.shorted\.housing-agent\.plist/);
   assert.equal((readme.match(/for job in housing-delta housing-full/g) ?? []).length, 1, "keep one canonical install loop");
-  assert.doesNotMatch(readme, /\b(?:0[0-5]):[0-5][0-9]\b/, "runbook must not recommend block-prone 00:00–05:59 schedules");
+  // The daytime-only rule protects the REA/Domain crawl, whose overnight runs get
+  // Kasada-blocked. It must NOT cover the NSW Valuer-General section earlier in
+  // this README: that mode is a plain ZIP fetch with no browser and no bot wall,
+  // so its 04:30 monthly slot is deliberate. Scope the assertion to the crawl
+  // half of the document.
+  assert.doesNotMatch(readme.slice(supported), /\b(?:0[0-5]):[0-5][0-9]\b/,
+    "crawl runbook must not recommend block-prone 00:00–05:59 schedules");
 });
 
 test("housing docs document only the collector's real resume-window variable", () => {

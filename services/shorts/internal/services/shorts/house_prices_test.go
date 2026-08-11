@@ -162,6 +162,10 @@ func TestHousingHandlers_NormalizeBeforeStoreAndCache(t *testing.T) {
 			AddressKey: "vic-richmond-1-smith-st",
 			Current:    &shortsstore.PropertyListingSnapshotRow{ListingID: "listing-1"},
 		}, nil).Times(1)
+		// Valuations are ON by default (HOUSING_VALUATIONS_ENABLED is a kill switch,
+		// not an opt-in), so the handler also hits the valuation store — and it must
+		// do so with the SAME normalized key, which is what this test is about.
+		store.EXPECT().GetPropertyValuation("vic-richmond-1-smith-st").Return(nil, nil).Times(1)
 		srv := newTestServer(t, store)
 		for _, addressKey := range []string{" VIC-RICHMOND-1-SMITH-ST ", "vic-richmond-1-smith-st"} {
 			if _, err := srv.GetPropertyHistory(context.Background(), connect.NewRequest(

@@ -11,6 +11,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/jackc/pgx/v5"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
@@ -673,11 +674,13 @@ func (s *ShortsServer) GetPropertyHistory(ctx context.Context, req *connect.Requ
 	}
 	if !valuationsEnabled() && response.Valuation != nil {
 		// The valuation flag may change while a history response is warm. Return a
-		// shallow redacted copy so the kill switch takes effect immediately without
-		// mutating the shared cached message for a later explicit re-enable.
-		redacted := *response
+		// redacted copy so the kill switch takes effect immediately without mutating
+		// the shared cached message for a later explicit re-enable. This must be a
+		// proto.Clone, not `*response` — a generated message carries an internal
+		// MessageState that is not safe to copy by value.
+		redacted, _ := proto.Clone(response).(*shortsv1alpha1.GetPropertyHistoryResponse)
 		redacted.Valuation = nil
-		response = &redacted
+		response = redacted
 	}
 	return connect.NewResponse(response), nil
 }

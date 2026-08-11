@@ -14,7 +14,9 @@ import (
 //	adjusted(u,c,y) = raw_police(u,c,y) × scale(s,c,y)
 //	rate(u,c,y)     = adjusted(u,c,y) / ERP(u,y) × 100000
 //	pct_rank(u,c,y) = ( Σ_{v: rate_v < rate_u} pop_v + 0.5·pop_u ) / Σpop × 100
-//	                  weighted by FY ERP, over all has-data suburbs nationally.
+//	                  weighted by FY ERP, over all has-data suburbs in the SAME
+//	                  jurisdiction (offence definitions are not comparable across
+//	                  state police forces — see rankByGroup).
 //
 // A 2-yr pooled series (adjusted averaged over {y, y-1}, re-ranked) is produced
 // alongside the single-FY series for small-suburb stability; the map reads the
@@ -187,12 +189,12 @@ func computeCrime(jds []*jurisdictionData, cvs *CVSData, erp *ERPTable, mode str
 		})
 	}
 
-	// Rank each (crime_type, FY) group, weighted by FY ERP.
+	// Rank each (jurisdiction, crime_type, FY) group, weighted by FY ERP.
 	rankSingles := rankByGroup(len(singles),
-		func(i int) (crimeType, int) { return singles[i].ct, singles[i].fy },
+		func(i int) (string, crimeType, int) { return singles[i].state, singles[i].ct, singles[i].fy },
 		func(i int) (float64, int) { return singles[i].rate, singles[i].pop })
 	rankPooled := rankByGroup(len(pooled),
-		func(i int) (crimeType, int) { return pooled[i].ct, pooled[i].fy },
+		func(i int) (string, crimeType, int) { return pooled[i].state, pooled[i].ct, pooled[i].fy },
 		func(i int) (float64, int) { return pooled[i].rate, pooled[i].pop })
 
 	out := make([]CrimeStatRow, 0, len(singles)+len(pooled))
@@ -292,17 +294,30 @@ func cvsStateBaseFor(cvs *CVSData, erp *ERPTable, state string, ct crimeType, fy
 }
 
 // rankByGroup computes the population-weighted percentile rank for every element,
-// grouped by (crime_type, FY). group(i) returns the grouping key; val(i) returns
-// (rate, pop). The result is aligned by index i.
-func rankByGroup(n int, group func(int) (crimeType, int), val func(int) (float64, int)) []float64 {
+// grouped by (jurisdiction, crime_type, FY). group(i) returns the grouping key;
+// val(i) returns (rate, pop). The result is aligned by index i.
+//
+// The pool is scoped to ONE jurisdiction on purpose. Each state police force
+// counts offences under its own rules — QLD's "Unlawful Entry" is not split
+// residential/commercial, its "Assault" folds in assault-police that NSW and VIC
+// exclude — so a rank computed across a mixed pool would compare counts that are
+// not comparable, and would do it invisibly. Ranking within jurisdiction keeps
+// every published percentile a like-for-like statement.
+//
+// Today this is a no-op: suburb_crime_stats is 100% NSW (Phase 1 / BOCSAR), and
+// a single-jurisdiction pool partitions identically either way. It is written in
+// now precisely BECAUSE it is currently a no-op — the alternative is discovering
+// the mixed-pool problem on the day VIC lands, after the numbers are published.
+func rankByGroup(n int, group func(int) (string, crimeType, int), val func(int) (float64, int)) []float64 {
 	type gk struct {
-		ct crimeType
-		fy int
+		state string
+		ct    crimeType
+		fy    int
 	}
 	members := map[gk][]int{}
 	for i := 0; i < n; i++ {
-		ct, fy := group(i)
-		members[gk{ct, fy}] = append(members[gk{ct, fy}], i)
+		state, ct, fy := group(i)
+		members[gk{state, ct, fy}] = append(members[gk{state, ct, fy}], i)
 	}
 	out := make([]float64, n)
 	for _, idxs := range members {

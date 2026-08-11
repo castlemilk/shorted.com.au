@@ -1,0 +1,7 @@
+Continue and COMPLETE the housing work package "repo-hygiene" on this branch (feat/housing-repo-hygiene). A previous Codex run on this exact worktree was interrupted mid-flight; its partial work is ALREADY COMMITTED as a wip() commit on this branch.
+
+FIRST: run `git log --oneline 8c120a352..HEAD` and `git diff 8c120a352..HEAD --stat`, and read the changed files, to establish exactly what your predecessor already did. Then read the original spec at /Users/benebsworth/projects/shorted/.claude/housing-program/repo-hygiene.md and finish everything the spec requires that is not yet done.
+
+Do NOT redo completed work and do NOT revert it unless it is wrong. Add commits on top; do not rewrite history, push, merge or switch branches. Where the predecessor left something half-done or inconsistent, finish it properly.
+
+QA before finishing: run the narrowest relevant tests (scoped go test for touched packages; for web, `cd web && npx tsc --noEmit` plus touched jest suites) and report ACTUAL results. If the sandbox blocks something, say so plainly rather than claiming it passed. Finish with a summary: what your predecessor had done, what you added, deliberate omissions, test results, and what needs hand-verification.

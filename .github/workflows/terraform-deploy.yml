@@ -1018,6 +1018,14 @@ jobs:
           # and the app collectors, but golang-migrate's advisory-lock path can fail
           # with prepared-statement errors. Keep non-prod on migrate; repair prod via
           # direct, idempotent SQL and keep schema_migrations aligned.
+          #
+          # ORDER IS LOAD-BEARING. 000083 contains a CREATE OR REPLACE of
+          # refresh_all_materialized_views() carrying the PRE-hardening body, so
+          # replaying it here reverted 000095 on every single prod deploy — the
+          # exact defect behind the 19-day silent MV-staleness incident, silently
+          # re-armed each time someone hand-applied the fix. 000095 must stay LAST
+          # so the hardened definition wins. Any new migration that touches that
+          # function goes after 000095, not before it.
           if [ "$ENVIRONMENT" = "prod" ]; then
             run_psql \
               -f /migrations/000070_add_short_campaigns_mv.up.sql \
@@ -1027,7 +1035,8 @@ jobs:
               -f /migrations/000081_add_economic_series.up.sql \
               -f /migrations/000082_extend_source_kind_check.up.sql \
               -f /migrations/000083_add_state_exposure.up.sql \
-              -f /migrations/000085_extend_source_method_check.up.sql
+              -f /migrations/000085_extend_source_method_check.up.sql \
+              -f /migrations/000095_harden_mv_refresh.up.sql
 
             run_psql -c "CREATE TABLE IF NOT EXISTS schema_migrations (version bigint NOT NULL PRIMARY KEY, dirty boolean NOT NULL); DELETE FROM schema_migrations; INSERT INTO schema_migrations (version, dirty) VALUES (75, false);"
 

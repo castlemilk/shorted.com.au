@@ -366,7 +366,9 @@ func runBanners(ctx context.Context, pool *pgxpool.Pool) {
 	_ = updateRun(ctx, pool, "suburb_archetypes", nil, n, "ok", "")
 }
 
-func refresh(ctx context.Context, pool *pgxpool.Pool) error {
+// refresh deliberately ignores the caller's context — see below — but keeps the
+// parameter so every call site reads like the rest of the pipeline.
+func refresh(_ context.Context, pool *pgxpool.Pool) error {
 	// Finalize on a DETACHED context (not the caller's run deadline): this links
 	// + refreshes writes that already committed, and `-mode crawl` shares the
 	// same long-deadline class as agent/listings — a deadline firing mid-crawl

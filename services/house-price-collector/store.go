@@ -520,35 +520,3 @@ func upsertCrime(ctx context.Context, pool *pgxpool.Pool, rows []CrimeStatRow) (
 	}
 	return n, nil
 }
-
-// SuburbCrimeYear is one suburb's single-FY crime datapoint (read path — used by
-// the shorts service's GetSuburbProfile once the Phase-3 read wiring lands).
-type SuburbCrimeYear struct {
-	FYEnding    int
-	CrimeType   string
-	RatePer100k float64
-	PctRank     float64
-	SmallPop    bool
-}
-
-// getSuburbCrime returns a suburb's single-FY crime series ordered by FY.
-func getSuburbCrime(ctx context.Context, pool *pgxpool.Pool, salCode string) ([]SuburbCrimeYear, error) {
-	rows, err := pool.Query(ctx, `
-		SELECT fy_ending, crime_type, rate_per_100k, pct_rank, small_pop
-		FROM suburb_crime_stats
-		WHERE sal_code = $1 AND NOT pooled AND pct_rank IS NOT NULL
-		ORDER BY fy_ending, crime_type`, salCode)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []SuburbCrimeYear
-	for rows.Next() {
-		var y SuburbCrimeYear
-		if err := rows.Scan(&y.FYEnding, &y.CrimeType, &y.RatePer100k, &y.PctRank, &y.SmallPop); err != nil {
-			return nil, err
-		}
-		out = append(out, y)
-	}
-	return out, rows.Err()
-}

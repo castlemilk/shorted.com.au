@@ -495,6 +495,24 @@ func TestCrawlSource_WithRealFixtureHTML(t *testing.T) {
 	}
 	html := unescapeFixture(raw)
 
+	// The fixture is whatever that machine happened to capture, and a capture that
+	// missed the SRP JSON blob carries none of the allowlisted aggregate keys
+	// (listingsTotal / totalResultsCount / pageSize / totalPages). crawlSource then
+	// correctly short-circuits on errBrandbrainProjectionEmpty and never calls
+	// brandbrain — so the assertions below would fail on the FIXTURE's shape, not on
+	// a defect. That precondition is checked here for the same reason the missing
+	// fixture is: this test can only assert what its input can actually exercise.
+	// The projection contract itself is covered hermetically in crawl_brandbrain_test.go
+	// (incl. TestBrandbrain_ExtractRealEstate_SkipsEmptyProjection).
+	var projected brandbrainMediansContract
+	if err := json.Unmarshal([]byte(brandbrainMediansPayload(html)), &projected); err != nil {
+		t.Fatalf("local aggregate projection did not decode: %v", err)
+	}
+	if len(projected.AggregateFields) == 0 {
+		t.Skipf("fixture %s carries no aggregate SRP blob (0 allowlisted fields) — "+
+			"it cannot exercise the HTML→brandbrain path; recapture it from a live SRP", path)
+	}
+
 	bb, hits := brandbrainServer(t, bondiExtractJSON())
 	defer bb.Close()
 

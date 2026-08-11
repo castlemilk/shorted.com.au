@@ -82,14 +82,7 @@ func runStateExposureBackfill(ctx context.Context, store enrichment.EnrichmentSt
 
 // backfillStockStateExposure processes one company: generate → validate → write.
 func backfillStockStateExposure(ctx context.Context, store enrichment.EnrichmentStore, client *enrichment.OpenAIGPTClient, c enrichment.StateExposureCandidate) error {
-	raw, err := client.GenerateStateExposure(ctx, enrichment.StateExposureCompanyInput{
-		StockCode:   c.StockCode,
-		CompanyName: c.CompanyName,
-		Industry:    c.Industry,
-		Sector:      c.Sector,
-		Summary:     c.Summary,
-		Description: c.Description,
-	})
+	raw, err := client.GenerateStateExposure(ctx, enrichment.StateExposureCompanyInput(c))
 	if err != nil {
 		return fmt.Errorf("generate: %w", err)
 	}

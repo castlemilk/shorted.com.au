@@ -1,0 +1,15 @@
+Finish the review-fix round on this branch (feat/housing-crawl-correctness). Your predecessor's work is ALREADY COMMITTED (18fa4a0e1) — run `git log --oneline 8c120a352..HEAD` and `git diff` to see it.
+
+ALREADY FIXED — do not redo: the thin-suburb blocker. The early `return finish(sweepComplete)` that discarded the collected listings is gone; `pageOneExhausted` is now a flag that bypasses the poison gate so matched listings still flow through the merge loop. That also resolved the "gate unreachable because page-1 broadening trips the poison gate first" finding.
+
+STILL OPEN — fix these. Full evidence is in /Users/benebsworth/projects/shorted/.claude/housing-program/fix-crawl-correctness.md (skip its thin-suburb items):
+
+1. [MAJOR] The F35 brandbrain projection allowlists field NAMES but passes VALUES through verbatim, so an address, agent name, listing id or raw HTML placed under an allowlisted key still crosses to brandbrain — the allowlist is not actually a containment boundary. See services/house-price-collector/crawl_brandbrain.go around isBrandbrainAggregateScalar (~line 128) and the projection (~194-201). Restrict accepted values to numerics (parse money strings locally with the existing parseMoney/toMoney before emitting), or clamp strings to a numeric/enum shape with a hard length cap. Add a table-driven test whose cases put hostile strings UNDER allowlisted names and assert they do not survive.
+
+2. [MINOR] brandbrainAggregateName collapses distinct median keys to 3 canonical names (crawl_brandbrain.go ~148-190 + ~322-350), so a historical or neighbouring-suburb median can be stored as this quarter's suburb median. Carry the original key (and any sibling suburb/period label) alongside the canonical name, or refuse to emit a median field when more than one distinct value maps to the same canonical name.
+
+3. [MINOR] The 'nothing forwarded to brandbrain' assertion in crawl_playwright_test.go:97 is now unreachable, and an empty projection still burns the full 3-attempt RPC with no distinguishing log. Skip the RPC (logging once) when the projection yields zero aggregate fields, and change the test guard to assert the decoded contract has at least one aggregate_fields entry rather than comparing req.HTML to "".
+
+4. [MINOR] Your predecessor's earlier commit edited docs/housing-architecture.md, but a parallel branch has since reduced that file to a redirect stub — the real content now lives in docs/feature/housing/architecture.md. Move those doc edits to docs/feature/housing/architecture.md (matching sections) and drop the docs/housing-architecture.md hunks so the branches merge cleanly. Note that file does not exist on THIS branch yet; if so, simply drop the stale hunks and say so in your summary.
+
+Ground rules: add fix commits on top; do not rewrite history, push, merge or switch branches. Fix root causes; where a test pins buggy behaviour, fix the test to assert real behaviour. Re-run scoped tests and report ACTUAL output — if the sandbox blocks something, say so plainly. If you believe a finding is wrong, argue it with evidence rather than skipping it silently.

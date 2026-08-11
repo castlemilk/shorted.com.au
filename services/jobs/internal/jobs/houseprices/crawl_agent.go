@@ -727,9 +727,10 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 	// loop again — keep the "done: processed <N> job" shape stable.
 	log.Printf("[agent] done: processed %d job(s)", done)
 	code := agentExitCode(anyRewarm, fatalErr, done)
-	if code == 3 {
+	switch code {
+	case 3:
 		log.Printf("[agent] REWARM REQUIRED: a sweep tripped the circuit breaker — re-warm the crawl Chrome profile")
-	} else if code == 7 {
+	case 7:
 		log.Printf("[agent] FATAL: agent infrastructure or finalizer failed")
 	}
 	return code

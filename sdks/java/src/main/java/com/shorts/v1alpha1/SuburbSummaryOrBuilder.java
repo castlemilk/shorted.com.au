@@ -416,12 +416,17 @@ public interface SuburbSummaryOrBuilder extends
 
   /**
    * <pre>
-   * Crime percentile ranks (national population-weighted, 0..100, higher =
-   * more reported crime; latest 2-yr-pooled FY, CVS-adjusted). 0 = no data —
-   * pct_rank is strictly &gt; 0 whenever a reliable observation exists. Small-
-   * population and statistically-unreliable suburbs are gated server-side
+   * Crime percentile ranks (0..100, higher = more reported crime; latest
+   * 2-yr-pooled FY, CVS-adjusted). 0 = no data — pct_rank is strictly &gt; 0
+   * whenever a reliable observation exists. Small-population and
+   * statistically-unreliable suburbs are gated server-side
    * (mv_suburb_crime_latest) and read as no-data. NSW (BOCSAR) only in
    * Phase 1; uncovered states/TAS/NT stay 0. CC-BY sources.
+   *
+   * The rank is population-weighted WITHIN THE SUBURB'S OWN STATE, never across
+   * states: each police force counts offences under its own rules, so a
+   * cross-jurisdiction pool would compare incomparable counts. Read "82nd
+   * percentile" as "82nd of that state", and label it that way in any client.
    * </pre>
    *
    * <code>double crime_break_ins_rank = 28 [json_name = "crimeBreakInsRank"];</code>

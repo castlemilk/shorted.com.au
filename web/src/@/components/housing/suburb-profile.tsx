@@ -1,17 +1,37 @@
-"use client";
-
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+// NO "use client" — this is the server-rendered body of /housing/[state]/[suburb].
+//
+// It used to be a client component behind dynamic({ssr:false}), which meant every
+// one of the ~3,600 suburb URLs advertised in the sitemap served a 520px grey
+// skeleton: no <h1>, no price, no demographics in the HTML. The profile was
+// already fetched on the server and then thrown at the client to re-render.
+//
+// So the rule here is: anything that can be computed from the profile the server
+// already holds is rendered on the server. Only three things stay client-side,
+// each as its own island, and each for a stated reason:
+//   - HousingSeriesChart / SuburbLocatorMap — pull connect-web in, which breaks
+//     SSR (see CLAUDE.md), so they load via dynamic({ssr:false}) wrappers.
+//   - SuburbNearbyRail — needs a large state-wide fetch, deliberately deferred
+//     to idle so it never competes with this page's own content.
+//   - RecentPriceDrops — crawl-derived and kill-switchable, so it must re-read
+//     at request time rather than bake into a 24h ISR page.
+//
+// Keep it that way: adding a hook or a client-action import to this file silently
+// drags the whole body back out of the HTML.
+import { type ReactNode } from "react";
 import { SuburbPoliticianPropertyCard } from "@/components/politicians/suburb-politician-property-card-loader";
-import { fromJson, type JsonValue } from "@bufbuild/protobuf";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
-import {
-  getSuburbProfileClient, listStateSuburbsClient, listSuburbDropListingsClient,
-} from "~/app/actions/client/getHousingClient";
-import { GetSuburbProfileResponseSchema } from "~/gen/shorts/v1alpha1/housing_pb";
-import { HousingSeriesChart } from "./housing-series-chart";
+import type {
+  GetSuburbProfileResponse,
+  LgaInfo,
+  SuburbCrime,
+  SuburbDemographics,
+  SuburbSummary,
+} from "~/gen/shorts/v1alpha1/housing_pb";
+import { HousingSeriesChart } from "./housing-charts";
 import { SuburbBanner } from "./suburb-banner";
-import { SuburbLocatorMap } from "./suburb-locator-map";
+import { SuburbLocatorMap } from "./suburb-locator-map-loader";
+import { SuburbNearbyRail } from "./suburb-nearby-rail-loader";
+import { RecentPriceDrops } from "./suburb-recent-price-drops-loader";
 import { STATE_NAMES, stateSlug, suburbHref } from "@/lib/housing/states";
 import { crimeRankScale } from "@/lib/housing/highlight-metrics";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
@@ -28,71 +48,20 @@ function fmtPeriod(seconds?: number | bigint): string | null {
   return new Date(n * 1000).toLocaleDateString("en-AU", { month: "short", year: "numeric" });
 }
 
-type IdleWindow = Window & typeof globalThis & {
-  requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
-  cancelIdleCallback?: (id: number) => void;
-};
-
 export type SuburbProfileProps = {
   salCode: string;
   regionCode?: string;
   stateCode?: string;
-  initialProfileJson?: JsonValue;
+  profile?: GetSuburbProfileResponse;
 };
 
 export function SuburbProfile({
-  salCode, regionCode, stateCode, initialProfileJson,
+  salCode, regionCode, stateCode, profile,
 }: SuburbProfileProps) {
-  const initialProfile = useMemo(
-    () => initialProfileJson ? fromJson(GetSuburbProfileResponseSchema, initialProfileJson) : undefined,
-    [initialProfileJson],
-  );
-  const initialProfileUpdatedAt = useMemo(() => initialProfile ? Date.now() : undefined, [initialProfile]);
-  const [loadNearby, setLoadNearby] = useState(false);
-
-  useEffect(() => {
-    const start = () => setLoadNearby(true);
-    const idleWindow = window as IdleWindow;
-    if (idleWindow.requestIdleCallback) {
-      const idleId = idleWindow.requestIdleCallback(start, { timeout: 2000 });
-      return () => idleWindow.cancelIdleCallback?.(idleId);
-    }
-    const timeoutId = window.setTimeout(start, 1200);
-    return () => window.clearTimeout(timeoutId);
-  }, []);
-
-  const { data, isLoading } = useQuery({
-    queryKey: ["suburb-profile", salCode],
-    queryFn: () => getSuburbProfileClient(salCode),
-    initialData: initialProfile,
-    initialDataUpdatedAt: initialProfileUpdatedAt,
-    staleTime: 60 * 60 * 1000,
-  });
+  const data = profile;
   const st = stateCode ?? data?.summary?.stateCode ?? "";
-  const { data: stateList } = useQuery({
-    queryKey: ["state-suburbs", st],
-    queryFn: () => listStateSuburbsClient(st, "", 5000),
-    enabled: !!st && loadNearby,
-    staleTime: 60 * 60 * 1000,
-  });
-
   const s = data?.summary;
-  const nearby = useMemo(() => {
-    if (!s) return [];
-    const all = (stateList?.suburbs ?? []).filter((x) => x.salCode !== s.salCode);
-    if (s.postcode) {
-      const same = all.filter((x) => x.postcode === s.postcode);
-      if (same.length) return same.slice(0, 6);
-    }
-    if (s.latestMedianPrice > 0) {
-      return [...all].filter((x) => x.latestMedianPrice > 0)
-        .sort((a, b) => Math.abs(a.latestMedianPrice - s.latestMedianPrice) - Math.abs(b.latestMedianPrice - s.latestMedianPrice))
-        .slice(0, 6);
-    }
-    return [];
-  }, [stateList, s]);
 
-  if (isLoading) return <ProfileSkeleton />;
   if (!data?.summary || !s) {
     return (
       <div className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
@@ -209,21 +178,13 @@ export function SuburbProfile({
         <div className="space-y-6">
           {st ? <SuburbLocatorMap stateCode={st} salCode={s.salCode} salName={s.salName} /> : null}
 
-          {nearby.length ? (
-            <div className="rounded-xl border border-border bg-card p-4">
-              <h2 className="mb-2 flex items-center gap-1.5 font-serif text-base text-foreground">
-                <HousingIcon name="nearby" size={22} /> Nearby &amp; comparable
-              </h2>
-              <div className="flex flex-col">
-                {nearby.map((n) => (
-                  <Link key={n.salCode} href={suburbHref(st, n)}
-                    className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground">
-                    <span className="truncate capitalize">{n.salName.toLowerCase()}</span>
-                    <span className="shrink-0 font-mono text-[11px] tabular-nums">{n.latestMedianPrice > 0 ? fmtPriceShort(n.latestMedianPrice) : "—"}</span>
-                  </Link>
-                ))}
-              </div>
-            </div>
+          {st ? (
+            <SuburbNearbyRail
+              stateCode={st}
+              salCode={s.salCode}
+              postcode={s.postcode}
+              latestMedianPrice={s.latestMedianPrice}
+            />
           ) : null}
 
           {data.similar?.length ? (
@@ -255,84 +216,10 @@ export function SuburbProfile({
   );
 }
 
-/**
- * Recently price-reduced for-sale listings for this suburb, deep-linking OUT to
- * the live portal page. Data is flag-gated server-side (ListSuburbDropListings
- * returns [] unless HOUSING_DROP_LISTINGS_ENABLED) — so this renders nothing
- * until the portal-listing tier is live and enabled.
- */
-function RecentPriceDrops({ salCode, regionCode }: { salCode: string; regionCode?: string }) {
-  const { data } = useQuery({
-    queryKey: ["suburb-drop-listings", salCode, regionCode ?? ""],
-    queryFn: () => listSuburbDropListingsClient(salCode, regionCode ?? ""),
-    staleTime: 30 * 60 * 1000,
-  });
-  const listings = data?.listings ?? [];
-  if (listings.length === 0) return null;
-  const portalName = (src: string) => (src === "domain" ? "Domain" : "realestate.com.au");
-  const bedBath = (l: (typeof listings)[number]) =>
-    [l.bedrooms ? `${l.bedrooms} bd` : "", l.bathrooms ? `${l.bathrooms} ba` : "", l.carSpaces ? `${l.carSpaces} car` : ""]
-      .filter(Boolean).join(" · ");
-  return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <h2 className="mb-1 flex items-center gap-2 font-serif text-lg text-foreground">
-        <HousingIcon name="median-price" size={24} /> Recent price drops
-      </h2>
-      <p className="mb-3 text-xs text-muted-foreground">
-        For-sale listings that recently cut their asking price. Links open the live portal listing.
-      </p>
-      <ul className="divide-y divide-border">
-        {listings.map((l, i) => (
-          <li key={`${l.source}-${i}`} className="flex items-center justify-between gap-3 py-2.5">
-            <div className="min-w-0">
-              {l.addressKey ? (
-                <Link
-                  href={`/housing/property/${encodeURIComponent(l.addressKey)}`}
-                  className="block truncate text-sm text-foreground underline-offset-2 hover:underline"
-                >
-                  {l.displayAddress || "View listing"}
-                </Link>
-              ) : (
-                <a
-                  href={l.listingUrl}
-                  target="_blank"
-                  rel="noopener noreferrer nofollow"
-                  className="block truncate text-sm text-foreground underline-offset-2 hover:underline"
-                >
-                  {l.displayAddress || "View listing"}
-                </a>
-              )}
-              <div className="mt-0.5 truncate text-xs text-muted-foreground">
-                {[l.propertyType, bedBath(l)].filter(Boolean).join(" · ")}
-                {l.propertyType || bedBath(l) ? " · " : ""}
-                {portalName(l.source)}
-              </div>
-              {l.agencyName ? (
-                <div className="mt-0.5 truncate text-xs text-muted-foreground/80">
-                  Listed by {l.agencyName}
-                  {l.agentNames.length > 0 ? ` — ${l.agentNames.slice(0, 2).join(", ")}` : ""}
-                </div>
-              ) : null}
-            </div>
-            <div className="shrink-0 text-right">
-              <div className="font-mono text-sm font-semibold tabular-nums text-[color:var(--semantic-red)]">
-                −{Math.round(l.dropPct * 100)}%
-              </div>
-              <div className="text-xs text-muted-foreground">
-                <span className="line-through">{fmtPriceShort(l.prevPrice)}</span> → {fmtPriceShort(l.price)}
-              </div>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
+type Demographics = SuburbDemographics;
 
-type Demographics = NonNullable<NonNullable<Awaited<ReturnType<typeof getSuburbProfileClient>>>["demographics"]>;
-
-type Summary = NonNullable<NonNullable<Awaited<ReturnType<typeof getSuburbProfileClient>>>["summary"]>;
-type Crime = NonNullable<Awaited<ReturnType<typeof getSuburbProfileClient>>>["crime"];
+type Summary = SuburbSummary;
+type Crime = SuburbCrime;
 
 const CRIME_LABELS: Record<string, string> = {
   break_ins: "Break-ins",
@@ -378,8 +265,10 @@ export function CrimeCard({ crime }: { crime: Crime | undefined }) {
       <p className="mt-2 text-[11px] text-muted-foreground opacity-70">
         {fyLabel(fy)}, 2-yr pooled. Recorded incidents: NSW Bureau of Crime Statistics
         and Research (BOCSAR); adjusted to the ABS Crime Victimisation Survey; ABS ERP
-        population denominator. All CC BY 4.0. Percentile is the national
-        population-weighted rank — higher means more reported crime.
+        population denominator. All CC BY 4.0. Percentile is the population-weighted
+        rank <strong>among suburbs in the same state</strong> — higher means more
+        reported crime. Ranks are never compared across states, because each police
+        force counts offences under its own rules.
       </p>
     </div>
   );
@@ -408,7 +297,7 @@ function FederalRep({ s }: { s: Summary }) {
   );
 }
 
-type Council = NonNullable<NonNullable<Awaited<ReturnType<typeof getSuburbProfileClient>>>["council"]>;
+type Council = LgaInfo;
 function CouncilCard({ c }: { c: Council }) {
   if (!c.lgaName) return null;
   return (
