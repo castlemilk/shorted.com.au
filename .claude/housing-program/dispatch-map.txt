@@ -14,3 +14,11 @@ b4wmfxy0x repo-hygiene
 bspzmt8ie crawl-correctness
 still-on-original-agents: web-suburbs (agent worktree a642...), collector-vg (agent worktree aee45...)
 orphaned-codex-task-ids (dead, superseded): task-msll9wqh task-msllags6 task-msllahpb task-msllajc4
+--- post-kill re-dispatch (detached --background, survives wrapper kill) ---
+task-mslnypab-gq1gnn mv-correctness  (fix round 2: agency NULLS FIRST, sold window, agent_names, jobs fork, k-anon invertibility, F17 test)
+task-mslnzdqc-6w7hc1 crawl-correctness (fix round: empty-listing sweepComplete blocker, value-level leak, poison-gate ordering, doc path)
+task-mslo0b7s-hp7nqf collector-lifecycle (resume)
+task-mslo0t3q-421zc7 repo-hygiene (resume)
+task-mslo1bpb-ufoi3y collector-vg (resume)
+task-mslo1yk6-ucn6o9 affordability-panel (resume)
+task-mslo3817-wf6i7v web-suburbs (resume, moved to durable worktree feat/housing-web-suburbs)
