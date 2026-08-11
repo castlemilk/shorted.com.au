@@ -13,6 +13,11 @@ on:
 
 permissions:
   contents: read
+  # The sentinel files a GitHub issue when a check fails. This is the notification
+  # channel: CRAWL_FRESHNESS_WEBHOOK has never been set, so for its whole life this
+  # workflow could only go red on a page nobody opens. An issue emails the repo
+  # watchers with no external secret to configure.
+  issues: write
 
 env:
   DATABASE_URL: ${{ secrets.DATABASE_URL_PROD }}
@@ -171,4 +176,68 @@ jobs:
                 || echo "::warning::Housing freshness webhook delivery failed"
             fi
             exit "$check_rc"
+          fi
+
+      # A red workflow run is only a notification if somebody is looking at it.
+      # This files (or updates) a single tracking issue so the failure reaches
+      # the repo watchers' inbox. It deliberately reuses ONE open issue rather
+      # than opening a new one per run: a daily sentinel that opens a daily issue
+      # becomes noise within a week, and noise is how the last one was missed.
+      - name: File or update the freshness alert issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          report_file="$RUNNER_TEMP/housing-freshness-report.txt"
+          title="Housing freshness sentinel is failing"
+
+          body_file="$RUNNER_TEMP/issue-body.md"
+          {
+            echo "The housing freshness sentinel failed on $(date -u '+%Y-%m-%d %H:%M UTC')."
+            echo
+            echo "Run: $RUN_URL"
+            echo
+            if [[ -s "$report_file" ]]; then
+              echo '```text'
+              echo -e "CHECK\tSOURCE\tDETAIL"
+              sed -n '1,100p' "$report_file"
+              echo '```'
+            else
+              echo "The check failed before producing a report — see the run log."
+            fi
+            echo
+            echo "Runbook: \`docs/feature/housing/operations.md\`."
+            echo "This issue is reused by every failing run; it closes on the next green run."
+          } >"$body_file"
+
+          existing="$(gh issue list --state open --label housing-freshness \
+            --json number --jq '.[0].number // empty' 2>/dev/null || true)"
+
+          if [[ -n "$existing" ]]; then
+            gh issue comment "$existing" --body-file "$body_file"
+            echo "commented on existing issue #$existing"
+          else
+            gh label create housing-freshness --color B60205 \
+              --description "Housing ingest freshness sentinel" 2>/dev/null || true
+            gh issue create --title "$title" --label housing-freshness --body-file "$body_file"
+          fi
+
+      # Close the tracking issue once the sentinel is green again, so an open
+      # issue always means "currently broken" rather than "broke once".
+      - name: Resolve the freshness alert issue
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          existing="$(gh issue list --state open --label housing-freshness \
+            --json number --jq '.[0].number // empty' 2>/dev/null || true)"
+          if [[ -n "$existing" ]]; then
+            gh issue close "$existing" --comment "Housing freshness is green again: $RUN_URL"
+            echo "closed issue #$existing"
           fi

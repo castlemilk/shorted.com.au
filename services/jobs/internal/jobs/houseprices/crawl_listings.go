@@ -69,6 +69,10 @@ type listingsConfig struct {
 	noiseAbs      float64       // CRAWL_LISTINGS_NOISE_ABS      (default 5000)
 	noisePct      float64       // CRAWL_LISTINGS_NOISE_PCT      (default 0.005 == 0.5%)
 	delistGrace   int           // CRAWL_LISTINGS_DELIST_GRACE   (default 2)
+	// legacyCompleteness restores the pre-fix `pages < wantPages` completeness
+	// rule, which never fired on REA and so left 44k listings unable to delist.
+	// Kill switch only — see sawWholeSuburb.
+	legacyCompleteness bool // CRAWL_LISTINGS_LEGACY_COMPLETENESS (default false)
 	// resumeWindow gates the checkpoint/resume cursor (crawl_resume.go): a
 	// (source,suburb) swept within this window of "now" is skipped. Defaults to
 	// 0 == DISABLED (today's behaviour: always sweep every selected target) —
@@ -105,13 +109,15 @@ func loadListingsConfig() listingsConfig {
 		noiseAbs:      envFloat("CRAWL_LISTINGS_NOISE_ABS", 5000),
 		noisePct:      envFloat("CRAWL_LISTINGS_NOISE_PCT", 0.005),
 		delistGrace:   envInt("CRAWL_LISTINGS_DELIST_GRACE", 2),
-		resumeWindow:  time.Duration(envInt("CRAWL_LISTINGS_RESUME_WINDOW_H", 0)) * time.Hour,
-		traceCfg:      loadTraceConfig(),
-		fixtureDir:    os.Getenv("CRAWL_LISTINGS_FIXTURE_DIR"),
-		sources:       parseListingsSources(),
-		circuitTrip:   envInt("CRAWL_CIRCUIT_TRIP", 2),
-		circuitBase:   time.Duration(envInt("CRAWL_CIRCUIT_BASE_S", 300)) * time.Second,
-		circuitMax:    time.Duration(envInt("CRAWL_CIRCUIT_MAX_S", 3600)) * time.Second,
+		// Kill switch for the completeness fix — see sawWholeSuburb.
+		legacyCompleteness: truthyEnv("CRAWL_LISTINGS_LEGACY_COMPLETENESS"),
+		resumeWindow:       time.Duration(envInt("CRAWL_LISTINGS_RESUME_WINDOW_H", 0)) * time.Hour,
+		traceCfg:           loadTraceConfig(),
+		fixtureDir:         os.Getenv("CRAWL_LISTINGS_FIXTURE_DIR"),
+		sources:            parseListingsSources(),
+		circuitTrip:        envInt("CRAWL_CIRCUIT_TRIP", 2),
+		circuitBase:        time.Duration(envInt("CRAWL_CIRCUIT_BASE_S", 300)) * time.Second,
+		circuitMax:         time.Duration(envInt("CRAWL_CIRCUIT_MAX_S", 3600)) * time.Second,
 	}
 }
 
@@ -538,7 +544,7 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 		// Trace-only, and only ever attempted when the active fetcher implements
 		// pageScreenshotter (cdpFetcher — see crawl_cdp.go); a silent no-op
 		// otherwise (fileFetcher/playwrightFetcher, i.e. every unit test).
-		if shooter, ok := lc.fetcher.(pageScreenshotter); ok && tw.enabled() {
+		if shooter, ok := lc.fetcher.(pageScreenshotter); ok && tw.capturesArtefacts() {
 			if png, serr := shooter.screenshot(ctx, urlFor(page)); serr == nil {
 				tw.WriteScreenshot(page, png)
 			} else {
@@ -569,6 +575,14 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 		raw := extractListings(doc, source)
 		matched, mismatch := partitionByTarget(raw, t)
 		lastMismatch = mismatch
+		// REA's listings_total is an authoritative on-target count. When it
+		// confirms that page 1 rendered the entire suburb and that inventory is
+		// genuinely below the thin-page threshold, surrounding-suburb rows are
+		// normal broadening rather than poison. Do not return here: the matched
+		// listings still need to pass through the merge loop before the existing
+		// PageMeta-sized tail marks the sweep complete.
+		pageOneExhausted := page == 1 && metaOK && onTargetResults > 0 &&
+			onTargetResults < lc.cfg.minPerPage && onTargetResults <= len(matched)
 
 		// Anti-bot stub guard — runs on EVERY page, BEFORE any natural-end branch.
 		// A rendered Kasada KPSDK stub (~800B) or Akamai edgesuite stub carries no
@@ -599,12 +613,12 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 		// stopped short of the portal's own reported extent — delist-safe) — and
 		// only BLOCKS an early high-mismatch page (genuine page-1 poison /
 		// bot-variant), which still trips the breaker.
-		if mismatch > 0.30 {
+		if mismatch > 0.30 && !pageOneExhausted {
 			if sweepPoisonVerdict(page, len(collected), lc.cfg.minPerPage) == sweepPartial {
 				// PageMeta confirms we stopped short of the portal's own reported
 				// (broadened) extent — the on-target suburb was fully seen on the
 				// clean earlier pages before the surrounds began. Delist-safe.
-				status := upgradeIfPageMetaConfirms(metaOK && pages < wantPages, sweepPartial)
+				status := upgradeIfPageMetaConfirms(lc.sawWholeSuburb(metaOK, pages, wantPages, softCap), sweepPartial)
 				tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), Extracted: len(raw), Matched: len(matched), Mismatch: mismatch, TotalResults: totalResults, OnTargetResults: onTargetResults, WantPages: wantPages, Outcome: "ok", Status: status.String(), Decision: "stop-broadening"})
 				return finish(status)
 			}
@@ -612,7 +626,7 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 			tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), Extracted: len(raw), Matched: len(matched), Mismatch: mismatch, TotalResults: totalResults, OnTargetResults: onTargetResults, WantPages: wantPages, Outcome: "ok", Status: sweepBlocked.String(), Decision: "stop-poison-blocked"})
 			return finish(sweepBlocked)
 		}
-		if page == 1 && len(matched) < lc.cfg.minPerPage {
+		if page == 1 && len(matched) < lc.cfg.minPerPage && !pageOneExhausted {
 			*blockCounter++ // page rendered but nothing believable — empty/poisoned
 			tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), Extracted: len(raw), Matched: len(matched), Mismatch: mismatch, TotalResults: totalResults, OnTargetResults: onTargetResults, WantPages: wantPages, Outcome: "ok", Status: sweepBlocked.String(), Decision: "stop-thin-page1"})
 			return finish(sweepBlocked)
@@ -655,7 +669,7 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 		// only when PageMeta confirms we stopped short of the portal's own
 		// reported extent).
 		if page > 1 && newThisPage < lc.cfg.minNewPerPage {
-			status := upgradeIfPageMetaConfirms(metaOK && pages < wantPages, sweepPartial)
+			status := upgradeIfPageMetaConfirms(lc.sawWholeSuburb(metaOK, pages, wantPages, softCap), sweepPartial)
 			tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), Extracted: len(raw), Matched: len(matched), Mismatch: mismatch, TotalResults: totalResults, OnTargetResults: onTargetResults, WantPages: wantPages, NewIDs: newThisPage, Outcome: "ok", Status: status.String(), Decision: "stop-yield-decay"})
 			return finish(status)
 		}
@@ -715,6 +729,47 @@ func upgradeIfPageMetaConfirms(confirmed bool, def sweepStatus) sweepStatus {
 		return sweepComplete
 	}
 	return def
+}
+
+// sawWholeSuburb reports whether a natural-stop sweep (broadening or yield decay)
+// can be trusted to have seen every on-target listing, which is the ONLY thing
+// that makes delisting safe.
+//
+// The original rule was `pages < wantPages`: stopping before the loop bound means
+// the suburb ran out before the portal's reported extent, so everything on-target
+// was already collected. That is correct but incomplete, and it penalised the
+// source with the BETTER metadata.
+//
+// wantPages is sized from meta.OnTargetResults when the portal reports it — and
+// REA does, Domain does not (measured: 483/483 REA page-1 records carry
+// OnTargetResults, 0/406 Domain records do). So on REA the bound lands exactly at
+// the end of on-target stock, which means broadening ALWAYS arrives on the final
+// page and `pages < wantPages` is never true. Measured across 1,050 natural stops:
+// all 613 REA broadening stops sat at pages == wantPages, while Domain, whose
+// wantPages falls back to the much larger broadened TotalPages, stopped early 358
+// times. That single asymmetry produced 79% partial sweeps on REA vs 32% on
+// Domain, and 205 delistings across 44,630 REA listings vs 5,122 across 33,351
+// Domain ones.
+//
+// Stopping ON the bound is only evidence of truncation when the bound WAS the cap.
+// When wantPages came from the portal's own on-target count (wantPages < softCap)
+// the walk covered every on-target page that exists, so a broadening stop there is
+// exhaustion, not truncation. This is the same test the "capped-complete" return at
+// the end of sweepSuburbSource already applies.
+// CRAWL_LISTINGS_LEGACY_COMPLETENESS=true restores the old `pages < wantPages`
+// rule. Kill switch only: the fix ships on. Because a wrong answer here retires
+// live listings, the switch exists so the tier can be reverted without a deploy.
+func (lc *listingsCrawler) sawWholeSuburb(metaOK bool, pages, wantPages, softCap int) bool {
+	if !metaOK {
+		return false // PageMeta unusable — never claim delist safety
+	}
+	if pages < wantPages {
+		return true // ran out before the portal's reported extent
+	}
+	if lc.cfg.legacyCompleteness {
+		return false
+	}
+	return wantPages < softCap // the bound was the real extent, not the cap
 }
 
 // mergeListing keeps the richer of two same-id sightings of a listing, using

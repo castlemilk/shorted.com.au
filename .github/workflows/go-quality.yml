@@ -1,0 +1,94 @@
+# Go quality gate.
+#
+# This exists because two things were true at once and nobody noticed:
+#
+#   1. golangci-lint ran in NO CI job at all. The pre-push hook was the only
+#      gate on Go quality, and it was failing on pre-existing issues — which
+#      trains everyone to push with --no-verify, which removes the gate.
+#   2. `run-tests` in terraform-deploy.yml runs only the services/jobs module
+#      and the integration suite. Nothing ran `go test` over the main `services`
+#      module, so two housing unit tests sat red on main unnoticed.
+#
+# It runs on pull_request as well as push, unlike run-tests (which is
+# `if: github.event_name != 'pull_request'` and therefore gates the DEPLOY, not
+# the PR). A gate that only fires after merge is not a gate.
+name: Go quality
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: "1.26"
+  # Pin the linter. golangci-lint v2 reads the `version: "2"` config in
+  # services/.golangci.yaml; a v1 binary silently ignores it and reports a
+  # different issue set, which would make this gate mean something different
+  # from `make lint-backend` on a developer's machine.
+  GOLANGCI_VERSION: "v2.10.1"
+
+concurrency:
+  group: go-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: golangci-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: |
+            services/go.sum
+            services/jobs/go.sum
+
+      - name: Configure private Go module access
+        run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
+
+      - name: Lint services
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: ${{ env.GOLANGCI_VERSION }}
+          working-directory: services
+          # --concurrency 1 mirrors `make lint-backend`: the linter OOMs on this
+          # module at higher concurrency on constrained runners.
+          args: --concurrency 1 --timeout 300s ./...
+
+  unit-tests:
+    name: Go unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: |
+            services/go.sum
+            services/jobs/go.sum
+
+      - name: Configure private Go module access
+        run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
+
+      # -short is what scripts/local-verify.sh runs, and it is what keeps this
+      # job free of Docker and live network: the testcontainer and RUN_LIVE
+      # suites stay in the integration job.
+      - name: services module
+        working-directory: services
+        env:
+          GOWORK: off
+          GOPRIVATE: github.com/skunkworq/*
+        run: go test ./... -short
+
+      - name: services/jobs module
+        working-directory: services/jobs
+        env:
+          GOWORK: off
+          GOPRIVATE: github.com/skunkworq/*
+        run: go test ./... -short

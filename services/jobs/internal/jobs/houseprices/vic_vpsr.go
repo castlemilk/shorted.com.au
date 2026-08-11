@@ -55,6 +55,9 @@ func ingestVICSuburbMedians(ctx context.Context) ([]Observation, error) {
 	return parseVICSuburbMedians(b)
 }
 
+// selectVICWorkbookURL finds the newest same-host annual house-median workbook
+// linked from the listing page. The final page URL is used as the resolution
+// base because the listing may redirect.
 func selectVICWorkbookURL(doc *goquery.Document, pageURL *url.URL) (string, error) {
 	if doc == nil || pageURL == nil {
 		return "", fmt.Errorf("VIC workbook listing has no document or final URL")

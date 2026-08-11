@@ -1,8 +1,10 @@
 package main
 
 import (
+	"errors"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -105,4 +107,39 @@ func TestPingRevalidateToleratesNon2xx(t *testing.T) {
 
 	// Must return normally despite the 5xx (no panic, no error propagation).
 	pingRevalidate("test")
+}
+
+// A raw *url.Error stringifies the full request URL. That is how an endpoint —
+// and anything its query carries — ends up in a Cloud Run log line, so the
+// redaction is worth pinning rather than trusting to review.
+func TestRedactURLErrorStripsTheEndpoint(t *testing.T) {
+	inner := errors.New("dial tcp 10.0.0.1:443: connect: connection refused")
+	err := redactURLError(&url.Error{
+		Op:  "Post",
+		URL: "https://shorted.com.au/api/revalidate?secret=super-secret&path=/housing",
+		Err: inner,
+	})
+
+	got := err.Error()
+	for _, leaked := range []string{"super-secret", "shorted.com.au", "/api/revalidate", "path=/housing"} {
+		if strings.Contains(got, leaked) {
+			t.Errorf("redacted error still contains %q: %s", leaked, got)
+		}
+	}
+	if !strings.Contains(got, "Post") || !strings.Contains(got, "[url redacted]") {
+		t.Errorf("want the operation and a redaction marker, got: %s", got)
+	}
+	// The cause must survive — redaction that hides the reason is worse than the leak.
+	if !errors.Is(err, inner) {
+		t.Errorf("redaction dropped the wrapped cause: %v", err)
+	}
+}
+
+// A non-URL error must pass through untouched, or every unrelated failure in
+// this path becomes harder to read for no benefit.
+func TestRedactURLErrorPassesThroughOtherErrors(t *testing.T) {
+	plain := errors.New("context deadline exceeded")
+	if got := redactURLError(plain); got != plain {
+		t.Errorf("non-url error was rewritten: %v", got)
+	}
 }

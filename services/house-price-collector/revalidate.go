@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -46,7 +48,7 @@ func pingRevalidate(reason string) {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, nil)
 	if err != nil {
-		log.Printf("[revalidate:%s] WARNING: build request failed: %v", reason, err)
+		log.Printf("[revalidate:%s] WARNING: build request failed: %v", reason, redactURLError(err))
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -54,7 +56,7 @@ func pingRevalidate(reason string) {
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		log.Printf("[revalidate:%s] WARNING: revalidation ping failed: %v", reason, err)
+		log.Printf("[revalidate:%s] WARNING: revalidation ping failed: %v", reason, redactURLError(err))
 		return
 	}
 	defer func() { _ = resp.Body.Close() }()
@@ -66,4 +68,19 @@ func pingRevalidate(reason string) {
 		return
 	}
 	log.Printf("[revalidate:%s] housing cache bust ok (status %d)", reason, resp.StatusCode)
+}
+
+// redactURLError keeps endpoint details out of transport-error logs. A raw
+// *url.Error stringifies the FULL request URL, so an unwrapped transport failure
+// prints the revalidation endpoint — and any query it carries — straight into the
+// Cloud Run job log. The secret rides in a header now, but the redaction stays as
+// defence in depth for the host and any future query input. The jobs-module copy
+// of this path already did this via platform.PingRevalidate; the collector did
+// not, and the collector is the copy production runs.
+func redactURLError(err error) error {
+	var uerr *url.Error
+	if errors.As(err, &uerr) {
+		return fmt.Errorf("%s [url redacted]: %w", uerr.Op, uerr.Err)
+	}
+	return err
 }

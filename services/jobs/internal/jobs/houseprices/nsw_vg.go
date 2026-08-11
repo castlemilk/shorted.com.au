@@ -21,9 +21,10 @@ import (
 // into suburb-level annual median HOUSE prices ourselves. Files sit behind a
 // Cloudflare managed challenge that does not clear from Cloud Run. The dedicated
 // `-mode vg-nsw` path therefore runs on approved residential egress and fetches
-// with stealthhttp's browser-realistic NATIVE engine. A yearly.zip is a nest: 53 weekly inner .zips, each
-// ~95 semicolon-delimited .DAT files (one per LGA district). We parse B-records
-// (the main sale row) and keep established houses only.
+// with stealthhttp's browser-realistic NATIVE engine; it must not be turned into
+// a datacenter challenge-bypass attempt. A yearly.zip is a nest: 53 weekly inner
+// .zips, each ~95 semicolon-delimited .DAT files (one per LGA district). We parse
+// B-records (the main sale row) and keep established houses only.
 //
 // Field layout (verified from live 2024 data), 0-indexed on ";" split:
 //
