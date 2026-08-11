@@ -276,7 +276,7 @@ The production fetch is **Playwright's `ConnectOverCDP`** (`crawl_cdp.go`) attac
 
 Per-fetch retry with quadratic backoff (attempt² seconds) for transient failures; hard blocks return immediately. Jittered delay between suburbs (20–45s for the headed browser — heavier than the old stealth-tier pacing, to look human). Per-site circuit breaker trips after `CRAWL_MAX_CONSEC_BLOCKS` (default 3) and signals a re-warm is needed (see §6.5).
 
-Env: `CRAWL_MAX_SUBURBS`, `CRAWL_MIN_DELAY_MS`/`CRAWL_MAX_DELAY_MS`, `CRAWL_CDP_URL`, `CRAWL_FETCH_MODE` (`gateway|cdp|playwright` override), `CRAWL_DRY_RUN`, `CRAWL_MAX_CONSEC_BLOCKS`, `CRAWL_FETCH_TIMEOUT_S`, `CRAWL_LISTINGS_SOURCES` (allowlist, e.g. run Domain-only while REA is being re-warmed). Smart-pagination + trace add `CRAWL_RESUME_WINDOW_H` and `CRAWL_TRACE`/`CRAWL_TRACE_DIR`/`CRAWL_TRACE_SUBURB` (§6.6/§6.7). Suburb catalog in `crawl_targets.go` — **115 suburbs** (25 hand-seeded + 90 ABS-population metro, 18 per mainland capital; see §6.8).
+Env: `CRAWL_MAX_SUBURBS`, `CRAWL_MIN_DELAY_MS`/`CRAWL_MAX_DELAY_MS`, `CRAWL_CDP_URL`, `CRAWL_FETCH_MODE` (`gateway|cdp|playwright` override), `CRAWL_DRY_RUN`, `CRAWL_MAX_CONSEC_BLOCKS`, `CRAWL_FETCH_TIMEOUT_S`, `CRAWL_LISTINGS_SOURCES` (allowlist, e.g. run Domain-only while REA is being re-warmed). Smart-pagination + trace add `CRAWL_LISTINGS_RESUME_WINDOW_H` and `CRAWL_TRACE`/`CRAWL_TRACE_DIR`/`CRAWL_TRACE_SUBURB` (§6.6/§6.7). Suburb catalog in `crawl_targets.go` — **500 suburbs** (see §6.8).
 
 ### 6.4 The brandbrain crawl-jobs queue (distributed residential agents)
 
@@ -333,7 +333,7 @@ Earlier sweeps walked a fixed page budget and always came back `partial`; the li
 - **Cross-page `fieldScore`-max dedup.** A thin page-1 row is upgraded in place by a richer later copy of the same listing (keep the max-`fieldScore` version).
 - **Adaptive page cap.** Seeded from the ABS size hint (`CrawlTarget.Dwellings`).
 - **Adaptive pacing.** The inter-page delay jitter **widens** after a blocked/high-mismatch page and **tightens** after clean pages.
-- **Checkpoint/resume.** `CRAWL_RESUME_WINDOW_H` (default `0` = disabled) skips a `(source, suburb)` already swept within the window, so an interrupted batch resumes without re-crawling.
+- **Checkpoint/resume.** `CRAWL_LISTINGS_RESUME_WINDOW_H` (default `0` = disabled) skips a `(source, suburb)` already swept within the window, so an interrupted batch resumes without re-crawling.
 
 ### 6.7 Debug trace mode (local-only)
 

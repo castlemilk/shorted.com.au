@@ -39,7 +39,9 @@ func TestNSWProdIngest(t *testing.T) {
 	t.Logf("upserted %d observations", n)
 
 	// link suburb regions → sal_code + refresh MVs (the real self-wiring path)
-	refresh(ctx, pool)
+	if err := refresh(ctx, pool); err != nil {
+		t.Fatalf("refresh: %v", err)
+	}
 
 	// coverage report
 	var regions, linked int
