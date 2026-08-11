@@ -1,14 +1,12 @@
 import type { Metadata } from "next";
-import { toJson } from "@bufbuild/protobuf";
 import { notFound, permanentRedirect } from "next/navigation";
 
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { LLMMeta } from "@/components/seo/llm-meta";
 import { HousingBreadcrumb } from "@/components/housing/housing-breadcrumb";
-import { SuburbProfile } from "@/components/housing/suburb-profile-loader";
+import { SuburbProfile } from "@/components/housing/suburb-profile";
 import { getSuburbProfile, resolveSuburbSalCode } from "~/app/actions/getHousing";
 import { NotFoundError } from "~/app/actions/withRetry";
-import { GetSuburbProfileResponseSchema } from "~/gen/shorts/v1alpha1/housing_pb";
 import { STATE_NAMES, slugToState, stateSlug, suburbSlug } from "@/lib/housing/states";
 
 export const revalidate = 86400;
@@ -91,7 +89,7 @@ export default async function SuburbPage({ params }: PageProps) {
           salCode={sal}
           regionCode={undefined}
           stateCode={code}
-          initialProfileJson={toJson(GetSuburbProfileResponseSchema, profile)}
+          profile={profile}
         />
       </div>
     </DashboardLayout>
