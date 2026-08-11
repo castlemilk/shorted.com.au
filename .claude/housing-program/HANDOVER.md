@@ -347,3 +347,32 @@ the workflow synthesis (run `wf_a8fe78cc-dae`).
    Valuer-General on any price surface. Unmet licence obligation on a paid product.
 6. **Editorial call on QLD crime** — its suburb-grain offence categories are not comparable
    to NSW/VIC/SA. Disclose an apportionment, publish only the two clean categories, or defer.
+
+### Suburb pages are now server rendered (commit `e0ce32063`)
+
+The `dynamic({ssr:false})` wrapper around the whole profile body meant ~3,600
+advertised suburb URLs served a grey skeleton. Measured on a production build
+against the live API, `/housing/nsw/abbotsbury`:
+
+|  | before | after |
+|---|---|---|
+| bytes | 70,785 | 148,318 |
+| `<h1>` | 0 | 1 |
+| price figures | 0 | 8 (`$1.73M`, matching the API) |
+| demographics | none | Population / Median age / Household income |
+
+The important lesson for the next person: **`"use client"` does not opt a
+component out of SSR — only `dynamic({ssr:false})` does.** The thing that
+actually breaks SSR on this route is connect-web (the "Element type is invalid"
+landmine). Confirmed by bisection: with all six children stubbed the page
+returned 200; restoring them one at a time showed the banner, chart, map and
+politician card were all fine, and only the two client-action callers crashed it.
+
+So the ssr:false boundary now sits around four islands (charts, locator map,
+nearby rail, recent price drops) instead of the whole page. Four string-assertion
+guards in `page-runtime.test.tsx` pin it, because the regression is a one-line
+import edit that is silent at runtime.
+
+**This unblocks the rest of the SEO backlog** — widening the indexation gate,
+`generateStaticParams`, and the embeds all assumed real pages underneath. It also
+means the sitemap is worth resubmitting once this deploys.
