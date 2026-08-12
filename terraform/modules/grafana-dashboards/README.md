@@ -12,9 +12,19 @@ consecutive deploys in August 2026, each recovering only on a manual re-run. The
 Grafana provider already retries 5xx by default (3 attempts, 30s apart), so the
 fix was to remove the coupling, not to retry harder.
 
-`terraform/environments/prod/main.tf` therefore carries a `removed` block with
-`lifecycle { destroy = false }`: the resources were dropped from state without
+`terraform/environments/prod/main.tf` therefore points its
+`module "grafana_dashboards"` call at `../../modules/grafana-dashboards-decommission`,
+a shim holding the grafana provider plus `removed` blocks with
+`lifecycle { destroy = false }`: the resources are dropped from state without
 being deleted, so the dashboards keep serving.
+
+The indirection is not decoration. Deleting the module call outright fails the
+plan with `Provider configuration not present`, because the orphaned resources
+still need their provider configuration at its original address
+(`module.grafana_dashboards.provider[...]`) and that configuration lived inside
+the module. A state address derives from the call NAME, not the source — so the
+call keeps its name and points somewhere that supplies the provider. Once one
+prod apply has processed it, the shim and the call can both be deleted.
 
 ## Applying it
 
