@@ -1040,25 +1040,43 @@ jobs:
 
             run_psql -c "CREATE TABLE IF NOT EXISTS schema_migrations (version bigint NOT NULL PRIMARY KEY, dirty boolean NOT NULL); DELETE FROM schema_migrations; INSERT INTO schema_migrations (version, dirty) VALUES (75, false);"
 
+            # Ingesting third-party data is NOT a deployment prerequisite.
+            #
+            # This step reads data.gov.au (austender, ATO). When that timed out,
+            # `go run` exited 1 and took the whole terraform-apply with it — a
+            # public dataset being slow blocked a Cloud Run release. The data has
+            # its own scheduled collector and can be caught up any time; a deploy
+            # that cannot ship because a government CKAN endpoint is busy is
+            # strictly worse than a deploy that ships with yesterday's records.
+            #
+            # So the ingest is best-effort and its failure is surfaced as a
+            # warning in the job summary rather than an exit code. It stays here
+            # (instead of moving to a schedule) only because the empty-table
+            # bootstrap case wants to run right after the migrations that create
+            # those tables.
+            run_influence_ingest() {
+              local mode="$1" why="$2"
+              echo "$why"
+              if docker run --rm \
+                -e DATABASE_URL="$DB_URL_CLEAN" \
+                -e STEALTH_PAT="${STEALTH_PAT:-}" \
+                -v "${PWD}/services:/app" \
+                -w /app \
+                golang:1.26.0 \
+                sh -c 'if [ -n "$STEALTH_PAT" ]; then git config --global url."https://x-access-token:${STEALTH_PAT}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"; fi; GOWORK=off GOPRIVATE=github.com/skunkworq/* GONOSUMDB=github.com/skunkworq/* go run ./influence-collector -mode '"$mode"; then
+                echo "influence-collector -mode $mode: ok"
+              else
+                rc=$?
+                echo "::warning::influence-collector -mode $mode failed (exit $rc) — deploy continues; the scheduled collector will catch up"
+                echo "- :warning: \`influence-collector -mode $mode\` failed (exit $rc); records may be stale until the next scheduled run" >> "$GITHUB_STEP_SUMMARY"
+              fi
+            }
+
             TAX_ROWS=$(docker run --rm postgres:15-alpine psql "$DB_URL_CLEAN" -Atqc "SELECT COUNT(*) FROM corporate_tax")
             if [ "${TAX_ROWS:-0}" = "0" ]; then
-              echo "corporate_tax is empty; bootstrapping ATO corporate-tax data."
-              docker run --rm \
-                -e DATABASE_URL="$DB_URL_CLEAN" \
-                -e STEALTH_PAT="${STEALTH_PAT:-}" \
-                -v "${PWD}/services:/app" \
-                -w /app \
-                golang:1.26.0 \
-                sh -c 'if [ -n "$STEALTH_PAT" ]; then git config --global url."https://x-access-token:${STEALTH_PAT}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"; fi; GOWORK=off GOPRIVATE=github.com/skunkworq/* GONOSUMDB=github.com/skunkworq/* go run ./influence-collector -mode all'
+              run_influence_ingest all "corporate_tax is empty; bootstrapping ATO corporate-tax data."
             else
-              echo "corporate_tax already has ${TAX_ROWS} rows; refreshing public industry intelligence records."
-              docker run --rm \
-                -e DATABASE_URL="$DB_URL_CLEAN" \
-                -e STEALTH_PAT="${STEALTH_PAT:-}" \
-                -v "${PWD}/services:/app" \
-                -w /app \
-                golang:1.26.0 \
-                sh -c 'if [ -n "$STEALTH_PAT" ]; then git config --global url."https://x-access-token:${STEALTH_PAT}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"; fi; GOWORK=off GOPRIVATE=github.com/skunkworq/* GONOSUMDB=github.com/skunkworq/* go run ./influence-collector -mode public-records'
+              run_influence_ingest public-records "corporate_tax already has ${TAX_ROWS} rows; refreshing public industry intelligence records."
             fi
             exit 0
           fi
