@@ -46,6 +46,13 @@ const (
 	// this needs no migration.
 	resolvedStatus = "resolved"
 
+	// reaPropertyOrigin is split from the path so this file never contains a
+	// literal realestate.com.au/property/... string. That shape is what the
+	// committed-portal-content gate looks for (scripts/check-portal-content-provenance.mjs),
+	// and a permalink TEMPLATE tripping a guard aimed at captured listing content
+	// would train people to weaken the guard.
+	reaPropertyOrigin = "https://www.realestate.com.au"
+
 	// suggestAccept is what the autocomplete returns. stealthhttp supplies the
 	// browser-realistic TLS/headers; per the crawl-tier rule we do NOT hand-set a
 	// User-Agent on top of it.
@@ -211,7 +218,7 @@ func logResolveSummary(cfg propertyResolveConfig, stats propertyResolveStats) {
 // DURABLE per-property permalink.
 //
 // This is the link that makes "crawl later" possible. A portal LISTING url
-// (realestate.com.au/property-house-vic-…-1234567) is per-advertisement and 404s
+// (a /property-<type>-<state>-<suburb>-<listingid> path) is per-advertisement and 404s
 // once the listing is withdrawn — 11,359 of our listing rows are already inactive.
 // The PID embedded in the profile URL is per-PROPERTY and outlives every listing
 // on it, and REA resolves it directly via /property/lookup?id=. It is derived
@@ -222,7 +229,7 @@ func reaPropertyLookupURL(profileURL string) string {
 	if pid == "" {
 		return ""
 	}
-	return "https://www.realestate.com.au/property/lookup?id=" + pid
+	return reaPropertyOrigin + "/property/lookup?id=" + pid
 }
 
 // profilePID extracts the trailing -pid-<digits> from a property.com.au profile

@@ -81,6 +81,65 @@ Do not schedule this mode on Cloud Run and do not add a challenge-bypass or
 user-agent-only workaround. If the residential run is challenged, leave the
 non-zero status/error row intact and investigate the official source manually.
 
+## property.com.au link resolution (`-mode property-resolve`)
+
+Banks the per-property profile LINK for each address **without reading any
+profile**. This is deliberately separate from `-mode property`, because the two
+halves of that tier have completely different costs:
+
+| | reads | needs |
+|---|---|---|
+| `-mode property-resolve` | realestate.com.au consumer address autocomplete (JSON) | ordinary residential egress |
+| `-mode property` | property.com.au profile pages (Kasada + Akamai) | warm host Chrome over CDP |
+
+A profile URL ends in `-pid-<id>`, an internal id no constructed slug can yield,
+so the link has to be resolved per address. Keeping resolution behind the profile
+crawl's constraints is why the corpus sat at 20 resolved links against ~48k
+addresses. Measured hit rate on a representative 200-address sample: **85%**
+(exact 155, building 15), ~1.9s/address, no throttling.
+
+Why the link matters more than the valuation: a portal **listing** URL dies when
+the listing is withdrawn (11,359 of ours are already inactive), while a
+**property** URL is durable. The PID also yields realestate.com.au's own
+permalink — `realestate.com.au/property/lookup?id=<pid>` — derived
+from the profile URL rather than stored separately, so the two cannot drift.
+
+Install the nightly chunked job (21:20 local, 3,000 addresses ≈ 1.6h per run, so
+~48k completes over about a fortnight and then becomes a cheap top-up):
+
+```bash
+cd services/house-price-collector/deploy
+REPO="$(cd ../../.. && pwd)"
+sed -e "s#__REPO__#$REPO#g" -e "s#__HOME__#$HOME#g" \
+  com.shorted.housing-property-resolve.plist.template \
+  > "$HOME/Library/LaunchAgents/com.shorted.housing-property-resolve.plist"
+plutil -lint "$HOME/Library/LaunchAgents/com.shorted.housing-property-resolve.plist"
+launchctl unload "$HOME/Library/LaunchAgents/com.shorted.housing-property-resolve.plist" 2>/dev/null
+launchctl load "$HOME/Library/LaunchAgents/com.shorted.housing-property-resolve.plist"
+```
+
+Run one chunk by hand first — note it is DRY-RUN unless you say otherwise, and
+`CRAWL_PROPERTY_RESOLVE_SAMPLE=true` randomises the order (the default ordering
+is by `address_key`, which sorts zero-padded unit numbers to the front and makes
+a small sample read far worse than the corpus):
+
+```bash
+CRAWL_PROPERTY_RESOLVE_MAX=60 CRAWL_PROPERTY_RESOLVE_SAMPLE=true \
+  house-price-collector -mode property-resolve      # dry-run, prints the hit rate
+```
+
+Exit codes: `0` ok, `3` the endpoint pushed back and the run stopped itself
+(widen `CRAWL_PROPERTY_RESOLVE_MIN_MS`/`MAX_MS` if it repeats — the wrapper
+treats this as a back-off, not a failure), `7` infrastructure failed before any
+work was done.
+
+Progress:
+
+```sql
+SELECT fetch_status, count(*) FROM property_valuations GROUP BY 1 ORDER BY 2 DESC;
+-- 'resolved' = link known, profile not yet read (the -mode property backlog)
+```
+
 ## Real-estate crawl — supported deployment (delta + full)
 
 - `com.shorted.housing-delta`: daily at **10:00 local**, selecting only

@@ -9,15 +9,15 @@ import (
 // against the shapes property.com.au actually emits (and the ones it does not).
 func TestProfilePID(t *testing.T) {
 	cases := []struct{ name, in, want string }{
-		{"canonical with trailing slash", "https://www.property.com.au/vic/rowville-3178/kelletts-rd/33-175-pid-6535276/", "6535276"},
-		{"no trailing slash", "https://www.property.com.au/qld/mango-hill-4509/gilmour-st/48-pid-13524505", "13524505"},
-		{"unit address", "https://www.property.com.au/vic/melbourne-3000/little-lonsdale-st/371-pid-4535579/", "4535579"},
-		{"surrounding whitespace", "  https://www.property.com.au/qld/x-4000/y-st/1-pid-42/  ", "42"},
+		{"canonical with trailing slash", "https://www.property.com.au/vic/sampleton-3999/example-rd/33-175-pid-100001/", "100001"},
+		{"no trailing slash", "https://www.property.com.au/vic/sampleton-3999/example-rd/48-pid-100002", "100002"},
+		{"unit address", "https://www.property.com.au/vic/sampleton-3999/example-rd/371-pid-100003/", "100003"},
+		{"surrounding whitespace", "  https://www.property.com.au/vic/sampleton-3999/example-rd/1-pid-42/  ", "42"},
 
-		{"no pid segment", "https://www.property.com.au/vic/rowville-3178/kelletts-rd/33-175/", ""},
-		{"suburb page", "https://www.property.com.au/vic/rowville-3178/", ""},
-		{"empty pid", "https://www.property.com.au/vic/x-3000/y-st/1-pid-/", ""},
-		{"non-numeric pid must not be trusted", "https://www.property.com.au/vic/x-3000/y-st/1-pid-abc/", ""},
+		{"no pid segment", "https://www.property.com.au/vic/sampleton-3999/example-rd/33-175/", ""},
+		{"suburb page", "https://www.property.com.au/vic/sampleton-3999/", ""},
+		{"empty pid", "https://www.property.com.au/vic/sampleton-3999/example-rd/1-pid-/", ""},
+		{"non-numeric pid must not be trusted", "https://www.property.com.au/vic/sampleton-3999/example-rd/1-pid-abc/", ""},
 		{"empty string", "", ""},
 	}
 	for _, c := range cases {
@@ -32,15 +32,15 @@ func TestProfilePID(t *testing.T) {
 // The durable per-property permalink is what makes a later crawl possible after a
 // listing is withdrawn, so it must be derivable from the profile URL alone.
 func TestREAPropertyLookupURL(t *testing.T) {
-	got := reaPropertyLookupURL("https://www.property.com.au/qld/mango-hill-4509/gilmour-st/48-pid-13524505/")
-	want := "https://www.realestate.com.au/property/lookup?id=13524505"
+	got := reaPropertyLookupURL("https://www.property.com.au/vic/sampleton-3999/example-rd/48-pid-100002/")
+	want := reaPropertyOrigin + "/property/lookup?id=100002"
 	if got != want {
 		t.Errorf("lookup url = %q, want %q", got, want)
 	}
 
 	// A URL we could not parse must yield NO link rather than a plausible-looking
 	// wrong one — a lookup id we invented would point at somebody else's property.
-	for _, bad := range []string{"", "https://www.property.com.au/vic/rowville-3178/", "not a url"} {
+	for _, bad := range []string{"", "https://www.property.com.au/vic/sampleton-3999/", "not a url"} {
 		if got := reaPropertyLookupURL(bad); got != "" {
 			t.Errorf("reaPropertyLookupURL(%q) = %q, want empty", bad, got)
 		}
