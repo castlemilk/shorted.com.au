@@ -39,7 +39,7 @@ func main() {
 // any jobs completed (also used for enqueue/listings finalization failures).
 // Wrapping the body lets deferred cleanup run before exit.
 func run() int {
-	mode := flag.String("mode", "all", "official | vg-nsw | vg-vic | crawl | listings | details | property | agent | enqueue | freshness | purge | warmcheck | backfill-address | census | electorates | banners | amenities | lga | connectivity | funding | council-financials | crime | refresh | all")
+	mode := flag.String("mode", "all", "official | vg-nsw | vg-vic | crawl | listings | details | property | property-resolve | agent | enqueue | freshness | purge | warmcheck | backfill-address | census | electorates | banners | amenities | lga | connectivity | funding | council-financials | crime | refresh | all")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -124,6 +124,14 @@ func run() int {
 		// Kasada+Akamai stub-guard); dry-run defaults ON. Returns the exit code
 		// directly (0 ok, 3 re-warm).
 		return runProperty(ctx, pool)
+	case "property-resolve":
+		// BANK the property.com.au profile URL for each address WITHOUT reading the
+		// profile. Resolution reads realestate.com.au's public address autocomplete
+		// (small JSON, no Kasada), so unlike -mode property this needs no host
+		// Chrome and no residential rig — which is what lets the link inventory be
+		// completed now and the Kasada-walled profile crawl catch up later.
+		// DRY-RUN by default.
+		return runPropertyResolve(ctx, pool)
 	case "agent":
 		// Poll the brandbrain-native crawl queue for suburbs to crawl, run the
 		// existing per-suburb listings sweep (residential host-Chrome over CDP),
@@ -204,7 +212,7 @@ func run() int {
 			return 1
 		}
 	default:
-		log.Fatalf("unknown -mode %q (want official|vg-nsw|vg-vic|crawl|listings|details|property|agent|enqueue|freshness|warmcheck|backfill-address|census|electorates|banners|amenities|lga|connectivity|funding|council-financials|crime|refresh|all)", *mode)
+		log.Fatalf("unknown -mode %q (want official|vg-nsw|vg-vic|crawl|listings|details|property|property-resolve|agent|enqueue|freshness|warmcheck|backfill-address|census|electorates|banners|amenities|lga|connectivity|funding|council-financials|crime|refresh|all)", *mode)
 	}
 	return 0
 }
