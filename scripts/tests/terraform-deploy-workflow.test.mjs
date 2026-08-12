@@ -48,12 +48,38 @@ test("production tax bootstrap imports all sources when empty and refreshes publ
 
   assert.match(run, /SELECT COUNT\(\*\) FROM corporate_tax/);
   assert.match(run, /if \[ "\$\{TAX_ROWS:-0\}" = "0" \]; then/);
-  assert.match(run, /go run \.\/influence-collector -mode all/);
+
+  // The two branches select the mode; the collector invocation is shared and
+  // parameterised, so assert the dispatch rather than two literal commands.
+  assert.match(run, /run_influence_ingest all\b/);
   assert.match(run, /corporate_tax already has \$\{TAX_ROWS\} rows; refreshing public industry intelligence records/);
-  assert.match(run, /go run \.\/influence-collector -mode public-records/);
+  assert.match(run, /run_influence_ingest public-records\b/);
+  assert.match(run, /go run \.\/influence-collector -mode '"\$mode"/);
+
   assert.match(run, /GOWORK=off/);
   assert.match(run, /GOPRIVATE=github\.com\/skunkworq\/\*/);
   assert.match(run, /GONOSUMDB=github\.com\/skunkworq\/\*/);
+});
+
+test("a third-party data ingest cannot fail the production deploy", () => {
+  const run = step("terraform-apply", "Run database migrations").run;
+
+  // This ingest reads data.gov.au. A CKAN timeout there used to exit 1 and take
+  // the whole terraform-apply with it, so a busy government endpoint blocked a
+  // Cloud Run release. The data has its own scheduled collector; a deploy that
+  // ships with yesterday's records beats a deploy that cannot ship.
+  assert.match(run, /if docker run --rm/, "the ingest must run inside an if-guard, not bare");
+  assert.match(
+    run,
+    /::warning::influence-collector -mode \$mode failed/,
+    "an ingest failure must surface as a warning",
+  );
+  assert.match(run, /GITHUB_STEP_SUMMARY/, "an ingest failure must be visible in the job summary");
+
+  // The guard is only meaningful if the failure path does not then exit non-zero.
+  const fn = run.slice(run.indexOf("run_influence_ingest() {"), run.indexOf("TAX_ROWS="));
+  assert.ok(fn.length > 0, "expected the run_influence_ingest helper");
+  assert.doesNotMatch(fn, /\bexit [1-9]/, "the ingest helper must not exit non-zero on failure");
 });
 
 test("non-production environments still run the normal ordered migration chain", () => {
