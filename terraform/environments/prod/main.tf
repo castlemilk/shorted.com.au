@@ -574,32 +574,31 @@ module "enrichment_processor" {
   ]
 }
 
-# Grafana Cloud Dashboards — DETACHED FROM THIS STACK (2026-08-12).
+# Grafana Cloud Dashboards — BEING DECOMMISSIONED FROM THIS STACK (2026-08-12).
 #
-# These dashboards are cosmetic and nothing in this configuration depends on
-# them, but managing them here put Grafana Cloud's API on the critical path of
-# every production deploy: `grafana_folder.shorted` must be refreshed on every
-# plan, so a transient 5xx from their API failed the whole apply. That happened
-# on three consecutive deploys (504, 503, and separately a data.gov.au timeout),
-# each passing only on a manual re-run. The provider already retries 5xx by
-# default, so more retries was not the answer — the coupling was.
+# These dashboards are cosmetic and nothing here depends on them, but managing
+# them put Grafana Cloud's API on the critical path of every production deploy:
+# grafana_folder.shorted had to be refreshed on every plan, so a transient 5xx
+# failed the whole apply. That happened on three consecutive deploys (504, 503,
+# and separately a data.gov.au timeout), each passing only on a manual re-run.
+# The provider already retries 5xx by default, so more retries was not the
+# answer — the coupling was.
 #
-# `destroy = false` is load-bearing: it drops the resources from state WITHOUT
-# deleting them, so the dashboards keep serving in Grafana Cloud. Removing the
-# module block alone would have destroyed them.
+# The call NAME must stay `grafana_dashboards`: state addresses derive from it,
+# and the orphaned resources need their provider configuration to still resolve
+# at module.grafana_dashboards.provider[...]. Deleting the call outright fails
+# the plan with "Provider configuration not present" — verified the hard way.
+# So it now points at a shim that holds that provider plus `removed` blocks with
+# `destroy = false`, which forgets the resources WITHOUT deleting them.
 #
-# The dashboard definitions remain version-controlled at
-# terraform/modules/grafana-dashboards/ and can be applied on their own when they
-# change — see that module's README. They just no longer gate Cloud Run.
-#
-# This block is a one-shot: once a prod apply has processed it, the resources are
-# out of state and it becomes a no-op that can be deleted. Leave it until then.
-removed {
-  from = module.grafana_dashboards
+# After one prod apply has processed this, state holds no grafana resources and
+# both this call and the shim can be deleted. The dashboard definitions live on
+# in terraform/modules/grafana-dashboards/ — see its README.
+module "grafana_dashboards" {
+  source = "../../modules/grafana-dashboards-decommission"
 
-  lifecycle {
-    destroy = false
-  }
+  grafana_url  = var.grafana_url
+  grafana_auth = var.grafana_auth
 }
 
 # Weekly Report Generator Job
