@@ -284,14 +284,21 @@ func (c *brandbrainAgentClient) claim(ctx context.Context) (*agentCrawlJob, erro
 	return resp.Job, nil
 }
 
-// submit reports a terminal result for a claimed job.
-func (c *brandbrainAgentClient) submit(ctx context.Context, jobID, status string, summary *crawlJobSummary, errMsg string) error {
-	return c.do(ctx, http.MethodPost, "/api/v1/agent/crawl-jobs/submit", map[string]any{
+// submit reports a job outcome. status is "succeeded"/"failed" (terminal) or
+// "deferred" — the job was NOT attempted because the portal's circuit breaker was
+// open, so it goes back on the queue with its attempt refunded and is held out of
+// the claim query for retryAfter (the breaker's remaining cooldown).
+func (c *brandbrainAgentClient) submit(ctx context.Context, jobID, status string, summary *crawlJobSummary, errMsg string, retryAfter time.Duration) error {
+	body := map[string]any{
 		"job_id":         jobID,
 		"status":         status,
 		"result_summary": summary,
 		"error":          errMsg,
-	}, nil)
+	}
+	if retryAfter > 0 {
+		body["retry_after_seconds"] = retryAfter.Seconds()
+	}
+	return c.do(ctx, http.MethodPost, "/api/v1/agent/crawl-jobs/submit", body, nil)
 }
 
 // crawlEnqueueInput is one suburb to enqueue on the brandbrain queue.
@@ -613,7 +620,7 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 		if done > 0 {
 			jitterSleep(ctx, cfg.minDelay, cfg.maxDelay)
 		}
-		summary, status, errMsg, wrote := crawlAgentJob(ctx, pool, fetcher, cfg, job, rs, cb, tel)
+		summary, status, errMsg, wrote, retryAfter := crawlAgentJob(ctx, pool, fetcher, cfg, job, rs, cb, tel)
 		wroteAny = wroteAny || wrote
 		// Accumulate this suburb's counts into the round totals for the health record.
 		totalListings += summary.Listings
@@ -636,8 +643,18 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 			// (ctx) firing between the write and the submit — that would orphan the
 			// job in the queue and lose the counts.
 			subCtx, subCancel := context.WithTimeout(context.Background(), 45*time.Second)
-			if err := client.submit(subCtx, job.ID, status, &summary, errMsg); err != nil {
+			if err := client.submit(subCtx, job.ID, status, &summary, errMsg, retryAfter); err != nil {
 				log.Printf("[agent] submit error (job=%s): %v", job.ID, err)
+				// A brandbrain that predates the deferred outcome rejects it. Rather
+				// than orphan the job in_progress until its lease expires (which
+				// burns the attempt this defer was refunding), fall back to the old
+				// behaviour for that deploy window only.
+				if status == "deferred" {
+					log.Printf("[agent] queue rejected the deferred outcome — falling back to 'failed' (deploy brandbrain first to keep the attempt refund)")
+					if err := client.submit(subCtx, job.ID, "failed", &summary, errMsg, 0); err != nil {
+						log.Printf("[agent] fallback submit error (job=%s): %v", job.ID, err)
+					}
+				}
 			}
 			subCancel()
 		}
@@ -758,16 +775,17 @@ func agentExitCode(anyRewarm, fatalErr bool, _ int) int {
 }
 
 // crawlAgentJob runs one claimed suburb job (listings tier) and returns the
-// counts-only summary, the terminal status, an optional error, and whether it
-// wrote anything (to gate the end-of-run MV refresh). rs is the (optional —
-// may be nil) resume snapshot loaded once for the whole -mode agent run; a
-// source within the resume window is skipped for this job (logged, never
+// counts-only summary, the outcome status, an optional error, whether it wrote
+// anything (to gate the end-of-run MV refresh), and — for a "deferred" outcome
+// only — how long the queue should hold the job before re-serving it. rs is the
+// (optional — may be nil) resume snapshot loaded once for the whole -mode agent
+// run; a source within the resume window is skipped for this job (logged, never
 // silently) rather than swept again.
-func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher, cfg listingsConfig, job *agentCrawlJob, rs resumeSet, cb *crawlCircuitBreaker, tel *telemetryWriter) (crawlJobSummary, string, string, bool) {
+func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher, cfg listingsConfig, job *agentCrawlJob, rs resumeSet, cb *crawlCircuitBreaker, tel *telemetryWriter) (crawlJobSummary, string, string, bool, time.Duration) {
 	// Medians-in-agent-mode is a follow-up; the standalone `-mode crawl` path
 	// still serves the median tier. Fail such a job clearly rather than silently.
 	if strings.EqualFold(job.Tier, "medians") {
-		return crawlJobSummary{Suburbs: 1, Detail: "medians tier not yet supported in agent mode"}, "failed", "medians tier not supported in agent mode (use -mode crawl)", false
+		return crawlJobSummary{Suburbs: 1, Detail: "medians tier not yet supported in agent mode"}, "failed", "medians tier not supported in agent mode (use -mode crawl)", false, 0
 	}
 
 	t, _ := resolveCrawlTarget(job)
@@ -775,7 +793,7 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 
 	if !cfg.dryRun {
 		if err := upsertRegions(ctx, pool, listingRegionObs([]CrawlTarget{t})); err != nil {
-			return crawlJobSummary{Suburbs: 1, Detail: "region upsert failed"}, "failed", "region upsert: " + err.Error(), false
+			return crawlJobSummary{Suburbs: 1, Detail: "region upsert failed"}, "failed", "region upsert: " + err.Error(), false, 0
 		}
 	}
 
@@ -783,6 +801,11 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 	var reaEvents, domEvents int
 	var reaErr, domErr error
 	var skippedRea, skippedDomain bool
+	// cooldown is set ONLY when a source was skipped because its circuit breaker
+	// was open — i.e. the portal is blocking and this job was never attempted.
+	// That is the difference between "nothing to do" and "couldn't try", and it
+	// decides whether the job is banked or handed back (see below).
+	var cooldownRea, cooldownDomain time.Duration
 	// A job may target a single portal (source="rea"/"domain") or both
 	// (source="both"/"" — legacy combined job). Skip the portal this job doesn't
 	// own so REA and Domain can run as independent jobs with their own status,
@@ -794,6 +817,7 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 		log.Printf("[agent] %s rea: skipped (swept within the resume window)", t.Display)
 	} else if open, rem := cb.skip("rea", runTs); open {
 		skippedRea = true
+		cooldownRea = rem
 		log.Printf("[agent] %s rea: SKIPPED — circuit open (portal blocking), backing off %s", t.Display, rem.Round(time.Second))
 	} else {
 		reaEvents, reaErr = lc.crawlSuburbSource(ctx, pool, t, "rea", t.reaSearchURL, &lc.reaBlocks, runTs)
@@ -808,6 +832,7 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 		log.Printf("[agent] %s domain: skipped (swept within the resume window)", t.Display)
 	} else if open, rem := cb.skip("domain", runTs); open {
 		skippedDomain = true
+		cooldownDomain = rem
 		log.Printf("[agent] %s domain: SKIPPED — circuit open (portal blocking), backing off %s", t.Display, rem.Round(time.Second))
 	} else {
 		domEvents, domErr = lc.crawlSuburbSource(ctx, pool, t, "domain", t.domainSearchURL, &lc.domBlocks, runTs)
@@ -826,8 +851,28 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 		NeedsRewarm:   needsRewarm(cfg.maxConsecBlocks, lc.reaBlocks, lc.domBlocks),
 	}
 	if skippedRea && skippedDomain {
+		// Nothing ran. WHY decides whether the work is done or still owed.
+		//
+		// If any skip was a circuit-open skip, the portal is blocking and this
+		// suburb was never attempted. Reporting "succeeded" (as this did) banks a
+		// no-data success: the job leaves the queue, never retries, and the
+		// suburb's last-crawled never advances — so it silently stops being
+		// crawled while the queue reports it done. Observed live: Unley SA last
+		// produced data on 2026-08-04 and was "succeeded" into staleness for four
+		// days, driving the freshness alarm, while 112 Domain jobs a day took the
+		// same path. "failed" is no better — it spends one of max_attempts on a
+		// sweep that never ran, so a portal blocking for a day can exhaust a job
+		// outright. Defer: back on the queue, attempt refunded, held for the
+		// breaker's remaining cooldown so the claim query doesn't hand it
+		// straight back.
+		if cool := maxDuration(cooldownRea, cooldownDomain); cool > 0 {
+			summary.Detail = "not attempted: portal circuit open"
+			return summary, "deferred", "circuit open (portal blocking), not attempted", false, cool
+		}
+		// The honest no-op: both sources were swept recently enough (or aren't
+		// owned by this job), so there is genuinely nothing to do.
 		summary.Detail = "both sources skipped (swept within the resume window)"
-		return summary, "succeeded", "", false
+		return summary, "succeeded", "", false, 0
 	}
 
 	// A blocked/poisoned sweep is DISCARDED wholesale — crawlSuburbSource writes
@@ -857,9 +902,17 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 		// committed (summary.Events), not a blanket false — otherwise freshly
 		// written data is left unlinked/unrefreshed until an unrelated later run.
 		// A blocked-sweep failure has Events==0, so it still returns false.
-		return summary, "failed", errMsg, !cfg.dryRun && summary.Events > 0
+		return summary, "failed", errMsg, !cfg.dryRun && summary.Events > 0, 0
 	}
-	return summary, "succeeded", "", !cfg.dryRun && s.seen > 0
+	return summary, "succeeded", "", !cfg.dryRun && s.seen > 0, 0
+}
+
+// maxDuration returns the larger of two durations.
+func maxDuration(a, b time.Duration) time.Duration {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 // firstErr returns the first non-nil error, or nil.
