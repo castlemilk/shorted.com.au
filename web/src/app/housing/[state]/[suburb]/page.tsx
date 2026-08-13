@@ -8,6 +8,7 @@ import { SuburbProfile } from "@/components/housing/suburb-profile";
 import { getSuburbProfile, resolveSuburbSalCode } from "~/app/actions/getHousing";
 import { NotFoundError } from "~/app/actions/withRetry";
 import { STATE_NAMES, slugToState, stateSlug, suburbSlug } from "@/lib/housing/states";
+import { isSuburbIndexable, suburbMetaCopy } from "@/lib/seo/suburb-indexability";
 
 export const revalidate = 86400;
 
@@ -41,10 +42,31 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     ? suburbSlug(profile.summary.salName, profile.summary.postcode)
     : suburb.replace(/-$/, "");
   const url = `https://shorted.com.au/housing/${stateSlug(code)}/${canonicalSlug}`;
-  const title = `${name} House Prices & Demographics`;
-  const description = `Median house price, ABS Census demographics and trends for ${name}, ${STATE_NAMES[code]}.`;
+
+  // Say what the page can actually show. Priced suburbs keep the existing
+  // wording so already-ranking URLs are undisturbed; a suburb with no ingested
+  // Valuer-General feed — every one in QLD, WA, ACT, TAS and NT — stops
+  // promising a median house price it has never had.
+  const summary = profile?.summary;
+  const { title, description } = suburbMetaCopy({
+    name,
+    stateName: STATE_NAMES[code] ?? code,
+    latestMedianPrice: summary?.latestMedianPrice,
+  });
+
+  // The sitemap gate was a DISCOVERY gate: with no robots directive here, every
+  // suburb URL was indexable regardless of what the sitemap advertised. This
+  // makes the two agree, with the sitemap a strict subset.
+  const indexable = isSuburbIndexable({
+    salCode: summary?.salCode,
+    salName: summary?.salName,
+    latestMedianPrice: summary?.latestMedianPrice,
+    population: profile?.demographics?.population,
+  });
+
   return {
     title, description, alternates: { canonical: url },
+    robots: indexable ? undefined : { index: false, follow: true },
     openGraph: { type: "website", url, title, description, siteName: "Shorted", locale: "en_AU" },
     twitter: { card: "summary_large_image", title, description, creator: "@shorted___" },
   };
