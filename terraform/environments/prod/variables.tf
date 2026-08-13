@@ -132,18 +132,6 @@ variable "chat_service_image" {
   default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/chat-service:latest"
 }
 
-variable "grafana_url" {
-  description = "Grafana Cloud instance URL"
-  type        = string
-  default     = "https://skunkworq.grafana.net"
-}
-
-variable "grafana_auth" {
-  description = "Grafana service account token"
-  type        = string
-  sensitive   = true
-}
-
 # ---- Cloudflare Edge ----
 
 variable "cloudflare_global_api_key" {
