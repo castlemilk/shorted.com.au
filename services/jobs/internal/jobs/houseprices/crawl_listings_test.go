@@ -78,19 +78,19 @@ func TestComparableKinds(t *testing.T) {
 }
 
 func TestExtractListings_DomainNextData(t *testing.T) {
-	// Mirrors the REAL Domain search-page shape (verified 2026-07-12): listings are
+	// Synthetic Domain-shaped data: listings are
 	// a MAP keyed by id under componentProps.listingsMap.<id>.listingModel (the
 	// object itself has NO id — it's recovered from the url); recent sales are an
 	// ARRAY under UPVSoldListings tagged sold; "project" cards have no price.
 	html := `<html><body><script id="__NEXT_DATA__" type="application/json">
 	{"props":{"pageProps":{"componentProps":{
 	  "listingsMap":{
-	    "2019015084":{"listingModel":{"url":"/9-285-295-bondi-road-bondi-nsw-2026-2019015084","price":"For Sale $2.1m","features":{"beds":2,"baths":2,"parking":1,"propertyType":"ApartmentUnitFlat","landSize":0},"address":{"street":"9/285-295 Bondi Road","suburb":"Bondi","state":"NSW","postcode":"2026","lat":-33.895,"lng":151.269}}},
-	    "2020346264":{"listingModel":{"url":"/6-1-7-andrews-avenue-bondi-nsw-2026-2020346264","price":"Contact Agent","features":{"beds":1,"baths":1},"address":{"street":"6/1-7 Andrews Avenue","suburb":"Bondi","state":"NSW","postcode":"2026"}}},
-	    "6823":{"listingModel":{"url":"/project/6823/halcyon-bondi-nsw/","projectName":"Halcyon","displayAddress":"Halcyon, Bondi","address":{"suburb":"Bondi","postcode":"2026"}}}
+	    "100001":{"listingModel":{"url":"/example-avenue-synthetic-suburb-zz-0000-100001","price":"For Sale $765k","features":{"beds":2,"baths":2,"parking":1,"propertyType":"ApartmentUnitFlat","landSize":0},"address":{"street":"Example Avenue","suburb":"Synthetic Suburb","state":"ZZ","postcode":"0000","lat":-25.0,"lng":135.0}}},
+	    "100002":{"listingModel":{"url":"/sample-crescent-synthetic-suburb-zz-0000-100002","price":"Contact Agent","features":{"beds":1,"baths":1},"address":{"street":"Sample Crescent","suburb":"Synthetic Suburb","state":"ZZ","postcode":"0000"}}},
+	    "6823":{"listingModel":{"url":"/project/6823/example-project-synthetic-suburb/","projectName":"Example Project","displayAddress":"Example Project, Synthetic Suburb","address":{"suburb":"Synthetic Suburb","postcode":"0000"}}}
 	  },
 	  "UPVSoldListings":[
-	    {"listingModel":{"url":"/12-18-20-wellington-street-bondi-nsw-2026-2020524930","price":"$2,205,000","features":{"beds":3,"baths":2,"parking":1,"propertyType":"ApartmentUnitFlat","landSize":138},"address":{"street":"12/18-20 Wellington Street","suburb":"Bondi","state":"NSW","postcode":"2026"},"tags":{"tagText":"Sold","tagClassName":"is-sold"}}}
+	    {"listingModel":{"url":"/illustration-road-synthetic-suburb-zz-0000-100003","price":"$654,321","features":{"beds":3,"baths":2,"parking":1,"propertyType":"ApartmentUnitFlat","landSize":138},"address":{"street":"Illustration Road","suburb":"Synthetic Suburb","state":"ZZ","postcode":"0000"},"tags":{"tagText":"Sold","tagClassName":"is-sold"}}}
 	  ]
 	}}}}
 	</script></body></html>`
@@ -107,11 +107,11 @@ func TestExtractListings_DomainNextData(t *testing.T) {
 		t.Error("project card (no price) must be skipped")
 	}
 
-	a := byID["2019015084"]
-	if a.ListingURL != "https://www.domain.com.au/9-285-295-bondi-road-bondi-nsw-2026-2019015084" {
+	a := byID["100001"]
+	if a.ListingURL != "https://www.domain.com.au/example-avenue-synthetic-suburb-zz-0000-100001" {
 		t.Errorf("url not absolutized: %q", a.ListingURL)
 	}
-	if a.PriceKind != priceFixed || a.PriceLow == nil || *a.PriceLow != 2_100_000 {
+	if a.PriceKind != priceFixed || a.PriceLow == nil || *a.PriceLow != 765_000 {
 		t.Errorf("for-sale price wrong: kind=%s low=%v", a.PriceKind, a.PriceLow)
 	}
 	if a.Bedrooms == nil || *a.Bedrooms != 2 { // nested features.beds
@@ -130,16 +130,16 @@ func TestExtractListings_DomainNextData(t *testing.T) {
 		t.Errorf("for-sale status wrong: %q", a.Status)
 	}
 
-	b := byID["2020346264"]
+	b := byID["100002"]
 	if b.PriceKind != pricePOA || b.PriceLow != nil {
 		t.Errorf("'Contact Agent' should be poa with nil price: kind=%s low=%v", b.PriceKind, b.PriceLow)
 	}
 
-	sold := byID["2020524930"]
+	sold := byID["100003"]
 	if sold.Status != "sold" {
 		t.Errorf("UPVSoldListings entry should be status=sold (from tags): %q", sold.Status)
 	}
-	if sold.PriceKind != priceFixed || sold.PriceLow == nil || *sold.PriceLow != 2_205_000 {
+	if sold.PriceKind != priceFixed || sold.PriceLow == nil || *sold.PriceLow != 654_321 {
 		t.Errorf("sold price wrong: kind=%s low=%v", sold.PriceKind, sold.PriceLow)
 	}
 	if sold.Bedrooms == nil || *sold.Bedrooms != 3 {
@@ -152,7 +152,7 @@ func TestExtractListings_REAArgonaut(t *testing.T) {
 	// features as {value: N} wrappers.
 	html := `<html><body><script>
 	window.ArgonautExchange = {"results":{"exchangeState":{"resolvedListings":[
-	  {"id":"146500000","_links":{"canonical":{"href":"https://www.realestate.com.au/property/9-argo-st-bondi"}},"price":{"display":"$4.1m"},"generalFeatures":{"bedrooms":{"value":5},"bathrooms":{"value":3}},"address":{"suburb":"Bondi","state":"NSW","postcode":"2026","display":{"fullAddress":"9 Argo St, Bondi"}}}
+	  {"id":"synthetic-rea-listing-002","_links":{"canonical":{"href":"https://housing.example.test/property/example-avenue"}},"price":{"display":"$876k"},"generalFeatures":{"bedrooms":{"value":5},"bathrooms":{"value":3}},"address":{"suburb":"Synthetic Suburb","state":"ZZ","postcode":"0000","display":{"fullAddress":"Example Avenue, Synthetic Suburb"}}}
 	]}}};
 	</script></body></html>`
 	got := extractListings(docFrom(html), "rea")
@@ -160,10 +160,10 @@ func TestExtractListings_REAArgonaut(t *testing.T) {
 		t.Fatalf("expected 1 REA listing, got %d (%v)", len(got), got)
 	}
 	l := got[0]
-	if l.ListingURL != "https://www.realestate.com.au/property/9-argo-st-bondi" {
+	if l.ListingURL != "https://housing.example.test/property/example-avenue" {
 		t.Errorf("REA canonical url wrong: %q", l.ListingURL)
 	}
-	if l.PriceKind != priceFixed || l.PriceLow == nil || *l.PriceLow != 4_100_000 {
+	if l.PriceKind != priceFixed || l.PriceLow == nil || *l.PriceLow != 876_000 {
 		got := "nil"
 		if l.PriceLow != nil {
 			got = fmt.Sprintf("%.2f", *l.PriceLow)
@@ -173,7 +173,7 @@ func TestExtractListings_REAArgonaut(t *testing.T) {
 	if l.Bedrooms == nil || *l.Bedrooms != 5 {
 		t.Errorf("REA {value} beds not resolved: %v", l.Bedrooms)
 	}
-	if l.DisplayAddr != "9 Argo St, Bondi" {
+	if l.DisplayAddr != "Example Avenue, Synthetic Suburb" {
 		t.Errorf("REA nested display address not resolved: %q", l.DisplayAddr)
 	}
 }
@@ -474,6 +474,25 @@ func reaPageWithMeta(ids []string, postcode string, totalResults, onTarget, page
 		strings.Join(items, ","), totalResults, onTarget, pageSize)
 }
 
+func reaBroadenedPageWithMeta(onTargetIDs, offTargetIDs []string, totalResults, onTarget, pageSize int) string {
+	items := make([]string, 0, len(onTargetIDs)+len(offTargetIDs))
+	for _, listing := range []struct {
+		ids      []string
+		postcode string
+	}{
+		{ids: onTargetIDs, postcode: "2026"},
+		{ids: offTargetIDs, postcode: "9999"},
+	} {
+		for _, id := range listing.ids {
+			items = append(items, fmt.Sprintf(
+				`{"id":"%s","_links":{"canonical":{"href":"https://www.realestate.com.au/property/%s"}},"price":{"display":"$1,200,000"},"address":{"suburb":"Bondi","state":"NSW","postcode":"%s","display":{"fullAddress":"%s Test St"}}}`,
+				id, id, listing.postcode, id))
+		}
+	}
+	return fmt.Sprintf(`<html><body><script>window.ArgonautExchange = {"results":{"exchangeState":{"resolvedListings":[%s]}},"totalResultsCount":%d,"listings_total":%d,"pageSize":%d};</script></body></html>`,
+		strings.Join(items, ","), totalResults, onTarget, pageSize)
+}
+
 func sweepWith(pages map[string]string) suburbSweep {
 	lc := testLC()
 	lc.fetcher = &pagedFetcher{pages: pages}
@@ -545,6 +564,99 @@ func TestSweep_ThinPage1IsBlocked(t *testing.T) {
 	})
 	if sw.status != sweepBlocked {
 		t.Errorf("a thin page 1 (<minPerPage) must be blocked (empty/poison), got %s", sw.status)
+	}
+}
+
+func TestSweep_PageClassificationMatrix(t *testing.T) {
+	tests := []struct {
+		name         string
+		source       string
+		urlFor       func(int) string
+		pages        map[string]string
+		wantStatus   sweepStatus
+		wantBlocks   int
+		wantListings int
+	}{
+		{
+			name:   "small suburb with authoritative on-target total is exhausted",
+			source: "rea",
+			urlFor: bondi.reaSearchURL,
+			pages: map[string]string{
+				bondi.reaSearchURL(1): reaPageWithMeta([]string{"a", "b"}, "2026", 104, 2, 25),
+			},
+			wantStatus:   sweepComplete,
+			wantBlocks:   0,
+			wantListings: 2,
+		},
+		{
+			name:   "small suburb broadened with surrounding stock is exhausted",
+			source: "rea",
+			urlFor: bondi.reaSearchURL,
+			pages: map[string]string{
+				bondi.reaSearchURL(1): reaBroadenedPageWithMeta(
+					[]string{"a", "b"},
+					[]string{"off-01", "off-02", "off-03", "off-04", "off-05", "off-06", "off-07", "off-08", "off-09", "off-10", "off-11", "off-12", "off-13", "off-14", "off-15", "off-16", "off-17", "off-18", "off-19", "off-20", "off-21", "off-22", "off-23"},
+					25, 2, 25,
+				),
+			},
+			wantStatus:   sweepComplete,
+			wantBlocks:   0,
+			wantListings: 2,
+		},
+		{
+			name:   "poisoned early page that should have stock remains blocked",
+			source: "rea",
+			urlFor: bondi.reaSearchURL,
+			pages: map[string]string{
+				bondi.reaSearchURL(1): reaPageWithMeta([]string{"a", "b"}, "2026", 110, 8, 25),
+			},
+			wantStatus:   sweepBlocked,
+			wantBlocks:   1,
+			wantListings: 0,
+		},
+		{
+			name:   "healthy sweep completes",
+			source: "rea",
+			urlFor: bondi.reaSearchURL,
+			pages: map[string]string{
+				bondi.reaSearchURL(1): reaPageWithMeta([]string{"a", "b", "c", "d", "e"}, "2026", 105, 5, 25),
+			},
+			wantStatus:   sweepComplete,
+			wantBlocks:   0,
+			wantListings: 5,
+		},
+		{
+			name:   "late broadening preserves healthy inventory",
+			source: "domain",
+			urlFor: bondi.domainSearchURL,
+			pages: map[string]string{
+				bondi.domainSearchURL(1): domainPageHTML([]string{"a", "b", "c", "d", "e"}, "2026"),
+				bondi.domainSearchURL(2): domainPageHTML([]string{"f", "g", "h", "i", "j"}, "9999"),
+			},
+			wantStatus:   sweepPartial,
+			wantBlocks:   0,
+			wantListings: 5,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lc := testLC()
+			lc.fetcher = &pagedFetcher{pages: tt.pages}
+			blocks := 0
+
+			sw := lc.sweepSuburbSource(context.Background(), bondi, tt.source, tt.urlFor, &blocks)
+
+			if sw.status != tt.wantStatus {
+				t.Errorf("status = %s, want %s", sw.status, tt.wantStatus)
+			}
+			if blocks != tt.wantBlocks {
+				t.Errorf("blocks = %d, want %d", blocks, tt.wantBlocks)
+			}
+			if len(sw.listings) != tt.wantListings {
+				t.Errorf("listings = %d, want %d", len(sw.listings), tt.wantListings)
+			}
+		})
 	}
 }
 

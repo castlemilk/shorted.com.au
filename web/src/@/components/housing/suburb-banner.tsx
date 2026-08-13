@@ -1,5 +1,7 @@
-"use client";
-
+// Server component: no hooks, no handlers — just markup over already-resolved
+// props. It carries the page's <h1> and headline price, so it must stay in the
+// server HTML. The one interactive child (SuburbBannerMap) is its own "use
+// client" module, which makes the boundary start there instead of here.
 import { HousingIcon } from "./housing-icon";
 import { HOUSING_ICONS, type HousingIconName } from "./housing-icons.generated";
 import { SuburbBannerMap } from "./suburb-banner-map";

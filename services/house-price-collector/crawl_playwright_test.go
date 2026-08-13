@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -16,10 +19,11 @@ import (
 
 // These tests exercise the rewired Tier-3 crawl ORCHESTRATION end-to-end with a
 // fake htmlFetcher (canned HTML, no browser) and a fake brandbrain server (no live
-// REA/Domain). They assert that both sources are fetched, the rendered HTML is
-// routed to brandbrain's ExtractRealEstate, the returned aggregates are mapped to
-// Observations with the correct Source, and the pacing / circuit-breaker / dry-run
-// scaffolding still holds. NO browser and NO live anti-bot site are touched.
+// REA/Domain). They assert that both sources are fetched, an aggregate-only
+// projection is routed to brandbrain's ExtractRealEstate, the returned aggregates
+// are mapped to Observations with the correct Source, and the pacing /
+// circuit-breaker / dry-run scaffolding still holds. NO browser and NO live
+// anti-bot site are touched.
 
 // fakeFetcher is a scripted htmlFetcher: it returns canned HTML keyed by a
 // substring of the URL (so REA vs Domain can return different bodies), records
@@ -92,8 +96,11 @@ func brandbrainServer(t *testing.T, body string) (*httptest.Server, *int32) {
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			t.Errorf("brandbrain: bad request body: %v", err)
 		}
-		if req.HTML == "" {
-			t.Errorf("brandbrain: empty HTML forwarded")
+		var contract brandbrainMediansContract
+		if err := json.Unmarshal([]byte(req.HTML), &contract); err != nil {
+			t.Errorf("brandbrain: invalid aggregate projection: %v", err)
+		} else if len(contract.AggregateFields) == 0 {
+			t.Errorf("brandbrain: projection has no aggregate_fields: %s", req.HTML)
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(body))
@@ -101,13 +108,17 @@ func brandbrainServer(t *testing.T, body string) (*httptest.Server, *int32) {
 	return srv, &hits
 }
 
+func projectableHTML(label string) string {
+	return `<html><body>` + label + `<script type="application/json">{"medianHousePrice":1850000}</script></body></html>`
+}
+
 func TestCrawlSuburb_RoutesBothSourcesToBrandbrain(t *testing.T) {
 	bb, hits := brandbrainServer(t, bondiExtractJSON())
 	defer bb.Close()
 
 	ff := &fakeFetcher{html: map[string]string{
-		"realestate.com.au": "<html><body>REA Bondi rendered</body></html>",
-		"domain.com.au":     "<html><body>Domain Bondi rendered</body></html>",
+		"realestate.com.au": projectableHTML("REA Bondi rendered"),
+		"domain.com.au":     projectableHTML("Domain Bondi rendered"),
 	}}
 	cr := newTestCrawler(ff, bb.URL)
 
@@ -158,7 +169,7 @@ func TestCrawlSource_BlockTripsCircuitBreaker(t *testing.T) {
 
 	// REA always blocks; Domain always succeeds.
 	ff := &fakeFetcher{
-		html:    map[string]string{"domain.com.au": "<html><body>Domain ok</body></html>"},
+		html:    map[string]string{"domain.com.au": projectableHTML("Domain ok")},
 		blockOn: map[string]bool{"realestate.com.au": true},
 	}
 	cr := newTestCrawler(ff, bb.URL)
@@ -194,7 +205,7 @@ func TestCrawlSource_BlockedHTMLBodyDetected(t *testing.T) {
 	// block, NOT forwarded to brandbrain.
 	ff := &fakeFetcher{html: map[string]string{
 		"realestate.com.au": `<html><body>Please enable JavaScript and cookies to continue. (kasada)</body></html>`,
-		"domain.com.au":     "<html><body>Domain ok</body></html>",
+		"domain.com.au":     projectableHTML("Domain ok"),
 	}}
 	cr := newTestCrawler(ff, bb.URL)
 
@@ -215,8 +226,8 @@ func TestRunCrawl_RespectsMaxSuburbs_viaLoop(t *testing.T) {
 	defer bb.Close()
 
 	ff := &fakeFetcher{html: map[string]string{
-		"realestate.com.au": "<html><body>x</body></html>",
-		"domain.com.au":     "<html><body>x</body></html>",
+		"realestate.com.au": projectableHTML("x"),
+		"domain.com.au":     projectableHTML("x"),
 	}}
 	cr := newTestCrawler(ff, bb.URL)
 	cr.cfg.maxSuburbs = 2
@@ -311,8 +322,8 @@ func TestCrawlSource_BrandbrainErrorSkips(t *testing.T) {
 	defer srv.Close()
 
 	ff := &fakeFetcher{html: map[string]string{
-		"realestate.com.au": "<html><body>real page</body></html>",
-		"domain.com.au":     "<html><body>real page</body></html>",
+		"realestate.com.au": projectableHTML("real page"),
+		"domain.com.au":     projectableHTML("real page"),
 	}}
 	cr := newTestCrawler(ff, srv.URL)
 
@@ -322,6 +333,44 @@ func TestCrawlSource_BrandbrainErrorSkips(t *testing.T) {
 	}
 	if cr.reaBlocks != 0 || cr.domBlocks != 0 {
 		t.Errorf("a brandbrain error is not a fetch block; breakers should stay closed (rea=%d dom=%d)", cr.reaBlocks, cr.domBlocks)
+	}
+}
+
+func TestCrawlSource_EmptyProjectionSkipsBrandbrain(t *testing.T) {
+	originalClient := brandbrainHTTPClient
+	var hits int32
+	brandbrainHTTPClient = &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		atomic.AddInt32(&hits, 1)
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(bondiExtractJSON())),
+		}, nil
+	})}
+	defer func() { brandbrainHTTPClient = originalClient }()
+
+	ff := &fakeFetcher{html: map[string]string{
+		"realestate.com.au": "<html><body>rendered but schema drifted</body></html>",
+	}}
+	cr := newTestCrawler(ff, "http://brandbrain.test/extract")
+
+	var logs bytes.Buffer
+	originalLogOutput := log.Writer()
+	log.SetOutput(&logs)
+	defer log.SetOutput(originalLogOutput)
+
+	obs := cr.crawlSource(context.Background(), bondi, "rea", bondi.reaURL(), &cr.reaBlocks)
+	if len(obs) != 0 {
+		t.Fatalf("empty projection produced observations: %+v", obs)
+	}
+	if got := atomic.LoadInt32(&hits); got != 0 {
+		t.Fatalf("empty projection made %d brandbrain request(s), want 0", got)
+	}
+	if cr.stats.rejected != 1 {
+		t.Fatalf("rejected = %d, want 1 for an empty local projection", cr.stats.rejected)
+	}
+	if got := logs.String(); !strings.Contains(got, "brandbrain skipped: local aggregate projection empty") {
+		t.Fatalf("empty-projection log missing; got %q", got)
 	}
 }
 
@@ -445,6 +494,24 @@ func TestCrawlSource_WithRealFixtureHTML(t *testing.T) {
 		t.Skipf("fixture absent (%s) — skipping (this is expected in CI)", path)
 	}
 	html := unescapeFixture(raw)
+
+	// The fixture is whatever that machine happened to capture, and a capture that
+	// missed the SRP JSON blob carries none of the allowlisted aggregate keys
+	// (listingsTotal / totalResultsCount / pageSize / totalPages). crawlSource then
+	// correctly short-circuits on errBrandbrainProjectionEmpty and never calls
+	// brandbrain — so the assertions below would fail on the FIXTURE's shape, not on
+	// a defect. That precondition is checked here for the same reason the missing
+	// fixture is: this test can only assert what its input can actually exercise.
+	// The projection contract itself is covered hermetically in crawl_brandbrain_test.go
+	// (incl. TestBrandbrain_ExtractRealEstate_SkipsEmptyProjection).
+	var projected brandbrainMediansContract
+	if err := json.Unmarshal([]byte(brandbrainMediansPayload(html)), &projected); err != nil {
+		t.Fatalf("local aggregate projection did not decode: %v", err)
+	}
+	if len(projected.AggregateFields) == 0 {
+		t.Skipf("fixture %s carries no aggregate SRP blob (0 allowlisted fields) — "+
+			"it cannot exercise the HTML→brandbrain path; recapture it from a live SRP", path)
+	}
 
 	bb, hits := brandbrainServer(t, bondiExtractJSON())
 	defer bb.Close()

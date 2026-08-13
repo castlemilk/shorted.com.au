@@ -17,6 +17,12 @@ export const runtime = "nodejs";
 // the card for a full year (same rationale as the stock OG route).
 export const revalidate = 86400;
 
+// An empty list enables on-demand ISR for this dynamic metadata route without
+// prebuilding the full suburb corpus.
+export function generateStaticParams(): Array<{ state: string; suburb: string }> {
+  return [];
+}
+
 /** kebab-slug -> Title Case, dropping a trailing postcode segment (e.g.
  * "bondi-beach-2026" -> "Bondi Beach"). This is the guaranteed fallback name
  * — it needs no DB access, so it renders even against an empty local DB. */
@@ -49,8 +55,8 @@ export default async function Image({
       stateName = STATE_NAMES[code] ?? code;
       const sal = await resolveSuburbSalCode(code, suburb);
       if (sal) {
-        // withRetryAndNotFound swallows all errors as `undefined` rather than
-        // throwing — guard explicitly rather than relying on the catch below.
+        // Transient failures return undefined and real misses throw; either way
+        // this best-effort card falls back to its slug-derived content.
         const profile = await getSuburbProfile(sal);
         if (profile?.summary?.salName) name = profile.summary.salName;
         if (profile?.banner?.archetype) archetype = profile.banner.archetype;

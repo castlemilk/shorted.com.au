@@ -621,12 +621,17 @@ export type SuburbSummary = Message<"shorts.v1alpha1.SuburbSummary"> & {
   connectivityQualityScore: number;
 
   /**
-   * Crime percentile ranks (national population-weighted, 0..100, higher =
-   * more reported crime; latest 2-yr-pooled FY, CVS-adjusted). 0 = no data —
-   * pct_rank is strictly > 0 whenever a reliable observation exists. Small-
-   * population and statistically-unreliable suburbs are gated server-side
+   * Crime percentile ranks (0..100, higher = more reported crime; latest
+   * 2-yr-pooled FY, CVS-adjusted). 0 = no data — pct_rank is strictly > 0
+   * whenever a reliable observation exists. Small-population and
+   * statistically-unreliable suburbs are gated server-side
    * (mv_suburb_crime_latest) and read as no-data. NSW (BOCSAR) only in
    * Phase 1; uncovered states/TAS/NT stay 0. CC-BY sources.
+   *
+   * The rank is population-weighted WITHIN THE SUBURB'S OWN STATE, never across
+   * states: each police force counts offences under its own rules, so a
+   * cross-jurisdiction pool would compare incomparable counts. Read "82nd
+   * percentile" as "82nd of that state", and label it that way in any client.
    *
    * @generated from field: double crime_break_ins_rank = 28;
    */
@@ -1961,7 +1966,7 @@ export type GetPropertyHistoryResponse = Message<"shorts.v1alpha1.GetPropertyHis
    * physical dwelling. Counting bedrooms (not raw bed/bath/type tuples) keeps
    * cross-portal label noise from falsely flagging a single dwelling. A search-
    * results crawl cannot recover the missing unit number, so the view warns
-   * instead of silently merging. See docs/housing-architecture.md.
+   * instead of silently merging. See docs/feature/housing/architecture.md.
    *
    * @generated from field: int32 distinct_dwellings = 11;
    */

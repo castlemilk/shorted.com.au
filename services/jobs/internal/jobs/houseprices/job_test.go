@@ -90,7 +90,7 @@ func TestModeListCoversEveryDispatchCase(t *testing.T) {
 	// The dispatch switch in Run, in source order. "abs" is a documented
 	// undocumented alias for "official" and is deliberately NOT in modeList.
 	dispatch := []string{
-		"official", "all", "crawl", "listings", "details", "property", "agent",
+		"official", "vg-nsw", "all", "crawl", "listings", "details", "property", "agent",
 		"enqueue", "freshness", "purge", "warmcheck", "backfill-address",
 		"census", "electorates", "banners", "amenities", "lga", "connectivity",
 		"funding", "council-financials", "crime", "refresh",
@@ -128,6 +128,7 @@ func TestExitForPreservesRigContract(t *testing.T) {
 		{"agent", 4, "Chrome/CDP unusable"},
 		{"warmcheck", 5, "cold"},
 		{"freshness", 6, "ALARM"},
+		{"agent", 7, "infrastructure"},
 	} {
 		err := exitFor(tc.mode, tc.code)
 		require.Error(t, err)

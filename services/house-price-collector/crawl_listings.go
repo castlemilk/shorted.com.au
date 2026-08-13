@@ -111,13 +111,13 @@ func loadListingsConfig() listingsConfig {
 		delistGrace:   envInt("CRAWL_LISTINGS_DELIST_GRACE", 2),
 		// Kill switch for the completeness fix — see sawWholeSuburb.
 		legacyCompleteness: truthyEnv("CRAWL_LISTINGS_LEGACY_COMPLETENESS"),
-		resumeWindow:  time.Duration(envInt("CRAWL_LISTINGS_RESUME_WINDOW_H", 0)) * time.Hour,
-		traceCfg:      loadTraceConfig(),
-		fixtureDir:    os.Getenv("CRAWL_LISTINGS_FIXTURE_DIR"),
-		sources:       parseListingsSources(),
-		circuitTrip:   envInt("CRAWL_CIRCUIT_TRIP", 2),
-		circuitBase:   time.Duration(envInt("CRAWL_CIRCUIT_BASE_S", 300)) * time.Second,
-		circuitMax:    time.Duration(envInt("CRAWL_CIRCUIT_MAX_S", 3600)) * time.Second,
+		resumeWindow:       time.Duration(envInt("CRAWL_LISTINGS_RESUME_WINDOW_H", 0)) * time.Hour,
+		traceCfg:           loadTraceConfig(),
+		fixtureDir:         os.Getenv("CRAWL_LISTINGS_FIXTURE_DIR"),
+		sources:            parseListingsSources(),
+		circuitTrip:        envInt("CRAWL_CIRCUIT_TRIP", 2),
+		circuitBase:        time.Duration(envInt("CRAWL_CIRCUIT_BASE_S", 300)) * time.Second,
+		circuitMax:         time.Duration(envInt("CRAWL_CIRCUIT_MAX_S", 3600)) * time.Second,
 	}
 }
 
@@ -259,9 +259,9 @@ type listingsCrawler struct {
 	tel *telemetryWriter
 }
 
-// runListings returns true when the run detected that the browser profile needs a
-// human to re-warm its anti-bot clearance (the per-source circuit breaker tripped).
-func runListings(ctx context.Context, pool *pgxpool.Pool) bool {
+// runListings returns the process exit code: 0 on success, 3 when the browser
+// needs re-warming, and 7 when lifecycle finalization fails.
+func runListings(ctx context.Context, pool *pgxpool.Pool) int {
 	cfg := loadListingsConfig()
 
 	var fetcher crawlFetcher
@@ -273,7 +273,7 @@ func runListings(ctx context.Context, pool *pgxpool.Pool) bool {
 		if err != nil {
 			log.Printf("[listings] crawl fetcher init failed (%v) — aborting (non-fatal; official backbone unaffected)", err)
 			_ = updateRun(ctx, pool, "listings_rea", nil, 0, "error", "fetcher init: "+err.Error())
-			return false
+			return 0
 		}
 		fetcher = f
 	}
@@ -290,7 +290,7 @@ func runListings(ctx context.Context, pool *pgxpool.Pool) bool {
 		if err := upsertRegions(ctx, pool, listingRegionObs(targets)); err != nil {
 			log.Printf("[listings] region upsert failed: %v", err)
 			_ = updateRun(ctx, pool, "listings_rea", nil, 0, "error", "region upsert: "+err.Error())
-			return false
+			return 0
 		}
 	}
 
@@ -307,6 +307,7 @@ func runListings(ctx context.Context, pool *pgxpool.Pool) bool {
 	}
 
 	reaEvents, domEvents := 0, 0
+	var refreshErr error
 	for i, t := range targets {
 		if i > 0 {
 			jitterSleep(ctx, cfg.minDelay, cfg.maxDelay)
@@ -356,15 +357,19 @@ func runListings(ctx context.Context, pool *pgxpool.Pool) bool {
 		} else if n > 0 {
 			log.Printf("[listings] linked %d price event(s) to sal_code", n)
 		}
-		if err := refreshHousingMV(finCtx, pool); err != nil {
-			log.Printf("[listings] mv refresh failed: %v", err)
+		if refreshErr = refreshHousingMV(finCtx, pool); refreshErr != nil {
+			log.Printf("[listings] mv refresh failed: %v", refreshErr)
 		} else if reaEvents+domEvents > 0 {
 			// New price-drop/relist events landed + MVs refreshed → bust the web
 			// tier's long-TTL housing caches now. Best-effort, never fails the run.
 			pingRevalidate("listings")
 		}
-		_ = updateRun(finCtx, pool, "listings_rea", nil, reaEvents, "ok", "")
-		_ = updateRun(finCtx, pool, "listings_domain", nil, domEvents, "ok", "")
+		status, detail := "ok", ""
+		if refreshErr != nil {
+			status, detail = "error", "mv refresh failed: "+refreshErr.Error()
+		}
+		_ = updateRun(finCtx, pool, "listings_rea", nil, reaEvents, status, detail)
+		_ = updateRun(finCtx, pool, "listings_domain", nil, domEvents, status, detail)
 		finCancel()
 	}
 
@@ -385,7 +390,7 @@ func runListings(ctx context.Context, pool *pgxpool.Pool) bool {
 	s := lc.stats
 	log.Printf("[listings] done: suburbs=%d pages=%d listings=%d new=%d drops=%d rises=%d relisted=%d delisted=%d status=%d blockedSweeps=%d diffErrors=%d skippedRows=%d addressRelistDrops=%d addressRelistRises=%d events(rea=%d,domain=%d)",
 		s.suburbs, s.pages, s.seen, s.newListings, s.drops, s.rises, s.relisted, s.delisted, s.statusChanges, s.blockedSweeps, s.diffErrors, s.skippedRows, s.addressRelistDrops, s.addressRelistRises, reaEvents, domEvents)
-	return rewarm
+	return agentExitCode(rewarm, refreshErr != nil, 0)
 }
 
 // crawlSuburbSource sweeps one source for one suburb and (unless dry-run, or the
@@ -570,6 +575,14 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 		raw := extractListings(doc, source)
 		matched, mismatch := partitionByTarget(raw, t)
 		lastMismatch = mismatch
+		// REA's listings_total is an authoritative on-target count. When it
+		// confirms that page 1 rendered the entire suburb and that inventory is
+		// genuinely below the thin-page threshold, surrounding-suburb rows are
+		// normal broadening rather than poison. Do not return here: the matched
+		// listings still need to pass through the merge loop before the existing
+		// PageMeta-sized tail marks the sweep complete.
+		pageOneExhausted := page == 1 && metaOK && onTargetResults > 0 &&
+			onTargetResults < lc.cfg.minPerPage && onTargetResults <= len(matched)
 
 		// Anti-bot stub guard — runs on EVERY page, BEFORE any natural-end branch.
 		// A rendered Kasada KPSDK stub (~800B) or Akamai edgesuite stub carries no
@@ -600,7 +613,7 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 		// stopped short of the portal's own reported extent — delist-safe) — and
 		// only BLOCKS an early high-mismatch page (genuine page-1 poison /
 		// bot-variant), which still trips the breaker.
-		if mismatch > 0.30 {
+		if mismatch > 0.30 && !pageOneExhausted {
 			if sweepPoisonVerdict(page, len(collected), lc.cfg.minPerPage) == sweepPartial {
 				// PageMeta confirms we stopped short of the portal's own reported
 				// (broadened) extent — the on-target suburb was fully seen on the
@@ -613,7 +626,7 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 			tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), Extracted: len(raw), Matched: len(matched), Mismatch: mismatch, TotalResults: totalResults, OnTargetResults: onTargetResults, WantPages: wantPages, Outcome: "ok", Status: sweepBlocked.String(), Decision: "stop-poison-blocked"})
 			return finish(sweepBlocked)
 		}
-		if page == 1 && len(matched) < lc.cfg.minPerPage {
+		if page == 1 && len(matched) < lc.cfg.minPerPage && !pageOneExhausted {
 			*blockCounter++ // page rendered but nothing believable — empty/poisoned
 			tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), Extracted: len(raw), Matched: len(matched), Mismatch: mismatch, TotalResults: totalResults, OnTargetResults: onTargetResults, WantPages: wantPages, Outcome: "ok", Status: sweepBlocked.String(), Decision: "stop-thin-page1"})
 			return finish(sweepBlocked)

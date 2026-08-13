@@ -14,7 +14,7 @@ import (
 
 // runCrime is the -mode crime orchestrator: load the SAL registry → fetch + parse
 // the ABS CVS scaling anchor + ERP denominator → fetch each state police source
-// → crosswalk → scale → rate → national pop-weighted rank → upsert → refresh MV.
+// → crosswalk → scale → rate → within-jurisdiction pop-weighted rank → upsert → refresh MV.
 //
 // Operator-run (like census), yearly cadence (CVS pacing input, ~9-mo lag). NOT
 // part of -mode all / the scheduled run. DRY-RUN by default (CRIME_DRY_RUN=false
@@ -82,7 +82,7 @@ func runCrime(ctx context.Context, pool *pgxpool.Pool) {
 	}
 	jds = append(jds, nsw)
 
-	// 5. Scale + rate + national pop-weighted percentile rank (single + pooled).
+	// 5. Scale + rate + within-jurisdiction pop-weighted percentile rank (single + pooled).
 	rows, stats := computeCrime(jds, cvs, erp, mode)
 	log.Printf("[crime] computed %d rows (%d single + %d pooled), %d state scales, latest FY %d",
 		len(rows), stats.SingleRows, stats.PooledRows, stats.StateScales, stats.LatestFY)
@@ -107,7 +107,14 @@ func runCrime(ctx context.Context, pool *pgxpool.Pool) {
 		return
 	}
 	log.Printf("[crime] upserted %d rows", n)
-	refresh(ctx, pool)
+	if err := refresh(ctx, pool); err != nil {
+		// The rows are committed but stay invisible until the MVs rebuild, so this
+		// is not an "ok" run — record it as an error and let the freshness sentinel
+		// see it rather than banking a success the read path can't observe.
+		log.Printf("[crime] mv refresh failed after %d rows: %v", n, err)
+		_ = updateRun(ctx, pool, crimeRunSource, lastFY, n, "error", fmt.Sprintf("mv refresh: %v", err))
+		return
+	}
 	_ = updateRun(ctx, pool, crimeRunSource, lastFY, n, "ok", fmt.Sprintf("mode=%s", mode))
 }
 

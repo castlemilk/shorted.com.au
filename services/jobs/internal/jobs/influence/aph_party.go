@@ -39,7 +39,7 @@ import (
 
 // electoratesParliament is the parliament federal-divisions.json describes: the
 // 2025 federal election seated the 48th. Bump this in the same commit that
-// refreshes the JSON after an election (recipe I in docs/housing-architecture.md).
+// refreshes the JSON after an election (recipe I in docs/feature/housing/architecture.md).
 const electoratesParliament = 48
 
 const federalDivisionsFile = "federal-divisions.json"

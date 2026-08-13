@@ -36,7 +36,10 @@ import { partyLabel } from "@/lib/politics/party-palette";
 import { REGISTER_ITEMS } from "@/lib/politics/register-items";
 import { SENATE_REGISTER_GAP_CORPUS } from "@/lib/politics/register-coverage";
 import { registerItemIcon } from "@/lib/politics/register-item-icons";
-import { PoliticsIcon, SectionIcon } from "@/components/politicians/politics-icon";
+import {
+  PoliticsIcon,
+  SectionIcon,
+} from "@/components/politicians/politics-icon";
 // The LEAF union, not a group name: "register" and "activity" are groups and do
 // not typecheck as an icon.
 import type { PoliticsIconName } from "@/components/politicians/politics-icons.generated";
@@ -121,7 +124,15 @@ export const metadata: Metadata = {
  * the same words — the page just stops fronting whole paragraphs of
  * methodology at people who came to read a table.
  */
-function FinePrint({ lead, summary, children }: { lead: ReactNode; summary: string; children: ReactNode }) {
+function FinePrint({
+  lead,
+  summary,
+  children,
+}: {
+  lead: ReactNode;
+  summary: string;
+  children: ReactNode;
+}) {
   return (
     <div className="text-[11px] leading-relaxed text-muted-foreground">
       {lead ? <p className="max-w-prose">{lead}</p> : null}
@@ -135,7 +146,13 @@ function FinePrint({ lead, summary, children }: { lead: ReactNode; summary: stri
   );
 }
 
-function StatusCard({ title, children }: { title: string; children: ReactNode }) {
+function StatusCard({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
   return (
     <article className="space-y-1.5 rounded-lg border bg-card p-3">
       <h3 className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
@@ -171,35 +188,55 @@ function firstPositive(...values: (number | undefined)[]): number {
 
 function shortDate(date?: Date): string {
   return date
-    ? date.toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })
+    ? date.toLocaleDateString("en-AU", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
     : "";
 }
 
 export default async function PoliticiansPage() {
-  const [overview, explorer, mostHeld, people, senators, analytics, table, changes] =
-    await Promise.all([
-      getParliamentOverview(),
-      getRegisterExplorer(),
-      listPoliticianStocks(12, true),
-      // 500, NOT 400. The identity layer minted 171 senators (495 rows against
-      // the 324 this list was sized for), and a roll that silently stops at 400
-      // drops 95 named people out of the only server-rendered index of them.
-      // 500 is the handler's own clamp ceiling.
-      listPoliticians("", "", "", "", 500, 0),
-      // ONE ROW, FOR ITS TOTAL. The chamber split is a coverage fact the hub has
-      // to state — the Senate volumes are unread — and stating it needs a count
-      // that comes from the data rather than a number typed into the copy.
-      listPoliticians("senate", "", "", "", 1, 0),
-      getPoliticianAnalytics(14, false),
-      loadPoliticianTable({ limit: HUB_TABLE_PAGE_SIZE }),
-      listRegisterChanges(8, 0),
-    ]);
+  const [
+    overview,
+    explorer,
+    mostHeld,
+    people,
+    senators,
+    analytics,
+    table,
+    changes,
+  ] = await Promise.all([
+    getParliamentOverview(),
+    getRegisterExplorer(),
+    // 200 IS THE RPC'S OWN CLAMP CEILING, and the whole ranked head is wanted:
+    // the most-declared section renders the full list inside a fixed-height
+    // scroller (top ~10 visible, the rest reached by scrolling), so the fetch
+    // size is a completeness question, not a layout one. The request has no
+    // offset, so this is the deepest the list can go without a proto change.
+    listPoliticianStocks(200, true),
+    // 500, NOT 400. The identity layer minted 171 senators (495 rows against
+    // the 324 this list was sized for), and a roll that silently stops at 400
+    // drops 95 named people out of the only server-rendered index of them.
+    // 500 is the handler's own clamp ceiling.
+    listPoliticians("", "", "", "", 500, 0),
+    // ONE ROW, FOR ITS TOTAL. The chamber split is a coverage fact the hub has
+    // to state — the Senate volumes are unread — and stating it needs a count
+    // that comes from the data rather than a number typed into the copy.
+    listPoliticians("senate", "", "", "", 1, 0),
+    getPoliticianAnalytics(14, false),
+    loadPoliticianTable({ limit: HUB_TABLE_PAGE_SIZE }),
+    listRegisterChanges(8, 0),
+  ]);
 
   // The overview rpc predates the explorer rollups and does not depend on
   // migration 000104, so it stays the liveness gate: if the explorer view is
   // missing or cold the hub still renders everything it had before, rather than
   // bailing the whole page.
-  const politicianCount = firstPositive(overview?.politicianCount, explorer?.politicianCount);
+  const politicianCount = firstPositive(
+    overview?.politicianCount,
+    explorer?.politicianCount,
+  );
   if (politicianCount === 0) bailOnEmptyRender();
 
   // THE OVERVIEW'S AS-AT FIRST, and it is not interchangeable with the
@@ -213,7 +250,8 @@ export default async function PoliticiansPage() {
   const asAt = toDate(overview?.asAt ?? explorer?.asAt);
   const asAtIso = asAt ? asAt.toISOString().slice(0, 10) : "";
   const statedLicence = explorer?.sourceLicence?.trim() ?? "";
-  const licence = statedLicence.length > 0 ? statedLicence : REGISTER_LICENCE_FALLBACK;
+  const licence =
+    statedLicence.length > 0 ? statedLicence : REGISTER_LICENCE_FALLBACK;
 
   // The explorer aggregates are only rendered when they carry a category total.
   // A zeroed response (kill switch, cold materialised view, un-applied
@@ -222,8 +260,24 @@ export default async function PoliticiansPage() {
   const itemCounts = explorer?.itemCounts ?? [];
   const hasExplorer = itemCounts.some((item) => item.currentCount > 0);
 
-  const maxCount = Math.max(1, ...(mostHeld?.stocks ?? []).map((s) => s.politicianCount));
-  const maxStatePeople = Math.max(1, ...(analytics?.states ?? []).map((s) => s.people));
+  const maxCount = Math.max(
+    1,
+    ...(mostHeld?.stocks ?? []).map((s) => s.politicianCount),
+  );
+  const mostHeldCount = mostHeld?.stocks?.length ?? 0;
+  // The corpus total for the most-declared count line. firstPositive, not `??`:
+  // either aggregate source can be cold while the list itself is healthy, and a
+  // zero total would misprint the window as the whole register. Falls back to
+  // the list's own length, which turns the line into the honest "all N" form.
+  const declaredCompanyTotal = firstPositive(
+    explorer?.distinctCompanyCount,
+    overview?.resolvedListedCount,
+    mostHeldCount,
+  );
+  const maxStatePeople = Math.max(
+    1,
+    ...(analytics?.states ?? []).map((s) => s.people),
+  );
 
   // THE 30-DAY FIGURE IS UNSIGNED, AND THAT IS THE WHOLE POINT. A change is an
   // entry appearing in or leaving the register; the two directions are counted
@@ -239,7 +293,11 @@ export default async function PoliticiansPage() {
     meta?: string;
   }[] = hasExplorer
     ? [
-        { count: politicianCount, label: "parliamentarians", icon: "parliament" },
+        {
+          count: politicianCount,
+          label: "parliamentarians",
+          icon: "parliament",
+        },
         {
           count: explorer?.currentDeclaredCount ?? 0,
           label: "entries currently declared",
@@ -274,7 +332,11 @@ export default async function PoliticiansPage() {
         },
       ]
     : [
-        { count: politicianCount, label: "parliamentarians", icon: "parliament" },
+        {
+          count: politicianCount,
+          label: "parliamentarians",
+          icon: "parliament",
+        },
         {
           count: overview?.declaredRowCount ?? 0,
           label: "declared entries",
@@ -296,7 +358,10 @@ export default async function PoliticiansPage() {
   const partial = explorer?.partialParliaments ?? [];
   const pending = explorer?.pendingParliaments ?? [];
   const industryTrends = explorer?.industryTrends ?? [];
-  const maxIndustryCount = Math.max(1, ...industryTrends.map((t) => t.currentCount));
+  const maxIndustryCount = Math.max(
+    1,
+    ...industryTrends.map((t) => t.currentCount),
+  );
 
   const donutSegments = itemCounts
     .map((item) => ({
@@ -320,10 +385,12 @@ export default async function PoliticiansPage() {
   const senatorCount = senators?.total ?? 0;
 
   const roll = people?.politicians ?? [];
-  const stateOptions = [...new Set(roll.map((p) => p.stateCode).filter(Boolean))].sort();
-  const partyOptions = [...new Set(roll.map((p) => p.partyAb).filter(Boolean))].sort((a, b) =>
-    partyLabel(a).localeCompare(partyLabel(b)),
-  );
+  const stateOptions = [
+    ...new Set(roll.map((p) => p.stateCode).filter(Boolean)),
+  ].sort();
+  const partyOptions = [
+    ...new Set(roll.map((p) => p.partyAb).filter(Boolean)),
+  ].sort((a, b) => partyLabel(a).localeCompare(partyLabel(b)));
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -332,7 +399,11 @@ export default async function PoliticiansPage() {
     description: DESCRIPTION,
     url: URL,
     isAccessibleForFree: true,
-    creator: { "@type": "Organization", name: "Shorted", url: "https://shorted.com.au" },
+    creator: {
+      "@type": "Organization",
+      name: "Shorted",
+      url: "https://shorted.com.au",
+    },
     spatialCoverage: "Australia",
     // NO `license` HERE, DELIBERATELY.
     //
@@ -355,9 +426,18 @@ export default async function PoliticiansPage() {
       },
     ],
     variableMeasured: [
-      { "@type": "PropertyValue", name: "Members declaring an interest in a listed company" },
-      { "@type": "PropertyValue", name: "Members declaring real estate in a suburb" },
-      { "@type": "PropertyValue", name: "Register entries currently declared, by category" },
+      {
+        "@type": "PropertyValue",
+        name: "Members declaring an interest in a listed company",
+      },
+      {
+        "@type": "PropertyValue",
+        name: "Members declaring real estate in a suburb",
+      },
+      {
+        "@type": "PropertyValue",
+        name: "Register entries currently declared, by category",
+      },
     ],
   };
 
@@ -373,52 +453,76 @@ export default async function PoliticiansPage() {
         url={URL}
         dataSource="Registers of Members' and Senators' Interests, Parliament of Australia"
         dataFrequency="continuous during sitting periods"
-        keywords={["register of interests", "MP shareholdings", "declared interests"]}
+        keywords={[
+          "register of interests",
+          "MP shareholdings",
+          "declared interests",
+        ]}
       />
-      <DashboardLayout>
-        <div className="mx-auto max-w-6xl space-y-8 px-4 py-6">
+      <DashboardLayout fullWidth>
+        {/*
+          `fullWidth` + a 100rem cap, not the default `container` + max-w-6xl.
+          This is the densest surface on the site — a 7-column roll, a rail of
+          aggregates, a heatmap — and the old double constraint (container's
+          2rem padding inside the sidebar, then a 1152px inner cap) left ~380px
+          of dead margin per side on a 1920 display while the table scrolled
+          horizontally inside its own card. The wide cap keeps line lengths
+          sane for prose via per-block max-w-prose/max-w-[70ch] instead of
+          starving the data surfaces.
+        */}
+        <div className="mx-auto w-full max-w-[100rem] space-y-8">
           {/* A working header, not a hero: the reader landed on an analytics
               surface and the data should own the first screenful. The full
               editorial lede keeps every word — it is the load-bearing
-              what-not-how-much claim — but at body size on one measure. */}
-          <header className="space-y-1.5">
-            <div className="flex flex-wrap items-baseline gap-x-3">
-              <h1 className={pageTitle}>Parliament&rsquo;s Portfolio</h1>
-              <p className={`${eyebrow} translate-y-[-2px]`}>Influence layer</p>
-            </div>
-            <p className="max-w-[70ch] text-sm leading-relaxed text-muted-foreground">
-              What federal parliamentarians declare in the Registers of Members&rsquo; and
-              Senators&rsquo; Interests — the companies, the suburbs, and how the declarations
-              change. The registers record <strong>what</strong> is held; they do not record
-              quantity or value.
-            </p>
-          </header>
+              what-not-how-much claim — but at body size on one measure.
 
-          <section className="space-y-1.5">
-            {/* ONE strip, not six cards: the container draws the border and
+              From `2xl:` the KPI strip moves up BESIDE the masthead (title
+              left, tiles as a 3x2 block right) — on a 1920+ display the
+              stacked version left the whole right half of the first screenful
+              empty. Same components, same copy, recomposed. */}
+          <div className="space-y-8 2xl:grid 2xl:grid-cols-[minmax(0,1fr)_54rem] 2xl:items-center 2xl:gap-10 2xl:space-y-0">
+            <header className="space-y-1.5">
+              <div className="flex flex-wrap items-baseline gap-x-3">
+                <h1 className={pageTitle}>Parliament&rsquo;s Portfolio</h1>
+                <p className={`${eyebrow} translate-y-[-2px]`}>
+                  Influence layer
+                </p>
+              </div>
+              <p className="max-w-[70ch] text-sm leading-relaxed text-muted-foreground">
+                What federal parliamentarians declare in the Registers of
+                Members&rsquo; and Senators&rsquo; Interests — the companies,
+                the suburbs, and how the declarations change. The registers
+                record <strong>what</strong> is held; they do not record
+                quantity or value.
+              </p>
+            </header>
+
+            <section className="space-y-1.5">
+              {/* ONE strip, not six cards: the container draws the border and
                 the hairlines (gap-px over bg-border), each tile is a segment.
                 Six separate cards with gutters read as six floating objects. */}
-            <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-3 lg:grid-cols-6">
-              {tiles.map((tile) => (
-                <CountTile
-                  key={tile.label}
-                  count={tile.count}
-                  label={tile.label}
-                  icon={tile.icon}
-                  meta={tile.meta}
-                  flush
-                />
-              ))}
-            </div>
-            <FinePrint
-              lead="Counts of register entries and of the things they name — never an amount."
-              summary="About these counts"
-            >
-              <p>
-                A real-estate entry can list more than one address, so that figure is a floor on
-                what was declared, not a tally of properties.
-              </p>
-            {/*
+              <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-3 lg:grid-cols-6 2xl:grid-cols-3">
+                {tiles.map((tile) => (
+                  <CountTile
+                    key={tile.label}
+                    count={tile.count}
+                    label={tile.label}
+                    icon={tile.icon}
+                    meta={tile.meta}
+                    flush
+                  />
+                ))}
+              </div>
+              <FinePrint
+                lead="Counts of register entries and of the things they name — never an amount."
+                summary="About these counts"
+              >
+                <p>
+                  A real-estate entry can list more than one address, so that
+                  figure is a floor on what was declared, not a tally of
+                  properties.
+                </p>
+                {/*
               THE TILE ROW SPANS TWO DIFFERENT LAYERS, AND THE SPLIT IS STATED
               RATHER THAN QUIETLY AVERAGED.
 
@@ -437,15 +541,18 @@ export default async function PoliticiansPage() {
               place the hub states its size — so the tile keeps the honest
               denominator and this line carries the split.
             */}
-            {senatorCount > 0 ? (
-                <p>
-                  The first tile counts everyone we hold an identity for, in both chambers;{" "}
-                  <strong className="tabular-nums">{senatorCount}</strong> of them are senators.
-                  The remaining tiles count the register. {SENATE_REGISTER_GAP_CORPUS}
-                </p>
-              ) : null}
-            </FinePrint>
-          </section>
+                {senatorCount > 0 ? (
+                  <p>
+                    The first tile counts everyone we hold an identity for, in
+                    both chambers;{" "}
+                    <strong className="tabular-nums">{senatorCount}</strong> of
+                    them are senators. The remaining tiles count the register.{" "}
+                    {SENATE_REGISTER_GAP_CORPUS}
+                  </p>
+                ) : null}
+              </FinePrint>
+            </section>
+          </div>
 
           <section className="space-y-3">
             {/*
@@ -462,36 +569,69 @@ export default async function PoliticiansPage() {
             {/*
               `min-w-0` ON BOTH GRID ITEMS, AND IT IS LOAD-BEARING. A grid item
               defaults to `min-width:auto`, which means "at least as wide as my
-              content". The register table below sets `min-w-[52rem]` (832 px)
-              inside an `overflow-x-auto` wrapper, and that 832 px propagated
-              straight up through this item — so at 375 px the scroller never
-              engaged and the WHOLE PAGE scrolled sideways instead, dragging the
-              sticky header with it (measured +511 px of document overflow, with
-              4 of the 7 table columns and 2 of the 4 filters off-screen).
-              `minmax(0,1fr)` on the template fixes the same thing, but only at
-              `lg:` — which is exactly the breakpoint where the bug did not
-              matter. These two classes are what make the table scroll instead of
-              the document.
+              content". The register table below sets a min-width (now
+              `lg:min-w-[44rem]`) inside an `overflow-x-auto` wrapper, and that
+              width propagated straight up through this item — so at 375 px the
+              scroller never engaged and the WHOLE PAGE scrolled sideways
+              instead, dragging the sticky header with it (measured +511 px of
+              document overflow, with 4 of the 7 table columns and 2 of the 4
+              filters off-screen). `minmax(0,1fr)` on the template fixes the
+              same thing, but only where the two-column template applies — which
+              is exactly where the bug did not matter. These two classes are
+              what make the table scroll instead of the document.
+
+              THE TWO-COLUMN SPLIT STARTS AT 1460px, NOT `lg:`. The rail is
+              20rem and the seven-column table wants ~830px; below ~1460px of
+              viewport (sidebar 256 + padding + rail + gap + 830) the pair
+              cannot coexist without re-introducing the internal horizontal
+              scrollbar the table just shed. Below the split the rail renders as
+              a full-width three-module band under the table instead.
             */}
-            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_17rem]">
-              <div className="min-w-0 space-y-3">
-                <PoliticianRegisterTable
-                  initialPage={table}
-                  loadPage={loadPoliticianTable}
-                  stateOptions={stateOptions}
-                  partyOptions={partyOptions}
-                />
-                {/*
+            <div className="grid gap-5 min-[1460px]:grid-cols-[minmax(0,1fr)_20rem]">
+              {/*
+                THE RAIL SETS THE ROW'S HEIGHT; THE TABLE FILLS TO IT — via
+                ABSOLUTE FILL, not flex alone. A stretched flex child still
+                feeds its content height into the grid row's auto sizing (the
+                vertical twin of the `min-w-0` story above), so the row would
+                size to the full loaded table and the rail could never cap it.
+                From the split, this item goes `relative` and its content
+                fills it absolutely: the item contributes ~nothing to row
+                sizing, the ASIDE's natural height (donut + companies +
+                industry, ~11 member rows' worth) becomes the row, and the
+                card + SourceLine bottom lands exactly on the rail's bottom at
+                every screen size. The island's root is the flex-1 filler and
+                its scroller the basis-0 window.
+              */}
+              <div className="min-w-0 min-[1460px]:relative">
+                <div className="space-y-3 min-[1460px]:absolute min-[1460px]:inset-0 min-[1460px]:flex min-[1460px]:flex-col min-[1460px]:gap-3 min-[1460px]:space-y-0">
+                  <PoliticianRegisterTable
+                    initialPage={table}
+                    loadPage={loadPoliticianTable}
+                    stateOptions={stateOptions}
+                    partyOptions={partyOptions}
+                  />
+                  {/*
                   The citation sits with the data that names people, which is
                   what editorial-copy.test.ts's hub-section exclusion relies on:
                   the table island carries no SourceLine of its own because this
                   one covers it. The "About this data" band at the foot is the
                   dataset-level statement, not a substitute for this.
                 */}
-                <SourceLine asAt={asAt} surface="politicians hub" />
+                  <SourceLine asAt={asAt} surface="politicians hub" />
+                </div>
               </div>
 
-              <aside className="min-w-0 space-y-4 rounded-xl border bg-card p-3 lg:self-start">
+              {/*
+                THE RAIL HOLDS EXACTLY THREE MODULES, sized to the table beside
+                it. It used to stack six — donut, companies, industry, an
+                8-item filings feed and two cross-link cards — which made it
+                ~2,040px tall against a ~920px table and left a screenful of
+                empty column under the table. Filings moved to the status band
+                below; the cross-link cards moved to "Where else this appears".
+                Below the 1460px split the same three modules lay out as a
+                side-by-side band (`md:grid-cols-3`) instead of a stack.
+              */}
+              <aside className="grid min-w-0 content-start gap-5 rounded-xl border bg-card p-3 md:grid-cols-3 min-[1460px]:grid-cols-1 min-[1460px]:gap-4 min-[1460px]:self-start">
                 {donutSegments.length > 0 ? (
                   <CountDonut
                     segments={donutSegments}
@@ -502,14 +642,14 @@ export default async function PoliticiansPage() {
 
                 {/*
                   THE RAIL ECHOES THE SECTIONS BELOW, IT DOES NOT ADD A CLAIM.
-                  These five are the head of the "Most-declared ASX-listed
+                  These rows are the head of the "Most-declared ASX-listed
                   companies" table further down the page, so a reader who never
-                  scrolls still sees the same five names and the same figures.
+                  scrolls still sees the same names and the same figures.
                   Each one counts MEMBERS declaring an interest — never an
                   amount, and never a ranking of anything but people.
                 */}
                 <TopCompanies
-                  stocks={(mostHeld?.stocks ?? []).slice(0, 5).map((s) => ({
+                  stocks={(mostHeld?.stocks ?? []).slice(0, 7).map((s) => ({
                     stockCode: s.stockCode,
                     companyName: s.companyName,
                     politicianCount: s.politicianCount,
@@ -528,8 +668,8 @@ export default async function PoliticiansPage() {
                           <div className="flex items-baseline justify-between gap-2 text-[11px]">
                             <span className="truncate">{trend.industry}</span>
                             <span className="shrink-0 tabular-nums text-muted-foreground">
-                              {trend.currentCount} ({signed(trend.currentCount - trend.count90dAgo)}
-                              )
+                              {trend.currentCount} (
+                              {signed(trend.currentCount - trend.count90dAgo)})
                             </span>
                           </div>
                           {/* CSS width, not a chart library: this is a count. */}
@@ -544,240 +684,334 @@ export default async function PoliticiansPage() {
                       ))}
                     </ul>
                     <p className="text-[10px] leading-relaxed text-muted-foreground">
-                      Distinct ASX-listed companies declared in each industry, with the change
-                      against 90 days ago. Dated entries only.
+                      Distinct ASX-listed companies declared in each industry,
+                      with the change against 90 days ago. Dated entries only.
                     </p>
                   </div>
                 ) : null}
+              </aside>
+            </div>
+          </section>
 
-                {(changes?.events?.length ?? 0) > 0 ? (
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-medium">
-                      <SectionIcon name="source-document" size="sm" />
-                      Recent filings
-                    </h3>
-                    <ul className="space-y-2.5">
-                      {(changes?.events ?? []).slice(0, 8).map((event, index) => (
-                        <li key={`${event.politician?.slug ?? "member"}-${index}`}>
-                          <div className="flex flex-wrap items-baseline gap-2 text-[10px] uppercase tracking-wide text-muted-foreground">
-                            <span className="tabular-nums normal-case">
-                              {shortDate(toDate(event.changedOn))}
-                            </span>
-                            {/*
-                              THE TWO ICONS ARE THE SAME WEIGHT AND THE SAME
-                              INK. A page sits into a folder or slides out of
-                              one; neither is coloured, and neither is a tick or
-                              a cross. A removal can mean an asset was disposed
-                              of, a declaration was corrected, or the member left
-                              parliament — the icon may not pick one, and it may
-                              not read as the bad half of a good/bad pair.
-                            */}
-                            <span className="inline-flex items-center gap-1">
-                              <PoliticsIcon
-                                name={
-                                  event.kind === RegisterChangeKind.ADDED
-                                    ? "entry-added"
-                                    : "entry-removed"
-                                }
-                                size={12}
-                              />
-                              {event.kind === RegisterChangeKind.ADDED ? "added" : "removed"}
-                            </span>
-                          </div>
-                          {event.politician ? (
-                            <Link
-                              href={`/politicians/${event.politician.slug}`}
-                              prefetch={false}
-                              className="inline-block py-1 text-xs hover:underline"
-                            >
-                              {event.politician.displayName}
-                            </Link>
-                          ) : null}
-                          <div className="truncate text-[11px]">
-                            <DeclaredEntity
-                              declaredText={event.declaredText}
-                              stockCode={event.stockCode}
-                              companyName={event.companyName}
-                              entityKind={event.entityKind}
+          {hasExplorer || (changes?.events?.length ?? 0) > 0 ? (
+            <section className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-4">
+              {(changes?.events?.length ?? 0) > 0 ? (
+                <StatusCard title="Recent filings">
+                  <ul className="space-y-1.5">
+                    {(changes?.events ?? []).slice(0, 4).map((event, index) => (
+                      <li
+                        key={`${event.politician?.slug ?? "member"}-${index}`}
+                      >
+                        <div className="flex flex-wrap items-baseline gap-x-2 text-[10px] uppercase tracking-wide text-muted-foreground">
+                          <span className="tabular-nums normal-case">
+                            {shortDate(toDate(event.changedOn))}
+                          </span>
+                          {/*
+                            THE TWO ICONS ARE THE SAME WEIGHT AND THE SAME
+                            INK. A page sits into a folder or slides out of
+                            one; neither is coloured, and neither is a tick or
+                            a cross. A removal can mean an asset was disposed
+                            of, a declaration was corrected, or the member left
+                            parliament — the icon may not pick one, and it may
+                            not read as the bad half of a good/bad pair.
+                          */}
+                          <span className="inline-flex items-center gap-1">
+                            <PoliticsIcon
+                              name={
+                                event.kind === RegisterChangeKind.ADDED
+                                  ? "entry-added"
+                                  : "entry-removed"
+                              }
+                              size={12}
                             />
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
+                            {event.kind === RegisterChangeKind.ADDED
+                              ? "added"
+                              : "removed"}
+                          </span>
+                        </div>
+                        <div className="truncate text-[11px]">
+                          {event.politician ? (
+                            <>
+                              {/* `py-1` on the INLINE link: padding on an inline
+                                  box extends the pointer target without growing
+                                  the line box, so the compact card keeps its
+                                  density and the link keeps its hit area. */}
+                              <Link
+                                href={`/politicians/${event.politician.slug}`}
+                                prefetch={false}
+                                className="py-1 font-medium hover:underline"
+                              >
+                                {event.politician.displayName}
+                              </Link>{" "}
+                              ·{" "}
+                            </>
+                          ) : null}
+                          <DeclaredEntity
+                            declaredText={event.declaredText}
+                            stockCode={event.stockCode}
+                            companyName={event.companyName}
+                            entityKind={event.entityKind}
+                          />
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                  <Link
+                    href="/politicians/changes"
+                    className="inline-block text-[11px] text-muted-foreground underline decoration-dotted hover:text-foreground"
+                  >
+                    Every addition and removal →
+                  </Link>
+                </StatusCard>
+              ) : null}
+
+              {hasExplorer ? (
+                <>
+                  <StatusCard title="Coverage">
+                    {extracted.length + partial.length + pending.length > 0 ? (
+                      <CoverageNote
+                        extracted={extracted}
+                        partial={partial}
+                        pending={pending}
+                      />
+                    ) : (
+                      <p className="text-[11px] leading-relaxed text-muted-foreground">
+                        Register documents published by the Parliament of
+                        Australia for parliaments{" "}
+                        {overview?.firstParliament ?? explorer?.firstParliament}
+                        –{overview?.lastParliament ?? explorer?.lastParliament}.
+                      </p>
+                    )}
+                  </StatusCard>
+
+                  <StatusCard title="Recent activity">
+                    <p className="text-sm leading-relaxed">
+                      <strong className="tabular-nums">
+                        {explorer?.changes7d ?? 0}
+                      </strong>{" "}
+                      {plural(explorer?.changes7d ?? 0, "entry", "entries")}{" "}
+                      entered or left the registers in the last 7 days, across{" "}
+                      <strong className="tabular-nums">
+                        {explorer?.membersChanged7d ?? 0}
+                      </strong>{" "}
+                      {plural(
+                        explorer?.membersChanged7d ?? 0,
+                        "member",
+                        "members",
+                      )}
+                      .
+                    </p>
+                    <p className="text-[11px] leading-relaxed text-muted-foreground">
+                      Over 30 days: {explorer?.changes30d ?? 0}{" "}
+                      {plural(explorer?.changes30d ?? 0, "entry", "entries")}{" "}
+                      across {explorer?.membersChanged30d ?? 0}{" "}
+                      {plural(
+                        explorer?.membersChanged30d ?? 0,
+                        "member",
+                        "members",
+                      )}
+                      . A change is an entry appearing in or leaving the
+                      register — not a transaction.
+                    </p>
                     <Link
                       href="/politicians/changes"
                       className="inline-block text-[11px] text-muted-foreground underline decoration-dotted hover:text-foreground"
                     >
                       Every addition and removal →
                     </Link>
-                  </div>
-                ) : null}
+                  </StatusCard>
 
-                {/*
-                  THE ONE CROSS-LINK TO THE FUNDING LAYER, and its copy does the
-                  work of keeping the two apart. The register above records what
-                  a member holds and never how much; the AEC Transparency
-                  Register records what PARTIES declared receiving, and money
-                  given to a party is not money given to a member. The card says
-                  so rather than leaving a reader to assume the link continues
-                  the same subject.
-                */}
-                <div className="space-y-2 rounded-lg border bg-card p-4">
-                  <h3 className="text-sm font-medium">
-                    <SectionIcon name="donation-receipt" size="sm" />
-                    Party funding and donations
-                  </h3>
-                  <p className="text-[11px] leading-relaxed text-muted-foreground">
-                    A separate source: what registered parties declared receiving each financial
-                    year, who the payers were, and which of them are ASX-listed companies, as
-                    lodged with the AEC. Party money is not attributable to any individual
-                    member.
-                  </p>
-                  <Link
-                    href="/politicians/donations"
-                    className="inline-block text-[11px] underline decoration-dotted hover:text-foreground"
-                  >
-                    Open the funding explorer →
-                  </Link>
-                </div>
-
-                <div className="space-y-2 rounded-lg border bg-card p-4">
-                  <h3 className="text-sm font-medium">
-                    <SectionIcon name="compare" size="sm" />
-                    Compare two members
-                  </h3>
-                  <p className="text-[11px] leading-relaxed text-muted-foreground">
-                    Put two members side by side: what each declares, what both declare, and where
-                    they differ. Counts only, symmetrically — no score and no ranking between
-                    them.
-                  </p>
-                  <Link
-                    href="/politicians/compare"
-                    className="inline-block text-[11px] underline decoration-dotted hover:text-foreground"
-                  >
-                    Open the comparison →
-                  </Link>
-                </div>
-              </aside>
-            </div>
-          </section>
-
-          {hasExplorer ? (
-            <section className="grid gap-2.5 md:grid-cols-3">
-              <StatusCard title="Coverage">
-                {extracted.length + partial.length + pending.length > 0 ? (
-                  <CoverageNote extracted={extracted} partial={partial} pending={pending} />
-                ) : (
-                  <p className="text-[11px] leading-relaxed text-muted-foreground">
-                    Register documents published by the Parliament of Australia for parliaments{" "}
-                    {overview?.firstParliament ?? explorer?.firstParliament}–
-                    {overview?.lastParliament ?? explorer?.lastParliament}.
-                  </p>
-                )}
-              </StatusCard>
-
-              <StatusCard title="Recent activity">
-                <p className="text-sm leading-relaxed">
-                  <strong className="tabular-nums">{explorer?.changes7d ?? 0}</strong>{" "}
-                  {plural(explorer?.changes7d ?? 0, "entry", "entries")} entered or left the
-                  registers in the last 7 days, across{" "}
-                  <strong className="tabular-nums">{explorer?.membersChanged7d ?? 0}</strong>{" "}
-                  {plural(explorer?.membersChanged7d ?? 0, "member", "members")}.
-                </p>
-                <p className="text-[11px] leading-relaxed text-muted-foreground">
-                  Over 30 days: {explorer?.changes30d ?? 0}{" "}
-                  {plural(explorer?.changes30d ?? 0, "entry", "entries")} across{" "}
-                  {explorer?.membersChanged30d ?? 0}{" "}
-                  {plural(explorer?.membersChanged30d ?? 0, "member", "members")}. A change is an
-                  entry appearing in or leaving the register — not a transaction.
-                </p>
-                <Link
-                  href="/politicians/changes"
-                  className="inline-block text-[11px] text-muted-foreground underline decoration-dotted hover:text-foreground"
-                >
-                  Every addition and removal →
-                </Link>
-              </StatusCard>
-
-              <StatusCard title="Category movement">
-                {industryTrends.length > 0 ? (
-                  <>
-                    <ul className="space-y-1 text-sm">
-                      {industryTrends.slice(0, 3).map((trend) => (
-                        <li key={trend.industry} className="flex items-baseline justify-between gap-2">
-                          <span className="truncate">{trend.industry}</span>
-                          <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
-                            {trend.count90dAgo} → {trend.currentCount} (
-                            {signed(trend.currentCount - trend.count90dAgo)})
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                    <p className="text-[11px] leading-relaxed text-muted-foreground">
-                      Distinct ASX-listed companies declared in each industry, now and 90 days
-                      ago. Dated entries only: an entry whose start date the register does not
-                      state is excluded from both sides.
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-[11px] leading-relaxed text-muted-foreground">
-                    No dated movement to compare over the last 90 days.
-                  </p>
-                )}
-              </StatusCard>
+                  <StatusCard title="Category movement">
+                    {industryTrends.length > 0 ? (
+                      <>
+                        <ul className="space-y-1 text-sm">
+                          {industryTrends.slice(0, 3).map((trend) => (
+                            <li
+                              key={trend.industry}
+                              className="flex items-baseline justify-between gap-2"
+                            >
+                              <span className="truncate">{trend.industry}</span>
+                              <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
+                                {trend.count90dAgo} → {trend.currentCount} (
+                                {signed(trend.currentCount - trend.count90dAgo)}
+                                )
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                        <p className="text-[11px] leading-relaxed text-muted-foreground">
+                          Distinct ASX-listed companies declared in each
+                          industry, now and 90 days ago. Dated entries only: an
+                          entry whose start date the register does not state is
+                          excluded from both sides.
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-[11px] leading-relaxed text-muted-foreground">
+                        No dated movement to compare over the last 90 days.
+                      </p>
+                    )}
+                  </StatusCard>
+                </>
+              ) : null}
             </section>
           ) : null}
 
-          <section className="space-y-3">
-            <h2 className={sectionTitle}>
-              <SectionIcon name="shareholdings" />
-              Most-declared ASX-listed companies
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Counted by <strong>number of members declaring an interest</strong> — not by any
-              amount. The bars compare people, nothing more.
-            </p>
-            <table className="w-full text-sm">
-              <caption className="sr-only">
-                Number of federal parliamentarians declaring an interest in each ASX-listed company.
-                A count of declarations, not an amount invested.
-              </caption>
-              <thead className="sr-only">
-                <tr>
-                  <th>Company</th>
-                  <th>Members declaring</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(mostHeld?.stocks ?? []).map((s) => (
-                  <tr key={s.stockCode} className="border-b last:border-0">
-                    <th scope="row" className="w-40 py-1.5 pr-3 text-left font-normal">
-                      <Link href={`/shorts/${s.stockCode}`} className="hover:underline">
-                        <span className="font-medium">{s.stockCode}</span>
-                      </Link>
-                      <span className="block truncate text-[11px] text-muted-foreground">
-                        {s.companyName}
-                      </span>
-                    </th>
-                    <td className="py-1.5">
-                      <div className="flex items-center gap-2">
-                        {/* CSS width, not a chart library: this is a count, and a
+          {/*
+            TWO BAR LISTS, SIDE BY SIDE FROM `xl:`. Both count people — members
+            declaring a company, members declaring by state — so pairing them
+            juxtaposes like with like, and together they fill the width one of
+            them used to leave empty. Below `xl:` they stack as before.
+          */}
+          <div className="grid gap-8 xl:grid-cols-[minmax(0,5fr)_minmax(0,4fr)] xl:items-start xl:gap-10">
+            <section className="space-y-3">
+              <h2 className={sectionTitle}>
+                <SectionIcon name="shareholdings" />
+                Most-declared ASX-listed companies
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Counted by{" "}
+                <strong>number of members declaring an interest</strong> — not
+                by any amount. The bars compare people, nothing more.
+              </p>
+              {/*
+                THE WHOLE RANKED HEAD, IN A FIXED WINDOW. The list used to stop
+                at 12 rows rendered flat; it now carries every company the rpc
+                can return (its 200-row ceiling) inside the same fixed-height
+                scroller pattern the register table uses — the top ~10 are the
+                initial view, a partly-cut row signals the scroll, and the
+                section's height (and the page's) no longer depends on how many
+                companies parliament declares. All rows are server-rendered
+                into the ISR HTML; nothing loads on scroll, it is simply there.
+                `prefetch={false}` on every row link — 200 bulk links would
+                otherwise re-create the roll's measured prefetch storm.
+              */}
+              {/* 33rem ≈ ten 53px rows with the tenth partly cut — the cut row
+                  is the scroll affordance. */}
+              <div className="max-h-[33rem] overflow-auto overscroll-contain rounded-lg border bg-background px-3">
+                <table className="w-full text-sm">
+                  <caption className="sr-only">
+                    Number of federal parliamentarians declaring an interest in
+                    each ASX-listed company. A count of declarations, not an
+                    amount invested.
+                  </caption>
+                  <thead className="sr-only">
+                    <tr>
+                      <th>Company</th>
+                      <th>Members declaring</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(mostHeld?.stocks ?? []).map((s) => (
+                      <tr key={s.stockCode} className="border-b last:border-0">
+                        <th
+                          scope="row"
+                          className="w-40 py-1.5 pr-3 text-left font-normal"
+                        >
+                          <Link
+                            href={`/shorts/${s.stockCode}`}
+                            prefetch={false}
+                            className="hover:underline"
+                          >
+                            <span className="font-medium">{s.stockCode}</span>
+                          </Link>
+                          <span className="block truncate text-[11px] text-muted-foreground">
+                            {s.companyName}
+                          </span>
+                        </th>
+                        <td className="py-1.5">
+                          <div className="flex items-center gap-2">
+                            {/* CSS width, not a chart library: this is a count, and a
                             plain bar keeps it accessible and bundle-free. */}
-                        <div
-                          className="h-3 rounded-sm bg-primary/70"
-                          style={{ width: `${(s.politicianCount / maxCount) * 100}%` }}
-                          aria-hidden
-                        />
-                        <span className="shrink-0 tabular-nums text-xs text-muted-foreground">
-                          {s.politicianCount}
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
+                            <div
+                              className="h-3 rounded-sm bg-primary/70"
+                              style={{
+                                width: `${(s.politicianCount / maxCount) * 100}%`,
+                              }}
+                              aria-hidden
+                            />
+                            <span className="shrink-0 tabular-nums text-xs text-muted-foreground">
+                              {s.politicianCount}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {/* The count line states the window honestly: the rpc's 200-row
+                  ceiling is below the corpus total, and a scroller that ends
+                  must not read as the end of the register. */}
+              <p className="text-[11px] tabular-nums text-muted-foreground">
+                {mostHeldCount < declaredCompanyTotal
+                  ? `Showing the ${mostHeldCount} most-declared of ${declaredCompanyTotal} companies declared in the registers.`
+                  : `Showing all ${mostHeldCount} companies declared in the registers.`}
+              </p>
+            </section>
+
+            {(analytics?.states.length ?? 0) > 0 ? (
+              <section className="space-y-3">
+                <h2 className={sectionTitle}>
+                  <SectionIcon name="electorate" />
+                  Members declaring company interests, by state
+                </h2>
+                {/* "the members who declare" would read across both chambers.
+                  Every row here comes from the House registers, so the sentence
+                  names the corpus it is counted over rather than leaving a
+                  reader to assume senators are in it. */}
+                <p className="text-sm text-muted-foreground">
+                  Where the members whose registers we have read sit, among
+                  those declaring a company interest — a count of people, and a
+                  function of how many seats a state has as much as anything
+                  else. Senators are not in this count: their registers have not
+                  been read into this site.
+                </p>
+                <table className="w-full max-w-xl text-sm xl:max-w-none">
+                  <caption className="sr-only">
+                    Number of federal parliamentarians from each state or
+                    territory declaring an interest in an ASX-listed company.
+                  </caption>
+                  <thead className="sr-only">
+                    <tr>
+                      <th>State</th>
+                      <th>Members declaring</th>
+                      <th>Distinct companies</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(analytics?.states ?? []).map((s) => (
+                      <tr key={s.stateCode} className="border-b last:border-0">
+                        <th
+                          scope="row"
+                          className="w-16 py-1.5 text-left font-normal"
+                        >
+                          {s.stateCode}
+                        </th>
+                        <td className="py-1.5">
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="h-3 rounded-sm bg-primary/70"
+                              style={{
+                                width: `${(s.people / maxStatePeople) * 100}%`,
+                              }}
+                              aria-hidden
+                            />
+                            <span className="shrink-0 tabular-nums text-xs text-muted-foreground">
+                              {s.people}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="w-32 py-1.5 text-right text-[11px] text-muted-foreground">
+                          {s.companies} companies
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </section>
+            ) : null}
+          </div>
 
           <section className="space-y-3">
             <h2 className={sectionTitle}>
@@ -790,15 +1024,16 @@ export default async function PoliticiansPage() {
                 declares little, when for a Senate-heavy party part of it can
                 still be volumes we have not opened. */}
             <p className="max-w-prose text-sm text-muted-foreground">
-              Each cell counts <strong>members</strong>, not holdings and not money — a member who
-              declares four banks is one member.
+              Each cell counts <strong>members</strong>, not holdings and not
+              money — a member who declares four banks is one member.
             </p>
             <FinePrint lead="" summary="How these cells are counted">
               <p>
-                The registers record no quantity or value, so nothing here can be weighted by
-                size. Every cell is counted over the registers we have read — both chambers,
-                though older, scanned Senate volumes are not read yet — so a small row can be our
-                coverage rather than that party&rsquo;s declarations.
+                The registers record no quantity or value, so nothing here can
+                be weighted by size. Every cell is counted over the registers we
+                have read — both chambers, though older, scanned Senate volumes
+                are not read yet — so a small row can be our coverage rather
+                than that party&rsquo;s declarations.
               </p>
             </FinePrint>
             <RegisterHeatmap
@@ -820,62 +1055,6 @@ export default async function PoliticiansPage() {
               industriesOmitted={analytics?.industriesOmitted ?? 0}
             />
           </section>
-
-          {(analytics?.states.length ?? 0) > 0 ? (
-            <section className="space-y-3">
-              <h2 className={sectionTitle}>
-                <SectionIcon name="electorate" />
-                Members declaring company interests, by state
-              </h2>
-              {/* "the members who declare" would read across both chambers.
-                  Every row here comes from the House registers, so the sentence
-                  names the corpus it is counted over rather than leaving a
-                  reader to assume senators are in it. */}
-              <p className="text-sm text-muted-foreground">
-                Where the members whose registers we have read sit, among those declaring a company
-                interest — a count of people, and a function of how many seats a state has as much
-                as anything else. Senators are not in this count: their registers have not been
-                read into this site.
-              </p>
-              <table className="w-full max-w-xl text-sm">
-                <caption className="sr-only">
-                  Number of federal parliamentarians from each state or territory declaring an
-                  interest in an ASX-listed company.
-                </caption>
-                <thead className="sr-only">
-                  <tr>
-                    <th>State</th>
-                    <th>Members declaring</th>
-                    <th>Distinct companies</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(analytics?.states ?? []).map((s) => (
-                    <tr key={s.stateCode} className="border-b last:border-0">
-                      <th scope="row" className="w-16 py-1.5 text-left font-normal">
-                        {s.stateCode}
-                      </th>
-                      <td className="py-1.5">
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="h-3 rounded-sm bg-primary/70"
-                            style={{ width: `${(s.people / maxStatePeople) * 100}%` }}
-                            aria-hidden
-                          />
-                          <span className="shrink-0 tabular-nums text-xs text-muted-foreground">
-                            {s.people}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="w-32 py-1.5 text-right text-[11px] text-muted-foreground">
-                        {s.companies} companies
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </section>
-          ) : null}
 
           <section className="space-y-3">
             <h2 className={sectionTitle}>
@@ -901,7 +1080,7 @@ export default async function PoliticiansPage() {
               <summary className="cursor-pointer text-muted-foreground">
                 {people?.total ?? 0} members and senators
               </summary>
-              <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                 {/*
                   `prefetch={false}` — this is the single biggest source of the
                   hub's load-time request storm. 400 member links in the HTML is
@@ -922,10 +1101,14 @@ export default async function PoliticiansPage() {
                     <div className="mt-1 flex flex-wrap items-center gap-2">
                       <PartyChip partyAb={p.partyAb} />
                       {p.division ? (
-                        <span className="text-[11px] text-muted-foreground">{p.division}</span>
+                        <span className="text-[11px] text-muted-foreground">
+                          {p.division}
+                        </span>
                       ) : null}
                       {p.stateCode ? (
-                        <span className="text-[11px] text-muted-foreground">{p.stateCode}</span>
+                        <span className="text-[11px] text-muted-foreground">
+                          {p.stateCode}
+                        </span>
                       ) : null}
                     </div>
                     <div className="mt-1 flex gap-3 text-[11px] text-muted-foreground">
@@ -940,23 +1123,75 @@ export default async function PoliticiansPage() {
 
           <section className="space-y-3">
             <h2 className={sectionTitle}>Where else this appears</h2>
-            <ul className="space-y-1 text-sm">
-              <li>
-                <Link href="/politicians/short-interest" className="hover:underline">
+            {/*
+              The funding and comparison cards used to sit in the table's rail,
+              where their height helped push a screenful of empty column under
+              the table. They are wayfinding, and this is the wayfinding
+              section — the two plain links keep the same words they always
+              had, boxed to match.
+            */}
+            <div className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-4">
+              {/*
+                THE ONE CROSS-LINK TO THE FUNDING LAYER, and its copy does the
+                work of keeping the two apart. The register above records what
+                a member holds and never how much; the AEC Transparency
+                Register records what PARTIES declared receiving, and money
+                given to a party is not money given to a member. The card says
+                so rather than leaving a reader to assume the link continues
+                the same subject.
+              */}
+              <div className="space-y-2 rounded-lg border bg-card p-4">
+                <h3 className="text-sm font-medium">
+                  <SectionIcon name="donation-receipt" size="sm" />
+                  Party funding and donations
+                </h3>
+                <p className="text-[11px] leading-relaxed text-muted-foreground">
+                  A separate source: what registered parties declared receiving
+                  each financial year, who the payers were, and which of them
+                  are ASX-listed companies, as lodged with the AEC. Party money
+                  is not attributable to any individual member.
+                </p>
+                <Link
+                  href="/politicians/donations"
+                  className="inline-block text-[11px] underline decoration-dotted hover:text-foreground"
+                >
+                  Open the funding explorer →
+                </Link>
+              </div>
+
+              <div className="space-y-2 rounded-lg border bg-card p-4">
+                <h3 className="text-sm font-medium">
+                  <SectionIcon name="compare" size="sm" />
+                  Compare two members
+                </h3>
+                <p className="text-[11px] leading-relaxed text-muted-foreground">
+                  Put two members side by side: what each declares, what both
+                  declare, and where they differ. Counts only, symmetrically —
+                  no score and no ranking between them.
+                </p>
+                <Link
+                  href="/politicians/compare"
+                  className="inline-block text-[11px] underline decoration-dotted hover:text-foreground"
+                >
+                  Open the comparison →
+                </Link>
+              </div>
+
+              <div className="flex items-center rounded-lg border bg-card p-4 text-sm">
+                <Link
+                  href="/politicians/short-interest"
+                  className="hover:underline"
+                >
                   Declared interests in companies carrying short interest →
                 </Link>
-              </li>
-              <li>
+              </div>
+
+              <div className="flex items-center rounded-lg border bg-card p-4 text-sm">
                 <Link href="/politicians/changes" className="hover:underline">
                   Recent register additions and removals →
                 </Link>
-              </li>
-              <li>
-                <Link href="/politicians/compare" className="hover:underline">
-                  Compare two members side by side →
-                </Link>
-              </li>
-            </ul>
+              </div>
+            </div>
           </section>
 
           <div className="space-y-6">

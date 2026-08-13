@@ -62,7 +62,8 @@ export async function getOgLogo(): Promise<string> {
   }
 
   try {
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://shorted.com.au";
+    const siteUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ?? "https://shorted.com.au";
     const res = await fetch(`${siteUrl}/icon-512.png`);
     if (res.ok) {
       const buf = Buffer.from(await res.arrayBuffer());
@@ -213,7 +214,11 @@ export interface OgCardProps {
   /** Optional supporting sentence under the headline. */
   subtitle?: string;
   /** Up to three figures rendered as a stat row. */
-  stats?: Array<{ label: string; value: string; tone?: "up" | "down" | "flat" }>;
+  stats?: Array<{
+    label: string;
+    value: string;
+    tone?: "up" | "down" | "flat";
+  }>;
   /** Footer right-hand text. Defaults to the domain. */
   footer?: string;
   /** Optional company mark shown beside the eyebrow. */
@@ -362,7 +367,167 @@ export function OgCard({
       >
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           {logoSrc && (
-            <img src={logoSrc} width={48} height={48} style={{ borderRadius: 8 }} />
+            <img
+              src={logoSrc}
+              width={48}
+              height={48}
+              style={{ borderRadius: 8 }}
+            />
+          )}
+          <div
+            style={{
+              display: "flex",
+              fontSize: 26,
+              fontWeight: 700,
+              color: OG.text,
+            }}
+          >
+            Shorted
+          </div>
+        </div>
+        <div style={{ display: "flex", fontSize: 22, color: OG.textDim }}>
+          {footer}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * State-silhouette variant: the standard card's canvas with the copy on the
+ * left and the state's boundary silhouette filling the right — the same SVG
+ * path the /economy/[state] banner heroes compute in the browser, reused
+ * server-side (lib/og/state-silhouette.ts). Satori renders inline <svg><path>
+ * natively, so the silhouette costs no image bytes at all.
+ *
+ * Kept in this module for the same reason as OgVersus: the variant inherits
+ * the exact canvas, rule and footer of every other card.
+ */
+export interface OgSilhouetteProps {
+  eyebrow: string;
+  title: string;
+  subtitle?: string;
+  /** Path + viewBox from getStateSilhouette(); the caller falls back to the
+   * plain OgCard when this is null. */
+  silhouette: { d: string; width: number; height: number };
+  footer?: string;
+  logoSrc: string;
+}
+
+export function OgSilhouetteCard({
+  eyebrow,
+  title,
+  subtitle,
+  silhouette,
+  footer = "shorted.com.au",
+  logoSrc,
+}: OgSilhouetteProps) {
+  return (
+    <div
+      style={{
+        height: "100%",
+        width: "100%",
+        display: "flex",
+        flexDirection: "column",
+        backgroundColor: OG.bg,
+        backgroundImage: `linear-gradient(135deg, ${OG.bg} 0%, ${OG.bgAlt} 55%, ${OG.bg} 100%)`,
+        padding: "56px 64px",
+        position: "relative",
+      }}
+    >
+      {/* top rule */}
+      <div
+        style={{
+          display: "flex",
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 8,
+          backgroundImage: `linear-gradient(90deg, ${OG.orange} 0%, ${OG.orangeDim} 100%)`,
+        }}
+      />
+
+      <div style={{ display: "flex", flex: 1, alignItems: "center", gap: 40 }}>
+        <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+          <div
+            style={{
+              display: "flex",
+              fontSize: 22,
+              letterSpacing: 3,
+              textTransform: "uppercase",
+              color: OG.orange,
+              fontWeight: 600,
+            }}
+          >
+            {eyebrow}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              marginTop: 20,
+              fontSize: title.length > 30 ? 56 : 68,
+              lineHeight: 1.08,
+              fontFamily: OG_SERIF,
+              color: OG.text,
+              fontWeight: 700,
+              maxWidth: 620,
+            }}
+          >
+            {title}
+          </div>
+          {subtitle && (
+            <div
+              style={{
+                display: "flex",
+                marginTop: 20,
+                fontSize: 26,
+                lineHeight: 1.35,
+                color: OG.textDim,
+                maxWidth: 600,
+              }}
+            >
+              {subtitle}
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: "flex" }}>
+          <svg
+            width={430}
+            height={Math.round((430 * silhouette.height) / silhouette.width)}
+            viewBox={`0 0 ${silhouette.width} ${silhouette.height}`}
+          >
+            <path
+              d={silhouette.d}
+              fill={OG.orange}
+              fillOpacity={0.22}
+              stroke={OG.orange}
+              strokeOpacity={0.85}
+              strokeWidth={1.5}
+            />
+          </svg>
+        </div>
+      </div>
+
+      {/* footer pinned to the bottom */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          borderTop: `1px solid ${OG.border}`,
+          paddingTop: 24,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          {logoSrc && (
+            <img
+              src={logoSrc}
+              width={48}
+              height={48}
+              style={{ borderRadius: 8 }}
+            />
           )}
           <div
             style={{
@@ -563,7 +728,12 @@ export function OgVersus({
       >
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           {logoSrc && (
-            <img src={logoSrc} width={48} height={48} style={{ borderRadius: 8 }} />
+            <img
+              src={logoSrc}
+              width={48}
+              height={48}
+              style={{ borderRadius: 8 }}
+            />
           )}
           <div
             style={{

@@ -111,19 +111,65 @@ func upsertObservations(ctx context.Context, pool *pgxpool.Pool, obs []Observati
 	return n, nil
 }
 
+const updateRunSQL = `
+	INSERT INTO house_price_ingest_runs (source, last_period, last_fetched_at, rows_upserted, status, detail)
+	VALUES ($1, $2, now(), $3, $4, NULLIF($5, ''))
+	ON CONFLICT (source) DO UPDATE SET
+		last_period = CASE WHEN EXCLUDED.status = 'error' THEN house_price_ingest_runs.last_period ELSE EXCLUDED.last_period END,
+		last_fetched_at = now(),
+		rows_upserted = CASE WHEN EXCLUDED.status = 'error' THEN house_price_ingest_runs.rows_upserted ELSE EXCLUDED.rows_upserted END,
+		status = EXCLUDED.status,
+		detail = EXCLUDED.detail`
+
 func updateRun(ctx context.Context, pool *pgxpool.Pool, source string, lastPeriod *time.Time, rows int, status, detail string) error {
-	_, err := pool.Exec(ctx, `
-		INSERT INTO house_price_ingest_runs (source, last_period, last_fetched_at, rows_upserted, status, detail)
-		VALUES ($1, $2, now(), $3, $4, NULLIF($5, ''))
-		ON CONFLICT (source) DO UPDATE SET
-			last_period = EXCLUDED.last_period, last_fetched_at = now(),
-			rows_upserted = EXCLUDED.rows_upserted, status = EXCLUDED.status, detail = EXCLUDED.detail`,
-		source, lastPeriod, rows, status, detail)
+	_, err := pool.Exec(ctx, updateRunSQL, source, lastPeriod, rows, status, detail)
 	return err
 }
 
+func loadRunLastPeriod(ctx context.Context, pool *pgxpool.Pool, source string) (*time.Time, error) {
+	var lastPeriod *time.Time
+	err := pool.QueryRow(ctx, `
+		SELECT last_period
+		FROM house_price_ingest_runs
+		WHERE source = $1`, source).Scan(&lastPeriod)
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return lastPeriod, nil
+}
+
+// lockOfficialJobSource serializes the cursor check and all subsequent writes
+// for one source across processes. The otherwise-empty transaction owns a
+// transaction-scoped advisory lock while the job uses ordinary pool operations.
+func lockOfficialJobSource(ctx context.Context, pool *pgxpool.Pool, source string) (func(), error) {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	release := func() {
+		releaseCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := tx.Rollback(releaseCtx); err != nil && err != pgx.ErrTxClosed {
+			log.Printf("[%s] release source lock: %v", source, err)
+		}
+	}
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, source); err != nil {
+		release()
+		return nil, err
+	}
+	return release, nil
+}
+
 func refreshHousingMV(ctx context.Context, pool *pgxpool.Pool) error {
-	_, err := pool.Exec(ctx, `SELECT refresh_housing_materialized_views()`)
+	// The function-scoped GUC cannot disarm a timeout already armed for the
+	// calling command, so the override must precede the function call. Simple
+	// protocol wraps this multi-statement command in an implicit transaction;
+	// SET LOCAL scopes the override to that transaction and expires with it.
+	_, err := pool.Exec(ctx, `SET LOCAL statement_timeout = 0;
+		SELECT refresh_housing_materialized_views()`)
 	return err
 }
 
@@ -473,36 +519,4 @@ func upsertCrime(ctx context.Context, pool *pgxpool.Pool, rows []CrimeStatRow) (
 		}
 	}
 	return n, nil
-}
-
-// SuburbCrimeYear is one suburb's single-FY crime datapoint (read path — used by
-// the shorts service's GetSuburbProfile once the Phase-3 read wiring lands).
-type SuburbCrimeYear struct {
-	FYEnding    int
-	CrimeType   string
-	RatePer100k float64
-	PctRank     float64
-	SmallPop    bool
-}
-
-// getSuburbCrime returns a suburb's single-FY crime series ordered by FY.
-func getSuburbCrime(ctx context.Context, pool *pgxpool.Pool, salCode string) ([]SuburbCrimeYear, error) {
-	rows, err := pool.Query(ctx, `
-		SELECT fy_ending, crime_type, rate_per_100k, pct_rank, small_pop
-		FROM suburb_crime_stats
-		WHERE sal_code = $1 AND NOT pooled AND pct_rank IS NOT NULL
-		ORDER BY fy_ending, crime_type`, salCode)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []SuburbCrimeYear
-	for rows.Next() {
-		var y SuburbCrimeYear
-		if err := rows.Scan(&y.FYEnding, &y.CrimeType, &y.RatePer100k, &y.PctRank, &y.SmallPop); err != nil {
-			return nil, err
-		}
-		out = append(out, y)
-	}
-	return out, rows.Err()
 }

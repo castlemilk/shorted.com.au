@@ -92,7 +92,7 @@ func main() {
 		os.Exit(2)
 	default:
 		// ExitCodeOf is 1 for ordinary failures; a job that needs a caller to
-		// branch on the code (house-prices' rig launchers key on 3/4/5/6)
+		// branch on the code (house-prices' rig launchers key on 3/4/5/6/7)
 		// returns a *runner.ExitCodeError instead of calling os.Exit, so its
 		// deferred cleanup and the runner's end-of-job line still happen.
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)

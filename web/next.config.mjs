@@ -382,6 +382,38 @@ export default withBundleAnalyzer(
       outputFileTracingIncludes: {
         "/sitemap.xml": ["./_blogs/**/*"],
         "/feed.xml": ["./_blogs/**/*"],
+        // getOgLogo() reads these through computed filesystem paths in the
+        // shared OG card helper, which nft cannot discover. Apply them to every
+        // OG route so new shared-card importers are covered automatically.
+        "/**/opengraph-image": [
+          "./public/icon-512.png",
+          "./public/logo.png",
+        ],
+        // OG card assets. The scene JPEGs and the state-boundary topojson are
+        // read with readFileSync at REQUEST time inside opengraph-image
+        // lambdas, and nft does not trace those reads — measured on prod
+        // 2026-08-09: the suburb card had shipped scene-less since it landed,
+        // and the state silhouettes fell back to plain cards. Inline-literal
+        // paths did NOT fix it (tried); these explicit includes are the same
+        // mechanism the sitemap/feed routes above rely on.
+        "/housing/opengraph-image": ["./public/housing-banners/og/**/*"],
+        "/housing/[state]/[suburb]/opengraph-image": [
+          "./public/housing-banners/og/**/*",
+        ],
+        "/housing/[state]/opengraph-image": [
+          "./public/geo/states.topojson",
+          "./public/icon-512.png",
+          "./public/logo.png",
+        ],
+        "/housing/calculators/opengraph-image": [
+          "./public/icon-512.png",
+          "./public/logo.png",
+        ],
+        "/price-drops/opengraph-image": [
+          "./public/icon-512.png",
+          "./public/logo.png",
+        ],
+        "/economy/[state]/opengraph-image": ["./public/geo/states.topojson"],
       },
       // Externalize protobuf and connect packages to prevent SSR bundling issues
       serverComponentsExternalPackages: [

@@ -19,11 +19,12 @@ import (
 // NSW Valuer-General Bulk Property Sales Information (PSI) — the state publishes
 // EVERY property transfer (no pre-computed medians), so we aggregate raw sales
 // into suburb-level annual median HOUSE prices ourselves. Files sit behind a
-// Cloudflare managed challenge, so we fetch via stealthhttp's NATIVE engine —
-// its browser-realistic TLS fingerprint returns the raw .zip (verified: 200
-// application/zip, 14MB). A yearly.zip is a nest: 53 weekly inner .zips, each
-// ~95 semicolon-delimited .DAT files (one per LGA district). We parse B-records
-// (the main sale row) and keep established houses only.
+// Cloudflare managed challenge that does not clear from Cloud Run. The dedicated
+// `-mode vg-nsw` path therefore runs on approved residential egress and fetches
+// with stealthhttp's browser-realistic NATIVE engine; it must not be turned into
+// a datacenter challenge-bypass attempt. A yearly.zip is a nest: 53 weekly inner
+// .zips, each ~95 semicolon-delimited .DAT files (one per LGA district). We parse
+// B-records (the main sale row) and keep established houses only.
 //
 // Field layout (verified from live 2024 data), 0-indexed on ";" split:
 //
@@ -52,30 +53,41 @@ type nswAgg struct {
 	postcodes map[string]int
 }
 
+type nswFetcher interface {
+	FetchBytes(context.Context, string, string) ([]byte, string, error)
+}
+
 func ingestNSWSuburbMedians(ctx context.Context) ([]Observation, error) {
 	client, err := stealthhttp.New(stealthhttp.WithTimeout(120 * time.Second))
 	if err != nil {
 		return nil, fmt.Errorf("stealth init: %w", err)
 	}
+	return ingestNSWSuburbMediansWithFetcher(ctx, client, nswRecentYears(nswYears))
+}
 
+func ingestNSWSuburbMediansWithFetcher(ctx context.Context, fetcher nswFetcher, years []int) ([]Observation, error) {
 	// name → year → aggregate. Keyed by UPPER suburb name (the sal_code backfill
 	// matches case-insensitively, so casing is irrelevant to the join).
 	agg := map[string]map[int]*nswAgg{}
-	fetched := 0
-	for _, yr := range nswRecentYears(nswYears) {
+	fetchedYears := make([]int, 0, len(years))
+	missingYears := make([]int, 0, len(years))
+	for _, yr := range years {
 		url := fmt.Sprintf("%s%d.zip", nswPSIBase, yr)
-		b, _, err := client.FetchBytes(ctx, url, nswAccept)
+		b, _, err := fetcher.FetchBytes(ctx, url, nswAccept)
 		if err != nil {
 			log.Printf("[vg_nsw] fetch %d: %v — skipping", yr, err)
+			missingYears = append(missingYears, yr)
 			continue
 		}
 		if len(b) < 2 || b[0] != 'P' || b[1] != 'K' { // not a zip ⇒ challenge/HTML
 			log.Printf("[vg_nsw] %d: did not return a zip (%d bytes, likely a block page) — skipping", yr, len(b))
+			missingYears = append(missingYears, yr)
 			continue
 		}
 		sales, err := parseNSWYearSales(b)
 		if err != nil {
 			log.Printf("[vg_nsw] parse %d: %v — skipping", yr, err)
+			missingYears = append(missingYears, yr)
 			continue
 		}
 		for _, s := range sales {
@@ -93,21 +105,42 @@ func ingestNSWSuburbMedians(ctx context.Context) ([]Observation, error) {
 				a.postcodes[s.postcode]++
 			}
 		}
-		fetched++
+		fetchedYears = append(fetchedYears, yr)
 		log.Printf("[vg_nsw] %d: %d house sales", yr, len(sales))
 	}
-	if fetched == 0 {
-		return nil, fmt.Errorf("no NSW PSI years fetched")
+	if len(fetchedYears) != len(years) {
+		return nil, fmt.Errorf(
+			"incomplete NSW PSI coverage: fetched %d/%d requested years; missing %v",
+			len(fetchedYears), len(years), missingYears,
+		)
 	}
 
-	years := nswRecentYears(nswYears)
-	latestYr := years[len(years)-1]
+	obs := buildNSWObservations(agg, fetchedYears)
+	pooledN := 0
+	for _, o := range obs {
+		if o.IsPreliminary {
+			pooledN++
+		}
+	}
+	log.Printf("[vg_nsw] %d suburb-year medians (%d thin suburbs via %dyr pool) across %d years", len(obs), pooledN, nswYears, len(fetchedYears))
+	return obs, nil
+}
+
+func buildNSWObservations(agg map[string]map[int]*nswAgg, fetchedYears []int) []Observation {
+	if len(fetchedYears) == 0 {
+		return nil
+	}
+	latestYr := fetchedYears[0]
+	for _, year := range fetchedYears[1:] {
+		if year > latestYr {
+			latestYr = year
+		}
+	}
 
 	// For well-traded suburbs emit an annual median per year (series + YoY). For
 	// THIN suburbs (no single year clears nswMinSales) pool the whole window into
 	// one current median so the map still paints them — flagged preliminary.
 	var obs []Observation
-	pooledN := 0
 	for name, byYear := range agg {
 		emitted := false
 		for yr, a := range byYear {
@@ -128,12 +161,10 @@ func ingestNSWSuburbMedians(ctx context.Context) ([]Observation, error) {
 			}
 			if len(pooled) >= nswMinPooled {
 				obs = append(obs, nswObs(name, latestYr, pooled, modalKey(pc), true))
-				pooledN++
 			}
 		}
 	}
-	log.Printf("[vg_nsw] %d suburb-year medians (%d thin suburbs via %dyr pool) across %d years", len(obs), pooledN, nswYears, fetched)
-	return obs, nil
+	return obs
 }
 
 func nswObs(name string, year int, prices []float64, postcode string, preliminary bool) Observation {
@@ -154,38 +185,57 @@ func parseNSWYearSales(outer []byte) ([]nswSale, error) {
 		return nil, err
 	}
 	var sales []nswSale
+	weeklyArchives := 0
 	for _, wf := range zr.File {
 		if !strings.HasSuffix(strings.ToLower(wf.Name), ".zip") {
 			continue
 		}
+		weeklyArchives++
 		rc, err := wf.Open()
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("open weekly archive %s: %w", wf.Name, err)
 		}
 		wb, readErr := io.ReadAll(rc)
 		closeErr := rc.Close()
-		if readErr != nil || closeErr != nil {
-			continue
+		if readErr != nil {
+			return nil, fmt.Errorf("read weekly archive %s: %w", wf.Name, readErr)
+		}
+		if closeErr != nil {
+			return nil, fmt.Errorf("close weekly archive %s: %w", wf.Name, closeErr)
 		}
 		wzr, err := zip.NewReader(bytes.NewReader(wb), int64(len(wb)))
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("parse weekly archive %s: %w", wf.Name, err)
 		}
+		datFiles := 0
 		for _, df := range wzr.File {
 			if !strings.HasSuffix(strings.ToUpper(df.Name), ".DAT") {
 				continue
 			}
+			datFiles++
 			dc, err := df.Open()
 			if err != nil {
-				continue
+				return nil, fmt.Errorf("open %s in %s: %w", df.Name, wf.Name, err)
 			}
 			db, readErr := io.ReadAll(dc)
 			closeErr := dc.Close()
-			if readErr != nil || closeErr != nil {
-				continue
+			if readErr != nil {
+				return nil, fmt.Errorf("read %s in %s: %w", df.Name, wf.Name, readErr)
+			}
+			if closeErr != nil {
+				return nil, fmt.Errorf("close %s in %s: %w", df.Name, wf.Name, closeErr)
 			}
 			sales = append(sales, parseNSWDAT(db)...)
 		}
+		if datFiles == 0 {
+			return nil, fmt.Errorf("weekly archive %s contains no DAT files", wf.Name)
+		}
+	}
+	if weeklyArchives == 0 {
+		return nil, fmt.Errorf("NSW PSI year contains no weekly zip archives")
+	}
+	if len(sales) == 0 {
+		return nil, fmt.Errorf("NSW PSI year contains no qualifying house sales")
 	}
 	return sales, nil
 }

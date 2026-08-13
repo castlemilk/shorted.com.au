@@ -86,6 +86,7 @@ var ErrUsage = errors.New("usage")
 //	4 = fetcher init failed — Chrome/CDP unusable (hard-recover)
 //	5 = warmcheck says the session is cold
 //	6 = crawl-freshness ALARM
+//	7 = agent infrastructure failed before any jobs completed
 //
 // A job returns this INSTEAD of calling os.Exit, so deferred cleanup (pool
 // close) still runs and the runner still emits its `status=error` line; main

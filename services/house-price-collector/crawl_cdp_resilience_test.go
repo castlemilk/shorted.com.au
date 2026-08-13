@@ -5,7 +5,17 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/mxschmitt/playwright-go"
 )
+
+type stalledScreenshotContext struct {
+	playwright.BrowserContext
+}
+
+func (stalledScreenshotContext) NewPage() (playwright.Page, error) {
+	select {}
+}
 
 // TestCDPFetch_NilContextDoesNotPanic is the regression for the prod SIGSEGV.
 //
@@ -87,4 +97,45 @@ func TestCDPFetchGuarded_NilContextIsAnErrorNotAPanic(t *testing.T) {
 	} else if !isCDPConnLost(err) {
 		t.Fatalf("a nil-context error must be recoverable via the reconnect path, got: %v", err)
 	}
+}
+
+func TestCDPScreenshot_NilContextIsAnErrorNotAPanic(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("screenshot must not panic on a nil browser context, got: %v", r)
+		}
+	}()
+
+	f := &cdpFetcher{cfg: crawlConfig{fetchTimeout: time.Millisecond}}
+	if _, err := f.screenshot(context.Background(), "https://example.com/"); err == nil {
+		t.Fatal("expected an error for a nil browser context")
+	} else if !strings.Contains(err.Error(), "no browser context") {
+		t.Fatalf("error should name the nil-context cause, got: %v", err)
+	}
+}
+
+func TestCDPScreenshot_WatchdogReleasesFetcherLock(t *testing.T) {
+	f := &cdpFetcher{
+		ctx: stalledScreenshotContext{},
+		cfg: crawlConfig{fetchTimeout: time.Millisecond},
+	}
+	done := make(chan error, 1)
+	go func() {
+		_, err := f.screenshot(context.Background(), "https://example.com/")
+		done <- err
+	}()
+
+	select {
+	case err := <-done:
+		if err == nil || !strings.Contains(err.Error(), "stalled") {
+			t.Fatalf("hung screenshot should return a stalled error, got: %v", err)
+		}
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("hung screenshot exceeded its wall-clock watchdog")
+	}
+
+	if !f.mu.TryLock() {
+		t.Fatal("screenshot watchdog must release the fetcher lock for later fetches")
+	}
+	f.mu.Unlock()
 }

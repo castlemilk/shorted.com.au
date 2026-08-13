@@ -466,7 +466,6 @@ jobs:
             -var="shorted_jobs_browser_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorted-jobs-browser:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="signals_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/signals-collector:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="report_extractor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/report-extractor:${{ needs.determine-environment.outputs.image-tag }}" \
-            -var="grafana_auth=${{ secrets.GRAFANA_SERVICE_ACCOUNT_TOKEN }}" \
             -out=tfplan
         # No continue-on-error: a failing plan must fail the PR check. This was
         # advisory-only for months and silently swallowed a missing-variable
@@ -1018,6 +1017,14 @@ jobs:
           # and the app collectors, but golang-migrate's advisory-lock path can fail
           # with prepared-statement errors. Keep non-prod on migrate; repair prod via
           # direct, idempotent SQL and keep schema_migrations aligned.
+          #
+          # ORDER IS LOAD-BEARING. 000083 contains a CREATE OR REPLACE of
+          # refresh_all_materialized_views() carrying the PRE-hardening body, so
+          # replaying it here reverted 000095 on every single prod deploy — the
+          # exact defect behind the 19-day silent MV-staleness incident, silently
+          # re-armed each time someone hand-applied the fix. 000095 must stay LAST
+          # so the hardened definition wins. Any new migration that touches that
+          # function goes after 000095, not before it.
           if [ "$ENVIRONMENT" = "prod" ]; then
             run_psql \
               -f /migrations/000070_add_short_campaigns_mv.up.sql \
@@ -1027,29 +1034,48 @@ jobs:
               -f /migrations/000081_add_economic_series.up.sql \
               -f /migrations/000082_extend_source_kind_check.up.sql \
               -f /migrations/000083_add_state_exposure.up.sql \
-              -f /migrations/000085_extend_source_method_check.up.sql
+              -f /migrations/000085_extend_source_method_check.up.sql \
+              -f /migrations/000095_harden_mv_refresh.up.sql
 
             run_psql -c "CREATE TABLE IF NOT EXISTS schema_migrations (version bigint NOT NULL PRIMARY KEY, dirty boolean NOT NULL); DELETE FROM schema_migrations; INSERT INTO schema_migrations (version, dirty) VALUES (75, false);"
 
+            # Ingesting third-party data is NOT a deployment prerequisite.
+            #
+            # This step reads data.gov.au (austender, ATO). When that timed out,
+            # `go run` exited 1 and took the whole terraform-apply with it — a
+            # public dataset being slow blocked a Cloud Run release. The data has
+            # its own scheduled collector and can be caught up any time; a deploy
+            # that cannot ship because a government CKAN endpoint is busy is
+            # strictly worse than a deploy that ships with yesterday's records.
+            #
+            # So the ingest is best-effort and its failure is surfaced as a
+            # warning in the job summary rather than an exit code. It stays here
+            # (instead of moving to a schedule) only because the empty-table
+            # bootstrap case wants to run right after the migrations that create
+            # those tables.
+            run_influence_ingest() {
+              local mode="$1" why="$2"
+              echo "$why"
+              if docker run --rm \
+                -e DATABASE_URL="$DB_URL_CLEAN" \
+                -e STEALTH_PAT="${STEALTH_PAT:-}" \
+                -v "${PWD}/services:/app" \
+                -w /app \
+                golang:1.26.0 \
+                sh -c 'if [ -n "$STEALTH_PAT" ]; then git config --global url."https://x-access-token:${STEALTH_PAT}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"; fi; GOWORK=off GOPRIVATE=github.com/skunkworq/* GONOSUMDB=github.com/skunkworq/* go run ./influence-collector -mode '"$mode"; then
+                echo "influence-collector -mode $mode: ok"
+              else
+                rc=$?
+                echo "::warning::influence-collector -mode $mode failed (exit $rc) — deploy continues; the scheduled collector will catch up"
+                echo "- :warning: \`influence-collector -mode $mode\` failed (exit $rc); records may be stale until the next scheduled run" >> "$GITHUB_STEP_SUMMARY"
+              fi
+            }
+
             TAX_ROWS=$(docker run --rm postgres:15-alpine psql "$DB_URL_CLEAN" -Atqc "SELECT COUNT(*) FROM corporate_tax")
             if [ "${TAX_ROWS:-0}" = "0" ]; then
-              echo "corporate_tax is empty; bootstrapping ATO corporate-tax data."
-              docker run --rm \
-                -e DATABASE_URL="$DB_URL_CLEAN" \
-                -e STEALTH_PAT="${STEALTH_PAT:-}" \
-                -v "${PWD}/services:/app" \
-                -w /app \
-                golang:1.26.0 \
-                sh -c 'if [ -n "$STEALTH_PAT" ]; then git config --global url."https://x-access-token:${STEALTH_PAT}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"; fi; GOWORK=off GOPRIVATE=github.com/skunkworq/* GONOSUMDB=github.com/skunkworq/* go run ./influence-collector -mode all'
+              run_influence_ingest all "corporate_tax is empty; bootstrapping ATO corporate-tax data."
             else
-              echo "corporate_tax already has ${TAX_ROWS} rows; refreshing public industry intelligence records."
-              docker run --rm \
-                -e DATABASE_URL="$DB_URL_CLEAN" \
-                -e STEALTH_PAT="${STEALTH_PAT:-}" \
-                -v "${PWD}/services:/app" \
-                -w /app \
-                golang:1.26.0 \
-                sh -c 'if [ -n "$STEALTH_PAT" ]; then git config --global url."https://x-access-token:${STEALTH_PAT}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"; fi; GOWORK=off GOPRIVATE=github.com/skunkworq/* GONOSUMDB=github.com/skunkworq/* go run ./influence-collector -mode public-records'
+              run_influence_ingest public-records "corporate_tax already has ${TAX_ROWS} rows; refreshing public industry intelligence records."
             fi
             exit 0
           fi
@@ -1104,7 +1130,6 @@ jobs:
             -var="shorted_jobs_browser_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorted-jobs-browser:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="signals_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/signals-collector:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="report_extractor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/report-extractor:${{ needs.determine-environment.outputs.image-tag }}" \
-            -var="grafana_auth=${{ secrets.GRAFANA_SERVICE_ACCOUNT_TOKEN }}" \
             -var="image_tag=${{ needs.determine-environment.outputs.image-tag }}" \
             -auto-approve
 
@@ -1484,6 +1509,38 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Backend Services" >> $GITHUB_STEP_SUMMARY
           echo "- **Shorts API**: ${{ steps.resolve-urls.outputs.shorts_url }}" >> $GITHUB_STEP_SUMMARY
+
+  housing-contract-tests:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: |
+            services/go.sum
+            services/jobs/go.sum
+
+      - name: Configure private Go module access
+        run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
+
+      - name: Run housing workflow contract tests
+        run: node --test .github/workflows/housing-lifecycle.test.mjs
+
+      - name: Run deployed housing collector tests
+        working-directory: services
+        run: GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test ./house-price-collector
+
+      - name: Run housing jobs mirror tests
+        working-directory: services/jobs
+        run: GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test ./internal/jobs/houseprices/...
+
+      - name: Run housing wrapper lifecycle tests
+        run: bash services/house-price-collector/deploy/housing-lifecycle-exit.test.sh
 
   run-tests:
     needs: [determine-environment, build-docker-images, build-ko-images]

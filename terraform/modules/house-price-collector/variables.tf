@@ -26,6 +26,20 @@ variable "image_url" {
   type        = string
 }
 
+variable "official_max_failures" {
+  description = "Maximum official sources that may fail before the collector exits non-zero; 15 means only a total failure of the current 16 sources is fatal"
+  type        = number
+  default     = 15
+
+  validation {
+    condition = (
+      var.official_max_failures >= 0 &&
+      floor(var.official_max_failures) == var.official_max_failures
+    )
+    error_message = "official_max_failures must be a non-negative integer."
+  }
+}
+
 variable "revalidation_url" {
   description = <<-EOT
     Frontend on-demand revalidation endpoint, pinged after a crawl-driven MV

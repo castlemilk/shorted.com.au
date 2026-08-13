@@ -17,6 +17,7 @@ const (
 	salRichmond  = "20604" // VIC, public + proprietary priced
 	salNorwood   = "40001" // SA,  public + proprietary priced
 	salCrownland = "29999" // VIC, proprietary-ONLY priced
+	salAscotVale = "20075" // VIC, duplicate crawl + Valuer-General region keys
 )
 
 // setupSuburbExplorerSchema extends the base housing schema (from
@@ -63,7 +64,13 @@ func setupSuburbExplorerSchema(t *testing.T, pool *pgxpool.Pool) {
 		census_year              INT,
 		pct_english_only         DOUBLE PRECISION,
 		pct_top_religion         DOUBLE PRECISION,
-		pct_no_religion          DOUBLE PRECISION
+		pct_no_religion          DOUBLE PRECISION,
+		banner_archetype         TEXT,
+		banner_blurb             TEXT,
+		banner_landmarks         JSONB,
+		banner_bg_key            TEXT,
+		banner_bg_url            TEXT,
+		banner_generated_at      TIMESTAMPTZ
 	);
 
 	CREATE TABLE IF NOT EXISTS suburb_amenities (
@@ -118,6 +125,22 @@ func setupSuburbExplorerSchema(t *testing.T, pool *pgxpool.Pool) {
 		fin_source          TEXT,
 		fin_year            TEXT
 	);
+
+	CREATE MATERIALIZED VIEW mv_register_suburb_property AS
+	SELECT '20604'::text AS sal_code,
+	       1::int AS declaring_member_count,
+	       2::int AS declared_property_count,
+	       2::int AS current_property_count,
+	       now() AS refreshed_at;
+
+	CREATE MATERIALIZED VIEW mv_suburb_crime_latest AS
+	SELECT '20604'::text AS sal_code, crime_type,
+	       2025::smallint AS fy_ending, 0::numeric AS rate_per_100k,
+	       0.04::numeric AS pct_rank, 26000::int AS population,
+	       false AS small_pop, false AS unreliable,
+	       'VIC'::text AS source_jurisdiction, 'test'::text AS source,
+	       'CC-BY-4.0'::text AS source_licence
+	FROM (VALUES ('break_ins'::text), ('violent'::text), ('motor_vehicle'::text)) crime(crime_type);
 	`
 	_, err := pool.Exec(ctx, schema)
 	require.NoError(t, err, "failed to create suburb-explorer schema")
@@ -143,6 +166,36 @@ func setupSuburbExplorerSchema(t *testing.T, pool *pgxpool.Pool) {
 		($2, 'Norwood',   'SA',  '5067', 7000,  40, 1900),
 		($3, 'Crownland', 'VIC', '3999', 1200,  38, 1500)`
 	_, err = pool.Exec(ctx, demog, salRichmond, salNorwood, salCrownland)
+	require.NoError(t, err)
+}
+
+// seedDuplicateSuburbRegion reproduces the production shape where a crawl key
+// and a Valuer-General key share one SAL. The crawl key is inserted first so a
+// bare LIMIT 1 deterministically exposes the wrong, proprietary-only region.
+func seedDuplicateSuburbRegion(t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
+	ctx := context.Background()
+
+	_, err := pool.Exec(ctx, `
+		INSERT INTO suburb_demographics
+			(sal_code, sal_name, state_code, postcode, population, median_age, median_weekly_hhd_income)
+		VALUES ($1, 'Ascot Vale', 'VIC', '3032', 15000, 36, 2100)`, salAscotVale)
+	require.NoError(t, err)
+
+	_, err = pool.Exec(ctx, `
+		INSERT INTO house_price_regions
+			(region_code, region_type, region_name, state_code, postcode, sal_code)
+		VALUES
+			('SUBURB:VIC-3032-ASCOT-VALE', 'suburb', 'ASCOT VALE', 'VIC', '3032', $1),
+			('SUBURB:VIC-ASCOT VALE',      'suburb', 'ASCOT VALE', 'VIC', '3032', $1)`, salAscotVale)
+	require.NoError(t, err)
+
+	_, err = pool.Exec(ctx, `
+		INSERT INTO house_prices
+			(region_code, measure, dwelling_type, period, period_freq, value, unit, source, source_licence, content_hash)
+		VALUES
+			('SUBURB:VIC-3032-ASCOT-VALE', 'median_price', 'house', '2024-06-30', 'Q', 1500000, 'AUD', 'crawl_domain', 'proprietary-tos-restricted', 'ascot-crawl'),
+			('SUBURB:VIC-ASCOT VALE',      'median_price', 'house', '2024-06-30', 'Q', 1300000, 'AUD', 'vg_vic',       'CC-BY-4.0',                  'ascot-vg')`)
 	require.NoError(t, err)
 }
 
@@ -176,12 +229,24 @@ func TestHousingLicenceGate_StateSuburbs(t *testing.T) {
 	require.Contains(t, byCode, salRichmond, "RICHMOND should be listed for VIC")
 	assert.InDelta(t, 1250000.0, byCode[salRichmond].LatestMedianPrice, 0.5,
 		"RICHMOND must report its public latest median")
+	assert.Equal(t, 0.1, byCode[salRichmond].CrimeBreakInsRank,
+		"a covered rank below display precision must remain distinguishable from no data")
+	assert.Equal(t, 0.1, byCode[salRichmond].CrimeViolentRank,
+		"a covered rank below display precision must remain distinguishable from no data")
+	assert.Equal(t, 0.1, byCode[salRichmond].CrimeMotorVehicleRank,
+		"a covered rank below display precision must remain distinguishable from no data")
 
 	// CROWNLAND is priced ONLY by a proprietary row: it must still list (LEFT
 	// join on demographics) but with a gated-out, zeroed price.
 	require.Contains(t, byCode, salCrownland, "CROWNLAND should still be listed")
 	assert.Equal(t, 0.0, byCode[salCrownland].LatestMedianPrice,
 		"proprietary-only suburb must report 0, not the ToS-restricted value")
+	assert.Zero(t, byCode[salCrownland].CrimeBreakInsRank,
+		"a suburb without crime data must retain the no-data sentinel")
+	assert.Zero(t, byCode[salCrownland].CrimeViolentRank,
+		"a suburb without crime data must retain the no-data sentinel")
+	assert.Zero(t, byCode[salCrownland].CrimeMotorVehicleRank,
+		"a suburb without crime data must retain the no-data sentinel")
 }
 
 // TestHousingLicenceGate_SuburbProfile asserts GetSuburbProfile serves the
@@ -199,6 +264,8 @@ func TestHousingLicenceGate_SuburbProfile(t *testing.T) {
 
 	assert.InDelta(t, 1250000.0, p.Summary.LatestMedianPrice, 0.5,
 		"headline median must be the public value")
+	assert.Equal(t, int32(2), p.Summary.PoliticianPropertyCount,
+		"profile summary must carry the register MV's declared-property count")
 
 	// State baseline = avg latest public median across priced VIC suburbs
 	// (RICHMOND 1,250,000; CROWNLAND excluded — proprietary only).
@@ -211,4 +278,33 @@ func TestHousingLicenceGate_SuburbProfile(t *testing.T) {
 		assert.NotEqual(t, pv, p.StateMedianPrice, "proprietary median leaked into state baseline")
 		assert.NotEqual(t, pv, p.NationalMedianPrice, "proprietary median leaked into national baseline")
 	}
+}
+
+func TestListStateSuburbs_DuplicateSALChoosesPublicPricedRegionOnce(t *testing.T) {
+	pool, cleanup := setupHousingTestDatabase(t)
+	defer cleanup()
+	setupSuburbExplorerSchema(t, pool)
+	seedDuplicateSuburbRegion(t, pool)
+	s := &postgresStore{db: pool}
+
+	rows, err := s.ListStateSuburbs("VIC", "Ascot Vale", 50)
+	require.NoError(t, err)
+	require.Len(t, rows, 1, "one demographic suburb must not fan out per matching region key")
+	assert.Equal(t, salAscotVale, rows[0].SALCode)
+	assert.Equal(t, "SUBURB:VIC-ASCOT VALE", rows[0].RegionCode)
+	assert.InDelta(t, 1300000.0, rows[0].LatestMedianPrice, 0.5)
+}
+
+func TestGetSuburbProfile_DuplicateSALChoosesPublicPricedRegion(t *testing.T) {
+	pool, cleanup := setupHousingTestDatabase(t)
+	defer cleanup()
+	setupSuburbExplorerSchema(t, pool)
+	seedDuplicateSuburbRegion(t, pool)
+	s := &postgresStore{db: pool}
+
+	profile, err := s.GetSuburbProfile(salAscotVale)
+	require.NoError(t, err)
+	require.NotNil(t, profile)
+	assert.Equal(t, "SUBURB:VIC-ASCOT VALE", profile.Summary.RegionCode)
+	assert.InDelta(t, 1300000.0, profile.Summary.LatestMedianPrice, 0.5)
 }

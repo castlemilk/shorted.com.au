@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!-- property.com.au profile-LINK resolution, chunked nightly.
+
+     This reads realestate.com.au's public address autocomplete, NOT a
+     Kasada-defended page, so it needs no warm Chrome and none of the daytime
+     scheduling the REA/Domain listing crawl requires. It is an ordinary paced
+     JSON client.
+
+     Nightly at 21:20 local: after the evening peak, and clear of the delta crawl
+     and the monthly Valuer-General jobs so two collector processes are not
+     competing for the same database and egress.
+
+     Each run takes the next chunk of unresolved addresses (default 3,000,
+     ~1.6h), so the ~48k corpus completes over roughly a fortnight and then the
+     job becomes a cheap no-op that picks up newly-listed addresses. Replace
+     __REPO__ with the checkout root and __HOME__ with the operator's home. -->
+<dict>
+  <key>Label</key><string>com.shorted.housing-property-resolve</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__REPO__/services/house-price-collector/deploy/run-housing-property-resolve.sh</string>
+  </array>
+
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key><integer>21</integer>
+    <key>Minute</key><integer>20</integer>
+  </dict>
+
+  <key>StandardOutPath</key><string>__HOME__/Library/Logs/shorted-housing-property-resolve.out.log</string>
+  <key>StandardErrorPath</key><string>__HOME__/Library/Logs/shorted-housing-property-resolve.err.log</string>
+  <key>ProcessType</key><string>Background</string>
+  <key>LowPriorityIO</key><true/>
+  <key>RunAtLoad</key><false/>
+</dict>
+</plist>

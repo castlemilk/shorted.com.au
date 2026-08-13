@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -51,6 +51,13 @@ export function AddressDropsBoard({ stateCode: initialState = "", windowDays = 9
   const stateFromUrl = slugToState(searchParams.get("state") ?? "") ?? "";
   const [stateCode, setStateCode] = useState(initialState || stateFromUrl);
   const [sort, setSort] = useState("pct");
+
+  // A sibling control (the state choropleth) updates ?state= without remounting
+  // this client island. Follow that navigation so the URL, active chip and
+  // query key cannot drift apart after the board's initial render.
+  useEffect(() => {
+    setStateCode(initialState || stateFromUrl);
+  }, [initialState, stateFromUrl]);
 
   // The server-seeded rows are the all-states / biggest-% view; only reuse them
   // as initialData when the current selection still IS that view, otherwise a

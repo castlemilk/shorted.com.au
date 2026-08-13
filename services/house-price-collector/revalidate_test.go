@@ -1,33 +1,44 @@
 package main
 
 import (
+	"errors"
+	"io"
 	"net/http"
-	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
-	"time"
 )
 
-// TestPingRevalidateSendsExpectedQuery asserts the ping POSTs to the configured
-// endpoint with exactly the housing cache-bust query contract: secret + a
-// path=/price-drops,/housing + flush=housing, and NO tag param.
-func TestPingRevalidateSendsExpectedQuery(t *testing.T) {
-	reqCh := make(chan *http.Request, 1)
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		reqCh <- r
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"revalidated":true}`))
-	}))
-	defer srv.Close()
+type revalidateRoundTripFunc func(*http.Request) (*http.Response, error)
 
-	t.Setenv("REVALIDATION_URL", srv.URL)
+func (f revalidateRoundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func useRevalidateTransport(t *testing.T, fn revalidateRoundTripFunc) {
+	t.Helper()
+	previous := http.DefaultClient.Transport
+	http.DefaultClient.Transport = fn
+	t.Cleanup(func() { http.DefaultClient.Transport = previous })
+}
+
+func revalidateResponse(status int, body string) *http.Response {
+	return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}
+}
+
+// TestPingRevalidateSendsExpectedQuery asserts the secret is carried in a
+// header (never the logged URL) alongside the housing cache-bust query.
+func TestPingRevalidateSendsExpectedQuery(t *testing.T) {
+	var got *http.Request
+	useRevalidateTransport(t, func(r *http.Request) (*http.Response, error) {
+		got = r
+		return revalidateResponse(http.StatusOK, `{"revalidated":true}`), nil
+	})
+
+	t.Setenv("REVALIDATION_URL", "https://revalidate.invalid/api/revalidate")
 	t.Setenv("REVALIDATION_SECRET", "s3cr3t")
 
 	pingRevalidate("test")
 
-	var got *http.Request
-	select {
-	case got = <-reqCh:
-	case <-time.After(5 * time.Second):
+	if got == nil {
 		t.Fatal("expected a revalidation request, got none")
 	}
 
@@ -35,8 +46,11 @@ func TestPingRevalidateSendsExpectedQuery(t *testing.T) {
 		t.Errorf("method = %s, want POST", got.Method)
 	}
 	q := got.URL.Query()
-	if q.Get("secret") != "s3cr3t" {
-		t.Errorf("secret = %q, want s3cr3t", q.Get("secret"))
+	if got.Header.Get("X-Revalidate-Secret") != "s3cr3t" {
+		t.Errorf("X-Revalidate-Secret = %q, want s3cr3t", got.Header.Get("X-Revalidate-Secret"))
+	}
+	if _, ok := q["secret"]; ok {
+		t.Errorf("secret must not ride in query string, got %q", q.Get("secret"))
 	}
 	if q.Get("path") != "/price-drops,/housing" {
 		t.Errorf("path = %q, want /price-drops,/housing", q.Get("path"))
@@ -52,12 +66,11 @@ func TestPingRevalidateSendsExpectedQuery(t *testing.T) {
 // TestPingRevalidateSkipsWhenUnset asserts the ping is a no-op (no HTTP request)
 // when either env var is empty — so an unconfigured collector never errors.
 func TestPingRevalidateSkipsWhenUnset(t *testing.T) {
-	hits := make(chan struct{}, 1)
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		hits <- struct{}{}
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer srv.Close()
+	hits := 0
+	useRevalidateTransport(t, func(r *http.Request) (*http.Response, error) {
+		hits++
+		return revalidateResponse(http.StatusOK, ""), nil
+	})
 
 	cases := []struct {
 		name   string
@@ -65,7 +78,7 @@ func TestPingRevalidateSkipsWhenUnset(t *testing.T) {
 		secret string
 	}{
 		{"both empty", "", ""},
-		{"url set, secret empty", srv.URL, ""},
+		{"url set, secret empty", "https://revalidate.invalid", ""},
 		{"secret set, url empty", "", "s3cr3t"},
 	}
 	for _, tc := range cases {
@@ -75,28 +88,58 @@ func TestPingRevalidateSkipsWhenUnset(t *testing.T) {
 
 			pingRevalidate("test")
 
-			select {
-			case <-hits:
-				t.Fatal("no HTTP request should be sent when a revalidation env var is unset")
-			case <-time.After(150 * time.Millisecond):
-				// no request — expected
-			}
 		})
+	}
+	if hits != 0 {
+		t.Fatalf("no HTTP request should be sent when a revalidation env var is unset, got %d", hits)
 	}
 }
 
 // TestPingRevalidateToleratesNon2xx asserts a non-2xx response is logged as a
 // warning but never panics or blocks — the run continues unaffected.
 func TestPingRevalidateToleratesNon2xx(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte("upstream boom"))
-	}))
-	defer srv.Close()
+	useRevalidateTransport(t, func(r *http.Request) (*http.Response, error) {
+		return revalidateResponse(http.StatusInternalServerError, "upstream boom"), nil
+	})
 
-	t.Setenv("REVALIDATION_URL", srv.URL)
+	t.Setenv("REVALIDATION_URL", "https://revalidate.invalid")
 	t.Setenv("REVALIDATION_SECRET", "s3cr3t")
 
 	// Must return normally despite the 5xx (no panic, no error propagation).
 	pingRevalidate("test")
+}
+
+// A raw *url.Error stringifies the full request URL. That is how an endpoint —
+// and anything its query carries — ends up in a Cloud Run log line, so the
+// redaction is worth pinning rather than trusting to review.
+func TestRedactURLErrorStripsTheEndpoint(t *testing.T) {
+	inner := errors.New("dial tcp 10.0.0.1:443: connect: connection refused")
+	err := redactURLError(&url.Error{
+		Op:  "Post",
+		URL: "https://shorted.com.au/api/revalidate?secret=super-secret&path=/housing",
+		Err: inner,
+	})
+
+	got := err.Error()
+	for _, leaked := range []string{"super-secret", "shorted.com.au", "/api/revalidate", "path=/housing"} {
+		if strings.Contains(got, leaked) {
+			t.Errorf("redacted error still contains %q: %s", leaked, got)
+		}
+	}
+	if !strings.Contains(got, "Post") || !strings.Contains(got, "[url redacted]") {
+		t.Errorf("want the operation and a redaction marker, got: %s", got)
+	}
+	// The cause must survive — redaction that hides the reason is worse than the leak.
+	if !errors.Is(err, inner) {
+		t.Errorf("redaction dropped the wrapped cause: %v", err)
+	}
+}
+
+// A non-URL error must pass through untouched, or every unrelated failure in
+// this path becomes harder to read for no benefit.
+func TestRedactURLErrorPassesThroughOtherErrors(t *testing.T) {
+	plain := errors.New("context deadline exceeded")
+	if got := redactURLError(plain); got != plain {
+		t.Errorf("non-url error was rewritten: %v", got)
+	}
 }

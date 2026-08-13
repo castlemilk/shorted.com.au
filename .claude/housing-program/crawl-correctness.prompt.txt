@@ -1,0 +1,7 @@
+Implement the housing work package "crawl-correctness" for the Shorted repo checkout you are in - a dedicated git worktree on branch feat/housing-crawl-correctness, base commit 8c120a352.
+
+FIRST read the full spec at /Users/benebsworth/projects/shorted/.claude/housing-program/crawl-correctness.md and follow it exactly: the ground rules, the findings, the QA requirements, and the commit requirements. If you cannot read that file, stop and report that instead of guessing.
+
+Scope reminder - the three findings: F12 thin-suburb false-block root cause (PageMeta-aware gate + table-driven classification tests), F36 trace screenshot nil-context/goroutine safety to the #405 pattern, F35 medians-tier counts-only brandbrain contract. Important: open PR #408 already fixes the circuit-open-banked-as-succeeded issue (F10) - do NOT duplicate that work.
+
+Commit ALL your work on this branch with conventional-commit messages (one commit per logical unit is fine). Never push, never merge, never switch branches. End with a summary: changes per finding, the actual test results you observed, and what needs hand-verification.

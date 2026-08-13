@@ -142,3 +142,70 @@ func upsertPropertyValuation(ctx context.Context, pool *pgxpool.Pool, t property
 		cleanText(p.PropertyType), p.Lat, p.Lng, salesJSON, raw, contentHash)
 	return err
 }
+
+// loadPropertyResolveWorklist returns active-listing addresses that have NO known
+// profile URL yet, for -mode property-resolve.
+//
+// It differs from loadPropertyWorklist in what it considers "done". That one is
+// TTL-driven, because a valuation goes stale. A resolved URL does not: a PID is
+// permanent, so an address with a profile_url never needs resolving again and is
+// excluded outright rather than re-queued after ttlDays. Rows stamped 'notfound'
+// by a previous -mode property run ARE re-queued — that status is recorded when
+// the profile fetch failed OR the resolve missed, so it does not distinguish
+// "this address has no profile" from "we could not read it that day", and the
+// search resolver can succeed where the traversal did not.
+//
+// `sample` randomises the order. The default ordering is by address_key, which
+// sorts zero-padded unit numbers ("000 New Road", "004/165 Osborne Drive") to the
+// front — the pathological slice of the corpus. That is harmless for a full sweep
+// and actively misleading for a sample, because it measures the hit rate on the
+// hardest addresses we have and reads as the rate for all of them.
+//
+// Addresses with no street number are skipped in SQL rather than burning a
+// network round trip to discover it: the autocomplete cannot disambiguate a
+// suburb-only address, which is exactly the shape of the 5,437 development
+// listings ("New House & Land", "Off the Plan") that carry no street address.
+func loadPropertyResolveWorklist(ctx context.Context, pool *pgxpool.Pool, ttlDays, limit int, sample bool) ([]propertyTarget, error) {
+	if limit <= 0 {
+		limit = 200
+	}
+	rows, err := pool.Query(ctx, `
+		WITH addrs AS (
+			SELECT DISTINCT ON (pl.address_key)
+				pl.address_key,
+				COALESCE(pl.display_address, '') AS display_address,
+				COALESCE(pl.suburb, '')          AS suburb,
+				COALESCE(pl.state_code, '')      AS state_code,
+				COALESCE(pl.postcode, '')        AS postcode
+			FROM property_listings pl
+			WHERE pl.is_active
+			  AND pl.address_key <> ''
+			  AND COALESCE(pl.display_address, '') ~ '[0-9]'
+			  AND COALESCE(pl.suburb, '') <> ''
+			  AND COALESCE(pl.state_code, '') <> ''
+			  AND COALESCE(pl.postcode, '') <> ''
+			ORDER BY pl.address_key, pl.first_seen_at DESC
+		)
+		SELECT a.address_key, a.display_address, a.suburb, a.state_code, a.postcode
+		FROM addrs a
+		LEFT JOIN property_valuations pv ON pv.address_key = a.address_key
+		WHERE pv.address_key IS NULL
+		   OR COALESCE(pv.profile_url, '') = ''
+		ORDER BY (pv.address_key IS NULL) DESC,
+		         CASE WHEN $2::bool THEN random() END,
+		         a.address_key
+		LIMIT $1`, limit, sample)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []propertyTarget
+	for rows.Next() {
+		var t propertyTarget
+		if err := rows.Scan(&t.addressKey, &t.displayAddress, &t.suburb, &t.stateCode, &t.postcode); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}

@@ -15,7 +15,8 @@
 # housing wrappers (DATABASE_URL, CRAWL_CDP_URL, BRANDBRAIN_AGENT_URL, optional
 # CRAWL_FRESHNESS_* knobs).
 #
-# Exit codes: 0 ok · 3 re-warm needed · 4 Chrome unusable · 6 freshness ALARM.
+# Exit codes: 0 ok · 3 re-warm needed · 4 Chrome unusable · 6 freshness ALARM ·
+# 7 agent infrastructure failed before any work.
 set -uo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -43,7 +44,8 @@ echo "=== $(date -u +%FT%TZ) housing-full (selection=all whole-catalog) ===" >>"
 # 1. Enqueue the whole catalog (idempotent — brandbrain dedups pending jobs).
 # shellcheck disable=SC2209  # intentional one-shot env var prefixing the command
 CRAWL_ENQUEUE_SELECTION=all "$BIN" -mode enqueue >>"$LOG" 2>&1
-echo "$(date -u +%FT%TZ) full enqueue rc=$?" >>"$LOG"
+enqueue_rc=$?
+echo "$(date -u +%FT%TZ) full enqueue rc=$enqueue_rc" >>"$LOG"
 
 # 2. Drain the queue to empty (bounded, re-warm/Chrome aware).
 hc_drain_until_empty
@@ -53,7 +55,9 @@ drain_rc=$?
 hc_freshness
 fresh_rc=$?
 
-echo "$(date -u +%FT%TZ) housing-full done: drain_rc=$drain_rc fresh_rc=$fresh_rc" >>"$LOG"
-case "$drain_rc" in 3 | 4) exit "$drain_rc" ;; esac
+echo "$(date -u +%FT%TZ) housing-full done: enqueue_rc=$enqueue_rc drain_rc=$drain_rc fresh_rc=$fresh_rc" >>"$LOG"
+# Run every phase, then preserve failures in enqueue → drain → freshness order.
+[[ "$enqueue_rc" -ne 0 ]] && exit "$enqueue_rc"
+[[ "$drain_rc" -ne 0 ]] && exit "$drain_rc"
 [[ "$fresh_rc" -ne 0 ]] && exit "$fresh_rc"
 exit 0

@@ -43,7 +43,7 @@ catalog is 500 suburbs and a property.com.au per-address crawl is coming online.
 |---|---|---|
 | **Per-IP volume** | One residential IP was flagged after **~14 bursty hits** on 2026-06-24 (unpaced early run); "even headed then returned stubs" until cooldown. IP recovers after a cooldown. | **Measured** (early, fast pacing) |
 | **Session / device fingerprint** | The **user's phone on the SAME home network was NOT blocked while the Mac crawl was** (this was specifically the **Akamai/Domain** `errors.edgesuite.net` block). → the block is scoped to the crawling *device/session*, not the whole premises IP. | **Measured** (single striking observation) |
-| **Navigation fingerprint (Kasada/REA)** | Kasada distrusts *how* a page was navigated to. A **Playwright-driven** nav → ~870B KPSDK stub (blocked); Chrome's **native startup nav** to a REA URL clears the proof-of-work and sets a session cookie; the *same* CDP fetch path then returns the full ~1.17MB page. `blocked=0` across many suburbs once warm. | **Measured + automated** (§6.5 of housing-architecture.md) |
+| **Navigation fingerprint (Kasada/REA)** | Kasada distrusts *how* a page was navigated to. A **Playwright-driven** nav → ~870B KPSDK stub (blocked); Chrome's **native startup nav** to a REA URL clears the proof-of-work and sets a session cookie; the *same* CDP fetch path then returns the full ~1.17MB page. `blocked=0` across many suburbs once warm. | **Measured + automated** (§6.5 of docs/feature/housing/architecture.md) |
 | **Per-URL repeat** | Repeated hits to one exact URL (Bondi) flagged that URL's internal mismatch gate from prior volume. | **Measured**, minor |
 | **Kasada vs Akamai difference** | **Domain (Akamai) works cold** with any client (1.7MB `__NEXT_DATA__`). **REA/property.com.au (Kasada) need the warm native-startup session.** They block **independently** (that's why the queue splits rea/domain into separate jobs + separate circuit breakers). Melbourne `domain` blocks repeatedly (dense-CBD Akamai). | **Measured** |
 
@@ -354,7 +354,7 @@ last-resort that must clear a feasibility + ToS bar first.
 
 ## Appendix — key facts this rests on (with pointers)
 
-- Warm-Chrome mechanism + exit codes + queue: `docs/housing-architecture.md` §6 (esp. §6.5).
+- Warm-Chrome mechanism + exit codes + queue: `docs/feature/housing/architecture.md` §6 (esp. §6.5).
 - Crawl code: `services/house-price-collector/crawl_agent.go` (queue drain, `maxJobs=20`, split rea/domain,
   circuit breaker), `crawl_cdp.go` (CDP fetcher, warm `Contexts()[0]`), `crawl_chrome.go` (self-warm /
   `launchDedicatedChrome` — where `--proxy-server` would go), `crawl_listings.go` (pacing knobs, on-target

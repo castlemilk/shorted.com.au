@@ -184,12 +184,17 @@ message SuburbSummary {
   // NBN connectivity (Local Insights); '' until ingested.
   string dominant_nbn_tech = 26;             // Fixed Line | Fixed Wireless | Satellite
   double connectivity_quality_score = 27;    // 0..100 (tech-tier proxy)
-  // Crime percentile ranks (national population-weighted, 0..100, higher =
-  // more reported crime; latest 2-yr-pooled FY, CVS-adjusted). 0 = no data —
-  // pct_rank is strictly > 0 whenever a reliable observation exists. Small-
-  // population and statistically-unreliable suburbs are gated server-side
+  // Crime percentile ranks (0..100, higher = more reported crime; latest
+  // 2-yr-pooled FY, CVS-adjusted). 0 = no data — pct_rank is strictly > 0
+  // whenever a reliable observation exists. Small-population and
+  // statistically-unreliable suburbs are gated server-side
   // (mv_suburb_crime_latest) and read as no-data. NSW (BOCSAR) only in
   // Phase 1; uncovered states/TAS/NT stay 0. CC-BY sources.
+  //
+  // The rank is population-weighted WITHIN THE SUBURB'S OWN STATE, never across
+  // states: each police force counts offences under its own rules, so a
+  // cross-jurisdiction pool would compare incomparable counts. Read "82nd
+  // percentile" as "82nd of that state", and label it that way in any client.
   double crime_break_ins_rank = 28;
   double crime_violent_rank = 29;
   double crime_motor_vehicle_rank = 30;
@@ -464,7 +469,7 @@ message GetPropertyHistoryResponse {
   // physical dwelling. Counting bedrooms (not raw bed/bath/type tuples) keeps
   // cross-portal label noise from falsely flagging a single dwelling. A search-
   // results crawl cannot recover the missing unit number, so the view warns
-  // instead of silently merging. See docs/housing-architecture.md.
+  // instead of silently merging. See docs/feature/housing/architecture.md.
   int32 distinct_dwellings = 11;
   // AVM valuation for this address (property.com.au). Unset when none exists,
   // fetch_status != 'ok', or HOUSING_VALUATIONS_ENABLED is off.

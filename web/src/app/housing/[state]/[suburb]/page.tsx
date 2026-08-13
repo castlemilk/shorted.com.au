@@ -1,30 +1,46 @@
 import type { Metadata } from "next";
-import { toJson } from "@bufbuild/protobuf";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { LLMMeta } from "@/components/seo/llm-meta";
 import { HousingBreadcrumb } from "@/components/housing/housing-breadcrumb";
-import { SuburbProfile } from "@/components/housing/suburb-profile-loader";
+import { SuburbProfile } from "@/components/housing/suburb-profile";
 import { getSuburbProfile, resolveSuburbSalCode } from "~/app/actions/getHousing";
-import { GetSuburbProfileResponseSchema } from "~/gen/shorts/v1alpha1/housing_pb";
-import { STATE_NAMES, slugToState, stateSlug } from "@/lib/housing/states";
+import { NotFoundError } from "~/app/actions/withRetry";
+import { STATE_NAMES, slugToState, stateSlug, suburbSlug } from "@/lib/housing/states";
 
 export const revalidate = 86400;
 
 interface PageProps {
   params: Promise<{ state: string; suburb: string }>;
-  searchParams: Promise<{ sal?: string }>;
 }
 
-export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
+// An empty list enables on-demand ISR for this dynamic segment without
+// prebuilding or warming the ~15k suburb corpus during deploys.
+export function generateStaticParams(): Array<{ state: string; suburb: string }> {
+  return [];
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { state, suburb } = await params;
   const code = slugToState(state);
   if (!code) return {};
-  const sal = (await searchParams).sal ?? (await resolveSuburbSalCode(code, suburb));
-  const profile = sal ? await getSuburbProfile(sal).catch(() => null) : null;
+  const sal = await resolveSuburbSalCode(code, suburb);
+  let profile;
+  try {
+    profile = sal ? await getSuburbProfile(sal) : undefined;
+  } catch (error) {
+    if (error instanceof NotFoundError) return {};
+    throw error;
+  }
+  if (sal && !profile) {
+    throw new Error(`Unable to load suburb profile for SAL ${sal}`);
+  }
   const name = profile?.summary?.salName ?? suburb.replace(/-/g, " ");
-  const url = `https://shorted.com.au/housing/${stateSlug(code)}/${suburb}`;
+  const canonicalSlug = profile?.summary
+    ? suburbSlug(profile.summary.salName, profile.summary.postcode)
+    : suburb.replace(/-$/, "");
+  const url = `https://shorted.com.au/housing/${stateSlug(code)}/${canonicalSlug}`;
   const title = `${name} House Prices & Demographics`;
   const description = `Median house price, ABS Census demographics and trends for ${name}, ${STATE_NAMES[code]}.`;
   return {
@@ -34,16 +50,33 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
   };
 }
 
-export default async function SuburbPage({ params, searchParams }: PageProps) {
+export default async function SuburbPage({ params }: PageProps) {
   const { state, suburb } = await params;
   const code = slugToState(state);
   if (!code) notFound();
-  // ?sal= is a fast-path; otherwise resolve the SAL from the slug so the clean
-  // (canonical) URL renders for shared/crawled links.
-  const sal = (await searchParams).sal ?? (await resolveSuburbSalCode(code, suburb));
+  // Always resolve from the path. Existing `?sal=` links remain valid, but the
+  // query value cannot spoof another state's profile or force dynamic rendering.
+  const sal = await resolveSuburbSalCode(code, suburb);
   if (!sal) notFound();
-  const profile = await getSuburbProfile(sal).catch(() => null);
+  let profile;
+  try {
+    profile = await getSuburbProfile(sal);
+  } catch (error) {
+    if (error instanceof NotFoundError) notFound();
+    throw error;
+  }
+  if (!profile) {
+    throw new Error(`Unable to load suburb profile for SAL ${sal}`);
+  }
   if (!profile?.summary) notFound();
+  const profileState = slugToState(profile.summary.stateCode);
+  if (!profileState) {
+    throw new Error(`Suburb profile ${sal} returned invalid state ${profile.summary.stateCode}`);
+  }
+  const canonicalSlug = suburbSlug(profile.summary.salName, profile.summary.postcode);
+  if (profileState !== code || suburb !== canonicalSlug) {
+    permanentRedirect(`/housing/${stateSlug(profileState)}/${canonicalSlug}`);
+  }
   const name = profile.summary.salName;
   return (
     <DashboardLayout>
@@ -56,7 +89,7 @@ export default async function SuburbPage({ params, searchParams }: PageProps) {
           salCode={sal}
           regionCode={undefined}
           stateCode={code}
-          initialProfileJson={toJson(GetSuburbProfileResponseSchema, profile)}
+          profile={profile}
         />
       </div>
     </DashboardLayout>

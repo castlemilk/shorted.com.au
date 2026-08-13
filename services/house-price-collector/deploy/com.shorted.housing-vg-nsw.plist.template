@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!-- Residential-only NSW Valuer-General PSI ingest. The source's Cloudflare
+     challenge does not clear from Cloud Run, so this launchd job runs the
+     dedicated collector mode from an approved residential Mac. Replace __REPO__
+     with the checkout root and __HOME__ with the operator's home directory. -->
+<dict>
+  <key>Label</key><string>com.shorted.housing-vg-nsw</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__REPO__/services/house-price-collector/deploy/run-housing-vg-nsw.sh</string>
+  </array>
+
+  <!-- Monthly on the 8th at 04:30 local. The collector consumes trailing complete
+       calendar years, so frequent crawling adds load without fresher periods. -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Day</key><integer>8</integer>
+    <key>Hour</key><integer>4</integer>
+    <key>Minute</key><integer>30</integer>
+  </dict>
+
+  <key>StandardOutPath</key><string>__HOME__/Library/Logs/shorted-housing-vg-nsw.out.log</string>
+  <key>StandardErrorPath</key><string>__HOME__/Library/Logs/shorted-housing-vg-nsw.err.log</string>
+  <key>ProcessType</key><string>Background</string>
+  <key>LowPriorityIO</key><true/>
+  <key>RunAtLoad</key><false/>
+</dict>
+</plist>
