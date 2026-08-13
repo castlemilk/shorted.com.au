@@ -466,7 +466,6 @@ jobs:
             -var="shorted_jobs_browser_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorted-jobs-browser:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="signals_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/signals-collector:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="report_extractor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/report-extractor:${{ needs.determine-environment.outputs.image-tag }}" \
-            -var="grafana_auth=${{ secrets.GRAFANA_SERVICE_ACCOUNT_TOKEN }}" \
             -out=tfplan
         # No continue-on-error: a failing plan must fail the PR check. This was
         # advisory-only for months and silently swallowed a missing-variable
@@ -1131,7 +1130,6 @@ jobs:
             -var="shorted_jobs_browser_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorted-jobs-browser:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="signals_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/signals-collector:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="report_extractor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/report-extractor:${{ needs.determine-environment.outputs.image-tag }}" \
-            -var="grafana_auth=${{ secrets.GRAFANA_SERVICE_ACCOUNT_TOKEN }}" \
             -var="image_tag=${{ needs.determine-environment.outputs.image-tag }}" \
             -auto-approve
 

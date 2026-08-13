@@ -46,8 +46,12 @@ fi
 export CRAWL_PROPERTY_RESOLVE_MAX="${CRAWL_PROPERTY_RESOLVE_MAX:-3000}"
 export CRAWL_PROPERTY_RESOLVE_MIN_MS="${CRAWL_PROPERTY_RESOLVE_MIN_MS:-900}"
 export CRAWL_PROPERTY_RESOLVE_MAX_MS="${CRAWL_PROPERTY_RESOLVE_MAX_MS:-2200}"
-# Scheduled runs persist. See the header.
-export CRAWL_DRY_RUN=false
+# Scheduled runs persist. The collector defaults this to true so a hand-run
+# cannot write by accident, so the wrapper must set it — but it uses :- rather
+# than forcing, so the job can still be smoke-tested with
+# `CRAWL_DRY_RUN=true ./run-housing-property-resolve.sh` before you trust it to a
+# schedule. Unset (the launchd case) still means false. See the header.
+export CRAWL_DRY_RUN="${CRAWL_DRY_RUN:-false}"
 
 BIN="${HOUSING_RESOLVE_BIN:-$HOME/bin/house-price-collector}"
 LOG="${HOUSING_RESOLVE_LOG:-$HOME/Library/Logs/shorted-housing-property-resolve.log}"

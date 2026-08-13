@@ -15,10 +15,6 @@ terraform {
       source  = "hashicorp/time"
       version = "~> 0.9"
     }
-    grafana = {
-      source  = "grafana/grafana"
-      version = "~> 3.0"
-    }
     cloudflare = {
       source  = "cloudflare/cloudflare"
       version = "~> 5.19"
@@ -572,33 +568,6 @@ module "enrichment_processor" {
     google_project_service.required_apis,
     google_artifact_registry_repository.shorted
   ]
-}
-
-# Grafana Cloud Dashboards — BEING DECOMMISSIONED FROM THIS STACK (2026-08-12).
-#
-# These dashboards are cosmetic and nothing here depends on them, but managing
-# them put Grafana Cloud's API on the critical path of every production deploy:
-# grafana_folder.shorted had to be refreshed on every plan, so a transient 5xx
-# failed the whole apply. That happened on three consecutive deploys (504, 503,
-# and separately a data.gov.au timeout), each passing only on a manual re-run.
-# The provider already retries 5xx by default, so more retries was not the
-# answer — the coupling was.
-#
-# The call NAME must stay `grafana_dashboards`: state addresses derive from it,
-# and the orphaned resources need their provider configuration to still resolve
-# at module.grafana_dashboards.provider[...]. Deleting the call outright fails
-# the plan with "Provider configuration not present" — verified the hard way.
-# So it now points at a shim that holds that provider plus `removed` blocks with
-# `destroy = false`, which forgets the resources WITHOUT deleting them.
-#
-# After one prod apply has processed this, state holds no grafana resources and
-# both this call and the shim can be deleted. The dashboard definitions live on
-# in terraform/modules/grafana-dashboards/ — see its README.
-module "grafana_dashboards" {
-  source = "../../modules/grafana-dashboards-decommission"
-
-  grafana_url  = var.grafana_url
-  grafana_auth = var.grafana_auth
 }
 
 # Weekly Report Generator Job
