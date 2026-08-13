@@ -1,0 +1,557 @@
+# Front door for this repo's operations.
+#
+# There are five Makefiles and 118 root targets. This is NOT a port of them — it
+# is the ~40 operations people actually reach for, named so that `task --list`
+# reads as a risk map: anything under a `prod:` segment, or named `promote` /
+# `apply` / `exec`, changes production.
+#
+# Three rules this file enforces that a bare make target cannot:
+#
+#   1. THE DSN IS NEVER AMBIENT. services/Makefile has `DATABASE_URL ?=`, so an
+#      exported prod DSN silently retargets `make migrate-up` at Supabase. Every
+#      task here pins its DSN in `env:`, which go-task applies OVER the inherited
+#      environment, and prod tasks assert the POOLER PORT matches their purpose.
+#   2. PROD WRITES REQUIRE A VARIABLE, NOT A PROMPT. `task --yes` and non-TTY
+#      callers sail through `prompt:`; they cannot fake `CONFIRM=prod`.
+#   3. GO RUNS ARE CI-REPRODUCIBLE. GOWORK=off + GOPRIVATE are set globally,
+#      because services/go.work replaces a private module with a sibling checkout
+#      that exists only on a dev machine.
+#
+# `task --list` shows the everyday set; `task --list-all` adds the situational
+# ones. Long help lives on the tasks that fail SILENTLY when misused:
+#   task db:prod:apply --summary
+version: "3"
+
+vars:
+  # ---- database DSNs: three named values, never one ambient var ----
+  DB_LOCAL: postgresql://admin:password@localhost:5438/shorts?sslmode=disable
+  # Resolved lazily so a plain `task --list` never touches secrets on disk.
+  # 6543 = transaction pooler: READ-ONLY probes only.
+  DB_PROD_TXN:
+    sh: grep -m1 '^DATABASE_URL=' services/.env 2>/dev/null | cut -d= -f2- || true
+  # 5432 = session pooler: DDL, MV refresh, anything multi-statement.
+  DB_PROD_SESSION:
+    sh: grep -m1 '^DATABASE_URL=' services/.env 2>/dev/null | cut -d= -f2- | sed 's/:6543/:5432/' || true
+
+  # ---- environment targeting: derived, never read from ambient gcloud config ----
+  ENV: '{{.ENV | default "dev"}}'
+  GCP_PROJECT: '{{if eq .ENV "prod"}}rosy-clover-477102-t5{{else}}shorted-dev-aba5688f{{end}}'
+  GCP_CONFIG: '{{if eq .ENV "prod"}}shorted-prod{{else}}shorted-dev{{end}}'
+  REGION: australia-southeast2
+  # Browser UA: curl's default is blocked at the Cloudflare edge.
+  BROWSER_UA: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+
+env:
+  # Every Go invocation matches CI. Without this, any machine lacking the
+  # ../../stealth sibling checkout fails typecheck on EVERY package.
+  GOWORK: "off"
+  GOPRIVATE: github.com/skunkworq/*
+
+tasks:
+  # =========================================================================
+  # root
+  # =========================================================================
+  default:
+    desc: List the everyday tasks (use --list-all for the situational ones)
+    silent: true
+    cmds:
+      - task --list
+
+  setup:
+    desc: "Bootstrap a fresh clone: deps, git hooks, local database, migrations"
+    cmds:
+      - task: dev:install
+      - task: dev:hooks
+      - task: db:up
+      - task: db:migrate
+      - echo "Ready. 'task dev:up' to start the stack."
+
+  verify:
+    desc: Run the pre-commit gate (guards, Go -short, jest, backend-free build)
+    cmds:
+      - make verify-fast
+
+  check:
+    desc: Run the pre-push gate (verify + lint + testcontainer integration)
+    summary: |
+      The full local gate — what the pre-push hook runs.
+
+      It boots testcontainers when Docker is up, and its integration leg calls
+      `make test-integration-local`, which KILLS anything listening on :9091 in
+      this repo. Your running dev backend will be taken down.
+    cmds:
+      - make verify-full
+
+  # =========================================================================
+  # dev — local stack
+  # =========================================================================
+  dev:install:
+    desc: Install web + Go dependencies
+    cmds: [make install]
+
+  dev:hooks:
+    desc: Install the pre-commit / pre-push git hooks
+    cmds: [make install-hooks]
+
+  dev:up:
+    desc: Start Postgres + APIs + frontend, then report which ports are live
+    deps: [db:up]
+    cmds:
+      - npm run dev:no-stripe
+      - task: dev:ports
+
+  dev:down:
+    desc: Stop the app processes and the local Postgres container
+    cmds: [make dev-stop]
+
+  dev:restart:
+    desc: Restart the app processes, leaving Postgres running
+    cmds:
+      - make dev-stop-services
+      - task: dev:up
+
+  dev:web:
+    desc: Run only the Next.js frontend on :3020
+    dir: web
+    cmds: [npm run dev]
+
+  dev:storybook:
+    desc: Run Storybook on :6006 (a stale-chunk-free origin for UI checks)
+    dir: web
+    cmds: [npm run storybook]
+
+  dev:ports:
+    desc: Show who owns 3020/9091/8090/5438 — and whether it is your process
+    summary: |
+      Before trusting ANY local test result, confirm the LISTEN pid is the server
+      you just started. A stale squatter serves OLD code and produces a false
+      pass — this is the single most common way local verification lies.
+    silent: true
+    cmds:
+      - |
+        for p in 3020 9091 8090 5438; do
+          printf '%-6s ' "$p"
+          lsof -nP -iTCP:$p -sTCP:LISTEN 2>/dev/null | awk 'NR==2{printf "pid=%s %s\n",$2,$1} END{if(NR<2)print "free"}'
+        done
+
+  dev:kill:
+    desc: Kill this checkout's app processes (leaves Postgres alone)
+    summary: |
+      Delegates to `make dev-stop-services`, NOT `make clean-ports` — that target
+      kills :3000 (someone else's service) and misses :3020 (ours).
+    cmds: [make dev-stop-services]
+
+  dev:cache:clear:
+    desc: Delete web/.next so dev stops serving stale chunks
+    prompt: Delete the Next.js build output?
+    cmds: [make clean-cache]
+
+  dev:proto:
+    desc: Regenerate protobuf code for Go, TypeScript and the Java SDK
+    summary: |
+      Commit ALL outputs, including the sdks/java churn — the committed Java SDK
+      tracks the protos. A new rpc must be added to BOTH its domain service and
+      the legacy ShortedStocksService; proto_parity_test.go enforces that.
+    dir: proto
+    cmds: [buf generate]
+
+  # =========================================================================
+  # db — local by default; prod is explicit and port-checked
+  # =========================================================================
+  db:up:
+    desc: Start the local Postgres container on :5438
+    cmds: [make dev-db]
+
+  db:shell:
+    desc: Open psql against the LOCAL database
+    interactive: true
+    env: {DATABASE_URL: "{{.DB_LOCAL}}"}
+    cmds: ['psql "{{.DB_LOCAL}}"']
+
+  db:migrate:
+    desc: Apply pending migrations to the LOCAL database
+    summary: |
+      Local only — the DSN is pinned, so an exported prod DATABASE_URL cannot
+      retarget this (services/Makefile uses `?=`, which would let it).
+
+      Before minting a migration number, check `ls services/migrations | tail`
+      against origin/main: numbers collide when two branches mint at once.
+    dir: services
+    env: {DATABASE_URL: "{{.DB_LOCAL}}"}
+    preconditions:
+      - sh: 'echo "{{.DB_LOCAL}}" | grep -qE "@(localhost|127\.0\.0\.1):"'
+        msg: "refusing: db:migrate is local-only but the DSN is not local"
+    cmds: [make migrate-up]
+
+  db:migrate:new:
+    desc: Create a new migration pair (NAME=add_foo)
+    dir: services
+    requires: {vars: [NAME]}
+    cmds: ['make migrate-create NAME={{.NAME}}']
+
+  db:migrate:down:
+    desc: Roll back the last LOCAL migration
+    dir: services
+    env: {DATABASE_URL: "{{.DB_LOCAL}}"}
+    prompt: Roll back the most recent migration on the local database?
+    cmds: [make migrate-down]
+
+  db:prod:psql:
+    desc: Read-only psql against prod (transaction pooler)
+    summary: |
+      Opens on the TRANSACTION pooler (6543) with the session forced read-only,
+      which is the right tool for probes and the wrong one for DDL.
+
+      For anything that writes or runs multiple statements — DDL, MV refresh,
+      VACUUM — use db:prod:apply / db:prod:refresh, which use the SESSION pooler
+      (5432). The txn pooler kills long statements mid-flight.
+    interactive: true
+    env: {PGOPTIONS: "-c default_transaction_read_only=on"}
+    preconditions:
+      - sh: '[ -n "{{.DB_PROD_TXN}}" ]'
+        msg: "no prod DSN found in services/.env"
+    cmds: ['psql "{{.DB_PROD_TXN}}"']
+
+  db:prod:apply:
+    desc: "Hand-apply ONE migration to prod (FILE=..., CONFIRM=prod)"
+    summary: |
+      The prod deploy does NOT run `migrate up`. It applies a hardcoded allowlist
+      and force-writes schema_migrations to 75, so prod's recorded version is a
+      lie. Housing and politician DDL has always been applied by hand.
+
+      Rules that are not optional:
+        * SESSION pooler (5432). The txn pooler (6543) kills DDL mid-statement.
+        * statement_timeout=0, or a large CREATE INDEX dies half-done.
+        * DB BEFORE CODE. Merging read code first makes every read path 500.
+        * Order matters: 000083 re-creates refresh_all_materialized_views with a
+          PRE-hardening body, so anything touching that function runs AFTER it.
+
+      Verify the change landed with a pg_proc / \\d query before merging.
+    requires: {vars: [FILE, CONFIRM]}
+    preconditions:
+      - sh: '[ "{{.CONFIRM}}" = "prod" ]'
+        msg: "refusing: pass CONFIRM=prod to apply DDL to production"
+      - sh: '[ -f "{{.FILE}}" ]'
+        msg: "migration file not found: {{.FILE}}"
+      - sh: 'echo "{{.DB_PROD_SESSION}}" | grep -q ":5432/"'
+        msg: "refusing: prod DDL needs the SESSION pooler (5432), got a non-5432 DSN"
+    cmds:
+      - 'PGOPTIONS="-c statement_timeout=0" psql "{{.DB_PROD_SESSION}}" -v ON_ERROR_STOP=1 -f {{.FILE}}'
+
+  db:prod:refresh:
+    desc: "Refresh prod materialized views (WHICH=all|housing|register, CONFIRM=prod)"
+    summary: |
+      SESSION pooler (5432) with statement_timeout=0. On the txn pooler (6543)
+      a REFRESH ... CONCURRENTLY is killed mid-flight, and the plpgsql
+      `EXCEPTION WHEN OTHERS` guard does NOT catch the query_canceled that a
+      statement timeout raises — so one timed-out view starves every view after
+      it. That is exactly how five MVs went stale for 19 days.
+
+      Do not use scripts/refresh-materialized-views.sh: it rewrites 5432 to 6543.
+    requires: {vars: [CONFIRM]}
+    vars: {WHICH: '{{.WHICH | default "all"}}'}
+    preconditions:
+      - sh: '[ "{{.CONFIRM}}" = "prod" ]'
+        msg: "refusing: pass CONFIRM=prod"
+      - sh: 'echo "{{.DB_PROD_SESSION}}" | grep -q ":5432/"'
+        msg: "refusing: MV refresh needs the SESSION pooler (5432)"
+    cmds:
+      - |
+        fn=refresh_all_materialized_views
+        case "{{.WHICH}}" in
+          housing)  fn=refresh_housing_materialized_views ;;
+          register) fn=refresh_register_materialized_views ;;
+        esac
+        PGOPTIONS="-c statement_timeout=0" psql "{{.DB_PROD_SESSION}}" -v ON_ERROR_STOP=1 -c "SELECT $fn();"
+
+  db:prod:migrate:
+    desc: "(refuses — see db:prod:apply)"
+    silent: true
+    cmds:
+      - |
+        echo "There is no bulk prod migrate, on purpose."
+        echo
+        echo "services/Makefile has a migrate-up-prod target. Running it replays ~34"
+        echo "migrations against a database whose version counter is fake, which"
+        echo "reverts the MV hardening and drops live materialized views."
+        echo
+        echo "Apply one file at a time:  task db:prod:apply FILE=... CONFIRM=prod"
+        exit 1
+
+  # =========================================================================
+  # test
+  # =========================================================================
+  test:
+    desc: Run the unit suites (Go both modules + web jest)
+    cmds:
+      - task: test:go
+      - task: test:web
+
+  test:go:
+    desc: Run Go unit tests for both modules
+    summary: |
+      Two SEPARATE Go modules. services/jobs is invisible to `go list ./...` in
+      services, so for a long time nothing ran its tests — that is how ~150
+      register assertions and two housing tests sat red unnoticed.
+
+      GOWORK=off is set globally here: with the workspace active, a machine
+      without the ../../stealth sibling checkout fails typecheck everywhere.
+    cmds:
+      - cd services && go test ./... -short
+      - cd services/jobs && go test ./... -short
+
+  test:web:
+    desc: Run the web jest unit suite
+    cmds: [make test-frontend]
+
+  test:lint:
+    desc: Lint Go and the frontend
+    summary: |
+      `--concurrency 1` is an OOM guard, not a preference — golangci-lint dies on
+      this module without it.
+
+      The linter must be v2: services/.golangci.yaml is `version: "2"`, and a v1
+      binary silently ignores it and reports a DIFFERENT issue set. CI pins
+      v2.10.1. Note Makefile's Linux install path still fetches v1.61.0, so a
+      Linux dev can get a different answer than CI.
+    cmds:
+      - make lint-backend
+      - make lint-frontend
+
+  test:guards:
+    desc: Run the workflow/script contract guards
+    summary: |
+      Covers BOTH directories. scripts/tests/*.test.mjs is what most people run;
+      .github/workflows/*.test.mjs is what the housing-contract-tests CI job
+      runs, and it was missing from the local glob — so a contract test could be
+      red in CI while the local gate was green.
+    cmds:
+      - npm run test:workflow
+      - npm run test:release-pipeline
+
+  test:integration:
+    desc: Run the testcontainer integration suites (needs Docker)
+    summary: |
+      Boots real Postgres via testcontainers. It first kills anything listening
+      on :9091 in this repo, so it WILL stop your running dev backend.
+    prompt: This stops any dev backend on :9091. Continue?
+    cmds: [make test-integration-local]
+
+  test:e2e:
+    desc: Run the Playwright end-to-end suite against a local stack
+    summary: |
+      Playwright's `webServer` is deliberately disabled here, so a stale process
+      already on :3020 is a FALSE PASS — run `task dev:ports` first and confirm
+      the pid is yours.
+
+      Never point browser automation at a personal Chrome profile; Playwright's
+      bundled Chromium with an isolated profile is the only supported shape.
+    dir: web
+    cmds: [npm run test:e2e]
+
+  test:bundle:
+    desc: Check route bundle budgets against a production build
+    dir: web
+    cmds: [npm run bundle:budget]
+
+  test:visual:
+    desc: Run Storybook visual regression
+    summary: |
+      Baselines are LINUX-only. Regenerating them on macOS produces a whole-suite
+      false diff — run the update inside the CI image, not locally.
+    dir: web
+    cmds: [npm run test:visual]
+
+  test:coverage:
+    desc: Produce Go + web coverage reports
+    cmds: [make test-coverage]
+
+  # =========================================================================
+  # job — local runs are local; prod execution is explicit
+  # =========================================================================
+  job:list:
+    desc: List the job families in the consolidated `shorted` binary
+    dir: services/jobs
+    cmds: [go run ./cmd/shorted --help]
+
+  job:housing:modes:
+    desc: List every house-price-collector mode
+    dir: services/house-price-collector
+    cmds: [go run . -mode help 2>&1 | head -5 || true]
+
+  job:housing:local:
+    desc: "Run one house-price-collector mode against the LOCAL db (MODE=...)"
+    summary: |
+      DRY-RUN SEMANTICS ARE INVERTED BETWEEN MODES.
+
+      Crawl-family modes (crawl, listings, details, property, property-resolve,
+      crime, purge) default to writing NOTHING: CRAWL_DRY_RUN / CRIME_DRY_RUN /
+      PURGE_DRY_RUN default true. Official-family modes (official, census,
+      economy) have no dry-run at all and always write.
+
+      Read `dryRun=` from the startup log before believing a run persisted.
+
+      Note there are TWO copies of this collector; the deployed one is
+      services/house-price-collector, not the services/jobs mirror.
+    dir: services/house-price-collector
+    requires: {vars: [MODE]}
+    env: {DATABASE_URL: "{{.DB_LOCAL}}"}
+    cmds: ['go run . -mode {{.MODE}}']
+
+  job:prod:list:
+    desc: List prod Cloud Run jobs and their schedules
+    env: {CLOUDSDK_ACTIVE_CONFIG_NAME: "{{.GCP_CONFIG}}"}
+    cmds:
+      - 'gcloud run jobs list --project {{.GCP_PROJECT}} --region {{.REGION}}'
+
+  job:prod:logs:
+    desc: "Show recent logs for a prod Cloud Run job (JOB=...)"
+    requires: {vars: [JOB]}
+    env: {CLOUDSDK_ACTIVE_CONFIG_NAME: "{{.GCP_CONFIG}}"}
+    cmds:
+      - |
+        gcloud logging read \
+          'resource.type=cloud_run_job AND resource.labels.job_name={{.JOB}}' \
+          --project {{.GCP_PROJECT}} --limit {{.LIMIT | default 100}} \
+          --format='value(timestamp,textPayload)'
+
+  job:prod:exec:
+    desc: "Execute a prod Cloud Run job (JOB=..., ARGS=..., CONFIRM=prod)"
+    summary: |
+      ARGS must lead with the subcommand — `economy,-mode,freshness`. A bare
+      `-mode ...` exits 2 because the consolidated binary needs the job name.
+
+      `--wait` is what makes the exit code mean anything. And a green exit is not
+      proof of work: several jobs have banked "succeeded" while writing nothing.
+      Verify with a row-count or an ingest-run query afterwards.
+    requires: {vars: [JOB, CONFIRM]}
+    env: {CLOUDSDK_ACTIVE_CONFIG_NAME: "{{.GCP_CONFIG}}"}
+    preconditions:
+      - sh: '[ "{{.CONFIRM}}" = "prod" ]'
+        msg: "refusing: pass CONFIRM=prod to execute a production job"
+    cmds:
+      - |
+        gcloud run jobs execute {{.JOB}} --wait \
+          --project {{.GCP_PROJECT}} --region {{.REGION}} \
+          {{if .ARGS}}--args="{{.ARGS}}"{{end}}
+
+  job:freshness:
+    desc: "Run a read-only freshness sentinel (WHICH=housing|economy|register)"
+    vars: {WHICH: '{{.WHICH | default "housing"}}'}
+    cmds:
+      - 'gh workflow run {{.WHICH}}-freshness.yml'
+      - echo "dispatched — task deploy:watch, or check the Actions tab"
+
+  # =========================================================================
+  # deploy
+  # =========================================================================
+  deploy:status:
+    desc: Show what is actually live (app version + API health)
+    silent: true
+    cmds:
+      - |
+        printf 'api      : %s\n' "$(curl -sS -o /dev/null -w '%{http_code}' -A 'Shorted-E2E/1.0' https://api.shorted.com.au/health --max-time 30)"
+        # The edge challenges non-browser clients, so report that honestly
+        # rather than printing a "Just a moment..." page as if it were a version.
+        web=$(curl -sS -A '{{.BROWSER_UA}}' https://shorted.com.au/api/version --max-time 30 2>/dev/null || true)
+        case "$web" in
+          *"Just a moment"*|"") web="(edge challenge — check in a browser)" ;;
+          *) web=$(printf '%s' "$web" | head -c 160) ;;
+        esac
+        printf 'web      : %s\n' "$web"
+        printf 'last run : %s\n' "$(gh run list --workflow=terraform-deploy.yml --branch main --limit 1 --json conclusion,createdAt --jq '.[] | "\(.conclusion) \(.createdAt)"' 2>/dev/null)"
+
+  deploy:watch:
+    desc: Watch the in-flight deploy
+    cmds:
+      - gh run watch $(gh run list --workflow=terraform-deploy.yml --branch main --limit 1 --json databaseId --jq '.[0].databaseId')
+
+  deploy:plan:
+    desc: "Terraform plan for an environment (ENV=dev|prod) — read only"
+    dir: terraform/environments/{{.ENV}}
+    env: {CLOUDSDK_ACTIVE_CONFIG_NAME: "{{.GCP_CONFIG}}"}
+    cmds:
+      - terraform init -input=false
+      - terraform plan -no-color
+
+  deploy:revalidate:
+    desc: "Bust prod ISR pages + KV after a promote (PATHS=..., FLUSH=..., CONFIRM=prod)"
+    summary: |
+      A promote resets every ISR page to its build-time placeholder, so this is
+      not optional after shipping.
+
+      Two traps: the endpoint needs a BROWSER user-agent (curl's default is
+      blocked at the edge), and only shorts|housing|politicians are valid flush
+      names — an unknown one is ignored and STILL returns 200. Read `flushedKeys`
+      back from the response to confirm anything actually happened.
+
+      /housing/[state] and /housing/[state]/[suburb] are in no automated list.
+    requires: {vars: [CONFIRM]}
+    preconditions:
+      - sh: '[ "{{.CONFIRM}}" = "prod" ]'
+        msg: "refusing: pass CONFIRM=prod"
+      - sh: '[ -n "$REVALIDATION_SECRET" ] || grep -q REVALIDATION_SECRET ~/.shorted-housing-crawl.env 2>/dev/null'
+        msg: "REVALIDATION_SECRET not set (see ~/.shorted-housing-crawl.env)"
+    cmds:
+      - |
+        set -a; [ -f ~/.shorted-housing-crawl.env ] && . ~/.shorted-housing-crawl.env; set +a
+        paths=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1],safe=''))" "{{.PATHS | default "/housing,/price-drops"}}")
+        curl -sS -X POST -g -A '{{.BROWSER_UA}}' --max-time 120 \
+          "https://shorted.com.au/api/revalidate?secret=${REVALIDATION_SECRET}&path=${paths}{{if .FLUSH}}&flush={{.FLUSH}}{{end}}"
+
+  deploy:smoke:
+    desc: Run the release smoke against production
+    dir: web
+    cmds: [npm run test:release-smoke]
+
+  # =========================================================================
+  # debug
+  # =========================================================================
+  debug:doctor:
+    desc: One-shot local sanity check (tools, ports, database)
+    silent: true
+    cmds:
+      - |
+        printf 'node     : %s (want %s)\n' "$(node -v)" "$(cat .nvmrc 2>/dev/null || echo '?')"
+        printf 'go       : %s\n' "$(go version | awk '{print $3}')"
+        printf 'task     : %s\n' "$(task --version)"
+        printf 'docker   : %s\n' "$(docker info >/dev/null 2>&1 && echo running || echo 'NOT running')"
+        printf 'golangci : %s\n' "$(golangci-lint --version 2>/dev/null | head -1 || echo 'not installed')"
+        printf 'local db : %s\n' "$(psql '{{.DB_LOCAL}}' -tAc 'select 1' >/dev/null 2>&1 && echo reachable || echo 'NOT reachable — task db:up')"
+        echo '--- ports ---'
+        for p in 3020 9091 8090 5438; do
+          printf '%-6s ' "$p"
+          lsof -nP -iTCP:$p -sTCP:LISTEN 2>/dev/null | awk 'NR==2{printf "pid=%s %s\n",$2,$1} END{if(NR<2)print "free"}'
+        done
+
+  debug:logs:api:
+    desc: "Recent warnings/errors from the shorts API (ENV=dev|prod)"
+    env: {CLOUDSDK_ACTIVE_CONFIG_NAME: "{{.GCP_CONFIG}}"}
+    cmds:
+      - |
+        gcloud logging read \
+          'resource.type=cloud_run_revision AND resource.labels.service_name=shorts AND severity>=WARNING' \
+          --project {{.GCP_PROJECT}} --limit {{.LIMIT | default 50}} \
+          --format='value(timestamp,severity,textPayload)'
+
+  debug:edge:
+    desc: Probe the API through Cloudflare and show cache/edge headers
+    cmds:
+      - curl -sS -D - -o /dev/null -A 'Shorted-E2E/1.0' https://api.shorted.com.au/health --max-time 30 | grep -iE 'HTTP/|cf-|cache|age:' || true
+
+  debug:housing:
+    desc: Read-only housing health (ingest runs, freshness, link coverage)
+    silent: true
+    preconditions:
+      - sh: '[ -n "{{.DB_PROD_TXN}}" ]'
+        msg: "no prod DSN found in services/.env"
+    cmds:
+      - |
+        psql "{{.DB_PROD_TXN}}" -tAc "
+          SELECT 'ingest ' || source || ' = ' || status || COALESCE(' (' || left(detail,60) || ')','')
+          FROM house_price_ingest_runs WHERE status <> 'ok' ORDER BY source;"
+        psql "{{.DB_PROD_TXN}}" -tAc "
+          SELECT 'vg ' || source || ' ' || status || ' ' || COALESCE(last_period::date::text,'-')
+          FROM house_price_ingest_runs WHERE source LIKE 'vg_%' ORDER BY source;"
+        psql "{{.DB_PROD_TXN}}" -tAc "
+          SELECT 'property links banked: ' || count(*) FROM property_valuations WHERE COALESCE(profile_url,'') <> '';"

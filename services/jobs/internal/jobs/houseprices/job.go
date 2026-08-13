@@ -299,7 +299,7 @@ func collectorTimeoutMinutes(mode string) int {
 
 	defaultTimeoutMin := 15
 	switch mode {
-	case "agent", "listings", "crawl", "details", "property", "crime":
+	case "agent", "listings", "crawl", "details", "property", "property-resolve", "crime":
 		defaultTimeoutMin = 240
 	}
 	return envInt("CRAWL_TIMEOUT_MIN", defaultTimeoutMin)

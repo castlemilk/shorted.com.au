@@ -72,3 +72,27 @@ func TestPropertyResolveConfigDefaults(t *testing.T) {
 		t.Errorf("min delay %v is too aggressive for a shared public autocomplete", cfg.minDelay)
 	}
 }
+
+// A paced mode that walks thousands of addresses must not inherit the 15-minute
+// default deadline. property-resolve did, and a 3,000-address chunk self-aborted
+// after 431 — the loop stopped on ctx.Err() and still exited 0, so the run looked
+// successful while doing a seventh of its work.
+//
+// The comment above collectorTimeoutMinutes already warns about exactly this for
+// the crawl modes; this pins it rather than leaving it to be re-learned.
+func TestPropertyResolveGetsALongDeadline(t *testing.T) {
+	got := collectorTimeoutMinutes("property-resolve")
+	if got < 120 {
+		t.Errorf("property-resolve deadline = %d min, want >= 120 — a full chunk at "+
+			"~2s/address needs well over an hour", got)
+	}
+	// Sanity: it must match the other paced walkers rather than be a one-off.
+	if want := collectorTimeoutMinutes("listings"); got != want {
+		t.Errorf("property-resolve deadline = %d, listings = %d — paced modes should share the default", got, want)
+	}
+	// And it must still be overridable for a short hand-run.
+	t.Setenv("CRAWL_TIMEOUT_MIN", "5")
+	if got := collectorTimeoutMinutes("property-resolve"); got != 5 {
+		t.Errorf("CRAWL_TIMEOUT_MIN override ignored: got %d, want 5", got)
+	}
+}

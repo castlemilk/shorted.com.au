@@ -4,6 +4,28 @@ This file provides context for AI coding assistants (Claude, Cursor, etc.) worki
 
 ## Quick Start
 
+`task` is the front door — `task --list` shows the everyday operations, grouped
+so the list reads as a risk map (anything under a `prod:` segment writes to
+production and requires `CONFIRM=prod`). The Makefiles still exist and still
+work; the Taskfile curates the ~40 operations people actually reach for and
+pins the things that are dangerous to get wrong:
+
+```bash
+task setup            # fresh clone -> deps, hooks, local DB, migrations
+task dev:up           # start the stack, then report which ports are live
+task verify           # the pre-commit gate
+task check            # the pre-push gate (adds lint + integration)
+task debug:doctor     # tools, ports, DB reachability in one shot
+
+task db:prod:apply --summary   # long help lives on the tasks that fail silently
+```
+
+Three properties it enforces that a bare make target cannot: the database DSN is
+never ambient (an exported prod `DATABASE_URL` cannot retarget a local command),
+prod writes require an explicit variable rather than a prompt (`task --yes`
+cannot bypass them), and every Go invocation sets `GOWORK=off` so it matches CI.
+Guarded by `scripts/tests/taskfile-safety.test.mjs`.
+
 ```bash
 # First time setup
 make install
