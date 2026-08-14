@@ -20,6 +20,7 @@ import { SCAN_SLUGS } from "~/@/lib/scans/registry";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 import { createSlug } from "~/@/lib/industry-slug";
 import { ALL_STATES, stateSlug, suburbSlug } from "~/@/lib/housing/states";
+import { isSuburbSitemapEligible } from "~/@/lib/seo/suburb-indexability";
 
 // Render at request time, never from build output. The build runs with
 // SKIP_STATIC_GENERATION=1 so its prerender only ever contains the 20-stock
@@ -541,7 +542,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         try {
           const res = await housingClient.listStateSuburbs({ stateCode: st, query: "", limit: 5000 });
           return res.suburbs
-            .filter((s) => s.latestMedianPrice > 0) // only real price data (avoid thin pages)
+            // ONE gate, shared with the page's robots meta, so the sitemap can
+            // never advertise a URL the page marks noindex. The old
+            // `latestMedianPrice > 0` filter excluded every suburb in QLD, WA,
+            // ACT, TAS and NT — states with no ingested Valuer-General feed —
+            // regardless of how much Census and amenity content the page had.
+            .filter((s) =>
+              isSuburbSitemapEligible({
+                salCode: s.salCode,
+                salName: s.salName,
+                latestMedianPrice: s.latestMedianPrice,
+                population: s.population,
+              }),
+            )
             .map((s) => ({ state: stateSlug(st), suburb: suburbSlug(s.salName, s.postcode) }));
         } catch (e) {
           console.error(`housing suburb urls (${st}):`, e);
