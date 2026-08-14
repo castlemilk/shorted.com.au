@@ -4,9 +4,12 @@ package shorts
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -21,6 +24,9 @@ import (
 func setupHousingTestDatabase(t *testing.T) (*pgxpool.Pool, func()) {
 	t.Helper()
 	ctx := context.Background()
+	if adminURL := os.Getenv("SHORTS_TEST_POSTGRES_URL"); adminURL != "" {
+		return setupHousingTestDatabaseFromServer(t, ctx, adminURL)
+	}
 
 	pgc, err := postgres.Run(ctx,
 		"postgres:14-alpine",
@@ -49,6 +55,35 @@ func setupHousingTestDatabase(t *testing.T) (*pgxpool.Pool, func()) {
 		if err := pgc.Terminate(ctx); err != nil {
 			t.Logf("Failed to terminate container: %v", err)
 		}
+	}
+	return pool, cleanup
+}
+
+func setupHousingTestDatabaseFromServer(t *testing.T, ctx context.Context, adminURL string) (*pgxpool.Pool, func()) {
+	t.Helper()
+	admin, err := pgx.Connect(ctx, adminURL)
+	require.NoError(t, err, "connect to integration PostgreSQL server")
+
+	databaseName := fmt.Sprintf("housing_test_%d", time.Now().UnixNano())
+	_, err = admin.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{databaseName}.Sanitize())
+	require.NoError(t, err, "create isolated housing integration database")
+
+	config, err := pgxpool.ParseConfig(adminURL)
+	require.NoError(t, err)
+	config.ConnConfig.Database = databaseName
+	pool, err := pgxpool.NewWithConfig(ctx, config)
+	require.NoError(t, err)
+
+	setupHousingSchema(t, pool)
+	loadHousingTestData(t, pool)
+
+	cleanup := func() {
+		pool.Close()
+		_, dropErr := admin.Exec(ctx, "DROP DATABASE "+pgx.Identifier{databaseName}.Sanitize()+" WITH (FORCE)")
+		if dropErr != nil {
+			t.Logf("Failed to drop integration database: %v", dropErr)
+		}
+		admin.Close(ctx)
 	}
 	return pool, cleanup
 }

@@ -56,10 +56,12 @@ test("static generation fetchers respect the local verifier skip flag", () => {
   assert.match(config, /phase-production-build/);
 
   // Every static-generation fetcher must consult the shared guard, not the
-  // raw env var.
+  // raw env var. Guard the fetcher that owns the build-time skip — for the
+  // directory that is the shared data module (directory-data.ts), not the
+  // [letter] page, which only delegates to it.
   const files = [
     "web/src/app/sitemap.ts",
-    "web/src/app/directory/[letter]/page.tsx",
+    "web/src/app/directory/directory-data.ts",
     "web/src/app/market/page.tsx",
     "web/src/app/actions/industry/getIndustryData.ts",
   ];

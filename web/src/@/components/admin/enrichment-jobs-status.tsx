@@ -11,10 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { listEnrichmentJobs } from "~/app/actions/listEnrichmentJobs";
-import {
-  EnrichmentJobStatus,
-  type EnrichmentJob,
-} from "~/gen/shorts/v1alpha1/shorts_pb";
+import { EnrichmentJobStatus, type EnrichmentJob } from "~/gen/shorts/v1alpha1/enrichment_pb";
 import { RefreshCw, Loader2, Play } from "lucide-react";
 import { processQueuedJobsAction } from "~/app/actions/processQueuedJobs";
 
@@ -355,7 +352,6 @@ export function EnrichmentJobsStatus() {
                 size="sm"
                 onClick={handleProcessQueued}
                 disabled={isProcessing}
-                className="bg-blue-600 hover:bg-blue-700"
               >
                 <Play
                   className={`h-4 w-4 mr-2 ${isProcessing ? "animate-pulse" : ""}`}
@@ -380,12 +376,12 @@ export function EnrichmentJobsStatus() {
       {(processError != null || processSuccess != null) && (
         <CardContent className="pb-2">
           {processError && (
-            <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/20 p-2 rounded border border-red-200 dark:border-red-800">
+            <div className="text-sm text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/20 p-2 rounded border border-red-200 dark:border-red-800">
               {processError}
             </div>
           )}
           {processSuccess && (
-            <div className="text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/20 p-2 rounded border border-green-200 dark:border-green-800">
+            <div className="text-sm text-lime-700 dark:text-lime-300 bg-lime-600/10 p-2 rounded border border-lime-600/30">
               {processSuccess}
             </div>
           )}
@@ -429,20 +425,20 @@ export function EnrichmentJobsStatus() {
 
             {processingJobs.length > 0 && (
               <div>
-                <h3 className="text-sm font-semibold mb-2 flex items-center gap-2 text-blue-600 dark:text-blue-400">
-                  <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+                <h3 className="text-sm font-semibold mb-2 flex items-center gap-2 text-primary">
+                  <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
                   Processing ({processingJobs.length})
                 </h3>
                 <div className="space-y-2">
                   {processingJobs.map((job) => (
                     <div
                       key={job.jobId}
-                      className="flex items-center justify-between p-2 border rounded-md text-sm bg-blue-50/10 border-blue-200/50"
+                      className="flex items-center justify-between p-2 border rounded-md text-sm bg-primary/5 border-primary/30"
                     >
                       <div className="flex items-center gap-2">
                         <Badge
                           variant="default"
-                          className="font-normal uppercase tracking-wider text-[10px] bg-blue-500"
+                          className="font-normal uppercase tracking-wider text-[10px]"
                         >
                           {getStatusLabel(job.status)}
                         </Badge>
@@ -485,7 +481,7 @@ export function EnrichmentJobsStatus() {
                 <div className="flex items-center gap-2">
                   <Badge
                     variant="outline"
-                    className="font-normal uppercase tracking-wider text-[10px] text-green-600 border-green-600/30 bg-green-50/10"
+                    className="font-normal uppercase tracking-wider text-[10px] text-lime-700 dark:text-lime-300 border-lime-600/30 bg-lime-600/10"
                   >
                     {getStatusLabel(job.status)}
                   </Badge>
@@ -496,7 +492,7 @@ export function EnrichmentJobsStatus() {
                     </span>
                   )}
                 </div>
-                <span className="text-muted-foreground text-xs font-light">
+                <span className="text-muted-foreground text-xs font-normal">
                   {formatTimestamp(job.completedAt)}
                 </span>
               </div>
@@ -529,7 +525,7 @@ export function EnrichmentJobsStatus() {
               {failedState.jobs.map((job) => (
                 <div
                   key={job.jobId}
-                  className="flex flex-col p-2 border rounded-md text-sm border-red-200/30 bg-red-50/5 hover:bg-red-50/10 transition-colors"
+                  className="flex flex-col p-2 border rounded-md text-sm border-destructive/30 bg-destructive/5 hover:bg-destructive/10 transition-colors"
                 >
                   <div className="flex items-center justify-between w-full">
                     <div className="flex items-center gap-2">
@@ -543,7 +539,7 @@ export function EnrichmentJobsStatus() {
                         {job.stockCode}
                       </span>
                     </div>
-                    <span className="text-muted-foreground text-xs font-light">
+                    <span className="text-muted-foreground text-xs font-normal">
                       {formatTimestamp(job.completedAt)}
                     </span>
                   </div>

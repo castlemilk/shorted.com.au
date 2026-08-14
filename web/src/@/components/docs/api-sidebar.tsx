@@ -18,7 +18,7 @@ export function ApiSidebar({ groups }: ApiSidebarProps) {
   return (
     <ScrollArea className="h-full py-6 pr-6 lg:py-8">
       <div className="w-full space-y-6">
-        <div className="pb-4 border-b border-zinc-100 dark:border-zinc-800">
+        <div className="pb-4 border-b border-border">
           <h4 className="mb-2 rounded-md px-2 py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">
             Getting Started
           </h4>
@@ -40,13 +40,13 @@ export function ApiSidebar({ groups }: ApiSidebarProps) {
                 pathname === "/docs/api#authentication" ? "font-medium text-foreground" : "text-muted-foreground"
               )}
             >
-              <Shield className="h-4 w-4 text-blue-500" />
+              <Shield className="h-4 w-4 text-primary" />
               Authentication
             </Link>
           </div>
         </div>
 
-        <div className="pb-4 border-b border-zinc-100 dark:border-zinc-800">
+        <div className="pb-4 border-b border-border">
           <h4 className="mb-2 rounded-md px-2 py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">
             Client Guides
           </h4>
@@ -97,10 +97,10 @@ export function ApiSidebar({ groups }: ApiSidebarProps) {
                   >
                     <span className={cn(
                       "mr-2 text-[10px] font-bold uppercase",
-                      endpoint.method === 'GET' && "text-green-500",
-                      endpoint.method === 'POST' && "text-blue-500",
-                      endpoint.method === 'PUT' && "text-yellow-500",
-                      endpoint.method === 'DELETE' && "text-red-500",
+                      endpoint.method === 'GET' && "text-lime-700 dark:text-lime-300",
+                      endpoint.method === 'POST' && "text-primary",
+                      endpoint.method === 'PUT' && "text-orange-700 dark:text-orange-300",
+                      endpoint.method === 'DELETE' && "text-destructive",
                     )}>
                       {endpoint.method}
                     </span>

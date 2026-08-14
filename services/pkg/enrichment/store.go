@@ -12,6 +12,17 @@ type StockPeopleData struct {
 	KeyPeople   []byte // Raw JSONB from the database
 }
 
+// StateExposureCandidate contains the company context needed to generate an
+// operations-weighted state exposure breakdown.
+type StateExposureCandidate struct {
+	StockCode   string
+	CompanyName string
+	Industry    string
+	Sector      string
+	Summary     string
+	Description string
+}
+
 // EnrichmentStats holds enrichment coverage statistics
 type EnrichmentStats struct {
 	TotalStocks    int     `json:"total_stocks"`
@@ -63,4 +74,8 @@ type EnrichmentStore interface {
 	// none (§6.5 additive people-only write, used when the whole-company quality score
 	// is below the auto-approve gate). Returns true when a row was actually written.
 	UpdateKeyPeopleIfEmpty(stockCode string, keyPeopleJSON []byte) (bool, error)
+
+	// State exposure backfill methods
+	GetStocksForStateExposure(limit int) ([]StateExposureCandidate, error)
+	UpdateStateExposure(stockCode string, exposureJSON []byte) error
 }

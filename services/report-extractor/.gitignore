@@ -1,1 +1,9 @@
 __pycache__/
+
+# Register-of-interests PDFs are NEVER committed. The licence permits extracted
+# facts with attribution, not a mirror of the source documents. The local
+# working cache defaults to /tmp/aph-register; this guards against someone
+# pointing REGISTER_CACHE_DIR at the repo.
+*.pdf
+/cache/
+/aph-register/

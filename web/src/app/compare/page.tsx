@@ -1,4 +1,5 @@
 import { type Metadata } from "next";
+import { pageTitle } from "~/@/lib/typography";
 import Link from "next/link";
 import { siteConfig } from "~/@/config/site";
 import {
@@ -6,6 +7,7 @@ import {
   BreadcrumbStructuredData,
 } from "~/@/components/seo/breadcrumbs";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
+import { bailOnEmptyRender } from "~/app/actions/config";
 
 export const metadata: Metadata = {
   title: "ASX Stock Short Interest Comparisons",
@@ -32,14 +34,8 @@ export const metadata: Metadata = {
     siteName: siteConfig.name,
     type: "website",
     locale: "en_AU",
-    images: [
-      {
-        url: siteConfig.ogImage,
-        width: 1200,
-        height: 630,
-        alt: "ASX stock comparison hub — Shorted.com.au",
-      },
-    ],
+    // No `images` key: this route ships its own opengraph-image.tsx and an
+    // explicit `images` here would SHADOW the file convention.
   },
 };
 
@@ -104,6 +100,9 @@ async function buildFeaturedPairs(): Promise<
 
 export default async function CompareIndexPage() {
   const pairs = await buildFeaturedPairs();
+  // A failed/cold fetch must not bake the "pairs are being built" shell into
+  // the route cache for the whole revalidate window.
+  if (pairs.length === 0) bailOnEmptyRender();
 
   const breadcrumbItems = [{ label: "Compare", href: "/compare" }];
 
@@ -144,7 +143,7 @@ export default async function CompareIndexPage() {
           <Breadcrumbs items={breadcrumbItems} />
         </div>
 
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+        <h1 className={pageTitle}>
           ASX Stock Short Interest Comparisons
         </h1>
         <p className="mt-3 text-base text-muted-foreground max-w-2xl leading-relaxed">

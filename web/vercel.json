@@ -17,6 +17,10 @@
       "schedule": "0 17 * * *"
     },
     {
+      "path": "/api/static-pages/warm-cache",
+      "schedule": "*/15 * * * *"
+    },
+    {
       "path": "/api/auth/session",
       "schedule": "*/5 * * * *"
     }

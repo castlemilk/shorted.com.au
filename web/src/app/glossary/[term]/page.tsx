@@ -1,4 +1,5 @@
 import { type Metadata } from "next";
+import { pageTitle } from "~/@/lib/typography";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BookOpen, ChevronRight, ArrowLeft, Tag } from "lucide-react";
@@ -33,7 +34,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const term = getTermBySlug(slug);
 
   if (!term) {
-    return { title: "Term Not Found" };
+    // The page body calls notFound() for this slug, but the 404 status can be
+    // pre-empted if the response has already streamed — keep the fallback
+    // metadata explicitly noindex so a soft-200 never enters the index.
+    return {
+      title: "Term Not Found",
+      robots: { index: false, follow: false },
+    };
   }
 
   const title = `${term.term} Definition | Short Selling Glossary | ${siteConfig.name}`;
@@ -142,7 +149,7 @@ export default async function GlossaryTermPage({ params }: PageProps) {
               {category}
             </Badge>
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+          <h1 className={pageTitle}>
             {term.term}
           </h1>
         </section>

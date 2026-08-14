@@ -50,6 +50,17 @@ variable "schedule" {
   default     = "0 13 * * 1"
 }
 
+# Cutover switch: the consolidated `shorted signals` job (modules/shorted-job,
+# module.shorted_job_signals) takes over this schedule. The old job stays
+# deployed (and manually executable) with its scheduler paused until one green
+# scheduled run of the replacement; rollback = flip this back to false and pause
+# the new module.
+variable "scheduler_paused" {
+  description = "Pause this job's Cloud Scheduler trigger (used during the shorted-jobs consolidation cutover)"
+  type        = bool
+  default     = false
+}
+
 variable "otel_endpoint" {
   description = "OpenTelemetry OTLP endpoint for traces and metrics"
   type        = string

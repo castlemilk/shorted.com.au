@@ -87,7 +87,7 @@ export function SectorPerformanceWidget({ config }: WidgetProps) {
             return (
               <div
                 key={sector.sector}
-                className="relative p-3 rounded-md border transition-all hover:scale-105"
+                className="relative p-3 rounded-md border transition-transform duration-200 ease-out hover:scale-105"
                 style={{ backgroundColor: bgColor }}
               >
                 <p className="text-xs font-medium">{sector.sector}</p>

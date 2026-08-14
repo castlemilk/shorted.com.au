@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { NewsService } from "~/gen/shorts/v1alpha1/news_pb";
 import { AlertTriangle, ExternalLink } from "lucide-react";
 import { NewsSourceBadge } from "~/@/components/ui/news-source-badge";
 import Link from "next/link";
@@ -15,7 +15,7 @@ export function BreakingNewsBanner() {
       const transport = createConnectTransport({
         baseUrl: "",
       });
-      const client = createClient(ShortedStocksService, transport);
+      const client = createClient(NewsService, transport);
       return client.getMarketNews({ limit: 3, priceSensitiveOnly: true });
     },
     staleTime: 5 * 60 * 1000,

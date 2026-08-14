@@ -1,4 +1,5 @@
 import { type Metadata } from "next";
+import { pageTitle } from "~/@/lib/typography";
 import Link from "next/link";
 import { Database, ExternalLink, Calendar, Globe } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
@@ -267,7 +268,7 @@ export default function DataHubPage() {
           <Database className="h-5 w-5 text-primary" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
+          <h1 className={pageTitle}>
             Download every ASIC short position, 2010 → today
           </h1>
           <p className="text-sm text-muted-foreground">

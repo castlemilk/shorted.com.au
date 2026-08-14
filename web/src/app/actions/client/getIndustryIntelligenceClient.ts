@@ -2,7 +2,7 @@
 
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { IndustryIntelligenceService } from "~/gen/shorts/v1alpha1/industry_pb";
 import {
   toSnapshot,
   type IndustryIntelligenceSnapshot,
@@ -26,7 +26,7 @@ export async function fetchIndustryIntelligenceSnapshotClient(
     const transport = createConnectTransport({
       baseUrl: typeof window !== "undefined" ? "" : getShortsApiUrl(),
     });
-    const client = createClient(ShortedStocksService, transport);
+    const client = createClient(IndustryIntelligenceService, transport);
     const response = await client.getIndustryIntelligence({
       industry,
       recordLimit,

@@ -26,871 +26,6 @@ public final class ShortsProto extends com.google.protobuf.GeneratedFile {
     registerAllExtensions(
         (com.google.protobuf.ExtensionRegistryLite) registry);
   }
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_MintTokenRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_MintTokenRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_MintTokenResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_MintTokenResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetTopShortsRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetTopShortsRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetIndustryTreeMapRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetIndustryTreeMapRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetTopShortsResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetTopShortsResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetStockRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetStockRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetStockDetailsRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetStockDetailsRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetStockDataRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetStockDataRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_SearchStocksRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_SearchStocksRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_SearchStocksResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_SearchStocksResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetSyncStatusRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetSyncStatusRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetSyncStatusResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetSyncStatusResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_SyncRun_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_SyncRun_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_SyncKeyMetricsRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_SyncKeyMetricsRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_SyncKeyMetricsResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_SyncKeyMetricsResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_StockSyncResult_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_StockSyncResult_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_KeyMetricsData_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_KeyMetricsData_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_EnrichStockRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_EnrichStockRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_EnrichStockResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_EnrichStockResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_EnrichmentData_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_EnrichmentData_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_QualityScore_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_QualityScore_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetTopStocksForEnrichmentRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetTopStocksForEnrichmentRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetTopStocksForEnrichmentResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetTopStocksForEnrichmentResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_StockEnrichmentCandidate_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_StockEnrichmentCandidate_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ReviewEnrichmentRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ReviewEnrichmentRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ReviewEnrichmentResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ReviewEnrichmentResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ListPendingEnrichmentsRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ListPendingEnrichmentsRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ListPendingEnrichmentsResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ListPendingEnrichmentsResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_PendingEnrichmentSummary_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_PendingEnrichmentSummary_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetPendingEnrichmentRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetPendingEnrichmentRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetPendingEnrichmentResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetPendingEnrichmentResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_PendingEnrichment_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_PendingEnrichment_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_EnrichmentJob_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_EnrichmentJob_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetEnrichmentJobStatusRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetEnrichmentJobStatusRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetEnrichmentJobStatusResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetEnrichmentJobStatusResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ListEnrichmentJobsRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ListEnrichmentJobsRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ListEnrichmentJobsResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ListEnrichmentJobsResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_HandleStripeCheckoutCompletedRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_HandleStripeCheckoutCompletedRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_HandleStripeCheckoutCompletedResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_HandleStripeCheckoutCompletedResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_HandleStripeSubscriptionUpdatedRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_HandleStripeSubscriptionUpdatedRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_HandleStripeSubscriptionUpdatedResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_HandleStripeSubscriptionUpdatedResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetMySubscriptionRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetMySubscriptionRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetMySubscriptionResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetMySubscriptionResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_AlertMonitor_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_AlertMonitor_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_CreateAlertMonitorRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_CreateAlertMonitorRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_CreateAlertMonitorResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_CreateAlertMonitorResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ListAlertMonitorsRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ListAlertMonitorsRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ListAlertMonitorsResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ListAlertMonitorsResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetMarketByDateRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetMarketByDateRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetMarketByDateResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetMarketByDateResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetAvailableDatesRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetAvailableDatesRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetAvailableDatesResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetAvailableDatesResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetWeeklyReportRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetWeeklyReportRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetWeeklyReportResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetWeeklyReportResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_WeeklyNarrative_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_WeeklyNarrative_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_WeeklyReportStock_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_WeeklyReportStock_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_WeeklyReportMover_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_WeeklyReportMover_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_WeeklyReportFAQ_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_WeeklyReportFAQ_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_WeeklyMarketStats_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_WeeklyMarketStats_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_WeeklyIndustryStat_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_WeeklyIndustryStat_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_WeeklyReportCitation_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_WeeklyReportCitation_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_WeeklyReportTrendInsight_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_WeeklyReportTrendInsight_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ListReportsRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ListReportsRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ListReportsResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ListReportsResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ReportListItem_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ReportListItem_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetStockFinancialHighlightsRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetStockFinancialHighlightsRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetStockFinancialHighlightsResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetStockFinancialHighlightsResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetStockFinancialHighlightsResponse_HighlightsEntry_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetStockFinancialHighlightsResponse_HighlightsEntry_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_StockFinancialHighlights_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_StockFinancialHighlights_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_FinancialReportHighlight_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_FinancialReportHighlight_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_FinancialMetric_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_FinancialMetric_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_FinancialMetric_AttributesEntry_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_FinancialMetric_AttributesEntry_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_NewsArticle_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_NewsArticle_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetStockNewsRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetStockNewsRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetStockNewsResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetStockNewsResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetRelatedNewsRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetRelatedNewsRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetRelatedNewsResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetRelatedNewsResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetMarketNewsRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetMarketNewsRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetMarketNewsResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetMarketNewsResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_EditorialTake_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_EditorialTake_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_TakeCitation_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_TakeCitation_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_InlineImage_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_InlineImage_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_LayoutImage_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_LayoutImage_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetEditorialTakeRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetEditorialTakeRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetEditorialTakeResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetEditorialTakeResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ListEditorialTakesRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ListEditorialTakesRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ListEditorialTakesResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ListEditorialTakesResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ListEditorialTakesAdminRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ListEditorialTakesAdminRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ListEditorialTakesAdminResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ListEditorialTakesAdminResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_PublishEditorialTakeRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_PublishEditorialTakeRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_PublishEditorialTakeResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_PublishEditorialTakeResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_UpdateEditorialTakeRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_UpdateEditorialTakeRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_UpdateEditorialTakeResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_UpdateEditorialTakeResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_DeleteEditorialTakeRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_DeleteEditorialTakeRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_DeleteEditorialTakeResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_DeleteEditorialTakeResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_MarkTakeTweetPublishedRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_MarkTakeTweetPublishedRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_MarkTakeTweetPublishedResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_MarkTakeTweetPublishedResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ListTweetPublishQueueRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ListTweetPublishQueueRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ListTweetPublishQueueResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ListTweetPublishQueueResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_DirectorTrade_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_DirectorTrade_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetDirectorTradesRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetDirectorTradesRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetDirectorTradesResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetDirectorTradesResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_DividendRecord_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_DividendRecord_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetDividendHistoryRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetDividendHistoryRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetDividendHistoryResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetDividendHistoryResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_PeerStock_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_PeerStock_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetPeerComparisonRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetPeerComparisonRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetPeerComparisonResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetPeerComparisonResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_RangeFilter_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_RangeFilter_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ScreenerFilters_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ScreenerFilters_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ScreenStocksRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ScreenStocksRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ScreenerStock_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ScreenerStock_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ScreenStocksResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ScreenStocksResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetBattlegroundStocksRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetBattlegroundStocksRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_BattlegroundStock_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_BattlegroundStock_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetBattlegroundStocksResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetBattlegroundStocksResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetStockVerdictRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetStockVerdictRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_VerdictComponent_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_VerdictComponent_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetStockVerdictResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetStockVerdictResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetCompanyTaxProfileRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetCompanyTaxProfileRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_CompanyTaxYear_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_CompanyTaxYear_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetCompanyTaxProfileResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetCompanyTaxProfileResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetIndustryIntelligenceRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetIndustryIntelligenceRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_IndustryIntelligenceSource_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_IndustryIntelligenceSource_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_IndustryIntelligenceRecord_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_IndustryIntelligenceRecord_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_IndustryIntelligenceTimeBucket_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_IndustryIntelligenceTimeBucket_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_IndustryIntelligenceEntityTotal_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_IndustryIntelligenceEntityTotal_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetIndustryIntelligenceResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetIndustryIntelligenceResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetShortCampaignScoreboardRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetShortCampaignScoreboardRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ShortCampaign_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ShortCampaign_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetShortCampaignScoreboardResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetShortCampaignScoreboardResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetStockGraphRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetStockGraphRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetStockGraphResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetStockGraphResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GraphPerson_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GraphPerson_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GraphPeer_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GraphPeer_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetEventTimelineRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetEventTimelineRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetEventTimelineResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetEventTimelineResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_TimelineEvent_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_TimelineEvent_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetStockSignalsRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetStockSignalsRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetStockSignalsResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetStockSignalsResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_StockSignal_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_StockSignal_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetHousingOverviewRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetHousingOverviewRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_HousingMetric_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_HousingMetric_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetHousingOverviewResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetHousingOverviewResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetHousePriceSeriesRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetHousePriceSeriesRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_HousePricePoint_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_HousePricePoint_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetHousePriceSeriesResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetHousePriceSeriesResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ListStateSuburbsRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ListStateSuburbsRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_SuburbAmenities_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_SuburbAmenities_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_SuburbSummary_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_SuburbSummary_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ListStateSuburbsResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ListStateSuburbsResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetSuburbProfileRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetSuburbProfileRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_SuburbDemographics_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_SuburbDemographics_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ComparisonBaselines_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ComparisonBaselines_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_LgaInfo_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_LgaInfo_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_SimilarSuburb_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_SimilarSuburb_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetSuburbProfileResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetSuburbProfileResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ListHousingRegionsRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ListHousingRegionsRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_HousingRegion_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_HousingRegion_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ListHousingRegionsResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ListHousingRegionsResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ListSuburbPriceDropsRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ListSuburbPriceDropsRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_SuburbPriceDrop_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_SuburbPriceDrop_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ListSuburbPriceDropsResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ListSuburbPriceDropsResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ListSuburbDropListingsRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ListSuburbDropListingsRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_SuburbDropListing_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_SuburbDropListing_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ListSuburbDropListingsResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ListSuburbDropListingsResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetPropertyHistoryRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetPropertyHistoryRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_PropertyListingSnapshot_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_PropertyListingSnapshot_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_PropertyPriceEvent_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_PropertyPriceEvent_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_GetPropertyHistoryResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_GetPropertyHistoryResponse_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ListAddressPriceDropsRequest_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ListAddressPriceDropsRequest_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_AddressPriceDrop_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_AddressPriceDrop_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_shorts_v1alpha1_ListAddressPriceDropsResponse_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_shorts_v1alpha1_ListAddressPriceDropsResponse_fieldAccessorTable;
 
   public static com.google.protobuf.Descriptors.FileDescriptor
       getDescriptor() {
@@ -905,1377 +40,592 @@ public final class ShortsProto extends com.google.protobuf.GeneratedFile {
       "nostic/openapi/v3/annotations.proto\032\027goo" +
       "gle/api/client.proto\032\037google/protobuf/ti" +
       "mestamp.proto\032\034stocks/v1alpha1/stocks.pr" +
-      "oto\032\030options/v1/options.proto\"\022\n\020MintTok" +
-      "enRequest\")\n\021MintTokenResponse\022\024\n\005token\030" +
-      "\001 \001(\tR\005token\"\243\001\n\023GetTopShortsRequest\022\026\n\006" +
-      "period\030\001 \001(\tR\006period\022\024\n\005limit\030\002 \001(\005R\005lim" +
-      "it\022\026\n\006offset\030\003 \001(\005R\006offset\022!\n\014summary_on" +
-      "ly\030\004 \001(\010R\013summaryOnly\022#\n\rproduct_codes\030\005" +
-      " \003(\tR\014productCodes\"\201\001\n\031GetIndustryTreeMa" +
-      "pRequest\022\026\n\006period\030\001 \001(\tR\006period\022\024\n\005limi" +
-      "t\030\002 \001(\005R\005limit\0226\n\tview_mode\030\003 \001(\0162\031.shor" +
-      "ts.v1alpha1.ViewModeR\010viewMode\"p\n\024GetTop" +
-      "ShortsResponse\022@\n\013time_series\030\001 \003(\0132\037.st" +
-      "ocks.v1alpha1.TimeSeriesDataR\ntimeSeries" +
-      "\022\026\n\006offset\030\002 \001(\005R\006offset\"4\n\017GetStockRequ" +
-      "est\022!\n\014product_code\030\001 \001(\tR\013productCode\";" +
-      "\n\026GetStockDetailsRequest\022!\n\014product_code" +
-      "\030\001 \001(\tR\013productCode\"P\n\023GetStockDataReque" +
-      "st\022!\n\014product_code\030\001 \001(\tR\013productCode\022\026\n" +
-      "\006period\030\002 \001(\tR\006period\"j\n\023SearchStocksReq" +
-      "uest\022\024\n\005query\030\001 \001(\tR\005query\022\024\n\005limit\030\002 \001(" +
-      "\005R\005limit\022\'\n\017include_details\030\003 \001(\010R\016inclu" +
-      "deDetails\"r\n\024SearchStocksResponse\022\024\n\005que" +
-      "ry\030\001 \001(\tR\005query\022.\n\006stocks\030\002 \003(\0132\026.stocks" +
-      ".v1alpha1.StockR\006stocks\022\024\n\005count\030\003 \001(\005R\005" +
-      "count\",\n\024GetSyncStatusRequest\022\024\n\005limit\030\001" +
-      " \001(\005R\005limit\"E\n\025GetSyncStatusResponse\022,\n\004" +
-      "runs\030\001 \003(\0132\030.shorts.v1alpha1.SyncRunR\004ru" +
-      "ns\"\341\005\n\007SyncRun\022\025\n\006run_id\030\001 \001(\tR\005runId\022\035\n" +
-      "\nstarted_at\030\002 \001(\tR\tstartedAt\022!\n\014complete" +
-      "d_at\030\003 \001(\tR\013completedAt\022\026\n\006status\030\004 \001(\tR" +
-      "\006status\022#\n\rerror_message\030\005 \001(\tR\014errorMes" +
-      "sage\0224\n\026shorts_records_updated\030\006 \001(\005R\024sh" +
-      "ortsRecordsUpdated\0224\n\026prices_records_upd" +
-      "ated\030\007 \001(\005R\024pricesRecordsUpdated\0226\n\027metr" +
-      "ics_records_updated\030\010 \001(\005R\025metricsRecord" +
-      "sUpdated\0224\n\026algolia_records_synced\030\t \001(\005" +
-      "R\024algoliaRecordsSynced\0224\n\026total_duration" +
-      "_seconds\030\n \001(\001R\024totalDurationSeconds\022 \n\013" +
-      "environment\030\013 \001(\tR\013environment\022\032\n\010hostna" +
-      "me\030\014 \001(\tR\010hostname\0226\n\027checkpoint_stocks_" +
-      "total\030\r \001(\005R\025checkpointStocksTotal\022>\n\033ch" +
-      "eckpoint_stocks_processed\030\016 \001(\005R\031checkpo" +
-      "intStocksProcessed\022@\n\034checkpoint_stocks_" +
-      "successful\030\017 \001(\005R\032checkpointStocksSucces" +
-      "sful\0228\n\030checkpoint_stocks_failed\030\020 \001(\005R\026" +
-      "checkpointStocksFailed\"N\n\025SyncKeyMetrics" +
-      "Request\022\037\n\013stock_codes\030\001 \003(\tR\nstockCodes" +
-      "\022\024\n\005force\030\002 \001(\010R\005force\"\361\001\n\026SyncKeyMetric" +
-      "sResponse\022\'\n\017total_requested\030\001 \001(\005R\016tota" +
-      "lRequested\022/\n\023successfully_synced\030\002 \001(\005R" +
-      "\022successfullySynced\022\026\n\006failed\030\003 \001(\005R\006fai" +
-      "led\022:\n\007results\030\004 \003(\0132 .shorts.v1alpha1.S" +
-      "tockSyncResultR\007results\022)\n\020duration_seco" +
-      "nds\030\005 \001(\001R\017durationSeconds\"\252\001\n\017StockSync" +
-      "Result\022\035\n\nstock_code\030\001 \001(\tR\tstockCode\022\030\n" +
-      "\007success\030\002 \001(\010R\007success\022#\n\rerror_message" +
-      "\030\003 \001(\tR\014errorMessage\0229\n\007metrics\030\004 \001(\0132\037." +
-      "shorts.v1alpha1.KeyMetricsDataR\007metrics\"" +
-      "\222\002\n\016KeyMetricsData\022\035\n\nmarket_cap\030\001 \001(\001R\t" +
-      "marketCap\022\031\n\010pe_ratio\030\002 \001(\001R\007peRatio\022\020\n\003" +
-      "eps\030\003 \001(\001R\003eps\022%\n\016dividend_yield\030\004 \001(\001R\r" +
-      "dividendYield\022\022\n\004beta\030\005 \001(\001R\004beta\022-\n\023fif" +
-      "ty_two_week_high\030\006 \001(\001R\020fiftyTwoWeekHigh" +
-      "\022+\n\022fifty_two_week_low\030\007 \001(\001R\017fiftyTwoWe" +
-      "ekLow\022\035\n\navg_volume\030\010 \001(\001R\tavgVolume\"I\n\022" +
-      "EnrichStockRequest\022\035\n\nstock_code\030\001 \001(\tR\t" +
-      "stockCode\022\024\n\005force\030\002 \001(\010R\005force\"e\n\023Enric" +
-      "hStockResponse\022\035\n\nstock_code\030\001 \001(\tR\tstoc" +
-      "kCode\022\025\n\006job_id\030\002 \001(\tR\005jobId\022\030\n\007message\030" +
-      "\003 \001(\tR\007message\"\320\005\n\016EnrichmentData\022)\n\020enh" +
-      "anced_summary\030\001 \001(\tR\017enhancedSummary\022\'\n\017" +
-      "company_history\030\002 \001(\tR\016companyHistory\022=\n" +
-      "\nkey_people\030\003 \003(\0132\036.stocks.v1alpha1.Comp" +
-      "anyPersonR\tkeyPeople\022M\n\021financial_report" +
-      "s\030\004 \003(\0132 .stocks.v1alpha1.FinancialRepor" +
-      "tR\020financialReports\0225\n\026competitive_advan" +
-      "tages\030\005 \001(\tR\025competitiveAdvantages\022!\n\014ri" +
-      "sk_factors\030\006 \003(\tR\013riskFactors\022/\n\023recent_" +
-      "developments\030\007 \001(\tR\022recentDevelopments\022O" +
-      "\n\022social_media_links\030\010 \001(\0132!.stocks.v1al" +
-      "pha1.SocialMediaLinksR\020socialMediaLinks\022" +
-      "\022\n\004tags\030\t \003(\tR\004tags\022 \n\014logo_gcs_url\030\n \001(" +
-      "\tR\nlogoGcsUrl\022)\n\021logo_icon_gcs_url\030\013 \001(\t" +
-      "R\016logoIconGcsUrl\022\'\n\020logo_svg_gcs_url\030\014 \001" +
-      "(\tR\rlogoSvgGcsUrl\022&\n\017logo_source_url\030\r \001" +
-      "(\tR\rlogoSourceUrl\022\037\n\013logo_format\030\016 \001(\tR\n" +
-      "logoFormat\022-\n\022discovered_website\030\017 \001(\tR\021" +
-      "discoveredWebsite\"\303\001\n\014QualityScore\022#\n\rov" +
-      "erall_score\030\001 \001(\001R\014overallScore\022-\n\022compl" +
-      "eteness_score\030\002 \001(\001R\021completenessScore\022%" +
-      "\n\016accuracy_score\030\003 \001(\001R\raccuracyScore\022\032\n" +
-      "\010warnings\030\004 \003(\tR\010warnings\022\034\n\tstrengths\030\005" +
-      " \003(\tR\tstrengths\"y\n GetTopStocksForEnrich" +
-      "mentRequest\022\024\n\005limit\030\001 \001(\005R\005limit\022?\n\010pri" +
-      "ority\030\002 \001(\0162#.shorts.v1alpha1.Enrichment" +
-      "PriorityR\010priority\"f\n!GetTopStocksForEnr" +
-      "ichmentResponse\022A\n\006stocks\030\001 \003(\0132).shorts" +
-      ".v1alpha1.StockEnrichmentCandidateR\006stoc" +
-      "ks\"\342\002\n\030StockEnrichmentCandidate\022\035\n\nstock" +
-      "_code\030\001 \001(\tR\tstockCode\022!\n\014company_name\030\002" +
-      " \001(\tR\013companyName\022\032\n\010industry\030\003 \001(\tR\010ind" +
-      "ustry\022\035\n\nmarket_cap\030\004 \001(\001R\tmarketCap\0224\n\026" +
-      "short_position_percent\030\005 \001(\001R\024shortPosit" +
-      "ionPercent\022+\n\021enrichment_status\030\006 \001(\tR\020e" +
-      "nrichmentStatus\022?\n\rlast_enriched\030\007 \001(\0132\032" +
-      ".google.protobuf.TimestampR\014lastEnriched" +
-      "\022%\n\016priority_score\030\010 \001(\005R\rpriorityScore\"" +
-      "\232\001\n\027ReviewEnrichmentRequest\022\035\n\nstock_cod" +
-      "e\030\001 \001(\tR\tstockCode\022#\n\renrichment_id\030\002 \001(" +
-      "\tR\014enrichmentId\022\030\n\007approve\030\003 \001(\010R\007approv" +
-      "e\022!\n\014review_notes\030\004 \001(\tR\013reviewNotes\"o\n\030" +
-      "ReviewEnrichmentResponse\022\035\n\nstock_code\030\001" +
-      " \001(\tR\tstockCode\022\032\n\010approved\030\002 \001(\010R\010appro" +
-      "ved\022\030\n\007message\030\003 \001(\tR\007message\"M\n\035ListPen" +
-      "dingEnrichmentsRequest\022\024\n\005limit\030\001 \001(\005R\005l" +
-      "imit\022\026\n\006offset\030\002 \001(\005R\006offset\"m\n\036ListPend" +
-      "ingEnrichmentsResponse\022K\n\013enrichments\030\001 " +
-      "\003(\0132).shorts.v1alpha1.PendingEnrichmentS" +
-      "ummaryR\013enrichments\"\230\002\n\030PendingEnrichmen" +
-      "tSummary\022#\n\renrichment_id\030\001 \001(\tR\014enrichm" +
-      "entId\022\035\n\nstock_code\030\002 \001(\tR\tstockCode\0229\n\006" +
-      "status\030\003 \001(\0162!.shorts.v1alpha1.Enrichmen" +
-      "tStatusR\006status\0229\n\ncreated_at\030\004 \001(\0132\032.go" +
-      "ogle.protobuf.TimestampR\tcreatedAt\022B\n\rqu" +
-      "ality_score\030\005 \001(\0132\035.shorts.v1alpha1.Qual" +
-      "ityScoreR\014qualityScore\"B\n\033GetPendingEnri" +
-      "chmentRequest\022#\n\renrichment_id\030\001 \001(\tR\014en" +
-      "richmentId\"\\\n\034GetPendingEnrichmentRespon" +
-      "se\022<\n\007pending\030\001 \001(\0132\".shorts.v1alpha1.Pe" +
-      "ndingEnrichmentR\007pending\"\307\003\n\021PendingEnri" +
-      "chment\022#\n\renrichment_id\030\001 \001(\tR\014enrichmen" +
-      "tId\022\035\n\nstock_code\030\002 \001(\tR\tstockCode\0229\n\006st" +
-      "atus\030\003 \001(\0162!.shorts.v1alpha1.EnrichmentS" +
-      "tatusR\006status\0223\n\004data\030\004 \001(\0132\037.shorts.v1a" +
-      "lpha1.EnrichmentDataR\004data\022B\n\rquality_sc" +
-      "ore\030\005 \001(\0132\035.shorts.v1alpha1.QualityScore" +
-      "R\014qualityScore\0229\n\ncreated_at\030\006 \001(\0132\032.goo" +
-      "gle.protobuf.TimestampR\tcreatedAt\022;\n\013rev" +
-      "iewed_at\030\007 \001(\0132\032.google.protobuf.Timesta" +
-      "mpR\nreviewedAt\022\037\n\013reviewed_by\030\010 \001(\tR\nrev" +
-      "iewedBy\022!\n\014review_notes\030\t \001(\tR\013reviewNot" +
-      "es\"\264\003\n\rEnrichmentJob\022\025\n\006job_id\030\001 \001(\tR\005jo" +
-      "bId\022\035\n\nstock_code\030\002 \001(\tR\tstockCode\022<\n\006st" +
-      "atus\030\003 \001(\0162$.shorts.v1alpha1.EnrichmentJ" +
-      "obStatusR\006status\022\032\n\010priority\030\004 \001(\005R\010prio" +
-      "rity\022\024\n\005force\030\005 \001(\010R\005force\0229\n\ncreated_at" +
-      "\030\006 \001(\0132\032.google.protobuf.TimestampR\tcrea" +
-      "tedAt\0229\n\nstarted_at\030\007 \001(\0132\032.google.proto" +
-      "buf.TimestampR\tstartedAt\022=\n\014completed_at" +
-      "\030\010 \001(\0132\032.google.protobuf.TimestampR\013comp" +
-      "letedAt\022#\n\rerror_message\030\t \001(\tR\014errorMes" +
-      "sage\022#\n\renrichment_id\030\n \001(\tR\014enrichmentI" +
-      "d\"6\n\035GetEnrichmentJobStatusRequest\022\025\n\006jo" +
-      "b_id\030\001 \001(\tR\005jobId\"R\n\036GetEnrichmentJobSta" +
-      "tusResponse\0220\n\003job\030\001 \001(\0132\036.shorts.v1alph" +
-      "a1.EnrichmentJobR\003job\"\207\001\n\031ListEnrichment" +
-      "JobsRequest\022\024\n\005limit\030\001 \001(\005R\005limit\022\026\n\006off" +
-      "set\030\002 \001(\005R\006offset\022<\n\006status\030\003 \001(\0162$.shor" +
-      "ts.v1alpha1.EnrichmentJobStatusR\006status\"" +
-      "q\n\032ListEnrichmentJobsResponse\0222\n\004jobs\030\001 " +
-      "\003(\0132\036.shorts.v1alpha1.EnrichmentJobR\004job" +
-      "s\022\037\n\013total_count\030\002 \001(\005R\ntotalCount\"\371\001\n$H" +
-      "andleStripeCheckoutCompletedRequest\022\027\n\007u" +
-      "ser_id\030\001 \001(\tR\006userId\022\035\n\nuser_email\030\002 \001(\t" +
-      "R\tuserEmail\022,\n\022stripe_customer_id\030\003 \001(\tR" +
-      "\020stripeCustomerId\0224\n\026stripe_subscription" +
-      "_id\030\004 \001(\tR\024stripeSubscriptionId\0225\n\004tier\030" +
-      "\005 \001(\0162!.shorts.v1alpha1.SubscriptionTier" +
-      "R\004tier\"[\n%HandleStripeCheckoutCompletedR" +
-      "esponse\022\030\n\007success\030\001 \001(\010R\007success\022\030\n\007mes" +
-      "sage\030\002 \001(\tR\007message\"\350\003\n&HandleStripeSubs" +
-      "criptionUpdatedRequest\022,\n\022stripe_custome" +
-      "r_id\030\001 \001(\tR\020stripeCustomerId\0224\n\026stripe_s" +
-      "ubscription_id\030\002 \001(\tR\024stripeSubscription" +
-      "Id\022;\n\006status\030\003 \001(\0162#.shorts.v1alpha1.Sub" +
-      "scriptionStatusR\006status\0225\n\004tier\030\004 \001(\0162!." +
-      "shorts.v1alpha1.SubscriptionTierR\004tier\022L" +
-      "\n\024current_period_start\030\005 \001(\0132\032.google.pr" +
-      "otobuf.TimestampR\022currentPeriodStart\022H\n\022" +
-      "current_period_end\030\006 \001(\0132\032.google.protob" +
-      "uf.TimestampR\020currentPeriodEnd\022/\n\024cancel" +
-      "_at_period_end\030\007 \001(\010R\021cancelAtPeriodEnd\022" +
-      "\035\n\nis_deleted\030\010 \001(\010R\tisDeleted\"]\n\'Handle" +
-      "StripeSubscriptionUpdatedResponse\022\030\n\007suc" +
-      "cess\030\001 \001(\010R\007success\022\030\n\007message\030\002 \001(\tR\007me" +
-      "ssage\"\032\n\030GetMySubscriptionRequest\"\343\002\n\031Ge" +
-      "tMySubscriptionResponse\022)\n\020has_subscript" +
-      "ion\030\001 \001(\010R\017hasSubscription\022;\n\006status\030\002 \001" +
-      "(\0162#.shorts.v1alpha1.SubscriptionStatusR" +
-      "\006status\0225\n\004tier\030\003 \001(\0162!.shorts.v1alpha1." +
-      "SubscriptionTierR\004tier\022H\n\022current_period" +
-      "_end\030\004 \001(\0132\032.google.protobuf.TimestampR\020" +
-      "currentPeriodEnd\022/\n\024cancel_at_period_end" +
-      "\030\005 \001(\010R\021cancelAtPeriodEnd\022,\n\022stripe_cust" +
-      "omer_id\030\006 \001(\tR\020stripeCustomerId\"\354\003\n\014Aler" +
-      "tMonitor\022\016\n\002id\030\001 \001(\tR\002id\0228\n\005scope\030\002 \001(\0162" +
-      "\".shorts.v1alpha1.AlertMonitorScopeR\005sco" +
-      "pe\022\026\n\006target\030\003 \001(\tR\006target\022D\n\tcondition\030" +
-      "\004 \001(\0162&.shorts.v1alpha1.AlertMonitorCond" +
-      "itionR\tcondition\022\034\n\tthreshold\030\005 \001(\001R\tthr" +
-      "eshold\022#\n\rhas_threshold\030\006 \001(\010R\014hasThresh" +
-      "old\022>\n\007cadence\030\007 \001(\0162$.shorts.v1alpha1.A" +
-      "lertMonitorCadenceR\007cadence\022;\n\006status\030\010 " +
-      "\001(\0162#.shorts.v1alpha1.AlertMonitorStatus" +
-      "R\006status\0229\n\ncreated_at\030\t \001(\0132\032.google.pr" +
-      "otobuf.TimestampR\tcreatedAt\0229\n\nupdated_a" +
-      "t\030\n \001(\0132\032.google.protobuf.TimestampR\tupd" +
-      "atedAt\"\266\002\n\031CreateAlertMonitorRequest\0228\n\005" +
-      "scope\030\001 \001(\0162\".shorts.v1alpha1.AlertMonit" +
-      "orScopeR\005scope\022\026\n\006target\030\002 \001(\tR\006target\022D" +
-      "\n\tcondition\030\003 \001(\0162&.shorts.v1alpha1.Aler" +
-      "tMonitorConditionR\tcondition\022\034\n\tthreshol" +
-      "d\030\004 \001(\001R\tthreshold\022#\n\rhas_threshold\030\005 \001(" +
-      "\010R\014hasThreshold\022>\n\007cadence\030\006 \001(\0162$.short" +
-      "s.v1alpha1.AlertMonitorCadenceR\007cadence\"" +
-      "U\n\032CreateAlertMonitorResponse\0227\n\007monitor" +
-      "\030\001 \001(\0132\035.shorts.v1alpha1.AlertMonitorR\007m" +
-      "onitor\"H\n\030ListAlertMonitorsRequest\022\024\n\005li" +
-      "mit\030\001 \001(\005R\005limit\022\026\n\006offset\030\002 \001(\005R\006offset" +
-      "\"w\n\031ListAlertMonitorsResponse\0229\n\010monitor" +
-      "s\030\001 \003(\0132\035.shorts.v1alpha1.AlertMonitorR\010" +
-      "monitors\022\037\n\013total_count\030\002 \001(\005R\ntotalCoun" +
-      "t\"Z\n\026GetMarketByDateRequest\022\022\n\004date\030\001 \001(" +
-      "\tR\004date\022\024\n\005limit\030\002 \001(\005R\005limit\022\026\n\006offset\030" +
-      "\003 \001(\005R\006offset\"\300\001\n\027GetMarketByDateRespons" +
-      "e\022\022\n\004date\030\001 \001(\tR\004date\022.\n\006stocks\030\002 \003(\0132\026." +
-      "stocks.v1alpha1.StockR\006stocks\022\037\n\013total_c" +
-      "ount\030\003 \001(\005R\ntotalCount\022#\n\rprevious_date\030" +
-      "\004 \001(\tR\014previousDate\022\033\n\tnext_date\030\005 \001(\tR\010" +
-      "nextDate\"H\n\030GetAvailableDatesRequest\022\024\n\005" +
-      "limit\030\001 \001(\005R\005limit\022\026\n\006before\030\002 \001(\tR\006befo" +
-      "re\"\230\001\n\031GetAvailableDatesResponse\022\024\n\005date" +
-      "s\030\001 \003(\tR\005dates\022#\n\rearliest_date\030\002 \001(\tR\014e" +
-      "arliestDate\022\037\n\013latest_date\030\003 \001(\tR\nlatest" +
-      "Date\022\037\n\013total_count\030\004 \001(\005R\ntotalCount\"5\n" +
-      "\026GetWeeklyReportRequest\022\033\n\tweek_slug\030\001 \001" +
-      "(\tR\010weekSlug\"\276\006\n\027GetWeeklyReportResponse" +
-      "\022\033\n\tweek_slug\030\001 \001(\tR\010weekSlug\022\032\n\010headlin" +
-      "e\030\002 \001(\tR\010headline\022\030\n\007summary\030\003 \001(\tR\007summ" +
-      "ary\022\037\n\013report_date\030\004 \001(\tR\nreportDate\022#\n\r" +
-      "previous_date\030\005 \001(\tR\014previousDate\022>\n\tnar" +
-      "rative\030\006 \001(\0132 .shorts.v1alpha1.WeeklyNar" +
-      "rativeR\tnarrative\022C\n\013top_shorted\030\007 \003(\0132\"" +
-      ".shorts.v1alpha1.WeeklyReportStockR\ntopS" +
-      "horted\022:\n\006risers\030\010 \003(\0132\".shorts.v1alpha1" +
-      ".WeeklyReportMoverR\006risers\022<\n\007fallers\030\t " +
-      "\003(\0132\".shorts.v1alpha1.WeeklyReportMoverR" +
-      "\007fallers\0224\n\004faqs\030\n \003(\0132 .shorts.v1alpha1" +
-      ".WeeklyReportFAQR\004faqs\022#\n\rquality_score\030" +
-      "\013 \001(\001R\014qualityScore\022E\n\014market_stats\030\014 \001(" +
-      "\0132\".shorts.v1alpha1.WeeklyMarketStatsR\013m" +
-      "arketStats\022C\n\tcitations\030\r \003(\0132%.shorts.v" +
-      "1alpha1.WeeklyReportCitationR\tcitations\022" +
-      "P\n\016trend_insights\030\016 \003(\0132).shorts.v1alpha" +
-      "1.WeeklyReportTrendInsightR\rtrendInsight" +
-      "s\022R\n\022industry_breakdown\030\017 \003(\0132#.shorts.v" +
-      "1alpha1.WeeklyIndustryStatR\021industryBrea" +
-      "kdown\"\307\001\n\017WeeklyNarrative\022!\n\014opening_hoo" +
-      "k\030\001 \001(\tR\013openingHook\022!\n\014top_analysis\030\002 \001" +
-      "(\tR\013topAnalysis\022\'\n\017movers_analysis\030\003 \001(\t" +
-      "R\016moversAnalysis\022+\n\021industry_analysis\030\004 " +
-      "\001(\tR\020industryAnalysis\022\030\n\007outlook\030\005 \001(\tR\007" +
-      "outlook\"\246\002\n\021WeeklyReportStock\022\022\n\004rank\030\001 " +
-      "\001(\005R\004rank\022\022\n\004code\030\002 \001(\tR\004code\022\022\n\004name\030\003 " +
-      "\001(\tR\004name\022\033\n\tshort_pct\030\004 \001(\001R\010shortPct\022\035" +
-      "\n\nwow_change\030\005 \001(\001R\twowChange\022\"\n\rdays_to" +
-      "_cover\030\006 \001(\001R\013daysToCover\022$\n\016is_new_entr" +
-      "ant\030\007 \001(\010R\014isNewEntrant\022\032\n\010industry\030\010 \001(" +
-      "\tR\010industry\022\030\n\007history\030\t \003(\001R\007history\022\031\n" +
-      "\010logo_url\030\n \001(\tR\007logoUrl\"\354\002\n\021WeeklyRepor" +
-      "tMover\022\022\n\004code\030\001 \001(\tR\004code\022\022\n\004name\030\002 \001(\t" +
-      "R\004name\022\037\n\013current_pct\030\003 \001(\001R\ncurrentPct\022" +
-      "!\n\014previous_pct\030\004 \001(\001R\013previousPct\022\026\n\006ch" +
-      "ange\030\005 \001(\001R\006change\022\"\n\rdays_to_cover\030\006 \001(" +
-      "\001R\013daysToCover\022\027\n\007z_score\030\007 \001(\001R\006zScore\022" +
-      "!\n\014streak_weeks\030\010 \001(\005R\013streakWeeks\022\032\n\010in" +
-      "dustry\030\t \001(\tR\010industry\022\030\n\007history\030\n \003(\001R" +
-      "\007history\022\031\n\010logo_url\030\013 \001(\tR\007logoUrl\022\"\n\014s" +
-      "ignificance\030\014 \001(\001R\014significance\"E\n\017Weekl" +
-      "yReportFAQ\022\032\n\010question\030\001 \001(\tR\010question\022\026" +
-      "\n\006answer\030\002 \001(\tR\006answer\"\241\003\n\021WeeklyMarketS" +
-      "tats\0220\n\024total_stocks_shorted\030\001 \001(\005R\022tota" +
-      "lStocksShorted\022\"\n\ravg_short_pct\030\002 \001(\001R\013a" +
-      "vgShortPct\022\"\n\rmax_short_pct\030\003 \001(\001R\013maxSh" +
-      "ortPct\022$\n\016max_short_code\030\004 \001(\tR\014maxShort" +
-      "Code\022$\n\016wow_avg_change\030\005 \001(\001R\014wowAvgChan" +
-      "ge\022(\n\020median_short_pct\030\006 \001(\001R\016medianShor" +
-      "tPct\022,\n\022stocks_above_10pct\030\007 \001(\005R\020stocks" +
-      "Above10pct\022*\n\021stocks_above_5pct\030\010 \001(\005R\017s" +
-      "tocksAbove5pct\022\037\n\013riser_count\030\t \001(\005R\nris" +
-      "erCount\022!\n\014faller_count\030\n \001(\005R\013fallerCou" +
-      "nt\"\336\001\n\022WeeklyIndustryStat\022\032\n\010industry\030\001 " +
-      "\001(\tR\010industry\022\"\n\ravg_short_pct\030\002 \001(\001R\013av" +
-      "gShortPct\022\035\n\nwow_change\030\003 \001(\001R\twowChange" +
-      "\022\037\n\013stock_count\030\004 \001(\005R\nstockCount\022$\n\016top" +
-      "_stock_code\030\005 \001(\tR\014topStockCode\022\"\n\rtop_s" +
-      "tock_pct\030\006 \001(\001R\013topStockPct\"x\n\024WeeklyRep" +
-      "ortCitation\022\016\n\002id\030\001 \001(\tR\002id\022\026\n\006source\030\002 " +
-      "\001(\tR\006source\022\022\n\004date\030\003 \001(\tR\004date\022\020\n\003url\030\004" +
-      " \001(\tR\003url\022\022\n\004type\030\005 \001(\tR\004type\"\311\002\n\030Weekly" +
-      "ReportTrendInsight\022\022\n\004code\030\001 \001(\tR\004code\022\034" +
-      "\n\tdirection\030\002 \001(\tR\tdirection\022!\n\014short_ch" +
-      "ange\030\003 \001(\001R\013shortChange\022#\n\rprice_pattern" +
-      "\030\004 \001(\tR\014pricePattern\022.\n\023weekly_price_cha" +
-      "nge\030\005 \001(\001R\021weeklyPriceChange\022)\n\020composit" +
-      "e_signal\030\006 \001(\tR\017compositeSignal\022+\n\021key_a" +
-      "nnouncements\030\007 \003(\tR\020keyAnnouncements\022+\n\021" +
-      "financial_signals\030\010 \003(\tR\020financialSignal" +
-      "s\"K\n\022ListReportsRequest\022\037\n\013report_type\030\001" +
-      " \001(\tR\nreportType\022\024\n\005limit\030\002 \001(\005R\005limit\"P" +
-      "\n\023ListReportsResponse\0229\n\007reports\030\001 \003(\0132\037" +
-      ".shorts.v1alpha1.ReportListItemR\007reports" +
-      "\"\376\002\n\016ReportListItem\022\022\n\004slug\030\001 \001(\tR\004slug\022" +
-      "\037\n\013report_type\030\002 \001(\tR\nreportType\022\032\n\010head" +
-      "line\030\003 \001(\tR\010headline\022\030\n\007summary\030\004 \001(\tR\007s" +
-      "ummary\022\037\n\013report_date\030\005 \001(\tR\nreportDate\022" +
-      "\"\n\rmax_short_pct\030\006 \001(\001R\013maxShortPct\022$\n\016m" +
-      "ax_short_code\030\007 \001(\tR\014maxShortCode\0220\n\024tot" +
-      "al_stocks_shorted\030\010 \001(\005R\022totalStocksShor" +
-      "ted\022#\n\rquality_score\030\t \001(\001R\014qualityScore" +
-      "\022\033\n\ttop_codes\030\n \003(\tR\010topCodes\022\"\n\rtop_log" +
-      "o_urls\030\013 \003(\tR\013topLogoUrls\"x\n\"GetStockFin" +
-      "ancialHighlightsRequest\022\037\n\013stock_codes\030\001" +
-      " \003(\tR\nstockCodes\0221\n\025max_reports_per_stoc" +
-      "k\030\002 \001(\005R\022maxReportsPerStock\"\365\001\n#GetStock" +
-      "FinancialHighlightsResponse\022d\n\nhighlight" +
-      "s\030\001 \003(\0132D.shorts.v1alpha1.GetStockFinanc" +
-      "ialHighlightsResponse.HighlightsEntryR\nh" +
-      "ighlights\032h\n\017HighlightsEntry\022\020\n\003key\030\001 \001(" +
-      "\tR\003key\022?\n\005value\030\002 \001(\0132).shorts.v1alpha1." +
-      "StockFinancialHighlightsR\005value:\0028\001\"_\n\030S" +
-      "tockFinancialHighlights\022C\n\007reports\030\001 \003(\013" +
-      "2).shorts.v1alpha1.FinancialReportHighli" +
-      "ghtR\007reports\"\363\001\n\030FinancialReportHighligh" +
-      "t\022!\n\014report_title\030\001 \001(\tR\013reportTitle\022\037\n\013" +
-      "report_type\030\002 \001(\tR\nreportType\022\037\n\013report_" +
-      "date\030\003 \001(\tR\nreportDate\022:\n\007metrics\030\004 \003(\0132" +
-      " .shorts.v1alpha1.FinancialMetricR\007metri" +
-      "cs\022\026\n\006digest\030\005 \001(\tR\006digest\022\036\n\nconfidence" +
-      "\030\006 \001(\001R\nconfidence\"\344\001\n\017FinancialMetric\022\037" +
-      "\n\013metric_type\030\001 \001(\tR\nmetricType\022\037\n\013sourc" +
-      "e_text\030\002 \001(\tR\nsourceText\022P\n\nattributes\030\003" +
-      " \003(\01320.shorts.v1alpha1.FinancialMetric.A" +
-      "ttributesEntryR\nattributes\032=\n\017Attributes" +
-      "Entry\022\020\n\003key\030\001 \001(\tR\003key\022\024\n\005value\030\002 \001(\tR\005" +
-      "value:\0028\001\"\335\003\n\013NewsArticle\022\016\n\002id\030\001 \001(\tR\002i" +
-      "d\022\035\n\nstock_code\030\002 \001(\tR\tstockCode\022\026\n\006sour" +
-      "ce\030\003 \001(\tR\006source\022\032\n\010headline\030\004 \001(\tR\010head" +
-      "line\022\020\n\003url\030\005 \001(\tR\003url\022=\n\014published_at\030\006" +
-      " \001(\0132\032.google.protobuf.TimestampR\013publis" +
-      "hedAt\022\034\n\tsentiment\030\007 \001(\tR\tsentiment\022\'\n\017r" +
-      "elevance_score\030\010 \001(\001R\016relevanceScore\022,\n\022" +
-      "is_price_sensitive\030\t \001(\010R\020isPriceSensiti" +
-      "ve\022\030\n\007summary\030\n \001(\tR\007summary\022\022\n\004tags\030\013 \003" +
-      "(\tR\004tags\022\033\n\timage_url\030\014 \001(\tR\010imageUrl\022+\n" +
-      "\021syndication_count\030\r \001(\005R\020syndicationCou" +
-      "nt\022-\n\022syndicated_sources\030\016 \003(\tR\021syndicat" +
-      "edSources\"\200\001\n\023GetStockNewsRequest\022\035\n\nsto" +
-      "ck_code\030\001 \001(\tR\tstockCode\022\024\n\005limit\030\002 \001(\005R" +
-      "\005limit\022\026\n\006source\030\003 \001(\tR\006source\022\034\n\tsentim" +
-      "ent\030\004 \001(\tR\tsentiment\"q\n\024GetStockNewsResp" +
-      "onse\0228\n\010articles\030\001 \003(\0132\034.shorts.v1alpha1" +
-      ".NewsArticleR\010articles\022\037\n\013total_count\030\002 " +
-      "\001(\005R\ntotalCount\"k\n\025GetRelatedNewsRequest" +
-      "\022\035\n\nstock_code\030\001 \001(\tR\tstockCode\022\035\n\nartic" +
-      "le_id\030\002 \001(\tR\tarticleId\022\024\n\005limit\030\003 \001(\005R\005l" +
-      "imit\"R\n\026GetRelatedNewsResponse\0228\n\010articl" +
-      "es\030\001 \003(\0132\034.shorts.v1alpha1.NewsArticleR\010" +
-      "articles\"v\n\024GetMarketNewsRequest\022\024\n\005limi" +
-      "t\030\001 \001(\005R\005limit\022\026\n\006source\030\002 \001(\tR\006source\0220" +
-      "\n\024price_sensitive_only\030\003 \001(\010R\022priceSensi" +
-      "tiveOnly\"r\n\025GetMarketNewsResponse\0228\n\010art" +
-      "icles\030\001 \003(\0132\034.shorts.v1alpha1.NewsArticl" +
-      "eR\010articles\022\037\n\013total_count\030\002 \001(\005R\ntotalC" +
-      "ount\"\262\007\n\rEditorialTake\022\016\n\002id\030\001 \001(\tR\002id\022\022" +
-      "\n\004slug\030\002 \001(\tR\004slug\022\032\n\010headline\030\003 \001(\tR\010he" +
-      "adline\022\035\n\nstock_code\030\004 \001(\tR\tstockCode\022\027\n" +
-      "\007body_md\030\005 \001(\tR\006bodyMd\022\034\n\tsentiment\030\006 \001(" +
-      "\tR\tsentiment\022*\n\021source_article_id\030\007 \001(\tR" +
-      "\017sourceArticleId\022\035\n\nsource_url\030\010 \001(\tR\tso" +
-      "urceUrl\022\037\n\013source_name\030\t \001(\tR\nsourceName" +
-      "\022 \n\014og_image_url\030\n \001(\tR\nogImageUrl\022\035\n\nwo" +
-      "rd_count\030\013 \001(\005R\twordCount\022\024\n\005model\030\014 \001(\t" +
-      "R\005model\022=\n\014published_at\030\r \001(\0132\032.google.p" +
-      "rotobuf.TimestampR\013publishedAt\0229\n\ncreate" +
-      "d_at\030\016 \001(\0132\032.google.protobuf.TimestampR\t" +
-      "createdAt\022$\n\016hero_image_url\030\017 \001(\tR\014heroI" +
-      "mageUrl\022A\n\rinline_images\030\020 \003(\0132\034.shorts." +
-      "v1alpha1.InlineImageR\014inlineImages\022H\n\022tw" +
-      "eet_published_at\030\021 \001(\0132\032.google.protobuf" +
-      ".TimestampR\020tweetPublishedAt\022;\n\tcitation" +
-      "s\030\022 \003(\0132\035.shorts.v1alpha1.TakeCitationR\t" +
-      "citations\022A\n\rlayout_images\030\023 \003(\0132\034.short" +
-      "s.v1alpha1.LayoutImageR\014layoutImages\022\037\n\013" +
-      "body_format\030\024 \001(\tR\nbodyFormat\022\036\n\nstandfi" +
-      "rst\030\025 \001(\tR\nstandfirst\022\026\n\006byline\030\026 \001(\tR\006b",
-      "yline\022!\n\014hero_caption\030\027 \001(\tR\013heroCaption" +
-      "\022\037\n\013hero_credit\030\030 \001(\tR\nheroCredit\"\223\001\n\014Ta" +
-      "keCitation\022\025\n\006ref_id\030\001 \001(\tR\005refId\022\020\n\003url" +
-      "\030\002 \001(\tR\003url\022\026\n\006source\030\003 \001(\tR\006source\022\032\n\010h" +
-      "eadline\030\004 \001(\tR\010headline\022\022\n\004date\030\005 \001(\tR\004d" +
-      "ate\022\022\n\004type\030\006 \001(\tR\004type\"G\n\013InlineImage\022\020" +
-      "\n\003url\030\001 \001(\tR\003url\022\024\n\005topic\030\002 \001(\tR\005topic\022\020" +
-      "\n\003alt\030\003 \001(\tR\003alt\"\307\001\n\013LayoutImage\022\020\n\003url\030" +
-      "\001 \001(\tR\003url\022\024\n\005style\030\002 \001(\tR\005style\022\024\n\005rati" +
-      "o\030\003 \001(\tR\005ratio\022\024\n\005brief\030\004 \001(\tR\005brief\022\030\n\007" +
-      "caption\030\005 \001(\tR\007caption\022\034\n\tplacement\030\006 \001(" +
-      "\tR\tplacement\022,\n\022anchor_after_block\030\007 \001(\005" +
-      "R\020anchorAfterBlock\"-\n\027GetEditorialTakeRe" +
-      "quest\022\022\n\004slug\030\001 \001(\tR\004slug\"N\n\030GetEditoria" +
-      "lTakeResponse\0222\n\004take\030\001 \001(\0132\036.shorts.v1a" +
-      "lpha1.EditorialTakeR\004take\"h\n\031ListEditori" +
-      "alTakesRequest\022\024\n\005limit\030\001 \001(\005R\005limit\022\026\n\006" +
-      "offset\030\002 \001(\005R\006offset\022\035\n\nstock_code\030\003 \001(\t" +
-      "R\tstockCode\"s\n\032ListEditorialTakesRespons" +
-      "e\0224\n\005takes\030\001 \003(\0132\036.shorts.v1alpha1.Edito" +
-      "rialTakeR\005takes\022\037\n\013total_count\030\002 \001(\005R\nto" +
-      "talCount\"\220\001\n\036ListEditorialTakesAdminRequ" +
-      "est\022\024\n\005limit\030\001 \001(\005R\005limit\022\026\n\006offset\030\002 \001(" +
-      "\005R\006offset\022@\n\rstatus_filter\030\003 \001(\0162\033.short" +
-      "s.v1alpha1.TakeStatusR\014statusFilter\"x\n\037L" +
-      "istEditorialTakesAdminResponse\0224\n\005takes\030" +
-      "\001 \003(\0132\036.shorts.v1alpha1.EditorialTakeR\005t" +
-      "akes\022\037\n\013total_count\030\002 \001(\005R\ntotalCount\"1\n" +
-      "\033PublishEditorialTakeRequest\022\022\n\004slug\030\001 \001" +
-      "(\tR\004slug\"R\n\034PublishEditorialTakeResponse" +
-      "\0222\n\004take\030\001 \001(\0132\036.shorts.v1alpha1.Editori" +
-      "alTakeR\004take\"\251\001\n\032UpdateEditorialTakeRequ" +
-      "est\022\022\n\004slug\030\001 \001(\tR\004slug\022\027\n\007body_md\030\002 \001(\t" +
-      "R\006bodyMd\022\032\n\010headline\030\003 \001(\tR\010headline\022$\n\016" +
-      "hero_image_url\030\004 \001(\tR\014heroImageUrl\022\034\n\tse" +
-      "ntiment\030\005 \001(\tR\tsentiment\"Q\n\033UpdateEditor" +
-      "ialTakeResponse\0222\n\004take\030\001 \001(\0132\036.shorts.v" +
-      "1alpha1.EditorialTakeR\004take\"0\n\032DeleteEdi" +
-      "torialTakeRequest\022\022\n\004slug\030\001 \001(\tR\004slug\"7\n" +
-      "\033DeleteEditorialTakeResponse\022\030\n\007deleted\030" +
-      "\001 \001(\010R\007deleted\"3\n\035MarkTakeTweetPublished" +
-      "Request\022\022\n\004slug\030\001 \001(\tR\004slug\"T\n\036MarkTakeT" +
-      "weetPublishedResponse\0222\n\004take\030\001 \001(\0132\036.sh" +
-      "orts.v1alpha1.EditorialTakeR\004take\"4\n\034Lis" +
-      "tTweetPublishQueueRequest\022\024\n\005limit\030\001 \001(\005" +
-      "R\005limit\"U\n\035ListTweetPublishQueueResponse" +
-      "\0224\n\005takes\030\001 \003(\0132\036.shorts.v1alpha1.Editor" +
-      "ialTakeR\005takes\"\272\002\n\rDirectorTrade\022\016\n\002id\030\001" +
-      " \001(\tR\002id\022\035\n\nstock_code\030\002 \001(\tR\tstockCode\022" +
-      "#\n\rdirector_name\030\003 \001(\tR\014directorName\022\035\n\n" +
-      "trade_type\030\004 \001(\tR\ttradeType\022#\n\rshares_tr" +
-      "aded\030\005 \001(\003R\014sharesTraded\022&\n\017price_per_sh" +
-      "are\030\006 \001(\001R\rpricePerShare\022\037\n\013total_value\030" +
-      "\007 \001(\001R\ntotalValue\022\035\n\ntrade_date\030\010 \001(\tR\tt" +
-      "radeDate\022)\n\020announcement_url\030\t \001(\tR\017anno" +
-      "uncementUrl\"O\n\030GetDirectorTradesRequest\022" +
-      "\035\n\nstock_code\030\001 \001(\tR\tstockCode\022\024\n\005limit\030" +
-      "\002 \001(\005R\005limit\"t\n\031GetDirectorTradesRespons" +
-      "e\0226\n\006trades\030\001 \003(\0132\036.shorts.v1alpha1.Dire" +
-      "ctorTradeR\006trades\022\037\n\013total_count\030\002 \001(\005R\n" +
-      "totalCount\"\373\001\n\016DividendRecord\022\016\n\002id\030\001 \001(" +
-      "\tR\002id\022\035\n\nstock_code\030\002 \001(\tR\tstockCode\022\027\n\007" +
-      "ex_date\030\003 \001(\tR\006exDate\022!\n\014payment_date\030\004 " +
-      "\001(\tR\013paymentDate\022(\n\020amount_per_share\030\005 \001" +
-      "(\001R\016amountPerShare\022/\n\023franking_percentag" +
-      "e\030\006 \001(\001R\022frankingPercentage\022#\n\rdividend_" +
-      "type\030\007 \001(\tR\014dividendType\"P\n\031GetDividendH" +
-      "istoryRequest\022\035\n\nstock_code\030\001 \001(\tR\tstock" +
-      "Code\022\024\n\005years\030\002 \001(\005R\005years\"\243\001\n\032GetDivide" +
-      "ndHistoryResponse\022=\n\tdividends\030\001 \003(\0132\037.s" +
-      "horts.v1alpha1.DividendRecordR\tdividends" +
-      "\022\037\n\013total_count\030\002 \001(\005R\ntotalCount\022%\n\016tra" +
-      "iling_yield\030\003 \001(\001R\rtrailingYield\"\303\002\n\tPee" +
-      "rStock\022\035\n\nstock_code\030\001 \001(\tR\tstockCode\022!\n" +
-      "\014company_name\030\002 \001(\tR\013companyName\022\032\n\010indu" +
-      "stry\030\003 \001(\tR\010industry\0224\n\026short_position_p" +
-      "ercent\030\004 \001(\001R\024shortPositionPercent\022\035\n\nma" +
-      "rket_cap\030\005 \001(\001R\tmarketCap\022\031\n\010pe_ratio\030\006 " +
-      "\001(\001R\007peRatio\022%\n\016dividend_yield\030\007 \001(\001R\rdi" +
-      "videndYield\022&\n\017price_change_1m\030\010 \001(\001R\rpr" +
-      "iceChange1m\022\031\n\010logo_url\030\t \001(\tR\007logoUrl\"O" +
-      "\n\030GetPeerComparisonRequest\022\035\n\nstock_code" +
-      "\030\001 \001(\tR\tstockCode\022\024\n\005limit\030\002 \001(\005R\005limit\"" +
-      "\237\001\n\031GetPeerComparisonResponse\0224\n\007subject" +
-      "\030\001 \001(\0132\032.shorts.v1alpha1.PeerStockR\007subj" +
-      "ect\0220\n\005peers\030\002 \003(\0132\032.shorts.v1alpha1.Pee" +
-      "rStockR\005peers\022\032\n\010industry\030\003 \001(\tR\010industr" +
-      "y\"c\n\013RangeFilter\022\020\n\003min\030\001 \001(\001R\003min\022\020\n\003ma" +
-      "x\030\002 \001(\001R\003max\022\027\n\007has_min\030\003 \001(\010R\006hasMin\022\027\n" +
-      "\007has_max\030\004 \001(\010R\006hasMax\"\256\005\n\017ScreenerFilte" +
-      "rs\0229\n\tshort_pct\030\001 \001(\0132\034.shorts.v1alpha1." +
-      "RangeFilterR\010shortPct\022F\n\020short_pct_chang" +
-      "e\030\002 \001(\0132\034.shorts.v1alpha1.RangeFilterR\016s" +
-      "hortPctChange\022;\n\nmarket_cap\030\003 \001(\0132\034.shor" +
-      "ts.v1alpha1.RangeFilterR\tmarketCap\022D\n\017pr" +
-      "ice_change_1m\030\004 \001(\0132\034.shorts.v1alpha1.Ra" +
-      "ngeFilterR\rpriceChange1m\0227\n\010pe_ratio\030\005 \001" +
-      "(\0132\034.shorts.v1alpha1.RangeFilterR\007peRati" +
-      "o\022C\n\016dividend_yield\030\006 \001(\0132\034.shorts.v1alp" +
-      "ha1.RangeFilterR\rdividendYield\022F\n\020net_di" +
-      "rector_buy\030\007 \001(\0132\034.shorts.v1alpha1.Range" +
-      "FilterR\016netDirectorBuy\022A\n\ravg_sentiment\030" +
-      "\010 \001(\0132\034.shorts.v1alpha1.RangeFilterR\014avg" +
-      "Sentiment\022\036\n\nindustries\030\t \003(\tR\nindustrie" +
-      "s\022*\n\021has_director_buys\030\n \001(\010R\017hasDirecto" +
-      "rBuys\022@\n\rdays_to_cover\030\013 \001(\0132\034.shorts.v1" +
-      "alpha1.RangeFilterR\013daysToCover\"\211\002\n\023Scre" +
-      "enStocksRequest\022:\n\007filters\030\001 \001(\0132 .short" +
-      "s.v1alpha1.ScreenerFiltersR\007filters\022A\n\ns" +
-      "ort_field\030\002 \001(\0162\".shorts.v1alpha1.Screen" +
-      "erSortFieldR\tsortField\022E\n\016sort_direction" +
-      "\030\003 \001(\0162\036.shorts.v1alpha1.SortDirectionR\r" +
-      "sortDirection\022\024\n\005limit\030\004 \001(\005R\005limit\022\026\n\006o" +
-      "ffset\030\005 \001(\005R\006offset\"\337\006\n\rScreenerStock\022\035\n" +
-      "\nstock_code\030\001 \001(\tR\tstockCode\022!\n\014company_" +
-      "name\030\002 \001(\tR\013companyName\022\032\n\010industry\030\003 \001(" +
-      "\tR\010industry\022\033\n\tshort_pct\030\004 \001(\001R\010shortPct" +
-      "\022-\n\023short_pct_change_4w\030\005 \001(\001R\020shortPctC" +
-      "hange4w\022!\n\014latest_price\030\006 \001(\001R\013latestPri" +
-      "ce\022&\n\017price_change_1m\030\007 \001(\001R\rpriceChange" +
-      "1m\022#\n\rlatest_volume\030\010 \001(\003R\014latestVolume\022" +
-      "\035\n\nmarket_cap\030\t \001(\001R\tmarketCap\022\031\n\010pe_rat" +
-      "io\030\n \001(\001R\007peRatio\022%\n\016dividend_yield\030\013 \001(" +
-      "\001R\rdividendYield\0223\n\026net_director_buy_val" +
-      "ue\030\014 \001(\001R\023netDirectorBuyValue\022,\n\022directo" +
-      "r_buy_count\030\r \001(\005R\020directorBuyCount\022.\n\023d" +
-      "irector_sell_count\030\016 \001(\005R\021directorSellCo" +
-      "unt\022$\n\016news_count_30d\030\017 \001(\005R\014newsCount30" +
-      "d\022#\n\ravg_sentiment\030\020 \001(\001R\014avgSentiment\0222" +
-      "\n\025price_sensitive_count\030\021 \001(\005R\023priceSens" +
-      "itiveCount\0222\n\025trailing_12m_dividend\030\022 \001(" +
-      "\001R\023trailing12mDividend\022(\n\020avg_franking_p" +
-      "ct\030\023 \001(\001R\016avgFrankingPct\022\031\n\010logo_url\030\024 \001" +
-      "(\tR\007logoUrl\022\"\n\rdays_to_cover\030\025 \001(\001R\013days" +
-      "ToCover\022$\n\016avg_volume_20d\030\026 \001(\003R\014avgVolu" +
-      "me20d\"o\n\024ScreenStocksResponse\0226\n\006stocks\030" +
-      "\001 \003(\0132\036.shorts.v1alpha1.ScreenerStockR\006s" +
-      "tocks\022\037\n\013total_count\030\002 \001(\005R\ntotalCount\"\203" +
-      "\001\n\034GetBattlegroundStocksRequest\0225\n\004view\030" +
-      "\001 \001(\0162!.shorts.v1alpha1.BattlegroundView" +
-      "R\004view\022\024\n\005limit\030\002 \001(\005R\005limit\022\026\n\006offset\030\003" +
-      " \001(\005R\006offset\"\266\003\n\021BattlegroundStock\022\035\n\nst" +
-      "ock_code\030\001 \001(\tR\tstockCode\022!\n\014company_nam" +
-      "e\030\002 \001(\tR\013companyName\022\032\n\010industry\030\003 \001(\tR\010" +
-      "industry\022\031\n\010logo_url\030\004 \001(\tR\007logoUrl\022\033\n\ts" +
-      "hort_pct\030\005 \001(\001R\010shortPct\022-\n\023short_pct_ch" +
-      "ange_4w\030\006 \001(\001R\020shortPctChange4w\022!\n\014lates" +
-      "t_price\030\007 \001(\001R\013latestPrice\022&\n\017price_chan" +
-      "ge_1m\030\010 \001(\001R\rpriceChange1m\022\"\n\rdays_to_co" +
-      "ver\030\t \001(\001R\013daysToCover\022#\n\rsqueeze_score\030" +
-      "\n \001(\001R\014squeezeScore\022)\n\020divergence_score\030" +
-      "\013 \001(\001R\017divergenceScore\022\035\n\nmarket_cap\030\014 \001" +
-      "(\001R\tmarketCap\"|\n\035GetBattlegroundStocksRe" +
-      "sponse\022:\n\006stocks\030\001 \003(\0132\".shorts.v1alpha1" +
-      ".BattlegroundStockR\006stocks\022\037\n\013total_coun" +
-      "t\030\002 \001(\005R\ntotalCount\";\n\026GetStockVerdictRe" +
-      "quest\022!\n\014product_code\030\001 \001(\tR\013productCode" +
-      "\"x\n\020VerdictComponent\022\022\n\004name\030\001 \001(\tR\004name" +
-      "\022\024\n\005score\030\002 \001(\001R\005score\022\026\n\006weight\030\003 \001(\001R\006" +
-      "weight\022\"\n\014contribution\030\004 \001(\001R\014contributi" +
-      "on\"\322\001\n\027GetStockVerdictResponse\022!\n\014produc" +
-      "t_code\030\001 \001(\tR\013productCode\022\034\n\tcomposite\030\002" +
-      " \001(\001R\tcomposite\0223\n\005label\030\003 \001(\0162\035.shorts." +
-      "v1alpha1.VerdictLabelR\005label\022A\n\ncomponen" +
-      "ts\030\004 \003(\0132!.shorts.v1alpha1.VerdictCompon" +
-      "entR\ncomponents\"@\n\033GetCompanyTaxProfileR" +
-      "equest\022!\n\014product_code\030\001 \001(\tR\013productCod" +
-      "e\"\362\001\n\016CompanyTaxYear\022\037\n\013income_year\030\001 \001(" +
-      "\005R\nincomeYear\022!\n\014total_income\030\002 \001(\001R\013tot" +
-      "alIncome\022,\n\022has_taxable_income\030\003 \001(\010R\020ha" +
-      "sTaxableIncome\022%\n\016taxable_income\030\004 \001(\001R\r" +
-      "taxableIncome\022&\n\017has_tax_payable\030\005 \001(\010R\r" +
-      "hasTaxPayable\022\037\n\013tax_payable\030\006 \001(\001R\ntaxP" +
-      "ayable\"\267\001\n\034GetCompanyTaxProfileResponse\022" +
-      "\037\n\013entity_name\030\001 \001(\tR\nentityName\022\020\n\003abn\030" +
-      "\002 \001(\tR\003abn\0225\n\005years\030\003 \003(\0132\037.shorts.v1alp" +
-      "ha1.CompanyTaxYearR\005years\022-\n\022source_attr" +
-      "ibution\030\004 \001(\tR\021sourceAttribution\"~\n\036GetI" +
-      "ndustryIntelligenceRequest\022\032\n\010industry\030\001" +
-      " \001(\tR\010industry\022!\n\014record_limit\030\002 \001(\005R\013re" +
-      "cordLimit\022\035\n\nstock_code\030\003 \001(\tR\tstockCode" +
-      "\"\360\001\n\032IndustryIntelligenceSource\022\035\n\nsourc" +
-      "e_key\030\001 \001(\tR\tsourceKey\022!\n\014display_name\030\002" +
-      " \001(\tR\013displayName\022\037\n\013signal_kind\030\003 \001(\tR\n" +
-      "signalKind\022\034\n\tpublisher\030\004 \001(\tR\tpublisher" +
-      "\022\035\n\nsource_url\030\005 \001(\tR\tsourceUrl\022\030\n\007licen" +
-      "ce\030\006 \001(\tR\007licence\022\030\n\007cadence\030\007 \001(\tR\007cade" +
-      "nce\"\311\004\n\032IndustryIntelligenceRecord\022\035\n\nso" +
-      "urce_key\030\001 \001(\tR\tsourceKey\022(\n\020source_reco" +
-      "rd_id\030\002 \001(\tR\016sourceRecordId\022\037\n\013signal_ki" +
-      "nd\030\003 \001(\tR\nsignalKind\022\032\n\010industry\030\004 \001(\tR\010" +
-      "industry\022\035\n\nstock_code\030\005 \001(\tR\tstockCode\022" +
-      "\035\n\nentity_abn\030\006 \001(\tR\tentityAbn\022\035\n\nmetric" +
-      "_key\030\007 \001(\tR\tmetricKey\022!\n\014metric_label\030\010 " +
-      "\001(\tR\013metricLabel\022(\n\020has_metric_value\030\t \001" +
-      "(\010R\016hasMetricValue\022!\n\014metric_value\030\n \001(\001" +
-      "R\013metricValue\022\022\n\004unit\030\013 \001(\tR\004unit\022!\n\014per" +
-      "iod_start\030\014 \001(\tR\013periodStart\022\035\n\nperiod_e" +
-      "nd\030\r \001(\tR\tperiodEnd\022\023\n\005as_of\030\016 \001(\tR\004asOf" +
-      "\022\024\n\005title\030\017 \001(\tR\005title\022\030\n\007summary\030\020 \001(\tR" +
-      "\007summary\022\035\n\nsource_url\030\021 \001(\tR\tsourceUrl\022" +
-      "\036\n\nconfidence\030\022 \001(\001R\nconfidence\"\215\003\n\036Indu" +
-      "stryIntelligenceTimeBucket\022\037\n\013signal_kin" +
-      "d\030\001 \001(\tR\nsignalKind\022\035\n\nsource_key\030\002 \001(\tR" +
-      "\tsourceKey\022\035\n\nmetric_key\030\003 \001(\tR\tmetricKe" +
-      "y\022!\n\014metric_label\030\004 \001(\tR\013metricLabel\022\022\n\004" +
-      "unit\030\005 \001(\tR\004unit\022!\n\014bucket_label\030\006 \001(\tR\013" +
-      "bucketLabel\022!\n\014bucket_start\030\007 \001(\tR\013bucke" +
-      "tStart\022\037\n\013total_value\030\010 \001(\001R\ntotalValue\022" +
-      "!\n\014record_count\030\t \001(\005R\013recordCount\022!\n\014en" +
-      "tity_count\030\n \001(\005R\013entityCount\022(\n\020zero_va" +
-      "lue_count\030\013 \001(\005R\016zeroValueCount\"\274\002\n\037Indu" +
-      "stryIntelligenceEntityTotal\022\037\n\013signal_ki" +
-      "nd\030\001 \001(\tR\nsignalKind\022\035\n\nsource_key\030\002 \001(\t" +
-      "R\tsourceKey\022\035\n\nmetric_key\030\003 \001(\tR\tmetricK" +
-      "ey\022\035\n\nstock_code\030\004 \001(\tR\tstockCode\022!\n\014ent" +
-      "ity_label\030\005 \001(\tR\013entityLabel\022\022\n\004unit\030\006 \001" +
-      "(\tR\004unit\022\037\n\013total_value\030\007 \001(\001R\ntotalValu" +
-      "e\022!\n\014record_count\030\010 \001(\005R\013recordCount\022 \n\014" +
-      "latest_as_of\030\t \001(\tR\nlatestAsOf\"\344\003\n\037GetIn" +
-      "dustryIntelligenceResponse\022\032\n\010industry\030\001" +
-      " \001(\tR\010industry\022E\n\007sources\030\002 \003(\0132+.shorts" +
-      ".v1alpha1.IndustryIntelligenceSourceR\007so" +
-      "urces\022E\n\007records\030\003 \003(\0132+.shorts.v1alpha1" +
-      ".IndustryIntelligenceRecordR\007records\022-\n\022" +
-      "source_attribution\030\004 \001(\tR\021sourceAttribut" +
-      "ion\022=\n\014generated_at\030\005 \001(\0132\032.google.proto" +
-      "buf.TimestampR\013generatedAt\022R\n\014time_bucke" +
-      "ts\030\006 \003(\0132/.shorts.v1alpha1.IndustryIntel" +
-      "ligenceTimeBucketR\013timeBuckets\022U\n\rentity" +
-      "_totals\030\007 \003(\01320.shorts.v1alpha1.Industry" +
-      "IntelligenceEntityTotalR\014entityTotals\"m\n" +
-      "!GetShortCampaignScoreboardRequest\022\024\n\005li" +
-      "mit\030\001 \001(\005R\005limit\022\026\n\006offset\030\002 \001(\005R\006offset" +
-      "\022\032\n\010industry\030\003 \001(\tR\010industry\"\272\004\n\rShortCa" +
-      "mpaign\022\035\n\nstock_code\030\001 \001(\tR\tstockCode\022!\n" +
-      "\014company_name\030\002 \001(\tR\013companyName\022\032\n\010indu" +
-      "stry\030\003 \001(\tR\010industry\022\031\n\010logo_url\030\004 \001(\tR\007" +
-      "logoUrl\022\033\n\tpeak_date\030\005 \001(\tR\010peakDate\022$\n\016" +
-      "peak_short_pct\030\006 \001(\001R\014peakShortPct\022\"\n\rpr" +
-      "ice_at_peak\030\007 \001(\001R\013priceAtPeak\022$\n\016price_" +
-      "3m_after\030\010 \001(\001R\014price3mAfter\022$\n\016price_6m" +
-      "_after\030\t \001(\001R\014price6mAfter\022\033\n\treturn_3m\030" +
-      "\n \001(\001R\010return3m\022\033\n\treturn_6m\030\013 \001(\001R\010retu" +
-      "rn6m\022\025\n\006has_3m\030\014 \001(\010R\005has3m\022\025\n\006has_6m\030\r " +
-      "\001(\010R\005has6m\022\"\n\rshorts_won_3m\030\016 \001(\010R\013short" +
-      "sWon3m\022\"\n\rshorts_won_6m\030\017 \001(\010R\013shortsWon" +
-      "6m\022*\n\021current_short_pct\030\020 \001(\001R\017currentSh" +
-      "ortPct\022!\n\014latest_price\030\021 \001(\001R\013latestPric" +
-      "e\"\206\002\n\"GetShortCampaignScoreboardResponse" +
-      "\022<\n\tcampaigns\030\001 \003(\0132\036.shorts.v1alpha1.Sh" +
-      "ortCampaignR\tcampaigns\022\037\n\013total_count\030\002 " +
-      "\001(\005R\ntotalCount\022\'\n\017campaigns_total\030\003 \001(\005" +
-      "R\016campaignsTotal\022+\n\022shorts_win_rate_3m\030\004" +
-      " \001(\001R\017shortsWinRate3m\022+\n\022shorts_win_rate" +
-      "_6m\030\005 \001(\001R\017shortsWinRate6m\"K\n\024GetStockGr" +
-      "aphRequest\022\035\n\nstock_code\030\001 \001(\tR\tstockCod" +
-      "e\022\024\n\005limit\030\002 \001(\005R\005limit\"\226\001\n\025GetStockGrap" +
-      "hResponse\0224\n\006people\030\001 \003(\0132\034.shorts.v1alp" +
-      "ha1.GraphPersonR\006people\022G\n\021similar_compa" +
-      "nies\030\002 \003(\0132\032.shorts.v1alpha1.GraphPeerR\020" +
-      "similarCompanies\"\216\001\n\013GraphPerson\022\022\n\004name" +
-      "\030\001 \001(\tR\004name\022\022\n\004role\030\002 \001(\tR\004role\022\033\n\timag" +
-      "e_url\030\003 \001(\tR\010imageUrl\022!\n\014linkedin_url\030\004 " +
-      "\001(\tR\013linkedinUrl\022\027\n\007also_at\030\005 \003(\tR\006alsoA" +
-      "t\"\211\001\n\tGraphPeer\022\035\n\nstock_code\030\001 \001(\tR\tsto" +
-      "ckCode\022!\n\014company_name\030\002 \001(\tR\013companyNam" +
-      "e\022\032\n\010industry\030\003 \001(\tR\010industry\022\036\n\nsimilar" +
-      "ity\030\004 \001(\001R\nsimilarity\"k\n\027GetEventTimelin" +
-      "eRequest\022\035\n\nstock_code\030\001 \001(\tR\tstockCode\022" +
-      "\033\n\tdays_back\030\002 \001(\005R\010daysBack\022\024\n\005limit\030\003 " +
-      "\001(\005R\005limit\"R\n\030GetEventTimelineResponse\0226" +
-      "\n\006events\030\001 \003(\0132\036.shorts.v1alpha1.Timelin" +
-      "eEventR\006events\"\303\001\n\rTimelineEvent\022\022\n\004date" +
-      "\030\001 \001(\tR\004date\022\022\n\004type\030\002 \001(\tR\004type\022\024\n\005titl" +
-      "e\030\003 \001(\tR\005title\022\026\n\006detail\030\004 \001(\tR\006detail\022\020" +
-      "\n\003url\030\005 \001(\tR\003url\022\034\n\tsentiment\030\006 \001(\tR\tsen" +
-      "timent\022,\n\022is_price_sensitive\030\007 \001(\010R\020isPr" +
-      "iceSensitive\"M\n\026GetStockSignalsRequest\022\035" +
-      "\n\nstock_code\030\001 \001(\tR\tstockCode\022\024\n\005limit\030\002" +
-      " \001(\005R\005limit\"\213\001\n\027GetStockSignalsResponse\022" +
-      "6\n\007adverse\030\001 \003(\0132\034.shorts.v1alpha1.Stock" +
-      "SignalR\007adverse\0228\n\010positive\030\002 \003(\0132\034.shor" +
-      "ts.v1alpha1.StockSignalR\010positive\"\352\001\n\013St" +
-      "ockSignal\022\032\n\010polarity\030\001 \001(\tR\010polarity\022\022\n" +
-      "\004kind\030\002 \001(\tR\004kind\022\032\n\010headline\030\003 \001(\tR\010hea" +
-      "dline\022\026\n\006detail\030\004 \001(\tR\006detail\022\035\n\nevent_d" +
-      "ate\030\005 \001(\tR\teventDate\022\032\n\010severity\030\006 \001(\tR\010" +
-      "severity\022\036\n\nconfidence\030\007 \001(\001R\nconfidence" +
-      "\022\034\n\tcitations\030\010 \003(\tR\tcitations\"<\n\031GetHou" +
-      "singOverviewRequest\022\037\n\013region_type\030\001 \001(\t" +
-      "R\nregionType\"\207\003\n\rHousingMetric\022\037\n\013region" +
-      "_code\030\001 \001(\tR\nregionCode\022\037\n\013region_name\030\002" +
-      " \001(\tR\nregionName\022\037\n\013region_type\030\003 \001(\tR\nr" +
-      "egionType\022\035\n\nstate_code\030\004 \001(\tR\tstateCode" +
-      "\022\030\n\007measure\030\005 \001(\tR\007measure\022#\n\rdwelling_t" +
-      "ype\030\006 \001(\tR\014dwellingType\022\024\n\005value\030\007 \001(\001R\005" +
-      "value\022\022\n\004unit\030\010 \001(\tR\004unit\0222\n\006period\030\t \001(" +
-      "\0132\032.google.protobuf.TimestampR\006period\022%\n" +
-      "\016is_preliminary\030\n \001(\010R\risPreliminary\022\027\n\007" +
-      "qoq_pct\030\013 \001(\001R\006qoqPct\022\027\n\007yoy_pct\030\014 \001(\001R\006" +
-      "yoyPct\"\207\001\n\032GetHousingOverviewResponse\0228\n" +
-      "\007metrics\030\001 \003(\0132\036.shorts.v1alpha1.Housing" +
-      "MetricR\007metrics\022/\n\005as_of\030\002 \001(\0132\032.google." +
-      "protobuf.TimestampR\004asOf\"|\n\032GetHousePric" +
-      "eSeriesRequest\022\037\n\013region_code\030\001 \001(\tR\nreg" +
-      "ionCode\022\030\n\007measure\030\002 \001(\tR\007measure\022#\n\rdwe" +
-      "lling_type\030\003 \001(\tR\014dwellingType\"\202\001\n\017House" +
-      "PricePoint\0222\n\006period\030\001 \001(\0132\032.google.prot" +
-      "obuf.TimestampR\006period\022\024\n\005value\030\002 \001(\001R\005v" +
-      "alue\022%\n\016is_preliminary\030\003 \001(\010R\risPrelimin" +
-      "ary\"\253\002\n\033GetHousePriceSeriesResponse\022\037\n\013r" +
-      "egion_code\030\001 \001(\tR\nregionCode\022\037\n\013region_n" +
-      "ame\030\002 \001(\tR\nregionName\022\030\n\007measure\030\003 \001(\tR\007" +
-      "measure\022#\n\rdwelling_type\030\004 \001(\tR\014dwelling" +
-      "Type\022\022\n\004unit\030\005 \001(\tR\004unit\022\026\n\006source\030\006 \001(\t" +
-      "R\006source\022%\n\016source_licence\030\007 \001(\tR\rsource" +
-      "Licence\0228\n\006points\030\010 \003(\0132 .shorts.v1alpha" +
-      "1.HousePricePointR\006points\"d\n\027ListStateSu" +
-      "burbsRequest\022\035\n\nstate_code\030\001 \001(\tR\tstateC" +
-      "ode\022\024\n\005query\030\002 \001(\tR\005query\022\024\n\005limit\030\003 \001(\005" +
-      "R\005limit\"\261\007\n\017SuburbAmenities\022#\n\rschools_t" +
-      "otal\030\001 \001(\005R\014schoolsTotal\022-\n\022supermarkets" +
-      "_total\030\002 \001(\005R\021supermarketsTotal\022\037\n\013coles" +
-      "_count\030\003 \001(\005R\ncolesCount\022)\n\020woolworths_c" +
-      "ount\030\004 \001(\005R\017woolworthsCount\022\035\n\naldi_coun" +
-      "t\030\005 \001(\005R\taldiCount\022\033\n\tiga_count\030\006 \001(\005R\010i" +
-      "gaCount\022\033\n\tpubs_bars\030\007 \001(\005R\010pubsBars\022\037\n\013" +
-      "parks_count\030\010 \001(\005R\nparksCount\022\'\n\017librari" +
-      "es_count\030\t \001(\005R\016librariesCount\0224\n\026neares" +
-      "t_supermarket_km\030\n \001(\001R\024nearestSupermark" +
-      "etKm\0222\n\025amenity_density_score\030\013 \001(\001R\023ame" +
-      "nityDensityScore\022\'\n\017hospitals_count\030\014 \001(" +
-      "\005R\016hospitalsCount\022\031\n\010gp_count\030\r \001(\005R\007gpC" +
-      "ount\022%\n\016pharmacy_count\030\016 \001(\005R\rpharmacyCo" +
-      "unt\022(\n\020nearest_train_km\030\017 \001(\001R\016nearestTr" +
-      "ainKm\022.\n\023nearest_hospital_km\030\020 \001(\001R\021near" +
-      "estHospitalKm\022\'\n\020dist_to_coast_km\030\021 \001(\001R" +
-      "\rdistToCoastKm\022\037\n\013schools_gov\030\022 \001(\005R\nsch" +
-      "oolsGov\022)\n\020schools_catholic\030\023 \001(\005R\017schoo" +
-      "lsCatholic\022/\n\023schools_independent\030\024 \001(\005R" +
-      "\022schoolsIndependent\022\'\n\017schools_primary\030\025" +
-      " \001(\005R\016schoolsPrimary\022+\n\021schools_secondar" +
-      "y\030\026 \001(\005R\020schoolsSecondary\0220\n\024nearest_sec" +
-      "ondary_km\030\027 \001(\001R\022nearestSecondaryKm\"\303\010\n\r" +
-      "SuburbSummary\022\031\n\010sal_code\030\001 \001(\tR\007salCode" +
-      "\022\031\n\010sal_name\030\002 \001(\tR\007salName\022\035\n\nstate_cod" +
-      "e\030\003 \001(\tR\tstateCode\022\032\n\010postcode\030\004 \001(\tR\010po" +
-      "stcode\022.\n\023latest_median_price\030\005 \001(\001R\021lat" +
-      "estMedianPrice\022?\n\rlatest_period\030\006 \001(\0132\032." +
-      "google.protobuf.TimestampR\014latestPeriod\022" +
-      "\027\n\007yoy_pct\030\007 \001(\001R\006yoyPct\022\036\n\npopulation\030\010" +
-      " \001(\005R\npopulation\022\035\n\nmedian_age\030\t \001(\001R\tme" +
-      "dianAge\0227\n\030median_weekly_hhd_income\030\n \001(" +
-      "\001R\025medianWeeklyHhdIncome\022\037\n\013region_code\030" +
-      "\013 \001(\tR\nregionCode\022*\n\021pct_born_overseas\030\014" +
-      " \001(\001R\017pctBornOverseas\022!\n\014top_religion\030\r " +
-      "\001(\tR\013topReligion\022!\n\014top_language\030\016 \001(\tR\013" +
-      "topLanguage\022(\n\020pct_top_language\030\017 \001(\001R\016p" +
-      "ctTopLanguage\022)\n\020federal_division\030\020 \001(\tR" +
-      "\017federalDivision\022%\n\016federal_member\030\021 \001(\t" +
-      "R\rfederalMember\022#\n\rfederal_party\030\022 \001(\tR\014" +
-      "federalParty\022(\n\020federal_party_ab\030\023 \001(\tR\016" +
-      "federalPartyAb\022&\n\017federal_tpp_alp\030\024 \001(\001R" +
-      "\rfederalTppAlp\022%\n\016state_district\030\025 \001(\tR\r" +
-      "stateDistrict\022!\n\014state_member\030\026 \001(\tR\013sta" +
-      "teMember\022\037\n\013state_party\030\027 \001(\tR\nstatePart" +
-      "y\022$\n\016state_party_ab\030\030 \001(\tR\014statePartyAb\022" +
-      ">\n\tamenities\030\031 \001(\0132 .shorts.v1alpha1.Sub" +
-      "urbAmenitiesR\tamenities\022*\n\021dominant_nbn_" +
-      "tech\030\032 \001(\tR\017dominantNbnTech\022<\n\032connectiv" +
-      "ity_quality_score\030\033 \001(\001R\030connectivityQua" +
-      "lityScore\"T\n\030ListStateSuburbsResponse\0228\n" +
-      "\007suburbs\030\001 \003(\0132\036.shorts.v1alpha1.SuburbS" +
-      "ummaryR\007suburbs\"4\n\027GetSuburbProfileReque" +
-      "st\022\031\n\010sal_code\030\001 \001(\tR\007salCode\"\206\006\n\022Suburb" +
-      "Demographics\022\036\n\npopulation\030\001 \001(\005R\npopula" +
-      "tion\022\035\n\nmedian_age\030\002 \001(\001R\tmedianAge\0227\n\030m" +
-      "edian_weekly_hhd_income\030\003 \001(\001R\025medianWee" +
-      "klyHhdIncome\0227\n\030median_weekly_per_income" +
-      "\030\004 \001(\001R\025medianWeeklyPerIncome\022,\n\022median_" +
-      "weekly_rent\030\005 \001(\001R\020medianWeeklyRent\0226\n\027m" +
-      "edian_monthly_mortgage\030\006 \001(\001R\025medianMont" +
-      "hlyMortgage\022,\n\022pct_owned_outright\030\007 \001(\001R" +
-      "\020pctOwnedOutright\022,\n\022pct_owned_mortgage\030" +
-      "\010 \001(\001R\020pctOwnedMortgage\022\035\n\npct_rented\030\t " +
-      "\001(\001R\tpctRented\022%\n\016dwelling_count\030\n \001(\005R\r" +
-      "dwellingCount\022\037\n\013census_year\030\013 \001(\005R\ncens" +
-      "usYear\022*\n\021pct_born_overseas\030\014 \001(\001R\017pctBo" +
-      "rnOverseas\022(\n\020pct_english_only\030\r \001(\001R\016pc" +
-      "tEnglishOnly\022!\n\014top_religion\030\016 \001(\tR\013topR" +
-      "eligion\022(\n\020pct_top_religion\030\017 \001(\001R\016pctTo" +
-      "pReligion\022&\n\017pct_no_religion\030\020 \001(\001R\rpctN" +
-      "oReligion\022!\n\014top_language\030\021 \001(\tR\013topLang" +
-      "uage\022(\n\020pct_top_language\030\022 \001(\001R\016pctTopLa" +
-      "nguage\"\205\002\n\023ComparisonBaselines\022,\n\022state_" +
-      "median_price\030\001 \001(\001R\020stateMedianPrice\0222\n\025" +
-      "national_median_price\030\002 \001(\001R\023nationalMed" +
-      "ianPrice\022B\n\036state_median_weekly_hhd_inco" +
-      "me\030\003 \001(\001R\032stateMedianWeeklyHhdIncome\022H\n!",
-      "national_median_weekly_hhd_income\030\004 \001(\001R" +
-      "\035nationalMedianWeeklyHhdIncome\"\216\003\n\007LgaIn" +
-      "fo\022\031\n\010lga_code\030\001 \001(\tR\007lgaCode\022\031\n\010lga_nam" +
-      "e\030\002 \001(\tR\007lgaName\022\035\n\nstate_code\030\003 \001(\tR\tst" +
-      "ateCode\022\033\n\tarea_sqkm\030\004 \001(\001R\010areaSqkm\022\036\n\n" +
-      "population\030\005 \001(\005R\npopulation\022\036\n\013fed_fag_" +
-      "aud\030\006 \001(\001R\tfedFagAud\022 \n\014fed_fag_year\030\007 \001" +
-      "(\tR\nfedFagYear\022\033\n\tavg_rates\030\010 \001(\001R\010avgRa" +
-      "tes\022(\n\020op_surplus_ratio\030\t \001(\001R\016opSurplus" +
-      "Ratio\022.\n\023asset_renewal_ratio\030\n \001(\001R\021asse" +
-      "tRenewalRatio\022\035\n\nfin_source\030\013 \001(\tR\tfinSo" +
-      "urce\022\031\n\010fin_year\030\014 \001(\tR\007finYear\"\325\001\n\rSimi" +
-      "larSuburb\022\031\n\010sal_code\030\001 \001(\tR\007salCode\022\031\n\010" +
-      "sal_name\030\002 \001(\tR\007salName\022\035\n\nstate_code\030\003 " +
-      "\001(\tR\tstateCode\022.\n\023latest_median_price\030\004 " +
-      "\001(\001R\021latestMedianPrice\022\036\n\nsimilarity\030\005 \001" +
-      "(\001R\nsimilarity\022\037\n\013region_code\030\006 \001(\tR\nreg" +
-      "ionCode\"\317\002\n\030GetSuburbProfileResponse\0228\n\007" +
-      "summary\030\001 \001(\0132\036.shorts.v1alpha1.SuburbSu" +
-      "mmaryR\007summary\022G\n\014demographics\030\002 \001(\0132#.s" +
-      "horts.v1alpha1.SuburbDemographicsR\014demog" +
-      "raphics\022B\n\tbaselines\030\003 \001(\0132$.shorts.v1al" +
-      "pha1.ComparisonBaselinesR\tbaselines\0222\n\007c" +
-      "ouncil\030\004 \001(\0132\030.shorts.v1alpha1.LgaInfoR\007" +
-      "council\0228\n\007similar\030\005 \003(\0132\036.shorts.v1alph" +
-      "a1.SimilarSuburbR\007similar\"\207\001\n\031ListHousin" +
-      "gRegionsRequest\022\037\n\013region_type\030\001 \001(\tR\nre" +
-      "gionType\022\035\n\nstate_code\030\002 \001(\tR\tstateCode\022" +
-      "\024\n\005query\030\003 \001(\tR\005query\022\024\n\005limit\030\004 \001(\005R\005li" +
-      "mit\"\221\002\n\rHousingRegion\022\037\n\013region_code\030\001 \001" +
-      "(\tR\nregionCode\022\037\n\013region_name\030\002 \001(\tR\nreg" +
-      "ionName\022\037\n\013region_type\030\003 \001(\tR\nregionType" +
-      "\022\035\n\nstate_code\030\004 \001(\tR\tstateCode\022\032\n\010postc" +
-      "ode\030\005 \001(\tR\010postcode\022!\n\014latest_value\030\006 \001(" +
-      "\001R\013latestValue\022?\n\rlatest_period\030\007 \001(\0132\032." +
-      "google.protobuf.TimestampR\014latestPeriod\"" +
-      "V\n\032ListHousingRegionsResponse\0228\n\007regions" +
-      "\030\001 \003(\0132\036.shorts.v1alpha1.HousingRegionR\007" +
-      "regions\"\207\001\n\033ListSuburbPriceDropsRequest\022" +
-      "\035\n\nstate_code\030\001 \001(\tR\tstateCode\022\037\n\013window" +
-      "_days\030\002 \001(\005R\nwindowDays\022\022\n\004sort\030\003 \001(\tR\004s" +
-      "ort\022\024\n\005limit\030\004 \001(\005R\005limit\"\203\005\n\017SuburbPric" +
-      "eDrop\022\037\n\013region_code\030\001 \001(\tR\nregionCode\022\031" +
-      "\n\010sal_code\030\002 \001(\tR\007salCode\022\031\n\010sal_name\030\003 " +
-      "\001(\tR\007salName\022\035\n\nstate_code\030\004 \001(\tR\tstateC" +
-      "ode\0222\n\025dropped_listing_count\030\005 \001(\005R\023drop" +
-      "pedListingCount\022 \n\014avg_drop_pct\030\006 \001(\001R\na" +
-      "vgDropPct\022&\n\017median_drop_pct\030\007 \001(\001R\rmedi" +
-      "anDropPct\022 \n\014max_drop_pct\030\010 \001(\001R\nmaxDrop" +
-      "Pct\022 \n\014max_drop_abs\030\t \001(\001R\nmaxDropAbs\0222\n" +
-      "\025total_active_listings\030\n \001(\005R\023totalActiv" +
-      "eListings\022#\n\rdropped_share\030\013 \001(\001R\014droppe" +
-      "dShare\022\032\n\010postcode\030\014 \001(\tR\010postcode\022$\n\016fo" +
-      "r_sale_count\030\r \001(\005R\014forSaleCount\022\035\n\navg_" +
-      "asking\030\016 \001(\001R\tavgAsking\022#\n\rmedian_asking" +
-      "\030\017 \001(\001R\014medianAsking\022\035\n\nsold_count\030\020 \001(\005" +
-      "R\tsoldCount\022\031\n\010avg_sold\030\021 \001(\001R\007avgSold\022\037" +
-      "\n\013median_sold\030\022 \001(\001R\nmedianSold\"Z\n\034ListS" +
-      "uburbPriceDropsResponse\022:\n\007suburbs\030\001 \003(\013" +
-      "2 .shorts.v1alpha1.SuburbPriceDropR\007subu" +
-      "rbs\"\222\001\n\035ListSuburbDropListingsRequest\022\031\n" +
-      "\010sal_code\030\001 \001(\tR\007salCode\022\037\n\013region_code\030" +
-      "\002 \001(\tR\nregionCode\022\037\n\013window_days\030\003 \001(\005R\n" +
-      "windowDays\022\024\n\005limit\030\004 \001(\005R\005limit\"\274\003\n\021Sub" +
-      "urbDropListing\022\026\n\006source\030\001 \001(\tR\006source\022\037" +
-      "\n\013listing_url\030\002 \001(\tR\nlistingUrl\022\'\n\017displ" +
-      "ay_address\030\003 \001(\tR\016displayAddress\022#\n\rprop" +
-      "erty_type\030\004 \001(\tR\014propertyType\022\032\n\010bedroom" +
-      "s\030\005 \001(\005R\010bedrooms\022\034\n\tbathrooms\030\006 \001(\005R\tba" +
-      "throoms\022\035\n\ncar_spaces\030\007 \001(\005R\tcarSpaces\022\035" +
-      "\n\nprev_price\030\010 \001(\001R\tprevPrice\022\024\n\005price\030\t" +
-      " \001(\001R\005price\022\031\n\010drop_pct\030\n \001(\001R\007dropPct\022\031" +
-      "\n\010drop_abs\030\013 \001(\001R\007dropAbs\022;\n\013observed_at" +
-      "\030\014 \001(\0132\032.google.protobuf.TimestampR\nobse" +
-      "rvedAt\022\037\n\013address_key\030\r \001(\tR\naddressKey\"" +
-      "`\n\036ListSuburbDropListingsResponse\022>\n\010lis" +
-      "tings\030\001 \003(\0132\".shorts.v1alpha1.SuburbDrop" +
-      "ListingR\010listings\"<\n\031GetPropertyHistoryR" +
-      "equest\022\037\n\013address_key\030\001 \001(\tR\naddressKey\"" +
-      "\367\003\n\027PropertyListingSnapshot\022\026\n\006source\030\001 " +
-      "\001(\tR\006source\022\035\n\nlisting_id\030\002 \001(\tR\tlisting" +
-      "Id\022\037\n\013listing_url\030\003 \001(\tR\nlistingUrl\022\024\n\005p" +
-      "rice\030\004 \001(\001R\005price\022#\n\rprice_display\030\005 \001(\t" +
-      "R\014priceDisplay\022\035\n\nprice_kind\030\006 \001(\tR\tpric" +
-      "eKind\022%\n\016listing_status\030\007 \001(\tR\rlistingSt" +
-      "atus\022\033\n\tis_active\030\010 \001(\010R\010isActive\022\032\n\010bed" +
-      "rooms\030\t \001(\005R\010bedrooms\022\034\n\tbathrooms\030\n \001(\005" +
-      "R\tbathrooms\022\035\n\ncar_spaces\030\013 \001(\005R\tcarSpac" +
-      "es\022\"\n\rland_size_sqm\030\014 \001(\001R\013landSizeSqm\022#" +
-      "\n\rproperty_type\030\r \001(\tR\014propertyType\022\"\n\rf" +
-      "irst_seen_at\030\016 \001(\tR\013firstSeenAt\022 \n\014last_" +
-      "seen_at\030\017 \001(\tR\nlastSeenAt\"\276\002\n\022PropertyPr" +
-      "iceEvent\022\037\n\013observed_at\030\001 \001(\tR\nobservedA" +
-      "t\022\035\n\nevent_type\030\002 \001(\tR\teventType\022\026\n\006sour" +
-      "ce\030\003 \001(\tR\006source\022\035\n\nlisting_id\030\004 \001(\tR\tli" +
-      "stingId\022\024\n\005price\030\005 \001(\001R\005price\022\035\n\nprev_pr" +
-      "ice\030\006 \001(\001R\tprevPrice\022\031\n\010drop_abs\030\007 \001(\001R\007" +
-      "dropAbs\022\031\n\010drop_pct\030\010 \001(\001R\007dropPct\022%\n\016li" +
-      "sting_status\030\t \001(\tR\rlistingStatus\022\037\n\013pre" +
-      "v_status\030\n \001(\tR\nprevStatus\"\322\003\n\032GetProper" +
-      "tyHistoryResponse\022\037\n\013address_key\030\001 \001(\tR\n" +
-      "addressKey\022\'\n\017display_address\030\002 \001(\tR\016dis" +
-      "playAddress\022\026\n\006suburb\030\003 \001(\tR\006suburb\022\035\n\ns" +
-      "tate_code\030\004 \001(\tR\tstateCode\022\032\n\010postcode\030\005" +
-      " \001(\tR\010postcode\022B\n\007current\030\006 \001(\0132(.shorts" +
-      ".v1alpha1.PropertyListingSnapshotR\007curre" +
-      "nt\022;\n\006events\030\007 \003(\0132#.shorts.v1alpha1.Pro" +
-      "pertyPriceEventR\006events\022!\n\014num_listings\030" +
-      "\010 \001(\005R\013numListings\022\037\n\013first_price\030\t \001(\001R" +
-      "\nfirstPrice\022#\n\rcurrent_price\030\n \001(\001R\014curr" +
-      "entPrice\022-\n\022distinct_dwellings\030\013 \001(\005R\021di" +
-      "stinctDwellings\"\210\001\n\034ListAddressPriceDrop" +
-      "sRequest\022\035\n\nstate_code\030\001 \001(\tR\tstateCode\022" +
-      "\037\n\013window_days\030\002 \001(\005R\nwindowDays\022\024\n\005limi" +
-      "t\030\003 \001(\005R\005limit\022\022\n\004sort\030\004 \001(\tR\004sort\"\252\004\n\020A" +
-      "ddressPriceDrop\022\037\n\013address_key\030\001 \001(\tR\nad" +
-      "dressKey\022\'\n\017display_address\030\002 \001(\tR\016displ" +
-      "ayAddress\022\026\n\006suburb\030\003 \001(\tR\006suburb\022\035\n\nsta" +
-      "te_code\030\004 \001(\tR\tstateCode\022\032\n\010postcode\030\005 \001" +
-      "(\tR\010postcode\022\037\n\013first_price\030\006 \001(\001R\nfirst" +
-      "Price\022#\n\rcurrent_price\030\007 \001(\001R\014currentPri" +
-      "ce\022\031\n\010drop_abs\030\010 \001(\001R\007dropAbs\022\031\n\010drop_pc" +
-      "t\030\t \001(\001R\007dropPct\022!\n\014num_listings\030\n \001(\005R\013" +
-      "numListings\022#\n\rlatest_source\030\013 \001(\tR\014late" +
-      "stSource\022,\n\022latest_listing_url\030\014 \001(\tR\020la" +
-      "testListingUrl\022(\n\020last_observed_at\030\r \001(\t" +
-      "R\016lastObservedAt\022#\n\rproperty_type\030\016 \001(\tR" +
-      "\014propertyType\022\032\n\010bedrooms\030\017 \001(\005R\010bedroom" +
-      "s\022\034\n\tbathrooms\030\020 \001(\005R\tbathrooms\"`\n\035ListA" +
-      "ddressPriceDropsResponse\022?\n\taddresses\030\001 " +
-      "\003(\0132!.shorts.v1alpha1.AddressPriceDropR\t" +
-      "addresses*5\n\010ViewMode\022\022\n\016CURRENT_CHANGE\020" +
-      "\000\022\025\n\021PERCENTAGE_CHANGE\020\001*\272\001\n\020EnrichmentS" +
-      "tatus\022!\n\035ENRICHMENT_STATUS_UNSPECIFIED\020\000" +
-      "\022$\n ENRICHMENT_STATUS_PENDING_REVIEW\020\001\022\037" +
-      "\n\033ENRICHMENT_STATUS_COMPLETED\020\002\022\034\n\030ENRIC" +
-      "HMENT_STATUS_FAILED\020\003\022\036\n\032ENRICHMENT_STAT" +
-      "US_REJECTED\020\004*\310\001\n\022EnrichmentPriority\022#\n\037" +
-      "ENRICHMENT_PRIORITY_UNSPECIFIED\020\000\022\"\n\036ENR" +
-      "ICHMENT_PRIORITY_MARKET_CAP\020\001\022&\n\"ENRICHM" +
-      "ENT_PRIORITY_SHORT_POSITION\020\002\022\"\n\036ENRICHM" +
-      "ENT_PRIORITY_UNENRICHED\020\003\022\035\n\031ENRICHMENT_" +
-      "PRIORITY_STALE\020\004*\360\001\n\023EnrichmentJobStatus" +
-      "\022%\n!ENRICHMENT_JOB_STATUS_UNSPECIFIED\020\000\022" +
-      " \n\034ENRICHMENT_JOB_STATUS_QUEUED\020\001\022$\n ENR" +
-      "ICHMENT_JOB_STATUS_PROCESSING\020\002\022#\n\037ENRIC" +
-      "HMENT_JOB_STATUS_COMPLETED\020\003\022 \n\034ENRICHME" +
-      "NT_JOB_STATUS_FAILED\020\004\022#\n\037ENRICHMENT_JOB" +
-      "_STATUS_CANCELLED\020\005*\341\001\n\022SubscriptionStat" +
-      "us\022#\n\037SUBSCRIPTION_STATUS_UNSPECIFIED\020\000\022" +
-      "\036\n\032SUBSCRIPTION_STATUS_ACTIVE\020\001\022 \n\034SUBSC" +
-      "RIPTION_STATUS_TRIALING\020\002\022 \n\034SUBSCRIPTIO" +
-      "N_STATUS_PAST_DUE\020\003\022 \n\034SUBSCRIPTION_STAT" +
-      "US_CANCELED\020\004\022 \n\034SUBSCRIPTION_STATUS_INA" +
-      "CTIVE\020\005*\255\001\n\020SubscriptionTier\022!\n\035SUBSCRIP" +
-      "TION_TIER_UNSPECIFIED\020\000\022\032\n\026SUBSCRIPTION_" +
-      "TIER_FREE\020\001\022\031\n\025SUBSCRIPTION_TIER_PRO\020\002\022 " +
-      "\n\034SUBSCRIPTION_TIER_ENTERPRISE\020\003\022\035\n\031SUBS" +
-      "CRIPTION_TIER_PREMIUM\020\004*y\n\021AlertMonitorS" +
-      "cope\022#\n\037ALERT_MONITOR_SCOPE_UNSPECIFIED\020" +
-      "\000\022 \n\034ALERT_MONITOR_SCOPE_INDUSTRY\020\001\022\035\n\031A" +
-      "LERT_MONITOR_SCOPE_STOCK\020\002*\323\001\n\025AlertMoni" +
-      "torCondition\022\'\n#ALERT_MONITOR_CONDITION_" +
-      "UNSPECIFIED\020\000\0220\n,ALERT_MONITOR_CONDITION" +
-      "_SHORT_INTEREST_ABOVE\020\001\0220\n,ALERT_MONITOR" +
-      "_CONDITION_SHORT_INTEREST_RISES\020\002\022-\n)ALE" +
-      "RT_MONITOR_CONDITION_NEW_TOP_TEN_ENTRY\020\003" +
-      "*\177\n\023AlertMonitorCadence\022%\n!ALERT_MONITOR" +
-      "_CADENCE_UNSPECIFIED\020\000\022\037\n\033ALERT_MONITOR_" +
-      "CADENCE_DAILY\020\001\022 \n\034ALERT_MONITOR_CADENCE" +
-      "_WEEKLY\020\002*|\n\022AlertMonitorStatus\022$\n ALERT" +
-      "_MONITOR_STATUS_UNSPECIFIED\020\000\022\037\n\033ALERT_M" +
-      "ONITOR_STATUS_ACTIVE\020\001\022\037\n\033ALERT_MONITOR_" +
-      "STATUS_PAUSED\020\002*t\n\nTakeStatus\022\033\n\027TAKE_ST" +
-      "ATUS_UNSPECIFIED\020\000\022\025\n\021TAKE_STATUS_DRAFT\020" +
-      "\001\022\031\n\025TAKE_STATUS_PUBLISHED\020\002\022\027\n\023TAKE_STA" +
-      "TUS_TWEETED\020\003*\360\002\n\021ScreenerSortField\022!\n\035S" +
-      "CREENER_SORT_FIELD_SHORT_PCT\020\000\022(\n$SCREEN" +
-      "ER_SORT_FIELD_SHORT_PCT_CHANGE\020\001\022\"\n\036SCRE" +
-      "ENER_SORT_FIELD_MARKET_CAP\020\002\022\'\n#SCREENER" +
-      "_SORT_FIELD_PRICE_CHANGE_1M\020\003\022 \n\034SCREENE" +
-      "R_SORT_FIELD_PE_RATIO\020\004\022&\n\"SCREENER_SORT" +
-      "_FIELD_DIVIDEND_YIELD\020\005\022(\n$SCREENER_SORT" +
-      "_FIELD_NET_DIRECTOR_BUY\020\006\022&\n\"SCREENER_SO" +
-      "RT_FIELD_NEWS_SENTIMENT\020\007\022%\n!SCREENER_SO" +
-      "RT_FIELD_DAYS_TO_COVER\020\010*@\n\rSortDirectio" +
-      "n\022\027\n\023SORT_DIRECTION_DESC\020\000\022\026\n\022SORT_DIREC" +
-      "TION_ASC\020\001*v\n\020BattlegroundView\022!\n\035BATTLE" +
-      "GROUND_VIEW_UNSPECIFIED\020\000\022\035\n\031BATTLEGROUN" +
-      "D_VIEW_SQUEEZE\020\001\022 \n\034BATTLEGROUND_VIEW_DI" +
-      "VERGENCE\020\002*\302\001\n\014VerdictLabel\022\035\n\031VERDICT_L" +
-      "ABEL_UNSPECIFIED\020\000\022 \n\034VERDICT_LABEL_STRO" +
-      "NG_BEARISH\020\001\022\031\n\025VERDICT_LABEL_BEARISH\020\002\022" +
-      "\031\n\025VERDICT_LABEL_NEUTRAL\020\003\022\031\n\025VERDICT_LA" +
-      "BEL_BULLISH\020\004\022 \n\034VERDICT_LABEL_STRONG_BU" +
-      "LLISH\020\0052\255s\n\024ShortedStocksService\022\206\003\n\014Get" +
-      "TopShorts\022$.shorts.v1alpha1.GetTopShorts" +
-      "Request\032%.shorts.v1alpha1.GetTopShortsRe" +
-      "sponse\"\250\002\332A\023period,limit,offset\272G\212\002\022\016Get" +
-      " Top Shorts\032jRetrieve the top shorted st" +
-      "ocks on the ASX for a given time period." +
-      " Supports pagination and custom limits.B" +
-      "\213\001\022X\n\003200\022Q\nO\nMA successful response con" +
-      "taining time series data for the top sho" +
-      "rted stocks.\022/\n\003400\022(\n&\n$Invalid request" +
-      " parameters provided.\200\265\030\001\022\375\002\n\022GetIndustr" +
-      "yTreeMap\022*.shorts.v1alpha1.GetIndustryTr" +
-      "eeMapRequest\032 .stocks.v1alpha1.IndustryT" +
-      "reeMap\"\230\002\272G\220\002\022\024Get Industry TreeMap\032{Ret" +
-      "rieve a hierarchical treemap of short po" +
-      "sitions grouped by industry. Useful for " +
-      "visualizing market-wide shorting trends." +
-      "B{\022Q\n\003200\022J\nH\nFA successful response con" +
-      "taining industry-grouped short position " +
-      "data.\022&\n\003400\022\037\n\035\n\033Invalid request parame" +
-      "ters.\200\265\030\001\022\300\002\n\010GetStock\022 .shorts.v1alpha1" +
-      ".GetStockRequest\032\026.stocks.v1alpha1.Stock" +
-      "\"\371\001\272G\361\001\022\021Get Stock Summary\032fRetrieve a s" +
-      "ummary of current short positions and ba" +
-      "sic metadata for a specific stock by its" +
-      " ASX code.Bt\022>\n\003200\0227\n5\n3A successful re" +
-      "sponse containing the stock summary.\0222\n\003" +
-      "404\022+\n)\n\'The specified stock code was no" +
-      "t found.\200\265\030\001\022\360\002\n\017GetStockDetails\022\'.short" +
-      "s.v1alpha1.GetStockDetailsRequest\032\035.stoc" +
-      "ks.v1alpha1.StockDetails\"\224\002\272G\214\002\022\021Get Sto" +
-      "ck Details\032sRetrieve comprehensive metad" +
-      "ata for a specific stock, including comp" +
-      "any history, key people, and financial r" +
-      "eports.B\201\001\022G\n\003200\022@\n>\n<A successful resp" +
-      "onse containing detailed stock informati" +
-      "on.\0226\n\003404\022/\n-\n+The specified stock deta" +
-      "ils were not found.\200\265\030\001\022\360\002\n\014GetStockData" +
-      "\022$.shorts.v1alpha1.GetStockDataRequest\032\037" +
-      ".stocks.v1alpha1.TimeSeriesData\"\230\002\272G\220\002\022\032" +
-      "Get Stock Time Series Data\032XRetrieve his" +
-      "torical short position data for a specif" +
-      "ic stock over a defined time period.B\227\001\022" +
-      "J\n\003200\022C\nA\n?A successful response contai" +
-      "ning historical time series points.\022I\n\0034" +
-      "01\022B\n@\n>Authentication is required to ac" +
-      "cess private time series data.\200\265\030\001\022\313\001\n\017G" +
-      "etMarketByDate\022\'.shorts.v1alpha1.GetMark" +
-      "etByDateRequest\032(.shorts.v1alpha1.GetMar" +
-      "ketByDateResponse\"e\272G^\022\022Get Market By Da" +
-      "te\032HRetrieve all short positions for a s" +
-      "pecific trading date from ASIC data.\200\265\030\001" +
-      "\022\304\001\n\021GetAvailableDates\022).shorts.v1alpha1" +
-      ".GetAvailableDatesRequest\032*.shorts.v1alp" +
-      "ha1.GetAvailableDatesResponse\"X\272GQ\022\023Get " +
-      "Available Dates\032:Retrieve available trad" +
-      "ing dates with short position data.\200\265\030\001\022" +
-      "\371\001\n\014SearchStocks\022$.shorts.v1alpha1.Searc" +
-      "hStocksRequest\032%.shorts.v1alpha1.SearchS" +
-      "tocksResponse\"\233\001\272G\223\001\022\rSearch Stocks\032YSea" +
-      "rch for ASX stocks using full-text searc" +
-      "h against their ticker symbol or company" +
-      " name.B\'\022%\n\003200\022\036\n\034\n\032A list of matching " +
-      "stocks.\200\265\030\001\022\311\002\n\rGetSyncStatus\022%.shorts.v" +
-      "1alpha1.GetSyncStatusRequest\032&.shorts.v1" +
-      "alpha1.GetSyncStatusResponse\"\350\001\272G\327\001\022\017Get" +
-      " Sync Status\032nAdministrative endpoint to" +
-      " retrieve the status and history of data" +
-      " synchronization tasks. Requires admin r" +
-      "ole.BT\022#\n\003200\022\034\n\032\n\030Recent sync run histo" +
-      "ry.\022-\n\003403\022&\n$\n\"Forbidden: Admin role is" +
-      " required.\200\265\030\002\212\265\030\005admin\022\254\002\n\tMintToken\022!." +
-      "shorts.v1alpha1.MintTokenRequest\032\".short" +
-      "s.v1alpha1.MintTokenResponse\"\327\001\272G\317\001\022\016Min" +
-      "t API Token\032lGenerate a bespoke API toke" +
-      "n for programmatic access to Shorted API" +
-      "s. Requires valid session authentication" +
-      ".BO\022\033\n\003200\022\024\n\022\n\020A new API token.\0220\n\003401\022" +
-      ")\n\'\n%Unauthorized: User must be signed i" +
-      "n.\200\265\030\002\022\354\002\n\016SyncKeyMetrics\022&.shorts.v1alp" +
-      "ha1.SyncKeyMetricsRequest\032\'.shorts.v1alp" +
-      "ha1.SyncKeyMetricsResponse\"\210\002\272G\367\001\022\020Sync " +
-      "Key Metrics\032\213\001Trigger on-demand sync of " +
-      "key metrics (market cap, P/E ratio, etc." +
-      ") for specific stocks. Fetches fresh dat" +
-      "a from Yahoo Finance. Admin only.BU\022\'\n\0032" +
-      "00\022 \n\036\n\034Sync completed successfully.\022*\n\003" +
-      "403\022#\n!\n\037Forbidden: Admin role required." +
-      "\200\265\030\002\212\265\030\005admin\022g\n\013EnrichStock\022#.shorts.v1" +
-      "alpha1.EnrichStockRequest\032$.shorts.v1alp" +
-      "ha1.EnrichStockResponse\"\r\200\265\030\002\212\265\030\005admin\022\221" +
-      "\001\n\031GetTopStocksForEnrichment\0221.shorts.v1" +
-      "alpha1.GetTopStocksForEnrichmentRequest\032" +
-      "2.shorts.v1alpha1.GetTopStocksForEnrichm" +
-      "entResponse\"\r\200\265\030\002\212\265\030\005admin\022\210\001\n\026ListPendi" +
-      "ngEnrichments\022..shorts.v1alpha1.ListPend" +
-      "ingEnrichmentsRequest\032/.shorts.v1alpha1." +
-      "ListPendingEnrichmentsResponse\"\r\200\265\030\002\212\265\030\005" +
-      "admin\022\202\001\n\024GetPendingEnrichment\022,.shorts." +
-      "v1alpha1.GetPendingEnrichmentRequest\032-.s" +
-      "horts.v1alpha1.GetPendingEnrichmentRespo" +
-      "nse\"\r\200\265\030\002\212\265\030\005admin\022v\n\020ReviewEnrichment\022(" +
-      ".shorts.v1alpha1.ReviewEnrichmentRequest" +
-      "\032).shorts.v1alpha1.ReviewEnrichmentRespo" +
-      "nse\"\r\200\265\030\002\212\265\030\005admin\022\210\001\n\026GetEnrichmentJobS" +
-      "tatus\022..shorts.v1alpha1.GetEnrichmentJob" +
-      "StatusRequest\032/.shorts.v1alpha1.GetEnric" +
-      "hmentJobStatusResponse\"\r\200\265\030\002\212\265\030\005admin\022|\n" +
-      "\022ListEnrichmentJobs\022*.shorts.v1alpha1.Li" +
-      "stEnrichmentJobsRequest\032+.shorts.v1alpha" +
-      "1.ListEnrichmentJobsResponse\"\r\200\265\030\002\212\265\030\005ad" +
-      "min\022\224\001\n\035HandleStripeCheckoutCompleted\0225." +
-      "shorts.v1alpha1.HandleStripeCheckoutComp" +
-      "letedRequest\0326.shorts.v1alpha1.HandleStr" +
-      "ipeCheckoutCompletedResponse\"\004\200\265\030\002\022\232\001\n\037H" +
-      "andleStripeSubscriptionUpdated\0227.shorts." +
-      "v1alpha1.HandleStripeSubscriptionUpdated" +
-      "Request\0328.shorts.v1alpha1.HandleStripeSu" +
-      "bscriptionUpdatedResponse\"\004\200\265\030\002\022p\n\021GetMy" +
-      "Subscription\022).shorts.v1alpha1.GetMySubs" +
-      "criptionRequest\032*.shorts.v1alpha1.GetMyS" +
-      "ubscriptionResponse\"\004\200\265\030\002\022s\n\022CreateAlert" +
-      "Monitor\022*.shorts.v1alpha1.CreateAlertMon" +
-      "itorRequest\032+.shorts.v1alpha1.CreateAler" +
-      "tMonitorResponse\"\004\200\265\030\002\022p\n\021ListAlertMonit" +
-      "ors\022).shorts.v1alpha1.ListAlertMonitorsR" +
-      "equest\032*.shorts.v1alpha1.ListAlertMonito" +
-      "rsResponse\"\004\200\265\030\002\022\352\001\n\017GetWeeklyReport\022\'.s" +
-      "horts.v1alpha1.GetWeeklyReportRequest\032(." +
-      "shorts.v1alpha1.GetWeeklyReportResponse\"" +
-      "\203\001\272G|\022\021Get Weekly Report\032gRetrieve a wee" +
-      "kly short selling report with narrative " +
-      "analysis, top shorted stocks, and bigges" +
-      "t movers.\200\265\030\001\022\312\001\n\013ListReports\022#.shorts.v" +
-      "1alpha1.ListReportsRequest\032$.shorts.v1al" +
-      "pha1.ListReportsResponse\"p\272Gi\022\014List Repo" +
-      "rts\032YList published short selling report" +
-      "s with headlines and summary stats, most" +
-      " recent first.\200\265\030\001\022\237\002\n\033GetStockFinancial" +
-      "Highlights\0223.shorts.v1alpha1.GetStockFin" +
-      "ancialHighlightsRequest\0324.shorts.v1alpha" +
-      "1.GetStockFinancialHighlightsResponse\"\224\001" +
-      "\272G\214\001\022\036Get Stock Financial Highlights\032jRe" +
-      "trieve extracted financial metrics (reve" +
-      "nue, NPAT, EPS, dividends, etc.) from co" +
-      "mpany financial reports.\200\265\030\001\022\312\001\n\014GetStoc" +
-      "kNews\022$.shorts.v1alpha1.GetStockNewsRequ" +
-      "est\032%.shorts.v1alpha1.GetStockNewsRespon" +
-      "se\"m\272Gf\022\016Get Stock News\032TRetrieve recent" +
-      " news articles, announcements, and analy" +
-      "sis for a specific ASX stock.\200\265\030\001\022\337\001\n\016Ge" +
-      "tRelatedNews\022&.shorts.v1alpha1.GetRelate" +
-      "dNewsRequest\032\'.shorts.v1alpha1.GetRelate" +
-      "dNewsResponse\"|\272Gu\022\020Get Related News\032aRe" +
-      "trieve news articles semantically relate" +
-      "d to a stock or a given article, via vec" +
-      "tor similarity.\200\265\030\001\022\314\001\n\rGetMarketNews\022%." +
-      "shorts.v1alpha1.GetMarketNewsRequest\032&.s" +
-      "horts.v1alpha1.GetMarketNewsResponse\"l\272G" +
-      "e\022\017Get Market News\032RRetrieve recent mark" +
-      "et-wide news articles and announcements " +
-      "across all ASX stocks.\200\265\030\001\022\264\001\n\020GetEditor" +
-      "ialTake\022(.shorts.v1alpha1.GetEditorialTa" +
-      "keRequest\032).shorts.v1alpha1.GetEditorial" +
-      "TakeResponse\"K\272GD\022\022Get Editorial Take\032.R" +
-      "etrieve a published Shorted Take by URL " +
-      "slug.\200\265\030\001\022\337\001\n\022ListEditorialTakes\022*.short" +
-      "s.v1alpha1.ListEditorialTakesRequest\032+.s" +
-      "horts.v1alpha1.ListEditorialTakesRespons" +
-      "e\"p\272Gi\022\024List Editorial Takes\032QList recen" +
-      "t published Shorted Takes, newest first." +
-      " Optional filter by stock code.\200\265\030\001\022\202\001\n\027" +
-      "ListEditorialTakesAdmin\022/.shorts.v1alpha" +
-      "1.ListEditorialTakesAdminRequest\0320.short" +
-      "s.v1alpha1.ListEditorialTakesAdminRespon" +
-      "se\"\004\200\265\030\002\022y\n\024PublishEditorialTake\022,.short" +
-      "s.v1alpha1.PublishEditorialTakeRequest\032-" +
-      ".shorts.v1alpha1.PublishEditorialTakeRes" +
-      "ponse\"\004\200\265\030\002\022v\n\023UpdateEditorialTake\022+.sho" +
-      "rts.v1alpha1.UpdateEditorialTakeRequest\032" +
-      ",.shorts.v1alpha1.UpdateEditorialTakeRes" +
-      "ponse\"\004\200\265\030\002\022v\n\023DeleteEditorialTake\022+.sho" +
-      "rts.v1alpha1.DeleteEditorialTakeRequest\032" +
-      ",.shorts.v1alpha1.DeleteEditorialTakeRes" +
-      "ponse\"\004\200\265\030\002\022\177\n\026MarkTakeTweetPublished\022.." +
-      "shorts.v1alpha1.MarkTakeTweetPublishedRe" +
-      "quest\032/.shorts.v1alpha1.MarkTakeTweetPub" +
-      "lishedResponse\"\004\200\265\030\002\022|\n\025ListTweetPublish" +
-      "Queue\022-.shorts.v1alpha1.ListTweetPublish" +
-      "QueueRequest\032..shorts.v1alpha1.ListTweet" +
-      "PublishQueueResponse\"\004\200\265\030\002\022\351\001\n\021GetDirect" +
-      "orTrades\022).shorts.v1alpha1.GetDirectorTr" +
-      "adesRequest\032*.shorts.v1alpha1.GetDirecto" +
-      "rTradesResponse\"}\272Gv\022\023Get Director Trade" +
-      "s\032_Retrieve director (insider) trading a" +
-      "ctivity from ASX Appendix 3Y filings for" +
-      " a specific stock.\200\265\030\001\022\344\001\n\022GetDividendHi" +
-      "story\022*.shorts.v1alpha1.GetDividendHisto" +
-      "ryRequest\032+.shorts.v1alpha1.GetDividendH" +
-      "istoryResponse\"u\272Gn\022\024Get Dividend Histor" +
-      "y\032VRetrieve dividend payment history inc" +
-      "luding franking credits for a specific A" +
-      "SX stock.\200\265\030\001\022\337\001\n\021GetPeerComparison\022).sh" +
-      "orts.v1alpha1.GetPeerComparisonRequest\032*" +
-      ".shorts.v1alpha1.GetPeerComparisonRespon",
-      "se\"s\272Gl\022\023Get Peer Comparison\032UCompare a " +
-      "stock\'s short position, price, and funda" +
-      "mentals against its industry peers.\200\265\030\001\022" +
-      "\200\002\n\014ScreenStocks\022$.shorts.v1alpha1.Scree" +
-      "nStocksRequest\032%.shorts.v1alpha1.ScreenS" +
-      "tocksResponse\"\242\001\272G\232\001\022\rScreen Stocks\032\210\001Fi" +
-      "lter and sort stocks using compound crit" +
-      "eria across short positions, price chang" +
-      "es, fundamentals, director trades, and n" +
-      "ews sentiment.\200\265\030\001\022\311\002\n\025GetBattlegroundSt" +
-      "ocks\022-.shorts.v1alpha1.GetBattlegroundSt" +
-      "ocksRequest\032..shorts.v1alpha1.GetBattleg" +
-      "roundStocksResponse\"\320\001\272G\254\001\022\027Get Battlegr" +
-      "ound Stocks\032\220\001Rank stocks by squeeze ris" +
-      "k (days-to-cover, short interest, crowdi" +
-      "ng, momentum) or by bull-vs-bear diverge" +
-      "nce (price rising while shorts build).\200\265" +
-      "\030\001\202\323\344\223\002\026\"\021/v1/battlegrounds:\001*\022\343\002\n\017GetSt" +
-      "ockVerdict\022\'.shorts.v1alpha1.GetStockVer" +
-      "dictRequest\032(.shorts.v1alpha1.GetStockVe" +
-      "rdictResponse\"\374\001\272G\331\001\022\021Get Stock Verdict\032" +
-      "\303\001Composite bear-vs-bull verdict (-100.." +
-      "100) for a single stock, combining short" +
-      "-position trend and level, director trad" +
-      "ing, news sentiment, and squeeze pressur" +
-      "e \342\200\224 with a per-component breakdown.\200\265\030" +
-      "\001\202\323\344\223\002\025\"\020/v1/stockVerdict:\001*\022\371\002\n\032GetShor" +
-      "tCampaignScoreboard\0222.shorts.v1alpha1.Ge" +
-      "tShortCampaignScoreboardRequest\0323.shorts" +
-      ".v1alpha1.GetShortCampaignScoreboardResp" +
-      "onse\"\361\001\272G\303\001\022\035Get Short Campaign Scoreboa" +
-      "rd\032\241\001Historic short campaigns (peak shor" +
-      "t interest >= 5% over the last 3 years) " +
-      "with price outcomes 3 and 6 months after" +
-      " the peak, and overall short-seller win " +
-      "rates.\200\265\030\001\202\323\344\223\002 \"\033/v1/shortCampaignScore" +
-      "board:\001*\022\211\002\n\rGetStockGraph\022%.shorts.v1al" +
-      "pha1.GetStockGraphRequest\032&.shorts.v1alp" +
-      "ha1.GetStockGraphResponse\"\250\001\272G\240\001\022\017Get St" +
-      "ock Graph\032\214\001Retrieve a stock\'s connected" +
-      " people (directors/officers and their ot" +
-      "her ASX roles) and semantically similar " +
-      "companies via vector similarity.\200\265\030\001\022\232\002\n" +
-      "\020GetEventTimeline\022(.shorts.v1alpha1.GetE" +
-      "ventTimelineRequest\032).shorts.v1alpha1.Ge" +
-      "tEventTimelineResponse\"\260\001\272G\250\001\022\022Get Event" +
-      " Timeline\032\221\001Retrieve a chronological fee" +
-      "d of events for a stock, merging ASX ann" +
-      "ouncements, director trades, price-sensi" +
-      "tive news, and short position spikes.\200\265\030" +
-      "\001\022\334\002\n\017GetStockSignals\022\'.shorts.v1alpha1." +
-      "GetStockSignalsRequest\032(.shorts.v1alpha1" +
-      ".GetStockSignalsResponse\"\365\001\272G\355\001\022\021Get Sto" +
-      "ck Signals\032\327\001Retrieve a stock\'s reputati" +
-      "on/risk signals \342\200\224 adverse (court matte" +
-      "rs, regulator sanctions, complaints) and" +
-      " positive (awards, press), each with cit" +
-      "ations, severity and confidence. Sourced" +
-      " from grounded web research.\200\265\030\001\022\317\002\n\022Get" +
-      "HousingOverview\022*.shorts.v1alpha1.GetHou" +
-      "singOverviewRequest\032+.shorts.v1alpha1.Ge" +
-      "tHousingOverviewResponse\"\337\001\272G\327\001\022\024Get Hou" +
-      "sing Overview\032\276\001Latest Australian house-" +
-      "price headline metrics by region (nation" +
-      "al, state, capital city) \342\200\224 mean/median" +
-      " price and price index with QoQ and YoY " +
-      "change. Sourced from the ABS Data API an" +
-      "d RBA.\200\265\030\001\022\255\002\n\023GetHousePriceSeries\022+.sho" +
-      "rts.v1alpha1.GetHousePriceSeriesRequest\032" +
-      ",.shorts.v1alpha1.GetHousePriceSeriesRes" +
-      "ponse\"\272\001\272G\262\001\022\026Get House Price Series\032\227\001A" +
-      " single house-price time series for a re" +
-      "gion and measure (national mean price, c" +
-      "apital-city median, household debt-to-in" +
-      "come, price index), quarterly.\200\265\030\001\022\234\002\n\020L" +
-      "istStateSuburbs\022(.shorts.v1alpha1.ListSt" +
-      "ateSuburbsRequest\032).shorts.v1alpha1.List" +
-      "StateSuburbsResponse\"\262\001\272G\252\001\022\022List State " +
-      "Suburbs\032\223\001Every suburb (ABS SAL) in a st" +
-      "ate with its latest median house price a" +
-      "nd key ABS Census demographics \342\200\224 power" +
-      "s the state choropleth + suburb list.\200\265\030" +
-      "\001\022\225\002\n\020GetSuburbProfile\022(.shorts.v1alpha1" +
-      ".GetSuburbProfileRequest\032).shorts.v1alph" +
-      "a1.GetSuburbProfileResponse\"\253\001\272G\243\001\022\022Get " +
-      "Suburb Profile\032\214\001A single suburb\'s rich " +
-      "profile \342\200\224 ABS Census demographics, lat" +
-      "est median house price with QoQ/YoY, and" +
-      " state/national comparison baselines.\200\265\030" +
-      "\001\022\313\002\n\022ListHousingRegions\022*.shorts.v1alph" +
-      "a1.ListHousingRegionsRequest\032+.shorts.v1" +
-      "alpha1.ListHousingRegionsResponse\"\333\001\272G\323\001" +
-      "\022\024List Housing Regions\032\272\001List house-pric" +
-      "e regions, optionally filtered by region" +
-      "_type, state, or a name query \342\200\224 powers" +
-      " the suburb explorer. Suburb medians are" +
-      " sourced from state Valuer-General offic" +
-      "es (CC BY).\200\265\030\001\022\251\003\n\024ListSuburbPriceDrops" +
-      "\022,.shorts.v1alpha1.ListSuburbPriceDropsR" +
-      "equest\032-.shorts.v1alpha1.ListSuburbPrice" +
-      "DropsResponse\"\263\002\272G\253\002\022\027List Suburb Price " +
-      "Drops\032\217\002Suburbs ranked by recent for-sal" +
-      "e asking-price reductions over a rolling" +
-      " window \342\200\224 count of reduced listings pl" +
-      "us the average, median and largest reduc" +
-      "tion. A derived aggregate over realestat" +
-      "e.com.au / domain.com.au listing data; i" +
-      "ndividual listings are not republished.\200" +
-      "\265\030\001\022\347\002\n\026ListSuburbDropListings\022..shorts." +
-      "v1alpha1.ListSuburbDropListingsRequest\032/" +
-      ".shorts.v1alpha1.ListSuburbDropListingsR" +
-      "esponse\"\353\001\272G\343\001\022\031List Suburb Drop Listing" +
-      "s\032\305\001Recently price-reduced for-sale list" +
-      "ings in a suburb, each deep-linking OUT " +
-      "to the live realestate.com.au / domain.c" +
-      "om.au page. Factual price-change data on" +
-      "ly; the listing itself is not reproduced" +
-      ".\200\265\030\001\022\270\003\n\022GetPropertyHistory\022*.shorts.v1" +
-      "alpha1.GetPropertyHistoryRequest\032+.short" +
-      "s.v1alpha1.GetPropertyHistoryResponse\"\310\002" +
-      "\272G\237\002\022\024Get Property History\032\206\002Full asking" +
-      "-price timeline for a single physical ad" +
-      "dress (stable address_key), across all i" +
-      "ts listings and relists on realestate.co" +
-      "m.au / domain.com.au. Deep-links OUT to " +
-      "the live portal page; factual price-chan" +
-      "ge data only, the listing itself is not " +
-      "reproduced.\200\265\030\001\202\323\344\223\002\033\"\026/v1/getPropertyHi" +
-      "story:\001*\022\203\004\n\025ListAddressPriceDrops\022-.sho" +
-      "rts.v1alpha1.ListAddressPriceDropsReques" +
-      "t\032..shorts.v1alpha1.ListAddressPriceDrop" +
-      "sResponse\"\212\003\272G\336\002\022\030List Address Price Dro" +
-      "ps\032\301\002Individual physical addresses (dedu" +
-      "ped by stable address_key) ranked by the" +
-      "ir for-sale asking-price reduction over " +
-      "a rolling window \342\200\224 from the first obse" +
-      "rved price to the current active listing" +
-      ". Each entry deep-links to its per-addre" +
-      "ss history page; factual price-change da" +
-      "ta only, the listing itself is not repro" +
-      "duced.\200\265\030\001\202\323\344\223\002\036\"\031/v1/listAddressPriceDr" +
-      "ops:\001*\022\262\004\n\024GetCompanyTaxProfile\022,.shorts" +
-      ".v1alpha1.GetCompanyTaxProfileRequest\032-." +
-      "shorts.v1alpha1.GetCompanyTaxProfileResp" +
-      "onse\"\274\003\272G\224\003\022\027Get Company Tax Profile\032\370\002A" +
-      "n ASX-listed entity\'s annual corporate-t" +
-      "ax profile from the ATO Corporate Tax Tr" +
-      "ansparency dataset (total income, taxabl" +
-      "e income, tax payable per income year). " +
-      "Entities are matched to ASX codes only o" +
-      "n exact ABN or exact normalized-name map" +
-      "ping. Nil/absent taxable income or tax p" +
-      "ayable is meaningful and often legitimat" +
-      "e (losses/offsets) \342\200\224 total income is a" +
-      "lways reported.\200\265\030\001\202\323\344\223\002\032\"\025/v1/companyTa" +
-      "xProfile:\001*\022\322\002\n\027GetIndustryIntelligence\022" +
-      "/.shorts.v1alpha1.GetIndustryIntelligenc" +
-      "eRequest\0320.shorts.v1alpha1.GetIndustryIn" +
-      "telligenceResponse\"\323\001\272G\250\001\022\031Get Industry " +
-      "Intelligence\032\212\001Imported, cited industry " +
-      "intelligence records for a Shorted indus" +
-      "try. Only public-enabled sources and exa" +
-      "ct-reviewed records are returned.\200\265\030\001\202\323\344" +
-      "\223\002\035\"\030/v1/industryIntelligence:\001*\032\025\312A\022api" +
-      ".shorted.com.auB\240\003\n\023com.shorts.v1alpha1B" +
-      "\013ShortsProtoP\001ZYgithub.com/castlemilk/sh" +
-      "orted.com.au/services/gen/proto/go/short" +
-      "s/v1alpha1;shortsv1alpha1\242\002\003SXX\252\002\017Shorts" +
-      ".V1alpha1\312\002\017Shorts\\V1alpha1\342\002\033Shorts\\V1a" +
-      "lpha1\\GPBMetadata\352\002\020Shorts::V1alpha1\272G\302\001" +
-      "\022\177\n\013Shorted API\022\rShorted API\'s\"(\022\016shorte" +
-      "d.com.au\032\026support@shorted.com.au*3\n\023Prop" +
-      "rietary license\022\034https://shorted.com.au/" +
-      "terms2\002v1\032\034\n\032https://api.shorted.com.au*" +
-      "!:\037\n\035\n\tAuthToken\022\020\n\016\n\004http*\006bearerb\006prot" +
-      "o3"
+      "oto\032\030options/v1/options.proto\032\034shorts/v1" +
+      "alpha1/alerts.proto\032\035shorts/v1alpha1/bil" +
+      "ling.proto\032\035shorts/v1alpha1/economy.prot" +
+      "o\032 shorts/v1alpha1/enrichment.proto\032\035sho" +
+      "rts/v1alpha1/housing.proto\032\036shorts/v1alp" +
+      "ha1/industry.proto\032\034shorts/v1alpha1/mark" +
+      "et.proto\032\032shorts/v1alpha1/news.proto\032!sh" +
+      "orts/v1alpha1/politicians.proto\032\035shorts/" +
+      "v1alpha1/reports.proto\032\036shorts/v1alpha1/" +
+      "screener.proto\032\034shorts/v1alpha1/search.p" +
+      "roto\032\033shorts/v1alpha1/stock.proto2\244\260\001\n\024S" +
+      "hortedStocksService\022\206\003\n\014GetTopShorts\022$.s" +
+      "horts.v1alpha1.GetTopShortsRequest\032%.sho" +
+      "rts.v1alpha1.GetTopShortsResponse\"\250\002\332A\023p" +
+      "eriod,limit,offset\272G\212\002\022\016Get Top Shorts\032j" +
+      "Retrieve the top shorted stocks on the A" +
+      "SX for a given time period. Supports pag" +
+      "ination and custom limits.B\213\001\022X\n\003200\022Q\nO" +
+      "\nMA successful response containing time " +
+      "series data for the top shorted stocks.\022" +
+      "/\n\003400\022(\n&\n$Invalid request parameters p" +
+      "rovided.\200\265\030\001\022\375\002\n\022GetIndustryTreeMap\022*.sh" +
+      "orts.v1alpha1.GetIndustryTreeMapRequest\032" +
+      " .stocks.v1alpha1.IndustryTreeMap\"\230\002\272G\220\002" +
+      "\022\024Get Industry TreeMap\032{Retrieve a hiera" +
+      "rchical treemap of short positions group" +
+      "ed by industry. Useful for visualizing m" +
+      "arket-wide shorting trends.B{\022Q\n\003200\022J\nH" +
+      "\nFA successful response containing indus" +
+      "try-grouped short position data.\022&\n\003400\022" +
+      "\037\n\035\n\033Invalid request parameters.\200\265\030\001\022\300\002\n" +
+      "\010GetStock\022 .shorts.v1alpha1.GetStockRequ" +
+      "est\032\026.stocks.v1alpha1.Stock\"\371\001\272G\361\001\022\021Get " +
+      "Stock Summary\032fRetrieve a summary of cur" +
+      "rent short positions and basic metadata " +
+      "for a specific stock by its ASX code.Bt\022" +
+      ">\n\003200\0227\n5\n3A successful response contai" +
+      "ning the stock summary.\0222\n\003404\022+\n)\n\'The " +
+      "specified stock code was not found.\200\265\030\001\022" +
+      "\360\002\n\017GetStockDetails\022\'.shorts.v1alpha1.Ge" +
+      "tStockDetailsRequest\032\035.stocks.v1alpha1.S" +
+      "tockDetails\"\224\002\272G\214\002\022\021Get Stock Details\032sR" +
+      "etrieve comprehensive metadata for a spe" +
+      "cific stock, including company history, " +
+      "key people, and financial reports.B\201\001\022G\n" +
+      "\003200\022@\n>\n<A successful response containi" +
+      "ng detailed stock information.\0226\n\003404\022/\n" +
+      "-\n+The specified stock details were not " +
+      "found.\200\265\030\001\022\360\002\n\014GetStockData\022$.shorts.v1a" +
+      "lpha1.GetStockDataRequest\032\037.stocks.v1alp" +
+      "ha1.TimeSeriesData\"\230\002\272G\220\002\022\032Get Stock Tim" +
+      "e Series Data\032XRetrieve historical short" +
+      " position data for a specific stock over" +
+      " a defined time period.B\227\001\022J\n\003200\022C\nA\n?A" +
+      " successful response containing historic" +
+      "al time series points.\022I\n\003401\022B\n@\n>Authe" +
+      "ntication is required to access private " +
+      "time series data.\200\265\030\001\022\313\001\n\017GetMarketByDat" +
+      "e\022\'.shorts.v1alpha1.GetMarketByDateReque" +
+      "st\032(.shorts.v1alpha1.GetMarketByDateResp" +
+      "onse\"e\272G^\022\022Get Market By Date\032HRetrieve " +
+      "all short positions for a specific tradi" +
+      "ng date from ASIC data.\200\265\030\001\022\304\001\n\021GetAvail" +
+      "ableDates\022).shorts.v1alpha1.GetAvailable" +
+      "DatesRequest\032*.shorts.v1alpha1.GetAvaila" +
+      "bleDatesResponse\"X\272GQ\022\023Get Available Dat" +
+      "es\032:Retrieve available trading dates wit" +
+      "h short position data.\200\265\030\001\022\371\001\n\014SearchSto" +
+      "cks\022$.shorts.v1alpha1.SearchStocksReques" +
+      "t\032%.shorts.v1alpha1.SearchStocksResponse" +
+      "\"\233\001\272G\223\001\022\rSearch Stocks\032YSearch for ASX s" +
+      "tocks using full-text search against the" +
+      "ir ticker symbol or company name.B\'\022%\n\0032" +
+      "00\022\036\n\034\n\032A list of matching stocks.\200\265\030\001\022\311" +
+      "\002\n\rGetSyncStatus\022%.shorts.v1alpha1.GetSy" +
+      "ncStatusRequest\032&.shorts.v1alpha1.GetSyn" +
+      "cStatusResponse\"\350\001\272G\327\001\022\017Get Sync Status\032" +
+      "nAdministrative endpoint to retrieve the" +
+      " status and history of data synchronizat" +
+      "ion tasks. Requires admin role.BT\022#\n\003200" +
+      "\022\034\n\032\n\030Recent sync run history.\022-\n\003403\022&\n" +
+      "$\n\"Forbidden: Admin role is required.\200\265\030" +
+      "\002\212\265\030\005admin\022\254\002\n\tMintToken\022!.shorts.v1alph" +
+      "a1.MintTokenRequest\032\".shorts.v1alpha1.Mi" +
+      "ntTokenResponse\"\327\001\272G\317\001\022\016Mint API Token\032l" +
+      "Generate a bespoke API token for program" +
+      "matic access to Shorted APIs. Requires v" +
+      "alid session authentication.BO\022\033\n\003200\022\024\n" +
+      "\022\n\020A new API token.\0220\n\003401\022)\n\'\n%Unauthor" +
+      "ized: User must be signed in.\200\265\030\002\022\354\002\n\016Sy" +
+      "ncKeyMetrics\022&.shorts.v1alpha1.SyncKeyMe" +
+      "tricsRequest\032\'.shorts.v1alpha1.SyncKeyMe" +
+      "tricsResponse\"\210\002\272G\367\001\022\020Sync Key Metrics\032\213" +
+      "\001Trigger on-demand sync of key metrics (" +
+      "market cap, P/E ratio, etc.) for specifi" +
+      "c stocks. Fetches fresh data from Yahoo " +
+      "Finance. Admin only.BU\022\'\n\003200\022 \n\036\n\034Sync " +
+      "completed successfully.\022*\n\003403\022#\n!\n\037Forb" +
+      "idden: Admin role required.\200\265\030\002\212\265\030\005admin" +
+      "\022g\n\013EnrichStock\022#.shorts.v1alpha1.Enrich" +
+      "StockRequest\032$.shorts.v1alpha1.EnrichSto" +
+      "ckResponse\"\r\200\265\030\002\212\265\030\005admin\022\221\001\n\031GetTopStoc" +
+      "ksForEnrichment\0221.shorts.v1alpha1.GetTop" +
+      "StocksForEnrichmentRequest\0322.shorts.v1al" +
+      "pha1.GetTopStocksForEnrichmentResponse\"\r" +
+      "\200\265\030\002\212\265\030\005admin\022\210\001\n\026ListPendingEnrichments" +
+      "\022..shorts.v1alpha1.ListPendingEnrichment" +
+      "sRequest\032/.shorts.v1alpha1.ListPendingEn" +
+      "richmentsResponse\"\r\200\265\030\002\212\265\030\005admin\022\202\001\n\024Get" +
+      "PendingEnrichment\022,.shorts.v1alpha1.GetP" +
+      "endingEnrichmentRequest\032-.shorts.v1alpha" +
+      "1.GetPendingEnrichmentResponse\"\r\200\265\030\002\212\265\030\005" +
+      "admin\022v\n\020ReviewEnrichment\022(.shorts.v1alp" +
+      "ha1.ReviewEnrichmentRequest\032).shorts.v1a" +
+      "lpha1.ReviewEnrichmentResponse\"\r\200\265\030\002\212\265\030\005" +
+      "admin\022\210\001\n\026GetEnrichmentJobStatus\022..short" +
+      "s.v1alpha1.GetEnrichmentJobStatusRequest" +
+      "\032/.shorts.v1alpha1.GetEnrichmentJobStatu" +
+      "sResponse\"\r\200\265\030\002\212\265\030\005admin\022|\n\022ListEnrichme" +
+      "ntJobs\022*.shorts.v1alpha1.ListEnrichmentJ" +
+      "obsRequest\032+.shorts.v1alpha1.ListEnrichm" +
+      "entJobsResponse\"\r\200\265\030\002\212\265\030\005admin\022\224\001\n\035Handl" +
+      "eStripeCheckoutCompleted\0225.shorts.v1alph" +
+      "a1.HandleStripeCheckoutCompletedRequest\032" +
+      "6.shorts.v1alpha1.HandleStripeCheckoutCo" +
+      "mpletedResponse\"\004\200\265\030\002\022\232\001\n\037HandleStripeSu" +
+      "bscriptionUpdated\0227.shorts.v1alpha1.Hand" +
+      "leStripeSubscriptionUpdatedRequest\0328.sho" +
+      "rts.v1alpha1.HandleStripeSubscriptionUpd" +
+      "atedResponse\"\004\200\265\030\002\022p\n\021GetMySubscription\022" +
+      ").shorts.v1alpha1.GetMySubscriptionReque" +
+      "st\032*.shorts.v1alpha1.GetMySubscriptionRe" +
+      "sponse\"\004\200\265\030\002\022s\n\022CreateAlertMonitor\022*.sho" +
+      "rts.v1alpha1.CreateAlertMonitorRequest\032+" +
+      ".shorts.v1alpha1.CreateAlertMonitorRespo" +
+      "nse\"\004\200\265\030\002\022p\n\021ListAlertMonitors\022).shorts." +
+      "v1alpha1.ListAlertMonitorsRequest\032*.shor" +
+      "ts.v1alpha1.ListAlertMonitorsResponse\"\004\200" +
+      "\265\030\002\022\352\001\n\017GetWeeklyReport\022\'.shorts.v1alpha" +
+      "1.GetWeeklyReportRequest\032(.shorts.v1alph" +
+      "a1.GetWeeklyReportResponse\"\203\001\272G|\022\021Get We" +
+      "ekly Report\032gRetrieve a weekly short sel" +
+      "ling report with narrative analysis, top" +
+      " shorted stocks, and biggest movers.\200\265\030\001" +
+      "\022\312\001\n\013ListReports\022#.shorts.v1alpha1.ListR" +
+      "eportsRequest\032$.shorts.v1alpha1.ListRepo" +
+      "rtsResponse\"p\272Gi\022\014List Reports\032YList pub" +
+      "lished short selling reports with headli" +
+      "nes and summary stats, most recent first" +
+      ".\200\265\030\001\022\237\002\n\033GetStockFinancialHighlights\0223." +
+      "shorts.v1alpha1.GetStockFinancialHighlig" +
+      "htsRequest\0324.shorts.v1alpha1.GetStockFin" +
+      "ancialHighlightsResponse\"\224\001\272G\214\001\022\036Get Sto" +
+      "ck Financial Highlights\032jRetrieve extrac" +
+      "ted financial metrics (revenue, NPAT, EP" +
+      "S, dividends, etc.) from company financi" +
+      "al reports.\200\265\030\001\022\312\001\n\014GetStockNews\022$.short" +
+      "s.v1alpha1.GetStockNewsRequest\032%.shorts." +
+      "v1alpha1.GetStockNewsResponse\"m\272Gf\022\016Get " +
+      "Stock News\032TRetrieve recent news article" +
+      "s, announcements, and analysis for a spe" +
+      "cific ASX stock.\200\265\030\001\022\337\001\n\016GetRelatedNews\022" +
+      "&.shorts.v1alpha1.GetRelatedNewsRequest\032" +
+      "\'.shorts.v1alpha1.GetRelatedNewsResponse" +
+      "\"|\272Gu\022\020Get Related News\032aRetrieve news a" +
+      "rticles semantically related to a stock " +
+      "or a given article, via vector similarit" +
+      "y.\200\265\030\001\022\314\001\n\rGetMarketNews\022%.shorts.v1alph" +
+      "a1.GetMarketNewsRequest\032&.shorts.v1alpha" +
+      "1.GetMarketNewsResponse\"l\272Ge\022\017Get Market" +
+      " News\032RRetrieve recent market-wide news " +
+      "articles and announcements across all AS" +
+      "X stocks.\200\265\030\001\022\264\001\n\020GetEditorialTake\022(.sho" +
+      "rts.v1alpha1.GetEditorialTakeRequest\032).s" +
+      "horts.v1alpha1.GetEditorialTakeResponse\"" +
+      "K\272GD\022\022Get Editorial Take\032.Retrieve a pub" +
+      "lished Shorted Take by URL slug.\200\265\030\001\022\337\001\n" +
+      "\022ListEditorialTakes\022*.shorts.v1alpha1.Li" +
+      "stEditorialTakesRequest\032+.shorts.v1alpha" +
+      "1.ListEditorialTakesResponse\"p\272Gi\022\024List " +
+      "Editorial Takes\032QList recent published S" +
+      "horted Takes, newest first. Optional fil" +
+      "ter by stock code.\200\265\030\001\022\202\001\n\027ListEditorial" +
+      "TakesAdmin\022/.shorts.v1alpha1.ListEditori" +
+      "alTakesAdminRequest\0320.shorts.v1alpha1.Li" +
+      "stEditorialTakesAdminResponse\"\004\200\265\030\002\022y\n\024P" +
+      "ublishEditorialTake\022,.shorts.v1alpha1.Pu" +
+      "blishEditorialTakeRequest\032-.shorts.v1alp" +
+      "ha1.PublishEditorialTakeResponse\"\004\200\265\030\002\022v" +
+      "\n\023UpdateEditorialTake\022+.shorts.v1alpha1." +
+      "UpdateEditorialTakeRequest\032,.shorts.v1al" +
+      "pha1.UpdateEditorialTakeResponse\"\004\200\265\030\002\022v" +
+      "\n\023DeleteEditorialTake\022+.shorts.v1alpha1." +
+      "DeleteEditorialTakeRequest\032,.shorts.v1al" +
+      "pha1.DeleteEditorialTakeResponse\"\004\200\265\030\002\022\177" +
+      "\n\026MarkTakeTweetPublished\022..shorts.v1alph" +
+      "a1.MarkTakeTweetPublishedRequest\032/.short" +
+      "s.v1alpha1.MarkTakeTweetPublishedRespons" +
+      "e\"\004\200\265\030\002\022|\n\025ListTweetPublishQueue\022-.short" +
+      "s.v1alpha1.ListTweetPublishQueueRequest\032" +
+      "..shorts.v1alpha1.ListTweetPublishQueueR" +
+      "esponse\"\004\200\265\030\002\022\351\001\n\021GetDirectorTrades\022).sh" +
+      "orts.v1alpha1.GetDirectorTradesRequest\032*" +
+      ".shorts.v1alpha1.GetDirectorTradesRespon" +
+      "se\"}\272Gv\022\023Get Director Trades\032_Retrieve d" +
+      "irector (insider) trading activity from " +
+      "ASX Appendix 3Y filings for a specific s" +
+      "tock.\200\265\030\001\022\344\001\n\022GetDividendHistory\022*.short" +
+      "s.v1alpha1.GetDividendHistoryRequest\032+.s" +
+      "horts.v1alpha1.GetDividendHistoryRespons" +
+      "e\"u\272Gn\022\024Get Dividend History\032VRetrieve d" +
+      "ividend payment history including franki" +
+      "ng credits for a specific ASX stock.\200\265\030\001" +
+      "\022\337\001\n\021GetPeerComparison\022).shorts.v1alpha1" +
+      ".GetPeerComparisonRequest\032*.shorts.v1alp" +
+      "ha1.GetPeerComparisonResponse\"s\272Gl\022\023Get " +
+      "Peer Comparison\032UCompare a stock\'s short" +
+      " position, price, and fundamentals again" +
+      "st its industry peers.\200\265\030\001\022\200\002\n\014ScreenSto" +
+      "cks\022$.shorts.v1alpha1.ScreenStocksReques" +
+      "t\032%.shorts.v1alpha1.ScreenStocksResponse" +
+      "\"\242\001\272G\232\001\022\rScreen Stocks\032\210\001Filter and sort" +
+      " stocks using compound criteria across s" +
+      "hort positions, price changes, fundament" +
+      "als, director trades, and news sentiment" +
+      ".\200\265\030\001\022\311\002\n\025GetBattlegroundStocks\022-.shorts" +
+      ".v1alpha1.GetBattlegroundStocksRequest\032." +
+      ".shorts.v1alpha1.GetBattlegroundStocksRe" +
+      "sponse\"\320\001\272G\254\001\022\027Get Battleground Stocks\032\220" +
+      "\001Rank stocks by squeeze risk (days-to-co" +
+      "ver, short interest, crowding, momentum)" +
+      " or by bull-vs-bear divergence (price ri" +
+      "sing while shorts build).\200\265\030\001\202\323\344\223\002\026\"\021/v1" +
+      "/battlegrounds:\001*\022\343\002\n\017GetStockVerdict\022\'." +
+      "shorts.v1alpha1.GetStockVerdictRequest\032(" +
+      ".shorts.v1alpha1.GetStockVerdictResponse" +
+      "\"\374\001\272G\331\001\022\021Get Stock Verdict\032\303\001Composite b" +
+      "ear-vs-bull verdict (-100..100) for a si" +
+      "ngle stock, combining short-position tre" +
+      "nd and level, director trading, news sen" +
+      "timent, and squeeze pressure \342\200\224 with a " +
+      "per-component breakdown.\200\265\030\001\202\323\344\223\002\025\"\020/v1/" +
+      "stockVerdict:\001*\022\371\002\n\032GetShortCampaignScor" +
+      "eboard\0222.shorts.v1alpha1.GetShortCampaig" +
+      "nScoreboardRequest\0323.shorts.v1alpha1.Get" +
+      "ShortCampaignScoreboardResponse\"\361\001\272G\303\001\022\035" +
+      "Get Short Campaign Scoreboard\032\241\001Historic" +
+      " short campaigns (peak short interest >=" +
+      " 5% over the last 3 years) with price ou" +
+      "tcomes 3 and 6 months after the peak, an" +
+      "d overall short-seller win rates.\200\265\030\001\202\323\344" +
+      "\223\002 \"\033/v1/shortCampaignScoreboard:\001*\022\211\002\n\r" +
+      "GetStockGraph\022%.shorts.v1alpha1.GetStock" +
+      "GraphRequest\032&.shorts.v1alpha1.GetStockG" +
+      "raphResponse\"\250\001\272G\240\001\022\017Get Stock Graph\032\214\001R" +
+      "etrieve a stock\'s connected people (dire" +
+      "ctors/officers and their other ASX roles" +
+      ") and semantically similar companies via" +
+      " vector similarity.\200\265\030\001\022\232\002\n\020GetEventTime" +
+      "line\022(.shorts.v1alpha1.GetEventTimelineR" +
+      "equest\032).shorts.v1alpha1.GetEventTimelin" +
+      "eResponse\"\260\001\272G\250\001\022\022Get Event Timeline\032\221\001R" +
+      "etrieve a chronological feed of events f" +
+      "or a stock, merging ASX announcements, d" +
+      "irector trades, price-sensitive news, an" +
+      "d short position spikes.\200\265\030\001\022\334\002\n\017GetStoc" +
+      "kSignals\022\'.shorts.v1alpha1.GetStockSigna" +
+      "lsRequest\032(.shorts.v1alpha1.GetStockSign" +
+      "alsResponse\"\365\001\272G\355\001\022\021Get Stock Signals\032\327\001" +
+      "Retrieve a stock\'s reputation/risk signa" +
+      "ls \342\200\224 adverse (court matters, regulator" +
+      " sanctions, complaints) and positive (aw" +
+      "ards, press), each with citations, sever" +
+      "ity and confidence. Sourced from grounde" +
+      "d web research.\200\265\030\001\022\317\002\n\022GetHousingOvervi" +
+      "ew\022*.shorts.v1alpha1.GetHousingOverviewR" +
+      "equest\032+.shorts.v1alpha1.GetHousingOverv" +
+      "iewResponse\"\337\001\272G\327\001\022\024Get Housing Overview" +
+      "\032\276\001Latest Australian house-price headlin" +
+      "e metrics by region (national, state, ca" +
+      "pital city) \342\200\224 mean/median price and pr" +
+      "ice index with QoQ and YoY change. Sourc" +
+      "ed from the ABS Data API and RBA.\200\265\030\001\022\255\002" +
+      "\n\023GetHousePriceSeries\022+.shorts.v1alpha1." +
+      "GetHousePriceSeriesRequest\032,.shorts.v1al" +
+      "pha1.GetHousePriceSeriesResponse\"\272\001\272G\262\001\022" +
+      "\026Get House Price Series\032\227\001A single house" +
+      "-price time series for a region and meas" +
+      "ure (national mean price, capital-city m" +
+      "edian, household debt-to-income, price i" +
+      "ndex), quarterly.\200\265\030\001\022\234\002\n\020ListStateSubur" +
+      "bs\022(.shorts.v1alpha1.ListStateSuburbsReq" +
+      "uest\032).shorts.v1alpha1.ListStateSuburbsR" +
+      "esponse\"\262\001\272G\252\001\022\022List State Suburbs\032\223\001Eve" +
+      "ry suburb (ABS SAL) in a state with its " +
+      "latest median house price and key ABS Ce" +
+      "nsus demographics \342\200\224 powers the state c" +
+      "horopleth + suburb list.\200\265\030\001\022\225\002\n\020GetSubu" +
+      "rbProfile\022(.shorts.v1alpha1.GetSuburbPro" +
+      "fileRequest\032).shorts.v1alpha1.GetSuburbP" +
+      "rofileResponse\"\253\001\272G\243\001\022\022Get Suburb Profil" +
+      "e\032\214\001A single suburb\'s rich profile \342\200\224 A" +
+      "BS Census demographics, latest median ho" +
+      "use price with QoQ/YoY, and state/nation" +
+      "al comparison baselines.\200\265\030\001\022\313\002\n\022ListHou" +
+      "singRegions\022*.shorts.v1alpha1.ListHousin" +
+      "gRegionsRequest\032+.shorts.v1alpha1.ListHo" +
+      "usingRegionsResponse\"\333\001\272G\323\001\022\024List Housin" +
+      "g Regions\032\272\001List house-price regions, op" +
+      "tionally filtered by region_type, state," +
+      " or a name query \342\200\224 powers the suburb e" +
+      "xplorer. Suburb medians are sourced from" +
+      " state Valuer-General offices (CC BY).\200\265" +
+      "\030\001\022\251\003\n\024ListSuburbPriceDrops\022,.shorts.v1a" +
+      "lpha1.ListSuburbPriceDropsRequest\032-.shor" +
+      "ts.v1alpha1.ListSuburbPriceDropsResponse" +
+      "\"\263\002\272G\253\002\022\027List Suburb Price Drops\032\217\002Subur" +
+      "bs ranked by recent for-sale asking-pric" +
+      "e reductions over a rolling window \342\200\224 c" +
+      "ount of reduced listings plus the averag" +
+      "e, median and largest reduction. A deriv" +
+      "ed aggregate over realestate.com.au / do" +
+      "main.com.au listing data; individual lis" +
+      "tings are not republished.\200\265\030\001\022\347\002\n\026ListS" +
+      "uburbDropListings\022..shorts.v1alpha1.List" +
+      "SuburbDropListingsRequest\032/.shorts.v1alp" +
+      "ha1.ListSuburbDropListingsResponse\"\353\001\272G\343" +
+      "\001\022\031List Suburb Drop Listings\032\305\001Recently " +
+      "price-reduced for-sale listings in a sub" +
+      "urb, each deep-linking OUT to the live r" +
+      "ealestate.com.au / domain.com.au page. F" +
+      "actual price-change data only; the listi" +
+      "ng itself is not reproduced.\200\265\030\001\022\270\003\n\022Get" +
+      "PropertyHistory\022*.shorts.v1alpha1.GetPro" +
+      "pertyHistoryRequest\032+.shorts.v1alpha1.Ge" +
+      "tPropertyHistoryResponse\"\310\002\272G\237\002\022\024Get Pro" +
+      "perty History\032\206\002Full asking-price timeli" +
+      "ne for a single physical address (stable" +
+      " address_key), across all its listings a" +
+      "nd relists on realestate.com.au / domain" +
+      ".com.au. Deep-links OUT to the live port" +
+      "al page; factual price-change data only," +
+      " the listing itself is not reproduced.\200\265" +
+      "\030\001\202\323\344\223\002\033\"\026/v1/getPropertyHistory:\001*\022\203\004\n\025" +
+      "ListAddressPriceDrops\022-.shorts.v1alpha1." +
+      "ListAddressPriceDropsRequest\032..shorts.v1" +
+      "alpha1.ListAddressPriceDropsResponse\"\212\003\272" +
+      "G\336\002\022\030List Address Price Drops\032\301\002Individu" +
+      "al physical addresses (deduped by stable" +
+      " address_key) ranked by their for-sale a" +
+      "sking-price reduction over a rolling win" +
+      "dow \342\200\224 from the first observed price to" +
+      " the current active listing. Each entry " +
+      "deep-links to its per-address history pa" +
+      "ge; factual price-change data only, the " +
+      "listing itself is not reproduced.\200\265\030\001\202\323\344" +
+      "\223\002\036\"\031/v1/listAddressPriceDrops:\001*\022\312\003\n\025Ge" +
+      "tPriceDropsOverview\022-.shorts.v1alpha1.Ge" +
+      "tPriceDropsOverviewRequest\032..shorts.v1al" +
+      "pha1.GetPriceDropsOverviewResponse\"\321\002\272G\245" +
+      "\002\022\030Get Price Drops Overview\032\210\002Per-state " +
+      "rollup of recent for-sale asking-price r" +
+      "eductions plus asking/sold price aggrega" +
+      "tes, with a national summary. A derived " +
+      "aggregate over realestate.com.au / domai" +
+      "n.com.au listing data covering tracked m" +
+      "etro suburbs; individual listings are no" +
+      "t republished.\200\265\030\001\202\323\344\223\002\036\"\031/v1/getPriceDr" +
+      "opsOverview:\001*\022\255\003\n\024ListAgencyPriceStats\022" +
+      ",.shorts.v1alpha1.ListAgencyPriceStatsRe" +
+      "quest\032-.shorts.v1alpha1.ListAgencyPriceS" +
+      "tatsResponse\"\267\002\272G\214\002\022\027List Agency Price S" +
+      "tats\032\360\001Real-estate agencies ranked by re" +
+      "cent asking-price reductions across thei" +
+      "r tracked for-sale listings \342\200\224 listing " +
+      "counts, median asking price, reduction d" +
+      "epth and suburbs covered. A derived aggr" +
+      "egate; individual listings are not repub" +
+      "lished.\200\265\030\001\202\323\344\223\002\035\"\030/v1/listAgencyPriceSt" +
+      "ats:\001*\022\315\002\n\022ListEconomicSeries\022*.shorts.v" +
+      "1alpha1.ListEconomicSeriesRequest\032+.shor" +
+      "ts.v1alpha1.ListEconomicSeriesResponse\"\335" +
+      "\001\272G\325\001\022\024List Economic Series\032\274\001Catalog of" +
+      " Australian economic series (petroleum, " +
+      "trade by state, GDP, labour, CPI, policy" +
+      " rates) with dimensions, units and sourc" +
+      "e attribution. Sourced from ABS, RBA and" +
+      " DCCEEW open data.\200\265\030\001\022\260\002\n\021GetEconomicSe" +
+      "ries\022).shorts.v1alpha1.GetEconomicSeries" +
+      "Request\032*.shorts.v1alpha1.GetEconomicSer" +
+      "iesResponse\"\303\001\272G\273\001\022\023Get Economic Series\032" +
+      "\243\001Time-series observations for named eco" +
+      "nomic series keys (e.g. petroleum.refine" +
+      "ry_output.diesel.aus, trade.export_value" +
+      ".total.wa), with unit, frequency and lic",
+      "ence.\200\265\030\001\022\250\002\n\026ListSeriesCorrelations\022..s" +
+      "horts.v1alpha1.ListSeriesCorrelationsReq" +
+      "uest\032/.shorts.v1alpha1.ListSeriesCorrela" +
+      "tionsResponse\"\254\001\272G\244\001\022\030List Series Correl" +
+      "ations\032\207\001Precomputed rolling Pearson cor" +
+      "relations between a market-series anchor" +
+      " and eligible economic overlays, ranked " +
+      "by absolute correlation.\200\265\030\001\022\205\003\n\022ListSta" +
+      "teCompanies\022*.shorts.v1alpha1.ListStateC" +
+      "ompaniesRequest\032+.shorts.v1alpha1.ListSt" +
+      "ateCompaniesResponse\"\225\002\272G\215\002\022\024List State " +
+      "Companies\032\364\001ASX-listed companies operati" +
+      "ng in a given Australian state, ranked b" +
+      "y exposure-weighted market cap. Exposure" +
+      " is LLM-estimated from company disclosur" +
+      "es (operations/revenue split), with a re" +
+      "gistered-office fallback for companies n" +
+      "ot yet enriched.\200\265\030\001\022\353\002\n\031GetStateCompany" +
+      "Aggregates\0221.shorts.v1alpha1.GetStateCom" +
+      "panyAggregatesRequest\0322.shorts.v1alpha1." +
+      "GetStateCompanyAggregatesResponse\"\346\001\272G\336\001" +
+      "\022\034Get State Company Aggregates\032\275\001Per-sta" +
+      "te aggregates over the company state-exp" +
+      "osure layer: company count (weight >= 0." +
+      "2), exposure-weighted market cap, and ex" +
+      "posure-weighted short interest. Excludes" +
+      " region=international.\200\265\030\001\022\262\004\n\024GetCompan" +
+      "yTaxProfile\022,.shorts.v1alpha1.GetCompany" +
+      "TaxProfileRequest\032-.shorts.v1alpha1.GetC" +
+      "ompanyTaxProfileResponse\"\274\003\272G\224\003\022\027Get Com" +
+      "pany Tax Profile\032\370\002An ASX-listed entity\'" +
+      "s annual corporate-tax profile from the " +
+      "ATO Corporate Tax Transparency dataset (" +
+      "total income, taxable income, tax payabl" +
+      "e per income year). Entities are matched" +
+      " to ASX codes only on exact ABN or exact" +
+      " normalized-name mapping. Nil/absent tax" +
+      "able income or tax payable is meaningful" +
+      " and often legitimate (losses/offsets) \342" +
+      "\200\224 total income is always reported.\200\265\030\001\202" +
+      "\323\344\223\002\032\"\025/v1/companyTaxProfile:\001*\022\322\002\n\027GetI" +
+      "ndustryIntelligence\022/.shorts.v1alpha1.Ge" +
+      "tIndustryIntelligenceRequest\0320.shorts.v1" +
+      "alpha1.GetIndustryIntelligenceResponse\"\323" +
+      "\001\272G\250\001\022\031Get Industry Intelligence\032\212\001Impor" +
+      "ted, cited industry intelligence records" +
+      " for a Shorted industry. Only public-ena" +
+      "bled sources and exact-reviewed records " +
+      "are returned.\200\265\030\001\202\323\344\223\002\035\"\030/v1/industryInt" +
+      "elligence:\001*\022\346\001\n\025GetParliamentOverview\022-" +
+      ".shorts.v1alpha1.GetParliamentOverviewRe" +
+      "quest\032..shorts.v1alpha1.GetParliamentOve" +
+      "rviewResponse\"n\272Gg\022\027Get Parliament Overv" +
+      "iew\032LCounts and as-at date for the Regis" +
+      "ters of Members\' and Senators\' Interests" +
+      ".\200\265\030\001\022\322\001\n\017ListPoliticians\022\'.shorts.v1alp" +
+      "ha1.ListPoliticiansRequest\032(.shorts.v1al" +
+      "pha1.ListPoliticiansResponse\"l\272Ge\022\020List " +
+      "Politicians\032QFederal parliamentarians co" +
+      "vered by the registers, with declared-in" +
+      "terest counts.\200\265\030\001\022\354\001\n\rGetPolitician\022%.s" +
+      "horts.v1alpha1.GetPoliticianRequest\032&.sh" +
+      "orts.v1alpha1.GetPoliticianResponse\"\213\001\272G" +
+      "\203\001\022\016Get Politician\032qOne parliamentarian\'" +
+      "s declared interests and history. The re" +
+      "gisters record what is held, never quant" +
+      "ity or value.\200\265\030\001\022\354\001\n\024ListStockPoliticia" +
+      "ns\022,.shorts.v1alpha1.ListStockPolitician" +
+      "sRequest\032-.shorts.v1alpha1.ListStockPoli" +
+      "ticiansResponse\"w\272Gp\022\026List Stock Politic" +
+      "ians\032VParliamentarians declaring an inte" +
+      "rest in a company, by holder and declara" +
+      "tion period.\200\265\030\001\022\346\001\n\024ListPoliticianStock" +
+      "s\022,.shorts.v1alpha1.ListPoliticianStocks" +
+      "Request\032-.shorts.v1alpha1.ListPolitician" +
+      "StocksResponse\"q\272Gj\022\026List Politician Sto" +
+      "cks\032PMost-declared ASX-listed companies " +
+      "across federal parliament, counted by pe" +
+      "ople.\200\265\030\001\022\367\001\n\025ListSuburbPoliticians\022-.sh" +
+      "orts.v1alpha1.ListSuburbPoliticiansReque" +
+      "st\032..shorts.v1alpha1.ListSuburbPoliticia" +
+      "nsResponse\"\177\272Gx\022\027List Suburb Politicians" +
+      "\032]Parliamentarians declaring real estate" +
+      " in a suburb. The registers record subur" +
+      "b or area only.\200\265\030\001\022\202\002\n\033ListStatePolitic" +
+      "ianHoldings\0223.shorts.v1alpha1.ListStateP" +
+      "oliticianHoldingsRequest\0324.shorts.v1alph" +
+      "a1.ListStatePoliticianHoldingsResponse\"x" +
+      "\272Gq\022\036List State Politician Holdings\032OCom" +
+      "panies declared by the parliamentarians " +
+      "representing one state or territory.\200\265\030\001" +
+      "\022\336\001\n\023ListRegisterChanges\022+.shorts.v1alph" +
+      "a1.ListRegisterChangesRequest\032,.shorts.v" +
+      "1alpha1.ListRegisterChangesResponse\"l\272Ge" +
+      "\022\025List Register Changes\032LRows added to o" +
+      "r removed from the registers. A removal " +
+      "is not a transaction.\200\265\030\001\022\236\002\n\030ListShortI" +
+      "nterestOverlap\0220.shorts.v1alpha1.ListSho" +
+      "rtInterestOverlapRequest\0321.shorts.v1alph" +
+      "a1.ListShortInterestOverlapResponse\"\234\001\272G" +
+      "\224\001\022\033List Short Interest Overlap\032uDeclare" +
+      "d interests in companies carrying short " +
+      "interest. The short percentage describes" +
+      " the company, not any holding.\200\265\030\001\022\320\002\n\026G" +
+      "etPoliticianAnalytics\022..shorts.v1alpha1." +
+      "GetPoliticianAnalyticsRequest\032/.shorts.v" +
+      "1alpha1.GetPoliticianAnalyticsResponse\"\324" +
+      "\001\272G\314\001\022\030Get Politician Analytics\032\257\001How ma" +
+      "ny parliamentarians of each party declar" +
+      "e an interest in each industry, and how " +
+      "members are distributed by state. Counts" +
+      " only; the registers record no quantity " +
+      "or value.\200\265\030\001\022v\n\023GetRegisterExplorer\022+.s" +
+      "horts.v1alpha1.GetRegisterExplorerReques" +
+      "t\032,.shorts.v1alpha1.GetRegisterExplorerR" +
+      "esponse\"\004\200\265\030\001\022\202\001\n\027ListPoliticianSummarie" +
+      "s\022/.shorts.v1alpha1.ListPoliticianSummar" +
+      "iesRequest\0320.shorts.v1alpha1.ListPolitic" +
+      "ianSummariesResponse\"\004\200\265\030\001\022\221\001\n\034GetPoliti" +
+      "cianExplorerProfile\0224.shorts.v1alpha1.Ge" +
+      "tPoliticianExplorerProfileRequest\0325.shor" +
+      "ts.v1alpha1.GetPoliticianExplorerProfile" +
+      "Response\"\004\200\265\030\001\022s\n\022ComparePoliticians\022*.s" +
+      "horts.v1alpha1.ComparePoliticiansRequest" +
+      "\032+.shorts.v1alpha1.ComparePoliticiansRes" +
+      "ponse\"\004\200\265\030\001\022\311\002\n\023GetRegisterActivity\022+.sh" +
+      "orts.v1alpha1.GetRegisterActivityRequest" +
+      "\032,.shorts.v1alpha1.GetRegisterActivityRe" +
+      "sponse\"\326\001\272G\316\001\022\025Get Register Activity\032\264\001W" +
+      "eekly counts of dated register events, t" +
+      "he members with the most events, compani" +
+      "es first declared in the window, and com" +
+      "panies whose declarer count changed. Cou" +
+      "nts and dates only.\200\265\030\001\022\330\002\n\027ListDistinct" +
+      "iveHoldings\022/.shorts.v1alpha1.ListDistin" +
+      "ctiveHoldingsRequest\0320.shorts.v1alpha1.L" +
+      "istDistinctiveHoldingsResponse\"\331\001\272G\321\001\022\031L" +
+      "ist Distinctive Holdings\032\263\001A member\'s cu" +
+      "rrently-declared listed companies, each " +
+      "with the number of members declaring it " +
+      "across the whole register. A count of on" +
+      "e means no other member currently declar" +
+      "es it.\200\265\030\001\022\200\003\n\024GetDonationsOverview\022,.sh" +
+      "orts.v1alpha1.GetDonationsOverviewReques" +
+      "t\032-.shorts.v1alpha1.GetDonationsOverview" +
+      "Response\"\212\002\272G\202\002\022\026Get Donations Overview\032" +
+      "\347\001Party-group funding rollups from AEC a" +
+      "nnual returns for one financial year, wi" +
+      "th the available years, corpus counts, a" +
+      "nd the right-censoring and 2027 reform n" +
+      "otes every surface must render. Amounts " +
+      "are in cents, verbatim as lodged.\200\265\030\001\022\332\002" +
+      "\n\rListTopDonors\022%.shorts.v1alpha1.ListTo" +
+      "pDonorsRequest\032&.shorts.v1alpha1.ListTop" +
+      "DonorsResponse\"\371\001\272G\361\001\022\017List Top Donors\032\335" +
+      "\001Payers named in itemised AEC receipts i" +
+      "nto party branches for one financial yea" +
+      "r, with the source\'s receipt-type split " +
+      "(a conference fee is not a donation) and" +
+      " an ASX code only where an exact or cura" +
+      "ted name match exists.\200\265\030\001\022\336\002\n\020ListParty" +
+      "Funding\022(.shorts.v1alpha1.ListPartyFundi" +
+      "ngRequest\032).shorts.v1alpha1.ListPartyFun" +
+      "dingResponse\"\364\001\272G\354\001\022\022List Party Funding\032" +
+      "\325\001One party group\'s AEC funding series b" +
+      "y financial year, plus that year\'s top p" +
+      "ayers and listed-company payers. Rows fr" +
+      "om FY2027 are the reformed scheme and mu" +
+      "st not be charted continuously with what" +
+      " precedes them.\200\265\030\001\022\214\003\n\024GetPoliticianFun" +
+      "ding\022,.shorts.v1alpha1.GetPoliticianFund" +
+      "ingRequest\032-.shorts.v1alpha1.GetPolitici" +
+      "anFundingResponse\"\226\002\272G\216\002\022\026Get Politician" +
+      " Funding\032\363\001AEC returns that NAME one mem" +
+      "ber: their annual member/senator returns" +
+      " and their election candidate returns in" +
+      "cluding lodged nil returns, with the cor" +
+      "pus coverage those figures sit inside. M" +
+      "oney given to a party is never attribute" +
+      "d to a member.\200\265\030\001\032\025\312A\022api.shorted.com.a" +
+      "uB\240\003\n\023com.shorts.v1alpha1B\013ShortsProtoP\001" +
+      "ZYgithub.com/castlemilk/shorted.com.au/s" +
+      "ervices/gen/proto/go/shorts/v1alpha1;sho" +
+      "rtsv1alpha1\242\002\003SXX\252\002\017Shorts.V1alpha1\312\002\017Sh" +
+      "orts\\V1alpha1\342\002\033Shorts\\V1alpha1\\GPBMetad" +
+      "ata\352\002\020Shorts::V1alpha1\272G\302\001\022\177\n\013Shorted AP" +
+      "I\022\rShorted API\'s\"(\022\016shorted.com.au\032\026supp" +
+      "ort@shorted.com.au*3\n\023Proprietary licens" +
+      "e\022\034https://shorted.com.au/terms2\002v1\032\034\n\032h" +
+      "ttps://api.shorted.com.au*!:\037\n\035\n\tAuthTok" +
+      "en\022\020\n\016\n\004http*\006bearerb\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -2286,1045 +636,20 @@ public final class ShortsProto extends com.google.protobuf.GeneratedFile {
           com.google.protobuf.TimestampProto.getDescriptor(),
           com.stocks.v1alpha1.StocksProto.getDescriptor(),
           com.shortedapi.options.v1.OptionsProto.getDescriptor(),
+          com.shorts.v1alpha1.AlertsProto.getDescriptor(),
+          com.shorts.v1alpha1.BillingProto.getDescriptor(),
+          com.shorts.v1alpha1.EconomyProto.getDescriptor(),
+          com.shorts.v1alpha1.EnrichmentProto.getDescriptor(),
+          com.shorts.v1alpha1.HousingProto.getDescriptor(),
+          com.shorts.v1alpha1.IndustryProto.getDescriptor(),
+          com.shorts.v1alpha1.MarketProto.getDescriptor(),
+          com.shorts.v1alpha1.NewsProto.getDescriptor(),
+          com.shorts.v1alpha1.PoliticiansProto.getDescriptor(),
+          com.shorts.v1alpha1.ReportsProto.getDescriptor(),
+          com.shorts.v1alpha1.ScreenerProto.getDescriptor(),
+          com.shorts.v1alpha1.SearchProto.getDescriptor(),
+          com.shorts.v1alpha1.StockProto.getDescriptor(),
         });
-    internal_static_shorts_v1alpha1_MintTokenRequest_descriptor =
-      getDescriptor().getMessageType(0);
-    internal_static_shorts_v1alpha1_MintTokenRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_MintTokenRequest_descriptor,
-        new java.lang.String[] { });
-    internal_static_shorts_v1alpha1_MintTokenResponse_descriptor =
-      getDescriptor().getMessageType(1);
-    internal_static_shorts_v1alpha1_MintTokenResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_MintTokenResponse_descriptor,
-        new java.lang.String[] { "Token", });
-    internal_static_shorts_v1alpha1_GetTopShortsRequest_descriptor =
-      getDescriptor().getMessageType(2);
-    internal_static_shorts_v1alpha1_GetTopShortsRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetTopShortsRequest_descriptor,
-        new java.lang.String[] { "Period", "Limit", "Offset", "SummaryOnly", "ProductCodes", });
-    internal_static_shorts_v1alpha1_GetIndustryTreeMapRequest_descriptor =
-      getDescriptor().getMessageType(3);
-    internal_static_shorts_v1alpha1_GetIndustryTreeMapRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetIndustryTreeMapRequest_descriptor,
-        new java.lang.String[] { "Period", "Limit", "ViewMode", });
-    internal_static_shorts_v1alpha1_GetTopShortsResponse_descriptor =
-      getDescriptor().getMessageType(4);
-    internal_static_shorts_v1alpha1_GetTopShortsResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetTopShortsResponse_descriptor,
-        new java.lang.String[] { "TimeSeries", "Offset", });
-    internal_static_shorts_v1alpha1_GetStockRequest_descriptor =
-      getDescriptor().getMessageType(5);
-    internal_static_shorts_v1alpha1_GetStockRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetStockRequest_descriptor,
-        new java.lang.String[] { "ProductCode", });
-    internal_static_shorts_v1alpha1_GetStockDetailsRequest_descriptor =
-      getDescriptor().getMessageType(6);
-    internal_static_shorts_v1alpha1_GetStockDetailsRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetStockDetailsRequest_descriptor,
-        new java.lang.String[] { "ProductCode", });
-    internal_static_shorts_v1alpha1_GetStockDataRequest_descriptor =
-      getDescriptor().getMessageType(7);
-    internal_static_shorts_v1alpha1_GetStockDataRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetStockDataRequest_descriptor,
-        new java.lang.String[] { "ProductCode", "Period", });
-    internal_static_shorts_v1alpha1_SearchStocksRequest_descriptor =
-      getDescriptor().getMessageType(8);
-    internal_static_shorts_v1alpha1_SearchStocksRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_SearchStocksRequest_descriptor,
-        new java.lang.String[] { "Query", "Limit", "IncludeDetails", });
-    internal_static_shorts_v1alpha1_SearchStocksResponse_descriptor =
-      getDescriptor().getMessageType(9);
-    internal_static_shorts_v1alpha1_SearchStocksResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_SearchStocksResponse_descriptor,
-        new java.lang.String[] { "Query", "Stocks", "Count", });
-    internal_static_shorts_v1alpha1_GetSyncStatusRequest_descriptor =
-      getDescriptor().getMessageType(10);
-    internal_static_shorts_v1alpha1_GetSyncStatusRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetSyncStatusRequest_descriptor,
-        new java.lang.String[] { "Limit", });
-    internal_static_shorts_v1alpha1_GetSyncStatusResponse_descriptor =
-      getDescriptor().getMessageType(11);
-    internal_static_shorts_v1alpha1_GetSyncStatusResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetSyncStatusResponse_descriptor,
-        new java.lang.String[] { "Runs", });
-    internal_static_shorts_v1alpha1_SyncRun_descriptor =
-      getDescriptor().getMessageType(12);
-    internal_static_shorts_v1alpha1_SyncRun_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_SyncRun_descriptor,
-        new java.lang.String[] { "RunId", "StartedAt", "CompletedAt", "Status", "ErrorMessage", "ShortsRecordsUpdated", "PricesRecordsUpdated", "MetricsRecordsUpdated", "AlgoliaRecordsSynced", "TotalDurationSeconds", "Environment", "Hostname", "CheckpointStocksTotal", "CheckpointStocksProcessed", "CheckpointStocksSuccessful", "CheckpointStocksFailed", });
-    internal_static_shorts_v1alpha1_SyncKeyMetricsRequest_descriptor =
-      getDescriptor().getMessageType(13);
-    internal_static_shorts_v1alpha1_SyncKeyMetricsRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_SyncKeyMetricsRequest_descriptor,
-        new java.lang.String[] { "StockCodes", "Force", });
-    internal_static_shorts_v1alpha1_SyncKeyMetricsResponse_descriptor =
-      getDescriptor().getMessageType(14);
-    internal_static_shorts_v1alpha1_SyncKeyMetricsResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_SyncKeyMetricsResponse_descriptor,
-        new java.lang.String[] { "TotalRequested", "SuccessfullySynced", "Failed", "Results", "DurationSeconds", });
-    internal_static_shorts_v1alpha1_StockSyncResult_descriptor =
-      getDescriptor().getMessageType(15);
-    internal_static_shorts_v1alpha1_StockSyncResult_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_StockSyncResult_descriptor,
-        new java.lang.String[] { "StockCode", "Success", "ErrorMessage", "Metrics", });
-    internal_static_shorts_v1alpha1_KeyMetricsData_descriptor =
-      getDescriptor().getMessageType(16);
-    internal_static_shorts_v1alpha1_KeyMetricsData_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_KeyMetricsData_descriptor,
-        new java.lang.String[] { "MarketCap", "PeRatio", "Eps", "DividendYield", "Beta", "FiftyTwoWeekHigh", "FiftyTwoWeekLow", "AvgVolume", });
-    internal_static_shorts_v1alpha1_EnrichStockRequest_descriptor =
-      getDescriptor().getMessageType(17);
-    internal_static_shorts_v1alpha1_EnrichStockRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_EnrichStockRequest_descriptor,
-        new java.lang.String[] { "StockCode", "Force", });
-    internal_static_shorts_v1alpha1_EnrichStockResponse_descriptor =
-      getDescriptor().getMessageType(18);
-    internal_static_shorts_v1alpha1_EnrichStockResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_EnrichStockResponse_descriptor,
-        new java.lang.String[] { "StockCode", "JobId", "Message", });
-    internal_static_shorts_v1alpha1_EnrichmentData_descriptor =
-      getDescriptor().getMessageType(19);
-    internal_static_shorts_v1alpha1_EnrichmentData_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_EnrichmentData_descriptor,
-        new java.lang.String[] { "EnhancedSummary", "CompanyHistory", "KeyPeople", "FinancialReports", "CompetitiveAdvantages", "RiskFactors", "RecentDevelopments", "SocialMediaLinks", "Tags", "LogoGcsUrl", "LogoIconGcsUrl", "LogoSvgGcsUrl", "LogoSourceUrl", "LogoFormat", "DiscoveredWebsite", });
-    internal_static_shorts_v1alpha1_QualityScore_descriptor =
-      getDescriptor().getMessageType(20);
-    internal_static_shorts_v1alpha1_QualityScore_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_QualityScore_descriptor,
-        new java.lang.String[] { "OverallScore", "CompletenessScore", "AccuracyScore", "Warnings", "Strengths", });
-    internal_static_shorts_v1alpha1_GetTopStocksForEnrichmentRequest_descriptor =
-      getDescriptor().getMessageType(21);
-    internal_static_shorts_v1alpha1_GetTopStocksForEnrichmentRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetTopStocksForEnrichmentRequest_descriptor,
-        new java.lang.String[] { "Limit", "Priority", });
-    internal_static_shorts_v1alpha1_GetTopStocksForEnrichmentResponse_descriptor =
-      getDescriptor().getMessageType(22);
-    internal_static_shorts_v1alpha1_GetTopStocksForEnrichmentResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetTopStocksForEnrichmentResponse_descriptor,
-        new java.lang.String[] { "Stocks", });
-    internal_static_shorts_v1alpha1_StockEnrichmentCandidate_descriptor =
-      getDescriptor().getMessageType(23);
-    internal_static_shorts_v1alpha1_StockEnrichmentCandidate_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_StockEnrichmentCandidate_descriptor,
-        new java.lang.String[] { "StockCode", "CompanyName", "Industry", "MarketCap", "ShortPositionPercent", "EnrichmentStatus", "LastEnriched", "PriorityScore", });
-    internal_static_shorts_v1alpha1_ReviewEnrichmentRequest_descriptor =
-      getDescriptor().getMessageType(24);
-    internal_static_shorts_v1alpha1_ReviewEnrichmentRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ReviewEnrichmentRequest_descriptor,
-        new java.lang.String[] { "StockCode", "EnrichmentId", "Approve", "ReviewNotes", });
-    internal_static_shorts_v1alpha1_ReviewEnrichmentResponse_descriptor =
-      getDescriptor().getMessageType(25);
-    internal_static_shorts_v1alpha1_ReviewEnrichmentResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ReviewEnrichmentResponse_descriptor,
-        new java.lang.String[] { "StockCode", "Approved", "Message", });
-    internal_static_shorts_v1alpha1_ListPendingEnrichmentsRequest_descriptor =
-      getDescriptor().getMessageType(26);
-    internal_static_shorts_v1alpha1_ListPendingEnrichmentsRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ListPendingEnrichmentsRequest_descriptor,
-        new java.lang.String[] { "Limit", "Offset", });
-    internal_static_shorts_v1alpha1_ListPendingEnrichmentsResponse_descriptor =
-      getDescriptor().getMessageType(27);
-    internal_static_shorts_v1alpha1_ListPendingEnrichmentsResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ListPendingEnrichmentsResponse_descriptor,
-        new java.lang.String[] { "Enrichments", });
-    internal_static_shorts_v1alpha1_PendingEnrichmentSummary_descriptor =
-      getDescriptor().getMessageType(28);
-    internal_static_shorts_v1alpha1_PendingEnrichmentSummary_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_PendingEnrichmentSummary_descriptor,
-        new java.lang.String[] { "EnrichmentId", "StockCode", "Status", "CreatedAt", "QualityScore", });
-    internal_static_shorts_v1alpha1_GetPendingEnrichmentRequest_descriptor =
-      getDescriptor().getMessageType(29);
-    internal_static_shorts_v1alpha1_GetPendingEnrichmentRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetPendingEnrichmentRequest_descriptor,
-        new java.lang.String[] { "EnrichmentId", });
-    internal_static_shorts_v1alpha1_GetPendingEnrichmentResponse_descriptor =
-      getDescriptor().getMessageType(30);
-    internal_static_shorts_v1alpha1_GetPendingEnrichmentResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetPendingEnrichmentResponse_descriptor,
-        new java.lang.String[] { "Pending", });
-    internal_static_shorts_v1alpha1_PendingEnrichment_descriptor =
-      getDescriptor().getMessageType(31);
-    internal_static_shorts_v1alpha1_PendingEnrichment_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_PendingEnrichment_descriptor,
-        new java.lang.String[] { "EnrichmentId", "StockCode", "Status", "Data", "QualityScore", "CreatedAt", "ReviewedAt", "ReviewedBy", "ReviewNotes", });
-    internal_static_shorts_v1alpha1_EnrichmentJob_descriptor =
-      getDescriptor().getMessageType(32);
-    internal_static_shorts_v1alpha1_EnrichmentJob_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_EnrichmentJob_descriptor,
-        new java.lang.String[] { "JobId", "StockCode", "Status", "Priority", "Force", "CreatedAt", "StartedAt", "CompletedAt", "ErrorMessage", "EnrichmentId", });
-    internal_static_shorts_v1alpha1_GetEnrichmentJobStatusRequest_descriptor =
-      getDescriptor().getMessageType(33);
-    internal_static_shorts_v1alpha1_GetEnrichmentJobStatusRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetEnrichmentJobStatusRequest_descriptor,
-        new java.lang.String[] { "JobId", });
-    internal_static_shorts_v1alpha1_GetEnrichmentJobStatusResponse_descriptor =
-      getDescriptor().getMessageType(34);
-    internal_static_shorts_v1alpha1_GetEnrichmentJobStatusResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetEnrichmentJobStatusResponse_descriptor,
-        new java.lang.String[] { "Job", });
-    internal_static_shorts_v1alpha1_ListEnrichmentJobsRequest_descriptor =
-      getDescriptor().getMessageType(35);
-    internal_static_shorts_v1alpha1_ListEnrichmentJobsRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ListEnrichmentJobsRequest_descriptor,
-        new java.lang.String[] { "Limit", "Offset", "Status", });
-    internal_static_shorts_v1alpha1_ListEnrichmentJobsResponse_descriptor =
-      getDescriptor().getMessageType(36);
-    internal_static_shorts_v1alpha1_ListEnrichmentJobsResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ListEnrichmentJobsResponse_descriptor,
-        new java.lang.String[] { "Jobs", "TotalCount", });
-    internal_static_shorts_v1alpha1_HandleStripeCheckoutCompletedRequest_descriptor =
-      getDescriptor().getMessageType(37);
-    internal_static_shorts_v1alpha1_HandleStripeCheckoutCompletedRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_HandleStripeCheckoutCompletedRequest_descriptor,
-        new java.lang.String[] { "UserId", "UserEmail", "StripeCustomerId", "StripeSubscriptionId", "Tier", });
-    internal_static_shorts_v1alpha1_HandleStripeCheckoutCompletedResponse_descriptor =
-      getDescriptor().getMessageType(38);
-    internal_static_shorts_v1alpha1_HandleStripeCheckoutCompletedResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_HandleStripeCheckoutCompletedResponse_descriptor,
-        new java.lang.String[] { "Success", "Message", });
-    internal_static_shorts_v1alpha1_HandleStripeSubscriptionUpdatedRequest_descriptor =
-      getDescriptor().getMessageType(39);
-    internal_static_shorts_v1alpha1_HandleStripeSubscriptionUpdatedRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_HandleStripeSubscriptionUpdatedRequest_descriptor,
-        new java.lang.String[] { "StripeCustomerId", "StripeSubscriptionId", "Status", "Tier", "CurrentPeriodStart", "CurrentPeriodEnd", "CancelAtPeriodEnd", "IsDeleted", });
-    internal_static_shorts_v1alpha1_HandleStripeSubscriptionUpdatedResponse_descriptor =
-      getDescriptor().getMessageType(40);
-    internal_static_shorts_v1alpha1_HandleStripeSubscriptionUpdatedResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_HandleStripeSubscriptionUpdatedResponse_descriptor,
-        new java.lang.String[] { "Success", "Message", });
-    internal_static_shorts_v1alpha1_GetMySubscriptionRequest_descriptor =
-      getDescriptor().getMessageType(41);
-    internal_static_shorts_v1alpha1_GetMySubscriptionRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetMySubscriptionRequest_descriptor,
-        new java.lang.String[] { });
-    internal_static_shorts_v1alpha1_GetMySubscriptionResponse_descriptor =
-      getDescriptor().getMessageType(42);
-    internal_static_shorts_v1alpha1_GetMySubscriptionResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetMySubscriptionResponse_descriptor,
-        new java.lang.String[] { "HasSubscription", "Status", "Tier", "CurrentPeriodEnd", "CancelAtPeriodEnd", "StripeCustomerId", });
-    internal_static_shorts_v1alpha1_AlertMonitor_descriptor =
-      getDescriptor().getMessageType(43);
-    internal_static_shorts_v1alpha1_AlertMonitor_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_AlertMonitor_descriptor,
-        new java.lang.String[] { "Id", "Scope", "Target", "Condition", "Threshold", "HasThreshold", "Cadence", "Status", "CreatedAt", "UpdatedAt", });
-    internal_static_shorts_v1alpha1_CreateAlertMonitorRequest_descriptor =
-      getDescriptor().getMessageType(44);
-    internal_static_shorts_v1alpha1_CreateAlertMonitorRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_CreateAlertMonitorRequest_descriptor,
-        new java.lang.String[] { "Scope", "Target", "Condition", "Threshold", "HasThreshold", "Cadence", });
-    internal_static_shorts_v1alpha1_CreateAlertMonitorResponse_descriptor =
-      getDescriptor().getMessageType(45);
-    internal_static_shorts_v1alpha1_CreateAlertMonitorResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_CreateAlertMonitorResponse_descriptor,
-        new java.lang.String[] { "Monitor", });
-    internal_static_shorts_v1alpha1_ListAlertMonitorsRequest_descriptor =
-      getDescriptor().getMessageType(46);
-    internal_static_shorts_v1alpha1_ListAlertMonitorsRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ListAlertMonitorsRequest_descriptor,
-        new java.lang.String[] { "Limit", "Offset", });
-    internal_static_shorts_v1alpha1_ListAlertMonitorsResponse_descriptor =
-      getDescriptor().getMessageType(47);
-    internal_static_shorts_v1alpha1_ListAlertMonitorsResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ListAlertMonitorsResponse_descriptor,
-        new java.lang.String[] { "Monitors", "TotalCount", });
-    internal_static_shorts_v1alpha1_GetMarketByDateRequest_descriptor =
-      getDescriptor().getMessageType(48);
-    internal_static_shorts_v1alpha1_GetMarketByDateRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetMarketByDateRequest_descriptor,
-        new java.lang.String[] { "Date", "Limit", "Offset", });
-    internal_static_shorts_v1alpha1_GetMarketByDateResponse_descriptor =
-      getDescriptor().getMessageType(49);
-    internal_static_shorts_v1alpha1_GetMarketByDateResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetMarketByDateResponse_descriptor,
-        new java.lang.String[] { "Date", "Stocks", "TotalCount", "PreviousDate", "NextDate", });
-    internal_static_shorts_v1alpha1_GetAvailableDatesRequest_descriptor =
-      getDescriptor().getMessageType(50);
-    internal_static_shorts_v1alpha1_GetAvailableDatesRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetAvailableDatesRequest_descriptor,
-        new java.lang.String[] { "Limit", "Before", });
-    internal_static_shorts_v1alpha1_GetAvailableDatesResponse_descriptor =
-      getDescriptor().getMessageType(51);
-    internal_static_shorts_v1alpha1_GetAvailableDatesResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetAvailableDatesResponse_descriptor,
-        new java.lang.String[] { "Dates", "EarliestDate", "LatestDate", "TotalCount", });
-    internal_static_shorts_v1alpha1_GetWeeklyReportRequest_descriptor =
-      getDescriptor().getMessageType(52);
-    internal_static_shorts_v1alpha1_GetWeeklyReportRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetWeeklyReportRequest_descriptor,
-        new java.lang.String[] { "WeekSlug", });
-    internal_static_shorts_v1alpha1_GetWeeklyReportResponse_descriptor =
-      getDescriptor().getMessageType(53);
-    internal_static_shorts_v1alpha1_GetWeeklyReportResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetWeeklyReportResponse_descriptor,
-        new java.lang.String[] { "WeekSlug", "Headline", "Summary", "ReportDate", "PreviousDate", "Narrative", "TopShorted", "Risers", "Fallers", "Faqs", "QualityScore", "MarketStats", "Citations", "TrendInsights", "IndustryBreakdown", });
-    internal_static_shorts_v1alpha1_WeeklyNarrative_descriptor =
-      getDescriptor().getMessageType(54);
-    internal_static_shorts_v1alpha1_WeeklyNarrative_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_WeeklyNarrative_descriptor,
-        new java.lang.String[] { "OpeningHook", "TopAnalysis", "MoversAnalysis", "IndustryAnalysis", "Outlook", });
-    internal_static_shorts_v1alpha1_WeeklyReportStock_descriptor =
-      getDescriptor().getMessageType(55);
-    internal_static_shorts_v1alpha1_WeeklyReportStock_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_WeeklyReportStock_descriptor,
-        new java.lang.String[] { "Rank", "Code", "Name", "ShortPct", "WowChange", "DaysToCover", "IsNewEntrant", "Industry", "History", "LogoUrl", });
-    internal_static_shorts_v1alpha1_WeeklyReportMover_descriptor =
-      getDescriptor().getMessageType(56);
-    internal_static_shorts_v1alpha1_WeeklyReportMover_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_WeeklyReportMover_descriptor,
-        new java.lang.String[] { "Code", "Name", "CurrentPct", "PreviousPct", "Change", "DaysToCover", "ZScore", "StreakWeeks", "Industry", "History", "LogoUrl", "Significance", });
-    internal_static_shorts_v1alpha1_WeeklyReportFAQ_descriptor =
-      getDescriptor().getMessageType(57);
-    internal_static_shorts_v1alpha1_WeeklyReportFAQ_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_WeeklyReportFAQ_descriptor,
-        new java.lang.String[] { "Question", "Answer", });
-    internal_static_shorts_v1alpha1_WeeklyMarketStats_descriptor =
-      getDescriptor().getMessageType(58);
-    internal_static_shorts_v1alpha1_WeeklyMarketStats_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_WeeklyMarketStats_descriptor,
-        new java.lang.String[] { "TotalStocksShorted", "AvgShortPct", "MaxShortPct", "MaxShortCode", "WowAvgChange", "MedianShortPct", "StocksAbove10Pct", "StocksAbove5Pct", "RiserCount", "FallerCount", });
-    internal_static_shorts_v1alpha1_WeeklyIndustryStat_descriptor =
-      getDescriptor().getMessageType(59);
-    internal_static_shorts_v1alpha1_WeeklyIndustryStat_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_WeeklyIndustryStat_descriptor,
-        new java.lang.String[] { "Industry", "AvgShortPct", "WowChange", "StockCount", "TopStockCode", "TopStockPct", });
-    internal_static_shorts_v1alpha1_WeeklyReportCitation_descriptor =
-      getDescriptor().getMessageType(60);
-    internal_static_shorts_v1alpha1_WeeklyReportCitation_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_WeeklyReportCitation_descriptor,
-        new java.lang.String[] { "Id", "Source", "Date", "Url", "Type", });
-    internal_static_shorts_v1alpha1_WeeklyReportTrendInsight_descriptor =
-      getDescriptor().getMessageType(61);
-    internal_static_shorts_v1alpha1_WeeklyReportTrendInsight_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_WeeklyReportTrendInsight_descriptor,
-        new java.lang.String[] { "Code", "Direction", "ShortChange", "PricePattern", "WeeklyPriceChange", "CompositeSignal", "KeyAnnouncements", "FinancialSignals", });
-    internal_static_shorts_v1alpha1_ListReportsRequest_descriptor =
-      getDescriptor().getMessageType(62);
-    internal_static_shorts_v1alpha1_ListReportsRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ListReportsRequest_descriptor,
-        new java.lang.String[] { "ReportType", "Limit", });
-    internal_static_shorts_v1alpha1_ListReportsResponse_descriptor =
-      getDescriptor().getMessageType(63);
-    internal_static_shorts_v1alpha1_ListReportsResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ListReportsResponse_descriptor,
-        new java.lang.String[] { "Reports", });
-    internal_static_shorts_v1alpha1_ReportListItem_descriptor =
-      getDescriptor().getMessageType(64);
-    internal_static_shorts_v1alpha1_ReportListItem_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ReportListItem_descriptor,
-        new java.lang.String[] { "Slug", "ReportType", "Headline", "Summary", "ReportDate", "MaxShortPct", "MaxShortCode", "TotalStocksShorted", "QualityScore", "TopCodes", "TopLogoUrls", });
-    internal_static_shorts_v1alpha1_GetStockFinancialHighlightsRequest_descriptor =
-      getDescriptor().getMessageType(65);
-    internal_static_shorts_v1alpha1_GetStockFinancialHighlightsRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetStockFinancialHighlightsRequest_descriptor,
-        new java.lang.String[] { "StockCodes", "MaxReportsPerStock", });
-    internal_static_shorts_v1alpha1_GetStockFinancialHighlightsResponse_descriptor =
-      getDescriptor().getMessageType(66);
-    internal_static_shorts_v1alpha1_GetStockFinancialHighlightsResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetStockFinancialHighlightsResponse_descriptor,
-        new java.lang.String[] { "Highlights", });
-    internal_static_shorts_v1alpha1_GetStockFinancialHighlightsResponse_HighlightsEntry_descriptor =
-      internal_static_shorts_v1alpha1_GetStockFinancialHighlightsResponse_descriptor.getNestedType(0);
-    internal_static_shorts_v1alpha1_GetStockFinancialHighlightsResponse_HighlightsEntry_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetStockFinancialHighlightsResponse_HighlightsEntry_descriptor,
-        new java.lang.String[] { "Key", "Value", });
-    internal_static_shorts_v1alpha1_StockFinancialHighlights_descriptor =
-      getDescriptor().getMessageType(67);
-    internal_static_shorts_v1alpha1_StockFinancialHighlights_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_StockFinancialHighlights_descriptor,
-        new java.lang.String[] { "Reports", });
-    internal_static_shorts_v1alpha1_FinancialReportHighlight_descriptor =
-      getDescriptor().getMessageType(68);
-    internal_static_shorts_v1alpha1_FinancialReportHighlight_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_FinancialReportHighlight_descriptor,
-        new java.lang.String[] { "ReportTitle", "ReportType", "ReportDate", "Metrics", "Digest", "Confidence", });
-    internal_static_shorts_v1alpha1_FinancialMetric_descriptor =
-      getDescriptor().getMessageType(69);
-    internal_static_shorts_v1alpha1_FinancialMetric_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_FinancialMetric_descriptor,
-        new java.lang.String[] { "MetricType", "SourceText", "Attributes", });
-    internal_static_shorts_v1alpha1_FinancialMetric_AttributesEntry_descriptor =
-      internal_static_shorts_v1alpha1_FinancialMetric_descriptor.getNestedType(0);
-    internal_static_shorts_v1alpha1_FinancialMetric_AttributesEntry_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_FinancialMetric_AttributesEntry_descriptor,
-        new java.lang.String[] { "Key", "Value", });
-    internal_static_shorts_v1alpha1_NewsArticle_descriptor =
-      getDescriptor().getMessageType(70);
-    internal_static_shorts_v1alpha1_NewsArticle_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_NewsArticle_descriptor,
-        new java.lang.String[] { "Id", "StockCode", "Source", "Headline", "Url", "PublishedAt", "Sentiment", "RelevanceScore", "IsPriceSensitive", "Summary", "Tags", "ImageUrl", "SyndicationCount", "SyndicatedSources", });
-    internal_static_shorts_v1alpha1_GetStockNewsRequest_descriptor =
-      getDescriptor().getMessageType(71);
-    internal_static_shorts_v1alpha1_GetStockNewsRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetStockNewsRequest_descriptor,
-        new java.lang.String[] { "StockCode", "Limit", "Source", "Sentiment", });
-    internal_static_shorts_v1alpha1_GetStockNewsResponse_descriptor =
-      getDescriptor().getMessageType(72);
-    internal_static_shorts_v1alpha1_GetStockNewsResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetStockNewsResponse_descriptor,
-        new java.lang.String[] { "Articles", "TotalCount", });
-    internal_static_shorts_v1alpha1_GetRelatedNewsRequest_descriptor =
-      getDescriptor().getMessageType(73);
-    internal_static_shorts_v1alpha1_GetRelatedNewsRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetRelatedNewsRequest_descriptor,
-        new java.lang.String[] { "StockCode", "ArticleId", "Limit", });
-    internal_static_shorts_v1alpha1_GetRelatedNewsResponse_descriptor =
-      getDescriptor().getMessageType(74);
-    internal_static_shorts_v1alpha1_GetRelatedNewsResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetRelatedNewsResponse_descriptor,
-        new java.lang.String[] { "Articles", });
-    internal_static_shorts_v1alpha1_GetMarketNewsRequest_descriptor =
-      getDescriptor().getMessageType(75);
-    internal_static_shorts_v1alpha1_GetMarketNewsRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetMarketNewsRequest_descriptor,
-        new java.lang.String[] { "Limit", "Source", "PriceSensitiveOnly", });
-    internal_static_shorts_v1alpha1_GetMarketNewsResponse_descriptor =
-      getDescriptor().getMessageType(76);
-    internal_static_shorts_v1alpha1_GetMarketNewsResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetMarketNewsResponse_descriptor,
-        new java.lang.String[] { "Articles", "TotalCount", });
-    internal_static_shorts_v1alpha1_EditorialTake_descriptor =
-      getDescriptor().getMessageType(77);
-    internal_static_shorts_v1alpha1_EditorialTake_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_EditorialTake_descriptor,
-        new java.lang.String[] { "Id", "Slug", "Headline", "StockCode", "BodyMd", "Sentiment", "SourceArticleId", "SourceUrl", "SourceName", "OgImageUrl", "WordCount", "Model", "PublishedAt", "CreatedAt", "HeroImageUrl", "InlineImages", "TweetPublishedAt", "Citations", "LayoutImages", "BodyFormat", "Standfirst", "Byline", "HeroCaption", "HeroCredit", });
-    internal_static_shorts_v1alpha1_TakeCitation_descriptor =
-      getDescriptor().getMessageType(78);
-    internal_static_shorts_v1alpha1_TakeCitation_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_TakeCitation_descriptor,
-        new java.lang.String[] { "RefId", "Url", "Source", "Headline", "Date", "Type", });
-    internal_static_shorts_v1alpha1_InlineImage_descriptor =
-      getDescriptor().getMessageType(79);
-    internal_static_shorts_v1alpha1_InlineImage_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_InlineImage_descriptor,
-        new java.lang.String[] { "Url", "Topic", "Alt", });
-    internal_static_shorts_v1alpha1_LayoutImage_descriptor =
-      getDescriptor().getMessageType(80);
-    internal_static_shorts_v1alpha1_LayoutImage_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_LayoutImage_descriptor,
-        new java.lang.String[] { "Url", "Style", "Ratio", "Brief", "Caption", "Placement", "AnchorAfterBlock", });
-    internal_static_shorts_v1alpha1_GetEditorialTakeRequest_descriptor =
-      getDescriptor().getMessageType(81);
-    internal_static_shorts_v1alpha1_GetEditorialTakeRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetEditorialTakeRequest_descriptor,
-        new java.lang.String[] { "Slug", });
-    internal_static_shorts_v1alpha1_GetEditorialTakeResponse_descriptor =
-      getDescriptor().getMessageType(82);
-    internal_static_shorts_v1alpha1_GetEditorialTakeResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetEditorialTakeResponse_descriptor,
-        new java.lang.String[] { "Take", });
-    internal_static_shorts_v1alpha1_ListEditorialTakesRequest_descriptor =
-      getDescriptor().getMessageType(83);
-    internal_static_shorts_v1alpha1_ListEditorialTakesRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ListEditorialTakesRequest_descriptor,
-        new java.lang.String[] { "Limit", "Offset", "StockCode", });
-    internal_static_shorts_v1alpha1_ListEditorialTakesResponse_descriptor =
-      getDescriptor().getMessageType(84);
-    internal_static_shorts_v1alpha1_ListEditorialTakesResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ListEditorialTakesResponse_descriptor,
-        new java.lang.String[] { "Takes", "TotalCount", });
-    internal_static_shorts_v1alpha1_ListEditorialTakesAdminRequest_descriptor =
-      getDescriptor().getMessageType(85);
-    internal_static_shorts_v1alpha1_ListEditorialTakesAdminRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ListEditorialTakesAdminRequest_descriptor,
-        new java.lang.String[] { "Limit", "Offset", "StatusFilter", });
-    internal_static_shorts_v1alpha1_ListEditorialTakesAdminResponse_descriptor =
-      getDescriptor().getMessageType(86);
-    internal_static_shorts_v1alpha1_ListEditorialTakesAdminResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ListEditorialTakesAdminResponse_descriptor,
-        new java.lang.String[] { "Takes", "TotalCount", });
-    internal_static_shorts_v1alpha1_PublishEditorialTakeRequest_descriptor =
-      getDescriptor().getMessageType(87);
-    internal_static_shorts_v1alpha1_PublishEditorialTakeRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_PublishEditorialTakeRequest_descriptor,
-        new java.lang.String[] { "Slug", });
-    internal_static_shorts_v1alpha1_PublishEditorialTakeResponse_descriptor =
-      getDescriptor().getMessageType(88);
-    internal_static_shorts_v1alpha1_PublishEditorialTakeResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_PublishEditorialTakeResponse_descriptor,
-        new java.lang.String[] { "Take", });
-    internal_static_shorts_v1alpha1_UpdateEditorialTakeRequest_descriptor =
-      getDescriptor().getMessageType(89);
-    internal_static_shorts_v1alpha1_UpdateEditorialTakeRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_UpdateEditorialTakeRequest_descriptor,
-        new java.lang.String[] { "Slug", "BodyMd", "Headline", "HeroImageUrl", "Sentiment", });
-    internal_static_shorts_v1alpha1_UpdateEditorialTakeResponse_descriptor =
-      getDescriptor().getMessageType(90);
-    internal_static_shorts_v1alpha1_UpdateEditorialTakeResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_UpdateEditorialTakeResponse_descriptor,
-        new java.lang.String[] { "Take", });
-    internal_static_shorts_v1alpha1_DeleteEditorialTakeRequest_descriptor =
-      getDescriptor().getMessageType(91);
-    internal_static_shorts_v1alpha1_DeleteEditorialTakeRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_DeleteEditorialTakeRequest_descriptor,
-        new java.lang.String[] { "Slug", });
-    internal_static_shorts_v1alpha1_DeleteEditorialTakeResponse_descriptor =
-      getDescriptor().getMessageType(92);
-    internal_static_shorts_v1alpha1_DeleteEditorialTakeResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_DeleteEditorialTakeResponse_descriptor,
-        new java.lang.String[] { "Deleted", });
-    internal_static_shorts_v1alpha1_MarkTakeTweetPublishedRequest_descriptor =
-      getDescriptor().getMessageType(93);
-    internal_static_shorts_v1alpha1_MarkTakeTweetPublishedRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_MarkTakeTweetPublishedRequest_descriptor,
-        new java.lang.String[] { "Slug", });
-    internal_static_shorts_v1alpha1_MarkTakeTweetPublishedResponse_descriptor =
-      getDescriptor().getMessageType(94);
-    internal_static_shorts_v1alpha1_MarkTakeTweetPublishedResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_MarkTakeTweetPublishedResponse_descriptor,
-        new java.lang.String[] { "Take", });
-    internal_static_shorts_v1alpha1_ListTweetPublishQueueRequest_descriptor =
-      getDescriptor().getMessageType(95);
-    internal_static_shorts_v1alpha1_ListTweetPublishQueueRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ListTweetPublishQueueRequest_descriptor,
-        new java.lang.String[] { "Limit", });
-    internal_static_shorts_v1alpha1_ListTweetPublishQueueResponse_descriptor =
-      getDescriptor().getMessageType(96);
-    internal_static_shorts_v1alpha1_ListTweetPublishQueueResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ListTweetPublishQueueResponse_descriptor,
-        new java.lang.String[] { "Takes", });
-    internal_static_shorts_v1alpha1_DirectorTrade_descriptor =
-      getDescriptor().getMessageType(97);
-    internal_static_shorts_v1alpha1_DirectorTrade_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_DirectorTrade_descriptor,
-        new java.lang.String[] { "Id", "StockCode", "DirectorName", "TradeType", "SharesTraded", "PricePerShare", "TotalValue", "TradeDate", "AnnouncementUrl", });
-    internal_static_shorts_v1alpha1_GetDirectorTradesRequest_descriptor =
-      getDescriptor().getMessageType(98);
-    internal_static_shorts_v1alpha1_GetDirectorTradesRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetDirectorTradesRequest_descriptor,
-        new java.lang.String[] { "StockCode", "Limit", });
-    internal_static_shorts_v1alpha1_GetDirectorTradesResponse_descriptor =
-      getDescriptor().getMessageType(99);
-    internal_static_shorts_v1alpha1_GetDirectorTradesResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetDirectorTradesResponse_descriptor,
-        new java.lang.String[] { "Trades", "TotalCount", });
-    internal_static_shorts_v1alpha1_DividendRecord_descriptor =
-      getDescriptor().getMessageType(100);
-    internal_static_shorts_v1alpha1_DividendRecord_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_DividendRecord_descriptor,
-        new java.lang.String[] { "Id", "StockCode", "ExDate", "PaymentDate", "AmountPerShare", "FrankingPercentage", "DividendType", });
-    internal_static_shorts_v1alpha1_GetDividendHistoryRequest_descriptor =
-      getDescriptor().getMessageType(101);
-    internal_static_shorts_v1alpha1_GetDividendHistoryRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetDividendHistoryRequest_descriptor,
-        new java.lang.String[] { "StockCode", "Years", });
-    internal_static_shorts_v1alpha1_GetDividendHistoryResponse_descriptor =
-      getDescriptor().getMessageType(102);
-    internal_static_shorts_v1alpha1_GetDividendHistoryResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetDividendHistoryResponse_descriptor,
-        new java.lang.String[] { "Dividends", "TotalCount", "TrailingYield", });
-    internal_static_shorts_v1alpha1_PeerStock_descriptor =
-      getDescriptor().getMessageType(103);
-    internal_static_shorts_v1alpha1_PeerStock_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_PeerStock_descriptor,
-        new java.lang.String[] { "StockCode", "CompanyName", "Industry", "ShortPositionPercent", "MarketCap", "PeRatio", "DividendYield", "PriceChange1M", "LogoUrl", });
-    internal_static_shorts_v1alpha1_GetPeerComparisonRequest_descriptor =
-      getDescriptor().getMessageType(104);
-    internal_static_shorts_v1alpha1_GetPeerComparisonRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetPeerComparisonRequest_descriptor,
-        new java.lang.String[] { "StockCode", "Limit", });
-    internal_static_shorts_v1alpha1_GetPeerComparisonResponse_descriptor =
-      getDescriptor().getMessageType(105);
-    internal_static_shorts_v1alpha1_GetPeerComparisonResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetPeerComparisonResponse_descriptor,
-        new java.lang.String[] { "Subject", "Peers", "Industry", });
-    internal_static_shorts_v1alpha1_RangeFilter_descriptor =
-      getDescriptor().getMessageType(106);
-    internal_static_shorts_v1alpha1_RangeFilter_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_RangeFilter_descriptor,
-        new java.lang.String[] { "Min", "Max", "HasMin", "HasMax", });
-    internal_static_shorts_v1alpha1_ScreenerFilters_descriptor =
-      getDescriptor().getMessageType(107);
-    internal_static_shorts_v1alpha1_ScreenerFilters_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ScreenerFilters_descriptor,
-        new java.lang.String[] { "ShortPct", "ShortPctChange", "MarketCap", "PriceChange1M", "PeRatio", "DividendYield", "NetDirectorBuy", "AvgSentiment", "Industries", "HasDirectorBuys", "DaysToCover", });
-    internal_static_shorts_v1alpha1_ScreenStocksRequest_descriptor =
-      getDescriptor().getMessageType(108);
-    internal_static_shorts_v1alpha1_ScreenStocksRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ScreenStocksRequest_descriptor,
-        new java.lang.String[] { "Filters", "SortField", "SortDirection", "Limit", "Offset", });
-    internal_static_shorts_v1alpha1_ScreenerStock_descriptor =
-      getDescriptor().getMessageType(109);
-    internal_static_shorts_v1alpha1_ScreenerStock_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ScreenerStock_descriptor,
-        new java.lang.String[] { "StockCode", "CompanyName", "Industry", "ShortPct", "ShortPctChange4W", "LatestPrice", "PriceChange1M", "LatestVolume", "MarketCap", "PeRatio", "DividendYield", "NetDirectorBuyValue", "DirectorBuyCount", "DirectorSellCount", "NewsCount30D", "AvgSentiment", "PriceSensitiveCount", "Trailing12MDividend", "AvgFrankingPct", "LogoUrl", "DaysToCover", "AvgVolume20D", });
-    internal_static_shorts_v1alpha1_ScreenStocksResponse_descriptor =
-      getDescriptor().getMessageType(110);
-    internal_static_shorts_v1alpha1_ScreenStocksResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ScreenStocksResponse_descriptor,
-        new java.lang.String[] { "Stocks", "TotalCount", });
-    internal_static_shorts_v1alpha1_GetBattlegroundStocksRequest_descriptor =
-      getDescriptor().getMessageType(111);
-    internal_static_shorts_v1alpha1_GetBattlegroundStocksRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetBattlegroundStocksRequest_descriptor,
-        new java.lang.String[] { "View", "Limit", "Offset", });
-    internal_static_shorts_v1alpha1_BattlegroundStock_descriptor =
-      getDescriptor().getMessageType(112);
-    internal_static_shorts_v1alpha1_BattlegroundStock_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_BattlegroundStock_descriptor,
-        new java.lang.String[] { "StockCode", "CompanyName", "Industry", "LogoUrl", "ShortPct", "ShortPctChange4W", "LatestPrice", "PriceChange1M", "DaysToCover", "SqueezeScore", "DivergenceScore", "MarketCap", });
-    internal_static_shorts_v1alpha1_GetBattlegroundStocksResponse_descriptor =
-      getDescriptor().getMessageType(113);
-    internal_static_shorts_v1alpha1_GetBattlegroundStocksResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetBattlegroundStocksResponse_descriptor,
-        new java.lang.String[] { "Stocks", "TotalCount", });
-    internal_static_shorts_v1alpha1_GetStockVerdictRequest_descriptor =
-      getDescriptor().getMessageType(114);
-    internal_static_shorts_v1alpha1_GetStockVerdictRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetStockVerdictRequest_descriptor,
-        new java.lang.String[] { "ProductCode", });
-    internal_static_shorts_v1alpha1_VerdictComponent_descriptor =
-      getDescriptor().getMessageType(115);
-    internal_static_shorts_v1alpha1_VerdictComponent_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_VerdictComponent_descriptor,
-        new java.lang.String[] { "Name", "Score", "Weight", "Contribution", });
-    internal_static_shorts_v1alpha1_GetStockVerdictResponse_descriptor =
-      getDescriptor().getMessageType(116);
-    internal_static_shorts_v1alpha1_GetStockVerdictResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetStockVerdictResponse_descriptor,
-        new java.lang.String[] { "ProductCode", "Composite", "Label", "Components", });
-    internal_static_shorts_v1alpha1_GetCompanyTaxProfileRequest_descriptor =
-      getDescriptor().getMessageType(117);
-    internal_static_shorts_v1alpha1_GetCompanyTaxProfileRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetCompanyTaxProfileRequest_descriptor,
-        new java.lang.String[] { "ProductCode", });
-    internal_static_shorts_v1alpha1_CompanyTaxYear_descriptor =
-      getDescriptor().getMessageType(118);
-    internal_static_shorts_v1alpha1_CompanyTaxYear_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_CompanyTaxYear_descriptor,
-        new java.lang.String[] { "IncomeYear", "TotalIncome", "HasTaxableIncome", "TaxableIncome", "HasTaxPayable", "TaxPayable", });
-    internal_static_shorts_v1alpha1_GetCompanyTaxProfileResponse_descriptor =
-      getDescriptor().getMessageType(119);
-    internal_static_shorts_v1alpha1_GetCompanyTaxProfileResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetCompanyTaxProfileResponse_descriptor,
-        new java.lang.String[] { "EntityName", "Abn", "Years", "SourceAttribution", });
-    internal_static_shorts_v1alpha1_GetIndustryIntelligenceRequest_descriptor =
-      getDescriptor().getMessageType(120);
-    internal_static_shorts_v1alpha1_GetIndustryIntelligenceRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetIndustryIntelligenceRequest_descriptor,
-        new java.lang.String[] { "Industry", "RecordLimit", "StockCode", });
-    internal_static_shorts_v1alpha1_IndustryIntelligenceSource_descriptor =
-      getDescriptor().getMessageType(121);
-    internal_static_shorts_v1alpha1_IndustryIntelligenceSource_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_IndustryIntelligenceSource_descriptor,
-        new java.lang.String[] { "SourceKey", "DisplayName", "SignalKind", "Publisher", "SourceUrl", "Licence", "Cadence", });
-    internal_static_shorts_v1alpha1_IndustryIntelligenceRecord_descriptor =
-      getDescriptor().getMessageType(122);
-    internal_static_shorts_v1alpha1_IndustryIntelligenceRecord_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_IndustryIntelligenceRecord_descriptor,
-        new java.lang.String[] { "SourceKey", "SourceRecordId", "SignalKind", "Industry", "StockCode", "EntityAbn", "MetricKey", "MetricLabel", "HasMetricValue", "MetricValue", "Unit", "PeriodStart", "PeriodEnd", "AsOf", "Title", "Summary", "SourceUrl", "Confidence", });
-    internal_static_shorts_v1alpha1_IndustryIntelligenceTimeBucket_descriptor =
-      getDescriptor().getMessageType(123);
-    internal_static_shorts_v1alpha1_IndustryIntelligenceTimeBucket_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_IndustryIntelligenceTimeBucket_descriptor,
-        new java.lang.String[] { "SignalKind", "SourceKey", "MetricKey", "MetricLabel", "Unit", "BucketLabel", "BucketStart", "TotalValue", "RecordCount", "EntityCount", "ZeroValueCount", });
-    internal_static_shorts_v1alpha1_IndustryIntelligenceEntityTotal_descriptor =
-      getDescriptor().getMessageType(124);
-    internal_static_shorts_v1alpha1_IndustryIntelligenceEntityTotal_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_IndustryIntelligenceEntityTotal_descriptor,
-        new java.lang.String[] { "SignalKind", "SourceKey", "MetricKey", "StockCode", "EntityLabel", "Unit", "TotalValue", "RecordCount", "LatestAsOf", });
-    internal_static_shorts_v1alpha1_GetIndustryIntelligenceResponse_descriptor =
-      getDescriptor().getMessageType(125);
-    internal_static_shorts_v1alpha1_GetIndustryIntelligenceResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetIndustryIntelligenceResponse_descriptor,
-        new java.lang.String[] { "Industry", "Sources", "Records", "SourceAttribution", "GeneratedAt", "TimeBuckets", "EntityTotals", });
-    internal_static_shorts_v1alpha1_GetShortCampaignScoreboardRequest_descriptor =
-      getDescriptor().getMessageType(126);
-    internal_static_shorts_v1alpha1_GetShortCampaignScoreboardRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetShortCampaignScoreboardRequest_descriptor,
-        new java.lang.String[] { "Limit", "Offset", "Industry", });
-    internal_static_shorts_v1alpha1_ShortCampaign_descriptor =
-      getDescriptor().getMessageType(127);
-    internal_static_shorts_v1alpha1_ShortCampaign_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ShortCampaign_descriptor,
-        new java.lang.String[] { "StockCode", "CompanyName", "Industry", "LogoUrl", "PeakDate", "PeakShortPct", "PriceAtPeak", "Price3MAfter", "Price6MAfter", "Return3M", "Return6M", "Has3M", "Has6M", "ShortsWon3M", "ShortsWon6M", "CurrentShortPct", "LatestPrice", });
-    internal_static_shorts_v1alpha1_GetShortCampaignScoreboardResponse_descriptor =
-      getDescriptor().getMessageType(128);
-    internal_static_shorts_v1alpha1_GetShortCampaignScoreboardResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetShortCampaignScoreboardResponse_descriptor,
-        new java.lang.String[] { "Campaigns", "TotalCount", "CampaignsTotal", "ShortsWinRate3M", "ShortsWinRate6M", });
-    internal_static_shorts_v1alpha1_GetStockGraphRequest_descriptor =
-      getDescriptor().getMessageType(129);
-    internal_static_shorts_v1alpha1_GetStockGraphRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetStockGraphRequest_descriptor,
-        new java.lang.String[] { "StockCode", "Limit", });
-    internal_static_shorts_v1alpha1_GetStockGraphResponse_descriptor =
-      getDescriptor().getMessageType(130);
-    internal_static_shorts_v1alpha1_GetStockGraphResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetStockGraphResponse_descriptor,
-        new java.lang.String[] { "People", "SimilarCompanies", });
-    internal_static_shorts_v1alpha1_GraphPerson_descriptor =
-      getDescriptor().getMessageType(131);
-    internal_static_shorts_v1alpha1_GraphPerson_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GraphPerson_descriptor,
-        new java.lang.String[] { "Name", "Role", "ImageUrl", "LinkedinUrl", "AlsoAt", });
-    internal_static_shorts_v1alpha1_GraphPeer_descriptor =
-      getDescriptor().getMessageType(132);
-    internal_static_shorts_v1alpha1_GraphPeer_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GraphPeer_descriptor,
-        new java.lang.String[] { "StockCode", "CompanyName", "Industry", "Similarity", });
-    internal_static_shorts_v1alpha1_GetEventTimelineRequest_descriptor =
-      getDescriptor().getMessageType(133);
-    internal_static_shorts_v1alpha1_GetEventTimelineRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetEventTimelineRequest_descriptor,
-        new java.lang.String[] { "StockCode", "DaysBack", "Limit", });
-    internal_static_shorts_v1alpha1_GetEventTimelineResponse_descriptor =
-      getDescriptor().getMessageType(134);
-    internal_static_shorts_v1alpha1_GetEventTimelineResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetEventTimelineResponse_descriptor,
-        new java.lang.String[] { "Events", });
-    internal_static_shorts_v1alpha1_TimelineEvent_descriptor =
-      getDescriptor().getMessageType(135);
-    internal_static_shorts_v1alpha1_TimelineEvent_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_TimelineEvent_descriptor,
-        new java.lang.String[] { "Date", "Type", "Title", "Detail", "Url", "Sentiment", "IsPriceSensitive", });
-    internal_static_shorts_v1alpha1_GetStockSignalsRequest_descriptor =
-      getDescriptor().getMessageType(136);
-    internal_static_shorts_v1alpha1_GetStockSignalsRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetStockSignalsRequest_descriptor,
-        new java.lang.String[] { "StockCode", "Limit", });
-    internal_static_shorts_v1alpha1_GetStockSignalsResponse_descriptor =
-      getDescriptor().getMessageType(137);
-    internal_static_shorts_v1alpha1_GetStockSignalsResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetStockSignalsResponse_descriptor,
-        new java.lang.String[] { "Adverse", "Positive", });
-    internal_static_shorts_v1alpha1_StockSignal_descriptor =
-      getDescriptor().getMessageType(138);
-    internal_static_shorts_v1alpha1_StockSignal_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_StockSignal_descriptor,
-        new java.lang.String[] { "Polarity", "Kind", "Headline", "Detail", "EventDate", "Severity", "Confidence", "Citations", });
-    internal_static_shorts_v1alpha1_GetHousingOverviewRequest_descriptor =
-      getDescriptor().getMessageType(139);
-    internal_static_shorts_v1alpha1_GetHousingOverviewRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetHousingOverviewRequest_descriptor,
-        new java.lang.String[] { "RegionType", });
-    internal_static_shorts_v1alpha1_HousingMetric_descriptor =
-      getDescriptor().getMessageType(140);
-    internal_static_shorts_v1alpha1_HousingMetric_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_HousingMetric_descriptor,
-        new java.lang.String[] { "RegionCode", "RegionName", "RegionType", "StateCode", "Measure", "DwellingType", "Value", "Unit", "Period", "IsPreliminary", "QoqPct", "YoyPct", });
-    internal_static_shorts_v1alpha1_GetHousingOverviewResponse_descriptor =
-      getDescriptor().getMessageType(141);
-    internal_static_shorts_v1alpha1_GetHousingOverviewResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetHousingOverviewResponse_descriptor,
-        new java.lang.String[] { "Metrics", "AsOf", });
-    internal_static_shorts_v1alpha1_GetHousePriceSeriesRequest_descriptor =
-      getDescriptor().getMessageType(142);
-    internal_static_shorts_v1alpha1_GetHousePriceSeriesRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetHousePriceSeriesRequest_descriptor,
-        new java.lang.String[] { "RegionCode", "Measure", "DwellingType", });
-    internal_static_shorts_v1alpha1_HousePricePoint_descriptor =
-      getDescriptor().getMessageType(143);
-    internal_static_shorts_v1alpha1_HousePricePoint_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_HousePricePoint_descriptor,
-        new java.lang.String[] { "Period", "Value", "IsPreliminary", });
-    internal_static_shorts_v1alpha1_GetHousePriceSeriesResponse_descriptor =
-      getDescriptor().getMessageType(144);
-    internal_static_shorts_v1alpha1_GetHousePriceSeriesResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetHousePriceSeriesResponse_descriptor,
-        new java.lang.String[] { "RegionCode", "RegionName", "Measure", "DwellingType", "Unit", "Source", "SourceLicence", "Points", });
-    internal_static_shorts_v1alpha1_ListStateSuburbsRequest_descriptor =
-      getDescriptor().getMessageType(145);
-    internal_static_shorts_v1alpha1_ListStateSuburbsRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ListStateSuburbsRequest_descriptor,
-        new java.lang.String[] { "StateCode", "Query", "Limit", });
-    internal_static_shorts_v1alpha1_SuburbAmenities_descriptor =
-      getDescriptor().getMessageType(146);
-    internal_static_shorts_v1alpha1_SuburbAmenities_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_SuburbAmenities_descriptor,
-        new java.lang.String[] { "SchoolsTotal", "SupermarketsTotal", "ColesCount", "WoolworthsCount", "AldiCount", "IgaCount", "PubsBars", "ParksCount", "LibrariesCount", "NearestSupermarketKm", "AmenityDensityScore", "HospitalsCount", "GpCount", "PharmacyCount", "NearestTrainKm", "NearestHospitalKm", "DistToCoastKm", "SchoolsGov", "SchoolsCatholic", "SchoolsIndependent", "SchoolsPrimary", "SchoolsSecondary", "NearestSecondaryKm", });
-    internal_static_shorts_v1alpha1_SuburbSummary_descriptor =
-      getDescriptor().getMessageType(147);
-    internal_static_shorts_v1alpha1_SuburbSummary_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_SuburbSummary_descriptor,
-        new java.lang.String[] { "SalCode", "SalName", "StateCode", "Postcode", "LatestMedianPrice", "LatestPeriod", "YoyPct", "Population", "MedianAge", "MedianWeeklyHhdIncome", "RegionCode", "PctBornOverseas", "TopReligion", "TopLanguage", "PctTopLanguage", "FederalDivision", "FederalMember", "FederalParty", "FederalPartyAb", "FederalTppAlp", "StateDistrict", "StateMember", "StateParty", "StatePartyAb", "Amenities", "DominantNbnTech", "ConnectivityQualityScore", });
-    internal_static_shorts_v1alpha1_ListStateSuburbsResponse_descriptor =
-      getDescriptor().getMessageType(148);
-    internal_static_shorts_v1alpha1_ListStateSuburbsResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ListStateSuburbsResponse_descriptor,
-        new java.lang.String[] { "Suburbs", });
-    internal_static_shorts_v1alpha1_GetSuburbProfileRequest_descriptor =
-      getDescriptor().getMessageType(149);
-    internal_static_shorts_v1alpha1_GetSuburbProfileRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetSuburbProfileRequest_descriptor,
-        new java.lang.String[] { "SalCode", });
-    internal_static_shorts_v1alpha1_SuburbDemographics_descriptor =
-      getDescriptor().getMessageType(150);
-    internal_static_shorts_v1alpha1_SuburbDemographics_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_SuburbDemographics_descriptor,
-        new java.lang.String[] { "Population", "MedianAge", "MedianWeeklyHhdIncome", "MedianWeeklyPerIncome", "MedianWeeklyRent", "MedianMonthlyMortgage", "PctOwnedOutright", "PctOwnedMortgage", "PctRented", "DwellingCount", "CensusYear", "PctBornOverseas", "PctEnglishOnly", "TopReligion", "PctTopReligion", "PctNoReligion", "TopLanguage", "PctTopLanguage", });
-    internal_static_shorts_v1alpha1_ComparisonBaselines_descriptor =
-      getDescriptor().getMessageType(151);
-    internal_static_shorts_v1alpha1_ComparisonBaselines_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ComparisonBaselines_descriptor,
-        new java.lang.String[] { "StateMedianPrice", "NationalMedianPrice", "StateMedianWeeklyHhdIncome", "NationalMedianWeeklyHhdIncome", });
-    internal_static_shorts_v1alpha1_LgaInfo_descriptor =
-      getDescriptor().getMessageType(152);
-    internal_static_shorts_v1alpha1_LgaInfo_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_LgaInfo_descriptor,
-        new java.lang.String[] { "LgaCode", "LgaName", "StateCode", "AreaSqkm", "Population", "FedFagAud", "FedFagYear", "AvgRates", "OpSurplusRatio", "AssetRenewalRatio", "FinSource", "FinYear", });
-    internal_static_shorts_v1alpha1_SimilarSuburb_descriptor =
-      getDescriptor().getMessageType(153);
-    internal_static_shorts_v1alpha1_SimilarSuburb_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_SimilarSuburb_descriptor,
-        new java.lang.String[] { "SalCode", "SalName", "StateCode", "LatestMedianPrice", "Similarity", "RegionCode", });
-    internal_static_shorts_v1alpha1_GetSuburbProfileResponse_descriptor =
-      getDescriptor().getMessageType(154);
-    internal_static_shorts_v1alpha1_GetSuburbProfileResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetSuburbProfileResponse_descriptor,
-        new java.lang.String[] { "Summary", "Demographics", "Baselines", "Council", "Similar", });
-    internal_static_shorts_v1alpha1_ListHousingRegionsRequest_descriptor =
-      getDescriptor().getMessageType(155);
-    internal_static_shorts_v1alpha1_ListHousingRegionsRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ListHousingRegionsRequest_descriptor,
-        new java.lang.String[] { "RegionType", "StateCode", "Query", "Limit", });
-    internal_static_shorts_v1alpha1_HousingRegion_descriptor =
-      getDescriptor().getMessageType(156);
-    internal_static_shorts_v1alpha1_HousingRegion_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_HousingRegion_descriptor,
-        new java.lang.String[] { "RegionCode", "RegionName", "RegionType", "StateCode", "Postcode", "LatestValue", "LatestPeriod", });
-    internal_static_shorts_v1alpha1_ListHousingRegionsResponse_descriptor =
-      getDescriptor().getMessageType(157);
-    internal_static_shorts_v1alpha1_ListHousingRegionsResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ListHousingRegionsResponse_descriptor,
-        new java.lang.String[] { "Regions", });
-    internal_static_shorts_v1alpha1_ListSuburbPriceDropsRequest_descriptor =
-      getDescriptor().getMessageType(158);
-    internal_static_shorts_v1alpha1_ListSuburbPriceDropsRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ListSuburbPriceDropsRequest_descriptor,
-        new java.lang.String[] { "StateCode", "WindowDays", "Sort", "Limit", });
-    internal_static_shorts_v1alpha1_SuburbPriceDrop_descriptor =
-      getDescriptor().getMessageType(159);
-    internal_static_shorts_v1alpha1_SuburbPriceDrop_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_SuburbPriceDrop_descriptor,
-        new java.lang.String[] { "RegionCode", "SalCode", "SalName", "StateCode", "DroppedListingCount", "AvgDropPct", "MedianDropPct", "MaxDropPct", "MaxDropAbs", "TotalActiveListings", "DroppedShare", "Postcode", "ForSaleCount", "AvgAsking", "MedianAsking", "SoldCount", "AvgSold", "MedianSold", });
-    internal_static_shorts_v1alpha1_ListSuburbPriceDropsResponse_descriptor =
-      getDescriptor().getMessageType(160);
-    internal_static_shorts_v1alpha1_ListSuburbPriceDropsResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ListSuburbPriceDropsResponse_descriptor,
-        new java.lang.String[] { "Suburbs", });
-    internal_static_shorts_v1alpha1_ListSuburbDropListingsRequest_descriptor =
-      getDescriptor().getMessageType(161);
-    internal_static_shorts_v1alpha1_ListSuburbDropListingsRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ListSuburbDropListingsRequest_descriptor,
-        new java.lang.String[] { "SalCode", "RegionCode", "WindowDays", "Limit", });
-    internal_static_shorts_v1alpha1_SuburbDropListing_descriptor =
-      getDescriptor().getMessageType(162);
-    internal_static_shorts_v1alpha1_SuburbDropListing_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_SuburbDropListing_descriptor,
-        new java.lang.String[] { "Source", "ListingUrl", "DisplayAddress", "PropertyType", "Bedrooms", "Bathrooms", "CarSpaces", "PrevPrice", "Price", "DropPct", "DropAbs", "ObservedAt", "AddressKey", });
-    internal_static_shorts_v1alpha1_ListSuburbDropListingsResponse_descriptor =
-      getDescriptor().getMessageType(163);
-    internal_static_shorts_v1alpha1_ListSuburbDropListingsResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ListSuburbDropListingsResponse_descriptor,
-        new java.lang.String[] { "Listings", });
-    internal_static_shorts_v1alpha1_GetPropertyHistoryRequest_descriptor =
-      getDescriptor().getMessageType(164);
-    internal_static_shorts_v1alpha1_GetPropertyHistoryRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetPropertyHistoryRequest_descriptor,
-        new java.lang.String[] { "AddressKey", });
-    internal_static_shorts_v1alpha1_PropertyListingSnapshot_descriptor =
-      getDescriptor().getMessageType(165);
-    internal_static_shorts_v1alpha1_PropertyListingSnapshot_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_PropertyListingSnapshot_descriptor,
-        new java.lang.String[] { "Source", "ListingId", "ListingUrl", "Price", "PriceDisplay", "PriceKind", "ListingStatus", "IsActive", "Bedrooms", "Bathrooms", "CarSpaces", "LandSizeSqm", "PropertyType", "FirstSeenAt", "LastSeenAt", });
-    internal_static_shorts_v1alpha1_PropertyPriceEvent_descriptor =
-      getDescriptor().getMessageType(166);
-    internal_static_shorts_v1alpha1_PropertyPriceEvent_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_PropertyPriceEvent_descriptor,
-        new java.lang.String[] { "ObservedAt", "EventType", "Source", "ListingId", "Price", "PrevPrice", "DropAbs", "DropPct", "ListingStatus", "PrevStatus", });
-    internal_static_shorts_v1alpha1_GetPropertyHistoryResponse_descriptor =
-      getDescriptor().getMessageType(167);
-    internal_static_shorts_v1alpha1_GetPropertyHistoryResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_GetPropertyHistoryResponse_descriptor,
-        new java.lang.String[] { "AddressKey", "DisplayAddress", "Suburb", "StateCode", "Postcode", "Current", "Events", "NumListings", "FirstPrice", "CurrentPrice", "DistinctDwellings", });
-    internal_static_shorts_v1alpha1_ListAddressPriceDropsRequest_descriptor =
-      getDescriptor().getMessageType(168);
-    internal_static_shorts_v1alpha1_ListAddressPriceDropsRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ListAddressPriceDropsRequest_descriptor,
-        new java.lang.String[] { "StateCode", "WindowDays", "Limit", "Sort", });
-    internal_static_shorts_v1alpha1_AddressPriceDrop_descriptor =
-      getDescriptor().getMessageType(169);
-    internal_static_shorts_v1alpha1_AddressPriceDrop_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_AddressPriceDrop_descriptor,
-        new java.lang.String[] { "AddressKey", "DisplayAddress", "Suburb", "StateCode", "Postcode", "FirstPrice", "CurrentPrice", "DropAbs", "DropPct", "NumListings", "LatestSource", "LatestListingUrl", "LastObservedAt", "PropertyType", "Bedrooms", "Bathrooms", });
-    internal_static_shorts_v1alpha1_ListAddressPriceDropsResponse_descriptor =
-      getDescriptor().getMessageType(170);
-    internal_static_shorts_v1alpha1_ListAddressPriceDropsResponse_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_shorts_v1alpha1_ListAddressPriceDropsResponse_descriptor,
-        new java.lang.String[] { "Addresses", });
     descriptor.resolveAllFeaturesImmutable();
     com.google.api.AnnotationsProto.getDescriptor();
     com.gnostic.openapi.v3.AnnotationsProto.getDescriptor();
@@ -3332,6 +657,19 @@ public final class ShortsProto extends com.google.protobuf.GeneratedFile {
     com.google.protobuf.TimestampProto.getDescriptor();
     com.stocks.v1alpha1.StocksProto.getDescriptor();
     com.shortedapi.options.v1.OptionsProto.getDescriptor();
+    com.shorts.v1alpha1.AlertsProto.getDescriptor();
+    com.shorts.v1alpha1.BillingProto.getDescriptor();
+    com.shorts.v1alpha1.EconomyProto.getDescriptor();
+    com.shorts.v1alpha1.EnrichmentProto.getDescriptor();
+    com.shorts.v1alpha1.HousingProto.getDescriptor();
+    com.shorts.v1alpha1.IndustryProto.getDescriptor();
+    com.shorts.v1alpha1.MarketProto.getDescriptor();
+    com.shorts.v1alpha1.NewsProto.getDescriptor();
+    com.shorts.v1alpha1.PoliticiansProto.getDescriptor();
+    com.shorts.v1alpha1.ReportsProto.getDescriptor();
+    com.shorts.v1alpha1.ScreenerProto.getDescriptor();
+    com.shorts.v1alpha1.SearchProto.getDescriptor();
+    com.shorts.v1alpha1.StockProto.getDescriptor();
     com.google.protobuf.ExtensionRegistry registry =
         com.google.protobuf.ExtensionRegistry.newInstance();
     registry.add(com.gnostic.openapi.v3.AnnotationsProto.document);

@@ -71,7 +71,7 @@ export function TokenGenerator() {
   }
 
   return (
-    <Card className={cn("transition-all duration-300", token && "border-blue-500/50 shadow-lg shadow-blue-500/10")}>
+    <Card className={cn("transition-[border-color,box-shadow] duration-200 ease-out", token && "border-primary/50 shadow-amber")}>
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <Image src="/assets/api-access-small.png" alt="" width={20} height={20} className="h-5 w-5" />
@@ -86,7 +86,7 @@ export function TokenGenerator() {
           <Button 
             onClick={handleGenerate} 
             disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white gap-2"
+            className="w-full gap-2"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
             Generate New API Key
@@ -94,20 +94,20 @@ export function TokenGenerator() {
         ) : (
           <div className="space-y-3">
             <div className="relative">
-              <div className="bg-zinc-950 border border-zinc-800 rounded-md p-3 pr-12 font-mono text-xs text-blue-400 break-all overflow-hidden max-h-32 overflow-y-auto">
+              <div className="bg-muted border border-border rounded-md p-3 pr-12 font-mono text-xs text-primary break-all overflow-hidden max-h-32 overflow-y-auto">
                 {token}
               </div>
               <Button
                 size="icon"
                 variant="ghost"
-                className="absolute right-2 top-2 h-8 w-8 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+                className="absolute right-2 top-2 h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
                 onClick={copyToClipboard}
               >
-                {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                {copied ? <Check className="h-4 w-4 text-lime-700 dark:text-lime-300" /> : <Copy className="h-4 w-4" />}
               </Button>
             </div>
             <div className="flex flex-col gap-2">
-              <p className="text-[10px] text-zinc-500 bg-zinc-100 dark:bg-zinc-900 p-2 rounded border border-zinc-200 dark:border-zinc-800">
+              <p className="text-[10px] text-muted-foreground bg-muted p-2 rounded border border-border">
                 <strong>Important:</strong> Copy this key now. For your security, it won't be shown again.
               </p>
               <Button 
@@ -122,7 +122,7 @@ export function TokenGenerator() {
           </div>
         )}
         {error && (
-          <p className="text-xs text-red-500 mt-2">{error}</p>
+          <p className="text-xs text-destructive mt-2">{error}</p>
         )}
       </CardContent>
     </Card>

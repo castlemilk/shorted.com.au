@@ -2,10 +2,11 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { getPropertyHistoryClient } from "~/app/actions/client/getHousingClient";
-import type { PropertyPriceEvent } from "~/gen/shorts/v1alpha1/shorts_pb";
+import type { PropertyPriceEvent } from "~/gen/shorts/v1alpha1/housing_pb";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
 import { ArticleSeriesChart, type SeriesPoint } from "@/components/news/mdx/article-series-chart";
 import { HousingIcon } from "./housing-icon";
+import { PropertyValuationCard } from "./property-valuation-card";
 
 export interface PropertyHistoryViewProps {
   addressKey: string;
@@ -119,6 +120,10 @@ export function PropertyHistoryView({ addressKey }: PropertyHistoryViewProps) {
 
       <CurrentListingCard listing={current} />
 
+      {data.valuation ? (
+        <PropertyValuationCard valuation={data.valuation} />
+      ) : null}
+
       <SummaryStrip
         numListings={data.numListings}
         firstPrice={data.firstPrice}
@@ -225,6 +230,12 @@ function CurrentListingCard({ listing }: { listing: PropertyListingSnapshotLike 
             Listed {fmtDate(listing.firstSeenAt)} · last seen {fmtDate(listing.lastSeenAt)} ·{" "}
             {SOURCE_LABEL[listing.source] ?? listing.source}
           </p>
+          {listing.agencyName ? (
+            <p className="mt-1 text-xs text-muted-foreground/80">
+              Listed by {listing.agencyName}
+              {listing.agentNames.length > 0 ? ` — ${listing.agentNames.slice(0, 3).join(", ")}` : ""}
+            </p>
+          ) : null}
         </div>
         {listing.listingUrl ? (
           <a

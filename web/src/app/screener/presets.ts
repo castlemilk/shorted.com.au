@@ -1,10 +1,6 @@
-import {
-  ScreenerSortField,
-  SortDirection,
-  type ScreenerFilters,
-} from "~/gen/shorts/v1alpha1/shorts_pb";
+import { ScreenerSortField, SortDirection, type ScreenerFilters } from "~/gen/shorts/v1alpha1/screener_pb";
 import { create } from "@bufbuild/protobuf";
-import { ScreenerFiltersSchema } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { ScreenerFiltersSchema } from "~/gen/shorts/v1alpha1/screener_pb";
 
 export interface ScreenerPreset {
   id: string;

@@ -8,8 +8,8 @@
  */
 
 locals {
-  service_name = var.topic_name_suffix != "" ? "enrichment-processor-${var.topic_name_suffix}" : "enrichment-processor"
-  topic_name   = var.topic_name_suffix != "" ? "enrichment-jobs-${var.topic_name_suffix}" : "enrichment-jobs"
+  service_name      = var.topic_name_suffix != "" ? "enrichment-processor-${var.topic_name_suffix}" : "enrichment-processor"
+  topic_name        = var.topic_name_suffix != "" ? "enrichment-jobs-${var.topic_name_suffix}" : "enrichment-jobs"
   subscription_name = var.topic_name_suffix != "" ? "enrichment-jobs-subscription-${var.topic_name_suffix}" : "enrichment-jobs-subscription"
   labels = {
     service     = "enrichment-processor"
@@ -32,7 +32,7 @@ resource "google_pubsub_subscription" "enrichment_jobs" {
   topic   = google_pubsub_topic.enrichment_jobs.name
   project = var.project_id
 
-  ack_deadline_seconds = 600 # 10 minutes
+  ack_deadline_seconds       = 600      # 10 minutes
   message_retention_duration = "86400s" # 24 hours
 
   labels = local.labels
@@ -50,9 +50,9 @@ resource "google_service_account" "enrichment_processor" {
 # Grant Pub/Sub Subscriber role to processor service account
 resource "google_pubsub_subscription_iam_member" "processor_subscriber" {
   subscription = google_pubsub_subscription.enrichment_jobs.name
-  role           = "roles/pubsub.subscriber"
-  member         = "serviceAccount:${google_service_account.enrichment_processor.email}"
-  project        = var.project_id
+  role         = "roles/pubsub.subscriber"
+  member       = "serviceAccount:${google_service_account.enrichment_processor.email}"
+  project      = var.project_id
 }
 
 # Grant Secret Manager access to processor service account
@@ -97,6 +97,12 @@ resource "google_cloud_run_v2_service" "enrichment_processor" {
 
   template {
     service_account = google_service_account.enrichment_processor.email
+
+    # /process-queued and /enrich-batch process jobs synchronously inside the
+    # request (the handler allows 30 min) — the platform default of 300s was
+    # killing every run mid-job and stranding jobs in "processing"
+    # (2026-07-20 logo backfill incident). Match the handler's ceiling.
+    timeout = "3600s"
 
     containers {
       image = var.image_url
@@ -237,8 +243,8 @@ resource "google_cloud_run_v2_service" "enrichment_processor" {
     }
 
     scaling {
-      min_instance_count = 0  # Scale to zero when idle
-      max_instance_count = 5  # Allow scaling for concurrent jobs
+      min_instance_count = 0 # Scale to zero when idle
+      max_instance_count = 5 # Allow scaling for concurrent jobs
     }
   }
 

@@ -62,7 +62,7 @@ export function RelatedStocks({
             <Link
               key={stock.code}
               href={`/shorts/${stock.code}`}
-              className="flex items-center justify-between p-3 rounded-lg border border-border/60 hover:border-primary/50 hover:bg-muted/50 transition-all group"
+              className="flex items-center justify-between p-3 rounded-lg border border-border/60 hover:border-primary/50 hover:bg-muted/50 transition-colors duration-200 ease-out group"
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">

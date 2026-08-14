@@ -32,7 +32,7 @@ export default async function ApiDocsIndex() {
           <CardContent>
             <Link 
               href={`/docs/api/${spec.endpoints[0]?.id}`}
-              className="flex items-center text-sm font-medium text-blue-500 hover:underline"
+              className="flex items-center text-sm font-medium text-primary hover:underline"
             >
               View first endpoint
               <ArrowRight className="ml-1 h-4 w-4" />
@@ -42,7 +42,7 @@ export default async function ApiDocsIndex() {
 
         <Card className="relative overflow-hidden group">
           <CardHeader>
-            <div className="p-2 w-fit rounded-lg bg-green-500/10 text-green-500 mb-2">
+            <div className="p-2 w-fit rounded-lg bg-primary/10 text-primary mb-2">
               <Book className="h-6 w-6" />
             </div>
             <CardTitle>Authentication</CardTitle>
@@ -53,7 +53,7 @@ export default async function ApiDocsIndex() {
           <CardContent>
             <a 
               href="#authentication"
-              className="flex items-center text-sm font-medium text-green-500 hover:underline"
+              className="flex items-center text-sm font-medium text-primary hover:underline"
             >
               Read auth guide
               <ArrowRight className="ml-1 h-4 w-4" />
@@ -75,28 +75,28 @@ export default async function ApiDocsIndex() {
           <div className="space-y-6">
             <div className="space-y-4">
               <h3 className="text-xl font-semibold flex items-center gap-2">
-                <Shield className="h-5 w-5 text-blue-500" />
+                <Shield className="h-5 w-5 text-primary" />
                 Bearer Token
               </h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
                 Include your API key in the <code>Authorization</code> header of your requests. 
                 All private endpoints require this header.
               </p>
-              <div className="bg-zinc-950 rounded-lg p-4 font-mono text-xs text-zinc-300 border border-zinc-800">
+              <div className="bg-muted rounded-lg p-4 font-mono text-xs text-foreground border border-border">
                 Authorization: Bearer YOUR_API_KEY
               </div>
             </div>
 
             <div className="space-y-4">
               <h3 className="text-xl font-semibold flex items-center gap-2">
-                <Lock className="h-5 w-5 text-blue-500" />
+                <Lock className="h-5 w-5 text-primary" />
                 Public vs Private
               </h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
                 Most metadata and summary endpoints are <strong>Public</strong> and do not require authentication. 
                 However, detailed time-series data and user-specific resources are <strong>Private</strong>.
               </p>
-              <ul className="list-disc list-inside text-sm text-zinc-500 space-y-1 ml-2">
+              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 ml-2">
                 <li>Public: GetStock, SearchStocks, GetTopShorts</li>
                 <li>Private: GetStockData, MintToken</li>
               </ul>
@@ -174,7 +174,7 @@ export default async function ApiDocsIndex() {
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
               <CardTitle className="text-xl">Usage Policy</CardTitle>
             </div>
           </CardHeader>
@@ -203,7 +203,7 @@ export default async function ApiDocsIndex() {
               <li className="flex items-start gap-2">
                 <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-muted-foreground flex-shrink-0" />
                 For bulk data access, contact{' '}
-                <a href="mailto:support@shorted.com.au" className="text-blue-500 hover:underline">
+                <a href="mailto:support@shorted.com.au" className="text-primary hover:underline">
                   support@shorted.com.au
                 </a>.
               </li>
@@ -214,7 +214,7 @@ export default async function ApiDocsIndex() {
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-green-500" />
+              <Shield className="h-5 w-5 text-primary" />
               <CardTitle className="text-xl">Response Headers</CardTitle>
             </div>
             <CardDescription>
@@ -222,13 +222,13 @@ export default async function ApiDocsIndex() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="bg-zinc-950 rounded-lg p-4 font-mono text-xs text-zinc-300 border border-zinc-800 space-y-1">
-              <div><code>X-RateLimit-Limit</code>: 120 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span className="text-zinc-500"># Per-minute limit (0 = unlimited)</span></div>
-              <div><code>X-RateLimit-Remaining</code>: 115 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span className="text-zinc-500"># Requests remaining this minute</span></div>
-              <div><code>X-RateLimit-Reset</code>: 1706918400 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span className="text-zinc-500"># Unix timestamp when minute window resets</span></div>
-              <div><code>X-RateLimit-Monthly-Limit</code>: 10000 &nbsp;&nbsp;&nbsp;&nbsp;<span className="text-zinc-500"># Monthly request cap</span></div>
-              <div><code>X-RateLimit-Monthly-Used</code>: 150 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span className="text-zinc-500"># Requests used this month</span></div>
-              <div><code>X-RateLimit-Monthly-Reset</code>: 1709251200 <span className="text-zinc-500"># Start of next billing month</span></div>
+            <div className="bg-muted rounded-lg p-4 font-mono text-xs text-foreground border border-border space-y-1">
+              <div><code>X-RateLimit-Limit</code>: 120 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span className="text-muted-foreground"># Per-minute limit (0 = unlimited)</span></div>
+              <div><code>X-RateLimit-Remaining</code>: 115 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span className="text-muted-foreground"># Requests remaining this minute</span></div>
+              <div><code>X-RateLimit-Reset</code>: 1706918400 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span className="text-muted-foreground"># Unix timestamp when minute window resets</span></div>
+              <div><code>X-RateLimit-Monthly-Limit</code>: 10000 &nbsp;&nbsp;&nbsp;&nbsp;<span className="text-muted-foreground"># Monthly request cap</span></div>
+              <div><code>X-RateLimit-Monthly-Used</code>: 150 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span className="text-muted-foreground"># Requests used this month</span></div>
+              <div><code>X-RateLimit-Monthly-Reset</code>: 1709251200 <span className="text-muted-foreground"># Start of next billing month</span></div>
             </div>
             <p className="text-sm text-muted-foreground mt-4">
               When rate limited, the API returns HTTP <code className="text-xs bg-muted px-1 py-0.5 rounded">429 Too Many Requests</code> with
@@ -249,12 +249,12 @@ export default async function ApiDocsIndex() {
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[
-            { slug: 'curl', name: 'cURL', description: 'Command-line HTTP requests', color: 'text-zinc-400', bg: 'bg-zinc-500/10' },
-            { slug: 'javascript', name: 'JavaScript', description: 'Browser and Node.js with fetch', color: 'text-yellow-500', bg: 'bg-yellow-500/10' },
-            { slug: 'python', name: 'Python', description: 'HTTP requests with the requests library', color: 'text-blue-500', bg: 'bg-blue-500/10' },
-            { slug: 'typescript', name: 'TypeScript', description: 'Type-safe fetch with interfaces', color: 'text-blue-400', bg: 'bg-blue-400/10' },
-            { slug: 'go', name: 'Go', description: 'HTTP examples using net/http', color: 'text-cyan-500', bg: 'bg-cyan-500/10' },
-            { slug: 'java', name: 'Java', description: 'HttpURLConnection for JVM apps', color: 'text-orange-500', bg: 'bg-orange-500/10' },
+            { slug: 'curl', name: 'cURL', description: 'Command-line HTTP requests', color: 'text-muted-foreground', bg: 'bg-muted' },
+            { slug: 'javascript', name: 'JavaScript', description: 'Browser and Node.js with fetch', color: 'text-primary', bg: 'bg-primary/10' },
+            { slug: 'python', name: 'Python', description: 'HTTP requests with the requests library', color: 'text-accent', bg: 'bg-accent/10' },
+            { slug: 'typescript', name: 'TypeScript', description: 'Type-safe fetch with interfaces', color: 'text-primary', bg: 'bg-primary/10' },
+            { slug: 'go', name: 'Go', description: 'HTTP examples using net/http', color: 'text-accent', bg: 'bg-accent/10' },
+            { slug: 'java', name: 'Java', description: 'HttpURLConnection for JVM apps', color: 'text-primary', bg: 'bg-primary/10' },
           ].map((lang) => (
             <Link key={lang.slug} href={`/docs/api/clients/${lang.slug}`}>
               <Card className="h-full hover:bg-accent/50 transition-colors group">
@@ -288,7 +288,7 @@ export default async function ApiDocsIndex() {
                     className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent hover:text-accent-foreground transition-colors group"
                   >
                     <div className="flex items-center gap-3">
-                      <span className="text-[10px] font-bold uppercase text-blue-500">{endpoint.method}</span>
+                      <span className="text-[10px] font-bold uppercase text-primary">{endpoint.method}</span>
                       <span className="text-sm font-medium truncate max-w-[150px]">{endpoint.summary ?? endpoint.path}</span>
                     </div>
                     <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />

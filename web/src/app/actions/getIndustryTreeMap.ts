@@ -1,8 +1,8 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { MarketService } from "~/gen/shorts/v1alpha1/market_pb";
 import { type IndustryTreeMap } from "~/gen/stocks/v1alpha1/stocks_pb";
-import { type ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { type ViewMode } from "~/gen/shorts/v1alpha1/market_pb";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 import { fetchEdgeReadJson } from "./edgeRead";
 import { formatPeriodForAPI } from "~/lib/period-utils";
@@ -44,7 +44,7 @@ export const getIndustryTreeMap = cache(
             fetch: serverFetchWithUserAgent,
             baseUrl: SHORTS_API_URL,
           });
-          const client = createClient(ShortedStocksService, transport);
+          const client = createClient(MarketService, transport);
 
           const response = await client.getIndustryTreeMap({
             period: apiPeriod,

@@ -1,0 +1,70 @@
+{
+  "source_url": "https://www.aph.gov.au/-/media/03_Senators_and_Members/32_Members/Register/48p/AB/Aldred_48P.pdf",
+  "document_sha256": "c1c7bff797e93f35e41f2a387ddec5bb2a45ba7849913b66482226de024d83e5",
+  "statements": 4,
+  "rows": [
+    [
+      "alteration",
+      9,
+      "self",
+      "addition",
+      "Please add: Industry superannuation fund."
+    ],
+    [
+      "alteration",
+      9,
+      "self",
+      "deletion",
+      "Please delete car."
+    ],
+    [
+      "alteration",
+      12,
+      "self",
+      "addition",
+      "Tickets x2 to Australian Open men\u2019s semi final tennis from Sportsbet."
+    ],
+    [
+      "base",
+      3,
+      "self",
+      "declared",
+      "Warragul Port Melbourne"
+    ],
+    [
+      "base",
+      6,
+      "self",
+      "declared",
+      "Mortgage on residential home. Mortgage on investment property. MasterCard credit card. Amex credit card."
+    ],
+    [
+      "base",
+      8,
+      "self",
+      "declared",
+      "Savings Account Offset Account"
+    ],
+    [
+      "base",
+      9,
+      "self",
+      "declared",
+      "Car."
+    ],
+    [
+      "base",
+      11,
+      "self",
+      "declared",
+      "Qantas Chairman's Lounge. Virgin Beyond Lounge."
+    ],
+    [
+      "base",
+      13,
+      "self",
+      "declared",
+      "Hawthorn Football Club."
+    ]
+  ]
+}

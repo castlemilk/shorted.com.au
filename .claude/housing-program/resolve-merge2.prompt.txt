@@ -1,0 +1,25 @@
+You are resolving a git merge conflict in this worktree (branch integration/housing-trial). A merge of feat/housing-web-suburbs is IN PROGRESS. Three files have conflict markers:
+- services/shorts/internal/store/shorts/postgres_house_prices.go
+- services/shorts/internal/store/shorts/postgres_house_prices_query_test.go
+- web/src/app/actions/__tests__/getHousing.test.ts
+
+Both sides are wanted; they are complementary fixes to the same queries.
+
+SIDE A ("HEAD") — already merged from feat/housing-mv-correctness and feat/housing-api-hardening:
+- `COALESCE(rp.declared_property_count, 0)` plus `LEFT JOIN mv_register_suburb_property rp ON rp.sal_code = d.sal_code` — makes GetSuburbProfile return the REAL politician property count instead of a hardcoded 0 (audit finding F17).
+- crime ranks scanned as `sql.NullFloat64` and floored in Go via `displayCrimeRank` (NULL -> 0 = no data; covered ranks floor at 0.1). This is a fixed BLOCKER — do not regress it back into SQL GREATEST/COALESCE, which silently turns no-data into 0.1.
+- an inline `LEFT JOIN LATERAL` computing the latest median_price and its yoy_pct, with a `source_licence <> 'proprietary-tos-restricted'` filter.
+- request-normalization and cache-key changes from api-hardening.
+
+SIDE B ("feat/housing-web-suburbs") — the incoming branch:
+- introduces `preferredSuburbRegionJoin` (defined around line 259), a shared const that replaces the inline LATERAL. It resolves the ONE public suburb-price identity per SAL: crawled listing keys can share a SAL with Valuer-General keys, and their observations are proprietary, so they must not fan out list rows or win a profile's bare LIMIT 1. Ties between public sources are newest-first and deterministic. It computes the same value/period/yoy_pct the inline LATERAL did, so it SUBSUMES side A's LATERAL.
+- aligns the sitemap's price gate with what the page actually renders (the audit found 196 of 1,165 un-404'd sitemap URLs rendered "Price not tracked").
+
+REQUIRED COMBINED RESULT:
+- USE `preferredSuburbRegionJoin` (side B) as the region/price join everywhere it applies; DELETE the now-redundant inline LATERAL from side A rather than keeping both. Side B's version is strictly better: it adds licence-correct source preference and deterministic tie-breaking.
+- KEEP side A's `mv_register_suburb_property` join and the `COALESCE(rp.declared_property_count, 0)` column, and keep the scan order/target list consistent with it.
+- KEEP side A's `sql.NullFloat64` + `displayCrimeRank` handling of the three crime ranks. Verify after resolving that no crime rank is floored inside SQL.
+- Make sure every SELECT's column list, the Rows.Scan argument order, and the struct fields all line up — a mismatch here is a runtime scan error in prod, not a compile error.
+- For the two test files, keep BOTH sides' assertions: side A's (politician count, crime NULL-vs-0.1 behaviour) and side B's (preferred-region/sitemap-gate behaviour). If an assertion string-matches SQL text that has now changed, update it to assert BEHAVIOUR rather than the literal string.
+
+Rules: resolve ONLY these conflicts and whatever they require to compile. Do NOT commit (I will commit). Do NOT push, merge, abort the merge, or switch branches. Remove every conflict marker. Verify: `cd services && go build ./shorts/... && go test ./shorts/internal/store/shorts/ -run 'Suburb|Housing|Crime|Query' -count=1`, and `cd web && npx tsc --noEmit` plus the touched jest suite. Report the ACTUAL output. If the sandbox blocks something, say so plainly rather than claiming success.

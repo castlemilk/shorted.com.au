@@ -94,7 +94,7 @@ function PersonSourceLink({ person }: { person: Person }) {
         aria-label={`${person.name} on Wikipedia (opens in new tab)`}
         className={`inline-flex shrink-0 ${SOURCE_LINK_HIT_AREA}`}
       >
-        <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-zinc-700 text-white hover:bg-zinc-600 transition-colors">
+        <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-foreground/80 text-background hover:bg-foreground transition-colors">
           <WikipediaIcon className="h-3.5 w-3.5" />
         </span>
       </a>
@@ -111,7 +111,7 @@ function PersonSourceLink({ person }: { person: Person }) {
         aria-label={`${person.name} source (opens in new tab)`}
         className={`inline-flex shrink-0 ${SOURCE_LINK_HIT_AREA}`}
       >
-        <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-zinc-700 text-white hover:bg-zinc-600 transition-colors">
+        <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-foreground/80 text-background hover:bg-foreground transition-colors">
           <Globe className="h-3 w-3" aria-hidden />
         </span>
       </a>

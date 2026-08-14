@@ -1,4 +1,5 @@
 import { type Metadata } from "next";
+import { pageTitle } from "~/@/lib/typography";
 import Link from "next/link";
 import { Briefcase } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
@@ -117,7 +118,7 @@ export default async function InsiderTradingHubPage() {
           <Briefcase className="h-5 w-5 text-primary" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
+          <h1 className={pageTitle}>
             ASX Insider Trading & Director Trades
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -140,7 +141,7 @@ export default async function InsiderTradingHubPage() {
             <li key={s.productCode}>
               <Link
                 href={`/insider-trading/${s.productCode}`}
-                className="group flex items-center gap-3 rounded-lg border bg-card p-3 transition-all hover:border-primary/40 hover:shadow-md"
+                className="group flex items-center gap-3 rounded-lg border bg-card p-3 transition-[border-color,box-shadow] duration-200 ease-out hover:border-primary/40 hover:shadow-md"
               >
                 <span className="rounded-md bg-muted px-2 py-1 font-mono text-xs font-semibold tracking-wide">
                   {s.productCode}

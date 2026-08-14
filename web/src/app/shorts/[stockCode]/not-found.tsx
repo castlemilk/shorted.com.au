@@ -12,14 +12,14 @@ import Link from "next/link";
 export default function StockNotFound() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
-      <Card className="border-l-4 border-l-blue-500">
+      <Card className="border-l-4 border-l-primary">
         <CardHeader className="pb-4">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-blue-100 dark:bg-blue-900/40 rounded-lg">
-              <Search className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+            <div className="p-2.5 bg-primary/10 rounded-lg">
+              <Search className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <CardTitle className="text-xl text-blue-900 dark:text-blue-100">
+              <CardTitle className="text-xl text-foreground">
                 Stock Not Found
               </CardTitle>
               <CardDescription className="mt-1">

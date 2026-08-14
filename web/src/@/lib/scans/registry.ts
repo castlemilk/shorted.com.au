@@ -10,10 +10,7 @@
 // Everything here must stay serializable (no functions) — the registry is
 // imported by server pages AND the sitemap.
 
-import {
-  ScreenerSortField,
-  SortDirection,
-} from "~/gen/shorts/v1alpha1/shorts_pb";
+import { ScreenerSortField, SortDirection } from "~/gen/shorts/v1alpha1/screener_pb";
 
 export interface ScanRange {
   min?: number;

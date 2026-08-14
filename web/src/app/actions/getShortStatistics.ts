@@ -1,11 +1,9 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { unstable_cache } from "next/cache";
-import {
-  ShortedStocksService,
-  ScreenerSortField,
-  SortDirection,
-} from "~/gen/shorts/v1alpha1/shorts_pb";
+import { ScreenerSortField, SortDirection } from "~/gen/shorts/v1alpha1/screener_pb";
+import { MarketService } from "~/gen/shorts/v1alpha1/market_pb";
+import { ScreenerService } from "~/gen/shorts/v1alpha1/screener_pb";
 import {
   SHORTS_API_URL,
   serverFetchOutsideNextCache,
@@ -68,13 +66,23 @@ async function fetchShortStatistics(): Promise<ShortStatistics> {
     fetch: serverFetchOutsideNextCache,
     baseUrl: SHORTS_API_URL,
   });
-  const client = createClient(ShortedStocksService, transport);
+  const marketClient = createClient(MarketService, transport);
+  const screenerClient = createClient(ScreenerService, transport);
 
   // Full screener universe (equities only — the MV excludes ETFs/bonds per
   // migration 000043). The API validates limit <= 200, so paginate until
-  // totalCount is covered (hard cap 15 pages ≈ 3,000 rows as a backstop).
+  // totalCount is covered.
+  //
+  // The backstop used to be 15 pages = exactly 3,000 rows, which the universe
+  // had already outgrown (totalCount 3,267 on 2026-07-30) — so `stockCount`
+  // was reporting the CAP, not the count, on the page we ask journalists to
+  // cite. Dollar impact was nil (rows past the cap have shortPct ~1e-06, worth
+  // ~$0), but the published count was wrong and would have started truncating
+  // real dollars as the universe grew. The backstop now has genuine headroom
+  // and only exists to bound a runaway loop.
   const PAGE = 200;
-  const firstPagePromise = client.screenStocks({
+  const MAX_PAGES = 40; // 8,000 rows — ~2.4x the current universe
+  const firstPagePromise = screenerClient.screenStocks({
     sortField: ScreenerSortField.SHORT_PCT,
     sortDirection: SortDirection.DESC,
     limit: PAGE,
@@ -82,16 +90,16 @@ async function fetchShortStatistics(): Promise<ShortStatistics> {
   });
   const [firstPage, dates] = await Promise.all([
     firstPagePromise,
-    client.getAvailableDates({ limit: 1, before: "" }),
+    marketClient.getAvailableDates({ limit: 1, before: "" }),
   ]);
   const allRows = [...(firstPage.stocks ?? [])];
   const totalCount = firstPage.totalCount ?? allRows.length;
   for (
     let offset = PAGE;
-    offset < totalCount && offset < PAGE * 15;
+    offset < totalCount && offset < PAGE * MAX_PAGES;
     offset += PAGE
   ) {
-    const page = await client.screenStocks({
+    const page = await screenerClient.screenStocks({
       sortField: ScreenerSortField.SHORT_PCT,
       sortDirection: SortDirection.DESC,
       limit: PAGE,

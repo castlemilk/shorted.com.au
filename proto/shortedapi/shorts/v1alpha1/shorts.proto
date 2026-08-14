@@ -10,6 +10,19 @@ import "google/api/client.proto";
 import "google/protobuf/timestamp.proto";
 import "stocks/v1alpha1/stocks.proto";
 import "options/v1/options.proto";
+import "shorts/v1alpha1/alerts.proto";
+import "shorts/v1alpha1/billing.proto";
+import "shorts/v1alpha1/economy.proto";
+import "shorts/v1alpha1/enrichment.proto";
+import "shorts/v1alpha1/housing.proto";
+import "shorts/v1alpha1/industry.proto";
+import "shorts/v1alpha1/market.proto";
+import "shorts/v1alpha1/news.proto";
+import "shorts/v1alpha1/politicians.proto";
+import "shorts/v1alpha1/reports.proto";
+import "shorts/v1alpha1/screener.proto";
+import "shorts/v1alpha1/search.proto";
+import "shorts/v1alpha1/stock.proto";
 
 option (gnostic.openapi.v3.document) = {
   info: {
@@ -700,6 +713,77 @@ service ShortedStocksService {
     };
   }
 
+  // State-level price-drop + listing-price rollup, plus a national summary row.
+  rpc GetPriceDropsOverview (GetPriceDropsOverviewRequest) returns (GetPriceDropsOverviewResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (google.api.http) = {
+      post: "/v1/getPriceDropsOverview"
+      body: "*"
+    };
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Price Drops Overview",
+      description: "Per-state rollup of recent for-sale asking-price reductions plus asking/sold price aggregates, with a national summary. A derived aggregate over realestate.com.au / domain.com.au listing data covering tracked metro suburbs; individual listings are not republished."
+    };
+  }
+
+  // Agencies ranked by recent asking-price cuts across their listings.
+  rpc ListAgencyPriceStats (ListAgencyPriceStatsRequest) returns (ListAgencyPriceStatsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (google.api.http) = {
+      post: "/v1/listAgencyPriceStats"
+      body: "*"
+    };
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Agency Price Stats",
+      description: "Real-estate agencies ranked by recent asking-price reductions across their tracked for-sale listings — listing counts, median asking price, reduction depth and suburbs covered. A derived aggregate; individual listings are not republished."
+    };
+  }
+
+  // List economic series catalog entries (Australian economy snapshot layer).
+  rpc ListEconomicSeries (ListEconomicSeriesRequest) returns (ListEconomicSeriesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Economic Series",
+      description: "Catalog of Australian economic series (petroleum, trade by state, GDP, labour, CPI, policy rates) with dimensions, units and source attribution. Sourced from ABS, RBA and DCCEEW open data."
+    };
+  }
+
+  // Fetch observations for up to 50 series by series_key.
+  rpc GetEconomicSeries (GetEconomicSeriesRequest) returns (GetEconomicSeriesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Economic Series",
+      description: "Time-series observations for named economic series keys (e.g. petroleum.refinery_output.diesel.aus, trade.export_value.total.wa), with unit, frequency and licence."
+    };
+  }
+
+  // Rank precomputed economic-series correlations for a base market series.
+  rpc ListSeriesCorrelations (ListSeriesCorrelationsRequest) returns (ListSeriesCorrelationsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Series Correlations",
+      description: "Precomputed rolling Pearson correlations between a market-series anchor and eligible economic overlays, ranked by absolute correlation."
+    };
+  }
+
+  // List ASX-listed companies with operations-weighted exposure to a state.
+  rpc ListStateCompanies (ListStateCompaniesRequest) returns (ListStateCompaniesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List State Companies",
+      description: "ASX-listed companies operating in a given Australian state, ranked by exposure-weighted market cap. Exposure is LLM-estimated from company disclosures (operations/revenue split), with a registered-office fallback for companies not yet enriched."
+    };
+  }
+
+  // Exposure-weighted market cap and short interest aggregates by state.
+  rpc GetStateCompanyAggregates (GetStateCompanyAggregatesRequest) returns (GetStateCompanyAggregatesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get State Company Aggregates",
+      description: "Per-state aggregates over the company state-exposure layer: company count (weight >= 0.2), exposure-weighted market cap, and exposure-weighted short interest. Excludes region=international."
+    };
+  }
+
   // ==================== Corporate Tax (Influence layer) ====================
 
   // Get an ASX-listed entity's annual corporate-tax profile (ATO transparency data).
@@ -727,1699 +811,176 @@ service ShortedStocksService {
       description: "Imported, cited industry intelligence records for a Shorted industry. Only public-enabled sources and exact-reviewed records are returned."
     };
   }
-}
 
-message MintTokenRequest {
-}
-
-message MintTokenResponse {
-  string token = 1;
-}
-
-// Request for Top10 RPC, specifying the period of time.
-message GetTopShortsRequest {
-  string period = 1;
-  int32 limit = 2;
-  int32 offset = 3;
-  // When true, returns only product code, name, and latest short position
-  // without time series points. Much faster and smaller response.
-  bool summary_only = 4;
-  // Optional explicit set of product codes to return time series for, INSTEAD
-  // of the top-`limit` ranking. Lets callers that already know which stocks
-  // they need (e.g. industry-crowding constituents) fetch just those series
-  // rather than every top-N stock's points. Ignored when empty. When set with
-  // summary_only=false, `limit`/`offset` are not applied to the code set.
-  repeated string product_codes = 5;
-}
-
-// Request for Top10 RPC, specifying the period of time.
-message GetIndustryTreeMapRequest {
-  // time over which to look at the max value
-  string period = 1;
-  // number of stocks to return for each parent
-  int32 limit = 2;
-  
-  ViewMode view_mode = 3;
-}
-
-enum ViewMode {
-   // return the current/latest short positions
-   CURRENT_CHANGE = 0;
-   // return the percentage change in short positions
-   PERCENTAGE_CHANGE = 1;
-}
-
-// Response for Top10 RPC, including time series data for each of the top 10 short positions.
-message GetTopShortsResponse {
-  repeated stocks.v1alpha1.TimeSeriesData time_series = 1;
-  int32 offset = 2;
-}
-
-// Request for GetStockSummary RPC, specifying the product code.
-message GetStockRequest {
-  string product_code = 1;
-}
-
-// Request for GetStockDetails RPC, specifying the product code.
-message GetStockDetailsRequest {
-  string product_code = 1;
-}
-
-// Request for GetStockDataRequest RPC, specifying the product code.
-message GetStockDataRequest {
-  string product_code = 1;
-  string period = 2;
-}
-
-// Request for SearchStocks RPC, specifying the search query.
-message SearchStocksRequest {
-  string query = 1;           // Search query (symbol or company name)
-  int32 limit = 2;           // Maximum number of results to return (default: 50)
-  bool include_details = 3;  // Whether to include detailed stock information
-}
-
-// Response for SearchStocks RPC, containing matching stocks.
-message SearchStocksResponse {
-  string query = 1;                    // The search query used
-  repeated stocks.v1alpha1.Stock stocks = 2;  // Matching stocks
-  int32 count = 3;                     // Number of results returned
-}
-
-// Request for GetSyncStatus RPC
-message GetSyncStatusRequest {
-  int32 limit = 1; // Number of past runs to return (default: 10)
-}
-
-// Response for GetSyncStatus RPC
-message GetSyncStatusResponse {
-  repeated SyncRun runs = 1;
-}
-
-// Represents a single sync run execution
-message SyncRun {
-  string run_id = 1;
-  string started_at = 2;
-  string completed_at = 3;
-  string status = 4;
-  string error_message = 5;
-  int32 shorts_records_updated = 6;
-  int32 prices_records_updated = 7;
-  int32 metrics_records_updated = 8;
-  int32 algolia_records_synced = 9;
-  double total_duration_seconds = 10;
-  string environment = 11;
-  string hostname = 12;
-  
-  // Checkpoint tracking
-  int32 checkpoint_stocks_total = 13;
-  int32 checkpoint_stocks_processed = 14;
-  int32 checkpoint_stocks_successful = 15;
-  int32 checkpoint_stocks_failed = 16;
-}
-
-// Request for SyncKeyMetrics RPC
-message SyncKeyMetricsRequest {
-  repeated string stock_codes = 1; // Stock codes to sync (e.g., ["CVN", "CBA"]). Empty = sync all.
-  bool force = 2; // Force sync even if recently updated (default: false)
-}
-
-// Response for SyncKeyMetrics RPC
-message SyncKeyMetricsResponse {
-  int32 total_requested = 1;
-  int32 successfully_synced = 2;
-  int32 failed = 3;
-  repeated StockSyncResult results = 4;
-  double duration_seconds = 5;
-}
-
-// Result for a single stock sync
-message StockSyncResult {
-  string stock_code = 1;
-  bool success = 2;
-  string error_message = 3;
-  KeyMetricsData metrics = 4; // The synced metrics if successful
-}
-
-// Key metrics data structure
-message KeyMetricsData {
-  double market_cap = 1;
-  double pe_ratio = 2;
-  double eps = 3;
-  double dividend_yield = 4;
-  double beta = 5;
-  double fifty_two_week_high = 6;
-  double fifty_two_week_low = 7;
-  double avg_volume = 8;
-}
-
-// Enrichment request
-message EnrichStockRequest {
-  string stock_code = 1; // Stock code to enrich (e.g., "CBA")
-  bool force = 2; // If true, re-enrich even if already enriched
-}
-
-// Enrichment response with job ID (async processing)
-message EnrichStockResponse {
-  string stock_code = 1;
-  string job_id = 2; // Job ID for tracking async enrichment
-  string message = 3; // Status message
-}
-
-// Enrichment status
-enum EnrichmentStatus {
-  ENRICHMENT_STATUS_UNSPECIFIED = 0;
-  ENRICHMENT_STATUS_PENDING_REVIEW = 1; // Enrichment completed, awaiting review
-  ENRICHMENT_STATUS_COMPLETED = 2; // Approved and saved
-  ENRICHMENT_STATUS_FAILED = 3; // Enrichment failed
-  ENRICHMENT_STATUS_REJECTED = 4; // Rejected during review
-}
-
-// Enrichment data structure
-message EnrichmentData {
-  string enhanced_summary = 1;
-  string company_history = 2;
-  repeated stocks.v1alpha1.CompanyPerson key_people = 3;
-  repeated stocks.v1alpha1.FinancialReport financial_reports = 4;
-  string competitive_advantages = 5;
-  repeated string risk_factors = 6;
-  string recent_developments = 7;
-  stocks.v1alpha1.SocialMediaLinks social_media_links = 8;
-  repeated string tags = 9;
-  // Logo URLs (staged for review, applied on approval)
-  string logo_gcs_url = 10;           // Full logo PNG URL (background removed)
-  string logo_icon_gcs_url = 11;      // Icon-only logo PNG URL  
-  string logo_svg_gcs_url = 12;       // Original SVG logo URL (if discovered as SVG)
-  string logo_source_url = 13;        // Original URL where the logo was found
-  string logo_format = 14;            // Original format of discovered logo (svg, png, etc)
-  // Website discovery (when original metadata lacks website)
-  string discovered_website = 15;     // Website URL discovered during enrichment
-}
-
-// Quality score for enrichment data
-message QualityScore {
-  double overall_score = 1; // 0.0 to 1.0
-  double completeness_score = 2; // How complete is the data
-  double accuracy_score = 3; // Estimated accuracy
-  repeated string warnings = 4; // Quality warnings
-  repeated string strengths = 5; // Quality strengths
-}
-
-// Get top stocks for enrichment request
-message GetTopStocksForEnrichmentRequest {
-  int32 limit = 1; // Number of stocks to return (default: 100)
-  EnrichmentPriority priority = 2; // How to prioritize stocks
-}
-
-// Enrichment priority
-enum EnrichmentPriority {
-  ENRICHMENT_PRIORITY_UNSPECIFIED = 0;
-  ENRICHMENT_PRIORITY_MARKET_CAP = 1; // Top by market cap
-  ENRICHMENT_PRIORITY_SHORT_POSITION = 2; // Top by short position
-  ENRICHMENT_PRIORITY_UNENRICHED = 3; // Stocks that haven't been enriched
-  ENRICHMENT_PRIORITY_STALE = 4; // Stocks with old enrichment data
-}
-
-// Get top stocks response
-message GetTopStocksForEnrichmentResponse {
-  repeated StockEnrichmentCandidate stocks = 1;
-}
-
-// Stock candidate for enrichment
-message StockEnrichmentCandidate {
-  string stock_code = 1;
-  string company_name = 2;
-  string industry = 3;
-  double market_cap = 4;
-  double short_position_percent = 5;
-  string enrichment_status = 6;
-  google.protobuf.Timestamp last_enriched = 7;
-  int32 priority_score = 8; // Higher = more important to enrich
-}
-
-// Review enrichment request
-message ReviewEnrichmentRequest {
-  string stock_code = 1;
-  string enrichment_id = 2; // ID from EnrichStockResponse
-  bool approve = 3; // true to approve, false to reject
-  string review_notes = 4; // Optional notes about the review
-}
-
-// Review enrichment response
-message ReviewEnrichmentResponse {
-  string stock_code = 1;
-  bool approved = 2;
-  string message = 3;
-}
-
-// List pending enrichments request
-message ListPendingEnrichmentsRequest {
-  int32 limit = 1;  // Default: 100
-  int32 offset = 2; // Default: 0
-}
-
-// List pending enrichments response
-message ListPendingEnrichmentsResponse {
-  repeated PendingEnrichmentSummary enrichments = 1;
-}
-
-// A summary view of a pending enrichment (for listing)
-message PendingEnrichmentSummary {
-  string enrichment_id = 1;
-  string stock_code = 2;
-  EnrichmentStatus status = 3;
-  google.protobuf.Timestamp created_at = 4;
-  QualityScore quality_score = 5;
-}
-
-// Get a pending enrichment request
-message GetPendingEnrichmentRequest {
-  string enrichment_id = 1;
-}
-
-// Get a pending enrichment response
-message GetPendingEnrichmentResponse {
-  PendingEnrichment pending = 1;
-}
-
-// Full pending enrichment record (for review UI)
-message PendingEnrichment {
-  string enrichment_id = 1;
-  string stock_code = 2;
-  EnrichmentStatus status = 3;
-  EnrichmentData data = 4;
-  QualityScore quality_score = 5;
-  google.protobuf.Timestamp created_at = 6;
-  google.protobuf.Timestamp reviewed_at = 7;
-  string reviewed_by = 8;
-  string review_notes = 9;
-}
-
-// Enrichment job status enum
-enum EnrichmentJobStatus {
-  ENRICHMENT_JOB_STATUS_UNSPECIFIED = 0;
-  ENRICHMENT_JOB_STATUS_QUEUED = 1; // Job created, waiting to be processed
-  ENRICHMENT_JOB_STATUS_PROCESSING = 2; // Currently being processed
-  ENRICHMENT_JOB_STATUS_COMPLETED = 3; // Completed successfully
-  ENRICHMENT_JOB_STATUS_FAILED = 4; // Failed with error
-  ENRICHMENT_JOB_STATUS_CANCELLED = 5; // Cancelled before completion
-}
-
-// Enrichment job record
-message EnrichmentJob {
-  string job_id = 1;
-  string stock_code = 2;
-  EnrichmentJobStatus status = 3;
-  int32 priority = 4;
-  bool force = 5;
-  google.protobuf.Timestamp created_at = 6;
-  google.protobuf.Timestamp started_at = 7;
-  google.protobuf.Timestamp completed_at = 8;
-  string error_message = 9;
-  string enrichment_id = 10; // Set when job completes and enrichment is saved
-}
-
-// Get enrichment job status request
-message GetEnrichmentJobStatusRequest {
-  string job_id = 1;
-}
-
-// Get enrichment job status response
-message GetEnrichmentJobStatusResponse {
-  EnrichmentJob job = 1;
-}
-
-// List enrichment jobs request
-message ListEnrichmentJobsRequest {
-  int32 limit = 1; // Default: 100
-  int32 offset = 2; // Default: 0
-  EnrichmentJobStatus status = 3; // Optional filter by status
-}
-
-// List enrichment jobs response
-message ListEnrichmentJobsResponse {
-  repeated EnrichmentJob jobs = 1;
-  int32 total_count = 2;
-}
-
-// ==================== Subscription Messages ====================
-
-// Subscription status enum
-enum SubscriptionStatus {
-  SUBSCRIPTION_STATUS_UNSPECIFIED = 0;
-  SUBSCRIPTION_STATUS_ACTIVE = 1;
-  SUBSCRIPTION_STATUS_TRIALING = 2;
-  SUBSCRIPTION_STATUS_PAST_DUE = 3;
-  SUBSCRIPTION_STATUS_CANCELED = 4;
-  SUBSCRIPTION_STATUS_INACTIVE = 5;
-}
-
-// Subscription tier enum
-enum SubscriptionTier {
-  SUBSCRIPTION_TIER_UNSPECIFIED = 0;
-  SUBSCRIPTION_TIER_FREE = 1;
-  SUBSCRIPTION_TIER_PRO = 2;
-  SUBSCRIPTION_TIER_ENTERPRISE = 3;
-  SUBSCRIPTION_TIER_PREMIUM = 4;
-}
-
-// Request for HandleStripeCheckoutCompleted RPC (called by webhook)
-message HandleStripeCheckoutCompletedRequest {
-  string user_id = 1;                    // User ID from session metadata
-  string user_email = 2;                 // User email from session metadata
-  string stripe_customer_id = 3;         // Stripe customer ID
-  string stripe_subscription_id = 4;     // Stripe subscription ID
-  SubscriptionTier tier = 5;             // Subscription tier (defaults to PRO)
-}
-
-// Response for HandleStripeCheckoutCompleted RPC
-message HandleStripeCheckoutCompletedResponse {
-  bool success = 1;
-  string message = 2;
-}
-
-// Request for HandleStripeSubscriptionUpdated RPC (called by webhook)
-message HandleStripeSubscriptionUpdatedRequest {
-  string stripe_customer_id = 1;         // Stripe customer ID (used for lookup)
-  string stripe_subscription_id = 2;     // Stripe subscription ID
-  SubscriptionStatus status = 3;         // New subscription status
-  SubscriptionTier tier = 4;             // Subscription tier
-  google.protobuf.Timestamp current_period_start = 5;
-  google.protobuf.Timestamp current_period_end = 6;
-  bool cancel_at_period_end = 7;
-  bool is_deleted = 8;                   // True if subscription was deleted/canceled permanently
-}
-
-// Response for HandleStripeSubscriptionUpdated RPC
-message HandleStripeSubscriptionUpdatedResponse {
-  bool success = 1;
-  string message = 2;
-}
-
-// Request for GetMySubscription RPC (empty, uses auth context)
-message GetMySubscriptionRequest {}
-
-// Response for GetMySubscription RPC
-message GetMySubscriptionResponse {
-  bool has_subscription = 1;             // Whether user has any subscription record
-  SubscriptionStatus status = 2;         // Current subscription status
-  SubscriptionTier tier = 3;             // Current subscription tier
-  google.protobuf.Timestamp current_period_end = 4;
-  bool cancel_at_period_end = 5;
-  string stripe_customer_id = 6;         // For portal access
-}
-
-// Alert monitor target type.
-enum AlertMonitorScope {
-  ALERT_MONITOR_SCOPE_UNSPECIFIED = 0;
-  ALERT_MONITOR_SCOPE_INDUSTRY = 1;
-  ALERT_MONITOR_SCOPE_STOCK = 2;
-}
-
-// Alert monitor trigger condition.
-enum AlertMonitorCondition {
-  ALERT_MONITOR_CONDITION_UNSPECIFIED = 0;
-  ALERT_MONITOR_CONDITION_SHORT_INTEREST_ABOVE = 1;
-  ALERT_MONITOR_CONDITION_SHORT_INTEREST_RISES = 2;
-  ALERT_MONITOR_CONDITION_NEW_TOP_TEN_ENTRY = 3;
-}
-
-// Alert delivery cadence.
-enum AlertMonitorCadence {
-  ALERT_MONITOR_CADENCE_UNSPECIFIED = 0;
-  ALERT_MONITOR_CADENCE_DAILY = 1;
-  ALERT_MONITOR_CADENCE_WEEKLY = 2;
-}
-
-// Alert monitor lifecycle status.
-enum AlertMonitorStatus {
-  ALERT_MONITOR_STATUS_UNSPECIFIED = 0;
-  ALERT_MONITOR_STATUS_ACTIVE = 1;
-  ALERT_MONITOR_STATUS_PAUSED = 2;
-}
-
-// A saved short-interest monitor owned by the current user.
-message AlertMonitor {
-  string id = 1;
-  AlertMonitorScope scope = 2;
-  string target = 3;
-  AlertMonitorCondition condition = 4;
-  double threshold = 5;
-  bool has_threshold = 6;
-  AlertMonitorCadence cadence = 7;
-  AlertMonitorStatus status = 8;
-  google.protobuf.Timestamp created_at = 9;
-  google.protobuf.Timestamp updated_at = 10;
-}
-
-// Request for CreateAlertMonitor RPC. Uses auth context for ownership.
-message CreateAlertMonitorRequest {
-  AlertMonitorScope scope = 1;
-  string target = 2;
-  AlertMonitorCondition condition = 3;
-  double threshold = 4;
-  bool has_threshold = 5;
-  AlertMonitorCadence cadence = 6;
-}
-
-// Response for CreateAlertMonitor RPC.
-message CreateAlertMonitorResponse {
-  AlertMonitor monitor = 1;
-}
-
-// Request for ListAlertMonitors RPC. Uses auth context for ownership.
-message ListAlertMonitorsRequest {
-  int32 limit = 1;
-  int32 offset = 2;
-}
-
-// Response for ListAlertMonitors RPC.
-message ListAlertMonitorsResponse {
-  repeated AlertMonitor monitors = 1;
-  int32 total_count = 2;
-}
-
-// ==================== Market By Date Messages ====================
-
-// Request for GetMarketByDate RPC
-message GetMarketByDateRequest {
-  string date = 1;   // YYYY-MM-DD format
-  int32 limit = 2;   // Max stocks to return (default 50)
-  int32 offset = 3;  // Pagination offset
-}
-
-// Response for GetMarketByDate RPC
-message GetMarketByDateResponse {
-  string date = 1;
-  repeated stocks.v1alpha1.Stock stocks = 2;
-  int32 total_count = 3;
-  string previous_date = 4;  // Previous trading date for navigation
-  string next_date = 5;      // Next trading date for navigation
-}
-
-// Request for GetAvailableDates RPC
-message GetAvailableDatesRequest {
-  int32 limit = 1;       // How many dates to return (default 90)
-  string before = 2;     // Return dates before this date (YYYY-MM-DD)
-}
-
-// Response for GetAvailableDates RPC
-message GetAvailableDatesResponse {
-  repeated string dates = 1;   // Available trading dates in YYYY-MM-DD
-  string earliest_date = 2;
-  string latest_date = 3;
-  int32 total_count = 4;
-}
-
-// ==================== Weekly Report Messages ====================
-
-// Request for GetWeeklyReport RPC
-message GetWeeklyReportRequest {
-  string week_slug = 1; // ISO week format: "2026-W06"
-}
-
-// Response for GetWeeklyReport RPC
-message GetWeeklyReportResponse {
-  string week_slug = 1;
-  string headline = 2;
-  string summary = 3;
-  string report_date = 4;     // YYYY-MM-DD of latest trading day in the week
-  string previous_date = 5;   // YYYY-MM-DD of previous week's latest trading day
-  WeeklyNarrative narrative = 6;
-  repeated WeeklyReportStock top_shorted = 7;
-  repeated WeeklyReportMover risers = 8;
-  repeated WeeklyReportMover fallers = 9;
-  repeated WeeklyReportFAQ faqs = 10;
-  double quality_score = 11;
-  WeeklyMarketStats market_stats = 12;
-  repeated WeeklyReportCitation citations = 13;
-  repeated WeeklyReportTrendInsight trend_insights = 14;
-  repeated WeeklyIndustryStat industry_breakdown = 15;
-}
-
-// Narrative sections of the weekly report
-message WeeklyNarrative {
-  string opening_hook = 1;
-  string top_analysis = 2;
-  string movers_analysis = 3;
-  string industry_analysis = 4;
-  string outlook = 5;
-}
-
-// A stock entry in the weekly top shorted list
-message WeeklyReportStock {
-  int32 rank = 1;
-  string code = 2;
-  string name = 3;
-  double short_pct = 4;
-  double wow_change = 5; // Week-on-week change in short percentage
-  double days_to_cover = 6;    // Reported short shares / 20-day average volume (0 = unknown)
-  bool is_new_entrant = 7;     // New to the top 10 this period
-  string industry = 8;         // Company industry (hydrated at read time if absent in snapshot)
-  repeated double history = 9; // Weekly short % history, oldest first (~13 points)
-  string logo_url = 10;        // Company logo icon URL (hydrated at read time)
-}
-
-// A mover (riser or faller) in the weekly report
-message WeeklyReportMover {
-  string code = 1;
-  string name = 2;
-  double current_pct = 3;
-  double previous_pct = 4;
-  double change = 5; // Absolute change in short percentage
-  double days_to_cover = 6;    // Reported short shares / 20-day average volume (0 = unknown)
-  double z_score = 7;          // How unusual this move is vs the stock's own weekly-change history
-  int32 streak_weeks = 8;      // Consecutive weeks moving in the same direction
-  string industry = 9;         // Company industry (hydrated at read time if absent in snapshot)
-  repeated double history = 10; // Weekly short % history, oldest first (~13 points)
-  string logo_url = 11;        // Company logo icon URL (hydrated at read time)
-  double significance = 12;    // Composite significance score used for ranking movers
-}
-
-// FAQ entry in the weekly report
-message WeeklyReportFAQ {
-  string question = 1;
-  string answer = 2;
-}
-
-// Aggregate market statistics for the week
-message WeeklyMarketStats {
-  int32 total_stocks_shorted = 1;
-  double avg_short_pct = 2;
-  double max_short_pct = 3;
-  string max_short_code = 4;
-  double wow_avg_change = 5; // Week-on-week change in average short %
-  double median_short_pct = 6;
-  int32 stocks_above_10pct = 7; // Count of stocks with short interest >= 10%
-  int32 stocks_above_5pct = 8;  // Count of stocks with short interest >= 5%
-  int32 riser_count = 9;        // Market-wide count of stocks whose short % rose
-  int32 faller_count = 10;      // Market-wide count of stocks whose short % fell
-}
-
-// Aggregate short interest by industry for the report period
-message WeeklyIndustryStat {
-  string industry = 1;
-  double avg_short_pct = 2;   // Average short % across stocks in the industry
-  double wow_change = 3;      // Change in the industry average vs the prior period
-  int32 stock_count = 4;      // Number of shorted stocks in the industry
-  string top_stock_code = 5;  // Most shorted stock in the industry
-  double top_stock_pct = 6;   // Its short %
-}
-
-// A citation referencing a data source in the weekly report narrative
-message WeeklyReportCitation {
-  string id = 1;      // e.g., "ref-1"
-  string source = 2;  // e.g., "BHP H1 FY2025 Results"
-  string date = 3;
-  string url = 4;
-  string type = 5;    // "financial_report", "announcement", "asic_data", "price_data"
-}
-
-// Structured trend insight for a riser or faller
-message WeeklyReportTrendInsight {
-  string code = 1;
-  string direction = 2;          // "riser" or "faller"
-  double short_change = 3;
-  string price_pattern = 4;      // "contrarian", "momentum", "covering", "unwinding"
-  double weekly_price_change = 5;
-  string composite_signal = 6;
-  repeated string key_announcements = 7;
-  repeated string financial_signals = 8;
-}
-
-// Request for ListReports RPC
-message ListReportsRequest {
-  string report_type = 1; // "weekly", "monthly", "yearly", or "" / "all" for all types
-  int32 limit = 2;        // Max reports to return (default 24, max 100)
-}
-
-// Response for ListReports RPC
-message ListReportsResponse {
-  repeated ReportListItem reports = 1;
-}
-
-// Summary of a published report for archive/index pages
-message ReportListItem {
-  string slug = 1;              // "2026-W06", "2026-01", or "2025"
-  string report_type = 2;       // "weekly", "monthly", "yearly"
-  string headline = 3;
-  string summary = 4;
-  string report_date = 5;       // YYYY-MM-DD of latest trading day in the period
-  double max_short_pct = 6;
-  string max_short_code = 7;
-  int32 total_stocks_shorted = 8;
-  double quality_score = 9;
-  repeated string top_codes = 10;     // Top shorted stock codes (up to 5)
-  repeated string top_logo_urls = 11; // Matching logo icon URLs (parallel to top_codes, "" when unknown)
-}
-
-// ==================== Financial Highlights Messages ====================
-
-// Request for GetStockFinancialHighlights RPC
-message GetStockFinancialHighlightsRequest {
-  repeated string stock_codes = 1; // ASX stock codes (e.g., ["DMP", "BHP"])
-  int32 max_reports_per_stock = 2; // Max reports to return per stock (default 2)
-}
-
-// Response for GetStockFinancialHighlights RPC
-message GetStockFinancialHighlightsResponse {
-  map<string, StockFinancialHighlights> highlights = 1; // stock_code → highlights
-}
-
-// Financial highlights for a single stock
-message StockFinancialHighlights {
-  repeated FinancialReportHighlight reports = 1;
-}
-
-// Extracted financial data from a single report
-message FinancialReportHighlight {
-  string report_title = 1;
-  string report_type = 2;  // e.g., "annual_results", "half_year_results"
-  string report_date = 3;  // YYYY-MM-DD
-  repeated FinancialMetric metrics = 4;
-  string digest = 5;      // compressed Flash-distilled summary of the report
-  double confidence = 6;  // digest confidence 0.0-1.0
-}
-
-// A single extracted financial metric
-message FinancialMetric {
-  string metric_type = 1;   // e.g., "revenue", "net_profit", "eps", "dividend"
-  string source_text = 2;   // Original text from the report
-  map<string, string> attributes = 3; // e.g., {"value_millions": "5142", "period": "H1 FY2025"}
-}
-
-// ==================== News Messages ====================
-
-// A single news article
-message NewsArticle {
-  string id = 1;
-  string stock_code = 2;
-  string source = 3;              // 'asx', 'stockhead', 'livewire', 'afr'
-  string headline = 4;
-  string url = 5;
-  google.protobuf.Timestamp published_at = 6;
-  string sentiment = 7;           // 'positive', 'negative', 'neutral'
-  double relevance_score = 8;
-  bool is_price_sensitive = 9;
-  string summary = 10;
-  repeated string tags = 11;
-  string image_url = 12;          // Hero image from RSS or scraped og:image
-  int32 syndication_count = 13;          // total cluster size INCLUDING this article (1 = unsyndicated); syndicated_sources excludes self, so len(sources) == count-1
-  repeated string syndicated_sources = 14; // OTHER mastheads carrying this story (self excluded)
-}
-
-// Request for GetStockNews RPC
-message GetStockNewsRequest {
-  string stock_code = 1;          // ASX stock code (e.g., "BHP")
-  int32 limit = 2;                // Max articles to return (default 20)
-  string source = 3;              // Optional filter by source
-  string sentiment = 4;           // Optional filter by sentiment
-}
-
-// Response for GetStockNews RPC
-message GetStockNewsResponse {
-  repeated NewsArticle articles = 1;
-  int32 total_count = 2;
-}
-
-// Request for GetRelatedNews RPC
-message GetRelatedNewsRequest {
-  string stock_code = 1;          // ASX stock code (e.g., "BHP")
-  string article_id = 2;          // Optional anchor article id; if empty, uses the stock's latest article
-  int32 limit = 3;                // Max related articles to return (default 6)
-}
-
-// Response for GetRelatedNews RPC
-message GetRelatedNewsResponse {
-  repeated NewsArticle articles = 1;   // ordered nearest-first by semantic similarity
-}
-
-// Request for GetMarketNews RPC
-message GetMarketNewsRequest {
-  int32 limit = 1;                // Max articles to return (default 50)
-  string source = 2;              // Optional filter by source
-  bool price_sensitive_only = 3;  // Only return price-sensitive news
-}
-
-// Response for GetMarketNews RPC
-message GetMarketNewsResponse {
-  repeated NewsArticle articles = 1;
-  int32 total_count = 2;
-}
-
-// ==================== Editorial Take Messages ====================
-
-// A single Shorted Take editorial article (Gemini-generated commentary
-// on a price-sensitive news headline).
-message EditorialTake {
-  string id = 1;
-  string slug = 2;
-  string headline = 3;
-  string stock_code = 4;
-  string body_md = 5;             // Markdown body
-  string sentiment = 6;
-  string source_article_id = 7;   // UUID of source news_article, or empty
-  string source_url = 8;          // External publisher URL (attribution)
-  string source_name = 9;         // 'Stockhead', 'Motley Fool', etc.
-  string og_image_url = 10;
-  int32 word_count = 11;
-  string model = 12;              // 'gemini-2.0-flash', etc.
-  google.protobuf.Timestamp published_at = 13;
-  google.protobuf.Timestamp created_at = 14;
-  string hero_image_url = 15;
-  repeated InlineImage inline_images = 16;
-  google.protobuf.Timestamp tweet_published_at = 17;
-  repeated TakeCitation citations = 18;
-  repeated LayoutImage layout_images = 19;
-  string body_format = 20;    // 'markdown' | 'mdx'
-  string standfirst = 21;     // one-sentence dek under the headline
-  string byline = 22;         // e.g. "The Shorted Desk — Mining & Resources"
-  string hero_caption = 23;
-  string hero_credit = 24;    // e.g. "AI-generated illustration"
-}
-
-// A single cited source referenced by a [ref-N] marker in body_md.
-message TakeCitation {
-  string ref_id = 1;          // "ref-1", "ref-2", …
-  string url = 2;
-  string source = 3;          // 'stockhead', 'motleyfool', etc.
-  string headline = 4;
-  string date = 5;            // YYYY-MM-DD
-  string type = 6;            // 'news' | 'trade' | 'data'
-}
-
-// Inline image embedded in a Take body.
-message InlineImage {
-  string url = 1;
-  string topic = 2;   // editorial brief the image was generated from
-  string alt = 3;     // accessible alt text
-}
-
-// An art-directed layout image with style/ratio/placement for bespoke
-// editorial rendering. Stored in editorial_takes.layout_images.
-message LayoutImage {
-  string url = 1;
-  string style = 2;              // documentary | aerial | still_life | isometric | archival | abstract | environmental
-  string ratio = 3;              // landscape | portrait | square
-  string brief = 4;              // subject the image was generated from
-  string caption = 5;            // editorial caption
-  string placement = 6;          // full | left | right | inset
-  int32 anchor_after_block = 7;  // render after this 0-based body block
-}
-
-message GetEditorialTakeRequest {
-  string slug = 1;
-}
-
-message GetEditorialTakeResponse {
-  EditorialTake take = 1;
-}
-
-message ListEditorialTakesRequest {
-  int32 limit = 1;         // default 20
-  int32 offset = 2;
-  string stock_code = 3;   // optional filter
-}
-
-message ListEditorialTakesResponse {
-  repeated EditorialTake takes = 1;
-  int32 total_count = 2;
-}
-
-// ===== Admin =====
-
-enum TakeStatus {
-  TAKE_STATUS_UNSPECIFIED = 0;
-  TAKE_STATUS_DRAFT = 1;        // published_at IS NULL
-  TAKE_STATUS_PUBLISHED = 2;    // published_at IS NOT NULL, tweet_published_at IS NULL
-  TAKE_STATUS_TWEETED = 3;      // both timestamps set
-}
-
-message ListEditorialTakesAdminRequest {
-  int32 limit = 1;
-  int32 offset = 2;
-  TakeStatus status_filter = 3; // optional
-}
-
-message ListEditorialTakesAdminResponse {
-  repeated EditorialTake takes = 1;
-  int32 total_count = 2;
-}
-
-message PublishEditorialTakeRequest { string slug = 1; }
-message PublishEditorialTakeResponse { EditorialTake take = 1; }
-
-message UpdateEditorialTakeRequest {
-  string slug = 1;
-  // Each optional field is applied only if non-empty.
-  string body_md = 2;
-  string headline = 3;
-  string hero_image_url = 4;
-  string sentiment = 5;
-}
-message UpdateEditorialTakeResponse { EditorialTake take = 1; }
-
-message DeleteEditorialTakeRequest { string slug = 1; }
-message DeleteEditorialTakeResponse { bool deleted = 1; }
-
-message MarkTakeTweetPublishedRequest { string slug = 1; }
-message MarkTakeTweetPublishedResponse { EditorialTake take = 1; }
-
-message ListTweetPublishQueueRequest { int32 limit = 1; }
-message ListTweetPublishQueueResponse { repeated EditorialTake takes = 1; }
-
-// ==================== Director Trades Messages ====================
-
-// A single director trade record
-message DirectorTrade {
-  string id = 1;
-  string stock_code = 2;
-  string director_name = 3;
-  string trade_type = 4;          // 'buy', 'sell', 'exercise_options'
-  int64 shares_traded = 5;
-  double price_per_share = 6;
-  double total_value = 7;
-  string trade_date = 8;          // YYYY-MM-DD
-  string announcement_url = 9;
-}
-
-// Request for GetDirectorTrades RPC
-message GetDirectorTradesRequest {
-  string stock_code = 1;          // ASX stock code
-  int32 limit = 2;                // Max trades to return (default 20)
-}
-
-// Response for GetDirectorTrades RPC
-message GetDirectorTradesResponse {
-  repeated DirectorTrade trades = 1;
-  int32 total_count = 2;
-}
-
-// ==================== Dividend History Messages ====================
-
-// A single dividend record
-message DividendRecord {
-  string id = 1;
-  string stock_code = 2;
-  string ex_date = 3;             // YYYY-MM-DD
-  string payment_date = 4;        // YYYY-MM-DD
-  double amount_per_share = 5;
-  double franking_percentage = 6;
-  string dividend_type = 7;       // 'ordinary', 'special', 'interim', 'final'
-}
-
-// Request for GetDividendHistory RPC
-message GetDividendHistoryRequest {
-  string stock_code = 1;          // ASX stock code
-  int32 years = 2;                // How many years of history (default 5)
-}
-
-// Response for GetDividendHistory RPC
-message GetDividendHistoryResponse {
-  repeated DividendRecord dividends = 1;
-  int32 total_count = 2;
-  double trailing_yield = 3;      // Calculated trailing 12-month dividend yield
-}
-
-// ==================== Peer Comparison Messages ====================
-
-// A peer stock for comparison
-message PeerStock {
-  string stock_code = 1;
-  string company_name = 2;
-  string industry = 3;
-  double short_position_percent = 4;
-  double market_cap = 5;
-  double pe_ratio = 6;
-  double dividend_yield = 7;
-  double price_change_1m = 8;     // 1-month price change %
-  string logo_url = 9;            // Company logo URL (GCS-hosted, may be empty)
-}
-
-// Request for GetPeerComparison RPC
-message GetPeerComparisonRequest {
-  string stock_code = 1;          // ASX stock code to compare
-  int32 limit = 2;                // Number of peers (default 5)
-}
-
-// Response for GetPeerComparison RPC
-message GetPeerComparisonResponse {
-  PeerStock subject = 1;          // The stock being compared
-  repeated PeerStock peers = 2;   // Industry peers
-  string industry = 3;            // Common industry
-}
-
-// ==================== Stock Screener Messages ====================
-
-// Sort field for screener results
-enum ScreenerSortField {
-  SCREENER_SORT_FIELD_SHORT_PCT = 0;
-  SCREENER_SORT_FIELD_SHORT_PCT_CHANGE = 1;
-  SCREENER_SORT_FIELD_MARKET_CAP = 2;
-  SCREENER_SORT_FIELD_PRICE_CHANGE_1M = 3;
-  SCREENER_SORT_FIELD_PE_RATIO = 4;
-  SCREENER_SORT_FIELD_DIVIDEND_YIELD = 5;
-  SCREENER_SORT_FIELD_NET_DIRECTOR_BUY = 6;
-  SCREENER_SORT_FIELD_NEWS_SENTIMENT = 7;
-  SCREENER_SORT_FIELD_DAYS_TO_COVER = 8;
-}
-
-// Sort direction
-enum SortDirection {
-  SORT_DIRECTION_DESC = 0;
-  SORT_DIRECTION_ASC = 1;
-}
-
-// A numeric range filter with optional min/max bounds
-message RangeFilter {
-  double min = 1;
-  double max = 2;
-  bool has_min = 3;
-  bool has_max = 4;
-}
-
-// Compound filters for the stock screener
-message ScreenerFilters {
-  RangeFilter short_pct = 1;              // Current short position %
-  RangeFilter short_pct_change = 2;       // 4-week short position change
-  RangeFilter market_cap = 3;             // Market capitalization
-  RangeFilter price_change_1m = 4;        // 1-month price change %
-  RangeFilter pe_ratio = 5;               // P/E ratio
-  RangeFilter dividend_yield = 6;         // Dividend yield %
-  RangeFilter net_director_buy = 7;       // Net director buy value ($)
-  RangeFilter avg_sentiment = 8;          // Average news sentiment (-1 to 1)
-  repeated string industries = 9;         // Filter to specific industries
-  bool has_director_buys = 10;            // Only stocks with recent director buys
-  RangeFilter days_to_cover = 11;         // Days to cover (short positions / avg daily volume)
-}
-
-// Request for ScreenStocks RPC
-message ScreenStocksRequest {
-  ScreenerFilters filters = 1;
-  ScreenerSortField sort_field = 2;
-  SortDirection sort_direction = 3;
-  int32 limit = 4;                        // Max results (default 50)
-  int32 offset = 5;                       // Pagination offset
-}
-
-// A single stock result from the screener
-message ScreenerStock {
-  string stock_code = 1;
-  string company_name = 2;
-  string industry = 3;
-  double short_pct = 4;
-  double short_pct_change_4w = 5;
-  double latest_price = 6;
-  double price_change_1m = 7;
-  int64 latest_volume = 8;
-  double market_cap = 9;
-  double pe_ratio = 10;
-  double dividend_yield = 11;
-  double net_director_buy_value = 12;
-  int32 director_buy_count = 13;
-  int32 director_sell_count = 14;
-  int32 news_count_30d = 15;
-  double avg_sentiment = 16;
-  int32 price_sensitive_count = 17;
-  double trailing_12m_dividend = 18;
-  double avg_franking_pct = 19;
-  string logo_url = 20;
-  double days_to_cover = 21;              // Short positions / avg 20-day volume
-  int64 avg_volume_20d = 22;              // 20-day average daily trading volume
-}
-
-// Response for ScreenStocks RPC
-message ScreenStocksResponse {
-  repeated ScreenerStock stocks = 1;
-  int32 total_count = 2;
-}
-
-// ==================== Battleground Messages ====================
-
-// View mode for GetBattlegroundStocks
-enum BattlegroundView {
-  BATTLEGROUND_VIEW_UNSPECIFIED = 0;
-  BATTLEGROUND_VIEW_SQUEEZE = 1;      // rank by squeeze_score
-  BATTLEGROUND_VIEW_DIVERGENCE = 2;   // rank by divergence_score (price up + shorts building only)
-}
-
-// Request for GetBattlegroundStocks RPC
-message GetBattlegroundStocksRequest {
-  BattlegroundView view = 1;
-  int32 limit = 2;
-  int32 offset = 3;
-}
-
-// A single stock result from the squeeze radar / battlegrounds ranking
-message BattlegroundStock {
-  string stock_code = 1;
-  string company_name = 2;
-  string industry = 3;
-  string logo_url = 4;
-  double short_pct = 5;
-  double short_pct_change_4w = 6;
-  double latest_price = 7;
-  double price_change_1m = 8;
-  double days_to_cover = 9;
-  double squeeze_score = 10;     // 0-100
-  double divergence_score = 11;  // 0-100, 0 unless price up AND shorts building
-  double market_cap = 12;
-}
-
-// Response for GetBattlegroundStocks RPC
-message GetBattlegroundStocksResponse {
-  repeated BattlegroundStock stocks = 1;
-  int32 total_count = 2;
-}
-
-// ==================== Verdict Messages ====================
-
-// Verdict band derived from the composite score
-enum VerdictLabel {
-  VERDICT_LABEL_UNSPECIFIED = 0;
-  VERDICT_LABEL_STRONG_BEARISH = 1; // composite <= -40
-  VERDICT_LABEL_BEARISH = 2;        // -40 < composite <= -10
-  VERDICT_LABEL_NEUTRAL = 3;        // -10 < composite < 10
-  VERDICT_LABEL_BULLISH = 4;        // 10 <= composite < 40
-  VERDICT_LABEL_STRONG_BULLISH = 5; // composite >= 40
-}
-
-// Request for GetStockVerdict RPC
-message GetStockVerdictRequest {
-  string product_code = 1;
-}
-
-// A single component of the composite verdict
-message VerdictComponent {
-  string name = 1;         // e.g. "short_trend"
-  double score = 2;        // normalized -1..1, bullish positive
-  double weight = 3;       // 0..1
-  double contribution = 4; // weight * score * 100 (points of the composite)
-}
-
-// Response for GetStockVerdict RPC
-message GetStockVerdictResponse {
-  string product_code = 1;
-  double composite = 2; // -100..100, bullish positive
-  VerdictLabel label = 3;
-  repeated VerdictComponent components = 4;
-}
-
-// ==================== Corporate Tax Messages ====================
-
-// Request for GetCompanyTaxProfile RPC
-message GetCompanyTaxProfileRequest {
-  string product_code = 1;
-}
-
-// One income year of ATO corporate-tax transparency data for an entity.
-// has_taxable_income / has_tax_payable distinguish a genuine zero from
-// "not reported" (the ATO leaves these blank; blank is meaningful, not zero).
-message CompanyTaxYear {
-  int32 income_year = 1;         // e.g. 2024 for the 2023-24 report
-  double total_income = 2;       // always reported (A$)
-  bool has_taxable_income = 3;
-  double taxable_income = 4;     // valid only when has_taxable_income
-  bool has_tax_payable = 5;
-  double tax_payable = 6;        // valid only when has_tax_payable
-}
-
-// Response for GetCompanyTaxProfile RPC
-message GetCompanyTaxProfileResponse {
-  string entity_name = 1;
-  string abn = 2;
-  repeated CompanyTaxYear years = 3;
-  string source_attribution = 4;
-}
-
-// ==================== Industry Intelligence Messages ====================
-
-message GetIndustryIntelligenceRequest {
-  string industry = 1;    // optional exact industry filter
-  int32 record_limit = 2; // default 50, maximum 200
-  string stock_code = 3;  // optional exact stock filter (per-stock evidence dossier)
-}
-
-message IndustryIntelligenceSource {
-  string source_key = 1;
-  string display_name = 2;
-  string signal_kind = 3;
-  string publisher = 4;
-  string source_url = 5;
-  string licence = 6;
-  string cadence = 7;
-}
-
-message IndustryIntelligenceRecord {
-  string source_key = 1;
-  string source_record_id = 2;
-  string signal_kind = 3;
-  string industry = 4;
-  string stock_code = 5;
-  string entity_abn = 6;
-  string metric_key = 7;
-  string metric_label = 8;
-  bool has_metric_value = 9;
-  double metric_value = 10;
-  string unit = 11;
-  string period_start = 12; // YYYY-MM-DD when present
-  string period_end = 13;   // YYYY-MM-DD when present
-  string as_of = 14;        // YYYY-MM-DD
-  string title = 15;
-  string summary = 16;
-  string source_url = 17;
-  double confidence = 18;
-}
-
-// Aggregated evidence per Australian financial year for one metric of one
-// public-enabled source. Powers the industry intelligence dashboard charts
-// without shipping every underlying record.
-message IndustryIntelligenceTimeBucket {
-  string signal_kind = 1;
-  string source_key = 2;
-  string metric_key = 3;
-  string metric_label = 4;
-  string unit = 5;
-  string bucket_label = 6;      // e.g. "2023-24" (Australian financial year)
-  string bucket_start = 7;      // YYYY-MM-DD (1 July opening the financial year)
-  double total_value = 8;
-  int32 record_count = 9;
-  int32 entity_count = 10;      // distinct matched stock codes in the bucket
-  int32 zero_value_count = 11;  // records reporting a genuine zero value
-}
-
-// Total per matched entity for one metric of one public-enabled source,
-// ranked by total value (top entities only).
-message IndustryIntelligenceEntityTotal {
-  string signal_kind = 1;
-  string source_key = 2;
-  string metric_key = 3;
-  string stock_code = 4;
-  string entity_label = 5;
-  string unit = 6;
-  double total_value = 7;
-  int32 record_count = 8;
-  string latest_as_of = 9; // YYYY-MM-DD
-}
-
-message GetIndustryIntelligenceResponse {
-  string industry = 1;
-  repeated IndustryIntelligenceSource sources = 2;
-  repeated IndustryIntelligenceRecord records = 3;
-  string source_attribution = 4;
-  google.protobuf.Timestamp generated_at = 5;
-  repeated IndustryIntelligenceTimeBucket time_buckets = 6;
-  repeated IndustryIntelligenceEntityTotal entity_totals = 7;
-}
-
-// ==================== Short Campaign Scoreboard Messages ====================
-
-// Request for GetShortCampaignScoreboard RPC
-message GetShortCampaignScoreboardRequest {
-  int32 limit = 1;
-  int32 offset = 2;
-  string industry = 3; // optional exact industry filter
-}
-
-// A historic short campaign: the peak short position and what the price did after
-message ShortCampaign {
-  string stock_code = 1;
-  string company_name = 2;
-  string industry = 3;
-  string logo_url = 4;
-  string peak_date = 5;      // YYYY-MM-DD
-  double peak_short_pct = 6;
-  double price_at_peak = 7;  // 0 when unknown
-  double price_3m_after = 8; // meaningful only when has_3m
-  double price_6m_after = 9; // meaningful only when has_6m
-  double return_3m = 10;     // percent price change 3 months after the peak
-  double return_6m = 11;     // percent price change 6 months after the peak
-  bool has_3m = 12;          // enough price history to score the 3-month outcome
-  bool has_6m = 13;          // enough price history to score the 6-month outcome
-  bool shorts_won_3m = 14;   // price fell 3 months after the peak
-  bool shorts_won_6m = 15;   // price fell 6 months after the peak
-  double current_short_pct = 16;
-  double latest_price = 17;
-}
-
-// Response for GetShortCampaignScoreboard RPC
-message GetShortCampaignScoreboardResponse {
-  repeated ShortCampaign campaigns = 1;
-  int32 total_count = 2;          // campaigns matching the filter
-  int32 campaigns_total = 3;      // campaigns considered for the win-rate stats
-  double shorts_win_rate_3m = 4;  // percent (0-100) of scored campaigns where the price fell after 3 months
-  double shorts_win_rate_6m = 5;  // percent (0-100) of scored campaigns where the price fell after 6 months
-}
-
-// ==================== Stock Graph Messages ====================
-
-// Request for GetStockGraph RPC
-message GetStockGraphRequest {
-  string stock_code = 1;
-  int32 limit = 2; // max people / similar companies to return (default 12)
-}
-
-// Response for GetStockGraph RPC
-message GetStockGraphResponse {
-  repeated GraphPerson people = 1;
-  repeated GraphPeer similar_companies = 2;
-}
-
-// A person connected to the stock (director/officer) with their other ASX roles
-message GraphPerson {
-  string name = 1;
-  string role = 2;
-  string image_url = 3;
-  string linkedin_url = 4;
-  repeated string also_at = 5; // OTHER stock codes this person is connected to
-}
-
-// A narratively/semantically similar company
-message GraphPeer {
-  string stock_code = 1;
-  string company_name = 2;
-  string industry = 3;
-  double similarity = 4;
-}
-
-// ==================== Event Timeline Messages ====================
-
-// Request for GetEventTimeline RPC
-message GetEventTimelineRequest {
-  string stock_code = 1;
-  int32 days_back = 2; // number of days to look back (default 90)
-  int32 limit = 3;     // max events to return (default 50)
-}
-
-// Response for GetEventTimeline RPC
-message GetEventTimelineResponse {
-  repeated TimelineEvent events = 1;
-}
-
-// A single event in the stock's timeline
-message TimelineEvent {
-  string date = 1;              // YYYY-MM-DD
-  string type = 2;              // 'announcement' | 'director_trade' | 'news' | 'short_spike'
-  string title = 3;
-  string detail = 4;
-  string url = 5;
-  string sentiment = 6;         // for news events; '' otherwise
-  bool   is_price_sensitive = 7;
-}
-
-message GetStockSignalsRequest {
-  string stock_code = 1;
-  int32  limit = 2;             // max signals per polarity (default 10)
-}
-
-message GetStockSignalsResponse {
-  repeated StockSignal adverse = 1;
-  repeated StockSignal positive = 2;
-}
-
-// A single reputation/risk signal for a stock
-message StockSignal {
-  string polarity = 1;          // 'adverse' | 'positive'
-  string kind = 2;              // 'court' | 'sanction' | 'complaint' | 'award' | 'press' | ...
-  string headline = 3;
-  string detail = 4;
-  string event_date = 5;        // 'YYYY-MM-DD' or 'YYYY'
-  string severity = 6;          // 'high' | 'medium' | 'low' (adverse only)
-  double confidence = 7;
-  repeated string citations = 8;
-}
-
-// ── Housing (house-price tracker) ────────────────────────────────────────────
-
-message GetHousingOverviewRequest {
-  // Filter to one region_type ('national'|'state'|'gccsa'); empty = all key regions.
-  string region_type = 1;
-}
-
-// Latest observation for a region × measure with QoQ/YoY change (from mv_housing_headline).
-message HousingMetric {
-  string region_code = 1;       // 'AUS' | 'NSW' | '1GSYD'
-  string region_name = 2;
-  string region_type = 3;       // 'national' | 'state' | 'gccsa'
-  string state_code = 4;
-  string measure = 5;           // 'mean_price' | 'median_price' | 'price_index' | 'debt_to_income'
-  string dwelling_type = 6;     // 'all' | 'established_house' | 'attached'
-  double value = 7;
-  string unit = 8;              // 'AUD' | 'index' | 'ratio'
-  google.protobuf.Timestamp period = 9;
-  bool is_preliminary = 10;
-  double qoq_pct = 11;
-  double yoy_pct = 12;
-}
-
-message GetHousingOverviewResponse {
-  repeated HousingMetric metrics = 1;
-  google.protobuf.Timestamp as_of = 2;
-}
-
-message GetHousePriceSeriesRequest {
-  string region_code = 1;       // 'AUS' | 'NSW' | '1GSYD'
-  string measure = 2;           // 'mean_price' | 'median_price' | 'price_index' | 'debt_to_income'
-  string dwelling_type = 3;     // optional; default 'all'
-}
-
-message HousePricePoint {
-  google.protobuf.Timestamp period = 1;
-  double value = 2;
-  bool is_preliminary = 3;
-}
-
-message GetHousePriceSeriesResponse {
-  string region_code = 1;
-  string region_name = 2;
-  string measure = 3;
-  string dwelling_type = 4;
-  string unit = 5;
-  string source = 6;
-  string source_licence = 7;
-  repeated HousePricePoint points = 8;
-}
-
-message ListStateSuburbsRequest {
-  string state_code = 1; // 'NSW' | 'VIC' | ... (required)
-  string query = 2;      // optional case-insensitive name substring
-  int32 limit = 3;       // optional; default 5000
-}
-
-// One suburb summary for the map + list (keyed by ABS SAL code).
-// Per-suburb amenity counts + derived lifestyle indices (Local Insights).
-// OSM-derived counts (ODbL Produced Work) + ACARA/GA sources; see the
-// Local Insights design doc.
-message SuburbAmenities {
-  int32  schools_total = 1;
-  int32  supermarkets_total = 2;
-  int32  coles_count = 3;
-  int32  woolworths_count = 4;
-  int32  aldi_count = 5;
-  int32  iga_count = 6;
-  int32  pubs_bars = 7;
-  int32  parks_count = 8;
-  int32  libraries_count = 9;
-  double nearest_supermarket_km = 10;
-  double amenity_density_score = 11;        // 0..100
-  int32  hospitals_count = 12;
-  int32  gp_count = 13;                      // general practices
-  int32  pharmacy_count = 14;
-  double nearest_train_km = 15;             // nearest railway station
-  double nearest_hospital_km = 16;
-  double dist_to_coast_km = 17;             // straight-line km to the national coastline
-  // School sector/type split (per-state CC-BY open data; 0 until ingested).
-  int32  schools_gov = 18;                   // government schools
-  int32  schools_catholic = 19;              // Catholic-sector schools
-  int32  schools_independent = 20;           // Independent-sector schools
-  int32  schools_primary = 21;               // primary (incl. combined)
-  int32  schools_secondary = 22;             // secondary (incl. combined)
-  double nearest_secondary_km = 23;          // nearest secondary school
-}
-
-message SuburbSummary {
-  string sal_code = 1;
-  string sal_name = 2;
-  string state_code = 3;
-  string postcode = 4;
-  double latest_median_price = 5;            // 0 if no price data
-  google.protobuf.Timestamp latest_period = 6;
-  double yoy_pct = 7;
-  int32  population = 8;
-  double median_age = 9;
-  double median_weekly_hhd_income = 10;
-  string region_code = 11;                   // priced-region code (for the price series), '' if unpriced
-  // Cultural demographics for the map's "highlight" toggle (ABS Census 2021).
-  double pct_born_overseas = 12;             // 0..100
-  string top_religion = 13;                  // dominant religious affiliation, '' if none
-  string top_language = 14;                  // top language other than English at home, '' if none
-  double pct_top_language = 15;              // 0..100 share speaking top_language
-  // Federal electoral representation (AEC 2025 election), spatially joined.
-  string federal_division = 16;              // Commonwealth Electoral Division
-  string federal_member = 17;                // sitting House of Reps member
-  string federal_party = 18;                 // member's party (full name)
-  string federal_party_ab = 19;              // party abbreviation (palette key)
-  double federal_tpp_alp = 20;               // 0..100 Labor two-party-preferred %
-  string state_district = 21;                // ABS State Electoral Division
-  string state_member = 22;                  // state lower-house member ('' for Hare-Clark TAS/ACT)
-  string state_party = 23;                   // state member's party (full name)
-  string state_party_ab = 24;                // state party abbreviation (palette key)
-  // Amenity/lifestyle metrics (Local Insights); null/absent until ingested.
-  SuburbAmenities amenities = 25;
-  // NBN connectivity (Local Insights); '' until ingested.
-  string dominant_nbn_tech = 26;             // Fixed Line | Fixed Wireless | Satellite
-  double connectivity_quality_score = 27;    // 0..100 (tech-tier proxy)
-}
-
-message ListStateSuburbsResponse {
-  repeated SuburbSummary suburbs = 1;
-}
-
-message GetSuburbProfileRequest {
-  string sal_code = 1; // required
-}
-
-message SuburbDemographics {
-  int32  population = 1;
-  double median_age = 2;
-  double median_weekly_hhd_income = 3;
-  double median_weekly_per_income = 4;
-  double median_weekly_rent = 5;
-  double median_monthly_mortgage = 6;
-  double pct_owned_outright = 7;
-  double pct_owned_mortgage = 8;
-  double pct_rented = 9;
-  int32  dwelling_count = 10;
-  int32  census_year = 11;
-  // Cultural demographics (ABS Census 2021: G01 birthplace/language, G13, G14).
-  double pct_born_overseas = 12;             // 0..100
-  double pct_english_only = 13;              // 0..100 (speaks English only at home)
-  string top_religion = 14;                  // dominant religious affiliation
-  double pct_top_religion = 15;              // 0..100 share of the dominant religion
-  double pct_no_religion = 16;               // 0..100 ("No religion")
-  string top_language = 17;                  // top language other than English at home
-  double pct_top_language = 18;              // 0..100 share speaking top_language
-}
-
-// State + national reference medians for the profile's comparison bars.
-message ComparisonBaselines {
-  double state_median_price = 1;
-  double national_median_price = 2;
-  double state_median_weekly_hhd_income = 3;
-  double national_median_weekly_hhd_income = 4;
-}
-
-// Local Government Area (council) a suburb belongs to (Local Insights, W2).
-message LgaInfo {
-  string lga_code = 1;
-  string lga_name = 2;
-  string state_code = 3;
-  double area_sqkm = 4;
-  int32  population = 5;            // summed from member-suburb Census populations
-  double fed_fag_aud = 6;          // federal Financial Assistance Grant (latest yr), AUD; 0 if unmatched
-  string fed_fag_year = 7;         // e.g. '2025-26'
-  // Per-council financials (VIC LGPRF, CC-BY; 0/'' for states not yet sourced).
-  double avg_rates = 8;            // average rate per property assessment, AUD
-  double op_surplus_ratio = 9;     // adjusted underlying (operating) result, % (negative = deficit)
-  double asset_renewal_ratio = 10; // asset renewal + upgrade vs depreciation, %
-  string fin_source = 11;          // financials provenance ('vic_lgprf'), '' if none
-  string fin_year = 12;            // financials reporting year, e.g. '2024-25'
-}
-
-// A suburb with a similar demographic + amenity profile (feature-vector kNN).
-message SimilarSuburb {
-  string sal_code = 1;
-  string sal_name = 2;
-  string state_code = 3;
-  double latest_median_price = 4;   // 0 if unpriced
-  double similarity = 5;            // 0..1 (1 = near-identical profile)
-  string region_code = 6;
-}
-
-message GetSuburbProfileResponse {
-  SuburbSummary summary = 1;
-  SuburbDemographics demographics = 2;
-  ComparisonBaselines baselines = 3;
-  LgaInfo council = 4;              // council this suburb sits in ('' if unmatched)
-  repeated SimilarSuburb similar = 5; // most-similar suburbs nationally (knowledge graph)
-}
-
-message ListHousingRegionsRequest {
-  string region_type = 1; // optional filter, e.g. 'suburb' | 'gccsa' | 'state'
-  string state_code = 2;  // optional filter, e.g. 'SA' | 'VIC'
-  string query = 3;       // optional case-insensitive name substring
-  int32 limit = 4;        // optional; default 2000
-}
-
-// A selectable house-price region (for the suburb explorer).
-message HousingRegion {
-  string region_code = 1; // 'SUBURB:VIC-RICHMOND' | 'AUS' | '1GSYD'
-  string region_name = 2;
-  string region_type = 3; // 'national' | 'state' | 'gccsa' | 'suburb' | 'lga'
-  string state_code = 4;
-  string postcode = 5;
-  double latest_value = 6;                  // latest median_price (0 if none)
-  google.protobuf.Timestamp latest_period = 7;
-}
-
-message ListHousingRegionsResponse {
-  repeated HousingRegion regions = 1;
-}
-
-message ListSuburbPriceDropsRequest {
-  string state_code = 1;   // optional filter, e.g. 'NSW'; '' = national
-  int32  window_days = 2;  // reserved; the aggregate uses a fixed rolling window
-  string sort = 3;         // optional: 'count' (default) | 'avg' | 'max'
-  int32  limit = 4;        // optional; default 50
-}
-
-// A suburb's aggregate price-drop signal over the rolling window (derived; the
-// underlying listings are ToS-restricted and never republished here).
-message SuburbPriceDrop {
-  string region_code = 1;
-  string sal_code = 2;                 // ABS SAL code (for the suburb page link), '' if unlinked
-  string sal_name = 3;
-  string state_code = 4;
-  int32  dropped_listing_count = 5;    // listings that cut their asking price
-  double avg_drop_pct = 6;             // 0..1 fraction (0.06 == a 6% average reduction)
-  double median_drop_pct = 7;
-  double max_drop_pct = 8;
-  double max_drop_abs = 9;             // largest single reduction, AUD
-  int32  total_active_listings = 10;
-  double dropped_share = 11;           // dropped_listing_count / total_active_listings
-  string postcode = 12;                // for the canonical suburb-page URL
-  // Per-suburb listing-price aggregates (mv_suburb_listing_stats).
-  int32  for_sale_count = 13;          // active for-sale listings
-  double avg_asking = 14;              // mean asking price of priced for-sale listings, AUD (0 if none)
-  double median_asking = 15;           // median asking price, AUD
-  int32  sold_count = 16;              // recent sold listings captured
-  double avg_sold = 17;                // mean sold price, AUD (0 if none)
-  double median_sold = 18;             // median sold price, AUD
-}
-
-message ListSuburbPriceDropsResponse {
-  repeated SuburbPriceDrop suburbs = 1;
-}
-
-message ListSuburbDropListingsRequest {
-  string sal_code = 1;     // one of sal_code or region_code is required
-  string region_code = 2;
-  int32  window_days = 3;  // optional; default 30
-  int32  limit = 4;        // optional; default 30
-}
-
-// One recently-reduced listing, deep-linking OUT to the live portal page.
-message SuburbDropListing {
-  string source = 1;               // 'rea' | 'domain'
-  string listing_url = 2;          // deep link to the live portal listing
-  string display_address = 3;
-  string property_type = 4;
-  int32  bedrooms = 5;
-  int32  bathrooms = 6;
-  int32  car_spaces = 7;
-  double prev_price = 8;           // AUD before the reduction
-  double price = 9;                // AUD current asking
-  double drop_pct = 10;            // 0..1 fraction
-  double drop_abs = 11;            // AUD reduction
-  google.protobuf.Timestamp observed_at = 12;  // when the reduction was detected
-  string address_key = 13;         // stable per-address key → /housing/property/[addressKey] (empty until backfilled)
-}
-
-message ListSuburbDropListingsResponse {
-  repeated SuburbDropListing listings = 1;
-}
-
-message GetPropertyHistoryRequest {
-  string address_key = 1;
-}
-
-// The current listing at an address — the most-recent active one, or the
-// most-recent overall if none are active.
-message PropertyListingSnapshot {
-  string source = 1;               // 'rea' | 'domain'
-  string listing_id = 2;           // portal advert id
-  string listing_url = 3;          // deep link to the live portal listing
-  double price = 4;                // canonical numeric ask (0 if unknown)
-  string price_display = 5;        // raw string as shown on the portal
-  string price_kind = 6;           // fixed|range_low|range_high|offers_over|auction|poa|unknown
-  string listing_status = 7;       // for_sale|under_offer|sold|withdrawn|unknown
-  bool is_active = 8;
-  int32 bedrooms = 9;
-  int32 bathrooms = 10;
-  int32 car_spaces = 11;
-  double land_size_sqm = 12;
-  string property_type = 13;
-  string first_seen_at = 14;       // RFC3339
-  string last_seen_at = 15;        // RFC3339
-}
-
-// One event in an address's price timeline (spans every listing/relist at
-// that address).
-message PropertyPriceEvent {
-  string observed_at = 1;          // RFC3339, the run timestamp
-  string event_type = 2;           // first_seen|price_drop|price_rise|relisted|status_change|delisted
-  string source = 3;               // 'rea' | 'domain'
-  string listing_id = 4;
-  double price = 5;
-  double prev_price = 6;
-  double drop_abs = 7;             // prev_price - price (positive == a drop)
-  double drop_pct = 8;             // fraction (0.062 == a 6.2% drop)
-  string listing_status = 9;
-  string prev_status = 10;
-}
-
-// Full price timeline for a single physical address (stable address_key),
-// across all its listings and relists. Derived from ToS-restricted listing
-// rows — deep-links OUT to the live portal page rather than reproducing the
-// listing; flag-gated the same way as ListSuburbDropListings.
-message GetPropertyHistoryResponse {
-  string address_key = 1;
-  string display_address = 2;
-  string suburb = 3;
-  string state_code = 4;
-  string postcode = 5;
-  PropertyListingSnapshot current = 6;   // most-recent active listing (or most-recent if none active)
-  repeated PropertyPriceEvent events = 7; // full timeline across ALL its listings, ordered observed_at asc
-  int32 num_listings = 8;                 // distinct source+listing_id at this address
-  double first_price = 9;
-  double current_price = 10;
-  // Distinct KNOWN bedroom counts seen under this address_key (NULL/0 excluded).
-  // >1 means the portal likely listed multiple differently-sized units of one
-  // building WITHOUT a unit number, so this timeline may blend more than one
-  // physical dwelling. Counting bedrooms (not raw bed/bath/type tuples) keeps
-  // cross-portal label noise from falsely flagging a single dwelling. A search-
-  // results crawl cannot recover the missing unit number, so the view warns
-  // instead of silently merging. See docs/housing-architecture.md.
-  int32 distinct_dwellings = 11;
-}
-
-message ListAddressPriceDropsRequest {
-  string state_code = 1;   // optional filter, e.g. 'VIC' (empty = all states)
-  int32  window_days = 2;  // optional; default 90
-  int32  limit = 3;        // optional; default 50
-  string sort = 4;         // 'pct' (default) | 'abs' (biggest $ cut) | 'recent'
-}
-
-// One physical address (deduped by stable address_key) whose for-sale asking
-// price fell over the window, deep-linking to its per-address history page.
-message AddressPriceDrop {
-  string address_key = 1;
-  string display_address = 2;
-  string suburb = 3;
-  string state_code = 4;
-  string postcode = 5;
-  double first_price = 6;         // earliest observed price in the window, AUD
-  double current_price = 7;       // current active asking, AUD
-  double drop_abs = 8;            // first_price - current_price, AUD
-  double drop_pct = 9;            // fraction (0.062 == a 6.2% drop)
-  int32  num_listings = 10;       // distinct source+listing_id at this address
-  string latest_source = 11;      // 'rea' | 'domain'
-  string latest_listing_url = 12; // deep link to the live portal listing
-  string last_observed_at = 13;   // RFC3339, when the current listing was last seen
-  string property_type = 14;
-  int32  bedrooms = 15;
-  int32  bathrooms = 16;
-}
-
-message ListAddressPriceDropsResponse {
-  repeated AddressPriceDrop addresses = 1;
+  // ==================== Registers of Interests ====================
+  // Mirrored from PoliticiansService for external API back-compat. The parity
+  // test walks the proto registry and fails if a domain rpc is missing here, or
+  // if the visibility annotations differ.
+
+  // Parliament-wide register counts and the as-at date.
+  rpc GetParliamentOverview (GetParliamentOverviewRequest) returns (GetParliamentOverviewResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Parliament Overview",
+      description: "Counts and as-at date for the Registers of Members' and Senators' Interests."
+    };
+  }
+
+  // Browse/filter parliamentarians.
+  rpc ListPoliticians (ListPoliticiansRequest) returns (ListPoliticiansResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Politicians",
+      description: "Federal parliamentarians covered by the registers, with declared-interest counts."
+    };
+  }
+
+  // One politician's declared interests, property and terms.
+  rpc GetPolitician (GetPoliticianRequest) returns (GetPoliticianResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Politician",
+      description: "One parliamentarian's declared interests and history. The registers record what is held, never quantity or value."
+    };
+  }
+
+  // Which parliamentarians declare an interest in one ASX-listed company.
+  rpc ListStockPoliticians (ListStockPoliticiansRequest) returns (ListStockPoliticiansResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Stock Politicians",
+      description: "Parliamentarians declaring an interest in a company, by holder and declaration period."
+    };
+  }
+
+  // Parliament's most-declared ASX-listed companies.
+  rpc ListPoliticianStocks (ListPoliticianStocksRequest) returns (ListPoliticianStocksResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Politician Stocks",
+      description: "Most-declared ASX-listed companies across federal parliament, counted by people."
+    };
+  }
+
+  // Which parliamentarians declare real estate in one ABS suburb.
+  rpc ListSuburbPoliticians (ListSuburbPoliticiansRequest) returns (ListSuburbPoliticiansResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Suburb Politicians",
+      description: "Parliamentarians declaring real estate in a suburb. The registers record suburb or area only."
+    };
+  }
+
+  // Parliamentarians of one state and the companies they declare.
+  rpc ListStatePoliticianHoldings (ListStatePoliticianHoldingsRequest) returns (ListStatePoliticianHoldingsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List State Politician Holdings",
+      description: "Companies declared by the parliamentarians representing one state or territory."
+    };
+  }
+
+  // Register additions and removals over time.
+  rpc ListRegisterChanges (ListRegisterChangesRequest) returns (ListRegisterChangesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Register Changes",
+      description: "Rows added to or removed from the registers. A removal is not a transaction."
+    };
+  }
+
+  // Declared interests in companies carrying short interest.
+  rpc ListShortInterestOverlap (ListShortInterestOverlapRequest) returns (ListShortInterestOverlapResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Short Interest Overlap",
+      description: "Declared interests in companies carrying short interest. The short percentage describes the company, not any holding."
+    };
+  }
+
+  // Aggregate shape of the register: party x industry, and members by state.
+  // Counts of people and declarations only — the registers record no value.
+  rpc GetPoliticianAnalytics (GetPoliticianAnalyticsRequest) returns (GetPoliticianAnalyticsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Politician Analytics",
+      description: "How many parliamentarians of each party declare an interest in each industry, and how members are distributed by state. Counts only; the registers record no quantity or value."
+    };
+  }
+
+  // Aggregate register counts for the explorer hub.
+  rpc GetRegisterExplorer (GetRegisterExplorerRequest) returns (GetRegisterExplorerResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Filtered politician summaries for the explorer table.
+  rpc ListPoliticianSummaries (ListPoliticianSummariesRequest) returns (ListPoliticianSummariesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Count-based analytics for one politician's explorer profile.
+  rpc GetPoliticianExplorerProfile (GetPoliticianExplorerProfileRequest) returns (GetPoliticianExplorerProfileResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Neutral, symmetric comparison of two politician register summaries.
+  rpc ComparePoliticians (ComparePoliticiansRequest) returns (ComparePoliticiansResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Aggregate register lodgement activity over a window.
+  rpc GetRegisterActivity (GetRegisterActivityRequest) returns (GetRegisterActivityResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Register Activity",
+      description: "Weekly counts of dated register events, the members with the most events, companies first declared in the window, and companies whose declarer count changed. Counts and dates only."
+    };
+  }
+
+  // One member's currently-declared companies with corpus-wide declarer counts.
+  rpc ListDistinctiveHoldings (ListDistinctiveHoldingsRequest) returns (ListDistinctiveHoldingsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Distinctive Holdings",
+      description: "A member's currently-declared listed companies, each with the number of members declaring it across the whole register. A count of one means no other member currently declares it."
+    };
+  }
+
+  // --- AEC funding layer (amounts; CC BY 4.0). See politicians.proto. ---
+
+  // Party-group funding rollups for one financial year.
+  rpc GetDonationsOverview (GetDonationsOverviewRequest) returns (GetDonationsOverviewResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Donations Overview",
+      description: "Party-group funding rollups from AEC annual returns for one financial year, with the available years, corpus counts, and the right-censoring and 2027 reform notes every surface must render. Amounts are in cents, verbatim as lodged."
+    };
+  }
+
+  // Payers into party branches for one financial year, amount ordered.
+  rpc ListTopDonors (ListTopDonorsRequest) returns (ListTopDonorsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Top Donors",
+      description: "Payers named in itemised AEC receipts into party branches for one financial year, with the source's receipt-type split (a conference fee is not a donation) and an ASX code only where an exact or curated name match exists."
+    };
+  }
+
+  // One party group's funding across every financial year it lodged in.
+  rpc ListPartyFunding (ListPartyFundingRequest) returns (ListPartyFundingResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Party Funding",
+      description: "One party group's AEC funding series by financial year, plus that year's top payers and listed-company payers. Rows from FY2027 are the reformed scheme and must not be charted continuously with what precedes them."
+    };
+  }
+
+  // The funding returns that name one member.
+  rpc GetPoliticianFunding (GetPoliticianFundingRequest) returns (GetPoliticianFundingResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Politician Funding",
+      description: "AEC returns that NAME one member: their annual member/senator returns and their election candidate returns including lodged nil returns, with the corpus coverage those figures sit inside. Money given to a party is never attributed to a member."
+    };
+  }
 }

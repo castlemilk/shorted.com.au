@@ -1,4 +1,5 @@
 import { type Metadata } from "next";
+import { pageTitle } from "~/@/lib/typography";
 import Link from "next/link";
 import { GraduationCap, Clock, ChevronRight, BookOpen } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
@@ -36,21 +37,14 @@ export const metadata: Metadata = {
     siteName: siteConfig.name,
     type: "website",
     locale: "en_AU",
-    images: [
-      {
-        url: siteConfig.ogImage,
-        width: 1200,
-        height: 630,
-        alt: "Learn Short Selling - Educational Guides for ASX Investors",
-      },
-    ],
+    // No `images` key: this route ships its own opengraph-image.tsx and an
+    // explicit `images` here would SHADOW the file convention.
   },
   twitter: {
     card: "summary_large_image",
     title: "Learn Short Selling | Educational Guides & Tutorials",
     description:
       "Free educational guides on ASX short selling.",
-    images: [siteConfig.ogImage],
   },
   alternates: {
     canonical: `${siteConfig.url}/learn`,
@@ -207,9 +201,9 @@ const articles = [
 ];
 
 const levelColors = {
-  Beginner: "bg-green-500/10 text-green-600 border-green-500/30",
-  Intermediate: "bg-yellow-500/10 text-yellow-600 border-yellow-500/30",
-  Advanced: "bg-red-500/10 text-red-600 border-red-500/30",
+  Beginner: "bg-secondary/15 text-secondary-foreground dark:text-secondary border-secondary/40",
+  Intermediate: "bg-primary/10 text-primary border-primary/30",
+  Advanced: "bg-accent/15 text-accent border-accent/40",
 };
 
 export default function LearnIndexPage() {
@@ -237,7 +231,7 @@ export default function LearnIndexPage() {
               <GraduationCap className="h-8 w-8 text-primary" />
             </div>
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+              <h1 className={pageTitle}>
                 Learn Short Selling
               </h1>
               <p className="text-muted-foreground mt-1">
@@ -278,7 +272,7 @@ export default function LearnIndexPage() {
           <div className="grid gap-4">
             {articles.map((article) => (
               <Link key={article.slug} href={`/learn/${article.slug}`} className="group">
-                <Card className="h-full hover:shadow-md transition-all duration-200 hover:border-primary/50">
+                <Card className="h-full hover:shadow-md transition-[box-shadow,border-color] duration-200 ease-out hover:border-primary/50">
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
@@ -327,7 +321,7 @@ export default function LearnIndexPage() {
           <h2 className="text-lg font-semibold mb-4">Related Resources</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Link href="/glossary">
-              <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/50">
+              <Card className="hover:shadow-md transition-[box-shadow,border-color] duration-200 ease-out hover:border-primary/50">
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-3">
                     <BookOpen className="h-5 w-5 text-primary" />
@@ -343,7 +337,7 @@ export default function LearnIndexPage() {
               </Card>
             </Link>
             <Link href="/top">
-              <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/50">
+              <Card className="hover:shadow-md transition-[box-shadow,border-color] duration-200 ease-out hover:border-primary/50">
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-3">
                     <GraduationCap className="h-5 w-5 text-primary" />

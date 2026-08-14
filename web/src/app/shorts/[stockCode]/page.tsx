@@ -1,4 +1,5 @@
 import nextDynamic from "next/dynamic";
+import { PoliticianInterestsCard } from "@/components/company/politician-interests-card-loader";
 import { type Metadata } from "next";
 // Consolidated per-stock chart (price + short interest, dual-axis, volume, brush).
 // Client-only: uses Connect-RPC + market-data hooks.
@@ -56,6 +57,7 @@ import { RelatedStocks } from "~/@/components/seo/related-stocks";
 import { getRelatedStocks } from "~/app/actions/getRelatedStocks";
 import { getStockHeadlines } from "~/app/actions/getStockNews";
 import { getStockOrNotFound } from "~/app/actions/getStock";
+import { formatCompanyName } from "~/@/lib/company-name";
 import Link from "next/link";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 import { ShortInterestHistory } from "./short-interest-history";
@@ -70,15 +72,14 @@ interface PageProps {
   params: Promise<{ stockCode: string }>;
 }
 
-// Strip ASIC security-type suffixes ("ORDINARY", "CDI 1:1", "FPO" …) from the
-// product string — "LOTUS RESOURCES LTD ORDINARY" is a product label, not a
-// company name. Shared by metadata + schema.
-function cleanCompanyName(name: string): string {
-  return (
-    name
-      .replace(/\s+(ORDINARY|FPO|CDI(\s+\d+:\d+)?|UNITS?|STAPLED(\s+SECURITIES)?|NON-VOTING.*)$/i, "")
-      .trim() || name
-  );
+// Display name for every SEO-critical surface on this page (title, og:title,
+// h1, crawler summary, schema). `stock.name` is the raw ASIC PRODUCT string —
+// SHOUTED, with a security-type descriptor ("BHP GROUP LIMITED ORDINARY") —
+// so it must go through the shared formatter, the same one the visible
+// CompanyProfile uses. The page previously stripped only the security-type
+// word, which left SERP titles shouting "BHP GROUP LIMITED".
+function cleanCompanyName(name: string, code: string): string {
+  return formatCompanyName(name, code) || name;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -100,7 +101,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   try {
     const stock = await getStockOrNotFound(code);
     if (stock) {
-      const companyName = stock.name ? cleanCompanyName(stock.name) : "";
+      const companyName = stock.name ? cleanCompanyName(stock.name, code) : "";
       const shortPct = stock.percentageShorted > 0 ? ` | ${stock.percentageShorted.toFixed(2)}% Shorted` : "";
       title = companyName
         ? `${code} Short Interest — ${companyName} (ASX:${code})${shortPct}`
@@ -112,9 +113,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         day: "numeric",
         year: "numeric",
       });
+      const descName = companyName || code;
       const shortInfo = stock.percentageShorted > 0
-        ? `${stock.name || code} short interest is ${stock.percentageShorted.toFixed(2)}% as of ${dateStr}.`
-        : `${stock.name || code} short selling data from official ASIC reports.`;
+        ? `${descName} short interest is ${stock.percentageShorted.toFixed(2)}% as of ${dateStr}.`
+        : `${descName} short selling data from official ASIC reports.`;
       const industryInfo = stock.industry ? ` Industry: ${stock.industry}.` : "";
       description = `${shortInfo}${industryInfo} Track ${code}'s short position history, price charts, peer comparison, and ASIC data. Updated daily with T+4 delay.`;
 
@@ -285,7 +287,7 @@ const Page = async ({ params }: PageProps) => {
       {stock && (
         <StockLLMMeta
           stockCode={stockCode}
-          companyName={stock.name || stockCode}
+          companyName={cleanCompanyName(stock.name || stockCode, stockCode)}
           industry={stock.industry || ""}
           sector={stock.industry || ""}
           shortPercentage={stock.percentageShorted || undefined}
@@ -303,7 +305,7 @@ const Page = async ({ params }: PageProps) => {
       {stock && (() => {
         const shortPct = stock.percentageShorted ?? 0;
         const shortPositions = stock.reportedShortPositions ?? 0;
-        const companyName = stock.name || stockCode;
+        const companyName = cleanCompanyName(stock.name || stockCode, stockCode);
         const industry = stock.industry || "";
         const asOfIso = new Date().toISOString().slice(0, 10);
         const asOfDisplay = new Date().toLocaleDateString("en-AU", {
@@ -365,7 +367,7 @@ const Page = async ({ params }: PageProps) => {
         // short-selling entity. ASX + Bloomberg URLs are deterministic.
         // Wikipedia/Wikidata require per-stock lookup — handled in a
         // follow-up enrichment pass.
-        const cleanName = cleanCompanyName(companyName);
+        const cleanName = companyName;
         const corporationSchema = {
           "@context": "https://schema.org",
           "@type": "Corporation",
@@ -455,12 +457,21 @@ const Page = async ({ params }: PageProps) => {
 
       {/* Signed-out breadcrumb to login — dismissible, above the fold.
           Client-gated: the ISR HTML is shared across sessions, so the
-          banner appears once the session resolves as signed-out. */}
-      <SignedOutOnly>
-        <div className="mb-4 overflow-hidden rounded-lg border border-primary/20">
-          <LoginPromptBanner />
-        </div>
-      </SignedOutOnly>
+          banner appears once the session resolves as signed-out.
+          CLS guard: the slot div is ALWAYS in the server HTML; a pre-paint
+          inline script in layout.tsx marks <html class="anon"> when no
+          next-auth session cookie exists, and critical CSS reserves the
+          banner's height under html.anon — so for the signed-out majority
+          the banner hydrates into pre-reserved space instead of shifting
+          the whole page down (~0.13 CLS on mobile). Signed-in visitors get
+          a zero-height slot. */}
+      <div className="login-slot">
+        <SignedOutOnly>
+          <div className="overflow-hidden rounded-lg border border-primary/20">
+            <LoginPromptBanner />
+          </div>
+        </SignedOutOnly>
+      </div>
 
       {/* Header: Profile & Stats (always visible above tabs) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 items-start mb-6">
@@ -530,7 +541,7 @@ const Page = async ({ params }: PageProps) => {
                   <Suspense fallback={null}>
                     <ShortInterestHistory
                       stockCode={stockCode}
-                      companyName={stock.name || stockCode}
+                      companyName={cleanCompanyName(stock.name || stockCode, stockCode)}
                     />
                   </Suspense>
                 </div>
@@ -592,6 +603,13 @@ const Page = async ({ params }: PageProps) => {
             <Suspense fallback={<CompanyInfoPlaceholder />}>
               <CompanyInfo stockCode={stockCode} />
             </Suspense>
+
+            {/* Registers of Members'/Senators' Interests. A rail card rather
+                than a 9th tab: the tab list already overflows on mobile, its
+                `available` array is hardcoded (so a missed edit silently breaks
+                ?tab= deep links), and the card is empty for most stocks.
+                ssr:false keeps politicians_pb out of this route's 330kB budget. */}
+            <PoliticianInterestsCard stockCode={stockCode} />
 
             {/* Related stocks — the peer internal-link mesh, in the SSR
                 DOM via the SSR'd tabs shell. */}

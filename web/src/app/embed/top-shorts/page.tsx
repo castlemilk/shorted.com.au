@@ -5,11 +5,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { screenStocks } from "~/app/actions/screenStocks";
-import {
-  ScreenerSortField,
-  SortDirection,
-  type ScreenerStock,
-} from "~/gen/shorts/v1alpha1/shorts_pb";
+import { ScreenerSortField, SortDirection, type ScreenerStock } from "~/gen/shorts/v1alpha1/screener_pb";
 import { cn } from "~/@/lib/utils";
 
 function EmbedTopShortsInner() {
@@ -117,7 +113,11 @@ function EmbedTopShortsInner() {
 
 /**
  * Embeddable top shorts table widget.
- * Usage: <iframe src="https://shorted.com.au/embed/top-shorts?limit=10&theme=dark" />
+ * Usage: <iframe src="https://shorted.com.au/embed/top-shorts?limit=10" />
+ *
+ * `limit` is the only supported param (clamped to 50). This previously
+ * documented a `theme=dark` param that was never implemented — the widget
+ * inherits the host page's theme tokens.
  */
 export default function EmbedTopShorts() {
   return (

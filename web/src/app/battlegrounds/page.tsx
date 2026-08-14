@@ -1,4 +1,6 @@
 import { type Metadata } from "next";
+import { cn } from "~/@/lib/utils";
+import { pageTitle, eyebrow, lede } from "~/@/lib/typography";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { siteConfig } from "~/@/config/site";
@@ -7,7 +9,7 @@ import {
   DatasetStructuredData,
   ItemListStructuredData,
 } from "~/@/components/seo/enhanced-structured-data";
-import { BattlegroundView } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { BattlegroundView } from "~/gen/shorts/v1alpha1/market_pb";
 import { getBattlegrounds } from "~/app/actions/getBattlegrounds";
 import { toBattlegroundRows, type BattlegroundRow } from "./types";
 
@@ -46,20 +48,13 @@ export const metadata: Metadata = {
     siteName: siteConfig.name,
     type: "website",
     locale: "en_AU",
-    images: [
-      {
-        url: siteConfig.ogImage,
-        width: 1200,
-        height: 630,
-        alt: "ASX Short Squeeze Candidates — Shorted.com.au",
-      },
-    ],
+    // No `images` key: this route ships its own opengraph-image.tsx and an
+    // explicit `images` here would SHADOW the file convention.
   },
   twitter: {
     card: "summary_large_image",
     title: TITLE,
     description: DESCRIPTION,
-    images: [siteConfig.ogImage],
   },
   alternates: {
     canonical: `${siteConfig.url}/battlegrounds`,
@@ -227,13 +222,13 @@ export default async function BattlegroundsPage() {
       />
       <div className="container mx-auto px-4 py-6 max-w-7xl space-y-6">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <p className={cn(eyebrow, "font-semibold")}>
             Battlegrounds
           </p>
-          <h1 className="mt-1 text-2xl md:text-3xl font-bold tracking-tight">
+          <h1 className={cn(pageTitle, "mt-1")}>
             ASX Short Squeeze Candidates
           </h1>
-          <p className="text-muted-foreground mt-2 max-w-2xl text-sm leading-relaxed">
+          <p className={cn(lede, "text-sm leading-relaxed")}>
             ASX short squeeze candidates, scored daily. The squeeze radar ranks
             stocks by squeeze risk — days-to-cover, short interest, price
             momentum, and short-position crowding — while the battlegrounds

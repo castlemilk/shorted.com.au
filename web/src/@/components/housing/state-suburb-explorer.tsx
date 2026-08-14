@@ -61,6 +61,9 @@ export function StateSuburbExplorer({ stateCode }: StateSuburbExplorerProps) {
       nearestTrainKm: s.amenities?.nearestTrainKm ?? 0, nearestHospitalKm: s.amenities?.nearestHospitalKm ?? 0,
       distToCoastKm: s.amenities?.distToCoastKm ?? 0,
       dominantNbnTech: s.dominantNbnTech, connectivityQualityScore: s.connectivityQualityScore,
+      crimeBreakInsRank: s.crimeBreakInsRank, crimeViolentRank: s.crimeViolentRank,
+      crimeMotorVehicleRank: s.crimeMotorVehicleRank,
+      politicianPropertyCount: s.politicianPropertyCount,
     })),
     [data],
   );
@@ -132,8 +135,8 @@ export function StateSuburbExplorer({ stateCode }: StateSuburbExplorerProps) {
 
       {noPrice ? (
         <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-2.5 text-xs text-muted-foreground">
-          No suburb price data for {STATE_NAMES[stateCode]} yet — showing ABS Census demographics.
-          Valuer-General price coverage currently spans <strong className="text-foreground">SA &amp; VIC</strong>.
+          No suburb price data for {STATE_NAMES[stateCode]} yet — showing ABS Census demographics while
+          Valuer-General pricing is unavailable for this state.
         </p>
       ) : null}
 

@@ -30,7 +30,7 @@ func TestTelemetryWriter_EmitsNDJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	types := map[string]map[string]any{}
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {

@@ -118,7 +118,7 @@ export function CommunityOverviewTeaser({
     <Card>
       <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="rounded-lg bg-emerald-100 p-2 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+          <div className="rounded-lg bg-primary/10 p-2 text-primary">
             <MessagesSquare className="h-4 w-4" />
           </div>
           <div className="min-w-0">

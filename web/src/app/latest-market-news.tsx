@@ -3,7 +3,7 @@ import { ChevronRight } from "lucide-react";
 import { getMarketNews } from "~/app/actions/getStockNews";
 import { NewsCard, type NewsCardArticle } from "~/@/components/news/news-card";
 import { isValidStockCode } from "~/@/lib/stock-code";
-import type { NewsArticle } from "~/gen/shorts/v1alpha1/shorts_pb";
+import type { NewsArticle } from "~/gen/shorts/v1alpha1/news_pb";
 
 function toIso(ts: NewsArticle["publishedAt"]): string {
   if (!ts) return new Date().toISOString();

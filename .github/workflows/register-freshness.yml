@@ -1,0 +1,55 @@
+# APH register-of-interests freshness sentinel.
+#
+# Runs `-mode register-freshness` as a prod Cloud Run job execution. Any ALARM
+# exits non-zero -> this workflow fails -> GitHub notifies. Same contract as
+# economy-freshness.yml; there is no dashboard anyone has to remember to check.
+#
+# Three alarms, each for a failure that is otherwise SILENT:
+#
+#   aph-waf              a 403 means APH may have revoked the no-User-Agent
+#                        posture the crawl depends on. NEVER work around this by
+#                        spoofing a browser UA — that is WAF evasion. Re-probe by
+#                        hand and, if it is genuinely revoked, stop crawling.
+#   aph-staleness        newest fetch older than 28 days = the crawl stopped.
+#   aph-extract-backlog  text documents fetched but never parsed = the extractor
+#                        is not draining. Scanned documents are excluded: they
+#                        wait on the vision tier by design.
+#
+# Coverage per parliament is reported as INFO and never fails the run — an
+# unextracted parliament is an expected state while the vision tier is pending.
+#
+# Weekly rather than monthly: the registers change continuously during sitting
+# periods, unlike the monthly ABS/RBA economic series.
+name: Register Freshness
+
+on:
+  schedule:
+    # Mondays, 21:47 UTC (Tuesday morning AEST).
+    - cron: "47 21 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  freshness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: projects/334313144667/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-actions-sa@rosy-clover-477102-t5.iam.gserviceaccount.com
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Run register freshness check on prod
+        run: |
+          gcloud run jobs execute influence-collector \
+            --project rosy-clover-477102-t5 \
+            --region australia-southeast2 \
+            --args="influence,-mode,register-freshness" \
+            --wait

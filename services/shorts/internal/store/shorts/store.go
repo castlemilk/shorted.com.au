@@ -56,6 +56,31 @@ type JobHealth struct {
 	AlertLevel              string  `json:"alertLevel"` // critical | warning | no_data | ok
 }
 
+// CrawlRunStatus is one health record for a scheduled residential-crawl run-type on
+// a rig (migration 000089, table crawl_run_status). It is written by the Mac-based
+// house-price-collector (`-mode agent` / `-mode freshness`) because the GCP-only
+// jobmonitor can't see a job that runs off Cloud Run. The admin jobs dashboard maps
+// these rows into the same JobStatus shape as the Cloud Run jobs — see
+// crawlRunToJobStatus in the shorts service. Nullable timestamps use pointers so a
+// row that has never finished (or a freshness-only marker) is representable.
+type CrawlRunStatus struct {
+	RunType              string     `json:"runType"`
+	Host                 string     `json:"host"`
+	RunID                string     `json:"runId"`
+	StartedAt            *time.Time `json:"startedAt"`
+	FinishedAt           *time.Time `json:"finishedAt"`
+	Status               string     `json:"status"`
+	SuburbsSelected      int        `json:"suburbsSelected"`
+	SuburbsDone          int        `json:"suburbsDone"`
+	ListingsTouched      int        `json:"listingsTouched"`
+	EventsWritten        int        `json:"eventsWritten"`
+	BlockedCount         int        `json:"blockedCount"`
+	RewarmNeeded         bool       `json:"rewarmNeeded"`
+	FreshnessOldestHours *float64   `json:"freshnessOldestHours"`
+	Detail               string     `json:"detail"`
+	UpdatedAt            *time.Time `json:"updatedAt"`
+}
+
 type Store interface {
 	GetStock(string) (*stockv1alpha1.Stock, error)
 	GetTopShorts(period string, limit, offset int32, summaryOnly bool, productCodes ...string) ([]*stockv1alpha1.TimeSeriesData, int, error)
@@ -77,6 +102,9 @@ type Store interface {
 	GetSyncStatus(filter SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error)
 	CleanupStuckSyncRuns() (int, error)
 	GetJobsOverview() ([]*JobHealth, error)
+	// GetCrawlRunStatuses returns the residential-crawl health records (migration
+	// 000089) the admin jobs dashboard merges into the GCP job list.
+	GetCrawlRunStatuses() ([]*CrawlRunStatus, error)
 
 	// Key metrics sync methods
 	GetAllStockCodes() ([]string, error)
@@ -133,6 +161,10 @@ type Store interface {
 	// none (§6.5 additive below-gate people write). Returns true when a row was written.
 	UpdateKeyPeopleIfEmpty(stockCode string, keyPeopleJSON []byte) (bool, error)
 
+	// State exposure backfill
+	GetStocksForStateExposure(limit int) ([]StateExposureCandidateRow, error)
+	UpdateStateExposure(stockCode string, exposureJSON []byte) error
+
 	// News methods
 	GetStockNews(stockCode string, limit int32, source, sentiment string) ([]*NewsArticle, int, error)
 	GetMarketNews(limit int32, source string, priceSensitiveOnly bool) ([]*NewsArticle, int, error)
@@ -186,7 +218,61 @@ type Store interface {
 	ListSuburbPriceDrops(stateCode, sort string, limit int32) ([]*SuburbPriceDropRow, error)
 	ListSuburbDropListings(salCode, regionCode string, windowDays, limit int32) ([]*SuburbDropListingRow, error)
 	GetPropertyHistory(addressKey string) (*PropertyHistoryResult, error)
+	GetPropertyValuation(addressKey string) (*PropertyValuationRow, error)
 	ListAddressPriceDrops(stateCode, sort string, windowDays, limit int32) ([]*AddressPriceDropRow, error)
+	GetPriceDropsOverview() ([]*StatePriceDropSummaryRow, error)
+	ListAgencyPriceStats(stateCode, sort string, limit int32) ([]*AgencyPriceStatsRow, error)
+
+	// Register of Members'/Senators' Interests methods
+	GetRegisterOverview() (*RegisterOverviewRow, error)
+	ListPoliticians(chamber, stateCode, partyAb, query string, limit, offset int32) ([]*PoliticianRow, int32, error)
+	GetPolitician(slug string) (*PoliticianRow, []*DeclaredInterestRow, []string, error)
+	ListStockPoliticians(stockCode string, currentOnly bool) (string, []*PoliticianRow, []*DeclaredInterestRow, []*PartyCountRow, error)
+	ListPoliticianStocks(limit int32, currentOnly bool) ([]*PoliticianStockRollupRow, error)
+	ListSuburbPoliticians(salCode string) (string, string, []*PoliticianRow, []*DeclaredInterestRow, error)
+	ListStatePoliticianHoldings(stateCode string, limit int32) ([]*PoliticianStockRollupRow, int32, error)
+	ListRegisterChanges(since time.Time, kind, stockCode, slug string, itemNo int32, partyAb, chamber string, limit, offset int32) ([]*RegisterChangeRow, int32, error)
+	ListShortInterestOverlap(minShortPercent float64, limit int32) ([]*PoliticianStockRollupRow, error)
+	GetRegisterAnalytics(topIndustries int32, currentOnly bool) (*RegisterAnalytics, error)
+	GetRegisterExplorer() (*RegisterExplorerRow, error)
+	ListPoliticianSummaries(chamber, stateCode, partyAb string, itemNo int32, query, sortKey string, limit, offset int32) ([]*PoliticianSummaryRow, int32, error)
+	GetPoliticianExplorerProfile(slug string, topIndustries int32) (*PoliticianExplorerProfileRow, error)
+	ComparePoliticians(slugA, slugB string) (*PoliticianComparisonRow, error)
+	GetRegisterActivity(windowDays int32, filter RegisterActivityFilter) (*RegisterActivityRow, error)
+	ListDistinctiveHoldings(slug string) (*DistinctiveHoldingsRow, error)
+
+	// AEC funding layer (migration 000105). A SEPARATE subsystem from the
+	// register above: these are the only methods in this interface that return
+	// an amount, and they may never read a register_ table.
+	GetDonationsOverview(financialYear string, limit int32) (*DonationsOverviewRow, error)
+	ListTopDonors(financialYear, partyGroup string, limit, offset int32) (*TopDonorsRow, error)
+	ListPartyFunding(partyGroup, financialYear string, limit int32) (*PartyFundingDetailRow, error)
+	GetPoliticianFunding(slug string) (*PoliticianFundingRow, error)
+
+	// Register review console — OPERATOR ONLY, never a public read path.
+	// A decision here writes register_security_aliases, which is the single
+	// input the resolver reads; nothing below publishes anything by itself.
+	ListSecurityReviewQueue(limit, offset int32, gateOnly bool) ([]*SecurityQueueRow, int32, int32, error)
+	SearchRegisterListings(query string, limit int32) ([]*RegisterListingRow, error)
+	DecideSecurityCandidate(candidateNorm, decision, stockCode, aliasKind, note, reviewer string, stopwordConfirmed bool) (int32, error)
+	UndoSecurityDecision(candidateNorm string) (bool, error)
+	GetRegisterCoverageStats() (*RegisterCoverageRow, error)
+	// Per-politician CRM (operator only). Reads go through
+	// politician_profile_resolved so a curated value is never bypassed.
+	ListPoliticianProfiles(query string, limit, offset int32, duplicatesOnly bool) ([]*PoliticianProfileSummaryRow, int32, int32, error)
+	GetPoliticianProfile(slug string) (*PoliticianProfileRow, error)
+	CuratePoliticianFact(slug, field string, ordinal int32, action, curatedText, rationale, evidenceURL, curator string) (*ProfileFactRow, error)
+	SetPoliticianPhoto(slug, url, licence, author, sourceURL, curator string) error
+	MergePoliticians(keepSlug, mergeSlug, evidence, curator string) (int32, error)
+
+	// Economy snapshot methods
+	ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32) ([]*EconomicSeriesRow, error)
+	GetEconomicSeries(seriesKeys []string, startPeriod time.Time, maxObservations int32) ([]*EconomicSeriesDataRow, error)
+	ListSeriesCorrelations(baseSeriesKey string, windowMonths int32, minAbsR float64, limit int32) ([]*SeriesCorrelationRow, error)
+
+	// Company state exposure methods
+	ListStateCompanies(state string, limit int32) ([]*StateCompanyRow, error)
+	GetStateCompanyAggregates() ([]*StateCompanyAggregateRow, error)
 
 	// Event timeline methods
 	GetEventTimeline(stockCode string, daysBack, limit int32) ([]*TimelineEventRow, error)
@@ -222,6 +308,16 @@ type StockPeopleBackfillRow struct {
 	StockCode   string
 	CompanyName string
 	KeyPeople   []byte // Raw JSONB
+}
+
+// StateExposureCandidateRow represents a stock needing state exposure enrichment
+type StateExposureCandidateRow struct {
+	StockCode   string
+	CompanyName string
+	Industry    string
+	Sector      string
+	Summary     string
+	Description string
 }
 
 // EnrichmentStats holds enrichment coverage statistics

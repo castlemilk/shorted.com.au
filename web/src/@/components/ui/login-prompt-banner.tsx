@@ -8,6 +8,14 @@ import { Button } from "./button";
 export function LoginPromptBanner() {
   const [isVisible, setIsVisible] = useState(true);
 
+  const dismiss = () => {
+    setIsVisible(false);
+    // Collapse the CLS-reservation slot (html.anon reserves the banner's
+    // height in critical CSS) — this shift follows user input, so it's
+    // CLS-exempt.
+    document.documentElement.classList.remove("anon");
+  };
+
   if (!isVisible) return null;
 
   return (
@@ -16,9 +24,9 @@ export function LoginPromptBanner() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Sparkles className="h-5 w-5 text-primary" />
-            <p className="text-sm text-gray-700 dark:text-gray-300">
+            <p className="text-sm text-foreground">
               <span className="font-medium">Unlock advanced features:</span>{" "}
-              <span className="text-gray-600 dark:text-gray-400">
+              <span className="text-muted-foreground">
                 Custom dashboards, portfolio tracking, real-time alerts, and more
               </span>
             </p>
@@ -29,7 +37,7 @@ export function LoginPromptBanner() {
               variant="ghost"
               size="sm"
               className="h-8 w-8 p-0"
-              onClick={() => setIsVisible(false)}
+              onClick={dismiss}
             >
               <X className="h-4 w-4" />
               <span className="sr-only">Close</span>

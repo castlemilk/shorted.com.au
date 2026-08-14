@@ -56,9 +56,9 @@ export function sentimentText(s: string | undefined): {
 } {
   switch (s) {
     case "positive":
-      return { label: "Positive", className: "text-emerald-400" };
+      return { label: "Positive", className: "text-emerald-700 dark:text-emerald-400" };
     case "negative":
-      return { label: "Negative", className: "text-rose-400" };
+      return { label: "Negative", className: "text-rose-700 dark:text-rose-400" };
     default:
       return { label: "Neutral", className: "text-muted-foreground" };
   }

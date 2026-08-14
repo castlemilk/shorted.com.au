@@ -90,7 +90,9 @@ test.describe("heatmap hover interactions", () => {
     page.on("request", (request) => {
       if (
         request.method() === "POST" &&
-        request.url().includes("/shorts.v1alpha1.ShortedStocksService/")
+        // Any shorts.v1alpha1 service — legacy ShortedStocksService AND the
+        // per-domain services (MarketService etc.) the web migrated to.
+        request.url().includes("/shorts.v1alpha1.")
       ) {
         directConnectPosts.push(request.url());
       }

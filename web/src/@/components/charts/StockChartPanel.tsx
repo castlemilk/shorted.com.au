@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { EmbedChartDialog } from "~/@/components/ui/embed-chart-dialog";
+import { EmbedDialog } from "~/@/components/ui/embed-dialog";
 import { StockChart } from "./StockChart";
 import { seriesColor } from "./chart-theme";
 import { calculateSMA } from "./indicators";
@@ -246,7 +246,7 @@ export function StockChartPanel({
               </SegButton>
             ))}
           </div>
-          <EmbedChartDialog stockCode={stockCode} />
+          <EmbedDialog target={{ kind: "chart", code: stockCode }} />
         </div>
       </div>
 

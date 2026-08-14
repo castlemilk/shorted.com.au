@@ -24,7 +24,7 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/mark3labs/mcp-go v0.56.0
 	github.com/mitchellh/mapstructure v1.5.0
-	github.com/playwright-community/playwright-go v0.5700.1
+	github.com/mxschmitt/playwright-go v0.6100.0
 	github.com/rakyll/statik v0.1.7
 	github.com/rs/cors v1.11.1
 	github.com/sashabaranov/go-openai v1.40.0
@@ -91,7 +91,7 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
-	github.com/go-jose/go-jose/v3 v3.0.4 // indirect
+	github.com/go-jose/go-jose/v3 v3.0.5 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
 	github.com/go-json-experiment/json v0.0.0-20250725192818-e39067aee2d2 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect

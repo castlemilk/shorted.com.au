@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { StockService } from "~/gen/shorts/v1alpha1/stock_pb";
 import {
   Card,
   CardContent,
@@ -38,14 +38,14 @@ const EVENT_CONFIG: Record<
 > = {
   announcement: {
     icon: Megaphone,
-    color: "text-blue-500",
-    dotColor: "bg-blue-500",
+    color: "text-primary",
+    dotColor: "bg-primary",
     label: "Announcement",
   },
   director_trade: {
     icon: ArrowLeftRight,
-    color: "text-violet-500",
-    dotColor: "bg-violet-500",
+    color: "text-lime-700 dark:text-lime-300",
+    dotColor: "bg-lime-600 dark:bg-lime-400",
     label: "Director trade",
   },
   news: {
@@ -91,7 +91,7 @@ export function EventTimeline({
     queryKey: ["event-timeline", stockCode, daysBack, limit],
     queryFn: async () => {
       const transport = createConnectTransport({ baseUrl: "" });
-      const client = createClient(ShortedStocksService, transport);
+      const client = createClient(StockService, transport);
       return client.getEventTimeline({ stockCode, daysBack, limit });
     },
     staleTime: 5 * 60 * 1000,

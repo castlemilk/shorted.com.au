@@ -1,4 +1,5 @@
 import { type Metadata } from "next";
+import { pageTitle } from "~/@/lib/typography";
 import Link from "next/link";
 import {
   HelpCircle,
@@ -50,21 +51,14 @@ export const metadata: Metadata = {
     siteName: siteConfig.name,
     type: "website",
     locale: "en_AU",
-    images: [
-      {
-        url: siteConfig.ogImage,
-        width: 1200,
-        height: 630,
-        alt: "Short Selling FAQ - Common Questions About ASIC Data",
-      },
-    ],
+    // No `images` key: this route ships its own opengraph-image.tsx and an
+    // explicit `images` here would SHADOW the file convention.
   },
   twitter: {
     card: "summary_large_image",
     title: "Frequently Asked Questions | Short Selling & ASIC Data",
     description:
       "Get answers to common questions about ASX short selling and ASIC data.",
-    images: [siteConfig.ogImage],
   },
   alternates: {
     canonical: `${siteConfig.url}/faq`,
@@ -321,7 +315,7 @@ export default function FAQPage() {
               <HelpCircle className="h-8 w-8 text-primary" />
             </div>
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+              <h1 className={pageTitle}>
                 Frequently Asked Questions
               </h1>
               <p className="text-muted-foreground mt-1">
@@ -343,7 +337,7 @@ export default function FAQPage() {
               <a
                 key={category.id}
                 href={`#${category.id}`}
-                className="flex flex-col items-center gap-2 p-4 rounded-lg border border-border/60 hover:border-primary/50 hover:bg-muted/50 transition-all text-center"
+                className="flex flex-col items-center gap-2 p-4 rounded-lg border border-border/60 hover:border-primary/50 hover:bg-muted/50 transition-colors duration-200 ease-out text-center"
               >
                 <Icon className="h-5 w-5 text-primary" />
                 <span className="text-sm font-medium">{category.title}</span>
@@ -402,7 +396,7 @@ export default function FAQPage() {
           <h2 className="text-xl font-semibold mb-4">Still Have Questions?</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Link href="/learn">
-              <Card className="h-full hover:shadow-md transition-all duration-200 hover:border-primary/50">
+              <Card className="h-full hover:shadow-md transition-[box-shadow,border-color] duration-200 ease-out hover:border-primary/50">
                 <CardContent className="pt-6">
                   <div className="flex items-start gap-3">
                     <BookOpen className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
@@ -417,7 +411,7 @@ export default function FAQPage() {
               </Card>
             </Link>
             <Link href="/glossary">
-              <Card className="h-full hover:shadow-md transition-all duration-200 hover:border-primary/50">
+              <Card className="h-full hover:shadow-md transition-[box-shadow,border-color] duration-200 ease-out hover:border-primary/50">
                 <CardContent className="pt-6">
                   <div className="flex items-start gap-3">
                     <TrendingDown className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
@@ -432,7 +426,7 @@ export default function FAQPage() {
               </Card>
             </Link>
             <Link href="/about">
-              <Card className="h-full hover:shadow-md transition-all duration-200 hover:border-primary/50">
+              <Card className="h-full hover:shadow-md transition-[box-shadow,border-color] duration-200 ease-out hover:border-primary/50">
                 <CardContent className="pt-6">
                   <div className="flex items-start gap-3">
                     <ExternalLink className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />

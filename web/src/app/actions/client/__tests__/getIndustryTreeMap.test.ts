@@ -1,6 +1,6 @@
 /// <reference types="jest" />
 import { getIndustryTreeMapClient } from "../getIndustryTreeMap";
-import { ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { ViewMode } from "~/gen/shorts/v1alpha1/market_pb";
 
 describe("getIndustryTreeMapClient", () => {
   const originalFetch = global.fetch;

@@ -19,7 +19,7 @@ import { scaleLinear } from "@visx/scale";
 import { type IndustryTreeMap, IndustryTreeMapSchema } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { getIndustryTreeMapClient } from "../actions/client/getIndustryTreeMap";
 import { useRouter } from "next/navigation";
-import { ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { ViewMode } from "~/gen/shorts/v1alpha1/market_pb";
 import { Skeleton } from "~/@/components/ui/skeleton";
 import { TreemapTooltip } from "~/@/components/widgets/treemap-tooltip";
 import { cn } from "~/@/lib/utils";
@@ -382,7 +382,7 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
                                 <rect
                                   width={nodeWidth}
                                   height={nodeHeight}
-                                  stroke="#114b5f"
+                                  stroke="hsl(var(--border))"
                                   fill={colorScale(node.value ?? 0)}
                                   pointerEvents={"all"}
                                   cursor={"pointer"}

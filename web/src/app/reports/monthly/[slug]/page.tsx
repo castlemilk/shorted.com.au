@@ -1,4 +1,6 @@
 import { type Metadata } from "next";
+import { cn } from "~/@/lib/utils";
+import { pageTitle, sectionTitle, eyebrow } from "~/@/lib/typography";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -96,9 +98,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       siteName: siteConfig.name,
       type: "article",
       locale: "en_AU",
+      // NO `images` key on purpose: this route ships its own
+      // opengraph-image.tsx rendering the month's real data, and an explicit
+      // `images` here SHADOWS the file convention. It used to point at the
+      // generic /reports card, so the bespoke generator was dead code.
       images: [
         {
-          url: `${siteConfig.url}/reports/opengraph-image`,
+          url: `${siteConfig.url}/reports/monthly/${slug}/opengraph-image`,
           width: 1200,
           height: 630,
           alt: `ASX Short Selling Monthly Report — ${monthTitle}`,
@@ -109,7 +115,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       card: "summary_large_image",
       title,
       description,
-      images: [`${siteConfig.url}/reports/opengraph-image`],
+      images: [`${siteConfig.url}/reports/monthly/${slug}/opengraph-image`],
     },
     alternates: {
       canonical: `${siteConfig.url}/reports/monthly/${slug}`,
@@ -187,11 +193,27 @@ export default async function MonthlyReportPage({ params }: PageProps) {
     .replace(/\s+/g, " ")
     .trim() || undefined;
 
+  // Publication date: the last ASIC data date covered by the report, falling
+  // back to the last calendar day of the month when market data is lagging.
+  // Google drops Article rich results entirely without a datePublished.
+  const monthEndDate =
+    data.dates[data.dates.length - 1] ??
+    (() => {
+      const [y, m] = slug.split("-").map(Number);
+      if (!y || !m) return undefined;
+      return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+    })();
+
   const articleSchema = hasNarrative ? {
     "@context": "https://schema.org",
     "@type": "Article",
     headline: enhanced?.headline ?? `ASX Short Selling Report: ${monthTitle}`,
     description: cleanSummary,
+    ...(monthEndDate
+      ? { datePublished: monthEndDate, dateModified: monthEndDate }
+      : {}),
+    inLanguage: "en-AU",
+    isAccessibleForFree: true,
     // Organization author only — "Shorted AI Research" is not a Person, and
     // Google's guidance requires author to accurately represent authorship.
     author: [
@@ -205,7 +227,7 @@ export default async function MonthlyReportPage({ params }: PageProps) {
       "@type": "Organization",
       name: siteConfig.name,
       url: siteConfig.url,
-      logo: { "@type": "ImageObject", url: `${siteConfig.url}/logo.png`, width: 512, height: 512 },
+      logo: { "@type": "ImageObject", url: siteConfig.logo.url, width: siteConfig.logo.width, height: siteConfig.logo.height },
     },
     isPartOf: {
       "@type": "CreativeWorkSeries",
@@ -251,10 +273,10 @@ export default async function MonthlyReportPage({ params }: PageProps) {
 
         {/* Hero */}
         <section className="border-b border-border/40 pb-8">
-          <p className="mb-3 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          <p className={cn(eyebrow, "mb-3 font-medium")}>
             Monthly Report · {monthTitle}
           </p>
-          <h1 className="font-serif text-3xl font-semibold leading-[1.1] tracking-tight md:text-4xl">
+          <h1 className={cn(pageTitle, "leading-[1.1]")}>
             {hasNarrative ? enhanced.headline : "Monthly Short Selling Report"}
           </h1>
           {hasNarrative && enhanced.summary && (
@@ -319,7 +341,7 @@ export default async function MonthlyReportPage({ params }: PageProps) {
         {/* Opening Analysis */}
         {hasNarrative && enhanced.narrative.openingHook && (
           <section className="border-l-2 border-border pl-5 md:pl-6">
-            <h2 className="mb-3 font-serif text-2xl font-semibold tracking-tight">
+            <h2 className={cn(sectionTitle, "mb-3")}>
               This Month&apos;s Analysis
             </h2>
             <p className="max-w-prose text-[15px] leading-7 text-foreground/90">
@@ -395,7 +417,7 @@ export default async function MonthlyReportPage({ params }: PageProps) {
         {/* Movers Analysis */}
         {hasNarrative && enhanced.narrative.moversAnalysis && (
           <section className="border-l-2 border-border pl-5 md:pl-6">
-            <h2 className="mb-3 font-serif text-2xl font-semibold tracking-tight">
+            <h2 className={cn(sectionTitle, "mb-3")}>
               Movers Analysis
             </h2>
             <p className="max-w-prose text-[15px] leading-7 text-foreground/80">
@@ -423,7 +445,7 @@ export default async function MonthlyReportPage({ params }: PageProps) {
         {/* Outlook */}
         {hasNarrative && enhanced.narrative.outlook && (
           <section className="border-t border-border/40 pt-6">
-            <h2 className="mb-3 font-serif text-2xl font-semibold tracking-tight">
+            <h2 className={cn(sectionTitle, "mb-3")}>
               Outlook
             </h2>
             <p className="max-w-prose text-[15px] leading-7 text-foreground/80">

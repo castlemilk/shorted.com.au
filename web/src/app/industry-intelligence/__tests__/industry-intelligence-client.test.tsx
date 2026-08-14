@@ -23,6 +23,20 @@ jest.mock("~/@/components/industry/industry-charts", () => {
   };
 });
 
+jest.mock(
+  "~/@/components/industry/industry-economy-context-loader",
+  () => ({
+    IndustryEconomyContext: ({ industryName }: { industryName: string }) => (
+      <div data-testid="industry-economy-context">{industryName} economy context</div>
+    ),
+  }),
+  { virtual: true },
+);
+
+jest.mock("~/@/components/housing/when-visible", () => ({
+  WhenVisible: ({ children }: { children: React.ReactNode }) => children,
+}));
+
 jest.mock("~/@/hooks/use-subscription", () => ({
   useSubscription: () => ({
     isPremium: false,
@@ -131,6 +145,31 @@ describe("IndustryIntelligenceClient", () => {
     expect(
       panel.queryByRole("link", { name: /MIN.*MIN Limited/ }),
     ).not.toBeInTheDocument();
+  });
+
+  it("keeps the economy context synced to the selected industry", () => {
+    render(
+      <IndustryIntelligenceClient
+        stories={[
+          story("materials", "Materials", "MIN"),
+          story("health-care", "Health Care", "CSL"),
+        ]}
+      />,
+    );
+
+    expect(screen.getByTestId("industry-economy-context")).toHaveTextContent(
+      "Materials economy context",
+    );
+
+    fireEvent.click(
+      within(screen.getByTestId("industry-sidenav")).getByRole("button", {
+        name: /Health Care/,
+      }),
+    );
+
+    expect(screen.getByTestId("industry-economy-context")).toHaveTextContent(
+      "Health Care economy context",
+    );
   });
 
   it("renders the overview workspace without placeholder channels", () => {

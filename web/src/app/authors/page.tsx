@@ -1,4 +1,5 @@
 import { type Metadata } from "next";
+import { pageTitle } from "~/@/lib/typography";
 import Link from "next/link";
 import { Users } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
@@ -84,7 +85,7 @@ export default function AuthorsIndexPage() {
           <Users className="h-5 w-5 text-primary" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
+          <h1 className={pageTitle}>
             Authors & Contributors
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -101,7 +102,7 @@ export default function AuthorsIndexPage() {
           <li key={a.slug}>
             <Link
               href={`/authors/${a.slug}`}
-              className="group block rounded-xl border bg-card p-5 transition-all hover:border-primary/40 hover:shadow-md"
+              className="group block rounded-xl border bg-card p-5 transition-[border-color,box-shadow] duration-200 ease-out hover:border-primary/40 hover:shadow-md"
             >
               <div className="flex items-start gap-4">
                 {a.photoUrl ? (

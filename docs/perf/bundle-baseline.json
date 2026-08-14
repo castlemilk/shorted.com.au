@@ -1,0 +1,431 @@
+{
+  "capturedAt": "2026-07-22T03:22:15.588Z",
+  "gitRef": null,
+  "unit": "kB (Next First Load JS, raw)",
+  "sharedByAllKB": 95.4,
+  "routes": {
+    "/": {
+      "firstLoadKB": 167
+    },
+    "/_not-found": {
+      "firstLoadKB": 95.6
+    },
+    "/about": {
+      "firstLoadKB": 122
+    },
+    "/admin": {
+      "firstLoadKB": 138
+    },
+    "/admin/broadcasts": {
+      "firstLoadKB": 107
+    },
+    "/admin/enrichments": {
+      "firstLoadKB": 143
+    },
+    "/admin/takes": {
+      "firstLoadKB": 103
+    },
+    "/admin/takes/[slug]": {
+      "firstLoadKB": 590
+    },
+    "/alerts": {
+      "firstLoadKB": 128
+    },
+    "/api/about/statistics": {
+      "firstLoadKB": 0
+    },
+    "/api/about/warm-cache": {
+      "firstLoadKB": 0
+    },
+    "/api/admin/flush-cache": {
+      "firstLoadKB": 0
+    },
+    "/api/admin/regen-hero": {
+      "firstLoadKB": 0
+    },
+    "/api/agent/api-catalog": {
+      "firstLoadKB": 0
+    },
+    "/api/agent/mcp-server-card": {
+      "firstLoadKB": 0
+    },
+    "/api/auth/[...nextauth]": {
+      "firstLoadKB": 0
+    },
+    "/api/chat": {
+      "firstLoadKB": 0
+    },
+    "/api/community/[stockCode]/pulse": {
+      "firstLoadKB": 0
+    },
+    "/api/community/[stockCode]/pulse/[pulseId]/replies": {
+      "firstLoadKB": 0
+    },
+    "/api/community/[stockCode]/summary": {
+      "firstLoadKB": 0
+    },
+    "/api/community/[stockCode]/threads": {
+      "firstLoadKB": 0
+    },
+    "/api/community/[stockCode]/threads/[threadId]": {
+      "firstLoadKB": 0
+    },
+    "/api/community/[stockCode]/threads/[threadId]/comments": {
+      "firstLoadKB": 0
+    },
+    "/api/community/reports": {
+      "firstLoadKB": 0
+    },
+    "/api/community/votes": {
+      "firstLoadKB": 0
+    },
+    "/api/docs": {
+      "firstLoadKB": 95.6
+    },
+    "/api/email/img": {
+      "firstLoadKB": 0
+    },
+    "/api/health": {
+      "firstLoadKB": 0
+    },
+    "/api/homepage/warm-cache": {
+      "firstLoadKB": 0
+    },
+    "/api/market-data/correlations": {
+      "firstLoadKB": 0
+    },
+    "/api/market-data/historical": {
+      "firstLoadKB": 0
+    },
+    "/api/market-data/multiple-quotes": {
+      "firstLoadKB": 0
+    },
+    "/api/mcp/[transport]": {
+      "firstLoadKB": 0
+    },
+    "/api/og/twitter/[type]": {
+      "firstLoadKB": 0
+    },
+    "/api/pages/warm-cache": {
+      "firstLoadKB": 0
+    },
+    "/api/revalidate": {
+      "firstLoadKB": 0
+    },
+    "/api/search/stocks": {
+      "firstLoadKB": 0
+    },
+    "/api/static-pages/warm-cache": {
+      "firstLoadKB": 0
+    },
+    "/api/stocks/multiple": {
+      "firstLoadKB": 0
+    },
+    "/api/stripe/checkout": {
+      "firstLoadKB": 0
+    },
+    "/api/stripe/portal": {
+      "firstLoadKB": 0
+    },
+    "/api/stripe/webhook": {
+      "firstLoadKB": 0
+    },
+    "/api/unsubscribe": {
+      "firstLoadKB": 0
+    },
+    "/api/version": {
+      "firstLoadKB": 0
+    },
+    "/api/warm-pages": {
+      "firstLoadKB": 0
+    },
+    "/authors": {
+      "firstLoadKB": 132
+    },
+    "/authors/[slug]": {
+      "firstLoadKB": 132
+    },
+    "/battlegrounds": {
+      "firstLoadKB": 198
+    },
+    "/blog": {
+      "firstLoadKB": 116
+    },
+    "/blog/[slug]": {
+      "firstLoadKB": 119
+    },
+    "/blog/[slug]/llm": {
+      "firstLoadKB": 0
+    },
+    "/blog/[slug]/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/chat": {
+      "firstLoadKB": 720
+    },
+    "/chat.v1.ChatService/[method]": {
+      "firstLoadKB": 0
+    },
+    "/compare": {
+      "firstLoadKB": 104
+    },
+    "/compare/[pair]": {
+      "firstLoadKB": 104
+    },
+    "/dashboards": {
+      "firstLoadKB": 265
+    },
+    "/data": {
+      "firstLoadKB": 132
+    },
+    "/developer": {
+      "firstLoadKB": 120
+    },
+    "/directory": {
+      "firstLoadKB": 137
+    },
+    "/directory/[letter]": {
+      "firstLoadKB": 137
+    },
+    "/disclaimer": {
+      "firstLoadKB": 104
+    },
+    "/docs/api": {
+      "firstLoadKB": 125
+    },
+    "/docs/api-reference": {
+      "firstLoadKB": 0
+    },
+    "/docs/api/[endpoint]": {
+      "firstLoadKB": 115
+    },
+    "/docs/api/clients/[language]": {
+      "firstLoadKB": 103
+    },
+    "/docs/llm-context": {
+      "firstLoadKB": 103
+    },
+    "/docs/llm-context-raw": {
+      "firstLoadKB": 0
+    },
+    "/e2e-chat-render": {
+      "firstLoadKB": 590
+    },
+    "/economy": {
+      "firstLoadKB": 132
+    },
+    "/economy/[state]": {
+      "firstLoadKB": 132
+    },
+    "/embed/bank-basket": {
+      "firstLoadKB": 97.1
+    },
+    "/embed/chart": {
+      "firstLoadKB": 97
+    },
+    "/embed/top-shorts": {
+      "firstLoadKB": 174
+    },
+    "/embed/treemap": {
+      "firstLoadKB": 97
+    },
+    "/faq": {
+      "firstLoadKB": 138
+    },
+    "/features/the-widow-maker": {
+      "firstLoadKB": 104
+    },
+    "/features/the-widow-maker/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/feed.xml": {
+      "firstLoadKB": 0
+    },
+    "/glossary": {
+      "firstLoadKB": 131
+    },
+    "/glossary/[term]": {
+      "firstLoadKB": 132
+    },
+    "/housing": {
+      "firstLoadKB": 132
+    },
+    "/housing/[state]": {
+      "firstLoadKB": 160
+    },
+    "/housing/[state]/[suburb]": {
+      "firstLoadKB": 172
+    },
+    "/housing/[state]/[suburb]/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/housing/calculators": {
+      "firstLoadKB": 131
+    },
+    "/housing/drops": {
+      "firstLoadKB": 95.6
+    },
+    "/housing/property/[addressKey]": {
+      "firstLoadKB": 160
+    },
+    "/industry": {
+      "firstLoadKB": 136
+    },
+    "/industry-intelligence": {
+      "firstLoadKB": 153
+    },
+    "/industry/[slug]": {
+      "firstLoadKB": 136
+    },
+    "/industry/[slug]/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/industry/[slug]/twitter-image": {
+      "firstLoadKB": 0
+    },
+    "/insider-trading": {
+      "firstLoadKB": 132
+    },
+    "/insider-trading/[stockCode]": {
+      "firstLoadKB": 132
+    },
+    "/learn": {
+      "firstLoadKB": 131
+    },
+    "/learn/[slug]": {
+      "firstLoadKB": 132
+    },
+    "/market": {
+      "firstLoadKB": 132
+    },
+    "/market/[date]": {
+      "firstLoadKB": 132
+    },
+    "/methodology": {
+      "firstLoadKB": 104
+    },
+    "/metrics": {
+      "firstLoadKB": 118
+    },
+    "/news": {
+      "firstLoadKB": 138
+    },
+    "/news/[slug]": {
+      "firstLoadKB": 299
+    },
+    "/news/[slug]/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/news/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/portfolio": {
+      "firstLoadKB": 142
+    },
+    "/price-drops": {
+      "firstLoadKB": 131
+    },
+    "/pricing": {
+      "firstLoadKB": 160
+    },
+    "/privacy": {
+      "firstLoadKB": 111
+    },
+    "/pulse": {
+      "firstLoadKB": 125
+    },
+    "/reports": {
+      "firstLoadKB": 137
+    },
+    "/reports/monthly/[slug]": {
+      "firstLoadKB": 137
+    },
+    "/reports/monthly/[slug]/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/reports/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/reports/weekly/[slug]": {
+      "firstLoadKB": 138
+    },
+    "/reports/weekly/[slug]/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/reports/yearly/[slug]": {
+      "firstLoadKB": 137
+    },
+    "/reports/yearly/[slug]/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/roadmap": {
+      "firstLoadKB": 110
+    },
+    "/robots.txt": {
+      "firstLoadKB": 0
+    },
+    "/scans": {
+      "firstLoadKB": 132
+    },
+    "/scans/[slug]": {
+      "firstLoadKB": 132
+    },
+    "/screener": {
+      "firstLoadKB": 236
+    },
+    "/search": {
+      "firstLoadKB": 132
+    },
+    "/seasonality": {
+      "firstLoadKB": 104
+    },
+    "/shorts": {
+      "firstLoadKB": 187
+    },
+    "/shorts/[stockCode]": {
+      "firstLoadKB": 312
+    },
+    "/shorts/[stockCode]/community/[threadId]": {
+      "firstLoadKB": 134
+    },
+    "/shorts/[stockCode]/news": {
+      "firstLoadKB": 138
+    },
+    "/shorts/[stockCode]/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/signin": {
+      "firstLoadKB": 161
+    },
+    "/signup": {
+      "firstLoadKB": 162
+    },
+    "/sitemap.xml": {
+      "firstLoadKB": 0
+    },
+    "/statistics": {
+      "firstLoadKB": 132
+    },
+    "/stocks": {
+      "firstLoadKB": 206
+    },
+    "/subscribe/success": {
+      "firstLoadKB": 108
+    },
+    "/technology": {
+      "firstLoadKB": 119
+    },
+    "/terms": {
+      "firstLoadKB": 104
+    },
+    "/top": {
+      "firstLoadKB": 156
+    },
+    "/unsubscribe": {
+      "firstLoadKB": 96.3
+    }
+  }
+}

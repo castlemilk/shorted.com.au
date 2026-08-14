@@ -1,0 +1,609 @@
+syntax = "proto3";
+
+package shorts.v1alpha1;
+
+option go_package = "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1";
+
+import "google/protobuf/timestamp.proto";
+import "options/v1/options.proto";
+
+service HousingService {
+  // Latest house-price headline metrics by region (national/state/capital city).
+  rpc GetHousingOverview (GetHousingOverviewRequest) returns (GetHousingOverviewResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // A single house-price time series for a region and measure.
+  rpc GetHousePriceSeries (GetHousePriceSeriesRequest) returns (GetHousePriceSeriesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // List all suburbs in a state with latest median price + key demographics.
+  rpc ListStateSuburbs (ListStateSuburbsRequest) returns (ListStateSuburbsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Full per-suburb profile: identity, demographics, headline price, comparison baselines.
+  rpc GetSuburbProfile (GetSuburbProfileRequest) returns (GetSuburbProfileResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // List house-price regions (suburbs/LGAs/etc) for the suburb explorer.
+  rpc ListHousingRegions (ListHousingRegionsRequest) returns (ListHousingRegionsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Suburbs ranked by recent for-sale asking-price drops.
+  rpc ListSuburbPriceDrops (ListSuburbPriceDropsRequest) returns (ListSuburbPriceDropsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Individual recently-reduced listings for a suburb, deep-linking to the portal.
+  rpc ListSuburbDropListings (ListSuburbDropListingsRequest) returns (ListSuburbDropListingsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Full price timeline for a single physical address, across all its listings.
+  rpc GetPropertyHistory (GetPropertyHistoryRequest) returns (GetPropertyHistoryResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Individual physical addresses ranked by their asking-price drop over a window.
+  rpc ListAddressPriceDrops (ListAddressPriceDropsRequest) returns (ListAddressPriceDropsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // State-level price-drop + listing-price rollup, plus a national summary row.
+  rpc GetPriceDropsOverview (GetPriceDropsOverviewRequest) returns (GetPriceDropsOverviewResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Agencies ranked by recent asking-price cuts across their listings.
+  rpc ListAgencyPriceStats (ListAgencyPriceStatsRequest) returns (ListAgencyPriceStatsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+}
+
+// ── Housing (house-price tracker) ────────────────────────────────────────────
+
+message GetHousingOverviewRequest {
+  // Filter to one region_type ('national'|'state'|'gccsa'); empty = all key regions.
+  string region_type = 1;
+}
+
+// Latest observation for a region × measure with QoQ/YoY change (from mv_housing_headline).
+message HousingMetric {
+  string region_code = 1;       // 'AUS' | 'NSW' | '1GSYD'
+  string region_name = 2;
+  string region_type = 3;       // 'national' | 'state' | 'gccsa'
+  string state_code = 4;
+  string measure = 5;           // 'mean_price' | 'median_price' | 'price_index' | 'debt_to_income'
+  string dwelling_type = 6;     // 'all' | 'established_house' | 'attached'
+  double value = 7;
+  string unit = 8;              // 'AUD' | 'index' | 'ratio'
+  google.protobuf.Timestamp period = 9;
+  bool is_preliminary = 10;
+  double qoq_pct = 11;
+  double yoy_pct = 12;
+}
+
+message GetHousingOverviewResponse {
+  repeated HousingMetric metrics = 1;
+  google.protobuf.Timestamp as_of = 2;
+}
+
+message GetHousePriceSeriesRequest {
+  string region_code = 1;       // 'AUS' | 'NSW' | '1GSYD'
+  string measure = 2;           // 'mean_price' | 'median_price' | 'price_index' | 'debt_to_income'
+  string dwelling_type = 3;     // optional; default 'all'
+}
+
+message HousePricePoint {
+  google.protobuf.Timestamp period = 1;
+  double value = 2;
+  bool is_preliminary = 3;
+}
+
+message GetHousePriceSeriesResponse {
+  string region_code = 1;
+  string region_name = 2;
+  string measure = 3;
+  string dwelling_type = 4;
+  string unit = 5;
+  string source = 6;
+  string source_licence = 7;
+  repeated HousePricePoint points = 8;
+}
+
+message ListStateSuburbsRequest {
+  string state_code = 1; // 'NSW' | 'VIC' | ... (required)
+  string query = 2;      // optional case-insensitive name substring
+  int32 limit = 3;       // optional; default 5000
+}
+
+// One suburb summary for the map + list (keyed by ABS SAL code).
+// Per-suburb amenity counts + derived lifestyle indices (Local Insights).
+// OSM-derived counts (ODbL Produced Work) + ACARA/GA sources; see the
+// Local Insights design doc.
+message SuburbAmenities {
+  int32  schools_total = 1;
+  int32  supermarkets_total = 2;
+  int32  coles_count = 3;
+  int32  woolworths_count = 4;
+  int32  aldi_count = 5;
+  int32  iga_count = 6;
+  int32  pubs_bars = 7;
+  int32  parks_count = 8;
+  int32  libraries_count = 9;
+  double nearest_supermarket_km = 10;
+  double amenity_density_score = 11;        // 0..100
+  int32  hospitals_count = 12;
+  int32  gp_count = 13;                      // general practices
+  int32  pharmacy_count = 14;
+  double nearest_train_km = 15;             // nearest railway station
+  double nearest_hospital_km = 16;
+  double dist_to_coast_km = 17;             // straight-line km to the national coastline
+  // School sector/type split (per-state CC-BY open data; 0 until ingested).
+  int32  schools_gov = 18;                   // government schools
+  int32  schools_catholic = 19;              // Catholic-sector schools
+  int32  schools_independent = 20;           // Independent-sector schools
+  int32  schools_primary = 21;               // primary (incl. combined)
+  int32  schools_secondary = 22;             // secondary (incl. combined)
+  double nearest_secondary_km = 23;          // nearest secondary school
+}
+
+message SuburbSummary {
+  string sal_code = 1;
+  string sal_name = 2;
+  string state_code = 3;
+  string postcode = 4;
+  double latest_median_price = 5;            // 0 if no price data
+  google.protobuf.Timestamp latest_period = 6;
+  double yoy_pct = 7;
+  int32  population = 8;
+  double median_age = 9;
+  double median_weekly_hhd_income = 10;
+  string region_code = 11;                   // priced-region code (for the price series), '' if unpriced
+  // Cultural demographics for the map's "highlight" toggle (ABS Census 2021).
+  double pct_born_overseas = 12;             // 0..100
+  string top_religion = 13;                  // dominant religious affiliation, '' if none
+  string top_language = 14;                  // top language other than English at home, '' if none
+  double pct_top_language = 15;              // 0..100 share speaking top_language
+  // Federal electoral representation (AEC 2025 election), spatially joined.
+  string federal_division = 16;              // Commonwealth Electoral Division
+  string federal_member = 17;                // sitting House of Reps member
+  string federal_party = 18;                 // member's party (full name)
+  string federal_party_ab = 19;              // party abbreviation (palette key)
+  double federal_tpp_alp = 20;               // 0..100 Labor two-party-preferred %
+  string state_district = 21;                // ABS State Electoral Division
+  string state_member = 22;                  // state lower-house member ('' for Hare-Clark TAS/ACT)
+  string state_party = 23;                   // state member's party (full name)
+  string state_party_ab = 24;                // state party abbreviation (palette key)
+  // Amenity/lifestyle metrics (Local Insights); null/absent until ingested.
+  SuburbAmenities amenities = 25;
+  // NBN connectivity (Local Insights); '' until ingested.
+  string dominant_nbn_tech = 26;             // Fixed Line | Fixed Wireless | Satellite
+  double connectivity_quality_score = 27;    // 0..100 (tech-tier proxy)
+  // Crime percentile ranks (0..100, higher = more reported crime; latest
+  // 2-yr-pooled FY, CVS-adjusted). 0 = no data — pct_rank is strictly > 0
+  // whenever a reliable observation exists. Small-population and
+  // statistically-unreliable suburbs are gated server-side
+  // (mv_suburb_crime_latest) and read as no-data. NSW (BOCSAR) only in
+  // Phase 1; uncovered states/TAS/NT stay 0. CC-BY sources.
+  //
+  // The rank is population-weighted WITHIN THE SUBURB'S OWN STATE, never across
+  // states: each police force counts offences under its own rules, so a
+  // cross-jurisdiction pool would compare incomparable counts. Read "82nd
+  // percentile" as "82nd of that state", and label it that way in any client.
+  double crime_break_ins_rank = 28;
+  double crime_violent_rank = 29;
+  double crime_motor_vehicle_rank = 30;
+  // Field 31 is reserved by convention for crime_property_damage_rank once a
+  // CVS anchor exists; do not use 31 for anything else.
+
+  // Properties declared in the federal Registers of Members'/Senators'
+  // Interests that resolve to this suburb. A COUNT of declarations — the
+  // registers record what is held, never quantity or value.
+  //
+  // A scalar rather than a nested message on purpose: the map needs a value for
+  // every suburb in a state (~5,000 rows per request), and a message would drag
+  // the politicians descriptor into the hot /housing/[state] route bundle.
+  int32 politician_property_count = 31;
+}
+
+message ListStateSuburbsResponse {
+  repeated SuburbSummary suburbs = 1;
+}
+
+message GetSuburbProfileRequest {
+  string sal_code = 1; // required
+}
+
+message SuburbDemographics {
+  int32  population = 1;
+  double median_age = 2;
+  double median_weekly_hhd_income = 3;
+  double median_weekly_per_income = 4;
+  double median_weekly_rent = 5;
+  double median_monthly_mortgage = 6;
+  double pct_owned_outright = 7;
+  double pct_owned_mortgage = 8;
+  double pct_rented = 9;
+  int32  dwelling_count = 10;
+  int32  census_year = 11;
+  // Cultural demographics (ABS Census 2021: G01 birthplace/language, G13, G14).
+  double pct_born_overseas = 12;             // 0..100
+  double pct_english_only = 13;              // 0..100 (speaks English only at home)
+  string top_religion = 14;                  // dominant religious affiliation
+  double pct_top_religion = 15;              // 0..100 share of the dominant religion
+  double pct_no_religion = 16;               // 0..100 ("No religion")
+  string top_language = 17;                  // top language other than English at home
+  double pct_top_language = 18;              // 0..100 share speaking top_language
+}
+
+// State + national reference medians for the profile's comparison bars.
+message ComparisonBaselines {
+  double state_median_price = 1;
+  double national_median_price = 2;
+  double state_median_weekly_hhd_income = 3;
+  double national_median_weekly_hhd_income = 4;
+}
+
+// Local Government Area (council) a suburb belongs to (Local Insights, W2).
+message LgaInfo {
+  string lga_code = 1;
+  string lga_name = 2;
+  string state_code = 3;
+  double area_sqkm = 4;
+  int32  population = 5;            // summed from member-suburb Census populations
+  double fed_fag_aud = 6;          // federal Financial Assistance Grant (latest yr), AUD; 0 if unmatched
+  string fed_fag_year = 7;         // e.g. '2025-26'
+  // Per-council financials (VIC LGPRF, CC-BY; 0/'' for states not yet sourced).
+  double avg_rates = 8;            // average rate per property assessment, AUD
+  double op_surplus_ratio = 9;     // adjusted underlying (operating) result, % (negative = deficit)
+  double asset_renewal_ratio = 10; // asset renewal + upgrade vs depreciation, %
+  string fin_source = 11;          // financials provenance ('vic_lgprf'), '' if none
+  string fin_year = 12;            // financials reporting year, e.g. '2024-25'
+}
+
+// A suburb with a similar demographic + amenity profile (feature-vector kNN).
+message SimilarSuburb {
+  string sal_code = 1;
+  string sal_name = 2;
+  string state_code = 3;
+  double latest_median_price = 4;   // 0 if unpriced
+  double similarity = 5;            // 0..1 (1 = near-identical profile)
+  string region_code = 6;
+}
+
+// A notable landmark shown in the suburb banner.
+message SuburbLandmark {
+  string name = 1;
+  string kind = 2;
+}
+
+// Editorial banner header for the suburb profile page.
+message SuburbBanner {
+  string archetype = 1;                    // classified/refined archetype id
+  string blurb = 2;                        // editorial one-liner (also page copy)
+  repeated SuburbLandmark landmarks = 3;
+  string bg_key = 4;                       // library asset key (defaults to archetype)
+  string bg_url = 5;                       // bespoke background override (optional)
+}
+
+// Latest reliable crime observation for one crime type (2-yr pooled,
+// CVS-adjusted; small_pop/unreliable rows are gated out server-side).
+message SuburbCrimeStat {
+  string crime_type = 1;       // 'break_ins' | 'violent' | 'motor_vehicle' (+ future types)
+  double rate_per_100k = 2;    // adjusted offences per 100k residents (can be 0)
+  double pct_rank = 3;         // 0..100 national pop-weighted percentile; > 0 always
+  int32 fy_ending = 4;         // 2025 = FY2024-25 (end year of the pooled window)
+}
+
+// Per-suburb crime block. Message absent (null) = no reliable data for this
+// suburb (uncovered state, TAS/NT, or gated small_pop/unreliable).
+message SuburbCrime {
+  repeated SuburbCrimeStat stats = 1;
+  string source_jurisdiction = 2;  // 'NSW'
+  string source = 3;               // 'bocsar'
+  string source_licence = 4;       // 'CC-BY-4.0'
+}
+
+message GetSuburbProfileResponse {
+  SuburbSummary summary = 1;
+  SuburbDemographics demographics = 2;
+  ComparisonBaselines baselines = 3;
+  LgaInfo council = 4;              // council this suburb sits in ('' if unmatched)
+  repeated SimilarSuburb similar = 5; // most-similar suburbs nationally (knowledge graph)
+  SuburbBanner banner = 6;          // editorial banner header (archetype, blurb, landmarks)
+  SuburbCrime crime = 7;             // null when the suburb has no gated crime data
+}
+
+message ListHousingRegionsRequest {
+  string region_type = 1; // optional filter, e.g. 'suburb' | 'gccsa' | 'state'
+  string state_code = 2;  // optional filter, e.g. 'SA' | 'VIC'
+  string query = 3;       // optional case-insensitive name substring
+  int32 limit = 4;        // optional; default 2000
+}
+
+// A selectable house-price region (for the suburb explorer).
+message HousingRegion {
+  string region_code = 1; // 'SUBURB:VIC-RICHMOND' | 'AUS' | '1GSYD'
+  string region_name = 2;
+  string region_type = 3; // 'national' | 'state' | 'gccsa' | 'suburb' | 'lga'
+  string state_code = 4;
+  string postcode = 5;
+  double latest_value = 6;                  // latest median_price (0 if none)
+  google.protobuf.Timestamp latest_period = 7;
+}
+
+message ListHousingRegionsResponse {
+  repeated HousingRegion regions = 1;
+}
+
+message ListSuburbPriceDropsRequest {
+  string state_code = 1;   // optional filter, e.g. 'NSW'; '' = national
+  int32  window_days = 2;  // reserved; the aggregate uses a fixed rolling window
+  string sort = 3;         // optional: 'count' (default) | 'avg' | 'max'
+  int32  limit = 4;        // optional; default 50
+}
+
+// A suburb's aggregate price-drop signal over the rolling window (derived; the
+// underlying listings are ToS-restricted and never republished here).
+message SuburbPriceDrop {
+  string region_code = 1;
+  string sal_code = 2;                 // ABS SAL code (for the suburb page link), '' if unlinked
+  string sal_name = 3;
+  string state_code = 4;
+  int32  dropped_listing_count = 5;    // listings that cut their asking price
+  double avg_drop_pct = 6;             // 0..1 fraction (0.06 == a 6% average reduction)
+  double median_drop_pct = 7;
+  double max_drop_pct = 8;
+  double max_drop_abs = 9;             // largest single reduction, AUD
+  int32  total_active_listings = 10;
+  double dropped_share = 11;           // dropped_listing_count / total_active_listings
+  string postcode = 12;                // for the canonical suburb-page URL
+  // Per-suburb listing-price aggregates (mv_suburb_listing_stats).
+  int32  for_sale_count = 13;          // active for-sale listings
+  double avg_asking = 14;              // mean asking price of priced for-sale listings, AUD (0 if none)
+  double median_asking = 15;           // median asking price, AUD
+  int32  sold_count = 16;              // recent sold listings captured
+  double avg_sold = 17;                // mean sold price, AUD (0 if none)
+  double median_sold = 18;             // median sold price, AUD
+  double dropped_value = 19;           // summed AUD reductions across dropped addresses
+}
+
+message ListSuburbPriceDropsResponse {
+  repeated SuburbPriceDrop suburbs = 1;
+}
+
+message ListSuburbDropListingsRequest {
+  string sal_code = 1;     // one of sal_code or region_code is required
+  string region_code = 2;
+  int32  window_days = 3;  // optional; default 30
+  int32  limit = 4;        // optional; default 30
+}
+
+// One recently-reduced listing, deep-linking OUT to the live portal page.
+message SuburbDropListing {
+  string source = 1;               // 'rea' | 'domain'
+  string listing_url = 2;          // deep link to the live portal listing
+  string display_address = 3;
+  string property_type = 4;
+  int32  bedrooms = 5;
+  int32  bathrooms = 6;
+  int32  car_spaces = 7;
+  double prev_price = 8;           // AUD before the reduction
+  double price = 9;                // AUD current asking
+  double drop_pct = 10;            // 0..1 fraction
+  double drop_abs = 11;            // AUD reduction
+  google.protobuf.Timestamp observed_at = 12;  // when the reduction was detected
+  string address_key = 13;         // stable per-address key → /housing/property/[addressKey] (empty until backfilled)
+  string agency_name = 14;         // marketing agency ('' when not captured)
+  repeated string agent_names = 15; // listing agents ('' when not captured)
+}
+
+message ListSuburbDropListingsResponse {
+  repeated SuburbDropListing listings = 1;
+}
+
+message GetPropertyHistoryRequest {
+  string address_key = 1;
+}
+
+// The current listing at an address — the most-recent active one, or the
+// most-recent overall if none are active.
+message PropertyListingSnapshot {
+  string source = 1;               // 'rea' | 'domain'
+  string listing_id = 2;           // portal advert id
+  string listing_url = 3;          // deep link to the live portal listing
+  double price = 4;                // canonical numeric ask (0 if unknown)
+  string price_display = 5;        // raw string as shown on the portal
+  string price_kind = 6;           // fixed|range_low|range_high|offers_over|auction|poa|unknown
+  string listing_status = 7;       // for_sale|under_offer|sold|withdrawn|unknown
+  bool is_active = 8;
+  int32 bedrooms = 9;
+  int32 bathrooms = 10;
+  int32 car_spaces = 11;
+  double land_size_sqm = 12;
+  string property_type = 13;
+  string first_seen_at = 14;       // RFC3339
+  string last_seen_at = 15;        // RFC3339
+  string agency_name = 16;         // marketing agency ('' when not captured)
+  repeated string agent_names = 17; // listing agents ('' when not captured)
+}
+
+// One event in an address's price timeline (spans every listing/relist at
+// that address).
+message PropertyPriceEvent {
+  string observed_at = 1;          // RFC3339, the run timestamp
+  string event_type = 2;           // first_seen|price_drop|price_rise|relisted|status_change|delisted
+  string source = 3;               // 'rea' | 'domain'
+  string listing_id = 4;
+  double price = 5;
+  double prev_price = 6;
+  double drop_abs = 7;             // prev_price - price (positive == a drop)
+  double drop_pct = 8;             // fraction (0.062 == a 6.2% drop)
+  string listing_status = 9;
+  string prev_status = 10;
+}
+
+// Full price timeline for a single physical address (stable address_key),
+// across all its listings and relists. Derived from ToS-restricted listing
+// rows — deep-links OUT to the live portal page rather than reproducing the
+// listing; flag-gated the same way as ListSuburbDropListings.
+message GetPropertyHistoryResponse {
+  string address_key = 1;
+  string display_address = 2;
+  string suburb = 3;
+  string state_code = 4;
+  string postcode = 5;
+  PropertyListingSnapshot current = 6;   // most-recent active listing (or most-recent if none active)
+  repeated PropertyPriceEvent events = 7; // full timeline across ALL its listings, ordered observed_at asc
+  int32 num_listings = 8;                 // distinct source+listing_id at this address
+  double first_price = 9;
+  double current_price = 10;
+  // Distinct KNOWN bedroom counts seen under this address_key (NULL/0 excluded).
+  // >1 means the portal likely listed multiple differently-sized units of one
+  // building WITHOUT a unit number, so this timeline may blend more than one
+  // physical dwelling. Counting bedrooms (not raw bed/bath/type tuples) keeps
+  // cross-portal label noise from falsely flagging a single dwelling. A search-
+  // results crawl cannot recover the missing unit number, so the view warns
+  // instead of silently merging. See docs/feature/housing/architecture.md.
+  int32 distinct_dwellings = 11;
+  // AVM valuation for this address (property.com.au). Unset when none exists,
+  // fetch_status != 'ok', or HOUSING_VALUATIONS_ENABLED is off.
+  PropertyValuation valuation = 12;
+}
+
+// One historical sales/timeline event from the valuation source's property
+// profile (property.com.au timeline). Distinct from PropertyPriceEvent: these
+// are the portal's own transaction history (sold/listed/rented, potentially
+// decades back), not our crawl-observed asking-price events.
+message PropertyValuationSale {
+  string date = 1;        // ISO date 'YYYY-MM-DD' ('' when unparsed)
+  double price = 2;       // AUD; 0 = undisclosed (source omitted the figure)
+  string agency = 3;      // '' when not captured
+  string event_type = 4;  // source badge text, e.g. 'Sold' | 'Listed for sale' | 'Rented'
+}
+
+// AVM valuation snapshot for a physical address (property.com.au / PropTrack
+// AVM). DERIVED figures from a proprietary-tos-restricted source: the raw
+// harvested profile is never exposed; this surface deep-links OUT to the
+// source profile. Absent entirely when the address has no successful
+// valuation, or when the valuations kill switch is off.
+message PropertyValuation {
+  string source = 1;                 // 'property.com.au'
+  string profile_url = 2;            // deep link OUT to the source profile page
+  string fetched_at = 3;             // RFC3339 — AVMs are point-in-time; UI must show this
+  double estimate_low = 4;           // AVM range low, AUD (0 = not provided)
+  double estimate_mid = 5;           // AVM point estimate, AUD (0 = not provided)
+  double estimate_high = 6;          // AVM range high, AUD (0 = not provided)
+  string estimate_confidence = 7;    // source confidence string ('' when not exposed); free-form
+  // 'exact'    — the profile is the exact dwelling this address names
+  // 'building' — a unit whose own profile isn't indexed; this is the whole
+  //              BUILDING's AVM used as a fallback. Consumers MUST label it
+  //              "building estimate" and MUST NOT present it as unit-precise.
+  string valuation_granularity = 8;
+  double rent_estimate_mid = 9;      // weekly rent estimate, AUD (0 when not exposed)
+  int32  bedrooms = 10;              // 0 = unknown
+  int32  bathrooms = 11;
+  int32  car_spaces = 12;
+  double land_size_sqm = 13;         // 0 = unknown
+  double building_size_sqm = 14;     // floor area; 0 = unknown
+  int32  year_built = 15;            // 0 = unknown
+  string property_type = 16;         // '' = unknown
+  repeated PropertyValuationSale sales_history = 17;  // newest first
+}
+
+message ListAddressPriceDropsRequest {
+  string state_code = 1;   // optional filter, e.g. 'VIC' (empty = all states)
+  int32  window_days = 2;  // optional; default 90
+  int32  limit = 3;        // optional; default 50
+  string sort = 4;         // 'pct' (default) | 'abs' (biggest $ cut) | 'recent'
+}
+
+// One physical address (deduped by stable address_key) whose for-sale asking
+// price fell over the window, deep-linking to its per-address history page.
+message AddressPriceDrop {
+  string address_key = 1;
+  string display_address = 2;
+  string suburb = 3;
+  string state_code = 4;
+  string postcode = 5;
+  double first_price = 6;         // earliest observed price in the window, AUD
+  double current_price = 7;       // current active asking, AUD
+  double drop_abs = 8;            // first_price - current_price, AUD
+  double drop_pct = 9;            // fraction (0.062 == a 6.2% drop)
+  int32  num_listings = 10;       // distinct source+listing_id at this address
+  string latest_source = 11;      // 'rea' | 'domain'
+  string latest_listing_url = 12; // deep link to the live portal listing
+  string last_observed_at = 13;   // RFC3339, when the current listing was last seen
+  string property_type = 14;
+  int32  bedrooms = 15;
+  int32  bathrooms = 16;
+  string agency_name = 17;          // marketing agency of the current listing ('' when not captured)
+  repeated string agent_names = 18; // listing agents ('' when not captured)
+}
+
+message ListAddressPriceDropsResponse {
+  repeated AddressPriceDrop addresses = 1;
+}
+
+message GetPriceDropsOverviewRequest {}
+
+// State-grain rollup of the tracked listing corpus: recent asking-price
+// reductions plus asking/sold price aggregates. Derived aggregates only —
+// the underlying listings are ToS-restricted and never republished.
+message StatePriceDropSummary {
+  string state_code = 1;           // 'NSW'|'VIC'|... or 'AU' for the national row
+  int32  dropped_count = 2;        // physical addresses that cut asking price (30-day window, deduped)
+  double avg_drop_pct = 3;         // 0..1 fraction
+  double median_drop_pct = 4;
+  double max_drop_pct = 5;
+  double dropped_value = 6;        // summed AUD reductions across dropped addresses
+  int32  total_active_listings = 7;
+  double dropped_share = 8;        // dropped_count / total_active_listings
+  int32  for_sale_count = 9;       // active for-sale listings
+  int32  for_sale_priced = 10;     // subset with a numeric asking price (auction/POA excluded)
+  double avg_asking = 11;          // AUD (0 if none)
+  double median_asking = 12;       // AUD
+  int32  sold_count = 13;          // incidental sold captures — indicative only
+  double avg_sold = 14;            // AUD (0 if none)
+  double median_sold = 15;         // AUD
+  int32  suburbs_tracked = 16;     // tracked suburbs contributing listings
+}
+
+message GetPriceDropsOverviewResponse {
+  StatePriceDropSummary national = 1;          // the 'AU' row
+  repeated StatePriceDropSummary states = 2;   // ordered by dropped_count desc
+}
+
+message ListAgencyPriceStatsRequest {
+  string state_code = 1;   // optional filter, e.g. 'NSW'; '' = national
+  string sort = 2;         // 'drops' (default) | 'listings' | 'avg_cut' | 'value'
+  int32  limit = 3;        // optional; default 20, cap 100
+}
+
+// One agency's aggregate footprint across its tracked listings. agency
+// identity is per-portal (REA company id / Domain advertiser id) — the same
+// real-world agency may appear once per portal.
+message AgencyPriceStats {
+  string source = 1;               // 'rea' | 'domain'
+  string agency_id = 2;            // portal-scoped id
+  string agency_name = 3;
+  string state_code = 4;
+  int32  active_listings = 5;
+  int32  priced_listings = 6;      // active listings with a numeric asking price
+  double avg_asking = 7;           // AUD (0 if none)
+  double median_asking = 8;        // AUD
+  int32  suburbs_covered = 9;
+  int32  dropped_count = 10;       // deduped addresses cut in the 30-day window
+  double avg_drop_pct = 11;        // 0..1 fraction (0 if no drops)
+  double total_drop_value = 12;    // summed AUD reductions
+  repeated string agent_names = 13; // small display sample of listing agents (<=6)
+}
+
+message ListAgencyPriceStatsResponse {
+  repeated AgencyPriceStats agencies = 1;
+}

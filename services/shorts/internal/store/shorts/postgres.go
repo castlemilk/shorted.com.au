@@ -20,8 +20,6 @@ import (
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -77,7 +75,7 @@ const searchStocksQuery = `
 		SELECT
 			s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
 			s."PRODUCT_CODE" as product_code,
-			s."PRODUCT" as name,
+			COALESCE(NULLIF(m.company_name, ''), s."PRODUCT") as name,
 			s."TOTAL_PRODUCT_IN_ISSUE" as total_product_in_issue,
 			s."REPORTED_SHORT_POSITIONS" as reported_short_positions,
 			COALESCE(m.industry, '') as industry,
@@ -88,6 +86,7 @@ const searchStocksQuery = `
 				WHEN s."PRODUCT_CODE" ILIKE $2 THEN 50
 				WHEN m.search_vector @@ plainto_tsquery('english', $1) THEN ts_rank(m.search_vector, plainto_tsquery('english', $1)) * 10
 				WHEN s."PRODUCT" ILIKE $2 THEN 20
+				WHEN m.company_name ILIKE $2 THEN 20
 				ELSE 1
 			END as relevance
 		FROM latest_shorts s
@@ -101,6 +100,7 @@ const searchStocksQuery = `
 				s."PRODUCT_CODE" = $1 OR
 				s."PRODUCT_CODE" ILIKE $2 OR
 				s."PRODUCT" ILIKE $2 OR
+				m.company_name ILIKE $2 OR
 				m.search_vector @@ plainto_tsquery('english', $1)
 			)
 	)
@@ -288,13 +288,62 @@ func (s *postgresStore) GetJobsOverview() ([]*JobHealth, error) {
 	return jobs, nil
 }
 
+// GetCrawlRunStatuses reads the residential-crawl health records (migration 000089).
+// These are written by the Mac-based house-price-collector because the GCP-only
+// jobmonitor can't observe a job that runs off Cloud Run; the admin jobs handler
+// maps them into JobStatus rows. Degrades gracefully (empty slice) when the table
+// has not yet been created — e.g. a dev DB or an env where the migration hasn't run.
+func (s *postgresStore) GetCrawlRunStatuses() ([]*CrawlRunStatus, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	const query = `
+		SELECT run_type, host, COALESCE(run_id, ''),
+			started_at, finished_at, COALESCE(status, ''),
+			suburbs_selected, suburbs_done, listings_touched, events_written,
+			blocked_count, rewarm_needed, freshness_oldest_hours,
+			COALESCE(detail, ''), updated_at
+		FROM crawl_run_status
+		ORDER BY run_type, host`
+
+	rows, err := s.db.Query(ctx, query)
+	if err != nil {
+		if strings.Contains(err.Error(), "crawl_run_status") ||
+			strings.Contains(err.Error(), "does not exist") ||
+			strings.Contains(err.Error(), "relation") {
+			return []*CrawlRunStatus{}, nil
+		}
+		return nil, fmt.Errorf("GetCrawlRunStatuses: query failed: %w", err)
+	}
+	defer rows.Close()
+
+	var out []*CrawlRunStatus
+	for rows.Next() {
+		c := &CrawlRunStatus{}
+		if err := rows.Scan(
+			&c.RunType, &c.Host, &c.RunID,
+			&c.StartedAt, &c.FinishedAt, &c.Status,
+			&c.SuburbsSelected, &c.SuburbsDone, &c.ListingsTouched, &c.EventsWritten,
+			&c.BlockedCount, &c.RewarmNeeded, &c.FreshnessOldestHours,
+			&c.Detail, &c.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("GetCrawlRunStatuses: scan row: %w", err)
+		}
+		out = append(out, c)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("GetCrawlRunStatuses: iterate rows: %w", err)
+	}
+	return out, nil
+}
+
 // GetStock retrieves a single stock by its ID, including metadata.
 func (s *postgresStore) GetStock(productCode string) (*stocksv1alpha1.Stock, error) {
 	query := `
 SELECT 
 	s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
 	s."PRODUCT_CODE" as product_code,
-	s."PRODUCT" as name, 
+	COALESCE(NULLIF(m.company_name, ''), s."PRODUCT") as name, 
 	s."TOTAL_PRODUCT_IN_ISSUE" as total_product_in_issue, 
 	s."REPORTED_SHORT_POSITIONS" as reported_short_positions,
 	COALESCE(m.industry, '') as industry,
@@ -599,35 +648,9 @@ func (s *postgresStore) getMinimalStockDetails(ctx context.Context, stockCode st
 	// Return minimal details with just the stock code and company name from shorts table
 	return &stocksv1alpha1.StockDetails{
 		ProductCode:      productCode,
-		CompanyName:      cleanCompanyName(productName),
+		CompanyName:      cleanCompanyName(productName, productCode),
 		EnrichmentStatus: "pending", // Indicate that enrichment hasn't been done yet
 	}, nil
-}
-
-// cleanCompanyName removes common suffixes like "ORDINARY", "CDI", etc. for cleaner display
-func cleanCompanyName(name string) string {
-	// Remove common suffixes
-	suffixes := []string{
-		" ORDINARY",
-		" ORD",
-		" CDI 1:1",
-		" CDI",
-		" LIMITED",
-		" LTD",
-		" CORPORATION",
-		" CORP",
-		" INC",
-		" PLC",
-	}
-
-	result := strings.ToUpper(name)
-	for _, suffix := range suffixes {
-		result = strings.TrimSuffix(result, suffix)
-	}
-
-	// Title case the result
-	caser := cases.Title(language.English)
-	return caser.String(strings.ToLower(strings.TrimSpace(result)))
 }
 
 type dbPerson struct {
@@ -1218,7 +1241,7 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32) ([]*st
 	query := `
 		SELECT
 			s."PRODUCT_CODE" as product_code,
-			s."PRODUCT" as name,
+			COALESCE(NULLIF(m.company_name, ''), s."PRODUCT") as name,
 			s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
 			s."REPORTED_SHORT_POSITIONS" as reported_short_positions,
 			s."TOTAL_PRODUCT_IN_ISSUE" as total_product_in_issue,
@@ -3271,6 +3294,67 @@ func (s *postgresStore) GetStocksForImageBackfill(limit int, afterStockCode stri
 	}
 
 	return results, rows.Err()
+}
+
+// GetStocksForStateExposure returns the top-N companies by market cap that do
+// not yet have a state_exposure breakdown. Used by --backfill-state-exposure.
+func (s *postgresStore) GetStocksForStateExposure(limit int) ([]StateExposureCandidateRow, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Only columns that exist on BOTH local dev and prod Supabase — prod's
+	// company-metadata has no `sector`/`description` columns (schema drift
+	// found during the first prod backfill run, 2026-07-21).
+	query := `
+		SELECT
+			stock_code,
+			COALESCE(company_name, ''),
+			COALESCE(industry, ''),
+			COALESCE(summary, '')
+		FROM "company-metadata"
+		WHERE stock_code IS NOT NULL
+		  AND (state_exposure IS NULL OR state_exposure = '[]'::jsonb)
+		ORDER BY COALESCE((key_metrics->>'market_cap')::double precision, 0) DESC
+		LIMIT $1
+	`
+
+	rows, err := s.db.Query(ctx, query, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query stocks for state exposure: %w", err)
+	}
+	defer rows.Close()
+
+	var results []StateExposureCandidateRow
+	for rows.Next() {
+		var row StateExposureCandidateRow
+		if err := rows.Scan(&row.StockCode, &row.CompanyName, &row.Industry, &row.Summary); err != nil {
+			return nil, fmt.Errorf("failed to scan row: %w", err)
+		}
+		// Sector/Description intentionally left empty — the exposure prompt
+		// treats them as optional context and prod doesn't store them.
+		results = append(results, row)
+	}
+
+	return results, rows.Err()
+}
+
+// UpdateStateExposure writes a validated state_exposure JSONB array for a stock.
+func (s *postgresStore) UpdateStateExposure(stockCode string, exposureJSON []byte) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	query := `
+		UPDATE "company-metadata"
+		SET state_exposure = $1::jsonb
+		WHERE stock_code = $2
+	`
+
+	_, err := s.db.Exec(ctx, query, string(exposureJSON), stockCode)
+	if err != nil {
+		return fmt.Errorf("failed to update state_exposure for %s: %w", stockCode, err)
+	}
+
+	return nil
 }
 
 func (s *postgresStore) UnsubscribeByID(id string) error {

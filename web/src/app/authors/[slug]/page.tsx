@@ -1,4 +1,5 @@
 import { type Metadata } from "next";
+import { pageTitle } from "~/@/lib/typography";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -49,10 +50,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       siteName: siteConfig.name,
       type: "profile",
       locale: "en_AU",
-      ...(author.photoUrl ? { images: [{ url: author.photoUrl }] } : {}),
+      // No `images` key: this route ships its own opengraph-image.tsx and an
+      // explicit `images` SHADOWS the file convention. It used to point at
+      // author.photoUrl, a PORTRAIT (1168x1360) — social cards are 1200x630
+      // landscape, so the portrait was cropped badly in every unfurl.
     },
     twitter: {
-      card: "summary",
+      // Large card now that this route generates a proper 1200x630 image;
+      // "summary" rendered it as a small square thumbnail.
+      card: "summary_large_image",
       title,
       description,
     },
@@ -131,7 +137,7 @@ export default async function AuthorPage({ params }: PageProps) {
             <User className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
+            <h1 className={pageTitle}>
               {author.name}
             </h1>
             <p className="text-xs uppercase tracking-wider text-muted-foreground">

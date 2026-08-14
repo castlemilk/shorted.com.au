@@ -7,7 +7,7 @@ const sentimentDot = (sentiment?: string) => {
     case "negative":
       return "bg-rose-500";
     default:
-      return "bg-slate-500";
+      return "bg-muted-foreground";
   }
 };
 
@@ -82,7 +82,7 @@ export function WireList({
                       )}
                       {article.isPriceSensitive && (
                         <span
-                          className="font-mono text-amber-400"
+                          className="font-mono text-amber-700 dark:text-amber-300"
                           title="Price sensitive"
                           aria-label="Price sensitive"
                         >

@@ -9,7 +9,7 @@ const RegisterEmail = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="bg-gray-800 p-6 rounded-lg">
+      <div className="bg-card border border-border p-6 rounded-lg">
         <Skeleton className="h-32 w-full rounded-lg" />
       </div>
     ),

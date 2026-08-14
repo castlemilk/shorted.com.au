@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!-- DAILY DELTA housing re-crawl (right-size demand, no proxy spend). Enqueues only
+     the never-crawled / stale / churny slice of the catalog, drains the brandbrain
+     queue to empty, then runs the freshness alarm. Pairs with the fortnightly
+     com.shorted.housing-full.plist.template. Safe to install on every residential
+     rig — multiple Macs fan the queue out via SKIP LOCKED. Replace __REPO__ with
+     this checkout's absolute path and __HOME__ with the operator's home dir. -->
+<dict>
+  <key>Label</key><string>com.shorted.housing-delta</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__REPO__/services/house-price-collector/deploy/run-housing-delta.sh</string>
+  </array>
+
+  <!-- Daily 10:00 local. Daytime is intentional: observed REA/Kasada clearance and
+       block reliability degrades late at night, so do not move this back to the
+       legacy overnight window. Every run is idempotent. While a
+       fortnightly full pass is still draining (it runs ~1.5 days), the shared
+       single-drainer lock makes this delta SKIP cleanly — no contention on the one
+       host Chrome / residential IP. -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key><integer>10</integer>
+    <key>Minute</key><integer>0</integer>
+  </dict>
+
+  <key>StandardOutPath</key><string>__HOME__/Library/Logs/shorted-housing-delta.out.log</string>
+  <key>StandardErrorPath</key><string>__HOME__/Library/Logs/shorted-housing-delta.err.log</string>
+  <key>RunAtLoad</key><false/>
+</dict>
+</plist>

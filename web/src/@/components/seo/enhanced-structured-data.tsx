@@ -75,7 +75,9 @@ export function DatasetStructuredData({
       url: siteConfig.url,
       logo: {
         "@type": "ImageObject",
-        url: siteConfig.ogImage,
+        url: siteConfig.logo.url,
+        width: siteConfig.logo.width,
+        height: siteConfig.logo.height,
       },
     },
     creator: {
@@ -164,7 +166,7 @@ export function ItemListStructuredData({
  * Comprehensive Organization Schema - Enhanced for Knowledge Graph
  */
 export function EnhancedOrganizationSchema() {
-  const logoUrl = `${siteConfig.url}/logo.png`;
+  const logoUrl = siteConfig.logo.url;
   const schema = {
     "@context": "https://schema.org",
     "@type": "Organization",
@@ -173,8 +175,8 @@ export function EnhancedOrganizationSchema() {
     logo: {
       "@type": "ImageObject",
       url: logoUrl,
-      width: 512,
-      height: 512,
+      width: siteConfig.logo.width,
+      height: siteConfig.logo.height,
     },
     description: siteConfig.description,
     foundingDate: "2024",
@@ -246,7 +248,7 @@ export function BreadcrumbListSchema({
  * WebSite Schema with enhanced SearchAction
  */
 export function EnhancedWebSiteSchema() {
-  const logoUrl = `${siteConfig.url}/logo.png`;
+  const logoUrl = siteConfig.logo.url;
   const schema = {
     "@context": "https://schema.org",
     "@type": "WebSite",
@@ -271,8 +273,8 @@ export function EnhancedWebSiteSchema() {
       logo: {
         "@type": "ImageObject",
         url: logoUrl,
-        width: 512,
-        height: 512,
+        width: siteConfig.logo.width,
+        height: siteConfig.logo.height,
       },
     },
     about: {

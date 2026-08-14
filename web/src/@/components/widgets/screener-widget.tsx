@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { type WidgetProps } from "@/types/dashboard";
-import { type ScreenerStock } from "~/gen/shorts/v1alpha1/shorts_pb";
-import { ScreenerSortField, SortDirection } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { type ScreenerStock } from "~/gen/shorts/v1alpha1/screener_pb";
+import { ScreenerSortField, SortDirection } from "~/gen/shorts/v1alpha1/screener_pb";
 import { screenStocks } from "~/app/actions/screenStocks";
 import { cn } from "@/lib/utils";
 

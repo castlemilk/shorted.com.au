@@ -28,6 +28,32 @@ variable "house_price_collector_image" {
   default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/house-price-collector:latest"
 }
 
+variable "house_price_collector_official_max_failures" {
+  description = "Maximum official housing sources that may fail before the collector job exits non-zero"
+  type        = number
+  default     = 15
+
+  validation {
+    condition = (
+      var.house_price_collector_official_max_failures >= 0 &&
+      floor(var.house_price_collector_official_max_failures) == var.house_price_collector_official_max_failures
+    )
+    error_message = "house_price_collector_official_max_failures must be a non-negative integer."
+  }
+}
+
+variable "shorted_jobs_image" {
+  description = "Docker image URL for the consolidated `shorted <job>` batch binary (services/jobs)"
+  type        = string
+  default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/shorted-jobs:latest"
+}
+
+variable "shorted_jobs_browser_image" {
+  description = "Docker image URL for the browser (Debian + Chromium) variant of the consolidated `shorted <job>` binary (services/jobs/Dockerfile.browser) — used by `shorted discovery`"
+  type        = string
+  default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/shorted-jobs-browser:latest"
+}
+
 variable "shorts_api_image" {
   description = "Docker image URL for shorts API service"
   type        = string
@@ -86,18 +112,6 @@ variable "image_tag" {
   description = "Image tag for forcing new Cloud Run revisions"
   type        = string
   default     = ""
-}
-
-variable "news_aggregator_image" {
-  description = "Docker image URL for news-aggregator job"
-  type        = string
-  default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/news-aggregator:latest"
-}
-
-variable "asx_announcement_crawler_image" {
-  description = "Docker image URL for asx-announcement-crawler job"
-  type        = string
-  default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/asx-announcement-crawler:latest"
 }
 
 variable "signals_collector_image" {

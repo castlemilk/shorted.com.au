@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
+import { EmbedDialog } from "~/@/components/ui/embed-dialog";
 import Link from "next/link";
 import {
   TrendingUp,
@@ -27,6 +28,7 @@ import {
   type SerializedMoversData,
 } from "../actions/top/getTopPageData";
 import { cn } from "~/@/lib/utils";
+import { pageTitle } from "~/@/lib/typography";
 import { Badge } from "~/@/components/ui/badge";
 import { Input } from "~/@/components/ui/input";
 import {
@@ -149,16 +151,12 @@ export function TopPageClient({
     <div className="relative" data-asset-revision={TOP_PAGE_CLIENT_ASSET_REVISION}>
       {/* Hero Section */}
       <section className="relative border-b border-border/40 overflow-hidden" aria-labelledby="hero-title">
-        {/* Background gradient effects */}
-        <div className="absolute inset-0 bg-gradient-to-br from-red-950/20 via-background to-background" />
-        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-red-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-
         <div className="container mx-auto px-4 py-12 md:py-16 relative z-10">
           {/* Title */}
           <div className="animate-fade-in">
             <div className="flex items-center gap-3 mb-4">
-              <div className="h-10 w-1 bg-gradient-to-b from-red-500 to-orange-500 rounded-full" />
-              <h1 id="hero-title" className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight">
+              <div className="h-10 w-1 bg-primary rounded-full" />
+              <h1 id="hero-title" className={cn(pageTitle, "lg:text-5xl")}>
                 Most Shorted ASX Stocks
               </h1>
             </div>
@@ -229,7 +227,7 @@ export function TopPageClient({
         <div className="container mx-auto px-4 py-8">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-              <Zap className="h-5 w-5 text-yellow-500" aria-hidden="true" />
+              <Zap className="h-5 w-5 text-primary" aria-hidden="true" />
               <h2 id="movers-title" className="text-xl font-semibold">Big Movers</h2>
               <Badge variant="secondary" className="text-xs">
                 {PERIOD_LABELS[period]}
@@ -308,7 +306,10 @@ export function TopPageClient({
       <section className="container mx-auto px-4 py-8" aria-labelledby="rankings-title">
         {/* Table Controls */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-          <h2 id="rankings-title" className="text-xl font-semibold">Full Rankings</h2>
+          <div className="flex items-center gap-2">
+            <h2 id="rankings-title" className="text-xl font-semibold">Full Rankings</h2>
+            <EmbedDialog target={{ kind: "top-shorts", limit: 20 }} />
+          </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
             <Input
@@ -478,17 +479,19 @@ function StatCard({
   color: "red" | "orange" | "yellow" | "green";
   subtext?: string;
 }) {
+  // Flat tinted surfaces, no decorative gradient. Hues stay on the
+  // short-interest heat ramp used across the page.
   const colorClasses = {
-    red: "from-red-500/20 to-red-500/5 border-red-500/30 text-red-500",
-    orange: "from-orange-500/20 to-orange-500/5 border-orange-500/30 text-orange-500",
-    yellow: "from-yellow-500/20 to-yellow-500/5 border-yellow-500/30 text-yellow-500",
-    green: "from-green-500/20 to-green-500/5 border-green-500/30 text-green-500",
+    red: "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400",
+    orange: "bg-orange-500/10 border-orange-500/30 text-orange-600 dark:text-orange-400",
+    yellow: "bg-yellow-500/10 border-yellow-500/30 text-yellow-700 dark:text-yellow-400",
+    green: "bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-400",
   };
 
   return (
     <div
       className={cn(
-        "rounded-lg border bg-gradient-to-br p-4 backdrop-blur-sm",
+        "rounded-lg border p-4",
         colorClasses[color]
       )}
     >

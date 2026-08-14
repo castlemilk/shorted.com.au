@@ -1,17 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import type { AddressPriceDrop, ListAddressPriceDropsResponse } from "~/gen/shorts/v1alpha1/housing_pb";
 import { listAddressPriceDropsClient } from "~/app/actions/client/getHousingClient";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
-import { ALL_STATES, STATE_NAMES } from "@/lib/housing/states";
+import { ALL_STATES, STATE_NAMES, slugToState } from "@/lib/housing/states";
 import { HousingIcon } from "./housing-icon";
 
 export interface AddressDropsBoardProps {
   stateCode?: string;
   windowDays?: number;
   limit?: number;
+  /**
+   * Server-fetched default (all-states, biggest-%) rows — seeds useQuery so the
+   * static /price-drops shell paints rows without a first-load client round-trip.
+   */
+  initialAddresses?: AddressPriceDrop[];
+  /** Embedded in a page that supplies its own section heading (e.g. /price-drops) — hides the board's own title block. */
+  embedded?: boolean;
 }
 
 const SOURCE_LABEL: Record<string, string> = { rea: "realestate.com.au", domain: "Domain" };
@@ -34,27 +43,57 @@ const SORTS: { key: string; label: string }[] = [
   { key: "recent", label: "Most recent" },
 ];
 
-export function AddressDropsBoard({ stateCode: initialState = "", windowDays = 90, limit = 50 }: AddressDropsBoardProps) {
-  const [stateCode, setStateCode] = useState(initialState);
+export function AddressDropsBoard({ stateCode: initialState = "", windowDays = 90, limit = 50, initialAddresses, embedded = false }: AddressDropsBoardProps) {
+  // ?state= deep link (e.g. a shared /price-drops?state=vic URL) — read here on
+  // the client so the page stays static ISR. slugToState maps "vic"→"VIC" and
+  // drops anything invalid to "".
+  const searchParams = useSearchParams();
+  const stateFromUrl = slugToState(searchParams.get("state") ?? "") ?? "";
+  const [stateCode, setStateCode] = useState(initialState || stateFromUrl);
   const [sort, setSort] = useState("pct");
+
+  // A sibling control (the state choropleth) updates ?state= without remounting
+  // this client island. Follow that navigation so the URL, active chip and
+  // query key cannot drift apart after the board's initial render.
+  useEffect(() => {
+    setStateCode(initialState || stateFromUrl);
+  }, [initialState, stateFromUrl]);
+
+  // The server-seeded rows are the all-states / biggest-% view; only reuse them
+  // as initialData when the current selection still IS that view, otherwise a
+  // filter/sort change must fetch live. An EMPTY seed is also rejected — with
+  // initialData present, TanStack treats the data as fresh for the whole
+  // staleTime and never fires the client fetch, so seeding [] (e.g. the server
+  // fetch failed while the rest of the page succeeded) would pin the board to
+  // its empty state instead of letting the client fetch recover.
+  const isDefaultView = stateCode === "" && sort === "pct";
 
   const { data, isLoading } = useQuery({
     queryKey: ["address-price-drops", stateCode, windowDays, limit, sort],
     queryFn: () => listAddressPriceDropsClient(stateCode, windowDays, limit, sort),
     staleTime: 30 * 60 * 1000,
+    initialData:
+      isDefaultView && initialAddresses && initialAddresses.length > 0
+        ? ({
+            $typeName: "shorts.v1alpha1.ListAddressPriceDropsResponse",
+            addresses: initialAddresses,
+          } satisfies ListAddressPriceDropsResponse)
+        : undefined,
   });
   const rows = data?.addresses ?? [];
 
   return (
     <div className="space-y-4">
       <header className="space-y-3">
-        <div>
-          <h1 className="font-serif text-2xl text-foreground sm:text-3xl">Biggest price drops by address</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Individual properties ranked by how far their for-sale asking price has fallen, tracked from
-            realestate.com.au and Domain listings.
-          </p>
-        </div>
+        {!embedded ? (
+          <div>
+            <h1 className="font-serif text-2xl text-foreground sm:text-3xl">Biggest price drops by address</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Individual properties ranked by how far their for-sale asking price has fallen, tracked from
+              realestate.com.au and Domain listings.
+            </p>
+          </div>
+        ) : null}
         <div className="flex flex-wrap gap-1.5">
           <StateChip active={stateCode === ""} label="All" onClick={() => setStateCode("")} />
           {ALL_STATES.map((code) => (
@@ -91,6 +130,8 @@ export function AddressDropsBoard({ stateCode: initialState = "", windowDays = 9
           </p>
         </div>
       ) : (
+        <>
+        <CutSizeStrip drops={rows.map((r) => r.dropPct)} />
         <ol className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
           {rows.map((r, i) => {
             const meta = [r.propertyType, bedBath(r.bedrooms, r.bathrooms), SOURCE_LABEL[r.latestSource] ?? r.latestSource]
@@ -113,6 +154,12 @@ export function AddressDropsBoard({ stateCode: initialState = "", windowDays = 9
                     {[r.suburb, r.stateCode, r.postcode].filter(Boolean).join(" ")}
                   </div>
                   {meta ? <div className="mt-0.5 truncate text-xs text-muted-foreground">{meta}</div> : null}
+                  {r.agencyName ? (
+                    <div className="mt-0.5 truncate text-xs text-muted-foreground/80">
+                      Listed by {r.agencyName}
+                      {r.agentNames.length > 0 ? ` — ${r.agentNames.slice(0, 2).join(", ")}` : ""}
+                    </div>
+                  ) : null}
                 </div>
                 <div className="shrink-0 text-right">
                   <div className="font-mono text-sm font-semibold tabular-nums text-[color:var(--semantic-red)]">
@@ -126,7 +173,46 @@ export function AddressDropsBoard({ stateCode: initialState = "", windowDays = 9
             );
           })}
         </ol>
+        </>
       )}
+    </div>
+  );
+}
+
+const CUT_BUCKETS: { label: string; min: number; max: number }[] = [
+  { label: "3–5%", min: 0.03, max: 0.05 },
+  { label: "5–10%", min: 0.05, max: 0.1 },
+  { label: "10–15%", min: 0.1, max: 0.15 },
+  { label: "15–20%", min: 0.15, max: 0.2 },
+  { label: "20%+", min: 0.2, max: Infinity },
+];
+
+/** Compact cut-size distribution for the drops currently in view (single-hue bars). */
+function CutSizeStrip({ drops }: { drops: number[] }) {
+  if (drops.length < 8) return null;
+  const counts = CUT_BUCKETS.map((b) => drops.filter((d) => d >= b.min && d < b.max).length);
+  const max = Math.max(...counts, 1);
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Cut-size distribution · {drops.length} drops in view
+      </div>
+      <div className="space-y-1.5">
+        {CUT_BUCKETS.map((b, i) => (
+          <div key={b.label} className="flex items-center gap-2">
+            <span className="w-14 shrink-0 text-right font-mono text-xs tabular-nums text-muted-foreground">
+              {b.label}
+            </span>
+            <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-[color:var(--semantic-red)]"
+                style={{ width: `${(counts[i]! / max) * 100}%` }}
+              />
+            </div>
+            <span className="w-8 shrink-0 font-mono text-xs tabular-nums text-foreground">{counts[i]}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

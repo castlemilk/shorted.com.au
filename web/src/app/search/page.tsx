@@ -1,9 +1,10 @@
 import { type Metadata } from "next";
+import { pageTitle } from "~/@/lib/typography";
 import Link from "next/link";
 import { Search as SearchIcon, TrendingDown, TrendingUp } from "lucide-react";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { SearchService } from "~/gen/shorts/v1alpha1/search_pb";
 import { siteConfig } from "~/@/config/site";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import {
@@ -55,7 +56,7 @@ async function searchStocks(query: string): Promise<SearchResultStock[]> {
       fetch: serverFetchWithUserAgent,
       baseUrl: SHORTS_API_URL,
     });
-    const client = createClient(ShortedStocksService, transport);
+    const client = createClient(SearchService, transport);
     const resp = await client.searchStocks({
       query,
       limit: 30,
@@ -88,7 +89,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
           <SearchIcon className="h-5 w-5 text-primary" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
+          <h1 className={pageTitle}>
             {query ? `Search: "${query}"` : "Search ASX Stocks"}
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -137,7 +138,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
             <li key={s.productCode}>
               <Link
                 href={`/shorts/${s.productCode}`}
-                className="group flex items-center gap-3 rounded-lg border bg-card p-4 transition-all hover:border-primary/40 hover:shadow-md"
+                className="group flex items-center gap-3 rounded-lg border bg-card p-4 transition-[border-color,box-shadow] duration-200 ease-out hover:border-primary/40 hover:shadow-md"
               >
                 <span className="rounded-md bg-muted px-2 py-1 font-mono text-xs font-semibold tracking-wide">
                   {s.productCode}

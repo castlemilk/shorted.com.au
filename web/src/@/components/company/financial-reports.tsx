@@ -44,11 +44,11 @@ export function FinancialReports({ reports, stockCode: _stockCode }: FinancialRe
   const getReportTypeColor = (type: string) => {
     switch (type.toLowerCase()) {
       case "annual_report":
-        return "text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-950/30";
+        return "text-primary bg-primary/10";
       case "quarterly_report":
-        return "text-purple-600 bg-purple-50 dark:text-purple-400 dark:bg-purple-950/30";
+        return "text-orange-700 dark:text-orange-300 bg-orange-500/10";
       case "financial_report":
-        return "text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/30";
+        return "text-lime-800 dark:text-lime-300 bg-lime-600/10";
       default:
         return "text-muted-foreground bg-muted";
     }

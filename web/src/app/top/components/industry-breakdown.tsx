@@ -51,19 +51,26 @@ const stockIndustryMap: Record<string, string> = {
   ING: "Food & Bev",
 };
 
+// Warm-system series voices only: amber (primary), rust (accent), avocado
+// (secondary), muted for the residual bucket. Tokens, so both rooms are correct.
+const AMBER = { bg: "bg-primary/20", border: "border-primary/70", text: "text-primary" };
+const RUST = { bg: "bg-accent/25", border: "border-accent/70", text: "text-accent" };
+const AVOCADO = { bg: "bg-secondary/25", border: "border-secondary/70", text: "text-secondary" };
+const NEUTRAL = { bg: "bg-muted", border: "border-border", text: "text-muted-foreground" };
+
 const industryColors: Record<string, { bg: string; border: string; text: string }> = {
-  Mining: { bg: "bg-amber-500/20", border: "border-amber-500", text: "text-amber-400" },
-  Banks: { bg: "bg-blue-500/20", border: "border-blue-500", text: "text-blue-400" },
-  Healthcare: { bg: "bg-green-500/20", border: "border-green-500", text: "text-green-400" },
-  Retail: { bg: "bg-purple-500/20", border: "border-purple-500", text: "text-purple-400" },
-  Technology: { bg: "bg-cyan-500/20", border: "border-cyan-500", text: "text-cyan-400" },
-  Property: { bg: "bg-rose-500/20", border: "border-rose-500", text: "text-rose-400" },
-  Energy: { bg: "bg-orange-500/20", border: "border-orange-500", text: "text-orange-400" },
-  Telecom: { bg: "bg-indigo-500/20", border: "border-indigo-500", text: "text-indigo-400" },
-  Insurance: { bg: "bg-teal-500/20", border: "border-teal-500", text: "text-teal-400" },
-  Industrials: { bg: "bg-slate-500/20", border: "border-slate-500", text: "text-slate-400" },
-  "Food & Bev": { bg: "bg-lime-500/20", border: "border-lime-500", text: "text-lime-400" },
-  Other: { bg: "bg-gray-500/20", border: "border-gray-500", text: "text-gray-400" },
+  Mining: AMBER,
+  Banks: RUST,
+  Healthcare: AVOCADO,
+  Retail: AMBER,
+  Technology: RUST,
+  Property: AVOCADO,
+  Energy: AMBER,
+  Telecom: RUST,
+  Insurance: AVOCADO,
+  Industrials: AMBER,
+  "Food & Bev": RUST,
+  Other: NEUTRAL,
 };
 
 export function IndustryBreakdown({ data }: IndustryBreakdownProps) {
@@ -104,7 +111,7 @@ export function IndustryBreakdown({ data }: IndustryBreakdownProps) {
     });
 
     // Convert to array and sort by count
-    const defaultColors = { bg: "bg-gray-500/20", border: "border-gray-500", text: "text-gray-400" };
+    const defaultColors = NEUTRAL;
     return Object.entries(grouped)
       .map(([industry, stats]) => ({
         industry,
@@ -135,7 +142,7 @@ export function IndustryBreakdown({ data }: IndustryBreakdownProps) {
               <button
                 onClick={() => setExpandedIndustry(isExpanded ? null : industry)}
                 className={cn(
-                  "w-full rounded-lg border transition-all",
+                  "w-full rounded-lg border transition-colors duration-200 ease-out",
                   "hover:bg-muted/30",
                   isExpanded
                     ? `${colors.bg} ${colors.border}`
@@ -194,7 +201,7 @@ export function IndustryBreakdown({ data }: IndustryBreakdownProps) {
                   {/* Progress bar */}
                   <div className="h-2 bg-muted/30 rounded-full overflow-hidden">
                     <div
-                      className={cn("h-full rounded-full transition-all duration-500", colors.bg, colors.border, "border")}
+                      className={cn("h-full rounded-full transition-[width] duration-500 ease-out", colors.bg, colors.border, "border")}
                       style={{ width: `${percentage}%` }}
                     />
                   </div>

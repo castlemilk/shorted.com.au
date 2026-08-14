@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -110,19 +111,65 @@ func upsertObservations(ctx context.Context, pool *pgxpool.Pool, obs []Observati
 	return n, nil
 }
 
+const updateRunSQL = `
+	INSERT INTO house_price_ingest_runs (source, last_period, last_fetched_at, rows_upserted, status, detail)
+	VALUES ($1, $2, now(), $3, $4, NULLIF($5, ''))
+	ON CONFLICT (source) DO UPDATE SET
+		last_period = CASE WHEN EXCLUDED.status = 'error' THEN house_price_ingest_runs.last_period ELSE EXCLUDED.last_period END,
+		last_fetched_at = now(),
+		rows_upserted = CASE WHEN EXCLUDED.status = 'error' THEN house_price_ingest_runs.rows_upserted ELSE EXCLUDED.rows_upserted END,
+		status = EXCLUDED.status,
+		detail = EXCLUDED.detail`
+
 func updateRun(ctx context.Context, pool *pgxpool.Pool, source string, lastPeriod *time.Time, rows int, status, detail string) error {
-	_, err := pool.Exec(ctx, `
-		INSERT INTO house_price_ingest_runs (source, last_period, last_fetched_at, rows_upserted, status, detail)
-		VALUES ($1, $2, now(), $3, $4, NULLIF($5, ''))
-		ON CONFLICT (source) DO UPDATE SET
-			last_period = EXCLUDED.last_period, last_fetched_at = now(),
-			rows_upserted = EXCLUDED.rows_upserted, status = EXCLUDED.status, detail = EXCLUDED.detail`,
-		source, lastPeriod, rows, status, detail)
+	_, err := pool.Exec(ctx, updateRunSQL, source, lastPeriod, rows, status, detail)
 	return err
 }
 
+func loadRunLastPeriod(ctx context.Context, pool *pgxpool.Pool, source string) (*time.Time, error) {
+	var lastPeriod *time.Time
+	err := pool.QueryRow(ctx, `
+		SELECT last_period
+		FROM house_price_ingest_runs
+		WHERE source = $1`, source).Scan(&lastPeriod)
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return lastPeriod, nil
+}
+
+// lockOfficialJobSource serializes the cursor check and all subsequent writes
+// for one source across processes. The otherwise-empty transaction owns a
+// transaction-scoped advisory lock while the job uses ordinary pool operations.
+func lockOfficialJobSource(ctx context.Context, pool *pgxpool.Pool, source string) (func(), error) {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	release := func() {
+		releaseCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := tx.Rollback(releaseCtx); err != nil && err != pgx.ErrTxClosed {
+			log.Printf("[%s] release source lock: %v", source, err)
+		}
+	}
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, source); err != nil {
+		release()
+		return nil, err
+	}
+	return release, nil
+}
+
 func refreshHousingMV(ctx context.Context, pool *pgxpool.Pool) error {
-	_, err := pool.Exec(ctx, `SELECT refresh_housing_materialized_views()`)
+	// The function-scoped GUC cannot disarm a timeout already armed for the
+	// calling command, so the override must precede the function call. Simple
+	// protocol wraps this multi-statement command in an implicit transaction;
+	// SET LOCAL scopes the override to that transaction and expires with it.
+	_, err := pool.Exec(ctx, `SET LOCAL statement_timeout = 0;
+		SELECT refresh_housing_materialized_views()`)
 	return err
 }
 
@@ -412,6 +459,64 @@ func upsertAmenities(ctx context.Context, pool *pgxpool.Pool, rows []AmenityRow)
 			return n, err
 		}
 		n++
+	}
+	return n, nil
+}
+
+// upsertCrime idempotently writes the scaled + ranked suburb crime rows (PK =
+// sal_code, crime_type, fy_ending, pooled). Re-running a source is a no-op; a
+// newer source release overlays newer FYs.
+func upsertCrime(ctx context.Context, pool *pgxpool.Pool, rows []CrimeStatRow) (int, error) {
+	const q = `
+		INSERT INTO suburb_crime_stats
+			(sal_code, crime_type, fy_ending, pooled, raw_offence_count,
+			 adjusted_offence_count, rate_per_100k, pct_rank, population, scale_factor,
+			 small_pop, unreliable, source_jurisdiction, source, source_licence)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+		ON CONFLICT (sal_code, crime_type, fy_ending, pooled) DO UPDATE SET
+			raw_offence_count      = EXCLUDED.raw_offence_count,
+			adjusted_offence_count = EXCLUDED.adjusted_offence_count,
+			rate_per_100k          = EXCLUDED.rate_per_100k,
+			pct_rank               = EXCLUDED.pct_rank,
+			population             = EXCLUDED.population,
+			scale_factor           = EXCLUDED.scale_factor,
+			small_pop              = EXCLUDED.small_pop,
+			unreliable             = EXCLUDED.unreliable,
+			source_jurisdiction    = EXCLUDED.source_jurisdiction,
+			source                 = EXCLUDED.source,
+			source_licence         = EXCLUDED.source_licence,
+			fetched_at             = now()`
+	// Chunk the send: crime is ~527k rows, and a single pgx.Batch that large
+	// pipelines every statement in one round-trip which STALLS through Supabase's
+	// PgBouncer transaction pooler (observed hanging at 0 rows). Send in bounded
+	// chunks so each is a manageable pooled transaction, with progress logging.
+	const chunkSize = 2000
+	n := 0
+	for start := 0; start < len(rows); start += chunkSize {
+		end := start + chunkSize
+		if end > len(rows) {
+			end = len(rows)
+		}
+		batch := &pgx.Batch{}
+		for _, r := range rows[start:end] {
+			batch.Queue(q, r.SalCode, r.CrimeType, r.FYEnding, r.Pooled, r.RawCount,
+				r.AdjustedCount, r.RatePer100k, r.PctRank, r.Population, r.ScaleFactor,
+				r.SmallPop, r.Unreliable, r.Jurisdiction, r.Source, r.SourceLicence)
+		}
+		br := pool.SendBatch(ctx, batch)
+		for range rows[start:end] {
+			if _, err := br.Exec(); err != nil {
+				_ = br.Close()
+				return n, err
+			}
+			n++
+		}
+		if err := br.Close(); err != nil {
+			return n, err
+		}
+		if n%50000 == 0 || end == len(rows) {
+			log.Printf("[crime] upsert progress: %d/%d rows", n, len(rows))
+		}
 	}
 	return n, nil
 }

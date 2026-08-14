@@ -4,12 +4,17 @@ import { signInAction } from "~/app/actions/auth";
 import { cn } from "~/@/lib/utils";
 import { type VariantProps, cva } from "class-variance-authority";
 
+// NOTE: a standalone fork of `buttonVariants` (button.tsx), kept so this
+// server-action form stays independent of the Button component. It therefore
+// has to mirror the Button's elevation contract by hand: the amber
+// ring-plus-bloom on focus-visible, and hover-only glow on the primary fill.
 const signInButtonVariants = cva(
-  "inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:shadow-amber-glow disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        default:
+          "bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-amber-sm",
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline:
@@ -48,7 +53,14 @@ export function SignIn({
         type="submit"
         className={cn(
           signInButtonVariants({ variant, size }),
-          "font-bold transition-all hover:scale-105 active:scale-95 px-5 shadow-sm shadow-blue-500/20",
+          // Names the properties because this overrides the variant's
+          // `transition-colors`: the press/lift needs transform, the variant
+          // still needs its hover fill, and box-shadow carries the glow.
+          // No resting shadow — this is the most-seen control in the product
+          // and a glow left switched on at rest is decoration (DESIGN.md §4).
+          // It is already the brightest thing in the header; amber answers
+          // the pointer via the variant's `hover:shadow-amber-sm`.
+          "font-bold transition-[transform,background-color,color,box-shadow] duration-200 ease-out hover:scale-105 active:scale-95 px-5",
           className,
         )}
       >

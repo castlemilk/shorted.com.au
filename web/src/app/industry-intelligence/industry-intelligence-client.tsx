@@ -14,6 +14,8 @@ import {
   IndustryCrowdingChart,
 } from "~/@/components/industry/industry-charts";
 import { IndustryMethodology } from "~/@/components/industry/industry-methodology";
+import { IndustryEconomyContext } from "~/@/components/industry/industry-economy-context-loader";
+import { WhenVisible } from "~/@/components/housing/when-visible";
 import { Badge } from "~/@/components/ui/badge";
 import { Button } from "~/@/components/ui/button";
 import {
@@ -26,6 +28,7 @@ import { IntelLockCard } from "~/@/components/ui/intel-lock";
 import { SegmentedToggle } from "~/@/components/features/housing/charts/chart-ui";
 import { getSectorImageAlt, getSectorImagePath } from "~/@/lib/sector-images";
 import { cn } from "~/@/lib/utils";
+import { pageTitle, eyebrow } from "~/@/lib/typography";
 import {
   changeOverLag,
   trailingSma,
@@ -60,7 +63,7 @@ function DeepLinkSync({
 /** Terminal-style underline tab trigger (overrides the shadcn pill default). */
 const TAB_TRIGGER_CLASSES = cn(
   "min-h-10 rounded-none border-b-2 border-transparent bg-transparent px-1 pb-2.5 pt-1",
-  "font-mono text-[0.72rem] uppercase tracking-[0.12em] text-muted-foreground",
+  eyebrow,
   "transition-colors hover:text-foreground",
   "data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none",
 );
@@ -155,7 +158,7 @@ export function IndustryIntelligenceClient({
           <p className="text-xs font-medium uppercase tracking-[0.2em] text-primary">
             Industry story
           </p>
-          <h1 className="mt-1 font-serif text-3xl font-bold tracking-tight text-balance sm:text-4xl">
+          <h1 className={cn(pageTitle, "mt-1")}>
             Industry Intelligence
           </h1>
           <p className="mt-1.5 max-w-xl text-sm leading-6 text-muted-foreground text-pretty">
@@ -197,9 +200,7 @@ export function IndustryIntelligenceClient({
           >
             Industry story
           </Badge>
-          <h1 className="text-3xl font-bold tracking-tight">
-            Industry Intelligence
-          </h1>
+          <h1 className={pageTitle}>Industry Intelligence</h1>
           <p className="mt-3 max-w-2xl text-muted-foreground text-pretty">
             Industry data is syncing. You can still browse top shorts,
             industries, and stock search while this view refreshes.
@@ -239,7 +240,7 @@ export function IndustryIntelligenceClient({
           <p className="text-xs font-medium uppercase tracking-[0.2em] text-primary">
             Industry story
           </p>
-          <h1 className="mt-1 font-serif text-3xl font-bold tracking-tight text-balance sm:text-4xl">
+          <h1 className={cn(pageTitle, "mt-1")}>
             Industry Intelligence
           </h1>
           <p className="mt-1.5 max-w-xl text-sm leading-6 text-muted-foreground text-pretty">
@@ -251,6 +252,11 @@ export function IndustryIntelligenceClient({
           <span className="mr-2 hidden font-mono text-xs tabular-nums text-muted-foreground md:inline">
             ASIC daily, T+4 · as at {asAt}
           </span>
+          <Button asChild variant="outline" className="min-h-10">
+            <Link href="/economy" prefetch={false}>
+              Economy dashboard
+            </Link>
+          </Button>
           <EvidenceExportButton
             industryName={selectedStory.industry.name}
             industrySlug={selectedStory.industry.slug}
@@ -454,6 +460,10 @@ function OverviewPanel({ story }: { story: IndustryIntelligenceStory }) {
       {story.crowding ? <CrowdingSection story={story} /> : null}
 
       <IndustrySignalPanel story={story} stockLimit={10} id="top-shorts" />
+
+      <WhenVisible minHeightClassName="h-[380px]">
+        <IndustryEconomyContext industryName={story.industry.name} />
+      </WhenVisible>
 
       {/* Alert funnel: one quiet, purposeful strip — not another card grid. */}
       <aside

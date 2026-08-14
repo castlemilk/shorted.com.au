@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { VerdictLabel } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { VerdictLabel } from "~/gen/shorts/v1alpha1/stock_pb";
 import { getStockVerdictClient } from "~/app/actions/client/getStockVerdictClient";
 import {
   Card,
@@ -28,11 +28,11 @@ const LABEL_TEXT: Record<VerdictLabel, string> = {
 
 const LABEL_COLOR: Record<VerdictLabel, string> = {
   [VerdictLabel.UNSPECIFIED]: "text-muted-foreground",
-  [VerdictLabel.STRONG_BEARISH]: "text-red-600 dark:text-red-400",
-  [VerdictLabel.BEARISH]: "text-red-600 dark:text-red-400",
+  [VerdictLabel.STRONG_BEARISH]: "text-red-700 dark:text-red-400",
+  [VerdictLabel.BEARISH]: "text-red-700 dark:text-red-400",
   [VerdictLabel.NEUTRAL]: "text-muted-foreground",
-  [VerdictLabel.BULLISH]: "text-emerald-600 dark:text-emerald-400",
-  [VerdictLabel.STRONG_BULLISH]: "text-emerald-600 dark:text-emerald-400",
+  [VerdictLabel.BULLISH]: "text-emerald-700 dark:text-emerald-400",
+  [VerdictLabel.STRONG_BULLISH]: "text-emerald-700 dark:text-emerald-400",
 };
 
 const COMPONENT_LABELS: Record<string, string> = {
@@ -202,10 +202,12 @@ export function StockVerdict({ stockCode }: StockVerdictProps) {
                   <span
                     className={cn(
                       "font-mono tabular-nums font-medium",
+                      // -700 in light mode: at text-xs the -600 shades sit
+                      // below WCAG AA 4.5:1 on the near-white card (a11y flag)
                       component.contribution > 0
-                        ? "text-emerald-600 dark:text-emerald-400"
+                        ? "text-emerald-700 dark:text-emerald-400"
                         : component.contribution < 0
-                          ? "text-red-600 dark:text-red-400"
+                          ? "text-red-700 dark:text-red-400"
                           : "text-muted-foreground",
                     )}
                   >

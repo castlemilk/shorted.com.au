@@ -1,7 +1,7 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
-import { type GetTopShortsResponse } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { MarketService } from "~/gen/shorts/v1alpha1/market_pb";
+import { type GetTopShortsResponse } from "~/gen/shorts/v1alpha1/market_pb";
 import { formatPeriodForAPI } from "~/lib/period-utils";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 import { cache } from "react";
@@ -72,7 +72,7 @@ export const getTopShortsData = cache(
             baseUrl: SHORTS_API_URL,
           });
 
-          const client = createClient(ShortedStocksService, transport);
+          const client = createClient(MarketService, transport);
           return client.getTopShorts({
             period: apiPeriod,
             limit,
@@ -108,7 +108,7 @@ function createIsrTopShortsClient(revalidateSeconds: number) {
     fetch: isrFetch,
     baseUrl: SHORTS_API_URL,
   });
-  return createClient(ShortedStocksService, transport);
+  return createClient(MarketService, transport);
 }
 
 /**

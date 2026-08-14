@@ -1,8 +1,4 @@
-import {
-  type BattlegroundStock,
-  type ShortCampaign,
-  type GetShortCampaignScoreboardResponse,
-} from "~/gen/shorts/v1alpha1/shorts_pb";
+import { type BattlegroundStock, type ShortCampaign, type GetShortCampaignScoreboardResponse } from "~/gen/shorts/v1alpha1/market_pb";
 
 /**
  * Plain serializable row shape passed across the RSC boundary.

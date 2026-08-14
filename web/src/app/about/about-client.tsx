@@ -61,10 +61,8 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
               {/* Headline */}
               <div className="space-y-4">
                 <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
-                  <span className="block text-foreground">Decode Market</span>
-                  <span className="block bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent bg-[length:200%_auto] animate-gradient">
-                    Sentiment
-                  </span>
+                  <span className="block font-semibold text-foreground">Decode Market</span>
+                  <span className="block text-primary">Sentiment</span>
                 </h1>
                 <p className="text-lg md:text-xl text-muted-foreground max-w-xl mx-auto lg:mx-0 leading-relaxed">
                   Track short positions across the ASX with data sourced directly from ASIC. 
@@ -287,19 +285,19 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
               icon={<LineChart className="w-6 h-6" />}
               title="Historical Charts"
               description="Track short interest changes over time with interactive historical charts and trend analysis."
-              color="blue"
+              color="amber"
             />
             <FeatureCard
               icon={<BarChart3 className="w-6 h-6" />}
               title="Industry Heatmaps"
               description="Visualize short interest across sectors with our industry treemap to spot sector-wide trends."
-              color="purple"
+              color="rust"
             />
             <FeatureCard
               icon={<Search className="w-6 h-6" />}
               title="Smart Search"
               description="Instantly find any ASX-listed company and view their complete short position history."
-              color="emerald"
+              color="olive"
             />
             <FeatureCard
               icon={<Bell className="w-6 h-6" />}
@@ -311,25 +309,25 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
               icon={<Database className="w-6 h-6" />}
               title="Comprehensive Data"
               description="Access complete short position data for every reportable position on the ASX."
-              color="rose"
+              color="rust"
             />
             <FeatureCard
               icon={<Zap className="w-6 h-6" />}
               title="Fast Performance"
               description="Optimized infrastructure delivers lightning-fast queries and daily data updates."
-              color="cyan"
+              color="olive"
             />
             <FeatureCard
               icon={<Lock className="w-6 h-6" />}
               title="Secure Platform"
               description="Google sign-in and industry-standard encryption protect your account and watchlist data."
-              color="indigo"
+              color="neutral"
             />
             <FeatureCard
               icon={<Activity className="w-6 h-6" />}
               title="Live Updates"
               description="Data synced daily from ASIC ensuring you always have the latest information."
-              color="teal"
+              color="olive"
             />
           </div>
         </div>
@@ -716,19 +714,15 @@ interface FeatureCardProps {
   icon: React.ReactNode;
   title: string;
   description: string;
-  color: "blue" | "purple" | "emerald" | "amber" | "rose" | "cyan" | "indigo" | "teal";
+  color: "amber" | "rust" | "olive" | "neutral";
 }
 
 // Theme-aware color styles using CSS variables
 const colorStyles = {
-  blue: "bg-primary/10 text-primary group-hover:bg-primary/20",
-  purple: "bg-accent/10 text-accent group-hover:bg-accent/20",
-  emerald: "bg-secondary/20 text-secondary-foreground group-hover:bg-secondary/30",
   amber: "bg-primary/10 text-primary group-hover:bg-primary/20",
-  rose: "bg-accent/10 text-accent group-hover:bg-accent/20",
-  cyan: "bg-secondary/20 text-secondary-foreground group-hover:bg-secondary/30",
-  indigo: "bg-muted text-muted-foreground group-hover:bg-muted/80",
-  teal: "bg-secondary/20 text-secondary-foreground group-hover:bg-secondary/30",
+  rust: "bg-accent/10 text-accent group-hover:bg-accent/20",
+  olive: "bg-secondary/20 text-secondary-foreground group-hover:bg-secondary/30",
+  neutral: "bg-muted text-muted-foreground group-hover:bg-muted/80",
 };
 
 function FeatureCard({ icon, title, description, color }: FeatureCardProps) {

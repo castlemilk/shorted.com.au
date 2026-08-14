@@ -1,0 +1,1153 @@
+syntax = "proto3";
+
+package shorts.v1alpha1;
+
+option go_package = "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1";
+
+import "google/protobuf/timestamp.proto";
+import "options/v1/options.proto";
+
+// PoliticiansService exposes the Registers of Members' and Senators' Interests.
+//
+// EDITORIAL CONTRACT (docs/influence-editorial-standards.md rule 5): the
+// registers disclose WHAT is held, NEVER quantity or value. There is deliberately
+// no field in this file for an amount, a share count, a price, a portfolio size
+// or a return, and none may be added. Consumers can express "declared, and
+// since when" and nothing more.
+service PoliticiansService {
+  // Parliament-wide counts and the as-at date. Cheap; drives the hub tiles.
+  rpc GetParliamentOverview (GetParliamentOverviewRequest) returns (GetParliamentOverviewResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Browse/filter parliamentarians.
+  rpc ListPoliticians (ListPoliticiansRequest) returns (ListPoliticiansResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // One politician's profile: declared interests, property, and terms served.
+  rpc GetPolitician (GetPoliticianRequest) returns (GetPoliticianResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Which parliamentarians declare an interest in one ASX-listed company.
+  // Drives the card on /shorts/{code}.
+  rpc ListStockPoliticians (ListStockPoliticiansRequest) returns (ListStockPoliticiansResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Parliament's most-declared ASX-listed companies, with a party split.
+  rpc ListPoliticianStocks (ListPoliticianStocksRequest) returns (ListPoliticianStocksResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Which parliamentarians declare real estate in one ABS suburb.
+  // Drives the card on /housing/{state}/{suburb}.
+  rpc ListSuburbPoliticians (ListSuburbPoliticiansRequest) returns (ListSuburbPoliticiansResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Parliamentarians of one state and the listed companies they declare.
+  // Drives the card on /economy/{state}.
+  rpc ListStatePoliticianHoldings (ListStatePoliticianHoldingsRequest) returns (ListStatePoliticianHoldingsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Register additions and removals over time.
+  rpc ListRegisterChanges (ListRegisterChangesRequest) returns (ListRegisterChangesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Declared interests in companies carrying short interest.
+  //
+  // The short percentage describes THE COMPANY (ASIC, market-wide). It is not
+  // and cannot be a property of anyone's holding — the registers record no
+  // quantities. Consumers must label it as the company's figure.
+  rpc ListShortInterestOverlap (ListShortInterestOverlapRequest) returns (ListShortInterestOverlapResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Aggregate shape of the register: which parties declare interests in which
+  // industries, and where members are from.
+  //
+  // COUNTS OF PEOPLE AND DECLARATIONS ONLY. There is no weight, size, exposure
+  // or value here and none may be added — the registers do not record any, so
+  // any such figure would be invented. A cell says "N members of this party
+  // declared an interest in a company in this industry", and nothing more.
+  rpc GetPoliticianAnalytics (GetPoliticianAnalyticsRequest) returns (GetPoliticianAnalyticsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Aggregate register counts for the explorer hub.
+  rpc GetRegisterExplorer (GetRegisterExplorerRequest) returns (GetRegisterExplorerResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Filtered politician summaries for the explorer table.
+  rpc ListPoliticianSummaries (ListPoliticianSummariesRequest) returns (ListPoliticianSummariesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Count-based analytics for one politician's explorer profile.
+  rpc GetPoliticianExplorerProfile (GetPoliticianExplorerProfileRequest) returns (GetPoliticianExplorerProfileResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Neutral, symmetric comparison of two politician register summaries.
+  rpc ComparePoliticians (ComparePoliticiansRequest) returns (ComparePoliticiansResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Aggregate lodgement activity over a window: weekly event counts, the
+  // members with the most dated events, companies first declared in the window,
+  // and companies whose declarer count moved.
+  //
+  // COUNTS AND DATES ONLY. "Most active" is a count ordering, and is the
+  // strongest characterisation permitted beside a named member — nothing here
+  // may become "unusual", "spike", "watch" or a flag of any kind.
+  rpc GetRegisterActivity (GetRegisterActivityRequest) returns (GetRegisterActivityResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // One member's currently-declared listed companies, each with how many
+  // members in total currently declare it. A count of one is the plain fact
+  // "no other member currently declares this"; it is not a label.
+  rpc ListDistinctiveHoldings (ListDistinctiveHoldingsRequest) returns (ListDistinctiveHoldingsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // ---------------------------------------------------------------------
+  // The AEC funding layer.
+  //
+  // AMOUNTS LIVE HERE AND NOWHERE ELSE IN THIS FILE. The register of
+  // interests discloses WHAT is held and never how much; the AEC
+  // Transparency Register publishes lodged FUNDING FIGURES under CC BY 4.0,
+  // and the two are deliberately separate subsystems that share only a
+  // politician id. No message below may gain a register field, and no
+  // register message above may gain a *_cents field.
+  //
+  // Three properties bind every response here:
+  //
+  //   1. Amounts are int64 CENTS, verbatim as lodged. No ratio, share,
+  //      index, rank or score is derived from them — the only ordering is
+  //      by an amount that the source itself published.
+  //   2. Every total is RIGHT-CENSORED at the disclosure threshold in force
+  //      for its year, and the 1 Jan 2027 reform makes any series crossing
+  //      it a spliced regime. Both facts ship as response strings so every
+  //      consumer renders the same words from one server-side source.
+  //   3. ATTRIBUTION HONESTY: money given to a party is never rendered as
+  //      money given to a member. GetPoliticianFunding serves only returns
+  //      that NAME the member, and states its own coverage.
+  // ---------------------------------------------------------------------
+
+  // Party-group funding rollups for one financial year, plus the corpus
+  // counts and disclosure notes a funding surface must render.
+  rpc GetDonationsOverview (GetDonationsOverviewRequest) returns (GetDonationsOverviewResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Payers into party branches for one financial year, ordered by the total
+  // they were declared to have paid.
+  rpc ListTopDonors (ListTopDonorsRequest) returns (ListTopDonorsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // One party group's funding across every financial year it lodged in.
+  rpc ListPartyFunding (ListPartyFundingRequest) returns (ListPartyFundingResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // The funding returns that NAME one member. Never party money.
+  rpc GetPoliticianFunding (GetPoliticianFundingRequest) returns (GetPoliticianFundingResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+}
+
+// PartyIndustryCell is one cell of the party x industry matrix.
+message PartyIndustryCell {
+  // AEC abbreviation. EMPTY means the party is NOT RECORDED for those members —
+  // party reaches the register through an electorate join, not the APH listing,
+  // so it is genuinely absent for some. Never render an empty value as a party.
+  string party_ab = 1;
+  string industry = 2;
+  // Distinct parliamentarians. This is the honest headline: a member declaring
+  // four banks is one person, not four.
+  int32 people = 3;
+  // Distinct declared companies behind those people, so a reader can tell
+  // "everyone holds the same one stock" from "everyone holds a different one".
+  int32 companies = 4;
+}
+
+message IndustryTotal {
+  string industry = 1;
+  int32 people = 2;
+  int32 companies = 3;
+}
+
+message PartyTotal {
+  string party_ab = 1;
+  int32 people = 2;
+}
+
+message StateTotal {
+  string state_code = 1;
+  int32 people = 2;
+  int32 companies = 3;
+}
+
+message GetPoliticianAnalyticsRequest {
+  // Cap the industry axis to the N most-declared, so the heatmap stays readable.
+  // The remainder is NOT silently dropped — the response reports what was cut.
+  int32 top_industries = 1;
+  // Restrict to interests declared as current, rather than every interest ever
+  // declared across parliaments 44-48.
+  bool current_only = 2;
+}
+
+message GetPoliticianAnalyticsResponse {
+  repeated PartyIndustryCell cells = 1;
+  // The axes, pre-ordered, so the client does not re-derive an ordering and
+  // silently disagree with the server about which industries were included.
+  repeated IndustryTotal industries = 2;
+  repeated PartyTotal parties = 3;
+  repeated StateTotal states = 4;
+  // Industries excluded by top_industries, stated rather than dropped silently.
+  int32 industries_omitted = 5;
+  string source_licence = 6;
+  google.protobuf.Timestamp as_at = 7;
+}
+
+// ==================== Register explorer messages ====================
+
+enum PoliticianSummarySort {
+  POLITICIAN_SUMMARY_SORT_DECLARED_ITEMS = 0;
+  POLITICIAN_SUMMARY_SORT_COMPANIES = 1;
+  POLITICIAN_SUMMARY_SORT_PROPERTIES = 2;
+  POLITICIAN_SUMMARY_SORT_RECENT_CHANGES = 3;
+  POLITICIAN_SUMMARY_SORT_NAME = 4;
+}
+
+message RegisterItemCount {
+  int32 item_no = 1;
+  string item_label = 2;
+  int32 current_count = 3;
+  int32 politician_count = 4;
+  int32 all_time_count = 5;
+}
+
+message RegisterHolderCount {
+  RegisterHolder holder = 1;
+  int32 current_count = 2;
+}
+
+message RegisterMonthlyCount {
+  string month = 1; // YYYY-MM
+  int32 declared_count = 2;
+}
+
+message RegisterIndustryTrend {
+  string industry = 1;
+  int32 current_count = 2;
+  int32 count_90d_ago = 3;
+}
+
+message RegisterIndustryCount {
+  string industry = 1;
+  int32 company_count = 2;
+}
+
+message RegisterSourceDocument {
+  string label = 1;
+  string source_url = 2;
+  int32 parliament = 3;
+  string chamber = 4;
+}
+
+message PoliticianSummary {
+  Politician politician = 1;
+  repeated RegisterItemCount item_counts = 2;
+  int32 distinct_company_count = 3;
+  int32 property_count = 4;
+  int32 gifts_travel_count = 5;
+  int32 liability_count = 6;
+  int32 changes_90d = 7;
+  repeated RegisterMonthlyCount trend = 8;
+  int32 undated_count = 9;
+}
+
+message GetRegisterExplorerRequest {}
+
+message GetRegisterExplorerResponse {
+  repeated RegisterItemCount item_counts = 1;
+  repeated RegisterHolderCount holder_counts = 2;
+  int32 changes_7d = 3;
+  int32 members_changed_7d = 4;
+  int32 changes_30d = 5;
+  int32 members_changed_30d = 6;
+  repeated RegisterIndustryTrend industry_trends = 7;
+
+  repeated int32 extracted_parliaments = 8;
+  repeated int32 partial_parliaments = 9;
+  repeated int32 pending_parliaments = 10;
+
+  int32 politician_count = 11;
+  int32 statement_count = 12;
+  int32 declared_row_count = 13;
+  int32 resolved_listed_count = 14;
+  int32 resolved_suburb_count = 15;
+  int32 first_parliament = 16;
+  int32 last_parliament = 17;
+  int32 current_declared_count = 18;
+  int32 distinct_company_count = 19;
+  int32 property_count = 20;
+  int32 gifts_travel_count = 21;
+  int32 liability_count = 22;
+  google.protobuf.Timestamp as_at = 23;
+  string source_licence = 24;
+}
+
+message ListPoliticianSummariesRequest {
+  string chamber = 1;
+  string state_code = 2;
+  string party_ab = 3;
+  int32 item_no = 4; // 0 = all
+  string query = 5;
+  PoliticianSummarySort sort = 6;
+  int32 limit = 7;
+  int32 offset = 8;
+}
+
+message ListPoliticianSummariesResponse {
+  repeated PoliticianSummary summaries = 1;
+  int32 total = 2;
+  google.protobuf.Timestamp as_at = 3;
+  string source_licence = 4;
+}
+
+message GetPoliticianExplorerProfileRequest {
+  string slug = 1;
+  int32 top_industries = 2;
+}
+
+message GetPoliticianExplorerProfileResponse {
+  Politician politician = 1;
+  string canonical_slug = 2;
+  repeated PoliticianTerm terms = 3;
+  repeated RegisterItemCount item_counts = 4;
+  repeated RegisterHolderCount holder_counts = 5;
+  repeated RegisterIndustryCount industry_counts = 6;
+  repeated RegisterMonthlyCount timeline = 7;
+  int32 undated_count = 8;
+  repeated RegisterChangeEvent recent_changes = 9;
+  repeated RegisterSourceDocument source_documents = 10;
+
+  repeated int32 extracted_parliaments = 11;
+  repeated int32 partial_parliaments = 12;
+  repeated int32 pending_parliaments = 13;
+  google.protobuf.Timestamp as_at = 14;
+  string source_licence = 15;
+}
+
+message ComparePoliticiansRequest {
+  string slug_a = 1;
+  string slug_b = 2;
+}
+
+message SharedDeclaredCompany {
+  string stock_code = 1;
+  string company_name = 2;
+  string industry = 3;
+  repeated RegisterHolder holders_a = 4;
+  repeated RegisterHolder holders_b = 5;
+  bool currently_declared_a = 6;
+  bool currently_declared_b = 7;
+}
+
+message PoliticianOnlyCompany {
+  string stock_code = 1;
+  string company_name = 2;
+  string industry = 3;
+  repeated RegisterHolder holders = 4;
+  bool currently_declared = 5;
+}
+
+message ComparePoliticiansResponse {
+  PoliticianSummary a = 1;
+  PoliticianSummary b = 2;
+  repeated RegisterHolderCount holder_counts_a = 3;
+  repeated RegisterHolderCount holder_counts_b = 4;
+  repeated SharedDeclaredCompany shared_companies = 5;
+  repeated PoliticianOnlyCompany only_a_companies = 6;
+  repeated PoliticianOnlyCompany only_b_companies = 7;
+  int32 only_a_more = 8;
+  int32 only_b_more = 9;
+
+  repeated int32 extracted_parliaments_a = 10;
+  repeated int32 partial_parliaments_a = 11;
+  repeated int32 pending_parliaments_a = 12;
+  repeated int32 extracted_parliaments_b = 13;
+  repeated int32 partial_parliaments_b = 14;
+  repeated int32 pending_parliaments_b = 15;
+  google.protobuf.Timestamp as_at = 16;
+  string source_licence = 17;
+}
+
+// ==================== Shared enums ====================
+
+// RegisterHolder is whose interest a row records. The register itself attributes
+// every row to one of these, and surfaces must label which.
+enum RegisterHolder {
+  REGISTER_HOLDER_UNSPECIFIED = 0;
+  REGISTER_HOLDER_SELF = 1;
+  REGISTER_HOLDER_SPOUSE_PARTNER = 2;
+  REGISTER_HOLDER_DEPENDENT_CHILDREN = 3;
+}
+
+// RegisterChangeKind is why a row entered or left the register. A removal can
+// mean a disposal, a correction, or the member leaving parliament — consumers
+// must not present it as a transaction.
+enum RegisterChangeKind {
+  REGISTER_CHANGE_KIND_UNSPECIFIED = 0;
+  REGISTER_CHANGE_KIND_ADDED = 1;
+  REGISTER_CHANGE_KIND_REMOVED = 2;
+}
+
+// ==================== Core messages ====================
+
+message Politician {
+  string slug = 1;          // canonical; consumers must never derive this
+  string display_name = 2;
+  string surname = 3;
+  string given_names = 4;
+  string honorific = 5;
+  string chamber = 6;       // 'house' | 'senate' (most recent term)
+  string division = 7;      // House seat
+  string state_code = 8;    // UPPERCASE
+  string party = 9;
+  string party_ab = 10;
+  int32 first_parliament = 11;
+  int32 last_parliament = 12;
+  string aph_mpid = 13;     // opaque; absent for some members
+  // Counts only. Never a value.
+  int32 declared_listed_count = 14;
+  int32 declared_property_count = 15;
+
+  // Portrait photograph, from Wikimedia Commons via Wikidata — NEVER from
+  // aph.gov.au, whose images are Commonwealth artefacts that §3.1's posture
+  // forbids mirroring and which may carry a separate photographer copyright.
+  //
+  // THE ATTRIBUTION FIELDS TRAVEL WITH THE URL AND ARE NOT OPTIONAL. CC BY and
+  // CC BY-SA permit publication only WITH the credit and a link to the terms, so
+  // a consumer that renders photo_url while dropping photo_licence /
+  // photo_source_url is breaching the licence, not just being untidy. A database
+  // CHECK makes the unattributed state unstorable; carrying the fields together
+  // here makes it unrenderable by accident too.
+  //
+  // Empty for ~26% of members: no Wikidata portrait, or the surname+division
+  // match was ambiguous and was withheld rather than guessed. Consumers render a
+  // monogram, never a placeholder face and never another person's photograph.
+  string photo_url = 16;
+  string photo_licence = 17;     // as Commons states it: "CC BY-SA 4.0", "Public domain"
+  string photo_author = 18;      // the credit line the licence requires
+  string photo_source_url = 19;  // the Commons file page carrying the full terms
+}
+
+// DeclaredInterest is one holding over one continuous period.
+//
+// declared_from_known distinguishes "declared since this date" from "declared as
+// at a statement whose date the form did not state". A consumer must render the
+// second as an unknown start and never substitute a guess.
+message DeclaredInterest {
+  int32 item_no = 1;              // 1 shareholdings, 3 real estate, 4 directorships…
+  string item_label = 2;
+  RegisterHolder holder = 3;
+  string declared_text = 4;       // verbatim, as the member wrote it
+  string secondary_text = 5;      // item 3 purpose, item 6 creditor…
+  string stock_code = 6;          // empty unless publishably resolved
+  string company_name = 7;
+  string industry = 8;
+  string sal_code = 9;            // empty unless resolved to an ABS suburb
+  string suburb_name = 10;
+  string property_state = 11;
+  string match_method = 12;       // curated_alias | ticker_in_text | name_exact
+  google.protobuf.Timestamp declared_from = 13;
+  bool declared_from_known = 14;
+  google.protobuf.Timestamp declared_to = 15;  // absent while still declared
+  bool currently_declared = 16;
+  string source_url = 17;         // the aph.gov.au PDF this came from
+  string source_licence = 18;
+  // What the declared entity IS: listed | private_company | family_trust |
+  // smsf | managed_fund | foreign | not_an_entity.
+  //
+  // A consumer needs this to describe an unmatched row honestly. "Not matched to
+  // an ASX listing" is only true of entity_kind='listed'; saying it about a
+  // family trust reports a system failure that did not happen, because a trust
+  // can never have a ticker.
+  string entity_kind = 19;
+}
+
+message PoliticianTerm {
+  int32 parliament = 1;
+  string chamber = 2;
+  string division = 3;
+  string state_code = 4;
+  string party = 5;
+  string party_ab = 6;
+}
+
+// ==================== RPC messages ====================
+
+message GetParliamentOverviewRequest {}
+
+message GetParliamentOverviewResponse {
+  int32 politician_count = 1;
+  int32 statement_count = 2;
+  int32 declared_row_count = 3;
+  int32 resolved_listed_count = 4;   // distinct companies publishably resolved
+  int32 resolved_suburb_count = 5;   // distinct suburbs publishably resolved
+  int32 first_parliament = 6;
+  int32 last_parliament = 7;
+  google.protobuf.Timestamp as_at = 8;         // newest lodgement we hold
+  google.protobuf.Timestamp refreshed_at = 9;  // when our snapshot was built
+  string source_licence = 10;
+}
+
+message ListPoliticiansRequest {
+  string chamber = 1;     // optional
+  string state_code = 2;  // optional
+  string party_ab = 3;    // optional
+  string query = 4;       // optional name substring
+  int32 limit = 5;        // default 100, max 500
+  int32 offset = 6;
+}
+
+message ListPoliticiansResponse {
+  repeated Politician politicians = 1;
+  int32 total = 2;
+}
+
+message GetPoliticianRequest {
+  string slug = 1;
+}
+
+message GetPoliticianResponse {
+  Politician politician = 1;
+  string canonical_slug = 2;   // consumers redirect when it differs from the request
+  repeated PoliticianTerm terms = 3;
+  repeated DeclaredInterest interests = 4;
+  // Suburbs in the member's division, from the ABS boundary join. These are
+  // suburbs REPRESENTED, which has nothing to do with anything owned.
+  repeated string represented_suburbs = 5;
+
+  // Extraction coverage FOR THIS PERSON, so a consumer can never present
+  // "declared nothing" when the truth is "not yet read".
+  //
+  // A member's register documents are discovered long before they are parsed
+  // (the 44th and 45th Parliaments are scans awaiting the vision tier). Without
+  // these two lists an empty `interests` is indistinguishable from a member who
+  // genuinely declared nothing — an absence claim about a named individual,
+  // which influence-editorial-standards forbids.
+  // Three buckets, not two, and the threshold is a SHARE not "any".
+  //
+  // A parliament where one document out of 155 parsed is not a parliament we
+  // have read. Claiming it would make every member whose own document failed to
+  // parse render an empty list under a heading that says we looked — a false
+  // absence claim about a named individual.
+  repeated int32 extracted_parliaments = 6;  // read in full (>= 95% of documents)
+  repeated int32 partial_parliaments = 8;    // read in part — an empty list here proves nothing
+  repeated int32 pending_parliaments = 7;    // documents exist, none read
+}
+
+message ListStockPoliticiansRequest {
+  string stock_code = 1;
+  bool current_only = 2;  // default false: history included
+}
+
+// PartyCount is a count of PEOPLE, never of money.
+message PartyCount {
+  string party_ab = 1;
+  string party = 2;
+  int32 politician_count = 3;
+}
+
+message ListStockPoliticiansResponse {
+  string stock_code = 1;
+  string company_name = 2;
+  int32 politician_count = 3;
+  repeated PartyCount party_counts = 4;
+  repeated StockPoliticianInterest interests = 5;
+  string source_licence = 6;
+}
+
+message StockPoliticianInterest {
+  Politician politician = 1;
+  DeclaredInterest interest = 2;
+}
+
+message ListPoliticianStocksRequest {
+  int32 limit = 1;        // default 50, max 200
+  bool current_only = 2;
+}
+
+message PoliticianStockRollup {
+  string stock_code = 1;
+  string company_name = 2;
+  string industry = 3;
+  int32 politician_count = 4;
+  repeated PartyCount party_counts = 5;
+  double short_percent = 6;  // THE COMPANY's ASIC short interest, not a holding
+}
+
+message ListPoliticianStocksResponse {
+  repeated PoliticianStockRollup stocks = 1;
+  string source_licence = 2;
+}
+
+message ListSuburbPoliticiansRequest {
+  string sal_code = 1;
+}
+
+message ListSuburbPoliticiansResponse {
+  string sal_code = 1;
+  string suburb_name = 2;
+  string state_code = 3;
+  int32 declaring_member_count = 4;
+  repeated SuburbPoliticianProperty properties = 5;
+  string source_licence = 6;
+}
+
+message SuburbPoliticianProperty {
+  Politician politician = 1;
+  DeclaredInterest interest = 2;
+}
+
+message ListStatePoliticianHoldingsRequest {
+  string state_code = 1;  // accepts a slug or a code
+  int32 limit = 2;        // default 20, max 100
+}
+
+message ListStatePoliticianHoldingsResponse {
+  string state_code = 1;
+  repeated PoliticianStockRollup stocks = 2;
+  int32 politician_count = 3;
+  string source_licence = 4;
+}
+
+message ListRegisterChangesRequest {
+  // Interpreted at UTC DAY granularity: the handler truncates it to UTC
+  // midnight before it reaches either the cache key or the query, so two
+  // timestamps on the same day are one request and cannot be served each
+  // other's results.
+  google.protobuf.Timestamp since = 1;
+  RegisterChangeKind kind = 2;  // UNSPECIFIED = both
+  string stock_code = 3;        // optional
+  int32 limit = 4;              // default 100, max 500
+  int32 offset = 5;
+
+  // Discovery-layer filters. All optional and all ADDITIVE — the unfiltered
+  // feed is unchanged when they are left empty.
+  string politician_slug = 6;   // canonical slug; consumers never derive one
+  int32 item_no = 7;            // register form item 1-14; 0 = all
+  string party_ab = 8;          // AEC abbreviation
+  string chamber = 9;           // 'house' | 'senate'
+}
+
+message RegisterChangeEvent {
+  Politician politician = 1;
+  RegisterChangeKind kind = 2;
+  int32 item_no = 3;
+  string item_label = 4;
+  RegisterHolder holder = 5;
+  string declared_text = 6;
+  string stock_code = 7;
+  string company_name = 8;
+  google.protobuf.Timestamp changed_on = 9;
+  string source_url = 10;
+  // Same vocabulary as DeclaredInterest.entity_kind, for the same reason: the
+  // changes feed renders the identical entity component.
+  string entity_kind = 11;
+}
+
+message ListRegisterChangesResponse {
+  repeated RegisterChangeEvent events = 1;
+  int32 total = 2;
+  string source_licence = 3;
+  // The register's own clock: the newest lodgement we hold, never the moment we
+  // rebuilt our snapshot.
+  google.protobuf.Timestamp as_at = 4;
+}
+
+// ==================== Discovery layer ====================
+//
+// Everything here derives live from the published holdings surface. It exists
+// so that unusual patterns are FINDABLE as counts and dates; no field labels a
+// member, a company or a pattern, and none may be added.
+
+message GetRegisterActivityRequest {
+  // 30 | 90 | 180 | 365. Anything else is clamped to the next value up (0 and
+  // negatives default to 90), so a cache key can never describe a window other
+  // than the one that produced it.
+  int32 window_days = 1;
+
+  // The SAME filter set ListRegisterChanges takes, and for one reason: the
+  // weekly strip is drawn above a FILTERED feed, so parliament-wide numbers
+  // rendered there read as the filtered member's own. All optional and all
+  // ADDITIVE — an unfiltered request is byte-identical to the old behaviour.
+  //
+  // They narrow the WEEKLY BUCKETS, filtered_event_count and
+  // filtered_member_count only. The three rails (active_members,
+  // newly_declared_companies, declarer_count_changes) are NOT narrowed by the
+  // filters: they answer corpus-wide questions inside the window, and a
+  // "most active members" rail filtered to one member would be a tautology.
+  string politician_slug = 2;  // canonical slug; consumers never derive one
+  string party_ab = 3;         // AEC abbreviation
+  string chamber = 4;          // 'house' | 'senate'
+  int32 item_no = 5;           // register form item 1-14; 0 = all
+  RegisterChangeKind kind = 6;  // UNSPECIFIED = both
+}
+
+// WeeklyEventCount is one Monday-anchored week of DATED events. Undated
+// lodgements have no point on a timeline and are excluded — never placed at a
+// parliament's opening, which would fabricate a date.
+//
+// The series is CONTIGUOUS: every Monday from the window's start to the current
+// week is present, weeks with no events included at zero, so a bar chart's gaps
+// are real quiet weeks rather than missing buckets drawn adjacent.
+message WeeklyEventCount {
+  string week_start = 1;   // YYYY-MM-DD, Monday
+  int32 added_count = 2;
+  int32 removed_count = 3;
+}
+
+// ActiveMember is a member ordered by their COUNT of dated events in the
+// window. A high count reflects lodgement and extraction activity, not conduct.
+message ActiveMember {
+  string slug = 1;
+  string display_name = 2;
+  string party_ab = 3;
+  string chamber = 4;
+  string division = 5;
+  int32 event_count = 6;
+}
+
+// NewlyDeclaredCompany is a company whose FIRST dated declaration anywhere in
+// the corpus falls inside the window.
+//
+// WITHHELD RATHER THAN GUESSED: a company is excluded outright if ANY member
+// currently declares it with no known start date. About 80% of currently
+// declared rows are undated, so a dated-only minimum cannot prove first-ness
+// against them — an undated holding of the same company may be decades old.
+// First-ness is a claim about the whole corpus, so an unprovable one is not
+// made at all.
+message NewlyDeclaredCompany {
+  string stock_code = 1;
+  string company_name = 2;
+  string industry = 3;
+  string first_declared_on = 4;  // YYYY-MM-DD
+  // Members currently declaring the company, corpus-wide. People, never rows.
+  //
+  // The SAME dated predicate as DeclarerCountChange.declarers_now, so the two
+  // rails of one response cannot disagree about how many members declare a
+  // company. (After the exclusion above these companies have no undated current
+  // rows at all, so the dated count is the whole count.)
+  int32 declarer_count = 5;
+}
+
+// DeclarerCountChange is a company whose number of declaring members differs
+// between the window's start and now.
+//
+// BOTH sides are dated-only and use the identical predicate at two dates. About
+// 80% of currently-declared rows carry no start date, so an undated-inclusive
+// "now" against a dated-only baseline would report every company as growing by
+// its undated population, and an abs() ordering would then rank the list by
+// that artefact.
+message DeclarerCountChange {
+  string stock_code = 1;
+  string company_name = 2;
+  string industry = 3;
+  // Members whose declaration is dated and open today — the SAME predicate
+  // NewlyDeclaredCompany.declarer_count uses, so one response speaks with one
+  // measure of "how many members declare this company".
+  int32 declarers_now = 4;
+  int32 declarers_at_window_start = 5;
+}
+
+message GetRegisterActivityResponse {
+  int32 window_days = 1;  // the clamped window actually used
+  // Contiguous Monday buckets, NARROWED BY THE REQUEST'S FILTERS. The first
+  // bucket is the Monday on or before (today - window_days), so no bucket is a
+  // partial week drawn as a full one.
+  repeated WeeklyEventCount weeks = 2;
+  // The three rails below are CORPUS-WIDE and window-scoped: the request's
+  // filters do not narrow them.
+  repeated ActiveMember active_members = 3;
+  repeated NewlyDeclaredCompany newly_declared_companies = 4;
+  repeated DeclarerCountChange declarer_count_changes = 5;
+  // Currently-declared rows with no known start date, and therefore absent from
+  // every measure above. Stated rather than dropped silently: a surface must be
+  // able to caption what its timeline does not contain.
+  int32 undated_current_count = 6;
+  string source_licence = 7;
+  google.protobuf.Timestamp as_at = 8;
+  // Dated events matching the request's filters inside the window. Equal to the
+  // sum of every bucket's added_count + removed_count, so a count line beside
+  // the strip states the strip's own total and not the parliament's.
+  int32 filtered_event_count = 9;
+  // DISTINCT members with at least one such event — PEOPLE, never rows. A
+  // surface can state it exactly instead of counting the members it happens to
+  // have rendered, which is always a floor.
+  int32 filtered_member_count = 10;
+}
+
+message ListDistinctiveHoldingsRequest {
+  string slug = 1;
+}
+
+// DistinctiveHolding is one currently-declared listed company of one member.
+//
+// corpus_declarer_count is the whole fact: 1 means no other member currently
+// declares it. The field carries no adjective and consumers must not add one.
+message DistinctiveHolding {
+  string stock_code = 1;
+  string company_name = 2;
+  string industry = 3;
+  RegisterHolder holder = 4;
+  // 5 was currently_declared: the rail only ever contains currently-declared
+  // rows, so the field was true by construction and told a consumer nothing.
+  reserved 5;
+  reserved "currently_declared";
+  int32 corpus_declarer_count = 6;
+  // THE COMPANY's ASIC short interest, market-wide; 0 when the company is not
+  // in the short-interest set. It says nothing about any member's holding, its
+  // size, or any gain or loss — disclosure_note carries that in full.
+  double short_percent = 7;
+}
+
+message ListDistinctiveHoldingsResponse {
+  string canonical_slug = 1;  // consumers redirect when it differs from the request
+  repeated DistinctiveHolding holdings = 2;
+  // Holdings beyond the cap, stated rather than dropped silently.
+  int32 more_count = 3;
+  // The mandatory short-interest caveat, served WITH the data. Empty when no
+  // row carries a short percentage.
+  string disclosure_note = 4;
+  string source_licence = 5;
+  google.protobuf.Timestamp as_at = 6;
+}
+
+message ListShortInterestOverlapRequest {
+  double min_short_percent = 1;  // default 2.0
+  int32 limit = 2;               // default 50, max 200
+}
+
+message ShortInterestOverlap {
+  string stock_code = 1;
+  string company_name = 2;
+  string industry = 3;
+  // THE COMPANY's short interest (ASIC, market-wide). Says nothing about any
+  // member's holding, its size, or any gain or loss.
+  double short_percent = 4;
+  int32 politician_count = 5;
+  repeated PartyCount party_counts = 6;
+}
+
+message ListShortInterestOverlapResponse {
+  repeated ShortInterestOverlap overlaps = 1;
+  string disclosure_note = 2;  // the mandatory caveat, served with the data
+  string source_licence = 3;
+}
+
+// ===========================================================================
+// The AEC funding layer (migration 000105).
+//
+// Source: AEC Transparency Register bulk exports, CC BY 4.0, Crown copyright.
+// Every response carries source_licence, attribution and as_at — the as_at is
+// the INGEST SNAPSHOT, which is this data's own honest clock: the AEC
+// regenerates the bulk zips continuously as amendments land, so a published
+// financial year is never frozen and "as at" cannot mean anything else.
+// ===========================================================================
+
+// ReceiptTypeSplit is the source's own distinction between kinds of money, and
+// it MUST be rendered rather than summed away: a conference fee is not a
+// donation. The five buckets are exhaustive over the source vocabulary
+// ('Donation Received', 'Other Receipt', 'Subscription', 'Public Funding',
+// 'Unspecified' and blank, the last two folded into unspecified_cents), so
+// their sum is exactly total_cents and a consumer can prove it.
+message ReceiptTypeSplit {
+  int64 donation_cents = 1;
+  int64 other_receipt_cents = 2;
+  int64 subscription_cents = 3;
+  int64 public_funding_cents = 4;
+  int64 unspecified_cents = 5;
+}
+
+// PartyFundingSummary is one party group in one financial year, straight from
+// mv_aec_party_funding. Nothing here is derived: each figure is a sum or a
+// distinct count over lodged returns.
+//
+// The two sides of the ledger are kept apart on purpose. total_receipts_cents
+// is what the party's OWN annual return declares it received; the itemised and
+// declared_donations figures are the transaction-level rows from the recipient
+// side and the donor side respectively. They do not reconcile to each other and
+// must never be presented as if they should.
+message PartyFundingSummary {
+  string party_group = 1;         // party_group_key: the source Party Group, or the party's own name
+  string financial_year = 2;      // verbatim label, e.g. '2024-25'
+  int32 financial_year_end = 3;
+  int32 party_return_count = 4;   // returns lodged under this group (branches lodge separately)
+
+  // From the party's own annual return.
+  int64 total_receipts_cents = 5;
+  int64 total_payments_cents = 6;
+  int64 total_debts_cents = 7;
+
+  // From itemised receipts — the RECIPIENT-declared side.
+  int32 itemised_receipt_count = 8;
+  int64 itemised_receipts_cents = 9;
+  int32 distinct_payer_count = 10;
+  int32 listed_payer_count = 11;   // payers matched to an ASX code, exact/curated only
+  int64 listed_payer_cents = 12;
+
+  // From donations made — the DONOR-declared side.
+  int32 donation_count = 13;
+  int64 declared_donations_cents = 14;
+  int32 distinct_donor_count = 15;
+  int32 listed_donor_count = 16;
+  int64 listed_donor_cents = 17;
+
+  // TRUE for every row under the old scheme: figures below the year's
+  // disclosure threshold are absent from the source entirely.
+  bool threshold_censored = 18;
+  // TRUE from FY2027, the first year of the reformed scheme. A series crossing
+  // this boundary is two regimes and must carry a break annotation.
+  bool post_reform_scheme = 19;
+}
+
+// FinancialYearOption is one selectable year, with how much is in it.
+message FinancialYearOption {
+  string financial_year = 1;
+  int32 financial_year_end = 2;
+  int32 party_group_count = 3;
+  // Party groups in this year with at least one payer matched to an ASX
+  // listing, over EVERY group in the year — not over the page of groups a
+  // response happened to carry. A surface counting groups it did not show needs
+  // the population, or its "and N more" is a function of the page size.
+  int32 listed_group_count = 4;
+}
+
+// DonationsCorpusCounts is the methodology band's raw material: what the corpus
+// actually contains, so a surface can state its own boundaries instead of
+// implying completeness.
+message DonationsCorpusCounts {
+  int32 party_return_count = 1;
+  int32 receipt_count = 2;
+  int32 donation_made_count = 3;
+  // The member layer, and why it is thin. A member with no row here has NOT
+  // been shown to have received nothing — most members never lodge this return.
+  int32 mp_return_count = 4;
+  int32 mp_return_resolved_count = 5;
+  int32 candidate_return_count = 6;
+  int32 candidate_return_resolved_count = 7;
+  // A lodged nil return is a publishable fact, not missing data.
+  int32 nil_candidate_return_count = 8;
+  int32 candidate_donation_count = 9;
+  int32 first_financial_year_end = 10;
+  int32 last_financial_year_end = 11;
+  // Donor/payer NAMES appearing in this corpus that resolve to an ASX listing,
+  // and the codes they resolve to (exact normalised name or curated alias,
+  // never fuzzy). These describe the corpus.
+  //
+  // They replace `listed_company_match_count`, which published the size of the
+  // matching SUBSTRATE — every listed company whose name COULD be matched — as
+  // though it were a count of companies found in the data. It read an order of
+  // magnitude high.
+  int32 matched_payer_name_count = 12;
+  int32 matched_payer_code_count = 13;
+  // How many company names the match layer can match against at all. A property
+  // of the company metadata, kept as the denominator that makes the matched
+  // figures legible, and never to be rendered as a number of donors.
+  int32 matchable_company_name_count = 14;
+}
+
+message GetDonationsOverviewRequest {
+  // Verbatim FY label ('2024-25'). Empty selects the latest year held.
+  string financial_year = 1;
+  // Party groups returned, ordered by total_receipts_cents desc. Default 25,
+  // max 100.
+  int32 limit = 2;
+}
+
+message GetDonationsOverviewResponse {
+  string financial_year = 1;               // the year actually served
+  repeated PartyFundingSummary parties = 2;
+  repeated FinancialYearOption available_financial_years = 3;
+  DonationsCorpusCounts corpus = 4;
+
+  // The mandatory notes, single-sourced HERE so every surface renders the same
+  // words and none can paraphrase them into a claim the data cannot support.
+  string censoring_note = 5;   // right-censoring at the disclosure threshold
+  string reform_note = 6;      // the 1 Jan 2027 scheme change / break annotation
+  string coverage_note = 7;    // what the member layer does and does not cover
+  string verbatim_note = 8;    // figures are as lodged, amendments land continuously
+
+  string source_licence = 9;   // 'CC-BY-4.0'
+  string attribution = 10;     // Crown copyright credit; required by the licence
+  google.protobuf.Timestamp as_at = 11;  // ingest snapshot
+}
+
+// DonorRecipientGroup is what one payer paid into one party group. Party groups
+// are the source's own rollup key, never inferred from a branch name.
+message DonorRecipientGroup {
+  string party_group = 1;
+  int64 amount_cents = 2;
+}
+
+// TopDonor is one payer's itemised receipts into party branches for one
+// financial year.
+//
+// donor_name is VERBATIM as lodged — the source is unnormalised and one entity
+// can appear under several spellings. donor_name_norm is the key those spellings
+// were grouped by, published so a reader can see exactly what was combined.
+message TopDonor {
+  string donor_name = 1;
+  string donor_name_norm = 2;
+  int64 total_cents = 3;
+  ReceiptTypeSplit receipt_types = 4;  // sums to total_cents
+  int32 receipt_count = 5;
+  repeated DonorRecipientGroup recipients = 6;
+  // Set ONLY on an exact normalised-name match or a curated alias. A normalised
+  // name that collides across stock codes is excluded entirely — when in doubt,
+  // no link. Empty means "not matched", never "not listed".
+  string stock_code = 7;
+  string company_name = 8;
+  string match_method = 9;  // 'name_exact' | 'curated_alias'; empty when unmatched
+}
+
+message ListTopDonorsRequest {
+  string financial_year = 1;  // empty = latest year held
+  string party_group = 2;     // empty = every party group
+  int32 limit = 3;            // default 50, max 200
+  int32 offset = 4;
+}
+
+message ListTopDonorsResponse {
+  string financial_year = 1;
+  string party_group = 2;
+  repeated TopDonor donors = 3;
+  // Distinct payers matching the filters, NOT the page size — a surface states
+  // the real population rather than the rows it happens to have rendered.
+  int32 total = 4;
+  // What this list is over, stated rather than assumed: itemised receipts whose
+  // recipient is a party branch that rolls up to a party group. Receipts into
+  // associated entities and third parties that never lodged a party return
+  // belong to no group and are not counted here.
+  string scope_note = 5;
+  string censoring_note = 6;
+  string reform_note = 7;
+  string verbatim_note = 8;
+  string source_licence = 9;
+  string attribution = 10;
+  google.protobuf.Timestamp as_at = 11;
+}
+
+message ListPartyFundingRequest {
+  string party_group = 1;     // required; the source's own rollup key
+  string financial_year = 2;  // the focus year for the donor lists; empty = latest held
+  int32 limit = 3;            // donors per list; default 25, max 200
+}
+
+message ListPartyFundingResponse {
+  string party_group = 1;
+  // Every financial year this group lodged in, ASCENDING. post_reform_scheme
+  // marks where the chart must break.
+  repeated PartyFundingSummary series = 2;
+  string financial_year = 3;             // the focus year served
+  repeated TopDonor top_donors = 4;      // focus-year payers, amount desc
+  // Focus-year payers matched to an ASX listing, with their receipt-type split.
+  repeated TopDonor listed_company_payers = 5;
+  // The branch names that lodged under this group, verbatim. Published so the
+  // rollup is inspectable rather than asserted.
+  repeated string branch_names = 6;
+  string censoring_note = 7;
+  string reform_note = 8;
+  string verbatim_note = 9;
+  string source_licence = 10;
+  string attribution = 11;
+  google.protobuf.Timestamp as_at = 12;
+}
+
+// MemberAnnualReturn is one lodged Member of the House of Representatives /
+// Senator annual return. 52 exist in the whole corpus.
+message MemberAnnualReturn {
+  string financial_year = 1;
+  int32 financial_year_end = 2;
+  string return_type = 3;   // verbatim, e.g. 'Member of House of Representatives Return'
+  string chamber = 4;       // 'house' | 'senate'
+  string member_name = 5;   // verbatim as lodged, honorifics intact
+  int64 total_donations_cents = 6;
+  int32 donor_count = 7;
+  string source_url = 8;
+}
+
+// CandidateDonation is one itemised gift named in a candidate's election return.
+message CandidateDonation {
+  string donor_name = 1;      // verbatim
+  string donation_date = 2;   // YYYY-MM-DD; empty when the return omits it
+  int64 amount_cents = 3;
+}
+
+// CandidateElectionReturn is one election return lodged by the member as a
+// candidate — the honest member layer, because it names the person.
+//
+// A NIL RETURN IS A FACT, not missing data: nil_return true means "lodged a
+// return declaring no gifts", which is publishable exactly as that.
+message CandidateElectionReturn {
+  string event = 1;             // verbatim, e.g. '2025 Federal Election'
+  int32 event_year = 2;
+  string return_type = 3;       // 'Candidate' | 'Senate Group'
+  string candidate_name = 4;    // verbatim 'SURNAME, Given Names'
+  string party_name = 5;
+  string electorate_name = 6;
+  string electorate_state = 7;
+  bool nil_return = 8;
+  // Amendments land continuously; the number is published so a reader knows the
+  // figure was revised rather than wondering why it moved.
+  int32 amendment_no = 9;
+  int64 total_gift_cents = 10;
+  int32 donor_count = 11;
+  int64 expenditure_cents = 12;
+  int64 discretionary_cents = 13;
+  // Itemised gifts, where the return names them. Empty is NOT "no gifts" — see
+  // the event coverage counts below.
+  repeated CandidateDonation donations = 14;
+  // CORPUS-WIDE coverage for this event, carried on the row it caveats: of
+  // event_return_count returns lodged, event_itemised_return_count name their
+  // donors individually. Without this an empty donations list reads as a claim.
+  int32 event_return_count = 15;
+  int32 event_itemised_return_count = 16;
+  string source_url = 17;
+}
+
+message GetPoliticianFundingRequest {
+  string slug = 1;
+}
+
+message GetPoliticianFundingResponse {
+  // Echoed from the store like GetPolitician's, so a consumer redirects on a
+  // retired slug rather than deriving one.
+  string canonical_slug = 1;
+  // ONLY returns that name this member. Party money is never attributed here.
+  repeated MemberAnnualReturn annual_returns = 2;
+  repeated CandidateElectionReturn candidate_returns = 3;
+  // Always served, empty response or not: this layer is thin and a surface that
+  // does not state its coverage lies by construction.
+  string coverage_note = 4;
+  // Money given to a party is not money given to a member.
+  string attribution_note = 5;
+  string censoring_note = 6;
+  string reform_note = 7;
+  string verbatim_note = 8;
+  string source_licence = 9;
+  string attribution = 10;
+  google.protobuf.Timestamp as_at = 11;
+}

@@ -10,7 +10,7 @@ import { gcsStorage } from "~/server/gcs-storage";
 import { isAdmin } from "~/server/admin";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { NewsService } from "~/gen/shorts/v1alpha1/news_pb";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "~/app/actions/config";
 
 export const maxDuration = 60; // seconds — Vercel function timeout
@@ -59,7 +59,7 @@ async function buildHeroTopicForTake(headline: string, stockCode: string): Promi
 
 function adminClient() {
   return createClient(
-    ShortedStocksService,
+    NewsService,
     createConnectTransport({
       fetch: serverFetchWithUserAgent,
       baseUrl: SHORTS_API_URL,

@@ -54,10 +54,31 @@ const (
 // request body for identity + tier — would otherwise let any logged-in user
 // self-grant a paid subscription or mutate another customer's record.
 // Keyed by protobuf full method name.
-var internalOnlyMethods = map[string]bool{
-	"shorts.v1alpha1.ShortedStocksService.HandleStripeCheckoutCompleted":   true,
-	"shorts.v1alpha1.ShortedStocksService.HandleStripeSubscriptionUpdated": true,
-}
+// Each method is served by both the legacy monolithic service and its
+// per-domain service (same ShortsServer handler) — derive both full names
+// from one list so the two mounts can't drift.
+var internalOnlyMethods = func() map[string]bool {
+	m := make(map[string]bool)
+	for _, svc := range []string{"ShortedStocksService", "BillingService"} {
+		for _, method := range []string{"HandleStripeCheckoutCompleted", "HandleStripeSubscriptionUpdated"} {
+			m["shorts.v1alpha1."+svc+"."+method] = true
+		}
+	}
+	// The register review console. required_role="admin" in the proto is not
+	// sufficient on its own: the admin role is auto-granted from an email
+	// allowlist below, so a user who reaches that allowlist by any means could
+	// otherwise call these directly. A decision here writes a curated_alias,
+	// which the public gate then lets publish a live company link against a
+	// named politician — so it is gated on the internal secret as well, and the
+	// only caller that holds it is the web tier's own requireAdmin() actions.
+	for _, method := range []string{
+		"ListSecurityQueue", "SearchListings", "DecideSecurityCandidate",
+		"UndoSecurityDecision", "GetCoverageStats",
+	} {
+		m["registerreview.v1.RegisterReviewService."+method] = true
+	}
+	return m
+}()
 
 // SubscriptionLookup is a function that looks up a user's subscription tier by user ID.
 // Returns the tier (e.g., "free", "pro", "enterprise") or empty string if not found.

@@ -85,6 +85,17 @@ export const ICONS = [
   { id: "compare", group: "relationships", subject: "two vertical bars of different heights side by side" },
   { id: "similar", group: "relationships", subject: "two overlapping circles like a venn diagram" },
   { id: "nearby", group: "relationships", subject: "a compass with a needle" },
+  // --- archetype (banner badge; id === banner archetype id) ---
+  { id: "coastal-beach", group: "archetype", subject: "a single curling ocean wave over a small sandy shore" },
+  { id: "harbour", group: "archetype", subject: "a small sailboat beside a short timber jetty" },
+  { id: "river-valley", group: "archetype", subject: "a winding river flowing between two banks" },
+  { id: "urban-skyline", group: "archetype", subject: "three city tower blocks of increasing height side by side" },
+  { id: "inner-terraces", group: "archetype", subject: "a row of three joined terrace-house rooftops with chimneys" },
+  { id: "leafy-suburban", group: "archetype", subject: "a small pitched-roof house beside one round leafy tree" },
+  { id: "parkland", group: "archetype", subject: "a round shade tree beside a simple park bench" },
+  { id: "hills-ranges", group: "archetype", subject: "a simple twin-peak mountain range" },
+  { id: "bushland", group: "archetype", subject: "a single slender eucalypt gum tree" },
+  { id: "farmland", group: "archetype", subject: "a farm windmill beside a low fence" },
 ];
 
 export const ICON_IDS = ICONS.map((i) => i.id);

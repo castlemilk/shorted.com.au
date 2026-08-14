@@ -2,7 +2,7 @@
 
 **Status:** Approved (design) · 2026-06-30
 **Author:** Ben + Claude
-**Supersedes/extends:** the suburb explorer (`docs/housing-architecture.md` §5), the stock knowledge graph (`entities`/`entity_edges`).
+**Supersedes/extends:** the suburb explorer (`docs/feature/housing/architecture.md` §5), the stock knowledge graph (`entities`/`entity_edges`).
 
 ## 1. Goal
 

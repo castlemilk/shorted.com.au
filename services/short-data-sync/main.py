@@ -316,6 +316,13 @@ def refresh_materialized_views(connection_string):
 
         engine = create_engine(connection_string)
         with engine.begin() as conn:
+            # The statement_timeout timer is armed when the client command
+            # starts, so it must be cleared on THIS session — a function-level
+            # SET inside refresh_all_materialized_views() cannot disarm it.
+            # Without this, the screener MV refresh (>2min) is cancelled and
+            # every MV after it in the chain silently goes stale (Jul 2026:
+            # /statistics + /scans served 19-day-old data).
+            conn.execute(text("SET statement_timeout = 0"))
             conn.execute(text("SELECT refresh_all_materialized_views()"))
         print("Refreshed materialized views.")
     except Exception as e:  # noqa: BLE001 - best-effort
@@ -340,8 +347,8 @@ def trigger_revalidation(record_count):
             url,
             params={
                 "secret": secret,
-                "tag": "shorts-data",
-                "path": "/,/top,/news,/screener,/industry,/shorts/[stockCode]",
+                "tag": "shorts-data,scan-results",
+                "path": "/,/top,/news,/screener,/industry,/shorts/[stockCode],/statistics,/scans",
                 "flush": "shorts",
             },
         )

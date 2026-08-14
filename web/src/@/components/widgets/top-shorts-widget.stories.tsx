@@ -27,7 +27,7 @@ import {
 } from "~/@/mocks/widget-story-helpers";
 import { topShortsResponseFixture } from "~/@/mocks/fixtures/short-data";
 import { fetchTopShortsClient } from "@/lib/client-api";
-import { GetTopShortsResponseSchema } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { GetTopShortsResponseSchema } from "~/gen/shorts/v1alpha1/market_pb";
 
 const meta = {
   title: "Widgets/TopShorts",

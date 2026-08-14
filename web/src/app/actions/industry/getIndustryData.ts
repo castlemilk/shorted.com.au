@@ -3,6 +3,7 @@
 import { SHORTS_API_URL, serverFetchWithUserAgent, skipForBuild } from "../config";
 import { cache } from "react";
 import { getOrSetCached, CACHE_KEYS } from "~/@/lib/kv-cache";
+import { createSlug } from "~/@/lib/industry-slug";
 
 // ViewMode enum values - using constants to avoid protobuf-es SSR issues
 const VIEW_MODE_CURRENT_CHANGE = 0;
@@ -50,14 +51,6 @@ const INVALID_INDUSTRIES = new Set([
 ]);
 
 // Build-phase-only data-fetch skip — shared helper (see actions/config.ts).
-
-// Create URL-friendly slug from industry name
-function createSlug(industry: string): string {
-  return industry
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-}
 
 // Get aggregated industry statistics using IndustryTreeMap endpoint
 export const getIndustryData = cache(async (): Promise<IndustryStats[]> => {

@@ -2,9 +2,13 @@ package shorts
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"errors"
+	"math"
 	"time"
 
+	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -163,8 +167,10 @@ type SuburbSummaryRow struct {
 	GpCount              int32
 	PharmacyCount        int32
 	NearestTrainKm       float64
-	NearestHospitalKm    float64
-	DistToCoastKm        float64
+	// Declared properties resolving to this suburb (registers of interests).
+	PoliticianPropertyCount int32
+	NearestHospitalKm       float64
+	DistToCoastKm           float64
 	// school sector/type split (per-state CC-BY open data)
 	SchoolsGov         int32
 	SchoolsCatholic    int32
@@ -175,6 +181,21 @@ type SuburbSummaryRow struct {
 	// NBN connectivity (Local Insights)
 	DominantNbnTech          string
 	ConnectivityQualityScore float64
+	// Crime percentile ranks (latest pooled FY, gated MV); 0 = no data.
+	CrimeBreakInsRank     float64
+	CrimeViolentRank      float64
+	CrimeMotorVehicleRank float64
+}
+
+// SuburbCrimeStatRow is one latest-pooled, gated crime observation.
+type SuburbCrimeStatRow struct {
+	CrimeType    string
+	FYEnding     int32
+	RatePer100k  float64
+	PctRank      float64
+	Jurisdiction string
+	Source       string
+	Licence      string
 }
 
 // SuburbProfileRow is the full per-suburb profile (demographics + headline price).
@@ -213,8 +234,18 @@ type SuburbProfileRow struct {
 	LgaAssetRenewalRatio float64
 	LgaFinSource         string
 	LgaFinYear           string
+	// editorial banner header (archetype, blurb, landmarks, background) — the
+	// landmarks are left as raw jsonb bytes for the service layer to unmarshal
+	// into proto SuburbLandmark values.
+	BannerArchetype string
+	BannerBlurb     string
+	BannerLandmarks []byte
+	BannerBgKey     string
+	BannerBgUrl     string
 	// most-similar suburbs (feature-vector kNN — the knowledge-graph "similar_to")
 	Similar []SimilarSuburbRow
+	// latest pooled crime observations; empty means no reliable data
+	Crime []SuburbCrimeStatRow
 }
 
 // SimilarSuburbRow is one near-neighbour in demographic+amenity feature space.
@@ -227,6 +258,55 @@ type SimilarSuburbRow struct {
 	Distance          float64
 }
 
+// preferredSuburbRegionJoin resolves the one public suburb-price identity for a
+// SAL. Crawled listing keys can share a SAL with Valuer-General keys, but their
+// observations are proprietary and must not fan out list rows or win a profile's
+// bare LIMIT 1. Ties between public sources are newest-first and deterministic.
+const preferredSuburbRegionJoin = `
+		LEFT JOIN LATERAL (
+			SELECT sr.region_code, hp.value, hp.period, hp.yoy_pct
+			FROM house_price_regions sr
+			LEFT JOIN LATERAL (
+				SELECT latest.value, latest.period,
+				       (latest.value / NULLIF((
+				          SELECT prior.value FROM house_prices prior
+				          WHERE prior.region_code = sr.region_code AND prior.measure = 'median_price'
+				            AND prior.dwelling_type = 'house' AND prior.source_licence <> 'proprietary-tos-restricted'
+				            AND prior.period <= latest.period - INTERVAL '11 months'
+				          ORDER BY prior.period DESC LIMIT 1), 0) - 1) * 100 AS yoy_pct
+				FROM house_prices latest
+				WHERE latest.region_code = sr.region_code AND latest.measure = 'median_price'
+				  AND latest.dwelling_type = 'house' AND latest.source_licence <> 'proprietary-tos-restricted'
+				ORDER BY latest.period DESC LIMIT 1
+			) hp ON true
+			WHERE sr.sal_code = d.sal_code AND sr.region_type = 'suburb'
+			ORDER BY (hp.value IS NOT NULL) DESC,
+			         hp.period DESC NULLS LAST,
+			         sr.region_code
+			LIMIT 1
+		) r ON true`
+
+const listStateSuburbsCrimeJoin = `
+		LEFT JOIN (
+			-- Latest pooled, CVS-adjusted crime ranks, pivoted per suburb. The MV
+			-- (000092) is already gated; this WHERE re-asserts the small_pop/
+			-- unreliable gate as defense-in-depth.
+			SELECT sal_code,
+			       MAX(pct_rank) FILTER (WHERE crime_type = 'break_ins') AS break_ins_rank,
+			       MAX(pct_rank) FILTER (WHERE crime_type = 'violent') AS violent_rank,
+			       MAX(pct_rank) FILTER (WHERE crime_type = 'motor_vehicle') AS motor_vehicle_rank
+			FROM mv_suburb_crime_latest
+			WHERE NOT small_pop AND NOT unreliable
+			GROUP BY sal_code
+		) cr ON cr.sal_code = d.sal_code`
+
+func displayCrimeRank(rank sql.NullFloat64) float64 {
+	if !rank.Valid {
+		return 0
+	}
+	return math.Max(math.Round(rank.Float64*10)/10, 0.1)
+}
+
 // ListStateSuburbs returns every SAL suburb in a state, LEFT JOINed to its latest
 // median price (via the sal_code bridge) and headline demographics.
 func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) ([]*SuburbSummaryRow, error) {
@@ -237,7 +317,7 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 	}
 	const q = `
 		SELECT d.sal_code, d.sal_name, d.state_code, COALESCE(d.postcode, ''),
-		       COALESCE(h.value, 0), h.period, COALESCE(h.yoy_pct, 0),
+		       COALESCE(r.value, 0), r.period, COALESCE(r.yoy_pct, 0),
 		       COALESCE(d.population, 0), COALESCE(d.median_age, 0),
 		       COALESCE(d.median_weekly_hhd_income, 0), COALESCE(r.region_code, ''),
 		       COALESCE(d.pct_born_overseas, 0), COALESCE(d.top_religion, ''),
@@ -255,25 +335,15 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 		       COALESCE(a.dist_to_coast_km,0),
 		       COALESCE(a.schools_gov,0), COALESCE(a.schools_catholic,0), COALESCE(a.schools_independent,0),
 		       COALESCE(a.schools_primary,0), COALESCE(a.schools_secondary,0), COALESCE(a.nearest_secondary_km,0),
-		       COALESCE(c.dominant_nbn_tech,''), COALESCE(c.connectivity_quality_score,0)
-		FROM suburb_demographics d
-		LEFT JOIN house_price_regions r ON r.sal_code = d.sal_code AND r.region_type = 'suburb'
+		       COALESCE(c.dominant_nbn_tech,''), COALESCE(c.connectivity_quality_score,0),
+		       cr.break_ins_rank, cr.violent_rank, cr.motor_vehicle_rank,
+		       COALESCE(rp.declared_property_count, 0)
+		FROM suburb_demographics d` + preferredSuburbRegionJoin + `
 		LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
 		LEFT JOIN suburb_connectivity c ON c.sal_code = d.sal_code
-		-- Latest median from house_prices directly (NOT the quarterly-only MV) so annual
-		-- Valuer-General states (VIC) light up too; YoY computed vs the obs ~1yr prior.
-		LEFT JOIN LATERAL (
-			SELECT hp.value, hp.period,
-			       (hp.value / NULLIF((
-			          SELECT p.value FROM house_prices p
-			          WHERE p.region_code = r.region_code AND p.measure = 'median_price'
-			            AND p.dwelling_type = 'house' AND p.source_licence <> 'proprietary-tos-restricted' AND p.period <= hp.period - INTERVAL '11 months'
-			          ORDER BY p.period DESC LIMIT 1), 0) - 1) * 100 AS yoy_pct
-			FROM house_prices hp
-			WHERE hp.region_code = r.region_code AND hp.measure = 'median_price' AND hp.dwelling_type = 'house'
-			  AND hp.source_licence <> 'proprietary-tos-restricted'
-			ORDER BY hp.period DESC LIMIT 1
-		) h ON true
+		-- Register-of-interests property counts. Read from the MV, never a
+		-- per-request aggregate: this query returns ~5,000 rows per state.
+		LEFT JOIN mv_register_suburb_property rp ON rp.sal_code = d.sal_code` + listStateSuburbsCrimeJoin + `
 		WHERE d.state_code = $1
 		  AND ($2 = '' OR d.sal_name ILIKE '%' || $2 || '%')
 		ORDER BY d.sal_name
@@ -286,6 +356,7 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 	var out []*SuburbSummaryRow
 	for rows.Next() {
 		var r SuburbSummaryRow
+		var breakInsRank, violentRank, motorVehicleRank sql.NullFloat64
 		if err := rows.Scan(&r.SALCode, &r.SALName, &r.StateCode, &r.Postcode,
 			&r.LatestMedianPrice, &r.LatestPeriod, &r.YoYPct,
 			&r.Population, &r.MedianAge, &r.MedianWeeklyHhdIncome, &r.RegionCode,
@@ -297,9 +368,14 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 			&r.HospitalsCount, &r.GpCount, &r.PharmacyCount, &r.NearestTrainKm, &r.NearestHospitalKm,
 			&r.DistToCoastKm,
 			&r.SchoolsGov, &r.SchoolsCatholic, &r.SchoolsIndependent, &r.SchoolsPrimary, &r.SchoolsSecondary, &r.NearestSecondaryKm,
-			&r.DominantNbnTech, &r.ConnectivityQualityScore); err != nil {
+			&r.DominantNbnTech, &r.ConnectivityQualityScore,
+			&breakInsRank, &violentRank, &motorVehicleRank,
+			&r.PoliticianPropertyCount); err != nil {
 			return nil, err
 		}
+		r.CrimeBreakInsRank = displayCrimeRank(breakInsRank)
+		r.CrimeViolentRank = displayCrimeRank(violentRank)
+		r.CrimeMotorVehicleRank = displayCrimeRank(motorVehicleRank)
 		out = append(out, &r)
 	}
 	return out, rows.Err()
@@ -312,7 +388,7 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 	defer cancel()
 	const q = `
 		SELECT d.sal_code, d.sal_name, d.state_code, COALESCE(d.postcode, ''),
-		       COALESCE(h.value, 0), h.period, COALESCE(h.yoy_pct, 0),
+		       COALESCE(r.value, 0), r.period, COALESCE(r.yoy_pct, 0),
 		       COALESCE(d.population, 0), COALESCE(d.median_age, 0),
 		       COALESCE(d.median_weekly_hhd_income, 0), COALESCE(r.region_code, ''),
 		       COALESCE(d.pct_born_overseas, 0), COALESCE(d.top_religion, ''),
@@ -357,25 +433,17 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		       COALESCE(lg.lga_code24,''), COALESCE(lg.lga_name,''), COALESCE(lg.state_code,''), COALESCE(lg.area_sqkm,0), COALESCE(lg.population,0),
 		       COALESCE(lg.fed_fag_aud,0), COALESCE(lg.fed_fag_year,''),
 		       COALESCE(lg.avg_rates,0), COALESCE(lg.op_surplus_ratio,0), COALESCE(lg.asset_renewal_ratio,0),
-		       COALESCE(lg.fin_source,''), COALESCE(lg.fin_year,'')
-		FROM suburb_demographics d
-		LEFT JOIN house_price_regions r ON r.sal_code = d.sal_code AND r.region_type = 'suburb'
+		       COALESCE(lg.fin_source,''), COALESCE(lg.fin_year,''),
+		       COALESCE(d.banner_archetype,''), COALESCE(d.banner_blurb,''),
+		       COALESCE(d.banner_landmarks, '[]'::jsonb),
+		       COALESCE(d.banner_bg_key,''), COALESCE(d.banner_bg_url,''),
+		       COALESCE(rp.declared_property_count, 0)
+		FROM suburb_demographics d` + preferredSuburbRegionJoin + `
 		LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
 		LEFT JOIN suburb_connectivity c ON c.sal_code = d.sal_code
 		LEFT JOIN suburb_lga sl ON sl.sal_code = d.sal_code
 		LEFT JOIN lga lg ON lg.lga_code24 = sl.lga_code24
-		LEFT JOIN LATERAL (
-			SELECT hp.value, hp.period,
-			       (hp.value / NULLIF((
-			          SELECT p.value FROM house_prices p
-			          WHERE p.region_code = r.region_code AND p.measure = 'median_price'
-			            AND p.dwelling_type = 'house' AND p.source_licence <> 'proprietary-tos-restricted' AND p.period <= hp.period - INTERVAL '11 months'
-			          ORDER BY p.period DESC LIMIT 1), 0) - 1) * 100 AS yoy_pct
-			FROM house_prices hp
-			WHERE hp.region_code = r.region_code AND hp.measure = 'median_price' AND hp.dwelling_type = 'house'
-			  AND hp.source_licence <> 'proprietary-tos-restricted'
-			ORDER BY hp.period DESC LIMIT 1
-		) h ON true
+		LEFT JOIN mv_register_suburb_property rp ON rp.sal_code = d.sal_code
 		WHERE d.sal_code = $1
 		LIMIT 1`
 	var p SuburbProfileRow
@@ -400,13 +468,52 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		&p.LgaCode, &p.LgaName, &p.LgaState, &p.LgaAreaSqkm, &p.LgaPopulation,
 		&p.LgaFagAud, &p.LgaFagYear,
 		&p.LgaAvgRates, &p.LgaOpSurplusRatio, &p.LgaAssetRenewalRatio, &p.LgaFinSource, &p.LgaFinYear,
+		&p.BannerArchetype, &p.BannerBlurb, &p.BannerLandmarks, &p.BannerBgKey, &p.BannerBgUrl,
+		&p.Summary.PoliticianPropertyCount,
 	); err != nil {
 		return nil, err
 	}
 	if sim, err := s.similarSuburbs(ctx, salCode, 6); err == nil {
 		p.Similar = sim
+	} else {
+		log.Warnf("GetSuburbProfile(%s): similar suburbs unavailable: %v", salCode, err)
+	}
+	if crime, err := s.suburbCrime(ctx, salCode); err == nil {
+		p.Crime = crime
+	} else {
+		log.Warnf("GetSuburbProfile(%s): suburb crime unavailable: %v", salCode, err)
 	}
 	return &p, nil
+}
+
+const suburbCrimeQuery = `
+		SELECT crime_type, fy_ending, COALESCE(rate_per_100k, 0),
+		       COALESCE(pct_rank, 0), source_jurisdiction, source, source_licence
+		FROM mv_suburb_crime_latest
+		WHERE sal_code = $1 AND NOT small_pop AND NOT unreliable
+		ORDER BY crime_type`
+
+// suburbCrime returns the latest pooled, gated crime stats for one suburb.
+// Empty slice means no reliable data (uncovered state or gated small-pop row).
+func (s *postgresStore) suburbCrime(ctx context.Context, salCode string) ([]SuburbCrimeStatRow, error) {
+	rows, err := s.db.Query(ctx, suburbCrimeQuery, salCode)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []SuburbCrimeStatRow
+	for rows.Next() {
+		var stat SuburbCrimeStatRow
+		if err := rows.Scan(
+			&stat.CrimeType, &stat.FYEnding, &stat.RatePer100k, &stat.PctRank,
+			&stat.Jurisdiction, &stat.Source, &stat.Licence,
+		); err != nil {
+			return nil, err
+		}
+		out = append(out, stat)
+	}
+	return out, rows.Err()
 }
 
 // similarSuburbs finds the k nearest suburbs nationally in a z-scored feature
@@ -569,6 +676,7 @@ type SuburbPriceDropRow struct {
 	SoldCount           int32
 	AvgSold             float64
 	MedianSold          float64
+	DroppedValue        float64
 }
 
 // ListSuburbPriceDrops returns the per-suburb listing board: asking/sold price
@@ -596,6 +704,11 @@ func (s *postgresStore) ListSuburbPriceDrops(stateCode, sort string, limit int32
 		orderBy = "st.avg_sold"
 	}
 
+	// dropped_value only exists once migration 000083 has rebuilt
+	// mv_suburb_price_drops. Selecting it via a scalar subquery over the MV's
+	// row (to_jsonb ->> column) keeps this ONE query that works on both the old
+	// and new MV shape, so a code deploy ahead of the manual prod DDL can't
+	// break the suburb board.
 	query := `
 		SELECT st.region_code, COALESCE(r.sal_code, ''),
 		       COALESCE(NULLIF(sd.sal_name, ''), r.region_name, '') AS sal_name,
@@ -605,7 +718,8 @@ func (s *postgresStore) ListSuburbPriceDrops(stateCode, sort string, limit int32
 		       COALESCE(d.max_drop_abs, 0), COALESCE(d.total_active_listings, st.for_sale_count),
 		       COALESCE(d.dropped_share, 0),
 		       st.for_sale_count, COALESCE(st.avg_asking, 0), COALESCE(st.median_asking, 0),
-		       st.sold_count, COALESCE(st.avg_sold, 0), COALESCE(st.median_sold, 0)
+		       st.sold_count, COALESCE(st.avg_sold, 0), COALESCE(st.median_sold, 0),
+		       COALESCE((to_jsonb(d) ->> 'dropped_value')::float8, 0)
 		FROM mv_suburb_listing_stats st
 		JOIN house_price_regions r ON r.region_code = st.region_code
 		LEFT JOIN suburb_demographics sd ON sd.sal_code = r.sal_code
@@ -626,7 +740,8 @@ func (s *postgresStore) ListSuburbPriceDrops(stateCode, sort string, limit int32
 		if err := rows.Scan(&d.RegionCode, &d.SALCode, &d.SALName, &d.StateCode, &d.Postcode,
 			&d.DroppedListingCount, &d.AvgDropPct, &d.MedianDropPct, &d.MaxDropPct,
 			&d.MaxDropAbs, &d.TotalActiveListings, &d.DroppedShare,
-			&d.ForSaleCount, &d.AvgAsking, &d.MedianAsking, &d.SoldCount, &d.AvgSold, &d.MedianSold); err != nil {
+			&d.ForSaleCount, &d.AvgAsking, &d.MedianAsking, &d.SoldCount, &d.AvgSold, &d.MedianSold,
+			&d.DroppedValue); err != nil {
 			return nil, err
 		}
 		out = append(out, &d)
@@ -650,10 +765,12 @@ type SuburbDropListingRow struct {
 	DropAbs        float64
 	ObservedAt     time.Time
 	AddressKey     string
+	AgencyName     string
+	AgentNames     []string
 }
 
-// ListSuburbDropListings returns the latest price-drop per active listing in a
-// suburb, deep-linking to the live portal page. It reads the raw
+// ListSuburbDropListings returns the largest recent price-drop per active,
+// addressable home in a suburb, deep-linking to the selected portal row. It reads the raw
 // (proprietary-tos-restricted) listing rows — this is the flag-gated drill-down;
 // the handler enforces the feature flag. Stale listings (not seen in ~3 weeks) and
 // URL-less rows are filtered so we never surface a dead deep-link.
@@ -671,9 +788,10 @@ func (s *postgresStore) ListSuburbDropListings(salCode, regionCode string, windo
 	const query = `
 		SELECT t.source, t.listing_url, t.display_address, t.property_type,
 		       t.bedrooms, t.bathrooms, t.car_spaces,
-		       t.prev_price, t.price, t.drop_pct, t.drop_abs, t.observed_at, t.address_key
+		       t.prev_price, t.price, t.drop_pct, t.drop_abs, t.observed_at, t.address_key,
+		       t.agency_name, t.agent_names
 		FROM (
-			SELECT DISTINCT ON (e.listing_pk)
+			SELECT DISTINCT ON (pl.address_key)
 			       pl.source, pl.listing_url,
 			       COALESCE(pl.display_address, '') AS display_address,
 			       COALESCE(pl.property_type, '')   AS property_type,
@@ -684,7 +802,9 @@ func (s *postgresStore) ListSuburbDropListings(salCode, regionCode string, windo
 			       COALESCE(e.price, 0)             AS price,
 			       COALESCE(e.drop_pct, 0)          AS drop_pct,
 			       COALESCE(e.drop_abs, 0)          AS drop_abs,
-			       e.observed_at, e.listing_pk, COALESCE(pl.address_key, '') AS address_key
+			       e.observed_at, e.listing_pk, COALESCE(pl.address_key, '') AS address_key,
+			       COALESCE(pl.agency_name, '') AS agency_name,
+			       COALESCE(pl.agent_names, '{}') AS agent_names
 			FROM property_price_events e
 			JOIN property_listings pl ON pl.id = e.listing_pk
 			JOIN house_price_regions r ON r.region_code = e.region_code
@@ -695,7 +815,11 @@ func (s *postgresStore) ListSuburbDropListings(salCode, regionCode string, windo
 			  AND pl.is_active
 			  AND pl.last_seen_at >= now() - interval '21 days'
 			  AND pl.listing_url <> ''
-			ORDER BY e.listing_pk, e.observed_at DESC
+			  AND NULLIF(pl.address_key, '') IS NOT NULL
+			  -- Same typo-correction sanity cap as the aggregate MVs (000083) so
+			  -- the drill-down can't rank a correction above real drops.
+			  AND e.drop_pct <= 0.40
+			ORDER BY pl.address_key, e.drop_abs DESC, e.observed_at DESC
 		) t
 		ORDER BY t.drop_pct DESC
 		LIMIT $4`
@@ -711,7 +835,8 @@ func (s *postgresStore) ListSuburbDropListings(salCode, regionCode string, windo
 		var l SuburbDropListingRow
 		if err := rows.Scan(&l.Source, &l.ListingURL, &l.DisplayAddress, &l.PropertyType,
 			&l.Bedrooms, &l.Bathrooms, &l.CarSpaces, &l.PrevPrice, &l.Price,
-			&l.DropPct, &l.DropAbs, &l.ObservedAt, &l.AddressKey); err != nil {
+			&l.DropPct, &l.DropAbs, &l.ObservedAt, &l.AddressKey,
+			&l.AgencyName, &l.AgentNames); err != nil {
 			return nil, err
 		}
 		out = append(out, &l)
@@ -742,6 +867,8 @@ type PropertyListingSnapshotRow struct {
 	Postcode       string
 	FirstSeenAt    time.Time
 	LastSeenAt     time.Time
+	AgencyName     string
+	AgentNames     []string
 }
 
 // PropertyPriceEventRow is one event in an address's merged price timeline
@@ -779,6 +906,34 @@ type PropertyHistoryResult struct {
 	DistinctDwellings int32
 }
 
+// PropertyValuationSaleRow is one entry of property_valuations.sales_history.
+// JSON tags mirror the collector's saleRecord (crawl_property_extract.go) exactly.
+type PropertyValuationSaleRow struct {
+	Date   string   `json:"date"`
+	Price  *float64 `json:"price"` // nil = undisclosed
+	Agency string   `json:"agency"`
+	Type   string   `json:"type"`
+}
+
+// PropertyValuationRow is the servable slice of a property_valuations row.
+// Raw/content_hash/lat/lng deliberately never leave the store layer.
+type PropertyValuationRow struct {
+	Source                         string
+	ProfileURL                     string
+	FetchedAt                      time.Time
+	EstimateLow                    float64
+	EstimateMid                    float64
+	EstimateHigh                   float64
+	EstimateConfidence             string
+	ValuationGranularity           string // 'exact' | 'building'
+	RentEstimateMid                float64
+	Bedrooms, Bathrooms, CarSpaces int32
+	LandSizeSqm, BuildingSizeSqm   float64
+	YearBuilt                      int32
+	PropertyType                   string
+	SalesHistory                   []PropertyValuationSaleRow
+}
+
 // GetPropertyHistory returns the full asking-price timeline for a single
 // physical address (stable address_key), merging every listing/relist ever
 // seen at that address. It reads the raw (proprietary-tos-restricted) listing
@@ -799,7 +954,8 @@ func (s *postgresStore) GetPropertyHistory(addressKey string) (*PropertyHistoryR
 		       COALESCE(bedrooms, 0), COALESCE(bathrooms, 0), COALESCE(car_spaces, 0),
 		       COALESCE(land_size_sqm, 0), COALESCE(property_type, ''),
 		       COALESCE(display_address, ''), COALESCE(suburb, ''), COALESCE(state_code, ''),
-		       COALESCE(postcode, ''), first_seen_at, last_seen_at
+		       COALESCE(postcode, ''), first_seen_at, last_seen_at,
+		       COALESCE(agency_name, ''), COALESCE(agent_names, '{}')
 		FROM property_listings
 		WHERE address_key = $1
 		ORDER BY is_active DESC, last_seen_at DESC
@@ -811,7 +967,7 @@ func (s *postgresStore) GetPropertyHistory(addressKey string) (*PropertyHistoryR
 		&cur.PriceKind, &cur.ListingStatus, &cur.IsActive,
 		&cur.Bedrooms, &cur.Bathrooms, &cur.CarSpaces, &cur.LandSizeSqm, &cur.PropertyType,
 		&cur.DisplayAddress, &cur.Suburb, &cur.StateCode, &cur.Postcode,
-		&cur.FirstSeenAt, &cur.LastSeenAt)
+		&cur.FirstSeenAt, &cur.LastSeenAt, &cur.AgencyName, &cur.AgentNames)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return &PropertyHistoryResult{}, nil
@@ -825,6 +981,7 @@ func (s *postgresStore) GetPropertyHistory(addressKey string) (*PropertyHistoryR
 		       COALESCE(listing_status, ''), COALESCE(prev_status, '')
 		FROM property_price_events
 		WHERE address_key = $1
+		  AND (event_type <> 'price_drop' OR COALESCE(drop_pct, 0) <= 0.40)
 		ORDER BY observed_at ASC, id ASC`
 
 	rows, err := s.db.Query(ctx, eventsQuery, addressKey)
@@ -881,6 +1038,52 @@ func (s *postgresStore) GetPropertyHistory(addressKey string) (*PropertyHistoryR
 	}, nil
 }
 
+// GetPropertyValuation returns the AVM snapshot for one address, or nil when
+// no successful valuation exists. Only fetch_status='ok' rows are servable;
+// blocked/notfound/error rows (and their NULL granularity) never surface.
+func (s *postgresStore) GetPropertyValuation(addressKey string) (*PropertyValuationRow, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	const query = `
+		SELECT COALESCE(source, ''), COALESCE(profile_url, ''), fetched_at,
+		       COALESCE(estimate_low, 0), COALESCE(estimate_mid, 0), COALESCE(estimate_high, 0),
+		       COALESCE(estimate_confidence, ''), COALESCE(valuation_granularity, ''),
+		       COALESCE(rent_estimate_mid, 0),
+		       COALESCE(bedrooms, 0), COALESCE(bathrooms, 0), COALESCE(car_spaces, 0),
+		       COALESCE(land_size_sqm, 0), COALESCE(building_size_sqm, 0),
+		       COALESCE(year_built, 0), COALESCE(property_type, ''),
+		       COALESCE(sales_history, '[]'::jsonb)
+		FROM property_valuations
+		WHERE address_key = $1 AND fetch_status = 'ok'`
+
+	var row PropertyValuationRow
+	var salesHistory []byte
+	err := s.db.QueryRow(ctx, query, addressKey).Scan(
+		&row.Source, &row.ProfileURL, &row.FetchedAt,
+		&row.EstimateLow, &row.EstimateMid, &row.EstimateHigh,
+		&row.EstimateConfidence, &row.ValuationGranularity,
+		&row.RentEstimateMid,
+		&row.Bedrooms, &row.Bathrooms, &row.CarSpaces,
+		&row.LandSizeSqm, &row.BuildingSizeSqm,
+		&row.YearBuilt, &row.PropertyType,
+		&salesHistory,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	if err := json.Unmarshal(salesHistory, &row.SalesHistory); err != nil {
+		log.Warnf("GetPropertyValuation(%s): failed to decode sales_history: %v", addressKey, err)
+		row.SalesHistory = []PropertyValuationSaleRow{}
+	}
+
+	return &row, nil
+}
+
 // AddressPriceDropRow is one physical address (deduped by address_key) whose
 // for-sale asking price fell over the window, for the drops-by-address board.
 type AddressPriceDropRow struct {
@@ -900,6 +1103,8 @@ type AddressPriceDropRow struct {
 	PropertyType     string
 	Bedrooms         int32
 	Bathrooms        int32
+	AgencyName       string
+	AgentNames       []string
 }
 
 // ListAddressPriceDrops ranks individual physical addresses (deduped by the
@@ -949,7 +1154,9 @@ func (s *postgresStore) ListAddressPriceDrops(stateCode, sort string, windowDays
 			       pl.last_seen_at                  AS last_observed_at,
 			       COALESCE(pl.property_type, '')   AS property_type,
 			       COALESCE(pl.bedrooms, 0)         AS bedrooms,
-			       COALESCE(pl.bathrooms, 0)        AS bathrooms
+			       COALESCE(pl.bathrooms, 0)        AS bathrooms,
+			       COALESCE(pl.agency_name, '')     AS agency_name,
+			       COALESCE(pl.agent_names, '{}')   AS agent_names
 			FROM property_listings pl
 			WHERE pl.address_key <> ''
 			  AND pl.is_active
@@ -991,13 +1198,21 @@ func (s *postgresStore) ListAddressPriceDrops(stateCode, sort string, windowDays
 		       (f.first_price - c.current_price) / f.first_price  AS drop_pct,
 		       COALESCE(n.num_listings, 1)                        AS num_listings,
 		       c.latest_source, c.latest_listing_url, c.last_observed_at,
-		       c.property_type, c.bedrooms, c.bathrooms
+		       c.property_type, c.bedrooms, c.bathrooms, c.agency_name, c.agent_names
 		FROM cur c
 		JOIN firstp f ON f.address_key = c.address_key
 		LEFT JOIN nlist n ON n.address_key = c.address_key
 		WHERE f.first_price > 0
 		  AND f.first_price > c.current_price
 		  AND (f.first_price - c.current_price) / f.first_price >= 0.03
+		  -- Sanity cap in the spirit of the aggregate MVs (000083): a >40%
+		  -- move is a listing typo correction (e.g. an extra-zero $7.5M ->
+		  -- $750k fix), not a vendor discount. NOTE this board's cap is on the
+		  -- CUMULATIVE window reduction (first_price -> current), while the MVs
+		  -- cap each individual drop event — an address that really fell >40%
+		  -- through several capped cuts is excluded here but still counted in
+		  -- the aggregates.
+		  AND (f.first_price - c.current_price) / f.first_price <= 0.40
 		`
 
 	query := baseQuery + orderBy + "\n\t\tLIMIT $3"
@@ -1013,7 +1228,141 @@ func (s *postgresStore) ListAddressPriceDrops(stateCode, sort string, windowDays
 		if err := rows.Scan(&r.AddressKey, &r.DisplayAddress, &r.Suburb, &r.StateCode, &r.Postcode,
 			&r.FirstPrice, &r.CurrentPrice, &r.DropAbs, &r.DropPct, &r.NumListings,
 			&r.LatestSource, &r.LatestListingURL, &r.LastObservedAt,
-			&r.PropertyType, &r.Bedrooms, &r.Bathrooms); err != nil {
+			&r.PropertyType, &r.Bedrooms, &r.Bathrooms, &r.AgencyName, &r.AgentNames); err != nil {
+			return nil, err
+		}
+		out = append(out, &r)
+	}
+	return out, rows.Err()
+}
+
+// StatePriceDropSummaryRow is one state's (or the 'AU' national) rollup of
+// recent asking-price reductions plus asking/sold aggregates, from
+// mv_state_price_drops (derived aggregates only).
+type StatePriceDropSummaryRow struct {
+	StateCode           string
+	DroppedCount        int32
+	AvgDropPct          float64
+	MedianDropPct       float64
+	MaxDropPct          float64
+	DroppedValue        float64
+	TotalActiveListings int32
+	DroppedShare        float64
+	ForSaleCount        int32
+	ForSalePriced       int32
+	AvgAsking           float64
+	MedianAsking        float64
+	SoldCount           int32
+	AvgSold             float64
+	MedianSold          float64
+	SuburbsTracked      int32
+}
+
+// GetPriceDropsOverview returns the per-state price-drop + listing-price
+// rollup, including the 'AU' national row. Reads ONLY the derived aggregate
+// (mv_state_price_drops) — never the raw, ToS-restricted listing rows.
+func (s *postgresStore) GetPriceDropsOverview() ([]*StatePriceDropSummaryRow, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	const query = `
+		SELECT state_code, dropped_count, COALESCE(avg_drop_pct, 0),
+		       COALESCE(median_drop_pct, 0), COALESCE(max_drop_pct, 0),
+		       COALESCE(dropped_value, 0), total_active_listings,
+		       COALESCE(dropped_share, 0), for_sale_count, for_sale_priced,
+		       COALESCE(avg_asking, 0), COALESCE(median_asking, 0),
+		       sold_count, COALESCE(avg_sold, 0), COALESCE(median_sold, 0),
+		       suburbs_tracked
+		FROM mv_state_price_drops
+		ORDER BY (state_code = 'AU') DESC, dropped_count DESC, state_code ASC`
+
+	rows, err := s.db.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*StatePriceDropSummaryRow
+	for rows.Next() {
+		var r StatePriceDropSummaryRow
+		if err := rows.Scan(&r.StateCode, &r.DroppedCount, &r.AvgDropPct, &r.MedianDropPct,
+			&r.MaxDropPct, &r.DroppedValue, &r.TotalActiveListings, &r.DroppedShare,
+			&r.ForSaleCount, &r.ForSalePriced, &r.AvgAsking, &r.MedianAsking,
+			&r.SoldCount, &r.AvgSold, &r.MedianSold, &r.SuburbsTracked); err != nil {
+			return nil, err
+		}
+		out = append(out, &r)
+	}
+	return out, rows.Err()
+}
+
+// AgencyPriceStatsRow is one agency's aggregate footprint from mv_agency_stats
+// (derived aggregates only; >=3 active listings floor baked into the MV).
+// Agency identity is per-portal — the same real-world agency may appear once
+// per portal.
+type AgencyPriceStatsRow struct {
+	Source         string
+	AgencyID       string
+	AgencyName     string
+	StateCode      string
+	ActiveListings int32
+	PricedListings int32
+	AvgAsking      float64
+	MedianAsking   float64
+	SuburbsCovered int32
+	DroppedCount   int32
+	AvgDropPct     float64
+	TotalDropValue float64
+	AgentNames     []string
+}
+
+// ListAgencyPriceStats ranks agencies by recent asking-price cuts (or listing
+// footprint) from mv_agency_stats. Reads ONLY the derived aggregate — never
+// the raw, ToS-restricted listing rows. AgentNames remains an empty compatibility
+// field; personal names are available only from flag-gated per-listing reads.
+// sort ∈ {drops,listings,avg_cut,value}; default drops.
+func (s *postgresStore) ListAgencyPriceStats(stateCode, sort string, limit int32) ([]*AgencyPriceStatsRow, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	// Whitelist the sort column (never interpolate user input into SQL).
+	orderBy := "dropped_count DESC NULLS LAST, total_drop_value DESC NULLS LAST, active_listings DESC NULLS LAST"
+	switch sort {
+	case "listings":
+		orderBy = "active_listings DESC NULLS LAST, dropped_count DESC NULLS LAST"
+	case "avg_cut":
+		orderBy = "avg_drop_pct DESC NULLS LAST, dropped_count DESC NULLS LAST"
+	case "value":
+		orderBy = "total_drop_value DESC NULLS LAST, dropped_count DESC NULLS LAST"
+	}
+
+	query := `
+		SELECT source, agency_id, agency_name, state_code,
+		       active_listings, priced_listings,
+		       COALESCE(avg_asking, 0), COALESCE(median_asking, 0),
+		       suburbs_covered, COALESCE(dropped_count, 0), COALESCE(avg_drop_pct, 0),
+		       COALESCE(total_drop_value, 0), '{}'::text[] AS agent_names
+		FROM mv_agency_stats
+		WHERE ($1 = '' OR state_code = UPPER($1))
+		ORDER BY ` + orderBy + `
+		LIMIT $2`
+
+	rows, err := s.db.Query(ctx, query, stateCode, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*AgencyPriceStatsRow
+	for rows.Next() {
+		var r AgencyPriceStatsRow
+		if err := rows.Scan(&r.Source, &r.AgencyID, &r.AgencyName, &r.StateCode,
+			&r.ActiveListings, &r.PricedListings, &r.AvgAsking, &r.MedianAsking,
+			&r.SuburbsCovered, &r.DroppedCount, &r.AvgDropPct, &r.TotalDropValue,
+			&r.AgentNames); err != nil {
 			return nil, err
 		}
 		out = append(out, &r)

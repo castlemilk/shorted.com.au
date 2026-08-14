@@ -25,7 +25,7 @@ export function CopyButton({ value }: CopyButtonProps) {
     <Button
       size="icon"
       variant="ghost"
-      className="h-8 w-8 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+      className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
       onClick={copyToClipboard}
     >
       {hasCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}

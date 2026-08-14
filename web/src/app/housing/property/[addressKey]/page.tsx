@@ -55,7 +55,7 @@ export default async function PropertyHistoryPage({ params }: PageProps) {
         title={`${name} Property Price History`}
         description={`Price and listing history for ${name}.`}
         url={`https://shorted.com.au/housing/property/${addressKey}`}
-        dataSource="realestate.com.au, domain.com.au"
+        dataSource="realestate.com.au, domain.com.au, property.com.au"
         dataFrequency="daily"
         keywords={[`${name} price history`, `${name} listing history`]}
       />

@@ -19,6 +19,7 @@ import { PremiumGate } from "~/@/components/premium/premium-gate";
 import { Badge } from "~/@/components/ui/badge";
 import { Button } from "~/@/components/ui/button";
 import { cn } from "~/@/lib/utils";
+import { pageTitle } from "~/@/lib/typography";
 import { createAlertMonitor } from "~/app/actions/alerts";
 
 type AlertScope = "industry" | "stock";
@@ -454,7 +455,7 @@ export function AlertsContent({
             >
               Alerts
             </Badge>
-            <h1 className="text-3xl font-bold tracking-tight">
+            <h1 className={pageTitle}>
               Short-interest monitors
             </h1>
             <p className="mt-3 text-sm leading-6 text-muted-foreground text-pretty md:text-base">

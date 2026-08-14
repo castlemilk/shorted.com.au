@@ -403,7 +403,7 @@ function StateHoverCard({ name, stat, x, y }: { name: string; stat: StateStat | 
           </div>
           <div className="flex items-baseline justify-between gap-3">
             <span className="text-muted-foreground">Year</span>
-            <span className={`font-mono tabular-nums ${stat.yoyPct >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+            <span className={`font-mono tabular-nums ${stat.yoyPct >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"}`}>
               {stat.yoyPct >= 0 ? "+" : ""}{stat.yoyPct.toFixed(1)}%
             </span>
           </div>

@@ -28,6 +28,32 @@ variable "house_price_collector_image" {
   default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/house-price-collector:latest"
 }
 
+variable "house_price_collector_official_max_failures" {
+  description = "Maximum official housing sources that may fail before the collector job exits non-zero"
+  type        = number
+  default     = 15
+
+  validation {
+    condition = (
+      var.house_price_collector_official_max_failures >= 0 &&
+      floor(var.house_price_collector_official_max_failures) == var.house_price_collector_official_max_failures
+    )
+    error_message = "house_price_collector_official_max_failures must be a non-negative integer."
+  }
+}
+
+variable "shorted_jobs_image" {
+  description = "Docker image URL for the consolidated `shorted <job>` batch binary (services/jobs)"
+  type        = string
+  default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/shorted-jobs:latest"
+}
+
+variable "shorted_jobs_browser_image" {
+  description = "Docker image URL for the browser (Debian + Chromium) variant of the consolidated `shorted <job>` binary (services/jobs/Dockerfile.browser) — used by `shorted discovery`"
+  type        = string
+  default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/shorted-jobs-browser:latest"
+}
+
 variable "shorts_api_image" {
   description = "Docker image URL for shorts API service"
   type        = string
@@ -88,18 +114,6 @@ variable "market_data_image" {
   default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/market-data:latest"
 }
 
-variable "news_aggregator_image" {
-  description = "Docker image URL for news-aggregator job"
-  type        = string
-  default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/news-aggregator:latest"
-}
-
-variable "asx_announcement_crawler_image" {
-  description = "Docker image URL for asx-announcement-crawler job"
-  type        = string
-  default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/asx-announcement-crawler:latest"
-}
-
 variable "signals_collector_image" {
   description = "Docker image URL for the signals-collector job"
   type        = string
@@ -116,18 +130,6 @@ variable "chat_service_image" {
   description = "Docker image URL for chat-service"
   type        = string
   default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/chat-service:latest"
-}
-
-variable "grafana_url" {
-  description = "Grafana Cloud instance URL"
-  type        = string
-  default     = "https://skunkworq.grafana.net"
-}
-
-variable "grafana_auth" {
-  description = "Grafana service account token"
-  type        = string
-  sensitive   = true
 }
 
 # ---- Cloudflare Edge ----

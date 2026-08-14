@@ -1,0 +1,284 @@
+syntax = "proto3";
+
+package shorts.v1alpha1;
+
+option go_package = "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1";
+
+import "google/protobuf/timestamp.proto";
+import "stocks/v1alpha1/stocks.proto";
+import "options/v1/options.proto";
+
+service EnrichmentService {
+  // Trigger key metrics sync for specific stocks. Admin only.
+  rpc SyncKeyMetrics (SyncKeyMetricsRequest) returns (SyncKeyMetricsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (shortedapi.options.v1.required_role) = "admin";
+  }
+
+  // Trigger enrichment for a specific stock. Admin only.
+  // Returns enrichment data for review before applying to company-metadata.
+  rpc EnrichStock (EnrichStockRequest) returns (EnrichStockResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (shortedapi.options.v1.required_role) = "admin";
+  }
+
+  // Get top stocks for enrichment batching/prioritization. Admin only.
+  rpc GetTopStocksForEnrichment (GetTopStocksForEnrichmentRequest) returns (GetTopStocksForEnrichmentResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (shortedapi.options.v1.required_role) = "admin";
+  }
+
+  // List pending enrichments awaiting review. Admin only.
+  rpc ListPendingEnrichments (ListPendingEnrichmentsRequest) returns (ListPendingEnrichmentsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (shortedapi.options.v1.required_role) = "admin";
+  }
+
+  // Get a specific pending enrichment by ID. Admin only.
+  rpc GetPendingEnrichment (GetPendingEnrichmentRequest) returns (GetPendingEnrichmentResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (shortedapi.options.v1.required_role) = "admin";
+  }
+
+  // Approve or reject a pending enrichment. Admin only.
+  rpc ReviewEnrichment (ReviewEnrichmentRequest) returns (ReviewEnrichmentResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (shortedapi.options.v1.required_role) = "admin";
+  }
+
+  // Get enrichment job status by job ID. Admin only.
+  rpc GetEnrichmentJobStatus (GetEnrichmentJobStatusRequest) returns (GetEnrichmentJobStatusResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (shortedapi.options.v1.required_role) = "admin";
+  }
+
+  // List enrichment jobs with optional status filter. Admin only.
+  rpc ListEnrichmentJobs (ListEnrichmentJobsRequest) returns (ListEnrichmentJobsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (shortedapi.options.v1.required_role) = "admin";
+  }
+}
+
+// Request for SyncKeyMetrics RPC
+message SyncKeyMetricsRequest {
+  repeated string stock_codes = 1; // Stock codes to sync (e.g., ["CVN", "CBA"]). Empty = sync all.
+  bool force = 2; // Force sync even if recently updated (default: false)
+}
+
+// Response for SyncKeyMetrics RPC
+message SyncKeyMetricsResponse {
+  int32 total_requested = 1;
+  int32 successfully_synced = 2;
+  int32 failed = 3;
+  repeated StockSyncResult results = 4;
+  double duration_seconds = 5;
+}
+
+// Result for a single stock sync
+message StockSyncResult {
+  string stock_code = 1;
+  bool success = 2;
+  string error_message = 3;
+  KeyMetricsData metrics = 4; // The synced metrics if successful
+}
+
+// Key metrics data structure
+message KeyMetricsData {
+  double market_cap = 1;
+  double pe_ratio = 2;
+  double eps = 3;
+  double dividend_yield = 4;
+  double beta = 5;
+  double fifty_two_week_high = 6;
+  double fifty_two_week_low = 7;
+  double avg_volume = 8;
+}
+
+// Enrichment request
+message EnrichStockRequest {
+  string stock_code = 1; // Stock code to enrich (e.g., "CBA")
+  bool force = 2; // If true, re-enrich even if already enriched
+}
+
+// Enrichment response with job ID (async processing)
+message EnrichStockResponse {
+  string stock_code = 1;
+  string job_id = 2; // Job ID for tracking async enrichment
+  string message = 3; // Status message
+}
+
+// Enrichment status
+enum EnrichmentStatus {
+  ENRICHMENT_STATUS_UNSPECIFIED = 0;
+  ENRICHMENT_STATUS_PENDING_REVIEW = 1; // Enrichment completed, awaiting review
+  ENRICHMENT_STATUS_COMPLETED = 2; // Approved and saved
+  ENRICHMENT_STATUS_FAILED = 3; // Enrichment failed
+  ENRICHMENT_STATUS_REJECTED = 4; // Rejected during review
+}
+
+// Enrichment data structure
+message EnrichmentData {
+  string enhanced_summary = 1;
+  string company_history = 2;
+  repeated stocks.v1alpha1.CompanyPerson key_people = 3;
+  repeated stocks.v1alpha1.FinancialReport financial_reports = 4;
+  string competitive_advantages = 5;
+  repeated string risk_factors = 6;
+  string recent_developments = 7;
+  stocks.v1alpha1.SocialMediaLinks social_media_links = 8;
+  repeated string tags = 9;
+  // Logo URLs (staged for review, applied on approval)
+  string logo_gcs_url = 10;           // Full logo PNG URL (background removed)
+  string logo_icon_gcs_url = 11;      // Icon-only logo PNG URL  
+  string logo_svg_gcs_url = 12;       // Original SVG logo URL (if discovered as SVG)
+  string logo_source_url = 13;        // Original URL where the logo was found
+  string logo_format = 14;            // Original format of discovered logo (svg, png, etc)
+  // Website discovery (when original metadata lacks website)
+  string discovered_website = 15;     // Website URL discovered during enrichment
+}
+
+// Quality score for enrichment data
+message QualityScore {
+  double overall_score = 1; // 0.0 to 1.0
+  double completeness_score = 2; // How complete is the data
+  double accuracy_score = 3; // Estimated accuracy
+  repeated string warnings = 4; // Quality warnings
+  repeated string strengths = 5; // Quality strengths
+}
+
+// Get top stocks for enrichment request
+message GetTopStocksForEnrichmentRequest {
+  int32 limit = 1; // Number of stocks to return (default: 100)
+  EnrichmentPriority priority = 2; // How to prioritize stocks
+}
+
+// Enrichment priority
+enum EnrichmentPriority {
+  ENRICHMENT_PRIORITY_UNSPECIFIED = 0;
+  ENRICHMENT_PRIORITY_MARKET_CAP = 1; // Top by market cap
+  ENRICHMENT_PRIORITY_SHORT_POSITION = 2; // Top by short position
+  ENRICHMENT_PRIORITY_UNENRICHED = 3; // Stocks that haven't been enriched
+  ENRICHMENT_PRIORITY_STALE = 4; // Stocks with old enrichment data
+}
+
+// Get top stocks response
+message GetTopStocksForEnrichmentResponse {
+  repeated StockEnrichmentCandidate stocks = 1;
+}
+
+// Stock candidate for enrichment
+message StockEnrichmentCandidate {
+  string stock_code = 1;
+  string company_name = 2;
+  string industry = 3;
+  double market_cap = 4;
+  double short_position_percent = 5;
+  string enrichment_status = 6;
+  google.protobuf.Timestamp last_enriched = 7;
+  int32 priority_score = 8; // Higher = more important to enrich
+}
+
+// Review enrichment request
+message ReviewEnrichmentRequest {
+  string stock_code = 1;
+  string enrichment_id = 2; // ID from EnrichStockResponse
+  bool approve = 3; // true to approve, false to reject
+  string review_notes = 4; // Optional notes about the review
+}
+
+// Review enrichment response
+message ReviewEnrichmentResponse {
+  string stock_code = 1;
+  bool approved = 2;
+  string message = 3;
+}
+
+// List pending enrichments request
+message ListPendingEnrichmentsRequest {
+  int32 limit = 1;  // Default: 100
+  int32 offset = 2; // Default: 0
+}
+
+// List pending enrichments response
+message ListPendingEnrichmentsResponse {
+  repeated PendingEnrichmentSummary enrichments = 1;
+}
+
+// A summary view of a pending enrichment (for listing)
+message PendingEnrichmentSummary {
+  string enrichment_id = 1;
+  string stock_code = 2;
+  EnrichmentStatus status = 3;
+  google.protobuf.Timestamp created_at = 4;
+  QualityScore quality_score = 5;
+}
+
+// Get a pending enrichment request
+message GetPendingEnrichmentRequest {
+  string enrichment_id = 1;
+}
+
+// Get a pending enrichment response
+message GetPendingEnrichmentResponse {
+  PendingEnrichment pending = 1;
+}
+
+// Full pending enrichment record (for review UI)
+message PendingEnrichment {
+  string enrichment_id = 1;
+  string stock_code = 2;
+  EnrichmentStatus status = 3;
+  EnrichmentData data = 4;
+  QualityScore quality_score = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp reviewed_at = 7;
+  string reviewed_by = 8;
+  string review_notes = 9;
+}
+
+// Enrichment job status enum
+enum EnrichmentJobStatus {
+  ENRICHMENT_JOB_STATUS_UNSPECIFIED = 0;
+  ENRICHMENT_JOB_STATUS_QUEUED = 1; // Job created, waiting to be processed
+  ENRICHMENT_JOB_STATUS_PROCESSING = 2; // Currently being processed
+  ENRICHMENT_JOB_STATUS_COMPLETED = 3; // Completed successfully
+  ENRICHMENT_JOB_STATUS_FAILED = 4; // Failed with error
+  ENRICHMENT_JOB_STATUS_CANCELLED = 5; // Cancelled before completion
+}
+
+// Enrichment job record
+message EnrichmentJob {
+  string job_id = 1;
+  string stock_code = 2;
+  EnrichmentJobStatus status = 3;
+  int32 priority = 4;
+  bool force = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp started_at = 7;
+  google.protobuf.Timestamp completed_at = 8;
+  string error_message = 9;
+  string enrichment_id = 10; // Set when job completes and enrichment is saved
+}
+
+// Get enrichment job status request
+message GetEnrichmentJobStatusRequest {
+  string job_id = 1;
+}
+
+// Get enrichment job status response
+message GetEnrichmentJobStatusResponse {
+  EnrichmentJob job = 1;
+}
+
+// List enrichment jobs request
+message ListEnrichmentJobsRequest {
+  int32 limit = 1; // Default: 100
+  int32 offset = 2; // Default: 0
+  EnrichmentJobStatus status = 3; // Optional filter by status
+}
+
+// List enrichment jobs response
+message ListEnrichmentJobsResponse {
+  repeated EnrichmentJob jobs = 1;
+  int32 total_count = 2;
+}

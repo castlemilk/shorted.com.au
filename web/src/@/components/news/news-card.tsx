@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ExternalLink, Megaphone } from "lucide-react";
+import { NewsImage } from "~/@/components/news/news-image";
 import { NewsSourceBadge } from "~/@/components/ui/news-source-badge";
 import { SentimentBadge } from "~/@/components/ui/sentiment-badge";
 import { cn } from "~/@/lib/utils";
@@ -36,7 +37,7 @@ const sentimentBorder = (sentiment?: string) => {
     case "negative":
       return "border-l-rose-500/60";
     default:
-      return "border-l-slate-300/40 dark:border-l-slate-700/40";
+      return "border-l-border";
   }
 };
 
@@ -52,7 +53,9 @@ export function NewsCard({ article, variant = "default", showStockChip = true, c
   return (
     <article
       className={cn(
-        "group relative overflow-hidden rounded-xl border-l-4 border bg-card transition-all hover:shadow-md",
+        // Flat at rest, amber on hover — the wire card's response, not a grey
+        // drop shadow. The sentiment `border-l-4` stripe is untouched.
+        "group relative overflow-hidden rounded-xl border-l-4 border bg-card transition-shadow duration-200 ease-out hover:shadow-amber-sm",
         sentimentBorder(article.sentiment),
         isHero && "md:flex md:gap-5",
         className,
@@ -63,21 +66,28 @@ export function NewsCard({ article, variant = "default", showStockChip = true, c
           href={article.url}
           target="_blank"
           rel="noopener noreferrer"
+          // The image is decorative (alt=""); the link needs its own
+          // accessible name or screen readers / crawlers see an empty link
+          // ("Links must have discernible text"). Mirror the headline.
+          aria-label={article.headline}
           className={cn(
-            // Lock aspect ratio at every breakpoint so the image slot has
-            // intrinsic height before the image loads — prevents CLS.
-            "block shrink-0 overflow-hidden bg-muted aspect-[16/9]",
+            // `relative` + a locked aspect ratio give the slot intrinsic
+            // height before the image loads (prevents CLS) and position the
+            // next/image `fill` layer.
+            "relative block shrink-0 overflow-hidden bg-muted aspect-[16/9]",
             isHero && "md:w-[40%] md:aspect-[5/3]",
           )}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <NewsImage
             src={article.imageUrl}
             alt=""
-            width={1600}
-            height={900}
-            loading="lazy"
-            decoding="async"
+            // Grid cards: full-width on phones, 2-up on tablets, 3-up on
+            // desktop. Hero: ~40% of the container on md+.
+            sizes={
+              isHero
+                ? "(max-width: 768px) 100vw, 40vw"
+                : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            }
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
           />
         </a>

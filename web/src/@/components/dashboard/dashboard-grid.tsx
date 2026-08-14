@@ -367,7 +367,7 @@ export function DashboardGrid({
           {widgets.map((widget) => (
             <div
               key={widget.id}
-              className={`h-full transition-all duration-200 ${
+              className={`h-full transition-shadow duration-200 ease-out ${
                 selectedWidgetId === widget.id
                   ? "ring-2 ring-primary ring-offset-2"
                   : ""

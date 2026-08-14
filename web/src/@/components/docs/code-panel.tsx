@@ -31,22 +31,22 @@ export function CodePanel({ endpoint }: CodePanelProps) {
   ];
 
   return (
-    <div className="flex flex-col h-full bg-zinc-950 border-l border-zinc-800">
+    <div className="flex flex-col h-full bg-muted/30 border-l border-border">
       <Tabs defaultValue="cURL" className="flex flex-col h-full">
-        <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800">
+        <div className="flex items-center justify-between px-4 py-2 border-b border-border">
           <TabsList className="bg-transparent border-0 h-auto p-0 gap-4">
             {samples.map((sample) => (
               <TabsTrigger
                 key={sample.label}
                 value={sample.label}
-                className="data-[state=active]:bg-transparent data-[state=active]:text-zinc-100 text-zinc-500 text-xs font-medium px-0 py-2 border-b-2 border-transparent data-[state=active]:border-blue-500 rounded-none h-auto shadow-none"
+                className="data-[state=active]:bg-transparent data-[state=active]:text-foreground text-muted-foreground text-xs font-medium px-0 py-2 border-b-2 border-transparent data-[state=active]:border-primary rounded-none h-auto shadow-none"
               >
                 {sample.label}
               </TabsTrigger>
             ))}
             <TabsTrigger
               value="TryIt"
-              className="data-[state=active]:bg-transparent data-[state=active]:text-zinc-100 text-zinc-500 text-xs font-medium px-0 py-2 border-b-2 border-transparent data-[state=active]:border-blue-500 rounded-none h-auto shadow-none ml-auto"
+              className="data-[state=active]:bg-transparent data-[state=active]:text-foreground text-muted-foreground text-xs font-medium px-0 py-2 border-b-2 border-transparent data-[state=active]:border-primary rounded-none h-auto shadow-none ml-auto"
             >
               Try It
             </TabsTrigger>

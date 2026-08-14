@@ -256,7 +256,7 @@ export function InternationalCorrectionsChart() {
               onClick={() => toggle(c.code)}
               aria-pressed={visible[c.code]}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 font-mono text-[0.7rem] transition-all",
+                "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 font-mono text-[0.7rem] transition-[opacity,color,background-color,border-color] duration-200 ease-out",
                 visible[c.code]
                   ? "border-border bg-card text-foreground"
                   : "border-transparent text-muted-foreground opacity-50 hover:opacity-80",

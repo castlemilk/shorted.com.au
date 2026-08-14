@@ -3,6 +3,7 @@ package shorts
 import (
 	"context"
 	"log"
+	"time"
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
@@ -61,6 +62,10 @@ func (s *StoreAdapter) CleanupStuckSyncRuns() (int, error) {
 
 func (s *StoreAdapter) GetJobsOverview() ([]*shorts.JobHealth, error) {
 	return s.store.GetJobsOverview()
+}
+
+func (s *StoreAdapter) GetCrawlRunStatuses() ([]*shorts.CrawlRunStatus, error) {
+	return s.store.GetCrawlRunStatuses()
 }
 
 // GetAllStockCodes wraps the store's GetAllStockCodes
@@ -294,12 +299,178 @@ func (s *StoreAdapter) GetPropertyHistory(addressKey string) (*shorts.PropertyHi
 	return s.store.GetPropertyHistory(addressKey)
 }
 
+func (s *StoreAdapter) GetPropertyValuation(addressKey string) (*shorts.PropertyValuationRow, error) {
+	return s.store.GetPropertyValuation(addressKey)
+}
+
 func (s *StoreAdapter) ListAddressPriceDrops(stateCode, sort string, windowDays, limit int32) ([]*shorts.AddressPriceDropRow, error) {
 	return s.store.ListAddressPriceDrops(stateCode, sort, windowDays, limit)
 }
 
+func (s *StoreAdapter) GetPriceDropsOverview() ([]*shorts.StatePriceDropSummaryRow, error) {
+	return s.store.GetPriceDropsOverview()
+}
+
+func (s *StoreAdapter) ListAgencyPriceStats(stateCode, sort string, limit int32) ([]*shorts.AgencyPriceStatsRow, error) {
+	return s.store.ListAgencyPriceStats(stateCode, sort, limit)
+}
+
 func (s *StoreAdapter) GetEventTimeline(stockCode string, daysBack, limit int32) ([]*shorts.TimelineEventRow, error) {
 	return s.store.GetEventTimeline(stockCode, daysBack, limit)
+}
+
+// --- Register of Members'/Senators' Interests ---
+
+func (s *StoreAdapter) GetRegisterOverview() (*shorts.RegisterOverviewRow, error) {
+	return s.store.GetRegisterOverview()
+}
+
+func (s *StoreAdapter) ListPoliticians(chamber, stateCode, partyAb, query string, limit, offset int32) ([]*shorts.PoliticianRow, int32, error) {
+	return s.store.ListPoliticians(chamber, stateCode, partyAb, query, limit, offset)
+}
+
+func (s *StoreAdapter) GetPolitician(slug string) (*shorts.PoliticianRow, []*shorts.DeclaredInterestRow, []string, error) {
+	return s.store.GetPolitician(slug)
+}
+
+func (s *StoreAdapter) ListStockPoliticians(stockCode string, currentOnly bool) (string, []*shorts.PoliticianRow, []*shorts.DeclaredInterestRow, []*shorts.PartyCountRow, error) {
+	return s.store.ListStockPoliticians(stockCode, currentOnly)
+}
+
+func (s *StoreAdapter) ListPoliticianStocks(limit int32, currentOnly bool) ([]*shorts.PoliticianStockRollupRow, error) {
+	return s.store.ListPoliticianStocks(limit, currentOnly)
+}
+
+func (s *StoreAdapter) ListSuburbPoliticians(salCode string) (string, string, []*shorts.PoliticianRow, []*shorts.DeclaredInterestRow, error) {
+	return s.store.ListSuburbPoliticians(salCode)
+}
+
+func (s *StoreAdapter) ListStatePoliticianHoldings(stateCode string, limit int32) ([]*shorts.PoliticianStockRollupRow, int32, error) {
+	return s.store.ListStatePoliticianHoldings(stateCode, limit)
+}
+
+func (s *StoreAdapter) ListRegisterChanges(since time.Time, kind, stockCode, slug string, itemNo int32, partyAb, chamber string, limit, offset int32) ([]*shorts.RegisterChangeRow, int32, error) {
+	return s.store.ListRegisterChanges(since, kind, stockCode, slug, itemNo, partyAb, chamber, limit, offset)
+}
+
+func (s *StoreAdapter) ListShortInterestOverlap(minShortPercent float64, limit int32) ([]*shorts.PoliticianStockRollupRow, error) {
+	return s.store.ListShortInterestOverlap(minShortPercent, limit)
+}
+
+func (s *StoreAdapter) GetRegisterAnalytics(topIndustries int32, currentOnly bool) (*shorts.RegisterAnalytics, error) {
+	return s.store.GetRegisterAnalytics(topIndustries, currentOnly)
+}
+
+func (s *StoreAdapter) GetRegisterExplorer() (*shorts.RegisterExplorerRow, error) {
+	return s.store.GetRegisterExplorer()
+}
+
+func (s *StoreAdapter) ListPoliticianSummaries(chamber, stateCode, partyAb string, itemNo int32, query, sortKey string, limit, offset int32) ([]*shorts.PoliticianSummaryRow, int32, error) {
+	return s.store.ListPoliticianSummaries(chamber, stateCode, partyAb, itemNo, query, sortKey, limit, offset)
+}
+
+func (s *StoreAdapter) GetPoliticianExplorerProfile(slug string, topIndustries int32) (*shorts.PoliticianExplorerProfileRow, error) {
+	return s.store.GetPoliticianExplorerProfile(slug, topIndustries)
+}
+
+func (s *StoreAdapter) ComparePoliticians(slugA, slugB string) (*shorts.PoliticianComparisonRow, error) {
+	return s.store.ComparePoliticians(slugA, slugB)
+}
+
+func (s *StoreAdapter) GetRegisterActivity(windowDays int32, filter shorts.RegisterActivityFilter) (*shorts.RegisterActivityRow, error) {
+	return s.store.GetRegisterActivity(windowDays, filter)
+}
+
+func (s *StoreAdapter) ListDistinctiveHoldings(slug string) (*shorts.DistinctiveHoldingsRow, error) {
+	return s.store.ListDistinctiveHoldings(slug)
+}
+
+// AEC funding layer. Pass-through like the register arms above: the handlers
+// own the caching, and the notes those responses carry are handler constants so
+// no adapter can serve an amount without them.
+
+func (s *StoreAdapter) GetDonationsOverview(financialYear string, limit int32) (*shorts.DonationsOverviewRow, error) {
+	return s.store.GetDonationsOverview(financialYear, limit)
+}
+
+func (s *StoreAdapter) ListTopDonors(financialYear, partyGroup string, limit, offset int32) (*shorts.TopDonorsRow, error) {
+	return s.store.ListTopDonors(financialYear, partyGroup, limit, offset)
+}
+
+func (s *StoreAdapter) ListPartyFunding(partyGroup, financialYear string, limit int32) (*shorts.PartyFundingDetailRow, error) {
+	return s.store.ListPartyFunding(partyGroup, financialYear, limit)
+}
+
+func (s *StoreAdapter) GetPoliticianFunding(slug string) (*shorts.PoliticianFundingRow, error) {
+	return s.store.GetPoliticianFunding(slug)
+}
+
+// Register review console. Deliberately NOT routed through the caching adapter
+// arms above: a decision must be visible to the next reviewer immediately, and a
+// cached queue would hand two people the same candidate to decide twice.
+
+func (s *StoreAdapter) ListSecurityReviewQueue(limit, offset int32, gateOnly bool) ([]*shorts.SecurityQueueRow, int32, int32, error) {
+	return s.store.ListSecurityReviewQueue(limit, offset, gateOnly)
+}
+
+func (s *StoreAdapter) SearchRegisterListings(query string, limit int32) ([]*shorts.RegisterListingRow, error) {
+	return s.store.SearchRegisterListings(query, limit)
+}
+
+func (s *StoreAdapter) DecideSecurityCandidate(candidateNorm, decision, stockCode, aliasKind, note, reviewer string, stopwordConfirmed bool) (int32, error) {
+	return s.store.DecideSecurityCandidate(candidateNorm, decision, stockCode, aliasKind, note, reviewer, stopwordConfirmed)
+}
+
+func (s *StoreAdapter) UndoSecurityDecision(candidateNorm string) (bool, error) {
+	return s.store.UndoSecurityDecision(candidateNorm)
+}
+
+func (s *StoreAdapter) GetRegisterCoverageStats() (*shorts.RegisterCoverageRow, error) {
+	return s.store.GetRegisterCoverageStats()
+}
+
+// Per-politician CRM. Uncached for the same reason as the securities queue: a
+// curator must see their own edit immediately, and a stale profile invites the
+// same correction twice.
+
+func (s *StoreAdapter) ListPoliticianProfiles(query string, limit, offset int32, duplicatesOnly bool) ([]*shorts.PoliticianProfileSummaryRow, int32, int32, error) {
+	return s.store.ListPoliticianProfiles(query, limit, offset, duplicatesOnly)
+}
+
+func (s *StoreAdapter) GetPoliticianProfile(slug string) (*shorts.PoliticianProfileRow, error) {
+	return s.store.GetPoliticianProfile(slug)
+}
+
+func (s *StoreAdapter) CuratePoliticianFact(slug, field string, ordinal int32, action, curatedText, rationale, evidenceURL, curator string) (*shorts.ProfileFactRow, error) {
+	return s.store.CuratePoliticianFact(slug, field, ordinal, action, curatedText, rationale, evidenceURL, curator)
+}
+
+func (s *StoreAdapter) SetPoliticianPhoto(slug, url, licence, author, sourceURL, curator string) error {
+	return s.store.SetPoliticianPhoto(slug, url, licence, author, sourceURL, curator)
+}
+
+func (s *StoreAdapter) MergePoliticians(keepSlug, mergeSlug, evidence, curator string) (int32, error) {
+	return s.store.MergePoliticians(keepSlug, mergeSlug, evidence, curator)
+}
+
+func (s *StoreAdapter) ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32) ([]*shorts.EconomicSeriesRow, error) {
+	return s.store.ListEconomicSeries(topic, metric, regionType, regionCode, product, limit)
+}
+
+func (s *StoreAdapter) GetEconomicSeries(seriesKeys []string, startPeriod time.Time, maxObservations int32) ([]*shorts.EconomicSeriesDataRow, error) {
+	return s.store.GetEconomicSeries(seriesKeys, startPeriod, maxObservations)
+}
+
+func (s *StoreAdapter) ListSeriesCorrelations(baseSeriesKey string, windowMonths int32, minAbsR float64, limit int32) ([]*shorts.SeriesCorrelationRow, error) {
+	return s.store.ListSeriesCorrelations(baseSeriesKey, windowMonths, minAbsR, limit)
+}
+
+func (s *StoreAdapter) ListStateCompanies(state string, limit int32) ([]*shorts.StateCompanyRow, error) {
+	return s.store.ListStateCompanies(state, limit)
+}
+
+func (s *StoreAdapter) GetStateCompanyAggregates() ([]*shorts.StateCompanyAggregateRow, error) {
+	return s.store.GetStateCompanyAggregates()
 }
 
 // QueryRowContext delegates to the underlying store's QueryRowContext.

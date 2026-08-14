@@ -1,0 +1,94 @@
+{
+  "url": "http://localhost:3020",
+  "preset": "mobile",
+  "runs": 3,
+  "capturedAt": "2026-07-19T00:53:13.813Z",
+  "gitRef": null,
+  "pages": {
+    "/": {
+      "runs": 3,
+      "scores": {
+        "performance": 0.81,
+        "accessibility": 1,
+        "best-practices": 1,
+        "seo": 0.92
+      },
+      "metrics": {
+        "first-contentful-paint": 1958,
+        "largest-contentful-paint": 4733,
+        "total-blocking-time": 34,
+        "cumulative-layout-shift": 0.001,
+        "speed-index": 1958,
+        "interactive": 6501
+      }
+    },
+    "/shorts/BHP": {
+      "runs": 3,
+      "scores": {
+        "performance": 0.78,
+        "accessibility": 1,
+        "best-practices": 0.96,
+        "seo": 0.92
+      },
+      "metrics": {
+        "first-contentful-paint": 1356,
+        "largest-contentful-paint": 5952,
+        "total-blocking-time": 69,
+        "cumulative-layout-shift": 0.001,
+        "speed-index": 1589,
+        "interactive": 6737
+      }
+    },
+    "/news": {
+      "runs": 3,
+      "scores": {
+        "performance": 0.74,
+        "accessibility": 1,
+        "best-practices": 1,
+        "seo": 0.92
+      },
+      "metrics": {
+        "first-contentful-paint": 3009,
+        "largest-contentful-paint": 5634,
+        "total-blocking-time": 10,
+        "cumulative-layout-shift": 0.001,
+        "speed-index": 3009,
+        "interactive": 7299
+      }
+    },
+    "/screener": {
+      "runs": 3,
+      "scores": {
+        "performance": 0.91,
+        "accessibility": 1,
+        "best-practices": 1,
+        "seo": 0.92
+      },
+      "metrics": {
+        "first-contentful-paint": 1204,
+        "largest-contentful-paint": 3465,
+        "total-blocking-time": 13,
+        "cumulative-layout-shift": 0.001,
+        "speed-index": 1204,
+        "interactive": 5071
+      }
+    },
+    "/methodology": {
+      "runs": 3,
+      "scores": {
+        "performance": 0.89,
+        "accessibility": 1,
+        "best-practices": 1,
+        "seo": 0.92
+      },
+      "metrics": {
+        "first-contentful-paint": 1204,
+        "largest-contentful-paint": 3763,
+        "total-blocking-time": 4,
+        "cumulative-layout-shift": 0.001,
+        "speed-index": 1204,
+        "interactive": 4677
+      }
+    }
+  }
+}

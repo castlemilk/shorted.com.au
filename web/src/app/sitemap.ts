@@ -3,7 +3,9 @@ import { siteConfig } from "~/@/config/site"
 import { getAllPosts } from "~/@/lib/api";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { HousingService } from "~/gen/shorts/v1alpha1/housing_pb";
+import { MarketService } from "~/gen/shorts/v1alpha1/market_pb";
+import { NewsService } from "~/gen/shorts/v1alpha1/news_pb";
 import { getAllTermSlugs } from "~/@/data/glossary-terms";
 import { getHousingStateSlugs } from "./actions/getHousingSitemap";
 import {
@@ -16,6 +18,9 @@ import { getReportsList } from "./actions/reports/getReportData";
 import { weeklyReportPath } from "~/@/lib/reports/weekly-slug";
 import { SCAN_SLUGS } from "~/@/lib/scans/registry";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
+import { createSlug } from "~/@/lib/industry-slug";
+import { ALL_STATES, stateSlug, suburbSlug } from "~/@/lib/housing/states";
+import { isSuburbSitemapEligible } from "~/@/lib/seo/suburb-indexability";
 
 // Render at request time, never from build output. The build runs with
 // SKIP_STATIC_GENERATION=1 so its prerender only ever contains the 20-stock
@@ -181,12 +186,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     fetch: serverFetchWithUserAgent,
     baseUrl: API_URL,
   });
-  const client = createClient(ShortedStocksService, transport);
+  const housingClient = createClient(HousingService, transport);
+  const marketClient = createClient(MarketService, transport);
+  const newsClient = createClient(NewsService, transport);
 
   let marketDates: string[] = [];
   if (!skipForBuild()) {
     try {
-      const response = await client.getAvailableDates({ limit: 90, before: "" });
+      const response = await marketClient.getAvailableDates({ limit: 90, before: "" });
       marketDates = response.dates;
     } catch (error) {
       console.error("Failed to fetch market dates for sitemap:", error);
@@ -213,6 +220,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/seasonality`, lastModified: latestDataDate },
     { url: `${baseUrl}/features/the-widow-maker`, lastModified: "2026-06-23" },
     { url: `${baseUrl}/housing`, lastModified: latestDataDate },
+    { url: `${baseUrl}/economy`, lastModified: latestDataDate },
+    // Per-state economy drill-downs (mirrors the 8 STATE_SLUGS the
+    // /economy/[state] route statically generates).
+    ...["nsw", "vic", "qld", "sa", "wa", "tas", "nt", "act"].map((slug) => ({
+      url: `${baseUrl}/economy/${slug}`,
+      lastModified: latestDataDate,
+    })),
     { url: `${baseUrl}/housing/calculators`, lastModified: latestDataDate },
     // NOTE: /housing/suburbs is deliberately NOT listed — next.config.mjs
     // 301s it to /housing (the hub page was deprecated 2026-06-29);
@@ -278,7 +292,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Industry pages - index + individual industry pages. Fetched directly
   // (not via getAllIndustrySlugs) so the fetch carries the ISR-safe cache
-  // mode; slug rules mirror actions/industry/getIndustryData.ts createSlug.
+  // mode; slug rules use the canonical industry slug helper.
   let industrySlugs: string[] = [];
   if (!skipForBuild()) {
     try {
@@ -306,9 +320,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           const industry = s.industry?.trim() ?? "Other";
           names.add(invalid.has(industry) ? "Other" : industry);
         }
-        industrySlugs = [...names].map((name) =>
-          name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
-        );
+        industrySlugs = [...names].map(createSlug);
       }
     } catch (error) {
       console.error("Failed to fetch industry slugs for sitemap:", error);
@@ -485,7 +497,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let takeRoutes: MetadataRoute.Sitemap = [];
   if (!skipForBuild()) {
     try {
-      const takesResp = await client.listEditorialTakes({
+      const takesResp = await newsClient.listEditorialTakes({
         limit: 200,
         offset: 0,
         stockCode: "",
@@ -511,29 +523,39 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })),
   ];
 
-  // Open data hub.
+  // Open data hub + press kit — both citation surfaces we point journalists at.
   const dataRoutes = [
     { url: `${baseUrl}/data`, lastModified: latestDataDate },
+    { url: `${baseUrl}/press`, lastModified: latestDataDate },
   ];
 
   // Housing pages: state drilldowns + priced suburbs (thin pages excluded).
   // Suburbs are fetched directly on the ISR-safe client, states in parallel
   // (8 sequential RPCs through the shared action previously helped blow the
-  // function time limit). Slug shape mirrors actions/getHousingSitemap.ts.
+  // function time limit). Slugs come from the same helper as every housing URL.
   let housingStateSlugs: string[] = [];
   let housingSuburbUrls: { state: string; suburb: string }[] = [];
   try { housingStateSlugs = await getHousingStateSlugs(); } catch (e) { console.error("housing state slugs:", e); }
   if (!skipForBuild()) {
-    const slugifySuburb = (name: string, postcode: string) =>
-      `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}-${postcode}`;
-    const { ALL_STATES, stateSlug } = await import("~/@/lib/housing/states");
     const perState = await Promise.all(
       ALL_STATES.map(async (st) => {
         try {
-          const res = await client.listStateSuburbs({ stateCode: st, query: "", limit: 5000 });
+          const res = await housingClient.listStateSuburbs({ stateCode: st, query: "", limit: 5000 });
           return res.suburbs
-            .filter((s) => s.latestMedianPrice > 0) // only real price data (avoid thin pages)
-            .map((s) => ({ state: stateSlug(st), suburb: slugifySuburb(s.salName, s.postcode) }));
+            // ONE gate, shared with the page's robots meta, so the sitemap can
+            // never advertise a URL the page marks noindex. The old
+            // `latestMedianPrice > 0` filter excluded every suburb in QLD, WA,
+            // ACT, TAS and NT — states with no ingested Valuer-General feed —
+            // regardless of how much Census and amenity content the page had.
+            .filter((s) =>
+              isSuburbSitemapEligible({
+                salCode: s.salCode,
+                salName: s.salName,
+                latestMedianPrice: s.latestMedianPrice,
+                population: s.population,
+              }),
+            )
+            .map((s) => ({ state: stateSlug(st), suburb: suburbSlug(s.salName, s.postcode) }));
         } catch (e) {
           console.error(`housing suburb urls (${st}):`, e);
           return [];
@@ -544,10 +566,70 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   const housingRoutes = [
+    // Flagship price-drops board (state/suburb/address/agency rollups).
+    { url: `${baseUrl}/price-drops`, lastModified: latestDataDate },
     ...housingStateSlugs.map((slug) => ({ url: `${baseUrl}/housing/${slug}`, lastModified: latestDataDate })),
     // clean canonical URLs (the page resolves the SAL from the slug; ?sal= is only a fast-path)
     ...housingSuburbUrls.map((s) => ({ url: `${baseUrl}/housing/${s.state}/${s.suburb}`, lastModified: latestDataDate })),
   ];
+
+  // Registers of Members'/Senators' Interests. Profiles are filtered to those
+  // with at least one matched declaration, mirroring the housing-suburb filter:
+  // the sitemap must never advertise a page the route marks noindex.
+  // lastModified is a STRING here, matching latestDataDate and every other route
+  // array in this file — the dates come off the API as RFC3339 strings, not Dates.
+  //
+  // THE THREE HUB URLS ARE GATED ON THE REGISTER ACTUALLY BEING ON (§6.3 open
+  // item 2). POLITICIAN_INTERESTS_ENABLED is a takedown switch: with it off the
+  // rpcs return empty by design, but the routes still render — so a sitemap that
+  // advertises them unconditionally hands a crawler three empty pages about
+  // named individuals during exactly the period someone flipped the switch to
+  // stop publishing them.
+  //
+  // The gate is the DATA, not a second copy of the env var. One switch with two
+  // places to flip is a switch that gets half-flipped; an empty register is the
+  // observable consequence of the real one, wherever it is set.
+  const politicianHubs = [
+    { url: `${baseUrl}/politicians`, lastModified: latestDataDate },
+    { url: `${baseUrl}/politicians/short-interest`, lastModified: latestDataDate },
+    { url: `${baseUrl}/politicians/changes`, lastModified: latestDataDate },
+    // The AEC funding explorer. Gated with the other three on the REGISTER
+    // actually being on, deliberately: the two data sets have separate kill
+    // switches, but a takedown of the register empties the politician corpus
+    // that every one of these hubs is reached through — and a funding page
+    // advertised from a hub nobody can navigate is a page about named parties
+    // hanging off a surface that stopped publishing. It has its own switch
+    // (AEC_DONATIONS_ENABLED) for a funding-specific dispute, which empties the
+    // page's data the same way.
+    { url: `${baseUrl}/politicians/donations`, lastModified: latestDataDate },
+  ];
+  let politicianRoutes: Array<{ url: string; lastModified: string }> = politicianHubs;
+  if (!skipForBuild()) {
+    try {
+      const { getPoliticianSlugs } = await import("~/app/actions/getPoliticians");
+      const slugs = (await getPoliticianSlugs()) ?? [];
+      // Zero politicians means the feature is off (or the corpus is unloaded).
+      // Either way there is nothing to index. Note this tests the FULL list, not
+      // the hasInterests subset: a register that is on but has matched nothing
+      // yet is still a real surface worth advertising.
+      politicianRoutes =
+        slugs.length === 0
+          ? []
+          : politicianHubs.concat(
+              slugs
+                .filter((s) => s.hasInterests)
+                .map((s) => ({
+                  url: `${baseUrl}/politicians/${s.slug}`,
+                  lastModified: latestDataDate,
+                })),
+            );
+    } catch {
+      // An OUTAGE IS NOT A TAKEDOWN. A failed call says nothing about whether
+      // the feature is published, so the hubs stay and the sitemap does not
+      // silently shrink because the API blipped.
+      politicianRoutes = politicianHubs;
+    }
+  }
 
   // Authors hub + per-author profile pages — E-E-A-T signal (static).
   const { getAllAuthorSlugs } = await import("~/@/data/authors");
@@ -579,6 +661,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...docRoutes,
     ...screenerRoutes,
     ...housingRoutes,
+    ...politicianRoutes,
     ...blogRoutes,
     ...stockRoutes,
     ...comparePairs,

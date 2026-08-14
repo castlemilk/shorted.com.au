@@ -4,6 +4,28 @@ This file provides context for AI coding assistants (Claude, Cursor, etc.) worki
 
 ## Quick Start
 
+`task` is the front door — `task --list` shows the everyday operations, grouped
+so the list reads as a risk map (anything under a `prod:` segment writes to
+production and requires `CONFIRM=prod`). The Makefiles still exist and still
+work; the Taskfile curates the ~40 operations people actually reach for and
+pins the things that are dangerous to get wrong:
+
+```bash
+task setup            # fresh clone -> deps, hooks, local DB, migrations
+task dev:up           # start the stack, then report which ports are live
+task verify           # the pre-commit gate
+task check            # the pre-push gate (adds lint + integration)
+task debug:doctor     # tools, ports, DB reachability in one shot
+
+task db:prod:apply --summary   # long help lives on the tasks that fail silently
+```
+
+Three properties it enforces that a bare make target cannot: the database DSN is
+never ambient (an exported prod `DATABASE_URL` cannot retarget a local command),
+prod writes require an explicit variable rather than a prompt (`task --yes`
+cannot bypass them), and every Go invocation sets `GOWORK=off` so it matches CI.
+Guarded by `scripts/tests/taskfile-safety.test.mjs`.
+
 ```bash
 # First time setup
 make install
@@ -211,28 +233,46 @@ Query performance expectations (measured January 2026):
 
 ### Adding a New API Endpoint
 
-1. **Define the protobuf** in `proto/shortedapi/shorts/v1alpha1/shorts.proto`:
+`shorts.v1alpha1` is split into **per-domain proto files** (2026-07), each with its
+own service: `market.proto` (MarketService), `stock.proto` (StockService),
+`housing.proto`, `economy.proto`, `news.proto`, `screener.proto`, `search.proto`,
+`reports.proto`, `enrichment.proto`, `billing.proto`, `alerts.proto`,
+`industry.proto`. `shorts.proto` keeps only the legacy monolithic
+`ShortedStocksService` (all 64 rpcs, message-less, for external API consumers) —
+**web code must import from the domain module** (`~/gen/shorts/v1alpha1/<domain>_pb`),
+never from `shorts_pb` (importing it drags the full legacy descriptor into the
+route bundle; `bundle:budget` will catch it).
+
+1. **Define the rpc + messages** in the matching domain file, e.g.
+   `proto/shortedapi/shorts/v1alpha1/market.proto`, and add the SAME rpc to the
+   legacy `ShortedStocksService` in `shorts.proto` (public-API back-compat).
+   Annotate visibility (`option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;`)
+   on BOTH copies — unannotated methods default to auth-required:
 
    ```protobuf
    rpc GetNewEndpoint(GetNewEndpointRequest) returns (GetNewEndpointResponse) {
-     option (google.api.http) = {
-       post: "/v1/newEndpoint"
-       body: "*"
-     };
+     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
    }
    ```
 
-2. **Generate code**:
+2. **Generate code** (commit ALL outputs, including the `sdks/java` churn —
+   the committed Java SDK tracks the protos):
 
    ```bash
    cd proto && buf generate
    ```
 
-3. **Implement the handler** in `services/shorts/internal/services/shorts/service.go`
+3. **Implement the handler** in `services/shorts/internal/services/shorts/` —
+   one `ShortsServer` struct implements every service; a new method on it
+   satisfies both the domain handler and the legacy handler. New DOMAIN
+   services must be mounted in `serve.go` with the shared `interceptors` +
+   `withCORS`, get a rewrite rule in `web/next.config.mjs`, and internal-only
+   methods need their full name in `internalOnlyMethods` (middleware_connect.go).
 
 4. **Add store method** in `services/shorts/internal/store/shorts/store.go`
 
-5. **Frontend types** are auto-generated in `web/src/gen/`
+5. **Frontend types** are auto-generated in `web/src/gen/` — import from the
+   domain `_pb` module and `createClient(<Domain>Service, transport)`
 
 ### Adding a New React Component
 
@@ -467,68 +507,147 @@ LLM-generated short-selling reports at `/reports` (weekly `2026-W23`, monthly `2
 
 Operating manual (running, prompt iteration via `-print-prompt`/`-dry-run`, quality gates, landmines): use `$weekly-reports` skill (`.claude/skills/weekly-reports/SKILL.md`); service readme at `services/weekly-report-generator/README.md`.
 
-## Housing (feature + price tracker + suburb explorer)
+## Housing (tracker + suburb explorer + listings crawl + price-drops)
 
-The housing surface has three distinct deliverables that share a data layer and a chart system:
+Five products over one fact/dimension data model, one chart system and one
+Connect-RPC service (`HousingService`, `housing.proto`, 11 rpcs): the
+**Widow-Maker editorial feature** (`/features/the-widow-maker`, baked arrays), the
+**House Prices Tracker** (`/housing`, live ABS/RBA/Valuer-General ingest), the
+**suburb explorer** (`/housing` → `/housing/[state]` → `/housing/[state]/[suburb]`
+choropleth drilldown, "Colour by" price / Census / electoral / gated crime), the
+**residential listings crawl** (REA/Domain via warm host-Chrome CDP on residential
+Macs, plus a property.com.au AVM tier), and the **price-drops board**
+(`/price-drops`). **All LIVE on prod** — as at 2026-08-09: 88,689 crawl listings
+across 500 suburbs, a **500-suburb** crawl catalog, **22** collector modes, 16
+official-ingest jobs, 27 housing migrations (000053–000092). The
+`house-price-collector` Cloud Run job **is** wired into CI + both TF environments
+(PR #211) — a merge to `main` deploys it; it runs monthly (5th, 16:00 UTC).
 
-1. **`/features/the-widow-maker`** — a hand-built investigative editorial feature ("Why betting against Australian housing keeps failing"). Six numbered sections of prose with 4 embedded interactive `@visx` dashboards. Data is **baked** (curated research arrays, no RPC). Pinned into the `/news` masthead as a "Featured investigation" card.
-2. **`/housing`** — a live **Australian House Prices Tracker** dashboard (BigStat tiles + capital-city medians + amber series charts), fed by a real ABS/RBA ingest pipeline (`house-price-collector` → `house_prices` table → `GetHousingOverview`/`GetHousePriceSeries` RPCs).
-3. **The suburb explorer** (`/housing` national states map → `/housing/[state]` suburb choropleth + list → `/housing/[state]/[suburb]` profile) — a national→state→suburb **choropleth drilldown** over real ABS TopoJSON boundaries, with a **"Colour by" metric toggle** across house price, ABS Census demographics + culture (religion/language/born-overseas), and **electoral representation** (federal + state member/party + two-party-preferred lean). One `suburb_demographics` table (keyed by ABS `sal_code`) → `ListStateSuburbs`/`GetSuburbProfile` RPCs. **LIVE on prod.**
+**Docs: `docs/feature/housing/`** — start at `README.md`.
 
-A **Tier-3 residential listing crawl** of REA/Domain is **LIVE** (~12k `property_listings` across 67 suburbs): a counts-only `crawl_jobs` queue in brandbrain (`api.brandbrain.dev`, no listing PII crosses over) is populated by `-mode enqueue` from a **115-suburb catalog** (top ~18 metro suburbs × 5 mainland capitals, ABS SAL gazetteer, slug-deduped) and drained by `-mode agent` pollers on residential Macs, which crawl via Playwright `ConnectOverCDP` to a dedicated, REA-URL-warmed host Chrome — native Chrome startup navigation (not Playwright) is what clears REA's Kasada challenge (Domain/Akamai works cold). Reliability is self-healing: `-mode warmcheck` proves warmth, `deploy/run-housing-crawl.sh` auto-launches/re-warms Chrome before each run, and the agent's short-lived brandbrain token **auto-refreshes on 401** (no hand-minted credential). Sweeps use **smart pagination** (REA's on-target `listings_total` sizes the walk; yield-decay + adaptive caps + resume) plus a local-only **`CRAWL_TRACE`** debug mode (per-page screenshots + `trace.jsonl`); the macOS agent (**v1.7.0**) adds a **Real-estate tab** with per-suburb crawl results. See `docs/housing-architecture.md` §6.
+| Doc | What it answers |
+|---|---|
+| `docs/feature/housing/README.md` | Current state + dated prod numbers, the five rules that shape every change, surfaces, known-open items |
+| `docs/feature/housing/data-sources.md` | Every source + licence, mandatory fetch posture, and what is ruled OUT (and why) |
+| `docs/feature/housing/data-model.md` | Tables, MVs, migration map, and where each guard is actually enforced (DB vs code) |
+| `docs/feature/housing/pipeline.md` | The 22 collector modes, the 16 official jobs, run order, timeouts, exit-code contract |
+| `docs/feature/housing/operations.md` | Runbook: prod DDL, rig crawl recovery, revalidation, takedown, credentials |
+| `docs/feature/housing/architecture.md` | Decision/incident record + extension recipes — read before touching crawl classification or caching |
+
+### Landmines
+
+- **The prod deploy does NOT run `migrate up`** — it applies a hardcoded allowlist that contains **zero housing migrations**. Apply housing DDL BY HAND (session pooler **5432**, `PGOPTIONS="-c statement_timeout=0"`) *before* merging code that reads the new columns, or every housing read path 500s. Prod `schema_migrations` lies (force-written to 75).
+- **MV refresh needs that same session pooler.** Run `refresh_housing_materialized_views()` on 5432 with `statement_timeout=0`; the txn pooler (6543) kills it mid-`REFRESH … CONCURRENTLY`. Its `EXCEPTION WHEN OTHERS` guards do **not** catch the `query_canceled` a statement timeout raises, so one timed-out MV starves every MV after it (the 000095 hardening never reached housing — known-open).
+- **Charts can't SSR, and functions can't cross the RSC boundary.** Every interactive chart is imported `dynamic(..., { ssr: false })` from a `"use client"` module; pass a **serializable key** (`format="aud"|"percent"|"index"`, `MetricKey` from `highlight-metrics.ts`) and look the formatter/colour scale up client-side — never pass a formatter or scale as a prop from a server page.
+- **Reading `searchParams` in a server page silently forces dynamic rendering** even with `revalidate` exported, killing the ISR that serves `/price-drops` in 40–58ms. Read `?state=` client-side via `useSearchParams` under a real `<Suspense>` boundary (the `next/dynamic` fallback does not satisfy it).
+- **ABS WAF**: `abs.go` MUST send `User-Agent: shorted-housing/1.0 (+https://shorted.com.au)` + `Accept: application/vnd.sdmx.data+csv;labels=both` — a bare request 403s. Conversely, don't hand-set a UA on the crawl tier; `stealthhttp`'s native engine supplies browser-realistic TLS/headers.
+- **Crawl rows are never republished raw.** REA/Domain/property.com.au rows carry `source_licence='proprietary-tos-restricted'` (a column DEFAULT, so the unlicensed state is unstorable); only derived aggregates are a publishable surface, only counts-only summaries cross to brandbrain, and `CRAWL_TRACE` artifacts stay local + gitignored. Kill switches: `HOUSING_DROP_LISTINGS_ENABLED` / `HOUSING_VALUATIONS_ENABLED` (both ON by default).
+- **A hand-run crawl writes nothing.** `CRAWL_DRY_RUN` / `CRIME_DRY_RUN` / `PURGE_DRY_RUN` default to true in code; only the launchd wrappers export `false`. Check `dryRun=` in the startup log before believing a run persisted.
+
+## Economy (map explorer + state pages + series platform)
+
+`/economy` (map-first hub, ISR) → `/economy/[state]` (SSG ×8, banner heroes with
+centered state silhouettes, breadcrumbs) over a **generic economic-series
+layer**: `economic_series` + `economic_observations` (migrations
+000081/000082/000083/000085) fed by `services/economy-collector`
+(**11 sources**: rba, cpi, labour, trade, gdp=SFD, petroleum, govfin+detail,
+approvals, retail, population, markets-derived) on a monthly Cloud Run Job,
+read by the public **`EconomyService`** (economy.proto after the proto split):
+`ListEconomicSeries`/`GetEconomicSeries` + `ListStateCompanies`/
+`GetStateCompanyAggregates` (operations-weighted company↔state exposure).
+472 series / ~120k observations. **LIVE on prod.**
 
 ### Key files
 
 | File | Purpose |
 |------|---------|
-| `web/src/app/features/the-widow-maker/page.tsx` | Editorial feature server page (6 sections, JSON-LD, `revalidate: 3600`) |
-| `web/src/@/components/features/housing/` | Editorial primitives: `hero`, `section`, `pull-quote`, `cite`, `stat-strip`, `feature-chart-frame`, `scroll-reveal`, `sources-list` |
-| `web/src/@/components/features/housing/dashboards.tsx` | `"use client"` `dynamic(ssr:false)` wrappers for the 4 feature charts + BankShortBasket |
-| `web/src/@/components/features/housing/charts/` | `policy-price-chart`, `buying-power-chart`, `international-corrections-chart`, `borrowing-power-slider` + `chart-theme.ts`, `chart-ui.tsx` |
-| `web/src/@/components/features/housing/data/` | `series.ts` (baked arrays), `sources.ts` (27-source bibliography + `getSource`), `stats.ts`, `types.ts` |
-| `web/src/@/components/news/masthead/featured.ts` | `FEATURED[]` registry — masthead pins `FEATURED[0]` |
-| `web/src/app/housing/page.tsx` | Live tracker SSR page (tiles + charts) |
-| `web/src/@/components/housing/` | `housing-tiles.tsx`, `housing-charts.tsx` (dynamic wrapper), `housing-series-chart.tsx` (live RPC + format-key) |
-| `web/src/app/actions/getHousing.ts` / `client/getHousingClient.ts` | SSR action (`cache()`+retry) / client action (session cache + backoff) |
-| `web/src/@/components/housing/choropleth-map.tsx` | Shared d3-geo/d3-zoom choropleth (continuous **or** categorical fill, `focusId` zoom-to-feature, `MAX_SCALE=48`, `non-scaling-stroke`) |
-| `web/src/@/components/housing/` (suburb) | `national-housing-map.tsx`, `state-suburb-explorer.tsx`, `state-suburb-map.tsx`, `suburb-tooltip.tsx`, `suburb-profile.tsx`, `categorical-legend.tsx`, `map-legend.tsx` |
-| `web/src/@/lib/housing/highlight-metrics.ts` | `HIGHLIGHT_METRICS` "Colour by" registry — continuous (amber/diverging `federal_lean`) + categorical (religion/language/`federal_party`/`state_party` palettes) |
-| `web/public/geo/{states.topojson,suburbs/<ST>.topojson}` | ABS ASGS 2021 boundaries (built by `web/scripts/geo/build-boundaries.mjs`) |
-| `web/public/geo/electorates/*.json` | Precomputed federal/state spatial-join output (see data-prep below) |
-| `web/scripts/geo/` | One-time data prep: `build-boundaries.mjs`, `join-electorates.mjs`, `join-sed.mjs`, `fetch-state-members.py` (+ `README.md`) |
-| `services/migrations/000053…000060` | `000053/054` price tracker (`house_prices` EAV + `mv_housing_headline` + licence gate); `000055` `suburb_demographics` + `house_price_regions.sal_code`; `000056` sal_code backfill; `000057` culture; `000058/059/060` federal/state-district/state-member electoral |
-| `services/house-price-collector/` | `main.go` (`-mode official\|census\|electorates\|crawl\|enqueue\|agent\|warmcheck\|refresh\|all`), `abs.go`, `rba.go`, `census*.go`, `electorates.go`, `store.go` |
-| `services/house-price-collector/crawl*.go` | Residential crawl: `crawl_targets.go` (115-suburb catalog), `crawl_agent.go` (queue poll/submit + token auto-refresh + events-based terminal status), `crawl_cdp.go` (CDP fetcher), `crawl_listings.go`/`crawl_listings_extract.go` (smart pagination + sweep-poison/broadening gate), `crawl_warmcheck.go` (Kasada warmth probe), `crawl_trace.go` (`CRAWL_TRACE` debug) |
-| `services/house-price-collector/deploy/run-housing-crawl.sh` | Self-healing launcher: auto-launch/re-warm REA-startup Chrome + `-mode warmcheck` preflight + retry (exit 0/3/4/5) |
-| `services/shorts/internal/services/shorts/house_prices.go` + `store/shorts/postgres_house_prices.go` | RPC handlers + queries |
-| `proto/shortedapi/shorts/v1alpha1/shorts.proto` | `GetHousingOverview` / `GetHousePriceSeries` / `ListStateSuburbs` / `GetSuburbProfile` (+ `ListHousingRegions`) |
-| `terraform/modules/house-price-collector/` | Cloud Run Job + monthly scheduler — **wired into CI + both envs** (PR #211): built by `terraform-deploy.yml` + `module`/`house_price_collector_image` in `terraform/environments/{dev,prod}/main.tf`, so a merge to `main` deploys it |
+| `services/economy-collector/` | All importers (`-mode all`); probe-pinned constants; fail-closed filters |
+| `services/pkg/absdata/` | Shared ABS SDMX-CSV + RBA CSV clients (WAF-safe UA is mandatory) |
+| `services/migrations/000081…000085` | Series layer, registry kind/method extensions, state_exposure + MV |
+| `services/shorts/.../economy.go`, `state_exposure.go` | RPC handlers (normalized cache keys) |
+| `services/enrichment-processor --backfill-state-exposure` | LLM operations-weighted state footprints (top 300 = 93.8% mkt cap) |
+| `web/src/@/lib/economy/map-metrics.ts` | Serializable "Colour by" registry (kind:"series" \| "aggregate") — availability + metrics single source of truth |
+| `web/src/@/components/economy/` | Map explorer, state charts/companies/correlations, dual-axis chart, `<EconomyIcon>` sprite |
+| `web/src/app/economy/` + `[state]/` | Hub + state pages; actions in `app/actions/getEconomy.ts` (KV last-good layer) |
+| `web/scripts/economy-icons/` | Icon-set generation pipeline (housing-icons clone) |
+| `terraform/modules/economy-collector/` | Cloud Run Job + monthly scheduler (5th, 17:00 UTC) |
 
-### Data sources & live-vs-baked
+### Landmines (details: `docs/economy-architecture.md`)
 
-- **LIVE** (collector fetches each run): ABS `RES_DWELL_ST` (mean_price, total_value — national+states), ABS `RES_DWELL` (median_price by dwelling for GCCSAs), ABS `RPPI` (price_index, but frozen at 2021-Q4 upstream), RBA `E2` (debt_to_income). All CC-BY-4.0.
-- **BAKED** (transcribed arrays in `data/series.ts`, only the feature uses these): BIS real HPI for AUS/JPN/USA/CHN (FRED, never fetched), OECD price-to-income, ABS Lending Indicators investor share, ATO negatively-geared landlords.
-- **CRAWL** (`source_licence='proprietary-tos-restricted'`, never republished): `crawl_rea`, `crawl_domain` — **LIVE**; agents write `property_listings` + `property_price_events` to shorted prod (counts-only summaries back to brandbrain). `CRAWL_TRACE` screenshot/HTML artifacts hold portal data → **local-only, gitignored, never uploaded**.
-- **SUBURB EXPLORER** (`suburb_demographics`, keyed by ABS `sal_code`): ABS Census 2021 GCP **SAL DataPack** (G01 birthplace/language, G02 medians, G13A–E language, G14 religion — `-mode census`); AEC 2025 election (boundaries + tally-room **event 31496** members + 2PP) + ABS `SED_2025` state districts, both joined to suburbs by **centroid point-in-polygon** in `web/scripts/geo/` (`-mode electorates`); state members from each state's Wikipedia "Members of the Legislative Assembly" table (`fetch-state-members.py`, 6 single-member states; TAS/ACT Hare-Clark → `state_member` NULL by design). All ABS/AEC CC-BY-4.0.
+- **ISR + connect POST**: the `next:{revalidate}` tag on server-action connect
+  transports is LOAD-BEARING (untagged → no-store → "static to dynamic" throw
+  during regen → placeholder baked for an hour). The Upstash KV last-good layer
+  in `getEconomy.ts` is the durable protection — mirror it for new ISR surfaces.
+- **After every deploy**: promote resets all ISR pages to placeholders — run the
+  revalidate sweep (secret via GCP SM `REVALIDATION_SECRET`, browser UA required).
+- **ABS reality vs assumptions**: no GSP or GFS SDMX flows exist (SFD proxy +
+  GFS XLSX importer instead); CPI v2 has no UNIT_MULT and needs FREQ filtering;
+  labour has no NT/ACT seasadj; trade LNG is confidentialised out of state splits.
+  Never derive series keys from source labels — stable codes/static maps only.
+- **Prod company-metadata lacks `sector`/`description`** (local has them) —
+  query only columns present in both.
+- **Prod MV refresh**: session pooler 5432 + `statement_timeout=0` (txn pooler
+  kills `refresh_all_materialized_views`).
+- First collector run in a new env is manual: `gcloud run jobs execute economy-collector`.
 
-### Prod-ops gotchas
+Full architecture + extension recipes (new SDMX/XLSX source, new map metric,
+new derived series): `docs/economy-architecture.md`.
 
-- **DDL on prod Supabase**: apply `000053` via the **session pooler port 5432** (not the txn pooler 6543) with `PGOPTIONS="-c statement_timeout=0"` so `REFRESH MATERIALIZED VIEW CONCURRENTLY` can run. The collector's `store.go` uses port 6543 + `QueryExecModeSimpleProtocol` for normal writes.
-- **ABS WAF**: `abs.go` MUST send `User-Agent: shorted-housing/1.0 (+https://shorted.com.au)` + `Accept: application/vnd.sdmx.data+csv;labels=both`; bare requests are WAF-blocked (same posture as other project fetches). The crawl tier gets browser-realistic TLS/headers automatically from `stealthhttp`'s native engine — don't hand-set a UA there.
-- **Residential crawl ops**: the agent's brandbrain token is short-lived (~15 min off a 30-day refresh), so `BRANDBRAIN_AGENT_TOKEN` is now **optional** — on a 401 the collector re-fetches the co-located macOS agent's current token from its loopback control API (`~/.brandbrain/{diag-port,control_secret}`, override `BRANDBRAIN_CONTROL_PORT`/`_SECRET`) and retries, so unattended batches self-heal instead of 401-ing mid-run. Chrome MUST start on `https://www.realestate.com.au/` (warming Domain won't clear REA's Kasada); after 2 consecutive blocked jobs the agent circuit-breaks + flags re-warm (exit 3). Sweep-poison is **broadening-aware** — small suburbs exhaust on-target stock in 1–2 SRP pages, so a late high-mismatch page after a healthy on-target set is `sweepPartial` (keep events), only an **early** high-mismatch page is `sweepBlocked`; terminal queue status gates on **events written**, not raw `seen` (poison inflates `seen` with 0 events). **Open follow-up**: brandbrain re-pend fix (PR #168, unmerged) — until merged a blocked suburb terminal-fails and must be re-enqueued (isn't auto-retried across warm runs).
-- **SSR vs rewrite env split**: server components/actions read `NEXT_PUBLIC_API_URL` (internal rewrite-proxy) first; client components fall back to `NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT`. Use `getShortsApiUrl()` from `app/actions/config.ts`, never the env var directly.
-- **Charts can't SSR**: every interactive chart is imported via `dynamic(..., { ssr: false })` from a `"use client"` module (`dashboards.tsx`, `housing-charts.tsx`) — connect-web + measure-on-client crash SSR otherwise.
-- **Functions can't cross the RSC boundary**: `housing-series-chart.tsx` passes a serializable `format="aud"|"percent"|"index"` key and looks up the formatter in a client-side `FORMATTERS` map — never pass a formatter function as a prop from the server page.
-- **Satori OG limitation**: `opengraph-image.tsx` uses `linear-gradient` (not sized `radial-gradient`, which satori can't parse) and Georgia/system fonts (no webfont). The `/news` featured card recreates the same bloom with a CSS `radial-gradient` (which is fine in the browser, just not in OG).
-- **MV refresh is decoupled**: `refresh_housing_materialized_views()` is separate from the daily shorts `refresh_all_materialized_views()`; the collector calls it post-ingest.
-- **Suburb explorer is manual-ingest**: `-mode census` needs `CENSUS_DATAPACK_PATH` (ABS GCP SAL zip) + `CENSUS_GEO_DIR` (the boundary TopoJSON, used as the authoritative `sal_code` registry); `-mode electorates` needs `ELECTORATES_DIR` (the committed `web/public/geo/electorates/*.json`). The boundary→suburb spatial join is **precomputed once** by the `web/scripts/geo/*.mjs` scripts — the collector only loads + upserts, no GIS at ingest time. After re-running `-mode census`, re-apply migration `000056` (the `house_price_regions.sal_code` backfill reads the now-populated `suburb_demographics`).
-- **Electoral data-prep landmines** (when refreshing after an election/redistribution): AEC boundary file casing (`O'connor`) differs from the results CSV (`O'Connor`) — match **case-insensitively**, keep the CSV name (skipping this drops ~950 suburbs); ABS SED names carry a `District (Region)` qualifier (`Bass (Launceston)`) that `join-sed.mjs` strips; party-abbreviation matching in `fetch-state-members.py` substring-matches surnames unless restricted to full party names (len>4) with abbreviations exact-only (`LNP`/`CLP`/`ON` are exact keys).
-- **Choropleth fill modes + no function props**: `choropleth-map.tsx` takes either `valueById`+`colorScale` (continuous) or `categoryById`+`categoryColor` (categorical — religion/language/party use **distinct colours per category, not gradients**). The metric is dispatched by a serializable `MetricKey` from `highlight-metrics.ts` — never pass a scale/formatter function across the RSC boundary (same rule as the price-tracker format-key). Suburb paths need `vector-effect: non-scaling-stroke` or the emphasis stroke swallows small suburbs at deep zoom.
+## Politicians — register of interests ("Parliament's Portfolio")
 
-### Pointers
+What federal MPs and senators declare, from the APH Registers of Members'/
+Senators' Interests. **LIVE on prod**: ~17.1k published rows, 319 politicians,
+296 listed companies, 335 suburbs, 241 portraits, parliaments 44–48.
 
-- Full architecture + extension recipes: `docs/housing-architecture.md` (§5 = the suburb explorer data model; §7 = data model & licensing; §9 = extension recipes).
-- Adding a new feature dashboard, a new ABS measure/region, a new RPC, wiring the feature charts to live data, **a new suburb-map highlight metric (recipe G), a new ABS Census measure (recipe H), or refreshing the electoral layer after an election (recipe I)**: see the "Future extensions" section of that doc.
+**Docs: `docs/feature/politicians/`** — start at `README.md`. `data-sources.md`
+(licences + what is ruled out), `data-model.md` (schema + guards), `pipeline.md`
+(job modes), `operations.md` (runbook). `architecture.md` is the 135KB
+decision/incident record — read §8.x before touching resolution logic. The
+editorial gate is `docs/influence-editorial-standards.md` (whole influence layer,
+not just this feature).
+
+Surfaces: `/politicians` (hub: Algolia search + party×industry heatmap, static
+ISR), `/politicians/[slug]`, `/changes`, `/short-interest`, plus cards on
+`/shorts/[code]`, `/housing/[state]/[suburb]`, `/economy/[state]`. Operator
+consoles at `/admin/register/securities` and `/admin/register/politicians[/slug]`.
+
+Jobs: `shorted influence -mode register-{discover,fetch,load,resolve,freshness,
+propose-aliases,promote-aliases,handbook,photos,index}` — all default
+`REGISTER_DRY_RUN=true` and are **excluded from `-mode all`** (an 804-PDF crawl
+must never fire from a deploy). `make register-photos` / `register-index`.
+
+### The rules that shape every change here
+
+- **What is held, never how much.** No amount/quantity/value column exists
+  anywhere in the subsystem; a migration test asserts none appears. Rule 5.
+- **Extracted facts are publishable, source artefacts are not.** We deep-link
+  aph.gov.au; the GCS bucket is a private cache with no CDN. This is why
+  portraits come from Wikimedia Commons and **never** from aph.gov.au — and why
+  **LinkedIn is permanently out** (its UA bans displaying data obtained via third
+  parties, and the clean-licence proxy covers 2.8%).
+- **Withhold rather than guess.** Ambiguity always resolves to publishing
+  nothing. A name search once matched "Anthony Smith" to Dean Smith.
+- **APH is CC BY-NC-**ND**.** NC matters on a paid product; ND means never
+  rewrite an APH prose string — store facts as verbatim atoms.
+- Attribution on a portrait is a **licence obligation** enforced in four places
+  (DB CHECK, store, proto, component), not a caption.
+
+### Landmines
+
+- **The prod deploy does NOT run `migrate up`** — it applies a hardcoded
+  allowlist. Apply new migrations BY HAND (session pooler 5432,
+  `statement_timeout=0`) BEFORE merging, or the API ships selecting columns prod
+  lacks and every politician read path 500s.
+- `run-tests` is `if: github.event_name != 'pull_request'` — Go tests gate the
+  DEPLOY, not the PR. **golangci-lint runs in no CI job at all.**
+- An **empty KV entry used to be served as a hit**, pinning zeros for 24h;
+  `readCached` now takes a non-emptiness predicate. Unblock with
+  `?flush=politicians`.
+- `compliance.tsx` has no `"use client"` and imports generated protobuf —
+  importing it from a client component kills the static build with a minified
+  "Element type is invalid". Use `@/lib/politics/party-palette`.
+- Slugs are minted once and never reassigned; a merge retires a row via
+  `merged_into_id` rather than deleting it.
 
 ## Twitter / X Automation
 

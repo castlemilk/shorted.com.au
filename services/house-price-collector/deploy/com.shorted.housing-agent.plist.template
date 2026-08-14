@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
+<!-- SUPERSEDED ON THE MAC (brandbrain 1.8.0+). The bundled BrandBrain macOS
+     agent's Real-estate "Auto-crawl" tab now schedules + runs this crawl in-app
+     (Keychain-stored DB URL, its own cadence Timer, self-warming collector), so
+     an operator's Mac no longer needs this launchd job. Keep this template ONLY
+     for headless / server / CI scheduling where there is no GUI agent. -->
 <dict>
   <key>Label</key><string>com.shorted.housing-agent</string>
 

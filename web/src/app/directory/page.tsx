@@ -1,6 +1,9 @@
 import { type Metadata } from "next";
+import { pageTitle } from "~/@/lib/typography";
+import { Suspense } from "react";
 import Link from "next/link";
 import { Building2, ChevronRight } from "lucide-react";
+import { CompanyDirectory } from "~/app/stocks/components/company-directory";
 import { siteConfig } from "~/@/config/site";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import {
@@ -40,7 +43,7 @@ export const metadata: Metadata = {
   },
 };
 
-export const revalidate = 86400; // Revalidate daily
+export const revalidate = 300; // Short window: the build prerender is an empty shell (see [letter]/page.tsx)
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
@@ -71,7 +74,7 @@ export default function DirectoryPage() {
               <Building2 className="h-8 w-8 text-primary" />
             </div>
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+              <h1 className={pageTitle}>
                 ASX Stock Directory
               </h1>
               <p className="text-muted-foreground mt-1">
@@ -96,6 +99,13 @@ export default function DirectoryPage() {
             ))}
           </div>
         </section>
+
+        {/* Browsable company list — the page previously rendered ONLY the
+            letter grid, which read as "nothing loads". Server-rendered top
+            companies with logos (same component as /stocks). */}
+        <Suspense fallback={<div className="h-64 animate-pulse rounded bg-muted" />}>
+          <CompanyDirectory />
+        </Suspense>
 
         {/* Info Section */}
         <section className="mt-12 pt-8 border-t border-border/40">

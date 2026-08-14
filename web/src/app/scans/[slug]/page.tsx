@@ -1,4 +1,6 @@
 import { type Metadata } from "next";
+import { cn } from "~/@/lib/utils";
+import { pageTitle, eyebrow } from "~/@/lib/typography";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { siteConfig } from "~/@/config/site";
@@ -9,7 +11,7 @@ import {
   DatasetStructuredData,
   ItemListStructuredData,
 } from "~/@/components/seo/enhanced-structured-data";
-import { getScan, SCANS, SCAN_SLUGS } from "~/@/lib/scans/registry";
+import { getScan, SCANS } from "~/@/lib/scans/registry";
 import { getScanResults } from "~/app/actions/getScanResults";
 
 interface PageProps {
@@ -19,14 +21,16 @@ interface PageProps {
 // NOTE: no loading.tsx anywhere on this route on purpose — without a
 // streaming boundary the page resolves before the response commits, so
 // notFound() below yields a real HTTP 404 for unknown scan slugs.
-// ISR at 15min: deploys prerender the no-data shell (skipForBuild) and a
-// short page TTL caps how long it serves; the data layer stays 1h-cached.
-export const revalidate = 900;
-export const dynamicParams = true;
-
-export function generateStaticParams() {
-  return SCAN_SLUGS.map((slug) => ({ slug }));
-}
+//
+// force-dynamic (matching /market/[date] and /reports/weekly/[slug]): the
+// backend is unreachable at build time, where skipForBuild() forces
+// getScanResults() → null. Static prerendering therefore baked a
+// "Scan data is temporarily unavailable" shell into every scan page that was
+// served until the first *successful* ISR revalidation — i.e. the first
+// visitor after each deploy saw an empty page. Rendering per-request instead
+// always fetches real data at runtime (skipForBuild() is false off the build
+// phase); getScanResults()'s own 1h unstable_cache keeps the DB cost down.
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
@@ -46,20 +50,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       siteName: siteConfig.name,
       type: "website",
       locale: "en_AU",
-      images: [
-        {
-          url: siteConfig.ogImage,
-          width: 1200,
-          height: 630,
-          alt: scan.h1,
-        },
-      ],
+      // No `images` key: this route ships its own opengraph-image.tsx and an
+      // explicit `images` here would SHADOW the file convention.
     },
     twitter: {
       card: "summary_large_image",
       title: scan.title,
       description: scan.description,
-      images: [siteConfig.ogImage],
     },
     alternates: {
       canonical: url,
@@ -154,12 +151,12 @@ export default async function ScanPage({ params }: PageProps) {
         </div>
 
         <section className="border-b border-border/40 pb-6">
-          <p className="mb-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          <p className={cn(eyebrow, "mb-2 font-medium")}>
             <Link href="/scans" className="hover:text-foreground">
               Short interest scans
             </Link>
           </p>
-          <h1 className="font-serif text-3xl font-semibold leading-[1.1] tracking-tight md:text-4xl">
+          <h1 className={cn(pageTitle, "leading-[1.1]")}>
             {scan.h1}
           </h1>
           <p className="mt-2 max-w-3xl text-muted-foreground">{scan.dek}</p>

@@ -43,15 +43,31 @@ function duration(seconds: number): string {
   return `${seconds.toFixed(1)}s`;
 }
 
+// typeLabel describes a job's source in the "category · source" subtitle.
+function typeLabel(type: JobStatus["type"]): string {
+  switch (type) {
+    case "service":
+      return "scheduled service";
+    case "rig":
+      return "residential rig";
+    default:
+      return "Cloud Run job";
+  }
+}
+
 function statusLabel(job: JobStatus): string {
   switch (job.health) {
     case "critical":
+      // A rig that has gone silent past the dead-rig horizon is "offline", not "failed".
+      if (job.type === "rig" && job.lastRunStatus !== "failed") return "offline";
       return "failed";
     case "running":
       return "running";
     case "warning":
       if (job.lastRunStatus === "running") return "stuck?";
       if (job.schedulerState === "PAUSED") return "paused";
+      // Rig warnings are degraded/overdue runs, not the GCP "stale" cadence miss.
+      if (job.type === "rig") return "attention";
       return "stale";
     case "unknown":
       return job.lastRunStatus === "never" ? "never run" : "no data";
@@ -72,7 +88,7 @@ function JobHealthBadge({ job }: { job: JobStatus }) {
       );
     case "running":
       return (
-        <Badge variant="outline" className="gap-1 animate-pulse border-blue-300 text-blue-700 dark:text-blue-400">
+        <Badge variant="outline" className="gap-1 animate-pulse border-primary/40 text-primary">
           <Activity className="h-3 w-3" />
           {label}
         </Badge>
@@ -118,11 +134,11 @@ function StatCard({
 }) {
   const toneClass =
     tone === "critical"
-      ? "text-red-600 dark:text-red-400"
+      ? "text-red-700 dark:text-red-400"
       : tone === "warning"
         ? "text-amber-600 dark:text-amber-400"
         : tone === "ok"
-          ? "text-emerald-600 dark:text-emerald-400"
+          ? "text-emerald-700 dark:text-emerald-400"
           : "text-foreground";
   return (
     <Card>
@@ -159,7 +175,7 @@ export function JobsOverview({ overview }: { overview: JobsOverviewData }) {
             </CardDescription>
           </div>
           {stale && (
-            <Badge variant="outline" className="gap-1 text-amber-600 w-fit">
+            <Badge variant="outline" className="gap-1 text-amber-600 dark:text-amber-400 w-fit">
               <Clock className="h-3 w-3" />
               showing cached data
             </Badge>
@@ -169,7 +185,7 @@ export function JobsOverview({ overview }: { overview: JobsOverviewData }) {
       <CardContent className="space-y-4">
         {errored ? (
           <div className="flex flex-col items-center gap-2 py-10 text-center text-muted-foreground">
-            <AlertTriangle className="h-8 w-8 text-amber-500" />
+            <AlertTriangle className="h-8 w-8 text-amber-600 dark:text-amber-400" />
             <span className="font-medium">Couldn&apos;t load job status</span>
             <span className="text-xs max-w-md">
               The backend /api/admin/jobs call failed. Confirm INTERNAL_SERVICE_SECRET is set in the
@@ -221,11 +237,11 @@ export function JobsOverview({ overview }: { overview: JobsOverviewData }) {
                         <span className="text-xs text-muted-foreground flex items-center gap-1.5">
                           {job.category}
                           <span className="opacity-50">·</span>
-                          {job.type === "service" ? "scheduled service" : "Cloud Run job"}
+                          {typeLabel(job.type)}
                         </span>
                         {job.message && (
                           <span
-                            className="text-xs text-red-500/90 max-w-[420px] truncate cursor-help mt-0.5"
+                            className="text-xs text-destructive/90 max-w-[420px] truncate cursor-help mt-0.5"
                             title={job.message}
                           >
                             {job.message}
@@ -240,7 +256,7 @@ export function JobsOverview({ overview }: { overview: JobsOverviewData }) {
                           {job.scheduleHuman || "–"}
                         </span>
                         {job.schedulerState && job.schedulerState !== "ENABLED" && (
-                          <span className="text-[10px] text-amber-600">{job.schedulerState}</span>
+                          <span className="text-[10px] text-amber-600 dark:text-amber-400">{job.schedulerState}</span>
                         )}
                       </div>
                     </TableCell>

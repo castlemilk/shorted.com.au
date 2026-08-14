@@ -1,10 +1,7 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import {
-  type GetAvailableDatesResponse,
-  type GetMarketByDateResponse,
-  ShortedStocksService,
-} from "~/gen/shorts/v1alpha1/shorts_pb";
+import { type GetAvailableDatesResponse, type GetMarketByDateResponse } from "~/gen/shorts/v1alpha1/market_pb";
+import { MarketService } from "~/gen/shorts/v1alpha1/market_pb";
 import { cache } from "react";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "../config";
 import { fetchEdgeReadJson } from "../edgeRead";
@@ -26,7 +23,7 @@ export const getMarketByDate = cache(
       fetch: serverFetchWithUserAgent,
       baseUrl: SHORTS_API_URL,
     });
-    const client = createClient(ShortedStocksService, transport);
+    const client = createClient(MarketService, transport);
     return client.getMarketByDate({ date, limit: limit ?? 50, offset: offset ?? 0 });
   }),
 );
@@ -46,7 +43,7 @@ export const getAvailableDates = cache(
       fetch: serverFetchWithUserAgent,
       baseUrl: SHORTS_API_URL,
     });
-    const client = createClient(ShortedStocksService, transport);
+    const client = createClient(MarketService, transport);
     return client.getAvailableDates({ limit: limit ?? 90, before: before ?? "" });
   }),
 );

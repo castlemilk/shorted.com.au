@@ -34,7 +34,7 @@ export default async function AdminTakeDetailPage({ params }: Params) {
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
-        <Link href="/admin/takes" className="text-sm text-orange-400 hover:text-orange-300">
+        <Link href="/admin/takes" className="text-sm text-primary hover:underline">
           ← All takes
         </Link>
         <div className="text-xs text-muted-foreground">

@@ -1,7 +1,8 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { unstable_cache } from "next/cache";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { MarketService } from "~/gen/shorts/v1alpha1/market_pb";
+import { ScreenerService } from "~/gen/shorts/v1alpha1/screener_pb";
 import {
   SHORTS_API_URL,
   serverFetchOutsideNextCache,
@@ -51,10 +52,11 @@ async function fetchScanResults(slug: string): Promise<ScanResults> {
     fetch: serverFetchOutsideNextCache,
     baseUrl: SHORTS_API_URL,
   });
-  const client = createClient(ShortedStocksService, transport);
+  const marketClient = createClient(MarketService, transport);
+  const screenerClient = createClient(ScreenerService, transport);
 
   const [screen, dates] = await Promise.all([
-    client.screenStocks({
+    screenerClient.screenStocks({
       filters: {
         shortPct: toRangeFilter(scan.filters.shortPct),
         shortPctChange: toRangeFilter(scan.filters.shortPctChange),
@@ -69,7 +71,7 @@ async function fetchScanResults(slug: string): Promise<ScanResults> {
       limit: SCAN_ROW_LIMIT, // API validates limit <= 200
       offset: 0,
     }),
-    client.getAvailableDates({ limit: 1, before: "" }),
+    marketClient.getAvailableDates({ limit: 1, before: "" }),
   ]);
 
   return {

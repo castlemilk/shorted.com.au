@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/playwright-community/playwright-go"
+	"github.com/mxschmitt/playwright-go"
 )
 
 // TestREASettle_Live drives a REA suburb SRP through the SAME Playwright

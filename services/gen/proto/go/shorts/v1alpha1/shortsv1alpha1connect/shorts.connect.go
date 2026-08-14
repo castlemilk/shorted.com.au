@@ -202,12 +202,93 @@ const (
 	// ShortedStocksServiceListAddressPriceDropsProcedure is the fully-qualified name of the
 	// ShortedStocksService's ListAddressPriceDrops RPC.
 	ShortedStocksServiceListAddressPriceDropsProcedure = "/shorts.v1alpha1.ShortedStocksService/ListAddressPriceDrops"
+	// ShortedStocksServiceGetPriceDropsOverviewProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetPriceDropsOverview RPC.
+	ShortedStocksServiceGetPriceDropsOverviewProcedure = "/shorts.v1alpha1.ShortedStocksService/GetPriceDropsOverview"
+	// ShortedStocksServiceListAgencyPriceStatsProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListAgencyPriceStats RPC.
+	ShortedStocksServiceListAgencyPriceStatsProcedure = "/shorts.v1alpha1.ShortedStocksService/ListAgencyPriceStats"
+	// ShortedStocksServiceListEconomicSeriesProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListEconomicSeries RPC.
+	ShortedStocksServiceListEconomicSeriesProcedure = "/shorts.v1alpha1.ShortedStocksService/ListEconomicSeries"
+	// ShortedStocksServiceGetEconomicSeriesProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetEconomicSeries RPC.
+	ShortedStocksServiceGetEconomicSeriesProcedure = "/shorts.v1alpha1.ShortedStocksService/GetEconomicSeries"
+	// ShortedStocksServiceListSeriesCorrelationsProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListSeriesCorrelations RPC.
+	ShortedStocksServiceListSeriesCorrelationsProcedure = "/shorts.v1alpha1.ShortedStocksService/ListSeriesCorrelations"
+	// ShortedStocksServiceListStateCompaniesProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListStateCompanies RPC.
+	ShortedStocksServiceListStateCompaniesProcedure = "/shorts.v1alpha1.ShortedStocksService/ListStateCompanies"
+	// ShortedStocksServiceGetStateCompanyAggregatesProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetStateCompanyAggregates RPC.
+	ShortedStocksServiceGetStateCompanyAggregatesProcedure = "/shorts.v1alpha1.ShortedStocksService/GetStateCompanyAggregates"
 	// ShortedStocksServiceGetCompanyTaxProfileProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetCompanyTaxProfile RPC.
 	ShortedStocksServiceGetCompanyTaxProfileProcedure = "/shorts.v1alpha1.ShortedStocksService/GetCompanyTaxProfile"
 	// ShortedStocksServiceGetIndustryIntelligenceProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetIndustryIntelligence RPC.
 	ShortedStocksServiceGetIndustryIntelligenceProcedure = "/shorts.v1alpha1.ShortedStocksService/GetIndustryIntelligence"
+	// ShortedStocksServiceGetParliamentOverviewProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetParliamentOverview RPC.
+	ShortedStocksServiceGetParliamentOverviewProcedure = "/shorts.v1alpha1.ShortedStocksService/GetParliamentOverview"
+	// ShortedStocksServiceListPoliticiansProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListPoliticians RPC.
+	ShortedStocksServiceListPoliticiansProcedure = "/shorts.v1alpha1.ShortedStocksService/ListPoliticians"
+	// ShortedStocksServiceGetPoliticianProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetPolitician RPC.
+	ShortedStocksServiceGetPoliticianProcedure = "/shorts.v1alpha1.ShortedStocksService/GetPolitician"
+	// ShortedStocksServiceListStockPoliticiansProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListStockPoliticians RPC.
+	ShortedStocksServiceListStockPoliticiansProcedure = "/shorts.v1alpha1.ShortedStocksService/ListStockPoliticians"
+	// ShortedStocksServiceListPoliticianStocksProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListPoliticianStocks RPC.
+	ShortedStocksServiceListPoliticianStocksProcedure = "/shorts.v1alpha1.ShortedStocksService/ListPoliticianStocks"
+	// ShortedStocksServiceListSuburbPoliticiansProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListSuburbPoliticians RPC.
+	ShortedStocksServiceListSuburbPoliticiansProcedure = "/shorts.v1alpha1.ShortedStocksService/ListSuburbPoliticians"
+	// ShortedStocksServiceListStatePoliticianHoldingsProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListStatePoliticianHoldings RPC.
+	ShortedStocksServiceListStatePoliticianHoldingsProcedure = "/shorts.v1alpha1.ShortedStocksService/ListStatePoliticianHoldings"
+	// ShortedStocksServiceListRegisterChangesProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListRegisterChanges RPC.
+	ShortedStocksServiceListRegisterChangesProcedure = "/shorts.v1alpha1.ShortedStocksService/ListRegisterChanges"
+	// ShortedStocksServiceListShortInterestOverlapProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListShortInterestOverlap RPC.
+	ShortedStocksServiceListShortInterestOverlapProcedure = "/shorts.v1alpha1.ShortedStocksService/ListShortInterestOverlap"
+	// ShortedStocksServiceGetPoliticianAnalyticsProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetPoliticianAnalytics RPC.
+	ShortedStocksServiceGetPoliticianAnalyticsProcedure = "/shorts.v1alpha1.ShortedStocksService/GetPoliticianAnalytics"
+	// ShortedStocksServiceGetRegisterExplorerProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetRegisterExplorer RPC.
+	ShortedStocksServiceGetRegisterExplorerProcedure = "/shorts.v1alpha1.ShortedStocksService/GetRegisterExplorer"
+	// ShortedStocksServiceListPoliticianSummariesProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListPoliticianSummaries RPC.
+	ShortedStocksServiceListPoliticianSummariesProcedure = "/shorts.v1alpha1.ShortedStocksService/ListPoliticianSummaries"
+	// ShortedStocksServiceGetPoliticianExplorerProfileProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetPoliticianExplorerProfile RPC.
+	ShortedStocksServiceGetPoliticianExplorerProfileProcedure = "/shorts.v1alpha1.ShortedStocksService/GetPoliticianExplorerProfile"
+	// ShortedStocksServiceComparePoliticiansProcedure is the fully-qualified name of the
+	// ShortedStocksService's ComparePoliticians RPC.
+	ShortedStocksServiceComparePoliticiansProcedure = "/shorts.v1alpha1.ShortedStocksService/ComparePoliticians"
+	// ShortedStocksServiceGetRegisterActivityProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetRegisterActivity RPC.
+	ShortedStocksServiceGetRegisterActivityProcedure = "/shorts.v1alpha1.ShortedStocksService/GetRegisterActivity"
+	// ShortedStocksServiceListDistinctiveHoldingsProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListDistinctiveHoldings RPC.
+	ShortedStocksServiceListDistinctiveHoldingsProcedure = "/shorts.v1alpha1.ShortedStocksService/ListDistinctiveHoldings"
+	// ShortedStocksServiceGetDonationsOverviewProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetDonationsOverview RPC.
+	ShortedStocksServiceGetDonationsOverviewProcedure = "/shorts.v1alpha1.ShortedStocksService/GetDonationsOverview"
+	// ShortedStocksServiceListTopDonorsProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListTopDonors RPC.
+	ShortedStocksServiceListTopDonorsProcedure = "/shorts.v1alpha1.ShortedStocksService/ListTopDonors"
+	// ShortedStocksServiceListPartyFundingProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListPartyFunding RPC.
+	ShortedStocksServiceListPartyFundingProcedure = "/shorts.v1alpha1.ShortedStocksService/ListPartyFunding"
+	// ShortedStocksServiceGetPoliticianFundingProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetPoliticianFunding RPC.
+	ShortedStocksServiceGetPoliticianFundingProcedure = "/shorts.v1alpha1.ShortedStocksService/GetPoliticianFunding"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -269,8 +350,35 @@ var (
 	shortedStocksServiceListSuburbDropListingsMethodDescriptor          = shortedStocksServiceServiceDescriptor.Methods().ByName("ListSuburbDropListings")
 	shortedStocksServiceGetPropertyHistoryMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("GetPropertyHistory")
 	shortedStocksServiceListAddressPriceDropsMethodDescriptor           = shortedStocksServiceServiceDescriptor.Methods().ByName("ListAddressPriceDrops")
+	shortedStocksServiceGetPriceDropsOverviewMethodDescriptor           = shortedStocksServiceServiceDescriptor.Methods().ByName("GetPriceDropsOverview")
+	shortedStocksServiceListAgencyPriceStatsMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("ListAgencyPriceStats")
+	shortedStocksServiceListEconomicSeriesMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("ListEconomicSeries")
+	shortedStocksServiceGetEconomicSeriesMethodDescriptor               = shortedStocksServiceServiceDescriptor.Methods().ByName("GetEconomicSeries")
+	shortedStocksServiceListSeriesCorrelationsMethodDescriptor          = shortedStocksServiceServiceDescriptor.Methods().ByName("ListSeriesCorrelations")
+	shortedStocksServiceListStateCompaniesMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("ListStateCompanies")
+	shortedStocksServiceGetStateCompanyAggregatesMethodDescriptor       = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStateCompanyAggregates")
 	shortedStocksServiceGetCompanyTaxProfileMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("GetCompanyTaxProfile")
 	shortedStocksServiceGetIndustryIntelligenceMethodDescriptor         = shortedStocksServiceServiceDescriptor.Methods().ByName("GetIndustryIntelligence")
+	shortedStocksServiceGetParliamentOverviewMethodDescriptor           = shortedStocksServiceServiceDescriptor.Methods().ByName("GetParliamentOverview")
+	shortedStocksServiceListPoliticiansMethodDescriptor                 = shortedStocksServiceServiceDescriptor.Methods().ByName("ListPoliticians")
+	shortedStocksServiceGetPoliticianMethodDescriptor                   = shortedStocksServiceServiceDescriptor.Methods().ByName("GetPolitician")
+	shortedStocksServiceListStockPoliticiansMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("ListStockPoliticians")
+	shortedStocksServiceListPoliticianStocksMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("ListPoliticianStocks")
+	shortedStocksServiceListSuburbPoliticiansMethodDescriptor           = shortedStocksServiceServiceDescriptor.Methods().ByName("ListSuburbPoliticians")
+	shortedStocksServiceListStatePoliticianHoldingsMethodDescriptor     = shortedStocksServiceServiceDescriptor.Methods().ByName("ListStatePoliticianHoldings")
+	shortedStocksServiceListRegisterChangesMethodDescriptor             = shortedStocksServiceServiceDescriptor.Methods().ByName("ListRegisterChanges")
+	shortedStocksServiceListShortInterestOverlapMethodDescriptor        = shortedStocksServiceServiceDescriptor.Methods().ByName("ListShortInterestOverlap")
+	shortedStocksServiceGetPoliticianAnalyticsMethodDescriptor          = shortedStocksServiceServiceDescriptor.Methods().ByName("GetPoliticianAnalytics")
+	shortedStocksServiceGetRegisterExplorerMethodDescriptor             = shortedStocksServiceServiceDescriptor.Methods().ByName("GetRegisterExplorer")
+	shortedStocksServiceListPoliticianSummariesMethodDescriptor         = shortedStocksServiceServiceDescriptor.Methods().ByName("ListPoliticianSummaries")
+	shortedStocksServiceGetPoliticianExplorerProfileMethodDescriptor    = shortedStocksServiceServiceDescriptor.Methods().ByName("GetPoliticianExplorerProfile")
+	shortedStocksServiceComparePoliticiansMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("ComparePoliticians")
+	shortedStocksServiceGetRegisterActivityMethodDescriptor             = shortedStocksServiceServiceDescriptor.Methods().ByName("GetRegisterActivity")
+	shortedStocksServiceListDistinctiveHoldingsMethodDescriptor         = shortedStocksServiceServiceDescriptor.Methods().ByName("ListDistinctiveHoldings")
+	shortedStocksServiceGetDonationsOverviewMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("GetDonationsOverview")
+	shortedStocksServiceListTopDonorsMethodDescriptor                   = shortedStocksServiceServiceDescriptor.Methods().ByName("ListTopDonors")
+	shortedStocksServiceListPartyFundingMethodDescriptor                = shortedStocksServiceServiceDescriptor.Methods().ByName("ListPartyFunding")
+	shortedStocksServiceGetPoliticianFundingMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("GetPoliticianFunding")
 )
 
 // ShortedStocksServiceClient is a client for the shorts.v1alpha1.ShortedStocksService service.
@@ -389,10 +497,65 @@ type ShortedStocksServiceClient interface {
 	GetPropertyHistory(context.Context, *connect.Request[v1alpha1.GetPropertyHistoryRequest]) (*connect.Response[v1alpha1.GetPropertyHistoryResponse], error)
 	// Individual physical addresses ranked by their asking-price drop over a window.
 	ListAddressPriceDrops(context.Context, *connect.Request[v1alpha1.ListAddressPriceDropsRequest]) (*connect.Response[v1alpha1.ListAddressPriceDropsResponse], error)
+	// State-level price-drop + listing-price rollup, plus a national summary row.
+	GetPriceDropsOverview(context.Context, *connect.Request[v1alpha1.GetPriceDropsOverviewRequest]) (*connect.Response[v1alpha1.GetPriceDropsOverviewResponse], error)
+	// Agencies ranked by recent asking-price cuts across their listings.
+	ListAgencyPriceStats(context.Context, *connect.Request[v1alpha1.ListAgencyPriceStatsRequest]) (*connect.Response[v1alpha1.ListAgencyPriceStatsResponse], error)
+	// List economic series catalog entries (Australian economy snapshot layer).
+	ListEconomicSeries(context.Context, *connect.Request[v1alpha1.ListEconomicSeriesRequest]) (*connect.Response[v1alpha1.ListEconomicSeriesResponse], error)
+	// Fetch observations for up to 50 series by series_key.
+	GetEconomicSeries(context.Context, *connect.Request[v1alpha1.GetEconomicSeriesRequest]) (*connect.Response[v1alpha1.GetEconomicSeriesResponse], error)
+	// Rank precomputed economic-series correlations for a base market series.
+	ListSeriesCorrelations(context.Context, *connect.Request[v1alpha1.ListSeriesCorrelationsRequest]) (*connect.Response[v1alpha1.ListSeriesCorrelationsResponse], error)
+	// List ASX-listed companies with operations-weighted exposure to a state.
+	ListStateCompanies(context.Context, *connect.Request[v1alpha1.ListStateCompaniesRequest]) (*connect.Response[v1alpha1.ListStateCompaniesResponse], error)
+	// Exposure-weighted market cap and short interest aggregates by state.
+	GetStateCompanyAggregates(context.Context, *connect.Request[v1alpha1.GetStateCompanyAggregatesRequest]) (*connect.Response[v1alpha1.GetStateCompanyAggregatesResponse], error)
 	// Get an ASX-listed entity's annual corporate-tax profile (ATO transparency data).
 	GetCompanyTaxProfile(context.Context, *connect.Request[v1alpha1.GetCompanyTaxProfileRequest]) (*connect.Response[v1alpha1.GetCompanyTaxProfileResponse], error)
 	// Get imported, cited industry intelligence facts for an industry.
 	GetIndustryIntelligence(context.Context, *connect.Request[v1alpha1.GetIndustryIntelligenceRequest]) (*connect.Response[v1alpha1.GetIndustryIntelligenceResponse], error)
+	// Parliament-wide register counts and the as-at date.
+	GetParliamentOverview(context.Context, *connect.Request[v1alpha1.GetParliamentOverviewRequest]) (*connect.Response[v1alpha1.GetParliamentOverviewResponse], error)
+	// Browse/filter parliamentarians.
+	ListPoliticians(context.Context, *connect.Request[v1alpha1.ListPoliticiansRequest]) (*connect.Response[v1alpha1.ListPoliticiansResponse], error)
+	// One politician's declared interests, property and terms.
+	GetPolitician(context.Context, *connect.Request[v1alpha1.GetPoliticianRequest]) (*connect.Response[v1alpha1.GetPoliticianResponse], error)
+	// Which parliamentarians declare an interest in one ASX-listed company.
+	ListStockPoliticians(context.Context, *connect.Request[v1alpha1.ListStockPoliticiansRequest]) (*connect.Response[v1alpha1.ListStockPoliticiansResponse], error)
+	// Parliament's most-declared ASX-listed companies.
+	ListPoliticianStocks(context.Context, *connect.Request[v1alpha1.ListPoliticianStocksRequest]) (*connect.Response[v1alpha1.ListPoliticianStocksResponse], error)
+	// Which parliamentarians declare real estate in one ABS suburb.
+	ListSuburbPoliticians(context.Context, *connect.Request[v1alpha1.ListSuburbPoliticiansRequest]) (*connect.Response[v1alpha1.ListSuburbPoliticiansResponse], error)
+	// Parliamentarians of one state and the companies they declare.
+	ListStatePoliticianHoldings(context.Context, *connect.Request[v1alpha1.ListStatePoliticianHoldingsRequest]) (*connect.Response[v1alpha1.ListStatePoliticianHoldingsResponse], error)
+	// Register additions and removals over time.
+	ListRegisterChanges(context.Context, *connect.Request[v1alpha1.ListRegisterChangesRequest]) (*connect.Response[v1alpha1.ListRegisterChangesResponse], error)
+	// Declared interests in companies carrying short interest.
+	ListShortInterestOverlap(context.Context, *connect.Request[v1alpha1.ListShortInterestOverlapRequest]) (*connect.Response[v1alpha1.ListShortInterestOverlapResponse], error)
+	// Aggregate shape of the register: party x industry, and members by state.
+	// Counts of people and declarations only — the registers record no value.
+	GetPoliticianAnalytics(context.Context, *connect.Request[v1alpha1.GetPoliticianAnalyticsRequest]) (*connect.Response[v1alpha1.GetPoliticianAnalyticsResponse], error)
+	// Aggregate register counts for the explorer hub.
+	GetRegisterExplorer(context.Context, *connect.Request[v1alpha1.GetRegisterExplorerRequest]) (*connect.Response[v1alpha1.GetRegisterExplorerResponse], error)
+	// Filtered politician summaries for the explorer table.
+	ListPoliticianSummaries(context.Context, *connect.Request[v1alpha1.ListPoliticianSummariesRequest]) (*connect.Response[v1alpha1.ListPoliticianSummariesResponse], error)
+	// Count-based analytics for one politician's explorer profile.
+	GetPoliticianExplorerProfile(context.Context, *connect.Request[v1alpha1.GetPoliticianExplorerProfileRequest]) (*connect.Response[v1alpha1.GetPoliticianExplorerProfileResponse], error)
+	// Neutral, symmetric comparison of two politician register summaries.
+	ComparePoliticians(context.Context, *connect.Request[v1alpha1.ComparePoliticiansRequest]) (*connect.Response[v1alpha1.ComparePoliticiansResponse], error)
+	// Aggregate register lodgement activity over a window.
+	GetRegisterActivity(context.Context, *connect.Request[v1alpha1.GetRegisterActivityRequest]) (*connect.Response[v1alpha1.GetRegisterActivityResponse], error)
+	// One member's currently-declared companies with corpus-wide declarer counts.
+	ListDistinctiveHoldings(context.Context, *connect.Request[v1alpha1.ListDistinctiveHoldingsRequest]) (*connect.Response[v1alpha1.ListDistinctiveHoldingsResponse], error)
+	// Party-group funding rollups for one financial year.
+	GetDonationsOverview(context.Context, *connect.Request[v1alpha1.GetDonationsOverviewRequest]) (*connect.Response[v1alpha1.GetDonationsOverviewResponse], error)
+	// Payers into party branches for one financial year, amount ordered.
+	ListTopDonors(context.Context, *connect.Request[v1alpha1.ListTopDonorsRequest]) (*connect.Response[v1alpha1.ListTopDonorsResponse], error)
+	// One party group's funding across every financial year it lodged in.
+	ListPartyFunding(context.Context, *connect.Request[v1alpha1.ListPartyFundingRequest]) (*connect.Response[v1alpha1.ListPartyFundingResponse], error)
+	// The funding returns that name one member.
+	GetPoliticianFunding(context.Context, *connect.Request[v1alpha1.GetPoliticianFundingRequest]) (*connect.Response[v1alpha1.GetPoliticianFundingResponse], error)
 }
 
 // NewShortedStocksServiceClient constructs a client for the shorts.v1alpha1.ShortedStocksService
@@ -741,6 +904,48 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(shortedStocksServiceListAddressPriceDropsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		getPriceDropsOverview: connect.NewClient[v1alpha1.GetPriceDropsOverviewRequest, v1alpha1.GetPriceDropsOverviewResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetPriceDropsOverviewProcedure,
+			connect.WithSchema(shortedStocksServiceGetPriceDropsOverviewMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listAgencyPriceStats: connect.NewClient[v1alpha1.ListAgencyPriceStatsRequest, v1alpha1.ListAgencyPriceStatsResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListAgencyPriceStatsProcedure,
+			connect.WithSchema(shortedStocksServiceListAgencyPriceStatsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listEconomicSeries: connect.NewClient[v1alpha1.ListEconomicSeriesRequest, v1alpha1.ListEconomicSeriesResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListEconomicSeriesProcedure,
+			connect.WithSchema(shortedStocksServiceListEconomicSeriesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getEconomicSeries: connect.NewClient[v1alpha1.GetEconomicSeriesRequest, v1alpha1.GetEconomicSeriesResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetEconomicSeriesProcedure,
+			connect.WithSchema(shortedStocksServiceGetEconomicSeriesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listSeriesCorrelations: connect.NewClient[v1alpha1.ListSeriesCorrelationsRequest, v1alpha1.ListSeriesCorrelationsResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListSeriesCorrelationsProcedure,
+			connect.WithSchema(shortedStocksServiceListSeriesCorrelationsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listStateCompanies: connect.NewClient[v1alpha1.ListStateCompaniesRequest, v1alpha1.ListStateCompaniesResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListStateCompaniesProcedure,
+			connect.WithSchema(shortedStocksServiceListStateCompaniesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getStateCompanyAggregates: connect.NewClient[v1alpha1.GetStateCompanyAggregatesRequest, v1alpha1.GetStateCompanyAggregatesResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetStateCompanyAggregatesProcedure,
+			connect.WithSchema(shortedStocksServiceGetStateCompanyAggregatesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 		getCompanyTaxProfile: connect.NewClient[v1alpha1.GetCompanyTaxProfileRequest, v1alpha1.GetCompanyTaxProfileResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetCompanyTaxProfileProcedure,
@@ -751,6 +956,126 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			httpClient,
 			baseURL+ShortedStocksServiceGetIndustryIntelligenceProcedure,
 			connect.WithSchema(shortedStocksServiceGetIndustryIntelligenceMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getParliamentOverview: connect.NewClient[v1alpha1.GetParliamentOverviewRequest, v1alpha1.GetParliamentOverviewResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetParliamentOverviewProcedure,
+			connect.WithSchema(shortedStocksServiceGetParliamentOverviewMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listPoliticians: connect.NewClient[v1alpha1.ListPoliticiansRequest, v1alpha1.ListPoliticiansResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListPoliticiansProcedure,
+			connect.WithSchema(shortedStocksServiceListPoliticiansMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getPolitician: connect.NewClient[v1alpha1.GetPoliticianRequest, v1alpha1.GetPoliticianResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetPoliticianProcedure,
+			connect.WithSchema(shortedStocksServiceGetPoliticianMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listStockPoliticians: connect.NewClient[v1alpha1.ListStockPoliticiansRequest, v1alpha1.ListStockPoliticiansResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListStockPoliticiansProcedure,
+			connect.WithSchema(shortedStocksServiceListStockPoliticiansMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listPoliticianStocks: connect.NewClient[v1alpha1.ListPoliticianStocksRequest, v1alpha1.ListPoliticianStocksResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListPoliticianStocksProcedure,
+			connect.WithSchema(shortedStocksServiceListPoliticianStocksMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listSuburbPoliticians: connect.NewClient[v1alpha1.ListSuburbPoliticiansRequest, v1alpha1.ListSuburbPoliticiansResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListSuburbPoliticiansProcedure,
+			connect.WithSchema(shortedStocksServiceListSuburbPoliticiansMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listStatePoliticianHoldings: connect.NewClient[v1alpha1.ListStatePoliticianHoldingsRequest, v1alpha1.ListStatePoliticianHoldingsResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListStatePoliticianHoldingsProcedure,
+			connect.WithSchema(shortedStocksServiceListStatePoliticianHoldingsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listRegisterChanges: connect.NewClient[v1alpha1.ListRegisterChangesRequest, v1alpha1.ListRegisterChangesResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListRegisterChangesProcedure,
+			connect.WithSchema(shortedStocksServiceListRegisterChangesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listShortInterestOverlap: connect.NewClient[v1alpha1.ListShortInterestOverlapRequest, v1alpha1.ListShortInterestOverlapResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListShortInterestOverlapProcedure,
+			connect.WithSchema(shortedStocksServiceListShortInterestOverlapMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getPoliticianAnalytics: connect.NewClient[v1alpha1.GetPoliticianAnalyticsRequest, v1alpha1.GetPoliticianAnalyticsResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetPoliticianAnalyticsProcedure,
+			connect.WithSchema(shortedStocksServiceGetPoliticianAnalyticsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getRegisterExplorer: connect.NewClient[v1alpha1.GetRegisterExplorerRequest, v1alpha1.GetRegisterExplorerResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetRegisterExplorerProcedure,
+			connect.WithSchema(shortedStocksServiceGetRegisterExplorerMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listPoliticianSummaries: connect.NewClient[v1alpha1.ListPoliticianSummariesRequest, v1alpha1.ListPoliticianSummariesResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListPoliticianSummariesProcedure,
+			connect.WithSchema(shortedStocksServiceListPoliticianSummariesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getPoliticianExplorerProfile: connect.NewClient[v1alpha1.GetPoliticianExplorerProfileRequest, v1alpha1.GetPoliticianExplorerProfileResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetPoliticianExplorerProfileProcedure,
+			connect.WithSchema(shortedStocksServiceGetPoliticianExplorerProfileMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		comparePoliticians: connect.NewClient[v1alpha1.ComparePoliticiansRequest, v1alpha1.ComparePoliticiansResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceComparePoliticiansProcedure,
+			connect.WithSchema(shortedStocksServiceComparePoliticiansMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getRegisterActivity: connect.NewClient[v1alpha1.GetRegisterActivityRequest, v1alpha1.GetRegisterActivityResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetRegisterActivityProcedure,
+			connect.WithSchema(shortedStocksServiceGetRegisterActivityMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listDistinctiveHoldings: connect.NewClient[v1alpha1.ListDistinctiveHoldingsRequest, v1alpha1.ListDistinctiveHoldingsResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListDistinctiveHoldingsProcedure,
+			connect.WithSchema(shortedStocksServiceListDistinctiveHoldingsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getDonationsOverview: connect.NewClient[v1alpha1.GetDonationsOverviewRequest, v1alpha1.GetDonationsOverviewResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetDonationsOverviewProcedure,
+			connect.WithSchema(shortedStocksServiceGetDonationsOverviewMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listTopDonors: connect.NewClient[v1alpha1.ListTopDonorsRequest, v1alpha1.ListTopDonorsResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListTopDonorsProcedure,
+			connect.WithSchema(shortedStocksServiceListTopDonorsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listPartyFunding: connect.NewClient[v1alpha1.ListPartyFundingRequest, v1alpha1.ListPartyFundingResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListPartyFundingProcedure,
+			connect.WithSchema(shortedStocksServiceListPartyFundingMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getPoliticianFunding: connect.NewClient[v1alpha1.GetPoliticianFundingRequest, v1alpha1.GetPoliticianFundingResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetPoliticianFundingProcedure,
+			connect.WithSchema(shortedStocksServiceGetPoliticianFundingMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -814,8 +1139,35 @@ type shortedStocksServiceClient struct {
 	listSuburbDropListings          *connect.Client[v1alpha1.ListSuburbDropListingsRequest, v1alpha1.ListSuburbDropListingsResponse]
 	getPropertyHistory              *connect.Client[v1alpha1.GetPropertyHistoryRequest, v1alpha1.GetPropertyHistoryResponse]
 	listAddressPriceDrops           *connect.Client[v1alpha1.ListAddressPriceDropsRequest, v1alpha1.ListAddressPriceDropsResponse]
+	getPriceDropsOverview           *connect.Client[v1alpha1.GetPriceDropsOverviewRequest, v1alpha1.GetPriceDropsOverviewResponse]
+	listAgencyPriceStats            *connect.Client[v1alpha1.ListAgencyPriceStatsRequest, v1alpha1.ListAgencyPriceStatsResponse]
+	listEconomicSeries              *connect.Client[v1alpha1.ListEconomicSeriesRequest, v1alpha1.ListEconomicSeriesResponse]
+	getEconomicSeries               *connect.Client[v1alpha1.GetEconomicSeriesRequest, v1alpha1.GetEconomicSeriesResponse]
+	listSeriesCorrelations          *connect.Client[v1alpha1.ListSeriesCorrelationsRequest, v1alpha1.ListSeriesCorrelationsResponse]
+	listStateCompanies              *connect.Client[v1alpha1.ListStateCompaniesRequest, v1alpha1.ListStateCompaniesResponse]
+	getStateCompanyAggregates       *connect.Client[v1alpha1.GetStateCompanyAggregatesRequest, v1alpha1.GetStateCompanyAggregatesResponse]
 	getCompanyTaxProfile            *connect.Client[v1alpha1.GetCompanyTaxProfileRequest, v1alpha1.GetCompanyTaxProfileResponse]
 	getIndustryIntelligence         *connect.Client[v1alpha1.GetIndustryIntelligenceRequest, v1alpha1.GetIndustryIntelligenceResponse]
+	getParliamentOverview           *connect.Client[v1alpha1.GetParliamentOverviewRequest, v1alpha1.GetParliamentOverviewResponse]
+	listPoliticians                 *connect.Client[v1alpha1.ListPoliticiansRequest, v1alpha1.ListPoliticiansResponse]
+	getPolitician                   *connect.Client[v1alpha1.GetPoliticianRequest, v1alpha1.GetPoliticianResponse]
+	listStockPoliticians            *connect.Client[v1alpha1.ListStockPoliticiansRequest, v1alpha1.ListStockPoliticiansResponse]
+	listPoliticianStocks            *connect.Client[v1alpha1.ListPoliticianStocksRequest, v1alpha1.ListPoliticianStocksResponse]
+	listSuburbPoliticians           *connect.Client[v1alpha1.ListSuburbPoliticiansRequest, v1alpha1.ListSuburbPoliticiansResponse]
+	listStatePoliticianHoldings     *connect.Client[v1alpha1.ListStatePoliticianHoldingsRequest, v1alpha1.ListStatePoliticianHoldingsResponse]
+	listRegisterChanges             *connect.Client[v1alpha1.ListRegisterChangesRequest, v1alpha1.ListRegisterChangesResponse]
+	listShortInterestOverlap        *connect.Client[v1alpha1.ListShortInterestOverlapRequest, v1alpha1.ListShortInterestOverlapResponse]
+	getPoliticianAnalytics          *connect.Client[v1alpha1.GetPoliticianAnalyticsRequest, v1alpha1.GetPoliticianAnalyticsResponse]
+	getRegisterExplorer             *connect.Client[v1alpha1.GetRegisterExplorerRequest, v1alpha1.GetRegisterExplorerResponse]
+	listPoliticianSummaries         *connect.Client[v1alpha1.ListPoliticianSummariesRequest, v1alpha1.ListPoliticianSummariesResponse]
+	getPoliticianExplorerProfile    *connect.Client[v1alpha1.GetPoliticianExplorerProfileRequest, v1alpha1.GetPoliticianExplorerProfileResponse]
+	comparePoliticians              *connect.Client[v1alpha1.ComparePoliticiansRequest, v1alpha1.ComparePoliticiansResponse]
+	getRegisterActivity             *connect.Client[v1alpha1.GetRegisterActivityRequest, v1alpha1.GetRegisterActivityResponse]
+	listDistinctiveHoldings         *connect.Client[v1alpha1.ListDistinctiveHoldingsRequest, v1alpha1.ListDistinctiveHoldingsResponse]
+	getDonationsOverview            *connect.Client[v1alpha1.GetDonationsOverviewRequest, v1alpha1.GetDonationsOverviewResponse]
+	listTopDonors                   *connect.Client[v1alpha1.ListTopDonorsRequest, v1alpha1.ListTopDonorsResponse]
+	listPartyFunding                *connect.Client[v1alpha1.ListPartyFundingRequest, v1alpha1.ListPartyFundingResponse]
+	getPoliticianFunding            *connect.Client[v1alpha1.GetPoliticianFundingRequest, v1alpha1.GetPoliticianFundingResponse]
 }
 
 // GetTopShorts calls shorts.v1alpha1.ShortedStocksService.GetTopShorts.
@@ -1101,6 +1453,41 @@ func (c *shortedStocksServiceClient) ListAddressPriceDrops(ctx context.Context, 
 	return c.listAddressPriceDrops.CallUnary(ctx, req)
 }
 
+// GetPriceDropsOverview calls shorts.v1alpha1.ShortedStocksService.GetPriceDropsOverview.
+func (c *shortedStocksServiceClient) GetPriceDropsOverview(ctx context.Context, req *connect.Request[v1alpha1.GetPriceDropsOverviewRequest]) (*connect.Response[v1alpha1.GetPriceDropsOverviewResponse], error) {
+	return c.getPriceDropsOverview.CallUnary(ctx, req)
+}
+
+// ListAgencyPriceStats calls shorts.v1alpha1.ShortedStocksService.ListAgencyPriceStats.
+func (c *shortedStocksServiceClient) ListAgencyPriceStats(ctx context.Context, req *connect.Request[v1alpha1.ListAgencyPriceStatsRequest]) (*connect.Response[v1alpha1.ListAgencyPriceStatsResponse], error) {
+	return c.listAgencyPriceStats.CallUnary(ctx, req)
+}
+
+// ListEconomicSeries calls shorts.v1alpha1.ShortedStocksService.ListEconomicSeries.
+func (c *shortedStocksServiceClient) ListEconomicSeries(ctx context.Context, req *connect.Request[v1alpha1.ListEconomicSeriesRequest]) (*connect.Response[v1alpha1.ListEconomicSeriesResponse], error) {
+	return c.listEconomicSeries.CallUnary(ctx, req)
+}
+
+// GetEconomicSeries calls shorts.v1alpha1.ShortedStocksService.GetEconomicSeries.
+func (c *shortedStocksServiceClient) GetEconomicSeries(ctx context.Context, req *connect.Request[v1alpha1.GetEconomicSeriesRequest]) (*connect.Response[v1alpha1.GetEconomicSeriesResponse], error) {
+	return c.getEconomicSeries.CallUnary(ctx, req)
+}
+
+// ListSeriesCorrelations calls shorts.v1alpha1.ShortedStocksService.ListSeriesCorrelations.
+func (c *shortedStocksServiceClient) ListSeriesCorrelations(ctx context.Context, req *connect.Request[v1alpha1.ListSeriesCorrelationsRequest]) (*connect.Response[v1alpha1.ListSeriesCorrelationsResponse], error) {
+	return c.listSeriesCorrelations.CallUnary(ctx, req)
+}
+
+// ListStateCompanies calls shorts.v1alpha1.ShortedStocksService.ListStateCompanies.
+func (c *shortedStocksServiceClient) ListStateCompanies(ctx context.Context, req *connect.Request[v1alpha1.ListStateCompaniesRequest]) (*connect.Response[v1alpha1.ListStateCompaniesResponse], error) {
+	return c.listStateCompanies.CallUnary(ctx, req)
+}
+
+// GetStateCompanyAggregates calls shorts.v1alpha1.ShortedStocksService.GetStateCompanyAggregates.
+func (c *shortedStocksServiceClient) GetStateCompanyAggregates(ctx context.Context, req *connect.Request[v1alpha1.GetStateCompanyAggregatesRequest]) (*connect.Response[v1alpha1.GetStateCompanyAggregatesResponse], error) {
+	return c.getStateCompanyAggregates.CallUnary(ctx, req)
+}
+
 // GetCompanyTaxProfile calls shorts.v1alpha1.ShortedStocksService.GetCompanyTaxProfile.
 func (c *shortedStocksServiceClient) GetCompanyTaxProfile(ctx context.Context, req *connect.Request[v1alpha1.GetCompanyTaxProfileRequest]) (*connect.Response[v1alpha1.GetCompanyTaxProfileResponse], error) {
 	return c.getCompanyTaxProfile.CallUnary(ctx, req)
@@ -1109,6 +1496,108 @@ func (c *shortedStocksServiceClient) GetCompanyTaxProfile(ctx context.Context, r
 // GetIndustryIntelligence calls shorts.v1alpha1.ShortedStocksService.GetIndustryIntelligence.
 func (c *shortedStocksServiceClient) GetIndustryIntelligence(ctx context.Context, req *connect.Request[v1alpha1.GetIndustryIntelligenceRequest]) (*connect.Response[v1alpha1.GetIndustryIntelligenceResponse], error) {
 	return c.getIndustryIntelligence.CallUnary(ctx, req)
+}
+
+// GetParliamentOverview calls shorts.v1alpha1.ShortedStocksService.GetParliamentOverview.
+func (c *shortedStocksServiceClient) GetParliamentOverview(ctx context.Context, req *connect.Request[v1alpha1.GetParliamentOverviewRequest]) (*connect.Response[v1alpha1.GetParliamentOverviewResponse], error) {
+	return c.getParliamentOverview.CallUnary(ctx, req)
+}
+
+// ListPoliticians calls shorts.v1alpha1.ShortedStocksService.ListPoliticians.
+func (c *shortedStocksServiceClient) ListPoliticians(ctx context.Context, req *connect.Request[v1alpha1.ListPoliticiansRequest]) (*connect.Response[v1alpha1.ListPoliticiansResponse], error) {
+	return c.listPoliticians.CallUnary(ctx, req)
+}
+
+// GetPolitician calls shorts.v1alpha1.ShortedStocksService.GetPolitician.
+func (c *shortedStocksServiceClient) GetPolitician(ctx context.Context, req *connect.Request[v1alpha1.GetPoliticianRequest]) (*connect.Response[v1alpha1.GetPoliticianResponse], error) {
+	return c.getPolitician.CallUnary(ctx, req)
+}
+
+// ListStockPoliticians calls shorts.v1alpha1.ShortedStocksService.ListStockPoliticians.
+func (c *shortedStocksServiceClient) ListStockPoliticians(ctx context.Context, req *connect.Request[v1alpha1.ListStockPoliticiansRequest]) (*connect.Response[v1alpha1.ListStockPoliticiansResponse], error) {
+	return c.listStockPoliticians.CallUnary(ctx, req)
+}
+
+// ListPoliticianStocks calls shorts.v1alpha1.ShortedStocksService.ListPoliticianStocks.
+func (c *shortedStocksServiceClient) ListPoliticianStocks(ctx context.Context, req *connect.Request[v1alpha1.ListPoliticianStocksRequest]) (*connect.Response[v1alpha1.ListPoliticianStocksResponse], error) {
+	return c.listPoliticianStocks.CallUnary(ctx, req)
+}
+
+// ListSuburbPoliticians calls shorts.v1alpha1.ShortedStocksService.ListSuburbPoliticians.
+func (c *shortedStocksServiceClient) ListSuburbPoliticians(ctx context.Context, req *connect.Request[v1alpha1.ListSuburbPoliticiansRequest]) (*connect.Response[v1alpha1.ListSuburbPoliticiansResponse], error) {
+	return c.listSuburbPoliticians.CallUnary(ctx, req)
+}
+
+// ListStatePoliticianHoldings calls
+// shorts.v1alpha1.ShortedStocksService.ListStatePoliticianHoldings.
+func (c *shortedStocksServiceClient) ListStatePoliticianHoldings(ctx context.Context, req *connect.Request[v1alpha1.ListStatePoliticianHoldingsRequest]) (*connect.Response[v1alpha1.ListStatePoliticianHoldingsResponse], error) {
+	return c.listStatePoliticianHoldings.CallUnary(ctx, req)
+}
+
+// ListRegisterChanges calls shorts.v1alpha1.ShortedStocksService.ListRegisterChanges.
+func (c *shortedStocksServiceClient) ListRegisterChanges(ctx context.Context, req *connect.Request[v1alpha1.ListRegisterChangesRequest]) (*connect.Response[v1alpha1.ListRegisterChangesResponse], error) {
+	return c.listRegisterChanges.CallUnary(ctx, req)
+}
+
+// ListShortInterestOverlap calls shorts.v1alpha1.ShortedStocksService.ListShortInterestOverlap.
+func (c *shortedStocksServiceClient) ListShortInterestOverlap(ctx context.Context, req *connect.Request[v1alpha1.ListShortInterestOverlapRequest]) (*connect.Response[v1alpha1.ListShortInterestOverlapResponse], error) {
+	return c.listShortInterestOverlap.CallUnary(ctx, req)
+}
+
+// GetPoliticianAnalytics calls shorts.v1alpha1.ShortedStocksService.GetPoliticianAnalytics.
+func (c *shortedStocksServiceClient) GetPoliticianAnalytics(ctx context.Context, req *connect.Request[v1alpha1.GetPoliticianAnalyticsRequest]) (*connect.Response[v1alpha1.GetPoliticianAnalyticsResponse], error) {
+	return c.getPoliticianAnalytics.CallUnary(ctx, req)
+}
+
+// GetRegisterExplorer calls shorts.v1alpha1.ShortedStocksService.GetRegisterExplorer.
+func (c *shortedStocksServiceClient) GetRegisterExplorer(ctx context.Context, req *connect.Request[v1alpha1.GetRegisterExplorerRequest]) (*connect.Response[v1alpha1.GetRegisterExplorerResponse], error) {
+	return c.getRegisterExplorer.CallUnary(ctx, req)
+}
+
+// ListPoliticianSummaries calls shorts.v1alpha1.ShortedStocksService.ListPoliticianSummaries.
+func (c *shortedStocksServiceClient) ListPoliticianSummaries(ctx context.Context, req *connect.Request[v1alpha1.ListPoliticianSummariesRequest]) (*connect.Response[v1alpha1.ListPoliticianSummariesResponse], error) {
+	return c.listPoliticianSummaries.CallUnary(ctx, req)
+}
+
+// GetPoliticianExplorerProfile calls
+// shorts.v1alpha1.ShortedStocksService.GetPoliticianExplorerProfile.
+func (c *shortedStocksServiceClient) GetPoliticianExplorerProfile(ctx context.Context, req *connect.Request[v1alpha1.GetPoliticianExplorerProfileRequest]) (*connect.Response[v1alpha1.GetPoliticianExplorerProfileResponse], error) {
+	return c.getPoliticianExplorerProfile.CallUnary(ctx, req)
+}
+
+// ComparePoliticians calls shorts.v1alpha1.ShortedStocksService.ComparePoliticians.
+func (c *shortedStocksServiceClient) ComparePoliticians(ctx context.Context, req *connect.Request[v1alpha1.ComparePoliticiansRequest]) (*connect.Response[v1alpha1.ComparePoliticiansResponse], error) {
+	return c.comparePoliticians.CallUnary(ctx, req)
+}
+
+// GetRegisterActivity calls shorts.v1alpha1.ShortedStocksService.GetRegisterActivity.
+func (c *shortedStocksServiceClient) GetRegisterActivity(ctx context.Context, req *connect.Request[v1alpha1.GetRegisterActivityRequest]) (*connect.Response[v1alpha1.GetRegisterActivityResponse], error) {
+	return c.getRegisterActivity.CallUnary(ctx, req)
+}
+
+// ListDistinctiveHoldings calls shorts.v1alpha1.ShortedStocksService.ListDistinctiveHoldings.
+func (c *shortedStocksServiceClient) ListDistinctiveHoldings(ctx context.Context, req *connect.Request[v1alpha1.ListDistinctiveHoldingsRequest]) (*connect.Response[v1alpha1.ListDistinctiveHoldingsResponse], error) {
+	return c.listDistinctiveHoldings.CallUnary(ctx, req)
+}
+
+// GetDonationsOverview calls shorts.v1alpha1.ShortedStocksService.GetDonationsOverview.
+func (c *shortedStocksServiceClient) GetDonationsOverview(ctx context.Context, req *connect.Request[v1alpha1.GetDonationsOverviewRequest]) (*connect.Response[v1alpha1.GetDonationsOverviewResponse], error) {
+	return c.getDonationsOverview.CallUnary(ctx, req)
+}
+
+// ListTopDonors calls shorts.v1alpha1.ShortedStocksService.ListTopDonors.
+func (c *shortedStocksServiceClient) ListTopDonors(ctx context.Context, req *connect.Request[v1alpha1.ListTopDonorsRequest]) (*connect.Response[v1alpha1.ListTopDonorsResponse], error) {
+	return c.listTopDonors.CallUnary(ctx, req)
+}
+
+// ListPartyFunding calls shorts.v1alpha1.ShortedStocksService.ListPartyFunding.
+func (c *shortedStocksServiceClient) ListPartyFunding(ctx context.Context, req *connect.Request[v1alpha1.ListPartyFundingRequest]) (*connect.Response[v1alpha1.ListPartyFundingResponse], error) {
+	return c.listPartyFunding.CallUnary(ctx, req)
+}
+
+// GetPoliticianFunding calls shorts.v1alpha1.ShortedStocksService.GetPoliticianFunding.
+func (c *shortedStocksServiceClient) GetPoliticianFunding(ctx context.Context, req *connect.Request[v1alpha1.GetPoliticianFundingRequest]) (*connect.Response[v1alpha1.GetPoliticianFundingResponse], error) {
+	return c.getPoliticianFunding.CallUnary(ctx, req)
 }
 
 // ShortedStocksServiceHandler is an implementation of the shorts.v1alpha1.ShortedStocksService
@@ -1228,10 +1717,65 @@ type ShortedStocksServiceHandler interface {
 	GetPropertyHistory(context.Context, *connect.Request[v1alpha1.GetPropertyHistoryRequest]) (*connect.Response[v1alpha1.GetPropertyHistoryResponse], error)
 	// Individual physical addresses ranked by their asking-price drop over a window.
 	ListAddressPriceDrops(context.Context, *connect.Request[v1alpha1.ListAddressPriceDropsRequest]) (*connect.Response[v1alpha1.ListAddressPriceDropsResponse], error)
+	// State-level price-drop + listing-price rollup, plus a national summary row.
+	GetPriceDropsOverview(context.Context, *connect.Request[v1alpha1.GetPriceDropsOverviewRequest]) (*connect.Response[v1alpha1.GetPriceDropsOverviewResponse], error)
+	// Agencies ranked by recent asking-price cuts across their listings.
+	ListAgencyPriceStats(context.Context, *connect.Request[v1alpha1.ListAgencyPriceStatsRequest]) (*connect.Response[v1alpha1.ListAgencyPriceStatsResponse], error)
+	// List economic series catalog entries (Australian economy snapshot layer).
+	ListEconomicSeries(context.Context, *connect.Request[v1alpha1.ListEconomicSeriesRequest]) (*connect.Response[v1alpha1.ListEconomicSeriesResponse], error)
+	// Fetch observations for up to 50 series by series_key.
+	GetEconomicSeries(context.Context, *connect.Request[v1alpha1.GetEconomicSeriesRequest]) (*connect.Response[v1alpha1.GetEconomicSeriesResponse], error)
+	// Rank precomputed economic-series correlations for a base market series.
+	ListSeriesCorrelations(context.Context, *connect.Request[v1alpha1.ListSeriesCorrelationsRequest]) (*connect.Response[v1alpha1.ListSeriesCorrelationsResponse], error)
+	// List ASX-listed companies with operations-weighted exposure to a state.
+	ListStateCompanies(context.Context, *connect.Request[v1alpha1.ListStateCompaniesRequest]) (*connect.Response[v1alpha1.ListStateCompaniesResponse], error)
+	// Exposure-weighted market cap and short interest aggregates by state.
+	GetStateCompanyAggregates(context.Context, *connect.Request[v1alpha1.GetStateCompanyAggregatesRequest]) (*connect.Response[v1alpha1.GetStateCompanyAggregatesResponse], error)
 	// Get an ASX-listed entity's annual corporate-tax profile (ATO transparency data).
 	GetCompanyTaxProfile(context.Context, *connect.Request[v1alpha1.GetCompanyTaxProfileRequest]) (*connect.Response[v1alpha1.GetCompanyTaxProfileResponse], error)
 	// Get imported, cited industry intelligence facts for an industry.
 	GetIndustryIntelligence(context.Context, *connect.Request[v1alpha1.GetIndustryIntelligenceRequest]) (*connect.Response[v1alpha1.GetIndustryIntelligenceResponse], error)
+	// Parliament-wide register counts and the as-at date.
+	GetParliamentOverview(context.Context, *connect.Request[v1alpha1.GetParliamentOverviewRequest]) (*connect.Response[v1alpha1.GetParliamentOverviewResponse], error)
+	// Browse/filter parliamentarians.
+	ListPoliticians(context.Context, *connect.Request[v1alpha1.ListPoliticiansRequest]) (*connect.Response[v1alpha1.ListPoliticiansResponse], error)
+	// One politician's declared interests, property and terms.
+	GetPolitician(context.Context, *connect.Request[v1alpha1.GetPoliticianRequest]) (*connect.Response[v1alpha1.GetPoliticianResponse], error)
+	// Which parliamentarians declare an interest in one ASX-listed company.
+	ListStockPoliticians(context.Context, *connect.Request[v1alpha1.ListStockPoliticiansRequest]) (*connect.Response[v1alpha1.ListStockPoliticiansResponse], error)
+	// Parliament's most-declared ASX-listed companies.
+	ListPoliticianStocks(context.Context, *connect.Request[v1alpha1.ListPoliticianStocksRequest]) (*connect.Response[v1alpha1.ListPoliticianStocksResponse], error)
+	// Which parliamentarians declare real estate in one ABS suburb.
+	ListSuburbPoliticians(context.Context, *connect.Request[v1alpha1.ListSuburbPoliticiansRequest]) (*connect.Response[v1alpha1.ListSuburbPoliticiansResponse], error)
+	// Parliamentarians of one state and the companies they declare.
+	ListStatePoliticianHoldings(context.Context, *connect.Request[v1alpha1.ListStatePoliticianHoldingsRequest]) (*connect.Response[v1alpha1.ListStatePoliticianHoldingsResponse], error)
+	// Register additions and removals over time.
+	ListRegisterChanges(context.Context, *connect.Request[v1alpha1.ListRegisterChangesRequest]) (*connect.Response[v1alpha1.ListRegisterChangesResponse], error)
+	// Declared interests in companies carrying short interest.
+	ListShortInterestOverlap(context.Context, *connect.Request[v1alpha1.ListShortInterestOverlapRequest]) (*connect.Response[v1alpha1.ListShortInterestOverlapResponse], error)
+	// Aggregate shape of the register: party x industry, and members by state.
+	// Counts of people and declarations only — the registers record no value.
+	GetPoliticianAnalytics(context.Context, *connect.Request[v1alpha1.GetPoliticianAnalyticsRequest]) (*connect.Response[v1alpha1.GetPoliticianAnalyticsResponse], error)
+	// Aggregate register counts for the explorer hub.
+	GetRegisterExplorer(context.Context, *connect.Request[v1alpha1.GetRegisterExplorerRequest]) (*connect.Response[v1alpha1.GetRegisterExplorerResponse], error)
+	// Filtered politician summaries for the explorer table.
+	ListPoliticianSummaries(context.Context, *connect.Request[v1alpha1.ListPoliticianSummariesRequest]) (*connect.Response[v1alpha1.ListPoliticianSummariesResponse], error)
+	// Count-based analytics for one politician's explorer profile.
+	GetPoliticianExplorerProfile(context.Context, *connect.Request[v1alpha1.GetPoliticianExplorerProfileRequest]) (*connect.Response[v1alpha1.GetPoliticianExplorerProfileResponse], error)
+	// Neutral, symmetric comparison of two politician register summaries.
+	ComparePoliticians(context.Context, *connect.Request[v1alpha1.ComparePoliticiansRequest]) (*connect.Response[v1alpha1.ComparePoliticiansResponse], error)
+	// Aggregate register lodgement activity over a window.
+	GetRegisterActivity(context.Context, *connect.Request[v1alpha1.GetRegisterActivityRequest]) (*connect.Response[v1alpha1.GetRegisterActivityResponse], error)
+	// One member's currently-declared companies with corpus-wide declarer counts.
+	ListDistinctiveHoldings(context.Context, *connect.Request[v1alpha1.ListDistinctiveHoldingsRequest]) (*connect.Response[v1alpha1.ListDistinctiveHoldingsResponse], error)
+	// Party-group funding rollups for one financial year.
+	GetDonationsOverview(context.Context, *connect.Request[v1alpha1.GetDonationsOverviewRequest]) (*connect.Response[v1alpha1.GetDonationsOverviewResponse], error)
+	// Payers into party branches for one financial year, amount ordered.
+	ListTopDonors(context.Context, *connect.Request[v1alpha1.ListTopDonorsRequest]) (*connect.Response[v1alpha1.ListTopDonorsResponse], error)
+	// One party group's funding across every financial year it lodged in.
+	ListPartyFunding(context.Context, *connect.Request[v1alpha1.ListPartyFundingRequest]) (*connect.Response[v1alpha1.ListPartyFundingResponse], error)
+	// The funding returns that name one member.
+	GetPoliticianFunding(context.Context, *connect.Request[v1alpha1.GetPoliticianFundingRequest]) (*connect.Response[v1alpha1.GetPoliticianFundingResponse], error)
 }
 
 // NewShortedStocksServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -1576,6 +2120,48 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		connect.WithSchema(shortedStocksServiceListAddressPriceDropsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	shortedStocksServiceGetPriceDropsOverviewHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetPriceDropsOverviewProcedure,
+		svc.GetPriceDropsOverview,
+		connect.WithSchema(shortedStocksServiceGetPriceDropsOverviewMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceListAgencyPriceStatsHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListAgencyPriceStatsProcedure,
+		svc.ListAgencyPriceStats,
+		connect.WithSchema(shortedStocksServiceListAgencyPriceStatsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceListEconomicSeriesHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListEconomicSeriesProcedure,
+		svc.ListEconomicSeries,
+		connect.WithSchema(shortedStocksServiceListEconomicSeriesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceGetEconomicSeriesHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetEconomicSeriesProcedure,
+		svc.GetEconomicSeries,
+		connect.WithSchema(shortedStocksServiceGetEconomicSeriesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceListSeriesCorrelationsHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListSeriesCorrelationsProcedure,
+		svc.ListSeriesCorrelations,
+		connect.WithSchema(shortedStocksServiceListSeriesCorrelationsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceListStateCompaniesHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListStateCompaniesProcedure,
+		svc.ListStateCompanies,
+		connect.WithSchema(shortedStocksServiceListStateCompaniesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceGetStateCompanyAggregatesHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetStateCompanyAggregatesProcedure,
+		svc.GetStateCompanyAggregates,
+		connect.WithSchema(shortedStocksServiceGetStateCompanyAggregatesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	shortedStocksServiceGetCompanyTaxProfileHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetCompanyTaxProfileProcedure,
 		svc.GetCompanyTaxProfile,
@@ -1586,6 +2172,126 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		ShortedStocksServiceGetIndustryIntelligenceProcedure,
 		svc.GetIndustryIntelligence,
 		connect.WithSchema(shortedStocksServiceGetIndustryIntelligenceMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceGetParliamentOverviewHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetParliamentOverviewProcedure,
+		svc.GetParliamentOverview,
+		connect.WithSchema(shortedStocksServiceGetParliamentOverviewMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceListPoliticiansHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListPoliticiansProcedure,
+		svc.ListPoliticians,
+		connect.WithSchema(shortedStocksServiceListPoliticiansMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceGetPoliticianHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetPoliticianProcedure,
+		svc.GetPolitician,
+		connect.WithSchema(shortedStocksServiceGetPoliticianMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceListStockPoliticiansHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListStockPoliticiansProcedure,
+		svc.ListStockPoliticians,
+		connect.WithSchema(shortedStocksServiceListStockPoliticiansMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceListPoliticianStocksHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListPoliticianStocksProcedure,
+		svc.ListPoliticianStocks,
+		connect.WithSchema(shortedStocksServiceListPoliticianStocksMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceListSuburbPoliticiansHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListSuburbPoliticiansProcedure,
+		svc.ListSuburbPoliticians,
+		connect.WithSchema(shortedStocksServiceListSuburbPoliticiansMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceListStatePoliticianHoldingsHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListStatePoliticianHoldingsProcedure,
+		svc.ListStatePoliticianHoldings,
+		connect.WithSchema(shortedStocksServiceListStatePoliticianHoldingsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceListRegisterChangesHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListRegisterChangesProcedure,
+		svc.ListRegisterChanges,
+		connect.WithSchema(shortedStocksServiceListRegisterChangesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceListShortInterestOverlapHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListShortInterestOverlapProcedure,
+		svc.ListShortInterestOverlap,
+		connect.WithSchema(shortedStocksServiceListShortInterestOverlapMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceGetPoliticianAnalyticsHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetPoliticianAnalyticsProcedure,
+		svc.GetPoliticianAnalytics,
+		connect.WithSchema(shortedStocksServiceGetPoliticianAnalyticsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceGetRegisterExplorerHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetRegisterExplorerProcedure,
+		svc.GetRegisterExplorer,
+		connect.WithSchema(shortedStocksServiceGetRegisterExplorerMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceListPoliticianSummariesHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListPoliticianSummariesProcedure,
+		svc.ListPoliticianSummaries,
+		connect.WithSchema(shortedStocksServiceListPoliticianSummariesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceGetPoliticianExplorerProfileHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetPoliticianExplorerProfileProcedure,
+		svc.GetPoliticianExplorerProfile,
+		connect.WithSchema(shortedStocksServiceGetPoliticianExplorerProfileMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceComparePoliticiansHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceComparePoliticiansProcedure,
+		svc.ComparePoliticians,
+		connect.WithSchema(shortedStocksServiceComparePoliticiansMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceGetRegisterActivityHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetRegisterActivityProcedure,
+		svc.GetRegisterActivity,
+		connect.WithSchema(shortedStocksServiceGetRegisterActivityMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceListDistinctiveHoldingsHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListDistinctiveHoldingsProcedure,
+		svc.ListDistinctiveHoldings,
+		connect.WithSchema(shortedStocksServiceListDistinctiveHoldingsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceGetDonationsOverviewHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetDonationsOverviewProcedure,
+		svc.GetDonationsOverview,
+		connect.WithSchema(shortedStocksServiceGetDonationsOverviewMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceListTopDonorsHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListTopDonorsProcedure,
+		svc.ListTopDonors,
+		connect.WithSchema(shortedStocksServiceListTopDonorsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceListPartyFundingHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListPartyFundingProcedure,
+		svc.ListPartyFunding,
+		connect.WithSchema(shortedStocksServiceListPartyFundingMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceGetPoliticianFundingHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetPoliticianFundingProcedure,
+		svc.GetPoliticianFunding,
+		connect.WithSchema(shortedStocksServiceGetPoliticianFundingMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/shorts.v1alpha1.ShortedStocksService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1702,10 +2408,64 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceGetPropertyHistoryHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceListAddressPriceDropsProcedure:
 			shortedStocksServiceListAddressPriceDropsHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetPriceDropsOverviewProcedure:
+			shortedStocksServiceGetPriceDropsOverviewHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListAgencyPriceStatsProcedure:
+			shortedStocksServiceListAgencyPriceStatsHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListEconomicSeriesProcedure:
+			shortedStocksServiceListEconomicSeriesHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetEconomicSeriesProcedure:
+			shortedStocksServiceGetEconomicSeriesHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListSeriesCorrelationsProcedure:
+			shortedStocksServiceListSeriesCorrelationsHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListStateCompaniesProcedure:
+			shortedStocksServiceListStateCompaniesHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetStateCompanyAggregatesProcedure:
+			shortedStocksServiceGetStateCompanyAggregatesHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetCompanyTaxProfileProcedure:
 			shortedStocksServiceGetCompanyTaxProfileHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetIndustryIntelligenceProcedure:
 			shortedStocksServiceGetIndustryIntelligenceHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetParliamentOverviewProcedure:
+			shortedStocksServiceGetParliamentOverviewHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListPoliticiansProcedure:
+			shortedStocksServiceListPoliticiansHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetPoliticianProcedure:
+			shortedStocksServiceGetPoliticianHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListStockPoliticiansProcedure:
+			shortedStocksServiceListStockPoliticiansHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListPoliticianStocksProcedure:
+			shortedStocksServiceListPoliticianStocksHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListSuburbPoliticiansProcedure:
+			shortedStocksServiceListSuburbPoliticiansHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListStatePoliticianHoldingsProcedure:
+			shortedStocksServiceListStatePoliticianHoldingsHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListRegisterChangesProcedure:
+			shortedStocksServiceListRegisterChangesHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListShortInterestOverlapProcedure:
+			shortedStocksServiceListShortInterestOverlapHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetPoliticianAnalyticsProcedure:
+			shortedStocksServiceGetPoliticianAnalyticsHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetRegisterExplorerProcedure:
+			shortedStocksServiceGetRegisterExplorerHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListPoliticianSummariesProcedure:
+			shortedStocksServiceListPoliticianSummariesHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetPoliticianExplorerProfileProcedure:
+			shortedStocksServiceGetPoliticianExplorerProfileHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceComparePoliticiansProcedure:
+			shortedStocksServiceComparePoliticiansHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetRegisterActivityProcedure:
+			shortedStocksServiceGetRegisterActivityHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListDistinctiveHoldingsProcedure:
+			shortedStocksServiceListDistinctiveHoldingsHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetDonationsOverviewProcedure:
+			shortedStocksServiceGetDonationsOverviewHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListTopDonorsProcedure:
+			shortedStocksServiceListTopDonorsHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListPartyFundingProcedure:
+			shortedStocksServiceListPartyFundingHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetPoliticianFundingProcedure:
+			shortedStocksServiceGetPoliticianFundingHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -1939,10 +2699,118 @@ func (UnimplementedShortedStocksServiceHandler) ListAddressPriceDrops(context.Co
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListAddressPriceDrops is not implemented"))
 }
 
+func (UnimplementedShortedStocksServiceHandler) GetPriceDropsOverview(context.Context, *connect.Request[v1alpha1.GetPriceDropsOverviewRequest]) (*connect.Response[v1alpha1.GetPriceDropsOverviewResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetPriceDropsOverview is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListAgencyPriceStats(context.Context, *connect.Request[v1alpha1.ListAgencyPriceStatsRequest]) (*connect.Response[v1alpha1.ListAgencyPriceStatsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListAgencyPriceStats is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListEconomicSeries(context.Context, *connect.Request[v1alpha1.ListEconomicSeriesRequest]) (*connect.Response[v1alpha1.ListEconomicSeriesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListEconomicSeries is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetEconomicSeries(context.Context, *connect.Request[v1alpha1.GetEconomicSeriesRequest]) (*connect.Response[v1alpha1.GetEconomicSeriesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetEconomicSeries is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListSeriesCorrelations(context.Context, *connect.Request[v1alpha1.ListSeriesCorrelationsRequest]) (*connect.Response[v1alpha1.ListSeriesCorrelationsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListSeriesCorrelations is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListStateCompanies(context.Context, *connect.Request[v1alpha1.ListStateCompaniesRequest]) (*connect.Response[v1alpha1.ListStateCompaniesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListStateCompanies is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetStateCompanyAggregates(context.Context, *connect.Request[v1alpha1.GetStateCompanyAggregatesRequest]) (*connect.Response[v1alpha1.GetStateCompanyAggregatesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetStateCompanyAggregates is not implemented"))
+}
+
 func (UnimplementedShortedStocksServiceHandler) GetCompanyTaxProfile(context.Context, *connect.Request[v1alpha1.GetCompanyTaxProfileRequest]) (*connect.Response[v1alpha1.GetCompanyTaxProfileResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetCompanyTaxProfile is not implemented"))
 }
 
 func (UnimplementedShortedStocksServiceHandler) GetIndustryIntelligence(context.Context, *connect.Request[v1alpha1.GetIndustryIntelligenceRequest]) (*connect.Response[v1alpha1.GetIndustryIntelligenceResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetIndustryIntelligence is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetParliamentOverview(context.Context, *connect.Request[v1alpha1.GetParliamentOverviewRequest]) (*connect.Response[v1alpha1.GetParliamentOverviewResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetParliamentOverview is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListPoliticians(context.Context, *connect.Request[v1alpha1.ListPoliticiansRequest]) (*connect.Response[v1alpha1.ListPoliticiansResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListPoliticians is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetPolitician(context.Context, *connect.Request[v1alpha1.GetPoliticianRequest]) (*connect.Response[v1alpha1.GetPoliticianResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetPolitician is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListStockPoliticians(context.Context, *connect.Request[v1alpha1.ListStockPoliticiansRequest]) (*connect.Response[v1alpha1.ListStockPoliticiansResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListStockPoliticians is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListPoliticianStocks(context.Context, *connect.Request[v1alpha1.ListPoliticianStocksRequest]) (*connect.Response[v1alpha1.ListPoliticianStocksResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListPoliticianStocks is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListSuburbPoliticians(context.Context, *connect.Request[v1alpha1.ListSuburbPoliticiansRequest]) (*connect.Response[v1alpha1.ListSuburbPoliticiansResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListSuburbPoliticians is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListStatePoliticianHoldings(context.Context, *connect.Request[v1alpha1.ListStatePoliticianHoldingsRequest]) (*connect.Response[v1alpha1.ListStatePoliticianHoldingsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListStatePoliticianHoldings is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListRegisterChanges(context.Context, *connect.Request[v1alpha1.ListRegisterChangesRequest]) (*connect.Response[v1alpha1.ListRegisterChangesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListRegisterChanges is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListShortInterestOverlap(context.Context, *connect.Request[v1alpha1.ListShortInterestOverlapRequest]) (*connect.Response[v1alpha1.ListShortInterestOverlapResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListShortInterestOverlap is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetPoliticianAnalytics(context.Context, *connect.Request[v1alpha1.GetPoliticianAnalyticsRequest]) (*connect.Response[v1alpha1.GetPoliticianAnalyticsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetPoliticianAnalytics is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetRegisterExplorer(context.Context, *connect.Request[v1alpha1.GetRegisterExplorerRequest]) (*connect.Response[v1alpha1.GetRegisterExplorerResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetRegisterExplorer is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListPoliticianSummaries(context.Context, *connect.Request[v1alpha1.ListPoliticianSummariesRequest]) (*connect.Response[v1alpha1.ListPoliticianSummariesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListPoliticianSummaries is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetPoliticianExplorerProfile(context.Context, *connect.Request[v1alpha1.GetPoliticianExplorerProfileRequest]) (*connect.Response[v1alpha1.GetPoliticianExplorerProfileResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetPoliticianExplorerProfile is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ComparePoliticians(context.Context, *connect.Request[v1alpha1.ComparePoliticiansRequest]) (*connect.Response[v1alpha1.ComparePoliticiansResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ComparePoliticians is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetRegisterActivity(context.Context, *connect.Request[v1alpha1.GetRegisterActivityRequest]) (*connect.Response[v1alpha1.GetRegisterActivityResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetRegisterActivity is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListDistinctiveHoldings(context.Context, *connect.Request[v1alpha1.ListDistinctiveHoldingsRequest]) (*connect.Response[v1alpha1.ListDistinctiveHoldingsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListDistinctiveHoldings is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetDonationsOverview(context.Context, *connect.Request[v1alpha1.GetDonationsOverviewRequest]) (*connect.Response[v1alpha1.GetDonationsOverviewResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetDonationsOverview is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListTopDonors(context.Context, *connect.Request[v1alpha1.ListTopDonorsRequest]) (*connect.Response[v1alpha1.ListTopDonorsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListTopDonors is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListPartyFunding(context.Context, *connect.Request[v1alpha1.ListPartyFundingRequest]) (*connect.Response[v1alpha1.ListPartyFundingResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListPartyFunding is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetPoliticianFunding(context.Context, *connect.Request[v1alpha1.GetPoliticianFundingRequest]) (*connect.Response[v1alpha1.GetPoliticianFundingResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetPoliticianFunding is not implemented"))
 }

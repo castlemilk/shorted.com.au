@@ -180,17 +180,17 @@ export function RateLimitError({
 
   return (
     <Card className="mx-auto max-w-md overflow-hidden">
-      {/* Header with gradient */}
-      <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-6 text-white">
+      {/* Header */}
+      <div className="bg-primary p-6 text-primary-foreground">
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-foreground/20">
             <AlertTriangle className="h-6 w-6" />
           </div>
           <div>
             <h3 className="text-lg font-semibold">
               {isMonthlyLimit ? "Monthly Limit Reached" : "Rate Limit Exceeded"}
             </h3>
-            <p className="text-sm text-white/80">
+            <p className="text-sm text-primary-foreground/80">
               {isMonthlyLimit
                 ? "You've used your monthly API quota"
                 : "Too many requests in a short time"}
@@ -234,7 +234,7 @@ export function RateLimitError({
         {/* Countdown timer */}
         {!isMonthlyLimit && countdown !== null && countdown > 0 && (
           <div className="text-center">
-            <div className="mb-2 text-4xl font-bold tabular-nums text-amber-600">
+            <div className="mb-2 text-4xl font-bold tabular-nums text-primary">
               {formatDuration(countdown)}
             </div>
             <p className="text-sm text-muted-foreground">until you can retry</p>
@@ -252,9 +252,9 @@ export function RateLimitError({
         )}
 
         {isKnownAnonymous && !isMonthlyLimit && (
-          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-100">
+          <div className="rounded-lg border border-primary/30 bg-primary/10 p-4 text-sm text-foreground">
             <p className="font-medium">Sign in to get a larger request bucket.</p>
-            <p className="mt-1 text-blue-800 dark:text-blue-200">
+            <p className="mt-1 text-muted-foreground">
               Browser traffic is bucketed generously, but signed-in users get
               higher limits and fewer interruptions during busy periods.
             </p>
@@ -312,7 +312,7 @@ export function RateLimitError({
                     type="checkbox"
                     checked={autoRetryEnabled}
                     onChange={(e) => setAutoRetryEnabled(e.target.checked)}
-                    className="rounded border-gray-300"
+                    className="rounded border-input"
                   />
                   Auto-retry when ready
                 </label>

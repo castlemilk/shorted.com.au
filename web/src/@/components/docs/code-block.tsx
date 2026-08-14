@@ -36,7 +36,7 @@ export function CodeBlock({ code, language }: CodeBlockProps) {
         <CopyButton value={code} />
       </div>
       <pre
-        className={`language-${language} rounded-lg !bg-muted dark:!bg-zinc-950 !m-0 p-4 overflow-x-auto text-sm`}
+        className={`language-${language} rounded-lg !bg-muted !m-0 p-4 overflow-x-auto text-sm`}
       >
         <code ref={codeRef} className={`language-${language}`}>{code}</code>
       </pre>

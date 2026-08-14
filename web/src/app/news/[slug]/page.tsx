@@ -52,8 +52,14 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { slug } = await params;
   const take = await loadTake(slug);
   if (!take) {
-    // Root layout template handles the "| Shorted" suffix.
-    return { title: "Take not found" };
+    // Root layout template handles the "| Shorted" suffix. The page body
+    // notFound()s, but a take can also be missing transiently (RPC blip) and
+    // the 404 status can be pre-empted once the response has streamed —
+    // noindex the fallback so a soft-200 never enters the index.
+    return {
+      title: "Take not found",
+      robots: { index: false, follow: false },
+    };
   }
   const url = `${siteConfig.url}/news/${slug}`;
   const description = buildDescription(take.bodyMd);
@@ -144,9 +150,9 @@ export default async function ShortedTakePage({ params }: Params) {
       url: siteConfig.url,
       logo: {
         "@type": "ImageObject",
-        url: `${siteConfig.url}/logo.png`,
-        width: 512,
-        height: 512,
+        url: siteConfig.logo.url,
+        width: siteConfig.logo.width,
+        height: siteConfig.logo.height,
       },
     },
     isAccessibleForFree: true,
@@ -259,7 +265,7 @@ export default async function ShortedTakePage({ params }: Params) {
                 href={take.sourceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-medium text-orange-400 hover:text-orange-300"
+                className="font-medium text-primary hover:underline"
               >
                 {take.sourceName || take.sourceUrl}
               </a>

@@ -14,7 +14,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     h6: ({ children, ...props }) => (
       <h6 className="text-base font-medium mt-2 mb-1" {...props}>{children}</h6>
     ),
-    a: ({ children, ...props }) => <a className="text-blue-500" {...props}>{children}</a>,
+    a: ({ children, ...props }) => <a className="text-primary hover:underline" {...props}>{children}</a>,
     p: (props) => <p className="mt-4 mb-4" {...props} />,
     ul: (props) => (
       <ul className="list-disc list-inside mt-2 mb-2" {...props} />
@@ -24,7 +24,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     ),
     li: (props) => <li className="mt-1 mb-1" {...props} />,
     table: (props) => <table className="w-full mt-4 mb-4" {...props} />,
-    tr: (props) => <tr className="border-b border-gray-200" {...props} />,
+    tr: (props) => <tr className="border-b border-border" {...props} />,
     th: (props) => <th className="px-4 py-2 text-left" {...props} />,
     td: (props) => <td className="px-4 py-2 text-left" {...props} />,
     RegisterEmail: (props) => <RegisterEmail {...props} />,

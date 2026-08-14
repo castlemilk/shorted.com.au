@@ -22,8 +22,10 @@ const productLinks: FooterLink[] = [
   { title: "Portfolio", href: "/portfolio", requiresAuth: true },
   { title: "Industry Heatmap", href: "/top#treemap" },
   { title: "Reports", href: "/reports" },
-  { title: "Market Snapshots", href: "/reports" },
+  { title: "Market Snapshots", href: "/market" },
   { title: "Company Directory", href: "/directory" },
+  { title: "Short Selling Statistics", href: "/statistics" },
+  { title: "Short Interest Scans", href: "/scans" },
 ];
 
 const resourceLinks: FooterLink[] = [
@@ -35,6 +37,8 @@ const resourceLinks: FooterLink[] = [
   { title: "Compare Stocks", href: "/compare" },
   { title: "Seasonality", href: "/seasonality" },
   { title: "About", href: "/about" },
+  { title: "Press & Media", href: "/press" },
+  { title: "Open Data", href: "/data" },
   { title: "Roadmap", href: "/roadmap" },
 ];
 
@@ -130,7 +134,7 @@ const SiteFooter = () => {
             </div>
             <p className="text-sm text-muted-foreground mb-3">
               Built with{" "}
-              <span aria-label="love" role="img" className="text-rose-500">
+              <span aria-label="love" role="img" className="text-accent">
                 ❤️
               </span>{" "}
               in{" "}

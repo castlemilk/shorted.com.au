@@ -8,7 +8,6 @@ import (
 	"log"
 	"os"
 	"strconv"
-	"strings"
 
 	"cloud.google.com/go/storage"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -100,7 +99,7 @@ func (s *Service) syncCompanyMetadata(ctx context.Context, companies []CompanyDa
 	synced := 0
 	for _, c := range companies {
 		// Clean company name - remove common suffixes and title case
-		cleanName := cleanCompanyName(c.CompanyName)
+		cleanName := cleanCompanyName(c.CompanyName, c.Code)
 
 		// Convert market cap to string since the column is text type
 		marketCapStr := ""
@@ -117,35 +116,6 @@ func (s *Service) syncCompanyMetadata(ctx context.Context, companies []CompanyDa
 	}
 
 	return synced, nil
-}
-
-// cleanCompanyName removes common suffixes and title cases the name
-func cleanCompanyName(name string) string {
-	if name == "" {
-		return ""
-	}
-
-	result := strings.ToUpper(name)
-
-	// Remove common suffixes
-	suffixes := []string{
-		" ORDINARY",
-		" ORD",
-		" CDI",
-		" LIMITED",
-		" LTD",
-		" CORPORATION",
-		" CORP",
-		" INC",
-		" PLC",
-	}
-	for _, suffix := range suffixes {
-		result = strings.TrimSuffix(result, suffix)
-	}
-
-	// Title case
-	result = strings.Title(strings.ToLower(strings.TrimSpace(result)))
-	return result
 }
 
 // fetchCompaniesFromGCS fetches full company data from GCS CSV file

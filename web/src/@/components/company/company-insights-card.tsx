@@ -80,7 +80,7 @@ export function CompanyInsightsCard({ data }: CompanyInsightsCardProps) {
       value: "advantages",
       label: "Competitive advantages",
       icon: (
-        <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+        <TrendingUp className="h-4 w-4 text-lime-700 dark:text-lime-300" />
       ),
       content: (
         <p className="text-sm text-muted-foreground leading-relaxed">
@@ -118,7 +118,7 @@ export function CompanyInsightsCard({ data }: CompanyInsightsCardProps) {
     sections.push({
       value: "developments",
       label: "Recent developments",
-      icon: <Newspaper className="h-4 w-4 text-blue-600 dark:text-blue-400" />,
+      icon: <Newspaper className="h-4 w-4 text-primary" />,
       content: (
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground">Last 6 months</p>

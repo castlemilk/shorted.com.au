@@ -1,6 +1,9 @@
 import { type Metadata } from "next";
+import { EmbedDialog } from "~/@/components/ui/embed-dialog";
 import Link from "next/link";
 import { siteConfig } from "~/@/config/site";
+import { cn } from "~/@/lib/utils";
+import { pageTitle, sectionTitle, eyebrow } from "~/@/lib/typography";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import {
@@ -34,21 +37,14 @@ export const metadata: Metadata = {
     siteName: siteConfig.name,
     type: "website",
     locale: "en_AU",
-    images: [
-      {
-        url: siteConfig.ogImage,
-        width: 1200,
-        height: 630,
-        alt: "ASX Short Selling Statistics",
-      },
-    ],
+    // No `images` key: this route ships its own data-driven
+    // opengraph-image.tsx; an explicit `images` would shadow it.
   },
   twitter: {
     card: "summary_large_image",
     title: "ASX Short Selling Statistics — Total Dollars Shorted",
     description:
       "Live aggregate ASX short interest from official ASIC data, updated daily.",
-    images: [siteConfig.ogImage],
   },
   alternates: {
     canonical: `${siteConfig.url}/statistics`,
@@ -97,7 +93,7 @@ function formatAsOf(iso: string): string {
 function StatTile({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="rounded-lg border border-border/60 bg-card/50 p-4">
-      <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+      <p className={cn(eyebrow, "font-medium")}>
         {label}
       </p>
       <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight">
@@ -234,10 +230,10 @@ export default async function StatisticsPage() {
         </div>
 
         <section className="border-b border-border/40 pb-8">
-          <p className="mb-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          <p className={cn(eyebrow, "mb-2 font-medium")}>
             Market statistics
           </p>
-          <h1 className="font-serif text-3xl font-semibold leading-[1.1] tracking-tight md:text-4xl">
+          <h1 className={pageTitle}>
             ASX Short Selling Statistics
           </h1>
           {stats ? (
@@ -300,7 +296,7 @@ export default async function StatisticsPage() {
             </section>
 
             <section aria-labelledby="top-dollars">
-              <h2 id="top-dollars" className="mb-3 text-xl font-semibold">
+              <h2 id="top-dollars" className={cn(sectionTitle, "mb-3")}>
                 Largest short positions by dollar value
               </h2>
               <DollarTable
@@ -318,9 +314,12 @@ export default async function StatisticsPage() {
             </section>
 
             <section aria-labelledby="bank-basket">
-              <h2 id="bank-basket" className="mb-3 text-xl font-semibold">
-                The bank short basket
-              </h2>
+              <div className="mb-3 flex items-center gap-2">
+                <h2 id="bank-basket" className={sectionTitle}>
+                  The bank short basket
+                </h2>
+                <EmbedDialog target={{ kind: "basket", basket: "banks" }} />
+              </div>
               <p className="mb-3 max-w-3xl text-sm text-muted-foreground">
                 Dollar value of reported short positions against
                 Australia&apos;s big four banks — the market&apos;s
@@ -333,7 +332,7 @@ export default async function StatisticsPage() {
             </section>
 
             <section aria-labelledby="sector-totals">
-              <h2 id="sector-totals" className="mb-3 text-xl font-semibold">
+              <h2 id="sector-totals" className={cn(sectionTitle, "mb-3")}>
                 Short interest by sector
               </h2>
               <div className="overflow-x-auto rounded-lg border border-border/60">
@@ -370,7 +369,7 @@ export default async function StatisticsPage() {
             </section>
 
             <section aria-labelledby="movers">
-              <h2 id="movers" className="mb-3 text-xl font-semibold">
+              <h2 id="movers" className={cn(sectionTitle, "mb-3")}>
                 Biggest 4-week moves in short interest
               </h2>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

@@ -101,7 +101,7 @@ export function SentimentGauge({ value }: SentimentGaugeProps) {
               strokeLinecap="round"
               strokeDasharray="251.2"
               strokeDashoffset={251.2 * (1 - clampedValue / 100)}
-              className="transition-all duration-1000 ease-out"
+              className="transition-[stroke-dashoffset] duration-1000 ease-out"
             />
 
             {/* Tick marks */}

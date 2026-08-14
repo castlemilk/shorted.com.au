@@ -1,0 +1,408 @@
+[
+ {
+  "finder": "pipeline",
+  "title": "Official-tier ingest health: non-zero exits + an ingest-runs freshness sentinel",
+  "detail": "Make run() exit non-zero when any official source records status='error' (Cloud Run max_retries=2 and execution-failure alerting then work for free), and add a monthly CI freshness check over house_price_ingest_runs (age of last ok per source vs expected cadence) mirroring the economy platform's sentinel ($economy-data skill, 'monthly CI red = real alarm'). This one change would have caught the live vg_nsw/vg_vic breakage on day one.",
+  "value": "high",
+  "effort": "S"
+ },
+ {
+  "finder": "pipeline",
+  "title": "Wire price_index_derived into /housing and retire the frozen RPPI tile",
+  "detail": "The current-quarter national + per-state derived index (531 rows, live to 2026-03-31, refreshed monthly) already exists in prod precisely for this \u2014 swap the '8-capital price index (to 2021)' BigStat and add a HousingSeriesChart for it (format='index' already supported). Zero new ingest work; pure read-path wiring in web/src/app/housing/page.tsx.",
+  "value": "high",
+  "effort": "S"
+ },
+ {
+  "finder": "pipeline",
+  "title": "Rates & credit panel from already-ingested RBA series",
+  "detail": "cash_rate (432 rows, monthly to 2026-07-31), mortgage_rate_oo/investor (F6), housing_credit_growth \u00d73 (D1) and the E1 household balance sheet are all in house_prices with no reader. A '/housing' rates panel (cash rate vs outstanding mortgage rates vs credit growth) is a pure frontend + one-RPC job \u2014 note mv_housing_headline is quarterly-only (period_freq='Q' filter, 000053:67), so monthly series need GetHousePriceSeries or an MV tweak.",
+  "value": "medium",
+  "effort": "M"
+ },
+ {
+  "finder": "pipeline",
+  "title": "Harden refresh_housing_materialized_views to the 000095 pattern",
+  "detail": "One migration: function-scoped SET statement_timeout TO '0', per-MV guards including mv_housing_headline, and WHEN query_canceled OR OTHERS everywhere. The shorts refresh already proved this pattern after a 19-day silent-staleness incident; the housing function is the last refresh routine without it.",
+  "value": "high",
+  "effort": "S"
+ },
+ {
+  "finder": "pipeline",
+  "title": "Content-hash-driven change detection and revalidation gating",
+  "detail": "Add 'WHERE house_prices.content_hash IS DISTINCT FROM EXCLUDED.content_hash' to upsertObservations and return (upserted, changed) counts. This gives per-run 'new ABS quarter landed: N changed rows' logging, makes fetched_at meaningful (currently rewritten on every row every run), lets pingRevalidate fire only on real change (making the TF module's comment true), and provides the signal for a 'new quarter' hook (e.g. auto-tweet / newsroom prompt when a new RES_DWELL quarter arrives).",
+  "value": "medium",
+  "effort": "S"
+ },
+ {
+  "finder": "pipeline",
+  "title": "Append-only ingest run history",
+  "detail": "Replace the PK-per-source overwrite in house_price_ingest_runs with (or add alongside) an append-only history table (source, started_at, status, rows, last_period, detail). Enables 'last success age' queries, failure-streak detection, and post-incident forensics \u2014 today it is impossible to tell when vg_vic last succeeded from the cursor table alone. Cheap: the collector already funnels every outcome through updateRun().",
+  "value": "medium",
+  "effort": "M"
+ },
+ {
+  "finder": "crawl",
+  "title": "Wire lease reclaim + collector heartbeat renew into the queue coupling",
+  "detail": "Both halves already exist unused: brandbrain has ReclaimExpired (re-pend expired in_progress with attempts left, fail the exhausted) and a Renew endpoint; the collector has a natural heartbeat point (per-page loop in sweepSuburbSource). Calling ReclaimExpired lazily at the top of Claim plus a per-suburb Renew from crawl_agent.go permanently closes outage mode #4 (orphaned leases) including the dry-run-claim orphan case, with no schema change (lease_expires_at is already populated).",
+  "value": "high",
+  "effort": "S"
+ },
+ {
+  "finder": "crawl",
+  "title": "Queue-vs-corpus reconciliation check: assert 'succeeded' implies data written",
+  "detail": "The three silent stoppers (thin-suburb wedge, orphaned leases, circuit-open banked success) share one shape: the queue's terminal status diverges from what actually landed in property_listings. A read-only nightly job that joins brandbrain's succeeded jobs (by suburb/source/completed_at) against property_listings.last_seen_at and writes a mismatch count into crawl_run_status would have caught all three within a day. agentJobTerminal already encodes this instinct per-job; this generalises it across the system.",
+  "value": "high",
+  "effort": "M"
+ },
+ {
+  "finder": "crawl",
+  "title": "PageMeta-aware thin-page gate (replaces the MIN_PER_PAGE hand-tuning)",
+  "detail": "REA's extractPageMeta already returns the portal's own exact on-target inventory count (OnTargetResults, present on 483/483 measured REA page-1 records). Using it to classify a sub-threshold page 1 \u2014 meta says <5 on-target \u2192 sweepComplete (genuine small suburb, delist-safe); meta absent or claims more \u2192 keep sweepBlocked \u2014 eliminates the thin-suburb false-block class the same way #404 used wantPages<softCap to fix REA delisting, and removes the CRAWL_LISTINGS_MIN_PER_PAGE=1 operational workaround.",
+  "value": "high",
+  "effort": "M"
+ },
+ {
+  "finder": "crawl",
+  "title": "Agent-app self-heal preflight in the scheduled wrappers",
+  "detail": "The wrappers already do Chrome self-healing; the analogous auth self-heal is missing. Before draining: read ~/.brandbrain/diag-port, probe /control/v1/auth/session/export, and on failure `open -a /Applications/BrandBrainAgent.app`, wait ~20s, re-probe (the 30-day refresh token survives, so no re-login is needed). Closes outage mode #1 for scheduled runs \u2014 the exact failure that killed the crawl for 2+ days on 2026-08-01.",
+  "value": "high",
+  "effort": "S"
+ },
+ {
+  "finder": "crawl",
+  "title": "Trace-replay regression bench for sweep classification",
+  "detail": "The #404 completeness fix was derived by hand from 861 light-mode traces / 3,179 page records. The pieces for automating that exist: trace.jsonl records every pagination signal + decision, and fileFetcher/CRAWL_LISTINGS_FIXTURE_DIR already replays saved HTML offline. A bench that replays a committed (sanitised, jsonl-only \u2014 no portal HTML) trace corpus through sweepSuburbSource and diffs the decision distribution would let future gate changes (like enhancement 3) be measured against real portal behaviour before deploy instead of after a fortnight of prod sweeps.",
+  "value": "medium",
+  "effort": "M"
+ },
+ {
+  "finder": "crawl",
+  "title": "Unified crawl alerting: webhook the run-status transitions, not just freshness",
+  "detail": "postFreshnessAlarm already implements a redaction-safe Slack/Discord POST helper. Reusing it from writeCrawlRunStatus when a round derives 'error', 'blocked', or 'rewarm' (deriveCrawlRunStatus) turns the existing health taxonomy into push alerts \u2014 an auth-dead rig or fully-blocked session then pages within one round instead of surfacing via a 72h freshness horizon on a dashboard nobody was watching during the August outages. Pair with setting CRAWL_FRESHNESS_WEBHOOK on the rigs.",
+  "value": "medium",
+  "effort": "S"
+ },
+ {
+  "finder": "schema",
+  "title": "Prod schema-drift sentinel for the hand-apply regime",
+  "detail": "A read-only CI job (or make target) that connects to prod, introspects information_schema + pg_matviews for the tables/columns/MVs the committed store queries reference (house_prices, property_listings, suburb_demographics banner_*/crime columns, the 6 housing MV shapes), and fails red on mismatch. Directly de-fangs the class of incident already documented twice in-repo (000092's '000090 was hand-applied to prod' drift; the politicians allowlist landmine). The column list can be generated from the migrations dir so it stays current.",
+  "value": "high",
+  "effort": "M"
+ },
+ {
+  "finder": "schema",
+  "title": "Housing MV refresh bookkeeping + admin-jobs surfacing",
+  "detail": "Mirror the 000094 refreshed_at pattern: a small housing_mv_refresh_runs table (view_name, started_at, finished_at, concurrent bool, error text) written from inside refresh_housing_materialized_views(), merged into the existing /api/admin/jobs dashboard the way crawl_run_status (000089) already is. The 19-day silent-staleness incident on the shorts MVs shows exactly why per-view refresh outcomes need to be observable; today a failed housing refresh is only a collector log line on a residential Mac.",
+  "value": "high",
+  "effort": "M"
+ },
+ {
+  "finder": "schema",
+  "title": "Time-anchored sold-price layer from status_change events",
+  "detail": "property_price_events already records status_change transitions with observed_at, so a derived sold_at per listing is one query away. Build rolling 3/6/12-month sold aggregates (per suburb + state) to replace the unbounded 'sold' FILTERs in mv_suburb_listing_stats/mv_state_price_drops \u2014 and it unlocks a genuinely new surface: asking-vs-sold discount (final sold price vs first ask) per suburb, which no free AU site publishes and which the crawl corpus uniquely supports.",
+  "value": "high",
+  "effort": "M"
+ },
+ {
+  "finder": "schema",
+  "title": "Ship the single-FY crime trend read path (Phase 3)",
+  "detail": "suburb_crime_stats already stores the pooled=false per-FY series and the collector contains a ready reference reader (getSuburbCrime, store.go:478-508, whose comment says 'used by GetSuburbProfile once the Phase-3 read wiring lands'). Adding a gated crime-trend repeated field to GetSuburbProfile (same NOT small_pop/NOT unreliable/licence predicate as 000092) gives suburb profiles a multi-year crime sparkline from data that is already ingested and ranked \u2014 pure read wiring, no new pipeline.",
+  "value": "medium",
+  "effort": "M"
+ },
+ {
+  "finder": "schema",
+  "title": "Source-preference layer for mv_housing_headline (multi-tier medians)",
+  "detail": "Rebuild the headline MV with a ranked DISTINCT ON per (region, measure, dwelling, period) before windowing (e.g. prefer abs_res_dwell > state VG > others). Beyond fixing the latent multi-source LAG trap, it is the schema prerequisite for the pending state-government tiers (house-price-multistate memory: NSW built, more states planned) to coexist with ABS on the same regions without corrupting QoQ/YoY \u2014 currently every new quarterly source must avoid every existing region\u00d7measure key.",
+  "value": "medium",
+  "effort": "M"
+ },
+ {
+  "finder": "schema",
+  "title": "Retention + BRIN policy for property_price_events",
+  "detail": "Every sweep appends events forever; all read paths and MVs window at most 365 days (drill-down cap) and usually 30. Add a BRIN index on observed_at (near-free, the table is append-ordered) and a cleanup function pruning events older than ~18 months for delisted listings \u2014 same pattern as the news 90-day TTL (migration 000029). Keeps refresh and the firstp/address-board scans flat as the corpus compounds, before the table gets big enough that pruning itself becomes a Supabase pooler problem (cf. the 527k-row crime upsert chunking lesson).",
+  "value": "medium",
+  "effort": "S"
+ },
+ {
+  "finder": "api",
+  "title": "Slug-resolution RPC for suburb pages",
+  "detail": "Add ResolveSuburbSlug(state_code, slug) \u2192 sal_code (or a slug filter on ListStateSuburbs) and precompute the slug in suburb_demographics. Kills the pattern where every /housing/[state]/[suburb] SSR miss pulls the full ~5,000-row, 54-field state payload just to find one row (getHousing.ts:292-298). Pairs naturally with a redirect map for renamed suburbs.",
+  "value": "high",
+  "effort": "M"
+ },
+ {
+  "finder": "api",
+  "title": "Lightweight map-projection variant of ListStateSuburbs",
+  "detail": "The state choropleth's 'Colour by' toggle needs ~6-8 fields per suburb per metric (highlight-metrics.ts), but ListStateSuburbs always ships all 31 summary + 23 amenity fields for up to 5,000 suburbs. A field-mask param or a ListStateSuburbMetrics(metric_key) RPC would cut the hot /housing/[state] payload substantially and make the per-suburb LATERAL price probe skippable for non-price metrics (postgres_house_prices.go:315-326).",
+  "value": "medium",
+  "effort": "M"
+ },
+ {
+  "finder": "api",
+  "title": "Server action + KV layer for GetPropertyHistory",
+  "detail": "The per-address history surface is client-only today (getHousingClient.ts:171-187); there is no server action in getHousing.ts. Adding one with the same skipForBuild + cache:housing: KV + never-cache-empty treatment as the drops boards would let /housing/property/[addressKey] render ISR with last-good protection, and the existing flush=housing event already busts the right prefix.",
+  "value": "medium",
+  "effort": "S"
+ },
+ {
+  "finder": "api",
+  "title": "Shared request-normalization helper for housing handlers",
+  "detail": "One helper (uppercase/trim state_code, whitelist sort, clamp limit/window_days) applied in every housing handler before both the cache key and the store call \u2014 the pattern ListAgencyPriceStats already proves (house_prices.go:680-693). Fixes the case-sensitivity inconsistency and the cache-key fanout class in one place, and gives the store clamps a single authoritative twin.",
+  "value": "medium",
+  "effort": "S"
+ },
+ {
+  "finder": "api",
+  "title": "Wire window_days on ListSuburbPriceDrops via the existing event query",
+  "detail": "The proto already reserves window_days (housing.proto:341) and ListSuburbDropListings already has the parametrized-window event SQL with the 0.40 sanity cap (postgres_house_prices.go:770-806). A windowed on-the-fly aggregate (fallback to the MV for the default 30d) would let the board answer 'cuts this week vs this quarter' \u2014 a real product axis the crawl data supports today.",
+  "value": "medium",
+  "effort": "M"
+ },
+ {
+  "finder": "api",
+  "title": "REST (google.api.http) bindings for the 7 unexposed housing RPCs",
+  "detail": "Only the 4 price-drops rpcs have google.api.http annotations (shorts.proto:693, 706, 719, 732 \u2014 4 of the 9 total in the whole 86-rpc legacy service). Annotating GetHousingOverview/GetHousePriceSeries/ListStateSuburbs/GetSuburbProfile/ListHousingRegions/ListSuburbPriceDrops/ListSuburbDropListings gives paying API customers a consistent REST surface over the whole housing dataset and makes the OpenAPI docs complete.",
+  "value": "low",
+  "effort": "S"
+ },
+ {
+  "finder": "frontend",
+  "title": "Choropleth board on /price-drops (drop-share by state)",
+  "detail": "Everything needed is already committed: ChoroplethMap supports continuous fills + legends, states.topojson (493KB, CF-edge-cached) is in /public/geo, and GetPriceDropsOverview already returns per-state drop share / median cut (StateDropsBoard consumes it as a table). A small ssr:false map shading states by dropSharePct with click-through to ?state= would give the flagship board the same visual identity as /housing and make the state comparison legible at a glance.",
+  "value": "high",
+  "effort": "M"
+ },
+ {
+  "finder": "frontend",
+  "title": "KV-backed slug\u2192SAL resolution index (kills the 5,000-row lookup)",
+  "detail": "resolveSuburbSalCode currently fetches the entire state's suburb list (up to 4,544 rows) just to find one slug \u2014 on the TTFB path of every suburb page AND the suburb OG card. A per-state {slug: sal} map cached in Upstash under cache:housing: (flushed by the existing ?flush=housing crawl ping) or a tiny ResolveSuburbSlug RPC turns this into a ~5ms GET, and is the prerequisite for cheaply re-enabling ISR on the 15k suburb pages (finding #2) and for static suburb OG cards.",
+  "value": "high",
+  "effort": "M"
+ },
+ {
+  "finder": "frontend",
+  "title": "generateStaticParams + post-deploy warm for the ~1,165 priced suburbs",
+  "detail": "The priced suburbs are exactly the pages the sitemap promotes and the ones with the richest content (banners, blurbs, price-drop panels, crime layers). Pre-rendering them (the 115 crawl-catalog suburbs at minimum) with revalidate + the existing /api/static-pages/warm-cache + bailOnEmptyRender pattern (already proven on /housing, /price-drops, /economy) would give static TTFB on the highest-value housing URLs instead of today's two-RPC dynamic render.",
+  "value": "high",
+  "effort": "M"
+ },
+ {
+  "finder": "frontend",
+  "title": "Shared roving-tabindex keyboard layer for both housing maps",
+  "detail": "One hook (arrow keys move the focused feature, Enter selects/drills, Escape resets; single tab stop) would fix both a11y findings at once and is reusable by the economy map explorer, which imports the same MapLegend/choropleth primitives. ChoroplethMap already has the per-feature focus\u2192highlight plumbing (onFocus\u2192setHover at choropleth-map.tsx:245) to build on.",
+  "value": "medium",
+  "effort": "M"
+ },
+ {
+  "finder": "frontend",
+  "title": "Data-driven state OG cards (median + YoY on the silhouette)",
+  "detail": "/housing/[state]/opengraph-image already renders the state boundary silhouette but with static copy. getHousingOverview is KV-cached (24h TTL) and carries each capital's median + YoY/QoQ \u2014 overlaying '$941k median \u00b7 +4.2% yr' would match the per-suburb card's median treatment and make state shares meaningfully richer for ~20 lines of code.",
+  "value": "medium",
+  "effort": "S"
+ },
+ {
+  "finder": "frontend",
+  "title": "Suburb comparison surface (/housing/compare)",
+  "detail": "suburb-profile.tsx already computes baselines deltas (suburb vs state vs national) and a nearest-6 'similar suburbs' rail (backend similarSuburbs z-score space), and state-suburb-explorer already normalises 40+ metrics into SuburbDatum with the highlight-metrics registry. A 2-3 suburb side-by-side (URL-driven, like the existing stock /compare) would reuse all of it and is a natural internal-linking magnet for the 1,165 priced-suburb pages.",
+  "value": "medium",
+  "effort": "L"
+ },
+ {
+  "finder": "docs",
+  "title": "Docs-drift guard test for collector modes",
+  "detail": "A small Go test in services/house-price-collector (same pattern as the proto dual-add contract enforced by proto_parity_test.go) that parses main.go's mode switch (or a shared []string modes registry) and asserts every mode name appears in docs/feature/housing/pipeline.md and deploy/README.md. This mechanically prevents the exact defect found here (monolith at 7/22, CLAUDE.md at 11/22 mode coverage) and fails the deploy-gating test run when someone adds a mode without documenting it.",
+  "value": "high",
+  "effort": "S"
+ },
+ {
+  "finder": "docs",
+  "title": "Shrink CLAUDE.md's housing section to a politicians-style pointer block",
+  "detail": "The politicians CLAUDE.md section proves the shape: ~30 lines of rules-that-shape-everything + landmines + a pointer to docs/feature/politicians/. The housing section is ~3x longer and carries five enumerated lists (modes, RPCs, migrations, key files, gotchas) that all drifted. Once docs/feature/housing/ exists, replacing the section cuts always-loaded token weight in every session and removes four of the drift surfaces found in this audit.",
+  "value": "high",
+  "effort": "S"
+ },
+ {
+  "finder": "docs",
+  "title": "An 'OUT \u2014 settled, not deferred' rulings section in the new data-sources.md",
+  "detail": "Politicians' data-sources.md has a decisive ruled-out section (LinkedIn/X/Hansard) that prevents re-proposal. Housing's equivalent rulings exist but are scattered across memory files: ASX T+1 gross short sales (REJECTED 2026-07-28, do-not-re-propose), property.com.au ToS ban on aggregators, residential proxies (rejected \u2014 block is fingerprint-scoped), REA/Domain no-republish (source_licence gate), CRAWL_TRACE artifacts local-only, wa-tou-noncommercial exclusion (000092). Consolidating them with the reasoning makes each ruling durable and citable.",
+  "value": "high",
+  "effort": "M"
+ },
+ {
+  "finder": "docs",
+  "title": "Dated corpus stat line generated from -mode freshness",
+  "detail": "crawl_freshness.go already computes per-suburb coverage read-only from prod. Extend its output with a one-line corpus summary (total property_listings, covered suburbs, price events, as-at date) that operators paste into the docs/feature/housing/README.md header \u2014 mirroring politicians' 'Prod, as at 2026-07-31: 17,153 rows...' line. Eliminates the three contradictory undated counts (~22k / ~12,151 / ~12k) found in prose.",
+  "value": "medium",
+  "effort": "S"
+ },
+ {
+  "finder": "docs",
+  "title": "Package README for services/house-price-collector",
+  "detail": "Two screens at the package root: what the binary is, the 22 modes grouped into their 7 families (official / census / electoral / listings-crawl / property-AVM / crime / local-insights), which env vars gate each family, and pointers to deploy/README.md (rig ops) and docs/feature/housing/ (architecture). Grounded in the fact the package has ~110 Go files and currently zero orientation docs.",
+  "value": "medium",
+  "effort": "S"
+ },
+ {
+  "finder": "docs",
+  "title": "Machine-readable mode registry powering both main.go usage and pipeline.md",
+  "detail": "main.go's flag usage string and 22-way switch are hand-maintained in parallel. A single []modeSpec{name, family, writes, envs, timeout} table in main.go can drive the flag usage, the switch dispatch, the default-timeout selection (the agent/listings/crime 240-min cases already special-case by name), and a `-mode help` JSON dump that a script renders into the pipeline.md mode table \u2014 making the docs a build artifact of the code rather than a copy.",
+  "value": "medium",
+  "effort": "M"
+ },
+ {
+  "finder": "licence",
+  "title": "Centralise the licence gate in a house_prices_public SQL view",
+  "detail": "The source_licence <> 'proprietary-tos-restricted' predicate is hand-copied 10 times across postgres_house_prices.go, and history shows it gets forgotten (the 2026-07 audit found 3+ missing sites). Migration 000092 already proved the pattern for crime: bake the gate into the relation so readers structurally cannot bypass it. Create a view (or MV) house_prices_public AS SELECT ... WHERE source_licence <> 'proprietary-tos-restricted' and point every public reader at it; keep the base table for collector/internal paths. New endpoints then inherit the gate for free.",
+  "value": "high",
+  "effort": "S"
+ },
+ {
+  "finder": "licence",
+  "title": "One-shot housing takedown command",
+  "detail": "The kill switches (HOUSING_DROP_LISTINGS_ENABLED, HOUSING_VALUATIONS_ENABLED) exist but a real takedown needs env flip + Upstash cache:housing:* flush + ISR revalidation of /price-drops and suburb pages, spread across Vercel, Cloud Run and the revalidate API. Build a `make housing-takedown` (or an /api/admin/flush-cache target extension \u2014 the admin-gated route and TARGETS map already exist at web/src/app/api/admin/flush-cache/route.ts) that executes the flush+revalidate half and prints the exact env-flip commands, so the whole response is one action under time pressure.",
+  "value": "high",
+  "effort": "S"
+ },
+ {
+  "finder": "licence",
+  "title": "CI provenance gate blocking committed portal content",
+  "detail": "The property-crawl work already has a provenance classifier concept ('provenance classifier blocks it' per the crawl memory) but nothing enforces it at commit/CI time \u2014 which is exactly how the real New Farm payloads landed in testdata/. Add a cheap CI (and pre-commit) check that fails on staged files matching portal markers: ArgonautExchange, urqlClientCache, listingsMap, UPVSoldListings, realestate.com.au/property-, domain.com.au listing URL shapes \u2014 with an allowlist for the synthetic fixtures. Extends naturally to CRAWL_TRACE artifact patterns (traces/**, p*.html).",
+  "value": "high",
+  "effort": "S"
+ },
+ {
+  "finder": "licence",
+  "title": "Synthetic portal-fixture builder for extraction tests",
+  "detail": "The pagemeta extraction tests need the exact REA ArgonautExchange / Domain __NEXT_DATA__ JSON shapes but not real content. Build a small Go fixture generator (testdata builder emitting fake addresses/IDs/prices in the locked payload shapes from crawl_listings_extract.go) shared by both the collector and the services/jobs/internal/jobs/houseprices port, replacing all 4 captured HTML files and removing any future temptation to capture-and-trim live pages into the repo.",
+  "value": "medium",
+  "effort": "S"
+ },
+ {
+  "finder": "licence",
+  "title": "Licence-gate regression tests over the flag-gated + aggregate surfaces",
+  "detail": "postgres_suburb_explorer_test.go already proves the pattern (TestHousingLicenceGate_StateSuburbs/_SuburbProfile with testcontainers): extend it with seeded proprietary rows asserting (a) mv_suburb_listing_stats never publishes sub-floor avg/median once the k-floor lands, (b) ListAgencyPriceStats depth suppression below 3 dropped addresses survives MV rebuilds, (c) GetPropertyHistory returns empty under the kill switches, and (d) a grep-style meta-test that every `FROM house_prices` in the store carries the licence predicate (or uses the public view).",
+  "value": "medium",
+  "effort": "M"
+ },
+ {
+  "finder": "licence",
+  "title": "Admin licence/provenance dashboard panel",
+  "detail": "The admin jobs page already surfaces sync health; add a small housing-provenance card showing live counts by source_licence across house_prices / property_listings / property_valuations / suburb_crime_stats, the current kill-switch states as the backend actually resolves them (dropListingsEnabled()/valuationsEnabled() readback), and the row-counts of each publishable MV vs its floor. Makes 'what proprietary data do we hold and what of it is publishable right now' a glanceable operator fact instead of a psql session.",
+  "value": "medium",
+  "effort": "M"
+ },
+ {
+  "finder": "data",
+  "title": "Housing freshness sentinel workflow over house_price_ingest_runs",
+  "detail": "The monitoring table already exists and faithfully records per-source status/detail/last_period (it captured both VG failures) \u2014 it is simply unwatched. Clone economy-freshness.yml: red on any error-status source in the latest run, on per-source max(period) regression, and on property_price_events silence >3 days. Cheapest possible fix for the class of month-long silent breakage found in this audit.",
+  "value": "high",
+  "effort": "S"
+ },
+ {
+  "finder": "data",
+  "title": "Crawl-derived suburb asking-price medians where VG data is missing or stale",
+  "detail": "NSW/QLD/WA have zero official suburb medians and VIC is frozen at Dec-2024, yet the crawl corpus now covers 500 suburbs with 88.7k listings and mv_suburb_listing_stats already aggregates per-suburb asking stats. Publishing a clearly-labelled 'median asking price (portal-derived)' series for suburbs lacking VG coverage would fill the biggest data hole on suburb profiles using data already in the DB \u2014 as a derived aggregate it stays inside the counts-only/no-republish licence posture already applied to mv_agency_stats.",
+  "value": "high",
+  "effort": "M"
+ },
+ {
+  "finder": "data",
+  "title": "Crime data Phase 2: extend beyond NSW",
+  "detail": "mv_suburb_crime_latest covers 975 suburbs \u2014 6.4% of the 15,345 in suburb_demographics \u2014 because only NSW BOCSAR is ingested (527k rows, FY2025, mode=victim_estimate). The pipeline (000090/000092 + -mode crime, small-pop/unreliable gating) is proven; VIC CSA and QLD QPS publish open LGA/suburb-level tables under compatible licences. Extending to VIC+QLD roughly triples the addressable suburb count for the crime colour-by metric.",
+  "value": "high",
+  "effort": "L"
+ },
+ {
+  "finder": "data",
+  "title": "Route VG fetches (VIC xlsx, NSW PSI zips) through the residential crawl rigs",
+  "detail": "Both official VG sources are now Cloudflare-blocked from Cloud Run's datacenter IP, while the brandbrain agent rigs on residential Macs already clear Cloudflare/Kasada daily for the listings tier. Adding a 'vg' job kind to the existing counts-only queue (fetch file \u2192 parse locally \u2192 upsert to house_prices) reuses the whole self-healing agent infrastructure and permanently fixes the fetch-posture problem for any future state VG source.",
+  "value": "medium",
+  "effort": "M"
+ },
+ {
+  "finder": "data",
+  "title": "REA sold-disposition detection",
+  "detail": "2,497 REA withdrawn listings have unknown disposition (sold vs withdrawn), which is why sold metrics are Domain-only. REA exposes a sold-search SRP per suburb; a low-frequency sold-sweep (monthly, reusing the warmed-Chrome CDP path and smart pagination) could classify recent REA withdrawals and make soldCount/medianSold genuinely cross-portal \u2014 the single highest-leverage fix for /price-drops metric fidelity.",
+  "value": "medium",
+  "effort": "M"
+ },
+ {
+  "finder": "data",
+  "title": "Per-source data-quality gauges in the crawl run summary",
+  "detail": "The run-summary log line (crawl_listings.go:386) already counts drops/rises/relists/delists; adding empty-address_key rate, price-parse rate (currently ~34-36% of active listings are unpriced 'contact agent'), and per-portal sold/relist ratios would turn the three portal asymmetries this audit found (sold 0-vs-5,715; relist 1-vs-9,270; addr-key gaps) into visible per-run metrics instead of archaeology.",
+  "value": "medium",
+  "effort": "S"
+ },
+ {
+  "finder": "product",
+  "title": "Widen the suburb indexation gate from 1,165 priced suburbs to the full rich-profile corpus",
+  "detail": "Exists: 15,345 suburb profiles (census rows) with banner heroes (000084, all 15,329 classified), demographics + culture, federal/state electoral representation (000058-60), crime (NSW), amenities/council, politician property cards and OG scene cards \u2014 but the sitemap only lists suburbs with latestMedianPrice > 0 (sitemap.ts:545 filter \u2192 1,165 live URLs, all currently 404 per finding 1). These pages are no longer 'thin'. Increment: after fixing the slugs, gate on richer-content signals instead (e.g. population \u2265 200 OR has crime/amenity data), lifting the indexable corpus to ~8-12k pages; add per-state <lastmod>. Value: the single biggest programmatic-SEO lever in the feature (suburb-name + 'house prices'/'demographics'/'crime' queries).",
+  "value": "high",
+  "effort": "S"
+ },
+ {
+  "finder": "product",
+  "title": "Surface the ~12 dark national measures as an 'Affordability & credit' section on /housing",
+  "detail": "Exists: runOfficial already ingests mortgage_rate_oo/mortgage_rate_investor (RBA F6, rba.go:118), cash_rate (F1.1), housing_credit_growth \u00d73 (D1), household_dwelling_assets/net_worth/liabilities (E1), wage_index (WPI), rents_index (CPI, abs_affordability.go:26), price_to_income (abs_affordability.go:84), investor_loan_share and price_index_derived \u2014 but the web UI charts only mean_price, debt_to_income and median_price (grep measure= across housing pages \u2192 3 distinct). GetHousePriceSeries accepts any measure and HousingSeriesChart already takes a measure prop. Increment: add tiles + WhenVisible charts (mortgage rates vs cash rate, rents inflation YoY, investor vs OO credit growth, price-to-income) and replace the '8-capital price index (to 2021)' tile \u2014 frozen upstream \u2014 with price_index_derived, which abs.go:368 explicitly built 'to give /housing a current-quarter index line'.",
+  "value": "high",
+  "effort": "M"
+ },
+ {
+  "finder": "product",
+  "title": "Housing embeds + open-data hub listing for the backlink/Dataset-Search program",
+  "detail": "Exists: a proven embed-backlink program for shorts (/embed/chart, /embed/treemap, /embed/top-shorts, /embed/bank-basket; PR #374 live) and a /data open-data hub with Dataset JSON-LD \u2014 but the DATASETS array is shorts-only (grep housing \u2192 0) and no housing embed exists. The ABS/RBA house_prices series are CC-BY (republishable) and the price-drop rollups are own-derived aggregates. Increment: /embed/housing-series (region\u00d7measure chart) + /embed/price-drops (state board) with the same attribution-link pattern, plus 2-3 housing Dataset entries (national prices, suburb medians, price-drop aggregates) with CSV endpoints on /data. Value: backlinks from property/finance bloggers + Google Dataset Search visibility for 'australian house prices dataset'.",
+  "value": "high",
+  "effort": "M"
+ },
+ {
+  "finder": "product",
+  "title": "Suburb watchlists + weekly price-cut email digest",
+  "detail": "Exists: daily property_price_events from the live crawl (~12k listings, 67+ suburbs), mv_suburb_price_drops refreshed per run with instant revalidation (pingRevalidate), a full Resend email stack with broadcasts + HMAC unsubscribe (migrations 000065, PRs #222-#228), user auth, and a stocks-only /alerts page (grep housing \u2192 0). Increment: 'Watch this suburb' on the profile + price-drops rows persisting (user_id, sal_code), and a weekly digest job (new cuts, median move, biggest drop) reusing the broadcast templates. Value: converts one-shot SEO landings into returning users and gives the paid tier a concrete housing perk.",
+  "value": "high",
+  "effort": "L"
+ },
+ {
+  "finder": "product",
+  "title": "Expand the crime layer beyond NSW (VIC/QLD/SA/WA)",
+  "detail": "Exists: a deliberately state-pluggable pipeline \u2014 crime.go builds the SAL registry for ALL states and applies the ABS CVS scaler + ERP denominators, but only crime_nsw.go (BOCSAR) exists as a source; the CrimeCard (suburb-profile.tsx:352-354) and the crime map metrics silently vanish for 10k+ non-NSW suburbs. VIC (Crime Statistics Agency LGA/suburb tables), QLD (QPS open data), SA and WA all publish downloadable offence tables under open licences. Increment: one crime_<state>.go per state feeding the existing compute/rank/gate machinery (000090/000092). Value: the highest-engagement metric on the map toggle, currently available to only ~30% of profiles.",
+  "value": "high",
+  "effort": "M"
+ },
+ {
+  "finder": "product",
+  "title": "Wire the Widow-Maker feature charts to live series and add product CTAs",
+  "detail": "Exists: the flagship editorial's four visx dashboards run on baked arrays ending 2025 (data/series.ts, dossier dated 2026-06-23) while the live house_prices store now carries every ingredient it charts \u2014 cash_rate, mortgage rates, credit growth, price_to_income, debt_to_income \u2014 and the HousingSeriesChart format-key pattern already solves the RSC serialization problem. Increment: feed the policy-price and buying-power charts a live-series overlay (baked history + live tail), refresh the stat-strip numbers from GetHousingOverview, and add the missing CTAs into /housing + /price-drops (finding 4). Value: keeps the highest-authority page perpetually current (its meta still says '23 June 2026') and funnels its backlink traffic into the product.",
+  "value": "medium",
+  "effort": "M"
+ },
+ {
+  "finder": "product",
+  "title": "Suburb comparison pages ('X vs Y') from the similarity data already computed",
+  "detail": "Exists: GetSuburbProfile already returns baselines (state/national medians), CompareBar deltas, 'Nearby & comparable' (postcode/price proximity) and 'Similar suburbs' with server-computed similarity scores (data.similar, nationally ranked). Increment: /housing/compare/[a]-vs-[b] pages \u2014 two-profile side-by-side (price series overlay via the existing series chart, demographic deltas, crime/electoral contrast) \u2014 statically generated for each suburb's top-3 similar/nearby pairs (~5-10k pages, all data from two existing RPCs). Value: 'Bondi vs Bronte' style queries are high-intent, zero-competition programmatic SEO, and the pages interlink the suburb corpus densely.",
+  "value": "medium",
+  "effort": "M"
+ },
+ {
+  "finder": "product",
+  "title": "SSR-seed and selectively index the per-address price-history pages",
+  "detail": "Exists: /housing/property/[addressKey] is live (linked from every address-drops row and suburb Recent-price-drops panel) but deliberately noindex (page.tsx:41) and renders client-side only \u2014 the server page ships just a prettified address string. The corpus behind it (~12k property_listings + property_price_events with address_key on ~96% of events, plus the backfill-address mode) is stable and dedup-hardened. Increment: seed the page with an SSR payload (mirror the suburb page's initialProfileJson pattern), then lift noindex for addresses with \u22652 price events and a populated display address. Caveat: this is the one surface where the ToS-restricted crawl licence posture must be re-confirmed before indexing \u2014 derived facts only, keep the portal deep-links.",
+  "value": "high",
+  "effort": "M"
+ },
+ {
+  "finder": "product",
+  "title": "Rent tracking: surface rents_index now, add a rental crawl channel later",
+  "detail": "Exists: the only rent data anywhere is the static Census 2021 median_weekly_rent per suburb and a dark national rents_index (ABS CPI rents, already ingested monthly \u2014 abs_affordability.go:26 \u2014 never charted). The entire crawl stack (brandbrain queue, -mode agent CDP pollers, suburb catalog, price-event diffing) is channel-agnostic. Increment S: chart rents inflation on /housing and the suburb profile ('Census median vs national rent inflation since 2021'). Increment L: a rental-SRP sweep mode reusing the listings pipeline \u2192 suburb advertised median rent + rent-cut events, unlocking a /rents board twin of /price-drops. Value: rental-market queries currently dwarf sale queries and no surface answers them.",
+  "value": "high",
+  "effort": "L"
+ },
+ {
+  "finder": "product",
+  "title": "Reciprocal cross-surface linking mesh (economy \u2194 housing \u2194 politicians)",
+  "detail": "Exists: one-way links only \u2014 suburb profiles embed SuburbPoliticianPropertyCard (suburb-profile.tsx:184) and /economy hub links /housing once (economy/page.tsx:200), but /economy/[state] has zero housing links, politician profiles never link back to the suburb pages their declared properties sit in (grep '\"/housing' in components/politicians \u2192 0), and state suburb explorers never link the state economy page. Increment: a compact housing tile on /economy/[state] (median + YoY from GetHousingOverview via GCCSA_TO_STATE, already fetched on /housing), suburb links on politician property declarations (sal_code is already matched \u2014 335 suburbs live), and an economy link in the state explorer stat strip. Value: distributes the politicians/economy authority into the 15k-page housing corpus and improves crawl depth for finding-1's newly fixed URLs.",
+  "value": "medium",
+  "effort": "S"
+ }
+]

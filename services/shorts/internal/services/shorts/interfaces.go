@@ -2,6 +2,7 @@ package shorts
 
 import (
 	"context"
+	"time"
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
@@ -23,6 +24,7 @@ type ShortsStore interface {
 	GetSyncStatus(filter shortsstore.SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error)
 	CleanupStuckSyncRuns() (int, error)
 	GetJobsOverview() ([]*shortsstore.JobHealth, error)
+	GetCrawlRunStatuses() ([]*shortsstore.CrawlRunStatus, error)
 
 	// Key metrics sync methods
 	GetAllStockCodes() ([]string, error)
@@ -122,7 +124,59 @@ type ShortsStore interface {
 	ListSuburbPriceDrops(stateCode, sort string, limit int32) ([]*shortsstore.SuburbPriceDropRow, error)
 	ListSuburbDropListings(salCode, regionCode string, windowDays, limit int32) ([]*shortsstore.SuburbDropListingRow, error)
 	GetPropertyHistory(addressKey string) (*shortsstore.PropertyHistoryResult, error)
+	GetPropertyValuation(addressKey string) (*shortsstore.PropertyValuationRow, error)
 	ListAddressPriceDrops(stateCode, sort string, windowDays, limit int32) ([]*shortsstore.AddressPriceDropRow, error)
+	GetPriceDropsOverview() ([]*shortsstore.StatePriceDropSummaryRow, error)
+	ListAgencyPriceStats(stateCode, sort string, limit int32) ([]*shortsstore.AgencyPriceStatsRow, error)
+
+	// Economy snapshot methods
+	// Register of Members'/Senators' Interests methods
+	GetRegisterOverview() (*shortsstore.RegisterOverviewRow, error)
+	ListPoliticians(chamber, stateCode, partyAb, query string, limit, offset int32) ([]*shortsstore.PoliticianRow, int32, error)
+	GetPolitician(slug string) (*shortsstore.PoliticianRow, []*shortsstore.DeclaredInterestRow, []string, error)
+	ListStockPoliticians(stockCode string, currentOnly bool) (string, []*shortsstore.PoliticianRow, []*shortsstore.DeclaredInterestRow, []*shortsstore.PartyCountRow, error)
+	ListPoliticianStocks(limit int32, currentOnly bool) ([]*shortsstore.PoliticianStockRollupRow, error)
+	ListSuburbPoliticians(salCode string) (string, string, []*shortsstore.PoliticianRow, []*shortsstore.DeclaredInterestRow, error)
+	ListStatePoliticianHoldings(stateCode string, limit int32) ([]*shortsstore.PoliticianStockRollupRow, int32, error)
+	ListRegisterChanges(since time.Time, kind, stockCode, slug string, itemNo int32, partyAb, chamber string, limit, offset int32) ([]*shortsstore.RegisterChangeRow, int32, error)
+	ListShortInterestOverlap(minShortPercent float64, limit int32) ([]*shortsstore.PoliticianStockRollupRow, error)
+	GetRegisterAnalytics(topIndustries int32, currentOnly bool) (*shortsstore.RegisterAnalytics, error)
+	GetRegisterExplorer() (*shortsstore.RegisterExplorerRow, error)
+	ListPoliticianSummaries(chamber, stateCode, partyAb string, itemNo int32, query, sortKey string, limit, offset int32) ([]*shortsstore.PoliticianSummaryRow, int32, error)
+	GetPoliticianExplorerProfile(slug string, topIndustries int32) (*shortsstore.PoliticianExplorerProfileRow, error)
+	ComparePoliticians(slugA, slugB string) (*shortsstore.PoliticianComparisonRow, error)
+	GetRegisterActivity(windowDays int32, filter shortsstore.RegisterActivityFilter) (*shortsstore.RegisterActivityRow, error)
+	ListDistinctiveHoldings(slug string) (*shortsstore.DistinctiveHoldingsRow, error)
+
+	// AEC funding layer — the only methods here that return an amount.
+	GetDonationsOverview(financialYear string, limit int32) (*shortsstore.DonationsOverviewRow, error)
+	ListTopDonors(financialYear, partyGroup string, limit, offset int32) (*shortsstore.TopDonorsRow, error)
+	ListPartyFunding(partyGroup, financialYear string, limit int32) (*shortsstore.PartyFundingDetailRow, error)
+	GetPoliticianFunding(slug string) (*shortsstore.PoliticianFundingRow, error)
+
+	// Register review console — operator only, never cached (see CacheKeyBuilder:
+	// a decision must be visible to the next reviewer immediately, and a stale
+	// queue hands two people the same candidate).
+	ListSecurityReviewQueue(limit, offset int32, gateOnly bool) ([]*shortsstore.SecurityQueueRow, int32, int32, error)
+	SearchRegisterListings(query string, limit int32) ([]*shortsstore.RegisterListingRow, error)
+	DecideSecurityCandidate(candidateNorm, decision, stockCode, aliasKind, note, reviewer string, stopwordConfirmed bool) (int32, error)
+	UndoSecurityDecision(candidateNorm string) (bool, error)
+	GetRegisterCoverageStats() (*shortsstore.RegisterCoverageRow, error)
+	// Per-politician CRM (operator only). Reads go through
+	// politician_profile_resolved so a curated value is never bypassed.
+	ListPoliticianProfiles(query string, limit, offset int32, duplicatesOnly bool) ([]*shortsstore.PoliticianProfileSummaryRow, int32, int32, error)
+	GetPoliticianProfile(slug string) (*shortsstore.PoliticianProfileRow, error)
+	CuratePoliticianFact(slug, field string, ordinal int32, action, curatedText, rationale, evidenceURL, curator string) (*shortsstore.ProfileFactRow, error)
+	SetPoliticianPhoto(slug, url, licence, author, sourceURL, curator string) error
+	MergePoliticians(keepSlug, mergeSlug, evidence, curator string) (int32, error)
+
+	ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32) ([]*shortsstore.EconomicSeriesRow, error)
+	GetEconomicSeries(seriesKeys []string, startPeriod time.Time, maxObservations int32) ([]*shortsstore.EconomicSeriesDataRow, error)
+	ListSeriesCorrelations(baseSeriesKey string, windowMonths int32, minAbsR float64, limit int32) ([]*shortsstore.SeriesCorrelationRow, error)
+
+	// Company state exposure methods
+	ListStateCompanies(state string, limit int32) ([]*shortsstore.StateCompanyRow, error)
+	GetStateCompanyAggregates() ([]*shortsstore.StateCompanyAggregateRow, error)
 
 	// Event timeline methods
 	GetEventTimeline(stockCode string, daysBack, limit int32) ([]*shortsstore.TimelineEventRow, error)
@@ -170,6 +224,36 @@ type Cache interface {
 	GetSuburbDropListingsKey(salCode, regionCode string, windowDays, limit int32) string
 	GetPropertyHistoryKey(addressKey string) string
 	GetAddressPriceDropsKey(stateCode, sort string, windowDays, limit int32) string
+	GetPriceDropsOverviewKey() string
+	GetAgencyPriceStatsKey(stateCode, sort string, limit int32) string
+	// Register of Members'/Senators' Interests cache keys
+	ParliamentOverviewKey() string
+	ListPoliticiansKey(chamber, stateCode, partyAb, query string, limit, offset int32) string
+	GetPoliticianKey(slug string) string
+	ListStockPoliticiansKey(stockCode string, currentOnly bool) string
+	ListPoliticianStocksKey(limit int32, currentOnly bool) string
+	ListSuburbPoliticiansKey(salCode string) string
+	ListStatePoliticianHoldingsKey(stateCode string, limit int32) string
+	ListRegisterChangesKey(since time.Time, kind, stockCode, slug string, itemNo int32, partyAb, chamber string, limit, offset int32) string
+	ListShortInterestOverlapKey(minShortPercent float64, limit int32) string
+	GetPoliticianAnalyticsKey(topIndustries int32, currentOnly bool) string
+	GetRegisterExplorerKey() string
+	ListPoliticianSummariesKey(chamber, stateCode, partyAb string, itemNo int32, query, sortKey string, limit, offset int32) string
+	GetPoliticianExplorerProfileKey(slug string, topIndustries int32) string
+	ComparePoliticiansKey(slugA, slugB string) string
+	GetRegisterActivityKey(windowDays int32, slug, partyAb, chamber string, itemNo int32, kind string) string
+	ListDistinctiveHoldingsKey(slug string) string
+	// AEC funding layer cache keys
+	GetDonationsOverviewKey(financialYear string, limit int32) string
+	ListTopDonorsKey(financialYear, partyGroup string, limit, offset int32) string
+	ListPartyFundingKey(partyGroup, financialYear string, limit int32) string
+	GetPoliticianFundingKey(slug string) string
+
+	ListEconomicSeriesKey(topic, metric, regionType, regionCode, product string, limit int32) string
+	GetEconomicSeriesKey(seriesKeys []string, startPeriod string, maxObservations int32) string
+	ListSeriesCorrelationsKey(baseSeriesKey string, windowMonths int32, minAbsR float64, limit int32) string
+	ListStateCompaniesKey(state string, limit int32) string
+	GetStateCompanyAggregatesKey() string
 	GetEventTimelineKey(stockCode string, daysBack, limit int32) string
 	GetDirectorTradesKey(stockCode string, limit int32) string
 	GetDividendHistoryKey(stockCode string, years int32) string

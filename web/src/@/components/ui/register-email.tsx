@@ -46,7 +46,7 @@ const RegisterEmail = () => {
 
   return (
     <div className="space-y-4">
-      <div className="bg-gray-800 p-6 rounded-lg">
+      <div className="bg-card border border-border p-6 rounded-lg">
         <div className="flex items-center mb-4">
           <Image
             src="/logo.png"
@@ -56,10 +56,10 @@ const RegisterEmail = () => {
             className="!m-1 !mr-6"
           />
           <div>
-            <h2 className="text-2xl !mt-2 font-bold text-white">
+            <h2 className="text-2xl !mt-2 font-bold text-foreground">
               Subscribe to Our Newsletter
             </h2>
-            <p className="text-gray-400">
+            <p className="text-muted-foreground">
               Stay updated with our latest updates!
             </p>
           </div>
@@ -67,7 +67,7 @@ const RegisterEmail = () => {
         <form onSubmit={handleSubmit}>
           <label
             htmlFor="email"
-            className="block text-sm font-medium text-gray-300 mb-2"
+            className="block text-sm font-medium text-foreground mb-2"
           >
             Email Address
           </label>
@@ -78,12 +78,12 @@ const RegisterEmail = () => {
               placeholder="jack@gmail.com"
               value={email}
               onChange={handleEmailChange}
-              className={`flex-grow ${isValid ? "border-green-500" : ""} bg-gray-700 text-white`}
+              className={`flex-grow ${isValid ? "border-lime-600 dark:border-lime-400" : ""}`}
             />
             <Button
               type="submit"
               disabled={!isValid || isSubmitting}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-6"
+              className="px-6"
             >
               {isSubmitting ? "Submitting..." : "Subscribe"}
             </Button>
@@ -91,21 +91,21 @@ const RegisterEmail = () => {
         </form>
       </div>
       {submitStatus === "success" && (
-        <Alert variant="default" className="bg-green-800 text-white">
+        <Alert variant="default" className="border-lime-600/40 bg-lime-600/10 text-lime-800 dark:text-lime-300">
           <AlertDescription>
             Successfully subscribed to the newsletter!
           </AlertDescription>
         </Alert>
       )}
       {submitStatus === "error" && (
-        <Alert variant="destructive" className="bg-red-800 text-white">
+        <Alert variant="destructive" className="border-destructive/40 bg-destructive/10 text-destructive">
           <AlertDescription>
             An error occurred. Please try again.
           </AlertDescription>
         </Alert>
       )}
       {submitStatus === "exists" && (
-        <Alert variant="destructive" className="bg-yellow-800 text-white">
+        <Alert variant="destructive" className="border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300">
           <AlertDescription>
             This email address is already subscribed!
           </AlertDescription>

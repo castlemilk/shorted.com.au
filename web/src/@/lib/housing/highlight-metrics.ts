@@ -1,5 +1,5 @@
 import { scaleSequential, scaleSequentialSqrt, scaleDiverging } from "d3-scale";
-import { interpolateOranges, interpolateRdBu } from "d3-scale-chromatic";
+import { interpolateOranges, interpolateRdBu, interpolateYlOrRd } from "d3-scale-chromatic";
 import { fmtPriceShort } from "./price-scale";
 import type { HousingIconName } from "@/components/housing/housing-icons.generated";
 
@@ -14,6 +14,8 @@ import type { HousingIconName } from "@/components/housing/housing-icons.generat
 // The fields a metric reads. SuburbDatum is structurally a superset of this, so
 // metric accessors take this minimal shape and avoid importing the component.
 export type SuburbMetricInput = {
+  /** Properties declared in the federal registers of interests (0 for most suburbs). */
+  politicianPropertyCount?: number;
   latestMedianPrice: number;
   population: number;
   medianAge: number;
@@ -36,11 +38,16 @@ export type SuburbMetricInput = {
   nearestTrainKm: number;
   distToCoastKm: number; // km to the national coastline (0 = beachfront)
   dominantNbnTech: string; // '' | Fixed Line | Fixed Wireless | Satellite
+  // crime percentile ranks (0 = no data; > 0 always when covered)
+  crimeBreakInsRank: number;
+  crimeViolentRank: number;
+  crimeMotorVehicleRank: number;
 };
 
 export type MetricKey =
   | "price" | "population" | "age" | "income" | "born_overseas" | "religion" | "language"
-  | "federal_party" | "federal_lean" | "state_party"
+  | "federal_party" | "federal_lean" | "state_party" | "politician_property"
+  | "crime_break_ins" | "crime_violent" | "crime_motor_vehicle"
   | "amenity_density" | "supermarkets" | "pubs" | "grocery" | "healthcare" | "school_sector" | "nearest_train" | "distance_to_coast" | "nbn";
 
 type Base = { key: MetricKey; label: string; legendLabel: string };
@@ -131,26 +138,32 @@ export function languageColor(cat: string): string {
   return LANGUAGE_COLORS[cat] ?? C.slate;
 }
 
-// --- Federal party palette (categorical) ---
-// AEC party abbreviation → readable label; the map colours by these labels.
-const PARTY_LABEL: Record<string, string> = {
-  ALP: "Labor", LP: "Liberal", LIB: "Liberal", LNP: "Liberal National",
-  NP: "Nationals", NAT: "Nationals", GRN: "Greens", IND: "Independent",
-  KAP: "Katter's", XEN: "Centre Alliance", ON: "One Nation", CLP: "Country Liberal",
+// --- Politician-declared property palette (categorical) ---
+// "None" takes the neutral base so the ~99% of suburbs with no declaration
+// recede, and the few that do have one stand out. Same treatment as the
+// language/grocery "no data" case.
+const POLITICIAN_PROPERTY_ORDER = ["None", "1", "2", "3+"];
+const POLITICIAN_PROPERTY_COLORS: Record<string, string> = {
+  None: C.sand,
+  "1": "#c9a227",
+  "2": "#b5761f",
+  "3+": "#8f4a17",
 };
-export const PARTY_COLORS: Record<string, string> = {
-  "Labor": "#d9544d", "Liberal": "#2f6fb0", "Liberal National": "#3f5e96",
-  "Nationals": "#c79a3a", "Greens": "#5aa05a", "Independent": "#1fa89f",
-  "Katter's": "#9c6b4f", "Centre Alliance": "#d98a3d", "One Nation": "#e8842a",
-  "Country Liberal": "#7d5aa0", "Other": C.stone,
-};
-const PARTY_ORDER = [
-  "Labor", "Liberal", "Liberal National", "Country Liberal", "Nationals",
-  "Greens", "Independent", "One Nation", "Katter's", "Centre Alliance", "Other",
-];
-export function partyColor(label: string): string {
-  return PARTY_COLORS[label] ?? C.stone;
+function politicianPropertyColor(label: string): string {
+  return POLITICIAN_PROPERTY_COLORS[label] ?? C.sand;
 }
+
+// --- Federal party palette (categorical) ---
+// Moved to @/lib/politics/party-palette so politician surfaces can colour by
+// party without importing this module, which pulls in d3-scale for the
+// choropleth ramps. Re-exported here so existing consumers are unchanged.
+import {
+  PARTY_LABEL,
+  PARTY_ORDER,
+  partyColor,
+} from "@/lib/politics/party-palette";
+
+export { PARTY_COLORS, partyColor } from "@/lib/politics/party-palette";
 
 // --- Grocery competition palette (categorical) ---
 export const GROCERY_COLORS: Record<string, string> = {
@@ -235,6 +248,23 @@ export const HIGHLIGHT_METRICS: HighlightMetric[] = [
     colorFor: languageColor, order: LANGUAGE_ORDER,
   },
   {
+    // CATEGORICAL, not continuous, and deliberately so: ~99% of suburbs have
+    // zero declared properties, so a continuous amber ramp renders "none" and
+    // "one" as indistinguishable pale shades. Buckets make the signal legible.
+    kind: "categorical", key: "politician_property", label: "Politician-declared property",
+    legendLabel: "Properties declared in the federal registers of interests",
+    category: (s) => {
+      if (s.population <= 0) return null;
+      const n = s.politicianPropertyCount ?? 0;
+      if (n <= 0) return "None";
+      if (n === 1) return "1";
+      if (n === 2) return "2";
+      return "3+";
+    },
+    colorFor: politicianPropertyColor,
+    order: POLITICIAN_PROPERTY_ORDER,
+  },
+  {
     kind: "categorical", key: "federal_party", label: "Federal party",
     legendLabel: "Party holding the seat",
     category: (s) => (s.federalPartyAb ? (PARTY_LABEL[s.federalPartyAb] ?? "Other") : null),
@@ -252,6 +282,27 @@ export const HIGHLIGHT_METRICS: HighlightMetric[] = [
     legendLabel: "Party holding the state seat",
     category: (s) => (s.statePartyAb ? (PARTY_LABEL[s.statePartyAb] ?? "Other") : null),
     colorFor: partyColor, order: PARTY_ORDER,
+  },
+  {
+    kind: "continuous", key: "crime_break_ins", label: "Break-ins",
+    legendLabel: "Break-ins (percentile within state)",
+    value: (s) => (s.crimeBreakInsRank > 0 ? s.crimeBreakInsRank : null),
+    format: (v) => `${Math.round(v)}th pctile`,
+    domain: [0, 100], makeScale: () => crimeRankScale(),
+  },
+  {
+    kind: "continuous", key: "crime_violent", label: "Violent crime",
+    legendLabel: "Violent crime (percentile within state)",
+    value: (s) => (s.crimeViolentRank > 0 ? s.crimeViolentRank : null),
+    format: (v) => `${Math.round(v)}th pctile`,
+    domain: [0, 100], makeScale: () => crimeRankScale(),
+  },
+  {
+    kind: "continuous", key: "crime_motor_vehicle", label: "Car theft",
+    legendLabel: "Motor-vehicle theft (percentile within state)",
+    value: (s) => (s.crimeMotorVehicleRank > 0 ? s.crimeMotorVehicleRank : null),
+    format: (v) => `${Math.round(v)}th pctile`,
+    domain: [0, 100], makeScale: () => crimeRankScale(),
   },
   {
     kind: "continuous", key: "amenity_density", label: "Amenity density",
@@ -331,6 +382,8 @@ export const METRIC_ICON: Record<MetricKey, HousingIconName> = {
   price: "median-price", population: "population", age: "age", income: "income",
   born_overseas: "born-overseas", religion: "religion", language: "language",
   federal_party: "party", federal_lean: "federal-lean", state_party: "party",
+  politician_property: "representation",
+  crime_break_ins: "dwellings", crime_violent: "population", crime_motor_vehicle: "train",
   amenity_density: "amenity-density", supermarkets: "supermarket", pubs: "pubs",
   grocery: "grocery", healthcare: "healthcare", school_sector: "school",
   nearest_train: "train", distance_to_coast: "coast", nbn: "nbn",
@@ -347,4 +400,9 @@ export function amberScale(min: number, max: number, sqrt = false): (v: number) 
 export function politicalLeanScale(): (v: number) => string {
   // RdBu: 0=red, 0.5=white, 1=blue. We want high ALP-TPP → red, low → blue.
   return scaleDiverging<string>([0, 50, 100], (t) => interpolateRdBu(1 - t));
+}
+
+/** Sequential yellow-to-red danger ramp for crime percentile ranks (0..100). */
+export function crimeRankScale(): (v: number) => string {
+  return scaleSequential((t: number) => interpolateYlOrRd(0.15 + 0.8 * t)).domain([0, 100]);
 }

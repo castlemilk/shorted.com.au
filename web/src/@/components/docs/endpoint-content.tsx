@@ -16,10 +16,10 @@ export function EndpointContent({ endpoint }: EndpointContentProps) {
         <div className="flex items-center gap-4">
           <span className={cn(
             "px-2 py-1 rounded text-xs font-bold uppercase",
-            endpoint.method === 'GET' && "bg-green-500/10 text-green-500 border border-green-500/20",
-            endpoint.method === 'POST' && "bg-blue-500/10 text-blue-500 border border-blue-500/20",
-            endpoint.method === 'PUT' && "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20",
-            endpoint.method === 'DELETE' && "bg-red-500/10 text-red-500 border border-red-500/20",
+            endpoint.method === 'GET' && "bg-lime-600/10 text-lime-700 dark:text-lime-300 border border-lime-600/25",
+            endpoint.method === 'POST' && "bg-primary/10 text-primary border border-primary/25",
+            endpoint.method === 'PUT' && "bg-orange-500/10 text-orange-700 dark:text-orange-300 border border-orange-500/25",
+            endpoint.method === 'DELETE' && "bg-destructive/10 text-destructive border border-destructive/25",
           )}>
             {endpoint.method}
           </span>
@@ -36,11 +36,11 @@ export function EndpointContent({ endpoint }: EndpointContentProps) {
           <h2 className="text-2xl font-semibold border-b pb-2">Parameters</h2>
           <div className="space-y-6">
             {endpoint.parameters.map((param, i) => (
-              <div key={i} className="flex flex-col gap-1 border-b border-zinc-100 dark:border-zinc-800 pb-4 last:border-0">
+              <div key={i} className="flex flex-col gap-1 border-b border-border pb-4 last:border-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-mono font-semibold text-blue-600 dark:text-blue-400">{param.name}</span>
-                  <span className="text-xs text-zinc-500 uppercase">{param.in}</span>
-                  {param.required && <span className="text-[10px] bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded font-bold uppercase">Required</span>}
+                  <span className="font-mono font-semibold text-primary">{param.name}</span>
+                  <span className="text-xs text-muted-foreground uppercase">{param.in}</span>
+                  {param.required && <span className="text-[10px] bg-destructive/10 text-destructive px-1.5 py-0.5 rounded font-bold uppercase">Required</span>}
                 </div>
                 {param.description && <p className="text-sm text-muted-foreground">{param.description}</p>}
                 <SchemaViewer schema={param.schema} depth={1} />
@@ -58,7 +58,7 @@ export function EndpointContent({ endpoint }: EndpointContentProps) {
           )}
           {Object.entries(endpoint.requestBody.content).map(([contentType, content], i) => (
             <div key={i} className="space-y-2">
-              <span className="text-xs font-mono text-zinc-500">{contentType}</span>
+              <span className="text-xs font-mono text-muted-foreground">{contentType}</span>
               <SchemaViewer schema={content.schema} />
             </div>
           ))}
@@ -73,7 +73,7 @@ export function EndpointContent({ endpoint }: EndpointContentProps) {
               <div className="flex items-center gap-2">
                 <span className={cn(
                   "text-xs font-bold px-1.5 py-0.5 rounded",
-                  code.startsWith('2') ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400" : "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
+                  code.startsWith('2') ? "bg-lime-600/10 text-lime-700 dark:text-lime-300" : "bg-destructive/10 text-destructive"
                 )}>
                   {code}
                 </span>
@@ -81,7 +81,7 @@ export function EndpointContent({ endpoint }: EndpointContentProps) {
               </div>
               {response.content && Object.entries(response.content).map(([contentType, content], j) => (
                 <div key={j} className="space-y-2 ml-4">
-                  <span className="text-xs font-mono text-zinc-500">{contentType}</span>
+                  <span className="text-xs font-mono text-muted-foreground">{contentType}</span>
                   <SchemaViewer schema={content.schema} />
                 </div>
               ))}

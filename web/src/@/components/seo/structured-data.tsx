@@ -36,7 +36,9 @@ export function StructuredData({
             url: siteConfig.url,
             logo: {
               "@type": "ImageObject",
-              url: siteConfig.ogImage,
+              url: siteConfig.logo.url,
+              width: siteConfig.logo.width,
+              height: siteConfig.logo.height,
             },
           },
           ...data,
@@ -51,7 +53,9 @@ export function StructuredData({
           url: siteConfig.url,
           logo: {
             "@type": "ImageObject",
-            url: siteConfig.ogImage,
+            url: siteConfig.logo.url,
+            width: siteConfig.logo.width,
+            height: siteConfig.logo.height,
           },
           sameAs: [siteConfig.links.twitter, siteConfig.links.github],
           contactPoint: {
@@ -92,7 +96,9 @@ export function StructuredData({
             url: siteConfig.url,
             logo: {
               "@type": "ImageObject",
-              url: siteConfig.ogImage,
+              url: siteConfig.logo.url,
+              width: siteConfig.logo.width,
+              height: siteConfig.logo.height,
             },
           },
           ...data,

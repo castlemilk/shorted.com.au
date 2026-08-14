@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { StockService } from "~/gen/shorts/v1alpha1/stock_pb";
 import {
   Card,
   CardContent,
@@ -31,8 +31,7 @@ interface DirectorTradesTableProps {
 const tradeTypeStyles: Record<string, string> = {
   buy: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400",
   sell: "bg-red-100 text-red-800 dark:bg-red-950/30 dark:text-red-400",
-  exercise_options:
-    "bg-blue-100 text-blue-800 dark:bg-blue-950/30 dark:text-blue-400",
+  exercise_options: "bg-stone-500/15 text-stone-700 dark:text-stone-300",
 };
 
 export function DirectorTradesTable({
@@ -45,7 +44,7 @@ export function DirectorTradesTable({
       const transport = createConnectTransport({
         baseUrl: "",
       });
-      const client = createClient(ShortedStocksService, transport);
+      const client = createClient(StockService, transport);
       return client.getDirectorTrades({ stockCode, limit });
     },
     staleTime: 5 * 60 * 1000,

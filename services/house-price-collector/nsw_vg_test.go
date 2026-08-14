@@ -1,6 +1,73 @@
 package main
 
-import "testing"
+import (
+	"archive/zip"
+	"bytes"
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+	"testing"
+)
+
+type fakeNSWFetcher struct {
+	responses map[string][]byte
+	errors    map[string]error
+}
+
+func (f fakeNSWFetcher) FetchBytes(_ context.Context, pageURL, _ string) ([]byte, string, error) {
+	if err := f.errors[pageURL]; err != nil {
+		return nil, "", err
+	}
+	return f.responses[pageURL], nswAccept, nil
+}
+
+func nswYearZIPFixture(t *testing.T, dat string) []byte {
+	t.Helper()
+	var inner bytes.Buffer
+	innerWriter := zip.NewWriter(&inner)
+	datWriter, err := innerWriter.Create("sales.DAT")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := datWriter.Write([]byte(dat)); err != nil {
+		t.Fatal(err)
+	}
+	if err := innerWriter.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	var outer bytes.Buffer
+	outerWriter := zip.NewWriter(&outer)
+	weekWriter, err := outerWriter.Create("week.zip")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := weekWriter.Write(inner.Bytes()); err != nil {
+		t.Fatal(err)
+	}
+	if err := outerWriter.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return outer.Bytes()
+}
+
+func nswOuterZIPFixture(t *testing.T, name string, body []byte) []byte {
+	t.Helper()
+	var outer bytes.Buffer
+	writer := zip.NewWriter(&outer)
+	member, err := writer.Create(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := member.Write(body); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return outer.Bytes()
+}
 
 // A .DAT sample covering the cases the filter must handle. Fields are ";"-delimited;
 // [9]=suburb [10]=postcode [15]=price [18]=purpose [19]=strata-lot.
@@ -65,5 +132,81 @@ func TestNSWRecentYears(t *testing.T) {
 func TestNSWTitleCase(t *testing.T) {
 	if got := nswTitleCase("LAKE HAVEN"); got != "Lake Haven" {
 		t.Fatalf("nswTitleCase = %q, want 'Lake Haven'", got)
+	}
+}
+
+func TestIngestNSWSuburbMediansRejectsPartialYearCoverage(t *testing.T) {
+	years := []int{2023, 2024, 2025}
+	valid := nswYearZIPFixture(t, nswDATFixture)
+	fetcher := fakeNSWFetcher{
+		responses: map[string][]byte{
+			fmt.Sprintf("%s%d.zip", nswPSIBase, 2023): valid,
+			fmt.Sprintf("%s%d.zip", nswPSIBase, 2025): []byte("Cloudflare challenge"),
+		},
+		errors: map[string]error{
+			fmt.Sprintf("%s%d.zip", nswPSIBase, 2024): errors.New("blocked"),
+		},
+	}
+
+	obs, err := ingestNSWSuburbMediansWithFetcher(context.Background(), fetcher, years)
+	if err == nil {
+		t.Fatalf("partial coverage returned %d observations without an error", len(obs))
+	}
+	for _, want := range []string{"incomplete NSW PSI coverage", "1/3", "2024", "2025"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not contain %q", err, want)
+		}
+	}
+}
+
+func TestBuildNSWObservationsStampsPooledMedianAtLatestFetchedYear(t *testing.T) {
+	agg := map[string]map[int]*nswAgg{
+		"THINVILLE": {
+			2023: {prices: []float64{600000, 610000, 620000}, postcodes: map[string]int{"2000": 3}},
+			2024: {prices: []float64{630000, 640000, 650000}, postcodes: map[string]int{"2000": 3}},
+		},
+	}
+
+	obs := buildNSWObservations(agg, []int{2023, 2024})
+	if len(obs) != 1 {
+		t.Fatalf("observations = %d, want one pooled median: %+v", len(obs), obs)
+	}
+	if got := obs[0].Period.Year(); got != 2024 {
+		t.Fatalf("pooled period year = %d, want latest fetched year 2024", got)
+	}
+	if !obs[0].IsPreliminary {
+		t.Fatal("pooled median must remain preliminary")
+	}
+}
+
+func TestParseNSWYearSalesRejectsMissingOrCorruptWeeklyData(t *testing.T) {
+	var emptyInner bytes.Buffer
+	innerWriter := zip.NewWriter(&emptyInner)
+	readme, err := innerWriter.Create("readme.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readme.Write([]byte("no DAT here")); err != nil {
+		t.Fatal(err)
+	}
+	if err := innerWriter.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name string
+		body []byte
+	}{
+		{name: "no weekly archives", body: nswOuterZIPFixture(t, "readme.txt", []byte("metadata"))},
+		{name: "corrupt weekly archive", body: nswOuterZIPFixture(t, "week.zip", []byte("not a zip"))},
+		{name: "weekly archive without DAT", body: nswOuterZIPFixture(t, "week.zip", emptyInner.Bytes())},
+		{name: "DAT without qualifying sales", body: nswYearZIPFixture(t, "garbage;not;a;sale")},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := parseNSWYearSales(tc.body); err == nil {
+				t.Fatal("expected structurally incomplete year to fail parsing")
+			}
+		})
 	}
 }

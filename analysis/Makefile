@@ -30,6 +30,12 @@ help:
 	@echo "  Defaults to: postgresql://admin:password@localhost:5438/shorts"
 	@echo "  Override with: export DATABASE_URL='postgresql://...'"
 	@echo ""
+	@echo "📓 REGISTER OF INTERESTS NOTEBOOK:"
+	@echo "  make register-notebook       - Preflight, then open the quality notebook"
+	@echo "  make register-notebook-check - Preflight only (db, deps, corpus, format)"
+	@echo "  make register-notebook-fix   - Repair a notebook Lab refuses to save (500)"
+	@echo "  make register-notebook-smoke - Execute headlessly; fail on any cell error"
+	@echo ""
 	@echo "Example usage:"
 	@echo "  make install"
 	@echo "  make populate-skip-download"
@@ -250,3 +256,120 @@ enrich-reset:
 	@rm -f data/batch_enrichment_checkpoint.json
 	@echo "✅ Checkpoint cleared - enrichment will start from the beginning"
 
+
+# ---------------------------------------------------------------------------
+# Register of Interests — quality notebook
+# ---------------------------------------------------------------------------
+# The preflight below exists because "internal server error" in JupyterLab is
+# almost never JupyterLab: it is a stopped database, a kernel missing psycopg2,
+# or a notebook that does not round-trip (a 4.5 notebook with no cell ids will
+# 500 on save). Each check names the fix rather than the symptom.
+
+NOTEBOOK      ?= register_quality.ipynb
+NOTEBOOK_DIR  ?= notebooks
+NOTEBOOK_PORT ?= 8888
+# Whichever interpreter runs jupyter must be the one with the deps — asking
+# `jupyter` avoids guessing between system python, homebrew and a venv.
+JUPYTER       ?= jupyter
+
+.PHONY: register-notebook register-notebook-check register-notebook-fix register-notebook-smoke
+
+register-notebook: register-notebook-check
+	@echo ""
+	@echo "🚀 Starting JupyterLab on port $(NOTEBOOK_PORT)…"
+	@echo "   Notebook: $(NOTEBOOK_DIR)/$(NOTEBOOK)"
+	@echo "   Stop with Ctrl-C."
+	@cd $(NOTEBOOK_DIR) && DATABASE_URL="$(DATABASE_URL)" \
+		JUPYTERLAB_DIR="$$(./find_lab_dir.sh)" \
+		$(JUPYTER) lab "$(NOTEBOOK)" --port $(NOTEBOOK_PORT)
+
+## Everything that must be true BEFORE the browser opens.
+register-notebook-check:
+	@echo "🔎 Preflight for $(NOTEBOOK_DIR)/$(NOTEBOOK)"
+	@echo ""
+	@printf "  jupyter…            "
+	@command -v $(JUPYTER) >/dev/null 2>&1 \
+		&& echo "ok ($$($(JUPYTER) lab --version 2>/dev/null || echo '?'))" \
+		|| { echo "MISSING"; echo ""; echo "   Fix: pip install jupyterlab"; exit 1; }
+	@printf "  kernel deps…        "
+	@$(JUPYTER) run --help >/dev/null 2>&1 || true
+	@python3 -c "import pandas, psycopg2" 2>/dev/null \
+		&& echo "ok (pandas + psycopg2)" \
+		|| { echo "MISSING"; echo ""; \
+		     echo "   The notebook needs ONLY pandas and psycopg2 (no SQLAlchemy)."; \
+		     echo "   Fix: pip install pandas psycopg2-binary"; exit 1; }
+	@printf "  database…           "
+	@psql "$(DATABASE_URL)" -tAc "SELECT 1" >/dev/null 2>&1 \
+		&& echo "ok" \
+		|| { echo "UNREACHABLE"; echo ""; \
+		     echo "   $(DATABASE_URL)"; \
+		     echo "   Fix: cd sql && docker compose up -d postgres   (from analysis/)"; \
+		     echo "        (if Docker itself is down: orb start)"; exit 1; }
+	@printf "  register tables…    "
+	@psql "$(DATABASE_URL)" -tAc "SELECT to_regclass('public.register_documents') IS NOT NULL" 2>/dev/null | grep -q t \
+		&& echo "ok" \
+		|| { echo "ABSENT"; echo ""; \
+		     echo "   The register migrations have not been applied to this database."; \
+		     echo "   Fix: cd ../services && make migrate-up"; exit 1; }
+	@printf "  corpus loaded…      "
+	@docs=$$(psql "$(DATABASE_URL)" -tAc "SELECT count(*) FROM register_documents" 2>/dev/null); \
+	 rows=$$(psql "$(DATABASE_URL)" -tAc "SELECT count(*) FROM mv_register_public_holdings" 2>/dev/null); \
+	 if [ "$${docs:-0}" -gt 0 ]; then \
+	   echo "ok ($$docs documents, $$rows published rows)"; \
+	 else \
+	   echo "EMPTY"; \
+	   echo ""; \
+	   echo "   Tables exist but hold nothing. The notebook will open and show zeroes."; \
+	   echo "   Fix (operator pipeline, see docs/feature/politicians/architecture.md §5.2):"; \
+	   echo "     cd ../services/influence-collector"; \
+	   echo "     REGISTER_DRY_RUN=false go run . -mode register-load"; \
+	   echo "     REGISTER_DRY_RUN=false go run . -mode register-resolve"; \
+	 fi
+	@printf "  jupyterlab assets…  "
+	@labdir=$$($(NOTEBOOK_DIR)/find_lab_dir.sh); \
+	 if [ -n "$$labdir" ]; then \
+	   recorded=$$($(JUPYTER) lab path 2>/dev/null | awk -F: '/Application directory/ {sub(/^[ \t]+/,"",$$2); print $$2}'); \
+	   if [ "$$labdir" = "$$recorded" ]; then echo "ok"; \
+	   else echo "ok (repaired)"; \
+	        echo "     Jupyter's recorded app dir is stale — usually a Homebrew python"; \
+	        echo "     point-upgrade deleting the old Cellar tree. Opening a notebook"; \
+	        echo "     against it returns HTTP 500 with TemplateNotFound: index.html."; \
+	        echo "     Using: $$labdir"; fi; \
+	 else \
+	   echo "BROKEN"; echo ""; \
+	   echo "   No JupyterLab application directory contains static/index.html."; \
+	   echo "   Opening a notebook will return 500 (internal server error)."; \
+	   echo "   Fix: pip install --force-reinstall jupyterlab"; exit 1; \
+	 fi
+	@printf "  notebook format…    "
+	@python3 -c "import json,sys; nb=json.load(open('$(NOTEBOOK_DIR)/$(NOTEBOOK)')); \
+	 missing=[i for i,c in enumerate(nb['cells']) if 'id' not in c]; \
+	 sys.exit(1 if (nb.get('nbformat_minor',0)>=5 and missing) else 0)" 2>/dev/null \
+		&& echo "ok" \
+		|| { echo "INVALID"; echo ""; \
+		     echo "   Cells are missing 'id' but the notebook declares nbformat >= 4.5."; \
+		     echo "   JupyterLab returns 500 (internal server error) when it cannot save this."; \
+		     echo "   Fix: make register-notebook-fix"; exit 1; }
+	@echo ""
+	@echo "✅ Preflight passed."
+
+## Repair a notebook that JupyterLab refuses to save.
+.PHONY:
+register-notebook-fix:
+	@echo "🔧 Repairing $(NOTEBOOK_DIR)/$(NOTEBOOK)…"
+	@python3 $(NOTEBOOK_DIR)/normalize_ids.py "$(NOTEBOOK_DIR)/$(NOTEBOOK)"
+	@echo "✅ Fixed. Run: make register-notebook"
+
+## Execute headlessly and fail on any cell error — use before committing.
+.PHONY:
+register-notebook-smoke: register-notebook-check
+	@echo ""
+	@echo "🧪 Executing $(NOTEBOOK) headlessly…"
+	@cd $(NOTEBOOK_DIR) && DATABASE_URL="$(DATABASE_URL)" $(JUPYTER) nbconvert \
+		--to notebook --execute "$(NOTEBOOK)" --output /tmp/register_quality_smoke.ipynb \
+		--ExecutePreprocessor.timeout=300 >/dev/null 2>&1 \
+		&& python3 -c "import json,sys; nb=json.load(open('/tmp/register_quality_smoke.ipynb')); \
+		   e=[o for c in nb['cells'] for o in c.get('outputs',[]) if o.get('output_type')=='error']; \
+		   print(f'  {len(e)} cell error(s)'); sys.exit(1 if e else 0)" \
+		|| { echo "❌ Execution failed"; exit 1; }
+	@echo "✅ Notebook runs clean."

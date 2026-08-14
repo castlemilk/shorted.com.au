@@ -56,25 +56,24 @@ export function StockSearchResultItem({
     ? normalizedLogoUrl(stock.product_code)
     : null;
 
-  // Deterministic gradient generator for placeholder
-  const getStockGradient = (code: string) => {
-    const gradients = [
-      "from-blue-500/20 to-blue-600/10 text-blue-600 dark:text-blue-400 ring-blue-500/20",
-      "from-emerald-500/20 to-emerald-600/10 text-emerald-600 dark:text-emerald-400 ring-emerald-500/20",
-      "from-amber-500/20 to-amber-600/10 text-amber-600 dark:text-amber-400 ring-amber-500/20",
-      "from-purple-500/20 to-purple-600/10 text-purple-600 dark:text-purple-400 ring-purple-500/20",
-      "from-pink-500/20 to-pink-600/10 text-pink-600 dark:text-pink-400 ring-pink-500/20",
-      "from-indigo-500/20 to-indigo-600/10 text-indigo-600 dark:text-indigo-400 ring-indigo-500/20",
-      "from-cyan-500/20 to-cyan-600/10 text-cyan-600 dark:text-cyan-400 ring-cyan-500/20",
-      "from-orange-500/20 to-orange-600/10 text-orange-600 dark:text-orange-400 ring-orange-500/20",
+  // Deterministic warm tint for the monogram placeholder. Flat, not a
+  // gradient: the system has no decorative gradient vocabulary, and every
+  // pair is hand-paired light/dark so it survives the theme flip.
+  const getStockTint = (code: string) => {
+    const tints = [
+      "bg-amber-500/10 text-amber-700 dark:text-amber-300 ring-amber-500/25",
+      "bg-orange-500/10 text-orange-700 dark:text-orange-300 ring-orange-500/25",
+      "bg-yellow-500/10 text-yellow-800 dark:text-yellow-300 ring-yellow-500/25",
+      "bg-lime-600/10 text-lime-800 dark:text-lime-300 ring-lime-600/25",
+      "bg-stone-500/10 text-stone-700 dark:text-stone-300 ring-stone-500/25",
     ];
     const hash = code
       .split("")
       .reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    return gradients[hash % gradients.length];
+    return tints[hash % tints.length];
   };
 
-  const gradientClass = getStockGradient(stock.product_code);
+  const tintClass = getStockTint(stock.product_code);
   const priceChange = stock.priceChange ?? 0;
   const isPricePositive = priceChange >= 0;
 
@@ -83,19 +82,19 @@ export function StockSearchResultItem({
       type="button"
       onClick={onClick}
       className={cn(
-        "w-full px-6 py-5 text-left transition-all duration-300 cursor-pointer group relative",
+        "w-full px-6 py-5 text-left transition-colors duration-200 ease-out cursor-pointer group relative",
         "hover:bg-gradient-to-r hover:from-muted/80 hover:via-muted/50 hover:to-transparent",
-        "focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500/20"
+        "focus:outline-none focus:ring-2 focus:ring-inset focus:ring-ring"
       )}
     >
       {/* Hover accent line */}
-      <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-blue-500 to-indigo-500 rounded-r-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-primary rounded-r-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
       
       <div className="flex items-center gap-5">
         {/* Logo Container */}
         <div className="flex-shrink-0 relative">
           {validLogoUrl && !imageError ? (
-            <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-muted ring-1 ring-border/50 group-hover:ring-2 group-hover:ring-blue-500/30 transition-all duration-300">
+            <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-muted ring-1 ring-border/50 group-hover:ring-2 group-hover:ring-primary/40 transition-shadow duration-200 ease-out">
               <Image
                 src={validLogoUrl}
                 alt={`${stock.product_code} logo`}
@@ -111,9 +110,9 @@ export function StockSearchResultItem({
             <div
               className={cn(
                 "w-12 h-12 rounded-xl flex items-center justify-center font-bold text-sm",
-                "bg-gradient-to-br ring-1 ring-inset transition-all duration-300",
+                "ring-1 ring-inset transition-[box-shadow,transform] duration-200 ease-out",
                 "group-hover:ring-2 group-hover:scale-105",
-                gradientClass,
+                tintClass,
               )}
             >
               {stock.product_code.slice(0, 2)}
@@ -124,7 +123,7 @@ export function StockSearchResultItem({
         {/* Stock Info */}
         <div className="flex-1 min-w-0 space-y-1.5">
           <div className="flex items-center gap-2.5">
-            <span className="font-bold text-base group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+            <span className="font-bold text-base group-hover:text-primary transition-colors">
               {stock.product_code}
             </span>
             {stock.industry && (
@@ -152,7 +151,7 @@ export function StockSearchResultItem({
                 <Percent className="w-3 h-3 text-red-500" />
               </div>
               <span className="text-muted-foreground">Short:</span>
-              <span className="font-semibold text-red-600 dark:text-red-400">
+              <span className="font-semibold text-red-700 dark:text-red-400">
                 {stock.percentage_shorted.toFixed(2)}%
               </span>
             </div>
@@ -180,7 +179,7 @@ export function StockSearchResultItem({
                     "flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[11px] font-medium",
                     isPricePositive 
                       ? "bg-green-500/10 text-green-600 dark:text-green-400" 
-                      : "bg-red-500/10 text-red-600 dark:text-red-400"
+                      : "bg-red-500/10 text-red-700 dark:text-red-400"
                   )}>
                     {isPricePositive ? (
                       <TrendingUp className="w-3 h-3" />
@@ -225,7 +224,7 @@ export function StockSearchResultItem({
               <Skeleton className="w-24 h-12 rounded-lg" />
             ) : sparklineData && sparklineData.length > 1 ? (
               <div className={cn(
-                "w-24 h-12 p-1 rounded-lg transition-all duration-300",
+                "w-24 h-12 p-1 rounded-lg transition-colors duration-200 ease-out",
                 "bg-gradient-to-br",
                 isPositive 
                   ? "from-green-500/5 to-green-500/10" 
@@ -250,9 +249,9 @@ export function StockSearchResultItem({
 
           {/* Arrow */}
           <div className={cn(
-            "w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300",
-            "bg-muted/50 group-hover:bg-blue-500 group-hover:text-white",
-            "group-hover:shadow-lg group-hover:shadow-blue-500/25"
+            "w-8 h-8 rounded-full flex items-center justify-center transition-[background-color,color,box-shadow] duration-200 ease-out",
+            "bg-muted/50 group-hover:bg-primary group-hover:text-primary-foreground",
+            "group-hover:shadow-amber"
           )}>
             <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-0.5" />
           </div>

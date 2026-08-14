@@ -15,7 +15,7 @@
     "install": "npm run install:frontend",
     "install:frontend": "cd web && npm install",
     "test": "npm run test:workflow && npm run test:frontend && npm run test:backend",
-    "test:workflow": "node --test scripts/tests/*.test.mjs",
+    "test:workflow": "node --test scripts/tests/*.test.mjs .github/workflows/*.test.mjs",
     "test:frontend": "cd web && npm test",
     "test:backend": "cd services && make test",
     "test:release-pipeline": "node --test scripts/release-pipeline.test.mjs",

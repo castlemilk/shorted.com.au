@@ -11,6 +11,7 @@ import { getTopPageData } from "../actions/top/getTopPageData";
 import { type TimePeriod } from "~/@/lib/shorts-calculations";
 import { TopPageSkeleton } from "./components/top-page-skeleton";
 import { ReportsBanner } from "~/@/components/reports/reports-banner";
+import { sectionTitle } from "~/@/lib/typography";
 
 // Dynamic import for client component to reduce initial bundle
 import dynamic from "next/dynamic";
@@ -50,21 +51,14 @@ export const metadata: Metadata = {
     siteName: siteConfig.name,
     type: "website",
     locale: "en_AU",
-    images: [
-      {
-        url: siteConfig.ogImage,
-        width: 1200,
-        height: 630,
-        alt: "Top 100 Most Shorted ASX Stocks - Official ASIC Data",
-      },
-    ],
+    // No `images` key: this route ships its own data-driven
+    // opengraph-image.tsx; an explicit `images` would shadow it.
   },
   twitter: {
     card: "summary_large_image",
     title: "Most Shorted ASX Stocks — Top 100 Short Positions",
     description:
       "Live rankings of the most shorted ASX stocks. Official ASIC data updated daily.",
-    images: [siteConfig.ogImage],
   },
   alternates: {
     canonical: `${siteConfig.url}/top`,
@@ -128,7 +122,7 @@ async function TopPageData() {
         className="container mx-auto px-4 py-12 border-t border-border/40"
       >
         <div className="max-w-3xl space-y-4">
-          <h2 id="about-short-interest" className="text-xl font-semibold">
+          <h2 id="about-short-interest" className={sectionTitle}>
             About ASX short interest data
           </h2>
           <p className="text-muted-foreground leading-relaxed">

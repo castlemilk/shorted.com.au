@@ -1,0 +1,4 @@
+{
+  "10001": { "schoolsTotal": 3, "schoolsPrimary": 2, "schoolsSecondary": 1, "supermarketsTotal": 2, "colesCount": 1, "woolworthsCount": 1, "pubsBars": 4, "nearestTrainKm": 0.8, "amenityDensityScore": 72.5 },
+  "10002": { "schoolsTotal": 0, "supermarketsTotal": 0, "pubsBars": 0, "nearestTrainKm": 14.2, "amenityDensityScore": 6.0 }
+}

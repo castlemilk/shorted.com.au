@@ -1,0 +1,9 @@
+Continue and COMPLETE the housing work package "web-suburbs" on this branch (feat/housing-web-suburbs). A previous Codex run was interrupted mid-flight; its partial work is ALREADY COMMITTED as a wip() commit on this branch.
+
+FIRST: run `git log --oneline 8c120a352..HEAD` and `git diff 8c120a352..HEAD --stat`, and read the changed files, to establish exactly what your predecessor already did. Then read the original spec at /Users/benebsworth/projects/shorted/.claude/housing-program/web-suburbs.md and finish everything the spec requires that is not yet done (F03 sitemap slug 404 corpus, F04 suburb pages silently dynamic + soft-404s + unvalidated ?sal=, F26 dead /housing/suburbs cluster, F37 dwellings em-dash, F25 OG logo tracing).
+
+IMPORTANT - a parallel branch has restructured the docs: docs/housing-architecture.md is now a redirect stub and the real content lives in docs/feature/housing/{README,data-sources,data-model,pipeline,operations,architecture}.md. Your predecessor may have edited CLAUDE.md; if its housing section edit conflicts with that restructure, drop your CLAUDE.md hunks entirely rather than fighting it - CLAUDE.md's housing section is owned by the docs branch now.
+
+Do NOT redo completed work and do NOT revert it unless it is wrong. Add commits on top; do not rewrite history, push, merge or switch branches.
+
+QA before finishing: `cd web && npx tsc --noEmit`, the touched jest suites, and lint on changed files. Report ACTUAL results; if the sandbox blocks something (font fetches, port binds), say so plainly rather than claiming it passed. Finish with a summary: what your predecessor had done, what you added, deliberate omissions, test results, and what needs hand-verification.

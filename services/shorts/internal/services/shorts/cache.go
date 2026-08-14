@@ -263,6 +263,148 @@ func (c *MemoryCache) GetAddressPriceDropsKey(stateCode, sort string, windowDays
 	return c.generateKey("address_price_drops", stateCode, sort, windowDays, limit)
 }
 
+// GetPriceDropsOverviewKey builds a cache key for GetPriceDropsOverview responses.
+func (c *MemoryCache) GetPriceDropsOverviewKey() string {
+	return c.generateKey("price_drops_overview")
+}
+
+// GetAgencyPriceStatsKey builds a cache key for ListAgencyPriceStats responses.
+func (c *MemoryCache) GetAgencyPriceStatsKey(stateCode, sort string, limit int32) string {
+	return c.generateKey("agency_price_stats", stateCode, sort, limit)
+}
+
+// ListEconomicSeriesKey builds a cache key for ListEconomicSeries responses.
+// --- Register of Members'/Senators' Interests ---
+
+func (c *MemoryCache) ParliamentOverviewKey() string {
+	return c.generateKey("register_overview")
+}
+
+func (c *MemoryCache) ListPoliticiansKey(chamber, stateCode, partyAb, query string, limit, offset int32) string {
+	return c.generateKey("politicians_list", chamber, stateCode, partyAb, query, limit, offset)
+}
+
+func (c *MemoryCache) GetPoliticianKey(slug string) string {
+	return c.generateKey("politician_profile", slug)
+}
+
+func (c *MemoryCache) ListStockPoliticiansKey(stockCode string, currentOnly bool) string {
+	return c.generateKey("politicians_by_stock", stockCode, currentOnly)
+}
+
+func (c *MemoryCache) ListPoliticianStocksKey(limit int32, currentOnly bool) string {
+	return c.generateKey("politician_stocks", limit, currentOnly)
+}
+
+func (c *MemoryCache) ListSuburbPoliticiansKey(salCode string) string {
+	return c.generateKey("politicians_by_suburb", salCode)
+}
+
+func (c *MemoryCache) ListStatePoliticianHoldingsKey(stateCode string, limit int32) string {
+	return c.generateKey("politician_state_holdings", stateCode, limit)
+}
+
+func (c *MemoryCache) ListRegisterChangesKey(since time.Time, kind, stockCode, slug string, itemNo int32, partyAb, chamber string, limit, offset int32) string {
+	// The time is formatted, not passed raw: a time.Time carries a monotonic
+	// clock reading that would make every key unique and defeat the cache.
+	//
+	// The DAY is the whole key because the handler has already truncated `since`
+	// to UTC midnight before both this call and the store call. Formatting a
+	// finer timestamp down to a day HERE would let two different queries share
+	// one key and be served each other's results.
+	sinceKey := ""
+	if !since.IsZero() {
+		sinceKey = since.UTC().Format("2006-01-02")
+	}
+	return c.generateKey("register_changes", sinceKey, kind, stockCode, slug, itemNo, partyAb, chamber, limit, offset)
+}
+
+func (c *MemoryCache) ListShortInterestOverlapKey(minShortPercent float64, limit int32) string {
+	return c.generateKey("register_short_overlap", minShortPercent, limit)
+}
+
+func (c *MemoryCache) GetPoliticianAnalyticsKey(topIndustries int32, currentOnly bool) string {
+	return c.generateKey("register_analytics", topIndustries, currentOnly)
+}
+
+func (c *MemoryCache) GetRegisterExplorerKey() string {
+	return c.generateKey("register_explorer")
+}
+
+func (c *MemoryCache) ListPoliticianSummariesKey(chamber, stateCode, partyAb string, itemNo int32, query, sortKey string, limit, offset int32) string {
+	return c.generateKey("politician_summaries", chamber, stateCode, partyAb, itemNo, query, sortKey, limit, offset)
+}
+
+func (c *MemoryCache) GetPoliticianExplorerProfileKey(slug string, topIndustries int32) string {
+	return c.generateKey("politician_explorer_profile", slug, topIndustries)
+}
+
+func (c *MemoryCache) ComparePoliticiansKey(slugA, slugB string) string {
+	return c.generateKey("politician_compare", slugA, slugB)
+}
+
+// GetRegisterActivityKey keys on the CLAMPED window AND on every filter, all
+// normalised by the handler first. The window part means the four supported
+// widths are the only widths a key can describe; the filter part means one
+// member's strip can never be served as another's — the response now carries
+// filtered counts, so a filter-blind key would publish the wrong member's
+// numbers under the right member's name.
+func (c *MemoryCache) GetRegisterActivityKey(windowDays int32, slug, partyAb, chamber string, itemNo int32, kind string) string {
+	return c.generateKey("register_activity", windowDays, slug, partyAb, chamber, itemNo, kind)
+}
+
+func (c *MemoryCache) ListDistinctiveHoldingsKey(slug string) string {
+	return c.generateKey("register_distinctive_holdings", slug)
+}
+
+// --- AEC funding layer ---
+//
+// Every component below is normalised and CLAMPED by the handler before the key
+// is built, by the same rules the store applies again on the way in. A key
+// built from raw input would let ' 2024-25 ' and '2024-25' hold two entries of
+// one year, and an unclamped limit would let one key describe pages of two
+// different sizes.
+
+func (c *MemoryCache) GetDonationsOverviewKey(financialYear string, limit int32) string {
+	return c.generateKey("aec_donations_overview", financialYear, limit)
+}
+
+func (c *MemoryCache) ListTopDonorsKey(financialYear, partyGroup string, limit, offset int32) string {
+	return c.generateKey("aec_top_donors", financialYear, partyGroup, limit, offset)
+}
+
+func (c *MemoryCache) ListPartyFundingKey(partyGroup, financialYear string, limit int32) string {
+	return c.generateKey("aec_party_funding", partyGroup, financialYear, limit)
+}
+
+func (c *MemoryCache) GetPoliticianFundingKey(slug string) string {
+	return c.generateKey("aec_politician_funding", slug)
+}
+
+func (c *MemoryCache) ListEconomicSeriesKey(topic, metric, regionType, regionCode, product string, limit int32) string {
+	return c.generateKey("economic_series_list", topic, metric, regionType, regionCode, product, limit)
+}
+
+// GetEconomicSeriesKey builds a cache key for GetEconomicSeries responses.
+func (c *MemoryCache) GetEconomicSeriesKey(seriesKeys []string, startPeriod string, maxObservations int32) string {
+	return c.generateKey("economic_series_get", seriesKeys, startPeriod, maxObservations)
+}
+
+// ListSeriesCorrelationsKey builds a cache key for normalized correlation filters.
+func (c *MemoryCache) ListSeriesCorrelationsKey(baseSeriesKey string, windowMonths int32, minAbsR float64, limit int32) string {
+	return c.generateKey("series_correlations_list", baseSeriesKey, windowMonths, minAbsR, limit)
+}
+
+// ListStateCompaniesKey builds a cache key for ListStateCompanies responses.
+func (c *MemoryCache) ListStateCompaniesKey(state string, limit int32) string {
+	return c.generateKey("state_companies_list", state, limit)
+}
+
+// GetStateCompanyAggregatesKey builds a cache key for GetStateCompanyAggregates responses.
+func (c *MemoryCache) GetStateCompanyAggregatesKey() string {
+	return c.generateKey("state_company_aggregates")
+}
+
 // GetEventTimelineKey builds a cache key for GetEventTimeline responses.
 func (c *MemoryCache) GetEventTimelineKey(stockCode string, daysBack, limit int32) string {
 	return c.generateKey("event_timeline", stockCode, daysBack, limit)

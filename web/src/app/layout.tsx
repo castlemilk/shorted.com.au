@@ -1,4 +1,4 @@
-import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
+import { IBM_Plex_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import "~/styles/globals.css";
 import { criticalCSS } from "~/styles/critical-css";
@@ -18,7 +18,8 @@ import {
   DevelopmentBanner,
 } from "~/@/components/ui/environment-banner";
 import { WebVitalsReporter } from "~/@/components/web-vitals-reporter";
-import { GoogleAnalytics } from "@next/third-parties/google";
+import { Suspense } from "react";
+import { DeferredGoogleAnalytics } from "~/@/components/deferred-google-analytics";
 import { CloudflareWebAnalytics } from "~/@/components/cloudflare-web-analytics";
 import { CloudflareJsDetections } from "~/@/components/cloudflare-js-detections";
 
@@ -29,10 +30,14 @@ const ChatSidebar = dynamic(
 );
 
 // IBM Plex Mono - Primary monospace for terminal aesthetic
+// Weights audited 2026-07: 400/500/600/700 in active use; 300 had 3 usages
+// (2 admin-only, since normalised; 1 serif blockquote covered by the
+// Newsreader variable font). Every weight here is a preloaded file on the
+// LCP critical path of every route — don't add weights without checking use.
 const fontMono = IBM_Plex_Mono({
   subsets: ["latin"],
   variable: "--font-sans",
-  weight: ["300", "400", "500", "600", "700"],
+  weight: ["400", "500", "600", "700"],
   display: "swap",
   preload: true,
   fallback: ["JetBrains Mono", "Fira Code", "ui-monospace", "monospace"],
@@ -50,19 +55,19 @@ const fontSerif = localFont({
   ],
   variable: "--font-serif",
   display: "swap",
+  // Editorial accent face only (font-serif surfaces: /news masthead, featured
+  // cards). Not preloaded: ~290KB of woff2 on EVERY route's critical path was
+  // the single largest preload cost (Lighthouse LCP dependency chain); Georgia
+  // fallback + swap covers the brief gap on the pages that use it.
+  preload: false,
   fallback: ["Georgia", "serif"],
   adjustFontFallback: false,
 });
 
-// Space Grotesk - Display font for headings (optional, geometric sans)
-const fontDisplay = Space_Grotesk({
-  subsets: ["latin"],
-  variable: "--font-display",
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-  preload: true,
-  fallback: ["system-ui", "sans-serif"],
-});
+// Space Grotesk (display headings) was removed 2026-07: zero usages of the
+// `font-display` class or `--font-display` var anywhere in src, yet its files
+// were preloaded on every route. globals.css still defines --font-display
+// with a system-ui fallback chain if a design ever wants it back.
 
 export const metadata = {
   metadataBase: new URL(siteConfig.url),
@@ -84,7 +89,7 @@ export const metadata = {
     type: "website",
     locale: "en_AU",
     url: siteConfig.url,
-    title: "Shorted - Official ASIC Short Position Data",
+    title: siteConfig.socialTitle,
     description: siteConfig.description,
     siteName: siteConfig.name,
     images: [
@@ -98,7 +103,7 @@ export const metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Shorted - Official ASIC Short Position Data",
+    title: siteConfig.socialTitle,
     description: siteConfig.description,
     images: [siteConfig.ogImage],
     creator: "@shorted___",
@@ -160,10 +165,20 @@ export default function RootLayout({
   `.replace(/\s+/g, " ");
 
   return (
-    <html lang="en-AU" className={`${fontMono.variable} ${fontDisplay.variable} ${fontSerif.variable}`} suppressHydrationWarning>
+    <html lang="en-AU" className={`${fontMono.variable} ${fontSerif.variable}`} suppressHydrationWarning>
       <head>
         {/* Inline critical CSS to prevent render-blocking */}
         <style dangerouslySetInnerHTML={{ __html: criticalCSS }} />
+        {/* Pre-paint session sniff: mark html.anon when no next-auth cookie is
+            present so critical CSS can reserve space for client-gated
+            signed-out UI (login banner) without layout shift. Synchronous and
+            tiny by design — must run before first paint. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              'try{/(?:^|; ?)(?:__Secure-)?next-auth\\.session-token=/.test(document.cookie)||document.documentElement.classList.add("anon")}catch(e){}',
+          }}
+        />
         {/* Non-critical CSS will be loaded by Next.js automatically */}
         {/* No fonts.googleapis/gstatic preconnects: next/font self-hosts all
             fonts at build time, so those origins are never contacted. */}
@@ -173,8 +188,13 @@ export default function RootLayout({
           title="Shorted Blog RSS Feed"
           href="/feed.xml"
         />
-        <link rel="preconnect" href="https://storage.googleapis.com" />
-        <link rel="preconnect" href="https://www.googletagmanager.com" />
+        {/* GCS images are served via /_next/image (same-origin), so the
+            browser never opens a direct connection to storage.googleapis.com
+            on first paint — a preconnect there is wasted (Lighthouse flag).
+            Keep the near-free dns-prefetch as a hint for any direct fetch. */}
+        {/* gtag.js is idle-deferred (DeferredGoogleAnalytics), so a first-paint
+            preconnect would open a connection ~seconds before it's used —
+            dns-prefetch alone is the right hint now. */}
         <link rel="dns-prefetch" href="https://storage.googleapis.com" />
         <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
         {/* News-card image CDNs — improves LCP on /news + per-stock /news. */}
@@ -205,9 +225,9 @@ export default function RootLayout({
                 url: "https://shorted.com.au",
                 logo: {
                   "@type": "ImageObject",
-                  url: "https://shorted.com.au/logo.png",
-                  width: 512,
-                  height: 512,
+                  url: siteConfig.logo.url,
+                  width: siteConfig.logo.width,
+                  height: siteConfig.logo.height,
                 },
               },
               potentialAction: {
@@ -251,7 +271,12 @@ export default function RootLayout({
           </ThemeProvider>
         </NextAuthProvider>
         {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
-          <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID} />
+          // Suspense: useSearchParams inside requires a boundary in a layout.
+          <Suspense fallback={null}>
+            <DeferredGoogleAnalytics
+              gaId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}
+            />
+          </Suspense>
         )}
         <CloudflareWebAnalytics />
         <CloudflareJsDetections />

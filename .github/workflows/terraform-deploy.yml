@@ -262,6 +262,9 @@ jobs:
           - name: shorts
             dockerfile: services/shorts/Dockerfile
             context: services
+          - name: chat-service
+            dockerfile: services/chat-service/Dockerfile
+            context: services
           - name: stock-price-ingestion
             dockerfile: services/stock-price-ingestion/Dockerfile
             context: services/stock-price-ingestion
@@ -277,14 +280,17 @@ jobs:
           - name: enrichment-processor
             dockerfile: services/enrichment-processor/Dockerfile
             context: services
-          - name: news-aggregator
-            dockerfile: services/news-aggregator/Dockerfile
-            context: services
-          - name: asx-announcement-crawler
-            dockerfile: services/asx-announcement-crawler/Dockerfile
-            context: services
           - name: house-price-collector
             dockerfile: services/house-price-collector/Dockerfile
+            context: services
+          - name: shorted-jobs
+            dockerfile: services/jobs/Dockerfile
+            context: services
+          # Same binary + build stage as shorted-jobs, Debian + Chromium
+          # runtime. Only `shorted discovery` needs it; the distroless image
+          # above stays lean for every other job.
+          - name: shorted-jobs-browser
+            dockerfile: services/jobs/Dockerfile.browser
             context: services
           - name: signals-collector
             dockerfile: services/signals-collector/Dockerfile
@@ -420,27 +426,13 @@ jobs:
           INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
           OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
         run: |
-          # Ensure a secret exists and only add a new version if the value has changed.
-          # This prevents version bloat ($0.06/version/month) from identical re-deploys.
-          ensure_secret() {
-            local name="$1" value="$2"
-            if [ -z "$value" ]; then
-              echo "⚠️ $name not set, skipping"
-              return 0
-            fi
-            if ! gcloud secrets describe "$name" --project "$GCP_PROJECT_ID" &>/dev/null; then
-              echo "Creating secret: $name"
-              printf "%s" "$value" | gcloud secrets create "$name" --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
-              return 0
-            fi
-            CURRENT=$(gcloud secrets versions access latest --secret="$name" --project "$GCP_PROJECT_ID" 2>/dev/null || true)
-            if [ "$CURRENT" = "$value" ]; then
-              echo "✅ $name unchanged, skipping"
-            else
-              echo "🔄 $name changed, adding new version"
-              printf "%s" "$value" | gcloud secrets versions add "$name" --data-file=- --project "$GCP_PROJECT_ID"
-            fi
-          }
+          # Single source of truth: scripts/ensure-secret.sh. It only adds a new
+          # version when the value actually changed, comparing sha256 of the
+          # trailing-newline-normalised bytes (a raw `$(...)` string compare can
+          # never match a GH secret that carries a trailing newline — that bug
+          # produced 1,002 INTERNAL_SERVICE_SECRET versions and led to the
+          # 2026-07-26 outage; see docs/incidents/).
+          ensure_secret() { bash "$GITHUB_WORKSPACE/scripts/ensure-secret.sh" "$1" "${2:-}"; }
 
           ensure_secret "OPENAI_API_KEY" "$OPENAI_API_KEY"
           ensure_secret "GEMINI_API_KEY_CHAT" "$GEMINI_API_KEY"
@@ -463,17 +455,17 @@ jobs:
             -var="stock_price_ingestion_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/stock-price-ingestion:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="short_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/short-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="shorts_api_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorts:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="chat_service_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/chat-service:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="asx_discovery_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/asx-discovery:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="market_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="market_data_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="enrichment_processor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/enrichment-processor:${{ needs.determine-environment.outputs.image-tag }}" \
-            -var="news_aggregator_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/news-aggregator:${{ needs.determine-environment.outputs.image-tag }}" \
-            -var="asx_announcement_crawler_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/asx-announcement-crawler:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="weekly_report_generator_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/weekly-report-generator:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="house_price_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/house-price-collector:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="shorted_jobs_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorted-jobs:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="shorted_jobs_browser_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorted-jobs-browser:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="signals_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/signals-collector:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="report_extractor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/report-extractor:${{ needs.determine-environment.outputs.image-tag }}" \
-            -var="grafana_auth=${{ secrets.GRAFANA_SERVICE_ACCOUNT_TOKEN }}" \
             -out=tfplan
         # No continue-on-error: a failing plan must fail the PR check. This was
         # advisory-only for months and silently swallowed a missing-variable
@@ -587,19 +579,9 @@ jobs:
           DB_NAME=$(echo $DATABASE_URL | sed -n 's|.*/\([^?]*\).*|\1|p')
           DB_ADDRESS="${DB_HOST}:${DB_PORT}"
 
-          # Ensure secrets exist (only add new version if value changed)
-          ensure_secret() {
-            local name="$1" value="$2"
-            if [ -z "$value" ]; then echo "⚠️ $name not set, skipping"; return 0; fi
-            if ! gcloud secrets describe "$name" --project "$GCP_PROJECT_ID" &>/dev/null; then
-              printf "%s" "$value" | gcloud secrets create "$name" --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
-              return 0
-            fi
-            CURRENT=$(gcloud secrets versions access latest --secret="$name" --project "$GCP_PROJECT_ID" 2>/dev/null || true)
-            if [ "$CURRENT" = "$value" ]; then echo "✅ $name unchanged"; else
-              printf "%s" "$value" | gcloud secrets versions add "$name" --data-file=- --project "$GCP_PROJECT_ID"
-            fi
-          }
+          # Ensure secrets exist (only add new version if value changed).
+          # See scripts/ensure-secret.sh for the trailing-newline churn fix.
+          ensure_secret() { bash "$GITHUB_WORKSPACE/scripts/ensure-secret.sh" "$1" "${2:-}"; }
           ensure_secret "OPENAI_API_KEY" "$OPENAI_API_KEY"
           ensure_secret "INTERNAL_SERVICE_SECRET" "$INTERNAL_SERVICE_SECRET"
 
@@ -895,15 +877,32 @@ jobs:
             }
 
   terraform-apply:
-    needs: [determine-environment, validate-secrets, terraform-plan]
+    # run-tests IS a dependency, deliberately. Until now it ran in PARALLEL with
+    # the deploy and nothing listed it in `needs`, so a red test suite blocked
+    # nothing — the deploy shipped and CI went red afterwards. For a repo that
+    # publishes facts about named people (the register-of-interests surfaces),
+    # advisory-only tests are the wrong default.
+    #
+    # Measured cost: run-tests finishes ~2m10s after terraform-plan, so this adds
+    # about two minutes to a ~20-minute deploy. The cost of the alternative is a
+    # wrong-fact regression reaching production and being noticed by a red tick.
+    #
+    # If a flaky test starts blocking deploys, fix or quarantine the test — do not
+    # remove this edge, or the gate silently becomes decorative again.
+    needs: [determine-environment, validate-secrets, terraform-plan, run-tests]
     runs-on: ubuntu-latest
     # Only apply on main branch push, release, or manual workflow dispatch (unless plan_only)
     # PRs will only plan, not apply
     # Manual dispatches with plan_only=true will skip apply
+    # run-tests.result is asserted EXPLICITLY, mirroring terraform-plan. `needs`
+    # alone would already skip this job when tests fail, but stating it means the
+    # gate survives someone later adding always()/!cancelled() to this `if`, which
+    # would otherwise silently re-enable deploys over red tests.
     if: >-
       github.event_name != 'pull_request' &&
       github.event.inputs.plan_only != 'true' &&
-      needs.terraform-plan.result == 'success'
+      needs.terraform-plan.result == 'success' &&
+      needs.run-tests.result == 'success'
     environment:
       name: ${{ needs.determine-environment.outputs.environment }}
     outputs:
@@ -945,27 +944,12 @@ jobs:
           ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
           REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}
         run: |
-          # Only add a new version if the value has actually changed.
-          # This prevents version bloat ($0.06/version/month — was costing $130+/month).
-          ensure_secret() {
-            local name="$1" value="$2"
-            if [ -z "$value" ]; then
-              echo "⚠️ $name not set, skipping"
-              return 0
-            fi
-            if ! gcloud secrets describe "$name" --project "$GCP_PROJECT_ID" &>/dev/null; then
-              echo "🆕 Creating secret: $name"
-              printf "%s" "$value" | gcloud secrets create "$name" --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
-              return 0
-            fi
-            CURRENT=$(gcloud secrets versions access latest --secret="$name" --project "$GCP_PROJECT_ID" 2>/dev/null || true)
-            if [ "$CURRENT" = "$value" ]; then
-              echo "✅ $name unchanged, skipping"
-            else
-              echo "🔄 $name changed, adding new version"
-              printf "%s" "$value" | gcloud secrets versions add "$name" --data-file=- --project "$GCP_PROJECT_ID"
-            fi
-          }
+          # Only add a new version if the value has actually changed
+          # ($0.06/version/month, and version bloat is what broke prod on
+          # 2026-07-26). Logic lives in scripts/ensure-secret.sh: sha256 compare
+          # over trailing-newline-normalised bytes, and never add a version when
+          # `versions access latest` fails on an existing secret.
+          ensure_secret() { bash "$GITHUB_WORKSPACE/scripts/ensure-secret.sh" "$1" "${2:-}"; }
 
           # Core secrets
           ensure_secret "OPENAI_API_KEY" "$OPENAI_API_KEY"
@@ -1033,34 +1017,65 @@ jobs:
           # and the app collectors, but golang-migrate's advisory-lock path can fail
           # with prepared-statement errors. Keep non-prod on migrate; repair prod via
           # direct, idempotent SQL and keep schema_migrations aligned.
+          #
+          # ORDER IS LOAD-BEARING. 000083 contains a CREATE OR REPLACE of
+          # refresh_all_materialized_views() carrying the PRE-hardening body, so
+          # replaying it here reverted 000095 on every single prod deploy — the
+          # exact defect behind the 19-day silent MV-staleness incident, silently
+          # re-armed each time someone hand-applied the fix. 000095 must stay LAST
+          # so the hardened definition wins. Any new migration that touches that
+          # function goes after 000095, not before it.
           if [ "$ENVIRONMENT" = "prod" ]; then
             run_psql \
               -f /migrations/000070_add_short_campaigns_mv.up.sql \
               -f /migrations/000071_add_corporate_tax.up.sql \
               -f /migrations/000074_add_alert_monitors.up.sql \
-              -f /migrations/000075_add_industry_intelligence_sources.up.sql
+              -f /migrations/000075_add_industry_intelligence_sources.up.sql \
+              -f /migrations/000081_add_economic_series.up.sql \
+              -f /migrations/000082_extend_source_kind_check.up.sql \
+              -f /migrations/000083_add_state_exposure.up.sql \
+              -f /migrations/000085_extend_source_method_check.up.sql \
+              -f /migrations/000095_harden_mv_refresh.up.sql
 
             run_psql -c "CREATE TABLE IF NOT EXISTS schema_migrations (version bigint NOT NULL PRIMARY KEY, dirty boolean NOT NULL); DELETE FROM schema_migrations; INSERT INTO schema_migrations (version, dirty) VALUES (75, false);"
 
+            # Ingesting third-party data is NOT a deployment prerequisite.
+            #
+            # This step reads data.gov.au (austender, ATO). When that timed out,
+            # `go run` exited 1 and took the whole terraform-apply with it — a
+            # public dataset being slow blocked a Cloud Run release. The data has
+            # its own scheduled collector and can be caught up any time; a deploy
+            # that cannot ship because a government CKAN endpoint is busy is
+            # strictly worse than a deploy that ships with yesterday's records.
+            #
+            # So the ingest is best-effort and its failure is surfaced as a
+            # warning in the job summary rather than an exit code. It stays here
+            # (instead of moving to a schedule) only because the empty-table
+            # bootstrap case wants to run right after the migrations that create
+            # those tables.
+            run_influence_ingest() {
+              local mode="$1" why="$2"
+              echo "$why"
+              if docker run --rm \
+                -e DATABASE_URL="$DB_URL_CLEAN" \
+                -e STEALTH_PAT="${STEALTH_PAT:-}" \
+                -v "${PWD}/services:/app" \
+                -w /app \
+                golang:1.26.0 \
+                sh -c 'if [ -n "$STEALTH_PAT" ]; then git config --global url."https://x-access-token:${STEALTH_PAT}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"; fi; GOWORK=off GOPRIVATE=github.com/skunkworq/* GONOSUMDB=github.com/skunkworq/* go run ./influence-collector -mode '"$mode"; then
+                echo "influence-collector -mode $mode: ok"
+              else
+                rc=$?
+                echo "::warning::influence-collector -mode $mode failed (exit $rc) — deploy continues; the scheduled collector will catch up"
+                echo "- :warning: \`influence-collector -mode $mode\` failed (exit $rc); records may be stale until the next scheduled run" >> "$GITHUB_STEP_SUMMARY"
+              fi
+            }
+
             TAX_ROWS=$(docker run --rm postgres:15-alpine psql "$DB_URL_CLEAN" -Atqc "SELECT COUNT(*) FROM corporate_tax")
             if [ "${TAX_ROWS:-0}" = "0" ]; then
-              echo "corporate_tax is empty; bootstrapping ATO corporate-tax data."
-              docker run --rm \
-                -e DATABASE_URL="$DB_URL_CLEAN" \
-                -e STEALTH_PAT="${STEALTH_PAT:-}" \
-                -v "${PWD}/services:/app" \
-                -w /app \
-                golang:1.26.0 \
-                sh -c 'if [ -n "$STEALTH_PAT" ]; then git config --global url."https://x-access-token:${STEALTH_PAT}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"; fi; GOWORK=off GOPRIVATE=github.com/skunkworq/* GONOSUMDB=github.com/skunkworq/* go run ./influence-collector -mode all'
+              run_influence_ingest all "corporate_tax is empty; bootstrapping ATO corporate-tax data."
             else
-              echo "corporate_tax already has ${TAX_ROWS} rows; refreshing public industry intelligence records."
-              docker run --rm \
-                -e DATABASE_URL="$DB_URL_CLEAN" \
-                -e STEALTH_PAT="${STEALTH_PAT:-}" \
-                -v "${PWD}/services:/app" \
-                -w /app \
-                golang:1.26.0 \
-                sh -c 'if [ -n "$STEALTH_PAT" ]; then git config --global url."https://x-access-token:${STEALTH_PAT}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"; fi; GOWORK=off GOPRIVATE=github.com/skunkworq/* GONOSUMDB=github.com/skunkworq/* go run ./influence-collector -mode public-records'
+              run_influence_ingest public-records "corporate_tax already has ${TAX_ROWS} rows; refreshing public industry intelligence records."
             fi
             exit 0
           fi
@@ -1104,17 +1119,17 @@ jobs:
             -var="stock_price_ingestion_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/stock-price-ingestion:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="short_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/short-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="shorts_api_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorts:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="chat_service_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/chat-service:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="asx_discovery_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/asx-discovery:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="market_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="market_data_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="enrichment_processor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/enrichment-processor:${{ needs.determine-environment.outputs.image-tag }}" \
-            -var="news_aggregator_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/news-aggregator:${{ needs.determine-environment.outputs.image-tag }}" \
-            -var="asx_announcement_crawler_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/asx-announcement-crawler:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="weekly_report_generator_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/weekly-report-generator:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="house_price_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/house-price-collector:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="shorted_jobs_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorted-jobs:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="shorted_jobs_browser_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorted-jobs-browser:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="signals_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/signals-collector:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="report_extractor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/report-extractor:${{ needs.determine-environment.outputs.image-tag }}" \
-            -var="grafana_auth=${{ secrets.GRAFANA_SERVICE_ACCOUNT_TOKEN }}" \
             -var="image_tag=${{ needs.determine-environment.outputs.image-tag }}" \
             -auto-approve
 
@@ -1451,6 +1466,39 @@ jobs:
             --yes \
             --token "$VERCEL_TOKEN"
 
+      - name: Revalidate ISR pages post-promote
+        continue-on-error: true
+        env:
+          REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}
+        run: |
+          curl_exit=0
+          isr_paths=$(node -e '
+            const fs = require("node:fs");
+            const pages = JSON.parse(fs.readFileSync("web/src/config/isr-pages.json", "utf8"));
+            if (!Array.isArray(pages) || pages.length === 0 || pages.some((path) => typeof path !== "string" || !path.startsWith("/"))) {
+              throw new Error("web/src/config/isr-pages.json must be a non-empty array of /-prefixed paths");
+            }
+            process.stdout.write(pages.join(","));
+          ')
+          status=$(curl --silent --show-error --output /dev/null --write-out "%{http_code}" \
+            --connect-timeout 10 \
+            --max-time 60 \
+            --request POST \
+            --get \
+            --user-agent "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36" \
+            --data-urlencode "secret=$REVALIDATION_SECRET" \
+            --data-urlencode "path=$isr_paths" \
+            --data-urlencode "flush=shorts,housing" \
+            "https://shorted.com.au/api/revalidate") || curl_exit=$?
+          status="${status:-000}"
+          echo "ISR revalidation HTTP status: $status"
+          if [ "$curl_exit" -ne 0 ]; then
+            exit "$curl_exit"
+          fi
+          if [ "$status" != "200" ]; then
+            exit 1
+          fi
+
       - name: Production Deployment Summary
         run: |
           echo "## 🚀 Production Deployment Complete" >> $GITHUB_STEP_SUMMARY
@@ -1461,6 +1509,38 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Backend Services" >> $GITHUB_STEP_SUMMARY
           echo "- **Shorts API**: ${{ steps.resolve-urls.outputs.shorts_url }}" >> $GITHUB_STEP_SUMMARY
+
+  housing-contract-tests:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: |
+            services/go.sum
+            services/jobs/go.sum
+
+      - name: Configure private Go module access
+        run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
+
+      - name: Run housing workflow contract tests
+        run: node --test .github/workflows/housing-lifecycle.test.mjs
+
+      - name: Run deployed housing collector tests
+        working-directory: services
+        run: GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test ./house-price-collector
+
+      - name: Run housing jobs mirror tests
+        working-directory: services/jobs
+        run: GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test ./internal/jobs/houseprices/...
+
+      - name: Run housing wrapper lifecycle tests
+        run: bash services/house-price-collector/deploy/housing-lifecycle-exit.test.sh
 
   run-tests:
     needs: [determine-environment, build-docker-images, build-ko-images]
@@ -1476,10 +1556,24 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: |
             services/go.sum
+            services/jobs/go.sum
             test/integration/go.sum
 
       - name: Configure private Go module access
         run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
+
+      # The consolidated `shorted <job>` binary is a SEPARATE Go MODULE, so it is
+      # invisible to `go list ./...` in services and nothing here was running its
+      # tests. The register-of-interests suite moved into that module with the
+      # port, which silently took ~150 assertions out of CI — including every
+      # regression that pins a wrong-fact defect from
+      # docs/feature/politicians/architecture.md §8.17-§8.19. Those exist to stop
+      # a wrong company being published against a named MP; they are worth a gate.
+      - name: Run jobs-module unit tests
+        run: |
+          echo "🧪 Running services/jobs unit tests (separate module)..."
+          cd services/jobs
+          GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test ./...
 
       - name: Run integration tests
         run: |

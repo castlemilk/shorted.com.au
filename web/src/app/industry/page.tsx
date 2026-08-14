@@ -1,4 +1,6 @@
 import { type Metadata } from "next";
+import { cn } from "~/@/lib/utils";
+import { pageTitle } from "~/@/lib/typography";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -122,7 +124,7 @@ export default async function IndustryIndexPage() {
                   ASIC daily T+4
                 </Badge>
               </div>
-              <h1 className="max-w-3xl text-4xl font-bold tracking-tight text-balance md:text-5xl">
+              <h1 className={cn(pageTitle, "max-w-3xl text-4xl md:text-5xl")}>
                 Short Positions by Industry
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground text-pretty md:text-lg">
@@ -149,40 +151,40 @@ export default async function IndustryIndexPage() {
               </div>
             </div>
 
-            <div className="border-t border-border/60 bg-zinc-950 p-5 text-zinc-100 lg:border-l lg:border-t-0 md:p-6">
+            <div className="border-t border-border/60 bg-muted p-5 text-foreground lg:border-l lg:border-t-0 md:p-6">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.18em] text-amber-300">
+                  <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">
                     Live sector board
                   </p>
-                  <h2 className="mt-2 text-xl font-semibold tracking-tight text-white">
+                  <h2 className="mt-2 text-xl font-semibold tracking-tight text-foreground">
                     Highest average short interest
                   </h2>
                 </div>
                 <TrendingDown
-                  className="h-5 w-5 text-amber-300"
+                  className="h-5 w-5 text-primary"
                   aria-hidden="true"
                 />
               </div>
-              <div className="mt-5 overflow-hidden rounded-md border border-zinc-800">
+              <div className="mt-5 overflow-hidden rounded-md border border-border">
                 {topIndustries.map((industry, index) => (
                   <Link
                     key={industry.slug}
                     href={`/industry/${industry.slug}`}
-                    className="grid grid-cols-[34px_minmax(0,1fr)_64px] items-center gap-3 border-b border-zinc-800 px-3 py-3 text-sm last:border-b-0 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/50"
+                    className="grid grid-cols-[34px_minmax(0,1fr)_64px] items-center gap-3 border-b border-border px-3 py-3 text-sm last:border-b-0 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                   >
-                    <span className="font-mono text-xs text-zinc-500">
+                    <span className="font-mono text-xs text-muted-foreground">
                       #{index + 1}
                     </span>
                     <span className="min-w-0">
-                      <span className="block truncate font-semibold text-white">
+                      <span className="block truncate font-semibold text-foreground">
                         {industry.name}
                       </span>
-                      <span className="block text-xs text-zinc-500">
+                      <span className="block text-xs text-muted-foreground">
                         {industry.stockCount} stocks tracked
                       </span>
                     </span>
-                    <span className="text-right font-mono font-semibold tabular-nums text-amber-100">
+                    <span className="text-right font-mono font-semibold tabular-nums text-primary">
                       {industry.avgShortPercent.toFixed(2)}%
                     </span>
                   </Link>
@@ -249,7 +251,7 @@ export default async function IndustryIndexPage() {
               href={`/industry/${industry.slug}`}
               className="group"
             >
-              <Card className="h-full hover:shadow-md transition-all duration-200 hover:border-primary/50">
+              <Card className="h-full hover:shadow-md transition-[box-shadow,border-color] duration-200 ease-out hover:border-primary/50">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">

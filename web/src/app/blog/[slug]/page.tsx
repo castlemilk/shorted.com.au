@@ -62,7 +62,7 @@ export default async function Post({ params }: Params) {
       <h6 className="text-base font-medium mt-2 mb-1" {...props}>{children}</h6>
     ),
     a: ({ children, ...props }: React.HTMLAttributes<HTMLAnchorElement>) => (
-      <a className="text-blue-500" {...props}>{children}</a>
+      <a className="text-primary hover:underline" {...props}>{children}</a>
     ),
     p: (props: React.HTMLAttributes<HTMLParagraphElement>) => (
       <p className="mt-4 mb-4" {...props} />
@@ -80,7 +80,7 @@ export default async function Post({ params }: Params) {
       <table className="w-full mt-4 mb-4" {...props} />
     ),
     tr: (props: React.HTMLAttributes<HTMLTableRowElement>) => (
-      <tr className="border-b border-gray-200" {...props} />
+      <tr className="border-b border-border" {...props} />
     ),
     th: (props: React.HTMLAttributes<HTMLTableCellElement>) => (
       <th className="px-4 py-2 text-left" {...props} />
@@ -151,7 +151,7 @@ export default async function Post({ params }: Params) {
 
           {/* Reading time indicator */}
           <div className="max-w-2xl mx-auto mb-8">
-            <div className="flex items-center gap-4 text-sm text-gray-500 border-b border-gray-200 pb-4">
+            <div className="flex items-center gap-4 text-sm text-muted-foreground border-b border-border pb-4">
               <time dateTime={post.date}>
                 {new Date(post.date).toLocaleDateString("en-AU", {
                   year: "numeric",

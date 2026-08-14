@@ -18,14 +18,7 @@ import {
   Printer,
 } from "lucide-react";
 import { create } from "@bufbuild/protobuf";
-import {
-  ScreenerSortField,
-  SortDirection,
-  type ScreenerFilters,
-  type ScreenerStock,
-  ScreenerFiltersSchema,
-  RangeFilterSchema,
-} from "~/gen/shorts/v1alpha1/shorts_pb";
+import { ScreenerSortField, SortDirection, type ScreenerFilters, type ScreenerStock, ScreenerFiltersSchema, RangeFilterSchema } from "~/gen/shorts/v1alpha1/screener_pb";
 import { screenStocks } from "~/app/actions/screenStocks";
 import { SCREENER_PRESETS, type ScreenerPreset } from "./presets";
 import { cn } from "~/@/lib/utils";

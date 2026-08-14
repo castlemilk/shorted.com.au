@@ -2,6 +2,7 @@ import { type Metadata } from "next";
 import { Suspense } from "react";
 import dynamic from "next/dynamic";
 import { siteConfig } from "~/@/config/site";
+import { pageTitle } from "~/@/lib/typography";
 import { BreadcrumbListSchema } from "~/@/components/seo/enhanced-structured-data";
 import { ScreenerFallback } from "./screener-fallback";
 
@@ -71,20 +72,13 @@ export async function generateMetadata({
       siteName: siteConfig.name,
       type: "website",
       locale: "en_AU",
-      images: [
-        {
-          url: siteConfig.ogImage,
-          width: 1200,
-          height: 630,
-          alt: "ASX Stock Screener — Shorted.com.au",
-        },
-      ],
+    // No `images` key: this route ships its own opengraph-image.tsx and an
+    // explicit `images` here would SHADOW the file convention.
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [siteConfig.ogImage],
     },
     alternates: {
       canonical: preset
@@ -172,7 +166,7 @@ export default function ScreenerPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(webApplicationSchema) }}
       />
       <div className="container mx-auto px-4 pt-6 pb-2 max-w-7xl">
-        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+        <h1 className={pageTitle}>
           ASX Short Interest Screener
         </h1>
         <p className="text-muted-foreground mt-2 max-w-2xl text-sm leading-relaxed">

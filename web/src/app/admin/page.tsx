@@ -31,6 +31,7 @@ import {
   Database,
 } from "lucide-react";
 import { AdminFilters } from "./admin-filters";
+import { CachePanel } from "./cache-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -83,11 +84,11 @@ function getFleetHealth(overview: JobsOverviewData): FleetHealth {
 function StatusIcon({ status }: { status: "healthy" | "degraded" | "critical" }) {
   switch (status) {
     case "healthy":
-      return <CheckCircle2 className="h-5 w-5 text-emerald-500" />;
+      return <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />;
     case "degraded":
-      return <AlertTriangle className="h-5 w-5 text-amber-500" />;
+      return <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />;
     case "critical":
-      return <XCircle className="h-5 w-5 text-red-500" />;
+      return <XCircle className="h-5 w-5 text-destructive" />;
   }
 }
 
@@ -105,7 +106,7 @@ function RunHealthBadge({ run }: { run: SyncRun }) {
         </Badge>
         {run.errorMessage && (
           <span
-            className="text-xs text-red-500 max-w-[150px] truncate cursor-help"
+            className="text-xs text-destructive max-w-[150px] truncate cursor-help"
             title={run.errorMessage}
           >
             {run.errorMessage}
@@ -197,7 +198,7 @@ function EnvironmentBadge({ environment, hostname }: { environment: string; host
         variant={isProduction ? "default" : "outline"}
         className={
           isProduction
-            ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 text-xs"
+            ? "bg-primary/10 text-primary border-primary/30 text-xs"
             : "text-xs"
         }
       >
@@ -293,6 +294,9 @@ export default async function AdminDashboard({ searchParams }: AdminPageProps) {
 
         {/* PRIMARY: all async jobs */}
         <JobsOverview overview={jobsOverview} />
+
+        {/* Cache & revalidation controls */}
+        <CachePanel />
 
         {/* SECONDARY: market-data sync_status record detail */}
         <Card>

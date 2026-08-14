@@ -15,7 +15,18 @@ lint:
   except:
     - FIELD_NOT_REQUIRED
     - PACKAGE_NO_IMPORT_CYCLE
+  # The legacy monolithic ShortedStocksService intentionally shares its
+  # request/response messages with the per-domain services (market/stock/
+  # housing/...) that supersede it for web clients.
+  ignore_only:
+    RPC_REQUEST_RESPONSE_UNIQUE:
+      - shortedapi/shorts/v1alpha1
   disallow_comment_ignores: true
+# NOTE: the 2026-07 shorts.proto per-domain split moved every message/enum out
+# of shorts.proto into 12 domain files — an accepted one-time FILE-level break
+# (wire/JSON-compatible; Go/TS outputs regenerate under the same packages).
+# `buf breaking` against any pre-split baseline reports MESSAGE/ENUM_NO_DELETE
+# for that move; baselines reset at that merge.
 breaking:
   use:
     - FILE

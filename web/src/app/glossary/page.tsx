@@ -1,4 +1,5 @@
 import { type Metadata } from "next";
+import { pageTitle } from "~/@/lib/typography";
 import Link from "next/link";
 import { BookOpen, ChevronRight } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
@@ -12,6 +13,7 @@ import {
 import { BreadcrumbListSchema } from "~/@/components/seo/enhanced-structured-data";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { glossaryTerms } from "~/@/data/glossary-terms";
+import { createSlug } from "~/@/lib/industry-slug";
 
 export const metadata: Metadata = {
   title: "Short Selling Glossary | Key Terms & Definitions",
@@ -36,21 +38,14 @@ export const metadata: Metadata = {
     siteName: siteConfig.name,
     type: "website",
     locale: "en_AU",
-    images: [
-      {
-        url: siteConfig.ogImage,
-        width: 1200,
-        height: 630,
-        alt: "Short Selling Glossary - Key Terms & Definitions",
-      },
-    ],
+    // No `images` key: this route ships its own opengraph-image.tsx and an
+    // explicit `images` here would SHADOW the file convention.
   },
   twitter: {
     card: "summary_large_image",
     title: "Short Selling Glossary | Key Terms & Definitions",
     description:
       "Comprehensive glossary of short selling terms and definitions.",
-    images: [siteConfig.ogImage],
   },
   alternates: {
     canonical: `${siteConfig.url}/glossary`,
@@ -118,7 +113,7 @@ export default function GlossaryPage() {
               <BookOpen className="h-8 w-8 text-primary" />
             </div>
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+              <h1 className={pageTitle}>
                 Short Selling Glossary
               </h1>
               <p className="text-muted-foreground mt-1">
@@ -171,7 +166,7 @@ export default function GlossaryPage() {
                           {item.related.map((related) => (
                             <Link
                               key={related}
-                              href={`/glossary/${related.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`}
+                              href={`/glossary/${createSlug(related)}`}
                               className="text-xs px-2 py-1 rounded bg-muted hover:bg-muted/80 transition-colors"
                             >
                               {related}

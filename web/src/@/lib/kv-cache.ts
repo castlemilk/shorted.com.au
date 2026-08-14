@@ -117,6 +117,17 @@ export const TOP_PAGE_TTL = 86400; // 24h, flushed on data change
 // shorts-data flush, so this key lives outside SHORTS_DATA_CACHE_PREFIXES and
 // relies purely on TTL expiry — 24h is far tighter than the quarterly cadence.
 export const HOUSING_TTL = 86400;
+// Price-drops are derived from the residential-listing crawl, which re-ingests
+// ~once/day. Cache hard (24h ceiling) and bust the cache:housing: prefix on the
+// crawl-change event via /api/revalidate?flush=housing; the ceiling bounds
+// staleness if a flush is ever missed.
+export const PRICE_DROPS_TTL = 86400;
+// Economy series update at most daily (RBA FX) and mostly monthly/quarterly;
+// 6h TTL keeps regen cheap while bounding staleness well inside any cadence.
+// Load-bearing beyond perf: a live-RPC failure during an ISR regen would bake
+// the /economy placeholder for an hour — the KV entry is the last-good
+// fallback that prevents that (same rationale as getHousingOverview).
+export const ECONOMY_TTL = 21600;
 
 // Prefixes covering all data derived from the `shorts` table — flushed together
 // when a sync writes new ASIC data.
@@ -126,10 +137,99 @@ export const SHORTS_DATA_CACHE_PREFIXES = [
   TOOLTIP_CACHE_PREFIX,
 ] as const;
 
+// All house-price / price-drops data lives under cache:housing: (housingOverview
+// + the price-drops keys), so one prefix flushes the whole surface together on a
+// housing data-change event (crawl ingest) via /api/revalidate?flush=housing.
+export const HOUSING_DATA_CACHE_PREFIXES = ["cache:housing:"] as const;
+
+// Register-of-interests data changes only when the APH crawl re-ingests (weekly
+// during sitting periods). Cache hard with a 24h ceiling and bust the whole
+// family on the ingest event via /api/revalidate?flush=politicians.
+export const POLITICIANS_TTL = 86400;
+export const POLITICIANS_DATA_CACHE_PREFIXES = ["cache:politicians:"] as const;
+
 /**
  * Cache keys for various data types
  */
 export const CACHE_KEYS = {
+  // --- Registers of Members'/Senators' Interests ---
+  parliamentOverview: () => `cache:politicians:overview`,
+  politicianList: (chamber: string, state: string, party: string, query: string, limit: number, offset: number) =>
+    `cache:politicians:list:${chamber || "all"}:${state || "all"}:${party || "all"}:${query || "-"}:${limit}:${offset}`,
+  politicianProfile: (slug: string) => `cache:politicians:profile:${slug}`,
+  stockPoliticians: (stockCode: string) => `cache:politicians:stock:${stockCode}`,
+  politicianStocks: (limit: number, currentOnly: boolean) =>
+    `cache:politicians:stocks:${limit}:${currentOnly ? "current" : "all"}`,
+  politicianAnalytics: (topIndustries: number, currentOnly: boolean) =>
+    `cache:politicians:analytics:${topIndustries}:${currentOnly ? "current" : "all"}`,
+  suburbPoliticians: (salCode: string) => `cache:politicians:suburb:${salCode}`,
+  statePoliticianHoldings: (state: string, limit: number) =>
+    `cache:politicians:state:${state}:${limit}`,
+  registerChanges: (since: string, kind: string, limit: number, offset: number) =>
+    `cache:politicians:changes:${since || "all"}:${kind || "all"}:${limit}:${offset}`,
+  shortInterestOverlap: (minPct: number, limit: number) =>
+    `cache:politicians:short-overlap:${minPct}:${limit}`,
+  // The activity explorer's rails and weekly strip (GetRegisterActivity).
+  //
+  // EVERY input is in the key, and every one of them CLAMPED. The window is
+  // clamped because the handler rounds a request UP to the next supported window
+  // (45 -> 90), so a key built from the raw request would give 45 and 90 two
+  // entries for one identical response — and, worse, an entry whose key claims a
+  // window the response does not have. The five filters are in the key because
+  // the rpc now narrows the weekly buckets and the two filtered counts by them:
+  // omitting one would serve a member's own weekly strip under the whole
+  // parliament's name, or the reverse. The three rails inside the response are
+  // corpus-wide either way, so a filtered entry is a superset, never a
+  // contradiction.
+  registerActivity: (
+    windowDays: number,
+    kind: string,
+    slug: string,
+    itemNo: number,
+    party: string,
+    chamber: string,
+  ) =>
+    `cache:politicians:activity:${windowDays}:${kind || "all"}:${slug || "all"}:${itemNo || 0}:${party || "all"}:${chamber || "all"}`,
+  // The activity explorer's feed (ListRegisterChanges with the discovery
+  // filters). EVERY input is in the key, including the ones the older
+  // `registerChanges` key above predates — a key that omits an input serves one
+  // filter's rows under another filter's name, which on this surface means
+  // publishing one member's register events beside a different member's name.
+  //
+  // `since` is a YYYY-MM-DD DAY, not an instant: the window is a number of days
+  // and the caller anchors it to a UTC midnight, so the key changes once a day
+  // rather than once a request.
+  registerChangeFeed: (
+    since: string,
+    kind: string,
+    slug: string,
+    itemNo: number,
+    party: string,
+    chamber: string,
+    limit: number,
+    offset: number,
+  ) =>
+    `cache:politicians:changes:v2:${since || "all"}:${kind || "all"}:${slug || "all"}:${itemNo || 0}:${party || "all"}:${chamber || "all"}:${limit}:${offset}`,
+  // The hub explorer aggregates (GetRegisterExplorer). One entry — the rpc takes
+  // no arguments — so nothing can poison it by argument drift.
+  politicianExplorer: () => `cache:politicians:explorer`,
+  // The hub table (ListPoliticianSummaries). EVERY input is in the key, and the
+  // caller normalises/clamps them to the same bounds the backend clamps to
+  // BEFORE building it: a key built from the raw request would give
+  // limit=1000 and limit=200 separate entries for one identical response, and
+  // "house"/"House" two entries for one query.
+  politicianSummaries: (
+    chamber: string,
+    state: string,
+    party: string,
+    itemNo: number,
+    query: string,
+    sort: string,
+    limit: number,
+    offset: number,
+  ) =>
+    `cache:politicians:summaries:${chamber || "all"}:${state || "all"}:${party || "all"}:${itemNo || 0}:${query || "-"}:${sort}:${limit}:${offset}`,
+
   statistics: `${CACHE_PREFIX}statistics`,
   topStocks: (limit: number) => `${CACHE_PREFIX}top-stocks:${limit}`,
   // Homepage cache keys
@@ -142,6 +242,25 @@ export const CACHE_KEYS = {
   // Housing overview — TTL-only (see HOUSING_TTL); not under the shorts flush.
   housingOverview: (regionType: string) =>
     `cache:housing:overview:${regionType || "all"}`,
+  // Economy series — TTL-only (see ECONOMY_TTL). Keyed on the sorted key list
+  // so logically-equal requests share one entry (mirrors the backend handler's
+  // normalization).
+  economicSeries: (sortedKeys: string) => `cache:economy:series:${sortedKeys}`,
+  // Price-drops (residential-listing derived) — TTL-hard + flushed on the crawl
+  // event via HOUSING_DATA_CACHE_PREFIXES. Every parameter of the action is in
+  // its key so no two argument sets can ever share (poison) an entry.
+  priceDropsOverview: () => `cache:housing:drops:overview`,
+  suburbPriceDrops: (stateCode: string, sort: string, limit: number) =>
+    `cache:housing:drops:suburbs:${stateCode || "all"}:${sort}:${limit}`,
+  agencyPriceStats: (stateCode: string, sort: string, limit: number) =>
+    `cache:housing:drops:agencies:${stateCode || "all"}:${sort}:${limit}`,
+  addressPriceDrops: (
+    stateCode: string,
+    windowDays: number,
+    limit: number,
+    sort: string,
+  ) =>
+    `cache:housing:drops:addresses:${stateCode || "all"}:${windowDays}:${limit}:${sort}`,
   // Tooltip cache keys
   tooltipData: (productCode: string) =>
     `${TOOLTIP_CACHE_PREFIX}${productCode}`,

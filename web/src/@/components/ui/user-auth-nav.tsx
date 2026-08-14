@@ -80,7 +80,7 @@ export const UserAuthNav = () => {
           </DropdownMenuItem>
           <DropdownMenuItem
             asChild
-            className="cursor-pointer focus:bg-secondary text-blue-500 font-medium"
+            className="cursor-pointer focus:bg-secondary text-primary font-medium"
           >
             <Link href="/docs/api" className="w-full">
               API Documentation
@@ -91,7 +91,7 @@ export const UserAuthNav = () => {
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 asChild
-                className="cursor-pointer focus:bg-secondary text-purple-500 font-medium"
+                className="cursor-pointer focus:bg-secondary text-orange-700 dark:text-orange-300 font-medium"
               >
                 <Link href="/admin" className="w-full">
                   Admin: Sync Status
@@ -99,10 +99,26 @@ export const UserAuthNav = () => {
               </DropdownMenuItem>
               <DropdownMenuItem
                 asChild
-                className="cursor-pointer focus:bg-secondary text-purple-500 font-medium"
+                className="cursor-pointer focus:bg-secondary text-orange-700 dark:text-orange-300 font-medium"
               >
                 <Link href="/admin/enrichments" className="w-full">
                   Admin: Enrichments
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                asChild
+                className="cursor-pointer focus:bg-secondary text-orange-700 dark:text-orange-300 font-medium"
+              >
+                <Link href="/admin/register/politicians" className="w-full">
+                  Admin: Politician records
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                asChild
+                className="cursor-pointer focus:bg-secondary text-orange-700 dark:text-orange-300 font-medium"
+              >
+                <Link href="/admin/register/securities" className="w-full">
+                  Admin: Register review
                 </Link>
               </DropdownMenuItem>
             </>

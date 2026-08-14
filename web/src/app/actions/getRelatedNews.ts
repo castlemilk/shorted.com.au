@@ -1,7 +1,7 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
-import { type GetRelatedNewsResponse } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { NewsService } from "~/gen/shorts/v1alpha1/news_pb";
+import { type GetRelatedNewsResponse } from "~/gen/shorts/v1alpha1/news_pb";
 import { cache } from "react";
 import { SERVER_SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 import { withRetryAndNotFound } from "./withRetry";
@@ -17,7 +17,7 @@ export const getRelatedNews = cache(
         fetch: serverFetchWithUserAgent,
         baseUrl: SERVER_SHORTS_API_URL,
       });
-      const client = createClient(ShortedStocksService, transport);
+      const client = createClient(NewsService, transport);
       return client.getRelatedNews({ stockCode, limit, articleId });
     },
   ),

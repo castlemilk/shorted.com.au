@@ -16,8 +16,9 @@ export function DataAttribution() {
         © OpenStreetMap contributors
       </a>{" "}
       (ODbL); Australian Bureau of Statistics, ACARA, Geoscience Australia, and
-      NBN Co (CC BY 4.0). Amenity figures are derived per-suburb counts, not
-      address-level guarantees.
+      NBN Co (CC BY 4.0). NSW Bureau of Crime Statistics and Research (CC BY
+      4.0; crime rates adjusted to the ABS Crime Victimisation Survey). Amenity
+      figures are derived per-suburb counts, not address-level guarantees.
     </p>
   );
 }

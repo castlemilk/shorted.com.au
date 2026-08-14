@@ -5,8 +5,10 @@ import Link from "next/link";
 
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { getHousingOverview } from "~/app/actions/getHousing";
+import { bailOnEmptyRender } from "~/app/actions/config";
 import { HousingTiles, type HousingTile } from "@/components/housing/housing-tiles";
 import { HousingSeriesChart } from "@/components/housing/housing-charts";
+import { AffordabilityPanel } from "@/components/housing/affordability-panel";
 import { HousingZoomMap } from "@/components/housing/housing-zoom-map-loader";
 import { SuburbPriceDropsPanel } from "@/components/housing/suburb-price-drops-panel-loader";
 import { WhenVisible } from "@/components/housing/when-visible";
@@ -19,7 +21,7 @@ import { HousingIcon, type HousingIconName } from "@/components/housing/housing-
 const URL = "https://shorted.com.au/housing";
 const TITLE = "Australian House Prices Tracker";
 const DESCRIPTION =
-  "Live Australian house-price data — national and capital-city mean & median dwelling prices, quarterly change, and household debt-to-income — sourced from the ABS and RBA.";
+  "Live Australian house-price, affordability, mortgage-rate, housing-credit and household balance-sheet data sourced from the ABS and RBA.";
 
 export const revalidate = 3600;
 
@@ -88,10 +90,15 @@ function ChartCard({ title, subtitle, children, icon }: { title: string; subtitl
 export default async function HousingPage() {
   const overview = await getHousingOverview("");
   const metrics = overview?.metrics ?? [];
+  // A failed/cold fetch must not bake the "data is loading" shell into the
+  // route cache for the whole revalidate window.
+  if (metrics.length === 0) bailOnEmptyRender();
 
   const national = metrics.find((m) => m.regionCode === "AUS" && m.measure === "mean_price");
   const dti = metrics.find((m) => m.regionCode === "AUS" && m.measure === "debt_to_income");
-  const index = metrics.find((m) => m.regionCode === "AUS" && m.measure === "price_index");
+  const index = metrics.find(
+    (m) => m.regionCode === "AUS" && m.measure === "price_index_derived",
+  );
   const capitals = metrics
     .filter((m) => m.regionType === "gccsa" && m.measure === "median_price" && m.dwellingType === "established_house")
     .sort((a, b) => b.value - a.value);
@@ -137,7 +144,7 @@ export default async function HousingPage() {
     isAccessibleForFree: true,
     license: "https://creativecommons.org/licenses/by/4.0/",
     spatialCoverage: "Australia",
-    temporalCoverage: "2003/..",
+    temporalCoverage: "1977/..",
     sourceOrganization: [
       { "@type": "GovernmentOrganization", name: "Australian Bureau of Statistics", url: "https://abs.gov.au" },
       { "@type": "Organization", name: "Reserve Bank of Australia", url: "https://rba.gov.au" },
@@ -151,7 +158,7 @@ export default async function HousingPage() {
         description={DESCRIPTION}
         url={URL}
         dataSource="ABS, RBA"
-        dataFrequency="quarterly"
+        dataFrequency="monthly and quarterly"
         keywords={["Australian house prices", "ABS residential property", "household debt to income"]}
       />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
@@ -162,9 +169,16 @@ export default async function HousingPage() {
             Australian house prices
           </h1>
           <p className="mt-3 max-w-2xl text-muted-foreground">
-            National and capital-city dwelling prices and household debt, quarterly,
-            from the Australian Bureau of Statistics and the Reserve Bank
+            National and capital-city dwelling prices, affordability, credit and
+            household balance sheets from the Australian Bureau of Statistics and
+            the Reserve Bank
             {asOf ? ` · as of ${asOf}` : ""}.
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Looking for the broader picture?{" "}
+            <Link href="/economy" className="font-medium text-primary underline-offset-4 hover:underline">
+              Explore the Australian economy dashboard →
+            </Link>
           </p>
         </header>
 
@@ -197,9 +211,9 @@ export default async function HousingPage() {
               {index ? (
                 <BigStat
                   icon="price-index"
-                  label="8-capital price index"
+                  label="National dwelling price index"
                   value={index.value.toFixed(1)}
-                  sub="ABS RPPI (2011–12 = 100, to 2021)"
+                  sub="Shorted rebase of ABS national mean dwelling prices · first quarter = 100"
                 />
               ) : null}
             </div>
@@ -227,14 +241,28 @@ export default async function HousingPage() {
               <HousingTiles tiles={capitalTiles} />
             </section>
 
-            <div>
-              <SuburbPriceDropsPanel title="Biggest price drops by suburb" limit={25} />
-              <div className="mt-2">
-                <Link href="/housing/drops" className="inline-flex items-center gap-1 text-sm text-primary underline-offset-2 hover:underline">
-                  See biggest price drops by individual address →
-                </Link>
-              </div>
-            </div>
+            <section>
+              <Link
+                href="/price-drops"
+                className="group flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/50"
+              >
+                <div>
+                  <h2 className="flex items-center gap-2 font-serif text-xl text-foreground">
+                    <HousingIcon name="median-price" size={20} /> Price drops — by state, suburb &amp; agency
+                  </h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Where asking prices are falling: cuts ranked by state, suburb,
+                    individual address and real-estate agency, tracked daily from
+                    live portal listings.
+                  </p>
+                </div>
+                <span className="font-mono text-sm text-primary transition-transform group-hover:translate-x-0.5">
+                  Open price drops →
+                </span>
+              </Link>
+            </section>
+
+            <SuburbPriceDropsPanel title="Biggest price drops by suburb" limit={25} />
 
             <section>
               <Link
@@ -268,14 +296,54 @@ export default async function HousingPage() {
                   <HousingSeriesChart regionCode="AUS" measure="debt_to_income" ariaLabel="Household debt to income ratio" format="percent" />
                 </WhenVisible>
               </ChartCard>
+              <ChartCard
+                icon="price-index"
+                title="National dwelling price index"
+                subtitle="Shorted-derived from ABS RES_DWELL_ST · earliest quarter = 100 · CC BY 4.0"
+              >
+                <WhenVisible>
+                  <HousingSeriesChart
+                    regionCode="AUS"
+                    measure="price_index_derived"
+                    ariaLabel="National dwelling price index"
+                    format="index"
+                  />
+                </WhenVisible>
+              </ChartCard>
             </section>
+
+            <AffordabilityPanel />
           </>
         )}
 
+        <section>
+          <Link
+            href="/features/the-widow-maker"
+            className="group flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 p-5 transition-colors hover:border-primary/60"
+          >
+            <div>
+              <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-primary">
+                Featured investigation
+              </p>
+              <h2 className="mt-1 font-serif text-xl text-foreground">
+                Why betting against Australian housing keeps failing
+              </h2>
+              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                The tax settings, bank credit and global cautionary tales behind
+                Australia&apos;s widow-maker trade.
+              </p>
+            </div>
+            <span className="font-mono text-sm text-primary transition-transform group-hover:translate-x-0.5">
+              Read the investigation →
+            </span>
+          </Link>
+        </section>
+
         <p className="border-t border-border pt-4 text-xs text-muted-foreground">
-          Sources: Australian Bureau of Statistics (Residential Dwellings, CC BY 4.0)
-          and Reserve Bank of Australia. Quarterly; the most recent quarter may be
-          preliminary. Not financial advice.
+          Sources: Australian Bureau of Statistics (Residential Dwellings,
+          Lending, CPI and WPI) and Reserve Bank of Australia Tables D1, E1, E2,
+          F1.1 and F6 (CC BY 4.0). Monthly and quarterly series; the most recent
+          period may be preliminary. Not financial advice.
         </p>
       </div>
     </DashboardLayout>

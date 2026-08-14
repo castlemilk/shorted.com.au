@@ -237,6 +237,13 @@ const config = {
         source: "/embed/:path*",
         headers: [
           {
+            // NOTE: third-party framing is granted by `frame-ancestors *` in
+            // the CSP below, NOT by this header. "ALLOWALL" is not a valid
+            // X-Frame-Options token and every browser ignores it; it is kept
+            // only so this route does not inherit the global SAMEORIGIN (a
+            // more specific Next header rule REPLACES the global one for the
+            // same key rather than appending, so exactly one XFO is served).
+            // Verified 2026-07-28 by framing /embed/chart from example.com.
             key: "X-Frame-Options",
             value: "ALLOWALL",
           },
@@ -299,8 +306,13 @@ const config = {
         destination: `${firebaseAuthHelperOrigin}/__/firebase/:path*`,
       },
       {
-        source: "/shorts.v1alpha1.ShortedStocksService/:path*",
-        destination: `${shortsApiUrl}/shorts.v1alpha1.ShortedStocksService/:path*`,
+        // Every shorts.v1alpha1 service — the legacy ShortedStocksService and
+        // the per-domain services (MarketService, HousingService, ...) from
+        // the shorts.proto split. One regex-constrained param instead of a
+        // hand-maintained service list: new domain services proxy without
+        // touching this file.
+        source: "/:service(shorts\\.v1alpha1\\.[A-Za-z]+Service)/:path*",
+        destination: `${shortsApiUrl}/:service/:path*`,
       },
       {
         source: "/register.v1.RegisterService/:path*",
@@ -370,6 +382,38 @@ export default withBundleAnalyzer(
       outputFileTracingIncludes: {
         "/sitemap.xml": ["./_blogs/**/*"],
         "/feed.xml": ["./_blogs/**/*"],
+        // getOgLogo() reads these through computed filesystem paths in the
+        // shared OG card helper, which nft cannot discover. Apply them to every
+        // OG route so new shared-card importers are covered automatically.
+        "/**/opengraph-image": [
+          "./public/icon-512.png",
+          "./public/logo.png",
+        ],
+        // OG card assets. The scene JPEGs and the state-boundary topojson are
+        // read with readFileSync at REQUEST time inside opengraph-image
+        // lambdas, and nft does not trace those reads — measured on prod
+        // 2026-08-09: the suburb card had shipped scene-less since it landed,
+        // and the state silhouettes fell back to plain cards. Inline-literal
+        // paths did NOT fix it (tried); these explicit includes are the same
+        // mechanism the sitemap/feed routes above rely on.
+        "/housing/opengraph-image": ["./public/housing-banners/og/**/*"],
+        "/housing/[state]/[suburb]/opengraph-image": [
+          "./public/housing-banners/og/**/*",
+        ],
+        "/housing/[state]/opengraph-image": [
+          "./public/geo/states.topojson",
+          "./public/icon-512.png",
+          "./public/logo.png",
+        ],
+        "/housing/calculators/opengraph-image": [
+          "./public/icon-512.png",
+          "./public/logo.png",
+        ],
+        "/price-drops/opengraph-image": [
+          "./public/icon-512.png",
+          "./public/logo.png",
+        ],
+        "/economy/[state]/opengraph-image": ["./public/geo/states.topojson"],
       },
       // Externalize protobuf and connect packages to prevent SSR bundling issues
       serverComponentsExternalPackages: [
@@ -429,6 +473,27 @@ export default withBundleAnalyzer(
           hostname: "localhost",
           port: "3020",
         },
+        // News publisher CDNs — lets NewsCard thumbnails flow through the
+        // /_next/image optimizer (resized AVIF/WebP) instead of shipping the
+        // publisher's full-size JPEG. KEEP IN SYNC with OPTIMIZED_HOSTS in
+        // src/@/components/news/news-image.tsx (unlisted hosts fall back to a
+        // plain <img>, so drift degrades quality, it never crashes).
+        { protocol: "https", hostname: "stockhead.com.au" },
+        { protocol: "https", hostname: "www.stockhead.com.au" },
+        { protocol: "https", hostname: "smallcaps.com.au" },
+        { protocol: "https", hostname: "www.smallcaps.com.au" },
+        { protocol: "https", hostname: "fool.com.au" },
+        { protocol: "https", hostname: "www.fool.com.au" },
+        { protocol: "https", hostname: "kalkinemedia.com" },
+        { protocol: "https", hostname: "www.kalkinemedia.com" },
+        // Wikimedia Commons — the ONLY host `politicians.photo_url` holds
+        // (measured: 241/241 non-empty URLs). Portraits are served into 32-96px
+        // avatar boxes and Commons ships 300-500px PNG/JPEG originals, so
+        // routing them through the optimizer is the single biggest transfer win
+        // on /politicians. KEEP IN SYNC with OPTIMIZED_PORTRAIT_HOSTS in
+        // src/@/components/politicians/politician-avatar.tsx — an unlisted host
+        // there falls back to a plain <img>, so drift degrades, never crashes.
+        { protocol: "https", hostname: "upload.wikimedia.org" },
       ],
       formats: ["image/avif", "image/webp"],
       deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],

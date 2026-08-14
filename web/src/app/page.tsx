@@ -3,6 +3,8 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { FileText, ChevronRight } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
+import { cn } from "~/@/lib/utils";
+import { pageTitle, sectionTitle, eyebrow } from "~/@/lib/typography";
 import { weeklyReportPath } from "~/@/lib/reports/weekly-slug";
 import { Suspense } from "react";
 import { HomeContent } from "./home-content";
@@ -11,7 +13,7 @@ import { toJson } from "@bufbuild/protobuf";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
 import { getIndustryTreeMap } from "~/app/actions/getIndustryTreeMap";
 import { TimeSeriesDataSchema, IndustryTreeMapSchema } from "~/gen/stocks/v1alpha1/stocks_pb";
-import type { ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
+import type { ViewMode } from "~/gen/shorts/v1alpha1/market_pb";
 
 // Dynamic import to avoid SSR issues — component imports @connectrpc/connect
 const BreakingNewsBanner = dynamic(
@@ -23,10 +25,13 @@ import {
   EnhancedOrganizationSchema,
 } from "~/@/components/seo/enhanced-structured-data";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
+import { HomepageFaq } from "~/@/components/home/homepage-faq";
+import { Disclosure } from "~/@/components/ui/disclosure";
 import { PremiumUpsellBanner } from "~/@/components/premium/premium-upsell-banner";
 import { getEnhancedWeeklyReportData, getAvailableWeekSlugs } from "~/app/actions/reports/getReportData";
 import { BrowseByIndustry } from "./browse-by-industry";
 import { TrendingThisWeek } from "./trending-this-week";
+import { ShortFlowNarrative } from "./short-flow-narrative";
 import { LatestFromBlog } from "./latest-from-blog";
 import { LatestMarketNews } from "./latest-market-news";
 import { FeaturedStory } from "~/@/components/news/masthead/featured-story";
@@ -43,7 +48,7 @@ export const metadata: Metadata = {
   description: siteConfig.description,
   keywords: siteConfig.keywords,
   openGraph: {
-    title: siteConfig.fullTitle,
+    title: siteConfig.socialTitle,
     description: siteConfig.description,
     url: siteConfig.url,
     siteName: siteConfig.name,
@@ -60,7 +65,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: siteConfig.fullTitle,
+    title: siteConfig.socialTitle,
     description: siteConfig.description,
     images: [siteConfig.ogImage],
   },
@@ -113,7 +118,7 @@ async function WeeklyReportBanner() {
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-primary uppercase tracking-wider">
+                <span className={cn(eyebrow, "font-medium text-primary")}>
                   Latest Report
                 </span>
                 <span className="text-xs text-muted-foreground">
@@ -166,7 +171,7 @@ export default async function Page() {
           one here with a different SearchAction target confuses parsers. */}
       <EnhancedOrganizationSchema />
       <LLMMeta
-        title="Shorted - Official ASIC Short Position Data for ASX Stocks"
+        title="Most Shorted ASX Stocks — Official ASIC Short Selling Data"
         description="Track short selling positions on the ASX using official ASIC data. Free daily updates, interactive charts, industry heatmaps, and analysis of the most shorted Australian stocks."
         keywords={[
           "ASIC short position data",
@@ -182,22 +187,14 @@ export default async function Page() {
 
       {/* Page header with SEO-optimized content */}
       <header className="container mx-auto px-4 pt-8 pb-4">
-        <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
-          Shorting the ASX: Official Short Position Data from ASIC
+        <h1 className={pageTitle}>
+          Shorting the ASX: Australia&apos;s Most Shorted Stocks, from Official
+          ASIC Data
         </h1>
         <p className="text-muted-foreground mt-2 max-w-2xl">
           Everything you need to track shorting on the ASX — official ASIC short
           selling data updated daily with T+4 delay. Follow the most shorted ASX
           stocks, analyze short interest trends, and explore industry heatmaps.
-        </p>
-        {/* Extended description for SEO - visually hidden but accessible */}
-        <p className="sr-only">
-          Shorted.com.au provides free daily short position data sourced directly from
-          ASIC (Australian Securities and Investments Commission). View the top 100 most
-          shorted stocks on the ASX, interactive historical charts, industry sector
-          breakdowns, and comprehensive analysis. Data is updated daily with T+4 trading
-          day delay as published by ASIC. Track short interest trends, identify heavily
-          shorted companies, and monitor bearish sentiment across the Australian market.
         </p>
       </header>
 
@@ -238,10 +235,50 @@ export default async function Page() {
         <TrendingThisWeek />
       </Suspense>
 
+      {/* Auto-generated building/covering prose — daily-changing indexable
+          text from the same cached 1w movers data TrendingThisWeek uses */}
+      <Suspense fallback={null}>
+        <ShortFlowNarrative />
+      </Suspense>
+
       {/* Browse by Industry — server-rendered for SEO internal linking */}
       <Suspense fallback={null}>
         <BrowseByIndustry />
       </Suspense>
+
+      {/* Macro dashboards — cross-links to the housing + economy surfaces */}
+      <section className="container mx-auto px-4 py-6">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Link
+            href="/economy"
+            className="group rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/50"
+          >
+            <p className={eyebrow}>Macro dashboard</p>
+            <h2 className="mt-1 font-serif text-xl font-semibold">
+              Australian economy
+              <ChevronRight className="ml-1 inline h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100" />
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Interactive state map — unemployment, trade, state final demand and
+              fuel, with cash rate and CPI. ABS, RBA and DCCEEW open data.
+            </p>
+          </Link>
+          <Link
+            href="/housing"
+            className="group rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/50"
+          >
+            <p className={eyebrow}>Macro dashboard</p>
+            <h2 className="mt-1 font-serif text-xl font-semibold">
+              House prices tracker
+              <ChevronRight className="ml-1 inline h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100" />
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              National and suburb-level prices, demographics and drilldown maps
+              from ABS and RBA data.
+            </p>
+          </Link>
+        </div>
+      </section>
 
       {/* Featured investigation — flagship editorial long-read */}
       {FEATURED[0] && (
@@ -255,35 +292,91 @@ export default async function Page() {
         <LatestFromBlog />
       </Suspense>
 
-      {/* Visible intro for SEO — crawlable content explaining the platform */}
+      {/* Background copy, collapsed. Native <details> keeps every word in the
+          server-rendered HTML for crawlers while the page ends on links
+          rather than three paragraphs of prose. */}
       <section className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-muted-foreground">
-          <div>
-            <h2 className="text-sm font-semibold text-foreground mb-1">Official ASIC Data</h2>
+        <h2 className={cn(sectionTitle, "mb-2")}>
+          About this data
+        </h2>
+        <div className="rounded-lg border border-border/60 px-4">
+          <Disclosure
+            title={
+              <h3 className="text-sm font-semibold text-foreground">
+                Where the data comes from
+              </h3>
+            }
+            hint="Official ASIC reports"
+          >
             <p>
-              All short position data is sourced directly from ASIC (Australian Securities
-              and Investments Commission) daily reports. We track over 4,500 ASX-listed
-              securities with historical data from 2010 to present.
+              All short position data is sourced directly from ASIC (Australian
+              Securities and Investments Commission) daily reports. We track over
+              4,500 ASX-listed securities with historical data from 2010 to
+              present — the top 100 short positions on the ASX, with interactive
+              historical charts and industry sector breakdowns.
             </p>
-          </div>
-          <div>
-            <h2 className="text-sm font-semibold text-foreground mb-1">T+4 Trading Day Delay</h2>
+          </Disclosure>
+          <Disclosure
+            title={
+              <h3 className="text-sm font-semibold text-foreground">
+                Why the data is 4 trading days old
+              </h3>
+            }
+            hint="T+4 reporting delay"
+          >
             <p>
-              ASIC publishes short position data with a 4 trading day delay to balance
-              market transparency with preventing potential manipulation. Data shown
-              reflects positions from 4 trading days ago, not real-time figures.
+              ASIC publishes short position data with a 4 trading day delay to
+              balance market transparency with preventing potential manipulation.
+              Data shown reflects positions from 4 trading days ago, not
+              real-time figures.
             </p>
-          </div>
-          <div>
-            <h2 className="text-sm font-semibold text-foreground mb-1">Charts & Analysis</h2>
+          </Disclosure>
+          <Disclosure
+            title={
+              <h3 className="text-sm font-semibold text-foreground">
+                What you can do here
+              </h3>
+            }
+            hint="Charts, screeners and reports"
+          >
             <p>
-              View interactive historical charts, industry heatmaps, and weekly reports.
-              Screen stocks by short interest, days to cover, director trades, and news
-              sentiment. Track the most shorted ASX stocks with daily updates.
+              View interactive historical charts, industry heatmaps, and weekly
+              reports. Screen stocks by short interest, days to cover, director
+              trades, and news sentiment. Track short interest trends, identify
+              heavily shorted companies, and monitor bearish sentiment across the
+              Australian market.
             </p>
-          </div>
+          </Disclosure>
         </div>
+        {/* Kept OUT of the expanders: internal links should stay visible. */}
+        <p className="mt-4 text-sm text-muted-foreground">
+          Go deeper:{" "}
+          <Link
+            href="/statistics"
+            className="underline underline-offset-4 hover:text-foreground"
+          >
+            ASX short selling statistics — total dollars shorted
+          </Link>
+          ,{" "}
+          <Link
+            href="/scans"
+            className="underline underline-offset-4 hover:text-foreground"
+          >
+            daily short interest scans
+          </Link>
+          , or the{" "}
+          <Link
+            href="/top"
+            className="underline underline-offset-4 hover:text-foreground"
+          >
+            top 100 most shorted ASX stocks
+          </Link>
+          .
+        </p>
       </section>
+
+      {/* Homepage FAQ — question-form headings + FAQPage JSON-LD */}
+      <HomepageFaq />
     </main>
   );
 }

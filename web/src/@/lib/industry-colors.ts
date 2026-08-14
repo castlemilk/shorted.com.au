@@ -1,6 +1,14 @@
 /**
  * Industry color mapping utility
  * Maps industry names to consistent Tailwind CSS badge color variants
+ *
+ * Palette rules (see DESIGN.md):
+ * - Single warm hue family only. No blue/indigo/violet/purple/fuchsia.
+ * - True red/green stay quarantined for market direction, so they never
+ *   appear here.
+ * - Every entry is hand-paired light/dark. Alpha tints (`/10`, `/20`) sit
+ *   correctly on both warm paper and CRT black; only the text needs a
+ *   `dark:` sibling.
  */
 
 export type IndustryColorVariant =
@@ -14,6 +22,18 @@ export type IndustryBadgeColor = {
   className: string;
 };
 
+const AMBER =
+  "bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 dark:text-amber-300";
+const ORANGE =
+  "bg-orange-500/10 text-orange-700 hover:bg-orange-500/20 dark:text-orange-300";
+const YELLOW =
+  "bg-yellow-500/10 text-yellow-800 hover:bg-yellow-500/20 dark:text-yellow-300";
+const OLIVE =
+  "bg-lime-600/10 text-lime-800 hover:bg-lime-600/20 dark:text-lime-300";
+const STONE =
+  "bg-stone-500/10 text-stone-700 hover:bg-stone-500/20 dark:text-stone-300";
+const NEUTRAL = "bg-muted text-muted-foreground hover:bg-muted/80";
+
 /**
  * Get badge color configuration for an industry
  * @param industry - The industry name
@@ -23,15 +43,12 @@ export function getIndustryColor(
   industry: string | undefined,
 ): IndustryBadgeColor {
   if (!industry) {
-    return {
-      variant: "secondary",
-      className: "bg-slate-100 text-slate-700 hover:bg-slate-200",
-    };
+    return { variant: "secondary", className: NEUTRAL };
   }
 
   const normalizedIndustry = industry.toLowerCase();
 
-  // Mining/Materials - amber
+  // Mining/Materials
   if (
     normalizedIndustry.includes("mining") ||
     normalizedIndustry.includes("materials") ||
@@ -39,13 +56,10 @@ export function getIndustryColor(
     normalizedIndustry.includes("gold") ||
     normalizedIndustry.includes("resources")
   ) {
-    return {
-      variant: "secondary",
-      className: "bg-amber-100 text-amber-700 hover:bg-amber-200",
-    };
+    return { variant: "secondary", className: AMBER };
   }
 
-  // Banks/Financials - blue
+  // Banks/Financials
   if (
     normalizedIndustry.includes("bank") ||
     normalizedIndustry.includes("financial") ||
@@ -53,26 +67,20 @@ export function getIndustryColor(
     normalizedIndustry.includes("investment") ||
     normalizedIndustry.includes("insurance")
   ) {
-    return {
-      variant: "secondary",
-      className: "bg-blue-100 text-blue-700 hover:bg-blue-200",
-    };
+    return { variant: "secondary", className: STONE };
   }
 
-  // Healthcare - green
+  // Healthcare
   if (
     normalizedIndustry.includes("health") ||
     normalizedIndustry.includes("medical") ||
     normalizedIndustry.includes("pharmaceutical") ||
     normalizedIndustry.includes("biotech")
   ) {
-    return {
-      variant: "secondary",
-      className: "bg-green-100 text-green-700 hover:bg-green-200",
-    };
+    return { variant: "secondary", className: OLIVE };
   }
 
-  // Technology - purple
+  // Technology
   if (
     normalizedIndustry.includes("technology") ||
     normalizedIndustry.includes("tech") ||
@@ -80,89 +88,64 @@ export function getIndustryColor(
     normalizedIndustry.includes("it ") ||
     normalizedIndustry.includes("digital")
   ) {
-    return {
-      variant: "secondary",
-      className: "bg-purple-100 text-purple-700 hover:bg-purple-200",
-    };
+    return { variant: "secondary", className: ORANGE };
   }
 
-  // Retail - pink
+  // Retail
   if (
     normalizedIndustry.includes("retail") ||
     normalizedIndustry.includes("consumer") ||
     normalizedIndustry.includes("supermarket")
   ) {
-    return {
-      variant: "secondary",
-      className: "bg-pink-100 text-pink-700 hover:bg-pink-200",
-    };
+    return { variant: "secondary", className: YELLOW };
   }
 
-  // Energy - orange
+  // Energy
   if (
     normalizedIndustry.includes("energy") ||
     normalizedIndustry.includes("oil") ||
     normalizedIndustry.includes("gas") ||
     normalizedIndustry.includes("petroleum")
   ) {
-    return {
-      variant: "secondary",
-      className: "bg-orange-100 text-orange-700 hover:bg-orange-200",
-    };
+    return { variant: "secondary", className: AMBER };
   }
 
-  // Industrials - gray
+  // Industrials
   if (
     normalizedIndustry.includes("industrial") ||
     normalizedIndustry.includes("manufacturing") ||
     normalizedIndustry.includes("construction") ||
     normalizedIndustry.includes("engineering")
   ) {
-    return {
-      variant: "secondary",
-      className: "bg-gray-100 text-gray-700 hover:bg-gray-200",
-    };
+    return { variant: "secondary", className: STONE };
   }
 
-  // Utilities - cyan
+  // Utilities
   if (
     normalizedIndustry.includes("utilities") ||
     normalizedIndustry.includes("utility") ||
     normalizedIndustry.includes("water") ||
     normalizedIndustry.includes("electricity")
   ) {
-    return {
-      variant: "secondary",
-      className: "bg-cyan-100 text-cyan-700 hover:bg-cyan-200",
-    };
+    return { variant: "secondary", className: OLIVE };
   }
 
-  // Real Estate - emerald
+  // Real Estate
   if (
     normalizedIndustry.includes("real estate") ||
     normalizedIndustry.includes("property") ||
     normalizedIndustry.includes("reit")
   ) {
-    return {
-      variant: "secondary",
-      className: "bg-emerald-100 text-emerald-700 hover:bg-emerald-200",
-    };
+    return { variant: "secondary", className: YELLOW };
   }
 
-  // Telecommunications - indigo
+  // Telecommunications
   if (
     normalizedIndustry.includes("telecom") ||
     normalizedIndustry.includes("communication")
   ) {
-    return {
-      variant: "secondary",
-      className: "bg-indigo-100 text-indigo-700 hover:bg-indigo-200",
-    };
+    return { variant: "secondary", className: ORANGE };
   }
 
-  // Default - slate
-  return {
-    variant: "secondary",
-    className: "bg-slate-100 text-slate-700 hover:bg-slate-200",
-  };
+  return { variant: "secondary", className: NEUTRAL };
 }

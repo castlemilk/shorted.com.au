@@ -36,8 +36,8 @@ jest.mock("@connectrpc/connect", () => ({
   createClient: jest.fn(),
 }));
 
-jest.mock("~/gen/shorts/v1alpha1/shorts_pb", () => ({
-  ShortedStocksService: {},
+jest.mock("~/gen/shorts/v1alpha1/market_pb", () => ({
+  MarketService: {},
 }));
 
 // Note: toPlainMessage is no longer needed in v2 - responses are already plain

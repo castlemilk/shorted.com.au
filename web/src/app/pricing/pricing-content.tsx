@@ -107,7 +107,7 @@ export function PricingContent() {
             <ul className="space-y-2.5 text-sm">
               {freeFeatures.map((f) => (
                 <li key={f} className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-green-500 shrink-0" />
+                  <Check className="h-4 w-4 text-lime-700 dark:text-lime-300 shrink-0" />
                   <span>{f}</span>
                 </li>
               ))}
@@ -149,7 +149,7 @@ export function PricingContent() {
             <ul className="space-y-2.5 text-sm">
               {premiumFeatures.map((f) => (
                 <li key={f} className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-green-500 shrink-0" />
+                  <Check className="h-4 w-4 text-lime-700 dark:text-lime-300 shrink-0" />
                   <span>{f}</span>
                 </li>
               ))}
@@ -164,7 +164,7 @@ export function PricingContent() {
               <div className="space-y-2">
                 <Button
                   variant="outline"
-                  className="w-full text-green-600 border-green-600/30"
+                  className="w-full text-primary border-primary/40"
                   disabled
                 >
                   <Check className="h-4 w-4 mr-2" />

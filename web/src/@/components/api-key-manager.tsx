@@ -168,7 +168,7 @@ export function ApiKeyManager() {
                     title="Copy to clipboard"
                   >
                     {isCopied ? (
-                      <Check className="h-4 w-4 text-green-500" />
+                      <Check className="h-4 w-4 text-lime-700 dark:text-lime-300" />
                     ) : (
                       <Copy className="h-4 w-4" />
                     )}
@@ -444,7 +444,7 @@ function CodeBlock({ code }: { code: string }) {
         title="Copy code"
       >
         {copied ? (
-          <Check className="h-3.5 w-3.5 text-green-500" />
+          <Check className="h-3.5 w-3.5 text-lime-700 dark:text-lime-300" />
         ) : (
           <Copy className="h-3.5 w-3.5" />
         )}

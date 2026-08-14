@@ -32,6 +32,16 @@ resource "google_secret_manager_secret_iam_member" "database_url" {
   project   = var.project_id
 }
 
+# Grant access to the revalidation secret (event-driven cache invalidation).
+# Guarded: only when the secret actually exists (see manage_revalidation_secret).
+resource "google_secret_manager_secret_iam_member" "revalidation_secret" {
+  count     = var.manage_revalidation_secret ? 1 : 0
+  secret_id = "REVALIDATION_SECRET"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.collector.email}"
+  project   = var.project_id
+}
+
 resource "google_cloud_run_v2_job" "collector" {
   name     = local.service_name
   location = var.region
@@ -59,11 +69,38 @@ resource "google_cloud_run_v2_job" "collector" {
           value = var.project_id
         }
         env {
+          name  = "HOUSING_OFFICIAL_MAX_FAILURES"
+          value = tostring(var.official_max_failures)
+        }
+        env {
           name = "DATABASE_URL"
           value_source {
             secret_key_ref {
               secret  = "DATABASE_URL"
               version = "latest"
+            }
+          }
+        }
+
+        # Event-driven cache revalidation: after the official/crawl ingest
+        # refreshes the housing MVs, ping the frontend to bust the cached SSR
+        # pages (/price-drops, /housing). Fires only when the data changed.
+        env {
+          name  = "REVALIDATION_URL"
+          value = var.revalidation_url
+        }
+
+        # Mounted only when the secret exists; otherwise the collector skips
+        # revalidation gracefully (see manage_revalidation_secret).
+        dynamic "env" {
+          for_each = var.manage_revalidation_secret ? [1] : []
+          content {
+            name = "REVALIDATION_SECRET"
+            value_source {
+              secret_key_ref {
+                secret  = "REVALIDATION_SECRET"
+                version = "latest"
+              }
             }
           }
         }
@@ -78,7 +115,10 @@ resource "google_cloud_run_v2_job" "collector" {
     }
   }
 
-  depends_on = [google_secret_manager_secret_iam_member.database_url]
+  depends_on = [
+    google_secret_manager_secret_iam_member.database_url,
+    google_secret_manager_secret_iam_member.revalidation_secret,
+  ]
 }
 
 # Service account for Cloud Scheduler to invoke the job.
