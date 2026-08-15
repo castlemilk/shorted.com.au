@@ -158,11 +158,28 @@ freshness alarm afterward.
    ```bash
    cd services && go build -o "$HOME/bin/house-price-collector" ./house-price-collector/
    ```
-2. Install the Playwright driver the CDP client needs (this pulls chromium for the
-   driver bootstrap; the crawl still renders on the *host* Chrome, not this one):
+2. Install the Playwright driver the CDP client needs. The crawl renders on the
+   *host* Chrome, but `playwright.Run()` still needs the driver to speak CDP, and
+   **without it every `-mode agent` run dies in its warm probe** (see
+   `../crawl_env.go`):
    ```bash
-   cd services && go run github.com/playwright-community/playwright-go/cmd/playwright install chromium
+   cd services && GOWORK=off go run github.com/mxschmitt/playwright-go/cmd/playwright@v0.6100.0 install
    ```
+   The module path and version must match the `playwright-go` pin in
+   `services/go.mod`; a skew fails at run time as a *missing* driver, not as a
+   version error. (The command that used to be documented here —
+   `playwright-community/…` with no version — cannot resolve at all: it is not
+   the module in `go.mod`, so it fails with `missing go.sum entry`.)
+
+   Verify it took:
+   ```bash
+   ls ~/Library/Caches/ms-playwright-go/1.61.1/package/cli.js   # must exist
+   ~/bin/house-price-collector -mode warmcheck                  # want: "[warmcheck] REA warm"
+   ```
+
+   > This driver lives in `~/Library/Caches`, so **any disk-space sweep of that
+   > directory silently disables the crawl** — exactly what stopped it on
+   > 2026-08-13. Reinstall is the only repair; re-warming Chrome does nothing.
 3. Optionally do a first warm-up. The collector now self-warms, but this is a
    useful ready-check. Launch the DEDICATED profile (never the personal profile)
    with a REA URL as Chrome's startup page:

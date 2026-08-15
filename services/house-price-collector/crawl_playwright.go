@@ -58,7 +58,7 @@ type playwrightFetcher struct {
 func newPlaywrightFetcher(cfg crawlConfig) (*playwrightFetcher, error) {
 	pw, err := playwright.Run()
 	if err != nil {
-		return nil, fmt.Errorf("playwright driver/browsers unavailable (not installed in this environment — expected only inside Dockerfile.crawl): %w", err)
+		return nil, fmt.Errorf("playwright driver/browsers unavailable (not installed in this environment — expected only inside Dockerfile.crawl): %w: %w", errPlaywrightDriverMissing, err)
 	}
 
 	bctx, err := pw.Chromium.LaunchPersistentContext(cfg.profileDir, playwright.BrowserTypeLaunchPersistentContextOptions{

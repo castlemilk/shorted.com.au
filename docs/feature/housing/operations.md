@@ -98,6 +98,32 @@ actually written.
 | A drain round hangs forever | `ps -o etime` past ~1h with no log output; `CRAWL_TIMEOUT_MIN` does **not** fire on the CDP path | `kill` it — a hung round holds the crawl lock and writes nothing; the supervisor starts the next pass |
 | Orphaned `in_progress` leases | `crawl-jobs?status=in_progress` (not `running`/`claimed`, which always return 0) | `PURGE_STATUSES=in_progress PURGE_TIER=listings PURGE_DRY_RUN=false … -mode purge`, then re-enqueue; purge is coarse, dry-run first |
 | A never-attempted job banked "succeeded" | coverage decays with no errors; `last_crawled` never advances | the `deferred` outcome (brandbrain #192 + shorted #408) — deploy brandbrain first or the collector falls back to `failed` |
+| **The Playwright driver is gone** | `please install the driver (v1.61.1) first` in the scheduler log; wrapper exits **8**; `find ~/Library/Caches/ms-playwright-go -type f` is empty | `cd services && GOWORK=off go run github.com/mxschmitt/playwright-go/cmd/playwright@v0.6100.0 install` — **do not re-warm Chrome, it is not the fault** |
+
+### The driver stopper, in full (2026-08-13 → 15)
+
+The driver lives under `~/Library/Caches`, so **any disk-space sweep of that
+directory disables the crawl** without touching a line of code. That is what
+happened on 2026-08-13: the whole dev-cache family (Homebrew, golangci-lint,
+node-gyp, the Go module cache) was recreated in one window late that night, and
+the driver went with it.
+
+It was expensive because the symptom lied. `playwright.Run()` fails *before* any
+Chrome contact, but `runWarmCheck` used to report every fetcher-init failure as
+`rc=4 … Chrome unreachable` — so the agent SIGKILLed and relaunched the dedicated
+Chrome twice per run, then exited 4, and the log sent whoever read it to the
+re-warm procedure above, which cannot install a driver. Both scheduled crawls did
+this every run for two days; 500/500 suburbs went stale.
+
+`rc=8` now exists precisely to separate *the environment is broken* from *the
+browser is broken* (`crawl_env.go`). If you see 8: reinstall the driver, then
+
+```bash
+~/bin/house-price-collector -mode warmcheck      # want "[warmcheck] REA warm (…ArgonautExchange present)"
+```
+
+Nothing else on the rig needs touching — Chrome keeps its Kasada clearance
+across the whole failure.
 
 Diagnosis order: agent alive → hung round → wrapper log (it buffers a whole
 drain round, so a quiet log is not evidence of a stall) → `SELECT max(created_at)

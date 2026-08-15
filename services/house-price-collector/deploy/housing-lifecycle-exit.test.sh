@@ -82,6 +82,36 @@ test_common_preserves_generic_failure() {
 	' _ "$DIR" "$FAKE_COLLECTOR" "$TMP_ROOT/common-generic.log"
 }
 
+# rc=8 is the "crawl environment broken" signal (a missing Playwright driver).
+# The generic failure path propagates the code correctly, but the LOG LINE is the
+# artefact a human actually reads during an outage — in the 2026-08-13 stoppage a
+# misleading one ("Chrome unusable") cost two days and 500/500 stale suburbs. So
+# rc=8 must name the driver and the reinstall command, not a generic failure.
+test_common_names_the_driver_fix_on_broken_env() {
+	local log="$TMP_ROOT/common-brokenenv.log"
+	apply_fake 8 0
+	run_expect_rc 8 bash -c '
+		set -uo pipefail
+		source "$1/housing-crawl-common.sh"
+		BIN="$2"
+		LOG="$3"
+		CRAWL_DRAIN_MAX_ROUNDS=1
+		hc_drain_until_empty
+	' _ "$DIR" "$FAKE_COLLECTOR" "$log" || return 1
+	if ! /usr/bin/grep -qi "driver" "$log"; then
+		echo "FAIL: rc=8 drain log does not mention the driver: $log" >&2
+		return 1
+	fi
+	if ! /usr/bin/grep -q "cmd/playwright" "$log"; then
+		echo "FAIL: rc=8 drain log does not carry the reinstall command: $log" >&2
+		return 1
+	fi
+	if /usr/bin/grep -qi "chrome unusable" "$log"; then
+		echo "FAIL: rc=8 drain log still blames Chrome: $log" >&2
+		return 1
+	fi
+}
+
 test_wrapper_preserves_fatal_zero_processed() {
 	local wrapper="$1"
 	apply_fake 7 0
@@ -114,6 +144,7 @@ failures=0
 test_common_preserves_fatal_zero_processed || failures=$((failures + 1))
 test_common_allows_legitimate_empty_success || failures=$((failures + 1))
 test_common_preserves_generic_failure || failures=$((failures + 1))
+test_common_names_the_driver_fix_on_broken_env || failures=$((failures + 1))
 test_wrapper_preserves_fatal_zero_processed run-housing-delta.sh || failures=$((failures + 1))
 test_wrapper_preserves_fatal_zero_processed run-housing-full.sh || failures=$((failures + 1))
 test_wrapper_preserves_enqueue_failure run-housing-delta.sh || failures=$((failures + 1))
