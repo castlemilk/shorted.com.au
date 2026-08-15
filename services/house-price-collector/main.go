@@ -35,8 +35,12 @@ func main() {
 // run executes the selected mode and returns a process exit code: 0 = ok;
 // 1 = official-ingest, VG freshness, or materialized-view finalization failure;
 // 3 = re-warm the Chrome profile; 4 = Chrome/CDP unusable; 5 = REA session
-// cold; 6 = crawl freshness alarm; and 7 = agent infrastructure failed before
-// any jobs completed (also used for enqueue/listings finalization failures).
+// cold; 6 = crawl freshness alarm; 7 = agent infrastructure failed before
+// any jobs completed (also used for enqueue/listings finalization failures);
+// and 8 = the crawl ENVIRONMENT is broken (Playwright driver missing) — an
+// operator must reinstall it, no Chrome action or scheduler re-run will help.
+// Keeping 8 distinct from 4 is deliberate: see crawl_env.go for the outage that
+// bought that distinction.
 // Wrapping the body lets deferred cleanup run before exit.
 func run() int {
 	mode := flag.String("mode", "all", "official | vg-nsw | vg-vic | crawl | listings | details | property | property-resolve | agent | enqueue | freshness | purge | mcp | warmcheck | backfill-address | census | electorates | banners | amenities | lga | connectivity | funding | council-financials | crime | refresh | all")

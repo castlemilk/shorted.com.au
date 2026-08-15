@@ -138,6 +138,16 @@ func ensureChromeWarm(cfg chromeConfig, deps chromeDeps) error {
 	// 2. Reachable != warm — PROVE the Kasada session cleared. rc 5 (cold stub) →
 	//    relaunch; rc 4 (wedged/no context) → hard-recover; re-probe up to twice.
 	rc := deps.warmProbe()
+
+	// rc 8 is the ONE outcome no Chrome action can improve: the Playwright driver
+	// is missing, so every browser client fails to construct. Recovering here
+	// SIGKILLs a Chrome that is not at fault — and when it is the warm one, throws
+	// away a Kasada clearance that only a native REA startup navigation can earn.
+	// That is what the 2026-08-13 outage did twice a run for two days.
+	if rc == exitCrawlEnvBroken {
+		return errCrawlEnvBroken
+	}
+
 	for attempts := 0; (rc == 5 || rc == 4) && attempts < warmMaxAttempts; attempts++ {
 		if rc == 4 {
 			log.Printf("[agent] warm probe rc=4 (Chrome wedged) — hard-recovering (attempt %d/%d)", attempts+1, warmMaxAttempts)

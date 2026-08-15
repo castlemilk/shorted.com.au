@@ -60,7 +60,7 @@ type cdpFetcher struct {
 func newCDPFetcher(cfg crawlConfig) (*cdpFetcher, error) {
 	pw, err := playwright.Run()
 	if err != nil {
-		return nil, fmt.Errorf("playwright driver unavailable (CDP client still needs the driver; not installed in this environment — expected only inside Dockerfile.crawl): %w", err)
+		return nil, fmt.Errorf("playwright driver unavailable (CDP client still needs the driver; not installed in this environment — expected only inside Dockerfile.crawl): %w: %w", errPlaywrightDriverMissing, err)
 	}
 
 	browser, err := pw.Chromium.ConnectOverCDP(cfg.cdpURL)

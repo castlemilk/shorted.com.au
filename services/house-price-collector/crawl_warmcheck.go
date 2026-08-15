@@ -72,6 +72,14 @@ func runWarmCheck(ctx context.Context, pool *pgxpool.Pool) int {
 
 	fetcher, err := newCrawlFetcher(cfg)
 	if err != nil {
+		// Classify BEFORE blaming Chrome: a missing Playwright driver stops every
+		// browser client from starting and is not a Chrome fault at all. Reporting
+		// it as rc=4 made the agent kill and relaunch a warm Chrome twice a run for
+		// two days in the 2026-08-13 outage. See crawl_env.go.
+		if rc := warmCheckInitExitCode(err); rc == exitCrawlEnvBroken {
+			log.Printf("[warmcheck] %v (underlying: %v)", errCrawlEnvBroken, err)
+			return rc
+		}
 		log.Printf("[warmcheck] fetcher init failed (%v) — Chrome unreachable", err)
 		return 4
 	}

@@ -505,14 +505,22 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 				warmProbe: func() int { return runWarmCheck(ctx, pool) },
 			}
 			if err := ensureChromeWarm(ccfg, deps); err != nil {
-				log.Printf("[agent] self-warm failed (%v) — exiting for re-warm (exit 4)", err)
+				rc := agentExitForWarmFailure(err)
+				if rc == exitCrawlEnvBroken {
+					// Not a re-warm situation — the driver is missing and no scheduler
+					// re-run will fix it. Say so, so the log does not send the operator
+					// to the Chrome runbook (the 2026-08-13 outage).
+					log.Printf("[agent] self-warm impossible (%v) — exiting %d for OPERATOR action", err, rc)
+				} else {
+					log.Printf("[agent] self-warm failed (%v) — exiting for re-warm (exit %d)", err, rc)
+				}
 				if !cfg.dryRun {
 					writeCrawlRunStatus(crawlRunStatusRecord{
 						RunType: runType, Host: host, RunID: runID, StartedAt: runStart,
 						Status: "error", Detail: "self-warm failed: " + err.Error(),
 					}, pool)
 				}
-				return 4
+				return rc
 			}
 			log.Printf("[agent] dedicated Chrome warm (self-managed)")
 		}
@@ -525,6 +533,19 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 	} else {
 		f, err := newCrawlFetcher(cfg.crawlConfig)
 		if err != nil {
+			// A missing driver fails here identically to a lost Chrome context, but
+			// hard-recovering would KILL a healthy warm Chrome to fix a fault that is
+			// not Chrome's. Bail before touching the browser.
+			if warmCheckInitExitCode(err) == exitCrawlEnvBroken {
+				log.Printf("[agent] %v (underlying: %v) — exiting %d for OPERATOR action", errCrawlEnvBroken, err, exitCrawlEnvBroken)
+				if !cfg.dryRun {
+					writeCrawlRunStatus(crawlRunStatusRecord{
+						RunType: runType, Host: host, RunID: runID, StartedAt: runStart,
+						Status: "error", Detail: "crawl environment broken: " + err.Error(),
+					}, pool)
+				}
+				return exitCrawlEnvBroken
+			}
 			// The warm preflight passed but the host Chrome lost its context between
 			// probe and crawl (a closed tab). Hard-recover once, then retry — mirrors
 			// the shell runner's agent-rc4 retry so an unattended run self-heals.

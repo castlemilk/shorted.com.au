@@ -76,19 +76,30 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         npm \
     && rm -rf /var/lib/apt/lists/*
 
-# Install ONLY the playwright-go DRIVER at build time (the CDP client needs it;
-# the collector calls playwright.Run() at runtime, never .Install()). We pass NO
-# browser name to `playwright install`, so NO Chromium is downloaded — the host
-# Chrome does all rendering. The CLI version is pinned to match the go module
-# (v0.5700.1) so the driver and the library agree.
+# Install the playwright-go DRIVER at build time (the CDP client needs it; the
+# collector calls playwright.Run() at runtime, never .Install()).
+#
+# The CLI module + version MUST match the playwright-go pin in services/go.mod
+# (github.com/mxschmitt/playwright-go v0.6100.0 → driver 1.61.1). Two traps, both
+# hit for real:
+#   - The OLD pin here (playwright-community/…@v0.5700.1) downloads its driver
+#     from playwright.azureedge.net, which now 404s — that build cannot succeed
+#     at any time, for any reason. Verified 2026-08-15.
+#   - A version skew between CLI and library does NOT fail at install; it fails
+#     later at playwright.Run(), which stats <cache>/<cliVersion>/package/cli.js
+#     and reports "please install the driver (vX) first" — i.e. it looks exactly
+#     like a missing driver even though one is present at a different version.
 ENV PLAYWRIGHT_DRIVER_PATH=/opt/ms-playwright-go
 RUN curl -fsSL https://go.dev/dl/go1.26.0.linux-amd64.tar.gz | tar -C /usr/local -xz \
-    && /usr/local/go/bin/go run github.com/playwright-community/playwright-go/cmd/playwright@v0.5700.1 install \
+    && /usr/local/go/bin/go run github.com/mxschmitt/playwright-go/cmd/playwright@v0.6100.0 install \
     && rm -rf /usr/local/go /root/go /root/.cache/go-build
-# (`playwright install` with no browser arg installs the driver only — NO browser
-# binaries. If even this go-toolchain bootstrap is undesirable on the rig, COPY a
-# pre-fetched driver dir into PLAYWRIGHT_DRIVER_PATH instead; either way the
-# driver is present before runtime and .Install() is never called.)
+# NOTE: contrary to what this file used to claim, a bare `playwright install`
+# with no browser arg installs the driver AND all three browsers (~500MB).
+# Chromium/Firefox/WebKit are dead weight here — the host Chrome does all
+# rendering — but they are harmless, and passing a browser name does not make it
+# install fewer. To keep the image lean, COPY a pre-fetched driver dir into
+# PLAYWRIGHT_DRIVER_PATH instead; either way the driver is present before
+# runtime and .Install() is never called.
 
 WORKDIR /app
 COPY --from=builder /collector /collector

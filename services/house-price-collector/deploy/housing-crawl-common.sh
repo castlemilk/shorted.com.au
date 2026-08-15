@@ -148,6 +148,16 @@ hc_drain_until_empty() {
 			echo "$(date -u +%FT%TZ) drain: Chrome unusable (rc=4) — stopping" >>"$LOG"
 			return 4
 			;;
+		8)
+			# The crawl ENVIRONMENT is broken (missing Playwright driver), not the
+			# browser. Kept distinct from rc=4 because the 2026-08-13 outage proved
+			# how expensive a wrong log line is: "Chrome unusable" sent the operator
+			# to the re-warm runbook, which cannot install a driver, and the crawl
+			# stayed down two days with 500/500 suburbs stale. Name the actual fix.
+			echo "$(date -u +%FT%TZ) drain: crawl environment broken (rc=8) — the Playwright DRIVER is missing, NOT Chrome. Re-warming will not help. Reinstall: cd services && GOWORK=off go run github.com/mxschmitt/playwright-go/cmd/playwright@v0.6100.0 install" >>"$LOG"
+			hc_notify "Housing crawl STOPPED: Playwright driver missing (rc=8). Re-warming Chrome will NOT fix it — reinstall the driver. See $LOG."
+			return 8
+			;;
 		0)
 			;;
 		*)
