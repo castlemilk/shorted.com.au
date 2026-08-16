@@ -6,6 +6,11 @@
  * Monthly cadence catches the quarterly ABS releases (~10-11 weeks after quarter
  * end). No GCS bucket — the collector fetches ABS/RBA over HTTPS and writes to
  * Postgres. The supplementary crawl tier (-mode crawl) is NOT scheduled here.
+ *
+ * A second, daily schedule runs the same job in `-mode drop-index` (pure SQL
+ * discounting-index snapshot for /price-drops) — see the
+ * google_cloud_scheduler_job.daily_drop_index resource below for why this
+ * runs on Cloud Run rather than the residential crawl rig.
  */
 
 locals {
@@ -165,5 +170,81 @@ resource "google_cloud_scheduler_job" "monthly" {
   depends_on = [
     google_cloud_run_v2_job.collector,
     google_cloud_run_v2_job_iam_member.scheduler_invoker
+  ]
+}
+
+# The daily drop-index scheduler below posts a body containing
+# `overrides.container_overrides` (to set `-mode drop-index` + a generous
+# task timeout). That code path requires `run.jobs.runWithOverrides`, which is
+# in `roles/run.developer` but NOT in `roles/run.invoker`. Without this
+# binding the daily invocation 403s. (Same requirement as the monthly report
+# scheduler in modules/weekly-report-generator.)
+resource "google_cloud_run_v2_job_iam_member" "scheduler_developer" {
+  name     = google_cloud_run_v2_job.collector.name
+  location = google_cloud_run_v2_job.collector.location
+  project  = var.project_id
+  role     = "roles/run.developer"
+  member   = "serviceAccount:${google_service_account.scheduler_invoker.email}"
+}
+
+# Daily discounting-index snapshot (/price-drops "drop index" hero + panel).
+# Deliberately a SEPARATE, DAILY Cloud Run schedule rather than a step on the
+# residential crawl rig: the rig is the fragile leg of this system (a deleted
+# Playwright driver silently wedged it for two days in August 2026 — see
+# housing-crawl-outage-modes memory), and pure-SQL index math has no reason to
+# share that failure mode. An index that silently freezes at a stale number
+# whenever Chrome breaks on the rig is worse for users than no index at all;
+# running it here means it depends only on Cloud Run + Postgres.
+#
+# Schedule: 18:00 UTC daily = ~4:00 AM AEST. Chosen to clear both residential
+# crawl windows (fortnightly full crawl starts 22:00 UTC prior day; daily
+# delta crawl starts 00:00 UTC) by several hours in either direction, and to
+# sit 2 hours clear of the existing monthly official-ingest run (16:00 UTC on
+# the 5th) on the one day a month they could otherwise land close together.
+resource "google_cloud_scheduler_job" "daily_drop_index" {
+  name             = "${local.service_name}-drop-index"
+  description      = "Daily discounting-index snapshot for /price-drops (pure SQL, no crawl)"
+  schedule         = "0 18 * * *" # 18:00 UTC daily (~4 AM AEST)
+  time_zone        = "UTC"
+  attempt_deadline = "1800s" # Cloud Scheduler's platform maximum for an HTTP target
+  region           = var.scheduler_region
+  project          = var.project_id
+
+  retry_config {
+    retry_count          = 2
+    max_retry_duration   = "3600s"
+    min_backoff_duration = "10s"
+    max_backoff_duration = "600s"
+  }
+
+  http_target {
+    http_method = "POST"
+    uri         = "https://${var.region}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${var.project_id}/jobs/${google_cloud_run_v2_job.collector.name}:run"
+
+    oauth_token {
+      service_account_email = google_service_account.scheduler_invoker.email
+    }
+
+    # attempt_deadline above only bounds how long Scheduler waits on the :run
+    # HTTP call, not how long the job itself may run. drop-index writes a row
+    # per suburb per day, so a first run (or any operator-triggered backfill
+    # via DROP_INDEX_FROM) can span many days of history; override the task
+    # timeout generously (4h, matching the collector's own CRAWL_TIMEOUT_MIN
+    # default for this mode — see collectorTimeoutMinutes in main.go) rather
+    # than inherit the 30-min timeout sized for the small monthly ingest.
+    body = base64encode(jsonencode({
+      overrides = {
+        container_overrides = [{
+          args = ["-mode", "drop-index"]
+        }]
+        timeout = "14400s"
+      }
+    }))
+  }
+
+  depends_on = [
+    google_cloud_run_v2_job.collector,
+    google_cloud_run_v2_job_iam_member.scheduler_invoker,
+    google_cloud_run_v2_job_iam_member.scheduler_developer,
   ]
 }
