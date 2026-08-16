@@ -2,6 +2,7 @@ package main
 
 import (
 	"math"
+	"strings"
 	"testing"
 )
 
@@ -152,5 +153,83 @@ func TestZeroActiveSuburbDoesNotPoisonTheIndex(t *testing.T) {
 	}
 	if got.PanelSuburbs != 10 {
 		t.Fatalf("PanelSuburbs = %d, want 10", got.PanelSuburbs)
+	}
+}
+
+// A single large pgx.Batch hangs against the Supabase transaction pooler, so
+// the chunk size must stay bounded. Pinned because the failure mode is a hang,
+// not an error — it would look like the job simply stopped.
+func TestIndexBatchChunkIsBounded(t *testing.T) {
+	if indexBatchChunk <= 0 || indexBatchChunk > 200 {
+		t.Fatalf("indexBatchChunk = %d, want a bounded chunk in (0, 200]", indexBatchChunk)
+	}
+}
+
+// The numerator must be constrained to listings that were active on the day,
+// or a listing that cut its price and then delisted inflates drop_rate above 1.
+func TestDroppedCTEIsConstrainedToActiveOnDate(t *testing.T) {
+	sql := suburbDaysSQL()
+
+	dropped := sql[strings.Index(sql, "dropped AS ("):]
+	if !strings.Contains(dropped, "l.first_seen_at::date <= $1::date") ||
+		!strings.Contains(dropped, "l.last_seen_at::date  >= $1::date") {
+		t.Fatalf("dropped CTE is not constrained to listings active on the date:\n%s", dropped)
+	}
+}
+
+func TestUpsertIndexPointSQLIsIdempotent(t *testing.T) {
+	sql := upsertIndexPointSQL()
+	if !strings.Contains(sql, "ON CONFLICT (snapshot_date, grain, grain_key) DO UPDATE") {
+		t.Fatalf("upsert must repair on re-run, got:\n%s", sql)
+	}
+	if !strings.Contains(sql, "computed_at = now()") {
+		t.Fatalf("a repaired row must record when it was recomputed, got:\n%s", sql)
+	}
+}
+
+// Rolling suburbs up to a state must not silently drop rows with no state.
+func TestGroupByStateSkipsUnknownState(t *testing.T) {
+	rows := []suburbDay{
+		{salCode: "a", stateCode: "NSW", active: 40, dropped: 4},
+		{salCode: "b", stateCode: "VIC", active: 40, dropped: 4},
+		{salCode: "c", stateCode: "", active: 40, dropped: 4},
+	}
+	got := groupByState(rows)
+	if len(got) != 2 {
+		t.Fatalf("groupByState returned %d states, want 2 (the blank state is skipped)", len(got))
+	}
+	if len(got["NSW"]) != 1 || len(got["VIC"]) != 1 {
+		t.Fatalf("unexpected grouping: %+v", got)
+	}
+}
+
+// A suburb's own page shows its own rate. The >=20-active floor deliberately
+// does NOT apply here: the floor exists to stop small suburbs distorting an
+// AGGREGATE, and a suburb's own rate is not distorted by being small.
+func TestSuburbPointIgnoresTheAggregateFloor(t *testing.T) {
+	got := suburbPoint(suburbDay{salCode: "tiny", active: 4, dropped: 1, sweptRecently: true})
+
+	if got.PanelSuburbs != 1 {
+		t.Fatalf("PanelSuburbs = %d, want 1", got.PanelSuburbs)
+	}
+	if math.Abs(got.DropRate-0.25) > 1e-9 {
+		t.Fatalf("DropRate = %.4f, want 0.25", got.DropRate)
+	}
+	if got.IsGap {
+		t.Fatalf("IsGap = true for a swept suburb, want false")
+	}
+}
+
+func TestSuburbPointUnsweptIsAGap(t *testing.T) {
+	got := suburbPoint(suburbDay{salCode: "x", active: 40, dropped: 4, sweptRecently: false})
+	if !got.IsGap {
+		t.Fatalf("IsGap = false for an unswept suburb, want true")
+	}
+}
+
+func TestSuburbPointZeroActiveIsNotNaN(t *testing.T) {
+	got := suburbPoint(suburbDay{salCode: "x", active: 0, dropped: 0, sweptRecently: true})
+	if math.IsNaN(got.DropRate) || math.IsInf(got.DropRate, 0) {
+		t.Fatalf("DropRate = %v, want a finite number", got.DropRate)
 	}
 }

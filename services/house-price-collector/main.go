@@ -40,10 +40,11 @@ func main() {
 // and 8 = the crawl ENVIRONMENT is broken (Playwright driver missing) — an
 // operator must reinstall it, no Chrome action or scheduler re-run will help.
 // Keeping 8 distinct from 4 is deliberate: see crawl_env.go for the outage that
-// bought that distinction.
+// bought that distinction. drop-index also returns 1 on a query or write
+// failure (see runDropIndex in drop_index.go).
 // Wrapping the body lets deferred cleanup run before exit.
 func run() int {
-	mode := flag.String("mode", "all", "official | vg-nsw | vg-vic | crawl | listings | details | property | property-resolve | agent | enqueue | freshness | purge | mcp | warmcheck | backfill-address | census | electorates | banners | amenities | lga | connectivity | funding | council-financials | crime | refresh | all")
+	mode := flag.String("mode", "all", "official | vg-nsw | vg-vic | crawl | listings | details | property | property-resolve | agent | enqueue | freshness | purge | mcp | warmcheck | backfill-address | census | electorates | banners | amenities | lga | connectivity | funding | council-financials | crime | drop-index | refresh | all")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -217,12 +218,22 @@ func run() int {
 		// population-weighted percentile-ranked per crime type. Operator-run,
 		// yearly; DRY-RUN by default. Refreshes the housing MVs internally on write.
 		runCrime(ctx, pool)
+	case "drop-index":
+		from := time.Now().UTC().AddDate(0, 0, -1)
+		if v := os.Getenv("DROP_INDEX_FROM"); v != "" {
+			parsed, perr := time.Parse("2006-01-02", v)
+			if perr != nil {
+				log.Fatalf("DROP_INDEX_FROM %q: %v", v, perr)
+			}
+			from = parsed
+		}
+		return runDropIndex(ctx, pool, from, time.Now().UTC())
 	case "refresh":
 		if refresh(ctx, pool) != nil {
 			return 1
 		}
 	default:
-		log.Fatalf("unknown -mode %q (want official|vg-nsw|vg-vic|crawl|listings|details|property|property-resolve|agent|enqueue|freshness|warmcheck|backfill-address|census|electorates|banners|amenities|lga|connectivity|funding|council-financials|crime|refresh|all)", *mode)
+		log.Fatalf("unknown -mode %q (want official|vg-nsw|vg-vic|crawl|listings|details|property|property-resolve|agent|enqueue|freshness|warmcheck|backfill-address|census|electorates|banners|amenities|lga|connectivity|funding|council-financials|crime|drop-index|refresh|all)", *mode)
 	}
 	return 0
 }
@@ -239,10 +250,12 @@ func collectorTimeoutMinutes(mode string) int {
 	// default far higher than the quick official/refresh runs: callers that set
 	// no CRAWL_TIMEOUT_MIN — the bundled macOS agent's Auto-crawl among them —
 	// were getting the 15-min default and self-aborting a healthy batch a few
-	// suburbs in, killing the in-flight suburb's writes with it.
+	// suburbs in, killing the in-flight suburb's writes with it. A multi-week
+	// drop-index backfill writes a row per suburb per day and was self-aborting
+	// on the 15-minute default for the same reason.
 	defaultTimeoutMin := 15
 	switch mode {
-	case "agent", "listings", "crawl", "details", "property", "property-resolve", "crime":
+	case "agent", "listings", "crawl", "details", "property", "property-resolve", "crime", "drop-index":
 		defaultTimeoutMin = 240
 	}
 	return envInt("CRAWL_TIMEOUT_MIN", defaultTimeoutMin)
