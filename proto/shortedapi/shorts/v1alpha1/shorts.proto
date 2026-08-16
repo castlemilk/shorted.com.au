@@ -739,6 +739,19 @@ service ShortedStocksService {
     };
   }
 
+  // Daily discounting index series (national/state/suburb) for the price-drops chart.
+  rpc GetDropIndexSeries (GetDropIndexSeriesRequest) returns (GetDropIndexSeriesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (google.api.http) = {
+      post: "/v1/getDropIndexSeries"
+      body: "*"
+    };
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Drop Index Series",
+      description: "Daily discounting index (equal-weighted mean drop rate + median drop depth) for the price-drops chart, at national, state or suburb grain. Carries panel_suburbs/coverage_ratio/is_gap so a crawl outage renders as a captioned break, not a fake collapse in discounting."
+    };
+  }
+
   // List economic series catalog entries (Australian economy snapshot layer).
   rpc ListEconomicSeries (ListEconomicSeriesRequest) returns (ListEconomicSeriesResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
