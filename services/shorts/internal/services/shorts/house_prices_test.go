@@ -1061,3 +1061,30 @@ func TestListAddressPriceDrops_SortThreadsThrough(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+// TestGetDropIndexSeriesClampsFromDate asserts the handler never asks the
+// store for dates before dropIndexTrackingSince. Before 2026-08-03 the crawl
+// catalog was still growing 115 -> 500 suburbs, so no like-for-like reading
+// exists — serving it would publish our own coverage growth as a market move.
+func TestGetDropIndexSeriesClampsFromDate(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	mockStore.EXPECT().
+		GetDropIndexSeries("national", "AU", dropIndexTrackingSince, "2026-08-15").
+		Return([]*shortsstore.DropIndexPointRow{}, nil)
+
+	srv := newTestServer(t, mockStore)
+	resp, err := srv.GetDropIndexSeries(context.Background(),
+		connect.NewRequest(&shortsv1alpha1.GetDropIndexSeriesRequest{
+			From: "2026-07-01",
+			To:   "2026-08-15",
+		}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Msg.TrackingSince != dropIndexTrackingSince {
+		t.Fatalf("want tracking_since %q, got %q", dropIndexTrackingSince, resp.Msg.TrackingSince)
+	}
+}

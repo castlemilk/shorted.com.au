@@ -379,6 +379,21 @@ func (mr *MockShortsStoreMockRecorder) GetDonationsOverview(financialYear, limit
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDonationsOverview", reflect.TypeOf((*MockShortsStore)(nil).GetDonationsOverview), financialYear, limit)
 }
 
+// GetDropIndexSeries mocks base method.
+func (m *MockShortsStore) GetDropIndexSeries(grain, grainKey, from, to string) ([]*shorts.DropIndexPointRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDropIndexSeries", grain, grainKey, from, to)
+	ret0, _ := ret[0].([]*shorts.DropIndexPointRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDropIndexSeries indicates an expected call of GetDropIndexSeries.
+func (mr *MockShortsStoreMockRecorder) GetDropIndexSeries(grain, grainKey, from, to any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDropIndexSeries", reflect.TypeOf((*MockShortsStore)(nil).GetDropIndexSeries), grain, grainKey, from, to)
+}
+
 // GetEconomicSeries mocks base method.
 func (m *MockShortsStore) GetEconomicSeries(seriesKeys []string, startPeriod time.Time, maxObservations int32) ([]*shorts.EconomicSeriesDataRow, error) {
 	m.ctrl.T.Helper()
@@ -1988,6 +2003,20 @@ func (m *MockCache) GetDonationsOverviewKey(financialYear string, limit int32) s
 func (mr *MockCacheMockRecorder) GetDonationsOverviewKey(financialYear, limit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDonationsOverviewKey", reflect.TypeOf((*MockCache)(nil).GetDonationsOverviewKey), financialYear, limit)
+}
+
+// GetDropIndexSeriesKey mocks base method.
+func (m *MockCache) GetDropIndexSeriesKey(grain, grainKey, from, to string) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDropIndexSeriesKey", grain, grainKey, from, to)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetDropIndexSeriesKey indicates an expected call of GetDropIndexSeriesKey.
+func (mr *MockCacheMockRecorder) GetDropIndexSeriesKey(grain, grainKey, from, to any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDropIndexSeriesKey", reflect.TypeOf((*MockCache)(nil).GetDropIndexSeriesKey), grain, grainKey, from, to)
 }
 
 // GetEconomicSeriesKey mocks base method.

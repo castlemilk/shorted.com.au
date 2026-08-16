@@ -273,6 +273,11 @@ func (c *MemoryCache) GetAgencyPriceStatsKey(stateCode, sort string, limit int32
 	return c.generateKey("agency_price_stats", stateCode, sort, limit)
 }
 
+// GetDropIndexSeriesKey builds a cache key for GetDropIndexSeries responses.
+func (c *MemoryCache) GetDropIndexSeriesKey(grain, grainKey, from, to string) string {
+	return c.generateKey("drop_index_series", grain, grainKey, from, to)
+}
+
 // ListEconomicSeriesKey builds a cache key for ListEconomicSeries responses.
 // --- Register of Members'/Senators' Interests ---
 
