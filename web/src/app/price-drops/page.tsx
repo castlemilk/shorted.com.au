@@ -7,11 +7,13 @@ import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { HousingIcon } from "@/components/housing/housing-icon";
 import { AddressDropsBoard } from "@/components/housing/address-drops-board-loader";
 import { NationalPulse } from "@/components/housing/price-drops/national-pulse";
+import { DropIndexHero } from "@/components/housing/price-drops/drop-index-hero-loader";
 import { StateDropsMap } from "@/components/housing/price-drops/state-drops-map-loader";
 import { StateDropsBoard } from "@/components/housing/price-drops/state-drops-board";
 import { SuburbDropsLeaderboard } from "@/components/housing/price-drops/suburb-drops-leaderboard";
 import { AgencyDropsBoard } from "@/components/housing/price-drops/agency-drops-board";
 import {
+  getDropIndexSeries,
   getPriceDropsOverview,
   listAddressPriceDrops,
   listAgencyPriceStats,
@@ -72,7 +74,7 @@ function SectionHeader({
 }
 
 export default async function PriceDropsPage() {
-  const [overview, suburbs, agencies, addresses] = await Promise.all([
+  const [overview, suburbs, agencies, addresses, dropIndex] = await Promise.all([
     getPriceDropsOverview(),
     // Fetch 25 (the /housing suburb panels' page size) and show the top 15 below,
     // so the backend MemoryCache serves ONE entry across both surfaces.
@@ -81,6 +83,7 @@ export default async function PriceDropsPage() {
     // Seed the address board's default (all-states, biggest-%) view so the static
     // shell renders rows without a client round-trip.
     listAddressPriceDrops(),
+    getDropIndexSeries(),
   ]);
 
   const national = overview?.national;
@@ -155,6 +158,14 @@ export default async function PriceDropsPage() {
           </p>
         ) : (
           <>
+            {dropIndex.points.length > 0 ? (
+              <Suspense
+                fallback={<div className="h-[160px] w-full animate-pulse rounded-xl bg-muted" />}
+              >
+                <DropIndexHero points={dropIndex.points} trackingSince={dropIndex.trackingSince} />
+              </Suspense>
+            ) : null}
+
             {national ? <NationalPulse national={national} /> : null}
 
             <section className="space-y-4">
