@@ -91,4 +91,24 @@ public interface DropIndexPointOrBuilder extends
    * @return The droppedAddresses.
    */
   int getDroppedAddresses();
+
+  /**
+   * <pre>
+   * withdrawn-and-relisted-lower events in the trailing window (national grain only)
+   * </pre>
+   *
+   * <code>int32 relisted_lower = 9 [json_name = "relistedLower"];</code>
+   * @return The relistedLower.
+   */
+  int getRelistedLower();
+
+  /**
+   * <pre>
+   * withdrawn events in the trailing window (national grain only)
+   * </pre>
+   *
+   * <code>int32 delisted_count = 10 [json_name = "delistedCount"];</code>
+   * @return The delistedCount.
+   */
+  int getDelistedCount();
 }

@@ -628,6 +628,8 @@ message DropIndexPoint {
   bool   is_gap          = 6;  // coverage too low to be a fair reading
   int32  active_addresses  = 7;
   int32  dropped_addresses = 8;
+  int32  relisted_lower    = 9;   // withdrawn-and-relisted-lower events in the trailing window (national grain only)
+  int32  delisted_count    = 10;  // withdrawn events in the trailing window (national grain only)
 }
 
 message GetDropIndexSeriesRequest {

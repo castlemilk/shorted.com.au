@@ -17,6 +17,8 @@ export interface DropIndexPointView {
   isGap: boolean;
   activeAddresses: number;
   droppedAddresses: number;
+  relistedLower: number;
+  delistedCount: number;
 }
 
 export interface DropIndexHeroProps {

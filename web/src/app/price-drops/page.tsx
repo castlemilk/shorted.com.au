@@ -8,6 +8,7 @@ import { HousingIcon } from "@/components/housing/housing-icon";
 import { AddressDropsBoard } from "@/components/housing/address-drops-board-loader";
 import { NationalPulse } from "@/components/housing/price-drops/national-pulse";
 import { DropIndexHero } from "@/components/housing/price-drops/drop-index-hero-loader";
+import { CapitulationBoard } from "@/components/housing/price-drops/capitulation-board";
 import { StateDropsMap } from "@/components/housing/price-drops/state-drops-map-loader";
 import { StateDropsBoard } from "@/components/housing/price-drops/state-drops-board";
 import { SuburbDropsLeaderboard } from "@/components/housing/price-drops/suburb-drops-leaderboard";
@@ -198,6 +199,8 @@ export default async function PriceDropsPage() {
                 </Link>
               </p>
             </section>
+
+            {dropIndex.points.length > 0 ? <CapitulationBoard points={dropIndex.points} /> : null}
 
             <section className="space-y-4">
               <SectionHeader

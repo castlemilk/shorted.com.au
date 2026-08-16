@@ -321,6 +321,30 @@ func runDropIndex(ctx context.Context, pool *pgxpool.Pool, from, to time.Time) i
 		}
 
 		national := aggregateIndex(rows, indexMinActive, indexGapThreshold)
+
+		// Capitulation counters (relisted-lower, delisted) are computed at NATIONAL
+		// grain only for now — they exist to carry the page while the drop-rate
+		// index is still thin (two weeks of stable panel vs five weeks of these
+		// events), not to replace the per-suburb index, so there is no product
+		// need yet to slice them by state/suburb. They are also inherently less
+		// sensitive to crawl-catalog growth than the index: the index divides by
+		// an "active addresses" denominator that grew 5x as the catalog expanded,
+		// while these are plain counts of events on listings we actually observed
+		// — no denominator to be distorted by newly-added suburbs.
+		const capitulationQ = `
+SELECT
+  count(*) FILTER (WHERE e.event_type = 'relisted' AND e.price < e.prev_price AND e.prev_price > 0),
+  count(*) FILTER (WHERE e.event_type = 'delisted')
+FROM property_price_events e
+WHERE e.observed_at::date <= $1::date
+  AND e.observed_at::date >  $1::date - $2::int`
+
+		if err := pool.QueryRow(ctx, capitulationQ, d, indexWindowDays).
+			Scan(&national.RelistedLower, &national.DelistedCount); err != nil {
+			log.Printf("[drop-index] capitulation %s: %v", d.Format("2006-01-02"), err)
+			return 1
+		}
+
 		if err := writeIndexPoint(ctx, pool, d, "national", "AU", national); err != nil {
 			log.Printf("[drop-index] %v", err)
 			return 1

@@ -2,9 +2,9 @@ import { render, screen } from "@testing-library/react";
 import { DropIndexHero } from "./drop-index-hero";
 
 const pts = () => [
-  { snapshotDate: "2026-08-03", dropRate: 0.10, medianDropPct: 0.05, panelSuburbs: 491, coverageRatio: 1, isGap: false, activeAddresses: 0, droppedAddresses: 0 },
-  { snapshotDate: "2026-08-14", dropRate: 0, medianDropPct: 0, panelSuburbs: 491, coverageRatio: 0.1, isGap: true, activeAddresses: 0, droppedAddresses: 0 },
-  { snapshotDate: "2026-08-16", dropRate: 0.12, medianDropPct: 0.05, panelSuburbs: 499, coverageRatio: 1, isGap: false, activeAddresses: 0, droppedAddresses: 0 },
+  { snapshotDate: "2026-08-03", dropRate: 0.10, medianDropPct: 0.05, panelSuburbs: 491, coverageRatio: 1, isGap: false, activeAddresses: 0, droppedAddresses: 0, relistedLower: 0, delistedCount: 0 },
+  { snapshotDate: "2026-08-14", dropRate: 0, medianDropPct: 0, panelSuburbs: 491, coverageRatio: 0.1, isGap: true, activeAddresses: 0, droppedAddresses: 0, relistedLower: 0, delistedCount: 0 },
+  { snapshotDate: "2026-08-16", dropRate: 0.12, medianDropPct: 0.05, panelSuburbs: 499, coverageRatio: 1, isGap: false, activeAddresses: 0, droppedAddresses: 0, relistedLower: 0, delistedCount: 0 },
 ];
 
 test("captions the panel so the number is quotable", () => {

@@ -202,6 +202,36 @@ private static final long serialVersionUID = 0L;
     return droppedAddresses_;
   }
 
+  public static final int RELISTED_LOWER_FIELD_NUMBER = 9;
+  private int relistedLower_ = 0;
+  /**
+   * <pre>
+   * withdrawn-and-relisted-lower events in the trailing window (national grain only)
+   * </pre>
+   *
+   * <code>int32 relisted_lower = 9 [json_name = "relistedLower"];</code>
+   * @return The relistedLower.
+   */
+  @java.lang.Override
+  public int getRelistedLower() {
+    return relistedLower_;
+  }
+
+  public static final int DELISTED_COUNT_FIELD_NUMBER = 10;
+  private int delistedCount_ = 0;
+  /**
+   * <pre>
+   * withdrawn events in the trailing window (national grain only)
+   * </pre>
+   *
+   * <code>int32 delisted_count = 10 [json_name = "delistedCount"];</code>
+   * @return The delistedCount.
+   */
+  @java.lang.Override
+  public int getDelistedCount() {
+    return delistedCount_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -240,6 +270,12 @@ private static final long serialVersionUID = 0L;
     if (droppedAddresses_ != 0) {
       output.writeInt32(8, droppedAddresses_);
     }
+    if (relistedLower_ != 0) {
+      output.writeInt32(9, relistedLower_);
+    }
+    if (delistedCount_ != 0) {
+      output.writeInt32(10, delistedCount_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -274,6 +310,14 @@ private static final long serialVersionUID = 0L;
     if (droppedAddresses_ != 0) {
       size += com.google.protobuf.CodedOutputStream
         .computeInt32Size(8, droppedAddresses_);
+    }
+    if (relistedLower_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(9, relistedLower_);
+    }
+    if (delistedCount_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(10, delistedCount_);
     }
     return size;
   }
@@ -318,6 +362,10 @@ private static final long serialVersionUID = 0L;
         != other.getActiveAddresses()) return false;
     if (getDroppedAddresses()
         != other.getDroppedAddresses()) return false;
+    if (getRelistedLower()
+        != other.getRelistedLower()) return false;
+    if (getDelistedCount()
+        != other.getDelistedCount()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -349,6 +397,10 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getActiveAddresses();
     hash = (37 * hash) + DROPPED_ADDRESSES_FIELD_NUMBER;
     hash = (53 * hash) + getDroppedAddresses();
+    hash = (37 * hash) + RELISTED_LOWER_FIELD_NUMBER;
+    hash = (53 * hash) + getRelistedLower();
+    hash = (37 * hash) + DELISTED_COUNT_FIELD_NUMBER;
+    hash = (53 * hash) + getDelistedCount();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -497,6 +549,8 @@ private static final long serialVersionUID = 0L;
       isGap_ = false;
       activeAddresses_ = 0;
       droppedAddresses_ = 0;
+      relistedLower_ = 0;
+      delistedCount_ = 0;
       return this;
     }
 
@@ -554,6 +608,12 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000080) != 0)) {
         result.droppedAddresses_ = droppedAddresses_;
       }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.relistedLower_ = relistedLower_;
+      }
+      if (((from_bitField0_ & 0x00000200) != 0)) {
+        result.delistedCount_ = delistedCount_;
+      }
     }
 
     @java.lang.Override
@@ -593,6 +653,12 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getDroppedAddresses() != 0) {
         setDroppedAddresses(other.getDroppedAddresses());
+      }
+      if (other.getRelistedLower() != 0) {
+        setRelistedLower(other.getRelistedLower());
+      }
+      if (other.getDelistedCount() != 0) {
+        setDelistedCount(other.getDelistedCount());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -660,6 +726,16 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000080;
               break;
             } // case 64
+            case 72: {
+              relistedLower_ = input.readInt32();
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 72
+            case 80: {
+              delistedCount_ = input.readInt32();
+              bitField0_ |= 0x00000200;
+              break;
+            } // case 80
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1049,6 +1125,94 @@ private static final long serialVersionUID = 0L;
     public Builder clearDroppedAddresses() {
       bitField0_ = (bitField0_ & ~0x00000080);
       droppedAddresses_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int relistedLower_ ;
+    /**
+     * <pre>
+     * withdrawn-and-relisted-lower events in the trailing window (national grain only)
+     * </pre>
+     *
+     * <code>int32 relisted_lower = 9 [json_name = "relistedLower"];</code>
+     * @return The relistedLower.
+     */
+    @java.lang.Override
+    public int getRelistedLower() {
+      return relistedLower_;
+    }
+    /**
+     * <pre>
+     * withdrawn-and-relisted-lower events in the trailing window (national grain only)
+     * </pre>
+     *
+     * <code>int32 relisted_lower = 9 [json_name = "relistedLower"];</code>
+     * @param value The relistedLower to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRelistedLower(int value) {
+
+      relistedLower_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * withdrawn-and-relisted-lower events in the trailing window (national grain only)
+     * </pre>
+     *
+     * <code>int32 relisted_lower = 9 [json_name = "relistedLower"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearRelistedLower() {
+      bitField0_ = (bitField0_ & ~0x00000100);
+      relistedLower_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int delistedCount_ ;
+    /**
+     * <pre>
+     * withdrawn events in the trailing window (national grain only)
+     * </pre>
+     *
+     * <code>int32 delisted_count = 10 [json_name = "delistedCount"];</code>
+     * @return The delistedCount.
+     */
+    @java.lang.Override
+    public int getDelistedCount() {
+      return delistedCount_;
+    }
+    /**
+     * <pre>
+     * withdrawn events in the trailing window (national grain only)
+     * </pre>
+     *
+     * <code>int32 delisted_count = 10 [json_name = "delistedCount"];</code>
+     * @param value The delistedCount to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDelistedCount(int value) {
+
+      delistedCount_ = value;
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * withdrawn events in the trailing window (national grain only)
+     * </pre>
+     *
+     * <code>int32 delisted_count = 10 [json_name = "delistedCount"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearDelistedCount() {
+      bitField0_ = (bitField0_ & ~0x00000200);
+      delistedCount_ = 0;
       onChanged();
       return this;
     }
