@@ -208,6 +208,9 @@ const (
 	// ShortedStocksServiceListAgencyPriceStatsProcedure is the fully-qualified name of the
 	// ShortedStocksService's ListAgencyPriceStats RPC.
 	ShortedStocksServiceListAgencyPriceStatsProcedure = "/shorts.v1alpha1.ShortedStocksService/ListAgencyPriceStats"
+	// ShortedStocksServiceGetDropIndexSeriesProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetDropIndexSeries RPC.
+	ShortedStocksServiceGetDropIndexSeriesProcedure = "/shorts.v1alpha1.ShortedStocksService/GetDropIndexSeries"
 	// ShortedStocksServiceListEconomicSeriesProcedure is the fully-qualified name of the
 	// ShortedStocksService's ListEconomicSeries RPC.
 	ShortedStocksServiceListEconomicSeriesProcedure = "/shorts.v1alpha1.ShortedStocksService/ListEconomicSeries"
@@ -352,6 +355,7 @@ var (
 	shortedStocksServiceListAddressPriceDropsMethodDescriptor           = shortedStocksServiceServiceDescriptor.Methods().ByName("ListAddressPriceDrops")
 	shortedStocksServiceGetPriceDropsOverviewMethodDescriptor           = shortedStocksServiceServiceDescriptor.Methods().ByName("GetPriceDropsOverview")
 	shortedStocksServiceListAgencyPriceStatsMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("ListAgencyPriceStats")
+	shortedStocksServiceGetDropIndexSeriesMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("GetDropIndexSeries")
 	shortedStocksServiceListEconomicSeriesMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("ListEconomicSeries")
 	shortedStocksServiceGetEconomicSeriesMethodDescriptor               = shortedStocksServiceServiceDescriptor.Methods().ByName("GetEconomicSeries")
 	shortedStocksServiceListSeriesCorrelationsMethodDescriptor          = shortedStocksServiceServiceDescriptor.Methods().ByName("ListSeriesCorrelations")
@@ -501,6 +505,8 @@ type ShortedStocksServiceClient interface {
 	GetPriceDropsOverview(context.Context, *connect.Request[v1alpha1.GetPriceDropsOverviewRequest]) (*connect.Response[v1alpha1.GetPriceDropsOverviewResponse], error)
 	// Agencies ranked by recent asking-price cuts across their listings.
 	ListAgencyPriceStats(context.Context, *connect.Request[v1alpha1.ListAgencyPriceStatsRequest]) (*connect.Response[v1alpha1.ListAgencyPriceStatsResponse], error)
+	// Daily discounting index series (national/state/suburb) for the price-drops chart.
+	GetDropIndexSeries(context.Context, *connect.Request[v1alpha1.GetDropIndexSeriesRequest]) (*connect.Response[v1alpha1.GetDropIndexSeriesResponse], error)
 	// List economic series catalog entries (Australian economy snapshot layer).
 	ListEconomicSeries(context.Context, *connect.Request[v1alpha1.ListEconomicSeriesRequest]) (*connect.Response[v1alpha1.ListEconomicSeriesResponse], error)
 	// Fetch observations for up to 50 series by series_key.
@@ -916,6 +922,12 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(shortedStocksServiceListAgencyPriceStatsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		getDropIndexSeries: connect.NewClient[v1alpha1.GetDropIndexSeriesRequest, v1alpha1.GetDropIndexSeriesResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetDropIndexSeriesProcedure,
+			connect.WithSchema(shortedStocksServiceGetDropIndexSeriesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 		listEconomicSeries: connect.NewClient[v1alpha1.ListEconomicSeriesRequest, v1alpha1.ListEconomicSeriesResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceListEconomicSeriesProcedure,
@@ -1141,6 +1153,7 @@ type shortedStocksServiceClient struct {
 	listAddressPriceDrops           *connect.Client[v1alpha1.ListAddressPriceDropsRequest, v1alpha1.ListAddressPriceDropsResponse]
 	getPriceDropsOverview           *connect.Client[v1alpha1.GetPriceDropsOverviewRequest, v1alpha1.GetPriceDropsOverviewResponse]
 	listAgencyPriceStats            *connect.Client[v1alpha1.ListAgencyPriceStatsRequest, v1alpha1.ListAgencyPriceStatsResponse]
+	getDropIndexSeries              *connect.Client[v1alpha1.GetDropIndexSeriesRequest, v1alpha1.GetDropIndexSeriesResponse]
 	listEconomicSeries              *connect.Client[v1alpha1.ListEconomicSeriesRequest, v1alpha1.ListEconomicSeriesResponse]
 	getEconomicSeries               *connect.Client[v1alpha1.GetEconomicSeriesRequest, v1alpha1.GetEconomicSeriesResponse]
 	listSeriesCorrelations          *connect.Client[v1alpha1.ListSeriesCorrelationsRequest, v1alpha1.ListSeriesCorrelationsResponse]
@@ -1463,6 +1476,11 @@ func (c *shortedStocksServiceClient) ListAgencyPriceStats(ctx context.Context, r
 	return c.listAgencyPriceStats.CallUnary(ctx, req)
 }
 
+// GetDropIndexSeries calls shorts.v1alpha1.ShortedStocksService.GetDropIndexSeries.
+func (c *shortedStocksServiceClient) GetDropIndexSeries(ctx context.Context, req *connect.Request[v1alpha1.GetDropIndexSeriesRequest]) (*connect.Response[v1alpha1.GetDropIndexSeriesResponse], error) {
+	return c.getDropIndexSeries.CallUnary(ctx, req)
+}
+
 // ListEconomicSeries calls shorts.v1alpha1.ShortedStocksService.ListEconomicSeries.
 func (c *shortedStocksServiceClient) ListEconomicSeries(ctx context.Context, req *connect.Request[v1alpha1.ListEconomicSeriesRequest]) (*connect.Response[v1alpha1.ListEconomicSeriesResponse], error) {
 	return c.listEconomicSeries.CallUnary(ctx, req)
@@ -1721,6 +1739,8 @@ type ShortedStocksServiceHandler interface {
 	GetPriceDropsOverview(context.Context, *connect.Request[v1alpha1.GetPriceDropsOverviewRequest]) (*connect.Response[v1alpha1.GetPriceDropsOverviewResponse], error)
 	// Agencies ranked by recent asking-price cuts across their listings.
 	ListAgencyPriceStats(context.Context, *connect.Request[v1alpha1.ListAgencyPriceStatsRequest]) (*connect.Response[v1alpha1.ListAgencyPriceStatsResponse], error)
+	// Daily discounting index series (national/state/suburb) for the price-drops chart.
+	GetDropIndexSeries(context.Context, *connect.Request[v1alpha1.GetDropIndexSeriesRequest]) (*connect.Response[v1alpha1.GetDropIndexSeriesResponse], error)
 	// List economic series catalog entries (Australian economy snapshot layer).
 	ListEconomicSeries(context.Context, *connect.Request[v1alpha1.ListEconomicSeriesRequest]) (*connect.Response[v1alpha1.ListEconomicSeriesResponse], error)
 	// Fetch observations for up to 50 series by series_key.
@@ -2132,6 +2152,12 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		connect.WithSchema(shortedStocksServiceListAgencyPriceStatsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	shortedStocksServiceGetDropIndexSeriesHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetDropIndexSeriesProcedure,
+		svc.GetDropIndexSeries,
+		connect.WithSchema(shortedStocksServiceGetDropIndexSeriesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	shortedStocksServiceListEconomicSeriesHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceListEconomicSeriesProcedure,
 		svc.ListEconomicSeries,
@@ -2412,6 +2438,8 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceGetPriceDropsOverviewHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceListAgencyPriceStatsProcedure:
 			shortedStocksServiceListAgencyPriceStatsHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetDropIndexSeriesProcedure:
+			shortedStocksServiceGetDropIndexSeriesHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceListEconomicSeriesProcedure:
 			shortedStocksServiceListEconomicSeriesHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetEconomicSeriesProcedure:
@@ -2705,6 +2733,10 @@ func (UnimplementedShortedStocksServiceHandler) GetPriceDropsOverview(context.Co
 
 func (UnimplementedShortedStocksServiceHandler) ListAgencyPriceStats(context.Context, *connect.Request[v1alpha1.ListAgencyPriceStatsRequest]) (*connect.Response[v1alpha1.ListAgencyPriceStatsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListAgencyPriceStats is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetDropIndexSeries(context.Context, *connect.Request[v1alpha1.GetDropIndexSeriesRequest]) (*connect.Response[v1alpha1.GetDropIndexSeriesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetDropIndexSeries is not implemented"))
 }
 
 func (UnimplementedShortedStocksServiceHandler) ListEconomicSeries(context.Context, *connect.Request[v1alpha1.ListEconomicSeriesRequest]) (*connect.Response[v1alpha1.ListEconomicSeriesResponse], error) {

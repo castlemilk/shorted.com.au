@@ -62,6 +62,11 @@ service HousingService {
   rpc ListAgencyPriceStats (ListAgencyPriceStatsRequest) returns (ListAgencyPriceStatsResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
   }
+
+  // Daily discounting index series (national/state/suburb) for the price-drops chart.
+  rpc GetDropIndexSeries (GetDropIndexSeriesRequest) returns (GetDropIndexSeriesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
 }
 
 // ── Housing (house-price tracker) ────────────────────────────────────────────
@@ -606,4 +611,35 @@ message AgencyPriceStats {
 
 message ListAgencyPriceStatsResponse {
   repeated AgencyPriceStats agencies = 1;
+}
+
+// DropIndexPoint is one day of the discounting index.
+//
+// panel_suburbs, coverage_ratio and is_gap cross the wire deliberately: the
+// client needs them to caption the chart and to draw a crawl outage as a break
+// rather than a collapse in discounting. Computing that twice would let the two
+// sides disagree.
+message DropIndexPoint {
+  string snapshot_date   = 1;  // 'YYYY-MM-DD'
+  double drop_rate       = 2;  // 0..1 fraction, equal-weighted mean of per-suburb rates
+  double median_drop_pct = 3;  // 0..1 fraction, depth of the typical cut
+  int32  panel_suburbs   = 4;  // suburbs contributing to this point
+  double coverage_ratio  = 5;  // share of the panel swept in the prior 48h
+  bool   is_gap          = 6;  // coverage too low to be a fair reading
+  int32  active_addresses  = 7;
+  int32  dropped_addresses = 8;
+  int32  relisted_lower    = 9;   // withdrawn-and-relisted-lower events in the trailing window (national grain only)
+  int32  delisted_count    = 10;  // withdrawn events in the trailing window (national grain only)
+}
+
+message GetDropIndexSeriesRequest {
+  string grain     = 1;  // 'national' | 'state' | 'suburb'
+  string grain_key = 2;  // 'AU' | state code | sal_code
+  string from      = 3;  // 'YYYY-MM-DD', inclusive; clamped to 2026-08-03
+  string to        = 4;  // 'YYYY-MM-DD', inclusive; defaults to today
+}
+
+message GetDropIndexSeriesResponse {
+  repeated DropIndexPoint points = 1;
+  string tracking_since = 2;  // 'YYYY-MM-DD' — earliest date the index exists for
 }

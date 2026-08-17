@@ -9,6 +9,11 @@ output "service_account_email" {
 }
 
 output "scheduler_job_name" {
-  description = "Name of the Cloud Scheduler job"
+  description = "Name of the monthly Cloud Scheduler job"
   value       = google_cloud_scheduler_job.monthly.name
+}
+
+output "drop_index_scheduler_job_name" {
+  description = "Name of the daily drop-index Cloud Scheduler job"
+  value       = google_cloud_scheduler_job.daily_drop_index.name
 }

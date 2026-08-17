@@ -222,6 +222,7 @@ type Store interface {
 	ListAddressPriceDrops(stateCode, sort string, windowDays, limit int32) ([]*AddressPriceDropRow, error)
 	GetPriceDropsOverview() ([]*StatePriceDropSummaryRow, error)
 	ListAgencyPriceStats(stateCode, sort string, limit int32) ([]*AgencyPriceStatsRow, error)
+	GetDropIndexSeries(grain, grainKey, from, to string) ([]*DropIndexPointRow, error)
 
 	// Register of Members'/Senators' Interests methods
 	GetRegisterOverview() (*RegisterOverviewRow, error)

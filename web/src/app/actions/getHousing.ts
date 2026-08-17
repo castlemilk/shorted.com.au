@@ -1,7 +1,7 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
-import { GetHousingOverviewResponseSchema, GetPriceDropsOverviewResponseSchema, ListSuburbPriceDropsResponseSchema, type GetHousingOverviewResponse, type GetHousePriceSeriesResponse, type ListStateSuburbsResponse, type GetSuburbProfileResponse, type ListSuburbPriceDropsResponse, type ListSuburbDropListingsResponse, type GetPriceDropsOverviewResponse, type ListAgencyPriceStatsResponse, type ListAddressPriceDropsResponse } from "~/gen/shorts/v1alpha1/housing_pb";
+import { create, fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
+import { GetDropIndexSeriesResponseSchema, GetHousingOverviewResponseSchema, GetPriceDropsOverviewResponseSchema, ListSuburbPriceDropsResponseSchema, type GetHousingOverviewResponse, type GetHousePriceSeriesResponse, type ListStateSuburbsResponse, type GetSuburbProfileResponse, type ListSuburbPriceDropsResponse, type ListSuburbDropListingsResponse, type GetPriceDropsOverviewResponse, type ListAgencyPriceStatsResponse, type ListAddressPriceDropsResponse, type GetDropIndexSeriesResponse } from "~/gen/shorts/v1alpha1/housing_pb";
 import { HousingService } from "~/gen/shorts/v1alpha1/housing_pb";
 import { cache } from "react";
 import {
@@ -263,6 +263,43 @@ export const listAddressPriceDrops = cache(
     },
   ),
 );
+
+/**
+ * The equal-weighted discounting index (drop rate over time) behind the
+ * /price-drops headline chart. Static ISR like the other aggregate reads
+ * above — WITHOUT the `next:{revalidate}` tag on the transport, the POST
+ * defaults to no-store and silently forces the whole route dynamic. Gap days
+ * (crawl outage 2026-08-13..15) are still included on the wire; the client
+ * component is responsible for excluding isGap points before plotting.
+ */
+const emptyDropIndexSeries = (): GetDropIndexSeriesResponse =>
+  create(GetDropIndexSeriesResponseSchema, { points: [], trackingSince: "" });
+
+const getDropIndexSeriesOrUndefined = cache(
+  withRetryAndNotFound(
+    async (
+      grain: string = "national", // eslint-disable-line @typescript-eslint/no-inferrable-types
+      grainKey: string = "AU", // eslint-disable-line @typescript-eslint/no-inferrable-types
+    ): Promise<GetDropIndexSeriesResponse> => {
+      if (skipForBuild()) return emptyDropIndexSeries();
+
+      const client = createCacheableHousingClient();
+      return client.getDropIndexSeries({ grain, grainKey, from: "", to: "" });
+    },
+  ),
+);
+
+/**
+ * @param grain 'national' | 'state' | 'suburb'
+ * @param grainKey 'AU' | state code | sal_code
+ */
+export async function getDropIndexSeries(
+  grain: string = "national", // eslint-disable-line @typescript-eslint/no-inferrable-types
+  grainKey: string = "AU", // eslint-disable-line @typescript-eslint/no-inferrable-types
+): Promise<GetDropIndexSeriesResponse> {
+  const resp = await getDropIndexSeriesOrUndefined(grain, grainKey);
+  return resp ?? emptyDropIndexSeries();
+}
 
 /**
  * Resolve a suburb's SAL code from its URL slug + state — lets the clean

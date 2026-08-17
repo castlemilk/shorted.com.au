@@ -66,6 +66,9 @@ const (
 	// HousingServiceListAgencyPriceStatsProcedure is the fully-qualified name of the HousingService's
 	// ListAgencyPriceStats RPC.
 	HousingServiceListAgencyPriceStatsProcedure = "/shorts.v1alpha1.HousingService/ListAgencyPriceStats"
+	// HousingServiceGetDropIndexSeriesProcedure is the fully-qualified name of the HousingService's
+	// GetDropIndexSeries RPC.
+	HousingServiceGetDropIndexSeriesProcedure = "/shorts.v1alpha1.HousingService/GetDropIndexSeries"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -82,6 +85,7 @@ var (
 	housingServiceListAddressPriceDropsMethodDescriptor  = housingServiceServiceDescriptor.Methods().ByName("ListAddressPriceDrops")
 	housingServiceGetPriceDropsOverviewMethodDescriptor  = housingServiceServiceDescriptor.Methods().ByName("GetPriceDropsOverview")
 	housingServiceListAgencyPriceStatsMethodDescriptor   = housingServiceServiceDescriptor.Methods().ByName("ListAgencyPriceStats")
+	housingServiceGetDropIndexSeriesMethodDescriptor     = housingServiceServiceDescriptor.Methods().ByName("GetDropIndexSeries")
 )
 
 // HousingServiceClient is a client for the shorts.v1alpha1.HousingService service.
@@ -108,6 +112,8 @@ type HousingServiceClient interface {
 	GetPriceDropsOverview(context.Context, *connect.Request[v1alpha1.GetPriceDropsOverviewRequest]) (*connect.Response[v1alpha1.GetPriceDropsOverviewResponse], error)
 	// Agencies ranked by recent asking-price cuts across their listings.
 	ListAgencyPriceStats(context.Context, *connect.Request[v1alpha1.ListAgencyPriceStatsRequest]) (*connect.Response[v1alpha1.ListAgencyPriceStatsResponse], error)
+	// Daily discounting index series (national/state/suburb) for the price-drops chart.
+	GetDropIndexSeries(context.Context, *connect.Request[v1alpha1.GetDropIndexSeriesRequest]) (*connect.Response[v1alpha1.GetDropIndexSeriesResponse], error)
 }
 
 // NewHousingServiceClient constructs a client for the shorts.v1alpha1.HousingService service. By
@@ -186,6 +192,12 @@ func NewHousingServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(housingServiceListAgencyPriceStatsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		getDropIndexSeries: connect.NewClient[v1alpha1.GetDropIndexSeriesRequest, v1alpha1.GetDropIndexSeriesResponse](
+			httpClient,
+			baseURL+HousingServiceGetDropIndexSeriesProcedure,
+			connect.WithSchema(housingServiceGetDropIndexSeriesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -202,6 +214,7 @@ type housingServiceClient struct {
 	listAddressPriceDrops  *connect.Client[v1alpha1.ListAddressPriceDropsRequest, v1alpha1.ListAddressPriceDropsResponse]
 	getPriceDropsOverview  *connect.Client[v1alpha1.GetPriceDropsOverviewRequest, v1alpha1.GetPriceDropsOverviewResponse]
 	listAgencyPriceStats   *connect.Client[v1alpha1.ListAgencyPriceStatsRequest, v1alpha1.ListAgencyPriceStatsResponse]
+	getDropIndexSeries     *connect.Client[v1alpha1.GetDropIndexSeriesRequest, v1alpha1.GetDropIndexSeriesResponse]
 }
 
 // GetHousingOverview calls shorts.v1alpha1.HousingService.GetHousingOverview.
@@ -259,6 +272,11 @@ func (c *housingServiceClient) ListAgencyPriceStats(ctx context.Context, req *co
 	return c.listAgencyPriceStats.CallUnary(ctx, req)
 }
 
+// GetDropIndexSeries calls shorts.v1alpha1.HousingService.GetDropIndexSeries.
+func (c *housingServiceClient) GetDropIndexSeries(ctx context.Context, req *connect.Request[v1alpha1.GetDropIndexSeriesRequest]) (*connect.Response[v1alpha1.GetDropIndexSeriesResponse], error) {
+	return c.getDropIndexSeries.CallUnary(ctx, req)
+}
+
 // HousingServiceHandler is an implementation of the shorts.v1alpha1.HousingService service.
 type HousingServiceHandler interface {
 	// Latest house-price headline metrics by region (national/state/capital city).
@@ -283,6 +301,8 @@ type HousingServiceHandler interface {
 	GetPriceDropsOverview(context.Context, *connect.Request[v1alpha1.GetPriceDropsOverviewRequest]) (*connect.Response[v1alpha1.GetPriceDropsOverviewResponse], error)
 	// Agencies ranked by recent asking-price cuts across their listings.
 	ListAgencyPriceStats(context.Context, *connect.Request[v1alpha1.ListAgencyPriceStatsRequest]) (*connect.Response[v1alpha1.ListAgencyPriceStatsResponse], error)
+	// Daily discounting index series (national/state/suburb) for the price-drops chart.
+	GetDropIndexSeries(context.Context, *connect.Request[v1alpha1.GetDropIndexSeriesRequest]) (*connect.Response[v1alpha1.GetDropIndexSeriesResponse], error)
 }
 
 // NewHousingServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -357,6 +377,12 @@ func NewHousingServiceHandler(svc HousingServiceHandler, opts ...connect.Handler
 		connect.WithSchema(housingServiceListAgencyPriceStatsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	housingServiceGetDropIndexSeriesHandler := connect.NewUnaryHandler(
+		HousingServiceGetDropIndexSeriesProcedure,
+		svc.GetDropIndexSeries,
+		connect.WithSchema(housingServiceGetDropIndexSeriesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/shorts.v1alpha1.HousingService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case HousingServiceGetHousingOverviewProcedure:
@@ -381,6 +407,8 @@ func NewHousingServiceHandler(svc HousingServiceHandler, opts ...connect.Handler
 			housingServiceGetPriceDropsOverviewHandler.ServeHTTP(w, r)
 		case HousingServiceListAgencyPriceStatsProcedure:
 			housingServiceListAgencyPriceStatsHandler.ServeHTTP(w, r)
+		case HousingServiceGetDropIndexSeriesProcedure:
+			housingServiceGetDropIndexSeriesHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -432,4 +460,8 @@ func (UnimplementedHousingServiceHandler) GetPriceDropsOverview(context.Context,
 
 func (UnimplementedHousingServiceHandler) ListAgencyPriceStats(context.Context, *connect.Request[v1alpha1.ListAgencyPriceStatsRequest]) (*connect.Response[v1alpha1.ListAgencyPriceStatsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.HousingService.ListAgencyPriceStats is not implemented"))
+}
+
+func (UnimplementedHousingServiceHandler) GetDropIndexSeries(context.Context, *connect.Request[v1alpha1.GetDropIndexSeriesRequest]) (*connect.Response[v1alpha1.GetDropIndexSeriesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.HousingService.GetDropIndexSeries is not implemented"))
 }

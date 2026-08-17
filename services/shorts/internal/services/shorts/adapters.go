@@ -315,6 +315,10 @@ func (s *StoreAdapter) ListAgencyPriceStats(stateCode, sort string, limit int32)
 	return s.store.ListAgencyPriceStats(stateCode, sort, limit)
 }
 
+func (s *StoreAdapter) GetDropIndexSeries(grain, grainKey, from, to string) ([]*shorts.DropIndexPointRow, error) {
+	return s.store.GetDropIndexSeries(grain, grainKey, from, to)
+}
+
 func (s *StoreAdapter) GetEventTimeline(stockCode string, daysBack, limit int32) ([]*shorts.TimelineEventRow, error) {
 	return s.store.GetEventTimeline(stockCode, daysBack, limit)
 }

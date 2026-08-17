@@ -868,3 +868,58 @@ func (s *ShortsServer) ListAgencyPriceStats(ctx context.Context, req *connect.Re
 	}
 	return connect.NewResponse(cached.(*shortsv1alpha1.ListAgencyPriceStatsResponse)), nil
 }
+
+// dropIndexTrackingSince is the first date with a stable crawl panel. Earlier
+// dates are not thin data — they are a different catalog (115 suburbs vs 500),
+// so serving them would publish catalog growth as a market move.
+const dropIndexTrackingSince = "2026-08-03"
+
+// GetDropIndexSeries returns a stored discounting-index series for a grain
+// (national/state/suburb). It never serves dates before dropIndexTrackingSince —
+// ISO date strings sort lexically, so a plain string comparison suffices to
+// clamp `from`.
+func (s *ShortsServer) GetDropIndexSeries(ctx context.Context, req *connect.Request[shortsv1alpha1.GetDropIndexSeriesRequest]) (*connect.Response[shortsv1alpha1.GetDropIndexSeriesResponse], error) {
+	m := req.Msg
+	grain := m.Grain
+	if grain == "" {
+		grain = "national"
+	}
+	grainKey := m.GrainKey
+	if grainKey == "" {
+		grainKey = "AU"
+	}
+	from := m.From
+	if from == "" || from < dropIndexTrackingSince {
+		from = dropIndexTrackingSince
+	}
+	to := m.To
+	if to == "" {
+		to = time.Now().UTC().Format("2006-01-02")
+	}
+
+	cacheKey := s.cache.GetDropIndexSeriesKey(grain, grainKey, from, to)
+	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+		rows, err := s.store.GetDropIndexSeries(grain, grainKey, from, to)
+		if err != nil {
+			return nil, err
+		}
+		points := make([]*shortsv1alpha1.DropIndexPoint, 0, len(rows))
+		for _, r := range rows {
+			if r == nil {
+				continue
+			}
+			points = append(points, &shortsv1alpha1.DropIndexPoint{
+				SnapshotDate: r.SnapshotDate, DropRate: r.DropRate, MedianDropPct: r.MedianDropPct,
+				PanelSuburbs: r.PanelSuburbs, CoverageRatio: r.CoverageRatio, IsGap: r.IsGap,
+				ActiveAddresses: r.ActiveAddresses, DroppedAddresses: r.DroppedAddresses,
+				RelistedLower: r.RelistedLower, DelistedCount: r.DelistedCount,
+			})
+		}
+		return &shortsv1alpha1.GetDropIndexSeriesResponse{Points: points, TrackingSince: dropIndexTrackingSince}, nil
+	})
+	if err != nil {
+		s.logger.Errorf("database error in GetDropIndexSeries: %v", err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get drop index series"))
+	}
+	return connect.NewResponse(cached.(*shortsv1alpha1.GetDropIndexSeriesResponse)), nil
+}
