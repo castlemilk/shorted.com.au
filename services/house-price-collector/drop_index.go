@@ -293,7 +293,8 @@ SELECT
    FROM property_price_events e
    WHERE e.event_type = 'delisted'
      AND e.observed_at::date <= $1::date
-     AND e.observed_at::date >  $1::date - $2::int)`
+     AND e.observed_at::date >  $1::date - $2::int)
+FROM delist_relist`
 }
 
 // catalogSizes is the suburb-catalog denominator aggregateIndex measures
