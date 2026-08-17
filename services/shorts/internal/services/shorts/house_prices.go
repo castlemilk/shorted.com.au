@@ -869,10 +869,14 @@ func (s *ShortsServer) ListAgencyPriceStats(ctx context.Context, req *connect.Re
 	return connect.NewResponse(cached.(*shortsv1alpha1.ListAgencyPriceStatsResponse)), nil
 }
 
-// dropIndexTrackingSince is the first date with a stable crawl panel. Earlier
-// dates are not thin data — they are a different catalog (115 suburbs vs 500),
-// so serving them would publish catalog growth as a market move.
-const dropIndexTrackingSince = "2026-08-03"
+// dropIndexTrackingSince is 2026-08-13. This is NOT about catalog growth —
+// the panel is now sourced from actual sweeps in a trailing window (see
+// services/house-price-collector/drop_index.go), which fixed that. It is
+// about the numerator's own event window: price_drop events begin 2026-07-14
+// in prod, so a trailing 30-day drop-rate numerator is not COMPLETE until 30
+// days later, on 2026-08-13 — before that the index rises purely because its
+// own event window is still filling in, not because discounting increased.
+const dropIndexTrackingSince = "2026-08-13"
 
 // GetDropIndexSeries returns a stored discounting-index series for a grain
 // (national/state/suburb). It never serves dates before dropIndexTrackingSince —

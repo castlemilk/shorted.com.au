@@ -52,7 +52,7 @@ public interface GetDropIndexSeriesRequestOrBuilder extends
 
   /**
    * <pre>
-   * 'YYYY-MM-DD', inclusive; clamped to 2026-08-03
+   * 'YYYY-MM-DD', inclusive; clamped to 2026-08-13
    * </pre>
    *
    * <code>string from = 3 [json_name = "from"];</code>
@@ -61,7 +61,7 @@ public interface GetDropIndexSeriesRequestOrBuilder extends
   java.lang.String getFrom();
   /**
    * <pre>
-   * 'YYYY-MM-DD', inclusive; clamped to 2026-08-03
+   * 'YYYY-MM-DD', inclusive; clamped to 2026-08-13
    * </pre>
    *
    * <code>string from = 3 [json_name = "from"];</code>

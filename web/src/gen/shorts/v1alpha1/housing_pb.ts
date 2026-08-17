@@ -2701,7 +2701,7 @@ export type DropIndexPoint = Message<"shorts.v1alpha1.DropIndexPoint"> & {
   panelSuburbs: number;
 
   /**
-   * share of the panel swept in the prior 48h
+   * panel suburbs / full suburb catalog for this snapshot date
    *
    * @generated from field: double coverage_ratio = 5;
    */
@@ -2765,7 +2765,7 @@ export type GetDropIndexSeriesRequest = Message<"shorts.v1alpha1.GetDropIndexSer
   grainKey: string;
 
   /**
-   * 'YYYY-MM-DD', inclusive; clamped to 2026-08-03
+   * 'YYYY-MM-DD', inclusive; clamped to 2026-08-13
    *
    * @generated from field: string from = 3;
    */

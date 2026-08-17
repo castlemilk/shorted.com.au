@@ -4303,7 +4303,7 @@ type DropIndexPoint struct {
 	DropRate         float64                `protobuf:"fixed64,2,opt,name=drop_rate,json=dropRate,proto3" json:"drop_rate,omitempty"`                  // 0..1 fraction, equal-weighted mean of per-suburb rates
 	MedianDropPct    float64                `protobuf:"fixed64,3,opt,name=median_drop_pct,json=medianDropPct,proto3" json:"median_drop_pct,omitempty"` // 0..1 fraction, depth of the typical cut
 	PanelSuburbs     int32                  `protobuf:"varint,4,opt,name=panel_suburbs,json=panelSuburbs,proto3" json:"panel_suburbs,omitempty"`       // suburbs contributing to this point
-	CoverageRatio    float64                `protobuf:"fixed64,5,opt,name=coverage_ratio,json=coverageRatio,proto3" json:"coverage_ratio,omitempty"`   // share of the panel swept in the prior 48h
+	CoverageRatio    float64                `protobuf:"fixed64,5,opt,name=coverage_ratio,json=coverageRatio,proto3" json:"coverage_ratio,omitempty"`   // panel suburbs / full suburb catalog for this snapshot date
 	IsGap            bool                   `protobuf:"varint,6,opt,name=is_gap,json=isGap,proto3" json:"is_gap,omitempty"`                            // coverage too low to be a fair reading
 	ActiveAddresses  int32                  `protobuf:"varint,7,opt,name=active_addresses,json=activeAddresses,proto3" json:"active_addresses,omitempty"`
 	DroppedAddresses int32                  `protobuf:"varint,8,opt,name=dropped_addresses,json=droppedAddresses,proto3" json:"dropped_addresses,omitempty"`
@@ -4417,7 +4417,7 @@ type GetDropIndexSeriesRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Grain         string                 `protobuf:"bytes,1,opt,name=grain,proto3" json:"grain,omitempty"`                       // 'national' | 'state' | 'suburb'
 	GrainKey      string                 `protobuf:"bytes,2,opt,name=grain_key,json=grainKey,proto3" json:"grain_key,omitempty"` // 'AU' | state code | sal_code
-	From          string                 `protobuf:"bytes,3,opt,name=from,proto3" json:"from,omitempty"`                         // 'YYYY-MM-DD', inclusive; clamped to 2026-08-03
+	From          string                 `protobuf:"bytes,3,opt,name=from,proto3" json:"from,omitempty"`                         // 'YYYY-MM-DD', inclusive; clamped to 2026-08-13
 	To            string                 `protobuf:"bytes,4,opt,name=to,proto3" json:"to,omitempty"`                             // 'YYYY-MM-DD', inclusive; defaults to today
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
