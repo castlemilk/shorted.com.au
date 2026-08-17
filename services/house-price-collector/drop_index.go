@@ -236,15 +236,77 @@ func querySuburbDays(ctx context.Context, pool *pgxpool.Pool, day time.Time) ([]
 	return out, rows.Err()
 }
 
-// queryCatalogSize returns the number of distinct suburbs ever seen by the
-// crawl. aggregateIndex measures coverage against this, not against the
-// panel itself — see the file-level comment for why that distinction matters.
-func queryCatalogSize(ctx context.Context, pool *pgxpool.Pool) (int, error) {
-	var n int
-	if err := pool.QueryRow(ctx, `SELECT count(DISTINCT sal_code) FROM property_listings WHERE sal_code IS NOT NULL`).Scan(&n); err != nil {
-		return 0, fmt.Errorf("queryCatalogSize: %w", err)
+// catalogSizes is the suburb-catalog denominator aggregateIndex measures
+// coverage against, resolved PER GRAIN: national coverage against the full
+// catalog, state coverage against that state's own (much smaller) catalog.
+//
+// BUG this fixes: runDropIndex used to pass the same national Total (500) as
+// the denominator for every state too, so NSW's 135-suburb catalog read as
+// 135/500 = 0.27 coverage — below the 0.6 gap threshold — and every state row
+// was permanently flagged is_gap=true even at full state coverage. Measured
+// in prod 2026-08-17: NSW 135, VIC 135, QLD 97, WA 67, SA 66.
+type catalogSizes struct {
+	Total   int
+	ByState map[string]int
+}
+
+// forState resolves the denominator for grain "state" key state. An unknown
+// state must not silently fall back to Total — that would reintroduce the
+// exact bug this type exists to fix, just relocated to the lookup. Callers
+// that hit this (a state present in the panel but absent from the catalog
+// query) should treat it as zero coverage, not full coverage.
+func (c catalogSizes) forState(state string) int {
+	return c.ByState[state]
+}
+
+// queryCatalogSizes returns the number of distinct suburbs ever seen by the
+// crawl, both nationally and per state. aggregateIndex measures coverage
+// against the catalog for the grain being aggregated — see the file-level
+// comment and catalogSizes for why a single national figure is wrong for
+// state grain.
+//
+// The national Total is deliberately queried SEPARATELY rather than summed
+// from the per-state counts. sal_code (ABS SAL_CODE21) is a national primary
+// key elsewhere in this schema (suburb_demographics, suburb_lga, ...), so a
+// suburb cannot appear under two states and summing would in fact be safe —
+// but a direct COUNT(DISTINCT sal_code) with no GROUP BY doesn't depend on
+// that assumption holding forever, at negligible extra cost (one query, once
+// per job run, not once per day in the backfill loop).
+func queryCatalogSizes(ctx context.Context, pool *pgxpool.Pool) (catalogSizes, error) {
+	out := catalogSizes{ByState: map[string]int{}}
+
+	rows, err := pool.Query(ctx, `
+SELECT coalesce(state_code, ''), count(DISTINCT sal_code)
+FROM property_listings
+WHERE sal_code IS NOT NULL
+GROUP BY 1`)
+	if err != nil {
+		return catalogSizes{}, fmt.Errorf("queryCatalogSizes: %w", err)
 	}
-	return n, nil
+	for rows.Next() {
+		var state string
+		var n int
+		if err := rows.Scan(&state, &n); err != nil {
+			rows.Close()
+			return catalogSizes{}, fmt.Errorf("queryCatalogSizes: %w", err)
+		}
+		if state != "" {
+			out.ByState[state] = n
+		}
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return catalogSizes{}, fmt.Errorf("queryCatalogSizes: %w", err)
+	}
+	rows.Close()
+
+	if err := pool.QueryRow(ctx,
+		`SELECT count(DISTINCT sal_code) FROM property_listings WHERE sal_code IS NOT NULL`,
+	).Scan(&out.Total); err != nil {
+		return catalogSizes{}, fmt.Errorf("queryCatalogSizes total: %w", err)
+	}
+
+	return out, nil
 }
 
 func upsertIndexPointSQL() string {
@@ -368,7 +430,7 @@ func runDropIndex(ctx context.Context, pool *pgxpool.Pool, from, to time.Time) i
 		from = indexBackfillStart
 	}
 
-	catalogSize, err := queryCatalogSize(ctx, pool)
+	catalog, err := queryCatalogSizes(ctx, pool)
 	if err != nil {
 		log.Printf("[drop-index] %v", err)
 		return 1
@@ -382,7 +444,7 @@ func runDropIndex(ctx context.Context, pool *pgxpool.Pool, from, to time.Time) i
 			return 1
 		}
 
-		national := aggregateIndex(rows, indexMinActive, indexGapThreshold, catalogSize)
+		national := aggregateIndex(rows, indexMinActive, indexGapThreshold, catalog.Total)
 
 		// Capitulation counters (relisted-lower, delisted) are computed at NATIONAL
 		// grain only for now — they exist to carry the page while the drop-rate
@@ -413,7 +475,7 @@ WHERE e.observed_at::date <= $1::date
 		}
 
 		for state, sub := range groupByState(rows) {
-			p := aggregateIndex(sub, indexMinActive, indexGapThreshold, catalogSize)
+			p := aggregateIndex(sub, indexMinActive, indexGapThreshold, catalog.forState(state))
 			if err := writeIndexPoint(ctx, pool, d, "state", state, p); err != nil {
 				log.Printf("[drop-index] %v", err)
 				return 1

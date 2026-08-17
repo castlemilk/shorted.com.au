@@ -158,6 +158,42 @@ func TestIndexBatchChunkIsBounded(t *testing.T) {
 	}
 }
 
+// Regression: coverage was measured against the NATIONAL catalog for every
+// grain, so NSW's 135 suburbs read as 135/500 = 0.27 and every state row was
+// permanently flagged a gap. Coverage must use the catalog for the grain
+// being aggregated.
+func TestStateCoverageUsesTheStateCatalog(t *testing.T) {
+	// A state fully covered by its own 135-suburb catalog is NOT a gap, even
+	// though 135 is a small fraction of the 500-suburb national catalog.
+	got := aggregateIndex(panel(135, 40, 0.10), 20, 0.6, 135)
+	if got.IsGap {
+		t.Fatalf("IsGap = true at full state coverage (135/135), want false")
+	}
+	if math.Abs(got.CoverageRatio-1.0) > 1e-9 {
+		t.Fatalf("CoverageRatio = %.4f, want 1.0", got.CoverageRatio)
+	}
+}
+
+// catalogSizes.forState resolves each grain's own denominator. An unknown
+// state must read as zero, not silently fall back to Total — that would
+// reintroduce the state-coverage bug in a different shape (a state present
+// in the panel but missing from the catalog query would read as "fully
+// covered by the national catalog" instead of "no catalog, definitely a
+// gap").
+func TestCatalogSizesForStateDoesNotFallBackToNational(t *testing.T) {
+	c := catalogSizes{
+		Total:   500,
+		ByState: map[string]int{"NSW": 135, "VIC": 135, "QLD": 97, "WA": 67, "SA": 66},
+	}
+
+	if got := c.forState("NSW"); got != 135 {
+		t.Fatalf("forState(NSW) = %d, want 135", got)
+	}
+	if got := c.forState("TAS"); got != 0 {
+		t.Fatalf("forState(TAS) = %d, want 0 (unknown state must not silently return Total=%d)", got, c.Total)
+	}
+}
+
 // Bug 1 regression at the SQL level: the active CTE must source membership
 // from a trailing sweep window on last_seen_at, not from a
 // first_seen_at <= d <= last_seen_at spanning-date filter (which measures
@@ -227,6 +263,9 @@ func TestSuburbPointIgnoresTheAggregateFloor(t *testing.T) {
 	}
 	if got.IsGap {
 		t.Fatalf("IsGap = true for a suburb with active addresses, want false")
+	}
+	if math.Abs(got.CoverageRatio-1.0) > 1e-9 {
+		t.Fatalf("CoverageRatio = %.4f, want 1.0 (a suburb is its own catalog)", got.CoverageRatio)
 	}
 }
 
