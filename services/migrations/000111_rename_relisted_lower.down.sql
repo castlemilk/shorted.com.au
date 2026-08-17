@@ -1,0 +1,1 @@
+ALTER TABLE housing_drop_index_daily RENAME COLUMN withdrawn_then_relisted TO relisted_lower;

@@ -4307,10 +4307,15 @@ type DropIndexPoint struct {
 	IsGap            bool                   `protobuf:"varint,6,opt,name=is_gap,json=isGap,proto3" json:"is_gap,omitempty"`                            // coverage too low to be a fair reading
 	ActiveAddresses  int32                  `protobuf:"varint,7,opt,name=active_addresses,json=activeAddresses,proto3" json:"active_addresses,omitempty"`
 	DroppedAddresses int32                  `protobuf:"varint,8,opt,name=dropped_addresses,json=droppedAddresses,proto3" json:"dropped_addresses,omitempty"`
-	RelistedLower    int32                  `protobuf:"varint,9,opt,name=relisted_lower,json=relistedLower,proto3" json:"relisted_lower,omitempty"`  // withdrawn-and-relisted-lower events in the trailing window (national grain only)
-	DelistedCount    int32                  `protobuf:"varint,10,opt,name=delisted_count,json=delistedCount,proto3" json:"delisted_count,omitempty"` // withdrawn events in the trailing window (national grain only)
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Distinct listings withdrawn then relisted with a >7 day gap, in the
+	// trailing window (national grain only). The gap floor excludes crawl
+	// sweep noise: measured 2026-08-17, 188 of 450 REA delist->relist pairs
+	// land <=2 days apart (a known page-truncation artefact, not a vendor
+	// withdrawing), while Domain shows 57 of 94 pairs genuinely >7 days apart.
+	WithdrawnThenRelisted int32 `protobuf:"varint,9,opt,name=withdrawn_then_relisted,json=withdrawnThenRelisted,proto3" json:"withdrawn_then_relisted,omitempty"`
+	DelistedCount         int32 `protobuf:"varint,10,opt,name=delisted_count,json=delistedCount,proto3" json:"delisted_count,omitempty"` // withdrawn events in the trailing window (national grain only)
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *DropIndexPoint) Reset() {
@@ -4399,9 +4404,9 @@ func (x *DropIndexPoint) GetDroppedAddresses() int32 {
 	return 0
 }
 
-func (x *DropIndexPoint) GetRelistedLower() int32 {
+func (x *DropIndexPoint) GetWithdrawnThenRelisted() int32 {
 	if x != nil {
-		return x.RelistedLower
+		return x.WithdrawnThenRelisted
 	}
 	return 0
 }
@@ -5020,7 +5025,7 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	"\vagent_names\x18\r \x03(\tR\n" +
 	"agentNames\"]\n" +
 	"\x1cListAgencyPriceStatsResponse\x12=\n" +
-	"\bagencies\x18\x01 \x03(\v2!.shorts.v1alpha1.AgencyPriceStatsR\bagencies\"\x83\x03\n" +
+	"\bagencies\x18\x01 \x03(\v2!.shorts.v1alpha1.AgencyPriceStatsR\bagencies\"\x94\x03\n" +
 	"\x0eDropIndexPoint\x12#\n" +
 	"\rsnapshot_date\x18\x01 \x01(\tR\fsnapshotDate\x12\x1b\n" +
 	"\tdrop_rate\x18\x02 \x01(\x01R\bdropRate\x12&\n" +
@@ -5029,8 +5034,8 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	"\x0ecoverage_ratio\x18\x05 \x01(\x01R\rcoverageRatio\x12\x15\n" +
 	"\x06is_gap\x18\x06 \x01(\bR\x05isGap\x12)\n" +
 	"\x10active_addresses\x18\a \x01(\x05R\x0factiveAddresses\x12+\n" +
-	"\x11dropped_addresses\x18\b \x01(\x05R\x10droppedAddresses\x12%\n" +
-	"\x0erelisted_lower\x18\t \x01(\x05R\rrelistedLower\x12%\n" +
+	"\x11dropped_addresses\x18\b \x01(\x05R\x10droppedAddresses\x126\n" +
+	"\x17withdrawn_then_relisted\x18\t \x01(\x05R\x15withdrawnThenRelisted\x12%\n" +
 	"\x0edelisted_count\x18\n" +
 	" \x01(\x05R\rdelistedCount\"r\n" +
 	"\x19GetDropIndexSeriesRequest\x12\x14\n" +

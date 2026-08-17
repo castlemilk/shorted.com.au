@@ -1,0 +1,12 @@
+-- relisted_lower measured a pattern absent from the data. Of 14,052 'relisted'
+-- events with a usable prev_price, 14,014 (99.7%) were at an UNCHANGED price
+-- and only 18 were actually lower — "relisted" in this data means a listing
+-- being re-activated at the same price, not a vendor re-cutting. The
+-- /price-drops panel displayed the 18 as if it were a signal.
+--
+-- The replacement, withdrawn_then_relisted, measures delist->relist pairs
+-- with a >7 day gap (see indexRelistGapDays in drop_index.go for the measured
+-- REA-truncation numbers that motivated the floor). This migration only
+-- renames the column; drop_index.go's next run repopulates it with the new
+-- computation via the existing upsert.
+ALTER TABLE housing_drop_index_daily RENAME COLUMN relisted_lower TO withdrawn_then_relisted;

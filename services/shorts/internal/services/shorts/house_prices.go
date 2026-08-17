@@ -916,7 +916,7 @@ func (s *ShortsServer) GetDropIndexSeries(ctx context.Context, req *connect.Requ
 				SnapshotDate: r.SnapshotDate, DropRate: r.DropRate, MedianDropPct: r.MedianDropPct,
 				PanelSuburbs: r.PanelSuburbs, CoverageRatio: r.CoverageRatio, IsGap: r.IsGap,
 				ActiveAddresses: r.ActiveAddresses, DroppedAddresses: r.DroppedAddresses,
-				RelistedLower: r.RelistedLower, DelistedCount: r.DelistedCount,
+				WithdrawnThenRelisted: r.WithdrawnThenRelisted, DelistedCount: r.DelistedCount,
 			})
 		}
 		return &shortsv1alpha1.GetDropIndexSeriesResponse{Points: points, TrackingSince: dropIndexTrackingSince}, nil

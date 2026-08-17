@@ -202,19 +202,23 @@ private static final long serialVersionUID = 0L;
     return droppedAddresses_;
   }
 
-  public static final int RELISTED_LOWER_FIELD_NUMBER = 9;
-  private int relistedLower_ = 0;
+  public static final int WITHDRAWN_THEN_RELISTED_FIELD_NUMBER = 9;
+  private int withdrawnThenRelisted_ = 0;
   /**
    * <pre>
-   * withdrawn-and-relisted-lower events in the trailing window (national grain only)
+   * Distinct listings withdrawn then relisted with a &gt;7 day gap, in the
+   * trailing window (national grain only). The gap floor excludes crawl
+   * sweep noise: measured 2026-08-17, 188 of 450 REA delist-&gt;relist pairs
+   * land &lt;=2 days apart (a known page-truncation artefact, not a vendor
+   * withdrawing), while Domain shows 57 of 94 pairs genuinely &gt;7 days apart.
    * </pre>
    *
-   * <code>int32 relisted_lower = 9 [json_name = "relistedLower"];</code>
-   * @return The relistedLower.
+   * <code>int32 withdrawn_then_relisted = 9 [json_name = "withdrawnThenRelisted"];</code>
+   * @return The withdrawnThenRelisted.
    */
   @java.lang.Override
-  public int getRelistedLower() {
-    return relistedLower_;
+  public int getWithdrawnThenRelisted() {
+    return withdrawnThenRelisted_;
   }
 
   public static final int DELISTED_COUNT_FIELD_NUMBER = 10;
@@ -270,8 +274,8 @@ private static final long serialVersionUID = 0L;
     if (droppedAddresses_ != 0) {
       output.writeInt32(8, droppedAddresses_);
     }
-    if (relistedLower_ != 0) {
-      output.writeInt32(9, relistedLower_);
+    if (withdrawnThenRelisted_ != 0) {
+      output.writeInt32(9, withdrawnThenRelisted_);
     }
     if (delistedCount_ != 0) {
       output.writeInt32(10, delistedCount_);
@@ -311,9 +315,9 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeInt32Size(8, droppedAddresses_);
     }
-    if (relistedLower_ != 0) {
+    if (withdrawnThenRelisted_ != 0) {
       size += com.google.protobuf.CodedOutputStream
-        .computeInt32Size(9, relistedLower_);
+        .computeInt32Size(9, withdrawnThenRelisted_);
     }
     if (delistedCount_ != 0) {
       size += com.google.protobuf.CodedOutputStream
@@ -362,8 +366,8 @@ private static final long serialVersionUID = 0L;
         != other.getActiveAddresses()) return false;
     if (getDroppedAddresses()
         != other.getDroppedAddresses()) return false;
-    if (getRelistedLower()
-        != other.getRelistedLower()) return false;
+    if (getWithdrawnThenRelisted()
+        != other.getWithdrawnThenRelisted()) return false;
     if (getDelistedCount()
         != other.getDelistedCount()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
@@ -397,8 +401,8 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getActiveAddresses();
     hash = (37 * hash) + DROPPED_ADDRESSES_FIELD_NUMBER;
     hash = (53 * hash) + getDroppedAddresses();
-    hash = (37 * hash) + RELISTED_LOWER_FIELD_NUMBER;
-    hash = (53 * hash) + getRelistedLower();
+    hash = (37 * hash) + WITHDRAWN_THEN_RELISTED_FIELD_NUMBER;
+    hash = (53 * hash) + getWithdrawnThenRelisted();
     hash = (37 * hash) + DELISTED_COUNT_FIELD_NUMBER;
     hash = (53 * hash) + getDelistedCount();
     hash = (29 * hash) + getUnknownFields().hashCode();
@@ -549,7 +553,7 @@ private static final long serialVersionUID = 0L;
       isGap_ = false;
       activeAddresses_ = 0;
       droppedAddresses_ = 0;
-      relistedLower_ = 0;
+      withdrawnThenRelisted_ = 0;
       delistedCount_ = 0;
       return this;
     }
@@ -609,7 +613,7 @@ private static final long serialVersionUID = 0L;
         result.droppedAddresses_ = droppedAddresses_;
       }
       if (((from_bitField0_ & 0x00000100) != 0)) {
-        result.relistedLower_ = relistedLower_;
+        result.withdrawnThenRelisted_ = withdrawnThenRelisted_;
       }
       if (((from_bitField0_ & 0x00000200) != 0)) {
         result.delistedCount_ = delistedCount_;
@@ -654,8 +658,8 @@ private static final long serialVersionUID = 0L;
       if (other.getDroppedAddresses() != 0) {
         setDroppedAddresses(other.getDroppedAddresses());
       }
-      if (other.getRelistedLower() != 0) {
-        setRelistedLower(other.getRelistedLower());
+      if (other.getWithdrawnThenRelisted() != 0) {
+        setWithdrawnThenRelisted(other.getWithdrawnThenRelisted());
       }
       if (other.getDelistedCount() != 0) {
         setDelistedCount(other.getDelistedCount());
@@ -727,7 +731,7 @@ private static final long serialVersionUID = 0L;
               break;
             } // case 64
             case 72: {
-              relistedLower_ = input.readInt32();
+              withdrawnThenRelisted_ = input.readInt32();
               bitField0_ |= 0x00000100;
               break;
             } // case 72
@@ -1129,46 +1133,58 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int relistedLower_ ;
+    private int withdrawnThenRelisted_ ;
     /**
      * <pre>
-     * withdrawn-and-relisted-lower events in the trailing window (national grain only)
+     * Distinct listings withdrawn then relisted with a &gt;7 day gap, in the
+     * trailing window (national grain only). The gap floor excludes crawl
+     * sweep noise: measured 2026-08-17, 188 of 450 REA delist-&gt;relist pairs
+     * land &lt;=2 days apart (a known page-truncation artefact, not a vendor
+     * withdrawing), while Domain shows 57 of 94 pairs genuinely &gt;7 days apart.
      * </pre>
      *
-     * <code>int32 relisted_lower = 9 [json_name = "relistedLower"];</code>
-     * @return The relistedLower.
+     * <code>int32 withdrawn_then_relisted = 9 [json_name = "withdrawnThenRelisted"];</code>
+     * @return The withdrawnThenRelisted.
      */
     @java.lang.Override
-    public int getRelistedLower() {
-      return relistedLower_;
+    public int getWithdrawnThenRelisted() {
+      return withdrawnThenRelisted_;
     }
     /**
      * <pre>
-     * withdrawn-and-relisted-lower events in the trailing window (national grain only)
+     * Distinct listings withdrawn then relisted with a &gt;7 day gap, in the
+     * trailing window (national grain only). The gap floor excludes crawl
+     * sweep noise: measured 2026-08-17, 188 of 450 REA delist-&gt;relist pairs
+     * land &lt;=2 days apart (a known page-truncation artefact, not a vendor
+     * withdrawing), while Domain shows 57 of 94 pairs genuinely &gt;7 days apart.
      * </pre>
      *
-     * <code>int32 relisted_lower = 9 [json_name = "relistedLower"];</code>
-     * @param value The relistedLower to set.
+     * <code>int32 withdrawn_then_relisted = 9 [json_name = "withdrawnThenRelisted"];</code>
+     * @param value The withdrawnThenRelisted to set.
      * @return This builder for chaining.
      */
-    public Builder setRelistedLower(int value) {
+    public Builder setWithdrawnThenRelisted(int value) {
 
-      relistedLower_ = value;
+      withdrawnThenRelisted_ = value;
       bitField0_ |= 0x00000100;
       onChanged();
       return this;
     }
     /**
      * <pre>
-     * withdrawn-and-relisted-lower events in the trailing window (national grain only)
+     * Distinct listings withdrawn then relisted with a &gt;7 day gap, in the
+     * trailing window (national grain only). The gap floor excludes crawl
+     * sweep noise: measured 2026-08-17, 188 of 450 REA delist-&gt;relist pairs
+     * land &lt;=2 days apart (a known page-truncation artefact, not a vendor
+     * withdrawing), while Domain shows 57 of 94 pairs genuinely &gt;7 days apart.
      * </pre>
      *
-     * <code>int32 relisted_lower = 9 [json_name = "relistedLower"];</code>
+     * <code>int32 withdrawn_then_relisted = 9 [json_name = "withdrawnThenRelisted"];</code>
      * @return This builder for chaining.
      */
-    public Builder clearRelistedLower() {
+    public Builder clearWithdrawnThenRelisted() {
       bitField0_ = (bitField0_ & ~0x00000100);
-      relistedLower_ = 0;
+      withdrawnThenRelisted_ = 0;
       onChanged();
       return this;
     }

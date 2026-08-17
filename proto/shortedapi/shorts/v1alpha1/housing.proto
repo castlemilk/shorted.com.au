@@ -628,7 +628,12 @@ message DropIndexPoint {
   bool   is_gap          = 6;  // coverage too low to be a fair reading
   int32  active_addresses  = 7;
   int32  dropped_addresses = 8;
-  int32  relisted_lower    = 9;   // withdrawn-and-relisted-lower events in the trailing window (national grain only)
+  // Distinct listings withdrawn then relisted with a >7 day gap, in the
+  // trailing window (national grain only). The gap floor excludes crawl
+  // sweep noise: measured 2026-08-17, 188 of 450 REA delist->relist pairs
+  // land <=2 days apart (a known page-truncation artefact, not a vendor
+  // withdrawing), while Domain shows 57 of 94 pairs genuinely >7 days apart.
+  int32  withdrawn_then_relisted = 9;
   int32  delisted_count    = 10;  // withdrawn events in the trailing window (national grain only)
 }
 

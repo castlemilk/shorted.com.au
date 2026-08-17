@@ -22,8 +22,10 @@ export function CapitulationBoard({ points }: { points: DropIndexPointView[] }) 
       <h2 className={cn(sectionTitle, "mt-1")}>Vendors pulling and re-cutting</h2>
       <dl className="mt-4 grid grid-cols-2 gap-4">
         <div>
-          <dt className="text-sm text-muted-foreground">Relisted lower (30d)</dt>
-          <dd className="text-2xl font-semibold tabular-nums">{latest.relistedLower.toLocaleString()}</dd>
+          <dt className="text-sm text-muted-foreground">Withdrawn then relisted (30d)</dt>
+          <dd className="text-2xl font-semibold tabular-nums">
+            {latest.withdrawnThenRelisted.toLocaleString()}
+          </dd>
         </div>
         <div>
           <dt className="text-sm text-muted-foreground">Withdrawn (30d)</dt>
@@ -32,7 +34,8 @@ export function CapitulationBoard({ points }: { points: DropIndexPointView[] }) 
       </dl>
       <p className="mt-4 text-xs text-muted-foreground">
         Counted from listings we observed, so these are far less sensitive to crawl coverage
-        than the index above.
+        than the index above. "Withdrawn then relisted" requires more than a 7-day gap between
+        the two events, to exclude same-week crawl re-sweep noise.
       </p>
     </section>
   );

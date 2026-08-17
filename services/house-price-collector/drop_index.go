@@ -57,15 +57,15 @@ type suburbDay struct {
 
 // indexPoint is one row of housing_drop_index_daily.
 type indexPoint struct {
-	ActiveAddresses  int
-	DroppedAddresses int
-	DropRate         float64
-	MedianDropPct    float64
-	RelistedLower    int
-	DelistedCount    int
-	PanelSuburbs     int
-	CoverageRatio    float64
-	IsGap            bool
+	ActiveAddresses       int
+	DroppedAddresses      int
+	DropRate              float64
+	MedianDropPct         float64
+	WithdrawnThenRelisted int
+	DelistedCount         int
+	PanelSuburbs          int
+	CoverageRatio         float64
+	IsGap                 bool
 }
 
 // aggregateIndex folds per-suburb rows into one snapshot point.
@@ -167,6 +167,22 @@ const (
 	// first_seen_at <= d <= last_seen_at "active span" filter, which measured
 	// crawl coverage rather than market presence (see the file-level comment).
 	indexSweepWindowDays = 14
+	// indexRelistGapDays is the floor on the gap between a delisted event and
+	// the subsequent relisted event for it to count as a genuine
+	// withdrawn-then-relisted capitulation signal, rather than crawl noise.
+	//
+	// Measured 2026-08-17 over 60 days of property_price_events: 544
+	// delist->relist pairs total, split sharply by source. REA: 450 pairs, of
+	// which 188 (42%) are <=2 days apart — that is the known REA page-
+	// truncation artefact (a partial sweep drops a listing off a page
+	// boundary; it "reappears" on the very next sweep), not a vendor
+	// withdrawing and returning. Domain, which does not truncate the same way:
+	// 94 pairs, of which 57 (61%) are >7 days apart — genuine capitulation
+	// behaviour. Built across both sources with no floor, ~83% of the count
+	// (450/544) would be REA sweep noise. With a >7 day gap requirement the
+	// rate drops to ~64 genuine events per 60 days. Do not remove this floor
+	// "to simplify" — it is the only thing keeping the counter honest.
+	indexRelistGapDays = 7
 )
 
 // suburbDaysSQL is the query behind querySuburbDays, extracted so tests can
@@ -234,6 +250,50 @@ func querySuburbDays(ctx context.Context, pool *pgxpool.Pool, day time.Time) ([]
 		out = append(out, s)
 	}
 	return out, rows.Err()
+}
+
+// capitulationSQL is the query behind the national capitulation counters
+// (withdrawn-then-relisted, delisted), extracted so tests can assert on its
+// shape directly (see TestCapitulationRequiresARealGap).
+//
+// withdrawn-then-relisted pairs each 'delisted' event with the EARLIEST
+// subsequent 'relisted' event for the same listing_pk, then counts distinct
+// listings where that pair's gap exceeds indexRelistGapDays AND the relist
+// itself lands inside the trailing window ($1 - $2..$1). The window applies
+// to the RELIST side, not the delist side, deliberately: a listing delisted
+// 40 days ago and relisted yesterday is a capitulation event happening today,
+// even though its delisting fell outside the window.
+//
+// The >indexRelistGapDays floor exists because, without it, this counter is
+// mostly not a market signal — see indexRelistGapDays' comment for the
+// measured REA-truncation numbers that motivated it. Do not drop the $3 gap
+// parameter to "simplify" this query.
+func capitulationSQL() string {
+	return `
+WITH delist_relist AS (
+    SELECT
+        d.listing_pk,
+        d.observed_at AS delisted_at,
+        min(r.observed_at) AS relisted_at
+    FROM property_price_events d
+    JOIN property_price_events r
+        ON r.listing_pk = d.listing_pk
+       AND r.event_type = 'relisted'
+       AND r.observed_at > d.observed_at
+    WHERE d.event_type = 'delisted'
+    GROUP BY d.listing_pk, d.observed_at
+)
+SELECT
+  count(DISTINCT listing_pk) FILTER (
+    WHERE relisted_at::date <= $1::date
+      AND relisted_at::date >  $1::date - $2::int
+      AND relisted_at - delisted_at > $3::int * interval '1 day'
+  ),
+  (SELECT count(*)
+   FROM property_price_events e
+   WHERE e.event_type = 'delisted'
+     AND e.observed_at::date <= $1::date
+     AND e.observed_at::date >  $1::date - $2::int)`
 }
 
 // catalogSizes is the suburb-catalog denominator aggregateIndex measures
@@ -314,7 +374,7 @@ func upsertIndexPointSQL() string {
 INSERT INTO housing_drop_index_daily (
     snapshot_date, grain, grain_key,
     active_addresses, dropped_addresses, drop_rate, median_drop_pct,
-    relisted_lower, delisted_count,
+    withdrawn_then_relisted, delisted_count,
     panel_suburbs, coverage_ratio, is_gap, computed_at)
 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, now())
 ON CONFLICT (snapshot_date, grain, grain_key) DO UPDATE SET
@@ -322,7 +382,7 @@ ON CONFLICT (snapshot_date, grain, grain_key) DO UPDATE SET
     dropped_addresses = EXCLUDED.dropped_addresses,
     drop_rate         = EXCLUDED.drop_rate,
     median_drop_pct   = EXCLUDED.median_drop_pct,
-    relisted_lower    = EXCLUDED.relisted_lower,
+    withdrawn_then_relisted = EXCLUDED.withdrawn_then_relisted,
     delisted_count    = EXCLUDED.delisted_count,
     panel_suburbs     = EXCLUDED.panel_suburbs,
     coverage_ratio    = EXCLUDED.coverage_ratio,
@@ -334,7 +394,7 @@ func writeIndexPoint(ctx context.Context, pool *pgxpool.Pool, day time.Time, gra
 	_, err := pool.Exec(ctx, upsertIndexPointSQL(),
 		day, grain, key,
 		p.ActiveAddresses, p.DroppedAddresses, p.DropRate, p.MedianDropPct,
-		p.RelistedLower, p.DelistedCount,
+		p.WithdrawnThenRelisted, p.DelistedCount,
 		p.PanelSuburbs, p.CoverageRatio, p.IsGap)
 	if err != nil {
 		return fmt.Errorf("writeIndexPoint %s/%s %s: %w", grain, key, day.Format("2006-01-02"), err)
@@ -364,7 +424,7 @@ func writeSuburbPoints(ctx context.Context, pool *pgxpool.Pool, day time.Time, r
 			batch.Queue(upsertIndexPointSQL(),
 				day, "suburb", r.salCode,
 				p.ActiveAddresses, p.DroppedAddresses, p.DropRate, p.MedianDropPct,
-				p.RelistedLower, p.DelistedCount,
+				p.WithdrawnThenRelisted, p.DelistedCount,
 				p.PanelSuburbs, p.CoverageRatio, p.IsGap)
 		}
 
@@ -446,25 +506,18 @@ func runDropIndex(ctx context.Context, pool *pgxpool.Pool, from, to time.Time) i
 
 		national := aggregateIndex(rows, indexMinActive, indexGapThreshold, catalog.Total)
 
-		// Capitulation counters (relisted-lower, delisted) are computed at NATIONAL
-		// grain only for now — they exist to carry the page while the drop-rate
-		// index is still thin (two weeks of stable panel vs five weeks of these
-		// events), not to replace the per-suburb index, so there is no product
-		// need yet to slice them by state/suburb. They are also inherently less
-		// sensitive to crawl-catalog growth than the index: the index divides by
-		// an "active addresses" denominator that grew 5x as the catalog expanded,
-		// while these are plain counts of events on listings we actually observed
-		// — no denominator to be distorted by newly-added suburbs.
-		const capitulationQ = `
-SELECT
-  count(*) FILTER (WHERE e.event_type = 'relisted' AND e.price < e.prev_price AND e.prev_price > 0),
-  count(*) FILTER (WHERE e.event_type = 'delisted')
-FROM property_price_events e
-WHERE e.observed_at::date <= $1::date
-  AND e.observed_at::date >  $1::date - $2::int`
-
-		if err := pool.QueryRow(ctx, capitulationQ, d, indexWindowDays).
-			Scan(&national.RelistedLower, &national.DelistedCount); err != nil {
+		// Capitulation counters (withdrawn-then-relisted, delisted) are computed
+		// at NATIONAL grain only for now — they exist to carry the page while
+		// the drop-rate index is still thin (two weeks of stable panel vs five
+		// weeks of these events), not to replace the per-suburb index, so there
+		// is no product need yet to slice them by state/suburb. They are also
+		// inherently less sensitive to crawl-catalog growth than the index: the
+		// index divides by an "active addresses" denominator that grew 5x as the
+		// catalog expanded, while these are plain counts of events on listings
+		// we actually observed — no denominator to be distorted by newly-added
+		// suburbs.
+		if err := pool.QueryRow(ctx, capitulationSQL(), d, indexWindowDays, indexRelistGapDays).
+			Scan(&national.WithdrawnThenRelisted, &national.DelistedCount); err != nil {
 			log.Printf("[drop-index] capitulation %s: %v", d.Format("2006-01-02"), err)
 			return 1
 		}
