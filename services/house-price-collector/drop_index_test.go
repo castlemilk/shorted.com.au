@@ -300,6 +300,21 @@ func TestCapitulationRequiresARealGap(t *testing.T) {
 	}
 }
 
+// The CTE's columns are unreachable without a FROM. Shipped once without it and
+// every run died with `column "listing_pk" does not exist`, so the backfill
+// aborted and the panel kept serving the previous metric's numbers.
+//
+// NOTE the limitation this exposes: the assertions above are string matches
+// against SQL text, and string matching cannot tell you whether SQL is VALID.
+// They all passed on a query Postgres refused to run. Only executing it catches
+// that — see the integration test below.
+func TestCapitulationSQLSelectsFromTheCTE(t *testing.T) {
+	sql := capitulationSQL()
+	if !strings.Contains(sql, "FROM delist_relist") {
+		t.Fatalf("capitulation query never selects FROM the CTE, so its columns cannot resolve:\n%s", sql)
+	}
+}
+
 // The window filter must apply to the RELIST date, not the delist date — a
 // listing delisted 40 days ago and relisted yesterday IS a capitulation event
 // today, and must not be excluded just because its delisting is stale.
