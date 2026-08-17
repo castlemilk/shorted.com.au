@@ -281,3 +281,34 @@ func TestSuburbPointZeroActiveIsAGapAndNotNaN(t *testing.T) {
 		t.Fatalf("IsGap = false for a suburb with zero active addresses, want true")
 	}
 }
+
+// The 7-day floor is load-bearing: without it ~83% of delist->relist pairs
+// are REA page-truncation artefacts (450 REA pairs, 188 of them <=2 days
+// apart), not vendors withdrawing and returning. See indexRelistGapDays for
+// the full measurement. This pins that the query actually parameterises the
+// gap rather than hardcoding or dropping it.
+func TestCapitulationRequiresARealGap(t *testing.T) {
+	sql := capitulationSQL()
+	if !strings.Contains(sql, "$3::int") {
+		t.Fatalf("capitulation query does not parameterise the relist gap:\n%s", sql)
+	}
+	if !strings.Contains(sql, "relisted_at - delisted_at > $3::int * interval '1 day'") {
+		t.Fatalf("capitulation query does not gate on the relist gap:\n%s", sql)
+	}
+	if !strings.Contains(sql, "event_type = 'relisted'") || !strings.Contains(sql, "event_type = 'delisted'") {
+		t.Fatalf("capitulation query does not pair delisted->relisted events:\n%s", sql)
+	}
+}
+
+// The window filter must apply to the RELIST date, not the delist date — a
+// listing delisted 40 days ago and relisted yesterday IS a capitulation event
+// today, and must not be excluded just because its delisting is stale.
+func TestCapitulationWindowAppliesToRelistDateNotDelistDate(t *testing.T) {
+	sql := capitulationSQL()
+	if !strings.Contains(sql, "relisted_at::date <= $1::date") || !strings.Contains(sql, "relisted_at::date >  $1::date - $2::int") {
+		t.Fatalf("capitulation query does not window on the relist date:\n%s", sql)
+	}
+	if strings.Contains(sql, "delisted_at::date <= $1::date") {
+		t.Fatalf("capitulation query must not also window on the delist date:\n%s", sql)
+	}
+}

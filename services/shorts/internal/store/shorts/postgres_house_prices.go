@@ -1372,16 +1372,16 @@ func (s *postgresStore) ListAgencyPriceStats(stateCode, sort string, limit int32
 
 // DropIndexPointRow is one day of the discounting index.
 type DropIndexPointRow struct {
-	SnapshotDate     string
-	DropRate         float64
-	MedianDropPct    float64
-	PanelSuburbs     int32
-	CoverageRatio    float64
-	IsGap            bool
-	ActiveAddresses  int32
-	DroppedAddresses int32
-	RelistedLower    int32
-	DelistedCount    int32
+	SnapshotDate          string
+	DropRate              float64
+	MedianDropPct         float64
+	PanelSuburbs          int32
+	CoverageRatio         float64
+	IsGap                 bool
+	ActiveAddresses       int32
+	DroppedAddresses      int32
+	WithdrawnThenRelisted int32
+	DelistedCount         int32
 }
 
 // GetDropIndexSeries reads a stored index series. It never computes on the fly:
@@ -1393,7 +1393,7 @@ func (s *postgresStore) GetDropIndexSeries(grain, grainKey, from, to string) ([]
 	const query = `
 		SELECT to_char(snapshot_date, 'YYYY-MM-DD'),
 		       drop_rate, median_drop_pct, panel_suburbs, coverage_ratio, is_gap,
-		       active_addresses, dropped_addresses, relisted_lower, delisted_count
+		       active_addresses, dropped_addresses, withdrawn_then_relisted, delisted_count
 		FROM housing_drop_index_daily
 		WHERE grain = $1 AND grain_key = $2
 		  AND snapshot_date >= $3::date AND snapshot_date <= $4::date
@@ -1410,7 +1410,7 @@ func (s *postgresStore) GetDropIndexSeries(grain, grainKey, from, to string) ([]
 		var r DropIndexPointRow
 		if err := rows.Scan(&r.SnapshotDate, &r.DropRate, &r.MedianDropPct, &r.PanelSuburbs,
 			&r.CoverageRatio, &r.IsGap, &r.ActiveAddresses, &r.DroppedAddresses,
-			&r.RelistedLower, &r.DelistedCount); err != nil {
+			&r.WithdrawnThenRelisted, &r.DelistedCount); err != nil {
 			return nil, err
 		}
 		out = append(out, &r)

@@ -94,13 +94,17 @@ public interface DropIndexPointOrBuilder extends
 
   /**
    * <pre>
-   * withdrawn-and-relisted-lower events in the trailing window (national grain only)
+   * Distinct listings withdrawn then relisted with a &gt;7 day gap, in the
+   * trailing window (national grain only). The gap floor excludes crawl
+   * sweep noise: measured 2026-08-17, 188 of 450 REA delist-&gt;relist pairs
+   * land &lt;=2 days apart (a known page-truncation artefact, not a vendor
+   * withdrawing), while Domain shows 57 of 94 pairs genuinely &gt;7 days apart.
    * </pre>
    *
-   * <code>int32 relisted_lower = 9 [json_name = "relistedLower"];</code>
-   * @return The relistedLower.
+   * <code>int32 withdrawn_then_relisted = 9 [json_name = "withdrawnThenRelisted"];</code>
+   * @return The withdrawnThenRelisted.
    */
-  int getRelistedLower();
+  int getWithdrawnThenRelisted();
 
   /**
    * <pre>

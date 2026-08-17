@@ -7,6 +7,15 @@ const up = readFileSync(
   "utf8",
 );
 
+const renameUp = readFileSync(
+  new URL("./000111_rename_relisted_lower.up.sql", import.meta.url),
+  "utf8",
+);
+const renameDown = readFileSync(
+  new URL("./000111_rename_relisted_lower.down.sql", import.meta.url),
+  "utf8",
+);
+
 test("snapshot table is keyed so a re-run repairs rather than duplicates", () => {
   assert.match(up, /PRIMARY KEY \(snapshot_date, grain, grain_key\)/);
 });
@@ -24,4 +33,18 @@ test("grain is constrained to the three supported levels", () => {
 
 test("is_gap fails closed — a missing flag must not read as a healthy day", () => {
   assert.match(up, /is_gap\s+boolean\s+NOT NULL DEFAULT true/i);
+});
+
+test("000111 renames relisted_lower to withdrawn_then_relisted, not add/drop", () => {
+  assert.match(
+    renameUp,
+    /ALTER TABLE housing_drop_index_daily RENAME COLUMN relisted_lower TO withdrawn_then_relisted/i,
+  );
+});
+
+test("000111 down is the exact inverse rename", () => {
+  assert.match(
+    renameDown,
+    /ALTER TABLE housing_drop_index_daily RENAME COLUMN withdrawn_then_relisted TO relisted_lower/i,
+  );
 });
