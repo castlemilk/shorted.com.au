@@ -1063,9 +1063,10 @@ func TestListAddressPriceDrops_SortThreadsThrough(t *testing.T) {
 }
 
 // TestGetDropIndexSeriesClampsFromDate asserts the handler never asks the
-// store for dates before dropIndexTrackingSince. Before 2026-08-03 the crawl
-// catalog was still growing 115 -> 500 suburbs, so no like-for-like reading
-// exists — serving it would publish our own coverage growth as a market move.
+// store for dates before dropIndexTrackingSince. Before 2026-08-13 the
+// trailing 30-day drop-rate numerator is not complete (price_drop events only
+// begin 2026-07-14), so no like-for-like reading exists — serving it would
+// publish the numerator's own event window filling in as a market move.
 func TestGetDropIndexSeriesClampsFromDate(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

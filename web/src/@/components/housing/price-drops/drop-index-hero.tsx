@@ -37,6 +37,14 @@ export interface DropIndexHeroProps {
 // reported as a trend reversal.
 const TREND_DEAD_BAND = 0.005; // 0.5 percentage points
 
+// Tracking only started 2026-08-13 (see dropIndexTrackingSince in
+// house_prices.go), so early on there are only a handful of trustworthy daily
+// points. Five points cannot support a rising/falling/flat claim — that reads
+// as manufactured precision off noise. Below this count we still show the
+// current level (a real, single-day reading) but withhold any direction
+// claim until there is enough history to make one honestly.
+const MIN_POINTS_FOR_DIRECTION = 14;
+
 function fmtDate(isoDate: string): string {
   const d = new Date(`${isoDate}T00:00:00Z`);
   if (Number.isNaN(d.getTime())) return isoDate;
@@ -69,13 +77,15 @@ export function DropIndexHero({ points, trackingSince, format = "percent" }: Dro
   const latest = plotted[plotted.length - 1]!;
   const earliest = plotted[0]!;
   const delta = latest.dropRate - earliest.dropRate;
+  const hasEnoughHistoryForDirection = plotted.length >= MIN_POINTS_FOR_DIRECTION;
 
   let direction: "rising" | "falling" | "flat" = "flat";
   if (delta > TREND_DEAD_BAND) direction = "rising";
   else if (delta < -TREND_DEAD_BAND) direction = "falling";
 
-  const directionLabel =
-    direction === "rising"
+  const directionLabel = !hasEnoughHistoryForDirection
+    ? `Not enough history yet to call a direction — tracking since ${fmtDate(trackingSince || earliest.snapshotDate)}`
+    : direction === "rising"
       ? `up ${fmtPercent(Math.abs(delta))} since ${fmtDate(earliest.snapshotDate)}`
       : direction === "falling"
         ? `down ${fmtPercent(Math.abs(delta))} since ${fmtDate(earliest.snapshotDate)}`
@@ -91,9 +101,12 @@ export function DropIndexHero({ points, trackingSince, format = "percent" }: Dro
         <span
           className={cn(
             "text-sm font-medium",
-            direction === "rising" && "text-destructive",
-            direction === "falling" && "text-emerald-600 dark:text-emerald-400",
-            direction === "flat" && "text-muted-foreground",
+            !hasEnoughHistoryForDirection && "text-muted-foreground",
+            hasEnoughHistoryForDirection && direction === "rising" && "text-destructive",
+            hasEnoughHistoryForDirection &&
+              direction === "falling" &&
+              "text-emerald-600 dark:text-emerald-400",
+            hasEnoughHistoryForDirection && direction === "flat" && "text-muted-foreground",
           )}
         >
           {directionLabel}

@@ -624,7 +624,7 @@ message DropIndexPoint {
   double drop_rate       = 2;  // 0..1 fraction, equal-weighted mean of per-suburb rates
   double median_drop_pct = 3;  // 0..1 fraction, depth of the typical cut
   int32  panel_suburbs   = 4;  // suburbs contributing to this point
-  double coverage_ratio  = 5;  // share of the panel swept in the prior 48h
+  double coverage_ratio  = 5;  // panel suburbs / full suburb catalog for this snapshot date
   bool   is_gap          = 6;  // coverage too low to be a fair reading
   int32  active_addresses  = 7;
   int32  dropped_addresses = 8;
@@ -635,7 +635,7 @@ message DropIndexPoint {
 message GetDropIndexSeriesRequest {
   string grain     = 1;  // 'national' | 'state' | 'suburb'
   string grain_key = 2;  // 'AU' | state code | sal_code
-  string from      = 3;  // 'YYYY-MM-DD', inclusive; clamped to 2026-08-03
+  string from      = 3;  // 'YYYY-MM-DD', inclusive; clamped to 2026-08-13
   string to        = 4;  // 'YYYY-MM-DD', inclusive; defaults to today
 }
 

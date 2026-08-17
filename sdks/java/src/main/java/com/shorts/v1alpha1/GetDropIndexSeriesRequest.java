@@ -151,7 +151,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object from_ = "";
   /**
    * <pre>
-   * 'YYYY-MM-DD', inclusive; clamped to 2026-08-03
+   * 'YYYY-MM-DD', inclusive; clamped to 2026-08-13
    * </pre>
    *
    * <code>string from = 3 [json_name = "from"];</code>
@@ -172,7 +172,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * 'YYYY-MM-DD', inclusive; clamped to 2026-08-03
+   * 'YYYY-MM-DD', inclusive; clamped to 2026-08-13
    * </pre>
    *
    * <code>string from = 3 [json_name = "from"];</code>
@@ -797,7 +797,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object from_ = "";
     /**
      * <pre>
-     * 'YYYY-MM-DD', inclusive; clamped to 2026-08-03
+     * 'YYYY-MM-DD', inclusive; clamped to 2026-08-13
      * </pre>
      *
      * <code>string from = 3 [json_name = "from"];</code>
@@ -817,7 +817,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * 'YYYY-MM-DD', inclusive; clamped to 2026-08-03
+     * 'YYYY-MM-DD', inclusive; clamped to 2026-08-13
      * </pre>
      *
      * <code>string from = 3 [json_name = "from"];</code>
@@ -838,7 +838,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * 'YYYY-MM-DD', inclusive; clamped to 2026-08-03
+     * 'YYYY-MM-DD', inclusive; clamped to 2026-08-13
      * </pre>
      *
      * <code>string from = 3 [json_name = "from"];</code>
@@ -855,7 +855,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * 'YYYY-MM-DD', inclusive; clamped to 2026-08-03
+     * 'YYYY-MM-DD', inclusive; clamped to 2026-08-13
      * </pre>
      *
      * <code>string from = 3 [json_name = "from"];</code>
@@ -869,7 +869,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * 'YYYY-MM-DD', inclusive; clamped to 2026-08-03
+     * 'YYYY-MM-DD', inclusive; clamped to 2026-08-13
      * </pre>
      *
      * <code>string from = 3 [json_name = "from"];</code>

@@ -62,7 +62,7 @@ public interface DropIndexPointOrBuilder extends
 
   /**
    * <pre>
-   * share of the panel swept in the prior 48h
+   * panel suburbs / full suburb catalog for this snapshot date
    * </pre>
    *
    * <code>double coverage_ratio = 5 [json_name = "coverageRatio"];</code>
