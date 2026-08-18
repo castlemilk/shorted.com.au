@@ -5,7 +5,7 @@
 # than CRAWL_DELTA_TTL_HOURS, default 24h), or churny (>= CRAWL_DELTA_CHURN_MIN
 # recent price events over CRAWL_DELTA_CHURN_DAYS, default 1 / 7d) — ranked
 # never-first / churniest / oldest and capped at CRAWL_DELTA_MAX_SUBURBS (default
-# 60). It then DRAINS the brandbrain queue to empty (so one run clears the whole
+# 120). It then DRAINS the brandbrain queue to empty (so one run clears the whole
 # enqueue, not just the first ~20 jobs) and runs a freshness check that ALARMS if
 # the board has silently gone stale.
 #
@@ -48,7 +48,7 @@ hc_acquire_lock
 export CRAWL_RUN_TYPE=delta
 export CRAWL_RUN_ID="delta-$(date -u +%Y%m%dT%H%M%SZ)"
 
-echo "=== $(date -u +%FT%TZ) housing-delta (selection=delta ttl=${CRAWL_DELTA_TTL_HOURS:-24}h churn>=${CRAWL_DELTA_CHURN_MIN:-1}/${CRAWL_DELTA_CHURN_DAYS:-7}d cap=${CRAWL_DELTA_MAX_SUBURBS:-60}) ===" >>"$LOG"
+echo "=== $(date -u +%FT%TZ) housing-delta (selection=delta ttl=${CRAWL_DELTA_TTL_HOURS:-24}h churn>=${CRAWL_DELTA_CHURN_MIN:-1}/${CRAWL_DELTA_CHURN_DAYS:-7}d cap=${CRAWL_DELTA_MAX_SUBURBS:-120}) ===" >>"$LOG"
 
 # 1. Enqueue ONLY the stale/churny slice (delta selection logs its own why + cap).
 # shellcheck disable=SC2209  # intentional one-shot env var prefixing the command

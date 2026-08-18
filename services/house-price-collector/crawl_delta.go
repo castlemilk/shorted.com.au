@@ -35,7 +35,7 @@ type deltaConfig struct {
 	ttl        time.Duration // CRAWL_DELTA_TTL_HOURS  (default 24h): re-crawl if last crawl older than this
 	churnMin   int           // CRAWL_DELTA_CHURN_MIN  (default 1):  re-crawl if recent events >= this
 	churnDays  int           // CRAWL_DELTA_CHURN_DAYS (default 7):  the "recent events" window (days)
-	maxSuburbs int           // CRAWL_DELTA_MAX_SUBURBS(default 60):  per-run selection cap
+	maxSuburbs int           // CRAWL_DELTA_MAX_SUBURBS(default 120): per-run selection cap
 }
 
 func loadDeltaConfig() deltaConfig {
@@ -43,7 +43,7 @@ func loadDeltaConfig() deltaConfig {
 		ttl:        time.Duration(envInt("CRAWL_DELTA_TTL_HOURS", 24)) * time.Hour,
 		churnMin:   envInt("CRAWL_DELTA_CHURN_MIN", 1),
 		churnDays:  envInt("CRAWL_DELTA_CHURN_DAYS", 7),
-		maxSuburbs: envInt("CRAWL_DELTA_MAX_SUBURBS", 60),
+		maxSuburbs: envInt("CRAWL_DELTA_MAX_SUBURBS", 120),
 	}
 }
 
