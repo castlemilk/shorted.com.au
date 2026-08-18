@@ -58,7 +58,7 @@ type cdpFetcher struct {
 // does it create a fresh, AU-localised one. A connect failure returns a clear
 // error so runCrawl fails non-fatally (the official backbone is unaffected).
 func newCDPFetcher(cfg crawlConfig) (*cdpFetcher, error) {
-	pw, err := playwright.Run()
+	pw, err := playwright.Run(crawlDriverRunOptions())
 	if err != nil {
 		return nil, fmt.Errorf("playwright driver unavailable (CDP client still needs the driver; not installed in this environment — expected only inside Dockerfile.crawl): %w: %w", errPlaywrightDriverMissing, err)
 	}

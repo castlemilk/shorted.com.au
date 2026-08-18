@@ -30,11 +30,15 @@ import (
 //	       strictly destructive. Fail fast and name the install command.
 const exitCrawlEnvBroken = 8
 
-// driverInstallHint is the runnable repair for a missing driver on a rig. The
-// version MUST track the playwright-go pin in services/go.mod — a driver built
-// for a different library version fails at handshake rather than at Run(). See
-// Dockerfile.crawl, which installs the same driver into the image.
-const driverInstallHint = "cd services && GOWORK=off go run github.com/mxschmitt/playwright-go/cmd/playwright@v0.6100.0 install"
+// driverInstallHint is the runnable repair for a missing driver on a rig. It
+// uses the collector's own installer so the install directory ALWAYS matches
+// what the fetchers will read (CRAWL_PW_DRIVER_DIR — exported by the wrappers'
+// hc_load_env); the old `go run …/cmd/playwright install` form installed into
+// the default cache dir, which is both prunable and, once the env var is set,
+// the WRONG place. See Dockerfile.crawl, which installs the driver at build
+// time (the env var is unset in the image, so the default path still applies
+// there).
+const driverInstallHint = "~/bin/house-price-collector -mode install-driver   (set CRAWL_PW_DRIVER_DIR first if running outside the wrappers)"
 
 // errPlaywrightDriverMissing is wrapped by every fetcher constructor whose
 // playwright.Run() fails, so the classification below survives arbitrary

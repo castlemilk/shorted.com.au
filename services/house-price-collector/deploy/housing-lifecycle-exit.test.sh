@@ -102,7 +102,7 @@ test_common_names_the_driver_fix_on_broken_env() {
 		echo "FAIL: rc=8 drain log does not mention the driver: $log" >&2
 		return 1
 	fi
-	if ! /usr/bin/grep -q "cmd/playwright" "$log"; then
+	if ! /usr/bin/grep -q "install-driver" "$log"; then
 		echo "FAIL: rc=8 drain log does not carry the reinstall command: $log" >&2
 		return 1
 	fi

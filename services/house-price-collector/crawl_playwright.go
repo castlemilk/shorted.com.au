@@ -56,7 +56,7 @@ type playwrightFetcher struct {
 // timezone, a realistic UA and a 1440x900 viewport. Returns a clear error if the
 // driver or browser is missing (so the build is verifiable without browsers).
 func newPlaywrightFetcher(cfg crawlConfig) (*playwrightFetcher, error) {
-	pw, err := playwright.Run()
+	pw, err := playwright.Run(crawlDriverRunOptions())
 	if err != nil {
 		return nil, fmt.Errorf("playwright driver/browsers unavailable (not installed in this environment — expected only inside Dockerfile.crawl): %w: %w", errPlaywrightDriverMissing, err)
 	}

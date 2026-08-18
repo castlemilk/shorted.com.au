@@ -40,6 +40,10 @@ hc_load_env() {
 	# we scale by "right-sizing demand" instead of spending on proxies.
 	export CRAWL_MIN_DELAY_MS="${CRAWL_MIN_DELAY_MS:-20000}"
 	export CRAWL_MAX_DELAY_MS="${CRAWL_MAX_DELAY_MS:-45000}"
+	# The playwright driver lives OUTSIDE ~/Library/Caches so disk-space sweeps
+	# cannot delete it again (the 2026-08-13 outage). Repair/install:
+	#   ~/bin/house-price-collector -mode install-driver
+	export CRAWL_PW_DRIVER_DIR="${CRAWL_PW_DRIVER_DIR:-$HOME/.shorted-housing-crawl/pw-driver}"
 
 	BIN="${HOUSING_CRAWL_BIN:-$HOME/bin/house-price-collector}"
 	LOG="${HOUSING_CRAWL_LOG:-$HOME/Library/Logs/shorted-housing-scheduler.log}"
@@ -207,7 +211,7 @@ hc_drain_until_empty() {
 			# how expensive a wrong log line is: "Chrome unusable" sent the operator
 			# to the re-warm runbook, which cannot install a driver, and the crawl
 			# stayed down two days with 500/500 suburbs stale. Name the actual fix.
-			echo "$(date -u +%FT%TZ) drain: crawl environment broken (rc=8) — the Playwright DRIVER is missing, NOT Chrome. Re-warming will not help. Reinstall: cd services && GOWORK=off go run github.com/mxschmitt/playwright-go/cmd/playwright@v0.6100.0 install" >>"$LOG"
+			echo "$(date -u +%FT%TZ) drain: crawl environment broken (rc=8) — the Playwright DRIVER is missing, NOT Chrome. Re-warming will not help. Reinstall: ~/bin/house-price-collector -mode install-driver" >>"$LOG"
 			hc_alert "Housing crawl STOPPED: Playwright driver missing (rc=8). Re-warming Chrome will NOT fix it — reinstall the driver. See $LOG."
 			return 8
 			;;
