@@ -113,3 +113,21 @@ func TestClassifyFreshness_ClockSkewFutureLastSeen(t *testing.T) {
 		t.Fatalf("future timestamp should clamp age to 0, got oldest=%s freshest=%s", rep.OldestAge, rep.FreshestAge)
 	}
 }
+
+// The alarm horizon must be one the configured throughput can actually meet:
+// at CRAWL_DELTA_MAX_SUBURBS=120 the catalog rotates in ~4.2 days (~101h), so
+// 120h alarms only on genuine trouble. The old 72h default alarmed on the
+// steady state itself, which is how a 305h-oldest catalog became normal.
+func TestLoadFreshnessConfig_DefaultHorizonMatchesConfiguredThroughput(t *testing.T) {
+	t.Setenv("CRAWL_DELTA_TTL_HOURS", "")
+	t.Setenv("CRAWL_FRESHNESS_ALARM_HOURS", "")
+	t.Setenv("CRAWL_DELTA_CHURN_DAYS", "")
+	t.Setenv("CRAWL_FRESHNESS_WEBHOOK", "")
+	cfg := loadFreshnessConfig()
+	if cfg.alarmAfter != 120*time.Hour {
+		t.Fatalf("default CRAWL_FRESHNESS_ALARM_HOURS = %s, want 120h", cfg.alarmAfter)
+	}
+	if cfg.ttl != 24*time.Hour {
+		t.Fatalf("default CRAWL_DELTA_TTL_HOURS changed to %s — the stale-count line must keep meaning 'older than a day'", cfg.ttl)
+	}
+}

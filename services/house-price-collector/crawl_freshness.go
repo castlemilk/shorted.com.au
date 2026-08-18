@@ -27,7 +27,7 @@ import (
 // FAILS + alarms. webhook is an optional best-effort alarm sink.
 type freshnessConfig struct {
 	ttl        time.Duration // CRAWL_DELTA_TTL_HOURS       (default 24h): the "stale" line in the summary
-	alarmAfter time.Duration // CRAWL_FRESHNESS_ALARM_HOURS (default 72h): oldest-covered horizon that alarms
+	alarmAfter time.Duration // CRAWL_FRESHNESS_ALARM_HOURS (default 120h): oldest-covered horizon that alarms
 	churnDays  int           // CRAWL_DELTA_CHURN_DAYS      (default 7):  passed through to the shared query
 	webhook    string        // CRAWL_FRESHNESS_WEBHOOK (optional): POST target for the alarm
 }
@@ -35,7 +35,7 @@ type freshnessConfig struct {
 func loadFreshnessConfig() freshnessConfig {
 	return freshnessConfig{
 		ttl:        time.Duration(envInt("CRAWL_DELTA_TTL_HOURS", 24)) * time.Hour,
-		alarmAfter: time.Duration(envInt("CRAWL_FRESHNESS_ALARM_HOURS", 72)) * time.Hour,
+		alarmAfter: time.Duration(envInt("CRAWL_FRESHNESS_ALARM_HOURS", 120)) * time.Hour,
 		churnDays:  envInt("CRAWL_DELTA_CHURN_DAYS", 7),
 		webhook:    os.Getenv("CRAWL_FRESHNESS_WEBHOOK"),
 	}
