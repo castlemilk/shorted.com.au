@@ -154,32 +154,57 @@ freshness alarm afterward.
 
 ### One-time setup per Mac
 
-1. Build the collector for this Mac's architecture:
+1. Build and stage everything — binary, wrappers **and** the Playwright driver —
+   with the staging script. This is the supported path: it refuses to stage a
+   dirty tree or a HEAD that is not `origin/main`, and it installs the driver
+   into the same directory the fetchers read.
+   ```bash
+   bash services/house-price-collector/deploy/stage-rig.sh
+   bash services/house-price-collector/deploy/stage-rig.sh --check   # binary + wrappers CURRENT?
+   ```
+
+   `--check` is read-only and answers "is the rig running current code?" — worth
+   running first during any incident, because the binary has drifted from `main`
+   before (4h17m, 2026-08-15).
+
+   <details>
+   <summary>Manual fallback (if the script cannot be used)</summary>
+
    ```bash
    cd services && go build -o "$HOME/bin/house-price-collector" ./house-price-collector/
    ```
-2. Install the Playwright driver the CDP client needs. The crawl renders on the
-   *host* Chrome, but `playwright.Run()` still needs the driver to speak CDP, and
-   **without it every `-mode agent` run dies in its warm probe** (see
-   `../crawl_env.go`):
+
+   Then copy `housing-crawl-common.sh`, `run-housing-delta.sh`,
+   `run-housing-full.sh` and `run-housing-rescan.sh` into
+   `~/.shorted-housing-crawl-deploy/`, and install the driver as in step 2.
+   Staging the binary without the wrappers (or vice versa) is a known way to
+   produce a rig that is half-updated.
+   </details>
+2. Install the Playwright driver the CDP client needs (`stage-rig.sh` already
+   does this). The crawl renders on the *host* Chrome, but `playwright.Run()`
+   still needs the driver to speak CDP, and **without it every `-mode agent` run
+   dies in its warm probe** (see `../crawl_env.go`):
    ```bash
-   cd services && GOWORK=off go run github.com/mxschmitt/playwright-go/cmd/playwright@v0.6100.0 install
+   ~/bin/house-price-collector -mode install-driver
    ```
-   The module path and version must match the `playwright-go` pin in
-   `services/go.mod`; a skew fails at run time as a *missing* driver, not as a
-   version error. (The command that used to be documented here —
-   `playwright-community/…` with no version — cannot resolve at all: it is not
-   the module in `go.mod`, so it fails with `missing go.sum entry`.)
+   This installs into `CRAWL_PW_DRIVER_DIR` (defaulted by the wrappers'
+   `hc_load_env` to `~/.shorted-housing-crawl/pw-driver`) using the binary's own
+   `playwright-go` pin, so the driver version and the install directory can never
+   disagree with what the fetchers read. It needs no `DATABASE_URL` and no
+   Chrome. Running it outside the wrappers? Export `CRAWL_PW_DRIVER_DIR` first,
+   or it installs into the playwright default cache dir — the wrong place.
 
    Verify it took:
    ```bash
-   ls ~/Library/Caches/ms-playwright-go/1.61.1/package/cli.js   # must exist
+   ls "${CRAWL_PW_DRIVER_DIR:-$HOME/.shorted-housing-crawl/pw-driver}"/package/cli.js  # must exist
    ~/bin/house-price-collector -mode warmcheck                  # want: "[warmcheck] REA warm"
    ```
 
-   > This driver lives in `~/Library/Caches`, so **any disk-space sweep of that
-   > directory silently disables the crawl** — exactly what stopped it on
-   > 2026-08-13. Reinstall is the only repair; re-warming Chrome does nothing.
+   > The driver **used to** live in `~/Library/Caches`, where any disk-space
+   > sweep of that directory silently disabled the crawl — exactly what stopped
+   > it on 2026-08-13. `CRAWL_PW_DRIVER_DIR` now keeps it on a path no cache
+   > tooling owns. Reinstall (`-mode install-driver`) is still the only repair
+   > for a missing driver; re-warming Chrome does nothing.
 3. Optionally do a first warm-up. The collector now self-warms, but this is a
    useful ready-check. Launch the DEDICATED profile (never the personal profile)
    with a REA URL as Chrome's startup page:

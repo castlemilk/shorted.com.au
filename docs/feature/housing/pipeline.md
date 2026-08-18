@@ -58,6 +58,7 @@ migration 000056 after census" step in older docs is superseded.
 | `crawl` | `house_prices` (crawled medians) | Oldest tier, suburb-median sweep; exit 3 on re-warm |
 | `freshness` | — (read-only) | Exit 6 + `CRAWL_FRESHNESS_WEBHOOK` POST when the oldest covered suburb crosses `CRAWL_FRESHNESS_ALARM_HOURS` |
 | `warmcheck` | — (read-only) | Fetches one REA page via the real fetcher; `ArgonautExchange` present = warm (0), Kasada stub = 5 |
+| `install-driver` | — (driver files only) | Installs/repairs the Playwright driver into `CRAWL_PW_DRIVER_DIR`. Needs no DB, no Chrome — dispatched before the `DATABASE_URL` check so a rig with a broken environment can repair itself with only the binary. This is the fix rc=8 names |
 | `purge` | brandbrain queue deletions | Post-refactor cleanup; `PURGE_SOURCE/KIND/TIER/STATUSES`, dry-run default |
 | `backfill-address` | `address_key` on listings + events | One-time, idempotent |
 
@@ -135,14 +136,39 @@ All drainers share one host Chrome + one residential IP, so
 `housing-crawl-common.sh` holds a **single-drainer lock** — the daily delta
 skips cleanly while a full pass holds it.
 
+Exactly **three** LaunchAgents are installed on the rig. The other wrappers
+exist in the repo but are **not scheduled** — do not read them as running work.
+
 | Wrapper | Schedule | Runs |
 |---|---|---|
-| `run-housing-agent.sh` | 09:15 + 21:15 daily | `enqueue` → drain `agent` until empty |
-| `run-housing-delta.sh` | 03:00 daily | `CRAWL_ENQUEUE_SELECTION=delta` enqueue → drain → `freshness` |
-| `run-housing-full.sh` | 1st + 15th, 02:00 | `CRAWL_ENQUEUE_SELECTION=all` enqueue → drain → `freshness` |
-| `run-housing-property.sh` | 14:00 daily | `property` |
+| `run-housing-delta.sh` | **10:00 local, daily** | `CRAWL_ENQUEUE_SELECTION=delta` enqueue → drain → `freshness` |
+| `run-housing-full.sh` | **1st + 15th, 08:00** | `CRAWL_ENQUEUE_SELECTION=all` enqueue → drain → `freshness` |
+| `run-housing-property-resolve.sh` | **21:20 daily** | `property-resolve` |
 | `run-housing-rescan.sh` | manual (`nohup`) | Supervised loop re-invoking the full pass past re-warm stops until the queue drains |
-| `run-housing-crawl.sh` | Tue 02:30 (legacy) | Chrome relaunch/warm + `warmcheck` preflight + `listings` + `crawl` |
+| `run-housing-agent.sh` | **not currently installed** | `enqueue` → drain `agent` until empty |
+| `run-housing-property.sh` | **not currently installed** | `property` |
+| `run-housing-crawl.sh` | **not currently installed** (legacy) | Chrome relaunch/warm + `warmcheck` preflight + `listings` + `crawl` |
+
+Both scheduled drainers open by logging the running binary's `vcs.revision`
+(`hc_log_binary_provenance`) and then wait — bounded, non-fatal — for the
+BrandBrain agent's loopback control port before enqueueing
+(`hc_wait_for_agent`), so a run cannot race the agent's auth mint after a
+restart.
+
+### Knobs that set the crawl's throughput and its alarms
+
+These two move **together**. The cap is what the crawl can actually deliver;
+the horizon is what we agree to be alarmed about. Setting a horizon the cap
+cannot meet produces an alarm that is always on, which is how the catalog
+reached a 305h-oldest suburb without anyone treating it as an incident.
+
+| Variable | Default | Why |
+|---|---|---|
+| `CRAWL_DELTA_MAX_SUBURBS` | **120** | Per-run selection cap = the whole crawl's ceiling. 500 suburbs ÷ 120/day ≈ **4.2-day rotation** (~9.6h crawl/day). Was 60, which implied ~8.3 days. Walk it back if `crawl_run_status` blocked-rate climbs — and walk the horizon back with it |
+| `CRAWL_FRESHNESS_ALARM_HOURS` | **120** | Oldest-covered-suburb horizon that trips exit 6. Matches the rotation above with margin. Was 72, which needs ~167 suburbs/day ≈ 13.4h crawl/day — never configured, never reachable |
+| `CRAWL_PW_DRIVER_DIR` | `~/.shorted-housing-crawl/pw-driver` | Keeps the Playwright driver out of `~/Library/Caches`, where a disk sweep deleted it and took the crawl down for two days (2026-08-13). Repair with `-mode install-driver` |
+| `CRAWL_ALERT_WEBHOOK` | unset | The rig's push channel (`hc_alert`); falls back to `CRAWL_FRESHNESS_WEBHOOK` so one secret serves both. Unset = notification-only, i.e. miss-able |
+| `CRAWL_AGENT_WAIT_S` | 120 | Budget for `hc_wait_for_agent` to see the BrandBrain agent's control port before enqueueing. Expiry alerts and **proceeds** — never blocks the schedule |
 
 ## Landmines
 
