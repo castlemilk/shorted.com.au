@@ -216,6 +216,56 @@ test_hc_alert_noops_without_webhook() {
 	fi
 }
 
+# A DARK ALERT CHANNEL MUST ANNOUNCE THAT IT IS DARK. Verified 2026-08-18: the
+# rig's ~/.shorted-housing-crawl.env holds ZERO webhook entries, so every
+# hc_alert since it was written degraded silently to a macOS notification — the
+# exact miss-able channel hc_alert was built to replace. The degradation must be
+# a loud, named log line so the log an operator IS reading says why no page came.
+test_hc_alert_warns_loudly_when_no_webhook_configured() {
+	make_fake_tools
+	local log="$TMP_ROOT/alert-nowebhook-warn.log"
+	rm -f "$log"
+	run_expect_rc 0 bash -c '
+		set -uo pipefail
+		PATH="$4:$PATH"
+		source "$1/housing-crawl-common.sh"
+		LOG="$3"
+		unset CRAWL_ALERT_WEBHOOK CRAWL_FRESHNESS_WEBHOOK 2>/dev/null || true
+		hc_alert "the thing broke"
+	' _ "$DIR" unused "$log" "$FAKE_TOOLS" || return 1
+	if ! /usr/bin/grep -q "NO WEBHOOK CONFIGURED" "$log"; then
+		echo "FAIL: hc_alert degraded to a desktop notification without saying so: $(cat "$log" 2>/dev/null)" >&2
+		return 1
+	fi
+	if ! /usr/bin/grep -q "CRAWL_ALERT_WEBHOOK" "$log" || ! /usr/bin/grep -q "CRAWL_FRESHNESS_WEBHOOK" "$log"; then
+		echo "FAIL: the no-webhook warning does not name the variables to set: $(cat "$log")" >&2
+		return 1
+	fi
+	if ! /usr/bin/grep -q "the thing broke" "$log"; then
+		echo "FAIL: the no-webhook warning does not carry the alert message: $(cat "$log")" >&2
+		return 1
+	fi
+}
+
+# ...and it must NOT cry wolf when alerting is actually wired up.
+test_hc_alert_does_not_warn_when_webhook_configured() {
+	make_fake_tools
+	local log="$TMP_ROOT/alert-webhook-nowarn.log"
+	rm -f "$log" "$TMP_ROOT/curl-args.txt"
+	run_expect_rc 0 bash -c '
+		set -uo pipefail
+		PATH="$4:$PATH"
+		source "$1/housing-crawl-common.sh"
+		LOG="$3"
+		CRAWL_ALERT_WEBHOOK="https://hooks.example.invalid/T000/B000"
+		hc_alert "the thing broke"
+	' _ "$DIR" unused "$log" "$FAKE_TOOLS" || return 1
+	if [[ -f "$log" ]] && /usr/bin/grep -q "NO WEBHOOK CONFIGURED" "$log"; then
+		echo "FAIL: hc_alert warned about a missing webhook while one was configured" >&2
+		return 1
+	fi
+}
+
 # The wait-for-agent gate must give up after its budget, alert, and still
 # return 0 — the collector has its own on-401 token refresh, so a missing
 # agent must degrade the run to "will probably 401 loudly", never block it.
@@ -310,6 +360,8 @@ test_wrapper_preserves_enqueue_failure run-housing-full.sh || failures=$((failur
 test_hc_alert_posts_webhook_when_configured || failures=$((failures + 1))
 test_hc_alert_escapes_json_quotes || failures=$((failures + 1))
 test_hc_alert_noops_without_webhook || failures=$((failures + 1))
+test_hc_alert_warns_loudly_when_no_webhook_configured || failures=$((failures + 1))
+test_hc_alert_does_not_warn_when_webhook_configured || failures=$((failures + 1))
 test_hc_wait_for_agent_times_out_alerts_and_proceeds || failures=$((failures + 1))
 test_provenance_logged_at_run_start || failures=$((failures + 1))
 test_provenance_found_without_go_on_path || failures=$((failures + 1))

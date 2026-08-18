@@ -63,7 +63,16 @@ hc_alert() {
 	local msg="$1"
 	hc_notify "$msg"
 	local webhook="${CRAWL_ALERT_WEBHOOK:-${CRAWL_FRESHNESS_WEBHOOK:-}}"
-	[[ -z "$webhook" ]] && return 0
+	if [[ -z "$webhook" ]]; then
+		# A DARK ALERT CHANNEL MUST ANNOUNCE THAT IT IS DARK. With no webhook this
+		# function silently collapses back to a macOS notification — precisely the
+		# miss-able channel it was written to replace, and precisely the state the
+		# rig was found in on 2026-08-18 (zero WEBHOOK entries in
+		# ~/.shorted-housing-crawl.env). Say so, in the log the operator is already
+		# reading, naming the variables that would fix it.
+		echo "$(date -u +%FT%TZ) [alert] NO WEBHOOK CONFIGURED (set CRAWL_ALERT_WEBHOOK or CRAWL_FRESHNESS_WEBHOOK in ~/.shorted-housing-crawl.env) — this alert reached only a desktop notification: $msg" >>"${LOG:-/dev/stderr}"
+		return 0
+	fi
 	local host_tag
 	host_tag="$(/bin/hostname -s 2>/dev/null || echo rig)"
 	# Minimal JSON string escaping (backslash first, then quotes); wrapper

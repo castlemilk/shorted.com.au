@@ -66,6 +66,26 @@ rig_wrapper_drift() {
 	return "$drifted"
 }
 
+# rig_webhook_state reports whether hc_alert has anywhere to push. Alerting was
+# found completely dark on 2026-08-18 (no WEBHOOK entry in the rig env file at
+# all), and no command told anyone. `--check` is the one thing an operator runs
+# during an incident, so it must answer "will an alert actually reach me?".
+# READ-ONLY: it greps the env file, never writes it. Prints the STATE, never the
+# secret — --check output gets pasted into incident threads.
+rig_webhook_state() {
+	local envfile="${HOUSING_CRAWL_ENV:-$HOME/.shorted-housing-crawl.env}"
+	local var
+	for var in CRAWL_ALERT_WEBHOOK CRAWL_FRESHNESS_WEBHOOK; do
+		if [[ -n "${!var:-}" ]] || { [[ -f "$envfile" ]] && /usr/bin/grep -Eq "^[[:space:]]*(export[[:space:]]+)?${var}=[^[:space:]]" "$envfile"; }; then
+			echo "alerting: CONFIGURED ($var set)"
+			return 0
+		fi
+	done
+	echo "alerting: NOT CONFIGURED — hc_alert can only raise a desktop notification."
+	echo "          Set CRAWL_ALERT_WEBHOOK (or CRAWL_FRESHNESS_WEBHOOK) in $envfile"
+	return 0
+}
+
 stage_check() {
 	git -C "$STAGE_REPO" fetch origin main --quiet
 	local want got rc=0
@@ -82,6 +102,10 @@ stage_check() {
 	else
 		rc=1
 	fi
+	# Reported, not enforced: the exit code stays a pure DRIFT signal (0 current /
+	# 1 drifted) so scripts reading it keep their meaning. A dark alert channel is
+	# an operator decision, so it is surfaced loudly and left to the human.
+	rig_webhook_state
 	return "$rc"
 }
 

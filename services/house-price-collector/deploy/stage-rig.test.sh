@@ -54,7 +54,53 @@ test_rig_wrapper_drift_reports_changed_file() {
 	fi
 }
 
+# `stage-rig.sh --check` is the ONE command an operator runs during an incident,
+# so it must answer "will an alert actually reach me?" — verified 2026-08-18 the
+# rig had no webhook set at all, and nothing anywhere said so. Report the state
+# from the env file the wrappers read, without touching the live rig config.
+test_webhook_state_reported_when_missing() {
+	local envfile="$TMP_ROOT/no-webhook.env"
+	printf 'DATABASE_URL=postgresql://example.invalid/x\n' >"$envfile"
+	local out
+	out="$(bash -c 'source "$1/stage-rig.sh"; HOUSING_CRAWL_ENV="$2" rig_webhook_state' _ "$DIR" "$envfile" 2>&1)"
+	if ! grep -q "NOT CONFIGURED" <<<"$out"; then
+		echo "FAIL: missing webhook not reported as NOT CONFIGURED: $out" >&2
+		return 1
+	fi
+	if ! grep -q "CRAWL_ALERT_WEBHOOK" <<<"$out"; then
+		echo "FAIL: webhook report does not name the variable to set: $out" >&2
+		return 1
+	fi
+}
+
+test_webhook_state_reported_when_present() {
+	local envfile="$TMP_ROOT/with-webhook.env"
+	printf 'CRAWL_ALERT_WEBHOOK=https://hooks.example.invalid/T/B\n' >"$envfile"
+	local out
+	out="$(bash -c 'source "$1/stage-rig.sh"; HOUSING_CRAWL_ENV="$2" rig_webhook_state' _ "$DIR" "$envfile" 2>&1)"
+	if ! grep -q "CONFIGURED" <<<"$out" || grep -q "NOT CONFIGURED" <<<"$out"; then
+		echo "FAIL: configured webhook not reported as CONFIGURED: $out" >&2
+		return 1
+	fi
+	# The secret itself must never be echoed into an incident transcript.
+	if grep -q "hooks.example.invalid" <<<"$out"; then
+		echo "FAIL: --check leaked the webhook URL: $out" >&2
+		return 1
+	fi
+}
+
+# --check must actually CALL the reporter, not merely define it.
+test_check_surfaces_webhook_state() {
+	if ! grep -q "rig_webhook_state" <<<"$(sed -n '/^stage_check()/,/^}/p' "$DIR/stage-rig.sh")"; then
+		echo "FAIL: stage_check does not report webhook configuration" >&2
+		return 1
+	fi
+}
+
 test_sourceable || failures=$((failures + 1))
+test_webhook_state_reported_when_missing || failures=$((failures + 1))
+test_webhook_state_reported_when_present || failures=$((failures + 1))
+test_check_surfaces_webhook_state || failures=$((failures + 1))
 test_rig_binary_revision_parses_go_output || failures=$((failures + 1))
 test_rig_wrapper_drift_reports_changed_file || failures=$((failures + 1))
 

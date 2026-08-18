@@ -173,6 +173,11 @@ test("terraform deploy workflow gates housing contracts on open pull requests", 
     /working-directory:\s*services\/jobs\s+run:\s*GOWORK=off GOPRIVATE='github\.com\/skunkworq\/\*' go test \.\/internal\/jobs\/houseprices\/\.\.\./,
   );
   assert.match(job, /bash services\/house-price-collector\/deploy\/housing-lifecycle-exit\.test\.sh/);
+  assert.match(
+    job,
+    /bash services\/house-price-collector\/deploy\/stage-rig\.test\.sh/,
+    "the rig staging guards (drift + alerting readiness) must run somewhere in CI",
+  );
   assert.doesNotMatch(job, /go test \.\/shorts\/internal\/services\/shorts/);
   assert.doesNotMatch(job, /make\s+(?:test-)?integration|test\/integration/);
 });
