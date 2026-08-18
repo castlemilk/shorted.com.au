@@ -98,7 +98,7 @@ test("housing freshness workflow enforces the read-only production sentinel cont
   // gone red, so they are contract, not decoration.
   assert.match(
     workflow,
-    /CATALOG_STALENESS[\s\S]*FROM\s+property_listings[\s\S]*HAVING\s+MAX\(last_seen_at\)\s*<\s*now\(\)\s*-\s*interval\s*'132 hours'/i,
+    /stale_suburbs\s+AS\s*\([\s\S]*FROM\s+property_listings[\s\S]*HAVING\s+MAX\(last_seen_at\)\s*<\s*now\(\)\s*-\s*interval\s*'132 hours'[\s\S]*'CATALOG_STALENESS'/i,
     "the sentinel must check per-suburb catalog staleness, not just global event silence",
   );
   assert.match(
@@ -110,6 +110,13 @@ test("housing freshness workflow enforces the read-only production sentinel cont
     workflow,
     /RIG_STATUS[\s\S]*FROM\s+crawl_run_status[\s\S]*status\s+IN\s*\(\s*'error'\s*,\s*'blocked'\s*\)[\s\S]*interval\s*'30 hours'/i,
     "the sentinel must check the rig's own run health, including a delta that never finished",
+  );
+
+  // LIMIT 5 without a total made a 200-suburb outage read as a 5-suburb one.
+  assert.match(
+    workflow,
+    /stale_suburb_total\s+AS\s*\(\s*SELECT\s+COUNT\(\*\)\s+AS\s+stale_total\s+FROM\s+stale_suburbs\s*\)[\s\S]*'CATALOG_STALENESS'\s*,\s*\n\s*'TOTAL'\s*,[\s\S]*stale_total[\s\S]*FROM\s+stale_suburb_total/i,
+    "the capped worst-5 list must be accompanied by the true stale-suburb total",
   );
   assert.match(
     workflow,

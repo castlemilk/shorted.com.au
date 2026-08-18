@@ -87,6 +87,26 @@ jobs:
             SELECT MAX(observed_at) AS max_observed_at
             FROM property_price_events
           ),
+          -- Every catalog suburb whose newest listing sighting is past the 132h
+          -- line, computed ONCE so the report can show both the worst few rows
+          -- and the true total (a LIMIT 5 with no count made a 200-suburb
+          -- outage read as a 5-suburb one).
+          stale_suburbs AS (
+            SELECT
+              lower(suburb) AS suburb,
+              upper(state_code) AS state_code,
+              trim(postcode) AS postcode,
+              MAX(last_seen_at) AS last_seen
+            FROM property_listings
+            WHERE suburb IS NOT NULL
+              AND state_code IS NOT NULL
+              AND postcode IS NOT NULL
+            GROUP BY 1, 2, 3
+            HAVING MAX(last_seen_at) < now() - interval '132 hours'
+          ),
+          stale_suburb_total AS (
+            SELECT COUNT(*) AS stale_total FROM stale_suburbs
+          ),
           violations AS (
             SELECT
               'INGEST_ERROR'::text AS check_name,
@@ -144,7 +164,10 @@ jobs:
             -- oldest COVERED suburb, keyed like queryCatalogFreshness. The
             -- 132-hour line is the rig's 120h alarm + half a day of margin so
             -- the rig-side alarm always fires first. Worst 5 suburbs only —
-            -- a wholesale-stale catalog must not file a 500-row issue.
+            -- a wholesale-stale catalog must not file a 500-row issue — but
+            -- the worst 5 ALONE hide the scale (measured 2026-08-18: 200+
+            -- suburbs past the line, an issue that reads as five), so the
+            -- TOTAL row below states how big the outage really is.
             SELECT
               'CATALOG_STALENESS',
               format('%s %s %s', s.suburb, s.state_code, s.postcode),
@@ -154,20 +177,20 @@ jobs:
                 to_char(extract(epoch FROM now() - s.last_seen) / 3600.0, 'FM999990')
               )
             FROM (
-              SELECT
-                lower(suburb) AS suburb,
-                upper(state_code) AS state_code,
-                trim(postcode) AS postcode,
-                MAX(last_seen_at) AS last_seen
-              FROM property_listings
-              WHERE suburb IS NOT NULL
-                AND state_code IS NOT NULL
-                AND postcode IS NOT NULL
-              GROUP BY 1, 2, 3
-              HAVING MAX(last_seen_at) < now() - interval '132 hours'
-              ORDER BY MAX(last_seen_at) ASC
-              LIMIT 5
+              SELECT * FROM stale_suburbs ORDER BY last_seen ASC LIMIT 5
             ) AS s
+
+            UNION ALL
+
+            SELECT
+              'CATALOG_STALENESS',
+              'TOTAL',
+              format(
+                '%s suburb(s) past the 132h threshold in total (the worst 5 are listed individually)',
+                t.stale_total
+              )
+            FROM stale_suburb_total AS t
+            WHERE t.stale_total > 0
 
             UNION ALL
 
