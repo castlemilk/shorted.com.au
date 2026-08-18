@@ -23,12 +23,28 @@ STAGE_BIN_DEST="${HOUSING_CRAWL_BIN:-$HOME/bin/house-price-collector}"
 STAGE_DIR="${HOUSING_CRAWL_STAGE_DIR:-$HOME/.shorted-housing-crawl-deploy}"
 STAGE_WRAPPERS=(housing-crawl-common.sh run-housing-delta.sh run-housing-full.sh run-housing-rescan.sh)
 
+# rig_find_go mirrors hc_find_go in housing-crawl-common.sh: resolve go by
+# probing explicit candidates, not just PATH, so a non-interactive caller (or a
+# shell without Homebrew's bin on PATH) does not silently report "unknown".
+rig_find_go() {
+	local candidates=() c
+	[[ -n "${HOUSING_GO_BIN:-}" ]] && candidates+=("$HOUSING_GO_BIN")
+	c="$(command -v go 2>/dev/null || true)"
+	[[ -n "$c" ]] && candidates+=("$c")
+	candidates+=(/opt/homebrew/bin/go /usr/local/go/bin/go /usr/local/bin/go)
+	for c in "${candidates[@]}"; do
+		[[ -x "$c" ]] && { echo "$c"; return 0; }
+	done
+	return 1
+}
+
 # rig_binary_revision prints the first 12 chars of a binary's vcs.revision, or
 # "unknown". Same parse as hc_log_binary_provenance — keep them in agreement.
 rig_binary_revision() {
-	local bin="$1" rev=""
-	if command -v go >/dev/null 2>&1; then
-		rev="$(go version -m "$bin" 2>/dev/null \
+	local bin="$1" rev="" gobin
+	gobin="$(rig_find_go || true)"
+	if [[ -n "$gobin" ]]; then
+		rev="$("$gobin" version -m "$bin" 2>/dev/null \
 			| /usr/bin/awk '$1 == "build" && $2 ~ /^vcs\.revision=/ { sub("vcs.revision=", "", $2); print substr($2, 1, 12); exit }')"
 	fi
 	echo "${rev:-unknown}"

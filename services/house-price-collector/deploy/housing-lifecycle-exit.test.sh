@@ -265,6 +265,39 @@ EOF
 	fi
 }
 
+# The case the PATH-based test above cannot see: launchd runs the wrappers with
+# a MINIMAL PATH (/usr/bin:/bin:/usr/sbin:/sbin) and the plists set no
+# EnvironmentVariables, so `command -v go` FAILS on the only rig context that
+# matters — Homebrew's go lives at /opt/homebrew/bin/go. Before the candidate
+# probe, every scheduled run logged "unknown" and the provenance feature was
+# dark. Pin it: no go on PATH, a go at a CANDIDATE location, revision logged.
+test_provenance_found_without_go_on_path() {
+	local candidate_dir="$TMP_ROOT/candidate-go-bin"
+	mkdir -p "$candidate_dir"
+	cat >"$candidate_dir/go" <<'EOF'
+#!/bin/bash
+printf '\tbuild\tvcs.revision=0f1e2d3c4b5a69788796a5b4c3d2e1f009f1e2d3\n'
+EOF
+	chmod +x "$candidate_dir/go"
+	local log="$TMP_ROOT/provenance-nopath.log"
+	run_expect_rc 0 env PATH="/usr/bin:/bin" HOUSING_GO_BIN="$candidate_dir/go" \
+		/bin/bash -c '
+			set -uo pipefail
+			source "$1/housing-crawl-common.sh"
+			BIN="$2"
+			LOG="$3"
+			hc_log_binary_provenance
+		' _ "$DIR" "$FAKE_COLLECTOR" "$log" || return 1
+	if /usr/bin/grep -q "vcs.revision=unknown" "$log"; then
+		echo "FAIL: provenance logged 'unknown' with go at a candidate path (the launchd case): $log" >&2
+		return 1
+	fi
+	if ! /usr/bin/grep -q "vcs.revision=0f1e2d3c4b5a" "$log"; then
+		echo "FAIL: provenance did not resolve go from HOUSING_GO_BIN: $(cat "$log")" >&2
+		return 1
+	fi
+}
+
 failures=0
 test_common_preserves_fatal_zero_processed || failures=$((failures + 1))
 test_common_allows_legitimate_empty_success || failures=$((failures + 1))
@@ -279,6 +312,7 @@ test_hc_alert_escapes_json_quotes || failures=$((failures + 1))
 test_hc_alert_noops_without_webhook || failures=$((failures + 1))
 test_hc_wait_for_agent_times_out_alerts_and_proceeds || failures=$((failures + 1))
 test_provenance_logged_at_run_start || failures=$((failures + 1))
+test_provenance_found_without_go_on_path || failures=$((failures + 1))
 
 if ((failures > 0)); then
 	echo "housing lifecycle exit regression: $failures failure(s)" >&2

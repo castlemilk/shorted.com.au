@@ -103,15 +103,39 @@ hc_wait_for_agent() {
 	return 0
 }
 
+# hc_find_go resolves a usable `go` binary WITHOUT relying on PATH.
+#
+# THIS IS THE WHOLE POINT: launchd starts the wrappers with a minimal PATH
+# (/usr/bin:/bin:/usr/sbin:/sbin) and the plists set no EnvironmentVariables, so
+# an interactive `command -v go` proves nothing about the scheduled run. Homebrew
+# installs go at /opt/homebrew/bin/go, which is NOT on that PATH — so every
+# scheduled run resolved "unknown" and the provenance line, the one defence
+# against a drifted hand-deployed binary, was dark on the only context that
+# matters. Probe explicit candidates; HOUSING_GO_BIN overrides for odd rigs.
+# Prints the go path, or nothing when none is usable.
+hc_find_go() {
+	local candidates=() c
+	[[ -n "${HOUSING_GO_BIN:-}" ]] && candidates+=("$HOUSING_GO_BIN")
+	c="$(command -v go 2>/dev/null || true)"
+	[[ -n "$c" ]] && candidates+=("$c")
+	candidates+=(/opt/homebrew/bin/go /usr/local/go/bin/go /usr/local/bin/go)
+	for c in "${candidates[@]}"; do
+		[[ -x "$c" ]] && { echo "$c"; return 0; }
+	done
+	return 1
+}
+
 # hc_log_binary_provenance names the exact code this run executes. The rig
 # binary is a HAND deploy (deploy/README.md) — it has drifted from main before
 # (built 4h17m before the fix it was assumed to carry, 2026-08-15), and the
 # only durable defence is making the running revision impossible to not see.
-# Best-effort: a rig without a Go toolchain logs "unknown" rather than failing.
+# Best-effort: a rig with no Go toolchain at any candidate path logs "unknown"
+# rather than failing.
 hc_log_binary_provenance() {
-	local rev="unknown"
-	if command -v go >/dev/null 2>&1; then
-		rev="$(go version -m "$BIN" 2>/dev/null \
+	local rev="unknown" gobin
+	gobin="$(hc_find_go || true)"
+	if [[ -n "$gobin" ]]; then
+		rev="$("$gobin" version -m "$BIN" 2>/dev/null \
 			| /usr/bin/awk '$1 == "build" && $2 ~ /^vcs\.revision=/ { sub("vcs.revision=", "", $2); print substr($2, 1, 12); exit }')"
 		rev="${rev:-unknown}"
 	fi
