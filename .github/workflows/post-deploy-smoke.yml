@@ -53,7 +53,21 @@ jobs:
           curl -s --max-time 60 "${CURL_ARGS[@]}" "${BASE_URL}/api/static-pages/warm-cache" | head -c 400 || true
           echo ""
           echo "2) Re-priming each page through the Cloudflare bypass…"
-          for p in /market /housing /economy /compare; do
+          # Driven from config/isr-shell-pages.json, NOT a hardcoded list. The
+          # list here had drifted to four paths and omitted /price-drops, so that
+          # page's shell was invalidated by warm-cache but never re-primed
+          # through the public host. Reading the same file warm-cache reads means
+          # adding a shell page needs one edit, not three.
+          SHELL_PAGES=$(node -e '
+            const fs = require("node:fs");
+            const pages = JSON.parse(fs.readFileSync("web/src/config/isr-shell-pages.json", "utf8"));
+            if (!Array.isArray(pages) || pages.length === 0 || pages.some((p) => typeof p !== "string" || !p.startsWith("/"))) {
+              throw new Error("web/src/config/isr-shell-pages.json must be a non-empty array of /-prefixed paths");
+            }
+            process.stdout.write(pages.join(" "));
+          ')
+          echo "   re-priming ${SHELL_PAGES}"
+          for p in $SHELL_PAGES; do
             code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 90 "${CURL_ARGS[@]}" "${BASE_URL}${p}")
             echo "   re-prime ${p}: HTTP ${code}"
           done
