@@ -91,7 +91,31 @@ test("housing freshness workflow enforces the read-only production sentinel cont
   assert.match(workflow, /MAX\s*\(\s*observed_at\s*\)[\s\S]*FROM\s+property_price_events/i);
   assert.match(workflow, /max_observed_at\s+IS\s+NULL/i);
   assert.match(workflow, /now\(\)\s*-\s*interval\s*'72 hours'/i);
-  assert.match(workflow, /Default event silence threshold[^\n]*72 hours/i);
+
+  // The global max(observed_at) check cannot see a limping crawl: it stayed
+  // green through the 2026-08-13 driver outage and green at a measured median
+  // catalog staleness of 117h. These two checks are the ones that would have
+  // gone red, so they are contract, not decoration.
+  assert.match(
+    workflow,
+    /CATALOG_STALENESS[\s\S]*FROM\s+property_listings[\s\S]*HAVING\s+MAX\(last_seen_at\)\s*<\s*now\(\)\s*-\s*interval\s*'132 hours'/i,
+    "the sentinel must check per-suburb catalog staleness, not just global event silence",
+  );
+  assert.match(
+    workflow,
+    /LIMIT\s+5\s*\)\s*AS\s+s/i,
+    "a wholesale-stale catalog must be capped, not filed as a 500-row issue",
+  );
+  assert.match(
+    workflow,
+    /RIG_STATUS[\s\S]*FROM\s+crawl_run_status[\s\S]*status\s+IN\s*\(\s*'error'\s*,\s*'blocked'\s*\)[\s\S]*interval\s*'30 hours'/i,
+    "the sentinel must check the rig's own run health, including a delta that never finished",
+  );
+  assert.match(
+    workflow,
+    /Thresholds:[^\n]*72h[^\n]*132h[^\n]*30h/i,
+    "the step summary must state every threshold it enforces",
+  );
 
   assert.match(workflow, /GITHUB_STEP_SUMMARY/);
   assert.match(
