@@ -238,6 +238,33 @@ test_hc_wait_for_agent_times_out_alerts_and_proceeds() {
 	fi
 }
 
+# Every scheduled run must open by naming the binary's vcs.revision, so "which
+# code is the rig actually running" is answered by the log an operator is
+# already reading — not by remembering `go version -m`. Faked `go` on PATH.
+test_provenance_logged_at_run_start() {
+	FAKE_TOOLS="$TMP_ROOT/tools"
+	mkdir -p "$FAKE_TOOLS"
+	cat >"$FAKE_TOOLS/go" <<'EOF'
+#!/usr/bin/env bash
+printf '\tbuild\tvcs.revision=abcdef1234567890abcdef1234567890abcdef12\n'
+printf '\tbuild\tvcs.time=2026-08-15T08:02:10Z\n'
+EOF
+	chmod +x "$FAKE_TOOLS/go"
+	local log="$TMP_ROOT/provenance.log"
+	run_expect_rc 0 bash -c '
+		set -uo pipefail
+		PATH="$4:$PATH"
+		source "$1/housing-crawl-common.sh"
+		BIN="$2"
+		LOG="$3"
+		hc_log_binary_provenance
+	' _ "$DIR" "$FAKE_COLLECTOR" "$log" "$FAKE_TOOLS" || return 1
+	if ! /usr/bin/grep -q "vcs.revision=abcdef123456" "$log"; then
+		echo "FAIL: provenance line missing or unabbreviated in $log" >&2
+		return 1
+	fi
+}
+
 failures=0
 test_common_preserves_fatal_zero_processed || failures=$((failures + 1))
 test_common_allows_legitimate_empty_success || failures=$((failures + 1))
@@ -251,6 +278,7 @@ test_hc_alert_posts_webhook_when_configured || failures=$((failures + 1))
 test_hc_alert_escapes_json_quotes || failures=$((failures + 1))
 test_hc_alert_noops_without_webhook || failures=$((failures + 1))
 test_hc_wait_for_agent_times_out_alerts_and_proceeds || failures=$((failures + 1))
+test_provenance_logged_at_run_start || failures=$((failures + 1))
 
 if ((failures > 0)); then
 	echo "housing lifecycle exit regression: $failures failure(s)" >&2

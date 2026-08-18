@@ -103,6 +103,21 @@ hc_wait_for_agent() {
 	return 0
 }
 
+# hc_log_binary_provenance names the exact code this run executes. The rig
+# binary is a HAND deploy (deploy/README.md) — it has drifted from main before
+# (built 4h17m before the fix it was assumed to carry, 2026-08-15), and the
+# only durable defence is making the running revision impossible to not see.
+# Best-effort: a rig without a Go toolchain logs "unknown" rather than failing.
+hc_log_binary_provenance() {
+	local rev="unknown"
+	if command -v go >/dev/null 2>&1; then
+		rev="$(go version -m "$BIN" 2>/dev/null \
+			| /usr/bin/awk '$1 == "build" && $2 ~ /^vcs\.revision=/ { sub("vcs.revision=", "", $2); print substr($2, 1, 12); exit }')"
+		rev="${rev:-unknown}"
+	fi
+	echo "$(date -u +%FT%TZ) collector binary: $BIN (vcs.revision=${rev})" >>"$LOG"
+}
+
 # --- Cross-wrapper single-drainer lock ------------------------------------------
 # ALL housing drainers on a Mac share ONE host Chrome (localhost:9222) + ONE
 # residential IP, so two concurrent `-mode agent` drainers halve the effective

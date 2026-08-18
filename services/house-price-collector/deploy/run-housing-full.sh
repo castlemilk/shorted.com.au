@@ -26,6 +26,7 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$DIR/housing-crawl-common.sh"
 
 hc_load_env
+hc_log_binary_provenance
 
 # Single-drainer lock: a full pass runs ~1.5 days and must NOT overlap another
 # drainer on this Mac's one host Chrome + one residential IP. Holding the lock makes

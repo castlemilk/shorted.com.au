@@ -34,6 +34,7 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$DIR/housing-crawl-common.sh"
 
 hc_load_env
+hc_log_binary_provenance
 
 # Single-drainer lock: if a full pass (or another delta) is already draining on this
 # Mac, SKIP this run (exit 0) — one host Chrome + one residential IP means concurrent
