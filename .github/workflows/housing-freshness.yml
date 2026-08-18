@@ -165,7 +165,7 @@ jobs:
             -- 132-hour line is the rig's 120h alarm + half a day of margin so
             -- the rig-side alarm always fires first. Worst 5 suburbs only —
             -- a wholesale-stale catalog must not file a 500-row issue — but
-            -- the worst 5 ALONE hide the scale (measured 2026-08-18: 200+
+            -- the worst 5 ALONE hide the scale (measured 2026-08-18: 255
             -- suburbs past the line, an issue that reads as five), so the
             -- TOTAL row below states how big the outage really is.
             SELECT
