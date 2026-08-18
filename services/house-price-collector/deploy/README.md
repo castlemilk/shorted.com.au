@@ -396,7 +396,7 @@ Three pieces:
   than `CRAWL_DELTA_TTL_HOURS`, default **24h**), or **churny** (`>=
   CRAWL_DELTA_CHURN_MIN` price events, default **1**, over `CRAWL_DELTA_CHURN_DAYS`,
   default **7d**). Ranked never-first → churniest → oldest, capped at
-  `CRAWL_DELTA_MAX_SUBURBS` (default **60**). The capped-off tail is logged (never
+  `CRAWL_DELTA_MAX_SUBURBS` (default **120**). The capped-off tail is logged (never
   silently dropped).
 - **Fortnightly full** (`run-housing-full.sh` → `CRAWL_ENQUEUE_SELECTION=all -mode
   enqueue`). The whole catalog — re-reaches quiet suburbs the delta never selects
@@ -410,7 +410,7 @@ Three pieces:
 - **Freshness alarm** (`-mode freshness`, READ-ONLY). After draining, both wrappers
   run the freshness guard: it logs freshest / median / oldest covered-suburb age +
   the never-crawled coverage gap, and if the **oldest covered suburb** exceeds
-  `CRAWL_FRESHNESS_ALARM_HOURS` (default **72h**) it **exits 6** and best-effort
+  `CRAWL_FRESHNESS_ALARM_HOURS` (default **120h**) it **exits 6** and best-effort
   POSTs `CRAWL_FRESHNESS_WEBHOOK` (Slack/Discord-shaped `{text,...}`). Never-crawled
   suburbs are a coverage gap, not an alarm (a partially-seeded catalog would
   otherwise alarm forever); a fresh/never-run env (no coverage) never alarms.
@@ -436,9 +436,9 @@ Env knobs (all optional; put them in `~/.shorted-housing-crawl.env`):
 | `CRAWL_DELTA_TTL_HOURS` | `24` | re-crawl if last crawl older than this |
 | `CRAWL_DELTA_CHURN_MIN` | `1` | re-crawl if recent price events `>=` this (`0` disables the churn signal) |
 | `CRAWL_DELTA_CHURN_DAYS` | `7` | churn look-back window (days) |
-| `CRAWL_DELTA_MAX_SUBURBS` | `60` | per-run delta cap |
+| `CRAWL_DELTA_MAX_SUBURBS` | `120` | per-run delta cap (500-suburb catalog rotates in ~4.2 days) |
 | `CRAWL_DRAIN_MAX_ROUNDS` | `30` | drain-loop bound |
-| `CRAWL_FRESHNESS_ALARM_HOURS` | `72` | oldest-covered-suburb horizon that alarms |
+| `CRAWL_FRESHNESS_ALARM_HOURS` | `120` | oldest-covered-suburb horizon that alarms (must exceed the ~101h rotation) |
 | `CRAWL_FRESHNESS_WEBHOOK` | _unset_ | optional POST target for the freshness alarm |
 
 Install the jobs with the single canonical one-time procedure at the top of this
