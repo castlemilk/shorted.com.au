@@ -201,13 +201,37 @@ jobs:
             -- asleep, or the rig is off. (30h matches crawlStaleAfter("delta")
             -- in crawl_jobs.go.) The fortnightly full pass is deliberately
             -- not aged here — its 16-day cadence belongs to /admin.
+            --
+            -- ...EXCEPT while a full pass is actually running. All housing
+            -- drainers share ONE host Chrome and ONE residential IP, so they
+            -- serialize on the single-drainer lock (hc_acquire_lock): the daily
+            -- delta SKIPS cleanly — exit 0, no upsert — for the ~1.5+ days a
+            -- 500-suburb full pass takes. delta.finished_at therefore ages past
+            -- 30h on every healthy fortnightly full, and this check filed a
+            -- false issue twice a month. Suppress it only while the SAME HOST's
+            -- full row is itself FRESH within the same 30h bar we hold the delta
+            -- to: an in-flight full re-upserts finished_at=now() every round, so
+            -- a fresh full row means "the rig is alive and mid-pass", and it also
+            -- covers the ~24h after a pass ends before the next delta finishes.
+            -- Self-limiting: if the full pass dies, its row goes stale inside 30h
+            -- and the delta alarm switches itself back on.
             SELECT
               'RIG_STATUS',
-              format('%s/%s', run_type, host),
-              format('status=%s finished_at=%s', status, finished_at)
-            FROM crawl_run_status
-            WHERE status IN ('error', 'blocked')
-               OR (run_type = 'delta' AND finished_at < now() - interval '30 hours')
+              format('%s/%s', c.run_type, c.host),
+              format('status=%s finished_at=%s', c.status, c.finished_at)
+            FROM crawl_run_status AS c
+            WHERE c.status IN ('error', 'blocked')
+               OR (
+                    c.run_type = 'delta'
+                AND c.finished_at < now() - interval '30 hours'
+                AND NOT EXISTS (
+                      SELECT 1
+                      FROM crawl_run_status AS f
+                      WHERE f.host = c.host
+                        AND f.run_type = 'full'
+                        AND f.finished_at > now() - interval '30 hours'
+                    )
+                  )
           )
           SELECT concat_ws(E'\t', check_name, source, detail)
           FROM violations
@@ -230,7 +254,7 @@ jobs:
           {
             echo "## Housing freshness report"
             echo
-            echo "Thresholds: event silence **72h** · catalog per-suburb **132h** · delta run age **30h**."
+            echo "Thresholds: event silence **72h** · catalog per-suburb **132h** · delta run age **30h** (suppressed while a full pass is in flight)."
             echo
             if [[ -s "$report_file" ]]; then
               echo '```text'

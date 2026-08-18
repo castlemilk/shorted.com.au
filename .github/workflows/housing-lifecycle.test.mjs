@@ -112,6 +112,24 @@ test("housing freshness workflow enforces the read-only production sentinel cont
     "the sentinel must check the rig's own run health, including a delta that never finished",
   );
 
+  // A HEALTHY fortnightly full pass takes over a day, and the daily delta
+  // cleanly SKIPS on the single-drainer lock while it runs — without upserting.
+  // So delta.finished_at legitimately ages past 30h twice a month, and the
+  // unsuppressed check filed a false issue every time. Suppress the delta-age
+  // alarm only while the SAME HOST's full row is itself fresh (i.e. the rig is
+  // demonstrably alive and mid-pass); if the full pass dies, its row goes stale
+  // and the delta alarm comes back on its own.
+  assert.match(
+    workflow,
+    /NOT\s+EXISTS\s*\([\s\S]*?FROM\s+crawl_run_status\s+AS\s+f[\s\S]*?f\.host\s*=\s*c\.host[\s\S]*?f\.run_type\s*=\s*'full'[\s\S]*?f\.finished_at\s*>\s*now\(\)\s*-\s*interval\s*'30 hours'/i,
+    "an in-flight full pass on the same host must suppress the delta-age alarm",
+  );
+  assert.match(
+    workflow,
+    /--[^\n]*single-drainer lock/i,
+    "the suppression bound must be justified in a SQL comment",
+  );
+
   // LIMIT 5 without a total made a 200-suburb outage read as a 5-suburb one.
   assert.match(
     workflow,
