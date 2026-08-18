@@ -33,6 +33,10 @@ hc_load_env
 # holding it, this full pass skips (exit 0) rather than double-draining.
 hc_acquire_lock
 
+# Don't race the macOS agent's auth mint after a restart — poll its control
+# port (bounded), alert if it never comes up, then proceed regardless.
+hc_wait_for_agent
+
 # Tag every `-mode agent` round + the freshness run below so the collector writes a
 # HEALTH RECORD for this run to crawl_run_status (migration 000089) → the admin jobs
 # dashboard, where the residential crawl now appears as a tracked scheduled job. A full

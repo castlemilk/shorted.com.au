@@ -47,6 +47,58 @@ hc_load_env() {
 
 hc_notify() { /usr/bin/osascript -e "display notification \"$1\" with title \"Housing crawl\"" >/dev/null 2>&1 || true; }
 
+# hc_alert pushes an operator-facing alarm on BOTH channels: the transient macOS
+# notification (miss-able) and, when configured, a Slack/Discord-compatible
+# webhook ({"text": ...}). This is the rig's ONLY push channel — every terminal
+# wrapper failure must route through it, because the 2026-08 outages were all
+# "the log said so and nobody read the log". Best-effort: an alert failure must
+# never change a run's outcome. Webhook: CRAWL_ALERT_WEBHOOK, falling back to
+# CRAWL_FRESHNESS_WEBHOOK so one secret serves both the collector and the
+# wrappers.
+hc_alert() {
+	local msg="$1"
+	hc_notify "$msg"
+	local webhook="${CRAWL_ALERT_WEBHOOK:-${CRAWL_FRESHNESS_WEBHOOK:-}}"
+	[[ -z "$webhook" ]] && return 0
+	local host_tag
+	host_tag="$(/bin/hostname -s 2>/dev/null || echo rig)"
+	# Minimal JSON string escaping (backslash first, then quotes); wrapper
+	# messages are ASCII one-liners by convention.
+	local esc="${msg//\\/\\\\}"
+	esc="${esc//\"/\\\"}"
+	curl --fail --silent --show-error --max-time 10 \
+		-X POST -H 'Content-Type: application/json' \
+		--data "{\"text\":\"[housing-crawl ${host_tag}] ${esc}\"}" \
+		"$webhook" >/dev/null 2>&1 \
+		|| echo "$(date -u +%FT%TZ) hc_alert: webhook delivery failed (message: $msg)" >>"${LOG:-/dev/null}"
+	return 0
+}
+
+# hc_wait_for_agent polls the BrandBrain macOS agent's loopback control port
+# before the first enqueue. Two outage modes motivate it: the agent app dying
+# on restart (strict parent coupling, no relaunch — every run then 401s) and a
+# drain firing seconds before the agent's auth session is minted (observed
+# 2026-08: a 9s race failed the whole run). The port is re-minted per launch —
+# ALWAYS read ~/.brandbrain/diag-port, never hardcode. Non-fatal by design:
+# the collector auto-refreshes its token on 401, so after the wait budget we
+# alert and proceed rather than block the schedule.
+hc_wait_for_agent() {
+	local wait_s="${CRAWL_AGENT_WAIT_S:-120}"
+	local portfile="${BRANDBRAIN_DIAG_PORT_FILE:-$HOME/.brandbrain/diag-port}"
+	local waited=0 port=""
+	while ((waited < wait_s)); do
+		port="$(/bin/cat "$portfile" 2>/dev/null | /usr/bin/tr -dc '0-9')"
+		if [[ -n "$port" ]] && /usr/bin/nc -z 127.0.0.1 "$port" >/dev/null 2>&1; then
+			echo "$(date -u +%FT%TZ) brandbrain agent control port $port is up (waited ${waited}s)" >>"${LOG:-/dev/null}"
+			return 0
+		fi
+		sleep 5
+		waited=$((waited + 5))
+	done
+	hc_alert "BrandBrain agent control port not up after ${wait_s}s — runs may 401. Is BrandBrainAgent.app running? (open -a /Applications/BrandBrainAgent.app, then read ~/.brandbrain/diag-port)"
+	return 0
+}
+
 # --- Cross-wrapper single-drainer lock ------------------------------------------
 # ALL housing drainers on a Mac share ONE host Chrome (localhost:9222) + ONE
 # residential IP, so two concurrent `-mode agent` drainers halve the effective
@@ -146,6 +198,7 @@ hc_drain_until_empty() {
 			;;
 		4)
 			echo "$(date -u +%FT%TZ) drain: Chrome unusable (rc=4) — stopping" >>"$LOG"
+			hc_alert "Housing crawl STOPPED: Chrome unusable (rc=4) even after self-warm. See $LOG."
 			return 4
 			;;
 		8)
@@ -155,14 +208,14 @@ hc_drain_until_empty() {
 			# to the re-warm runbook, which cannot install a driver, and the crawl
 			# stayed down two days with 500/500 suburbs stale. Name the actual fix.
 			echo "$(date -u +%FT%TZ) drain: crawl environment broken (rc=8) — the Playwright DRIVER is missing, NOT Chrome. Re-warming will not help. Reinstall: cd services && GOWORK=off go run github.com/mxschmitt/playwright-go/cmd/playwright@v0.6100.0 install" >>"$LOG"
-			hc_notify "Housing crawl STOPPED: Playwright driver missing (rc=8). Re-warming Chrome will NOT fix it — reinstall the driver. See $LOG."
+			hc_alert "Housing crawl STOPPED: Playwright driver missing (rc=8). Re-warming Chrome will NOT fix it — reinstall the driver. See $LOG."
 			return 8
 			;;
 		0)
 			;;
 		*)
 			echo "$(date -u +%FT%TZ) drain: collector failed (rc=$rc) — stopping" >>"$LOG"
-			hc_notify "Housing crawl agent failed (rc=$rc). Check $LOG."
+			hc_alert "Housing crawl agent failed (rc=$rc). Check $LOG."
 			return "$rc"
 			;;
 		esac
@@ -187,7 +240,7 @@ hc_freshness() {
 	local rc=$?
 	echo "$(date -u +%FT%TZ) freshness rc=$rc" >>"$LOG"
 	if [[ "$rc" -eq 6 ]]; then
-		hc_notify "Housing crawl freshness ALARM — the price-drops board is going stale. Check $LOG / the residential rigs."
+		hc_alert "Housing crawl freshness ALARM — the price-drops board is going stale. Check $LOG / the residential rigs."
 	fi
 	return "$rc"
 }
