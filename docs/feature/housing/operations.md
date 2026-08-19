@@ -98,15 +98,22 @@ actually written.
 | A drain round hangs forever | `ps -o etime` past ~1h with no log output; `CRAWL_TIMEOUT_MIN` does **not** fire on the CDP path | `kill` it — a hung round holds the crawl lock and writes nothing; the supervisor starts the next pass |
 | Orphaned `in_progress` leases | `crawl-jobs?status=in_progress` (not `running`/`claimed`, which always return 0) | `PURGE_STATUSES=in_progress PURGE_TIER=listings PURGE_DRY_RUN=false … -mode purge`, then re-enqueue; purge is coarse, dry-run first |
 | A never-attempted job banked "succeeded" | coverage decays with no errors; `last_crawled` never advances | the `deferred` outcome (brandbrain #192 + shorted #408) — deploy brandbrain first or the collector falls back to `failed` |
-| **The Playwright driver is gone** | `please install the driver (v1.61.1) first` in the scheduler log; wrapper exits **8**; `find ~/Library/Caches/ms-playwright-go -type f` is empty | `cd services && GOWORK=off go run github.com/mxschmitt/playwright-go/cmd/playwright@v0.6100.0 install` — **do not re-warm Chrome, it is not the fault** |
+| **The Playwright driver is gone** | `please install the driver (v1.61.1) first` in the scheduler log; wrapper exits **8**; `find "$CRAWL_PW_DRIVER_DIR" -type f` is empty | `~/bin/house-price-collector -mode install-driver` — **do not re-warm Chrome, it is not the fault** |
 
 ### The driver stopper, in full (2026-08-13 → 15)
 
-The driver lives under `~/Library/Caches`, so **any disk-space sweep of that
-directory disables the crawl** without touching a line of code. That is what
+The driver **used to live** under `~/Library/Caches`, so any disk-space sweep of
+that directory disabled the crawl without touching a line of code. That is what
 happened on 2026-08-13: the whole dev-cache family (Homebrew, golangci-lint,
 node-gyp, the Go module cache) was recreated in one window late that night, and
 the driver went with it.
+
+It no longer lives there. `CRAWL_PW_DRIVER_DIR` (defaulted by `hc_load_env` to
+`~/.shorted-housing-crawl/pw-driver`) puts the driver on a path this crawl owns
+and no cache tooling sweeps, and `-mode install-driver` installs to that same
+path through the same options the fetchers read — so the repair command and the
+runtime cannot disagree about the directory. Read the rest of this section as
+the incident record it is.
 
 It was expensive because the symptom lied. `playwright.Run()` fails *before* any
 Chrome contact, but `runWarmCheck` used to report every fetcher-init failure as
@@ -117,10 +124,16 @@ this every run for two days; 500/500 suburbs went stale.
 
 `rc=8` now exists precisely to separate *the environment is broken* from *the
 browser is broken* (`crawl_env.go`). If you see 8: reinstall the driver, then
+prove the rig is warm.
 
 ```bash
+~/bin/house-price-collector -mode install-driver  # installs into CRAWL_PW_DRIVER_DIR
 ~/bin/house-price-collector -mode warmcheck      # want "[warmcheck] REA warm (…ArgonautExchange present)"
 ```
+
+`install-driver` needs no database, no Chrome and no wrapper env beyond
+`CRAWL_PW_DRIVER_DIR` — it is dispatched before the `DATABASE_URL` check
+specifically so a rig with a broken environment can repair itself.
 
 Nothing else on the rig needs touching — Chrome keeps its Kasada clearance
 across the whole failure.
@@ -137,6 +150,30 @@ Kasada stub → relaunch). The brandbrain token needs no minting — the collect
 re-reads the running macOS agent's token on 401; `BRANDBRAIN_AGENT_TOKEN` is an
 optional fallback and, as a ~15-min snapshot, rescues nothing once stale.
 
+## Deploying the rig
+
+The rig binary (`~/bin/house-price-collector`) and the staged wrappers
+(`~/.shorted-housing-crawl-deploy/`) are a **hand deploy, invisible to CI** —
+merging does not ship them. On 2026-08-15 the binary was found built 4h17m
+before the fix it was assumed to carry.
+
+```bash
+bash services/house-price-collector/deploy/stage-rig.sh --check  # read-only: is the rig current?
+bash services/house-price-collector/deploy/stage-rig.sh          # build + stage + install driver
+~/bin/house-price-collector -mode warmcheck
+```
+
+`--check` writes nothing and reports the deployed `vcs.revision` against
+`origin/main` plus per-wrapper drift. **Run it first during any incident** —
+"the rig is running old code" is a one-second hypothesis to eliminate.
+
+The install path refuses a dirty tree or a HEAD that is not `origin/main`
+(`STAGE_ALLOW_DIRTY=1` overrides for a deliberate branch build). This
+supersedes the manual `go build` in `deploy/README.md`, which remains as the
+fallback. Independently, both scheduled wrappers now log the running
+`vcs.revision` in their opening lines, so drift is visible in the log you are
+already reading.
+
 ## Freshness: what you can actually check today
 
 ```sql
@@ -147,13 +184,41 @@ SELECT run_type, host, status, finished_at FROM crawl_run_status; -- rig health
 ```
 
 `house_price_ingest_runs` is **write-only in this codebase** — one `INSERT` in
-`store.go`, zero `SELECT`s in `services/` or `web/src`. Nothing reads it, and a
-failed official job writes an `error` cursor and still exits 0. There is a
-`register-freshness.yml` and an `economy-freshness.yml`; there is **no housing
-equivalent**, and `-mode freshness` covers only the listings crawl (its exit 6
-goes to a log nobody reads — `CRAWL_FRESHNESS_WEBHOOK` is unset). That is how
-NSW Valuer-General medians reached 2026-08-09 having never landed a row while
-VIC sat frozen at Dec-2024. Known-open, fix in flight.
+`store.go`, zero `SELECT`s in `services/` or `web/src`. A failed official job
+writes an `error` cursor and still exits 0. That is how NSW Valuer-General
+medians reached 2026-08-09 having never landed a row while VIC sat frozen at
+Dec-2024.
+
+Nothing *in the application* reads it — but since #417/#429 a sentinel does.
+`.github/workflows/housing-freshness.yml` runs daily at 22:11 UTC against prod
+under a read-only transaction and files (and auto-closes) **one GitHub issue**,
+which is the notification channel: it needs no secret and emails the repo
+watchers. It is the only alarm that survives a dead rig, because it observes
+prod from GitHub's side — it works when the laptop is off.
+
+It now runs four checks:
+
+| Check | Threshold | Catches |
+|---|---|---|
+| `INGEST_ERROR` | any | an official job that wrote an `error` cursor and exited 0 |
+| `PERIOD_REGRESSION` | any | a preserved cursor ahead of the facts it claims to have loaded |
+| `EVENT_SILENCE` | 72h | global `max(observed_at)` — a *fully* dead crawl |
+| `CATALOG_STALENESS` | **132h** | the oldest **covered suburb** — a *limping* crawl |
+| `RIG_STATUS` | error/blocked, or a `delta` unfinished for **30h** | a run that failed, or never started |
+
+The last two exist because the first three cannot see a crawl that is merely
+too slow. `EVENT_SILENCE` ran **green throughout the 2026-08-13 → 15 driver
+outage** (34h and 58h silence at those runs, both under 72h) and green again on
+2026-08-18 with the catalog median at 117h and the oldest suburb at 305h. A
+crawl limping at any rate keeps a global maximum fresh forever;
+`CATALOG_STALENESS` asks the per-suburb question instead, mirroring
+`classifyFreshness`. Its 132h sits above the rig's own 120h alarm so the rig
+alerts first and the sentinel stays the backstop.
+
+Rig-side, `-mode freshness` exit 6 and every terminal wrapper failure now push
+through `hc_alert` (macOS notification **plus** `CRAWL_ALERT_WEBHOOK`, falling
+back to `CRAWL_FRESHNESS_WEBHOOK`). Set that webhook on the rig and as a GitHub
+secret — unset, alerting degrades to a notification nobody is guaranteed to see.
 
 `crawl_run_status` (000089) is the honest signal: a dead rig stops writing,
 `finished_at` ages, and `/admin` flips the row warning → critical unaided.

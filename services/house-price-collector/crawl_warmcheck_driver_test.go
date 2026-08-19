@@ -116,7 +116,7 @@ func TestBrokenEnvErrorNamesTheFix(t *testing.T) {
 			t.Errorf("errCrawlEnvBroken = %q, want it to mention %q", msg, want)
 		}
 	}
-	if !containsFold(driverInstallHint, "cmd/playwright") {
+	if !containsFold(driverInstallHint, "install-driver") {
 		t.Errorf("driverInstallHint = %q, want the runnable install command", driverInstallHint)
 	}
 }

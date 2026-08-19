@@ -1,8 +1,11 @@
 # Housing official-ingest and listings-event freshness sentinel.
 #
 # This runs daily against the production database using read-only transactions.
-# The default property_price_events silence threshold is exactly 72 hours: long
-# enough for a missed residential-rig cycle, short enough to expose a dead rig.
+# Four checks: official ingest errors, cursor/fact period regressions, global
+# event silence (72h), and — because a limping crawl keeps the global check
+# green forever — per-suburb catalog staleness (oldest covered suburb > 132h)
+# plus the rig's own crawl_run_status health (error/blocked, or a daily delta
+# that has not finished in 30h).
 name: Housing Freshness
 
 on:
@@ -84,6 +87,26 @@ jobs:
             SELECT MAX(observed_at) AS max_observed_at
             FROM property_price_events
           ),
+          -- Every catalog suburb whose newest listing sighting is past the 132h
+          -- line, computed ONCE so the report can show both the worst few rows
+          -- and the true total (a LIMIT 5 with no count made a 200-suburb
+          -- outage read as a 5-suburb one).
+          stale_suburbs AS (
+            SELECT
+              lower(suburb) AS suburb,
+              upper(state_code) AS state_code,
+              trim(postcode) AS postcode,
+              MAX(last_seen_at) AS last_seen
+            FROM property_listings
+            WHERE suburb IS NOT NULL
+              AND state_code IS NOT NULL
+              AND postcode IS NOT NULL
+            GROUP BY 1, 2, 3
+            HAVING MAX(last_seen_at) < now() - interval '132 hours'
+          ),
+          stale_suburb_total AS (
+            SELECT COUNT(*) AS stale_total FROM stale_suburbs
+          ),
           violations AS (
             SELECT
               'INGEST_ERROR'::text AS check_name,
@@ -130,6 +153,85 @@ jobs:
             FROM event_maximum
             WHERE max_observed_at IS NULL
                OR max_observed_at < now() - interval '72 hours'
+
+            UNION ALL
+
+            -- CATALOG_STALENESS: the per-suburb statistic the global
+            -- EVENT_SILENCE check cannot see. A crawl limping at any rate
+            -- keeps max(observed_at) fresh while individual suburbs age
+            -- without bound (measured 2026-08-18: median 117h, oldest 305h,
+            -- sentinel green). Mirrors classifyFreshness (crawl_freshness.go):
+            -- oldest COVERED suburb, keyed like queryCatalogFreshness. The
+            -- 132-hour line is the rig's 120h alarm + half a day of margin so
+            -- the rig-side alarm always fires first. Worst 5 suburbs only —
+            -- a wholesale-stale catalog must not file a 500-row issue — but
+            -- the worst 5 ALONE hide the scale (measured 2026-08-18: 255
+            -- suburbs past the line, an issue that reads as five), so the
+            -- TOTAL row below states how big the outage really is.
+            SELECT
+              'CATALOG_STALENESS',
+              format('%s %s %s', s.suburb, s.state_code, s.postcode),
+              format(
+                'suburb last crawled %s (%s hours ago; threshold 132h)',
+                s.last_seen,
+                to_char(extract(epoch FROM now() - s.last_seen) / 3600.0, 'FM999990')
+              )
+            FROM (
+              SELECT * FROM stale_suburbs ORDER BY last_seen ASC LIMIT 5
+            ) AS s
+
+            UNION ALL
+
+            SELECT
+              'CATALOG_STALENESS',
+              'TOTAL',
+              format(
+                '%s suburb(s) past the 132h threshold in total (the worst 5 are listed individually)',
+                t.stale_total
+              )
+            FROM stale_suburb_total AS t
+            WHERE t.stale_total > 0
+
+            UNION ALL
+
+            -- RIG_STATUS: the rig's own health record (migration 000089).
+            -- error/blocked is critical immediately; a delta row whose
+            -- finished_at is older than 30 hours means the daily 10:00 run
+            -- did not complete — launchd unloaded, lock wedged, machine
+            -- asleep, or the rig is off. (30h matches crawlStaleAfter("delta")
+            -- in crawl_jobs.go.) The fortnightly full pass is deliberately
+            -- not aged here — its 16-day cadence belongs to /admin.
+            --
+            -- ...EXCEPT while a full pass is actually running. All housing
+            -- drainers share ONE host Chrome and ONE residential IP, so they
+            -- serialize on the single-drainer lock (hc_acquire_lock): the daily
+            -- delta SKIPS cleanly — exit 0, no upsert — for the ~1.5+ days a
+            -- 500-suburb full pass takes. delta.finished_at therefore ages past
+            -- 30h on every healthy fortnightly full, and this check filed a
+            -- false issue twice a month. Suppress it only while the SAME HOST's
+            -- full row is itself FRESH within the same 30h bar we hold the delta
+            -- to: an in-flight full re-upserts finished_at=now() every round, so
+            -- a fresh full row means "the rig is alive and mid-pass", and it also
+            -- covers the ~24h after a pass ends before the next delta finishes.
+            -- Self-limiting: if the full pass dies, its row goes stale inside 30h
+            -- and the delta alarm switches itself back on.
+            SELECT
+              'RIG_STATUS',
+              format('%s/%s', c.run_type, c.host),
+              format('status=%s finished_at=%s', c.status, c.finished_at)
+            FROM crawl_run_status AS c
+            WHERE c.status IN ('error', 'blocked')
+               OR (
+                    c.run_type = 'delta'
+                AND c.finished_at < now() - interval '30 hours'
+                AND NOT EXISTS (
+                      SELECT 1
+                      FROM crawl_run_status AS f
+                      WHERE f.host = c.host
+                        AND f.run_type = 'full'
+                        AND f.finished_at > now() - interval '30 hours'
+                    )
+                  )
           )
           SELECT concat_ws(E'\t', check_name, source, detail)
           FROM violations
@@ -152,7 +254,7 @@ jobs:
           {
             echo "## Housing freshness report"
             echo
-            echo "Default event silence threshold: **72 hours**."
+            echo "Thresholds: event silence **72h** · catalog per-suburb **132h** · delta run age **30h** (suppressed while a full pass is in flight)."
             echo
             if [[ -s "$report_file" ]]; then
               echo '```text'

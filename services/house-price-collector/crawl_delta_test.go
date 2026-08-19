@@ -146,3 +146,22 @@ func TestFreshnessKey_Normalises(t *testing.T) {
 		t.Fatalf("keys differ: %q vs %q", a, b)
 	}
 }
+
+// The delta cap is the throughput ceiling of the whole crawl: 500 catalog
+// suburbs / cap per day = the steady-state rotation. 60/day implied ~8.3 days
+// (measured median 117h staleness, 2026-08-18); 120/day keeps rotation inside
+// the 120h freshness horizon with margin. envInt treats "" as unset, so
+// t.Setenv with an empty value exercises the default.
+func TestLoadDeltaConfig_DefaultCapSupportsFreshnessHorizon(t *testing.T) {
+	t.Setenv("CRAWL_DELTA_TTL_HOURS", "")
+	t.Setenv("CRAWL_DELTA_CHURN_MIN", "")
+	t.Setenv("CRAWL_DELTA_CHURN_DAYS", "")
+	t.Setenv("CRAWL_DELTA_MAX_SUBURBS", "")
+	cfg := loadDeltaConfig()
+	if cfg.maxSuburbs != 120 {
+		t.Fatalf("default CRAWL_DELTA_MAX_SUBURBS = %d, want 120 (500/120 ≈ 4.2-day rotation < 120h horizon)", cfg.maxSuburbs)
+	}
+	if cfg.ttl != 24*time.Hour {
+		t.Fatalf("default CRAWL_DELTA_TTL_HOURS changed to %s — this task must not touch selection eligibility", cfg.ttl)
+	}
+}

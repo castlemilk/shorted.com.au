@@ -1542,6 +1542,11 @@ jobs:
       - name: Run housing wrapper lifecycle tests
         run: bash services/house-price-collector/deploy/housing-lifecycle-exit.test.sh
 
+      # stage-rig.test.sh existed but ran in NO ci job, so its guards (binary
+      # revision parsing, wrapper drift, alerting readiness) were unenforced.
+      - name: Run rig staging tests
+        run: bash services/house-price-collector/deploy/stage-rig.test.sh
+
   run-tests:
     needs: [determine-environment, build-docker-images, build-ko-images]
     runs-on: ubuntu-latest

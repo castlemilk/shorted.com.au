@@ -26,12 +26,17 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$DIR/housing-crawl-common.sh"
 
 hc_load_env
+hc_log_binary_provenance
 
 # Single-drainer lock: a full pass runs ~1.5 days and must NOT overlap another
 # drainer on this Mac's one host Chrome + one residential IP. Holding the lock makes
 # the daily deltas skip cleanly while this pass runs. If another drainer is already
 # holding it, this full pass skips (exit 0) rather than double-draining.
 hc_acquire_lock
+
+# Don't race the macOS agent's auth mint after a restart — poll its control
+# port (bounded), alert if it never comes up, then proceed regardless.
+hc_wait_for_agent
 
 # Tag every `-mode agent` round + the freshness run below so the collector writes a
 # HEALTH RECORD for this run to crawl_run_status (migration 000089) → the admin jobs
