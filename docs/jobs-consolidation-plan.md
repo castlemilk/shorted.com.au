@@ -282,6 +282,65 @@ downstream, metric+digest quality. A side-by-side run over a sample of real ASX
 announcements is required before the schedulers are repointed. Full parity
 tables + 8 loud callouts: `services/jobs/README.md` ("Phase 3 port notes").
 
+## Phase 3 port — short-data-sync (branch `feat/jobs-monolith-short-data-sync`)
+
+CODE ONLY: the ASIC short-position pipeline is ported into the `shorted`
+binary as `shorted short-data-sync`; nothing is deployed, no Terraform/schedule
+changed, no Python deleted. `terraform/modules/short-data-sync` still points the
+`shorts-data-sync` Cloud Run Job at the Python image.
+
+**Source of truth:** `services/daily-sync/deprecated/comprehensive_daily_sync.py`
+(what `services/daily-sync/Dockerfile` builds). `services/short-data-sync/main.py`
+is a never-deployed sibling.
+
+### Scope — one of three pipelines
+
+The Python bundled the ASIC ingest, a `stock_prices` sweep and a `key_metrics`
+refresh. Only the ASIC tier moves:
+
+| Python stage | Now owned by |
+|---|---|
+| ASIC index → CSV → upsert `shorts` → health report → MV refresh → revalidate → Algolia → `sync_status` | `shorted short-data-sync` |
+| `stock_prices` (yfinance + Alpha Vantage, 500-stock batches, gap fill) | `shorted market-data serve\|sync` (Phase 2c) — already ported and deployed; deliberately NOT ported twice |
+| `key_metrics` on `"company-metadata"` (yfinance `ticker.info`) | the shorts API's `SyncKeyMetrics` RPC + daily `key-metrics-scheduler` (shorts-api TF module, enabled in prod) — the Python job was a duplicate writer |
+
+### Cutover checklist — short-data-sync
+
+- **key-metrics: confirm, don't port.** The shorts API's `SyncKeyMetrics` RPC
+  already refreshes `"company-metadata".key_metrics` on its own daily
+  `key-metrics-scheduler` (`enable_key_metrics_scheduler = true` in prod) — the
+  Python job was a duplicate second writer. Before pausing the Python job,
+  confirm that scheduler is enabled and its recent runs are green.
+- **Prices must already be covered.** The deployed Python is the daily price
+  sweep for ~1,850 stocks; `market-data-sync`'s weekday scheduler is the
+  replacement. Confirm its coverage before pausing this job, or price freshness
+  silently degrades.
+- **Exit code 2 is gone.** It meant "partial batch, please retry" and belonged
+  to the stock loop. Shorts-only runs are 0/1. Right-size the Cloud Run Job at
+  the same time: `max_retries = 5` and `timeout = 28800s` were sized for a ~5h
+  price sweep; the ported run takes seconds-to-minutes.
+- **Run the shadow comparison first** (procedure + SQL:
+  `services/jobs/internal/jobs/shortdatasync/README.md`): after the Python's
+  10:00 UTC run, `shorted short-data-sync -shadow` must report
+  `would_insert = 0` and `would_update = rows_parsed`, with a checksum equal to
+  the table's.
+- **Env contract is unchanged** (`SYNC_DAYS_SHORTS`, `SYNC_BATCH_SIZE`,
+  `SYNC_ALGOLIA`, `ENVIRONMENT`, `DATABASE_URL`, `REVALIDATION_*`, `ALGOLIA_*`,
+  `CLOUD_RUN_EXECUTION`); each is also a flag. The price knobs
+  (`SYNC_DAYS_STOCK_PRICES`, `SYNC_KEY_METRICS`, `ALPHA_VANTAGE_API_KEY`,
+  `MAX_STOCK_FAILURE_RETRIES`) are unsupported and warn loudly.
+- **Job/OTel names**: the job would move `shorts-data-sync` →
+  `shorted-short-data-sync` under `modules/shorted-job`, so log filters and
+  dashboards keyed on the Cloud Run job name need updating — unless the cutover
+  takes the slice-3 in-place path (swap image + args on the existing job), which
+  keeps every name and is the lower-blast-radius option here too.
+- Both same-day fixes to the Python are carried over: the single-statement
+  `SET statement_timeout = 0; SELECT refresh_all_materialized_views()` and
+  `trigger_frontend_revalidation` (only when rows changed, never fails the run).
+- **Known parity risk to watch, not introduced by the port**: the window is
+  `MAX("DATE") + 1 day`, so a date that was ingested only PARTIALLY is never
+  revisited by either implementation.
+
 ## Cutover checklist — weekly-report + news + signals
 
 - **news logs move stdout → stderr.** The standalone binary called
