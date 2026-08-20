@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     "data pipeline",
   ],
   openGraph: {
-    title: "Metrics — Platform Traction & Growth | Shorted",
+    title: "Metrics — Platform Traction & Growth",
     description:
       "See the numbers behind Shorted.com.au — companies tracked, data pipeline throughput, and infrastructure scale.",
     url: `${siteConfig.url}/metrics`,
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     site: "@shorted___",
     creator: "@shorted___",
     card: "summary_large_image",
-    title: "Metrics — Platform Traction & Growth | Shorted",
+    title: "Metrics — Platform Traction & Growth",
     description:
       "See the numbers behind Shorted.com.au — companies tracked, data pipeline throughput, and infrastructure scale.",
   },

@@ -1,4 +1,5 @@
 import { siteConfig } from "~/@/config/site";
+import { SITEMAP_CHILDREN } from "~/@/lib/seo/sitemap-xml";
 
 export const dynamic = "force-static";
 
@@ -87,7 +88,10 @@ ${AI_ALLOWED_PATHS.map((p) => `Allow: ${p}`).join("\n")}
 ${disallows}
 
 Host: ${siteConfig.url}
+# /sitemap.xml is a sitemapindex; the children are listed too so a crawler that
+# does not follow index files still finds every section.
 Sitemap: ${siteConfig.url}/sitemap.xml
+${SITEMAP_CHILDREN.map((child) => `Sitemap: ${siteConfig.url}/${child}`).join("\n")}
 `;
 
   return new Response(body, {

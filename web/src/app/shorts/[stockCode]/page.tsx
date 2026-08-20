@@ -62,6 +62,11 @@ import { formatCompanyName } from "~/@/lib/company-name";
 import Link from "next/link";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 import { ShortInterestHistory } from "./short-interest-history";
+import {
+  ShortInterestSummary,
+  getShortInterestDeltas,
+} from "./short-interest-summary";
+import { LatestWeeklyReportLink } from "~/@/components/reports/latest-weekly-report-link";
 import { NotFoundError } from "~/app/actions/withRetry";
 import { notFound } from "next/navigation";
 import {
@@ -285,6 +290,24 @@ const Page = async ({ params }: PageProps) => {
   const newsArticles = await stockNewsPromise;
   const latestShortDate = await latestShortDatePromise;
 
+  // Hoisted out of the schema IIFE below because the visible summary paragraph
+  // and the sr-only crawler summary must state the SAME "as of". The real ASIC
+  // report date, never the render date — `null` degrades to "in the latest
+  // ASIC report" rather than printing a date we can't stand behind (ASIC
+  // publishes T+4, so "as of today" describes a report that cannot exist).
+  const asOfIso = latestShortDate
+    ? latestShortDate.toISOString().slice(0, 10)
+    : null;
+  const asOfDisplay = latestShortDate ? formatAsOfDate(latestShortDate) : null;
+  const asOfClause = asOfDisplay
+    ? `as of ${asOfDisplay}`
+    : "in the latest ASIC report";
+
+  // Trailing-window deltas for the summary paragraph. Reads the SAME
+  // React-cached "max" series getLatestShortDate already pulled, so it costs
+  // no extra backend call; returns all-nulls (clauses omitted) on failure.
+  const shortDeltas = await getShortInterestDeltas(stockCode);
+
   const breadcrumbItems = [
     { label: "Stocks", href: "/stocks" },
     { label: stockCode, href: `/shorts/${stockCode}` },
@@ -331,20 +354,8 @@ const Page = async ({ params }: PageProps) => {
         const shortPositions = stock.reportedShortPositions ?? 0;
         const companyName = cleanCompanyName(stock.name || stockCode, stockCode);
         const industry = stock.industry || "";
-        // The real ASIC report date, not the render date. `null` when the
-        // series is unavailable — every use below degrades to "the latest
-        // ASIC report" rather than printing a date we can't stand behind.
-        // Open-ended when the real report date is unknown — never claim
-        // coverage through today (the impossible-under-T+4 bug this replaces).
-        const asOfIso = latestShortDate
-          ? latestShortDate.toISOString().slice(0, 10)
-          : null;
-        const asOfDisplay = latestShortDate
-          ? formatAsOfDate(latestShortDate)
-          : null;
-        const asOfClause = asOfDisplay
-          ? `as of ${asOfDisplay}`
-          : "in the latest ASIC report";
+        // asOfIso / asOfClause are hoisted to the page body above — the
+        // visible summary and this crawler summary must not disagree.
         const positionsDisplay = shortPositions > 0
           ? new Intl.NumberFormat("en-AU").format(Math.round(shortPositions))
           : "—";
@@ -518,6 +529,35 @@ const Page = async ({ params }: PageProps) => {
           </Suspense>
         </div>
       </div>
+
+      {/* Templated short-interest summary — prose above the fold, built only
+          from data this render already has. This is what wins "[ticker] short
+          interest" against competitors whose pages are prose-first and
+          data-thin; the sr-only block above is a schema/LLM companion, not a
+          substitute for text a human can read. */}
+      <ShortInterestSummary
+        stockCode={stockCode}
+        companyName={cleanCompanyName(stock.name || stockCode, stockCode)}
+        industry={stock.industry || ""}
+        shortPct={stock.percentageShorted ?? 0}
+        shortPositions={stock.reportedShortPositions ?? 0}
+        asOfClause={asOfClause}
+        deltas={shortDeltas}
+      />
+
+      {/* Weekly context — one internal link into the weekly report series
+          (the ~200 dated posts that had almost no inbound links). Streamed
+          under Suspense so its cached fetch can't delay this page's ISR
+          render, and renders nothing if the archive is unavailable.
+          Deliberately NOT "this stock appears in week N" — that would couple
+          the stock page to a per-report membership lookup. */}
+      <Suspense fallback={null}>
+        <LatestWeeklyReportLink
+          variant="inline"
+          label="Weekly context:"
+          className="mb-6"
+        />
+      </Suspense>
 
       {/* Price & short interest — the page centrepiece, full width, flat. */}
       <section aria-labelledby="stock-chart-heading" className="mb-6 min-w-0">

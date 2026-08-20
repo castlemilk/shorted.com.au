@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
       .map((ts) => ts.productCode)
       .filter((code): code is string => !!code && /^[A-Z0-9]{1,4}$/.test(code));
 
-    const paths = ["/", ...stockCodes.map((code) => `/shorts/${code}`)];
+    const paths = ["/", "/top", ...stockCodes.map((code) => `/shorts/${code}`)];
 
     // Invalidate first so the warming fetch regenerates with post-sync data
     // instead of just touching the existing stale entry.

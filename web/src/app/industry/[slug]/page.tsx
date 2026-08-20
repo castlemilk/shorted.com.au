@@ -31,6 +31,7 @@ import {
 import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { getSectorImagePath, getSectorImageAlt } from "~/@/lib/sector-images";
 import { buildIndustryIntelligenceStory } from "~/@/lib/industry-intelligence";
+import { buildIndustryNarrative } from "./industry-narrative";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -40,6 +41,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { slug } = await params;
   let industry: Awaited<ReturnType<typeof getIndustryStocks>>["industry"];
   try {
+    // getIndustryStocks is React-cached, so this shares the page's fetch (and
+    // its ISR-safe `next: { revalidate }` cache mode) rather than adding one.
     const result = await getIndustryStocks(slug);
     industry = result.industry;
   } catch {
@@ -53,7 +56,29 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   const title = `Most Shorted ${industry.name} Stocks ASX | ${industry.stockCount} Tracked`;
-  const description = `Top ${Math.min(20, industry.stockCount)} most shorted ${industry.name.toLowerCase()} stocks on the ASX. Average short interest: ${industry.avgShortPercent.toFixed(2)}%. Official ASIC data with T+4 delay.`;
+
+  // Lead the description with the leader and its number — the strongest
+  // snippet for "most shorted {sector} stocks asx" — and only include stats
+  // that actually exist, so a degraded feed never yields "0.00%" copy.
+  const descriptionParts: string[] = [];
+  if (industry.topStock && industry.topStock.shortPercent > 0) {
+    descriptionParts.push(
+      `${industry.topStock.code} leads the most shorted ${industry.name.toLowerCase()} stocks on the ASX at ${industry.topStock.shortPercent.toFixed(2)}% of shares on issue.`,
+    );
+  } else {
+    descriptionParts.push(
+      `The most shorted ${industry.name.toLowerCase()} stocks on the ASX, ranked by short interest.`,
+    );
+  }
+  if (industry.stockCount > 0) {
+    descriptionParts.push(
+      industry.avgShortPercent > 0
+        ? `${industry.stockCount} stocks tracked, averaging ${industry.avgShortPercent.toFixed(2)}% short interest.`
+        : `${industry.stockCount} stocks tracked.`,
+    );
+  }
+  descriptionParts.push("Official ASIC data, published T+4.");
+  const description = descriptionParts.join(" ");
 
   return {
     title,
@@ -164,6 +189,9 @@ export default async function IndustryPage({ params }: PageProps) {
   // Calculate stats
   const highlyShorted = stocks.filter((s) => s.shortPercent > 10).length;
   const increasing = stocks.filter((s) => (s.change ?? 0) > 0).length;
+  // Server-rendered narrative summary. Pure function over data already
+  // fetched above; returns null when there is nothing truthful to say.
+  const narrative = buildIndustryNarrative({ industry, stocks });
   const industryStory = buildIndustryIntelligenceStory({
     industry,
     stocks,
@@ -231,6 +259,30 @@ export default async function IndustryPage({ params }: PageProps) {
             </div>
           </div>
         </section>
+
+        {/* Narrative summary — server HTML, no client JS */}
+        {narrative && (
+          <section aria-labelledby="industry-summary-heading">
+            <h2 id="industry-summary-heading" className="sr-only">
+              {industry.name} short selling summary
+            </h2>
+            <p className="max-w-[70ch] text-base leading-relaxed text-muted-foreground text-pretty">
+              {narrative.segments.map((segment, index) =>
+                segment.kind === "stock" ? (
+                  <Link
+                    key={`${segment.code}-${index}`}
+                    href={`/shorts/${segment.code}`}
+                    className="font-semibold text-foreground hover:text-primary transition-colors"
+                  >
+                    {segment.code}
+                  </Link>
+                ) : (
+                  <span key={`t-${index}`}>{segment.text}</span>
+                ),
+              )}
+            </p>
+          </section>
+        )}
 
         {/* Stats Grid */}
         <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -382,17 +434,20 @@ export default async function IndustryPage({ params }: PageProps) {
         {/* SEO Content */}
         <section className="prose prose-sm dark:prose-invert max-w-none">
           <h2>About {industry.name} Short Selling on the ASX</h2>
+          {/* Methodology, not a restatement of the summary above — the
+              narrative block already carries the sector's numbers. */}
           <p>
-            There are currently {industry.stockCount} {industry.name.toLowerCase()} stocks tracked with
-            short positions on the ASX. The average short interest across the sector
-            is {industry.avgShortPercent.toFixed(2)}%, with {highlyShorted} stocks shorted above 10%.
-            {industry.topStock && (
-              <> The most heavily shorted stock in {industry.name.toLowerCase()} is{" "}
-              <Link href={`/shorts/${industry.topStock.code}`} className="font-semibold">
-                {industry.topStock.code}
-              </Link>{" "}
-              at {industry.topStock.shortPercent.toFixed(2)}% short interest.</>
-            )}
+            This ranking measures{" "}
+            <Link href="/glossary/short-interest" className="font-semibold">
+              short interest
+            </Link>{" "}
+            as a percentage of shares on issue:
+            the aggregated net short position each market participant reports to ASIC,
+            divided by the company&apos;s total shares outstanding. Positions must be
+            reported once they exceed $100,000 or 0.01% of issued capital, so smaller
+            positions in {industry.name.toLowerCase()} stocks never appear in the data.
+            Rankings are compared against the same sector, since what counts as heavy
+            short interest differs markedly between industries.
           </p>
           <p>
             Short selling data is sourced from official ASIC reports, published with a T+4 trading day

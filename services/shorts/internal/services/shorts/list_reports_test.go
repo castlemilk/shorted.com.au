@@ -56,7 +56,7 @@ func TestListReports_LimitDefaultsAndCaps(t *testing.T) {
 		{"zero defaults to 24", 0, 24},
 		{"negative defaults to 24", -5, 24},
 		{"in-range passes through", 50, 50},
-		{"capped at 100", 500, 100},
+		{"capped at 500", 1000, 500},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -162,9 +162,19 @@ export default async function Page() {
       .then((tm) => (tm ? toJson(IndustryTreeMapSchema, tm) : undefined))
       .catch(() => undefined),
   ]);
-  const initialTopShorts = topShorts?.timeSeries?.map((d) =>
-    toJson(TimeSeriesDataSchema, d)
-  );
+  // Degraded fetch paths (KV fallbacks) can leave null/undefined holes in
+  // timeSeries; toJson(schema, undefined) throws and kills the prerender of
+  // "/" (it failed the 2026-08-20 release-candidate build). Filter holes and
+  // treat any serialization failure as "no prefetch" — the widgets then fetch
+  // client-side, which is strictly better than a failed build.
+  let initialTopShorts;
+  try {
+    initialTopShorts = topShorts?.timeSeries
+      ?.filter((d) => d != null)
+      .map((d) => toJson(TimeSeriesDataSchema, d));
+  } catch {
+    initialTopShorts = undefined;
+  }
   // Same series, reused for the visible "as at" stamp that now sits directly
   // above the charts — no extra RPC and, unlike a Suspense boundary, nothing
   // that can stream in late and push the charts down.

@@ -1,0 +1,173 @@
+---
+title: "How to Short a Stock in Australia: Brokers, CFDs, Options and Inverse ETFs Compared"
+excerpt: "There are four practical ways to take short exposure to Australian shares, and they differ far more in risk and structure than in headline cost. Here's how covered short selling works under the Corporations Act, what ASIC's CFD rules actually restrict, where options and inverse ETFs fit, and how to check where the crowd already is before you commit."
+coverImage: "/assets/blog/how-to-short-a-stock-australia/cover.png"
+date: "2026-08-20"
+author:
+  name: Ben Ebsworth
+  picture: "/assets/blog/authors/ben.png"
+ogImage:
+  url: "/assets/blog/how-to-short-a-stock-australia/cover.png"
+---
+
+# How to Short a Stock in Australia
+
+Shorting an Australian share is not one activity. It is four quite different products that happen to produce a similar payoff diagram, sitting under different parts of the law, with different failure modes.
+
+Choosing between them on headline cost is the common mistake. The genuine differences are structural: whether you owe a borrowed asset, whether your loss is bounded, whether a third party can close your position, and whether the exposure decays if you hold it. Those decide outcomes far more often than a few basis points of brokerage.
+
+<Info title="No affiliate relationships">
+Shorted is not affiliate-funded. There are no broker referral links anywhere on this site, no revenue share with any provider, and no product recommendations. Nothing below is financial advice or a suggestion that shorting is appropriate for you.
+</Info>
+
+## First: covered versus naked, and why it matters in Australia
+
+Australia draws a hard legal line that some overseas commentary does not.
+
+Under the Corporations Act 2001, a short sale of a [section 1020B product](/glossary/section-1020b-products) (broadly, listed securities and managed investment products) is a **covered short sale** only where, at the time of the sale, the seller has a presently exercisable and unconditional right to vest the products in the buyer, typically by relying on an existing securities lending arrangement. Covered short selling is permitted. **Naked short selling**, selling without that arrangement in place, is generally prohibited in section 1020B products, though ASIC has power to grant exemptions ([RG 196](https://www.asic.gov.au/regulatory-resources/find-a-document/regulatory-guides/rg-196-short-selling/)).
+
+Two consequences follow.
+
+**You cannot short a stock your broker cannot borrow.** The borrow is not an administrative step that happens after the trade; it is the precondition for the trade being lawful. If no lender has stock available, the position cannot be opened at any price.
+
+**Someone is reporting your position.** RG 196 imposes two obligations: reporting short sale transactions, and reporting short positions. ASIC aggregates the position reports and publishes a total per security four business days after the reporting day. That data is what every page on this site is built from. The [reporting threshold](/glossary/reporting-threshold) means small retail positions are typically not individually reportable.
+
+The covered/naked distinction applies to the stock-borrow route specifically. Synthetic short exposure through derivatives is a different legal construct, which is part of why reported short-interest data is a floor on bearish positioning rather than a complete picture.
+
+## Route 1: Shorting the physical stock through a broker
+
+The direct route, and the one that produces the ASIC data.
+
+Your broker sources the shares through [securities lending](/glossary/securities-lending), usually from an institutional holder such as a super fund, index manager or custodian earning incremental yield on a long-term holding. You sell the borrowed stock, and you owe those shares back.
+
+**What the account looks like.** Not a standard retail trading account. Shorting physical ASX stock generally requires a margin or securities-lending facility, meaning a separate application, a suitability assessment and a signed agreement covering the lending terms. Account minimums, approved-stock lists and margin requirements vary substantially between providers, so the only reliable answer is the one your intended broker gives you in writing. Many Australian retail brokers do not offer physical short selling at all, which is a large part of why CFDs dominate retail short activity here. Because the borrow must exist before the sale, brokers typically require a [locate](/glossary/locate) or a pre-approved list of shortable securities that skews heavily to large caps.
+
+**The costs.** Four of them: brokerage, the [borrow fee](/glossary/borrow-fee) accruing daily on the position's current market value, margin interest, and any dividend that goes ex while you are short, which you owe the lender as a [manufactured dividend](/glossary/manufactured-dividend). Australian dividend yields make that last one material. The arithmetic is in [how much it costs to short an ASX stock](/blog/cost-to-short-asx-stock).
+
+**The structural risks.** Loss is theoretically unbounded, because the price you must buy back at has no ceiling. The lender can [recall](/glossary/recall) the stock at essentially any time, and if replacement inventory cannot be sourced your position is bought back on your behalf at a time you did not choose. Both risks concentrate in [hard-to-borrow](/glossary/hard-to-borrow) names, which is to say exactly the crowded stocks where a short thesis looks most attractive.
+
+Who it suits: a specific, researched single-stock thesis, a genuine tolerance for unbounded loss, and the account infrastructure to support it.
+
+## Route 2: CFDs
+
+A contract for difference is a bilateral contract with a provider to exchange the change in a share's price between opening and closing. No shares are borrowed and none change hands. You are exposed to the provider as a counterparty, not to the market directly.
+
+CFDs replicate short exposure economically. You post a deposit as margin, the provider charges overnight financing on the full notional value of the position, and where the underlying is hard to borrow the provider typically passes a borrow charge through. That last point is why "CFDs avoid borrow costs" is not right: the cost is restructured, not removed.
+
+### What ASIC's product intervention order actually does
+
+ASIC made a product intervention order for CFDs offered to retail clients after reviews in 2017, 2019 and 2020 found that **most retail clients lose money trading CFDs**. The order took effect on 29 March 2021 and was [extended in April 2022 for a further five years, to 23 May 2027](https://www.asic.gov.au/about-asic/news-centre/find-a-media-release/2022-releases/22-082mr-asic-s-cfd-product-intervention-order-extended-for-five-years/). It caps retail leverage by asset class:
+
+| Underlying | Maximum retail leverage |
+|---|---|
+| Major currency pair | 30:1 |
+| Minor currency pair, gold, or major stock market index | 20:1 |
+| Commodity other than gold, or minor stock market index | 10:1 |
+| **Shares or other assets** | **5:1** |
+| Crypto-asset | 2:1 |
+
+For shorting an individual ASX share through a CFD, the relevant number is **5:1**. Before the order, retail CFD exposure could reach as much as 500 times the original outlay ([ASIC 21-060MR](https://www.asic.gov.au/about-asic/news-centre/find-a-media-release/2021-releases/21-060mr-asic-s-cfd-product-intervention-order-takes-effect/)).
+
+The order does three further things worth knowing:
+
+- **Standardised margin close-out.** A circuit breaker that closes positions before most of the client's investment is lost.
+- **Negative balance protection.** Retail losses are limited to the funds in the trading account.
+- **A ban on certain inducements**, such as trading credits, rebates or "free" gifts offered to retail clients.
+
+ASIC's measurement of the first six months found aggregate net losses for retail client accounts fell about 91%, from an average of $372 million per quarter to $33 million, with 51% fewer loss-making accounts, an 87% decrease in margin close-outs and an 88% reduction in negative balance occurrences. A meaningful improvement, and also a description of a product category where the pre-intervention quarterly retail loss ran into the hundreds of millions.
+
+Read the cap correctly: 5:1 is a limit on how much rope is available, not a recommendation to use it. A 5:1 short moves 5% of your deposit for every 1% move in the share. Negative balance protection means you cannot owe the provider more than your account, which caps the disaster; it does not stop the account going to zero.
+
+Who it suits: traders who want short exposure without a securities-lending facility, who understand they hold counterparty risk to the provider, and who size positions well below the permitted leverage. ASIC's finding that most retail CFD clients lose money is the most important number on this page.
+
+## Route 3: Exchange-traded options
+
+Buying a put gives you the right, but not the obligation, to sell the underlying shares at a set strike price before expiry. If the share falls, the put gains value. ASX-quoted exchange-traded options cover only a selection of the larger listed companies, so the universe is much narrower than the stock or CFD routes.
+
+The defining structural feature: **your maximum loss is the premium you paid**. Not "limited if you manage it well", limited by the contract. Nothing can force you to add capital, no one can recall anything, and there is no margin call on a bought put. For a bearish view on a stock capable of a violent squeeze, that bounded downside is a genuinely different risk profile from every other route here.
+
+The trade-off is that you have bought a decaying asset. Options expire, and their time value erodes as expiry approaches. You need the move to happen, to be large enough to cover the premium, and to happen in time. Being right about direction and wrong about timing loses the full premium. Options also price in [implied volatility](/glossary/implied-volatility), which tends to be elevated precisely in the crowded, heavily shorted names where the bearish case is most popular, so the insurance costs most when everyone wants it.
+
+Selling options is a different activity with a different risk profile, including obligations that can resemble an unhedged short. This section is about buying puts only.
+
+Who it suits: people wanting defined-risk bearish exposure to a liquid large cap over a defined period, who are comfortable that the most likely single outcome is losing the entire premium. See [short selling versus put options](/learn/short-selling-vs-put-options).
+
+## Route 4: Inverse ETFs
+
+The lowest-friction route, bought and sold like any other share through an ordinary broking account, no margin facility and no derivatives approval required.
+
+Betashares lists two Australian equity inverse funds on the ASX. **BEAR** (Australian Equities Bear Complex ETF) targets a return with a correlation of between -90% and -110% with the Australian sharemarket on a given day, so a 1% market fall is expected to produce roughly a 1% rise in the fund. **BBOZ** (Australian Equities Strong Bear Complex ETF), admitted to the ASX in April 2015, seeks magnified inverse exposure to the S&P/ASX 200, where a 1% daily market fall can generally be expected to deliver a 2% to 2.75% rise ([Betashares](https://www.betashares.com.au/fund/australian-equities-strong-bear-fund/)). Exposure comes from cash plus short ASX SPI 200 futures, rebalanced when gearing drifts outside the target range.
+
+Two caveats decide whether these are appropriate.
+
+**They are index products, not stock shorts.** Both track the broad market. Neither expresses a view on a single company or sector. If your idea is "this retailer's margins are about to break", an inverse ETF cannot carry it.
+
+**Daily reset means the multiple does not hold over time.** Betashares states this directly: returns will not necessarily fall in the target range over periods longer than a day, because of rebalancing and the compounding of daily returns. In a choppy, directionless market a daily-reset geared product can lose value even if the index finishes where it started. These are short-term tactical tools, not buy-and-hold positions.
+
+The compensating feature is real: gearing is managed inside the fund, so there are no margin calls and you cannot lose more than the amount invested.
+
+Who it suits: brief, broad-market bearish exposure or a portfolio hedge held for days or weeks rather than months.
+
+## The four routes side by side
+
+| | Physical short | CFD | Bought put | Inverse ETF |
+|---|---|---|---|---|
+| **What you hold** | Borrowed shares you owe back | Contract with a provider | Exchange-traded contract | Managed fund units |
+| **Account required** | Margin / securities-lending facility | CFD account with an AFS licensee | Options-approved account | Ordinary broking account |
+| **Main costs** | Borrow fee, margin interest, dividends owed, brokerage | Spread, overnight financing, borrow pass-through | Premium (paid once) | Management fee, plus decay from daily reset |
+| **Maximum loss** | Theoretically unlimited | Account balance (negative balance protection) | Premium paid | Amount invested |
+| **Can it be closed against you?** | Yes: recall or margin call | Yes: margin close-out | No | No |
+| **Time decay** | No, but carry accrues daily | No, but financing accrues daily | Yes, and it accelerates near expiry | Yes, in choppy markets |
+| **Single-stock precision** | Yes | Yes | Yes, on covered names only | No, index only |
+| **Complexity** | High | Moderate, deceptively so | High | Low |
+| **Typically suits** | Researched single-stock theses with real capital behind them | Traders accepting counterparty risk and using low leverage | Defined-risk bearish views over a set horizon | Short-term broad-market hedging |
+
+Read down the "maximum loss" and "can it be closed against you" rows first. Those two lines explain more about outcomes than the cost row does.
+
+## Whichever route you take, check where the crowd already is
+
+Every one of these products is a way of expressing a view. None tells you whether the view is already consensus, and that turns out to be the variable most often ignored.
+
+Australia is unusually well served here. Because of the reporting obligations in RG 196, ASIC publishes aggregate reported short positions for every ASX security, daily, free. There is no equivalent in most markets. Before committing to a short by any route, three checks take about a minute:
+
+- **Is the position already crowded?** The [most shorted ASX stocks](/top) list ranks the market by reported short interest. If your idea sits near the top, you are late to a trade a lot of well-resourced funds already own, with whatever squeeze risk that carries.
+- **Can the existing shorts get out?** [Days to cover](/blog/days-to-cover-asx) divides short interest by average daily volume. High days to cover in a crowded name means a narrow exit, which cuts both ways: it makes squeezes violent, and it makes a correct thesis hard for anyone to monetise quickly.
+- **Which direction is positioning moving?** The [screener](/screener) filters the whole market on short interest, days to cover, market capitalisation and liquidity at once, and the [scans](/scans) surface where short interest is [rising](/scans/short-interest-rising) or where shorts are [covering](/scans/shorts-covering).
+
+Two limitations. The data is published on a [T+4 basis](/glossary/t-4-delay), so it describes positioning four business days ago: fine for a structural picture, useless as a live trigger. And it captures reported stock-borrow shorts, not synthetic derivative exposure, so it is a floor rather than a complete census. Neither changes the value of the check. Knowing where the crowd already stands is close to free, and it is the one input none of the four products above will give you.
+
+## FAQ
+
+### Can retail investors short sell on the ASX?
+
+Yes, subject to the covered short selling requirements in the Corporations Act. In practice the physical route requires a margin or securities-lending facility that many Australian retail brokers do not offer, which is why most retail short exposure in Australia is taken through CFDs, options or inverse ETFs instead.
+
+### Is naked short selling legal in Australia?
+
+Generally no. Naked short selling, selling without a securities lending arrangement giving a presently exercisable and unconditional right to vest the products in the buyer, is prohibited for section 1020B products, though ASIC has power to grant exemptions. Covered short selling is permitted. See [RG 196](/glossary/regulatory-guide-196) and [covered short selling in Australia](/learn/covered-short-selling-australia).
+
+### What is the maximum CFD leverage in Australia?
+
+For CFDs referencing shares, 5:1 for retail clients under ASIC's product intervention order, which runs to 23 May 2027. Other asset classes are capped at 30:1 (major currency pairs) down to 2:1 (crypto-assets). The order also mandates standardised margin close-out and negative balance protection, and bans certain inducements.
+
+### Do most people lose money trading CFDs?
+
+ASIC's reviews in 2017, 2019 and 2020 found that most retail clients lose money trading CFDs, which is the basis for the product intervention order. ASIC's measurement of the first six months after the order found aggregate net retail losses fell about 91%, from $372 million to $33 million per quarter, which reduced the harm without eliminating it.
+
+### What is the cheapest way to short the ASX?
+
+Cheapest and most suitable are different questions, and the honest answer is that it depends on holding period and whether you need single-stock precision. A bought put costs a premium once and cannot cost more. A CFD or physical short costs nothing up front but accrues carry every day. An inverse ETF has a management fee plus decay from its daily reset. Compare total cost over your intended holding period, not headline rates.
+
+### How do I know if a stock is already heavily shorted?
+
+Check the reported short interest before you trade. The [most shorted list](/top) ranks the market, individual stock pages show a full reported history, and the [heavily shorted scan](/scans/heavily-shorted) filters for the crowded end. The data comes from ASIC on a T+4 basis.
+
+---
+
+Next: read the mechanics end to end in [how to short the ASX](/learn/how-to-short-the-asx), price the carry with [how much it costs to short an ASX stock](/blog/cost-to-short-asx-stock), or look up any term above in the [glossary](/glossary).
+
+<RegisterEmail />
+
+---
+
+_This content is for informational purposes only and does not constitute financial, tax or investment advice. Shorted is not affiliate-funded and receives no compensation from any broker, CFD provider or fund issuer named above; products are described because they are the available routes, not as recommendations. Regulatory settings, leverage limits, borrow rates and product terms change; verify current details with ASIC and the relevant provider before acting. Short-position data referenced on this site is derived from ASIC publications on a T+4 basis. Always conduct your own research and consider seeking advice on your individual circumstances._

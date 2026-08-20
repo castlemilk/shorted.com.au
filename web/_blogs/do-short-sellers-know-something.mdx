@@ -1,0 +1,134 @@
+---
+title: "Do Short Sellers Actually Know Something? What the Evidence Says"
+excerpt: "Short selling is expensive, risky and asymmetric, which is why the positions that survive tend to be well researched. The academic record broadly agrees that short sellers are informed. But the strongest results are about the whole market rather than individual stocks, and the cross-sectional evidence has a robustness problem worth understanding before you trade on it."
+coverImage: "/assets/blog/do-short-sellers-know-something/cover.png"
+date: "2026-08-20"
+author:
+  name: Ben Ebsworth
+  picture: "/assets/blog/authors/ben.png"
+ogImage:
+  url: "/assets/blog/do-short-sellers-know-something/cover.png"
+---
+
+# Do Short Sellers Actually Know Something?
+
+It is the first question anyone asks after looking up a stock's short interest for the first time. Someone has bet against this company. Do they know something I don't?
+
+The honest answer is layered. A large body of peer-reviewed work says short sellers are, on average, informed traders. A serious dissenting literature says the tradeable version of that finding is far weaker than it first appeared and lives almost entirely in small stocks. Both are true at once, and the gap between them is where most retail reading of ASIC's [short interest](/glossary/short-interest) data goes wrong.
+
+## The intuition: shorting filters for conviction
+
+Buying a stock is cheap and forgiving. Your loss is capped at what you paid, you can hold indefinitely at no ongoing cost, and if you are wrong you can wait.
+
+Shorting inverts every one of those properties. The position is rented rather than owned, so it accrues a [borrow fee](/glossary/borrow-fee) every day you hold it. The loss is theoretically unbounded while the gain is capped at 100%. It gets *more* expensive precisely when it is going against you, because borrow fees are charged on current market value and margin requirements rise with volatility. The lender can [recall](/glossary/recall) the stock at any time and close you out on someone else's timetable. In Australia you must locate and borrow the stock first, since naked shorting is prohibited outside narrow exceptions.
+
+Nobody carries those costs on a hunch for months, so expense selects for people who have done work. That is the intuition behind the entire literature: short sellers should be informed, because the market charges them for not being. The evidence mostly agrees. Where it gets interesting is *what* they appear to be informed about, and over what horizon.
+
+## The strongest result is about the market, not the stock
+
+The most striking finding in this area is not about picking stocks at all.
+
+Rapach, Ringgenberg and Zhou's [Short interest and aggregate stock returns](https://ideas.repec.org/a/eee/jfinec/v121y2016i1p46-65.html) (*Journal of Financial Economics*, 2016, vol. 121, pp. 46–65) opens its abstract with an unusually bold sentence: "We show that short interest is arguably the strongest known predictor of aggregate stock returns." They report annual R-squared statistics of 12.89% in sample and 13.24% out of sample, outperforming a long list of established predictors, and utility gains of over 300 basis points a year for a mean-variance investor.
+
+Three details matter and are almost always dropped in summary.
+
+**It is a market-level signal.** The variable is not one company's short interest. It is a Short Interest Index built from equal-weighted short interest across all stocks, then detrended, deseasonalised and standardised. It predicts the equity risk premium, not which stock beats which.
+
+**The mechanism is cash flows.** A vector autoregression decomposition attributes the predictive power predominantly to a cash flow channel. The paper concludes that short sellers "are able to anticipate future aggregate cash flows and associated market returns." They appear to see deteriorating earnings before the market prices them.
+
+**The horizon is annual, on US data from 1973 to 2012.** An annual R-squared of 13% is extraordinary, but it comes from overlapping annual observations across roughly forty years, so the effective number of independent observations is small.
+
+The result has since been tested internationally and largely held up. Arseny Gorbenko of Monash Business School published [Short Interest and Aggregate Stock Returns: International Evidence](https://academic.oup.com/raps/article/13/4/691/7127046) in the *Review of Asset Pricing Studies* (2023, vol. 13, pp. 691–733), covering 32 countries. Short interest predicted aggregate returns with the expected negative sign in 29 of them, significantly in 24, and his working paper puts the average magnitude at a 0.61% market return drop over the following four weeks per one-standard-deviation rise. The predictive power was *higher* where short selling is more constrained by regulation or lending-market frictions, consistent with cost deterring uninformed traders more than informed ones.
+
+<Info title="Aggregate is not the same as cross-sectional">
+The Rapach, Ringgenberg and Zhou result says that when short sellers as a group get more bearish, the market tends to do worse over the following year. It does <em>not</em> say the individual stocks they are short will underperform the ones they are not. Those are two claims resting on two bodies of evidence, and the second is considerably shakier.
+</Info>
+
+## The cross-sectional evidence: real, but narrower than advertised
+
+The question most readers care about is whether heavily shorted stocks underperform lightly shorted ones.
+
+The classic affirmative result is Desai, Ramesh, Thiagarajan and Balachandran, [An investigation of the informational role of short interest in the Nasdaq market](https://www.cis.upenn.edu/~mkearns/finread/ShortInterest.pdf) (*Journal of Finance*, 2002, vol. 57, pp. 2263–2287). Using Nasdaq data from June 1988 to December 1994, they found heavily shorted firms, defined as at least 2.5% of shares outstanding sold short, earned significant negative abnormal returns of 0.76% to 1.13% per month after controlling for market, size, book-to-market and momentum. The effect strengthened with the level of short interest, and those firms were more likely to be delisted than matched controls.
+
+Boehmer, Jones and Zhang's [Which Shorts Are Informed?](https://onlinelibrary.wiley.com/doi/abs/10.1111/j.1540-6261.2008.01324.x) (*Journal of Finance*, 2008, vol. 63, pp. 491–527) found heavily shorted stocks underperformed lightly shorted ones by a risk-adjusted 1.16% over the following 20 trading days. Strong evidence short sellers are informed, but note that it studies short *flow*, meaning daily short sale executions from proprietary NYSE order data, rather than short interest, the outstanding position that gets publicly disclosed. Different variable, and not a dataset any investor could have traded on.
+
+The same group's later work is more equivocal than its reputation. Boehmer, Huszár and Jordan's [The good news in short interest](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1405511) (*Journal of Financial Economics*, 2010) concedes that while high short interest stocks do earn negative abnormal returns, "the effect can be transient and of debatable economic significance." Their headline finding is the other side of the trade: heavily traded stocks with *low* short interest earned positive abnormal returns often larger in absolute terms. Cited as support for shorting crowded names, it is being cited against its own emphasis.
+
+## The dissent, presented fairly
+
+The most substantial challenge is Asquith, Pathak and Ritter, [Short interest, institutional ownership, and stock returns](https://economics.mit.edu/sites/default/files/publications/Short%20Interest,%20Institutional%20Ownership.pdf) (*Journal of Financial Economics*, 2005, vol. 78, pp. 243–276).
+
+Their framing is better than the earlier literature's. A stock is genuinely short-sale constrained only when demand to borrow is strong *and* supply of lendable stock is limited, so they pair short interest (demand) with institutional ownership (supply). Over 1988 to 2002, constrained stocks underperformed by a significant 215 basis points per month equally weighted. On a **value-weighted** basis the underperformance was 39 basis points per month and statistically insignificant.
+
+That contrast reframes the cross-sectional literature. The effect is overwhelmingly a small-cap effect, and weighting by market capitalisation, as any realistically investable portfolio would, removes most of it. The earlier NBER version is blunter, concluding that "many documented patterns are not robust" and singling out 1988 to 1994 as an exceptional period for the underperformance of high short interest stocks. That is precisely the window Desai and co-authors used. Between 1995 and 2002, heavily shorted Nasdaq stocks did not underperform at all.
+
+Practitioners have hit the same fragility. Wes Gray of Alpha Architect covered the aggregate result in [Can you Predict Stock Market Returns with Short Interest?](https://alphaarchitect.com/can-you-predict-stock-market-returns-with-short-interest/) and, after an in-house replication, concluded the measure "like many others, is not robust to small changes," while calling it interesting and worth a look for financial economists. That is one sentence of an informal replication rather than a published rebuttal. The concern is still legitimate: the signal depends on detrending a series with strong upward drift, and how you estimate that trend determines whether it was available in real time or only in hindsight.
+
+## What the Australian evidence says
+
+The record thins out here. There is no published Australian equivalent of the aggregate-predictor result. Australia is one of the 32 countries in Gorbenko's study, but that paper reports a cross-country pattern rather than a specific Australian claim.
+
+What does exist is more useful day to day. Comerton-Forde, Do, Gray and Manton's [Assessing the information content of short selling metrics using daily disclosures](https://www.sciencedirect.com/science/article/abs/pii/S0378426615003635) (*Journal of Banking & Finance*, 2016, vol. 64, pp. 188–204) uses exactly the ASIC regime this site is built on. They find short flow and short interest carry *different* information: short flow tracks recent returns and order imbalance and both anticipates and reacts to price-relevant announcements, while short interest relates to the mispricing of firm fundamentals. Short interest is the slow, thesis-driven variable, and that is the right mental model for ASIC's published data.
+
+Ang, Hayat and Li's [Short-selling risk in Australia](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3769814) (*Pacific-Basin Finance Journal*, 2020) replicates US short-selling-risk findings on ASX data and reports the effect as pronounced among small stocks and absent in large ones, the same size dependence Asquith and colleagues found. Earlier still, Aitken, Frino, McCorry and Swan's [Short sales are almost instantaneously bad news](https://ypfsresourcelibrary.blob.core.windows.net/fcic/YPFS/Aitken%20et%20al.,%201998.pdf) (*Journal of Finance*, 1998) found Australian short-sale information was impounded into prices very quickly, correcting any assumption that ASX short data sits around waiting to be arbitraged.
+
+## The practical translation for ASX investors
+
+A few statements survive all of that.
+
+**Elevated short interest is evidence that someone has done expensive, negative work.** It is not evidence they are right, and it is not a price target. Treat it like a bearish broker note from an analyst whose identity you don't know: a prompt to check the thesis yourself.
+
+**The horizon is slow.** Australian evidence associates short interest with fundamental mispricing, and the aggregate results run at annual horizons. Nothing here supports reading a short-interest print as a next-week trigger.
+
+**Size matters more than almost anything else.** The finding that replicates across the US dissent literature and Australian data alike is that the effect concentrates in small caps. A 6% short position in a mid-cap and a 6% short position in a major bank are not the same observation.
+
+**Crowding cuts both ways.** The positioning that makes a short look informed also makes it fragile. If enough of the [free float](/glossary/free-float) is sold short relative to normal turnover, a catalyst that forces covering has nowhere to source stock, and the result is a [short squeeze](/glossary/short-squeeze). That is why [days to cover](/glossary/days-to-cover) belongs next to the short percentage, as covered in [days to cover on the ASX](/blog/days-to-cover-asx).
+
+**The data is four days old.** ASIC states that "the total of short positions for financial products on a given reporting day will be published on the ASIC website four days after the reporting day (T+4)," and that the reports contain no short seller details. For a slow structural variable that lag is fine; for a trigger it is not. See our [guide to the reporting lag](/learn/understanding-t4-delay).
+
+## Test it yourself, on Australian data
+
+This article deliberately does not present an in-house study. We have not run a formal ASX event study, and inventing one would be worse than useless. What we can say is that the dataset for testing it is free and sitting here: more than fifteen years of ASIC short-position data covering every ASX security, alongside prices, volumes and derived measures. Do heavily shorted ASX stocks underperform over three, six and twelve months? Does the effect survive market-cap weighting, as it failed to in the US data? Does it exist outside the small-cap tail?
+
+- **[The most shorted ASX stocks](/top)** for the current cross-section, and the [heavily shorted scan](/scans/heavily-shorted) for a ranked version.
+- **[The screener](/screener)** to impose the conditions the literature says matter: a short-interest floor plus a market-cap band and a liquidity threshold, the closest retail equivalent of separating the equal-weighted result from the value-weighted one.
+- **[Market statistics](/statistics)** for aggregate short interest over time, the Australian analogue of the variable Rapach, Ringgenberg and Zhou constructed.
+- **[Rising short interest](/scans/short-interest-rising)** for the direction of travel rather than the level, and [methodology](/methodology) for how each figure is derived.
+
+The evidence says short sellers are, on average, informed. It also says the tradeable version of that is smaller, slower and more size-dependent than the headline suggests. Both halves are worth carrying around.
+
+## FAQ
+
+### Does short interest predict stock returns?
+
+At the market level the evidence is strong: Rapach, Ringgenberg and Zhou (2016) found aggregate short interest to be one of the best available predictors of overall market returns, and Gorbenko (2023) replicated the pattern in 24 of 32 countries. At the individual stock level it is weaker. Heavily shorted stocks have underperformed on average in US studies, but Asquith, Pathak and Ritter (2005) showed the effect is significant equally weighted and insignificant value-weighted, meaning it concentrates in small caps.
+
+### Are short sellers usually right?
+
+More often than chance, but not reliably enough to follow blindly. The research consistently finds short sellers behave like informed traders anticipating deteriorating fundamentals, and equally consistently finds the returns from following them are modest, transient in places, and largest in the small illiquid stocks where trading costs and squeeze risk are highest.
+
+### Why would short sellers be better informed than other investors?
+
+Because the cost structure filters out casual participants: daily borrow fees, unbounded loss potential, margin requirements that rise with volatility, and recall risk. Gorbenko's international study found the predictive content of short interest was higher where shorting is more constrained, which is what you would expect if cost deters uninformed traders more than informed ones.
+
+### Should I avoid buying a heavily shorted ASX stock?
+
+Not automatically. High short interest tells you a bearish case exists and someone is paying to hold it, which is a reason to find that case before buying. It also tells you the position is crowded, which raises squeeze risk in the other direction. Read the short percentage alongside days to cover and the trend in positioning, then form your own view on the business.
+
+### How current is ASX short interest data?
+
+ASIC publishes aggregate short positions four business days after the reporting day, aggregated and without identifying individual short sellers. That lag is immaterial for a slow, fundamentals-linked variable and disqualifying for anything used as a short-term trigger.
+
+### Has anyone tested this specifically on the ASX?
+
+Only partially. Comerton-Forde and co-authors (2016) used the Australian daily disclosure regime and found short interest relates to fundamental mispricing while short flow relates to news and order flow. Ang, Hayat and Li (2020) found short-selling risk effects present in small Australian stocks and absent in large ones. No published study shows aggregate ASX short interest predicting the Australian market.
+
+---
+
+Next steps: see the current cross-section on the [most shorted ASX stocks](/top) list, build your own test in the [screener](/screener), read what happens to crowded shorts during [ASX reporting season](/blog/asx-reporting-season-short-sellers), or look up any term above in the [glossary](/glossary).
+
+<RegisterEmail />
+
+---
+
+_This content is for informational purposes only and does not constitute financial or investment advice. Academic findings summarised here are drawn from the cited papers and describe historical samples, mostly outside Australia; past statistical relationships are not predictions. Short-position data referenced on this site is derived from ASIC publications on a T+4 basis. Always conduct your own research before making investment decisions._
