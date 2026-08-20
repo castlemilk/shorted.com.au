@@ -46,7 +46,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   // No `| ${siteConfig.name}` here: the root layout's title template already
   // appends "| Shorted", so a hardcoded suffix rendered it twice.
   const title = `${term.term} Definition | Short Selling Glossary`;
-  const description = `${term.definition.slice(0, 155)}...`;
+  // Only ellipsise when the definition was actually truncated — short
+  // definitions were previously served with a trailing "..." for no reason.
+  const description =
+    term.definition.length > 155
+      ? `${term.definition.slice(0, 155).trimEnd()}…`
+      : term.definition;
 
   return {
     title,
@@ -86,6 +91,8 @@ function TermStructuredData({ term }: { term: { term: string; definition: string
     "@context": "https://schema.org",
     "@type": "DefinedTerm",
     name: term.term,
+    // Concise by design: the long-form `details` text belongs in the page
+    // body, not in the schema description.
     description: term.definition,
     inDefinedTermSet: {
       "@type": "DefinedTermSet",
@@ -174,6 +181,46 @@ export default async function GlossaryTermPage({ params }: PageProps) {
             </CardContent>
           </Card>
         </section>
+
+        {/* Long-form explanation. Optional — terms without `details` render
+            exactly as they did before. */}
+        {term.details && term.details.length > 0 && (
+          <section>
+            <h2 className="text-xl font-semibold mb-4">
+              Understanding {term.term}
+            </h2>
+            <div className="space-y-4">
+              {term.details.map((paragraph, index) => (
+                <p
+                  key={index}
+                  className="text-muted-foreground leading-relaxed text-pretty"
+                >
+                  {paragraph}
+                </p>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* See it in the data */}
+        {term.dataLinks && term.dataLinks.length > 0 && (
+          <section>
+            <h2 className="text-xl font-semibold mb-4">See it in the data</h2>
+            <ul className="grid gap-2">
+              {term.dataLinks.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+                  >
+                    <ChevronRight className="h-4 w-4 flex-shrink-0" />
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {/* Related Terms */}
         {relatedTerms.length > 0 && (

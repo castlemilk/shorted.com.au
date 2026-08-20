@@ -11,7 +11,7 @@ import {
 import { AUTHORS } from "~/@/data/authors";
 
 export const metadata: Metadata = {
-  title: "Authors & Contributors | Shorted",
+  title: "Authors & Contributors",
   description:
     "Editorial team and contributors behind Shorted's ASX short-selling analysis. Backgrounds, expertise, and public profiles for every author who shapes the platform's coverage.",
   keywords: [
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     "Australian finance writers",
   ],
   openGraph: {
-    title: "Authors & Contributors | Shorted",
+    title: "Authors & Contributors",
     description:
       "Editorial team and contributors behind Shorted's ASX short-selling analysis.",
     url: `${siteConfig.url}/authors`,
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     site: "@shorted___",
     creator: "@shorted___",
     card: "summary_large_image",
-    title: "Authors & Contributors | Shorted",
+    title: "Authors & Contributors",
     description:
       "Editorial team and contributors behind Shorted's ASX short-selling analysis.",
   },

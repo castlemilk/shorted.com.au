@@ -60,7 +60,7 @@ test("static generation fetchers respect the local verifier skip flag", () => {
   // directory that is the shared data module (directory-data.ts), not the
   // [letter] page, which only delegates to it.
   const files = [
-    "web/src/app/sitemap.ts",
+    "web/src/@/lib/seo/sitemap-sections.ts",
     "web/src/app/directory/directory-data.ts",
     "web/src/app/market/page.tsx",
     "web/src/app/actions/industry/getIndustryData.ts",

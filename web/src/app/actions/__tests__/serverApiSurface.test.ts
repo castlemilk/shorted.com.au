@@ -287,7 +287,7 @@ describe("server API surface", () => {
       "src/app/industry",
       "src/app/search",
       "src/app/directory",
-      "src/app/sitemap.ts",
+      "src/@/lib/seo/sitemap-sections.ts",
       "src/server",
     ];
     const allowed = new Set([

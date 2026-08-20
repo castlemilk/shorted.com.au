@@ -72,6 +72,47 @@ except ImportError:
 
 
 # ============================================================================
+# FRONTEND CACHE REVALIDATION
+# ============================================================================
+
+
+async def trigger_frontend_revalidation(record_count: int) -> None:
+    """Event-driven cache invalidation: when new ASIC short data lands, tell the
+    frontend to re-render its cached SSR pages immediately instead of waiting
+    out the 24h ISR ceiling (which stacks with the 24h KV TTL to ~48h of lag on
+    /top). Ported from services/short-data-sync/main.py — that file is NOT the
+    deployed image (this one is; see terraform/modules/short-data-sync/main.tf),
+    so the revalidation ping never actually shipped until it was added here.
+    Only fires when data actually changed; a no-new-files run does nothing."""
+    if not record_count or record_count <= 0:
+        logger.info("No new shorts records; skipping cache revalidation.")
+        return
+    url = os.environ.get("REVALIDATION_URL")
+    secret = os.environ.get("REVALIDATION_SECRET")
+    if not url or not secret:
+        logger.warning(
+            "REVALIDATION_URL/REVALIDATION_SECRET not set; skipping revalidation."
+        )
+        return
+    try:
+        async with httpx.AsyncClient(timeout=60) as revalidate_client:
+            resp = await revalidate_client.post(
+                url,
+                headers={"X-Revalidate-Secret": secret},
+                params={
+                    "tag": "shorts-data,scan-results",
+                    "path": "/,/top,/news,/screener,/industry,/shorts/[stockCode],/statistics,/scans",
+                    "flush": "shorts",
+                },
+            )
+        logger.info(
+            f"Triggered cache revalidation (status {resp.status_code}): {resp.text[:200]}"
+        )
+    except Exception as e:  # noqa: BLE001 - best-effort, never fail the sync
+        logger.warning(f"⚠️ Failed to trigger frontend revalidation: {e}")
+
+
+# ============================================================================
 # SYNC STATUS RECORDING
 # ============================================================================
 
@@ -1840,7 +1881,18 @@ async def main() -> bool:
         logger.info("🔄 REFRESHING MATERIALIZED VIEWS")
         logger.info("-" * 40)
         try:
-            await conn.execute("SELECT refresh_all_materialized_views()")
+            # Supabase sets a session-level statement_timeout; the screener MV
+            # refresh alone can exceed it, and a cancelled refresh silently
+            # leaves every MV after it in the chain stale (Jul 2026 incident:
+            # /statistics + /scans served 19-day-old data). A function-level
+            # SET inside refresh_all_materialized_views() cannot disarm it.
+            # ONE multi-statement execute (simple query protocol = one implicit
+            # transaction on one backend) so the SET provably applies to the
+            # refresh even through a transaction pooler, where two separate
+            # executes may land on different backend sessions.
+            await conn.execute(
+                "SET statement_timeout = 0; SELECT refresh_all_materialized_views()"
+            )
             logger.info("   ✅ mv_treemap_data refreshed")
             logger.info("   ✅ mv_top_shorts refreshed")
             logger.info("   ✅ mv_watchlist_defaults refreshed")
@@ -1863,6 +1915,10 @@ async def main() -> bool:
             except Exception:
                 pass
         logger.info("-" * 40)
+
+        # Tell the frontend to re-render cached SSR pages now that new data +
+        # refreshed MVs are live (event-driven ISR bust; no-ops when unchanged).
+        await trigger_frontend_revalidation(shorts_updated)
 
         logger.info("🔍 DEBUG: After SYNC COMPLETE, before Algolia check")
         logger.info(

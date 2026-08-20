@@ -1,3 +1,11 @@
+# ⚠️ NOT DEPLOYED. The `short-data-sync` Cloud Run image is built from
+# services/daily-sync/Dockerfile, which ships
+# services/daily-sync/deprecated/comprehensive_daily_sync.py — NOT this file
+# (see .github/workflows/terraform-deploy.yml and
+# terraform/modules/short-data-sync/main.tf). Changes made here silently never
+# ship: the frontend-revalidation ping lived only in this file for a month
+# while /top served stale data (found 2026-08-20). Edit the deployed script
+# instead, or consolidate the two before trusting this one.
 from fastapi import FastAPI, HTTPException
 import os
 import httpx
