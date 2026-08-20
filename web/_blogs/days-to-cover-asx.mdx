@@ -1,0 +1,153 @@
+---
+title: "Days to Cover on the ASX: What the Short Interest Ratio Actually Tells You"
+excerpt: "Days to cover measures how long the shorts would need to exit at normal trading volume. It's the metric that separates a crowded short you can walk away from and one that's trapped. Here's the formula, ASX-calibrated bands, and what ASIC's T+4 reporting does to the calculation."
+coverImage: "/assets/blog/how-to-read-short-interest-data/cover.png"
+date: "2026-08-20"
+author:
+  name: Ben Ebsworth
+  picture: "/assets/blog/authors/ben.png"
+ogImage:
+  url: "/assets/blog/how-to-read-short-interest-data/cover.png"
+---
+
+# Days to Cover on the ASX
+
+Short interest tells you how many shares are sold short. Days to cover tells you how hard it would be to undo that.
+
+The distinction matters more on the ASX than almost anywhere else, because the Australian market is a handful of very deep large caps sitting on top of a long tail of stocks that trade a few hundred thousand dollars a day. A 10% short position means one thing in a bank and something entirely different in a lithium developer. The percentage figure cannot see that difference. Days to cover can.
+
+Nearly every page ranking for this metric is written around US markets and FINRA's twice-monthly reporting cycle. The mechanics translate; the thresholds and the reporting mechanics do not. This is the ASX version.
+
+## The formula
+
+[Days to cover](/glossary/days-to-cover) — also called the short interest ratio — is one division:
+
+```
+Days to cover = total shares sold short ÷ average daily trading volume
+```
+
+The output is a number of trading days: how long it would take every short seller in the stock to buy back their position if they were the only buyers and volume stayed at its recent average.
+
+A worked example. A stock has 15 million shares sold short. Its [average daily volume](/glossary/average-daily-volume) over the past 20 sessions is 3 million shares.
+
+```
+15,000,000 ÷ 3,000,000 = 5.0 days to cover
+```
+
+Five days. Now hold the short position constant and cut the volume to 500,000 shares a day:
+
+```
+15,000,000 ÷ 500,000 = 30 days to cover
+```
+
+Identical short interest, identical percentage of issued capital, six times the difficulty of exiting. That gap is the entire information content of the metric.
+
+<Info title="One formula, several answers">
+Days to cover varies with the volume window you choose. A 20-day average is the common convention and the one used across this site; 10-day and 30-day averages are both defensible and will give different numbers for the same stock. Whichever you use, compare like with like — a days-to-cover figure from one source is not directly comparable to one from another unless the volume windows match.
+</Info>
+
+## Why it complements the short percentage rather than replacing it
+
+The headline short-interest number — reported short positions as a percentage of total product in issue — answers "how much of this company is bet against?" It is the right measure of conviction and the right measure of crowding.
+
+What it cannot tell you is whether that conviction is *stuck*. Two stocks both showing 10% short:
+
+- **The liquid one.** Heavily traded, deep register, tight spreads. The shorts turn over their positions in days. Bad news arrives, the thesis plays out or it doesn't, and the position unwinds into ample volume without much drama. Days to cover of 2 or 3.
+- **The illiquid one.** Thin trade, concentrated register, wide spreads. The same 10% short position represents weeks of normal volume. Any attempt to exit *is* the day's tape — the shorts bidding for stock move the price against themselves, which pulls in other shorts, which moves it further. Days to cover of 20 or more.
+
+The second is where price behaviour turns reflexive. It is not that the shorts are more wrong; it is that being wrong is far more expensive when the exit is narrow.
+
+Read the two metrics together and you get a matrix worth thinking in. High short percentage plus low days to cover is a conviction bet in a liquid name — bearish signal, orderly unwind. High short percentage plus high days to cover is a crowded bet in a stock nobody can get out of — the same bearish signal, with the exit priced in. Low short percentage plus high days to cover usually just means an illiquid microcap and is often noise. The combination that matters is the second one.
+
+## ASX-calibrated interpretation bands
+
+Rules of thumb imported from US commentary — "above 5 days is high", "above 10 is squeeze territory" — are calibrated to a market with far deeper average liquidity per name. Applied to the ASX they misfire in both directions: they flag routine small caps as extreme and they underrate genuinely trapped positions in mid caps.
+
+Treated as a rough guide for Australian listings:
+
+| Days to cover | Reading |
+|---|---|
+| Under 1 | Effectively frictionless. Shorts can exit within a session. Common in the ASX 20. |
+| 1 – 3 | Normal for a liquid name carrying real short interest. Unwinds are unremarkable. |
+| 3 – 7 | Elevated. Exiting takes a week of normal volume — enough for a positive catalyst to cause visible bidding. |
+| 7 – 15 | Crowded and slow. This is where days to cover starts doing work the short percentage can't. |
+| Above 15 | Trapped. Any coordinated attempt to cover moves the stock materially. Also the band where data quality deserves a check. |
+
+Three cautions before leaning on any band.
+
+**Volume regimes shift.** Days to cover falls when volume spikes, even if not a single short has covered. A stock in the middle of a capital raising or an index rebalance shows artificially low days to cover for a fortnight. Look at the trend across weeks, not one reading.
+
+**Very small caps break the metric.** When average daily volume is tiny, the denominator approaches zero and days to cover explodes into numbers that are arithmetically correct and practically meaningless. Apply a liquidity floor — a minimum daily turnover — before ranking on this measure.
+
+**Issued capital is not [free float](/glossary/free-float).** Where a founder, parent company or strategic holder owns a large stake that never trades, the tradeable float is much smaller than issued capital. Short interest as a percentage of *float* is higher than the headline figure, and the practical days to cover is worse than the calculated one.
+
+## What ASIC's T+4 reporting does to the calculation
+
+Australia's short-position disclosure regime is unusually good. Under ASIC's rules, short sellers report their positions and ASIC publishes aggregate reported short positions for every ASX security — daily, by security, for the entire market. There is nothing to buy and no subscription gate. It is the reason a site like this can exist.
+
+The constraint is timing. ASIC publishes short-position reports on a T+4 basis: the figures released today describe positioning as at four business days ago. Meanwhile the volume side of the ratio can be computed right up to yesterday's close. Mix them carelessly and you get a numerator and a denominator measured over different windows.
+
+What that means in practice:
+
+- **The numerator lags by four business days.** In a fast-moving stock, positioning can change materially inside that window. After a sharp move, the published short interest describes the market *before* the move.
+- **Match your windows.** A reported short position as at T-4 divided by a 20-day average volume ending at T-4 is internally consistent. Dividing a T-4 short position by a volume average that includes a huge post-news session understates days to cover, sometimes badly.
+- **The lag is fine for the purpose.** Days to cover is a structural measure — how the positioning is shaped — not a trading trigger. Positioning of this kind builds and unwinds over weeks. Four days of latency does not change what the metric is telling you, provided you don't treat it as live.
+- **Only reportable short positions are captured.** ASIC's regime covers covered short selling under its short-selling rules; naked short selling is prohibited in Australia except in narrow permitted circumstances. Economic short exposure taken through derivatives is not the same population as reported stock-borrow shorts. Days to cover measures the reported book, and that is a floor on true bearish positioning rather than the whole of it.
+
+## Days to cover as squeeze fuel
+
+Days to cover is the most commonly cited squeeze indicator, and the causal story is straightforward. A [short squeeze](/glossary/short-squeeze) happens when a rising price forces short sellers to buy back, and their buying pushes the price higher, forcing more covering. Days to cover measures how much buying is queued up and how narrow the door is. High days to cover means a lot of covering demand meeting little natural supply.
+
+That is a description of the fuel, not a prediction of the fire. Three qualifications keep this honest.
+
+**Fuel is not ignition.** Crowded, slow-to-exit short positions can persist for years without a squeeze. Something has to make the shorts want out — an earnings surprise, a contract, a takeover approach, a commodity move. Days to cover tells you the consequences would be violent *if* that happens. It says nothing about whether it will.
+
+**The shorts are often right.** A large, slow short position exists because well-resourced funds did the work and concluded the stock is going down. They are sometimes wrong, which is what makes squeezes possible. They are not usually wrong.
+
+**The metric moves as the squeeze runs.** Squeeze conditions come with enormous volume, which crashes the denominator and drops days to cover mechanically. By the time the move is obvious, the metric that flagged it has already normalised.
+
+The historical ASX episodes people point to — the buy-now-pay-later covering waves of 2021, and the repeated squeezes through the lithium complex as sentiment whipsawed — share the shape rather than any particular number: a crowded short book in a name where the float could not absorb a rush for the exit, plus a catalyst nobody had modelled. Anyone quoting you a precise days-to-cover figure that "triggered" a specific historical squeeze is reverse-engineering. Treat the pattern as instructive and the specific numbers as unverifiable after the fact.
+
+## How to screen for it on Shorted
+
+Days to cover is computed for every ASX security here, from ASIC's reported short positions over a 20-day average volume, and it is refreshed daily as new data lands.
+
+Three ways in:
+
+- **[Highest days to cover scan](/scans/high-days-to-cover)** — a ranked, pre-filtered list of stocks where the shorts would need many days of normal volume to exit. The fastest look at where the market's slow short positions sit.
+- **[The screener](/screener)** — a days-to-cover field you can set minimums and maximums on, combine with short percentage, market cap, sector and liquidity filters, and sort the whole market by. This is where the matrix above becomes an actual query: short interest above 8% *and* days to cover above 10 *and* a turnover floor to strip the microcap noise.
+- **[Battlegrounds](/battlegrounds)** — the stocks where short conviction and buying pressure are actively colliding, with days to cover as one of the inputs.
+
+For the current state of short positioning across the market, the [most shorted ASX stocks](/top) list is the place to start; add the days-to-cover lens to separate the crowded-and-liquid from the crowded-and-stuck.
+
+## FAQ
+
+### What is a good days to cover ratio on the ASX?
+
+There is no universally good level — it depends what you're looking for. Under 1 day means shorts can exit within a session. Above 7 days is genuinely crowded and slow by ASX standards, and above 15 the position is effectively trapped. Apply a liquidity floor first, because very thinly traded stocks produce large numbers that mean nothing.
+
+### Is days to cover the same as the short interest ratio?
+
+Yes, they are two names for the same calculation: shares sold short divided by average daily volume. "Short interest ratio" is occasionally used loosely to mean short interest as a percentage of shares on issue, which is a different metric entirely — check which one a source means.
+
+### How current is ASX days-to-cover data?
+
+The short-position side comes from ASIC on a T+4 basis, so it reflects positioning four business days ago. The volume side can be current. For a structural measure like this the lag is acceptable, but the ratio should not be treated as a live figure.
+
+### Does high days to cover mean a short squeeze is coming?
+
+No. It measures how much covering demand is queued against how little liquidity, which is the fuel. A squeeze also needs a catalyst that makes shorts want out, and most crowded shorts never get one. High days to cover tells you a squeeze would be violent, not that it will happen.
+
+### Why does days to cover change when the short position hasn't?
+
+Because the denominator moves. A jump in trading volume — index rebalance, capital raising, a news day — cuts days to cover without a single short covering. Read the trend over several weeks rather than any single reading.
+
+### Should I use days to cover or short interest percentage?
+
+Both, together. The percentage measures conviction and crowding; days to cover measures how hard the position is to exit. The combination that carries the most information is high short interest *and* high days to cover — a crowded bet in a stock the shorts cannot leave quickly.
+
+<RegisterEmail />
+
+---
+
+_This content is for informational purposes only and does not constitute financial advice. Days-to-cover figures are derived from ASIC short-position data published on a T+4 basis and 20-day average trading volumes. Historical squeeze episodes are referenced as illustrations of a pattern, not as predictions. Always conduct your own research before making investment decisions._

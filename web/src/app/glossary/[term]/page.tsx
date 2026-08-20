@@ -43,7 +43,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     };
   }
 
-  const title = `${term.term} Definition | Short Selling Glossary | ${siteConfig.name}`;
+  // No `| ${siteConfig.name}` here: the root layout's title template already
+  // appends "| Shorted", so a hardcoded suffix rendered it twice.
+  const title = `${term.term} Definition | Short Selling Glossary`;
   const description = `${term.definition.slice(0, 155)}...`;
 
   return {
@@ -65,6 +67,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       locale: "en_AU",
     },
     twitter: {
+      site: "@shorted___",
+      creator: "@shorted___",
       card: "summary",
       title,
       description,

@@ -106,7 +106,11 @@ export const metadata = {
     title: siteConfig.socialTitle,
     description: siteConfig.description,
     images: [siteConfig.ogImage],
-    creator: "@shorted___",
+    // Next merges `twitter` SHALLOWLY: any page that declares its own
+    // `twitter` object replaces this one wholesale, so site/creator have to
+    // be repeated on every page that overrides it — they are.
+    site: siteConfig.twitterHandle,
+    creator: siteConfig.twitterHandle,
   },
   robots: {
     index: true,

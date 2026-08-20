@@ -239,6 +239,8 @@ export function generateMetadata({ params }: Params): Metadata {
       ],
     },
     twitter: {
+      site: "@shorted___",
+      creator: "@shorted___",
       card: "summary_large_image",
       title,
       description,

@@ -42,6 +42,8 @@ export const metadata: Metadata = {
     // explicit `images` here would SHADOW the file convention.
   },
   twitter: {
+    site: "@shorted___",
+    creator: "@shorted___",
     card: "summary_large_image",
     title: "Short Selling Glossary | Key Terms & Definitions",
     description:

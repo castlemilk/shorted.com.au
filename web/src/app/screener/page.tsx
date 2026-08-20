@@ -63,6 +63,19 @@ export async function generateMetadata({
   return {
     title,
     description,
+    // Screener-intent terms only. This page inherits the site-level keyword
+    // set otherwise, which is the homepage's head-term list and says nothing
+    // about screening.
+    keywords: [
+      "ASX short interest screener",
+      "stock screener Australia",
+      "ASX stock screener",
+      "short squeeze candidates ASX",
+      "days to cover screener",
+      "screen ASX stocks by short interest",
+      "high short interest stocks ASX",
+      "ASX stock filters",
+    ],
     openGraph: {
       title,
       description,
@@ -76,6 +89,8 @@ export async function generateMetadata({
     // explicit `images` here would SHADOW the file convention.
     },
     twitter: {
+      site: "@shorted___",
+      creator: "@shorted___",
       card: "summary_large_image",
       title,
       description,

@@ -31,7 +31,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const article = articlesData[slug];
 
   if (!article) {
-    return { title: "Article Not Found" };
+    // The page body calls notFound() for this slug, but the 404 status can be
+    // pre-empted once the response has streamed — keep the fallback metadata
+    // explicitly noindex so a soft-200 never enters the index. Matches
+    // /news/[slug] and /glossary/[term].
+    return {
+      title: "Article Not Found",
+      robots: { index: false, follow: false },
+    };
   }
 
   return {
@@ -49,6 +56,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       // explicit `images` here would SHADOW the file convention.
     },
     twitter: {
+      site: "@shorted___",
+      creator: "@shorted___",
       card: "summary_large_image",
       title: article.title,
       description: article.description,

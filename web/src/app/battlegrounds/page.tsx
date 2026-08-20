@@ -52,6 +52,8 @@ export const metadata: Metadata = {
     // explicit `images` here would SHADOW the file convention.
   },
   twitter: {
+    site: "@shorted___",
+    creator: "@shorted___",
     card: "summary_large_image",
     title: TITLE,
     description: DESCRIPTION,
@@ -218,6 +220,7 @@ export default async function BattlegroundsPage() {
           name: "ASX Short Squeeze Candidates — Battlegrounds Squeeze Radar",
           description:
             "Daily 0-100 squeeze scores for ASX stocks, combining days-to-cover, short interest, price momentum, and short-position crowding from official ASIC short position reports.",
+          url: `${siteConfig.url}/battlegrounds`,
         }}
       />
       <div className="container mx-auto px-4 py-6 max-w-7xl space-y-6">

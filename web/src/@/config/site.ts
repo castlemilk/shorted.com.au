@@ -1,9 +1,14 @@
 export const siteConfig = {
   name: "Shorted",
-  fullTitle: "Most Shorted ASX Stocks — Official ASIC Short Selling Data | Shorted",
+  // Site-level default title. Google currently ranks the HOMEPAGE (not /top)
+  // top 3-4 for "most shorted stocks asx", so that phrase must stay leading in
+  // this title — dropping it risks the ranking during re-evaluation. "Shorts
+  // on the ASX" is appended because nothing on the site targeted that phrasing.
+  // /top competes on the same head term with a dated, fresher title.
+  fullTitle: "Most Shorted ASX Stocks — Track Shorts on the ASX | Shorted",
   // Same title without the brand suffix — for OG/Twitter cards, where the brand
   // is already shown as the site name.
-  socialTitle: "Most Shorted ASX Stocks — Official ASIC Short Selling Data",
+  socialTitle: "Most Shorted ASX Stocks — Track Shorts on the ASX",
   url: "https://shorted.com.au",
   ogImage: "https://shorted.com.au/opengraph-image",
   // Organization logo for schema.org ImageObject.
@@ -31,6 +36,8 @@ export const siteConfig = {
   dataDisclaimer:
     "Data sourced from ASIC and published with a T+4 trading day delay. This information is for general purposes only and does not constitute financial advice.",
   keywords: [
+    "ASX short selling data",
+    "shorts on the ASX",
     "shorting the ASX",
     "short the ASX",
     "ASIC short position data",
@@ -42,6 +49,8 @@ export const siteConfig = {
     "short position tracker",
     "ASX short sales report",
   ],
+  // X/Twitter handle — used for twitter:site + twitter:creator on every page.
+  twitterHandle: "@shorted___",
   author: "Shorted Team",
   creator: "Shorted",
   publisher: "Shorted",

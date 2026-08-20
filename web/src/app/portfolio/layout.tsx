@@ -23,6 +23,8 @@ export const metadata: Metadata = {
     locale: "en_AU",
   },
   twitter: {
+    site: "@shorted___",
+    creator: "@shorted___",
     card: "summary_large_image",
     title: "Portfolio Tracker | Monitor Short Interest in Your Holdings",
     description:

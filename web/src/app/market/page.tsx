@@ -36,6 +36,8 @@ export const metadata: Metadata = {
     locale: "en_AU",
   },
   twitter: {
+    site: "@shorted___",
+    creator: "@shorted___",
     card: "summary_large_image",
     title: "Daily ASX Short Position Snapshots",
     description: "Browse daily snapshots of ASX short positions from ASIC data.",

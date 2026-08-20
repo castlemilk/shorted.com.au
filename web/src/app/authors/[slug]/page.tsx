@@ -56,6 +56,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       // landscape, so the portrait was cropped badly in every unfurl.
     },
     twitter: {
+      site: "@shorted___",
+      creator: "@shorted___",
       // Large card now that this route generates a proper 1200x630 image;
       // "summary" rendered it as a small square thumbnail.
       card: "summary_large_image",

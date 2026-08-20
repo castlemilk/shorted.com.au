@@ -33,6 +33,8 @@ export const metadata: Metadata = {
     locale: "en_AU",
   },
   twitter: {
+    site: "@shorted___",
+    creator: "@shorted___",
     card: "summary_large_image",
     title: "ASX Short Selling Datasets | Shorted",
     description:
@@ -247,6 +249,7 @@ export default function DataHubPage() {
           name: `ASX Short Position Data 2010–${CURRENT_YEAR}`,
           description:
             "Every ASIC-reported short position on the Australian Securities Exchange from June 2010 to today, aggregated and republished by Shorted.com.au for research, journalism, and analysis.",
+          url: `${siteConfig.url}/data`,
         }}
       />
       <LLMMeta

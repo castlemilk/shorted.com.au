@@ -54,6 +54,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       // explicit `images` here would SHADOW the file convention.
     },
     twitter: {
+      site: "@shorted___",
+      creator: "@shorted___",
       card: "summary_large_image",
       title: scan.title,
       description: scan.description,
@@ -128,6 +130,7 @@ export default async function ScanPage({ params }: PageProps) {
         datasetInfo={{
           name: scan.h1,
           description: scan.description,
+          url: `${siteConfig.url}/scans/${slug}`,
           dateModified: results?.asOfDate,
         }}
       />
