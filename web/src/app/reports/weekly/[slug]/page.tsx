@@ -24,7 +24,10 @@ import {
 } from "~/@/components/seo/enhanced-structured-data";
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import { MoversTable } from "~/@/components/reports/movers-table";
-import { WeekNavigation } from "~/@/components/reports/week-navigation";
+import {
+  WeekNavigation,
+  WEEKLY_ARCHIVE_LIMIT,
+} from "~/@/components/reports/week-navigation";
 import { CitationFootnotes } from "~/@/components/reports/citation-renderer";
 import { LinkifiedNarrative } from "~/@/components/reports/linkified-narrative";
 import { StatTile } from "~/@/components/reports/stat-tile";
@@ -35,6 +38,7 @@ import {
   getEnhancedWeeklyReportData,
   getEnhancedWeeklyReportDataStrict,
   getStockFinancialHighlights,
+  getReportsList,
   type StockFinancialHighlight,
 } from "~/app/actions/reports/getReportData";
 
@@ -223,9 +227,16 @@ export default async function WeeklyReportPage({ params }: PageProps) {
   // fetch: a transient narrative failure here (null) with definitively
   // empty market data falls through to the degraded 200 render below —
   // only definitive double-absence soft-404s.
-  const [rawData, enhanced] = await Promise.all([
+  // publishedWeekly drives the prev/next pagination below. It's the same
+  // 1h-cached ListReports call the /reports index makes (and it already
+  // filters headline-less partial rows), so the neighbours we link are weeks
+  // that definitely rendered — not blind week arithmetic into gaps. It
+  // swallows its own errors and returns [], in which case WeekNavigation
+  // falls back to arithmetic.
+  const [rawData, enhanced, publishedWeekly] = await Promise.all([
     getWeeklyReportData(slug),
     getEnhancedWeeklyReportData(slug),
+    getReportsList("weekly", WEEKLY_ARCHIVE_LIMIT),
   ]);
   if (!enhanced && rawData && rawData.topStocks.length === 0) {
     notFound();
@@ -255,15 +266,18 @@ export default async function WeeklyReportPage({ params }: PageProps) {
 
   const weekTitle = formatWeekTitle(slug);
   const hasNarrative = !!enhanced?.narrative?.openingHook;
+  const weeklySlugs = publishedWeekly.map((r) => r.slug);
 
   const breadcrumbItems = [
     { label: "Reports", href: "/reports" },
+    { label: "Weekly", href: "/reports/weekly" },
     { label: weekTitle, href: weeklyReportPath(slug) },
   ];
 
   const breadcrumbsSchema = [
     { name: "Home", url: siteConfig.url },
     { name: "Reports", url: `${siteConfig.url}/reports` },
+    { name: "Weekly Reports", url: `${siteConfig.url}/reports/weekly` },
     { name: weekTitle, url: `${siteConfig.url}${weeklyReportPath(slug)}` },
   ];
 
@@ -368,11 +382,11 @@ export default async function WeeklyReportPage({ params }: PageProps) {
         </div>
 
         <Link
-          href="/reports"
+          href="/reports/weekly"
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          All Reports
+          All weekly reports
         </Link>
 
         {/* Hero */}
@@ -688,8 +702,8 @@ export default async function WeeklyReportPage({ params }: PageProps) {
           </p>
         </section>
 
-        {/* Week Navigation */}
-        <WeekNavigation currentSlug={slug} />
+        {/* Week Navigation — prev/next across the published weekly series. */}
+        <WeekNavigation currentSlug={slug} availableSlugs={weeklySlugs} />
       </div>
     </DashboardLayout>
   );

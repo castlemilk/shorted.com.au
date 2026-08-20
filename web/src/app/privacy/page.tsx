@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     canonical: `${siteConfig.url}/privacy`,
   },
   openGraph: {
-    title: "Privacy Policy | Shorted",
+    title: "Privacy Policy",
     description:
       "Learn how Shorted.com.au collects, uses, and protects your personal information.",
     url: `${siteConfig.url}/privacy`,

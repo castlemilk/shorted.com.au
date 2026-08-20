@@ -11,6 +11,7 @@ import { getTopPageData } from "../actions/top/getTopPageData";
 import { type TimePeriod } from "~/@/lib/shorts-calculations";
 import { TopPageSkeleton } from "./components/top-page-skeleton";
 import { ReportsBanner } from "~/@/components/reports/reports-banner";
+import { LatestWeeklyReportLink } from "~/@/components/reports/latest-weekly-report-link";
 import { sectionTitle } from "~/@/lib/typography";
 
 // Dynamic import for client component to reduce initial bundle
@@ -234,6 +235,18 @@ export default function TopPage() {
 
       <div className="container mx-auto px-4 pt-4">
         <ReportsBanner />
+        {/* Server-rendered link to the CURRENT latest weekly report. Distinct
+            from ReportsBanner above it, which is a dismissible client banner
+            pointing at the /reports hub with a generic anchor — this carries
+            the dated, descriptive anchor the weekly series needs, is in the
+            SSR DOM for crawlers, and cannot be dismissed away.
+
+            Streamed under Suspense so its (cached, 1h) ListReports fetch can
+            never delay this page's ISR shell, and it renders nothing at all
+            if the archive is unavailable. */}
+        <Suspense fallback={null}>
+          <LatestWeeklyReportLink className="mb-6" />
+        </Suspense>
       </div>
 
       <Suspense fallback={<TopPageSkeleton />}>

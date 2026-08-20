@@ -380,7 +380,11 @@ export default withBundleAnalyzer(
       // is missing from the serverless bundle and the routes 500 with
       // ENOENT /var/task/web/_blogs.
       outputFileTracingIncludes: {
+        // The blog posts now live in the core child sitemap (the index itself
+        // fetches nothing). Both keys are kept: /sitemap.xml still exists as
+        // the index route.
         "/sitemap.xml": ["./_blogs/**/*"],
+        "/sitemap-core.xml": ["./_blogs/**/*"],
         "/feed.xml": ["./_blogs/**/*"],
         // getOgLogo() reads these through computed filesystem paths in the
         // shared OG card helper, which nft cannot discover. Apply them to every

@@ -264,23 +264,63 @@ async function checkAuthBootstrap(browser) {
 // (SKIP_STATIC_GENERATION at runtime, no-store fetches inside the ISR route)
 // silently collapsed the sitemap to a ~1.5k-URL fallback with only 20 stock
 // pages. The full sitemap carries ~800 /shorts/ URLs; require a healthy floor.
+//
+// August 2026: /sitemap.xml is now a sitemapINDEX over per-section children, so
+// the same floors are asserted across the children instead of one flat doc. A
+// child that silently empties (its RPC failing) is the exact failure this gate
+// exists to block, so every listed child must return URLs.
+const MIN_SITEMAP_CHILDREN = 4;
+const MIN_SITEMAP_TOTAL_URLS = 2500;
+const MIN_SITEMAP_STOCK_URLS = 400;
+
 async function checkSitemap() {
   console.log("check sitemap coverage");
   const api = await playwrightRequest.newContext({ extraHTTPHeaders: headers });
   try {
-    // First hit after a deploy regenerates at runtime (~15s fan-out).
     const resp = await api.get(`${baseUrl}/sitemap.xml`, { timeout: 60_000 });
     assert.equal(resp.status(), 200, "sitemap.xml status");
-    const xml = await resp.text();
-    const urlCount = (xml.match(/<loc>/g) ?? []).length;
-    const stockCount = (xml.match(/\/shorts\/[A-Z0-9]+<\/loc>/g) ?? []).length;
+    const indexXml = await resp.text();
+
+    assert.match(indexXml, /<sitemapindex/, "sitemap.xml is not a sitemapindex");
+    const childLocs = [...indexXml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1].trim());
     assert(
-      urlCount >= 2500,
-      `sitemap.xml has ${urlCount} URLs (expected >= 2500 — runtime data fetches are failing)`,
+      childLocs.length >= MIN_SITEMAP_CHILDREN,
+      `sitemap.xml lists ${childLocs.length} child sitemaps (expected >= ${MIN_SITEMAP_CHILDREN})`,
+    );
+
+    // The index advertises canonical production URLs; re-resolve each child
+    // against BASE_URL so the smoke tests THIS deployment, not prod.
+    let totalUrls = 0;
+    let shortsChildStockCount = 0;
+    let sawShortsChild = false;
+
+    for (const loc of childLocs) {
+      const path = new URL(loc).pathname;
+      // Children are force-dynamic; the first hit after a deploy pays the fan-out.
+      const childResp = await api.get(`${baseUrl}${path}`, { timeout: 60_000 });
+      assert.equal(childResp.status(), 200, `${path} status`);
+      const childXml = await childResp.text();
+      assert.match(childXml, /<urlset/, `${path} is not a urlset`);
+
+      const urlCount = (childXml.match(/<loc>/g) ?? []).length;
+      assert(urlCount > 0, `${path} is empty (its data fetch is failing)`);
+      totalUrls += urlCount;
+
+      if (path.includes("sitemap-shorts")) {
+        sawShortsChild = true;
+        shortsChildStockCount = (childXml.match(/\/shorts\/[A-Z0-9]+<\/loc>/g) ?? []).length;
+      }
+      console.log(`  ${path}: ${urlCount} URLs`);
+    }
+
+    assert(sawShortsChild, "sitemap index does not reference sitemap-shorts.xml");
+    assert(
+      shortsChildStockCount >= MIN_SITEMAP_STOCK_URLS,
+      `sitemap-shorts.xml has ${shortsChildStockCount} stock URLs (expected >= ${MIN_SITEMAP_STOCK_URLS} — stock list fell back to the hardcoded fallback)`,
     );
     assert(
-      stockCount >= 400,
-      `sitemap.xml has ${stockCount} stock URLs (expected >= 400 — stock list fell back to the hardcoded fallback)`,
+      totalUrls >= MIN_SITEMAP_TOTAL_URLS,
+      `sitemap children total ${totalUrls} URLs (expected >= ${MIN_SITEMAP_TOTAL_URLS} — runtime data fetches are failing)`,
     );
   } finally {
     await api.dispose();

@@ -14,7 +14,9 @@ import (
 const (
 	maxReportListTopCodes  = 5
 	defaultReportListLimit = 24
-	maxReportListLimit     = 100
+	// 500 covers the full weekly archive (~200 reports, +52/yr) so the
+	// /reports/weekly index and prev/next navigation can see every report.
+	maxReportListLimit = 500
 )
 
 var (
