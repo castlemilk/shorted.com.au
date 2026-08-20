@@ -40,18 +40,27 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   let industry: Awaited<ReturnType<typeof getIndustryStocks>>["industry"];
+  let reason: Awaited<ReturnType<typeof getIndustryStocks>>["reason"];
   try {
     // getIndustryStocks is React-cached, so this shares the page's fetch (and
     // its ISR-safe `next: { revalidate }` cache mode) rather than adding one.
     const result = await getIndustryStocks(slug);
     industry = result.industry;
+    reason = result.reason;
   } catch {
     industry = null;
+    reason = "unavailable";
   }
 
   if (!industry) {
     return {
       title: "Industry Short Positions",
+      // An unknown slug renders a 200 shell — noindex the soft-404. Never
+      // noindex on "unavailable": a degraded regen must not deindex a real
+      // industry page (the directive would stick until the next revalidate).
+      ...(reason === "unknown-slug"
+        ? { robots: { index: false, follow: false } }
+        : {}),
     };
   }
 

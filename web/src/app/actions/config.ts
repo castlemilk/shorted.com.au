@@ -129,8 +129,72 @@ export const SERVER_MARKET_DATA_API_URL = getServerMarketDataApiUrl();
 
 export const SHORTED_SSR_USER_AGENT =
   "shorted-web-ssr/1.0 (+https://shorted.com.au)";
+// The substring the Cloudflare SSR-bypass rule matches on
+// (terraform var rate_limit_ssr_bypass_user_agent).
+export const SHORTED_SSR_USER_AGENT_MARKER = "shorted-web-ssr";
 export const SHORTED_E2E_USER_AGENT = "Shorted-E2E/1.0";
 export const SHORTED_TESTING_BYPASS_HEADER = "X-Shorted-Testing-Bypass";
+// Paired with the shorted-web-ssr UA marker, this header exempts our OWN
+// Vercel SSR fetcher from the Cloudflare zone rate limit (Vercel egress shares
+// IPs per region, so ISR regenerations and warm-cache bursts trip the 60/10s
+// per-IP ceiling). Server-held only — never NEXT_PUBLIC, never sent to a host
+// that is not the shorted API origin.
+export const SHORTED_SSR_BYPASS_HEADER = "X-Shorted-Ssr-Bypass";
+
+function hostnameOf(value: string | undefined): string | undefined {
+  const normalized = normalizeApiBaseUrl(value);
+  if (!normalized) return undefined;
+  try {
+    return new URL(normalized).hostname.toLowerCase();
+  } catch {
+    return undefined;
+  }
+}
+
+// Hosts the SSR bypass secret may be attached to. Recomputed per call so a
+// changed env (tests, preview envs) is respected.
+function shortedApiHostnames(): Set<string> {
+  const hosts = new Set<string>(["api.shorted.com.au"]);
+  for (const candidate of [
+    process.env.SHORTED_EDGE_API_URL,
+    process.env.SHORTS_SERVICE_ENDPOINT,
+    process.env.SHORTS_API_URL,
+    process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT,
+    process.env.NEXT_PUBLIC_API_URL,
+  ]) {
+    const host = hostnameOf(candidate);
+    if (host) hosts.add(host);
+  }
+  return hosts;
+}
+
+/** True when the request targets a shorted-owned API origin. */
+export function isShortedApiRequestUrl(url: string | undefined): boolean {
+  if (!url) return false;
+  try {
+    return shortedApiHostnames().has(new URL(url).hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
+function resolveRequestUrl(
+  input: Parameters<typeof fetch>[0],
+): string | undefined {
+  if (typeof input === "string") return input.trim().replace(/\s+/g, "");
+  if (typeof URL !== "undefined" && input instanceof URL) {
+    return input.toString();
+  }
+  if (
+    typeof input === "object" &&
+    input !== null &&
+    "url" in input &&
+    typeof (input as { url: unknown }).url === "string"
+  ) {
+    return (input as { url: string }).url;
+  }
+  return undefined;
+}
 
 // Next patches globalThis.fetch and stashes the original on the patched
 // function (patch-fetch.js: `patched._nextOriginalFetch = originFetch`).
@@ -222,6 +286,21 @@ export const serverFetchWithUserAgent: typeof fetch = (input, init) => {
     );
   } else if (!headers.has("User-Agent")) {
     headers.set("User-Agent", SHORTED_SSR_USER_AGENT);
+  }
+
+  // First-party SSR bypass for the Cloudflare zone rate limit. Attached only
+  // when the secret is configured (server-only env) AND the request targets a
+  // shorted API origin — the secret must never leak to a third-party host.
+  const ssrBypassSecret = process.env.SHORTED_SSR_BYPASS_SECRET?.trim();
+  if (ssrBypassSecret && isShortedApiRequestUrl(resolveRequestUrl(input))) {
+    headers.set(SHORTED_SSR_BYPASS_HEADER, ssrBypassSecret);
+    const userAgent = headers.get("User-Agent") ?? SHORTED_SSR_USER_AGENT;
+    headers.set(
+      "User-Agent",
+      userAgent.includes(SHORTED_SSR_USER_AGENT_MARKER)
+        ? userAgent
+        : `${userAgent} ${SHORTED_SSR_USER_AGENT}`,
+    );
   }
 
   const request = getFetchRequest(input, init);

@@ -40,6 +40,11 @@ interface IndustryStocksResult {
     shortPercent: number;
     change?: number;
   }>;
+  // Why industry is null, when it is. "unknown-slug" = the feed answered and
+  // this slug matches nothing (safe to noindex — it's a soft-404).
+  // "unavailable" = build-skip or fetch failure (transient — callers must NOT
+  // emit noindex, or a degraded regen would deindex a real industry page).
+  reason?: "unknown-slug" | "unavailable";
 }
 
 // Raw ASIC classifications that should be mapped to "Other"
@@ -216,7 +221,7 @@ const fetchTreeMap3m = cache(async (): Promise<TreeMapResponse> => {
 export const getIndustryStocks = cache(
   async (industrySlug: string): Promise<IndustryStocksResult> => {
     if (skipForBuild()) {
-      return { industry: null, stocks: [] };
+      return { industry: null, stocks: [], reason: "unavailable" };
     }
 
     try {
@@ -254,9 +259,10 @@ export const getIndustryStocks = cache(
       matchingStocks.sort((a, b) => b.shortPercent - a.shortPercent);
 
       if (matchingStocks.length === 0) {
-        throw new Error(
-          `getIndustryStocks: no treemap rows for ${industrySlug}`,
-        );
+        // The feed answered and nothing matched: an unknown/typo'd slug, not
+        // an outage. Distinguished from the catch below so the page can
+        // noindex this soft-404 without ever noindexing on a transient error.
+        return { industry: null, stocks: [], reason: "unknown-slug" };
       }
 
       const industryName = matchingStocks[0]?.industry ?? "Unknown";
@@ -278,7 +284,7 @@ export const getIndustryStocks = cache(
       };
     } catch (error) {
       console.warn("getIndustryStocks: fetch failed, returning empty:", error);
-      return { industry: null, stocks: [] };
+      return { industry: null, stocks: [], reason: "unavailable" };
     }
   },
 );

@@ -780,6 +780,10 @@ module "edge" {
   rate_limit_testing_bypass_header_name = var.rate_limit_testing_bypass_header_name
   rate_limit_testing_bypass_user_agent  = var.rate_limit_testing_bypass_user_agent
 
+  rate_limit_ssr_bypass_secret      = var.rate_limit_ssr_bypass_secret
+  rate_limit_ssr_bypass_header_name = var.rate_limit_ssr_bypass_header_name
+  rate_limit_ssr_bypass_user_agent  = var.rate_limit_ssr_bypass_user_agent
+
   waf_enabled            = true
   bot_protection_enabled = true
 

@@ -1066,6 +1066,45 @@ Defaults live in `terraform/modules/cloudflare-edge/variables.tf`:
 
 The secret is embedded in the Cloudflare rule/Terraform state. Keep it out of tracked tfvars and rotate it if it leaks. Regression coverage: `node --test terraform/modules/cloudflare-edge/rate-limit-expression.test.mjs`.
 
+### Cloudflare SSR Bypass (first-party Vercel SSR)
+
+Same shape as the test bypass, but for **our own** SSR fetcher. Vercel egress
+shares a handful of IPs per region, so ISR regenerations and warm-cache bursts
+blow the 60 req/10s per-IP zone limit and get 429'd (measured on prod
+2026-08-20: hundreds of blocked requests/day, including `GetTopShorts` during
+`/top` regens). A request is exempted only when it carries **both** the
+`shorted-web-ssr` user-agent marker **and** the exact secret header — never
+UA-only.
+
+Terraform (`terraform/modules/cloudflare-edge/variables.tf`):
+- `rate_limit_ssr_bypass_secret = ""` disables it (the rule expression collapses to a literal `false`).
+- `rate_limit_ssr_bypass_header_name = "x-shorted-ssr-bypass"`.
+- `rate_limit_ssr_bypass_user_agent = "shorted-web-ssr"`.
+
+CI passes it as `TF_VAR_rate_limit_ssr_bypass_secret` from the GitHub Actions
+secret `CLOUDFLARE_SSR_BYPASS_SECRET` (terraform-deploy.yml plan + apply).
+
+Web side: `web/src/app/actions/config.ts` attaches
+`X-Shorted-Ssr-Bypass: $SHORTED_SSR_BYPASS_SECRET` in
+`serverFetchWithUserAgent` **only** when that server-only env var is non-empty
+**and** the request targets a shorted API origin (`api.shorted.com.au` or the
+configured `SHORTS_SERVICE_ENDPOINT`/`SHORTS_API_URL`/`SHORTED_EDGE_API_URL`
+host). It is **never** `NEXT_PUBLIC_*` and must never reach a client bundle or
+a third-party host.
+
+Mint + rotate (all three must be updated together — Cloudflare rule, CI, Vercel):
+```bash
+SECRET="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')"
+gh secret set CLOUDFLARE_SSR_BYPASS_SECRET --repo <owner>/shorted --body "$SECRET"
+printf '%s' "$SECRET" | vercel env add SHORTED_SSR_BYPASS_SECRET production
+# then re-run terraform-deploy (or: cd terraform/environments/prod &&
+# TF_VAR_rate_limit_ssr_bypass_secret="$SECRET" terraform apply)
+```
+Rotation order: set the new value in Terraform/Cloudflare first, then Vercel —
+the old header simply stops matching, so the worst case is a brief window of
+rate-limited SSR, never an outage. Rotate immediately if the secret appears in
+a client bundle, a log, or a tracked tfvars file.
+
 ### Cost Attribution Observability
 
 Cloudflare RUM should use Cloudflare automatic Web Analytics injection for proxied production hostnames (`shorted.com.au`, `www.shorted.com.au`); Terraform manages the zone RUM switch via `cloudflare_zone_setting.web_analytics_rum`. The app component `web/src/@/components/cloudflare-web-analytics.tsx` is a disabled-by-default app-managed fallback and only renders when `NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_MANUAL_ENABLED=1` plus a hostname-correct `NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN` are set. The fallback must use `data-cf-beacon` with `send: { to: "/cdn-cgi/rum" }` so browser beacons post to the same-origin Cloudflare endpoint, not `cloudflareinsights.com/cdn-cgi/rum`. Cost attribution joins Cloudflare RUM page views with Worker `edge_request`, Firestore `firestore_operation`, product funnel `product_event`, and backend AI `cost_event` JSON logs. Query examples and field contracts live in `docs/observability/cost-attribution.md`.

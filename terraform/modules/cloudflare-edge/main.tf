@@ -17,6 +17,11 @@ locals {
   market_data_hostname           = try(var.market_data_origin != "" ? regex("^https?://([^/]+)", var.market_data_origin)[0] : "", "")
   api_rate_limit_host_expression = "http.host eq \"api.shorted.com.au\""
   testing_bypass_expression      = var.rate_limit_testing_bypass_secret != "" ? "(http.user_agent contains \"${var.rate_limit_testing_bypass_user_agent}\" and any(http.request.headers[\"${var.rate_limit_testing_bypass_header_name}\"][*] eq \"${var.rate_limit_testing_bypass_secret}\"))" : "false"
+  # First-party SSR bypass — same shape as the testing bypass (never UA-only):
+  # our own Vercel SSR fetcher must present BOTH the shorted-web-ssr UA marker
+  # AND the exact secret header. Empty secret keeps this a literal "false", so
+  # the rule can never match.
+  ssr_bypass_expression = var.rate_limit_ssr_bypass_secret != "" ? "(http.user_agent contains \"${var.rate_limit_ssr_bypass_user_agent}\" and any(http.request.headers[\"${var.rate_limit_ssr_bypass_header_name}\"][*] eq \"${var.rate_limit_ssr_bypass_secret}\"))" : "false"
   # Cloudflare's basic rate-limit phase does not allow request header or
   # user-agent fields in rate-limit expressions. Trusted tests bypass that
   # phase via the custom skip ruleset below, while normal API traffic remains
@@ -566,6 +571,31 @@ resource "cloudflare_ruleset" "app_api_security_skip" {
         and ${local.testing_bypass_expression}
       EOT
       description = "Allow trusted E2E/load-test traffic through SBFM, BIC, Security Level, and rate-limit checks"
+      enabled     = true
+      action_parameters = {
+        phases   = ["http_request_sbfm", "http_ratelimit"]
+        products = ["bic", "securityLevel"]
+      }
+      logging = {
+        enabled = false
+      }
+    },
+    {
+      # Vercel egress shares a small pool of IPs per region, so ISR
+      # regenerations and warm-cache bursts from our OWN SSR fetcher blow the
+      # 60 req/10s per-IP ceiling instantly and get 429'd. This rule exempts
+      # first-party SSR traffic, and — like the testing bypass — requires BOTH
+      # the UA marker and the secret header, never the UA alone.
+      action      = "skip"
+      expression  = <<-EOT
+        (
+          http.host eq "${var.domain}"
+          or http.host eq "shorted.com.au"
+          or http.host eq "www.shorted.com.au"
+        )
+        and ${local.ssr_bypass_expression}
+      EOT
+      description = "Allow first-party Vercel SSR traffic through SBFM, BIC, Security Level, and rate-limit checks"
       enabled     = true
       action_parameters = {
         phases   = ["http_request_sbfm", "http_ratelimit"]

@@ -62,6 +62,7 @@ describe("industry data cache loading", () => {
       await expect(getIndustryStocks("materials")).resolves.toEqual({
         industry: null,
         stocks: [],
+        reason: "unavailable",
       });
 
       expect(mockGetOrSetCached).not.toHaveBeenCalled();
