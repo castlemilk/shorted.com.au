@@ -190,6 +190,43 @@ variable "rate_limit_testing_bypass_user_agent" {
   }
 }
 
+variable "rate_limit_ssr_bypass_secret" {
+  description = "Optional shared secret that allows shorted.com.au's own Vercel SSR fetcher to bypass the Cloudflare zone rate limit when paired with the configured SSR user-agent marker. Server-held only — never expose to browsers. Leave empty to disable."
+  type        = string
+  sensitive   = true
+  default     = ""
+
+  validation {
+    condition = var.rate_limit_ssr_bypass_secret == "" || (
+      length(var.rate_limit_ssr_bypass_secret) >= 16 &&
+      can(regex("^[A-Za-z0-9._~:-]+$", var.rate_limit_ssr_bypass_secret))
+    )
+    error_message = "rate_limit_ssr_bypass_secret must be empty or a URL-safe token of at least 16 characters."
+  }
+}
+
+variable "rate_limit_ssr_bypass_header_name" {
+  description = "Lowercase HTTP header name carrying the first-party SSR bypass secret."
+  type        = string
+  default     = "x-shorted-ssr-bypass"
+
+  validation {
+    condition     = can(regex("^[a-z0-9][a-z0-9-]*$", var.rate_limit_ssr_bypass_header_name))
+    error_message = "rate_limit_ssr_bypass_header_name must be lowercase letters, numbers, and hyphens only."
+  }
+}
+
+variable "rate_limit_ssr_bypass_user_agent" {
+  description = "User-agent substring required with the SSR bypass secret for first-party Vercel SSR traffic."
+  type        = string
+  default     = "shorted-web-ssr"
+
+  validation {
+    condition     = length(var.rate_limit_ssr_bypass_user_agent) > 0 && can(regex("^[A-Za-z0-9._~+/-]+$", var.rate_limit_ssr_bypass_user_agent))
+    error_message = "rate_limit_ssr_bypass_user_agent must be a non-empty token without spaces, quotes, or backslashes."
+  }
+}
+
 # ---- WAF / Security ----
 
 variable "waf_enabled" {

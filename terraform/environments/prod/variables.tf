@@ -192,6 +192,25 @@ variable "rate_limit_testing_bypass_user_agent" {
   default     = "Shorted-E2E"
 }
 
+variable "rate_limit_ssr_bypass_secret" {
+  description = "Optional shared secret for shorted.com.au's own Vercel SSR fetcher to bypass the Cloudflare zone rate limit. Server-held only. Leave empty to disable."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "rate_limit_ssr_bypass_header_name" {
+  description = "Lowercase HTTP header carrying the first-party SSR bypass secret."
+  type        = string
+  default     = "x-shorted-ssr-bypass"
+}
+
+variable "rate_limit_ssr_bypass_user_agent" {
+  description = "User-agent substring required with the SSR bypass secret for first-party Vercel SSR traffic."
+  type        = string
+  default     = "shorted-web-ssr"
+}
+
 variable "alert_recipient_email" {
   description = "Email for Cloud Run Job failure + ERROR-log/timeout alerts. Empty disables all alerting (the job_monitoring module becomes a no-op)."
   type        = string

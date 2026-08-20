@@ -10,8 +10,18 @@ const prodImportCloudflareSh = readFileSync(
   new URL("../../environments/prod/import-existing-cloudflare.sh", import.meta.url),
   "utf8",
 );
+const terraformDeployYml = readFileSync(
+  new URL("../../../.github/workflows/terraform-deploy.yml", import.meta.url),
+  "utf8",
+);
+// The DEPLOYED sync script (the short-data-sync image builds from
+// services/daily-sync/, NOT services/short-data-sync/ — the latter is a
+// never-deployed sibling kept only as reference).
 const shortDataSyncPy = readFileSync(
-  new URL("../../../services/short-data-sync/main.py", import.meta.url),
+  new URL(
+    "../../../services/daily-sync/deprecated/comprehensive_daily_sync.py",
+    import.meta.url,
+  ),
   "utf8",
 );
 
@@ -73,6 +83,88 @@ test("production environment passes testing bypass inputs into Cloudflare edge m
   assert.match(prodMainTf, /rate_limit_testing_bypass_secret\s+=\s+var\.rate_limit_testing_bypass_secret/);
   assert.match(prodMainTf, /rate_limit_testing_bypass_header_name\s+=\s+var\.rate_limit_testing_bypass_header_name/);
   assert.match(prodMainTf, /rate_limit_testing_bypass_user_agent\s+=\s+var\.rate_limit_testing_bypass_user_agent/);
+});
+
+test("Cloudflare SSR bypass requires both the SSR user-agent and secret header", () => {
+  const localsBlock = mainTf.match(/locals \{[\s\S]*?\n\}/)?.[0] ?? "";
+
+  // The SSR bypass must never be folded into the rate-limit expression itself
+  // (Cloudflare's basic rate-limit phase rejects header/user-agent fields).
+  assert.match(localsBlock, /api_rate_limit_expression\s+=\s+local\.api_rate_limit_host_expression/);
+  assert.doesNotMatch(localsBlock, /rate_limit_ssr_bypass_clause/);
+
+  assert.match(mainTf, /ssr_bypass_expression/);
+  assert.match(mainTf, /var\.rate_limit_ssr_bypass_secret != ""/);
+  assert.match(mainTf, /http\.user_agent contains \\"\$\{var\.rate_limit_ssr_bypass_user_agent\}\\"/);
+  assert.match(
+    mainTf,
+    /any\(http\.request\.headers\[\\"\$\{var\.rate_limit_ssr_bypass_header_name\}\\"\]\[\*\] eq \\"\$\{var\.rate_limit_ssr_bypass_secret\}\\"\)/,
+  );
+  // UA-only bypass is never acceptable: the UA check must be conjoined with
+  // the secret header check inside a single parenthesised clause.
+  const ssrLocal = mainTf.match(/ssr_bypass_expression\s+=\s+var\.rate_limit_ssr_bypass_secret[^\n]*/)?.[0] ?? "";
+  assert.match(ssrLocal, /contains[\s\S]*and[\s\S]*any\(http\.request\.headers/);
+});
+
+test("SSR bypass inputs are explicit and disabled by default", () => {
+  assert.match(variablesTf, /variable "rate_limit_ssr_bypass_secret"/);
+  assert.match(
+    variablesTf,
+    /variable "rate_limit_ssr_bypass_secret"[\s\S]*?sensitive\s+=\s+true[\s\S]*?default\s+=\s+""/,
+  );
+  assert.match(variablesTf, /variable "rate_limit_ssr_bypass_header_name"/);
+  assert.match(variablesTf, /default\s+=\s+"x-shorted-ssr-bypass"/);
+  assert.match(variablesTf, /variable "rate_limit_ssr_bypass_user_agent"/);
+  assert.match(variablesTf, /default\s+=\s+"shorted-web-ssr"/);
+
+  // Disabled state collapses to a literal false so the skip rule cannot match.
+  const ssrLocal = mainTf.match(/ssr_bypass_expression\s+=\s+var\.rate_limit_ssr_bypass_secret[^\n]*/)?.[0] ?? "";
+  assert.match(ssrLocal, /: "false"$/);
+});
+
+test("testing and SSR bypasses are independent rules over the same skip ruleset", () => {
+  const skipRulesetMatch = mainTf.match(
+    /resource "cloudflare_ruleset" "app_api_security_skip" \{[\s\S]*?\n\}/,
+  );
+  assert.ok(skipRulesetMatch, "app API security skip ruleset should be present");
+  const skipRuleset = skipRulesetMatch[0];
+
+  assert.match(skipRuleset, /local\.testing_bypass_expression/);
+  assert.match(skipRuleset, /local\.ssr_bypass_expression/);
+  assert.match(skipRuleset, /Allow first-party Vercel SSR traffic/);
+
+  // Both bypass rules skip the rate-limit phase; each carries its own secret.
+  const ratelimitSkips = skipRuleset.match(/phases\s+=\s+\["http_request_sbfm", "http_ratelimit"\]/g) ?? [];
+  assert.equal(ratelimitSkips.length, 2);
+
+  // A request with both secrets matches both rules; neither rule references
+  // the other's variables, so enabling one never enables the other.
+  const ssrRuleIndex = skipRuleset.indexOf("Allow first-party Vercel SSR traffic");
+  const ssrRuleStart = skipRuleset.lastIndexOf("action      = \"skip\"", ssrRuleIndex);
+  const ssrRule = skipRuleset.slice(ssrRuleStart, ssrRuleIndex);
+  assert.doesNotMatch(ssrRule, /testing_bypass_expression/);
+});
+
+test("production environment passes SSR bypass inputs into Cloudflare edge module", () => {
+  assert.match(prodVariablesTf, /variable "rate_limit_ssr_bypass_secret"/);
+  assert.match(
+    prodVariablesTf,
+    /variable "rate_limit_ssr_bypass_secret"[\s\S]*?sensitive\s+=\s+true/,
+  );
+  assert.match(prodMainTf, /rate_limit_ssr_bypass_secret\s+=\s+var\.rate_limit_ssr_bypass_secret/);
+  assert.match(prodMainTf, /rate_limit_ssr_bypass_header_name\s+=\s+var\.rate_limit_ssr_bypass_header_name/);
+  assert.match(prodMainTf, /rate_limit_ssr_bypass_user_agent\s+=\s+var\.rate_limit_ssr_bypass_user_agent/);
+});
+
+test("CI supplies both bypass secrets to terraform plan and apply", () => {
+  const planEnvs = terraformDeployYml.match(
+    /TF_VAR_rate_limit_ssr_bypass_secret: \$\{\{ secrets\.CLOUDFLARE_SSR_BYPASS_SECRET \}\}/g,
+  ) ?? [];
+  assert.equal(planEnvs.length, 2);
+  const testingEnvs = terraformDeployYml.match(
+    /TF_VAR_rate_limit_testing_bypass_secret: \$\{\{ secrets\.CLOUDFLARE_TESTING_BYPASS_SECRET \}\}/g,
+  ) ?? [];
+  assert.equal(testingEnvs.length, 2);
 });
 
 test("frontend and API app endpoints skip bot/browser challenges without broad WAF skips", () => {
@@ -209,7 +301,10 @@ test("Cloudflare caches stock detail HTML before the broad HTML bypass", () => {
 });
 
 test("daily short data sync invalidates the shared stock data cache tag", () => {
-  assert.match(shortDataSyncPy, /"tag": "shorts-data"/);
-  assert.match(shortDataSyncPy, /"path": "\/,\/top,\/news,\/screener,\/industry,\/shorts\/\[stockCode\]"/);
+  assert.match(shortDataSyncPy, /"tag": "shorts-data,scan-results"/);
+  assert.match(
+    shortDataSyncPy,
+    /"path": "\/,\/top,\/news,\/screener,\/industry,\/shorts\/\[stockCode\],\/statistics,\/scans"/,
+  );
   assert.match(shortDataSyncPy, /"flush": "shorts"/);
 });
