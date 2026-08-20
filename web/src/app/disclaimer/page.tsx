@@ -36,6 +36,8 @@ export const metadata: Metadata = {
     ],
   },
   twitter: {
+    site: "@shorted___",
+    creator: "@shorted___",
     card: "summary_large_image",
     title: "Disclaimer — General Information, Not Financial Advice",
     description:

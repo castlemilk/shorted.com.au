@@ -47,6 +47,8 @@ export const metadata: Metadata = {
     locale: "en_AU",
   },
   twitter: {
+    site: "@shorted___",
+    creator: "@shorted___",
     card: "summary_large_image",
     title: "ASX Short Positions by Industry | Sector Analysis",
     description: "Explore short selling activity across ASX industry sectors.",

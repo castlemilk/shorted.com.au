@@ -24,51 +24,102 @@ const TopPageClient = dynamic(() => import("./top-page-client").then(mod => mod.
 const DEFAULT_PERIOD: TimePeriod = "3m";
 const INITIAL_LOAD = 100;
 
-export const metadata: Metadata = {
-  // Lead with the head query ("most shorted asx stocks"); "short interest"
-  // phrasing targets the US-term shift ("asx short interest" cluster).
-  title: "Most Shorted ASX Stocks — Top 100 Short Positions (Live ASIC Data)",
-  description:
-    "The most shorted stocks on the ASX today. Live top 100 short interest rankings from official ASIC short position data, updated daily — track short %, weekly changes, and full history since 2010.",
-  keywords: [
-    "most shorted ASX stocks",
-    "most shorted stocks Australia",
-    "ASX short interest",
-    "ASX short interest rankings",
-    "ASIC short position data",
-    "top shorted ASX stocks",
-    "top 100 shorted stocks",
-    "short selling Australia",
-    "most shorted ASX companies",
-    "short squeeze candidates ASX",
-    "heavily shorted Australian stocks",
-  ],
-  openGraph: {
-    title: "Most Shorted ASX Stocks — Top 100 Short Positions | Shorted",
+/**
+ * Latest ASIC report date actually present in the rendered data.
+ *
+ * Deliberately NOT `pageData.lastUpdated`: that helper falls back to
+ * `new Date()` when the series is empty, which would put TODAY in the title —
+ * impossible under T+4 and the exact class of bug this page is fixing.
+ * Returns null when no dated point exists, and the title goes undated.
+ */
+function latestDataDate(
+  timeSeries: Array<{ points?: Array<{ timestamp?: string }> }>,
+): Date | null {
+  let latest = 0;
+  for (const series of timeSeries) {
+    for (const point of series.points ?? []) {
+      if (!point.timestamp) continue;
+      const ms = new Date(point.timestamp).getTime();
+      if (Number.isFinite(ms) && ms > latest) latest = ms;
+    }
+  }
+  return latest > 0 ? new Date(latest) : null;
+}
+
+function formatAsAt(date: Date): string {
+  return date.toLocaleDateString("en-AU", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "Australia/Sydney",
+  });
+}
+
+// A dated title is the differentiator in this SERP — the incumbents rank with
+// undated ones. Built from the ACTUAL latest ASIC date in the data the page
+// renders (same cached accessor, so no extra backend call), never from
+// `new Date()`. Falls back to a shorter undated title if the data is
+// unavailable at metadata time.
+export async function generateMetadata(): Promise<Metadata> {
+  let title = "Most Shorted ASX Stocks — Top 100 ASIC Short Positions | Shorted";
+  try {
+    const pageData = await getTopPageData(DEFAULT_PERIOD, INITIAL_LOAD);
+    const asAt = latestDataDate(pageData.timeSeries);
+    if (asAt) {
+      title = `Most Shorted ASX Stocks — as at ${formatAsAt(asAt)} | Shorted`;
+    }
+  } catch {
+    // Keep the undated fallback title.
+  }
+
+  return {
+    // `absolute` on purpose: the root template already appends "| Shorted",
+    // and these titles carry their own suffix.
+    title: { absolute: title },
     description:
-      "Live rankings of the most shorted stocks on the Australian Securities Exchange. Official ASIC data with T+4 delay.",
-    url: `${siteConfig.url}/top`,
-    siteName: siteConfig.name,
-    type: "website",
-    locale: "en_AU",
-    // No `images` key: this route ships its own data-driven
-    // opengraph-image.tsx; an explicit `images` would shadow it.
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Most Shorted ASX Stocks — Top 100 Short Positions",
-    description:
-      "Live rankings of the most shorted ASX stocks. Official ASIC data updated daily.",
-  },
-  alternates: {
-    canonical: `${siteConfig.url}/top`,
-    languages: {
-      "en-AU": `${siteConfig.url}/top`,
-      "en": `${siteConfig.url}/top`,
-      "x-default": `${siteConfig.url}/top`,
+      "The most shorted stocks on the ASX today. Live top 100 short interest rankings from official ASIC short position data, updated daily — track short %, weekly changes, and full history since 2010.",
+    keywords: [
+      "most shorted ASX stocks",
+      "most shorted stocks Australia",
+      "ASX short interest",
+      "ASX short interest rankings",
+      "ASIC short position data",
+      "top shorted ASX stocks",
+      "top 100 shorted stocks",
+      "short selling Australia",
+      "most shorted ASX companies",
+      "short squeeze candidates ASX",
+      "heavily shorted Australian stocks",
+    ],
+    openGraph: {
+      title: "Most Shorted ASX Stocks — Top 100 Short Positions | Shorted",
+      description:
+        "Live rankings of the most shorted stocks on the Australian Securities Exchange. Official ASIC data with T+4 delay.",
+      url: `${siteConfig.url}/top`,
+      siteName: siteConfig.name,
+      type: "website",
+      locale: "en_AU",
+      // No `images` key: this route ships its own data-driven
+      // opengraph-image.tsx; an explicit `images` would shadow it.
     },
-  },
-};
+    twitter: {
+      site: "@shorted___",
+      creator: "@shorted___",
+      card: "summary_large_image",
+      title: "Most Shorted ASX Stocks — Top 100 Short Positions",
+      description:
+        "Live rankings of the most shorted ASX stocks. Official ASIC data updated daily.",
+    },
+    alternates: {
+      canonical: `${siteConfig.url}/top`,
+      languages: {
+        "en-AU": `${siteConfig.url}/top`,
+        "en": `${siteConfig.url}/top`,
+        "x-default": `${siteConfig.url}/top`,
+      },
+    },
+  };
+}
 
 // Event-driven ISR: 24h safety net, busted on-demand by the daily sync
 // (POST /api/revalidate?path=/top&flush=shorts) when ASIC data changes.
@@ -102,6 +153,7 @@ async function TopPageData() {
           name: "Top 100 Most Shorted ASX Stocks",
           description:
             "Daily rankings of the most shorted stocks on the Australian Securities Exchange, sourced from official ASIC short position reports.",
+          url: `${siteConfig.url}/top`,
           dateModified: pageData.lastUpdated,
         }}
       />

@@ -62,7 +62,7 @@ export async function LatestMarketNews() {
           href="/news"
           className="group flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors"
         >
-          View all
+          Latest ASX short selling news
           <ChevronRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
         </Link>
       </div>

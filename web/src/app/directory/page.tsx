@@ -34,6 +34,8 @@ export const metadata: Metadata = {
     locale: "en_AU",
   },
   twitter: {
+    site: "@shorted___",
+    creator: "@shorted___",
     card: "summary_large_image",
     title: "ASX Stock Directory | All Australian Listed Companies",
     description: "Browse all ASX listed companies tracked by Shorted.",

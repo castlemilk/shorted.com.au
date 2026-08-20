@@ -41,6 +41,8 @@ export const metadata: Metadata = {
     // opengraph-image.tsx; an explicit `images` would shadow it.
   },
   twitter: {
+    site: "@shorted___",
+    creator: "@shorted___",
     card: "summary_large_image",
     title: "ASX Short Selling Statistics — Total Dollars Shorted",
     description:
@@ -208,6 +210,7 @@ export default async function StatisticsPage() {
           name: "ASX Aggregate Short Selling Statistics",
           description:
             "Market-wide short selling statistics for the Australian Securities Exchange: total dollar value of short positions, bank basket, sector totals, and 4-week movers. Derived from official ASIC daily short position reports.",
+          url: `${siteConfig.url}/statistics`,
           dateModified: stats?.asOfDate,
         }}
       />

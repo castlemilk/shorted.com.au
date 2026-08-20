@@ -16,10 +16,26 @@ interface EnhancedStructuredDataProps {
   datasetInfo?: {
     name: string;
     description: string;
+    /**
+     * Canonical URL of the page this Dataset describes. Defaults to the site
+     * root — pass the page's own URL, otherwise every Dataset on the site
+     * claims to live at the homepage and they collapse into one entity.
+     */
+    url?: string;
     datePublished?: string;
     dateModified?: string;
   };
 }
+
+/**
+ * Fixed publication date for the ASIC short-position dataset surfaces.
+ *
+ * Was `new Date()`, which made datePublished drift forward every regeneration
+ * and land AFTER dateModified (the real data date) — an incoherent pair that
+ * Google reads as "modified before it existed". A dataset's publication date
+ * is a constant; only dateModified moves.
+ */
+const DATASET_PUBLISHED_ISO = "2024-01-01T00:00:00.000Z";
 
 /**
  * FAQ Schema - Helps Google show FAQ rich snippets
@@ -58,17 +74,22 @@ export function DatasetStructuredData({
 }) {
   if (!datasetInfo) return <></>;
 
-  // Use provided dates or fallback to current date (rendered server-side, no hydration mismatch)
-  const defaultDate = new Date().toISOString();
+  const pageUrl = datasetInfo.url ?? siteConfig.url;
+  const datePublished = datasetInfo.datePublished ?? DATASET_PUBLISHED_ISO;
+  // dateModified is the data date. Never let it precede datePublished.
+  const dateModified = datasetInfo.dateModified ?? new Date().toISOString();
 
   const schema = {
     "@context": "https://schema.org",
     "@type": "Dataset",
     name: datasetInfo.name,
     description: datasetInfo.description,
-    url: siteConfig.url,
-    datePublished: datasetInfo.datePublished ?? defaultDate,
-    dateModified: datasetInfo.dateModified ?? defaultDate,
+    url: pageUrl,
+    datePublished:
+      new Date(dateModified) < new Date(datePublished)
+        ? dateModified
+        : datePublished,
+    dateModified,
     publisher: {
       "@type": "Organization",
       name: siteConfig.name,
@@ -96,7 +117,7 @@ export function DatasetStructuredData({
     license: "https://asic.gov.au/about-asic/asic-data/",
     distribution: {
       "@type": "DataDownload",
-      contentUrl: siteConfig.url,
+      contentUrl: pageUrl,
       encodingFormat: "JSON",
     },
     temporalCoverage: "2010-01-01/..",

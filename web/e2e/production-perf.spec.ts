@@ -56,7 +56,7 @@ test.describe("SSR Crawlability", () => {
 
     // The sr-only TopShortsFallback table must be present
     expect(html).toContain("sr-only");
-    expect(html).toContain("Top 10 Most Shorted ASX Stocks");
+    expect(html).toContain("Most Shorted ASX Stocks");
 
     // Should contain stock codes as links inside the fallback table
     // Format: <td><a href="/shorts/DMP">DMP</a></td>

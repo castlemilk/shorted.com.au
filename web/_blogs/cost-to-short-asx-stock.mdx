@@ -1,0 +1,140 @@
+---
+title: "How Much Does It Cost to Short an ASX Stock? Borrow Fees, Margin and Dividends Explained"
+excerpt: "Shorting an ASX stock costs more than brokerage. Borrow fees accrue daily, margin ties up capital, and the short seller pays the dividend to the lender. Here's how each cost is calculated, what the ranges look like in Australia, and why the borrow rate you're quoted is broker-specific."
+coverImage: "/assets/blog/what-are-short-positions/cover.png"
+date: "2026-08-20"
+author:
+  name: Ben Ebsworth
+  picture: "/assets/blog/authors/ben.png"
+ogImage:
+  url: "/assets/blog/what-are-short-positions/cover.png"
+---
+
+# How Much Does It Cost to Short an ASX Stock?
+
+Most explanations of short selling stop at the mechanics: you borrow shares, sell them, buy them back later, and keep the difference. That framing leaves out the part that decides whether the trade is worth putting on. A short position is a rented position, and the rent accrues every single day you hold it.
+
+Four separate costs sit on top of brokerage: the borrow fee, margin interest on the capital financing the position, the dividend you owe the lender, and the tail risk of a recall or buy-in that closes the trade at a time you did not choose. Only the first is usually described as "the cost of shorting". The other three routinely matter more.
+
+This guide covers how each one is calculated on the ASX, what the realistic ranges look like in the Australian market, and why the single most useful number — whether a stock is hard to borrow — is not published anywhere by the ASX.
+
+## The borrow fee: an annualised rate, charged daily
+
+When you short, your broker sources the stock through [securities lending](/glossary/securities-lending) — typically from an institutional holder such as a super fund, index manager or custodian who is happy to earn incremental yield on shares they intend to hold anyway. The lender charges a fee for that loan, and the fee is quoted as an annualised percentage of the position's market value.
+
+The critical detail is that the rate is quoted annually but accrued daily:
+
+```
+Daily borrow cost = (annual borrow rate ÷ 365) × current market value of the position
+```
+
+A worked example. You short 10,000 shares at $1.30, a position worth $13,000. The stock carries a 20% annualised [borrow fee](/glossary/borrow-fee):
+
+```
+$13,000 × 0.20 = $2,600 per year
+$2,600 ÷ 365    = $7.12 per day
+```
+
+Roughly $7.12 a day, or about $214 over a 30-day hold — 1.65% of the position value gone before the share price has moved at all. Hold it for six months and you have paid about 10% of the position in rent. The stock has to fall that far just for you to break even.
+
+Two features of this calculation catch people out.
+
+**It's marked to market.** The fee is charged on the current value of the borrowed stock, not your entry price. If the trade goes against you and the stock rallies 40%, your daily borrow cost rises 40% with it. Losing short positions get more expensive to hold at exactly the moment you are least able to absorb it.
+
+**The rate is not fixed.** Borrow rates float with supply and demand for the specific security. A stock you shorted at 3% can reprice to 30% within days if other short sellers crowd in and available inventory tightens. Most retail broker agreements allow the rate to be varied without notice.
+
+<Info title="Terminology">
+You may see the borrow cost expressed as a <a href="/glossary/rebate-rate">rebate rate</a> rather than a fee, particularly in institutional documentation. Same economics, opposite sign: the cash proceeds of the short sale sit as collateral with the lender, the lender pays interest on that cash, and the "rebate" is what's returned to you after the loan fee is deducted. A hard-to-borrow stock produces a negative rebate, which is simply a fee under another name.
+</Info>
+
+## General collateral versus hard to borrow
+
+Borrow rates on the ASX cluster into two very different regimes.
+
+**General collateral (GC).** Large, liquid stocks with deep institutional registers — the major banks, the big miners, the ASX 100 broadly — where lendable inventory vastly exceeds short demand. Fees here are typically well under 1% annualised, often a fraction of a percent. At those levels the borrow cost is a rounding error against a thesis measured in tens of percent, and the real constraints on the trade are margin and timing rather than rent.
+
+**Hard to borrow (HTB).** Stocks where lendable supply is scarce relative to demand. This is the domain of crowded small and mid caps: tight registers, high retail ownership held in ways that never reach a lending pool, and short interest concentrated in a handful of names. Fees here run to 20%, 50%, and occasionally into three figures for genuinely squeezed inventory. A [hard-to-borrow](/glossary/hard-to-borrow) rate is not a penalty someone chose to impose on you; it is the price clearing a market where the shorts collectively want more stock than exists to lend.
+
+The distinction is dynamic, not a category a stock permanently sits in. A GC name that attracts a wave of short interest through a downgrade cycle can become HTB in a fortnight, and revert once the shorts cover. The metric lenders watch for this is [utilisation](/glossary/utilisation) — the proportion of the lendable pool actually out on loan. Utilisation approaching 100% is where rates spike and recalls start.
+
+## Margin: the capital cost nobody quotes
+
+A short position is a leveraged position by construction. You have sold stock you do not own, so your broker requires collateral against the possibility that you buy it back at a higher price.
+
+Australian brokers handle this in one of two ways. Short-selling ASX equities directly requires a margin account holding initial margin plus variation margin as the position moves, with the sale proceeds retained as collateral rather than released to you. CFD providers — how a large share of Australian retail short exposure is actually taken — instead require a percentage deposit and charge overnight financing on the full notional. Either way the financing charge is real money, typically set at a spread over a benchmark such as the [RBA cash rate](/glossary/rba-cash-rate), and on a hard-to-borrow stock the borrow charge is passed through regardless of wrapper. Read the specific product's financing schedule; the arrangements vary meaningfully between providers.
+
+The part that gets underestimated is that margin requirements are dynamic. Brokers raise margin on volatile or heavily shorted stocks, sometimes sharply and with little notice. A rising stock simultaneously increases your loss, your borrow cost and your margin requirement. That correlation is what turns an uncomfortable short into a forced one, and a [margin call](/glossary/margin-call) resolves on the broker's timetable rather than yours.
+
+## Dividends: the short seller pays
+
+If the stock you have shorted goes ex-dividend while your position is open, you pay the dividend. Not to the market — to the lender of the stock, who is economically entitled to every distribution they would have received had they never lent it out. In securities lending this payment is called a [manufactured dividend](/glossary/manufactured-dividend), and it is debited from your account on or around the payment date.
+
+For an ASX short this is a larger cost than in most markets, because Australian dividend yields are high by global standards. A 5% fully franked yield paid in two instalments means a short held across both ex-dates carries a 5% cash cost on top of the borrow fee. On a bank or a large retailer, the dividend line can exceed the borrow line comfortably.
+
+There is a franking wrinkle worth stating carefully. [Franking credits](/glossary/franking-credits) attach to the dividend the company pays to the registered holder of the shares. The manufactured payment you make to the lender is a compensatory cash payment, not a franked distribution, and franking credits do not travel with it. How that nets out — for the lender, and for you — depends on who holds the stock over the ex-date, the terms of the specific lending agreement and each party's tax position, and Australian tax law contains specific provisions dealing with franking entitlement where shares are lent or not held at risk over the relevant period. This is fact-specific and not something to reason about from first principles; if a short of yours will straddle an ex-dividend date in size, get advice on your own circumstances first.
+
+The practical takeaway for position sizing is simpler: check the ex-dividend calendar before shorting. Holding a short across an ex-date is a deliberate choice with a known price, and it is often cheaper to close before it and re-establish after.
+
+## Recall and buy-in risk
+
+The borrowed stock is not yours to keep. The lender can demand it back — a [recall](/glossary/recall) — at essentially any time, most commonly when they sell the underlying holding, when they need the stock to vote at a meeting, or when the loan reprices somewhere more attractive.
+
+If your broker cannot source replacement stock, your position is bought back in the market on your behalf. You have no discretion over the timing or the price. This risk is not evenly distributed: it is concentrated in exactly the hard-to-borrow names where recalls are most likely and replacement inventory is thinnest, which is to say precisely where you least want to be a forced buyer.
+
+Recall risk is why the borrow rate alone understates the cost of a crowded short. A 40% annualised fee is at least a number you can model. Being bought in during the second day of a rally is not.
+
+## Why hard-to-borrow status is not public — and what is
+
+Here is the structural gap for Australian short sellers. Borrow rates are set bilaterally between lenders and borrowers and quoted to you by your own broker. Two brokers can quote materially different rates on the same stock on the same morning, because each draws on different inventory relationships. There is no ASX tape of securities lending rates and nothing you can look up before deciding whether a trade is viable.
+
+What *is* public is the demand side. Under ASIC's short-selling regime, short sellers report their positions and ASIC publishes aggregate short positions for every ASX security. That data — the same data behind every page on this site — is the closest public proxy available for borrow demand. It does not give you a rate, but it tells you where the crowding is, and crowding is what drives rates.
+
+Three ways to use it as a borrow-cost proxy:
+
+- **Short interest as a percentage of issued capital.** Low single digits suggests a name that is comfortably lendable. Sustained double digits suggests inventory pressure and a rate to match. The [most heavily shorted stocks scan](/scans/heavily-shorted) ranks the current market on this measure.
+- **The trend, not just the level.** Short interest climbing quickly is the signature of inventory tightening. A stock whose short interest has doubled in a month is a stock whose borrow rate has probably moved against you.
+- **[Days to cover](/glossary/days-to-cover).** Short interest divided by average daily volume. High days to cover means the existing shorts cannot exit quickly, which keeps loans outstanding and inventory locked up.
+
+One timing caveat: ASIC publishes short-position data on a T+4 basis, so the most recent figure available always reflects positioning four business days ago. That is fine for the purpose here. Borrow conditions build over weeks; you are reading a trend, not a live quote. When you need the actual rate, there is exactly one way to get it — ask your broker for the current borrow on that specific code before you place the order.
+
+## Putting the numbers together
+
+Take the same $13,000 short and run it for 90 days. On a liquid ASX 100 name at a 0.5% borrow with no ex-date in the window, the borrow cost is about $16. On a crowded small cap at 35% that straddles a 3% dividend, it is roughly $1,120 in borrow plus $390 in manufactured dividend, before margin interest — around 11.6% of the position, which the stock must fall to leave you flat.
+
+That spread is the entire point. The cost of shorting is not a constant you can carry in your head; it is a function of how many other people are already short the same stock. The trades that look most attractive on the thesis are frequently the ones where the carry quietly makes them unprofitable. Price the carry first.
+
+## FAQ
+
+### What is a typical borrow fee for an ASX stock?
+
+For liquid large caps with deep institutional registers, generally well under 1% annualised and often a fraction of a percent. For crowded small and mid caps with tight lendable supply, 20–50% annualised is common and higher rates occur. There is no single market rate — your broker quotes from its own inventory.
+
+### How is the daily borrow cost calculated?
+
+The annual rate divided by 365, multiplied by the current market value of the borrowed shares. A $13,000 position at a 20% annual fee costs about $7.12 a day. Because it is charged on current market value, the cost rises as the stock rises.
+
+### Do I have to pay the dividend if I short a stock?
+
+Yes. If the position is open over the ex-dividend date, you owe the lender a payment equivalent to the dividend. It is a compensatory cash payment rather than a franked distribution, so franking credits do not pass through with it. Given high Australian dividend yields, check the ex-date calendar before shorting.
+
+### Where can I check if an ASX stock is hard to borrow?
+
+Nowhere public — borrow availability and rates are broker-specific and quoted bilaterally, and the ASX does not publish them. The nearest public proxy is ASIC's reported short-interest data, which shows where short demand is concentrated. Ask your broker for the live rate on the specific code before trading.
+
+### Can my broker close my short position without asking?
+
+Yes, in two situations: a recall, where the lender demands their stock back and no replacement can be sourced, and a margin call you do not meet. Both are more likely in heavily shorted stocks, and both hand the exit timing to someone other than you.
+
+### Is it cheaper to short via CFDs than borrowing stock directly?
+
+Not inherently — it restructures the costs rather than removing them. CFD shorts substitute a deposit and overnight financing for margin and an explicit borrow, and the borrow cost on hard-to-borrow names is typically passed through anyway. Compare the total carry over your intended holding period, and read the provider's financing schedule rather than assuming.
+
+---
+
+Next steps: see where short interest is concentrated right now on the [most shorted ASX stocks](/top) list, screen the crowded names with the [heavily shorted scan](/scans/heavily-shorted), read the mechanics end to end in [how to short the ASX](/learn/how-to-short-the-asx), or look up any term above in the [glossary](/glossary).
+
+<RegisterEmail />
+
+---
+
+_This content is for informational purposes only and does not constitute financial, tax or investment advice. Borrow rates, margin terms and financing charges vary by broker and change without notice. Tax treatment of manufactured dividends and franking credits depends on your individual circumstances — seek professional advice. Short-position data referenced on this site is derived from ASIC publications on a T+4 basis._

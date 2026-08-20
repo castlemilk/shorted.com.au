@@ -47,6 +47,8 @@ export const metadata: Metadata = {
     ],
   },
   twitter: {
+    site: "@shorted___",
+    creator: "@shorted___",
     card: "summary_large_image",
     title: "ASX Short Selling Reports | Weekly & Monthly Analysis",
     description: "Weekly and monthly reports on ASX short selling activity.",

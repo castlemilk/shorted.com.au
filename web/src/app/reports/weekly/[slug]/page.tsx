@@ -188,6 +188,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       ],
     },
     twitter: {
+      site: "@shorted___",
+      creator: "@shorted___",
       card: "summary_large_image",
       title,
       description,
@@ -354,6 +356,7 @@ export default async function WeeklyReportPage({ params }: PageProps) {
         datasetInfo={{
           name: `ASX Short Positions — ${weekTitle}`,
           description: `ASIC short position data for ASX-listed companies during ${weekTitle}`,
+          url: `${siteConfig.url}${weeklyReportPath(slug)}`,
           datePublished: data.startDate,
           dateModified: data.endDate,
         }}

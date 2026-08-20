@@ -59,6 +59,7 @@ export const AUTHORS: Author[] = [
       "Independent — no broker relationships or paid coverage",
     ],
     sameAs: {
+      linkedin: "https://www.linkedin.com/in/benebsworth/",
       twitter: "https://x.com/shorted___",
       github: "https://github.com/castlemilk",
     },
@@ -96,5 +97,11 @@ export function getAllAuthorSlugs(): string[] {
   return AUTHORS.map((a) => a.slug);
 }
 
-/** Default author slug used when a post/report has no explicit author. */
-export const DEFAULT_AUTHOR_SLUG = "shorted-editorial";
+/**
+ * Default author slug used when a post/report has no explicit author.
+ *
+ * Points at a real, attributable person rather than the `shorted-editorial`
+ * placeholder: YMYL (finance) content is rated on a named, verifiable author,
+ * and the placeholder entry renders a placeholder banner on the live page.
+ */
+export const DEFAULT_AUTHOR_SLUG = "ben-ebsworth";

@@ -7,14 +7,27 @@ import type { JsonValue } from "@bufbuild/protobuf";
 import { RefreshCw, BarChart3 } from "lucide-react";
 import { Button } from "~/@/components/ui/button";
 import { clearSessionCache } from "~/@/lib/session-cache";
+import { cn } from "~/@/lib/utils";
 
 // ViewMode enum values - matches shorts.v1alpha1.ViewMode
 // Using local constants to avoid SSR issues with protobuf-es v2 imports
 const VIEW_MODE_CURRENT_CHANGE = 0;
 
-function DashboardLoadingSkeleton() {
+// `heightClass` must match the height the loaded widget settles at, or the
+// swap costs CLS. The treemap renders shorter on phones (see
+// TREEMAP_HEIGHT_MOBILE in treemap/treeMap.tsx), so it passes its own.
+function DashboardLoadingSkeleton({
+  heightClass = "h-[700px]",
+}: {
+  heightClass?: string;
+}) {
   return (
-    <div className="flex flex-col items-center justify-center h-[700px] w-full rounded-xl bg-muted/20 border border-border/30">
+    <div
+      className={cn(
+        "flex flex-col items-center justify-center w-full rounded-xl bg-muted/20 border border-border/30",
+        heightClass
+      )}
+    >
       <BarChart3 className="h-10 w-10 text-muted-foreground/30 animate-pulse" />
       <p className="mt-3 text-sm text-muted-foreground/50 animate-pulse">
         Loading market data...
@@ -40,7 +53,7 @@ const IndustryTreeMapView = dynamic(
   {
     loading: () => (
       <div className="p-4">
-        <DashboardLoadingSkeleton />
+        <DashboardLoadingSkeleton heightClass="h-[440px] sm:h-[700px]" />
       </div>
     ),
     ssr: false,
@@ -73,8 +86,8 @@ export function HomeContent({
   }, []);
 
   return (
-    <div className="container mx-auto px-4 py-4">
-      <div className="flex items-center justify-end gap-2 mb-1 px-2">
+    <div className="container mx-auto px-4 pt-1 pb-4 sm:py-4">
+      <div className="flex items-center justify-end gap-2 mb-0 px-2 sm:mb-1">
         {lastUpdated && (
           <span className="text-[11px] text-muted-foreground/50">
             Updated {lastUpdated.toLocaleTimeString()}

@@ -60,6 +60,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "The Widow-Maker: why shorting Australian housing keeps failing",
     description: DESCRIPTION,
+    site: "@shorted___",
     creator: "@shorted___",
   },
 };

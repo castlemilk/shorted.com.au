@@ -9,6 +9,10 @@ import { weeklyReportPath } from "~/@/lib/reports/weekly-slug";
 import { Suspense } from "react";
 import { HomeContent } from "./home-content";
 import { TopShortsFallback } from "./top-shorts-fallback";
+import {
+  AsicDataFreshness,
+  latestAsicDataDate,
+} from "~/@/components/home/asic-data-freshness";
 import { toJson } from "@bufbuild/protobuf";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
 import { getIndustryTreeMap } from "~/app/actions/getIndustryTreeMap";
@@ -44,7 +48,9 @@ import { FEATURED } from "~/@/components/news/masthead/featured";
 export const revalidate = 86400;
 
 export const metadata: Metadata = {
-  title: siteConfig.fullTitle,
+  // absolute: the root layout template is `%s | Shorted` and fullTitle already
+  // carries the brand suffix — without absolute the page renders "… | Shorted | Shorted".
+  title: { absolute: siteConfig.fullTitle },
   description: siteConfig.description,
   keywords: siteConfig.keywords,
   openGraph: {
@@ -65,6 +71,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
+    site: siteConfig.twitterHandle,
+    creator: siteConfig.twitterHandle,
     title: siteConfig.socialTitle,
     description: siteConfig.description,
     images: [siteConfig.ogImage],
@@ -148,14 +156,19 @@ export default async function Page() {
   // and hand them to HomeContent as protobuf JSON (RSC-safe, no bigint across
   // the boundary). This removes the render->hydrate->fetch waterfall for both
   // lead widgets. Both actions are cached, so the TopShortsFallback call is free.
-  const [initialTopShorts, initialTreeMap] = await Promise.all([
-    getTopShortsData("3m", 10, 0)
-      .then((res) => res?.timeSeries?.map((d) => toJson(TimeSeriesDataSchema, d)))
-      .catch(() => undefined),
+  const [topShorts, initialTreeMap] = await Promise.all([
+    getTopShortsData("3m", 10, 0).catch(() => undefined),
     getIndustryTreeMap("3m", 8, 0 as ViewMode)
       .then((tm) => (tm ? toJson(IndustryTreeMapSchema, tm) : undefined))
       .catch(() => undefined),
   ]);
+  const initialTopShorts = topShorts?.timeSeries?.map((d) =>
+    toJson(TimeSeriesDataSchema, d)
+  );
+  // Same series, reused for the visible "as at" stamp that now sits directly
+  // above the charts — no extra RPC and, unlike a Suspense boundary, nothing
+  // that can stream in late and push the charts down.
+  const asicAsOf = latestAsicDataDate(topShorts?.timeSeries);
 
   return (
     <main className="min-h-screen flex flex-col bg-transparent">
@@ -185,23 +198,45 @@ export default async function Page() {
         content="homepage"
       />
 
-      {/* Page header with SEO-optimized content */}
-      <header className="container mx-auto px-4 pt-8 pb-4">
-        <h1 className={pageTitle}>
+      {/* Page header with SEO-optimized content. The hero is deliberately
+          compact on phones: the charts are the product, and every hero pixel
+          pushes the first chart below the fold. The lede is clamped visually
+          but stays complete in the server HTML for crawlers. */}
+      <header className="container mx-auto px-4 pt-4 pb-2 sm:pt-8 sm:pb-4">
+        <h1 className={cn(pageTitle, "text-2xl leading-tight sm:text-4xl")}>
           Shorting the ASX: Australia&apos;s Most Shorted Stocks, from Official
           ASIC Data
         </h1>
-        <p className="text-muted-foreground mt-2 max-w-2xl">
+        <p className="text-muted-foreground mt-2 max-w-2xl text-sm line-clamp-3 sm:text-base sm:line-clamp-none">
           Everything you need to track shorting on the ASX — official ASIC short
           selling data updated daily with T+4 delay. Follow the most shorted ASX
           stocks, analyze short interest trends, and explore industry heatmaps.
         </p>
       </header>
 
-      {/* Breaking News - Price Sensitive Announcements */}
-      <div className="container mx-auto px-4 pb-4">
-        <BreakingNewsBanner />
+      {/* The charts' heading + freshness stamp. Rendered here, synchronously,
+          so the h2 sits with the charts it labels instead of a section of its
+          own — and so nothing streams in between it and <HomeContent>. */}
+      <div className="container mx-auto px-4">
+        <h2 className={cn(sectionTitle, "text-xl sm:text-2xl")}>
+          Most Shorted ASX Stocks
+        </h2>
+        <AsicDataFreshness
+          date={asicAsOf}
+          className="mt-0.5 text-xs text-muted-foreground sm:text-sm"
+        />
       </div>
+
+      {/* Interactive dashboard content */}
+      <HomeContent
+        initialTopShorts={initialTopShorts}
+        initialTreeMap={initialTreeMap}
+      />
+
+      {/* Breaking News - Price Sensitive Announcements. Below the charts: it
+          is ssr:false, so rendering it above meant it popped in after
+          hydration and shoved the charts down. */}
+      <BreakingNewsBanner />
 
       {/* Latest Weekly Report Banner — streamed via Suspense */}
       <Suspense fallback={null}>
@@ -212,17 +247,6 @@ export default async function Page() {
       <Suspense fallback={null}>
         <PremiumUpsellBanner />
       </Suspense>
-
-      {/* SSR fallback table for search engine crawlability */}
-      <Suspense fallback={null}>
-        <TopShortsFallback />
-      </Suspense>
-
-      {/* Interactive dashboard content */}
-      <HomeContent
-        initialTopShorts={initialTopShorts}
-        initialTreeMap={initialTreeMap}
-      />
 
       {/* Market news — freshest cross-market coverage, directly under the
           dashboard and ahead of everything editorial */}
@@ -348,7 +372,8 @@ export default async function Page() {
             </p>
           </Disclosure>
         </div>
-        {/* Kept OUT of the expanders: internal links should stay visible. */}
+        {/* Kept OUT of the expanders: internal links should stay visible.
+            Descriptive anchors, plain prose, zero client JS. */}
         <p className="mt-4 text-sm text-muted-foreground">
           Go deeper:{" "}
           <Link
@@ -364,16 +389,54 @@ export default async function Page() {
           >
             daily short interest scans
           </Link>
-          , or the{" "}
+          , the{" "}
           <Link
             href="/top"
             className="underline underline-offset-4 hover:text-foreground"
           >
             top 100 most shorted ASX stocks
           </Link>
+          , or the{" "}
+          <Link
+            href="/shorts"
+            className="underline underline-offset-4 hover:text-foreground"
+          >
+            full list of ASX short positions
+          </Link>
+          .
+        </p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          New to this?{" "}
+          <Link
+            href="/learn"
+            className="underline underline-offset-4 hover:text-foreground"
+          >
+            Learn how short selling works on the ASX
+          </Link>
+          , keep the{" "}
+          <Link
+            href="/glossary"
+            className="underline underline-offset-4 hover:text-foreground"
+          >
+            short selling glossary
+          </Link>{" "}
+          handy, then read the{" "}
+          <Link
+            href="/reports"
+            className="underline underline-offset-4 hover:text-foreground"
+          >
+            weekly ASX short selling reports
+          </Link>
           .
         </p>
       </section>
+
+      {/* Server-rendered crawlable table of the top 100 short positions.
+          Screen-reader-only and position-independent for crawlers, so it sits
+          at the foot of the page rather than above the charts. */}
+      <Suspense fallback={null}>
+        <TopShortsFallback />
+      </Suspense>
 
       {/* Homepage FAQ — question-form headings + FAQPage JSON-LD */}
       <HomepageFaq />

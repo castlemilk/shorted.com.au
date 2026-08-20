@@ -57,6 +57,7 @@ import { RelatedStocks } from "~/@/components/seo/related-stocks";
 import { getRelatedStocks } from "~/app/actions/getRelatedStocks";
 import { getStockHeadlines } from "~/app/actions/getStockNews";
 import { getStockOrNotFound } from "~/app/actions/getStock";
+import { getLatestShortDate } from "~/app/actions/getLatestShortDate";
 import { formatCompanyName } from "~/@/lib/company-name";
 import Link from "next/link";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
@@ -80,6 +81,17 @@ interface PageProps {
 // word, which left SERP titles shouting "BHP GROUP LIMITED".
 function cleanCompanyName(name: string, code: string): string {
   return formatCompanyName(name, code) || name;
+}
+
+// ASIC report dates are Sydney calendar days — format them in that zone so a
+// UTC-hosted render can't show the previous day.
+function formatAsOfDate(date: Date): string {
+  return date.toLocaleDateString("en-AU", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "Australia/Sydney",
+  });
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -108,14 +120,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         : `${code} Short Interest${shortPct} | ASIC Data`;
       if (stock.percentageShorted > 0) ogVersion = stock.percentageShorted.toFixed(2);
 
-      const dateStr = new Date().toLocaleDateString("en-AU", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      });
+      // The date of the latest ASIC report this stock appears in — NOT
+      // `new Date()`. ASIC publishes T+4, so "as of <today>" describes a
+      // report that does not exist yet. Null when unknown: the sentence
+      // drops the clause rather than inventing a date.
+      const asOf = await getLatestShortDate(code);
+      const dateStr = asOf ? formatAsOfDate(asOf) : null;
       const descName = companyName || code;
       const shortInfo = stock.percentageShorted > 0
-        ? `${descName} short interest is ${stock.percentageShorted.toFixed(2)}% as of ${dateStr}.`
+        ? `${descName} short interest is ${stock.percentageShorted.toFixed(2)}%${dateStr ? ` as of ${dateStr}` : ""}.`
         : `${descName} short selling data from official ASIC reports.`;
       const industryInfo = stock.industry ? ` Industry: ${stock.industry}.` : "";
       description = `${shortInfo}${industryInfo} Track ${code}'s short position history, price charts, peer comparison, and ASIC data. Updated daily with T+4 delay.`;
@@ -161,7 +174,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       "Australian stocks short interest",
     ],
     openGraph: {
-      title: `${title} | ${siteConfig.name}`,
+      // No `| Shorted` suffix: `siteName` below already carries the brand, and
+      // the title itself is long — appending it produced a second brand
+      // mention that cards truncate the actual company name to fit.
+      title,
       description,
       url: `${siteConfig.url}/shorts/${code}`,
       siteName: siteConfig.name,
@@ -170,8 +186,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       images: [ogImage],
     },
     twitter: {
+      site: "@shorted___",
+      creator: "@shorted___",
       card: "summary_large_image",
-      title: `${title} | ${siteConfig.name}`,
+      title,
       description,
       images: [ogImage],
     },
@@ -232,6 +250,11 @@ const Page = async ({ params }: PageProps) => {
   // Latest headlines for the crawlable research section below the tabs —
   // ISR-safe accessor, degrades to an empty list.
   const stockNewsPromise = getStockHeadlines(stockCode, 5);
+  // Date of the latest ASIC report containing this stock — the page's "as of"
+  // everywhere. Never `new Date()`: ASIC publishes T+4.
+  const latestShortDatePromise = getLatestShortDate(stockCode).catch(
+    (): Date | null => null,
+  );
   try {
     [stock, relatedData] = await Promise.all([
       getStockOrNotFound(stockCode),
@@ -260,6 +283,7 @@ const Page = async ({ params }: PageProps) => {
   const financialHighlightsMap = await financialHighlightsPromise;
   const financialHighlights = financialHighlightsMap?.[stockCode] ?? [];
   const newsArticles = await stockNewsPromise;
+  const latestShortDate = await latestShortDatePromise;
 
   const breadcrumbItems = [
     { label: "Stocks", href: "/stocks" },
@@ -307,12 +331,20 @@ const Page = async ({ params }: PageProps) => {
         const shortPositions = stock.reportedShortPositions ?? 0;
         const companyName = cleanCompanyName(stock.name || stockCode, stockCode);
         const industry = stock.industry || "";
-        const asOfIso = new Date().toISOString().slice(0, 10);
-        const asOfDisplay = new Date().toLocaleDateString("en-AU", {
-          day: "numeric",
-          month: "short",
-          year: "numeric",
-        });
+        // The real ASIC report date, not the render date. `null` when the
+        // series is unavailable — every use below degrades to "the latest
+        // ASIC report" rather than printing a date we can't stand behind.
+        // Open-ended when the real report date is unknown — never claim
+        // coverage through today (the impossible-under-T+4 bug this replaces).
+        const asOfIso = latestShortDate
+          ? latestShortDate.toISOString().slice(0, 10)
+          : null;
+        const asOfDisplay = latestShortDate
+          ? formatAsOfDate(latestShortDate)
+          : null;
+        const asOfClause = asOfDisplay
+          ? `as of ${asOfDisplay}`
+          : "in the latest ASIC report";
         const positionsDisplay = shortPositions > 0
           ? new Intl.NumberFormat("en-AU").format(Math.round(shortPositions))
           : "—";
@@ -340,7 +372,7 @@ const Page = async ({ params }: PageProps) => {
             name: "Australian Securities and Investments Commission",
             url: "https://asic.gov.au/regulatory-resources/markets/short-selling/",
           },
-          temporalCoverage: `2010-06-01/${asOfIso}`,
+          temporalCoverage: asOfIso ? `2010-06-01/${asOfIso}` : "2010-06-01/..",
           variableMeasured: [
             {
               "@type": "PropertyValue",
@@ -422,7 +454,7 @@ const Page = async ({ params }: PageProps) => {
                     <strong className="text-foreground">
                       {shortPct.toFixed(2)}%
                     </strong>{" "}
-                    of shares reported as short positions as of {asOfDisplay},
+                    of shares reported as short positions {asOfClause},
                     representing {positionsDisplay} shares.
                     {industry ? ` ${companyName} operates in the ${industry} industry.` : ""}
                     {" "}Source: ASIC short position report (T+4 delay).
@@ -430,7 +462,7 @@ const Page = async ({ params }: PageProps) => {
                 ) : (
                   <>
                     {companyName} (ASX:{stockCode}) has no reportable short
-                    positions in the latest ASIC data as of {asOfDisplay}.
+                    positions in the latest ASIC data {asOfClause}.
                     {industry ? ` ${companyName} operates in the ${industry} industry.` : ""}
                   </>
                 )}
