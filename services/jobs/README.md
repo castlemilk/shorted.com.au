@@ -32,6 +32,8 @@ services/jobs/
                               (was services/report-extractor, Python)
   internal/jobs/reports/      `shorted reports coverage|link|sync`
                               (was services/report-coverage / -linker / -sync)
+  internal/jobs/shortdatasync/`shorted short-data-sync`
+                              (was services/daily-sync, Python — ASIC tier only)
   internal/jobs/signals/      `shorted signals`    (was services/signals-collector, Python)
   internal/jobs/weeklyreport/ `shorted weekly-report`
                               (was services/weekly-report-generator)
@@ -59,6 +61,7 @@ services/jobs/
 | `reports coverage` | `services/report-coverage` | no — laptop-only tool |
 | `reports link` | `services/report-linker` | no — laptop-only tool |
 | `reports sync` | `services/report-sync` | no — laptop-only tool |
+| `short-data-sync` | `services/daily-sync/deprecated/comprehensive_daily_sync.py` — **ASIC shorts tier only** | **not yet** — ported (Phase 3), no Terraform change; `shorts-data-sync` still runs the Python image |
 | `signals` | `services/signals-collector` (Python) | yes — `shorted-signals` (cutover 2; old scheduler paused) |
 | `weekly-report` | `services/weekly-report-generator` | yes — `shorted-weekly-report`, weekly + monthly schedules (cutover 2; old schedulers paused) |
 
@@ -667,6 +670,45 @@ collaborators (`pdfFetcher`, `blobStore`, `extractionStore`, `summarizer`,
 interfaces precisely so the pipelines can be exercised end-to-end with fixtures.
 The only network in the suite is a local `httptest` server proving the ASX
 display-URL → PDF-URL resolution and the browser-header contract.
+
+## Phase 3 port notes (short-data-sync)
+
+`services/daily-sync/deprecated/comprehensive_daily_sync.py` (the DEPLOYED
+script — `services/short-data-sync/main.py` is a never-deployed sibling) →
+`internal/jobs/shortdatasync`. **CODE ONLY**: no Terraform, no schedule change,
+the Python still runs in prod. Full detail, env table, divergences and the
+shadow-run procedure: `internal/jobs/shortdatasync/README.md`.
+
+- **Scope split.** The Python bundled THREE pipelines. Only the ASIC shorts tier
+  is ported here (download → parse → upsert → health report → MV refresh →
+  revalidate → Algolia → `sync_status`). The `stock_prices` sweep is ALREADY
+  `shorted market-data serve|sync` (Phase 2c) and is deliberately not ported a
+  second time. The `key_metrics` refresh of `"company-metadata"` is already owned
+  by the shorts API's `SyncKeyMetrics` RPC + daily `key-metrics-scheduler`
+  (enabled in prod); the Python job was a duplicate writer, so the cutover PR
+  only needs to confirm that scheduler is healthy.
+- **Exit code 2 retires with the stock loop.** It existed so Cloud Run would
+  retry a run that had finished only part of its 500-stock batch. Shorts-only
+  runs have no partial state: exit 0 / exit 1 like every other job. The Cloud
+  Run Job's `max_retries = 5` and `timeout = 28800s` are sized for the ~5h price
+  sweep and want right-sizing at cutover.
+- **Both of the same-day fixes to the Python are carried over**: the MV refresh
+  sends `SET statement_timeout = 0; SELECT refresh_all_materialized_views()` as
+  ONE simple-protocol command (two Execs can land on different backends through
+  the transaction pooler), and `trigger_frontend_revalidation` fires only when
+  rows changed, through `platform.PingRevalidate` (header-only secret, redacted
+  error logs).
+- **Resume still keys on `CLOUD_RUN_EXECUTION`** (PR #231), never a calendar
+  date, with a 20-hour rolling window off Cloud Run.
+- **Legacy ASIC files now parse.** Encoding detection (UTF-8/UTF-16 BOM →
+  UTF-8 validity → CP1252, hand-rolled, no `x/text` dependency) plus TAB/comma
+  delimiter sniffing. Pre-2023 files are UTF-16LE + TAB and the Python silently
+  ingested zero rows from them; the daily window contains none, so a scheduled
+  run is unaffected and only a deep backfill diverges (in our favour).
+- **`-shadow`** runs the whole read path, writes nothing and prints a JSON
+  parity summary (per-date counts, would-insert/would-update, a
+  sorted-tuple checksum) on stdout for diffing against the Python's actual
+  writes. 46 offline tests, including golden fixtures cut from real ASIC files.
 
 ## Conventions for new jobs
 
