@@ -81,6 +81,12 @@ type JobStatus struct {
 	SucceededCount  int64     `json:"succeededCount"`
 	FailedCount     int64     `json:"failedCount"`
 	RunningCount    int64     `json:"runningCount"`
+	// RunningExecution is the newest execution still in flight — including when a
+	// LATER execution has already completed (the Python sync ran 26-29h, so a
+	// quick on-demand run finishing first left the long run invisible to the
+	// newest-execution fields; the Run-now guard missed it in prod 2026-08-21).
+	RunningExecution string `json:"runningExecution,omitempty"`
+	RunningStartedAt string `json:"runningStartedAt,omitempty"`
 	ExecutionName   string    `json:"executionName"`
 	Message         string    `json:"message"`
 	// Note is static operator context from the catalog (why a job is retired,
@@ -344,6 +350,15 @@ func applyExecutions(st *JobStatus, execs []*run.GoogleCloudRunV2Execution) {
 	for _, e := range execs {
 		if execStatus(e) == "succeeded" {
 			st.LastSuccessAt = firstNonEmpty(e.CompletionTime, e.StartTime, e.CreateTime)
+			break
+		}
+	}
+
+	// Any in-flight execution counts — not just the newest one.
+	for _, e := range execs {
+		if execStatus(e) == "running" {
+			st.RunningExecution = basename(e.Name)
+			st.RunningStartedAt = firstNonEmpty(e.StartTime, e.CreateTime)
 			break
 		}
 	}

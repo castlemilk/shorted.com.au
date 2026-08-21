@@ -232,6 +232,35 @@ jobs:
                         AND f.finished_at > now() - interval '30 hours'
                     )
                   )
+
+            UNION ALL
+
+            -- DROP_INDEX_STALENESS: the daily drop_index compute writes one
+            -- snapshot_date per day into housing_drop_index_daily. Its Cloud
+            -- Scheduler trigger shipped born-broken in #436 (v2 timeout field
+            -- in a v1 body → INVALID_ARGUMENT on every attempt) and NOTHING
+            -- alerted for 4 days: the Cloud Run job never started, so
+            -- execution-based monitoring saw nothing. Only a data-freshness
+            -- check catches a schedule dying silently for ANY reason. 54h
+            -- threshold = one missed daily run (18:00 UTC) + generous margin;
+            -- the /price-drops surface leads with this number.
+            SELECT
+              'DROP_INDEX_STALENESS',
+              'housing_drop_index_daily',
+              CASE
+                WHEN d.max_date IS NULL THEN 'no national drop_index rows at all'
+                ELSE format(
+                  'latest snapshot_date=%s (threshold: 54h behind now)',
+                  d.max_date
+                )
+              END
+            FROM (
+              SELECT MAX(snapshot_date) AS max_date
+              FROM housing_drop_index_daily
+              WHERE grain = 'national'
+            ) AS d
+            WHERE d.max_date IS NULL
+               OR d.max_date < (now() - interval '54 hours')::date
           )
           SELECT concat_ws(E'\t', check_name, source, detail)
           FROM violations

@@ -171,6 +171,34 @@ func TestRunningGuardUsesRunningCount(t *testing.T) {
 	}
 }
 
+// Regression (prod, 2026-08-21): a quick on-demand run COMPLETED while the
+// 26-29h Python run was still going. The newest execution read "succeeded", so
+// the guard let a duplicate through. Any in-flight execution must trip the
+// guard, and the error must name the RUNNING execution, not the completed one.
+func TestRunningGuardSeesOlderInFlightExecution(t *testing.T) {
+	now := time.Date(2026, 8, 21, 8, 30, 0, 0, time.UTC)
+	jobs := []JobStatus{{
+		Name: "shorts-data-sync", Type: "job", Region: "r",
+		// Newest execution: completed minutes ago.
+		ExecutionName: "shorts-data-sync-msk7x", LastRunStatus: "succeeded",
+		LastRunAt: "2026-08-21T08:13:00Z", RunningCount: 0,
+		// Older execution: still in flight after 26h.
+		RunningExecution: "shorts-data-sync-vv2sf",
+		RunningStartedAt: "2026-08-21T05:50:00Z",
+	}}
+	var running *AlreadyRunningError
+	_, err := resolveRunTarget(jobs, RunRequest{Job: "shorts-data-sync"}, now)
+	if !errors.As(err, &running) {
+		t.Fatalf("err = %v, want AlreadyRunningError", err)
+	}
+	if running.ExecutionName != "shorts-data-sync-vv2sf" {
+		t.Errorf("execution = %q, want the in-flight one (vv2sf), not the completed latest", running.ExecutionName)
+	}
+	if running.Age < 2*time.Hour {
+		t.Errorf("age = %v, want ~2h40m from the RUNNING execution's start", running.Age)
+	}
+}
+
 func TestRunJobRequiresProject(t *testing.T) {
 	c := NewCollector(Config{})
 	c.cached = fleet()

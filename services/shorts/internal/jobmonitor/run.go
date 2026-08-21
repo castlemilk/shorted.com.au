@@ -178,11 +178,19 @@ func resolveRunTarget(jobs []JobStatus, req RunRequest, now time.Time) (*JobStat
 		return nil, ErrRetiredJob
 	}
 	if isRunning(match) && !req.Force {
+		// Prefer the scanned in-flight execution: the newest execution may have
+		// completed while an older long run is still going.
+		name := match.RunningExecution
+		started := match.RunningStartedAt
+		if name == "" {
+			name = match.ExecutionName
+			started = match.LastRunAt
+		}
 		return nil, &AlreadyRunningError{
 			Job:           match.Name,
-			ExecutionName: match.ExecutionName,
-			StartedAt:     match.LastRunAt,
-			Age:           executionAge(match, now),
+			ExecutionName: name,
+			StartedAt:     started,
+			Age:           ageSince(started, now),
 		}
 	}
 	return match, nil
@@ -191,11 +199,11 @@ func resolveRunTarget(jobs []JobStatus, req RunRequest, now time.Time) (*JobStat
 // isRunning treats both the derived status and the raw running-task count as
 // evidence of an in-flight execution.
 func isRunning(st *JobStatus) bool {
-	return st.LastRunStatus == "running" || st.RunningCount > 0
+	return st.RunningExecution != "" || st.LastRunStatus == "running" || st.RunningCount > 0
 }
 
-func executionAge(st *JobStatus, now time.Time) time.Duration {
-	started := parseTime(st.LastRunAt)
+func ageSince(startedAt string, now time.Time) time.Duration {
+	started := parseTime(startedAt)
 	if started.IsZero() {
 		return 0
 	}
