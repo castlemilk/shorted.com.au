@@ -232,12 +232,25 @@ resource "google_cloud_scheduler_job" "daily_drop_index" {
     # timeout generously (4h, matching the collector's own CRAWL_TIMEOUT_MIN
     # default for this mode — see collectorTimeoutMinutes in main.go) rather
     # than inherit the 30-min timeout sized for the small monthly ingest.
+    #
+    # NOTE the field name. The uri above is the Cloud Run Admin API **v1**
+    # (`/apis/run.googleapis.com/v1/namespaces/...:run`), whose `Overrides`
+    # message spells the task deadline `timeoutSeconds` as an INTEGER number of
+    # seconds. The v2 API's `timeout` duration-string spelling ("14400s") does
+    # not exist on v1: posting it makes the API reject the whole request with
+    #   400 Invalid JSON payload received. Unknown name "timeout" at
+    #   'overrides': Cannot find field.
+    # which Cloud Scheduler surfaces only as status code 3 / INVALID_ARGUMENT.
+    # That mistake shipped in #436 and meant this schedule never once ran (see
+    # the drop-index catch-up note in docs/feature/housing/operations.md).
+    # `container_overrides` snake_case is fine — proto JSON accepts both
+    # spellings; it is only the field NAME that must exist on v1.
     body = base64encode(jsonencode({
       overrides = {
         container_overrides = [{
           args = ["-mode", "drop-index"]
         }]
-        timeout = "14400s"
+        timeoutSeconds = 14400
       }
     }))
   }

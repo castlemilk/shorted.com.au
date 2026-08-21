@@ -68,6 +68,50 @@ house-price-collector --region australia-southeast2 --project
 rosy-clover-477102-t5`. Prod sets `manage_revalidation_secret = true`; **dev
 does not**, so a dev run's revalidate ping silently no-ops.
 
+### The daily drop-index schedule (and how to catch up a gap)
+
+Scheduler `house-price-collector-drop-index` (`australia-southeast1`, daily
+18:00 UTC) re-invokes the same Cloud Run job with a `:run` overrides body
+setting `-mode drop-index`. It writes `housing_drop_index_daily` — the
+discounting index that leads `/price-drops`.
+
+**It computes `[yesterday, today]` only.** `main.go` defaults `from` to
+`now-1d`, so a run does *not* self-heal a gap: if the schedule is broken or
+paused for N days, the missing days stay missing forever until someone asks for
+them. The catch-up knob is `DROP_INDEX_FROM=YYYY-MM-DD` (clamped forward to
+`indexBackfillStart` = 2026-08-03, before which the crawl catalog was still
+growing 115 → 500 suburbs and the panel is not stable). Backfill is idempotent —
+`writeIndexPoint` upserts on `(snapshot_date, grain, grain_key)` — so re-running
+an already-covered range is safe.
+
+Find the gap, then close it:
+
+```bash
+psql "$SESSION_POOLER_URL" -c \
+  "SELECT max(snapshot_date) FROM housing_drop_index_daily WHERE grain='national';"
+
+gcloud run jobs execute house-price-collector \
+  --region australia-southeast2 --project rosy-clover-477102-t5 \
+  --args="-mode,drop-index" \
+  --update-env-vars=DROP_INDEX_FROM=<max_snapshot_date + 1 day> \
+  --task-timeout=4h --wait
+```
+
+A backfill writes a row per suburb per day (~500 suburbs/day), which is why the
+schedule overrides the job's 1800s task timeout up to 4h. Note that the
+per-day numbers are recomputed from *current* listing state, so a late backfill
+of an old day reflects what we can still see of it, not a frozen snapshot —
+another reason not to let the gap run long.
+
+**Landmine — the override body is v1-shaped.** The scheduler posts to the Cloud
+Run Admin API **v1** namespaces endpoint, whose `Overrides` message spells the
+task deadline `timeoutSeconds` (integer). The v2 `timeout: "14400s"` duration
+string shipped in #436 and made every single attempt fail with
+`Unknown name "timeout" at 'overrides'` — surfaced by Cloud Scheduler only as
+status code 3 / INVALID_ARGUMENT, so the schedule never ran once between
+2026-08-17 and the fix while nothing alerted. Guard:
+`scripts/tests/scheduler-override-body.test.mjs`.
+
 ### MV refresh
 
 `refresh_housing_materialized_views()` is decoupled from the shorts
