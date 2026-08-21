@@ -171,6 +171,15 @@ module "short_data_sync" {
   # is set in the Vercel frontend env, so enable event-driven cache busting.
   manage_revalidation_secret = true
 
+  # Jobs-monolith cutover (Phase 3, item 9) — the SAME `shorts-data-sync` job,
+  # scheduler and service accounts now run `shorted short-data-sync` from the
+  # consolidated binary. Approved after shadow parity passed 6/6 dates
+  # byte-identically (2026-08-21). ROLLBACK: use_go_monolith = false + apply;
+  # that restores the Python image, its command AND its 8h/5-retry sizing in
+  # one flip (image_url above stays wired for exactly that reason).
+  use_go_monolith    = true
+  shorted_jobs_image = var.shorted_jobs_image
+
   depends_on = [
     google_project_service.required_apis,
     google_artifact_registry_repository.shorted

@@ -284,6 +284,10 @@ tables + 8 loud callouts: `services/jobs/README.md` ("Phase 3 port notes").
 
 ## Phase 3 port — short-data-sync (branch `feat/jobs-monolith-short-data-sync`)
 
+> **Superseded by "Cutover slice 4 — short-data-sync" at the end of this
+> document (2026-08-21).** The section below describes the CODE-ONLY port PR and
+> is kept as the record of what was decided before deployment.
+
 CODE ONLY: the ASIC short-position pipeline is ported into the `shorted`
 binary as `shorted short-data-sync`; nothing is deployed, no Terraform/schedule
 changed, no Python deleted. `terraform/modules/short-data-sync` still points the
@@ -554,3 +558,83 @@ monolith run is the coming Friday), `signals-collector` (Monday),
 `influence-collector` (the uncommitted `feat/politician-register-of-interests`
 work must be reconciled into `internal/jobs/influence` first), and every job
 that has not been cut over yet.
+
+## Cutover slice 4 — short-data-sync (branch `feat/jobs-observability`)
+
+The `shorts-data-sync` Cloud Run Job now runs `shorted short-data-sync` from the
+consolidated binary. **In-place swap** on `terraform/modules/short-data-sync`
+(the slice-3 pattern), not a move to `modules/shorted-job`: the job name,
+scheduler, service accounts, GCS bucket, secrets and every log/OTel identity are
+untouched, so no dashboard, log filter or alert needs repointing.
+
+### Go/no-go evidence (2026-08-21)
+
+- **Shadow parity 6/6.** `shorted short-data-sync -shadow` against six ASIC
+  dates reported `would_insert = 0`, `would_update = rows_parsed` and a
+  byte-identical checksum on every one. Cutover approved on that basis.
+- **key-metrics is covered.** The shorts API's daily `key-metrics-scheduler`
+  (`enable_key_metrics_scheduler = true` in prod) is **confirmed ENABLED**, so
+  dropping the Python job's duplicate `key_metrics` writer loses nothing.
+- **Prices are covered.** `market-data-sync`'s weekday scheduler (Phase 2c, live
+  since slice 3) owns `stock_prices`; the Go job is deliberately shorts-only.
+
+### What changed in Terraform
+
+| Item | Before (Python) | After (monolith) |
+|---|---|---|
+| Image | `var.short_data_sync_image` (built from `services/daily-sync/Dockerfile`) | `var.shorted_jobs_image` |
+| Command / args | unset — image `CMD ["python","comprehensive_daily_sync.py"]` | `command = ["/shorted"]`, `args = ["short-data-sync"]` |
+| `timeout` | `28800s` (8h — sized for the ~5h yfinance price sweep) | `3600s` |
+| `max_retries` | `5` (6 attempts, the exit-2 "partial batch" protocol) | `1` |
+| Job name / scheduler / SAs / bucket / secrets | — | **identical** |
+
+Right-sizing is not cosmetic: the shorts-only run takes minutes (MV refresh a
+few more), so 3600s is ~10x headroom. Python runs took **26–29h** with retries;
+leaving 8h × 6 attempts in place would have delayed paging on a real failure by
+the better part of two days. `exit 2` no longer exists — the run is 0 or 1.
+
+### The coupling (and the trap it avoids)
+
+Image, command, args, timeout and retries are all driven by ONE variable,
+`use_go_monolith` (default `true`), resolved in `modules/short-data-sync`
+locals. This is the fix the slice-3 review demanded: a one-variable image
+rollback that left `/shorted` in place would crash-loop with
+`exec: "/shorted": not found` — the rollback would BE the outage. In legacy mode
+`command`/`args` are `null` (not `[]`, which would CLEAR the image's own
+ENTRYPOINT/CMD). A `lifecycle { precondition }` fails the plan if
+`use_go_monolith = true` arrives without a `shorted_jobs_image` (cross-variable
+`validation` needs Terraform ≥ 1.9; these environments require ≥ 1.5).
+
+**Rollback: `use_go_monolith = false` at the env call site, then apply.** One
+flip restores the Python image, its command and its 28800s/5-retry sizing
+together. No image rebuild needed — the `short-data-sync` CI matrix entry stays.
+
+### Env parity
+
+`DATABASE_URL`, `REVALIDATION_URL`, `REVALIDATION_SECRET` (Secret Manager),
+`GCP_PROJECT` and `ENVIRONMENT` were already mounted and are unchanged.
+`SYNC_DAYS_SHORTS` is now set EXPLICITLY (`7`) because it used to come from the
+Python image's `ENV SYNC_DAYS_SHORTS=7` and the distroless monolith image has no
+ENV — the value matches the Go job's compiled default, so behaviour is
+unchanged. `SYNC_ALGOLIA` is unset in both modes (Algolia trigger off, as
+today), so no `ALGOLIA_*` secrets are needed. The Go-unsupported knobs
+(`SYNC_DAYS_STOCK_PRICES`, `SYNC_KEY_METRICS`, `ALPHA_VANTAGE_API_KEY`,
+`MAX_STOCK_FAILURE_RETRIES`) are not mounted by Terraform in either mode; the
+legacy image's own `SYNC_DAYS_STOCK_PRICES=5` is left alone so the rollback is
+byte-identical to the pre-cutover job. The Go job warns loudly rather than
+silently ignoring any of them.
+
+### CI
+
+No workflow change was required: `.github/workflows/terraform-deploy.yml`
+already builds **both** images (`shorted-jobs` and `short-data-sync`) in the
+`build-docker-images` matrix and already passes both `-var=shorted_jobs_image=`
+and `-var=short_data_sync_image=` to plan **and** apply. The `short-data-sync`
+matrix entry is **deliberately kept** (pause-don't-delete: a rollback needs a
+currently-built image).
+
+**Cleanup gate (PENDING):** `services/daily-sync`, `services/short-data-sync`,
+the `short_data_sync_image` variable and the `short-data-sync` CI matrix entry
+are deleted only after **one green SCHEDULED run** of the monolith job (the
+`shorts-data-sync-daily` 10:00 UTC trigger — a manual `gcloud run jobs execute`
+does not count).

@@ -214,5 +214,12 @@ variable "rate_limit_ssr_bypass_user_agent" {
 variable "alert_recipient_email" {
   description = "Email for Cloud Run Job failure + ERROR-log/timeout alerts. Empty disables all alerting (the job_monitoring module becomes a no-op)."
   type        = string
-  default     = ""
+  # Alerting is ON by default in prod. CI applies always pass
+  # TF_VAR_alert_recipient_email from the ALERT_RECIPIENT_EMAIL GitHub secret
+  # (currently ben.ebsworth@gmail.com — that value wins in CI), so the layer
+  # has been armed there since June 2026. This non-empty default protects the
+  # LOCAL apply path: with the old "" default, a hand apply without the env
+  # var silently destroyed the channel + both policies. "" remains the
+  # explicit kill switch.
+  default = "ben@shorted.com.au"
 }

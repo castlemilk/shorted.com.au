@@ -182,6 +182,14 @@ resource "google_cloud_run_v2_service" "shorts_api" {
         value = var.region
       }
 
+      # Explicit multi-region job discovery: asx-discovery runs in us-central1
+      # (see cutover-3 #359) and was invisible to a single-region scan. The
+      # code treats JOBS_RUN_REGIONS as the full override list.
+      env {
+        name  = "JOBS_RUN_REGIONS"
+        value = join(",", distinct([var.region, "us-central1"]))
+      }
+
       env {
         name  = "JOBS_SCHEDULER_REGION"
         value = "australia-southeast1"

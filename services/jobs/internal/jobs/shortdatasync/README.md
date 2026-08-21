@@ -123,17 +123,23 @@ parsed. Compute the same value from what the Python actually wrote:
 
 ```sql
 -- Same window the shadow run used: see "cutoff_date" in the JSON.
+-- Float rendering: a plain ::text cast — Postgres float8 output uses the same
+-- shortest-round-trip algorithm as Go's strconv.FormatFloat(v,'f',-1,64) for
+-- these magnitudes. Do NOT use to_char() with a format mask: its fixed-
+-- precision output differs from Go on nearly every value and every checksum
+-- will falsely mismatch (verified during the 2026-08-21 parity run).
+-- Sort: COLLATE "C" to match Go's sort.Strings byte ordering.
 SELECT encode(
          sha256(
            convert_to(
-             string_agg(line, E'\n' ORDER BY line) || E'\n',
+             string_agg(line, E'\n' ORDER BY line COLLATE "C") || E'\n',
              'UTF8')),
          'hex') AS checksum,
        count(*) AS rows
 FROM (
   SELECT to_char("DATE", 'YYYY-MM-DD') || '|' ||
          "PRODUCT_CODE" || '|' ||
-         trim(to_char("REPORTED_SHORT_POSITIONS", 'FM9999999999999990.999999999999')) AS line
+         "REPORTED_SHORT_POSITIONS"::text AS line
   FROM shorts
   WHERE "DATE" >= to_date(:cutoff_date::text, 'YYYYMMDD')
 ) t;
@@ -150,10 +156,15 @@ WHERE "DATE" = DATE '2026-08-14'
 ORDER BY "PRODUCT_CODE";
 ```
 
-> The SQL renders the float with `to_char`, which is NOT always identical to
-> Go's shortest round-trip formatting for pathological values. If the totals
-> match but the checksums do not, dump both sides and diff the tuples before
-> concluding the parse diverged.
+> If the totals match but the checksums do not, dump both sides and diff the
+> tuples before concluding the parse diverged. Scientific notation is the one
+> known edge: Postgres switches to it around |v| ≥ 1e16 while Go's 'f' format
+> never does — irrelevant for REPORTED_SHORT_POSITIONS (~1e10 max) but format
+> explicitly if this query is ever reused for TOTAL_PRODUCT_IN_ISSUE.
+>
+> Parity evidence (2026-08-21 pre-cutover run): 6/6 Python-written dates
+> (2026-08-07 → 2026-08-14, 4,471 rows) matched byte-identically with this
+> corrected query.
 
 ### Also worth checking
 

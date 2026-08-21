@@ -10,6 +10,22 @@ import { requireAdmin } from "~/server/admin";
  * /api/admin/jobs endpoint (which reads Cloud Run Job executions + Cloud
  * Scheduler triggers directly). Mirrors jobmonitor.JobStatus in Go.
  */
+/** One Cloud Scheduler trigger pointing at a job. A job can have several. */
+export interface JobTrigger {
+  name: string;
+  schedule: string;
+  scheduleHuman: string;
+  state: string; // ENABLED | PAUSED
+  lastAttemptAt: string;
+  lastStatus: string; // succeeded | failed | never
+}
+
+/** A per-run volume metric from a job's own bookkeeping (sync_status). */
+export interface JobRecordCount {
+  label: string;
+  count: number;
+}
+
 export interface JobStatus {
   name: string;
   displayName: string;
@@ -18,9 +34,13 @@ export interface JobStatus {
   // "rig" = Mac-based residential housing crawl (self-reported via crawl_run_status,
   // migration 000089 — jobmonitor is GCP-only and can't see an off-Cloud-Run job).
   type: "job" | "service" | "rig";
+  /** Cloud Run region ("" for rig/service rows). */
+  region?: string;
   schedule: string;
   scheduleHuman: string;
   schedulerState: string; // ENABLED | PAUSED | ""
+  /** Every scheduler trigger for this job; schedule* above is the primary one. */
+  triggers?: JobTrigger[];
   lastRunAt: string; // RFC3339 or ""
   lastRunStatus: string; // succeeded | failed | running | unknown | never
   lastSuccessAt: string;
@@ -30,9 +50,20 @@ export interface JobStatus {
   runningCount: number;
   executionName: string;
   message: string;
+  /** Static operator context from the jobmonitor catalog (run-independent). */
+  note?: string;
+  /** Deployed but deliberately unscheduled (superseded). Never alarms. */
+  retired?: boolean;
   logUri: string;
+  /** Cadence-derived ceiling on the gap between successful runs. */
+  expectedMaxGapSeconds?: number;
+  /** How far past that ceiling the last success is (0/absent = fine). */
+  overdueBySeconds?: number;
+  records?: JobRecordCount[];
   lastAttemptAt: string;
-  health: "ok" | "running" | "warning" | "critical" | "unknown";
+  // "overdue" = last run SUCCEEDED but is older than the cadence allows, i.e. a
+  // scheduled run silently didn't happen. Distinct from "warning" (paused/stuck).
+  health: "ok" | "running" | "overdue" | "warning" | "critical" | "unknown";
 }
 
 export interface JobsOverview {

@@ -59,14 +59,32 @@ function getFleetHealth(overview: JobsOverviewData): FleetHealth {
     };
   }
 
-  const failing = overview.jobs.filter((j) => j.health === "critical");
-  const attention = overview.jobs.filter((j) => j.health === "warning");
+  // Retired jobs are deployed-but-unscheduled BY DESIGN (superseded by the
+  // consolidated `shorted <job>` binary). Counting their paused schedulers would
+  // pin the banner amber permanently and train everyone to ignore it.
+  const live = overview.jobs.filter((j) => !j.retired);
+
+  const failing = live.filter((j) => j.health === "critical");
+  // "overdue" is its own tier: the job didn't fail, it silently stopped running.
+  const overdue = live.filter((j) => j.health === "overdue");
+  const attention = live.filter((j) => j.health === "warning");
 
   if (failing.length > 0) {
     return {
       status: "critical",
       message: `${failing.length} job${failing.length > 1 ? "s" : ""} failing`,
-      issues: failing.map((j) => `${j.displayName}: ${j.message || "last run failed"}`),
+      issues: [...failing, ...overdue].map(
+        (j) => `${j.displayName}: ${j.message || "last run failed"}`,
+      ),
+    };
+  }
+  if (overdue.length > 0) {
+    return {
+      status: "critical",
+      message: `${overdue.length} job${overdue.length > 1 ? "s" : ""} overdue`,
+      issues: [...overdue, ...attention].map(
+        (j) => `${j.displayName}: ${j.message || "no successful run within its cadence"}`,
+      ),
     };
   }
   if (attention.length > 0) {
@@ -74,7 +92,7 @@ function getFleetHealth(overview: JobsOverviewData): FleetHealth {
       status: "degraded",
       message: `${attention.length} job${attention.length > 1 ? "s" : ""} need attention`,
       issues: attention.map(
-        (j) => `${j.displayName}: ${j.message || (j.schedulerState === "PAUSED" ? "scheduler paused" : "stale")}`,
+        (j) => `${j.displayName}: ${j.message || (j.schedulerState === "PAUSED" ? "scheduler paused" : "degraded")}`,
       ),
     };
   }

@@ -122,6 +122,12 @@ module "short_data_sync" {
   image_url        = var.short_data_sync_image
   bucket_name      = "shorted-short-selling-data" # Existing bucket in dev project
 
+  # Jobs-monolith cutover — same flip as prod, kept in lockstep so dev is never
+  # validating a configuration prod does not run. ROLLBACK: use_go_monolith =
+  # false + apply.
+  use_go_monolith    = true
+  shorted_jobs_image = var.shorted_jobs_image
+
   depends_on = [
   ]
 }

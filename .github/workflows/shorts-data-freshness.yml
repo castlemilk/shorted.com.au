@@ -1,0 +1,116 @@
+# Shorts (ASIC short-position) data freshness sentinel.
+#
+# The daily shorts sync lands new ASIC data around 16:00 UTC. This runs four
+# hours later and asks the ONE question the sync's own exit code cannot answer:
+# is there actually a newer report date in production?
+#
+# It reads the PUBLIC edge API (no database credentials, no GCP auth, no repo
+# secrets beyond the automatic GITHUB_TOKEN). That is the point: this layer has
+# to survive a broken sync job, a broken Cloud Run service, a lapsed service
+# account and a misconfigured Cloud Monitoring policy. It is the outermost of
+# the three alerting layers described in docs/observability/job-alerting.md.
+#
+# On breach it files (or comments on) ONE tracking issue, and closes it when the
+# check is green again — same mechanics as housing-freshness.yml, for the same
+# reason: a daily sentinel that opens a daily issue is noise inside a week.
+name: Shorts Data Freshness
+
+on:
+  schedule:
+    # Daily at 20:07 UTC (06:07 AEST / 07:07 AEDT), ~4h after the ~16:00 UTC sync.
+    - cron: "7 20 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # The notification channel: a red run nobody watches is not an alert.
+  issues: write
+
+jobs:
+  freshness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check shorts data freshness
+        id: check
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          report_file="$RUNNER_TEMP/shorts-data-freshness-report.txt"
+
+          set +e
+          node .github/workflows/shorts-data-freshness.mjs >"$report_file" 2>&1
+          check_rc=$?
+          set -e
+
+          {
+            echo "## Shorts data freshness report"
+            echo
+            echo "Threshold: newest ASIC report date older than **6 trading days** (ASIC publishes T+4; weekends and ASX national holidays excluded)."
+            echo
+            echo '```text'
+            echo -e "CHECK\tSOURCE\tDETAIL"
+            sed -n '1,50p' "$report_file"
+            echo '```'
+          } >>"$GITHUB_STEP_SUMMARY"
+
+          exit "$check_rc"
+
+      - name: File or update the freshness alert issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          report_file="$RUNNER_TEMP/shorts-data-freshness-report.txt"
+          title="Shorts data freshness sentinel is failing"
+
+          body_file="$RUNNER_TEMP/issue-body.md"
+          {
+            echo "The shorts data freshness sentinel failed on $(date -u '+%Y-%m-%d %H:%M UTC')."
+            echo
+            echo "Run: $RUN_URL"
+            echo
+            if [[ -s "$report_file" ]]; then
+              echo '```text'
+              echo -e "CHECK\tSOURCE\tDETAIL"
+              sed -n '1,50p' "$report_file"
+              echo '```'
+            else
+              echo "The check failed before producing a report — see the run log."
+            fi
+            echo
+            echo "Runbook: \`docs/observability/job-alerting.md\`."
+            echo "This issue is reused by every failing run; it closes on the next green run."
+          } >"$body_file"
+
+          existing="$(gh issue list --state open --label shorts-data-freshness \
+            --json number --jq '.[0].number // empty' 2>/dev/null || true)"
+
+          if [[ -n "$existing" ]]; then
+            gh issue comment "$existing" --body-file "$body_file"
+            echo "commented on existing issue #$existing"
+          else
+            gh label create shorts-data-freshness --color B60205 \
+              --description "ASIC shorts data freshness sentinel" 2>/dev/null || true
+            gh issue create --title "$title" --label shorts-data-freshness --body-file "$body_file"
+          fi
+
+      - name: Resolve the freshness alert issue
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          existing="$(gh issue list --state open --label shorts-data-freshness \
+            --json number --jq '.[0].number // empty' 2>/dev/null || true)"
+          if [[ -n "$existing" ]]; then
+            gh issue close "$existing" --comment "Shorts data freshness is green again: $RUN_URL"
+            echo "closed issue #$existing"
+          fi

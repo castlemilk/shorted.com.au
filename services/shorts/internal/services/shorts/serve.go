@@ -634,7 +634,16 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 			merged = append(merged, jobs...)
 			merged = append(merged, crawlJobs...)
 			jobs = merged
+		} else {
+			// Still copy before mutating: applySyncStatusDetail writes into the
+			// slice, and `jobs` may be the collector's internal cached slice.
+			jobs = append([]jobmonitor.JobStatus(nil), jobs...)
 		}
+
+		// Fold the sync_status row into the shorts-data-sync entry. Cloud Run only
+		// knows the container exited 0; sync_status knows whether it wrote anything
+		// — the difference is the "exit 0 but did nothing" failure class.
+		jobs = applySyncStatusDetail(jobs, s.syncStatusDetail(), time.Now().UTC())
 
 		type Response struct {
 			Jobs  []jobmonitor.JobStatus `json:"jobs"`
