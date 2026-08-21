@@ -379,15 +379,42 @@ export async function deleteCached(key: string): Promise<boolean> {
 }
 
 /**
- * Delete all cached keys matching a prefix (event-driven invalidation).
- * Returns the number of keys deleted. Best-effort — logs and returns 0 on error.
+ * Result of a prefix flush. `deleted` counts keys we actually DEL'd; `errors`
+ * carries the message of every SCAN/DEL failure encountered.
+ *
+ * The pair exists because the two outcomes used to be indistinguishable: on
+ * 2026-08-21 Upstash hit its 500k-command monthly cap and began REJECTING
+ * writes and DELs while still serving reads, so every flush failed, was
+ * swallowed, and reported `0` — the same value a clean "nothing to delete"
+ * flush returns. /api/revalidate kept answering `revalidated: true` for days
+ * while the page cache was frozen read-only. A flush that could not run must
+ * say so out loud.
  */
-export async function deleteCachedByPrefix(prefix: string): Promise<number> {
+export interface PrefixFlushResult {
+  deleted: number;
+  errors: string[];
+}
+
+function flushErrorMessage(prefix: string, error: unknown): string {
+  const detail = error instanceof Error ? error.message : String(error);
+  return `${prefix}: ${detail}`;
+}
+
+/**
+ * Delete all cached keys matching a prefix (event-driven invalidation).
+ *
+ * Never throws — a partially-completed flush still reports the keys it did
+ * delete — but errors are RETURNED rather than swallowed so callers can tell a
+ * failed flush from an empty one.
+ */
+export async function deleteCachedByPrefix(
+  prefix: string,
+): Promise<PrefixFlushResult> {
   // Standard Redis via ioredis — SCAN + DEL in batches
   if (ioRedis) {
+    let deleted = 0;
     try {
       let cursor = "0";
-      let deleted = 0;
       do {
         const [next, keys] = await ioRedis.scan(
           cursor,
@@ -402,18 +429,18 @@ export async function deleteCachedByPrefix(prefix: string): Promise<number> {
           deleted += keys.length;
         }
       } while (cursor !== "0");
-      return deleted;
+      return { deleted, errors: [] };
     } catch (error) {
       console.error(`Cache prefix-delete error for ${prefix}:`, error);
-      return 0;
+      return { deleted, errors: [flushErrorMessage(prefix, error)] };
     }
   }
 
   // Upstash REST API — SCAN + DEL
   if (upstashRedis) {
+    let deleted = 0;
     try {
       let cursor = 0;
-      let deleted = 0;
       do {
         const [next, keys] = await upstashRedis.scan(cursor, {
           match: `${prefix}*`,
@@ -425,15 +452,15 @@ export async function deleteCachedByPrefix(prefix: string): Promise<number> {
           deleted += keys.length;
         }
       } while (cursor !== 0);
-      return deleted;
+      return { deleted, errors: [] };
     } catch (error) {
       console.error(`Cache prefix-delete error for ${prefix}:`, error);
-      return 0;
+      return { deleted, errors: [flushErrorMessage(prefix, error)] };
     }
   }
 
   // In-memory fallback (dev) has no prefix iteration; dev doesn't need flushing.
-  return 0;
+  return { deleted: 0, errors: [] };
 }
 
 /**

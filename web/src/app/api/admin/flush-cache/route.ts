@@ -44,14 +44,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   let flushedKeys = 0;
+  const flushErrors: string[] = [];
   for (const prefix of prefixes) {
-    flushedKeys += await deleteCachedByPrefix(prefix);
+    const result = await deleteCachedByPrefix(prefix);
+    flushedKeys += result.deleted;
+    flushErrors.push(...result.errors);
   }
   if (body.path) revalidatePath(body.path);
 
+  // A flush that could not run must not read as a clean "0 keys" flush — see
+  // the 2026-08-21 Upstash command-cap freeze (deleteCachedByPrefix).
   return NextResponse.json({
     flushed: body.target,
     flushedKeys,
+    flushErrors,
+    ok: flushErrors.length === 0,
     revalidated: body.path ?? null,
     timestamp: Date.now(),
   });

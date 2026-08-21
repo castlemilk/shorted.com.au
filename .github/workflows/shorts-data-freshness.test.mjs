@@ -7,7 +7,11 @@ import { fileURLToPath } from "node:url";
 import {
   ASX_HOLIDAYS,
   STALE_TRADING_DAYS,
+  SURFACE_LAG_TRADING_DAYS,
+  TOP_PAGE_URL,
   evaluate,
+  evaluateSurface,
+  extractRenderedAsAt,
   isTradingDay,
   run,
   sydneyToday,
@@ -127,6 +131,96 @@ test("run() passes on a fresh payload", async () => {
   });
   assert.equal(code, 0);
   assert.match(lines[0], /^OK\t/);
+});
+
+test("the rendered as-at date is read out of the /top title", () => {
+  const title = "<title>Most Shorted ASX Stocks — as at 14 Aug 2026 | Shorted</title>";
+  assert.equal(extractRenderedAsAt(title), "2026-08-14");
+  // Single-digit day, and the long month name en-AU can emit.
+  assert.equal(extractRenderedAsAt("as at 3 September 2026"), "2026-09-03");
+  // The undated fallback title carries no date at all.
+  assert.equal(
+    extractRenderedAsAt("<title>Most Shorted ASX Stocks — Top 100 | Shorted</title>"),
+    null,
+  );
+  assert.equal(extractRenderedAsAt("as at 14 Foo 2026"), null);
+  assert.equal(extractRenderedAsAt(undefined), null);
+});
+
+test("a rendered date matching the API is clean", () => {
+  const { violations, info } = evaluateSurface("2026-08-14", "2026-08-14");
+  assert.deepEqual(violations, []);
+  assert.equal(info[0], "OK");
+});
+
+test("one trading day of lag is tolerated (sync/revalidate race)", () => {
+  const { violations } = evaluateSurface("2026-08-13", "2026-08-14");
+  assert.equal(tradingDaysBetween("2026-08-13", "2026-08-14"), SURFACE_LAG_TRADING_DAYS);
+  assert.deepEqual(violations, []);
+});
+
+// The 2026-08-21 read-only-cache freeze: the API was fresh the whole time, so
+// only an end-to-end comparison could have seen it.
+test("a frozen page behind a fresh API is a SURFACE_STALENESS breach", () => {
+  const { violations } = evaluateSurface("2026-08-07", "2026-08-14");
+  assert.equal(violations.length, 1);
+  assert.equal(violations[0][0], "SURFACE_STALENESS");
+  assert.match(violations[0][2], /2026-08-07/);
+  assert.match(violations[0][2], /2026-08-14/);
+});
+
+test("an unreadable /top is its own label, never a false breach", () => {
+  const fetchFailed = evaluateSurface(null, "2026-08-14", { error: "HTTP 503" });
+  assert.deepEqual(fetchFailed.violations, []);
+  assert.equal(fetchFailed.info[0], "SURFACE_UNCHECKABLE");
+  assert.equal(fetchFailed.info[1], TOP_PAGE_URL);
+
+  const noDateInTitle = evaluateSurface(null, "2026-08-14");
+  assert.deepEqual(noDateInTitle.violations, []);
+  assert.equal(noDateInTitle.info[0], "SURFACE_UNCHECKABLE");
+});
+
+test("run() breaches when /top renders a date behind the API's newest", async () => {
+  const lines = [];
+  const code = await run({
+    fetchImpl: async (url) =>
+      url === TOP_PAGE_URL
+        ? { ok: true, text: async () => "<title>… as at 7 Aug 2026 | Shorted</title>" }
+        : { ok: true, json: async () => ({ dates: ["2026-08-20"] }) },
+    now: new Date("2026-08-21T20:07:00Z"),
+    out: (line) => lines.push(line),
+  });
+  assert.equal(code, 1);
+  assert.match(lines[0], /^SURFACE_STALENESS\t/);
+});
+
+test("run() stays green (with an UNCHECKABLE note) when /top cannot be fetched", async () => {
+  const lines = [];
+  const code = await run({
+    fetchImpl: async (url) => {
+      if (url === TOP_PAGE_URL) throw new Error("ECONNRESET");
+      return { ok: true, json: async () => ({ dates: ["2026-08-20"] }) };
+    },
+    now: new Date("2026-08-21T20:07:00Z"),
+    out: (line) => lines.push(line),
+  });
+  assert.equal(code, 0);
+  assert.match(lines[0], /^OK\tshorts\.DATE\t/);
+  assert.match(lines.at(-1), /^SURFACE_UNCHECKABLE\t/);
+});
+
+test("run() reports both ends when /top and the API agree", async () => {
+  const lines = [];
+  const code = await run({
+    fetchImpl: async (url) =>
+      url === TOP_PAGE_URL
+        ? { ok: true, text: async () => "as at 20 Aug 2026 | Shorted" }
+        : { ok: true, json: async () => ({ dates: ["2026-08-20"] }) },
+    now: new Date("2026-08-21T20:07:00Z"),
+    out: (line) => lines.push(line),
+  });
+  assert.equal(code, 0);
+  assert.match(lines.at(-1), /^OK\t\/top \(rendered\)\t/);
 });
 
 test("sydneyToday uses the Australian calendar date, not UTC's", () => {

@@ -4,7 +4,9 @@ import { POST } from "../route";
 
 const revalidatePathMock = jest.fn();
 const revalidateTagMock = jest.fn();
-const deleteCachedByPrefixMock = jest.fn().mockResolvedValue(0);
+const deleteCachedByPrefixMock = jest
+  .fn()
+  .mockResolvedValue({ deleted: 0, errors: [] });
 
 jest.mock("next/cache", () => ({
   revalidatePath: (...args: unknown[]) => revalidatePathMock(...args),
@@ -24,6 +26,7 @@ describe("POST /api/revalidate", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    deleteCachedByPrefixMock.mockResolvedValue({ deleted: 0, errors: [] });
     process.env.REVALIDATION_SECRET = "test-revalidation-secret";
   });
 
@@ -78,6 +81,47 @@ describe("POST /api/revalidate", () => {
 
     expect(response.status).toBe(401);
     expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+
+  it("reports a successful flush as revalidated with no errors", async () => {
+    deleteCachedByPrefixMock.mockResolvedValue({ deleted: 7, errors: [] });
+    const req = request(
+      "http://localhost/api/revalidate?flush=shorts",
+      "test-revalidation-secret",
+    );
+
+    const response = await POST(req);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.revalidated).toBe(true);
+    expect(body.flushedKeys).toBe(7);
+    expect(body.flushErrors).toEqual([]);
+  });
+
+  // The 2026-08-21 freeze: Upstash rejected every DEL while still serving reads,
+  // the flush swallowed the error and returned 0, and this route kept answering
+  // `revalidated: true`. HTTP stays 200 (callers are best-effort) but the body
+  // must be honest.
+  it("surfaces flush failures in the body while keeping HTTP 200", async () => {
+    deleteCachedByPrefixMock.mockResolvedValue({
+      deleted: 0,
+      errors: ["cache:shorts:: ERR max requests limit exceeded"],
+    });
+    const req = request(
+      "http://localhost/api/revalidate?path=/top&flush=shorts",
+      "test-revalidation-secret",
+    );
+
+    const response = await POST(req);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.revalidated).toBe(false);
+    expect(body.flushedKeys).toBe(0);
+    expect(body.flushErrors).toEqual([
+      "cache:shorts:: ERR max requests limit exceeded",
+    ]);
   });
 
   it.each(["wrong", "test-revalidation-secret-extra"])(

@@ -86,6 +86,7 @@ export async function POST(request: NextRequest) {
   }
 
   let flushedKeys = 0;
+  const flushErrors: string[] = [];
   for (const target of flushTargets) {
     const prefixes = FLUSH_PREFIXES[target];
     if (!prefixes) continue; // unknown flush name — ignore, keep other work
@@ -93,15 +94,31 @@ export async function POST(request: NextRequest) {
     // TTL-only overview entries (the admin panel's poisoned-entry clear relies
     // on this being a superset of cache:housing:overview:).
     for (const prefix of prefixes) {
-      flushedKeys += await deleteCachedByPrefix(prefix);
+      const result = await deleteCachedByPrefix(prefix);
+      flushedKeys += result.deleted;
+      flushErrors.push(...result.errors);
     }
   }
 
+  // HTTP stays 200 even when the flush failed: every caller (the Python sync,
+  // the publish CLI, the crawl wrappers) treats this endpoint as best-effort and
+  // some of them abort a pipeline on a non-2xx. The BODY carries the truth —
+  // `revalidated` is false and `flushErrors` names each failing prefix.
+  //
+  // Why this matters: on 2026-08-21 Upstash hit its monthly command cap and
+  // rejected every DEL while still serving reads. The flush silently returned 0,
+  // this route answered `revalidated: true`, and the page cache stayed frozen
+  // for days with nobody able to see it from the response.
+  if (flushErrors.length > 0) {
+    console.error("Revalidate: cache flush failed", flushErrors);
+  }
+
   return NextResponse.json({
-    revalidated: true,
+    revalidated: flushErrors.length === 0,
     tags,
     paths,
     flushedKeys,
+    flushErrors,
     timestamp: Date.now(),
   });
 }

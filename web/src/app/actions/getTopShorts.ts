@@ -19,6 +19,7 @@ import {
   filterTopShortsResponse,
   hasOnlyEligibleTopShortsInstruments,
 } from "~/@/lib/top-shorts-filter";
+import { isCachedShortsDataStale } from "~/@/lib/cache-freshness";
 
 function isUsableTopShortsResponse(
   response: GetTopShortsResponse | null,
@@ -45,7 +46,13 @@ export const getTopShortsData = cache(
       const cacheKey = CACHE_KEYS.topShorts(period, limit, offset);
 
       const cached = await getCached<GetTopShortsResponse>(cacheKey);
-      if (isUsableTopShortsResponse(cached, offset)) {
+      // Structurally usable AND not frozen — see isCachedShortsDataStale and the
+      // 2026-08-21 read-only-cache incident. Applied to the cached entry only;
+      // a freshly fetched response is served whatever its date.
+      if (
+        isUsableTopShortsResponse(cached, offset) &&
+        !isCachedShortsDataStale(cached.timeSeries)
+      ) {
         return cached;
       }
       if (cached !== null) {
