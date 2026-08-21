@@ -16,6 +16,7 @@ import {
 import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { siteConfig } from "~/@/config/site";
 import { isEligibleTopShortsInstrument } from "~/@/lib/top-shorts-filter";
+import { isCachedShortsDataStale } from "~/@/lib/cache-freshness";
 
 /**
  * Serialized time series point for caching
@@ -200,6 +201,12 @@ function getLastUpdatedTimestamp(timeSeries: SerializedTimeSeriesData[]): string
     : new Date().toISOString();
 }
 
+/**
+ * Structural usability. Shared by the cache read and the post-build write, so
+ * the freshness guard below is deliberately NOT part of it — freshly built data
+ * is whatever the API just said and must be served and stored even when the
+ * source itself is lagging.
+ */
 function isUsableTopPageData(data: TopPageData | null): data is TopPageData {
   return (
     !!data &&
@@ -263,10 +270,18 @@ export async function getTopPageData(
   const cacheKey = CACHE_KEYS.topPageData(period, limit);
 
   const cached = await getCached<TopPageData>(cacheKey);
-  if (isUsableTopPageData(cached)) {
+  // A cached entry must be structurally usable AND not frozen. The age check is
+  // intrinsic (no extra fetch on the hot path) and exists because of the
+  // 2026-08-21 Upstash command-cap incident, where the cache went read-only:
+  // DELs and SETs were rejected while reads kept being served, so this entry —
+  // and the /top title built from it — sat on the same ASIC date for days. See
+  // isCachedShortsDataStale for the bound and its rationale.
+  if (isUsableTopPageData(cached) && !isCachedShortsDataStale(cached.timeSeries)) {
     return cached;
   }
   if (cached !== null) {
+    // Best-effort: during a read-only-cache incident this DEL is exactly what is
+    // failing, which is why the age check above (not the delete) is the fix.
     await deleteCached(cacheKey);
   }
 

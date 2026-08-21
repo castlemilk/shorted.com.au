@@ -48,7 +48,7 @@ jobs:
           {
             echo "## Shorts data freshness report"
             echo
-            echo "Threshold: newest ASIC report date older than **6 trading days** (ASIC publishes T+4; weekends and ASX national holidays excluded)."
+            echo "Thresholds: newest ASIC report date older than **6 trading days** (ASIC publishes T+4; weekends and ASX national holidays excluded), or the rendered \`/top\` page more than **1 trading day** behind the API (\`SURFACE_STALENESS\` — a frozen cache layer)."
             echo
             echo '```text'
             echo -e "CHECK\tSOURCE\tDETAIL"

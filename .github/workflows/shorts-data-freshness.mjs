@@ -54,6 +54,27 @@ export const ASX_HOLIDAYS = new Set([
 
 export const HOLIDAY_COVERAGE_END_YEAR = 2027;
 
+// The rendered /top page, read as a customer sees it. Deliberately the Vercel
+// deployment hostname rather than shorted.com.au: it skips the Cloudflare zone
+// (and its bot rules) while still exercising every application-side cache —
+// Next.js ISR, the Redis page cache, and the server action's own KV entry.
+export const TOP_PAGE_URL = "https://shorted-com-au.vercel.app/top";
+
+// /top's <title> is built from the newest ASIC date actually present in the data
+// it renders ("Most Shorted ASX Stocks — as at 14 Aug 2026 | Shorted"). It is
+// therefore a direct read of what the page's cache layers are currently serving.
+const AS_AT_RE = /as at (\d{1,2}) ([A-Za-z]{3,9}) (\d{4})/;
+
+const MONTHS = [
+  "jan", "feb", "mar", "apr", "may", "jun",
+  "jul", "aug", "sep", "oct", "nov", "dec",
+];
+
+// How far the RENDERED date may lag the newest date the API is serving. One
+// trading day of slack absorbs the ordinary race: the sync lands a new date and
+// the revalidation sweep re-renders /top moments later.
+export const SURFACE_LAG_TRADING_DAYS = 1;
+
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Today's calendar date in Australia/Sydney, as YYYY-MM-DD. */
@@ -110,6 +131,101 @@ export async function fetchAvailableDates(fetchImpl = fetch) {
   const payload = await response.json();
   const dates = Array.isArray(payload?.dates) ? payload.dates : [];
   return dates.filter((d) => typeof d === "string" && DATE_RE.test(d));
+}
+
+/**
+ * Pull the "as at D MMM YYYY" date out of a rendered /top document.
+ * Returns YYYY-MM-DD, or null when the page carries the undated fallback title
+ * (or the markup changed) — which the caller reports as UNCHECKABLE, never as a
+ * breach.
+ */
+export function extractRenderedAsAt(html) {
+  if (typeof html !== "string") return null;
+  const match = AS_AT_RE.exec(html);
+  if (!match) return null;
+  const [, day, monthName, year] = match;
+  const monthIndex = MONTHS.indexOf(monthName.slice(0, 3).toLowerCase());
+  if (monthIndex < 0) return null;
+  const iso = `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(
+    Number(day),
+  ).padStart(2, "0")}`;
+  return DATE_RE.test(iso) ? iso : null;
+}
+
+export async function fetchRenderedTopDate(fetchImpl = fetch) {
+  const response = await fetchImpl(TOP_PAGE_URL, {
+    headers: { "User-Agent": USER_AGENT, Accept: "text/html" },
+  });
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status} ${response.statusText || ""}`.trim());
+  }
+  return extractRenderedAsAt(await response.text());
+}
+
+/**
+ * Compare what /top RENDERS against what the API SERVES.
+ *
+ * This is the only check here that sees a frozen cache. On 2026-08-21 Upstash
+ * hit its monthly command cap and went read-only: reads were served, writes and
+ * DELs were rejected, /api/revalidate reported success, and the page cache
+ * stayed pinned to an old ASIC date for days while the API itself was perfectly
+ * fresh — so every data-side check stayed green. Comparing the two ends catches
+ * ANY frozen layer (Redis, ISR, the CDN) regardless of cause.
+ *
+ * `renderedISO === null` means we could not read a date, not that the page is
+ * stale: it is reported as its own non-breaching label.
+ */
+export function evaluateSurface(renderedISO, apiNewestISO, { error = null } = {}) {
+  if (error) {
+    return {
+      violations: [],
+      info: [
+        "SURFACE_UNCHECKABLE",
+        TOP_PAGE_URL,
+        `could not read the rendered /top date: ${error}`,
+      ],
+    };
+  }
+  if (!renderedISO) {
+    return {
+      violations: [],
+      info: [
+        "SURFACE_UNCHECKABLE",
+        TOP_PAGE_URL,
+        "no 'as at <date>' found in the rendered title — the page fell back to " +
+          "its undated title, or the title format changed",
+      ],
+    };
+  }
+  if (!apiNewestISO) return { violations: [], info: null };
+
+  const lag = tradingDaysBetween(renderedISO, apiNewestISO);
+  if (lag > SURFACE_LAG_TRADING_DAYS) {
+    return {
+      violations: [
+        [
+          "SURFACE_STALENESS",
+          "/top (rendered)",
+          `/top renders "as at ${renderedISO}" but the API's newest date is ` +
+            `${apiNewestISO} — ${lag} trading day(s) behind (threshold ` +
+            `${SURFACE_LAG_TRADING_DAYS}). A cache layer is frozen: check the ` +
+            `Redis/Upstash quota and the flushErrors in a POST /api/revalidate ` +
+            `response before re-running the revalidation sweep.`,
+        ],
+      ],
+      info: null,
+    };
+  }
+
+  return {
+    violations: [],
+    info: [
+      "OK",
+      "/top (rendered)",
+      `rendered "as at ${renderedISO}" matches the API's newest date ${apiNewestISO} ` +
+        `(${lag} trading day(s) behind, threshold ${SURFACE_LAG_TRADING_DAYS})`,
+    ],
+  };
 }
 
 /**
@@ -172,15 +288,31 @@ export async function run({ fetchImpl = fetch, now = new Date(), out = console.l
   }
 
   const { violations, newest, ageTradingDays } = evaluate(dates, todayISO);
-  for (const row of violations) out(row.join("\t"));
 
-  if (violations.length === 0) {
+  // Surface check: does the page actually SHOW what the API is serving? Reusing
+  // `newest` from the fetch above keeps this zero-secret and one extra request.
+  let renderedISO = null;
+  let surfaceError = null;
+  try {
+    renderedISO = await fetchRenderedTopDate(fetchImpl);
+  } catch (error) {
+    surfaceError = error.message;
+  }
+  const surface = evaluateSurface(renderedISO, newest, { error: surfaceError });
+  const allViolations = [...violations, ...surface.violations];
+
+  for (const row of allViolations) out(row.join("\t"));
+
+  if (allViolations.length === 0) {
     out(
       `OK\tshorts.DATE\tnewest ${newest} is ${ageTradingDays} trading day(s) old ` +
         `(threshold ${STALE_TRADING_DAYS}) as at ${todayISO} Sydney`,
     );
   }
-  return violations.length === 0 ? 0 : 1;
+  // Informational tail (OK / UNCHECKABLE) — never a breach on its own.
+  if (surface.info) out(surface.info.join("\t"));
+
+  return allViolations.length === 0 ? 0 : 1;
 }
 
 // `node shorts-data-freshness.mjs` runs the check; importing it does not.

@@ -61,6 +61,7 @@ export function CachePanel() {
       });
       const body = (await res.json().catch(() => ({}))) as {
         flushedKeys?: number;
+        flushErrors?: string[];
         revalidated?: string | null;
         error?: string;
       };
@@ -70,6 +71,20 @@ export function CachePanel() {
           [t.target]: {
             state: "error",
             message: body.error ?? `HTTP ${res.status}`,
+          },
+        }));
+        return;
+      }
+      // "0 keys" used to be reported identically whether the flush was clean or
+      // rejected outright (the 2026-08-21 Upstash command-cap freeze). A flush
+      // that could not run is an ERROR here, not a green zero.
+      const flushErrors = body.flushErrors ?? [];
+      if (flushErrors.length > 0) {
+        setStatus((s) => ({
+          ...s,
+          [t.target]: {
+            state: "error",
+            message: `Flush failed: ${flushErrors.join("; ")}`,
           },
         }));
         return;
