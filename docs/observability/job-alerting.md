@@ -115,6 +115,53 @@ answered without it.
 (GCP-native). Use it to see the last N executions per job, durations, and error
 text. It is a dashboard, not a detector.
 
+### "Run now" — on-demand execution
+
+Each non-retired Cloud Run Job row has a **Run** button:
+`/admin` → server action `runJobNow` (`web/src/app/actions/runJob.ts`,
+`requireAdmin()`-gated) → `POST /api/admin/jobs/run` on the shorts API
+(`INTERNAL_SERVICE_SECRET`, `services/shorts/internal/services/shorts/jobs_run.go`)
+→ `jobmonitor.Collector.RunJob` → Cloud Run `projects.locations.jobs.run`.
+
+The name a caller sends is **never** passed through to GCP. It is resolved
+against the fleet the collector has actually observed, and only the resolved
+job's own name + region are used. That produces four refusals:
+
+| Response | Meaning |
+|---|---|
+| `404 unknown_job` | Not in the collected fleet (or the supplied region disagrees with where the job is deployed). |
+| `409 not_executable` | A scheduler-only *service* row or a residential *rig* row — there is no Cloud Run Job to execute. |
+| `409 retired` | Marked `Retired` in the jobmonitor catalog (superseded, schedulers paused on purpose). Run its replacement. |
+| `409 already_running` | An execution is in flight. Carries `executionName`, `runningForSeconds`, and `forceable: true`. |
+| `202` | Accepted — body has the created `executionName`. |
+
+**Force semantics.** `{"force": true}` overrides the already-running guard and
+**only** that guard: a retired or unknown job stays refused with force set. It
+exists because the ASIC short-positions sync legitimately runs 26–29h, so a
+deliberate parallel run has to be possible — but never accidental. The console
+therefore offers Force *only after* a first 409 `already_running`; the button
+starts as a plain "Run".
+
+Every accepted run writes an audit line to the shorts API log:
+`AUDIT jobs/run actor=… job=… region=… execution=… forced=… previous=…`. The
+actor is the admin's verified email, forwarded as `x-admin-actor` by the server
+action; a direct caller holding only the internal secret is audited as
+`unknown (internal secret)`.
+
+**IAM.** The shorts service account (`shorts@<project>`) holds
+`roles/run.invoker` **per job** — `google_cloud_run_v2_job_iam_member.shorts_api_run_now`,
+a `for_each` over `local.admin_runnable_jobs` in `terraform/environments/{prod,dev}/main.tf`.
+Per-job rather than a project-level role for two reasons: the CI deploy SA cannot
+`setIamPolicy` at the project level (project-level grants have to be `import`ed,
+not created), and a job-scoped grant means the console can execute exactly the
+listed jobs and nothing else. `roles/run.invoker` is the weakest role carrying
+`run.jobs.run`; `roles/run.developer` would also permit `runWithOverrides`
+(executing a job with a different command/env), which this endpoint must never do.
+
+Adding a new job module means adding a line to that map — otherwise "Run now"
+returns `502 run_failed` for it with a permission error in the logs. Retired jobs
+are deliberately absent from the map: the API refuses them anyway.
+
 ## How to respond
 
 **A GCP email alert (`Cloud Run Job execution failed` / `logged ERROR / timeout`)**

@@ -1,4 +1,9 @@
+"use client";
+
+import { useState } from "react";
 import type { JobsOverview as JobsOverviewData, JobStatus } from "~/app/actions/getJobsOverview";
+import { runJobNow, type RunJobResult } from "~/app/actions/runJob";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -28,6 +33,8 @@ import {
   CalendarClock,
   CalendarX,
   Archive,
+  Play,
+  Loader2,
 } from "lucide-react";
 
 function relative(ts: string): string {
@@ -197,7 +204,100 @@ function byProblemsFirst(a: JobStatus, b: JobStatus): number {
   return a.displayName.localeCompare(b.displayName);
 }
 
+/**
+ * Per-job run state. `started` survives a re-render so the row keeps reading
+ * "running" after an optimistic flip, and `blocked` is set ONLY by a 409
+ * already-running response — which is what unlocks the force option. Force is
+ * never offered up front: the guard exists precisely so a parallel run is a
+ * second, deliberate decision.
+ */
+type RunState =
+  | { phase: "idle" }
+  | { phase: "busy" }
+  | { phase: "started"; executionName?: string }
+  | { phase: "blocked"; message: string; forceable: boolean }
+  | { phase: "error"; message: string };
+
+function RunNowButton({
+  job,
+  state,
+  onState,
+}: {
+  job: JobStatus;
+  state: RunState;
+  onState: (s: RunState) => void;
+}) {
+  // Only Cloud Run Jobs are executable: scheduler-only "service" rows and the
+  // residential rig have nothing to run, and retired jobs are refused backend-side.
+  if (job.type !== "job" || job.retired) {
+    return <span className="text-muted-foreground/30">–</span>;
+  }
+
+  async function run(force: boolean) {
+    const confirmed = force
+      ? window.confirm(
+          `${job.displayName} already has a run in flight.\n\nStart a SECOND, parallel execution anyway?`,
+        )
+      : window.confirm(`Run ${job.displayName} now?`);
+    if (!confirmed) return;
+
+    onState({ phase: "busy" });
+    const res: RunJobResult = await runJobNow({
+      job: job.name,
+      region: job.region,
+      force,
+    });
+
+    if (res.ok) {
+      onState({ phase: "started", executionName: res.executionName });
+      return;
+    }
+    if (res.code === "already_running" && res.forceable) {
+      onState({ phase: "blocked", message: res.message, forceable: true });
+      return;
+    }
+    onState({ phase: "error", message: res.message });
+  }
+
+  if (state.phase === "started") {
+    return (
+      <span
+        className="text-[10px] text-emerald-600 dark:text-emerald-400"
+        title={state.executionName}
+      >
+        started
+      </span>
+    );
+  }
+
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      className="h-7 gap-1 px-2 text-xs"
+      disabled={state.phase === "busy"}
+      onClick={() => void run(state.phase === "blocked" && state.forceable)}
+      title={
+        state.phase === "blocked"
+          ? `${state.message} — run anyway (force)`
+          : `Execute ${job.name} now`
+      }
+    >
+      {state.phase === "busy" ? (
+        <Loader2 className="h-3 w-3 animate-spin" />
+      ) : (
+        <Play className="h-3 w-3" />
+      )}
+      {state.phase === "blocked" ? "Force" : "Run"}
+    </Button>
+  );
+}
+
 export function JobsOverview({ overview }: { overview: JobsOverviewData }) {
+  const [runStates, setRunStates] = useState<Record<string, RunState>>({});
+  const setRunState = (name: string, s: RunState) =>
+    setRunStates((prev) => ({ ...prev, [name]: s }));
+
   const { stale, errored } = overview;
   const jobs = [...overview.jobs].sort(byProblemsFirst);
 
@@ -269,10 +369,20 @@ export function JobsOverview({ overview }: { overview: JobsOverviewData }) {
                   <TableHead>Last run</TableHead>
                   <TableHead className="text-right">Duration</TableHead>
                   <TableHead className="w-[60px]">Logs</TableHead>
+                  <TableHead className="w-[80px] text-right">Run</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {jobs.map((job) => (
+                {jobs.map((job) => {
+                  const runState: RunState = runStates[job.name] ?? { phase: "idle" };
+                  // Optimistic flip: the moment a run is accepted the row reads
+                  // "running", rather than showing the pre-run status until the
+                  // next poll and inviting a second click.
+                  const shown: JobStatus =
+                    runState.phase === "started" || runState.phase === "busy"
+                      ? { ...job, health: "running", lastRunStatus: "running", message: "" }
+                      : job;
+                  return (
                   <TableRow
                     key={job.name}
                     className={
@@ -288,7 +398,7 @@ export function JobsOverview({ overview }: { overview: JobsOverviewData }) {
                     }
                   >
                     <TableCell>
-                      <JobHealthBadge job={job} />
+                      <JobHealthBadge job={shown} />
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col">
@@ -333,6 +443,26 @@ export function JobsOverview({ overview }: { overview: JobsOverviewData }) {
                             title={job.message}
                           >
                             {job.message}
+                          </span>
+                        )}
+                        {/* Run-now feedback, inline with the job it belongs to. */}
+                        {runState.phase === "started" && (
+                          <span className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-0.5">
+                            Execution started
+                            {runState.executionName ? `: ${runState.executionName}` : ""}
+                          </span>
+                        )}
+                        {runState.phase === "blocked" && (
+                          <span className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5 max-w-[420px]">
+                            {runState.message} — press Force to run a second, parallel execution.
+                          </span>
+                        )}
+                        {runState.phase === "error" && (
+                          <span
+                            className="text-[11px] text-red-600 dark:text-red-400 mt-0.5 max-w-[420px] truncate cursor-help"
+                            title={runState.message}
+                          >
+                            {runState.message}
                           </span>
                         )}
                       </div>
@@ -388,11 +518,19 @@ export function JobsOverview({ overview }: { overview: JobsOverviewData }) {
                         <span className="text-muted-foreground/30">–</span>
                       )}
                     </TableCell>
+                    <TableCell className="text-right">
+                      <RunNowButton
+                        job={job}
+                        state={runState}
+                        onState={(s) => setRunState(job.name, s)}
+                      />
+                    </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
                 {jobs.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground h-24">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground h-24">
                       No scheduled jobs found.
                     </TableCell>
                   </TableRow>

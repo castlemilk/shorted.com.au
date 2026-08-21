@@ -177,6 +177,9 @@ func splitCSV(s string) []string {
 type Collector struct {
 	cfg Config
 	ttl time.Duration
+	// runner executes a job on demand (see run.go). nil means the default
+	// Cloud Run backend; tests inject a stub.
+	runner Runner
 
 	mu       sync.Mutex
 	cached   []JobStatus
@@ -185,7 +188,7 @@ type Collector struct {
 
 // NewCollector builds a Collector with a 60s cache TTL.
 func NewCollector(cfg Config) *Collector {
-	return &Collector{cfg: cfg, ttl: 60 * time.Second}
+	return &Collector{cfg: cfg, ttl: 60 * time.Second, runner: cloudRunRunner{}}
 }
 
 // Collect returns the unified job status list, served from cache when fresh.

@@ -104,6 +104,14 @@ func adminAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// writeJobRunError emits the machine-readable refusal shape the admin console
+// switches on ({error, message}) with the given status.
+func writeJobRunError(w http.ResponseWriter, status int, code, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]string{"error": code, "message": message})
+}
+
 // envOr returns the value of the environment variable named by key, or
 // fallback if the variable is unset or empty.
 func envOr(key, fallback string) string {
@@ -656,6 +664,10 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 			return
 		}
 	}))
+
+	// Admin: run a job on demand — POST /api/admin/jobs/run.
+	// Handler body lives in jobs_run.go so it can be unit-tested without a server.
+	mux.HandleFunc("/api/admin/jobs/run", adminAuthMiddleware(adminJobsRunHandler(logger, s.jobsCollector)))
 
 	// Admin: list broadcasts
 	mux.HandleFunc("/api/admin/broadcasts", adminAuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
