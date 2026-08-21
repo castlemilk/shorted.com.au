@@ -53,11 +53,19 @@ export async function fetchEdgeReadJson<T>(
 
   const url = buildEdgeReadUrl(baseUrl, path, params);
   const signal = timeoutSignal(EDGE_READ_TIMEOUT_MS);
-  const init: RequestInit & { next?: { revalidate: number } } = {
+  const init: RequestInit & {
+    next?: { revalidate: number; tags: string[] };
+  } = {
     method: "GET",
     headers: { Accept: "application/json" },
     ...(signal ? { signal } : {}),
-    next: { revalidate: EDGE_READ_REVALIDATE_SECONDS },
+    // The tag is load-bearing: an untagged fetch entry lives its full 24h
+    // regardless of revalidateTag/revalidatePath — it was the last layer of
+    // stacked staleness keeping /top on old data for a day after every sync
+    // (found 2026-08-21: page cache busted, KV flushed, edge fresh, and the
+    // regen still read this entry). Every edge-read consumer is shorts-derived,
+    // so the daily sync's revalidation (tag=shorts-data) now busts them all.
+    next: { revalidate: EDGE_READ_REVALIDATE_SECONDS, tags: ["shorts-data"] },
   };
 
   try {
