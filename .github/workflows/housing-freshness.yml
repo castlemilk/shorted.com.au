@@ -235,7 +235,7 @@ jobs:
 
             UNION ALL
 
-            -- DROP_INDEX_STALENESS: the daily drop-index compute writes one
+            -- DROP_INDEX_STALENESS: the daily drop_index compute writes one
             -- snapshot_date per day into housing_drop_index_daily. Its Cloud
             -- Scheduler trigger shipped born-broken in #436 (v2 timeout field
             -- in a v1 body → INVALID_ARGUMENT on every attempt) and NOTHING
@@ -248,7 +248,7 @@ jobs:
               'DROP_INDEX_STALENESS',
               'housing_drop_index_daily',
               CASE
-                WHEN d.max_date IS NULL THEN 'no national drop-index rows at all'
+                WHEN d.max_date IS NULL THEN 'no national drop_index rows at all'
                 ELSE format(
                   'latest snapshot_date=%s (threshold: 54h behind now)',
                   d.max_date
