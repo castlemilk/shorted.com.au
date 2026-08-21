@@ -30,40 +30,82 @@ import (
 type Health string
 
 const (
-	HealthOK       Health = "ok"
-	HealthRunning  Health = "running"
-	HealthWarning  Health = "warning" // succeeded but stale, or scheduler paused
+	HealthOK      Health = "ok"
+	HealthRunning Health = "running"
+	// HealthOverdue: the last run SUCCEEDED, but that success is older than the
+	// job's cadence allows — i.e. a scheduled run silently did not happen. This is
+	// deliberately distinct from HealthWarning: a failing job screams, but a job
+	// that simply stopped being triggered is the outage mode that hides for days.
+	HealthOverdue  Health = "overdue"
+	HealthWarning  Health = "warning" // paused scheduler, stuck run, degraded
 	HealthCritical Health = "critical"
 	HealthUnknown  Health = "unknown" // never run / no data
 )
 
+// Trigger is ONE Cloud Scheduler entry pointing at a job. A job can have many
+// (shorted-news has five, house-price-collector two); collapsing them to a single
+// "schedule" column hid whole cadences from the console, so all of them travel.
+type Trigger struct {
+	Name          string `json:"name"`
+	Schedule      string `json:"schedule"`
+	ScheduleHuman string `json:"scheduleHuman"`
+	State         string `json:"state"` // ENABLED | PAUSED
+	LastAttemptAt string `json:"lastAttemptAt"`
+	LastStatus    string `json:"lastStatus"` // succeeded | failed | never
+}
+
+// RecordCount is a per-run volume metric from a job's own bookkeeping (currently
+// only the sync_status table). Purely for display.
+type RecordCount struct {
+	Label string `json:"label"`
+	Count int64  `json:"count"`
+}
+
 // JobStatus is the unified, source-agnostic status of a single scheduled job.
 type JobStatus struct {
-	Name            string  `json:"name"`
-	DisplayName     string  `json:"displayName"`
-	Category        string  `json:"category"`
-	Type            string  `json:"type"` // "job" (Cloud Run Job) | "service" (scheduler-triggered HTTP service)
-	Schedule        string  `json:"schedule"`
-	ScheduleHuman   string  `json:"scheduleHuman"`
-	SchedulerState  string  `json:"schedulerState"` // ENABLED | PAUSED | ""
-	LastRunAt       string  `json:"lastRunAt"`      // RFC3339, "" if never
-	LastRunStatus   string  `json:"lastRunStatus"`  // succeeded | failed | running | unknown | never
-	LastSuccessAt   string  `json:"lastSuccessAt"`
-	DurationSeconds float64 `json:"durationSeconds"`
-	SucceededCount  int64   `json:"succeededCount"`
-	FailedCount     int64   `json:"failedCount"`
-	RunningCount    int64   `json:"runningCount"`
-	ExecutionName   string  `json:"executionName"`
-	Message         string  `json:"message"`
-	LogUri          string  `json:"logUri"`
-	LastAttemptAt   string  `json:"lastAttemptAt"` // scheduler last trigger attempt
-	Health          Health  `json:"health"`
+	Name           string `json:"name"`
+	DisplayName    string `json:"displayName"`
+	Category       string `json:"category"`
+	Type           string `json:"type"`   // "job" (Cloud Run Job) | "service" (scheduler-triggered HTTP service) | "rig"
+	Region         string `json:"region"` // Cloud Run region the job is deployed in
+	Schedule       string `json:"schedule"`
+	ScheduleHuman  string `json:"scheduleHuman"`
+	SchedulerState string `json:"schedulerState"` // ENABLED | PAUSED | ""
+	// Triggers lists EVERY Cloud Scheduler entry that fires this job. Schedule/
+	// ScheduleHuman above are the "primary" (tightest enabled cadence) trigger.
+	Triggers        []Trigger `json:"triggers,omitempty"`
+	LastRunAt       string    `json:"lastRunAt"`     // RFC3339, "" if never
+	LastRunStatus   string    `json:"lastRunStatus"` // succeeded | failed | running | unknown | never
+	LastSuccessAt   string    `json:"lastSuccessAt"`
+	DurationSeconds float64   `json:"durationSeconds"`
+	SucceededCount  int64     `json:"succeededCount"`
+	FailedCount     int64     `json:"failedCount"`
+	RunningCount    int64     `json:"runningCount"`
+	ExecutionName   string    `json:"executionName"`
+	Message         string    `json:"message"`
+	// Note is static operator context from the catalog (why a job is retired,
+	// how it is triggered). Distinct from Message, which is run-derived.
+	Note    string `json:"note,omitempty"`
+	Retired bool   `json:"retired,omitempty"`
+	LogUri  string `json:"logUri"`
+	// ExpectedMaxGapSeconds is the cadence-derived ceiling on the interval between
+	// successful runs; OverdueBySeconds is how far past it we are (0 when fine).
+	ExpectedMaxGapSeconds float64       `json:"expectedMaxGapSeconds,omitempty"`
+	OverdueBySeconds      float64       `json:"overdueBySeconds,omitempty"`
+	Records               []RecordCount `json:"records,omitempty"`
+	LastAttemptAt         string        `json:"lastAttemptAt"` // scheduler last trigger attempt
+	Health                Health        `json:"health"`
 }
 
 // Config controls which project/regions are queried.
 type Config struct {
-	ProjectID       string
-	RunRegion       string
+	ProjectID string
+	// RunRegions is every Cloud Run region to enumerate jobs in. It MUST be a
+	// list: batch jobs are deliberately split across regions for Tier-1 pricing
+	// (asx-discovery + stock-price ingestion live in us-central1 while everything
+	// else is australia-southeast2), so a single-region collector silently omits
+	// them from the fleet.
+	RunRegions      []string
 	SchedulerRegion string
 }
 
@@ -76,11 +118,58 @@ func ConfigFromEnv() Config {
 		os.Getenv("GCP_PROJECT_ID"),
 		os.Getenv("GOOGLE_CLOUD_PROJECT_ID"),
 	)
+	// JOBS_RUN_REGIONS (csv) is an explicit override — whatever it says, that's the
+	// list. Otherwise we scan the regions prod actually deploys jobs to (verified
+	// 2026-08-21), UNIONed with the legacy singular JOBS_RUN_REGION.
+	//
+	// The union matters: terraform sets JOBS_RUN_REGION to the API's own region,
+	// so treating the singular var as a replacement would keep the collector blind
+	// to the us-central1 jobs (asx-discovery) until a terraform apply lands. The
+	// list of regions to LOOK IN is not the same question as where the API runs.
+	var regions []string
+	if explicit := os.Getenv("JOBS_RUN_REGIONS"); explicit != "" {
+		regions = splitCSV(explicit)
+	} else {
+		regions = dedupe(append(
+			splitCSV(defaultRunRegions),
+			splitCSV(os.Getenv("JOBS_RUN_REGION"))...,
+		))
+	}
 	return Config{
 		ProjectID:       project,
-		RunRegion:       firstNonEmpty(os.Getenv("JOBS_RUN_REGION"), "australia-southeast2"),
+		RunRegions:      regions,
 		SchedulerRegion: firstNonEmpty(os.Getenv("JOBS_SCHEDULER_REGION"), "australia-southeast1"),
 	}
+}
+
+// defaultRunRegions is every Cloud Run region prod deploys jobs to. Batch jobs
+// are split out to us-central1 for Tier-1 pricing (asx-discovery, stock-price
+// ingestion, enrichment-processor) — see terraform/environments/prod/main.tf.
+const defaultRunRegions = "australia-southeast2,us-central1"
+
+// dedupe preserves order and drops repeats.
+func dedupe(in []string) []string {
+	seen := make(map[string]bool, len(in))
+	out := make([]string, 0, len(in))
+	for _, v := range in {
+		if !seen[v] {
+			seen[v] = true
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+// splitCSV parses a comma-separated region list, dropping blanks.
+func splitCSV(s string) []string {
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // Collector lists job status with a short TTL cache so repeated dashboard loads
@@ -88,6 +177,9 @@ func ConfigFromEnv() Config {
 type Collector struct {
 	cfg Config
 	ttl time.Duration
+	// runner executes a job on demand (see run.go). nil means the default
+	// Cloud Run backend; tests inject a stub.
+	runner Runner
 
 	mu       sync.Mutex
 	cached   []JobStatus
@@ -96,7 +188,7 @@ type Collector struct {
 
 // NewCollector builds a Collector with a 60s cache TTL.
 func NewCollector(cfg Config) *Collector {
-	return &Collector{cfg: cfg, ttl: 60 * time.Second}
+	return &Collector{cfg: cfg, ttl: 60 * time.Second, runner: cloudRunRunner{}}
 }
 
 // Collect returns the unified job status list, served from cache when fresh.
@@ -136,46 +228,65 @@ func collect(ctx context.Context, cfg Config, authOpts ...option.ClientOption) (
 		return nil, fmt.Errorf("jobmonitor: project ID not configured (set JOBS_GCP_PROJECT / GOOGLE_CLOUD_PROJECT)")
 	}
 
-	// --- Cloud Run Jobs (regional endpoint) ---
-	runOpts := append([]option.ClientOption{regionalRunEndpoint(cfg.RunRegion)}, authOpts...)
-	runSvc, err := run.NewService(ctx, runOpts...)
-	if err != nil {
-		return nil, fmt.Errorf("jobmonitor: create run client: %w", err)
-	}
-
-	jobsParent := fmt.Sprintf("projects/%s/locations/%s", cfg.ProjectID, cfg.RunRegion)
-	jobsResp, err := runSvc.Projects.Locations.Jobs.List(jobsParent).PageSize(200).Context(ctx).Do()
-	if err != nil {
-		return nil, fmt.Errorf("jobmonitor: list jobs: %w", err)
-	}
-
+	// --- Cloud Run Jobs (one regional endpoint per configured region) ---
 	byName := map[string]*JobStatus{}
 	order := []string{}
-	for _, job := range jobsResp.Jobs {
-		name := basename(job.Name)
-		st := &JobStatus{
-			Name:          name,
-			DisplayName:   humanize(name),
-			Category:      categoryFor(name),
-			Type:          "job",
-			LastRunStatus: "never",
-			Health:        HealthUnknown,
+
+	var lastRegionErr error
+	regionsSeen := 0
+	for _, region := range cfg.RunRegions {
+		runOpts := append([]option.ClientOption{regionalRunEndpoint(region)}, authOpts...)
+		runSvc, err := run.NewService(ctx, runOpts...)
+		if err != nil {
+			lastRegionErr = fmt.Errorf("jobmonitor: create run client (%s): %w", region, err)
+			continue
 		}
 
-		// Latest executions for this job (best-effort).
-		execResp, execErr := runSvc.Projects.Locations.Jobs.Executions.
-			List(job.Name).PageSize(20).Context(ctx).Do()
-		if execErr == nil && execResp != nil && len(execResp.Executions) > 0 {
-			applyExecutions(st, execResp.Executions)
-		} else if job.LatestCreatedExecution != nil {
-			// Fall back to the reference embedded on the job itself.
-			st.ExecutionName = basename(job.LatestCreatedExecution.Name)
-			st.LastRunAt = firstNonEmpty(job.LatestCreatedExecution.CompletionTime, job.LatestCreatedExecution.CreateTime)
-			st.LastRunStatus = "unknown"
+		jobsParent := fmt.Sprintf("projects/%s/locations/%s", cfg.ProjectID, region)
+		jobsResp, err := runSvc.Projects.Locations.Jobs.List(jobsParent).PageSize(200).Context(ctx).Do()
+		if err != nil {
+			// One unreachable region degrades that region, not the whole fleet.
+			lastRegionErr = fmt.Errorf("jobmonitor: list jobs (%s): %w", region, err)
+			continue
 		}
+		regionsSeen++
 
-		byName[name] = st
-		order = append(order, name)
+		for _, job := range jobsResp.Jobs {
+			name := basename(job.Name)
+			if _, dup := byName[name]; dup {
+				continue // same name in two regions: first region wins
+			}
+			st := &JobStatus{
+				Name:          name,
+				Type:          "job",
+				Region:        region,
+				LastRunStatus: "never",
+				Health:        HealthUnknown,
+			}
+			decorate(st)
+
+			// Latest executions for this job (best-effort).
+			execResp, execErr := runSvc.Projects.Locations.Jobs.Executions.
+				List(job.Name).PageSize(20).Context(ctx).Do()
+			if execErr == nil && execResp != nil && len(execResp.Executions) > 0 {
+				applyExecutions(st, execResp.Executions)
+			} else if job.LatestCreatedExecution != nil {
+				// Fall back to the reference embedded on the job itself.
+				st.ExecutionName = basename(job.LatestCreatedExecution.Name)
+				st.LastRunAt = firstNonEmpty(job.LatestCreatedExecution.CompletionTime, job.LatestCreatedExecution.CreateTime)
+				st.LastRunStatus = "unknown"
+			}
+
+			byName[name] = st
+			order = append(order, name)
+		}
+	}
+	// Every configured region failed — that's a hard error (serve stale instead).
+	if regionsSeen == 0 {
+		if lastRegionErr != nil {
+			return nil, lastRegionErr
+		}
+		return nil, fmt.Errorf("jobmonitor: no Cloud Run regions configured")
 	}
 
 	// --- Cloud Scheduler triggers (global endpoint, regional parent) ---
@@ -196,7 +307,11 @@ func collect(ctx context.Context, cfg Config, authOpts ...option.ClientOption) (
 		out = append(out, *st)
 	}
 
+	// Problems first; retired jobs always last so they never sit above a live one.
 	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Retired != out[j].Retired {
+			return !out[i].Retired
+		}
 		return healthRank(out[i].Health) < healthRank(out[j].Health)
 	})
 	return out, nil
@@ -260,14 +375,18 @@ func mergeSchedulers(byName map[string]*JobStatus, order *[]string, schedulers [
 			}
 		}
 
+		trig := Trigger{
+			Name:          sName,
+			Schedule:      sj.Schedule,
+			ScheduleHuman: humanizeCron(sj.Schedule),
+			State:         sj.State,
+			LastAttemptAt: sj.LastAttemptTime,
+			LastStatus:    schedulerStatus(sj),
+		}
+
 		if matched != "" {
 			st := byName[matched]
-			// Prefer the trigger with the most recent attempt as the primary schedule.
-			if st.Schedule == "" || sj.LastAttemptTime > st.LastAttemptAt {
-				st.Schedule = sj.Schedule
-				st.ScheduleHuman = humanizeCron(sj.Schedule)
-				st.SchedulerState = sj.State
-			}
+			st.Triggers = append(st.Triggers, trig)
 			if sj.LastAttemptTime > st.LastAttemptAt {
 				st.LastAttemptAt = sj.LastAttemptTime
 			}
@@ -277,17 +396,17 @@ func mergeSchedulers(byName map[string]*JobStatus, order *[]string, schedulers [
 		// No matching Cloud Run Job: this scheduler triggers an HTTP service.
 		st := &JobStatus{
 			Name:           sName,
-			DisplayName:    humanize(sName),
-			Category:       categoryFor(sName),
 			Type:           "service",
 			Schedule:       sj.Schedule,
 			ScheduleHuman:  humanizeCron(sj.Schedule),
 			SchedulerState: sj.State,
+			Triggers:       []Trigger{trig},
 			LastAttemptAt:  sj.LastAttemptTime,
 			LastRunAt:      sj.LastAttemptTime,
 			LastRunStatus:  schedulerStatus(sj),
 			Health:         HealthUnknown,
 		}
+		decorate(st)
 		if sj.Status != nil && sj.Status.Code != 0 {
 			st.Message = sj.Status.Message
 		}
@@ -296,6 +415,61 @@ func mergeSchedulers(byName map[string]*JobStatus, order *[]string, schedulers [
 		}
 		byName[sName] = st
 		*order = append(*order, sName)
+	}
+
+	// Promote a primary trigger per job now that every trigger is attached.
+	for _, st := range byName {
+		applyPrimaryTrigger(st)
+	}
+}
+
+// applyPrimaryTrigger picks the schedule the console shows and that "overdue" is
+// measured against.
+//
+// The rule is the TIGHTEST ENABLED cadence, not (as before) the most recently
+// attempted one. For a multi-trigger job — shorted-news fires every 4h, every 2h,
+// weekly and daily off one Cloud Run Job — the most-recent-attempt rule picked an
+// arbitrary trigger, so the staleness ceiling swung between 3h and 8 days run to
+// run. The tightest enabled cadence is the only one that answers "should this job
+// have run by now?" consistently.
+func applyPrimaryTrigger(st *JobStatus) {
+	if len(st.Triggers) == 0 {
+		// No live trigger: fall back to the catalog cadence (if the job is
+		// operator-invoked there is none, and overdue simply never fires).
+		if st.Schedule == "" {
+			if cron := fallbackCron(st.Name); cron != "" {
+				st.Schedule = cron
+				st.ScheduleHuman = humanizeCron(cron)
+			}
+		}
+		return
+	}
+
+	sort.SliceStable(st.Triggers, func(i, j int) bool {
+		return st.Triggers[i].Name < st.Triggers[j].Name
+	})
+
+	var primary *Trigger
+	for i := range st.Triggers {
+		t := &st.Triggers[i]
+		if t.State == "PAUSED" {
+			continue
+		}
+		if primary == nil || expectedMaxGap(t.Schedule) < expectedMaxGap(primary.Schedule) {
+			primary = t
+		}
+	}
+	if primary == nil {
+		// Every trigger is paused — show the first so the cadence is still legible.
+		primary = &st.Triggers[0]
+	}
+	st.Schedule = primary.Schedule
+	st.ScheduleHuman = humanizeCron(primary.Schedule)
+	st.SchedulerState = primary.State
+	// A job with several triggers gets a count so the single row isn't read as
+	// "this job runs once a day" when it actually has five cadences.
+	if len(st.Triggers) > 1 {
+		st.ScheduleHuman = fmt.Sprintf("%s (+%d more)", st.ScheduleHuman, len(st.Triggers)-1)
 	}
 }
 
@@ -355,6 +529,12 @@ func finalizeHealth(st *JobStatus) {
 	if st.Health != "" && st.Health != HealthUnknown && st.LastRunStatus == "" {
 		return
 	}
+	if st.Schedule != "" {
+		st.ExpectedMaxGapSeconds = expectedMaxGap(st.Schedule).Seconds()
+	}
+	overdueBy := overdueBy(st)
+	st.OverdueBySeconds = overdueBy.Seconds()
+
 	switch st.LastRunStatus {
 	case "running":
 		st.Health = HealthRunning
@@ -370,8 +550,18 @@ func finalizeHealth(st *JobStatus) {
 		st.Health = HealthCritical
 	case "succeeded":
 		st.Health = HealthOK
-		if isStale(st) {
-			st.Health = HealthWarning
+		if overdueBy > 0 {
+			// The job's last run WORKED; it simply hasn't run since it should
+			// have. Its own status will never report that — only the clock does.
+			st.Health = HealthOverdue
+			if st.Message == "" {
+				st.Message = fmt.Sprintf(
+					"No successful run for %s — %s past its %s cadence",
+					humanizeDuration(time.Since(parseTime(lastGood(st)))),
+					humanizeDuration(overdueBy),
+					strings.ToLower(firstNonEmpty(humanizeCron(st.Schedule), "expected")),
+				)
+			}
 		}
 	case "never", "unknown", "":
 		st.Health = HealthUnknown
@@ -382,22 +572,62 @@ func finalizeHealth(st *JobStatus) {
 	// A paused trigger on an otherwise-ok job is worth surfacing.
 	if st.SchedulerState == "PAUSED" && st.Health == HealthOK {
 		st.Health = HealthWarning
+		if st.Message == "" {
+			st.Message = "Scheduler is paused — this job is not running"
+		}
+	}
+
+	// RETIRED jobs are deployed-but-unscheduled ON PURPOSE (superseded by the
+	// consolidated `shorted <job>` binary; terraform pauses their schedulers for
+	// rollback). Paused + overdue IS their designed steady state, so they must not
+	// hold the fleet amber forever. A genuinely failed last run is demoted to a
+	// warning rather than paging: nothing depends on it any more.
+	if st.Retired {
+		switch st.Health {
+		case HealthOverdue, HealthWarning:
+			st.Health = HealthOK
+			st.Message = ""
+		case HealthCritical:
+			st.Health = HealthWarning
+		}
 	}
 }
 
-// isStale flags a successful job whose last run is older than the expected
-// cadence (derived loosely from its cron) plus a grace margin.
-func isStale(st *JobStatus) bool {
-	ref := firstNonEmpty(st.LastSuccessAt, st.LastRunAt)
+// lastGood is the timestamp overdue-ness is measured from.
+func lastGood(st *JobStatus) string {
+	return firstNonEmpty(st.LastSuccessAt, st.LastRunAt)
+}
+
+// overdueBy reports how far past its cadence ceiling a job's last success is.
+// Zero means "not overdue" (including: no cadence known, or never run — we never
+// infer overdue-ness from MISSING data, only from data that is provably old).
+func overdueBy(st *JobStatus) time.Duration {
+	ref := lastGood(st)
 	if ref == "" || st.Schedule == "" {
-		return false
+		return 0
 	}
 	last := parseTime(ref)
 	if last.IsZero() {
-		return false
+		return 0
 	}
-	gap := time.Since(last)
-	return gap > expectedMaxGap(st.Schedule)
+	if gap := time.Since(last) - expectedMaxGap(st.Schedule); gap > 0 {
+		return gap
+	}
+	return 0
+}
+
+// humanizeDuration renders a coarse "3d" / "5h" / "12m" label for messages.
+func humanizeDuration(d time.Duration) string {
+	switch {
+	case d >= 48*time.Hour:
+		return fmt.Sprintf("%dd", int(d.Hours()/24))
+	case d >= time.Hour:
+		return fmt.Sprintf("%dh", int(d.Hours()))
+	case d >= time.Minute:
+		return fmt.Sprintf("%dm", int(d.Minutes()))
+	default:
+		return "moments"
+	}
 }
 
 // expectedMaxGap returns a generous upper bound on the interval between runs for
@@ -422,8 +652,10 @@ func expectedMaxGap(cron string) time.Duration {
 		}
 		return 8 * 24 * time.Hour // weekly
 	}
-	// Sub-hourly/hourly cadence: minute or hour contains a step.
-	if strings.Contains(hour, "/") || strings.Contains(minute, "/") || strings.Contains(hour, ",") {
+	// Sub-hourly/hourly cadence: minute or hour contains a step, or the hour
+	// field is a bare "*" (runs every hour at a fixed minute).
+	if strings.Contains(hour, "/") || strings.Contains(minute, "/") ||
+		strings.Contains(hour, ",") || hour == "*" {
 		return 3 * time.Hour
 	}
 	return 30 * time.Hour // daily
@@ -495,21 +727,6 @@ func humanize(name string) string {
 	return strings.Join(parts, " ")
 }
 
-func categoryFor(name string) string {
-	switch {
-	case strings.Contains(name, "short") || strings.Contains(name, "market-data") || strings.Contains(name, "stock-price") || strings.Contains(name, "key-metrics") || strings.Contains(name, "discovery"):
-		return "Market data"
-	case strings.Contains(name, "news"):
-		return "News"
-	case strings.Contains(name, "report") || strings.Contains(name, "director") || strings.Contains(name, "announcement") || strings.Contains(name, "financial"):
-		return "Filings & reports"
-	case strings.Contains(name, "signal"):
-		return "Signals"
-	default:
-		return "Other"
-	}
-}
-
 func execStart(e *run.GoogleCloudRunV2Execution) string {
 	return firstNonEmpty(e.StartTime, e.CreateTime)
 }
@@ -532,16 +749,18 @@ func healthRank(h Health) int {
 	switch h {
 	case HealthCritical:
 		return 0
-	case HealthWarning:
+	case HealthOverdue:
 		return 1
-	case HealthRunning:
+	case HealthWarning:
 		return 2
-	case HealthUnknown:
+	case HealthRunning:
 		return 3
-	case HealthOK:
+	case HealthUnknown:
 		return 4
-	default:
+	case HealthOK:
 		return 5
+	default:
+		return 6
 	}
 }
 

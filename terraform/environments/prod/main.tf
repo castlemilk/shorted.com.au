@@ -171,6 +171,15 @@ module "short_data_sync" {
   # is set in the Vercel frontend env, so enable event-driven cache busting.
   manage_revalidation_secret = true
 
+  # Jobs-monolith cutover (Phase 3, item 9) — the SAME `shorts-data-sync` job,
+  # scheduler and service accounts now run `shorted short-data-sync` from the
+  # consolidated binary. Approved after shadow parity passed 6/6 dates
+  # byte-identically (2026-08-21). ROLLBACK: use_go_monolith = false + apply;
+  # that restores the Python image, its command AND its 8h/5-retry sizing in
+  # one flip (image_url above stays wired for exactly that reason).
+  use_go_monolith    = true
+  shorted_jobs_image = var.shorted_jobs_image
+
   depends_on = [
     google_project_service.required_apis,
     google_artifact_registry_repository.shorted
@@ -548,6 +557,63 @@ import {
 import {
   to = module.shorts_api.google_project_iam_member.shorts_api_scheduler_viewer
   id = "rosy-clover-477102-t5 roles/cloudscheduler.viewer serviceAccount:shorts@rosy-clover-477102-t5.iam.gserviceaccount.com"
+}
+
+# -----------------------------------------------------------------------------
+# "Run now" — on-demand job execution from the admin console
+# -----------------------------------------------------------------------------
+# POST /api/admin/jobs/run calls projects.locations.jobs.run as the shorts SA, so
+# that SA needs run.jobs.run on each job it may execute.
+#
+# PER-JOB rather than a project-level roles/run.developer, for two reasons:
+#
+#  1. It has to work in CI. The deploy SA can getIamPolicy but NOT setIamPolicy at
+#     the project level (that is exactly why the two viewer grants above are
+#     import blocks rather than resources) — a new project-level binding would
+#     403 on every apply. A job-scoped binding is writable by CI today.
+#  2. Blast radius. The console can execute precisely the jobs listed here and
+#     nothing else; a project-level role would also cover every job added later,
+#     silently.
+#
+# roles/run.invoker is the WEAKEST role that carries run.jobs.run. roles/run.developer
+# would additionally permit runWithOverrides (executing a job with a different
+# command/env than the deployed one); the endpoint never posts an overrides body,
+# so it must not hold that permission.
+#
+# The two SUPERSEDED jobs (weekly-report-generator, signals-collector) are
+# deliberately absent: jobmonitor refuses to run anything its catalog marks
+# Retired, so a grant here would be a permission with no reachable caller.
+#
+# Tradeoff of the map-in-the-env shape: adding a job module means adding a line
+# here, or "Run now" 403s for it. That is the intended failure — the alternative
+# (an invoker-list variable threaded through five differently-shaped job modules)
+# spreads the same decision across five files.
+locals {
+  # job name => the region it is DEPLOYED in (asx-discovery is us-central1 for
+  # Tier-1 pricing; everything else follows var.region).
+  admin_runnable_jobs = {
+    (module.short_data_sync.job_name)                     = var.region
+    (module.house_price_collector.job_name)               = var.region
+    (module.influence_collector.job_name)                 = var.region
+    (module.shorted_job_announcements.job_name)           = var.region
+    (module.shorted_job_economy.job_name)                 = var.region
+    (module.shorted_job_weekly_report.job_name)           = var.region
+    (module.shorted_job_news.job_name)                    = var.region
+    (module.shorted_job_signals.job_name)                 = var.region
+    (module.report_extractor.director_job_name)           = var.region
+    (module.report_extractor.reports_job_name)            = var.region
+    (module.market_discovery_sync.asx_discovery_job_name) = "us-central1"
+  }
+}
+
+resource "google_cloud_run_v2_job_iam_member" "shorts_api_run_now" {
+  for_each = local.admin_runnable_jobs
+
+  project  = var.project_id
+  location = each.value
+  name     = each.key
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${module.shorts_api.service_account_email}"
 }
 
 # Enrichment Processor Service

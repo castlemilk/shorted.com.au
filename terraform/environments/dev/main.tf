@@ -122,6 +122,12 @@ module "short_data_sync" {
   image_url        = var.short_data_sync_image
   bucket_name      = "shorted-short-selling-data" # Existing bucket in dev project
 
+  # Jobs-monolith cutover — same flip as prod, kept in lockstep so dev is never
+  # validating a configuration prod does not run. ROLLBACK: use_go_monolith =
+  # false + apply.
+  use_go_monolith    = true
+  shorted_jobs_image = var.shorted_jobs_image
+
   depends_on = [
   ]
 }
@@ -431,6 +437,45 @@ module "shorts_api" {
 
   depends_on = [
   ]
+}
+
+# -----------------------------------------------------------------------------
+# "Run now" — on-demand job execution from the admin console
+# -----------------------------------------------------------------------------
+# Mirror of the prod block (see terraform/environments/prod/main.tf for the full
+# rationale): POST /api/admin/jobs/run executes a job as the shorts SA, so that SA
+# needs run.jobs.run — granted PER JOB via roles/run.invoker (the weakest role
+# carrying it) rather than a project-level role, so the console can execute
+# exactly these jobs and nothing else.
+#
+# The superseded jobs (weekly-report-generator, signals-collector) are omitted on
+# purpose: jobmonitor refuses to run anything its catalog marks Retired.
+locals {
+  # job name => deployed region. Unlike prod, dev keeps asx-discovery in
+  # var.region (no Tier-1 split here).
+  admin_runnable_jobs = {
+    (module.short_data_sync.job_name)                     = var.region
+    (module.house_price_collector.job_name)               = var.region
+    (module.influence_collector.job_name)                 = var.region
+    (module.shorted_job_announcements.job_name)           = var.region
+    (module.shorted_job_economy.job_name)                 = var.region
+    (module.shorted_job_weekly_report.job_name)           = var.region
+    (module.shorted_job_news.job_name)                    = var.region
+    (module.shorted_job_signals.job_name)                 = var.region
+    (module.report_extractor.director_job_name)           = var.region
+    (module.report_extractor.reports_job_name)            = var.region
+    (module.market_discovery_sync.asx_discovery_job_name) = var.region
+  }
+}
+
+resource "google_cloud_run_v2_job_iam_member" "shorts_api_run_now" {
+  for_each = local.admin_runnable_jobs
+
+  project  = var.project_id
+  location = each.value
+  name     = each.key
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${module.shorts_api.service_account_email}"
 }
 
 # Enrichment Processor Job
