@@ -69,7 +69,16 @@ func main() {
 	//TODO: do some work normally before setting ready
 	healthServer.SetReady(true)
 
-	log.Errorf("agent terminated with error: %v", g.Wait())
+	runErr := g.Wait()
+
+	// Flush buffered rate-limit quota increments before the process exits.
+	// SIGTERM on Cloud Run is routine (every deploy, every scale-down), so
+	// this is the normal path, not an edge case.
+	if closeErr := s.Close(); closeErr != nil {
+		log.Errorf("error closing shorts service: %v", closeErr)
+	}
+
+	log.Errorf("agent terminated with error: %v", runErr)
 }
 
 func signalListener(ctx context.Context) func() error {

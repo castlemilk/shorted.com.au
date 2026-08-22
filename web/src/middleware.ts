@@ -1,74 +1,118 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { Ratelimit } from "@upstash/ratelimit";
-import { Redis } from "@upstash/redis";
 import { getToken } from "next-auth/jwt";
-import { getUpstashRedisRestConfig } from "./@/lib/redis-env";
 
-// Initialize Redis client for rate limiting
-// Will use in-memory fallback if KV not configured (development)
-let redis: Redis | null = null;
-let anonymousLimiter: Ratelimit | null = null;
-let authenticatedLimiter: Ratelimit | null = null;
+// ---------------------------------------------------------------------------
+// Browser rate limiting no longer lives here.
+//
+// This middleware used to run an Upstash sliding-window/token-bucket check on
+// every request to an API-ish path. That put a Redis round trip in front of
+// hot browser traffic, against the same Upstash database that backs the page
+// cache — the coupling that exhausted the command quota and simultaneously
+// degraded rate limiting and froze the cache.
+//
+// Per-minute browser limiting is now enforced at the Cloudflare edge, in
+// services/edge-worker/worker.js, on the shorted.com.au route — which is the
+// only place that sees the REAL client IP (here, behind the CDN, it does not)
+// and which rejects a request before it costs a Vercel invocation at all.
+// Per-TIER limits and monthly quotas are enforced in-process by the Go API
+// (services/pkg/ratelimit); individual route handlers still call
+// `rateLimit()` from ~/@/lib/rate-limit for their own per-route ceilings.
+//
+// What remains here is auth, canonicalisation redirects, and the first-party
+// identity marker below.
+// ---------------------------------------------------------------------------
 
-export const BROWSER_RATE_LIMITS = {
-  anonymousRequestsPerMinute: 600,
-  anonymousRefillRequestsPerWindow: 600,
-  anonymousBurstMaxTokens: 3000,
-  authenticatedRequestsPerMinute: 3000,
-  windowSeconds: 60,
-};
+// ---------------------------------------------------------------------------
+// First-party identity for rewrite-proxied traffic
+//
+// THE PROBLEM THIS SOLVES. next.config.mjs rewrites the Connect-RPC paths to
+// api.shorted.com.au on purpose, so client-side reads hit the Cloudflare Worker
+// cache. That rewrite is performed BY VERCEL, so by the time the request
+// reaches the worker its source address is a shared Vercel egress IP — every
+// anonymous visitor in a region collapses onto a handful of addresses. An
+// anonymous per-IP bucket at the API edge would therefore 429 real users, which
+// is exactly why the edge limiter shipped with enforcement disabled.
+//
+// THE FIX. Next.js rewrites cannot add headers, but middleware can: request
+// headers set via `NextResponse.next({ request: { headers } })` are what the
+// downstream rewrite sends to its destination. So we stamp the SAME first-party
+// marker the SSR fetcher uses (web/src/app/actions/config.ts) — the secret
+// header AND the user-agent marker, never one alone — and the worker routes
+// those requests into a first-party runaway bucket instead of the anonymous
+// per-IP one. The end user is still limited: by their REAL IP, one hop earlier,
+// on the shorted.com.au worker route.
+//
+// COST. This adds a middleware invocation to the RPC paths, which is why the
+// handler short-circuits on them before any other work.
+// ---------------------------------------------------------------------------
 
-const redisConfig = getUpstashRedisRestConfig(process.env);
+// Mirrors the rewrite rules in web/next.config.mjs. Anything Vercel proxies to
+// the shorts API / edge host belongs here.
+const REWRITE_PROXIED_PREFIXES = [
+  "/register.v1.RegisterService/",
+  "/api/stocks/",
+  "/api/algolia/",
+  "/edge/v1/",
+];
 
-// Only initialize if Vercel KV/Upstash Redis is configured
-if (redisConfig) {
-  redis = new Redis({
-    url: redisConfig.url,
-    token: redisConfig.token,
-  });
+// One regex covers every shorts.v1alpha1 domain service, matching the
+// regex-constrained rewrite source in next.config.mjs, so a new domain service
+// gets the marker without touching this file.
+const REWRITE_PROXIED_PATTERN = /^\/shorts\.v1alpha1\.[A-Za-z]+Service\//;
 
-  // Browser traffic is intentionally bucketed generously. Strict API usage is
-  // handled at api.shorted.com.au by Cloudflare's API-host rate limit.
-  anonymousLimiter = new Ratelimit({
-    redis,
-    limiter: Ratelimit.tokenBucket(
-      BROWSER_RATE_LIMITS.anonymousRefillRequestsPerWindow,
-      `${BROWSER_RATE_LIMITS.windowSeconds} s`,
-      BROWSER_RATE_LIMITS.anonymousBurstMaxTokens,
-    ),
-    // analytics adds an extra Redis command per request — a material share of
-    // the 2026-08 quota burn. Off; the ephemeral cache below short-circuits
-    // repeat offenders without any Redis round-trip.
-    analytics: false,
-    ephemeralCache: new Map(),
-    prefix: `ratelimit:browser:anon:burst:${BROWSER_RATE_LIMITS.anonymousRefillRequestsPerWindow}:${BROWSER_RATE_LIMITS.windowSeconds}:${BROWSER_RATE_LIMITS.anonymousBurstMaxTokens}`,
-  });
+// Kept in sync with web/src/app/actions/config.ts (the SSR fetcher) and with
+// terraform/modules/cloudflare-edge (the zone skip rule + worker vars). The
+// worker requires BOTH the UA marker and the exact secret — never the UA alone.
+const SSR_BYPASS_HEADER = "x-shorted-ssr-bypass";
+const SSR_USER_AGENT_MARKER = "shorted-web-ssr";
+const SSR_USER_AGENT = "shorted-web-ssr/1.0 (+https://shorted.com.au)";
 
-  authenticatedLimiter = new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(
-      BROWSER_RATE_LIMITS.authenticatedRequestsPerMinute,
-      `${BROWSER_RATE_LIMITS.windowSeconds} s`,
-    ),
-    // analytics adds an extra Redis command per request — a material share of
-    // the 2026-08 quota burn. Off; the ephemeral cache below short-circuits
-    // repeat offenders without any Redis round-trip.
-    analytics: false,
-    ephemeralCache: new Map(),
-    prefix: `ratelimit:browser:auth:${BROWSER_RATE_LIMITS.authenticatedRequestsPerMinute}:${BROWSER_RATE_LIMITS.windowSeconds}`,
-  });
+function isRewriteProxiedPath(pathname: string): boolean {
+  return (
+    REWRITE_PROXIED_PREFIXES.some((prefix) => pathname.startsWith(prefix)) ||
+    REWRITE_PROXIED_PATTERN.test(pathname)
+  );
 }
 
-// Paths that should be rate limited
-const RATE_LIMITED_PATHS = [
-  "/api/market-data",
-  "/api/search",
-  "/api/community",
-  "/api/stripe/checkout",
-  "/api/stripe/portal",
-  "/chat.v1.ChatService",
-];
+/**
+ * Append the first-party marker to a user-agent without clobbering it.
+ *
+ * The original UA is preserved as a PREFIX so downstream bot detection — and
+ * crawler identification at the Cloudflare edge, where a verified Googlebot
+ * must never be rate limited — still sees the true client. Idempotent: a UA
+ * that already carries the marker is returned unchanged, so a request that
+ * passed through the SSR fetcher and then this middleware is not double-tagged.
+ */
+export function appendSsrUserAgent(userAgent: string | null): string {
+  if (!userAgent) return SSR_USER_AGENT;
+  return userAgent.includes(SSR_USER_AGENT_MARKER)
+    ? userAgent
+    : `${userAgent} ${SSR_USER_AGENT}`;
+}
+
+/**
+ * Stamp the first-party marker onto a rewrite-proxied request.
+ *
+ * Returns `null` when the secret is not configured — in that case the request
+ * passes through unmarked and the edge treats it as anonymous, which is the
+ * status quo, not a regression.
+ *
+ * The user-agent is APPENDED to, not replaced: the original UA is preserved as
+ * a prefix so downstream bot detection (and crawler identification at the edge)
+ * still sees the true client.
+ */
+export function withFirstPartyMarker(request: NextRequest): NextResponse | null {
+  const secret = process.env.SHORTED_SSR_BYPASS_SECRET?.trim();
+  if (!secret) return null;
+
+  const headers = new Headers(request.headers);
+  headers.set(SSR_BYPASS_HEADER, secret);
+
+  headers.set("user-agent", appendSsrUserAgent(headers.get("user-agent")));
+
+  return NextResponse.next({ request: { headers } });
+}
 
 // Protected page routes that require authentication
 // Note: /shorts and /stocks are public for SEO (Googlebot needs to crawl them)
@@ -93,6 +137,13 @@ export async function middleware(request: NextRequest) {
   // Always bypass auth routes completely to avoid interfering with CSRF
   if (pathname.startsWith("/api/auth") || pathname.startsWith("/api/health")) {
     return NextResponse.next();
+  }
+
+  // Rewrite-proxied API traffic: stamp the first-party marker and get out.
+  // Deliberately the first branch after the auth bypass — these are the hottest
+  // paths in the app and none of the work below applies to them.
+  if (isRewriteProxiedPath(pathname)) {
+    return withFirstPartyMarker(request) ?? NextResponse.next();
   }
 
   // Canonicalize stock-code case: /shorts/lot → 301 → /shorts/LOT.
@@ -189,109 +240,6 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Check if this path should be rate limited
-  const shouldRateLimit = RATE_LIMITED_PATHS.some((path) =>
-    pathname.startsWith(path),
-  );
-
-  // Apply rate limiting if configured and path matches
-  if (
-    shouldRateLimit &&
-    (!redis || !anonymousLimiter || !authenticatedLimiter)
-  ) {
-    if (shouldFailClosedWithoutRedis()) {
-      return NextResponse.json(
-        {
-          error: "Rate limiting unavailable",
-          message: "Please try again shortly.",
-        },
-        {
-          status: 503,
-          headers: {
-            "Retry-After": "60",
-          },
-        },
-      );
-    }
-  }
-
-  if (shouldRateLimit && redis && anonymousLimiter && authenticatedLimiter) {
-    try {
-      // Check authentication - but don't call getToken if we're near auth routes
-      // to avoid any cookie/session interference
-      let token = null;
-      try {
-        token = await readSessionToken(request);
-      } catch (error) {
-        // If getToken fails, treat as anonymous user
-      }
-
-      // Determine identifier and rate limiter
-      const isAuthenticated = !!token?.sub;
-      const identifier = isAuthenticated
-        ? `user:${token?.sub ?? "unknown"}`
-        : `ip:${request.ip ?? request.headers.get("x-forwarded-for") ?? "unknown"}`;
-
-      // Use appropriate rate limiter
-      const limiter = isAuthenticated ? authenticatedLimiter : anonymousLimiter;
-
-      // Check rate limit
-      const { success, limit, remaining, reset } =
-        await limiter.limit(identifier);
-
-      // If rate limit exceeded, return 429
-      if (!success) {
-        const retryAfter = Math.ceil((reset - Date.now()) / 1000);
-        return NextResponse.json(
-          {
-            error: "Rate limit exceeded",
-            message: isAuthenticated
-              ? `You have exceeded the rate limit. Please try again in ${retryAfter} seconds.`
-              : `Rate limit exceeded. Sign in for higher limits, or try again in ${retryAfter} seconds.`,
-            retryAfter,
-            limit,
-            authenticated: isAuthenticated,
-          },
-          {
-            status: 429,
-            headers: {
-              "X-RateLimit-Limit": limit.toString(),
-              "X-RateLimit-Remaining": "0",
-              "X-RateLimit-Reset": new Date(reset).toISOString(),
-              "Retry-After": retryAfter.toString(),
-            },
-          },
-        );
-      }
-
-      // Add rate limit headers to response
-      const response = NextResponse.next();
-      response.headers.set("X-RateLimit-Limit", limit.toString());
-      response.headers.set("X-RateLimit-Remaining", remaining.toString());
-      response.headers.set("X-RateLimit-Reset", new Date(reset).toISOString());
-      return response;
-    } catch (error) {
-      if (shouldFailClosedWithoutRedis()) {
-        return NextResponse.json(
-          {
-            error: "Rate limiting unavailable",
-            message: "Please try again shortly.",
-          },
-          {
-            status: 503,
-            headers: {
-              "Retry-After": "60",
-            },
-          },
-        );
-      }
-
-      // Don't block requests if rate limiting fails outside production
-      return NextResponse.next();
-    }
-  }
-
-  // No rate limiting applied, continue
   return NextResponse.next();
 }
 
@@ -306,22 +254,31 @@ function readSessionToken(request: NextRequest) {
   });
 }
 
-function shouldFailClosedWithoutRedis(): boolean {
-  return (
-    process.env.RATE_LIMIT_REQUIRE_DISTRIBUTED === "true" &&
-    process.env.RATE_LIMIT_FAIL_OPEN !== "true"
-  );
-}
-
 // Configure which routes use this middleware
 export const config = {
   matcher: [
     /*
-     * API routes for rate limiting
+     * Rewrite-proxied API traffic — matched ONLY to stamp the first-party
+     * marker (see withFirstPartyMarker). These mirror the rewrite sources in
+     * next.config.mjs; without the marker the Cloudflare worker sees a shared
+     * Vercel egress IP and cannot tell first-party traffic from an anonymous
+     * scraper. A trailing single param compiles to an optional .json suffix, so
+     * the catch-all form is required on every one of these.
      */
-    "/api/market-data/:path*",
-    "/api/search/:path*",
-    "/api/community/:path*",
+    // Character-for-character the rewrite source in next.config.mjs, so the
+    // two can never drift into matching different sets of services.
+    "/:service(shorts\\.v1alpha1\\.[A-Za-z]+Service)/:path*",
+    "/register.v1.RegisterService/:path*",
+    "/api/stocks/:path*",
+    "/api/algolia/:path*",
+    "/edge/v1/:path*",
+    /*
+     * API/RPC routes that need an API-shaped 401.
+     * NOTE: /api/market-data, /api/search and /api/community were matched here
+     * purely for the removed Upstash rate limiter. Their own route handlers
+     * still call rateLimit() directly, and per-minute browser limiting now runs
+     * at the edge, so keeping a middleware invocation on them bought nothing.
+     */
     "/api/stripe/checkout",
     "/api/stripe/portal",
     "/chat.v1.ChatService/:path*",

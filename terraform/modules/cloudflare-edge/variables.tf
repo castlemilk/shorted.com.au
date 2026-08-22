@@ -153,50 +153,161 @@ variable "frontend_rate_limit_requests" {
   default     = 60
 }
 
-# ---- Edge (Worker) rate limiting — per-minute enforcement ----
+# ---- Edge (Worker) rate limiting — burst + sustained bucket matrix ----
 #
 # These configure the Cloudflare Workers Rate Limiting API bindings consumed by
-# services/edge-worker/worker.js. Per-minute limiting moved here from the
+# services/edge-worker/worker.js. Per-minute limiting moved to the edge from the
 # app-layer Upstash limiter after the shared Upstash database's command quota
 # was exhausted, which degraded rate limiting AND froze the page cache in the
-# same failure. The app layer now only accounts monthly quotas.
+# same failure.
+#
+# WHAT THIS LAYER IS. A tier-blind ORIGIN-PROTECTION ceiling. It is not the
+# place documented tier limits are enforced — the free 60/min API and 120/min
+# browser tiers are enforced in-process in services/pkg/ratelimit, and monthly
+# quotas are accounted there too. Nothing here should ever fire for a real user
+# or a paying customer; if it does, the number is wrong, not the traffic.
+#
+# WHY EVERY CLASS HAS TWO NUMBERS. The Cloudflare binding's `period` is a hard
+# enum of 10 or 60 seconds, so "burst" and "sustained" cannot be one binding.
+# The 10s bucket stops a hammering script within a second or two; the 60s bucket
+# stops a slow grind the 10s window would never see.
+#
+# WHERE THE BROWSER NUMBERS COME FROM (measured with Playwright against prod,
+# logged out, counting only limitable requests — HTML documents and /api/auth
+# are never limited):
+#
+#     /shorts/BHP   9 limitable requests per page load (the heaviest page)
+#     /             6
+#     /top          2
+#
+# Worst realistic human burst = 3-4 stock pages in 10s = 27-36 requests.
+# Hardest realistic minute = 10-15 pages = 90-135 requests. A power user working
+# screener/chart controls fires ~1 RPC per control change, so 15-20 RPCs in 10s
+# is reachable. The anonymous browser defaults below (100/10s, 600/60s) are ~3x
+# and ~4.4x those measurements. Re-measure before tightening.
 
 variable "edge_rate_limit_enabled" {
   description = <<-EOT
-    Enable the worker's per-minute rate limiting. DEFAULT OFF, deliberately:
-    anonymous browser API traffic arrives via the Vercel rewrite proxy, so the
-    worker sees a shared Vercel egress IP as cf-connecting-ip — enabling the
-    anon bucket before rewrite traffic carries a first-party identity would
-    429 real users en masse. Enablement precondition: attach the SSR bypass
-    header (or equivalent) to rewrite-proxied requests, or re-key the anon
-    bucket. The API-key bucket has no such problem (per-token keys), but a
-    single switch keeps the rollout deliberate.
+    Enable the worker's edge rate limiting (all buckets, both surfaces).
+
+    Default ON at the module level. The precondition that kept this off when it
+    first shipped is now met: rewrite-proxied traffic carries a first-party
+    identity (web/src/middleware.ts attaches the SSR bypass header), so shared
+    Vercel egress IPs no longer land in the anonymous per-IP bucket — they land
+    in the first-party runaway bucket instead.
+
+    Production pins this explicitly from a root variable so enabling prod stays
+    a deliberate, single-line tfvar change with an instant rollback. See
+    services/edge-worker/README.md, "Enablement and rollback".
   EOT
   type        = bool
-  default     = false
+  default     = true
+}
+
+variable "edge_rate_limit_trust_crawler_ua" {
+  description = <<-EOT
+    When Cloudflare Bot Management is not populating request.cf.botManagement,
+    treat a search-crawler user-agent as a crawler and skip rate limiting.
+
+    SEO is the product: a 429 to Googlebot is a crawl-rate penalty that
+    suppresses indexation for days, so the SEO-safe error is the one we choose.
+    The UA is spoofable, but all it buys is exemption from an origin-protection
+    ceiling — the zone WAF, SBFM (sbfm_verified_bots = "allow") and DDoS layers
+    still apply. Set false to require a real verifiedBot signal.
+  EOT
+  type        = bool
+  default     = true
+}
+
+# --- api.shorted.com.au, authenticated (keyed by SHA-256 of the token) ---
+
+variable "edge_rate_limit_key_burst_requests" {
+  description = "10-second burst ceiling for a single API credential. A runaway/abuse ceiling, NOT a tier — the documented paid API tier is per-minute unlimited."
+  type        = number
+  default     = 100
 }
 
 variable "edge_rate_limit_key_requests_per_minute" {
   description = <<-EOT
-    Per-minute ceiling for a single API credential (keyed by SHA-256 of the
-    token). This is an ABUSE ceiling, not a tier: the worker cannot resolve a
-    user's paid tier without a database lookup. 120/min sits at or above every
-    documented per-minute tier, so paid "unlimited" access stays effectively
-    unlimited (120 req/min = 2 req/s sustained) while a leaked token still
-    cannot hammer the origin.
+    60-second ceiling for a single API credential (keyed by SHA-256 of the
+    token). This is a RUNAWAY/ABUSE ceiling, not a tier: the worker cannot
+    resolve a caller's paid tier without a database lookup, and the documented
+    paid API tier is per-minute UNLIMITED. 600/60s is 10 req/s sustained, which
+    leaves a legitimate bulk pull entirely unimpeded while still stopping a
+    leaked or shared key from hammering the origin. (The previous 120 would have
+    throttled paying customers doing exactly what they pay for.)
   EOT
   type        = number
-  default     = 120
+  default     = 600
+}
+
+# --- api.shorted.com.au, anonymous (keyed by real client IP) ---
+
+variable "edge_rate_limit_anon_burst_requests" {
+  description = "10-second burst ceiling for unauthenticated direct API callers, keyed by client IP. Proportional to the documented anonymous API tier of 30/min."
+  type        = number
+  default     = 10
 }
 
 variable "edge_rate_limit_anon_requests_per_minute" {
-  description = "Per-minute ceiling for unauthenticated requests, keyed by client IP. Matches the documented anonymous API tier (30/min)."
+  description = "60-second ceiling for unauthenticated direct API callers, keyed by client IP. Matches the documented anonymous API tier (30/min) exactly — an anonymous caller hitting the public API host directly has no entitlement beyond it. First-party rewrite traffic never lands here."
   type        = number
   default     = 30
 }
 
+# --- api.shorted.com.au, first-party (Vercel SSR + the Next.js rewrite proxy) ---
+
+variable "edge_rate_limit_first_party_burst_requests" {
+  description = <<-EOT
+    10-second ceiling for proven first-party traffic (SSR bypass secret), keyed
+    by Vercel egress IP. A RUNAWAY DETECTOR, not a tier: it exists so an ISR
+    regeneration loop cannot melt the origin, and it is sized so that ordinary
+    regeneration bursts and rewrite fan-out never reach it. 600/10s is 60 req/s
+    from a single egress IP in a single colo. If this ever fires on real
+    traffic, RAISE IT — it carries no entitlement meaning. Burst-only on
+    purpose: a 60s window here would be measuring normal fan-out, not a fault.
+  EOT
+  type        = number
+  default     = 600
+}
+
+# --- shorted.com.au, anonymous browser (keyed by REAL client IP) ---
+
+variable "edge_rate_limit_browser_anon_burst_requests" {
+  description = "10-second ceiling for anonymous browser API calls, keyed by the real client IP. Default 100 is ~3x the measured worst human burst (3-4 stock pages in 10s = 27-36 limitable requests). See the measurement note at the top of this section."
+  type        = number
+  default     = 100
+}
+
+variable "edge_rate_limit_browser_anon_requests_per_minute" {
+  description = "60-second ceiling for anonymous browser API calls, keyed by the real client IP. Default 600 is ~4.4x the measured hardest browsing minute (10-15 pages = 90-135 limitable requests). Its job is stopping egregious hammering, not policing browsing — Cloudflare SBFM already challenges automated traffic."
+  type        = number
+  default     = 600
+}
+
+# --- shorted.com.au, signed-in browser (keyed by session-cookie hash) ---
+
+variable "edge_rate_limit_browser_auth_burst_requests" {
+  description = "10-second ceiling for signed-in browser API calls, keyed by a hash of the next-auth session cookie (NOT the IP, so an office/CGNAT egress cannot collapse colleagues into one bucket). Double the anonymous allowance."
+  type        = number
+  default     = 200
+}
+
+variable "edge_rate_limit_browser_auth_requests_per_minute" {
+  description = "60-second ceiling for signed-in browser API calls, keyed by a hash of the next-auth session cookie. Double the anonymous allowance."
+  type        = number
+  default     = 1200
+}
+
+# --- Namespace IDs ---
+#
+# `namespace_id` is an account-scoped identifier YOU choose — there is no
+# provisioning step. Two bindings sharing one share counters EVEN ACROSS
+# DIFFERENT WORKERS on the account, so every ID below must stay unique.
+# Convention here: 20xx, burst and sustained adjacent per class.
+
 variable "edge_rate_limit_key_namespace_id" {
-  description = "Cloudflare rate limiting namespace ID (a stringified positive integer) for the per-token bucket. Bindings sharing a namespace_id share counters ACROSS Workers on the account — keep unique."
+  description = "Rate limiting namespace ID for the per-token 60s bucket."
   type        = string
   default     = "2001"
 
@@ -207,13 +318,90 @@ variable "edge_rate_limit_key_namespace_id" {
 }
 
 variable "edge_rate_limit_anon_namespace_id" {
-  description = "Cloudflare rate limiting namespace ID for the anonymous per-IP bucket. Must differ from edge_rate_limit_key_namespace_id."
+  description = "Rate limiting namespace ID for the anonymous per-IP 60s bucket."
   type        = string
   default     = "2002"
 
   validation {
     condition     = can(regex("^[1-9][0-9]*$", var.edge_rate_limit_anon_namespace_id))
     error_message = "edge_rate_limit_anon_namespace_id must be a stringified positive integer."
+  }
+}
+
+variable "edge_rate_limit_key_burst_namespace_id" {
+  description = "Rate limiting namespace ID for the per-token 10s burst bucket."
+  type        = string
+  default     = "2003"
+
+  validation {
+    condition     = can(regex("^[1-9][0-9]*$", var.edge_rate_limit_key_burst_namespace_id))
+    error_message = "edge_rate_limit_key_burst_namespace_id must be a stringified positive integer."
+  }
+}
+
+variable "edge_rate_limit_anon_burst_namespace_id" {
+  description = "Rate limiting namespace ID for the anonymous per-IP 10s burst bucket."
+  type        = string
+  default     = "2004"
+
+  validation {
+    condition     = can(regex("^[1-9][0-9]*$", var.edge_rate_limit_anon_burst_namespace_id))
+    error_message = "edge_rate_limit_anon_burst_namespace_id must be a stringified positive integer."
+  }
+}
+
+variable "edge_rate_limit_first_party_namespace_id" {
+  description = "Rate limiting namespace ID for the first-party (SSR/rewrite) 10s runaway bucket."
+  type        = string
+  default     = "2005"
+
+  validation {
+    condition     = can(regex("^[1-9][0-9]*$", var.edge_rate_limit_first_party_namespace_id))
+    error_message = "edge_rate_limit_first_party_namespace_id must be a stringified positive integer."
+  }
+}
+
+variable "edge_rate_limit_browser_anon_burst_namespace_id" {
+  description = "Rate limiting namespace ID for the anonymous browser 10s burst bucket."
+  type        = string
+  default     = "2006"
+
+  validation {
+    condition     = can(regex("^[1-9][0-9]*$", var.edge_rate_limit_browser_anon_burst_namespace_id))
+    error_message = "edge_rate_limit_browser_anon_burst_namespace_id must be a stringified positive integer."
+  }
+}
+
+variable "edge_rate_limit_browser_anon_namespace_id" {
+  description = "Rate limiting namespace ID for the anonymous browser 60s bucket."
+  type        = string
+  default     = "2007"
+
+  validation {
+    condition     = can(regex("^[1-9][0-9]*$", var.edge_rate_limit_browser_anon_namespace_id))
+    error_message = "edge_rate_limit_browser_anon_namespace_id must be a stringified positive integer."
+  }
+}
+
+variable "edge_rate_limit_browser_auth_burst_namespace_id" {
+  description = "Rate limiting namespace ID for the signed-in browser 10s burst bucket."
+  type        = string
+  default     = "2008"
+
+  validation {
+    condition     = can(regex("^[1-9][0-9]*$", var.edge_rate_limit_browser_auth_burst_namespace_id))
+    error_message = "edge_rate_limit_browser_auth_burst_namespace_id must be a stringified positive integer."
+  }
+}
+
+variable "edge_rate_limit_browser_auth_namespace_id" {
+  description = "Rate limiting namespace ID for the signed-in browser 60s bucket."
+  type        = string
+  default     = "2009"
+
+  validation {
+    condition     = can(regex("^[1-9][0-9]*$", var.edge_rate_limit_browser_auth_namespace_id))
+    error_message = "edge_rate_limit_browser_auth_namespace_id must be a stringified positive integer."
   }
 }
 
