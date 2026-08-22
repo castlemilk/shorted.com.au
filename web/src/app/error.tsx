@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react'
 import { Button } from '~/@/components/ui/button'
-import { RateLimitError } from '~/@/components/ui/rate-limit-error'
+import { RateLimitNotice } from '~/@/components/rate-limit/rate-limit-notice'
 import { isRateLimitError, parseRateLimitInfo } from '~/@/lib/retry'
 
 export default function Error({
@@ -24,12 +24,19 @@ export default function Error({
     }
   }, [error])
 
-  // Check if this is a rate limit error
+  // A rate limit that escaped all the way to the page boundary. We still do
+  // NOT redirect anywhere — the user stays on their URL and gets the panel in
+  // place, so a retry (or the automatic per-minute recovery) puts them back
+  // exactly where they were.
   if (isRateLimitError(error)) {
     const rateLimitInfo = parseRateLimitInfo(error)
     return (
       <div className="flex min-h-[50vh] items-center justify-center p-8">
-        <RateLimitError rateLimitInfo={rateLimitInfo} onRetry={reset} />
+        <RateLimitNotice
+          info={rateLimitInfo}
+          variant="page"
+          onRetry={reset}
+        />
       </div>
     )
   }

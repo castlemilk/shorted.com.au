@@ -170,18 +170,24 @@ export const Default: Story = {
 };
 
 /**
- * RateLimited: child throws a ConnectErrorLike with code=8 → RateLimitError UI.
+ * RateLimited: child throws a ConnectErrorLike with code=8 → RateLimitNotice.
  *
- * The RateLimitError component shows "Rate Limit Exceeded" (or similar) with
- * a countdown timer. We assert the rate-limit heading is visible.
+ * The thrown error carries edge per-minute headers, so the boundary renders
+ * the *inline* notice: a quiet "Just a moment — refreshing in Ns." strip. This
+ * is the product rule under test — a transient limit degrades the widget and
+ * must not read as an error, so we assert the calm copy appears AND that the
+ * alarm copy does not.
  *
  * Note: ThrowRateLimit always throws, so there is no reset interaction here —
- * the rate-limit UI itself has a retry button but clicking it just resets the
- * boundary back to the throwing child, which immediately throws again. That
- * is correct product behavior (the server still rate-limits) and we do not
- * test that loop here.
+ * clicking retry just resets the boundary back to the throwing child, which
+ * immediately throws again. That is correct product behavior (the server still
+ * rate-limits) and we do not test that loop here.
  */
 export const RateLimited: Story = {
+  // Excluded from pixel diffing (the interaction test below still runs): the
+  // notice renders a live countdown, so consecutive runs differ by design.
+  // Same reason as the RateLimitNotice stories.
+  tags: ["no-visual"],
   render: () => (
     <ErrorBoundary>
       <ThrowRateLimit />
@@ -190,13 +196,13 @@ export const RateLimited: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
-    // RateLimitError component renders "Rate Limit Exceeded" or "Monthly Limit"
     await waitFor(() => {
-      expect(canvas.getByText(/rate limit exceeded/i)).toBeInTheDocument();
+      expect(canvas.getByText(/just a moment/i)).toBeInTheDocument();
     });
 
-    // Error boundary's generic "Something went wrong" fallback must NOT appear.
+    // Neither the generic fallback nor alarm language may appear.
     expect(canvas.queryByText(/something went wrong/i)).not.toBeInTheDocument();
+    expect(canvas.queryByText(/exceeded/i)).not.toBeInTheDocument();
   },
 };
 

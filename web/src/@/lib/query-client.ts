@@ -8,6 +8,17 @@ import {
 } from "@/lib/retry";
 
 /**
+ * Longest we will make a browsing user wait for an automatic retry.
+ *
+ * The edge sends `Retry-After: 60` on a per-minute 429, but its buckets are
+ * token/sliding rather than fixed windows, so capacity returns progressively —
+ * a retry before the full window usually succeeds. Sitting silently for a full
+ * minute reads as "broken"; 30s keeps the widget honest and responsive, and a
+ * retry that lands early simply 429s again and re-arms the countdown.
+ */
+const MAX_RATE_LIMIT_RETRY_DELAY_MS = 30_000;
+
+/**
  * Calculate retry delay, respecting Retry-After header for rate limits
  */
 function calculateRetryDelay(
@@ -18,12 +29,15 @@ function calculateRetryDelay(
   if (isRateLimitError(error)) {
     const rateLimitInfo = parseRateLimitInfo(error);
     if (rateLimitInfo.retryAfter) {
-      // Use server-suggested delay (in seconds, convert to ms)
-      // Add a small buffer and cap at 60 seconds
-      return Math.min(rateLimitInfo.retryAfter * 1000 + 500, 60000);
+      // Use server-suggested delay (in seconds, convert to ms) plus a small
+      // buffer so we land just after the window rather than exactly on it.
+      return Math.min(
+        rateLimitInfo.retryAfter * 1000 + 500,
+        MAX_RATE_LIMIT_RETRY_DELAY_MS
+      );
     }
     // Default rate limit delay: longer than normal exponential backoff
-    return Math.min(5000 * 2 ** attemptIndex, 60000);
+    return Math.min(5000 * 2 ** attemptIndex, MAX_RATE_LIMIT_RETRY_DELAY_MS);
   }
 
   // Standard exponential backoff for other errors
@@ -31,7 +45,13 @@ function calculateRetryDelay(
 }
 
 /**
- * Determine if a query should be retried
+ * Determine if a query should be retried.
+ *
+ * The two rate-limit cases are handled sharply differently:
+ *  - per_minute (or unclassified) → retry; the window is seconds wide and the
+ *    user is mid-browse, so a quiet auto-recovery is the right behaviour.
+ *  - monthly → never retry. The quota does not refill until the month rolls
+ *    over, so retries are pure waste and they delay the upgrade panel.
  */
 function shouldRetryQuery(
   failureCount: number,
@@ -40,18 +60,8 @@ function shouldRetryQuery(
   // Max 3 retries
   if (failureCount >= 3) return false;
 
-  // For rate limits, always retry (with appropriate delay)
   if (isRateLimitError(error)) {
-    const rateLimitInfo = parseRateLimitInfo(error);
-    // Don't retry if monthly limit is hit
-    if (
-      rateLimitInfo.monthlyLimit &&
-      rateLimitInfo.monthlyUsed &&
-      rateLimitInfo.monthlyUsed >= rateLimitInfo.monthlyLimit
-    ) {
-      return false;
-    }
-    return true;
+    return parseRateLimitInfo(error).kind !== "monthly";
   }
 
   // Use standard Connect-RPC retry logic for other errors

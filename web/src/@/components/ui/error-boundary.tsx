@@ -4,7 +4,7 @@ import React, { Component, type ReactNode } from "react";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "~/@/components/ui/button";
 import { Card } from "~/@/components/ui/card";
-import { RateLimitError } from "~/@/components/ui/rate-limit-error";
+import { RateLimitNotice } from "~/@/components/rate-limit/rate-limit-notice";
 import { isRateLimitError, parseRateLimitInfo } from "~/@/lib/retry";
 
 interface Props {
@@ -66,13 +66,17 @@ export class ErrorBoundary extends Component<Props, State> {
     const { fallback, children } = this.props;
 
     if (hasError) {
-      // Check if this is a rate limit error
+      // Rate limits degrade the WIDGET, never the page. A per-minute limit
+      // renders as a quiet inline "refreshing shortly" strip; only an
+      // exhausted monthly quota is worth a louder panel, and even that stays
+      // inline so the rest of the page keeps working.
       if (error && isRateLimitError(error)) {
         const rateLimitInfo = parseRateLimitInfo(error);
         return (
           <div className="p-4">
-            <RateLimitError
-              rateLimitInfo={rateLimitInfo}
+            <RateLimitNotice
+              info={rateLimitInfo}
+              variant="inline"
               onRetry={this.resetErrorBoundary}
             />
           </div>
