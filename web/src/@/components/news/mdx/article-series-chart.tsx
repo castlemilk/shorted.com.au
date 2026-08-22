@@ -7,6 +7,7 @@ import { AreaClosed, Bar, LinePath } from "@visx/shape";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { curveMonotoneX } from "@visx/curve";
 import { LinearGradient } from "@visx/gradient";
+import { svgRefId } from "@/components/charts/chart-primitives";
 import { localPoint } from "@visx/event";
 import { TooltipWithBounds, useTooltip } from "@visx/tooltip";
 import { bisector } from "d3-array";
@@ -93,11 +94,17 @@ function ChartInner({
 
   if (innerWidth <= 0 || innerHeight <= 0) return null;
 
+  // Callers build gradientId from domain identifiers, and a suburb's region code
+  // is "SUBURB:NSW-BONDI BEACH" — the colon and space terminate the reference
+  // inside url(#…), so the fill resolved to rgb(0,0,0) and every priced suburb
+  // chart rendered as a solid black slab.
+  const safeGradientId = svgRefId(gradientId);
+
   return (
     <div className="relative" style={{ width, height }}>
       <svg width={width} height={height} role="img" aria-label={ariaLabel}>
         <LinearGradient
-          id={gradientId}
+          id={safeGradientId}
           from={ACCENT}
           fromOpacity={0.25}
           to={ACCENT}
@@ -110,7 +117,7 @@ function ChartInner({
             y={(d) => yScale(d.value)}
             yScale={yScale}
             curve={curveMonotoneX}
-            fill={`url(#${gradientId})`}
+            fill={`url(#${safeGradientId})`}
           />
           <LinePath<SeriesPoint>
             data={points}
