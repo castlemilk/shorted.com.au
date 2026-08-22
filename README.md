@@ -102,7 +102,7 @@ shorted/
 ├── services/              # Go backend services
 │   ├── shorts/            # Main API service
 │   ├── enrichment-processor/  # Company enrichment
-│   ├── daily-sync/        # ASIC data sync job
+│   ├── jobs/              # Consolidated `shorted <job>` binary (incl. ASIC sync)
 │   └── migrations/        # Database migrations
 ├── proto/                 # Protobuf API definitions
 ├── terraform/             # Infrastructure as code

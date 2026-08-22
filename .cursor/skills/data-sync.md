@@ -11,8 +11,8 @@ make populate-data
 # Quick population (existing CSV files)
 make populate-data-quick
 
-# Daily sync (ASIC shorts + stock prices)
-make daily-sync-local
+# Daily ASIC shorts sync
+make short-data-sync-local
 
 # Sync Algolia search index
 make algolia-sync
@@ -199,7 +199,7 @@ WHERE status = 'running' AND started_at < NOW() - INTERVAL '70 minutes';
 
 | File                                                         | Purpose            |
 | ------------------------------------------------------------ | ------------------ |
-| `services/daily-sync/deprecated/comprehensive_daily_sync.py` | Main sync script   |
+| `services/jobs/internal/jobs/shortdatasync/`                 | Main sync job (Go) |
 | `terraform/modules/short-data-sync/main.tf`                  | Job infrastructure |
 | `web/src/app/admin/page.tsx`                                 | Admin dashboard    |
 

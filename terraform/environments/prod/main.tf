@@ -165,19 +165,15 @@ module "short_data_sync" {
   region           = var.region
   scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
   environment      = "production"
-  image_url        = var.short_data_sync_image
   bucket_name      = "shorted-short-selling-data-prod" # Prod-specific bucket
   # REVALIDATION_SECRET now exists in prod Secret Manager + the matching value
   # is set in the Vercel frontend env, so enable event-driven cache busting.
   manage_revalidation_secret = true
 
-  # Jobs-monolith cutover (Phase 3, item 9) — the SAME `shorts-data-sync` job,
-  # scheduler and service accounts now run `shorted short-data-sync` from the
-  # consolidated binary. Approved after shadow parity passed 6/6 dates
-  # byte-identically (2026-08-21). ROLLBACK: use_go_monolith = false + apply;
-  # that restores the Python image, its command AND its 8h/5-retry sizing in
-  # one flip (image_url above stays wired for exactly that reason).
-  use_go_monolith    = true
+  # Jobs-monolith: the SAME `shorts-data-sync` job, scheduler and service
+  # accounts run `shorted short-data-sync` from the consolidated binary.
+  # Monolith-only since the cleanup slice — rollback is `git revert` of that
+  # commit + apply (see modules/short-data-sync/main.tf).
   shorted_jobs_image = var.shorted_jobs_image
 
   depends_on = [

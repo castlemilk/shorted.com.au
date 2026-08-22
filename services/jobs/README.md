@@ -33,7 +33,8 @@ services/jobs/
   internal/jobs/reports/      `shorted reports coverage|link|sync`
                               (was services/report-coverage / -linker / -sync)
   internal/jobs/shortdatasync/`shorted short-data-sync`
-                              (was services/daily-sync, Python — ASIC tier only)
+                              (was services/daily-sync, Python — ASIC tier only;
+                               that tree is DELETED as of the cleanup slice)
   internal/jobs/signals/      `shorted signals`    (was services/signals-collector, Python)
   internal/jobs/weeklyreport/ `shorted weekly-report`
                               (was services/weekly-report-generator)
@@ -61,7 +62,7 @@ services/jobs/
 | `reports coverage` | `services/report-coverage` | no — laptop-only tool |
 | `reports link` | `services/report-linker` | no — laptop-only tool |
 | `reports sync` | `services/report-sync` | no — laptop-only tool |
-| `short-data-sync` | `services/daily-sync/deprecated/comprehensive_daily_sync.py` — **ASIC shorts tier only** | **not yet** — ported (Phase 3), no Terraform change; `shorts-data-sync` still runs the Python image |
+| `short-data-sync` | `services/daily-sync` (Python, **DELETED**) — **ASIC shorts tier only** | yes — `shorts-data-sync` (cutover 4, in-place image swap; Python source deleted in the cleanup slice) |
 | `signals` | `services/signals-collector` (Python) | yes — `shorted-signals` (cutover 2; old scheduler paused) |
 | `weekly-report` | `services/weekly-report-generator` | yes — `shorted-weekly-report`, weekly + monthly schedules (cutover 2; old schedulers paused) |
 
@@ -674,10 +675,13 @@ display-URL → PDF-URL resolution and the browser-header contract.
 ## Phase 3 port notes (short-data-sync)
 
 `services/daily-sync/deprecated/comprehensive_daily_sync.py` (the DEPLOYED
-script — `services/short-data-sync/main.py` is a never-deployed sibling) →
-`internal/jobs/shortdatasync`. **CODE ONLY**: no Terraform, no schedule change,
-the Python still runs in prod. Full detail, env table, divergences and the
-shadow-run procedure: `internal/jobs/shortdatasync/README.md`.
+script — `services/short-data-sync/main.py` was a never-deployed sibling) →
+`internal/jobs/shortdatasync`. Both Python trees have since been **deleted**:
+the port landed first (code only), then cutover slice 4 swapped the
+`shorts-data-sync` job's image in place, and the cleanup slice removed the
+Python sources, the `short_data_sync_image` variable and the `short-data-sync`
+CI image build. Full detail, env table, divergences and the shadow-run
+procedure: `internal/jobs/shortdatasync/README.md`.
 
 - **Scope split.** The Python bundled THREE pipelines. Only the ASIC shorts tier
   is ported here (download → parse → upsert → health report → MV refresh →

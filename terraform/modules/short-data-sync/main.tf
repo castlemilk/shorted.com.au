@@ -7,38 +7,35 @@
  * - Cloud Scheduler job (daily trigger)
  * - GCS bucket for storing CSV files
  *
- * # Jobs-monolith cutover (Phase 3, item 9)
+ * # Jobs-monolith: this job is MONOLITH-ONLY
  *
  * The `shorts-data-sync` Cloud Run Job runs the consolidated Go binary
- * (`shorted short-data-sync`, services/jobs) as of the cutover PR. Nothing
- * about the deployment IDENTITY changed: same job name (`shorts-data-sync`),
- * same service accounts, same scheduler (`shorts-data-sync-daily`, 0 10 * * *
- * UTC), same GCS bucket, same secrets. Only the container image + command/args
- * + task sizing are swapped IN PLACE, so the job is updated, never replaced.
+ * (`shorted short-data-sync`, services/jobs). Nothing about the deployment
+ * IDENTITY ever changed at cutover: same job name (`shorts-data-sync`), same
+ * service accounts, same scheduler (`shorts-data-sync-daily`, 0 10 * * * UTC),
+ * same GCS bucket, same secrets — only image + command/args + task sizing were
+ * swapped IN PLACE, so the job is updated, never replaced.
  *
- * HISTORICAL: before the cutover this job ran the PYTHON image built from
- * services/daily-sync/Dockerfile (CMD ["python","comprehensive_daily_sync.py"])
- * — NOT services/short-data-sync/, which was a never-deployed sibling. That
- * image is still built by CI and still reachable via the rollback below; the
- * legacy path is a supported mode of this module, not dead code.
+ * HISTORICAL: before the cutover this job ran a PYTHON image built from
+ * services/daily-sync/Dockerfile (CMD ["python","comprehensive_daily_sync.py"]).
+ * The cutover (shadow parity 6/6 + a green scheduled run 2026-08-21) satisfied
+ * the deletion gate, so the cleanup slice removed services/daily-sync,
+ * services/short-data-sync, the `use_go_monolith` toggle, the `image_url`
+ * legacy input and the `short-data-sync` CI image build.
  *
- * ## Rollback (one variable)
+ * ## Rollback
  *
- *   use_go_monolith = false
+ * There is no longer a one-variable flip: the Python source is gone and CI no
+ * longer refreshes the `short-data-sync` image tag. Rollback is
+ * `git revert` of the cleanup commit (which restores the toggle, the legacy
+ * variables and the CI matrix entry) followed by a `terraform apply`. The last
+ * legacy image remains in Artifact Registry, so nothing needs rebuilding
+ * first — but its tag is frozen at the pre-cleanup build.
  *
- * at the call site, then apply. That restores the Python image AND its command
- * (the image's own ENTRYPOINT/CMD) AND its 28800s/5-retry sizing in one move.
- * Image and command/args/timeout/retries are COUPLED in the locals below on
- * purpose: an image-only rollback that left `/shorted` in place would
- * crash-loop with `exec: "/shorted": not found` — the rollback would BE the
- * outage (the trap caught in review on the market-data-sync cutover).
- *
- * ## Deletion gate (plan invariant)
- *
- * services/daily-sync and services/short-data-sync stay in the repo, and the
- * `short-data-sync` image stays in the CI build matrix, until the monolith has
- * had ONE GREEN SCHEDULED run (not a manual execution). Pause, don't delete:
- * a rollback needs a currently-built image.
+ * Image, command, args, timeout and retries stay written together in the
+ * locals below for the same reason they were coupled before: an image-only
+ * change that left `/shorted` in place would crash-loop with
+ * `exec: "/shorted": not found` — the rollback would BE the outage.
  */
 
 locals {
@@ -49,29 +46,19 @@ locals {
     managed_by  = "terraform"
   }
 
-  # ---------------------------------------------------------------------------
-  # The cutover coupling. ONE toggle drives image + command + args + sizing;
-  # these four must never be settable independently (see the header comment).
-  # ---------------------------------------------------------------------------
+  job_image   = var.shorted_jobs_image
+  job_command = ["/shorted"]
+  job_args    = ["short-data-sync"]
 
-  # `null` (not `[]`) in legacy mode so the attributes are OMITTED and the
-  # Python image's own ENTRYPOINT/CMD applies — an empty list would CLEAR it.
-  job_image   = var.use_go_monolith ? var.shorted_jobs_image : var.image_url
-  job_command = var.use_go_monolith ? ["/shorted"] : null
-  job_args    = var.use_go_monolith ? ["short-data-sync"] : null
-
-  # Sizing is part of the same decision:
-  #
-  #  - MONOLITH: shorts-only. No yfinance/Alpha-Vantage price sweep, so no
-  #    500-stock batching, no checkpointing, no exit-2 "partial" retry
-  #    protocol — the run either completes or fails. The ASIC ingest takes
-  #    minutes and the MV refresh a few more, so 3600s is ~10x headroom and 1
-  #    retry covers a transient pooler blip. (Python runs took 26-29h WITH
-  #    retries; keeping 8h/5 here would just delay paging on a real failure by
-  #    the better part of two days.)
-  #  - LEGACY: the historical 8h x 6 attempts sized for that price sweep.
-  job_timeout_seconds = var.use_go_monolith ? 3600 : 28800
-  job_max_retries     = var.use_go_monolith ? 1 : 5
+  # Sizing follows from what the job actually does: shorts-only. No
+  # yfinance/Alpha-Vantage price sweep, so no 500-stock batching, no
+  # checkpointing, no exit-2 "partial" retry protocol — the run either
+  # completes or fails. The ASIC ingest takes minutes and the MV refresh a few
+  # more, so 3600s is ~10x headroom and 1 retry covers a transient pooler blip.
+  # (The Python runs took 26-29h WITH retries at 8h x 6 attempts; that sizing
+  # delayed paging on a real failure by the better part of two days.)
+  job_timeout_seconds = 3600
+  job_max_retries     = 1
 }
 
 # GCS Bucket for short selling data
@@ -154,21 +141,13 @@ resource "google_cloud_run_v2_job" "short_data_sync" {
     template {
       service_account = google_service_account.short_data_sync.email
 
-      # Both coupled to var.use_go_monolith — see the locals block.
-      #
-      # LEGACY (Python) sizing, kept exactly as it was for rollback: the script
-      # processed SYNC_BATCH_SIZE (500) stocks per attempt (~5h each) and exited 2
-      # to trigger the next retry, resuming from a DB checkpoint. ~1,850 active
-      # stocks need ~4 attempts, so 3 retries (4 attempts) left zero slack; 5
-      # retries (6 attempts) gave comfortable margin.
+      # Right-sized for the shorts-only Go run — see the locals block.
       max_retries = local.job_max_retries
       timeout     = "${local.job_timeout_seconds}s"
 
       containers {
-        # MONOLITH: the shorted-jobs image (ENTRYPOINT /shorted); command is set
+        # The shorted-jobs image (ENTRYPOINT /shorted); command is set
         # explicitly so the args are unambiguous.
-        # LEGACY: image's own CMD (python comprehensive_daily_sync.py), which is
-        # why command/args are null rather than [] in that mode.
         image   = local.job_image
         command = local.job_command
         args    = local.job_args
@@ -194,29 +173,24 @@ resource "google_cloud_run_v2_job" "short_data_sync" {
         }
 
         # Look-back window used only when the shorts table is empty. Set
-        # EXPLICITLY because it used to come from the Python image's own
-        # `ENV SYNC_DAYS_SHORTS=7` (services/daily-sync/Dockerfile) and the
-        # distroless monolith image carries no ENV at all. The value is the
-        # same 7 in both modes (the Go job's compiled default), so this is a
-        # documentation change, not a behaviour change.
+        # EXPLICITLY because the distroless monolith image carries no ENV at
+        # all (the retired Python image supplied its own
+        # `ENV SYNC_DAYS_SHORTS=7`). 7 is also the Go job's compiled default.
         env {
           name  = "SYNC_DAYS_SHORTS"
           value = tostring(var.sync_days_shorts)
         }
 
-        # NOT set, in either mode: SYNC_ALGOLIA (and therefore ALGOLIA_APP_ID /
-        # ALGOLIA_ADMIN_KEY / ALGOLIA_SYNC_URL / ALGOLIA_SYNC_TOKEN). The
-        # Python job gated its Algolia trigger on SYNC_ALGOLIA=="true" and the
-        # Go job on GetEnvBool("SYNC_ALGOLIA", false) — both OFF here today, so
-        # the cutover changes nothing. Algolia is reindexed out of band.
+        # NOT set: SYNC_ALGOLIA (and therefore ALGOLIA_APP_ID /
+        # ALGOLIA_ADMIN_KEY / ALGOLIA_SYNC_URL / ALGOLIA_SYNC_TOKEN). The Go
+        # job gates its Algolia trigger on GetEnvBool("SYNC_ALGOLIA", false),
+        # which is OFF here; Algolia is reindexed out of band.
         #
         # Also NOT set: SYNC_DAYS_STOCK_PRICES, SYNC_KEY_METRICS,
         # ALPHA_VANTAGE_API_KEY, MAX_STOCK_FAILURE_RETRIES. The Go job does not
         # sync prices or key metrics (`shorted market-data` owns stock_prices;
         # the shorts API's key-metrics-scheduler owns key_metrics) and warns
-        # loudly if any of them IS set. SYNC_DAYS_STOCK_PRICES=5 still arrives
-        # from the legacy image's ENV in rollback mode — deliberately left
-        # alone so the rollback is byte-identical to the pre-cutover job.
+        # loudly if any of them IS set.
 
         # Event-driven cache revalidation: after writing new ASIC data, ping the
         # frontend to bust the cached SSR pages (fires only when data changed).
@@ -225,10 +199,10 @@ resource "google_cloud_run_v2_job" "short_data_sync" {
           value = var.revalidation_url
         }
 
-        # Mounted only when the secret exists; otherwise BOTH implementations
-        # skip revalidation gracefully — the Go job's platform.PingRevalidate
-        # no-ops on an unset REVALIDATION_URL/REVALIDATION_SECRET and never
-        # fails the run (see manage_revalidation_secret).
+        # Mounted only when the secret exists; otherwise revalidation is
+        # skipped gracefully — platform.PingRevalidate no-ops on an unset
+        # REVALIDATION_URL/REVALIDATION_SECRET and never fails the run (see
+        # manage_revalidation_secret).
         dynamic "env" {
           for_each = var.manage_revalidation_secret ? [1] : []
           content {
@@ -253,13 +227,12 @@ resource "google_cloud_run_v2_job" "short_data_sync" {
   }
 
   lifecycle {
-    # A `true` toggle with no monolith image would silently fall back to an
-    # empty image reference; fail at PLAN time instead. (Cross-variable
-    # `validation` blocks need Terraform >= 1.9; this module's environments
-    # only require >= 1.5, so the check lives here.)
+    # An unset image would silently deploy an empty image reference; fail at
+    # PLAN time instead. Kept as a precondition rather than a variable
+    # `validation` so the error names the resource being built.
     precondition {
-      condition     = !var.use_go_monolith || var.shorted_jobs_image != ""
-      error_message = "use_go_monolith = true requires shorted_jobs_image (the consolidated `shorted` binary image). Set it, or set use_go_monolith = false to run the legacy daily-sync Python image."
+      condition     = var.shorted_jobs_image != ""
+      error_message = "shorted_jobs_image is required (the consolidated `shorted` binary image). This job is monolith-only; CI passes -var=shorted_jobs_image= on plan and apply."
     }
   }
 

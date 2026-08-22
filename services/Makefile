@@ -2,7 +2,6 @@ BASE_URL := http://localhost:9091
 GOOGLE_APPLICATION_CREDENTIALS := shorted-dev-aba5688f-4a322ff163b9.json
 SHORTS_IMAGE := australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/shorts
 SHORTS_VERSION := `git describe --tags --always --dirty`
-SHORTS_SYNC_IMAGE := australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/short-data-sync
 STOCK_PRICE_IMAGE := australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/stock-price-ingestion
 SHORTS_DATABASE_URL := postgresql://admin:password@postgres:5432/shorts
 
@@ -211,8 +210,6 @@ run.enrichment-processor: clean.enrichment-processor
 		go run ./enrichment-processor/ \
 	'
 
-build.short-data-sync:
-	cd short-data-sync; docker buildx build --push --progress=plain --platform linux/amd64,linux/arm64 -f Dockerfile -t ${SHORTS_SYNC_IMAGE}:latest -t ${SHORTS_SYNC_IMAGE}:${SHORTS_VERSION} .
 build.shorts:
 	docker buildx build --push --progress=plain --platform linux/amd64,darwin/arm64,linux/arm64/v8 -f shorts/cmd/server/Dockerfile -t ${SHORTS_IMAGE}:${SHORTS_VERSION} .
 	# docker buildx build --load -f shorts/cmd/server/Dockerfile -t ${SHORTS_IMAGE}:${SHORTS_VERSION} .
@@ -221,38 +218,10 @@ gcr.init:
 gcr.push:
 	docker push ${SHORTS_IMAGE}:${SHORTS_VERSION}
 
-run.docker.shorts-data-sync.local.standalone:
-	docker run \
-		-e DATABASE_URL=${SHORTS_DATABASE_URL} \
-		-e GOOGLE_APPLICATION_CREDENTIALS=/app/${GOOGLE_APPLICATION_CREDENTIALS} \
-		-v $(PWD)/../analysis/data/shorts/:/app/data/shorts/ \
-		-v $(PWD)/short-data-sync/${GOOGLE_APPLICATION_CREDENTIALS}:/app/${GOOGLE_APPLICATION_CREDENTIALS} \
-	 --link postgres -it --net sql_default --entrypoint "python" ${SHORTS_SYNC_IMAGE}:${SHORTS_VERSION} main.py
-
-run.docker.shorts-data-sync.local:
-	docker run \
-		-e DATABASE_URL=${SHORTS_DATABASE_URL} \
-		-e GOOGLE_APPLICATION_CREDENTIALS=/app/${GOOGLE_APPLICATION_CREDENTIALS} \
-		-v $(PWD)/../analysis/data/shorts/:/app/data/shorts/ \
-		-v $(PWD)/short-data-sync/${GOOGLE_APPLICATION_CREDENTIALS}:/app/${GOOGLE_APPLICATION_CREDENTIALS} \
-	 --link postgres --net sql_default -p 9091:9091  ${SHORTS_SYNC_IMAGE}:${SHORTS_VERSION}
-
-run.docker.shorts-data-sync.local.job:
-	docker run \
-		-e DATABASE_URL=${SHORTS_DATABASE_URL} \
-		-e GOOGLE_APPLICATION_CREDENTIALS=/app/${GOOGLE_APPLICATION_CREDENTIALS} \
-		-v $(PWD)/../analysis/data/shorts/:/app/data/shorts/ \
-		-v $(PWD)/short-data-sync/${GOOGLE_APPLICATION_CREDENTIALS}:/app/${GOOGLE_APPLICATION_CREDENTIALS} \
-	 --link postgres --net sql_default --entrypoint python ${SHORTS_SYNC_IMAGE}:${SHORTS_VERSION} main.py
-
-run.docker.shorts-data-sync.supabase.job:
-	docker run \
-		-e DATABASE_URL=${DATABASE_URL} \
-		-e GOOGLE_APPLICATION_CREDENTIALS=/app/shorted-dev-aba5688f-c627abe05e3d.json \
-		-v $(PWD)/../analysis/data/shorts/:/app/data/shorts/ \
-		-v $(PWD)/short-data-sync/shorted-dev-aba5688f-c627abe05e3d.json:/app/shorted-dev-aba5688f-c627abe05e3d.json \
-		--entrypoint python \
-		${SHORTS_SYNC_IMAGE}:${SHORTS_VERSION} main.py
+# The ASIC shorts sync now ships in the consolidated jobs binary; run it with
+# `cd jobs && go run ./cmd/shorted short-data-sync` (or `make
+# short-data-sync-local` from the repo root). The Python image and its
+# run.docker.shorts-data-sync.* targets were deleted in the cleanup slice.
 
 run.docker.shorts.local:
 	docker run \
@@ -269,13 +238,9 @@ deploy.gcr.shorts:
 	VERSION=${SHORTS_VERSION} IMAGE_NAME=${SHORTS_IMAGE} envsubst < shorts/cmd/server/service.template.yaml > shorts/cmd/server/service.yaml && \
 	gcloud run services replace shorts/cmd/server/service.yaml --region australia-southeast2
 
-deploy.job.shorts-data-sync: build.short-data-sync
-	VERSION=${SHORTS_VERSION} IMAGE_NAME=${SHORTS_SYNC_IMAGE} envsubst < short-data-sync/job.template.yaml > short-data-sync/job.yaml && \
-	gcloud run jobs replace --region australia-southeast2 short-data-sync/job.yaml
-
-deploy.gcr.shorts-data-sync:
-	VERSION=${SHORTS_VERSION} IMAGE_NAME=${SHORTS_SYNC_IMAGE} envsubst < short-data-sync/service.template.yaml > short-data-sync/service.yaml && \
-	gcloud run services replace short-data-sync/service.yaml --region australia-southeast2
+# The `shorts-data-sync` Cloud Run Job is Terraform-owned
+# (terraform/modules/short-data-sync) and runs the shorted-jobs image that CI
+# builds; there is no hand-deploy target for it.
 
 build.stock-price-ingestion:
 	cd stock-price-ingestion && docker buildx build --push --progress=plain --platform linux/amd64 -f Dockerfile -t ${STOCK_PRICE_IMAGE}:latest -t ${STOCK_PRICE_IMAGE}:${SHORTS_VERSION} .

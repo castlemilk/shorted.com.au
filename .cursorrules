@@ -25,7 +25,7 @@ shorted/
 │   ├── shorts/             # Main API service (port 9091)
 │   ├── market-data/        # Stock price API (port 8090)
 │   ├── enrichment-processor/ # Company metadata enrichment
-│   ├── daily-sync/         # Scheduled data updates (Python)
+│   ├── jobs/               # Consolidated `shorted <job>` binary (scheduled jobs)
 │   ├── migrations/         # SQL migrations
 │   └── pkg/                # Shared Go packages
 ├── proto/                  # Protobuf API definitions

@@ -529,21 +529,6 @@ func (mr *MockShortsStoreMockRecorder) GetIndustryTreeMap(limit, period, viewMod
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIndustryTreeMap", reflect.TypeOf((*MockShortsStore)(nil).GetIndustryTreeMap), limit, period, viewMode)
 }
 
-// GetJobsOverview mocks base method.
-func (m *MockShortsStore) GetJobsOverview() ([]*shorts.JobHealth, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetJobsOverview")
-	ret0, _ := ret[0].([]*shorts.JobHealth)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetJobsOverview indicates an expected call of GetJobsOverview.
-func (mr *MockShortsStoreMockRecorder) GetJobsOverview() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetJobsOverview", reflect.TypeOf((*MockShortsStore)(nil).GetJobsOverview))
-}
-
 // GetMarketByDate mocks base method.
 func (m *MockShortsStore) GetMarketByDate(date string, limit, offset int32) ([]*stocksv1alpha1.Stock, int, error) {
 	m.ctrl.T.Helper()

@@ -68,8 +68,10 @@ before cutover):**
     `stealth/brws/langextract` (Go port exists with golden-contract tests).
 11. `stock-prices` (stock-price-ingestion FastAPI → `shorted stock-prices
     sync|backfill` + a thin serve mode if the POST /sync contract must stay).
-12. Delete `services/daily-sync` (already deprecated), purge committed venvs
-    and the two `shorted-dev-*.json` SA keys (rotate them first).
+12. ~~Delete `services/daily-sync` (already deprecated), purge committed venvs
+    and the two `shorted-dev-*.json` SA keys (rotate them first).~~ **DONE** —
+    cleanup slice 2 below. (The SA key under `services/short-data-sync/` was
+    gitignored, never committed; it still wants rotating in GCP.)
 13. `enrichment` (enrichment-processor — Pub/Sub push service + batch mode;
     port batch mode into the binary, decide the service surface separately).
 
@@ -626,15 +628,78 @@ silently ignoring any of them.
 
 ### CI
 
-No workflow change was required: `.github/workflows/terraform-deploy.yml`
-already builds **both** images (`shorted-jobs` and `short-data-sync`) in the
-`build-docker-images` matrix and already passes both `-var=shorted_jobs_image=`
+No workflow change was required at cutover: `.github/workflows/terraform-deploy.yml`
+already built **both** images (`shorted-jobs` and `short-data-sync`) in the
+`build-docker-images` matrix and already passed both `-var=shorted_jobs_image=`
 and `-var=short_data_sync_image=` to plan **and** apply. The `short-data-sync`
-matrix entry is **deliberately kept** (pause-don't-delete: a rollback needs a
-currently-built image).
+matrix entry was **deliberately kept** at that point (pause-don't-delete: a
+rollback needed a currently-built image).
 
-**Cleanup gate (PENDING):** `services/daily-sync`, `services/short-data-sync`,
-the `short_data_sync_image` variable and the `short-data-sync` CI matrix entry
-are deleted only after **one green SCHEDULED run** of the monolith job (the
-`shorts-data-sync-daily` 10:00 UTC trigger — a manual `gcloud run jobs execute`
-does not count).
+**Cleanup gate: SATISFIED** (see cleanup slice 2 below).
+
+## Cleanup slice 2 — short-data-sync Python DELETED (branch `chore/cleanup-short-data-sync`)
+
+The gate was one green SCHEDULED run of the monolith job — a manual
+`gcloud run jobs execute` did not count. Evidence, all 2026-08-21:
+
+| Signal | Result |
+|---|---|
+| Shadow parity | 6/6 ASIC dates — `would_insert = 0`, `would_update = rows_parsed`, byte-identical checksum |
+| On-demand run | green |
+| **First scheduled run** (`shorts-data-sync-daily`, 10:00 UTC) | **green** |
+| Revalidation positive path | proven at 12:47Z (cache-bust actually fired, not just "no error") |
+
+Deleted:
+
+- `services/daily-sync` (the deployed Python image source, incl.
+  `deprecated/comprehensive_daily_sync.py`) and `services/short-data-sync` (the
+  never-deployed sibling that carried the NOT DEPLOYED banner).
+- `scripts/test-sync-locally.sh` — an orphan harness for the deleted script
+  (nothing referenced it, and its entry-point path had already rotted).
+- The `short-data-sync` `build-docker-images` matrix entry and both
+  `-var="short_data_sync_image=…"` lines (plan **and** apply) in
+  `.github/workflows/terraform-deploy.yml`, plus the `short_data_sync_image` variable in
+  `terraform/environments/{dev,prod}/variables.tf` and its
+  `terraform.tfvars.example` line.
+- `use_go_monolith` and `image_url` in `terraform/modules/short-data-sync` — the
+  module is now **monolith-only**: `image = var.shorted_jobs_image`,
+  `command = ["/shorted"]`, `args = ["short-data-sync"]`, `timeout = 3600s`,
+  `max_retries = 1`, fixed in locals. Job name, scheduler, service accounts,
+  bucket and secrets are untouched, so this is an in-place update, never a
+  replacement. The plan-time precondition survives, narrowed to
+  `var.shorted_jobs_image != ""`.
+- The orphaned `store.GetJobsOverview()` / `JobHealth` reader in
+  `services/shorts` — it selected from `v_job_health`, a view **migration 000046
+  never created** (migrations jump 000045→000047). Nothing called it; the admin
+  console reads Cloud Run + Cloud Scheduler through `internal/jobmonitor`
+  instead. Removed from the store, its interface, the adapter and the generated
+  mock. No proto/RPC referenced it, so the proto is untouched.
+- The root `make daily-sync-*` targets and the `services/Makefile`
+  `build.short-data-sync` / `run.docker.shorts-data-sync.*` /
+  `deploy.{job,gcr}.shorts-data-sync` targets, replaced by
+  `make short-data-sync-{local,shadow,execute,logs,status,test}` over
+  `cd services/jobs && go run ./cmd/shorted short-data-sync`.
+
+Preserved rather than deleted:
+
+- **The revalidation contract guard.**
+  `terraform/modules/cloudflare-edge/rate-limit-expression.test.mjs` asserted
+  the sync's tag/path/flush by reading the Python. It was **repointed**, not
+  dropped: it now parses `revalidateRequest()` in
+  `services/jobs/internal/jobs/shortdatasync/job.go` and asserts the same
+  `tag=shorts-data,scan-results`, the same eight paths and `flush=shorts`
+  (`platform.PingRevalidate` comma-joins `Paths` into `?path=`, so the list is
+  the same wire value). Mutation-checked: dropping a path fails the test.
+- The `shorts-data-sync` job name, its `shorts-data-sync-daily` scheduler, both
+  service accounts, the GCS bucket and every log/OTel identity.
+
+**Rollback is no longer a variable flip.** With the Python source gone and CI no
+longer refreshing the `short-data-sync` image tag, rollback = `git revert` of
+this commit (which restores the toggle, the legacy variable and the CI matrix
+entry) + `terraform apply`. The last legacy image remains in Artifact Registry,
+so nothing has to be rebuilt first — but its tag is frozen at the pre-cleanup
+build. This is documented in the module header.
+
+**Still to cut over (not in this slice):** `stock-price-ingestion` (Phase 3
+item 11), the `enrichment` batch mode (item 13), the housing rig cutover, and
+the Phase 4 paprika pilot.
