@@ -99,11 +99,71 @@ resource "cloudflare_workers_script" "edge_cache" {
       name = "CACHE_PURGE_SECRET"
       text = var.cache_purge_secret
       }, {
+      type = "plain_text"
+      name = "EDGE_RATE_LIMIT_ENABLED"
+      text = var.edge_rate_limit_enabled ? "true" : "false"
+      }, {
+      type = "plain_text"
+      name = "RATE_LIMIT_KEY_LIMIT"
+      text = tostring(var.edge_rate_limit_key_requests_per_minute)
+      }, {
+      type = "plain_text"
+      name = "RATE_LIMIT_ANON_LIMIT"
+      text = tostring(var.edge_rate_limit_anon_requests_per_minute)
+      }, {
+      # Bypass config mirrors the zone skip rules. The worker requires BOTH the
+      # UA marker and the exact secret, exactly like the Terraform expressions
+      # in locals above — never the UA alone.
+      type = "plain_text"
+      name = "RATE_LIMIT_TESTING_BYPASS_USER_AGENT"
+      text = var.rate_limit_testing_bypass_user_agent
+      }, {
+      type = "plain_text"
+      name = "RATE_LIMIT_TESTING_BYPASS_HEADER_NAME"
+      text = var.rate_limit_testing_bypass_header_name
+      }, {
+      type = "plain_text"
+      name = "RATE_LIMIT_SSR_BYPASS_USER_AGENT"
+      text = var.rate_limit_ssr_bypass_user_agent
+      }, {
+      type = "plain_text"
+      name = "RATE_LIMIT_SSR_BYPASS_HEADER_NAME"
+      text = var.rate_limit_ssr_bypass_header_name
+      }, {
+      # Per-minute rate limiting — Cloudflare Workers Rate Limiting API.
+      # Counters are per-colo and eventually consistent by design; these are
+      # abuse ceilings, not an accounting system (the monthly quota stays
+      # app-side). Two bindings that share a namespace_id share counters, even
+      # across Workers, so these IDs must stay unique to this worker.
+      type         = "ratelimit"
+      name         = "API_KEY_RATE_LIMITER"
+      namespace_id = var.edge_rate_limit_key_namespace_id
+      simple = {
+        limit  = var.edge_rate_limit_key_requests_per_minute
+        period = 60
+      }
+      }, {
+      type         = "ratelimit"
+      name         = "ANON_RATE_LIMITER"
+      namespace_id = var.edge_rate_limit_anon_namespace_id
+      simple = {
+        limit  = var.edge_rate_limit_anon_requests_per_minute
+        period = 60
+      }
+      }, {
       type         = "kv_namespace"
       name         = "EDGE_KV"
       namespace_id = cloudflare_workers_kv_namespace.edge_cache.id
     }
-    ], var.chat_service_origin != "" ? [{
+    ], var.rate_limit_testing_bypass_secret != "" ? [{
+      type = "secret_text"
+      name = "RATE_LIMIT_TESTING_BYPASS_SECRET"
+      text = var.rate_limit_testing_bypass_secret
+      }] : [], var.rate_limit_ssr_bypass_secret != "" ? [{
+      type = "secret_text"
+      name = "RATE_LIMIT_SSR_BYPASS_SECRET"
+      text = var.rate_limit_ssr_bypass_secret
+      }] : [], var.chat_service_origin != "" ? [{
       type = "plain_text"
       name = "CHAT_SERVICE_ORIGIN"
       text = var.chat_service_origin

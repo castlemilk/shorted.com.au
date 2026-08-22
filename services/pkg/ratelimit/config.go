@@ -41,9 +41,72 @@ type Config struct {
 	// Requests with browser auth that don't match these origins (or *.vercel.app)
 	// are downgraded to API-tier rate limits.
 	AllowedOrigins []string `json:"allowed_origins" yaml:"allowed_origins" mapstructure:"allowed_origins"`
+
+	// ---- Monthly quota batching (MonthlyLimiter) ----
+	//
+	// Per-minute limiting is enforced at the Cloudflare edge and does NOT
+	// touch Upstash. The knobs below govern the app layer's only remaining
+	// Upstash traffic: batched monthly quota accounting.
+
+	// MonthlyFlushThreshold is the number of buffered increments for a single
+	// identifier that triggers an immediate flush. Larger = fewer Upstash
+	// commands, larger worst-case undercount on instance death.
+	MonthlyFlushThreshold int `json:"monthly_flush_threshold" yaml:"monthly_flush_threshold" mapstructure:"monthly_flush_threshold"`
+
+	// MonthlyFlushInterval is the periodic flush cadence. Every identifier
+	// with pending increments is written at most this far behind.
+	MonthlyFlushInterval time.Duration `json:"monthly_flush_interval" yaml:"monthly_flush_interval" mapstructure:"monthly_flush_interval"`
+
+	// MonthlyIdleEviction drops in-memory counters for identifiers unseen for
+	// this long (only when they have nothing pending), bounding memory.
+	MonthlyIdleEviction time.Duration `json:"monthly_idle_eviction" yaml:"monthly_idle_eviction" mapstructure:"monthly_idle_eviction"`
+
+	// SkipAnonymousMonthly leaves IP-keyed (unauthenticated) callers unmetered
+	// for the monthly quota. Anonymous identifiers are an unbounded key space:
+	// metering them means one Upstash key per IP per month, which is exactly
+	// the long tail that exhausted the shared database's command quota.
+	// Anonymous abuse control is the edge per-IP minute bucket's job.
+	SkipAnonymousMonthly bool `json:"skip_anonymous_monthly" yaml:"skip_anonymous_monthly" mapstructure:"skip_anonymous_monthly"`
+
+	// BreakerFailureThreshold is the number of consecutive Upstash failures
+	// that opens the circuit breaker (suppressing further calls).
+	BreakerFailureThreshold int `json:"breaker_failure_threshold" yaml:"breaker_failure_threshold" mapstructure:"breaker_failure_threshold"`
+
+	// BreakerCooldown is how long the circuit stays open before a probe.
+	BreakerCooldown time.Duration `json:"breaker_cooldown" yaml:"breaker_cooldown" mapstructure:"breaker_cooldown"`
 }
 
+// Batching + circuit-breaker defaults.
+//
+// Volume: at 25/30s a caller doing 10,000 requests/month costs at most
+// 400 flushes x 2 commands = 800 Upstash commands, versus 70,000 under the
+// old per-request 7-command pipeline — an ~87x reduction. With anonymous
+// traffic unmetered, total monthly command volume is bounded by the number of
+// *authenticated* users, not by request count.
+//
+// Accuracy: worst-case undercount per identifier per instance death is
+// MonthlyFlushThreshold-1 = 24 requests (0.24% of the 10,000/month paid API
+// quota, 1.2% of the 2,000/month free quota). Monthly quotas are a fairness
+// control rather than a security boundary, so that is an acceptable trade.
+const (
+	defaultMonthlyFlushThreshold   = 25
+	defaultMonthlyFlushInterval    = 30 * time.Second
+	defaultMonthlyIdleEviction     = time.Hour
+	defaultBreakerFailureThreshold = 3
+	defaultBreakerCooldown         = 60 * time.Second
+)
+
 // DefaultConfig returns the default rate limiter configuration
+//
+// ARCHITECTURE (post August-2026 Upstash incident):
+//
+//	per-minute limiting -> Cloudflare edge worker (services/edge-worker)
+//	monthly quotas      -> this package (MonthlyLimiter, batched Upstash writes)
+//
+// The RequestsPerMinute / BrowserRequestsPerMinute fields below are retained
+// as the DOCUMENTED tier contract (they still describe what a tier is entitled
+// to, and the API docs quote them), but MonthlyLimiter does not enforce them —
+// the edge does. Only the *PerMonth fields are enforced here.
 //
 // Rate Limit Tiers (API/programmatic access via API tokens):
 //   - anonymous:  10 req/min,  500 req/month  - Unauthenticated requests (by IP)
@@ -87,6 +150,13 @@ func DefaultConfig() Config {
 		KeyPrefix:  "ratelimit:shorted:",
 		WindowSize: time.Minute,
 		Timeout:    5 * time.Second,
+
+		MonthlyFlushThreshold:   defaultMonthlyFlushThreshold,
+		MonthlyFlushInterval:    defaultMonthlyFlushInterval,
+		MonthlyIdleEviction:     defaultMonthlyIdleEviction,
+		SkipAnonymousMonthly:    true,
+		BreakerFailureThreshold: defaultBreakerFailureThreshold,
+		BreakerCooldown:         defaultBreakerCooldown,
 		AllowedOrigins: []string{
 			"shorted.com.au",
 			"www.shorted.com.au",

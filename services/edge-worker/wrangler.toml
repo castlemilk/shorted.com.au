@@ -23,3 +23,33 @@ mode = "smart"
 [[kv_namespaces]]
 binding = "EDGE_KV"
 id = "e08015a2c6324c7b8b3faa810d5b0c73"
+
+# ---------------------------------------------------------------------------
+# Rate limiting bindings (Cloudflare Workers Rate Limiting API — GA 2025-09-19,
+# requires Wrangler >= 4.36.0). Per-minute limiting lives here, NOT in Upstash.
+#
+# NOTE: PRODUCTION TRUTH LIVES IN TERRAFORM. This worker is deployed by
+# `cloudflare_workers_script.edge_cache` in terraform/modules/cloudflare-edge,
+# which declares its own bindings list. These entries exist so `wrangler dev`
+# and `wrangler deploy --dry-run` behave like prod — keep the two in sync.
+#
+# `namespace_id` is an account-scoped identifier you choose; two bindings with
+# the same namespace_id share counters, even across Workers. `period` must be
+# exactly 10 or 60.
+# ---------------------------------------------------------------------------
+
+[[ratelimits]]
+name = "API_KEY_RATE_LIMITER"
+namespace_id = "2001"
+
+  [ratelimits.simple]
+  limit = 120
+  period = 60
+
+[[ratelimits]]
+name = "ANON_RATE_LIMITER"
+namespace_id = "2002"
+
+  [ratelimits.simple]
+  limit = 30
+  period = 60

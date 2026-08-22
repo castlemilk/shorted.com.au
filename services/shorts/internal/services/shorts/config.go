@@ -52,11 +52,28 @@ func Env(v *viper.Viper, cfgPrefix, envPrefix string) {
 	_ = v.BindEnv(fmt.Sprintf("%s.algolia_admin_key", cfgPrefix), "ALGOLIA_ADMIN_KEY")
 	_ = v.BindEnv(fmt.Sprintf("%s.algolia_index", cfgPrefix), "ALGOLIA_INDEX")
 
-	// Rate limiting configuration
-	_ = v.BindEnv(fmt.Sprintf("%s.rate_limit.upstash_url", cfgPrefix), "UPSTASH_REDIS_REST_URL")
-	_ = v.BindEnv(fmt.Sprintf("%s.rate_limit.upstash_token", cfgPrefix), "UPSTASH_REDIS_REST_TOKEN")
+	// Rate limiting configuration.
+	//
+	// FAILURE-DOMAIN RULE: rate limiting must never share an Upstash database
+	// with the page cache again. In August 2026 the per-request sliding-window
+	// pipeline exhausted the shared database's command quota; Upstash then
+	// rejected writes while still serving reads, which degraded rate limiting
+	// AND froze the page cache in one stroke.
+	//
+	// RATE_LIMIT_UPSTASH_REDIS_REST_{URL,TOKEN} point quota accounting at a
+	// DEDICATED database and take precedence. The bare UPSTASH_REDIS_REST_*
+	// vars remain only as a migration fallback — set the dedicated pair in
+	// every environment.
+	_ = v.BindEnv(fmt.Sprintf("%s.rate_limit.upstash_url", cfgPrefix), "RATE_LIMIT_UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_URL")
+	_ = v.BindEnv(fmt.Sprintf("%s.rate_limit.upstash_token", cfgPrefix), "RATE_LIMIT_UPSTASH_REDIS_REST_TOKEN", "UPSTASH_REDIS_REST_TOKEN")
 	_ = v.BindEnv(fmt.Sprintf("%s.rate_limit.enabled", cfgPrefix), "RATE_LIMIT_ENABLED")
 	_ = v.BindEnv(fmt.Sprintf("%s.rate_limit.fail_open", cfgPrefix), "RATE_LIMIT_FAIL_OPEN")
+
+	// Monthly quota batching knobs (see pkg/ratelimit/config.go for the
+	// volume/accuracy trade-off these encode).
+	_ = v.BindEnv(fmt.Sprintf("%s.rate_limit.monthly_flush_threshold", cfgPrefix), "RATE_LIMIT_MONTHLY_FLUSH_THRESHOLD")
+	_ = v.BindEnv(fmt.Sprintf("%s.rate_limit.monthly_flush_interval", cfgPrefix), "RATE_LIMIT_MONTHLY_FLUSH_INTERVAL")
+	_ = v.BindEnv(fmt.Sprintf("%s.rate_limit.skip_anonymous_monthly", cfgPrefix), "RATE_LIMIT_SKIP_ANONYMOUS_MONTHLY")
 }
 
 func Flags(f *flag.FlagSet, prefix string) {

@@ -989,7 +989,39 @@ telesis.dev-scoped token so this cross-dependency on shorted's account-wide key 
 
 ## Rate Limiting
 
-The API uses Upstash Redis for rate limiting with a sliding window algorithm.
+Rate limiting is **split across two failure domains on purpose**:
+
+| Concern | Where it runs | Depends on |
+|---|---|---|
+| **Per-minute** limiting | Cloudflare edge worker (`services/edge-worker/worker.js`) | Cloudflare Workers Rate Limiting API only — **no Upstash** |
+| **Monthly** quota accounting | Go API (`services/pkg/ratelimit`, `MonthlyLimiter`) | Upstash, **batched** (2 commands per ~25 requests) |
+| Zone-level DDoS/abuse limit | Cloudflare zone ruleset (Terraform) | Cloudflare only |
+
+### Why it is split (the August 2026 incident)
+
+The app-layer limiter used to run a **7-command Upstash sliding-window pipeline
+on every request**, against the **same Upstash database that backs the page
+cache**. That burned the shared database's 500k/month command cap. Upstash then
+**rejected writes while still serving reads**, which *simultaneously* degraded
+rate limiting and froze the page cache — one quota, two outages.
+
+Three rules came out of it, and they are load-bearing:
+
+1. **Per-minute limiting must never depend on Upstash.** It is enforced at the
+   edge, before a request reaches Cloud Run.
+2. **Rate limiting and the page cache must never share an Upstash database
+   again.** A quota exhausted by one must not be able to break the other.
+   Quota accounting reads `RATE_LIMIT_UPSTASH_REDIS_REST_URL` /
+   `RATE_LIMIT_UPSTASH_REDIS_REST_TOKEN` — point these at a **dedicated**
+   Upstash database. (The bare `UPSTASH_REDIS_REST_*` vars remain only as a
+   migration fallback.) **Splitting the cache onto its own database is still
+   worth doing on the cache side too** — the cache is the higher-volume,
+   higher-blast-radius tenant, and today it is the one sharing with the rate
+   limiter rather than the other way round.
+3. **A sick quota database must never 500 a user.** `MonthlyLimiter` does no
+   I/O on the request path, fails open unconditionally, and trips a circuit
+   breaker (3 consecutive failures → 60s cooldown) that logs loudly instead of
+   hammering a degraded Upstash.
 
 ### Rate Limit Tiers
 
@@ -1009,39 +1041,99 @@ The API uses Upstash Redis for rate limiting with a sliding window algorithm.
 | `free` | 120 | 10,000 | Authenticated without subscription |
 | `paid` | **unlimited** | **unlimited** | Paid subscribers have no limits |
 
-### How It Works
+The tier table above is the **documented entitlement contract** (it is what the
+API docs and pricing page quote). Enforcement is split: the *Per Month* column
+is enforced by the Go API; the *Per Minute* column is approximated by the edge's
+two tier-blind buckets, described next.
 
-1. **Authentication** - User authenticates via Firebase (browser) or API token (programmatic)
-2. **Access Type Detection** - Firebase auth → browser access, API token → API access
-3. **Subscription Lookup** - Auth interceptor queries `api_subscriptions` table for user's tier
-4. **Rate Check** - Applies browser or API limits based on access type
+### Per-minute enforcement — the edge's two buckets
+
+The worker cannot resolve a user's paid tier without a database lookup, and
+doing one at the edge would reintroduce exactly the coupling that caused the
+incident. So it is deliberately tier-blind:
+
+| Binding | Key | Limit | Applies to |
+|---|---|---|---|
+| `API_KEY_RATE_LIMITER` | `k:<sha256(token)[0:32]>` | **120/min** | Any request with `Authorization` (bearer or bare) or `X-API-Key` |
+| `ANON_RATE_LIMITER` | `a:<client IP>` | **30/min** | Requests with **no** credential |
+
+- 120/min is an **abuse ceiling, not a tier**: it sits at or above every
+  documented per-minute tier, so a paid subscriber's "unlimited" per-minute
+  access remains **effectively unlimited** (120 req/min = 2 req/s sustained,
+  well beyond any interactive session). It exists so a leaked or shared token
+  cannot hammer the origin.
+- 30/min for anonymous matches the documented anonymous API tier exactly.
+- Cloudflare counters are **per-colo and eventually consistent** by design, so
+  the effective global ceiling is limit × colos reached. Fine for an abuse
+  ceiling; another reason precise monthly quotas stay app-side.
+- Both **existing zone bypasses are mirrored in the worker** (E2E testing and
+  first-party SSR), each requiring **both** the UA marker and the exact secret.
+
+Details, config, and rollout steps: `services/edge-worker/README.md`.
+
+### Monthly enforcement — batched, fail-open
+
+`MonthlyLimiter` (`services/pkg/ratelimit/monthly.go`) buffers increments in
+memory and flushes deltas to Upstash with a **2-command pipeline (INCRBY +
+EXPIRE)** every **25 increments** or **30 seconds** per identifier, whichever
+comes first.
+
+- **Volume**: a caller doing 10,000 requests/month costs ≤ 800 Upstash commands
+  instead of 70,000 — an ~87× reduction.
+- **Accuracy**: worst-case undercount is `threshold - 1` = **24 requests per
+  identifier per instance death** (0.24% of the 10,000/month paid quota, 1.2%
+  of a 2,000/month free quota). Monthly quotas are a fairness control, not a
+  security boundary, so that is an accepted trade.
+- **Anonymous (IP-keyed) callers are unmetered by default**
+  (`SkipAnonymousMonthly`). Anonymous identifiers are an unbounded key space —
+  metering them means one Upstash key per IP per month, which is exactly the
+  long tail that exhausted the quota. Anonymous abuse control is now the edge's
+  per-IP minute bucket. Set `RATE_LIMIT_SKIP_ANONYMOUS_MONTHLY=false` to
+  re-enable metering, and expect the command volume back.
+- **No request-path I/O and no error path**: `Check` never calls Upstash, so a
+  degraded quota DB cannot add latency, 500s, or spurious 429s.
 
 ### Response Headers
 
-All responses include rate limit headers:
 ```
-X-RateLimit-Limit: 60              # Per-minute limit (0 = unlimited)
-X-RateLimit-Remaining: 55          # Per-minute remaining
-X-RateLimit-Reset: 1706918400      # Per-minute reset timestamp
-X-RateLimit-Monthly-Limit: 10000   # Monthly limit
+X-RateLimit-Monthly-Limit: 10000   # Monthly limit (0 = unmetered)
 X-RateLimit-Monthly-Used: 150      # Monthly usage
 X-RateLimit-Monthly-Reset: 1709251200  # Start of next month
 ```
 
-When rate limited, returns HTTP 429 with `Retry-After` header.
+The monthly headers are emitted by the API and are accurate to within one flush
+batch. **The API no longer emits `X-RateLimit-Limit` / `-Remaining` / `-Reset`**
+— it does not own a per-minute window, and advertising one it is not enforcing
+would be a lie. Those three headers now come from the **edge** on a 429, along
+with `Retry-After: 60` and `X-RateLimit-Scope: edge-minute`.
+
+An edge 429 body is a Connect error envelope
+(`{"code":"resource_exhausted","message":"..."}`) on RPC paths and
+`{"error":"Too Many Requests","message":"..."}` elsewhere. A monthly 429 from
+the app is a Connect `resource_exhausted` error as before.
 
 ### Configuration
 
-Environment variables:
+Environment variables (Go API):
 ```bash
-UPSTASH_REDIS_REST_URL=https://amazed-cow-5075.upstash.io
-UPSTASH_REDIS_REST_TOKEN=<token>
+# Dedicated quota database — MUST NOT be the page cache's database
+RATE_LIMIT_UPSTASH_REDIS_REST_URL=https://<dedicated>.upstash.io
+RATE_LIMIT_UPSTASH_REDIS_REST_TOKEN=<token>
 RATE_LIMIT_ENABLED=true
+
+# Optional batching knobs (defaults 25 / 30s / true)
+RATE_LIMIT_MONTHLY_FLUSH_THRESHOLD=25
+RATE_LIMIT_MONTHLY_FLUSH_INTERVAL=30s
+RATE_LIMIT_SKIP_ANONYMOUS_MONTHLY=true
 ```
+
+Edge worker config is Terraform-owned (`edge_rate_limit_*` variables in
+`terraform/modules/cloudflare-edge/variables.tf`) — **not** `wrangler.toml`,
+which exists only for local dev parity. See the worker README.
 
 ### Cloudflare Edge Test Bypass
 
-The Cloudflare edge rate limit is separate from the app/Upstash limits. It can be bypassed for trusted E2E/load testing, but only with both a user-agent marker and a secret header.
+The Cloudflare **zone** rate limit is separate from the worker buckets and the app's monthly quota. It can be bypassed for trusted E2E/load testing, but only with both a user-agent marker and a secret header. **The edge worker mirrors this same bypass** (`resolveRateLimitBypass` in `worker.js`) — if you change the UA/header/secret here, change it there too, or trusted traffic will clear the zone rule and then be caught by the worker bucket.
 
 Setup:
 ```bash
@@ -1081,6 +1173,11 @@ Terraform (`terraform/modules/cloudflare-edge/variables.tf`):
 - `rate_limit_ssr_bypass_header_name = "x-shorted-ssr-bypass"`.
 - `rate_limit_ssr_bypass_user_agent = "shorted-web-ssr"`.
 
+These three values are also delivered to the **edge worker** (as
+`RATE_LIMIT_SSR_BYPASS_{SECRET,HEADER_NAME,USER_AGENT}` bindings) so the
+worker's per-minute buckets exempt the same traffic the zone rule exempts. An
+unset secret disables the bypass in both places identically.
+
 CI passes it as `TF_VAR_rate_limit_ssr_bypass_secret` from the GitHub Actions
 secret `CLOUDFLARE_SSR_BYPASS_SECRET` (terraform-deploy.yml plan + apply).
 
@@ -1115,8 +1212,13 @@ For production incident triage, use `$shorted-prod-troubleshooting` to combine R
 
 | File | Purpose |
 |------|---------|
-| `services/pkg/ratelimit/` | Rate limiting package |
-| `services/pkg/ratelimit/config.go` | Tier configuration |
+| `services/edge-worker/worker.js` | **Per-minute** rate limiting (Cloudflare bindings) |
+| `services/edge-worker/README.md` | Edge rate limiting design, config, rollout |
+| `services/edge-worker/ratelimit.test.mjs` | Edge rate limiting tests (`node --test`) |
+| `terraform/modules/cloudflare-edge/main.tf` | Worker script + `ratelimit` bindings (worker deploy is Terraform, not wrangler) |
+| `services/pkg/ratelimit/monthly.go` | **Monthly** quota accounting: batching + circuit breaker |
+| `services/pkg/ratelimit/config.go` | Tier configuration + batching defaults |
+| `services/pkg/ratelimit/interceptor.go` | Connect interceptor + header contract |
 | `services/shorts/.../middleware_connect.go` | Auth + subscription lookup |
 | `services/migrations/000015_add_api_subscriptions.up.sql` | Subscription table |
 
