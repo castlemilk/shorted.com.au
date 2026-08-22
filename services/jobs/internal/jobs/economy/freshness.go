@@ -23,14 +23,63 @@ func (c freshnessCadence) thresholdDays() int {
 	return c.ExpectedDays + c.GraceDays
 }
 
+// Threshold calibration rule (recalibrated 2026-08-22, see the block comment
+// below): AgeDays is measured from the PERIOD START of the newest observation,
+// so a threshold must cover the publisher's own lag, not just its cadence. The
+// pipeline that consumes these thresholds is:
+//
+//	period start -> publisher release -> next collector run (monthly, 5th
+//	17:00 UTC) -> freshness check (monthly, 8th)
+//
+// A release landing after the 5th therefore waits a FULL MONTH before it can
+// be ingested, and that wait is the designed steady state — a threshold that
+// does not cover it fires on healthy data and stops meaning anything. Every
+// threshold below is period-start + measured publisher lag + one missed ingest
+// cycle (31d) + one further missed cycle + 3d to the check, with ~1 month of
+// slack. Publisher lags were measured from the live ABS/DCCEEW release pages
+// on 2026-08-22 and are cited per-cadence.
 var (
-	rbaFreshnessCadence               = freshnessCadence{Cadence: "daily/monthly", ExpectedDays: 30, GraceDays: 45}
-	monthlyFreshnessCadence           = freshnessCadence{Cadence: "monthly", ExpectedDays: 30, GraceDays: 80}
-	quarterlyFreshnessCadence         = freshnessCadence{Cadence: "quarterly", ExpectedDays: 90, GraceDays: 140}
-	populationFreshnessCadence        = freshnessCadence{Cadence: "quarterly", ExpectedDays: 90, GraceDays: 230}
-	governmentFinanceFreshnessCadence = freshnessCadence{Cadence: "quarterly", ExpectedDays: 90, GraceDays: 150}
-	annualFreshnessCadence            = freshnessCadence{Cadence: "annual", ExpectedDays: 365, GraceDays: 255}
-	correlationFreshnessCadence       = freshnessCadence{Cadence: "monthly", ExpectedDays: 30, GraceDays: 10}
+	rbaFreshnessCadence = freshnessCadence{Cadence: "daily/monthly", ExpectedDays: 30, GraceDays: 45}
+	// ABS monthly releases land ~4-5 weeks after the reference month
+	// (measured 2026-08-22: Building Approvals June 2026 -> released
+	// 30/07/2026; International Trade in Goods June 2026 -> 6/08/2026).
+	// Worst designed check age = 30 (period) + ~36 (release) + 31 (release
+	// landed after the 5th) + 31 (one further missed cycle — the ABS Data API
+	// can load a flow AFTER its own web release; BA_SA2 carried 2026-06 on
+	// 2026-08-22 but not at the 2026-08-05 run) + 3 = ~131.
+	monthlyFreshnessCadence = freshnessCadence{Cadence: "monthly", ExpectedDays: 30, GraceDays: 110}
+	// ABS quarterly releases land ~60-70 days after quarter END, i.e. ~150-160
+	// days after period start (measured 2026-08-22: Business Indicators Mar-2026
+	// qtr -> 2/06/2026; National Accounts Mar-2026 qtr -> 3/06/2026; WPI Jun-2026
+	// qtr -> 19/08/2026; Lending Indicators Jun-2026 qtr -> 14/08/2026).
+	// Worst designed check age = 90 + ~160 + 31 (one missed ingest cycle) - the
+	// quarter already replaced = ~250 before the next quarter lands.
+	quarterlyFreshnessCadence = freshnessCadence{Cadence: "quarterly", ExpectedDays: 90, GraceDays: 170}
+	// ERP is quarterly with a ~6-month publication lag (measured 2026-08-22: the
+	// Dec-2025 quarter, period start 2025-10-01, was released 18/06/2026 = 260
+	// days). The Dec-2025 quarter stays our newest period until the Mar-2026
+	// quarter is published (~18/09/2026) and ingested on 2026-10-05 = 369 days,
+	// +3 to the check = 372. The old 320 threshold flipped this source STALE on
+	// 2026-08-17 with the data fully caught up to the publisher.
+	populationFreshnessCadence = freshnessCadence{Cadence: "quarterly", ExpectedDays: 90, GraceDays: 310}
+	// GFS is the quarterly XLSX cube, published a little later than the SDMX
+	// quarterlies; same arithmetic as quarterlyFreshnessCadence plus its extra lag.
+	governmentFinanceFreshnessCadence = freshnessCadence{Cadence: "quarterly", ExpectedDays: 90, GraceDays: 190}
+	// ABS Recorded Crime — Victims is ANNUAL and published ~8 months after the
+	// reference year ENDS: the 2024 issue (period start 2024-01-01) was released
+	// 3/09/2025 = 611 days after period start (verified on the latest-release
+	// page, 2026-08-22 — 2024 is still the newest issue upstream, so prod is
+	// fully caught up). That issue then remains our newest period for a further
+	// YEAR, until the 2025 issue is published (~3/09/2026) and ingested on the
+	// following 5th: 611 + 365 + 31 + 3 = ~1010 days at the check.
+	//
+	// The old 365+255=620 threshold was therefore ~390 days short of the healthy
+	// steady state: it tripped ~9 days after the 2024 issue was ingested and has
+	// marked this source STALE on every monthly run since. ExpectedDays is two
+	// annual cycles because that — not one — is the interval a given period start
+	// must survive.
+	annualFreshnessCadence      = freshnessCadence{Cadence: "annual", ExpectedDays: 730, GraceDays: 280}
+	correlationFreshnessCadence = freshnessCadence{Cadence: "monthly", ExpectedDays: 30, GraceDays: 10}
 	frozenRetailFreshnessCadence      = freshnessCadence{
 		Cadence:      "monthly",
 		ExpectedDays: 30,

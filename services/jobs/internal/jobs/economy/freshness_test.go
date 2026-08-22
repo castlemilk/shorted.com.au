@@ -40,24 +40,24 @@ func TestFreshnessCadencesCoverExactlyRegisteredEconomySources(t *testing.T) {
 		"rba-key-indicators":          75,
 		"rba-commodity-prices":        75,
 		"rba-credit-aggregates":       75,
-		"abs-cpi":                     230,
-		"abs-labour-force":            110,
-		"abs-job-vacancies":           230,
-		"abs-wage-price-index":        230,
-		"abs-household-spending":      110,
-		"abs-lending-indicators":      230,
-		"abs-construction-work-done":  230,
-		"abs-business-indicators":     230,
-		"abs-recorded-crime-victims":  620,
-		"abs-merch-trade-state":       110,
-		"abs-state-accounts":          230,
-		"abs-building-approvals":      110,
+		"abs-cpi":                     260,
+		"abs-labour-force":            140,
+		"abs-job-vacancies":           260,
+		"abs-wage-price-index":        260,
+		"abs-household-spending":      140,
+		"abs-lending-indicators":      260,
+		"abs-construction-work-done":  260,
+		"abs-business-indicators":     260,
+		"abs-recorded-crime-victims":  1010,
+		"abs-merch-trade-state":       140,
+		"abs-state-accounts":          260,
+		"abs-building-approvals":      140,
 		"abs-retail-trade":            110,
-		"abs-population":              320,
-		"abs-government-finance":      240,
-		"dcceew-petroleum-statistics": 110,
+		"abs-population":              400,
+		"abs-government-finance":      280,
+		"dcceew-petroleum-statistics": 140,
 		"derived-shorted-markets":     75,
-		"derived-shorted-economy":     230,
+		"derived-shorted-economy":     260,
 	}
 	for key, want := range wantThresholds {
 		if got := sourceFreshnessCadences[key].thresholdDays(); got != want {
@@ -73,11 +73,11 @@ func TestFreshnessThresholdArithmetic(t *testing.T) {
 		want   int
 	}{
 		{name: "rba daily/monthly", policy: rbaFreshnessCadence, want: 75},
-		{name: "monthly", policy: monthlyFreshnessCadence, want: 110},
-		{name: "quarterly", policy: quarterlyFreshnessCadence, want: 230},
-		{name: "population", policy: populationFreshnessCadence, want: 320},
-		{name: "government finance", policy: governmentFinanceFreshnessCadence, want: 240},
-		{name: "annual crime", policy: annualFreshnessCadence, want: 620},
+		{name: "monthly", policy: monthlyFreshnessCadence, want: 140},
+		{name: "quarterly", policy: quarterlyFreshnessCadence, want: 260},
+		{name: "population", policy: populationFreshnessCadence, want: 400},
+		{name: "government finance", policy: governmentFinanceFreshnessCadence, want: 280},
+		{name: "annual crime", policy: annualFreshnessCadence, want: 1010},
 		{name: "correlations", policy: correlationFreshnessCadence, want: 40},
 	}
 	for _, tt := range tests {
@@ -92,8 +92,8 @@ func TestFreshnessThresholdArithmetic(t *testing.T) {
 
 func TestClassifyFreshness(t *testing.T) {
 	now := time.Date(2026, 7, 25, 12, 0, 0, 0, time.UTC)
-	atThreshold := now.Add(-110 * 24 * time.Hour)
-	olderThanThreshold := now.Add(-111 * 24 * time.Hour)
+	atThreshold := now.Add(-140 * 24 * time.Hour)
+	olderThanThreshold := now.Add(-141 * 24 * time.Hour)
 
 	tests := []struct {
 		name       string
@@ -102,8 +102,8 @@ func TestClassifyFreshness(t *testing.T) {
 		wantHasAge bool
 		wantStale  bool
 	}{
-		{name: "threshold is still ok", maxPeriod: &atThreshold, wantAge: 110, wantHasAge: true},
-		{name: "older than threshold is stale", maxPeriod: &olderThanThreshold, wantAge: 111, wantHasAge: true, wantStale: true},
+		{name: "threshold is still ok", maxPeriod: &atThreshold, wantAge: 140, wantHasAge: true},
+		{name: "older than threshold is stale", maxPeriod: &olderThanThreshold, wantAge: 141, wantHasAge: true, wantStale: true},
 		{name: "missing observation is stale", wantStale: true},
 	}
 	for _, tt := range tests {
@@ -118,8 +118,8 @@ func TestClassifyFreshness(t *testing.T) {
 			if tt.wantHasAge && *got.AgeDays != tt.wantAge {
 				t.Errorf("AgeDays = %d, want %d", *got.AgeDays, tt.wantAge)
 			}
-			if got.ThresholdDays != 110 {
-				t.Errorf("ThresholdDays = %d, want 110", got.ThresholdDays)
+			if got.ThresholdDays != 140 {
+				t.Errorf("ThresholdDays = %d, want 140", got.ThresholdDays)
 			}
 		})
 	}
@@ -144,7 +144,7 @@ func TestClassifyFrozenSourceNeverMarksItStale(t *testing.T) {
 func TestWriteFreshnessReportSortsEntriesAndEmitsSummary(t *testing.T) {
 	now := time.Date(2026, 7, 25, 12, 0, 0, 0, time.UTC)
 	recent := now.Add(-10 * 24 * time.Hour)
-	old := now.Add(-700 * 24 * time.Hour)
+	old := now.Add(-1100 * 24 * time.Hour)
 	ended := time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)
 	results := []freshnessResult{
 		classifyFreshness("z-source", &recent, now, monthlyFreshnessCadence),
@@ -162,7 +162,7 @@ func TestWriteFreshnessReportSortsEntriesAndEmitsSummary(t *testing.T) {
 		t.Fatalf("report lines = %d, want 4:\n%s", len(lines), out.String())
 	}
 	if !strings.HasPrefix(lines[0], "source_key=a-source ") ||
-		!strings.Contains(lines[0], "max_period=2024-08-24 age_days=700 threshold=620 status=STALE") {
+		!strings.Contains(lines[0], "max_period=2023-07-21 age_days=1100 threshold=1010 status=STALE") {
 		t.Errorf("first entry = %q", lines[0])
 	}
 	if !strings.HasPrefix(lines[1], "source_key=abs-retail-trade ") ||
