@@ -26,6 +26,10 @@ on:
 permissions:
   contents: read
   id-token: write
+  # A red workflow is a page nobody opens (this sentinel ran red for its whole
+  # life — 3/3 runs — before anyone noticed via the admin console). An issue
+  # emails the repo watchers; same pattern as housing-freshness.yml.
+  issues: write
 
 jobs:
   freshness:
@@ -51,15 +55,74 @@ jobs:
             --args="economy,-mode,freshness" \
             --wait
 
+      # Echo the per-source report into the step LOG (not just the summary tab)
+      # so `gh run view --log` is self-sufficient for triage, and keep a copy
+      # for the issue body.
       - name: Surface report in summary
         if: always()
         run: |
+          report_file="$RUNNER_TEMP/economy-freshness-report.txt"
+          gcloud logging read \
+            'resource.type="cloud_run_job" AND resource.labels.job_name="shorted-economy" AND (textPayload:"source_key=" OR textPayload:"freshness:")' \
+            --project rosy-clover-477102-t5 --freshness 30m --limit 40 \
+            --format="value(textPayload)" | sort > "$report_file" || true
+          echo "REPORT_FILE=$report_file" >> "$GITHUB_ENV"
+          cat "$report_file"
           {
             echo "## Economy freshness report"
             echo '```'
-            gcloud logging read \
-              'resource.type="cloud_run_job" AND resource.labels.job_name="shorted-economy" AND (textPayload:"source_key=" OR textPayload:"freshness:")' \
-              --project rosy-clover-477102-t5 --freshness 30m --limit 40 \
-              --format="value(textPayload)" | sort
+            cat "$report_file"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: File or update the freshness alert issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          title="Economy data freshness check failed"
+          body_file="$RUNNER_TEMP/economy-issue-body.md"
+          {
+            echo "The scheduled economy freshness check reported stale data."
+            echo
+            echo "Run: $RUN_URL"
+            echo
+            echo '```'
+            cat "${REPORT_FILE:-/dev/null}" 2>/dev/null || echo "(report unavailable)"
+            echo '```'
+            echo
+            echo "Runbook: the \`\$economy-data\` skill — sweep procedure in §1."
+            echo "Threshold calibration: services/jobs/internal/jobs/economy/freshness.go."
+          } >"$body_file"
+
+          existing="$(gh issue list --state open --label economy-freshness \
+            --json number --jq '.[0].number // empty' 2>/dev/null || true)"
+
+          if [[ -n "$existing" ]]; then
+            gh issue comment "$existing" --body-file "$body_file"
+            echo "commented on existing issue #$existing"
+          else
+            gh label create economy-freshness --color B60205 \
+              --description "Economy data freshness sentinel" 2>/dev/null || true
+            gh issue create --title "$title" --label economy-freshness --body-file "$body_file"
+          fi
+
+      # Close the tracking issue once the sentinel is green again, so an open
+      # issue always means "currently broken" rather than "broke once".
+      - name: Resolve the freshness alert issue
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          existing="$(gh issue list --state open --label economy-freshness \
+            --json number --jq '.[0].number // empty' 2>/dev/null || true)"
+          if [[ -n "$existing" ]]; then
+            gh issue close "$existing" --comment "Economy freshness is green again: $RUN_URL"
+            echo "closed issue #$existing"
+          fi
