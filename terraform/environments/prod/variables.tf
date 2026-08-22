@@ -205,6 +205,27 @@ variable "rate_limit_ssr_bypass_user_agent" {
   default     = "shorted-web-ssr"
 }
 
+variable "edge_rate_limit_enabled" {
+  description = <<-EOT
+    Enable the Cloudflare Worker's rate limiting in PRODUCTION (burst +
+    sustained buckets on both api.shorted.com.au and shorted.com.au).
+
+    Opt-in on purpose. The module defaults to true; prod pins it here so
+    turning it on is a deliberate, reviewable change and turning it off is an
+    instant rollback (set false, re-apply — the worker returns to fail-open in
+    ~30s, no code deploy required).
+
+    Before flipping: confirm web/src/middleware.ts is deployed (it attaches the
+    first-party SSR marker to rewrite-proxied RPCs) and that
+    rate_limit_ssr_bypass_secret is set in this environment — without both,
+    rewrite traffic falls into the anonymous per-IP bucket behind a shared
+    Vercel egress IP. After flipping, watch the 429 rate in the Worker
+    analytics / Cloudflare dashboard. See services/edge-worker/README.md.
+  EOT
+  type        = bool
+  default     = false
+}
+
 variable "alert_recipient_email" {
   description = "Email for Cloud Run Job failure + ERROR-log/timeout alerts. Empty disables all alerting (the job_monitoring module becomes a no-op)."
   type        = string

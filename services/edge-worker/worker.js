@@ -146,31 +146,188 @@ const EDGE_READ_PREFIX = "/edge/v1";
 // never depend on Upstash again. It now runs at the edge, on Cloudflare's own
 // rate limiting bindings, with no external dependency and no added latency.
 //
-// TWO BUCKETS (the worker cannot resolve a user's paid tier — that needs a DB
-// lookup the edge deliberately does not do):
+// THIS LAYER IS TIER-BLIND, AND DELIBERATELY SO. The worker cannot resolve a
+// caller's paid tier without a database lookup, and doing one at the edge would
+// reintroduce exactly the coupling we removed. Per-TIER per-minute enforcement
+// (free 60/min API, 120/min browser, ...) lives in-process in
+// services/pkg/ratelimit. Everything here is a ceiling that protects the
+// ORIGIN from runaway/abusive traffic, nothing more.
 //
-//   API_KEY_RATE_LIMITER  keyed by SHA-256(token)  — an abuse ceiling only.
-//       120/min sits at or above every documented per-minute tier except
-//       "unlimited" paid browser access. A paid subscriber's "unlimited" stays
-//       effectively unlimited: 120 req/min is 2 req/s sustained, far beyond
-//       any interactive session, and the ceiling exists purely so a leaked or
-//       shared token cannot be used to hammer the origin.
+// TWO SURFACES. This one worker is routed on BOTH hostnames, and the client IP
+// it sees is completely different on each:
 //
-//   ANON_RATE_LIMITER     keyed by client IP — applied ONLY when no token is
-//       present. 30/min matches the documented anonymous API tier exactly.
+//   shorted.com.au/*      browser -> Cloudflare -> Vercel.  cf-connecting-ip is
+//                         the REAL end user. This is the only surface where an
+//                         IP-keyed browser bucket is meaningful.
+//
+//   api.shorted.com.au/*  two populations. Direct API clients (real IPs), and
+//                         requests the Next.js rewrites in web/next.config.mjs
+//                         proxy from Vercel — those arrive from a handful of
+//                         SHARED VERCEL EGRESS IPs. An anon-IP bucket there
+//                         would collapse every browser onto a few keys and 429
+//                         real users, which is why #455 shipped with
+//                         enforcement off. First-party traffic now identifies
+//                         itself with the SSR bypass header (attached by
+//                         web/src/middleware.ts) and gets its own runaway
+//                         bucket instead.
+//
+// TWO WINDOWS PER CLASS. Cloudflare's rate limiting binding `period` is a hard
+// enum — 10 or 60 seconds, nothing else — so "burst" and "sustained" cannot be
+// one binding. Each class gets two: a 10s burst bucket that stops a hammering
+// script within a second or two, and a 60s sustained bucket that stops a slow
+// grind the burst bucket would never see. Burst is checked FIRST so the 429
+// carries the shorter, more accurate Retry-After.
+//
+// THE NUMBERS ARE MEASURED, NOT GUESSED. Playwright against prod, logged out,
+// counting only limitable (non-HTML, non-/api/auth) requests per page load:
+//
+//     /shorts/BHP   9 requests   (GetStockData, market-data/historical,
+//                                 GetStockVerdict, GetStockSignals,
+//                                 GetStockGraph, ListStockPoliticians,
+//                                 community summary, 2x auth/session)
+//     /             6 requests
+//     /top          2 requests
+//
+// Worst realistic human burst = 3-4 stock pages in 10s = ~27-36 requests.
+// Hard browsing for a minute = 10-15 pages = ~90-135 requests. A power user
+// working the screener/chart controls fires ~1 RPC per control change, so
+// 15-20 RPCs in 10s is reachable. The browser buckets below sit at roughly 3x
+// the measured 10s worst case and 4.4x the 60s worst case. A normal user must
+// NEVER hit these while browsing; Cloudflare SBFM already challenges automated
+// traffic, so these exist purely to stop egregious hammering.
 //
 // Cloudflare's rate limiting counters are PER-COLO and eventually consistent
 // (documented behaviour), so the effective global ceiling is the configured
-// limit times the number of colos a client reaches. That is fine for an abuse
-// ceiling and is another reason the precise monthly quota stays app-side.
+// limit times the number of colos a client reaches. That is fine for a ceiling
+// and is another reason the precise monthly quota stays app-side.
 // ---------------------------------------------------------------------------
 
-const RATE_LIMIT_PERIOD_SECONDS = 60;
-const RATE_LIMIT_KEY_LIMIT = 120; // per token, per minute, per colo
-const RATE_LIMIT_ANON_LIMIT = 30; // per IP, per minute, per colo
+const RATE_LIMIT_BURST_PERIOD_SECONDS = 10;
+const RATE_LIMIT_SUSTAINED_PERIOD_SECONDS = 60;
 
-// Paths that must never be rate limited at the edge.
+/**
+ * The bucket matrix. One entry per traffic class; each names its two bindings,
+ * the worker vars Terraform uses to override the numbers, and the compiled-in
+ * fallbacks used when a var is absent (local `node --test`, a not-yet-applied
+ * deploy). Key prefixes are distinct so a token hash can never collide with an
+ * IP or a session hash.
+ *
+ * Terraform (terraform/modules/cloudflare-edge) is the source of truth for
+ * every number here; the defaults must match variables.tf.
+ */
+const RATE_LIMIT_BUCKETS = {
+  // api host, authenticated. The documented PAID API tier is per-minute
+  // UNLIMITED, so this cannot be a tier ceiling — 600/60s is a runaway/abuse
+  // ceiling that still leaves a legitimate bulk pull (10 req/s sustained)
+  // completely unimpeded.
+  "api-key": {
+    prefix: "k",
+    burstBinding: "API_KEY_BURST_RATE_LIMITER",
+    burstVar: "RATE_LIMIT_KEY_BURST",
+    burstDefault: 100,
+    sustainedBinding: "API_KEY_RATE_LIMITER",
+    sustainedVar: "RATE_LIMIT_KEY_LIMIT",
+    sustainedDefault: 600,
+  },
+  // api host, anonymous, keyed by real client IP. This is the one class where
+  // the ceiling intentionally equals the documented anonymous API tier
+  // (30/min) — an unauthenticated caller hitting the public API host directly
+  // has no entitlement beyond it.
+  "api-anon": {
+    prefix: "a",
+    burstBinding: "ANON_BURST_RATE_LIMITER",
+    burstVar: "RATE_LIMIT_ANON_BURST",
+    burstDefault: 10,
+    sustainedBinding: "ANON_RATE_LIMITER",
+    sustainedVar: "RATE_LIMIT_ANON_LIMIT",
+    sustainedDefault: 30,
+  },
+  // api host, first-party (Vercel SSR/ISR and rewrite-proxied browser calls,
+  // proven by the SSR bypass secret). These must NOT enter the anon-IP bucket.
+  // A single burst bucket keyed by egress IP acts as a runaway detector: it is
+  // sized so ordinary ISR regeneration bursts and rewrite fan-out never trip
+  // it, and only a genuine loop — an ISR page regenerating itself thousands of
+  // times a second — can. If this ever fires in normal traffic, raise it; it
+  // is not a tier and has no entitlement meaning.
+  "first-party": {
+    prefix: "f",
+    burstBinding: "FIRST_PARTY_RATE_LIMITER",
+    burstVar: "RATE_LIMIT_FIRST_PARTY_BURST",
+    burstDefault: 600,
+    sustainedBinding: null,
+  },
+  // browser surface, anonymous, keyed by the REAL client IP.
+  // 100/10s ~= 3x the measured worst human burst (27-36); 600/60s ~= 4.4x the
+  // measured worst minute (90-135).
+  "browser-anon": {
+    prefix: "ba",
+    burstBinding: "BROWSER_ANON_BURST_RATE_LIMITER",
+    burstVar: "RATE_LIMIT_BROWSER_ANON_BURST",
+    burstDefault: 100,
+    sustainedBinding: "BROWSER_ANON_RATE_LIMITER",
+    sustainedVar: "RATE_LIMIT_BROWSER_ANON_LIMIT",
+    sustainedDefault: 600,
+  },
+  // browser surface, signed in — keyed by a hash of the next-auth session
+  // cookie, NOT the IP, so an office/university/CGNAT egress cannot collapse
+  // every colleague onto one bucket. Double the anonymous allowance.
+  "browser-auth": {
+    prefix: "bu",
+    burstBinding: "BROWSER_AUTH_BURST_RATE_LIMITER",
+    burstVar: "RATE_LIMIT_BROWSER_AUTH_BURST",
+    burstDefault: 200,
+    sustainedBinding: "BROWSER_AUTH_RATE_LIMITER",
+    sustainedVar: "RATE_LIMIT_BROWSER_AUTH_LIMIT",
+    sustainedDefault: 1200,
+  },
+};
+
+// Paths that must never be rate limited on EITHER surface.
+//
+// /api/auth/* is the load-bearing one: next-auth's session endpoint fires on
+// every single page load (it is 2 of the 9 requests on /shorts/BHP), so
+// limiting it would break sign-in state during ordinary browsing — the exact
+// failure mode this design must not have.
 const RATE_LIMIT_EXEMPT_PATHS = new Set(["/health", "/healthz"]);
+const RATE_LIMIT_EXEMPT_PREFIXES = ["/api/auth/", "/api/auth", "/api/health"];
+
+// The ONLY paths limited on the browser surface (shorted.com.au). Everything
+// else — every HTML document route, every static asset, every Next.js chunk —
+// is untouched. Mirrors web/src/middleware.ts RATE_LIMITED_PATHS plus the
+// rewrite-proxied prefixes in web/next.config.mjs, because from the browser's
+// point of view those are same-origin API calls.
+const BROWSER_LIMITED_PREFIXES = [
+  "/api/market-data",
+  "/api/search",
+  "/api/community",
+  "/api/stripe/checkout",
+  "/api/stripe/portal",
+  "/api/stocks", // rewrite -> shorts API
+  "/api/algolia", // rewrite -> shorts API
+  "/edge/v1/", // rewrite -> api.shorted.com.au edge reads
+  "/chat.v1.ChatService",
+  "/register.v1.RegisterService", // rewrite -> shorts API
+];
+
+// The shorts.v1alpha1 domain services are rewrite-proxied by a regex in
+// next.config.mjs (one rule covers every *Service), so match the same shape
+// here rather than hand-maintaining a service list.
+const BROWSER_LIMITED_PATTERNS = [/^\/shorts\.v1alpha1\.[A-Za-z]+Service\//];
+
+// next-auth session cookie names. Production uses the __Secure- prefix; local
+// dev does not. next-auth also CHUNKS a large session cookie into `.0`, `.1`,
+// ... so the chunked spelling has to be recognised or a signed-in user with a
+// large JWT would silently fall into the anonymous bucket.
+const SESSION_COOKIE_NAMES = [
+  "__Secure-next-auth.session-token",
+  "next-auth.session-token",
+];
+
+// User agents treated as search crawlers when Bot Management is not available
+// to verify them. See resolveVerifiedBot() for why this list exists and what
+// it deliberately trades away.
+const SEARCH_CRAWLER_UA_PATTERN =
+  /(googlebot|google-inspectiontool|bingbot|slurp|duckduckbot|baiduspider|yandex(bot|images)|applebot|petalbot|gptbot|oai-searchbot|chatgpt-user|perplexitybot|claudebot|anthropic-ai)/i;
 
 const worker = {
   async fetch(request, env, ctx) {
@@ -192,17 +349,25 @@ const worker = {
     const marketDataOrigin = env.MARKET_DATA_ORIGIN;
 
     // --- 0. FRONTEND: shorted.com.au -> proxy to Vercel
-    // Forward CF-Connecting-IP so Vercel Upstash rate limiting gets the real client IP.
+    // Forward CF-Connecting-IP so Vercel-side code still sees the real client IP.
     // Cloudflare DDoS + WAF protect this traffic at the proxy layer.
+    //
+    // This is the ONLY surface that sees the real end-user IP, so the browser
+    // buckets are enforced here — before the Vercel round trip, so a limited
+    // request costs no origin work at all. Only API-ish paths are eligible
+    // (see BROWSER_LIMITED_PREFIXES); HTML documents are never limited.
     if (hostname === FRONTEND_HOST || hostname === `www.${FRONTEND_HOST}`) {
+      const browserLimited = await enforceEdgeRateLimit(request, env, path, hostname);
+      if (browserLimited) {
+        return withEdgeAnalytics(request, env, browserLimited, "edge-ratelimit", 0, started);
+      }
       return withEdgeAnalytics(request, env, proxyFrontend(request, env, FRONTEND_ORIGIN), "frontend", 0, started);
     }
 
-    // --- 0.25. EDGE RATE LIMIT: per-minute abuse ceiling for the API host.
+    // --- 0.25. EDGE RATE LIMIT: origin-protection ceilings for the API host.
     // Runs before any cache lookup or origin fetch so a limited request costs
-    // nothing downstream. Frontend traffic (handled above) is untouched — it
-    // is protected by the zone rate-limit rule + WAF.
-    const limited = await enforceEdgeRateLimit(request, env, path);
+    // nothing downstream.
+    const limited = await enforceEdgeRateLimit(request, env, path, hostname);
     if (limited) {
       return withEdgeAnalytics(request, env, limited, "edge-ratelimit", 0, started);
     }
@@ -383,12 +548,17 @@ function secretsMatch(a, b) {
 /**
  * Mirror of the zone-level skip rules in terraform/modules/cloudflare-edge.
  *
- * Two traffic classes are exempted from the zone rate limiter today, and both
- * must be exempted here too or the worker would re-impose the very limit the
- * zone rule deliberately skips:
+ * Two traffic classes carry a first-party marker:
  *
- *   1. Trusted E2E/load tests  — UA marker + x-shorted-testing-bypass secret
- *   2. First-party Vercel SSR  — UA marker + x-shorted-ssr-bypass secret
+ *   1. "testing" — trusted E2E/load tests. UA marker + x-shorted-testing-bypass
+ *      secret. Skips edge limiting entirely, exactly as it skips the zone rule.
+ *   2. "ssr" — first-party Vercel traffic. UA marker + x-shorted-ssr-bypass
+ *      secret. Attached by web/src/app/actions/config.ts for server actions and
+ *      by web/src/middleware.ts for rewrite-proxied RPCs. This one does NOT
+ *      skip outright: it routes the request into the `first-party` runaway
+ *      bucket instead of the anon-IP bucket, which is precisely what makes
+ *      enforcement safe to enable (shared Vercel egress IPs would otherwise
+ *      collapse every browser onto a handful of anon keys).
  *
  * As in Terraform, BOTH the user-agent marker AND the exact secret are
  * required — never the UA alone, which anyone can spoof. An unset secret
@@ -427,32 +597,198 @@ export function resolveRateLimitBypass(request, env) {
 }
 
 /**
- * Decide which bucket a request belongs to and build its rate limit key.
+ * Which surface is this request on?
  *
- * Keys are namespaced by bucket so a token hash can never collide with an IP.
- * Tokens are hashed (SHA-256, truncated to 32 hex chars = 128 bits) so raw
- * credentials never become part of a rate limit key.
+ * The distinction is load-bearing: the same worker script runs on two routes
+ * (`api.shorted.com.au/*` in Terraform, `shorted.com.au/*` managed outside it)
+ * and only the browser surface sees a real end-user IP.
+ *
+ * @param {string} hostname
+ * @returns {"browser" | "api"}
+ */
+export function resolveRateLimitSurface(hostname) {
+  return hostname === FRONTEND_HOST || hostname === `www.${FRONTEND_HOST}` ? "browser" : "api";
+}
+
+/**
+ * Is this path eligible for rate limiting at all?
+ *
+ * On the API host everything is eligible except the explicit exemptions — the
+ * host serves nothing but API traffic. On the browser host ONLY the API-ish
+ * paths are eligible; HTML document routes, static assets and Next.js chunks
+ * must never be limited (limiting a document route would blank the site for a
+ * real reader, and would also risk throttling a crawler mid-crawl).
+ *
+ * @param {"browser" | "api"} surface
+ * @param {string} path
+ */
+export function isRateLimitEligiblePath(surface, path) {
+  if (RATE_LIMIT_EXEMPT_PATHS.has(path)) return false;
+  if (RATE_LIMIT_EXEMPT_PREFIXES.some((prefix) => path === prefix || path.startsWith(prefix))) {
+    return false;
+  }
+  if (surface === "api") return true;
+
+  return (
+    BROWSER_LIMITED_PREFIXES.some((prefix) => path === prefix || path.startsWith(prefix)) ||
+    BROWSER_LIMITED_PATTERNS.some((pattern) => pattern.test(path))
+  );
+}
+
+/**
+ * Extract the next-auth session cookie value, if the browser is signed in.
+ *
+ * Handles the `__Secure-` production spelling, the plain dev spelling, and
+ * next-auth's CHUNKED form (`<name>.0`, `<name>.1`, ...) which appears once the
+ * session JWT outgrows a single cookie. Chunks are concatenated in index order
+ * so the same session always produces the same key.
  *
  * @param {Request} request
- * @returns {Promise<{bucket: "key" | "anon", key: string, limit: number}>}
+ * @returns {string} the session value, or "" when anonymous
  */
-export async function resolveEdgeRateLimitKey(request, env = {}) {
-  const keyLimit = positiveInt(parseInt(env.RATE_LIMIT_KEY_LIMIT || "", 10), RATE_LIMIT_KEY_LIMIT);
-  const anonLimit = positiveInt(parseInt(env.RATE_LIMIT_ANON_LIMIT || "", 10), RATE_LIMIT_ANON_LIMIT);
+export function extractSessionCookie(request) {
+  const header = request.headers.get("cookie");
+  if (!header) return "";
+
+  /** @type {Map<string, string>} */
+  const jar = new Map();
+  for (const part of header.split(";")) {
+    const eq = part.indexOf("=");
+    if (eq <= 0) continue;
+    jar.set(part.slice(0, eq).trim(), part.slice(eq + 1).trim());
+  }
+
+  for (const name of SESSION_COOKIE_NAMES) {
+    const whole = jar.get(name);
+    if (whole) return whole;
+
+    const chunks = [];
+    for (let i = 0; ; i++) {
+      const chunk = jar.get(`${name}.${i}`);
+      if (chunk === undefined) break;
+      chunks.push(chunk);
+    }
+    if (chunks.length) return chunks.join("");
+  }
+
+  return "";
+}
+
+/**
+ * The client IP as Cloudflare sees it.
+ *
+ * `cf-connecting-ip` is set by Cloudflare itself and cannot be spoofed by the
+ * client. The fallbacks only matter off-platform (tests, local dev); for
+ * `x-forwarded-for` we take the RIGHTMOST entry — the one the nearest trusted
+ * proxy appended — because the leftmost is attacker-controlled.
+ *
+ * @param {Request} request
+ */
+function clientIp(request) {
+  return (
+    request.headers.get("cf-connecting-ip") ||
+    request.headers.get("x-real-ip") ||
+    (request.headers.get("x-forwarded-for") || "").split(",").pop()?.trim() ||
+    "unknown"
+  );
+}
+
+/**
+ * Is this a verified search crawler that must never be rate limited?
+ *
+ * SEO is the product. A 429 to Googlebot is not a throttle, it is a crawl-rate
+ * penalty that suppresses indexation for days, so crawlers skip every bucket.
+ *
+ * `request.cf.botManagement.verifiedBot` is the authoritative signal, but the
+ * `botManagement` object is only populated when Cloudflare Bot Management is
+ * active on the zone. When it is absent we CANNOT verify, and we deliberately
+ * choose the SEO-safe error: a request whose user-agent claims to be a search
+ * crawler is skipped. That is spoofable — but the thing it buys an attacker is
+ * only exemption from an origin-protection ceiling, while the zone's WAF, SBFM
+ * (`sbfm_verified_bots = "allow"`, see terraform/modules/cloudflare-edge) and
+ * DDoS layers still apply. Losing indexation is the worse failure.
+ *
+ * Set `EDGE_RATE_LIMIT_TRUST_CRAWLER_UA=false` to require real verification.
+ *
+ * @param {Request} request
+ * @param {Record<string, any>} env
+ */
+export function isVerifiedCrawler(request, env = {}) {
+  const bot = request.cf && request.cf.botManagement;
+  if (bot && typeof bot.verifiedBot === "boolean") {
+    return bot.verifiedBot === true;
+  }
+
+  if (env.EDGE_RATE_LIMIT_TRUST_CRAWLER_UA === "false") return false;
+  return SEARCH_CRAWLER_UA_PATTERN.test(request.headers.get("user-agent") || "");
+}
+
+/**
+ * Decide which bucket class a request belongs to, and build its key.
+ *
+ * Precedence, and why:
+ *   1. browser surface -> session cookie present ? browser-auth : browser-anon.
+ *      An API token on the browser surface is not a thing we serve, so the
+ *      cookie is the only identity that matters there.
+ *   2. api surface -> a proven first-party caller (SSR/ISR or a Vercel rewrite
+ *      carrying the SSR bypass secret) gets `first-party`. This MUST come
+ *      before the anon check: those requests all share a few Vercel egress IPs
+ *      and would otherwise collapse into one anon bucket and 429 real users.
+ *   3. api surface -> credential present ? api-key : api-anon.
+ *
+ * Keys are namespaced per class, so a token hash can never collide with an IP
+ * or a session hash. Tokens and session cookies are HASHED (SHA-256, truncated
+ * to 32 hex chars = 128 bits of key space) — a raw credential must never become
+ * part of rate limit state.
+ *
+ * @param {Request} request
+ * @param {Record<string, any>} env
+ * @param {"browser" | "api"} surface
+ * @param {"" | "testing" | "ssr"} bypass the already-resolved bypass class
+ * @returns {Promise<{bucketClass: string, key: string}>}
+ */
+export async function resolveEdgeRateLimitKey(request, env = {}, surface = "api", bypass = "") {
+  if (surface === "browser") {
+    const session = extractSessionCookie(request);
+    if (session) {
+      const digest = await hashString(session);
+      return { bucketClass: "browser-auth", key: `bu:${digest.slice(0, 32)}` };
+    }
+    return { bucketClass: "browser-anon", key: `ba:${clientIp(request)}` };
+  }
+
+  if (bypass === "ssr") {
+    // Keyed by egress IP: one runaway Vercel instance is contained without
+    // penalising the others.
+    return { bucketClass: "first-party", key: `f:${clientIp(request)}` };
+  }
 
   const token = extractRateLimitToken(request);
   if (token) {
     const digest = await hashString(token);
-    return { bucket: "key", key: `k:${digest.slice(0, 32)}`, limit: keyLimit };
+    return { bucketClass: "api-key", key: `k:${digest.slice(0, 32)}` };
   }
 
-  const ip =
-    request.headers.get("cf-connecting-ip") ||
-    request.headers.get("x-real-ip") ||
-    (request.headers.get("x-forwarded-for") || "").split(",").pop()?.trim() ||
-    "unknown";
+  return { bucketClass: "api-anon", key: `a:${clientIp(request)}` };
+}
 
-  return { bucket: "anon", key: `a:${ip}`, limit: anonLimit };
+/**
+ * Resolve the configured limits for a bucket class. Terraform sets the worker
+ * vars; the compiled-in defaults only apply when a var is missing.
+ *
+ * @param {string} bucketClass
+ * @param {Record<string, any>} env
+ */
+export function resolveBucketLimits(bucketClass, env = {}) {
+  const spec = RATE_LIMIT_BUCKETS[bucketClass];
+  if (!spec) return null;
+
+  const burstLimit = positiveInt(parseInt(env[spec.burstVar] || "", 10), spec.burstDefault);
+  const sustainedLimit = spec.sustainedBinding
+    ? positiveInt(parseInt(env[spec.sustainedVar] || "", 10), spec.sustainedDefault)
+    : 0;
+
+  return { spec, burstLimit, sustainedLimit };
 }
 
 /**
@@ -461,14 +797,18 @@ export async function resolveEdgeRateLimitKey(request, env = {}) {
  * Mirrors the app layer's header contract (services/pkg/ratelimit): the same
  * X-RateLimit-* names and a Retry-After. The Cloudflare Rate Limiting API
  * returns only `{ success }` — no remaining/reset info — so Reset is
- * synthesized from the configured period, which is the tightest honest bound.
+ * synthesized from the window that actually tripped, which is the tightest
+ * honest bound (and why burst is checked first: a burst 429 tells the caller to
+ * come back in 10s, not 60).
  *
  * @param {string} path
  * @param {number} limit
+ * @param {number} periodSeconds
+ * @param {string} bucketClass
  */
-export function buildRateLimitResponse(path, limit) {
-  const resetAt = Math.floor(Date.now() / 1000) + RATE_LIMIT_PERIOD_SECONDS;
-  const message = `rate limit exceeded: ${limit} requests per minute`;
+export function buildRateLimitResponse(path, limit, periodSeconds, bucketClass = "") {
+  const resetAt = Math.floor(Date.now() / 1000) + periodSeconds;
+  const message = `rate limit exceeded: ${limit} requests per ${periodSeconds} seconds`;
 
   // Connect-RPC clients parse a JSON error envelope; everything else gets the
   // same shape the zone-level rate limit rule returns.
@@ -481,11 +821,12 @@ export function buildRateLimitResponse(path, limit) {
     status: 429,
     headers: {
       "Content-Type": "application/json",
-      "Retry-After": String(RATE_LIMIT_PERIOD_SECONDS),
+      "Retry-After": String(periodSeconds),
       "X-RateLimit-Limit": String(limit),
       "X-RateLimit-Remaining": "0",
       "X-RateLimit-Reset": String(resetAt),
-      "X-RateLimit-Scope": "edge-minute",
+      "X-RateLimit-Scope": `edge-${periodSeconds}s`,
+      "X-RateLimit-Bucket": bucketClass,
       "Cache-Control": "no-store",
     },
   });
@@ -494,43 +835,68 @@ export function buildRateLimitResponse(path, limit) {
 }
 
 /**
- * Enforce the per-minute edge rate limit.
+ * Enforce the edge rate limit buckets.
  *
  * Returns a 429 Response when the request should be rejected, or null when it
  * should continue. Fails OPEN in every ambiguous case — a missing binding, a
- * throwing binding, or an exempt path all return null. Rate limiting must
- * never be the reason the API goes down.
+ * throwing binding, an unknown class, an ineligible path — all return null.
+ * Rate limiting must never be the reason the site or API goes down.
  *
  * @param {Request} request
  * @param {Record<string, any>} env
  * @param {string} path
+ * @param {string} hostname
  * @returns {Promise<Response | null>}
  */
-export async function enforceEdgeRateLimit(request, env, path) {
-  if (RATE_LIMIT_EXEMPT_PATHS.has(path)) return null;
-  // Opt-IN, not opt-out: enforcement requires an explicit "true". Anonymous
-  // browser traffic reaches this worker VIA THE VERCEL REWRITE PROXY
-  // (next.config.mjs routes /shorts.v1alpha1.* to api.shorted.com.au on
-  // purpose, for cache hits), so cf-connecting-ip is a SHARED VERCEL EGRESS
-  // IP for every anonymous visitor — the 30/min anon bucket would collapse
-  // all of them onto a handful of keys and 429 real users the moment this
-  // enforces. Do not enable until rewrite traffic carries a first-party
-  // identity (e.g. the SSR bypass header attached by middleware) or the anon
-  // bucket keys on something better than the peer IP.
+export async function enforceEdgeRateLimit(request, env, path, hostname = API_HOST) {
+  // Opt-IN, not opt-out: enforcement requires an explicit "true".
   if (env.EDGE_RATE_LIMIT_ENABLED !== "true") return null;
-  if (resolveRateLimitBypass(request, env)) return null;
+
+  const surface = resolveRateLimitSurface(hostname);
+  if (!isRateLimitEligiblePath(surface, path)) return null;
+
+  // A verified search crawler is never limited, on either surface. SEO is the
+  // product; a 429 to Googlebot suppresses indexation for days.
+  if (isVerifiedCrawler(request, env)) return null;
+
+  // Trusted E2E/load tests skip everything, exactly as they skip the zone rule.
+  // First-party SSR does NOT skip outright any more — it gets its own runaway
+  // bucket (see resolveEdgeRateLimitKey), which is what makes it safe to turn
+  // enforcement on at all.
+  const bypass = resolveRateLimitBypass(request, env);
+  if (bypass === "testing") return null;
 
   try {
-    const { bucket, key, limit } = await resolveEdgeRateLimitKey(request, env);
-    const binding = bucket === "key" ? env.API_KEY_RATE_LIMITER : env.ANON_RATE_LIMITER;
+    const { bucketClass, key } = await resolveEdgeRateLimitKey(request, env, surface, bypass);
+    const limits = resolveBucketLimits(bucketClass, env);
+    if (!limits) return null;
 
-    // No binding configured (local `node --test`, a not-yet-migrated deploy):
-    // fail open rather than invent an in-worker limiter.
-    if (!binding || typeof binding.limit !== "function") return null;
+    const { spec, burstLimit, sustainedLimit } = limits;
 
-    const outcome = await binding.limit({ key });
-    if (outcome && outcome.success === false) {
-      return buildRateLimitResponse(path, limit);
+    // Burst (10s) first: it catches a hammering client within a second or two,
+    // and its 429 carries the shorter, more accurate Retry-After.
+    const burst = env[spec.burstBinding];
+    if (burst && typeof burst.limit === "function") {
+      const outcome = await burst.limit({ key });
+      if (outcome && outcome.success === false) {
+        return buildRateLimitResponse(path, burstLimit, RATE_LIMIT_BURST_PERIOD_SECONDS, bucketClass);
+      }
+    }
+
+    // Sustained (60s): catches the slow grind that never trips a 10s window.
+    // Some classes (first-party) have no sustained bucket by design.
+    if (!spec.sustainedBinding) return null;
+    const sustained = env[spec.sustainedBinding];
+    if (sustained && typeof sustained.limit === "function") {
+      const outcome = await sustained.limit({ key });
+      if (outcome && outcome.success === false) {
+        return buildRateLimitResponse(
+          path,
+          sustainedLimit,
+          RATE_LIMIT_SUSTAINED_PERIOD_SECONDS,
+          bucketClass
+        );
+      }
     }
   } catch (err) {
     // Never let a limiter fault take down the API.

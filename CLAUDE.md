@@ -989,13 +989,18 @@ telesis.dev-scoped token so this cross-dependency on shorted's account-wide key 
 
 ## Rate Limiting
 
-Rate limiting is **split across two failure domains on purpose**:
+Rate limiting is **split across three failure domains on purpose**:
 
 | Concern | Where it runs | Depends on |
 |---|---|---|
-| **Per-minute** limiting | Cloudflare edge worker (`services/edge-worker/worker.js`) | Cloudflare Workers Rate Limiting API only — **no Upstash** |
-| **Monthly** quota accounting | Go API (`services/pkg/ratelimit`, `MonthlyLimiter`) | Upstash, **batched** (2 commands per ~25 requests) |
+| Tier-blind **abuse ceiling** | Cloudflare edge worker (`services/edge-worker/worker.js`) | Cloudflare Workers Rate Limiting API only |
+| **Per-tier per-minute** limiting | Go API (`services/pkg/ratelimit`, `minute.go`) | **nothing** — in process, per instance |
+| **Monthly** quota accounting | Go API (`services/pkg/ratelimit`, `monthly.go`) | **Postgres** (`api_usage_monthly`), batched |
 | Zone-level DDoS/abuse limit | Cloudflare zone ruleset (Terraform) | Cloudflare only |
+
+**The rate-limit path touches Upstash zero times.** Upstash is the page cache's
+alone. (The Next.js middleware limiter in `web/` is a separate surface and still
+uses Upstash via `web/src/@/lib/redis-env.ts`.)
 
 ### Why it is split (the August 2026 incident)
 
@@ -1007,21 +1012,27 @@ rate limiting and froze the page cache — one quota, two outages.
 
 Three rules came out of it, and they are load-bearing:
 
-1. **Per-minute limiting must never depend on Upstash.** It is enforced at the
-   edge, before a request reaches Cloud Run.
-2. **Rate limiting and the page cache must never share an Upstash database
-   again.** A quota exhausted by one must not be able to break the other.
-   Quota accounting reads `RATE_LIMIT_UPSTASH_REDIS_REST_URL` /
-   `RATE_LIMIT_UPSTASH_REDIS_REST_TOKEN` — point these at a **dedicated**
-   Upstash database. (The bare `UPSTASH_REDIS_REST_*` vars remain only as a
-   migration fallback.) **Splitting the cache onto its own database is still
-   worth doing on the cache side too** — the cache is the higher-volume,
-   higher-blast-radius tenant, and today it is the one sharing with the rate
-   limiter rather than the other way round.
-3. **A sick quota database must never 500 a user.** `MonthlyLimiter` does no
-   I/O on the request path, fails open unconditionally, and trips a circuit
-   breaker (3 consecutive failures → 60s cooldown) that logs loudly instead of
-   hammering a degraded Upstash.
+1. **Rate limiting must not depend on Upstash at all.** Not "on a dedicated
+   database", not "at low volume" — at all. There are deliberately **no
+   `RATE_LIMIT_UPSTASH_*` env vars and no Redis fields on `ratelimit.Config`**;
+   a test asserts their absence. Quota counters live in Postgres
+   (`api_usage_monthly`, migration 000112), on the pool the API already holds,
+   where there is no per-command billing cap to exhaust and no second tenant to
+   take down.
+2. **Quota accounting must not become a second capacity problem.** It reuses
+   the store's `pgxpool` (never opens its own — Supabase `max_connections` is
+   shared across services) and does **no I/O on the request path**: writes are
+   batched into one multi-row statement per flush, reads are a cache-miss path
+   that never blocks a request.
+3. **A sick quota database must never 429 or 500 a user.** The limiter fails
+   open unconditionally, retains unflushed deltas across failures, and trips a
+   circuit breaker (3 consecutive failures → 60s cooldown) that logs loudly
+   instead of hammering a degraded database.
+
+**Operator step: there is none.** Moving to Postgres removed the "provision a
+dedicated Upstash database and set two env vars" step entirely — the table
+ships with the deploy (it is in the terraform-deploy migration allowlist) and
+`RATE_LIMIT_ENABLED=true` is the only switch.
 
 ### Rate Limit Tiers
 
@@ -1029,9 +1040,16 @@ Three rules came out of it, and they are load-bearing:
 
 | Tier | Per Minute | Per Month | Description |
 |------|------------|-----------|-------------|
-| `anonymous` | 30 | 1,000 | Unauthenticated requests (by IP address) |
-| `free` | 60 | 2,000 | Authenticated users without paid subscription |
-| `paid` | unlimited | **10,000** | Users with any active paid subscription |
+| `anonymous` | 30 | 500 | Unauthenticated requests (by IP address) |
+| `free` | 60 | 1,000 | Authenticated users without paid subscription |
+| `paid` | 120 | **10,000** | Users with any active paid subscription |
+| `enterprise` | 300 | 50,000 | Enterprise |
+
+> The monthly API figures were tightened from 1,000/2,000 to 500/1,000 in #455
+> to discourage scraping; the table now states what the code actually enforces
+> (`DefaultConfig` in `services/pkg/ratelimit/config.go` is the source of truth).
+> Paid per-minute is a real 120/min ceiling on the *API* column; paid **browser**
+> access is genuinely unlimited on both windows.
 
 **Browser Access** (web app, via Firebase auth):
 
@@ -1042,90 +1060,271 @@ Three rules came out of it, and they are load-bearing:
 | `paid` | **unlimited** | **unlimited** | Paid subscribers have no limits |
 
 The tier table above is the **documented entitlement contract** (it is what the
-API docs and pricing page quote). Enforcement is split: the *Per Month* column
-is enforced by the Go API; the *Per Minute* column is approximated by the edge's
-two tier-blind buckets, described next.
+API docs and pricing page quote). **Both columns are enforced by the Go API**,
+after auth, because the edge cannot resolve a caller's subscription tier without
+a lookup — and that lookup is exactly the shared dependency that caused the
+incident. The edge's tier-blind buckets sit *above* these numbers as an abuse
+ceiling, described next.
 
-### Per-minute enforcement — the edge's two buckets
+#### Per-minute enforcement is per instance, and that is deliberate
+
+`minute.go` keeps a fixed-window counter per identifier **in memory, per Cloud
+Run instance**, with no shared state. With N instances the effective ceiling is
+up to N × the limit (in practice between 1× and N×, since the load balancer
+spreads a caller's requests). Accepted, because:
+
+- it is tier **shaping**, not abuse control — the edge's tier-blind bucket is
+  the hard ceiling and bounds the worst case regardless;
+- the alternative on offer is **zero** per-tier enforcement;
+- tiers differ by 2–4×, so an N-fold blur (N is single digits here) does not let
+  a free caller reach a paid caller's throughput.
+
+The map is capped (`MinuteMaxIdentifiers`, default 100k) with expired-window
+sweeps and least-recently-seen eviction; a full table **fails open** rather than
+growing. Unlimited tiers short-circuit with no map entry at all.
+
+A per-minute rejection does **not** consume monthly quota — being throttled
+should not also cost you your month.
+
+### Edge enforcement — the tier-blind origin-protection ceiling
 
 The worker cannot resolve a user's paid tier without a database lookup, and
 doing one at the edge would reintroduce exactly the coupling that caused the
-incident. So it is deliberately tier-blind:
+incident. The edge is therefore deliberately **tier-blind**: it protects the
+origin from runaway and abusive traffic. Documented tier per-minute limits are
+enforced in-process by the Go API. **Nothing at the edge should ever fire for a
+real reader or a paying customer** — if it does, the number is wrong, not the
+traffic.
 
-| Binding | Key | Limit | Applies to |
-|---|---|---|---|
-| `API_KEY_RATE_LIMITER` | `k:<sha256(token)[0:32]>` | **120/min** | Any request with `Authorization` (bearer or bare) or `X-API-Key` |
-| `ANON_RATE_LIMITER` | `a:<client IP>` | **30/min** | Requests with **no** credential |
+**Two surfaces.** The one worker script is routed on **both**
+`api.shorted.com.au/*` (Terraform) and `shorted.com.au/*` (route managed outside
+Terraform), and the client IP it sees differs on each. On the browser route
+`cf-connecting-ip` is the **real end user**. On the API route, traffic arriving
+via the Next.js rewrites in `web/next.config.mjs` comes from **shared Vercel
+egress IPs** — an anon-IP bucket there would 429 real users en masse, which is
+why the first cut shipped with enforcement off.
 
-- 120/min is an **abuse ceiling, not a tier**: it sits at or above every
-  documented per-minute tier, so a paid subscriber's "unlimited" per-minute
-  access remains **effectively unlimited** (120 req/min = 2 req/s sustained,
-  well beyond any interactive session). It exists so a leaked or shared token
-  cannot hammer the origin.
-- 30/min for anonymous matches the documented anonymous API tier exactly.
+**Two windows per class.** The Cloudflare binding's `period` is a hard enum of
+**10 or 60 seconds**, so burst and sustained cannot be one binding — every class
+that needs both windows needs two, hence nine bindings. Burst is checked first
+so a 429 carries the shorter, more accurate `Retry-After`.
+
+| Surface | Class | Key | Burst (10s) | Sustained (60s) |
+|---|---|---|---|---|
+| api | authenticated | `k:<sha256(token)[0:32]>` | 100 | 600 |
+| api | anonymous | `a:<client IP>` | 10 | 30 |
+| api | first-party (SSR/rewrite) | `f:<Vercel egress IP>` | 600 | — |
+| browser | anonymous | `ba:<real client IP>` | 100 | 600 |
+| browser | signed in | `bu:<sha256(session cookie)[0:32]>` | 200 | 1200 |
+
+- The **browser numbers are measured, not guessed**: Playwright against prod,
+  logged out, counting only limitable requests — `/shorts/BHP` costs **9**,
+  `/` costs 6, `/top` costs 2. Worst realistic human burst (3-4 stock pages in
+  10s) is 27-36; hardest minute (10-15 pages) is 90-135. The defaults sit at
+  ~3x and ~4.4x those. **Re-measure before tightening.**
+- The **api/authenticated ceiling is not a tier**: the documented paid API tier
+  is per-minute *unlimited*, so 600/60s (10 req/s) leaves a legitimate bulk pull
+  unimpeded and only catches a runaway or a leaked key.
+- The **api/first-party bucket is a runaway detector** — burst-only, keyed by
+  egress IP, sized so ordinary ISR regeneration never reaches it. If it fires on
+  real traffic, **raise it**.
+- **Browser limiting applies ONLY to API-ish paths.** Every HTML document route,
+  static asset and Next.js chunk is untouched, and **`/api/auth/*` is exempt on
+  both surfaces** — next-auth's session endpoint fires on every page load, so
+  limiting it would break sign-in state during ordinary browsing.
+- **Verified search crawlers are never limited, anywhere.** SEO is the product;
+  a 429 to Googlebot is a crawl-rate penalty that suppresses indexation for
+  days. `request.cf.botManagement.verifiedBot` is authoritative, and when Bot
+  Management is not populating it the worker takes the SEO-safe error and trusts
+  a crawler UA (`edge_rate_limit_trust_crawler_ua = false` to require real
+  verification).
 - Cloudflare counters are **per-colo and eventually consistent** by design, so
-  the effective global ceiling is limit × colos reached. Fine for an abuse
-  ceiling; another reason precise monthly quotas stay app-side.
-- Both **existing zone bypasses are mirrored in the worker** (E2E testing and
-  first-party SSR), each requiring **both** the UA marker and the exact secret.
+  the effective global ceiling is limit × colos reached. Fine for a ceiling;
+  another reason precise monthly quotas stay app-side.
+- Both **existing zone bypasses are mirrored in the worker**, each requiring
+  **both** the UA marker and the exact secret. E2E testing skips every bucket;
+  first-party SSR is *routed* to the first-party bucket rather than skipped.
 
-Details, config, and rollout steps: `services/edge-worker/README.md`.
+### First-party identity for rewrite-proxied traffic
 
-### Monthly enforcement — batched, fail-open
+This is what unblocked enabling enforcement at all. `next.config.mjs` rewrites
+the Connect-RPC paths to `api.shorted.com.au` on purpose (for worker-cache
+hits), and that rewrite is performed **by Vercel** — so the worker sees a shared
+egress IP, indistinguishable from a scraper.
 
-`MonthlyLimiter` (`services/pkg/ratelimit/monthly.go`) buffers increments in
-memory and flushes deltas to Upstash with a **2-command pipeline (INCRBY +
-EXPIRE)** every **25 increments** or **30 seconds** per identifier, whichever
-comes first.
+Next.js rewrites cannot add headers, but **middleware can**: request headers set
+via `NextResponse.next({ request: { headers } })` are what the downstream
+rewrite forwards. `web/src/middleware.ts` stamps the same marker the SSR fetcher
+uses — the `x-shorted-ssr-bypass` secret **and** a user-agent **appended** with
+`shorted-web-ssr` (appended, never replaced, so the real client UA survives as a
+prefix and crawler identification still works). The worker routes those into the
+first-party bucket; the end user is still limited, by their **real** IP, one hop
+earlier on the `shorted.com.au` route.
 
-- **Volume**: a caller doing 10,000 requests/month costs ≤ 800 Upstash commands
-  instead of 70,000 — an ~87× reduction.
-- **Accuracy**: worst-case undercount is `threshold - 1` = **24 requests per
-  identifier per instance death** (0.24% of the 10,000/month paid quota, 1.2%
-  of a 2,000/month free quota). Monthly quotas are a fairness control, not a
-  security boundary, so that is an accepted trade.
-- **Anonymous (IP-keyed) callers are unmetered by default**
-  (`SkipAnonymousMonthly`). Anonymous identifiers are an unbounded key space —
-  metering them means one Upstash key per IP per month, which is exactly the
-  long tail that exhausted the quota. Anonymous abuse control is now the edge's
-  per-IP minute bucket. Set `RATE_LIMIT_SKIP_ANONYMOUS_MONTHLY=false` to
-  re-enable metering, and expect the command volume back.
-- **No request-path I/O and no error path**: `Check` never calls Upstash, so a
-  degraded quota DB cannot add latency, 500s, or spurious 429s.
+Every edge 429 carries `X-RateLimit-Bucket`, which is the fastest way to confirm
+classification in prod: `api-anon` 429s at volume mean the marker is **not**
+reaching the worker (check the middleware deploy and the secret).
 
-### Response Headers
+**The web middleware's Upstash limiter is gone.** `web/src/@/lib/rate-limit.ts`
+stays — API route handlers call it directly — but `middleware.ts` no longer
+touches Redis, and its `/api/market-data`, `/api/search` and `/api/community`
+matchers (which existed only for that limiter) are removed.
+
+Details, config, bucket rationale, enablement/rollback runbook and what to
+watch: `services/edge-worker/README.md`.
+
+### Monthly enforcement — Postgres, batched, fail-open
+
+`AppLimiter` (`services/pkg/ratelimit/monthly.go`) buffers increments in memory
+and writes them to **`api_usage_monthly`** (migration 000112) as **ONE
+multi-row upsert covering every pending identifier**:
+
+```sql
+INSERT INTO api_usage_monthly AS u (identifier, period_month, request_count)
+SELECT t.identifier, t.period_month, SUM(t.delta)
+FROM unnest($1::text[], $2::date[], $3::bigint[]) AS t(identifier, period_month, delta)
+GROUP BY t.identifier, t.period_month
+ON CONFLICT (identifier, period_month) DO UPDATE
+SET request_count = u.request_count + EXCLUDED.request_count, updated_at = now()
+RETURNING identifier, period_month, request_count
+```
+
+**Writes** flush when any identifier reaches its batch threshold, when
+`MonthlyFlushInterval` elapses, or on **graceful shutdown** (`ShortsServer.Close()`
+from `cmd/server/main.go` — SIGTERM is routine on Cloud Run, so this is the
+normal path). The upsert is **additive**, never assigned, so concurrent
+instances converge rather than clobber.
+
+**Reads** are a cache-miss path, not a lookup. Each identifier's last known
+total is cached for `MonthlyTotalTTL` (5m). A miss **allows the request** and
+queues an async, 250ms-coalesced `SELECT`. In steady state there are almost no
+reads at all, because the flush `RETURNING` clause refreshes the cache for free.
+
+| Knob | Default | Meaning |
+|---|---|---|
+| `MonthlyFlushThreshold` | **200** | buffered increments for one identifier that trigger a flush of the whole pending set |
+| `MonthlyNearLimitThreshold` | **10** | replaces the above once a caller is ≥90% of quota |
+| `MonthlyFlushInterval` | **5m** | periodic flush cadence |
+| `MonthlyTotalTTL` | **5m** | how long a cached total is trusted |
+| `MonthlyMaxIdentifiers` | 50,000 | state-map cap; over-cap callers are unmetered, never rejected |
+
+- **Statement volume**: a flush is one statement regardless of how many
+  identifiers or requests it covers, so statement count tracks flush
+  *frequency*. Ceiling of 288 periodic flushes/day/instance; at plausible
+  traffic (~1–2 req/s, a few hundred authenticated identifiers/day, 2
+  instances) that is **~300–600 write statements/day** plus a handful of
+  cold-start `SELECT`s. The pre-#455 design issued ~7 Upstash commands per
+  request — order 10⁷/day.
+- **Overshoot** (effective check = `cached_total + pending_local_delta > limit`):
+  a single instance is exact, because its own flush refreshes its own total.
+  Across N instances an identifier can exceed quota by at most
+  **N × (batch size in effect)** — that is the most any one instance can hold
+  unflushed. Far from the limit that is 200N (3 instances = 600, **6%** of a
+  10,000/month quota); within 10% of quota the batch collapses to 10, so at the
+  boundary that actually matters it is 10N (3 instances = 30, **0.3%**).
+  Batching hard is free at 3% of quota and expensive at 97%, so the batch size
+  collapses exactly where accuracy starts to matter. The time-based flush adds
+  nothing to that bound: if 5 minutes elapsed first, the pending delta was by
+  definition smaller. Undercount on instance death is symmetric and identical.
+- **Anonymous (IP-keyed) callers are unmetered monthly by default**
+  (`SkipAnonymousMonthly`): one row per IP per month is an unbounded key space
+  for no enforcement value. Their per-minute window (in process) and the edge
+  ceiling still apply. `RATE_LIMIT_SKIP_ANONYMOUS_MONTHLY=false` re-enables it.
+- **No request-path I/O and no error path**: `Check` never touches the
+  database, so a degraded quota table cannot add latency, 500s, or spurious
+  429s. Failed flushes **retain** their deltas (capped) and replay on recovery.
+
+### Response Headers and the 429 payload contract
+
+On a **successful** response the API emits whichever limits it actually owns.
+A limit of `0` means "unlimited for this tier" and its headers are **omitted** —
+`X-RateLimit-Limit: 0` reads as "you may make zero requests", the opposite of
+the truth.
 
 ```
-X-RateLimit-Monthly-Limit: 10000   # Monthly limit (0 = unmetered)
-X-RateLimit-Monthly-Used: 150      # Monthly usage
-X-RateLimit-Monthly-Reset: 1709251200  # Start of next month
+X-RateLimit-Limit: 60                  # Per-minute limit (in-process, per tier)
+X-RateLimit-Remaining: 41
+X-RateLimit-Reset: 1756512000          # unix seconds
+X-RateLimit-Monthly-Limit: 10000
+X-RateLimit-Monthly-Used: 150
+X-RateLimit-Monthly-Remaining: 9850
+X-RateLimit-Monthly-Reset: 1709251200  # start of next month
 ```
 
-The monthly headers are emitted by the API and are accurate to within one flush
-batch. **The API no longer emits `X-RateLimit-Limit` / `-Remaining` / `-Reset`**
-— it does not own a per-minute window, and advertising one it is not enforcing
-would be a lie. Those three headers now come from the **edge** on a 429, along
-with `Retry-After: 60` and `X-RateLimit-Scope: edge-minute`.
+**Rejections carry a machine-readable payload.** A 429 that says only "rate
+limit exceeded" forces the frontend to guess which limit fired, what the
+ceiling was, when it clears, and where to send the user. Every app-layer
+rejection (per-minute **or** monthly) is a Connect `resource_exhausted` error
+whose metadata carries compact JSON under **`X-RateLimit-Detail`**:
+
+```jsonc
+{
+  "kind": "per_minute",              // "per_minute" | "monthly"
+  "limit": 60,                       // the ceiling that fired
+  "used": 60,                        // consumption against it
+  "remaining": 0,
+  "reset_at": 1756512000,            // unix SECONDS
+  "retry_after_seconds": 42,         // matches the Retry-After header
+  "tier": "free",                    // anonymous | free | premium | pro | enterprise
+  "access": "api",                   // "api" | "browser"
+  "upgrade_url": "https://shorted.com.au/pricing",
+  "message": "rate limit exceeded: 60 requests per minute. Upgrade at https://shorted.com.au/pricing to raise this limit."
+}
+```
+
+Go type: `ratelimit.RateLimitDetail` (`services/pkg/ratelimit/quota_error.go`).
+**Field names are a contract — renaming one is a breaking change.** The same
+facts are mirrored across individual headers (`X-RateLimit-Kind`,
+`X-RateLimit-Tier`, `X-RateLimit-Upgrade-Url`, `Retry-After`, plus the
+per-minute/monthly headers above) so a plain `curl` or a non-Connect client
+needs no parser.
+
+`message` is remedy-specific by tier, and the frontend can render it verbatim:
+an **anonymous** caller is told *signing in* raises the limit (never "upgrade" —
+they have nothing to upgrade); a **free** caller is told to *upgrade at
+`upgrade_url`*; a **paid** caller hitting the monthly API cap is told it is a
+plan boundary, with no upsell.
+
+`upgrade_url` is absolute (`RATE_LIMIT_UPGRADE_URL`, default
+`https://shorted.com.au/pricing` — the canonical upgrade destination, matching
+`web/src/@/components/premium/premium-gate.tsx`). It is absolute because the API
+is consumed cross-origin and by non-browser clients.
+
+The **edge** 429 is a different, thinner contract — it never sees a tier, so it
+carries no `X-RateLimit-Detail`. It sets `X-RateLimit-Limit` / `-Remaining` /
+`-Reset` for its own bucket, `Retry-After` (**10** on a burst-bucket rejection,
+60 on a sustained one), `X-RateLimit-Scope: edge-10s | edge-60s`, and
+`X-RateLimit-Bucket` naming the traffic class that rejected (`api-key`,
+`api-anon`, `first-party`, `browser-anon`, `browser-auth`).
 
 An edge 429 body is a Connect error envelope
 (`{"code":"resource_exhausted","message":"..."}`) on RPC paths and
-`{"error":"Too Many Requests","message":"..."}` elsewhere. A monthly 429 from
-the app is a Connect `resource_exhausted` error as before.
+`{"error":"Too Many Requests","message":"..."}` elsewhere. Frontends should
+branch on the presence of `X-RateLimit-Detail`: present = app-layer (tier
+known, actionable), absent = edge (retry after the window).
 
 ### Configuration
 
-Environment variables (Go API):
+Environment variables (Go API). **There is no storage configuration** — quota
+counters use the API's existing Postgres pool and the table ships with the
+deploy, so enabling rate limiting is a single flag:
 ```bash
-# Dedicated quota database — MUST NOT be the page cache's database
-RATE_LIMIT_UPSTASH_REDIS_REST_URL=https://<dedicated>.upstash.io
-RATE_LIMIT_UPSTASH_REDIS_REST_TOKEN=<token>
 RATE_LIMIT_ENABLED=true
 
-# Optional batching knobs (defaults 25 / 30s / true)
-RATE_LIMIT_MONTHLY_FLUSH_THRESHOLD=25
-RATE_LIMIT_MONTHLY_FLUSH_INTERVAL=30s
+# Optional (defaults 200 / 5m / 5m / true / https://shorted.com.au/pricing)
+RATE_LIMIT_MONTHLY_FLUSH_THRESHOLD=200
+RATE_LIMIT_MONTHLY_FLUSH_INTERVAL=5m
+RATE_LIMIT_MONTHLY_TOTAL_TTL=5m
 RATE_LIMIT_SKIP_ANONYMOUS_MONTHLY=true
+RATE_LIMIT_UPGRADE_URL=https://shorted.com.au/pricing
 ```
+
+**Migration landmine**: prod does not run `migrate up`. `000112_add_api_usage_monthly`
+is in the hardcoded allowlist in `.github/workflows/terraform-deploy.yml` and is
+**replayed on every deploy**, which is why every statement in it is
+`IF NOT EXISTS` and it touches no rows. It sits *before* `000095` so the
+hardened `refresh_all_materialized_views()` definition still applies last.
+Regression coverage: `node --test services/migrations/api_usage_monthly.test.mjs`.
 
 Edge worker config is Terraform-owned (`edge_rate_limit_*` variables in
 `terraform/modules/cloudflare-edge/variables.tf`) — **not** `wrangler.toml`,

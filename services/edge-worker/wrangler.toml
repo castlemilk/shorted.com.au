@@ -34,17 +34,39 @@ id = "e08015a2c6324c7b8b3faa810d5b0c73"
 # and `wrangler deploy --dry-run` behave like prod — keep the two in sync.
 #
 # `namespace_id` is an account-scoped identifier you choose; two bindings with
-# the same namespace_id share counters, even across Workers. `period` must be
-# exactly 10 or 60.
+# the same namespace_id share counters, even across Workers. `period` is a HARD
+# ENUM: exactly 10 or 60. That enum is why every traffic class needs TWO
+# bindings — a 10s burst bucket and a 60s sustained bucket.
+#
+# The numbers below mirror the Terraform defaults; rationale for each lives in
+# terraform/modules/cloudflare-edge/variables.tf and services/edge-worker/README.md.
 # ---------------------------------------------------------------------------
+
+# --- api.shorted.com.au, authenticated (keyed by SHA-256 of the token) ---
+[[ratelimits]]
+name = "API_KEY_BURST_RATE_LIMITER"
+namespace_id = "2003"
+
+  [ratelimits.simple]
+  limit = 100
+  period = 10
 
 [[ratelimits]]
 name = "API_KEY_RATE_LIMITER"
 namespace_id = "2001"
 
   [ratelimits.simple]
-  limit = 120
+  limit = 600
   period = 60
+
+# --- api.shorted.com.au, anonymous (keyed by real client IP) ---
+[[ratelimits]]
+name = "ANON_BURST_RATE_LIMITER"
+namespace_id = "2004"
+
+  [ratelimits.simple]
+  limit = 10
+  period = 10
 
 [[ratelimits]]
 name = "ANON_RATE_LIMITER"
@@ -52,4 +74,47 @@ namespace_id = "2002"
 
   [ratelimits.simple]
   limit = 30
+  period = 60
+
+# --- api.shorted.com.au, first-party SSR/rewrite runaway detector ---
+[[ratelimits]]
+name = "FIRST_PARTY_RATE_LIMITER"
+namespace_id = "2005"
+
+  [ratelimits.simple]
+  limit = 600
+  period = 10
+
+# --- shorted.com.au, anonymous browser (keyed by REAL client IP) ---
+[[ratelimits]]
+name = "BROWSER_ANON_BURST_RATE_LIMITER"
+namespace_id = "2006"
+
+  [ratelimits.simple]
+  limit = 100
+  period = 10
+
+[[ratelimits]]
+name = "BROWSER_ANON_RATE_LIMITER"
+namespace_id = "2007"
+
+  [ratelimits.simple]
+  limit = 600
+  period = 60
+
+# --- shorted.com.au, signed-in browser (keyed by session-cookie hash) ---
+[[ratelimits]]
+name = "BROWSER_AUTH_BURST_RATE_LIMITER"
+namespace_id = "2008"
+
+  [ratelimits.simple]
+  limit = 200
+  period = 10
+
+[[ratelimits]]
+name = "BROWSER_AUTH_RATE_LIMITER"
+namespace_id = "2009"
+
+  [ratelimits.simple]
+  limit = 1200
   period = 60

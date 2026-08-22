@@ -115,6 +115,26 @@ global.Headers = class Headers {
   forEach(callback: (value: string, key: string) => void): void {
     this.map.forEach((value, key) => callback(value, key));
   }
+
+  // Iteration is part of the real Headers contract and is load-bearing for
+  // NextResponse.next({ request: { headers } }) — Next iterates the overridden
+  // headers to build its x-middleware-request-* set. Without these the
+  // middleware's first-party marker cannot be tested at all.
+  entries(): IterableIterator<[string, string]> {
+    return this.map.entries();
+  }
+
+  keys(): IterableIterator<string> {
+    return this.map.keys();
+  }
+
+  values(): IterableIterator<string> {
+    return this.map.values();
+  }
+
+  [Symbol.iterator](): IterableIterator<[string, string]> {
+    return this.map.entries();
+  }
 };
 
 // Mock class-variance-authority

@@ -160,6 +160,19 @@ type postgresStore struct {
 	stockDetailsQuery string
 }
 
+// Pool exposes the underlying connection pool.
+//
+// It exists so peripheral subsystems (currently rate-limit quota accounting,
+// pkg/ratelimit) can reuse the API's existing pool instead of opening a second
+// one. Supabase's max_connections is shared across every service, so "just
+// open another pool" is how a small feature becomes a capacity incident.
+// Callers reach it by type-asserting the Store to
+// `interface{ Pool() *pgxpool.Pool }` — it is intentionally not part of the
+// Store interface, which is about data access, not connection plumbing.
+func (s *postgresStore) Pool() *pgxpool.Pool {
+	return s.db
+}
+
 // newPostgresStore initializes a new store with a PostgreSQL backend.
 // Returns an error instead of panicking to allow graceful handling.
 func newPostgresStore(config Config) (Store, error) {

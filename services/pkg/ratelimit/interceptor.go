@@ -81,42 +81,20 @@ func NewRateLimitInterceptor(limiter RateLimiter, cfg Config, userClaimsKey any)
 					shortedotel.RateLimitBlocked.Add(ctx, 1,
 						otelmetric.WithAttributes(
 							attribute.String("tier", tier),
+							attribute.String("kind", string(result.ExceededKind)),
 						),
 					)
 				}
 
-				var msg string
-				if result.MonthlyUsed > result.MonthlyLimit && result.MonthlyLimit > 0 {
-					log.Infof("Monthly rate limit exceeded for %s (tier=%s, used=%d, limit=%d/month)",
-						identifier, tier, result.MonthlyUsed, result.MonthlyLimit)
-					msg = fmt.Sprintf("monthly rate limit exceeded: %d/%d requests used", result.MonthlyUsed, result.MonthlyLimit)
-				} else if result.Limit > 0 {
-					log.Infof("Rate limit exceeded for %s (tier=%s, limit=%d/min)", identifier, tier, result.Limit)
-					msg = fmt.Sprintf("rate limit exceeded: %d requests per minute", result.Limit)
-				} else {
-					log.Infof("Rate limit exceeded for %s (tier=%s)", identifier, tier)
-					msg = "rate limit exceeded"
-				}
+				// The rejection carries a machine-readable payload — which
+				// limit fired, its ceiling, the caller's tier, when it resets,
+				// and where to go to raise it. A bare "rate limit exceeded"
+				// forces the frontend to guess all five. Contract:
+				// RateLimitDetail in quota_error.go, documented in CLAUDE.md.
+				err := newRateLimitError(result, cfg.UpgradeURL)
 
-				err := connect.NewError(connect.CodeResourceExhausted, fmt.Errorf("%s", msg))
-
-				// Add rate limit details to error metadata.
-				//
-				// Per-minute headers are emitted ONLY when the app layer
-				// actually owns a per-minute window (Limit > 0). Under the
-				// current architecture per-minute limiting is enforced at the
-				// Cloudflare edge, which sets its own X-RateLimit-Limit /
-				// Remaining / Reset on the 429 it returns. Emitting zeroed
-				// per-minute headers from here would misreport the contract.
-				if result.Limit > 0 {
-					err.Meta().Set("X-RateLimit-Limit", strconv.Itoa(result.Limit))
-					err.Meta().Set("X-RateLimit-Remaining", "0")
-					err.Meta().Set("X-RateLimit-Reset", strconv.FormatInt(result.ResetAt.Unix(), 10))
-				}
-				err.Meta().Set("X-RateLimit-Monthly-Limit", strconv.Itoa(result.MonthlyLimit))
-				err.Meta().Set("X-RateLimit-Monthly-Used", strconv.Itoa(result.MonthlyUsed))
-				err.Meta().Set("X-RateLimit-Monthly-Reset", strconv.FormatInt(result.MonthlyResetAt.Unix(), 10))
-				err.Meta().Set("Retry-After", strconv.Itoa(int(result.RetryAfter.Seconds())))
+				log.Infof("Rate limit exceeded for %s (tier=%s, kind=%s, minute=%d, monthly=%d/%d)",
+					identifier, tier, result.ExceededKind, result.Limit, result.MonthlyUsed, result.MonthlyLimit)
 
 				return nil, err
 			}
@@ -124,16 +102,23 @@ func NewRateLimitInterceptor(limiter RateLimiter, cfg Config, userClaimsKey any)
 			// Call the actual handler
 			resp, err := next(ctx, req)
 
-			// Add rate limit headers to successful response
+			// Add rate limit headers to a successful response.
+			//
+			// A limit of 0 means "unlimited for this tier" and its headers are
+			// omitted: emitting "X-RateLimit-Limit: 0" reads as "you may make
+			// zero requests", which is the opposite of the truth.
 			if err == nil && resp != nil {
 				if result.Limit > 0 {
-					resp.Header().Set("X-RateLimit-Limit", strconv.Itoa(result.Limit))
-					resp.Header().Set("X-RateLimit-Remaining", strconv.Itoa(result.Remaining))
-					resp.Header().Set("X-RateLimit-Reset", strconv.FormatInt(result.ResetAt.Unix(), 10))
+					resp.Header().Set(headerLimit, strconv.Itoa(result.Limit))
+					resp.Header().Set(headerRemaining, strconv.Itoa(maxInt(result.Remaining, 0)))
+					resp.Header().Set(headerReset, strconv.FormatInt(unixOrZero(result.ResetAt), 10))
 				}
-				resp.Header().Set("X-RateLimit-Monthly-Limit", strconv.Itoa(result.MonthlyLimit))
-				resp.Header().Set("X-RateLimit-Monthly-Used", strconv.Itoa(result.MonthlyUsed))
-				resp.Header().Set("X-RateLimit-Monthly-Reset", strconv.FormatInt(result.MonthlyResetAt.Unix(), 10))
+				if result.MonthlyLimit > 0 {
+					resp.Header().Set(headerMonthlyLimit, strconv.Itoa(result.MonthlyLimit))
+					resp.Header().Set(headerMonthlyUsed, strconv.Itoa(result.MonthlyUsed))
+					resp.Header().Set(headerMonthlyRemain, strconv.Itoa(maxInt(result.MonthlyLimit-result.MonthlyUsed, 0)))
+					resp.Header().Set(headerMonthlyReset, strconv.FormatInt(unixOrZero(result.MonthlyResetAt), 10))
+				}
 			}
 
 			return resp, err

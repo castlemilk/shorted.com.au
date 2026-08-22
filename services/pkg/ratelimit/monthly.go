@@ -2,204 +2,325 @@ package ratelimit
 
 import (
 	"context"
-	"fmt"
-	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 )
 
-// MonthlyLimiter is the app-layer half of the two-tier rate limiting
-// architecture introduced after the August 2026 Upstash quota incident.
-//
-// Architecture
-//
-//	per-minute limiting -> Cloudflare Workers Rate Limiting API (edge-worker)
-//	monthly quotas      -> this limiter (Upstash, batched)
-//
-// The old SlidingWindowLimiter issued a 7-command Upstash pipeline on EVERY
-// request (4 for the minute window, 3 for the month window). That burned the
-// shared Upstash database's free-tier command quota; once exhausted, Upstash
-// rejected writes while still serving reads, which simultaneously degraded
-// rate limiting AND froze the page cache that lives in the same database.
-//
-// MonthlyLimiter fixes the volume problem three ways:
-//
-//  1. It does no per-minute accounting at all. Per-minute abuse control is
-//     enforced at the Cloudflare edge, before a request ever reaches Cloud Run.
-//  2. It never performs I/O on the request path. Increments land in an
-//     in-memory counter; a background flusher writes deltas to Upstash with a
-//     2-command pipeline (INCRBY + EXPIRE) every MonthlyFlushThreshold
-//     increments or every MonthlyFlushInterval, whichever comes first.
-//  3. Anonymous (IP-keyed) identifiers are unmetered by default
-//     (SkipAnonymousMonthly). Anonymous traffic is an unbounded key space —
-//     metering it means one Upstash key per IP per month, which is exactly the
-//     long tail that exhausted the quota. Anonymous abuse is now the edge's
-//     job.
-//
-// Worst-case undercount: an instance that dies (or is redeployed) loses at
-// most MonthlyFlushThreshold-1 increments per tracked identifier, plus
-// anything accumulated in the last MonthlyFlushInterval. At the defaults
-// (25 / 30s) that is <= 24 requests per user per instance death — 0.24% of
-// the 10,000/month paid API quota and 1.2% of the 2,000/month free quota.
-// Monthly quotas are a billing-adjacent fairness control, not a security
-// boundary, so a sub-percent undercount is an acceptable trade for a ~35x
-// reduction in Upstash command volume.
-//
-// Failure behaviour: fail OPEN, always and unconditionally. A sick quota
-// database must never 500 (or 429) a user. A circuit breaker suppresses
-// Upstash calls after BreakerFailureThreshold consecutive failures and logs
-// loudly at each state transition so the outage is visible.
-type MonthlyLimiter struct {
-	client *UpstashClient
-	config Config
+// refreshCoalesceWindow is how long the refresher waits after the first
+// cache-miss signal before issuing its read, so a burst of cold identifiers
+// costs one SELECT instead of one each.
+const refreshCoalesceWindow = 250 * time.Millisecond
 
-	mu    sync.Mutex
-	state map[string]*monthlyState
+// AppLimiter is the app-layer half of the three-tier rate limiting
+// architecture that came out of the August 2026 quota incident.
+//
+//	tier-blind abuse ceiling -> Cloudflare edge worker (no origin dependency)
+//	per-tier per-minute      -> this limiter, IN MEMORY (see minute.go)
+//	monthly quotas           -> this limiter, POSTGRES, batched (below)
+//
+// # Why Postgres, and why this shape
+//
+// The incident was not "rate limiting was too slow", it was "rate limiting and
+// the page cache shared one Upstash command quota, and exhausting it broke
+// both". PR #455 cut the command volume ~87x but left the shared dependency in
+// place. This moves quota accounting to the database the API already holds a
+// pool for: no per-command billing cap to exhaust, and no second tenant to
+// take down. The rate-limit path now touches Upstash zero times.
+//
+// Putting quota counters on the primary database is only defensible because
+// the limiter is aggressively lazy:
+//
+//   - NO I/O ON THE REQUEST PATH, EVER. Check touches memory only. A degraded
+//     database cannot add latency, 500s, or spurious 429s to a single request.
+//   - WRITES ARE ONE STATEMENT FOR THE WHOLE INSTANCE. Deltas accumulate per
+//     identifier and flush as a single multi-row upsert when any identifier
+//     reaches its batch threshold, when MonthlyFlushInterval elapses, or on
+//     shutdown. Statement count tracks flush frequency, not traffic: ~300-600
+//     write statements/day for a 2-instance deployment under continuous load.
+//   - READS ARE A CACHE MISS PATH, NOT A LOOKUP. Each identifier's last known
+//     total is cached for MonthlyTotalTTL. A miss ALLOWS the request and
+//     triggers an async, coalesced refresh. In steady state there are almost
+//     no reads at all, because the flush upsert RETURNs the authoritative
+//     total and refreshes the cache for free.
+//
+// # Consistency, stated honestly
+//
+// Effective check = cached_total + pending_local_delta > limit.
+//
+// A single instance is exact, because its own flush refreshes its own total.
+// Across N instances an identifier can exceed quota by at most N x (the batch
+// size in effect), since that is the most any one instance can be holding
+// unflushed:
+//
+//	far from the limit: batch 200 -> up to 200N requests of overshoot
+//	                    (3 instances = 600, i.e. 6% of a 10,000/month quota)
+//	within 10% of quota: batch collapses to MonthlyNearLimitThreshold = 10
+//	                    -> up to 10N (3 instances = 30, i.e. 0.3%)
+//
+// Batching hard is free while a caller is at 3% of quota and expensive at 97%,
+// so the batch size collapses exactly where accuracy starts to matter. The
+// time-based flush adds nothing to that bound: if MonthlyFlushInterval elapses
+// before the threshold, the pending delta was by definition smaller.
+//
+// Undercount on instance death is symmetric and bounded the same way.
+//
+// # Failure behaviour
+//
+// Fail OPEN, always and unconditionally. A sick quota database must never 429
+// or 500 a user. Deltas are RETAINED (never dropped) across failures and
+// flushed when the database recovers; a circuit breaker stops hammering a
+// degraded database while accumulation continues.
+type AppLimiter struct {
+	store  UsageStore
+	config Config
+	minute *minuteLimiter
+
+	mu           sync.Mutex
+	state        map[string]*monthlyState
+	orphans      []UsageDelta        // deltas stranded by a month rollover
+	refreshQueue map[string]struct{} // identifiers awaiting a cold read
 
 	breaker *circuitBreaker
 
-	now      func() time.Time
-	flushSig chan struct{}
-	stopCh   chan struct{}
-	stopOnce sync.Once
-	wg       sync.WaitGroup
+	now        func() time.Time
+	flushSig   chan struct{}
+	refreshSig chan struct{}
+	stopCh     chan struct{}
+	stopOnce   sync.Once
+	wg         sync.WaitGroup
 }
 
 type monthlyState struct {
-	month    string // "2006-01" — a month rollover resets the counter
-	pending  int    // increments not yet flushed to Upstash
-	remote   int    // last total observed from Upstash (INCRBY return value)
+	month    time.Time // first day of the quota month, UTC
+	pending  int64     // increments not yet written
+	total    int64     // last known persisted total
+	totalAt  time.Time // when total was learned; zero = never
+	queued   bool      // a refresh is already queued for this identifier
 	lastSeen time.Time
 }
 
-// used returns the best-known monthly total for this identifier.
-func (s *monthlyState) used() int {
-	return s.remote + s.pending
-}
-
-// NewMonthlyLimiter creates a batched, fail-open monthly quota limiter.
+// NewAppLimiter creates the batched, fail-open app-layer limiter.
 //
-// Unlike NewSlidingWindowLimiter it does NOT ping Upstash at construction:
-// an unreachable quota database must not prevent the service from starting.
-// The first flush will discover the problem and trip the circuit breaker.
-func NewMonthlyLimiter(cfg Config) (*MonthlyLimiter, error) {
-	if cfg.UpstashURL == "" || cfg.UpstashToken == "" {
-		return nil, fmt.Errorf("upstash URL and token are required")
-	}
-	cfg = withMonthlyDefaults(cfg)
+// It does NOT touch the database at construction: an unreachable quota table
+// must not prevent the service from starting. The first flush discovers any
+// problem and trips the breaker.
+//
+// A nil store is valid and disables monthly accounting while leaving per-minute
+// tier enforcement fully functional — the two halves have independent failure
+// domains on purpose.
+func NewAppLimiter(cfg Config, store UsageStore) *AppLimiter {
+	l := newAppLimiter(cfg, store)
 
-	l := &MonthlyLimiter{
-		client:   NewUpstashClient(cfg.UpstashURL, cfg.UpstashToken, cfg.Timeout),
-		config:   cfg,
-		state:    make(map[string]*monthlyState),
-		breaker:  newCircuitBreaker(cfg.BreakerFailureThreshold, cfg.BreakerCooldown),
-		now:      time.Now,
-		flushSig: make(chan struct{}, 1),
-		stopCh:   make(chan struct{}),
-	}
-
-	l.wg.Add(1)
+	l.wg.Add(2)
 	go l.runFlusher()
+	go l.runRefresher()
 
 	log.Infof(
-		"Monthly quota limiter enabled (batch=%d, interval=%s, anonymous_metered=%t) — per-minute limiting is enforced at the Cloudflare edge",
-		cfg.MonthlyFlushThreshold, cfg.MonthlyFlushInterval, !cfg.SkipAnonymousMonthly,
+		"App rate limiter enabled: per-tier per-minute limiting in process (window=%s), monthly quotas in Postgres (batch=%d, near-limit batch=%d, interval=%s, anonymous_metered=%t)",
+		l.config.WindowSize, l.config.MonthlyFlushThreshold, l.config.MonthlyNearLimitThreshold,
+		l.config.MonthlyFlushInterval, !l.config.SkipAnonymousMonthly,
 	)
 
-	return l, nil
+	return l
 }
 
-// withMonthlyDefaults fills in zero-valued batching knobs so a hand-built
-// Config (or one deserialized from partial YAML) still behaves sanely.
-func withMonthlyDefaults(cfg Config) Config {
-	if cfg.MonthlyFlushThreshold <= 0 {
-		cfg.MonthlyFlushThreshold = defaultMonthlyFlushThreshold
+// newAppLimiter builds the limiter WITHOUT starting background workers, so
+// tests can drive Flush/refresh deterministically instead of racing timers.
+func newAppLimiter(cfg Config, store UsageStore) *AppLimiter {
+	cfg = withDefaults(cfg)
+
+	return &AppLimiter{
+		store:        store,
+		config:       cfg,
+		minute:       newMinuteLimiter(cfg.WindowSize, cfg.MinuteMaxIdentifiers, time.Now),
+		state:        make(map[string]*monthlyState),
+		refreshQueue: make(map[string]struct{}),
+		breaker:      newCircuitBreaker(cfg.BreakerFailureThreshold, cfg.BreakerCooldown),
+		now:          time.Now,
+		flushSig:     make(chan struct{}, 1),
+		refreshSig:   make(chan struct{}, 1),
+		stopCh:       make(chan struct{}),
 	}
-	if cfg.MonthlyFlushInterval <= 0 {
-		cfg.MonthlyFlushInterval = defaultMonthlyFlushInterval
-	}
-	if cfg.MonthlyIdleEviction <= 0 {
-		cfg.MonthlyIdleEviction = defaultMonthlyIdleEviction
-	}
-	if cfg.BreakerFailureThreshold <= 0 {
-		cfg.BreakerFailureThreshold = defaultBreakerFailureThreshold
-	}
-	if cfg.BreakerCooldown <= 0 {
-		cfg.BreakerCooldown = defaultBreakerCooldown
-	}
-	if cfg.Timeout <= 0 {
-		cfg.Timeout = 5 * time.Second
-	}
-	return cfg
 }
 
-// Check records one request against the identifier's monthly quota and reports
-// whether it is still within budget.
+// setNow overrides the clock for both halves of the limiter. Tests only.
+func (l *AppLimiter) setNow(fn func() time.Time) {
+	l.now = fn
+	l.minute.now = fn
+}
+
+// Check enforces the per-minute window and then the monthly quota.
 //
-// It performs no network I/O and therefore never returns a transport error;
-// the error return exists only to satisfy the RateLimiter interface.
+// It performs no I/O and therefore never returns a transport error; the error
+// return exists only to satisfy the RateLimiter interface.
 //
-// Result.Limit is deliberately 0 (and Remaining/ResetAt zero-valued): the app
-// layer no longer owns a per-minute window, so emitting per-minute numbers
-// here would be a lie. The interceptor omits the per-minute headers when
-// Limit == 0.
-func (l *MonthlyLimiter) Check(_ context.Context, identifier string, tier string, isBrowser bool) (*Result, error) {
+// Order matters: a request rejected by the per-minute window does NOT consume
+// monthly quota. Being throttled should not also cost you your month.
+func (l *AppLimiter) Check(_ context.Context, identifier string, tier string, isBrowser bool) (*Result, error) {
 	limits := l.config.GetLimits(tier)
 
+	minuteLimit := limits.RequestsPerMinute
 	monthLimit := limits.RequestsPerMonth
 	if isBrowser {
+		minuteLimit = limits.BrowserRequestsPerMinute
 		monthLimit = limits.BrowserRequestsPerMonth
 	}
 
 	now := l.now()
-	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+	monthStart := normalizeMonth(now)
 	nextMonth := monthStart.AddDate(0, 1, 0)
 
-	// monthLimit == 0 means unlimited (paid browser tiers, and paid API tiers
-	// configured as unmetered). Nothing to count, nothing to store.
-	if monthLimit == 0 {
-		return &Result{Allowed: true, MonthlyResetAt: nextMonth}, nil
+	result := &Result{
+		Allowed:        true,
+		Tier:           tier,
+		IsBrowser:      isBrowser,
+		MonthlyResetAt: nextMonth,
 	}
 
-	// Anonymous traffic is unmetered by default — see the type doc. Reporting
-	// MonthlyLimit: 0 keeps the response headers honest: no monthly quota is
-	// being enforced for this caller.
-	if l.config.SkipAnonymousMonthly && isAnonymousIdentifier(identifier) {
-		return &Result{Allowed: true, MonthlyResetAt: nextMonth}, nil
+	// ---- per-minute (in process, per tier) ----
+	mr := l.minute.check(identifier, minuteLimit)
+	result.Limit = mr.limit
+	result.Remaining = mr.remaining
+	result.ResetAt = mr.resetAt
+
+	if !mr.allowed {
+		used, limitKnown := l.monthlySnapshot(identifier, monthStart)
+		if limitKnown {
+			result.MonthlyLimit = monthLimit
+			result.MonthlyUsed = int(used)
+		}
+		result.Allowed = false
+		result.ExceededKind = LimitKindPerMinute
+		result.RetryAfter = mr.resetAt.Sub(now)
+		return result, nil
 	}
 
-	month := now.Format("2006-01")
+	// ---- monthly (Postgres, batched) ----
+	//
+	// monthLimit == 0 means unlimited. Anonymous callers are unmetered by
+	// default: one row per IP per month is an unbounded key space for no
+	// enforcement value, and their per-minute window plus the edge ceiling
+	// already bound them.
+	if monthLimit == 0 || (l.config.SkipAnonymousMonthly && isAnonymousIdentifier(identifier)) {
+		return result, nil
+	}
+
+	used, tracked := l.recordMonthly(identifier, monthStart, monthLimit, now)
+	result.MonthlyLimit = monthLimit
+	result.MonthlyUsed = int(used)
+
+	if tracked && used > int64(monthLimit) {
+		result.Allowed = false
+		result.ExceededKind = LimitKindMonthly
+		result.RetryAfter = nextMonth.Sub(now)
+	}
+
+	return result, nil
+}
+
+// recordMonthly buffers one increment and reports the best-known monthly total.
+// The second return is false when the increment was not tracked at all (state
+// map at capacity, or the total has never been read), in which case the caller
+// must ALLOW: an unknown total is not evidence of an exceeded quota.
+func (l *AppLimiter) recordMonthly(identifier string, month time.Time, monthLimit int, now time.Time) (int64, bool) {
+	var (
+		queueRefresh bool
+		shouldFlush  bool
+	)
 
 	l.mu.Lock()
+
 	st, ok := l.state[identifier]
-	if !ok || st.month != month {
+	if !ok {
+		if len(l.state) >= l.config.MonthlyMaxIdentifiers {
+			l.evictIdleLocked(now)
+		}
+		if len(l.state) >= l.config.MonthlyMaxIdentifiers {
+			// Refuse to grow. Memory is a hard bound; quota accuracy is not.
+			l.mu.Unlock()
+			return 0, false
+		}
 		st = &monthlyState{month: month}
 		l.state[identifier] = st
 	}
-	st.pending++
-	st.lastSeen = now
-	used := st.used()
-	shouldFlush := st.pending >= l.config.MonthlyFlushThreshold
-	l.mu.Unlock()
 
-	if shouldFlush {
-		l.signalFlush()
+	// Month rollover. The old month's unflushed delta is stranded on a state
+	// object that is about to be reset, so it is moved to the orphan list —
+	// dropping it would silently under-report the month that just closed.
+	if !st.month.Equal(month) {
+		if st.pending > 0 {
+			l.strandLocked(UsageDelta{Identifier: identifier, Month: st.month, Delta: st.pending})
+		}
+		*st = monthlyState{month: month}
 	}
 
-	return &Result{
-		Allowed:        used <= monthLimit,
-		MonthlyLimit:   monthLimit,
-		MonthlyUsed:    used,
-		MonthlyResetAt: nextMonth,
-		RetryAfter:     nextMonth.Sub(now),
-	}, nil
+	st.pending++
+	st.lastSeen = now
+	used := st.total + st.pending
+	cold := st.totalAt.IsZero()
+
+	if (cold || now.Sub(st.totalAt) > l.config.MonthlyTotalTTL) && !st.queued {
+		st.queued = true
+		l.refreshQueue[identifier] = struct{}{}
+		queueRefresh = true
+	}
+
+	shouldFlush = st.pending >= int64(l.flushThresholdFor(used, monthLimit))
+
+	l.mu.Unlock()
+
+	if queueRefresh {
+		signal(l.refreshSig)
+	}
+	if shouldFlush {
+		signal(l.flushSig)
+	}
+
+	// A cold identifier has no persisted total yet, so `used` is only this
+	// instance's own contribution. Allow, and let the refresh settle it.
+	return used, !cold
 }
 
-// Close stops the background flusher and performs one final flush so an
+// flushThresholdFor collapses the batch size as a caller approaches their
+// quota. See the overshoot maths on AppLimiter.
+func (l *AppLimiter) flushThresholdFor(used int64, monthLimit int) int {
+	if monthLimit > 0 && used*int64(nearLimitDenominator) >= int64(monthLimit)*int64(nearLimitNumerator) {
+		return l.config.MonthlyNearLimitThreshold
+	}
+	return l.config.MonthlyFlushThreshold
+}
+
+// monthlySnapshot reads the best-known total WITHOUT recording a request. Used
+// on the per-minute rejection path so the response can still report monthly
+// state accurately.
+func (l *AppLimiter) monthlySnapshot(identifier string, month time.Time) (int64, bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	st, ok := l.state[identifier]
+	if !ok || !st.month.Equal(month) || st.totalAt.IsZero() {
+		return 0, false
+	}
+	return st.total + st.pending, true
+}
+
+// strandLocked parks a delta that no longer belongs to any live state object.
+// The list is capped: retaining deltas through an outage must not become an
+// unbounded memory leak.
+func (l *AppLimiter) strandLocked(d UsageDelta) {
+	if len(l.orphans) >= l.config.MonthlyMaxIdentifiers {
+		log.Warnf("Monthly quota orphan buffer full (%d entries); dropping the oldest pending delta", len(l.orphans))
+		l.orphans = l.orphans[1:]
+	}
+	l.orphans = append(l.orphans, d)
+}
+
+// Close stops the background workers and performs one final flush so an
 // orderly shutdown does not drop the in-memory tail.
-func (l *MonthlyLimiter) Close() error {
+func (l *AppLimiter) Close() error {
 	l.stopOnce.Do(func() {
 		close(l.stopCh)
 	})
@@ -207,14 +328,14 @@ func (l *MonthlyLimiter) Close() error {
 	return nil
 }
 
-func (l *MonthlyLimiter) signalFlush() {
+func signal(ch chan struct{}) {
 	select {
-	case l.flushSig <- struct{}{}:
-	default: // a flush is already queued
+	case ch <- struct{}{}:
+	default: // already queued
 	}
 }
 
-func (l *MonthlyLimiter) runFlusher() {
+func (l *AppLimiter) runFlusher() {
 	defer l.wg.Done()
 
 	ticker := time.NewTicker(l.config.MonthlyFlushInterval)
@@ -223,36 +344,57 @@ func (l *MonthlyLimiter) runFlusher() {
 	for {
 		select {
 		case <-l.stopCh:
-			l.flush(context.Background())
+			l.Flush(context.Background())
 			return
 		case <-ticker.C:
-			l.flush(context.Background())
+			l.Flush(context.Background())
 			l.evictIdle()
+			l.minute.sweep()
 		case <-l.flushSig:
-			l.flush(context.Background())
+			l.Flush(context.Background())
 		}
 	}
 }
 
-// pendingFlush is one identifier's delta, snapshotted under the lock.
-type pendingFlush struct {
-	identifier string
-	month      string
-	delta      int
+func (l *AppLimiter) runRefresher() {
+	defer l.wg.Done()
+
+	for {
+		select {
+		case <-l.stopCh:
+			return
+		case <-l.refreshSig:
+			// Coalesce: a deploy or a cache expiry wave produces a burst of
+			// misses, and they should cost one SELECT between them.
+			select {
+			case <-time.After(refreshCoalesceWindow):
+			case <-l.stopCh:
+				return
+			}
+			l.refresh(context.Background())
+		}
+	}
 }
 
-// flush writes every pending delta to Upstash. Each identifier costs exactly
-// two Upstash commands (INCRBY + EXPIRE) in a single pipeline request.
-func (l *MonthlyLimiter) flush(ctx context.Context) {
+// Flush writes every pending delta as ONE multi-row upsert and refreshes the
+// cached totals from what the statement returns. Exported so shutdown paths
+// and tests can force it.
+func (l *AppLimiter) Flush(ctx context.Context) {
+	if l.store == nil {
+		return
+	}
+
 	now := l.now()
 
 	l.mu.Lock()
-	batch := make([]pendingFlush, 0, len(l.state))
+	batch := make([]UsageDelta, 0, len(l.state)+len(l.orphans))
 	for id, st := range l.state {
 		if st.pending > 0 {
-			batch = append(batch, pendingFlush{identifier: id, month: st.month, delta: st.pending})
+			batch = append(batch, UsageDelta{Identifier: id, Month: st.month, Delta: st.pending})
 		}
 	}
+	orphanCount := len(l.orphans)
+	batch = append(batch, l.orphans...)
 	l.mu.Unlock()
 
 	if len(batch) == 0 {
@@ -260,107 +402,142 @@ func (l *MonthlyLimiter) flush(ctx context.Context) {
 	}
 
 	if !l.breaker.allow(now) {
-		// Circuit open: keep accumulating locally and stay fail-open. Deltas
-		// are NOT dropped — they flush once the breaker closes.
+		// Circuit open: keep accumulating locally and stay fail-open. Nothing
+		// is dropped; it flushes once the breaker closes.
 		return
 	}
 
-	for _, item := range batch {
-		total, err := l.incrementRemote(ctx, item)
-		if err != nil {
-			if opened := l.breaker.recordFailure(l.now()); opened {
-				log.Errorf(
-					"RATE LIMIT QUOTA DB DEGRADED: Upstash monthly-quota writes failing (%v). Failing OPEN — monthly quotas are NOT being enforced until Upstash recovers. Per-minute limiting is unaffected (enforced at the Cloudflare edge).",
-					err,
-				)
-			} else {
-				log.Warnf("Monthly quota flush failed for %s: %v (failing open, delta retained locally)", item.identifier, err)
-			}
-			return
-		}
-
-		l.breaker.recordSuccess()
-
-		l.mu.Lock()
-		if st, ok := l.state[item.identifier]; ok && st.month == item.month {
-			st.pending -= item.delta
-			if st.pending < 0 {
-				st.pending = 0
-			}
-			// INCRBY returns the authoritative post-increment total across all
-			// instances, so this is where a multi-instance deployment converges.
-			if total > st.remote {
-				st.remote = total
-			}
-		}
-		l.mu.Unlock()
-	}
-}
-
-func (l *MonthlyLimiter) incrementRemote(ctx context.Context, item pendingFlush) (int, error) {
-	ctx, cancel := context.WithTimeout(ctx, l.config.Timeout)
-	defer cancel()
-
-	key := fmt.Sprintf("%smonth:%s:%s", l.config.KeyPrefix, item.month, item.identifier)
-
-	// Expire one day after the month ends so late flushes still land on the
-	// right bucket, then the key self-cleans.
-	ttl := monthTTLSeconds(item.month) + 86400
-
-	results, err := l.client.Pipeline(ctx, [][]interface{}{
-		{"INCRBY", key, strconv.Itoa(item.delta)},
-		{"EXPIRE", key, ttl},
-	})
+	totals, err := l.store.ApplyDeltas(ctx, batch)
 	if err != nil {
-		return 0, err
-	}
-	if len(results) < 1 {
-		return 0, fmt.Errorf("unexpected pipeline result length: %d (expected 2)", len(results))
-	}
-	if results[0].Error != "" {
-		return 0, fmt.Errorf("redis error: %s", results[0].Error)
+		if opened := l.breaker.recordFailure(l.now()); opened {
+			log.Errorf(
+				"RATE LIMIT QUOTA DB DEGRADED: api_usage_monthly writes failing (%v). Failing OPEN — monthly quotas are NOT being enforced until Postgres recovers. Per-minute limiting and the Cloudflare edge ceiling are unaffected. Deltas are retained in memory and will be written on recovery.",
+				err,
+			)
+		} else {
+			log.Warnf("Monthly quota flush failed for %d identifiers: %v (failing open, deltas retained)", len(batch), err)
+		}
+		return
 	}
 
-	return parseCount(results[0].Result), nil
-}
-
-// evictIdle bounds memory. Only zero-pending entries are evicted, so no
-// unflushed delta is ever discarded here.
-func (l *MonthlyLimiter) evictIdle() {
-	cutoff := l.now().Add(-l.config.MonthlyIdleEviction)
+	l.breaker.recordSuccess()
 
 	l.mu.Lock()
+	for _, item := range batch {
+		st, ok := l.state[item.Identifier]
+		if !ok || !st.month.Equal(item.Month) {
+			continue
+		}
+		st.pending -= item.Delta
+		if st.pending < 0 {
+			st.pending = 0
+		}
+		// The upsert RETURNs the authoritative post-increment total across all
+		// instances, so a successful flush doubles as a cache refresh — this
+		// is why steady-state read volume is ~zero.
+		if total, ok := totals[UsageKey{Identifier: item.Identifier, Month: item.Month}]; ok {
+			// `total` is the post-upsert count, which already includes
+			// item.Delta. st.pending now holds only increments that arrived
+			// while the statement was in flight, so used = total + pending
+			// stays correct.
+			st.total = total
+			st.totalAt = now
+			st.queued = false
+			delete(l.refreshQueue, item.Identifier)
+		}
+	}
+	// Only the orphans included in this batch are cleared; any stranded while
+	// the statement was in flight survive to the next flush.
+	if orphanCount > 0 {
+		l.orphans = append([]UsageDelta(nil), l.orphans[orphanCount:]...)
+	}
+	l.mu.Unlock()
+}
+
+// refresh loads persisted totals for identifiers this instance has never seen
+// persisted (or whose cache has aged past MonthlyTotalTTL). One SELECT per
+// coalesced burst, never on the request path.
+func (l *AppLimiter) refresh(ctx context.Context) {
+	if l.store == nil {
+		return
+	}
+
+	now := l.now()
+	month := normalizeMonth(now)
+
+	l.mu.Lock()
+	if len(l.refreshQueue) == 0 {
+		l.mu.Unlock()
+		return
+	}
+	identifiers := make([]string, 0, len(l.refreshQueue))
+	for id := range l.refreshQueue {
+		identifiers = append(identifiers, id)
+	}
+	l.mu.Unlock()
+
+	if !l.breaker.allow(now) {
+		return
+	}
+
+	totals, err := l.store.Totals(ctx, month, identifiers)
+	if err != nil {
+		if opened := l.breaker.recordFailure(l.now()); opened {
+			log.Errorf("RATE LIMIT QUOTA DB DEGRADED: api_usage_monthly reads failing (%v). Failing OPEN — callers with no cached total are allowed through.", err)
+		} else {
+			log.Warnf("Monthly quota refresh failed for %d identifiers: %v (failing open)", len(identifiers), err)
+		}
+		return
+	}
+
+	l.breaker.recordSuccess()
+
+	l.mu.Lock()
+	for _, id := range identifiers {
+		delete(l.refreshQueue, id)
+		st, ok := l.state[id]
+		if !ok || !st.month.Equal(month) {
+			continue
+		}
+		st.total = totals[UsageKey{Identifier: id, Month: month}] // absent = 0, which is the truth
+		st.totalAt = now
+		st.queued = false
+	}
+	l.mu.Unlock()
+}
+
+func (l *AppLimiter) evictIdle() {
+	l.mu.Lock()
 	defer l.mu.Unlock()
+	l.evictIdleLocked(l.now())
+}
+
+// evictIdleLocked bounds memory. Only zero-pending entries are evicted, so no
+// unflushed delta is ever discarded here.
+func (l *AppLimiter) evictIdleLocked(now time.Time) {
+	cutoff := now.Add(-l.config.MonthlyIdleEviction)
 	for id, st := range l.state {
 		if st.pending == 0 && st.lastSeen.Before(cutoff) {
 			delete(l.state, id)
+			delete(l.refreshQueue, id)
 		}
 	}
-}
-
-// monthTTLSeconds returns the number of seconds in the given "2006-01" month.
-func monthTTLSeconds(month string) int {
-	start, err := time.Parse("2006-01", month)
-	if err != nil {
-		return 31 * 86400
-	}
-	return int(start.AddDate(0, 1, 0).Sub(start).Seconds())
 }
 
 // isAnonymousIdentifier reports whether the identifier is IP-derived (the
 // shape produced by extractIdentifierAndTier for unauthenticated callers).
 func isAnonymousIdentifier(identifier string) bool {
-	return len(identifier) >= 3 && identifier[:3] == "ip:"
+	return strings.HasPrefix(identifier, "ip:")
 }
 
 // ---------------------------------------------------------------------------
 // Circuit breaker
 // ---------------------------------------------------------------------------
 
-// circuitBreaker suppresses Upstash traffic after repeated failures so a sick
-// quota database is hit once per cooldown rather than once per flush. It never
+// circuitBreaker suppresses quota-store traffic after repeated failures so a
+// sick database is hit once per cooldown rather than once per flush. It never
 // changes the allow/deny decision for a user request — the limiter is
-// unconditionally fail-open — it only gates outbound writes and logging.
+// unconditionally fail-open — it only gates outbound statements and logging.
 type circuitBreaker struct {
 	mu sync.Mutex
 
@@ -376,7 +553,7 @@ func newCircuitBreaker(failureThreshold int, cooldown time.Duration) *circuitBre
 	return &circuitBreaker{failureThreshold: failureThreshold, cooldown: cooldown}
 }
 
-// allow reports whether an Upstash call may proceed at time now.
+// allow reports whether a statement may proceed at time now.
 func (b *circuitBreaker) allow(now time.Time) bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -412,7 +589,7 @@ func (b *circuitBreaker) recordSuccess() {
 	defer b.mu.Unlock()
 
 	if b.open {
-		log.Infof("RATE LIMIT QUOTA DB RECOVERED: Upstash monthly-quota writes succeeding again; quota enforcement resumed")
+		log.Infof("RATE LIMIT QUOTA DB RECOVERED: api_usage_monthly statements succeeding again; quota enforcement resumed")
 	}
 	b.consecutiveFailures = 0
 	b.open = false

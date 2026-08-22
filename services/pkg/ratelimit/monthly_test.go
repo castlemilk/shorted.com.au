@@ -2,11 +2,9 @@ package ratelimit
 
 import (
 	"context"
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
+	"errors"
+	"reflect"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -14,529 +12,709 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// upstashStub records the pipelines it receives so tests can assert on the
-// exact Upstash command volume — the whole point of the batching rework.
-type upstashStub struct {
-	server *httptest.Server
+// ---------------------------------------------------------------------------
+// helpers
+// ---------------------------------------------------------------------------
 
-	mu        sync.Mutex
-	pipelines [][][]interface{}
-	total     int64 // running INCRBY total returned to the client
-
-	failing atomic.Bool
-	calls   atomic.Int64
-}
-
-func newUpstashStub(t *testing.T) *upstashStub {
-	t.Helper()
-	s := &upstashStub{}
-	s.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/pipeline" {
-			_ = json.NewEncoder(w).Encode(map[string]any{"result": "PONG"})
-			return
-		}
-
-		s.calls.Add(1)
-
-		if s.failing.Load() {
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(`{"error":"quota exceeded"}`))
-			return
-		}
-
-		var commands [][]interface{}
-		_ = json.NewDecoder(r.Body).Decode(&commands)
-
-		s.mu.Lock()
-		s.pipelines = append(s.pipelines, commands)
-		// Emulate INCRBY: accumulate the delta and return the new total.
-		if len(commands) > 0 && len(commands[0]) >= 3 {
-			if delta, ok := commands[0][2].(string); ok {
-				var n int64
-				for _, c := range delta {
-					n = n*10 + int64(c-'0')
-				}
-				s.total += n
-			}
-		}
-		total := s.total
-		s.mu.Unlock()
-
-		_ = json.NewEncoder(w).Encode([]PipelineResult{
-			{Result: float64(total)},
-			{Result: float64(1)},
-		})
-	}))
-	t.Cleanup(s.server.Close)
-	return s
-}
-
-func (s *upstashStub) pipelineCount() int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return len(s.pipelines)
-}
-
-func (s *upstashStub) commandCount() int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	n := 0
-	for _, p := range s.pipelines {
-		n += len(p)
+func structFieldNames(v any) []string {
+	t := reflect.TypeOf(v)
+	names := make([]string, 0, t.NumField())
+	for i := 0; i < t.NumField(); i++ {
+		names = append(names, t.Field(i).Name)
 	}
-	return n
+	return names
 }
 
-func testMonthlyConfig(url string) Config {
+// fakeStore records every statement the limiter would issue. Each ApplyDeltas
+// call is one multi-row statement, so len(applyCalls) IS the statement count —
+// which is the property this design is optimising.
+type fakeStore struct {
+	mu sync.Mutex
+
+	applyCalls  [][]UsageDelta
+	totalsCalls [][]string
+
+	persisted map[UsageKey]int64
+
+	applyErr  error
+	totalsErr error
+}
+
+func newFakeStore() *fakeStore {
+	return &fakeStore{persisted: make(map[UsageKey]int64)}
+}
+
+func (f *fakeStore) ApplyDeltas(_ context.Context, deltas []UsageDelta) (map[UsageKey]int64, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	snapshot := append([]UsageDelta(nil), deltas...)
+	f.applyCalls = append(f.applyCalls, snapshot)
+
+	if f.applyErr != nil {
+		return nil, f.applyErr
+	}
+
+	out := make(map[UsageKey]int64, len(deltas))
+	for _, d := range deltas {
+		k := UsageKey{Identifier: d.Identifier, Month: d.Month}
+		f.persisted[k] += d.Delta
+		out[k] = f.persisted[k]
+	}
+	return out, nil
+}
+
+func (f *fakeStore) Totals(_ context.Context, month time.Time, identifiers []string) (map[UsageKey]int64, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.totalsCalls = append(f.totalsCalls, append([]string(nil), identifiers...))
+
+	if f.totalsErr != nil {
+		return nil, f.totalsErr
+	}
+
+	out := make(map[UsageKey]int64)
+	for _, id := range identifiers {
+		k := UsageKey{Identifier: id, Month: month}
+		if v, ok := f.persisted[k]; ok {
+			out[k] = v
+		}
+	}
+	return out, nil
+}
+
+func (f *fakeStore) applyCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.applyCalls)
+}
+
+func (f *fakeStore) lastApply() []UsageDelta {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if len(f.applyCalls) == 0 {
+		return nil
+	}
+	return f.applyCalls[len(f.applyCalls)-1]
+}
+
+func (f *fakeStore) setPersisted(id string, month time.Time, count int64) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.persisted[UsageKey{Identifier: id, Month: normalizeMonth(month)}] = count
+}
+
+// testConfig is generous per-minute so monthly behaviour can be tested without
+// tripping the minute window, unless a test says otherwise.
+func testConfig() Config {
 	cfg := DefaultConfig()
 	cfg.Enabled = true
-	cfg.UpstashURL = url
-	cfg.UpstashToken = "test-token"
-	// Long interval so tests drive flushes via the threshold, not the ticker.
-	cfg.MonthlyFlushInterval = time.Hour
-	cfg.MonthlyFlushThreshold = 10
-	cfg.Timeout = 2 * time.Second
+	cfg.Tiers = map[string]TierLimits{
+		"anonymous": {RequestsPerMinute: 30, RequestsPerMonth: 500, BrowserRequestsPerMinute: 60, BrowserRequestsPerMonth: 5000},
+		"free":      {RequestsPerMinute: 1_000_000, RequestsPerMonth: 100, BrowserRequestsPerMinute: 1_000_000, BrowserRequestsPerMonth: 200},
+		"premium":   {RequestsPerMinute: 1_000_000, RequestsPerMonth: 10000, BrowserRequestsPerMinute: 0, BrowserRequestsPerMonth: 0},
+	}
 	return cfg
 }
 
-// eventually polls until cond is true or the deadline passes.
-func eventually(t *testing.T, cond func() bool) {
+func newTestLimiter(t *testing.T, cfg Config, store UsageStore, clock func() time.Time) *AppLimiter {
 	t.Helper()
-	deadline := time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) {
-		if cond() {
-			return
+	l := newAppLimiter(cfg, store)
+	l.setNow(clock)
+	return l
+}
+
+func fixedClock(at time.Time) (func() time.Time, func(d time.Duration)) {
+	var mu sync.Mutex
+	now := at
+	return func() time.Time {
+			mu.Lock()
+			defer mu.Unlock()
+			return now
+		}, func(d time.Duration) {
+			mu.Lock()
+			defer mu.Unlock()
+			now = now.Add(d)
 		}
-		time.Sleep(5 * time.Millisecond)
-	}
-	t.Fatal("condition not met within deadline")
 }
 
-func TestMonthlyLimiter_NoPerMinuteLimiting(t *testing.T) {
-	stub := newUpstashStub(t)
-	limiter, err := NewMonthlyLimiter(testMonthlyConfig(stub.server.URL))
-	require.NoError(t, err)
-	defer func() { _ = limiter.Close() }()
-
-	// Far more requests than any per-minute tier allows. The app layer must
-	// not block them — per-minute limiting belongs to the Cloudflare edge.
-	for range 500 {
-		result, err := limiter.Check(context.Background(), "user:123", "free", false)
+func checkN(t *testing.T, l *AppLimiter, n int, id, tier string, browser bool) []*Result {
+	t.Helper()
+	out := make([]*Result, 0, n)
+	for i := 0; i < n; i++ {
+		r, err := l.Check(context.Background(), id, tier, browser)
 		require.NoError(t, err)
-		require.True(t, result.Allowed, "app layer must never enforce a per-minute window")
-		assert.Zero(t, result.Limit, "per-minute limit must not be advertised by the app layer")
-		assert.Zero(t, result.Remaining)
+		out = append(out, r)
+	}
+	return out
+}
+
+// ---------------------------------------------------------------------------
+// batching
+// ---------------------------------------------------------------------------
+
+func TestFlushThresholds(t *testing.T) {
+	base := time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name          string
+		threshold     int
+		nearThreshold int
+		monthLimit    int
+		requests      int
+		wantPending   int64
+		wantFlushSig  bool
+	}{
+		{
+			name: "below threshold buffers everything, no statement",
+			// The core claim of the design: 199 requests, zero database work.
+			threshold: 200, nearThreshold: 10, monthLimit: 100000,
+			requests: 199, wantPending: 199, wantFlushSig: false,
+		},
+		{
+			name:      "reaching the threshold signals a flush",
+			threshold: 200, nearThreshold: 10, monthLimit: 100000,
+			requests: 200, wantPending: 200, wantFlushSig: true,
+		},
+		{
+			name: "near the quota the batch collapses to the tight threshold",
+			// 95 of 100 used is inside the 90% band, so batching drops from
+			// 200 to 10 — accuracy is bought exactly where it matters.
+			threshold: 200, nearThreshold: 10, monthLimit: 100,
+			requests: 95, wantPending: 95, wantFlushSig: true,
+		},
+		{
+			name:      "far from the quota the tight threshold does not apply",
+			threshold: 200, nearThreshold: 10, monthLimit: 100000,
+			requests: 11, wantPending: 11, wantFlushSig: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := testConfig()
+			cfg.MonthlyFlushThreshold = tc.threshold
+			cfg.MonthlyNearLimitThreshold = tc.nearThreshold
+			cfg.Tiers["free"] = TierLimits{RequestsPerMinute: 1_000_000, RequestsPerMonth: tc.monthLimit}
+
+			store := newFakeStore()
+			clock, _ := fixedClock(base)
+			l := newTestLimiter(t, cfg, store, clock)
+
+			checkN(t, l, tc.requests, "user:a", "free", false)
+
+			assert.Equal(t, 0, store.applyCount(), "Check must never issue a statement itself")
+
+			l.mu.Lock()
+			pending := l.state["user:a"].pending
+			l.mu.Unlock()
+			assert.Equal(t, tc.wantPending, pending)
+
+			select {
+			case <-l.flushSig:
+				assert.True(t, tc.wantFlushSig, "unexpected flush signal")
+			default:
+				assert.False(t, tc.wantFlushSig, "expected a flush signal")
+			}
+		})
 	}
 }
 
-func TestMonthlyLimiter_EnforcesMonthlyQuota(t *testing.T) {
-	stub := newUpstashStub(t)
-	cfg := testMonthlyConfig(stub.server.URL)
-	cfg.Tiers["free"] = TierLimits{RequestsPerMonth: 5, BrowserRequestsPerMonth: 5}
+func TestFlushIsOneStatementForAllIdentifiers(t *testing.T) {
+	cfg := testConfig()
+	store := newFakeStore()
+	clock, _ := fixedClock(time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC))
+	l := newTestLimiter(t, cfg, store, clock)
 
-	limiter, err := NewMonthlyLimiter(cfg)
-	require.NoError(t, err)
-	defer func() { _ = limiter.Close() }()
+	checkN(t, l, 3, "user:a", "free", false)
+	checkN(t, l, 5, "user:b", "free", false)
+	checkN(t, l, 7, "user:c", "free", false)
 
-	for i := range 5 {
-		result, err := limiter.Check(context.Background(), "user:quota", "free", false)
-		require.NoError(t, err)
-		assert.True(t, result.Allowed, "request %d should be within quota", i+1)
-		assert.Equal(t, 5, result.MonthlyLimit)
-		assert.Equal(t, i+1, result.MonthlyUsed)
+	l.Flush(context.Background())
+
+	require.Equal(t, 1, store.applyCount(), "three identifiers must cost ONE statement, not three")
+
+	batch := store.lastApply()
+	require.Len(t, batch, 3)
+
+	got := map[string]int64{}
+	for _, d := range batch {
+		got[d.Identifier] = d.Delta
+		assert.Equal(t, normalizeMonth(clock()), d.Month, "month must be normalised to the first of the month")
 	}
+	assert.Equal(t, map[string]int64{"user:a": 3, "user:b": 5, "user:c": 7}, got)
 
-	result, err := limiter.Check(context.Background(), "user:quota", "free", false)
-	require.NoError(t, err)
-	assert.False(t, result.Allowed, "6th request exceeds the 5/month quota")
-	assert.Equal(t, 6, result.MonthlyUsed)
-	assert.True(t, result.MonthlyResetAt.After(time.Now()))
+	// A successful flush doubles as a cache refresh: no read is needed.
+	assert.Equal(t, 0, len(store.totalsCalls))
 }
 
-func TestMonthlyLimiter_UnlimitedTierNeverTouchesUpstash(t *testing.T) {
-	stub := newUpstashStub(t)
-	limiter, err := NewMonthlyLimiter(testMonthlyConfig(stub.server.URL))
-	require.NoError(t, err)
-	defer func() { _ = limiter.Close() }()
+func TestFlushWithNothingPendingIssuesNoStatement(t *testing.T) {
+	store := newFakeStore()
+	clock, _ := fixedClock(time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC))
+	l := newTestLimiter(t, testConfig(), store, clock)
 
-	// Paid browser access is unlimited (0 = unlimited) in DefaultConfig.
-	for range 100 {
-		result, err := limiter.Check(context.Background(), "user:paid", "premium", true)
-		require.NoError(t, err)
-		require.True(t, result.Allowed)
-		assert.Zero(t, result.MonthlyLimit)
-	}
+	l.Flush(context.Background())
+	l.Flush(context.Background())
 
-	limiter.flush(context.Background())
-	assert.Zero(t, stub.pipelineCount(), "unlimited tiers must generate zero Upstash traffic")
+	assert.Equal(t, 0, store.applyCount(), "an idle instance must be silent")
 }
 
-func TestMonthlyLimiter_AnonymousIsUnmeteredByDefault(t *testing.T) {
-	stub := newUpstashStub(t)
-	cfg := testMonthlyConfig(stub.server.URL)
-	require.True(t, cfg.SkipAnonymousMonthly, "anonymous metering must be off by default")
+// ---------------------------------------------------------------------------
+// failure handling
+// ---------------------------------------------------------------------------
 
-	limiter, err := NewMonthlyLimiter(cfg)
-	require.NoError(t, err)
-	defer func() { _ = limiter.Close() }()
+func TestFailedFlushRetainsDeltas(t *testing.T) {
+	cfg := testConfig()
+	store := newFakeStore()
+	store.applyErr = errors.New("connection refused")
+	clock, _ := fixedClock(time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC))
+	l := newTestLimiter(t, cfg, store, clock)
 
-	for range 200 {
-		result, err := limiter.Check(context.Background(), "ip:203.0.113.7", "anonymous", false)
-		require.NoError(t, err)
-		require.True(t, result.Allowed)
-		assert.Zero(t, result.MonthlyLimit, "unmetered callers must not advertise a quota")
-	}
+	checkN(t, l, 12, "user:a", "free", false)
+	l.Flush(context.Background())
 
-	limiter.flush(context.Background())
-	assert.Zero(t, stub.pipelineCount(),
-		"anonymous IPs are an unbounded key space — they must not create Upstash keys")
+	l.mu.Lock()
+	pending := l.state["user:a"].pending
+	l.mu.Unlock()
+	assert.Equal(t, int64(12), pending, "a failed write must not lose the increments")
+
+	// Recover: the retained delta is written in full, not partially.
+	store.mu.Lock()
+	store.applyErr = nil
+	store.mu.Unlock()
+
+	checkN(t, l, 3, "user:a", "free", false)
+	l.Flush(context.Background())
+
+	require.Equal(t, int64(15), store.persisted[UsageKey{Identifier: "user:a", Month: normalizeMonth(clock())}])
+
+	l.mu.Lock()
+	pending = l.state["user:a"].pending
+	l.mu.Unlock()
+	assert.Equal(t, int64(0), pending)
 }
 
-func TestMonthlyLimiter_AnonymousMeteredWhenEnabled(t *testing.T) {
-	stub := newUpstashStub(t)
-	cfg := testMonthlyConfig(stub.server.URL)
-	cfg.SkipAnonymousMonthly = false
+func TestFailOpenWhileStoreIsDown(t *testing.T) {
+	cfg := testConfig()
+	cfg.Tiers["free"] = TierLimits{RequestsPerMinute: 1_000_000, RequestsPerMonth: 5}
+	store := newFakeStore()
+	store.applyErr = errors.New("db down")
+	store.totalsErr = errors.New("db down")
+	clock, _ := fixedClock(time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC))
+	l := newTestLimiter(t, cfg, store, clock)
 
-	limiter, err := NewMonthlyLimiter(cfg)
-	require.NoError(t, err)
-	defer func() { _ = limiter.Close() }()
-
-	result, err := limiter.Check(context.Background(), "ip:203.0.113.7", "anonymous", false)
-	require.NoError(t, err)
-	assert.Equal(t, 500, result.MonthlyLimit)
-	assert.Equal(t, 1, result.MonthlyUsed)
-}
-
-func TestMonthlyLimiter_BatchesWrites(t *testing.T) {
-	stub := newUpstashStub(t)
-	cfg := testMonthlyConfig(stub.server.URL)
-	cfg.MonthlyFlushThreshold = 25
-
-	limiter, err := NewMonthlyLimiter(cfg)
-	require.NoError(t, err)
-	defer func() { _ = limiter.Close() }()
-
-	const requests = 250
-	for range requests {
-		_, err := limiter.Check(context.Background(), "user:batch", "pro", false)
-		require.NoError(t, err)
-	}
-
-	require.NoError(t, limiter.Close())
-
-	// The old limiter cost 7 commands per request — 1,750 here. Batched
-	// accounting costs 2 commands per flush, and flush signals coalesce, so
-	// the ceiling is 2 x ceil(requests/threshold) = 20 and the floor is 2.
-	maxCommands := 2 * ((requests + cfg.MonthlyFlushThreshold - 1) / cfg.MonthlyFlushThreshold)
-	assert.LessOrEqual(t, stub.commandCount(), maxCommands)
-	assert.Less(t, stub.commandCount(), requests/10,
-		"batched accounting must cost far fewer commands than requests")
-
-	stub.mu.Lock()
-	total := stub.total
-	stub.mu.Unlock()
-	assert.EqualValues(t, requests, total, "batching must not lose increments")
-}
-
-func TestMonthlyLimiter_FlushUsesIncrByAndExpire(t *testing.T) {
-	stub := newUpstashStub(t)
-	cfg := testMonthlyConfig(stub.server.URL)
-	cfg.MonthlyFlushThreshold = 3
-
-	limiter, err := NewMonthlyLimiter(cfg)
-	require.NoError(t, err)
-	defer func() { _ = limiter.Close() }()
-
-	for range 3 {
-		_, err := limiter.Check(context.Background(), "user:cmd", "pro", false)
-		require.NoError(t, err)
-	}
-
-	eventually(t, func() bool { return stub.pipelineCount() >= 1 })
-
-	stub.mu.Lock()
-	first := stub.pipelines[0]
-	stub.mu.Unlock()
-
-	require.Len(t, first, 2, "each flush must be exactly two Upstash commands")
-	assert.Equal(t, "INCRBY", first[0][0])
-	assert.Equal(t, "3", first[0][2], "the flush writes the accumulated delta, not one increment")
-	assert.Equal(t, "EXPIRE", first[1][0])
-	assert.Contains(t, first[0][1], "month:")
-	assert.Contains(t, first[0][1], "user:cmd")
-}
-
-func TestMonthlyLimiter_RemoteTotalConverges(t *testing.T) {
-	stub := newUpstashStub(t)
-	cfg := testMonthlyConfig(stub.server.URL)
-	cfg.MonthlyFlushThreshold = 2
-	cfg.Tiers["pro"] = TierLimits{RequestsPerMonth: 100}
-
-	// Pre-seed the shared counter as if another instance had already written.
-	stub.mu.Lock()
-	stub.total = 40
-	stub.mu.Unlock()
-
-	limiter, err := NewMonthlyLimiter(cfg)
-	require.NoError(t, err)
-	defer func() { _ = limiter.Close() }()
-
-	for range 2 {
-		_, err := limiter.Check(context.Background(), "user:multi", "pro", false)
-		require.NoError(t, err)
-	}
-	eventually(t, func() bool { return stub.pipelineCount() >= 1 })
-
-	// The next Check must reflect the authoritative cross-instance total.
-	eventually(t, func() bool {
-		result, err := limiter.Check(context.Background(), "user:multi", "pro", false)
-		require.NoError(t, err)
-		return result.MonthlyUsed >= 42
-	})
-}
-
-func TestMonthlyLimiter_FailsOpenWhenUpstashIsDown(t *testing.T) {
-	stub := newUpstashStub(t)
-	stub.failing.Store(true)
-
-	cfg := testMonthlyConfig(stub.server.URL)
-	cfg.MonthlyFlushThreshold = 2
-	cfg.Tiers["free"] = TierLimits{RequestsPerMonth: 5}
-
-	limiter, err := NewMonthlyLimiter(cfg)
-	require.NoError(t, err, "an unreachable quota DB must not prevent construction")
-	defer func() { _ = limiter.Close() }()
-
-	// Requests keep flowing and never error, even though every flush fails.
-	for range 4 {
-		result, err := limiter.Check(context.Background(), "user:down", "free", false)
-		require.NoError(t, err, "a sick quota DB must never surface an error to the request path")
-		require.True(t, result.Allowed)
+	// Well past a 5/month quota, with the database refusing everything.
+	for i := 0; i < 50; i++ {
+		r, err := l.Check(context.Background(), "user:a", "free", false)
+		require.NoError(t, err, "Check must never surface a transport error")
+		l.Flush(context.Background())
+		l.refresh(context.Background())
+		require.True(t, r.Allowed, "request %d was denied while the quota store was down", i)
 	}
 }
 
-func TestMonthlyLimiter_CircuitBreakerOpensAndSuppressesCalls(t *testing.T) {
-	stub := newUpstashStub(t)
-	stub.failing.Store(true)
-
-	cfg := testMonthlyConfig(stub.server.URL)
-	cfg.MonthlyFlushThreshold = 1
-	cfg.BreakerFailureThreshold = 3
-	cfg.BreakerCooldown = time.Hour
-
-	limiter, err := NewMonthlyLimiter(cfg)
-	require.NoError(t, err)
-	defer func() { _ = limiter.Close() }()
-
-	for range 3 {
-		_, err := limiter.Check(context.Background(), "user:breaker", "pro", false)
-		require.NoError(t, err)
-		limiter.flush(context.Background())
-	}
-
-	require.True(t, limiter.breaker.isOpen(), "3 consecutive failures must open the circuit")
-
-	callsWhenOpen := stub.calls.Load()
-	for range 10 {
-		_, err := limiter.Check(context.Background(), "user:breaker", "pro", false)
-		require.NoError(t, err)
-		limiter.flush(context.Background())
-	}
-	assert.Equal(t, callsWhenOpen, stub.calls.Load(),
-		"an open circuit must stop hammering the sick quota DB")
-}
-
-func TestMonthlyLimiter_CircuitBreakerRecoversAndDoesNotLoseDeltas(t *testing.T) {
-	stub := newUpstashStub(t)
-	stub.failing.Store(true)
-
-	cfg := testMonthlyConfig(stub.server.URL)
-	cfg.MonthlyFlushThreshold = 1
+func TestCircuitBreakerStopsWritesButKeepsAccumulating(t *testing.T) {
+	cfg := testConfig()
 	cfg.BreakerFailureThreshold = 2
-	cfg.BreakerCooldown = 10 * time.Millisecond
+	cfg.BreakerCooldown = time.Minute
+	store := newFakeStore()
+	store.applyErr = errors.New("db down")
+	clock, advance := fixedClock(time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC))
+	l := newTestLimiter(t, cfg, store, clock)
 
-	limiter, err := NewMonthlyLimiter(cfg)
+	checkN(t, l, 5, "user:a", "free", false)
+	l.Flush(context.Background())
+	l.Flush(context.Background())
+	require.True(t, l.breaker.isOpen())
+
+	before := store.applyCount()
+	checkN(t, l, 5, "user:a", "free", false)
+	l.Flush(context.Background())
+	assert.Equal(t, before, store.applyCount(), "an open breaker must not issue statements")
+
+	l.mu.Lock()
+	pending := l.state["user:a"].pending
+	l.mu.Unlock()
+	assert.Equal(t, int64(10), pending, "accumulation continues while the breaker is open")
+
+	// After the cooldown a probe is allowed through, and it carries everything.
+	store.mu.Lock()
+	store.applyErr = nil
+	store.mu.Unlock()
+	advance(2 * time.Minute)
+
+	l.Flush(context.Background())
+	assert.Equal(t, int64(10), store.persisted[UsageKey{Identifier: "user:a", Month: normalizeMonth(clock())}])
+	assert.False(t, l.breaker.isOpen())
+}
+
+// ---------------------------------------------------------------------------
+// read caching
+// ---------------------------------------------------------------------------
+
+func TestCacheMissAllowsAndQueuesAsyncRefresh(t *testing.T) {
+	cfg := testConfig()
+	cfg.Tiers["free"] = TierLimits{RequestsPerMinute: 1_000_000, RequestsPerMonth: 10}
+	store := newFakeStore()
+	month := normalizeMonth(time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC))
+	store.setPersisted("user:a", month, 999) // already way over quota, elsewhere
+
+	clock, _ := fixedClock(time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC))
+	l := newTestLimiter(t, cfg, store, clock)
+
+	// First request: nothing cached. It is ALLOWED — an unknown total is not
+	// evidence of an exceeded quota, and blocking on a read is forbidden.
+	r, err := l.Check(context.Background(), "user:a", "free", false)
 	require.NoError(t, err)
-	defer func() { _ = limiter.Close() }()
+	assert.True(t, r.Allowed)
+	assert.Equal(t, 0, len(store.totalsCalls), "the read must not happen on the request path")
 
-	for range 5 {
-		_, err := limiter.Check(context.Background(), "user:recover", "pro", false)
-		require.NoError(t, err)
-		limiter.flush(context.Background())
+	l.mu.Lock()
+	_, queued := l.refreshQueue["user:a"]
+	l.mu.Unlock()
+	assert.True(t, queued, "a miss must queue an async refresh")
+
+	// Once the async refresh lands, the caller is correctly over quota.
+	l.refresh(context.Background())
+	require.Equal(t, 1, len(store.totalsCalls))
+
+	r, err = l.Check(context.Background(), "user:a", "free", false)
+	require.NoError(t, err)
+	assert.False(t, r.Allowed)
+	assert.Equal(t, LimitKindMonthly, r.ExceededKind)
+}
+
+func TestRefreshCoalescesIntoOneRead(t *testing.T) {
+	store := newFakeStore()
+	clock, _ := fixedClock(time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC))
+	l := newTestLimiter(t, testConfig(), store, clock)
+
+	for _, id := range []string{"user:a", "user:b", "user:c", "user:d"} {
+		checkN(t, l, 1, id, "free", false)
 	}
-	require.True(t, limiter.breaker.isOpen())
+	l.refresh(context.Background())
 
-	// Upstash recovers; after the cooldown the retained deltas must land.
-	stub.failing.Store(false)
-	time.Sleep(20 * time.Millisecond)
-	limiter.flush(context.Background())
-
-	require.False(t, limiter.breaker.isOpen(), "a successful probe must close the circuit")
-
-	stub.mu.Lock()
-	total := stub.total
-	stub.mu.Unlock()
-	assert.EqualValues(t, 5, total, "deltas accumulated while the circuit was open must not be lost")
+	require.Equal(t, 1, len(store.totalsCalls), "four cold identifiers must cost ONE read")
+	assert.Len(t, store.totalsCalls[0], 4)
 }
 
-func TestMonthlyLimiter_CloseFlushesTail(t *testing.T) {
-	stub := newUpstashStub(t)
-	cfg := testMonthlyConfig(stub.server.URL)
-	cfg.MonthlyFlushThreshold = 1000 // never threshold-triggers
+func TestCachedTotalIsReusedUntilTTLExpires(t *testing.T) {
+	cfg := testConfig()
+	cfg.MonthlyTotalTTL = 5 * time.Minute
+	store := newFakeStore()
+	clock, advance := fixedClock(time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC))
+	l := newTestLimiter(t, cfg, store, clock)
 
-	limiter, err := NewMonthlyLimiter(cfg)
-	require.NoError(t, err)
+	checkN(t, l, 1, "user:a", "free", false)
+	l.refresh(context.Background())
+	require.Equal(t, 1, len(store.totalsCalls))
 
-	for range 7 {
-		_, err := limiter.Check(context.Background(), "user:tail", "pro", false)
-		require.NoError(t, err)
+	// Within the TTL: no further reads no matter how much traffic arrives.
+	advance(4 * time.Minute)
+	checkN(t, l, 100, "user:a", "free", false)
+	l.refresh(context.Background())
+	assert.Equal(t, 1, len(store.totalsCalls), "a warm cache must not read")
+
+	// Past the TTL: exactly one more read is queued.
+	advance(2 * time.Minute)
+	checkN(t, l, 1, "user:a", "free", false)
+	l.refresh(context.Background())
+	assert.Equal(t, 2, len(store.totalsCalls))
+}
+
+func TestEffectiveUsageIsCachedTotalPlusPendingDelta(t *testing.T) {
+	cfg := testConfig()
+	cfg.Tiers["free"] = TierLimits{RequestsPerMinute: 1_000_000, RequestsPerMonth: 100}
+	store := newFakeStore()
+	month := normalizeMonth(time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC))
+	store.setPersisted("user:a", month, 95)
+
+	clock, _ := fixedClock(time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC))
+	l := newTestLimiter(t, cfg, store, clock)
+
+	checkN(t, l, 1, "user:a", "free", false)
+	l.refresh(context.Background())
+
+	// 95 persisted + local increments. The 100th is the last allowed one.
+	results := checkN(t, l, 6, "user:a", "free", false)
+	assert.Equal(t, 97, results[0].MonthlyUsed)
+	assert.True(t, results[2].Allowed, "usage 99 is within a 100 quota")
+	assert.True(t, results[3].Allowed, "usage 100 is exactly the quota")
+	assert.False(t, results[4].Allowed, "usage 101 exceeds the quota")
+	assert.Equal(t, LimitKindMonthly, results[4].ExceededKind)
+}
+
+// ---------------------------------------------------------------------------
+// month rollover
+// ---------------------------------------------------------------------------
+
+func TestMonthRolloverStrandsAndFlushesTheOldMonth(t *testing.T) {
+	cfg := testConfig()
+	store := newFakeStore()
+	clock, advance := fixedClock(time.Date(2026, 8, 31, 23, 59, 0, 0, time.UTC))
+	l := newTestLimiter(t, cfg, store, clock)
+
+	checkN(t, l, 4, "user:a", "free", false)
+
+	advance(2 * time.Minute) // crosses into September
+	checkN(t, l, 3, "user:a", "free", false)
+
+	l.Flush(context.Background())
+
+	batch := store.lastApply()
+	require.Len(t, batch, 2, "the closed month and the new month are separate rows")
+
+	byMonth := map[time.Time]int64{}
+	for _, d := range batch {
+		byMonth[d.Month] = d.Delta
 	}
-	require.Zero(t, stub.pipelineCount())
+	assert.Equal(t, int64(4), byMonth[time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)], "August's tail must not be dropped")
+	assert.Equal(t, int64(3), byMonth[time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)])
 
-	require.NoError(t, limiter.Close())
-
-	stub.mu.Lock()
-	total := stub.total
-	stub.mu.Unlock()
-	assert.EqualValues(t, 7, total, "an orderly shutdown must flush the in-memory tail")
+	l.mu.Lock()
+	orphans := len(l.orphans)
+	l.mu.Unlock()
+	assert.Equal(t, 0, orphans, "flushed orphans must be cleared")
 }
 
-func TestMonthlyLimiter_MonthRollover(t *testing.T) {
-	stub := newUpstashStub(t)
-	cfg := testMonthlyConfig(stub.server.URL)
-	cfg.MonthlyFlushThreshold = 1000
+func TestMonthRolloverResetsUsage(t *testing.T) {
+	cfg := testConfig()
+	cfg.Tiers["free"] = TierLimits{RequestsPerMinute: 1_000_000, RequestsPerMonth: 3}
+	store := newFakeStore()
+	clock, advance := fixedClock(time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC))
+	l := newTestLimiter(t, cfg, store, clock)
 
-	limiter, err := NewMonthlyLimiter(cfg)
+	checkN(t, l, 1, "user:a", "free", false)
+	l.refresh(context.Background())
+	results := checkN(t, l, 4, "user:a", "free", false)
+	require.False(t, results[3].Allowed, "5 requests against a 3/month quota")
+
+	advance(48 * time.Hour) // September
+	r, err := l.Check(context.Background(), "user:a", "free", false)
 	require.NoError(t, err)
-	defer func() { _ = limiter.Close() }()
-
-	now := time.Date(2026, 8, 31, 23, 59, 0, 0, time.UTC)
-	limiter.now = func() time.Time { return now }
-
-	result, err := limiter.Check(context.Background(), "user:rollover", "pro", false)
-	require.NoError(t, err)
-	assert.Equal(t, 1, result.MonthlyUsed)
-
-	// Roll into September: the counter must restart, not carry over.
-	now = time.Date(2026, 9, 1, 0, 0, 1, 0, time.UTC)
-	result, err = limiter.Check(context.Background(), "user:rollover", "pro", false)
-	require.NoError(t, err)
-	assert.Equal(t, 1, result.MonthlyUsed)
-	assert.Equal(t, time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), result.MonthlyResetAt)
+	assert.True(t, r.Allowed, "a new month starts a new quota")
+	assert.Equal(t, 1, r.MonthlyUsed)
 }
 
-func TestMonthlyLimiter_EvictsIdleEntries(t *testing.T) {
-	stub := newUpstashStub(t)
-	cfg := testMonthlyConfig(stub.server.URL)
-	cfg.MonthlyFlushThreshold = 1
+// ---------------------------------------------------------------------------
+// exemptions and bounds
+// ---------------------------------------------------------------------------
+
+func TestAnonymousIsUnmeteredMonthlyByDefault(t *testing.T) {
+	cfg := testConfig()
+	store := newFakeStore()
+	clock, _ := fixedClock(time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC))
+	l := newTestLimiter(t, cfg, store, clock)
+
+	checkN(t, l, 25, "ip:1.2.3.4", "anonymous", false)
+	l.Flush(context.Background())
+
+	assert.Equal(t, 0, store.applyCount(), "one row per IP per month is an unbounded key space for no benefit")
+
+	l.mu.Lock()
+	tracked := len(l.state)
+	l.mu.Unlock()
+	assert.Equal(t, 0, tracked)
+}
+
+func TestUnlimitedTierDoesNoBookkeeping(t *testing.T) {
+	cfg := testConfig()
+	store := newFakeStore()
+	clock, _ := fixedClock(time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC))
+	l := newTestLimiter(t, cfg, store, clock)
+
+	// premium browser access: 0/0 = unlimited on both windows.
+	results := checkN(t, l, 500, "user:paid", "premium", true)
+	for _, r := range results {
+		require.True(t, r.Allowed)
+		require.Equal(t, 0, r.Limit)
+		require.Equal(t, 0, r.MonthlyLimit)
+	}
+
+	l.Flush(context.Background())
+	assert.Equal(t, 0, store.applyCount())
+
+	l.mu.Lock()
+	monthlyTracked := len(l.state)
+	l.mu.Unlock()
+	assert.Equal(t, 0, monthlyTracked, "unlimited tiers must cost no memory")
+	assert.Equal(t, 0, l.minute.size(), "unlimited tiers must cost no memory")
+}
+
+func TestMonthlyStateMapIsCapped(t *testing.T) {
+	cfg := testConfig()
+	cfg.MonthlyMaxIdentifiers = 4
+	cfg.MonthlyIdleEviction = time.Hour
+	store := newFakeStore()
+	clock, _ := fixedClock(time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC))
+	l := newTestLimiter(t, cfg, store, clock)
+
+	for _, id := range []string{"user:a", "user:b", "user:c", "user:d", "user:e", "user:f"} {
+		r, err := l.Check(context.Background(), id, "free", false)
+		require.NoError(t, err)
+		assert.True(t, r.Allowed, "over-cap callers fail OPEN, they are not rejected")
+	}
+
+	l.mu.Lock()
+	size := len(l.state)
+	l.mu.Unlock()
+	assert.LessOrEqual(t, size, 4, "memory is a hard bound; quota accuracy is not")
+}
+
+func TestIdleEvictionNeverDiscardsPendingDeltas(t *testing.T) {
+	cfg := testConfig()
 	cfg.MonthlyIdleEviction = time.Minute
+	store := newFakeStore()
+	clock, advance := fixedClock(time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC))
+	l := newTestLimiter(t, cfg, store, clock)
 
-	limiter, err := NewMonthlyLimiter(cfg)
-	require.NoError(t, err)
-	defer func() { _ = limiter.Close() }()
+	checkN(t, l, 3, "user:pending", "free", false)
+	checkN(t, l, 2, "user:flushed", "free", false)
 
-	_, err = limiter.Check(context.Background(), "user:idle", "pro", false)
-	require.NoError(t, err)
-	limiter.flush(context.Background())
+	// Flush only user:flushed by draining, then re-dirty user:pending.
+	l.Flush(context.Background())
+	checkN(t, l, 3, "user:pending", "free", false)
 
-	limiter.now = func() time.Time { return time.Now().Add(2 * time.Minute) }
-	limiter.evictIdle()
+	advance(time.Hour)
+	l.evictIdle()
 
-	limiter.mu.Lock()
-	_, present := limiter.state["user:idle"]
-	limiter.mu.Unlock()
-	assert.False(t, present, "flushed, idle counters must be evicted to bound memory")
+	l.mu.Lock()
+	_, pendingKept := l.state["user:pending"]
+	_, flushedKept := l.state["user:flushed"]
+	l.mu.Unlock()
+
+	assert.True(t, pendingKept, "an entry with unflushed increments must never be evicted")
+	assert.False(t, flushedKept, "a settled, idle entry is evicted")
 }
 
-func TestMonthlyLimiter_EvictionNeverDropsPendingDeltas(t *testing.T) {
-	stub := newUpstashStub(t)
-	cfg := testMonthlyConfig(stub.server.URL)
-	cfg.MonthlyFlushThreshold = 1000
-	cfg.MonthlyIdleEviction = time.Minute
+// ---------------------------------------------------------------------------
+// lifecycle and concurrency
+// ---------------------------------------------------------------------------
 
-	limiter, err := NewMonthlyLimiter(cfg)
-	require.NoError(t, err)
-	defer func() { _ = limiter.Close() }()
+func TestCloseFlushesTheTail(t *testing.T) {
+	cfg := testConfig()
+	cfg.MonthlyFlushInterval = time.Hour // never fires during the test
+	store := newFakeStore()
 
-	_, err = limiter.Check(context.Background(), "user:pending", "pro", false)
-	require.NoError(t, err)
+	l := NewAppLimiter(cfg, store)
+	checkN(t, l, 7, "user:a", "free", false)
 
-	limiter.now = func() time.Time { return time.Now().Add(2 * time.Minute) }
-	limiter.evictIdle()
+	require.NoError(t, l.Close())
 
-	limiter.mu.Lock()
-	st, present := limiter.state["user:pending"]
-	limiter.mu.Unlock()
-	require.True(t, present, "an entry with unflushed increments must survive eviction")
-	assert.Equal(t, 1, st.pending)
-	_ = stub
+	month := normalizeMonth(time.Now())
+	assert.Equal(t, int64(7), store.persisted[UsageKey{Identifier: "user:a", Month: month}],
+		"shutdown must not drop the in-memory tail — SIGTERM is routine on Cloud Run")
 }
 
-func TestMonthlyLimiter_ConcurrentChecks(t *testing.T) {
-	stub := newUpstashStub(t)
-	cfg := testMonthlyConfig(stub.server.URL)
-	cfg.MonthlyFlushThreshold = 1000
+func TestBackgroundFlusherWritesOnThreshold(t *testing.T) {
+	cfg := testConfig()
+	cfg.MonthlyFlushThreshold = 5
+	cfg.MonthlyFlushInterval = time.Hour
+	store := newFakeStore()
 
-	limiter, err := NewMonthlyLimiter(cfg)
-	require.NoError(t, err)
+	l := NewAppLimiter(cfg, store)
+	defer func() { _ = l.Close() }()
+
+	checkN(t, l, 5, "user:a", "free", false)
+
+	require.Eventually(t, func() bool { return store.applyCount() >= 1 }, 2*time.Second, 10*time.Millisecond)
+}
+
+func TestConcurrentChecksAreAccountedExactly(t *testing.T) {
+	cfg := testConfig()
+	cfg.MonthlyFlushThreshold = 1_000_000 // no auto flush; count what is buffered
+	store := newFakeStore()
+	clock, _ := fixedClock(time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC))
+	l := newTestLimiter(t, cfg, store, clock)
+
+	const goroutines, perGoroutine = 16, 100
 
 	var wg sync.WaitGroup
-	for range 20 {
+	for g := 0; g < goroutines; g++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for range 50 {
-				_, err := limiter.Check(context.Background(), "user:race", "pro", false)
-				assert.NoError(t, err)
+			for i := 0; i < perGoroutine; i++ {
+				_, err := l.Check(context.Background(), "user:hot", "free", false)
+				if err != nil {
+					t.Error(err)
+					return
+				}
 			}
 		}()
 	}
 	wg.Wait()
-	require.NoError(t, limiter.Close())
 
-	stub.mu.Lock()
-	total := stub.total
-	stub.mu.Unlock()
-	assert.EqualValues(t, 1000, total, "no increment may be lost under concurrency")
+	l.Flush(context.Background())
+
+	assert.Equal(t, int64(goroutines*perGoroutine),
+		store.persisted[UsageKey{Identifier: "user:hot", Month: normalizeMonth(clock())}],
+		"no increment may be lost or double-counted under concurrency")
 }
 
-func TestCircuitBreaker_HalfOpenProbe(t *testing.T) {
-	b := newCircuitBreaker(2, time.Minute)
-	base := time.Date(2026, 8, 22, 0, 0, 0, 0, time.UTC)
+func TestConcurrentCheckAndFlush(t *testing.T) {
+	cfg := testConfig()
+	store := newFakeStore()
+	clock, _ := fixedClock(time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC))
+	l := newTestLimiter(t, cfg, store, clock)
 
-	assert.True(t, b.allow(base))
-	assert.False(t, b.recordFailure(base), "first failure must not open the circuit")
-	assert.True(t, b.recordFailure(base), "threshold failure opens the circuit and reports the transition")
-	assert.False(t, b.recordFailure(base), "subsequent failures must not re-report the transition")
+	var wg sync.WaitGroup
+	stop := make(chan struct{})
 
-	assert.False(t, b.allow(base.Add(30*time.Second)), "circuit stays closed to traffic during cooldown")
-	assert.True(t, b.allow(base.Add(2*time.Minute)), "after cooldown one probe is allowed")
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+				l.Flush(context.Background())
+				l.refresh(context.Background())
+			}
+		}
+	}()
 
-	b.recordSuccess()
-	assert.False(t, b.isOpen())
-	assert.True(t, b.allow(base))
+	for g := 0; g < 8; g++ {
+		wg.Add(1)
+		go func(n int) {
+			defer wg.Done()
+			for i := 0; i < 200; i++ {
+				_, _ = l.Check(context.Background(), "user:hot", "free", false)
+			}
+		}(g)
+	}
+
+	time.Sleep(20 * time.Millisecond)
+	close(stop)
+	wg.Wait()
+
+	l.Flush(context.Background())
+
+	l.mu.Lock()
+	pending := int64(0)
+	if st, ok := l.state["user:hot"]; ok {
+		pending = st.pending
+	}
+	l.mu.Unlock()
+
+	total := store.persisted[UsageKey{Identifier: "user:hot", Month: normalizeMonth(clock())}] + pending
+	assert.Equal(t, int64(1600), total, "flushing concurrently with traffic must neither lose nor duplicate increments")
 }
 
-func TestMonthlyConfigDefaults(t *testing.T) {
-	cfg := DefaultConfig()
+func TestNilStoreKeepsPerMinuteEnforcementAlive(t *testing.T) {
+	cfg := testConfig()
+	cfg.Tiers["free"] = TierLimits{RequestsPerMinute: 3, RequestsPerMonth: 100}
+	clock, _ := fixedClock(time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC))
+	l := newTestLimiter(t, cfg, nil, clock)
 
-	assert.Equal(t, 25, cfg.MonthlyFlushThreshold)
-	assert.Equal(t, 30*time.Second, cfg.MonthlyFlushInterval)
-	assert.True(t, cfg.SkipAnonymousMonthly)
-	assert.Equal(t, 3, cfg.BreakerFailureThreshold)
-	assert.Equal(t, 60*time.Second, cfg.BreakerCooldown)
+	results := checkN(t, l, 4, "user:a", "free", false)
+	assert.True(t, results[2].Allowed)
+	assert.False(t, results[3].Allowed)
+	assert.Equal(t, LimitKindPerMinute, results[3].ExceededKind)
 
-	// Zero-valued knobs must be backfilled rather than producing a 0-tick
-	// ticker (which panics) or an every-request flush.
-	filled := withMonthlyDefaults(Config{})
-	assert.Equal(t, defaultMonthlyFlushThreshold, filled.MonthlyFlushThreshold)
-	assert.Equal(t, defaultMonthlyFlushInterval, filled.MonthlyFlushInterval)
-	assert.Equal(t, defaultBreakerCooldown, filled.BreakerCooldown)
-}
-
-func TestIsAnonymousIdentifier(t *testing.T) {
-	assert.True(t, isAnonymousIdentifier("ip:1.2.3.4"))
-	assert.False(t, isAnonymousIdentifier("user:abc"))
-	assert.False(t, isAnonymousIdentifier(""))
-	assert.False(t, isAnonymousIdentifier("ip"))
+	// Flush/refresh with no store must be inert, not a panic.
+	l.Flush(context.Background())
+	l.refresh(context.Background())
 }

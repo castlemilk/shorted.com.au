@@ -12,7 +12,20 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/jobmonitor"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/register"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// Close releases resources held by the server.
+//
+// This is not optional bookkeeping: the rate limiter buffers monthly quota
+// increments in memory and flushes them in batches, so a shutdown that skips
+// Close silently discards up to one batch per identifier.
+func (s *ShortsServer) Close() error {
+	if s.rateLimiter != nil {
+		return s.rateLimiter.Close()
+	}
+	return nil
+}
 
 // ShortsServer ...
 type ShortsServer struct {
@@ -74,27 +87,29 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 		return nil, fmt.Errorf("failed to create register server: %w", err)
 	}
 
-	// Initialize the monthly quota limiter (optional, service can run without it).
+	// Initialize the app-layer rate limiter (optional, service can run without it).
 	//
-	// Per-minute limiting is NOT done here — it is enforced at the Cloudflare
-	// edge worker (services/edge-worker/worker.js). The app layer only accounts
-	// monthly quotas, with batched writes and a circuit breaker, so a sick
-	// Upstash database can never 500 users or take the API down with it.
+	// It owns two things: the documented PER-TIER per-minute limits (in memory,
+	// per instance) and monthly quotas (Postgres, batched). The tier-blind
+	// abuse ceiling is separate and runs at the Cloudflare edge worker
+	// (services/edge-worker/worker.js).
+	//
+	// The quota store REUSES the store's pgx pool rather than opening its own —
+	// Supabase max_connections is shared across services. If the pool is not
+	// reachable through the store (non-Postgres backend), per-minute limiting
+	// still runs; only monthly accounting is skipped.
 	var rateLimiter ratelimit.RateLimiter
 	if cfg.RateLimitConfig.Enabled {
-		if cfg.RateLimitConfig.UpstashURL != "" && cfg.RateLimitConfig.UpstashToken != "" {
-			rateLimiter, err = ratelimit.NewMonthlyLimiter(cfg.RateLimitConfig)
-			if err != nil {
-				logger.Warnf("Failed to initialize monthly quota limiter: %v (quota accounting disabled)", err)
-				rateLimiter = nil
-			} else {
-				logger.Infof("Monthly quota accounting enabled (Upstash, batched); per-minute limiting is enforced at the Cloudflare edge")
-			}
+		var usageStore ratelimit.UsageStore
+		if pooled, ok := storeImpl.(interface{ Pool() *pgxpool.Pool }); ok && pooled.Pool() != nil {
+			usageStore = ratelimit.NewPostgresUsageStore(pooled.Pool(), cfg.RateLimitConfig.Timeout)
+			logger.Infof("Monthly quota accounting enabled (Postgres api_usage_monthly, batched writes, fail-open)")
 		} else {
-			logger.Warnf("Rate limiting enabled but Upstash credentials not configured — monthly quotas will not be enforced")
+			logger.Warnf("Rate limiting enabled but no Postgres pool available — per-minute tier limits still apply, monthly quotas will not be enforced")
 		}
+		rateLimiter = ratelimit.NewAppLimiter(cfg.RateLimitConfig, usageStore)
 	} else {
-		logger.Infof("App-layer monthly quota accounting disabled (per-minute limiting is unaffected — it runs at the Cloudflare edge)")
+		logger.Infof("App-layer rate limiting disabled (the Cloudflare edge abuse ceiling is unaffected)")
 	}
 
 	return &ShortsServer{

@@ -875,6 +875,13 @@ module "edge" {
   rate_limit_ssr_bypass_header_name = var.rate_limit_ssr_bypass_header_name
   rate_limit_ssr_bypass_user_agent  = var.rate_limit_ssr_bypass_user_agent
 
+  # Worker rate limiting (burst + sustained buckets on both surfaces).
+  # PINNED EXPLICITLY so prod stays opt-in even though the module now defaults
+  # to enabled: flipping this is a one-line change with an instant rollback
+  # (set it back to false and re-apply — the worker returns to fail-open).
+  # Runbook + what to watch: services/edge-worker/README.md.
+  edge_rate_limit_enabled = var.edge_rate_limit_enabled
+
   waf_enabled            = true
   bot_protection_enabled = true
 

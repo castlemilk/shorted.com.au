@@ -104,12 +104,48 @@ resource "cloudflare_workers_script" "edge_cache" {
       text = var.edge_rate_limit_enabled ? "true" : "false"
       }, {
       type = "plain_text"
+      name = "EDGE_RATE_LIMIT_TRUST_CRAWLER_UA"
+      text = var.edge_rate_limit_trust_crawler_ua ? "true" : "false"
+      }, {
+      # The bucket matrix, mirrored into worker vars so worker.js never has to
+      # hardcode a production number. Keep in sync with RATE_LIMIT_BUCKETS in
+      # services/edge-worker/worker.js (its compiled-in defaults are the
+      # fail-safe used only when a var is missing).
+      type = "plain_text"
+      name = "RATE_LIMIT_KEY_BURST"
+      text = tostring(var.edge_rate_limit_key_burst_requests)
+      }, {
+      type = "plain_text"
       name = "RATE_LIMIT_KEY_LIMIT"
       text = tostring(var.edge_rate_limit_key_requests_per_minute)
       }, {
       type = "plain_text"
+      name = "RATE_LIMIT_ANON_BURST"
+      text = tostring(var.edge_rate_limit_anon_burst_requests)
+      }, {
+      type = "plain_text"
       name = "RATE_LIMIT_ANON_LIMIT"
       text = tostring(var.edge_rate_limit_anon_requests_per_minute)
+      }, {
+      type = "plain_text"
+      name = "RATE_LIMIT_FIRST_PARTY_BURST"
+      text = tostring(var.edge_rate_limit_first_party_burst_requests)
+      }, {
+      type = "plain_text"
+      name = "RATE_LIMIT_BROWSER_ANON_BURST"
+      text = tostring(var.edge_rate_limit_browser_anon_burst_requests)
+      }, {
+      type = "plain_text"
+      name = "RATE_LIMIT_BROWSER_ANON_LIMIT"
+      text = tostring(var.edge_rate_limit_browser_anon_requests_per_minute)
+      }, {
+      type = "plain_text"
+      name = "RATE_LIMIT_BROWSER_AUTH_BURST"
+      text = tostring(var.edge_rate_limit_browser_auth_burst_requests)
+      }, {
+      type = "plain_text"
+      name = "RATE_LIMIT_BROWSER_AUTH_LIMIT"
+      text = tostring(var.edge_rate_limit_browser_auth_requests_per_minute)
       }, {
       # Bypass config mirrors the zone skip rules. The worker requires BOTH the
       # UA marker and the exact secret, exactly like the Terraform expressions
@@ -130,11 +166,32 @@ resource "cloudflare_workers_script" "edge_cache" {
       name = "RATE_LIMIT_SSR_BYPASS_HEADER_NAME"
       text = var.rate_limit_ssr_bypass_header_name
       }, {
-      # Per-minute rate limiting — Cloudflare Workers Rate Limiting API.
+      # Rate limiting bindings — Cloudflare Workers Rate Limiting API.
+      #
+      # `period` is a HARD ENUM: 10 or 60 seconds, nothing else. So "burst" and
+      # "sustained" cannot be one binding — every traffic class that needs both
+      # windows needs TWO bindings, which is why there are nine of them.
+      #
       # Counters are per-colo and eventually consistent by design; these are
-      # abuse ceilings, not an accounting system (the monthly quota stays
-      # app-side). Two bindings that share a namespace_id share counters, even
-      # across Workers, so these IDs must stay unique to this worker.
+      # origin-protection ceilings, not an accounting system. The monthly quota
+      # stays app-side, and per-TIER per-minute enforcement lives in-process in
+      # services/pkg/ratelimit — this layer is deliberately tier-blind.
+      #
+      # Two bindings that share a namespace_id share counters, EVEN ACROSS
+      # WORKERS on the account, so every ID here must stay unique.
+      #
+      # --- api.shorted.com.au, authenticated (keyed by SHA-256 of the token) ---
+      # The documented paid API tier is per-minute UNLIMITED, so this cannot be
+      # a tier ceiling: 600/60s (10 req/s sustained) leaves a legitimate bulk
+      # pull completely unimpeded and only catches a runaway or a leaked key.
+      type         = "ratelimit"
+      name         = "API_KEY_BURST_RATE_LIMITER"
+      namespace_id = var.edge_rate_limit_key_burst_namespace_id
+      simple = {
+        limit  = var.edge_rate_limit_key_burst_requests
+        period = 10
+      }
+      }, {
       type         = "ratelimit"
       name         = "API_KEY_RATE_LIMITER"
       namespace_id = var.edge_rate_limit_key_namespace_id
@@ -143,11 +200,78 @@ resource "cloudflare_workers_script" "edge_cache" {
         period = 60
       }
       }, {
+      # --- api.shorted.com.au, anonymous (keyed by real client IP) ---
+      # The one class where the ceiling equals a documented tier: an
+      # unauthenticated caller hitting the public API host directly has no
+      # entitlement beyond the anonymous 30/min. First-party rewrite traffic
+      # never lands here — it carries the SSR marker and gets its own bucket.
+      type         = "ratelimit"
+      name         = "ANON_BURST_RATE_LIMITER"
+      namespace_id = var.edge_rate_limit_anon_burst_namespace_id
+      simple = {
+        limit  = var.edge_rate_limit_anon_burst_requests
+        period = 10
+      }
+      }, {
       type         = "ratelimit"
       name         = "ANON_RATE_LIMITER"
       namespace_id = var.edge_rate_limit_anon_namespace_id
       simple = {
         limit  = var.edge_rate_limit_anon_requests_per_minute
+        period = 60
+      }
+      }, {
+      # --- api.shorted.com.au, first-party (Vercel SSR + rewrite proxy) ---
+      # A runaway detector, not a tier. Keyed by Vercel egress IP so one looping
+      # instance is contained without penalising the others. Burst-only: a
+      # sustained window would be measuring normal fan-out, not a fault.
+      type         = "ratelimit"
+      name         = "FIRST_PARTY_RATE_LIMITER"
+      namespace_id = var.edge_rate_limit_first_party_namespace_id
+      simple = {
+        limit  = var.edge_rate_limit_first_party_burst_requests
+        period = 10
+      }
+      }, {
+      # --- shorted.com.au, anonymous browser (keyed by REAL client IP) ---
+      # Measured on prod with Playwright, logged out, counting only limitable
+      # (non-HTML, non-/api/auth) requests: /shorts/BHP = 9 per page load,
+      # / = 6, /top = 2. Worst realistic human burst is 3-4 stock pages in 10s
+      # = 27-36 requests; hardest minute is 10-15 pages = 90-135. 100/10s and
+      # 600/60s are ~3x and ~4.4x those, so a real reader can never hit them.
+      type         = "ratelimit"
+      name         = "BROWSER_ANON_BURST_RATE_LIMITER"
+      namespace_id = var.edge_rate_limit_browser_anon_burst_namespace_id
+      simple = {
+        limit  = var.edge_rate_limit_browser_anon_burst_requests
+        period = 10
+      }
+      }, {
+      type         = "ratelimit"
+      name         = "BROWSER_ANON_RATE_LIMITER"
+      namespace_id = var.edge_rate_limit_browser_anon_namespace_id
+      simple = {
+        limit  = var.edge_rate_limit_browser_anon_requests_per_minute
+        period = 60
+      }
+      }, {
+      # --- shorted.com.au, signed-in browser (keyed by session-cookie hash) ---
+      # Keyed on the session rather than the IP so an office, university or
+      # CGNAT egress cannot collapse every colleague into one bucket. Double
+      # the anonymous allowance.
+      type         = "ratelimit"
+      name         = "BROWSER_AUTH_BURST_RATE_LIMITER"
+      namespace_id = var.edge_rate_limit_browser_auth_burst_namespace_id
+      simple = {
+        limit  = var.edge_rate_limit_browser_auth_burst_requests
+        period = 10
+      }
+      }, {
+      type         = "ratelimit"
+      name         = "BROWSER_AUTH_RATE_LIMITER"
+      namespace_id = var.edge_rate_limit_browser_auth_namespace_id
+      simple = {
+        limit  = var.edge_rate_limit_browser_auth_requests_per_minute
         period = 60
       }
       }, {
