@@ -393,6 +393,15 @@ jobs:
       (needs.build-docker-images.result == 'success' || needs.build-docker-images.result == 'skipped') &&
       (needs.build-ko-images.result == 'success' || needs.build-ko-images.result == 'skipped')
     runs-on: ubuntu-latest
+    # Serialize on the TFSTATE, not the PR. The workflow-level group only
+    # dedupes runs of the same ref, so two PRs (or a PR + a push to main)
+    # planned against the same backend concurrently and collided on the GCS
+    # state lock — three failed runs on 2026-08-22 alone, each needing a
+    # manual re-run. cancel-in-progress MUST stay false: cancelling a run
+    # mid-terraform can strand the lock it holds.
+    concurrency:
+      group: tfstate-${{ needs.determine-environment.outputs.environment }}
+      cancel-in-progress: false
     outputs:
       plan-output: ${{ steps.plan.outputs.stdout }}
     steps:
@@ -888,6 +897,13 @@ jobs:
     # remove this edge, or the gate silently becomes decorative again.
     needs: [determine-environment, validate-secrets, terraform-plan, run-tests]
     runs-on: ubuntu-latest
+    # Same tfstate serialization as terraform-plan (see the note there). An
+    # apply holds the lock far longer than a plan, so this is the job most
+    # likely to be the one BLOCKING others — queueing is the intended
+    # behaviour, not a failure.
+    concurrency:
+      group: tfstate-${{ needs.determine-environment.outputs.environment }}
+      cancel-in-progress: false
     # Only apply on main branch push, release, or manual workflow dispatch (unless plan_only)
     # PRs will only plan, not apply
     # Manual dispatches with plan_only=true will skip apply
