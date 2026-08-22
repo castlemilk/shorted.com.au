@@ -6,9 +6,24 @@ import { cache } from "react";
 import { SERVER_SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 import { withRetryAndNotFound } from "./withRetry";
 
+// ISR-safe fetch — same bug class as screenStocks.ts: with no explicit `next`
+// (or `cache`) option, serverFetchWithUserAgent forces `cache: "no-store"` on
+// POSTs at Vercel runtime, and a no-store fetch inside an ISR render throws
+// "Dynamic server usage: no-store fetch". These takes are rendered server-side
+// by /news/[slug] (`revalidate = 600`) and the /news index cards, so every
+// regeneration of those routes was failing on the fetch. 600s matches the
+// tightest consuming route; Next usually can't key a streamed Connect POST
+// body ("Failed to generate cache key" — benign), the point is the regen
+// completes instead of throwing.
+const isrEditorialFetch: typeof fetch = (input, init) =>
+  serverFetchWithUserAgent(input, {
+    ...init,
+    next: { revalidate: 600, tags: ["shorts-data"] },
+  } as RequestInit);
+
 function createEditorialClient() {
   const transport = createConnectTransport({
-    fetch: serverFetchWithUserAgent,
+    fetch: isrEditorialFetch,
     baseUrl: SERVER_SHORTS_API_URL,
   });
   return createClient(NewsService, transport);
