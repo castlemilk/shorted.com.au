@@ -61,6 +61,26 @@ describe("startSyncValidation", () => {
     );
   });
 
+  // The validation window is the ONE extra thing the body may carry. Omitted,
+  // it must not appear at all (the job's default stays authoritative); supplied,
+  // it is an integer and is capped before it is sent.
+  it("sends the window only when asked, and caps it", async () => {
+    const post = async (days?: number) => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ executionName: "e" }),
+      });
+      await startSyncValidation({ stocks: ["BHP"], days });
+      const [, init] = fetchMock.mock.calls.at(-1) as [string, RequestInit];
+      return JSON.parse(init.body as string) as Record<string, unknown>;
+    };
+
+    expect(await post()).toEqual({ stocks: ["BHP"] });
+    expect(await post(14)).toEqual({ stocks: ["BHP"], days: 14 });
+    expect(await post(9999)).toEqual({ stocks: ["BHP"], days: 30 });
+    expect(await post(0)).toEqual({ stocks: ["BHP"] });
+  });
+
   it("surfaces a backend refusal code", async () => {
     fetchMock.mockResolvedValueOnce({
       ok: false,

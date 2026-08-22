@@ -208,6 +208,49 @@ Codes are comma- and/or whitespace-separated, upper-cased, de-duplicated, and
 each must match `^[A-Z0-9]{1,5}$`; at most **20** per run. One bad code fails
 the run rather than being silently dropped.
 
+### The validation window — `-validate-days N` (default 7, max 30)
+
+**A validation run does not use the sync's window.** The sync processes
+`MAX("DATE") + 1 day → today`, which is right for an ingest and useless for a
+diagnostic: on any day ASIC has published nothing new — most days, since the job
+runs daily and keeps up — that window is *empty*. Run live against prod on
+2026-08-21, the report came back:
+
+```
+rows_parsed: 0, would_insert: 0, would_update: 0
+stocks: { requested: [BHP, DRO], not_found: [BHP, DRO], db_rows_in_window: 0 }
+```
+
+Correct, and worthless. "not found" reads as a failure when the truth was "there
+was nothing to do", and a diagnostic that only reports on days new data happens
+to exist is backwards.
+
+So `-stocks` runs scan **the last N dates ASIC actually published**, ignoring
+the ingested cutoff, and re-parse days that are already in the database on
+purpose. There is then always something to compare, and for a healthy pipeline
+every row comes back `unchanged` — the file says 1.35%, the DB says 1.35%, they
+agree. That is the positive signal the operator was asking for.
+
+N counts **published ASIC dates, not calendar days** (`selectRecentFiles`): ASIC
+publishes on business days and stops for holidays and its own outages, so a
+calendar window can legitimately be empty — the exact failure this removes.
+
+The flag is refused without `-stocks`, because on a sync or a plain `-shadow`
+run it does nothing, and silently doing nothing is how a number gets trusted
+that was never used. Sync, `-dry-run` and plain `-shadow` are byte-for-byte
+unchanged; `syncFileWindow` (cutoff-based) and `validationScan` (index-based)
+are separate functions and `TestSyncFileWindowIsCutoffBased` pins the first.
+
+The summary gains a `validation` section (omitted otherwise) recording `days`,
+`from`/`to`, the `files` scanned, the `ignored_cutoff` a sync would have used,
+and — only when the window came out **empty** — a `problem` string saying so in
+words. Empty-window is the one genuinely broken outcome, and it must never be
+confused with "the code was absent from the files".
+
+Because the window is re-parsed rather than new, the summary's top-level
+`would_insert` / `would_update` / `would_revalidate` describe what a sync *would*
+do over **this** window, not what tonight's scheduled sync will do.
+
 ### Output shape
 
 Three differences from a plain `-shadow` run:
@@ -286,13 +329,25 @@ Two subtleties worth knowing before you read a diff as a bug:
 * **A product rename is not a change.** `ON CONFLICT` deliberately does not
   refresh `PRODUCT` (see `upsertShortsSQL`), so `changed_fields` never lists it —
   both names are still shown in `file_values` / `db_values` for context.
-* **`not_found` is reported explicitly.** A requested code that appeared in *no*
-  parsed file is listed there, so "BHP is missing from the data" and "BHP was
-  never asked for" cannot look the same.
+* **`not_found` means "absent from the files", not "no window".** A requested
+  code that appeared in *no* parsed file is listed there — a real signal (a
+  delisted or never-shorted ticker), and it keeps "BHP is missing from the data"
+  distinct from "BHP was never asked for". The other case — there were no files
+  at all — is `files_in_window: 0` / `window_empty: true` plus
+  `validation.problem`, a different problem with a different fix. **Read
+  `window_empty` first**; with no files, `not_found` is vacuous.
+* **Everything `unchanged` is the pass.** Since the window is deliberately
+  already-ingested days, `unchanged` on every row is the expected, healthy
+  result — not "nothing happened".
 
-`counts` is the per-status tally, and `db_rows_in_window` is how many rows the
-comparison SELECT returned for the requested codes — a zero there alongside
-non-zero file rows means the whole window is new.
+`counts` is the per-status tally. `db_rows_in_window` is how many rows the
+comparison SELECT returned **for the requested codes** — deliberately scoped,
+not "all rows in the window": scoped, it is a direct denominator for the table
+next to it ("2 codes × 5 dates, 10 of 10 rows present"); unscoped it would put a
+five-figure number beside a two-row table, answer a question nobody asked (that
+is what run-level `rows_parsed` covers) and cost a full-window scan. A zero there
+alongside non-zero file rows means the whole window is genuinely new for these
+codes.
 
 ### From the admin console
 
