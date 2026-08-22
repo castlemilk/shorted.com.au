@@ -57,6 +57,16 @@
     --semantic-red: #ef4444;           /* True red for decreases/min */
     --semantic-green: #22c55e;         /* True green for increases/max */
 
+    /* Text-safe variants of the semantic pair. The fills above are tuned for
+       marks (bars, dots, chart strokes) and fail WCAG AA badly as small text on
+       the warm-white card: #22c55e is 2.23:1 and #ef4444 is 3.68:1. Any figure
+       set in a semantic colour — a YoY delta, a price move — must use these.
+       Dark mode needs no separate pair; the bright values already clear AA on
+       #121212, so .dark aliases them straight through. */
+    --semantic-green-text: #15803d;    /* 4.93:1 on --card */
+    --semantic-red-text: #b91c1c;      /* 6.42:1 on --card */
+    --secondary-text: 93 40% 26%;      /* Deep olive - 6.6:1 on --card (--secondary is a fill, 2.6:1) */
+
     /* Terminal effect variables */
     --glow-color: 32 100% 65%;
     --scanline-opacity: 0.03;
@@ -111,6 +121,11 @@
     /* Semantic colors - preserved for min/max indicators */
     --semantic-red: #f87171;           /* Bright red for dark mode */
     --semantic-green: #4ade80;         /* Bright green for dark mode */
+    /* On #121212 the bright pair is already 8.7:1 / 6.4:1 — no darker variant
+       needed, so the text tokens alias the fills. */
+    --semantic-green-text: #4ade80;
+    --semantic-red-text: #f87171;
+    --secondary-text: 96 33% 63%;      /* 8.0:1 on --card */
 
     /* Terminal effects - enhanced in dark mode */
     --glow-color: 32 100% 65%;
@@ -153,6 +168,25 @@
    small one.
    ═══════════════════════════════════════════════════════════════════ */
 @layer components {
+  /* Themed full-bleed banner art.
+     The two AVIFs were previously two <img> siblings toggled with `hidden` /
+     `dark:block` — but display:none does not stop a fetch, so every visitor
+     downloaded both and threw one away (measured: 30-94 KB wasted per view
+     across the 10 archetype pairs). A url() sitting in an UNUSED custom
+     property is never resolved, so declaring both here and referencing only the
+     applied one fetches exactly one file. It has to be a custom property rather
+     than a media query because the theme is class-based (`.dark`), so
+     prefers-color-scheme would desync from the in-app toggle. */
+  .banner-art {
+    background-image: var(--banner-light);
+    background-size: cover;
+    background-position: center;
+  }
+
+  .dark .banner-art {
+    background-image: var(--banner-dark);
+  }
+
   .hit-target,
   .hit-target-touch {
     position: relative;

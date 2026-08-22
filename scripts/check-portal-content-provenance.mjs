@@ -76,10 +76,26 @@ function isRegularFile(path) {
   }
 }
 
+/**
+ * `git -C <dir>` does NOT override an inherited GIT_DIR, and every git hook
+ * exports one. Left alone, this listed the hook's repository while resolving the
+ * paths against `root` — so every path failed isRegularFile(), the scan found
+ * ZERO files, and the gate reported a clean pass. It has to be stripped, or the
+ * check silently stops checking in exactly the place it is meant to run.
+ */
+function gitEnvStripped() {
+  const env = { ...process.env };
+  for (const key of Object.keys(env)) {
+    if (key.startsWith("GIT_")) delete env[key];
+  }
+  return env;
+}
+
 function trackedFiles(root) {
   const result = spawnSync("git", ["-C", root, "ls-files", "-z", "--", "services", "web"], {
     encoding: "buffer",
     maxBuffer: 64 * 1024 * 1024,
+    env: gitEnvStripped(),
   });
   if (result.status !== 0) {
     return null;

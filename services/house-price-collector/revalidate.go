@@ -39,8 +39,14 @@ func pingRevalidate(reason string) {
 	q := url.Values{}
 	q.Set("path", "/price-drops,/housing")
 	q.Set("flush", "housing")
-	// tag is intentionally unset — the flush=housing branch busts the housing
-	// surfaces by path, no per-tag revalidation needed here.
+	// The "housing" TAG is load-bearing and separate from the two above: `flush`
+	// only deletes Redis keys and `path` only rebuilds those two routes, while
+	// the suburb profile's state-suburb index lives in Next's own data cache
+	// under unstable_cache(tags:["housing"]) — see
+	// web/src/app/actions/getHousingStateIndex.ts. Without this, a data refresh
+	// left every suburb page ranking against yesterday's index for a full 24h.
+	// /api/revalidate only calls revalidateTag() for tags supplied here.
+	q.Set("tag", "housing")
 	reqURL := endpoint + "?" + q.Encode()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)

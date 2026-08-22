@@ -19,9 +19,17 @@ export function DashboardLayout({
   fullWidth = false,
 }: DashboardLayoutProps) {
   return (
-    <div className="flex min-h-[calc(100vh-3.5rem)]">
+    <div className="flex min-h-[calc(100vh-4rem)]">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto">
+      {/* No `overflow-y-auto` here. It never scrolled — this is a flex child with
+          unconstrained height — but it did make <main> the nearest scrollport,
+          which silently disabled `position: sticky` for every descendant (the
+          suburb profile's context bar among them).
+          `min-w-0` is not optional once it is gone: the old overflow value was
+          also what zeroed this flex item's automatic minimum size, and without
+          either, <main> grows to its widest content (measured 774px at a 390px
+          viewport) and the whole page scrolls sideways. */}
+      <main className="min-w-0 flex-1">
         <div className={fullWidth ? "py-6 px-4" : "container py-6"}>
           {children}
         </div>

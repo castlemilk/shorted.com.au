@@ -58,8 +58,10 @@ func TestPingRevalidateSendsExpectedQuery(t *testing.T) {
 	if q.Get("flush") != "housing" {
 		t.Errorf("flush = %q, want housing", q.Get("flush"))
 	}
-	if _, ok := q["tag"]; ok {
-		t.Errorf("tag must be unset, got %q", q.Get("tag"))
+	// The tag is what busts the suburb profile's state index in Next's data
+	// cache; path+flush do not reach it.
+	if q.Get("tag") != "housing" {
+		t.Errorf("tag = %q, want housing", q.Get("tag"))
 	}
 }
 
