@@ -1,5 +1,7 @@
 "use server";
 
+import { MAX_VALIDATE_DAYS } from "./validate-sync-limits";
+
 import { SHORTS_API_URL } from "./config";
 import { requireAdmin } from "~/server/admin";
 
@@ -154,8 +156,6 @@ function headers() {
 /** Client-side-friendly pre-check, mirroring the backend's contract. */
 const CODE_PATTERN = /^[A-Z0-9]{1,5}$/;
 const MAX_CODES = 20;
-/** Mirrors the backend cap on `-validate-days`. */
-export const MAX_VALIDATE_DAYS = 30;
 
 /**
  * Splits and validates a raw operator string. Exported so the input can refuse

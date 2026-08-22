@@ -12,10 +12,10 @@
  * (which job, which arguments, which codes are legal) lives server-side.
  */
 
+import { MAX_VALIDATE_DAYS } from "~/app/actions/validate-sync-limits";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   getSyncValidation,
-  MAX_VALIDATE_DAYS,
   normalizeStockInput,
   startSyncValidation,
   type ShadowSummary,
