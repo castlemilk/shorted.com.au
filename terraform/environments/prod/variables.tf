@@ -221,9 +221,21 @@ variable "edge_rate_limit_enabled" {
     rewrite traffic falls into the anonymous per-IP bucket behind a shared
     Vercel egress IP. After flipping, watch the 429 rate in the Worker
     analytics / Cloudflare dashboard. See services/edge-worker/README.md.
+
+    ENABLED 2026-08-22 after establishing the traffic model empirically:
+    browser API calls are rewritten (next.config.mjs) to the Cloud Run
+    origin DIRECTLY, not through api.shorted.com.au, so the feared
+    "shared Vercel egress IP lands in the anon bucket" case does not
+    occur in prod. Browser traffic is limited on the shorted.com.au
+    surface with the REAL client IP at 100/10s + 600/60s, against a
+    measured worst-case human burst of ~36/10s and ~135/60s (stock page
+    = 9 limitable requests, homepage 6, /top 2).
+
+    Rollback is this one line back to false + apply (~30s, no code
+    deploy) — the worker checks the flag before touching any bucket.
   EOT
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "alert_recipient_email" {
