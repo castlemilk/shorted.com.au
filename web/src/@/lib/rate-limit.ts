@@ -310,7 +310,11 @@ function getLimiterPair(redisClient: UpstashRedis, config: RateLimitConfig) {
           `${config.windowSeconds} s`,
           config.anonymousBurstMaxTokens,
         ),
-        analytics: true,
+        // analytics adds an extra Redis command per request — a material share of
+        // the 2026-08 quota burn. Off; the ephemeral cache below short-circuits
+        // repeat offenders without any Redis round-trip.
+        analytics: false,
+        ephemeralCache: new Map(),
         prefix: `${bucketPrefix(config)}:anon:burst:${anonymousRefillLimit}:${config.windowSeconds}:${config.anonymousBurstMaxTokens}`,
       })
     : new Ratelimit({
@@ -319,7 +323,11 @@ function getLimiterPair(redisClient: UpstashRedis, config: RateLimitConfig) {
           config.anonymousLimit,
           `${config.windowSeconds} s`,
         ),
-        analytics: true,
+        // analytics adds an extra Redis command per request — a material share of
+        // the 2026-08 quota burn. Off; the ephemeral cache below short-circuits
+        // repeat offenders without any Redis round-trip.
+        analytics: false,
+        ephemeralCache: new Map(),
         prefix: `${bucketPrefix(config)}:anon:${config.anonymousLimit}:${config.windowSeconds}`,
       });
 
@@ -331,7 +339,11 @@ function getLimiterPair(redisClient: UpstashRedis, config: RateLimitConfig) {
         config.authenticatedLimit,
         `${config.windowSeconds} s`,
       ),
-      analytics: true,
+      // analytics adds an extra Redis command per request — a material share of
+      // the 2026-08 quota burn. Off; the ephemeral cache below short-circuits
+      // repeat offenders without any Redis round-trip.
+      analytics: false,
+      ephemeralCache: new Map(),
       prefix: `${bucketPrefix(config)}:auth:${config.authenticatedLimit}:${config.windowSeconds}`,
     }),
   };

@@ -37,7 +37,11 @@ if (redisConfig) {
       `${BROWSER_RATE_LIMITS.windowSeconds} s`,
       BROWSER_RATE_LIMITS.anonymousBurstMaxTokens,
     ),
-    analytics: true,
+    // analytics adds an extra Redis command per request — a material share of
+    // the 2026-08 quota burn. Off; the ephemeral cache below short-circuits
+    // repeat offenders without any Redis round-trip.
+    analytics: false,
+    ephemeralCache: new Map(),
     prefix: `ratelimit:browser:anon:burst:${BROWSER_RATE_LIMITS.anonymousRefillRequestsPerWindow}:${BROWSER_RATE_LIMITS.windowSeconds}:${BROWSER_RATE_LIMITS.anonymousBurstMaxTokens}`,
   });
 
@@ -47,7 +51,11 @@ if (redisConfig) {
       BROWSER_RATE_LIMITS.authenticatedRequestsPerMinute,
       `${BROWSER_RATE_LIMITS.windowSeconds} s`,
     ),
-    analytics: true,
+    // analytics adds an extra Redis command per request — a material share of
+    // the 2026-08 quota burn. Off; the ephemeral cache below short-circuits
+    // repeat offenders without any Redis round-trip.
+    analytics: false,
+    ephemeralCache: new Map(),
     prefix: `ratelimit:browser:auth:${BROWSER_RATE_LIMITS.authenticatedRequestsPerMinute}:${BROWSER_RATE_LIMITS.windowSeconds}`,
   });
 }
