@@ -8,6 +8,20 @@ import { Card } from "~/@/components/ui/card";
 import { Progress } from "~/@/components/ui/progress";
 import { type RateLimitInfo } from "~/@/lib/retry";
 
+/**
+ * @deprecated Superseded by `RateLimitNotice`
+ * (`~/@/components/rate-limit/rate-limit-notice`), which is now the single
+ * rate-limit surface used by the page boundary, the widget boundary and the
+ * standalone /rate-limit route.
+ *
+ * Why it was replaced: this component treats every 429 as an alarm ("Rate
+ * Limit Exceeded", warning triangle, amber panel). In practice a browsing user
+ * only ever trips the generous per-minute edge bucket, where the honest UI is
+ * a quiet self-healing pause — and only an exhausted MONTHLY quota warrants a
+ * panel, because that is the one case an upgrade actually fixes.
+ *
+ * Retained only so nothing outside the app tree breaks; do not use in new code.
+ */
 interface RateLimitErrorProps {
   /** Rate limit information from the error */
   rateLimitInfo: RateLimitInfo;
