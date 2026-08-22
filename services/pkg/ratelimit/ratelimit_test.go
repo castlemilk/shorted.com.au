@@ -93,10 +93,10 @@ func TestUpstashClient_Pipeline(t *testing.T) {
 
 		// Return mock pipeline results
 		results := []PipelineResult{
-			{Result: float64(0)},   // ZREMRANGEBYSCORE
-			{Result: float64(1)},   // ZADD
-			{Result: float64(5)},   // ZCARD
-			{Result: float64(1)},   // EXPIRE
+			{Result: float64(0)}, // ZREMRANGEBYSCORE
+			{Result: float64(1)}, // ZADD
+			{Result: float64(5)}, // ZCARD
+			{Result: float64(1)}, // EXPIRE
 		}
 		_ = json.NewEncoder(w).Encode(results)
 	}))
@@ -115,114 +115,4 @@ func TestUpstashClient_Pipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, results, 4)
 	assert.Equal(t, float64(5), results[2].Result)
-}
-
-func TestSlidingWindowLimiter_Check(t *testing.T) {
-	pipelineCount := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/pipeline" {
-			pipelineCount++
-			// Return different counts based on request number to simulate rate limiting
-			count := float64(pipelineCount)
-			// New pipeline structure: minute (4 commands) + month (3 commands)
-			results := []PipelineResult{
-				{Result: float64(0)}, // ZREMRANGEBYSCORE (minute)
-				{Result: float64(1)}, // ZADD (minute)
-				{Result: count},      // ZCARD (minute) - increases with each request
-				{Result: float64(1)}, // EXPIRE (minute)
-				{Result: float64(1)}, // ZADD (month)
-				{Result: count},      // ZCARD (month)
-				{Result: float64(1)}, // EXPIRE (month)
-			}
-			_ = json.NewEncoder(w).Encode(results)
-			return
-		}
-
-		// Handle PING
-		_ = json.NewEncoder(w).Encode(map[string]any{"result": "PONG"})
-	}))
-	defer server.Close()
-
-	cfg := DefaultConfig()
-	cfg.UpstashURL = server.URL
-	cfg.UpstashToken = "test-token"
-	cfg.Enabled = true
-	cfg.Tiers["anonymous"] = TierLimits{RequestsPerMinute: 5, RequestsPerMonth: 1000}
-
-	limiter, err := NewSlidingWindowLimiter(cfg)
-	require.NoError(t, err)
-	defer func() { _ = limiter.Close() }()
-
-	ctx := context.Background()
-
-	// First 5 requests should be allowed (count 1-5, limit is 5/min)
-	for i := range 5 {
-		result, err := limiter.Check(ctx, "ip:127.0.0.1", "anonymous", false) // API access
-		require.NoError(t, err)
-		assert.True(t, result.Allowed, "request %d should be allowed", i+1)
-	}
-
-	// 6th request should be rate limited (count 6 > limit 5/min)
-	result, err := limiter.Check(ctx, "ip:127.0.0.1", "anonymous", false)
-	require.NoError(t, err)
-	assert.False(t, result.Allowed)
-	assert.Equal(t, 5, result.Limit)
-	assert.Equal(t, 0, result.Remaining)
-}
-
-func TestSlidingWindowLimiter_DifferentTiers(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/pipeline" {
-			// Return count of 50 for minute, 500 for month
-			results := []PipelineResult{
-				{Result: float64(0)},  // ZREMRANGEBYSCORE (minute)
-				{Result: float64(1)},  // ZADD (minute)
-				{Result: float64(50)}, // ZCARD (minute)
-				{Result: float64(1)},  // EXPIRE (minute)
-				{Result: float64(1)},  // ZADD (month)
-				{Result: float64(500)}, // ZCARD (month)
-				{Result: float64(1)},  // EXPIRE (month)
-			}
-			_ = json.NewEncoder(w).Encode(results)
-			return
-		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"result": "PONG"})
-	}))
-	defer server.Close()
-
-	cfg := DefaultConfig()
-	cfg.UpstashURL = server.URL
-	cfg.UpstashToken = "test-token"
-	cfg.Enabled = true
-
-	limiter, err := NewSlidingWindowLimiter(cfg)
-	require.NoError(t, err)
-	defer func() { _ = limiter.Close() }()
-
-	ctx := context.Background()
-
-	// Anonymous API access (10/min, 500/month) should be limited at 50 requests/min
-	result, err := limiter.Check(ctx, "ip:127.0.0.1", "anonymous", false)
-	require.NoError(t, err)
-	assert.False(t, result.Allowed)
-	assert.Equal(t, 10, result.Limit)
-	assert.Equal(t, 500, result.MonthlyLimit)
-
-	// Free API access (30/min, 1000/month) should be limited at 50 requests/min
-	result, err = limiter.Check(ctx, "user:123", "free", false)
-	require.NoError(t, err)
-	assert.False(t, result.Allowed)
-	assert.Equal(t, 30, result.Limit)
-	assert.Equal(t, 0, result.Remaining)
-	assert.Equal(t, 1000, result.MonthlyLimit)
-	assert.Equal(t, 500, result.MonthlyUsed)
-
-	// Pro API access (120/min, 10000/month) should be allowed at 50/min, 500/month
-	result, err = limiter.Check(ctx, "user:456", "pro", false)
-	require.NoError(t, err)
-	assert.True(t, result.Allowed)
-	assert.Equal(t, 120, result.Limit)
-	assert.Equal(t, 70, result.Remaining) // 120 - 50 = 70
-	assert.Equal(t, 10000, result.MonthlyLimit)
-	assert.Equal(t, 500, result.MonthlyUsed)
 }

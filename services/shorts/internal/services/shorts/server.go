@@ -74,22 +74,27 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 		return nil, fmt.Errorf("failed to create register server: %w", err)
 	}
 
-	// Initialize rate limiter (optional, service can run without it)
+	// Initialize the monthly quota limiter (optional, service can run without it).
+	//
+	// Per-minute limiting is NOT done here — it is enforced at the Cloudflare
+	// edge worker (services/edge-worker/worker.js). The app layer only accounts
+	// monthly quotas, with batched writes and a circuit breaker, so a sick
+	// Upstash database can never 500 users or take the API down with it.
 	var rateLimiter ratelimit.RateLimiter
 	if cfg.RateLimitConfig.Enabled {
 		if cfg.RateLimitConfig.UpstashURL != "" && cfg.RateLimitConfig.UpstashToken != "" {
-			rateLimiter, err = ratelimit.NewSlidingWindowLimiter(cfg.RateLimitConfig)
+			rateLimiter, err = ratelimit.NewMonthlyLimiter(cfg.RateLimitConfig)
 			if err != nil {
-				logger.Warnf("Failed to initialize rate limiter: %v (rate limiting disabled)", err)
+				logger.Warnf("Failed to initialize monthly quota limiter: %v (quota accounting disabled)", err)
 				rateLimiter = nil
 			} else {
-				logger.Infof("Rate limiting enabled with Upstash Redis")
+				logger.Infof("Monthly quota accounting enabled (Upstash, batched); per-minute limiting is enforced at the Cloudflare edge")
 			}
 		} else {
-			logger.Warnf("Rate limiting enabled but Upstash credentials not configured")
+			logger.Warnf("Rate limiting enabled but Upstash credentials not configured — monthly quotas will not be enforced")
 		}
 	} else {
-		logger.Infof("Rate limiting disabled")
+		logger.Infof("App-layer monthly quota accounting disabled (per-minute limiting is unaffected — it runs at the Cloudflare edge)")
 	}
 
 	return &ShortsServer{

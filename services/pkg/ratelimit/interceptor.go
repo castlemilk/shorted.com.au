@@ -90,17 +90,29 @@ func NewRateLimitInterceptor(limiter RateLimiter, cfg Config, userClaimsKey any)
 					log.Infof("Monthly rate limit exceeded for %s (tier=%s, used=%d, limit=%d/month)",
 						identifier, tier, result.MonthlyUsed, result.MonthlyLimit)
 					msg = fmt.Sprintf("monthly rate limit exceeded: %d/%d requests used", result.MonthlyUsed, result.MonthlyLimit)
-				} else {
+				} else if result.Limit > 0 {
 					log.Infof("Rate limit exceeded for %s (tier=%s, limit=%d/min)", identifier, tier, result.Limit)
 					msg = fmt.Sprintf("rate limit exceeded: %d requests per minute", result.Limit)
+				} else {
+					log.Infof("Rate limit exceeded for %s (tier=%s)", identifier, tier)
+					msg = "rate limit exceeded"
 				}
 
 				err := connect.NewError(connect.CodeResourceExhausted, fmt.Errorf("%s", msg))
 
-				// Add rate limit details to error metadata
-				err.Meta().Set("X-RateLimit-Limit", strconv.Itoa(result.Limit))
-				err.Meta().Set("X-RateLimit-Remaining", "0")
-				err.Meta().Set("X-RateLimit-Reset", strconv.FormatInt(result.ResetAt.Unix(), 10))
+				// Add rate limit details to error metadata.
+				//
+				// Per-minute headers are emitted ONLY when the app layer
+				// actually owns a per-minute window (Limit > 0). Under the
+				// current architecture per-minute limiting is enforced at the
+				// Cloudflare edge, which sets its own X-RateLimit-Limit /
+				// Remaining / Reset on the 429 it returns. Emitting zeroed
+				// per-minute headers from here would misreport the contract.
+				if result.Limit > 0 {
+					err.Meta().Set("X-RateLimit-Limit", strconv.Itoa(result.Limit))
+					err.Meta().Set("X-RateLimit-Remaining", "0")
+					err.Meta().Set("X-RateLimit-Reset", strconv.FormatInt(result.ResetAt.Unix(), 10))
+				}
 				err.Meta().Set("X-RateLimit-Monthly-Limit", strconv.Itoa(result.MonthlyLimit))
 				err.Meta().Set("X-RateLimit-Monthly-Used", strconv.Itoa(result.MonthlyUsed))
 				err.Meta().Set("X-RateLimit-Monthly-Reset", strconv.FormatInt(result.MonthlyResetAt.Unix(), 10))

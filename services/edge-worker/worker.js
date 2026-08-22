@@ -135,6 +135,43 @@ const FRONTEND_HOST = "shorted.com.au";
 const API_HOST = "api.shorted.com.au";
 const EDGE_READ_PREFIX = "/edge/v1";
 
+// ---------------------------------------------------------------------------
+// Edge rate limiting — per-minute enforcement (Cloudflare Rate Limiting API)
+//
+// WHY THIS LIVES HERE: the app-layer limiter (services/pkg/ratelimit) used to
+// run a 7-command Upstash pipeline per request against the SAME Upstash
+// database that backs the page cache. That exhausted the free-tier command
+// quota; Upstash then rejected writes while still serving reads, which both
+// degraded rate limiting AND froze the page cache. Per-minute limiting must
+// never depend on Upstash again. It now runs at the edge, on Cloudflare's own
+// rate limiting bindings, with no external dependency and no added latency.
+//
+// TWO BUCKETS (the worker cannot resolve a user's paid tier — that needs a DB
+// lookup the edge deliberately does not do):
+//
+//   API_KEY_RATE_LIMITER  keyed by SHA-256(token)  — an abuse ceiling only.
+//       120/min sits at or above every documented per-minute tier except
+//       "unlimited" paid browser access. A paid subscriber's "unlimited" stays
+//       effectively unlimited: 120 req/min is 2 req/s sustained, far beyond
+//       any interactive session, and the ceiling exists purely so a leaked or
+//       shared token cannot be used to hammer the origin.
+//
+//   ANON_RATE_LIMITER     keyed by client IP — applied ONLY when no token is
+//       present. 30/min matches the documented anonymous API tier exactly.
+//
+// Cloudflare's rate limiting counters are PER-COLO and eventually consistent
+// (documented behaviour), so the effective global ceiling is the configured
+// limit times the number of colos a client reaches. That is fine for an abuse
+// ceiling and is another reason the precise monthly quota stays app-side.
+// ---------------------------------------------------------------------------
+
+const RATE_LIMIT_PERIOD_SECONDS = 60;
+const RATE_LIMIT_KEY_LIMIT = 120; // per token, per minute, per colo
+const RATE_LIMIT_ANON_LIMIT = 30; // per IP, per minute, per colo
+
+// Paths that must never be rate limited at the edge.
+const RATE_LIMIT_EXEMPT_PATHS = new Set(["/health", "/healthz"]);
+
 const worker = {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -159,6 +196,15 @@ const worker = {
     // Cloudflare DDoS + WAF protect this traffic at the proxy layer.
     if (hostname === FRONTEND_HOST || hostname === `www.${FRONTEND_HOST}`) {
       return withEdgeAnalytics(request, env, proxyFrontend(request, env, FRONTEND_ORIGIN), "frontend", 0, started);
+    }
+
+    // --- 0.25. EDGE RATE LIMIT: per-minute abuse ceiling for the API host.
+    // Runs before any cache lookup or origin fetch so a limited request costs
+    // nothing downstream. Frontend traffic (handled above) is untouched — it
+    // is protected by the zone rate-limit rule + WAF.
+    const limited = await enforceEdgeRateLimit(request, env, path);
+    if (limited) {
+      return withEdgeAnalytics(request, env, limited, "edge-ratelimit", 0, started);
     }
 
     // --- 0.5. PUBLIC EDGE READS: GET facade over public Connect RPC reads
@@ -285,6 +331,218 @@ export default worker;
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Edge rate limiting helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract the caller's API credential, if any.
+ *
+ * Recognises the three shapes the API accepts: `Authorization: Bearer <token>`,
+ * a bare `Authorization: <token>`, and `X-API-Key: <token>`.
+ *
+ * @param {Request} request
+ * @returns {string} the raw token, or "" when the request is unauthenticated
+ */
+export function extractRateLimitToken(request) {
+  const apiKey = request.headers.get("x-api-key");
+  if (apiKey && apiKey.trim()) return apiKey.trim();
+
+  const auth = request.headers.get("authorization");
+  if (!auth) return "";
+
+  const trimmed = auth.trim();
+  if (!trimmed) return "";
+
+  const match = /^bearer\s+(.+)$/i.exec(trimmed);
+  if (match) return match[1].trim();
+
+  return trimmed;
+}
+
+/**
+ * Constant-ish-time string comparison for shared secrets. JS cannot guarantee
+ * constant time, but comparing every byte removes the trivial early-exit
+ * timing signal that `===` on strings can expose.
+ *
+ * @param {string} a
+ * @param {string} b
+ */
+function secretsMatch(a, b) {
+  if (typeof a !== "string" || typeof b !== "string") return false;
+  if (a.length === 0 || b.length === 0) return false;
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
+/**
+ * Mirror of the zone-level skip rules in terraform/modules/cloudflare-edge.
+ *
+ * Two traffic classes are exempted from the zone rate limiter today, and both
+ * must be exempted here too or the worker would re-impose the very limit the
+ * zone rule deliberately skips:
+ *
+ *   1. Trusted E2E/load tests  — UA marker + x-shorted-testing-bypass secret
+ *   2. First-party Vercel SSR  — UA marker + x-shorted-ssr-bypass secret
+ *
+ * As in Terraform, BOTH the user-agent marker AND the exact secret are
+ * required — never the UA alone, which anyone can spoof. An unset secret
+ * disables that class entirely (it can never match).
+ *
+ * @param {Request} request
+ * @param {Record<string, string>} env
+ * @returns {"" | "testing" | "ssr"} the matched bypass class, or ""
+ */
+export function resolveRateLimitBypass(request, env) {
+  const ua = request.headers.get("user-agent") || "";
+
+  const testingSecret = env.RATE_LIMIT_TESTING_BYPASS_SECRET || "";
+  const testingUa = env.RATE_LIMIT_TESTING_BYPASS_USER_AGENT || "Shorted-E2E";
+  const testingHeader = env.RATE_LIMIT_TESTING_BYPASS_HEADER_NAME || "x-shorted-testing-bypass";
+  if (
+    testingSecret &&
+    ua.includes(testingUa) &&
+    secretsMatch(request.headers.get(testingHeader) || "", testingSecret)
+  ) {
+    return "testing";
+  }
+
+  const ssrSecret = env.RATE_LIMIT_SSR_BYPASS_SECRET || "";
+  const ssrUa = env.RATE_LIMIT_SSR_BYPASS_USER_AGENT || "shorted-web-ssr";
+  const ssrHeader = env.RATE_LIMIT_SSR_BYPASS_HEADER_NAME || "x-shorted-ssr-bypass";
+  if (
+    ssrSecret &&
+    ua.includes(ssrUa) &&
+    secretsMatch(request.headers.get(ssrHeader) || "", ssrSecret)
+  ) {
+    return "ssr";
+  }
+
+  return "";
+}
+
+/**
+ * Decide which bucket a request belongs to and build its rate limit key.
+ *
+ * Keys are namespaced by bucket so a token hash can never collide with an IP.
+ * Tokens are hashed (SHA-256, truncated to 32 hex chars = 128 bits) so raw
+ * credentials never become part of a rate limit key.
+ *
+ * @param {Request} request
+ * @returns {Promise<{bucket: "key" | "anon", key: string, limit: number}>}
+ */
+export async function resolveEdgeRateLimitKey(request, env = {}) {
+  const keyLimit = positiveInt(parseInt(env.RATE_LIMIT_KEY_LIMIT || "", 10), RATE_LIMIT_KEY_LIMIT);
+  const anonLimit = positiveInt(parseInt(env.RATE_LIMIT_ANON_LIMIT || "", 10), RATE_LIMIT_ANON_LIMIT);
+
+  const token = extractRateLimitToken(request);
+  if (token) {
+    const digest = await hashString(token);
+    return { bucket: "key", key: `k:${digest.slice(0, 32)}`, limit: keyLimit };
+  }
+
+  const ip =
+    request.headers.get("cf-connecting-ip") ||
+    request.headers.get("x-real-ip") ||
+    (request.headers.get("x-forwarded-for") || "").split(",").pop()?.trim() ||
+    "unknown";
+
+  return { bucket: "anon", key: `a:${ip}`, limit: anonLimit };
+}
+
+/**
+ * Build the 429 returned when an edge bucket is exhausted.
+ *
+ * Mirrors the app layer's header contract (services/pkg/ratelimit): the same
+ * X-RateLimit-* names and a Retry-After. The Cloudflare Rate Limiting API
+ * returns only `{ success }` — no remaining/reset info — so Reset is
+ * synthesized from the configured period, which is the tightest honest bound.
+ *
+ * @param {string} path
+ * @param {number} limit
+ */
+export function buildRateLimitResponse(path, limit) {
+  const resetAt = Math.floor(Date.now() / 1000) + RATE_LIMIT_PERIOD_SECONDS;
+  const message = `rate limit exceeded: ${limit} requests per minute`;
+
+  // Connect-RPC clients parse a JSON error envelope; everything else gets the
+  // same shape the zone-level rate limit rule returns.
+  const isRpc = /\/[a-z0-9_.]+\.v1(alpha1)?\.[A-Za-z]+\//.test(path);
+  const body = isRpc
+    ? JSON.stringify({ code: "resource_exhausted", message })
+    : JSON.stringify({ error: "Too Many Requests", message });
+
+  const response = new Response(body, {
+    status: 429,
+    headers: {
+      "Content-Type": "application/json",
+      "Retry-After": String(RATE_LIMIT_PERIOD_SECONDS),
+      "X-RateLimit-Limit": String(limit),
+      "X-RateLimit-Remaining": "0",
+      "X-RateLimit-Reset": String(resetAt),
+      "X-RateLimit-Scope": "edge-minute",
+      "Cache-Control": "no-store",
+    },
+  });
+  stampEdgeHeaders(response, "RATELIMITED");
+  return response;
+}
+
+/**
+ * Enforce the per-minute edge rate limit.
+ *
+ * Returns a 429 Response when the request should be rejected, or null when it
+ * should continue. Fails OPEN in every ambiguous case — a missing binding, a
+ * throwing binding, or an exempt path all return null. Rate limiting must
+ * never be the reason the API goes down.
+ *
+ * @param {Request} request
+ * @param {Record<string, any>} env
+ * @param {string} path
+ * @returns {Promise<Response | null>}
+ */
+export async function enforceEdgeRateLimit(request, env, path) {
+  if (RATE_LIMIT_EXEMPT_PATHS.has(path)) return null;
+  // Opt-IN, not opt-out: enforcement requires an explicit "true". Anonymous
+  // browser traffic reaches this worker VIA THE VERCEL REWRITE PROXY
+  // (next.config.mjs routes /shorts.v1alpha1.* to api.shorted.com.au on
+  // purpose, for cache hits), so cf-connecting-ip is a SHARED VERCEL EGRESS
+  // IP for every anonymous visitor — the 30/min anon bucket would collapse
+  // all of them onto a handful of keys and 429 real users the moment this
+  // enforces. Do not enable until rewrite traffic carries a first-party
+  // identity (e.g. the SSR bypass header attached by middleware) or the anon
+  // bucket keys on something better than the peer IP.
+  if (env.EDGE_RATE_LIMIT_ENABLED !== "true") return null;
+  if (resolveRateLimitBypass(request, env)) return null;
+
+  try {
+    const { bucket, key, limit } = await resolveEdgeRateLimitKey(request, env);
+    const binding = bucket === "key" ? env.API_KEY_RATE_LIMITER : env.ANON_RATE_LIMITER;
+
+    // No binding configured (local `node --test`, a not-yet-migrated deploy):
+    // fail open rather than invent an in-worker limiter.
+    if (!binding || typeof binding.limit !== "function") return null;
+
+    const outcome = await binding.limit({ key });
+    if (outcome && outcome.success === false) {
+      return buildRateLimitResponse(path, limit);
+    }
+  } catch (err) {
+    // Never let a limiter fault take down the API.
+    try {
+      console.log(JSON.stringify({ type: "edge_ratelimit_error", message: String(err) }));
+    } catch (_) {
+      // Logging is best-effort.
+    }
+  }
+
+  return null;
+}
 
 async function handlePublicEdgeRead(request, url, env, ctx, defaults, shortsApiOrigin, marketDataOrigin) {
   if (request.method !== "GET") {

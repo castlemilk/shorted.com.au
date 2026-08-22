@@ -153,6 +153,70 @@ variable "frontend_rate_limit_requests" {
   default     = 60
 }
 
+# ---- Edge (Worker) rate limiting — per-minute enforcement ----
+#
+# These configure the Cloudflare Workers Rate Limiting API bindings consumed by
+# services/edge-worker/worker.js. Per-minute limiting moved here from the
+# app-layer Upstash limiter after the shared Upstash database's command quota
+# was exhausted, which degraded rate limiting AND froze the page cache in the
+# same failure. The app layer now only accounts monthly quotas.
+
+variable "edge_rate_limit_enabled" {
+  description = <<-EOT
+    Enable the worker's per-minute rate limiting. DEFAULT OFF, deliberately:
+    anonymous browser API traffic arrives via the Vercel rewrite proxy, so the
+    worker sees a shared Vercel egress IP as cf-connecting-ip — enabling the
+    anon bucket before rewrite traffic carries a first-party identity would
+    429 real users en masse. Enablement precondition: attach the SSR bypass
+    header (or equivalent) to rewrite-proxied requests, or re-key the anon
+    bucket. The API-key bucket has no such problem (per-token keys), but a
+    single switch keeps the rollout deliberate.
+  EOT
+  type        = bool
+  default     = false
+}
+
+variable "edge_rate_limit_key_requests_per_minute" {
+  description = <<-EOT
+    Per-minute ceiling for a single API credential (keyed by SHA-256 of the
+    token). This is an ABUSE ceiling, not a tier: the worker cannot resolve a
+    user's paid tier without a database lookup. 120/min sits at or above every
+    documented per-minute tier, so paid "unlimited" access stays effectively
+    unlimited (120 req/min = 2 req/s sustained) while a leaked token still
+    cannot hammer the origin.
+  EOT
+  type        = number
+  default     = 120
+}
+
+variable "edge_rate_limit_anon_requests_per_minute" {
+  description = "Per-minute ceiling for unauthenticated requests, keyed by client IP. Matches the documented anonymous API tier (30/min)."
+  type        = number
+  default     = 30
+}
+
+variable "edge_rate_limit_key_namespace_id" {
+  description = "Cloudflare rate limiting namespace ID (a stringified positive integer) for the per-token bucket. Bindings sharing a namespace_id share counters ACROSS Workers on the account — keep unique."
+  type        = string
+  default     = "2001"
+
+  validation {
+    condition     = can(regex("^[1-9][0-9]*$", var.edge_rate_limit_key_namespace_id))
+    error_message = "edge_rate_limit_key_namespace_id must be a stringified positive integer."
+  }
+}
+
+variable "edge_rate_limit_anon_namespace_id" {
+  description = "Cloudflare rate limiting namespace ID for the anonymous per-IP bucket. Must differ from edge_rate_limit_key_namespace_id."
+  type        = string
+  default     = "2002"
+
+  validation {
+    condition     = can(regex("^[1-9][0-9]*$", var.edge_rate_limit_anon_namespace_id))
+    error_message = "edge_rate_limit_anon_namespace_id must be a stringified positive integer."
+  }
+}
+
 variable "rate_limit_testing_bypass_secret" {
   description = "Optional shared secret that allows trusted E2E/load-test traffic to bypass Cloudflare bot/browser challenges when paired with the configured test user-agent. Leave empty to disable."
   type        = string
