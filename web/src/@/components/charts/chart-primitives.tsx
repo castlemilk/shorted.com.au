@@ -113,6 +113,17 @@ export const Axes = React.memo(function Axes({
   );
 });
 
+/**
+ * Make a string safe to use as an SVG id referenced by `url(#id)`.
+ *
+ * Anything outside [A-Za-z0-9_-] is replaced. A leading digit is prefixed,
+ * because an id starting with a digit is not a valid CSS identifier either.
+ */
+export function svgRefId(raw: string): string {
+  const cleaned = raw.replace(/[^A-Za-z0-9_-]/g, "-");
+  return /^[0-9-]/.test(cleaned) ? `id-${cleaned}` : cleaned;
+}
+
 /** One path per series (line, or area+gradient). Never per-point nodes. */
 export const SeriesPath = React.memo(function SeriesPath({
   series,
@@ -128,12 +139,19 @@ export const SeriesPath = React.memo(function SeriesPath({
   if (!series.points.length) return null;
   const x = sx(xScale);
   const y = sy(yScale);
+  // Sanitised at the point of USE, so every caller is covered by one fix.
+  // Callers build ids out of domain identifiers, and a suburb's region code is
+  // "SUBURB:NSW-BONDI BEACH" — the colon and the space both terminate the
+  // reference inside url(#…), so the fill silently resolves to rgb(0,0,0) and
+  // the area renders as a solid black slab. Shipped that way on every priced
+  // suburb page until it was caught on production.
+  const safeGradientId = svgRefId(gradientId);
   return (
     <g data-series={series.id}>
       {series.kind === "area" && (
         <>
           <LinearGradient
-            id={gradientId}
+            id={safeGradientId}
             from={series.color}
             to={series.color}
             fromOpacity={0.28}
@@ -144,7 +162,7 @@ export const SeriesPath = React.memo(function SeriesPath({
             x={x}
             y={y}
             yScale={yScale}
-            fill={`url(#${gradientId})`}
+            fill={`url(#${safeGradientId})`}
             stroke="none"
             curve={curveLinear}
           />
