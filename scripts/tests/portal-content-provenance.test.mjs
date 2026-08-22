@@ -203,9 +203,16 @@ test("Git checkouts scan every tracked extension without traversing untracked de
   const root = temporaryRoot();
   const trackedPath = "web/tracked-capture.fixture";
   write(root, trackedPath, `<script>window.ArgonautExchange = {"captured":true};</script>`);
-  const init = spawnSync("git", ["-C", root, "init", "--quiet"], { encoding: "utf8" });
+  // Same trap the checker itself hit: `git -C` does not override an inherited
+  // GIT_DIR, and this suite runs from the pre-commit/pre-push hooks, which set
+  // one. Without stripping it these commands operate on the real repository.
+  const gitEnv = { ...process.env };
+  for (const key of Object.keys(gitEnv)) {
+    if (key.startsWith("GIT_")) delete gitEnv[key];
+  }
+  const init = spawnSync("git", ["-C", root, "init", "--quiet"], { encoding: "utf8", env: gitEnv });
   assert.equal(init.status, 0, output(init));
-  const add = spawnSync("git", ["-C", root, "add", trackedPath], { encoding: "utf8" });
+  const add = spawnSync("git", ["-C", root, "add", trackedPath], { encoding: "utf8", env: gitEnv });
   assert.equal(add.status, 0, output(add));
 
   const trackedResult = run(checker, root);

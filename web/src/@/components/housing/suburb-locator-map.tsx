@@ -18,9 +18,9 @@ export function SuburbLocatorMap({
 
   return (
     <div className="rounded-xl border border-border bg-card p-4">
-      <h2 className="mb-2 font-serif text-base text-foreground">
+      <h3 className="mb-2 font-serif text-base text-foreground">
         Where it is in {STATE_NAMES[stateCode] ?? stateCode}
-      </h2>
+      </h3>
       {!topo ? (
         <div className="h-[200px] w-full animate-pulse rounded-lg bg-muted" />
       ) : (

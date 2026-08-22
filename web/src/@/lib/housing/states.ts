@@ -20,6 +20,18 @@ export const GCCSA_TO_STATE: Record<string, string> = {
   "5GPER": "WA", "6GHOB": "TAS", "7GDAR": "NT", "8ACTE": "ACT",
 };
 
+/**
+ * Title-case an ALL-CAPS place or member name: "MCMAHONS POINT" → "Mcmahons
+ * Point", "O'CONNOR" → "O'Connor", "ST KILDA EAST" → "St Kilda East".
+ *
+ * Use this instead of CSS `capitalize`. `capitalize` only touches the first
+ * letter of each word — so it cannot handle the apostrophe and hyphen cases —
+ * and because the lowercasing happens in the DOM and the re-capitalising in CSS,
+ * anyone copying the text gets "mcmahons point".
+ */
+export const titleCaseName = (n: string) =>
+  n.toLowerCase().replace(/(^|[\s'-])([a-z])/g, (_, p: string, c: string) => p + c.toUpperCase());
+
 /** Canonical suburb slug (kebab name + postcode), used in every suburb URL. */
 export const suburbSlug = (salName: string, postcode: string) =>
   `${salName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}${postcode ? `-${postcode}` : ""}`;

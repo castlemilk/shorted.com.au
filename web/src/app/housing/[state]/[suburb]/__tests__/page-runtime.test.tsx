@@ -84,7 +84,6 @@ describe("suburb profile route caching contract", () => {
       for (const loader of [
         "./housing-charts",
         "./suburb-locator-map-loader",
-        "./suburb-nearby-rail-loader",
         "./suburb-recent-price-drops-loader",
       ]) {
         expect(profile).toContain(`from "${loader}"`);

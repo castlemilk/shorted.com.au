@@ -6,6 +6,7 @@ import { HousingService } from "~/gen/shorts/v1alpha1/housing_pb";
 import { cache } from "react";
 import {
   SERVER_SHORTS_API_URL,
+  serverFetchOutsideNextCache,
   serverFetchWithUserAgent,
   skipForBuild,
 } from "./config";
@@ -134,6 +135,33 @@ export const listStateSuburbs = cache(
       return client.listStateSuburbs({ stateCode, query, limit });
     },
   ),
+);
+
+/**
+ * The whole state, for a caller that caches the RESULT itself.
+ *
+ * `listStateSuburbs` above rides the ISR-tagged transport, which keeps a route
+ * static but caches nothing: Next cannot key a streamed Connect POST body, and
+ * the dev server says so ("Failed to generate cache key for …/ListStateSuburbs").
+ * At 3.65 MB for NSW that is a full re-read per render, and the response is over
+ * Next's 2 MB data-cache entry limit anyway.
+ *
+ * So this variant takes the posture config.ts documents for exactly this case:
+ * bypass Next's patched fetch entirely and let `unstable_cache` do the caching —
+ * see getHousingStateIndex.ts, the only caller.
+ */
+export const listStateSuburbsOutsideNextCache = withRetryAndNotFound(
+  async (stateCode: string, limit: number = 5000): Promise<ListStateSuburbsResponse | undefined> => { // eslint-disable-line @typescript-eslint/no-inferrable-types
+    const transport = createConnectTransport({
+      fetch: serverFetchOutsideNextCache,
+      baseUrl: SERVER_SHORTS_API_URL,
+    });
+    return createClient(HousingService, transport).listStateSuburbs({
+      stateCode,
+      query: "",
+      limit,
+    });
+  },
 );
 
 /** Full per-suburb profile by ABS SAL code. */
@@ -334,6 +362,22 @@ export const resolveSuburbSalCode = cache(
       }
       match = res.suburbs.find((s) => suburbSlug(s.salName, s.postcode) === canonicalSlug);
     }
+
+    // Last resort: a name-only slug, when exactly one suburb in the state bears
+    // that name. No state currently publishes a postcode on this feed, so today
+    // the canonical slug IS name-only — but the moment one does, every existing
+    // name-only link (the similar-suburbs rail builds them with an empty
+    // postcode, and so does anything already indexed) would start 404ing. The
+    // page permanent-redirects to the canonical URL from here, so the fallback
+    // costs one redirect and never guesses: two suburbs of the same name in one
+    // state resolve to nothing, as before.
+    if (!match) {
+      const byName = res.suburbs.filter(
+        (s) => suburbSlug(s.salName, "") === normalizedSlug,
+      );
+      if (byName.length === 1) match = byName[0];
+    }
+
     return match?.salCode ?? null;
   },
 );

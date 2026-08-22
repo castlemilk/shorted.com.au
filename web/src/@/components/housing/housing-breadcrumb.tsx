@@ -13,18 +13,30 @@ import { ALL_STATES, STATE_NAMES, stateSlug } from "@/lib/housing/states";
  * through the national page.
  */
 export function HousingBreadcrumb({
-  stateCode, suburb,
+  stateCode, suburb, compact = false,
 }: {
   stateCode?: string;
   suburb?: string;
+  /**
+   * Drop the "Australia ›" root below sm. In a narrow horizontal scroller the
+   * root costs ~72px and pushes the segment that matters most — the page you are
+   * actually on — off the visible edge. The state select still reaches every
+   * state, and /housing is one more tap from there.
+   */
+  compact?: boolean;
 }) {
   const router = useRouter();
   return (
     <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
-      <Link href="/housing" className="shrink-0 transition-colors hover:text-foreground">Australia</Link>
+      <Link
+        href="/housing"
+        className={`shrink-0 transition-colors hover:text-foreground${compact ? " hidden sm:inline" : ""}`}
+      >
+        Australia
+      </Link>
       {stateCode ? (
         <>
-          <Sep />
+          <Sep className={compact ? "hidden sm:inline" : undefined} />
           <Select value={stateCode} onValueChange={(c) => router.push(`/housing/${stateSlug(c)}`)}>
             <SelectTrigger
               aria-label="Switch state"
@@ -50,6 +62,6 @@ export function HousingBreadcrumb({
   );
 }
 
-function Sep() {
-  return <span aria-hidden className="text-muted-foreground/60">›</span>;
+function Sep({ className }: { className?: string }) {
+  return <span aria-hidden className={`text-muted-foreground/60${className ? ` ${className}` : ""}`}>›</span>;
 }
