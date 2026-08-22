@@ -119,10 +119,10 @@ func TestGetTopShorts(t *testing.T) {
 
 ### Key Files
 ```
-services/daily-sync/
-├── deprecated/comprehensive_daily_sync.py    # Main Python sync script
-├── Dockerfile                                 # Container definition
-└── deploy.sh                                  # Deployment script
+services/jobs/
+├── cmd/shorted/                               # `shorted <job>` entrypoint
+├── internal/jobs/shortdatasync/               # ASIC shorts sync
+└── Dockerfile                                 # Container definition
 
 services/market-data-sync/
 ├── main.go                                    # Go sync service

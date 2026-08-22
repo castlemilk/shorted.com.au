@@ -60,10 +60,6 @@ func (s *StoreAdapter) CleanupStuckSyncRuns() (int, error) {
 	return s.store.CleanupStuckSyncRuns()
 }
 
-func (s *StoreAdapter) GetJobsOverview() ([]*shorts.JobHealth, error) {
-	return s.store.GetJobsOverview()
-}
-
 func (s *StoreAdapter) GetCrawlRunStatuses() ([]*shorts.CrawlRunStatus, error) {
 	return s.store.GetCrawlRunStatuses()
 }

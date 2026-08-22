@@ -311,7 +311,7 @@ make health-check
 | Backend | Terminal output (foreground) or `docker logs` |
 | Frontend | Terminal output + browser DevTools |
 | Database | `docker logs shorted_db` |
-| Cloud Run | `make daily-sync-logs` |
+| Cloud Run | `make short-data-sync-logs` |
 
 ## Useful Commands
 

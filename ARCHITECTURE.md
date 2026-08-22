@@ -148,7 +148,7 @@ services/
 ├── market-data/             # Market Data service (standalone main.go)
 ├── market-data-sync/        # Price sync job
 ├── enrichment-processor/    # GPT-4 enrichment
-├── daily-sync/              # ASIC data sync
+├── jobs/                    # Consolidated `shorted <job>` binary (incl. ASIC sync)
 ├── asx-discovery/           # ASX company discovery
 ├── pkg/                     # Shared packages
 │   ├── enrichment/          # Enrichment utilities

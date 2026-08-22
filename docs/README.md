@@ -19,7 +19,7 @@
 
 | Document                                                                           | Description                 |
 | ---------------------------------------------------------------------------------- | --------------------------- |
-| [Daily Sync](../services/daily-sync/README.md)                                     | ASIC data synchronization   |
+| [Jobs monolith](../services/jobs/README.md)                                        | Scheduled jobs, incl. ASIC data sync |
 | [Enrichment Processor](../services/enrichment-processor/README.md)                 | Company metadata enrichment |
 | [Market Data](../services/market-data/README.md)                                   | Historical stock price data |
 | [Stock Price Ingestion](../services/stock-price-ingestion/README.md)               | Stock price data ingestion  |

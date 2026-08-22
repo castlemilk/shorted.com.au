@@ -23,7 +23,6 @@ type ShortsStore interface {
 	GetAvailableDates(limit int, before string) ([]string, string, string, int, error)
 	GetSyncStatus(filter shortsstore.SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error)
 	CleanupStuckSyncRuns() (int, error)
-	GetJobsOverview() ([]*shortsstore.JobHealth, error)
 	GetCrawlRunStatuses() ([]*shortsstore.CrawlRunStatus, error)
 
 	// Key metrics sync methods

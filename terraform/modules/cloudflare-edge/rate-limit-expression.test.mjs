@@ -14,12 +14,15 @@ const terraformDeployYml = readFileSync(
   new URL("../../../.github/workflows/terraform-deploy.yml", import.meta.url),
   "utf8",
 );
-// The DEPLOYED sync script (the short-data-sync image builds from
-// services/daily-sync/, NOT services/short-data-sync/ — the latter is a
-// never-deployed sibling kept only as reference).
-const shortDataSyncPy = readFileSync(
+// The DEPLOYED sync job. Since the jobs-monolith cutover (2026-08-21) the
+// `shorts-data-sync` Cloud Run Job runs `shorted short-data-sync` from the
+// consolidated Go binary; the Python trees (services/daily-sync,
+// services/short-data-sync) were deleted in the cleanup slice. The
+// cache-bust contract this file guards moved with it, verbatim, into
+// revalidateRequest().
+const shortDataSyncJobGo = readFileSync(
   new URL(
-    "../../../services/daily-sync/deprecated/comprehensive_daily_sync.py",
+    "../../../services/jobs/internal/jobs/shortdatasync/job.go",
     import.meta.url,
   ),
   "utf8",
@@ -301,10 +304,31 @@ test("Cloudflare caches stock detail HTML before the broad HTML bypass", () => {
 });
 
 test("daily short data sync invalidates the shared stock data cache tag", () => {
-  assert.match(shortDataSyncPy, /"tag": "shorts-data,scan-results"/);
-  assert.match(
-    shortDataSyncPy,
-    /"path": "\/,\/top,\/news,\/screener,\/industry,\/shorts\/\[stockCode\],\/statistics,\/scans"/,
-  );
-  assert.match(shortDataSyncPy, /"flush": "shorts"/);
+  // Cloudflare caches these HTML surfaces at the edge, so the sync's cache-bust
+  // is the only thing that stops a stale page surviving a data update. Guard
+  // the exact tag / path list / flush family the job sends.
+  const revalidateFn = shortDataSyncJobGo.match(
+    /func revalidateRequest\(\)[\s\S]*?\n\}/,
+  )?.[0];
+  assert.ok(revalidateFn, "revalidateRequest() should be present in job.go");
+
+  assert.match(revalidateFn, /Tag:\s+"shorts-data,scan-results"/);
+  assert.match(revalidateFn, /Flush:\s+"shorts"/);
+
+  // platform.PingRevalidate joins Paths comma-separated into ?path=, so this
+  // list is the wire value the old Python job sent as one string.
+  const paths = (revalidateFn.match(/Paths: \[\]string\{([\s\S]*?)\}/)?.[1] ?? "")
+    .split(",")
+    .map((p) => p.trim().replace(/^"|"$/g, ""))
+    .filter(Boolean);
+  assert.deepEqual(paths, [
+    "/",
+    "/top",
+    "/news",
+    "/screener",
+    "/industry",
+    "/shorts/[stockCode]",
+    "/statistics",
+    "/scans",
+  ]);
 });

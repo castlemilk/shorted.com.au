@@ -16,12 +16,6 @@ variable "stock_price_ingestion_image" {
   default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/stock-price-ingestion:latest"
 }
 
-variable "short_data_sync_image" {
-  description = "Docker image URL for short-data-sync job"
-  type        = string
-  default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/short-data-sync:latest"
-}
-
 variable "house_price_collector_image" {
   description = "Docker image URL for house-price-collector job"
   type        = string

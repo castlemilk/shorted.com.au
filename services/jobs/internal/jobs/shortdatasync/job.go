@@ -1,9 +1,9 @@
-// Package shortdatasync is the `shorted short-data-sync` job — the Python→Go
-// port of the ASIC short-position pipeline (docs/jobs-consolidation-plan.md
-// Phase 3, item 9), replacing the DEPLOYED
-// services/daily-sync/deprecated/comprehensive_daily_sync.py (the image the
-// `shorts-data-sync` Cloud Run Job runs; services/short-data-sync/main.py is a
-// never-deployed sibling).
+// Package shortdatasync is the `shorted short-data-sync` job — the ASIC
+// short-position pipeline that the `shorts-data-sync` Cloud Run Job runs
+// (docs/jobs-consolidation-plan.md Phase 3, item 9). It began as the Python→Go
+// port of services/daily-sync/deprecated/comprehensive_daily_sync.py; that tree
+// (and its never-deployed sibling services/short-data-sync) was deleted in the
+// cleanup slice, so parity notes below are provenance, not a live comparison.
 //
 // It owns the ASIC pipeline end to end:
 //

@@ -15,7 +15,7 @@ Senior Backend Engineer specializing in Go, Protocol Buffers, Buf, and PostgreSQ
 
 ## Key Project Structure
 - Backend services in /services directory
-- Main services: shorts (main API), register (email), short-data-sync (Python data pipeline)
+- Main services: shorts (main API), register (email), jobs (`shorted <job>` Go data pipelines)
 - Protobuf definitions in /proto directory
 - Connect RPC endpoints: GetTopShorts, GetStock, GetStockDetails, GetStockData, GetIndustryTreeMap
 - Development runs on port 9091

@@ -15,7 +15,7 @@ Senior Data Engineer for the Shorted.com.au project, specializing in data pipeli
 - Data deduplication strategies
 
 ## Key Responsibilities
-- Python-based short-data-sync service that downloads daily CSV files from ASIC
+- `shorted short-data-sync` (services/jobs, Go) downloads daily CSV files from ASIC
 - Processing and loading data into PostgreSQL with proper validation
 - Ensuring data integrity and handling edge cases
 - Optimizing database queries and indexes for performance

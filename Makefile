@@ -386,50 +386,44 @@ repair-gaps-status: dev-db ## Show repair status summary
 			COUNT(CASE WHEN records >= 2000 THEN 1 END) as complete \
 		FROM (SELECT stock_code, COUNT(*) as records FROM stock_prices GROUP BY stock_code) sub;"
 
-# Daily sync commands
-daily-sync-local: ## Run daily sync locally (updates shorts + stock prices)
-	@echo "🔄 Running daily sync locally..."
-	@if [ -z "$$DATABASE_URL" ]; then \
-		export DATABASE_URL="postgresql://admin:password@localhost:5438/shorts"; \
-	fi; \
-	cd services/daily-sync && python3 comprehensive_daily_sync.py
+# Daily ASIC shorts sync. Since the jobs-monolith cutover this is
+# `shorted short-data-sync` from services/jobs — the Python daily-sync tree was
+# deleted in the cleanup slice. Deploy is CI-driven (terraform-deploy.yml builds
+# the shorted-jobs image; terraform/modules/short-data-sync owns the job), so
+# there is deliberately no daily-sync-deploy target here any more.
+short-data-sync-local: ## Run the ASIC shorts sync locally against the dev DB
+	@echo "🔄 Running short-data-sync locally..."
+	@cd services/jobs && DATABASE_URL="$${DATABASE_URL:-postgresql://admin:password@localhost:5438/shorts}" \
+		go run ./cmd/shorted short-data-sync
 
-daily-sync-deploy: ## Deploy daily sync job to Cloud Run (scheduled for 2 AM AEST)
-	@echo "☁️  Deploying daily sync to Cloud Run..."
-	@if [ -z "$$DATABASE_URL" ]; then \
-		echo "❌ DATABASE_URL environment variable is required"; \
-		echo "   Usage: export DATABASE_URL='postgresql://...'"; \
-		exit 1; \
-	fi
-	@cd services/daily-sync && chmod +x deploy.sh && ./deploy.sh
+short-data-sync-shadow: ## Dry-run the ASIC shorts sync (parity report, no writes)
+	@echo "🔍 Running short-data-sync in shadow mode (no writes)..."
+	@cd services/jobs && DATABASE_URL="$${DATABASE_URL:-postgresql://admin:password@localhost:5438/shorts}" \
+		go run ./cmd/shorted short-data-sync -shadow
 
-daily-sync-execute: ## Execute daily sync job now (Cloud Run)
-	@echo "🚀 Executing daily sync job..."
-	@gcloud run jobs execute comprehensive-daily-sync \
-		--region asia-northeast1 \
+short-data-sync-execute: ## Execute the shorts-data-sync Cloud Run job now
+	@echo "🚀 Executing shorts-data-sync job..."
+	@gcloud run jobs execute shorts-data-sync \
+		--region australia-southeast2 \
 		--project shorted-dev-aba5688f
 
-daily-sync-logs: ## View daily sync job logs
-	@echo "📋 Viewing daily sync logs..."
+short-data-sync-logs: ## View shorts-data-sync job logs
+	@echo "📋 Viewing shorts-data-sync logs..."
 	@gcloud logging read \
-		"resource.type=cloud_run_job AND resource.labels.job_name=comprehensive-daily-sync" \
+		"resource.type=cloud_run_job AND resource.labels.job_name=shorts-data-sync" \
 		--limit 100 \
 		--project shorted-dev-aba5688f \
 		--format="table(timestamp, severity, textPayload)"
 
-daily-sync-status: ## Check daily sync scheduler status
+short-data-sync-status: ## Check the shorts-data-sync scheduler status
 	@echo "⏰ Checking scheduler status..."
-	@gcloud scheduler jobs describe comprehensive-daily-sync-trigger \
-		--location asia-northeast1 \
+	@gcloud scheduler jobs describe shorts-data-sync-daily \
+		--location australia-southeast1 \
 		--project shorted-dev-aba5688f
 
-daily-sync-test: ## Run e2e tests for daily sync
-	@echo "🧪 Running daily sync integration tests..."
-	@cd services/daily-sync && ./test_integration.sh
-
-daily-sync-test-quick: ## Run quick tests (no external API calls)
-	@echo "🧪 Running quick tests..."
-	@cd services/daily-sync && python3 -m pytest test_daily_sync.py::TestDatabaseConnectivity -v
+short-data-sync-test: ## Run the short-data-sync unit tests
+	@echo "🧪 Running short-data-sync tests..."
+	@cd services/jobs && go test ./internal/jobs/shortdatasync/...
 
 demo-stock-data: ## Demo: Test stock data fetching with progress bar (no database required)
 	@echo "📊 Running stock data fetching demo..."
@@ -743,7 +737,7 @@ pipeline-daily: ## Run daily sync pipeline: ASIC data → stock prices → Algol
 	@echo "🔄 Running daily sync pipeline..."
 	@echo ""
 	@echo "Step 1/2: Syncing ASIC shorts + stock prices..."
-	@make daily-sync-local
+	@make short-data-sync-local
 	@echo ""
 	@echo "Step 2/2: Syncing Algolia index..."
 	@cd web && make algolia.sync
@@ -766,7 +760,7 @@ pipeline-help: ## Show pipeline documentation
 	@echo "  2. UPDATE DB: Sync market data"
 	@echo "     - Downloads ASIC short selling data"
 	@echo "     - Updates stock prices from Yahoo/Alpha Vantage"
-	@echo "     Commands: make daily-sync-local, populate-data"
+	@echo "     Commands: make short-data-sync-local, populate-data"
 	@echo ""
 	@echo "  3. UPDATE INDEX: Sync Algolia search"
 	@echo "     - Pushes company metadata to Algolia"

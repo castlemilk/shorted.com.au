@@ -22,40 +22,6 @@ type SyncStatusFilter struct {
 	ExcludeLocal bool   // if true, exclude runs from local hostnames
 }
 
-// JobHealth is one row of the v_job_health view (migration 000046): a job's
-// definition joined to its latest run, with precomputed alert flags. It powers
-// the admin Jobs overview and is the same shape the email watchdog reads.
-// JSON tags are camelCase to match the admin REST conventions.
-type JobHealth struct {
-	JobName                 string  `json:"jobName"`
-	DisplayName             string  `json:"displayName"`
-	Description             string  `json:"description"`
-	Category                string  `json:"category"`
-	ScheduleCron            string  `json:"scheduleCron"`
-	ScheduleHuman           string  `json:"scheduleHuman"`
-	Critical                bool    `json:"critical"`
-	ExpectedIntervalSeconds int64   `json:"expectedIntervalSeconds"`
-	LastStatus              string  `json:"lastStatus"`
-	LastRunId               string  `json:"lastRunId"`
-	LastStartedAt           string  `json:"lastStartedAt"`
-	LastCompletedAt         string  `json:"lastCompletedAt"`
-	LastDurationSeconds     float64 `json:"lastDurationSeconds"`
-	LastRecordsProcessed    int64   `json:"lastRecordsProcessed"`
-	LastRecordsFailed       int64   `json:"lastRecordsFailed"`
-	LastError               string  `json:"lastError"`
-	LastEnvironment         string  `json:"lastEnvironment"`
-	LastHostname            string  `json:"lastHostname"`
-	LastSuccessAt           string  `json:"lastSuccessAt"`
-	RecentAvgRecords        float64 `json:"recentAvgRecords"`
-	SecondsSinceSuccess     float64 `json:"secondsSinceSuccess"`
-	HasEverRun              bool    `json:"hasEverRun"`
-	IsFailed                bool    `json:"isFailed"`
-	IsStuck                 bool    `json:"isStuck"`
-	IsStale                 bool    `json:"isStale"`
-	IsZeroRecord            bool    `json:"isZeroRecord"`
-	AlertLevel              string  `json:"alertLevel"` // critical | warning | no_data | ok
-}
-
 // CrawlRunStatus is one health record for a scheduled residential-crawl run-type on
 // a rig (migration 000089, table crawl_run_status). It is written by the Mac-based
 // house-price-collector (`-mode agent` / `-mode freshness`) because the GCP-only
@@ -101,7 +67,6 @@ type Store interface {
 	GetAvailableDates(limit int, before string) ([]string, string, string, int, error)
 	GetSyncStatus(filter SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error)
 	CleanupStuckSyncRuns() (int, error)
-	GetJobsOverview() ([]*JobHealth, error)
 	// GetCrawlRunStatuses returns the residential-crawl health records (migration
 	// 000089) the admin jobs dashboard merges into the GCP job list.
 	GetCrawlRunStatuses() ([]*CrawlRunStatus, error)

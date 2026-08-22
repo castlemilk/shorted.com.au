@@ -117,15 +117,13 @@ module "short_data_sync" {
 
   project_id       = var.project_id
   region           = var.region
-  scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
-  environment      = "production"           # Using production since this is the live system
-  image_url        = var.short_data_sync_image
+  scheduler_region = "australia-southeast1"       # Cloud Scheduler only available in southeast1
+  environment      = "production"                 # Using production since this is the live system
   bucket_name      = "shorted-short-selling-data" # Existing bucket in dev project
 
-  # Jobs-monolith cutover — same flip as prod, kept in lockstep so dev is never
-  # validating a configuration prod does not run. ROLLBACK: use_go_monolith =
-  # false + apply.
-  use_go_monolith    = true
+  # Jobs-monolith — kept in lockstep with prod so dev is never validating a
+  # configuration prod does not run. Monolith-only since the cleanup slice;
+  # rollback is `git revert` + apply (see modules/short-data-sync/main.tf).
   shorted_jobs_image = var.shorted_jobs_image
 
   depends_on = [

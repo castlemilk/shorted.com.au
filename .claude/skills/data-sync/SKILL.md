@@ -17,8 +17,8 @@ make populate-data
 # Quick population (uses existing CSV files)
 make populate-data-quick
 
-# Daily sync (ASIC shorts + stock prices)
-make daily-sync-local
+# Daily ASIC shorts sync (prices are `shorted market-data sync`)
+make short-data-sync-local
 
 # Sync Algolia search index
 make algolia-sync
@@ -97,25 +97,29 @@ cd services && make history.stock-data.status
 
 ## Daily Sync Pipeline
 
-The daily sync updates both short positions and stock prices:
+The daily sync ingests ASIC short positions. Stock prices are a SEPARATE
+job (`shorted market-data sync`, the weekday `market-data-sync` scheduler):
 
 ```bash
 # Run locally
-make daily-sync-local
+make short-data-sync-local
 
-# Deploy to Cloud Run (scheduled job)
-make daily-sync-deploy
+# Dry run with a parity summary (writes nothing)
+make short-data-sync-shadow
 
-# Execute Cloud Run job manually
-make daily-sync-execute
+# Execute the Cloud Run job manually
+make short-data-sync-execute
 
 # View logs
-make daily-sync-logs
+make short-data-sync-logs
 ```
+
+Deployment is CI-driven: `.github/workflows/terraform-deploy.yml` builds the
+`shorted-jobs` image and `terraform/modules/short-data-sync` owns the job.
 
 ### Daily Sync Configuration
 
-The sync is configured in `services/daily-sync/` and runs:
+The sync is `shorted short-data-sync` (`services/jobs/internal/jobs/shortdatasync/`) and runs:
 
 1. **ASIC Sync**: Downloads latest short position CSV
 2. **Stock Price Sync**: Updates prices for all tracked stocks
@@ -239,8 +243,7 @@ LIMIT 20;
 
 3. Check for errors in logs:
    ```bash
-   # If using daily-sync
-   make daily-sync-logs
+   make short-data-sync-logs
    ```
 
 ### Stale Data

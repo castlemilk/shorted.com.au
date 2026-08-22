@@ -172,7 +172,7 @@ The key metrics phase processes ~500 stocks per hour due to Yahoo Finance rate l
 | ------------------------------------------------------------ | ------------------------------------------------ |
 | `terraform/modules/short-data-sync/main.tf`                  | Terraform config for shorts-data-sync job        |
 | `terraform/modules/market-discovery-sync/main.tf`            | Terraform config for ASX discovery + market sync |
-| `services/daily-sync/deprecated/comprehensive_daily_sync.py` | Python sync script (shorts + prices + metrics)   |
+| `services/jobs/internal/jobs/shortdatasync/`                 | ASIC shorts sync job (`shorted short-data-sync`) |
 | `services/migrations/000006_add_sync_status.up.sql`          | sync_status table schema                         |
 | `services/migrations/000013_add_priority_checkpoint.up.sql`  | Checkpoint columns (INTEGER)                     |
 | `web/src/app/admin/page.tsx`                                 | Admin dashboard UI                               |

@@ -12,7 +12,7 @@ Two independent jobs:
 - **Frequency**: Daily
 - **Source**: ASIC daily reports
 - **Target**: `shorts` table
-- **Location**: `services/short-data-sync/`
+- **Location**: `services/jobs` (`shorted short-data-sync`)
 
 ### 2. Historical Price Data Sync (This Service)
 
@@ -42,7 +42,7 @@ Incrementally updates the last 5 days of data for all stocks.
 
 ```bash
 # Run locally
-make daily-sync
+make short-data-sync-local
 
 # Deploy to Cloud Run (scheduled daily at 2 AM)
 export DATABASE_URL="postgresql://..."
@@ -283,6 +283,6 @@ make test-local
 For issues or questions:
 
 - Check logs: `gcloud logging read ...`
-- Test locally: `make daily-sync`
+- Test locally: `make short-data-sync-local`
 - Verify data: Query `stock_prices` table
 - Check ASX list: `analysis/data/ASX_Listed_Companies_*.csv`

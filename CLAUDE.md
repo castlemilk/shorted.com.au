@@ -89,7 +89,7 @@ Shorted.com.au is a platform for tracking short selling positions in the Austral
 | Chat Service     | -    | `services/chat-service/`         | AI chat with Gemini LLM + 8 API tools          |
 | News Aggregator  | -    | `services/news-aggregator/`      | RSS news aggregation + Gemini sentiment        |
 | Enrichment       | -    | `services/enrichment-processor/` | AI-powered company metadata                    |
-| Daily Sync       | -    | `services/daily-sync/`           | Scheduled data updates                         |
+| Jobs monolith    | -    | `services/jobs/`                 | `shorted <job>` — scheduled jobs incl. ASIC sync |
 
 ## Development Database
 

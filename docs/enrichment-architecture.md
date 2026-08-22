@@ -212,6 +212,14 @@ freshness + %coverage view that distinguishes real lag from the ASIC **T+4** fal
 Deferred: landing an unmerged branch + manual prod migration + prod TF apply deserves its own
 focused effort, not a side-quest.
 
+**Superseded (2026-08-22).** Job observability shipped a different way: the admin
+console reads Cloud Run executions + Cloud Scheduler directly via
+`services/shorts/internal/jobmonitor` (no `job_runs`/`v_job_health` view, no
+000046). The orphaned `store.GetJobsOverview()` / `JobHealth` reader for that
+never-created view was deleted in the short-data-sync cleanup slice, and
+`daily-sync` itself is gone — the ASIC tier is now `shorted short-data-sync` in
+the jobs monolith.
+
 ### 6.8 Cost-tiering for all AI calls — MED
 brandbrain's free-index → cheap-search → DeepSeek → Gemini-grounded ladder vs shorted's
 always-LLM enrichment. Adopt a tier-0 cache/heuristic before paid calls across enrichment +

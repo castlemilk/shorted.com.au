@@ -1,13 +1,16 @@
 # `shorted short-data-sync`
 
-Port of the **deployed** ASIC short-position pipeline —
-`services/daily-sync/deprecated/comprehensive_daily_sync.py`, the script the
-`shorts-data-sync` Cloud Run Job's image runs (`services/daily-sync/Dockerfile`).
-`services/short-data-sync/main.py` is a never-deployed sibling and is NOT the
-source of truth; where the two disagree, the deployed script wins.
+**This IS the ASIC short-position pipeline.** The `shorts-data-sync` Cloud Run
+Job runs `/shorted short-data-sync` from this package.
 
-**This is the PORT slice only.** No Terraform change, no scheduler change,
-nothing deleted. The Python job still runs in prod.
+Historically it was a port of `services/daily-sync/deprecated/
+comprehensive_daily_sync.py` (the script the job's old Python image ran, built
+from `services/daily-sync/Dockerfile`; `services/short-data-sync/main.py` was a
+never-deployed sibling and was never the source of truth). Cutover slice 4
+swapped the job's image in place after shadow parity passed 6/6 dates
+byte-identically, and the cleanup slice **deleted both Python trees**. Parity
+notes below are kept as provenance for the behaviour they explain — the Python
+is no longer available to diff against.
 
 ```
 shorted short-data-sync                 # live run
