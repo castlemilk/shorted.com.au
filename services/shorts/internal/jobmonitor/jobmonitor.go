@@ -186,6 +186,10 @@ type Collector struct {
 	// runner executes a job on demand (see run.go). nil means the default
 	// Cloud Run backend; tests inject a stub.
 	runner Runner
+	// execReader / logReader retrieve a validation run's outcome (see
+	// validate.go). nil means the default GCP backends; tests inject stubs.
+	execReader ExecutionReader
+	logReader  LogReader
 
 	mu       sync.Mutex
 	cached   []JobStatus

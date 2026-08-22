@@ -18,6 +18,10 @@ import (
 type shadowSummary struct {
 	// Mode is always "shadow"; it makes a captured stream self-describing.
 	Mode string `json:"mode"`
+	// SchemaVersion is the version of THIS contract. A consumer that does not
+	// recognise the value should refuse to interpret the payload rather than
+	// guess — see shadowSchemaVersion.
+	SchemaVersion int `json:"schema_version"`
 	// GeneratedAt is the run's wall clock (UTC, RFC3339).
 	GeneratedAt string `json:"generated_at"`
 	// SyncDays is the -days window in force.
@@ -52,11 +56,25 @@ type shadowSummary struct {
 	WouldSyncAlgolia  bool `json:"would_sync_algolia"`
 	WouldRecordStatus bool `json:"would_record_sync_status"`
 
+	// Stocks is present ONLY on a `-stocks` validation run: the per-code,
+	// per-date diff of file vs database. Absent (omitted) on a plain shadow run,
+	// so the parity contract above is byte-for-byte unchanged.
+	Stocks *stocksReport `json:"stocks,omitempty"`
+
 	// rows accumulates every parsed row so the run-level checksum can be taken
 	// once, at the end. Unexported: it is the INPUT to `checksum`, not part of
 	// the emitted contract (a full row dump would be a licence-free but large
 	// and needlessly diff-noisy artefact).
 	rows []shortsRow
+
+	// stockFilter is the requested code set (nil on a plain shadow run), and
+	// stockFiles is the per-file capture of just those codes. Both unexported:
+	// they are the INPUT to buildStocksReport, not part of the contract.
+	stockFilter map[string]struct{}
+	stockFiles  []stockFileRows
+	// cutoff is the window start the file selection used, retained so the
+	// comparison SELECT can be scoped to exactly the window that was parsed.
+	cutoff time.Time
 }
 
 // shadowFileError names a file the run could not use.
@@ -126,13 +144,34 @@ func (s shadowSummary) writeJSON(w io.Writer) error {
 	return enc.Encode(s)
 }
 
+// writeValidationLine emits the summary as ONE compact, prefixed line.
+//
+// This is the retrievable form: Cloud Logging splits container stdout per
+// newline, so the indented block above cannot be recovered from logs without
+// reassembling entries in order. See validationLinePrefix.
+func (s shadowSummary) writeValidationLine(w io.Writer) error {
+	payload, err := json.Marshal(s)
+	if err != nil {
+		return err
+	}
+	if _, err := w.Write([]byte(validationLinePrefix)); err != nil {
+		return err
+	}
+	if _, err := w.Write(payload); err != nil {
+		return err
+	}
+	_, err = w.Write([]byte("\n"))
+	return err
+}
+
 // newShadowSummary seeds the invariant fields.
 func newShadowSummary(now time.Time, days int) shadowSummary {
 	return shadowSummary{
-		Mode:        "shadow",
-		GeneratedAt: now.UTC().Format(time.RFC3339),
-		SyncDays:    days,
-		FilesFailed: []shadowFileError{},
-		Dates:       []shadowDate{},
+		Mode:          "shadow",
+		SchemaVersion: shadowSchemaVersion,
+		GeneratedAt:   now.UTC().Format(time.RFC3339),
+		SyncDays:      days,
+		FilesFailed:   []shadowFileError{},
+		Dates:         []shadowDate{},
 	}
 }

@@ -39,6 +39,18 @@ resource "google_project_iam_member" "shorts_api_scheduler_viewer" {
   member  = "serviceAccount:${google_service_account.shorts_api.email}"
 }
 
+# Read-only log access for GET /api/admin/jobs/validate-sync.
+#
+# A per-stock sync validation writes its report to the job's stdout; the console
+# retrieves it by reading that ONE execution's log entries back
+# (logging.logEntries.list). roles/logging.viewer is the smallest predefined
+# role that grants it — it is read-only and carries no write/route/sink rights.
+resource "google_project_iam_member" "shorts_api_logging_viewer" {
+  project = var.project_id
+  role    = "roles/logging.viewer"
+  member  = "serviceAccount:${google_service_account.shorts_api.email}"
+}
+
 # Grant Secret Manager access to service account
 resource "google_secret_manager_secret_iam_member" "postgres_password" {
   secret_id = "APP_STORE_POSTGRES_PASSWORD"

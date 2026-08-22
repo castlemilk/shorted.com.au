@@ -186,6 +186,73 @@ to date, so a live window is empty), point `DATABASE_URL` at a **restore or a
 local copy**, delete the last N days there, and re-run with `-days N`. Never
 delete rows in prod to make a shadow run interesting.
 
+## Per-stock validation — `-stocks BHP,DRO`
+
+The shadow summary answers "does the pipeline work" for ~2,000 stocks at once,
+which is to say it answers it for none of them. `-stocks` answers it for the
+handful an operator is actually asking about:
+
+```bash
+cd services/jobs
+DATABASE_URL="$PROD_TXN_POOLER_DSN" \
+  GOWORK=off go run ./cmd/shorted short-data-sync -shadow -stocks BHP,DRO \
+  2>/dev/null | sed 's/^SHORTED_VALIDATION_JSON //' | jq .stocks
+```
+
+**`-stocks` requires `-shadow` and is refused without it.** The flag scopes the
+*report*, never the writes: a live run with `-stocks` would still upsert every
+row of every file while printing a report about three of them — the most
+misleading possible combination. So it only exists where nothing is written.
+
+Codes are comma- and/or whitespace-separated, upper-cased, de-duplicated, and
+each must match `^[A-Z0-9]{1,5}$`; at most **20** per run. One bad code fails
+the run rather than being silently dropped.
+
+### Output shape
+
+Two differences from a plain `-shadow` run:
+
+* the summary gains a `stocks` section (absent otherwise, so the parity artefact
+  above is byte-for-byte unchanged);
+* it is printed as **one compact line** prefixed `SHORTED_VALIDATION_JSON `,
+  because Cloud Logging splits container stdout into one entry per newline —
+  the pretty-printed block cannot be recovered from logs, a single line can.
+  (The admin console retrieves the report exactly this way.)
+
+Every summary — plain or validation — now carries `schema_version` (currently
+`1`). Bump it when a field changes meaning or disappears.
+
+### Reading the `stocks` section
+
+`observations` is one row per requested code per date in the window:
+
+| `status` | Meaning |
+|---|---|
+| `new` | The file has the row, the DB does not → the sync would INSERT it. |
+| `unchanged` | Both sides agree on every column the upsert writes → the write is a no-op. |
+| `changed` | The DB has the row and at least one written column differs. `changed_fields` names them. |
+| `missing-from-file` | The DB has a row for that (code, date) but the file omits the code. ASIC drops a stock with no reportable short position, so this is informative, not automatically wrong — but it is also the shape of a bad parse. Nothing is written and nothing is deleted (`would_skip`). |
+
+Two subtleties worth knowing before you read a diff as a bug:
+
+* **A product rename is not a change.** `ON CONFLICT` deliberately does not
+  refresh `PRODUCT` (see `upsertShortsSQL`), so `changed_fields` never lists it —
+  both names are still shown in `file_values` / `db_values` for context.
+* **`not_found` is reported explicitly.** A requested code that appeared in *no*
+  parsed file is listed there, so "BHP is missing from the data" and "BHP was
+  never asked for" cannot look the same.
+
+`counts` is the per-status tally, and `db_rows_in_window` is how many rows the
+comparison SELECT returned for the requested codes — a zero there alongside
+non-zero file rows means the whole window is new.
+
+### From the admin console
+
+Same run, driven from `/admin`: see
+[`docs/observability/job-alerting.md`](../../../../../docs/observability/job-alerting.md)
+§"Validate sync" — the console builds `-shadow -stocks <codes>` server-side and
+reads this JSON line back out of Cloud Logging.
+
 ## Tests
 
 All offline: golden CSV fixtures in `testdata/` (a trimmed REAL modern ASIC

@@ -669,6 +669,12 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	// Handler body lives in jobs_run.go so it can be unit-tested without a server.
 	mux.HandleFunc("/api/admin/jobs/run", adminAuthMiddleware(adminJobsRunHandler(logger, s.jobsCollector)))
 
+	// Admin: per-stock, READ-ONLY validation of the ASIC sync —
+	// POST /api/admin/jobs/validate-sync (start) + GET ?execution= (poll).
+	// The only endpoint that runs a job with arguments, and the arguments are
+	// constructed server-side from a validated stock list. See jobs_validate.go.
+	mux.HandleFunc("/api/admin/jobs/validate-sync", adminAuthMiddleware(adminJobsValidateSyncHandler(logger, s.jobsCollector)))
+
 	// Admin: list broadcasts
 	mux.HandleFunc("/api/admin/broadcasts", adminAuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		items, err := s.store.ListBroadcasts(50)

@@ -157,10 +157,101 @@ not created), and a job-scoped grant means the console can execute exactly the
 listed jobs and nothing else. `roles/run.invoker` is the weakest role carrying
 `run.jobs.run`; `roles/run.developer` would also permit `runWithOverrides`
 (executing a job with a different command/env), which this endpoint must never do.
+The one scoped exception is the validation endpoint below.
 
 Adding a new job module means adding a line to that map — otherwise "Run now"
 returns `502 run_failed` for it with a permission error in the logs. Retired jobs
 are deliberately absent from the map: the API refuses them anyway.
+
+### "Validate sync" — validating the sync for a stock
+
+**When to reach for it.** The sync exited 0, the dashboard is green, and a stock
+still looks wrong on the site — stale, or a number nobody believes. "Run now"
+does not help: it re-runs the same pipeline and tells you nothing about *why*.
+The validation run answers the actual question for one handful of codes: what
+does the latest ASIC file contain for them, what would the sync insert or update,
+and what is in the database right now.
+
+It is **read-only by construction**. The backend always runs the job with
+`-shadow`, which opens no write path at all: no `shorts` upsert, no `sync_status`
+row, no MV refresh, no revalidation ping, no Algolia call. Its only database
+contact is two SELECTs.
+
+**Operator steps**
+
+1. `/admin` → jobs console → the *Validate sync for specific stocks* panel
+   (rendered above the table whenever `shorts-data-sync` is in the fleet).
+2. Type codes — `BHP, DRO` — and press **Validate**. Up to 20, each
+   `^[A-Z0-9]{1,5}$`; the input refuses bad codes before they cost an execution,
+   and the backend re-validates regardless.
+3. The panel shows the execution name and polls every 10s (giving up after 10
+   minutes). A shadow run over a week of ASIC files usually finishes inside the
+   first poll.
+4. Read the per-stock table: file value, DB value, and a status badge —
+   `new` / `unchanged` / `changed` / `missing from file`. `changed` lists the
+   columns that differ. "Show raw JSON" has the whole summary.
+
+Status meanings, and the two things that look like bugs but are not (a product
+rename never counts as `changed`; ASIC omits stocks with no reportable position,
+which is what `missing from file` usually is), are documented in
+[`services/jobs/internal/jobs/shortdatasync/README.md`](../../services/jobs/internal/jobs/shortdatasync/README.md)
+§"Per-stock validation".
+
+**Endpoints.** `/admin` → server actions `startSyncValidation` /
+`getSyncValidation` (`web/src/app/actions/validateSync.ts`, `requireAdmin()`-gated)
+→ the shorts API (`INTERNAL_SERVICE_SECRET`,
+`services/shorts/internal/services/shorts/jobs_validate.go`):
+
+| Call | Response |
+|---|---|
+| `POST /api/admin/jobs/validate-sync` `{"stocks":["BHP","DRO"]}` | `202 {executionName, job, region, stocks, args}` |
+| `GET  /api/admin/jobs/validate-sync?execution=<name>` | `200 {status:"running"}` while in flight |
+| ″ | `200 {status:"succeeded", summary:{…}}` once complete |
+| ″ | `200 {status:"failed", message, logTail[], logUri}` |
+| ″ | `502 {error:"summary_not_found", logTail[]}` — finished cleanly but emitted no report |
+| either | `400 invalid_stocks` / `400 invalid_execution` / `404 unknown_job` / `409 retired` / `409 not_executable` / `503 not_configured` / `502 validation_failed` |
+
+The request body carries **stock codes and nothing else** — no job name, no
+region, no arguments. `jobmonitor.RunValidation` normalises the codes and builds
+the argv itself (`["short-data-sync","-shadow","-stocks","BHP,DRO"]`), and the
+job it targets is a compile-time constant. There is no path by which caller input
+becomes an argv element verbatim.
+
+**The already-running guard does not apply here, on purpose.** "Run now" refuses
+a second execution because a real sync writes. A shadow run writes nothing, and
+the sync legitimately runs 26–29h — blocking the diagnostic behind it would mean
+waiting a day to find out why the data looks wrong. `retired` and `unknown_job`
+still refuse.
+
+**Retrieval.** The job prints its report as one compact line prefixed
+`SHORTED_VALIDATION_JSON ` (Cloud Logging splits stdout per newline, so a
+pretty-printed block is unrecoverable). The API reads it back with
+`logging.logEntries.list` filtered to that one execution, parses defensively —
+prefix first, then any well-formed `"mode":"shadow"` object — and passes the JSON
+through **verbatim**; the schema belongs to the job (`schema_version`), and a
+translation layer here would be a second place for it to drift.
+
+**IAM — this is the one scoped elevation.**
+
+| Binding | Scope | Why |
+|---|---|---|
+| `google_cloud_run_v2_job_iam_member.shorts_api_validate_sync` → `roles/run.developer` | **`shorts-data-sync` only** | `run.jobs.runWithOverrides` is what makes passing `-shadow -stocks` possible at all. `roles/run.invoker` cannot do it. |
+| `google_project_iam_member.shorts_api_logging_viewer` → `roles/logging.viewer` | project | Read the execution's log entries back. Read-only; no write/route/sink rights. |
+
+What keeps that safe is the **pairing**, not the binding alone: IAM narrows
+*where* overrides are possible (one job — nothing else in the fleet becomes
+override-able), and the service narrows *what* an override can say (a
+server-constructed argv from a validated code list, always containing `-shadow`).
+Remove either half and it becomes a real privilege escalation. If the validation
+endpoint is ever deleted, delete the binding with it.
+
+> **This needs a `terraform apply` before it works.** Until
+> `shorts_api_validate_sync` and `shorts_api_logging_viewer` are applied, the
+> POST returns `502 validation_failed` (permission denied on
+> `run.jobs.runWithOverrides`) and the GET degrades to "logs could not be read".
+
+Every accepted validation writes an audit line, including the argv that actually
+ran: `AUDIT jobs/validate-sync actor=… job=… region=… execution=… stocks=… args=…`.
 
 ## How to respond
 

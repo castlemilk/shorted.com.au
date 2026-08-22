@@ -65,6 +65,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/platform"
@@ -89,6 +90,9 @@ type config struct {
 	syncAlgolia bool
 	dryRun      bool
 	shadow      bool
+	// stocks is the validated, normalised `-stocks` code list (nil when unset).
+	// Only ever populated alongside shadow — see parseConfig.
+	stocks []string
 }
 
 // Job returns the `shorted short-data-sync` subcommand.
@@ -112,8 +116,8 @@ func Run(ctx context.Context, args []string) error {
 	client := &http.Client{}
 	now := time.Now().UTC()
 
-	log.Printf("🚀 SHORT DATA SYNC — starting (days=%d dry-run=%v shadow=%v algolia=%v)",
-		cfg.days, cfg.dryRun, cfg.shadow, cfg.syncAlgolia)
+	log.Printf("🚀 SHORT DATA SYNC — starting (days=%d dry-run=%v shadow=%v algolia=%v stocks=%v)",
+		cfg.days, cfg.dryRun, cfg.shadow, cfg.syncAlgolia, cfg.stocks)
 
 	pool, err := platform.ConnectFromEnv(ctx, platform.WithMaxConns(maxConns))
 	if err != nil {
@@ -126,6 +130,12 @@ func Run(ctx context.Context, args []string) error {
 		summary, err := runShadow(ctx, cfg, store, client, now)
 		if err != nil {
 			return err
+		}
+		if len(cfg.stocks) > 0 {
+			// One compact, prefixed line — the only form that survives Cloud
+			// Logging's per-line entry split, which is how the admin console
+			// retrieves this report.
+			return summary.writeValidationLine(os.Stdout)
 		}
 		return summary.writeJSON(os.Stdout)
 	}
@@ -148,6 +158,8 @@ func parseConfig(ctx context.Context, args []string) (config, error) {
 		"Download and parse everything, write nothing (no DB, no Algolia, no revalidation)")
 	fs.BoolVar(&cfg.shadow, "shadow", false,
 		"Implies -dry-run and prints a JSON parity summary on stdout")
+	stocks := fs.String("stocks", "",
+		"Comma-separated ASX product codes (max 20) to produce a per-stock validation report for; requires -shadow")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return config{}, runner.ErrUsage
@@ -162,6 +174,22 @@ func parseConfig(ctx context.Context, args []string) (config, error) {
 	}
 	if cfg.shadow {
 		cfg.dryRun = true
+	}
+	if raw := strings.TrimSpace(*stocks); raw != "" {
+		// A SCOPED LIVE RUN IS REFUSED, on purpose. `-stocks` narrows what the
+		// report talks about; it does NOT narrow what the pipeline writes. A
+		// live run with -stocks would still upsert every row in every file while
+		// printing a report about three of them — the most misleading possible
+		// combination. So the flag is only legal in shadow mode, where nothing
+		// is written at all.
+		if !cfg.shadow {
+			return config{}, fmt.Errorf("-stocks requires -shadow: a per-stock report is a read-only validation, and -stocks does NOT scope the writes a live run performs")
+		}
+		codes, err := parseStockCodes(raw)
+		if err != nil {
+			return config{}, err
+		}
+		cfg.stocks = codes
 	}
 	return cfg, nil
 }
@@ -253,8 +281,22 @@ func runSync(ctx context.Context, cfg config, store *pgStore, client *http.Clien
 // write path at all: no sync_status row, no upsert, no MV refresh, no ping.
 func runShadow(ctx context.Context, cfg config, store *pgStore, client *http.Client, now time.Time) (shadowSummary, error) {
 	sum := newShadowSummary(now, cfg.days)
+	if len(cfg.stocks) > 0 {
+		sum.stockFilter = codeSet(cfg.stocks)
+	}
 	if _, err := syncShorts(ctx, cfg, store, client, now, &sum); err != nil {
 		return sum, err
+	}
+	if len(cfg.stocks) > 0 {
+		// The one extra read a validation run performs: the CURRENT rows for the
+		// requested codes over the same window the files covered. Read-only, and
+		// bounded by (<=20 codes x window), so it cannot become a table scan.
+		current, err := store.RowsForCodes(ctx, cfg.stocks, sum.cutoff)
+		if err != nil {
+			return sum, err
+		}
+		report := buildStocksReport(cfg.stocks, sum.stockFiles, current)
+		sum.Stocks = &report
 	}
 	// Recorded here (not inside the file loop) so an early return — "already up
 	// to date", an index failure, no files — still reports the suppressed side
@@ -294,6 +336,10 @@ func syncShorts(ctx context.Context, cfg config, store *pgStore, client *http.Cl
 			if sum != nil {
 				sum.LastShortsDate = lastDate.Format("2006-01-02")
 				sum.AlreadyUpToDate = true
+				// Still record a window: a validation run that short-circuits
+				// must not leave `cutoff` at the zero time, which would turn the
+				// comparison SELECT into a full-history scan.
+				sum.cutoff = cutoffDate
 			}
 			return 0, nil
 		}
@@ -308,6 +354,7 @@ func syncShorts(ctx context.Context, cfg config, store *pgStore, client *http.Cl
 			sum.LastShortsDate = lastDate.Format("2006-01-02")
 		}
 		sum.CutoffDate = cutoff
+		sum.cutoff = cutoffDate
 	}
 
 	index, err := fetchIndex(ctx, client)
@@ -381,6 +428,23 @@ func syncShorts(ctx context.Context, cfg config, store *pgStore, client *http.Cl
 			sum.WouldUpdate += upd
 			sum.DuplicateKey += dup
 			sum.rows = append(sum.rows, rows...)
+			if sum.stockFilter != nil {
+				// Capture only the requested codes. The full row set already
+				// lives in sum.rows for the checksum; this is the (tiny) slice
+				// the per-stock diff is built from.
+				// The file name is the authoritative observation date (parseFile
+				// derives every row's date from it), and it is still correct for
+				// a file that parsed to zero rows.
+				obsDate, dateErr := dateFromFileName(name)
+				if dateErr != nil && len(rows) > 0 {
+					obsDate = truncateDay(rows[0].Date)
+				}
+				sum.stockFiles = append(sum.stockFiles, stockFileRows{
+					Date: obsDate,
+					File: name,
+					Rows: filterRows(rows, sum.stockFilter),
+				})
+			}
 			continue
 		}
 

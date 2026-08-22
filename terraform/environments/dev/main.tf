@@ -476,6 +476,35 @@ resource "google_cloud_run_v2_job_iam_member" "shorts_api_run_now" {
   member   = "serviceAccount:${module.shorts_api.service_account_email}"
 }
 
+# Per-stock sync VALIDATION — POST /api/admin/jobs/validate-sync.
+#
+# roles/run.invoker (above) grants run.jobs.run but NOT
+# run.jobs.runWithOverrides, which is exactly why the "Run now" endpoint cannot
+# change what a job does — only whether it runs. The validation endpoint needs
+# the override permission to pass `-shadow -stocks BHP,DRO`, so it gets
+# roles/run.developer, and the grant is SCOPED TO ONE JOB rather than added to
+# the fleet-wide loop above.
+#
+# What keeps the elevation safe is the pairing, not this binding alone:
+#
+#   * IAM narrows WHERE overrides are possible — this single job. Nothing else
+#     in the fleet becomes override-able.
+#   * The service narrows WHAT the override can say — the argv is constructed
+#     server-side in jobmonitor.validationArgs() from a stock list validated
+#     against ^[A-Z0-9]{1,5}$ (max 20 codes). A caller supplies stock codes and
+#     nothing else; there is no path by which caller input becomes an argv
+#     element verbatim, and `-shadow` is always present, so the run cannot write.
+#
+# Remove either half and this becomes a genuine privilege escalation. If the
+# validation endpoint is ever deleted, delete this binding with it.
+resource "google_cloud_run_v2_job_iam_member" "shorts_api_validate_sync" {
+  project  = var.project_id
+  location = var.region
+  name     = module.short_data_sync.job_name
+  role     = "roles/run.developer"
+  member   = "serviceAccount:${module.shorts_api.service_account_email}"
+}
+
 # Enrichment Processor Job
 module "enrichment_processor" {
   source = "../../modules/enrichment-processor"
