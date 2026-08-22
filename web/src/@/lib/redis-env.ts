@@ -1,7 +1,7 @@
 export interface RedisRestConfig {
   url: string;
   token: string;
-  source: "kv-rest" | "upstash-rest" | "redis-url";
+  source: "rate-limit-dedicated" | "kv-rest" | "upstash-rest" | "redis-url";
 }
 
 export interface RedisRestEnv {
@@ -10,12 +10,30 @@ export interface RedisRestEnv {
   KV_REST_API_TOKEN?: string;
   UPSTASH_REDIS_REST_URL?: string;
   UPSTASH_REDIS_REST_TOKEN?: string;
+  RATE_LIMIT_UPSTASH_REDIS_REST_URL?: string;
+  RATE_LIMIT_UPSTASH_REDIS_REST_TOKEN?: string;
   REDIS_URL?: string;
 }
 
 export function getUpstashRedisRestConfig(
   env: RedisRestEnv,
 ): RedisRestConfig | null {
+  // Dedicated rate-limit quota DB, first priority. This resolver is consumed
+  // ONLY by the limiter surfaces (middleware.ts, rate-limit.ts) — the page
+  // cache resolves its Redis separately — so setting these two vars moves
+  // rate limiting onto its own database without touching the cache. Mirrors
+  // the Go API layer's RATE_LIMIT_UPSTASH_REDIS_REST_* split after the
+  // 2026-08 shared-quota incident (limiter burned the cap; cache froze).
+  const rlUrl = normalizeEnvValue(env.RATE_LIMIT_UPSTASH_REDIS_REST_URL);
+  const rlToken = normalizeEnvValue(env.RATE_LIMIT_UPSTASH_REDIS_REST_TOKEN);
+  if (rlUrl && rlToken) {
+    return {
+      url: trimTrailingSlash(rlUrl),
+      token: rlToken,
+      source: "rate-limit-dedicated",
+    };
+  }
+
   const kvUrl = normalizeEnvValue(env.KV_REST_API_URL);
   const kvToken = normalizeEnvValue(env.KV_REST_API_TOKEN);
   if (kvUrl && kvToken) {
