@@ -167,8 +167,8 @@ func TestValidateSyncPollSummaryNotFound(t *testing.T) {
 	v := &fakeValidator{
 		report: &jobmonitor.ValidationReport{
 			ExecutionName: "e1", Status: "succeeded",
-			Message: "no validation summary was found",
-			LogTail: []string{"✅ done"},
+			Message: "no validation report was found at gs://bucket/validations/e1.json",
+			LogUri:  "https://console.cloud.google.com/logs",
 		},
 		pollErr: jobmonitor.ErrSummaryNotFound,
 	}
@@ -180,8 +180,23 @@ func TestValidateSyncPollSummaryNotFound(t *testing.T) {
 	if body["error"] != "summary_not_found" {
 		t.Fatalf("body = %s", w.Body.String())
 	}
-	if body["logTail"] == nil {
-		t.Fatal("the log tail must travel — it is the only evidence an operator has")
+	// The message names the object that is missing, and the log link still
+	// travels — between them that is everything an operator needs to look.
+	if msg, _ := body["message"].(string); !strings.Contains(msg, "validations/e1.json") {
+		t.Fatalf("message must name the missing artifact: %s", w.Body.String())
+	}
+	if body["logUri"] == nil {
+		t.Fatal("the log link must travel")
+	}
+}
+
+// TestValidateSyncPollNotConfigured: an unset report bucket is a deployment
+// problem (503), not a missing report (502).
+func TestValidateSyncPollNotConfigured(t *testing.T) {
+	v := &fakeValidator{pollErr: jobmonitor.ErrNoBucket}
+	w := validateRequest(t, v, http.MethodGet, "/api/admin/jobs/validate-sync?execution=e1", "")
+	if w.Code != http.StatusServiceUnavailable || decodeBody(t, w)["error"] != "not_configured" {
+		t.Fatalf("status = %d, body %s", w.Code, w.Body.String())
 	}
 }
 

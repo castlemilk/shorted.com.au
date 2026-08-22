@@ -207,8 +207,8 @@ which is what `missing from file` usually is), are documented in
 | `POST /api/admin/jobs/validate-sync` `{"stocks":["BHP","DRO"]}` | `202 {executionName, job, region, stocks, args}` |
 | `GET  /api/admin/jobs/validate-sync?execution=<name>` | `200 {status:"running"}` while in flight |
 | ″ | `200 {status:"succeeded", summary:{…}}` once complete |
-| ″ | `200 {status:"failed", message, logTail[], logUri}` |
-| ″ | `502 {error:"summary_not_found", logTail[]}` — finished cleanly but emitted no report |
+| ″ | `200 {status:"failed", message, logUri}` |
+| ″ | `502 {error:"summary_not_found", message, status, logUri}` — finished cleanly but published no report; `message` names the missing object |
 | either | `400 invalid_stocks` / `400 invalid_execution` / `404 unknown_job` / `409 retired` / `409 not_executable` / `503 not_configured` / `502 validation_failed` |
 
 The request body carries **stock codes and nothing else** — no job name, no
@@ -223,20 +223,47 @@ the sync legitimately runs 26–29h — blocking the diagnostic behind it would 
 waiting a day to find out why the data looks wrong. `retired` and `unknown_job`
 still refuse.
 
-**Retrieval.** The job prints its report as one compact line prefixed
-`SHORTED_VALIDATION_JSON ` (Cloud Logging splits stdout per newline, so a
-pretty-printed block is unrecoverable). The API reads it back with
-`logging.logEntries.list` filtered to that one execution, parses defensively —
-prefix first, then any well-formed `"mode":"shadow"` object — and passes the JSON
-through **verbatim**; the schema belongs to the job (`schema_version`), and a
-translation layer here would be a second place for it to drift.
+**Retrieval — a durable GCS artifact, not the logs.** The job writes its whole
+summary to
 
-**IAM — this is the one scoped elevation.**
+```
+gs://$SHORTS_DATA_BUCKET/validations/<execution-name>.json
+```
+
+(prod: `shorted-short-selling-data-prod`; dev: `shorted-short-selling-data`) and
+the API reads exactly that key. The JSON is passed through **verbatim** — the
+schema belongs to the job (`schema_version`), and a translation layer here would
+be a second place for it to drift. The job *also* still prints the one-line
+`SHORTED_VALIDATION_JSON ` form to stdout, which is what you grep when you are
+already in the logs; nothing reads it programmatically.
+
+A still-running execution costs no bucket read. An object that exists but is not
+a shadow summary reads as "no report", never as an empty diff. A permission or
+transport failure degrades into `message` alongside the execution status rather
+than raising.
+
+> **Why not the logs?** The first cut did read them back
+> (`logging.logEntries.list`), and it worked — but log access is only grantable
+> at the **project** level, and **the CI deploy service account cannot set
+> project IAM** (`getIamPolicy` yes, `setIamPolicy` no). The
+> `roles/logging.viewer` grant therefore 403'd on *every* `terraform apply` and
+> blocked all infrastructure deploys, not just this feature. This is a
+> **repo-wide constraint**, and the reason `run.viewer` /
+> `cloudscheduler.viewer` are `import` blocks rather than managed resources and
+> `run.invoker` / `run.developer` are per-job bindings.
+>
+> **Do not add a project-level IAM grant to make a feature work.** If a
+> capability is only available at project scope, this pipeline cannot deploy it
+> — find a resource-scoped alternative. Here that was bucket IAM, which the
+> deploy SA can set because it owns the bucket, and which is better anyway: no
+> log-retention dependency, no stdout parsing, no newline-splitting fragility.
+
+**IAM — this is the one scoped elevation, plus one bucket read.**
 
 | Binding | Scope | Why |
 |---|---|---|
 | `google_cloud_run_v2_job_iam_member.shorts_api_validate_sync` → `roles/run.developer` | **`shorts-data-sync` only** | `run.jobs.runWithOverrides` is what makes passing `-shadow -stocks` possible at all. `roles/run.invoker` cannot do it. |
-| `google_project_iam_member.shorts_api_logging_viewer` → `roles/logging.viewer` | project | Read the execution's log entries back. Read-only; no write/route/sink rights. |
+| `google_storage_bucket_iam_member.readers` → `roles/storage.objectViewer` | **the short-selling-data bucket only** | Read the report object back. Granted by the module that OWNS the bucket (`modules/short-data-sync`, `var.reader_service_accounts`) — binding IAM on another module's bucket is what produced the `getIamPolicy` 403 in `modules/report-extractor`. |
 
 What keeps that safe is the **pairing**, not the binding alone: IAM narrows
 *where* overrides are possible (one job — nothing else in the fleet becomes
@@ -246,9 +273,10 @@ Remove either half and it becomes a real privilege escalation. If the validation
 endpoint is ever deleted, delete the binding with it.
 
 > **This needs a `terraform apply` before it works.** Until
-> `shorts_api_validate_sync` and `shorts_api_logging_viewer` are applied, the
-> POST returns `502 validation_failed` (permission denied on
-> `run.jobs.runWithOverrides`) and the GET degrades to "logs could not be read".
+> `shorts_api_validate_sync` is applied the POST returns `502 validation_failed`
+> (permission denied on `run.jobs.runWithOverrides`); until the bucket reader
+> grant and the `SHORTS_DATA_BUCKET` env var are applied the GET returns
+> `503 not_configured` or a "could not be read" message.
 
 Every accepted validation writes an audit line, including the argv that actually
 ran: `AUDIT jobs/validate-sync actor=… job=… region=… execution=… stocks=… args=…`.

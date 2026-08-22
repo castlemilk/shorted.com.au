@@ -61,6 +61,12 @@ type shadowSummary struct {
 	// so the parity contract above is byte-for-byte unchanged.
 	Stocks *stocksReport `json:"stocks,omitempty"`
 
+	// Artifact records where the durable copy of this report was stored — or
+	// why it was not. Like Stocks, present ONLY on a `-stocks` validation run;
+	// a plain shadow run writes no object and carries no such field. See
+	// artifact.go.
+	Artifact *validationArtifact `json:"artifact,omitempty"`
+
 	// rows accumulates every parsed row so the run-level checksum can be taken
 	// once, at the end. Unexported: it is the INPUT to `checksum`, not part of
 	// the emitted contract (a full row dump would be a licence-free but large
@@ -146,9 +152,11 @@ func (s shadowSummary) writeJSON(w io.Writer) error {
 
 // writeValidationLine emits the summary as ONE compact, prefixed line.
 //
-// This is the retrievable form: Cloud Logging splits container stdout per
-// newline, so the indented block above cannot be recovered from logs without
-// reassembling entries in order. See validationLinePrefix.
+// This is the human-debuggable form: Cloud Logging splits container stdout per
+// newline, so the indented block above cannot be read back from logs without
+// reassembling entries in order, whereas one prefixed line greps cleanly. It is
+// NOT how the admin console retrieves the report any more — that is the GCS
+// artifact (artifact.go). See validationLinePrefix.
 func (s shadowSummary) writeValidationLine(w io.Writer) error {
 	payload, err := json.Marshal(s)
 	if err != nil {

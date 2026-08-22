@@ -39,16 +39,38 @@ resource "google_project_iam_member" "shorts_api_scheduler_viewer" {
   member  = "serviceAccount:${google_service_account.shorts_api.email}"
 }
 
-# Read-only log access for GET /api/admin/jobs/validate-sync.
+# REMOVED: a project-level roles/logging.viewer grant for
+# GET /api/admin/jobs/validate-sync.
 #
-# A per-stock sync validation writes its report to the job's stdout; the console
-# retrieves it by reading that ONE execution's log entries back
-# (logging.logEntries.list). roles/logging.viewer is the smallest predefined
-# role that grants it — it is read-only and carries no write/route/sink rights.
-resource "google_project_iam_member" "shorts_api_logging_viewer" {
-  project = var.project_id
-  role    = "roles/logging.viewer"
-  member  = "serviceAccount:${google_service_account.shorts_api.email}"
+# The validation report used to be read back out of the execution's Cloud
+# Logging entries, which needs logging.logEntries.list — and log access is only
+# grantable at the PROJECT level. THE CI DEPLOY SERVICE ACCOUNT CANNOT SET
+# PROJECT IAM (it can getIamPolicy but not setIamPolicy), so this resource
+# 403'd on every `terraform apply` and blocked EVERY infrastructure deploy in
+# the repo, not just this feature:
+#
+#   Error: Request "Create IAM Members roles/logging.viewer serviceAccount:
+#   shorts@..." returned error: Error 403: Policy update access denied
+#
+# That constraint is repo-wide and is why the two grants above are `import`
+# blocks (reconciling out-of-band grants without a write) and why run.invoker /
+# run.developer are per-JOB bindings. DO NOT ADD A PROJECT-LEVEL GRANT HERE.
+# If a capability is only available at the project level, this pipeline cannot
+# deploy it — pick a resource-scoped alternative.
+#
+# The replacement: the job publishes its report to
+# gs://<bucket>/validations/<execution>.json and the API reads that object with
+# roles/storage.objectViewer, granted at the BUCKET level by the module that
+# owns the bucket (terraform/modules/short-data-sync, var.reader_service_accounts).
+#
+# The removed{} block is belt-and-braces: if the binding ever DID land in a
+# state file (a dev apply under a broader identity), forget it rather than
+# attempt a destroy — a destroy would 403 in exactly the same way.
+removed {
+  from = google_project_iam_member.shorts_api_logging_viewer
+  lifecycle {
+    destroy = false
+  }
 }
 
 # Grant Secret Manager access to service account
@@ -205,6 +227,18 @@ resource "google_cloud_run_v2_service" "shorts_api" {
       env {
         name  = "JOBS_SCHEDULER_REGION"
         value = "australia-southeast1"
+      }
+
+      # Where GET /api/admin/jobs/validate-sync reads a per-stock validation
+      # report from: gs://<this bucket>/validations/<execution>.json.
+      #
+      # The SAME variable name is set on the shorts-data-sync job, which WRITES
+      # that object — one name, one bucket, one thing to get wrong instead of
+      # two. Unset means the retrieval endpoint answers 503 not_configured
+      # rather than guessing a bucket (prod and dev differ).
+      env {
+        name  = "SHORTS_DATA_BUCKET"
+        value = var.shorts_data_bucket
       }
 
       env {

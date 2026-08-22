@@ -113,6 +113,11 @@ type Config struct {
 	// them from the fleet.
 	RunRegions      []string
 	SchedulerRegion string
+	// ValidationBucket is the GCS bucket a per-stock sync validation publishes
+	// its report to (see validate.go). Empty means the retrieval endpoint is
+	// not configured — it refuses with ErrNoBucket rather than guessing, since
+	// the bucket name differs per environment.
+	ValidationBucket string
 }
 
 // ConfigFromEnv resolves the project + regions from the environment, falling
@@ -145,6 +150,12 @@ func ConfigFromEnv() Config {
 		ProjectID:       project,
 		RunRegions:      regions,
 		SchedulerRegion: firstNonEmpty(os.Getenv("JOBS_SCHEDULER_REGION"), "australia-southeast1"),
+		// SHORTS_DATA_BUCKET is the SAME variable name the shorts-data-sync job
+		// reads (services/jobs/.../artifact.go): they must agree on one bucket,
+		// and a second name would be a second thing to get wrong. No default —
+		// prod and dev use different bucket names, so a guess would read the
+		// wrong bucket rather than fail honestly.
+		ValidationBucket: os.Getenv("SHORTS_DATA_BUCKET"),
 	}
 }
 
@@ -186,10 +197,10 @@ type Collector struct {
 	// runner executes a job on demand (see run.go). nil means the default
 	// Cloud Run backend; tests inject a stub.
 	runner Runner
-	// execReader / logReader retrieve a validation run's outcome (see
+	// execReader / artifactReader retrieve a validation run's outcome (see
 	// validate.go). nil means the default GCP backends; tests inject stubs.
-	execReader ExecutionReader
-	logReader  LogReader
+	execReader     ExecutionReader
+	artifactReader ArtifactReader
 
 	mu       sync.Mutex
 	cached   []JobStatus

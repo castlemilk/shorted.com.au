@@ -111,15 +111,30 @@ module "stock_price_ingestion" {
   ]
 }
 
+# Mirror of the prod local (see terraform/environments/prod/main.tf): the
+# bucket name is written once and consumed by the module that OWNS it
+# (short_data_sync, which publishes validation reports to
+# validations/<execution>.json) and by the module that READS it (shorts_api).
+# Keeping it a literal on both sides is what stops the two modules depending on
+# each other's outputs.
+locals {
+  short_selling_bucket_name = "shorted-short-selling-data" # Existing bucket in dev project
+}
+
 # Short Data Sync Job
 module "short_data_sync" {
   source = "../../modules/short-data-sync"
 
   project_id       = var.project_id
   region           = var.region
-  scheduler_region = "australia-southeast1"       # Cloud Scheduler only available in southeast1
-  environment      = "production"                 # Using production since this is the live system
-  bucket_name      = "shorted-short-selling-data" # Existing bucket in dev project
+  scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
+  environment      = "production"           # Using production since this is the live system
+  bucket_name      = local.short_selling_bucket_name
+
+  # The shorts API reads this bucket to serve
+  # GET /api/admin/jobs/validate-sync. Bucket IAM is writable by the CI deploy
+  # SA; the project-level roles/logging.viewer this replaced was not.
+  reader_service_accounts = [module.shorts_api.service_account_email]
 
   # Jobs-monolith — kept in lockstep with prod so dev is never validating a
   # configuration prod does not run. Monolith-only since the cleanup slice;
@@ -432,6 +447,9 @@ module "shorts_api" {
 
   scheduler_region             = "australia-southeast1"
   enable_key_metrics_scheduler = false # Disabled: secret INTERNAL_METRICS_SCHEDULER_SECRET not accessible to terraform SA (secretmanager.versions.get denied)
+
+  # Where GET /api/admin/jobs/validate-sync reads a validation report from.
+  shorts_data_bucket = local.short_selling_bucket_name
 
   depends_on = [
   ]
