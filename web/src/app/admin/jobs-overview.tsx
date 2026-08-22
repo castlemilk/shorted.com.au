@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { JobsOverview as JobsOverviewData, JobStatus } from "~/app/actions/getJobsOverview";
 import { runJobNow, type RunJobResult } from "~/app/actions/runJob";
+import { SyncValidationPanel } from "./sync-validation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -358,6 +359,13 @@ export function JobsOverview({ overview }: { overview: JobsOverviewData }) {
               <StatCard label="Needs attention" value={counts.attention} tone="warning" />
               <StatCard label="No data" value={counts.unknown} tone="muted" />
             </div>
+
+            {/* Per-stock sync validation. Rendered only when shorts-data-sync
+                is actually in the fleet — the endpoint can execute that job and
+                only that job, so without it the panel has nothing to drive. */}
+            {jobs.some((j) => j.name === "shorts-data-sync" && j.type === "job" && !j.retired) && (
+              <SyncValidationPanel />
+            )}
 
             {/* Table */}
             <Table>

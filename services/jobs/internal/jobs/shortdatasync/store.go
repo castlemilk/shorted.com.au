@@ -120,6 +120,70 @@ func (s *pgStore) ExistingKeys(ctx context.Context, from time.Time) (map[string]
 	return out, rows.Err()
 }
 
+// rowsForCodesSQL reads the CURRENT rows for a handful of product codes over
+// the sync window. Read-only, parameterised, and bounded by the caller's
+// validated code list (max 20) — it is the only extra database access a
+// `-shadow -stocks` validation run performs.
+const rowsForCodesSQL = `
+        SELECT "DATE", "PRODUCT", "PRODUCT_CODE",
+               "REPORTED_SHORT_POSITIONS", "TOTAL_PRODUCT_IN_ISSUE",
+               "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS"
+        FROM shorts
+        WHERE "DATE" >= $1 AND "PRODUCT_CODE" = ANY($2)`
+
+// RowsForCodes returns the current shorts rows for `codes` from `from` onwards,
+// keyed by rowKey(date, code), so a shadow run can diff file against database
+// without writing anything.
+//
+// A NULL numeric column reads back as 0 rather than failing the whole report —
+// the diff's job is to SHOW the discrepancy, not to refuse to run because of it.
+func (s *pgStore) RowsForCodes(ctx context.Context, codes []string, from time.Time) (map[string]shortsRow, error) {
+	out := map[string]shortsRow{}
+	if len(codes) == 0 {
+		return out, nil
+	}
+	rows, err := s.db.Query(ctx, rowsForCodesSQL, from, codes)
+	if err != nil {
+		return nil, fmt.Errorf("rows for codes: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var (
+			d                 time.Time
+			product, code     *string
+			short, total, pct *float64
+		)
+		if err := rows.Scan(&d, &product, &code, &short, &total, &pct); err != nil {
+			return nil, fmt.Errorf("rows for codes: scan: %w", err)
+		}
+		r := shortsRow{
+			Date:                   truncateDay(d),
+			Product:                derefString(product),
+			ProductCode:            derefString(code),
+			ReportedShortPositions: derefFloat(short),
+			TotalProductInIssue:    derefFloat(total),
+			Percent:                derefFloat(pct),
+		}
+		out[rowKey(r.Date, r.ProductCode)] = r
+	}
+	return out, rows.Err()
+}
+
+func derefString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
+func derefFloat(f *float64) float64 {
+	if f == nil {
+		return 0
+	}
+	return *f
+}
+
 // healthReport is check_data_health()'s payload.
 type healthReport struct {
 	TotalStocks int
