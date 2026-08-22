@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -100,6 +101,60 @@ func selectFiles(files []asicFile, cutoff int) []asicFile {
 		}
 	}
 	return out
+}
+
+// selectRecentFiles keeps every index entry belonging to the most recent `days`
+// DISTINCT dates present in the index, preserving the index's own order so the
+// duplicate-version semantics of selectFiles still hold.
+//
+// This is the VALIDATION window, and it is deliberately NOT a calendar window.
+// ASIC publishes on business days only, and it stops for public holidays and
+// for its own outages; "the last 7 calendar days" can therefore legitimately
+// contain nothing at all, which is precisely the failure this exists to remove.
+// "The last 7 dates ASIC actually published" always has files whenever the
+// index has any, so a validation run always has something to compare.
+func selectRecentFiles(files []asicFile, days int) []asicFile {
+	if days < 1 || len(files) == 0 {
+		return nil
+	}
+	seen := make(map[int]struct{}, len(files))
+	dates := make([]int, 0, len(files))
+	for _, f := range files {
+		if _, dup := seen[f.Date]; dup {
+			continue
+		}
+		seen[f.Date] = struct{}{}
+		dates = append(dates, f.Date)
+	}
+	sort.Sort(sort.Reverse(sort.IntSlice(dates)))
+	if len(dates) > days {
+		dates = dates[:days]
+	}
+	threshold := dates[len(dates)-1]
+	return selectFiles(files, threshold)
+}
+
+// windowBounds returns the earliest and latest observation dates in a selected
+// file set, and false when no entry carried a parseable date.
+func windowBounds(files []asicFile) (first, last time.Time, ok bool) {
+	for _, f := range files {
+		d, err := time.Parse("20060102", strconv.Itoa(f.Date))
+		if err != nil {
+			continue
+		}
+		d = truncateDay(d)
+		if !ok {
+			first, last, ok = d, d, true
+			continue
+		}
+		if d.Before(first) {
+			first = d
+		}
+		if d.After(last) {
+			last = d
+		}
+	}
+	return first, last, ok
 }
 
 // yyyymmdd renders a date as the integer form the ASIC index uses.

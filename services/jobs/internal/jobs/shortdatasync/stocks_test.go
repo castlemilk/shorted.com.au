@@ -147,6 +147,11 @@ func TestBuildStocksReportDiffStatuses(t *testing.T) {
 	if rep.DBRowsInWindow != 3 {
 		t.Fatalf("db_rows_in_window = %d, want 3", rep.DBRowsInWindow)
 	}
+	// db_rows_in_window counts the REQUESTED codes only (the map it is given is
+	// already scoped by RowsForCodes) — see the field's doc for why.
+	if rep.FilesInWindow != 2 || rep.WindowEmpty {
+		t.Fatalf("files_in_window = %d window_empty = %v, want 2/false", rep.FilesInWindow, rep.WindowEmpty)
+	}
 }
 
 // TestBuildStocksReportIgnoresProductRename encodes the upsert's actual
@@ -170,8 +175,14 @@ func TestBuildStocksReportIgnoresProductRename(t *testing.T) {
 	}
 }
 
+// TestBuildStocksReportEmptyWindow pins the distinction requirement 2 exists
+// for: "no files in the window" is a DIFFERENT (and worse) fact than "the code
+// was absent from the files", and the report must say which.
 func TestBuildStocksReportEmptyWindow(t *testing.T) {
 	rep := buildStocksReport([]string{"BHP"}, nil, map[string]shortsRow{})
+	if !rep.WindowEmpty || rep.FilesInWindow != 0 {
+		t.Fatalf("an empty window must be stated explicitly, not implied by not_found: %+v", rep)
+	}
 	if len(rep.NotFound) != 1 {
 		t.Fatalf("with no files every requested code is not-found: %+v", rep)
 	}

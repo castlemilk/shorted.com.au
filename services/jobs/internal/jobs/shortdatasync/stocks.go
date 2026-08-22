@@ -148,19 +148,73 @@ type stockObservation struct {
 type stocksReport struct {
 	// Requested is the normalised code list, in the order supplied.
 	Requested []string `json:"requested"`
-	// NotFound lists requested codes that appeared in NO parsed file. This is
-	// reported explicitly rather than by absence: "BHP is missing" and "BHP was
-	// never asked for" must not look the same in the report.
+	// NotFound lists requested codes that appeared in NO parsed file of the
+	// window. This is reported explicitly rather than by absence: "BHP is
+	// missing" and "BHP was never asked for" must not look the same.
+	//
+	// It means "absent from the files", which is a real and useful signal (a
+	// delisted or never-shorted ticker). It must NOT be read as "there was no
+	// window" — that case is FilesInWindow == 0 / WindowEmpty, which is a
+	// different problem with a different fix, and every renderer must branch on
+	// WindowEmpty FIRST.
 	NotFound []string `json:"not_found"`
+	// FilesInWindow is how many parsed files the diff covers, and WindowEmpty
+	// is the same fact stated as the alarm it is: with no files, the report
+	// says nothing about any code and NotFound is vacuous.
+	FilesInWindow int  `json:"files_in_window"`
+	WindowEmpty   bool `json:"window_empty"`
 	// Observations is the per-code, per-date diff, sorted by code then date.
 	Observations []stockObservation `json:"observations"`
 	// Counts summarises Observations by status, so the console can render a
 	// headline without re-deriving it.
 	Counts map[string]int `json:"counts"`
-	// DBRowsInWindow is how many rows the comparison SELECT returned for the
-	// requested codes over the window. A zero here with non-zero file rows means
-	// the whole window is new.
+	// DBRowsInWindow is how many rows the comparison SELECT returned FOR THE
+	// REQUESTED CODES over the window — deliberately not "all rows in the
+	// window".
+	//
+	// The choice matters because the number is read next to the observations.
+	// Scoped to the codes it is a direct denominator for them: "we asked about
+	// 2 codes over 5 dates, the DB holds 10 of those 10 rows". Counting every
+	// row in the window instead would put a ~10,000 next to a two-row table,
+	// answering a question nobody asked (that is what the run-level
+	// rows_parsed / would_update already cover) and costing a full-window scan
+	// to produce. Zero here with non-zero file rows means the whole window is
+	// genuinely new for these codes.
 	DBRowsInWindow int `json:"db_rows_in_window"`
+}
+
+// validationWindow describes the file window a `-stocks` run scanned.
+//
+// It exists because a validation run's window is NOT the sync's window, and a
+// report that did not say so would be read as a statement about tonight's
+// ingest. A validation run deliberately re-parses days that are already in the
+// database — that is the whole point: with everything ingested, every row comes
+// back `unchanged`, which is the positive signal ("the file says 1.35%, the DB
+// says 1.35%") an operator asking "does the pipeline work for BHP?" wants.
+//
+// Consequence worth stating once: the summary's top-level would_insert /
+// would_update / would_revalidate describe what a sync WOULD do over THIS
+// window if it were run against it, not what tonight's scheduled sync will do.
+type validationWindow struct {
+	// Days is the -validate-days value in force: how many of the most recent
+	// PUBLISHED ASIC dates were scanned (not calendar days — see
+	// selectRecentFiles).
+	Days int `json:"days"`
+	// From / To are the earliest and latest observation dates in the window
+	// ("" when the window is empty).
+	From string `json:"from,omitempty"`
+	To   string `json:"to,omitempty"`
+	// Files is every selected file name, in the index's own order.
+	Files []string `json:"files"`
+	// IgnoredCutoff is the date a NORMAL sync would have started after
+	// (MAX("DATE") + 1 day), recorded to make the divergence explicit. Empty
+	// when the shorts table is empty.
+	IgnoredCutoff string `json:"ignored_cutoff,omitempty"`
+	// Problem is set ONLY when the window came out EMPTY — the one genuinely
+	// broken outcome of a validation run, and the one an operator must not
+	// confuse with "the code was not in the files". It carries the reason in
+	// plain words (index fetch failed / the index is empty).
+	Problem string `json:"problem,omitempty"`
 }
 
 // stockFileRows is the requested codes' rows captured from ONE parsed file,
@@ -210,6 +264,8 @@ func buildStocksReport(codes []string, files []stockFileRows, db map[string]shor
 		Observations:   []stockObservation{},
 		Counts:         map[string]int{},
 		DBRowsInWindow: len(db),
+		FilesInWindow:  len(files),
+		WindowEmpty:    len(files) == 0,
 	}
 	want := codeSet(codes)
 

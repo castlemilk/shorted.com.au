@@ -17,6 +17,9 @@
 //	-sync-algolia    trigger the Algolia index sync after a successful run (SYNC_ALGOLIA)
 //	-dry-run         run the whole pipeline, write NOTHING
 //	-shadow          -dry-run plus a machine-readable JSON summary on stdout
+//	-stocks CODES    per-stock validation report (requires -shadow)
+//	-validate-days N validation window: the last N PUBLISHED ASIC dates,
+//	                 ignoring what is already ingested (requires -stocks)
 //
 // Every flag defaults from the env var in parentheses, so the deployed
 // env-only contract keeps working untouched and a flag wins when both are set
@@ -82,6 +85,18 @@ const (
 	defaultBatchSize = 500
 )
 
+// The VALIDATION window (`-stocks` runs only). See validationScan.
+const (
+	// defaultValidateDays is how many of the most recent PUBLISHED ASIC dates a
+	// validation run re-parses when the operator does not say. A trading week
+	// is enough to show a pattern and small enough to finish in seconds.
+	defaultValidateDays = 7
+	// maxValidateDays caps it. A validation is a diagnostic read by a human in
+	// a console table; beyond a month it is a backfill audit, and the run's
+	// download volume stops being trivial.
+	maxValidateDays = 30
+)
+
 // config is the parsed flag set, threaded explicitly (package-level flag vars
 // would leak across subcommands).
 type config struct {
@@ -93,6 +108,10 @@ type config struct {
 	// stocks is the validated, normalised `-stocks` code list (nil when unset).
 	// Only ever populated alongside shadow — see parseConfig.
 	stocks []string
+	// validateDays is the VALIDATION window: how many of the most recent
+	// published ASIC dates a `-stocks` run re-parses. Read on that path ONLY —
+	// a sync and a plain `-shadow` parity run never consult it.
+	validateDays int
 }
 
 // Job returns the `shorted short-data-sync` subcommand.
@@ -167,6 +186,8 @@ func parseConfig(ctx context.Context, args []string) (config, error) {
 		"Implies -dry-run and prints a JSON parity summary on stdout")
 	stocks := fs.String("stocks", "",
 		"Comma-separated ASX product codes (max 20) to produce a per-stock validation report for; requires -shadow")
+	fs.IntVar(&cfg.validateDays, "validate-days", defaultValidateDays,
+		fmt.Sprintf("VALIDATION ONLY (requires -stocks): how many of the most recent PUBLISHED ASIC dates to re-parse, ignoring what is already ingested (1-%d)", maxValidateDays))
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return config{}, runner.ErrUsage
@@ -179,9 +200,18 @@ func parseConfig(ctx context.Context, args []string) (config, error) {
 	if cfg.days < 1 {
 		return config{}, fmt.Errorf("invalid -days %d (want >= 1)", cfg.days)
 	}
+	if cfg.validateDays < 1 || cfg.validateDays > maxValidateDays {
+		return config{}, fmt.Errorf("invalid -validate-days %d (want 1-%d)", cfg.validateDays, maxValidateDays)
+	}
 	if cfg.shadow {
 		cfg.dryRun = true
 	}
+	validateDaysSet := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "validate-days" {
+			validateDaysSet = true
+		}
+	})
 	if raw := strings.TrimSpace(*stocks); raw != "" {
 		// A SCOPED LIVE RUN IS REFUSED, on purpose. `-stocks` narrows what the
 		// report talks about; it does NOT narrow what the pipeline writes. A
@@ -197,6 +227,12 @@ func parseConfig(ctx context.Context, args []string) (config, error) {
 			return config{}, err
 		}
 		cfg.stocks = codes
+	} else if validateDaysSet {
+		// Refused rather than ignored. `-validate-days` moves the VALIDATION
+		// window only; on a sync or a plain `-shadow` parity run it does
+		// nothing at all, and silently doing nothing is how an operator ends up
+		// trusting a number that was never used.
+		return config{}, fmt.Errorf("-validate-days requires -stocks: it widens the validation window only, and has no effect on a sync or on a plain -shadow parity run")
 	}
 	return cfg, nil
 }
@@ -316,6 +352,35 @@ func runShadow(ctx context.Context, cfg config, store *pgStore, client *http.Cli
 	return sum, nil
 }
 
+// validationMode reports whether this run is a `-stocks` validation, which is
+// the ONLY path that departs from the sync's window. Both halves are required:
+// `-stocks` cannot be set without `-shadow` (parseConfig), and a summary is
+// only threaded through on a shadow run.
+func validationMode(cfg config, sum *shadowSummary) bool {
+	return sum != nil && len(cfg.stocks) > 0
+}
+
+// syncFileWindow is the SYNC's window decision — the one a live run, a
+// `-dry-run` and a plain `-shadow` parity run all share, and the one a
+// validation run deliberately does not use.
+//
+// It returns the inclusive lower bound files are selected from, and whether the
+// table already holds today's data (in which case the run short-circuits and
+// the returned bound is only the fallback window a summary records).
+//
+// Extracted so the parity contract is pinned by a test that needs no network
+// and no database: TestSyncFileWindowIsCutoffBased.
+func syncFileWindow(days int, today, lastDate time.Time, haveData bool) (cutoffDate time.Time, upToDate bool) {
+	cutoffDate = today.AddDate(0, 0, -days)
+	if !haveData {
+		return cutoffDate, false
+	}
+	if !lastDate.Before(today) {
+		return cutoffDate, true
+	}
+	return lastDate.AddDate(0, 0, 1), false
+}
+
 // syncShorts is the single implementation behind the live, dry and shadow
 // paths — the write is the only branch, so a shadow run exercises exactly the
 // code a real run does.
@@ -328,6 +393,11 @@ func runShadow(ctx context.Context, cfg config, store *pgStore, client *http.Cli
 //   - files are processed in ASIC index order (newest first);
 //   - a file that 404s or fails to parse is warned about and skipped, and the
 //     rest of the run continues.
+//
+// A `-stocks` VALIDATION run is the one exception, and it forks before any of
+// that: its window is the last N published ASIC dates, independent of what is
+// ingested. See validationScan for why. Everything below this fork — the sync,
+// the dry run and the plain `-shadow` parity run — is untouched.
 func syncShorts(ctx context.Context, cfg config, store *pgStore, client *http.Client, now time.Time, sum *shadowSummary) (int, error) {
 	today := truncateDay(now)
 
@@ -335,22 +405,24 @@ func syncShorts(ctx context.Context, cfg config, store *pgStore, client *http.Cl
 	if err != nil {
 		return 0, err
 	}
-	cutoffDate := today.AddDate(0, 0, -cfg.days)
+	if validationMode(cfg, sum) {
+		return validationScan(ctx, cfg, store, client, today, lastDate, haveData, sum)
+	}
+	cutoffDate, upToDate := syncFileWindow(cfg.days, today, lastDate, haveData)
 	if haveData {
 		log.Printf("   Last ingested shorts date: %s", lastDate.Format("2006-01-02"))
-		if !lastDate.Before(today) {
+		if upToDate {
 			log.Printf("   ✓ Already up to date!")
 			if sum != nil {
 				sum.LastShortsDate = lastDate.Format("2006-01-02")
 				sum.AlreadyUpToDate = true
-				// Still record a window: a validation run that short-circuits
-				// must not leave `cutoff` at the zero time, which would turn the
+				// Still record a window: a shadow run that short-circuits must
+				// not leave `cutoff` at the zero time, which would turn the
 				// comparison SELECT into a full-history scan.
 				sum.cutoff = cutoffDate
 			}
 			return 0, nil
 		}
-		cutoffDate = lastDate.AddDate(0, 0, 1)
 	} else {
 		log.Printf("   No existing shorts data - initial load")
 	}
@@ -380,7 +452,122 @@ func syncShorts(ctx context.Context, cfg config, store *pgStore, client *http.Cl
 		log.Printf("⚠️  No shorts data files to process")
 		return 0, nil
 	}
+	return processFiles(ctx, cfg, store, client, files, cutoffDate, sum)
+}
 
+// validationScan is the `-stocks` window, and the ONE place the pipeline
+// deliberately ignores what is already ingested.
+//
+// # Why the sync's window is the wrong window for a diagnostic
+//
+// A sync processes (MAX("DATE") + 1 day → today), which is correct for an
+// ingest and useless for a validation: on any day when ASIC has published
+// nothing new — most days, by design, since the job runs daily and catches up —
+// the window is EMPTY. Asked "does the pipeline work for BHP?", the report then
+// answered `rows_parsed: 0, not_found: [BHP]`, which reads as a failure and is
+// really just "there was nothing to do". A diagnostic that only produces a
+// report on the days new data happens to exist is backwards.
+//
+// So a validation run re-parses the last N PUBLISHED ASIC dates regardless of
+// the ingested cutoff. There is then always something to compare, and the
+// expected outcome for a healthy pipeline is `unchanged` on every row: the file
+// says 1.35%, the database says 1.35%, they agree. That is the positive signal
+// the operator was asking for.
+//
+// # Why this cannot write anything
+//
+// It re-parses dates the database already holds, so it is worth being explicit:
+// `-stocks` requires `-shadow` (parseConfig refuses otherwise), `-shadow`
+// implies `-dry-run`, and this path reaches the write only through
+// processFiles, whose upsert branch is unreachable while sum != nil — which
+// validationMode requires. The DB is touched by two SELECTs and nothing else.
+func validationScan(
+	ctx context.Context,
+	cfg config,
+	store *pgStore,
+	client *http.Client,
+	today, lastDate time.Time,
+	haveData bool,
+	sum *shadowSummary,
+) (int, error) {
+	win := &validationWindow{Days: cfg.validateDays, Files: []string{}}
+	sum.Validation = win
+
+	if haveData {
+		sum.LastShortsDate = lastDate.Format("2006-01-02")
+		// RECORDED, NEVER ACTED ON. A sync short-circuits here; a validation
+		// must not, or it reports nothing on exactly the days it is most likely
+		// to be asked.
+		sum.AlreadyUpToDate = !lastDate.Before(today)
+		win.IgnoredCutoff = lastDate.AddDate(0, 0, 1).Format("2006-01-02")
+		log.Printf("   Last ingested shorts date: %s (a sync would start at %s — IGNORED for validation)",
+			sum.LastShortsDate, win.IgnoredCutoff)
+	} else {
+		log.Printf("   No existing shorts data — every row in the window will report as new")
+	}
+	// Provisional, so an early return never leaves the comparison SELECT's
+	// lower bound at the zero time (which would make it a full-history scan).
+	setValidationCutoff(sum, today.AddDate(0, 0, -cfg.validateDays))
+
+	index, err := fetchIndex(ctx, client)
+	if err != nil {
+		// Fatal to the REPORT, not to the run: the same fail-soft posture as the
+		// sync, but named as the problem it is rather than reported as an empty
+		// window.
+		log.Printf("❌ Failed to fetch ASIC file list: %v", err)
+		win.Problem = fmt.Sprintf("no ASIC files could be scanned: the ASIC file index could not be fetched (%v)", err)
+		sum.FilesFailed = append(sum.FilesFailed, shadowFileError{File: asicIndexURL, Error: err.Error()})
+		return 0, nil
+	}
+
+	files := selectRecentFiles(index, cfg.validateDays)
+	sum.FilesSelected = len(files)
+	for _, f := range files {
+		win.Files = append(win.Files, f.fileName())
+	}
+	if len(files) == 0 {
+		win.Problem = "no ASIC files could be scanned: the ASIC file index is empty"
+		log.Printf("⚠️  %s", win.Problem)
+		return 0, nil
+	}
+
+	first, last, ok := windowBounds(files)
+	if !ok {
+		// Every selected entry carried an unparseable date. The files are still
+		// worth downloading (parseFile derives the date itself and will say so),
+		// but the window's lower bound has to come from the clock.
+		first = today.AddDate(0, 0, -cfg.validateDays)
+		last = today
+	}
+	win.From = first.Format("2006-01-02")
+	win.To = last.Format("2006-01-02")
+	setValidationCutoff(sum, first)
+	log.Printf("🔎 VALIDATION: %d file(s) over the last %d published ASIC date(s), %s → %s",
+		len(files), cfg.validateDays, win.From, win.To)
+
+	return processFiles(ctx, cfg, store, client, files, first, sum)
+}
+
+// setValidationCutoff records the window's lower bound in both the emitted
+// contract and the (unexported) bound the comparison SELECTs use, so the two
+// can never disagree.
+func setValidationCutoff(sum *shadowSummary, from time.Time) {
+	sum.cutoff = from
+	sum.CutoffDate = yyyymmdd(from)
+}
+
+// processFiles downloads, parses and (on a write run) upserts the selected
+// files. `cutoffDate` bounds the shadow run's existing-key read.
+func processFiles(
+	ctx context.Context,
+	cfg config,
+	store *pgStore,
+	client *http.Client,
+	files []asicFile,
+	cutoffDate time.Time,
+	sum *shadowSummary,
+) (int, error) {
+	var err error
 	var existing map[string]struct{}
 	seen := map[string]struct{}{}
 	if sum != nil {

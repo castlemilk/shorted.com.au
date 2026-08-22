@@ -10,10 +10,13 @@ import { requireAdmin } from "~/server/admin";
  * addressable by action-id, so /admin middleware is not the gate), and the
  * INTERNAL_SERVICE_SECRET never leaves the server.
  *
- * The action forwards stock codes and nothing else. The backend builds the job
- * arguments itself (`short-data-sync -shadow -stocks <codes>`) — this action is
- * a courier and cannot influence what the run does. In particular there is no
- * way from here to start a WRITING run of the sync.
+ * The action forwards stock codes and an optional window size, and nothing
+ * else. The backend builds the job arguments itself
+ * (`short-data-sync -shadow -stocks <codes> [-validate-days N]`) — this action
+ * is a courier and cannot influence what the run does. The window is an int,
+ * range-checked server-side and rendered with strconv there, so it can widen
+ * the read and nothing more: there is no way from here to start a WRITING run
+ * of the sync.
  */
 
 const INTERNAL_SECRET = process.env.INTERNAL_SERVICE_SECRET ?? "dev-internal-secret";
@@ -21,6 +24,7 @@ const INTERNAL_SECRET = process.env.INTERNAL_SERVICE_SECRET ?? "dev-internal-sec
 /** Machine-readable refusal codes emitted by /api/admin/jobs/validate-sync. */
 export type ValidateSyncCode =
   | "invalid_stocks"
+  | "invalid_days"
   | "invalid_execution"
   | "invalid_body"
   | "unknown_job"
@@ -55,10 +59,35 @@ export interface StockValues {
 /** The `stocks` section of the shadow summary. */
 export interface StocksSection {
   requested: string[];
+  /**
+   * Codes that appeared in NO file of the window — a real signal (delisted or
+   * never shorted). NOT the same as "there was no window": that is
+   * `window_empty`, which every renderer must check FIRST, because with no
+   * files `not_found` is vacuous.
+   */
   not_found: string[];
   observations: StockObservation[];
   counts: Record<string, number>;
+  /** Rows the comparison SELECT returned FOR THE REQUESTED CODES. */
   db_rows_in_window: number;
+  files_in_window?: number;
+  window_empty?: boolean;
+}
+
+/**
+ * The window a validation run scanned — the last N *published* ASIC dates,
+ * deliberately independent of what is already ingested. Present only on a
+ * `-stocks` run.
+ */
+export interface ValidationWindow {
+  days: number;
+  from?: string;
+  to?: string;
+  files: string[];
+  /** The date a normal sync would have started at, ignored for validation. */
+  ignored_cutoff?: string;
+  /** Set ONLY when the window came out empty — the one real failure mode. */
+  problem?: string;
 }
 
 /**
@@ -82,6 +111,7 @@ export interface ShadowSummary {
   duplicate_keys?: number;
   checksum?: string;
   stocks?: StocksSection;
+  validation?: ValidationWindow;
 }
 
 export interface StartValidationResult {
@@ -124,6 +154,8 @@ function headers() {
 /** Client-side-friendly pre-check, mirroring the backend's contract. */
 const CODE_PATTERN = /^[A-Z0-9]{1,5}$/;
 const MAX_CODES = 20;
+/** Mirrors the backend cap on `-validate-days`. */
+export const MAX_VALIDATE_DAYS = 30;
 
 /**
  * Splits and validates a raw operator string. Exported so the input can refuse
@@ -149,11 +181,22 @@ export async function normalizeStockInput(
   return { codes };
 }
 
-/** Starts a validation run. Returns as soon as Cloud Run accepts it (202). */
+/**
+ * Starts a validation run. Returns as soon as Cloud Run accepts it (202).
+ *
+ * `days` is optional and, when omitted, is left OUT of the body entirely so the
+ * job's own default window stays the single source of truth. The backend
+ * range-checks it regardless; this is a convenience, never a gate.
+ */
 export async function startSyncValidation(input: {
   stocks: string[];
+  days?: number;
 }): Promise<StartValidationResult> {
   const admin = await requireAdmin();
+  const payload: { stocks: string[]; days?: number } = { stocks: input.stocks };
+  if (typeof input.days === "number" && Number.isInteger(input.days) && input.days > 0) {
+    payload.days = Math.min(input.days, MAX_VALIDATE_DAYS);
+  }
 
   // No retries: this is a MUTATION (it creates a Cloud Run execution). A
   // retried POST after a timeout would start a second one.
@@ -161,7 +204,7 @@ export async function startSyncValidation(input: {
     const response = await fetch(`${SHORTS_API_URL}/api/admin/jobs/validate-sync`, {
       method: "POST",
       headers: { ...headers(), "x-admin-actor": admin.email },
-      body: JSON.stringify({ stocks: input.stocks }),
+      body: JSON.stringify(payload),
       cache: "no-store",
     });
     const body = (await response.json().catch(() => ({}))) as ApiError & {

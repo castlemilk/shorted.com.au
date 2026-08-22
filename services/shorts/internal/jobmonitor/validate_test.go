@@ -140,6 +140,42 @@ func TestValidationArgsAreServerConstructed(t *testing.T) {
 	}
 }
 
+// TestValidationWindowIsOptionalAndBounded covers the one caller-supplied
+// NUMBER that reaches the argv. It is rendered by strconv, never echoed, and an
+// out-of-range value costs no execution at all.
+func TestValidationWindowIsOptionalAndBounded(t *testing.T) {
+	// Omitted → the flag is not passed, so the job's own default stands and the
+	// existing argv contract is byte-identical.
+	c, r := seededValidator(t, fleet())
+	if _, err := c.RunValidation(context.Background(), ValidationRequest{Stocks: []string{"BHP"}}); err != nil {
+		t.Fatalf("RunValidation: %v", err)
+	}
+	if strings.Join(r.args, "|") != "short-data-sync|-shadow|-stocks|BHP" {
+		t.Fatalf("an omitted window must not add an argument: %v", r.args)
+	}
+
+	c2, r2 := seededValidator(t, fleet())
+	if _, err := c2.RunValidation(context.Background(), ValidationRequest{Stocks: []string{"BHP"}, Days: 14}); err != nil {
+		t.Fatalf("RunValidation: %v", err)
+	}
+	if strings.Join(r2.args, "|") != "short-data-sync|-shadow|-stocks|BHP|-validate-days|14" {
+		t.Fatalf("args = %v", r2.args)
+	}
+	if r2.args[1] != "-shadow" {
+		t.Fatalf("-shadow must still lead, whatever the window: %v", r2.args)
+	}
+
+	for _, days := range []int{-1, 31, 1 << 30} {
+		c3, r3 := seededValidator(t, fleet())
+		if _, err := c3.RunValidation(context.Background(), ValidationRequest{Stocks: []string{"BHP"}, Days: days}); !errors.Is(err, ErrInvalidDays) {
+			t.Fatalf("days=%d must fail with ErrInvalidDays, got %v", days, err)
+		}
+		if r3.args != nil {
+			t.Fatalf("days=%d must not create an execution", days)
+		}
+	}
+}
+
 // TestValidationIgnoresAlreadyRunningGuard documents the deliberate divergence
 // from RunJob: a shadow run writes nothing, so an in-flight 27h sync must not
 // block the diagnostic. fleet()'s shorts-data-sync is running.

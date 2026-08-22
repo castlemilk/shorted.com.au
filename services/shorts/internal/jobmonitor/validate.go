@@ -39,6 +39,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"cloud.google.com/go/storage"
@@ -80,6 +81,16 @@ const maxValidationObjectBytes = 1 << 20
 // oversized request is refused before it costs a Cloud Run execution.
 const maxValidationStocks = 20
 
+// maxValidationDays mirrors the job's `-validate-days` cap: how many of the
+// most recent PUBLISHED ASIC dates a validation run re-parses.
+//
+// Exposing the window through this endpoint is safe for the same reason the
+// stock list is: the value never reaches argv as caller text. It is decoded as
+// an int, range-checked here, and rendered with strconv — so the widest thing a
+// caller can do is ask for a month of files. It cannot switch off -shadow,
+// cannot aim at another job, and cannot open a write path.
+const maxValidationDays = 30
+
 // stockCodePattern is the ASX product-code shape: the ONLY characters that can
 // reach the constructed argv.
 var stockCodePattern = regexp.MustCompile(`^[A-Z0-9]{1,5}$`)
@@ -100,6 +111,9 @@ var (
 	// ErrInvalidStocks: the requested code list is empty, oversized, or contains
 	// something that is not a product code.
 	ErrInvalidStocks = errors.New("jobmonitor: invalid stock codes")
+	// ErrInvalidDays: the requested validation window is negative or over the
+	// cap.
+	ErrInvalidDays = errors.New("jobmonitor: invalid validation window")
 	// ErrOverridesUnsupported: the configured Runner cannot perform an override
 	// run (a test stub, or a future backend that only implements Run).
 	ErrOverridesUnsupported = errors.New("jobmonitor: runner does not support argument overrides")
@@ -122,6 +136,10 @@ var (
 // Note what is NOT here: no job name, no region, no arguments.
 type ValidationRequest struct {
 	Stocks []string
+	// Days optionally widens the validation window to the last N published
+	// ASIC dates. Zero means "let the job choose" — the flag is then not passed
+	// at all, so the job's own default remains the single source of truth.
+	Days int
 	// Actor is the admin identity, for the audit log only.
 	Actor string
 }
@@ -181,10 +199,29 @@ func NormalizeStockCodes(in []string) ([]string, error) {
 	return out, nil
 }
 
+// NormalizeValidationDays range-checks an optional validation window. Zero is
+// "unset": the flag is omitted and the job's default applies.
+func NormalizeValidationDays(days int) (int, error) {
+	if days == 0 {
+		return 0, nil
+	}
+	if days < 0 || days > maxValidationDays {
+		return 0, fmt.Errorf("%w: %d days (want 1-%d)", ErrInvalidDays, days, maxValidationDays)
+	}
+	return days, nil
+}
+
 // validationArgs builds the argv. Pure and total: given codes that passed
-// NormalizeStockCodes, the result can only ever be a shadow run.
-func validationArgs(codes []string) []string {
-	return []string{validationSubcommand, "-shadow", "-stocks", strings.Join(codes, ",")}
+// NormalizeStockCodes and a window that passed NormalizeValidationDays, the
+// result can only ever be a shadow run.
+func validationArgs(codes []string, days int) []string {
+	args := []string{validationSubcommand, "-shadow", "-stocks", strings.Join(codes, ",")}
+	if days > 0 {
+		// strconv, never the caller's text: the window reaches argv as a
+		// rendered int or not at all.
+		args = append(args, "-validate-days", strconv.Itoa(days))
+	}
+	return args
 }
 
 // RunValidation starts a read-only, per-stock validation of the shorts sync.
@@ -197,6 +234,10 @@ func (c *Collector) RunValidation(ctx context.Context, req ValidationRequest) (*
 	if err != nil {
 		return nil, err
 	}
+	days, err := NormalizeValidationDays(req.Days)
+	if err != nil {
+		return nil, err
+	}
 	target, err := c.resolveValidationTarget(ctx)
 	if err != nil {
 		return nil, err
@@ -206,7 +247,7 @@ func (c *Collector) RunValidation(ctx context.Context, req ValidationRequest) (*
 	if !ok {
 		return nil, ErrOverridesUnsupported
 	}
-	args := validationArgs(codes)
+	args := validationArgs(codes, days)
 	execName, err := overrider.RunWithArgs(ctx, c.cfg.ProjectID, target.Region, target.Name, args)
 	if err != nil {
 		return nil, err

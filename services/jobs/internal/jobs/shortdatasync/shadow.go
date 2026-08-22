@@ -61,6 +61,10 @@ type shadowSummary struct {
 	// so the parity contract above is byte-for-byte unchanged.
 	Stocks *stocksReport `json:"stocks,omitempty"`
 
+	// Validation describes the window a `-stocks` run chose and WHY it is not
+	// the sync's window. Like Stocks, present ONLY on a validation run.
+	Validation *validationWindow `json:"validation,omitempty"`
+
 	// Artifact records where the durable copy of this report was stored — or
 	// why it was not. Like Stocks, present ONLY on a `-stocks` validation run;
 	// a plain shadow run writes no object and carries no such field. See

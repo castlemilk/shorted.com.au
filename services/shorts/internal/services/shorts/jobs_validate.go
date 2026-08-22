@@ -3,7 +3,7 @@ package shorts
 // jobs_validate.go implements /api/admin/jobs/validate-sync — on-demand,
 // read-only, per-stock validation of the ASIC short-positions sync.
 //
-//	POST /api/admin/jobs/validate-sync   {"stocks":["BHP","DRO"]}
+//	POST /api/admin/jobs/validate-sync   {"stocks":["BHP","DRO"],"days":7}
 //	  → 202 {"executionName":"...","job":"shorts-data-sync","stocks":[...],"args":[...]}
 //
 //	GET  /api/admin/jobs/validate-sync?execution=<name>
@@ -73,10 +73,14 @@ func adminJobsValidateSyncHandler(logger *log.Logger, validator jobValidator) ht
 func startValidation(w http.ResponseWriter, r *http.Request, logger *log.Logger, validator jobValidator) {
 	var body struct {
 		Stocks []string `json:"stocks"`
+		// Days is OPTIONAL: how many of the most recent published ASIC dates to
+		// re-parse. Omitted/0 leaves the window to the job's own default, which
+		// keeps one source of truth for it.
+		Days int `json:"days"`
 	}
 	if err := json.NewDecoder(io.LimitReader(r.Body, maxValidateBody)).Decode(&body); err != nil {
 		writeJobRunError(w, http.StatusBadRequest, "invalid_body",
-			`Request body must be JSON: {"stocks":["BHP","DRO"]}`)
+			`Request body must be JSON: {"stocks":["BHP","DRO"],"days":7}`)
 		return
 	}
 
@@ -90,6 +94,7 @@ func startValidation(w http.ResponseWriter, r *http.Request, logger *log.Logger,
 
 	res, err := validator.RunValidation(ctx, jobmonitor.ValidationRequest{
 		Stocks: body.Stocks,
+		Days:   body.Days,
 		Actor:  actor,
 	})
 	if err != nil {
@@ -154,6 +159,9 @@ func writeValidationFailure(w http.ResponseWriter, logger *log.Logger, actor str
 	case errors.Is(err, jobmonitor.ErrInvalidStocks):
 		// The message is safe to echo: it only ever quotes the offending token.
 		writeJobRunError(w, http.StatusBadRequest, "invalid_stocks", err.Error())
+	case errors.Is(err, jobmonitor.ErrInvalidDays):
+		// Also safe to echo: it only ever quotes the integer it was given.
+		writeJobRunError(w, http.StatusBadRequest, "invalid_days", err.Error())
 	case errors.Is(err, jobmonitor.ErrInvalidExecution):
 		writeJobRunError(w, http.StatusBadRequest, "invalid_execution",
 			"That is not a valid Cloud Run execution name.")
