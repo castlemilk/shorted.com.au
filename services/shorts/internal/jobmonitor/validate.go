@@ -37,11 +37,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"regexp"
 	"strings"
 
+	"cloud.google.com/go/storage"
 	"google.golang.org/api/googleapi"
-	logging "google.golang.org/api/logging/v2"
 	"google.golang.org/api/option"
 	run "google.golang.org/api/run/v2"
 )
@@ -55,14 +56,25 @@ const ValidationJobName = "shorts-data-sync"
 // /shorted and the deployed args are ["short-data-sync"]).
 const validationSubcommand = "short-data-sync"
 
-// ValidationLinePrefix marks the single compact JSON line a `-shadow -stocks`
-// run writes to stdout.
+// ValidationObjectPrefix is the bucket "directory" a validation run publishes
+// its report under: gs://<bucket>/validations/<execution>.json.
 //
-// This literal is DUPLICATED in the job's own module
-// (services/jobs/internal/jobs/shortdatasync/stocks.go, validationLinePrefix) —
-// the two are separate Go modules and cannot share a constant. Both sides have
-// a test pinning the exact string; change one, change the other.
-const ValidationLinePrefix = "SHORTED_VALIDATION_JSON "
+// This literal, and the path layout in validationObjectPath, are DUPLICATED in
+// the job's own module (services/jobs/internal/jobs/shortdatasync/artifact.go)
+// — the two are separate Go modules and cannot share a constant. Both sides
+// have a test pinning the exact path; change one, change the other.
+const ValidationObjectPrefix = "validations/"
+
+// validationObjectPath is the object key holding one execution's report.
+func validationObjectPath(execution string) string {
+	return ValidationObjectPrefix + execution + ".json"
+}
+
+// maxValidationObjectBytes caps what will be read out of the bucket. A report
+// is <=20 codes x a short window; a megabyte is orders of magnitude of
+// headroom, and the cap is what stops a wrong/hostile object from being read
+// into memory unbounded.
+const maxValidationObjectBytes = 1 << 20
 
 // maxValidationStocks mirrors the job's own cap. Enforced here too so an
 // oversized request is refused before it costs a Cloud Run execution.
@@ -94,9 +106,16 @@ var (
 	// ErrInvalidExecution: the supplied execution name is not a plausible
 	// Cloud Run execution id.
 	ErrInvalidExecution = errors.New("jobmonitor: invalid execution name")
-	// ErrSummaryNotFound: the execution finished but no validation JSON line was
-	// found in its logs.
-	ErrSummaryNotFound = errors.New("jobmonitor: validation summary not found in logs")
+	// ErrSummaryNotFound: the execution finished but no validation report
+	// artifact exists for it in the bucket.
+	ErrSummaryNotFound = errors.New("jobmonitor: validation report artifact not found")
+	// ErrNoBucket: no report bucket is configured, so there is nowhere to read
+	// a report FROM. Distinct from "not found": the deployment is unconfigured,
+	// not the run.
+	ErrNoBucket = errors.New("jobmonitor: validation report bucket not configured (set SHORTS_DATA_BUCKET)")
+	// errObjectNotFound is the internal marker an ArtifactReader returns when
+	// the object does not exist. Not exported: callers see ErrSummaryNotFound.
+	errObjectNotFound = errors.New("jobmonitor: validation object does not exist")
 )
 
 // ValidationRequest is a request to validate the sync for a set of stocks.
@@ -275,6 +294,28 @@ func (r cloudRunRunner) RunWithArgs(ctx context.Context, projectID, region, job 
 }
 
 // --- result retrieval -------------------------------------------------------
+//
+// # Why a GCS object and not the execution's logs
+//
+// The first cut read the report back out of Cloud Logging: the job printed one
+// prefixed JSON line and this file listed that ONE execution's log entries.
+// That needed roles/logging.viewer, and log access is only grantable at the
+// PROJECT level — which the CI deploy service account cannot set (it can
+// getIamPolicy but not setIamPolicy). The grant therefore 403'd on every
+// `terraform apply` in the repo, blocking ALL infrastructure deploys, not just
+// this feature. It is the same constraint that makes the other two project
+// grants (run.viewer, cloudscheduler.viewer) `import` blocks rather than
+// managed resources, and that makes the run.invoker/run.developer grants
+// job-scoped.
+//
+// So the job now writes gs://<bucket>/validations/<execution>.json and this
+// reads exactly that key. Bucket IAM is grantable by the deploy SA (it owns
+// the bucket), and the artifact is better on its own merits: no log-retention
+// dependency, no stdout parsing, no reassembling entries split on newlines.
+//
+// DO NOT re-add a project-level IAM grant to make a feature work. If a
+// capability is only available at the project level, it cannot be deployed by
+// this pipeline.
 
 // ValidationReport is the polled result of a validation run.
 type ValidationReport struct {
@@ -290,10 +331,6 @@ type ValidationReport struct {
 	// not re-shape it: the contract belongs to the job (schema_version), and a
 	// translation layer here would be a second place for it to drift.
 	Summary json.RawMessage `json:"summary,omitempty"`
-	// LogTail is the last few log lines, surfaced when the run failed or the
-	// summary could not be found — the two cases where an operator needs the
-	// raw evidence rather than a parsed report.
-	LogTail []string `json:"logTail,omitempty"`
 }
 
 // ExecutionReader fetches one execution's state. An interface so the handler is
@@ -302,27 +339,30 @@ type ExecutionReader interface {
 	Execution(ctx context.Context, projectID, region, job, execution string) (*run.GoogleCloudRunV2Execution, error)
 }
 
-// LogReader returns an execution's log lines, NEWEST FIRST.
-type LogReader interface {
-	Lines(ctx context.Context, projectID, job, execution string, limit int) ([]string, error)
+// ArtifactReader fetches one validation report object. An interface so the
+// handler is testable without GCS. It MUST return errObjectNotFound (wrapped)
+// when the object does not exist — "not there yet" is a distinct outcome from
+// "could not be read", and the two get different responses.
+type ArtifactReader interface {
+	Object(ctx context.Context, bucket, object string) ([]byte, error)
 }
 
-// SetExecutionReader / SetLogReader override the retrieval backends (tests).
+// SetExecutionReader / SetArtifactReader override the retrieval backends (tests).
 func (c *Collector) SetExecutionReader(r ExecutionReader) { c.execReader = r }
-func (c *Collector) SetLogReader(r LogReader)             { c.logReader = r }
-
-// logTailLimit is how many log entries the reader pulls. Enough to hold the
-// summary line plus a failure's stderr context, small enough to stay one page.
-const logTailLimit = 200
+func (c *Collector) SetArtifactReader(r ArtifactReader)   { c.artifactReader = r }
 
 // ValidationResult polls one validation execution and, once it has finished,
-// returns the job's JSON summary.
+// returns the job's JSON summary from gs://<bucket>/validations/<execution>.json.
 //
 // Behaviour by state:
-//   - still running  → Status "running", no summary, no error
+//   - still running  → Status "running", no summary, no error (no bucket read)
 //   - finished ok    → Status "succeeded" + Summary (or ErrSummaryNotFound)
-//   - finished bad   → Status "failed" + Message + LogTail (a summary is still
-//     attached if one was emitted before the failure)
+//   - finished bad   → Status "failed" + Message (a summary is still attached
+//     if the job managed to publish one before failing)
+//
+// Poll semantics are deliberately unchanged from the log-reading version: the
+// console polls the same endpoint, sees the same three states, and treats
+// ErrSummaryNotFound the same way.
 func (c *Collector) ValidationResult(ctx context.Context, executionName string) (*ValidationReport, error) {
 	execName := strings.TrimSpace(executionName)
 	// A full resource path is accepted for convenience, but ONLY the last
@@ -361,33 +401,51 @@ func (c *Collector) ValidationResult(ctx context.Context, executionName string) 
 	}
 	rep.Status = executionState(exec)
 	if rep.Status == "running" {
+		// A still-running execution costs no bucket read: the artifact is
+		// written at the very end of the run, so there is nothing to find.
 		return rep, nil
 	}
 
-	logs := c.logReader
-	if logs == nil {
-		logs = cloudLoggingReader{}
+	if c.cfg.ValidationBucket == "" {
+		return nil, ErrNoBucket
 	}
-	lines, logErr := logs.Lines(ctx, c.cfg.ProjectID, target.Name, execName, logTailLimit)
-	if logErr != nil {
-		rep.Message = fmt.Sprintf("execution %s, but its logs could not be read: %v", rep.Status, logErr)
+	object := validationObjectPath(execName)
+	artifacts := c.artifactReader
+	if artifacts == nil {
+		artifacts = gcsArtifactReader{}
+	}
+	body, readErr := artifacts.Object(ctx, c.cfg.ValidationBucket, object)
+	uri := "gs://" + c.cfg.ValidationBucket + "/" + object
+
+	switch {
+	case readErr == nil:
+		if summary, ok := parseSummary(body); ok {
+			rep.Summary = summary
+		}
+	case errors.Is(readErr, errObjectNotFound):
+		// Handled below: whether this is an error depends on how the run ended.
+	default:
+		// A transport/permission failure degrades to a report rather than an
+		// error — the execution state is still worth showing.
+		rep.Message = fmt.Sprintf("execution %s, but its validation report at %s could not be read: %v", rep.Status, uri, readErr)
 		return rep, nil
 	}
 
-	if summary, ok := findValidationSummary(lines); ok {
-		rep.Summary = summary
-	}
 	if rep.Status == "failed" {
+		// The failure itself is the answer; a missing artifact is expected when
+		// the run died before publishing one.
 		rep.Message = executionFailureMessage(exec)
-		rep.LogTail = tail(lines, 15)
 		return rep, nil
 	}
 	if rep.Summary == nil {
 		// An explicit error, not a silent empty report: "the run succeeded but
-		// produced no summary" is a real (and confusing) failure mode — a stale
-		// job image without the -stocks flag looks exactly like this.
-		rep.Message = "the execution succeeded but no validation summary was found in its logs (is the deployed shorts-data-sync image new enough to support -stocks?)"
-		rep.LogTail = tail(lines, 15)
+		// published no report" is a real (and confusing) failure mode — a stale
+		// job image without the -stocks flag, or without the artifact write,
+		// looks exactly like this. So does a job service account that has lost
+		// write access to the bucket.
+		rep.Message = fmt.Sprintf(
+			"the execution succeeded but no validation report was found at %s (is the deployed shorts-data-sync image new enough to publish one, and does its service account still have write access to the bucket?)",
+			uri)
 		return rep, ErrSummaryNotFound
 	}
 	return rep, nil
@@ -428,69 +486,27 @@ func executionFailureMessage(exec *run.GoogleCloudRunV2Execution) string {
 	return fmt.Sprintf("execution failed (%d failed task(s))", exec.FailedCount)
 }
 
-// findValidationSummary locates the job's compact JSON line among log entries.
+// parseSummary accepts an object body only if it looks like a shadow summary.
 //
-// Defensive on purpose — logs are a lossy transport:
-//  1. prefer a line carrying ValidationLinePrefix;
-//  2. otherwise accept any line that parses as a JSON object whose "mode" is
-//     "shadow" (a structured-logging layer may have stripped the prefix);
-//  3. a line that does not parse is skipped, never fatal.
-//
-// Entries arrive newest first, so the FIRST match is the latest summary.
-func findValidationSummary(lines []string) (json.RawMessage, bool) {
-	var fallback json.RawMessage
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if i := strings.Index(trimmed, ValidationLinePrefix); i >= 0 {
-			candidate := strings.TrimSpace(trimmed[i+len(ValidationLinePrefix):])
-			if raw, ok := parseSummary(candidate); ok {
-				return raw, true
-			}
-			continue
-		}
-		if fallback == nil {
-			if raw, ok := parseSummary(trimmed); ok {
-				fallback = raw
-			}
-		}
-	}
-	if fallback != nil {
-		return fallback, true
-	}
-	return nil, false
-}
-
-// parseSummary accepts a JSON object that looks like a shadow summary.
-func parseSummary(s string) (json.RawMessage, bool) {
-	if !strings.HasPrefix(s, "{") {
+// The check is cheap and worth keeping even though the bucket is trusted: an
+// object at the right key that is NOT a report (a truncated upload, a leftover
+// from a different writer) must read as "no report", not as a report the
+// console then renders as an empty diff.
+func parseSummary(body []byte) (json.RawMessage, bool) {
+	trimmed := strings.TrimSpace(string(body))
+	if !strings.HasPrefix(trimmed, "{") {
 		return nil, false
 	}
 	var probe struct {
 		Mode string `json:"mode"`
 	}
-	if err := json.Unmarshal([]byte(s), &probe); err != nil {
+	if err := json.Unmarshal([]byte(trimmed), &probe); err != nil {
 		return nil, false
 	}
 	if probe.Mode != "shadow" {
 		return nil, false
 	}
-	return json.RawMessage(s), true
-}
-
-// tail returns the last n entries of a NEWEST-FIRST list, oldest first, so the
-// console renders them in reading order.
-func tail(lines []string, n int) []string {
-	if len(lines) > n {
-		lines = lines[:n]
-	}
-	out := make([]string, 0, len(lines))
-	for i := len(lines) - 1; i >= 0; i-- {
-		if strings.TrimSpace(lines[i]) == "" {
-			continue
-		}
-		out = append(out, lines[i])
-	}
-	return out
+	return json.RawMessage(trimmed), true
 }
 
 // cloudRunExecutionReader is the production ExecutionReader.
@@ -516,61 +532,34 @@ func (r cloudRunExecutionReader) Execution(ctx context.Context, projectID, regio
 	return exec, nil
 }
 
-// cloudLoggingReader is the production LogReader.
-type cloudLoggingReader struct {
+// gcsArtifactReader is the production ArtifactReader.
+//
+// The only GCS permission this needs is roles/storage.objectViewer on the
+// short-selling-data bucket — a BUCKET-level grant, which is exactly why this
+// replaced the log read (see the section header above).
+type gcsArtifactReader struct {
 	opts []option.ClientOption
 }
 
-// logFilter scopes the query to ONE execution of ONE job. Every interpolated
-// value is either a constant or has already passed a pattern check, so the
-// filter cannot be steered by caller input.
-func logFilter(job, execution string) string {
-	return fmt.Sprintf(
-		`resource.type="cloud_run_job" resource.labels.job_name=%q labels."run.googleapis.com/execution_name"=%q`,
-		job, execution,
-	)
-}
-
-func (r cloudLoggingReader) Lines(ctx context.Context, projectID, job, execution string, limit int) ([]string, error) {
-	svc, err := logging.NewService(ctx, r.opts...)
+func (r gcsArtifactReader) Object(ctx context.Context, bucket, object string) ([]byte, error) {
+	client, err := storage.NewClient(ctx, r.opts...)
 	if err != nil {
-		return nil, fmt.Errorf("jobmonitor: create logging client: %w", err)
+		return nil, fmt.Errorf("jobmonitor: create storage client: %w", err)
 	}
-	resp, err := svc.Entries.List(&logging.ListLogEntriesRequest{
-		ResourceNames: []string{"projects/" + projectID},
-		Filter:        logFilter(job, execution),
-		OrderBy:       "timestamp desc",
-		PageSize:      int64(limit),
-	}).Context(ctx).Do()
-	if err != nil {
-		return nil, fmt.Errorf("jobmonitor: list log entries: %w", err)
-	}
-	return entryLines(resp.Entries), nil
-}
+	defer func() { _ = client.Close() }()
 
-// entryLines flattens log entries to strings, newest first. Both payload shapes
-// are handled: a plain stdout line arrives as textPayload, but a structured
-// logging sink may wrap it in jsonPayload.message.
-func entryLines(entries []*logging.LogEntry) []string {
-	out := make([]string, 0, len(entries))
-	for _, e := range entries {
-		if e == nil {
-			continue
+	rc, err := client.Bucket(bucket).Object(object).NewReader(ctx)
+	if err != nil {
+		if errors.Is(err, storage.ErrObjectNotExist) || errors.Is(err, storage.ErrBucketNotExist) {
+			return nil, fmt.Errorf("%w: gs://%s/%s", errObjectNotFound, bucket, object)
 		}
-		if e.TextPayload != "" {
-			out = append(out, e.TextPayload)
-			continue
-		}
-		if len(e.JsonPayload) > 0 {
-			var payload struct {
-				Message string `json:"message"`
-			}
-			if err := json.Unmarshal(e.JsonPayload, &payload); err == nil && payload.Message != "" {
-				out = append(out, payload.Message)
-				continue
-			}
-			out = append(out, string(e.JsonPayload))
-		}
+		return nil, fmt.Errorf("jobmonitor: open gs://%s/%s: %w", bucket, object, err)
 	}
-	return out
+	defer func() { _ = rc.Close() }()
+
+	body, err := io.ReadAll(io.LimitReader(rc, maxValidationObjectBytes))
+	if err != nil {
+		return nil, fmt.Errorf("jobmonitor: read gs://%s/%s: %w", bucket, object, err)
+	}
+	return body, nil
 }

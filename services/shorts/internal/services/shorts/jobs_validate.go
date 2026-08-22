@@ -9,8 +9,13 @@ package shorts
 //	GET  /api/admin/jobs/validate-sync?execution=<name>
 //	  → 200 {"status":"running"}
 //	  → 200 {"status":"succeeded","summary":{...}}
-//	  → 200 {"status":"failed","message":"...","logTail":[...]}
+//	  → 200 {"status":"failed","message":"..."}
 //	  → 502 {"error":"summary_not_found", ...}
+//
+// The GET reads the run's report from gs://<bucket>/validations/<execution>.json
+// — a durable artifact the job publishes, NOT the execution's logs. See
+// jobmonitor/validate.go for why that changed (project-level IAM is not
+// grantable by the CI deploy service account).
 //
 // The handler is a courier. It never constructs job arguments and never names a
 // Cloud Run resource: it forwards a stock-code list to jobmonitor, which
@@ -119,15 +124,15 @@ func pollValidation(w http.ResponseWriter, r *http.Request, logger *log.Logger, 
 	rep, err := validator.ValidationResult(ctx, execution)
 	if errors.Is(err, jobmonitor.ErrSummaryNotFound) {
 		// A real, specific failure — reported as one rather than as an empty
-		// success. The partial report (status + log tail) still travels, because
-		// that is exactly what an operator needs to diagnose it.
+		// success. The partial report (status + the message naming the object
+		// that is missing + the log link) still travels, because that is
+		// exactly what an operator needs to diagnose it.
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadGateway)
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"error":   "summary_not_found",
 			"message": rep.Message,
 			"status":  rep.Status,
-			"logTail": rep.LogTail,
 			"logUri":  rep.LogUri,
 		})
 		return
@@ -169,6 +174,9 @@ func writeValidationFailure(w http.ResponseWriter, logger *log.Logger, actor str
 	case errors.Is(err, jobmonitor.ErrOverridesUnsupported):
 		writeJobRunError(w, http.StatusServiceUnavailable, "not_configured",
 			"This deployment cannot start override runs.")
+	case errors.Is(err, jobmonitor.ErrNoBucket):
+		writeJobRunError(w, http.StatusServiceUnavailable, "not_configured",
+			"Validation report retrieval is not configured (SHORTS_DATA_BUCKET unset).")
 	default:
 		logger.Errorf("jobs/validate-sync FAILED actor=%s: %v", actor, err)
 		writeJobRunError(w, http.StatusBadGateway, "validation_failed",

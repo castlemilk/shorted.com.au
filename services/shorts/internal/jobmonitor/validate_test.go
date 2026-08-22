@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
-	"google.golang.org/api/googleapi"
-	logging "google.golang.org/api/logging/v2"
 	run "google.golang.org/api/run/v2"
 )
 
@@ -45,21 +45,28 @@ func (s *stubExecReader) Execution(_ context.Context, project, region, job, exec
 	return s.exec, s.err
 }
 
-type stubLogReader struct {
-	lines []string
-	err   error
-	job   string
-	exec  string
+// stubArtifactReader stands in for GCS and records the exact key it was asked
+// for — the cross-module contract with the job.
+type stubArtifactReader struct {
+	body   []byte
+	err    error
+	calls  int
+	bucket string
+	object string
 }
 
-func (s *stubLogReader) Lines(_ context.Context, _, job, execution string, _ int) ([]string, error) {
-	s.job, s.exec = job, execution
-	return s.lines, s.err
+func (s *stubArtifactReader) Object(_ context.Context, bucket, object string) ([]byte, error) {
+	s.calls++
+	s.bucket, s.object = bucket, object
+	return s.body, s.err
 }
+
+// testBucket is the configured report bucket in these tests.
+const testBucket = "shorted-short-selling-data-test"
 
 func seededValidator(t *testing.T, jobs []JobStatus) (*Collector, *stubOverrideRunner) {
 	t.Helper()
-	c := NewCollector(Config{ProjectID: "proj", RunRegions: []string{"australia-southeast2"}})
+	c := NewCollector(Config{ProjectID: "proj", RunRegions: []string{"australia-southeast2"}, ValidationBucket: testBucket})
 	c.cached = jobs
 	c.cachedAt = time.Now()
 	r := &stubOverrideRunner{}
@@ -206,18 +213,21 @@ func finished(failed int64) *run.GoogleCloudRunV2Execution {
 	return e
 }
 
-func withReaders(t *testing.T, exec *run.GoogleCloudRunV2Execution, lines []string) (*Collector, *stubExecReader, *stubLogReader) {
+func withReaders(t *testing.T, exec *run.GoogleCloudRunV2Execution, body []byte) (*Collector, *stubExecReader, *stubArtifactReader) {
 	t.Helper()
 	c, _ := seededValidator(t, fleet())
 	er := &stubExecReader{exec: exec}
-	lr := &stubLogReader{lines: lines}
+	ar := &stubArtifactReader{body: body}
+	if body == nil {
+		ar.err = fmt.Errorf("%w: gs://%s/x", errObjectNotFound, testBucket)
+	}
 	c.SetExecutionReader(er)
-	c.SetLogReader(lr)
-	return c, er, lr
+	c.SetArtifactReader(ar)
+	return c, er, ar
 }
 
 func TestValidationResultStillRunning(t *testing.T) {
-	c, _, lr := withReaders(t, &run.GoogleCloudRunV2Execution{StartTime: "2026-08-21T01:00:00Z", RunningCount: 1}, nil)
+	c, _, ar := withReaders(t, &run.GoogleCloudRunV2Execution{StartTime: "2026-08-21T01:00:00Z", RunningCount: 1}, nil)
 	rep, err := c.ValidationResult(context.Background(), "shorts-data-sync-v4l1d")
 	if err != nil {
 		t.Fatalf("ValidationResult: %v", err)
@@ -225,17 +235,13 @@ func TestValidationResultStillRunning(t *testing.T) {
 	if rep.Status != "running" || rep.Summary != nil {
 		t.Fatalf("report = %+v", rep)
 	}
-	if lr.exec != "" {
-		t.Fatal("a still-running execution must not cost a log query")
+	if ar.calls != 0 {
+		t.Fatal("a still-running execution must not cost a bucket read")
 	}
 }
 
 func TestValidationResultSucceededParsesSummary(t *testing.T) {
-	c, er, lr := withReaders(t, finished(0), []string{
-		"noise after the summary",
-		ValidationLinePrefix + sampleSummary,
-		"🚀 SHORT DATA SYNC — starting",
-	})
+	c, er, ar := withReaders(t, finished(0), []byte(sampleSummary))
 	rep, err := c.ValidationResult(context.Background(), "shorts-data-sync-v4l1d")
 	if err != nil {
 		t.Fatalf("ValidationResult: %v", err)
@@ -258,29 +264,37 @@ func TestValidationResultSucceededParsesSummary(t *testing.T) {
 	if er.got[2] != ValidationJobName || er.got[3] != "shorts-data-sync-v4l1d" {
 		t.Fatalf("execution lookup coordinates = %v", er.got)
 	}
-	if lr.job != ValidationJobName {
-		t.Fatalf("log query job = %q", lr.job)
+	// The report is read from the configured bucket at the agreed key, never
+	// from anywhere the caller could steer.
+	if ar.bucket != testBucket || ar.object != "validations/shorts-data-sync-v4l1d.json" {
+		t.Fatalf("artifact coordinates = %s/%s", ar.bucket, ar.object)
 	}
 }
 
-// TestValidationResultAcceptsPrefixlessJSON covers a structured-logging sink
-// that strips the marker: the reader still recognises a shadow summary.
-func TestValidationResultAcceptsPrefixlessJSON(t *testing.T) {
-	c, _, _ := withReaders(t, finished(0), []string{"unrelated {not json", sampleSummary})
-	rep, err := c.ValidationResult(context.Background(), "shorts-data-sync-v4l1d")
-	if err != nil {
-		t.Fatalf("ValidationResult: %v", err)
+// TestValidationObjectPathMatchesTheJob pins the cross-module contract. The job
+// side (services/jobs/.../artifact.go) has the mirror of this assertion.
+func TestValidationObjectPathMatchesTheJob(t *testing.T) {
+	if ValidationObjectPrefix != "validations/" {
+		t.Fatalf("prefix changed to %q — update services/jobs/internal/jobs/shortdatasync/artifact.go too", ValidationObjectPrefix)
 	}
-	if rep.Summary == nil {
-		t.Fatal("a prefixless but well-formed shadow summary must still be found")
+	if got := validationObjectPath("shorts-data-sync-v4l1d"); got != "validations/shorts-data-sync-v4l1d.json" {
+		t.Fatalf("object path = %q — update the job side too", got)
 	}
 }
 
-func TestValidationResultFailedSurfacesLogTail(t *testing.T) {
-	c, _, _ := withReaders(t, finished(1), []string{
-		"panic: connection refused",
-		"dialing postgres",
-	})
+// TestValidationResultRejectsANonReportObject: an object at the right key that
+// is not a shadow summary must read as "no report", never as an empty diff.
+func TestValidationResultRejectsANonReportObject(t *testing.T) {
+	for _, body := range []string{`{"mode":"live","rows":3}`, `not json at all`, ``} {
+		c, _, _ := withReaders(t, finished(0), []byte(body))
+		if _, err := c.ValidationResult(context.Background(), "shorts-data-sync-v4l1d"); !errors.Is(err, ErrSummaryNotFound) {
+			t.Fatalf("body %q must not be accepted as a report, got %v", body, err)
+		}
+	}
+}
+
+func TestValidationResultFailedReportsTheFailure(t *testing.T) {
+	c, _, _ := withReaders(t, finished(1), nil)
 	rep, err := c.ValidationResult(context.Background(), "shorts-data-sync-v4l1d")
 	if err != nil {
 		t.Fatalf("a failed execution is a report, not a transport error: %v", err)
@@ -291,20 +305,52 @@ func TestValidationResultFailedSurfacesLogTail(t *testing.T) {
 	if !strings.Contains(rep.Message, "exited with code 1") {
 		t.Fatalf("message = %q", rep.Message)
 	}
-	// Oldest first, so the console reads top-to-bottom.
-	if len(rep.LogTail) != 2 || rep.LogTail[0] != "dialing postgres" {
-		t.Fatalf("logTail = %v", rep.LogTail)
+	// A run that died before publishing has no artifact, and that absence must
+	// not mask the real failure with a summary_not_found.
+	if rep.Summary != nil {
+		t.Fatalf("summary = %s", rep.Summary)
+	}
+}
+
+// TestValidationResultFailedStillAttachesAnArtifact: if the job published a
+// report and then failed, the report still travels.
+func TestValidationResultFailedStillAttachesAnArtifact(t *testing.T) {
+	c, _, _ := withReaders(t, finished(1), []byte(sampleSummary))
+	rep, err := c.ValidationResult(context.Background(), "shorts-data-sync-v4l1d")
+	if err != nil {
+		t.Fatalf("ValidationResult: %v", err)
+	}
+	if rep.Status != "failed" || rep.Summary == nil {
+		t.Fatalf("report = %+v", rep)
 	}
 }
 
 func TestValidationResultSummaryNotFoundIsExplicit(t *testing.T) {
-	c, _, _ := withReaders(t, finished(0), []string{"✅ Shorts update complete"})
+	c, _, _ := withReaders(t, finished(0), nil)
 	rep, err := c.ValidationResult(context.Background(), "shorts-data-sync-v4l1d")
 	if !errors.Is(err, ErrSummaryNotFound) {
 		t.Fatalf("want ErrSummaryNotFound, got %v", err)
 	}
 	if rep == nil || rep.Message == "" {
 		t.Fatal("the partial report must still travel so an operator can diagnose it")
+	}
+	// The message must NAME the object that is missing — the whole point of a
+	// durable artifact is that an operator can go and look.
+	if !strings.Contains(rep.Message, "gs://"+testBucket+"/validations/shorts-data-sync-v4l1d.json") {
+		t.Fatalf("message must name the missing artifact: %q", rep.Message)
+	}
+}
+
+// TestValidationResultWithoutABucketIsNotConfigured: an unset bucket is a
+// deployment problem, reported as one, not as a missing report.
+func TestValidationResultWithoutABucketIsNotConfigured(t *testing.T) {
+	c, _, ar := withReaders(t, finished(0), []byte(sampleSummary))
+	c.cfg.ValidationBucket = ""
+	if _, err := c.ValidationResult(context.Background(), "shorts-data-sync-v4l1d"); !errors.Is(err, ErrNoBucket) {
+		t.Fatalf("want ErrNoBucket, got %v", err)
+	}
+	if ar.calls != 0 {
+		t.Fatal("no bucket read may be attempted without a configured bucket")
 	}
 }
 
@@ -320,7 +366,7 @@ func TestValidationResultRejectsBadExecutionName(t *testing.T) {
 // TestValidationResultUsesOnlyTheLastPathSegment: a caller passing a full
 // resource path cannot steer the lookup at another project or region.
 func TestValidationResultUsesOnlyTheLastPathSegment(t *testing.T) {
-	c, er, _ := withReaders(t, finished(0), []string{ValidationLinePrefix + sampleSummary})
+	c, er, _ := withReaders(t, finished(0), []byte(sampleSummary))
 	if _, err := c.ValidationResult(context.Background(),
 		"projects/evil/locations/elsewhere/jobs/other/executions/shorts-data-sync-v4l1d"); err != nil {
 		t.Fatalf("ValidationResult: %v", err)
@@ -330,53 +376,32 @@ func TestValidationResultUsesOnlyTheLastPathSegment(t *testing.T) {
 	}
 }
 
-func TestValidationResultLogReadFailureDegrades(t *testing.T) {
-	c, _, lr := withReaders(t, finished(0), nil)
-	lr.err = errors.New("permission denied on logging.logEntries.list")
+// TestValidationResultArtifactReadFailureDegrades: a permission/transport
+// failure is reported alongside the execution state rather than raised — the
+// same posture the log reader had.
+func TestValidationResultArtifactReadFailureDegrades(t *testing.T) {
+	c, _, ar := withReaders(t, finished(0), nil)
+	ar.err = errors.New("storage: permission denied on storage.objects.get")
 	rep, err := c.ValidationResult(context.Background(), "shorts-data-sync-v4l1d")
 	if err != nil {
-		t.Fatalf("a log-read failure must degrade, not error: %v", err)
+		t.Fatalf("an artifact-read failure must degrade, not error: %v", err)
 	}
-	if !strings.Contains(rep.Message, "logs could not be read") {
+	if !strings.Contains(rep.Message, "could not be read") || !strings.Contains(rep.Message, "permission denied") {
 		t.Fatalf("message = %q", rep.Message)
 	}
 }
 
-func TestLogFilterIsScopedToOneExecution(t *testing.T) {
-	f := logFilter("shorts-data-sync", "shorts-data-sync-v4l1d")
-	for _, want := range []string{
-		`resource.type="cloud_run_job"`,
-		`resource.labels.job_name="shorts-data-sync"`,
-		`labels."run.googleapis.com/execution_name"="shorts-data-sync-v4l1d"`,
-	} {
-		if !strings.Contains(f, want) {
-			t.Fatalf("filter %q missing %q", f, want)
+// TestNoLoggingClientRemains is a guard against re-introducing the retrieval
+// path that broke every terraform apply: reading a validation report must
+// never require a project-level roles/logging.viewer again.
+func TestNoLoggingClientRemains(t *testing.T) {
+	src, err := os.ReadFile("validate.go")
+	if err != nil {
+		t.Fatalf("read validate.go: %v", err)
+	}
+	for _, banned := range []string{`api/logging/v2`, "logging.NewService", "logEntries.list"} {
+		if strings.Contains(string(src), banned) {
+			t.Fatalf("validate.go references %q — the report is retrieved from GCS, and a project-level logging grant cannot be applied by the CI deploy service account", banned)
 		}
-	}
-}
-
-// TestValidationLinePrefixMatchesTheJob pins the cross-module literal. The job
-// side (services/jobs/.../stocks.go) has the mirror of this assertion.
-func TestValidationLinePrefixMatchesTheJob(t *testing.T) {
-	if ValidationLinePrefix != "SHORTED_VALIDATION_JSON " {
-		t.Fatalf("prefix changed to %q — update services/jobs/internal/jobs/shortdatasync/stocks.go too", ValidationLinePrefix)
-	}
-}
-
-// TestEntryLinesHandlesBothPayloadShapes: a container's stdout arrives as
-// textPayload, but a structured sink wraps it in jsonPayload.message.
-func TestEntryLinesHandlesBothPayloadShapes(t *testing.T) {
-	got := entryLines([]*logging.LogEntry{
-		{TextPayload: "plain stdout"},
-		{JsonPayload: googleapi.RawMessage(`{"message":"structured message"}`)},
-		{JsonPayload: googleapi.RawMessage(`{"other":"raw"}`)},
-		nil,
-		{},
-	})
-	if len(got) != 3 {
-		t.Fatalf("lines = %v", got)
-	}
-	if got[0] != "plain stdout" || got[1] != "structured message" || !strings.Contains(got[2], "raw") {
-		t.Fatalf("lines = %v", got)
 	}
 }

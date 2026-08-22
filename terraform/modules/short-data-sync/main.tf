@@ -109,6 +109,33 @@ resource "google_storage_bucket_iam_member" "short_data_sync_bucket" {
   member = "serviceAccount:${google_service_account.short_data_sync.email}"
 }
 
+# Readers of this bucket — in practice the shorts API, which serves
+# GET /api/admin/jobs/validate-sync by reading the per-stock validation report
+# this job publishes at validations/<execution>.json.
+#
+# objectViewer, never admin: the API only ever reads.
+#
+# Granted HERE, from the module that OWNS the bucket, for two reasons. It is
+# the convention the influence-collector module already sets (binding IAM on a
+# bucket owned by another module is what produced the getIamPolicy 403 in
+# report-extractor's `removed {}` block), and it keeps the dependency in one
+# direction — this module takes the API's service account, and the API takes
+# only a bucket NAME (from a local in environments/*/main.tf), so the two
+# modules never depend on each other's outputs.
+#
+# This binding is also the whole reason the feature is deployable: BUCKET IAM
+# is writable by the CI deploy service account, PROJECT IAM is not. The first
+# cut of the validation endpoint read Cloud Logging instead and needed a
+# project-level roles/logging.viewer, which 403'd on every apply. See the
+# comment where that resource used to live, in modules/shorts-api/main.tf.
+resource "google_storage_bucket_iam_member" "readers" {
+  for_each = toset(var.reader_service_accounts)
+
+  bucket = google_storage_bucket.short_selling_data.name
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${each.value}"
+}
+
 # Grant Secret Manager access to service account
 resource "google_secret_manager_secret_iam_member" "database_url" {
   secret_id = "DATABASE_URL"
@@ -160,6 +187,18 @@ resource "google_cloud_run_v2_job" "short_data_sync" {
         env {
           name  = "GCP_PROJECT"
           value = var.project_id
+        }
+
+        # Where a VALIDATION run (`-shadow -stocks BHP,DRO`) publishes its
+        # report: gs://<this bucket>/validations/<CLOUD_RUN_EXECUTION>.json.
+        # The shorts API reads exactly that key (same variable name there).
+        #
+        # A plain `-shadow` parity run writes NOTHING to this bucket regardless
+        # of this variable — the artifact is gated on -stocks in the job itself
+        # (services/jobs/internal/jobs/shortdatasync/artifact.go).
+        env {
+          name  = "SHORTS_DATA_BUCKET"
+          value = google_storage_bucket.short_selling_data.name
         }
 
         env {

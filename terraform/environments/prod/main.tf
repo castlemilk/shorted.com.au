@@ -157,6 +157,18 @@ module "stock_price_ingestion" {
   ]
 }
 
+# The short-selling data bucket's name, written ONCE and consumed by two
+# modules: short_data_sync OWNS it (and publishes per-stock validation reports
+# to validations/<execution>.json), shorts_api READS from it.
+#
+# A literal rather than `module.short_data_sync.bucket_name` on the API side:
+# short_data_sync already takes the API's service account (to grant it
+# objectViewer), so taking the bucket name back the other way would make the
+# two modules mutually dependent. One local, two consumers, no cycle.
+locals {
+  short_selling_bucket_name = "shorted-short-selling-data-prod" # Prod-specific bucket
+}
+
 # Short Data Sync Job
 module "short_data_sync" {
   source = "../../modules/short-data-sync"
@@ -165,7 +177,14 @@ module "short_data_sync" {
   region           = var.region
   scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
   environment      = "production"
-  bucket_name      = "shorted-short-selling-data-prod" # Prod-specific bucket
+  bucket_name      = local.short_selling_bucket_name
+
+  # The shorts API reads this bucket to serve
+  # GET /api/admin/jobs/validate-sync. Granted from the OWNING module — bucket
+  # IAM is writable by the CI deploy SA, which is the whole reason this
+  # replaced the project-level roles/logging.viewer grant that broke every
+  # apply (see modules/shorts-api/main.tf).
+  reader_service_accounts = [module.shorts_api.service_account_email]
   # REVALIDATION_SECRET now exists in prod Secret Manager + the matching value
   # is set in the Vercel frontend env, so enable event-driven cache busting.
   manage_revalidation_secret = true
@@ -524,6 +543,10 @@ module "shorts_api" {
 
   scheduler_region             = "australia-southeast1"
   enable_key_metrics_scheduler = true
+
+  # Where GET /api/admin/jobs/validate-sync reads a validation report from.
+  # Same bucket the sync job writes it to — see the local above.
+  shorts_data_bucket = local.short_selling_bucket_name
 
   # Operator email on each newsletter subscribe — RESEND_API_KEY secret is
   # provisioned in prod, so bind it (from/to default to support@shorted.com.au).

@@ -104,3 +104,22 @@ variable "broadcast_reply_to" {
   default     = "support@shorted.com.au"
 }
 
+
+variable "shorts_data_bucket" {
+  description = <<-EOT
+    GCS bucket holding the shorts-data-sync job's artifacts, in particular the
+    per-stock validation reports at validations/<execution>.json that
+    GET /api/admin/jobs/validate-sync reads.
+
+    Passed in rather than derived: the bucket is OWNED by the short-data-sync
+    module, which also grants this service objectViewer on it (its
+    var.reader_service_accounts). Reading the name from that module's output
+    here would make the two modules mutually dependent, so both are wired from
+    one local in environments/*/main.tf.
+
+    Empty disables retrieval (the endpoint answers 503 not_configured). There
+    is deliberately no default — prod and dev use different bucket names.
+  EOT
+  type        = string
+  default     = ""
+}

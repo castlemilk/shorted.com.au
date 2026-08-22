@@ -210,17 +210,65 @@ the run rather than being silently dropped.
 
 ### Output shape
 
-Two differences from a plain `-shadow` run:
+Three differences from a plain `-shadow` run:
 
 * the summary gains a `stocks` section (absent otherwise, so the parity artefact
   above is byte-for-byte unchanged);
 * it is printed as **one compact line** prefixed `SHORTED_VALIDATION_JSON `,
-  because Cloud Logging splits container stdout into one entry per newline —
-  the pretty-printed block cannot be recovered from logs, a single line can.
-  (The admin console retrieves the report exactly this way.)
+  which greps cleanly out of Cloud Logging (which splits container stdout into
+  one entry per newline, so the pretty-printed block cannot be reassembled);
+* it is also **stored as a durable object** — see below — and the summary gains
+  an `artifact` section recording where, or why not.
 
 Every summary — plain or validation — now carries `schema_version` (currently
 `1`). Bump it when a field changes meaning or disappears.
+
+### The report artifact — `gs://$SHORTS_DATA_BUCKET/validations/<execution>.json`
+
+A validation run additionally writes its whole summary to the job's own GCS
+bucket, keyed by the Cloud Run execution id:
+
+```
+gs://shorted-short-selling-data-prod/validations/shorts-data-sync-v4l1d.json
+```
+
+That object is what the admin console reads. It replaced reading the stdout
+line back out of Cloud Logging, for one blocking reason and three good ones:
+
+* **Blocking.** Reading logs needs `logging.logEntries.list`, and log access is
+  only grantable at the **project** level. The CI deploy service account cannot
+  set project IAM (it can `getIamPolicy` but not `setIamPolicy`), so the grant
+  403'd on every `terraform apply` — it broke all infrastructure deploys, not
+  just this feature. Bucket IAM *is* writable by the deploy SA, because the
+  deploy SA owns the bucket. **Do not add a project-level IAM grant to make a
+  feature work in this repo.**
+* No dependency on log retention: a report outlives the log sink.
+* No parsing a payload back out of unstructured log chatter, and no constraint
+  that it be exactly one newline-free line.
+* The object records its own address, so the stdout line tells you where the
+  durable copy is.
+
+Mechanics and their guardrails:
+
+* **The write is gated on `-stocks`.** A plain `-shadow` parity run writes
+  **absolutely nothing** — no object, no GCS client, no call. The gate lives
+  inside `publishValidationArtifact` rather than only at its call site, and
+  `TestPlainShadowWritesNoArtifact` pins it.
+* **It fails soft.** No `SHORTS_DATA_BUCKET`, no `CLOUD_RUN_EXECUTION` (a local
+  run), or a refused upload → the run still succeeds and the reason is recorded
+  in `artifact.skipped` / `artifact.error`, which the stdout line carries. A
+  diagnostic must not itself need diagnosing.
+* **A stored object never carries `artifact.error`** — if it stored, the write
+  worked.
+* IAM: the job's SA already holds `roles/storage.objectAdmin` on the bucket; the
+  shorts API SA is granted `roles/storage.objectViewer` on it via the
+  short-data-sync module's `reader_service_accounts`.
+
+The object path is a **cross-module contract**: `validations/<execution>.json`
+is duplicated in `services/shorts/internal/jobmonitor/validate.go`, since the
+two are separate Go modules. Both sides pin it with a test
+(`TestValidationArtifactObjectPath` / `TestValidationObjectPathMatchesTheJob`) —
+change one, change the other.
 
 ### Reading the `stocks` section
 
@@ -251,7 +299,7 @@ non-zero file rows means the whole window is new.
 Same run, driven from `/admin`: see
 [`docs/observability/job-alerting.md`](../../../../../docs/observability/job-alerting.md)
 §"Validate sync" — the console builds `-shadow -stocks <codes>` server-side and
-reads this JSON line back out of Cloud Logging.
+reads the report back from `validations/<execution>.json` in the bucket.
 
 ## Tests
 

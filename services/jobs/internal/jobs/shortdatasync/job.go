@@ -132,11 +132,18 @@ func Run(ctx context.Context, args []string) error {
 			return err
 		}
 		if len(cfg.stocks) > 0 {
-			// One compact, prefixed line — the only form that survives Cloud
-			// Logging's per-line entry split, which is how the admin console
-			// retrieves this report.
+			// The DURABLE copy: gs://<bucket>/validations/<execution>.json is
+			// what the admin console reads. Fail-soft — the run still succeeds
+			// if the upload does not, and says so in the summary below.
+			publishValidationArtifact(ctx, cfg, &summary, gcsObjectWriter{},
+				validationBucket(), os.Getenv("CLOUD_RUN_EXECUTION"))
+			// One compact, prefixed line, kept for the operator who is already
+			// looking at the logs. Emitted AFTER the upload so it carries the
+			// artifact's address (or its failure).
 			return summary.writeValidationLine(os.Stdout)
 		}
+		// Plain shadow: the parity path. No object, no GCS client, no network
+		// call beyond the ASIC fetch — see artifact.go.
 		return summary.writeJSON(os.Stdout)
 	}
 	return runSync(ctx, cfg, store, client, now)

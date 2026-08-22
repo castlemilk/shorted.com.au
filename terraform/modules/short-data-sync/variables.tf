@@ -69,3 +69,19 @@ variable "manage_revalidation_secret" {
   default     = false
 }
 
+
+variable "reader_service_accounts" {
+  description = <<-EOT
+    Service accounts granted roles/storage.objectViewer on the short-selling
+    data bucket — in practice the shorts API, which serves
+    GET /api/admin/jobs/validate-sync by reading the validation report this job
+    publishes at validations/<execution>.json.
+
+    Granted HERE rather than from the consuming module: binding IAM on a bucket
+    owned by another module is what produced the getIamPolicy 403 documented in
+    terraform/modules/report-extractor/main.tf, and keeping the grant in the
+    owning module also keeps the module dependency one-directional.
+  EOT
+  type        = list(string)
+  default     = []
+}
