@@ -184,6 +184,10 @@ export const Default: Story = {
  * rate-limits) and we do not test that loop here.
  */
 export const RateLimited: Story = {
+  // Excluded from pixel diffing (the interaction test below still runs): the
+  // notice renders a live countdown, so consecutive runs differ by design.
+  // Same reason as the RateLimitNotice stories.
+  tags: ["no-visual"],
   render: () => (
     <ErrorBoundary>
       <ThrowRateLimit />
