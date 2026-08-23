@@ -154,8 +154,24 @@ export default async function ApiDocsIndex() {
                     <td className="py-3">All endpoints, requires API token</td>
                   </tr>
                   <tr className="border-b">
+                    {/*
+                      $20/mo is the API Access tier. Do NOT link this to
+                      /pricing — that page covers Premium ($4/mo) only and says
+                      nothing about API access, so it is a dead end for a
+                      developer reading this table. The purchase path is the
+                      ApiAccessSection in #authentication on this same page.
+
+                      This price previously read twenty-nine dollars a month,
+                      which matched nothing charged anywhere.
+                      Source of truth is the Stripe price behind
+                      STRIPE_API_ACCESS_PRICE_ID; if that changes, change it
+                      here and in /roadmap, which also states $20.
+                    */}
                     <td className="py-3 pr-4 font-medium text-foreground">
-                      Paid <a href="/pricing" className="font-normal underline">(see pricing)</a>
+                      API Access{" "}
+                      <a href="#authentication" className="font-normal underline">
+                        ($20/mo)
+                      </a>
                     </td>
                     <td className="py-3 pr-4">120</td>
                     <td className="py-3 pr-4">10,000</td>
