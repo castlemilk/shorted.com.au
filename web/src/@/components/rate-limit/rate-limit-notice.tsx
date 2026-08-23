@@ -11,6 +11,7 @@ import { cn } from "~/@/lib/utils";
 import { eyebrow, lede, sectionTitle } from "~/@/lib/typography";
 import {
   DEFAULT_UPGRADE_URL,
+  type RateLimitAccess,
   type RateLimitInfo,
   type RateLimitKind,
   type RateLimitTier,
@@ -97,12 +98,32 @@ export interface RateLimitNoticeProps {
   className?: string;
 }
 
-/** What a paid plan buys — the substance behind the upgrade CTA. */
-const PAID_BENEFITS = [
+/**
+ * What a paid plan buys — the substance behind the upgrade CTA.
+ *
+ * Split by surface because the entitlements genuinely differ. Paid BROWSER
+ * access has no ceiling on either window; paid API access is 120/min and
+ * 10,000/month. Listing "unlimited requests" to an API caller sells something
+ * we do not deliver. Source of truth: DefaultConfig in
+ * services/pkg/ratelimit/config.go.
+ */
+const BROWSER_PAID_BENEFITS = [
   "Unlimited requests — no monthly ceiling",
   "Full history and bulk exports",
   "Programmatic API access with a personal token",
 ] as const;
+
+const API_PAID_BENEFITS = [
+  "10,000 API requests a month (up from 1,000)",
+  "120 requests a minute",
+  "Full history and bulk exports",
+] as const;
+
+function paidBenefits(access: RateLimitAccess | undefined) {
+  // Unknown surface falls back to the browser list: this notice overwhelmingly
+  // renders inside the web app, where that list is the accurate one.
+  return access === "api" ? API_PAID_BENEFITS : BROWSER_PAID_BENEFITS;
+}
 
 export function RateLimitNotice({
   info,
@@ -240,6 +261,7 @@ export function RateLimitNotice({
           </div>
           <TierCta
             tier={resolvedTier}
+            access={info.access}
             upgradeUrl={resolvedUpgradeUrl}
             signInHref={resolvedSignInHref}
             onUpgradeClick={handleUpgradeClick}
@@ -361,7 +383,7 @@ export function RateLimitNotice({
       {/* What upgrading gives — only where it's the actual remedy. */}
       {isMonthly && resolvedTier !== "paid" && (
         <ul className="mt-5 space-y-2">
-          {PAID_BENEFITS.map((benefit) => (
+          {paidBenefits(info.access).map((benefit) => (
             <li key={benefit} className="flex items-start gap-2.5 text-sm">
               <Check
                 className="mt-0.5 h-4 w-4 shrink-0 text-primary"
@@ -376,6 +398,7 @@ export function RateLimitNotice({
       <div className="mt-6 flex flex-col gap-2.5">
         <TierCta
           tier={resolvedTier}
+          access={info.access}
           upgradeUrl={resolvedUpgradeUrl}
           signInHref={resolvedSignInHref}
           onUpgradeClick={handleUpgradeClick}
@@ -493,6 +516,7 @@ function MonthlyUsageBlock({ info }: { info: RateLimitInfo }) {
  */
 function TierCta({
   tier,
+  access,
   upgradeUrl,
   signInHref,
   onUpgradeClick,
@@ -502,6 +526,8 @@ function TierCta({
   className,
 }: {
   tier: RateLimitTier;
+  /** Which surface was limited; decides what upgrading actually buys. */
+  access?: RateLimitAccess;
   upgradeUrl: string;
   signInHref: string;
   /** Fired on the conversion CTA. Analytics only — never blocks navigation. */
@@ -537,11 +563,21 @@ function TierCta({
   }
 
   // free
+  //
+  // "unlimited" is only true for BROWSER access. Paid API access is a real
+  // 120/min and 10,000/month ceiling, so promising an API caller unlimited
+  // requests sells them something we do not deliver — they would upgrade and
+  // hit a limit they were told did not exist. When the surface is unknown we
+  // fall back to the browser wording, because that is where this notice
+  // overwhelmingly renders (in the web app) and it is the accurate claim there.
+  const upgradePromise =
+    access === "api" ? "Upgrade for higher limits" : "Upgrade for unlimited requests";
+
   return (
     <Button size={size} asChild className={className}>
       <Link href={upgradeUrl} onClick={onUpgradeClick}>
         <Sparkles className="mr-2 h-4 w-4" aria-hidden />
-        {isMonthly ? "Upgrade for unlimited requests" : "See plans"}
+        {isMonthly ? upgradePromise : "See plans"}
         <ArrowRight className="ml-2 h-4 w-4" aria-hidden />
       </Link>
     </Button>

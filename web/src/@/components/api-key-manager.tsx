@@ -35,19 +35,33 @@ interface RateLimitTier {
   perMonth: string;
 }
 
+/**
+ * What we publish here MUST match what the API actually enforces.
+ *
+ * Source of truth: `DefaultConfig` in services/pkg/ratelimit/config.go.
+ * Enforcement is app-layer (after auth), because the edge cannot resolve a
+ * caller's subscription tier without a lookup. The edge's tier-blind buckets
+ * sit ABOVE these numbers as an abuse ceiling and are not a published
+ * entitlement — which is why no edge number appears in this table.
+ *
+ * These figures previously over-promised on three rows (anonymous 1,000 vs an
+ * enforced 500, free 2,000 vs 1,000, and paid per-minute "Unlimited" vs a real
+ * 120/min ceiling). Over-promising a quota is worse than a low quota: a free
+ * caller budgets for 2,000 and gets cut off at 1,000, and a customer who pays
+ * specifically to remove a limit still gets a 429 at 120/min. Keep this table
+ * and config.go in the same commit.
+ */
 const RATE_LIMIT_TIERS: { api: RateLimitTier[]; browser: RateLimitTier[] } = {
   api: [
-    { name: "Anonymous", perMinute: "30", perMonth: "1,000" },
-    { name: "Free", perMinute: "60", perMonth: "2,000" },
-    { name: "Paid", perMinute: "Unlimited", perMonth: "10,000" },
+    { name: "Anonymous", perMinute: "30", perMonth: "500" },
+    { name: "Free", perMinute: "60", perMonth: "1,000" },
+    { name: "Paid", perMinute: "120", perMonth: "10,000" },
+    { name: "Enterprise", perMinute: "300", perMonth: "50,000" },
   ],
   browser: [
-    {
-      name: "Anonymous",
-      perMinute: "600 refill / 3,000 burst",
-      perMonth: "Fair use",
-    },
-    { name: "Signed in", perMinute: "3,000", perMonth: "Fair use" },
+    { name: "Anonymous", perMinute: "60", perMonth: "5,000" },
+    { name: "Free", perMinute: "120", perMonth: "10,000" },
+    { name: "Paid", perMinute: "Unlimited", perMonth: "Unlimited" },
   ],
 };
 

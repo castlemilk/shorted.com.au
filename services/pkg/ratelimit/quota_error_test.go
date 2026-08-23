@@ -155,6 +155,10 @@ func TestRateLimitErrorCarriesTheContract(t *testing.T) {
 	// Mirrored as individual headers so a plain HTTP client needs no parser.
 	assert.Equal(t, "monthly", meta.Get("X-RateLimit-Kind"))
 	assert.Equal(t, "free", meta.Get("X-RateLimit-Tier"))
+	// The surface is mirrored as a header too: the frontend upgrade copy depends
+	// on it (paid browser is unlimited, paid API is 120/min + 10k/month), and a
+	// non-Connect client must not need to parse JSON to get it.
+	assert.Equal(t, "api", meta.Get("X-RateLimit-Access"))
 	assert.Equal(t, "https://shorted.com.au/pricing", meta.Get("X-RateLimit-Upgrade-Url"))
 	assert.Equal(t, "90", meta.Get("Retry-After"))
 	assert.Equal(t, "1000", meta.Get("X-RateLimit-Monthly-Limit"))

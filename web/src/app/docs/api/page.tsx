@@ -143,18 +143,20 @@ export default async function ApiDocsIndex() {
                 <tbody className="text-muted-foreground">
                   <tr className="border-b">
                     <td className="py-3 pr-4 font-medium text-foreground">Anonymous</td>
-                    <td className="py-3 pr-4">10</td>
+                    <td className="py-3 pr-4">30</td>
                     <td className="py-3 pr-4">500</td>
                     <td className="py-3">Public endpoints only, limited</td>
                   </tr>
                   <tr className="border-b">
                     <td className="py-3 pr-4 font-medium text-foreground">Free (signed in)</td>
-                    <td className="py-3 pr-4">30</td>
+                    <td className="py-3 pr-4">60</td>
                     <td className="py-3 pr-4">1,000</td>
                     <td className="py-3">All endpoints, requires API token</td>
                   </tr>
                   <tr className="border-b">
-                    <td className="py-3 pr-4 font-medium text-foreground">Pro ($29/mo)</td>
+                    <td className="py-3 pr-4 font-medium text-foreground">
+                      Paid <a href="/pricing" className="font-normal underline">(see pricing)</a>
+                    </td>
                     <td className="py-3 pr-4">120</td>
                     <td className="py-3 pr-4">10,000</td>
                     <td className="py-3">All endpoints, priority</td>
