@@ -109,28 +109,53 @@ stage_check() {
 	return "$rc"
 }
 
+# stage_build_dir echoes a directory holding a CLEAN origin/main checkout to
+# build from, cloning one into $2 when needed.
+#
+# It has to be a real clone, not this checkout and not a git worktree, because
+# Go only stamps vcs.revision when `.git` is a DIRECTORY. In a linked worktree
+# `.git` is a FILE, buildvcs silently emits nothing, and the binary installs with
+# vcs.revision=unknown — which blinds the drift check this whole script exists to
+# provide. That is not hypothetical: it is how this script behaved for every
+# operator whose checkout was a worktree.
+stage_clean_checkout() {
+	local dest="$1" url
+	url="$(git -C "$STAGE_REPO" remote get-url origin)"
+	rm -rf "$dest"
+	git clone --quiet --depth 1 --no-tags --branch main "$url" "$dest"
+	echo "$dest"
+}
+
 stage_install() {
-	if [[ "${STAGE_ALLOW_DIRTY:-0}" != "1" ]]; then
-		if [[ -n "$(git -C "$STAGE_REPO" status --porcelain)" ]]; then
-			echo "refusing to stage a DIRTY tree (set STAGE_ALLOW_DIRTY=1 to override)" >&2
-			exit 1
-		fi
-		git -C "$STAGE_REPO" fetch origin main --quiet
-		local head main_sha
-		head="$(git -C "$STAGE_REPO" rev-parse HEAD)"
-		main_sha="$(git -C "$STAGE_REPO" rev-parse origin/main)"
-		if [[ "$head" != "$main_sha" ]]; then
-			echo "refusing to stage: HEAD is not origin/main (set STAGE_ALLOW_DIRTY=1 to deploy a branch build deliberately)" >&2
-			exit 1
-		fi
+	local build_root="$STAGE_SERVICES" src_root="$STAGE_DEPLOY_SRC" tmp_clone="" require_stamp=1
+	if [[ "${STAGE_ALLOW_DIRTY:-0}" == "1" ]]; then
+		# Deliberate branch build. Provenance is expected to be absent or dirty,
+		# so the stamp is not required — but say so out loud.
+		require_stamp=0
+		echo "STAGE_ALLOW_DIRTY=1: building from the local tree; the rig will run UNRELEASED code." >&2
+	else
+		tmp_clone="$(mktemp -d -t shorted-rig-stage)"
+		stage_clean_checkout "$tmp_clone" >/dev/null
+		build_root="$tmp_clone/services"
+		src_root="$tmp_clone/services/house-price-collector/deploy"
+		echo "building from a clean clone of origin/main at $(git -C "$tmp_clone" rev-parse --short=12 HEAD)"
 	fi
 	mkdir -p "$(dirname "$STAGE_BIN_DEST")" "$STAGE_DIR"
-	(cd "$STAGE_SERVICES" && GOWORK=off go build -o "$STAGE_BIN_DEST" ./house-price-collector/)
+	(cd "$build_root" && GOWORK=off go build -o "$STAGE_BIN_DEST" ./house-price-collector/)
+	# A binary with no provenance is worse than a drifted one: --check cannot tell
+	# what is deployed, and the wrappers log "unknown" at every run start. Fail
+	# rather than install one.
+	if [[ "$require_stamp" == "1" && "$(rig_binary_revision "$STAGE_BIN_DEST")" == "unknown" ]]; then
+		echo "refusing to install an UNSTAMPED binary (vcs.revision=unknown) — drift detection would be blind." >&2
+		[[ -n "$tmp_clone" ]] && rm -rf "$tmp_clone"
+		exit 1
+	fi
 	local f
 	for f in "${STAGE_WRAPPERS[@]}"; do
-		/bin/cp "$STAGE_DEPLOY_SRC/$f" "$STAGE_DIR/$f"
+		/bin/cp "$src_root/$f" "$STAGE_DIR/$f"
 		/bin/chmod +x "$STAGE_DIR/$f"
 	done
+	[[ -n "$tmp_clone" ]] && rm -rf "$tmp_clone" || true
 	# Keep the driver in step with the freshly-built binary's playwright pin,
 	# in the sweep-proof directory the wrappers configure.
 	CRAWL_PW_DRIVER_DIR="${CRAWL_PW_DRIVER_DIR:-$HOME/.shorted-housing-crawl/pw-driver}" \
