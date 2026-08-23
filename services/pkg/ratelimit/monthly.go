@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
+	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 // refreshCoalesceWindow is how long the refresher waits after the first
@@ -241,6 +243,12 @@ func (l *AppLimiter) recordMonthly(identifier string, month time.Time, monthLimi
 		if len(l.state) >= l.config.MonthlyMaxIdentifiers {
 			// Refuse to grow. Memory is a hard bound; quota accuracy is not.
 			l.mu.Unlock()
+			// This increment is discarded, so the caller is under-counted
+			// against their quota. Silent under-counting is exactly the kind
+			// of drift nobody notices until a bill argument, so it is counted.
+			// In-memory counter Add, and only on the degenerate over-cap path.
+			addCount(context.Background(), shortedotel.RateLimitDeltasDropped, 1,
+				attribute.String(attrReason, dropReasonMonthlyCap))
 			return 0, false
 		}
 		st = &monthlyState{month: month}
@@ -312,7 +320,16 @@ func (l *AppLimiter) monthlySnapshot(identifier string, month time.Time) (int64,
 // unbounded memory leak.
 func (l *AppLimiter) strandLocked(d UsageDelta) {
 	if len(l.orphans) >= l.config.MonthlyMaxIdentifiers {
-		log.Warnf("Monthly quota orphan buffer full (%d entries); dropping the oldest pending delta", len(l.orphans))
+		// A dropped delta is quota that was consumed and will never be billed
+		// or enforced. Count the increments lost, not just the events, so the
+		// magnitude of the under-count is recoverable from the metric alone.
+		dropped := l.orphans[0].Delta
+		log.Warnf(
+			"Monthly quota orphan buffer full (%d entries); dropping the oldest pending delta (%d increments for %s) — this month is now UNDER-COUNTED for that caller",
+			len(l.orphans), dropped, redactIdentifier(l.orphans[0].Identifier),
+		)
+		addCount(context.Background(), shortedotel.RateLimitDeltasDropped, dropped,
+			attribute.String(attrReason, dropReasonOrphanCap))
 		l.orphans = l.orphans[1:]
 	}
 	l.orphans = append(l.orphans, d)
@@ -350,6 +367,7 @@ func (l *AppLimiter) runFlusher() {
 			l.Flush(context.Background())
 			l.evictIdle()
 			l.minute.sweep()
+			l.publishGauges()
 		case <-l.flushSig:
 			l.Flush(context.Background())
 		}
@@ -403,12 +421,16 @@ func (l *AppLimiter) Flush(ctx context.Context) {
 
 	if !l.breaker.allow(now) {
 		// Circuit open: keep accumulating locally and stay fail-open. Nothing
-		// is dropped; it flushes once the breaker closes.
+		// is dropped; it flushes once the breaker closes. Counted separately
+		// from a failure so "the database is sick" and "we are not even trying
+		// because it is sick" are distinguishable on a dashboard.
+		recordFlush(ctx, flushSkippedBreaker, len(batch))
 		return
 	}
 
 	totals, err := l.store.ApplyDeltas(ctx, batch)
 	if err != nil {
+		recordFlush(ctx, flushFailure, len(batch))
 		if opened := l.breaker.recordFailure(l.now()); opened {
 			log.Errorf(
 				"RATE LIMIT QUOTA DB DEGRADED: api_usage_monthly writes failing (%v). Failing OPEN — monthly quotas are NOT being enforced until Postgres recovers. Per-minute limiting and the Cloudflare edge ceiling are unaffected. Deltas are retained in memory and will be written on recovery.",
@@ -420,6 +442,7 @@ func (l *AppLimiter) Flush(ctx context.Context) {
 		return
 	}
 
+	recordFlush(ctx, flushSuccess, len(batch))
 	l.breaker.recordSuccess()
 
 	l.mu.Lock()
@@ -506,6 +529,33 @@ func (l *AppLimiter) refresh(ctx context.Context) {
 	l.mu.Unlock()
 }
 
+// publishGauges samples the limiter's in-memory state onto gauges. It runs on
+// the flusher's ticker — never on the request path — and takes the same lock a
+// flush already takes, once per MonthlyFlushInterval.
+//
+// The backlog gauges are the durable-loss signal: a flush failure counter goes
+// back to zero when flushes recover, but retained_deltas keeps climbing for as
+// long as the database is unable to accept writes, and it is what says how much
+// quota is at risk of being lost if the instance is replaced.
+func (l *AppLimiter) publishGauges() {
+	l.mu.Lock()
+	var pending int64
+	for _, st := range l.state {
+		pending += st.pending
+	}
+	var orphaned int64
+	for _, d := range l.orphans {
+		orphaned += d.Delta
+	}
+	tracked := int64(len(l.state))
+	l.mu.Unlock()
+
+	ctx := context.Background()
+	setGauge(ctx, shortedotel.RateLimitRetained, pending, attribute.String(attrBuffer, bufferPending))
+	setGauge(ctx, shortedotel.RateLimitRetained, orphaned, attribute.String(attrBuffer, bufferOrphan))
+	setGauge(ctx, shortedotel.RateLimitMonthlyIdentifiers, tracked)
+}
+
 func (l *AppLimiter) evictIdle() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -556,15 +606,24 @@ func newCircuitBreaker(failureThreshold int, cooldown time.Duration) *circuitBre
 // allow reports whether a statement may proceed at time now.
 func (b *circuitBreaker) allow(now time.Time) bool {
 	b.mu.Lock()
-	defer b.mu.Unlock()
 
 	if !b.open {
+		b.mu.Unlock()
 		return true
 	}
 	if now.Before(b.openUntil) {
+		b.mu.Unlock()
 		return false
 	}
-	// Cooldown elapsed: half-open — let one probe through.
+	// Cooldown elapsed: half-open — let one probe through. Recorded once per
+	// probe so "we are retrying" is visible and an operator can tell a breaker
+	// that is oscillating from one that is stuck open.
+	//
+	// The mutex is released BEFORE the metric record: an instrument is an
+	// in-memory write, but holding the breaker lock across any third-party
+	// call is how a lock ordering bug gets born.
+	b.mu.Unlock()
+	recordBreakerTransition(breakerHalfOpen)
 	return true
 }
 
@@ -572,7 +631,6 @@ func (b *circuitBreaker) allow(now time.Time) bool {
 // circuit (so the caller can log the transition exactly once).
 func (b *circuitBreaker) recordFailure(now time.Time) bool {
 	b.mu.Lock()
-	defer b.mu.Unlock()
 
 	b.consecutiveFailures++
 	wasOpen := b.open
@@ -580,20 +638,28 @@ func (b *circuitBreaker) recordFailure(now time.Time) bool {
 		b.open = true
 		b.openUntil = now.Add(b.cooldown)
 	}
-	return b.open && !wasOpen
+	opened := b.open && !wasOpen
+	b.mu.Unlock()
+
+	if opened {
+		recordBreakerTransition(breakerOpen)
+	}
+	return opened
 }
 
 // recordSuccess closes the circuit.
 func (b *circuitBreaker) recordSuccess() {
 	b.mu.Lock()
-	defer b.mu.Unlock()
-
-	if b.open {
-		log.Infof("RATE LIMIT QUOTA DB RECOVERED: api_usage_monthly statements succeeding again; quota enforcement resumed")
-	}
+	wasOpen := b.open
 	b.consecutiveFailures = 0
 	b.open = false
 	b.openUntil = time.Time{}
+	b.mu.Unlock()
+
+	if wasOpen {
+		recordBreakerTransition(breakerClosed)
+		log.Infof("RATE LIMIT QUOTA DB RECOVERED: api_usage_monthly statements succeeding again; quota enforcement resumed")
+	}
 }
 
 // isOpen is used by tests and diagnostics.

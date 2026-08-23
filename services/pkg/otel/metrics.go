@@ -12,8 +12,54 @@ import (
 // These are initialized by InitCustomMetrics() and can be used throughout
 // the service by importing this package and calling Add() on the counters.
 var (
-	// RateLimitBlocked counts requests blocked by rate limiting.
+	// Rate limiter metrics.
+	//
+	// CARDINALITY RULE (load-bearing, same rule as the AI metrics below):
+	// attributes on these instruments must be drawn from small closed sets —
+	// tier, access, decision, kind, operation, state, reason, result. The
+	// rate limiter's natural key is the *identifier* (an IP or a user id), and
+	// that is an unbounded key space: using it as an attribute would create one
+	// time series per unique client and turn the observability bill into the
+	// next incident. Per-identifier detail belongs in logs, redacted.
+	//
+	// RateLimitBlocked counts requests blocked by rate limiting. It is a
+	// trailing indicator — it only fires once a caller is ALREADY blocked, so
+	// the instruments beneath it exist to see pressure building.
 	RateLimitBlocked otelmetric.Int64Counter
+
+	// RateLimitChecks counts every app-layer rate limit decision, allowed or
+	// not. This is the denominator RateLimitBlocked was missing.
+	RateLimitChecks otelmetric.Int64Counter
+
+	// RateLimitQuotaConsumed is the distribution of "percent of monthly quota
+	// consumed" at decision time, bucketed. Bucketed rather than per-identifier
+	// so "how many callers are above 90% of quota" is answerable without a
+	// series per caller.
+	RateLimitQuotaConsumed otelmetric.Float64Histogram
+
+	// RateLimitBreakerTransitions counts quota-store circuit breaker state
+	// changes (open / half_open / closed). A sick quota database otherwise
+	// fails open in silence — the exact shape of the August 2026 incident.
+	RateLimitBreakerTransitions otelmetric.Int64Counter
+
+	// Flush health. A flush that never succeeds means monthly quota is not
+	// being enforced, and nothing else in the system will say so.
+	RateLimitFlushTotal    otelmetric.Int64Counter
+	RateLimitFlushRows     otelmetric.Int64Histogram
+	RateLimitRetained      otelmetric.Int64Gauge
+	RateLimitDeltasDropped otelmetric.Int64Counter
+
+	// Quota store (Postgres) latency and errors. Errors are classed, never
+	// carried as raw messages (raw driver text is unbounded).
+	RateLimitStoreDuration otelmetric.Float64Histogram
+	RateLimitStoreErrors   otelmetric.Int64Counter
+
+	// Per-minute limiter pressure. The identifier map is capped and the cap
+	// silently disables limiting for NEW identifiers, so it must be visible.
+	RateLimitMinuteIdentifiers  otelmetric.Int64Gauge
+	RateLimitMonthlyIdentifiers otelmetric.Int64Gauge
+	RateLimitMinuteEvictions    otelmetric.Int64Counter
+	RateLimitMinuteCapReached   otelmetric.Int64Counter
 
 	// AuthMethod counts authentication attempts by method
 	// (firebase, token, internal, anonymous).
@@ -53,6 +99,73 @@ func InitCustomMetrics() {
 	RateLimitBlocked, _ = meter.Int64Counter(
 		"shorted.rate_limit.blocked",
 		otelmetric.WithDescription("Number of requests blocked by rate limiting"),
+	)
+
+	RateLimitChecks, _ = meter.Int64Counter(
+		"shorted.rate_limit.checks_total",
+		otelmetric.WithDescription("App-layer rate limit decisions by tier, access, decision and limit kind"),
+	)
+
+	RateLimitQuotaConsumed, _ = meter.Float64Histogram(
+		"shorted.rate_limit.quota_consumed_ratio",
+		otelmetric.WithDescription("Percent of monthly quota consumed at decision time, by tier and access"),
+		otelmetric.WithUnit("%"),
+	)
+
+	RateLimitBreakerTransitions, _ = meter.Int64Counter(
+		"shorted.rate_limit.breaker_transitions_total",
+		otelmetric.WithDescription("Quota-store circuit breaker state transitions (open/half_open/closed)"),
+	)
+
+	RateLimitFlushTotal, _ = meter.Int64Counter(
+		"shorted.rate_limit.flush_total",
+		otelmetric.WithDescription("Monthly quota flush attempts by result"),
+	)
+
+	RateLimitFlushRows, _ = meter.Int64Histogram(
+		"shorted.rate_limit.flush_rows",
+		otelmetric.WithDescription("Identifiers written per monthly quota flush"),
+	)
+
+	RateLimitRetained, _ = meter.Int64Gauge(
+		"shorted.rate_limit.retained_deltas",
+		otelmetric.WithDescription("Unflushed quota increments held in memory, by buffer (pending/orphan)"),
+	)
+
+	RateLimitDeltasDropped, _ = meter.Int64Counter(
+		"shorted.rate_limit.deltas_dropped_total",
+		otelmetric.WithDescription("Quota increments discarded because a retention cap was hit, by reason"),
+	)
+
+	RateLimitStoreDuration, _ = meter.Float64Histogram(
+		"shorted.rate_limit.store_duration",
+		otelmetric.WithDescription("api_usage_monthly statement duration in seconds, by operation and status"),
+		otelmetric.WithUnit("s"),
+	)
+
+	RateLimitStoreErrors, _ = meter.Int64Counter(
+		"shorted.rate_limit.store_errors_total",
+		otelmetric.WithDescription("api_usage_monthly statement errors by operation and error class"),
+	)
+
+	RateLimitMinuteIdentifiers, _ = meter.Int64Gauge(
+		"shorted.rate_limit.minute_identifiers",
+		otelmetric.WithDescription("Identifiers currently tracked by the in-process per-minute limiter"),
+	)
+
+	RateLimitMonthlyIdentifiers, _ = meter.Int64Gauge(
+		"shorted.rate_limit.monthly_identifiers",
+		otelmetric.WithDescription("Identifiers currently tracked for monthly quota accounting"),
+	)
+
+	RateLimitMinuteEvictions, _ = meter.Int64Counter(
+		"shorted.rate_limit.minute_evictions_total",
+		otelmetric.WithDescription("Per-minute limiter map evictions by reason (expired/least_recently_seen)"),
+	)
+
+	RateLimitMinuteCapReached, _ = meter.Int64Counter(
+		"shorted.rate_limit.minute_cap_reached_total",
+		otelmetric.WithDescription("Requests that went UNMETERED because the per-minute identifier map was full"),
 	)
 
 	AuthMethod, _ = meter.Int64Counter(

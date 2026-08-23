@@ -1,11 +1,14 @@
 package ratelimit
 
 import (
+	"context"
 	"sort"
 	"sync"
 	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
+	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 // minuteLimiter enforces the documented PER-TIER per-minute limits entirely in
@@ -104,7 +107,14 @@ func (l *minuteLimiter) check(identifier string, limit int) minuteResult {
 			// Still full after eviction: refuse to grow. An unbounded key
 			// space is what caused the incident, so the failure mode here is
 			// "this caller is unmetered for a minute", not "the process OOMs".
-			l.warnCapLocked(now)
+			//
+			// NOTE (2026-08): this branch is currently defence in depth rather
+			// than a live path — evictLocked always frees at least one slot, so
+			// a caller reaching here means the eviction policy changed or the
+			// cap was configured to zero. That is precisely why it is
+			// instrumented: an unreachable branch that silently disables
+			// limiting is the worst kind to leave unobserved.
+			l.capReachedLocked(now)
 			return minuteResult{allowed: true, limit: limit, remaining: limit, resetAt: now.Add(l.window)}
 		}
 		st = &minuteState{windowStart: now}
@@ -138,10 +148,16 @@ func (l *minuteLimiter) check(identifier string, limit int) minuteResult {
 // seen tenth, which is the closest thing to "oldest" a map can offer cheaply.
 func (l *minuteLimiter) evictLocked(now time.Time) {
 	cutoff := now.Add(-2 * l.window)
+	expired := 0
 	for id, st := range l.states {
 		if st.lastSeen.Before(cutoff) {
 			delete(l.states, id)
+			expired++
 		}
+	}
+	if expired > 0 {
+		addCount(context.Background(), shortedotel.RateLimitMinuteEvictions, int64(expired),
+			attribute.String(attrReason, evictReasonExpired))
 	}
 	if len(l.states) < l.maxIdentifers {
 		return
@@ -164,26 +180,50 @@ func (l *minuteLimiter) evictLocked(now time.Time) {
 	for i := 0; i < drop; i++ {
 		delete(l.states, entries[i].id)
 	}
+	addCount(context.Background(), shortedotel.RateLimitMinuteEvictions, int64(drop),
+		attribute.String(attrReason, evictReasonLeastRecent))
 }
 
 // sweep drops expired windows on a timer so an idle process does not hold a
 // map sized to its busiest minute.
+//
+// It doubles as the sampling point for map-size pressure: it runs on the
+// flusher's ticker, which is already off the request path, so publishing the
+// gauge here costs a request nothing. Map size against MinuteMaxIdentifiers is
+// the early warning for the cap-reached event above.
 func (l *minuteLimiter) sweep() {
 	now := l.now()
 	cutoff := now.Add(-2 * l.window)
 
 	l.mu.Lock()
-	defer l.mu.Unlock()
+	expired := 0
 	for id, st := range l.states {
 		if st.lastSeen.Before(cutoff) {
 			delete(l.states, id)
+			expired++
 		}
 	}
+	size := len(l.states)
+	l.mu.Unlock()
+
+	ctx := context.Background()
+	if expired > 0 {
+		addCount(ctx, shortedotel.RateLimitMinuteEvictions, int64(expired),
+			attribute.String(attrReason, evictReasonExpired))
+	}
+	setGauge(ctx, shortedotel.RateLimitMinuteIdentifiers, int64(size))
 }
 
-// warnCapLocked logs at most once a minute; the condition that triggers it is
-// by definition high-frequency.
-func (l *minuteLimiter) warnCapLocked(now time.Time) {
+// capReachedLocked records that a caller went UNMETERED because the identifier
+// map was full.
+//
+// The COUNTER fires every time, because "how many requests escaped per-tier
+// limiting" is the number an operator needs. The LOG is throttled to once a
+// minute, because the condition that triggers it is by definition
+// high-frequency and would otherwise be its own outage.
+func (l *minuteLimiter) capReachedLocked(now time.Time) {
+	addCount(context.Background(), shortedotel.RateLimitMinuteCapReached, 1)
+
 	if now.Sub(l.lastCapWarn) < time.Minute {
 		return
 	}
