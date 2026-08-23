@@ -7,6 +7,7 @@ import Link from "next/link";
 import { RateLimitNotice } from "~/@/components/rate-limit/rate-limit-notice";
 import { Button } from "~/@/components/ui/button";
 import type {
+  RateLimitAccess,
   RateLimitInfo,
   RateLimitKind,
   RateLimitTier,
@@ -36,6 +37,17 @@ function kindParam(value: string | null): RateLimitKind {
   return "unknown";
 }
 
+/**
+ * Which surface was limited. Load-bearing on THIS page specifically: it is
+ * deep-linked from the API error body, so unlike the in-app notice it is
+ * routinely shown to API callers — for whom "upgrade for unlimited requests"
+ * would be false (paid API is 120/min, 10,000/month).
+ */
+function accessParam(value: string | null): RateLimitAccess | undefined {
+  const v = value?.trim().toLowerCase();
+  return v === "api" || v === "browser" ? v : undefined;
+}
+
 function tierParam(value: string | null): RateLimitTier | undefined {
   const v = value?.trim().toLowerCase();
   return v === "anonymous" || v === "free" || v === "paid" ? v : undefined;
@@ -46,7 +58,7 @@ function tierParam(value: string | null): RateLimitTier | undefined {
  *
  * Query params are all optional context so this page can be deep-linked from an
  * API error body, an email, or the edge:
- *   /rate-limit?kind=monthly&reset=1756684800&tier=free&limit=2000&used=2000
+ *   /rate-limit?kind=monthly&reset=1756684800&tier=free&limit=1000&used=1000&access=api
  *
  * Read client-side via useSearchParams (under a Suspense boundary in page.tsx)
  * so the route stays statically rendered — reading searchParams in the server
@@ -60,6 +72,7 @@ export function RateLimitPageClient() {
   const limit = intParam(params.get("limit"));
   const used = intParam(params.get("used"));
   const tier = tierParam(params.get("tier"));
+  const access = accessParam(params.get("access"));
 
   // A view of this route is its own funnel entry: unlike an inline notice, the
   // user got here from *outside* the app — an API error body, the edge, or an
@@ -88,6 +101,7 @@ export function RateLimitPageClient() {
     isRateLimited: true,
     kind,
     tier,
+    access,
     // `reset` maps to whichever window this page is describing.
     monthlyResetAt: kind === "monthly" ? reset : undefined,
     resetAt: kind === "monthly" ? undefined : reset,

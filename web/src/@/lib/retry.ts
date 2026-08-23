@@ -67,6 +67,16 @@ export type RateLimitKind = "per_minute" | "monthly" | "unknown";
 /** Caller tier as reported by the API. */
 export type RateLimitTier = "anonymous" | "free" | "paid";
 
+/**
+ * Which surface the limit applies to. This is NOT cosmetic: the entitlements
+ * differ, so the upgrade promise differs. Paid BROWSER access is genuinely
+ * unlimited on both windows; paid API access is 120/min and 10,000/month.
+ * Telling an API caller to "upgrade for unlimited requests" is a promise we do
+ * not keep. The API already sends this in the 429 payload — see
+ * ratelimit.RateLimitDetail.Access in services/pkg/ratelimit/quota_error.go.
+ */
+export type RateLimitAccess = "api" | "browser";
+
 /** Canonical upgrade destination — matches premium-gate.tsx. */
 export const DEFAULT_UPGRADE_URL = "/pricing";
 
@@ -96,11 +106,22 @@ export interface RateLimitInfo {
   tier?: RateLimitTier;
   /** Absolute or relative upgrade URL, when the server supplies one */
   upgradeUrl?: string;
+  /** Which surface was limited; decides what upgrading actually buys */
+  access?: RateLimitAccess;
   /** Error message from server */
   message?: string;
 }
 
 const VALID_TIERS: readonly string[] = ["anonymous", "free", "paid"];
+
+/** Narrow an arbitrary string to a known access surface, or undefined. */
+function parseAccess(value: string | null | undefined): RateLimitAccess | undefined {
+  if (!value) return undefined;
+  const normalised = value.trim().toLowerCase();
+  return normalised === "api" || normalised === "browser"
+    ? (normalised as RateLimitAccess)
+    : undefined;
+}
 
 /** Narrow an arbitrary string to a known tier, or undefined. */
 function parseTier(value: string | null | undefined): RateLimitTier | undefined {
@@ -156,6 +177,7 @@ interface StructuredRateLimitPayload {
   resetAt?: unknown;
   retry_after?: unknown;
   retryAfter?: unknown;
+  access?: unknown;
 }
 
 /** Pull a structured payload off the error, if one is present. */
@@ -317,6 +339,9 @@ export function parseRateLimitInfo(error: unknown): RateLimitInfo {
     tier:
       parseTier(toStringOrUndefined(payload.tier)) ??
       parseTier(get("X-RateLimit-Tier")),
+    access:
+      parseAccess(toStringOrUndefined(payload.access)) ??
+      parseAccess(get("X-RateLimit-Access")),
     upgradeUrl:
       parseUpgradeUrl(
         toStringOrUndefined(payload.upgrade_url) ??

@@ -52,6 +52,7 @@ const (
 	headerDetail        = "X-RateLimit-Detail"
 	headerKind          = "X-RateLimit-Kind"
 	headerTier          = "X-RateLimit-Tier"
+	headerAccess        = "X-RateLimit-Access"
 	headerUpgradeURL    = "X-RateLimit-Upgrade-Url"
 	headerLimit         = "X-RateLimit-Limit"
 	headerRemaining     = "X-RateLimit-Remaining"
@@ -155,6 +156,11 @@ func applyDetailHeaders(set func(key, value string), result *Result, detail Rate
 	}
 	set(headerKind, string(detail.Kind))
 	set(headerTier, detail.Tier)
+	// Mirrored as a header for the same reason as Kind/Tier: a plain curl or a
+	// non-Connect client should not need a JSON parser. It is load-bearing for
+	// the frontend copy — paid BROWSER access is unlimited, paid API access is
+	// not, so "upgrade for unlimited requests" is only true on one surface.
+	set(headerAccess, detail.Access)
 	set(headerUpgradeURL, detail.UpgradeURL)
 	set(headerRetryAfter, strconv.Itoa(detail.RetryAfterSeconds))
 

@@ -1318,9 +1318,24 @@ whose metadata carries compact JSON under **`X-RateLimit-Detail`**:
 Go type: `ratelimit.RateLimitDetail` (`services/pkg/ratelimit/quota_error.go`).
 **Field names are a contract — renaming one is a breaking change.** The same
 facts are mirrored across individual headers (`X-RateLimit-Kind`,
-`X-RateLimit-Tier`, `X-RateLimit-Upgrade-Url`, `Retry-After`, plus the
-per-minute/monthly headers above) so a plain `curl` or a non-Connect client
-needs no parser.
+`X-RateLimit-Tier`, `X-RateLimit-Access`, `X-RateLimit-Upgrade-Url`,
+`Retry-After`, plus the per-minute/monthly headers above) so a plain `curl` or
+a non-Connect client needs no parser.
+
+**`access` is load-bearing for the upgrade copy, not decoration.** Paid
+**browser** access is unlimited on both windows; paid **API** access is a real
+120/min and 10,000/month ceiling. So "upgrade for unlimited requests" is true
+on one surface and a broken promise on the other. `web/src/@/lib/retry.ts`
+parses it into `RateLimitInfo.access`, `/rate-limit` accepts it as `?access=`
+(that page is deep-linked from the API error body, so it is routinely shown to
+API callers), and `rate-limit-notice.tsx` swaps both the CTA and the benefits
+list on it. Regression coverage: `rate-limit-access-promise.test.tsx`.
+
+The published tier tables in `api-key-manager.tsx` and `/docs/api` must match
+`DefaultConfig` in `services/pkg/ratelimit/config.go` — enforced by
+`api-key-manager-quota-contract.test.ts`, which parses the Go file rather than
+restating it. They previously over-promised on three rows (anonymous 1,000 vs
+an enforced 500, free 2,000 vs 1,000, paid per-minute "Unlimited" vs 120).
 
 `message` is remedy-specific by tier, and the frontend can render it verbatim:
 an **anonymous** caller is told *signing in* raises the limit (never "upgrade" —
