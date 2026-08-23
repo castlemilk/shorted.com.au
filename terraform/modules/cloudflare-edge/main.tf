@@ -1083,10 +1083,27 @@ resource "cloudflare_zone_setting" "security_automatic_https_rewrites" {
   value      = "on"
 }
 
+# Early Hints is OFF because against this origin it does not work at all, and
+# its failures dominate our error metrics.
+#
+# Cloudflare implements Early Hints by probing the origin with its own
+# subrequests (user-agent "nginx-ssl early hints" / "bastion early hints") to
+# harvest `Link: rel=preload` headers it can later replay as a 103. Next.js on
+# Vercel does not emit those headers, and the probes themselves time out:
+# measured over 24h on 2026-08-23, 32,568 of 33,979 probes (96%) returned 504
+# with originResponseStatus=0, and those probes were 99.98% of ALL 504s on
+# shorted.com.au (34,024 of them — 24% of total zone requests for the host).
+# Real browser user-agents accounted for ~7 × 504 in the same window.
+#
+# So this delivered zero preload benefit while generating ~34k failed origin
+# requests/day and making the zone look like it had a 24% error rate. Turning
+# it off cannot slow any user down — there is no working Early Hints path to
+# lose. If Next.js ever emits preload Link headers, re-enable and re-measure
+# the probe success rate BEFORE assuming it helps.
 resource "cloudflare_zone_setting" "security_early_hints" {
   zone_id    = var.cloudflare_zone_id
   setting_id = "early_hints"
-  value      = "on"
+  value      = "off"
 }
 
 resource "cloudflare_zone_setting" "security_http3" {
