@@ -76,6 +76,21 @@ describe("notifyOperator", () => {
     expect(body.to).toEqual(["support@shorted.com.au"]);
   });
 
+  it("treats a BLANK from/to as unset rather than sending an empty From", async () => {
+    // Regression guard: `??` here would pass "" straight through, Resend would
+    // reject it, and this notifier swallows failures — so the alert would
+    // vanish with no error anywhere. Blank must fall back to the verified
+    // default, which is why the code tests emptiness rather than nullishness.
+    process.env.RESEND_API_KEY = "k";
+    process.env.RESEND_FROM = "   ";
+    process.env.RESEND_TO = "";
+    const fetchImpl = jest.fn().mockResolvedValue({ ok: true, status: 200 });
+    await notifyOperator(EMAIL, fetchImpl as never);
+    const body = JSON.parse(fetchImpl.mock.calls[0][1].body);
+    expect(body.from).toBe("Shorted <support@shorted.com.au>");
+    expect(body.to).toEqual(["support@shorted.com.au"]);
+  });
+
   // --- the important half: it must never throw ------------------------------
 
   it("returns false instead of throwing when Resend errors", async () => {

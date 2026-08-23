@@ -38,6 +38,12 @@ const DEFAULT_TO = "support@shorted.com.au";
 /** Capped well under Stripe's webhook budget — see the note above. */
 const SEND_TIMEOUT_MS = 3_000;
 
+/** Trimmed value, or undefined when unset OR blank. */
+function nonEmpty(value: string | null | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
 export interface OperatorEmail {
   subject: string;
   /** Plain text only. These are operator alerts, not marketing. */
@@ -58,8 +64,11 @@ export async function notifyOperator(
     const apiKey = process.env.RESEND_API_KEY?.trim();
     if (!apiKey) return false; // not configured — dormant, not an error
 
-    const from = process.env.RESEND_FROM?.trim() || DEFAULT_FROM;
-    const to = process.env.RESEND_TO?.trim() || DEFAULT_TO;
+    // NOT `??`: a var set to "" trims to "" — falsy but not nullish — and an
+    // empty From is rejected by Resend, which this notifier would then swallow.
+    // Blank must fall back to the verified default, so test for emptiness.
+    const from = nonEmpty(process.env.RESEND_FROM) ?? DEFAULT_FROM;
+    const to = nonEmpty(process.env.RESEND_TO) ?? DEFAULT_TO;
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), SEND_TIMEOUT_MS);
@@ -108,6 +117,6 @@ export function formatAmount(
   if (typeof amountInCents !== "number" || !Number.isFinite(amountInCents)) {
     return "unknown amount";
   }
-  const code = (currency || "aud").toUpperCase();
+  const code = (nonEmpty(currency) ?? "aud").toUpperCase();
   return `$${(amountInCents / 100).toFixed(2)} ${code}`;
 }
