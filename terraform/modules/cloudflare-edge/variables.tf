@@ -115,6 +115,43 @@ variable "edge_analytics_sample_rate" {
   }
 }
 
+# Sample rate for the ALLOWED arm of the edge_rate_limit event stream only.
+#
+# LIMITED decisions are ALWAYS emitted at 100% and this variable cannot change
+# that — a 429 is rare and high-signal, and sampling it at 1% would hide almost
+# every one. This number is the denominator's rate: the volume of eligible
+# requests that were let through.
+#
+# -1 (the default) means "inherit edge_analytics_sample_rate", so there is one
+# number to turn by default. Set it explicitly (e.g. 0.001) only when the
+# allowed arm is too expensive at the general analytics rate.
+variable "edge_rate_limit_sample_rate" {
+  description = "Sample rate for ALLOWED edge_rate_limit events (-1 inherits edge_analytics_sample_rate). Limited decisions are always emitted at 100%."
+  type        = number
+  default     = -1
+
+  validation {
+    condition     = var.edge_rate_limit_sample_rate == -1 || (var.edge_rate_limit_sample_rate >= 0 && var.edge_rate_limit_sample_rate <= 1)
+    error_message = "edge_rate_limit_sample_rate must be -1 (inherit) or between 0 and 1."
+  }
+}
+
+# Cloudflare Workers Analytics Engine dataset for rate limit decisions.
+#
+# DISABLED BY DEFAULT (""): no binding is attached, and worker.js no-ops on the
+# missing binding. Set to a dataset name (e.g. "shorted_edge_rate_limit") to
+# turn on writeDataPoint, which makes "429s by bucket over time" a SQL query
+# against the Analytics Engine SQL API instead of a log grep.
+#
+# Requires a Workers Paid subscription on the account (confirmed present).
+# Datasets are created implicitly on first write; there is no dataset resource
+# to declare.
+variable "edge_rate_limit_analytics_dataset" {
+  description = "Analytics Engine dataset name for edge_rate_limit data points. Empty string leaves the binding unattached (feature off)."
+  type        = string
+  default     = ""
+}
+
 # ---- Rate Limiting ----
 
 variable "rate_limit_enabled" {
