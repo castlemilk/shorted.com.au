@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -10,6 +11,10 @@ import type {
   RateLimitKind,
   RateLimitTier,
 } from "~/@/lib/retry";
+import {
+  RATE_LIMIT_EVENTS,
+  trackRateLimitEvent,
+} from "~/@/lib/rate-limit-analytics";
 
 /**
  * Parse an optional non-negative integer query param.
@@ -55,6 +60,29 @@ export function RateLimitPageClient() {
   const limit = intParam(params.get("limit"));
   const used = intParam(params.get("used"));
   const tier = tierParam(params.get("tier"));
+
+  // A view of this route is its own funnel entry: unlike an inline notice, the
+  // user got here from *outside* the app — an API error body, the edge, or an
+  // email — so it can be the first rate-limit event of a session and is the
+  // only one attributable to the deep link itself.
+  //
+  // Fired once per set of link params, not once per render. Held in a ref
+  // rather than a mount-only effect so a client-side param change (a second
+  // deep link during the same session) is counted, while React StrictMode's
+  // double-invoke and any re-render are not. The `notice_shown` this page also
+  // produces is NOT a duplicate: it reports that the notice rendered, with
+  // `variant=page`.
+  const reportedKey = useRef<string | null>(null);
+  useEffect(() => {
+    const key = `${kind}|${tier ?? "unknown"}`;
+    if (reportedKey.current === key) return;
+    reportedKey.current = key;
+    trackRateLimitEvent(RATE_LIMIT_EVENTS.PAGE_VIEW, {
+      kind,
+      tier,
+      variant: "page",
+    });
+  }, [kind, tier]);
 
   const info: RateLimitInfo = {
     isRateLimited: true,

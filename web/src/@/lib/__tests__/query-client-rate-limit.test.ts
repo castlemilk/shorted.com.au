@@ -200,3 +200,130 @@ describe("rate_limit_auto_recovered", () => {
     expect(recovered()).toHaveLength(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// rate_limit_encountered — the denominator: every classified 429, UI or not
+// ---------------------------------------------------------------------------
+
+describe("rate_limit_encountered", () => {
+  let gtag: jest.Mock;
+
+  beforeEach(() => {
+    gtag = jest.fn();
+    (window as GtagWindow).gtag = gtag;
+  });
+
+  afterEach(() => {
+    delete (window as GtagWindow).gtag;
+  });
+
+  function encountered() {
+    return gtag.mock.calls.filter(
+      (c) => c[0] === "event" && c[1] === "rate_limit_encountered",
+    );
+  }
+
+  it("fires on a 429 that nothing will ever render", () => {
+    handleRateLimitCacheEvent(
+      updatedEvent("e-a", { type: "failed", error: PER_MINUTE }),
+    );
+
+    expect(encountered()).toHaveLength(1);
+    expect(encountered()[0]![2]).toMatchObject({
+      kind: "per_minute",
+      // Being limited is not engagement.
+      non_interaction: true,
+    });
+    // No UI was involved, so no variant is claimed.
+    expect(encountered()[0]![2]).not.toHaveProperty("variant");
+  });
+
+  it("fires for a monthly quota too — unlike auto_recovered", () => {
+    handleRateLimitCacheEvent(
+      updatedEvent("e-b", { type: "failed", error: MONTHLY }),
+    );
+    expect(encountered()).toHaveLength(1);
+    expect(encountered()[0]![2]).toMatchObject({ kind: "monthly" });
+  });
+
+  it("counts one occurrence, not one per retry attempt", () => {
+    // TanStack dispatches `failed` once per attempt; three retries of the same
+    // 429 must not read as four limits.
+    for (let i = 0; i < 4; i += 1) {
+      handleRateLimitCacheEvent(
+        updatedEvent("e-c", { type: "failed", error: PER_MINUTE }),
+      );
+    }
+    expect(encountered()).toHaveLength(1);
+  });
+
+  it("counts a genuinely new limit after a recovery", () => {
+    handleRateLimitCacheEvent(
+      updatedEvent("e-d", { type: "failed", error: PER_MINUTE }),
+    );
+    handleRateLimitCacheEvent(updatedEvent("e-d", { type: "success" }));
+    handleRateLimitCacheEvent(
+      updatedEvent("e-d", { type: "failed", error: PER_MINUTE }),
+    );
+    expect(encountered()).toHaveLength(2);
+  });
+
+  it("counts a new limit after retries were exhausted", () => {
+    handleRateLimitCacheEvent(
+      updatedEvent("e-e", { type: "failed", error: PER_MINUTE }),
+    );
+    handleRateLimitCacheEvent(
+      updatedEvent("e-e", { type: "error", error: PER_MINUTE }),
+    );
+    handleRateLimitCacheEvent(
+      updatedEvent("e-e", { type: "failed", error: PER_MINUTE }),
+    );
+    expect(encountered()).toHaveLength(2);
+  });
+
+  it("re-fires when the reset window moves — that is a different limit", () => {
+    const first = connectError(8, {
+      "X-RateLimit-Scope": "edge-minute",
+      "Retry-After": "10",
+    });
+    const second = connectError(8, {
+      "X-RateLimit-Scope": "edge-minute",
+      "Retry-After": "30",
+    });
+    handleRateLimitCacheEvent(updatedEvent("e-f", { type: "failed", error: first }));
+    handleRateLimitCacheEvent(
+      updatedEvent("e-f", { type: "failed", error: second }),
+    );
+    expect(encountered()).toHaveLength(2);
+  });
+
+  it("stays silent for non-429 failures", () => {
+    handleRateLimitCacheEvent(
+      updatedEvent("e-g", { type: "failed", error: connectError(14) }),
+    );
+    expect(encountered()).toHaveLength(0);
+  });
+
+  it("is a no-op when GA is absent, and never throws", () => {
+    delete (window as GtagWindow).gtag;
+    expect(() =>
+      handleRateLimitCacheEvent(
+        updatedEvent("e-h", { type: "failed", error: PER_MINUTE }),
+      ),
+    ).not.toThrow();
+  });
+
+  it("does not suppress the auto_recovered event for the same query", () => {
+    handleRateLimitCacheEvent(
+      updatedEvent("e-i", { type: "failed", error: PER_MINUTE }),
+    );
+    handleRateLimitCacheEvent(updatedEvent("e-i", { type: "success" }));
+
+    expect(encountered()).toHaveLength(1);
+    expect(
+      gtag.mock.calls.filter(
+        (c) => c[1] === "rate_limit_auto_recovered",
+      ),
+    ).toHaveLength(1);
+  });
+});

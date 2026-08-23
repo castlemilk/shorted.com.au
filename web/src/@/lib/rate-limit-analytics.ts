@@ -3,9 +3,11 @@
  *
  * This is a conversion funnel, not debug logging:
  *
- *   rate_limit_notice_shown  →  rate_limit_upgrade_click   (paid conversion)
- *                            →  rate_limit_signin_click    (anonymous → free)
+ *   rate_limit_encountered   (every classified 429, UI or not)
+ *      └─ rate_limit_notice_shown  →  rate_limit_upgrade_click  (conversion)
+ *      └─                          →  rate_limit_signin_click   (anon → free)
  *   rate_limit_auto_recovered                              (the quiet path)
+ *   rate_limit_page_view                                   (deep-link entry)
  *
  * Design constraints, all deliberate:
  *  - **Never throws.** Every call is wrapped; analytics must not be able to
@@ -17,15 +19,21 @@
  *  - **No PII, low cardinality.** Only the enumerated params below are sent.
  *    `surface` is a route *group* (`/shorts/*`), never a full path with a
  *    stock code or query string.
- *  - **No imports.** Keeping this module dependency-free (type-only imports are
- *    erased at build time) means it adds ~0 to any shared chunk, which matters
- *    for the 5% first-load budget on `/`, `/top` and `/statistics`.
+ *  - **Effectively no imports.** The only runtime import is
+ *    `analytics-events.ts`, itself dependency-free, so this adds ~0 to any
+ *    shared chunk — which matters for the 5% first-load budget on `/`, `/top`
+ *    and `/statistics`.
  *
  * Documented for the analytics side in
  * `src/@/components/rate-limit/README.md`.
  */
 
 import type { RateLimitKind, RateLimitTier } from "./retry";
+import { currentSurface, routeGroupFromPath, sendGaEvent } from "./analytics-events";
+
+// Re-exported so the rate-limit call sites keep one import, and so the
+// pre-existing public surface of this module is unchanged.
+export { currentSurface, routeGroupFromPath };
 
 /**
  * Canonical GA4 event names. Exported as consts so call sites and the GA4
@@ -40,6 +48,25 @@ export const RATE_LIMIT_EVENTS = {
   SIGNIN_CLICK: "rate_limit_signin_click",
   /** A transient limit auto-retried and succeeded — the user was never stuck. */
   AUTO_RECOVERED: "rate_limit_auto_recovered",
+  /**
+   * A classified 429 came back on the wire — **whether or not** anything was
+   * rendered. This is the denominator `notice_shown` never had: a background
+   * refetch that 429s and quietly recovers produces an `encountered` and no
+   * `notice_shown` at all, so before this we could not see it happen.
+   *
+   * `encountered` counts *requests*; `notice_shown` counts *users seeing
+   * something*. One user-visible limit produces one of each, so they are not
+   * duplicates of one another — but see the occurrence guard in
+   * `query-client.ts`, which keeps a 3-retry burst from emitting three.
+   */
+  ENCOUNTERED: "rate_limit_encountered",
+  /**
+   * The standalone `/rate-limit` route was opened. A distinct funnel entry from
+   * `notice_shown`: this arrival came from outside the app (an API error body,
+   * the edge, an email), so it is the only rate-limit event that can be a
+   * session's first.
+   */
+  PAGE_VIEW: "rate_limit_page_view",
 } as const;
 
 export type RateLimitEventName =
@@ -60,46 +87,19 @@ export interface RateLimitEventParams {
 }
 
 /**
- * Collapse a pathname to a low-cardinality route group.
+ * Events that are *not* user interactions.
  *
- * `/shorts/BHP` → `/shorts/*`, `/housing/nsw/bondi` → `/housing/*`, `/` → `/`.
- * Only the first segment is kept, so per-stock and per-suburb pages cannot
- * explode GA's cardinality. Anything unexpected becomes `/other`.
+ * Being limited, silently recovering, and landing on a page you were redirected
+ * to are all things that happen *to* a user; counting them as engagement would
+ * distort bounce and engagement rates. The two CTA clicks ARE interactions and
+ * are deliberately absent from this set.
  */
-export function routeGroupFromPath(pathname: string | null | undefined): string {
-  if (typeof pathname !== "string") return "/other";
-  const trimmed = pathname.split("?")[0]!.split("#")[0]!;
-  const segments = trimmed.split("/").filter(Boolean);
-  if (segments.length === 0) return "/";
-  const first = segments[0]!.toLowerCase();
-  if (!/^[a-z0-9][a-z0-9._-]{0,40}$/.test(first)) return "/other";
-  return segments.length > 1 ? `/${first}/*` : `/${first}`;
-}
-
-/** The current route group, read from the browser. Safe on the server. */
-export function currentSurface(): string {
-  if (typeof window === "undefined") return "/other";
-  try {
-    return routeGroupFromPath(window.location?.pathname);
-  } catch {
-    return "/other";
-  }
-}
-
-type Gtag = (...args: unknown[]) => void;
-
-/**
- * Resolve `window.gtag` without importing anything.
- *
- * NOTE: read through an index cast (as `web-vitals.ts` does) rather than a
- * typed global — this module is imported by client components that are also
- * pulled through server rendering.
- */
-function resolveGtag(): Gtag | undefined {
-  if (typeof window === "undefined") return undefined;
-  const candidate = (window as unknown as Record<string, unknown>).gtag;
-  return typeof candidate === "function" ? (candidate as Gtag) : undefined;
-}
+const NON_INTERACTION_EVENTS: ReadonlySet<string> = new Set<string>([
+  RATE_LIMIT_EVENTS.NOTICE_SHOWN,
+  RATE_LIMIT_EVENTS.AUTO_RECOVERED,
+  RATE_LIMIT_EVENTS.ENCOUNTERED,
+  RATE_LIMIT_EVENTS.PAGE_VIEW,
+]);
 
 /**
  * Send one rate-limit funnel event to GA4.
@@ -113,23 +113,15 @@ export function trackRateLimitEvent(
   params: RateLimitEventParams = {},
 ): void {
   try {
-    const gtag = resolveGtag();
-    if (!gtag) return; // GA blocked / not yet loaded / not configured → no-op.
-
     const payload: Record<string, string | boolean> = {
       kind: params.kind ?? "unknown",
       tier: params.tier ?? "unknown",
       surface: params.surface ?? currentSurface(),
-      // Being rate limited and silently recovering are not user interactions;
-      // counting them as engagement would distort bounce/engagement rates.
-      // The two CTA clicks ARE interactions and are left as such.
-      non_interaction:
-        name === RATE_LIMIT_EVENTS.NOTICE_SHOWN ||
-        name === RATE_LIMIT_EVENTS.AUTO_RECOVERED,
+      non_interaction: NON_INTERACTION_EVENTS.has(name),
     };
     if (params.variant) payload.variant = params.variant;
 
-    gtag("event", name, payload);
+    sendGaEvent(name, payload);
   } catch {
     // Analytics must never surface to the user or break a retry.
   }

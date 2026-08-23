@@ -54,8 +54,18 @@ const KNOWN_TIERS = new Set([
   "unknown",
 ]);
 
-/** Closed value set — mirrors RateLimitKind in `retry.ts`. */
-const LIMIT_KINDS = new Set(["per_minute", "monthly", "unknown"]);
+/**
+ * Closed value set. `per_minute` / `monthly` / `unknown` mirror `RateLimitKind`
+ * in `retry.ts` — the client classifier's vocabulary, and the join key against
+ * the edge rate-limit events.
+ *
+ * `daily` is the one deliberate divergence: the chat send buckets cap per day
+ * as well as per minute and per month, and that window exists only server-side,
+ * so the client type never needs it. Calling a daily cap `per_minute` would be
+ * wrong and calling it `unknown` would erase the only interesting thing about
+ * it. Still closed, so cardinality is unchanged in kind.
+ */
+const LIMIT_KINDS = new Set(["per_minute", "daily", "monthly", "unknown"]);
 
 const QUERY_LENGTH_BUCKETS = new Set(["0", "1", "2-3", "4-8", "9-20", "21-50", "51+"]);
 const RESULT_COUNT_BUCKETS = new Set(["0", "1", "2-5", "6-10", "11-50", "51-100", "101-500", "501+"]);
