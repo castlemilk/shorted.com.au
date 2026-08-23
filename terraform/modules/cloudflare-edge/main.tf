@@ -95,6 +95,14 @@ resource "cloudflare_workers_script" "edge_cache" {
       name = "EDGE_ANALYTICS_SAMPLE_RATE"
       text = tostring(var.edge_analytics_sample_rate)
       }, {
+      # ALLOWED-arm sample rate for edge_rate_limit only. -1 means "inherit
+      # EDGE_ANALYTICS_SAMPLE_RATE", which the worker expresses as an empty
+      # string (an absent/blank var falls back). LIMITED decisions are emitted
+      # at 100% regardless and no var can change that.
+      type = "plain_text"
+      name = "EDGE_RATE_LIMIT_SAMPLE_RATE"
+      text = var.edge_rate_limit_sample_rate < 0 ? "" : tostring(var.edge_rate_limit_sample_rate)
+      }, {
       type = "plain_text"
       name = "CACHE_PURGE_SECRET"
       text = var.cache_purge_secret
@@ -287,6 +295,14 @@ resource "cloudflare_workers_script" "edge_cache" {
       type = "secret_text"
       name = "RATE_LIMIT_SSR_BYPASS_SECRET"
       text = var.rate_limit_ssr_bypass_secret
+      }] : [], var.edge_rate_limit_analytics_dataset != "" ? [{
+      # Workers Analytics Engine — OFF unless a dataset name is supplied, and
+      # the worker no-ops when the binding is absent. Gives the rate limit
+      # decision stream a SQL endpoint ("429s by bucket over time") instead of
+      # requiring a Logpush pipeline to answer an aggregate question.
+      type    = "analytics_engine"
+      name    = "RATE_LIMIT_ANALYTICS"
+      dataset = var.edge_rate_limit_analytics_dataset
       }] : [], var.chat_service_origin != "" ? [{
       type = "plain_text"
       name = "CHAT_SERVICE_ORIGIN"

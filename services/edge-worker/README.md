@@ -264,6 +264,36 @@ binding, malformed outcome, unknown class, ineligible path — and enforcement i
 flag being absent) disables it. Rate limiting must never be the reason the site
 or API is down.
 
+### Observability
+
+The Cloudflare rate limiting bindings expose **no analytics of their own**, and
+a 429 leaves no trace beyond the response. So every decision the worker makes
+emits a `type: "edge_rate_limit"` JSON line (`recordRateLimitDecision`), and
+`edge_request` gained two additive fields (`rate_limited`, `rate_limit_bucket`)
+so the existing stream can tell an edge 429 from an app-layer or zone 429.
+
+**The sampling is asymmetric on purpose.** `limited` decisions are emitted at
+**100%**, always — a 429 is rare and high-signal, and at the 1% analytics rate a
+bucket firing a dozen times a day would show as nothing at all. `allowed`
+decisions are sampled (`EDGE_RATE_LIMIT_SAMPLE_RATE`, inheriting
+`EDGE_ANALYTICS_SAMPLE_RATE`, default 1%). Every event carries the `sample_rate`
+that produced it, so **any ratio query must divide each arm by its own rate**.
+
+The bucket **key** (token hash, session hash, or IP) is never emitted in any
+form; only `key_type` (`token-hash` | `ip` | `session-hash`). Bypass secrets are
+never emitted, only the matched class name. Paths are normalized.
+
+An **optional** Analytics Engine `writeDataPoint` path exists for aggregate
+queries ("429s by bucket over 7 days"). It is off unless
+`edge_rate_limit_analytics_dataset` is set; with no binding the worker no-ops
+and the JSON line remains the source of truth.
+
+Field contract, the positional Analytics Engine schema, six worked operator
+queries (including "is the first-party marker landing?", which cannot be tested
+from outside), and what an operator must enable to run them (no Logpush job is
+configured today): **`docs/observability/cost-attribution.md`**. Regression
+coverage: `services/edge-worker/ratelimit-observability.test.mjs`.
+
 ### Configuration
 
 Terraform variables (`terraform/modules/cloudflare-edge/variables.tf`) are the
@@ -284,6 +314,8 @@ fail-safe used when a var is missing.
 | `edge_rate_limit_browser_auth_burst_requests` | `200` | browser / signed in, 10s |
 | `edge_rate_limit_browser_auth_requests_per_minute` | `1200` | browser / signed in, 60s |
 | `edge_rate_limit_*_namespace_id` | `"2001"`–`"2009"` | CF rate-limit namespaces, one per binding |
+| `edge_rate_limit_sample_rate` | `-1` (inherit `edge_analytics_sample_rate`) | Sample rate for **allowed** `edge_rate_limit` events only |
+| `edge_rate_limit_analytics_dataset` | `""` (binding not attached) | Analytics Engine dataset for rate limit data points |
 
 `namespace_id` is an account-scoped identifier **you choose** — there is no
 provisioning step. Two bindings sharing a `namespace_id` share counters *even

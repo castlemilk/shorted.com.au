@@ -16,6 +16,22 @@ CACHE_TTL_NEWS = "300"
 CACHE_TTL_PUBLIC_DAILY = "3600"
 CACHE_TTL_PUBLIC_STALE = "86400"
 EDGE_ANALYTICS_SAMPLE_RATE = "0.01"
+# ALLOWED-arm sample rate for the edge_rate_limit event stream. Blank inherits
+# EDGE_ANALYTICS_SAMPLE_RATE. LIMITED decisions (429s) are ALWAYS emitted at
+# 100% and no setting can sample them away — see worker.js.
+EDGE_RATE_LIMIT_SAMPLE_RATE = ""
+
+# ---------------------------------------------------------------------------
+# Analytics Engine — OPTIONAL, and intentionally commented out.
+#
+# Production truth is Terraform (var.edge_rate_limit_analytics_dataset, empty by
+# default), so the binding is absent unless someone opts in. worker.js checks
+# for `writeDataPoint` before calling it, so an unbound RATE_LIMIT_ANALYTICS is
+# a silent no-op. Uncomment for `wrangler dev` experimentation.
+# ---------------------------------------------------------------------------
+# [[analytics_engine_datasets]]
+# binding = "RATE_LIMIT_ANALYTICS"
+# dataset = "shorted_edge_rate_limit"
 
 [placement]
 mode = "smart"

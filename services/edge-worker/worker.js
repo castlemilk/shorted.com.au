@@ -857,14 +857,36 @@ export async function enforceEdgeRateLimit(request, env, path, hostname = API_HO
 
   // A verified search crawler is never limited, on either surface. SEO is the
   // product; a 429 to Googlebot suppresses indexation for days.
-  if (isVerifiedCrawler(request, env)) return null;
+  //
+  // This IS instrumented (bypass_class "crawler") because the crawler check
+  // trusts a spoofable user-agent when Bot Management is absent — if that
+  // exemption ever becomes a large share of traffic, that is the signal.
+  if (isVerifiedCrawler(request, env)) {
+    recordRateLimitDecision(request, env, {
+      decision: "allowed",
+      surface,
+      bucketClass: "",
+      bypassClass: "crawler",
+      path,
+    });
+    return null;
+  }
 
   // Trusted E2E/load tests skip everything, exactly as they skip the zone rule.
   // First-party SSR does NOT skip outright any more — it gets its own runaway
   // bucket (see resolveEdgeRateLimitKey), which is what makes it safe to turn
   // enforcement on at all.
   const bypass = resolveRateLimitBypass(request, env);
-  if (bypass === "testing") return null;
+  if (bypass === "testing") {
+    recordRateLimitDecision(request, env, {
+      decision: "allowed",
+      surface,
+      bucketClass: "",
+      bypassClass: "testing",
+      path,
+    });
+    return null;
+  }
 
   try {
     const { bucketClass, key } = await resolveEdgeRateLimitKey(request, env, surface, bypass);
@@ -872,6 +894,14 @@ export async function enforceEdgeRateLimit(request, env, path, hostname = API_HO
     if (!limits) return null;
 
     const { spec, burstLimit, sustainedLimit } = limits;
+    const observed = {
+      surface,
+      bucketClass,
+      bypassClass: bypass,
+      path,
+      burstLimit,
+      sustainedLimit,
+    };
 
     // Burst (10s) first: it catches a hammering client within a second or two,
     // and its 429 carries the shorter, more accurate Retry-After.
@@ -879,17 +909,32 @@ export async function enforceEdgeRateLimit(request, env, path, hostname = API_HO
     if (burst && typeof burst.limit === "function") {
       const outcome = await burst.limit({ key });
       if (outcome && outcome.success === false) {
+        recordRateLimitDecision(request, env, {
+          ...observed,
+          decision: "limited",
+          window: "10s",
+          limit: burstLimit,
+        });
         return buildRateLimitResponse(path, burstLimit, RATE_LIMIT_BURST_PERIOD_SECONDS, bucketClass);
       }
     }
 
     // Sustained (60s): catches the slow grind that never trips a 10s window.
     // Some classes (first-party) have no sustained bucket by design.
-    if (!spec.sustainedBinding) return null;
+    if (!spec.sustainedBinding) {
+      recordRateLimitDecision(request, env, { ...observed, decision: "allowed" });
+      return null;
+    }
     const sustained = env[spec.sustainedBinding];
     if (sustained && typeof sustained.limit === "function") {
       const outcome = await sustained.limit({ key });
       if (outcome && outcome.success === false) {
+        recordRateLimitDecision(request, env, {
+          ...observed,
+          decision: "limited",
+          window: "60s",
+          limit: sustainedLimit,
+        });
         return buildRateLimitResponse(
           path,
           sustainedLimit,
@@ -898,6 +943,8 @@ export async function enforceEdgeRateLimit(request, env, path, hostname = API_HO
         );
       }
     }
+
+    recordRateLimitDecision(request, env, { ...observed, decision: "allowed" });
   } catch (err) {
     // Never let a limiter fault take down the API.
     try {
@@ -908,6 +955,216 @@ export async function enforceEdgeRateLimit(request, env, path, hostname = API_HO
   }
 
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// Edge rate limit observability
+//
+// The enforcement layer above is otherwise invisible: the Cloudflare rate
+// limiting bindings expose no analytics of their own, and a 429 leaves no trace
+// beyond the response itself. These events are the only way to answer "how many
+// 429s, in which bucket, for which RPC" without tailing the worker live.
+//
+// THE SAMPLING RULE IS DELIBERATELY ASYMMETRIC:
+//
+//   LIMITED decisions are emitted at 100%, ALWAYS, with no sampling.
+//     A 429 is rare and high-signal. At the existing 1% analytics sample rate
+//     you would see roughly one in a hundred of them, which for a bucket that
+//     fires a dozen times a day means you see nothing at all and conclude the
+//     limiter is idle. Under-counting the rare event is the failure mode that
+//     makes rate limit observability useless, so it is ruled out structurally.
+//
+//   ALLOWED decisions ARE sampled (EDGE_RATE_LIMIT_SAMPLE_RATE, falling back to
+//     EDGE_ANALYTICS_SAMPLE_RATE, default 0.01).
+//     These are every eligible request on the zone — emitting them all would be
+//     an enormous, mostly redundant log/Analytics-Engine bill for a denominator.
+//
+// Because the two arms carry different rates, EVERY event carries the
+// `sample_rate` that produced it. Any ratio query (limited vs allowed) MUST
+// divide each side by its own sample_rate before comparing, or the allowed side
+// is under-counted 100x. See docs/observability/cost-attribution.md.
+//
+// PRIVACY: no field here may carry a credential or a client IP. The rate limit
+// KEY (a token hash, a session hash, or a raw IP) is NEVER emitted in any form
+// — not hashed, not truncated. Only `key_type` is emitted, which says which
+// KIND of identity keyed the bucket ("token-hash" | "ip" | "session-hash") and
+// nothing about who it was. Bypass SECRETS are never emitted either; only the
+// class name that matched. Paths go through normalizeAnalyticsPath so a raw URL
+// (and its query string) can never leak in, matching the edge_request contract.
+// ---------------------------------------------------------------------------
+
+/** Which KIND of identity keys this bucket. Never the identity itself. */
+const RATE_LIMIT_KEY_TYPES = {
+  "api-key": "token-hash",
+  "api-anon": "ip",
+  "first-party": "ip",
+  "browser-anon": "ip",
+  "browser-auth": "session-hash",
+};
+
+/**
+ * Build the `edge_rate_limit` event.
+ *
+ * Pure and side-effect free so tests can assert the exact shape, and so the
+ * emitting path (which must never throw) has nothing to do but stringify.
+ *
+ * @param {Request} request
+ * @param {object} options
+ * @param {"limited"|"allowed"} options.decision
+ * @param {"browser"|"api"} options.surface
+ * @param {string} options.bucketClass "" when no bucket was consulted
+ * @param {string} [options.bypassClass] "" | "testing" | "ssr" | "crawler"
+ * @param {string} options.path raw pathname; normalized before it is emitted
+ * @param {"10s"|"60s"|""} [options.window] which window tripped; "" when allowed
+ * @param {number} [options.limit] the tripped limit; 0 when allowed
+ * @param {number} [options.burstLimit]
+ * @param {number} [options.sustainedLimit]
+ * @param {number} [options.sampleRate] the rate that produced this event
+ */
+export function buildRateLimitEvent(request, options) {
+  const path = options.path || "/";
+  const rpc = parseRpcPath(path);
+  const cf = (request && request.cf) || {};
+  const bucketClass = options.bucketClass || "";
+
+  return {
+    type: "edge_rate_limit",
+    decision: options.decision,
+    bucket_class: bucketClass,
+    surface: options.surface || "",
+    // "" for an allowed decision: no window tripped.
+    window: options.decision === "limited" ? options.window || "" : "",
+    limit: options.decision === "limited" ? options.limit || 0 : 0,
+    burst_limit: options.burstLimit || 0,
+    sustained_limit: options.sustainedLimit || 0,
+    // Normalized, never raw — same cardinality contract as edge_request.path.
+    path: normalizeAnalyticsPath(path),
+    route_group: normalizeRouteGroup(hostFromRequest(request), path),
+    api_family: rpc.api_family,
+    rpc_method: rpc.rpc_method,
+    method: (request && request.method) || "",
+    // The KIND of key, never the key. "" when no bucket was consulted.
+    key_type: RATE_LIMIT_KEY_TYPES[bucketClass] || "",
+    bypass_class: options.bypassClass || "",
+    cf_colo: typeof cf.colo === "string" ? cf.colo : "",
+    cf_ray: (request && request.headers && request.headers.get("cf-ray")) || "",
+    // Always present: a ratio query is wrong without it (see block comment).
+    sample_rate: Number.isFinite(options.sampleRate) ? options.sampleRate : 1,
+  };
+}
+
+function hostFromRequest(request) {
+  try {
+    return new URL(request.url).hostname;
+  } catch (_) {
+    return "";
+  }
+}
+
+/**
+ * The sample rate for ALLOWED decisions. Limited decisions never consult this.
+ *
+ * `EDGE_RATE_LIMIT_SAMPLE_RATE` lets the denominator be tuned independently of
+ * the general edge_request stream; when unset it inherits
+ * `EDGE_ANALYTICS_SAMPLE_RATE` so there is one number to change by default.
+ *
+ * @param {Record<string, any>} env
+ */
+export function resolveRateLimitSampleRate(env = {}) {
+  const explicit = env.EDGE_RATE_LIMIT_SAMPLE_RATE;
+  if (explicit !== undefined && explicit !== null && String(explicit).trim() !== "") {
+    return clampSampleRate(parseFloat(explicit));
+  }
+  return clampSampleRate(parseFloat(env.EDGE_ANALYTICS_SAMPLE_RATE || "0.01"));
+}
+
+/**
+ * Emit an `edge_rate_limit` event.
+ *
+ * TOTALLY BEST-EFFORT. Every branch is inside a try/catch and the function
+ * returns void — instrumentation must never be the reason a request fails, and
+ * `enforceEdgeRateLimit` itself already fails open. Callers do not await it.
+ *
+ * @param {Request} request
+ * @param {Record<string, any>} env
+ * @param {object} options see buildRateLimitEvent
+ * @returns {void}
+ */
+export function recordRateLimitDecision(request, env, options) {
+  try {
+    const limited = options.decision === "limited";
+
+    // THE ASYMMETRY: limited is unconditional, allowed is sampled.
+    const sampleRate = limited ? 1 : resolveRateLimitSampleRate(env);
+    if (!limited && (sampleRate <= 0 || Math.random() > sampleRate)) return;
+
+    const event = buildRateLimitEvent(request, { ...options, sampleRate });
+
+    console.log(JSON.stringify(event));
+    writeRateLimitDataPoint(env, event);
+  } catch (_) {
+    // Observability must never affect request handling.
+  }
+}
+
+/**
+ * OPTIONAL Cloudflare Workers Analytics Engine write.
+ *
+ * WHY: "how many 429s by bucket_class over the last 7 days" is a time-series
+ * aggregate, and grepping sampled JSON console lines is the wrong tool for it.
+ * Analytics Engine gives that query a SQL endpoint with no log pipeline to run.
+ * It is available on this account (Workers Paid subscription confirmed) but the
+ * binding is ABSENT BY DEFAULT — Terraform only attaches it when
+ * `edge_rate_limit_analytics_dataset` is set to a non-empty dataset name.
+ *
+ * Everything here is defensive: an unbound name, a binding without
+ * writeDataPoint, or a throwing write are all no-ops. The console.log event
+ * above is the source of truth and does not depend on this.
+ *
+ * SCHEMA (fixed positions — the SQL in docs/observability/cost-attribution.md
+ * refers to blob1..blob11 / double1..double4 by position, so entries may be
+ * APPENDED but never reordered or removed):
+ *
+ *   index1  bucket_class      (AE samples by index; the primary group-by)
+ *   blob1   decision          blob7   api_family
+ *   blob2   bucket_class      blob8   rpc_method
+ *   blob3   surface           blob9   path
+ *   blob4   window            blob10  method
+ *   blob5   key_type          blob11  cf_colo
+ *   blob6   bypass_class
+ *   double1 limit             double3 sustained_limit
+ *   double2 burst_limit       double4 sample_rate
+ *
+ * @param {Record<string, any>} env
+ * @param {object} event the already-built edge_rate_limit event
+ */
+function writeRateLimitDataPoint(env, event) {
+  const dataset = env && env.RATE_LIMIT_ANALYTICS;
+  if (!dataset || typeof dataset.writeDataPoint !== "function") return;
+
+  try {
+    dataset.writeDataPoint({
+      // One index, max 96 bytes. bucket_class is the dimension every query
+      // groups by and has exactly six values, so it is the right index.
+      indexes: [event.bucket_class || "none"],
+      blobs: [
+        event.decision,
+        event.bucket_class,
+        event.surface,
+        event.window,
+        event.key_type,
+        event.bypass_class,
+        event.api_family,
+        event.rpc_method,
+        event.path,
+        event.method,
+        event.cf_colo,
+      ],
+      doubles: [event.limit, event.burst_limit, event.sustained_limit, event.sample_rate],
+    });
+  } catch (_) {
+    // Analytics Engine is a nice-to-have; the JSON line already landed.
+  }
 }
 
 async function handlePublicEdgeRead(request, url, env, ctx, defaults, shortsApiOrigin, marketDataOrigin) {
@@ -1253,6 +1510,18 @@ export function buildEdgeAnalyticsEvent(request, response, options) {
   const contentLength = parseInt(response.headers.get("content-length") || "0", 10);
   const cf = request.cf || {};
 
+  // ADDITIVE, and deliberately so: the edge_request contract is queried
+  // elsewhere, so these two fields are appended rather than reshaping anything.
+  //
+  // A 429 in this stream is ambiguous on its own — the ORIGIN also returns 429
+  // from the app-layer limiter (services/pkg/ratelimit), and so does the
+  // zone-level rule. These identify the edge-worker bucket specifically:
+  // buildRateLimitResponse stamps X-Shorted-Cache: RATELIMITED and an
+  // `edge-<n>s` scope, neither of which any other 429 producer sets.
+  const rateLimitScope = response.headers.get("X-RateLimit-Scope") || "";
+  const rateLimited =
+    cacheStatus === "RATELIMITED" || (response.status === 429 && rateLimitScope.startsWith("edge-"));
+
   return {
     type: "edge_request",
     host: url.hostname,
@@ -1273,6 +1542,10 @@ export function buildEdgeAnalyticsEvent(request, response, options) {
     cf_ray: request.headers.get("cf-ray") || "",
     cf_colo: typeof cf.colo === "string" ? cf.colo : "",
     cf_client_bot: Boolean(cf.clientBot),
+    rate_limited: rateLimited,
+    // The bucket that produced the 429, so this stream can be sliced the same
+    // way edge_rate_limit is. "" for every non-rate-limited request.
+    rate_limit_bucket: rateLimited ? response.headers.get("X-RateLimit-Bucket") || "" : "",
   };
 }
 
