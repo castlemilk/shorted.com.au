@@ -72,6 +72,13 @@ func NewRateLimitInterceptor(limiter RateLimiter, cfg Config, userClaimsKey any)
 					fmt.Errorf("rate limit check failed"))
 			}
 
+			// Record the decision — allowed or not — plus where the caller
+			// sits against their monthly quota. RateLimitBlocked below is a
+			// trailing indicator (it fires only once someone is already
+			// blocked); this is the leading one. Two in-memory OTel records,
+			// no I/O: the "no I/O on the request path" invariant holds.
+			recordCheck(ctx, result)
+
 			// Rate limit exceeded
 			if !result.Allowed {
 				// Record rate limit blocked metric
@@ -93,8 +100,13 @@ func NewRateLimitInterceptor(limiter RateLimiter, cfg Config, userClaimsKey any)
 				// RateLimitDetail in quota_error.go, documented in CLAUDE.md.
 				err := newRateLimitError(result, cfg.UpgradeURL)
 
-				log.Infof("Rate limit exceeded for %s (tier=%s, kind=%s, minute=%d, monthly=%d/%d)",
-					identifier, tier, result.ExceededKind, result.Limit, result.MonthlyUsed, result.MonthlyLimit)
+				// The identifier is redacted (prefix kept, value hashed): it is
+				// an end-user IP or user id, and info-level logs ship to a sink
+				// with its own retention. The hash is stable, so a caller still
+				// correlates across lines and instances. See metrics.go.
+				log.Infof("Rate limit exceeded for %s (tier=%s, access=%s, kind=%s, minute=%d, monthly=%d/%d)",
+					redactIdentifier(identifier), tier, accessLabel(isBrowser), result.ExceededKind,
+					result.Limit, result.MonthlyUsed, result.MonthlyLimit)
 
 				return nil, err
 			}

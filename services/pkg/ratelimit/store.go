@@ -107,6 +107,24 @@ func (s *PostgresUsageStore) ApplyDeltas(ctx context.Context, deltas []UsageDelt
 	ctx, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 
+	// Latency and error class are recorded for every statement. Both methods
+	// are called only from AppLimiter's background goroutines, so timing them
+	// adds nothing to any request. Errors are recorded as a bounded CLASS
+	// (timeout/connection/pool_exhausted/...), never as the raw driver string,
+	// which carries query text and would be unbounded.
+	started := time.Now()
+	totals, err := s.applyDeltas(ctx, identifiers, months, counts)
+	recordStoreCall(ctx, opApplyDeltas, started, err)
+
+	return totals, err
+}
+
+func (s *PostgresUsageStore) applyDeltas(
+	ctx context.Context,
+	identifiers []string,
+	months []string,
+	counts []int64,
+) (map[UsageKey]int64, error) {
 	rows, err := s.db.Query(ctx, applyDeltasSQL, identifiers, months, counts)
 	if err != nil {
 		return nil, fmt.Errorf("api_usage_monthly upsert: %w", err)
@@ -130,6 +148,18 @@ func (s *PostgresUsageStore) Totals(ctx context.Context, month time.Time, identi
 	ctx, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 
+	started := time.Now()
+	totals, err := s.totals(ctx, month, identifiers)
+	recordStoreCall(ctx, opTotals, started, err)
+
+	return totals, err
+}
+
+func (s *PostgresUsageStore) totals(
+	ctx context.Context,
+	month time.Time,
+	identifiers []string,
+) (map[UsageKey]int64, error) {
 	rows, err := s.db.Query(ctx, totalsSQL, month.Format("2006-01-02"), identifiers)
 	if err != nil {
 		return nil, fmt.Errorf("api_usage_monthly read: %w", err)

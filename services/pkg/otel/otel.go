@@ -82,6 +82,33 @@ func histogramViews() []metric.View {
 				Boundaries: syncBuckets,
 			}},
 		),
+		// Monthly quota consumption (percent of quota). The buckets are dense
+		// where a decision gets made — 90/95/99 is where a caller is about to
+		// be blocked and where an upsell or a support call comes from — and
+		// sparse below that. >100 exists because the limiter overshoots by
+		// design across instances (see monthly.go).
+		metric.NewView(
+			metric.Instrument{Name: "shorted.rate_limit.quota_consumed_ratio"},
+			metric.Stream{Aggregation: metric.AggregationExplicitBucketHistogram{
+				Boundaries: []float64{1, 5, 10, 25, 50, 75, 90, 95, 99, 100, 110},
+			}},
+		),
+		// Quota store statement duration (seconds). Off the request path, so
+		// the interesting range is "healthy" vs "about to hit the 5s timeout".
+		metric.NewView(
+			metric.Instrument{Name: "shorted.rate_limit.store_duration"},
+			metric.Stream{Aggregation: metric.AggregationExplicitBucketHistogram{
+				Boundaries: []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5},
+			}},
+		),
+		// Identifiers per flush. One statement covers the whole batch, so this
+		// is the batch width, not a statement count.
+		metric.NewView(
+			metric.Instrument{Name: "shorted.rate_limit.flush_rows"},
+			metric.Stream{Aggregation: metric.AggregationExplicitBucketHistogram{
+				Boundaries: []float64{1, 5, 10, 25, 50, 100, 250, 500, 1000, 5000},
+			}},
+		),
 	}
 }
 
