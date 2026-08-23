@@ -6,6 +6,8 @@ import {
   type SubscriptionInfo,
 } from "~/app/actions/subscription";
 import { rateLimit, type RateLimitConfig } from "@/lib/rate-limit";
+import { recordProductEvent } from "@/lib/product-events";
+import { routeGroupFromPath } from "@/lib/analytics-events";
 
 export const ALLOWED_CHAT_METHODS = new Set([
   "SendMessage",
@@ -177,6 +179,41 @@ export function premiumRequiredResponse(): NextResponse {
   );
 }
 
+/**
+ * Which window a chat bucket enforces, in the `product_event` vocabulary.
+ *
+ * Chat is the one web surface with buckets that are neither per-minute nor
+ * monthly — sends are additionally capped per *day*. Mapping that to
+ * `per_minute` would be a lie and mapping it to `unknown` would throw away the
+ * only interesting thing about it, so `limit_kind` carries `daily` too (closed
+ * value set; see LIMIT_KINDS in product-events.ts).
+ */
+export function limitKindForBucket(windowSeconds: number): string {
+  if (windowSeconds <= 60) return "per_minute";
+  if (windowSeconds <= 86_400) return "daily";
+  return "monthly";
+}
+
+/**
+ * Chat methods as `product_event` actions.
+ *
+ * Mapped through a closed set rather than normalising the raw method string:
+ * this function is reachable with an arbitrary `method` from the proxy route,
+ * and an unbounded `action` label is a cardinality hole in the metric.
+ */
+export function chatActionForMethod(method: string): string {
+  return ALLOWED_CHAT_METHODS.has(method) ? method.toLowerCase() : "other";
+}
+
+/** First-segment route group for the request, defensively. */
+function chatRouteGroup(request: NextRequest): string {
+  try {
+    return routeGroupFromPath(new URL(request.url).pathname);
+  } catch {
+    return "/other";
+  }
+}
+
 export async function enforceChatRateLimits(
   request: NextRequest,
   method: string,
@@ -185,6 +222,22 @@ export async function enforceChatRateLimits(
   for (const config of configs) {
     const result = await rateLimit(request, config);
     if (!result.success) {
+      // Chat is entitlement-gated, so a 429 here is always a *paying* user
+      // being told no — the single most important rate-limit signal we have,
+      // and until now it was returned with no telemetry at all.
+      recordProductEvent({
+        feature: "chat",
+        action: chatActionForMethod(method),
+        status: "rate_limited",
+        properties: {
+          // Two entry routes proxy to the same guard (`/api/chat` and
+          // `/chat.v1.ChatService/[method]`), so the group is derived rather
+          // than hard-coded — it is still a first-segment group, never a path.
+          route_group: chatRouteGroup(request),
+          limit_kind: limitKindForBucket(config.windowSeconds),
+          tier: result.tier,
+        },
+      });
       return result.response;
     }
   }

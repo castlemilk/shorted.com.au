@@ -36,6 +36,25 @@ const pendingRateLimited = new Map<
 const MAX_RATE_LIMIT_RETRY_DELAY_MS = 30_000;
 
 /**
+ * Last rate-limit *occurrence* we reported per query, so a retry burst counts
+ * once.
+ *
+ * `rate_limit_encountered` answers "how often does a request get limited",
+ * which is the denominator `rate_limit_notice_shown` never had — most 429s here
+ * are background refetches that recover silently and render no UI at all.
+ *
+ * But TanStack dispatches one `failed` action per *attempt*, so a single 429
+ * with three retries would emit four identical events and make the metric read
+ * 4x. The occurrence key (`kind|tier|resetWindow`) is stable across the retries
+ * of one burst and changes when a genuinely new limit is hit — the same trick
+ * `RateLimitNotice` uses for its per-second countdown re-renders.
+ *
+ * Entries are dropped when the query resolves either way, so this is bounded by
+ * the number of in-flight limited queries, not by session length.
+ */
+const reportedEncounters = new Map<string, string>();
+
+/**
  * Calculate retry delay, respecting Retry-After header for rate limits
  */
 function calculateRetryDelay(
@@ -100,6 +119,9 @@ interface RateLimitCacheEvent {
  * who gave up. Fires at most once per limited query — the pending entry is
  * consumed on the first success and dropped on a terminal error.
  *
+ * Also emits `rate_limit_encountered` on the way in — one per limit occurrence,
+ * whether or not it recovers and whether or not any UI renders.
+ *
  * Exported for tests; production wiring is `queryCache.subscribe` below.
  */
 export function handleRateLimitCacheEvent(event: RateLimitCacheEvent): void {
@@ -112,6 +134,20 @@ export function handleRateLimitCacheEvent(event: RateLimitCacheEvent): void {
     if (action?.type === "failed") {
       if (!isRateLimitError(action.error)) return;
       const info = parseRateLimitInfo(action.error);
+
+      // Every classified 429, monthly included, and regardless of whether any
+      // UI will render. Deduped to one event per occurrence (see above).
+      const occurrence = `${info.kind}|${info.tier ?? "unknown"}|${
+        info.resetAt ?? info.monthlyResetAt ?? info.retryAfter ?? 0
+      }`;
+      if (reportedEncounters.get(hash) !== occurrence) {
+        reportedEncounters.set(hash, occurrence);
+        trackRateLimitEvent(RATE_LIMIT_EVENTS.ENCOUNTERED, {
+          kind: info.kind,
+          tier: info.tier,
+        });
+      }
+
       // A monthly quota is never auto-retried, so it can never auto-recover.
       if (info.kind === "monthly") return;
       pendingRateLimited.set(hash, { kind: info.kind, tier: info.tier });
@@ -119,6 +155,7 @@ export function handleRateLimitCacheEvent(event: RateLimitCacheEvent): void {
     }
 
     if (action?.type === "success") {
+      reportedEncounters.delete(hash);
       const pending = pendingRateLimited.get(hash);
       if (!pending) return;
       pendingRateLimited.delete(hash);
@@ -130,8 +167,11 @@ export function handleRateLimitCacheEvent(event: RateLimitCacheEvent): void {
     }
 
     if (action?.type === "error") {
-      // Retries were exhausted — this one did not recover.
+      // Retries were exhausted — this one did not recover. Clearing the
+      // encounter key too means the next attempt at this query counts as a new
+      // encounter, which it is: it is a new request that got a new 429.
       pendingRateLimited.delete(hash);
+      reportedEncounters.delete(hash);
     }
   } catch {
     // Instrumentation must never break the query pipeline.

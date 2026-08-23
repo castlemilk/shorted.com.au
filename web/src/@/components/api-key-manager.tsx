@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -24,6 +24,10 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { mintApiTokenAction } from "~/app/actions/mintToken";
+import {
+  DEVELOPER_EVENTS,
+  trackDeveloperEvent,
+} from "@/lib/developer-analytics";
 
 interface RateLimitTier {
   name: string;
@@ -62,26 +66,53 @@ export function ApiKeyManager() {
   const [error, setError] = useState<string | null>(null);
   const [hasGenerated, setHasGenerated] = useState(false);
 
+  // Once per mount, not once per render. This is the denominator for every
+  // other event here: "reached the page that fixes an API limit".
+  const viewReported = useRef(false);
+  useEffect(() => {
+    if (viewReported.current) return;
+    viewReported.current = true;
+    trackDeveloperEvent(DEVELOPER_EVENTS.TOKEN_VIEW);
+  }, []);
+
   const handleGenerateToken = useCallback(async () => {
     setIsGenerating(true);
     setError(null);
+
+    // Captured before the await: `token` is what the user had when they
+    // clicked, which is what decides activation vs rotation.
+    const isFirstToken = token === null;
 
     try {
       const result = await mintApiTokenAction();
       setToken(result.token);
       setHasGenerated(true);
       setIsRevealed(true);
+      trackDeveloperEvent(
+        isFirstToken
+          ? DEVELOPER_EVENTS.TOKEN_CREATED
+          : DEVELOPER_EVENTS.TOKEN_REGENERATED,
+        { first_token: isFirstToken },
+      );
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to generate token.",
       );
+      // The error message itself is never sent — it can carry upstream detail.
+      trackDeveloperEvent(DEVELOPER_EVENTS.TOKEN_CREATE_FAILED, {
+        first_token: isFirstToken,
+      });
     } finally {
       setIsGenerating(false);
     }
-  }, []);
+  }, [token]);
 
   const handleCopy = useCallback(async () => {
     if (!token) return;
+    // Copying is the step that turns a minted token into a usable one; a mint
+    // with no copy is a user who walked away mid-flow. Reported once, after
+    // whichever path actually copied — the `execCommand` fallback is a real
+    // copy, and a browser that fails both throws before reaching here.
     try {
       await navigator.clipboard.writeText(token);
       setIsCopied(true);
@@ -99,6 +130,7 @@ export function ApiKeyManager() {
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
     }
+    trackDeveloperEvent(DEVELOPER_EVENTS.TOKEN_COPIED);
   }, [token]);
 
   return (

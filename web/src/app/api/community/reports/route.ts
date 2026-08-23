@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { rateLimit } from "~/@/lib/rate-limit";
+import { recordProductEvent } from "~/@/lib/product-events";
 import { createCommunityReport } from "~/@/lib/community/community-repository";
 import { auth } from "~/server/auth";
 
@@ -14,6 +15,17 @@ export async function POST(request: NextRequest) {
   });
 
   if (!rateLimitResult.success) {
+    recordProductEvent({
+      feature: "community",
+      action: "report",
+      status: "rate_limited",
+      properties: {
+        route_group: "/api/community/*",
+        // Every community bucket is a 60s window (see the config above).
+        limit_kind: "per_minute",
+        tier: rateLimitResult.tier,
+      },
+    });
     return rateLimitResult.response;
   }
 
