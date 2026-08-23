@@ -10,6 +10,7 @@ import { SubscriptionStatus, SubscriptionTier } from "~/gen/shorts/v1alpha1/bill
 import { retryWithBackoff, type RetryOptions } from "@/lib/retry";
 import { timestampFromDate } from "@bufbuild/protobuf/wkt";
 import { recordProductEvent } from "~/@/lib/product-events";
+import { formatAmount, notifyOperator } from "~/@/lib/operator-notify";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "~/app/actions/config";
 
 // Internal auth secret for service-to-service calls
@@ -150,6 +151,16 @@ export async function POST(request: NextRequest) {
         break;
       }
 
+      // A card declined outside an invoice (notably during Checkout) produces
+      // NO invoice.payment_failed, so without this a failed attempt to pay is
+      // silent. Notify-only on purpose: a failed PaymentIntent must not mark
+      // anything past_due — that is invoice.payment_failed's job, and doing it
+      // here would downgrade a customer over a single declined attempt.
+      case "payment_intent.payment_failed": {
+        await notifyPaymentIntentFailed(event.data.object);
+        break;
+      }
+
       default:
         // Unhandled event type - ignore
     }
@@ -184,6 +195,34 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/**
+ * A payment attempt that failed without an invoice — typically a declined card
+ * during Checkout. Notification only; it changes no subscription state.
+ */
+async function notifyPaymentIntentFailed(intent: Stripe.PaymentIntent) {
+  const failure = intent.last_payment_error;
+  const email =
+    intent.receipt_email ?? failure?.payment_method?.billing_details?.email ?? null;
+
+  await notifyOperator({
+    subject: `Shorted payment attempt FAILED${email ? `: ${email}` : ""}`,
+    text: [
+      "Someone tried to pay and the payment was declined.",
+      "",
+      `Email:    ${email ?? "(unknown — no receipt email on the intent)"}`,
+      `Amount:   ${formatAmount(intent.amount, intent.currency)}`,
+      `Reason:   ${failure?.message ?? "(no reason given)"}`,
+      `Code:     ${failure?.decline_code ?? failure?.code ?? "(none)"}`,
+      `Customer: ${typeof intent.customer === "string" ? intent.customer : "(none)"}`,
+      `Intent:   ${intent.id}`,
+      "",
+      "No subscription state was changed by this event.",
+      "",
+      "— shorted.com.au",
+    ].join("\n"),
+  });
+}
+
 function normalizeStripeEventType(type: string): string {
   return type.toLowerCase().replace(/[^a-z0-9_.:-]+/g, "_");
 }
@@ -212,6 +251,24 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     },
     WEBHOOK_RETRY_OPTIONS
   );
+
+  // Operator alert. Deliberately AFTER the grant: the customer getting what
+  // they paid for matters more than us hearing about it, and notifyOperator
+  // never throws, so it cannot turn a completed grant into a retried webhook.
+  await notifyOperator({
+    subject: `New Shorted subscription: ${userEmail}`,
+    text: [
+      "Someone just subscribed.",
+      "",
+      `Email:        ${userEmail}`,
+      `Amount:       ${formatAmount(session.amount_total, session.currency)}`,
+      `Customer:     ${customerId}`,
+      `Subscription: ${subscriptionId}`,
+      `Session:      ${session.id}`,
+      "",
+      "— shorted.com.au",
+    ].join("\n"),
+  });
 }
 
 async function handleSubscriptionUpdate(subscription: Stripe.Subscription, isDeleted: boolean) {
@@ -279,6 +336,25 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
 
 async function handlePaymentFailed(invoice: Stripe.Invoice) {
   const customerId = invoice.customer as string;
+
+  await notifyOperator({
+    subject: `Shorted payment FAILED: ${invoice.customer_email ?? customerId}`,
+    text: [
+      "A subscription payment failed. The account has been marked past_due.",
+      "",
+      `Email:    ${invoice.customer_email ?? "(not on invoice)"}`,
+      `Amount:   ${formatAmount(invoice.amount_due, invoice.currency)}`,
+      `Customer: ${customerId}`,
+      `Invoice:  ${invoice.id ?? "(none)"}`,
+      invoice.hosted_invoice_url ? `Invoice URL: ${invoice.hosted_invoice_url}` : "",
+      "",
+      "Stripe will retry per your dunning settings.",
+      "",
+      "— shorted.com.au",
+    ]
+      .filter(Boolean)
+      .join("\n"),
+  });
 
   // Mark subscription as past_due
   await retryWithBackoff(
