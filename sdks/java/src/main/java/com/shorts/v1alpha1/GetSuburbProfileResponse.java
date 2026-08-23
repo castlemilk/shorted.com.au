@@ -303,6 +303,47 @@ private static final long serialVersionUID = 0L;
     return crime_ == null ? com.shorts.v1alpha1.SuburbCrime.getDefaultInstance() : crime_;
   }
 
+  public static final int LISTING_STATS_FIELD_NUMBER = 8;
+  private com.shorts.v1alpha1.SuburbListingStats listingStats_;
+  /**
+   * <pre>
+   * Crawl-derived listing aggregates; null when the suburb is outside the crawl
+   * catalog or the HOUSING_DROP_LISTINGS_ENABLED kill switch is off.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbListingStats listing_stats = 8 [json_name = "listingStats"];</code>
+   * @return Whether the listingStats field is set.
+   */
+  @java.lang.Override
+  public boolean hasListingStats() {
+    return ((bitField0_ & 0x00000040) != 0);
+  }
+  /**
+   * <pre>
+   * Crawl-derived listing aggregates; null when the suburb is outside the crawl
+   * catalog or the HOUSING_DROP_LISTINGS_ENABLED kill switch is off.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbListingStats listing_stats = 8 [json_name = "listingStats"];</code>
+   * @return The listingStats.
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.SuburbListingStats getListingStats() {
+    return listingStats_ == null ? com.shorts.v1alpha1.SuburbListingStats.getDefaultInstance() : listingStats_;
+  }
+  /**
+   * <pre>
+   * Crawl-derived listing aggregates; null when the suburb is outside the crawl
+   * catalog or the HOUSING_DROP_LISTINGS_ENABLED kill switch is off.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbListingStats listing_stats = 8 [json_name = "listingStats"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.SuburbListingStatsOrBuilder getListingStatsOrBuilder() {
+    return listingStats_ == null ? com.shorts.v1alpha1.SuburbListingStats.getDefaultInstance() : listingStats_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -337,6 +378,9 @@ private static final long serialVersionUID = 0L;
     }
     if (((bitField0_ & 0x00000020) != 0)) {
       output.writeMessage(7, getCrime());
+    }
+    if (((bitField0_ & 0x00000040) != 0)) {
+      output.writeMessage(8, getListingStats());
     }
     getUnknownFields().writeTo(output);
   }
@@ -374,6 +418,10 @@ private static final long serialVersionUID = 0L;
     if (((bitField0_ & 0x00000020) != 0)) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(7, getCrime());
+    }
+    if (((bitField0_ & 0x00000040) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(8, getListingStats());
     }
     return size;
   }
@@ -431,6 +479,11 @@ private static final long serialVersionUID = 0L;
       if (!getCrime()
           .equals(other.getCrime())) return false;
     }
+    if (hasListingStats() != other.hasListingStats()) return false;
+    if (hasListingStats()) {
+      if (!getListingStats()
+          .equals(other.getListingStats())) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -469,6 +522,10 @@ private static final long serialVersionUID = 0L;
     if (hasCrime()) {
       hash = (37 * hash) + CRIME_FIELD_NUMBER;
       hash = (53 * hash) + getCrime().hashCode();
+    }
+    if (hasListingStats()) {
+      hash = (37 * hash) + LISTING_STATS_FIELD_NUMBER;
+      hash = (53 * hash) + getListingStats().hashCode();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -607,6 +664,7 @@ private static final long serialVersionUID = 0L;
         internalGetSimilarFieldBuilder();
         internalGetBannerFieldBuilder();
         internalGetCrimeFieldBuilder();
+        internalGetListingStatsFieldBuilder();
       }
     }
     @java.lang.Override
@@ -649,6 +707,11 @@ private static final long serialVersionUID = 0L;
       if (crimeBuilder_ != null) {
         crimeBuilder_.dispose();
         crimeBuilder_ = null;
+      }
+      listingStats_ = null;
+      if (listingStatsBuilder_ != null) {
+        listingStatsBuilder_.dispose();
+        listingStatsBuilder_ = null;
       }
       return this;
     }
@@ -733,6 +796,12 @@ private static final long serialVersionUID = 0L;
             : crimeBuilder_.build();
         to_bitField0_ |= 0x00000020;
       }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.listingStats_ = listingStatsBuilder_ == null
+            ? listingStats_
+            : listingStatsBuilder_.build();
+        to_bitField0_ |= 0x00000040;
+      }
       result.bitField0_ |= to_bitField0_;
     }
 
@@ -791,6 +860,9 @@ private static final long serialVersionUID = 0L;
       }
       if (other.hasCrime()) {
         mergeCrime(other.getCrime());
+      }
+      if (other.hasListingStats()) {
+        mergeListingStats(other.getListingStats());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -873,6 +945,13 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000040;
               break;
             } // case 58
+            case 66: {
+              input.readMessage(
+                  internalGetListingStatsFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000080;
+              break;
+            } // case 66
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2034,6 +2113,172 @@ private static final long serialVersionUID = 0L;
         crime_ = null;
       }
       return crimeBuilder_;
+    }
+
+    private com.shorts.v1alpha1.SuburbListingStats listingStats_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.SuburbListingStats, com.shorts.v1alpha1.SuburbListingStats.Builder, com.shorts.v1alpha1.SuburbListingStatsOrBuilder> listingStatsBuilder_;
+    /**
+     * <pre>
+     * Crawl-derived listing aggregates; null when the suburb is outside the crawl
+     * catalog or the HOUSING_DROP_LISTINGS_ENABLED kill switch is off.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbListingStats listing_stats = 8 [json_name = "listingStats"];</code>
+     * @return Whether the listingStats field is set.
+     */
+    public boolean hasListingStats() {
+      return ((bitField0_ & 0x00000080) != 0);
+    }
+    /**
+     * <pre>
+     * Crawl-derived listing aggregates; null when the suburb is outside the crawl
+     * catalog or the HOUSING_DROP_LISTINGS_ENABLED kill switch is off.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbListingStats listing_stats = 8 [json_name = "listingStats"];</code>
+     * @return The listingStats.
+     */
+    public com.shorts.v1alpha1.SuburbListingStats getListingStats() {
+      if (listingStatsBuilder_ == null) {
+        return listingStats_ == null ? com.shorts.v1alpha1.SuburbListingStats.getDefaultInstance() : listingStats_;
+      } else {
+        return listingStatsBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * Crawl-derived listing aggregates; null when the suburb is outside the crawl
+     * catalog or the HOUSING_DROP_LISTINGS_ENABLED kill switch is off.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbListingStats listing_stats = 8 [json_name = "listingStats"];</code>
+     */
+    public Builder setListingStats(com.shorts.v1alpha1.SuburbListingStats value) {
+      if (listingStatsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        listingStats_ = value;
+      } else {
+        listingStatsBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Crawl-derived listing aggregates; null when the suburb is outside the crawl
+     * catalog or the HOUSING_DROP_LISTINGS_ENABLED kill switch is off.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbListingStats listing_stats = 8 [json_name = "listingStats"];</code>
+     */
+    public Builder setListingStats(
+        com.shorts.v1alpha1.SuburbListingStats.Builder builderForValue) {
+      if (listingStatsBuilder_ == null) {
+        listingStats_ = builderForValue.build();
+      } else {
+        listingStatsBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Crawl-derived listing aggregates; null when the suburb is outside the crawl
+     * catalog or the HOUSING_DROP_LISTINGS_ENABLED kill switch is off.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbListingStats listing_stats = 8 [json_name = "listingStats"];</code>
+     */
+    public Builder mergeListingStats(com.shorts.v1alpha1.SuburbListingStats value) {
+      if (listingStatsBuilder_ == null) {
+        if (((bitField0_ & 0x00000080) != 0) &&
+          listingStats_ != null &&
+          listingStats_ != com.shorts.v1alpha1.SuburbListingStats.getDefaultInstance()) {
+          getListingStatsBuilder().mergeFrom(value);
+        } else {
+          listingStats_ = value;
+        }
+      } else {
+        listingStatsBuilder_.mergeFrom(value);
+      }
+      if (listingStats_ != null) {
+        bitField0_ |= 0x00000080;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Crawl-derived listing aggregates; null when the suburb is outside the crawl
+     * catalog or the HOUSING_DROP_LISTINGS_ENABLED kill switch is off.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbListingStats listing_stats = 8 [json_name = "listingStats"];</code>
+     */
+    public Builder clearListingStats() {
+      bitField0_ = (bitField0_ & ~0x00000080);
+      listingStats_ = null;
+      if (listingStatsBuilder_ != null) {
+        listingStatsBuilder_.dispose();
+        listingStatsBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Crawl-derived listing aggregates; null when the suburb is outside the crawl
+     * catalog or the HOUSING_DROP_LISTINGS_ENABLED kill switch is off.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbListingStats listing_stats = 8 [json_name = "listingStats"];</code>
+     */
+    public com.shorts.v1alpha1.SuburbListingStats.Builder getListingStatsBuilder() {
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return internalGetListingStatsFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * Crawl-derived listing aggregates; null when the suburb is outside the crawl
+     * catalog or the HOUSING_DROP_LISTINGS_ENABLED kill switch is off.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbListingStats listing_stats = 8 [json_name = "listingStats"];</code>
+     */
+    public com.shorts.v1alpha1.SuburbListingStatsOrBuilder getListingStatsOrBuilder() {
+      if (listingStatsBuilder_ != null) {
+        return listingStatsBuilder_.getMessageOrBuilder();
+      } else {
+        return listingStats_ == null ?
+            com.shorts.v1alpha1.SuburbListingStats.getDefaultInstance() : listingStats_;
+      }
+    }
+    /**
+     * <pre>
+     * Crawl-derived listing aggregates; null when the suburb is outside the crawl
+     * catalog or the HOUSING_DROP_LISTINGS_ENABLED kill switch is off.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbListingStats listing_stats = 8 [json_name = "listingStats"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.SuburbListingStats, com.shorts.v1alpha1.SuburbListingStats.Builder, com.shorts.v1alpha1.SuburbListingStatsOrBuilder> 
+        internalGetListingStatsFieldBuilder() {
+      if (listingStatsBuilder_ == null) {
+        listingStatsBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.shorts.v1alpha1.SuburbListingStats, com.shorts.v1alpha1.SuburbListingStats.Builder, com.shorts.v1alpha1.SuburbListingStatsOrBuilder>(
+                getListingStats(),
+                getParentForChildren(),
+                isClean());
+        listingStats_ = null;
+      }
+      return listingStatsBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.GetSuburbProfileResponse)

@@ -380,6 +380,20 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 				}
 			}
 		}
+		// Crawl-derived aggregates. Populated inside the cache; the kill switch is
+		// applied on READ below so a takedown takes effect immediately rather than
+		// waiting out the cache TTL.
+		var listingStats *shortsv1alpha1.SuburbListingStats
+		if p.ListingStats != nil {
+			listingStats = &shortsv1alpha1.SuburbListingStats{
+				ForSaleCount: p.ListingStats.ForSaleCount,
+				AvgAsking:    p.ListingStats.AvgAsking,
+				MedianAsking: p.ListingStats.MedianAsking,
+				SoldCount:    p.ListingStats.SoldCount,
+				AvgSold:      p.ListingStats.AvgSold,
+				MedianSold:   p.ListingStats.MedianSold,
+			}
+		}
 		return &shortsv1alpha1.GetSuburbProfileResponse{
 			Summary: summary,
 			Demographics: &shortsv1alpha1.SuburbDemographics{
@@ -405,9 +419,10 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 				AvgRates: p.LgaAvgRates, OpSurplusRatio: p.LgaOpSurplusRatio,
 				AssetRenewalRatio: p.LgaAssetRenewalRatio, FinSource: p.LgaFinSource, FinYear: p.LgaFinYear,
 			},
-			Similar: similar,
-			Banner:  banner,
-			Crime:   crime,
+			Similar:      similar,
+			Banner:       banner,
+			Crime:        crime,
+			ListingStats: listingStats,
 		}, nil
 	})
 	if err != nil {
@@ -417,7 +432,18 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 		s.logger.Errorf("database error in GetSuburbProfile: %v", err)
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get suburb profile"))
 	}
-	return connect.NewResponse(cached.(*shortsv1alpha1.GetSuburbProfileResponse)), nil
+	resp := cached.(*shortsv1alpha1.GetSuburbProfileResponse)
+	// The listing aggregates are the one part of this response derived from
+	// ToS-restricted crawl rows, so the kill switch is honoured HERE rather than
+	// inside the cached build — flipping HOUSING_DROP_LISTINGS_ENABLED must take
+	// effect on the next request, not after the cache TTL. Clone before stripping
+	// so the cached object is never mutated.
+	if resp.GetListingStats() != nil && !dropListingsEnabled() {
+		stripped, _ := proto.Clone(resp).(*shortsv1alpha1.GetSuburbProfileResponse)
+		stripped.ListingStats = nil
+		return connect.NewResponse(stripped), nil
+	}
+	return connect.NewResponse(resp), nil
 }
 
 // ListHousingRegions lists selectable house-price regions (suburbs/LGAs/etc),

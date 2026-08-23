@@ -21,7 +21,11 @@ plugins:
   # protoc-gen-connect-query removed 2026-07: zero generated hooks were
   # imported anywhere in web/src (verified repo-wide) — dead output.
   # Java client SDK
-  - plugin: buf.build/protocolbuffers/java
+  # PINNED. Unpinned, buf resolves the latest plugin and every regeneration
+  # rewrites all ~750 committed Java files with a gencode version bump, burying
+  # the actual proto change and silently raising the SDK's runtime floor. Bump
+  # this deliberately, in its own commit.
+  - plugin: buf.build/protocolbuffers/java:v35.1
     out: ../sdks/java/src/main/java
   # - plugin: buf.build/grpc/python:v1.59.1
   #   out: ../services/gen/proto/python

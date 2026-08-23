@@ -37,6 +37,7 @@ import type {
 import { HousingSeriesChart } from "./housing-charts";
 import { SuburbBanner } from "./suburb-banner";
 import { SuburbDistributionPanels } from "./suburb-distribution-card";
+import { SuburbListingEstimate } from "./suburb-listing-estimate";
 import { SuburbLocatorMap } from "./suburb-locator-map-loader";
 import { SuburbNearbyList } from "./suburb-nearby-list";
 import { SuburbScoreBand } from "./suburb-score-band";
@@ -197,10 +198,19 @@ export function SuburbProfile({
                 </p>
               </>
             ) : (
-              <div className="flex h-[160px] flex-col items-center justify-center gap-1 text-center text-sm text-muted-foreground">
-                <p>No median price series for {s.salName} yet.</p>
-                <p className="text-xs">Valuer-General pricing is unavailable for this suburb.{b?.stateMedianPrice ? ` ${stateName} average of suburb medians: ${fmtPriceShort(b.stateMedianPrice)}.` : ""}</p>
-              </div>
+              <>
+                <div className="flex flex-col items-center justify-center gap-1 py-8 text-center text-sm text-muted-foreground">
+                  <p>No median price series for {s.salName} yet.</p>
+                  <p className="text-xs">Valuer-General pricing is unavailable for this suburb.{b?.stateMedianPrice ? ` ${stateName} average of suburb medians: ${fmtPriceShort(b.stateMedianPrice)}.` : ""}</p>
+                </div>
+                {/* The only price signal these suburbs have. Rendered here, and
+                    only here, so it can never sit beside an official median. */}
+                <SuburbListingEstimate
+                  stats={data.listingStats}
+                  suburbName={titleCaseName(s.salName)}
+                  fmt={fmtAUD}
+                />
+              </>
             )}
           </div>
 
