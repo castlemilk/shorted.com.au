@@ -52,6 +52,27 @@ resource "cloudflare_workers_script" "edge_cache" {
   account_id = data.cloudflare_zone.shorted.account.id
   content    = file("${path.module}/../../../services/edge-worker/worker.js")
 
+  # Workers Logs. WITHOUT THIS, EVERY console.log THE WORKER EMITS IS DISCARDED.
+  # Discovered 2026-08-23 via the Workers Observability API: the script had
+  # `observability: null`, `logpush: false`, `tail_consumers: []` — so the
+  # edge_request stream AND every event added for rate limiting, origin errors,
+  # config snapshots and KV failures went nowhere. They were only visible in a
+  # live `wrangler tail`, which meant 7,045 self-inflicted 429s went unnoticed
+  # for days and the documented operator queries could never have returned data.
+  #
+  # head_sampling_rate MUST STAY 1. It is HEAD-based: Cloudflare drops the whole
+  # request context, so anything below 1 silently discards a proportion of the
+  # events the worker deliberately emits at 100% (every limited decision, every
+  # origin error). Volume is already controlled in the worker itself —
+  # EDGE_ANALYTICS_SAMPLE_RATE and friends decide what is emitted; this setting
+  # only decides whether what IS emitted gets kept. Sampling twice, at two
+  # layers, with one of them invisible, is how you get a log stream nobody can
+  # reason about.
+  observability = {
+    enabled            = true
+    head_sampling_rate = 1
+  }
+
 
 
 

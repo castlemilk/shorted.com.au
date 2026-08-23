@@ -155,3 +155,12 @@ namespace_id = "2009"
   [ratelimits.simple]
   limit = 1200
   period = 60
+
+# Workers Logs. Terraform owns the deployed value (modules/cloudflare-edge);
+# this block exists so `wrangler dev`/`--dry-run` behaves the same locally.
+# head_sampling_rate must stay 1 — it is HEAD-based, so anything lower drops
+# whole request contexts and would silently discard the events the worker
+# deliberately emits at 100% (limited rate-limit decisions, origin errors).
+[observability]
+enabled = true
+head_sampling_rate = 1
