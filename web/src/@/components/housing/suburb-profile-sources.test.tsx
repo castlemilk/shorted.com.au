@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { render, screen } from "@testing-library/react";
 
 import { SourcesLine } from "./suburb-profile";
@@ -58,5 +61,29 @@ describe("SourcesLine", () => {
     // ODbL and CC BY are different terms and must not be merged.
     expect(container.textContent).not.toContain("CC BY 4.0 / ODbL");
     expect(container.textContent).toContain("Not financial advice.");
+  });
+});
+
+/**
+ * SourcesLine can only be as honest as the flags handed to it, and the first
+ * version shipped `hasPrice={Boolean(chartRegion) || priced}`. The backend
+ * returns a region IDENTITY for suburbs with no published observation, so every
+ * QLD and WA suburb — states with no Valuer-General feed — credited a
+ * Valuer-General and rendered a rolling-median caption under a banner saying the
+ * price was not tracked. Caught in production, not in review.
+ *
+ * String assertions on purpose: the failure mode is a one-token change to a
+ * boolean, and it is completely silent at runtime.
+ */
+describe("suburb profile price gating", () => {
+  const source = readFileSync(join(__dirname, "suburb-profile.tsx"), "utf8");
+
+  it("gates the sources line on a real median, not on region identity", () => {
+    expect(source).toContain("hasPrice={priced}");
+    expect(source).not.toContain("hasPrice={Boolean(chartRegion)");
+  });
+
+  it("gates the price chart on a real median too", () => {
+    expect(source).toContain("const chartRegion = priced ? regionForSeries : undefined;");
   });
 });

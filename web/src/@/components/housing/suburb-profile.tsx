@@ -83,8 +83,16 @@ export function SuburbProfile({
     );
   }
   const d = data.demographics, b = data.baselines;
-  const chartRegion = s.regionCode || regionCode;
+  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- proto string fields default to "" which must fall through
+  const regionForSeries = s.regionCode || regionCode;
   const priced = s.latestMedianPrice > 0;
+  // The backend hands back a region IDENTITY for suburbs that have no published
+  // observation, so `regionCode` alone is not evidence of a price series. Gating
+  // the chart on it made QLD and WA suburbs — states with no Valuer-General feed
+  // at all — render a "Rolling median of settled transfers, state Valuer-General
+  // open data" caption directly under a banner reading "Median house price not
+  // tracked for this suburb". Only a real latest median proves a series exists.
+  const chartRegion = priced ? regionForSeries : undefined;
   const asOf = fmtPeriod(s.latestPeriod?.seconds);
   const stateName = STATE_NAMES[st] ?? s.stateCode;
   const a = s.amenities;
@@ -298,14 +306,16 @@ export function SuburbProfile({
             </div>
           ) : null}
 
-          <RecentPriceDrops salCode={s.salCode} regionCode={chartRegion} />
+          {/* Crawl-derived listings, unrelated to the Valuer-General series, so
+              this keeps the raw region identity rather than the priced-only one. */}
+          <RecentPriceDrops salCode={s.salCode} regionCode={regionForSeries} />
         </div>
       </div>
 
       <SourcesLine
         censusYear={d?.censusYear}
         hasCensus={Boolean(d?.population ?? d?.medianWeeklyHhdIncome)}
-        hasPrice={Boolean(chartRegion) || priced}
+        hasPrice={priced}
         hasAmenities={Boolean(a?.schoolsTotal ?? a?.supermarketsTotal ?? a?.parksCount)}
         hasSchoolSectors={Boolean(a && a.schoolsGov + a.schoolsCatholic + a.schoolsIndependent > 0)}
         hasFederal={Boolean(s.federalDivision)}
