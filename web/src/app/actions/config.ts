@@ -245,6 +245,45 @@ export const serverFetchOutsideNextCache: typeof fetch = (input, init) =>
     __shortedBypassNextFetchPatch: true,
   } as RequestInit);
 
+/**
+ * Shout, once per process, when we are about to send first-party traffic to a
+ * shorted API origin WITHOUT the bypass secret.
+ *
+ * THIS IS THE ALARM THE AUGUST 2026 INCIDENT DID NOT HAVE. The production
+ * prerender ran for days sending `shorted-web-ssr` with no secret, collected
+ * ~3,500 Cloudflare 429s a day, and degraded silently to fallback data —
+ * invisible until someone queried the Cloudflare GraphQL API by hand. The cause
+ * was mundane and entirely detectable from inside the process: the CI-side
+ * `vercel build` cannot read Vercel's SENSITIVE environment variables, so
+ * `SHORTED_SSR_BYPASS_SECRET` simply was not there.
+ *
+ * A missing secret is no longer dangerous at the edge (unverified first-party
+ * now lands in the generous runaway bucket, see
+ * services/edge-worker/worker.js), but it still means our traffic is riding the
+ * fallback path instead of skipping limits outright — so it must be visible in
+ * a build log and a function log, not inferred from a dashboard.
+ *
+ * Deliberately NOT a throw: a build that renders slightly-degraded pages is
+ * strictly better than a build that fails. Deliberately once-per-process: a
+ * prerender makes thousands of these calls.
+ */
+let warnedMissingSsrBypassSecret = false;
+function warnMissingSsrBypassSecret(): void {
+  if (warnedMissingSsrBypassSecret) return;
+  // Local dev talks to localhost and has no Cloudflare in front of it.
+  if (!isVercelEnvironment() && process.env.CI !== "true") return;
+  warnedMissingSsrBypassSecret = true;
+  console.error(
+    "[config] SHORTED_SSR_BYPASS_SECRET is not set, but this process is " +
+      "sending first-party requests to a shorted API origin. Those requests " +
+      "cannot be verified at the Cloudflare edge and will not skip the zone " +
+      "rate limit. If this is a CI-side `vercel build`, pass the secret " +
+      "explicitly (Vercel SENSITIVE env vars are not readable by `vercel " +
+      "build`); if this is a Vercel runtime, the variable is missing from the " +
+      "deployment. See CLAUDE.md > Cloudflare SSR Bypass.",
+  );
+}
+
 export const serverFetchWithUserAgent: typeof fetch = (input, init) => {
   const headers = new Headers();
   const copyHeaders = (source?: HeadersInit) => {
@@ -292,7 +331,8 @@ export const serverFetchWithUserAgent: typeof fetch = (input, init) => {
   // when the secret is configured (server-only env) AND the request targets a
   // shorted API origin — the secret must never leak to a third-party host.
   const ssrBypassSecret = process.env.SHORTED_SSR_BYPASS_SECRET?.trim();
-  if (ssrBypassSecret && isShortedApiRequestUrl(resolveRequestUrl(input))) {
+  const targetsShortedApi = isShortedApiRequestUrl(resolveRequestUrl(input));
+  if (ssrBypassSecret && targetsShortedApi) {
     headers.set(SHORTED_SSR_BYPASS_HEADER, ssrBypassSecret);
     const userAgent = headers.get("User-Agent") ?? SHORTED_SSR_USER_AGENT;
     headers.set(
@@ -301,6 +341,8 @@ export const serverFetchWithUserAgent: typeof fetch = (input, init) => {
         ? userAgent
         : `${userAgent} ${SHORTED_SSR_USER_AGENT}`,
     );
+  } else if (targetsShortedApi) {
+    warnMissingSsrBypassSecret();
   }
 
   const request = getFetchRequest(input, init);

@@ -1165,6 +1165,40 @@ Every edge 429 carries `X-RateLimit-Bucket`, which is the fastest way to confirm
 classification in prod: `api-anon` 429s at volume mean the marker is **not**
 reaching the worker (check the middleware deploy and the secret).
 
+**We never rate limit ourselves (August 2026).** The secret used to be
+load-bearing in the worst way: marker present + secret missing/mismatched fell
+through to `api-anon` (10/10s). Between 2026-08-22 and 08-23 that produced
+**7,045 zone 429s**, all with UA `shorted-web-ssr/1.0`, all from four Azure IPs
+— our **CI-side `vercel build` prerender**, which cannot read Vercel *sensitive*
+env vars and so rendered every page unable to prove it was us. ~46% of its API
+calls were rejected and fallback data was baked into the static output; nothing
+alerted. The rule now:
+
+> A first-party marker we cannot verify routes to the **`first-party` bucket**
+> (600/10s) anyway and emits an **unsampled** `edge_bypass_used`
+> (`outcome=rejected|unconfigured`). It is never treated as anonymous.
+
+`resolveRateLimitBypass` returns a third class, `ssr-unverified`, for this. The
+secret is an **optimisation** (it lets verified traffic skip the zone rule), not
+the thing standing between us and an outage — a rotation, a missed deploy or an
+unreadable sensitive var now costs a log line, not our rendering. A spoofed UA
+gets 600/10s instead of 10/10s: accepted, because the per-tier and monthly
+limits run *after auth* where a UA buys nothing. The **testing** bypass is a
+full skip and therefore stays fail-closed.
+
+Corollaries that keep it that way:
+- CI-side `vercel build` steps must be handed `SHORTED_SSR_BYPASS_SECRET`
+  explicitly (from GH secret `CLOUDFLARE_SSR_BYPASS_SECRET`) — export-only,
+  never as `--env`, which would downgrade the sensitive Vercel var.
+- `SHORTS_SERVICE_ENDPOINT` must reach every build, or `getServerShortsApiUrl()`
+  falls back to the **public** host and the whole prerender crosses Cloudflare
+  from one runner IP. (`RELEASE_SHORTS_SERVICE_ENDPOINT` is currently unset —
+  see below.)
+- Every server-side Connect transport must use `serverFetchWithUserAgent` /
+  `serverFetchOutsideNextCache`; enforced by `serverApiSurface.test.ts`.
+- `serverFetchWithUserAgent` logs once per process when the secret is missing in
+  a Vercel/CI environment, so a build log shows it next time.
+
 **The web middleware's Upstash limiter is gone.** `web/src/@/lib/rate-limit.ts`
 stays — API route handlers call it directly — but `middleware.ts` no longer
 touches Redis, and its `/api/market-data`, `/api/search` and `/api/community`

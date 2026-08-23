@@ -2,7 +2,7 @@ import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { SearchService } from "~/gen/shorts/v1alpha1/search_pb";
 import { type SearchStocksResponse } from "~/gen/shorts/v1alpha1/search_pb";
-import { SHORTS_API_URL } from "./config";
+import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 import { retryWithBackoff } from "@/lib/retry";
 
 const RETRY_OPTIONS = {
@@ -24,6 +24,11 @@ export async function searchStocks(
   }
 
   const transport = createConnectTransport({
+    // SHORTS_API_URL is the SERVER origin, so this call leaves a Vercel/CI
+    // process and must identify itself as first-party — the default fetch
+    // sends neither the shorted-web-ssr user-agent nor the bypass header and
+    // gets bucketed as an anonymous scraper at the edge.
+    fetch: serverFetchWithUserAgent,
     baseUrl: SHORTS_API_URL,
   });
 

@@ -482,15 +482,71 @@ test("E2E bypass requires BOTH the user-agent marker and the exact secret", () =
   assert.equal(resolveRateLimitBypass(wrongSecret, BYPASS_ENV), "");
 });
 
-test("first-party SSR marker requires BOTH the shorted-web-ssr marker and the secret", () => {
+test("a verified first-party claim needs BOTH the marker and the secret", () => {
   const request = apiRequest("/x", {
     "user-agent": "shorted-web-ssr/1.0",
     "x-shorted-ssr-bypass": BYPASS_ENV.RATE_LIMIT_SSR_BYPASS_SECRET,
   });
   assert.equal(resolveRateLimitBypass(request, BYPASS_ENV), "ssr");
+});
 
+test("an UNVERIFIED first-party claim degrades to ssr-unverified, never to anonymous", () => {
+  // THE REGRESSION GUARD FOR THE AUGUST 2026 INCIDENT.
+  //
+  // A CI-side `vercel build` cannot read Vercel's SENSITIVE env vars, so the
+  // production prerender rendered every page with the marker and NO secret.
+  // Under the old fail-closed rule that returned "" -> `api-anon` (10/10s) and
+  // 429'd our own renderer ~3,500x/day, silently baking fallback data into the
+  // static output. Marker-without-proof must stay in the first-party lane.
   const uaOnly = apiRequest("/x", { "user-agent": "shorted-web-ssr/1.0" });
-  assert.equal(resolveRateLimitBypass(uaOnly, BYPASS_ENV), "");
+  assert.equal(resolveRateLimitBypass(uaOnly, BYPASS_ENV), "ssr-unverified");
+
+  const wrongSecret = apiRequest("/x", {
+    "user-agent": "shorted-web-ssr/1.0",
+    "x-shorted-ssr-bypass": "stale-secret-from-before-the-rotation",
+  });
+  assert.equal(resolveRateLimitBypass(wrongSecret, BYPASS_ENV), "ssr-unverified");
+
+  // A trailing newline on the CLIENT side (the classic `echo`/heredoc bug) is
+  // harmless: HTTP header values are whitespace-trimmed on the way in, so this
+  // still verifies. Pinned so nobody "fixes" it with a strict byte compare.
+  const newlineSecret = apiRequest("/x", {
+    "user-agent": "shorted-web-ssr/1.0",
+    "x-shorted-ssr-bypass": `${BYPASS_ENV.RATE_LIMIT_SSR_BYPASS_SECRET}\n`,
+  });
+  assert.equal(resolveRateLimitBypass(newlineSecret, BYPASS_ENV), "ssr");
+
+  // A trailing newline on the WORKER-side secret is NOT trimmed for us — that
+  // one really does break verification. It must degrade, not throttle.
+  const dirtyEnv = {
+    ...BYPASS_ENV,
+    RATE_LIMIT_SSR_BYPASS_SECRET: `${BYPASS_ENV.RATE_LIMIT_SSR_BYPASS_SECRET}\n`,
+  };
+  assert.equal(
+    resolveRateLimitBypass(
+      apiRequest("/x", {
+        "user-agent": "shorted-web-ssr/1.0",
+        "x-shorted-ssr-bypass": BYPASS_ENV.RATE_LIMIT_SSR_BYPASS_SECRET,
+      }),
+      dirtyEnv
+    ),
+    "ssr-unverified"
+  );
+});
+
+test("unverified first-party gets the GENEROUS first-party bucket, not api-anon", async () => {
+  const { bucketClass, key } = await resolveEdgeRateLimitKey(
+    apiRequest("/x", { "user-agent": "shorted-web-ssr/1.0" }),
+    BYPASS_ENV,
+    "api",
+    resolveRateLimitBypass(apiRequest("/x", { "user-agent": "shorted-web-ssr/1.0" }), BYPASS_ENV)
+  );
+  assert.equal(bucketClass, "first-party");
+  assert.ok(key.startsWith("f:"));
+
+  // ...and the ceiling it lands on is the runaway ceiling, not the anon one.
+  const limits = resolveBucketLimits(bucketClass, {});
+  assert.equal(limits.burstLimit, 600);
 });
 
 test("the middleware's appended-UA shape is recognised as first-party", () => {
@@ -503,9 +559,23 @@ test("the middleware's appended-UA shape is recognised as first-party", () => {
   assert.equal(resolveRateLimitBypass(request, BYPASS_ENV), "ssr");
 });
 
-test("an unset secret disables that bypass class entirely", () => {
+test("an unset SSR secret cannot verify — but still must not throttle us", () => {
+  // Unset on the WORKER side (the secret never reached Cloudflare). Nothing can
+  // verify, so nothing skips the zone rule — but first-party traffic still gets
+  // the first-party ceiling rather than the anonymous one.
   const env = { ...BYPASS_ENV, RATE_LIMIT_SSR_BYPASS_SECRET: "" };
   const request = apiRequest("/x", { "user-agent": "shorted-web-ssr/1.0", "x-shorted-ssr-bypass": "" });
+  assert.equal(resolveRateLimitBypass(request, env), "ssr-unverified");
+});
+
+test("an unset TESTING secret still disables the E2E skip entirely", () => {
+  // The testing bypass is a full skip, so it MUST stay fail-closed: an unset
+  // secret can never be spoofed into unlimited access.
+  const env = { ...BYPASS_ENV, RATE_LIMIT_TESTING_BYPASS_SECRET: "" };
+  const request = apiRequest("/x", {
+    "user-agent": "Shorted-E2E/1.0",
+    "x-shorted-testing-bypass": "anything",
+  });
   assert.equal(resolveRateLimitBypass(request, env), "");
 });
 

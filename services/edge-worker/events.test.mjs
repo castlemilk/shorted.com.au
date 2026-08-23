@@ -703,6 +703,9 @@ test("edge_bypass_used pins its full shape", () => {
     cf_ray: "abc123-MEL",
     enforcement_enabled: true,
     eligible_path: true,
+    // Only ever non-zero on the capped unproven-claim arm; pinned here so the
+    // field cannot quietly disappear from the contract.
+    suppressed: 0,
     sample_rate: 0.01,
   });
 });
