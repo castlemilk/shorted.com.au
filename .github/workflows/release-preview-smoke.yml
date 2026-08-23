@@ -59,6 +59,10 @@ jobs:
           RELEASE_SHORTS_SERVICE_ENDPOINT: ${{ secrets.RELEASE_SHORTS_SERVICE_ENDPOINT }}
           RELEASE_MARKET_DATA_API_URL: ${{ secrets.RELEASE_MARKET_DATA_API_URL }}
           CLOUDFLARE_TESTING_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
+          # See the identical block in terraform-deploy.yml: `vercel build` runs
+          # on this runner and cannot read Vercel SENSITIVE env vars, so the
+          # prerender needs the SSR bypass secret handed to it explicitly.
+          CLOUDFLARE_SSR_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_SSR_BYPASS_SECRET }}
           AUTH_GOOGLE_ID: ${{ secrets.AUTH_GOOGLE_ID }}
           AUTH_GOOGLE_SECRET: ${{ secrets.AUTH_GOOGLE_SECRET }}
           AUTH_FIREBASE_PROJECT_ID: ${{ secrets.AUTH_FIREBASE_PROJECT_ID_PROD }}
@@ -105,6 +109,35 @@ jobs:
             fi
           }
 
+          # Export for the BUILD only — never as --env, which would downgrade a
+          # SENSITIVE Vercel variable to a plaintext one on every deployment.
+          export_for_build_only() {
+            local name="$1"
+            local value="$2"
+            if [ -n "$value" ]; then
+              export "${name}=${value}"
+            else
+              echo "::warning::${name} is empty — the prerender will run " \
+                "unverified against the API edge and will not skip the " \
+                "Cloudflare zone rate limit."
+            fi
+          }
+
+          export_for_build_only "SHORTED_SSR_BYPASS_SECRET" "${CLOUDFLARE_SSR_BYPASS_SECRET:-}"
+
+          # An unset RELEASE_SHORTS_SERVICE_ENDPOINT is not benign: with VERCEL
+          # set by `vercel build`, getServerShortsApiUrl() falls back to the
+          # PUBLIC host (api.shorted.com.au), so the whole prerender goes
+          # through Cloudflare from one runner IP instead of straight to the
+          # Cloud Run origin. That is half of the August 2026 429 storm. Warn
+          # loudly rather than fail — a degraded release build still beats a
+          # blocked release.
+          if [ -z "${RELEASE_SHORTS_SERVICE_ENDPOINT:-}" ]; then
+            echo "::warning::RELEASE_SHORTS_SERVICE_ENDPOINT is not set — the" \
+              "release prerender will target the public API host through" \
+              "Cloudflare instead of the Cloud Run origin. Set the repository" \
+              "secret to the shorts Cloud Run URL."
+          fi
           add_env_pair "SHORTS_SERVICE_ENDPOINT" "${RELEASE_SHORTS_SERVICE_ENDPOINT:-}"
           add_env_pair "NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT" "${RELEASE_SHORTS_SERVICE_ENDPOINT:-}"
           add_env_pair "NEXT_PUBLIC_SHORTS_API_URL" "${RELEASE_SHORTS_SERVICE_ENDPOINT:-}"

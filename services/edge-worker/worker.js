@@ -588,9 +588,34 @@ function secretsMatch(a, b) {
  * required — never the UA alone, which anyone can spoof. An unset secret
  * disables that class entirely (it can never match).
  *
+ * A THIRD outcome exists, and it is the one that matters most operationally:
+ *
+ *   3. "ssr-unverified" — the UA carries the first-party marker but the secret
+ *      is absent, stale or mismatched. This USED to fall through to "" and land
+ *      the request in `api-anon` (10 req / 10s), which is how our own renderer
+ *      got 429'd ~3,500x/day in August 2026: a CI-side `vercel build` prerender
+ *      cannot read Vercel's SENSITIVE env vars, so it rendered every page
+ *      without the secret and hammered the public host from one runner IP.
+ *
+ *      Failing CLOSED like that is the wrong default for first-party traffic.
+ *      An unverified claim now routes to the SAME generous `first-party`
+ *      runaway bucket as a verified one, and shouts about it (edge_bypass_used
+ *      outcome=rejected/unconfigured, emitted unsampled). The secret's job is
+ *      to be an OPTIMISATION — it is what lets verified traffic skip the zone
+ *      rule entirely — never the thing standing between us and an outage.
+ *
+ *      THE TRADEOFF, STATED PLAINLY: anyone can spoof a user-agent, so a
+ *      scraper that sends `shorted-web-ssr` now gets 600/10s instead of 10/10s.
+ *      That is deliberate. 600/10s is still a hard runaway ceiling that
+ *      protects the origin, the app-layer per-tier limiter and monthly quota
+ *      are untouched (they run after auth, where a spoofed UA buys nothing),
+ *      and the zone WAF/DDoS layers still apply. Rate-limiting our own
+ *      rendering is a self-inflicted outage; letting a spoofer have a higher
+ *      abuse ceiling is a cost. The costs are not comparable.
+ *
  * @param {Request} request
  * @param {Record<string, string>} env
- * @returns {"" | "testing" | "ssr"} the matched bypass class, or ""
+ * @returns {"" | "testing" | "ssr" | "ssr-unverified"} the matched bypass class, or ""
  */
 export function resolveRateLimitBypass(request, env) {
   const ua = request.headers.get("user-agent") || "";
@@ -609,15 +634,29 @@ export function resolveRateLimitBypass(request, env) {
   const ssrSecret = env.RATE_LIMIT_SSR_BYPASS_SECRET || "";
   const ssrUa = env.RATE_LIMIT_SSR_BYPASS_USER_AGENT || "shorted-web-ssr";
   const ssrHeader = env.RATE_LIMIT_SSR_BYPASS_HEADER_NAME || "x-shorted-ssr-bypass";
-  if (
-    ssrSecret &&
-    ua.includes(ssrUa) &&
-    secretsMatch(request.headers.get(ssrHeader) || "", ssrSecret)
-  ) {
-    return "ssr";
+  if (ua.includes(ssrUa)) {
+    return ssrSecret && secretsMatch(request.headers.get(ssrHeader) || "", ssrSecret)
+      ? "ssr"
+      : // Marker present, proof missing. Generous bucket, loud event — never
+        // the anonymous bucket. See the block comment above.
+        "ssr-unverified";
   }
 
   return "";
+}
+
+/**
+ * Does this bypass class belong in the first-party runaway bucket?
+ *
+ * Both the verified and the unverified first-party claim do. The difference
+ * between them is entirely in the OBSERVABILITY (and in whether the zone-level
+ * skip rule let the request past without consulting the worker at all), never
+ * in which ceiling applies.
+ *
+ * @param {string} bypass
+ */
+export function isFirstPartyBypassClass(bypass) {
+  return bypass === "ssr" || bypass === "ssr-unverified";
 }
 
 /**
@@ -754,10 +793,12 @@ export function isVerifiedCrawler(request, env = {}) {
  *   1. browser surface -> session cookie present ? browser-auth : browser-anon.
  *      An API token on the browser surface is not a thing we serve, so the
  *      cookie is the only identity that matters there.
- *   2. api surface -> a proven first-party caller (SSR/ISR or a Vercel rewrite
- *      carrying the SSR bypass secret) gets `first-party`. This MUST come
- *      before the anon check: those requests all share a few Vercel egress IPs
- *      and would otherwise collapse into one anon bucket and 429 real users.
+ *   2. api surface -> a first-party caller (SSR/ISR or a Vercel rewrite) gets
+ *      `first-party`, whether or not the SSR bypass secret verified. This MUST
+ *      come before the anon check: those requests all share a few Vercel egress
+ *      IPs and would otherwise collapse into one anon bucket and 429 real users
+ *      — and an unverifiable claim is a misconfiguration signal, not a licence
+ *      to throttle our own rendering (see resolveRateLimitBypass).
  *   3. api surface -> credential present ? api-key : api-anon.
  *
  * Keys are namespaced per class, so a token hash can never collide with an IP
@@ -768,7 +809,7 @@ export function isVerifiedCrawler(request, env = {}) {
  * @param {Request} request
  * @param {Record<string, any>} env
  * @param {"browser" | "api"} surface
- * @param {"" | "testing" | "ssr"} bypass the already-resolved bypass class
+ * @param {"" | "testing" | "ssr" | "ssr-unverified"} bypass the already-resolved bypass class
  * @returns {Promise<{bucketClass: string, key: string}>}
  */
 export async function resolveEdgeRateLimitKey(request, env = {}, surface = "api", bypass = "") {
@@ -781,9 +822,16 @@ export async function resolveEdgeRateLimitKey(request, env = {}, surface = "api"
     return { bucketClass: "browser-anon", key: `ba:${clientIp(request)}` };
   }
 
-  if (bypass === "ssr") {
+  if (isFirstPartyBypassClass(bypass)) {
     // Keyed by egress IP: one runaway Vercel instance is contained without
     // penalising the others.
+    //
+    // `ssr-unverified` lands here TOO, on purpose. A first-party claim we
+    // cannot prove is a misconfiguration far more often than it is an attack
+    // (a rotated secret, an env var that missed a deploy, a CI build that
+    // cannot read a sensitive var), and the cost of guessing "attack" is
+    // 429ing our own renderer. Guess "us", shout about it, and keep a real
+    // runaway ceiling in place either way.
     return { bucketClass: "first-party", key: `f:${clientIp(request)}` };
   }
 
@@ -899,7 +947,8 @@ export async function enforceEdgeRateLimit(request, env, path, hostname = API_HO
   // Trusted E2E/load tests skip everything, exactly as they skip the zone rule.
   // First-party SSR does NOT skip outright any more — it gets its own runaway
   // bucket (see resolveEdgeRateLimitKey), which is what makes it safe to turn
-  // enforcement on at all.
+  // enforcement on at all. That is true whether or not its secret verified:
+  // `ssr-unverified` shares the bucket and differs only in the event it emits.
   const bypass = resolveRateLimitBypass(request, env);
   if (bypass === "testing") {
     recordRateLimitDecision(request, env, {
@@ -1037,7 +1086,7 @@ const RATE_LIMIT_KEY_TYPES = {
  * @param {"limited"|"allowed"} options.decision
  * @param {"browser"|"api"} options.surface
  * @param {string} options.bucketClass "" when no bucket was consulted
- * @param {string} [options.bypassClass] "" | "testing" | "ssr" | "crawler"
+ * @param {string} [options.bypassClass] "" | "testing" | "ssr" | "ssr-unverified" | "crawler"
  * @param {string} options.path raw pathname; normalized before it is emitted
  * @param {"10s"|"60s"|""} [options.window] which window tripped; "" when allowed
  * @param {number} [options.limit] the tripped limit; 0 when allowed
@@ -1832,8 +1881,45 @@ export function buildBypassEvent(request, options) {
     // this event closes.
     enforcement_enabled: Boolean(options.enforcementEnabled),
     eligible_path: Boolean(options.eligiblePath),
+    // How many unproven-claim events the per-isolate cap dropped since the last
+    // one it let through. 0 for every sampled/uncapped arm. Without it a capped
+    // emitter silently understates a config error's true blast radius.
+    suppressed: options.suppressed || 0,
     sample_rate: options.sampleRate,
   };
+}
+
+// An unproven first-party claim is emitted UNSAMPLED (it is the misconfiguration
+// alarm) but capped: a wrong or missing secret is wrong for every request, so
+// uncapped-and-unsampled would turn one config error into a logging bill the
+// size of first-party traffic. Same shape as the KV-error cap below.
+const UNPROVEN_BYPASS_WINDOW_MS = 60_000;
+const UNPROVEN_BYPASS_MAX_PER_WINDOW = 20;
+let unprovenBypassWindowStart = 0;
+let unprovenBypassWindowCount = 0;
+let unprovenBypassSuppressed = 0;
+
+/**
+ * Claim an emit slot for an unproven first-party bypass attempt.
+ *
+ * @returns {{allowed: boolean, suppressed: number}} `suppressed` is the number
+ *   of attempts dropped since the previous allowed emit, and is only non-zero
+ *   on an allowed one.
+ */
+function takeUnprovenBypassEmitSlot() {
+  const now = Date.now();
+  if (now - unprovenBypassWindowStart > UNPROVEN_BYPASS_WINDOW_MS) {
+    unprovenBypassWindowStart = now;
+    unprovenBypassWindowCount = 0;
+  }
+  if (unprovenBypassWindowCount >= UNPROVEN_BYPASS_MAX_PER_WINDOW) {
+    unprovenBypassSuppressed += 1;
+    return { allowed: false, suppressed: 0 };
+  }
+  unprovenBypassWindowCount += 1;
+  const suppressed = unprovenBypassSuppressed;
+  unprovenBypassSuppressed = 0;
+  return { allowed: true, suppressed };
 }
 
 /**
@@ -1845,9 +1931,18 @@ export function buildBypassEvent(request, options) {
  *     outside a deliberate test run, so its volume is negligible and its
  *     appearance is the alarm. This is the leaked-secret detector and no knob
  *     can sample it away.
- *   any `rejected` — ALWAYS 100%. A wrong secret against a real marker is a
- *     probe. Rare by definition, and the loudest signal here.
- *   `ssr` accepted/unconfigured — SAMPLED (`EDGE_BYPASS_SAMPLE_RATE`, inherits
+ *   any `rejected` or `unconfigured` — ALWAYS 100%, but CAPPED per isolate per
+ *     minute. Both mean "something claimed to be us and we could not confirm
+ *     it": a probe, a rotated-but-not-propagated secret, or an env var that
+ *     never reached a deployment. That condition is now BENIGN for traffic
+ *     (unverified first-party gets the generous bucket, see
+ *     resolveRateLimitBypass) which is exactly why it MUST NOT be quiet — the
+ *     August 2026 incident was invisible for days because the only symptom was
+ *     429s nobody was querying for. Sampling it at 1% would reproduce that.
+ *     The cap exists because a secret that is wrong is wrong for EVERY request:
+ *     unsampled-and-uncapped would turn a config error into a logging bill.
+ *     `suppressed` reports what the cap dropped, so volume is never understated.
+ *   `ssr` accepted — SAMPLED (`EDGE_BYPASS_SAMPLE_RATE`, inherits
  *     `EDGE_ANALYTICS_SAMPLE_RATE`). This arm is EVERY first-party request the
  *     Vercel rewrites proxy — the steady state, and the single highest-volume
  *     class on the API host. Emitting it at 100% would mean logging 100% of
@@ -1866,7 +1961,14 @@ export function recordBypassUsage(request, env, path, hostname) {
     const { bypassClass, outcome } = resolveBypassAttempt(request, env);
     if (!bypassClass) return;
 
-    const alwaysEmit = bypassClass === "testing" || outcome === "rejected";
+    const unproven = outcome === "rejected" || outcome === "unconfigured";
+    const alwaysEmit = bypassClass === "testing" || unproven;
+    let suppressed = 0;
+    if (unproven) {
+      const slot = takeUnprovenBypassEmitSlot();
+      if (!slot.allowed) return;
+      suppressed = slot.suppressed;
+    }
     const sampleRate = alwaysEmit ? 1 : resolveNamedSampleRate(env, "EDGE_BYPASS_SAMPLE_RATE");
     if (!alwaysEmit && (sampleRate <= 0 || Math.random() > sampleRate)) return;
 
@@ -1880,6 +1982,7 @@ export function recordBypassUsage(request, env, path, hostname) {
         enforcementEnabled: (env || {}).EDGE_RATE_LIMIT_ENABLED === "true",
         eligiblePath: isRateLimitEligiblePath(surface, path),
         sampleRate,
+        suppressed,
       })
     );
   } catch (_) {

@@ -222,9 +222,44 @@ The worker then routes those into the first-party runaway bucket instead of the
 anonymous per-IP one. The end user is still limited — by their **real** IP, one
 hop earlier, on the `shorted.com.au` route.
 
-If `SHORTED_SSR_BYPASS_SECRET` is unset in an environment the request simply
-passes through unmarked and is treated as anonymous. That is the status quo, not
-a regression, but it *is* the precondition for enabling enforcement.
+#### An unverified first-party claim fails OPEN (August 2026)
+
+The secret used to be load-bearing in the worst way: a request that carried the
+`shorted-web-ssr` marker but *not* a matching secret fell through to `api-anon`
+— **10 requests / 10s**. That is fail-CLOSED for our own traffic, and it fired.
+
+Between 2026-08-22 and 2026-08-23 the zone returned **7,045 HTTP 429s**, every
+one of them to a caller with user-agent `shorted-web-ssr/1.0`, from four
+Microsoft/Azure IPs (GitHub Actions egress) — our own **CI-side `vercel build`
+prerender**. `vercel build` runs on the runner and **cannot read Vercel's
+SENSITIVE environment variables**, and `SHORTED_SSR_BYPASS_SECRET` is one, so
+every production build rendered every page as an unverifiable first-party
+caller, got ~46% of its API calls rejected, and baked fallback data into the
+static output. Nothing alerted; it was found by hand-querying Cloudflare GraphQL.
+
+So the rule is now:
+
+> **A first-party marker we cannot verify is routed to the `first-party`
+> bucket anyway (600/10s) and emits a loud, unsampled event. It is never
+> treated as anonymous.**
+
+`resolveRateLimitBypass` returns a third class, `ssr-unverified`, for exactly
+this case. The secret keeps its real job — letting *verified* traffic skip the
+zone rule outright — but it is an **optimisation**, never the thing standing
+between us and an outage. A rotation, a missed deploy, a stale value or an
+unreadable sensitive var can now cost us a skipped optimisation and a noisy log
+line, not our own rendering.
+
+**The tradeoff, stated plainly:** a user-agent is spoofable, so a scraper that
+sends `shorted-web-ssr` now gets 600/10s instead of 10/10s. Accepted. 600/10s is
+still a hard runaway ceiling, the app-layer per-tier limits and monthly quota
+run *after auth* where a spoofed UA buys nothing, and the WAF/DDoS layers are
+untouched. Rate-limiting our own renderer is a self-inflicted outage; giving a
+spoofer a higher abuse ceiling is a cost. Those are not comparable.
+
+Note the asymmetry with the **testing** bypass, which is a full skip and
+therefore stays fail-closed: an unset testing secret can never be spoofed into
+unlimited access.
 
 **Proving it in production** (the header-propagation-through-rewrite step cannot
 be proven by unit test — the jest harness's Request polyfill exposes
@@ -251,10 +286,13 @@ to confirm classification without shell access to the worker.
 |---|---|---|---|
 | Trusted E2E / load tests | `Shorted-E2E` | `x-shorted-testing-bypass` | skips **every** bucket |
 | First-party Vercel traffic | `shorted-web-ssr` | `x-shorted-ssr-bypass` | **routed** to the first-party bucket, not skipped |
+| First-party, **unverified** (`ssr-unverified`) | `shorted-web-ssr` | absent / wrong | **still** routed to the first-party bucket + unsampled `edge_bypass_used` |
 
-**Both** the UA marker and the exact secret are required — never the UA alone,
-which anyone can spoof. An empty secret disables that class entirely. This is
-the same rule the Terraform expressions enforce.
+For the **testing** class both the UA marker and the exact secret are required —
+never the UA alone, and an empty secret disables the class entirely, because it
+grants a full skip. The **first-party** class is deliberately different: the
+secret decides whether the request also skips the *zone* rule, but the UA marker
+alone is enough to keep it out of the anonymous bucket (see above).
 
 ### Failure behaviour
 
@@ -307,7 +345,7 @@ positional Analytics Engine schema and eleven worked operator queries live in
 | `edge_origin_error` | **100%** | Is the origin healthy right now? Origin 5xx/3xx/1xx, fetch throws and timeouts, by bounded `origin` and `error_class`. Previously invisible — an outage showed only as user-facing errors. **4xx is deliberately excluded**: the origin working is not an incident. |
 | `edge_upstream_latency` | sampled (`edge_upstream_latency_sample_rate`) | Which RPCs are slow, and is caching helping? Six-value `duration_bucket` × `cache_status` × `rpc_method`. Bucketed so it is a group-by dimension in Analytics Engine, which has no percentile functions. |
 | `edge_config` | **once per isolate** | Did the config I just deployed actually land? A snapshot of what this running copy *reads*: `deploy_id` (a hash of the deployed `worker.js`), every bucket limit **and whether its binding is actually bound**, sample rates, secret presence booleans, origin hostnames, TTLs. |
-| `edge_bypass_used` | **100%** for `testing` and for any `rejected`; sampled for routine `ssr` | Has a bypass secret leaked, or is someone probing? Emitted from the top of `fetch`, so it fires even when rate limiting is disabled or the path is ineligible — the case where `edge_rate_limit` emits nothing at all. |
+| `edge_bypass_used` | **100%** for `testing`, and for any `rejected`/`unconfigured` (capped 20/isolate/minute with a `suppressed` counter); sampled for routine accepted `ssr` | Has a bypass secret leaked, is someone probing, **or did our own secret stop matching?** Emitted from the top of `fetch`, so it fires even when rate limiting is disabled or the path is ineligible — the case where `edge_rate_limit` emits nothing at all. `outcome=rejected`/`unconfigured` on `bypass_class=ssr` is now the single alarm for "first-party identity is broken"; it is unsampled precisely because the August 2026 incident hid inside a 1% sample. |
 | `edge_kv_error` | **100%**, capped at 20/isolate/minute with a `suppressed` counter | Is KV degraded, and what is it costing? KV faults were swallowed in four places; the outage silently turned every cacheable request into an origin fetch. |
 | `edge_cache_purge` | **100%** | Did the purge land? A failed purge means stale data for up to the 24h KV TTL, previously recorded only in an HTTP response body nobody reads. `unauthorized` is a probe signal — the purge secret travels in the request body. |
 
@@ -415,6 +453,16 @@ CI `TF_VAR_edge_rate_limit_enabled` variable so it survives the next apply.)
   class. `browser-anon` 429s in normal hours = the browser numbers are wrong.
   `api-anon` 429s at meaningful volume = first-party identity is **not**
   reaching the worker (check the middleware deploy and the secret).
+- **`edge_bypass_used` with `bypass_class=ssr` and `outcome != accepted`** —
+  the direct alarm for a broken/rotated/undelivered SSR secret. Unsampled, so
+  any volume here is real volume. Since August 2026 this no longer causes 429s
+  (unverified first-party is bucketed generously), which means this event is
+  the **only** way you will hear about it — treat a non-zero rate as a page.
+- **`clientRequestHTTPHost = api.shorted.com.au` with UA `shorted-web-ssr` from
+  a non-Vercel ASN** — that is a build machine, not a Vercel function. Vercel
+  runtime egress is AWS (ASN 16509, ap-southeast-2); GitHub Actions is Microsoft
+  (ASN 8075, US). A build talking to the *public* host instead of the Cloud Run
+  origin means the endpoint env var did not reach the build.
 - **`edge_ratelimit_error` log lines** — a limiter fault; the worker fails open
   but the binding is broken.
 - **Search Console crawl stats** — a crawl-rate drop is the expensive failure

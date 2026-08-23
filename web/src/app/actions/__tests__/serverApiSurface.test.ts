@@ -334,4 +334,121 @@ describe("server API surface", () => {
 
     expect(violations).toEqual([]);
   });
+
+  // -------------------------------------------------------------------------
+  // First-party identity (the August 2026 self-inflicted rate limit)
+  // -------------------------------------------------------------------------
+
+  it("routes every server-side Connect transport through an SSR-marked fetcher", () => {
+    // A transport that builds its own `fetch` sends NEITHER the first-party
+    // user-agent NOR the bypass secret, so its requests are indistinguishable
+    // from a scraper at the Cloudflare edge. That is not a hypothetical: the
+    // whole reason ~3,500 of our own requests a day were 429'd is that some
+    // first-party traffic could not prove it was first-party. Catch a new
+    // transport that forgets the fetcher at review time, not in Cloudflare
+    // analytics three weeks later.
+    const approvedFetchers = [
+      "serverFetchWithUserAgent",
+      "serverFetchOutsideNextCache",
+    ];
+    const violations: string[] = [];
+
+    const visit = (absolutePath: string) => {
+      const stat = fs.statSync(absolutePath);
+      if (stat.isDirectory()) {
+        if (
+          absolutePath.endsWith(`${path.sep}__tests__`) ||
+          // actions/client/* are the browser-side twins of the server actions:
+          // relative baseUrl, dispatched from the user's browser through the
+          // Next.js rewrites, where middleware.ts stamps the marker instead.
+          absolutePath.endsWith(`${path.sep}client`)
+        ) {
+          return;
+        }
+        for (const entry of fs.readdirSync(absolutePath)) {
+          visit(path.join(absolutePath, entry));
+        }
+        return;
+      }
+
+      if (!/\.(ts|tsx)$/.test(absolutePath)) return;
+      const content = fs.readFileSync(absolutePath, "utf8");
+      if (!content.includes("createConnectTransport(")) return;
+      // Client components run in the browser: they use relative URLs through
+      // the Next.js rewrites, and middleware.ts stamps the marker for them.
+      if (/^\s*["']use client["']/m.test(content)) return;
+      // A transport with a relative baseUrl never leaves the browser either.
+      if (/baseUrl:\s*""/.test(content)) return;
+
+      const usesApprovedFetcher = approvedFetchers.some((name) =>
+        content.includes(name),
+      );
+      if (!usesApprovedFetcher) {
+        violations.push(path.relative(webRoot, absolutePath));
+      }
+    };
+
+    visit(path.join(webRoot, "src/app"));
+
+    expect(violations).toEqual([]);
+  });
+
+  it("shouts once when a production process talks to a shorted API origin without the bypass secret", async () => {
+    process.env = {
+      ...withoutTestingBypassEnv(),
+      VERCEL: "1",
+      SHORTED_SSR_BYPASS_SECRET: "",
+    };
+    const fetchMock = jest.fn().mockResolvedValue(new Response("{}"));
+    global.fetch = fetchMock;
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+
+    const { serverFetchWithUserAgent } = await import("../config");
+    await serverFetchWithUserAgent("https://api.shorted.com.au/health");
+    await serverFetchWithUserAgent("https://api.shorted.com.au/health");
+
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(String(errorSpy.mock.calls[0]?.[0])).toContain(
+      "SHORTED_SSR_BYPASS_SECRET",
+    );
+    // The request still goes out — a missing secret must never be fatal.
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    errorSpy.mockRestore();
+  });
+
+  it("stays quiet in local development and for third-party hosts", async () => {
+    process.env = {
+      ...withoutTestingBypassEnv(),
+      SHORTED_SSR_BYPASS_SECRET: "",
+      VERCEL: "",
+      VERCEL_ENV: "",
+      VERCEL_REGION: "",
+      CI: "",
+    };
+    global.fetch = jest.fn().mockResolvedValue(new Response("{}"));
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+
+    const { serverFetchWithUserAgent } = await import("../config");
+    await serverFetchWithUserAgent("https://api.shorted.com.au/health");
+    await serverFetchWithUserAgent("https://example.com/health");
+
+    expect(errorSpy).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it("never sends the bypass secret to a host that is not a shorted API origin", async () => {
+    process.env = {
+      ...withoutTestingBypassEnv(),
+      VERCEL: "1",
+      SHORTED_SSR_BYPASS_SECRET: "super-secret",
+    };
+    const fetchMock = jest.fn().mockResolvedValue(new Response("{}"));
+    global.fetch = fetchMock;
+
+    const { serverFetchWithUserAgent } = await import("../config");
+    await serverFetchWithUserAgent("https://example.com/anything");
+
+    const headers = fetchMock.mock.calls[0]?.[1]?.headers as Headers;
+    expect(headers.get("X-Shorted-Ssr-Bypass")).toBeNull();
+  });
 });

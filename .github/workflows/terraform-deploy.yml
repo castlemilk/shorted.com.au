@@ -1356,6 +1356,15 @@ jobs:
           SHORTS_URL: ${{ steps.resolve-urls.outputs.shorts_url }}
           MARKET_DATA_URL: ${{ steps.resolve-urls.outputs.market_data_url }}
           CLOUDFLARE_TESTING_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
+          # The build below runs ON THIS RUNNER, not on Vercel, so it renders
+          # pages using the runner's environment. `vercel build` CANNOT read
+          # Vercel's SENSITIVE env vars (SHORTED_SSR_BYPASS_SECRET is one), so
+          # without this the production prerender talks to the API with the
+          # first-party marker and no proof of it — which is exactly how ~3,500
+          # of our own requests a day were 429'd in August 2026, silently
+          # baking fallback data into the static output. Same secret Terraform
+          # puts on the Cloudflare rule, so the two cannot drift.
+          CLOUDFLARE_SSR_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_SSR_BYPASS_SECRET }}
           NPM_CONFIG_FETCH_RETRIES: "5"
           NPM_CONFIG_FETCH_RETRY_MINTIMEOUT: "20000"
           NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT: "120000"
@@ -1403,6 +1412,24 @@ jobs:
               export "${name}=${value}"
             fi
           }
+
+          # Export for the BUILD only — deliberately not passed as --env.
+          # The runtime value is already a SENSITIVE variable on the Vercel
+          # project; sending it as a plaintext --env would downgrade it to a
+          # readable one on every deployment.
+          export_for_build_only() {
+            local name="$1"
+            local value="$2"
+            if [ -n "$value" ]; then
+              export "${name}=${value}"
+            else
+              echo "::warning::${name} is empty — the prerender will run " \
+                "unverified against the API edge and will not skip the " \
+                "Cloudflare zone rate limit."
+            fi
+          }
+
+          export_for_build_only "SHORTED_SSR_BYPASS_SECRET" "${CLOUDFLARE_SSR_BYPASS_SECRET:-}"
 
           add_env_pair "NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT" "$SHORTS_URL"
           add_env_pair "NEXT_PUBLIC_SHORTS_API_URL" "$SHORTS_URL"
