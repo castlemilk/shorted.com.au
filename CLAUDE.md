@@ -1096,13 +1096,22 @@ enforced in-process by the Go API. **Nothing at the edge should ever fire for a
 real reader or a paying customer** — if it does, the number is wrong, not the
 traffic.
 
-**Two surfaces.** The one worker script is routed on **both**
-`api.shorted.com.au/*` (Terraform) and `shorted.com.au/*` (route managed outside
-Terraform), and the client IP it sees differs on each. On the browser route
-`cf-connecting-ip` is the **real end user**. On the API route, traffic arriving
-via the Next.js rewrites in `web/next.config.mjs` comes from **shared Vercel
-egress IPs** — an anon-IP bucket there would 429 real users en masse, which is
-why the first cut shipped with enforcement off.
+**Two surfaces — but only ONE is actually routed.** The worker script *handles*
+two hostnames, and the client IP it would see differs on each: on the browser
+route `cf-connecting-ip` is the **real end user**, whereas on the API route
+traffic arriving via the Next.js rewrites in `web/next.config.mjs` comes from
+**shared Vercel egress IPs** (an anon-IP bucket there would 429 real users en
+masse, which is why the first cut shipped with enforcement off).
+
+**However, as verified on 2026-08-23 the zone has exactly one worker route:
+`api.shorted.com.au/*` (Terraform).** There is no `shorted.com.au/*` route —
+the apex is a plain proxied A record to Vercel, so requests to the frontend
+never enter the worker. Everything under `FRONTEND_HOST` in `worker.js`
+(`proxyFrontend`, the `browser-anon` / `browser-auth` buckets, browser
+`X-RateLimit-Bucket` values) is therefore **dead code today**. That is why
+browser traffic records zero 429s — not because the limits are generous.
+Adding the route would activate all of it at once, so treat it as a real
+rollout with a real blast radius, not a config tweak.
 
 **Two windows per class.** The Cloudflare binding's `period` is a hard enum of
 **10 or 60 seconds**, so burst and sustained cannot be one binding — every class

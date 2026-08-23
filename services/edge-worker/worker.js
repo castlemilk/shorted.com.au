@@ -388,6 +388,33 @@ const worker = {
       return withEdgeAnalytics(request, env, limited, "edge-ratelimit", 0, started);
     }
 
+    // --- 0.4. Connect RPC paths are POST-only. Answer a GET/HEAD here rather
+    // than forwarding it, because the origin handler simply never responds to
+    // a body-less GET and Cloudflare eventually records a 504 with
+    // originResponseStatus=0 — an origin request that was always going to fail.
+    //
+    // The only known source of these was our own SWR revalidation of a
+    // synthesized GET cache key (see edgeCacheControl), now fixed. This guard
+    // is the belt-and-braces: those synthesized `?_cv=&_bh=` URLs are real,
+    // fetchable URLs, so a crawler or a replayed log line can produce the same
+    // hang. 405 is cheap, correct, and never reaches origin.
+    //
+    // Note this is NOT the public GET facade — that lives under
+    // EDGE_READ_PREFIX below and builds its own POST upstream.
+    if (
+      (request.method === "GET" || request.method === "HEAD") &&
+      isConnectRpcPath(path)
+    ) {
+      const resp = new Response(
+        JSON.stringify({
+          code: "unimplemented",
+          message: "Connect RPC endpoints accept POST only.",
+        }),
+        { status: 405, headers: { "Content-Type": "application/json", Allow: "POST", "Cache-Control": "no-store" } }
+      );
+      return withEdgeAnalytics(request, env, resp, "rpc-method-guard", 0, started);
+    }
+
     // --- 0.5. PUBLIC EDGE READS: GET facade over public Connect RPC reads
     // The frontend can call these as normal GETs while the worker reuses the
     // same POST RPC cache keys that prewarm.js populates in KV.
@@ -2728,7 +2755,7 @@ async function handleCachedRequest(request, url, env, ctx, origin, cacheTtl, cac
             headers: { "Content-Type": "application/json" },
           });
           stampEdgeHeaders(clientResp, "KV");
-          clientResp.headers.set("Cache-Control", `s-maxage=${cacheTtl}, stale-while-revalidate=${cacheTtl}`);
+          clientResp.headers.set("Cache-Control", edgeCacheControl(request.method, cacheTtl));
 
           // Non-blocking: repopulate CF cache for this PoP from KV. A KV hit
           // should not immediately create another origin request.
@@ -2739,7 +2766,7 @@ async function handleCachedRequest(request, url, env, ctx, origin, cacheTtl, cac
                 headers: { "Content-Type": "application/json" },
               });
               stampEdgeHeaders(cacheResp, "HIT");
-              cacheResp.headers.set("Cache-Control", `s-maxage=${cacheTtl}, stale-while-revalidate=${cacheTtl}`);
+              cacheResp.headers.set("Cache-Control", edgeCacheControl(request.method, cacheTtl));
               await cache.put(cacheKey, cacheResp);
             } catch (_) { /* non-fatal */ }
           })());
@@ -2784,12 +2811,12 @@ async function handleCachedRequest(request, url, env, ctx, origin, cacheTtl, cac
       headers: new Headers(originResp.headers),
     });
     stampEdgeHeaders(clientResp, "MISS");
-    clientResp.headers.set("Cache-Control", `s-maxage=${cacheTtl}, stale-while-revalidate=${cacheTtl}`);
+    clientResp.headers.set("Cache-Control", edgeCacheControl(request.method, cacheTtl));
 
     // Response to store in CF cache
     const cacheResp = new Response(body.slice(0), {
       status: originResp.status,
-      headers: cacheableResponseHeaders(originResp, cacheTtl),
+      headers: cacheableResponseHeaders(originResp, cacheTtl, request.method),
     });
     stampEdgeHeaders(cacheResp, "HIT");
 
@@ -2849,13 +2876,48 @@ function safeWaitUntil(ctx, task) {
   }
 }
 
-function cacheableResponseHeaders(originResp, cacheTtl) {
+/**
+ * Cache-Control for worker-managed cache entries.
+ *
+ * `stale-while-revalidate` is only safe when the cache key is a REAL GET.
+ * The Cache API accepts GET keys only, so buildCacheKey() stores a POST RPC
+ * under a *synthesized* GET (path + `_bh` body hash). Cloudflare honours SWR
+ * on the stored entry and revalidates it by fetching that key — i.e. a
+ * body-less GET against a POST-only Connect handler, which can never answer.
+ *
+ * Measured over 24h on 2026-08-23: every one of the 10,884 revalidations
+ * (7,295 miss + 3,589 stale) returned 504 with originResponseStatus=0, and
+ * they were 100% of the 504s on api.shorted.com.au. Worse than the wasted
+ * origin traffic: the revalidation never succeeded, so entries were served
+ * stale until eviction instead of refreshing — silent staleness.
+ *
+ * So: SWR for genuine GETs, plain s-maxage for POST-derived entries. Dropping
+ * SWR costs a MISS at expiry, which fetches with the correct POST body and
+ * actually refreshes.
+ */
+/** True for Connect-RPC service paths, which are POST-only at the origin. */
+export function isConnectRpcPath(path) {
+  return (
+    path.includes("/shorts.v1alpha1.") ||
+    path.includes("/marketdata.v1.") ||
+    path.includes("/chat.v1.") ||
+    path.includes("/register.v1.")
+  );
+}
+
+export function edgeCacheControl(method, cacheTtl) {
+  return method === "GET"
+    ? `s-maxage=${cacheTtl}, stale-while-revalidate=${cacheTtl}`
+    : `s-maxage=${cacheTtl}`;
+}
+
+function cacheableResponseHeaders(originResp, cacheTtl, method) {
   const headers = new Headers();
   const contentType = originResp.headers.get("Content-Type") || originResp.headers.get("content-type");
   if (contentType) {
     headers.set("Content-Type", contentType);
   }
-  headers.set("Cache-Control", `s-maxage=${cacheTtl}, stale-while-revalidate=${cacheTtl}`);
+  headers.set("Cache-Control", edgeCacheControl(method, cacheTtl));
   return headers;
 }
 
