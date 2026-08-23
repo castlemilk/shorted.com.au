@@ -61,6 +61,53 @@ describe("product event instrumentation", () => {
     );
   });
 
+  it("emits the rate-limited shape the edge stream joins against", () => {
+    recordProductEvent({
+      feature: "market_data",
+      action: "historical_prices",
+      status: "rate_limited",
+      properties: {
+        route_group: "/api/market-data/*",
+        limit_kind: "per_minute",
+        tier: "anonymous",
+      },
+    });
+
+    expect(console.log).toHaveBeenCalledWith(
+      JSON.stringify({
+        type: "product_event",
+        feature: "market_data",
+        action: "historical_prices",
+        status: "rate_limited",
+        route_group: "/api/market-data/*",
+        limit_kind: "per_minute",
+        tier: "anonymous",
+      }),
+    );
+  });
+
+  it("keeps limit_kind to its closed value set", () => {
+    expect(
+      buildProductEvent({
+        feature: "search",
+        action: "query",
+        status: "rate_limited",
+        properties: { limit_kind: "monthly" },
+      }),
+    ).toMatchObject({ limit_kind: "monthly" });
+
+    // Anything outside per_minute|monthly|unknown collapses rather than
+    // opening a cardinality hole in the metric.
+    expect(
+      buildProductEvent({
+        feature: "search",
+        action: "query",
+        status: "rate_limited",
+        properties: { limit_kind: "edge-burst-bucket-a:1.2.3.4" },
+      }),
+    ).toMatchObject({ limit_kind: "unknown" });
+  });
+
   it("bounds user-controlled property values before logging", () => {
     const event = buildProductEvent({
       feature: "payment",

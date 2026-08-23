@@ -31,6 +31,12 @@ const ALLOWED_PROPERTY_KEYS = new Set([
   "event_type",
   "error_name",
   "error_type",
+  // Which limit a `rate_limited` event tripped. Deliberately added to the
+  // allow-list with a closed value set (see LIMIT_KINDS): it is the join key
+  // between the web `product_event` stream and the edge rate-limit events, and
+  // it is what separates "a burst that healed itself" from "an exhausted
+  // quota" — the second is the upgrade moment, the first is noise.
+  "limit_kind",
   "query_length_bucket",
   "result_count_bucket",
   "route_group",
@@ -47,6 +53,9 @@ const KNOWN_TIERS = new Set([
   "pro",
   "unknown",
 ]);
+
+/** Closed value set — mirrors RateLimitKind in `retry.ts`. */
+const LIMIT_KINDS = new Set(["per_minute", "monthly", "unknown"]);
 
 const QUERY_LENGTH_BUCKETS = new Set(["0", "1", "2-3", "4-8", "9-20", "21-50", "51+"]);
 const RESULT_COUNT_BUCKETS = new Set(["0", "1", "2-5", "6-10", "11-50", "51-100", "101-500", "501+"]);
@@ -122,6 +131,11 @@ function sanitizeProductEventProperty(
     case "error_name":
     case "error_type":
       return typeof value === "string" ? normalizeLabel(value, "unknown").slice(0, 80) : undefined;
+    case "limit_kind":
+      return typeof value === "string" &&
+        LIMIT_KINDS.has(normalizeLabel(value, "unknown"))
+        ? normalizeLabel(value, "unknown")
+        : "unknown";
     case "query_length_bucket":
       return typeof value === "string" && QUERY_LENGTH_BUCKETS.has(value) ? value : "unknown";
     case "result_count_bucket":

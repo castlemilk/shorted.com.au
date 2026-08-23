@@ -7,6 +7,7 @@ import {
   serverFetchWithUserAgent,
 } from "~/app/actions/config";
 import { BROWSER_READ_RATE_LIMIT, rateLimit } from "~/@/lib/rate-limit";
+import { recordProductEvent } from "~/@/lib/product-events";
 
 const MARKET_DATA_API_URL = getServerMarketDataApiUrl();
 const HISTORICAL_MARKET_DATA_CACHE_SECONDS = 86400;
@@ -66,6 +67,16 @@ export async function POST(request: NextRequest) {
   const rateLimitResult = await rateLimit(request, BROWSER_READ_RATE_LIMIT);
 
   if (!rateLimitResult.success) {
+    recordProductEvent({
+      feature: "market_data",
+      action: "historical_prices",
+      status: "rate_limited",
+      properties: {
+        route_group: "/api/market-data/*",
+        limit_kind: "per_minute",
+        tier: rateLimitResult.tier,
+      },
+    });
     return rateLimitResult.response;
   }
   try {

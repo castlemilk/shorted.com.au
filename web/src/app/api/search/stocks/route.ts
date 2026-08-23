@@ -102,7 +102,13 @@ export async function GET(request: NextRequest) {
       feature: "search",
       action: "query",
       status: "rate_limited",
-      properties: { route_group: "/api/search/*" },
+      properties: {
+        route_group: "/api/search/*",
+        // Every web-side bucket is a per-minute window; a monthly quota is
+        // only ever enforced by the Go API / edge.
+        limit_kind: "per_minute",
+        tier: rateLimitResult.tier,
+      },
     });
     return rateLimitResult.response;
   }

@@ -96,7 +96,16 @@ export async function rateLimit(
   request: NextRequest,
   config: Partial<RateLimitConfig> = {},
   env: NodeJS.ProcessEnv = process.env,
-): Promise<{ success: boolean; response?: NextResponse }> {
+): Promise<{
+  success: boolean;
+  response?: NextResponse;
+  /**
+   * Caller tier, present on a denial so the route can attribute the
+   * `rate_limited` product_event without a second `auth()` round-trip.
+   * Values match the product_event tier vocabulary.
+   */
+  tier?: "anonymous" | "authenticated";
+}> {
   const finalConfig = { ...DEFAULT_CONFIG, ...config };
 
   // Check if user is authenticated
@@ -129,7 +138,10 @@ export async function rateLimit(
             );
 
       if (!result.success) {
-        return buildRateLimitExceededResponse(result, isAuthenticated);
+        return {
+          ...buildRateLimitExceededResponse(result, isAuthenticated),
+          tier: isAuthenticated ? "authenticated" : "anonymous",
+        };
       }
 
       // Return success - headers will be set by the caller if needed
