@@ -422,7 +422,7 @@ resource "google_cloud_run_v2_service" "shorts_api" {
           # Sized to accommodate the Go runtime AND a transient python+yfinance
           # subprocess fork during SyncKeyMetrics (containers were OOMing at
           # 128Mi when the daily key-metrics scheduler fired).
-          cpu    = "0.5"
+          cpu    = "1"
           memory = "256Mi"
         }
         cpu_idle          = true # Throttle CPU when idle to reduce costs
@@ -452,7 +452,7 @@ resource "google_cloud_run_v2_service" "shorts_api" {
       }
     }
 
-    max_instance_request_concurrency = 1 # Required: cpu < 1 requires concurrency = 1
+    max_instance_request_concurrency = 8
 
     scaling {
       min_instance_count = var.min_instances
