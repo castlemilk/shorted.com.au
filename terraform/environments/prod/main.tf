@@ -51,6 +51,7 @@ resource "google_project_service" "required_apis" {
     "compute.googleapis.com",
     "iam.googleapis.com",
     "pubsub.googleapis.com",
+    "storage.googleapis.com",
     "monitoring.googleapis.com",
     "logging.googleapis.com",
   ])
@@ -66,6 +67,74 @@ resource "google_project_service" "required_apis" {
 resource "time_sleep" "wait_for_apis" {
   depends_on      = [google_project_service.required_apis]
   create_duration = "60s"
+}
+
+# Production-owned replacements for the two asset buckets that still live in
+# shorted-dev. Creating them is deliberately separate from the data/runtime
+# cutover: nothing consumes these buckets until the migration has copied and
+# verified every live object.
+locals {
+  shared_asset_buckets = {
+    company_logos     = "shorted-company-logos-prod"
+    financial_reports = "shorted-financial-reports-prod"
+  }
+}
+
+resource "google_storage_bucket" "shared_assets" {
+  for_each = local.shared_asset_buckets
+
+  name                        = each.value
+  project                     = var.project_id
+  location                    = var.region
+  force_destroy               = false
+  uniform_bucket_level_access = true
+
+  labels = {
+    environment = "prod"
+    managed_by  = "terraform"
+    workload    = replace(each.key, "_", "-")
+  }
+
+  versioning {
+    enabled = true
+  }
+
+  lifecycle_rule {
+    action {
+      type = "Delete"
+    }
+    condition {
+      num_newer_versions = 3
+    }
+  }
+
+  soft_delete_policy {
+    retention_duration_seconds = 604800 # 7 days
+  }
+
+  depends_on = [google_project_service.required_apis]
+}
+
+# Existing logo and report URLs are browser-facing, so the replacement buckets
+# preserve object reads without granting public list or write permissions.
+resource "google_storage_bucket_iam_member" "shared_assets_public_reader" {
+  for_each = google_storage_bucket.shared_assets
+
+  bucket = each.value.name
+  role   = "roles/storage.objectViewer"
+  member = "allUsers"
+}
+
+resource "google_storage_bucket_iam_member" "company_logos_writer" {
+  bucket = google_storage_bucket.shared_assets["company_logos"].name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${module.enrichment_processor.service_account_email}"
+}
+
+resource "google_storage_bucket_iam_member" "financial_reports_writer" {
+  bucket = google_storage_bucket.shared_assets["financial_reports"].name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${module.report_extractor.service_account_email}"
 }
 
 # Import existing Artifact Registry repository into Terraform state
