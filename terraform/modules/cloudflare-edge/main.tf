@@ -103,6 +103,30 @@ resource "cloudflare_workers_script" "edge_cache" {
       name = "EDGE_RATE_LIMIT_SAMPLE_RATE"
       text = var.edge_rate_limit_sample_rate < 0 ? "" : tostring(var.edge_rate_limit_sample_rate)
       }, {
+      # Same -1-means-inherit convention as above. See variables.tf.
+      type = "plain_text"
+      name = "EDGE_UPSTREAM_LATENCY_SAMPLE_RATE"
+      text = var.edge_upstream_latency_sample_rate < 0 ? "" : tostring(var.edge_upstream_latency_sample_rate)
+      }, {
+      # Samples ONLY the routine (accepted SSR) arm. The testing class and every
+      # rejected outcome are emitted at 100% in worker.js and no var can change
+      # that — they are the leaked-secret and probe detectors.
+      type = "plain_text"
+      name = "EDGE_BYPASS_SAMPLE_RATE"
+      text = var.edge_bypass_sample_rate < 0 ? "" : tostring(var.edge_bypass_sample_rate)
+      }, {
+      # THE DEPLOY FEEDBACK LOOP. A short hash of the worker.js content this
+      # apply is uploading, echoed back by the worker in its once-per-isolate
+      # edge_config event. "Did the config I just deployed actually reach the
+      # worker" becomes: compare this to the deploy_id in the log, instead of
+      # reading Terraform state or the Cloudflare API and hoping they agree.
+      #
+      # Derived from the same file() call that produces `content`, so it cannot
+      # drift from what is deployed.
+      type = "plain_text"
+      name = "EDGE_DEPLOY_ID"
+      text = substr(sha256(file("${path.module}/../../../services/edge-worker/worker.js")), 0, 12)
+      }, {
       type = "plain_text"
       name = "CACHE_PURGE_SECRET"
       text = var.cache_purge_secret
@@ -303,6 +327,14 @@ resource "cloudflare_workers_script" "edge_cache" {
       type    = "analytics_engine"
       name    = "RATE_LIMIT_ANALYTICS"
       dataset = var.edge_rate_limit_analytics_dataset
+      }] : [], var.edge_events_analytics_dataset != "" ? [{
+      # Second Analytics Engine dataset — origin errors + upstream latency.
+      # Separate from RATE_LIMIT_ANALYTICS because AE columns are positional per
+      # dataset and the two schemas are incompatible. Also OFF unless a dataset
+      # name is supplied; worker.js no-ops on the missing binding.
+      type    = "analytics_engine"
+      name    = "EDGE_EVENTS_ANALYTICS"
+      dataset = var.edge_events_analytics_dataset
       }] : [], var.chat_service_origin != "" ? [{
       type = "plain_text"
       name = "CHAT_SERVICE_ORIGIN"

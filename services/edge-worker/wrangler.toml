@@ -20,18 +20,39 @@ EDGE_ANALYTICS_SAMPLE_RATE = "0.01"
 # EDGE_ANALYTICS_SAMPLE_RATE. LIMITED decisions (429s) are ALWAYS emitted at
 # 100% and no setting can sample them away — see worker.js.
 EDGE_RATE_LIMIT_SAMPLE_RATE = ""
+# Sample rate for edge_upstream_latency (bucketed latency by cache_status +
+# rpc_method). Blank inherits EDGE_ANALYTICS_SAMPLE_RATE.
+EDGE_UPSTREAM_LATENCY_SAMPLE_RATE = ""
+# Sample rate for the ROUTINE (accepted SSR) arm of edge_bypass_used ONLY.
+# The `testing` class and every `rejected` outcome are emitted at 100% and no
+# setting can sample them away — they are the leaked-secret / probe detectors.
+EDGE_BYPASS_SAMPLE_RATE = ""
+# Echoed by the worker in its once-per-isolate edge_config event so a deploy can
+# be confirmed from a log line. Terraform sets this to a short sha256 of the
+# worker.js it uploads; a placeholder is fine for `wrangler dev`.
+EDGE_DEPLOY_ID = "local-dev"
 
 # ---------------------------------------------------------------------------
 # Analytics Engine — OPTIONAL, and intentionally commented out.
 #
-# Production truth is Terraform (var.edge_rate_limit_analytics_dataset, empty by
-# default), so the binding is absent unless someone opts in. worker.js checks
-# for `writeDataPoint` before calling it, so an unbound RATE_LIMIT_ANALYTICS is
-# a silent no-op. Uncomment for `wrangler dev` experimentation.
+# Production truth is Terraform (var.edge_rate_limit_analytics_dataset and
+# var.edge_events_analytics_dataset, both empty by default), so neither binding
+# is attached unless someone opts in. worker.js checks for `writeDataPoint`
+# before calling either, so an unbound dataset is a silent no-op. Uncomment for
+# `wrangler dev` experimentation.
+#
+# TWO datasets, deliberately: Analytics Engine columns are positional PER
+# dataset, and the rate limit schema is pinned to rate limit fields. Origin
+# errors and upstream latency share a compatible shape with each other but not
+# with rate limit decisions.
 # ---------------------------------------------------------------------------
 # [[analytics_engine_datasets]]
 # binding = "RATE_LIMIT_ANALYTICS"
 # dataset = "shorted_edge_rate_limit"
+
+# [[analytics_engine_datasets]]
+# binding = "EDGE_EVENTS_ANALYTICS"
+# dataset = "shorted_edge_events"
 
 [placement]
 mode = "smart"

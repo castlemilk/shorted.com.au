@@ -152,6 +152,67 @@ variable "edge_rate_limit_analytics_dataset" {
   default     = ""
 }
 
+# Sample rate for the edge_upstream_latency stream.
+#
+# This stream is bucketed latency by cache_status and rpc_method — the "which
+# RPCs are slow, and is the cache earning its keep" question. It is a
+# distribution, so it is meaningful at a low rate; it is also the one stream you
+# may legitimately want to turn UP well above the general analytics rate while
+# investigating a latency regression, without multiplying the cost of every
+# other event. -1 inherits edge_analytics_sample_rate.
+variable "edge_upstream_latency_sample_rate" {
+  description = "Sample rate for edge_upstream_latency events (-1 inherits edge_analytics_sample_rate)."
+  type        = number
+  default     = -1
+
+  validation {
+    condition     = var.edge_upstream_latency_sample_rate == -1 || (var.edge_upstream_latency_sample_rate >= 0 && var.edge_upstream_latency_sample_rate <= 1)
+    error_message = "edge_upstream_latency_sample_rate must be -1 (inherit) or between 0 and 1."
+  }
+}
+
+# Sample rate for the ROUTINE arm of edge_bypass_used only.
+#
+# The `testing` class and every `rejected` outcome are emitted at 100% and this
+# variable CANNOT change that — those are the leaked-secret and probe detectors,
+# and sampling a rare security signal at 1% means never seeing it.
+#
+# What this samples is the `ssr` accepted/unconfigured arm, which is EVERY
+# first-party request the Vercel rewrites proxy: the steady state, the highest
+# volume class on the API host, and a condition that is true by design.
+# -1 inherits edge_analytics_sample_rate.
+variable "edge_bypass_sample_rate" {
+  description = "Sample rate for routine (accepted SSR) edge_bypass_used events (-1 inherits edge_analytics_sample_rate). Testing-class and rejected outcomes are always 100%."
+  type        = number
+  default     = -1
+
+  validation {
+    condition     = var.edge_bypass_sample_rate == -1 || (var.edge_bypass_sample_rate >= 0 && var.edge_bypass_sample_rate <= 1)
+    error_message = "edge_bypass_sample_rate must be -1 (inherit) or between 0 and 1."
+  }
+}
+
+# Cloudflare Workers Analytics Engine dataset for edge_origin_error and
+# edge_upstream_latency.
+#
+# DELIBERATELY A SECOND DATASET, not edge_rate_limit_analytics_dataset.
+# Analytics Engine columns are positional PER DATASET, and the rate limit
+# schema is pinned to rate limit fields; two differently-shaped events cannot
+# share one table without writing nonsense into each other's columns. These two
+# events DO share a shape (origin, outcome class, RPC, duration), so they share
+# one dataset keyed by blob1/index1.
+#
+# DISABLED BY DEFAULT (""): no binding is attached and worker.js no-ops. The
+# JSON console line is the source of truth either way. Set a dataset name to
+# make "is the origin healthy right now" and "which RPCs are slow" SQL queries
+# rather than log greps — which matters here because the account has NO Logpush
+# job configured.
+variable "edge_events_analytics_dataset" {
+  description = "Analytics Engine dataset name for edge_origin_error + edge_upstream_latency data points. Empty string leaves the binding unattached (feature off)."
+  type        = string
+  default     = ""
+}
+
 # ---- Rate Limiting ----
 
 variable "rate_limit_enabled" {
