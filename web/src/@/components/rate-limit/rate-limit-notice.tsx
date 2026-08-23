@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { ArrowRight, Check, Clock, LogIn, Mail, RefreshCw, Sparkles } from "lucide-react";
@@ -15,6 +15,11 @@ import {
   type RateLimitKind,
   type RateLimitTier,
 } from "~/@/lib/retry";
+import {
+  RATE_LIMIT_EVENTS,
+  currentSurface,
+  trackRateLimitEvent,
+} from "~/@/lib/rate-limit-analytics";
 
 // ---------------------------------------------------------------------------
 // Formatting helpers — all defensive. A missing or garbage value renders
@@ -162,6 +167,55 @@ export function RateLimitNotice({
   const countdown = formatCountdown(remaining);
   const canRetryNow = remaining === null || remaining <= 0;
 
+  // --- analytics -----------------------------------------------------------
+  // ONE `notice_shown` per occurrence, not per render. This component
+  // re-renders every second while the countdown ticks, so the guard is a ref
+  // keyed on the identity of the limit event itself: which limit, whose tier,
+  // which presentation, and which reset window. A new 429 with a new reset
+  // window is a new occurrence and fires again; a tick is not.
+  const occurrenceKey = useMemo(
+    () =>
+      [
+        kind,
+        resolvedTier,
+        variant,
+        info.monthlyResetAt ?? info.resetAt ?? info.retryAfter ?? "none",
+      ].join("|"),
+    [kind, resolvedTier, variant, info.monthlyResetAt, info.resetAt, info.retryAfter],
+  );
+  const lastShownKey = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (lastShownKey.current === occurrenceKey) return;
+    lastShownKey.current = occurrenceKey;
+    trackRateLimitEvent(RATE_LIMIT_EVENTS.NOTICE_SHOWN, {
+      kind,
+      tier: resolvedTier,
+      variant,
+      surface: currentSurface(),
+    });
+    // `kind`/`resolvedTier`/`variant` are all encoded in occurrenceKey.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [occurrenceKey]);
+
+  const handleUpgradeClick = useCallback(() => {
+    trackRateLimitEvent(RATE_LIMIT_EVENTS.UPGRADE_CLICK, {
+      kind,
+      tier: resolvedTier,
+      variant,
+      surface: currentSurface(),
+    });
+  }, [kind, resolvedTier, variant]);
+
+  const handleSignInClick = useCallback(() => {
+    trackRateLimitEvent(RATE_LIMIT_EVENTS.SIGNIN_CLICK, {
+      kind,
+      tier: resolvedTier,
+      variant,
+      surface: currentSurface(),
+    });
+  }, [kind, resolvedTier, variant]);
+
   // -------------------------------------------------------------------------
   // Inline / compact
   // -------------------------------------------------------------------------
@@ -188,6 +242,8 @@ export function RateLimitNotice({
             tier={resolvedTier}
             upgradeUrl={resolvedUpgradeUrl}
             signInHref={resolvedSignInHref}
+            onUpgradeClick={handleUpgradeClick}
+            onSignInClick={handleSignInClick}
             size="sm"
           />
         </div>
@@ -322,6 +378,8 @@ export function RateLimitNotice({
           tier={resolvedTier}
           upgradeUrl={resolvedUpgradeUrl}
           signInHref={resolvedSignInHref}
+          onUpgradeClick={handleUpgradeClick}
+          onSignInClick={handleSignInClick}
           isMonthly={isMonthly}
           className="w-full"
         />
@@ -437,6 +495,8 @@ function TierCta({
   tier,
   upgradeUrl,
   signInHref,
+  onUpgradeClick,
+  onSignInClick,
   isMonthly = true,
   size,
   className,
@@ -444,6 +504,10 @@ function TierCta({
   tier: RateLimitTier;
   upgradeUrl: string;
   signInHref: string;
+  /** Fired on the conversion CTA. Analytics only — never blocks navigation. */
+  onUpgradeClick?: () => void;
+  /** Fired on the anonymous → sign-in CTA. */
+  onSignInClick?: () => void;
   isMonthly?: boolean;
   size?: "sm";
   className?: string;
@@ -464,7 +528,7 @@ function TierCta({
   if (tier === "anonymous") {
     return (
       <Button size={size} asChild className={className}>
-        <Link href={signInHref}>
+        <Link href={signInHref} onClick={onSignInClick}>
           <LogIn className="mr-2 h-4 w-4" aria-hidden />
           Sign in for higher limits
         </Link>
@@ -475,7 +539,7 @@ function TierCta({
   // free
   return (
     <Button size={size} asChild className={className}>
-      <Link href={upgradeUrl}>
+      <Link href={upgradeUrl} onClick={onUpgradeClick}>
         <Sparkles className="mr-2 h-4 w-4" aria-hidden />
         {isMonthly ? "Upgrade for unlimited requests" : "See plans"}
         <ArrowRight className="ml-2 h-4 w-4" aria-hidden />

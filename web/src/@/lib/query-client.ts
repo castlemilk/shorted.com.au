@@ -1,11 +1,28 @@
 "use client";
 
-import { QueryClient } from "@tanstack/react-query";
+import { QueryCache, QueryClient } from "@tanstack/react-query";
 import {
   isRateLimitError,
   parseRateLimitInfo,
   shouldRetryConnectError,
 } from "@/lib/retry";
+import type { RateLimitKind, RateLimitTier } from "@/lib/retry";
+import {
+  RATE_LIMIT_EVENTS,
+  trackRateLimitEvent,
+} from "@/lib/rate-limit-analytics";
+
+/**
+ * Queries that hit a 429 and were scheduled for an automatic retry.
+ *
+ * Keyed by queryHash so a recovery is attributed to the query that was
+ * actually limited. Entries are removed the moment the query resolves either
+ * way, so this cannot grow unbounded.
+ */
+const pendingRateLimited = new Map<
+  string,
+  { kind: RateLimitKind; tier?: RateLimitTier }
+>();
 
 /**
  * Longest we will make a browsing user wait for an automatic retry.
@@ -68,8 +85,71 @@ function shouldRetryQuery(
   return shouldRetryConnectError(error);
 }
 
+/** Minimal structural view of the QueryCache events we care about. */
+interface RateLimitCacheEvent {
+  type?: string;
+  query?: { queryHash?: string };
+  action?: { type?: string; error?: unknown };
+}
+
+/**
+ * Turn "429 → silent retry → data arrived" into a measurable event.
+ *
+ * The per-minute path is deliberately invisible to the user, which also makes
+ * it invisible to us: without this we cannot tell a quiet recovery from a user
+ * who gave up. Fires at most once per limited query — the pending entry is
+ * consumed on the first success and dropped on a terminal error.
+ *
+ * Exported for tests; production wiring is `queryCache.subscribe` below.
+ */
+export function handleRateLimitCacheEvent(event: RateLimitCacheEvent): void {
+  try {
+    if (event?.type !== "updated") return;
+    const hash = event.query?.queryHash;
+    if (!hash) return;
+    const action = event.action;
+
+    if (action?.type === "failed") {
+      if (!isRateLimitError(action.error)) return;
+      const info = parseRateLimitInfo(action.error);
+      // A monthly quota is never auto-retried, so it can never auto-recover.
+      if (info.kind === "monthly") return;
+      pendingRateLimited.set(hash, { kind: info.kind, tier: info.tier });
+      return;
+    }
+
+    if (action?.type === "success") {
+      const pending = pendingRateLimited.get(hash);
+      if (!pending) return;
+      pendingRateLimited.delete(hash);
+      trackRateLimitEvent(RATE_LIMIT_EVENTS.AUTO_RECOVERED, {
+        kind: pending.kind,
+        tier: pending.tier,
+      });
+      return;
+    }
+
+    if (action?.type === "error") {
+      // Retries were exhausted — this one did not recover.
+      pendingRateLimited.delete(hash);
+    }
+  } catch {
+    // Instrumentation must never break the query pipeline.
+  }
+}
+
 function makeQueryClient() {
+  const queryCache = new QueryCache();
+  // Browser only: the server client is per-request and never retries in a way
+  // a user experiences, and a server-side subscription would leak listeners.
+  if (typeof window !== "undefined") {
+    queryCache.subscribe((event) =>
+      handleRateLimitCacheEvent(event as unknown as RateLimitCacheEvent),
+    );
+  }
+
   return new QueryClient({
+    queryCache,
     defaultOptions: {
       queries: {
         // Stale time of 5 minutes - short position data changes at most once per day

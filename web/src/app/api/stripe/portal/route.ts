@@ -50,6 +50,11 @@ export async function POST(request: NextRequest) {
         feature: "payment",
         action: "portal_create",
         status: "rate_limited",
+        properties: {
+          tier: rateLimitResult.tier,
+          limit_kind: "per_minute",
+          route_group: "/api/stripe/*",
+        },
       });
       return rateLimitResult.response;
     }
