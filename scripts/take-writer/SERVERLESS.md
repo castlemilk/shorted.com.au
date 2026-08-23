@@ -40,7 +40,8 @@ gcloud builds submit --project <PROJ> \
 ```
 
 Currently built to dev:
-`australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/take-writer:latest`.
+`${ARTIFACT_REGISTRY}/${GCP_PROJECT_ID}/shorted/take-writer:latest`; both
+variables must be supplied explicitly.
 
 ## Env / secrets the job needs
 

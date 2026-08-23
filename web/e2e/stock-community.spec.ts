@@ -2,7 +2,8 @@ import { test, expect } from "@playwright/test";
 import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
-const projectId = process.env.AUTH_FIREBASE_PROJECT_ID ?? "shorted-dev-aba5688f";
+const projectId = process.env.AUTH_FIREBASE_PROJECT_ID;
+if (!projectId) throw new Error("AUTH_FIREBASE_PROJECT_ID is required");
 const stockCode = "CBA";
 const seededThreadId = "seeded-community-thread";
 

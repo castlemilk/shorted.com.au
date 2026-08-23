@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { test } from "node:test";
 import { parse } from "yaml";
 
@@ -22,6 +22,33 @@ function lines(script) {
     .filter(Boolean);
 }
 
+test("infrastructure CI cannot recreate or authenticate to the retired dev environment", () => {
+  assert.doesNotMatch(workflowSource, /shorted-dev-aba5688f/);
+  assert.doesNotMatch(workflowSource, /github-actions-sa@shorted-dev/);
+  assert.equal(workflow.jobs?.["deploy-preview"], undefined);
+  assert.equal(workflow.jobs?.["cleanup-preview"], undefined);
+
+  const determine = step("determine-environment", "Determine environment").run;
+  assert.match(determine, /environment=prod/);
+  assert.match(determine, /project-id=rosy-clover-477102-t5/);
+  assert.doesNotMatch(determine, /environment=dev/);
+
+  const ensureSecrets = step(
+    "terraform-plan",
+    "Ensure secrets exist in Secret Manager",
+  );
+  assert.equal(ensureSecrets.if, "github.event_name != 'pull_request'");
+
+  assert.equal(
+    existsSync(new URL("../../terraform/environments/dev", import.meta.url)),
+    false,
+  );
+  assert.equal(
+    existsSync(new URL("../../terraform/modules/preview", import.meta.url)),
+    false,
+  );
+});
+
 test("production database migration step avoids golang-migrate and repairs schema state directly", () => {
   const run = step("terraform-apply", "Run database migrations").run;
   assert.equal(typeof run, "string");
@@ -37,6 +64,11 @@ test("production database migration step avoids golang-migrate and repairs schem
   assert.match(prodBlock, /000071_add_corporate_tax\.up\.sql/);
   assert.match(prodBlock, /000074_add_alert_monitors\.up\.sql/);
   assert.match(prodBlock, /000075_add_industry_intelligence_sources\.up\.sql/);
+  assert.doesNotMatch(
+    prodBlock,
+    /000113_retire_dev_bucket_urls/,
+    "the reviewed data rewrite must not become an automatic deploy side effect",
+  );
   assert.match(prodBlock, /CREATE TABLE IF NOT EXISTS schema_migrations/);
   assert.match(prodBlock, /DELETE FROM schema_migrations/);
   assert.match(prodBlock, /VALUES \(75, false\)/);

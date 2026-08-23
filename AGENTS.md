@@ -45,9 +45,9 @@ Shorted.com.au uses Cloudflare as an edge gateway with a Worker (`shorted-edge-c
 - `terraform/modules/cloudflare-edge/outputs.tf` — Module outputs
 
 ### Environment Configurations
-- `terraform/environments/dev/main.tf` — Dev environment (cloudflare_edge + chat_service modules)
-- `terraform/environments/dev/variables.tf` — Dev variables (Cloudflare zone, API key, etc.)
-- `terraform/environments/dev/outputs.tf` — Dev outputs
+- `terraform/environments/prod/main.tf` — Reviewed production infrastructure
+- `terraform/environments/prod/variables.tf` — Production variables
+- `terraform/environments/prod/outputs.tf` — Production outputs
 - `terraform/environments/prod/main.tf` — Prod environment (same modules)
 - `terraform/environments/prod/variables.tf` — Prod variables
 - `terraform/environments/prod/outputs.tf` — Prod outputs
@@ -205,7 +205,7 @@ Required variables:
 
 ### Dev Environment
 ```bash
-cd terraform/environments/dev
+cd terraform/environments/prod
 terraform init
 terraform plan
 terraform apply

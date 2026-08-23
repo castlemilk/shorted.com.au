@@ -5,7 +5,7 @@
 
 set -e
 
-PROJECT_ID="shorted-dev-aba5688f"
+PROJECT_ID=${GCP_PROJECT:?Set GCP_PROJECT explicitly}
 REGION="australia-southeast2"
 SERVICE_NAME="stock-price-ingestion"
 
@@ -84,4 +84,3 @@ echo "================================================"
 echo "  cd services/stock-price-ingestion"
 echo "  make deploy"
 echo ""
-

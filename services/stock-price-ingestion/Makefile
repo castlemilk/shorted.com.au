@@ -3,7 +3,7 @@
 .PHONY: help build test deploy run-local clean
 
 # Variables
-PROJECT_ID ?= shorted-dev-aba5688f
+PROJECT_ID ?=
 REGION ?= australia-southeast2
 SERVICE_NAME = stock-price-ingestion
 IMAGE_NAME = gcr.io/$(PROJECT_ID)/$(SERVICE_NAME)

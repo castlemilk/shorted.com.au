@@ -1,6 +1,9 @@
 # Shorted.com.au Root Makefile
 # Orchestrates testing and building for both frontend and backend
 
+# Cloud targets fail closed unless the operator names a project explicitly.
+GCP_PROJECT_ID ?=
+
 .PHONY: help run test test-frontend test-backend test-coverage test-watch test-integration test-e2e test-e2e-ui test-e2e-headed test-stack-up test-stack-down verify-fast verify-full verify-integration install install-hooks clean clean-cache clean-all clean-ports build dev dev-clean dev-script dev-frontend dev-backend lint format populate-data populate-data-quick backfill-websites backfill-websites-dry db-diagnose db-optimize db-analyze algolia-sync algolia-sync-prod algolia-search enrich-metadata enrich-metadata-all enrich-metadata-stocks pipeline-local pipeline-prod pipeline-daily pipeline-help
 
 define kill_pids_in_project_by_pattern
@@ -405,21 +408,21 @@ short-data-sync-execute: ## Execute the shorts-data-sync Cloud Run job now
 	@echo "🚀 Executing shorts-data-sync job..."
 	@gcloud run jobs execute shorts-data-sync \
 		--region australia-southeast2 \
-		--project shorted-dev-aba5688f
+		--project $(GCP_PROJECT_ID)
 
 short-data-sync-logs: ## View shorts-data-sync job logs
 	@echo "📋 Viewing shorts-data-sync logs..."
 	@gcloud logging read \
 		"resource.type=cloud_run_job AND resource.labels.job_name=shorts-data-sync" \
 		--limit 100 \
-		--project shorted-dev-aba5688f \
+		--project $(GCP_PROJECT_ID) \
 		--format="table(timestamp, severity, textPayload)"
 
 short-data-sync-status: ## Check the shorts-data-sync scheduler status
 	@echo "⏰ Checking scheduler status..."
 	@gcloud scheduler jobs describe shorts-data-sync-daily \
 		--location australia-southeast1 \
-		--project shorted-dev-aba5688f
+		--project $(GCP_PROJECT_ID)
 
 short-data-sync-test: ## Run the short-data-sync unit tests
 	@echo "🧪 Running short-data-sync tests..."
@@ -479,9 +482,6 @@ validate-secrets: ## Validate environment secrets for deployment
 
 validate-secrets-preview: ## Validate secrets for preview environment
 	@./scripts/validate-secrets.sh preview
-
-validate-secrets-dev: ## Validate secrets for dev environment
-	@./scripts/validate-secrets.sh dev
 
 validate-secrets-prod: ## Validate secrets for production environment
 	@./scripts/validate-secrets.sh prod

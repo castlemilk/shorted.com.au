@@ -1,7 +1,7 @@
 name: Cost Guardian
 
-# Safety net: enforces min_instances=0 on all Cloud Run services
-# and cleans up orphaned PR preview environments.
+# Safety net: enforces min_instances=0 and cleans up retained production
+# artifacts and secret versions.
 # Runs daily and can be triggered manually.
 
 on:
@@ -35,9 +35,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - project: shorted-dev-aba5688f
-            wip_provider: projects/234770780438/locations/global/workloadIdentityPools/github-pool/providers/github-provider
-            sa_email: github-actions-sa@shorted-dev-aba5688f.iam.gserviceaccount.com
           - project: rosy-clover-477102-t5
             wip_provider: projects/334313144667/locations/global/workloadIdentityPools/github-pool/providers/github-provider
             sa_email: github-actions-sa@rosy-clover-477102-t5.iam.gserviceaccount.com
@@ -98,85 +95,11 @@ jobs:
             echo "Fixed $VIOLATIONS scaling violations"
           fi
 
-  cleanup-orphaned-previews:
-    runs-on: ubuntu-latest
-    env:
-      PROJECT: shorted-dev-aba5688f
-      WIP_PROVIDER: projects/234770780438/locations/global/workloadIdentityPools/github-pool/providers/github-provider
-      SA_EMAIL: github-actions-sa@shorted-dev-aba5688f.iam.gserviceaccount.com
-    steps:
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v3
-        with:
-          workload_identity_provider: ${{ env.WIP_PROVIDER }}
-          service_account: ${{ env.SA_EMAIL }}
-
-      - name: Find and clean orphaned PR services
-        env:
-          DRY_RUN: ${{ inputs.dry_run || 'false' }}
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          echo "=== Cleaning orphaned PR preview services ==="
-          echo ""
-
-          DELETED=0
-
-          # Find all PR-suffixed Cloud Run services
-          for svc in $(gcloud run services list --project="$PROJECT" --region="$GCP_REGION" --format="value(name)" | grep -E "\-pr-[0-9]+$"); do
-            # Extract PR number
-            PR_NUM=$(echo "$svc" | grep -oE "[0-9]+$")
-
-            # Check if PR is still open
-            PR_STATE=$(gh pr view "$PR_NUM" --repo "${{ github.repository }}" --json state --jq '.state' 2>/dev/null || echo "UNKNOWN")
-
-            if [ "$PR_STATE" != "OPEN" ]; then
-              DELETED=$((DELETED + 1))
-              echo "ORPHAN: $svc (PR #$PR_NUM state: $PR_STATE)"
-
-              if [ "$DRY_RUN" = "false" ]; then
-                echo "  -> Deleting..."
-                gcloud run services delete "$svc" \
-                  --project="$PROJECT" \
-                  --region="$GCP_REGION" \
-                  --quiet 2>&1 || echo "  -> FAILED to delete $svc"
-              else
-                echo "  -> DRY RUN: Would delete"
-              fi
-            fi
-          done
-
-          # Clean up orphaned Pub/Sub resources
-          for topic in $(gcloud pubsub topics list --project="$PROJECT" --format="value(name)" 2>/dev/null | grep -oE "enrichment-jobs-pr-[0-9]+" || true); do
-            PR_NUM=$(echo "$topic" | grep -oE "[0-9]+$")
-            PR_STATE=$(gh pr view "$PR_NUM" --repo "${{ github.repository }}" --json state --jq '.state' 2>/dev/null || echo "UNKNOWN")
-
-            if [ "$PR_STATE" != "OPEN" ]; then
-              echo "ORPHAN TOPIC: $topic (PR #$PR_NUM state: $PR_STATE)"
-              if [ "$DRY_RUN" = "false" ]; then
-                # Delete subscription first, then topic
-                gcloud pubsub subscriptions delete "enrichment-jobs-subscription-pr-${PR_NUM}" \
-                  --project="$PROJECT" --quiet 2>/dev/null || true
-                gcloud pubsub topics delete "$topic" \
-                  --project="$PROJECT" --quiet 2>/dev/null || true
-              fi
-            fi
-          done
-
-          if [ "$DELETED" -eq 0 ]; then
-            echo "No orphaned preview services found"
-          else
-            echo ""
-            echo "Cleaned up $DELETED orphaned services"
-          fi
-
   cleanup-artifact-registry:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
-          - project: shorted-dev-aba5688f
-            wip_provider: projects/234770780438/locations/global/workloadIdentityPools/github-pool/providers/github-provider
-            sa_email: github-actions-sa@shorted-dev-aba5688f.iam.gserviceaccount.com
           - project: rosy-clover-477102-t5
             wip_provider: projects/334313144667/locations/global/workloadIdentityPools/github-pool/providers/github-provider
             sa_email: github-actions-sa@rosy-clover-477102-t5.iam.gserviceaccount.com
@@ -289,9 +212,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - project: shorted-dev-aba5688f
-            wip_provider: projects/234770780438/locations/global/workloadIdentityPools/github-pool/providers/github-provider
-            sa_email: github-actions-sa@shorted-dev-aba5688f.iam.gserviceaccount.com
           - project: rosy-clover-477102-t5
             wip_provider: projects/334313144667/locations/global/workloadIdentityPools/github-pool/providers/github-provider
             sa_email: github-actions-sa@rosy-clover-477102-t5.iam.gserviceaccount.com

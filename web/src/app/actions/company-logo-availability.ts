@@ -4,7 +4,7 @@ import { unstable_cache } from "next/cache";
 
 import { normalizedLogoUrl } from "~/@/lib/logo";
 
-const LOGO_BUCKET = "shorted-company-logos";
+const LOGO_BUCKET = "shorted-company-logos-prod";
 const NORMALIZED_PREFIX = "logos-normalized/";
 const LOGO_LIST_REVALIDATE_SECONDS = 60 * 60 * 24;
 

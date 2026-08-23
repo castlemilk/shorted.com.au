@@ -580,12 +580,12 @@ def summarize_report(metrics: dict, page_text: str, model_id: str = DIGEST_MODEL
 def upload_raw_text_to_gcs(stock_code: str, report_url: str, text: str) -> Optional[str]:
     """Upload raw page text to GCS and return the gs:// URI.
 
-    Bucket: shorted-financial-reports (from env GCS_REPORTS_BUCKET or default).
+    Bucket: shorted-financial-reports-prod (from env GCS_REPORTS_BUCKET or default).
     Object path: digests/<stock_code>/<sha1-of-report_url>.txt
 
     Returns the gs:// URI on success, None on failure (best-effort — never raises).
     """
-    bucket_name = os.environ.get("GCS_REPORTS_BUCKET", "shorted-financial-reports")
+    bucket_name = os.environ.get("GCS_REPORTS_BUCKET", "shorted-financial-reports-prod")
     url_sha1 = hashlib.sha1(report_url.encode()).hexdigest()
     blob_path = f"digests/{stock_code}/{url_sha1}.txt"
     gcs_uri = f"gs://{bucket_name}/{blob_path}"

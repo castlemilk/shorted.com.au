@@ -3,15 +3,12 @@
 # Secrets Validation Script
 # =============================================================================
 # Validates that all required secrets/environment variables are configured
-# correctly for the target environment (preview, dev, prod).
+# correctly for production.
 #
 # Usage:
 #   ./scripts/validate-secrets.sh [environment]
 #
-# Environments:
-#   preview - Preview/PR deployments (dev GCP project)
-#   dev     - Development environment (dev GCP project)
-#   prod    - Production environment (prod GCP project)
+# Environment: prod
 #
 # Exit codes:
 #   0 - All secrets validated successfully
@@ -31,7 +28,7 @@ ENVIRONMENT="${1:-}"
 
 if [[ -z "$ENVIRONMENT" ]]; then
     echo -e "${RED}Error: Environment not specified${NC}"
-    echo "Usage: $0 [preview|dev|prod]"
+    echo "Usage: $0 prod"
     exit 2
 fi
 
@@ -133,46 +130,6 @@ echo ""
 # Environment-Specific Secrets
 # =============================================================================
 case "$ENVIRONMENT" in
-    preview)
-        echo "📋 Preview Environment Secrets"
-        echo "-------------------------------------------"
-        check_secret "VERCEL_TOKEN" true
-        check_secret "OPENAI_API_KEY" true
-        check_secret "INTERNAL_SERVICE_SECRET" false  # Optional for preview
-        
-        echo ""
-        echo "📋 GCP Secrets (shorted-dev-aba5688f)"
-        echo "-------------------------------------------"
-        check_gcp_secret "OPENAI_API_KEY" "shorted-dev-aba5688f" true
-        check_gcp_secret "postgres-password" "shorted-dev-aba5688f" true
-        
-        echo ""
-        echo "📋 Preview-Specific Validations"
-        echo "-------------------------------------------"
-        # E2E auth should be allowed in preview
-        if [[ "${ALLOW_E2E_AUTH:-}" == "true" ]]; then
-            echo -e "  ${GREEN}✓${NC} ALLOW_E2E_AUTH=true (correct for preview)"
-        else
-            echo -e "  ${YELLOW}⚠${NC} ALLOW_E2E_AUTH not set - E2E tests won't work"
-            WARNINGS+=("ALLOW_E2E_AUTH")
-        fi
-        ;;
-        
-    dev)
-        echo "📋 Dev Environment Secrets"
-        echo "-------------------------------------------"
-        check_secret "VERCEL_TOKEN" true
-        check_secret "OPENAI_API_KEY" true
-        check_secret "INTERNAL_SERVICE_SECRET" true
-        
-        echo ""
-        echo "📋 GCP Secrets (shorted-dev-aba5688f)"
-        echo "-------------------------------------------"
-        check_gcp_secret "OPENAI_API_KEY" "shorted-dev-aba5688f" true
-        check_gcp_secret "postgres-password" "shorted-dev-aba5688f" true
-        check_gcp_secret "INTERNAL_SERVICE_SECRET" "shorted-dev-aba5688f" false
-        ;;
-        
     prod)
         echo "📋 Production Environment Secrets"
         echo "-------------------------------------------"
@@ -215,7 +172,7 @@ case "$ENVIRONMENT" in
         
     *)
         echo -e "${RED}Error: Unknown environment '$ENVIRONMENT'${NC}"
-        echo "Valid environments: preview, dev, prod"
+        echo "Valid environment: prod"
         exit 2
         ;;
 esac

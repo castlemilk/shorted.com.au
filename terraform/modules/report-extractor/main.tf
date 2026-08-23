@@ -51,12 +51,8 @@ resource "google_secret_manager_secret_iam_member" "gemini_api_key" {
   project   = var.project_id
 }
 
-# NOTE: the financial-reports bucket lives in the shorted-dev project, so the
-# prod deploy SA cannot read/set its IAM policy (getIamPolicy 403) — managing a
-# cross-project bucket binding from prod was the cause of the terraform-apply
-# failure. Stop managing it here (forget from state without destroying the live
-# binding). The report_extractor SA's access to that bucket should be granted in
-# the project that OWNS the bucket. See infra follow-up.
+# Preserve the prior state-only removal so Terraform never tries to destroy the
+# historical cross-project binding while completing the production cutover.
 removed {
   from = google_storage_bucket_iam_member.reports_bucket
   lifecycle {

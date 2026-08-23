@@ -69,10 +69,8 @@ resource "time_sleep" "wait_for_apis" {
   create_duration = "60s"
 }
 
-# Production-owned replacements for the two asset buckets that still live in
-# shorted-dev. Creating them is deliberately separate from the data/runtime
-# cutover: nothing consumes these buckets until the migration has copied and
-# verified every live object.
+# Production-owned asset buckets. The retirement migration copied and verified
+# the historical objects before runtime references were cut over.
 locals {
   shared_asset_buckets = {
     company_logos     = "shorted-company-logos-prod"
@@ -746,6 +744,7 @@ module "enrichment_processor" {
   postgres_database = var.postgres_database
   postgres_username = var.postgres_username
   shorts_api_url    = module.shorts_api.service_url
+  logo_bucket       = local.shared_asset_buckets.company_logos
 
   depends_on = [
     google_project_service.required_apis,
@@ -896,6 +895,7 @@ module "report_extractor" {
   image_url            = var.report_extractor_image
   gemini_secret_exists = true
   gemini_secret_name   = "GEMINI_API_KEY_REPORT_EXTRACTOR"
+  reports_bucket       = local.shared_asset_buckets.financial_reports
   director_limit       = 20
   reports_limit        = 10
 

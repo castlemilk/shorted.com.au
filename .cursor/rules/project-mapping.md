@@ -175,14 +175,12 @@ gcloud logging read 'resource.type="cloud_run_job" AND severity>=ERROR' \
 ### GCP Configuration
 | Environment | Project ID               | Region               |
 | ----------- | ------------------------ | -------------------- |
-| Dev         | `shorted-dev-aba5688f`   | australia-southeast2 |
 | Prod        | `rosy-clover-477102-t5`  | australia-southeast2 |
 
 ### Terraform Structure
 ```
 terraform/
 ├── environments/
-│   ├── dev/                    # Dev environment
 │   └── prod/                   # Production environment
 └── modules/
     ├── shorts-api/             # Main API service

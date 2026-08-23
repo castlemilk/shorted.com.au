@@ -6,7 +6,7 @@
 set -e
 
 # Configuration
-PROJECT_ID=${GCP_PROJECT:-"shorted-dev-aba5688f"}
+PROJECT_ID=${GCP_PROJECT:?Set GCP_PROJECT explicitly}
 REGION="australia-southeast1"
 SERVICE_NAME="market-data-sync"
 SERVICE_ACCOUNT="market-data-sync@${PROJECT_ID}.iam.gserviceaccount.com"

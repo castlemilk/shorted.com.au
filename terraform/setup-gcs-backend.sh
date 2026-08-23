@@ -2,23 +2,18 @@
 set -e
 
 # Setup GCS backend for Terraform state
-# Usage: ./setup-gcs-backend.sh <environment>
-# Example: ./setup-gcs-backend.sh dev
+# Usage: ./setup-gcs-backend.sh prod
 
-ENVIRONMENT=${1:-dev}
+ENVIRONMENT=${1:?Pass prod explicitly}
 
 case $ENVIRONMENT in
-  dev)
-    PROJECT_ID="shorted-dev-aba5688f"
-    REGION="australia-southeast2"
-    ;;
   prod)
     PROJECT_ID="rosy-clover-477102-t5"
     REGION="australia-southeast2"
     ;;
   *)
     echo "❌ Unknown environment: $ENVIRONMENT"
-    echo "Usage: $0 <dev|prod>"
+    echo "Usage: $0 prod"
     exit 1
     ;;
 esac
@@ -77,4 +72,3 @@ echo "   1. Run: cd environments/${ENVIRONMENT}"
 echo "   2. Run: terraform init -migrate-state"
 echo "   3. Verify state was migrated to gs://${BUCKET_NAME}"
 echo ""
-

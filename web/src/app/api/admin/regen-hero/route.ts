@@ -16,7 +16,7 @@ import { SHORTS_API_URL, serverFetchWithUserAgent } from "~/app/actions/config";
 export const maxDuration = 60; // seconds — Vercel function timeout
 
 const MODEL = "gpt-image-2-2026-04-21";
-const BUCKET = process.env.GCS_LOGO_BUCKET ?? "shorted-company-logos";
+const BUCKET = process.env.GCS_LOGO_BUCKET ?? "shorted-company-logos-prod";
 
 const BRAND_PROMPT_PREFIX = `Editorial illustration in the style of a modern financial publication.
 Visual style: dark background (near-black #0a0a0a) with selective orange

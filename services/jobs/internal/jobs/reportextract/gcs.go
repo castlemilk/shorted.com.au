@@ -15,7 +15,7 @@ import (
 
 // defaultReportsBucket is extract.py's GCS_REPORTS_BUCKET default. The deployed
 // job sets the env var explicitly.
-const defaultReportsBucket = "shorted-financial-reports"
+const defaultReportsBucket = "shorted-financial-reports-prod"
 
 // rawTextContentType matches the Python upload's content_type exactly (it is
 // stored on the object).

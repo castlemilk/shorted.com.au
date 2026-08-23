@@ -2,8 +2,10 @@
 
 .PHONY: help init plan apply destroy format validate clean
 
-# Default environment
-ENV ?= dev
+# No cloud environment is implicit. The retired dev configuration has been
+# removed; callers must pass ENV=prod and GCP_PROJECT_ID explicitly.
+ENV ?= unconfigured
+GCP_PROJECT_ID ?=
 
 help: ## Show this help message
 	@echo "Terraform Infrastructure Management"
@@ -14,13 +16,11 @@ help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "Environments:"
-	@echo "  dev   - Development (default) - shorted-dev-aba5688f"
-	@echo "  prod  - Production - rosy-clover-477102-t5"
+	@echo "  prod  - Production (explicit only)"
 	@echo ""
 	@echo "Examples:"
-	@echo "  make plan              # Plan changes for dev"
-	@echo "  make apply ENV=prod    # Apply changes to prod"
-	@echo "  make deploy-dev        # Build images + apply dev"
+	@echo "  make plan ENV=prod     # Plan production changes"
+	@echo "  make apply ENV=prod    # Apply production changes"
 	@echo "  make deploy-prod       # Build images + apply prod"
 
 init: ## Initialize Terraform
@@ -124,11 +124,6 @@ workspace-select: ## Select workspace (usage: make workspace-select NAME=workspa
 
 check: format validate ## Format and validate configuration
 
-deploy-dev: ## Build all images and deploy to dev
-	@echo "🚀 Building and deploying to DEV environment..."
-	$(MAKE) build-images
-	$(MAKE) apply-auto ENV=dev
-
 deploy-prod: ## Build all images and deploy to prod
 	@echo "🚀 Building and deploying to PROD environment..."
 	$(MAKE) build-images
@@ -148,35 +143,35 @@ deploy-image: ## Build and push Docker image, then deploy (backward compat)
 	$(MAKE) apply-auto ENV=$(ENV)
 
 logs-stock-price: ## View stock price ingestion service logs
-	@gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=stock-price-ingestion" --limit 50 --project=shorted-dev-aba5688f
+	@gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=stock-price-ingestion" --limit 50 --project=$(GCP_PROJECT_ID)
 
 logs-shorts: ## View shorts API service logs
-	@gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=shorts" --limit 50 --project=shorted-dev-aba5688f
+	@gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=shorts" --limit 50 --project=$(GCP_PROJECT_ID)
 
 logs-short-sync: ## View short data sync job logs
-	@gcloud logging read "resource.type=cloud_run_job AND resource.labels.job_name=short-data-sync" --limit 50 --project=shorted-dev-aba5688f
+	@gcloud logging read "resource.type=cloud_run_job AND resource.labels.job_name=short-data-sync" --limit 50 --project=$(GCP_PROJECT_ID)
 
 logs-cms: ## View CMS service logs
-	@gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=cms" --limit 50 --project=shorted-dev-aba5688f
+	@gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=cms" --limit 50 --project=$(GCP_PROJECT_ID)
 
 services: ## List all deployed services
 	@echo "📊 Deployed Services:"
-	@gcloud run services list --project=shorted-dev-aba5688f --region=australia-southeast2
+	@gcloud run services list --project=$(GCP_PROJECT_ID) --region=australia-southeast2
 	@echo ""
 	@echo "📦 Cloud Run Jobs:"
-	@gcloud run jobs list --project=shorted-dev-aba5688f --region=australia-southeast2
+	@gcloud run jobs list --project=$(GCP_PROJECT_ID) --region=australia-southeast2
 
 scheduler: ## List all scheduler jobs
 	@echo "⏰ Cloud Scheduler Jobs:"
-	@gcloud scheduler jobs list --project=shorted-dev-aba5688f --location=australia-southeast2
+	@gcloud scheduler jobs list --project=$(GCP_PROJECT_ID) --location=australia-southeast2
 
 trigger-stock-sync: ## Manually trigger stock price daily sync
 	@echo "🚀 Triggering stock price daily sync..."
-	@gcloud scheduler jobs run stock-price-ingestion-daily-sync --location=australia-southeast2 --project=shorted-dev-aba5688f
+	@gcloud scheduler jobs run stock-price-ingestion-daily-sync --location=australia-southeast2 --project=$(GCP_PROJECT_ID)
 
 trigger-short-sync: ## Manually trigger short data sync job
 	@echo "🚀 Triggering short data sync job..."
-	@gcloud run jobs execute short-data-sync --region=australia-southeast2 --project=shorted-dev-aba5688f
+	@gcloud run jobs execute short-data-sync --region=australia-southeast2 --project=$(GCP_PROJECT_ID)
 
 urls: ## Show all service URLs
 	@cd environments/$(ENV) && terraform output | grep url
@@ -188,4 +183,3 @@ setup: init ## Initial setup (run this first)
 	@echo "  1. Review configuration: make plan"
 	@echo "  2. Apply changes: make apply"
 	@echo "  3. View outputs: make output"
-

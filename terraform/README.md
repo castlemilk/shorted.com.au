@@ -76,15 +76,14 @@ terraform version
 
 ```bash
 gcloud auth application-default login
-gcloud config set project shorted-dev-aba5688f
+gcloud config configurations activate shorted-prod
 ```
 
-### 3. Create Secrets (First Time Only)
+### 3. Secrets
 
 ```bash
-# Create secrets using the setup script
-cd services/stock-price-ingestion
-./setup-secrets.sh
+# Secrets and access bindings are managed by reviewed production Terraform and
+# the deployment workflow. Do not create versions from local setup scripts.
 ```
 
 ## Quick Start
@@ -92,7 +91,7 @@ cd services/stock-price-ingestion
 ### Initialize Terraform
 
 ```bash
-cd terraform/environments/dev
+cd terraform/environments/prod
 
 # Initialize Terraform (downloads providers)
 terraform init
@@ -139,7 +138,7 @@ terraform output stock_price_ingestion_url
 2. **Update image in Terraform** (optional - uses `:latest` by default):
 
    ```bash
-   cd terraform/environments/dev
+   cd terraform/environments/prod
    # Edit terraform.tfvars to set specific image tag
    terraform apply
    ```
@@ -157,7 +156,7 @@ cd terraform/modules/stock-price-ingestion
 # Modify schedule in main.tf
 
 # Apply changes
-cd ../../environments/dev
+cd ../../environments/prod
 terraform apply
 ```
 
@@ -173,7 +172,7 @@ terraform apply
 2. **Reference in environment**:
 
    ```bash
-   # Edit terraform/environments/dev/main.tf
+   # Edit terraform/environments/prod/main.tf
    module "my_new_service" {
      source = "../../modules/my-new-service"
      # ... configuration
@@ -182,7 +181,7 @@ terraform apply
 
 3. **Apply**:
    ```bash
-   cd terraform/environments/dev
+   cd terraform/environments/prod
    terraform apply
    ```
 
@@ -196,13 +195,13 @@ State is stored locally in `terraform.tfstate`. **Do not commit this file!**
 
 ```bash
 # Create GCS bucket for state
-gsutil mb -p shorted-dev-aba5688f -l australia-southeast2 gs://shorted-dev-terraform-state
+gsutil mb -p "$GCP_PROJECT_ID" -l australia-southeast2 "gs://${GCP_PROJECT_ID}-terraform-state"
 
 # Enable versioning
-gsutil versioning set on gs://shorted-dev-terraform-state
+gsutil versioning set on "gs://${GCP_PROJECT_ID}-terraform-state"
 
 # Uncomment backend configuration in main.tf
-cd terraform/environments/dev
+cd terraform/environments/prod
 terraform init -migrate-state
 ```
 
@@ -223,7 +222,7 @@ terraform destroy -target=module.stock_price_ingestion.google_cloud_scheduler_jo
 ```bash
 # Import an existing Cloud Run service
 terraform import module.stock_price_ingestion.google_cloud_run_v2_service.stock_price_ingestion \
-  projects/shorted-dev-aba5688f/locations/australia-southeast2/services/stock-price-ingestion
+  "projects/${GCP_PROJECT_ID}/locations/australia-southeast2/services/stock-price-ingestion"
 ```
 
 ### Workspace for Multiple Environments
@@ -289,8 +288,9 @@ If you have existing resources deployed via bash scripts:
 1. **Document existing resources**:
 
    ```bash
-   gcloud run services list --project=shorted-dev-aba5688f
-   gcloud scheduler jobs list --project=shorted-dev-aba5688f
+   : "${GCP_PROJECT_ID:?Set the target project explicitly}"
+   gcloud run services list --project="$GCP_PROJECT_ID"
+   gcloud scheduler jobs list --project="$GCP_PROJECT_ID"
    ```
 
 2. **Import into Terraform**:

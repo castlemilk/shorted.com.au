@@ -46,7 +46,7 @@ make short-data-sync-local
 
 # Deploy to Cloud Run (scheduled daily at 2 AM)
 export DATABASE_URL="postgresql://..."
-export GCP_PROJECT="shorted-dev-aba5688f"
+export GCP_PROJECT="<explicit-project-id>"
 make deploy-daily-sync
 ```
 
@@ -97,7 +97,7 @@ Retries: 2
 ```bash
 gcloud run jobs execute daily-historical-sync \
   --region australia-southeast2 \
-  --project shorted-dev-aba5688f
+  --project "$GCP_PROJECT"
 ```
 
 ### View Logs
@@ -106,7 +106,7 @@ gcloud run jobs execute daily-historical-sync \
 gcloud logging read \
   "resource.type=cloud_run_job AND resource.labels.job_name=daily-historical-sync" \
   --limit 50 \
-  --project shorted-dev-aba5688f
+  --project "$GCP_PROJECT"
 ```
 
 ## Database Schema
@@ -229,18 +229,18 @@ make populate-all-stocks
 
 # 2. Deploy daily sync job
 export DATABASE_URL="..."
-export GCP_PROJECT="shorted-dev-aba5688f"
+export GCP_PROJECT="<explicit-project-id>"
 make deploy-daily-sync
 
 # 3. Verify deployment
 gcloud run jobs describe daily-historical-sync \
   --region australia-southeast2 \
-  --project shorted-dev-aba5688f
+  --project "$GCP_PROJECT"
 
 # 4. Check scheduler
 gcloud scheduler jobs describe daily-historical-sync-trigger \
   --location australia-southeast2 \
-  --project shorted-dev-aba5688f
+  --project "$GCP_PROJECT"
 ```
 
 ## Cost Estimation

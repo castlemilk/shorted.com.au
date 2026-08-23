@@ -6,7 +6,7 @@
 set -e
 
 # Configuration
-PROJECT_ID=${GCP_PROJECT:-"shorted-dev-aba5688f"}
+PROJECT_ID=${GCP_PROJECT:?Set GCP_PROJECT explicitly}
 REGION=${GCP_REGION:-"australia-southeast2"}
 SERVICE_NAME="stock-price-ingestion"
 SERVICE_ACCOUNT="${SERVICE_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"

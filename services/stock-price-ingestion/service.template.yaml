@@ -17,7 +17,7 @@ spec:
     spec:
       containerConcurrency: 10
       timeoutSeconds: 600
-      serviceAccountName: stock-price-ingestion@shorted-dev-aba5688f.iam.gserviceaccount.com
+      serviceAccountName: stock-price-ingestion@${PROJECT_ID}.iam.gserviceaccount.com
       containers:
         - image: ${IMAGE_NAME}:${VERSION}
           name: stock-price-ingestion
@@ -28,7 +28,7 @@ spec:
             - name: ENVIRONMENT
               value: production
             - name: GCP_PROJECT
-              value: shorted-dev-aba5688f
+              value: ${PROJECT_ID}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:

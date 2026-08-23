@@ -67,7 +67,7 @@ func RunSync(ctx context.Context, args []string) error {
 
 	bucketName := f.bucket
 	if bucketName == "" {
-		bucketName = platform.GetEnv("GCS_REPORTS_BUCKET", "shorted-financial-reports")
+		bucketName = platform.GetEnv("GCS_REPORTS_BUCKET", "shorted-financial-reports-prod")
 	}
 
 	db, err := platform.ConnectFromEnv(ctx, platform.WithMaxConns(3))

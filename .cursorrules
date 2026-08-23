@@ -249,7 +249,7 @@ DATABASE_URL=postgresql://admin:password@localhost:5438/shorts
 
 # GCP (for logo storage, enrichment)
 GOOGLE_APPLICATION_CREDENTIALS=path/to/service-account.json
-GCP_PROJECT_ID=shorted-dev-aba5688f
+GCP_PROJECT_ID=<explicit-project-id>
 
 # Algolia (search)
 ALGOLIA_APP_ID=1BWAPWSTDD

@@ -34,7 +34,7 @@ app = FastAPI(
 
 # Configuration from environment variables
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
-PROJECT_ID = os.environ.get('GCP_PROJECT', 'shorted-dev')
+PROJECT_ID = os.environ.get('GCP_PROJECT', '')
 ENVIRONMENT = os.environ.get('ENVIRONMENT', 'development')
 
 # Request/Response models
