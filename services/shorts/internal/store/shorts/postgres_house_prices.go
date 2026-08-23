@@ -201,6 +201,8 @@ type SuburbCrimeStatRow struct {
 // SuburbProfileRow is the full per-suburb profile (demographics + headline price).
 type SuburbProfileRow struct {
 	Summary SuburbSummaryRow
+	// Crawl-derived listing aggregates; nil when outside the crawl catalog.
+	ListingStats *SuburbListingStatsRow
 	// full demographics
 	MedianWeeklyPerIncome float64
 	MedianWeeklyRent      float64
@@ -483,7 +485,48 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 	} else {
 		log.Warnf("GetSuburbProfile(%s): suburb crime unavailable: %v", salCode, err)
 	}
+	p.ListingStats = s.suburbListingStats(ctx, salCode)
 	return &p, nil
+}
+
+// SuburbListingStatsRow is the crawl-derived listing aggregate for one suburb.
+// Aggregates ONLY — the underlying listing rows are ToS-restricted and are never
+// read or republished here.
+type SuburbListingStatsRow struct {
+	ForSaleCount int32
+	AvgAsking    float64
+	MedianAsking float64
+	SoldCount    int32
+	AvgSold      float64
+	MedianSold   float64
+}
+
+// Joined through house_price_regions because mv_suburb_listing_stats is keyed by
+// region_code, while the profile is keyed by SAL.
+const suburbListingStatsQuery = `
+		SELECT st.for_sale_count, COALESCE(st.avg_asking, 0), COALESCE(st.median_asking, 0),
+		       st.sold_count, COALESCE(st.avg_sold, 0), COALESCE(st.median_sold, 0)
+		FROM mv_suburb_listing_stats st
+		JOIN house_price_regions r ON r.region_code = st.region_code
+		WHERE r.sal_code = $1
+		LIMIT 1`
+
+// suburbListingStats returns crawl-derived listing aggregates for one suburb, or
+// nil when the suburb is outside the crawl catalog. A missing MV (an environment
+// that has never run the crawl migrations) is treated as "no data", never as an
+// error — this is a supplementary panel and must not take the profile down.
+func (s *postgresStore) suburbListingStats(ctx context.Context, salCode string) *SuburbListingStatsRow {
+	var out SuburbListingStatsRow
+	if err := s.db.QueryRow(ctx, suburbListingStatsQuery, salCode).Scan(
+		&out.ForSaleCount, &out.AvgAsking, &out.MedianAsking,
+		&out.SoldCount, &out.AvgSold, &out.MedianSold,
+	); err != nil {
+		return nil
+	}
+	if out.ForSaleCount == 0 && out.SoldCount == 0 {
+		return nil
+	}
+	return &out
 }
 
 const suburbCrimeQuery = `

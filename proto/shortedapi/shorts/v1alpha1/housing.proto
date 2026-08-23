@@ -314,6 +314,33 @@ message SuburbCrime {
   string source_licence = 4;       // 'CC-BY-4.0'
 }
 
+// Crawl-derived listing aggregates for one suburb (mv_suburb_listing_stats).
+//
+// This is the ONLY price signal available for the ~11,700 suburbs with no
+// Valuer-General feed — QLD, WA, TAS, NT and ACT publish no open suburb-level
+// median, and every commercial alternative is licensed.
+//
+// It is NOT a substitute for `SuburbSummary.latest_median_price` and must never
+// be rendered as one:
+//   - it is derived from CURRENT portal listings, not settled transfers;
+//   - `median_sold` is the price listings were marked sold at, which is a
+//     different measure from a Valuer-General median and is not comparable with
+//     the NSW/VIC/SA figures;
+//   - it covers whatever the crawl catalog reaches (500 suburbs nationally), so
+//     it is not a population any rank can be computed against.
+//
+// LICENCE: these are DERIVED AGGREGATES. The underlying rows carry
+// source_licence='proprietary-tos-restricted' and are never republished — see
+// docs/feature/housing/data-sources.md. Counts and medians only.
+message SuburbListingStats {
+  int32  for_sale_count = 1;    // active for-sale listings captured
+  double avg_asking = 2;        // mean asking price of priced for-sale listings, AUD; 0 if none
+  double median_asking = 3;     // median asking price, AUD; 0 if none
+  int32  sold_count = 4;        // recent sold listings captured
+  double avg_sold = 5;          // mean sold price, AUD; 0 if none
+  double median_sold = 6;       // median sold price, AUD; 0 if none
+}
+
 message GetSuburbProfileResponse {
   SuburbSummary summary = 1;
   SuburbDemographics demographics = 2;
@@ -322,6 +349,9 @@ message GetSuburbProfileResponse {
   repeated SimilarSuburb similar = 5; // most-similar suburbs nationally (knowledge graph)
   SuburbBanner banner = 6;          // editorial banner header (archetype, blurb, landmarks)
   SuburbCrime crime = 7;             // null when the suburb has no gated crime data
+  // Crawl-derived listing aggregates; null when the suburb is outside the crawl
+  // catalog or the HOUSING_DROP_LISTINGS_ENABLED kill switch is off.
+  SuburbListingStats listing_stats = 8;
 }
 
 message ListHousingRegionsRequest {
