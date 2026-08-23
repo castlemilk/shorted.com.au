@@ -107,7 +107,10 @@ async function getCacheVersion(env) {
     const activeVersion = version || fallback;
     setCacheVersionMemo(activeVersion);
     return activeVersion;
-  } catch (_) {
+  } catch (err) {
+    // A failing control read means a cache PURGE cannot take effect — the
+    // worker keeps serving the old cache version. Worth a loud line.
+    recordKvError(env, null, { op: "version-get", keyKind: "control", error: err });
     return fallback;
   }
 }
@@ -336,6 +339,19 @@ const worker = {
     const hostname = url.hostname;
     const started = Date.now();
 
+    // Once per ISOLATE (not per request): a snapshot of what this running copy
+    // of the worker believes is configured. This is the deploy feedback loop —
+    // see recordEdgeConfigOnce.
+    recordEdgeConfigOnce(env, request);
+
+    // First-party bypass usage as a FIRST-CLASS event, emitted here rather than
+    // inside the limiter. A bypass that short-circuits before any bucket — or
+    // one used while enforcement is disabled, or on an ineligible path — never
+    // produces an edge_rate_limit event at all, so a leaked E2E secret would be
+    // completely silent. This runs before every routing decision so it cannot
+    // be skipped by one.
+    recordBypassUsage(request, env, path, hostname);
+
     const defaults = {
       cacheTtlDefault: parseInt(env.CACHE_TTL_DEFAULT || "60", 10),
       cacheTtlTopShorts: parseInt(env.CACHE_TTL_TOP_SHORTS || "300", 10),
@@ -390,7 +406,7 @@ const worker = {
 
     // Health checks -> Shorts API
     if (path === "/health" || path === "/healthz") {
-      return withEdgeAnalytics(request, env, proxyWithHeaders(request, shortsApiOrigin, "BYPASS"), "shorts", 0, started);
+      return withEdgeAnalytics(request, env, proxyWithHeaders(request, shortsApiOrigin, "BYPASS", env), "shorts", 0, started);
     }
 
     // gRPC/Connect streaming indicators -> pass-through to the Shorts API.
@@ -405,16 +421,24 @@ const worker = {
       !path.includes("/chat.v1.") &&
       !path.includes("/marketdata.v1.")
     ) {
-      return withEdgeAnalytics(request, env, proxyWithHeaders(request, shortsApiOrigin, "BYPASS"), "shorts", 0, started);
+      return withEdgeAnalytics(request, env, proxyWithHeaders(request, shortsApiOrigin, "BYPASS", env), "shorts", 0, started);
     }
 
     // Cache purge endpoint (requires shared secret)
     if (path === "/api/cache/purge" && request.method === "POST") {
       const purgeBody = await request.text();
       if (!env.CACHE_PURGE_SECRET || purgeBody !== env.CACHE_PURGE_SECRET) {
+        // The purge body IS the shared secret, so nothing from the request is
+        // echoed — only the bounded reason. Repeated unauthorized attempts are
+        // someone probing for it.
+        recordCachePurge(env, request, {
+          outcome: "unauthorized",
+          reason: env.CACHE_PURGE_SECRET ? "bad-secret" : "secret-unconfigured",
+          durationMs: Date.now() - started,
+        });
         return withEdgeAnalytics(request, env, new Response("Unauthorized", { status: 401 }), "edge-control", 0, started);
       }
-      return withEdgeAnalytics(request, env, handlePurge(env), "edge-control", 0, started);
+      return withEdgeAnalytics(request, env, handlePurge(env, request, started), "edge-control", 0, started);
     }
 
     // Chat service is intentionally not exposed through the public API host.
@@ -428,7 +452,7 @@ const worker = {
 
     // Auth/register -> Shorts API (never cache)
     if (path.includes("/register.v1.")) {
-      return withEdgeAnalytics(request, env, proxyWithHeaders(request, shortsApiOrigin, "BYPASS"), "shorts", 0, started);
+      return withEdgeAnalytics(request, env, proxyWithHeaders(request, shortsApiOrigin, "BYPASS", env), "shorts", 0, started);
     }
 
     // --- 2. MARKET DATA -> cache with stock_data TTL ---
@@ -487,7 +511,7 @@ const worker = {
     }
 
     // --- 4. UNKNOWN -> pass-through to Shorts API ---
-    return withEdgeAnalytics(request, env, proxyWithHeaders(request, shortsApiOrigin, "BYPASS"), "shorts", 0, started);
+    return withEdgeAnalytics(request, env, proxyWithHeaders(request, shortsApiOrigin, "BYPASS", env), "shorts", 0, started);
   },
 };
 
@@ -1167,6 +1191,881 @@ function writeRateLimitDataPoint(env, event) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Edge event stream — origin health, upstream latency, config, bypass, KV
+//
+// The `edge_request` stream answers "how much traffic, and did it cache".
+// `edge_rate_limit` answers "who did we reject". Everything in this section
+// exists because a specific operational question was, until now, UNANSWERABLE
+// without live-tailing the worker:
+//
+//   edge_origin_error      an origin outage is currently invisible at the edge.
+//                          It surfaces only as user-facing errors, and the
+//                          sampled edge_request stream shows ~1% of them.
+//   edge_upstream_latency  "which RPCs are slow, and is the cache helping"
+//                          needs a low-cardinality bucketed dimension, not a
+//                          raw millisecond column.
+//   edge_config            "did the config I just deployed actually land" today
+//                          requires reading Terraform state or the CF API.
+//   edge_bypass_used       a bypass that short-circuits before any bucket emits
+//                          nothing at all. A leaked E2E secret is silent.
+//   edge_kv_error          KV failures are swallowed in four places. A KV
+//                          outage silently converts every request into an
+//                          origin fetch — a cost and latency event with no log.
+//   edge_cache_purge       a failed purge means stale data for up to 24h, and
+//                          the only record of it is the HTTP response nobody
+//                          reads.
+//
+// THREE RULES APPLY TO EVERY EMITTER HERE, and are covered by tests:
+//
+//   1. NOTHING THROWS INTO THE REQUEST PATH. Every emitter is a void function
+//      whose entire body is inside a try/catch. Callers never await them.
+//   2. NO RAW ANYTHING. No raw paths (normalizeAnalyticsPath only), no query
+//      strings, no credentials, no IPs, no secrets, and — importantly for the
+//      error events — NO RAW ERROR MESSAGES. An exception message can contain a
+//      URL with a token in it, so errors are classified into a bounded
+//      vocabulary and the message is discarded.
+//   3. RARE-AND-ACTIONABLE IS 100%, ROUTINE IS SAMPLED. Sampling a rare event
+//      at 1% means never seeing it, which is the failure mode that makes
+//      observability decorative. Sampling knobs mirror the existing ones: a
+//      dedicated `EDGE_*_SAMPLE_RATE` var that inherits
+//      `EDGE_ANALYTICS_SAMPLE_RATE` when blank.
+// ---------------------------------------------------------------------------
+
+/** Latency buckets. Bucketed so this can be a GROUP BY dimension forever. */
+const UPSTREAM_LATENCY_BUCKETS = [
+  { max: 50, label: "<50ms" },
+  { max: 200, label: "50-200ms" },
+  { max: 500, label: "200-500ms" },
+  { max: 1000, label: "500-1000ms" },
+  { max: 3000, label: "1000-3000ms" },
+];
+
+/**
+ * Bucket a duration. Never emit raw milliseconds as a dimension — a
+ * `GROUP BY duration_ms` has as many groups as there are requests.
+ * @param {number} ms
+ */
+export function bucketDuration(ms) {
+  const value = Number.isFinite(ms) && ms >= 0 ? ms : 0;
+  for (const bucket of UPSTREAM_LATENCY_BUCKETS) {
+    if (value < bucket.max) return bucket.label;
+  }
+  return "3000ms+";
+}
+
+/**
+ * Bounded status class. `status` itself is a number (a fine metric column),
+ * but the dimension every query groups by must be one of five values.
+ * @param {number} status 0 when the fetch threw before producing a response
+ */
+export function statusClass(status) {
+  if (!Number.isFinite(status) || status <= 0) return "error";
+  if (status < 200) return "1xx";
+  if (status < 300) return "2xx";
+  if (status < 400) return "3xx";
+  if (status < 500) return "4xx";
+  return "5xx";
+}
+
+/**
+ * Is this origin response a failure worth an `edge_origin_error`?
+ *
+ * 5xx and 3xx and 1xx qualify; 4xx does NOT. A 404/401/429 from the origin is
+ * the origin working correctly and telling a caller something — emitting it
+ * here would bury the rare, actionable signal (the origin is broken) under a
+ * routine one (a client sent a bad request). 3xx qualifies because none of
+ * these origins should ever redirect: a redirect from Cloud Run means a
+ * misrouted request or a changed service URL, which is a deploy fault.
+ *
+ * The ONE exception is the `frontend` origin: Vercel legitimately redirects
+ * (trailing slashes, i18n, auth), so a 3xx there is normal traffic, not a
+ * fault, and counting it would drown the signal.
+ *
+ * @param {number} status
+ * @param {string} [origin] bounded origin name
+ */
+export function isOriginFailureStatus(status, origin = "") {
+  const cls = statusClass(status);
+  if (cls === "3xx") return origin !== "frontend";
+  return cls === "5xx" || cls === "1xx" || cls === "error";
+}
+
+/**
+ * Classify a thrown fetch error into a BOUNDED vocabulary.
+ *
+ * The raw message is deliberately discarded and never emitted. Workers surface
+ * origin failures as opaque `TypeError`s whose message sometimes embeds the
+ * request URL — and that URL can carry a query string. A bounded class is both
+ * safer and more useful as a dimension.
+ *
+ * @param {unknown} err
+ * @returns {"timeout"|"aborted"|"network"|"internal"}
+ */
+export function classifyFetchError(err) {
+  const name = (err && typeof err === "object" && typeof err.name === "string" ? err.name : "").toLowerCase();
+  let message = "";
+  try {
+    message = String((err && err.message) || "").toLowerCase();
+  } catch (_) {
+    message = "";
+  }
+
+  if (name === "aborterror") return "aborted";
+  if (name === "timeouterror" || message.includes("timed out") || message.includes("timeout")) {
+    return "timeout";
+  }
+  if (
+    message.includes("network") ||
+    message.includes("connection") ||
+    message.includes("socket") ||
+    message.includes("dns") ||
+    message.includes("tcp") ||
+    message.includes("tls") ||
+    message.includes("unreachable")
+  ) {
+    return "network";
+  }
+  return "internal";
+}
+
+/**
+ * Map an origin base URL back to a BOUNDED origin name.
+ *
+ * The raw origin URL is never emitted as a dimension — it would be a
+ * per-revision Cloud Run hostname, which changes on every deploy and would
+ * fragment every group-by. Five names cover every origin this worker talks to.
+ *
+ * @param {Record<string, any>} env
+ * @param {string} originBase
+ * @returns {"shorts"|"market-data"|"chat"|"frontend"|"other"|"unknown"}
+ */
+export function resolveOriginName(env, originBase) {
+  if (!originBase) return "unknown";
+  const e = env || {};
+  if (originBase === e.SHORTS_API_ORIGIN) return "shorts";
+  if (originBase === e.MARKET_DATA_ORIGIN) return "market-data";
+  if (originBase === e.CHAT_SERVICE_ORIGIN) return "chat";
+  if (originBase === FRONTEND_ORIGIN) return "frontend";
+  return "other";
+}
+
+/**
+ * The normalized request dimensions every event in this section shares.
+ * Tolerates a malformed/absent request — instrumentation must never throw.
+ *
+ * @param {Request | null} request
+ * @param {string} path
+ */
+function eventContext(request, path) {
+  const safePath = typeof path === "string" && path ? path : "/";
+  const rpc = parseRpcPath(safePath);
+  let host = "";
+  try {
+    host = new URL(request.url).hostname;
+  } catch (_) {
+    host = "";
+  }
+  let cfRay = "";
+  try {
+    cfRay = (request && request.headers && request.headers.get("cf-ray")) || "";
+  } catch (_) {
+    cfRay = "";
+  }
+  const cf = (request && request.cf) || {};
+
+  return {
+    path: normalizeAnalyticsPath(safePath),
+    route_group: normalizeRouteGroup(host, safePath),
+    api_family: rpc.api_family,
+    rpc_method: rpc.rpc_method,
+    method: (request && request.method) || "",
+    cf_colo: typeof cf.colo === "string" ? cf.colo : "",
+    cf_ray: cfRay,
+  };
+}
+
+/** The one place an event line is written. Never throws. */
+function emitEdgeEvent(event) {
+  try {
+    console.log(JSON.stringify(event));
+  } catch (_) {
+    // Logging is best-effort by construction.
+  }
+}
+
+/**
+ * A named sample rate that inherits `EDGE_ANALYTICS_SAMPLE_RATE` when blank.
+ *
+ * Same contract as `resolveRateLimitSampleRate`: Terraform emits `""` for its
+ * -1 "inherit" sentinel, so blank must fall back rather than parse to NaN.
+ *
+ * @param {Record<string, any>} env
+ * @param {string} name e.g. "EDGE_UPSTREAM_LATENCY_SAMPLE_RATE"
+ */
+export function resolveNamedSampleRate(env, name) {
+  const e = env || {};
+  const explicit = e[name];
+  if (explicit !== undefined && explicit !== null && String(explicit).trim() !== "") {
+    return clampSampleRate(parseFloat(explicit));
+  }
+  return clampSampleRate(parseFloat(e.EDGE_ANALYTICS_SAMPLE_RATE || "0.01"));
+}
+
+// --- edge_origin_error -----------------------------------------------------
+
+/**
+ * Build the `edge_origin_error` event. Pure, so tests can pin the shape.
+ *
+ * @param {Request | null} request
+ * @param {object} options
+ * @param {string} options.origin bounded origin name
+ * @param {number} options.status 0 when the fetch threw
+ * @param {string} [options.errorClass] "" for an HTTP status failure
+ * @param {string} options.path raw pathname; normalized before emission
+ * @param {number} options.durationMs
+ * @param {boolean} [options.servedStale]
+ * @param {boolean} [options.retried]
+ */
+export function buildOriginErrorEvent(request, options) {
+  const ctx = eventContext(request, options.path);
+  const status = Number.isFinite(options.status) ? options.status : 0;
+
+  return {
+    type: "edge_origin_error",
+    origin: options.origin || "unknown",
+    status,
+    status_class: statusClass(status),
+    // "" when the origin answered with a status; a bounded class when it threw.
+    error_class: options.errorClass || "",
+    ...ctx,
+    duration_ms: Math.max(0, Math.round(options.durationMs || 0)),
+    // Did a cache tier absorb this for the user? See the doc note: the worker
+    // has no stale-on-error fallback today, so this is always false — which is
+    // the accurate statement that the user ate the error.
+    served_stale: Boolean(options.servedStale),
+    // True on the second attempt of the transparent retry in proxyWithHeaders /
+    // proxyFrontend. Two events for one client request means both attempts
+    // failed and the client definitely saw an error.
+    retried: Boolean(options.retried),
+    // NEVER sampled. An origin outage is rare and always actionable; seeing 1%
+    // of it is indistinguishable from seeing none of it.
+    sample_rate: 1,
+  };
+}
+
+/**
+ * Emit an `edge_origin_error`. Always 100%. Never throws, returns void.
+ *
+ * @param {Request | null} request
+ * @param {Record<string, any>} env
+ * @param {object} options see buildOriginErrorEvent
+ * @returns {void}
+ */
+export function recordOriginError(request, env, options) {
+  try {
+    const event = buildOriginErrorEvent(request, options);
+    emitEdgeEvent(event);
+    writeEdgeEventDataPoint(env, event);
+  } catch (_) {
+    // Observability must never affect request handling.
+  }
+}
+
+/**
+ * Fetch an origin with failure instrumentation.
+ *
+ * Transparent: returns exactly what `fetch` returns and rethrows exactly what
+ * `fetch` throws, so every existing caller's control flow (including the
+ * retry-on-throw fallbacks) is unchanged. The only addition is that a failure
+ * now leaves a trace.
+ *
+ * @param {Record<string, any>} env
+ * @param {Request | null} request the CLIENT request, for dimensions
+ * @param {string} originUrl the fully built origin URL
+ * @param {RequestInit} init
+ * @param {{originBase?: string, path?: string, retried?: boolean}} meta
+ */
+async function fetchOrigin(env, request, originUrl, init, meta = {}) {
+  const origin = resolveOriginName(env, meta.originBase);
+  const started = Date.now();
+
+  try {
+    const response = await fetch(originUrl, init);
+    if (isOriginFailureStatus(response.status, origin)) {
+      recordOriginError(request, env, {
+        origin,
+        status: response.status,
+        path: meta.path,
+        durationMs: Date.now() - started,
+        retried: meta.retried,
+      });
+    }
+    return response;
+  } catch (err) {
+    recordOriginError(request, env, {
+      origin,
+      status: 0,
+      errorClass: classifyFetchError(err),
+      path: meta.path,
+      durationMs: Date.now() - started,
+      retried: meta.retried,
+    });
+    throw err;
+  }
+}
+
+// --- edge_upstream_latency -------------------------------------------------
+
+/**
+ * Build the `edge_upstream_latency` event.
+ *
+ * WHY THIS IS NOT REDUNDANT WITH `edge_request.duration_ms`. It is the same
+ * measurement, deliberately: what differs is that it is BUCKETED and therefore
+ * usable as a group-by dimension in Analytics Engine, which has no percentile
+ * functions and no cheap way to aggregate a raw millisecond column. That makes
+ * "which RPCs are slow, and does caching help" answerable with NO log pipeline
+ * — the thing this account does not have (there is no Logpush job). It also
+ * carries its own sample rate, so latency can be sampled far more heavily than
+ * the full request stream without multiplying the cost of everything else.
+ *
+ * `cache_status` is the load-bearing field: comparing the bucket distribution
+ * for HIT/HOT/KV against MISS for the same `rpc_method` IS the "is the cache
+ * earning its keep" answer.
+ *
+ * @param {Request} request
+ * @param {Response} response
+ * @param {object} options
+ */
+export function buildUpstreamLatencyEvent(request, response, options) {
+  let path = "/";
+  try {
+    path = new URL(request.url).pathname;
+  } catch (_) {
+    path = "/";
+  }
+  const ctx = eventContext(request, path);
+  const status = (response && response.status) || 0;
+  let cacheStatus = "UNKNOWN";
+  try {
+    cacheStatus = (response && response.headers.get("X-Shorted-Cache")) || "UNKNOWN";
+  } catch (_) {
+    cacheStatus = "UNKNOWN";
+  }
+  const durationMs = Math.max(0, (options.now || 0) - (options.started || 0));
+
+  return {
+    type: "edge_upstream_latency",
+    origin: options.origin || "unknown",
+    cache_status: cacheStatus,
+    // Bucketed, never raw: this is a dimension.
+    duration_bucket: bucketDuration(durationMs),
+    // `status` is a VALUE (fine to average/filter on); `status_class` is the
+    // DIMENSION. Never group by the former.
+    status,
+    status_class: statusClass(status),
+    ...ctx,
+    cache_ttl_seconds: options.cacheTtl || 0,
+    sample_rate: options.sampleRate,
+  };
+}
+
+/**
+ * Emit an `edge_upstream_latency` event, sampled. Never throws.
+ *
+ * @param {Request} request
+ * @param {Record<string, any>} env
+ * @param {Response} response
+ * @param {string} origin
+ * @param {number} cacheTtl
+ * @param {number} started
+ * @returns {void}
+ */
+export function recordUpstreamLatency(request, env, response, origin, cacheTtl, started) {
+  try {
+    const sampleRate = resolveNamedSampleRate(env, "EDGE_UPSTREAM_LATENCY_SAMPLE_RATE");
+    if (sampleRate <= 0 || Math.random() > sampleRate) return;
+
+    const event = buildUpstreamLatencyEvent(request, response, {
+      origin,
+      cacheTtl,
+      started,
+      now: Date.now(),
+      sampleRate,
+    });
+    emitEdgeEvent(event);
+    writeEdgeEventDataPoint(env, event);
+  } catch (_) {
+    // Observability must never affect request handling.
+  }
+}
+
+// --- edge_config -----------------------------------------------------------
+
+/**
+ * Once-per-ISOLATE, not once-per-request. A Cloudflare isolate serves many
+ * requests; this fires on the first one it handles and never again for the
+ * life of that isolate. Isolates are recycled often enough (deploys, colo
+ * churn, eviction) that a fresh snapshot lands within minutes of any deploy,
+ * everywhere, without adding a per-request cost.
+ */
+let edgeConfigEmitted = false;
+
+/** Test-only: reset per-isolate module state. */
+export function __resetEdgeEventStateForTests() {
+  edgeConfigEmitted = false;
+  kvErrorWindowStart = 0;
+  kvErrorWindowCount = 0;
+  kvErrorSuppressed = 0;
+}
+
+function bindingBound(env, name) {
+  const binding = env && env[name];
+  return Boolean(binding && typeof binding.limit === "function");
+}
+
+function originHost(value) {
+  if (!value) return "";
+  try {
+    return new URL(value).hostname;
+  } catch (_) {
+    return "";
+  }
+}
+
+/**
+ * Build the `edge_config` event: what the worker BELIEVES is configured.
+ *
+ * This is the deploy feedback loop. Terraform state says what was *intended*;
+ * the Cloudflare API says what is *stored*; this says what the code running in
+ * an isolate right now actually *reads*. Those three have diverged before.
+ *
+ * ONLY BOOLEANS FOR SECRETS. `*_secret_present` says whether a non-empty secret
+ * is bound. The value itself is never read into an event, never hashed into
+ * one, and never length-reported (a length is a real hint). A test greps
+ * serialized events for the actual secret values.
+ *
+ * @param {Record<string, any>} env
+ * @param {Request | null} request
+ */
+export function buildEdgeConfigEvent(env, request) {
+  const e = env || {};
+  const cf = (request && request.cf) || {};
+
+  /** @type {Record<string, object>} */
+  const buckets = {};
+  for (const [bucketClass, spec] of Object.entries(RATE_LIMIT_BUCKETS)) {
+    const limits = resolveBucketLimits(bucketClass, e);
+    buckets[bucketClass] = {
+      burst_limit: limits ? limits.burstLimit : 0,
+      sustained_limit: limits ? limits.sustainedLimit : 0,
+      // The killer field: `rate_limit_enabled: true` with an unbound binding
+      // means enforcement is silently doing nothing at all.
+      burst_bound: bindingBound(e, spec.burstBinding),
+      sustained_bound: spec.sustainedBinding ? bindingBound(e, spec.sustainedBinding) : false,
+    };
+  }
+
+  return {
+    type: "edge_config",
+    // Set by Terraform to a short hash of the deployed worker.js. This is what
+    // closes the loop: compare it to the hash of the file you just merged.
+    deploy_id: typeof e.EDGE_DEPLOY_ID === "string" ? e.EDGE_DEPLOY_ID : "",
+    cf_colo: typeof cf.colo === "string" ? cf.colo : "",
+    rate_limit_enabled: e.EDGE_RATE_LIMIT_ENABLED === "true",
+    trust_crawler_ua: e.EDGE_RATE_LIMIT_TRUST_CRAWLER_UA !== "false",
+    buckets,
+    sample_rates: {
+      edge_request: clampSampleRate(parseFloat(e.EDGE_ANALYTICS_SAMPLE_RATE || "0.01")),
+      rate_limit_allowed: resolveRateLimitSampleRate(e),
+      upstream_latency: resolveNamedSampleRate(e, "EDGE_UPSTREAM_LATENCY_SAMPLE_RATE"),
+      bypass_routine: resolveNamedSampleRate(e, "EDGE_BYPASS_SAMPLE_RATE"),
+    },
+    // BOOLEANS ONLY. Never the values, never their lengths.
+    secrets_present: {
+      testing_bypass: Boolean(e.RATE_LIMIT_TESTING_BYPASS_SECRET),
+      ssr_bypass: Boolean(e.RATE_LIMIT_SSR_BYPASS_SECRET),
+      cache_purge: Boolean(e.CACHE_PURGE_SECRET),
+    },
+    // The bypass MARKERS are not secrets — they are user-agent substrings and
+    // header names, and knowing which one is configured is the whole point.
+    bypass_markers: {
+      testing_user_agent: e.RATE_LIMIT_TESTING_BYPASS_USER_AGENT || "Shorted-E2E",
+      testing_header: e.RATE_LIMIT_TESTING_BYPASS_HEADER_NAME || "x-shorted-testing-bypass",
+      ssr_user_agent: e.RATE_LIMIT_SSR_BYPASS_USER_AGENT || "shorted-web-ssr",
+      ssr_header: e.RATE_LIMIT_SSR_BYPASS_HEADER_NAME || "x-shorted-ssr-bypass",
+    },
+    bindings: {
+      edge_kv: Boolean(e.EDGE_KV && typeof e.EDGE_KV.get === "function"),
+      rate_limit_analytics: Boolean(
+        e.RATE_LIMIT_ANALYTICS && typeof e.RATE_LIMIT_ANALYTICS.writeDataPoint === "function"
+      ),
+      edge_events_analytics: Boolean(
+        e.EDGE_EVENTS_ANALYTICS && typeof e.EDGE_EVENTS_ANALYTICS.writeDataPoint === "function"
+      ),
+    },
+    // Hostnames, not full URLs: a Cloud Run hostname is public and is exactly
+    // what you check after re-pointing an origin. No paths, no query strings.
+    origins: {
+      shorts: originHost(e.SHORTS_API_ORIGIN),
+      market_data: originHost(e.MARKET_DATA_ORIGIN),
+      chat: originHost(e.CHAT_SERVICE_ORIGIN),
+    },
+    cache_ttl_seconds: {
+      default: parseInt(e.CACHE_TTL_DEFAULT || "60", 10),
+      top_shorts: parseInt(e.CACHE_TTL_TOP_SHORTS || "300", 10),
+      stock_data: parseInt(e.CACHE_TTL_STOCK_DATA || "120", 10),
+      news: parseInt(e.CACHE_TTL_NEWS || "300", 10),
+      public_daily: parseInt(e.CACHE_TTL_PUBLIC_DAILY || "3600", 10),
+      public_stale: parseInt(e.CACHE_TTL_PUBLIC_STALE || "86400", 10),
+      hot_cache_ms: HOT_CACHE_TTL_MS,
+    },
+    sample_rate: 1,
+  };
+}
+
+/**
+ * Emit `edge_config` exactly once per isolate. Never throws, returns void.
+ *
+ * The flag is set BEFORE the event is built, so even a pathological failure
+ * inside the builder cannot turn this into a per-request emitter.
+ *
+ * @param {Record<string, any>} env
+ * @param {Request | null} request
+ * @returns {void}
+ */
+export function recordEdgeConfigOnce(env, request) {
+  if (edgeConfigEmitted) return;
+  edgeConfigEmitted = true;
+  try {
+    emitEdgeEvent(buildEdgeConfigEvent(env, request));
+  } catch (_) {
+    // Observability must never affect request handling.
+  }
+}
+
+// --- edge_bypass_used ------------------------------------------------------
+
+/**
+ * Resolve what a first-party bypass marker ATTEMPTED, including failures.
+ *
+ * `resolveRateLimitBypass` answers "did a bypass apply". This answers the
+ * strictly larger question "did anything claim a bypass, and what happened",
+ * which is where the security signal lives:
+ *
+ *   accepted     marker + correct secret. Routine for `ssr`, alarming for
+ *                `testing` outside a test window (a leaked secret).
+ *   rejected     marker present, secret WRONG or missing while a secret IS
+ *                configured. This is someone probing, and it is the loudest
+ *                thing in this file.
+ *   unconfigured marker present but no secret is configured on the worker at
+ *                all. Not an attack — a misconfiguration, and the exact
+ *                signature of "the SSR secret did not reach Cloudflare", which
+ *                is the failure that 429s real users through the Vercel
+ *                rewrite path.
+ *
+ * @param {Request} request
+ * @param {Record<string, any>} env
+ * @returns {{bypassClass: ""|"testing"|"ssr", outcome: ""|"accepted"|"rejected"|"unconfigured"}}
+ */
+export function resolveBypassAttempt(request, env) {
+  const e = env || {};
+  let ua = "";
+  try {
+    ua = (request && request.headers && request.headers.get("user-agent")) || "";
+  } catch (_) {
+    ua = "";
+  }
+
+  const classes = [
+    {
+      bypassClass: /** @type {const} */ ("testing"),
+      secret: e.RATE_LIMIT_TESTING_BYPASS_SECRET || "",
+      marker: e.RATE_LIMIT_TESTING_BYPASS_USER_AGENT || "Shorted-E2E",
+      header: e.RATE_LIMIT_TESTING_BYPASS_HEADER_NAME || "x-shorted-testing-bypass",
+    },
+    {
+      bypassClass: /** @type {const} */ ("ssr"),
+      secret: e.RATE_LIMIT_SSR_BYPASS_SECRET || "",
+      marker: e.RATE_LIMIT_SSR_BYPASS_USER_AGENT || "shorted-web-ssr",
+      header: e.RATE_LIMIT_SSR_BYPASS_HEADER_NAME || "x-shorted-ssr-bypass",
+    },
+  ];
+
+  for (const candidate of classes) {
+    if (!ua.includes(candidate.marker)) continue;
+    if (!candidate.secret) {
+      return { bypassClass: candidate.bypassClass, outcome: "unconfigured" };
+    }
+    let presented = "";
+    try {
+      presented = (request.headers.get(candidate.header) || "");
+    } catch (_) {
+      presented = "";
+    }
+    return {
+      bypassClass: candidate.bypassClass,
+      outcome: secretsMatch(presented, candidate.secret) ? "accepted" : "rejected",
+    };
+  }
+
+  return { bypassClass: "", outcome: "" };
+}
+
+/**
+ * Build the `edge_bypass_used` event.
+ *
+ * @param {Request} request
+ * @param {object} options
+ */
+export function buildBypassEvent(request, options) {
+  const ctx = eventContext(request, options.path);
+  return {
+    type: "edge_bypass_used",
+    bypass_class: options.bypassClass,
+    outcome: options.outcome,
+    surface: options.surface || "",
+    ...ctx,
+    // Context that makes the event self-explanatory without a join: a bypass
+    // used while enforcement is OFF, or on an ineligible path, would never have
+    // produced an edge_rate_limit event at all — which is precisely the gap
+    // this event closes.
+    enforcement_enabled: Boolean(options.enforcementEnabled),
+    eligible_path: Boolean(options.eligiblePath),
+    sample_rate: options.sampleRate,
+  };
+}
+
+/**
+ * Emit `edge_bypass_used`. Never throws, returns void.
+ *
+ * SAMPLING, AND WHY IT IS NOT A FLAT 100%:
+ *
+ *   `testing` — ALWAYS 100%, every outcome. The E2E bypass should be near-zero
+ *     outside a deliberate test run, so its volume is negligible and its
+ *     appearance is the alarm. This is the leaked-secret detector and no knob
+ *     can sample it away.
+ *   any `rejected` — ALWAYS 100%. A wrong secret against a real marker is a
+ *     probe. Rare by definition, and the loudest signal here.
+ *   `ssr` accepted/unconfigured — SAMPLED (`EDGE_BYPASS_SAMPLE_RATE`, inherits
+ *     `EDGE_ANALYTICS_SAMPLE_RATE`). This arm is EVERY first-party request the
+ *     Vercel rewrites proxy — the steady state, and the single highest-volume
+ *     class on the API host. Emitting it at 100% would mean logging 100% of
+ *     first-party traffic to observe a condition that is true by design. The
+ *     `sample_rate` field is on every event, so an "is the SSR marker landing"
+ *     volume query corrects for it exactly (see the docs).
+ *
+ * @param {Request} request
+ * @param {Record<string, any>} env
+ * @param {string} path
+ * @param {string} hostname
+ * @returns {void}
+ */
+export function recordBypassUsage(request, env, path, hostname) {
+  try {
+    const { bypassClass, outcome } = resolveBypassAttempt(request, env);
+    if (!bypassClass) return;
+
+    const alwaysEmit = bypassClass === "testing" || outcome === "rejected";
+    const sampleRate = alwaysEmit ? 1 : resolveNamedSampleRate(env, "EDGE_BYPASS_SAMPLE_RATE");
+    if (!alwaysEmit && (sampleRate <= 0 || Math.random() > sampleRate)) return;
+
+    const surface = resolveRateLimitSurface(hostname);
+    emitEdgeEvent(
+      buildBypassEvent(request, {
+        bypassClass,
+        outcome,
+        surface,
+        path,
+        enforcementEnabled: (env || {}).EDGE_RATE_LIMIT_ENABLED === "true",
+        eligiblePath: isRateLimitEligiblePath(surface, path),
+        sampleRate,
+      })
+    );
+  } catch (_) {
+    // Observability must never affect request handling.
+  }
+}
+
+// --- edge_kv_error ---------------------------------------------------------
+
+// A KV outage is not one failure, it is every request failing. At 100% with no
+// cap, a dead KV namespace turns this emitter into the outage. The cap keeps
+// the signal (you learn KV is broken within one request) while bounding the
+// cost (at most 20 lines per isolate per minute), and `suppressed` reports
+// exactly how much was dropped so the volume is never silently understated.
+const KV_ERROR_WINDOW_MS = 60_000;
+const KV_ERROR_MAX_PER_WINDOW = 20;
+let kvErrorWindowStart = 0;
+let kvErrorWindowCount = 0;
+let kvErrorSuppressed = 0;
+
+/**
+ * Emit an `edge_kv_error`. Rate-capped per isolate. Never throws.
+ *
+ * WHY THIS EXISTS: KV failures are swallowed in four places in this file
+ * (`getCacheVersion`, the KV read, the cache-aside write, the purge write) and
+ * every one of those catches is correct — a KV fault must not fail a request.
+ * But the consequence is that a KV outage is INVISIBLE while it silently
+ * converts every cacheable request into an origin fetch. That is a latency and
+ * a Cloud Run bill event with, until now, no log line anywhere.
+ *
+ * @param {Record<string, any>} env
+ * @param {Request | null} request
+ * @param {object} options
+ * @param {"get"|"put"|"version-get"|"version-put"} options.op
+ * @param {"prewarm"|"control"} options.keyKind bounded — never the key itself
+ * @param {unknown} options.error
+ * @param {string} [options.path]
+ * @returns {void}
+ */
+export function recordKvError(env, request, options) {
+  try {
+    const now = Date.now();
+    if (now - kvErrorWindowStart > KV_ERROR_WINDOW_MS) {
+      kvErrorWindowStart = now;
+      kvErrorWindowCount = 0;
+    }
+    if (kvErrorWindowCount >= KV_ERROR_MAX_PER_WINDOW) {
+      kvErrorSuppressed++;
+      return;
+    }
+    kvErrorWindowCount++;
+    const suppressed = kvErrorSuppressed;
+    kvErrorSuppressed = 0;
+
+    emitEdgeEvent({
+      type: "edge_kv_error",
+      op: options.op,
+      // Which KEY SPACE failed, never the key. `prewarm` is the cached-response
+      // space; `control` is the cache-version pointer, whose failure means a
+      // purge cannot take effect at all.
+      key_kind: options.keyKind,
+      error_class: classifyFetchError(options.error),
+      ...eventContext(request, options.path),
+      // Events dropped by the cap since the last emitted one. Non-zero means
+      // KV is failing faster than this is reporting.
+      suppressed,
+      sample_rate: 1,
+    });
+  } catch (_) {
+    // Observability must never affect request handling.
+  }
+}
+
+// --- edge_cache_purge ------------------------------------------------------
+
+/**
+ * Emit an `edge_cache_purge`. Always 100% — a purge happens a handful of times
+ * a day (deploys, revalidation sweeps), so volume is a non-issue, and a FAILED
+ * purge means stale data is served for up to the full 24h KV TTL with no other
+ * record than an HTTP response body nobody reads.
+ *
+ * `unauthorized` is included deliberately: the purge endpoint takes a shared
+ * secret in the request body, so repeated unauthorized attempts are someone
+ * probing for it.
+ *
+ * @param {Record<string, any>} env
+ * @param {Request | null} request
+ * @param {object} options
+ * @param {"purged"|"failed"|"unauthorized"} options.outcome
+ * @param {string} [options.reason] bounded reason code, never a raw message
+ * @param {number} [options.hotEntriesCleared]
+ * @param {number} [options.durationMs]
+ * @returns {void}
+ */
+export function recordCachePurge(env, request, options) {
+  try {
+    emitEdgeEvent({
+      type: "edge_cache_purge",
+      outcome: options.outcome,
+      // Bounded vocabulary: "", "kv-unbound", "kv-write-failed", "bad-secret".
+      // The purge body IS the secret, so nothing from the request is echoed.
+      reason: options.reason || "",
+      hot_entries_cleared: Number.isFinite(options.hotEntriesCleared)
+        ? options.hotEntriesCleared
+        : 0,
+      duration_ms: Math.max(0, Math.round(options.durationMs || 0)),
+      ...eventContext(request, "/api/cache/purge"),
+      sample_rate: 1,
+    });
+  } catch (_) {
+    // Observability must never affect request handling.
+  }
+}
+
+// --- Optional Analytics Engine for the origin/latency streams --------------
+
+/**
+ * OPTIONAL Analytics Engine write for `edge_origin_error` and
+ * `edge_upstream_latency`.
+ *
+ * WHY A SECOND DATASET. `RATE_LIMIT_ANALYTICS` has a positional schema pinned
+ * to rate limit fields, and Analytics Engine columns are positional per
+ * dataset. Two events with different shapes cannot share it without one of them
+ * writing nonsense into the other's columns. These two events DO share a shape
+ * (an origin, an outcome class, an RPC, a duration), so they share one dataset
+ * keyed by `blob1` / `index1`.
+ *
+ * Absent binding, missing `writeDataPoint`, or a throwing write are all no-ops.
+ * The JSON console line is the source of truth and does not depend on this.
+ *
+ * SCHEMA (fixed positions — entries may be APPENDED, never reordered/removed):
+ *
+ *   index1  event_kind        (origin_error | upstream_latency)
+ *   blob1   event_kind        blob7   path
+ *   blob2   origin            blob8   method
+ *   blob3   outcome_class     blob9   cf_colo
+ *   blob4   cache_status      blob10  route_group
+ *   blob5   api_family        blob11  status_class
+ *   blob6   rpc_method        blob12  error_class
+ *   double1 status            double3 sample_rate
+ *   double2 duration_ms       double4 served_stale (1|0)
+ *
+ * `outcome_class` is the one field whose meaning depends on `event_kind`: it is
+ * the `status_class` for an origin error and the `duration_bucket` for a
+ * latency event, so a single GROUP BY works for both.
+ *
+ * @param {Record<string, any>} env
+ * @param {object} event
+ */
+function writeEdgeEventDataPoint(env, event) {
+  const dataset = env && env.EDGE_EVENTS_ANALYTICS;
+  if (!dataset || typeof dataset.writeDataPoint !== "function") return;
+
+  try {
+    const kind = event.type === "edge_origin_error" ? "origin_error" : "upstream_latency";
+    const outcomeClass =
+      kind === "origin_error" ? event.status_class : event.duration_bucket || "";
+
+    dataset.writeDataPoint({
+      indexes: [kind],
+      blobs: [
+        kind,
+        event.origin || "",
+        outcomeClass,
+        event.cache_status || "",
+        event.api_family || "",
+        event.rpc_method || "",
+        event.path || "",
+        event.method || "",
+        event.cf_colo || "",
+        event.route_group || "",
+        event.status_class || "",
+        event.error_class || "",
+      ],
+      doubles: [
+        Number.isFinite(event.status) ? event.status : 0,
+        Number.isFinite(event.duration_ms) ? event.duration_ms : 0,
+        Number.isFinite(event.sample_rate) ? event.sample_rate : 1,
+        event.served_stale ? 1 : 0,
+      ],
+    });
+  } catch (_) {
+    // Analytics Engine is a nice-to-have; the JSON line already landed.
+  }
+}
+
 async function handlePublicEdgeRead(request, url, env, ctx, defaults, shortsApiOrigin, marketDataOrigin) {
   if (request.method !== "GET") {
     const response = new Response("Method Not Allowed", {
@@ -1462,6 +2361,11 @@ function positiveInt(value, fallback) {
 async function withEdgeAnalytics(request, env, responseOrPromise, origin, cacheTtl, started) {
   const response = await responseOrPromise;
   logEdgeAnalytics(request, env, response, origin, cacheTtl, started);
+  // Bucketed latency, sampled independently. Same measurement as
+  // edge_request.duration_ms, but as a low-cardinality DIMENSION so
+  // "which RPCs are slow, and is the cache helping" is answerable in
+  // Analytics Engine with no log pipeline. See buildUpstreamLatencyEvent.
+  recordUpstreamLatency(request, env, response, origin, cacheTtl, started);
   return response;
 }
 
@@ -1739,18 +2643,27 @@ async function handleCachedRequest(request, url, env, ctx, origin, cacheTtl, cac
 
           return clientResp;
         }
-      } catch (_) {
-        // KV read failed — fall through to origin (don't block on KV errors)
+      } catch (err) {
+        // KV read failed — fall through to origin (don't block on KV errors).
+        // Correct behaviour, previously silent: a KV outage turns every
+        // cacheable request into an origin fetch with no trace anywhere.
+        recordKvError(env, request, { op: "get", keyKind: "prewarm", error: err, path });
       }
     }
 
     // Cache miss + KV miss — fetch from origin
     const originUrl = buildOriginUrl(origin, url);
-    const originResp = await fetch(originUrl, {
-      method: request.method,
-      headers: filterRequestHeaders(request.headers),
-      body: freshBody(),
-    });
+    const originResp = await fetchOrigin(
+      env,
+      request,
+      originUrl,
+      {
+        method: request.method,
+        headers: filterRequestHeaders(request.headers),
+        body: freshBody(),
+      },
+      { originBase: origin, path }
+    );
 
     // Only cache successful responses
     if (!originResp.ok) {
@@ -1792,7 +2705,11 @@ async function handleCachedRequest(request, url, env, ctx, origin, cacheTtl, cac
           // KV is a safety net between pre-warms; prewarm writes 24h for static data.
           const kvTtl = Math.min(cacheTtl, 3600); // cap at 1h for cache-aside writes; prewarm uses 24h for static data
           await env.EDGE_KV.put(kvKey, text, { expirationTtl: kvTtl });
-        } catch (_) { /* non-fatal */ }
+        } catch (err) {
+          // Non-fatal, but a persistently failing write means the KV tier
+          // stops backstopping CF cache expiry across PoPs.
+          recordKvError(env, request, { op: "put", keyKind: "prewarm", error: err, path });
+        }
       })());
     }
 
@@ -1803,11 +2720,19 @@ async function handleCachedRequest(request, url, env, ctx, origin, cacheTtl, cac
     if (requestBody === undefined && request.method !== "GET" && request.method !== "HEAD") {
       requestBody = await request.clone().arrayBuffer();
     }
-    return fetch(originUrl, {
-      method: request.method,
-      headers: filterRequestHeaders(request.headers),
-      body: requestBody ? requestBody.slice(0) : undefined,
-    });
+    return fetchOrigin(
+      env,
+      request,
+      originUrl,
+      {
+        method: request.method,
+        headers: filterRequestHeaders(request.headers),
+        body: requestBody ? requestBody.slice(0) : undefined,
+      },
+      // retried: this is the second attempt at the same origin for one client
+      // request, so two events for one cf_ray means both attempts failed.
+      { originBase: origin, path, retried: true }
+    );
   }
 }
 
@@ -1869,29 +2794,42 @@ function hashStringSync(text) {
 /**
  * Proxy a request to an origin without caching. Used for pass-through routes.
  */
-async function proxyWithHeaders(request, origin, cacheStatus) {
+async function proxyWithHeaders(request, origin, cacheStatus, env = {}) {
   const reqUrl = new URL(request.url);
   const originUrl = buildOriginUrl(origin, reqUrl);
+  const path = reqUrl.pathname;
   const requestBody = request.method !== "GET" && request.method !== "HEAD"
     ? await request.clone().arrayBuffer()
     : undefined;
   const freshBody = () => requestBody ? requestBody.slice(0) : undefined;
 
   try {
-    const resp = await fetch(originUrl, {
-      method: request.method,
-      headers: filterRequestHeaders(request.headers),
-      body: freshBody(),
-    });
+    const resp = await fetchOrigin(
+      env,
+      request,
+      originUrl,
+      {
+        method: request.method,
+        headers: filterRequestHeaders(request.headers),
+        body: freshBody(),
+      },
+      { originBase: origin, path }
+    );
     const clientResp = new Response(resp.body, resp);
     stampEdgeHeaders(clientResp, cacheStatus);
     return clientResp;
   } catch {
-    return fetch(originUrl, {
-      method: request.method,
-      headers: filterRequestHeaders(request.headers),
-      body: freshBody(),
-    });
+    return fetchOrigin(
+      env,
+      request,
+      originUrl,
+      {
+        method: request.method,
+        headers: filterRequestHeaders(request.headers),
+        body: freshBody(),
+      },
+      { originBase: origin, path, retried: true }
+    );
   }
 }
 
@@ -1931,12 +2869,16 @@ async function proxyFrontend(request, env, frontendOrigin) {
   // Override Host so Vercel routes correctly
   headers.set("Host", "shorted.com.au");
 
+  const meta = { originBase: frontendOrigin, path: reqUrl.pathname };
+
   try {
-    const resp = await fetch(originUrl, {
-      method: request.method,
-      headers,
-      body: freshBody(),
-    });
+    const resp = await fetchOrigin(
+      env,
+      request,
+      originUrl,
+      { method: request.method, headers, body: freshBody() },
+      meta
+    );
 
     const clientResp = new Response(resp.body, resp);
     // Mark as proxied through CF edge for observability
@@ -1944,11 +2886,13 @@ async function proxyFrontend(request, env, frontendOrigin) {
     clientResp.headers.set("X-Shorted-Cache", "BYPASS");
     return clientResp;
   } catch {
-    return fetch(originUrl, {
-      method: request.method,
-      headers,
-      body: freshBody(),
-    });
+    return fetchOrigin(
+      env,
+      request,
+      originUrl,
+      { method: request.method, headers, body: freshBody() },
+      { ...meta, retried: true }
+    );
   }
 }
 
@@ -2048,11 +2992,17 @@ function isPublicReadEndpoint(path) {
  * Bumps a shared cache version so hot cache, Cache API, and KV reads stop
  * resolving stale entries immediately. Old Cache API objects expire by TTL.
  */
-async function handlePurge(env) {
+async function handlePurge(env, request = null, started = Date.now()) {
   const hotEntriesCleared = hotCache.size;
   hotCache.clear();
 
   if (!env.EDGE_KV) {
+    recordCachePurge(env, request, {
+      outcome: "failed",
+      reason: "kv-unbound",
+      hotEntriesCleared,
+      durationMs: Date.now() - started,
+    });
     return new Response(
       JSON.stringify({
         status: "failed",
@@ -2071,6 +3021,13 @@ async function handlePurge(env) {
     await env.EDGE_KV.put(CACHE_VERSION_KEY, cacheVersion);
     setCacheVersionMemo(cacheVersion);
   } catch (err) {
+    recordKvError(env, request, { op: "version-put", keyKind: "control", error: err });
+    recordCachePurge(env, request, {
+      outcome: "failed",
+      reason: "kv-write-failed",
+      hotEntriesCleared,
+      durationMs: Date.now() - started,
+    });
     return new Response(
       JSON.stringify({
         status: "failed",
@@ -2084,6 +3041,12 @@ async function handlePurge(env) {
       }
     );
   }
+
+  recordCachePurge(env, request, {
+    outcome: "purged",
+    hotEntriesCleared,
+    durationMs: Date.now() - started,
+  });
 
   return new Response(
     JSON.stringify({

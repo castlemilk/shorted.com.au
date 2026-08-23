@@ -294,6 +294,53 @@ from outside), and what an operator must enable to run them (no Logpush job is
 configured today): **`docs/observability/cost-attribution.md`**. Regression
 coverage: `services/edge-worker/ratelimit-observability.test.mjs`.
 
+## Edge health events
+
+Beyond `edge_request` and `edge_rate_limit`, the worker emits six event types
+covering everything else that used to be invisible. Full field contracts,
+positional Analytics Engine schema and eleven worked operator queries live in
+**`docs/observability/cost-attribution.md`**; regression coverage is
+`services/edge-worker/events.test.mjs`.
+
+| Event | Sampling | The question it answers |
+|---|---|---|
+| `edge_origin_error` | **100%** | Is the origin healthy right now? Origin 5xx/3xx/1xx, fetch throws and timeouts, by bounded `origin` and `error_class`. Previously invisible — an outage showed only as user-facing errors. **4xx is deliberately excluded**: the origin working is not an incident. |
+| `edge_upstream_latency` | sampled (`edge_upstream_latency_sample_rate`) | Which RPCs are slow, and is caching helping? Six-value `duration_bucket` × `cache_status` × `rpc_method`. Bucketed so it is a group-by dimension in Analytics Engine, which has no percentile functions. |
+| `edge_config` | **once per isolate** | Did the config I just deployed actually land? A snapshot of what this running copy *reads*: `deploy_id` (a hash of the deployed `worker.js`), every bucket limit **and whether its binding is actually bound**, sample rates, secret presence booleans, origin hostnames, TTLs. |
+| `edge_bypass_used` | **100%** for `testing` and for any `rejected`; sampled for routine `ssr` | Has a bypass secret leaked, or is someone probing? Emitted from the top of `fetch`, so it fires even when rate limiting is disabled or the path is ineligible — the case where `edge_rate_limit` emits nothing at all. |
+| `edge_kv_error` | **100%**, capped at 20/isolate/minute with a `suppressed` counter | Is KV degraded, and what is it costing? KV faults were swallowed in four places; the outage silently turned every cacheable request into an origin fetch. |
+| `edge_cache_purge` | **100%** | Did the purge land? A failed purge means stale data for up to the 24h KV TTL, previously recorded only in an HTTP response body nobody reads. `unauthorized` is a probe signal — the purge secret travels in the request body. |
+
+**One rule governs all of them: rare and actionable is 100%, routine and
+high-volume is sampled.** Sampling a rare event at 1% does not reduce cost
+meaningfully, it makes the alarm invisible. Because rates differ *between arms
+of the same event type*, every event carries the `sample_rate` that produced it
+and any query mixing arms must divide each side by its own rate.
+
+Every emitter is a void function wholly inside a `try/catch`, is never awaited
+by the request path, and emits only bounded vocabularies — no raw paths, no
+query strings, no credentials, no IPs, and **no raw error messages** (a Workers
+`TypeError` can embed a request URL, and that URL can carry a token; errors are
+classified into `timeout` / `aborted` / `network` / `internal` and the message
+is discarded). Tests grep serialized events for the real secret values.
+
+### The deploy check
+
+```bash
+# What did I just deploy?
+shasum -a 256 services/edge-worker/worker.js | cut -c1-12
+
+# What does the running worker say it is?
+wrangler tail shorted-edge-cache --format=json \
+  | jq -r 'select(.logs[]?.message[0]? | fromjson? | .type == "edge_config")'
+```
+
+Terraform sets `EDGE_DEPLOY_ID` from the **same** `file()` call that produces the
+uploaded script, so it cannot drift from what was deployed. Mismatch = the
+script did not upload. Two ids for more than ~15 minutes = a colo is pinned to
+the old script. `rate_limit_enabled: true` with any `burst_bound: false` =
+enforcement is believed on and silently doing nothing.
+
 ### Configuration
 
 Terraform variables (`terraform/modules/cloudflare-edge/variables.tf`) are the
@@ -316,6 +363,9 @@ fail-safe used when a var is missing.
 | `edge_rate_limit_*_namespace_id` | `"2001"`–`"2009"` | CF rate-limit namespaces, one per binding |
 | `edge_rate_limit_sample_rate` | `-1` (inherit `edge_analytics_sample_rate`) | Sample rate for **allowed** `edge_rate_limit` events only |
 | `edge_rate_limit_analytics_dataset` | `""` (binding not attached) | Analytics Engine dataset for rate limit data points |
+| `edge_upstream_latency_sample_rate` | `-1` (inherit) | Sample rate for `edge_upstream_latency` |
+| `edge_bypass_sample_rate` | `-1` (inherit) | Sample rate for the **routine (accepted SSR)** arm of `edge_bypass_used` only |
+| `edge_events_analytics_dataset` | `""` (binding not attached) | Analytics Engine dataset for `edge_origin_error` + `edge_upstream_latency` |
 
 `namespace_id` is an account-scoped identifier **you choose** — there is no
 provisioning step. Two bindings sharing a `namespace_id` share counters *even
