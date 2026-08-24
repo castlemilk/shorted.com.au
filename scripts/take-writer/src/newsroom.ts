@@ -829,7 +829,30 @@ export async function regenerateImages(opts: { slug: string; inlineCount?: numbe
     }
 
     await pg.query(
-      `UPDATE editorial_takes SET hero_image_url = $1, og_image_url = $2, hero_caption = $3, hero_credit = $4, inline_images = $5::jsonb, layout_images = $6::jsonb, updated_at = NOW() WHERE slug = $7`,
+      // NEVER overwrite an existing image set with an empty one.
+      //
+      // Every generation call can fail independently (rate limit, exhausted
+      // credits, a dropped connection), and this statement used to write the
+      // result unconditionally — so a run where everything failed SILENTLY
+      // DELETED a perfectly good set of images that were still sitting in GCS.
+      // That is exactly what happened on 2026-08-24: a re-run after the OpenAI
+      // credits ran out wiped three bespoke layout images off a published
+      // article, and the only reason they were recoverable is that the GCS
+      // objects outlive the database reference.
+      //
+      // Same CASE guard the newsroom upsert already uses. Regenerating is
+      // supposed to be safe to retry; losing artwork on a failed retry is not.
+      `UPDATE editorial_takes SET
+         hero_image_url = COALESCE($1, hero_image_url),
+         og_image_url   = COALESCE($2, og_image_url),
+         hero_caption   = COALESCE($3, hero_caption),
+         hero_credit    = COALESCE($4, hero_credit),
+         inline_images  = CASE WHEN jsonb_array_length($5::jsonb) > 0
+                               THEN $5::jsonb ELSE inline_images END,
+         layout_images  = CASE WHEN jsonb_array_length($6::jsonb) > 0
+                               THEN $6::jsonb ELSE layout_images END,
+         updated_at = NOW()
+       WHERE slug = $7`,
       [heroUrl, og.url, heroCaption, heroCaption ? HERO_CREDIT : null, JSON.stringify(inlineImages), JSON.stringify(layoutImages), opts.slug],
     );
     console.error(`[regen-images] done — hero + og + ${inlineImages.length} inline + ${layoutImages.length} layout, ~$${(og.costUsd + inlineCost + artCost).toFixed(3)}`);
