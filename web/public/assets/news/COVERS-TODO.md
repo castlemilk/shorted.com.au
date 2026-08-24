@@ -7,9 +7,9 @@ article card and the OG/social preview, which is the entire point of having one.
 
 | Slug | Borrowed from |
 |---|---|
-| `droneshield-dro-short-interest` | `asx-short-squeeze-candidates` |
-| `asx-energy-shorts-woodside-rotation` | `hormuz-asx-energy-deep-dive` |
-| `australian-house-prices-rents-supply-2026` | `asx-sectors-most-shorted` |
+| `droneshield-dro-short-interest` | `asx-short-squeeze-candidates` (blog) |
+| `asx-energy-shorts-woodside-rotation` | `hormuz-asx-energy-deep-dive` (blog) |
+| `australian-house-prices-rents-supply-2026` | `asx-sectors-most-shorted` (blog) |
 
 To generate the real ones (needs `OPENAI_API_KEY`):
 
