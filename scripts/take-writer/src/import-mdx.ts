@@ -91,8 +91,10 @@ export function parseTakeMdx(raw: string): ParsedTake {
 const UPSERT = `
 INSERT INTO editorial_takes
   (slug, headline, standfirst, byline, stock_code, tier, body_format,
-   body_md, og_image_url, word_count, model, updated_at)
-VALUES ($1,$2,$3,$4,NULLIF($5,''),$6,$7,$8,NULLIF($9,''),$10,$11,NOW())
+   body_md, og_image_url, hero_image_url, word_count, model, updated_at)
+-- hero defaults to the cover: /news renders no header image when it is null,
+-- which leaves a deep-dive looking unfinished. regen-images replaces it later.
+VALUES ($1,$2,$3,$4,NULLIF($5,''),$6,$7,$8,NULLIF($9,''),NULLIF($9,''),$10,$11,NOW())
 ON CONFLICT (slug) DO UPDATE SET
   headline     = EXCLUDED.headline,
   standfirst   = EXCLUDED.standfirst,
@@ -102,6 +104,7 @@ ON CONFLICT (slug) DO UPDATE SET
   body_format  = EXCLUDED.body_format,
   body_md      = EXCLUDED.body_md,
   og_image_url = EXCLUDED.og_image_url,
+  hero_image_url = COALESCE(editorial_takes.hero_image_url, EXCLUDED.hero_image_url),
   word_count   = EXCLUDED.word_count,
   updated_at   = NOW()
 RETURNING slug, published_at
@@ -111,6 +114,16 @@ export async function importMdx(opts: {
   file?: string;
   dir?: string;
   dryRun?: boolean;
+  /**
+   * Publish everything imported, in the same run.
+   *
+   * Off by default on purpose — the draft state is the review gate. This is an
+   * explicit opt-in so publishing is always a decision, never a side effect of
+   * importing. It skips image generation and the vision cohesion check, which
+   * need API keys the import path does not require; run `regen-images` and
+   * `validate-article` separately when you have them.
+   */
+  publish?: boolean;
 }): Promise<void> {
   const files: string[] = [];
   if (opts.file) files.push(resolve(opts.file));
@@ -173,6 +186,20 @@ export async function importMdx(opts: {
     await pg.end();
   }
 
-  console.log("\nreview:  npx tsx src/index.ts list-drafts");
-  console.log("publish: npx tsx src/index.ts publish --slug=<slug>");
+  if (!opts.publish) {
+    console.log("\nreview:  npx tsx src/index.ts list-drafts");
+    console.log("publish: npx tsx src/index.ts publish --slug=<slug>");
+    console.log("     or: re-run this command with --publish");
+    return;
+  }
+
+  console.log("\n--publish: publishing all imported articles\n");
+  const { publishTake } = await import("./publish.js");
+  for (const p of parsed) {
+    await publishTake({
+      slug: p.frontmatter.slug,
+      noImages: true,
+      noValidate: true,
+    });
+  }
 }
