@@ -145,3 +145,31 @@ describe("regressions found by running the CLI against prod", () => {
     expect(classifyResultsFiling("Media Release - Full Year Results to 30 June 2026")).toBe("period_results");
   });
 });
+
+describe("regressions found by checking DroneShield's own filing history", () => {
+  // The pipeline would have MISSED the very filing it was built to catch:
+  // DRO reports on a December year-end, so its half-year lands in August with
+  // exactly these two titles.
+  it("accepts the statutory half-year document", () => {
+    expect(classifyResultsFiling("Half Yearly Report and Accounts")).toBe("period_results");
+  });
+
+  it("accepts the 1H/2H period-prefix convention", () => {
+    expect(classifyResultsFiling("1H25 Results Surging Revenue and Profitability")).toBe("period_results");
+    expect(classifyResultsFiling("2H26 Results")).toBe("period_results");
+  });
+
+  it("accepts 4DMedical's preliminary final report", () => {
+    expect(classifyResultsFiling("Appendix 4E - Preliminary Final Report")).toBe("appendix_4de");
+    expect(classifyResultsFiling("Appendix 4D and FY26 Half Year Report")).toBe("appendix_4de");
+    expect(classifyResultsFiling("FY2025 Full year results")).toBe("period_results");
+  });
+
+  it("still rejects quarterly 4C cash-flow reports", () => {
+    // A quarterly cash-flow report is a different document from a half- or
+    // full-year result and should not trigger a full research cycle.
+    expect(classifyResultsFiling("Quarterly Activities/Appendix 4C Cash Flow Report")).toBeNull();
+    expect(classifyResultsFiling("Quarterly Activity Report and Appendix 4C")).toBeNull();
+    expect(classifyResultsFiling("1Q26 4C Results - Investor Presentation")).toBeNull();
+  });
+});

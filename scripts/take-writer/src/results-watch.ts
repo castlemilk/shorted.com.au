@@ -81,8 +81,19 @@ const FILING_PATTERNS: Array<{ kind: FilingKind; rx: RegExp }> = [
   { kind: "appendix_4de", rx: /\bappendix\s*4[de]\b/i },
   { kind: "annual_report", rx: /\bannual\s+report\b/i },
   {
+    // Period prefixes. `\d[HF]\d{2}` covers the "1H25" / "2H26" convention that
+    // DroneShield and others use — missing it meant rejecting
+    // "1H25 Results Surging Revenue and Profitability", a real results release.
+    // Deliberately NOT \dQ\d{2}: a quarterly 4C cash-flow report is a different
+    // document from a half- or full-year result and should not trigger a piece.
     kind: "period_results",
-    rx: /\b(?:fy\s?\d{2,4}|hy\s?\d{2,4}|full[-\s]?year|half[-\s]?year|interim|preliminary\s+final)\b[^.]{0,40}\b(?:results?|financial\s+report|financial\s+statements?)\b/i,
+    rx: /\b(?:fy\s?\d{2,4}|hy\s?\d{2,4}|\d\s?h\s?\d{2,4}|full[-\s]?year|half[-\s]?year|half[-\s]?yearly|interim|preliminary\s+final)\b[^.]{0,40}\b(?:results?|financial\s+report|financial\s+statements?|report\s+and\s+accounts)\b/i,
+  },
+  {
+    // "Half Yearly Report and Accounts" — the statutory half-year document,
+    // which names no period and no "results" at all.
+    kind: "period_results",
+    rx: /\b(?:half[-\s]?yearly|yearly)\s+report\b/i,
   },
   {
     kind: "period_results",
