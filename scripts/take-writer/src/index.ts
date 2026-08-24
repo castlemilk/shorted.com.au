@@ -63,6 +63,7 @@ interface Args {
   file?: string;
   dir?: string;
   dryRun?: boolean;
+  publish?: boolean;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -70,6 +71,7 @@ function parseArgs(argv: string[]): Args {
   for (const arg of argv) {
     if (arg === "--help" || arg === "-h") args.help = true;
     else if (arg === "--dry-run") args.dryRun = true;
+    else if (arg === "--publish") args.publish = true;
     else if (arg.startsWith("--file=")) args.file = arg.split("=").slice(1).join("=");
     else if (arg.startsWith("--dir=")) args.dir = arg.split("=").slice(1).join("=");
     else if (arg.startsWith("--headline=")) args.headline = arg.split("=").slice(1).join("=");
@@ -133,7 +135,7 @@ Commands:
   newsroom-preview Investigate ONE --stock=CODE and print the report (no DB write, no images)
   regen-images    Generate a hero + inline images for an existing take (--slug=SLUG [--inline=2])
   validate-article Screenshot + Gemini-vision cohesion check with auto-fix loop (--slug=SLUG [--rounds=2])
-  import-mdx      Upsert a hand-written MDX article as a DRAFT (--file=... | --dir=... [--dry-run])
+  import-mdx      Upsert a hand-written MDX article as a DRAFT (--file=... | --dir=... [--dry-run] [--publish])
   list-drafts     List unpublished drafts; --slug=SLUG prints one draft's full body + citations
   publish         Publish a draft: images → validate → set published_at → tweet (--slug=SLUG [--no-images] [--no-validate] [--tweet])
   narrative Multi-section journalism-engine Take for one --stock=CODE
@@ -381,7 +383,12 @@ async function main(): Promise<void> {
     }
     case "import-mdx": {
       const { importMdx } = await import("./import-mdx.js");
-      await importMdx({ file: args.file, dir: args.dir, dryRun: args.dryRun });
+      await importMdx({
+        file: args.file,
+        dir: args.dir,
+        dryRun: args.dryRun,
+        publish: args.publish,
+      });
       break;
     }
     case "list-drafts": {
