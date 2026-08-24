@@ -169,6 +169,11 @@ test("the vercel promote inherits the test gate", () => {
     needs.includes("terraform-apply") || needs.includes("run-tests"),
     "deploy-vercel-prod must depend on terraform-apply (which is gated) or on run-tests directly",
   );
+  assert.match(
+    String(vercel.if ?? "").replace(/\s+/g, " "),
+    /github\.event_name != 'pull_request'/,
+    "pull requests may build previews but must never reach the production promotion job",
+  );
 });
 
 // run-tests must actually run the jobs module. services/jobs is a SEPARATE Go

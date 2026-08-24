@@ -893,6 +893,7 @@ jobs:
     # gcloud as a fallback so Vercel isn't blocked by Terraform failures.
     if: |
       always() &&
+      github.event_name != 'pull_request' &&
       needs.determine-environment.outputs.environment == 'prod' &&
       needs.validate-secrets.result == 'success'
     environment: prod
