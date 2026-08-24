@@ -201,9 +201,32 @@ export async function generatePlanHero(
   spec: PlanItem,
   opts: { quality?: ImageQuality } = {},
 ): Promise<{ image: LayoutImage; costUsd: number }> {
-  const buf = await renderSpec(openai, { ...spec, ratio: "landscape" }, opts.quality ?? "high");
+  // Quality fallback. `high` at 1536x1024 is the only call in this pipeline
+  // that fails consistently: the API drops the connection at ~180s (the SDK
+  // surfaces it as "Connection error", which reads like a network blip and is
+  // why it was mistaken for one). The default 600s client timeout is never
+  // reached, so raising it does nothing.
+  //
+  // Losing the hero entirely is much worse than a medium-quality hero: the
+  // article falls back to the generic brand OG, so the card and the social
+  // preview stop being about the article at all. Try high, take medium if it
+  // fails, and only give up if both do.
+  const landscape = { ...spec, ratio: "landscape" as const };
+  const wanted = opts.quality ?? "high";
+  let buf: Buffer;
+  let costUsd = 0.25; // gpt-image-2 high 1536x1024 est.
+  try {
+    buf = await renderSpec(openai, landscape, wanted);
+  } catch (err) {
+    if (wanted !== "high") throw err;
+    console.warn(
+      `[art-director]   hero at high quality failed (${String((err as Error).message ?? err).slice(0, 60)}) — retrying at medium`,
+    );
+    buf = await renderSpec(openai, landscape, "medium");
+    costUsd = 0.075; // gpt-image-2 medium 1536x1024 est.
+  }
   const url = await uploadPng(storage, `takes/${slug}-hero.png`, buf);
-  return { image: { ...spec, ratio: "landscape", role: "hero", url }, costUsd: 0.25 }; // gpt-image-2 high 1536×1024 est.
+  return { image: { ...landscape, role: "hero", url }, costUsd };
 }
 
 /**
