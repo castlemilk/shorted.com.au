@@ -34,8 +34,15 @@ import (
 // failed importer counts once in the all-mode summary. Pool-derived modes run
 // after fetched inputs, with correlations last because it consumes markets and
 // all derived economic observations written by the same run.
+//
+// "retail" is deliberately ABSENT: abs-retail-trade was discontinued upstream
+// in 2025-06 (superseded by abs-household-spending) and is FROZEN in the
+// freshness table, so walking it every month can only re-fetch a static series
+// or fail on a flow that is no longer maintained. The mode stays dispatchable
+// (`-mode retail`) and the source stays registered, so a backfill or an
+// upstream revival needs no code change.
 var allJobModes = []string{
-	"rba", "cpi", "labour", "trade", "gdp", "approvals", "retail", "population",
+	"rba", "cpi", "labour", "trade", "gdp", "approvals", "population",
 	"petroleum", "govfin", "vacancies", "wages", "spending", "lending", "construction", "business", "crime", "markets", "derived", "correlations",
 }
 
@@ -189,8 +196,13 @@ func (c *collector) runCorrelations(ctx context.Context) error {
 	return nil
 }
 
+// exitCodeDegraded is the all-mode PARTIAL-failure exit code (see
+// allModesOutcome). Distinct from every code `shorted house-prices` uses, so a
+// number is never ambiguous across the binary.
+const exitCodeDegraded = 10
+
 // runAll walks allJobModes, tallying failures rather than stopping: one drifted
-// upstream source must not block the other nineteen. Cancellation (SIGTERM or
+// upstream source must not block the other eighteen. Cancellation (SIGTERM or
 // the ECONOMY_TIMEOUT_MIN ceiling) DOES stop the walk — there is no point
 // starting another multi-minute download.
 func (c *collector) runAll(ctx context.Context) error {
@@ -198,13 +210,13 @@ func (c *collector) runAll(ctx context.Context) error {
 		return err
 	}
 	jobs := c.jobs()
-	failed := 0
+	var failed []string
 	for i, name := range allJobModes {
 		if err := ctx.Err(); err != nil {
 			// Keep the failure tally visible even when the run is cut short —
 			// a bare ctx.Err() would hide how much of the walk had failed.
-			return fmt.Errorf("cancelled after %d/%d steps, %d failed: %w",
-				i, len(allJobModes), failed, err)
+			return fmt.Errorf("cancelled after %d/%d steps, %d failed %v: %w",
+				i, len(allJobModes), len(failed), failed, err)
 		}
 		var err error
 		if name == "correlations" {
@@ -214,13 +226,45 @@ func (c *collector) runAll(ctx context.Context) error {
 		}
 		if err != nil {
 			log.Printf("ERROR %v", err)
-			failed++
+			failed = append(failed, name)
 		}
 	}
-	if failed > 0 {
-		return fmt.Errorf("%d/%d sources failed", failed, len(allJobModes))
+	outcome := allModesOutcome(failed, len(allJobModes))
+	if outcome != nil {
+		// Emit the verdict into the job's own log stream, in sequence after the
+		// per-source ERROR lines, rather than leaving it only in the process
+		// error main prints at exit.
+		log.Printf("%v", outcome)
 	}
-	return nil
+	return outcome
+}
+
+// allModesOutcome turns the all-mode failure tally into the job's return value
+// and is the ONLY place the degraded/down distinction is made.
+//
+// Cloud Run marks ANY non-zero exit a failed execution, so this does not make a
+// partial run pass — it makes the two failures tellable apart from the exit
+// code alone:
+//
+//	exit 1  = nothing was collected. Systemic: DB unreachable, source-registry
+//	          write failed, or every upstream is down. An outage.
+//	exit 10 = the other sources were collected and n of them drifted. A
+//	          single-source problem to chase at leisure, not a page.
+//
+// A partial failure never returns nil: an unnoticed drift becomes a stale
+// series and then a wrong chart.
+func allModesOutcome(failed []string, total int) error {
+	switch {
+	case len(failed) == 0:
+		return nil
+	case len(failed) >= total:
+		return fmt.Errorf("economy: DOWN all %d sources failed: %v", total, failed)
+	default:
+		return &runner.ExitCodeError{
+			Code: exitCodeDegraded,
+			Err:  fmt.Errorf("economy: DEGRADED %d/%d sources failed: %v", len(failed), total, failed),
+		}
+	}
 }
 
 func registerSourcesOrErr(ctx context.Context, pool *pgxpool.Pool) error {

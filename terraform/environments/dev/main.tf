@@ -234,6 +234,40 @@ module "shorted_job_economy" {
   memory          = "512Mi"
 }
 
+# `shorted economy -mode freshness` — the read-only staleness sentinel, on its
+# OWN Cloud Run Job. Mirror of the prod block (see
+# terraform/environments/prod/main.tf for the full rationale): sharing the
+# ingest job made a false-positive stale verdict read as "the monthly economy
+# ingest failed". No schedule — the GitHub workflow is the only caller, and it
+# owns the alerting; max_retries=0 because a freshness verdict is deterministic.
+module "shorted_job_economy_freshness" {
+  source = "../../modules/shorted-job"
+
+  name        = "shorted-economy-freshness"
+  description = "Economy data freshness sentinel (read-only; invoked by economy-freshness.yml)"
+  project_id  = var.project_id
+  region      = var.region
+  environment = "dev"
+  image_url   = var.shorted_jobs_image
+
+  args     = ["economy", "-mode", "freshness"]
+  schedule = "" # no Cloud Scheduler trigger — GitHub Actions executes it
+
+  env = {
+    ENVIRONMENT = "dev"
+    GCP_PROJECT = var.project_id
+  }
+
+  secret_env = {
+    DATABASE_URL = "DATABASE_URL"
+  }
+
+  timeout_seconds = 600
+  max_retries     = 0
+  cpu             = "1"
+  memory          = "512Mi"
+}
+
 # `shorted weekly-report` — replaces module.weekly_report_generator.
 # Two schedules on one job, exactly as before: weekly (no override) + monthly
 # (REPORT_TYPE=monthly via container_overrides). The ported job resolves the

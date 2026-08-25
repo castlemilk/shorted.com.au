@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/castlemilk/shorted.com.au/services/jobs/internal/runner"
 )
 
 func TestNewABSImportersAreRegisteredSources(t *testing.T) {
@@ -46,7 +48,7 @@ func TestNewABSImportersAreRegisteredSources(t *testing.T) {
 
 func TestAllModeIncludesNewABSImporters(t *testing.T) {
 	want := []string{
-		"rba", "cpi", "labour", "trade", "gdp", "approvals", "retail", "population",
+		"rba", "cpi", "labour", "trade", "gdp", "approvals", "population",
 		"petroleum", "govfin", "vacancies", "wages", "spending", "lending", "construction", "business", "crime", "markets", "derived", "correlations",
 	}
 	if !reflect.DeepEqual(allJobModes, want) {
@@ -70,6 +72,54 @@ func TestAllModeIncludesNewABSImporters(t *testing.T) {
 	}
 	if got := allJobModes[len(allJobModes)-2]; got != "derived" {
 		t.Errorf("derived must run immediately before correlations, got mode %q", got)
+	}
+}
+
+// abs-retail-trade was discontinued upstream in 2025-06. Walking it monthly can
+// only re-fetch a static series or fail on an unmaintained flow — but the mode
+// and the source must survive, so a backfill or an upstream revival needs no
+// code change.
+func TestRetiredRetailModeIsDispatchableButNotWalked(t *testing.T) {
+	for _, mode := range allJobModes {
+		if mode == "retail" {
+			t.Fatal("allJobModes still walks the FROZEN abs-retail-trade source")
+		}
+	}
+	if _, ok := (&collector{}).jobs()["retail"]; !ok {
+		t.Error("`-mode retail` must stay dispatchable for backfills")
+	}
+	if cadence, ok := sourceFreshnessCadences["abs-retail-trade"]; !ok || !cadence.Frozen {
+		t.Error("abs-retail-trade must stay registered and FROZEN in the freshness table")
+	}
+}
+
+// Cloud Run reports every non-zero exit identically, so the exit CODE is the
+// only channel that distinguishes "one upstream drifted" from "nothing ran".
+func TestAllModesOutcomeDistinguishesDegradedFromDown(t *testing.T) {
+	total := len(allJobModes)
+
+	if err := allModesOutcome(nil, total); err != nil {
+		t.Errorf("no failures → %v, want nil", err)
+	}
+
+	partial := allModesOutcome([]string{"cpi", "petroleum"}, total)
+	if partial == nil {
+		t.Fatal("partial failure returned nil — a silent drift becomes a stale series")
+	}
+	if got := runner.ExitCodeOf(partial); got != exitCodeDegraded {
+		t.Errorf("partial failure exit code = %d, want %d", got, exitCodeDegraded)
+	}
+	if msg := partial.Error(); !strings.Contains(msg, "economy: DEGRADED 2/") ||
+		!strings.Contains(msg, "[cpi petroleum]") {
+		t.Errorf("partial message = %q, want a greppable DEGRADED summary naming the sources", msg)
+	}
+
+	down := allModesOutcome(allJobModes, total)
+	if got := runner.ExitCodeOf(down); got != 1 {
+		t.Errorf("total failure exit code = %d, want 1 (an outage is an ordinary failure)", got)
+	}
+	if msg := down.Error(); !strings.Contains(msg, "economy: DOWN") {
+		t.Errorf("total-failure message = %q, want a DOWN summary", msg)
 	}
 }
 
