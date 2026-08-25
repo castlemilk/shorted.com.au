@@ -53,12 +53,41 @@ export default async function StatePage({ params }: PageProps) {
         </header>
         <StateSuburbExplorer stateCode={code} />
         <SuburbPriceDropsPanel stateCode={code} title={`${name} suburb prices & movers`} />
-        <p className="text-sm text-muted-foreground">
-          See how {name} compares nationally — cuts by state, suburb, address and agency — on the{" "}
-          <Link href={`/price-drops?state=${stateSlug(code)}`} className="font-medium text-primary underline-offset-4 hover:underline">
-            price-drops board →
-          </Link>
-        </p>
+        <aside
+          aria-labelledby="related-state-context-heading"
+          className="border-t border-border/60 pt-4"
+        >
+          <h2
+            id="related-state-context-heading"
+            className="text-sm font-medium text-foreground"
+          >
+            Related state context
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Put these suburb results alongside the{" "}
+            <Link
+              href={`/economy/${stateSlug(code)}`}
+              className="font-medium text-primary underline-offset-4 hover:underline"
+            >
+              {name} economy
+            </Link>
+            , compare every state on the{" "}
+            <Link
+              href="/housing"
+              className="font-medium text-primary underline-offset-4 hover:underline"
+            >
+              national housing dashboard
+            </Link>
+            , or review{" "}
+            <Link
+              href={`/price-drops?state=${stateSlug(code)}`}
+              className="font-medium text-primary underline-offset-4 hover:underline"
+            >
+              state-filtered asking-price cuts
+            </Link>
+            .
+          </p>
+        </aside>
       </div>
     </DashboardLayout>
   );

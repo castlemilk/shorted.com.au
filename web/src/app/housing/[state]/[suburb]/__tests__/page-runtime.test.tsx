@@ -34,6 +34,10 @@ describe("suburb profile route caching contract", () => {
     expect(source).not.toMatch(/\.sal\b/);
   });
 
+  it("links the suburb context up to its state economy", () => {
+    expect(source).toContain('href={`/economy/${stateSlug(code)}`}');
+  });
+
   it("does not collapse backend failures into not-found responses", () => {
     expect(source).not.toContain(".catch(() => null)");
     expect(source).toContain("NotFoundError");

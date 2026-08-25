@@ -246,26 +246,34 @@ export default async function EconomyStatePage({ params }: PageProps) {
 
         <StateCharts state={state} />
 
-        <Link
-          href={`/housing/${state}`}
-          className="group flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/50"
+        <section
+          aria-labelledby="housing-context-heading"
+          className="border-t border-border/60 pt-4"
         >
-          <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-primary">
-              Local housing
-            </p>
-            <h2 className="mt-1 font-serif text-xl text-foreground">
-              Explore {name} suburb house prices
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Compare suburb medians, Census demographics and local trends on
-              the matching state map.
-            </p>
-          </div>
-          <span className="font-mono text-sm text-primary transition-transform group-hover:translate-x-0.5">
-            Open {name} housing →
-          </span>
-        </Link>
+          <h2
+            id="housing-context-heading"
+            className="text-sm font-medium text-foreground"
+          >
+            Housing context
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Compare suburb medians and Census demographics on the{" "}
+            <Link
+              href={`/housing/${state}`}
+              className="font-medium text-primary underline-offset-4 hover:underline"
+            >
+              {name} housing map
+            </Link>
+            , or review{" "}
+            <Link
+              href={`/price-drops?state=${state}`}
+              className="font-medium text-primary underline-offset-4 hover:underline"
+            >
+              state-filtered asking-price cuts
+            </Link>
+            .
+          </p>
+        </section>
 
         <p className="border-t border-border pt-4 text-xs text-muted-foreground">
           Sources: Australian Bureau of Statistics (Labour Force, National

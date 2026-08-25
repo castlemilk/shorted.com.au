@@ -121,6 +121,18 @@ describe("Stock Detail Page Runtime Imports", () => {
     expect(source).not.toContain("getCachedStockCommunitySummary");
   });
 
+  it("loads state exposure defensively and renders it directly below theme links", () => {
+    const source = fs.readFileSync(
+      path.resolve(__dirname, "../page.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain("getStateExposureIndex().catch(");
+    expect(source).toMatch(
+      /<StockThemeChips[\s\S]*?\/>\s*<StockStateExposure/,
+    );
+  });
+
   it("keeps stock-page child fetches aligned with the public edge cache window", () => {
     const source = fs.readFileSync(
       path.resolve(__dirname, "../short-interest-history.tsx"),

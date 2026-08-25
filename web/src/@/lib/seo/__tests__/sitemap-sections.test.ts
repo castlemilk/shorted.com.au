@@ -125,6 +125,10 @@ import {
   renderUrlset,
 } from "../sitemap-xml";
 import { THEME_SLUGS } from "~/@/lib/themes/registry";
+import {
+  HOUSING_RANKINGS,
+  HOUSING_RANKING_SLUGS,
+} from "~/@/lib/housing-rankings/registry";
 
 type Section = { name: string; entries: Awaited<ReturnType<typeof buildCoreSitemap>> };
 
@@ -274,6 +278,33 @@ describe("sitemap children", () => {
     expect(suburbs.length).toBeGreaterThan(0);
     expect(suburbs.some((s) => Boolean(s.lastModified))).toBe(true);
     expect(suburbs.some((s) => !s.lastModified)).toBe(true);
+  });
+
+  it("lists the housing rankings hub and every registry slug in the housing sitemap", async () => {
+    const housing = await buildHousingSitemap();
+    const hub = housing.find(
+      (entry) => entry.url === "https://shorted.com.au/housing/rankings",
+    );
+    const housingHub = housing.find(
+      (entry) => entry.url === "https://shorted.com.au/housing",
+    );
+    expect(hub).toBeDefined();
+    expect(hub!.lastModified).toBe(housingHub!.lastModified);
+
+    for (const slug of HOUSING_RANKING_SLUGS) {
+      const ranking = HOUSING_RANKINGS[slug]!;
+      const entry = housing.find(
+        (candidate) =>
+          candidate.url === `https://shorted.com.au/housing/rankings/${slug}`,
+      );
+      const state = housing.find(
+        (candidate) =>
+          candidate.url ===
+          `https://shorted.com.au/housing/${ranking.stateCode.toLowerCase()}`,
+      );
+      expect(entry).toBeDefined();
+      expect(entry!.lastModified).toBe(state!.lastModified);
+    }
   });
 });
 

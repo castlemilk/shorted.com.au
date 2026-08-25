@@ -1,6 +1,7 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
+import { unstable_cache } from "next/cache";
 import { GetEconomicSeriesResponseSchema, type GetEconomicSeriesResponse, type GetStateCompanyAggregatesResponse, type ListEconomicSeriesResponse, type ListStateCompaniesResponse } from "~/gen/shorts/v1alpha1/economy_pb";
 import { EconomyService } from "~/gen/shorts/v1alpha1/economy_pb";
 import { cache } from "react";
@@ -122,3 +123,81 @@ export const listStateCompanies = cache(
     },
   ),
 );
+
+const STATE_EXPOSURE_SLUGS = [
+  "nsw",
+  "vic",
+  "qld",
+  "sa",
+  "wa",
+  "tas",
+  "nt",
+  "act",
+] as const;
+
+export interface StateExposure {
+  state: (typeof STATE_EXPOSURE_SLUGS)[number];
+  weight: number;
+  basis: string;
+  source: string;
+}
+
+type StateCompaniesLoader = (
+  state: string,
+  limit: number,
+) => Promise<ListStateCompaniesResponse | undefined>;
+
+/** Build the stock-code reverse lookup while isolating per-state failures. */
+export async function buildStateExposureIndex(
+  loader: StateCompaniesLoader = listStateCompanies,
+): Promise<Record<string, StateExposure[]>> {
+  const stateResults = await Promise.all(
+    STATE_EXPOSURE_SLUGS.map(async (state) => {
+      // V1 only reads each state's top 50 by weight. A company outside that
+      // state-specific top 50 will not appear in the reverse index.
+      const response = await loader(state, 50).catch(() => undefined);
+      return [state, response?.companies ?? []] as const;
+    }),
+  );
+
+  const index: Record<string, StateExposure[]> = {};
+  for (const [state, companies] of stateResults) {
+    for (const company of companies) {
+      const stockCode = company.stockCode.trim().toUpperCase();
+      if (!stockCode) continue;
+      (index[stockCode] ??= []).push({
+        state,
+        weight: company.weight,
+        basis: company.basis,
+        source: company.source,
+      });
+    }
+  }
+  return index;
+}
+
+/** Operations-weighted state exposure rows, indexed by uppercase ASX code. */
+export async function getStateExposureIndex(): Promise<
+  Record<string, StateExposure[]>
+> {
+  if (skipForBuild()) return {};
+
+  try {
+    return await unstable_cache(
+      async () => {
+        const index = await buildStateExposureIndex();
+        // Throw inside the cache callback so a transient all-empty response is
+        // never persisted for the full daily cache window.
+        if (Object.keys(index).length === 0) {
+          throw new Error("state exposure index returned no companies");
+        }
+        return index;
+      },
+      ["economy-state-exposure-index-v1"],
+      { tags: ["economy-state-companies"], revalidate: 86400 },
+    )();
+  } catch (error) {
+    console.error("[getStateExposureIndex] failed:", error);
+    return {};
+  }
+}

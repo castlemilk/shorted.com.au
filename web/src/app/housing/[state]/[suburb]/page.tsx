@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
@@ -161,6 +162,16 @@ export default async function SuburbPage({ params }: PageProps) {
           neighbours={context?.nearby}
           basis={context?.nearbyBasis}
         />
+        <p className="mt-2 text-xs text-muted-foreground">
+          For state-level context, explore the{" "}
+          <Link
+            href={`/economy/${stateSlug(code)}`}
+            className="font-medium text-primary underline-offset-4 hover:underline"
+          >
+            {STATE_NAMES[code]} economy
+          </Link>
+          .
+        </p>
         <div className="pt-6">
           <SuburbProfile
             salCode={sal}

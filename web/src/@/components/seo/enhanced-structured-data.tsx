@@ -139,13 +139,12 @@ export function DatasetStructuredData({
   );
 }
 
-/**
- * ItemList Schema - For top shorts lists (helps with rich snippets)
- */
+/** ItemList schema for ordered collections (helps with rich snippets). */
 export function ItemListStructuredData({
   items,
   name,
   description,
+  itemType = "FinancialProduct",
 }: {
   items: Array<{
     name: string;
@@ -154,6 +153,8 @@ export function ItemListStructuredData({
   }>;
   name: string;
   description?: string;
+  /** Schema.org type for each listed entity; stock lists retain the default. */
+  itemType?: "FinancialProduct" | "Place" | "WebPage";
 }) {
   if (!items || items.length === 0) return <></>;
 
@@ -167,7 +168,7 @@ export function ItemListStructuredData({
       "@type": "ListItem",
       position: index + 1,
       item: {
-        "@type": "FinancialProduct",
+        "@type": itemType,
         name: item.name,
         url: item.url,
         description: item.description,
