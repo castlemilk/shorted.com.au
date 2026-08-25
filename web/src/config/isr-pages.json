@@ -18,5 +18,16 @@
   "/press",
   "/politicians",
   "/politicians/short-interest",
-  "/politicians/changes"
+  "/politicians/changes",
+  "/themes",
+  "/themes/rare-earths",
+  "/themes/lithium",
+  "/themes/uranium",
+  "/themes/gold",
+  "/themes/iron-ore",
+  "/themes/battery-metals",
+  "/themes/tech-software",
+  "/themes/ai-data-centres",
+  "/themes/banks",
+  "/themes/biotech"
 ]
