@@ -158,6 +158,7 @@ func attrsMatch(got []attribute.KeyValue, want []string) bool {
 		k, v, _ := strings.Cut(w, "=")
 		found := false
 		for _, a := range got {
+			//nolint:staticcheck // Emit is the only accessor in the otel v1.40 that GOWORK=off (CI) pins; its String() replacement arrives in the v1.44 the workspace resolves.
 			if string(a.Key) == k && a.Value.Emit() == v {
 				found = true
 				break
@@ -176,7 +177,7 @@ func allAttributeValues(rm metricdata.ResourceMetrics) []string {
 	var out []string
 	appendAttrs := func(set []attribute.KeyValue) {
 		for _, a := range set {
-			out = append(out, a.Value.Emit())
+			out = append(out, a.Value.Emit()) //nolint:staticcheck // see attrsMatch: otel v1.40 under GOWORK=off has no String()
 		}
 	}
 	for _, sm := range rm.ScopeMetrics {

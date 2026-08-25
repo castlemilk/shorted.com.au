@@ -8,3 +8,9 @@ variable "alert_recipient_email" {
   type        = string
   default     = ""
 }
+
+variable "excluded_job_names" {
+  description = "Cloud Run Job names whose failures must NOT email. Only for jobs that carry their OWN alerting — a second, less specific page is noise. Anything listed here loses its GCP-side backstop, so list nothing whose failure would otherwise go unnoticed."
+  type        = list(string)
+  default     = []
+}

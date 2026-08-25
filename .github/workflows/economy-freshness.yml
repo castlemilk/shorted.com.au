@@ -10,8 +10,12 @@
 # but never fail the run. Threshold calibration lives in
 # services/jobs/internal/jobs/economy/freshness.go.
 #
-# Post-consolidation this targets the `shorted-economy` Cloud Run job
-# (terraform/modules/shorted-job) running the consolidated `shorted` binary.
+# This targets `shorted-economy-freshness` — a SEPARATE Cloud Run job from the
+# monthly `shorted-economy` ingest, same image and env (both are
+# terraform/modules/shorted-job instantiations of the consolidated `shorted`
+# binary). They were one job until 2026-08: a false-positive stale verdict then
+# surfaced everywhere as "the monthly economy ingest failed". Keep them split.
+#
 # The legacy `economy-collector` job still exists with its scheduler paused;
 # if you roll the cutover back, repoint the job name AND drop the `economy`
 # subcommand from --args here.
@@ -49,7 +53,7 @@ jobs:
       # MUST carry the `economy` subcommand — a bare `-mode` exits 2 with usage.
       - name: Run freshness check on prod
         run: |
-          gcloud run jobs execute shorted-economy \
+          gcloud run jobs execute shorted-economy-freshness \
             --project rosy-clover-477102-t5 \
             --region australia-southeast2 \
             --args="economy,-mode,freshness" \
@@ -63,7 +67,7 @@ jobs:
         run: |
           report_file="$RUNNER_TEMP/economy-freshness-report.txt"
           gcloud logging read \
-            'resource.type="cloud_run_job" AND resource.labels.job_name="shorted-economy" AND (textPayload:"source_key=" OR textPayload:"freshness:")' \
+            'resource.type="cloud_run_job" AND resource.labels.job_name="shorted-economy-freshness" AND (textPayload:"source_key=" OR textPayload:"freshness:")' \
             --project rosy-clover-477102-t5 --freshness 30m --limit 40 \
             --format="value(textPayload)" | sort > "$report_file" || true
           echo "REPORT_FILE=$report_file" >> "$GITHUB_ENV"

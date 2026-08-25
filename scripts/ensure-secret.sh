@@ -66,12 +66,27 @@ strip_trailing_newlines() {
   printf '%s' "$s"
 }
 
-if ! gcloud secrets describe "$NAME" --project "$PROJECT" >/dev/null 2>&1; then
-  echo "Creating secret: $NAME"
-  printf "%s" "$(strip_trailing_newlines "$VALUE")" \
-    | gcloud secrets create "$NAME" --data-file=- --replication-policy="automatic" --project "$PROJECT"
+# A failed describe is NOT proof the secret is missing — a transient auth or
+# network error also exits non-zero, and treating that as "missing" made a
+# create race an existing secret and fail the whole deploy (PR #494's plan job,
+# 2026-08-25). Only create on an actual NOT_FOUND; anything else is the
+# unreadable-secret path: warn and let a human look, exactly like the
+# disabled-latest case below.
+DESCRIBE_ERR=$(mktemp)
+if ! gcloud secrets describe "$NAME" --project "$PROJECT" >/dev/null 2>"$DESCRIBE_ERR"; then
+  if grep -qiE "NOT_FOUND|not found" "$DESCRIBE_ERR"; then
+    rm -f "$DESCRIBE_ERR"
+    echo "Creating secret: $NAME"
+    printf "%s" "$(strip_trailing_newlines "$VALUE")" \
+      | gcloud secrets create "$NAME" --data-file=- --replication-policy="automatic" --project "$PROJECT"
+    exit 0
+  fi
+  echo "::warning title=Secret state unknown::describe $NAME in $PROJECT failed for a reason other than NOT_FOUND — NOT creating or versioning."
+  sed 's/^/  gcloud: /' "$DESCRIBE_ERR" >&2 || true
+  rm -f "$DESCRIBE_ERR"
   exit 0
 fi
+rm -f "$DESCRIBE_ERR"
 
 ACCESS_ERR=$(mktemp)
 if ! CURRENT=$(gcloud secrets versions access latest --secret="$NAME" --project "$PROJECT" 2>"$ACCESS_ERR"); then

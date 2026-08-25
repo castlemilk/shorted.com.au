@@ -10,13 +10,25 @@
 #     short-data-sync uvicorn-zombie that sat "running" for ~18h).
 #
 # The filters match resource.type="cloud_run_job", so EVERY Cloud Run Job in the
-# project is covered automatically — no per-job allowlist to maintain.
+# project is covered automatically — no per-job allowlist to maintain. The one
+# escape hatch is var.excluded_job_names, a DENY list for jobs that carry their
+# own alerting (see its description before adding to it).
 #
 # All resources are gated on alert_recipient_email, so the module is a no-op
 # until an address is provided.
 
 locals {
   enabled = var.alert_recipient_email != ""
+
+  # Per-job opt-outs, appended to both policy filters. `resource.label` is the
+  # metric-based policy's spelling; the log-based policy only carries the job
+  # name as an extracted METRIC label, hence the two lists.
+  excluded_resource_clauses = [
+    for job in var.excluded_job_names : "resource.label.\"job_name\" != \"${job}\""
+  ]
+  excluded_metric_clauses = [
+    for job in var.excluded_job_names : "metric.label.\"job_name\" != \"${job}\""
+  ]
 }
 
 # Email notification channel.
@@ -44,11 +56,11 @@ resource "google_monitoring_alert_policy" "cloud_run_job_failed" {
     display_name = "A Cloud Run Job execution failed"
 
     condition_threshold {
-      filter = join(" AND ", [
+      filter = join(" AND ", concat([
         "resource.type = \"cloud_run_job\"",
         "metric.type = \"run.googleapis.com/job/completed_execution_count\"",
         "metric.label.\"result\" = \"failed\"",
-      ])
+      ], local.excluded_resource_clauses))
       comparison      = "COMPARISON_GT"
       threshold_value = 0
       duration        = "0s"
@@ -119,10 +131,10 @@ resource "google_monitoring_alert_policy" "job_log_errors" {
     display_name = "A Cloud Run Job emitted an ERROR log or timed out"
 
     condition_threshold {
-      filter = join(" AND ", [
+      filter = join(" AND ", concat([
         "resource.type = \"cloud_run_job\"",
         "metric.type = \"logging.googleapis.com/user/${google_logging_metric.job_errors[0].name}\"",
-      ])
+      ], local.excluded_metric_clauses))
       comparison      = "COMPARISON_GT"
       threshold_value = 0
       duration        = "0s"

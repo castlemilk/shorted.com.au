@@ -173,8 +173,69 @@ func TestWriteFreshnessReportSortsEntriesAndEmitsSummary(t *testing.T) {
 		!strings.Contains(lines[2], "status=OK") {
 		t.Errorf("third entry = %q", lines[2])
 	}
-	if lines[3] != "freshness: total=3 stale=1 frozen=1" {
-		t.Errorf("summary = %q, want %q", lines[3], "freshness: total=3 stale=1 frozen=1")
+	if lines[3] != "freshness: total=3 stale=1 warn=0 frozen=1" {
+		t.Errorf("summary = %q, want %q", lines[3], "freshness: total=3 stale=1 warn=0 frozen=1")
+	}
+}
+
+// A source drifting toward its threshold must say so BEFORE it goes red — the
+// thresholds are calibrated against measured publisher lags, so a publisher
+// slipping its release is exactly the drift this is meant to surface.
+func TestFreshnessWarnsWithinThresholdHeadroom(t *testing.T) {
+	now := time.Date(2026, 7, 25, 12, 0, 0, 0, time.UTC)
+	// monthlyFreshnessCadence threshold = 140 days; the warn floor is 126.
+	comfortable := now.Add(-126 * 24 * time.Hour)
+	insideHeadroom := now.Add(-127 * 24 * time.Hour)
+	atThreshold := now.Add(-140 * 24 * time.Hour)
+	past := now.Add(-141 * 24 * time.Hour)
+
+	tests := []struct {
+		name      string
+		maxPeriod time.Time
+		cadence   freshnessCadence
+		wantWarn  bool
+		wantStale bool
+	}{
+		{name: "exactly at the floor is not yet a warning", maxPeriod: comfortable, cadence: monthlyFreshnessCadence},
+		{name: "inside the last 10% warns", maxPeriod: insideHeadroom, cadence: monthlyFreshnessCadence, wantWarn: true},
+		{name: "at the threshold still warns", maxPeriod: atThreshold, cadence: monthlyFreshnessCadence, wantWarn: true},
+		{name: "past the threshold is STALE, not WARN", maxPeriod: past, cadence: monthlyFreshnessCadence, wantStale: true},
+		// A frozen source sits past its threshold by design; warning about it
+		// every month is the noise the FROZEN status exists to remove.
+		{name: "frozen never warns", maxPeriod: past, cadence: sourceFreshnessCadences["abs-retail-trade"]},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := classifyFreshness("test-source", &tt.maxPeriod, now, tt.cadence)
+			if got.Warn != tt.wantWarn {
+				t.Errorf("Warn = %v, want %v (age=%d threshold=%d)", got.Warn, tt.wantWarn, *got.AgeDays, got.ThresholdDays)
+			}
+			if got.Stale != tt.wantStale {
+				t.Errorf("Stale = %v, want %v", got.Stale, tt.wantStale)
+			}
+		})
+	}
+}
+
+// The WARN must reach the report — a warning nobody prints is not a warning —
+// and must not move the stale count that decides the sentinel's exit code.
+func TestWriteFreshnessReportEmitsWarnWithoutFailing(t *testing.T) {
+	now := time.Date(2026, 7, 25, 12, 0, 0, 0, time.UTC)
+	insideHeadroom := now.Add(-130 * 24 * time.Hour)
+	results := []freshnessResult{
+		classifyFreshness("w-source", &insideHeadroom, now, monthlyFreshnessCadence),
+	}
+
+	var out bytes.Buffer
+	if stale := writeFreshnessReport(&out, results); stale != 0 {
+		t.Fatalf("stale count = %d, want 0 — a WARN must not fail the sentinel", stale)
+	}
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if !strings.Contains(lines[0], "age_days=130 threshold=140 status=WARN") {
+		t.Errorf("entry = %q, want status=WARN", lines[0])
+	}
+	if lines[1] != "freshness: total=1 stale=0 warn=1 frozen=0" {
+		t.Errorf("summary = %q", lines[1])
 	}
 }
 

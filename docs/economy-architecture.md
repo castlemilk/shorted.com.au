@@ -116,17 +116,32 @@ series (DGFACB12) died 2019-06 — DGFACBNF12 is the live successor.
 ## 3. Collector — `shorted economy` (`services/jobs/internal/jobs/economy`)
 
 Single binary, `-mode sources|rba|cpi|labour|trade|gdp|petroleum|govfin|approvals|retail|population|vacancies|wages|spending|lending|construction|business|crime|markets|derived|correlations|all` + standalone `-mode freshness` (staleness sentinel — monthly CI workflow `economy-freshness.yml`; runbook = the `$economy-data` skill)
-(`derived` runs LAST in `all` — it reads series the other modes write).
+(`derived` runs LAST in `all` — it reads series the other modes write; `retail`
+is dispatchable but **not walked by `all`** — the source is FROZEN, so a monthly
+re-fetch can only fail on an unmaintained flow).
 Cloud Run Job `shorted-economy` (min instances 0), monthly scheduler (5th,
 17:00 UTC), `terraform/modules/shorted-job` (`module.shorted_job_economy`),
 image `shorted-jobs` in `terraform-deploy.yml`'s `build-docker-images` matrix.
+`-mode freshness` runs on its OWN job, `shorted-economy-freshness`
+(`module.shorted_job_economy_freshness`, same image/env, no scheduler,
+`max_retries = 0`), so a stale verdict is never reported as an ingest failure.
+
+**`-mode all` exit codes**: `0` = every source collected; **`10` = DEGRADED**,
+some collected and some failed (a single-source drift — chase it, don't page);
+`1` = nothing collected (systemic — DB, registry write, or every upstream down).
+Cloud Run marks all three non-zero cases "failed", so the code is the only
+signal that separates them. The greppable log line is
+`economy: DEGRADED n/m sources failed: [names]`.
 
 - Store: pgx on the Supabase txn pooler (6543, SimpleProtocol), per-source
   transactions, **0 observations = error** (drift tripwire), catalog identity
   fields immutable on conflict; petroleum/govfin have per-sheet resilience
   (healthy sheets persist, run still exits non-zero on any drift).
 - `pkg/absdata`: shared ABS SDMX-CSV + RBA CSV clients; UA
-  `shorted-data/1.0 (+https://shorted.com.au)` is WAF-mandatory.
+  `shorted-data/1.0 (+https://shorted.com.au)` is WAF-mandatory. Every fetch
+  (incl. the DCCEEW release-page/XLSX pulls) goes through `GetWithRetry`:
+  3 attempts, exponential backoff + jitter, retrying **only** transport errors,
+  429 and 5xx. A 404/403 is drift or a WAF-UA problem and must fail fast.
 - Registry: upserts into `industry_intelligence_sources`;
   `public_enabled = existing OR EXCLUDED` (never downgrades).
 - First run in a fresh env: `gcloud run jobs execute shorted-economy`.

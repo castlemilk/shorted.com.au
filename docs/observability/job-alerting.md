@@ -43,6 +43,13 @@ It creates, in `rosy-clover-477102-t5`:
   on that metric. This is the "exit 0 having done nothing" / hung-to-its-deadline
   class the execution-count metric cannot see.
 
+Both policies match every Cloud Run Job in the project. The single exception is
+`var.excluded_job_names`, wired in prod to `shorted-economy-freshness`: that job
+IS a sentinel, its exit code is its verdict, and `economy-freshness.yml` already
+turns a non-zero run into a labelled issue carrying the per-source report. A
+parallel email saying only "a Cloud Run Job failed" would be a second, vaguer
+page for the same event. Add to that list only jobs with their own alerting.
+
 Both filters key off `resource.type="cloud_run_job"`, so **every** job in the
 project is covered automatically — there is no per-job allowlist to keep in sync
 when a job is added. Both auto-close after 30 minutes of quiet; the real all-clear
@@ -65,7 +72,7 @@ only applies on a local apply, where it would retarget the channel.
 |---|---|---|---|
 | `shorts-data-freshness.yml` | daily 20:07 UTC | Newest ASIC report date, via the public edge API | `shorts-data-freshness` |
 | `housing-freshness.yml` | daily 22:11 UTC | Housing ingest errors, event silence, per-suburb catalog staleness, rig status (read-only prod DB) | `housing-freshness` |
-| `economy-freshness.yml` | monthly, 8th | Runs `shorted-economy -mode freshness` on prod | (run failure) |
+| `economy-freshness.yml` | monthly, 8th | Executes the `shorted-economy-freshness` job on prod (a separate Cloud Run job from the `shorted-economy` ingest, so a stale verdict never reads as an ingest outage) | `economy-freshness` |
 | `register-freshness.yml` | weekly, Mon 21:47 UTC | Politician register freshness | (run failure) |
 
 All of them file **one** tracking issue and reuse it, then close it on the next

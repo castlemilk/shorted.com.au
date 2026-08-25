@@ -20,6 +20,11 @@ locals {
     managed_by  = "terraform"
   }
 
+  # An empty `schedule` means the job has no Cloud Scheduler trigger at all —
+  # it is executed by an external caller (a GitHub workflow, the admin console)
+  # — so neither the scheduler job nor its invoker SA is created.
+  create_scheduler = var.schedule != ""
+
   schedules_by_suffix = { for s in var.schedules : s.name_suffix => s }
 
   # The single container's override object for each extra schedule. `env` is
@@ -46,6 +51,25 @@ locals {
   # runWithOverrides is in roles/run.developer, NOT roles/run.invoker: any
   # schedule that posts an overrides body 403s without the extra binding.
   needs_run_developer = length([for k, b in local.schedule_bodies : k if b != null]) > 0
+}
+
+# Adopting `count` on the three scheduler resources would otherwise re-address
+# every existing instantiation's state (`.schedule` -> `.schedule[0]`) and plan
+# a destroy/create of live schedulers. These are no-ops where the address does
+# not exist.
+moved {
+  from = google_service_account.scheduler_invoker
+  to   = google_service_account.scheduler_invoker[0]
+}
+
+moved {
+  from = google_cloud_run_v2_job_iam_member.scheduler_invoker
+  to   = google_cloud_run_v2_job_iam_member.scheduler_invoker[0]
+}
+
+moved {
+  from = google_cloud_scheduler_job.schedule
+  to   = google_cloud_scheduler_job.schedule[0]
 }
 
 # Service account the job runs as.
@@ -116,22 +140,42 @@ resource "google_cloud_run_v2_job" "job" {
   }
 
   depends_on = [google_secret_manager_secret_iam_member.secrets]
+
+  lifecycle {
+    precondition {
+      condition     = local.create_scheduler || length(var.schedules) == 0
+      error_message = "schedules[] requires a primary `schedule`: the extra schedulers reuse the invoker SA that an empty `schedule` does not create."
+    }
+  }
 }
 
 # Service account for Cloud Scheduler to invoke the job.
 resource "google_service_account" "scheduler_invoker" {
+  count = local.create_scheduler ? 1 : 0
+
   account_id   = "${var.name}-sched"
   display_name = "Shorted job scheduler: ${var.name}"
   description  = "Service account for Cloud Scheduler to invoke the ${var.name} job"
   project      = var.project_id
+
+  lifecycle {
+    precondition {
+      # account_id is capped at 30 and this one appends "-sched"; the cap only
+      # binds a job that actually gets a scheduler.
+      condition     = length(var.name) <= 24
+      error_message = "a scheduled job's name must be <= 24 characters (its invoker SA is '<name>-sched' and service-account IDs are capped at 30)."
+    }
+  }
 }
 
 resource "google_cloud_run_v2_job_iam_member" "scheduler_invoker" {
+  count = local.create_scheduler ? 1 : 0
+
   name     = google_cloud_run_v2_job.job.name
   location = google_cloud_run_v2_job.job.location
   project  = var.project_id
   role     = "roles/run.invoker"
-  member   = "serviceAccount:${google_service_account.scheduler_invoker.email}"
+  member   = "serviceAccount:${google_service_account.scheduler_invoker[0].email}"
 }
 
 # Only created when at least one extra schedule posts an overrides body, so
@@ -143,10 +187,12 @@ resource "google_cloud_run_v2_job_iam_member" "scheduler_developer" {
   location = google_cloud_run_v2_job.job.location
   project  = var.project_id
   role     = "roles/run.developer"
-  member   = "serviceAccount:${google_service_account.scheduler_invoker.email}"
+  member   = "serviceAccount:${google_service_account.scheduler_invoker[0].email}"
 }
 
 resource "google_cloud_scheduler_job" "schedule" {
+  count = local.create_scheduler ? 1 : 0
+
   name             = "${var.name}-schedule"
   description      = var.description != "" ? var.description : "Scheduled run of `shorted ${join(" ", var.args)}`"
   schedule         = var.schedule
@@ -168,7 +214,7 @@ resource "google_cloud_scheduler_job" "schedule" {
     uri         = "https://${var.region}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${var.project_id}/jobs/${google_cloud_run_v2_job.job.name}:run"
 
     oauth_token {
-      service_account_email = google_service_account.scheduler_invoker.email
+      service_account_email = google_service_account.scheduler_invoker[0].email
     }
   }
 
@@ -208,7 +254,7 @@ resource "google_cloud_scheduler_job" "extra_schedule" {
     uri         = "https://${var.region}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${var.project_id}/jobs/${google_cloud_run_v2_job.job.name}:run"
 
     oauth_token {
-      service_account_email = google_service_account.scheduler_invoker.email
+      service_account_email = google_service_account.scheduler_invoker[0].email
     }
 
     # null when the entry declares no overrides → a plain :run, same as the

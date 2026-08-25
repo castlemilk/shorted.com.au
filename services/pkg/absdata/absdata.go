@@ -23,26 +23,37 @@ const (
 	Licence = "CC-BY-4.0"
 )
 
-// Client fetches ABS SDMX-CSV and RBA CSV tables.
+// Client fetches ABS SDMX-CSV and RBA CSV tables. attempts/backoff are the
+// retry policy (see retry.go); the zero value falls back to the defaults, so a
+// Client built by anything other than NewClient still retries.
 type Client struct {
-	http *http.Client
+	http     *http.Client
+	attempts int
+	backoff  time.Duration
 }
 
 func NewClient() *Client {
-	return &Client{http: &http.Client{Timeout: 60 * time.Second}}
+	return &Client{
+		http:     &http.Client{Timeout: 60 * time.Second},
+		attempts: defaultAttempts,
+		backoff:  defaultBackoff,
+	}
+}
+
+// get issues a retrying GET with the caller's headers. It returns the last
+// response even on failure so callers keep their own error wording.
+func (c *Client) get(ctx context.Context, url string, header http.Header) (*http.Response, error) {
+	return getWithRetry(ctx, c.http, url, header, c.attempts, c.backoff)
 }
 
 // FetchSDMXCSV GETs one ABS dataflow as SDMX-CSV (labels=both) and returns raw
 // CSV rows. key is the dotted dimension key ("1.AUS.Q" style; "all" allowed).
 func (c *Client) FetchSDMXCSV(ctx context.Context, dataflow, key, startPeriod string) ([][]string, error) {
 	url := fmt.Sprintf("%s/ABS,%s/%s?startPeriod=%s", absBase, dataflow, key, startPeriod)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("User-Agent", UserAgent)
-	req.Header.Set("Accept", csvAccept)
-	resp, err := c.http.Do(req)
+	resp, err := c.get(ctx, url, http.Header{
+		"User-Agent": {UserAgent},
+		"Accept":     {csvAccept},
+	})
 	if err != nil {
 		return nil, err
 	}
