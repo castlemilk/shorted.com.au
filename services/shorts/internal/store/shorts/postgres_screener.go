@@ -58,32 +58,8 @@ func (s *postgresStore) ScreenStocks(
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Build WHERE clauses dynamically
-	var conditions []string
-	var args []interface{}
-	argIdx := 1
-
-	if filters != nil {
-		argIdx = appendRangeFilter(&conditions, &args, argIdx, "short_pct", filters.ShortPct)
-		argIdx = appendRangeFilter(&conditions, &args, argIdx, "short_pct_change_4w", filters.ShortPctChange)
-		argIdx = appendRangeFilter(&conditions, &args, argIdx, "market_cap", filters.MarketCap)
-		argIdx = appendRangeFilter(&conditions, &args, argIdx, "price_change_1m", filters.PriceChange_1M)
-		argIdx = appendRangeFilter(&conditions, &args, argIdx, "pe_ratio", filters.PeRatio)
-		argIdx = appendRangeFilter(&conditions, &args, argIdx, "dividend_yield", filters.DividendYield)
-		argIdx = appendRangeFilter(&conditions, &args, argIdx, "net_director_buy_value", filters.NetDirectorBuy)
-		argIdx = appendRangeFilter(&conditions, &args, argIdx, "avg_sentiment", filters.AvgSentiment)
-		argIdx = appendRangeFilter(&conditions, &args, argIdx, "days_to_cover", filters.DaysToCover)
-
-		if len(filters.Industries) > 0 {
-			conditions = append(conditions, fmt.Sprintf("industry = ANY($%d)", argIdx))
-			args = append(args, filters.Industries)
-			argIdx++
-		}
-
-		if filters.HasDirectorBuys {
-			conditions = append(conditions, "director_buy_count > 0")
-		}
-	}
+	conditions, args := buildScreenerConditions(filters)
+	argIdx := len(args) + 1
 
 	whereClause := ""
 	if len(conditions) > 0 {
@@ -152,6 +128,83 @@ func (s *postgresStore) ScreenStocks(
 	}
 
 	return stocks, totalCount, nil
+}
+
+// buildScreenerConditions turns screener filters into parameterized WHERE
+// conditions and their bind args. Placeholders are $1..$len(args); the caller
+// continues numbering from len(args)+1 for LIMIT/OFFSET.
+func buildScreenerConditions(filters *shortsv1alpha1.ScreenerFilters) ([]string, []interface{}) {
+	var conditions []string
+	var args []interface{}
+	if filters == nil {
+		return conditions, args
+	}
+	argIdx := 1
+
+	argIdx = appendRangeFilter(&conditions, &args, argIdx, "short_pct", filters.ShortPct)
+	argIdx = appendRangeFilter(&conditions, &args, argIdx, "short_pct_change_4w", filters.ShortPctChange)
+	argIdx = appendRangeFilter(&conditions, &args, argIdx, "market_cap", filters.MarketCap)
+	argIdx = appendRangeFilter(&conditions, &args, argIdx, "price_change_1m", filters.PriceChange_1M)
+	argIdx = appendRangeFilter(&conditions, &args, argIdx, "pe_ratio", filters.PeRatio)
+	argIdx = appendRangeFilter(&conditions, &args, argIdx, "dividend_yield", filters.DividendYield)
+	argIdx = appendRangeFilter(&conditions, &args, argIdx, "net_director_buy_value", filters.NetDirectorBuy)
+	argIdx = appendRangeFilter(&conditions, &args, argIdx, "avg_sentiment", filters.AvgSentiment)
+	argIdx = appendRangeFilter(&conditions, &args, argIdx, "days_to_cover", filters.DaysToCover)
+
+	if len(filters.Industries) > 0 {
+		conditions = append(conditions, fmt.Sprintf("industry = ANY($%d)", argIdx))
+		args = append(args, filters.Industries)
+		argIdx++
+	}
+
+	if codes := NormalizeScreenerProductCodes(filters.ProductCodes); len(codes) > 0 {
+		if len(codes) > MaxScreenerProductCodes {
+			codes = codes[:MaxScreenerProductCodes]
+		}
+		conditions = append(conditions, fmt.Sprintf("stock_code = ANY($%d)", argIdx))
+		args = append(args, codes)
+		// Last placeholder consumer — a condition added below must reinstate
+		// the argIdx increment.
+	}
+
+	if filters.HasDirectorBuys {
+		conditions = append(conditions, "director_buy_count > 0")
+	}
+
+	return conditions, args
+}
+
+// MaxScreenerProductCodes bounds the stock_code = ANY($n) list. The themes
+// registry tops out at ~15 codes per theme; the cap exists so no caller can
+// hand the MV scan an unbounded array. The RPC rejects an over-cap request
+// (ValidateScreenStocksRequest); the store truncates, so a direct store caller
+// still gets a bounded query.
+const MaxScreenerProductCodes = 100
+
+// NormalizeScreenerProductCodes uppercases, trims and de-duplicates a product
+// code filter, dropping empties. An empty result means "no filter" — the store
+// must not apply an empty ANY(). Length is capped by the caller, not here.
+func NormalizeScreenerProductCodes(codes []string) []string {
+	if len(codes) == 0 {
+		return nil
+	}
+	normalized := make([]string, 0, len(codes))
+	seen := make(map[string]struct{}, len(codes))
+	for _, code := range codes {
+		c := strings.ToUpper(strings.TrimSpace(code))
+		if c == "" {
+			continue
+		}
+		if _, dup := seen[c]; dup {
+			continue
+		}
+		seen[c] = struct{}{}
+		normalized = append(normalized, c)
+	}
+	if len(normalized) == 0 {
+		return nil
+	}
+	return normalized
 }
 
 // appendRangeFilter adds WHERE conditions for a RangeFilter, returning the updated arg index

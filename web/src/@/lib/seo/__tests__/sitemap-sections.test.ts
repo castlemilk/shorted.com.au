@@ -124,6 +124,7 @@ import {
   renderSitemapIndex,
   renderUrlset,
 } from "../sitemap-xml";
+import { THEME_SLUGS } from "~/@/lib/themes/registry";
 
 type Section = { name: string; entries: Awaited<ReturnType<typeof buildCoreSitemap>> };
 
@@ -186,6 +187,7 @@ describe("sitemap children", () => {
       ["/glossary/", "sitemap-core.xml"],
       ["/authors/", "sitemap-core.xml"],
       ["/scans/", "sitemap-core.xml"],
+      ["/themes/", "sitemap-core.xml"],
       ["/directory/", "sitemap-core.xml"],
       ["/market/", "sitemap-core.xml"],
       ["/industry/", "sitemap-core.xml"],
@@ -204,6 +206,23 @@ describe("sitemap children", () => {
     for (const [needle, child] of expectations) {
       expect({ needle, in: where(needle) }).toEqual({ needle, in: [child] });
     }
+  });
+
+  // The theme URLs come from the registry, so a new theme reaches the sitemap
+  // without anyone remembering to hand-edit a list.
+  it("lists the themes hub and every registry theme, dated like the other ASIC pages", async () => {
+    const core = await buildCoreSitemap();
+    const hub = core.find((e) => e.url === "https://shorted.com.au/themes");
+    expect(hub).toBeDefined();
+    for (const slug of THEME_SLUGS) {
+      const entry = core.find(
+        (e) => e.url === `https://shorted.com.au/themes/${slug}`,
+      );
+      expect(entry).toBeDefined();
+      expect(entry!.lastModified).toBe(hub!.lastModified);
+    }
+    // ASIC-derived, so it carries a real data date rather than no lastmod.
+    expect(hub!.lastModified).toBeTruthy();
   });
 
   it("drops the auth-gated /developer stub and adds the API docs tree", async () => {

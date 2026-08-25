@@ -67,6 +67,7 @@ import {
   getShortInterestDeltas,
 } from "./short-interest-summary";
 import { LatestWeeklyReportLink } from "~/@/components/reports/latest-weekly-report-link";
+import { StockThemeChips } from "~/@/components/themes/theme-chips";
 import { NotFoundError } from "~/app/actions/withRetry";
 import { notFound } from "next/navigation";
 import {
@@ -544,6 +545,11 @@ const Page = async ({ params }: PageProps) => {
         asOfClause={asOfClause}
         deltas={shortDeltas}
       />
+
+      {/* Curated thematic baskets this code belongs to. Static registry data,
+          so no fetch and no Suspense — it ships in the ISR HTML where crawlers
+          read it, and renders nothing for codes in no basket. */}
+      <StockThemeChips stockCode={stockCode} className="-mt-2 mb-6" />
 
       {/* Weekly context — one internal link into the weekly report series
           (the ~200 dated posts that had almost no inbound links). Streamed

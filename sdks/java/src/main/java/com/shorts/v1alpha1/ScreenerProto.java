@@ -64,7 +64,7 @@ public final class ScreenerProto extends com.google.protobuf.GeneratedFile {
       ".v1alpha1\032\030options/v1/options.proto\"c\n\013R" +
       "angeFilter\022\020\n\003min\030\001 \001(\001R\003min\022\020\n\003max\030\002 \001(" +
       "\001R\003max\022\027\n\007has_min\030\003 \001(\010R\006hasMin\022\027\n\007has_m" +
-      "ax\030\004 \001(\010R\006hasMax\"\256\005\n\017ScreenerFilters\0229\n\t" +
+      "ax\030\004 \001(\010R\006hasMax\"\323\005\n\017ScreenerFilters\0229\n\t" +
       "short_pct\030\001 \001(\0132\034.shorts.v1alpha1.RangeF" +
       "ilterR\010shortPct\022F\n\020short_pct_change\030\002 \001(" +
       "\0132\034.shorts.v1alpha1.RangeFilterR\016shortPc" +
@@ -81,58 +81,59 @@ public final class ScreenerProto extends com.google.protobuf.GeneratedFile {
       "ent\022\036\n\nindustries\030\t \003(\tR\nindustries\022*\n\021h" +
       "as_director_buys\030\n \001(\010R\017hasDirectorBuys\022" +
       "@\n\rdays_to_cover\030\013 \001(\0132\034.shorts.v1alpha1" +
-      ".RangeFilterR\013daysToCover\"\211\002\n\023ScreenStoc" +
-      "ksRequest\022:\n\007filters\030\001 \001(\0132 .shorts.v1al" +
-      "pha1.ScreenerFiltersR\007filters\022A\n\nsort_fi" +
-      "eld\030\002 \001(\0162\".shorts.v1alpha1.ScreenerSort" +
-      "FieldR\tsortField\022E\n\016sort_direction\030\003 \001(\016" +
-      "2\036.shorts.v1alpha1.SortDirectionR\rsortDi" +
-      "rection\022\024\n\005limit\030\004 \001(\005R\005limit\022\026\n\006offset\030" +
-      "\005 \001(\005R\006offset\"\337\006\n\rScreenerStock\022\035\n\nstock" +
-      "_code\030\001 \001(\tR\tstockCode\022!\n\014company_name\030\002" +
-      " \001(\tR\013companyName\022\032\n\010industry\030\003 \001(\tR\010ind" +
-      "ustry\022\033\n\tshort_pct\030\004 \001(\001R\010shortPct\022-\n\023sh" +
-      "ort_pct_change_4w\030\005 \001(\001R\020shortPctChange4" +
-      "w\022!\n\014latest_price\030\006 \001(\001R\013latestPrice\022&\n\017" +
-      "price_change_1m\030\007 \001(\001R\rpriceChange1m\022#\n\r" +
-      "latest_volume\030\010 \001(\003R\014latestVolume\022\035\n\nmar" +
-      "ket_cap\030\t \001(\001R\tmarketCap\022\031\n\010pe_ratio\030\n \001" +
-      "(\001R\007peRatio\022%\n\016dividend_yield\030\013 \001(\001R\rdiv" +
-      "idendYield\0223\n\026net_director_buy_value\030\014 \001" +
-      "(\001R\023netDirectorBuyValue\022,\n\022director_buy_" +
-      "count\030\r \001(\005R\020directorBuyCount\022.\n\023directo" +
-      "r_sell_count\030\016 \001(\005R\021directorSellCount\022$\n" +
-      "\016news_count_30d\030\017 \001(\005R\014newsCount30d\022#\n\ra" +
-      "vg_sentiment\030\020 \001(\001R\014avgSentiment\0222\n\025pric" +
-      "e_sensitive_count\030\021 \001(\005R\023priceSensitiveC" +
-      "ount\0222\n\025trailing_12m_dividend\030\022 \001(\001R\023tra" +
-      "iling12mDividend\022(\n\020avg_franking_pct\030\023 \001" +
-      "(\001R\016avgFrankingPct\022\031\n\010logo_url\030\024 \001(\tR\007lo" +
-      "goUrl\022\"\n\rdays_to_cover\030\025 \001(\001R\013daysToCove" +
-      "r\022$\n\016avg_volume_20d\030\026 \001(\003R\014avgVolume20d\"" +
-      "o\n\024ScreenStocksResponse\0226\n\006stocks\030\001 \003(\0132" +
-      "\036.shorts.v1alpha1.ScreenerStockR\006stocks\022" +
-      "\037\n\013total_count\030\002 \001(\005R\ntotalCount*\360\002\n\021Scr" +
-      "eenerSortField\022!\n\035SCREENER_SORT_FIELD_SH" +
-      "ORT_PCT\020\000\022(\n$SCREENER_SORT_FIELD_SHORT_P" +
-      "CT_CHANGE\020\001\022\"\n\036SCREENER_SORT_FIELD_MARKE" +
-      "T_CAP\020\002\022\'\n#SCREENER_SORT_FIELD_PRICE_CHA" +
-      "NGE_1M\020\003\022 \n\034SCREENER_SORT_FIELD_PE_RATIO" +
-      "\020\004\022&\n\"SCREENER_SORT_FIELD_DIVIDEND_YIELD" +
-      "\020\005\022(\n$SCREENER_SORT_FIELD_NET_DIRECTOR_B" +
-      "UY\020\006\022&\n\"SCREENER_SORT_FIELD_NEWS_SENTIME" +
-      "NT\020\007\022%\n!SCREENER_SORT_FIELD_DAYS_TO_COVE" +
-      "R\020\010*@\n\rSortDirection\022\027\n\023SORT_DIRECTION_D" +
-      "ESC\020\000\022\026\n\022SORT_DIRECTION_ASC\020\0012t\n\017Screene" +
-      "rService\022a\n\014ScreenStocks\022$.shorts.v1alph" +
-      "a1.ScreenStocksRequest\032%.shorts.v1alpha1" +
-      ".ScreenStocksResponse\"\004\200\265\030\001B\334\001\n\023com.shor" +
-      "ts.v1alpha1B\rScreenerProtoP\001ZYgithub.com" +
-      "/castlemilk/shorted.com.au/services/gen/" +
-      "proto/go/shorts/v1alpha1;shortsv1alpha1\242" +
-      "\002\003SXX\252\002\017Shorts.V1alpha1\312\002\017Shorts\\V1alpha" +
-      "1\342\002\033Shorts\\V1alpha1\\GPBMetadata\352\002\020Shorts" +
-      "::V1alpha1b\006proto3"
+      ".RangeFilterR\013daysToCover\022#\n\rproduct_cod" +
+      "es\030\014 \003(\tR\014productCodes\"\211\002\n\023ScreenStocksR" +
+      "equest\022:\n\007filters\030\001 \001(\0132 .shorts.v1alpha" +
+      "1.ScreenerFiltersR\007filters\022A\n\nsort_field" +
+      "\030\002 \001(\0162\".shorts.v1alpha1.ScreenerSortFie" +
+      "ldR\tsortField\022E\n\016sort_direction\030\003 \001(\0162\036." +
+      "shorts.v1alpha1.SortDirectionR\rsortDirec" +
+      "tion\022\024\n\005limit\030\004 \001(\005R\005limit\022\026\n\006offset\030\005 \001" +
+      "(\005R\006offset\"\337\006\n\rScreenerStock\022\035\n\nstock_co" +
+      "de\030\001 \001(\tR\tstockCode\022!\n\014company_name\030\002 \001(" +
+      "\tR\013companyName\022\032\n\010industry\030\003 \001(\tR\010indust" +
+      "ry\022\033\n\tshort_pct\030\004 \001(\001R\010shortPct\022-\n\023short" +
+      "_pct_change_4w\030\005 \001(\001R\020shortPctChange4w\022!" +
+      "\n\014latest_price\030\006 \001(\001R\013latestPrice\022&\n\017pri" +
+      "ce_change_1m\030\007 \001(\001R\rpriceChange1m\022#\n\rlat" +
+      "est_volume\030\010 \001(\003R\014latestVolume\022\035\n\nmarket" +
+      "_cap\030\t \001(\001R\tmarketCap\022\031\n\010pe_ratio\030\n \001(\001R" +
+      "\007peRatio\022%\n\016dividend_yield\030\013 \001(\001R\rdivide" +
+      "ndYield\0223\n\026net_director_buy_value\030\014 \001(\001R" +
+      "\023netDirectorBuyValue\022,\n\022director_buy_cou" +
+      "nt\030\r \001(\005R\020directorBuyCount\022.\n\023director_s" +
+      "ell_count\030\016 \001(\005R\021directorSellCount\022$\n\016ne" +
+      "ws_count_30d\030\017 \001(\005R\014newsCount30d\022#\n\ravg_" +
+      "sentiment\030\020 \001(\001R\014avgSentiment\0222\n\025price_s" +
+      "ensitive_count\030\021 \001(\005R\023priceSensitiveCoun" +
+      "t\0222\n\025trailing_12m_dividend\030\022 \001(\001R\023traili" +
+      "ng12mDividend\022(\n\020avg_franking_pct\030\023 \001(\001R" +
+      "\016avgFrankingPct\022\031\n\010logo_url\030\024 \001(\tR\007logoU" +
+      "rl\022\"\n\rdays_to_cover\030\025 \001(\001R\013daysToCover\022$" +
+      "\n\016avg_volume_20d\030\026 \001(\003R\014avgVolume20d\"o\n\024" +
+      "ScreenStocksResponse\0226\n\006stocks\030\001 \003(\0132\036.s" +
+      "horts.v1alpha1.ScreenerStockR\006stocks\022\037\n\013" +
+      "total_count\030\002 \001(\005R\ntotalCount*\360\002\n\021Screen" +
+      "erSortField\022!\n\035SCREENER_SORT_FIELD_SHORT" +
+      "_PCT\020\000\022(\n$SCREENER_SORT_FIELD_SHORT_PCT_" +
+      "CHANGE\020\001\022\"\n\036SCREENER_SORT_FIELD_MARKET_C" +
+      "AP\020\002\022\'\n#SCREENER_SORT_FIELD_PRICE_CHANGE" +
+      "_1M\020\003\022 \n\034SCREENER_SORT_FIELD_PE_RATIO\020\004\022" +
+      "&\n\"SCREENER_SORT_FIELD_DIVIDEND_YIELD\020\005\022" +
+      "(\n$SCREENER_SORT_FIELD_NET_DIRECTOR_BUY\020" +
+      "\006\022&\n\"SCREENER_SORT_FIELD_NEWS_SENTIMENT\020" +
+      "\007\022%\n!SCREENER_SORT_FIELD_DAYS_TO_COVER\020\010" +
+      "*@\n\rSortDirection\022\027\n\023SORT_DIRECTION_DESC" +
+      "\020\000\022\026\n\022SORT_DIRECTION_ASC\020\0012t\n\017ScreenerSe" +
+      "rvice\022a\n\014ScreenStocks\022$.shorts.v1alpha1." +
+      "ScreenStocksRequest\032%.shorts.v1alpha1.Sc" +
+      "reenStocksResponse\"\004\200\265\030\001B\334\001\n\023com.shorts." +
+      "v1alpha1B\rScreenerProtoP\001ZYgithub.com/ca" +
+      "stlemilk/shorted.com.au/services/gen/pro" +
+      "to/go/shorts/v1alpha1;shortsv1alpha1\242\002\003S" +
+      "XX\252\002\017Shorts.V1alpha1\312\002\017Shorts\\V1alpha1\342\002" +
+      "\033Shorts\\V1alpha1\\GPBMetadata\352\002\020Shorts::V" +
+      "1alpha1b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -150,7 +151,7 @@ public final class ScreenerProto extends com.google.protobuf.GeneratedFile {
     internal_static_shorts_v1alpha1_ScreenerFilters_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ScreenerFilters_descriptor,
-        new java.lang.String[] { "ShortPct", "ShortPctChange", "MarketCap", "PriceChange1M", "PeRatio", "DividendYield", "NetDirectorBuy", "AvgSentiment", "Industries", "HasDirectorBuys", "DaysToCover", });
+        new java.lang.String[] { "ShortPct", "ShortPctChange", "MarketCap", "PriceChange1M", "PeRatio", "DividendYield", "NetDirectorBuy", "AvgSentiment", "Industries", "HasDirectorBuys", "DaysToCover", "ProductCodes", });
     internal_static_shorts_v1alpha1_ScreenStocksRequest_descriptor =
       getDescriptor().getMessageType(2);
     internal_static_shorts_v1alpha1_ScreenStocksRequest_fieldAccessorTable = new

@@ -14,6 +14,7 @@ import { siteConfig } from "~/@/config/site";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { Badge } from "~/@/components/ui/badge";
 import { IndustrySignalPanel } from "~/@/components/industry/industry-signal-panel";
+import { RelatedThemesForIndustry } from "~/@/components/themes/theme-chips";
 import {
   BreadcrumbListSchema,
 } from "~/@/components/seo/enhanced-structured-data";
@@ -466,6 +467,11 @@ export default async function IndustryPage({ params }: PageProps) {
             to filter {industry.name.toLowerCase()} stocks by short interest, days to cover, and more.
           </p>
         </section>
+
+        {/* Curated thematic baskets that sit inside this industry. Static
+            registry data — no fetch — and renders nothing for the industries
+            no theme claims. */}
+        <RelatedThemesForIndustry industry={industry.name} className="mt-12" />
 
         {/* Related Industries */}
         <section className="mt-12 pt-8 border-t border-border/40">
