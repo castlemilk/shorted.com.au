@@ -233,6 +233,10 @@ export interface CrowdingPoint {
   p75?: number;
   /** Population standard deviation of the constituents (pp). */
   stddev?: number;
+  /** Lowest constituent value in the bucket (%). */
+  min?: number;
+  /** Highest constituent value in the bucket (%). */
+  max?: number;
 }
 
 export interface IndustryCrowdingSeries {
@@ -350,6 +354,11 @@ export function buildIndustryCrowdingSeries(
       p25: round2(percentile(sorted, 0.25)),
       p75: round2(percentile(sorted, 0.75)),
       stddev: round2(Math.sqrt(variance)),
+      // Full envelope. /themes shades min–max rather than p10–p90 because a
+      // hand-curated basket of 8-15 names has too few constituents for a
+      // percentile band to mean anything (p10 of 9 values is nearly the min).
+      min: round2(sorted[0]!),
+      max: round2(sorted[sorted.length - 1]!),
     });
   }
 

@@ -179,4 +179,34 @@ public interface GetSuburbProfileResponseOrBuilder extends
    * <code>.shorts.v1alpha1.SuburbCrime crime = 7 [json_name = "crime"];</code>
    */
   com.shorts.v1alpha1.SuburbCrimeOrBuilder getCrimeOrBuilder();
+
+  /**
+   * <pre>
+   * Crawl-derived listing aggregates; null when the suburb is outside the crawl
+   * catalog or the HOUSING_DROP_LISTINGS_ENABLED kill switch is off.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbListingStats listing_stats = 8 [json_name = "listingStats"];</code>
+   * @return Whether the listingStats field is set.
+   */
+  boolean hasListingStats();
+  /**
+   * <pre>
+   * Crawl-derived listing aggregates; null when the suburb is outside the crawl
+   * catalog or the HOUSING_DROP_LISTINGS_ENABLED kill switch is off.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbListingStats listing_stats = 8 [json_name = "listingStats"];</code>
+   * @return The listingStats.
+   */
+  com.shorts.v1alpha1.SuburbListingStats getListingStats();
+  /**
+   * <pre>
+   * Crawl-derived listing aggregates; null when the suburb is outside the crawl
+   * catalog or the HOUSING_DROP_LISTINGS_ENABLED kill switch is off.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbListingStats listing_stats = 8 [json_name = "listingStats"];</code>
+   */
+  com.shorts.v1alpha1.SuburbListingStatsOrBuilder getListingStatsOrBuilder();
 }

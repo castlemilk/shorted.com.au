@@ -303,4 +303,45 @@ public interface ScreenerFiltersOrBuilder extends
    * <code>.shorts.v1alpha1.RangeFilter days_to_cover = 11 [json_name = "daysToCover"];</code>
    */
   com.shorts.v1alpha1.RangeFilterOrBuilder getDaysToCoverOrBuilder();
+
+  /**
+   * <pre>
+   * Filter to specific stock codes — used by /themes
+   * </pre>
+   *
+   * <code>repeated string product_codes = 12 [json_name = "productCodes"];</code>
+   * @return A list containing the productCodes.
+   */
+  java.util.List<java.lang.String>
+      getProductCodesList();
+  /**
+   * <pre>
+   * Filter to specific stock codes — used by /themes
+   * </pre>
+   *
+   * <code>repeated string product_codes = 12 [json_name = "productCodes"];</code>
+   * @return The count of productCodes.
+   */
+  int getProductCodesCount();
+  /**
+   * <pre>
+   * Filter to specific stock codes — used by /themes
+   * </pre>
+   *
+   * <code>repeated string product_codes = 12 [json_name = "productCodes"];</code>
+   * @param index The index of the element to return.
+   * @return The productCodes at the given index.
+   */
+  java.lang.String getProductCodes(int index);
+  /**
+   * <pre>
+   * Filter to specific stock codes — used by /themes
+   * </pre>
+   *
+   * <code>repeated string product_codes = 12 [json_name = "productCodes"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the productCodes at the given index.
+   */
+  com.google.protobuf.ByteString
+      getProductCodesBytes(int index);
 }

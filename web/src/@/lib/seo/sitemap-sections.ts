@@ -56,6 +56,7 @@ import {
 import { getReportsList } from "~/app/actions/reports/getReportData";
 import { weeklyReportPath } from "~/@/lib/reports/weekly-slug";
 import { SCAN_SLUGS } from "~/@/lib/scans/registry";
+import { THEME_SLUGS } from "~/@/lib/themes/registry";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 import { createSlug } from "~/@/lib/industry-slug";
 import { ALL_STATES, stateSlug, suburbSlug } from "~/@/lib/housing/states";
@@ -278,6 +279,14 @@ export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
     { url: `${baseUrl}/scans`, lastModified: latestDataDate },
     ...SCAN_SLUGS.map((slug) => ({
       url: `${baseUrl}/scans/${slug}`,
+      lastModified: latestDataDate,
+    })),
+    // Curated thematic baskets. Same rule as scans: ASIC-derived, so
+    // latestDataDate, and the slugs come from the registry so there is no
+    // hand-list to drift.
+    { url: `${baseUrl}/themes`, lastModified: latestDataDate },
+    ...THEME_SLUGS.map((slug) => ({
+      url: `${baseUrl}/themes/${slug}`,
       lastModified: latestDataDate,
     })),
     // Open data hub + press kit — both citation surfaces we point journalists at.

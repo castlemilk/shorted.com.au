@@ -220,6 +220,7 @@ type ScreenerFilters struct {
 	Industries      []string               `protobuf:"bytes,9,rep,name=industries,proto3" json:"industries,omitempty"`                                      // Filter to specific industries
 	HasDirectorBuys bool                   `protobuf:"varint,10,opt,name=has_director_buys,json=hasDirectorBuys,proto3" json:"has_director_buys,omitempty"` // Only stocks with recent director buys
 	DaysToCover     *RangeFilter           `protobuf:"bytes,11,opt,name=days_to_cover,json=daysToCover,proto3" json:"days_to_cover,omitempty"`              // Days to cover (short positions / avg daily volume)
+	ProductCodes    []string               `protobuf:"bytes,12,rep,name=product_codes,json=productCodes,proto3" json:"product_codes,omitempty"`             // Filter to specific stock codes — used by /themes
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -327,6 +328,13 @@ func (x *ScreenerFilters) GetHasDirectorBuys() bool {
 func (x *ScreenerFilters) GetDaysToCover() *RangeFilter {
 	if x != nil {
 		return x.DaysToCover
+	}
+	return nil
+}
+
+func (x *ScreenerFilters) GetProductCodes() []string {
+	if x != nil {
+		return x.ProductCodes
 	}
 	return nil
 }
@@ -683,7 +691,7 @@ const file_shorts_v1alpha1_screener_proto_rawDesc = "" +
 	"\x03min\x18\x01 \x01(\x01R\x03min\x12\x10\n" +
 	"\x03max\x18\x02 \x01(\x01R\x03max\x12\x17\n" +
 	"\ahas_min\x18\x03 \x01(\bR\x06hasMin\x12\x17\n" +
-	"\ahas_max\x18\x04 \x01(\bR\x06hasMax\"\xae\x05\n" +
+	"\ahas_max\x18\x04 \x01(\bR\x06hasMax\"\xd3\x05\n" +
 	"\x0fScreenerFilters\x129\n" +
 	"\tshort_pct\x18\x01 \x01(\v2\x1c.shorts.v1alpha1.RangeFilterR\bshortPct\x12F\n" +
 	"\x10short_pct_change\x18\x02 \x01(\v2\x1c.shorts.v1alpha1.RangeFilterR\x0eshortPctChange\x12;\n" +
@@ -699,7 +707,8 @@ const file_shorts_v1alpha1_screener_proto_rawDesc = "" +
 	"industries\x12*\n" +
 	"\x11has_director_buys\x18\n" +
 	" \x01(\bR\x0fhasDirectorBuys\x12@\n" +
-	"\rdays_to_cover\x18\v \x01(\v2\x1c.shorts.v1alpha1.RangeFilterR\vdaysToCover\"\x89\x02\n" +
+	"\rdays_to_cover\x18\v \x01(\v2\x1c.shorts.v1alpha1.RangeFilterR\vdaysToCover\x12#\n" +
+	"\rproduct_codes\x18\f \x03(\tR\fproductCodes\"\x89\x02\n" +
 	"\x13ScreenStocksRequest\x12:\n" +
 	"\afilters\x18\x01 \x01(\v2 .shorts.v1alpha1.ScreenerFiltersR\afilters\x12A\n" +
 	"\n" +
