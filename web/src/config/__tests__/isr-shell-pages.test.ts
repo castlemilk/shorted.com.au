@@ -39,6 +39,26 @@ describe("isr-shell-pages.json", () => {
       "/economy",
       "/compare",
       "/price-drops",
+      "/themes",
     ]);
+  });
+});
+
+// /themes/[slug] builds as a deliberately-empty static shell (skipForBuild)
+// that the post-promote sweep fills. A theme present in the registry but
+// missing from isr-pages.json ships every deploy as an empty page until its
+// first natural revalidation — exactly what happened on the feature's launch
+// deploy (2026-08-25). The slug list lives in the registry; this pins the
+// sweep inventory to it.
+describe("theme pages in the ISR sweep inventory", () => {
+  it("covers /themes and every registry slug", () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { THEME_SLUGS } = require("~/@/lib/themes/registry") as {
+      THEME_SLUGS: string[];
+    };
+    const all = new Set(isrPages as string[]);
+    expect(all.has("/themes")).toBe(true);
+    const missing = THEME_SLUGS.filter((slug) => !all.has(`/themes/${slug}`));
+    expect(missing).toEqual([]);
   });
 });
