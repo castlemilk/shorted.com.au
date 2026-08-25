@@ -306,8 +306,9 @@ describe("a senator with funding but no register rows", () => {
   it("is kept out of the sitemap by that same predicate", () => {
     // The sitemap filters `hasInterests`, and getPoliticianSlugs maps it
     // through profileIsIndexable — one predicate, so the robots tag on the page
-    // and the sitemap entry can never disagree.
-    const sitemap = readFileSync(join(ROOT, "app", "sitemap.ts"), "utf8");
+    // and the sitemap entry can never disagree. (Since #444 the politicians
+    // section lives in sitemap-sections.ts, served by sitemap-politicians.xml.)
+    const sitemap = readFileSync(join(ROOT, "@", "lib", "seo", "sitemap-sections.ts"), "utf8");
     expect(sitemap).toMatch(/\.filter\(\(s\) => s\.hasInterests\)/);
 
     const action = readFileSync(join(ROOT, "app", "actions", "getPoliticians.ts"), "utf8");
