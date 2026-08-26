@@ -61,6 +61,8 @@ import {
   HOUSING_RANKINGS,
   HOUSING_RANKING_SLUGS,
 } from "~/@/lib/housing-rankings/registry";
+import { STATE_SLUGS } from "~/@/lib/economy/map-metrics";
+import { PUBLISHED_ECONOMY_TOPIC_PAIRS } from "~/@/lib/economy/topics";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 import { createSlug } from "~/@/lib/industry-slug";
 import { ALL_STATES, stateSlug, suburbSlug } from "~/@/lib/housing/states";
@@ -268,8 +270,13 @@ export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
     // Economy: monthly collector cadence and no per-series date on this path,
     // so no lastmod rather than the ASIC date it used to (wrongly) carry.
     { url: `${baseUrl}/economy` },
-    ...["nsw", "vic", "qld", "sa", "wa", "tas", "nt", "act"].map((slug) => ({
+    ...STATE_SLUGS.map((slug) => ({
       url: `${baseUrl}/economy/${slug}`,
+    })),
+    // Topic drill-downs share the registry's measured publication gate. Like
+    // their hubs, they omit lastmod because no route-level source date exists.
+    ...PUBLISHED_ECONOMY_TOPIC_PAIRS.map(({ state, topic }) => ({
+      url: `${baseUrl}/economy/${state}/${topic}`,
     })),
     // Squeeze radar — "short squeeze asx" is a winnable SERP with weak incumbents.
     { url: `${baseUrl}/battlegrounds`, lastModified: latestDataDate },

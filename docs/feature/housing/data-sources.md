@@ -44,17 +44,26 @@ latest cells are skipped, not zero-filled.
 
 ## State Valuer-General — the tier that is actually broken
 
-| State | How | Licence | As at 2026-08-09 |
+| State | How | Licence | As at 2026-08-26 |
 |---|---|---|---|
-| SA | `data.sa.gov.au` CKAN datastore, "Metropolitan Median House Sales" (quarterly, dynamic median columns) | CC-BY | LIVE — 426/1,764 suburbs priced |
-| VIC | `land.vic.gov.au` "Median House by Suburb" XLSX behind Cloudflare, via `stealthhttp`'s **native** engine (curl gets the challenge page) | CC-BY-4.0 | Pinned to a 2014–2024 workbook, **frozen at Dec-2024**, URL currently 403s — 739/3,076 |
-| NSW | **Bulk Property Sales Information**: yearly zip → 53 weekly zips → ~95 `.DAT` files; we aggregate B-records into suburb medians ourselves | CC-BY (attribute "NSW Valuer-General") | **Never landed a row in prod** — Cloud Run egress cannot clear the Cloudflare challenge |
-| QLD, WA | — | — | No VG tier exists |
+| SA | `data.sa.gov.au` CKAN datastore, "Metropolitan Median House Sales" (quarterly, dynamic median columns) | CC-BY | LIVE — 426/1,698 suburbs priced |
+| VIC | `land.vic.gov.au` "Median House by Suburb" XLSX behind Cloudflare, via `stealthhttp`'s **native** engine (curl gets the challenge page) | CC-BY-4.0 | Pinned to a 2014–2024 workbook, **frozen at Dec-2024** — 766/2,946 |
+| NSW | **Bulk Property Sales Information**: yearly zip → 53 weekly zips → ~95 `.DAT` files; we aggregate B-records into suburb medians ourselves | CC-BY (attribute "NSW Valuer-General") | **LIVE — 2,433/4,544 suburbs priced.** The Cloudflare-egress blocker below is resolved |
+| QLD, WA, TAS, NT, ACT | — | — | No VG tier exists — 0 suburbs priced |
 
-Known-open, fix in flight (*collector-vg*): NSW 0/4,544, QLD 0/3,235 and WA
-0/1,701 suburbs unpriced, those maps silently falling back to population
+Measured against the prod API on **2026-08-26** (suburbs with a non-zero median):
+NSW 2,433 · VIC 766 · SA 426 · QLD 0 · WA 0 · TAS 0 · NT 0 · ACT 0. NSW landing
+is the change since the 2026-08-09 revision, which recorded it at zero.
+
+Still known-open: QLD (0/3,235), WA (0/1,701), TAS (0/778), NT (0/305) and ACT
+(0/138) have no Valuer-General tier at all, so those maps fall back to population
 colouring — invisible because a failed official job still exits 0
-([pipeline.md](pipeline.md)).
+([pipeline.md](pipeline.md)). **These five states are also the reason
+`/housing/rankings` publishes NSW/VIC/SA only** (see
+`web/src/@/lib/housing-rankings/registry.ts`): every ranking metric needs a
+median price, so an unpriced state could only produce an empty page. Landing a
+VG tier for any of them enables five ranking pages for a one-line registry edit —
+the copy is already written.
 
 ## ABS Census 2021 — what `-mode census` does not take
 
