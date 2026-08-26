@@ -62,3 +62,23 @@ describe("theme pages in the ISR sweep inventory", () => {
     expect(missing).toEqual([]);
   });
 });
+
+// Housing ranking pages deliberately skip their live state read at build time
+// and depend on the post-promote sweep to fill the hourly ISR cache. Keep the
+// deployment inventory coupled to the registry so adding the 41st route cannot
+// repeat the themes launch regression.
+describe("housing ranking pages in the ISR sweep inventory", () => {
+  it("covers /housing/rankings and every registry slug", () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { HOUSING_RANKING_SLUGS } =
+      require("~/@/lib/housing-rankings/registry") as {
+        HOUSING_RANKING_SLUGS: string[];
+      };
+    const all = new Set(isrPages as string[]);
+    expect(all.has("/housing/rankings")).toBe(true);
+    const missing = HOUSING_RANKING_SLUGS.filter(
+      (slug) => !all.has(`/housing/rankings/${slug}`),
+    );
+    expect(missing).toEqual([]);
+  });
+});
