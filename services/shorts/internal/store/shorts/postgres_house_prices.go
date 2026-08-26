@@ -660,10 +660,21 @@ func (s *postgresStore) GetHousingRegions(regionType, stateCode, query string, l
 		       COALESCE(lp.value, 0), lp.period
 		FROM house_price_regions r
 		LEFT JOIN LATERAL (
+			-- Houses only, and that filter is load-bearing rather than cosmetic.
+			-- Suburb rows (state Valuer-General) carry dwelling_type 'house';
+			-- the ABS gccsa/rest_of_state rows carry BOTH 'established_house'
+			-- and 'attached' for the same region and quarter. Without this the
+			-- ORDER BY period DESC LIMIT 1 tie was broken arbitrarily and in
+			-- practice returned the ATTACHED (unit) median, so every capital
+			-- city published a headline understated by up to 43% -- Greater
+			-- Sydney read $848k against an established-house median of $1.485m
+			-- (2026-Q1). No region_type carries both 'house' and
+			-- 'established_house', so this yields exactly one series per region.
 			SELECT value, period FROM house_prices hp
 			WHERE hp.region_code = r.region_code AND hp.measure = 'median_price'
+			  AND hp.dwelling_type IN ('house', 'established_house')
 			  AND hp.source_licence <> 'proprietary-tos-restricted'
-			ORDER BY hp.period DESC
+			ORDER BY hp.period DESC, hp.dwelling_type
 			LIMIT 1
 		) lp ON true
 		WHERE ($1 = '' OR r.region_type = $1)

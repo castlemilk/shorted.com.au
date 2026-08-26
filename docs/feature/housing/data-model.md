@@ -50,6 +50,28 @@ the live portal and sit behind `HOUSING_DROP_LISTINGS_ENABLED`.
 - `house_price_ingest_runs` — per-source cursor (`source` PK, `last_period`,
   `rows_upserted`, `status`).
 
+**`dwelling_type` has two vocabularies, and mixing them silently returns the
+wrong number.** Measured in prod 2026-08-26:
+
+| `region_type` | `dwelling_type` values | Source |
+|---|---|---|
+| `suburb` | `house` (31,681 rows) | state Valuer-General |
+| `gccsa`, `rest_of_state` | **both** `established_house` and `attached` | ABS `RES_DWELL` |
+| `state`, `national` | `all` | ABS/RBA aggregates |
+
+So a regional region_code has **two `median_price` rows for the same quarter**.
+Any "latest median" lateral that filters only on `measure = 'median_price'` and
+takes `ORDER BY period DESC LIMIT 1` breaks that tie arbitrarily — and in
+practice returned the **attached (unit)** median. That shipped: every capital
+city's headline read the unit price, understating Greater Sydney by 43%
+($848k against an established-house median of $1.485m at 2026-Q1). Fixed by
+filtering `dwelling_type IN ('house', 'established_house')`, which is
+unambiguous because no `region_type` carries both. Conversely, a query that
+filters `dwelling_type = 'house'` is **suburb-only** and will silently return
+nothing for gccsa/rest_of_state regions — correct for the suburb read paths
+that do it, wrong if copied to a regional one. Regression:
+`TestHousingRegionsQuery_PicksHousesNotUnits`.
+
 Known-open: an official-ingest failure exits 0 with no freshness sentinel, so
 a stale cursor looks healthy — fix in flight on the `feat/housing-*` branches
 (2026-08-09 audit).
