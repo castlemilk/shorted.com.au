@@ -118,3 +118,35 @@ func TestSuburbReaders_PreferOnePublicPricedRegionPerSAL(t *testing.T) {
 		t.Errorf("preferred suburb-region join must be shared by list and profile queries; got %d uses", got)
 	}
 }
+
+// GetHousingRegions serves every region_type from one query, and the ABS
+// gccsa/rest_of_state rows carry BOTH 'established_house' and 'attached' for
+// the same region and quarter while suburb rows carry only 'house'. Without an
+// explicit dwelling-type filter the latest-median LATERAL broke that tie
+// arbitrarily and returned the ATTACHED (unit) median, so every capital city
+// published a headline understated by up to 43% (Greater Sydney read $848k
+// against an established-house median of $1.485m at 2026-Q1).
+func TestHousingRegionsQuery_PicksHousesNotUnits(t *testing.T) {
+	source := postgresHousePricesSource(t)
+
+	marker := "SELECT value, period FROM house_prices hp"
+	idx := strings.Index(source, marker)
+	if idx < 0 {
+		t.Fatal("GetHousingRegions latest-median LATERAL not found")
+	}
+	lateral := source[idx:]
+	if end := strings.Index(lateral, ") lp ON true"); end >= 0 {
+		lateral = lateral[:end]
+	}
+
+	if !strings.Contains(lateral, "hp.dwelling_type IN ('house', 'established_house')") {
+		t.Error("latest-median LATERAL must restrict to house dwelling types; " +
+			"without it the attached/unit median wins the period tie")
+	}
+	if !strings.Contains(lateral, "ORDER BY hp.period DESC, hp.dwelling_type") {
+		t.Error("latest-median LATERAL needs a deterministic tiebreak after period")
+	}
+	if strings.Contains(lateral, "'attached'") {
+		t.Error("latest-median LATERAL must not select attached-dwelling medians")
+	}
+}
