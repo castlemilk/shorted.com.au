@@ -129,6 +129,7 @@ import {
   HOUSING_RANKINGS,
   HOUSING_RANKING_SLUGS,
 } from "~/@/lib/housing-rankings/registry";
+import { PUBLISHED_ECONOMY_TOPIC_PAIRS } from "~/@/lib/economy/topics";
 
 type Section = { name: string; entries: Awaited<ReturnType<typeof buildCoreSitemap>> };
 
@@ -227,6 +228,30 @@ describe("sitemap children", () => {
     }
     // ASIC-derived, so it carries a real data date rather than no lastmod.
     expect(hub!.lastModified).toBeTruthy();
+  });
+
+  it("lists every published economy topic pair in the core sitemap without a fabricated lastmod", async () => {
+    const core = await buildCoreSitemap();
+    const topicEntries = core.filter((entry) =>
+      /\/economy\/[a-z]+\/[a-z-]+$/.test(entry.url),
+    );
+
+    expect(topicEntries).toHaveLength(PUBLISHED_ECONOMY_TOPIC_PAIRS.length);
+    for (const pair of PUBLISHED_ECONOMY_TOPIC_PAIRS) {
+      const entry = topicEntries.find(
+        (candidate) =>
+          candidate.url ===
+          `https://shorted.com.au/economy/${pair.state}/${pair.topic}`,
+      );
+      expect(entry).toBeDefined();
+      expect(entry!.lastModified).toBeUndefined();
+    }
+    expect(
+      topicEntries.some((entry) => entry.url.endsWith("/economy/act/labour")),
+    ).toBe(false);
+    expect(
+      topicEntries.some((entry) => entry.url.endsWith("/economy/nt/labour")),
+    ).toBe(false);
   });
 
   it("drops the auth-gated /developer stub and adds the API docs tree", async () => {
