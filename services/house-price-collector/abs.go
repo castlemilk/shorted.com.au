@@ -169,9 +169,13 @@ func ingestRESDWELLST(ctx context.Context) ([]Observation, error) {
 	return obs, nil
 }
 
+// ABS RES_DWELL coverage begins at 2002-Q1; the full window lets the capital
+// pages chart two complete housing cycles instead of truncating the history.
+const absRESDWELLStartPeriod = "2002-Q1"
+
 // ── RES_DWELL: capital-city (GCCSA) median prices — established (3) + attached (4) ──
 func ingestRESDWELL(ctx context.Context) ([]Observation, error) {
-	rows, err := fetchABSCSV(ctx, "RES_DWELL", "3+4..Q", "2015-Q1")
+	rows, err := fetchABSCSV(ctx, "RES_DWELL", "3+4..Q", absRESDWELLStartPeriod)
 	if err != nil {
 		return nil, err
 	}

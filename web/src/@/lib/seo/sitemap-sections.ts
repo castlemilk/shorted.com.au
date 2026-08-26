@@ -61,6 +61,7 @@ import {
   HOUSING_RANKINGS,
   HOUSING_RANKING_SLUGS,
 } from "~/@/lib/housing-rankings/registry";
+import { CAPITALS } from "~/@/lib/housing/capitals";
 import { STATE_SLUGS } from "~/@/lib/economy/map-metrics";
 import { PUBLISHED_ECONOMY_TOPIC_PAIRS } from "~/@/lib/economy/topics";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
@@ -690,6 +691,21 @@ export async function buildHousingSitemap(): Promise<SitemapEntry[]> {
       url: `${baseUrl}/housing`,
       lastModified: newestHousingPeriod,
     },
+    // Capital price routes are registry-owned like the fixed rankings. Until
+    // this sitemap has a capital-series date feed, inherit the corresponding
+    // state housing signal rather than inventing a separate lastmod.
+    { url: `${baseUrl}/housing/capitals`, lastModified: newestHousingPeriod },
+    ...CAPITALS.map((capital) => {
+      const capitalStateSlug = stateSlug(capital.stateCode);
+      return {
+        url: `${baseUrl}/housing/capitals/${capital.slug}`,
+        lastModified: newestLastMod(
+          (perStateEntries.get(capitalStateSlug) ?? []).map(
+            (suburb) => suburb.lastModified,
+          ),
+        ),
+      };
+    }),
     // Fixed suburb ranking pages derive from the same state payloads. The hub
     // follows the newest national price period; each ranking follows the state
     // whose suburbs it orders, so lastmod remains a real data signal.

@@ -129,6 +129,7 @@ import {
   HOUSING_RANKINGS,
   HOUSING_RANKING_SLUGS,
 } from "~/@/lib/housing-rankings/registry";
+import { CAPITALS, CAPITAL_SLUGS } from "~/@/lib/housing/capitals";
 import { PUBLISHED_ECONOMY_TOPIC_PAIRS } from "~/@/lib/economy/topics";
 
 type Section = { name: string; entries: Awaited<ReturnType<typeof buildCoreSitemap>> };
@@ -326,6 +327,33 @@ describe("sitemap children", () => {
         (candidate) =>
           candidate.url ===
           `https://shorted.com.au/housing/${ranking.stateCode.toLowerCase()}`,
+      );
+      expect(entry).toBeDefined();
+      expect(entry!.lastModified).toBe(state!.lastModified);
+    }
+  });
+
+  it("lists the capital-prices hub and every capital registry slug", async () => {
+    const housing = await buildHousingSitemap();
+    const hub = housing.find(
+      (entry) => entry.url === "https://shorted.com.au/housing/capitals",
+    );
+    const housingHub = housing.find(
+      (entry) => entry.url === "https://shorted.com.au/housing",
+    );
+    expect(hub).toBeDefined();
+    expect(hub!.lastModified).toBe(housingHub!.lastModified);
+
+    for (const slug of CAPITAL_SLUGS) {
+      const capital = CAPITALS.find((candidate) => candidate.slug === slug)!;
+      const entry = housing.find(
+        (candidate) =>
+          candidate.url === `https://shorted.com.au/housing/capitals/${slug}`,
+      );
+      const state = housing.find(
+        (candidate) =>
+          candidate.url ===
+          `https://shorted.com.au/housing/${capital.stateCode.toLowerCase()}`,
       );
       expect(entry).toBeDefined();
       expect(entry!.lastModified).toBe(state!.lastModified);

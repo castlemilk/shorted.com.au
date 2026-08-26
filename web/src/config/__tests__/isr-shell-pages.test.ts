@@ -82,3 +82,21 @@ describe("housing ranking pages in the ISR sweep inventory", () => {
     expect(missing).toEqual([]);
   });
 });
+
+// Capital pages also render an intentionally uncached empty state when the
+// build skips its live ABS-series reads. Couple the post-promote sweep to the
+// registry so every new capital route is primed alongside the hub.
+describe("capital housing pages in the ISR sweep inventory", () => {
+  it("covers /housing/capitals and every registry slug", () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { CAPITAL_SLUGS } = require("~/@/lib/housing/capitals") as {
+      CAPITAL_SLUGS: string[];
+    };
+    const all = new Set(isrPages as string[]);
+    expect(all.has("/housing/capitals")).toBe(true);
+    const missing = CAPITAL_SLUGS.filter(
+      (slug) => !all.has(`/housing/capitals/${slug}`),
+    );
+    expect(missing).toEqual([]);
+  });
+});
