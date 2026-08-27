@@ -20,7 +20,20 @@ test("the published OpenAPI spec is up to date with the protos", () => {
   // and only the JSON gets read often enough for anyone to notice.
   const before = { json: read(JSON_SPEC), yaml: read(YAML_SPEC) };
 
-  execFileSync("make", ["openapi"], { cwd: repoRoot, stdio: "inherit" });
+  // Distinguish a broken toolchain from real drift. `make openapi` reaches the
+  // Buf Schema Registry for remote plugins, so a BSR outage or an anonymous
+  // rate limit fails here — and "the spec is stale" is exactly the wrong thing
+  // for a hurried reader to conclude from that.
+  try {
+    execFileSync("make", ["openapi"], { cwd: repoRoot, stdio: "inherit" });
+  } catch (cause) {
+    throw new Error(
+      "`make openapi` did not complete, so drift could not be assessed. " +
+        "This is a TOOLCHAIN failure (buf, the BSR, or the Go build), NOT a stale spec — " +
+        "see the command output above.",
+      { cause },
+    );
+  }
 
   const after = { json: read(JSON_SPEC), yaml: read(YAML_SPEC) };
 
@@ -42,7 +55,15 @@ test("the published OpenAPI spec is up to date with the protos", () => {
 // components.schemas while no path referenced them, which a key-only check
 // cannot see. Case matters — the Connect error-code enum legitimately contains
 // the lowercase string "internal".
-const FORBIDDEN = ["MintToken", "ShortedStocksService", "Admin", "Internal"];
+// Lowercase "admin" is included because it currently appears zero times, so it
+// costs nothing; lowercase "internal" cannot be, for the enum reason above.
+const FORBIDDEN = [
+  "MintToken",
+  "ShortedStocksService",
+  "Admin",
+  "admin",
+  "Internal",
+];
 
 /** Every `$ref` string anywhere in the document, in document order. */
 function collectRefs(node, path = "$", out = []) {

@@ -7,6 +7,10 @@ on:
       - "web/**"
       - "proto/**"
       - "api/schema/**"
+      # The `openapi` target itself is drift-relevant: a PR that only breaks a
+      # flag or repoints -base would otherwise merge unchecked, and surface on
+      # the next unrelated PR where it reads as that PR's fault.
+      - "Makefile"
       - "docs/housing-architecture.md"
       - "scripts/check-portal-content-provenance.mjs"
       - "scripts/generate-synthetic-housing-pagemeta-fixtures.mjs"
