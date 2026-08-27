@@ -27,6 +27,54 @@ plugins:
   # this deliberately, in its own commit.
   - plugin: buf.build/protocolbuffers/java:v35.1
     out: ../sdks/java/src/main/java
+  # OpenAPI 3.1 for the PUBLIC API surface. Generated raw here, then pruned to
+  # VISIBILITY_PUBLIC methods and decorated by
+  # services/cmd/openapi-postprocess (the plugin's `allowed-visibilities`
+  # option keys off google.api.visibility, not our options.v1 extension).
+  #
+  # PINNED deliberately — see the Java plugin note above.
+  #
+  # Run via `go run` rather than the remote BSR plugin: `base=` reads a local
+  # file, which a remote plugin cannot see. `path` is a list because this
+  # template is v1 (v1's `path` is v2's `local`).
+  #
+  # `services=` excludes the legacy monolithic ShortedStocksService, which
+  # duplicates every rpc of the 12 domain services for public-API back-compat.
+  # Generating both would double every path in the document. It is ONE service
+  # per `services=` entry: buf joins `opt` with commas and the plugin splits
+  # its parameter string on commas first, so a comma-separated list is parsed
+  # as unknown bare parameters and hard-fails.
+  - plugin: connect-openapi
+    path:
+      - go
+      - run
+      - github.com/sudorandom/protoc-gen-connect-openapi@v0.25.1
+    out: ../api/schema/generated
+    # `strategy: all` is REQUIRED. buf's default for a local plugin is
+    # `directory`, which invokes the plugin once per proto directory; each
+    # invocation then writes its own `openapi.yaml` and buf keeps only the
+    # first ("duplicate generated file name" warnings + an almost-empty doc).
+    strategy: all
+    opt:
+      - format=yaml
+      - path=openapi.yaml
+      - base=../api/schema/base.yaml
+      - services=shorts.v1alpha1.MarketService
+      - services=shorts.v1alpha1.StockService
+      - services=shorts.v1alpha1.SearchService
+      - services=shorts.v1alpha1.ScreenerService
+      - services=shorts.v1alpha1.NewsService
+      - services=shorts.v1alpha1.ReportsService
+      - services=shorts.v1alpha1.HousingService
+      - services=shorts.v1alpha1.EconomyService
+      - services=shorts.v1alpha1.IndustryIntelligenceService
+      - services=shorts.v1alpha1.PoliticiansService
+      - services=shorts.v1alpha1.AlertsService
+      - services=shorts.v1alpha1.BillingService
+      - trim-unused-types
+      - short-operation-ids
+      - without-default-tags
+      - with-proto-annotations
   # - plugin: buf.build/grpc/python:v1.59.1
   #   out: ../services/gen/proto/python
   # - plugin: buf.build/protocolbuffers/python
