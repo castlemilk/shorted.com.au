@@ -67,7 +67,7 @@ const (
 // ---------------------------------------------------------------------------
 
 type ListEconomicSeriesInput struct {
-	Topic      string `json:"topic,omitempty" jsonschema:"e.g. cpi, labour, rates, trade, gdp, retail, approvals, population, petroleum, govfin, markets."`
+	Topic      string `json:"topic,omitempty" jsonschema:"cpi, labour, rates, trade, gdp, retail, approvals, population, petroleum, govfin or markets."`
 	Metric     string `json:"metric,omitempty"`
 	RegionType string `json:"region_type,omitempty" jsonschema:"national, state, industry or refinery."`
 	RegionCode string `json:"region_code,omitempty" jsonschema:"aus, nsw, vic, qld, sa, wa, tas, nt or act."`
@@ -82,11 +82,11 @@ type EconomicSeriesInfoRow struct {
 	Metric       string `json:"metric"`
 	Region       string `json:"region"`
 	RegionCode   string `json:"region_code"`
-	Unit         string `json:"unit" jsonschema:"e.g. aud, percent, index, thousands."`
+	Unit         string `json:"unit" jsonschema:"aud, percent, index, thousands…"`
 	Frequency    string `json:"frequency" jsonschema:"monthly, quarterly or annual."`
-	Adjustment   string `json:"adjustment,omitempty" jsonschema:"original, seasadj or trend. Variants are not comparable."`
-	LatestPeriod string `json:"latest_period,omitempty" jsonschema:"Most recent observation, YYYY-MM-DD."`
-	Source       string `json:"source" jsonschema:"e.g. abs-cpi, rba-key-indicators, derived-shorted-markets."`
+	Adjustment   string `json:"adjustment,omitempty" jsonschema:"original, seasadj or trend. Not comparable with each other."`
+	LatestPeriod string `json:"latest_period,omitempty" jsonschema:"YYYY-MM-DD."`
+	Source       string `json:"source" jsonschema:"e.g. abs-cpi, rba-key-indicators."`
 	Licence      string `json:"licence"`
 }
 
@@ -361,7 +361,7 @@ type GetStateCompanyAggregatesInput struct{}
 
 type StateCompanyAggregateRow struct {
 	State                        string  `json:"state"`
-	CompanyCount                 int32   `json:"company_count" jsonschema:"Listed companies with material operations in the state."`
+	CompanyCount                 int32   `json:"company_count" jsonschema:"With material operations in the state."`
 	ExposureWeightedMarketCap    float64 `json:"exposure_weighted_market_cap" jsonschema:"AUD."`
 	ExposureWeightedShortPercent float64 `json:"exposure_weighted_short_percent" jsonschema:"Percent of shares on issue, weighted by exposure and market cap."`
 }

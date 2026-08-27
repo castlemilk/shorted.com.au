@@ -136,50 +136,50 @@ func searchStocksHandler(src DataSource) sdk.ToolHandlerFor[SearchStocksInput, S
 // product_codes is omitted because filtering a screen to codes you already
 // have is get_stock's job.
 type ScreenStocksInput struct {
-	MinShortPct         *float64 `json:"min_short_pct,omitempty" jsonschema:"Minimum short interest, percent of shares on issue (0-100)."`
-	MaxShortPct         *float64 `json:"max_short_pct,omitempty" jsonschema:"Maximum short interest, percent of shares on issue (0-100)."`
-	MinShortPctChange4W *float64 `json:"min_short_pct_change_4w,omitempty" jsonschema:"Minimum four-week change in short interest, in percentage points. Positive values find stocks where shorts are building."`
-	MaxShortPctChange4W *float64 `json:"max_short_pct_change_4w,omitempty" jsonschema:"Maximum four-week change in short interest, in percentage points. Negative values find stocks where shorts are covering."`
-	MinDaysToCover      *float64 `json:"min_days_to_cover,omitempty" jsonschema:"Minimum days-to-cover: short position divided by 20-day average volume."`
-	MaxDaysToCover      *float64 `json:"max_days_to_cover,omitempty" jsonschema:"Maximum days-to-cover."`
-	MinMarketCap        *float64 `json:"min_market_cap,omitempty" jsonschema:"Minimum market capitalisation in AUD, e.g. 1000000000 for one billion."`
-	MaxMarketCap        *float64 `json:"max_market_cap,omitempty" jsonschema:"Maximum market capitalisation in AUD."`
-	MinPriceChange1M    *float64 `json:"min_price_change_1m,omitempty" jsonschema:"Minimum one-month price change, percent."`
-	MaxPriceChange1M    *float64 `json:"max_price_change_1m,omitempty" jsonschema:"Maximum one-month price change, percent."`
-	MinPERatio          *float64 `json:"min_pe_ratio,omitempty" jsonschema:"Minimum price-to-earnings ratio."`
-	MaxPERatio          *float64 `json:"max_pe_ratio,omitempty" jsonschema:"Maximum price-to-earnings ratio."`
-	MinDividendYield    *float64 `json:"min_dividend_yield,omitempty" jsonschema:"Minimum trailing dividend yield, percent."`
-	Industries          []string `json:"industries,omitempty" jsonschema:"Restrict to these industries. Names must match Shorted's own classification exactly, e.g. \"Metals & Mining\", \"Energy\", \"Financials\" — the industry values returned by get_industry_treemap or get_stock."`
-	HasDirectorBuys     bool     `json:"has_director_buys,omitempty" jsonschema:"When true, only stocks with recent disclosed director purchases."`
-	SortBy              string   `json:"sort_by,omitempty" jsonschema:"Sort by one of: short_pct (default), short_pct_change, market_cap, price_change_1m, pe_ratio, dividend_yield, net_director_buy, news_sentiment, days_to_cover."`
-	SortDirection       string   `json:"sort_direction,omitempty" jsonschema:"\"desc\" (default, highest first) or \"asc\"."`
-	Limit               int      `json:"limit,omitempty" jsonschema:"How many stocks to return, 1-50. Defaults to 20. Values above 50 are clamped, not rejected."`
+	MinShortPct         *float64 `json:"min_short_pct,omitempty" jsonschema:"Percent of shares on issue, 0-100."`
+	MaxShortPct         *float64 `json:"max_short_pct,omitempty" jsonschema:"Percent of shares on issue, 0-100."`
+	MinShortPctChange4W *float64 `json:"min_short_pct_change_4w,omitempty" jsonschema:"Percentage points. Positive finds shorts building."`
+	MaxShortPctChange4W *float64 `json:"max_short_pct_change_4w,omitempty" jsonschema:"Percentage points. Negative finds shorts covering."`
+	MinDaysToCover      *float64 `json:"min_days_to_cover,omitempty" jsonschema:"Short position divided by 20-day average volume."`
+	MaxDaysToCover      *float64 `json:"max_days_to_cover,omitempty"`
+	MinMarketCap        *float64 `json:"min_market_cap,omitempty" jsonschema:"AUD, e.g. 1000000000 for one billion."`
+	MaxMarketCap        *float64 `json:"max_market_cap,omitempty" jsonschema:"AUD."`
+	MinPriceChange1M    *float64 `json:"min_price_change_1m,omitempty" jsonschema:"Percent."`
+	MaxPriceChange1M    *float64 `json:"max_price_change_1m,omitempty" jsonschema:"Percent."`
+	MinPERatio          *float64 `json:"min_pe_ratio,omitempty"`
+	MaxPERatio          *float64 `json:"max_pe_ratio,omitempty"`
+	MinDividendYield    *float64 `json:"min_dividend_yield,omitempty" jsonschema:"Trailing, percent."`
+	Industries          []string `json:"industries,omitempty" jsonschema:"Must match Shorted's own classification exactly, e.g. \"Metals & Mining\" — the values get_industry_treemap and get_stock return."`
+	HasDirectorBuys     bool     `json:"has_director_buys,omitempty" jsonschema:"Only stocks with recent disclosed director purchases."`
+	SortBy              string   `json:"sort_by,omitempty" jsonschema:"short_pct (default), short_pct_change, market_cap, price_change_1m, pe_ratio, dividend_yield, net_director_buy, news_sentiment or days_to_cover."`
+	SortDirection       string   `json:"sort_direction,omitempty" jsonschema:"desc (default, highest first) or asc."`
+	Limit               int      `json:"limit,omitempty" jsonschema:"1-50, default 20. Higher values are clamped, not rejected."`
 }
 
 type ScreenedStock struct {
 	Rank                 int     `json:"rank" jsonschema:"Position in the sorted result, 1 = first."`
-	Code                 string  `json:"code" jsonschema:"ASX ticker code."`
-	Name                 string  `json:"name,omitempty" jsonschema:"Company name."`
-	Industry             string  `json:"industry,omitempty" jsonschema:"Industry classification, where known."`
-	ShortPercent         float64 `json:"short_percent" jsonschema:"Reported short positions as a percentage of shares on issue, 0-100."`
-	ShortPercentChange4W float64 `json:"short_percent_change_4w" jsonschema:"Four-week change in that percentage, in percentage points."`
-	DaysToCover          float64 `json:"days_to_cover" jsonschema:"Short position divided by 20-day average volume. 0 when volume is unknown."`
-	LatestPrice          float64 `json:"latest_price" jsonschema:"Most recent close in AUD. 0 when unknown."`
-	PriceChange1M        float64 `json:"price_change_1m" jsonschema:"One-month price change, percent."`
-	MarketCap            float64 `json:"market_cap" jsonschema:"Market capitalisation in AUD. 0 when unknown."`
-	PERatio              float64 `json:"pe_ratio" jsonschema:"Price-to-earnings ratio. 0 when unknown or not meaningful."`
-	DividendYield        float64 `json:"dividend_yield" jsonschema:"Trailing dividend yield, percent. 0 when unknown."`
-	NetDirectorBuyValue  float64 `json:"net_director_buy_value" jsonschema:"Disclosed director buys minus sells, AUD, recent window."`
-	NewsCount30D         int     `json:"news_count_30d" jsonschema:"Articles matched to this stock in the last 30 days."`
-	AvgSentiment         float64 `json:"avg_sentiment" jsonschema:"Mean model-classified sentiment of those articles, -1 (negative) to 1 (positive). 0 when there is no news."`
+	Code                 string  `json:"code"`
+	Name                 string  `json:"name,omitempty"`
+	Industry             string  `json:"industry,omitempty"`
+	ShortPercent         float64 `json:"short_percent" jsonschema:"Percent of shares on issue, 0-100."`
+	ShortPercentChange4W float64 `json:"short_percent_change_4w" jsonschema:"Four-week change, percentage points."`
+	DaysToCover          float64 `json:"days_to_cover" jsonschema:"Short position divided by 20-day average volume. 0 when unknown."`
+	LatestPrice          float64 `json:"latest_price" jsonschema:"Close in AUD. 0 when unknown."`
+	PriceChange1M        float64 `json:"price_change_1m" jsonschema:"Percent."`
+	MarketCap            float64 `json:"market_cap" jsonschema:"AUD. 0 when unknown."`
+	PERatio              float64 `json:"pe_ratio" jsonschema:"0 when unknown or not meaningful."`
+	DividendYield        float64 `json:"dividend_yield" jsonschema:"Trailing, percent."`
+	NetDirectorBuyValue  float64 `json:"net_director_buy_value" jsonschema:"Disclosed buys minus sells, AUD."`
+	NewsCount30D         int     `json:"news_count_30d" jsonschema:"Articles in the last 30 days."`
+	AvgSentiment         float64 `json:"avg_sentiment" jsonschema:"Mean MODEL-CLASSIFIED sentiment of those articles, -1 to 1. 0 when there is no news."`
 }
 
 type ScreenStocksOutput struct {
-	TotalCount int             `json:"total_count" jsonschema:"How many stocks matched the criteria in total, before the limit was applied."`
-	Count      int             `json:"count" jsonschema:"How many stocks this result contains."`
-	SortedBy   string          `json:"sorted_by" jsonschema:"The sort field actually used."`
-	Direction  string          `json:"direction" jsonschema:"The sort direction actually used."`
-	Stocks     []ScreenedStock `json:"stocks" jsonschema:"Matching stocks in sorted order. Empty when nothing met the criteria."`
+	TotalCount int             `json:"total_count" jsonschema:"Matched in total, before the limit."`
+	Count      int             `json:"count"`
+	SortedBy   string          `json:"sorted_by" jsonschema:"Actually used."`
+	Direction  string          `json:"direction" jsonschema:"Actually used."`
+	Stocks     []ScreenedStock `json:"stocks" jsonschema:"Sorted order. Empty when nothing matched."`
 }
 
 const screenStocksDescription = "Filter ASX-listed stocks by CRITERIA and return the matches, sorted. This is the tool for any " +
@@ -658,82 +658,82 @@ func reportTypeForSlug(slug string) string {
 }
 
 type GetReportInput struct {
-	Slug string `json:"slug" jsonschema:"Report identifier from list_reports. The shape sets the period: \"2026-W23\" is ISO week 23 of 2026, \"2026-05\" is May 2026, \"2025\" is the 2025 calendar year. Use list_reports to find valid slugs rather than constructing one."`
+	Slug string `json:"slug" jsonschema:"From list_reports. The shape sets the period: 2026-W23 = ISO week, 2026-05 = month, 2025 = year. Do not construct one."`
 }
 
 type ReportNarrative struct {
-	OpeningHook      string `json:"opening_hook,omitempty" jsonschema:"Opening. Generated; truncated to ~800 chars."`
-	TopAnalysis      string `json:"top_analysis,omitempty" jsonschema:"On the most shorted stocks. Generated; truncated to ~800 chars."`
-	MoversAnalysis   string `json:"movers_analysis,omitempty" jsonschema:"On the biggest movers. Generated; truncated to ~800 chars."`
-	IndustryAnalysis string `json:"industry_analysis,omitempty" jsonschema:"By industry. Generated; truncated to ~800 chars."`
-	Outlook          string `json:"outlook,omitempty" jsonschema:"Closing outlook. Generated; truncated to ~800 chars."`
+	OpeningHook      string `json:"opening_hook,omitempty" jsonschema:"Machine-generated."`
+	TopAnalysis      string `json:"top_analysis,omitempty" jsonschema:"Machine-generated."`
+	MoversAnalysis   string `json:"movers_analysis,omitempty" jsonschema:"Machine-generated."`
+	IndustryAnalysis string `json:"industry_analysis,omitempty" jsonschema:"Machine-generated."`
+	Outlook          string `json:"outlook,omitempty" jsonschema:"Machine-generated."`
 }
 
 type ReportMarketStats struct {
-	TotalStocksShorted int     `json:"total_stocks_shorted" jsonschema:"Stocks with a reported short position."`
-	AvgShortPercent    float64 `json:"avg_short_percent" jsonschema:"Mean short interest, percent."`
-	MedianShortPercent float64 `json:"median_short_percent" jsonschema:"Median, percent."`
-	MaxShortPercent    float64 `json:"max_short_percent" jsonschema:"Highest, percent."`
-	MaxShortCode       string  `json:"max_short_code,omitempty" jsonschema:"Ticker holding it."`
+	TotalStocksShorted int     `json:"total_stocks_shorted"`
+	AvgShortPercent    float64 `json:"avg_short_percent" jsonschema:"Percent."`
+	MedianShortPercent float64 `json:"median_short_percent" jsonschema:"Percent."`
+	MaxShortPercent    float64 `json:"max_short_percent" jsonschema:"Percent."`
+	MaxShortCode       string  `json:"max_short_code,omitempty"`
 	AvgChange          float64 `json:"avg_change" jsonschema:"Change in the average vs the prior period, percentage points."`
-	StocksAbove10Pct   int     `json:"stocks_above_10pct" jsonschema:"Stocks at or above 10% short."`
-	StocksAbove5Pct    int     `json:"stocks_above_5pct" jsonschema:"Stocks at or above 5% short."`
-	RiserCount         int     `json:"riser_count" jsonschema:"Stocks whose short interest rose."`
-	FallerCount        int     `json:"faller_count" jsonschema:"Stocks whose short interest fell."`
+	StocksAbove10Pct   int     `json:"stocks_above_10pct"`
+	StocksAbove5Pct    int     `json:"stocks_above_5pct"`
+	RiserCount         int     `json:"riser_count"`
+	FallerCount        int     `json:"faller_count"`
 }
 
 type ReportStock struct {
-	Rank         int     `json:"rank" jsonschema:"Position in the most-shorted list."`
-	Code         string  `json:"code" jsonschema:"ASX ticker code."`
-	Name         string  `json:"name,omitempty" jsonschema:"Company name."`
-	Industry     string  `json:"industry,omitempty" jsonschema:"Industry classification, where known."`
-	ShortPercent float64 `json:"short_percent" jsonschema:"Short interest at period end, percent of shares on issue."`
-	Change       float64 `json:"change" jsonschema:"Change over the period, percentage points."`
-	DaysToCover  float64 `json:"days_to_cover" jsonschema:"Short position divided by 20-day average volume. 0 when unknown."`
+	Rank         int     `json:"rank"`
+	Code         string  `json:"code"`
+	Name         string  `json:"name,omitempty"`
+	Industry     string  `json:"industry,omitempty"`
+	ShortPercent float64 `json:"short_percent" jsonschema:"At period end, percent of shares on issue."`
+	Change       float64 `json:"change" jsonschema:"Over the period, percentage points."`
+	DaysToCover  float64 `json:"days_to_cover" jsonschema:"Short position / 20-day average volume. 0 when unknown."`
 	IsNewEntrant bool    `json:"is_new_entrant" jsonschema:"Not in the previous period's top list."`
 }
 
 type ReportMover struct {
-	Code           string  `json:"code" jsonschema:"ASX ticker code."`
-	Name           string  `json:"name,omitempty" jsonschema:"Company name."`
-	Industry       string  `json:"industry,omitempty" jsonschema:"Industry classification, where known."`
-	CurrentPercent float64 `json:"current_percent" jsonschema:"Short interest at period end, percent."`
-	PreviousPct    float64 `json:"previous_percent" jsonschema:"At the start of the period, percent."`
-	Change         float64 `json:"change" jsonschema:"Change over the period, percentage points."`
+	Code           string  `json:"code"`
+	Name           string  `json:"name,omitempty"`
+	Industry       string  `json:"industry,omitempty"`
+	CurrentPercent float64 `json:"current_percent" jsonschema:"At period end, percent."`
+	PreviousPct    float64 `json:"previous_percent" jsonschema:"At period start, percent."`
+	Change         float64 `json:"change" jsonschema:"Percentage points."`
 	ZScore         float64 `json:"z_score" jsonschema:"How unusual the move is vs this stock's own history. Shorted's derived metric."`
-	StreakPeriods  int     `json:"streak_periods" jsonschema:"Consecutive periods moving in the same direction."`
+	StreakPeriods  int     `json:"streak_periods" jsonschema:"Consecutive periods moving the same way."`
 }
 
 type ReportIndustryStat struct {
-	Industry        string  `json:"industry" jsonschema:"Industry name, Shorted's classification."`
-	AvgShortPercent float64 `json:"avg_short_percent" jsonschema:"Industry mean, percent."`
-	Change          float64 `json:"change" jsonschema:"Change over the period, percentage points."`
-	StockCount      int     `json:"stock_count" jsonschema:"Shorted stocks in it."`
-	TopStockCode    string  `json:"top_stock_code,omitempty" jsonschema:"Its most shorted stock."`
-	TopStockPercent float64 `json:"top_stock_percent" jsonschema:"Its short interest, percent."`
+	Industry        string  `json:"industry" jsonschema:"Shorted's classification, not GICS."`
+	AvgShortPercent float64 `json:"avg_short_percent" jsonschema:"Percent."`
+	Change          float64 `json:"change" jsonschema:"Percentage points."`
+	StockCount      int     `json:"stock_count"`
+	TopStockCode    string  `json:"top_stock_code,omitempty"`
+	TopStockPercent float64 `json:"top_stock_percent" jsonschema:"Percent."`
 }
 
 type ReportCitation struct {
-	Source string `json:"source,omitempty" jsonschema:"What was cited, e.g. \"BHP H1 FY2026 Results\"."`
-	Date   string `json:"date,omitempty" jsonschema:"Date of the cited item."`
-	URL    string `json:"url,omitempty" jsonschema:"Link to it."`
+	Source string `json:"source,omitempty" jsonschema:"e.g. \"BHP H1 FY2026 Results\"."`
+	Date   string `json:"date,omitempty"`
+	URL    string `json:"url,omitempty"`
 	Type   string `json:"type,omitempty" jsonschema:"financial_report, announcement, asic_data or price_data."`
 }
 
 type GetReportOutput struct {
-	Slug              string               `json:"slug" jsonschema:"The report's slug."`
-	ReportType        string               `json:"report_type" jsonschema:"weekly, monthly or yearly, derived from the slug shape."`
-	Headline          string               `json:"headline,omitempty" jsonschema:"The report's headline. Machine-generated."`
-	Summary           string               `json:"summary,omitempty" jsonschema:"One-paragraph standfirst. Machine-generated."`
+	Slug              string               `json:"slug"`
+	ReportType        string               `json:"report_type" jsonschema:"weekly, monthly or yearly, from the slug shape."`
+	Headline          string               `json:"headline,omitempty" jsonschema:"Machine-generated."`
+	Summary           string               `json:"summary,omitempty" jsonschema:"Standfirst. Machine-generated."`
 	ReportDate        string               `json:"report_date,omitempty" jsonschema:"Latest trading day covered, YYYY-MM-DD."`
-	PreviousDate      string               `json:"previous_date,omitempty" jsonschema:"Comparison date the changes are measured against, YYYY-MM-DD."`
-	Narrative         *ReportNarrative     `json:"narrative,omitempty" jsonschema:"Five machine-generated prose sections."`
-	MarketStats       *ReportMarketStats   `json:"market_stats,omitempty" jsonschema:"Market-wide statistics computed from ASIC data, not generated."`
-	TopShorted        []ReportStock        `json:"top_shorted,omitempty" jsonschema:"Most shorted stocks, at most 10."`
-	Risers            []ReportMover        `json:"risers,omitempty" jsonschema:"Largest increases, at most 5."`
-	Fallers           []ReportMover        `json:"fallers,omitempty" jsonschema:"Largest decreases, at most 5."`
-	IndustryBreakdown []ReportIndustryStat `json:"industry_breakdown,omitempty" jsonschema:"By industry, at most 10."`
-	Citations         []ReportCitation     `json:"citations,omitempty" jsonschema:"Sources cited, at most 10."`
+	PreviousDate      string               `json:"previous_date,omitempty" jsonschema:"What the changes are measured against, YYYY-MM-DD."`
+	Narrative         *ReportNarrative     `json:"narrative,omitempty" jsonschema:"Five prose sections GENERATED BY A LANGUAGE MODEL, each truncated to ~800 characters. Editorial commentary, not a primary source."`
+	MarketStats       *ReportMarketStats   `json:"market_stats,omitempty" jsonschema:"Computed from ASIC data, NOT generated. Prefer these for factual claims."`
+	TopShorted        []ReportStock        `json:"top_shorted,omitempty" jsonschema:"At most 10."`
+	Risers            []ReportMover        `json:"risers,omitempty" jsonschema:"At most 5."`
+	Fallers           []ReportMover        `json:"fallers,omitempty" jsonschema:"At most 5."`
+	IndustryBreakdown []ReportIndustryStat `json:"industry_breakdown,omitempty" jsonschema:"At most 10."`
+	Citations         []ReportCitation     `json:"citations,omitempty" jsonschema:"At most 10."`
 }
 
 const getReportDescription = "Read one published Shorted short-selling report: its narrative sections, market-wide statistics, " +
