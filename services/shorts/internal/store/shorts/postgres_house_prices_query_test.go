@@ -3,6 +3,7 @@ package shorts
 import (
 	"database/sql"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -71,6 +72,47 @@ func TestGetSuburbProfileQuery_MapsPoliticianPropertyCount(t *testing.T) {
 		if !strings.Contains(source, want) {
 			t.Errorf("GetSuburbProfile query/scan missing %q", want)
 		}
+	}
+}
+
+func TestMapSuburbSeifa_NullsProduceAbsentMessage(t *testing.T) {
+	if got := mapSuburbSeifa(nullableSuburbSeifa{}); got != nil {
+		t.Fatalf("all-NULL SEIFA columns must map to an absent message, got %+v", got)
+	}
+}
+
+func TestMapSuburbSeifa_PopulatedColumnsMapExactly(t *testing.T) {
+	valid := func(v int32) sql.NullInt32 { return sql.NullInt32{Int32: v, Valid: true} }
+	raw := nullableSuburbSeifa{
+		IRSD:  nullableSuburbSeifaIndex{Score: valid(900), DecileAus: valid(2), DecileState: valid(3)},
+		IRSAD: nullableSuburbSeifaIndex{Score: valid(1100), DecileAus: valid(8), DecileState: valid(7)},
+		IER:   nullableSuburbSeifaIndex{Score: valid(1010), DecileAus: valid(6), DecileState: valid(5)},
+		IEO:   nullableSuburbSeifaIndex{Score: valid(980), DecileAus: valid(4), DecileState: valid(5)},
+	}
+	want := &SuburbSeifaRow{
+		IRSD:  SuburbSeifaIndexRow{Score: 900, DecileAus: 2, DecileState: 3},
+		IRSAD: SuburbSeifaIndexRow{Score: 1100, DecileAus: 8, DecileState: 7},
+		IER:   SuburbSeifaIndexRow{Score: 1010, DecileAus: 6, DecileState: 5},
+		IEO:   SuburbSeifaIndexRow{Score: 980, DecileAus: 4, DecileState: 5},
+	}
+
+	if got := mapSuburbSeifa(raw); !reflect.DeepEqual(got, want) {
+		t.Fatalf("mapSuburbSeifa() = %+v, want %+v", got, want)
+	}
+}
+
+func TestGetSuburbProfileQuery_ReadsNullableSeifaColumns(t *testing.T) {
+	source := postgresHousePricesSource(t)
+	for _, index := range []string{"irsd", "irsad", "ier", "ieo"} {
+		for _, suffix := range []string{"score", "decile_aus", "decile_state"} {
+			column := "d.seifa_" + index + "_" + suffix
+			if !strings.Contains(source, column) {
+				t.Errorf("GetSuburbProfile query missing nullable column %q", column)
+			}
+		}
+	}
+	if !strings.Contains(source, "p.Summary.Seifa = mapSuburbSeifa(rawSeifa)") {
+		t.Fatal("GetSuburbProfile must map the scanned nullable columns after a successful scan")
 	}
 }
 

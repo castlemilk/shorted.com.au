@@ -466,4 +466,31 @@ public interface SuburbSummaryOrBuilder extends
    * @return The politicianPropertyCount.
    */
   int getPoliticianPropertyCount();
+
+  /**
+   * <pre>
+   * Profile-only in the current backend query; list responses leave it absent.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbSeifa seifa = 32 [json_name = "seifa"];</code>
+   * @return Whether the seifa field is set.
+   */
+  boolean hasSeifa();
+  /**
+   * <pre>
+   * Profile-only in the current backend query; list responses leave it absent.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbSeifa seifa = 32 [json_name = "seifa"];</code>
+   * @return The seifa.
+   */
+  com.shorts.v1alpha1.SuburbSeifa getSeifa();
+  /**
+   * <pre>
+   * Profile-only in the current backend query; list responses leave it absent.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbSeifa seifa = 32 [json_name = "seifa"];</code>
+   */
+  com.shorts.v1alpha1.SuburbSeifaOrBuilder getSeifaOrBuilder();
 }

@@ -9,7 +9,7 @@ package com.shorts.v1alpha1;
  * <pre>
  * One suburb summary for the map + list (keyed by ABS SAL code).
  * Per-suburb amenity counts + derived lifestyle indices (Local Insights).
- * OSM-derived counts (ODbL Produced Work) + ACARA/GA sources; see the
+ * OSM-derived counts (ODbL Produced Work) + state/GA sources; see the
  * Local Insights design doc.
  * </pre>
  *
@@ -767,7 +767,7 @@ private static final long serialVersionUID = 0L;
    * <pre>
    * One suburb summary for the map + list (keyed by ABS SAL code).
    * Per-suburb amenity counts + derived lifestyle indices (Local Insights).
-   * OSM-derived counts (ODbL Produced Work) + ACARA/GA sources; see the
+   * OSM-derived counts (ODbL Produced Work) + state/GA sources; see the
    * Local Insights design doc.
    * </pre>
    *
