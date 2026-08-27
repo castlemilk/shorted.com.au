@@ -209,4 +209,34 @@ public interface GetSuburbProfileResponseOrBuilder extends
    * <code>.shorts.v1alpha1.SuburbListingStats listing_stats = 8 [json_name = "listingStats"];</code>
    */
   com.shorts.v1alpha1.SuburbListingStatsOrBuilder getListingStatsOrBuilder();
+
+  /**
+   * <pre>
+   * Profile-only measured terrain block; absent when the DEM sample is missing
+   * or below the collector's published cell-count quality floor.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbElevation elevation = 9 [json_name = "elevation"];</code>
+   * @return Whether the elevation field is set.
+   */
+  boolean hasElevation();
+  /**
+   * <pre>
+   * Profile-only measured terrain block; absent when the DEM sample is missing
+   * or below the collector's published cell-count quality floor.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbElevation elevation = 9 [json_name = "elevation"];</code>
+   * @return The elevation.
+   */
+  com.shorts.v1alpha1.SuburbElevation getElevation();
+  /**
+   * <pre>
+   * Profile-only measured terrain block; absent when the DEM sample is missing
+   * or below the collector's published cell-count quality floor.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbElevation elevation = 9 [json_name = "elevation"];</code>
+   */
+  com.shorts.v1alpha1.SuburbElevationOrBuilder getElevationOrBuilder();
 }

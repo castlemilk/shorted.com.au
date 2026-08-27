@@ -56,6 +56,22 @@ type CensusRow struct {
 	PctNoReligion   *float64
 	TopLanguage     *string
 	PctTopLanguage  *float64
+
+	// Curated rates from G17/G25/G32-or-G36/G33/G43/G46. Derived rates
+	// remain nil when headers are absent or the SAL is below the quality floor.
+	PctLowPersonalIncome         *float64
+	PctHighPersonalIncome        *float64
+	UnemploymentRate             *float64
+	LabourForceParticipationRate *float64
+	PctBachelorOrHigher          *float64
+	PctSeparateHouse             *float64
+	PctFlatApartment             *float64
+	PctCoupleWithChildren        *float64
+	PctLonePersonHousehold       *float64
+	PctOwnedOutright             *float64
+	PctOwnedMortgage             *float64
+	PctRented                    *float64
+	DwellingCount                *int
 }
 
 // suburbIdentity is the name + state for a SAL code, sourced from boundaries.
@@ -360,6 +376,7 @@ func ingestCensus(ctx context.Context) ([]CensusRow, error) {
 	if err != nil {
 		return nil, err
 	}
+	expanded := parseExpandedCensus(zr, g01, nil)
 
 	rows := make([]CensusRow, 0, len(registry))
 	for code, id := range registry {
@@ -392,6 +409,21 @@ func ingestCensus(ctx context.Context) ([]CensusRow, error) {
 			if row.Population != nil && *row.Population > 0 {
 				row.PctTopLanguage = pctOf(lang.count, *row.Population)
 			}
+		}
+		if extra, ok := expanded[code]; ok {
+			row.PctLowPersonalIncome = extra.pctLowPersonalIncome
+			row.PctHighPersonalIncome = extra.pctHighPersonalIncome
+			row.UnemploymentRate = extra.unemploymentRate
+			row.LabourForceParticipationRate = extra.labourForceParticipationRate
+			row.PctBachelorOrHigher = extra.pctBachelorOrHigher
+			row.PctSeparateHouse = extra.pctSeparateHouse
+			row.PctFlatApartment = extra.pctFlatApartment
+			row.PctCoupleWithChildren = extra.pctCoupleWithChildren
+			row.PctLonePersonHousehold = extra.pctLonePersonHousehold
+			row.PctOwnedOutright = extra.pctOwnedOutright
+			row.PctOwnedMortgage = extra.pctOwnedMortgage
+			row.PctRented = extra.pctRented
+			row.DwellingCount = extra.dwellingCount
 		}
 		rows = append(rows, row)
 	}

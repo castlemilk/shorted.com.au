@@ -202,9 +202,8 @@ func linkSuburbSalCodes(ctx context.Context, pool *pgxpool.Pool) (int64, error) 
 }
 
 // upsertDemographics idempotently writes one row per boundary suburb (PK =
-// sal_code). v1 populates identity + population + the five G02 medians; the
-// tenure/dwelling columns are left to default NULL until those tables are
-// mapped. Nullable *int/*float64 fields bind directly (pgx maps nil → NULL).
+// sal_code). Nullable *int/*float64 fields bind directly (pgx maps nil → NULL),
+// including expanded metrics skipped because of missing headers/quality gates.
 func upsertDemographics(ctx context.Context, pool *pgxpool.Pool, rows []CensusRow) (int, error) {
 	const q = `
 		INSERT INTO suburb_demographics
@@ -212,8 +211,14 @@ func upsertDemographics(ctx context.Context, pool *pgxpool.Pool, rows []CensusRo
 			 median_weekly_hhd_income, median_weekly_per_income, median_weekly_rent,
 			 median_monthly_mortgage, census_year, source, source_licence,
 			 pct_born_overseas, pct_english_only, top_religion, pct_top_religion,
-			 pct_no_religion, top_language, pct_top_language)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+			 pct_no_religion, top_language, pct_top_language,
+			 pct_owned_outright, pct_owned_mortgage, pct_rented, dwelling_count,
+			 pct_low_personal_income, pct_high_personal_income, unemployment_rate,
+			 labour_force_participation_rate, pct_bachelor_or_higher,
+			 pct_separate_house, pct_flat_apartment, pct_couple_with_children,
+			 pct_lone_person_household)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,
+		        $20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32)
 		ON CONFLICT (sal_code) DO UPDATE SET
 			sal_name                 = EXCLUDED.sal_name,
 			state_code               = EXCLUDED.state_code,
@@ -233,6 +238,19 @@ func upsertDemographics(ctx context.Context, pool *pgxpool.Pool, rows []CensusRo
 			pct_no_religion          = EXCLUDED.pct_no_religion,
 			top_language             = EXCLUDED.top_language,
 			pct_top_language         = EXCLUDED.pct_top_language,
+			pct_owned_outright       = EXCLUDED.pct_owned_outright,
+			pct_owned_mortgage       = EXCLUDED.pct_owned_mortgage,
+			pct_rented               = EXCLUDED.pct_rented,
+			dwelling_count           = EXCLUDED.dwelling_count,
+			pct_low_personal_income  = EXCLUDED.pct_low_personal_income,
+			pct_high_personal_income = EXCLUDED.pct_high_personal_income,
+			unemployment_rate        = EXCLUDED.unemployment_rate,
+			labour_force_participation_rate = EXCLUDED.labour_force_participation_rate,
+			pct_bachelor_or_higher   = EXCLUDED.pct_bachelor_or_higher,
+			pct_separate_house       = EXCLUDED.pct_separate_house,
+			pct_flat_apartment       = EXCLUDED.pct_flat_apartment,
+			pct_couple_with_children = EXCLUDED.pct_couple_with_children,
+			pct_lone_person_household = EXCLUDED.pct_lone_person_household,
 			fetched_at               = now()`
 	batch := &pgx.Batch{}
 	for _, r := range rows {
@@ -240,7 +258,12 @@ func upsertDemographics(ctx context.Context, pool *pgxpool.Pool, rows []CensusRo
 			r.MedianWeeklyHhdIncome, r.MedianWeeklyPerIncome, r.MedianWeeklyRent,
 			r.MedianMonthlyMortgage, censusYear, censusSource, censusLicence,
 			r.PctBornOverseas, r.PctEnglishOnly, r.TopReligion, r.PctTopReligion,
-			r.PctNoReligion, r.TopLanguage, r.PctTopLanguage)
+			r.PctNoReligion, r.TopLanguage, r.PctTopLanguage,
+			r.PctOwnedOutright, r.PctOwnedMortgage, r.PctRented, r.DwellingCount,
+			r.PctLowPersonalIncome, r.PctHighPersonalIncome, r.UnemploymentRate,
+			r.LabourForceParticipationRate, r.PctBachelorOrHigher,
+			r.PctSeparateHouse, r.PctFlatApartment, r.PctCoupleWithChildren,
+			r.PctLonePersonHousehold)
 	}
 	br := pool.SendBatch(ctx, batch)
 	defer func() { _ = br.Close() }()
@@ -461,6 +484,38 @@ func upsertAmenities(ctx context.Context, pool *pgxpool.Pool, rows []AmenityRow)
 		n++
 	}
 	return n, nil
+}
+
+// upsertElevation updates the Census/boundary-owned suburb spine. Nil pointers
+// bind to SQL NULL, while a computed 0 m or 0% remains a genuine stored zero.
+// Missing SALs are never inserted because the artifact has no identity fields.
+func upsertElevation(ctx context.Context, pool *pgxpool.Pool, rows []ElevationRow) (int, error) {
+	const q = `
+		UPDATE suburb_demographics SET
+			elevation_min_m = $2,
+			elevation_median_m = $3,
+			elevation_max_m = $4,
+			land_share_below_1m = $5,
+			land_share_below_2m = $6,
+			land_share_below_5m = $7,
+			fetched_at = now()
+		WHERE sal_code = $1`
+	batch := &pgx.Batch{}
+	for _, row := range rows {
+		batch.Queue(q, row.SALCode, row.ElevationMinM, row.ElevationMedianM, row.ElevationMaxM,
+			row.LandShareBelow1M, row.LandShareBelow2M, row.LandShareBelow5M)
+	}
+	results := pool.SendBatch(ctx, batch)
+	defer func() { _ = results.Close() }()
+	updated := 0
+	for range rows {
+		tag, err := results.Exec()
+		if err != nil {
+			return updated, err
+		}
+		updated += int(tag.RowsAffected())
+	}
+	return updated, nil
 }
 
 // upsertCrime idempotently writes the scaled + ranked suburb crime rows (PK =

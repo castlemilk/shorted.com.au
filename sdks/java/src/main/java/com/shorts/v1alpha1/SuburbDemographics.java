@@ -340,6 +340,142 @@ private static final long serialVersionUID = 0L;
     return pctTopLanguage_;
   }
 
+  public static final int PCT_LOW_PERSONAL_INCOME_FIELD_NUMBER = 19;
+  private double pctLowPersonalIncome_ = 0D;
+  /**
+   * <pre>
+   * Curated ABS Census 2021 GCP rates. Zero means absent in this proto3 API;
+   * the database retains NULL for missing/suppressed/quality-gated values.
+   * </pre>
+   *
+   * <code>double pct_low_personal_income = 19 [json_name = "pctLowPersonalIncome"];</code>
+   * @return The pctLowPersonalIncome.
+   */
+  @java.lang.Override
+  public double getPctLowPersonalIncome() {
+    return pctLowPersonalIncome_;
+  }
+
+  public static final int PCT_HIGH_PERSONAL_INCOME_FIELD_NUMBER = 20;
+  private double pctHighPersonalIncome_ = 0D;
+  /**
+   * <pre>
+   * 0..100, $2,000+ weekly (G17)
+   * </pre>
+   *
+   * <code>double pct_high_personal_income = 20 [json_name = "pctHighPersonalIncome"];</code>
+   * @return The pctHighPersonalIncome.
+   */
+  @java.lang.Override
+  public double getPctHighPersonalIncome() {
+    return pctHighPersonalIncome_;
+  }
+
+  public static final int UNEMPLOYMENT_RATE_FIELD_NUMBER = 21;
+  private double unemploymentRate_ = 0D;
+  /**
+   * <pre>
+   * 0..100 of labour force (G43)
+   * </pre>
+   *
+   * <code>double unemployment_rate = 21 [json_name = "unemploymentRate"];</code>
+   * @return The unemploymentRate.
+   */
+  @java.lang.Override
+  public double getUnemploymentRate() {
+    return unemploymentRate_;
+  }
+
+  public static final int LABOUR_FORCE_PARTICIPATION_RATE_FIELD_NUMBER = 22;
+  private double labourForceParticipationRate_ = 0D;
+  /**
+   * <pre>
+   * 0..100 of persons aged 15+ (G43)
+   * </pre>
+   *
+   * <code>double labour_force_participation_rate = 22 [json_name = "labourForceParticipationRate"];</code>
+   * @return The labourForceParticipationRate.
+   */
+  @java.lang.Override
+  public double getLabourForceParticipationRate() {
+    return labourForceParticipationRate_;
+  }
+
+  public static final int PCT_BACHELOR_OR_HIGHER_FIELD_NUMBER = 23;
+  private double pctBachelorOrHigher_ = 0D;
+  /**
+   * <pre>
+   * 0..100 (G46)
+   * </pre>
+   *
+   * <code>double pct_bachelor_or_higher = 23 [json_name = "pctBachelorOrHigher"];</code>
+   * @return The pctBachelorOrHigher.
+   */
+  @java.lang.Override
+  public double getPctBachelorOrHigher() {
+    return pctBachelorOrHigher_;
+  }
+
+  public static final int PCT_SEPARATE_HOUSE_FIELD_NUMBER = 24;
+  private double pctSeparateHouse_ = 0D;
+  /**
+   * <pre>
+   * 0..100 occupied private dwellings (G32/G36)
+   * </pre>
+   *
+   * <code>double pct_separate_house = 24 [json_name = "pctSeparateHouse"];</code>
+   * @return The pctSeparateHouse.
+   */
+  @java.lang.Override
+  public double getPctSeparateHouse() {
+    return pctSeparateHouse_;
+  }
+
+  public static final int PCT_FLAT_APARTMENT_FIELD_NUMBER = 25;
+  private double pctFlatApartment_ = 0D;
+  /**
+   * <pre>
+   * 0..100 occupied private dwellings (G32/G36)
+   * </pre>
+   *
+   * <code>double pct_flat_apartment = 25 [json_name = "pctFlatApartment"];</code>
+   * @return The pctFlatApartment.
+   */
+  @java.lang.Override
+  public double getPctFlatApartment() {
+    return pctFlatApartment_;
+  }
+
+  public static final int PCT_COUPLE_WITH_CHILDREN_FIELD_NUMBER = 26;
+  private double pctCoupleWithChildren_ = 0D;
+  /**
+   * <pre>
+   * 0..100 families (G25)
+   * </pre>
+   *
+   * <code>double pct_couple_with_children = 26 [json_name = "pctCoupleWithChildren"];</code>
+   * @return The pctCoupleWithChildren.
+   */
+  @java.lang.Override
+  public double getPctCoupleWithChildren() {
+    return pctCoupleWithChildren_;
+  }
+
+  public static final int PCT_LONE_PERSON_HOUSEHOLD_FIELD_NUMBER = 27;
+  private double pctLonePersonHousehold_ = 0D;
+  /**
+   * <pre>
+   * 0..100 households (G25)
+   * </pre>
+   *
+   * <code>double pct_lone_person_household = 27 [json_name = "pctLonePersonHousehold"];</code>
+   * @return The pctLonePersonHousehold.
+   */
+  @java.lang.Override
+  public double getPctLonePersonHousehold() {
+    return pctLonePersonHousehold_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -407,6 +543,33 @@ private static final long serialVersionUID = 0L;
     }
     if (java.lang.Double.doubleToRawLongBits(pctTopLanguage_) != 0) {
       output.writeDouble(18, pctTopLanguage_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(pctLowPersonalIncome_) != 0) {
+      output.writeDouble(19, pctLowPersonalIncome_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(pctHighPersonalIncome_) != 0) {
+      output.writeDouble(20, pctHighPersonalIncome_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(unemploymentRate_) != 0) {
+      output.writeDouble(21, unemploymentRate_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(labourForceParticipationRate_) != 0) {
+      output.writeDouble(22, labourForceParticipationRate_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(pctBachelorOrHigher_) != 0) {
+      output.writeDouble(23, pctBachelorOrHigher_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(pctSeparateHouse_) != 0) {
+      output.writeDouble(24, pctSeparateHouse_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(pctFlatApartment_) != 0) {
+      output.writeDouble(25, pctFlatApartment_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(pctCoupleWithChildren_) != 0) {
+      output.writeDouble(26, pctCoupleWithChildren_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(pctLonePersonHousehold_) != 0) {
+      output.writeDouble(27, pctLonePersonHousehold_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -482,6 +645,42 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeDoubleSize(18, pctTopLanguage_);
     }
+    if (java.lang.Double.doubleToRawLongBits(pctLowPersonalIncome_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(19, pctLowPersonalIncome_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(pctHighPersonalIncome_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(20, pctHighPersonalIncome_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(unemploymentRate_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(21, unemploymentRate_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(labourForceParticipationRate_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(22, labourForceParticipationRate_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(pctBachelorOrHigher_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(23, pctBachelorOrHigher_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(pctSeparateHouse_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(24, pctSeparateHouse_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(pctFlatApartment_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(25, pctFlatApartment_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(pctCoupleWithChildren_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(26, pctCoupleWithChildren_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(pctLonePersonHousehold_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(27, pctLonePersonHousehold_);
+    }
     return size;
   }
   @java.lang.Override
@@ -555,6 +754,33 @@ private static final long serialVersionUID = 0L;
     if (java.lang.Double.doubleToLongBits(getPctTopLanguage())
         != java.lang.Double.doubleToLongBits(
             other.getPctTopLanguage())) return false;
+    if (java.lang.Double.doubleToLongBits(getPctLowPersonalIncome())
+        != java.lang.Double.doubleToLongBits(
+            other.getPctLowPersonalIncome())) return false;
+    if (java.lang.Double.doubleToLongBits(getPctHighPersonalIncome())
+        != java.lang.Double.doubleToLongBits(
+            other.getPctHighPersonalIncome())) return false;
+    if (java.lang.Double.doubleToLongBits(getUnemploymentRate())
+        != java.lang.Double.doubleToLongBits(
+            other.getUnemploymentRate())) return false;
+    if (java.lang.Double.doubleToLongBits(getLabourForceParticipationRate())
+        != java.lang.Double.doubleToLongBits(
+            other.getLabourForceParticipationRate())) return false;
+    if (java.lang.Double.doubleToLongBits(getPctBachelorOrHigher())
+        != java.lang.Double.doubleToLongBits(
+            other.getPctBachelorOrHigher())) return false;
+    if (java.lang.Double.doubleToLongBits(getPctSeparateHouse())
+        != java.lang.Double.doubleToLongBits(
+            other.getPctSeparateHouse())) return false;
+    if (java.lang.Double.doubleToLongBits(getPctFlatApartment())
+        != java.lang.Double.doubleToLongBits(
+            other.getPctFlatApartment())) return false;
+    if (java.lang.Double.doubleToLongBits(getPctCoupleWithChildren())
+        != java.lang.Double.doubleToLongBits(
+            other.getPctCoupleWithChildren())) return false;
+    if (java.lang.Double.doubleToLongBits(getPctLonePersonHousehold())
+        != java.lang.Double.doubleToLongBits(
+            other.getPctLonePersonHousehold())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -615,6 +841,33 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + PCT_TOP_LANGUAGE_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
         java.lang.Double.doubleToLongBits(getPctTopLanguage()));
+    hash = (37 * hash) + PCT_LOW_PERSONAL_INCOME_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getPctLowPersonalIncome()));
+    hash = (37 * hash) + PCT_HIGH_PERSONAL_INCOME_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getPctHighPersonalIncome()));
+    hash = (37 * hash) + UNEMPLOYMENT_RATE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getUnemploymentRate()));
+    hash = (37 * hash) + LABOUR_FORCE_PARTICIPATION_RATE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getLabourForceParticipationRate()));
+    hash = (37 * hash) + PCT_BACHELOR_OR_HIGHER_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getPctBachelorOrHigher()));
+    hash = (37 * hash) + PCT_SEPARATE_HOUSE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getPctSeparateHouse()));
+    hash = (37 * hash) + PCT_FLAT_APARTMENT_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getPctFlatApartment()));
+    hash = (37 * hash) + PCT_COUPLE_WITH_CHILDREN_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getPctCoupleWithChildren()));
+    hash = (37 * hash) + PCT_LONE_PERSON_HOUSEHOLD_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getPctLonePersonHousehold()));
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -764,6 +1017,15 @@ private static final long serialVersionUID = 0L;
       pctNoReligion_ = 0D;
       topLanguage_ = "";
       pctTopLanguage_ = 0D;
+      pctLowPersonalIncome_ = 0D;
+      pctHighPersonalIncome_ = 0D;
+      unemploymentRate_ = 0D;
+      labourForceParticipationRate_ = 0D;
+      pctBachelorOrHigher_ = 0D;
+      pctSeparateHouse_ = 0D;
+      pctFlatApartment_ = 0D;
+      pctCoupleWithChildren_ = 0D;
+      pctLonePersonHousehold_ = 0D;
       return this;
     }
 
@@ -851,6 +1113,33 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00020000) != 0)) {
         result.pctTopLanguage_ = pctTopLanguage_;
       }
+      if (((from_bitField0_ & 0x00040000) != 0)) {
+        result.pctLowPersonalIncome_ = pctLowPersonalIncome_;
+      }
+      if (((from_bitField0_ & 0x00080000) != 0)) {
+        result.pctHighPersonalIncome_ = pctHighPersonalIncome_;
+      }
+      if (((from_bitField0_ & 0x00100000) != 0)) {
+        result.unemploymentRate_ = unemploymentRate_;
+      }
+      if (((from_bitField0_ & 0x00200000) != 0)) {
+        result.labourForceParticipationRate_ = labourForceParticipationRate_;
+      }
+      if (((from_bitField0_ & 0x00400000) != 0)) {
+        result.pctBachelorOrHigher_ = pctBachelorOrHigher_;
+      }
+      if (((from_bitField0_ & 0x00800000) != 0)) {
+        result.pctSeparateHouse_ = pctSeparateHouse_;
+      }
+      if (((from_bitField0_ & 0x01000000) != 0)) {
+        result.pctFlatApartment_ = pctFlatApartment_;
+      }
+      if (((from_bitField0_ & 0x02000000) != 0)) {
+        result.pctCoupleWithChildren_ = pctCoupleWithChildren_;
+      }
+      if (((from_bitField0_ & 0x04000000) != 0)) {
+        result.pctLonePersonHousehold_ = pctLonePersonHousehold_;
+      }
     }
 
     @java.lang.Override
@@ -922,6 +1211,33 @@ private static final long serialVersionUID = 0L;
       }
       if (java.lang.Double.doubleToRawLongBits(other.getPctTopLanguage()) != 0) {
         setPctTopLanguage(other.getPctTopLanguage());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getPctLowPersonalIncome()) != 0) {
+        setPctLowPersonalIncome(other.getPctLowPersonalIncome());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getPctHighPersonalIncome()) != 0) {
+        setPctHighPersonalIncome(other.getPctHighPersonalIncome());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getUnemploymentRate()) != 0) {
+        setUnemploymentRate(other.getUnemploymentRate());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getLabourForceParticipationRate()) != 0) {
+        setLabourForceParticipationRate(other.getLabourForceParticipationRate());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getPctBachelorOrHigher()) != 0) {
+        setPctBachelorOrHigher(other.getPctBachelorOrHigher());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getPctSeparateHouse()) != 0) {
+        setPctSeparateHouse(other.getPctSeparateHouse());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getPctFlatApartment()) != 0) {
+        setPctFlatApartment(other.getPctFlatApartment());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getPctCoupleWithChildren()) != 0) {
+        setPctCoupleWithChildren(other.getPctCoupleWithChildren());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getPctLonePersonHousehold()) != 0) {
+        setPctLonePersonHousehold(other.getPctLonePersonHousehold());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1039,6 +1355,51 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00020000;
               break;
             } // case 145
+            case 153: {
+              pctLowPersonalIncome_ = input.readDouble();
+              bitField0_ |= 0x00040000;
+              break;
+            } // case 153
+            case 161: {
+              pctHighPersonalIncome_ = input.readDouble();
+              bitField0_ |= 0x00080000;
+              break;
+            } // case 161
+            case 169: {
+              unemploymentRate_ = input.readDouble();
+              bitField0_ |= 0x00100000;
+              break;
+            } // case 169
+            case 177: {
+              labourForceParticipationRate_ = input.readDouble();
+              bitField0_ |= 0x00200000;
+              break;
+            } // case 177
+            case 185: {
+              pctBachelorOrHigher_ = input.readDouble();
+              bitField0_ |= 0x00400000;
+              break;
+            } // case 185
+            case 193: {
+              pctSeparateHouse_ = input.readDouble();
+              bitField0_ |= 0x00800000;
+              break;
+            } // case 193
+            case 201: {
+              pctFlatApartment_ = input.readDouble();
+              bitField0_ |= 0x01000000;
+              break;
+            } // case 201
+            case 209: {
+              pctCoupleWithChildren_ = input.readDouble();
+              bitField0_ |= 0x02000000;
+              break;
+            } // case 209
+            case 217: {
+              pctLonePersonHousehold_ = input.readDouble();
+              bitField0_ |= 0x04000000;
+              break;
+            } // case 217
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1808,6 +2169,405 @@ private static final long serialVersionUID = 0L;
     public Builder clearPctTopLanguage() {
       bitField0_ = (bitField0_ & ~0x00020000);
       pctTopLanguage_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double pctLowPersonalIncome_ ;
+    /**
+     * <pre>
+     * Curated ABS Census 2021 GCP rates. Zero means absent in this proto3 API;
+     * the database retains NULL for missing/suppressed/quality-gated values.
+     * </pre>
+     *
+     * <code>double pct_low_personal_income = 19 [json_name = "pctLowPersonalIncome"];</code>
+     * @return The pctLowPersonalIncome.
+     */
+    @java.lang.Override
+    public double getPctLowPersonalIncome() {
+      return pctLowPersonalIncome_;
+    }
+    /**
+     * <pre>
+     * Curated ABS Census 2021 GCP rates. Zero means absent in this proto3 API;
+     * the database retains NULL for missing/suppressed/quality-gated values.
+     * </pre>
+     *
+     * <code>double pct_low_personal_income = 19 [json_name = "pctLowPersonalIncome"];</code>
+     * @param value The pctLowPersonalIncome to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPctLowPersonalIncome(double value) {
+
+      pctLowPersonalIncome_ = value;
+      bitField0_ |= 0x00040000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Curated ABS Census 2021 GCP rates. Zero means absent in this proto3 API;
+     * the database retains NULL for missing/suppressed/quality-gated values.
+     * </pre>
+     *
+     * <code>double pct_low_personal_income = 19 [json_name = "pctLowPersonalIncome"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPctLowPersonalIncome() {
+      bitField0_ = (bitField0_ & ~0x00040000);
+      pctLowPersonalIncome_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double pctHighPersonalIncome_ ;
+    /**
+     * <pre>
+     * 0..100, $2,000+ weekly (G17)
+     * </pre>
+     *
+     * <code>double pct_high_personal_income = 20 [json_name = "pctHighPersonalIncome"];</code>
+     * @return The pctHighPersonalIncome.
+     */
+    @java.lang.Override
+    public double getPctHighPersonalIncome() {
+      return pctHighPersonalIncome_;
+    }
+    /**
+     * <pre>
+     * 0..100, $2,000+ weekly (G17)
+     * </pre>
+     *
+     * <code>double pct_high_personal_income = 20 [json_name = "pctHighPersonalIncome"];</code>
+     * @param value The pctHighPersonalIncome to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPctHighPersonalIncome(double value) {
+
+      pctHighPersonalIncome_ = value;
+      bitField0_ |= 0x00080000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 0..100, $2,000+ weekly (G17)
+     * </pre>
+     *
+     * <code>double pct_high_personal_income = 20 [json_name = "pctHighPersonalIncome"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPctHighPersonalIncome() {
+      bitField0_ = (bitField0_ & ~0x00080000);
+      pctHighPersonalIncome_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double unemploymentRate_ ;
+    /**
+     * <pre>
+     * 0..100 of labour force (G43)
+     * </pre>
+     *
+     * <code>double unemployment_rate = 21 [json_name = "unemploymentRate"];</code>
+     * @return The unemploymentRate.
+     */
+    @java.lang.Override
+    public double getUnemploymentRate() {
+      return unemploymentRate_;
+    }
+    /**
+     * <pre>
+     * 0..100 of labour force (G43)
+     * </pre>
+     *
+     * <code>double unemployment_rate = 21 [json_name = "unemploymentRate"];</code>
+     * @param value The unemploymentRate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setUnemploymentRate(double value) {
+
+      unemploymentRate_ = value;
+      bitField0_ |= 0x00100000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 0..100 of labour force (G43)
+     * </pre>
+     *
+     * <code>double unemployment_rate = 21 [json_name = "unemploymentRate"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearUnemploymentRate() {
+      bitField0_ = (bitField0_ & ~0x00100000);
+      unemploymentRate_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double labourForceParticipationRate_ ;
+    /**
+     * <pre>
+     * 0..100 of persons aged 15+ (G43)
+     * </pre>
+     *
+     * <code>double labour_force_participation_rate = 22 [json_name = "labourForceParticipationRate"];</code>
+     * @return The labourForceParticipationRate.
+     */
+    @java.lang.Override
+    public double getLabourForceParticipationRate() {
+      return labourForceParticipationRate_;
+    }
+    /**
+     * <pre>
+     * 0..100 of persons aged 15+ (G43)
+     * </pre>
+     *
+     * <code>double labour_force_participation_rate = 22 [json_name = "labourForceParticipationRate"];</code>
+     * @param value The labourForceParticipationRate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setLabourForceParticipationRate(double value) {
+
+      labourForceParticipationRate_ = value;
+      bitField0_ |= 0x00200000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 0..100 of persons aged 15+ (G43)
+     * </pre>
+     *
+     * <code>double labour_force_participation_rate = 22 [json_name = "labourForceParticipationRate"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearLabourForceParticipationRate() {
+      bitField0_ = (bitField0_ & ~0x00200000);
+      labourForceParticipationRate_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double pctBachelorOrHigher_ ;
+    /**
+     * <pre>
+     * 0..100 (G46)
+     * </pre>
+     *
+     * <code>double pct_bachelor_or_higher = 23 [json_name = "pctBachelorOrHigher"];</code>
+     * @return The pctBachelorOrHigher.
+     */
+    @java.lang.Override
+    public double getPctBachelorOrHigher() {
+      return pctBachelorOrHigher_;
+    }
+    /**
+     * <pre>
+     * 0..100 (G46)
+     * </pre>
+     *
+     * <code>double pct_bachelor_or_higher = 23 [json_name = "pctBachelorOrHigher"];</code>
+     * @param value The pctBachelorOrHigher to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPctBachelorOrHigher(double value) {
+
+      pctBachelorOrHigher_ = value;
+      bitField0_ |= 0x00400000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 0..100 (G46)
+     * </pre>
+     *
+     * <code>double pct_bachelor_or_higher = 23 [json_name = "pctBachelorOrHigher"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPctBachelorOrHigher() {
+      bitField0_ = (bitField0_ & ~0x00400000);
+      pctBachelorOrHigher_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double pctSeparateHouse_ ;
+    /**
+     * <pre>
+     * 0..100 occupied private dwellings (G32/G36)
+     * </pre>
+     *
+     * <code>double pct_separate_house = 24 [json_name = "pctSeparateHouse"];</code>
+     * @return The pctSeparateHouse.
+     */
+    @java.lang.Override
+    public double getPctSeparateHouse() {
+      return pctSeparateHouse_;
+    }
+    /**
+     * <pre>
+     * 0..100 occupied private dwellings (G32/G36)
+     * </pre>
+     *
+     * <code>double pct_separate_house = 24 [json_name = "pctSeparateHouse"];</code>
+     * @param value The pctSeparateHouse to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPctSeparateHouse(double value) {
+
+      pctSeparateHouse_ = value;
+      bitField0_ |= 0x00800000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 0..100 occupied private dwellings (G32/G36)
+     * </pre>
+     *
+     * <code>double pct_separate_house = 24 [json_name = "pctSeparateHouse"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPctSeparateHouse() {
+      bitField0_ = (bitField0_ & ~0x00800000);
+      pctSeparateHouse_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double pctFlatApartment_ ;
+    /**
+     * <pre>
+     * 0..100 occupied private dwellings (G32/G36)
+     * </pre>
+     *
+     * <code>double pct_flat_apartment = 25 [json_name = "pctFlatApartment"];</code>
+     * @return The pctFlatApartment.
+     */
+    @java.lang.Override
+    public double getPctFlatApartment() {
+      return pctFlatApartment_;
+    }
+    /**
+     * <pre>
+     * 0..100 occupied private dwellings (G32/G36)
+     * </pre>
+     *
+     * <code>double pct_flat_apartment = 25 [json_name = "pctFlatApartment"];</code>
+     * @param value The pctFlatApartment to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPctFlatApartment(double value) {
+
+      pctFlatApartment_ = value;
+      bitField0_ |= 0x01000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 0..100 occupied private dwellings (G32/G36)
+     * </pre>
+     *
+     * <code>double pct_flat_apartment = 25 [json_name = "pctFlatApartment"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPctFlatApartment() {
+      bitField0_ = (bitField0_ & ~0x01000000);
+      pctFlatApartment_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double pctCoupleWithChildren_ ;
+    /**
+     * <pre>
+     * 0..100 families (G25)
+     * </pre>
+     *
+     * <code>double pct_couple_with_children = 26 [json_name = "pctCoupleWithChildren"];</code>
+     * @return The pctCoupleWithChildren.
+     */
+    @java.lang.Override
+    public double getPctCoupleWithChildren() {
+      return pctCoupleWithChildren_;
+    }
+    /**
+     * <pre>
+     * 0..100 families (G25)
+     * </pre>
+     *
+     * <code>double pct_couple_with_children = 26 [json_name = "pctCoupleWithChildren"];</code>
+     * @param value The pctCoupleWithChildren to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPctCoupleWithChildren(double value) {
+
+      pctCoupleWithChildren_ = value;
+      bitField0_ |= 0x02000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 0..100 families (G25)
+     * </pre>
+     *
+     * <code>double pct_couple_with_children = 26 [json_name = "pctCoupleWithChildren"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPctCoupleWithChildren() {
+      bitField0_ = (bitField0_ & ~0x02000000);
+      pctCoupleWithChildren_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double pctLonePersonHousehold_ ;
+    /**
+     * <pre>
+     * 0..100 households (G25)
+     * </pre>
+     *
+     * <code>double pct_lone_person_household = 27 [json_name = "pctLonePersonHousehold"];</code>
+     * @return The pctLonePersonHousehold.
+     */
+    @java.lang.Override
+    public double getPctLonePersonHousehold() {
+      return pctLonePersonHousehold_;
+    }
+    /**
+     * <pre>
+     * 0..100 households (G25)
+     * </pre>
+     *
+     * <code>double pct_lone_person_household = 27 [json_name = "pctLonePersonHousehold"];</code>
+     * @param value The pctLonePersonHousehold to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPctLonePersonHousehold(double value) {
+
+      pctLonePersonHousehold_ = value;
+      bitField0_ |= 0x04000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 0..100 households (G25)
+     * </pre>
+     *
+     * <code>double pct_lone_person_household = 27 [json_name = "pctLonePersonHousehold"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPctLonePersonHousehold() {
+      bitField0_ = (bitField0_ & ~0x04000000);
+      pctLonePersonHousehold_ = 0D;
       onChanged();
       return this;
     }
