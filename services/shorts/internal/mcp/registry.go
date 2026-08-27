@@ -70,6 +70,13 @@ func Registry() []Tool {
 		getHousePriceSeriesTool(),
 		getSuburbProfileTool(),
 		listSuburbPriceDropsTool(),
+
+		// Economy — the ABS/RBA series layer and the state-exposure
+		// aggregates. See tools_economy.go for why attribution ships inside
+		// every result rather than only in the tool description.
+		listEconomicSeriesTool(),
+		getEconomicSeriesTool(),
+		getStateCompanyAggregatesTool(),
 	}
 }
 

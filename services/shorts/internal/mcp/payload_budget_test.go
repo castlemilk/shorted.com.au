@@ -66,6 +66,15 @@ func TestToolResultsStayWithinTheirPayloadBudget(t *testing.T) {
 		{"get_house_price_series", map[string]any{"region_code": "AUS", "measure": "median_price"}},
 		{"get_suburb_profile", map[string]any{"sal_code": "SAL21234"}},
 		{"list_suburb_price_drops", map[string]any{}},
+		{"list_economic_series", map[string]any{"limit": 500}},
+		{"get_economic_series", map[string]any{
+			"series_keys": []any{
+				"trade.merchandise_exports_value.lng.wa.seasadj.0",
+				"trade.merchandise_exports_value.lng.wa.seasadj.1",
+				"trade.merchandise_exports_value.lng.wa.seasadj.2",
+			},
+		}},
+		{"get_state_company_aggregates", map[string]any{}},
 	}
 	for _, c := range calls {
 		res, err := sess.CallTool(ctx, &sdk.CallToolParams{Name: c.name, Arguments: c.args})
@@ -219,7 +228,55 @@ func realisticSource() *fakeDataSource {
 
 	realisticDiscoverySource(src)
 	realisticHousingSource(src)
+	realisticEconomySource(src)
 	return src
+}
+
+// realisticEconomySource fills the economy fixtures at each tool's worst case:
+// the catalogue at its ceiling with the longest realistic keys, and
+// three series each carrying the store's full 600-observation run so the
+// downsample is what stands between the tool and a 30KB result.
+func realisticEconomySource(src *fakeDataSource) {
+	info := func(key string) *shortsv1alpha1.EconomicSeriesInfo {
+		return &shortsv1alpha1.EconomicSeriesInfo{
+			SeriesKey: key, Topic: "trade", Metric: "merchandise_exports_value",
+			Product: "lng", RegionType: "state", RegionCode: "wa", RegionName: "Western Australia",
+			Unit: "aud", Frequency: "monthly", Adjustment: "seasadj",
+			SourceKey: "abs-merch-trade-state", SourceLicence: "CC-BY-4.0",
+			LatestPeriod: timestamppb.New(time.Date(2026, 6, 30, 0, 0, 0, 0, time.UTC)),
+		}
+	}
+
+	catalogue := make([]*shortsv1alpha1.EconomicSeriesInfo, 0, maxEconomySeriesListLimit)
+	for i := 0; i < maxEconomySeriesListLimit; i++ {
+		catalogue = append(catalogue, info(fmt.Sprintf("trade.merchandise_exports_value.lng.wa.seasadj.%d", i)))
+	}
+	src.economicSeriesList = &shortsv1alpha1.ListEconomicSeriesResponse{Series: catalogue}
+
+	base := time.Date(1976, 1, 31, 0, 0, 0, 0, time.UTC)
+	series := make([]*shortsv1alpha1.EconomicSeriesData, 0, maxEconomySeriesPerCall)
+	for s := 0; s < maxEconomySeriesPerCall; s++ {
+		obs := make([]*shortsv1alpha1.EconomicObservation, 0, 600)
+		for i := 0; i < 600; i++ {
+			obs = append(obs, &shortsv1alpha1.EconomicObservation{
+				Period: timestamppb.New(base.AddDate(0, i, 0)), Value: 12_345_678.9123,
+			})
+		}
+		series = append(series, &shortsv1alpha1.EconomicSeriesData{
+			Info:         info(fmt.Sprintf("trade.merchandise_exports_value.lng.wa.seasadj.%d", s)),
+			Observations: obs,
+		})
+	}
+	src.economicSeries = &shortsv1alpha1.GetEconomicSeriesResponse{Series: series}
+
+	aggs := make([]*shortsv1alpha1.StateCompanyAggregate, 0, 8)
+	for _, state := range []string{"nsw", "vic", "qld", "sa", "wa", "tas", "nt", "act"} {
+		aggs = append(aggs, &shortsv1alpha1.StateCompanyAggregate{
+			State: state, CompanyCount: 123,
+			ExposureWeightedMarketCap: 812_345_678_901.23, ExposureWeightedShortPercent: 2.3456,
+		})
+	}
+	src.stateCompanyAggregates = &shortsv1alpha1.GetStateCompanyAggregatesResponse{Aggregates: aggs}
 }
 
 // realisticHousingSource fills the housing fixtures at each tool's worst case:

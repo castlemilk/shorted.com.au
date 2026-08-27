@@ -42,6 +42,10 @@ type fakeDataSource struct {
 	gotSuburbProfile    *shortsv1alpha1.GetSuburbProfileRequest
 	gotSuburbPriceDrops *shortsv1alpha1.ListSuburbPriceDropsRequest
 
+	gotEconomicSeriesList     *shortsv1alpha1.ListEconomicSeriesRequest
+	gotEconomicSeries         *shortsv1alpha1.GetEconomicSeriesRequest
+	gotStateCompanyAggregates *shortsv1alpha1.GetStateCompanyAggregatesRequest
+
 	// Canned responses.
 	stock          *stocksv1alpha1.Stock
 	topShorts      *shortsv1alpha1.GetTopShortsResponse
@@ -62,6 +66,10 @@ type fakeDataSource struct {
 	housePriceSeries *shortsv1alpha1.GetHousePriceSeriesResponse
 	suburbProfile    *shortsv1alpha1.GetSuburbProfileResponse
 	suburbPriceDrops *shortsv1alpha1.ListSuburbPriceDropsResponse
+
+	economicSeriesList     *shortsv1alpha1.ListEconomicSeriesResponse
+	economicSeries         *shortsv1alpha1.GetEconomicSeriesResponse
+	stateCompanyAggregates *shortsv1alpha1.GetStateCompanyAggregatesResponse
 
 	// err, when set, is returned by every method — tests set it to drive the
 	// error paths.
@@ -212,4 +220,28 @@ func (f *fakeDataSource) ListSuburbPriceDrops(_ context.Context, req *connect.Re
 		return nil, f.err
 	}
 	return connect.NewResponse(f.suburbPriceDrops), nil
+}
+
+func (f *fakeDataSource) ListEconomicSeries(_ context.Context, req *connect.Request[shortsv1alpha1.ListEconomicSeriesRequest]) (*connect.Response[shortsv1alpha1.ListEconomicSeriesResponse], error) {
+	f.gotEconomicSeriesList = req.Msg
+	if f.err != nil {
+		return nil, f.err
+	}
+	return connect.NewResponse(f.economicSeriesList), nil
+}
+
+func (f *fakeDataSource) GetEconomicSeries(_ context.Context, req *connect.Request[shortsv1alpha1.GetEconomicSeriesRequest]) (*connect.Response[shortsv1alpha1.GetEconomicSeriesResponse], error) {
+	f.gotEconomicSeries = req.Msg
+	if f.err != nil {
+		return nil, f.err
+	}
+	return connect.NewResponse(f.economicSeries), nil
+}
+
+func (f *fakeDataSource) GetStateCompanyAggregates(_ context.Context, req *connect.Request[shortsv1alpha1.GetStateCompanyAggregatesRequest]) (*connect.Response[shortsv1alpha1.GetStateCompanyAggregatesResponse], error) {
+	f.gotStateCompanyAggregates = req.Msg
+	if f.err != nil {
+		return nil, f.err
+	}
+	return connect.NewResponse(f.stateCompanyAggregates), nil
 }

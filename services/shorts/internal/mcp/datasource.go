@@ -90,4 +90,13 @@ type DataSource interface {
 	GetSuburbProfile(context.Context, *connect.Request[shortsv1alpha1.GetSuburbProfileRequest]) (*connect.Response[shortsv1alpha1.GetSuburbProfileResponse], error)
 	// ListSuburbPriceDrops: shorts.v1alpha1.HousingService.ListSuburbPriceDrops
 	ListSuburbPriceDrops(context.Context, *connect.Request[shortsv1alpha1.ListSuburbPriceDropsRequest]) (*connect.Response[shortsv1alpha1.ListSuburbPriceDropsResponse], error)
+
+	// --- EconomyService ---
+
+	// ListEconomicSeries: shorts.v1alpha1.EconomyService.ListEconomicSeries
+	ListEconomicSeries(context.Context, *connect.Request[shortsv1alpha1.ListEconomicSeriesRequest]) (*connect.Response[shortsv1alpha1.ListEconomicSeriesResponse], error)
+	// GetEconomicSeries: shorts.v1alpha1.EconomyService.GetEconomicSeries
+	GetEconomicSeries(context.Context, *connect.Request[shortsv1alpha1.GetEconomicSeriesRequest]) (*connect.Response[shortsv1alpha1.GetEconomicSeriesResponse], error)
+	// GetStateCompanyAggregates: shorts.v1alpha1.EconomyService.GetStateCompanyAggregates
+	GetStateCompanyAggregates(context.Context, *connect.Request[shortsv1alpha1.GetStateCompanyAggregatesRequest]) (*connect.Response[shortsv1alpha1.GetStateCompanyAggregatesResponse], error)
 }
