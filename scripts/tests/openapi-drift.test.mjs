@@ -12,13 +12,21 @@ const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
 
 const JSON_SPEC = "web/public/openapi.json";
 const YAML_SPEC = "web/public/openapi.yaml";
+// The markdown twin agents actually read. NOT `api.md`: a public file at that
+// name collides with the `/docs/api.md` route and Next.js hard-errors with
+// "A conflicting public file and page file was found".
+const MARKDOWN_DOC = "web/public/docs/api-markdown.md";
 
 const read = (relativePath) => readFileSync(join(repoRoot, relativePath), "utf8");
 
 test("the published OpenAPI spec is up to date with the protos", () => {
   // Both twins are published; a stale YAML is exactly as wrong as a stale JSON,
   // and only the JSON gets read often enough for anyone to notice.
-  const before = { json: read(JSON_SPEC), yaml: read(YAML_SPEC) };
+  const before = {
+    json: read(JSON_SPEC),
+    yaml: read(YAML_SPEC),
+    markdown: read(MARKDOWN_DOC),
+  };
 
   // Distinguish a broken toolchain from real drift. `make openapi` reaches the
   // Buf Schema Registry for remote plugins, so a BSR outage or an anonymous
@@ -35,7 +43,11 @@ test("the published OpenAPI spec is up to date with the protos", () => {
     );
   }
 
-  const after = { json: read(JSON_SPEC), yaml: read(YAML_SPEC) };
+  const after = {
+    json: read(JSON_SPEC),
+    yaml: read(YAML_SPEC),
+    markdown: read(MARKDOWN_DOC),
+  };
 
   assert.equal(
     after.json,
@@ -46,6 +58,11 @@ test("the published OpenAPI spec is up to date with the protos", () => {
     after.yaml,
     before.yaml,
     `${YAML_SPEC} is stale — run \`make openapi\` and commit the result`,
+  );
+  assert.equal(
+    after.markdown,
+    before.markdown,
+    `${MARKDOWN_DOC} is stale — run \`make openapi\` and commit the result`,
   );
 });
 

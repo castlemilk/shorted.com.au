@@ -784,3 +784,8 @@ openapi: ## Regenerate the public OpenAPI spec from the protos
 		-base ../api/schema/base.yaml \
 		-out-json ../web/public/openapi.json \
 		-out-yaml ../web/public/openapi.yaml
+	# The markdown twin is a pure function of openapi.json, so it regenerates
+	# here rather than on its own. It is what LLM agents actually read — they
+	# cannot fall back to the React page — so a stale or absent twin is served
+	# precisely to the audience with no recourse.
+	cd web && npm run docs:api-markdown
