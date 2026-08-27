@@ -182,6 +182,15 @@ func downsample[T any](in []T, max int) []T {
 	if (len(in)-1)%step != 0 {
 		out = append(out, in[len(in)-1])
 	}
+	// Keeping both endpoints can push the result to max+1: the strided walk
+	// can already have produced exactly max items before the final append.
+	// The schema and the tool description both promise "at most max", so
+	// overwrite the last strided sample with the true endpoint rather than
+	// return a series one longer than advertised.
+	if len(out) > max {
+		out[len(out)-2] = out[len(out)-1]
+		out = out[:len(out)-1]
+	}
 	return out
 }
 

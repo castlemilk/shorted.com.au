@@ -313,9 +313,9 @@ func getMarketSnapshotHandler(src DataSource) sdk.ToolHandlerFor[GetMarketSnapsh
 				Code:                   stock.GetProductCode(),
 				Name:                   stock.GetName(),
 				Industry:               stock.GetIndustry(),
-				PercentShorted:         float64(stock.GetPercentageShorted()),
-				ReportedShortPositions: float64(stock.GetReportedShortPositions()),
-				TotalProductInIssue:    float64(stock.GetTotalProductInIssue()),
+				PercentShorted:         fromFloat32(stock.GetPercentageShorted()),
+				ReportedShortPositions: fromFloat32(stock.GetReportedShortPositions()),
+				TotalProductInIssue:    fromFloat32(stock.GetTotalProductInIssue()),
 			})
 		}
 		out.Returned = len(out.Stocks)
