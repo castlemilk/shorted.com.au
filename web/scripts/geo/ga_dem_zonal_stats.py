@@ -63,6 +63,21 @@ def _weighted_median(values: np.ndarray, weights: np.ndarray) -> float:
     return float(ordered_values[min(index, len(ordered_values) - 1)])
 
 
+def _as_float_array(values: Iterable[Optional[float]]) -> np.ndarray:
+    """Coerce to a float64 array without materialising a Python list per cell.
+
+    The list() this replaces cost ~40 bytes of interpreter object per DEM cell.
+    On the largest SAL (Coral Sea, 36397x52406 = 1.9e9 cells) that alone is
+    ~76 GB and the process dies before touching a statistic. Sequences that are
+    already arrays are cast in place; lists — which may legitimately contain
+    None, and whose behaviour the unit tests pin — still go through the
+    element-wise path, where numpy maps None to nan exactly as before.
+    """
+    if isinstance(values, np.ndarray):
+        return values.astype(float, copy=False)
+    return np.asarray(list(values), dtype=float)
+
+
 def summarise_valid_cells(
     values: Iterable[Optional[float]],
     area_weights: Iterable[float],
@@ -71,8 +86,8 @@ def summarise_valid_cells(
     minimum_cells: int = MINIMUM_VALID_CELL_COUNT,
 ) -> dict[str, Optional[float] | int]:
     """Summarise valid DEM cells; null/no-data never enters either share side."""
-    samples = np.asarray(list(values), dtype=float)
-    weights = np.asarray(list(area_weights), dtype=float)
+    samples = _as_float_array(values)
+    weights = _as_float_array(area_weights)
     if samples.shape != weights.shape:
         raise ValueError("values and area_weights must have the same shape")
 
@@ -111,13 +126,31 @@ def _pixel_area_weights(transform, crs, shape: tuple[int, int]) -> np.ndarray:
 
     geod = Geod(ellps="GRS80")
     weights = np.empty(shape, dtype=float)
+    weights[:, :] = _row_area_weights(transform, crs, rows)[:, None]
+    return weights
+
+
+def _row_area_weights(transform, crs, rows: int) -> np.ndarray:
+    """Per-ROW cell area, one value per raster row rather than per cell.
+
+    A geographic cell's area varies with latitude only, so every column in a row
+    already held the same number — materialising it per cell doubled peak memory
+    for no information. Kept separate from _pixel_area_weights so that function's
+    full-grid contract (and its callers/tests) is unchanged.
+    """
+    if not crs.is_geographic:
+        pixel_area = abs(transform.a * transform.e - transform.b * transform.d)
+        return np.full(rows, pixel_area, dtype=float)
+
+    from pyproj import Geod
+
+    geod = Geod(ellps="GRS80")
+    weights = np.empty(rows, dtype=float)
     for row in range(rows):
         x0, y0 = transform * (0, row)
         x1, y1 = transform * (1, row + 1)
-        area, _ = geod.polygon_area_perimeter(
-            [x0, x1, x1, x0], [y0, y0, y1, y1]
-        )
-        weights[row, :] = abs(area)
+        area, _ = geod.polygon_area_perimeter([x0, x1, x1, x0], [y0, y0, y1, y1])
+        weights[row] = abs(area)
     return weights
 
 
@@ -160,13 +193,23 @@ def build_artifact(dem_path: Path, suburbs_dir: Path) -> dict[str, dict]:
                     output[sal_code] = empty_result(0)
                     continue
 
-                values = np.asarray(clipped.data, dtype=float)
-                masked = np.ma.getmaskarray(clipped)
-                values[masked] = np.nan
-                weights = _pixel_area_weights(clipped_transform, dem.crs, values.shape)
+                # Select valid cells while the block is still the raster's own
+                # dtype, then upcast only the survivors. Reading a whole bbox at
+                # float64 — plus a second float64 array of per-cell weights —
+                # cost ~114 GB on the largest SAL. Valid cells are a small
+                # fraction of a bbox for anything coastal or desert, so peak
+                # memory now tracks the answer's size, not the bounding box's.
+                block = clipped.data
+                valid = ~np.ma.getmaskarray(clipped) & np.isfinite(block)
+                if dem.nodata is not None and math.isfinite(float(dem.nodata)):
+                    valid &= block != np.asarray(dem.nodata, dtype=block.dtype)
+                row_weights = _row_area_weights(
+                    clipped_transform, dem.crs, block.shape[0]
+                )
+                valid &= (np.isfinite(row_weights) & (row_weights > 0))[:, None]
                 output[sal_code] = summarise_valid_cells(
-                    values.ravel(),
-                    weights.ravel(),
+                    block[valid].astype(float, copy=False),
+                    row_weights[np.nonzero(valid)[0]],
                     nodata=dem.nodata,
                 )
     return dict(sorted(output.items()))
