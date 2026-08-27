@@ -34,6 +34,27 @@ Shorted aggregates and visualises official ASIC (Australian Securities and Inves
 - [API Documentation](https://shorted.com.au/docs/api-reference): Developer API for accessing ASIC short position data programmatically.
 - [LLM Context Documentation](https://shorted.com.au/docs/llm-context): Detailed platform and data documentation optimised for AI/LLM consumption.
 
+## Programmatic access
+
+- [OpenAPI 3.1 description](https://shorted.com.au/openapi.json): Machine-readable description of every public endpoint. YAML twin at /openapi.yaml.
+- [API reference (markdown)](https://shorted.com.au/docs/api.md): JavaScript-free reference with worked curl examples.
+- [API catalog (RFC 9727)](https://shorted.com.au/.well-known/api-catalog): Link set pointing at everything on this list.
+- [MCP server](https://shorted.com.au/api/mcp/mcp): Model Context Protocol endpoint (streamable HTTP).
+
+Every endpoint is a Connect-RPC method. Call it with an HTTP POST, a JSON body,
+and the `Connect-Protocol-Version: 1` header. Send an identifying `User-Agent`:
+the edge rejects the default `curl/...` agent with a 403.
+
+    curl -X POST https://api.shorted.com.au/shorts.v1alpha1.StockService/GetStock \
+      -A 'my-app/1.0' \
+      -H 'Content-Type: application/json' \
+      -H 'Connect-Protocol-Version: 1' \
+      -d '{"productCode":"BHP"}'
+
+Authentication is optional: public endpoints work unauthenticated at the
+anonymous tier (30 requests/minute, 500/month). A bearer token raises those
+limits — see https://shorted.com.au/docs/api.md
+
 ## Educational Resources
 
 - [How to Short the ASX](https://shorted.com.au/learn/how-to-short-the-asx): Practical pillar guide to shorting Australian stocks — brokers, instruments (CFDs, options, BBOZ), costs, and regulation.

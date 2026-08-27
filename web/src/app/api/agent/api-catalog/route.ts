@@ -10,6 +10,9 @@ export const dynamic = "force-static";
  */
 export function GET() {
   const base = "https://shorted.com.au";
+  const mcpEndpoint = `${base}/api/mcp/mcp`;
+  const mcpServerCard = `${base}/.well-known/mcp/server-card.json`;
+
   const catalog = {
     linkset: [
       {
@@ -20,6 +23,66 @@ export function GET() {
             type: "application/json",
             title: "Shorted Public API — OpenAPI 3.1 description",
           },
+          {
+            href: `${base}/openapi.yaml`,
+            type: "application/yaml",
+            title: "Shorted Public API — OpenAPI 3.1 description (YAML)",
+          },
+        ],
+        "service-doc": [
+          {
+            href: `${base}/docs/api`,
+            type: "text/html",
+            title: "Shorted API documentation",
+          },
+          {
+            href: `${base}/docs/api.md`,
+            type: "text/markdown",
+            title:
+              "Shorted API documentation (markdown, no JavaScript required)",
+          },
+        ],
+        describedby: [
+          {
+            href: `${base}/llms.txt`,
+            type: "text/plain",
+            title: "Site and dataset overview for language models",
+          },
+          {
+            href: `${base}/llms-full.txt`,
+            type: "text/plain",
+            title:
+              "Extended site and dataset documentation for language models",
+          },
+        ],
+        // The MCP server is a sibling machine-readable surface over the same
+        // data, not a description OF this API — so it hangs off `related`
+        // (IANA-registered, RFC 4287) rather than `service-desc`. It gets its
+        // own anchor below, where `service-desc` legitimately points at the
+        // server card that describes it.
+        related: [
+          {
+            href: mcpEndpoint,
+            type: "application/json",
+            title:
+              "Shorted MCP server — Model Context Protocol (streamable HTTP)",
+          },
+          {
+            href: mcpServerCard,
+            type: "application/json",
+            title: "Shorted MCP server card",
+          },
+        ],
+        status: [{ href: `${base}/api/health` }],
+      },
+      {
+        anchor: mcpEndpoint,
+        "service-desc": [
+          {
+            href: mcpServerCard,
+            type: "application/json",
+            title: "Shorted MCP server card (SEP-1649)",
+          },
         ],
         "service-doc": [
           {
@@ -28,7 +91,6 @@ export function GET() {
             title: "Shorted API documentation",
           },
         ],
-        status: [{ href: `${base}/api/health` }],
       },
     ],
   };

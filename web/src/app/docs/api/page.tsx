@@ -5,12 +5,14 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '~/@/c
 import Image from 'next/image';
 import { ArrowRight, Book, Terminal, Shield, Lock, AlertTriangle } from 'lucide-react';
 import { ApiAccessSection } from '~/@/components/docs/api-access-section';
+import { WebApiSchema } from '~/@/components/seo/web-api-schema';
 
 export default async function ApiDocsIndex() {
   const spec = await parseOpenAPISpec();
 
   return (
     <div className="container max-w-4xl py-10 space-y-16">
+      <WebApiSchema />
       <div className="space-y-4">
         <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl">
           {spec.info.title}

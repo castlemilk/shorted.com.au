@@ -87,6 +87,13 @@ const AI_ALLOWED_PATHS = [
   "/faq",
   "/blog/",
   "/docs/",
+  // Machine-readable API discovery surfaces. `/.well-known/` covers the RFC
+  // 9727 api-catalog and the MCP server card; both are rewritten to /api/agent/*
+  // internally, but a crawler only ever sees the /.well-known/ URL, so this
+  // Allow is sufficient and `Disallow: /api/` can stay.
+  "/openapi.json",
+  "/openapi.yaml",
+  "/.well-known/",
   "/news/",
   "/news",
   "/insider-trading/",
@@ -100,6 +107,22 @@ const AI_ALLOWED_PATHS = [
   "/ai.txt",
 ];
 
+/**
+ * Carved out of `Disallow: /api/` for EVERY user-agent.
+ *
+ * The MCP server lives at /api/mcp/mcp, inside the private `/api/` prefix. MCP
+ * clients do not consult robots.txt — the protocol has no such step, and a
+ * client only connects because a human or an agent framework pointed it there
+ * from the server card. So this is not load-bearing for MCP itself.
+ *
+ * It is added anyway because some agent frameworks fetch robots.txt before ANY
+ * request to a host, and a blanket `Disallow: /api/` would refuse the handshake
+ * for an endpoint we advertise in llms.txt, the api-catalog and the server card.
+ * Under RFC 9309 the longest matching rule wins, so this Allow beats the
+ * Disallow without widening anything else under /api/.
+ */
+const MACHINE_ALLOWED_PATHS = ["/api/mcp/"];
+
 export function GET() {
   // RPC paths are disallowed for AI crawlers too — the same reasoning applies:
   // the indexable content is in the HTML, and protobuf-JSON is not useful to
@@ -107,6 +130,9 @@ export function GET() {
   const disallows = [...PRIVATE_PATHS, ...RPC_PATHS]
     .map((p) => `Disallow: ${p}`)
     .join("\n");
+  const machineAllows = MACHINE_ALLOWED_PATHS.map((p) => `Allow: ${p}`).join(
+    "\n",
+  );
 
   const body = `# robots.txt for ${siteConfig.url}
 # Official ASIC short position data for ASX stocks — we WANT this content
@@ -114,6 +140,7 @@ export function GET() {
 
 User-Agent: *
 Allow: /
+${machineAllows}
 ${disallows}
 
 # Content Signals (https://contentsignals.org/) — consistent with /ai.txt
@@ -122,6 +149,7 @@ Content-Signal: search=yes, ai-input=yes, ai-train=yes
 # AI crawlers — explicitly welcome
 ${AI_CRAWLERS.map((ua) => `User-Agent: ${ua}`).join("\n")}
 ${AI_ALLOWED_PATHS.map((p) => `Allow: ${p}`).join("\n")}
+${machineAllows}
 ${disallows}
 
 Host: ${siteConfig.url}
