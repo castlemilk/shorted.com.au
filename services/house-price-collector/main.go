@@ -44,7 +44,7 @@ func main() {
 // failure (see runDropIndex in drop_index.go).
 // Wrapping the body lets deferred cleanup run before exit.
 func run() int {
-	mode := flag.String("mode", "all", "official | vg-nsw | vg-vic | crawl | listings | details | property | property-resolve | agent | enqueue | freshness | purge | mcp | warmcheck | install-driver | backfill-address | census | seifa | electorates | banners | amenities | lga | connectivity | funding | council-financials | crime | drop-index | refresh | all")
+	mode := flag.String("mode", "all", "official | vg-nsw | vg-vic | crawl | listings | details | property | property-resolve | agent | enqueue | freshness | purge | mcp | warmcheck | install-driver | backfill-address | census | seifa | electorates | banners | amenities | elevation | lga | connectivity | funding | council-financials | crime | drop-index | refresh | all")
 	flag.Parse()
 
 	// install-driver needs no DB, no Chrome, no timeout plumbing — dispatch it
@@ -214,6 +214,10 @@ func run() int {
 		// Per-suburb amenity/lifestyle metrics, spatially joined offline
 		// (web/scripts/geo/join-amenities.mjs) and upserted into suburb_amenities.
 		runAmenities(ctx, pool)
+	case "elevation":
+		// GA national DEM-S terrain statistics are an expensive offline
+		// recompute and deliberately excluded from the scheduled "all" mode.
+		runElevation(ctx, pool)
 	case "lga":
 		// Council/LGA dimension + suburb→council bridge (ABS LGA_2024 PiP join).
 		runLGA(ctx, pool)
@@ -247,7 +251,7 @@ func run() int {
 			return 1
 		}
 	default:
-		log.Fatalf("unknown -mode %q (want official|vg-nsw|vg-vic|crawl|listings|details|property|property-resolve|agent|enqueue|freshness|warmcheck|backfill-address|census|seifa|electorates|banners|amenities|lga|connectivity|funding|council-financials|crime|drop-index|refresh|all)", *mode)
+		log.Fatalf("unknown -mode %q (want official|vg-nsw|vg-vic|crawl|listings|details|property|property-resolve|agent|enqueue|freshness|warmcheck|backfill-address|census|seifa|electorates|banners|amenities|elevation|lga|connectivity|funding|council-financials|crime|drop-index|refresh|all)", *mode)
 	}
 	return 0
 }
@@ -377,6 +381,26 @@ func runAmenities(ctx context.Context, pool *pgxpool.Pool) {
 	}
 	log.Printf("[amenities] upserted %d", n)
 	_ = updateRun(ctx, pool, "local_amenities", nil, n, "ok", "")
+}
+
+// runElevation loads the offline GA DEM-S zonal-statistics artifact and
+// updates existing SAL rows. It never downloads or processes a raster.
+func runElevation(ctx context.Context, pool *pgxpool.Pool) {
+	rows, err := ingestElevation()
+	if err != nil {
+		log.Printf("[elevation] ingest error: %v", err)
+		_ = updateRun(ctx, pool, elevationSource, nil, 0, "error", err.Error())
+		return
+	}
+	updated, err := upsertElevation(ctx, pool, rows)
+	if err != nil {
+		log.Printf("[elevation] update error after %d: %v", updated, err)
+		_ = updateRun(ctx, pool, elevationSource, nil, updated, "error", err.Error())
+		return
+	}
+	log.Printf("[elevation] updated %d/%d suburbs (source=%s licence=%s url=%s)",
+		updated, len(rows), elevationSource, elevationLicence, elevationDatasetURL)
+	_ = updateRun(ctx, pool, elevationSource, nil, updated, "ok", "")
 }
 
 // runElectorates loads the precomputed suburb→division join + division roll-up

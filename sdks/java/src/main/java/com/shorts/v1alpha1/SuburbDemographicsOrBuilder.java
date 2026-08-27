@@ -165,4 +165,95 @@ public interface SuburbDemographicsOrBuilder extends
    * @return The pctTopLanguage.
    */
   double getPctTopLanguage();
+
+  /**
+   * <pre>
+   * Curated ABS Census 2021 GCP rates. Zero means absent in this proto3 API;
+   * the database retains NULL for missing/suppressed/quality-gated values.
+   * </pre>
+   *
+   * <code>double pct_low_personal_income = 19 [json_name = "pctLowPersonalIncome"];</code>
+   * @return The pctLowPersonalIncome.
+   */
+  double getPctLowPersonalIncome();
+
+  /**
+   * <pre>
+   * 0..100, $2,000+ weekly (G17)
+   * </pre>
+   *
+   * <code>double pct_high_personal_income = 20 [json_name = "pctHighPersonalIncome"];</code>
+   * @return The pctHighPersonalIncome.
+   */
+  double getPctHighPersonalIncome();
+
+  /**
+   * <pre>
+   * 0..100 of labour force (G43)
+   * </pre>
+   *
+   * <code>double unemployment_rate = 21 [json_name = "unemploymentRate"];</code>
+   * @return The unemploymentRate.
+   */
+  double getUnemploymentRate();
+
+  /**
+   * <pre>
+   * 0..100 of persons aged 15+ (G43)
+   * </pre>
+   *
+   * <code>double labour_force_participation_rate = 22 [json_name = "labourForceParticipationRate"];</code>
+   * @return The labourForceParticipationRate.
+   */
+  double getLabourForceParticipationRate();
+
+  /**
+   * <pre>
+   * 0..100 (G46)
+   * </pre>
+   *
+   * <code>double pct_bachelor_or_higher = 23 [json_name = "pctBachelorOrHigher"];</code>
+   * @return The pctBachelorOrHigher.
+   */
+  double getPctBachelorOrHigher();
+
+  /**
+   * <pre>
+   * 0..100 occupied private dwellings (G32/G36)
+   * </pre>
+   *
+   * <code>double pct_separate_house = 24 [json_name = "pctSeparateHouse"];</code>
+   * @return The pctSeparateHouse.
+   */
+  double getPctSeparateHouse();
+
+  /**
+   * <pre>
+   * 0..100 occupied private dwellings (G32/G36)
+   * </pre>
+   *
+   * <code>double pct_flat_apartment = 25 [json_name = "pctFlatApartment"];</code>
+   * @return The pctFlatApartment.
+   */
+  double getPctFlatApartment();
+
+  /**
+   * <pre>
+   * 0..100 families (G25)
+   * </pre>
+   *
+   * <code>double pct_couple_with_children = 26 [json_name = "pctCoupleWithChildren"];</code>
+   * @return The pctCoupleWithChildren.
+   */
+  double getPctCoupleWithChildren();
+
+  /**
+   * <pre>
+   * 0..100 households (G25)
+   * </pre>
+   *
+   * <code>double pct_lone_person_household = 27 [json_name = "pctLonePersonHousehold"];</code>
+   * @return The pctLonePersonHousehold.
+   */
+  double getPctLonePersonHousehold();
 }
