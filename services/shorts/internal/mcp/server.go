@@ -32,6 +32,13 @@ func NewServer(src DataSource) *sdk.Server {
 		Version: ServerVersion,
 	}, nil)
 
+	// Resources and prompts are static: they carry the interpretation context
+	// and the composed entry points, neither of which needs a data source.
+	// Registering them unconditionally means a protocol-level test server and
+	// the real one advertise the same non-tool surface.
+	registerResources(server)
+	registerPrompts(server)
+
 	if src != nil {
 		registerAll(server, src)
 	}
