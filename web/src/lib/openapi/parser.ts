@@ -11,6 +11,7 @@ import path from 'path';
 import yaml from 'js-yaml';
 import type { OpenAPISpec, ParsedEndpoint, NavigationGroup, HTTPMethod } from './types';
 import { resolveRefs as resolveRefsWithSchemas } from './resolve-refs';
+import { FALLBACK_API_BASE_URL } from './api-base-url';
 
 export async function parseOpenAPISpec(): Promise<OpenAPISpec> {
   // The canonical generated artifact — see docs/superpowers/plans/
@@ -23,6 +24,7 @@ export async function parseOpenAPISpec(): Promise<OpenAPISpec> {
   if (!fs.existsSync(specPath)) {
     return {
       info: { title: 'API Documentation', version: '1.0.0' },
+      servers: [{ url: FALLBACK_API_BASE_URL, description: 'Production' }],
       endpoints: [],
       groups: [],
       components: { schemas: {} },
@@ -90,10 +92,26 @@ export async function parseOpenAPISpec(): Promise<OpenAPISpec> {
       description: rawSpec.info?.description,
       version: rawSpec.info?.version || '1.0.0',
     },
+    servers: Array.isArray(rawSpec.servers) && rawSpec.servers.length > 0
+      ? rawSpec.servers
+      : [{ url: FALLBACK_API_BASE_URL, description: 'Production' }],
     endpoints,
     groups,
     components: rawSpec.components || { schemas: {} },
   };
+}
+
+/**
+ * The host published code samples should target.
+ *
+ * Taken from the generated document's `servers[0].url` so the docs and the spec
+ * can never disagree, falling back to the public API host. Never the raw Cloud
+ * Run origin: that bypasses Cloudflare (edge cache, WAF, rate limiting) and
+ * changes on redeploy.
+ */
+export async function getApiBaseUrl(): Promise<string> {
+  const spec = await parseOpenAPISpec();
+  return spec.servers[0]?.url ?? FALLBACK_API_BASE_URL;
 }
 
 export async function getEndpoint(id: string): Promise<ParsedEndpoint | undefined> {

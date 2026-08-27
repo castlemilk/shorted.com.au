@@ -3,8 +3,13 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import type { Metadata } from 'next';
+import { FALLBACK_API_BASE_URL } from '~/lib/openapi/api-base-url';
 
-const BASE_URL = 'https://shorts-uiekqxovma-km.a.run.app';
+// The client guides are a module-level literal, so this cannot await the spec
+// the way [endpoint]/page.tsx does — but it must still never publish the raw
+// Cloud Run origin. The constant is the same public host the spec states in
+// servers[0].url.
+const BASE_URL = FALLBACK_API_BASE_URL;
 
 interface ClientGuide {
   name: string;

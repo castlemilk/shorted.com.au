@@ -10,12 +10,15 @@ import { Input } from '~/@/components/ui/input';
 import type { ParsedEndpoint } from '~/lib/openapi/types';
 import { CodeBlock } from './code-block';
 import { Loader2, Play } from 'lucide-react';
+import { FALLBACK_API_BASE_URL } from '~/lib/openapi/api-base-url';
 
 interface TryItPanelProps {
   endpoint: ParsedEndpoint;
+  /** The host to call. Supplied by CodePanel from the spec's `servers[0].url`. */
+  baseUrl?: string;
 }
 
-export function TryItPanel({ endpoint }: TryItPanelProps) {
+export function TryItPanel({ endpoint, baseUrl: baseUrlProp }: TryItPanelProps) {
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +39,9 @@ export function TryItPanel({ endpoint }: TryItPanelProps) {
     setError(null);
     setResponse(null);
 
-    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://shorts-uiekqxovma-km.a.run.app';
+    // Same rule as the code samples: the public, Cloudflare-fronted host, never
+    // the raw Cloud Run origin.
+    const baseUrl = baseUrlProp ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? FALLBACK_API_BASE_URL;
     const url = `${baseUrl}${endpoint.path}`;
 
     const headers: Record<string, string> = {
