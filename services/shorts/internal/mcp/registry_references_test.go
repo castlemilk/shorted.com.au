@@ -96,16 +96,31 @@ func dedupe(in []string) []string {
 
 // The tools/list response is preamble: every client pays it, in full, at the
 // start of every session, before the user has asked anything. It was 23.4KB at
-// 9 tools and 46KB at 14 — and the growth is dominated by nested OUTPUT schemas
-// rather than descriptions, so trimming prose barely moves it (measured: ~500
-// bytes recovered from cutting 40 field descriptions).
+// 9 tools, 46KB at 14, and 72KB at the full 24.
 //
-// This asserts a ceiling so that cost cannot double again unnoticed. If it
-// fails, the fix is usually to FLATTEN an output struct — every nested type
-// becomes its own fully-expanded $def — not to delete the descriptions, which
-// are what make tool selection work.
+// The ceiling was raised from 64KB (set when there were 14 tools) after the
+// surface was measured at ~3.0KB per tool. Getting 24 tools under 64KB was
+// tried and rejected: it required deleting output fields that carry meaning —
+// the coverage lists that stop an empty register reading as "this member
+// declared nothing", and the per-series source/licence that carries the CC-BY
+// credit we are obliged to pass on. Losing those is worse than the bytes.
+//
+// WHEN THIS FAILS, THE LEVER IS FEWER FIELDS AND FEWER FIELD DESCRIPTIONS.
+// It is NOT flattening or type reuse, and this is counter-intuitive enough to
+// be worth stating: **the SDK emits no $defs and no $ref** — every nested
+// struct is fully INLINED at every use site (verified on the emitted schema:
+// no $defs key, no $ref, and a shared 14-field row type appearing once per
+// field that uses it). So sharing a type across four fields costs four copies.
+// Merging get_report's three ranked-section types into one shared row type was
+// measured to make tools/list 2,229 bytes WORSE and was reverted.
+//
+// Deleting a field description where the field NAME already says it is nearly
+// free and was worth ~2.7KB across two tools. Deleting the descriptions that
+// differentiate similar tools, or that carry a unit, a caveat or an
+// LLM-provenance label, is not on the table — those are what make tool
+// selection and honest citation work.
 func TestToolsListPreambleStaysWithinBudget(t *testing.T) {
-	const budget = 64 * 1024
+	const budget = 76 * 1024
 
 	ctx := context.Background()
 	server := NewServer(&fakeDataSource{})
@@ -140,8 +155,9 @@ func TestToolsListPreambleStaysWithinBudget(t *testing.T) {
 	if size > budget {
 		t.Errorf(
 			"tools/list is %d bytes, over the %d-byte budget — every session pays this "+
-				"before the first question. Flatten an output schema rather than cutting "+
-				"descriptions; the nested $defs are what cost.",
+				"before the first question. Cut FIELDS or field descriptions whose name "+
+				"already says it; do NOT flatten or share output types (the SDK inlines "+
+				"every nested struct at every use site, so reuse costs more, not less).",
 			size, budget,
 		)
 	}
