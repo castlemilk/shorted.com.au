@@ -19,7 +19,7 @@ const MARKDOWN_DOC = "web/public/docs/api-markdown.md";
 
 const read = (relativePath) => readFileSync(join(repoRoot, relativePath), "utf8");
 
-test("the published OpenAPI spec is up to date with the protos", () => {
+test("the published OpenAPI spec is up to date with the protos", (t) => {
   // Both twins are published; a stale YAML is exactly as wrong as a stale JSON,
   // and only the JSON gets read often enough for anyone to notice.
   const before = {
@@ -32,15 +32,25 @@ test("the published OpenAPI spec is up to date with the protos", () => {
   // Buf Schema Registry for remote plugins, so a BSR outage or an anonymous
   // rate limit fails here — and "the spec is stale" is exactly the wrong thing
   // for a hurried reader to conclude from that.
+  //
+  // In CI that is a hard failure — we cannot claim the spec is current when we
+  // could not regenerate it. Locally it is a SKIP: this test runs in the
+  // pre-push hook, and a rate limit on somebody else's registry must not be
+  // able to stop an engineer pushing unrelated work. Blocking on that just
+  // teaches everyone to reach for --no-verify, which costs us every other gate
+  // in the hook.
   try {
     execFileSync("make", ["openapi"], { cwd: repoRoot, stdio: "inherit" });
   } catch (cause) {
-    throw new Error(
+    const message =
       "`make openapi` did not complete, so drift could not be assessed. " +
-        "This is a TOOLCHAIN failure (buf, the BSR, or the Go build), NOT a stale spec — " +
-        "see the command output above.",
-      { cause },
-    );
+      "This is a TOOLCHAIN failure (buf, the BSR, or the Go build), NOT a stale spec — " +
+      "see the command output above.";
+
+    if (process.env.CI) throw new Error(message, { cause });
+
+    t.skip(`${message} Skipping locally; CI enforces this.`);
+    return;
   }
 
   const after = {
