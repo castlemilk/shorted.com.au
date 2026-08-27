@@ -31,6 +31,11 @@ type fakeDataSource struct {
 	gotStockDetails   *shortsv1alpha1.GetStockDetailsRequest
 	gotDirectorTrades *shortsv1alpha1.GetDirectorTradesRequest
 	gotPeerComparison *shortsv1alpha1.GetPeerComparisonRequest
+	gotSearchStocks   *shortsv1alpha1.SearchStocksRequest
+	gotScreenStocks   *shortsv1alpha1.ScreenStocksRequest
+	gotStockNews      *shortsv1alpha1.GetStockNewsRequest
+	gotListReports    *shortsv1alpha1.ListReportsRequest
+	gotWeeklyReport   *shortsv1alpha1.GetWeeklyReportRequest
 
 	// Canned responses.
 	stock          *stocksv1alpha1.Stock
@@ -42,6 +47,11 @@ type fakeDataSource struct {
 	stockDetails   *stocksv1alpha1.StockDetails
 	directorTrades *shortsv1alpha1.GetDirectorTradesResponse
 	peerComparison *shortsv1alpha1.GetPeerComparisonResponse
+	searchStocks   *shortsv1alpha1.SearchStocksResponse
+	screenStocks   *shortsv1alpha1.ScreenStocksResponse
+	stockNews      *shortsv1alpha1.GetStockNewsResponse
+	listReports    *shortsv1alpha1.ListReportsResponse
+	weeklyReport   *shortsv1alpha1.GetWeeklyReportResponse
 
 	// err, when set, is returned by every method — tests set it to drive the
 	// error paths.
@@ -120,4 +130,44 @@ func (f *fakeDataSource) GetPeerComparison(_ context.Context, req *connect.Reque
 		return nil, f.err
 	}
 	return connect.NewResponse(f.peerComparison), nil
+}
+
+func (f *fakeDataSource) SearchStocks(_ context.Context, req *connect.Request[shortsv1alpha1.SearchStocksRequest]) (*connect.Response[shortsv1alpha1.SearchStocksResponse], error) {
+	f.gotSearchStocks = req.Msg
+	if f.err != nil {
+		return nil, f.err
+	}
+	return connect.NewResponse(f.searchStocks), nil
+}
+
+func (f *fakeDataSource) ScreenStocks(_ context.Context, req *connect.Request[shortsv1alpha1.ScreenStocksRequest]) (*connect.Response[shortsv1alpha1.ScreenStocksResponse], error) {
+	f.gotScreenStocks = req.Msg
+	if f.err != nil {
+		return nil, f.err
+	}
+	return connect.NewResponse(f.screenStocks), nil
+}
+
+func (f *fakeDataSource) GetStockNews(_ context.Context, req *connect.Request[shortsv1alpha1.GetStockNewsRequest]) (*connect.Response[shortsv1alpha1.GetStockNewsResponse], error) {
+	f.gotStockNews = req.Msg
+	if f.err != nil {
+		return nil, f.err
+	}
+	return connect.NewResponse(f.stockNews), nil
+}
+
+func (f *fakeDataSource) ListReports(_ context.Context, req *connect.Request[shortsv1alpha1.ListReportsRequest]) (*connect.Response[shortsv1alpha1.ListReportsResponse], error) {
+	f.gotListReports = req.Msg
+	if f.err != nil {
+		return nil, f.err
+	}
+	return connect.NewResponse(f.listReports), nil
+}
+
+func (f *fakeDataSource) GetWeeklyReport(_ context.Context, req *connect.Request[shortsv1alpha1.GetWeeklyReportRequest]) (*connect.Response[shortsv1alpha1.GetWeeklyReportResponse], error) {
+	f.gotWeeklyReport = req.Msg
+	if f.err != nil {
+		return nil, f.err
+	}
+	return connect.NewResponse(f.weeklyReport), nil
 }

@@ -2,7 +2,9 @@ package mcp
 
 import (
 	"fmt"
+	"math"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -22,6 +24,28 @@ const (
 	defaultSqueezeLimit   = 20
 	defaultTradesLimit    = 20
 	defaultPeerLimit      = 5
+	defaultSearchLimit    = 10
+	defaultScreenerLimit  = 20
+	defaultNewsLimit      = 10
+	defaultReportsLimit   = 12
+
+	// maxSearchLimit is well under the handler's own 100-result cap. Search is a
+	// disambiguation step — an agent looking up "the lithium miner" wants a
+	// shortlist it can pick from, and fifty near-identical rows make that harder,
+	// not easier.
+	maxSearchLimit = 25
+
+	// maxScreenerLimit is far below the handler's 4000 (the /directory pages pull
+	// the whole universe in one request). A screen is a filtered shortlist for a
+	// model to reason over, not a data export.
+	maxScreenerLimit = 50
+
+	// maxNewsLimit sits inside ValidateGetStockNewsRequest's 0-100 bound.
+	maxNewsLimit = 30
+
+	// maxReportsLimit sits inside ListReports' own 500 ceiling. Fifty covers
+	// roughly a year of weeklies plus the monthlies and yearlies around them.
+	maxReportsLimit = 50
 
 	// maxListLimit is the hard ceiling shared by every list-shaped tool.
 	//
@@ -55,6 +79,27 @@ const (
 	// maxListItems bounds repeated string/struct fields (risk factors, key
 	// people) on get_stock_details.
 	maxListItems = 10
+
+	// maxNewsSummaryChars bounds each article summary on get_stock_news. Summaries
+	// run to a few hundred characters; at thirty articles the difference between
+	// bounded and unbounded is the whole payload budget.
+	maxNewsSummaryChars = 400
+
+	// maxReportSummaryChars bounds the standfirst on each list_reports row.
+	maxReportSummaryChars = 320
+
+	// maxNarrativeChars bounds each of get_report's five narrative sections. A
+	// full weekly narrative is several thousand characters per section and the
+	// five together would exceed the whole per-call budget on their own.
+	maxNarrativeChars = 800
+
+	// maxReportStocks / maxReportMovers / maxReportIndustries / maxReportCitations
+	// bound get_report's repeated sections. The report itself carries far more —
+	// these are the head of each list, which is what a briefing needs.
+	maxReportStocks     = 10
+	maxReportMovers     = 5
+	maxReportIndustries = 10
+	maxReportCitations  = 10
 
 	// truncationMarker is appended to any field cut short, so the agent can
 	// tell a deliberate excerpt from a sentence that simply ends.
@@ -166,6 +211,60 @@ func nonEmpty(s, fallback string) string {
 		return fallback
 	}
 	return s
+}
+
+// fromFloat32 widens a float32 proto field to float64 without dragging the
+// binary32 representation error into the JSON. A plain float64(x) turns a
+// stored 19.43 into 19.430000305175781, which is both wrong-looking to a reader
+// and four times the bytes. Four decimal places is finer than any short
+// position is meaningful to.
+func fromFloat32(v float32) float64 {
+	return math.Round(float64(v)*10_000) / 10_000
+}
+
+// contains reports membership of a small fixed set of allowed values.
+func contains(set []string, value string) bool {
+	for _, v := range set {
+		if v == value {
+			return true
+		}
+	}
+	return false
+}
+
+// sortedKeys returns a map's keys in a stable order, so an error message that
+// lists the valid values reads the same on every call.
+func sortedKeys[V any](m map[string]V) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// trimmedNonEmpty drops blank entries from a caller-supplied string list, so a
+// stray "" cannot become a filter that matches nothing.
+func trimmedNonEmpty(in []string) []string {
+	out := make([]string, 0, len(in))
+	for _, v := range in {
+		if trimmed := strings.TrimSpace(v); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// capitalise upper-cases the first letter of an ASCII word. strings.Title is
+// deprecated and golang.org/x/text/cases is a dependency for one word.
+func capitalise(s string) string {
+	if s == "" {
+		return s
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
 }
 
 // capItems bounds a repeated field.

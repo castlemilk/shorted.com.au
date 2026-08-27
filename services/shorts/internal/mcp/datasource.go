@@ -49,4 +49,26 @@ type DataSource interface {
 	GetDirectorTrades(context.Context, *connect.Request[shortsv1alpha1.GetDirectorTradesRequest]) (*connect.Response[shortsv1alpha1.GetDirectorTradesResponse], error)
 	// GetPeerComparison: shorts.v1alpha1.StockService.GetPeerComparison
 	GetPeerComparison(context.Context, *connect.Request[shortsv1alpha1.GetPeerComparisonRequest]) (*connect.Response[shortsv1alpha1.GetPeerComparisonResponse], error)
+
+	// --- SearchService ---
+
+	// SearchStocks: shorts.v1alpha1.SearchService.SearchStocks
+	SearchStocks(context.Context, *connect.Request[shortsv1alpha1.SearchStocksRequest]) (*connect.Response[shortsv1alpha1.SearchStocksResponse], error)
+
+	// --- ScreenerService ---
+
+	// ScreenStocks: shorts.v1alpha1.ScreenerService.ScreenStocks
+	ScreenStocks(context.Context, *connect.Request[shortsv1alpha1.ScreenStocksRequest]) (*connect.Response[shortsv1alpha1.ScreenStocksResponse], error)
+
+	// --- NewsService ---
+
+	// GetStockNews: shorts.v1alpha1.NewsService.GetStockNews
+	GetStockNews(context.Context, *connect.Request[shortsv1alpha1.GetStockNewsRequest]) (*connect.Response[shortsv1alpha1.GetStockNewsResponse], error)
+
+	// --- ReportsService ---
+
+	// ListReports: shorts.v1alpha1.ReportsService.ListReports
+	ListReports(context.Context, *connect.Request[shortsv1alpha1.ListReportsRequest]) (*connect.Response[shortsv1alpha1.ListReportsResponse], error)
+	// GetWeeklyReport: shorts.v1alpha1.ReportsService.GetWeeklyReport
+	GetWeeklyReport(context.Context, *connect.Request[shortsv1alpha1.GetWeeklyReportRequest]) (*connect.Response[shortsv1alpha1.GetWeeklyReportResponse], error)
 }

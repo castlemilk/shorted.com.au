@@ -53,6 +53,15 @@ func Registry() []Tool {
 		getStockDetailsTool(),
 		getDirectorTradesTool(),
 		getPeerComparisonTool(),
+
+		// Discovery — finding stocks by name, or by criteria.
+		searchStocksTool(),
+		screenStocksTool(),
+
+		// News and reports.
+		getStockNewsTool(),
+		listReportsTool(),
+		getReportTool(),
 	}
 }
 

@@ -57,6 +57,11 @@ func TestToolResultsStayWithinTheirPayloadBudget(t *testing.T) {
 		{"get_stock_details", map[string]any{"code": "BHP"}},
 		{"get_director_trades", map[string]any{"code": "BHP"}},
 		{"get_peer_comparison", map[string]any{"code": "PLS"}},
+		{"search_stocks", map[string]any{"query": "minerals"}},
+		{"screen_stocks", map[string]any{"min_short_pct": 5.0}},
+		{"get_stock_news", map[string]any{"code": "PLS"}},
+		{"list_reports", map[string]any{}},
+		{"get_report", map[string]any{"slug": "2026-W23"}},
 	}
 	for _, c := range calls {
 		res, err := sess.CallTool(ctx, &sdk.CallToolParams{Name: c.name, Arguments: c.args})
@@ -208,5 +213,131 @@ func realisticSource() *fakeDataSource {
 		Peers: peers,
 	}
 
+	realisticDiscoverySource(src)
 	return src
+}
+
+// realisticDiscoverySource fills the search/screener/news/reports fixtures, each
+// at the DEFAULT limit of its tool and with every bounded field over its cap —
+// the worst case a real call can produce.
+func realisticDiscoverySource(src *fakeDataSource) {
+	// 10 matches (default limit).
+	matches := make([]*stocksv1alpha1.Stock, 0, 10)
+	for i := 0; i < 10; i++ {
+		matches = append(matches, &stocksv1alpha1.Stock{
+			ProductCode: fmt.Sprintf("MN%d", i), Name: "PILBARA MINERALS LIMITED",
+			Industry: "Metals & Mining", PercentageShorted: 19.4321,
+			LogoUrl: "https://storage.googleapis.com/shorted/logos/pls.png",
+		})
+	}
+	src.searchStocks = &shortsv1alpha1.SearchStocksResponse{Query: "minerals", Stocks: matches, Count: 10}
+
+	// 20 screened rows (default limit).
+	screened := make([]*shortsv1alpha1.ScreenerStock, 0, 20)
+	for i := 0; i < 20; i++ {
+		screened = append(screened, &shortsv1alpha1.ScreenerStock{
+			StockCode: fmt.Sprintf("SC%d", i), CompanyName: "PILBARA MINERALS LIMITED",
+			Industry: "Metals & Mining", ShortPct: 19.4321, ShortPctChange_4W: 2.1234,
+			LatestPrice: 2.3456, PriceChange_1M: 8.4321, LatestVolume: 12_345_678,
+			MarketCap: 7_123_456_789, PeRatio: 22.1234, DividendYield: 0.9123,
+			NetDirectorBuyValue: 1_234_567, DirectorBuyCount: 3, DirectorSellCount: 1,
+			NewsCount_30D: 14, AvgSentiment: 0.4321, PriceSensitiveCount: 2,
+			Trailing_12MDividend: 0.21, AvgFrankingPct: 100, DaysToCover: 6.2345,
+			AvgVolume_20D: 11_222_333,
+			LogoUrl:       "https://storage.googleapis.com/shorted/logos/pls.png",
+		})
+	}
+	src.screenStocks = &shortsv1alpha1.ScreenStocksResponse{Stocks: screened, TotalCount: 812}
+
+	// 10 articles (default limit), every summary over the truncation limit.
+	longSummary := strings.Repeat("Lithium spodumene prices firmed again in the September quarter. ", 40)
+	articles := make([]*shortsv1alpha1.NewsArticle, 0, 10)
+	for i := 0; i < 10; i++ {
+		articles = append(articles, &shortsv1alpha1.NewsArticle{
+			Id: "1f2e3d4c-5b6a-7980-1234-567890abcdef", StockCode: "PLS", Source: "stockhead",
+			Headline:  "Pilbara Minerals lifts FY27 guidance as spodumene prices firm",
+			Url:       "https://stockhead.com.au/resources/pilbara-minerals-lifts-fy27-guidance/",
+			Sentiment: "positive", RelevanceScore: 0.9234, IsPriceSensitive: true,
+			Summary: longSummary, PublishedAt: timestamppb.New(time.Date(2026, 8, 20, 3, 4, 5, 0, time.UTC)),
+			ImageUrl:         "https://stockhead.com.au/wp-content/uploads/2026/08/hero.jpg",
+			Tags:             []string{"lithium", "guidance", "resources"},
+			SyndicationCount: 4, SyndicatedSources: []string{"afr", "livewire", "motleyfool"},
+		})
+	}
+	src.stockNews = &shortsv1alpha1.GetStockNewsResponse{Articles: articles, TotalCount: 143}
+
+	// 12 reports (default limit), every standfirst over the truncation limit.
+	longStandfirst := strings.Repeat("Short interest across the ASX rose for a third straight week. ", 20)
+	reports := make([]*shortsv1alpha1.ReportListItem, 0, 12)
+	for i := 0; i < 12; i++ {
+		reports = append(reports, &shortsv1alpha1.ReportListItem{
+			Slug: fmt.Sprintf("2026-W%02d", i+10), ReportType: "weekly",
+			Headline: "Lithium shorts build for a third straight week",
+			Summary:  longStandfirst, ReportDate: "2026-06-05",
+			MaxShortPct: 19.4321, MaxShortCode: "PLS", TotalStocksShorted: 812,
+			QualityScore: 0.8765,
+			TopCodes:     []string{"PLS", "PDN", "IEL", "SYA", "LTR"},
+			TopLogoUrls:  []string{"https://x/pls.png", "https://x/pdn.png", "https://x/iel.png", "https://x/sya.png", "https://x/ltr.png"},
+		})
+	}
+	src.listReports = &shortsv1alpha1.ListReportsResponse{Reports: reports}
+
+	// A full report: every narrative section over the truncation limit, every
+	// repeated section over its cap.
+	longSection := strings.Repeat("Short interest across the resources sector rose again this week. ", 100)
+	topShorted := make([]*shortsv1alpha1.WeeklyReportStock, 0, 40)
+	for i := 0; i < 40; i++ {
+		topShorted = append(topShorted, &shortsv1alpha1.WeeklyReportStock{
+			Rank: int32(i + 1), Code: fmt.Sprintf("TS%d", i%10), Name: "PILBARA MINERALS LIMITED",
+			ShortPct: 19.4321, WowChange: 1.2345, DaysToCover: 6.2345, IsNewEntrant: i%3 == 0,
+			Industry: "Metals & Mining", LogoUrl: "https://x/pls.png",
+			History: []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13},
+		})
+	}
+	movers := make([]*shortsv1alpha1.WeeklyReportMover, 0, 30)
+	for i := 0; i < 30; i++ {
+		movers = append(movers, &shortsv1alpha1.WeeklyReportMover{
+			Code: fmt.Sprintf("MV%d", i%10), Name: "PALADIN ENERGY LTD", CurrentPct: 12.3456,
+			PreviousPct: 10.1234, Change: 2.2222, DaysToCover: 4.5678, ZScore: 1.9876,
+			StreakWeeks: 3, Industry: "Energy", LogoUrl: "https://x/pdn.png",
+			History: []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13},
+		})
+	}
+	industries := make([]*shortsv1alpha1.WeeklyIndustryStat, 0, 25)
+	for i := 0; i < 25; i++ {
+		industries = append(industries, &shortsv1alpha1.WeeklyIndustryStat{
+			Industry: "Consumer Discretionary", AvgShortPct: 3.2345, WowChange: 0.1234,
+			StockCount: 87, TopStockCode: "JBH", TopStockPct: 9.8765,
+		})
+	}
+	citations := make([]*shortsv1alpha1.WeeklyReportCitation, 0, 25)
+	for i := 0; i < 25; i++ {
+		citations = append(citations, &shortsv1alpha1.WeeklyReportCitation{
+			Id: fmt.Sprintf("ref-%d", i), Source: "Pilbara Minerals H1 FY2026 Results",
+			Date: "2026-02-20", Url: "https://www.asx.com.au/asxpdf/20260220/pdf/06abcdefghij.pdf",
+			Type: "financial_report",
+		})
+	}
+	faqs := make([]*shortsv1alpha1.WeeklyReportFAQ, 0, 8)
+	for i := 0; i < 8; i++ {
+		faqs = append(faqs, &shortsv1alpha1.WeeklyReportFAQ{
+			Question: "What does a rising short position mean?", Answer: longSection,
+		})
+	}
+	src.weeklyReport = &shortsv1alpha1.GetWeeklyReportResponse{
+		WeekSlug: "2026-W23", Headline: "Lithium shorts build for a third straight week",
+		Summary: longStandfirst, ReportDate: "2026-06-05", PreviousDate: "2026-05-29",
+		Narrative: &shortsv1alpha1.WeeklyNarrative{
+			OpeningHook: longSection, TopAnalysis: longSection, MoversAnalysis: longSection,
+			IndustryAnalysis: longSection, Outlook: longSection,
+		},
+		TopShorted: topShorted, Risers: movers, Fallers: movers, Faqs: faqs,
+		QualityScore:      0.8765,
+		IndustryBreakdown: industries, Citations: citations,
+		MarketStats: &shortsv1alpha1.WeeklyMarketStats{
+			TotalStocksShorted: 812, AvgShortPct: 2.1234, MaxShortPct: 19.4321,
+			MaxShortCode: "PLS", WowAvgChange: 0.0456, MedianShortPct: 1.2345,
+			StocksAbove_10Pct: 41, StocksAbove_5Pct: 128, RiserCount: 412, FallerCount: 388,
+		},
+	}
 }
