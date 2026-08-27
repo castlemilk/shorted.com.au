@@ -229,13 +229,51 @@ func nonEmpty(s, fallback string) string {
 	return s
 }
 
+// finite replaces a non-finite float with 0.
+//
+// This exists because of an asymmetry that makes the bug invisible until a
+// tool is actually called with real data:
+//
+//   - The Connect/web path marshals these values as PROTOBUF, with protojson,
+//     which renders an infinite double as the string "Infinity" and never
+//     fails. The website therefore shows a silly number and carries on.
+//   - The MCP path marshals the SAME value as a Go struct field, with
+//     encoding/json, which REFUSES ±Inf and NaN outright:
+//     `json: unsupported value: +Inf`. That is not a bad number in one cell,
+//     it is the whole tools/call failing.
+//
+// So a value the site renders fine takes the tool down, and no fixture caught
+// it because fixtures hold sensible numbers. The values are real: any quotient
+// computed in SQL over a float8 column can divide by zero — as at 2026-08-28
+// mv_screener_data.pe_ratio holds Infinity for 23 of 964 rows, two of which
+// sit in the DEFAULT top-25 of screen_stocks, so the default call failed 100%
+// of the time.
+//
+// 0 is the substitute because every affected field either documents "0 when
+// unknown" or is `omitempty`, where 0 means the field is dropped entirely —
+// which is the honest rendering of "this could not be computed".
+//
+// Apply this at the PROJECTION BOUNDARY, where a proto value becomes a field
+// of a tool's output struct. TestToolOutputsSurviveNonFiniteFloats drives the
+// whole registry to prove none was missed.
+func finite(v float64) float64 {
+	if math.IsInf(v, 0) || math.IsNaN(v) {
+		return 0
+	}
+	return v
+}
+
 // fromFloat32 widens a float32 proto field to float64 without dragging the
 // binary32 representation error into the JSON. A plain float64(x) turns a
 // stored 19.43 into 19.430000305175781, which is both wrong-looking to a reader
 // and four times the bytes. Four decimal places is finer than any short
 // position is meaningful to.
+//
+// Non-finite-safe: a float32 +Inf widens to a float64 +Inf, and math.Round
+// passes it straight through, so without the guard this is just another route
+// to the marshal failure described on finite.
 func fromFloat32(v float32) float64 {
-	return math.Round(float64(v)*10_000) / 10_000
+	return finite(math.Round(float64(v)*10_000) / 10_000)
 }
 
 // contains reports membership of a small fixed set of allowed values.

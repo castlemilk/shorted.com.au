@@ -200,7 +200,7 @@ func getStockHistoryHandler(src DataSource) sdk.ToolHandlerFor[GetStockHistoryIn
 			Code:               nonEmpty(msg.GetProductCode(), code),
 			Name:               msg.GetName(),
 			Period:             period,
-			LatestShortPercent: msg.GetLatestShortPosition(),
+			LatestShortPercent: finite(msg.GetLatestShortPosition()),
 			TotalObservations:  len(all),
 			Downsampled:        len(sampled) < len(all),
 			Points:             []StockHistoryPoint{},
@@ -211,7 +211,7 @@ func getStockHistoryHandler(src DataSource) sdk.ToolHandlerFor[GetStockHistoryIn
 			}
 			out.Points = append(out.Points, StockHistoryPoint{
 				Date:         point.GetTimestamp().AsTime().UTC().Format("2006-01-02"),
-				ShortPercent: point.GetShortPosition(),
+				ShortPercent: finite(point.GetShortPosition()),
 			})
 		}
 		out.Returned = len(out.Points)
@@ -441,8 +441,8 @@ func getDirectorTradesHandler(src DataSource) sdk.ToolHandlerFor[GetDirectorTrad
 				DirectorName:    trade.GetDirectorName(),
 				TradeType:       trade.GetTradeType(),
 				SharesTraded:    trade.GetSharesTraded(),
-				PricePerShare:   trade.GetPricePerShare(),
-				TotalValue:      trade.GetTotalValue(),
+				PricePerShare:   finite(trade.GetPricePerShare()),
+				TotalValue:      finite(trade.GetTotalValue()),
 				AnnouncementURL: trade.GetAnnouncementUrl(),
 			})
 		}
@@ -571,10 +571,10 @@ func projectPeer(p *shortsv1alpha1.PeerStock) *PeerStockEntry {
 	return &PeerStockEntry{
 		Code:          p.GetStockCode(),
 		Name:          p.GetCompanyName(),
-		ShortPercent:  p.GetShortPositionPercent(),
-		MarketCap:     p.GetMarketCap(),
-		PERatio:       p.GetPeRatio(),
-		DividendYield: p.GetDividendYield(),
-		PriceChange1M: p.GetPriceChange_1M(),
+		ShortPercent:  finite(p.GetShortPositionPercent()),
+		MarketCap:     finite(p.GetMarketCap()),
+		PERatio:       finite(p.GetPeRatio()),
+		DividendYield: finite(p.GetDividendYield()),
+		PriceChange1M: finite(p.GetPriceChange_1M()),
 	}
 }

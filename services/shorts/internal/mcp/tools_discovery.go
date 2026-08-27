@@ -291,17 +291,17 @@ func screenStocksHandler(src DataSource) sdk.ToolHandlerFor[ScreenStocksInput, S
 				Code:                 stock.GetStockCode(),
 				Name:                 stock.GetCompanyName(),
 				Industry:             stock.GetIndustry(),
-				ShortPercent:         stock.GetShortPct(),
-				ShortPercentChange4W: stock.GetShortPctChange_4W(),
-				DaysToCover:          stock.GetDaysToCover(),
-				LatestPrice:          stock.GetLatestPrice(),
-				PriceChange1M:        stock.GetPriceChange_1M(),
-				MarketCap:            stock.GetMarketCap(),
-				PERatio:              stock.GetPeRatio(),
-				DividendYield:        stock.GetDividendYield(),
-				NetDirectorBuyValue:  stock.GetNetDirectorBuyValue(),
+				ShortPercent:         finite(stock.GetShortPct()),
+				ShortPercentChange4W: finite(stock.GetShortPctChange_4W()),
+				DaysToCover:          finite(stock.GetDaysToCover()),
+				LatestPrice:          finite(stock.GetLatestPrice()),
+				PriceChange1M:        finite(stock.GetPriceChange_1M()),
+				MarketCap:            finite(stock.GetMarketCap()),
+				PERatio:              finite(stock.GetPeRatio()),
+				DividendYield:        finite(stock.GetDividendYield()),
+				NetDirectorBuyValue:  finite(stock.GetNetDirectorBuyValue()),
 				NewsCount30D:         int(stock.GetNewsCount_30D()),
-				AvgSentiment:         stock.GetAvgSentiment(),
+				AvgSentiment:         finite(stock.GetAvgSentiment()),
 			})
 		}
 		out.Count = len(out.Stocks)
@@ -475,7 +475,7 @@ func getStockNewsHandler(src DataSource) sdk.ToolHandlerFor[GetStockNewsInput, G
 				Source:           article.GetSource(),
 				Sentiment:        article.GetSentiment(),
 				IsPriceSensitive: article.GetIsPriceSensitive(),
-				RelevanceScore:   article.GetRelevanceScore(),
+				RelevanceScore:   finite(article.GetRelevanceScore()),
 				SyndicationCount: int(article.GetSyndicationCount()),
 				Summary:          truncate(article.GetSummary(), maxNewsSummaryChars),
 			}
@@ -600,7 +600,7 @@ func listReportsHandler(src DataSource) sdk.ToolHandlerFor[ListReportsInput, Lis
 				Headline:           item.GetHeadline(),
 				Summary:            truncate(item.GetSummary(), maxReportSummaryChars),
 				ReportDate:         item.GetReportDate(),
-				MaxShortPercent:    item.GetMaxShortPct(),
+				MaxShortPercent:    finite(item.GetMaxShortPct()),
 				MaxShortCode:       item.GetMaxShortCode(),
 				TotalStocksShorted: int(item.GetTotalStocksShorted()),
 				TopCodes:           item.GetTopCodes(),
@@ -815,11 +815,11 @@ func getReportHandler(src DataSource) sdk.ToolHandlerFor[GetReportInput, GetRepo
 		if s := msg.GetMarketStats(); s != nil {
 			out.MarketStats = &ReportMarketStats{
 				TotalStocksShorted: int(s.GetTotalStocksShorted()),
-				AvgShortPercent:    s.GetAvgShortPct(),
-				MedianShortPercent: s.GetMedianShortPct(),
-				MaxShortPercent:    s.GetMaxShortPct(),
+				AvgShortPercent:    finite(s.GetAvgShortPct()),
+				MedianShortPercent: finite(s.GetMedianShortPct()),
+				MaxShortPercent:    finite(s.GetMaxShortPct()),
 				MaxShortCode:       s.GetMaxShortCode(),
-				AvgChange:          s.GetWowAvgChange(),
+				AvgChange:          finite(s.GetWowAvgChange()),
 				StocksAbove10Pct:   int(s.GetStocksAbove_10Pct()),
 				StocksAbove5Pct:    int(s.GetStocksAbove_5Pct()),
 				RiserCount:         int(s.GetRiserCount()),
@@ -838,9 +838,9 @@ func getReportHandler(src DataSource) sdk.ToolHandlerFor[GetReportInput, GetRepo
 				Code:         stock.GetCode(),
 				Name:         stock.GetName(),
 				Industry:     stock.GetIndustry(),
-				ShortPercent: stock.GetShortPct(),
-				Change:       stock.GetWowChange(),
-				DaysToCover:  stock.GetDaysToCover(),
+				ShortPercent: finite(stock.GetShortPct()),
+				Change:       finite(stock.GetWowChange()),
+				DaysToCover:  finite(stock.GetDaysToCover()),
 				IsNewEntrant: stock.GetIsNewEntrant(),
 			})
 		}
@@ -852,11 +852,11 @@ func getReportHandler(src DataSource) sdk.ToolHandlerFor[GetReportInput, GetRepo
 			}
 			out.IndustryBreakdown = append(out.IndustryBreakdown, ReportIndustryStat{
 				Industry:        stat.GetIndustry(),
-				AvgShortPercent: stat.GetAvgShortPct(),
-				Change:          stat.GetWowChange(),
+				AvgShortPercent: finite(stat.GetAvgShortPct()),
+				Change:          finite(stat.GetWowChange()),
 				StockCount:      int(stat.GetStockCount()),
 				TopStockCode:    stat.GetTopStockCode(),
-				TopStockPercent: stat.GetTopStockPct(),
+				TopStockPercent: finite(stat.GetTopStockPct()),
 			})
 		}
 		for _, cite := range capItems(msg.GetCitations(), maxReportCitations) {
@@ -895,10 +895,10 @@ func projectReportMovers(in []*shortsv1alpha1.WeeklyReportMover) []ReportMover {
 			Code:           mover.GetCode(),
 			Name:           mover.GetName(),
 			Industry:       mover.GetIndustry(),
-			CurrentPercent: mover.GetCurrentPct(),
-			PreviousPct:    mover.GetPreviousPct(),
-			Change:         mover.GetChange(),
-			ZScore:         mover.GetZScore(),
+			CurrentPercent: finite(mover.GetCurrentPct()),
+			PreviousPct:    finite(mover.GetPreviousPct()),
+			Change:         finite(mover.GetChange()),
+			ZScore:         finite(mover.GetZScore()),
 			StreakPeriods:  int(mover.GetStreakWeeks()),
 		})
 	}

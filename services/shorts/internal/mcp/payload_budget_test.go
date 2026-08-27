@@ -30,55 +30,14 @@ func TestToolResultsStayWithinTheirPayloadBudget(t *testing.T) {
 	src := realisticSource()
 
 	ctx := context.Background()
-	server := NewServer(src)
-	client := sdk.NewClient(&sdk.Implementation{Name: "size", Version: "0"}, nil)
-	ct, st := sdk.NewInMemoryTransports()
-	ss, err := server.Connect(ctx, st, nil)
-	if err != nil {
-		t.Fatalf("server connect: %v", err)
-	}
-	t.Cleanup(func() { _ = ss.Close() })
-	sess, err := client.Connect(ctx, ct, nil)
-	if err != nil {
-		t.Fatalf("client connect: %v", err)
-	}
-	t.Cleanup(func() { _ = sess.Close() })
+	sess := connectToolSession(t, src)
 
-	calls := []struct {
-		name string
-		args map[string]any
-	}{
-		{"get_stock", map[string]any{"code": "BHP"}},
-		{"list_top_shorts", map[string]any{}},
-		{"get_industry_treemap", map[string]any{}},
-		{"get_market_snapshot", map[string]any{"date": "2026-08-01"}},
-		{"list_squeeze_candidates", map[string]any{}},
-		{"get_stock_history", map[string]any{"code": "PLS", "period": "MAX"}},
-		{"get_stock_details", map[string]any{"code": "BHP"}},
-		{"get_director_trades", map[string]any{"code": "BHP"}},
-		{"get_peer_comparison", map[string]any{"code": "PLS"}},
-		{"search_stocks", map[string]any{"query": "minerals"}},
-		{"screen_stocks", map[string]any{"min_short_pct": 5.0}},
-		{"get_stock_news", map[string]any{"code": "PLS"}},
-		{"list_reports", map[string]any{}},
-		{"get_report", map[string]any{"slug": "2026-W23"}},
-		{"get_housing_overview", map[string]any{}},
-		{"get_house_price_series", map[string]any{"region_code": "AUS", "measure": "median_price"}},
-		{"get_suburb_profile", map[string]any{"sal_code": "SAL21234"}},
-		{"list_suburb_price_drops", map[string]any{}},
-		{"list_economic_series", map[string]any{"limit": 500}},
-		{"get_economic_series", map[string]any{
-			"series_keys": []any{
-				"trade.merchandise_exports_value.lng.wa.seasadj.0",
-				"trade.merchandise_exports_value.lng.wa.seasadj.1",
-				"trade.merchandise_exports_value.lng.wa.seasadj.2",
-			},
-		}},
-		{"get_state_company_aggregates", map[string]any{}},
-		{"search_politicians", map[string]any{"limit": 50}},
-		{"get_politician", map[string]any{"slug": "anthony-smith"}},
-		{"list_stock_politicians", map[string]any{"code": "BHP"}},
-	}
+	// The call table lives in nonfinite_test.go as toolCallFixtures() so this
+	// budget and the non-finite guard drive the SAME set of calls, and
+	// TestToolCallFixturesCoverTheRegistry proves that set is every tool. Two
+	// hand-maintained lists would drift, and the tool omitted from one is
+	// exactly the tool nobody measured.
+	calls := toolCallFixtures()
 	for _, c := range calls {
 		res, err := sess.CallTool(ctx, &sdk.CallToolParams{Name: c.name, Arguments: c.args})
 		if err != nil {

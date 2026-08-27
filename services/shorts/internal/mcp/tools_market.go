@@ -100,7 +100,7 @@ func listTopShortsHandler(src DataSource) sdk.ToolHandlerFor[ListTopShortsInput,
 				Code:           series.GetProductCode(),
 				Name:           series.GetName(),
 				Industry:       series.GetIndustry(),
-				PercentShorted: series.GetLatestShortPosition(),
+				PercentShorted: finite(series.GetLatestShortPosition()),
 			})
 		}
 		out.Count = len(out.Stocks)
@@ -206,7 +206,7 @@ func getIndustryTreemapHandler(src DataSource) sdk.ToolHandlerFor[GetIndustryTre
 			out.Stocks = append(out.Stocks, IndustryTreemapEntry{
 				Industry:       row.GetIndustry(),
 				Code:           row.GetProductCode(),
-				PercentShorted: row.GetShortPosition(),
+				PercentShorted: finite(row.GetShortPosition()),
 			})
 		}
 		out.Count = len(out.Stocks)
@@ -442,14 +442,14 @@ func listSqueezeCandidatesHandler(src DataSource) sdk.ToolHandlerFor[ListSqueeze
 				Code:                 stock.GetStockCode(),
 				Name:                 stock.GetCompanyName(),
 				Industry:             stock.GetIndustry(),
-				ShortPercent:         stock.GetShortPct(),
-				ShortPercentChange4W: stock.GetShortPctChange_4W(),
-				LatestPrice:          stock.GetLatestPrice(),
-				PriceChange1M:        stock.GetPriceChange_1M(),
-				DaysToCover:          stock.GetDaysToCover(),
-				SqueezeScore:         stock.GetSqueezeScore(),
-				DivergenceScore:      stock.GetDivergenceScore(),
-				MarketCap:            stock.GetMarketCap(),
+				ShortPercent:         finite(stock.GetShortPct()),
+				ShortPercentChange4W: finite(stock.GetShortPctChange_4W()),
+				LatestPrice:          finite(stock.GetLatestPrice()),
+				PriceChange1M:        finite(stock.GetPriceChange_1M()),
+				DaysToCover:          finite(stock.GetDaysToCover()),
+				SqueezeScore:         finite(stock.GetSqueezeScore()),
+				DivergenceScore:      finite(stock.GetDivergenceScore()),
+				MarketCap:            finite(stock.GetMarketCap()),
 			})
 		}
 		out.Count = len(out.Stocks)

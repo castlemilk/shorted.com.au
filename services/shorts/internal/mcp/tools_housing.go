@@ -141,7 +141,17 @@ func pctOfFraction(v float64) float64 {
 	return round2(v * 100)
 }
 
+// round2 rounds to two decimal places.
+//
+// The finite() guard is load-bearing and its absence was WORSE here than on
+// the paths that marshal a raw float64. Converting a non-finite float to int64
+// is undefined in Go, and in practice saturates: round2(+Inf) returned
+// 9.223372036854776e+16 and round2(NaN) returned 0. So this path did not fail
+// loudly like encoding/json does — it silently published a median house price
+// of ninety-two quadrillion dollars as though it were a measurement. Every
+// housing and economy float goes through here.
 func round2(v float64) float64 {
+	v = finite(v)
 	return float64(int64(v*100+sign(v)*0.5)) / 100
 }
 
