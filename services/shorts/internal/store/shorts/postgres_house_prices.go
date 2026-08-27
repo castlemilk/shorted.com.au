@@ -47,6 +47,61 @@ type HousePriceSeriesResult struct {
 	Points        []*HousePricePointRow
 }
 
+// SuburbSeifaIndexRow is one ABS SEIFA index. A zero decile is the no-data
+// sentinel; valid ABS deciles are constrained to 1..10 in the database.
+type SuburbSeifaIndexRow struct {
+	Score       int32
+	DecileAus   int32
+	DecileState int32
+}
+
+// SuburbSeifaRow groups the four ABS 2021 SEIFA indexes published for a SAL.
+type SuburbSeifaRow struct {
+	IRSD  SuburbSeifaIndexRow
+	IRSAD SuburbSeifaIndexRow
+	IER   SuburbSeifaIndexRow
+	IEO   SuburbSeifaIndexRow
+}
+
+type nullableSuburbSeifaIndex struct {
+	Score       sql.NullInt32
+	DecileAus   sql.NullInt32
+	DecileState sql.NullInt32
+}
+
+type nullableSuburbSeifa struct {
+	IRSD  nullableSuburbSeifaIndex
+	IRSAD nullableSuburbSeifaIndex
+	IER   nullableSuburbSeifaIndex
+	IEO   nullableSuburbSeifaIndex
+}
+
+func mapSuburbSeifa(raw nullableSuburbSeifa) *SuburbSeifaRow {
+	hasValue := false
+	for _, index := range []nullableSuburbSeifaIndex{raw.IRSD, raw.IRSAD, raw.IER, raw.IEO} {
+		if index.Score.Valid || index.DecileAus.Valid || index.DecileState.Valid {
+			hasValue = true
+			break
+		}
+	}
+	if !hasValue {
+		return nil
+	}
+	mapIndex := func(index nullableSuburbSeifaIndex) SuburbSeifaIndexRow {
+		return SuburbSeifaIndexRow{
+			Score:       index.Score.Int32,
+			DecileAus:   index.DecileAus.Int32,
+			DecileState: index.DecileState.Int32,
+		}
+	}
+	return &SuburbSeifaRow{
+		IRSD:  mapIndex(raw.IRSD),
+		IRSAD: mapIndex(raw.IRSAD),
+		IER:   mapIndex(raw.IER),
+		IEO:   mapIndex(raw.IEO),
+	}
+}
+
 // GetHousingOverview returns the latest observation + QoQ/YoY change per region ×
 // measure from mv_housing_headline, optionally filtered to one region_type.
 func (s *postgresStore) GetHousingOverview(regionType string) ([]*HousingMetricRow, error) {
@@ -181,6 +236,8 @@ type SuburbSummaryRow struct {
 	// NBN connectivity (Local Insights)
 	DominantNbnTech          string
 	ConnectivityQualityScore float64
+	// ABS 2021 SEIFA; nil when every source column is NULL.
+	Seifa *SuburbSeifaRow
 	// Crime percentile ranks (latest pooled FY, gated MV); 0 = no data.
 	CrimeBreakInsRank     float64
 	CrimeViolentRank      float64
@@ -439,7 +496,11 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		       COALESCE(d.banner_archetype,''), COALESCE(d.banner_blurb,''),
 		       COALESCE(d.banner_landmarks, '[]'::jsonb),
 		       COALESCE(d.banner_bg_key,''), COALESCE(d.banner_bg_url,''),
-		       COALESCE(rp.declared_property_count, 0)
+		       COALESCE(rp.declared_property_count, 0),
+		       d.seifa_irsd_score, d.seifa_irsd_decile_aus, d.seifa_irsd_decile_state,
+		       d.seifa_irsad_score, d.seifa_irsad_decile_aus, d.seifa_irsad_decile_state,
+		       d.seifa_ier_score, d.seifa_ier_decile_aus, d.seifa_ier_decile_state,
+		       d.seifa_ieo_score, d.seifa_ieo_decile_aus, d.seifa_ieo_decile_state
 		FROM suburb_demographics d` + preferredSuburbRegionJoin + `
 		LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
 		LEFT JOIN suburb_connectivity c ON c.sal_code = d.sal_code
@@ -449,6 +510,7 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		WHERE d.sal_code = $1
 		LIMIT 1`
 	var p SuburbProfileRow
+	var rawSeifa nullableSuburbSeifa
 	row := s.db.QueryRow(ctx, q, salCode)
 	if err := row.Scan(
 		&p.Summary.SALCode, &p.Summary.SALName, &p.Summary.StateCode, &p.Summary.Postcode,
@@ -472,9 +534,14 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		&p.LgaAvgRates, &p.LgaOpSurplusRatio, &p.LgaAssetRenewalRatio, &p.LgaFinSource, &p.LgaFinYear,
 		&p.BannerArchetype, &p.BannerBlurb, &p.BannerLandmarks, &p.BannerBgKey, &p.BannerBgUrl,
 		&p.Summary.PoliticianPropertyCount,
+		&rawSeifa.IRSD.Score, &rawSeifa.IRSD.DecileAus, &rawSeifa.IRSD.DecileState,
+		&rawSeifa.IRSAD.Score, &rawSeifa.IRSAD.DecileAus, &rawSeifa.IRSAD.DecileState,
+		&rawSeifa.IER.Score, &rawSeifa.IER.DecileAus, &rawSeifa.IER.DecileState,
+		&rawSeifa.IEO.Score, &rawSeifa.IEO.DecileAus, &rawSeifa.IEO.DecileState,
 	); err != nil {
 		return nil, err
 	}
+	p.Summary.Seifa = mapSuburbSeifa(rawSeifa)
 	if sim, err := s.similarSuburbs(ctx, salCode, 6); err == nil {
 		p.Similar = sim
 	} else {

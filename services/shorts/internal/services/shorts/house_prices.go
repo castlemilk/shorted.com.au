@@ -324,6 +324,7 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 				SchoolsPrimary: p.Summary.SchoolsPrimary, SchoolsSecondary: p.Summary.SchoolsSecondary, NearestSecondaryKm: p.Summary.NearestSecondaryKm,
 			},
 		}
+		attachSuburbSeifa(summary.ProtoReflect(), p.Summary.Seifa)
 		if p.Summary.LatestPeriod != nil {
 			summary.LatestPeriod = timestamppb.New(*p.Summary.LatestPeriod)
 		}

@@ -65,6 +65,18 @@ func setupSuburbExplorerSchema(t *testing.T, pool *pgxpool.Pool) {
 		pct_english_only         DOUBLE PRECISION,
 		pct_top_religion         DOUBLE PRECISION,
 		pct_no_religion          DOUBLE PRECISION,
+		seifa_irsd_score         INTEGER,
+		seifa_irsd_decile_aus    SMALLINT,
+		seifa_irsd_decile_state  SMALLINT,
+		seifa_irsad_score        INTEGER,
+		seifa_irsad_decile_aus   SMALLINT,
+		seifa_irsad_decile_state SMALLINT,
+		seifa_ier_score          INTEGER,
+		seifa_ier_decile_aus     SMALLINT,
+		seifa_ier_decile_state   SMALLINT,
+		seifa_ieo_score          INTEGER,
+		seifa_ieo_decile_aus     SMALLINT,
+		seifa_ieo_decile_state   SMALLINT,
 		banner_archetype         TEXT,
 		banner_blurb             TEXT,
 		banner_landmarks         JSONB,
@@ -307,4 +319,32 @@ func TestGetSuburbProfile_DuplicateSALChoosesPublicPricedRegion(t *testing.T) {
 	require.NotNil(t, profile)
 	assert.Equal(t, "SUBURB:VIC-ASCOT VALE", profile.Summary.RegionCode)
 	assert.InDelta(t, 1300000.0, profile.Summary.LatestMedianPrice, 0.5)
+}
+
+func TestGetSuburbProfile_MapsNullableSEIFA(t *testing.T) {
+	pool, cleanup := setupHousingTestDatabase(t)
+	defer cleanup()
+	setupSuburbExplorerSchema(t, pool)
+	s := &postgresStore{db: pool}
+
+	_, err := pool.Exec(context.Background(), `
+		UPDATE suburb_demographics SET
+			seifa_irsd_score = 900, seifa_irsd_decile_aus = 2, seifa_irsd_decile_state = 3,
+			seifa_irsad_score = 1100, seifa_irsad_decile_aus = 8, seifa_irsad_decile_state = 7,
+			seifa_ier_score = 1010, seifa_ier_decile_aus = 6, seifa_ier_decile_state = 5,
+			seifa_ieo_score = 980, seifa_ieo_decile_aus = 4, seifa_ieo_decile_state = 5
+		WHERE sal_code = $1`, salRichmond)
+	require.NoError(t, err)
+
+	populated, err := s.GetSuburbProfile(salRichmond)
+	require.NoError(t, err)
+	require.NotNil(t, populated.Summary.Seifa)
+	assert.Equal(t, SuburbSeifaIndexRow{Score: 900, DecileAus: 2, DecileState: 3}, populated.Summary.Seifa.IRSD)
+	assert.Equal(t, SuburbSeifaIndexRow{Score: 1100, DecileAus: 8, DecileState: 7}, populated.Summary.Seifa.IRSAD)
+	assert.Equal(t, SuburbSeifaIndexRow{Score: 1010, DecileAus: 6, DecileState: 5}, populated.Summary.Seifa.IER)
+	assert.Equal(t, SuburbSeifaIndexRow{Score: 980, DecileAus: 4, DecileState: 5}, populated.Summary.Seifa.IEO)
+
+	absent, err := s.GetSuburbProfile(salNorwood)
+	require.NoError(t, err)
+	assert.Nil(t, absent.Summary.Seifa, "all-NULL source columns must remain distinguishable from decile zero")
 }

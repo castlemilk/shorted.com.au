@@ -168,3 +168,25 @@ CC-BY-4.0 and ingested, NSW "Your Council" Crown copyright and NULL).
   the SQL level. This is a paid product, so NC is fatal, not inconvenient.
 - **NSW council financials.** Crown copyright, no reuse grant — the columns stay
   NULL rather than carry a number we cannot publish.
+- **School performance data from ACARA / My School (NAPLAN, ICSEA), and any
+  school ranking or league table built from it.** Checked against the My School
+  terms of use on **2026-08-27**; this is the most restrictive source we have
+  assessed, and it fails on three independent grounds:
+  - **No open licence at all.** ACARA asserts copyright over everything on the
+    site. There is no CC-BY equivalent, unlike every other source in the IN
+    table.
+  - **Clause 7.1(b) prohibits exactly this feature**: creating "lists of
+    comparative school performance from such content, or anything derived from
+    such content, for a commercial purpose". Shorted is a paid product, so a
+    school ranking is the prohibited use named in the terms.
+  - **Clause 6.4 bars republishing on a publicly accessible website even for
+    permitted non-commercial educational use**, so there is no reduced-scope
+    version of this that works either.
+
+  Clause 7.1(c) separately forbids using the content to compete with My School
+  as a source of NAPLAN data. Beyond the licence, school league tables are the
+  subject of a live public objection from every education peak body — a
+  reputational cost on top of a legal one, for a feature peripheral to the
+  product. **The licensable substitute is ABS SEIFA** (CC-BY, published at SAL
+  geography, four indexes including Education and Occupation), which is what
+  ICSEA is itself derived from and carries no such restriction.

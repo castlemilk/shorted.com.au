@@ -1041,6 +1041,44 @@ private static final long serialVersionUID = 0L;
     return politicianPropertyCount_;
   }
 
+  public static final int SEIFA_FIELD_NUMBER = 32;
+  private com.shorts.v1alpha1.SuburbSeifa seifa_;
+  /**
+   * <pre>
+   * Profile-only in the current backend query; list responses leave it absent.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbSeifa seifa = 32 [json_name = "seifa"];</code>
+   * @return Whether the seifa field is set.
+   */
+  @java.lang.Override
+  public boolean hasSeifa() {
+    return ((bitField0_ & 0x00000004) != 0);
+  }
+  /**
+   * <pre>
+   * Profile-only in the current backend query; list responses leave it absent.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbSeifa seifa = 32 [json_name = "seifa"];</code>
+   * @return The seifa.
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.SuburbSeifa getSeifa() {
+    return seifa_ == null ? com.shorts.v1alpha1.SuburbSeifa.getDefaultInstance() : seifa_;
+  }
+  /**
+   * <pre>
+   * Profile-only in the current backend query; list responses leave it absent.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbSeifa seifa = 32 [json_name = "seifa"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.SuburbSeifaOrBuilder getSeifaOrBuilder() {
+    return seifa_ == null ? com.shorts.v1alpha1.SuburbSeifa.getDefaultInstance() : seifa_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -1147,6 +1185,9 @@ private static final long serialVersionUID = 0L;
     }
     if (politicianPropertyCount_ != 0) {
       output.writeInt32(31, politicianPropertyCount_);
+    }
+    if (((bitField0_ & 0x00000004) != 0)) {
+      output.writeMessage(32, getSeifa());
     }
     getUnknownFields().writeTo(output);
   }
@@ -1260,6 +1301,10 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeInt32Size(31, politicianPropertyCount_);
     }
+    if (((bitField0_ & 0x00000004) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(32, getSeifa());
+    }
     return size;
   }
   @java.lang.Override
@@ -1363,6 +1408,11 @@ private static final long serialVersionUID = 0L;
             other.getCrimeMotorVehicleRank())) return false;
     if (getPoliticianPropertyCount()
         != other.getPoliticianPropertyCount()) return false;
+    if (hasSeifa() != other.hasSeifa()) return false;
+    if (hasSeifa()) {
+      if (!getSeifa()
+          .equals(other.getSeifa())) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -1451,6 +1501,10 @@ private static final long serialVersionUID = 0L;
         java.lang.Double.doubleToLongBits(getCrimeMotorVehicleRank()));
     hash = (37 * hash) + POLITICIAN_PROPERTY_COUNT_FIELD_NUMBER;
     hash = (53 * hash) + getPoliticianPropertyCount();
+    if (hasSeifa()) {
+      hash = (37 * hash) + SEIFA_FIELD_NUMBER;
+      hash = (53 * hash) + getSeifa().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -1583,6 +1637,7 @@ private static final long serialVersionUID = 0L;
               .alwaysUseFieldBuilders) {
         internalGetLatestPeriodFieldBuilder();
         internalGetAmenitiesFieldBuilder();
+        internalGetSeifaFieldBuilder();
       }
     }
     @java.lang.Override
@@ -1628,6 +1683,11 @@ private static final long serialVersionUID = 0L;
       crimeViolentRank_ = 0D;
       crimeMotorVehicleRank_ = 0D;
       politicianPropertyCount_ = 0;
+      seifa_ = null;
+      if (seifaBuilder_ != null) {
+        seifaBuilder_.dispose();
+        seifaBuilder_ = null;
+      }
       return this;
     }
 
@@ -1760,6 +1820,12 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x40000000) != 0)) {
         result.politicianPropertyCount_ = politicianPropertyCount_;
+      }
+      if (((from_bitField0_ & 0x80000000) != 0)) {
+        result.seifa_ = seifaBuilder_ == null
+            ? seifa_
+            : seifaBuilder_.build();
+        to_bitField0_ |= 0x00000004;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -1900,6 +1966,9 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getPoliticianPropertyCount() != 0) {
         setPoliticianPropertyCount(other.getPoliticianPropertyCount());
+      }
+      if (other.hasSeifa()) {
+        mergeSeifa(other.getSeifa());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -2086,6 +2155,13 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x40000000;
               break;
             } // case 248
+            case 258: {
+              input.readMessage(
+                  internalGetSeifaFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x80000000;
+              break;
+            } // case 258
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -4334,6 +4410,163 @@ private static final long serialVersionUID = 0L;
       politicianPropertyCount_ = 0;
       onChanged();
       return this;
+    }
+
+    private com.shorts.v1alpha1.SuburbSeifa seifa_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.SuburbSeifa, com.shorts.v1alpha1.SuburbSeifa.Builder, com.shorts.v1alpha1.SuburbSeifaOrBuilder> seifaBuilder_;
+    /**
+     * <pre>
+     * Profile-only in the current backend query; list responses leave it absent.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbSeifa seifa = 32 [json_name = "seifa"];</code>
+     * @return Whether the seifa field is set.
+     */
+    public boolean hasSeifa() {
+      return ((bitField0_ & 0x80000000) != 0);
+    }
+    /**
+     * <pre>
+     * Profile-only in the current backend query; list responses leave it absent.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbSeifa seifa = 32 [json_name = "seifa"];</code>
+     * @return The seifa.
+     */
+    public com.shorts.v1alpha1.SuburbSeifa getSeifa() {
+      if (seifaBuilder_ == null) {
+        return seifa_ == null ? com.shorts.v1alpha1.SuburbSeifa.getDefaultInstance() : seifa_;
+      } else {
+        return seifaBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * Profile-only in the current backend query; list responses leave it absent.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbSeifa seifa = 32 [json_name = "seifa"];</code>
+     */
+    public Builder setSeifa(com.shorts.v1alpha1.SuburbSeifa value) {
+      if (seifaBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        seifa_ = value;
+      } else {
+        seifaBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x80000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Profile-only in the current backend query; list responses leave it absent.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbSeifa seifa = 32 [json_name = "seifa"];</code>
+     */
+    public Builder setSeifa(
+        com.shorts.v1alpha1.SuburbSeifa.Builder builderForValue) {
+      if (seifaBuilder_ == null) {
+        seifa_ = builderForValue.build();
+      } else {
+        seifaBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x80000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Profile-only in the current backend query; list responses leave it absent.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbSeifa seifa = 32 [json_name = "seifa"];</code>
+     */
+    public Builder mergeSeifa(com.shorts.v1alpha1.SuburbSeifa value) {
+      if (seifaBuilder_ == null) {
+        if (((bitField0_ & 0x80000000) != 0) &&
+          seifa_ != null &&
+          seifa_ != com.shorts.v1alpha1.SuburbSeifa.getDefaultInstance()) {
+          getSeifaBuilder().mergeFrom(value);
+        } else {
+          seifa_ = value;
+        }
+      } else {
+        seifaBuilder_.mergeFrom(value);
+      }
+      if (seifa_ != null) {
+        bitField0_ |= 0x80000000;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Profile-only in the current backend query; list responses leave it absent.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbSeifa seifa = 32 [json_name = "seifa"];</code>
+     */
+    public Builder clearSeifa() {
+      bitField0_ = (bitField0_ & ~0x80000000);
+      seifa_ = null;
+      if (seifaBuilder_ != null) {
+        seifaBuilder_.dispose();
+        seifaBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Profile-only in the current backend query; list responses leave it absent.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbSeifa seifa = 32 [json_name = "seifa"];</code>
+     */
+    public com.shorts.v1alpha1.SuburbSeifa.Builder getSeifaBuilder() {
+      bitField0_ |= 0x80000000;
+      onChanged();
+      return internalGetSeifaFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * Profile-only in the current backend query; list responses leave it absent.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbSeifa seifa = 32 [json_name = "seifa"];</code>
+     */
+    public com.shorts.v1alpha1.SuburbSeifaOrBuilder getSeifaOrBuilder() {
+      if (seifaBuilder_ != null) {
+        return seifaBuilder_.getMessageOrBuilder();
+      } else {
+        return seifa_ == null ?
+            com.shorts.v1alpha1.SuburbSeifa.getDefaultInstance() : seifa_;
+      }
+    }
+    /**
+     * <pre>
+     * Profile-only in the current backend query; list responses leave it absent.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbSeifa seifa = 32 [json_name = "seifa"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.SuburbSeifa, com.shorts.v1alpha1.SuburbSeifa.Builder, com.shorts.v1alpha1.SuburbSeifaOrBuilder> 
+        internalGetSeifaFieldBuilder() {
+      if (seifaBuilder_ == null) {
+        seifaBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.shorts.v1alpha1.SuburbSeifa, com.shorts.v1alpha1.SuburbSeifa.Builder, com.shorts.v1alpha1.SuburbSeifaOrBuilder>(
+                getSeifa(),
+                getParentForChildren(),
+                isClean());
+        seifa_ = null;
+      }
+      return seifaBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.SuburbSummary)

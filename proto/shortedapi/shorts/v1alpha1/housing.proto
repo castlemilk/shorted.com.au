@@ -128,7 +128,7 @@ message ListStateSuburbsRequest {
 
 // One suburb summary for the map + list (keyed by ABS SAL code).
 // Per-suburb amenity counts + derived lifestyle indices (Local Insights).
-// OSM-derived counts (ODbL Produced Work) + ACARA/GA sources; see the
+// OSM-derived counts (ODbL Produced Work) + state/GA sources; see the
 // Local Insights design doc.
 message SuburbAmenities {
   int32  schools_total = 1;
@@ -155,6 +155,23 @@ message SuburbAmenities {
   int32  schools_primary = 21;               // primary (incl. combined)
   int32  schools_secondary = 22;             // secondary (incl. combined)
   double nearest_secondary_km = 23;          // nearest secondary school
+}
+
+// One ABS 2021 SEIFA index for a Suburb and Locality (SAL). Deciles are 1..10;
+// zero means that measure is absent rather than a valid decile.
+message SuburbSeifaIndex {
+  int32 score = 1;
+  int32 decile_aus = 2;                      // rank decile within Australia
+  int32 decile_state = 3;                    // rank decile within state
+}
+
+// ABS Socio-Economic Indexes for Areas (SEIFA), licensed CC-BY-4.0.
+// Null/absent when every index was suppressed, missing, or quality-gated.
+message SuburbSeifa {
+  SuburbSeifaIndex irsd = 1;                 // Relative Socio-economic Disadvantage
+  SuburbSeifaIndex irsad = 2;                // Relative Socio-economic Advantage and Disadvantage
+  SuburbSeifaIndex ier = 3;                  // Economic Resources
+  SuburbSeifaIndex ieo = 4;                  // Education and Occupation
 }
 
 message SuburbSummary {
@@ -214,6 +231,9 @@ message SuburbSummary {
   // every suburb in a state (~5,000 rows per request), and a message would drag
   // the politicians descriptor into the hot /housing/[state] route bundle.
   int32 politician_property_count = 31;
+
+  // Profile-only in the current backend query; list responses leave it absent.
+  SuburbSeifa seifa = 32;
 }
 
 message ListStateSuburbsResponse {

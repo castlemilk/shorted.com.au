@@ -44,7 +44,7 @@ func main() {
 // failure (see runDropIndex in drop_index.go).
 // Wrapping the body lets deferred cleanup run before exit.
 func run() int {
-	mode := flag.String("mode", "all", "official | vg-nsw | vg-vic | crawl | listings | details | property | property-resolve | agent | enqueue | freshness | purge | mcp | warmcheck | install-driver | backfill-address | census | electorates | banners | amenities | lga | connectivity | funding | council-financials | crime | drop-index | refresh | all")
+	mode := flag.String("mode", "all", "official | vg-nsw | vg-vic | crawl | listings | details | property | property-resolve | agent | enqueue | freshness | purge | mcp | warmcheck | install-driver | backfill-address | census | seifa | electorates | banners | amenities | lga | connectivity | funding | council-financials | crime | drop-index | refresh | all")
 	flag.Parse()
 
 	// install-driver needs no DB, no Chrome, no timeout plumbing — dispatch it
@@ -196,6 +196,13 @@ func run() int {
 	case "census":
 		// ABS 2021 Census GCP SAL demographics — boundary-anchored suburb rows.
 		runCensus(ctx, pool)
+	case "seifa":
+		// ABS 2021 SEIFA by SAL — annual, operator-run, and deliberately excluded
+		// from the monthly "all" lifecycle.
+		if err := runSEIFA(ctx, pool); err != nil {
+			log.Printf("[seifa] ingest error: %v", err)
+			return 1
+		}
 	case "electorates":
 		// AEC federal electoral representation, spatially joined per suburb.
 		runElectorates(ctx, pool)
@@ -240,7 +247,7 @@ func run() int {
 			return 1
 		}
 	default:
-		log.Fatalf("unknown -mode %q (want official|vg-nsw|vg-vic|crawl|listings|details|property|property-resolve|agent|enqueue|freshness|warmcheck|backfill-address|census|electorates|banners|amenities|lga|connectivity|funding|council-financials|crime|drop-index|refresh|all)", *mode)
+		log.Fatalf("unknown -mode %q (want official|vg-nsw|vg-vic|crawl|listings|details|property|property-resolve|agent|enqueue|freshness|warmcheck|backfill-address|census|seifa|electorates|banners|amenities|lga|connectivity|funding|council-financials|crime|drop-index|refresh|all)", *mode)
 	}
 	return 0
 }
