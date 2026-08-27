@@ -388,10 +388,16 @@ type NewsArticleEntry struct {
 }
 
 type GetStockNewsOutput struct {
-	Code       string             `json:"code" jsonschema:"ASX ticker code."`
-	TotalCount int                `json:"total_count" jsonschema:"Total matching articles held for this stock, before the limit was applied."`
-	Returned   int                `json:"returned" jsonschema:"How many articles this result contains."`
-	Articles   []NewsArticleEntry `json:"articles" jsonschema:"Articles, most recent first. Empty when none are held."`
+	Code string `json:"code" jsonschema:"ASX ticker code."`
+	// NOT a total. The news store returns len(articles) AFTER applying the
+	// limit (postgres_news.go:75), so this always equals Returned. Naming it
+	// total_count promised a number the backend does not compute, and the test
+	// fake supplied one independently — so the tests passed against behaviour
+	// that does not exist. Renamed rather than deleted so the shape stays
+	// legible next to screen_stocks, whose total_count IS a real COUNT(*) OVER().
+	MatchedCount int                `json:"matched_count" jsonschema:"Articles in this result. The news backend does not report a total held count, so this equals returned."`
+	Returned     int                `json:"returned" jsonschema:"How many articles this result contains."`
+	Articles     []NewsArticleEntry `json:"articles" jsonschema:"Articles, most recent first. Empty when none are held."`
 }
 
 const getStockNewsDescription = "List recent news and ASX announcements matched to one ASX-listed company: headline, publisher, " +
@@ -455,9 +461,9 @@ func getStockNewsHandler(src DataSource) sdk.ToolHandlerFor[GetStockNewsInput, G
 		}
 
 		out := GetStockNewsOutput{
-			Code:       code,
-			TotalCount: int(res.Msg.GetTotalCount()),
-			Articles:   []NewsArticleEntry{},
+			Code:         code,
+			MatchedCount: int(res.Msg.GetTotalCount()),
+			Articles:     []NewsArticleEntry{},
 		}
 		for _, article := range res.Msg.GetArticles() {
 			if article == nil {
@@ -492,8 +498,8 @@ func getStockNewsHandler(src DataSource) sdk.ToolHandlerFor[GetStockNewsInput, G
 			summary += ". That means none were captured, not that none were published."
 		} else {
 			latest := out.Articles[0]
-			summary = fmt.Sprintf("%d of %d held articles for %s. Most recent: %q (%s, %s).",
-				out.Returned, out.TotalCount, code, latest.Headline,
+			summary = fmt.Sprintf("%d articles for %s. Most recent: %q (%s, %s).",
+				out.Returned, code, latest.Headline,
 				nonEmpty(latest.Source, "source unknown"), nonEmpty(latest.PublishedAt, "date unknown"))
 			summary += " Sentiment labels are classified by a language model, not stated by the publisher."
 		}
@@ -785,10 +791,15 @@ func getReportHandler(src DataSource) sdk.ToolHandlerFor[GetReportInput, GetRepo
 
 		msg := res.Msg
 		out := GetReportOutput{
-			Slug:         nonEmpty(msg.GetWeekSlug(), slug),
-			ReportType:   reportType,
-			Headline:     msg.GetHeadline(),
-			Summary:      msg.GetSummary(),
+			Slug:       nonEmpty(msg.GetWeekSlug(), slug),
+			ReportType: reportType,
+			// Bounded like every other prose field. The generator writes the
+			// summary into unbounded JSONB and it does run long — list_reports
+			// truncates the same field for that reason — so passing it through
+			// raw put this tool over its 16KB budget (measured: 18,672 bytes
+			// with a 5.9KB stored summary).
+			Headline:     truncate(msg.GetHeadline(), maxHeadlineChars),
+			Summary:      truncate(msg.GetSummary(), maxReportStandfirstChars),
 			ReportDate:   msg.GetReportDate(),
 			PreviousDate: msg.GetPreviousDate(),
 		}

@@ -349,10 +349,16 @@ func realisticDiscoverySource(src *fakeDataSource) {
 			SyndicationCount: 4, SyndicatedSources: []string{"afr", "livewire", "motleyfool"},
 		})
 	}
-	src.stockNews = &shortsv1alpha1.GetStockNewsResponse{Articles: articles, TotalCount: 143}
+	// The store returns len(articles) after the limit; mirroring that keeps the
+	// fixture honest about what the backend actually reports.
+	src.stockNews = &shortsv1alpha1.GetStockNewsResponse{Articles: articles, TotalCount: int32(len(articles))}
 
 	// 12 reports (default limit), every standfirst over the truncation limit.
-	longStandfirst := strings.Repeat("Short interest across the ASX rose for a third straight week. ", 20)
+	// 100 repeats ≈ 6KB. The generator writes this field into unbounded JSONB
+	// and it does run long; a 20-repeat fixture was small enough that
+	// get_report's untruncated summary passed the budget test while measuring
+	// 18,672 bytes against real data.
+	longStandfirst := strings.Repeat("Short interest across the ASX rose for a third straight week. ", 100)
 	reports := make([]*shortsv1alpha1.ReportListItem, 0, 12)
 	for i := 0; i < 12; i++ {
 		reports = append(reports, &shortsv1alpha1.ReportListItem{

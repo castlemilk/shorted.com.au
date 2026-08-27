@@ -299,7 +299,8 @@ func TestGetStockNewsProjectsArticlesAndTruncatesSummaries(t *testing.T) {
 			Summary: long, PublishedAt: timestamppb.New(time.Date(2026, 8, 20, 3, 4, 5, 0, time.UTC)),
 			ImageUrl: "https://example.com/hero.jpg", SyndicationCount: 3,
 		}},
-		TotalCount: 41,
+		// Mirrors the store, which returns len(articles) post-LIMIT.
+		TotalCount: 1,
 	}}
 
 	res, out, err := getStockNewsHandler(src)(context.Background(), nil, GetStockNewsInput{Code: "pls"})
@@ -312,8 +313,15 @@ func TestGetStockNewsProjectsArticlesAndTruncatesSummaries(t *testing.T) {
 	if src.gotStockNews.GetLimit() != defaultNewsLimit {
 		t.Errorf("limit = %d, want the default %d", src.gotStockNews.GetLimit(), defaultNewsLimit)
 	}
-	if out.TotalCount != 41 || out.Returned != 1 {
-		t.Errorf("counts not mapped: %+v", out)
+	// The news store returns len(articles) after the limit, so matched_count
+	// tracks returned rather than a held total. The fake reflects the real
+	// backend here — an independently-set total was the thing that let the old
+	// total_count field pass tests while promising a number nobody computes.
+	if out.MatchedCount != out.Returned {
+		t.Errorf("matched_count %d should equal returned %d", out.MatchedCount, out.Returned)
+	}
+	if out.Returned != 1 {
+		t.Errorf("returned = %d, want 1", out.Returned)
 	}
 	a := out.Articles[0]
 	if a.Headline == "" || a.URL == "" || a.Source != "stockhead" {

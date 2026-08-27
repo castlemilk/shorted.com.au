@@ -85,6 +85,13 @@ const (
 	// bounded and unbounded is the whole payload budget.
 	maxNewsSummaryChars = 400
 
+	// maxHeadlineChars bounds a report headline. Generated headlines are
+	// normally one line; the cap exists because nothing upstream enforces it.
+	maxHeadlineChars = 200
+	// maxReportStandfirstChars bounds get_report's own summary. Larger than the
+	// list_reports standfirst because a single report can afford more, small
+	// enough that the tool stays inside its 16KB budget.
+	maxReportStandfirstChars = 700
 	// maxReportSummaryChars bounds the standfirst on each list_reports row.
 	maxReportSummaryChars = 320
 
