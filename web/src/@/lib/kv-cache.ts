@@ -393,7 +393,21 @@ export async function deleteCached(key: string): Promise<boolean> {
 export interface PrefixFlushResult {
   deleted: number;
   errors: string[];
+  /**
+   * SCAN round-trips this flush issued, plus one DEL per non-empty batch. On
+   * Upstash each is a billed command, so this IS the flush's cost.
+   *
+   * It is also the only handle we have on keyspace size from the client: MATCH
+   * filters server-side, so non-matching keys are never returned and cannot be
+   * counted directly. Total keys is roughly `scanIterations * SCAN_COUNT`, and
+   * that estimate is loose because COUNT is a hint, not a guarantee.
+   */
+  scanIterations: number;
 }
+
+// SCAN work-per-call hint. Raising it cuts round-trips (and therefore billed
+// Upstash commands) at the cost of a larger reply per call.
+const SCAN_COUNT = 200;
 
 function flushErrorMessage(prefix: string, error: unknown): string {
   const detail = error instanceof Error ? error.message : String(error);
@@ -406,6 +420,24 @@ function flushErrorMessage(prefix: string, error: unknown): string {
  * Never throws — a partially-completed flush still reports the keys it did
  * delete — but errors are RETURNED rather than swallowed so callers can tell a
  * failed flush from an empty one.
+ *
+ * COST MODEL — this is O(total keyspace), not O(matching keys). Redis `COUNT`
+ * is a hint for how much work to do per call and `MATCH` filters *after*
+ * retrieval, so the number of SCAN round-trips is roughly
+ * `total_keys / COUNT` no matter how few keys carry the prefix. On Upstash
+ * every one of those round-trips is a billed command.
+ *
+ * That matters because the account has a hard monthly command cap, and on
+ * 2026-08-27 a `flush=housing` was refused with
+ * `ERR max requests limit exceeded. Limit: 500000, Usage: 500000` — the same
+ * failure mode as the 2026-08-21 incident (writes rejected, reads still served,
+ * so a frozen cache looks healthy).
+ *
+ * `scanIterations` is reported so the cost of one flush stops being a guess.
+ * It is part of the RESULT rather than a log line so /api/revalidate can put it
+ * in the response body, where the operator running the post-deploy sweep sees
+ * it without needing Upstash console access — which is exactly what was missing
+ * when this was hit.
  */
 export async function deleteCachedByPrefix(
   prefix: string,
@@ -413,6 +445,7 @@ export async function deleteCachedByPrefix(
   // Standard Redis via ioredis — SCAN + DEL in batches
   if (ioRedis) {
     let deleted = 0;
+    let scanIterations = 0;
     try {
       let cursor = "0";
       do {
@@ -421,46 +454,57 @@ export async function deleteCachedByPrefix(
           "MATCH",
           `${prefix}*`,
           "COUNT",
-          200,
+          SCAN_COUNT,
         );
+        scanIterations += 1;
         cursor = next;
         if (keys.length > 0) {
           await ioRedis.del(...keys);
           deleted += keys.length;
         }
       } while (cursor !== "0");
-      return { deleted, errors: [] };
+      return { deleted, errors: [], scanIterations };
     } catch (error) {
       console.error(`Cache prefix-delete error for ${prefix}:`, error);
-      return { deleted, errors: [flushErrorMessage(prefix, error)] };
+      return {
+        deleted,
+        errors: [flushErrorMessage(prefix, error)],
+        scanIterations,
+      };
     }
   }
 
   // Upstash REST API — SCAN + DEL
   if (upstashRedis) {
     let deleted = 0;
+    let scanIterations = 0;
     try {
       let cursor = 0;
       do {
         const [next, keys] = await upstashRedis.scan(cursor, {
           match: `${prefix}*`,
-          count: 200,
+          count: SCAN_COUNT,
         });
+        scanIterations += 1;
         cursor = Number(next);
         if (keys.length > 0) {
           await upstashRedis.del(...keys);
           deleted += keys.length;
         }
       } while (cursor !== 0);
-      return { deleted, errors: [] };
+      return { deleted, errors: [], scanIterations };
     } catch (error) {
       console.error(`Cache prefix-delete error for ${prefix}:`, error);
-      return { deleted, errors: [flushErrorMessage(prefix, error)] };
+      return {
+        deleted,
+        errors: [flushErrorMessage(prefix, error)],
+        scanIterations,
+      };
     }
   }
 
   // In-memory fallback (dev) has no prefix iteration; dev doesn't need flushing.
-  return { deleted: 0, errors: [] };
+  return { deleted: 0, errors: [], scanIterations: 0 };
 }
 
 /**

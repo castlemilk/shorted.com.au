@@ -86,6 +86,12 @@ export async function POST(request: NextRequest) {
   }
 
   let flushedKeys = 0;
+  // Upstash bills every SCAN round-trip, and a prefix flush is O(total
+  // keyspace) rather than O(matching keys) — MATCH filters server-side but the
+  // iteration still walks everything. Summing the round-trips here is what
+  // makes the cost of a flush visible to whoever runs the post-deploy sweep,
+  // without needing Upstash console access.
+  let flushScanCommands = 0;
   const flushErrors: string[] = [];
   for (const target of flushTargets) {
     const prefixes = FLUSH_PREFIXES[target];
@@ -96,6 +102,7 @@ export async function POST(request: NextRequest) {
     for (const prefix of prefixes) {
       const result = await deleteCachedByPrefix(prefix);
       flushedKeys += result.deleted;
+      flushScanCommands += result.scanIterations;
       flushErrors.push(...result.errors);
     }
   }
@@ -118,6 +125,7 @@ export async function POST(request: NextRequest) {
     tags,
     paths,
     flushedKeys,
+    flushScanCommands,
     flushErrors,
     timestamp: Date.now(),
   });
