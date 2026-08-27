@@ -131,6 +131,29 @@ describe("MCP server card", () => {
     expect(card.prompts[0].name).toBe("short_interest_briefing");
   });
 
+  it("degrades rather than hanging when the catalog never answers", async () => {
+    // The one fail-soft mode the original implementation missed. Without a
+    // timeout the render blocks until the platform's function timeout, and a
+    // promote resets ISR pages to placeholders — so the first request after
+    // every deploy takes exactly this path.
+    global.fetch = jest.fn(
+      (_url: unknown, init?: { signal?: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject(new Error("aborted")),
+          );
+        }),
+    ) as unknown as typeof fetch;
+    jest.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const res = await GET();
+
+    expect(res.status).toBe(200);
+    const card = await res.json();
+    expect(card.degraded).toBe(true);
+    expect(card.serverInfo.name).toBe("shorted-au-market-data");
+  }, 10_000);
+
   it("serves a minimal valid card when the catalog fetch fails", async () => {
     global.fetch = jest
       .fn()

@@ -80,11 +80,28 @@ function isCatalog(value: unknown): value is Catalog {
   return typeof (server as { name?: unknown }).name === "string";
 }
 
+const catalogFetchTimeoutMs = 3_000;
+
 async function fetchCatalog(): Promise<Catalog | null> {
+  // AbortController rather than AbortSignal.timeout: the latter is absent in
+  // some test environments, where it throws inside this try and every card
+  // silently degrades — a fail-soft path hiding a self-inflicted failure.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), catalogFetchTimeoutMs);
   try {
     const res = await serverFetchOutsideNextCache(
       `${SERVER_SHORTS_API_URL.trim().replace(/\/+$/, "")}/mcp/catalog.json`,
-      { headers: { Accept: "application/json" } },
+      {
+        headers: { Accept: "application/json" },
+        // A hang is the one failure mode the fail-soft path did not cover.
+        // Without this the render blocks until the platform's own function
+        // timeout — and a promote resets ISR pages to placeholders, so the
+        // first request after every deploy takes exactly this cold path.
+        // Three seconds is generous for an in-region call that normally
+        // answers in single-digit milliseconds; timing out falls through to
+        // the degraded card, which is a far better answer than a stalled one.
+        signal: controller.signal,
+      },
     );
     if (!res.ok) {
       console.error(`[mcp-server-card] catalog fetch: HTTP ${res.status}`);
@@ -99,6 +116,8 @@ async function fetchCatalog(): Promise<Catalog | null> {
   } catch (error) {
     console.error("[mcp-server-card] catalog fetch failed:", error);
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
