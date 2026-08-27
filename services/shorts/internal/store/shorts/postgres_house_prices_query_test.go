@@ -116,6 +116,40 @@ func TestGetSuburbProfileQuery_ReadsNullableSeifaColumns(t *testing.T) {
 	}
 }
 
+func TestMapSuburbElevation_NullsProduceAbsentMessage(t *testing.T) {
+	if got := mapSuburbElevation(nullableSuburbElevation{}); got != nil {
+		t.Fatalf("all-NULL elevation columns must map to an absent message, got %+v", got)
+	}
+}
+
+func TestMapSuburbElevation_PreservesGenuineZeroShares(t *testing.T) {
+	zero := sql.NullFloat64{Float64: 0, Valid: true}
+	raw := nullableSuburbElevation{LandShareBelow1M: zero}
+
+	got := mapSuburbElevation(raw)
+	if got == nil || got.LandShareBelow1M == nil || *got.LandShareBelow1M != 0 {
+		t.Fatalf("valid zero share must remain present and zero, got %+v", got)
+	}
+	if got.LandShareBelow2M != nil {
+		t.Fatalf("NULL share must remain absent, got %+v", got.LandShareBelow2M)
+	}
+}
+
+func TestGetSuburbProfileQuery_ReadsNullableElevationColumns(t *testing.T) {
+	source := postgresHousePricesSource(t)
+	for _, column := range []string{
+		"d.elevation_min_m", "d.elevation_median_m", "d.elevation_max_m",
+		"d.land_share_below_1m", "d.land_share_below_2m", "d.land_share_below_5m",
+	} {
+		if !strings.Contains(source, column) {
+			t.Errorf("GetSuburbProfile query missing nullable column %q", column)
+		}
+	}
+	if !strings.Contains(source, "p.Elevation = mapSuburbElevation(rawElevation)") {
+		t.Fatal("GetSuburbProfile must map scanned nullable elevation after a successful scan")
+	}
+}
+
 func TestListSuburbDropListingsQuery_DeduplicatesPhysicalAddresses(t *testing.T) {
 	source := postgresHousePricesSource(t)
 	for _, want := range []string{

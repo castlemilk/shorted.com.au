@@ -174,6 +174,20 @@ message SuburbSeifa {
   SuburbSeifaIndex ieo = 4;                  // Education and Occupation
 }
 
+// Measured terrain statistics from Geoscience Australia's national
+// SRTM-derived 1 Second DEM-S (CC-BY-4.0). Elevations are orthometric metres
+// relative to the EGM96 geoid, not AHD or ellipsoidal heights. Low-lying land
+// shares are measured proportions of valid DEM-covered land cells. No
+// hydrology, drainage, surge, or catchment modelling is represented.
+message SuburbElevation {
+  optional double elevation_min_m = 1;
+  optional double elevation_median_m = 2;
+  optional double elevation_max_m = 3;
+  optional double land_share_below_1m = 4;  // percent of valid sampled land area, 0..100
+  optional double land_share_below_2m = 5;  // percent of valid sampled land area, 0..100
+  optional double land_share_below_5m = 6;  // percent of valid sampled land area, 0..100
+}
+
 message SuburbSummary {
   string sal_code = 1;
   string sal_name = 2;
@@ -264,6 +278,17 @@ message SuburbDemographics {
   double pct_no_religion = 16;               // 0..100 ("No religion")
   string top_language = 17;                  // top language other than English at home
   double pct_top_language = 18;              // 0..100 share speaking top_language
+  // Curated ABS Census 2021 GCP rates. Zero means absent in this proto3 API;
+  // the database retains NULL for missing/suppressed/quality-gated values.
+  double pct_low_personal_income = 19;        // 0..100, $1-$499 weekly (G17)
+  double pct_high_personal_income = 20;       // 0..100, $2,000+ weekly (G17)
+  double unemployment_rate = 21;             // 0..100 of labour force (G43)
+  double labour_force_participation_rate = 22; // 0..100 of persons aged 15+ (G43)
+  double pct_bachelor_or_higher = 23;         // 0..100 (G46)
+  double pct_separate_house = 24;             // 0..100 occupied private dwellings (G32/G36)
+  double pct_flat_apartment = 25;             // 0..100 occupied private dwellings (G32/G36)
+  double pct_couple_with_children = 26;       // 0..100 families (G25)
+  double pct_lone_person_household = 27;      // 0..100 households (G25)
 }
 
 // State + national reference medians for the profile's comparison bars.
@@ -372,6 +397,9 @@ message GetSuburbProfileResponse {
   // Crawl-derived listing aggregates; null when the suburb is outside the crawl
   // catalog or the HOUSING_DROP_LISTINGS_ENABLED kill switch is off.
   SuburbListingStats listing_stats = 8;
+  // Profile-only measured terrain block; absent when the DEM sample is missing
+  // or below the collector's published cell-count quality floor.
+  SuburbElevation elevation = 9;
 }
 
 message ListHousingRegionsRequest {

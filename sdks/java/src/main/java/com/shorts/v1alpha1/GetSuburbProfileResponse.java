@@ -344,6 +344,47 @@ private static final long serialVersionUID = 0L;
     return listingStats_ == null ? com.shorts.v1alpha1.SuburbListingStats.getDefaultInstance() : listingStats_;
   }
 
+  public static final int ELEVATION_FIELD_NUMBER = 9;
+  private com.shorts.v1alpha1.SuburbElevation elevation_;
+  /**
+   * <pre>
+   * Profile-only measured terrain block; absent when the DEM sample is missing
+   * or below the collector's published cell-count quality floor.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbElevation elevation = 9 [json_name = "elevation"];</code>
+   * @return Whether the elevation field is set.
+   */
+  @java.lang.Override
+  public boolean hasElevation() {
+    return ((bitField0_ & 0x00000080) != 0);
+  }
+  /**
+   * <pre>
+   * Profile-only measured terrain block; absent when the DEM sample is missing
+   * or below the collector's published cell-count quality floor.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbElevation elevation = 9 [json_name = "elevation"];</code>
+   * @return The elevation.
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.SuburbElevation getElevation() {
+    return elevation_ == null ? com.shorts.v1alpha1.SuburbElevation.getDefaultInstance() : elevation_;
+  }
+  /**
+   * <pre>
+   * Profile-only measured terrain block; absent when the DEM sample is missing
+   * or below the collector's published cell-count quality floor.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbElevation elevation = 9 [json_name = "elevation"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.SuburbElevationOrBuilder getElevationOrBuilder() {
+    return elevation_ == null ? com.shorts.v1alpha1.SuburbElevation.getDefaultInstance() : elevation_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -381,6 +422,9 @@ private static final long serialVersionUID = 0L;
     }
     if (((bitField0_ & 0x00000040) != 0)) {
       output.writeMessage(8, getListingStats());
+    }
+    if (((bitField0_ & 0x00000080) != 0)) {
+      output.writeMessage(9, getElevation());
     }
     getUnknownFields().writeTo(output);
   }
@@ -422,6 +466,10 @@ private static final long serialVersionUID = 0L;
     if (((bitField0_ & 0x00000040) != 0)) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(8, getListingStats());
+    }
+    if (((bitField0_ & 0x00000080) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(9, getElevation());
     }
     return size;
   }
@@ -484,6 +532,11 @@ private static final long serialVersionUID = 0L;
       if (!getListingStats()
           .equals(other.getListingStats())) return false;
     }
+    if (hasElevation() != other.hasElevation()) return false;
+    if (hasElevation()) {
+      if (!getElevation()
+          .equals(other.getElevation())) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -526,6 +579,10 @@ private static final long serialVersionUID = 0L;
     if (hasListingStats()) {
       hash = (37 * hash) + LISTING_STATS_FIELD_NUMBER;
       hash = (53 * hash) + getListingStats().hashCode();
+    }
+    if (hasElevation()) {
+      hash = (37 * hash) + ELEVATION_FIELD_NUMBER;
+      hash = (53 * hash) + getElevation().hashCode();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -665,6 +722,7 @@ private static final long serialVersionUID = 0L;
         internalGetBannerFieldBuilder();
         internalGetCrimeFieldBuilder();
         internalGetListingStatsFieldBuilder();
+        internalGetElevationFieldBuilder();
       }
     }
     @java.lang.Override
@@ -712,6 +770,11 @@ private static final long serialVersionUID = 0L;
       if (listingStatsBuilder_ != null) {
         listingStatsBuilder_.dispose();
         listingStatsBuilder_ = null;
+      }
+      elevation_ = null;
+      if (elevationBuilder_ != null) {
+        elevationBuilder_.dispose();
+        elevationBuilder_ = null;
       }
       return this;
     }
@@ -802,6 +865,12 @@ private static final long serialVersionUID = 0L;
             : listingStatsBuilder_.build();
         to_bitField0_ |= 0x00000040;
       }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.elevation_ = elevationBuilder_ == null
+            ? elevation_
+            : elevationBuilder_.build();
+        to_bitField0_ |= 0x00000080;
+      }
       result.bitField0_ |= to_bitField0_;
     }
 
@@ -863,6 +932,9 @@ private static final long serialVersionUID = 0L;
       }
       if (other.hasListingStats()) {
         mergeListingStats(other.getListingStats());
+      }
+      if (other.hasElevation()) {
+        mergeElevation(other.getElevation());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -952,6 +1024,13 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000080;
               break;
             } // case 66
+            case 74: {
+              input.readMessage(
+                  internalGetElevationFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 74
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2279,6 +2358,172 @@ private static final long serialVersionUID = 0L;
         listingStats_ = null;
       }
       return listingStatsBuilder_;
+    }
+
+    private com.shorts.v1alpha1.SuburbElevation elevation_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.SuburbElevation, com.shorts.v1alpha1.SuburbElevation.Builder, com.shorts.v1alpha1.SuburbElevationOrBuilder> elevationBuilder_;
+    /**
+     * <pre>
+     * Profile-only measured terrain block; absent when the DEM sample is missing
+     * or below the collector's published cell-count quality floor.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbElevation elevation = 9 [json_name = "elevation"];</code>
+     * @return Whether the elevation field is set.
+     */
+    public boolean hasElevation() {
+      return ((bitField0_ & 0x00000100) != 0);
+    }
+    /**
+     * <pre>
+     * Profile-only measured terrain block; absent when the DEM sample is missing
+     * or below the collector's published cell-count quality floor.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbElevation elevation = 9 [json_name = "elevation"];</code>
+     * @return The elevation.
+     */
+    public com.shorts.v1alpha1.SuburbElevation getElevation() {
+      if (elevationBuilder_ == null) {
+        return elevation_ == null ? com.shorts.v1alpha1.SuburbElevation.getDefaultInstance() : elevation_;
+      } else {
+        return elevationBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * Profile-only measured terrain block; absent when the DEM sample is missing
+     * or below the collector's published cell-count quality floor.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbElevation elevation = 9 [json_name = "elevation"];</code>
+     */
+    public Builder setElevation(com.shorts.v1alpha1.SuburbElevation value) {
+      if (elevationBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        elevation_ = value;
+      } else {
+        elevationBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Profile-only measured terrain block; absent when the DEM sample is missing
+     * or below the collector's published cell-count quality floor.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbElevation elevation = 9 [json_name = "elevation"];</code>
+     */
+    public Builder setElevation(
+        com.shorts.v1alpha1.SuburbElevation.Builder builderForValue) {
+      if (elevationBuilder_ == null) {
+        elevation_ = builderForValue.build();
+      } else {
+        elevationBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Profile-only measured terrain block; absent when the DEM sample is missing
+     * or below the collector's published cell-count quality floor.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbElevation elevation = 9 [json_name = "elevation"];</code>
+     */
+    public Builder mergeElevation(com.shorts.v1alpha1.SuburbElevation value) {
+      if (elevationBuilder_ == null) {
+        if (((bitField0_ & 0x00000100) != 0) &&
+          elevation_ != null &&
+          elevation_ != com.shorts.v1alpha1.SuburbElevation.getDefaultInstance()) {
+          getElevationBuilder().mergeFrom(value);
+        } else {
+          elevation_ = value;
+        }
+      } else {
+        elevationBuilder_.mergeFrom(value);
+      }
+      if (elevation_ != null) {
+        bitField0_ |= 0x00000100;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Profile-only measured terrain block; absent when the DEM sample is missing
+     * or below the collector's published cell-count quality floor.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbElevation elevation = 9 [json_name = "elevation"];</code>
+     */
+    public Builder clearElevation() {
+      bitField0_ = (bitField0_ & ~0x00000100);
+      elevation_ = null;
+      if (elevationBuilder_ != null) {
+        elevationBuilder_.dispose();
+        elevationBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Profile-only measured terrain block; absent when the DEM sample is missing
+     * or below the collector's published cell-count quality floor.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbElevation elevation = 9 [json_name = "elevation"];</code>
+     */
+    public com.shorts.v1alpha1.SuburbElevation.Builder getElevationBuilder() {
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return internalGetElevationFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * Profile-only measured terrain block; absent when the DEM sample is missing
+     * or below the collector's published cell-count quality floor.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbElevation elevation = 9 [json_name = "elevation"];</code>
+     */
+    public com.shorts.v1alpha1.SuburbElevationOrBuilder getElevationOrBuilder() {
+      if (elevationBuilder_ != null) {
+        return elevationBuilder_.getMessageOrBuilder();
+      } else {
+        return elevation_ == null ?
+            com.shorts.v1alpha1.SuburbElevation.getDefaultInstance() : elevation_;
+      }
+    }
+    /**
+     * <pre>
+     * Profile-only measured terrain block; absent when the DEM sample is missing
+     * or below the collector's published cell-count quality floor.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbElevation elevation = 9 [json_name = "elevation"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.SuburbElevation, com.shorts.v1alpha1.SuburbElevation.Builder, com.shorts.v1alpha1.SuburbElevationOrBuilder> 
+        internalGetElevationFieldBuilder() {
+      if (elevationBuilder_ == null) {
+        elevationBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.shorts.v1alpha1.SuburbElevation, com.shorts.v1alpha1.SuburbElevation.Builder, com.shorts.v1alpha1.SuburbElevationOrBuilder>(
+                getElevation(),
+                getParentForChildren(),
+                isClean());
+        elevation_ = null;
+      }
+      return elevationBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.GetSuburbProfileResponse)
