@@ -147,6 +147,40 @@ func TestPromptsRejectMissingRequiredArguments(t *testing.T) {
 	}
 }
 
+// These templates are fmt.Sprintf format strings, so every literal percent
+// sign has to be escaped — and "Under 1%%%% is ordinary" renders as "1%%",
+// which is what the first cut of short_interest_briefing actually shipped and
+// no other test noticed. Nothing else in the package format-strings prose, so
+// this is the only place the mistake is available to make.
+func TestRenderedPromptsHaveNoFormatVerbLeftovers(t *testing.T) {
+	ctx := context.Background()
+	session := connectWithSource(t)
+
+	args := map[string]map[string]string{
+		"short_interest_briefing": {"ticker": "BHP"},
+		"suburb_housing_brief":    {"state": "NSW", "suburb": "Marrickville"},
+		"market_wrap":             {},
+	}
+
+	for _, prompt := range Prompts() {
+		t.Run(prompt.Name, func(t *testing.T) {
+			res, err := session.GetPrompt(ctx, &sdk.GetPromptParams{
+				Name:      prompt.Name,
+				Arguments: args[prompt.Name],
+			})
+			if err != nil {
+				t.Fatalf("prompts/get: %v", err)
+			}
+			text := res.Messages[0].Content.(*sdk.TextContent).Text
+			for _, leftover := range []string{"%%", "%!", "%[1]s", "%s"} {
+				if strings.Contains(text, leftover) {
+					t.Errorf("rendered prompt contains an unrendered format artefact %q", leftover)
+				}
+			}
+		})
+	}
+}
+
 // Same reasoning as the resources budget: prompts/list is session preamble.
 const maxPromptsListBytes = 3072
 

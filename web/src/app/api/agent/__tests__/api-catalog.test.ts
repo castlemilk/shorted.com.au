@@ -17,7 +17,9 @@ describe("RFC 9727 api-catalog", () => {
     const body = await res.json();
     const hrefs = JSON.stringify(body.linkset[0]);
 
-    expect(hrefs).toContain("/api/mcp/mcp");
+    // The Go server, not the deprecated Next.js shim at /api/mcp/mcp.
+    expect(hrefs).toContain("https://api.shorted.com.au/mcp");
+    expect(hrefs).not.toContain("/api/mcp/mcp");
     expect(hrefs).toContain("/.well-known/mcp/server-card.json");
   });
 

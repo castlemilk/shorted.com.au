@@ -179,7 +179,7 @@ Then write the briefing:
 
 - Open with the headline number and the date it is AS AT. ASIC publishes with a T+4 trading-day delay, so this figure is at least four trading days old — never call it current or live.
 - Say whether short interest is rising, falling or flat over %[2]s, and by how much in percentage points.
-- Put the level in context: against %[1]s's own history first, then against its peers. Under 1%%%% is ordinary, above 5%%%% is elevated, above 10%%%% is heavily shorted.
+- Put the level in context: against %[1]s's own history first, then against its peers. Under 1%% is ordinary, above 5%% is elevated, above 10%% is heavily shorted.
 - If days to cover is available, use it — a large position in an illiquid stock is a different situation from the same position in a liquid one.
 - Connect the movement to the news and director trades only where the timing genuinely lines up. Say "no obvious catalyst" rather than inventing one.
 - Note explicitly that these positions are net and aggregate: no individual fund can be identified, and much short interest is hedging rather than a directional bet against the company.

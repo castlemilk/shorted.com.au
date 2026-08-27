@@ -215,6 +215,14 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	mux.Handle("/mcp", mcpHandler)
 	mux.Handle("/mcp/", mcpHandler)
 
+	// The published tool catalog. Everything that describes this server to the
+	// outside world — the SEP-1649 server card, /docs/mcp.md — renders from
+	// here, so a tool cannot be advertised without being registered.
+	//
+	// The exact pattern wins over "/mcp/" above by ServeMux's longest-match
+	// rule, so this does not have to be registered first.
+	mux.Handle("/mcp/catalog.json", mcp.CatalogHandler(s))
+
 	// Add health check endpoint
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
