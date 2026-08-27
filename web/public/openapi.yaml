@@ -372,86 +372,6 @@ components:
           type: number
       title: AgencyPriceStats
       type: object
-    shorts.v1alpha1.AlertMonitor:
-      additionalProperties: false
-      description: A saved short-interest monitor owned by the current user.
-      properties:
-        cadence:
-          $ref: '#/components/schemas/shorts.v1alpha1.AlertMonitorCadence'
-          description: (proto shorts.v1alpha1.AlertMonitorCadence)
-          title: cadence
-        condition:
-          $ref: '#/components/schemas/shorts.v1alpha1.AlertMonitorCondition'
-          description: (proto shorts.v1alpha1.AlertMonitorCondition)
-          title: condition
-        createdAt:
-          $ref: '#/components/schemas/google.protobuf.Timestamp'
-          description: (proto google.protobuf.Timestamp)
-          title: created_at
-        hasThreshold:
-          description: (proto bool)
-          title: has_threshold
-          type: boolean
-        id:
-          description: (proto string)
-          title: id
-          type: string
-        scope:
-          $ref: '#/components/schemas/shorts.v1alpha1.AlertMonitorScope'
-          description: (proto shorts.v1alpha1.AlertMonitorScope)
-          title: scope
-        status:
-          $ref: '#/components/schemas/shorts.v1alpha1.AlertMonitorStatus'
-          description: (proto shorts.v1alpha1.AlertMonitorStatus)
-          title: status
-        target:
-          description: (proto string)
-          title: target
-          type: string
-        threshold:
-          description: (proto double)
-          format: double
-          title: threshold
-          type: number
-        updatedAt:
-          $ref: '#/components/schemas/google.protobuf.Timestamp'
-          description: (proto google.protobuf.Timestamp)
-          title: updated_at
-      title: AlertMonitor
-      type: object
-    shorts.v1alpha1.AlertMonitorCadence:
-      description: Alert delivery cadence.
-      enum:
-      - ALERT_MONITOR_CADENCE_UNSPECIFIED
-      - ALERT_MONITOR_CADENCE_DAILY
-      - ALERT_MONITOR_CADENCE_WEEKLY
-      title: AlertMonitorCadence
-      type: string
-    shorts.v1alpha1.AlertMonitorCondition:
-      description: Alert monitor trigger condition.
-      enum:
-      - ALERT_MONITOR_CONDITION_UNSPECIFIED
-      - ALERT_MONITOR_CONDITION_SHORT_INTEREST_ABOVE
-      - ALERT_MONITOR_CONDITION_SHORT_INTEREST_RISES
-      - ALERT_MONITOR_CONDITION_NEW_TOP_TEN_ENTRY
-      title: AlertMonitorCondition
-      type: string
-    shorts.v1alpha1.AlertMonitorScope:
-      description: Alert monitor target type.
-      enum:
-      - ALERT_MONITOR_SCOPE_UNSPECIFIED
-      - ALERT_MONITOR_SCOPE_INDUSTRY
-      - ALERT_MONITOR_SCOPE_STOCK
-      title: AlertMonitorScope
-      type: string
-    shorts.v1alpha1.AlertMonitorStatus:
-      description: Alert monitor lifecycle status.
-      enum:
-      - ALERT_MONITOR_STATUS_UNSPECIFIED
-      - ALERT_MONITOR_STATUS_ACTIVE
-      - ALERT_MONITOR_STATUS_PAUSED
-      title: AlertMonitorStatus
-      type: string
     shorts.v1alpha1.BattlegroundStock:
       additionalProperties: false
       description: A single stock result from the squeeze radar / battlegrounds ranking
@@ -826,47 +746,6 @@ components:
           type: number
       title: ComparisonBaselines
       type: object
-    shorts.v1alpha1.CreateAlertMonitorRequest:
-      additionalProperties: false
-      description: Request for CreateAlertMonitor RPC. Uses auth context for ownership.
-      properties:
-        cadence:
-          $ref: '#/components/schemas/shorts.v1alpha1.AlertMonitorCadence'
-          description: (proto shorts.v1alpha1.AlertMonitorCadence)
-          title: cadence
-        condition:
-          $ref: '#/components/schemas/shorts.v1alpha1.AlertMonitorCondition'
-          description: (proto shorts.v1alpha1.AlertMonitorCondition)
-          title: condition
-        hasThreshold:
-          description: (proto bool)
-          title: has_threshold
-          type: boolean
-        scope:
-          $ref: '#/components/schemas/shorts.v1alpha1.AlertMonitorScope'
-          description: (proto shorts.v1alpha1.AlertMonitorScope)
-          title: scope
-        target:
-          description: (proto string)
-          title: target
-          type: string
-        threshold:
-          description: (proto double)
-          format: double
-          title: threshold
-          type: number
-      title: CreateAlertMonitorRequest
-      type: object
-    shorts.v1alpha1.CreateAlertMonitorResponse:
-      additionalProperties: false
-      description: Response for CreateAlertMonitor RPC.
-      properties:
-        monitor:
-          $ref: '#/components/schemas/shorts.v1alpha1.AlertMonitor'
-          description: (proto shorts.v1alpha1.AlertMonitor)
-          title: monitor
-      title: CreateAlertMonitorResponse
-      type: object
     shorts.v1alpha1.DeclaredInterest:
       additionalProperties: false
       description: |-
@@ -1000,24 +879,6 @@ components:
           title: stock_code
           type: string
       title: DeclarerCountChange
-      type: object
-    shorts.v1alpha1.DeleteEditorialTakeRequest:
-      additionalProperties: false
-      properties:
-        slug:
-          description: (proto string)
-          title: slug
-          type: string
-      title: DeleteEditorialTakeRequest
-      type: object
-    shorts.v1alpha1.DeleteEditorialTakeResponse:
-      additionalProperties: false
-      properties:
-        deleted:
-          description: (proto bool)
-          title: deleted
-          type: boolean
-      title: DeleteEditorialTakeResponse
       type: object
     shorts.v1alpha1.DirectorTrade:
       additionalProperties: false
@@ -1578,19 +1439,6 @@ components:
           title: source_text
           type: string
       title: FinancialMetric
-      type: object
-    shorts.v1alpha1.FinancialMetric.AttributesEntry:
-      additionalProperties: false
-      properties:
-        key:
-          description: (proto string)
-          title: key
-          type: string
-        value:
-          description: (proto string)
-          title: value
-          type: string
-      title: AttributesEntry
       type: object
     shorts.v1alpha1.FinancialReportHighlight:
       additionalProperties: false
@@ -2271,41 +2119,6 @@ components:
           title: total_count
           type: integer
       title: GetMarketNewsResponse
-      type: object
-    shorts.v1alpha1.GetMySubscriptionRequest:
-      additionalProperties: false
-      description: Request for GetMySubscription RPC (empty, uses auth context)
-      title: GetMySubscriptionRequest
-      type: object
-    shorts.v1alpha1.GetMySubscriptionResponse:
-      additionalProperties: false
-      description: Response for GetMySubscription RPC
-      properties:
-        cancelAtPeriodEnd:
-          description: (proto bool)
-          title: cancel_at_period_end
-          type: boolean
-        currentPeriodEnd:
-          $ref: '#/components/schemas/google.protobuf.Timestamp'
-          description: (proto google.protobuf.Timestamp)
-          title: current_period_end
-        hasSubscription:
-          description: Whether user has any subscription record (proto bool)
-          title: has_subscription
-          type: boolean
-        status:
-          $ref: '#/components/schemas/shorts.v1alpha1.SubscriptionStatus'
-          description: Current subscription status (proto shorts.v1alpha1.SubscriptionStatus)
-          title: status
-        stripeCustomerId:
-          description: For portal access (proto string)
-          title: stripe_customer_id
-          type: string
-        tier:
-          $ref: '#/components/schemas/shorts.v1alpha1.SubscriptionTier'
-          description: Current subscription tier (proto shorts.v1alpha1.SubscriptionTier)
-          title: tier
-      title: GetMySubscriptionResponse
       type: object
     shorts.v1alpha1.GetParliamentOverviewRequest:
       additionalProperties: false
@@ -3220,19 +3033,6 @@ components:
           type: object
       title: GetStockFinancialHighlightsResponse
       type: object
-    shorts.v1alpha1.GetStockFinancialHighlightsResponse.HighlightsEntry:
-      additionalProperties: false
-      properties:
-        key:
-          description: (proto string)
-          title: key
-          type: string
-        value:
-          $ref: '#/components/schemas/shorts.v1alpha1.StockFinancialHighlights'
-          description: (proto shorts.v1alpha1.StockFinancialHighlights)
-          title: value
-      title: HighlightsEntry
-      type: object
     shorts.v1alpha1.GetStockGraphRequest:
       additionalProperties: false
       description: Request for GetStockGraph RPC
@@ -3499,29 +3299,6 @@ components:
           title: summary
       title: GetSuburbProfileResponse
       type: object
-    shorts.v1alpha1.GetSyncStatusRequest:
-      additionalProperties: false
-      description: Request for GetSyncStatus RPC
-      properties:
-        limit:
-          description: 'Number of past runs to return (default: 10) (proto int32)'
-          format: int32
-          title: limit
-          type: integer
-      title: GetSyncStatusRequest
-      type: object
-    shorts.v1alpha1.GetSyncStatusResponse:
-      additionalProperties: false
-      description: Response for GetSyncStatus RPC
-      properties:
-        runs:
-          description: (proto shorts.v1alpha1.SyncRun)
-          items:
-            $ref: '#/components/schemas/shorts.v1alpha1.SyncRun'
-          title: runs
-          type: array
-      title: GetSyncStatusResponse
-      type: object
     shorts.v1alpha1.GetTopShortsRequest:
       additionalProperties: false
       description: Request for Top10 RPC, specifying the period of time.
@@ -3719,99 +3496,6 @@ components:
           title: role
           type: string
       title: GraphPerson
-      type: object
-    shorts.v1alpha1.HandleStripeCheckoutCompletedRequest:
-      additionalProperties: false
-      description: Request for HandleStripeCheckoutCompleted RPC (called by webhook)
-      properties:
-        stripeCustomerId:
-          description: Stripe customer ID (proto string)
-          title: stripe_customer_id
-          type: string
-        stripeSubscriptionId:
-          description: Stripe subscription ID (proto string)
-          title: stripe_subscription_id
-          type: string
-        tier:
-          $ref: '#/components/schemas/shorts.v1alpha1.SubscriptionTier'
-          description: Subscription tier (defaults to PRO) (proto shorts.v1alpha1.SubscriptionTier)
-          title: tier
-        userEmail:
-          description: User email from session metadata (proto string)
-          title: user_email
-          type: string
-        userId:
-          description: User ID from session metadata (proto string)
-          title: user_id
-          type: string
-      title: HandleStripeCheckoutCompletedRequest
-      type: object
-    shorts.v1alpha1.HandleStripeCheckoutCompletedResponse:
-      additionalProperties: false
-      description: Response for HandleStripeCheckoutCompleted RPC
-      properties:
-        message:
-          description: (proto string)
-          title: message
-          type: string
-        success:
-          description: (proto bool)
-          title: success
-          type: boolean
-      title: HandleStripeCheckoutCompletedResponse
-      type: object
-    shorts.v1alpha1.HandleStripeSubscriptionUpdatedRequest:
-      additionalProperties: false
-      description: Request for HandleStripeSubscriptionUpdated RPC (called by webhook)
-      properties:
-        cancelAtPeriodEnd:
-          description: (proto bool)
-          title: cancel_at_period_end
-          type: boolean
-        currentPeriodEnd:
-          $ref: '#/components/schemas/google.protobuf.Timestamp'
-          description: (proto google.protobuf.Timestamp)
-          title: current_period_end
-        currentPeriodStart:
-          $ref: '#/components/schemas/google.protobuf.Timestamp'
-          description: (proto google.protobuf.Timestamp)
-          title: current_period_start
-        isDeleted:
-          description: True if subscription was deleted/canceled permanently (proto
-            bool)
-          title: is_deleted
-          type: boolean
-        status:
-          $ref: '#/components/schemas/shorts.v1alpha1.SubscriptionStatus'
-          description: New subscription status (proto shorts.v1alpha1.SubscriptionStatus)
-          title: status
-        stripeCustomerId:
-          description: Stripe customer ID (used for lookup) (proto string)
-          title: stripe_customer_id
-          type: string
-        stripeSubscriptionId:
-          description: Stripe subscription ID (proto string)
-          title: stripe_subscription_id
-          type: string
-        tier:
-          $ref: '#/components/schemas/shorts.v1alpha1.SubscriptionTier'
-          description: Subscription tier (proto shorts.v1alpha1.SubscriptionTier)
-          title: tier
-      title: HandleStripeSubscriptionUpdatedRequest
-      type: object
-    shorts.v1alpha1.HandleStripeSubscriptionUpdatedResponse:
-      additionalProperties: false
-      description: Response for HandleStripeSubscriptionUpdated RPC
-      properties:
-        message:
-          description: (proto string)
-          title: message
-          type: string
-        success:
-          description: (proto bool)
-          title: success
-          type: boolean
-      title: HandleStripeSubscriptionUpdatedResponse
       type: object
     shorts.v1alpha1.HousePricePoint:
       additionalProperties: false
@@ -4345,39 +4029,6 @@ components:
           type: array
       title: ListAgencyPriceStatsResponse
       type: object
-    shorts.v1alpha1.ListAlertMonitorsRequest:
-      additionalProperties: false
-      description: Request for ListAlertMonitors RPC. Uses auth context for ownership.
-      properties:
-        limit:
-          description: (proto int32)
-          format: int32
-          title: limit
-          type: integer
-        offset:
-          description: (proto int32)
-          format: int32
-          title: offset
-          type: integer
-      title: ListAlertMonitorsRequest
-      type: object
-    shorts.v1alpha1.ListAlertMonitorsResponse:
-      additionalProperties: false
-      description: Response for ListAlertMonitors RPC.
-      properties:
-        monitors:
-          description: (proto shorts.v1alpha1.AlertMonitor)
-          items:
-            $ref: '#/components/schemas/shorts.v1alpha1.AlertMonitor'
-          title: monitors
-          type: array
-        totalCount:
-          description: (proto int32)
-          format: int32
-          title: total_count
-          type: integer
-      title: ListAlertMonitorsResponse
-      type: object
     shorts.v1alpha1.ListDistinctiveHoldingsRequest:
       additionalProperties: false
       properties:
@@ -4463,41 +4114,6 @@ components:
           title: series
           type: array
       title: ListEconomicSeriesResponse
-      type: object
-    shorts.v1alpha1.ListEditorialTakesAdminRequest:
-      additionalProperties: false
-      properties:
-        limit:
-          description: (proto int32)
-          format: int32
-          title: limit
-          type: integer
-        offset:
-          description: (proto int32)
-          format: int32
-          title: offset
-          type: integer
-        statusFilter:
-          $ref: '#/components/schemas/shorts.v1alpha1.TakeStatus'
-          description: optional (proto shorts.v1alpha1.TakeStatus)
-          title: status_filter
-      title: ListEditorialTakesAdminRequest
-      type: object
-    shorts.v1alpha1.ListEditorialTakesAdminResponse:
-      additionalProperties: false
-      properties:
-        takes:
-          description: (proto shorts.v1alpha1.EditorialTake)
-          items:
-            $ref: '#/components/schemas/shorts.v1alpha1.EditorialTake'
-          title: takes
-          type: array
-        totalCount:
-          description: (proto int32)
-          format: int32
-          title: total_count
-          type: integer
-      title: ListEditorialTakesAdminResponse
       type: object
     shorts.v1alpha1.ListEditorialTakesRequest:
       additionalProperties: false
@@ -5295,45 +4911,6 @@ components:
           type: string
       title: ListTopDonorsResponse
       type: object
-    shorts.v1alpha1.ListTweetPublishQueueRequest:
-      additionalProperties: false
-      properties:
-        limit:
-          description: (proto int32)
-          format: int32
-          title: limit
-          type: integer
-      title: ListTweetPublishQueueRequest
-      type: object
-    shorts.v1alpha1.ListTweetPublishQueueResponse:
-      additionalProperties: false
-      properties:
-        takes:
-          description: (proto shorts.v1alpha1.EditorialTake)
-          items:
-            $ref: '#/components/schemas/shorts.v1alpha1.EditorialTake'
-          title: takes
-          type: array
-      title: ListTweetPublishQueueResponse
-      type: object
-    shorts.v1alpha1.MarkTakeTweetPublishedRequest:
-      additionalProperties: false
-      properties:
-        slug:
-          description: (proto string)
-          title: slug
-          type: string
-      title: MarkTakeTweetPublishedRequest
-      type: object
-    shorts.v1alpha1.MarkTakeTweetPublishedResponse:
-      additionalProperties: false
-      properties:
-        take:
-          $ref: '#/components/schemas/shorts.v1alpha1.EditorialTake'
-          description: (proto shorts.v1alpha1.EditorialTake)
-          title: take
-      title: MarkTakeTweetPublishedResponse
-      type: object
     shorts.v1alpha1.MemberAnnualReturn:
       additionalProperties: false
       description: |-
@@ -5379,19 +4956,6 @@ components:
           - integer
           - string
       title: MemberAnnualReturn
-      type: object
-    shorts.v1alpha1.MintTokenRequest:
-      additionalProperties: false
-      title: MintTokenRequest
-      type: object
-    shorts.v1alpha1.MintTokenResponse:
-      additionalProperties: false
-      properties:
-        token:
-          description: (proto string)
-          title: token
-          type: string
-      title: MintTokenResponse
       type: object
     shorts.v1alpha1.NewlyDeclaredCompany:
       additionalProperties: false
@@ -6254,24 +5818,6 @@ components:
           title: price
           type: number
       title: PropertyValuationSale
-      type: object
-    shorts.v1alpha1.PublishEditorialTakeRequest:
-      additionalProperties: false
-      properties:
-        slug:
-          description: (proto string)
-          title: slug
-          type: string
-      title: PublishEditorialTakeRequest
-      type: object
-    shorts.v1alpha1.PublishEditorialTakeResponse:
-      additionalProperties: false
-      properties:
-        take:
-          $ref: '#/components/schemas/shorts.v1alpha1.EditorialTake'
-          description: (proto shorts.v1alpha1.EditorialTake)
-          title: take
-      title: PublishEditorialTakeResponse
       type: object
     shorts.v1alpha1.RangeFilter:
       additionalProperties: false
@@ -7329,27 +6875,6 @@ components:
           type: string
       title: StockSignal
       type: object
-    shorts.v1alpha1.SubscriptionStatus:
-      description: Subscription status enum
-      enum:
-      - SUBSCRIPTION_STATUS_UNSPECIFIED
-      - SUBSCRIPTION_STATUS_ACTIVE
-      - SUBSCRIPTION_STATUS_TRIALING
-      - SUBSCRIPTION_STATUS_PAST_DUE
-      - SUBSCRIPTION_STATUS_CANCELED
-      - SUBSCRIPTION_STATUS_INACTIVE
-      title: SubscriptionStatus
-      type: string
-    shorts.v1alpha1.SubscriptionTier:
-      description: Subscription tier enum
-      enum:
-      - SUBSCRIPTION_TIER_UNSPECIFIED
-      - SUBSCRIPTION_TIER_FREE
-      - SUBSCRIPTION_TIER_PRO
-      - SUBSCRIPTION_TIER_ENTERPRISE
-      - SUBSCRIPTION_TIER_PREMIUM
-      title: SubscriptionTier
-      type: string
     shorts.v1alpha1.SuburbAmenities:
       additionalProperties: false
       description: |-
@@ -8308,85 +7833,6 @@ components:
           type: number
       title: SuburbSummary
       type: object
-    shorts.v1alpha1.SyncRun:
-      additionalProperties: false
-      description: Represents a single sync run execution
-      properties:
-        algoliaRecordsSynced:
-          description: (proto int32)
-          format: int32
-          title: algolia_records_synced
-          type: integer
-        checkpointStocksFailed:
-          description: (proto int32)
-          format: int32
-          title: checkpoint_stocks_failed
-          type: integer
-        checkpointStocksProcessed:
-          description: (proto int32)
-          format: int32
-          title: checkpoint_stocks_processed
-          type: integer
-        checkpointStocksSuccessful:
-          description: (proto int32)
-          format: int32
-          title: checkpoint_stocks_successful
-          type: integer
-        checkpointStocksTotal:
-          description: Checkpoint tracking (proto int32)
-          format: int32
-          title: checkpoint_stocks_total
-          type: integer
-        completedAt:
-          description: (proto string)
-          title: completed_at
-          type: string
-        environment:
-          description: (proto string)
-          title: environment
-          type: string
-        errorMessage:
-          description: (proto string)
-          title: error_message
-          type: string
-        hostname:
-          description: (proto string)
-          title: hostname
-          type: string
-        metricsRecordsUpdated:
-          description: (proto int32)
-          format: int32
-          title: metrics_records_updated
-          type: integer
-        pricesRecordsUpdated:
-          description: (proto int32)
-          format: int32
-          title: prices_records_updated
-          type: integer
-        runId:
-          description: (proto string)
-          title: run_id
-          type: string
-        shortsRecordsUpdated:
-          description: (proto int32)
-          format: int32
-          title: shorts_records_updated
-          type: integer
-        startedAt:
-          description: (proto string)
-          title: started_at
-          type: string
-        status:
-          description: (proto string)
-          title: status
-          type: string
-        totalDurationSeconds:
-          description: (proto double)
-          format: double
-          title: total_duration_seconds
-          type: number
-      title: SyncRun
-      type: object
     shorts.v1alpha1.TakeCitation:
       additionalProperties: false
       description: A single cited source referenced by a [ref-N] marker in body_md.
@@ -8417,14 +7863,6 @@ components:
           type: string
       title: TakeCitation
       type: object
-    shorts.v1alpha1.TakeStatus:
-      enum:
-      - TAKE_STATUS_UNSPECIFIED
-      - TAKE_STATUS_DRAFT
-      - TAKE_STATUS_PUBLISHED
-      - TAKE_STATUS_TWEETED
-      title: TakeStatus
-      type: string
     shorts.v1alpha1.TimelineEvent:
       additionalProperties: false
       description: A single event in the stock's timeline
@@ -8517,40 +7955,6 @@ components:
           - integer
           - string
       title: TopDonor
-      type: object
-    shorts.v1alpha1.UpdateEditorialTakeRequest:
-      additionalProperties: false
-      properties:
-        bodyMd:
-          description: Each optional field is applied only if non-empty. (proto string)
-          title: body_md
-          type: string
-        headline:
-          description: (proto string)
-          title: headline
-          type: string
-        heroImageUrl:
-          description: (proto string)
-          title: hero_image_url
-          type: string
-        sentiment:
-          description: (proto string)
-          title: sentiment
-          type: string
-        slug:
-          description: (proto string)
-          title: slug
-          type: string
-      title: UpdateEditorialTakeRequest
-      type: object
-    shorts.v1alpha1.UpdateEditorialTakeResponse:
-      additionalProperties: false
-      properties:
-        take:
-          $ref: '#/components/schemas/shorts.v1alpha1.EditorialTake'
-          description: (proto shorts.v1alpha1.EditorialTake)
-          title: take
-      title: UpdateEditorialTakeResponse
       type: object
     shorts.v1alpha1.VerdictComponent:
       additionalProperties: false
@@ -9040,45 +8444,6 @@ components:
           type: object
       title: FinancialStatementSet
       type: object
-    stocks.v1alpha1.FinancialStatementSet.BalanceSheetEntry:
-      additionalProperties: false
-      properties:
-        key:
-          description: (proto string)
-          title: key
-          type: string
-        value:
-          $ref: '#/components/schemas/stocks.v1alpha1.StatementValues'
-          description: (proto stocks.v1alpha1.StatementValues)
-          title: value
-      title: BalanceSheetEntry
-      type: object
-    stocks.v1alpha1.FinancialStatementSet.CashFlowEntry:
-      additionalProperties: false
-      properties:
-        key:
-          description: (proto string)
-          title: key
-          type: string
-        value:
-          $ref: '#/components/schemas/stocks.v1alpha1.StatementValues'
-          description: (proto stocks.v1alpha1.StatementValues)
-          title: value
-      title: CashFlowEntry
-      type: object
-    stocks.v1alpha1.FinancialStatementSet.IncomeStatementEntry:
-      additionalProperties: false
-      properties:
-        key:
-          description: (proto string)
-          title: key
-          type: string
-        value:
-          $ref: '#/components/schemas/stocks.v1alpha1.StatementValues'
-          description: (proto stocks.v1alpha1.StatementValues)
-          title: value
-      title: IncomeStatementEntry
-      type: object
     stocks.v1alpha1.FinancialStatements:
       additionalProperties: false
       properties:
@@ -9224,20 +8589,6 @@ components:
           title: metrics
           type: object
       title: StatementValues
-      type: object
-    stocks.v1alpha1.StatementValues.MetricsEntry:
-      additionalProperties: false
-      properties:
-        key:
-          description: (proto string)
-          title: key
-          type: string
-        value:
-          description: (proto double)
-          format: double
-          title: value
-          type: number
-      title: MetricsEntry
       type: object
     stocks.v1alpha1.Stock:
       additionalProperties: false
@@ -9521,6 +8872,66 @@ info:
     url: https://shorted.com.au/logo.png
 openapi: 3.1.0
 paths:
+  /api/search/stocks:
+    get:
+      description: |
+        Case-insensitive substring match over a curated in-process list of
+        ~70 well-known ASX securities (not the full ASX register, and not the
+        short-position corpus). Returns at most 10 results. For programmatic
+        search over the full corpus use the Connect-RPC SearchService.
+      operationId: searchStocks
+      parameters:
+      - description: Ticker or partial company name, e.g. `BHP` or `Commonwealth`.
+          An empty or missing value returns an empty result list.
+        in: query
+        name: q
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                properties:
+                  results:
+                    items:
+                      properties:
+                        code:
+                          description: ASX ticker, e.g. `BHP`.
+                          type: string
+                        exchange:
+                          description: Always `ASX`.
+                          type: string
+                        name:
+                          description: Company name.
+                          type: string
+                      type: object
+                    type: array
+                type: object
+          description: Matching stocks, capped at 10.
+        "429":
+          description: Rate limited (per-minute browser bucket).
+        "500":
+          description: Search failed.
+      summary: Search ASX stocks by code or name
+    servers:
+    - description: Production (web app, not the API host)
+      url: https://shorted.com.au
+  /feed.xml:
+    get:
+      operationId: getRssFeed
+      responses:
+        "200":
+          content:
+            application/rss+xml:
+              schema:
+                type: string
+          description: RSS 2.0 XML.
+      summary: RSS feed of editorial articles and short-selling reports
+    servers:
+    - description: Production (web app, not the API host)
+      url: https://shorted.com.au
   /shorts.v1alpha1.EconomyService/GetEconomicSeries:
     post:
       description: Fetch observations for up to 50 series by series_key.

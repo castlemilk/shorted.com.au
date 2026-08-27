@@ -136,7 +136,10 @@ func Transform(spec map[string]any, public map[string]bool, base map[string]any)
 	// publicly useful HTTP surfaces (/api/search/stocks, /feed.xml) that no
 	// generator will ever emit. Each carries its own path-level `servers`
 	// override because they live on https://shorted.com.au, not on the
-	// document's top-level https://api.shorted.com.au.
+	// document's top-level https://api.shorted.com.au. (The plugin does copy
+	// this block into the generated document, which is why it has 83 paths to
+	// the API's 81 — but those copies are pruned above like any other
+	// non-public path, so this merge is what actually publishes them.)
 	//
 	// A base entry keyed to a path the generator ALSO emitted enriches it: we
 	// copy only the keys the generated path item does not already have, so a
@@ -198,9 +201,17 @@ func Transform(spec map[string]any, public map[string]bool, base map[string]any)
 	// are OMITTED rather than sent as 0 — "X-RateLimit-Limit: 0" reads as
 	// "you may make zero requests", the opposite of the truth.
 	//
+	// A custom x- extension rather than standard responses.headers because the
+	// standard encoding would mean injecting a 429 response object with header
+	// refs into every operation of every path — the generator emits none — a
+	// large structural rewrite of the document for information whose primary
+	// consumer here is an LLM agent reading the spec top to bottom.
+	//
 	// These must stay in step with services/pkg/ratelimit (interceptor.go and
 	// quota_error.go). The field names in X-RateLimit-Detail are a contract;
-	// renaming one is a breaking change.
+	// renaming one is a breaking change. TestRateLimitHeadersMatchTheGoSource
+	// parses those files and fails if this block drifts from them, in either
+	// direction — it already drifted once.
 	spec["x-rate-limit-headers"] = map[string]any{
 		"success": map[string]any{
 			"X-RateLimit-Limit":             "Per-minute ceiling for your tier",

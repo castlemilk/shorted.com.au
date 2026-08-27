@@ -13,6 +13,65 @@ info:
     name: Proprietary license
     url: https://shorted.com.au/terms
 paths:
+  /api/search/stocks:
+    servers:
+      - url: https://shorted.com.au
+        description: Production (web app, not the API host)
+    get:
+      operationId: searchStocks
+      summary: Search ASX stocks by code or name
+      description: |
+        Case-insensitive substring match over a curated in-process list of
+        ~70 well-known ASX securities (not the full ASX register, and not the
+        short-position corpus). Returns at most 10 results. For programmatic
+        search over the full corpus use the Connect-RPC SearchService.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Ticker or partial company name, e.g. `BHP` or `Commonwealth`. An empty or missing value returns an empty result list.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Matching stocks, capped at 10.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        code:
+                          type: string
+                          description: ASX ticker, e.g. `BHP`.
+                        name:
+                          type: string
+                          description: Company name.
+                        exchange:
+                          type: string
+                          description: Always `ASX`.
+        "429":
+          description: Rate limited (per-minute browser bucket).
+        "500":
+          description: Search failed.
+  /feed.xml:
+    servers:
+      - url: https://shorted.com.au
+        description: Production (web app, not the API host)
+    get:
+      operationId: getRssFeed
+      summary: RSS feed of editorial articles and short-selling reports
+      responses:
+        "200":
+          description: RSS 2.0 XML.
+          content:
+            application/rss+xml:
+              schema:
+                type: string
   /shorts.v1alpha1.AlertsService/CreateAlertMonitor:
     post:
       tags:

@@ -1,6 +1,9 @@
 package main
 
 import (
+	"os"
+	"regexp"
+	"sort"
 	"testing"
 	"time"
 )
@@ -296,5 +299,94 @@ func TestTransformSurvivesMissingComponents(t *testing.T) {
 	delete(spec, "components")
 	if err := Transform(spec, map[string]bool{"/shorts.v1alpha1.StockService/GetStock": true}, baseFixture()); err != nil {
 		t.Fatalf("Transform with no components: %v", err)
+	}
+}
+
+// headerLiteral matches a complete, quoted header-name literal. Requiring the
+// closing quote immediately after the name keeps prose like
+// `"X-RateLimit-Limit: 0"` in a comment from being read as a header name.
+var headerLiteral = regexp.MustCompile(`"(X-RateLimit-[A-Za-z-]+|Retry-After)"`)
+
+// ratelimitHeaderSources are the files that own the header-name constants.
+// Both are read, so moving a constant between them cannot silently drop it
+// from this test's view.
+var ratelimitHeaderSources = []string{
+	"../../pkg/ratelimit/quota_error.go",
+	"../../pkg/ratelimit/interceptor.go",
+}
+
+// documentedButNotInGo are headers the published document describes that the
+// Go API deliberately never sends: the Cloudflare edge worker sets them on its
+// own 429s (services/edge-worker/worker.js). Documenting them is correct —
+// an agent will meet them — so this is an expected direction of mismatch and
+// this test only asserts the other one: every header the Go source sends must
+// be documented.
+var documentedButNotInGo = map[string]bool{
+	"X-RateLimit-Scope":  true,
+	"X-RateLimit-Bucket": true,
+}
+
+// The x-rate-limit-headers block already drifted once — it listed headers the
+// API does not send and omitted two it does. A comment saying "these must stay
+// in step with services/pkg/ratelimit" enforces nothing, so parse the Go
+// source rather than restating its values here (the same approach as
+// web/src/@/components/premium/__tests__/api-key-manager-quota-contract.test.ts).
+func TestRateLimitHeadersMatchTheGoSource(t *testing.T) {
+	inGo := map[string]bool{}
+	for _, path := range ratelimitHeaderSources {
+		src, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v — this test is the only thing holding the header contract, so a missing source file is a failure, not a skip", path, err)
+		}
+		for _, m := range headerLiteral.FindAllStringSubmatch(string(src), -1) {
+			inGo[m[1]] = true
+		}
+	}
+	if len(inGo) == 0 {
+		t.Fatal("found no header literals in services/pkg/ratelimit — the constants moved and this test has quietly stopped checking anything")
+	}
+
+	spec := specFixture()
+	if err := Transform(spec, map[string]bool{"/shorts.v1alpha1.StockService/GetStock": true}, baseFixture()); err != nil {
+		t.Fatalf("Transform: %v", err)
+	}
+
+	documented := map[string]bool{}
+	block, ok := spec["x-rate-limit-headers"].(map[string]any)
+	if !ok {
+		t.Fatalf("x-rate-limit-headers missing or not a mapping: %#v", spec["x-rate-limit-headers"])
+	}
+	for class, headers := range block {
+		hs, ok := headers.(map[string]any)
+		if !ok {
+			t.Fatalf("x-rate-limit-headers.%s is not a mapping", class)
+		}
+		for name := range hs {
+			documented[name] = true
+		}
+	}
+
+	var missing []string
+	for name := range inGo {
+		if !documented[name] {
+			missing = append(missing, name)
+		}
+	}
+	sort.Strings(missing)
+	if len(missing) > 0 {
+		t.Errorf("services/pkg/ratelimit sends these headers but the published spec does not document them: %v", missing)
+	}
+
+	// The reverse direction, with an explicit allowlist rather than a weakened
+	// assertion: an undocumented invention here is drift too.
+	var invented []string
+	for name := range documented {
+		if !inGo[name] && !documentedButNotInGo[name] {
+			invented = append(invented, name)
+		}
+	}
+	sort.Strings(invented)
+	if len(invented) > 0 {
+		t.Errorf("the published spec documents headers the Go API never sends and that are not in the edge-only allowlist: %v", invented)
 	}
 }
