@@ -57,7 +57,13 @@ Read these first — they explain constraints that will otherwise look arbitrary
 **Files:**
 - Modify: `proto/buf.gen.yaml`
 - Modify: `api/schema/base.yaml`
-- Create: `api/schema/generated/.gitignore` (empty marker so the dir exists)
+- Create: `api/schema/generated/README.md` (marker so the dir exists)
+
+> **Implemented in `8911d7488`. Two things in the YAML below did not work as written and were corrected during implementation — if you re-run this, use the corrected form:**
+> 1. **`services=` must be one `opt` entry per service, not one comma-joined entry.** buf joins `opt` entries with commas, and the plugin splits its whole parameter string on commas first — so services 2..12 arrive as bare unknown params and it exits 1 (`ERROR invalid parameter: shorts.v1alpha1.StockService`). The plugin appends on each `services=` occurrence, so 12 separate entries is the supported form.
+> 2. **`strategy: all` is required.** buf's default for a local plugin is `directory`, so the plugin ran once per proto directory, each writing its own `openapi.yaml`; buf kept only the first (7× "duplicate generated file name", a 1.1K near-empty document).
+>
+> The template stayed at `version: v1` — buf 1.47.2 accepts it, and v1's `path:` takes a list, which is the exact equivalent of v2's `local:`. No migration was needed.
 
 - [ ] **Step 1: Add the plugin to `proto/buf.gen.yaml`**
 
@@ -302,7 +308,15 @@ import "testing"
 func specFixture() map[string]any {
 	return map[string]any{
 		"openapi": "3.1.0",
-		"info":    map[string]any{"title": "Shorted Public API"},
+		// The raw generator output carries the info block from the
+		// gnostic.openapi.v3.document option in shorts.proto — NOT from
+		// base.yaml, which the plugin applies first and gnostic then
+		// overrides. That block asserts a proprietary licence.
+		"info": map[string]any{
+			"title":   "Shorted API",
+			"version": "v1",
+			"license": map[string]any{"name": "Proprietary license"},
+		},
 		"paths": map[string]any{
 			"/shorts.v1alpha1.StockService/GetStock": map[string]any{
 				"post": map[string]any{"summary": "Get Stock"},
@@ -314,11 +328,49 @@ func specFixture() map[string]any {
 	}
 }
 
+func baseFixture() map[string]any {
+	return map[string]any{
+		"info": map[string]any{
+			"title":   "Shorted Public API",
+			"version": "1.0.0",
+			"license": map[string]any{
+				"name": "CC BY 4.0",
+				"url":  "https://creativecommons.org/licenses/by/4.0/",
+			},
+		},
+	}
+}
+
+func TestTransformStampsInfoFromBase(t *testing.T) {
+	spec := specFixture()
+	public := map[string]bool{"/shorts.v1alpha1.StockService/GetStock": true}
+
+	if err := Transform(spec, public, baseFixture()); err != nil {
+		t.Fatalf("Transform: %v", err)
+	}
+
+	info := spec["info"].(map[string]any)
+	if info["title"] != "Shorted Public API" {
+		t.Errorf("title = %v, want Shorted Public API", info["title"])
+	}
+	if info["version"] != "1.0.0" {
+		t.Errorf("version = %v, want 1.0.0", info["version"])
+	}
+
+	// A public API document asserting the wrong licence is a correctness
+	// problem, not a cosmetic one: the gnostic option in shorts.proto claims
+	// the API is proprietary, and it wins over base.yaml inside the plugin.
+	license := info["license"].(map[string]any)
+	if license["name"] != "CC BY 4.0" {
+		t.Errorf("license = %v, want CC BY 4.0", license["name"])
+	}
+}
+
 func TestTransformDropsNonPublicPaths(t *testing.T) {
 	spec := specFixture()
 	public := map[string]bool{"/shorts.v1alpha1.StockService/GetStock": true}
 
-	if err := Transform(spec, public); err != nil {
+	if err := Transform(spec, public, baseFixture()); err != nil {
 		t.Fatalf("Transform: %v", err)
 	}
 
@@ -333,7 +385,7 @@ func TestTransformDropsNonPublicPaths(t *testing.T) {
 
 func TestTransformAddsServersAndSecurity(t *testing.T) {
 	spec := specFixture()
-	if err := Transform(spec, map[string]bool{"/shorts.v1alpha1.StockService/GetStock": true}); err != nil {
+	if err := Transform(spec, map[string]bool{"/shorts.v1alpha1.StockService/GetStock": true}, baseFixture()); err != nil {
 		t.Fatalf("Transform: %v", err)
 	}
 
@@ -354,7 +406,7 @@ func TestTransformAddsServersAndSecurity(t *testing.T) {
 
 func TestTransformErrorsWhenNoPathsSurvive(t *testing.T) {
 	spec := specFixture()
-	err := Transform(spec, map[string]bool{})
+	err := Transform(spec, map[string]bool{}, baseFixture())
 	if err == nil {
 		t.Fatal("expected an error when every path is pruned — silently shipping an empty spec is worse than failing the build")
 	}
@@ -380,13 +432,28 @@ import "fmt"
 // the facts the generator cannot know: where the API actually lives, how to
 // authenticate, and the rate-limit response headers.
 //
+// base is the parsed api/schema/base.yaml. Its `info` block is stamped over
+// whatever the generator produced, because the plugin applies base= FIRST and
+// then lets the file-level gnostic.openapi.v3.document option in shorts.proto
+// override it — so the raw output claims `title: Shorted API`, `version: v1`
+// and, worst of all, `license: Proprietary license`. Publishing a spec that
+// asserts the wrong licence is a correctness problem. Fixing it in the proto
+// would rewrite the descriptor bytes and churn every generated Go and TS
+// file, so it is corrected here instead.
+//
 // It mutates spec in place. An empty result is an error: shipping a spec with
 // no paths reads to an agent as "this API has no endpoints", which is worse
 // than a failed build.
-func Transform(spec map[string]any, public map[string]bool) error {
+func Transform(spec map[string]any, public map[string]bool, base map[string]any) error {
 	paths, ok := spec["paths"].(map[string]any)
 	if !ok {
 		return fmt.Errorf("spec has no paths object")
+	}
+
+	if info, ok := base["info"].(map[string]any); ok {
+		spec["info"] = info
+	} else {
+		return fmt.Errorf("base document has no info block")
 	}
 
 	for p := range paths {
@@ -470,6 +537,7 @@ git commit -m "feat(openapi): prune non-public paths and decorate the generated 
 // Usage:
 //
 //	openapi-postprocess -in api/schema/generated/openapi.yaml \
+//	  -base api/schema/base.yaml \
 //	  -out-json web/public/openapi.json -out-yaml web/public/openapi.yaml
 package main
 
@@ -484,12 +552,13 @@ import (
 
 func main() {
 	in := flag.String("in", "", "raw generated OpenAPI YAML")
+	basePath := flag.String("base", "", "api/schema/base.yaml — source of the info block")
 	outJSON := flag.String("out-json", "", "canonical JSON output path")
 	outYAML := flag.String("out-yaml", "", "canonical YAML output path")
 	flag.Parse()
 
-	if *in == "" || *outJSON == "" || *outYAML == "" {
-		log.Fatal("-in, -out-json and -out-yaml are all required")
+	if *in == "" || *basePath == "" || *outJSON == "" || *outYAML == "" {
+		log.Fatal("-in, -base, -out-json and -out-yaml are all required")
 	}
 
 	raw, err := os.ReadFile(*in)
@@ -502,7 +571,17 @@ func main() {
 		log.Fatalf("parse %s: %v", *in, err)
 	}
 
-	if err := Transform(spec, PublicMethodPaths()); err != nil {
+	rawBase, err := os.ReadFile(*basePath)
+	if err != nil {
+		log.Fatalf("read %s: %v", *basePath, err)
+	}
+
+	var base map[string]any
+	if err := yaml.Unmarshal(rawBase, &base); err != nil {
+		log.Fatalf("parse %s: %v", *basePath, err)
+	}
+
+	if err := Transform(spec, PublicMethodPaths(), base); err != nil {
 		log.Fatalf("transform: %v", err)
 	}
 
@@ -543,6 +622,7 @@ Run:
 ```bash
 cd services && GOWORK=off go run ./cmd/openapi-postprocess \
   -in ../api/schema/generated/openapi.yaml \
+  -base ../api/schema/base.yaml \
   -out-json ../web/public/openapi.json \
   -out-yaml ../web/public/openapi.yaml
 ```
@@ -580,6 +660,7 @@ openapi: ## Regenerate the public OpenAPI spec from the protos
 	cd proto && buf generate
 	cd services && GOWORK=off go run ./cmd/openapi-postprocess \
 		-in ../api/schema/generated/openapi.yaml \
+		-base ../api/schema/base.yaml \
 		-out-json ../web/public/openapi.json \
 		-out-yaml ../web/public/openapi.yaml
 ```
