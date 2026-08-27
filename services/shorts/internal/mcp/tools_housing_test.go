@@ -488,8 +488,16 @@ func TestGetSuburbProfilePublishesListingAggregatesAtTheFloor(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if out.ListingsMedianAsking != 1_275_000 || out.ListingsMedianSold != 1_100_000 {
-		t.Errorf("aggregates at or above the floor should publish: %+v", out)
+	// median_sold publishes: sold_count counts only priced rows, so the floor
+	// is keyed to the population the median was computed over.
+	if out.ListingsMedianSold != 1_100_000 {
+		t.Errorf("median_sold at or above the floor should publish: %+v", out)
+	}
+	// median_asking does NOT, at any count. for_sale_count counts every active
+	// listing while the median covers priced listings only, so the floor cannot
+	// be keyed correctly and the value is withheld outright.
+	if out.ListingsMedianAsking != 0 {
+		t.Errorf("median_asking must be withheld while the floor cannot be keyed to the priced count: %+v", out)
 	}
 }
 
@@ -551,11 +559,19 @@ func TestListSuburbPriceDropsProjectsAggregatesOnly(t *testing.T) {
 	if row.DroppedSharePct < 23.9 || row.DroppedSharePct > 24.1 {
 		t.Errorf("dropped_share_pct should be a percentage, got %v", row.DroppedSharePct)
 	}
-	// The extremum fields must not survive the projection in any form.
-	blob, _ := json.Marshal(out)
+	// The extremum fields must not survive the projection in any form —
+	// including the human-readable summary. Scanning only the structured
+	// output left a hole: a restricted value formatted into the text content
+	// was invisible to every test in the package, and the text is precisely
+	// what gets pasted into a model's context.
+	structured, _ := json.Marshal(out)
+	full, _ := json.Marshal(res)
 	for _, forbidden := range []string{"410000", "0.39", "1200000"} {
-		if strings.Contains(string(blob), forbidden) {
-			t.Errorf("output leaks a single-listing extremum (%s): %s", forbidden, blob)
+		if strings.Contains(string(structured), forbidden) {
+			t.Errorf("structured output leaks a single-listing extremum (%s): %s", forbidden, structured)
+		}
+		if strings.Contains(string(full), forbidden) {
+			t.Errorf("tool result (including the text summary) leaks a single-listing extremum (%s): %s", forbidden, full)
 		}
 	}
 	if !strings.Contains(textOf(t, res), "aggregate") {

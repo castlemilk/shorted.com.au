@@ -479,7 +479,7 @@ type GetSuburbProfileOutput struct {
 	CrimeJurisdiction     string  `json:"crime_jurisdiction,omitempty" jsonschema:"Jurisdiction the percentiles rank within."`
 
 	ListingsForSaleCount int32   `json:"listings_for_sale_count,omitempty" jsonschema:"Listings captured, not a market total."`
-	ListingsMedianAsking float64 `json:"listings_median_asking,omitempty" jsonschema:"Median ASKING price, AUD. Suppressed below three listings."`
+	ListingsMedianAsking float64 `json:"listings_median_asking,omitempty" jsonschema:"Median ASKING price, AUD. Currently always withheld — the k-anonymity floor cannot be keyed correctly against the available counts."`
 	ListingsSoldCount    int32   `json:"listings_sold_count,omitempty"`
 	ListingsMedianSold   float64 `json:"listings_median_sold,omitempty" jsonschema:"AUD. Suppressed below three. Not a Valuer-General median."`
 	ListingsNote         string  `json:"listings_note,omitempty"`
@@ -614,7 +614,23 @@ func getSuburbProfileHandler(src DataSource) sdk.ToolHandlerFor[GetSuburbProfile
 		} else {
 			out.ListingsForSaleCount = stats.GetForSaleCount()
 			out.ListingsSoldCount = stats.GetSoldCount()
-			out.ListingsMedianAsking = aboveFloor(stats.GetForSaleCount(), round2(stats.GetMedianAsking()))
+			// median_asking is WITHHELD, not floored. The k-anon floor needs the
+			// count the median was computed over, and the only count on this
+			// message is for_sale_count — every ACTIVE listing. mv_suburb_listing_stats
+			// computes median_asking over PRICED listings only
+			// (PERCENTILE_CONT ... FILTER (WHERE price IS NOT NULL)), and
+			// "contact agent" listings are common. So a suburb with three active
+			// listings of which one carries a price clears a floor keyed to
+			// for_sale_count while the "median" IS that one listing's exact,
+			// attributable asking price — the precise disclosure the floor exists
+			// to stop.
+			//
+			// SuburbListingStats has no for_sale_priced field to floor against
+			// (StatePriceDropSummary does, at housing.proto:728). Until that field
+			// is surfaced here, or mv_suburb_listing_stats nulls the median below
+			// the floor itself, the honest answer is to publish nothing:
+			// ambiguity resolves to withholding.
+			out.ListingsMedianAsking = 0
 			out.ListingsMedianSold = aboveFloor(stats.GetSoldCount(), round2(stats.GetMedianSold()))
 			out.ListingsNote = crawlAggregateCaveat
 			if out.ListingsMedianAsking == 0 || out.ListingsMedianSold == 0 {
@@ -677,7 +693,7 @@ type SuburbPriceDropRow struct {
 	AvgDropPct          float64 `json:"avg_drop_pct" jsonschema:"Mean reduction, percent."`
 	MedianDropPct       float64 `json:"median_drop_pct" jsonschema:"Median reduction, percent."`
 	ForSaleCount        int32   `json:"for_sale_count,omitempty" jsonschema:"Listings behind the asking median."`
-	MedianAsking        float64 `json:"median_asking,omitempty" jsonschema:"AUD. Suppressed below three listings."`
+	MedianAsking        float64 `json:"median_asking,omitempty" jsonschema:"Median asking price, AUD. Currently always withheld — the k-anonymity floor cannot be keyed correctly against the available counts."`
 }
 
 type ListSuburbPriceDropsOutput struct {
@@ -776,7 +792,10 @@ func listSuburbPriceDropsHandler(src DataSource) sdk.ToolHandlerFor[ListSuburbPr
 				ForSaleCount:        r.GetForSaleCount(),
 				// Floored independently: a suburb can have plenty of cuts and
 				// only one listing still priced.
-				MedianAsking: aboveFloor(r.GetForSaleCount(), round2(r.GetMedianAsking())),
+				// Withheld — see the note in getSuburbProfileHandler. SuburbPriceDrop
+				// carries for_sale_count (all active) but the median is over priced
+				// listings only, so this floor cannot be keyed correctly.
+				MedianAsking: 0,
 			})
 		}
 		out.Count = len(out.Suburbs)
