@@ -23,6 +23,21 @@ service HousingService {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
   }
 
+  // Stable sal_code-ordered index used by all columnar suburb responses.
+  rpc GetSuburbIndex (GetSuburbIndexRequest) returns (GetSuburbIndexResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Fetch only the map metric columns currently needed by the client.
+  rpc GetSuburbMetricColumns (GetSuburbMetricColumnsRequest) returns (GetSuburbMetricColumnsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Return a compact index-aligned mask for ANDed metric predicates.
+  rpc FilterSuburbs (FilterSuburbsRequest) returns (FilterSuburbsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
   // Full per-suburb profile: identity, demographics, headline price, comparison baselines.
   rpc GetSuburbProfile (GetSuburbProfileRequest) returns (GetSuburbProfileResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
@@ -252,6 +267,68 @@ message SuburbSummary {
 
 message ListStateSuburbsResponse {
   repeated SuburbSummary suburbs = 1;
+}
+
+// The stable identity/label spine for one state's columnar suburb data. Entries
+// are always ordered lexically by sal_code, never by display name.
+message GetSuburbIndexRequest {
+  string state_code = 1; // 'NSW' | 'VIC' | ... (required)
+}
+
+message SuburbIndexEntry {
+  string sal_code = 1;
+  string sal_name = 2;
+  string postcode = 3;
+}
+
+message GetSuburbIndexResponse {
+  repeated SuburbIndexEntry suburbs = 1;
+  // Short v1 SHA-256 prefix derived only from the sorted sal_code set.
+  string index_version = 2;
+}
+
+message GetSuburbMetricColumnsRequest {
+  string state_code = 1;       // required
+  repeated string metric_keys = 2; // exact keys from the closed server registry
+}
+
+// One numeric metric aligned position-for-position with GetSuburbIndex.
+message SuburbMetricColumn {
+  string metric_key = 1;
+  // Numeric values are float32 and repeated float values are packed by default in proto3.
+  // When null_mask marks a position, the corresponding zero is only a placeholder.
+  repeated float values = 2;
+  // Explicit NULL bitset. Least-significant-bit first: position i is byte i/8,
+  // bit i%8; 1 means NULL and 0 means present. This keeps a genuine zero present.
+  bytes null_mask = 3;
+  // Non-empty for categorical metrics. Each present value is a zero-based
+  // integer index into this stable label dictionary.
+  repeated string category_labels = 4;
+}
+
+message GetSuburbMetricColumnsResponse {
+  repeated SuburbMetricColumn columns = 1;
+  // Must equal the current GetSuburbIndex version before values are aligned.
+  string index_version = 2;
+}
+
+message SuburbMetricPredicate {
+  string metric_key = 1;
+  optional float min = 2; // inclusive; at least one bound is required
+  optional float max = 3; // inclusive; at least one bound is required
+}
+
+message FilterSuburbsRequest {
+  string state_code = 1; // required
+  repeated SuburbMetricPredicate predicates = 2; // ANDed; at least one required
+}
+
+message FilterSuburbsResponse {
+  // Packed match bitset aligned to GetSuburbIndex. Least-significant-bit first:
+  // position i is byte i/8, bit i%8; 1 means the suburb matches every predicate.
+  bytes match_mask = 1;
+  uint32 match_count = 2;
+  string index_version = 3;
 }
 
 message GetSuburbProfileRequest {

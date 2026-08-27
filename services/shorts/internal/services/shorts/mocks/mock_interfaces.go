@@ -178,6 +178,21 @@ func (mr *MockShortsStoreMockRecorder) DeleteEditorialTake(slug any) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteEditorialTake", reflect.TypeOf((*MockShortsStore)(nil).DeleteEditorialTake), slug)
 }
 
+// FilterSuburbs mocks base method.
+func (m *MockShortsStore) FilterSuburbs(stateCode string, predicates []shorts.SuburbMetricPredicateRow) (*shorts.SuburbFilterResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FilterSuburbs", stateCode, predicates)
+	ret0, _ := ret[0].(*shorts.SuburbFilterResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FilterSuburbs indicates an expected call of FilterSuburbs.
+func (mr *MockShortsStoreMockRecorder) FilterSuburbs(stateCode, predicates any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FilterSuburbs", reflect.TypeOf((*MockShortsStore)(nil).FilterSuburbs), stateCode, predicates)
+}
+
 // GetAPISubscription mocks base method.
 func (m *MockShortsStore) GetAPISubscription(userID string) (*shorts.APISubscription, error) {
 	m.ctrl.T.Helper()
@@ -954,6 +969,36 @@ func (m *MockShortsStore) GetStockVerdictInputs(productCode string) (*shorts.Ver
 func (mr *MockShortsStoreMockRecorder) GetStockVerdictInputs(productCode any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockVerdictInputs", reflect.TypeOf((*MockShortsStore)(nil).GetStockVerdictInputs), productCode)
+}
+
+// GetSuburbIndex mocks base method.
+func (m *MockShortsStore) GetSuburbIndex(stateCode string) (*shorts.SuburbIndexResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSuburbIndex", stateCode)
+	ret0, _ := ret[0].(*shorts.SuburbIndexResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSuburbIndex indicates an expected call of GetSuburbIndex.
+func (mr *MockShortsStoreMockRecorder) GetSuburbIndex(stateCode any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSuburbIndex", reflect.TypeOf((*MockShortsStore)(nil).GetSuburbIndex), stateCode)
+}
+
+// GetSuburbMetricColumns mocks base method.
+func (m *MockShortsStore) GetSuburbMetricColumns(stateCode string, metricKeys []string) (*shorts.SuburbMetricColumnsResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSuburbMetricColumns", stateCode, metricKeys)
+	ret0, _ := ret[0].(*shorts.SuburbMetricColumnsResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSuburbMetricColumns indicates an expected call of GetSuburbMetricColumns.
+func (mr *MockShortsStoreMockRecorder) GetSuburbMetricColumns(stateCode, metricKeys any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSuburbMetricColumns", reflect.TypeOf((*MockShortsStore)(nil).GetSuburbMetricColumns), stateCode, metricKeys)
 }
 
 // GetSuburbProfile mocks base method.

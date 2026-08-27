@@ -275,6 +275,18 @@ func (s *StoreAdapter) ListStateSuburbs(stateCode, query string, limit int32) ([
 	return s.store.ListStateSuburbs(stateCode, query, limit)
 }
 
+func (s *StoreAdapter) GetSuburbIndex(stateCode string) (*shorts.SuburbIndexResult, error) {
+	return s.store.GetSuburbIndex(stateCode)
+}
+
+func (s *StoreAdapter) GetSuburbMetricColumns(stateCode string, metricKeys []string) (*shorts.SuburbMetricColumnsResult, error) {
+	return s.store.GetSuburbMetricColumns(stateCode, metricKeys)
+}
+
+func (s *StoreAdapter) FilterSuburbs(stateCode string, predicates []shorts.SuburbMetricPredicateRow) (*shorts.SuburbFilterResult, error) {
+	return s.store.FilterSuburbs(stateCode, predicates)
+}
+
 func (s *StoreAdapter) GetSuburbProfile(salCode string) (*shorts.SuburbProfileRow, error) {
 	return s.store.GetSuburbProfile(salCode)
 }
