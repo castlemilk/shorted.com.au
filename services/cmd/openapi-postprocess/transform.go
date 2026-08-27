@@ -1,6 +1,97 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
+
+const schemaRefPrefix = "#/components/schemas/"
+
+// collectRefs walks an arbitrary decoded-JSON value and appends every "$ref"
+// string it finds, at any depth, inside objects or arrays. It deliberately
+// models nothing about OpenAPI's structure: a $ref is legal in more places
+// than any hand-written traversal would remember, and the cost of missing one
+// is deleting a schema a live endpoint depends on.
+func collectRefs(node any, out *[]string) {
+	switch v := node.(type) {
+	case map[string]any:
+		for k, child := range v {
+			if k == "$ref" {
+				if ref, ok := child.(string); ok {
+					*out = append(*out, ref)
+				}
+				continue
+			}
+			collectRefs(child, out)
+		}
+	case []any:
+		for _, child := range v {
+			collectRefs(child, out)
+		}
+	}
+}
+
+// pruneOrphanedSchemas deletes every entry in components.schemas that is not
+// transitively reachable from a surviving path item.
+//
+// Pruning `paths` alone is not enough: the generator emits a schema for every
+// message in the descriptor, so the published document still described the
+// request and response shapes of non-public methods — including the
+// credential-issuing MintToken pair. No endpoint advertised them, so this was
+// never an access problem, but publishing the message shape of a private API
+// is an information leak, and the orphans inflate a document whose primary
+// reader is an LLM agent paying for every token.
+//
+// The walk is a mark-and-sweep to a fixed point over a worklist, with a
+// visited set — protobuf-derived schemas reference each other in cycles, so
+// recursion without a visited set does not terminate.
+func pruneOrphanedSchemas(spec map[string]any, paths map[string]any) {
+	comps, ok := spec["components"].(map[string]any)
+	if !ok {
+		return
+	}
+	schemas, ok := comps["schemas"].(map[string]any)
+	if !ok {
+		return
+	}
+
+	var queue []string
+	{
+		var refs []string
+		collectRefs(paths, &refs)
+		queue = refs
+	}
+
+	reachable := map[string]bool{}
+	for len(queue) > 0 {
+		ref := queue[len(queue)-1]
+		queue = queue[:len(queue)-1]
+
+		name, ok := strings.CutPrefix(ref, schemaRefPrefix)
+		if !ok || reachable[name] {
+			// Not a schema ref (or already marked). Refs into other
+			// components.* sub-objects are none of this function's business.
+			continue
+		}
+		reachable[name] = true
+
+		schema, ok := schemas[name]
+		if !ok {
+			// A dangling ref is the generator's problem, not ours; marking it
+			// reachable simply means we never delete anything on its account.
+			continue
+		}
+		var refs []string
+		collectRefs(schema, &refs)
+		queue = append(queue, refs...)
+	}
+
+	for name := range schemas {
+		if !reachable[name] {
+			delete(schemas, name)
+		}
+	}
+}
 
 // Transform prunes every path not in public and decorates the document with
 // the facts the generator cannot know: where the API actually lives, how to
@@ -21,13 +112,13 @@ import "fmt"
 func Transform(spec map[string]any, public map[string]bool, base map[string]any) error {
 	paths, ok := spec["paths"].(map[string]any)
 	if !ok {
-		return fmt.Errorf("spec has no paths object")
+		return fmt.Errorf("generated spec (api/schema/generated/openapi.yaml) has no paths object, or its paths value is not a mapping — regenerate it with `cd proto && buf generate`")
 	}
 
 	if info, ok := base["info"].(map[string]any); ok {
 		spec["info"] = info
 	} else {
-		return fmt.Errorf("base document has no info block")
+		return fmt.Errorf("api/schema/base.yaml has no info block — that file is the source of truth for the published title, description and licence, so there is nothing correct to stamp")
 	}
 
 	for p := range paths {
@@ -39,6 +130,8 @@ func Transform(spec map[string]any, public map[string]bool, base map[string]any)
 		return fmt.Errorf("every path was pruned: no VISIBILITY_PUBLIC methods matched the generated document")
 	}
 
+	pruneOrphanedSchemas(spec, paths)
+
 	spec["servers"] = []any{
 		map[string]any{
 			"url":         "https://api.shorted.com.au",
@@ -46,6 +139,8 @@ func Transform(spec map[string]any, public map[string]bool, base map[string]any)
 		},
 	}
 
+	// An absent or malformed `components` is ours to create — nothing we need
+	// survives in it, so replacing a non-map value here is deliberate.
 	comps, _ := spec["components"].(map[string]any)
 	if comps == nil {
 		comps = map[string]any{}

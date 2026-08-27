@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func specFixture() map[string]any {
 	return map[string]any{
@@ -133,5 +136,108 @@ func TestTransformErrorsWhenNoPathsSurvive(t *testing.T) {
 	err := Transform(spec, map[string]bool{}, baseFixture())
 	if err == nil {
 		t.Fatal("expected an error when every path is pruned — silently shipping an empty spec is worse than failing the build")
+	}
+}
+
+// The doc comment promises these fail loud rather than emitting a half-formed
+// document; nothing pinned that until now.
+func TestTransformErrorsWhenSpecHasNoPaths(t *testing.T) {
+	if err := Transform(map[string]any{}, map[string]bool{"/a": true}, baseFixture()); err == nil {
+		t.Fatal("expected an error when the spec has no paths object")
+	}
+}
+
+func TestTransformErrorsWhenBaseHasNoInfo(t *testing.T) {
+	if err := Transform(specFixture(), map[string]bool{"/shorts.v1alpha1.StockService/GetStock": true}, map[string]any{}); err == nil {
+		t.Fatal("expected an error when base.yaml has no info block")
+	}
+}
+
+// A spec that still describes the request/response shape of a pruned,
+// credential-issuing method is an information leak, and every orphan inflates
+// the artifact an agent has to read. The cycle here is the point: protobuf
+// derived schemas reference each other in loops, so a naive walk never
+// terminates.
+func TestTransformPrunesOrphanedSchemas(t *testing.T) {
+	spec := specFixture()
+	paths := spec["paths"].(map[string]any)
+	paths["/shorts.v1alpha1.StockService/GetStock"] = map[string]any{
+		"post": map[string]any{
+			"requestBody": map[string]any{
+				"content": map[string]any{
+					"application/json": map[string]any{
+						"schema": map[string]any{"$ref": "#/components/schemas/A"},
+					},
+				},
+			},
+		},
+	}
+	spec["components"] = map[string]any{
+		"schemas": map[string]any{
+			// A -> B -> A: a cycle. Both must survive, and the walk must stop.
+			"A": map[string]any{
+				"properties": map[string]any{
+					"b": map[string]any{"$ref": "#/components/schemas/B"},
+				},
+			},
+			"B": map[string]any{
+				"items": []any{
+					map[string]any{"$ref": "#/components/schemas/A"},
+				},
+			},
+			// Unreferenced by any surviving path.
+			"C": map[string]any{"type": "object"},
+		},
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- Transform(spec, map[string]bool{"/shorts.v1alpha1.StockService/GetStock": true}, baseFixture())
+	}()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("Transform: %v", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("Transform did not terminate — the $ref walk is not cycle-safe")
+	}
+
+	schemas := spec["components"].(map[string]any)["schemas"].(map[string]any)
+	for _, want := range []string{"A", "B"} {
+		if _, ok := schemas[want]; !ok {
+			t.Errorf("reachable schema %s was pruned — the published document would be broken", want)
+		}
+	}
+	if _, ok := schemas["C"]; ok {
+		t.Error("orphaned schema C survived")
+	}
+}
+
+func TestSchemaPruningLeavesOtherComponentsAlone(t *testing.T) {
+	spec := specFixture()
+	spec["components"] = map[string]any{
+		"schemas":    map[string]any{"C": map[string]any{"type": "object"}},
+		"parameters": map[string]any{"Foo": map[string]any{"name": "foo"}},
+	}
+
+	if err := Transform(spec, map[string]bool{"/shorts.v1alpha1.StockService/GetStock": true}, baseFixture()); err != nil {
+		t.Fatalf("Transform: %v", err)
+	}
+
+	comps := spec["components"].(map[string]any)
+	if _, ok := comps["securitySchemes"].(map[string]any)["bearerAuth"]; !ok {
+		t.Error("securitySchemes was clobbered by schema pruning")
+	}
+	if _, ok := comps["parameters"]; !ok {
+		t.Error("components.parameters was removed by schema pruning")
+	}
+}
+
+func TestTransformSurvivesMissingComponents(t *testing.T) {
+	spec := specFixture()
+	delete(spec, "components")
+	if err := Transform(spec, map[string]bool{"/shorts.v1alpha1.StockService/GetStock": true}, baseFixture()); err != nil {
+		t.Fatalf("Transform with no components: %v", err)
 	}
 }
