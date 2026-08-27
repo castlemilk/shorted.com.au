@@ -67,13 +67,35 @@ func Transform(spec map[string]any, public map[string]bool, base map[string]any)
 		map[string]any{},
 	}
 
+	// Split by response class because they are not interchangeable: the
+	// success headers describe your standing, the 429 headers describe a
+	// rejection. A limit of 0 means "unlimited for this tier" and its headers
+	// are OMITTED rather than sent as 0 — "X-RateLimit-Limit: 0" reads as
+	// "you may make zero requests", the opposite of the truth.
+	//
+	// These must stay in step with services/pkg/ratelimit (interceptor.go and
+	// quota_error.go). The field names in X-RateLimit-Detail are a contract;
+	// renaming one is a breaking change.
 	spec["x-rate-limit-headers"] = map[string]any{
-		"X-RateLimit-Limit":             "Per-minute ceiling for your tier",
-		"X-RateLimit-Remaining":         "Requests left in the current minute",
-		"X-RateLimit-Reset":             "Unix seconds when the minute window resets",
-		"X-RateLimit-Monthly-Limit":     "Monthly quota for your tier",
-		"X-RateLimit-Monthly-Remaining": "Requests left this month",
-		"X-RateLimit-Detail":            "On a 429, compact JSON describing which limit fired, the ceiling, when it clears, and the upgrade URL",
+		"success": map[string]any{
+			"X-RateLimit-Limit":             "Per-minute ceiling for your tier",
+			"X-RateLimit-Remaining":         "Requests left in the current minute",
+			"X-RateLimit-Reset":             "Unix seconds when the minute window resets",
+			"X-RateLimit-Monthly-Limit":     "Monthly quota for your tier",
+			"X-RateLimit-Monthly-Used":      "Requests consumed this month",
+			"X-RateLimit-Monthly-Remaining": "Requests left this month",
+			"X-RateLimit-Monthly-Reset":     "Unix seconds at the start of next month",
+		},
+		"rejection": map[string]any{
+			"Retry-After":             "Seconds to wait before retrying",
+			"X-RateLimit-Kind":        "Which limit fired: per_minute or monthly",
+			"X-RateLimit-Tier":        "anonymous | free | premium | pro | enterprise",
+			"X-RateLimit-Access":      "api or browser — paid browser access is unlimited, paid API access is not",
+			"X-RateLimit-Upgrade-Url": "Absolute URL to raise the limit",
+			"X-RateLimit-Detail":      "Compact JSON mirroring all of the above: kind, limit, used, remaining, reset_at, retry_after_seconds, tier, access, upgrade_url, message",
+			"X-RateLimit-Scope":       "Edge rejections only: edge-10s or edge-60s",
+			"X-RateLimit-Bucket":      "Edge rejections only: the traffic class that rejected",
+		},
 	}
 
 	return nil
