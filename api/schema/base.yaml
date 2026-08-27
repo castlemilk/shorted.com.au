@@ -17,10 +17,15 @@ info:
     members' and senators' interests.
 
     Every endpoint is a Connect-RPC method. Call it with an HTTP POST, a JSON
-    body, and the `Connect-Protocol-Version: 1` header:
+    body, and the `Connect-Protocol-Version: 1` header.
+
+    Send an identifying `User-Agent`. The edge rejects the default `curl/...`
+    agent with a 403 (`permission_denied`), so an example without one fails on
+    first run — which is why every sample here sets it.
 
     ```bash
     curl -X POST https://api.shorted.com.au/shorts.v1alpha1.StockService/GetStock \
+      -A 'my-app/1.0' \
       -H 'Content-Type: application/json' \
       -H 'Connect-Protocol-Version: 1' \
       -d '{"productCode":"BHP"}'

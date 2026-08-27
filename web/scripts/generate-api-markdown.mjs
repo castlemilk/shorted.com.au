@@ -15,6 +15,10 @@ import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 
 const root = path.resolve(import.meta.dirname, "..");
+
+// Every sample sets a User-Agent because the edge 403s curl's default one.
+// A placeholder a reader is meant to replace with their own app's name.
+const SAMPLE_USER_AGENT = "my-app/1.0";
 const spec = JSON.parse(
   readFileSync(path.join(root, "public/openapi.json"), "utf8"),
 );
@@ -271,9 +275,14 @@ for (const [tag, entries] of [...byTag.entries()].sort(([a], [b]) =>
       }
     }
 
+    // -A is not decoration. The edge rejects curl's default `curl/...` agent
+    // with a 403 (verified against production), so an example without it fails
+    // the first time anyone pastes it — in the one document we hand to readers
+    // who cannot fall back to the interactive page.
     lines.push("```bash");
     if (hasBody) {
       lines.push(`curl -X ${verb} '${baseUrl}${route}' \\`);
+      lines.push(`  -A '${SAMPLE_USER_AGENT}' \\`);
       lines.push("  -H 'Content-Type: application/json' \\");
       lines.push("  -H 'Connect-Protocol-Version: 1' \\");
       lines.push(`  -d '${requestBodyExample(op)}'`);
@@ -284,9 +293,7 @@ for (const [tag, entries] of [...byTag.entries()].sort(([a], [b]) =>
         .join("&");
       const suffix = query ? `?${query}` : "";
       lines.push(
-        verb === "GET"
-          ? `curl '${baseUrl}${route}${suffix}'`
-          : `curl -X ${verb} '${baseUrl}${route}${suffix}'`,
+        `curl${verb === "GET" ? "" : ` -X ${verb}`} -A '${SAMPLE_USER_AGENT}' '${baseUrl}${route}${suffix}'`,
       );
     }
     lines.push("```", "");

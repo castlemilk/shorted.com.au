@@ -6,10 +6,15 @@ and suburb metrics, ABS/RBA economic series, and the federal register of
 members' and senators' interests.
 
 Every endpoint is a Connect-RPC method. Call it with an HTTP POST, a JSON
-body, and the `Connect-Protocol-Version: 1` header:
+body, and the `Connect-Protocol-Version: 1` header.
+
+Send an identifying `User-Agent`. The edge rejects the default `curl/...`
+agent with a 403 (`permission_denied`), so an example without one fails on
+first run — which is why every sample here sets it.
 
 ```bash
 curl -X POST https://api.shorted.com.au/shorts.v1alpha1.StockService/GetStock \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{"productCode":"BHP"}'
@@ -79,7 +84,7 @@ Base URL: `https://shorted.com.au` (not the API host).
 | `q` | query | yes | string | Ticker or partial company name, e.g. `BHP` or `Commonwealth`. An empty or missing value returns an empty result list. |
 
 ```bash
-curl 'https://shorted.com.au/api/search/stocks?q=VALUE'
+curl -A 'my-app/1.0' 'https://shorted.com.au/api/search/stocks?q=VALUE'
 ```
 
 #### `GET /feed.xml`
@@ -89,7 +94,7 @@ RSS feed of editorial articles and short-selling reports
 Base URL: `https://shorted.com.au` (not the API host).
 
 ```bash
-curl 'https://shorted.com.au/feed.xml'
+curl -A 'my-app/1.0' 'https://shorted.com.au/feed.xml'
 ```
 
 ### shorts.v1alpha1.EconomyService
@@ -108,6 +113,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.EconomyService/GetEconomicSeries' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -121,6 +127,7 @@ Request body: an empty JSON object, `{}`.
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.EconomyService/GetStateCompanyAggregates' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -143,6 +150,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.EconomyService/ListEconomicSeries' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -163,6 +171,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.EconomyService/ListSeriesCorrelations' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -181,6 +190,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.EconomyService/ListStateCompanies' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -201,6 +211,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.HousingService/FilterSuburbs' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -221,6 +232,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.HousingService/GetDropIndexSeries' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -240,6 +252,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.HousingService/GetHousePriceSeries' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -257,6 +270,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.HousingService/GetHousingOverview' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -270,6 +284,7 @@ Request body: an empty JSON object, `{}`.
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.HousingService/GetPriceDropsOverview' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -287,6 +302,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.HousingService/GetPropertyHistory' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -304,6 +320,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.HousingService/GetSuburbIndex' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -322,6 +339,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.HousingService/GetSuburbMetricColumns' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -339,6 +357,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.HousingService/GetSuburbProfile' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -359,6 +378,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.HousingService/ListAddressPriceDrops' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -378,6 +398,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.HousingService/ListAgencyPriceStats' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -398,6 +419,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.HousingService/ListHousingRegions' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -417,6 +439,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.HousingService/ListStateSuburbs' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -437,6 +460,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.HousingService/ListSuburbDropListings' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -457,6 +481,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.HousingService/ListSuburbPriceDrops' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -478,6 +503,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.IndustryIntelligenceService/GetIndustryIntelligence' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -498,6 +524,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.MarketService/GetAvailableDates' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -517,6 +544,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.MarketService/GetBattlegroundStocks' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -536,6 +564,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.MarketService/GetIndustryTreeMap' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -555,6 +584,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.MarketService/GetMarketByDate' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -574,6 +604,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.MarketService/GetShortCampaignScoreboard' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -595,6 +626,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.MarketService/GetTopShorts' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -614,6 +646,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.NewsService/GetEditorialTake' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -633,6 +666,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.NewsService/GetMarketNews' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -652,6 +686,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.NewsService/GetRelatedNews' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -672,6 +707,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.NewsService/GetStockNews' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -691,6 +727,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.NewsService/ListEditorialTakes' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -711,6 +748,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.PoliticiansService/ComparePoliticians' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -730,6 +768,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.PoliticiansService/GetDonationsOverview' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -743,6 +782,7 @@ Request body: an empty JSON object, `{}`.
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.PoliticiansService/GetParliamentOverview' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -760,6 +800,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.PoliticiansService/GetPolitician' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -784,6 +825,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.PoliticiansService/GetPoliticianAnalytics' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -802,6 +844,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.PoliticiansService/GetPoliticianExplorerProfile' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -819,6 +862,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.PoliticiansService/GetPoliticianFunding' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -847,6 +891,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.PoliticiansService/GetRegisterActivity' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -860,6 +905,7 @@ Request body: an empty JSON object, `{}`.
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.PoliticiansService/GetRegisterExplorer' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -879,6 +925,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.PoliticiansService/ListDistinctiveHoldings' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -898,6 +945,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.PoliticiansService/ListPartyFunding' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -920,6 +968,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.PoliticiansService/ListPoliticians' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -938,6 +987,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.PoliticiansService/ListPoliticianStocks' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -962,6 +1012,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.PoliticiansService/ListPoliticianSummaries' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -987,6 +1038,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.PoliticiansService/ListRegisterChanges' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -1009,6 +1061,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.PoliticiansService/ListShortInterestOverlap' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -1028,6 +1081,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.PoliticiansService/ListStatePoliticianHoldings' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -1047,6 +1101,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.PoliticiansService/ListStockPoliticians' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -1065,6 +1120,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.PoliticiansService/ListSuburbPoliticians' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -1086,6 +1142,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.PoliticiansService/ListTopDonors' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -1105,6 +1162,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.ReportsService/GetWeeklyReport' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -1123,6 +1181,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.ReportsService/ListReports' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -1146,6 +1205,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.ScreenerService/ScreenStocks' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -1167,6 +1227,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.SearchService/SearchStocks' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -1186,6 +1247,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StockService/GetCompanyTaxProfile' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -1204,6 +1266,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StockService/GetDirectorTrades' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -1222,6 +1285,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StockService/GetDividendHistory' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -1241,6 +1305,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StockService/GetEventTimeline' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -1259,6 +1324,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StockService/GetPeerComparison' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -1276,6 +1342,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StockService/GetStock' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -1294,6 +1361,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StockService/GetStockData' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -1311,6 +1379,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StockService/GetStockDetails' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -1329,6 +1398,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StockService/GetStockFinancialHighlights' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -1347,6 +1417,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StockService/GetStockGraph' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -1365,6 +1436,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StockService/GetStockSignals' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
@@ -1382,6 +1454,7 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StockService/GetStockVerdict' \
+  -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
