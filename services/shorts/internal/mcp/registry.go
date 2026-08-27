@@ -41,7 +41,18 @@ func (t Tool) spec() *sdk.Tool {
 // neither should be able to mutate what the server registers.
 func Registry() []Tool {
 	return []Tool{
+		// Market — rankings, sector aggregates, point-in-time snapshots.
+		listTopShortsTool(),
+		getIndustryTreemapTool(),
+		getMarketSnapshotTool(),
+		listSqueezeCandidatesTool(),
+
+		// Stock — single-company lookups.
 		getStockTool(),
+		getStockHistoryTool(),
+		getStockDetailsTool(),
+		getDirectorTradesTool(),
+		getPeerComparisonTool(),
 	}
 }
 

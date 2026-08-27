@@ -20,10 +20,33 @@ import (
 // TestToolsOnlyCallPublicMethods checks at test time.
 //
 // The signatures are the real Connect handler signatures, copied from the
-// domain files in services/shorts/internal/services/shorts — note that several
-// of them (GetStock among them) return a bare type from the shortedtypes
-// package rather than a <Method>Response wrapper.
+// domain files in services/shorts/internal/services/shorts. Note that they do
+// NOT follow a mechanical Get<X>Request/Get<X>Response pairing: four of the
+// nine return a bare type from the shortedtypes `stocks.v1alpha1` package
+// (Stock, TimeSeriesData, StockDetails, IndustryTreeMap) rather than a
+// <Method>Response wrapper. Read the handler before adding a line here.
 type DataSource interface {
+	// --- MarketService ---
+
+	// GetTopShorts: shorts.v1alpha1.MarketService.GetTopShorts
+	GetTopShorts(context.Context, *connect.Request[shortsv1alpha1.GetTopShortsRequest]) (*connect.Response[shortsv1alpha1.GetTopShortsResponse], error)
+	// GetIndustryTreeMap: shorts.v1alpha1.MarketService.GetIndustryTreeMap
+	GetIndustryTreeMap(context.Context, *connect.Request[shortsv1alpha1.GetIndustryTreeMapRequest]) (*connect.Response[stocksv1alpha1.IndustryTreeMap], error)
+	// GetMarketByDate: shorts.v1alpha1.MarketService.GetMarketByDate
+	GetMarketByDate(context.Context, *connect.Request[shortsv1alpha1.GetMarketByDateRequest]) (*connect.Response[shortsv1alpha1.GetMarketByDateResponse], error)
+	// GetBattlegroundStocks: shorts.v1alpha1.MarketService.GetBattlegroundStocks
+	GetBattlegroundStocks(context.Context, *connect.Request[shortsv1alpha1.GetBattlegroundStocksRequest]) (*connect.Response[shortsv1alpha1.GetBattlegroundStocksResponse], error)
+
+	// --- StockService ---
+
 	// GetStock: shorts.v1alpha1.StockService.GetStock
 	GetStock(context.Context, *connect.Request[shortsv1alpha1.GetStockRequest]) (*connect.Response[stocksv1alpha1.Stock], error)
+	// GetStockData: shorts.v1alpha1.StockService.GetStockData
+	GetStockData(context.Context, *connect.Request[shortsv1alpha1.GetStockDataRequest]) (*connect.Response[stocksv1alpha1.TimeSeriesData], error)
+	// GetStockDetails: shorts.v1alpha1.StockService.GetStockDetails
+	GetStockDetails(context.Context, *connect.Request[shortsv1alpha1.GetStockDetailsRequest]) (*connect.Response[stocksv1alpha1.StockDetails], error)
+	// GetDirectorTrades: shorts.v1alpha1.StockService.GetDirectorTrades
+	GetDirectorTrades(context.Context, *connect.Request[shortsv1alpha1.GetDirectorTradesRequest]) (*connect.Response[shortsv1alpha1.GetDirectorTradesResponse], error)
+	// GetPeerComparison: shorts.v1alpha1.StockService.GetPeerComparison
+	GetPeerComparison(context.Context, *connect.Request[shortsv1alpha1.GetPeerComparisonRequest]) (*connect.Response[shortsv1alpha1.GetPeerComparisonResponse], error)
 }
