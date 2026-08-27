@@ -17,11 +17,25 @@ func TestPublicMethodPaths(t *testing.T) {
 		t.Error("expected /shorts.v1alpha1.StockService/GetStock to be public")
 	}
 
-	// The legacy monolithic service is excluded wholesale: it duplicates every
-	// domain rpc, and generating it would double every path in the document.
 	for p := range paths {
-		if strings.Contains(p, "ShortedStocksService") {
+		// The legacy monolithic service is excluded wholesale: it duplicates
+		// every domain rpc, and generating it would double every path in the
+		// document. Keyed off the same const the implementation uses, so a
+		// typo there cannot leave this assertion passing against a substring
+		// that no longer matches.
+		if strings.HasPrefix(p, "/"+legacyService+"/") {
 			t.Errorf("legacy service must be excluded, got %s", p)
+		}
+
+		// Pin the key FORMAT for every path, not just the one literal below.
+		// Task 3 prunes the generated document by exact key match, so a drift
+		// in this shape would silently delete every good path instead of
+		// failing loudly.
+		if !strings.HasPrefix(p, "/"+publicPackage+".") {
+			t.Errorf("path %q does not start with /%s.", p, publicPackage)
+		}
+		if strings.Count(p, "/") != 2 {
+			t.Errorf("path %q should have exactly two slashes: /<service>/<method>", p)
 		}
 	}
 

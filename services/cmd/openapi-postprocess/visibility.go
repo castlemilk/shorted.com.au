@@ -6,10 +6,18 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 
-	// Blank imports register the descriptors in protoregistry.GlobalFiles.
-	// Without them the registry is empty and every method reads as private.
+	// This blank import registers the generated shorts.v1alpha1 descriptors in
+	// protoregistry.GlobalFiles — one Go package covers all 12 domain proto
+	// files. Without it the registry is empty, every method reads as private,
+	// and the post-processor prunes the entire document instead of failing.
 	_ "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 )
+
+// publicPackage scopes the sweep. Ranging the whole global registry would
+// silently adopt any future transitively-registered file that happens to
+// annotate a method VISIBILITY_PUBLIC — the public API surface should be a
+// deliberate list, not whatever ends up linked into this binary.
+const publicPackage = "shorts.v1alpha1"
 
 // legacyService duplicates every rpc of the 12 domain services for public-API
 // back-compat (enforced by proto_parity_test.go). It is excluded here for the
@@ -23,7 +31,7 @@ const legacyService = "shorts.v1alpha1.ShortedStocksService"
 func PublicMethodPaths() map[string]bool {
 	out := map[string]bool{}
 
-	protoregistry.GlobalFiles.RangeFiles(func(fd protoreflect.FileDescriptor) bool {
+	protoregistry.GlobalFiles.RangeFilesByPackage(publicPackage, func(fd protoreflect.FileDescriptor) bool {
 		services := fd.Services()
 		for i := 0; i < services.Len(); i++ {
 			svc := services.Get(i)
