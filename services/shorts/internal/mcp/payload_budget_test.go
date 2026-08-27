@@ -75,6 +75,9 @@ func TestToolResultsStayWithinTheirPayloadBudget(t *testing.T) {
 			},
 		}},
 		{"get_state_company_aggregates", map[string]any{}},
+		{"search_politicians", map[string]any{"limit": 50}},
+		{"get_politician", map[string]any{"slug": "anthony-smith"}},
+		{"list_stock_politicians", map[string]any{"code": "BHP"}},
 	}
 	for _, c := range calls {
 		res, err := sess.CallTool(ctx, &sdk.CallToolParams{Name: c.name, Arguments: c.args})
@@ -229,7 +232,77 @@ func realisticSource() *fakeDataSource {
 	realisticDiscoverySource(src)
 	realisticHousingSource(src)
 	realisticEconomySource(src)
+	realisticPoliticsSource(src)
 	return src
+}
+
+// realisticPoliticsSource fills the register fixtures at each tool's worst
+// case: a full search page, a member well past the declaration cap with the
+// longest declared text APH actually publishes (item 3 real-estate rows run to
+// a couple of hundred characters), and a company declared by every member the
+// stock tool will return. The declared text is what makes these expensive and
+// is exactly what may not be shortened, so the cap on ROW COUNT is the only
+// lever the budget has.
+func realisticPoliticsSource(src *fakeDataSource) {
+	declared := "Residential investment property, jointly held with spouse, in the suburb of " +
+		"Wagga Wagga, New South Wales (acquired prior to entering Parliament; mortgage held with a " +
+		"major Australian bank)"
+	person := func(i int) *shortsv1alpha1.Politician {
+		return &shortsv1alpha1.Politician{
+			Slug: fmt.Sprintf("alexandra-fitzgerald-%d", i), DisplayName: "Alexandra Fitzgerald",
+			Chamber: "senate", Division: "Corangamite", StateCode: "NSW",
+			Party: "Australian Labor Party", PartyAb: "ALP",
+			DeclaredListedCount: 27, DeclaredPropertyCount: 4,
+			PhotoUrl:     "https://upload.wikimedia.org/wikipedia/commons/a/ab/Alexandra_Fitzgerald.jpg",
+			PhotoLicence: "CC BY-SA 4.0", PhotoAuthor: "A Commons Photographer",
+			PhotoSourceUrl: "https://commons.wikimedia.org/wiki/File:Alexandra_Fitzgerald.jpg",
+		}
+	}
+	interest := func() *shortsv1alpha1.DeclaredInterest {
+		return &shortsv1alpha1.DeclaredInterest{
+			ItemNo: 3, ItemLabel: "Real estate", EntityKind: "not_an_entity",
+			Holder:       shortsv1alpha1.RegisterHolder_REGISTER_HOLDER_SPOUSE_PARTNER,
+			DeclaredText: declared, SecondaryText: "Investment", StockCode: "BHP",
+			CompanyName: "BHP GROUP LIMITED", Industry: "Metals & Mining",
+			SuburbName: "Wagga Wagga", PropertyState: "NSW",
+			DeclaredFrom:      timestamppb.New(time.Date(2022, 6, 1, 0, 0, 0, 0, time.UTC)),
+			DeclaredFromKnown: true, CurrentlyDeclared: true,
+			SourceUrl: "https://www.aph.gov.au/-/media/03_Senators_and_Members/registerofinterests.pdf",
+		}
+	}
+
+	people := make([]*shortsv1alpha1.Politician, 0, maxPoliticianSearchLimit)
+	for i := 0; i < maxPoliticianSearchLimit; i++ {
+		people = append(people, person(i))
+	}
+	src.listPoliticians = &shortsv1alpha1.ListPoliticiansResponse{Politicians: people, Total: 319}
+
+	interests := make([]*shortsv1alpha1.DeclaredInterest, 0, maxRegisterInterests+20)
+	for i := 0; i < maxRegisterInterests+20; i++ {
+		interests = append(interests, interest())
+	}
+	src.politician = &shortsv1alpha1.GetPoliticianResponse{
+		Politician: person(0), Interests: interests,
+		ExtractedParliaments: []int32{47, 48}, PartialParliaments: []int32{46},
+		PendingParliaments: []int32{44, 45},
+	}
+
+	declarations := make([]*shortsv1alpha1.StockPoliticianInterest, 0, maxStockDeclarations+10)
+	for i := 0; i < maxStockDeclarations+10; i++ {
+		declarations = append(declarations, &shortsv1alpha1.StockPoliticianInterest{
+			Politician: person(i), Interest: interest(),
+		})
+	}
+	parties := make([]*shortsv1alpha1.PartyCount, 0, 8)
+	for _, ab := range []string{"ALP", "LP", "GRN", "NP", "IND", "PHON", "CLP", ""} {
+		parties = append(parties, &shortsv1alpha1.PartyCount{
+			PartyAb: ab, Party: "Australian Labor Party", PoliticianCount: 12,
+		})
+	}
+	src.stockPoliticians = &shortsv1alpha1.ListStockPoliticiansResponse{
+		StockCode: "BHP", CompanyName: "BHP GROUP LIMITED", PoliticianCount: 41,
+		PartyCounts: parties, Interests: declarations,
+	}
 }
 
 // realisticEconomySource fills the economy fixtures at each tool's worst case:

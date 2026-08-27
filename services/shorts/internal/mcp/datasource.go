@@ -99,4 +99,19 @@ type DataSource interface {
 	GetEconomicSeries(context.Context, *connect.Request[shortsv1alpha1.GetEconomicSeriesRequest]) (*connect.Response[shortsv1alpha1.GetEconomicSeriesResponse], error)
 	// GetStateCompanyAggregates: shorts.v1alpha1.EconomyService.GetStateCompanyAggregates
 	GetStateCompanyAggregates(context.Context, *connect.Request[shortsv1alpha1.GetStateCompanyAggregatesRequest]) (*connect.Response[shortsv1alpha1.GetStateCompanyAggregatesResponse], error)
+
+	// --- PoliticiansService ---
+	//
+	// Three of nineteen. The AEC funding rpcs on the same service (GetDonations-
+	// Overview, ListTopDonors, ListPartyFunding, GetPoliticianFunding) are the
+	// only place in that subsystem where AMOUNTS exist, and they are deliberately
+	// left off: the register surface must not be one closure away from a dollar
+	// figure that a consumer could attach to a declared interest.
+
+	// ListPoliticians: shorts.v1alpha1.PoliticiansService.ListPoliticians
+	ListPoliticians(context.Context, *connect.Request[shortsv1alpha1.ListPoliticiansRequest]) (*connect.Response[shortsv1alpha1.ListPoliticiansResponse], error)
+	// GetPolitician: shorts.v1alpha1.PoliticiansService.GetPolitician
+	GetPolitician(context.Context, *connect.Request[shortsv1alpha1.GetPoliticianRequest]) (*connect.Response[shortsv1alpha1.GetPoliticianResponse], error)
+	// ListStockPoliticians: shorts.v1alpha1.PoliticiansService.ListStockPoliticians
+	ListStockPoliticians(context.Context, *connect.Request[shortsv1alpha1.ListStockPoliticiansRequest]) (*connect.Response[shortsv1alpha1.ListStockPoliticiansResponse], error)
 }

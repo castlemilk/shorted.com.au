@@ -46,6 +46,10 @@ type fakeDataSource struct {
 	gotEconomicSeries         *shortsv1alpha1.GetEconomicSeriesRequest
 	gotStateCompanyAggregates *shortsv1alpha1.GetStateCompanyAggregatesRequest
 
+	gotListPoliticians  *shortsv1alpha1.ListPoliticiansRequest
+	gotPolitician       *shortsv1alpha1.GetPoliticianRequest
+	gotStockPoliticians *shortsv1alpha1.ListStockPoliticiansRequest
+
 	// Canned responses.
 	stock          *stocksv1alpha1.Stock
 	topShorts      *shortsv1alpha1.GetTopShortsResponse
@@ -70,6 +74,10 @@ type fakeDataSource struct {
 	economicSeriesList     *shortsv1alpha1.ListEconomicSeriesResponse
 	economicSeries         *shortsv1alpha1.GetEconomicSeriesResponse
 	stateCompanyAggregates *shortsv1alpha1.GetStateCompanyAggregatesResponse
+
+	listPoliticians  *shortsv1alpha1.ListPoliticiansResponse
+	politician       *shortsv1alpha1.GetPoliticianResponse
+	stockPoliticians *shortsv1alpha1.ListStockPoliticiansResponse
 
 	// err, when set, is returned by every method — tests set it to drive the
 	// error paths.
@@ -244,4 +252,28 @@ func (f *fakeDataSource) GetStateCompanyAggregates(_ context.Context, req *conne
 		return nil, f.err
 	}
 	return connect.NewResponse(f.stateCompanyAggregates), nil
+}
+
+func (f *fakeDataSource) ListPoliticians(_ context.Context, req *connect.Request[shortsv1alpha1.ListPoliticiansRequest]) (*connect.Response[shortsv1alpha1.ListPoliticiansResponse], error) {
+	f.gotListPoliticians = req.Msg
+	if f.err != nil {
+		return nil, f.err
+	}
+	return connect.NewResponse(f.listPoliticians), nil
+}
+
+func (f *fakeDataSource) GetPolitician(_ context.Context, req *connect.Request[shortsv1alpha1.GetPoliticianRequest]) (*connect.Response[shortsv1alpha1.GetPoliticianResponse], error) {
+	f.gotPolitician = req.Msg
+	if f.err != nil {
+		return nil, f.err
+	}
+	return connect.NewResponse(f.politician), nil
+}
+
+func (f *fakeDataSource) ListStockPoliticians(_ context.Context, req *connect.Request[shortsv1alpha1.ListStockPoliticiansRequest]) (*connect.Response[shortsv1alpha1.ListStockPoliticiansResponse], error) {
+	f.gotStockPoliticians = req.Msg
+	if f.err != nil {
+		return nil, f.err
+	}
+	return connect.NewResponse(f.stockPoliticians), nil
 }

@@ -77,6 +77,13 @@ func Registry() []Tool {
 		listEconomicSeriesTool(),
 		getEconomicSeriesTool(),
 		getStateCompanyAggregatesTool(),
+
+		// Politicians — the register of interests. See tools_politics.go for
+		// the four rules (no amounts, verbatim APH prose, no portraits,
+		// withhold rather than guess) that shape every projection there.
+		searchPoliticiansTool(),
+		getPoliticianTool(),
+		listStockPoliticiansTool(),
 	}
 }
 
