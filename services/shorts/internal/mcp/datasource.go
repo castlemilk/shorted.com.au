@@ -71,4 +71,23 @@ type DataSource interface {
 	ListReports(context.Context, *connect.Request[shortsv1alpha1.ListReportsRequest]) (*connect.Response[shortsv1alpha1.ListReportsResponse], error)
 	// GetWeeklyReport: shorts.v1alpha1.ReportsService.GetWeeklyReport
 	GetWeeklyReport(context.Context, *connect.Request[shortsv1alpha1.GetWeeklyReportRequest]) (*connect.Response[shortsv1alpha1.GetWeeklyReportResponse], error)
+
+	// --- HousingService ---
+	//
+	// Four of fifteen. The eleven left off are not an oversight: the ones that
+	// serve individual listings, addresses, agencies or per-address valuations
+	// (ListSuburbDropListings, ListAddressPriceDrops, ListAgencyPriceStats,
+	// GetPropertyHistory) read rows whose source_licence is
+	// 'proprietary-tos-restricted' and which are never republished. Keeping them
+	// off this interface is what makes that unreachable from a tool rather than
+	// merely unwrapped today.
+
+	// GetHousingOverview: shorts.v1alpha1.HousingService.GetHousingOverview
+	GetHousingOverview(context.Context, *connect.Request[shortsv1alpha1.GetHousingOverviewRequest]) (*connect.Response[shortsv1alpha1.GetHousingOverviewResponse], error)
+	// GetHousePriceSeries: shorts.v1alpha1.HousingService.GetHousePriceSeries
+	GetHousePriceSeries(context.Context, *connect.Request[shortsv1alpha1.GetHousePriceSeriesRequest]) (*connect.Response[shortsv1alpha1.GetHousePriceSeriesResponse], error)
+	// GetSuburbProfile: shorts.v1alpha1.HousingService.GetSuburbProfile
+	GetSuburbProfile(context.Context, *connect.Request[shortsv1alpha1.GetSuburbProfileRequest]) (*connect.Response[shortsv1alpha1.GetSuburbProfileResponse], error)
+	// ListSuburbPriceDrops: shorts.v1alpha1.HousingService.ListSuburbPriceDrops
+	ListSuburbPriceDrops(context.Context, *connect.Request[shortsv1alpha1.ListSuburbPriceDropsRequest]) (*connect.Response[shortsv1alpha1.ListSuburbPriceDropsResponse], error)
 }

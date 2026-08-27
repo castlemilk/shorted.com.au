@@ -62,6 +62,10 @@ func TestToolResultsStayWithinTheirPayloadBudget(t *testing.T) {
 		{"get_stock_news", map[string]any{"code": "PLS"}},
 		{"list_reports", map[string]any{}},
 		{"get_report", map[string]any{"slug": "2026-W23"}},
+		{"get_housing_overview", map[string]any{}},
+		{"get_house_price_series", map[string]any{"region_code": "AUS", "measure": "median_price"}},
+		{"get_suburb_profile", map[string]any{"sal_code": "SAL21234"}},
+		{"list_suburb_price_drops", map[string]any{}},
 	}
 	for _, c := range calls {
 		res, err := sess.CallTool(ctx, &sdk.CallToolParams{Name: c.name, Arguments: c.args})
@@ -214,7 +218,88 @@ func realisticSource() *fakeDataSource {
 	}
 
 	realisticDiscoverySource(src)
+	realisticHousingSource(src)
 	return src
+}
+
+// realisticHousingSource fills the housing fixtures at each tool's worst case:
+// the overview at its 60-metric cap, the series at more observations than any
+// real quarterly run so downsampling is exercised, and the drops board with
+// every row above the k-anonymity floor (a suppressed row costs nothing, so the
+// expensive case is the one where nothing is withheld).
+func realisticHousingSource(src *fakeDataSource) {
+	period := timestamppb.New(time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC))
+	metrics := make([]*shortsv1alpha1.HousingMetric, 0, 80)
+	for i := 0; i < 80; i++ {
+		metrics = append(metrics, &shortsv1alpha1.HousingMetric{
+			RegionCode: "1GSYD", RegionName: "Greater Sydney", RegionType: "gccsa",
+			StateCode: "NSW", Measure: "mean_price", DwellingType: "established_house",
+			Value: 1_234_567.89, Unit: "AUD", Period: period,
+			QoqPct: 1.2345, YoyPct: 4.5678, IsPreliminary: true,
+		})
+	}
+	src.housingOverview = &shortsv1alpha1.GetHousingOverviewResponse{Metrics: metrics, AsOf: period}
+
+	pts := make([]*shortsv1alpha1.HousePricePoint, 0, 400)
+	base := time.Date(1926, 3, 31, 0, 0, 0, 0, time.UTC)
+	for i := 0; i < 400; i++ {
+		pts = append(pts, &shortsv1alpha1.HousePricePoint{
+			Period: timestamppb.New(base.AddDate(0, 3*i, 0)),
+			Value:  1_234_567.89, IsPreliminary: i == 399,
+		})
+	}
+	src.housePriceSeries = &shortsv1alpha1.GetHousePriceSeriesResponse{
+		RegionCode: "AUS", RegionName: "Australia", Measure: "median_price",
+		DwellingType: "all", Unit: "AUD", Source: "abs", SourceLicence: "CC-BY-4.0",
+		Points: pts,
+	}
+
+	src.suburbProfile = &shortsv1alpha1.GetSuburbProfileResponse{
+		Summary: &shortsv1alpha1.SuburbSummary{
+			SalCode: "SAL21234", SalName: "Richmond", StateCode: "VIC", Postcode: "3121",
+			LatestMedianPrice: 1_450_000, LatestPeriod: period, YoyPct: 3.2345,
+			Population: 28_000, MedianAge: 34.5, MedianWeeklyHhdIncome: 2_400,
+			PctBornOverseas: 31.4567, TopLanguage: "Mandarin", PctTopLanguage: 4.2345,
+			FederalDivision: "Melbourne", FederalMember: "Alexandra Fitzgerald",
+			FederalParty:  "Australian Greens",
+			StateDistrict: "Richmond", StateMember: "Alexandra Fitzgerald",
+			StateParty: "Australian Labor Party",
+			Seifa: &shortsv1alpha1.SuburbSeifa{
+				Irsad: &shortsv1alpha1.SuburbSeifaIndex{Score: 1080, DecileAus: 9, DecileState: 9},
+			},
+		},
+		Demographics: &shortsv1alpha1.SuburbDemographics{
+			MedianWeeklyRent: 550, MedianMonthlyMortgage: 2_800, PctRented: 48.2345, CensusYear: 2021,
+		},
+		Baselines: &shortsv1alpha1.ComparisonBaselines{
+			StateMedianPrice: 900_000, NationalMedianPrice: 850_000,
+		},
+		Council: &shortsv1alpha1.LgaInfo{LgaName: "Yarra"},
+		Crime: &shortsv1alpha1.SuburbCrime{
+			SourceJurisdiction: "NSW",
+			Stats: []*shortsv1alpha1.SuburbCrimeStat{
+				{CrimeType: "break_ins", PctRank: 62.5}, {CrimeType: "violent", PctRank: 71.1},
+				{CrimeType: "motor_vehicle", PctRank: 44.0},
+			},
+		},
+		ListingStats: &shortsv1alpha1.SuburbListingStats{
+			ForSaleCount: 42, AvgAsking: 1_300_000, MedianAsking: 1_275_000,
+			SoldCount: 18, AvgSold: 1_100_000, MedianSold: 1_090_000,
+		},
+	}
+
+	drops := make([]*shortsv1alpha1.SuburbPriceDrop, 0, 50)
+	for i := 0; i < 50; i++ {
+		drops = append(drops, &shortsv1alpha1.SuburbPriceDrop{
+			RegionCode: "SUBURB:VIC-RICHMOND", SalCode: "SAL21234", SalName: "Richmond",
+			StateCode: "VIC", Postcode: "3121", DroppedListingCount: 12,
+			AvgDropPct: 0.0621, MedianDropPct: 0.0554, MaxDropPct: 0.39, MaxDropAbs: 410_000,
+			TotalActiveListings: 50, DroppedShare: 0.2412, DroppedValue: 1_200_000,
+			ForSaleCount: 50, AvgAsking: 1_300_000, MedianAsking: 1_275_000,
+			SoldCount: 9, AvgSold: 1_100_000, MedianSold: 1_090_000,
+		})
+	}
+	src.suburbPriceDrops = &shortsv1alpha1.ListSuburbPriceDropsResponse{Suburbs: drops}
 }
 
 // realisticDiscoverySource fills the search/screener/news/reports fixtures, each

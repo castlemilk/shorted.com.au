@@ -37,6 +37,11 @@ type fakeDataSource struct {
 	gotListReports    *shortsv1alpha1.ListReportsRequest
 	gotWeeklyReport   *shortsv1alpha1.GetWeeklyReportRequest
 
+	gotHousingOverview  *shortsv1alpha1.GetHousingOverviewRequest
+	gotHousePriceSeries *shortsv1alpha1.GetHousePriceSeriesRequest
+	gotSuburbProfile    *shortsv1alpha1.GetSuburbProfileRequest
+	gotSuburbPriceDrops *shortsv1alpha1.ListSuburbPriceDropsRequest
+
 	// Canned responses.
 	stock          *stocksv1alpha1.Stock
 	topShorts      *shortsv1alpha1.GetTopShortsResponse
@@ -52,6 +57,11 @@ type fakeDataSource struct {
 	stockNews      *shortsv1alpha1.GetStockNewsResponse
 	listReports    *shortsv1alpha1.ListReportsResponse
 	weeklyReport   *shortsv1alpha1.GetWeeklyReportResponse
+
+	housingOverview  *shortsv1alpha1.GetHousingOverviewResponse
+	housePriceSeries *shortsv1alpha1.GetHousePriceSeriesResponse
+	suburbProfile    *shortsv1alpha1.GetSuburbProfileResponse
+	suburbPriceDrops *shortsv1alpha1.ListSuburbPriceDropsResponse
 
 	// err, when set, is returned by every method — tests set it to drive the
 	// error paths.
@@ -170,4 +180,36 @@ func (f *fakeDataSource) GetWeeklyReport(_ context.Context, req *connect.Request
 		return nil, f.err
 	}
 	return connect.NewResponse(f.weeklyReport), nil
+}
+
+func (f *fakeDataSource) GetHousingOverview(_ context.Context, req *connect.Request[shortsv1alpha1.GetHousingOverviewRequest]) (*connect.Response[shortsv1alpha1.GetHousingOverviewResponse], error) {
+	f.gotHousingOverview = req.Msg
+	if f.err != nil {
+		return nil, f.err
+	}
+	return connect.NewResponse(f.housingOverview), nil
+}
+
+func (f *fakeDataSource) GetHousePriceSeries(_ context.Context, req *connect.Request[shortsv1alpha1.GetHousePriceSeriesRequest]) (*connect.Response[shortsv1alpha1.GetHousePriceSeriesResponse], error) {
+	f.gotHousePriceSeries = req.Msg
+	if f.err != nil {
+		return nil, f.err
+	}
+	return connect.NewResponse(f.housePriceSeries), nil
+}
+
+func (f *fakeDataSource) GetSuburbProfile(_ context.Context, req *connect.Request[shortsv1alpha1.GetSuburbProfileRequest]) (*connect.Response[shortsv1alpha1.GetSuburbProfileResponse], error) {
+	f.gotSuburbProfile = req.Msg
+	if f.err != nil {
+		return nil, f.err
+	}
+	return connect.NewResponse(f.suburbProfile), nil
+}
+
+func (f *fakeDataSource) ListSuburbPriceDrops(_ context.Context, req *connect.Request[shortsv1alpha1.ListSuburbPriceDropsRequest]) (*connect.Response[shortsv1alpha1.ListSuburbPriceDropsResponse], error) {
+	f.gotSuburbPriceDrops = req.Msg
+	if f.err != nil {
+		return nil, f.err
+	}
+	return connect.NewResponse(f.suburbPriceDrops), nil
 }

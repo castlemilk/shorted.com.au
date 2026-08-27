@@ -62,6 +62,14 @@ func Registry() []Tool {
 		getStockNewsTool(),
 		listReportsTool(),
 		getReportTool(),
+
+		// Housing — official price data, one suburb, and the derived
+		// price-drop aggregates. See tools_housing.go for the licence
+		// constraint that shapes every projection in that file.
+		getHousingOverviewTool(),
+		getHousePriceSeriesTool(),
+		getSuburbProfileTool(),
+		listSuburbPriceDropsTool(),
 	}
 }
 
