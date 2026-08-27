@@ -1,4 +1,10 @@
 openapi: 3.1.0
+# NOTE: the plugin applies this `info` block FIRST and then lets the
+# file-level gnostic.openapi.v3.document option in shorts.proto override it,
+# so these values do not survive into api/schema/generated/openapi.yaml.
+# services/cmd/openapi-postprocess reads this block and stamps it back over
+# the generated document — so this file IS the source of truth for `info`,
+# just not via the plugin. Fix the licence and contact here, not in the proto.
 info:
   title: Shorted Public API
   version: "1.0.0"

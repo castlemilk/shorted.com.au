@@ -32,6 +32,12 @@ plugins:
   # services/cmd/openapi-postprocess (the plugin's `allowed-visibilities`
   # option keys off google.api.visibility, not our options.v1 extension).
   #
+  # This raw document is NOT publishable on its own: shorts.proto carries a
+  # file-level gnostic.openapi.v3.document option whose `info` the plugin
+  # applies AFTER `base=`, so the output claims `title: Shorted API`,
+  # `version: v1` and `license: Proprietary license`. The post-processor
+  # stamps the real info block back over it from base.yaml.
+  #
   # PINNED deliberately — see the Java plugin note above.
   #
   # Run via `go run` rather than the remote BSR plugin: `base=` reads a local
