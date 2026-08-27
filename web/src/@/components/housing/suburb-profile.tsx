@@ -32,6 +32,8 @@ import type {
   LgaInfo,
   SuburbCrime,
   SuburbDemographics,
+  SuburbSeifa,
+  SuburbSeifaIndex,
   SuburbSummary,
 } from "~/gen/shorts/v1alpha1/housing_pb";
 import { HousingSeriesChart } from "./housing-charts";
@@ -266,6 +268,8 @@ export function SuburbProfile({
             </section>
           ) : null}
 
+          <SeifaProfile seifa={s.seifa} stateName={stateName} />
+
           {a ? <AmenitiesGroup a={a} nbn={s.dominantNbnTech} /> : null}
 
           <div className="grid gap-6 sm:grid-cols-2">
@@ -340,6 +344,122 @@ type Demographics = SuburbDemographics;
 
 type Summary = SuburbSummary;
 type Crime = SuburbCrime;
+
+type SeifaIndexDefinition = {
+  code: "IRSAD" | "IRSD" | "IER" | "IEO";
+  name: string;
+  description: string;
+  value?: SuburbSeifaIndex;
+  headline?: boolean;
+};
+
+const hasSeifaValue = (value?: SuburbSeifaIndex) =>
+  Boolean(value && (value.score > 0 || value.decileAus > 0 || value.decileState > 0));
+
+export function SeifaProfile({
+  seifa,
+  stateName,
+}: {
+  seifa: SuburbSeifa | undefined;
+  stateName: string;
+}) {
+  if (!seifa) return null;
+
+  const indexes: SeifaIndexDefinition[] = [
+    {
+      code: "IRSAD",
+      name: "Relative Socio-economic Advantage and Disadvantage",
+      description: "Measures relative socio-economic advantage and disadvantage.",
+      value: seifa.irsad,
+      headline: true,
+    },
+    {
+      code: "IRSD",
+      name: "Relative Socio-economic Disadvantage",
+      description: "Measures relative socio-economic disadvantage only; a higher score means less disadvantage.",
+      value: seifa.irsd,
+    },
+    {
+      code: "IER",
+      name: "Economic Resources",
+      description: "Measures access to economic resources, including income, housing costs and assets.",
+      value: seifa.ier,
+    },
+    {
+      code: "IEO",
+      name: "Education and Occupation",
+      description: "Measures relative education and occupation characteristics.",
+      value: seifa.ieo,
+    },
+  ];
+  const shownIndexes = indexes.filter((index) => hasSeifaValue(index.value));
+
+  if (shownIndexes.length === 0) return null;
+
+  return (
+    <section>
+      <SectionHeading icon="compare">Socio-economic profile</SectionHeading>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {shownIndexes.map(({ code, name, description, value, headline }) => {
+          if (!value) return null;
+          const headingId = `seifa-${code.toLowerCase()}-heading`;
+          return (
+            <article
+              key={code}
+              aria-labelledby={headingId}
+              className={`rounded-lg border border-border bg-card p-4 ${headline ? "sm:col-span-2 sm:p-5" : ""}`}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
+                <div>
+                  <h3 id={headingId} className="font-mono text-base font-semibold text-foreground">
+                    {code}
+                  </h3>
+                  <p className="text-xs font-medium text-foreground">{name}</p>
+                </div>
+                {value.score > 0 ? (
+                  <p className="font-mono text-xs tabular-nums text-muted-foreground">
+                    Score <span className="font-semibold text-foreground">{value.score.toLocaleString()}</span>
+                  </p>
+                ) : null}
+              </div>
+              <p className="mt-1.5 text-xs text-muted-foreground [text-wrap:pretty]">{description}</p>
+              <div className={`mt-3 grid gap-3 ${headline ? "sm:grid-cols-2" : ""}`}>
+                <SeifaDecileBar label="Within Australia" decile={value.decileAus} />
+                <SeifaDecileBar label={`Within ${stateName}`} decile={value.decileState} />
+              </div>
+            </article>
+          );
+        })}
+      </div>
+      <p className="mt-2.5 text-[11px] text-muted-foreground [text-wrap:pretty]">
+        Scores are standardised across Australia to a mean of 1,000 and a standard deviation of 100.
+        Deciles run from 1 (most disadvantaged) to 10 (least disadvantaged).
+      </p>
+      <p className="mt-1 text-[11px] text-muted-foreground">
+        Source: ABS SEIFA 2021 (CC BY 4.0).
+      </p>
+    </section>
+  );
+}
+
+function SeifaDecileBar({ label, decile }: { label: string; decile: number }) {
+  if (decile <= 0) return null;
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-3 text-[11px]">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="shrink-0 font-mono font-semibold tabular-nums text-foreground">
+          Decile {decile} of 10
+        </span>
+      </div>
+      <div aria-hidden="true">
+        <FilledMetricTrack fillPercent={decile * 10}>
+          <Baseline label="5" left="50%" dashed />
+        </FilledMetricTrack>
+      </div>
+    </div>
+  );
+}
 
 const CRIME_LABELS: Record<string, string> = {
   break_ins: "Break-ins",
@@ -645,6 +765,23 @@ function SectionHeading({ icon, children }: { icon: HousingIconName; children: R
   );
 }
 
+/** Shared filled track for comparison metrics and fixed 1–10 decile scales. */
+function FilledMetricTrack({
+  fillPercent,
+  children,
+}: {
+  fillPercent: number;
+  children?: ReactNode;
+}) {
+  const width = `${Math.min(100, Math.max(0, fillPercent))}%`;
+  return (
+    <div className="relative mt-4 h-3.5 rounded bg-muted">
+      <div className="absolute inset-y-0 left-0 rounded bg-primary" style={{ width }} />
+      {children}
+    </div>
+  );
+}
+
 /**
  * One metric as a single filled bar with tick marks where the state and national
  * baselines fall — so "how much more is this than average" is a distance you can
@@ -680,8 +817,7 @@ function CompareBar({
           ) : null}
         </span>
       </div>
-      <div className="relative mt-4 h-3.5 rounded bg-muted">
-        <div className="absolute inset-y-0 left-0 rounded bg-primary" style={{ width: pctOf(suburb) }} />
+      <FilledMetricTrack fillPercent={share(suburb)}>
         {/* The two baselines are usually within a few percent of each other, and
             two labels that close overlap into an unreadable smudge. Below the
             collision threshold they share one label and one tick. */}
@@ -693,7 +829,7 @@ function CompareBar({
             {nation > 0 ? <Baseline label="AU" left={pctOf(nation)} dashed /> : null}
           </>
         )}
-      </div>
+      </FilledMetricTrack>
       <div className="mt-1 flex justify-between gap-3 font-mono text-[10px] tabular-nums text-muted-foreground">
         <span>
           {nation > 0 ? (
@@ -712,8 +848,8 @@ function CompareBar({
   );
 }
 
-/** A labelled baseline mark. Solid = state, dashed = national — shape, not
- * opacity, so the two are distinguishable and both remain visible. */
+/** A labelled reference mark. CompareBar uses solid for state and dashed for
+ * national; the SEIFA scale uses a dashed midpoint. */
 function Baseline({ label, left, dashed }: { label: string; left: string; dashed: boolean }) {
   return (
     <span className="absolute -top-4 bottom-0 flex flex-col items-center" style={{ left }}>
