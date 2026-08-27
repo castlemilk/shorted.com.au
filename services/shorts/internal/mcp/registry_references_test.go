@@ -130,14 +130,14 @@ func TestToolsListPreambleStaysWithinBudget(t *testing.T) {
 	if err != nil {
 		t.Fatalf("server connect: %v", err)
 	}
-	defer serverSession.Close()
+	defer func() { _ = serverSession.Close() }()
 
 	client := sdk.NewClient(&sdk.Implementation{Name: "budget-probe", Version: "0.0.1"}, nil)
 	session, err := client.Connect(ctx, clientTransport, nil)
 	if err != nil {
 		t.Fatalf("client connect: %v", err)
 	}
-	defer session.Close()
+	defer func() { _ = session.Close() }()
 
 	res, err := session.ListTools(ctx, nil)
 	if err != nil {

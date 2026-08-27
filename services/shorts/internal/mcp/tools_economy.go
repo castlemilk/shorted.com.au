@@ -329,8 +329,8 @@ func getEconomicSeriesHandler(src DataSource) sdk.ToolHandlerFor[GetEconomicSeri
 		}
 
 		var text string
-		switch {
-		case out.Count == 0:
+		switch out.Count {
+		case 0:
 			text = fmt.Sprintf("No economic series exist for %s. Call list_economic_series to find valid keys.",
 				strings.Join(keys, ", "))
 		default:

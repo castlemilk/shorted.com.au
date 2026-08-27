@@ -379,7 +379,7 @@ func rawRequest(t *testing.T, srv *httptest.Server, method string, params map[st
 	if err != nil {
 		t.Fatalf("%s: %v", method, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {

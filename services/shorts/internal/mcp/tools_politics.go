@@ -159,14 +159,14 @@ func searchPoliticiansHandler(src DataSource) sdk.ToolHandlerFor[SearchPoliticia
 		out.Count = len(out.Politicians)
 
 		var text string
-		switch {
-		case out.Count == 0:
+		switch out.Count {
+		case 0:
 			// Deliberately not "this person declared nothing" and not "no such
 			// member": the same empty response is returned when the register is
 			// switched off, and an absence claim about a named individual is the
 			// one thing this subsystem must never make by accident.
 			text = "No parliamentarians match those filters, or the register is currently unavailable."
-		case out.Count == 1:
+		case 1:
 			p := out.Politicians[0]
 			text = fmt.Sprintf("%s (%s), slug %s. %s", p.Name, describeSeat(p), p.Slug, registerNoAmounts)
 		default:
