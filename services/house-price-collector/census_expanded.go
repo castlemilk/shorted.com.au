@@ -12,13 +12,12 @@ const (
 	// derived rates remain NULL for SALs below this G01 total-person population.
 	censusDerivedRateMinPopulation = 100
 
-	censusG17Entry = "2021 Census GCP Suburbs and Localities for AUS/2021Census_G17_AUST_SAL.csv"
-	censusG25Entry = "2021 Census GCP Suburbs and Localities for AUS/2021Census_G25_AUST_SAL.csv"
-	censusG32Entry = "2021 Census GCP Suburbs and Localities for AUS/2021Census_G32_AUST_SAL.csv"
-	censusG33Entry = "2021 Census GCP Suburbs and Localities for AUS/2021Census_G33_AUST_SAL.csv"
-	censusG36Entry = "2021 Census GCP Suburbs and Localities for AUS/2021Census_G36_AUST_SAL.csv"
-	censusG43Entry = "2021 Census GCP Suburbs and Localities for AUS/2021Census_G43_AUST_SAL.csv"
-	censusG46Entry = "2021 Census GCP Suburbs and Localities for AUS/2021Census_G46_AUST_SAL.csv"
+	censusG17BEntry = "2021 Census GCP Suburbs and Localities for AUS/2021Census_G17B_AUST_SAL.csv"
+	censusG17CEntry = "2021 Census GCP Suburbs and Localities for AUS/2021Census_G17C_AUST_SAL.csv"
+	censusG36Entry  = "2021 Census GCP Suburbs and Localities for AUS/2021Census_G36_AUST_SAL.csv"
+	censusG37Entry  = "2021 Census GCP Suburbs and Localities for AUS/2021Census_G37_AUST_SAL.csv"
+	censusG42Entry  = "2021 Census GCP Suburbs and Localities for AUS/2021Census_G42_AUST_SAL.csv"
+	censusG43Entry  = "2021 Census GCP Suburbs and Localities for AUS/2021Census_G43_AUST_SAL.csv"
 )
 
 // expandedCensusStats is the curated cross-table result for one SAL. Every
@@ -148,11 +147,119 @@ func parseExpandedRates(table string, rows [][]string, populations map[string]*i
 	return out
 }
 
-// G17 personal-income bands. "Low" means $1-$499 per week; "high" means
-// $2,000+ per week. Nil/negative income is excluded from both numerators. The
-// assumed G17 table total is the denominator for both shares.
-func parseG17(rows [][]string, populations map[string]*int, logger *log.Logger) map[string]expandedCensusStats {
-	return parseExpandedRates("G17", rows, populations, logger, []expandedRateDefinition{
+type expandedColumnSource struct {
+	fromG17C bool
+	index    int
+}
+
+// combineG17Rows joins G17B and G17C by exact SAL code and exact header name.
+// A non-SAL header present in both files is deliberately omitted so
+// parseExpandedRates leaves every metric that depends on it NULL.
+func combineG17Rows(g17BRows, g17CRows [][]string, logger *log.Logger) [][]string {
+	if logger == nil {
+		logger = log.Default()
+	}
+	missing := make([]string, 0, 2)
+	if len(g17BRows) < 2 {
+		missing = append(missing, "G17B")
+	}
+	if len(g17CRows) < 2 {
+		missing = append(missing, "G17C")
+	}
+	if len(missing) > 0 {
+		logger.Printf("[G17B+G17C] missing %s data; both income metrics left NULL", strings.Join(missing, " and "))
+		return nil
+	}
+
+	g17BColumns := csvColIndex(g17BRows[0])
+	g17CColumns := csvColIndex(g17CRows[0])
+	g17BCodeIndex, hasG17BCode := g17BColumns["SAL_CODE_2021"]
+	g17CCodeIndex, hasG17CCode := g17CColumns["SAL_CODE_2021"]
+	if !hasG17BCode || !hasG17CCode {
+		missing = missing[:0]
+		if !hasG17BCode {
+			missing = append(missing, "G17B")
+		}
+		if !hasG17CCode {
+			missing = append(missing, "G17C")
+		}
+		logger.Printf("[G17B+G17C] missing SAL_CODE_2021 in %s; both income metrics left NULL", strings.Join(missing, " and "))
+		return nil
+	}
+
+	collisions := map[string]bool{}
+	for header := range g17BColumns {
+		if header == "" || header == "SAL_CODE_2021" {
+			continue
+		}
+		if _, exists := g17CColumns[header]; exists {
+			collisions[header] = true
+		}
+	}
+	loggedCollision := map[string]bool{}
+	for _, rawHeader := range g17BRows[0] {
+		header := strings.TrimSpace(rawHeader)
+		if collisions[header] && !loggedCollision[header] {
+			logger.Printf("[G17B+G17C] duplicate non-SAL header %s across entries; leaving colliding header unresolved", header)
+			loggedCollision[header] = true
+		}
+	}
+
+	header := []string{"SAL_CODE_2021"}
+	sources := make([]expandedColumnSource, 0, len(g17BRows[0])+len(g17CRows[0])-2)
+	seen := map[string]bool{"SAL_CODE_2021": true}
+	appendColumns := func(row []string, columns map[string]int, fromG17C bool) {
+		for _, rawHeader := range row {
+			name := strings.TrimSpace(rawHeader)
+			if name == "" || seen[name] || collisions[name] {
+				continue
+			}
+			seen[name] = true
+			header = append(header, name)
+			sources = append(sources, expandedColumnSource{fromG17C: fromG17C, index: columns[name]})
+		}
+	}
+	appendColumns(g17BRows[0], g17BColumns, false)
+	appendColumns(g17CRows[0], g17CColumns, true)
+
+	g17CRowsByCode := make(map[string][]string, len(g17CRows)-1)
+	for _, row := range g17CRows[1:] {
+		code := stripSALPrefix(cell(row, g17CCodeIndex))
+		if code != "" {
+			g17CRowsByCode[code] = row
+		}
+	}
+
+	combined := make([][]string, 1, len(g17BRows))
+	combined[0] = header
+	for _, g17BRow := range g17BRows[1:] {
+		code := stripSALPrefix(cell(g17BRow, g17BCodeIndex))
+		g17CRow, exists := g17CRowsByCode[code]
+		if code == "" || !exists {
+			continue
+		}
+		row := make([]string, 1, len(header))
+		row[0] = code
+		for _, source := range sources {
+			sourceRow := g17BRow
+			if source.fromG17C {
+				sourceRow = g17CRow
+			}
+			row = append(row, cell(sourceRow, source.index))
+		}
+		combined = append(combined, row)
+	}
+	return combined
+}
+
+// G17 personal-income bands span G17B and G17C. "Low" means $1-$499
+// per week; "high" means $2,000+ per week. Both use G17C's P_Tot_Tot.
+func parseG17(g17BRows, g17CRows [][]string, populations map[string]*int, logger *log.Logger) map[string]expandedCensusStats {
+	rows := combineG17Rows(g17BRows, g17CRows, logger)
+	if rows == nil {
+		return map[string]expandedCensusStats{}
+	}
+	return parseExpandedRates("G17B+G17C", rows, populations, logger, []expandedRateDefinition{
 		{
 			name: "pct_low_personal_income",
 			numerators: []string{
@@ -172,28 +279,28 @@ func parseG17(rows [][]string, populations map[string]*int, logger *log.Logger) 
 	})
 }
 
-func parseG25(rows [][]string, populations map[string]*int, logger *log.Logger) map[string]expandedCensusStats {
-	return parseExpandedRates("G25", rows, populations, logger, []expandedRateDefinition{
+func parseG36(rows [][]string, populations map[string]*int, logger *log.Logger) map[string]expandedCensusStats {
+	return parseExpandedRates("G36", rows, populations, logger, []expandedRateDefinition{
 		{
-			name: "pct_couple_with_children", numerators: []string{"CF_Ch_F"}, denominator: "Tot_F",
-			set: func(stats *expandedCensusStats, value *float64) { stats.pctCoupleWithChildren = value },
+			name: "pct_separate_house", numerators: []string{"OPDs_Separate_house_Dwellings"}, denominator: "OPDs_Tot_OPDs_Dwellings",
+			set: func(stats *expandedCensusStats, value *float64) { stats.pctSeparateHouse = value },
 		},
 		{
-			name: "pct_lone_person_household", numerators: []string{"Lone_pers_H"}, denominator: "Tot_H",
-			set: func(stats *expandedCensusStats, value *float64) { stats.pctLonePersonHousehold = value },
+			name: "pct_flat_apartment", numerators: []string{"OPDs_Flt_apart_Tot_Dwgs"}, denominator: "OPDs_Tot_OPDs_Dwellings",
+			set: func(stats *expandedCensusStats, value *float64) { stats.pctFlatApartment = value },
 		},
 	})
 }
 
-func parseDwellingStructure(table string, rows [][]string, populations map[string]*int, logger *log.Logger) map[string]expandedCensusStats {
-	return parseExpandedRates(table, rows, populations, logger, []expandedRateDefinition{
+func parseG42(rows [][]string, populations map[string]*int, logger *log.Logger) map[string]expandedCensusStats {
+	return parseExpandedRates("G42", rows, populations, logger, []expandedRateDefinition{
 		{
-			name: "pct_separate_house", numerators: []string{"OPD_Sep_house_Tot"}, denominator: "OPDs_Tot",
-			set: func(stats *expandedCensusStats, value *float64) { stats.pctSeparateHouse = value },
+			name: "pct_couple_with_children", numerators: []string{"Tot_FHs_CF_C"}, denominator: "Tot_Tot",
+			set: func(stats *expandedCensusStats, value *float64) { stats.pctCoupleWithChildren = value },
 		},
 		{
-			name: "pct_flat_apartment", numerators: []string{"OPD_Flat_apart_Tot"}, denominator: "OPDs_Tot",
-			set: func(stats *expandedCensusStats, value *float64) { stats.pctFlatApartment = value },
+			name: "pct_lone_person_household", numerators: []string{"Tot_Lone_P_H"}, denominator: "Tot_Tot",
+			set: func(stats *expandedCensusStats, value *float64) { stats.pctLonePersonHousehold = value },
 		},
 	})
 }
@@ -201,41 +308,36 @@ func parseDwellingStructure(table string, rows [][]string, populations map[strin
 func parseG43(rows [][]string, populations map[string]*int, logger *log.Logger) map[string]expandedCensusStats {
 	return parseExpandedRates("G43", rows, populations, logger, []expandedRateDefinition{
 		{
-			name: "unemployment_rate", numerators: []string{"P_Tot_Unemp_Tot"}, denominator: "P_Tot_LF_Tot",
+			name: "unemployment_rate", numerators: []string{"lfs_Unmplyed_lookng_for_wrk_P"}, denominator: "lfs_Tot_LF_P",
 			set: func(stats *expandedCensusStats, value *float64) { stats.unemploymentRate = value },
 		},
 		{
-			name: "labour_force_participation_rate", numerators: []string{"P_Tot_LF_Tot"}, denominator: "P_15yr_over_Tot",
+			name: "labour_force_participation_rate", numerators: []string{"lfs_Tot_LF_P"}, denominator: "P_15_yrs_over_P",
 			set: func(stats *expandedCensusStats, value *float64) { stats.labourForceParticipationRate = value },
 		},
-	})
-}
-
-func parseG46(rows [][]string, populations map[string]*int, logger *log.Logger) map[string]expandedCensusStats {
-	return parseExpandedRates("G46", rows, populations, logger, []expandedRateDefinition{
 		{
 			name:        "pct_bachelor_or_higher",
-			numerators:  []string{"P_PGrad_Deg_Tot", "P_GradDip_and_GradCert_Tot", "P_BachDeg_Tot"},
-			denominator: "P_Tot_Tot",
+			numerators:  []string{"non_sch_qual_PostGrad_Dgre_P", "non_sch_qual_Gr_Dip_Gr_Crt_P", "non_sch_qual_Bchelr_Degree_P"},
+			denominator: "P_15_yrs_over_P",
 			set:         func(stats *expandedCensusStats, value *float64) { stats.pctBachelorOrHigher = value },
 		},
 	})
 }
 
-// G33 is assumed to be the tenure-type table. It fills the four nullable
-// columns created with suburb_demographics in migration 000055.
-func parseG33(rows [][]string, populations map[string]*int, logger *log.Logger) map[string]expandedCensusStats {
-	out := parseExpandedRates("G33", rows, populations, logger, []expandedRateDefinition{
+// G37 supplies both tenure rates and the raw total dwelling count. The count
+// is intentionally populated outside the derived-rate population guard.
+func parseG37(rows [][]string, populations map[string]*int, logger *log.Logger) map[string]expandedCensusStats {
+	out := parseExpandedRates("G37", rows, populations, logger, []expandedRateDefinition{
 		{
-			name: "pct_owned_outright", numerators: []string{"O_OR_Tot"}, denominator: "Tot_Tot",
+			name: "pct_owned_outright", numerators: []string{"O_OR_Total"}, denominator: "Total_Total",
 			set: func(stats *expandedCensusStats, value *float64) { stats.pctOwnedOutright = value },
 		},
 		{
-			name: "pct_owned_mortgage", numerators: []string{"O_MTG_Tot"}, denominator: "Tot_Tot",
+			name: "pct_owned_mortgage", numerators: []string{"O_MTG_Total"}, denominator: "Total_Total",
 			set: func(stats *expandedCensusStats, value *float64) { stats.pctOwnedMortgage = value },
 		},
 		{
-			name: "pct_rented", numerators: []string{"R_RE_Tot"}, denominator: "Tot_Tot",
+			name: "pct_rented", numerators: []string{"R_Tot_Total"}, denominator: "Total_Total",
 			set: func(stats *expandedCensusStats, value *float64) { stats.pctRented = value },
 		},
 	})
@@ -247,10 +349,10 @@ func parseG33(rows [][]string, populations map[string]*int, logger *log.Logger) 
 	}
 	columns := csvColIndex(rows[0])
 	codeIndex, hasCode := columns["SAL_CODE_2021"]
-	totalIndex, hasTotal := columns["Tot_Tot"]
+	totalIndex, hasTotal := columns["Total_Total"]
 	if !hasCode || !hasTotal {
 		if !hasTotal {
-			logger.Printf("[G33] metric dwelling_count missing header Tot_Tot; leaving NULL")
+			logger.Printf("[G37] metric dwelling_count missing header Total_Total; leaving NULL")
 		}
 		return out
 	}
@@ -314,15 +416,6 @@ func mergeExpandedCensus(into map[string]expandedCensusStats, from map[string]ex
 	}
 }
 
-func hasDwellingStructure(stats map[string]expandedCensusStats) bool {
-	for _, row := range stats {
-		if row.pctSeparateHouse != nil || row.pctFlatApartment != nil {
-			return true
-		}
-	}
-	return false
-}
-
 // parseExpandedCensus reads optional tables from the already-open DataPack.
 // Entry/header drift is non-fatal: it is logged and leaves the affected values
 // NULL so a guessed short header can never silently write the wrong metric.
@@ -344,19 +437,18 @@ func parseExpandedCensus(zr *zip.ReadCloser, g01 map[string]g01Row, logger *log.
 		return parse(rows, populations, logger)
 	}
 
-	mergeExpandedCensus(out, read("G17", censusG17Entry, parseG17))
-	mergeExpandedCensus(out, read("G25", censusG25Entry, parseG25))
-	dwelling := read("G32", censusG32Entry, func(rows [][]string, population map[string]*int, l *log.Logger) map[string]expandedCensusStats {
-		return parseDwellingStructure("G32", rows, population, l)
-	})
-	if !hasDwellingStructure(dwelling) {
-		dwelling = read("G36", censusG36Entry, func(rows [][]string, population map[string]*int, l *log.Logger) map[string]expandedCensusStats {
-			return parseDwellingStructure("G36", rows, population, l)
-		})
+	g17BRows, err := readZipCSV(zr, censusG17BEntry)
+	if err != nil {
+		logger.Printf("[G17B] %v; both income metrics left NULL", err)
 	}
-	mergeExpandedCensus(out, dwelling)
-	mergeExpandedCensus(out, read("G33", censusG33Entry, parseG33))
+	g17CRows, err := readZipCSV(zr, censusG17CEntry)
+	if err != nil {
+		logger.Printf("[G17C] %v; both income metrics left NULL", err)
+	}
+	mergeExpandedCensus(out, parseG17(g17BRows, g17CRows, populations, logger))
+	mergeExpandedCensus(out, read("G36", censusG36Entry, parseG36))
+	mergeExpandedCensus(out, read("G37", censusG37Entry, parseG37))
+	mergeExpandedCensus(out, read("G42", censusG42Entry, parseG42))
 	mergeExpandedCensus(out, read("G43", censusG43Entry, parseG43))
-	mergeExpandedCensus(out, read("G46", censusG46Entry, parseG46))
 	return out
 }
