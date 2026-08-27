@@ -787,12 +787,36 @@ resource "cloudflare_ruleset" "app_api_security_skip" {
       }
     },
     {
-      # SBFM's static-resource bypass does not cover .xml, so /sitemap.xml and
-      # /feed.xml are managed-challenged for every non-verified client. RSS
-      # readers and de-verified AI crawlers (PerplexityBot lost Cloudflare
-      # verification Aug 2025) get 403s instead of the sitemap/feed. These are
-      # read-only XML documents with no abuse surface; the zone rate limiter is
-      # deliberately NOT skipped here (it only applies to the API host anyway).
+      # Machine-readable public surfaces — the documents we ADVERTISE to agents.
+      #
+      # SBFM's static-resource bypass is EXTENSION-based (plus the /.well-known/
+      # path prefix): `txt|csv|js|css|svg|pdf|…` bypass, but `.xml`, `.json`,
+      # `.yaml` and `.md` do NOT. That single fact explains the whole observed
+      # split on 2026-08-27 with `-A 'my-app/1.0'`:
+      #   200 → /llms.txt, /llms-full.txt, /robots.txt   (`.txt` is static)
+      #   200 → /.well-known/api-catalog, /ai-plugin.json (path prefix is static)
+      #   403 → /openapi.json, /openapi.yaml, /docs/api.md (cf-mitigated: challenge)
+      # …and it is why /sitemap.xml + /feed.xml already needed naming here.
+      #
+      # Publishing a discovery spine (RFC 9727 catalog, llms.txt, ai-plugin.json,
+      # Link: rel=service-desc) that points at documents an agent is then
+      # challenged on is the failure mode this rule exists to close.
+      #
+      # Scope decisions:
+      #   - the whole /docs/ tree, not just /docs/api.md: every child is a
+      #     read-only public documentation surface (api, api-reference,
+      #     llm-context, llm-context-raw) and they cross-link, so exempting one
+      #     file just moves the 403 to the next hop an agent follows.
+      #   - /.well-known/ is named EXPLICITLY even though Cloudflare currently
+      #     bypasses it implicitly — a contract we depend on should not rest on
+      #     an undocumented-for-us vendor default.
+      #   - /api/search/stocks is a documented public GET in our OpenAPI spec.
+      #     It filters a hardcoded in-memory list, mutates nothing, costs nothing
+      #     to serve, and keeps its own app-layer limiter (BROWSER_READ_RATE_LIMIT).
+      #
+      # This skips ONLY SBFM/BIC/Security Level. WAF managed rules still apply,
+      # and the zone rate limiter is deliberately NOT skipped here (it only
+      # applies to the API host anyway). Nothing here mutates state.
       action      = "skip"
       expression  = <<-EOT
         (
@@ -800,10 +824,15 @@ resource "cloudflare_ruleset" "app_api_security_skip" {
           and (
             http.request.uri.path eq "/sitemap.xml"
             or http.request.uri.path eq "/feed.xml"
+            or http.request.uri.path eq "/openapi.json"
+            or http.request.uri.path eq "/openapi.yaml"
+            or http.request.uri.path eq "/api/search/stocks"
+            or starts_with(http.request.uri.path, "/docs/")
+            or starts_with(http.request.uri.path, "/.well-known/")
           )
         )
       EOT
-      description = "Allow non-verified feed readers and crawlers to fetch sitemap.xml and feed.xml through SBFM, BIC, and Security Level checks"
+      description = "Allow non-verified feed readers, crawlers and API agents to fetch sitemap.xml, feed.xml, the OpenAPI spec, the /docs tree, /.well-known and the public stock search through SBFM, BIC, and Security Level checks"
       enabled     = true
       action_parameters = {
         phases   = ["http_request_sbfm"]
@@ -989,9 +1018,15 @@ resource "cloudflare_bot_management" "ai_crawl_control" {
   #     site. A silent dashboard flip to "block" would de-index the site —
   #     managing it here makes that drift visible in plan. NEVER set to block.
   #   - sbfm_static_resource_protection = false → static extensions bypass
-  #     SBFM. NOTE: .xml is NOT on Cloudflare's static-extension list, so
-  #     /sitemap.xml + /feed.xml still need the explicit skip rule in
-  #     cloudflare_ruleset.app_api_security_skip below.
+  #     SBFM. The bypass is EXTENSION-based
+  #     (ico|jpg|png|jpeg|gif|css|js|tif|tiff|bmp|pict|webp|svg|svgz|class|jar|
+  #      txt|csv|doc|docx|xls|xlsx|pdf|ps|pls|ppt|pptx|ttf|otf|woff|woff2|eot|
+  #      eps|ejs|swf|torrent|midi|mid|m3u8|m4a|mp3|ogg|ts), plus the
+  #     /.well-known/ path prefix regardless of extension.
+  #     .txt is on it (llms.txt, robots.txt sail through); .xml, .json, .yaml
+  #     and .md are NOT — which is why /sitemap.xml, /feed.xml, /openapi.json,
+  #     /openapi.yaml and /docs/api.md all need the explicit skip rule in
+  #     cloudflare_ruleset.app_api_security_skip above.
   sbfm_definitely_automated       = "managed_challenge"
   sbfm_verified_bots              = "allow"
   sbfm_static_resource_protection = false
