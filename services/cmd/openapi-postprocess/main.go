@@ -70,5 +70,5 @@ func main() {
 	}
 
 	paths, _ := spec["paths"].(map[string]any)
-	log.Printf("wrote %d public paths to %s and %s", len(paths), *outJSON, *outYAML)
+	log.Printf("wrote %d paths to %s and %s", len(paths), *outJSON, *outYAML)
 }

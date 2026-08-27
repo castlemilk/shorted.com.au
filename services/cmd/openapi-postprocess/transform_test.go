@@ -186,10 +186,19 @@ func TestTransformPrunesOrphanedSchemas(t *testing.T) {
 			"B": map[string]any{
 				"items": []any{
 					map[string]any{"$ref": "#/components/schemas/A"},
+					// D is reachable ONLY from inside an array. Without it the
+					// suite has a blind spot: a collectRefs that never descends
+					// into []any still passes every other assertion here,
+					// because A and B are both reachable through maps too.
+					// Against the real document that same bug over-prunes the
+					// schemas reachable only via `parameters` arrays and leaves
+					// dangling $refs — a silently corrupted published spec.
+					map[string]any{"$ref": "#/components/schemas/D"},
 				},
 			},
 			// Unreferenced by any surviving path.
 			"C": map[string]any{"type": "object"},
+			"D": map[string]any{"type": "string"},
 		},
 	}
 
@@ -207,7 +216,7 @@ func TestTransformPrunesOrphanedSchemas(t *testing.T) {
 	}
 
 	schemas := spec["components"].(map[string]any)["schemas"].(map[string]any)
-	for _, want := range []string{"A", "B"} {
+	for _, want := range []string{"A", "B", "D"} {
 		if _, ok := schemas[want]; !ok {
 			t.Errorf("reachable schema %s was pruned — the published document would be broken", want)
 		}

@@ -55,6 +55,12 @@ func pruneOrphanedSchemas(spec map[string]any, paths map[string]any) {
 		return
 	}
 
+	// Seeded from `paths` only. That is sufficient today because the only
+	// non-schema entry under `components` is the securitySchemes block we add
+	// ourselves (verified: the artifact has zero non-schema $refs). If the
+	// generator ever emits components.responses or components.parameters that
+	// a path reaches by $ref, and those in turn reference schemas, this seed
+	// would miss them and over-prune. Seed from those too if that day comes.
 	var queue []string
 	{
 		var refs []string
