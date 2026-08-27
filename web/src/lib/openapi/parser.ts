@@ -12,9 +12,13 @@ import yaml from 'js-yaml';
 import type { OpenAPISpec, ParsedEndpoint, NavigationGroup, HTTPMethod } from './types';
 
 export async function parseOpenAPISpec(): Promise<OpenAPISpec> {
-  const specPath = path.join(process.cwd(), '../api/schema/openapi.yaml');
+  // The canonical generated artifact — see docs/superpowers/plans/
+  // 2026-08-27-phase1-generated-openapi-and-llm-docs.md. Previously this read
+  // api/schema/openapi.yaml, a hand-written 8-path document that had drifted
+  // years behind the 64-method API.
+  const specPath = path.join(process.cwd(), 'public', 'openapi.json');
 
-  // Handle missing openapi.yaml gracefully (e.g. in Docker builds)
+  // Handle a missing spec gracefully (e.g. in Docker builds)
   if (!fs.existsSync(specPath)) {
     return {
       info: { title: 'API Documentation', version: '1.0.0' },
