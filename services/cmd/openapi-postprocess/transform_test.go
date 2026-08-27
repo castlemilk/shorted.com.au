@@ -234,6 +234,63 @@ func TestSchemaPruningLeavesOtherComponentsAlone(t *testing.T) {
 	}
 }
 
+// Hand-written paths are not proto methods, so they can never appear in the
+// public-method set and would be pruned if they were merged before the sweep.
+// They also do not live on the document's top-level server, so losing their
+// path-level `servers` override would tell an agent to call a URL that 404s.
+func TestTransformMergesBasePaths(t *testing.T) {
+	spec := specFixture()
+	base := baseFixture()
+	base["paths"] = map[string]any{
+		"/api/search/stocks": map[string]any{
+			"servers": []any{map[string]any{"url": "https://shorted.com.au"}},
+			"get":     map[string]any{"operationId": "searchStocks"},
+		},
+	}
+
+	if err := Transform(spec, map[string]bool{"/shorts.v1alpha1.StockService/GetStock": true}, base); err != nil {
+		t.Fatalf("Transform: %v", err)
+	}
+
+	paths := spec["paths"].(map[string]any)
+	item, ok := paths["/api/search/stocks"].(map[string]any)
+	if !ok {
+		t.Fatalf("hand-written path was pruned or never merged: %#v", paths)
+	}
+	servers, ok := item["servers"].([]any)
+	if !ok || len(servers) != 1 {
+		t.Fatalf("path-level servers override lost: %#v", item["servers"])
+	}
+	if got := servers[0].(map[string]any)["url"]; got != "https://shorted.com.au" {
+		t.Errorf("servers[0].url = %v, want https://shorted.com.au", got)
+	}
+}
+
+// A base entry keyed to a generated path must enrich it, never replace it —
+// clobbering would silently delete the operation the generator emitted.
+func TestTransformBasePathsDoNotClobberGeneratedOnes(t *testing.T) {
+	spec := specFixture()
+	base := baseFixture()
+	base["paths"] = map[string]any{
+		"/shorts.v1alpha1.StockService/GetStock": map[string]any{
+			"description": "hand-written prose",
+			"post":        map[string]any{"summary": "CLOBBERED"},
+		},
+	}
+
+	if err := Transform(spec, map[string]bool{"/shorts.v1alpha1.StockService/GetStock": true}, base); err != nil {
+		t.Fatalf("Transform: %v", err)
+	}
+
+	item := spec["paths"].(map[string]any)["/shorts.v1alpha1.StockService/GetStock"].(map[string]any)
+	if got := item["post"].(map[string]any)["summary"]; got != "Get Stock" {
+		t.Errorf("generated operation was clobbered by the base entry: summary = %v", got)
+	}
+	if item["description"] != "hand-written prose" {
+		t.Errorf("base-only key was not merged in: %#v", item["description"])
+	}
+}
+
 func TestTransformSurvivesMissingComponents(t *testing.T) {
 	spec := specFixture()
 	delete(spec, "components")

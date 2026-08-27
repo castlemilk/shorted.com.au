@@ -130,6 +130,36 @@ func Transform(spec map[string]any, public map[string]bool, base map[string]any)
 		return fmt.Errorf("every path was pruned: no VISIBILITY_PUBLIC methods matched the generated document")
 	}
 
+	// Merge the hand-written paths from base.yaml AFTER pruning. They are not
+	// proto methods, so they can never appear in the public-method set and
+	// would be deleted if they were merged first — yet they are real, working,
+	// publicly useful HTTP surfaces (/api/search/stocks, /feed.xml) that no
+	// generator will ever emit. Each carries its own path-level `servers`
+	// override because they live on https://shorted.com.au, not on the
+	// document's top-level https://api.shorted.com.au.
+	//
+	// A base entry keyed to a path the generator ALSO emitted enriches it: we
+	// copy only the keys the generated path item does not already have, so a
+	// hand-written `description` lands but a hand-written `post` can never
+	// silently replace the generated operation. (Deep-merging the operation
+	// objects would be the richer behaviour; it is not needed today and the
+	// shallow rule is the one that cannot lose information.)
+	if basePaths, ok := base["paths"].(map[string]any); ok {
+		for p, item := range basePaths {
+			existing, clash := paths[p].(map[string]any)
+			newItem, isMap := item.(map[string]any)
+			if !clash || !isMap {
+				paths[p] = item
+				continue
+			}
+			for k, v := range newItem {
+				if _, taken := existing[k]; !taken {
+					existing[k] = v
+				}
+			}
+		}
+	}
+
 	pruneOrphanedSchemas(spec, paths)
 
 	spec["servers"] = []any{
