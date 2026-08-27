@@ -10,6 +10,7 @@ import fs from 'fs';
 import path from 'path';
 import yaml from 'js-yaml';
 import type { OpenAPISpec, ParsedEndpoint, NavigationGroup, HTTPMethod } from './types';
+import { resolveRefs as resolveRefsWithSchemas } from './resolve-refs';
 
 export async function parseOpenAPISpec(): Promise<OpenAPISpec> {
   // The canonical generated artifact — see docs/superpowers/plans/
@@ -33,32 +34,9 @@ export async function parseOpenAPISpec(): Promise<OpenAPISpec> {
 
   const schemas = rawSpec.components?.schemas || {};
 
-  function resolveRefs(obj: any, visited = new Set()): any {
-    if (!obj || typeof obj !== 'object') return obj;
-    if (visited.has(obj)) return obj; // Prevent infinite recursion
-
-    if (obj.$ref) {
-      const refName = obj.$ref.split('/').pop();
-      const resolved = schemas[refName];
-      if (resolved) {
-        // Create a new object combining resolved schema and existing properties
-        // but excluding the $ref itself
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { $ref: _, ...rest } = obj;
-        return resolveRefs({ ...resolved, ...rest }, visited);
-      }
-    }
-
-    if (Array.isArray(obj)) {
-      return obj.map(item => resolveRefs(item, visited));
-    }
-
-    const newObj: any = {};
-    Object.keys(obj).forEach(key => {
-      newObj[key] = resolveRefs(obj[key], visited);
-    });
-    return newObj;
-  }
+  // Ref resolution (and its cycle guard) lives in ./resolve-refs so it can be
+  // tested against recursive fixtures without a spec file on disk.
+  const resolveRefs = (obj: any): any => resolveRefsWithSchemas(obj, schemas);
 
   const endpoints: ParsedEndpoint[] = [];
   const paths = rawSpec.paths || {};
