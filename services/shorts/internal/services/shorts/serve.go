@@ -275,6 +275,19 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		Identity:  firebaseIdentityVerifier{},
 		Store:     s.oauthStore,
 	}))
+	// The token exchange. PKCE on the authorization_code grant, rotation with
+	// family revocation on the refresh grant.
+	//
+	// ResolveTier is the SAME lookup the Connect interceptor uses, so an OAuth
+	// token is stamped with the tier the API would have resolved anyway. It is
+	// a hint either way: tier is re-resolved from the store on every request and
+	// never trusted from the token.
+	mux.Handle(oauth.TokenPath, oauth.NewTokenHandler(oauth.TokenConfig{
+		Endpoints:   oauthEndpoints,
+		Store:       s.oauthStore,
+		Minter:      s.tokenService,
+		ResolveTier: oauth.TierResolver(authOpts.SubscriptionLookup),
+	}))
 
 	// Add health check endpoint
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {

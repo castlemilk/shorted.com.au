@@ -52,7 +52,12 @@ type ShortsServer struct {
 	// refresh tokens — migration 000116). Nil when no Postgres pool is
 	// reachable, in which case the grant endpoint reports
 	// temporarily_unavailable rather than panicking.
-	oauthStore oauth.Store
+	//
+	// TokenStore, not Store: the token endpoint's single-use and
+	// rotation guarantees are SQL guarantees, so the field is typed to the
+	// interface that promises them. It satisfies Store as well, so the grant
+	// handler takes the same value.
+	oauthStore oauth.TokenStore
 }
 
 // New creates instance of the Server
@@ -144,7 +149,7 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 	// OAuth authorization-server storage. A typed-nil in the interface would
 	// read as "configured" and panic on first use, so the assignment is
 	// conditional on a real pool.
-	var oauthStore oauth.Store
+	var oauthStore oauth.TokenStore
 	if pool != nil {
 		oauthStore = oauth.NewPostgresStore(pool)
 	} else {

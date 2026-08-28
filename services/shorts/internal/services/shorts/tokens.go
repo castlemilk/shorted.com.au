@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/mcp"
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/oauth"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -77,27 +78,84 @@ func (s *TokenService) MintToken(userID, email string, roles []string, duration 
 }
 
 // MintTokenWithTier creates a new JWT for a user with specific roles and subscription tier.
+//
+// It is a thin wrapper over mint: the whole-API credential is just the case
+// where the audience is this service's default and no OAuth scope was granted.
+// One minting path means one place the signing method, issuer and audience are
+// decided.
 func (s *TokenService) MintTokenWithTier(userID, email string, roles []string, tier string, duration time.Duration) (string, error) {
+	return s.mint(mintRequest{
+		UserID:   userID,
+		Email:    email,
+		Roles:    roles,
+		Tier:     tier,
+		Audience: s.audience,
+		TTL:      duration,
+	})
+}
+
+// mintRequest is the full set of things that vary between minted tokens.
+type mintRequest struct {
+	UserID   string
+	Email    string
+	Roles    []string
+	Tier     string
+	Scope    string
+	Audience []string
+	TTL      time.Duration
+}
+
+func (s *TokenService) mint(req mintRequest) (string, error) {
 	now := time.Now()
 	claims := Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(now.Add(duration)),
+			ExpiresAt: jwt.NewNumericDate(now.Add(req.TTL)),
 			IssuedAt:  jwt.NewNumericDate(now),
 			Issuer:    "shorted-api",
 			// RFC 8707 resource binding. Absent before this existed, which is
 			// exactly why the MCP verifier treats an absent audience as a
 			// refusal and the Connect API does not check it at all — see
 			// mcp.NewTokenVerifier for the full seam.
-			Audience: jwt.ClaimStrings(s.audience),
+			Audience: jwt.ClaimStrings(req.Audience),
 		},
-		UserID: userID,
-		Email:  email,
-		Roles:  roles,
-		Tier:   tier,
+		UserID: req.UserID,
+		Email:  req.Email,
+		Roles:  req.Roles,
+		Tier:   req.Tier,
+		Scope:  req.Scope,
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(s.secret)
+}
+
+// MintAccessToken implements oauth.TokenMinter — the OAuth token endpoint's
+// half of the seam that keeps the oauth package from needing to name Claims.
+//
+// Two things distinguish an OAuth access token from the whole-API token above,
+// and both are load-bearing:
+//
+//   - It carries a SCOPE, so a resource server can see what was granted.
+//   - Its audience is whatever the grant bound, which for an MCP grant is the
+//     /mcp resource ALONE. It is deliberately not spendable on the Connect API;
+//     ValidateConnectToken below is the half that enforces that.
+//
+// Roles are empty on purpose: a role is an operator grant, not something a
+// consent screen can confer, so an OAuth token can never satisfy a
+// required_role check.
+func (s *TokenService) MintAccessToken(req oauth.AccessTokenRequest) (string, error) {
+	ttl := req.TTL
+	if ttl <= 0 {
+		ttl = oauth.AccessTokenTTL
+	}
+	return s.mint(mintRequest{
+		UserID:   req.UserID,
+		Email:    req.Email,
+		Tier:     req.Tier,
+		Scope:    req.Scope,
+		Audience: req.Audience,
+		TTL:      ttl,
+	})
 }
 
 // ClockLeeway is the tolerance applied to a token's expiry.
@@ -136,6 +194,51 @@ func (s *TokenService) ValidateToken(tokenString string) (*Claims, error) {
 	}
 
 	return nil, fmt.Errorf("invalid token")
+}
+
+// ValidateConnectToken validates a bearer token for the CONNECT API surface,
+// enforcing the audience rule that ValidateToken deliberately does not.
+//
+// WHY THIS EXISTS. The OAuth token endpoint mints tokens whose audience is the
+// /mcp resource alone, granted by a consent screen that says "read-only access
+// to the MCP server". Without an audience check on this side, such a token is
+// also a valid Connect API credential — and `BillingService.MintToken` is
+// PRIVATE with no required_role, i.e. reachable by ANY authenticated user. So a
+// one-hour, read-only, scope-limited MCP grant could be exchanged for a 30-day
+// whole-API token. That is a privilege escalation the consent screen never
+// described, and this method is what closes it.
+//
+// The compatibility seam is unchanged and runs the other way from the MCP one:
+//
+//   - absent aud  -> ACCEPTED. Every token minted before audiences existed
+//     carries none, and they are whole-API credentials.
+//   - aud present, includes the API origin -> ACCEPTED (MintTokenWithTier).
+//   - aud present, omits the API origin    -> REFUSED (an OAuth/MCP token).
+//
+// A deployment configured with no audience at all cannot make the distinction,
+// so it accepts — the same degradation NewTokenService documents.
+func (s *TokenService) ValidateConnectToken(tokenString string) (*Claims, error) {
+	claims, err := s.ValidateToken(tokenString)
+	if err != nil {
+		return nil, err
+	}
+	if len(s.audience) == 0 {
+		return claims, nil
+	}
+	audience, err := claims.GetAudience()
+	if err != nil {
+		return nil, fmt.Errorf("reading audience: %w", err)
+	}
+	if len(audience) == 0 {
+		return claims, nil
+	}
+	// audience[0] is the API origin — see TokenAudience.
+	for _, a := range audience {
+		if a == s.audience[0] {
+			return claims, nil
+		}
+	}
+	return nil, fmt.Errorf("token audience %v does not include the Connect API (%s)", []string(audience), s.audience[0])
 }
 
 // ValidateBearerToken adapts ValidateToken to mcp.ClaimsValidator.
