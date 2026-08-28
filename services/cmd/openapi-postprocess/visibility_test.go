@@ -1,46 +1,28 @@
 package main
 
 import (
-	"strings"
 	"testing"
+
+	"github.com/castlemilk/shorted.com.au/services/pkg/protovisibility"
 )
 
-func TestPublicMethodPaths(t *testing.T) {
-	paths := PublicMethodPaths()
+// The substantive assertions about what counts as public now live in
+// services/pkg/protovisibility. What remains worth testing here is that the
+// post-processor actually consults that shared answer rather than a stale copy
+// of its own — the whole point of the move.
+func TestPublicMethodPathsDelegatesToSharedPackage(t *testing.T) {
+	got := PublicMethodPaths()
+	want := protovisibility.PublicMethodPaths()
 
-	if len(paths) == 0 {
+	if len(got) == 0 {
 		t.Fatal("no public methods found — are the generated proto packages imported?")
 	}
-
-	// GetStock is annotated VISIBILITY_PUBLIC on the domain service.
-	if !paths["/shorts.v1alpha1.StockService/GetStock"] {
-		t.Error("expected /shorts.v1alpha1.StockService/GetStock to be public")
+	if len(got) != len(want) {
+		t.Fatalf("PublicMethodPaths returned %d paths, shared package says %d", len(got), len(want))
 	}
-
-	for p := range paths {
-		// The legacy monolithic service is excluded wholesale: it duplicates
-		// every domain rpc, and generating it would double every path in the
-		// document. Keyed off the same const the implementation uses, so a
-		// typo there cannot leave this assertion passing against a substring
-		// that no longer matches.
-		if strings.HasPrefix(p, "/"+legacyService+"/") {
-			t.Errorf("legacy service must be excluded, got %s", p)
+	for p := range want {
+		if !got[p] {
+			t.Errorf("missing path %q", p)
 		}
-
-		// Pin the key FORMAT for every path, not just the one literal below.
-		// Task 3 prunes the generated document by exact key match, so a drift
-		// in this shape would silently delete every good path instead of
-		// failing loudly.
-		if !strings.HasPrefix(p, "/"+publicPackage+".") {
-			t.Errorf("path %q does not start with /%s.", p, publicPackage)
-		}
-		if strings.Count(p, "/") != 2 {
-			t.Errorf("path %q should have exactly two slashes: /<service>/<method>", p)
-		}
-	}
-
-	// MintToken issues credentials — it must never be advertised as public.
-	if paths["/shorts.v1alpha1.BillingService/MintToken"] {
-		t.Error("MintToken must not be public")
 	}
 }

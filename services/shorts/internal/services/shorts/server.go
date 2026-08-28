@@ -10,10 +10,17 @@ import (
 	shortsv1alpha1connect "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1/shortsv1alpha1connect"
 	"github.com/castlemilk/shorted.com.au/services/pkg/ratelimit"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/jobmonitor"
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/mcp"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/register"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// The MCP tools call this server's Connect handlers in-process, so the set of
+// methods they can reach is exactly mcp.DataSource. Asserting it here means a
+// signature change on a wrapped handler breaks the build in this package —
+// next to the handler — rather than at the mount in serve.go.
+var _ mcp.DataSource = (*ShortsServer)(nil)
 
 // Close releases resources held by the server.
 //

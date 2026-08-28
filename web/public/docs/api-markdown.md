@@ -1463,5 +1463,12 @@ curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StockService/GetStockVe
 ## Model Context Protocol
 
 A hosted MCP server exposes this data to MCP-capable clients over streamable
-HTTP at `https://shorted.com.au/api/mcp/mcp`. Point an MCP client at that URL;
-no separate install step is required.
+HTTP at `https://api.shorted.com.au/mcp` (protocol 2026-07-28). Point an MCP
+client at that URL; no account, token or install step is required.
+
+The live tool catalog is at `https://api.shorted.com.au/mcp/catalog.json`, and
+connection instructions for Claude, ChatGPT and generic clients are at
+https://shorted.com.au/docs/mcp.md
+
+`https://shorted.com.au/api/mcp/mcp` still responds but is DEPRECATED: it is a
+four-tool shim kept alive for existing client configurations.

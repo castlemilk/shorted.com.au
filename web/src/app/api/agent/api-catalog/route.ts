@@ -10,7 +10,11 @@ export const dynamic = "force-static";
  */
 export function GET() {
   const base = "https://shorted.com.au";
-  const mcpEndpoint = `${base}/api/mcp/mcp`;
+  // The Go MCP server, in-process with the API. NOT `${base}/api/mcp/mcp` —
+  // that route is a deprecated four-tool shim, and advertising it here would
+  // send every RFC 9727 discovery straight to the thing we are retiring.
+  const mcpEndpoint = "https://api.shorted.com.au/mcp";
+  const mcpCatalog = "https://api.shorted.com.au/mcp/catalog.json";
   const mcpServerCard = `${base}/.well-known/mcp/server-card.json`;
 
   const catalog = {
@@ -72,6 +76,11 @@ export function GET() {
             type: "application/json",
             title: "Shorted MCP server card",
           },
+          {
+            href: mcpCatalog,
+            type: "application/json",
+            title: "Shorted MCP tool catalog",
+          },
         ],
         status: [{ href: `${base}/api/health` }],
       },
@@ -85,6 +94,11 @@ export function GET() {
           },
         ],
         "service-doc": [
+          {
+            href: `${base}/docs/mcp.md`,
+            type: "text/markdown",
+            title: "Connecting to the Shorted MCP server",
+          },
           {
             href: `${base}/docs/api`,
             type: "text/html",

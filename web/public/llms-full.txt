@@ -4,7 +4,7 @@
 
 ## Platform Overview
 
-**Shorted** is a real-time ASX (Australian Securities Exchange) short position tracking and analysis platform. We provide institutional-grade data visualization and analytics for retail investors, researchers, and financial professionals.
+**Shorted** tracks ASX (Australian Securities Exchange) short positions from official ASIC data, and publishes three further Australian datasets alongside it: house prices by suburb, ABS/RBA economic series by state, and the federal register of members' and senators' interests. It serves retail investors, researchers and journalists.
 
 ### Core Purpose
 
@@ -36,6 +36,11 @@ All data is sourced from **ASIC** (Australian Securities and Investments Commiss
 - [Insider Trading & Director Trades](https://shorted.com.au/insider-trading): Per-stock director and insider trades sourced from ASX Appendix 3Y filings.
 - [Open Data Hub](https://shorted.com.au/data): Public dataset catalog with Dataset schema for Google Dataset Search.
 - [Australian House Prices Tracker](https://shorted.com.au/housing): ABS/RBA house-price tracker plus a national suburb explorer with census and electoral overlays.
+- [Residential Price Drops](https://shorted.com.au/price-drops): Suburbs where asking prices are being cut, published as derived aggregates only — individual listings are never republished.
+- [Australian Economy Explorer](https://shorted.com.au/economy): ABS and RBA economic series by state (CPI, labour, trade, GDP proxy, retail, approvals, population), with per-state pages and operations-weighted company exposure.
+- [Parliament's Portfolio](https://shorted.com.au/politicians): Federal MPs' and senators' declared interests from the APH registers, joined to ASX companies and suburbs. What is held, never how much.
+- [Company Directory](https://shorted.com.au/directory): Browsable index of ASX-listed companies.
+- [Methodology](https://shorted.com.au/methodology): How each dataset is sourced, derived and bounded.
 - [Learn Hub](https://shorted.com.au/learn): 14+ educational articles from beginner to advanced.
 - [Glossary](https://shorted.com.au/glossary): Comprehensive short selling terminology.
 - [FAQ](https://shorted.com.au/faq): 30+ answered questions across 6 categories.
@@ -129,7 +134,7 @@ The daily report published by ASIC contains:
 - [OpenAPI 3.1 description](https://shorted.com.au/openapi.json): Machine-readable description of every public endpoint. YAML twin at [/openapi.yaml](https://shorted.com.au/openapi.yaml).
 - [API reference (markdown)](https://shorted.com.au/docs/api.md): JavaScript-free reference with worked curl examples.
 - [API catalog (RFC 9727)](https://shorted.com.au/.well-known/api-catalog): Link set pointing at everything on this list.
-- [MCP server](https://shorted.com.au/api/mcp/mcp): Model Context Protocol endpoint (streamable HTTP), described by [/.well-known/mcp/server-card.json](https://shorted.com.au/.well-known/mcp/server-card.json).
+- [MCP server](https://api.shorted.com.au/mcp): Model Context Protocol endpoint (streamable HTTP, protocol 2026-07-28, 24 read-only tools), described by [/.well-known/mcp/server-card.json](https://shorted.com.au/.well-known/mcp/server-card.json).
 
 The API is not limited to short positions. It also covers Australian house
 prices and per-suburb metrics, ABS/RBA economic series by state, and the federal
@@ -220,10 +225,10 @@ Rate limit headers are included in all API responses:
 
 Shorted exposes a Model Context Protocol server with read-only tools over the same ASIC data — no authentication required:
 
-- **Endpoint** (streamable HTTP): `https://shorted.com.au/api/mcp/mcp`
+- **Endpoint** (streamable HTTP): `https://api.shorted.com.au/mcp` (the older `https://shorted.com.au/api/mcp/mcp` still responds but is deprecated)
 - **Server card**: [https://shorted.com.au/.well-known/mcp/server-card.json](https://shorted.com.au/.well-known/mcp/server-card.json)
 - **Tools**: `get_top_shorts` (most shorted ASX stocks), `get_stock` (single ticker summary), `get_stock_history` (time series), `get_industry_treemap` (sector breakdown)
-- **API catalog** (RFC 9727): [https://shorted.com.au/.well-known/api-catalog](https://shorted.com.au/.well-known/api-catalog) · OpenAPI: [https://shorted.com.au/openapi.json](https://shorted.com.au/openapi.json) · Auth notes: [https://shorted.com.au/auth.md](https://shorted.com.au/auth.md)
+- **API catalog** (RFC 9727): [https://shorted.com.au/.well-known/api-catalog](https://shorted.com.au/.well-known/api-catalog) · OpenAPI: [https://shorted.com.au/openapi.json](https://shorted.com.au/openapi.json)
 
 ## Interpreting Short Interest
 

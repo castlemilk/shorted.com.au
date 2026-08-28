@@ -21,7 +21,7 @@
     "api_docs": "https://shorted.com.au/docs/api",
     "api_docs_markdown": "https://shorted.com.au/docs/api.md",
     "api_catalog": "https://shorted.com.au/.well-known/api-catalog",
-    "mcp_server": "https://shorted.com.au/api/mcp/mcp",
+    "mcp_server": "https://api.shorted.com.au/mcp",
     "mcp_server_card": "https://shorted.com.au/.well-known/mcp/server-card.json",
     "llms_txt": "https://shorted.com.au/llms.txt",
     "search": "https://shorted.com.au/api/search/stocks",

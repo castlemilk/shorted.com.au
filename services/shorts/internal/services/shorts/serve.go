@@ -19,6 +19,7 @@ import (
 	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
 	"github.com/castlemilk/shorted.com.au/services/pkg/ratelimit"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/jobmonitor"
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/mcp"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/register"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/shorts/broadcast"
 
@@ -201,6 +202,26 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	// must also exist on the legacy public ShortedStocksService, and admin write
 	// methods do not belong on the surface external API consumers hold.
 	mount(registerreviewv1connect.NewRegisterReviewServiceHandler(s, interceptors))
+
+	// MCP (Model Context Protocol) — protocol 2026-07-28, streamable HTTP.
+	// Deliberately NOT via mount(): that helper is for Connect handlers, and
+	// this is JSON-RPC. Tools call this same ShortsServer in-process, which
+	// skips the interceptor chain above; see the mcp package doc for why that
+	// constrains them to VISIBILITY_PUBLIC methods.
+	//
+	// Both paths: the SDK's streamable transport uses the bare path, and
+	// clients sometimes append a trailing segment.
+	mcpHandler := mcp.Handler(s)
+	mux.Handle("/mcp", mcpHandler)
+	mux.Handle("/mcp/", mcpHandler)
+
+	// The published tool catalog. Everything that describes this server to the
+	// outside world — the SEP-1649 server card, /docs/mcp.md — renders from
+	// here, so a tool cannot be advertised without being registered.
+	//
+	// The exact pattern wins over "/mcp/" above by ServeMux's longest-match
+	// rule, so this does not have to be registered first.
+	mux.Handle("/mcp/catalog.json", mcp.CatalogHandler(s))
 
 	// Add health check endpoint
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
