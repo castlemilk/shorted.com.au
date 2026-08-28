@@ -18,6 +18,15 @@ known-open). If an older doc disagrees with these numbers — "115 suburbs",
 "~12k/22k listings", "7 modes", "Terraform not yet wired" — this line wins;
 the monolith drifted (`.claude/housing-program/docs-staleness.md`).
 
+**Added since, as at 2026-08-28:** the expanded Census layer is live —
+**8,952** suburbs carry tenure, labour-force, education, dwelling-structure,
+household-composition and personal-income shares (it read the wrong DataPack
+tables until 2026-08-27, so anything describing these as "reserved" or "NULL"
+predates the fix) — and per-suburb terrain is live, **15,307** suburbs with
+min/median/max elevation and land-share-below-1m/2m/5m from the GA 1 Second
+DEM-S. Both are read straight off `suburb_demographics`; no MV covers them.
+See [handover-2026-08-27.md](handover-2026-08-27.md) for how each was verified.
+
 ## Read these in this order
 
 | Doc | What it answers |
