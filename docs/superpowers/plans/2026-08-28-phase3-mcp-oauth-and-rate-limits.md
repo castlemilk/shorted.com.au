@@ -144,6 +144,10 @@ Resource-server side only. MCP stays anonymous-allowed; this adds the ability to
 
 **Files:** `web/src/app/oauth/authorize/page.tsx` (+ tests)
 
+**ACCEPTANCE CRITERION — the consent ticket.** A security review of Task 3 found that the grant is authenticated *only* by a Firebase ID token, so it is not proof a human approved anything. That is survivable in isolation, and stops being survivable the moment Task 5 ships open dynamic registration: an attacker holding a stolen ID token registers **their own** client with **their own** redirect URI, POSTs the grant, redeems the code, and converts a ~1h Firebase credential into an indefinitely-rotating refresh token — with no human ever seeing a screen.
+
+So this task must introduce a server-side, single-use **consent ticket**: minted when the human approves, bound to `user_id + client_id + redirect_uri + code_challenge`, ~2 minute TTL, stored hashed, and **required by `/oauth/authorize/grant` alongside the ID token**. That is what turns "someone holds a token" into "a human approved this client". Do not weaken it by exposing the ID token to the client app, and do not auto-approve.
+
 - [ ] **Step 1** — A real consent screen, not an auto-approve redirect. It must name the **client**, its **redirect URI**, and the **scopes** in plain language, and require an explicit action. Signed-out users go through the existing Firebase sign-in and return here with the request intact.
 
 - [ ] **Step 2** — On approve, POST the Firebase ID token plus the request parameters to Go's `/oauth/authorize/grant`, then follow the returned redirect. On deny, redirect with `error=access_denied` **and `iss`**.
@@ -159,6 +163,8 @@ Resource-server side only. MCP stays anonymous-allowed; this adds the ability to
 **Files:** `services/pkg/ratelimit/http.go` (+ tests), `services/shorts/internal/mcp/`
 
 - [ ] **Step 1** — `ratelimit.HTTPMiddleware` over the **same** `RateLimiter` the Connect interceptor uses. No second policy, no second store, no Upstash.
+
+  **Also cover `/oauth/authorize/grant`.** It is a plain mux handler, so it bypasses the Connect interceptor entirely, and each call costs one Firebase network verification driven by an unauthenticated caller. Today its only ceiling is the tier-blind, per-colo edge `api-anon` bucket, which is absent in local and preview. Limit per IP **before** `VerifyIDToken` runs, or the limiter does not protect the expensive part.
 
   Identifier: `oauth:<userID>` / `token:<sha256[:32]>` / `mcp-anon:<ip>`. Access class **`api`** — so `RateLimitDetail.access` is right and the upgrade copy does not over-promise (paid *browser* is unlimited; paid *API* is not).
 
