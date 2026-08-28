@@ -209,11 +209,37 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	// skips the interceptor chain above; see the mcp package doc for why that
 	// constrains them to VISIBILITY_PUBLIC methods.
 	//
+	// OAuth 2.1 resource-server wrapping. A bearer token is OPTIONAL: no
+	// Authorization header still means anonymous access to all 24 tools, which
+	// is what makes this server adoptable. A token that IS presented is
+	// verified — signature, expiry, and RFC 8707 audience binding to this
+	// deployment's /mcp resource — and its identity attached to the request
+	// context for later tasks. A bad one earns a 401 with the RFC 9728
+	// challenge instead of a silent downgrade to anonymous.
+	//
+	// Nothing is gated on the token yet; tier gating is a later task.
+	//
+	// The origin comes from config (API_BASE_URL), not the environment
+	// directly: it must be the SAME origin New() minted the token audience
+	// against, or the server would refuse the tokens it issues.
+	apiBaseURL := s.config.APIBaseURL
+	if apiBaseURL == "" {
+		apiBaseURL = mcp.DefaultAPIBaseURL
+	}
+	mcpHandler := mcp.OptionalBearerToken(
+		mcp.NewTokenVerifier(s.tokenService, mcp.ResourceURI(apiBaseURL)),
+		mcp.BearerTokenOptions(apiBaseURL),
+	)(mcp.Handler(s))
 	// Both paths: the SDK's streamable transport uses the bare path, and
 	// clients sometimes append a trailing segment.
-	mcpHandler := mcp.Handler(s)
 	mux.Handle("/mcp", mcpHandler)
 	mux.Handle("/mcp/", mcpHandler)
+
+	// RFC 9728 protected resource metadata. This is the document the
+	// WWW-Authenticate challenge points at, and the first thing an MCP client
+	// fetches when it decides it needs to authenticate — it is how a client
+	// learns which authorization server to talk to without being told.
+	mux.Handle(mcp.ProtectedResourceMetadataPath, mcp.ProtectedResourceMetadataHandler(apiBaseURL))
 
 	// The published tool catalog. Everything that describes this server to the
 	// outside world — the SEP-1649 server card, /docs/mcp.md — renders from

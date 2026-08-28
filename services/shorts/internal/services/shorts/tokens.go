@@ -2,8 +2,10 @@ package shorts
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/mcp"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -12,8 +14,13 @@ type Claims struct {
 	UserID        string   `json:"user_id"`
 	Email         string   `json:"email"`
 	Roles         []string `json:"roles"`
-	Tier          string   `json:"tier,omitempty"`           // Subscription tier: free, pro, enterprise
+	Tier          string   `json:"tier,omitempty"`            // Subscription tier: free, pro, enterprise
 	IsBrowserAuth bool     `json:"is_browser_auth,omitempty"` // True if authenticated via Firebase (browser)
+	// Scope is the OAuth 2.0 granted scope set, space-delimited per RFC 6749
+	// §3.3. Empty on every token this service mints today — the tokens minted
+	// through MintTokenWithTier are whole-API credentials, not scoped grants.
+	// The OAuth token endpoint (Phase 3, Task 4) is what will populate it.
+	Scope string `json:"scope,omitempty"`
 }
 
 // GetUserID implements ratelimit.UserClaims interface
@@ -33,11 +40,34 @@ func (c *Claims) GetIsBrowserAuth() bool {
 
 type TokenService struct {
 	secret []byte
+	// audience is stamped into every token this service mints. See
+	// TokenAudience for what goes in it and why it is configured rather than
+	// hardcoded.
+	audience []string
 }
 
-func NewTokenService(secret string) *TokenService {
+// TokenAudience is the audience list for tokens minted by an API deployment
+// whose public origin is apiBaseURL.
+//
+// Two entries, for two surfaces: the API origin itself (the Connect API) and
+// the RFC 8707 resource identifier of the MCP server. Both are derived from
+// the configured origin so that a dev-minted token is not spendable against
+// prod — which is the whole value of binding an audience in the first place.
+func TokenAudience(apiBaseURL string) []string {
+	base := strings.TrimSuffix(apiBaseURL, "/")
+	return []string{base, mcp.ResourceURI(base)}
+}
+
+// NewTokenService builds the JWT minter/validator.
+//
+// audience may be omitted, in which case minted tokens carry no `aud` and are
+// therefore Connect-API-only — indistinguishable from a token minted before
+// audiences existed. That is the right degradation for a misconfigured
+// environment: the API keeps working and only the MCP surface refuses.
+func NewTokenService(secret string, audience ...string) *TokenService {
 	return &TokenService{
-		secret: []byte(secret),
+		secret:   []byte(secret),
+		audience: audience,
 	}
 }
 
@@ -54,6 +84,11 @@ func (s *TokenService) MintTokenWithTier(userID, email string, roles []string, t
 			ExpiresAt: jwt.NewNumericDate(now.Add(duration)),
 			IssuedAt:  jwt.NewNumericDate(now),
 			Issuer:    "shorted-api",
+			// RFC 8707 resource binding. Absent before this existed, which is
+			// exactly why the MCP verifier treats an absent audience as a
+			// refusal and the Connect API does not check it at all — see
+			// mcp.NewTokenVerifier for the full seam.
+			Audience: jwt.ClaimStrings(s.audience),
 		},
 		UserID: userID,
 		Email:  email,
@@ -85,5 +120,39 @@ func (s *TokenService) ValidateToken(tokenString string) (*Claims, error) {
 	return nil, fmt.Errorf("invalid token")
 }
 
+// ValidateBearerToken adapts ValidateToken to mcp.ClaimsValidator.
+//
+// The adapter exists because of the import direction: the mcp package cannot
+// name *Claims (this package imports mcp, for DataSource), so the resource
+// server declares the narrow shape it needs and this method projects onto it.
+// Satisfaction is asserted at compile time in tokens_test.go.
+//
+// Note what it does NOT do: it performs no audience check. Audience is
+// resource-specific and belongs to the resource server that knows its own
+// identifier — mcp.NewTokenVerifier does it. Doing it here would either bind
+// this method to one resource or duplicate the seam.
+func (s *TokenService) ValidateBearerToken(tokenString string) (*mcp.VerifiedClaims, error) {
+	claims, err := s.ValidateToken(tokenString)
+	if err != nil {
+		return nil, err
+	}
 
+	audience, err := claims.GetAudience()
+	if err != nil {
+		return nil, fmt.Errorf("reading audience: %w", err)
+	}
 
+	var expiresAt time.Time
+	if exp, err := claims.GetExpirationTime(); err == nil && exp != nil {
+		expiresAt = exp.Time
+	}
+
+	return &mcp.VerifiedClaims{
+		UserID:    claims.UserID,
+		Audience:  []string(audience),
+		ExpiresAt: expiresAt,
+		// strings.Fields, not Split(" "), so a doubled or tab separator does
+		// not produce an empty scope that silently never matches.
+		Scopes: strings.Fields(claims.Scope),
+	}, nil
+}

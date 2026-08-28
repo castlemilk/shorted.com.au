@@ -79,7 +79,15 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 		// Allow fallback only in development
 		tokenSecret = "dev-secret-unsafe-do-not-use-in-production"
 	}
-	tokenService := NewTokenService(tokenSecret)
+	// Tokens are audience-bound (RFC 8707) to this deployment's origin and its
+	// MCP resource identifier. An unset APIBaseURL would mint audience-less
+	// tokens that the MCP resource server refuses, so normalise once here —
+	// every later reader (the metadata document, the bearer challenge) then
+	// sees the same origin the tokens were minted against.
+	if cfg.APIBaseURL == "" {
+		cfg.APIBaseURL = mcp.DefaultAPIBaseURL
+	}
+	tokenService := NewTokenService(tokenSecret, TokenAudience(cfg.APIBaseURL)...)
 
 	// Initialize Pub/Sub client (optional, service can run without it)
 	var pubSubClient PubSubClient
