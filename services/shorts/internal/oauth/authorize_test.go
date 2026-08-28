@@ -506,3 +506,73 @@ func TestGrantCodesAreUnpredictableAndDistinct(t *testing.T) {
 		seen[code] = true
 	}
 }
+
+// A client that declared a scope set at registration is held to it. Otherwise
+// the registered scope is decorative and any client can ask for everything.
+func TestGrantRejectsScopeBeyondTheClientsRegisteredSet(t *testing.T) {
+	store := defaultStore()
+	store.clients[testClientID].Scope = "shorts:read"
+	body := defaultBody()
+	body["scope"] = "shorts:read politics:read"
+	rec := post(t, newTestHandler(t, &fakeIdentity{userID: "uid-1"}, store), body)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+	if got := decodeError(t, rec); got != "invalid_scope" {
+		t.Errorf("error = %q", got)
+	}
+	if len(store.codes) != 0 {
+		t.Error("a code was minted beyond the client's registered scope")
+	}
+}
+
+func TestGrantDefaultsToTheClientsRegisteredScope(t *testing.T) {
+	store := defaultStore()
+	store.clients[testClientID].Scope = "housing:read"
+	body := defaultBody()
+	delete(body, "scope")
+	rec := post(t, newTestHandler(t, &fakeIdentity{userID: "uid-1"}, store), body)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body %s", rec.Code, rec.Body.String())
+	}
+	if store.codes[0].Scope != "housing:read" {
+		t.Errorf("Scope = %q", store.codes[0].Scope)
+	}
+}
+
+// The consent screen lives on the WEB origin and this endpoint on the API
+// origin, so the approve POST is cross-origin: without a preflight answer the
+// flow dead-ends in the browser.
+func TestGrantAnswersThePreflightFromTheConsentOrigin(t *testing.T) {
+	h := newTestHandler(t, &fakeIdentity{userID: "uid-1"}, defaultStore())
+	req := httptest.NewRequest(http.MethodOptions, GrantPath, nil)
+	req.Header.Set("Origin", "https://example.test")
+	req.Header.Set("Access-Control-Request-Method", "POST")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "https://example.test" {
+		t.Errorf("Access-Control-Allow-Origin = %q", got)
+	}
+	// Never credentialed: identity is a body-borne ID token, not a cookie, so
+	// there is no ambient authority for a cross-site page to ride.
+	if got := rec.Header().Get("Access-Control-Allow-Credentials"); got != "" {
+		t.Errorf("Access-Control-Allow-Credentials = %q, want unset", got)
+	}
+}
+
+func TestGrantDoesNotAllowAnUnknownBrowserOrigin(t *testing.T) {
+	h := newTestHandler(t, &fakeIdentity{userID: "uid-1"}, defaultStore())
+	for _, origin := range []string{"https://evil.test", "null", "https://example.test.evil"} {
+		req := httptest.NewRequest(http.MethodOptions, GrantPath, nil)
+		req.Header.Set("Origin", origin)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "" {
+			t.Errorf("origin %q got Access-Control-Allow-Origin %q, want unset", origin, got)
+		}
+	}
+}

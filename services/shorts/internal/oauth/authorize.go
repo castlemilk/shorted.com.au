@@ -104,12 +104,26 @@ type grantRequest struct {
 }
 
 type grantHandler struct {
-	issuer    string
-	identity  IdentityVerifier
-	store     Store
-	now       func() time.Time
-	resources []string
-	scopes    map[string]bool
+	issuer string
+	// consentOrigin is the single browser origin allowed to call this endpoint
+	// cross-origin. See the CORS block in ServeHTTP.
+	consentOrigin string
+	identity      IdentityVerifier
+	store         Store
+	now           func() time.Time
+	resources     []string
+	scopes        map[string]bool
+}
+
+// originOf reduces a URL to its scheme://host form — what a browser puts in
+// the Origin header. An unparseable URL yields "", which matches no Origin
+// header and therefore allows nothing.
+func originOf(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return ""
+	}
+	return u.Scheme + "://" + u.Host
 }
 
 // NewGrantHandler builds the POST /oauth/authorize/grant handler.
@@ -133,10 +147,11 @@ func NewGrantHandler(cfg GrantConfig) http.Handler {
 		scopes[s] = true
 	}
 	return &grantHandler{
-		issuer:   issuer,
-		identity: cfg.Identity,
-		store:    cfg.Store,
-		now:      now,
+		issuer:        issuer,
+		consentOrigin: originOf(cfg.Endpoints.consent()),
+		identity:      cfg.Identity,
+		store:         cfg.Store,
+		now:           now,
 		// The ONE grantable resource: this deployment's MCP server. The Connect
 		// API origin is deliberately absent — an OAuth grant here authorises the
 		// MCP surface, and widening it to the whole API would need its own
@@ -147,6 +162,29 @@ func NewGrantHandler(cfg GrantConfig) http.Handler {
 }
 
 func (h *grantHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// CORS, because the consent screen is on the WEB origin and this endpoint
+	// is on the API origin — without it the approve button fails a preflight
+	// and the flow dead-ends with nothing in any log.
+	//
+	// The allowlist is ONE origin: the consent screen's own, derived from the
+	// configured ConsentURL so dev and prod each allow themselves. Not `*`,
+	// even though the metadata document uses it — that document is public and
+	// read-only, whereas this endpoint MINTS a code. And no
+	// Allow-Credentials: identity here is a Firebase ID token in the body, not
+	// a cookie, so there is no ambient authority for a cross-site page to ride.
+	origin := r.Header.Get("Origin")
+	if origin != "" && origin == h.consentOrigin {
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+		w.Header().Set("Vary", "Origin")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.Header().Set("Access-Control-Max-Age", "600")
+	}
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
 	if r.Method != http.MethodPost {
 		w.Header().Set("Allow", "POST")
 		writeOAuthError(w, http.StatusMethodNotAllowed, "invalid_request", "POST required")
@@ -257,8 +295,11 @@ func (h *grantHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// 6. SCOPE. Unknown scopes are refused rather than dropped: silently
 	//    narrowing a grant produces a client that believes it has access it
-	//    does not, and fails later somewhere unrelated.
-	scope, ok := h.normaliseScope(req.Scope)
+	//    does not, and fails later somewhere unrelated. A client that declared
+	//    a scope set at registration is also held to it — a registration is a
+	//    statement of what the client needs, and letting a request exceed it
+	//    makes the declaration decorative.
+	scope, ok := h.normaliseScope(req.Scope, client.Scope)
 	if !ok {
 		writeOAuthError(w, http.StatusBadRequest, "invalid_scope", "unsupported scope requested")
 		return
@@ -303,15 +344,40 @@ func (h *grantHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // normaliseScope validates the requested scope set against the published
-// vocabulary, returning the space-delimited grant. An empty request gets the
-// full read vocabulary, which is what every scope in it already is.
-func (h *grantHandler) normaliseScope(requested string) (string, bool) {
+// vocabulary AND against the client's registered scope, returning the
+// space-delimited grant.
+//
+// An empty request gets the client's registered scope, or the full read
+// vocabulary when the client registered none — every scope in it is read-only
+// against one resource, so the default is the whole of what this AS grants.
+func (h *grantHandler) normaliseScope(requested, registered string) (string, bool) {
+	allowed := h.scopes
+	if regFields := strings.Fields(registered); len(regFields) > 0 {
+		allowed = make(map[string]bool, len(regFields))
+		for _, s := range regFields {
+			// A registered scope outside the published vocabulary grants
+			// nothing: the intersection is what the client may ask for.
+			if h.scopes[s] {
+				allowed[s] = true
+			}
+		}
+	}
+
 	fields := strings.Fields(requested)
 	if len(fields) == 0 {
-		return strings.Join(mcp.Scopes, " "), true
+		granted := make([]string, 0, len(allowed))
+		for _, s := range mcp.Scopes { // published order, not map order
+			if allowed[s] {
+				granted = append(granted, s)
+			}
+		}
+		if len(granted) == 0 {
+			return "", false
+		}
+		return strings.Join(granted, " "), true
 	}
 	for _, s := range fields {
-		if !h.scopes[s] {
+		if !allowed[s] {
 			return "", false
 		}
 	}
