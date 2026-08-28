@@ -147,6 +147,66 @@ func TestRefreshFamilyRevocationDoesNotLoseAConcurrentRotation(t *testing.T) {
 	}
 }
 
+// GetRefreshToken is the non-destructive read the pre-validation depends on, so
+// two things about it have to hold against real SQL: it must not change the row,
+// and NULL rotated_at / revoked_at — the LIVE state — must arrive as the Go zero
+// time rather than as some coalesced stand-in that reads as "rotated in 1970".
+func TestGetRefreshTokenReadsLiveAndDeadStateWithoutMutating(t *testing.T) {
+	pool := testPool(t)
+	ctx := context.Background()
+	store := NewPostgresStore(pool)
+	clientID := seedClient(t, pool)
+
+	family := uuid.NewString()
+	parentHash := seedFamily(t, store, clientID, family, 1)[0]
+
+	got, err := store.GetRefreshToken(ctx, parentHash)
+	if err != nil || got == nil {
+		t.Fatalf("GetRefreshToken = %v, %v", got, err)
+	}
+	if !got.RotatedAt.IsZero() || !got.RevokedAt.IsZero() {
+		t.Fatalf("a live token read back as rotated=%v revoked=%v; NULL is the live state",
+			got.RotatedAt, got.RevokedAt)
+	}
+	if got.FamilyID != family || got.ClientID != clientID || got.Scope != "shorts:read" {
+		t.Fatalf("row = %+v", got)
+	}
+	// Reading it did not spend it.
+	if live := liveInFamily(t, pool, family); live != 1 {
+		t.Fatalf("%d live tokens after a read, want 1 — the read mutated the row", live)
+	}
+
+	// Rotated and revoked state must be visible, because telling a dead token
+	// from an unknown one is the reuse signal.
+	successor, err := newRefreshToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.RotateRefreshToken(ctx, parentHash, HashCode(successor), time.Now().Add(RefreshTokenTTL)); err != nil {
+		t.Fatal(err)
+	}
+	if got, err = store.GetRefreshToken(ctx, parentHash); err != nil || got == nil {
+		t.Fatalf("GetRefreshToken after rotation = %v, %v", got, err)
+	}
+	if got.RotatedAt.IsZero() {
+		t.Error("a rotated token read back as live; reuse would go undetected")
+	}
+	if _, err := store.RevokeRefreshTokenFamily(ctx, parentHash); err != nil {
+		t.Fatal(err)
+	}
+	if got, err = store.GetRefreshToken(ctx, HashCode(successor)); err != nil || got == nil {
+		t.Fatalf("GetRefreshToken on the successor = %v, %v", got, err)
+	}
+	if got.RevokedAt.IsZero() {
+		t.Error("a revoked token read back as live")
+	}
+
+	// Unknown is (nil, nil), not an error and not a zero row.
+	if got, err := store.GetRefreshToken(ctx, HashCode("no-such-token")); err != nil || got != nil {
+		t.Errorf("unknown token = %v, %v; want nil, nil", got, err)
+	}
+}
+
 // PROOF (stochastic): the same property under real contention, with no hook.
 //
 // SIXTY-FOUR racers, and the number is not decoration. The reviewer's mutation

@@ -77,6 +77,18 @@ type TokenStore interface {
 	// one transaction.
 	CreateRefreshToken(ctx context.Context, token RefreshToken) error
 
+	// GetRefreshToken reads a token row WITHOUT changing it. Unknown token:
+	// (nil, nil). Rotated and revoked rows ARE returned, with RotatedAt /
+	// RevokedAt set, because telling a dead token from an unknown one is the
+	// whole point of reading it.
+	//
+	// This is the non-destructive half of the refresh grant: it lets an ordinary
+	// client bug (a widened scope, the wrong resource) be refused without
+	// spending the token, so that killing the family stays reserved for evidence
+	// of compromise. It decides nothing on its own — RotateRefreshToken is still
+	// the atomic single-use gate.
+	GetRefreshToken(ctx context.Context, tokenHash string) (*RefreshToken, error)
+
 	// RotateRefreshToken marks the presented token rotated and inserts the
 	// successor in one transaction, returning the PARENT row.
 	//
@@ -96,9 +108,16 @@ type TokenStore interface {
 // It exists so that this package does not have to name the shorts package's
 // Claims type (shorts imports oauth, so the dependency runs one way only) —
 // the same shape of seam as IdentityVerifier and mcp.ClaimsValidator.
+// There is deliberately NO Email field. There was one, it was never set by
+// issue(), and it reached TokenService.mint as an always-empty claim — a field
+// that is structurally guaranteed to be empty is worse than no field, because
+// the next caller reads it as "the email is available here" and ships something
+// that silently depends on "". Populating it is not available either: an email
+// is only in hand at the grant, and neither oauth_authorization_codes nor
+// oauth_refresh_tokens carries a column for it, so an OAuth access token cannot
+// truthfully assert one. Removing it says that.
 type AccessTokenRequest struct {
 	UserID string
-	Email  string
 	// Tier is resolved from api_subscriptions at mint time. It is a HINT: the
 	// Connect interceptor re-resolves tier on every request and never trusts
 	// the token's copy, because a token outlives a cancelled subscription.
@@ -321,6 +340,25 @@ func (h *tokenHandler) authorizationCode(w http.ResponseWriter, r *http.Request)
 // (a dropped response, two threads refreshing at once) also kills its family
 // and has to re-authorise. RFC 9700 §4.14.2 makes that trade the recommended
 // one, because the alternative is being unable to distinguish theft at all.
+//
+// WHAT IS VALIDATED BEFORE THE TOKEN IS SPENT, AND WHY THAT IS NOT A WEAKENING.
+// The order used to be rotate-then-validate, which meant a successor already
+// existed by the time a scope or resource mismatch was noticed, and the only
+// safe answer left was to kill the family. But a widened scope and a mistyped
+// resource are ORDINARY CLIENT BUGS. Answering them with the same response as
+// theft does not make the system safer; it makes the theft signal worthless, in
+// exactly the way a freshness alarm that fires on the designed steady state
+// stops meaning anything.
+//
+// So the parent is READ first, non-destructively, and client, expiry, scope and
+// resource are checked against that read. A failed pre-check leaves the token
+// LIVE and nothing rotated — the same argument this file already makes for
+// running validVerifier before the code consume. Safety is unchanged because
+// the pre-check is not the gate: RotateRefreshToken is still the atomic
+// single-use conditional update, and it is still the thing that decides whether
+// this presentation gets to spend the token. Anything the read says can be
+// stale by the time the rotate runs; nothing is trusted that the rotate does
+// not re-establish.
 func (h *tokenHandler) refresh(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	presented := r.PostFormValue("refresh_token")
@@ -332,32 +370,34 @@ func (h *tokenHandler) refresh(w http.ResponseWriter, r *http.Request) {
 	}
 	presentedHash := HashCode(presented)
 
-	successor, err := newRefreshToken()
+	parent, err := h.store.GetRefreshToken(ctx, presentedHash)
 	if err != nil {
-		log.Errorf("oauth token: generating refresh token: %v", err)
-		writeOAuthError(w, http.StatusInternalServerError, "server_error", "could not issue a token")
-		return
-	}
-
-	parent, err := h.store.RotateRefreshToken(ctx, presentedHash, HashCode(successor), h.now().Add(RefreshTokenTTL))
-	if err != nil {
-		log.Errorf("oauth token: rotating refresh token: %v", err)
-		writeOAuthError(w, http.StatusInternalServerError, "server_error", "could not rotate the token")
+		// FAIL CLOSED, for the same reason the code path does: a storage failure
+		// is not "no such token".
+		log.Errorf("oauth token: reading refresh token: %v", err)
+		writeOAuthError(w, http.StatusInternalServerError, "server_error", "could not read the token")
 		return
 	}
 	if parent == nil {
-		// We did not win the conditional update. Either the token never
-		// existed, or it has already been rotated or revoked — and the latter
-		// two mean two parties hold it. Revoke the family; an unknown token has
-		// none, so this is a no-op for the innocent case.
+		// An unknown token has no family to revoke and no user to log out. One
+		// answer for unknown and dead, so the response cannot be used to tell a
+		// real token from an invented one.
+		writeOAuthError(w, http.StatusBadRequest, "invalid_grant",
+			"the refresh token is invalid, expired or has already been used")
+		return
+	}
+	// REUSE, checked before anything else. A token that has already been rotated
+	// or revoked is being held by two parties, and that judgement must not be
+	// pre-empted by a scope or resource complaint about the same request — a
+	// thief who also mistypes a scope is still a thief.
+	if !parent.RotatedAt.IsZero() || !parent.RevokedAt.IsZero() {
 		h.revokeFamily(ctx, presentedHash, "reuse of a rotated or revoked refresh token")
 		writeOAuthError(w, http.StatusBadRequest, "invalid_grant",
 			"the refresh token is invalid, expired or has already been used")
 		return
 	}
-
-	// From here the successor EXISTS, so every refusal below must also kill the
-	// family — otherwise a refused rotation would leave a live token behind.
+	// A token presented by a client it was not issued to is theft, not a typo:
+	// the presenter got it from somewhere other than the exchange that minted it.
 	if parent.ClientID != clientID {
 		log.Warnf("oauth token: refresh token for client %q presented by client %q", parent.ClientID, clientID)
 		h.revokeFamily(ctx, presentedHash, "cross-client refresh token presentation")
@@ -365,18 +405,24 @@ func (h *tokenHandler) refresh(w http.ResponseWriter, r *http.Request) {
 			"the refresh token was not issued to this client")
 		return
 	}
+	// Expiry is a clock, not a compromise. The token is already useless; killing
+	// its family as well would log a user out for the crime of being slow.
 	if !h.now().Before(parent.ExpiresAt) {
-		h.revokeFamily(ctx, presentedHash, "expired refresh token")
 		writeOAuthError(w, http.StatusBadRequest, "invalid_grant", "the refresh token has expired")
 		return
 	}
 
 	// A refresh may NARROW the grant (RFC 6749 §6) and may never widen it.
+	//
+	// TrimSpace, because `scope=%20%20` is a whitespace-only field: strings.Fields
+	// of it is empty, narrowScope refuses an empty set, and a client that sent a
+	// blank scope parameter used to have its entire family revoked for it.
+	// An empty field set is "no narrowing requested", which is what an absent
+	// parameter means.
 	scope := parent.Scope
-	if requested := r.PostFormValue("scope"); requested != "" {
+	if requested := strings.TrimSpace(r.PostFormValue("scope")); requested != "" {
 		narrowed, ok := narrowScope(parent.Scope, requested)
 		if !ok {
-			h.revokeFamily(ctx, presentedHash, "refresh requesting a wider scope than was granted")
 			writeOAuthError(w, http.StatusBadRequest, "invalid_scope",
 				"the requested scope exceeds the scope of the original grant")
 			return
@@ -384,13 +430,71 @@ func (h *tokenHandler) refresh(w http.ResponseWriter, r *http.Request) {
 		scope = narrowed
 	}
 	if requested := r.PostFormValue("resource"); requested != "" && requested != parent.Resource {
-		h.revokeFamily(ctx, presentedHash, "refresh requesting a different resource")
 		writeOAuthError(w, http.StatusBadRequest, "invalid_target",
 			"resource does not match the resource this token was issued for")
 		return
 	}
 
-	h.issue(w, r, parent.UserID, parent.ClientID, parent.Resource, scope, successor)
+	// The client must still be REGISTERED for this grant. grant_types was
+	// enforced at /authorize and nowhere else, so a client registered for
+	// authorization_code alone could refresh indefinitely. Reading the client
+	// through ResolvingStore also touches last_used_at, which the unused-client
+	// sweep depends on and which the refresh path never used to write — a client
+	// that only ever refreshes looked untouched to the sweeper.
+	//
+	// LAST of the checks on purpose. For a Client ID Metadata Document client_id
+	// this is not a database read but an outbound HTTPS fetch (cached for
+	// DefaultCIMDSuccessTTL), so it is the only check here that can be slow or
+	// can fail for reasons that have nothing to do with the caller. Everything
+	// cheap and local is already decided by this point, so an unreachable
+	// metadata document costs latency only on requests that were going to
+	// succeed.
+	client, err := h.store.GetClient(ctx, clientID)
+	if err != nil {
+		log.Errorf("oauth token: client lookup failed: %v", err)
+		writeOAuthError(w, http.StatusInternalServerError, "server_error", "client lookup failed")
+		return
+	}
+	if client == nil {
+		writeOAuthError(w, http.StatusBadRequest, "invalid_client", "unknown client_id")
+		return
+	}
+	// The length guard is for rows that predate grant-type normalisation. Nothing
+	// can write an empty set now, but an empty set must not read as "deny
+	// everything" for a client that has been refreshing happily for weeks.
+	if len(client.GrantTypes) > 0 && !containsString(client.GrantTypes, "refresh_token") {
+		writeOAuthError(w, http.StatusBadRequest, "unauthorized_client",
+			"this client is not registered for the refresh_token grant")
+		return
+	}
+
+	// Everything checks out, so now spend it. This is the gate, and it is the
+	// only statement here whose outcome is authoritative.
+	successor, err := newRefreshToken()
+	if err != nil {
+		log.Errorf("oauth token: generating refresh token: %v", err)
+		writeOAuthError(w, http.StatusInternalServerError, "server_error", "could not issue a token")
+		return
+	}
+	rotated, err := h.store.RotateRefreshToken(ctx, presentedHash, HashCode(successor), h.now().Add(RefreshTokenTTL))
+	if err != nil {
+		log.Errorf("oauth token: rotating refresh token: %v", err)
+		writeOAuthError(w, http.StatusInternalServerError, "server_error", "could not rotate the token")
+		return
+	}
+	if rotated == nil {
+		// We did not win the conditional update, even though the read a moment
+		// ago said the token was live. Something rotated or revoked it in
+		// between — which means two parties presented it. This is the reuse
+		// detection that actually matters, because it is the only one that is
+		// atomic.
+		h.revokeFamily(ctx, presentedHash, "reuse of a rotated or revoked refresh token")
+		writeOAuthError(w, http.StatusBadRequest, "invalid_grant",
+			"the refresh token is invalid, expired or has already been used")
+		return
+	}
+
+	h.issue(w, r, rotated.UserID, rotated.ClientID, rotated.Resource, scope, successor)
 }
 
 // revokeFamily is best effort and never changes the response: a failure to

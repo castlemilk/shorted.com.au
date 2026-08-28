@@ -143,6 +143,11 @@ func (s *TokenService) mint(req mintRequest) (string, error) {
 // Roles are empty on purpose: a role is an operator grant, not something a
 // consent screen can confer, so an OAuth token can never satisfy a
 // required_role check.
+//
+// Email is empty for the same kind of reason. The grant knows the user's email,
+// but nothing durable between the grant and here carries it, so the claim would
+// be an always-empty string dressed up as a fact. oauth.AccessTokenRequest has
+// no Email field at all, which is the honest version of that.
 func (s *TokenService) MintAccessToken(req oauth.AccessTokenRequest) (string, error) {
 	ttl := req.TTL
 	if ttl <= 0 {
@@ -150,7 +155,6 @@ func (s *TokenService) MintAccessToken(req oauth.AccessTokenRequest) (string, er
 	}
 	return s.mint(mintRequest{
 		UserID:   req.UserID,
-		Email:    req.Email,
 		Tier:     req.Tier,
 		Scope:    req.Scope,
 		Audience: req.Audience,

@@ -29,10 +29,11 @@ type fakeTokenStore struct {
 	codes   map[string]*AuthorizationCode
 	refresh map[string]*RefreshToken
 
-	getClientErr error
-	consumeErr   error
-	rotateErr    error
-	createErr    error
+	getClientErr  error
+	consumeErr    error
+	rotateErr     error
+	createErr     error
+	getRefreshErr error
 
 	consumeCalls int
 }
@@ -93,6 +94,20 @@ func (f *fakeTokenStore) CreateRefreshToken(_ context.Context, rt RefreshToken) 
 	cp := rt
 	f.refresh[rt.TokenHash] = &cp
 	return nil
+}
+
+func (f *fakeTokenStore) GetRefreshToken(_ context.Context, hash string) (*RefreshToken, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.getRefreshErr != nil {
+		return nil, f.getRefreshErr
+	}
+	rt, ok := f.refresh[hash]
+	if !ok {
+		return nil, nil
+	}
+	cp := *rt
+	return &cp, nil
 }
 
 func (f *fakeTokenStore) RotateRefreshToken(_ context.Context, presented, successor string, expires time.Time) (*RefreshToken, error) {
@@ -593,6 +608,159 @@ func TestRefreshCannotWidenScope(t *testing.T) {
 	}
 	if got := decodeTokenResponse(t, rec)["error"]; got != "invalid_scope" {
 		t.Errorf("error = %v, want invalid_scope", got)
+	}
+}
+
+// A client bug is not theft, and must not be answered as though it were.
+//
+// Scope widening and resource mismatch used to be checked AFTER the rotation,
+// so a successor already existed and the only safe response left was to kill
+// the family. Validating first means the token stays live and the client can
+// retry with a correct request — and it keeps family revocation meaning
+// "somebody is holding a token they should not", which is the only reason to
+// have the signal at all.
+func TestOrdinaryClientMistakesDoNotRevokeTheFamily(t *testing.T) {
+	for name, mutate := range map[string]func(url.Values){
+		"a scope wider than the grant": func(f url.Values) { f.Set("scope", "shorts:read economy:read") },
+		"an unknown scope":             func(f url.Values) { f.Set("scope", "not:a:scope") },
+		"the wrong resource":           func(f url.Values) { f.Set("resource", "https://api.evil.test/mcp") },
+	} {
+		t.Run(name, func(t *testing.T) {
+			store := newFakeTokenStore()
+			minter := &fakeMinter{}
+			h := newTokenTestHandler(store, minter, nil)
+			first := redeem(t, h, store)
+
+			form := refreshForm(first)
+			mutate(form)
+			if rec := postForm(t, h, form); rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want 400", rec.Code)
+			}
+			if minter.n != 1 {
+				t.Errorf("minted %d access tokens, want only the original redemption's", minter.n)
+			}
+			// The token is untouched: not rotated, not revoked, still usable.
+			if !store.live(HashCode(first)) {
+				t.Fatal("a refused pre-check spent or revoked the token; the client cannot recover")
+			}
+			if len(store.refresh) != 1 {
+				t.Errorf("%d refresh tokens exist, want 1 — a refused refresh must not mint a successor", len(store.refresh))
+			}
+			// And the corrected request works, which is the property that matters
+			// to a client that simply had a bug.
+			if rec := postForm(t, h, refreshForm(first)); rec.Code != http.StatusOK {
+				t.Fatalf("the corrected retry failed: %d %s", rec.Code, rec.Body.String())
+			}
+		})
+	}
+}
+
+// An expired refresh token is a clock, not a compromise. It is already useless;
+// revoking its family as well logs a user out of every session for being slow.
+func TestExpiredRefreshTokenIsRefusedWithoutKillingTheFamily(t *testing.T) {
+	store := newFakeTokenStore()
+	h := newTokenTestHandler(store, &fakeMinter{}, nil)
+	first := redeem(t, h, store)
+
+	// Age the token past its expiry without touching anything else.
+	store.mu.Lock()
+	store.refresh[HashCode(first)].ExpiresAt = time.Now().Add(-time.Second)
+	store.mu.Unlock()
+
+	rec := postForm(t, h, refreshForm(first))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body %s", rec.Code, rec.Body.String())
+	}
+	if got := decodeTokenResponse(t, rec)["error"]; got != "invalid_grant" {
+		t.Errorf("error = %v, want invalid_grant", got)
+	}
+	store.mu.Lock()
+	revoked := !store.refresh[HashCode(first)].RevokedAt.IsZero()
+	store.mu.Unlock()
+	if revoked {
+		t.Error("an expired refresh token revoked its family; expiry is not evidence of theft")
+	}
+}
+
+// `scope=` with nothing but whitespace in it is an absent narrowing request, not
+// a request for the empty scope set. strings.Fields("   ") is empty, narrowScope
+// refuses an empty set, and that refusal used to kill the family — so a client
+// that sent a blank parameter lost every session it had.
+func TestWhitespaceOnlyScopeIsNoNarrowingRequest(t *testing.T) {
+	for _, blank := range []string{" ", "   ", "\t", "\n", " \t\n "} {
+		store := newFakeTokenStore()
+		minter := &fakeMinter{}
+		h := newTokenTestHandler(store, minter, nil)
+		first := redeem(t, h, store)
+
+		form := refreshForm(first)
+		form.Set("scope", blank)
+		rec := postForm(t, h, form)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("scope=%q status = %d, want 200; body %s", blank, rec.Code, rec.Body.String())
+		}
+		// The full granted scope survives — a blank request narrows nothing.
+		if got := minter.seen[len(minter.seen)-1].Scope; got != "shorts:read housing:read" {
+			t.Errorf("scope=%q minted scope %q, want the whole grant", blank, got)
+		}
+	}
+}
+
+// grant_types was enforced at /authorize and nowhere else, so a client
+// registered for authorization_code alone could still refresh indefinitely.
+func TestRefreshRequiresTheClientToBeRegisteredForIt(t *testing.T) {
+	store := newFakeTokenStore()
+	h := newTokenTestHandler(store, &fakeMinter{}, nil)
+	first := redeem(t, h, store)
+
+	store.mu.Lock()
+	store.clients[testClientID].GrantTypes = []string{"authorization_code"}
+	store.mu.Unlock()
+
+	rec := postForm(t, h, refreshForm(first))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body %s", rec.Code, rec.Body.String())
+	}
+	if got := decodeTokenResponse(t, rec)["error"]; got != "unauthorized_client" {
+		t.Errorf("error = %v, want unauthorized_client", got)
+	}
+	// Refused, not punished: the client's registration is wrong, not stolen.
+	if !store.live(HashCode(first)) {
+		t.Error("an unregistered grant type spent or revoked the token")
+	}
+}
+
+// A legacy row with no grant_types at all must not be read as "deny everything"
+// — that would log out every client registered before normalisation landed.
+func TestRefreshAllowsAClientWithNoRecordedGrantTypes(t *testing.T) {
+	store := newFakeTokenStore()
+	h := newTokenTestHandler(store, &fakeMinter{}, nil)
+	first := redeem(t, h, store)
+
+	store.mu.Lock()
+	store.clients[testClientID].GrantTypes = nil
+	store.mu.Unlock()
+
+	if rec := postForm(t, h, refreshForm(first)); rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body %s", rec.Code, rec.Body.String())
+	}
+}
+
+// A storage failure on the pre-read must not be readable as "no such token",
+// and must never mint.
+func TestRefreshReadFailureFailsClosed(t *testing.T) {
+	store := newFakeTokenStore()
+	minter := &fakeMinter{}
+	h := newTokenTestHandler(store, minter, nil)
+	first := redeem(t, h, store)
+	store.getRefreshErr = errors.New("connection refused")
+
+	rec := postForm(t, h, refreshForm(first))
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500; body %s", rec.Code, rec.Body.String())
+	}
+	if minter.n != 1 {
+		t.Error("a token was minted despite a storage failure")
 	}
 }
 

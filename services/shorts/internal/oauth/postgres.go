@@ -225,6 +225,51 @@ func (s *PostgresStore) CreateRefreshToken(ctx context.Context, token RefreshTok
 	return nil
 }
 
+// GetRefreshToken reads a token row WITHOUT changing it, so the token endpoint
+// can check a presentation before deciding whether to spend it. Unknown token:
+// (nil, nil).
+//
+// It returns rotated and revoked rows too. The caller needs to SEE that state —
+// a dead token presented again is the reuse signal — and hiding it here would
+// make "unknown" and "already used" indistinguishable at exactly the layer that
+// has to tell them apart.
+//
+// This read decides NOTHING on its own. RotateRefreshToken remains the atomic
+// single-use gate; anything learned here is advisory, in the same way
+// validVerifier's shape check is advisory ahead of the code consume.
+func (s *PostgresStore) GetRefreshToken(ctx context.Context, tokenHash string) (*RefreshToken, error) {
+	const q = `
+		SELECT token_hash, family_id::text, client_id, user_id, resource, scope,
+		       expires_at, rotated_at, revoked_at
+		FROM oauth_refresh_tokens
+		WHERE token_hash = $1`
+
+	// rotated_at and revoked_at are nullable, and NULL is the LIVE state. Scanned
+	// through pointers so a NULL stays distinguishable from a zero timestamp
+	// rather than being coalesced into one.
+	var (
+		rotated, revoked *time.Time
+		out              RefreshToken
+	)
+	err := s.pool.QueryRow(ctx, q, tokenHash).Scan(
+		&out.TokenHash, &out.FamilyID, &out.ClientID, &out.UserID, &out.Resource, &out.Scope,
+		&out.ExpiresAt, &rotated, &revoked,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("loading refresh token: %w", err)
+	}
+	if rotated != nil {
+		out.RotatedAt = *rotated
+	}
+	if revoked != nil {
+		out.RevokedAt = *revoked
+	}
+	return &out, nil
+}
+
 // familyLockSQL serialises every transaction that mutates one refresh-token
 // family.
 //
