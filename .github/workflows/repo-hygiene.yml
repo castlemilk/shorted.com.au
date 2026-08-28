@@ -37,6 +37,16 @@ jobs:
       - name: Test repository hygiene tooling
         run: node --test scripts/tests/portal-content-provenance.test.mjs scripts/tests/housing-deploy-hygiene.test.mjs scripts/tests/scheduler-override-body.test.mjs
 
+      # These assert properties of migrations that prod REPLAYS on every deploy
+      # from a hardcoded allowlist — most importantly that 000095 stays last, so
+      # the hardened refresh_all_materialized_views() is not silently reverted
+      # by an earlier migration's CREATE OR REPLACE. That is the defect which
+      # left five materialized views stale for 19 days. Until now these tests
+      # ran in no CI job at all and only fired if someone remembered to run
+      # them by hand, which is no guard.
+      - name: Migration contracts
+        run: node --test services/migrations/*.test.mjs
+
       - name: Reject captured portal payloads
         run: node scripts/check-portal-content-provenance.mjs
 
