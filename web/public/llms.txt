@@ -39,7 +39,7 @@ Shorted aggregates and visualises official ASIC (Australian Securities and Inves
 - [OpenAPI 3.1 description](https://shorted.com.au/openapi.json): Machine-readable description of every public endpoint. YAML twin at /openapi.yaml.
 - [API reference (markdown)](https://shorted.com.au/docs/api.md): JavaScript-free reference with worked curl examples.
 - [API catalog (RFC 9727)](https://shorted.com.au/.well-known/api-catalog): Link set pointing at everything on this list.
-- [MCP server](https://shorted.com.au/api/mcp/mcp): Model Context Protocol endpoint (streamable HTTP).
+- [MCP server](https://api.shorted.com.au/mcp): Model Context Protocol endpoint (streamable HTTP, protocol 2026-07-28). 24 read-only tools across short positions, housing, economy and the federal register of interests.
 
 Every endpoint is a Connect-RPC method. Call it with an HTTP POST, a JSON body,
 and the `Connect-Protocol-Version: 1` header. Send an identifying `User-Agent`:
@@ -84,11 +84,13 @@ All short position data is sourced directly from official ASIC publications. Dat
 
 ## MCP Server (for AI agents)
 
-Shorted exposes a Model Context Protocol server with read-only tools over the same ASIC data — no authentication required:
+Shorted exposes a Model Context Protocol server with read-only tools over all of the data described above — no authentication required:
 
-- **Endpoint** (streamable HTTP): `https://shorted.com.au/api/mcp/mcp`
+- **Endpoint** (streamable HTTP): `https://api.shorted.com.au/mcp` — protocol 2026-07-28, negotiating back to 2025-11-25
 - **Server card**: [https://shorted.com.au/.well-known/mcp/server-card.json](https://shorted.com.au/.well-known/mcp/server-card.json)
-- **Tools**: `get_top_shorts` (most shorted ASX stocks), `get_stock` (single ticker summary), `get_stock_history` (time series), `get_industry_treemap` (sector breakdown)
+- **Tool catalog**: [https://api.shorted.com.au/mcp/catalog.json](https://api.shorted.com.au/mcp/catalog.json) · **Connection guide**: [https://shorted.com.au/docs/mcp.md](https://shorted.com.au/docs/mcp.md)
+- **Tools** (24): short positions and market (`list_top_shorts`, `get_stock`, `get_stock_history`, `screen_stocks`, `list_squeeze_candidates`, …), housing (`get_house_price_series`, `get_suburb_profile`, …), economy (`list_economic_series`, …) and the register of members' interests (`search_politicians`, `get_politician`, …)
+- `https://shorted.com.au/api/mcp/mcp` is the **deprecated** predecessor. It still responds, but carries only 4 tools and directs callers here.
 - **API catalog** (RFC 9727): [https://shorted.com.au/.well-known/api-catalog](https://shorted.com.au/.well-known/api-catalog) · OpenAPI: [https://shorted.com.au/openapi.json](https://shorted.com.au/openapi.json) · Auth notes: [https://shorted.com.au/auth.md](https://shorted.com.au/auth.md)
 
 ## Reports
