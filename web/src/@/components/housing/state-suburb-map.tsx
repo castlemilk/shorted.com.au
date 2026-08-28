@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChoroplethMap } from "./choropleth-map";
 import { MapLegend } from "./map-legend";
 import { CategoricalLegend } from "./categorical-legend";
-import { makePriceScale } from "@/lib/housing/price-scale";
+import { makePriceScale, robustDomainTop } from "@/lib/housing/price-scale";
 import {
   HIGHLIGHT_METRICS, METRIC_BY_KEY, METRIC_ICON, amberScale, type MetricKey,
 } from "@/lib/housing/highlight-metrics";
@@ -96,9 +96,12 @@ export function StateSuburbMap({
   }, [suburbs]);
   const priceScale = useMemo(() => {
     const vals = suburbs.map((s) => s.latestMedianPrice).filter((v) => v > 0);
-    const max = vals.length ? Math.max(...vals) : 1;
     const min = vals.length ? Math.min(...vals) : 0;
-    return { scale: makePriceScale(max), min, max };
+    // Percentile, not max: see robustDomainTop. Anchoring on the raw maximum put
+    // the MEDIAN NSW suburb at 9.5% of the ramp and painted the state one colour.
+    const max = robustDomainTop(vals);
+    const clamped = vals.some((v) => v > max);
+    return { scale: makePriceScale(max), min, max, clamped };
   }, [suburbs]);
   const nameById = useMemo(() => new Map(suburbs.map((s) => [s.salCode, s.salName])), [suburbs]);
 
@@ -106,7 +109,10 @@ export function StateSuburbMap({
   const continuous = useMemo(() => {
     if (metric.kind !== "continuous") return null;
     if (metric.key === "price") {
-      return { valueById: priceValueById, scale: priceScale.scale, min: priceScale.min, max: priceScale.max };
+      return {
+        valueById: priceValueById, scale: priceScale.scale,
+        min: priceScale.min, max: priceScale.max, clamped: priceScale.clamped,
+      };
     }
     const m = new Map<string, number | null>();
     const vals: number[] = [];
@@ -115,12 +121,15 @@ export function StateSuburbMap({
       m.set(s.salCode, v);
       if (v != null) vals.push(v);
     }
+    // An explicit domain (crime ranks, political lean) is already bounded and is
+    // left exactly alone; only data-derived domains get the percentile top.
     const [min, max] = metric.domain ?? [
       vals.length ? Math.min(...vals) : 0,
-      vals.length ? Math.max(...vals) : 1,
+      robustDomainTop(vals),
     ];
+    const clamped = !metric.domain && vals.some((v) => v > max);
     const scale = metric.makeScale ? metric.makeScale(min, max) : amberScale(min, max, metric.sqrt);
-    return { valueById: m, scale, min, max };
+    return { valueById: m, scale, min, max, clamped };
   }, [metric, suburbs, priceValueById, priceScale]);
 
   // Categorical metric → category map + the legend entries actually present.
@@ -191,6 +200,7 @@ export function StateSuburbMap({
     : (continuous
         ? <MapLegend
             colorScale={(v) => continuous.scale(v)} min={continuous.min} max={continuous.max}
+            clamped={continuous.clamped}
             label={metric.legendLabel} format={metric.format}
             noDataLabel={metric.key === "price" ? "No price data" : "No data"} />
         : null);
