@@ -106,7 +106,7 @@ All short position data is sourced directly from official ASIC publications. Dat
 
 Shorted exposes a Model Context Protocol server with read-only tools over all of the data described above — no authentication required:
 
-- **Endpoint** (streamable HTTP): `https://api.shorted.com.au/mcp` — protocol 2026-07-28, negotiating back to 2025-11-25
+- **Endpoint** (streamable HTTP): `https://api.shorted.com.au/mcp` — protocol 2026-07-28, negotiating back through 2025-11-25, 2025-06-18, 2025-03-26 and 2024-11-05
 - **Server card**: [https://shorted.com.au/.well-known/mcp/server-card.json](https://shorted.com.au/.well-known/mcp/server-card.json)
 - **Tool catalog**: [https://api.shorted.com.au/mcp/catalog.json](https://api.shorted.com.au/mcp/catalog.json) · **Connection guide**: [https://shorted.com.au/docs/mcp.md](https://shorted.com.au/docs/mcp.md)
 - **Tools** (24): short positions and market (`list_top_shorts`, `get_stock`, `get_stock_history`, `screen_stocks`, `list_squeeze_candidates`, …), housing (`get_house_price_series`, `get_suburb_profile`, …), economy (`list_economic_series`, …) and the register of members' interests (`search_politicians`, `get_politician`, …)
