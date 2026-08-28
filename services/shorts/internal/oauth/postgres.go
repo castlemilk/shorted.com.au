@@ -225,6 +225,46 @@ func (s *PostgresStore) CreateRefreshToken(ctx context.Context, token RefreshTok
 	return nil
 }
 
+// familyLockSQL serialises every transaction that mutates one refresh-token
+// family.
+//
+// WHY A LOCK AT ALL, WHEN BOTH PATHS ARE ALREADY CONDITIONAL UPDATES. Row locks
+// only serialise transactions that contend on the SAME ROW, and rotation and
+// revocation do not: rotation writes a row that revocation has not read yet.
+// Under READ COMMITTED a statement takes its snapshot when it STARTS, so a
+// revoking UPDATE that begins while a rotation is mid-transaction sees the
+// family as it was before the successor was inserted. It then blocks on the
+// parent's row lock, the rotation commits, EvalPlanQual re-checks the ROW it was
+// waiting on — and the successor, which never existed in its snapshot, is simply
+// not part of the scan. The revocation reports success and leaves a live token
+// in a family it just declared compromised.
+//
+// pg_advisory_xact_lock closes that window because it is taken BEFORE the
+// revoking statement runs, so the revoke's UPDATE is issued as a fresh
+// statement, with a fresh snapshot, after any rotation on this family has
+// committed and released the lock.
+//
+// LOCK ORDERING. Both paths take exactly ONE lock before touching any row: this
+// advisory lock, keyed on family_id, and nothing else. Row locks are only ever
+// acquired while already holding it, and a transaction holds at most one of
+// them, so there is no second resource to order against and no cycle to form.
+// Getting this backwards — locking the row first and the family second, which is
+// what "take the lock once family_id is known from the UPDATE's RETURNING"
+// would mean — trades the lost update for a genuine deadlock: the rotation would
+// hold the parent's row lock while waiting on the advisory lock, and the
+// revocation would hold the advisory lock while waiting on that same row. That
+// is why both paths resolve family_id with a PLAIN, UNLOCKING read first.
+// family_id is immutable for the life of a row, so reading it without a lock
+// cannot go stale.
+//
+// hashtextextended maps the uuid onto the bigint keyspace pg_advisory_xact_lock
+// requires. A collision between two families costs a little needless
+// serialisation and nothing else.
+const familyLockSQL = `SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))`
+
+// familyOfSQL resolves a presented token's family WITHOUT locking it.
+const familyOfSQL = `SELECT family_id::text FROM oauth_refresh_tokens WHERE token_hash = $1`
+
 // RotateRefreshToken marks the presented token rotated and inserts its
 // successor in ONE transaction.
 //
@@ -237,6 +277,10 @@ func (s *PostgresStore) CreateRefreshToken(ctx context.Context, token RefreshTok
 // The successor is inserted inside the transaction so there is no window in
 // which the old token is dead and no new one exists — a crash between the two
 // would silently log the user out.
+//
+// The whole transaction runs under the family advisory lock, so a revocation
+// racing it either observes the successor or does not run until this has
+// finished. See familyLockSQL.
 func (s *PostgresStore) RotateRefreshToken(
 	ctx context.Context, presentedHash, successorHash string, successorExpiresAt time.Time,
 ) (*RefreshToken, error) {
@@ -247,6 +291,21 @@ func (s *PostgresStore) RotateRefreshToken(
 	// Rollback after a successful Commit is a no-op, so this is safe
 	// unconditionally and cannot leak a transaction on an early return.
 	defer func() { _ = tx.Rollback(ctx) }()
+
+	// Resolve the family and take its lock BEFORE any row is touched — the lock
+	// order the revocation path also uses. An unknown token has no family and no
+	// row to rotate, so it never takes a lock at all.
+	var family string
+	err = tx.QueryRow(ctx, familyOfSQL, presentedHash).Scan(&family)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("resolving refresh token family: %w", err)
+	}
+	if _, err := tx.Exec(ctx, familyLockSQL, family); err != nil {
+		return nil, fmt.Errorf("locking refresh token family: %w", err)
+	}
 
 	const rotate = `
 		UPDATE oauth_refresh_tokens
@@ -277,11 +336,28 @@ func (s *PostgresStore) RotateRefreshToken(
 		return nil, fmt.Errorf("inserting successor refresh token: %w", err)
 	}
 
+	if hook := rotateBeforeCommitHook; hook != nil {
+		hook()
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("committing rotation: %w", err)
 	}
 	return &parent, nil
 }
+
+// rotateBeforeCommitHook is nil in every build that ships. It exists because the
+// interleaving that family revocation has to survive — a rotation that has
+// INSERTed its successor but not yet COMMITTED, racing a revocation — cannot be
+// observed from outside the transaction, and a race nobody has watched fail is
+// a race nobody has fixed. The integration test sets it to hold the rotation
+// open at exactly that instant and drives the REAL code path around it, rather
+// than re-implementing this function's SQL in the test and proving only that the
+// test agrees with itself.
+//
+// Unexported, package-level and nil by default: nothing outside package oauth
+// can reach it, and production pays one nil check per rotation.
+var rotateBeforeCommitHook func()
 
 // RevokeRefreshTokenFamily kills every token descended from the same
 // authorization grant as the presented one.
@@ -291,19 +367,51 @@ func (s *PostgresStore) RotateRefreshToken(
 // then holding a descendant of it, which is equally compromised. Revoking only
 // the presented token would leave the thief's own successor alive.
 //
-// It is one statement with a scalar subquery so the family is resolved and the
-// revocation applied atomically, and it is idempotent: a second call revokes
-// nothing because `revoked_at IS NULL` no longer matches.
+// It resolves the family FIRST, takes the family advisory lock, and only then
+// revokes — the same lock, in the same order, as RotateRefreshToken. That
+// ordering is the fix for the interleaving proved by
+// TestRefreshFamilyRevocationDoesNotLoseAConcurrentRotation: a single
+// self-contained UPDATE with a scalar subquery looks atomic and is not, because
+// its snapshot predates any rotation still in flight and the successor that
+// rotation is about to commit is therefore invisible to it. See familyLockSQL.
+//
+// It stays idempotent: a second call revokes nothing because `revoked_at IS
+// NULL` no longer matches. An unknown token has no family, takes no lock, and
+// revokes nothing.
 func (s *PostgresStore) RevokeRefreshTokenFamily(ctx context.Context, presentedHash string) (int, error) {
-	const q = `
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("beginning family revocation: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var family string
+	err = tx.QueryRow(ctx, familyOfSQL, presentedHash).Scan(&family)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("resolving refresh token family: %w", err)
+	}
+	if _, err := tx.Exec(ctx, familyLockSQL, family); err != nil {
+		return 0, fmt.Errorf("locking refresh token family: %w", err)
+	}
+
+	// A SEPARATE statement, deliberately: under READ COMMITTED this takes its
+	// snapshot now — after the lock was granted, and therefore after every
+	// rotation that held it has committed — so a successor inserted by one of
+	// them is in scope.
+	const revoke = `
 		UPDATE oauth_refresh_tokens
 		SET revoked_at = now()
-		WHERE revoked_at IS NULL
-		  AND family_id = (SELECT family_id FROM oauth_refresh_tokens WHERE token_hash = $1)`
+		WHERE family_id = $1 AND revoked_at IS NULL`
 
-	tag, err := s.pool.Exec(ctx, q, presentedHash)
+	tag, err := tx.Exec(ctx, revoke, family)
 	if err != nil {
 		return 0, fmt.Errorf("revoking refresh token family: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, fmt.Errorf("committing family revocation: %w", err)
 	}
 	return int(tag.RowsAffected()), nil
 }
