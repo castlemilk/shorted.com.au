@@ -28,6 +28,7 @@ type fakeTokenStore struct {
 	clients map[string]*Client
 	codes   map[string]*AuthorizationCode
 	refresh map[string]*RefreshToken
+	touched []string
 
 	getClientErr  error
 	consumeErr    error
@@ -59,6 +60,35 @@ func (f *fakeTokenStore) GetClient(_ context.Context, id string) (*Client, error
 		return nil, nil
 	}
 	return c, nil
+}
+
+// GetRegisteredClient is the PERSISTED row. The fake reads the same map
+// GetClient does, exactly as *PostgresStore runs the same query for both — the
+// two only diverge at ResolvingStore, which overrides GetClient alone.
+func (f *fakeTokenStore) GetRegisteredClient(_ context.Context, id string) (*Client, error) {
+	if f.getClientErr != nil {
+		return nil, f.getClientErr
+	}
+	c, ok := f.clients[id]
+	if !ok {
+		return nil, nil
+	}
+	return c, nil
+}
+
+func (f *fakeTokenStore) TouchClient(_ context.Context, clientID string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.touched = append(f.touched, clientID)
+	return nil
+}
+
+// touchedClients is the single place tests read last_used_at activity from, so
+// a token test and a registration test cannot disagree about what "used" means.
+func (f *fakeTokenStore) touchedClients() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.touched...)
 }
 
 func (f *fakeTokenStore) CreateAuthorizationCode(_ context.Context, code AuthorizationCode) error {
@@ -727,6 +757,96 @@ func TestRefreshRequiresTheClientToBeRegisteredForIt(t *testing.T) {
 	// Refused, not punished: the client's registration is wrong, not stolen.
 	if !store.live(HashCode(first)) {
 		t.Error("an unregistered grant type spent or revoked the token")
+	}
+}
+
+// THE reason the refresh path reads the PERSISTED row instead of resolving the
+// client: a refresh is a live-session operation, and it must not depend on a
+// third party's web server being up.
+//
+// The client here is a Client ID Metadata Document whose document is
+// unreachable — the server is closed before the refresh, so any fetch fails.
+// Resolving the client at this point would answer "unknown client_id" and log
+// the user out mid-session, and it would not be a rare edge: the CIMD success
+// cache and the access token both last an hour, so refreshes routinely miss the
+// cache and would routinely re-fetch.
+//
+// /authorize is different and deliberately keeps the resolving fetch — it runs
+// once, at connect time, when a fresh read of the declared metadata is exactly
+// what is wanted, and a failure there is a visible "could not connect" rather
+// than a silent logout.
+func TestRefreshSurvivesAnUnreachableClientMetadataDocument(t *testing.T) {
+	// A well-formed CIMD client_id pointing at a server that is already gone.
+	srv := newCIMDServer(t, func(w http.ResponseWriter, _ *http.Request) {})
+	cimdClientID := srv.URL + "/client.json"
+	srv.Close()
+
+	inner := newFakeClientStore()
+	// The row the resolving store persisted when the grant ran, back when the
+	// document WAS reachable. This is what the refresh must be able to rely on.
+	inner.clients[cimdClientID] = &Client{
+		ClientID:     cimdClientID,
+		RedirectURIs: []string{testRedirectURI},
+		GrantTypes:   []string{"authorization_code", "refresh_token"},
+	}
+	store := NewResolvingStore(inner, testFetcher(MetadataFetcherConfig{}))
+
+	// Sanity: resolving this client_id really does fail now. Without this the
+	// test could pass because nothing was ever unreachable.
+	if c, err := store.GetClient(context.Background(), cimdClientID); err != nil || c != nil {
+		t.Fatalf("GetClient on a dead document = %v, %v; want nil, nil — the premise of this test", c, err)
+	}
+
+	minter := &fakeMinter{}
+	h := newTokenTestHandler(store, minter, nil)
+
+	code := seedCode(t, store, func(c *AuthorizationCode) { c.ClientID = cimdClientID })
+	form := codeForm(code, testVerifier)
+	form.Set("client_id", cimdClientID)
+	rec := postForm(t, h, form)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("redemption: %d %s", rec.Code, rec.Body.String())
+	}
+	first, _ := decodeTokenResponse(t, rec)["refresh_token"].(string)
+
+	refresh := url.Values{
+		"grant_type":    {"refresh_token"},
+		"refresh_token": {first},
+		"client_id":     {cimdClientID},
+	}
+	if rec := postForm(t, h, refresh); rec.Code != http.StatusOK {
+		t.Fatalf("refresh with an unreachable metadata document: %d %s — "+
+			"somebody else's outage just logged our user out", rec.Code, rec.Body.String())
+	}
+	// And it stayed a real rotation, not a degraded pass-through that skipped the
+	// single-use gate.
+	if inner.live(HashCode(first)) {
+		t.Error("the presented token is still live: the refresh succeeded without rotating")
+	}
+	if minter.n != 2 {
+		t.Errorf("minted %d access tokens, want 2 (redemption + refresh)", minter.n)
+	}
+}
+
+// last_used_at is what stands between a long-lived client and the unused-client
+// sweep, which cascade-deletes the codes and refresh tokens of anything it
+// removes. Nothing on the refresh path resolves the client, so without an
+// explicit touch a client that refreshes hourly for a month looks permanently
+// idle — the exact case the sweep must not collect.
+func TestRefreshRecordsThatTheClientWasUsed(t *testing.T) {
+	store := newFakeTokenStore()
+	h := newTokenTestHandler(store, &fakeMinter{}, nil)
+	first := redeem(t, h, store)
+
+	if touched := store.touchedClients(); len(touched) != 0 {
+		t.Fatalf("touched = %v before any refresh", touched)
+	}
+	if rec := postForm(t, h, refreshForm(first)); rec.Code != http.StatusOK {
+		t.Fatalf("refresh: %d %s", rec.Code, rec.Body.String())
+	}
+	touched := store.touchedClients()
+	if len(touched) != 1 || touched[0] != testClientID {
+		t.Fatalf("touched = %v, want [%s] — the sweep will treat this client as idle", touched, testClientID)
 	}
 }
 

@@ -77,6 +77,36 @@ type TokenStore interface {
 	// one transaction.
 	CreateRefreshToken(ctx context.Context, token RefreshToken) error
 
+	// GetRegisteredClient returns the client's PERSISTED registration row, never
+	// a freshly resolved one. Unknown client: (nil, nil).
+	//
+	// It exists as a method distinct from GetClient because the refresh grant
+	// must not depend on a third party being reachable. GetClient resolves a
+	// Client ID Metadata Document by FETCHING it over the network, which is the
+	// right behaviour at /authorize — that happens once, at connect time, when a
+	// fresh read of the client's declared metadata is exactly what is wanted, and
+	// a failure there surfaces as a visible "could not connect".
+	//
+	// A refresh is a LIVE-SESSION operation, and the two TTLs guarantee this
+	// would not be an edge case: the CIMD success cache and the access token both
+	// last an hour, so refreshes routinely miss the cache. Resolving here would
+	// mean somebody else's outage silently logs our users out mid-session.
+	//
+	// The persisted row is also the correct source on the merits, not merely the
+	// available one. grant_types on that row is what was granted at registration
+	// and is normalised on every write path; a document that changed since then
+	// should not retroactively alter a grant already issued.
+	GetRegisteredClient(ctx context.Context, clientID string) (*Client, error)
+
+	// TouchClient records that a client was used. It feeds the unused-client
+	// sweep and nothing else, so a failure is logged and ignored.
+	//
+	// It is on THIS interface, not only on ClientStore, because the refresh grant
+	// is the one path that can keep a client in continuous service for a month
+	// without ever resolving it — and a sweep that cascade-deletes on
+	// last_used_at must not see that client as idle.
+	TouchClient(ctx context.Context, clientID string) error
+
 	// GetRefreshToken reads a token row WITHOUT changing it. Unknown token:
 	// (nil, nil). Rotated and revoked rows ARE returned, with RotatedAt /
 	// RevokedAt set, because telling a dead token from an unknown one is the
@@ -437,19 +467,23 @@ func (h *tokenHandler) refresh(w http.ResponseWriter, r *http.Request) {
 
 	// The client must still be REGISTERED for this grant. grant_types was
 	// enforced at /authorize and nowhere else, so a client registered for
-	// authorization_code alone could refresh indefinitely. Reading the client
-	// through ResolvingStore also touches last_used_at, which the unused-client
-	// sweep depends on and which the refresh path never used to write — a client
-	// that only ever refreshes looked untouched to the sweeper.
+	// authorization_code alone could refresh indefinitely.
 	//
-	// LAST of the checks on purpose. For a Client ID Metadata Document client_id
-	// this is not a database read but an outbound HTTPS fetch (cached for
-	// DefaultCIMDSuccessTTL), so it is the only check here that can be slow or
-	// can fail for reasons that have nothing to do with the caller. Everything
-	// cheap and local is already decided by this point, so an unreachable
-	// metadata document costs latency only on requests that were going to
-	// succeed.
-	client, err := h.store.GetClient(ctx, clientID)
+	// GetRegisteredClient, NOT GetClient. A refresh is a live-session operation
+	// and must not depend on a third party being reachable: GetClient resolves a
+	// CIMD client_id by fetching its metadata document, and with the CIMD success
+	// cache and the access token both lasting an hour, refreshes routinely miss
+	// that cache. Resolving here would let somebody else's outage log our users
+	// out mid-session. The persisted row is also the right answer on the merits —
+	// it records what was granted at registration, and a document that has
+	// changed since should not retroactively rewrite an existing grant. The
+	// /authorize grant keeps the resolving fetch, where it belongs: once, at
+	// connect time, failing visibly.
+	//
+	// LAST of the local checks, because it is a second database round trip and
+	// there is no reason to spend it on a request that a cheap in-memory check
+	// has already refused.
+	client, err := h.store.GetRegisteredClient(ctx, clientID)
 	if err != nil {
 		log.Errorf("oauth token: client lookup failed: %v", err)
 		writeOAuthError(w, http.StatusInternalServerError, "server_error", "client lookup failed")
@@ -466,6 +500,16 @@ func (h *tokenHandler) refresh(w http.ResponseWriter, r *http.Request) {
 		writeOAuthError(w, http.StatusBadRequest, "unauthorized_client",
 			"this client is not registered for the refresh_token grant")
 		return
+	}
+	// Record the use. Nothing above resolved this client, so without this a
+	// client that only ever refreshes — which is every client, for 29 of its 30
+	// days — looks permanently idle to the unused-client sweep, and that sweep
+	// cascade-deletes its codes and refresh tokens. Best effort, as everywhere
+	// else: last_used_at drives a sweep that independently refuses to delete a
+	// client holding a live token, so a failed touch costs freshness, never a
+	// cascade.
+	if err := h.store.TouchClient(ctx, clientID); err != nil {
+		log.Warnf("oauth token: recording last_used_at for client %q failed: %v", clientID, err)
 	}
 
 	// Everything checks out, so now spend it. This is the gate, and it is the

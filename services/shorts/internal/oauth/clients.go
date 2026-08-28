@@ -135,9 +135,8 @@ type ClientStore interface {
 	// metadata. It must NOT let one registration source overwrite the other.
 	SaveClient(ctx context.Context, reg ClientRegistration) error
 
-	// TouchClient records that a client was used. It feeds the unused-client
-	// sweep and nothing else, so a failure is logged and ignored.
-	TouchClient(ctx context.Context, clientID string) error
+	// TouchClient comes from TokenStore — the refresh grant needs it too, so it
+	// is declared there rather than here.
 
 	// DeleteUnusedClients removes clients idle since before the cutoff that
 	// hold no live grant.
@@ -571,6 +570,13 @@ func NewResolvingStore(inner ClientStore, fetcher *MetadataFetcher) *ResolvingSt
 // referential-integrity requirement: oauth_authorization_codes.client_id and
 // oauth_refresh_tokens.client_id are foreign keys into oauth_clients, so a code
 // cannot be issued to a client that has no row.
+//
+// GetRegisteredClient is deliberately NOT overridden alongside it, and that
+// asymmetry is the point rather than an omission: it stays promoted from the
+// inner store, so it always answers from the persisted row. Overriding it "for
+// consistency" would make the refresh grant depend on a third-party document
+// being reachable, which is a mid-session logout waiting to happen — see the
+// note on TokenStore.GetRegisteredClient.
 func (s *ResolvingStore) GetClient(ctx context.Context, clientID string) (*Client, error) {
 	if !s.fetcher.isCIMD(clientID) {
 		client, err := s.ClientStore.GetClient(ctx, clientID)

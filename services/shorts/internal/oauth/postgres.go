@@ -38,7 +38,25 @@ func NewPostgresStore(pool *pgxpool.Pool) *PostgresStore {
 }
 
 // GetClient returns (nil, nil) for an unregistered client.
+//
+// At this layer GetClient and GetRegisteredClient are the SAME read — a stored
+// row is a stored row. They diverge one layer up, where ResolvingStore
+// overrides GetClient to resolve a CIMD client_id by fetching its metadata
+// document, and deliberately does NOT override GetRegisteredClient. That is
+// what lets the refresh grant ask for the persisted registration and get it,
+// without a network call, through the very same wrapper.
 func (s *PostgresStore) GetClient(ctx context.Context, clientID string) (*Client, error) {
+	return s.registeredClient(ctx, clientID)
+}
+
+// GetRegisteredClient returns the persisted registration row and never resolves
+// a metadata document. See the note on TokenStore.GetRegisteredClient for why
+// the refresh grant must not depend on a third party being reachable.
+func (s *PostgresStore) GetRegisteredClient(ctx context.Context, clientID string) (*Client, error) {
+	return s.registeredClient(ctx, clientID)
+}
+
+func (s *PostgresStore) registeredClient(ctx context.Context, clientID string) (*Client, error) {
 	const q = `
 		SELECT client_id, COALESCE(client_name, ''), redirect_uris, grant_types, COALESCE(scope, '')
 		FROM oauth_clients
@@ -391,17 +409,23 @@ func (s *PostgresStore) RotateRefreshToken(
 	return &parent, nil
 }
 
-// rotateBeforeCommitHook is nil in every build that ships. It exists because the
-// interleaving that family revocation has to survive — a rotation that has
-// INSERTed its successor but not yet COMMITTED, racing a revocation — cannot be
-// observed from outside the transaction, and a race nobody has watched fail is
-// a race nobody has fixed. The integration test sets it to hold the rotation
-// open at exactly that instant and drives the REAL code path around it, rather
-// than re-implementing this function's SQL in the test and proving only that the
-// test agrees with itself.
+// rotateBeforeCommitHook is TEST-ONLY SCAFFOLDING. It is nil in every build that
+// ships, and production pays exactly one nil check per rotation for it.
 //
-// Unexported, package-level and nil by default: nothing outside package oauth
-// can reach it, and production pays one nil check per rotation.
+// DO NOT DELETE IT AS DEAD CODE. It has no non-test caller by design, so it
+// looks removable and is not: deleting it silently downgrades
+// TestRefreshFamilyRevocationDoesNotLoseAConcurrentRotation from a proof to a
+// guess, and the bug it pins is a stolen refresh token surviving the revocation
+// that was supposed to kill it.
+//
+// WHY IT HAS TO EXIST. The interleaving family revocation must survive is a
+// rotation that has INSERTed its successor but not yet COMMITTED, racing a
+// revocation. That instant is inside this transaction and is not observable
+// from outside it, so the only ways to test it are to hold the real rotation
+// open here, or to re-implement this function's SQL in the test and race that
+// instead. The second is strictly weaker: it proves the test agrees with the
+// test, and it goes on passing after somebody changes the SQL in this file.
+// The hook makes the assertion run against the code that actually ships.
 var rotateBeforeCommitHook func()
 
 // RevokeRefreshTokenFamily kills every token descended from the same

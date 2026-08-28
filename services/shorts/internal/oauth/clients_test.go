@@ -26,7 +26,6 @@ type fakeClientStore struct {
 
 	mu      sync.Mutex
 	saved   []ClientRegistration
-	touched []string
 	deleted []time.Time
 
 	saveErr error
@@ -48,12 +47,9 @@ func (f *fakeClientStore) SaveClient(_ context.Context, reg ClientRegistration) 
 	return nil
 }
 
-func (f *fakeClientStore) TouchClient(_ context.Context, clientID string) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.touched = append(f.touched, clientID)
-	return nil
-}
+// TouchClient is NOT redefined here: it comes from the embedded fakeTokenStore,
+// so there is one recording of last_used_at activity shared by the registration
+// tests and the token tests. Read it with touchedClients().
 
 func (f *fakeClientStore) DeleteUnusedClients(_ context.Context, idleBefore time.Time) (int64, error) {
 	f.mu.Lock()
@@ -428,10 +424,8 @@ func TestResolvingStoreTouchesLastUsedAt(t *testing.T) {
 	if _, err := store.GetClient(context.Background(), testClientID); err != nil {
 		t.Fatalf("GetClient: %v", err)
 	}
-	inner.mu.Lock()
-	defer inner.mu.Unlock()
-	if len(inner.touched) != 1 || inner.touched[0] != testClientID {
-		t.Fatalf("touched = %v, want [%s]", inner.touched, testClientID)
+	if touched := inner.touchedClients(); len(touched) != 1 || touched[0] != testClientID {
+		t.Fatalf("touched = %v, want [%s]", touched, testClientID)
 	}
 }
 
