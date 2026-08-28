@@ -10,14 +10,21 @@ import fs from 'fs';
 import path from 'path';
 import yaml from 'js-yaml';
 import type { OpenAPISpec, ParsedEndpoint, NavigationGroup, HTTPMethod } from './types';
+import { resolveRefs as resolveRefsWithSchemas } from './resolve-refs';
+import { FALLBACK_API_BASE_URL } from './api-base-url';
 
 export async function parseOpenAPISpec(): Promise<OpenAPISpec> {
-  const specPath = path.join(process.cwd(), '../api/schema/openapi.yaml');
+  // The canonical generated artifact — see docs/superpowers/plans/
+  // 2026-08-27-phase1-generated-openapi-and-llm-docs.md. Previously this read
+  // api/schema/openapi.yaml, a hand-written 8-path document that had drifted
+  // years behind the 64-method API.
+  const specPath = path.join(process.cwd(), 'public', 'openapi.json');
 
-  // Handle missing openapi.yaml gracefully (e.g. in Docker builds)
+  // Handle a missing spec gracefully (e.g. in Docker builds)
   if (!fs.existsSync(specPath)) {
     return {
       info: { title: 'API Documentation', version: '1.0.0' },
+      servers: [{ url: FALLBACK_API_BASE_URL, description: 'Production' }],
       endpoints: [],
       groups: [],
       components: { schemas: {} },
@@ -29,32 +36,9 @@ export async function parseOpenAPISpec(): Promise<OpenAPISpec> {
 
   const schemas = rawSpec.components?.schemas || {};
 
-  function resolveRefs(obj: any, visited = new Set()): any {
-    if (!obj || typeof obj !== 'object') return obj;
-    if (visited.has(obj)) return obj; // Prevent infinite recursion
-
-    if (obj.$ref) {
-      const refName = obj.$ref.split('/').pop();
-      const resolved = schemas[refName];
-      if (resolved) {
-        // Create a new object combining resolved schema and existing properties
-        // but excluding the $ref itself
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { $ref: _, ...rest } = obj;
-        return resolveRefs({ ...resolved, ...rest }, visited);
-      }
-    }
-
-    if (Array.isArray(obj)) {
-      return obj.map(item => resolveRefs(item, visited));
-    }
-
-    const newObj: any = {};
-    Object.keys(obj).forEach(key => {
-      newObj[key] = resolveRefs(obj[key], visited);
-    });
-    return newObj;
-  }
+  // Ref resolution (and its cycle guard) lives in ./resolve-refs so it can be
+  // tested against recursive fixtures without a spec file on disk.
+  const resolveRefs = (obj: any): any => resolveRefsWithSchemas(obj, schemas);
 
   const endpoints: ParsedEndpoint[] = [];
   const paths = rawSpec.paths || {};
@@ -108,10 +92,26 @@ export async function parseOpenAPISpec(): Promise<OpenAPISpec> {
       description: rawSpec.info?.description,
       version: rawSpec.info?.version || '1.0.0',
     },
+    servers: Array.isArray(rawSpec.servers) && rawSpec.servers.length > 0
+      ? rawSpec.servers
+      : [{ url: FALLBACK_API_BASE_URL, description: 'Production' }],
     endpoints,
     groups,
     components: rawSpec.components || { schemas: {} },
   };
+}
+
+/**
+ * The host published code samples should target.
+ *
+ * Taken from the generated document's `servers[0].url` so the docs and the spec
+ * can never disagree, falling back to the public API host. Never the raw Cloud
+ * Run origin: that bypasses Cloudflare (edge cache, WAF, rate limiting) and
+ * changes on redeploy.
+ */
+export async function getApiBaseUrl(): Promise<string> {
+  const spec = await parseOpenAPISpec();
+  return spec.servers[0]?.url ?? FALLBACK_API_BASE_URL;
 }
 
 export async function getEndpoint(id: string): Promise<ParsedEndpoint | undefined> {

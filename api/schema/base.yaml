@@ -1,53 +1,111 @@
 openapi: 3.1.0
+# NOTE: the plugin applies this `info` block FIRST and then lets the
+# file-level gnostic.openapi.v3.document option in shorts.proto override it,
+# so these values do not survive into api/schema/generated/openapi.yaml.
+# services/cmd/openapi-postprocess reads this block and stamps it back over
+# the generated document — so this file IS the source of truth for `info`,
+# just not via the plugin. Fix the licence and contact here, not in the proto.
 info:
+  title: Shorted Public API
+  version: "1.0.0"
   x-logo:
     url: https://shorted.com.au/logo.png
+  description: |
+    Programmatic access to Australian market and public-interest data:
+    ASIC short positions for ASX-listed securities, Australian house prices
+    and suburb metrics, ABS/RBA economic series, and the federal register of
+    members' and senators' interests.
+
+    Every endpoint is a Connect-RPC method. Call it with an HTTP POST, a JSON
+    body, and the `Connect-Protocol-Version: 1` header.
+
+    Send an identifying `User-Agent`. The edge rejects the default `curl/...`
+    agent with a 403 (`permission_denied`), so an example without one fails on
+    first run — which is why every sample here sets it.
+
+    ```bash
+    curl -X POST https://api.shorted.com.au/shorts.v1alpha1.StockService/GetStock \
+      -A 'my-app/1.0' \
+      -H 'Content-Type: application/json' \
+      -H 'Connect-Protocol-Version: 1' \
+      -d '{"productCode":"BHP"}'
+    ```
+
+    Authentication is optional for public endpoints; a bearer token raises
+    your rate limits. See https://shorted.com.au/docs/api for tiers.
+  contact:
+    name: Shorted Support
+    url: https://shorted.com.au
+    email: support@shorted.com.au
+  license:
+    name: CC BY 4.0
+    url: https://creativecommons.org/licenses/by/4.0/
+# Hand-written paths. These are real, working, publicly useful HTTP surfaces
+# that are NOT proto methods, so no generator will ever emit them — if they are
+# not here, they appear in no published spec at all. openapi-postprocess merges
+# this block into the document AFTER pruning, so nothing here needs to (or can)
+# be VISIBILITY_PUBLIC.
+#
+# Both live on https://shorted.com.au, NOT on the document's top-level server
+# https://api.shorted.com.au — hence the path-level `servers` override on each.
+# Getting that wrong tells an agent to call a URL that 404s.
 paths:
-  /register.v1.RegisterService/RegisterEmail:
-    post:
-      summary: Register Email
-      description: Register an email address to receive updates.
-      tags:
-        - register.v1.RegisterService
-  /shorts.v1alpha1.ShortedStocksService/GetTopShorts:
-    post:
-      summary: Get Top Shorts
-      description: Retrieve the top shorted stocks on the ASX for a given period.
-      tags:
-        - shorts.v1alpha1.ShortedStocksService
-  /shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap:
-    post:
-      summary: Get Industry TreeMap
-      description: Get the industry treemap for a given period.
-      tags:
-        - shorts.v1alpha1.ShortedStocksService
-  /shorts.v1alpha1.ShortedStocksService/GetStock:
-    post:
-      summary: Get Stock Summary
-      description: Get the stock summary for a given stock.
-      tags:
-        - shorts.v1alpha1.ShortedStocksService
-  /shorts.v1alpha1.ShortedStocksService/GetStockDetails:
-    post:
-      summary: Get Stock Details
-      description: Get the stock details for a given stock.
-      tags:
-        - shorts.v1alpha1.ShortedStocksService
-  /shorts.v1alpha1.ShortedStocksService/GetStockData:
-    post:
-      summary: Get Stock Time Series Data
-      description: Get the historical short position data for a given stock.
-      tags:
-        - shorts.v1alpha1.ShortedStocksService
-  /shorts.v1alpha1.ShortedStocksService/SearchStocks:
-    post:
-      summary: Search Stocks
-      description: Search for ASX stocks by name or code.
-      tags:
-        - shorts.v1alpha1.ShortedStocksService
-  /shorts.v1alpha1.ShortedStocksService/MintToken:
-    post:
-      summary: Mint API Token
-      description: Generate a bespoke API token.
-      tags:
-        - shorts.v1alpha1.ShortedStocksService
+  /api/search/stocks:
+    servers:
+      - url: https://shorted.com.au
+        description: Production (web app, not the API host)
+    get:
+      operationId: searchStocks
+      summary: Search ASX stocks by code or name
+      description: |
+        Case-insensitive substring match over a curated in-process list of
+        ~70 well-known ASX securities (not the full ASX register, and not the
+        short-position corpus). Returns at most 10 results. For programmatic
+        search over the full corpus use the Connect-RPC SearchService.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Ticker or partial company name, e.g. `BHP` or `Commonwealth`. An empty or missing value returns an empty result list.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Matching stocks, capped at 10.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        code:
+                          type: string
+                          description: ASX ticker, e.g. `BHP`.
+                        name:
+                          type: string
+                          description: Company name.
+                        exchange:
+                          type: string
+                          description: Always `ASX`.
+        "429":
+          description: Rate limited (per-minute browser bucket).
+        "500":
+          description: Search failed.
+  /feed.xml:
+    servers:
+      - url: https://shorted.com.au
+        description: Production (web app, not the API host)
+    get:
+      operationId: getRssFeed
+      summary: RSS feed of editorial articles and short-selling reports
+      responses:
+        "200":
+          description: RSS 2.0 XML.
+          content:
+            application/rss+xml:
+              schema:
+                type: string

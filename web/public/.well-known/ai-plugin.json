@@ -1,9 +1,9 @@
 {
   "schema_version": "v1",
-  "name_for_human": "Shorted - ASX Short Position Data",
-  "name_for_model": "shorted_asx_short_positions",
-  "description_for_human": "Track short selling positions on the Australian Securities Exchange (ASX) using official ASIC data.",
-  "description_for_model": "Shorted.com.au provides official ASIC short position data for ASX-listed securities. Use this to look up current short interest percentages, historical trends, industry analysis, and weekly market reports for Australian stocks. Data is sourced from the Australian Securities and Investments Commission (ASIC) with a T+4 trading day delay. Coverage includes all ASX-listed securities from 2010 to present.",
+  "name_for_human": "Shorted - Australian Market, Housing & Political Data",
+  "name_for_model": "shorted_australian_market_data",
+  "description_for_human": "Track ASX short selling positions, Australian house prices and suburb metrics, ABS/RBA economic series, and the federal register of members' and senators' interests.",
+  "description_for_model": "Shorted.com.au publishes four Australian datasets through one public API. (1) ASIC short positions for every ASX-listed security: current short interest percentages, full daily history since 2010, industry treemaps, screeners and weekly/monthly/yearly reports. ASIC data carries a T+4 trading day delay. (2) Australian housing: ABS/RBA house price indices, per-suburb median prices, sales volumes, Census demographics, electoral and crime overlays, and residential price-drop tracking. (3) Economic series by state: ABS and RBA indicators covering CPI, labour force, trade, state final demand, building approvals, retail turnover, government finance, petroleum and population. (4) The federal register of members' and senators' interests: what politicians have declared they hold (shareholdings, property, memberships, gifts) - what is held, never how much. Every endpoint is a Connect-RPC method: call it with an HTTP POST to https://api.shorted.com.au/<package>.<Service>/<Method>, a JSON request body, Content-Type: application/json, and the Connect-Protocol-Version: 1 header. The full machine-readable description of every endpoint is at https://shorted.com.au/openapi.json (YAML twin at https://shorted.com.au/openapi.yaml); a JavaScript-free markdown reference with worked examples is at https://shorted.com.au/docs/api.md. Public endpoints work without authentication at the anonymous tier; a bearer token raises the rate limits. Note that the edge rejects requests whose User-Agent starts with 'curl/' - send any other identifying User-Agent.",
   "auth": {
     "type": "none"
   },
@@ -15,20 +15,53 @@
   "contact_email": "support@shorted.com.au",
   "legal_info_url": "https://shorted.com.au/terms",
   "endpoints": {
+    "api_base": "https://api.shorted.com.au",
+    "openapi_json": "https://shorted.com.au/openapi.json",
+    "openapi_yaml": "https://shorted.com.au/openapi.yaml",
+    "api_docs": "https://shorted.com.au/docs/api",
+    "api_docs_markdown": "https://shorted.com.au/docs/api.md",
+    "api_catalog": "https://shorted.com.au/.well-known/api-catalog",
+    "mcp_server": "https://shorted.com.au/api/mcp/mcp",
+    "mcp_server_card": "https://shorted.com.au/.well-known/mcp/server-card.json",
+    "llms_txt": "https://shorted.com.au/llms.txt",
     "search": "https://shorted.com.au/api/search/stocks",
     "stock_data": "https://shorted.com.au/shorts/{stockCode}",
     "top_shorts": "https://shorted.com.au/top",
     "industry_analysis": "https://shorted.com.au/industry",
     "weekly_reports": "https://shorted.com.au/reports",
+    "housing": "https://shorted.com.au/housing",
+    "economy": "https://shorted.com.au/economy",
+    "politicians": "https://shorted.com.au/politicians",
     "glossary": "https://shorted.com.au/glossary",
     "learn": "https://shorted.com.au/learn"
   },
-  "data_source": {
-    "name": "ASIC (Australian Securities and Investments Commission)",
-    "url": "https://asic.gov.au",
-    "update_frequency": "daily",
-    "data_lag": "T+4 trading days",
-    "coverage": "All ASX-listed securities",
-    "historical_range": "2010 to present"
-  }
+  "data_sources": [
+    {
+      "name": "ASIC (Australian Securities and Investments Commission)",
+      "url": "https://asic.gov.au",
+      "covers": "ASX short positions",
+      "update_frequency": "daily",
+      "data_lag": "T+4 trading days",
+      "coverage": "All ASX-listed securities",
+      "historical_range": "2010 to present"
+    },
+    {
+      "name": "ABS (Australian Bureau of Statistics) and RBA (Reserve Bank of Australia)",
+      "url": "https://abs.gov.au",
+      "covers": "House price indices, suburb Census metrics, economic series by state",
+      "update_frequency": "monthly to quarterly, following official release schedules"
+    },
+    {
+      "name": "State Valuer-General and land registry data",
+      "covers": "Per-suburb median sale prices and volumes",
+      "update_frequency": "monthly"
+    },
+    {
+      "name": "Australian Parliament House Registers of Members' and Senators' Interests",
+      "url": "https://aph.gov.au",
+      "covers": "Declared interests of federal MPs and senators (what is held, never how much)",
+      "update_frequency": "as declarations are tabled",
+      "licence": "CC BY-NC-ND"
+    }
+  ]
 }
