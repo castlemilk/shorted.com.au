@@ -5,6 +5,7 @@ import (
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/ratelimit"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/mcp"
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/oauth"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -30,6 +31,14 @@ type Config struct {
 	// carries a dev audience and is refused by prod's MCP resource server.
 	APIBaseURL string `json:"api_base_url" yaml:"api_base_url" mapstructure:"api_base_url"`
 
+	// OAuthConsentURL is the absolute URL of the human-facing consent screen,
+	// which lives on the WEB origin, not this one — it is the only part of the
+	// authorization server that needs a browser session and a person.
+	//
+	// It is advertised as `authorization_endpoint` in the RFC 8414 document, so
+	// it must point at the deployment a client would actually be sent to.
+	OAuthConsentURL string `json:"oauth_consent_url" yaml:"oauth_consent_url" mapstructure:"oauth_consent_url"`
+
 	// Rate limiting configuration
 	RateLimitConfig ratelimit.Config `json:"rate_limit" yaml:"rate_limit" mapstructure:"rate_limit"`
 }
@@ -46,6 +55,7 @@ func DefaultConfig() Config {
 		ShortsStoreConfig: shorts.DefaultPostgresConfig(),
 		AlgoliaIndex:      "stocks", // Default index name
 		APIBaseURL:        mcp.DefaultAPIBaseURL,
+		OAuthConsentURL:   oauth.DefaultConsentURL,
 		RateLimitConfig:   ratelimit.DefaultConfig(),
 	}
 }
@@ -66,6 +76,9 @@ func Env(v *viper.Viper, cfgPrefix, envPrefix string) {
 
 	// Public origin — OAuth issuer, token audience, MCP resource identifier.
 	_ = v.BindEnv(fmt.Sprintf("%s.api_base_url", cfgPrefix), "API_BASE_URL")
+
+	// The Next.js consent screen this authorization server sends humans to.
+	_ = v.BindEnv(fmt.Sprintf("%s.oauth_consent_url", cfgPrefix), "OAUTH_CONSENT_URL")
 
 	// Rate limiting configuration.
 	//

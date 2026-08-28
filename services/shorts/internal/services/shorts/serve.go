@@ -20,6 +20,7 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/pkg/ratelimit"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/jobmonitor"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/mcp"
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/oauth"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/register"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/shorts/broadcast"
 
@@ -248,6 +249,32 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	// The exact pattern wins over "/mcp/" above by ServeMux's longest-match
 	// rule, so this does not have to be registered first.
 	mux.Handle("/mcp/catalog.json", mcp.CatalogHandler(s))
+
+	// OAuth 2.1 AUTHORIZATION SERVER. Same process as the resource server
+	// above, deliberately: the access tokens are HS256 with a symmetric secret,
+	// so splitting mint and verify across two platforms would mean sharing that
+	// secret and rotating it in two places.
+	//
+	// Mounted directly, NOT via mount(): that helper is for Connect handlers
+	// and applies the browser CORS policy. These are plain HTTP endpoints
+	// consumed by OAuth clients, and the metadata document sets its own
+	// wildcard CORS because discovery is public and non-credentialed.
+	oauthEndpoints := oauth.Endpoints{
+		APIBaseURL: apiBaseURL,
+		ConsentURL: s.config.OAuthConsentURL,
+	}
+	// RFC 8414 discovery. This is how a client learns where to send the human,
+	// where to exchange the code, and that PKCE S256 is the only method.
+	mux.Handle(oauth.AuthorizationServerMetadataPath, oauth.MetadataHandler(oauthEndpoints))
+	// The grant. Called by the Next.js consent screen AFTER a human approves —
+	// no browser is ever redirected here, and the caller proves identity with a
+	// Firebase ID token verified through the same path the Connect auth
+	// interceptor uses.
+	mux.Handle(oauth.GrantPath, oauth.NewGrantHandler(oauth.GrantConfig{
+		Endpoints: oauthEndpoints,
+		Identity:  firebaseIdentityVerifier{},
+		Store:     s.oauthStore,
+	}))
 
 	// Add health check endpoint
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {

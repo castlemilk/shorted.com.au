@@ -11,6 +11,7 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/pkg/ratelimit"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/jobmonitor"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/mcp"
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/oauth"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/register"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -47,6 +48,11 @@ type ShortsServer struct {
 	rateLimiter    ratelimit.RateLimiter
 	httpClient     *http.Client
 	jobsCollector  *jobmonitor.Collector
+	// oauthStore backs the OAuth authorization server (clients, codes,
+	// refresh tokens — migration 000116). Nil when no Postgres pool is
+	// reachable, in which case the grant endpoint reports
+	// temporarily_unavailable rather than panicking.
+	oauthStore oauth.Store
 }
 
 // New creates instance of the Server
@@ -113,11 +119,19 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 	// Supabase max_connections is shared across services. If the pool is not
 	// reachable through the store (non-Postgres backend), per-minute limiting
 	// still runs; only monthly accounting is skipped.
+	//
+	// The OAuth authorization server shares that same pool, for the same
+	// reason — see the oauthStore wiring below.
+	var pool *pgxpool.Pool
+	if pooled, ok := storeImpl.(interface{ Pool() *pgxpool.Pool }); ok {
+		pool = pooled.Pool()
+	}
+
 	var rateLimiter ratelimit.RateLimiter
 	if cfg.RateLimitConfig.Enabled {
 		var usageStore ratelimit.UsageStore
-		if pooled, ok := storeImpl.(interface{ Pool() *pgxpool.Pool }); ok && pooled.Pool() != nil {
-			usageStore = ratelimit.NewPostgresUsageStore(pooled.Pool(), cfg.RateLimitConfig.Timeout)
+		if pool != nil {
+			usageStore = ratelimit.NewPostgresUsageStore(pool, cfg.RateLimitConfig.Timeout)
 			logger.Infof("Monthly quota accounting enabled (Postgres api_usage_monthly, batched writes, fail-open)")
 		} else {
 			logger.Warnf("Rate limiting enabled but no Postgres pool available — per-minute tier limits still apply, monthly quotas will not be enforced")
@@ -125,6 +139,16 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 		rateLimiter = ratelimit.NewAppLimiter(cfg.RateLimitConfig, usageStore)
 	} else {
 		logger.Infof("App-layer rate limiting disabled (the Cloudflare edge abuse ceiling is unaffected)")
+	}
+
+	// OAuth authorization-server storage. A typed-nil in the interface would
+	// read as "configured" and panic on first use, so the assignment is
+	// conditional on a real pool.
+	var oauthStore oauth.Store
+	if pool != nil {
+		oauthStore = oauth.NewPostgresStore(pool)
+	} else {
+		logger.Warnf("No Postgres pool available — the OAuth authorization endpoints will report temporarily_unavailable")
 	}
 
 	return &ShortsServer{
@@ -138,5 +162,6 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 		rateLimiter:    rateLimiter,
 		httpClient:     &http.Client{Timeout: 10 * time.Second},
 		jobsCollector:  jobmonitor.NewCollector(jobmonitor.ConfigFromEnv()),
+		oauthStore:     oauthStore,
 	}, nil
 }
