@@ -415,7 +415,7 @@ Keyed by `sal_code` (ABS SAL_CODE21, PK). Indexed on `(state_code)` and `(sal_na
 | **000060** (state member) | `state_member`, `state_party`, `state_party_ab` *(NULL for TAS/ACT)* |
 | **000084** (suburb banners) | `banner_archetype`, `banner_blurb`, `banner_landmarks`, `banner_bg_key`, `banner_bg_url`, `banner_generated_at` — populated by `-mode banners` (deterministic classifier over the committed `web/public/geo/insights/suburb-archetypes.json`; 15,329 suburbs classified on prod) + the optional `web/scripts/housing-banners/blurb.mjs` LLM blurbs (templated fallback in the RPC until then). Surfaced ONLY on `GetSuburbProfile` (`banner` field) → `<SuburbBanner>` composites an archetype AVIF (`web/public/housing-banners/bg/<key>.{light,dark}.avif`) + d3-geo locator snapshot + blurb. |
 
-> Note: `pct_owned_*` / `pct_rented` / `dwelling_count` columns exist (000055) but `-mode census` does **not** populate them (tenure tables G33/G37 aren't parsed) — they're reserved/NULL.
+> Note (corrected 2026-08-27): `pct_owned_*` / `pct_rented` / `dwelling_count` (000055) **are** populated — 8,952 suburbs. This note previously said `-mode census` did not parse the tenure tables. It didn't, because it was reading G33 (household income) rather than **G37**; that is fixed and the ingest has run. Do not treat these as reserved.
 
 ### Satori OG limitation
 
