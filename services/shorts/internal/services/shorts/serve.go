@@ -266,6 +266,29 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	// RFC 8414 discovery. This is how a client learns where to send the human,
 	// where to exchange the code, and that PKCE S256 is the only method.
 	mux.Handle(oauth.AuthorizationServerMetadataPath, oauth.MetadataHandler(oauthEndpoints))
+
+	// Client resolution. A client_id that is an https URL is a Client ID
+	// Metadata Document — the preferred path in protocol 2026-07-28 — and is
+	// resolved by FETCHING it, under an SSRF policy that refuses private
+	// address space after DNS resolution and follows no redirects. Anything
+	// else is an opaque id looked up in oauth_clients. The wrapper means the
+	// grant and token handlers never have to know which kind they were given.
+	//
+	// Nil-safe: NewResolvingStore returns nil for a nil inner store, and a nil
+	// *ResolvingStore would be a non-nil interface, so the assignment is
+	// conditional — otherwise the handlers' "not configured" branch would never
+	// fire and they would panic on first use instead.
+	oauthClients := s.oauthStore
+	if s.oauthStore != nil {
+		oauthClients = oauth.NewResolvingStore(s.oauthStore, oauth.NewMetadataFetcher(oauth.MetadataFetcherConfig{}))
+		// An open registration endpoint accumulates junk. The sweep deletes
+		// clients idle for longer than the longest-lived credential they could
+		// hold, and refuses to touch any client that still has a live token or
+		// an unexpired code — the foreign keys cascade, so "unused" has to be
+		// proved, not assumed.
+		oauth.StartClientSweeper(ctx, s.oauthStore, 24*time.Hour)
+	}
+
 	// The grant. Called by the Next.js consent screen AFTER a human approves —
 	// no browser is ever redirected here, and the caller proves identity with a
 	// Firebase ID token verified through the same path the Connect auth
@@ -273,6 +296,14 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	mux.Handle(oauth.GrantPath, oauth.NewGrantHandler(oauth.GrantConfig{
 		Endpoints: oauthEndpoints,
 		Identity:  firebaseIdentityVerifier{},
+		Store:     oauthClients,
+	}))
+	// RFC 7591 dynamic client registration. Deprecated in protocol 2026-07-28
+	// in favour of CIMD above, but retained because Claude and ChatGPT still
+	// use it. It is unauthenticated by definition, so it is rate limited and
+	// capped per IP and its rows are swept.
+	mux.Handle(oauth.RegisterPath, oauth.NewRegistrationHandler(oauth.RegistrationConfig{
+		Endpoints: oauthEndpoints,
 		Store:     s.oauthStore,
 	}))
 	// The token exchange. PKCE on the authorization_code grant, rotation with
@@ -284,7 +315,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	// never trusted from the token.
 	mux.Handle(oauth.TokenPath, oauth.NewTokenHandler(oauth.TokenConfig{
 		Endpoints:   oauthEndpoints,
-		Store:       s.oauthStore,
+		Store:       oauthClients,
 		Minter:      s.tokenService,
 		ResolveTier: oauth.TierResolver(authOpts.SubscriptionLookup),
 	}))

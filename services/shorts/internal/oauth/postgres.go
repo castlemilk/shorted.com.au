@@ -22,7 +22,10 @@ type PostgresStore struct {
 
 // The token endpoint's guarantees are SQL guarantees, so the store that
 // provides them is asserted here rather than discovered at wiring time.
-var _ TokenStore = (*PostgresStore)(nil)
+var (
+	_ TokenStore  = (*PostgresStore)(nil)
+	_ ClientStore = (*PostgresStore)(nil)
+)
 
 // NewPostgresStore returns nil when there is no pool, so a caller can wire the
 // grant handler unconditionally and have it report "unavailable" rather than
@@ -52,6 +55,95 @@ func (s *PostgresStore) GetClient(ctx context.Context, clientID string) (*Client
 		return nil, fmt.Errorf("loading oauth client: %w", err)
 	}
 	return &c, nil
+}
+
+// SaveClient inserts a registration, or refreshes a CIMD client's cached
+// metadata.
+//
+// The DO UPDATE is guarded so that ONE SOURCE CANNOT OVERWRITE THE OTHER. A
+// CIMD client_id is a URL an unauthenticated caller supplies; without the
+// guard, pointing us at a document whose client_id happened to collide with a
+// DCR-registered id would let that document rewrite the victim's redirect URIs.
+// The predicate makes the update apply only when the stored row and the
+// incoming row are both 'cimd', so the worst case is a refusal.
+//
+// RowsAffected() == 0 therefore means "this client_id exists and belongs to the
+// other registration path", which is an error rather than a silent no-op.
+func (s *PostgresStore) SaveClient(ctx context.Context, reg ClientRegistration) error {
+	issuedAt := reg.IssuedAt
+	if issuedAt.IsZero() {
+		issuedAt = time.Now()
+	}
+	const q = `
+		INSERT INTO oauth_clients (
+			client_id, client_id_issued_at, client_name, redirect_uris,
+			grant_types, scope, client_uri, registration_source
+		) VALUES ($1, $2, NULLIF($3, ''), $4, $5, NULLIF($6, ''), NULLIF($7, ''), $8)
+		ON CONFLICT (client_id) DO UPDATE
+		SET client_name   = EXCLUDED.client_name,
+		    redirect_uris = EXCLUDED.redirect_uris,
+		    grant_types   = EXCLUDED.grant_types,
+		    scope         = EXCLUDED.scope,
+		    client_uri    = EXCLUDED.client_uri
+		WHERE oauth_clients.registration_source = 'cimd'
+		  AND EXCLUDED.registration_source = 'cimd'`
+
+	tag, err := s.pool.Exec(ctx, q,
+		reg.ClientID, issuedAt, reg.ClientName, reg.RedirectURIs,
+		reg.GrantTypes, reg.Scope, reg.ClientURI, reg.Source,
+	)
+	if err != nil {
+		return fmt.Errorf("saving oauth client: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("oauth client %q is already registered by another registration source", reg.ClientID)
+	}
+	return nil
+}
+
+// TouchClient records that a client was used, which is what keeps the
+// unused-client sweep from deleting a client that is still in service.
+func (s *PostgresStore) TouchClient(ctx context.Context, clientID string) error {
+	const q = `UPDATE oauth_clients SET last_used_at = now() WHERE client_id = $1`
+	if _, err := s.pool.Exec(ctx, q, clientID); err != nil {
+		return fmt.Errorf("touching oauth client: %w", err)
+	}
+	return nil
+}
+
+// DeleteUnusedClients removes clients that have been idle since before the
+// cutoff AND hold nothing live.
+//
+// The two NOT EXISTS clauses are the safety property, not an optimisation. The
+// child tables reference oauth_clients ON DELETE CASCADE, so a delete here is a
+// cascading revocation of every code and refresh token the client holds. Idle
+// time alone is not enough evidence: last_used_at is written on client lookup,
+// and the refresh grant does not look a client up, so a client refreshing
+// happily for months could otherwise look untouched. Asking the token table
+// directly is the check that cannot drift.
+func (s *PostgresStore) DeleteUnusedClients(ctx context.Context, idleBefore time.Time) (int64, error) {
+	const q = `
+		DELETE FROM oauth_clients c
+		WHERE COALESCE(c.last_used_at, c.client_id_issued_at) < $1
+		  AND NOT EXISTS (
+		      SELECT 1 FROM oauth_refresh_tokens t
+		      WHERE t.client_id = c.client_id
+		        AND t.revoked_at IS NULL
+		        AND t.rotated_at IS NULL
+		        AND t.expires_at > now()
+		  )
+		  AND NOT EXISTS (
+		      SELECT 1 FROM oauth_authorization_codes a
+		      WHERE a.client_id = c.client_id
+		        AND a.consumed_at IS NULL
+		        AND a.expires_at > now()
+		  )`
+
+	tag, err := s.pool.Exec(ctx, q, idleBefore)
+	if err != nil {
+		return 0, fmt.Errorf("deleting unused oauth clients: %w", err)
+	}
+	return tag.RowsAffected(), nil
 }
 
 // CreateAuthorizationCode writes the hashed code.
