@@ -100,6 +100,24 @@ func (s *TokenService) MintTokenWithTier(userID, email string, roles []string, t
 	return token.SignedString(s.secret)
 }
 
+// ClockLeeway is the tolerance applied to a token's expiry.
+//
+// It lives here, on the parse, because that is the only place it can take
+// effect: golang-jwt validates `exp` during ParseWithClaims with zero leeway by
+// default, and rejects the token before any downstream middleware gets to apply
+// its own tolerance. The MCP bearer middleware sets a matching ClockSkew, but
+// that value could never fire on a real token while this parse was strict — a
+// token 30 seconds past expiry was refused even though both layers claimed to
+// allow 60.
+//
+// Sixty seconds is the conventional NTP allowance. Tokens are minted by a
+// different instance of this same binary on a different host, and reach us
+// through Cloudflare and Cloud Run, so sub-second drift between issuer and
+// verifier is ordinary. The tolerance only ever applies AFTER a token's stated
+// expiry — it can never make an invalid token valid, only briefly extend one
+// that already was.
+const ClockLeeway = 60 * time.Second
+
 // ValidateToken parses and validates a JWT.
 func (s *TokenService) ValidateToken(tokenString string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
@@ -107,7 +125,7 @@ func (s *TokenService) ValidateToken(tokenString string) (*Claims, error) {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		return s.secret, nil
-	})
+	}, jwt.WithLeeway(ClockLeeway))
 
 	if err != nil {
 		return nil, err

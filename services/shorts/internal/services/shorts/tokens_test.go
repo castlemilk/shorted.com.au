@@ -184,3 +184,40 @@ func TestTokenServiceWithoutConfiguredAudienceStillMints(t *testing.T) {
 		t.Fatalf("ValidateToken: %v", err)
 	}
 }
+
+// The MCP bearer middleware advertises a 60s ClockSkew, but that value could
+// never fire while ValidateToken parsed with golang-jwt's default zero leeway:
+// the parse rejected the token first. The middleware's own skew test passed
+// regardless, because its fake validator bypasses the JWT layer entirely — a
+// tolerance documented as load-bearing that could not actually tolerate
+// anything.
+//
+// This exercises the deployed path: a REAL signed token, a REAL parse.
+func TestValidateTokenToleratesClockDriftWithinTheLeeway(t *testing.T) {
+	svc := NewTokenService("test-secret")
+
+	justExpired, err := svc.MintTokenWithTier("uid-1", "a@b.com", []string{"api-user"}, "free",
+		-ClockLeeway/2)
+	if err != nil {
+		t.Fatalf("mint: %v", err)
+	}
+
+	if _, err := svc.ValidateToken(justExpired); err != nil {
+		t.Errorf("a token %v past expiry should be tolerated by the %v leeway, got: %v",
+			ClockLeeway/2, ClockLeeway, err)
+	}
+}
+
+func TestValidateTokenStillRejectsGenuinelyExpiredTokens(t *testing.T) {
+	svc := NewTokenService("test-secret")
+
+	longExpired, err := svc.MintTokenWithTier("uid-1", "a@b.com", []string{"api-user"}, "free",
+		-2*ClockLeeway)
+	if err != nil {
+		t.Fatalf("mint: %v", err)
+	}
+
+	if _, err := svc.ValidateToken(longExpired); err == nil {
+		t.Error("a token well past expiry must still be rejected; leeway is a tolerance, not an extension")
+	}
+}

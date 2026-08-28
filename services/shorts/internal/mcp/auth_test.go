@@ -173,7 +173,7 @@ func TestOptionalBearerAttachesIdentityForAValidToken(t *testing.T) {
 	}
 }
 
-func TestOptionalBearerRejectsAWrongAudienceTokenWithAChallenge(t *testing.T) {
+func TestOptionalBearerRejectsAnAudienceLessTokenWithAChallenge(t *testing.T) {
 	var called bool
 	var seen auth.TokenInfo
 	h := middlewareUnderTest(fakeValidator{claims: &VerifiedClaims{
@@ -313,5 +313,34 @@ func TestProtectedResourceMetadataURL(t *testing.T) {
 	want := DefaultAPIBaseURL + ProtectedResourceMetadataPath
 	if got := ProtectedResourceMetadataURL(DefaultAPIBaseURL); got != want {
 		t.Fatalf("ProtectedResourceMetadataURL = %q, want %q", got, want)
+	}
+}
+
+// The case the previous name claimed but did not exercise: a token that DOES
+// carry an audience, just not ours. A token minted for another resource must be
+// refused here — accepting it is precisely the confused-deputy the spec's
+// audience requirement exists to prevent.
+func TestOptionalBearerRejectsATokenMintedForAnotherResource(t *testing.T) {
+	var called bool
+	var seen auth.TokenInfo
+	h := middlewareUnderTest(fakeValidator{claims: &VerifiedClaims{
+		UserID:    "user-42",
+		Audience:  []string{"https://someone-else.example/mcp"},
+		ExpiresAt: time.Now().Add(time.Hour),
+	}})(probeHandler(&seen, &called))
+
+	req := httptest.NewRequest(http.MethodPost, "/mcp", nil)
+	req.Header.Set("Authorization", "Bearer for-another-resource")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, want 401 for a token minted for a different resource", rec.Code)
+	}
+	if called {
+		t.Error("handler ran; a token for another resource must never reach it")
+	}
+	if got := rec.Header().Get("WWW-Authenticate"); !strings.Contains(got, "resource_metadata=") {
+		t.Errorf("challenge missing resource_metadata: %q", got)
 	}
 }
