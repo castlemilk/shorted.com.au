@@ -23,7 +23,7 @@ attribution-format: "Data from Shorted.com.au - ASX Short Position Tracker"
 # API Access for LLMs
 api-endpoint: https://api.shorted.com.au
 api-documentation: https://shorted.com.au/docs/api-reference
-mcp-endpoint: https://shorted.com.au/api/mcp/mcp
+mcp-endpoint: https://api.shorted.com.au/mcp
 mcp-server-card: https://shorted.com.au/.well-known/mcp/server-card.json
 api-catalog: https://shorted.com.au/.well-known/api-catalog
 openapi: https://shorted.com.au/openapi.json
