@@ -332,3 +332,76 @@ test("daily short data sync invalidates the shared stock data cache tag", () => 
     "/scans",
   ]);
 });
+
+// ---------------------------------------------------------------------------
+// The MCP bucket
+//
+// Terraform is the source of truth for every edge limit; the worker's
+// compiled-in numbers are the fail-safe used only when a var is missing (local
+// `node --test`, a not-yet-applied deploy). If they disagree, the number an
+// operator reads in variables.tf is not the number in force — which is the
+// worst failure mode a limit can have, because nothing breaks and nobody looks.
+// ---------------------------------------------------------------------------
+
+test("the MCP bucket has both windows, wired to distinct namespaces", () => {
+  const main = readFileSync(
+    new URL("./main.tf", import.meta.url),
+    "utf8",
+  );
+  assert.match(main, /name\s+=\s+"MCP_ANON_BURST_RATE_LIMITER"/);
+  assert.match(main, /name\s+=\s+"MCP_ANON_RATE_LIMITER"/);
+  // The Cloudflare binding's `period` is a hard enum of 10 or 60, which is why
+  // burst and sustained cannot be one binding.
+  assert.match(
+    main,
+    /MCP_ANON_BURST_RATE_LIMITER[\s\S]{0,200}?period\s+=\s+10/,
+  );
+  assert.match(
+    main,
+    /MCP_ANON_RATE_LIMITER[\s\S]{0,200}?period\s+=\s+60/,
+  );
+  // And the worker has to be told the numbers, or it falls back to its own.
+  assert.match(main, /name = "RATE_LIMIT_MCP_ANON_BURST"/);
+  assert.match(main, /name = "RATE_LIMIT_MCP_ANON_LIMIT"/);
+});
+
+test("Terraform's MCP defaults are the same numbers the worker compiles in", () => {
+  const variables = readFileSync(
+    new URL("./variables.tf", import.meta.url),
+    "utf8",
+  );
+  const worker = readFileSync(
+    new URL("../../../services/edge-worker/worker.js", import.meta.url),
+    "utf8",
+  );
+
+  const tfDefault = (name) => {
+    const block = variables.slice(variables.indexOf(`variable "${name}"`));
+    return Number(/default\s+=\s+(\d+)/.exec(block)?.[1]);
+  };
+  const mcpBucket = worker.slice(worker.indexOf('"mcp-anon": {'));
+  const workerDefault = (key) =>
+    Number(new RegExp(`${key}:\\s*(\\d+)`).exec(mcpBucket)?.[1]);
+
+  assert.equal(tfDefault("edge_rate_limit_mcp_anon_burst_requests"), 60);
+  assert.equal(tfDefault("edge_rate_limit_mcp_anon_requests_per_minute"), 300);
+  assert.equal(workerDefault("burstDefault"), 60);
+  assert.equal(workerDefault("sustainedDefault"), 300);
+});
+
+// A namespace id collision silently merges two buckets into one counter, so
+// the tighter limit wins everywhere and neither number means what it says.
+test("every rate limit namespace id is unique", () => {
+  const variables = readFileSync(
+    new URL("./variables.tf", import.meta.url),
+    "utf8",
+  );
+  const ids = [
+    ...variables.matchAll(
+      /variable "edge_rate_limit_\w*namespace_id"[\s\S]*?default\s+=\s+"(\d+)"/g,
+    ),
+  ].map((m) => m[1]);
+
+  assert.ok(ids.length >= 9, `namespace scan found only ${ids.length}`);
+  assert.equal(new Set(ids).size, ids.length, `duplicate namespace id in ${ids}`);
+});

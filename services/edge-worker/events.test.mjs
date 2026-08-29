@@ -527,6 +527,7 @@ test("edge_config exposes the limits AND whether their bindings are actually bou
     "browser-anon",
     "browser-auth",
     "first-party",
+    "mcp-anon",
   ]);
 });
 
