@@ -88,11 +88,24 @@ type GrantConfig struct {
 	Endpoints Endpoints
 	Identity  IdentityVerifier
 	Store     Store
+	// Consent redeems the human's approval. It is a SEPARATE dependency from
+	// Store rather than a method on it because a client store has no business
+	// promising anything about consent — and because a nil one has to be a
+	// visible 503, not a silently skipped check. See ServeHTTP step 1.
+	//
+	// It is a ConsentRedeemer, not a ConsentStore: the grant spends approvals
+	// and must not be able to create them.
+	Consent ConsentRedeemer
 	// Now is injectable for tests. Defaults to time.Now.
 	Now func() time.Time
 }
 
 type grantRequest struct {
+	// ConsentTicket is REQUIRED. It is the proof that a human approved this
+	// exact client, redirect URI and PKCE challenge.
+	ConsentTicket string `json:"consent_ticket"`
+	// IDToken is OPTIONAL, and defence in depth only. When present it must
+	// verify AND name the same subject the ticket recorded.
 	IDToken             string `json:"id_token"`
 	ClientID            string `json:"client_id"`
 	RedirectURI         string `json:"redirect_uri"`
@@ -110,6 +123,7 @@ type grantHandler struct {
 	consentOrigin string
 	identity      IdentityVerifier
 	store         Store
+	consent       ConsentRedeemer
 	now           func() time.Time
 	resources     []string
 	scopes        map[string]bool
@@ -128,14 +142,24 @@ func originOf(rawURL string) string {
 
 // NewGrantHandler builds the POST /oauth/authorize/grant handler.
 //
-// WHAT AUTHENTICATES A CALL HERE. Nothing but the Firebase ID token in the
-// body, and that is the design: the caller is a browser on the consent screen,
-// so a cookie would be forgeable cross-site and a shared secret would have to
-// ship to the browser. An ID token is a bearer assertion of one identity,
-// scoped to the Firebase project, and holding one already means being able to
-// act as that user against the Connect API. So this endpoint grants no
-// authority the presenter did not already have — what it adds is that the code
-// it returns can only leave via a redirect URI the CLIENT registered.
+// WHAT AUTHENTICATES A CALL HERE: a CONSENT TICKET, and nothing else.
+//
+// It used to be a Firebase ID token alone. That proves someone holds a
+// credential; it does not prove a human approved anything, and once
+// /oauth/register shipped, the gap was exploitable end to end — an attacker
+// with a stolen ID token registers their own client and redirect URI, POSTs
+// here, redeems the code, and walks away with an indefinitely-rotating refresh
+// token that nobody ever agreed to.
+//
+// A ticket cannot be obtained with a stolen identity alone: minting one
+// requires the internal service secret, which lives only on the consent
+// screen's server, and the screen mints one only after a signed-in human
+// approves a page naming the client, its redirect URI and its scopes.
+//
+// The ticket is spent FIRST, before any other validation, so a replay costs the
+// attacker the ticket. Every binding it carries is then re-checked against this
+// request, so an approval of one client cannot be spent on another. An ID
+// token, if the caller passes one, is a cross-check on the subject only.
 func NewGrantHandler(cfg GrantConfig) http.Handler {
 	now := cfg.Now
 	if now == nil {
@@ -151,6 +175,7 @@ func NewGrantHandler(cfg GrantConfig) http.Handler {
 		consentOrigin: originOf(cfg.Endpoints.consent()),
 		identity:      cfg.Identity,
 		store:         cfg.Store,
+		consent:       cfg.Consent,
 		now:           now,
 		// The ONE grantable resource: this deployment's MCP server. The Connect
 		// API origin is deliberately absent — an OAuth grant here authorises the
@@ -190,10 +215,11 @@ func (h *grantHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeOAuthError(w, http.StatusMethodNotAllowed, "invalid_request", "POST required")
 		return
 	}
-	if h.store == nil || h.identity == nil {
-		// A deployment without a database or without Firebase cannot issue
-		// codes. Say so plainly rather than panicking or minting nothing and
-		// reporting success.
+	if h.store == nil || h.consent == nil {
+		// A deployment without a database, or wired without a consent store,
+		// cannot issue codes. Say so plainly rather than panicking — and note
+		// which way a missing consent store fails: refusing everything, never
+		// issuing a code nobody approved.
 		writeOAuthError(w, http.StatusServiceUnavailable, "temporarily_unavailable",
 			"the authorization server is not configured to issue codes")
 		return
@@ -205,24 +231,62 @@ func (h *grantHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 1. IDENTITY FIRST. Everything below binds a code to a user, so there is
-	//    no point validating the request of a caller we cannot name.
-	if strings.TrimSpace(req.IDToken) == "" {
-		writeOAuthError(w, http.StatusUnauthorized, "invalid_token", "id_token is required")
+	// 1. CONSENT FIRST. Everything below binds a code to a user, and the only
+	//    thing that names that user is a ticket a human's approval created. So
+	//    the ticket is spent before anything else is even looked at: a request
+	//    without one buys nothing, no matter what else it carries.
+	//
+	//    Spending it here also means a replay costs the attacker the ticket.
+	if strings.TrimSpace(req.ConsentTicket) == "" {
+		writeOAuthError(w, http.StatusUnauthorized, "access_denied",
+			"consent_ticket is required — an authorization code is only issued after a human approves")
 		return
 	}
-	identity, err := h.identity.VerifyIDToken(r.Context(), req.IDToken)
+	ticket, err := h.consent.ConsumeConsentTicket(r.Context(), HashConsentTicket(req.ConsentTicket))
 	if err != nil {
-		// The reason (expired, wrong project, malformed) stays in the log. The
-		// response says only that the token was not accepted.
-		log.Warnf("oauth grant: ID token rejected: %v", err)
-		writeOAuthError(w, http.StatusUnauthorized, "invalid_token", "the ID token was not accepted")
+		log.Errorf("oauth grant: consuming consent ticket: %v", err)
+		writeOAuthError(w, http.StatusInternalServerError, "server_error", "could not verify consent")
 		return
 	}
-	if strings.TrimSpace(identity.UserID) == "" {
-		log.Warnf("oauth grant: ID token verified but carried no subject")
-		writeOAuthError(w, http.StatusUnauthorized, "invalid_token", "the ID token carried no subject")
+	if ticket == nil {
+		// Unknown or already spent. One approval, one code.
+		writeOAuthError(w, http.StatusUnauthorized, "access_denied",
+			"the consent ticket is not valid")
 		return
+	}
+	if !ticket.ExpiresAt.After(h.now()) {
+		writeOAuthError(w, http.StatusUnauthorized, "access_denied",
+			"the consent ticket has expired — approve again")
+		return
+	}
+	identity := Identity{UserID: ticket.UserID}
+
+	// 1b. The ID token is OPTIONAL here and is a cross-check, not the
+	//     authority: the consent screen may pass one, and if it does, it must
+	//     name the same human the ticket recorded. A mismatch means the
+	//     approval and the credential came from two different people, which is
+	//     never a legitimate flow.
+	if strings.TrimSpace(req.IDToken) != "" {
+		if h.identity == nil {
+			writeOAuthError(w, http.StatusServiceUnavailable, "temporarily_unavailable",
+				"the authorization server cannot verify ID tokens")
+			return
+		}
+		verified, err := h.identity.VerifyIDToken(r.Context(), req.IDToken)
+		if err != nil {
+			// The reason (expired, wrong project, malformed) stays in the log.
+			// The response says only that the token was not accepted.
+			log.Warnf("oauth grant: ID token rejected: %v", err)
+			writeOAuthError(w, http.StatusUnauthorized, "invalid_token", "the ID token was not accepted")
+			return
+		}
+		if verified.UserID != ticket.UserID {
+			log.Warnf("oauth grant: ID token subject does not match the consent ticket")
+			writeOAuthError(w, http.StatusUnauthorized, "invalid_token",
+				"the ID token does not match the approving user")
+			return
+		}
+		identity = verified
 	}
 
 	// 2. CLIENT.
@@ -305,6 +369,25 @@ func (h *grantHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 6b. THE APPROVAL MUST BE FOR THIS REQUEST.
+	//
+	//     Everything above validated the request against the CLIENT's
+	//     registration. This validates it against what the human was actually
+	//     shown. Without it, a ticket approved for "Claude Desktop, callback
+	//     127.0.0.1:51763, shorts:read" could be spent on any other registered
+	//     client, any other registered callback, or a wider scope — the screen
+	//     would be honest and the grant would still be wrong.
+	//
+	//     The code_challenge is bound too, which is what stops an attacker who
+	//     can observe a ticket from substituting their own PKCE verifier and
+	//     redeeming the resulting code themselves.
+	if mismatch := ticketMismatch(ticket, client.ClientID, req.RedirectURI, req.CodeChallenge, resource, scope); mismatch != "" {
+		log.Warnf("oauth grant: consent ticket does not match the request: %s differs", mismatch)
+		writeOAuthError(w, http.StatusUnauthorized, "access_denied",
+			"the consent ticket was issued for a different authorization request")
+		return
+	}
+
 	// 7. MINT. The code exists in exactly two places: this response, and the
 	//    client's redirect. Storage gets sha256(code).
 	code, err := newAuthorizationCode()
@@ -351,13 +434,21 @@ func (h *grantHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // vocabulary when the client registered none — every scope in it is read-only
 // against one resource, so the default is the whole of what this AS grants.
 func (h *grantHandler) normaliseScope(requested, registered string) (string, bool) {
-	allowed := h.scopes
+	return normaliseScope(h.scopes, requested, registered)
+}
+
+// normaliseScope is the free function behind it, shared with the consent
+// endpoints so the scope the human is SHOWN is computed by the same code as the
+// scope that is GRANTED. Two implementations of this would be two chances for
+// the screen to describe a narrower grant than the one it authorises.
+func normaliseScope(vocabulary map[string]bool, requested, registered string) (string, bool) {
+	allowed := vocabulary
 	if regFields := strings.Fields(registered); len(regFields) > 0 {
 		allowed = make(map[string]bool, len(regFields))
 		for _, s := range regFields {
 			// A registered scope outside the published vocabulary grants
 			// nothing: the intersection is what the client may ask for.
-			if h.scopes[s] {
+			if vocabulary[s] {
 				allowed[s] = true
 			}
 		}
@@ -382,6 +473,52 @@ func (h *grantHandler) normaliseScope(requested, registered string) (string, boo
 		}
 	}
 	return strings.Join(fields, " "), true
+}
+
+// ticketMismatch reports the FIRST binding on which the approval and the
+// request disagree, or "" when every one matches.
+//
+// It returns the field name for the log and never for the response: telling a
+// caller which binding failed turns this into an oracle for probing what a
+// ticket was approved for.
+//
+// Scope is compared as a SET, not a string, because the granted scope is
+// rebuilt from a map on both paths and its order is only as stable as the
+// published vocabulary. A set comparison cannot be defeated by reordering and
+// cannot fail spuriously because of it — but it still refuses a request that
+// adds or drops a scope the human saw.
+func ticketMismatch(ticket *ConsentTicket, clientID, redirectURI, codeChallenge, resource, scope string) string {
+	switch {
+	case ticket.ClientID != clientID:
+		return "client_id"
+	case ticket.RedirectURI != redirectURI:
+		return "redirect_uri"
+	case ticket.CodeChallenge != codeChallenge:
+		return "code_challenge"
+	case ticket.Resource != resource:
+		return "resource"
+	case !sameScopeSet(ticket.Scope, scope):
+		return "scope"
+	}
+	return ""
+}
+
+func sameScopeSet(a, b string) bool {
+	fa, fb := strings.Fields(a), strings.Fields(b)
+	if len(fa) != len(fb) {
+		return false
+	}
+	seen := make(map[string]int, len(fa))
+	for _, s := range fa {
+		seen[s]++
+	}
+	for _, s := range fb {
+		seen[s]--
+		if seen[s] < 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // matchRedirectURI compares by exact string equality against every registered

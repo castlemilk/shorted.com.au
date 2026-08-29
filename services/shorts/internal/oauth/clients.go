@@ -143,6 +143,18 @@ type ClientStore interface {
 	DeleteUnusedClients(ctx context.Context, idleBefore time.Time) (int64, error)
 }
 
+// AuthorizationServerStore is everything the authorization server needs from
+// Postgres: clients, codes and refresh tokens (ClientStore) plus consent
+// tickets (ConsentStore).
+//
+// It exists so the wiring can hold ONE value and hand each handler the narrower
+// interface it actually depends on. The narrow interfaces are the contract; this
+// is only the union of them, and nothing takes it as a parameter.
+type AuthorizationServerStore interface {
+	ClientStore
+	ConsentStore
+}
+
 // ---------------------------------------------------------------------------
 // Client ID Metadata Documents
 // ---------------------------------------------------------------------------

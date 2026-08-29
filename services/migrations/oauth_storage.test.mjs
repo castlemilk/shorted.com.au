@@ -30,6 +30,7 @@ const upSQL = stripComments(up);
 
 const TABLES = [
   "oauth_clients",
+  "oauth_consent_tickets",
   "oauth_authorization_codes",
   "oauth_refresh_tokens",
 ];
@@ -39,9 +40,11 @@ const INDEXES = [
   "idx_oauth_authorization_codes_expires",
   "idx_oauth_authorization_codes_client",
   "idx_oauth_refresh_tokens_client",
+  "idx_oauth_consent_tickets_expires",
+  "idx_oauth_consent_tickets_client",
 ];
 
-test("all three tables exist and are created idempotently", () => {
+test("all four tables exist and are created idempotently", () => {
   for (const table of TABLES) {
     assert.match(
       up,
@@ -134,6 +137,39 @@ test("an authorization code can be consumed exactly once", () => {
   );
   assert.match(up, /expires_at TIMESTAMPTZ NOT NULL/i);
   assert.match(up, /code_hash TEXT PRIMARY KEY/i);
+});
+
+// A consent ticket is what turns "someone holds a credential" into "a human
+// approved THIS client". Both halves of that matter: it must be single-use, and
+// it must carry every field the grant re-checks. A ticket that recorded only
+// the user would authorise any client the presenter cared to name.
+test("a consent ticket is single-use and binds the approval to one request", () => {
+  const body = up.slice(
+    up.indexOf("CREATE TABLE IF NOT EXISTS oauth_consent_tickets"),
+  );
+  const table = body.slice(0, body.indexOf(");"));
+
+  assert.match(table, /ticket_hash TEXT PRIMARY KEY/i);
+  assert.match(table, /consumed_at TIMESTAMPTZ\s*,/i);
+  assert.ok(
+    !/consumed_at[^,]*NOT NULL/i.test(table),
+    "consumed_at must be nullable so WHERE consumed_at IS NULL is the guard",
+  );
+  assert.match(table, /expires_at TIMESTAMPTZ NOT NULL/i);
+
+  for (const binding of [
+    "user_id",
+    "client_id",
+    "redirect_uri",
+    "code_challenge",
+    "resource",
+  ]) {
+    assert.match(
+      table,
+      new RegExp(`${binding}[^,]*NOT NULL`, "i"),
+      `${binding} must be a NOT NULL binding — the grant re-checks it`,
+    );
+  }
 });
 
 test("PKCE is S256-only at the schema level, so a downgrade is unstorable", () => {

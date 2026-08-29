@@ -278,7 +278,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	// *ResolvingStore would be a non-nil interface, so the assignment is
 	// conditional — otherwise the handlers' "not configured" branch would never
 	// fire and they would panic on first use instead.
-	oauthClients := s.oauthStore
+	var oauthClients oauth.ClientStore = s.oauthStore
 	if s.oauthStore != nil {
 		oauthClients = oauth.NewResolvingStore(s.oauthStore, oauth.NewMetadataFetcher(oauth.MetadataFetcherConfig{}))
 		// An open registration endpoint accumulates junk. The sweep deletes
@@ -289,14 +289,39 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		oauth.StartClientSweeper(ctx, s.oauthStore, 24*time.Hour)
 	}
 
-	// The grant. Called by the Next.js consent screen AFTER a human approves —
-	// no browser is ever redirected here, and the caller proves identity with a
-	// Firebase ID token verified through the same path the Connect auth
-	// interceptor uses.
+	// The consent-screen support endpoints. INTERNAL: they are called by the
+	// Next.js consent screen's server side and gated on INTERNAL_SERVICE_SECRET,
+	// because minting proof-of-consent must require something an attacker
+	// holding only a stolen user credential does not have.
+	//
+	// The environment is read HERE and passed in, rather than read inside the
+	// oauth package, so the gate is a value the tests can construct.
+	consentAuthorizer := oauth.InternalSecretAuthorizer(
+		os.Getenv("INTERNAL_SERVICE_SECRET"),
+		firstNonEmptyStr(os.Getenv("ENV"), os.Getenv("ENVIRONMENT")),
+	)
+	consentConfig := oauth.ConsentConfig{
+		Endpoints: oauthEndpoints,
+		Store:     oauthClients,
+		Tickets:   s.oauthStore,
+		Authorize: consentAuthorizer,
+	}
+	// What the human must be shown, computed by the same validation the grant
+	// applies — so the screen cannot describe one request and authorise another.
+	mux.Handle(oauth.ConsentDescribePath, oauth.NewConsentDescribeHandler(consentConfig))
+	// Minted only after an explicit approval.
+	mux.Handle(oauth.ConsentTicketPath, oauth.NewConsentTicketHandler(consentConfig))
+
+	// The grant. Called by the Next.js consent screen AFTER a human approves.
+	// No browser is ever redirected here, and the authority is the CONSENT
+	// TICKET — a Firebase ID token, if one is passed, is only cross-checked
+	// against the ticket's subject. See NewConsentTicketHandler for why an ID
+	// token alone was not enough once dynamic registration shipped.
 	mux.Handle(oauth.GrantPath, oauth.NewGrantHandler(oauth.GrantConfig{
 		Endpoints: oauthEndpoints,
 		Identity:  firebaseIdentityVerifier{},
 		Store:     oauthClients,
+		Consent:   s.oauthStore,
 	}))
 	// RFC 7591 dynamic client registration. Deprecated in protocol 2026-07-28
 	// in favour of CIMD above, but retained because Claude and ChatGPT still

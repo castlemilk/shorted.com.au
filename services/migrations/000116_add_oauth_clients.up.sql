@@ -1,8 +1,8 @@
--- OAuth 2.1 authorization-server storage: registered clients, authorization
--- codes and refresh tokens.
+-- OAuth 2.1 authorization-server storage: registered clients, consent tickets,
+-- authorization codes and refresh tokens.
 --
 -- The Go API is BOTH the resource server (MCP at https://api.shorted.com.au/mcp)
--- and the authorization server. These three tables are the only durable state
+-- and the authorization server. These four tables are the only durable state
 -- the AS needs; access tokens stay stateless JWTs signed by TokenService.
 --
 -- WHAT IS STORED HERE, AND WHAT DELIBERATELY IS NOT
@@ -74,6 +74,53 @@ CREATE TABLE IF NOT EXISTS oauth_clients (
     -- Drives the "expire unused clients" sweep an open registration endpoint
     -- needs; NULL means registered but never used.
     last_used_at TIMESTAMPTZ
+);
+
+-- Consent tickets. The evidence that a HUMAN approved this specific client.
+--
+-- WHY THIS TABLE EXISTS. /oauth/authorize/grant used to be authenticated by a
+-- Firebase ID token alone, which proves someone holds a credential — not that
+-- anyone saw a screen. That was survivable until dynamic client registration
+-- shipped: with an open /oauth/register, whoever holds a stolen ID token can
+-- register THEIR OWN client with THEIR OWN redirect URI, POST the grant, redeem
+-- the code, and trade a ~1h credential for an indefinitely-rotating refresh
+-- token, with no human involved at any point.
+--
+-- A ticket is minted only by POST /oauth/consent/ticket, which requires the
+-- INTERNAL_SERVICE_SECRET and is therefore callable only by the Next.js consent
+-- screen's server side, after a signed-in human clicked Approve. The grant then
+-- REQUIRES a ticket. So the attack above now needs a server-held secret as well
+-- as a stolen identity, and a browser session behind it.
+--
+-- Every field except the timestamps is a BINDING: the grant re-checks each one
+-- against its own request, so a ticket approved for one client, redirect URI or
+-- PKCE challenge cannot be spent on another. Approving "Claude Desktop" must
+-- not authorise anything else.
+CREATE TABLE IF NOT EXISTS oauth_consent_tickets (
+    -- sha256(ticket), hex. Same rule as codes and refresh tokens: the bearer
+    -- value lives only in the response that returned it.
+    ticket_hash TEXT PRIMARY KEY,
+
+    -- Firebase UID of the human who approved.
+    user_id TEXT NOT NULL,
+
+    client_id TEXT NOT NULL
+        REFERENCES oauth_clients (client_id) ON DELETE CASCADE,
+
+    redirect_uri TEXT NOT NULL,
+    code_challenge TEXT NOT NULL,
+    resource TEXT NOT NULL,
+    scope TEXT NOT NULL DEFAULT '',
+
+    -- ~2 minutes. Long enough for the redirect the consent screen performs,
+    -- short enough that a leaked ticket is worthless by the time it is noticed.
+    expires_at TIMESTAMPTZ NOT NULL,
+
+    -- NULL until spent. Consumed with the same conditional UPDATE the codes
+    -- use, so two concurrent redemptions cannot both win.
+    consumed_at TIMESTAMPTZ,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- Authorization codes. 60-second TTL, single use, bound to one client, one
@@ -152,12 +199,19 @@ CREATE INDEX IF NOT EXISTS idx_oauth_refresh_tokens_family
 CREATE INDEX IF NOT EXISTS idx_oauth_authorization_codes_expires
     ON oauth_authorization_codes (expires_at);
 
--- Both child tables cascade from oauth_clients; Postgres does not index the
+-- Tickets are swept by expiry for the same reason codes are: the primary key is
+-- a hash and serves no range scan.
+CREATE INDEX IF NOT EXISTS idx_oauth_consent_tickets_expires
+    ON oauth_consent_tickets (expires_at);
+
+-- All three child tables cascade from oauth_clients; Postgres does not index the
 -- referencing side automatically, so a client delete would scan without these.
 CREATE INDEX IF NOT EXISTS idx_oauth_authorization_codes_client
     ON oauth_authorization_codes (client_id);
 CREATE INDEX IF NOT EXISTS idx_oauth_refresh_tokens_client
     ON oauth_refresh_tokens (client_id);
+CREATE INDEX IF NOT EXISTS idx_oauth_consent_tickets_client
+    ON oauth_consent_tickets (client_id);
 
 COMMENT ON TABLE oauth_clients IS
     'OAuth 2.1 clients permitted to request tokens for the MCP resource. Registered via RFC 7591 DCR or cached from a Client ID Metadata Document. redirect_uris is matched by exact string equality — never by prefix.';
@@ -167,6 +221,9 @@ COMMENT ON TABLE oauth_authorization_codes IS
 
 COMMENT ON TABLE oauth_refresh_tokens IS
     'Rotating refresh tokens stored only as sha256 hashes. Presenting a token whose rotated_at is set is reuse: revoke the entire family_id.';
+
+COMMENT ON TABLE oauth_consent_tickets IS
+    'Single-use, ~2-minute proof that a human approved one specific client, redirect URI and PKCE challenge. Minted only by the consent screen server side (INTERNAL_SERVICE_SECRET) and REQUIRED by /oauth/authorize/grant, so a stolen Firebase ID token alone can no longer produce an authorization code.';
 
 COMMENT ON COLUMN oauth_authorization_codes.code_challenge IS
     'PKCE S256 challenge. Public by construction (it is a digest of the verifier); the verifier is never stored.';

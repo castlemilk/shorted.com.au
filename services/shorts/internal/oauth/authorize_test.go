@@ -3,6 +3,7 @@ package oauth
 import (
 	"context"
 	"crypto/sha256"
+	"fmt"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -33,8 +34,11 @@ func (f *fakeIdentity) VerifyIDToken(_ context.Context, idToken string) (Identit
 type fakeStore struct {
 	clients map[string]*Client
 	codes   []AuthorizationCode
+	tickets map[string]*ConsentTicket
 	getErr  error
 	putErr  error
+	// ticketErr makes the consent read fail, which must fail CLOSED.
+	ticketErr error
 }
 
 func (f *fakeStore) GetClient(_ context.Context, clientID string) (*Client, error) {
@@ -46,6 +50,22 @@ func (f *fakeStore) GetClient(_ context.Context, clientID string) (*Client, erro
 		return nil, nil
 	}
 	return c, nil
+}
+
+// ConsumeConsentTicket mirrors the SQL: a ticket is removed from the map as it
+// is read, so a second presentation of the same ticket finds nothing. A fake
+// that returned the ticket twice would let a replay test pass against a
+// single-use guarantee that does not exist.
+func (f *fakeStore) ConsumeConsentTicket(_ context.Context, ticketHash string) (*ConsentTicket, error) {
+	if f.ticketErr != nil {
+		return nil, f.ticketErr
+	}
+	t, ok := f.tickets[ticketHash]
+	if !ok {
+		return nil, nil
+	}
+	delete(f.tickets, ticketHash)
+	return t, nil
 }
 
 func (f *fakeStore) CreateAuthorizationCode(_ context.Context, code AuthorizationCode) error {
@@ -61,30 +81,70 @@ const (
 	testClientID    = "client-abc"
 	testRedirectURI = "https://app.example/cb"
 	testChallenge   = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+	testTicket      = "consent-ticket-value"
+	testUserID      = "uid-1"
 )
 
-func newTestHandler(t *testing.T, ident IdentityVerifier, store Store) http.Handler {
+func newTestHandler(t *testing.T, ident IdentityVerifier, store *fakeStore) http.Handler {
 	t.Helper()
 	return NewGrantHandler(GrantConfig{
 		Endpoints: Endpoints{APIBaseURL: testAPIBase, ConsentURL: "https://example.test/oauth/authorize"},
 		Identity:  ident,
 		Store:     store,
+		Consent:   store,
 	})
 }
 
 func defaultStore() *fakeStore {
-	return &fakeStore{clients: map[string]*Client{
-		testClientID: {
-			ClientID:     testClientID,
-			ClientName:   "Test Client",
-			RedirectURIs: []string{"https://app.example/other", testRedirectURI},
-			GrantTypes:   []string{"authorization_code", "refresh_token"},
+	return &fakeStore{
+		clients: map[string]*Client{
+			testClientID: {
+				ClientID:     testClientID,
+				ClientName:   "Test Client",
+				RedirectURIs: []string{"https://app.example/other", testRedirectURI},
+				GrantTypes:   []string{"authorization_code", "refresh_token"},
+			},
 		},
-	}}
+		// The approval a human gave, bound to exactly the request defaultBody
+		// makes. Every binding here is re-checked by the grant.
+		tickets: map[string]*ConsentTicket{
+			HashConsentTicket(testTicket): {
+				TicketHash:    HashConsentTicket(testTicket),
+				UserID:        testUserID,
+				ClientID:      testClientID,
+				RedirectURI:   testRedirectURI,
+				CodeChallenge: testChallenge,
+				Resource:      testAPIBase + "/mcp",
+				Scope:         "shorts:read housing:read",
+				ExpiresAt:     time.Now().Add(ConsentTicketTTL),
+			},
+		},
+	}
+}
+
+// seedTicket adds an approval for a variant of the default request. Tests that
+// change what is asked for must change what was approved too — that symmetry is
+// the property, not an inconvenience.
+func seedTicket(store *fakeStore, ticket string, mutate func(*ConsentTicket)) {
+	t := ConsentTicket{
+		TicketHash:    HashConsentTicket(ticket),
+		UserID:        testUserID,
+		ClientID:      testClientID,
+		RedirectURI:   testRedirectURI,
+		CodeChallenge: testChallenge,
+		Resource:      testAPIBase + "/mcp",
+		Scope:         "shorts:read housing:read",
+		ExpiresAt:     time.Now().Add(ConsentTicketTTL),
+	}
+	if mutate != nil {
+		mutate(&t)
+	}
+	store.tickets[t.TicketHash] = &t
 }
 
 func defaultBody() map[string]any {
 	return map[string]any{
+		"consent_ticket":        testTicket,
 		"id_token":              "firebase-id-token",
 		"client_id":             testClientID,
 		"redirect_uri":          testRedirectURI,
@@ -210,15 +270,21 @@ func TestGrantStoresOnlyAHashOfTheCode(t *testing.T) {
 
 // ------------------------------------------------------------------- identity
 
-func TestGrantRejectsMissingFirebaseIDToken(t *testing.T) {
+// The ticket is the authority, so an ID token is optional. This is the change
+// Task 6 made deliberately: the consent screen's server side has already
+// established the session, and requiring the browser to also hold a live
+// Firebase ID token made the flow fail for a signed-in user whose Firebase
+// client session had lapsed — while adding nothing an attacker could not steal.
+func TestGrantAcceptsAConsentTicketWithoutAnIDToken(t *testing.T) {
+	store := defaultStore()
 	body := defaultBody()
 	delete(body, "id_token")
-	rec := post(t, newTestHandler(t, &fakeIdentity{userID: "uid-1"}, defaultStore()), body)
-	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf("status = %d, want 401", rec.Code)
+	rec := post(t, newTestHandler(t, &fakeIdentity{userID: testUserID}, store), body)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body %s", rec.Code, rec.Body.String())
 	}
-	if got := decodeError(t, rec); got != "invalid_token" {
-		t.Errorf("error = %q", got)
+	if len(store.codes) != 1 || store.codes[0].UserID != testUserID {
+		t.Fatalf("code was not bound to the approving user: %+v", store.codes)
 	}
 }
 
@@ -485,7 +551,12 @@ func TestGrantCodesAreUnpredictableAndDistinct(t *testing.T) {
 	h := newTestHandler(t, &fakeIdentity{userID: "uid-1"}, store)
 	seen := map[string]bool{}
 	for i := 0; i < 16; i++ {
-		rec := post(t, h, defaultBody())
+		// One approval buys exactly one code, so each iteration needs its own.
+		ticket := fmt.Sprintf("consent-ticket-%d", i)
+		seedTicket(store, ticket, nil)
+		body := defaultBody()
+		body["consent_ticket"] = ticket
+		rec := post(t, h, body)
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status = %d", rec.Code)
 		}
@@ -529,7 +600,9 @@ func TestGrantRejectsScopeBeyondTheClientsRegisteredSet(t *testing.T) {
 func TestGrantDefaultsToTheClientsRegisteredScope(t *testing.T) {
 	store := defaultStore()
 	store.clients[testClientID].Scope = "housing:read"
+	seedTicket(store, "narrow-ticket", func(tk *ConsentTicket) { tk.Scope = "housing:read" })
 	body := defaultBody()
+	body["consent_ticket"] = "narrow-ticket"
 	delete(body, "scope")
 	rec := post(t, newTestHandler(t, &fakeIdentity{userID: "uid-1"}, store), body)
 	if rec.Code != http.StatusOK {
@@ -574,5 +647,238 @@ func TestGrantDoesNotAllowAnUnknownBrowserOrigin(t *testing.T) {
 		if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "" {
 			t.Errorf("origin %q got Access-Control-Allow-Origin %q, want unset", origin, got)
 		}
+	}
+}
+
+// ------------------------------------------------------------ consent tickets
+//
+// These are the tests for the property Task 6 exists to create: an
+// authorization code is issued only when a human approved THIS request. Each
+// one asserts a way the check could be absent while everything else still
+// worked.
+
+func TestGrantWithoutAConsentTicketIssuesNothing(t *testing.T) {
+	store := defaultStore()
+	body := defaultBody()
+	delete(body, "consent_ticket")
+	rec := post(t, newTestHandler(t, &fakeIdentity{userID: testUserID}, store), body)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", rec.Code)
+	}
+	if got := decodeError(t, rec); got != "access_denied" {
+		t.Errorf("error = %q, want access_denied", got)
+	}
+	if len(store.codes) != 0 {
+		t.Fatal("a code was minted without any human approving it")
+	}
+}
+
+// The exact attack the ticket exists to stop: a valid Firebase ID token, a
+// client the attacker registered themselves, and no human anywhere.
+func TestAStolenIDTokenAloneCannotProduceACode(t *testing.T) {
+	store := defaultStore()
+	store.tickets = map[string]*ConsentTicket{} // nobody has approved anything
+	body := defaultBody()
+	delete(body, "consent_ticket")
+
+	rec := post(t, newTestHandler(t, &fakeIdentity{userID: testUserID}, store), body)
+	if rec.Code == http.StatusOK {
+		t.Fatal("a stolen ID token bought an authorization code")
+	}
+	if len(store.codes) != 0 {
+		t.Fatal("a code exists for a grant nobody approved")
+	}
+}
+
+func TestGrantRejectsAnUnknownConsentTicket(t *testing.T) {
+	store := defaultStore()
+	body := defaultBody()
+	body["consent_ticket"] = "not-a-ticket-we-issued"
+	rec := post(t, newTestHandler(t, &fakeIdentity{userID: testUserID}, store), body)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", rec.Code)
+	}
+	if len(store.codes) != 0 {
+		t.Error("a code was minted for a forged ticket")
+	}
+}
+
+// One approval buys one code. Without this, observing a ticket once would let
+// an attacker mint codes until it expired.
+func TestAConsentTicketIsSpentExactlyOnce(t *testing.T) {
+	store := defaultStore()
+	h := newTestHandler(t, &fakeIdentity{userID: testUserID}, store)
+
+	if rec := post(t, h, defaultBody()); rec.Code != http.StatusOK {
+		t.Fatalf("first grant: status = %d, body %s", rec.Code, rec.Body.String())
+	}
+	rec := post(t, h, defaultBody())
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("replay: status = %d, want 401", rec.Code)
+	}
+	if len(store.codes) != 1 {
+		t.Fatalf("codes minted = %d, want 1 — a replayed ticket minted a second", len(store.codes))
+	}
+}
+
+func TestGrantRejectsAnExpiredConsentTicket(t *testing.T) {
+	store := defaultStore()
+	seedTicket(store, "stale", func(tk *ConsentTicket) {
+		tk.ExpiresAt = time.Now().Add(-time.Second)
+	})
+	body := defaultBody()
+	body["consent_ticket"] = "stale"
+
+	rec := post(t, newTestHandler(t, &fakeIdentity{userID: testUserID}, store), body)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", rec.Code)
+	}
+	if len(store.codes) != 0 {
+		t.Error("an expired approval was honoured")
+	}
+}
+
+// Each binding is a separate way the approval could be diverted, so each is
+// asserted separately: a single "mismatch" test would pass with only one of
+// the five checks implemented.
+func TestGrantRejectsAConsentTicketApprovedForADifferentRequest(t *testing.T) {
+	other := "https://app.example/other"
+	cases := []struct {
+		name    string
+		mutate  func(*ConsentTicket)
+		bodyKey string
+		bodyVal any
+	}{
+		{
+			name:   "another client",
+			mutate: func(tk *ConsentTicket) { tk.ClientID = "someone-elses-client" },
+		},
+		{
+			// The human approved a callback to one place; the request asks for
+			// another the client also registered. Both are legitimate URIs, and
+			// sending the code to the wrong one is still a diversion.
+			name:   "another registered redirect URI",
+			mutate: func(tk *ConsentTicket) { tk.RedirectURI = other },
+		},
+		{
+			// Substituting the PKCE challenge is how an attacker who observes a
+			// ticket redeems the resulting code with their own verifier.
+			name:   "another PKCE challenge",
+			mutate: func(tk *ConsentTicket) { tk.CodeChallenge = "a-different-challenge-value" },
+		},
+		{
+			name:   "another resource",
+			mutate: func(tk *ConsentTicket) { tk.Resource = "https://elsewhere.example/mcp" },
+		},
+		{
+			// Widening the scope past what was shown is consent for one thing
+			// spent on another.
+			name:   "a narrower approved scope than the request",
+			mutate: func(tk *ConsentTicket) { tk.Scope = "shorts:read" },
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			store := defaultStore()
+			seedTicket(store, "mismatched", tc.mutate)
+			body := defaultBody()
+			body["consent_ticket"] = "mismatched"
+
+			rec := post(t, newTestHandler(t, &fakeIdentity{userID: testUserID}, store), body)
+			if rec.Code != http.StatusUnauthorized {
+				t.Fatalf("status = %d, want 401 (body %s)", rec.Code, rec.Body.String())
+			}
+			if got := decodeError(t, rec); got != "access_denied" {
+				t.Errorf("error = %q, want access_denied", got)
+			}
+			if len(store.codes) != 0 {
+				t.Error("a code was minted against an approval for a different request")
+			}
+			// The response must not name the field that differed: that would
+			// turn this into an oracle for probing what a ticket approved.
+			if strings.Contains(rec.Body.String(), "client_id") ||
+				strings.Contains(rec.Body.String(), "code_challenge") {
+				t.Errorf("the refusal names the mismatched binding: %s", rec.Body.String())
+			}
+		})
+	}
+}
+
+// Scope is compared as a set, so the same grant in a different order is the
+// same grant. Otherwise a legitimate approval fails for a reason no operator
+// could ever diagnose.
+func TestGrantAcceptsTheApprovedScopeInAnyOrder(t *testing.T) {
+	store := defaultStore()
+	seedTicket(store, "reordered", func(tk *ConsentTicket) { tk.Scope = "housing:read shorts:read" })
+	body := defaultBody()
+	body["consent_ticket"] = "reordered"
+
+	rec := post(t, newTestHandler(t, &fakeIdentity{userID: testUserID}, store), body)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body %s", rec.Code, rec.Body.String())
+	}
+}
+
+// The ticket names who approved. An ID token naming someone else means the
+// approval and the credential came from two different people.
+func TestGrantRejectsAnIDTokenForADifferentUserThanApproved(t *testing.T) {
+	store := defaultStore()
+	rec := post(t, newTestHandler(t, &fakeIdentity{userID: "someone-else"}, store), defaultBody())
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", rec.Code)
+	}
+	if got := decodeError(t, rec); got != "invalid_token" {
+		t.Errorf("error = %q", got)
+	}
+	if len(store.codes) != 0 {
+		t.Error("a code was minted for a user who did not approve")
+	}
+}
+
+// The code must be bound to the human who approved, not to whoever asked.
+func TestTheCodeIsBoundToTheApprovingUser(t *testing.T) {
+	store := defaultStore()
+	seedTicket(store, "someone-elses-approval", func(tk *ConsentTicket) { tk.UserID = "uid-approver" })
+	body := defaultBody()
+	body["consent_ticket"] = "someone-elses-approval"
+	delete(body, "id_token")
+
+	rec := post(t, newTestHandler(t, &fakeIdentity{userID: testUserID}, store), body)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body %s", rec.Code, rec.Body.String())
+	}
+	if store.codes[0].UserID != "uid-approver" {
+		t.Errorf("code UserID = %q, want the approving user", store.codes[0].UserID)
+	}
+}
+
+// A consent store that is unreachable must refuse, never fall through to
+// issuing a code. This is the one place in the OAuth surface where failing
+// open would be failing open on consent itself.
+func TestGrantFailsClosedWhenConsentCannotBeVerified(t *testing.T) {
+	store := defaultStore()
+	store.ticketErr = errors.New("connection refused")
+	rec := post(t, newTestHandler(t, &fakeIdentity{userID: testUserID}, store), defaultBody())
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500", rec.Code)
+	}
+	if len(store.codes) != 0 {
+		t.Error("a degraded consent store let a code through")
+	}
+}
+
+func TestGrantWithoutAConsentStoreIsUnavailableRatherThanUnguarded(t *testing.T) {
+	h := NewGrantHandler(GrantConfig{
+		Endpoints: Endpoints{APIBaseURL: testAPIBase},
+		Identity:  &fakeIdentity{userID: testUserID},
+		Store:     defaultStore(),
+		// Consent deliberately nil — a wiring mistake must not silently
+		// disable the consent requirement.
+	})
+	rec := post(t, h, defaultBody())
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want 503", rec.Code)
 	}
 }

@@ -58,7 +58,7 @@ type ShortsServer struct {
 	// the unused-client sweep, so the field is typed to the interface that
 	// promises all of them. It satisfies Store and TokenStore as well, so the
 	// grant and token handlers take the same value.
-	oauthStore oauth.ClientStore
+	oauthStore oauth.AuthorizationServerStore
 }
 
 // New creates instance of the Server
@@ -150,7 +150,7 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 	// OAuth authorization-server storage. A typed-nil in the interface would
 	// read as "configured" and panic on first use, so the assignment is
 	// conditional on a real pool.
-	var oauthStore oauth.ClientStore
+	var oauthStore oauth.AuthorizationServerStore
 	if pool != nil {
 		oauthStore = oauth.NewPostgresStore(pool)
 	} else {

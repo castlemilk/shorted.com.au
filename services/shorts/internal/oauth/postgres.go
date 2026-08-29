@@ -23,8 +23,9 @@ type PostgresStore struct {
 // The token endpoint's guarantees are SQL guarantees, so the store that
 // provides them is asserted here rather than discovered at wiring time.
 var (
-	_ TokenStore  = (*PostgresStore)(nil)
-	_ ClientStore = (*PostgresStore)(nil)
+	_ TokenStore   = (*PostgresStore)(nil)
+	_ ClientStore  = (*PostgresStore)(nil)
+	_ ConsentStore = (*PostgresStore)(nil)
 )
 
 // NewPostgresStore returns nil when there is no pool, so a caller can wire the
@@ -162,6 +163,59 @@ func (s *PostgresStore) DeleteUnusedClients(ctx context.Context, idleBefore time
 		return 0, fmt.Errorf("deleting unused oauth clients: %w", err)
 	}
 	return tag.RowsAffected(), nil
+}
+
+// CreateConsentTicket writes the hashed proof that a human approved.
+func (s *PostgresStore) CreateConsentTicket(ctx context.Context, ticket ConsentTicket) error {
+	const q = `
+		INSERT INTO oauth_consent_tickets (
+			ticket_hash, user_id, client_id, redirect_uri,
+			code_challenge, resource, scope, expires_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+
+	_, err := s.pool.Exec(ctx, q,
+		ticket.TicketHash, ticket.UserID, ticket.ClientID, ticket.RedirectURI,
+		ticket.CodeChallenge, ticket.Resource, ticket.Scope, ticket.ExpiresAt,
+	)
+	if err != nil {
+		return fmt.Errorf("storing consent ticket: %w", err)
+	}
+	return nil
+}
+
+// ConsumeConsentTicket redeems a ticket in ONE statement, for exactly the
+// reason ConsumeAuthorizationCode does: the predicate that decides whether it
+// is still spendable is evaluated inside the statement that spends it, so two
+// concurrent presentations cannot both win.
+//
+// One approval must buy one authorization code. Without this, a leaked ticket
+// could be replayed into as many codes as the attacker cared to request, and
+// the human's single approval would authorise an unbounded number of grants.
+//
+// Expiry stays out of the predicate so "already used" and "expired" remain
+// distinguishable in the logs; the caller refuses an expired ticket a moment
+// later, and it has been consumed either way.
+func (s *PostgresStore) ConsumeConsentTicket(ctx context.Context, ticketHash string) (*ConsentTicket, error) {
+	const q = `
+		UPDATE oauth_consent_tickets
+		SET consumed_at = now()
+		WHERE ticket_hash = $1 AND consumed_at IS NULL
+		RETURNING ticket_hash, user_id, client_id, redirect_uri,
+		          code_challenge, resource, scope, expires_at, consumed_at`
+
+	var t ConsentTicket
+	err := s.pool.QueryRow(ctx, q, ticketHash).Scan(
+		&t.TicketHash, &t.UserID, &t.ClientID, &t.RedirectURI,
+		&t.CodeChallenge, &t.Resource, &t.Scope, &t.ExpiresAt, &t.ConsumedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		// Unknown, or already spent. Both mean "no approval to rely on".
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("consuming consent ticket: %w", err)
+	}
+	return &t, nil
 }
 
 // CreateAuthorizationCode writes the hashed code.
