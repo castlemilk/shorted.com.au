@@ -227,10 +227,27 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	if apiBaseURL == "" {
 		apiBaseURL = mcp.DefaultAPIBaseURL
 	}
+	// Rate limiting, over the SAME limiter the Connect interceptor uses.
+	//
+	// It is INSIDE the bearer middleware, not outside, and that order is the
+	// whole reason an authenticated caller gets their own tier: the identity
+	// function reads the verified TokenInfo that OptionalBearerToken puts in
+	// the context, and outside it every caller would look anonymous.
+	//
+	// Cost is per TOOL CALL, so a JSON-RPC batch is charged for each one and
+	// session preamble is free. Rejections are JSON-RPC errors carrying the
+	// documented RateLimitDetail — an MCP client cannot relay a bare 429.
+	mcpRateLimit := ratelimit.NewHTTPMiddleware(
+		s.rateLimiter,
+		s.config.RateLimitConfig,
+		mcp.RateLimitIdentity(mcp.TierResolver(authOpts.SubscriptionLookup)),
+		ratelimit.WithCost(mcp.RateLimitCost),
+		ratelimit.WithRejection(mcp.RateLimitRejection),
+	)
 	mcpHandler := mcp.OptionalBearerToken(
 		mcp.NewTokenVerifier(s.tokenService, mcp.ResourceURI(apiBaseURL)),
 		mcp.BearerTokenOptions(apiBaseURL),
-	)(mcp.Handler(s))
+	)(mcpRateLimit(mcp.Handler(s)))
 	// Both paths: the SDK's streamable transport uses the bare path, and
 	// clients sometimes append a trailing segment.
 	mux.Handle("/mcp", mcpHandler)
@@ -289,6 +306,29 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		oauth.StartClientSweeper(ctx, s.oauthStore, 24*time.Hour)
 	}
 
+	// Rate limiting for the OAuth endpoints.
+	//
+	// These are plain mux handlers, so the Connect interceptor never sees them,
+	// and each one does expensive work on behalf of an UNAUTHENTICATED caller:
+	// the grant redeems a ticket and may verify a Firebase ID token, and
+	// registration writes a row and can fetch a client metadata document.
+	// Before this their only ceiling was the tier-blind, per-colo Cloudflare
+	// bucket — which does not exist locally or in preview at all.
+	//
+	// Keyed by IP, because there is no identity yet: establishing one is what
+	// the request is FOR. The middleware runs before the handler, so the
+	// expensive part is behind the limit rather than in front of it.
+	oauthRateLimit := ratelimit.NewHTTPMiddleware(
+		s.rateLimiter,
+		s.config.RateLimitConfig,
+		func(r *http.Request) ratelimit.Caller {
+			return ratelimit.Caller{
+				Identifier: "oauth-anon:" + ratelimit.ClientIP(r),
+				Tier:       "anonymous",
+			}
+		},
+	)
+
 	// The consent-screen support endpoints. INTERNAL: they are called by the
 	// Next.js consent screen's server side and gated on INTERNAL_SERVICE_SECRET,
 	// because minting proof-of-consent must require something an attacker
@@ -317,20 +357,20 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	// TICKET — a Firebase ID token, if one is passed, is only cross-checked
 	// against the ticket's subject. See NewConsentTicketHandler for why an ID
 	// token alone was not enough once dynamic registration shipped.
-	mux.Handle(oauth.GrantPath, oauth.NewGrantHandler(oauth.GrantConfig{
+	mux.Handle(oauth.GrantPath, oauthRateLimit(oauth.NewGrantHandler(oauth.GrantConfig{
 		Endpoints: oauthEndpoints,
 		Identity:  firebaseIdentityVerifier{},
 		Store:     oauthClients,
 		Consent:   s.oauthStore,
-	}))
+	})))
 	// RFC 7591 dynamic client registration. Deprecated in protocol 2026-07-28
 	// in favour of CIMD above, but retained because Claude and ChatGPT still
 	// use it. It is unauthenticated by definition, so it is rate limited and
 	// capped per IP and its rows are swept.
-	mux.Handle(oauth.RegisterPath, oauth.NewRegistrationHandler(oauth.RegistrationConfig{
+	mux.Handle(oauth.RegisterPath, oauthRateLimit(oauth.NewRegistrationHandler(oauth.RegistrationConfig{
 		Endpoints: oauthEndpoints,
 		Store:     s.oauthStore,
-	}))
+	})))
 	// The token exchange. PKCE on the authorization_code grant, rotation with
 	// family revocation on the refresh grant.
 	//
@@ -338,12 +378,12 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	// token is stamped with the tier the API would have resolved anyway. It is
 	// a hint either way: tier is re-resolved from the store on every request and
 	// never trusted from the token.
-	mux.Handle(oauth.TokenPath, oauth.NewTokenHandler(oauth.TokenConfig{
+	mux.Handle(oauth.TokenPath, oauthRateLimit(oauth.NewTokenHandler(oauth.TokenConfig{
 		Endpoints:   oauthEndpoints,
 		Store:       oauthClients,
 		Minter:      s.tokenService,
 		ResolveTier: oauth.TierResolver(authOpts.SubscriptionLookup),
-	}))
+	})))
 
 	// Add health check endpoint
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
