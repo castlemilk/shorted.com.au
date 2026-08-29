@@ -261,6 +261,10 @@ func (h *consentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if !h.mint {
 		writeConsentJSON(w, map[string]any{
+			// The issuer is returned so the screen can put `iss` on a DENY
+			// redirect (RFC 9207) without hardcoding an origin that differs
+			// between dev, preview and prod.
+			"issuer":       h.issuer,
 			"client_id":    client.ClientID,
 			"client_name":  client.ClientName,
 			"redirect_uri": req.RedirectURI,
