@@ -181,6 +181,14 @@ resource "cloudflare_workers_script" "edge_cache" {
       text = tostring(var.edge_rate_limit_anon_requests_per_minute)
       }, {
       type = "plain_text"
+      name = "RATE_LIMIT_MCP_ANON_BURST"
+      text = tostring(var.edge_rate_limit_mcp_anon_burst_requests)
+      }, {
+      type = "plain_text"
+      name = "RATE_LIMIT_MCP_ANON_LIMIT"
+      text = tostring(var.edge_rate_limit_mcp_anon_requests_per_minute)
+      }, {
+      type = "plain_text"
       name = "RATE_LIMIT_FIRST_PARTY_BURST"
       text = tostring(var.edge_rate_limit_first_party_burst_requests)
       }, {
@@ -271,6 +279,28 @@ resource "cloudflare_workers_script" "edge_cache" {
       namespace_id = var.edge_rate_limit_anon_namespace_id
       simple = {
         limit  = var.edge_rate_limit_anon_requests_per_minute
+        period = 60
+      }
+      }, {
+      # --- api.shorted.com.au, /mcp, anonymous (keyed by real client IP) ---
+      # Its own class because an MCP turn is a handshake plus a burst of
+      # SEQUENTIAL tool calls, and Phase 2 measured a five-stock comparison
+      # crossing the anonymous API bucket mid-turn. ~6x that ceiling: high
+      # enough a normal turn never touches it, low enough a scripted loop does.
+      # Deliberately NOT an exemption — /mcp is an unauthenticated tool surface.
+      type         = "ratelimit"
+      name         = "MCP_ANON_BURST_RATE_LIMITER"
+      namespace_id = var.edge_rate_limit_mcp_anon_burst_namespace_id
+      simple = {
+        limit  = var.edge_rate_limit_mcp_anon_burst_requests
+        period = 10
+      }
+      }, {
+      type         = "ratelimit"
+      name         = "MCP_ANON_RATE_LIMITER"
+      namespace_id = var.edge_rate_limit_mcp_anon_namespace_id
+      simple = {
+        limit  = var.edge_rate_limit_mcp_anon_requests_per_minute
         period = 60
       }
       }, {

@@ -245,6 +245,30 @@ const RATE_LIMIT_BUCKETS = {
     sustainedVar: "RATE_LIMIT_ANON_LIMIT",
     sustainedDefault: 30,
   },
+  // api host, /mcp, anonymous. Its own class because an MCP turn is not an
+  // API request — it is a HANDSHAKE followed by a burst of tool calls, issued
+  // SEQUENTIALLY by the SDK, and Phase 2 measured a "compare these five
+  // stocks" turn crossing api-anon's 10/10s well before the model finished
+  // thinking. Elapsed time is no mitigation when the calls are serialised.
+  //
+  // 60/10s and 300/60s: roughly six times api-anon, chosen so a normal agent
+  // turn never touches it while a scripted loop still does. It is NOT exempt
+  // and must not become so — /mcp is an unauthenticated tool surface, and
+  // until the app-layer limiter (services/pkg/ratelimit) is deployed the edge
+  // is its ONLY ceiling. Afterwards it remains the abuse ceiling for callers
+  // who never authenticate.
+  //
+  // Authenticated MCP callers carry a bearer token, so they resolve to
+  // api-key above and are not affected by these numbers.
+  "mcp-anon": {
+    prefix: "m",
+    burstBinding: "MCP_ANON_BURST_RATE_LIMITER",
+    burstVar: "RATE_LIMIT_MCP_ANON_BURST",
+    burstDefault: 60,
+    sustainedBinding: "MCP_ANON_RATE_LIMITER",
+    sustainedVar: "RATE_LIMIT_MCP_ANON_LIMIT",
+    sustainedDefault: 300,
+  },
   // api host, first-party (Vercel SSR/ISR and rewrite-proxied browser calls,
   // proven by the SSR bypass secret). These must NOT enter the anon-IP bucket.
   // A single burst bucket keyed by egress IP acts as a runaway detector: it is
@@ -433,6 +457,19 @@ const worker = {
 
     // Health checks -> Shorts API
     if (path === "/health" || path === "/healthz") {
+      return withEdgeAnalytics(request, env, proxyWithHeaders(request, shortsApiOrigin, "BYPASS", env), "shorts", 0, started);
+    }
+
+    // MCP -> never cached, explicitly.
+    //
+    // An MCP request is a JSON-RPC POST, and POSTs are not cached today, so
+    // this is currently belt-and-braces — which is the point. A cached MCP
+    // response is not a stale page, it is ONE CLIENT'S SESSION served to
+    // ANOTHER: tool results, and eventually results computed under someone
+    // else's authorization. Phase 2 verified /mcp was BYPASS but nothing
+    // enforced it, so a future caching rule that keyed on path or method could
+    // have quietly made it cacheable. Now it cannot, and a test says so.
+    if (isMcpPath(path)) {
       return withEdgeAnalytics(request, env, proxyWithHeaders(request, shortsApiOrigin, "BYPASS", env), "shorts", 0, started);
     }
 
@@ -868,7 +905,29 @@ export async function resolveEdgeRateLimitKey(request, env = {}, surface = "api"
     return { bucketClass: "api-key", key: `k:${digest.slice(0, 32)}` };
   }
 
+  // Anonymous /mcp gets its own bucket. It is checked AFTER the credential
+  // check on purpose: an authenticated MCP caller is an api-key caller, and
+  // giving them the anonymous MCP ceiling would be a downgrade for presenting
+  // a token.
+  if (isMcpPath(new URL(request.url).pathname)) {
+    return { bucketClass: "mcp-anon", key: `m:${clientIp(request)}` };
+  }
+
   return { bucketClass: "api-anon", key: `a:${clientIp(request)}` };
+}
+
+/**
+ * Is this the MCP surface?
+ *
+ * Exact "/mcp" or anything beneath it — the SDK's streamable transport uses the
+ * bare path and clients sometimes append a segment, and both are mounted. A
+ * bare prefix test would also match "/mcpanything", which is why this is not
+ * `startsWith("/mcp")`.
+ *
+ * @param {string} pathname
+ */
+export function isMcpPath(pathname) {
+  return pathname === "/mcp" || pathname.startsWith("/mcp/");
 }
 
 /**

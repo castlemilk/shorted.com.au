@@ -104,12 +104,14 @@ All short position data is sourced directly from official ASIC publications. Dat
 
 ## MCP Server (for AI agents)
 
-Shorted exposes a Model Context Protocol server with read-only tools over all of the data described above — no authentication required:
+Shorted exposes a Model Context Protocol server with read-only tools over all of the data described above — no authentication required, and OAuth 2.1 available to identify a caller:
 
 - **Endpoint** (streamable HTTP): `https://api.shorted.com.au/mcp` — protocol 2026-07-28, negotiating back through 2025-11-25, 2025-06-18, 2025-03-26 and 2024-11-05
 - **Server card**: [https://shorted.com.au/.well-known/mcp/server-card.json](https://shorted.com.au/.well-known/mcp/server-card.json)
 - **Tool catalog**: [https://api.shorted.com.au/mcp/catalog.json](https://api.shorted.com.au/mcp/catalog.json) · **Connection guide**: [https://shorted.com.au/docs/mcp.md](https://shorted.com.au/docs/mcp.md)
 - **Tools** (24): short positions and market (`list_top_shorts`, `get_stock`, `get_stock_history`, `screen_stocks`, `list_squeeze_candidates`, …), housing (`get_house_price_series`, `get_suburb_profile`, …), economy (`list_economic_series`, …) and the register of members' interests (`search_politicians`, `get_politician`, …)
+- **OAuth 2.1 (optional)**: adding the endpoint URL is the whole setup — the client discovers [/.well-known/oauth-protected-resource/mcp](https://api.shorted.com.au/.well-known/oauth-protected-resource/mcp) and [/.well-known/oauth-authorization-server](https://api.shorted.com.au/.well-known/oauth-authorization-server), registers itself, and opens a browser once for consent. Scopes are read-only: `shorts:read`, `housing:read`, `economy:read`, `politics:read`. It unlocks nothing, because no tool is reserved for a paid plan.
+- **Limits**: the ceiling in force is tier-blind and per IP, at the Cloudflare edge — 60 requests per 10s and 300 per minute for anonymous MCP callers, counted per HTTP request. Per-caller tier quotas (anonymous 30/min and 500/month; free 60/min and 1,000/month; paid 120/min and 10,000/month, counted per tool call) are documented entitlements that are **not currently applied** on this deployment; `authentication.rateLimits.enforced` in [the catalog](https://api.shorted.com.au/mcp/catalog.json) reports which is true. A 429 carries `X-RateLimit-Detail` and `Retry-After`.
 - `https://shorted.com.au/api/mcp/mcp` is the **deprecated** predecessor: 4 tools, and it sits behind the frontend bot challenge, so an MCP client is likely to get a 403 from it. Use the endpoint above.
 
 ## Reports

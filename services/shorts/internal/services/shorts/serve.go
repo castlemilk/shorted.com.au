@@ -20,6 +20,7 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/pkg/ratelimit"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/jobmonitor"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/mcp"
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/oauth"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/register"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/shorts/broadcast"
 
@@ -209,11 +210,58 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	// skips the interceptor chain above; see the mcp package doc for why that
 	// constrains them to VISIBILITY_PUBLIC methods.
 	//
+	// OAuth 2.1 resource-server wrapping. A bearer token is OPTIONAL: no
+	// Authorization header still means anonymous access to all 24 tools, which
+	// is what makes this server adoptable. A token that IS presented is
+	// verified — signature, expiry, and RFC 8707 audience binding to this
+	// deployment's /mcp resource — and its identity attached to the request
+	// context for later tasks. A bad one earns a 401 with the RFC 9728
+	// challenge instead of a silent downgrade to anonymous.
+	//
+	// Nothing is gated on the token yet; tier gating is a later task.
+	//
+	// The origin comes from config (API_BASE_URL), not the environment
+	// directly: it must be the SAME origin New() minted the token audience
+	// against, or the server would refuse the tokens it issues.
+	apiBaseURL := s.config.APIBaseURL
+	if apiBaseURL == "" {
+		apiBaseURL = mcp.DefaultAPIBaseURL
+	}
+	// Rate limiting, over the SAME limiter the Connect interceptor uses.
+	//
+	// It is INSIDE the bearer middleware, not outside, and that order is the
+	// whole reason an authenticated caller gets their own tier: the identity
+	// function reads the verified TokenInfo that OptionalBearerToken puts in
+	// the context, and outside it every caller would look anonymous.
+	//
+	// Cost is per TOOL CALL, so a JSON-RPC batch is charged for each one and
+	// session preamble is free. Rejections are JSON-RPC errors carrying the
+	// documented RateLimitDetail — an MCP client cannot relay a bare 429.
+	mcpRateLimit := ratelimit.NewHTTPMiddleware(
+		s.rateLimiter,
+		s.config.RateLimitConfig,
+		mcp.RateLimitIdentity(mcp.TierResolver(authOpts.SubscriptionLookup)),
+		ratelimit.WithCost(mcp.RateLimitCost),
+		ratelimit.WithRejection(mcp.RateLimitRejection),
+	)
+	mcpHandler := mcp.OptionalBearerToken(
+		mcp.NewTokenVerifier(s.tokenService, mcp.ResourceURI(apiBaseURL)),
+		mcp.BearerTokenOptions(apiBaseURL),
+	)(mcpRateLimit(mcp.Handler(s)))
 	// Both paths: the SDK's streamable transport uses the bare path, and
 	// clients sometimes append a trailing segment.
-	mcpHandler := mcp.Handler(s)
 	mux.Handle("/mcp", mcpHandler)
 	mux.Handle("/mcp/", mcpHandler)
+
+	// RFC 9728 protected resource metadata. This is the document the
+	// WWW-Authenticate challenge points at, and the first thing an MCP client
+	// fetches when it decides it needs to authenticate — it is how a client
+	// learns which authorization server to talk to without being told.
+	protectedResourceMetadata := mcp.ProtectedResourceMetadataHandler(apiBaseURL)
+	mux.Handle(mcp.ProtectedResourceMetadataPath, protectedResourceMetadata)
+	// The bare path, aliased. Some clients probe it before reading the
+	// challenge, and a 404 there reads as "this server does not do OAuth".
+	mux.Handle(mcp.BareProtectedResourceMetadataPath, protectedResourceMetadata)
 
 	// The published tool catalog. Everything that describes this server to the
 	// outside world — the SEP-1649 server card, /docs/mcp.md — renders from
@@ -221,7 +269,130 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	//
 	// The exact pattern wins over "/mcp/" above by ServeMux's longest-match
 	// rule, so this does not have to be registered first.
-	mux.Handle("/mcp/catalog.json", mcp.CatalogHandler(s))
+	mux.Handle("/mcp/catalog.json", mcp.CatalogHandler(s, mcp.CatalogOptions{
+		APIBaseURL: apiBaseURL,
+		// Read from the running config, so the published document stops
+		// disclaiming the moment app-layer limiting is switched on.
+		RateLimitEnabled: s.config.RateLimitConfig.Enabled,
+	}))
+
+	// OAuth 2.1 AUTHORIZATION SERVER. Same process as the resource server
+	// above, deliberately: the access tokens are HS256 with a symmetric secret,
+	// so splitting mint and verify across two platforms would mean sharing that
+	// secret and rotating it in two places.
+	//
+	// Mounted directly, NOT via mount(): that helper is for Connect handlers
+	// and applies the browser CORS policy. These are plain HTTP endpoints
+	// consumed by OAuth clients, and the metadata document sets its own
+	// wildcard CORS because discovery is public and non-credentialed.
+	oauthEndpoints := oauth.Endpoints{
+		APIBaseURL: apiBaseURL,
+		ConsentURL: s.config.OAuthConsentURL,
+	}
+	// RFC 8414 discovery. This is how a client learns where to send the human,
+	// where to exchange the code, and that PKCE S256 is the only method.
+	mux.Handle(oauth.AuthorizationServerMetadataPath, oauth.MetadataHandler(oauthEndpoints))
+
+	// Client resolution. A client_id that is an https URL is a Client ID
+	// Metadata Document — the preferred path in protocol 2026-07-28 — and is
+	// resolved by FETCHING it, under an SSRF policy that refuses private
+	// address space after DNS resolution and follows no redirects. Anything
+	// else is an opaque id looked up in oauth_clients. The wrapper means the
+	// grant and token handlers never have to know which kind they were given.
+	//
+	// Nil-safe: NewResolvingStore returns nil for a nil inner store, and a nil
+	// *ResolvingStore would be a non-nil interface, so the assignment is
+	// conditional — otherwise the handlers' "not configured" branch would never
+	// fire and they would panic on first use instead.
+	var oauthClients oauth.ClientStore = s.oauthStore
+	if s.oauthStore != nil {
+		oauthClients = oauth.NewResolvingStore(s.oauthStore, oauth.NewMetadataFetcher(oauth.MetadataFetcherConfig{}))
+		// An open registration endpoint accumulates junk. The sweep deletes
+		// clients idle for longer than the longest-lived credential they could
+		// hold, and refuses to touch any client that still has a live token or
+		// an unexpired code — the foreign keys cascade, so "unused" has to be
+		// proved, not assumed.
+		oauth.StartClientSweeper(ctx, s.oauthStore, 24*time.Hour)
+	}
+
+	// Rate limiting for the OAuth endpoints.
+	//
+	// These are plain mux handlers, so the Connect interceptor never sees them,
+	// and each one does expensive work on behalf of an UNAUTHENTICATED caller:
+	// the grant redeems a ticket and may verify a Firebase ID token, and
+	// registration writes a row and can fetch a client metadata document.
+	// Before this their only ceiling was the tier-blind, per-colo Cloudflare
+	// bucket — which does not exist locally or in preview at all.
+	//
+	// Keyed by IP, because there is no identity yet: establishing one is what
+	// the request is FOR. The middleware runs before the handler, so the
+	// expensive part is behind the limit rather than in front of it.
+	oauthRateLimit := ratelimit.NewHTTPMiddleware(
+		s.rateLimiter,
+		s.config.RateLimitConfig,
+		func(r *http.Request) ratelimit.Caller {
+			return ratelimit.Caller{
+				Identifier: "oauth-anon:" + ratelimit.ClientIP(r),
+				Tier:       "anonymous",
+			}
+		},
+	)
+
+	// The consent-screen support endpoints. INTERNAL: they are called by the
+	// Next.js consent screen's server side and gated on INTERNAL_SERVICE_SECRET,
+	// because minting proof-of-consent must require something an attacker
+	// holding only a stolen user credential does not have.
+	//
+	// The environment is read HERE and passed in, rather than read inside the
+	// oauth package, so the gate is a value the tests can construct.
+	consentAuthorizer := oauth.InternalSecretAuthorizer(
+		os.Getenv("INTERNAL_SERVICE_SECRET"),
+		firstNonEmptyStr(os.Getenv("ENV"), os.Getenv("ENVIRONMENT")),
+	)
+	consentConfig := oauth.ConsentConfig{
+		Endpoints: oauthEndpoints,
+		Store:     oauthClients,
+		Tickets:   s.oauthStore,
+		Authorize: consentAuthorizer,
+	}
+	// What the human must be shown, computed by the same validation the grant
+	// applies — so the screen cannot describe one request and authorise another.
+	mux.Handle(oauth.ConsentDescribePath, oauth.NewConsentDescribeHandler(consentConfig))
+	// Minted only after an explicit approval.
+	mux.Handle(oauth.ConsentTicketPath, oauth.NewConsentTicketHandler(consentConfig))
+
+	// The grant. Called by the Next.js consent screen AFTER a human approves.
+	// No browser is ever redirected here, and the authority is the CONSENT
+	// TICKET — a Firebase ID token, if one is passed, is only cross-checked
+	// against the ticket's subject. See NewConsentTicketHandler for why an ID
+	// token alone was not enough once dynamic registration shipped.
+	mux.Handle(oauth.GrantPath, oauthRateLimit(oauth.NewGrantHandler(oauth.GrantConfig{
+		Endpoints: oauthEndpoints,
+		Identity:  firebaseIdentityVerifier{},
+		Store:     oauthClients,
+		Consent:   s.oauthStore,
+	})))
+	// RFC 7591 dynamic client registration. Deprecated in protocol 2026-07-28
+	// in favour of CIMD above, but retained because Claude and ChatGPT still
+	// use it. It is unauthenticated by definition, so it is rate limited and
+	// capped per IP and its rows are swept.
+	mux.Handle(oauth.RegisterPath, oauthRateLimit(oauth.NewRegistrationHandler(oauth.RegistrationConfig{
+		Endpoints: oauthEndpoints,
+		Store:     s.oauthStore,
+	})))
+	// The token exchange. PKCE on the authorization_code grant, rotation with
+	// family revocation on the refresh grant.
+	//
+	// ResolveTier is the SAME lookup the Connect interceptor uses, so an OAuth
+	// token is stamped with the tier the API would have resolved anyway. It is
+	// a hint either way: tier is re-resolved from the store on every request and
+	// never trusted from the token.
+	mux.Handle(oauth.TokenPath, oauthRateLimit(oauth.NewTokenHandler(oauth.TokenConfig{
+		Endpoints:   oauthEndpoints,
+		Store:       oauthClients,
+		Minter:      s.tokenService,
+		ResolveTier: oauth.TierResolver(authOpts.SubscriptionLookup),
+	})))
 
 	// Add health check endpoint
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {

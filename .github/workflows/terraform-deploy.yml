@@ -1051,12 +1051,15 @@ jobs:
           # 000095 is still last, now belt-and-braces rather than load-bearing.
           # Any new migration touching refresh_all_materialized_views() still
           # goes after it. 000112 does not touch it (it only creates
-          # api_usage_monthly), so it sits before 000095.
+          # api_usage_monthly), so it sits before 000095, and 000116 does not
+          # touch it either (it only creates the three oauth_* tables), so it
+          # sits before 000095 as well.
           #
           # This list RE-RUNS ON EVERY DEPLOY, several times a week, against a
           # live database. Everything in it must be idempotent and must never
           # rewrite existing rows — 000112 in particular holds live quota
-          # counters, so it is CREATE TABLE IF NOT EXISTS and nothing else.
+          # counters, and 000116 holds live OAuth grants, so both are
+          # CREATE TABLE IF NOT EXISTS and nothing else.
           if [ "$ENVIRONMENT" = "prod" ]; then
             run_psql \
               -f /migrations/000070_add_short_campaigns_mv.up.sql \
@@ -1067,6 +1070,7 @@ jobs:
               -f /migrations/000082_extend_source_kind_check.up.sql \
               -f /migrations/000085_extend_source_method_check.up.sql \
               -f /migrations/000112_add_api_usage_monthly.up.sql \
+              -f /migrations/000116_add_oauth_clients.up.sql \
               -f /migrations/000095_harden_mv_refresh.up.sql
 
             run_psql -c "CREATE TABLE IF NOT EXISTS schema_migrations (version bigint NOT NULL PRIMARY KEY, dirty boolean NOT NULL); DELETE FROM schema_migrations; INSERT INTO schema_migrations (version, dirty) VALUES (75, false);"
