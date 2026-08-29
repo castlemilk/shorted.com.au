@@ -34,7 +34,7 @@ real `tools/call` returns live data.
 | 1. Migration `000116` on prod | **DONE.** Session pooler 5432, `statement_timeout=0`, `search_path=public`, single transaction. 4 tables + 6 indexes, 0 rows. Replay re-run and verified clean — the deploy replays this file every release |
 | 2. `INTERNAL_SERVICE_SECRET` | **Already set** on both sides (Vercel production, and Cloud Run via Secret Manager). No action was needed |
 | 3. Merge PR #522 → deploys Go + Terraform + Vercel | **DONE.** Merged 08:46Z. Deploy green after one re-run (see below) |
-| 4. Verify against prod | **DONE for the protocol.** See below. A real MCP CLIENT is still unverified — it needs a human at a browser |
+| 4. Verify against prod | **DONE.** Protocol verified end to end; a real MCP client (Claude Code) connects to prod and reports healthy; the site and the consent route verified in a real browser. The OAuth *consent* half still needs a signed-in human |
 | 5. Revalidation sweep | **DONE.** 9 paths (`/`, `/top`, `/docs/mcp.md`, `/housing`, `/price-drops`, `/economy`, `/politicians`, `/reports`, `/statistics`) |
 
 ### Verified against production
@@ -98,14 +98,36 @@ any ambiguity.
 
 ## 2. Do these first
 
-### 2.1 Merge #513 and run its cleanup
+### 2.1 Merge #513 and run its cleanup — DONE 2026-08-29
 
-`screen_stocks` was failing **100% of the time** in production. Three rows in
-`mv_screener_data` carry `pe_ratio = Infinity` (`DRO`, `DYL`, `SBM`). #510 made
-MCP survive it; **#513 fixes the cause**. The three rows stay wrong until the
-one-off SQL in the PR body runs — session pooler **5432**, `statement_timeout=0`.
+**#513 was CLOSED, not merged — its code was already on `main`.** The branch
+predated the Phase 1 and 2 squash-merges, so its diff looked like the whole
+Phase 2 tree, and merging it risked reverting Phase 2/3 files. The actual fix is
+three files (`key_metrics_finite.go`, its test, and the `sanitiseKeyMetrics`
+call in `postgres.go`); all three rode into `main` with #522, because Phase 3
+branched from the lineage carrying them. Verified present on `main`, so the
+guard is live rather than dead code.
 
-Confirm with the curl in the PR body: expect `0`, currently `2`.
+**The one-off cleanup HAS NOW RUN.** Prod had drifted far past what the PR
+measured on 08-28, because enrichment kept writing `Infinity` for as long as the
+fix sat unmerged:
+
+| | PR measured (08-28) | At cleanup (08-29) | After |
+|---|---|---|---|
+| Source rows, non-finite `pe_ratio` | — | **65** | **0** |
+| `mv_screener_data` rows infinite | 3 | **56** | **0** |
+| `mv_screener_data` total rows | 3,275 | 3,275 | **3,275** (unchanged) |
+
+`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_screener_data` took ~70s on the
+session pooler. Confirmed in prod afterwards: the PR's own check returns **0**
+(was 2); MCP `screen_stocks` with default arguments **works** (it was failing
+100% of the time); and `sort_by=pe_ratio desc` returns finite values — 441,
+368.5, 279, 226, 202.6.
+
+**The lesson worth keeping:** a measurement written into a PR body ages. This
+one was ~18× off by the time it ran, because the defect kept producing rows
+while the fix sat unmerged. Re-measure at execution time rather than trusting
+the description.
 
 Root cause worth remembering: `pe_ratio` is **not** computed by a division. It is
 `COALESCE((cm.key_metrics->>'pe_ratio')::double precision, 0)` — a cast from JSONB
@@ -221,10 +243,15 @@ implemented and verified LOCALLY; none is verified against a real client:
    stack mounted, and re-checked live. Session preamble is free, so a client
    with no quota left can still connect and enumerate tools.
 
-**What is left is the client itself.** Add
-`https://api.shorted.com.au/mcp` to Claude Desktop / Claude Code / a ChatGPT
-connector after the rollout below, record what the consent screen shows, and
-confirm tools work afterwards.
+**What is left is the consent screen with a human in front of it.** A real MCP
+client — Claude Code — was pointed at `https://api.shorted.com.au/mcp` after the
+rollout and reports **connected** (anonymous, which is the designed first
+contact). In a real browser, `/oauth/authorize` correctly redirects a
+signed-out visitor to `/signin` with **every** OAuth parameter preserved
+(client_id, redirect_uri, code_challenge, method, scope, state).
+
+The only unexercised step is a signed-in human clicking Approve and the client
+completing its callback. Run `/mcp` in Claude Code and choose to authenticate.
 
 ---
 
