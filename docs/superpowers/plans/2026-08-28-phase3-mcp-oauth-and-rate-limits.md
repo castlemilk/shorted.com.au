@@ -61,17 +61,17 @@ Resource-server side only. MCP stays anonymous-allowed; this adds the ability to
 
 **Files:** `services/shorts/internal/mcp/auth.go` (+ test), `services/shorts/internal/services/shorts/serve.go`, `services/shorts/internal/services/shorts/tokens.go`
 
-- [ ] **Step 1** — Add `Audience` to minted tokens. `MintTokenWithTier` sets `RegisteredClaims.Audience` to include the API origin and the MCP resource URI (`https://api.shorted.com.au/mcp`).
+- [x] **Step 1** — Add `Audience` to minted tokens. `MintTokenWithTier` sets `RegisteredClaims.Audience` to include the API origin and the MCP resource URI (`https://api.shorted.com.au/mcp`).
 
   **Pre-existing tokens carry no `aud`.** Treat an absent audience as valid for the *Connect API only*, never for `/mcp`. That keeps every existing API token working while making the MCP surface strict, and it is why the spec's "add the resource to the audience at mint time" line exists. Write a test for both directions.
 
-- [ ] **Step 2** — `TokenVerifier` in `internal/mcp/auth.go` wrapping `TokenService.ValidateToken`, additionally requiring the MCP resource URI in `aud`, and mapping `Claims` → `auth.TokenInfo` (`UserID`, `Scopes`, `Expiration`).
+- [x] **Step 2** — `TokenVerifier` in `internal/mcp/auth.go` wrapping `TokenService.ValidateToken`, additionally requiring the MCP resource URI in `aud`, and mapping `Claims` → `auth.TokenInfo` (`UserID`, `Scopes`, `Expiration`).
 
-- [ ] **Step 3** — Serve `/.well-known/oauth-protected-resource/mcp` via `auth.ProtectedResourceMetadataHandler`, with `Resource: https://api.shorted.com.au/mcp`, `AuthorizationServers: ["https://api.shorted.com.au"]`, `ScopesSupported: ["shorts:read","housing:read","economy:read","politics:read"]`, `BearerMethodsSupported: ["header"]`. **No `offline_access`** — refresh tokens are not a resource requirement and the spec says not to advertise it here.
+- [x] **Step 3** — Serve `/.well-known/oauth-protected-resource/mcp` via `auth.ProtectedResourceMetadataHandler`, with `Resource: https://api.shorted.com.au/mcp`, `AuthorizationServers: ["https://api.shorted.com.au"]`, `ScopesSupported: ["shorts:read","housing:read","economy:read","politics:read"]`, `BearerMethodsSupported: ["header"]`. **No `offline_access`** — refresh tokens are not a resource requirement and the spec says not to advertise it here.
 
-- [ ] **Step 4** — Wrap `/mcp` so that a *present* bearer token is verified and attached, but an *absent* one still proceeds anonymously. `RequireBearerToken` rejects missing tokens outright, so this is a thin wrapper: if no `Authorization` header, pass through; if present, delegate. Test both paths, plus that a wrong-audience token is rejected with a `WWW-Authenticate` naming the metadata URL.
+- [x] **Step 4** — Wrap `/mcp` so that a *present* bearer token is verified and attached, but an *absent* one still proceeds anonymously. `RequireBearerToken` rejects missing tokens outright, so this is a thin wrapper: if no `Authorization` header, pass through; if present, delegate. Test both paths, plus that a wrong-audience token is rejected with a `WWW-Authenticate` naming the metadata URL.
 
-- [ ] **Step 5** — Commit: `feat(mcp): audience-bound token verification and protected-resource metadata`.
+- [x] **Step 5** — Commit: `feat(mcp): audience-bound token verification and protected-resource metadata`.
 
 ---
 
@@ -79,18 +79,18 @@ Resource-server side only. MCP stays anonymous-allowed; this adds the ability to
 
 **Files:** `services/migrations/000116_add_oauth_clients.up.sql` / `.down.sql`, a `node --test` migration test, `.github/workflows/terraform-deploy.yml`
 
-- [ ] **Step 1** — Three tables, every statement `IF NOT EXISTS`:
+- [x] **Step 1** — Three tables, every statement `IF NOT EXISTS`:
   - `oauth_clients` — `client_id` (PK), `client_id_issued_at`, `client_name`, `redirect_uris text[]`, `grant_types text[]`, `scope`, `client_uri`, `registration_source` (`dcr` | `cimd`), `client_secret_hash` (nullable — public clients have none), `created_at`, `last_used_at`.
   - `oauth_authorization_codes` — `code_hash` (PK, never the code itself), `client_id`, `user_id`, `redirect_uri`, `code_challenge`, `code_challenge_method`, `resource`, `scope`, `expires_at`, `consumed_at`.
   - `oauth_refresh_tokens` — `token_hash` (PK), `family_id`, `client_id`, `user_id`, `resource`, `scope`, `expires_at`, `rotated_at`, `revoked_at`.
 
   Store **hashes, never secrets**, mirroring `api_tokens.token_hash`. Index what is looked up: `oauth_refresh_tokens(family_id)`, `oauth_authorization_codes(expires_at)` for sweeping.
 
-- [ ] **Step 2** — Migration test in the style of `services/migrations/api_usage_monthly.test.mjs`: asserts idempotency (every statement `IF NOT EXISTS`), that no column stores a raw secret, and that the down migration drops cleanly.
+- [x] **Step 2** — Migration test in the style of `services/migrations/api_usage_monthly.test.mjs`: asserts idempotency (every statement `IF NOT EXISTS`), that no column stores a raw secret, and that the down migration drops cleanly.
 
-- [ ] **Step 3** — Add to the terraform-deploy allowlist. **Verify the file's existing pattern first** — `000112` sits deliberately *before* `000095` so the hardened MV refresh applies last. Place yours so that ordering is not disturbed.
+- [x] **Step 3** — Add to the terraform-deploy allowlist. **Verify the file's existing pattern first** — `000112` sits deliberately *before* `000095` so the hardened MV refresh applies last. Place yours so that ordering is not disturbed.
 
-- [ ] **Step 4** — Apply locally, run the test, commit: `feat(oauth): storage for clients, codes and refresh tokens`.
+- [x] **Step 4** — Apply locally, run the test, commit: `feat(oauth): storage for clients, codes and refresh tokens`.
 
 ---
 
@@ -98,15 +98,15 @@ Resource-server side only. MCP stays anonymous-allowed; this adds the ability to
 
 **Files:** `services/shorts/internal/oauth/` (new package), `serve.go`
 
-- [ ] **Step 1** — `GET /.well-known/oauth-authorization-server` (RFC 8414): `issuer: https://api.shorted.com.au`, `authorization_endpoint: https://shorted.com.au/oauth/authorize` (the Next.js consent screen), `token_endpoint`, `registration_endpoint`, `scopes_supported`, `response_types_supported: ["code"]`, `grant_types_supported: ["authorization_code","refresh_token"]`, `code_challenge_methods_supported: ["S256"]`, and **`authorization_response_iss_parameter_supported: true`**.
+- [x] **Step 1** — `GET /.well-known/oauth-authorization-server` (RFC 8414): `issuer: https://api.shorted.com.au`, `authorization_endpoint: https://shorted.com.au/oauth/authorize` (the Next.js consent screen), `token_endpoint`, `registration_endpoint`, `scopes_supported`, `response_types_supported: ["code"]`, `grant_types_supported: ["authorization_code","refresh_token"]`, `code_challenge_methods_supported: ["S256"]`, and **`authorization_response_iss_parameter_supported: true`**.
 
-- [ ] **Step 2** — `POST /oauth/authorize/grant`, called by the consent screen, not the browser directly. Body: Firebase ID token, `client_id`, `redirect_uri`, `code_challenge` (+method), `resource`, `scope`, `state`.
+- [x] **Step 2** — `POST /oauth/authorize/grant`, called by the consent screen, not the browser directly. Body: Firebase ID token, `client_id`, `redirect_uri`, `code_challenge` (+method), `resource`, `scope`, `state`.
 
   It must: verify the Firebase ID token (reuse the middleware's path); validate `client_id` against `oauth_clients`; **exact-string-match** `redirect_uri` against the registered set (no prefix matching, no open redirect); require `code_challenge_method=S256`; validate `resource` against known resource URIs; mint a single-use code with a **60-second** TTL, storing only its hash; and return the redirect URL including `state` and **`iss`** (RFC 9207).
 
-- [ ] **Step 3** — Tests: missing/invalid Firebase token rejected; unknown `client_id` rejected; `redirect_uri` mismatch rejected (including a prefix that would pass a sloppy check); `plain` PKCE rejected; unknown `resource` rejected; `iss` present in the response.
+- [x] **Step 3** — Tests: missing/invalid Firebase token rejected; unknown `client_id` rejected; `redirect_uri` mismatch rejected (including a prefix that would pass a sloppy check); `plain` PKCE rejected; unknown `resource` rejected; `iss` present in the response.
 
-- [ ] **Step 4** — Commit: `feat(oauth): authorization server metadata and the authorize grant`.
+- [x] **Step 4** — Commit: `feat(oauth): authorization server metadata and the authorize grant`.
 
 ---
 
@@ -114,15 +114,15 @@ Resource-server side only. MCP stays anonymous-allowed; this adds the ability to
 
 **Files:** `services/shorts/internal/oauth/token.go` (+ tests)
 
-- [ ] **Step 1** — `POST /oauth/token`, `authorization_code` grant: look up by code **hash**; reject if expired, already consumed, or belonging to a different client; verify the PKCE `code_verifier` against the stored challenge; re-validate `resource`; mark consumed **atomically** (a replayed code must lose the race, so consume with a conditional UPDATE, not read-then-write).
+- [x] **Step 1** — `POST /oauth/token`, `authorization_code` grant: look up by code **hash**; reject if expired, already consumed, or belonging to a different client; verify the PKCE `code_verifier` against the stored challenge; re-validate `resource`; mark consumed **atomically** (a replayed code must lose the race, so consume with a conditional UPDATE, not read-then-write).
 
   Mint an access token whose `aud` contains the requested `resource`, TTL **1 hour**, carrying the granted scopes and the user's tier resolved **at mint time from `api_subscriptions`** — and note the existing rule that tier is re-resolved on every request, so the token's tier is a hint, never the authority.
 
-- [ ] **Step 2** — `refresh_token` grant with **rotation**: issue a new refresh token, revoke the presented one, keep `family_id`. **Reuse detection** — presenting an already-rotated token revokes the entire family. That is the difference between a stolen refresh token being useful once and being useful forever.
+- [x] **Step 2** — `refresh_token` grant with **rotation**: issue a new refresh token, revoke the presented one, keep `family_id`. **Reuse detection** — presenting an already-rotated token revokes the entire family. That is the difference between a stolen refresh token being useful once and being useful forever.
 
-- [ ] **Step 3** — Tests, each asserting a security property rather than a happy path: code replay fails and consumes nothing; wrong `code_verifier` fails; cross-client code redemption fails; expired code fails; refresh rotation invalidates the old token; **refresh reuse revokes the family**; the minted token's `aud` contains the resource and is accepted by Task 1's verifier.
+- [x] **Step 3** — Tests, each asserting a security property rather than a happy path: code replay fails and consumes nothing; wrong `code_verifier` fails; cross-client code redemption fails; expired code fails; refresh rotation invalidates the old token; **refresh reuse revokes the family**; the minted token's `aud` contains the resource and is accepted by Task 1's verifier.
 
-- [ ] **Step 4** — Commit: `feat(oauth): token endpoint with PKCE and refresh rotation`.
+- [x] **Step 4** — Commit: `feat(oauth): token endpoint with PKCE and refresh rotation`.
 
 ---
 
@@ -130,31 +130,48 @@ Resource-server side only. MCP stays anonymous-allowed; this adds the ability to
 
 **Files:** `services/shorts/internal/oauth/clients.go` (+ tests)
 
-- [ ] **Step 1** — **Client ID Metadata Documents** (the preferred path in `2026-07-28`): when `client_id` is an HTTPS URL, fetch it, validate the returned metadata, cache it, and check `redirect_uris` against it. Bound the fetch: timeout, response size cap, and **no redirects to private address space** (SSRF — this endpoint fetches a URL an untrusted caller supplies).
+- [x] **Step 1** — **Client ID Metadata Documents** (the preferred path in `2026-07-28`): when `client_id` is an HTTPS URL, fetch it, validate the returned metadata, cache it, and check `redirect_uris` against it. Bound the fetch: timeout, response size cap, and **no redirects to private address space** (SSRF — this endpoint fetches a URL an untrusted caller supplies).
 
-- [ ] **Step 2** — `POST /oauth/register` (RFC 7591 DCR). Deprecated in the spec but retained because Claude and ChatGPT still use it. Rate-limit it, cap registrations per IP, and expire unused clients — an open registration endpoint invites junk.
+- [x] **Step 2** — `POST /oauth/register` (RFC 7591 DCR). Deprecated in the spec but retained because Claude and ChatGPT still use it. Rate-limit it, cap registrations per IP, and expire unused clients — an open registration endpoint invites junk.
 
-- [ ] **Step 3** — Tests: CIMD fetch validates redirect URIs; SSRF attempt (private IP, redirect to private IP) refused; DCR returns a usable `client_id`; registration abuse limits fire.
+- [x] **Step 3** — Tests: CIMD fetch validates redirect URIs; SSRF attempt (private IP, redirect to private IP) refused; DCR returns a usable `client_id`; registration abuse limits fire.
 
-- [ ] **Step 4** — Commit: `feat(oauth): client-ID metadata documents and dynamic registration`.
+- [x] **Step 4** — Commit: `feat(oauth): client-ID metadata documents and dynamic registration`.
 
 ---
 
-### Task 6: Consent screen
+### Task 6: Consent screen — DONE
 
-**Files:** `web/src/app/oauth/authorize/page.tsx` (+ tests)
+**Files:** `web/src/app/oauth/authorize/{page,consent-screen}.tsx`, `actions.ts`
+(+ tests), `services/shorts/internal/oauth/consent.go`, migration `000116`
+
+**As built, and how it differs from the sketch below.** The consent ticket is
+minted by Go at `POST /oauth/consent/ticket`, gated on `INTERNAL_SERVICE_SECRET`
+so only the consent screen's SERVER can mint one, and it carries the identity
+established from the next-auth session. `/oauth/authorize/grant` now REQUIRES a
+ticket and the Firebase ID token became an optional cross-check.
+
+Why the ID token stopped being the authority: it was unavailable whenever a
+signed-in user's Firebase client session had lapsed (next-auth's cookie lives 30
+days; the Firebase ID token does not), so requiring it would have failed the
+flow for real users — while adding nothing an attacker could not steal. The
+secret is the thing an attacker holding a stolen credential does not have.
+
+A second endpoint, `POST /oauth/consent/describe`, computes what the screen
+renders through the SAME validation the grant applies, so the screen cannot
+describe one request and authorise another.
 
 **ACCEPTANCE CRITERION — the consent ticket.** A security review of Task 3 found that the grant is authenticated *only* by a Firebase ID token, so it is not proof a human approved anything. That is survivable in isolation, and stops being survivable the moment Task 5 ships open dynamic registration: an attacker holding a stolen ID token registers **their own** client with **their own** redirect URI, POSTs the grant, redeems the code, and converts a ~1h Firebase credential into an indefinitely-rotating refresh token — with no human ever seeing a screen.
 
 So this task must introduce a server-side, single-use **consent ticket**: minted when the human approves, bound to `user_id + client_id + redirect_uri + code_challenge`, ~2 minute TTL, stored hashed, and **required by `/oauth/authorize/grant` alongside the ID token**. That is what turns "someone holds a token" into "a human approved this client". Do not weaken it by exposing the ID token to the client app, and do not auto-approve.
 
-- [ ] **Step 1** — A real consent screen, not an auto-approve redirect. It must name the **client**, its **redirect URI**, and the **scopes** in plain language, and require an explicit action. Signed-out users go through the existing Firebase sign-in and return here with the request intact.
+- [x] **Step 1** — A real consent screen, not an auto-approve redirect. It must name the **client**, its **redirect URI**, and the **scopes** in plain language, and require an explicit action. Signed-out users go through the existing Firebase sign-in and return here with the request intact.
 
-- [ ] **Step 2** — On approve, POST the Firebase ID token plus the request parameters to Go's `/oauth/authorize/grant`, then follow the returned redirect. On deny, redirect with `error=access_denied` **and `iss`**.
+- [x] **Step 2** — On approve, POST the Firebase ID token plus the request parameters to Go's `/oauth/authorize/grant`, then follow the returned redirect. On deny, redirect with `error=access_denied` **and `iss`**.
 
-- [ ] **Step 3** — Tests: renders the client and scopes; deny path returns the right error; a signed-out user is routed to sign-in and back without losing parameters.
+- [x] **Step 3** — Tests: renders the client and scopes; deny path returns the right error; a signed-out user is routed to sign-in and back without losing parameters.
 
-- [ ] **Step 4** — Commit: `feat(oauth): consent screen`.
+- [x] **Step 4** — Commit: `feat(oauth): consent screen`.
 
 ---
 
@@ -162,21 +179,21 @@ So this task must introduce a server-side, single-use **consent ticket**: minted
 
 **Files:** `services/pkg/ratelimit/http.go` (+ tests), `services/shorts/internal/mcp/`
 
-- [ ] **Step 1** — `ratelimit.HTTPMiddleware` over the **same** `RateLimiter` the Connect interceptor uses. No second policy, no second store, no Upstash.
+- [x] **Step 1** — `ratelimit.HTTPMiddleware` over the **same** `RateLimiter` the Connect interceptor uses. No second policy, no second store, no Upstash.
 
   **Also cover `/oauth/authorize/grant`.** It is a plain mux handler, so it bypasses the Connect interceptor entirely, and each call costs one Firebase network verification driven by an unauthenticated caller. Today its only ceiling is the tier-blind, per-colo edge `api-anon` bucket, which is absent in local and preview. Limit per IP **before** `VerifyIDToken` runs, or the limiter does not protect the expensive part.
 
   Identifier: `oauth:<userID>` / `token:<sha256[:32]>` / `mcp-anon:<ip>`. Access class **`api`** — so `RateLimitDetail.access` is right and the upgrade copy does not over-promise (paid *browser* is unlimited; paid *API* is not).
 
-- [ ] **Step 2** — Count **per tool call**, not per HTTP request. A JSON-RPC batch counts each call. `server/discover`, `tools/list`, `resources/list` and `prompts/list` are session preamble — decide deliberately whether they count, and say which you chose. (Recommendation: don't count preamble; it is paid once and charging for it punishes connecting.)
+- [x] **Step 2** — Count **per tool call**, not per HTTP request. A JSON-RPC batch counts each call. `server/discover`, `tools/list`, `resources/list` and `prompts/list` are session preamble — decide deliberately whether they count, and say which you chose. (Recommendation: don't count preamble; it is paid once and charging for it punishes connecting.)
 
-- [ ] **Step 3** — A 429 becomes a JSON-RPC error carrying the existing `RateLimitDetail` JSON and `Retry-After`. **`RateLimitDetail` field names are a contract — renaming one is a breaking change.** Reuse the struct; do not restate it.
+- [x] **Step 3** — A 429 becomes a JSON-RPC error carrying the existing `RateLimitDetail` JSON and `Retry-After`. **`RateLimitDetail` field names are a contract — renaming one is a breaking change.** Reuse the struct; do not restate it.
 
-- [ ] **Step 4** — Preserve fail-open: a degraded quota store allows the call. Test it explicitly.
+- [x] **Step 4** — Preserve fail-open: a degraded quota store allows the call. Test it explicitly.
 
-- [ ] **Step 5** — Tests: per-tool-call counting, batch counting, identifier derivation for all three classes, fail-open, and the 429 payload shape.
+- [x] **Step 5** — Tests: per-tool-call counting, batch counting, identifier derivation for all three classes, fail-open, and the 429 payload shape.
 
-- [ ] **Step 6** — Commit: `feat(mcp): tier rate limiting over the existing limiter`.
+- [x] **Step 6** — Commit: `feat(mcp): tier rate limiting over the existing limiter`.
 
 ---
 
@@ -186,13 +203,13 @@ So this task must introduce a server-side, single-use **consent ticket**: minted
 
 Phase 2 measured this: `/mcp` currently lands in `api-anon` at **10/10s, 30/60s**. The handshake is 1 POST, so ~8 tool calls trip the burst bucket — a "compare these five stocks" turn crosses it, and the SDK issues calls sequentially so elapsed time is no mitigation.
 
-- [ ] **Step 1** — Add an `mcp-anon` class keyed `m:<ip>` at **60/10s and 300/60s**. Two bindings, because the Cloudflare `period` enum is 10 or 60 only. Authenticated MCP callers should fall into the existing `api-key` class once Task 1 lands.
+- [x] **Step 1** — Add an `mcp-anon` class keyed `m:<ip>` at **60/10s and 300/60s**. Two bindings, because the Cloudflare `period` enum is 10 or 60 only. Authenticated MCP callers should fall into the existing `api-key` class once Task 1 lands.
 
-- [ ] **Step 2** — **Do not exempt `/mcp`.** Until Task 7 is deployed the edge is the only ceiling on an unauthenticated tool surface, and after it the edge is still the abuse ceiling for callers who never authenticate.
+- [x] **Step 2** — **Do not exempt `/mcp`.** Until Task 7 is deployed the edge is the only ceiling on an unauthenticated tool surface, and after it the edge is still the abuse ceiling for callers who never authenticate.
 
-- [ ] **Step 3** — Test alongside `ratelimit.test.mjs`; also assert `/mcp` remains a cache **BYPASS** route (a cached MCP session cross-poisons clients — Phase 2 verified it is BYPASS today, but nothing enforces it).
+- [x] **Step 3** — Test alongside `ratelimit.test.mjs`; also assert `/mcp` remains a cache **BYPASS** route (a cached MCP session cross-poisons clients — Phase 2 verified it is BYPASS today, but nothing enforces it).
 
-- [ ] **Step 4** — Terraform variables + the rate-limit expression test. Commit: `feat(edge): give MCP its own anonymous bucket`.
+- [x] **Step 4** — Terraform variables + the rate-limit expression test. Commit: `feat(edge): give MCP its own anonymous bucket`.
 
 ---
 
@@ -200,21 +217,21 @@ Phase 2 measured this: `/mcp` currently lands in `api-anon` at **10/10s, 30/60s*
 
 **Files:** `services/shorts/internal/mcp/`, `web/src/app/api/agent/mcp-server-card/route.ts`, `web/public/docs/mcp-markdown.md`, `web/public/llms.txt`
 
-- [ ] **Step 1** — Where a tool is tier-gated, return a tool error carrying the `RateLimitDetail`-shaped upgrade payload. **Tier is not a scope** — do not express it as `insufficient_scope`; that would send a paying user through a pointless re-authorisation.
+- [x] **Step 1** — Where a tool is tier-gated, return a tool error carrying the `RateLimitDetail`-shaped upgrade payload. **Tier is not a scope** — do not express it as `insufficient_scope`; that would send a paying user through a pointless re-authorisation.
 
-- [ ] **Step 2** — Update the server card: `authentication.required` stays `false` (anonymous still works) but now advertises the OAuth metadata URLs and scopes. The card renders from the Go catalog, so extend the catalog rather than hand-editing the card.
+- [x] **Step 2** — Update the server card: `authentication.required` stays `false` (anonymous still works) but now advertises the OAuth metadata URLs and scopes. The card renders from the Go catalog, so extend the catalog rather than hand-editing the card.
 
-- [ ] **Step 3** — Update `/docs/mcp.md` and `llms.txt` with the OAuth flow and the real tier numbers. **`llms.txt` was audited on 2026-08-28** — keep it accurate: state limits that match `DefaultConfig`, and do not reintroduce a link that 403s.
+- [x] **Step 3** — Update `/docs/mcp.md` and `llms.txt` with the OAuth flow and the real tier numbers. **`llms.txt` was audited on 2026-08-28** — keep it accurate: state limits that match `DefaultConfig`, and do not reintroduce a link that 403s.
 
-- [ ] **Step 4** — Commit: `feat(mcp): advertise OAuth and gate premium tools honestly`.
+- [x] **Step 4** — Commit: `feat(mcp): advertise OAuth and gate premium tools honestly`.
 
 ---
 
 ### Task 10: Conformance, live verification, PR
 
-- [ ] **Step 1** — Extend `conformance_test.go`: anonymous still works; a valid token is accepted; a wrong-audience token is rejected with the right `WWW-Authenticate`; quota exhaustion produces the documented 429 payload.
+- [x] **Step 1** — Extend `conformance_test.go`: anonymous still works; a valid token is accepted; a wrong-audience token is rejected with the right `WWW-Authenticate`; quota exhaustion produces the documented 429 payload.
 
-- [ ] **Step 2** — Full suite, `go vet`, `golangci-lint`, web tests, drift test.
+- [x] **Step 2** — Full suite, `go vet`, `golangci-lint`, web tests, drift test.
 
 - [ ] **Step 3** — **Verify the whole flow against a real MCP client** — Claude or ChatGPT connecting via OAuth, not curl. Record what the consent screen shows and confirm tools work afterwards. Anything less does not prove one-click connectability, which is the point of the phase.
 
@@ -226,7 +243,7 @@ Phase 2 measured this: `/mcp` currently lands in `api-anon` at **10/10s, 30/60s*
   - **DCR must work unattended** — Claude and ChatGPT still use it even though the spec prefers CIMD.
   - **Anonymous must still work** — OAuth raises limits, it is not a gate on first contact.
 
-- [ ] **Step 4** — Open a PR. Do not merge. State the rollout order explicitly: **migration by hand on the session pooler first**, then the API, then the edge/Terraform, then the docs.
+- [x] **Step 4** — Open a PR. Do not merge. State the rollout order explicitly: **migration by hand on the session pooler first**, then the API, then the edge/Terraform, then the docs.
 
 ---
 

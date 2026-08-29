@@ -17,7 +17,7 @@ serve it over MCP, and put OAuth 2.1 + rate limits in front of it.
 | **Phase 1** — generated OpenAPI + agent-readable docs | **MERGED (#509) and LIVE**, verified in prod |
 | **Phase 2** — MCP server, 24 tools, protocol `2026-07-28` | **MERGED (#510) and LIVE**, verified in prod |
 | **`Infinity` data fix** | **PR #513 OPEN, green, unmerged** — needs a prod SQL cleanup after merge |
-| **Phase 3** — OAuth 2.1 + rate limits | **5 of 10 tasks done**, unmerged, on `feat/mcp-oauth-phase3` |
+| **Phase 3** — OAuth 2.1 + rate limits | **all 10 tasks built and green**, unmerged, on `feat/mcp-oauth-phase3`. Only remaining item: verification against a REAL MCP client, which needs a deploy |
 
 Verified live in production (not just green CI):
 `/openapi.json`, `/openapi.yaml`, `/docs/api.md` and `/api/search/stocks` went
@@ -43,16 +43,17 @@ Root cause worth remembering: `pe_ratio` is **not** computed by a division. It i
 **text**, and Postgres parses the string `'Infinity'` into a float there. So
 `NULLIF(denominator,0)` was never the fix.
 
-### 2.2 Bring `feat/mcp-oauth-phase3` up to date with main
+### 2.2 Bring `feat/mcp-oauth-phase3` up to date with main — DONE
 
-The branch is **5 commits behind**. Main has since added
-`scripts/tests/migration-drift.test.mjs` + `services/migrations/PROD_APPLIED.md` —
-a guard that **fails the build when a migration would never reach prod**. Our
-`000116` is allowlisted so it should pass, but merge main and re-run it before
-assuming so.
+Merged 2026-08-29 (`cd0bf1f34`). The conflict was the terraform-deploy
+allowlist comment: main REMOVED 000083 from it, and that removal is kept.
+`migration-drift.test.mjs` passes with 000116 allowlisted.
 
 Note Phases 1 and 2 were **squash**-merged, so their individual commits are not
 on main and `git log origin/main..HEAD` overstates the diff. Judge by tree diff.
+
+Note also that `rtk`'s filtered `git log` output can omit the merge commit
+entirely — use `rtk proxy git log --graph` when the history looks wrong.
 
 ---
 
@@ -75,13 +76,42 @@ plus ~300 oauth integration tests (`-tags=integration`, `OAUTH_TEST_DB_URL`).
 Plus three follow-up fixes: the family-revocation race, validate-before-rotate,
 and refresh no longer depending on a third-party document being reachable.
 
-### Remaining: Tasks 6–10
+### Tasks 6–10, as built (2026-08-29)
 
-6. **Consent screen** (Next.js) — **with the consent ticket, see §4**
-7. **Rate limiting** — `ratelimit.HTTPMiddleware` over the *existing* limiter; must also cover `/oauth/authorize/grant` and `/oauth/register`, **before** the Firebase verification (that is the expensive part)
-8. **Edge bucket** — `/mcp` currently lands in `api-anon` (10/10s). Give it `m:<ip>` at ~60/10s + 300/60s. **Do not exempt it** — until Task 7 deploys, the edge is the only ceiling on an unauthenticated tool surface
-9. **Tier gating + honest advertising** — tier is *not* a scope; return the `RateLimitDetail`-shaped upgrade payload, don't send a paying user through re-authorisation
-10. **Conformance + live verification + PR**
+| Task | What landed |
+|---|---|
+| 6 | Consent screen + the **consent ticket**. Minted only by `POST /oauth/consent/ticket` behind `INTERNAL_SERVICE_SECRET`, so a stolen Firebase ID token alone can no longer produce a grant. The grant now REQUIRES a ticket, spends it FIRST, and re-checks all five bindings. The ID token became an optional cross-check — see below |
+| 7 | `ratelimit.HTTPMiddleware` over the existing limiter, covering `/mcp` and all four OAuth endpoints. Cost is per **tool call**; preamble is free; rejections are JSON-RPC errors carrying `RateLimitDetail` |
+| 8 | `mcp-anon` edge bucket (`m:<ip>`, 60/10s + 300/60s), Terraform + worker + tests. `/mcp` explicitly never cached |
+| 9 | Catalog/server card advertise OAuth as **optional**; published quotas are DERIVED from `ratelimit.DefaultConfig`; docs and `llms.txt` updated |
+| 10 | Loopback-port matching (RFC 8252 §7.3), the bare metadata path aliased, OAuth conformance over a real socket, and a full local end-to-end run |
+
+**Why the ID token stopped being the grant's authority.** It is unavailable
+whenever a signed-in user's Firebase client session has lapsed — next-auth's
+cookie lives 30 days, the Firebase ID token does not — so requiring it would
+have failed the flow for real users while adding nothing an attacker could not
+steal. The ticket requires a server-held secret, which is the thing an attacker
+holding a stolen credential does not have. If a token IS passed, its subject
+must equal the ticket's.
+
+### What was verified, and how
+
+Locally, against a real running binary on a socket (not curl against a mock):
+discovery on both metadata paths → unattended DCR → consent describe → **grant
+refused without a ticket (401)** → **ticket refused without the internal secret
+(403)** → approve → grant with `code`+`state`+`iss` → **ticket replay refused**
+→ PKCE token exchange → `tools/call` with the token returning live data →
+**anonymous `tools/call` still 200** → wrong-audience token challenged with the
+RFC 9728 `WWW-Authenticate`. Separately: a client registered on `:51763`
+calling back on `:49200` succeeds while a different PATH on loopback is
+refused; refresh rotation works and **reusing a rotated token revokes the whole
+family**; the 429 carries the documented payload on both the JSON-RPC `data`
+and the headers; and `initialize`/`tools/list` still answer 200 after quota is
+exhausted.
+
+**Still not done: a real MCP client.** Everything above is the protocol, not the
+product. Task 10 Step 3 needs Claude Desktop / Claude Code / a ChatGPT connector
+against a deployed origin, and that needs the rollout below.
 
 ---
 
@@ -107,28 +137,42 @@ add https://api.shorted.com.au/mcp
   → tools/list and tools/call now authenticated
 ```
 
-Four things that will decide whether this actually works, each already flagged
-by a reviewer and none yet verified end to end:
+Four things were flagged as most likely to break it. All four are now
+implemented and verified LOCALLY; none is verified against a real client:
 
-1. **Loopback redirect URIs.** Desktop clients use `http://127.0.0.1:PORT/callback`
-   with an ephemeral port. Task 5 allows `http` on loopback per RFC 8252 — but
-   `redirect_uri` matching is **exact string**, so a client registering
-   `127.0.0.1:51763` and calling back on a different port will fail. Confirm how
-   the real clients register, and whether RFC 8252 §7.3 (ignore the port for
-   loopback) needs implementing. **This is the most likely thing to break.**
-2. **The bare `/.well-known/oauth-protected-resource` path.** Only the
-   `…/mcp`-suffixed path is served. Some clients probe the bare path before
-   reading the challenge. Aliasing it is cheap insurance.
-3. **DCR must work unattended** — Claude and ChatGPT still use it (the spec
-   deprecates it in favour of CIMD, but the clients haven't moved).
-4. **Anonymous must keep working.** OAuth *raises* limits; it is not a gate on
-   first contact. A client that never authenticates must still get 24 tools.
+1. **Loopback redirect URIs — FIXED.** RFC 8252 §7.3 is implemented: the port
+   is ignored for `127.0.0.1`, `::1` and `localhost` over `http`, and nothing
+   else is. A client registered on `:51763` and calling back on `:49200`
+   succeeds; a different path, host, scheme or query does not, including
+   `127.0.0.1.evil.example`. Disabling the exception fails four subtests.
+2. **The bare `/.well-known/oauth-protected-resource` — ALIASED.** Both paths
+   serve a byte-identical document, asserted by a test that fetches both.
+3. **DCR works unattended** — exercised in the local run with no human step.
+4. **Anonymous still works** — asserted over a socket with the whole OAuth
+   stack mounted, and re-checked live. Session preamble is free, so a client
+   with no quota left can still connect and enumerate tools.
+
+**What is left is the client itself.** Add
+`https://api.shorted.com.au/mcp` to Claude Desktop / Claude Code / a ChatGPT
+connector after the rollout below, record what the consent screen shows, and
+confirm tools work afterwards.
 
 ---
 
 ## 5. Security findings from this programme
 
 ### Closed
+
+- **The authorize grant is now proof a human consented** (Task 6). It was
+  authenticated only by a Firebase ID token, which proves someone holds a
+  credential, not that anyone saw a screen — and open dynamic registration made
+  that exploitable end to end. A **consent ticket** now gates it: mintable only
+  with `INTERNAL_SERVICE_SECRET`, single-use, ~2 minute TTL, hashed, and bound
+  to user + client + redirect URI + PKCE challenge + resource + scope, every one
+  of which the grant re-checks. Do not weaken it: don't auto-approve, and don't
+  make the ticket obtainable from the browser.
+- **`/oauth/*` and `/mcp` are metered** (Task 7), per tool call, over the
+  existing limiter, before the expensive Firebase verification.
 
 - **Privilege escalation (the big one).** `BillingService.MintToken` is
   `VISIBILITY_PRIVATE` with **no `required_role`**, which the interceptor treats
@@ -153,22 +197,25 @@ by a reviewer and none yet verified end to end:
 
 ### Open, tracked
 
-- **The authorize grant is not proof a human consented.** It is authenticated
-  only by a Firebase ID token. That is survivable now and **stops being
-  survivable because Task 5 shipped open registration**: an attacker with a
-  stolen ID token registers their own client and redirect URI and converts a ~1h
-  credential into an indefinitely-rotating refresh token, with nobody ever seeing
-  a screen. **Fix is a server-side consent ticket — already a written acceptance
-  criterion of Task 6.** Do not weaken it: don't expose the ID token to the
-  client app, don't auto-approve.
 - **No sweep for expired codes/refresh tokens, and no absolute session lifetime.**
   `expires_at` resets on every rotation, so a family renewed every 29 days lives
   forever without re-consent (RFC 9700 §4.14 recommends an absolute cap).
-- **`/oauth/authorize/grant` and `/oauth/register` are unmetered** — Task 7.
 - **`for_sale_priced`** should be surfaced on the housing protos, or the median
   nulled below the floor in the MV (which fixes the web surface too).
 - **`weekly_report.go`'s slug regex** accepts `2026-13`/`2026-W99` and its error
   says "expected YYYY-WNN" while accepting three shapes.
+- **Consent tickets are never swept.** Same gap as codes and refresh tokens: the
+  index on `expires_at` exists for a sweeper that does not exist yet. Rows are
+  small and the TTL is 2 minutes, so this is table growth, not a security hole.
+- **Published quotas track `DefaultConfig`, not the running config.** A
+  deployment that overrode a tier by environment would advertise the default and
+  enforce the override. None does today, and the catalog says "current
+  defaults" rather than claiming more — but if per-environment tiers ever ship,
+  the catalog has to be handed the live config.
+- **The consent screen needs `INTERNAL_SERVICE_SECRET` on Vercel.** Without it
+  the web falls back to `dev-internal-secret`, Go refuses (production fails
+  closed), and Approve fails with `access_denied`. This is the one new operator
+  step in Phase 3.
 
 ---
 
