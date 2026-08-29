@@ -21,8 +21,17 @@ export const revalidate = 3600;
  * tool registry, so a tool cannot be advertised here without being registered
  * there.
  *
- * Phase 2 is anonymous: `authentication.required` is false because it is true,
- * not as a placeholder. Phase 3 adds OAuth and revisits it.
+ * `authentication.required` is false because it is true, not as a placeholder:
+ * all 24 tools work with no credential. Phase 3 added OAuth 2.1, which RAISES
+ * the per-caller quota and identifies you — it is not a gate on first contact.
+ * The card therefore advertises the discovery documents and the scopes as
+ * OPTIONAL, so a client that wants a higher ceiling can find the flow without
+ * first being refused.
+ *
+ * All of it comes from the Go catalog, including the quota numbers, which the
+ * API derives from the limiter that enforces them. Restating a ceiling here
+ * would be a second place for it to drift — which is exactly what #455 found
+ * three of.
  */
 
 const SCHEMA_URL = "https://static.modelcontextprotocol.io/schemas/server-card.json";
@@ -67,7 +76,22 @@ interface Catalog {
     website?: string;
     contact?: string;
   };
-  authentication?: { required: boolean; note?: string };
+  authentication?: {
+    required: boolean;
+    note?: string;
+    optional?: string;
+    protectedResourceMetadata?: string;
+    authorizationServerMetadata?: string;
+    scopes?: string[];
+    rateLimits?: {
+      unit?: string;
+      anonymous?: string;
+      free?: string;
+      paid?: string;
+      upgradeUrl?: string;
+      description?: string;
+    };
+  };
   tools?: CatalogTool[];
   resources?: CatalogResource[];
   prompts?: CatalogPrompt[];
@@ -191,9 +215,35 @@ function renderCard(catalog: Catalog) {
     },
     protocolVersion: catalog.server.protocolVersion ?? "2026-07-28",
     authentication: {
+      // Never defaulted to true: a degraded catalog must not make the server
+      // look like it needs a credential it does not.
       required: catalog.authentication?.required ?? false,
       ...(catalog.authentication?.note
         ? { note: catalog.authentication.note }
+        : {}),
+      // Passed through rather than reconstructed. These are absolute URLs the
+      // API derived from its OWN origin, so a preview deployment's card points
+      // at the preview authorization server rather than production's.
+      ...(catalog.authentication?.optional
+        ? { optional: catalog.authentication.optional }
+        : {}),
+      ...(catalog.authentication?.protectedResourceMetadata
+        ? {
+            protectedResourceMetadata:
+              catalog.authentication.protectedResourceMetadata,
+          }
+        : {}),
+      ...(catalog.authentication?.authorizationServerMetadata
+        ? {
+            authorizationServerMetadata:
+              catalog.authentication.authorizationServerMetadata,
+          }
+        : {}),
+      ...(catalog.authentication?.scopes?.length
+        ? { scopes: catalog.authentication.scopes }
+        : {}),
+      ...(catalog.authentication?.rateLimits
+        ? { rateLimits: catalog.authentication.rateLimits }
         : {}),
     },
     capabilities: {

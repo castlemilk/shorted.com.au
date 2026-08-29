@@ -3,16 +3,20 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+
+	"github.com/castlemilk/shorted.com.au/services/pkg/ratelimit"
 )
 
 func fetchCatalog(t *testing.T, src DataSource) (*httptest.ResponseRecorder, Catalog) {
 	t.Helper()
 
 	rec := httptest.NewRecorder()
-	CatalogHandler(src).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/mcp/catalog.json", nil))
+	CatalogHandler(src, testCatalogOrigin).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/mcp/catalog.json", nil))
 
 	var got Catalog
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
@@ -136,7 +140,7 @@ func TestCatalogDegradesRatherThanFailingWithoutADataSource(t *testing.T) {
 // it under the first request's context would let one client hanging up
 // mid-build serve a permanently schema-less catalog to everyone after them.
 func TestCatalogSurvivesACancelledFirstRequest(t *testing.T) {
-	handler := CatalogHandler(&fakeDataSource{})
+	handler := CatalogHandler(&fakeDataSource{}, testCatalogOrigin)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -162,9 +166,104 @@ func TestCatalogSurvivesACancelledFirstRequest(t *testing.T) {
 
 func TestCatalogRejectsNonGET(t *testing.T) {
 	rec := httptest.NewRecorder()
-	CatalogHandler(&fakeDataSource{}).ServeHTTP(rec,
+	CatalogHandler(&fakeDataSource{}, testCatalogOrigin).ServeHTTP(rec,
 		httptest.NewRequest(http.MethodPost, "/mcp/catalog.json", nil))
 	if rec.Code != http.StatusMethodNotAllowed {
 		t.Errorf("POST status = %d, want 405", rec.Code)
+	}
+}
+
+// testCatalogOrigin is a non-production origin, so a test that accidentally
+// asserted against the hardcoded public host would fail rather than pass by
+// coincidence.
+const testCatalogOrigin = "https://api.example.test"
+
+// ---------------------------------------------------------- OAuth advertising
+
+// Anonymous access is the adoption path. If this ever flips to true, 24 tools
+// stop working for every client that has not been through a browser.
+func TestTheCatalogStillSaysNoAuthenticationIsRequired(t *testing.T) {
+	catalog := BuildCatalogForOrigin(context.Background(), nil, testCatalogOrigin)
+	if catalog.Authentication.Required {
+		t.Fatal("authentication.required went true — anonymous access is the adoption path")
+	}
+}
+
+// A client that wants a higher ceiling should not have to discover the flow by
+// first being refused.
+func TestTheCatalogAdvertisesTheOAuthDiscoveryDocuments(t *testing.T) {
+	catalog := BuildCatalogForOrigin(context.Background(), nil, testCatalogOrigin)
+	auth := catalog.Authentication
+
+	if auth.Optional != "oauth2" {
+		t.Errorf("optional = %q", auth.Optional)
+	}
+	// Derived from the origin, not hardcoded: a dev or preview deployment must
+	// advertise ITS OWN authorization server, or a client authorises against
+	// production and gets a token this deployment refuses.
+	if auth.ProtectedResourceMetadata != testCatalogOrigin+ProtectedResourceMetadataPath {
+		t.Errorf("protectedResourceMetadata = %q", auth.ProtectedResourceMetadata)
+	}
+	if auth.AuthorizationServerMetadata != testCatalogOrigin+"/.well-known/oauth-authorization-server" {
+		t.Errorf("authorizationServerMetadata = %q", auth.AuthorizationServerMetadata)
+	}
+	if len(auth.Scopes) != len(Scopes) {
+		t.Errorf("scopes = %v, want the published vocabulary %v", auth.Scopes, Scopes)
+	}
+}
+
+// The published ceiling is a promise. #455 found three tier rows over-promising
+// against the code; the only way to keep a promise is to derive it from the
+// thing that enforces it.
+func TestThePublishedQuotasMatchWhatTheLimiterEnforces(t *testing.T) {
+	catalog := BuildCatalogForOrigin(context.Background(), nil, testCatalogOrigin)
+	limits := catalog.Authentication.RateLimits
+	if limits == nil {
+		t.Fatal("no rate limits published")
+	}
+
+	cfg := ratelimit.DefaultConfig()
+	for _, tc := range []struct {
+		tier      string
+		published string
+	}{
+		{"anonymous", limits.Anonymous},
+		{"free", limits.Free},
+		{"premium", limits.Paid},
+	} {
+		enforced := cfg.Tiers[tc.tier]
+		// The API column, not the browser column. Paid BROWSER access is
+		// unlimited and paid API access is not, so publishing the browser
+		// number here would be the exact over-promise `access` exists to stop.
+		want := fmt.Sprintf("%d per minute, %d per month",
+			enforced.RequestsPerMinute, enforced.RequestsPerMonth)
+		if tc.published != want {
+			t.Errorf("%s published as %q, enforced as %q", tc.tier, tc.published, want)
+		}
+	}
+
+	if limits.UpgradeURL != cfg.UpgradeURL {
+		t.Errorf("upgradeUrl = %q, want %q", limits.UpgradeURL, cfg.UpgradeURL)
+	}
+	// Per TOOL CALL, which is what the middleware actually counts. Saying
+	// "per request" would understate the cost of a batch by its size.
+	if limits.Unit != "tool call" {
+		t.Errorf("unit = %q", limits.Unit)
+	}
+}
+
+// Tier is NOT a scope. Every scope here is read-only and grants a data domain;
+// none names a plan. Expressing a plan as a scope would send a paying customer
+// through a pointless re-authorisation to fix a quota problem.
+func TestNoScopeEncodesASubscriptionTier(t *testing.T) {
+	for _, scope := range Scopes {
+		for _, tier := range []string{"free", "premium", "pro", "enterprise", "paid"} {
+			if strings.Contains(scope, tier) {
+				t.Errorf("scope %q names the %q tier — tier is not a scope", scope, tier)
+			}
+		}
+		if !strings.HasSuffix(scope, ":read") {
+			t.Errorf("scope %q is not read-only", scope)
+		}
 	}
 }

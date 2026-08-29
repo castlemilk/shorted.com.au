@@ -115,8 +115,9 @@ describe("MCP server card", () => {
     expect(card.serverInfo.version).toBe("1.0.0");
     expect(card.serverInfo.websiteUrl).toBe("https://shorted.com.au");
     expect(card.capabilities.tools).toEqual({ listChanged: false });
-    // Phase 2 is anonymous. Claiming otherwise sends clients looking for an
-    // OAuth flow that does not exist.
+    // Anonymous works. Claiming authentication is REQUIRED would stop every
+    // client that has not been through a browser; OAuth is advertised as
+    // optional, separately.
     expect(card.authentication).toMatchObject({ required: false });
     expect(card.contact).toBe("support@shorted.com.au");
   });
@@ -190,5 +191,66 @@ describe("MCP server card", () => {
     const card = await (await GET()).json();
     expect(card.degraded).toBe(true);
     expect(card.tools).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// OAuth advertising
+//
+// The card is what an agent reads before it has spoken to the server at all.
+// If it does not say a higher ceiling exists and where the flow starts, the
+// only way to find out is to be refused.
+// ---------------------------------------------------------------------------
+
+describe("the card's OAuth advertising", () => {
+  const catalogWithOAuth = {
+    server: { name: "shorted", version: "1.0.0" },
+    authentication: {
+      required: false,
+      note: "Anonymous access.",
+      optional: "oauth2",
+      protectedResourceMetadata:
+        "https://api.shorted.com.au/.well-known/oauth-protected-resource/mcp",
+      authorizationServerMetadata:
+        "https://api.shorted.com.au/.well-known/oauth-authorization-server",
+      scopes: ["shorts:read", "housing:read"],
+      rateLimits: {
+        unit: "tool call",
+        anonymous: "30 per minute, 500 per month",
+        free: "60 per minute, 1000 per month",
+        paid: "120 per minute, 10000 per month",
+        upgradeUrl: "https://shorted.com.au/pricing",
+      },
+    },
+    tools: [],
+  };
+
+  it("passes the discovery documents, scopes and quotas through verbatim", async () => {
+    mockCatalog(catalogWithOAuth);
+    const card = await (await GET()).json();
+
+    expect(card.authentication.required).toBe(false);
+    expect(card.authentication.optional).toBe("oauth2");
+    expect(card.authentication.protectedResourceMetadata).toBe(
+      catalogWithOAuth.authentication.protectedResourceMetadata,
+    );
+    expect(card.authentication.authorizationServerMetadata).toBe(
+      catalogWithOAuth.authentication.authorizationServerMetadata,
+    );
+    expect(card.authentication.scopes).toEqual(["shorts:read", "housing:read"]);
+    // Verbatim, not recomputed: the API derives these from the limiter that
+    // enforces them, and a second copy here is a second thing to drift.
+    expect(card.authentication.rateLimits).toEqual(
+      catalogWithOAuth.authentication.rateLimits,
+    );
+  });
+
+  // A degraded catalog must not make the server look like it needs a
+  // credential it does not — that would stop every anonymous client cold.
+  it("never claims authentication is required when the catalog is silent", async () => {
+    mockCatalog({ server: { name: "shorted", version: "1.0.0" }, tools: [] });
+    const card = await (await GET()).json();
+    expect(card.authentication.required).toBe(false);
+    expect(card.authentication.optional).toBeUndefined();
   });
 });

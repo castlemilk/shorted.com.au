@@ -14,7 +14,8 @@ https://api.shorted.com.au/mcp
 
 Protocol version **2026-07-28**, negotiating back through `2025-11-25`,
 `2025-06-18`, `2025-03-26` and `2024-11-05`. No install step, no account, no
-token.
+token — and if your client supports OAuth, adding the URL is the whole setup:
+it will discover the flow, open a browser once, and come back authorised.
 
 ## What it covers
 
@@ -67,12 +68,14 @@ Add to `claude_desktop_config.json`:
 ### ChatGPT
 
 In a Developer-mode connector, add a custom MCP server with the URL
-`https://api.shorted.com.au/mcp` and authentication set to **None**.
+`https://api.shorted.com.au/mcp`. Authentication **None** works; **OAuth** also
+works and needs nothing configured — no client id, no secret, no URLs. The
+connector registers itself.
 
 ### Any other client
 
 Point it at `https://api.shorted.com.au/mcp` as a **streamable HTTP** (not SSE,
-not stdio) MCP server with no authentication. The endpoint is stateless: it
+not stdio) MCP server. Authentication is optional. The endpoint is stateless: it
 does not issue session IDs, so a client that load-balances requests across
 connections works without affinity.
 
@@ -88,15 +91,52 @@ The MCP endpoint itself is JSON-RPC over POST and answers in
 `text/event-stream`, so pipe it to a reader that tolerates SSE rather than to a
 JSON parser.
 
+## Signing in (optional)
+
+OAuth 2.1 **raises your limits**. It does not unlock tools: all twenty-four work
+anonymously, and none is reserved for a paid plan. There is nothing to configure
+— point a client at the URL and it does the rest:
+
+1. It calls a tool, gets `401` with
+   `WWW-Authenticate: Bearer resource_metadata="…"`, or reads the server card.
+2. It fetches
+   [`/.well-known/oauth-protected-resource/mcp`](https://api.shorted.com.au/.well-known/oauth-protected-resource/mcp)
+   and then
+   [`/.well-known/oauth-authorization-server`](https://api.shorted.com.au/.well-known/oauth-authorization-server).
+3. It registers itself — either by RFC 7591 dynamic registration at
+   `/oauth/register`, or by handing us its Client ID Metadata Document URL.
+4. It opens `https://shorted.com.au/oauth/authorize` in a browser. You sign in
+   and see which client is asking, where it will receive access, and what it
+   will be able to read. Nothing is issued until you approve.
+5. It exchanges the code at `/oauth/token` with PKCE (S256 only).
+
+Scopes, all read-only: `shorts:read`, `housing:read`, `economy:read`,
+`politics:read`. Access tokens last an hour; refresh tokens rotate on every use,
+and reusing a rotated one revokes the whole family.
+
 ## Access, limits and caveats
 
-**It is anonymous.** No token is required and no per-caller quota is applied.
-Nothing you call is attributed to a user.
+**Anonymous works, and is metered.** No token is required. Quota is counted
+**per tool call** — the handshake, `tools/list`, `resources/list` and
+`prompts/list` are free, and a JSON-RPC batch is charged for each call it
+carries.
 
-**There is still a ceiling.** The endpoint sits behind Cloudflare, which applies
-a tier-blind per-IP abuse limit — roughly 10 requests per 10 seconds and 30 per
-minute for anonymous callers. A handshake plus a handful of tool calls is
-comfortably inside that; a tight loop is not. On HTTP 429, honour `Retry-After`.
+| | Per minute | Per month |
+|---|---|---|
+| Anonymous (by IP) | 30 | 500 |
+| Signed in, free | 60 | 1,000 |
+| Signed in, paid | 120 | 10,000 |
+
+These are the [API tier](https://shorted.com.au/pricing) numbers, enforced by
+the API itself. A rejection is a JSON-RPC error whose `data` says which limit
+fired, its ceiling, when it resets and where to raise it; the same facts are on
+the response headers (`X-RateLimit-Detail`, `Retry-After`).
+
+**There is a second, separate ceiling.** The endpoint sits behind Cloudflare,
+which applies a tier-blind per-IP abuse limit — 60 requests per 10 seconds and
+300 per minute for anonymous MCP callers, counted per HTTP request rather than
+per tool call. A normal agent turn is comfortably inside it; a tight loop is
+not. On HTTP 429, honour `Retry-After`.
 
 **Everything is read-only.** There are no write or mutating tools, and none are
 planned.
@@ -113,18 +153,6 @@ the source is CC BY-NC-ND. Read the `shorted://catalog/coverage` resource before
 concluding a gap is a bug.
 
 **Nothing here is financial advice.**
-
-## Phase 3
-
-Planned, not shipped:
-
-- **OAuth 2.1** with protected-resource metadata and audience-bound tokens, so a
-  client can identify itself.
-- **Per-caller rate limiting and quota accounting**, matching the tiers the HTTP
-  API already enforces.
-
-Both are additive. This endpoint keeps working anonymously; a token will raise
-the ceiling rather than becoming a requirement.
 
 ## Related
 
