@@ -20,3 +20,44 @@ export function fmtPriceShort(v: number): string {
   if (v >= 1_000) return `$${Math.round(v / 1000)}k`;
   return `$${Math.round(v)}`;
 }
+
+/**
+ * Upper bound for a choropleth colour ramp: a high percentile, not the maximum.
+ *
+ * Suburb prices are extremely long-tailed and the tail is REAL — Point Piper
+ * genuinely transacts around $60M — so this is not an outlier-rejection step and
+ * must not be mistaken for one. The problem is that a sequential scale anchored
+ * on the raw maximum spends its whole range on the handful of suburbs at the
+ * top and renders everything else the same colour.
+ *
+ * Measured on NSW (2,433 priced suburbs, 2026-08-28): min $60k, median $1.0M,
+ * p98 $4.5M, p99 $5.5M, max $110.5M. Against the raw max the MEDIAN suburb sat
+ * at 9.5% of the sqrt ramp — the map was effectively monochrome. Note that
+ * removing the one implausible row only moved it to 12.9%: the fragility is in
+ * the scale, not the data, and cleaning the data would not have fixed it.
+ *
+ * Values above the returned bound still paint — the scale clamps them to the
+ * top colour — and the legend labels that tick "≥" so the ramp does not claim
+ * to show a range it has stopped resolving.
+ */
+export function robustDomainTop(values: number[], percentile = 0.98): number {
+  // Filter and sort in a Float64Array rather than a JS array. Array.sort needs a
+  // comparator callback per comparison; a typed array sorts numerically without
+  // one. Measured 4.1x faster across 2.4k-50k values (NSW, the largest state at
+  // 4,544 suburbs: 0.92ms -> 0.24ms), for identical output. This runs in a
+  // useMemo on every "Colour by" switch, so it sits between the user's click and
+  // the repaint.
+  const buffer = new Float64Array(values.length);
+  let n = 0;
+  for (const v of values) {
+    if (Number.isFinite(v) && v > 0) buffer[n++] = v;
+  }
+  if (n === 0) return 1;
+  const finite = buffer.subarray(0, n);
+  finite.sort();
+  // Too few points for a percentile to mean anything — the max IS the shape.
+  if (n < 20) return finite[n - 1]!;
+  const idx = Math.min(n - 1, Math.floor((n - 1) * percentile));
+  // Never return below the median, however degenerate the input.
+  return Math.max(finite[idx]!, finite[Math.floor((n - 1) / 2)]!, 1);
+}

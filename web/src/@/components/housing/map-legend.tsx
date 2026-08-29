@@ -8,12 +8,20 @@ import { fmtPriceShort } from "@/lib/housing/price-scale";
  * suburbs explain themselves.
  */
 export function MapLegend({
-  colorScale, min, max, label = "Median house price", showNoData = true,
+  colorScale, min, max, clamped = false, label = "Median house price",
+  showNoData = true,
   format = fmtPriceShort, noDataLabel = "No price data",
 }: {
   colorScale: (v: number) => string;
   min: number;
   max: number;
+  /**
+   * The top of the ramp is a percentile, so suburbs above it exist and are
+   * painted the top colour. Say so with "≥" rather than letting the tick claim
+   * to be the maximum — a legend that overstates its range is worse than a
+   * compressed one.
+   */
+  clamped?: boolean;
   label?: string;
   showNoData?: boolean;
   /** tick formatter — defaults to compact AUD for the price ramp. */
@@ -36,7 +44,7 @@ export function MapLegend({
       <div className="mt-0.5 flex w-40 justify-between font-mono text-[10px] tabular-nums text-muted-foreground">
         <span>{format(lo)}</span>
         <span>{format(mid)}</span>
-        <span>{format(max)}</span>
+        <span>{clamped ? `\u2265\u202f${format(max)}` : format(max)}</span>
       </div>
       {showNoData ? (
         <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">

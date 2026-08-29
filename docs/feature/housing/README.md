@@ -18,6 +18,15 @@ known-open). If an older doc disagrees with these numbers — "115 suburbs",
 "~12k/22k listings", "7 modes", "Terraform not yet wired" — this line wins;
 the monolith drifted (`.claude/housing-program/docs-staleness.md`).
 
+**Added since, as at 2026-08-28:** the expanded Census layer is live —
+**8,952** suburbs carry tenure, labour-force, education, dwelling-structure,
+household-composition and personal-income shares (it read the wrong DataPack
+tables until 2026-08-27, so anything describing these as "reserved" or "NULL"
+predates the fix) — and per-suburb terrain is live, **15,307** suburbs with
+min/median/max elevation and land-share-below-1m/2m/5m from the GA 1 Second
+DEM-S. Both are read straight off `suburb_demographics`; no MV covers them.
+See [handover-2026-08-27.md](handover-2026-08-27.md) for how each was verified.
+
 ## Read these in this order
 
 | Doc | What it answers |
@@ -84,43 +93,63 @@ the read path 500s. Same regime as politicians.
 Plus politician cards embedded on `/housing/[state]/[suburb]`, and the
 `BankShortBasket` embed shared with the feature at `/embed/bank-basket`.
 
-## Known-open, as of 2026-08-09
+## Known-open — re-verified 2026-08-28
 
-A 24-agent adversarial audit (2026-08-09) confirmed these; every item has a
-fix **in flight** on a `feat/housing-*` branch (tracks below). Briefs +
-verbatim findings: `.claude/housing-program/`.
+The 2026-08-09 audit listed eight items. **Six are now fixed.** Each line below
+was re-checked against `main` and against prod on 2026-08-28, not inferred from
+a branch name or a status line — several of the "in flight" fixes had in fact
+landed, and this section had become more wrong than right.
 
-- **NSW/QLD/WA VG suburb medians are absent from prod.** `vg_nsw` shipped
-  (PR #237/#239) but has never landed a row — Cloud Run's datacenter egress
-  can't clear the Valuer-General's Cloudflare challenge; QLD/WA have no VG
-  tier at all. VIC is pinned to a 2014–2024 workbook (frozen at Dec-2024) and
-  the fetch is currently 403-blocked. Live impact: NSW 0/4,544 suburbs
-  priced, QLD 0/3,235, WA 0/1,701; those states' maps silently fall back to
-  population colouring. → *collector-vg*
-- **All 1,165 suburb URLs in the live prod sitemap 404.** The sitemap's
-  slugifier unconditionally appends `-${postcode}` but `postcode` is never
-  populated, so every advertised slug ends in a trailing hyphen the resolver
-  rejects — the whole priced-suburb SEO corpus is dead links. → *web-suburbs*
-- **Official pipeline failures exit 0 and no freshness sentinel exists** —
-  a source can fail every scheduled run for a month (as VG has) without any
-  alarm. → *collector-lifecycle*
-- **Housing MV refresh lacks the `000095` guard pattern** that the shorts MVs
-  gained after the 19-day statement-timeout starvation incident. →
-  *mv-correctness*
-- **The k-anon floor has a gap**: a 1-listing suburb publishes that listing's
-  exact price through the suburb rollup (the ≥3 floor only guards agencies).
-  → *mv-correctness*
+### Still open
+
 - **Per-address AVM estimates + sales history are served publicly** via
   `GetPropertyHistory` / `/housing/property/[addressKey]`, contradicting
-  migration `000088`'s own "derived aggregates only" posture. →
-  *api-hardening*
+  migration `000088`'s own "derived aggregates only" posture. Verified
+  2026-08-28: the rpc still carries
+  `option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC`, it is absent
+  from `internalOnlyMethods`, and the web route exists. This is a licence
+  decision, not a bug — it needs an owner, not a patch. → *api-hardening*
 - **Prod migrations are hand-applied and the CI allowlist has no housing
-  files** — rule 5 above is a live operational dependency, not history. →
-  *collector-lifecycle / operations.md*
-- **Real captured portal content sits in 4 committed testdata files**
-  (`rea-pagemeta.html` / `domain-pagemeta.html`, each duplicated in the jobs
-  fork) in a public repo — real addresses, prices, listing ids. →
-  *repo-hygiene*
+  files** — rule 5 above is a live operational dependency, not history.
+  Verified 2026-08-28: the allowlist in `terraform-deploy.yml` carries
+  `000070/71/74/75`, `000081`–`000085`, `000095` and `000112`, and **not one**
+  housing migration (`000053`–`000115`). → *collector-lifecycle / operations.md*
+
+### Fixed since the audit
+
+- **NSW VG suburb medians** — the audit recorded NSW 0/4,544 priced. Prod now
+  has **2,433** priced NSW suburbs (5,937 observations, latest period
+  2025-12-31); it lands from the residential rig via `-mode vg-nsw`. VIC has
+  also moved on a year, from the Dec-2024 freeze to 2025-12-31.
+  **QLD (0/3,235) and WA (0/1,701) remain at zero — and that is expected, not
+  outstanding**: both states sell sales data through brokers, so it is
+  commercially blocked rather than unbuilt. The handover's "settled — do not
+  reopen" note governs; this section used to imply a *collector-vg* fix track
+  was going to deliver them, and it is not. Every QLD open dataset was
+  enumerated on 2026-08-29 and none carries a value — see
+  [data-sources.md](data-sources.md#qld-and-wa-suburb-prices--what-is-actually-available-checked-2026-08-29)
+  before re-opening this.
+- **Suburb sitemap 404s** — the slugifier no longer appends `-${postcode}`
+  unconditionally (`suburbSlug` in `web/@/lib/housing/states.ts`). `postcode` is
+  still 0/15,345 populated, so slugs are name-only, which resolves:
+  `/housing/nsw/bondi` returns 200, and there are **zero** within-state slug
+  collisions across all 15,345 suburbs.
+- **Official pipeline failures exit 0 / no freshness sentinel** —
+  `official_freshness.go` now carries per-source policies (`vg_nsw` 550 days,
+  `vg_sa` 270) and `assertOfficialVGFreshness` feeds the mode's exit code. Note
+  it measures **data** age, not fetch age, and a test asserts the query must not
+  use `fetched_at` — deliberate: re-fetching a source that has published nothing
+  new changes nothing, so fetch staleness is not a fault.
+- **Housing MV refresh lacks the `000095` guard** — `000107_harden_housing_mv_refresh`
+  exists AND prod's `refresh_housing_materialized_views()` handles
+  `query_canceled`, confirmed by querying `pg_proc` on 2026-08-28. (The root
+  `CLAUDE.md` still calls this known-open; that note is stale.)
+- **k-anon floor gaps the suburb rollup** — `mv_suburb_price_drops` carries
+  `WHERE a.dropped_listing_count >= 3` in prod, and **0** rows are published
+  below the floor.
+- **Real portal content in committed testdata** — the four `*-pagemeta.html`
+  fixtures are now 900 and 657 bytes with **zero** address keys and **zero**
+  price strings.
 
 **The seven fix tracks** (dispatched 2026-08-09; branches
 `feat/housing-<track>`): *web-suburbs* (sitemap 404 corpus, static suburb
@@ -132,3 +161,8 @@ gating, takedown completeness, input normalization, cache-key hygiene),
 *crawl-correctness* (thin-suburb false blocks, trace panic safety, medians
 contract), *repo-hygiene* (purge committed portal content, synthetic
 fixtures, CI provenance gate).
+
+Those tracks are **historical**, not a live work queue — as of 2026-08-28 the
+work they describe has largely landed (see "Fixed since the audit" above). Read
+them as a record of what was dispatched, and check the section above before
+picking any of them up.

@@ -1281,7 +1281,17 @@ func (s *postgresStore) GetPropertyValuation(addressKey string) (*PropertyValuat
 		       COALESCE(year_built, 0), COALESCE(property_type, ''),
 		       COALESCE(sales_history, '[]'::jsonb)
 		FROM property_valuations
-		WHERE address_key = $1 AND fetch_status = 'ok'`
+		-- LICENCE GATE, required by migration 000088: the property.com.au profile
+		-- is proprietary/ToS-restricted (its robots.txt bans aggregators) and
+		-- "MUST NEVER be republished raw ... Gate any public read on
+		-- source_licence". The sibling house-price reads above already do; this
+		-- one did not, so per-address AVM estimates, rent estimates and sales
+		-- history were served publicly. source_licence is a column DEFAULT, so
+		-- an ungated row cannot exist by omission — every row is restricted
+		-- until something explicitly relicenses it, and this predicate is what
+		-- makes that default mean anything on the read path.
+		WHERE address_key = $1 AND fetch_status = 'ok'
+		  AND source_licence <> 'proprietary-tos-restricted'`
 
 	var row PropertyValuationRow
 	var salesHistory []byte
