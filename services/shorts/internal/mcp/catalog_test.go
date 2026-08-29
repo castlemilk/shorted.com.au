@@ -16,7 +16,7 @@ func fetchCatalog(t *testing.T, src DataSource) (*httptest.ResponseRecorder, Cat
 	t.Helper()
 
 	rec := httptest.NewRecorder()
-	CatalogHandler(src, testCatalogOrigin).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/mcp/catalog.json", nil))
+	CatalogHandler(src, CatalogOptions{APIBaseURL: testCatalogOrigin}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/mcp/catalog.json", nil))
 
 	var got Catalog
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
@@ -140,7 +140,7 @@ func TestCatalogDegradesRatherThanFailingWithoutADataSource(t *testing.T) {
 // it under the first request's context would let one client hanging up
 // mid-build serve a permanently schema-less catalog to everyone after them.
 func TestCatalogSurvivesACancelledFirstRequest(t *testing.T) {
-	handler := CatalogHandler(&fakeDataSource{}, testCatalogOrigin)
+	handler := CatalogHandler(&fakeDataSource{}, CatalogOptions{APIBaseURL: testCatalogOrigin})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -166,7 +166,7 @@ func TestCatalogSurvivesACancelledFirstRequest(t *testing.T) {
 
 func TestCatalogRejectsNonGET(t *testing.T) {
 	rec := httptest.NewRecorder()
-	CatalogHandler(&fakeDataSource{}, testCatalogOrigin).ServeHTTP(rec,
+	CatalogHandler(&fakeDataSource{}, CatalogOptions{APIBaseURL: testCatalogOrigin}).ServeHTTP(rec,
 		httptest.NewRequest(http.MethodPost, "/mcp/catalog.json", nil))
 	if rec.Code != http.StatusMethodNotAllowed {
 		t.Errorf("POST status = %d, want 405", rec.Code)
@@ -265,5 +265,47 @@ func TestNoScopeEncodesASubscriptionTier(t *testing.T) {
 		if !strings.HasSuffix(scope, ":read") {
 			t.Errorf("scope %q is not read-only", scope)
 		}
+	}
+}
+
+// Publishing a ceiling nobody enforces is the same defect as enforcing one
+// nobody published. The catalog therefore reads "do we actually apply this?"
+// from the running config rather than from a sentence someone has to remember
+// to update — and it says so either way.
+func TestTheCatalogSaysWhetherTheQuotasAreActuallyEnforced(t *testing.T) {
+	off := BuildCatalogFor(context.Background(), nil, CatalogOptions{
+		APIBaseURL: testCatalogOrigin, RateLimitEnabled: false,
+	}).Authentication
+	on := BuildCatalogFor(context.Background(), nil, CatalogOptions{
+		APIBaseURL: testCatalogOrigin, RateLimitEnabled: true,
+	}).Authentication
+
+	if off.RateLimits.Enforced {
+		t.Error("a deployment with the limiter off claims to enforce quotas")
+	}
+	if !on.RateLimits.Enforced {
+		t.Error("a deployment with the limiter on disclaims quotas it applies")
+	}
+
+	// The NUMBERS are published either way — they are the documented
+	// entitlement, and a client planning around them is right about what it
+	// will get once limiting is on.
+	if off.RateLimits.Anonymous != on.RateLimits.Anonymous {
+		t.Error("the published entitlement changed with the switch")
+	}
+
+	// But the prose must not claim enforcement that is not happening, and must
+	// point at the limit that IS in force.
+	if strings.Contains(off.Note, "raises the per-caller quota") {
+		t.Errorf("the disclaiming note still promises a quota: %q", off.Note)
+	}
+	if !strings.Contains(off.RateLimits.Description, "NOT currently enforced") {
+		t.Errorf("the disclaimer does not disclaim: %q", off.RateLimits.Description)
+	}
+	if !strings.Contains(off.RateLimits.Description, "Cloudflare") {
+		t.Errorf("the disclaimer does not name the limit actually in force: %q", off.RateLimits.Description)
+	}
+	if strings.Contains(on.RateLimits.Description, "NOT currently enforced") {
+		t.Errorf("an enforcing deployment disclaims: %q", on.RateLimits.Description)
 	}
 }

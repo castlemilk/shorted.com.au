@@ -93,9 +93,10 @@ JSON parser.
 
 ## Signing in (optional)
 
-OAuth 2.1 **raises your limits**. It does not unlock tools: all twenty-four work
-anonymously, and none is reserved for a paid plan. There is nothing to configure
-— point a client at the URL and it does the rest:
+OAuth 2.1 **identifies you**, and raises your limits wherever per-caller quotas
+are applied (see below — they are not, today). It does not unlock tools: all
+twenty-four work anonymously, and none is reserved for a paid plan. There is
+nothing to configure — point a client at the URL and it does the rest:
 
 1. It calls a tool, gets `401` with
    `WWW-Authenticate: Bearer resource_metadata="…"`, or reads the server card.
@@ -116,10 +117,18 @@ and reusing a rotated one revokes the whole family.
 
 ## Access, limits and caveats
 
-**Anonymous works, and is metered.** No token is required. Quota is counted
-**per tool call** — the handshake, `tools/list`, `resources/list` and
-`prompts/list` are free, and a JSON-RPC batch is charged for each call it
-carries.
+**Anonymous works.** No token is required.
+
+**The limit in force today is at the edge.** The endpoint sits behind
+Cloudflare, which applies a tier-blind per-IP ceiling — **60 requests per 10
+seconds and 300 per minute** for anonymous MCP callers, counted per HTTP request
+rather than per tool call. A normal agent turn is comfortably inside it; a tight
+loop is not. On HTTP 429, honour `Retry-After`.
+
+**Per-caller tier quotas are not currently applied.** When they are, they will
+be the [API tier](https://shorted.com.au/pricing) numbers, counted **per tool
+call** — the handshake, `tools/list`, `resources/list` and `prompts/list` free,
+and a JSON-RPC batch charged for each call it carries:
 
 | | Per minute | Per month |
 |---|---|---|
@@ -127,16 +136,12 @@ carries.
 | Signed in, free | 60 | 1,000 |
 | Signed in, paid | 120 | 10,000 |
 
-These are the [API tier](https://shorted.com.au/pricing) numbers, enforced by
-the API itself. A rejection is a JSON-RPC error whose `data` says which limit
-fired, its ceiling, when it resets and where to raise it; the same facts are on
-the response headers (`X-RateLimit-Detail`, `Retry-After`).
-
-**There is a second, separate ceiling.** The endpoint sits behind Cloudflare,
-which applies a tier-blind per-IP abuse limit — 60 requests per 10 seconds and
-300 per minute for anonymous MCP callers, counted per HTTP request rather than
-per tool call. A normal agent turn is comfortably inside it; a tight loop is
-not. On HTTP 429, honour `Retry-After`.
+`GET /mcp/catalog.json` reports which of these is true for the deployment you
+are talking to (`authentication.rateLimits.enforced`); it is read from the
+server's own configuration, so it cannot be stale. When a per-caller limit does
+fire, the rejection is a JSON-RPC error whose `data` says which limit fired, its
+ceiling, when it resets and where to raise it — the same facts are on the
+response headers (`X-RateLimit-Detail`, `Retry-After`).
 
 **Everything is read-only.** There are no write or mutating tools, and none are
 planned.

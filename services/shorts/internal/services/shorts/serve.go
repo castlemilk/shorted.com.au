@@ -269,7 +269,12 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	//
 	// The exact pattern wins over "/mcp/" above by ServeMux's longest-match
 	// rule, so this does not have to be registered first.
-	mux.Handle("/mcp/catalog.json", mcp.CatalogHandler(s, apiBaseURL))
+	mux.Handle("/mcp/catalog.json", mcp.CatalogHandler(s, mcp.CatalogOptions{
+		APIBaseURL: apiBaseURL,
+		// Read from the running config, so the published document stops
+		// disclaiming the moment app-layer limiting is switched on.
+		RateLimitEnabled: s.config.RateLimitConfig.Enabled,
+	}))
 
 	// OAuth 2.1 AUTHORIZATION SERVER. Same process as the resource server
 	// above, deliberately: the access tokens are HS256 with a symmetric secret,
