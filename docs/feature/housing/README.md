@@ -125,7 +125,10 @@ landed, and this section had become more wrong than right.
   outstanding**: both states sell sales data through brokers, so it is
   commercially blocked rather than unbuilt. The handover's "settled — do not
   reopen" note governs; this section used to imply a *collector-vg* fix track
-  was going to deliver them, and it is not.
+  was going to deliver them, and it is not. Every QLD open dataset was
+  enumerated on 2026-08-29 and none carries a value — see
+  [data-sources.md](data-sources.md#qld-and-wa-suburb-prices--what-is-actually-available-checked-2026-08-29)
+  before re-opening this.
 - **Suburb sitemap 404s** — the slugifier no longer appends `-${postcode}`
   unconditionally (`suburbSlug` in `web/@/lib/housing/states.ts`). `postcode` is
   still 0/15,345 populated, so slugs are name-only, which resolves:

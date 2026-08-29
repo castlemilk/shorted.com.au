@@ -190,3 +190,48 @@ CC-BY-4.0 and ingested, NSW "Your Council" Crown copyright and NULL).
   product. **The licensable substitute is ABS SEIFA** (CC-BY, published at SAL
   geography, four indexes including Education and Occupation), which is what
   ICSEA is itself derived from and carries no such restriction.
+
+## QLD and WA suburb prices — what is actually available (checked 2026-08-29)
+
+Both states are at zero priced suburbs (QLD 0/3,235, WA 0/1,701) and stay there.
+This section exists so the question is not re-opened from scratch: every open
+dataset was enumerated and checked, not inferred from the word "blocked".
+
+**Sold prices are licensed in both states.**
+
+| State | Product | Access |
+|---|---|---|
+| QLD | Queensland Valuation and Sales System (QVAS) | broker or business-centre purchase |
+| WA | Landgate Sales Evidence | licence-fee extract, © WA Land Information Authority |
+
+**Every QLD open dataset was checked, and none carries a value:**
+
+| Dataset | Licence | What it actually contains |
+|---|---|---|
+| `historical-trends-in-land-valuations` | CC-BY-3.0 | LGA-level **percentage change** in statutory value, and sparse — QLD revalues only a subset of LGAs each year, so most cells are `NV`. Not values, and 62 LGAs against 3,235 suburbs |
+| `valuation-property-boundaries-queensland` | CC-BY-4.0 | **Geometry only.** Property polygons carrying a `propertyid` that links *into* QVAS — built to be joined to licensed data, not to replace it |
+| `annual-property-valuation-objections` | CC-BY-4.0 | Objections lodged, not valuations |
+
+**Do not ship the LGA percentage-change layer as a price proxy.** One number
+smeared across every suburb in Brisbane LGA, sitting next to "median house
+price" in the same metric picker, reads as a per-suburb figure. The honest gap
+is better than a plausible wrong number — the same reasoning that keeps a
+suppressed Census rate NULL rather than zero.
+
+**Crawling agent or portal sites does not solve this and is not a shortcut.**
+Those sites publish ASKING prices, which the REA/Domain crawl tier already
+collects. Valuer-General data is SOLD prices. More asking-price scraping yields
+a lower-quality copy of data already held, while putting proprietary
+ToS-restricted content into the estate that `source_licence` exists to keep out.
+(The hiQ v. LinkedIn case is often cited as licence to ignore this. It is US
+CFAA law, and on remand in 2022 hiQ was found to have breached LinkedIn's user
+agreement and was enjoined — it lost on contract.)
+
+**If the licensed data is ever bought, the spatial half is already free.** The
+CC-BY boundaries layer and its `propertyid` join key cost nothing, so the
+purchase would cover values only.
+
+**Meanwhile QLD and WA maps are not blank** — Census, SEIFA, elevation,
+amenities and crime all render for those states. Only the price metric is
+absent.
+
