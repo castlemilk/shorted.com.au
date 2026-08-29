@@ -18,6 +18,11 @@ on:
       - "scripts/tests/openapi-drift.test.mjs"
       - "scripts/tests/portal-content-provenance.test.mjs"
       - "scripts/tests/scheduler-override-body.test.mjs"
+      # Drift guard: prod does not run `migrate up`, so a migration that is
+      # neither allowlisted nor recorded in PROD_APPLIED.md never reaches it.
+      - "scripts/tests/migration-drift.test.mjs"
+      - "services/migrations/**"
+      - ".github/workflows/terraform-deploy.yml"
       - "terraform/modules/**"
       - ".github/workflows/repo-hygiene.yml"
   workflow_dispatch:
@@ -35,7 +40,7 @@ jobs:
           node-version: "24"
 
       - name: Test repository hygiene tooling
-        run: node --test scripts/tests/portal-content-provenance.test.mjs scripts/tests/housing-deploy-hygiene.test.mjs scripts/tests/scheduler-override-body.test.mjs
+        run: node --test scripts/tests/portal-content-provenance.test.mjs scripts/tests/housing-deploy-hygiene.test.mjs scripts/tests/scheduler-override-body.test.mjs scripts/tests/migration-drift.test.mjs
 
       - name: Reject captured portal payloads
         run: node scripts/check-portal-content-provenance.mjs
