@@ -218,6 +218,14 @@ Phase 2 measured this: `/mcp` currently lands in `api-anon` at **10/10s, 30/60s*
 
 - [ ] **Step 3** — **Verify the whole flow against a real MCP client** — Claude or ChatGPT connecting via OAuth, not curl. Record what the consent screen shows and confirm tools work afterwards. Anything less does not prove one-click connectability, which is the point of the phase.
 
+  **The acceptance criterion, stated plainly:** a user adds `https://api.shorted.com.au/mcp` to their client and the client does everything else — challenge, discovery, registration, browser consent, callback, token, tools. Nothing hand-configured.
+
+  Four things most likely to break it, none yet verified end to end:
+  - **Loopback redirect URIs.** Desktop clients call back on `http://127.0.0.1:PORT/callback` with an **ephemeral port**, and our `redirect_uri` matching is exact-string. A client that registers one port and calls back on another fails. Check what the real clients do, and whether RFC 8252 §7.3 (ignore the port for loopback) needs implementing. **Most likely breakage.**
+  - **The bare `/.well-known/oauth-protected-resource`** — only the `…/mcp` path is served, and some clients probe the bare one before reading the challenge. Aliasing is cheap.
+  - **DCR must work unattended** — Claude and ChatGPT still use it even though the spec prefers CIMD.
+  - **Anonymous must still work** — OAuth raises limits, it is not a gate on first contact.
+
 - [ ] **Step 4** — Open a PR. Do not merge. State the rollout order explicitly: **migration by hand on the session pooler first**, then the API, then the edge/Terraform, then the docs.
 
 ---
