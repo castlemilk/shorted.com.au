@@ -33,9 +33,43 @@ real `tools/call` returns live data.
 |---|---|
 | 1. Migration `000116` on prod | **DONE.** Session pooler 5432, `statement_timeout=0`, `search_path=public`, single transaction. 4 tables + 6 indexes, 0 rows. Replay re-run and verified clean — the deploy replays this file every release |
 | 2. `INTERNAL_SERVICE_SECRET` | **Already set** on both sides (Vercel production, and Cloud Run via Secret Manager). No action was needed |
-| 3. Merge PR #522 → deploys Go + Terraform + Vercel | **BLOCKED ON A HUMAN.** The agent cannot merge |
-| 4. Verify with a real MCP client | Pending the deploy |
-| 5. Revalidation sweep | Pending the deploy |
+| 3. Merge PR #522 → deploys Go + Terraform + Vercel | **DONE.** Merged 08:46Z. Deploy green after one re-run (see below) |
+| 4. Verify against prod | **DONE for the protocol.** See below. A real MCP CLIENT is still unverified — it needs a human at a browser |
+| 5. Revalidation sweep | **DONE.** 9 paths (`/`, `/top`, `/docs/mcp.md`, `/housing`, `/price-drops`, `/economy`, `/politicians`, `/reports`, `/statistics`) |
+
+### Verified against production
+
+Discovery on both `/.well-known/oauth-protected-resource` paths (byte-identical);
+AS metadata correct; catalog + server card advertise OAuth as optional and
+report `rateLimits.enforced: false`; `/docs/mcp.md` and `llms.txt` live and
+honest about it.
+
+The **whole OAuth flow, end to end, against prod**: unattended DCR → consent
+describe → **grant refused without a ticket (401)** → **ticket refused without
+the internal secret (403)** → approve → grant returning `code`+`state`+`iss` →
+PKCE token exchange (1h access + refresh) → **authenticated `tools/call`
+returning live ASIC data**. Anonymous `tools/call` still 200; a bad token gets
+401 with the RFC 9728 challenge; a CIMD `client_id` pointing at link-local is
+refused. The verification client was then deleted, and the FK cascade removed
+its ticket, code and refresh rows with it.
+
+**The edge bucket is live and is doing its job.** Measured on prod: 40
+concurrent on a normal RPC path → **17×429** (`api-anon`, 10/10s), while 70
+concurrent on `/mcp` → **0×429**. `/mcp` is still not exempt — it 429s under
+heavier load. Note the 429 you get at very high concurrency is the Cloudflare
+ZONE rule (no `X-RateLimit-Bucket`, `server: cloudflare`), which fires ahead of
+the worker; do not mistake it for a worker bucket.
+
+### The one deploy failure, and why it is not ours
+
+`terraform-apply` failed once on `stock-price-ingestion` — "container failed the
+configured startup probe". It is **unrelated to this PR**: revisions 431 (Ready)
+and 432 (failed) are byte-identical apart from the generation number and carry
+the **same image digest**, so it is a transient Cloud Run startup flake. Traffic
+never moved (431 held 100%, `/health` still 200), so there was no outage. A
+re-run of the failed job went green. As at the end of this rollout the service
+still shows `latestCreated=432` failed with traffic on 431 — worth a look, but
+it is serving.
 
 ### The finding that changed the rollout
 
