@@ -80,19 +80,14 @@ test("allowlisted migrations are replay-safe, because the deploy re-runs them", 
   const allowlisted = upMigrations.filter((f) => workflow.includes(`/migrations/${f}`));
   assert.ok(allowlisted.length > 0, "expected the deploy to allowlist at least one migration");
 
-  // Known, measured exception — recorded rather than hidden.
-  //
-  // 000083 drops and recreates mv_company_state_exposure, so prod rebuilds it on
-  // every deploy and any query landing between the DROP and the CREATE errors.
-  // Measured 2026-08-28: 744 kB, 2,616 rows, so the rebuild is sub-second and
-  // the window is a brief transient rather than an outage. Left in place because
-  // rewriting an already-applied migration is the riskier change; the point of
-  // listing it here is that the next one does not get in silently.
-  const knownReplayUnsafe = new Set(["000083_add_state_exposure.up.sql"]);
+  // No exceptions. There was one — 000083, which this check flagged on its first
+  // run — and rather than carry it, the migration was removed from the allowlist
+  // (it was already applied to prod, so replaying it could only undo work). An
+  // exception list is where a guard goes to die, so it stays empty until
+  // something genuinely cannot be fixed.
 
   const offenders = [];
   for (const file of allowlisted) {
-    if (knownReplayUnsafe.has(file)) continue;
     const sql = readFileSync(path.join(migrationsDir, file), "utf8");
     const stripped = sql.replace(/--.*$/gm, "");
     if (/DROP\s+MATERIALIZED\s+VIEW/i.test(stripped)) {
