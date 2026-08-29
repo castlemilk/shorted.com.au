@@ -882,3 +882,92 @@ func TestGrantWithoutAConsentStoreIsUnavailableRatherThanUnguarded(t *testing.T)
 		t.Fatalf("status = %d, want 503", rec.Code)
 	}
 }
+
+// ------------------------------------------------------- loopback redirects
+//
+// The single most likely thing to break a real desktop MCP client. It registers
+// http://127.0.0.1:<ephemeral>/callback and listens on a DIFFERENT ephemeral
+// port next time, because binding a fixed port is what would be insecure.
+// RFC 8252 §7.3 requires the port to be ignored for loopback.
+
+func TestALoopbackClientMayCallBackOnAnotherPort(t *testing.T) {
+	for _, host := range []string{"127.0.0.1", "localhost", "[::1]"} {
+		t.Run(host, func(t *testing.T) {
+			registered := "http://" + host + ":51763/callback"
+			presented := "http://" + host + ":49200/callback"
+
+			store := defaultStore()
+			store.clients[testClientID].RedirectURIs = []string{registered}
+			seedTicket(store, "loopback", func(tk *ConsentTicket) { tk.RedirectURI = presented })
+
+			body := defaultBody()
+			body["consent_ticket"] = "loopback"
+			body["redirect_uri"] = presented
+
+			rec := post(t, newTestHandler(t, &fakeIdentity{userID: testUserID}, store), body)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, body %s", rec.Code, rec.Body.String())
+			}
+			// And the code goes to the port the client is ACTUALLY listening on.
+			if store.codes[0].RedirectURI != presented {
+				t.Errorf("RedirectURI = %q, want %q", store.codes[0].RedirectURI, presented)
+			}
+		})
+	}
+}
+
+// The exception is the PORT and nothing else. Each of these would be a
+// different destination on the same machine, or a different machine entirely.
+func TestTheLoopbackExceptionIsOnlyThePort(t *testing.T) {
+	const registered = "http://127.0.0.1:51763/callback"
+	cases := map[string]string{
+		"a different path":       "http://127.0.0.1:49200/steal",
+		"a different host":       "http://198.51.100.4:49200/callback",
+		"a non-loopback host":    "http://evil.example:49200/callback",
+		"https instead of http":  "https://127.0.0.1:49200/callback",
+		"an added query":         "http://127.0.0.1:49200/callback?to=evil",
+		"a different local host": "http://localhost:49200/callback",
+		// The classic near-miss: a hostname that merely CONTAINS the loopback
+		// address. It resolves wherever its owner points it.
+		"a lookalike host": "http://127.0.0.1.evil.example:49200/callback",
+	}
+
+	for name, presented := range cases {
+		t.Run(name, func(t *testing.T) {
+			store := defaultStore()
+			store.clients[testClientID].RedirectURIs = []string{registered}
+			seedTicket(store, "loopback", func(tk *ConsentTicket) { tk.RedirectURI = presented })
+
+			body := defaultBody()
+			body["consent_ticket"] = "loopback"
+			body["redirect_uri"] = presented
+
+			rec := post(t, newTestHandler(t, &fakeIdentity{userID: testUserID}, store), body)
+			if rec.Code == http.StatusOK {
+				t.Fatalf("accepted %q against %q", presented, registered)
+			}
+			if len(store.codes) != 0 {
+				t.Error("a code was minted for an unregistered destination")
+			}
+		})
+	}
+}
+
+// A non-loopback client keeps exact matching, port included: two ports on the
+// same public host can be two entirely different services.
+func TestANonLoopbackClientStillMatchesItsPortExactly(t *testing.T) {
+	store := defaultStore()
+	store.clients[testClientID].RedirectURIs = []string{"https://app.example:8443/cb"}
+	seedTicket(store, "ported", func(tk *ConsentTicket) {
+		tk.RedirectURI = "https://app.example:9999/cb"
+	})
+
+	body := defaultBody()
+	body["consent_ticket"] = "ported"
+	body["redirect_uri"] = "https://app.example:9999/cb"
+
+	rec := post(t, newTestHandler(t, &fakeIdentity{userID: testUserID}, store), body)
+	if rec.Code == http.StatusOK {
+		t.Fatal("a public host's port was ignored")
+	}
+}

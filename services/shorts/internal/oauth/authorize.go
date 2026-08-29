@@ -522,21 +522,87 @@ func sameScopeSet(a, b string) bool {
 }
 
 // matchRedirectURI compares by exact string equality against every registered
-// URI. No parsing, no normalisation, no case folding — the registered value is
-// the only acceptable value.
+// URI, with ONE exception: the port of a loopback address (RFC 8252 §7.3).
 //
+// Exact matching is the rule because anything looser is an open redirect.
 // Normalising would defeat the point: "https://app.example/cb" and
 // "https://APP.EXAMPLE/cb" resolve to the same host but a client that
 // registered the first never asked to receive codes at the second, and a
 // case-insensitive comparison is a step towards accepting
 // "https://app.example/cb.attacker.com".
+//
+// THE LOOPBACK EXCEPTION, and why it is not a weakening.
+//
+// A native client (Claude Desktop, an IDE, a CLI) receives its callback on an
+// ephemeral port it opens at the moment the flow starts: it registers
+// "http://127.0.0.1:51763/callback" today and listens on 49200 tomorrow,
+// because binding a FIXED port is what would be insecure — another local
+// process could squat it. RFC 8252 §7.3 therefore requires an authorization
+// server to allow any port for a loopback redirect. Without this, the single
+// most common MCP client shape fails on its second connection, and it fails
+// with "redirect_uri does not match", which reads like our bug in someone
+// else's logs.
+//
+// It grants nothing: the host is still compared exactly, so only 127.0.0.1,
+// ::1 or localhost qualify, and every one of those is the user's OWN machine.
+// The path, scheme, query and fragment are still exact. An attacker who could
+// use this would have to already be running code on the victim's computer, at
+// which point the redirect URI is not what is protecting them.
 func matchRedirectURI(registered []string, presented string) bool {
 	for _, r := range registered {
 		if r == presented {
 			return true
 		}
 	}
+	// Parsed only if the exact pass failed, so the common path does no work
+	// and a malformed presented URI cannot reach the parser via the fast path.
+	presentedURL, err := url.Parse(presented)
+	if err != nil || !isLoopbackRedirect(presentedURL) {
+		return false
+	}
+	for _, r := range registered {
+		registeredURL, err := url.Parse(r)
+		if err != nil || !isLoopbackRedirect(registeredURL) {
+			continue
+		}
+		if sameExceptPort(registeredURL, presentedURL) {
+			return true
+		}
+	}
 	return false
+}
+
+// isLoopbackRedirect reports whether a URI is the "native app on this machine"
+// shape RFC 8252 §7.3 is about.
+//
+// http only, and only over a loopback host. https is excluded because an https
+// loopback URI has no port-agility problem to solve, and every non-loopback
+// host must keep its port compared exactly — "https://app.example:8443/cb" and
+// "https://app.example:9999/cb" can be two entirely different services.
+func isLoopbackRedirect(u *url.URL) bool {
+	if u == nil || u.Scheme != "http" {
+		return false
+	}
+	switch u.Hostname() {
+	case "127.0.0.1", "::1", "localhost":
+		return true
+	}
+	return false
+}
+
+// sameExceptPort compares two loopback URIs on everything but the port.
+//
+// Hostname is compared exactly rather than by "is loopback", so a client that
+// registered 127.0.0.1 cannot call back on localhost. They resolve to the same
+// machine, but honouring a host the client never registered is the kind of
+// latitude that stops being obviously safe the moment someone changes what
+// "loopback" means.
+func sameExceptPort(registered, presented *url.URL) bool {
+	return registered.Hostname() == presented.Hostname() &&
+		registered.Path == presented.Path &&
+		registered.RawQuery == presented.RawQuery &&
+		registered.Fragment == presented.Fragment &&
+		registered.User.String() == presented.User.String()
 }
 
 // HashCode is the one-way function applied to an authorization code before it

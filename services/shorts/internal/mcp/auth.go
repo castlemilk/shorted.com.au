@@ -34,6 +34,18 @@ const DefaultAPIBaseURL = "https://api.shorted.com.au"
 // here.
 const ProtectedResourceMetadataPath = "/.well-known/oauth-protected-resource/mcp"
 
+// BareProtectedResourceMetadataPath is the un-suffixed path, served as an ALIAS
+// of the one above.
+//
+// RFC 9728 says the resource-scoped path is the correct one, and the
+// WWW-Authenticate challenge points there. But some clients probe the bare path
+// FIRST — before reading a challenge, sometimes before making a request at all
+// — and a 404 there is indistinguishable from "this server does not do OAuth".
+// The document is identical and entirely public, so aliasing costs nothing and
+// removes a failure mode we would otherwise only ever hear about as "your
+// server does not support authentication".
+const BareProtectedResourceMetadataPath = "/.well-known/oauth-protected-resource"
+
 // ClockSkew is the tolerance applied when deciding whether a token has
 // expired.
 //

@@ -257,7 +257,11 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	// WWW-Authenticate challenge points at, and the first thing an MCP client
 	// fetches when it decides it needs to authenticate — it is how a client
 	// learns which authorization server to talk to without being told.
-	mux.Handle(mcp.ProtectedResourceMetadataPath, mcp.ProtectedResourceMetadataHandler(apiBaseURL))
+	protectedResourceMetadata := mcp.ProtectedResourceMetadataHandler(apiBaseURL)
+	mux.Handle(mcp.ProtectedResourceMetadataPath, protectedResourceMetadata)
+	// The bare path, aliased. Some clients probe it before reading the
+	// challenge, and a 404 there reads as "this server does not do OAuth".
+	mux.Handle(mcp.BareProtectedResourceMetadataPath, protectedResourceMetadata)
 
 	// The published tool catalog. Everything that describes this server to the
 	// outside world — the SEP-1649 server card, /docs/mcp.md — renders from
