@@ -27,6 +27,41 @@ real `tools/call` returns live data.
 
 ---
 
+## 1b. Rollout status (2026-08-29)
+
+| Step | State |
+|---|---|
+| 1. Migration `000116` on prod | **DONE.** Session pooler 5432, `statement_timeout=0`, `search_path=public`, single transaction. 4 tables + 6 indexes, 0 rows. Replay re-run and verified clean — the deploy replays this file every release |
+| 2. `INTERNAL_SERVICE_SECRET` | **Already set** on both sides (Vercel production, and Cloud Run via Secret Manager). No action was needed |
+| 3. Merge PR #522 → deploys Go + Terraform + Vercel | **BLOCKED ON A HUMAN.** The agent cannot merge |
+| 4. Verify with a real MCP client | Pending the deploy |
+| 5. Revalidation sweep | Pending the deploy |
+
+### The finding that changed the rollout
+
+**`RATE_LIMIT_ENABLED` is set on NEITHER dev nor prod.** The app-layer limiter
+has never been switched on: a prod response carries no `X-RateLimit-*` headers
+at all. Task 7's middleware therefore deploys as a **pass-through**, and the
+edge bucket is the only ceiling on `/mcp`.
+
+Task 9 would have published "30/min, 500/month, enforced by the API itself"
+about numbers nothing applies — the same defect as #455, in the opposite
+direction. Fixed by making the catalog read enforcement from the RUNNING config
+(`authentication.rateLimits.enforced`) and switching the prose on it; the
+numbers stay published as the documented entitlement. The disclaimer disappears
+by itself when the flag is set.
+
+**Do not just set the flag.** The Connect interceptor buckets unauthenticated
+callers as `ip:<address>` at the anonymous tier (30/min); our own Vercel SSR
+arrives from a handful of shared egress IPs with no token; and there is **no
+first-party bypass class at the app layer** — that exists only in the edge
+worker. Flipping it as-is would 429 our own rendering. Enabling app-layer
+limiting is its own piece of work and needs that path first.
+
+Also worth knowing: Supabase ships its own unrelated `auth.oauth_*` tables.
+Ours are in `public`; `search_path` was pinned on the apply so there was never
+any ambiguity.
+
 ## 2. Do these first
 
 ### 2.1 Merge #513 and run its cleanup
