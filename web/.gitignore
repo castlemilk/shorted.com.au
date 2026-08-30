@@ -58,3 +58,9 @@ perf-results/
 
 # ABS shapefile inputs for the housing boundary build (download per README; large)
 /scripts/geo/src/
+
+# Local scratch/validation scripts. val.mjs is a hand-run Playwright page
+# checker that lives at the web root; it is unreferenced by any script, config
+# or CI job, and it was committed once by accident (a `git add -A web` swept it
+# up). Ignored so that cannot happen again.
+val.mjs
