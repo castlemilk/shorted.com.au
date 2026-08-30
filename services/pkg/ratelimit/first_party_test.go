@@ -230,3 +230,44 @@ type testClaims struct {
 func (c testClaims) GetUserID() string      { return c.id }
 func (c testClaims) GetTier() string        { return c.tier }
 func (c testClaims) GetIsBrowserAuth() bool { return false }
+
+// The ceiling has to cover AGGREGATE anonymous browsing, not just SSR renders.
+//
+// middleware.ts stamps the marker on every rewrite-proxied path, so client-side
+// Connect calls from anonymous visitors land in this class too — forced, because
+// they arrive from the same Vercel egress IPs and their real addresses are not
+// visible to us. Sizing it against one renderer would 429 readers.
+//
+// Measured on prod: /shorts/BHP costs 9 limitable requests; zone peak was 102
+// requests in 10s (~612/min) across all traffic.
+func TestTheCeilingCoversAggregateAnonymousBrowsing(t *testing.T) {
+	const measuredPeakPerMinute = 612
+
+	tiers := DefaultConfig().Tiers
+	for _, tier := range []string{TierFirstParty, TierFirstPartyUnverified} {
+		limit := tiers[tier].RequestsPerMinute
+		if limit < measuredPeakPerMinute*2 {
+			t.Errorf("%s allows %d/min against a measured peak of %d — too little headroom for a traffic spike",
+				tier, limit, measuredPeakPerMinute)
+		}
+	}
+}
+
+// A signed-in visitor browsing the site is metered on their OWN tier, even
+// though the middleware stamps the first-party marker on their RPC calls too.
+// Otherwise every authenticated reader would share one bucket and a paid
+// subscriber would get no benefit from paying.
+func TestASignedInVisitorKeepsTheirOwnTierBehindTheRewrite(t *testing.T) {
+	t.Setenv(envSSRSecret, "the-shared-secret")
+
+	ctx := context.WithValue(context.Background(), DefaultUserClaimsKey,
+		testClaims{id: "uid-7", tier: "premium"})
+	id, tier, _ := extractIdentifierAndTier(ctx, fakeRequest(map[string]string{
+		"User-Agent":     "Mozilla/5.0 (Macintosh) Chrome/140 shorted-web-ssr",
+		defaultSSRHeader: "the-shared-secret",
+	}, "203.0.113.9"), DefaultUserClaimsKey)
+
+	if tier != "premium" || id != "user:uid-7" {
+		t.Errorf("id=%q tier=%q — a paying reader was pooled into the shared bucket", id, tier)
+	}
+}

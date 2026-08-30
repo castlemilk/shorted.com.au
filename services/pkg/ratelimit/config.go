@@ -219,6 +219,29 @@ func DefaultConfig() Config {
 			// only ever end one way — the site stops rendering partway through
 			// a month — and the per-minute ceiling plus the edge's burst bucket
 			// already bound a runaway.
+			//
+			// WHERE 3000 COMES FROM, and what this class actually carries.
+			//
+			// It is not only SSR. web/src/middleware.ts stamps the same marker
+			// on every rewrite-proxied path, so CLIENT-side Connect calls from
+			// anonymous visitors arrive here as first-party too. That is not a
+			// leak, it is forced: those requests reach us from the same Vercel
+			// egress IPs, so their real addresses are not visible and an
+			// anonymous per-IP bucket would put every visitor in one 60/min
+			// bucket. A signed-in visitor is unaffected — the claims check runs
+			// first, so they are metered on their own tier.
+			//
+			// So this ceiling has to cover aggregate anonymous browsing.
+			// Measured on prod: /shorts/BHP costs 9 limitable requests, and the
+			// zone's peak was 102 requests in 10s (~612/min) across ALL
+			// traffic. 3000/min is ~5x that, and the real ceiling is higher
+			// still — the window is per Cloud Run INSTANCE (in memory, no
+			// shared state) and the key is per egress IP, so the effective
+			// bound is 3000 x instances x egress IPs.
+			//
+			// Re-measure before lowering it. Lowering this throttles anonymous
+			// readers, not scrapers: a scraper hitting the API directly never
+			// gets this class at all.
 			TierFirstParty: {
 				RequestsPerMinute: 3000, RequestsPerMonth: 0,
 				BrowserRequestsPerMinute: 3000, BrowserRequestsPerMonth: 0,
