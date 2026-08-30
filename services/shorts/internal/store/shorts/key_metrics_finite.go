@@ -56,10 +56,28 @@ func isNonFiniteNumber(v interface{}) bool {
 	case float32:
 		return math.IsInf(float64(t), 0) || math.IsNaN(float64(t))
 	case string:
+		s := strings.TrimSpace(t)
+
+		// SIGNED NaN, handled before ParseFloat, because the two parsers
+		// DISAGREE here and Postgres is the one that matters.
+		//
+		// Postgres accepts '-NaN' and '+NaN' in a float8 cast and yields NaN
+		// (measured, not assumed). Go's strconv.ParseFloat REFUSES them — it
+		// takes a sign only on Inf/Infinity, never on NaN. So relying on
+		// ParseFloat alone left exactly the hole this guard exists to close: a
+		// stored "-NaN" sailed through untouched and mv_screener_data's
+		// ::double precision cast turned it into a NaN downstream.
+		//
+		// Anything else Go and Postgres agree on, so ParseFloat carries the
+		// rest.
+		if lower := strings.ToLower(s); lower == "-nan" || lower == "+nan" {
+			return true
+		}
+
 		// ParseFloat accepts "Infinity", "-Infinity", "inf" and "NaN" in any
 		// case — the same spellings Postgres accepts in a float8 cast, which is
 		// what makes them dangerous here rather than merely odd.
-		f, err := strconv.ParseFloat(strings.TrimSpace(t), 64)
+		f, err := strconv.ParseFloat(s, 64)
 		if err != nil {
 			return false
 		}

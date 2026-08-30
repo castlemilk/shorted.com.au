@@ -204,22 +204,6 @@ func ApplyDetailHeaders(set func(key, value string), result *Result, detail Rate
 	applyDetailHeaders(set, result, detail)
 }
 
-// DetailJSON is the compact wire form, for callers that must embed the contract
-// somewhere other than a header (a JSON-RPC error's data field, say).
-func DetailJSON(detail RateLimitDetail) json.RawMessage {
-	encoded, err := json.Marshal(detail)
-	if err != nil {
-		return nil
-	}
-	return encoded
-}
-
-// RetryAfterHeader is the value for Retry-After, exported so a non-HTTP
-// rejection can state the same number.
-func RetryAfterHeader(detail RateLimitDetail) string {
-	return strconv.Itoa(detail.RetryAfterSeconds)
-}
-
 // ClientIP extracts the client IP from an http.Request with the SAME
 // precedence the Connect interceptor uses, including the rightmost-XFF rule.
 //

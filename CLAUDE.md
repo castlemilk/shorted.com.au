@@ -85,6 +85,7 @@ Shorted.com.au is a platform for tracking short selling positions in the Austral
 | ---------------- | ---- | -------------------------------- | ---------------------------------------------- |
 | Frontend         | 3020 | `web/`                           | Next.js app with dashboard, stock pages        |
 | Shorts API       | 9091 | `services/shorts/`               | Main API for short position data               |
+| MCP server       | 9091 | `services/shorts/internal/mcp/`  | `/mcp` — 24 read-only tools + OAuth 2.1 (same process as the Shorts API) |
 | Market Data      | 8090 | `services/market-data/`          | Historical stock prices                        |
 | Chat Service     | -    | `services/chat-service/`         | AI chat with Gemini LLM + 8 API tools          |
 | News Aggregator  | -    | `services/news-aggregator/`      | RSS news aggregation + Gemini sentiment        |
@@ -651,6 +652,109 @@ must never fire from a deploy). `make register-photos` / `register-index`.
   "Element type is invalid". Use `@/lib/politics/party-palette`.
 - Slugs are minted once and never reassigned; a merge retires a row via
   `merged_into_id` rather than deleting it.
+
+## MCP server — OAuth 2.1, 24 tools, protocol `2026-07-28`
+
+`https://api.shorted.com.au/mcp` — read-only Model Context Protocol access to
+everything above: short positions, stocks, housing, economy, the register of
+interests. **LIVE on prod**, streamable HTTP, 24 tools, 3 resources, 3 prompts.
+Go SDK (`modelcontextprotocol/go-sdk`), served by the shorts API.
+
+**The product promise, and the constraint every change here answers to:** a user
+adds the URL to Claude or ChatGPT and the client does the rest — challenge,
+discovery, registration, browser consent, callback, token, tools. Nothing
+hand-configured. **Anonymous access must keep working**: OAuth *raises* limits
+and identifies a caller, it is never a gate on first contact, and no tool is
+reserved for a paid plan.
+
+The Go API is BOTH the resource server and the authorization server, on purpose:
+access tokens are HS256 with a symmetric secret, so splitting mint and verify
+across two platforms would mean sharing that secret and rotating it twice.
+Next.js contributes only the consent screen.
+
+### Key files
+
+| File | Purpose |
+|------|---------|
+| `services/shorts/internal/mcp/` | Server, registry, 24 tools, catalog, resources, prompts |
+| `services/shorts/internal/mcp/auth.go` | Audience-bound verification, RFC 9728 metadata, `OptionalBearerToken` |
+| `services/shorts/internal/mcp/ratelimit.go` | Per-tool-call cost, identity, JSON-RPC 429 |
+| `services/shorts/internal/oauth/` | AS metadata, consent tickets, grant, token, CIMD + DCR |
+| `services/pkg/ratelimit/http.go` | `HTTPMiddleware` — the same limiter, over plain HTTP handlers |
+| `web/src/app/oauth/authorize/` | Consent screen (page + client component + server actions) |
+| `services/migrations/000116_*` | `oauth_clients`, `oauth_consent_tickets`, `oauth_authorization_codes`, `oauth_refresh_tokens` |
+| `web/public/docs/mcp-markdown.md` | The connection guide served at `/docs/mcp.md` |
+
+### The rules that shape every change here
+
+- **A grant needs a CONSENT TICKET, not just an identity.** The grant was once
+  authenticated by a Firebase ID token alone — that proves someone holds a
+  credential, not that a human approved anything, and with open dynamic
+  registration it was exploitable end to end. Tickets are mintable ONLY via
+  `POST /oauth/consent/ticket` behind `INTERNAL_SERVICE_SECRET`, so minting
+  needs a server-held secret an attacker with a stolen credential does not have.
+  Single-use, ~2 min, hashed, bound to user + client + redirect URI + PKCE
+  challenge + resource + scope — **all six re-checked by the grant**.
+- **Do not require a Firebase ID token in the browser.** next-auth's cookie
+  lives 30 days and the Firebase client session does not, so a properly
+  signed-in user often cannot produce one. Requiring it fails real users,
+  silently and only for some of them. It is an optional cross-check.
+- **Tier is not a scope.** Every scope is read-only and names a data domain
+  (`shorts:read`, `housing:read`, `economy:read`, `politics:read`). Expressing a
+  plan as a scope would send a paying customer through a pointless
+  re-authorisation to fix a quota problem.
+- **Never publish a ceiling you do not enforce.** The catalog reports
+  `authentication.rateLimits.enforced` read from the RUNNING config, and derives
+  the numbers from `ratelimit.DefaultConfig` rather than restating them. #455 was
+  three published rows over-promising against the code; this is the same defect
+  in the other direction.
+- **Loopback redirect URIs ignore the PORT (RFC 8252 §7.3), and nothing else.**
+  A desktop client registers `127.0.0.1:51763` and listens on a different
+  ephemeral port next time, because binding a fixed port is what would be
+  insecure. Host, scheme, path, query and fragment stay exact-match.
+
+### Landmines
+
+- **`RATE_LIMIT_ENABLED` is set on NEITHER dev nor prod.** App-layer limiting has
+  never run; a prod response carries no `X-RateLimit-*` headers, and the MCP
+  rate-limit middleware is inert. **Do not just set the flag** — the Connect
+  interceptor buckets unauthenticated callers as `ip:<address>` at the anonymous
+  tier, our own Vercel SSR arrives from a handful of shared egress IPs with no
+  token, and there is **no first-party bypass class at the app layer** (that
+  exists only in the edge worker). Enabling it needs that path built first.
+- **`Stateless: true` on the streamable handler is load-bearing.** Without it the
+  SDK silently negotiates *down* to legacy `initialize`, and an in-memory
+  transport cannot detect it. Any test for protocol behaviour must drive a real
+  socket.
+- **Tools call `ShortsServer` IN PROCESS**, skipping the Connect interceptor
+  chain — which is why they are constrained to `VISIBILITY_PUBLIC` methods
+  (`TestToolsOnlyCallPublicMethods`) and why rate limiting needed its own HTTP
+  middleware rather than riding the interceptor.
+- **Rate limiting is composed INSIDE the bearer middleware.** Outside it, the
+  identity function sees no verified token and every authenticated caller is
+  metered as anonymous.
+- **`encoding/json` refuses `±Inf`; protojson does not.** Same value, two
+  behaviours — which is why the website's screener worked while MCP's died.
+  Guarded at the write funnel in `store/shorts/key_metrics_finite.go`. Note
+  **Postgres accepts `-NaN`/`+NaN` where Go's `ParseFloat` does not**, so that
+  guard cannot lean on `ParseFloat` alone.
+- **The MCP SDK emits no `$defs`/`$ref`** — every nested struct is inlined at
+  every use site. `tools/list` is ~72KB for 24 tools, paid every session; the
+  lever is fewer fields and fewer redundant descriptions, never flattening.
+- **The SDK exports no setter for `TokenInfo` in a context.** A test wanting an
+  authenticated request must drive `auth.RequireBearerToken` — which is
+  fortunate, because a faked context would pass even with the middleware
+  composed in the wrong order.
+- **`/mcp` is never cached and is not exempt from the edge.** A cached MCP
+  response is one client's session served to another. Its edge bucket is
+  `mcp-anon` (`m:<ip>`, 60/10s + 300/60s), resolved AFTER the credential check so
+  presenting a token is never a downgrade.
+- **Migration `000116` is in the deploy allowlist and REPLAYED every deploy** —
+  every statement is `IF NOT EXISTS` and touches no rows. Supabase ships its own
+  unrelated `auth.oauth_*` tables; ours are in `public`, so pin `search_path` on
+  any hand-apply.
+
+Full record: `docs/superpowers/handover-2026-08-29-mcp-oauth.md`.
 
 ## Twitter / X Automation
 
