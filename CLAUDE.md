@@ -724,6 +724,18 @@ Next.js contributes only the consent screen.
   gets 24 tools, stores no auth state, never starts the flow. Do NOT "fix" it by
   gating anonymous access. The unblock is a chain: first-party SSR identity at
   the APP layer → `RATE_LIMIT_ENABLED` → quota 401s challenge clients naturally.
+- **The `/oauth/` routes render WITHOUT the site header and footer**, and the
+  success screen's `min-h-screen` depends on that. Chrome is dropped in
+  `conditional-header.tsx` / `conditional-footer.tsx` (the same mechanism embed
+  and roadmap use) because a nav bar beside a consent decision invites people to
+  wander off mid-authorisation. Put chrome back and the approval screen exceeds
+  the viewport, the page scrolls, and on a phone the artwork is clipped out of
+  sight before anyone sees it. `conditional-chrome.test.tsx` pins the routing;
+  the height coupling is a comment, not a test.
+- **Approving holds the browser for ~1.5s before redirecting.** Without the
+  pause the navigation fires within a frame and the confirmation is never seen,
+  which is exactly when people wonder whether it worked. It is not latency to
+  trim.
 - **`RATE_LIMIT_ENABLED` is set on NEITHER dev nor prod.** App-layer limiting has
   never run; a prod response carries no `X-RateLimit-*` headers, and the MCP
   rate-limit middleware is inert. **Do not just set the flag** — the Connect
