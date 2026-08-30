@@ -103,7 +103,8 @@ async function readError(response: Response): Promise<{
   return {
     error: body.error ?? "server_error",
     description:
-      body.error_description ?? `The request was refused (HTTP ${response.status}).`,
+      body.error_description ??
+      `The request was refused (HTTP ${response.status}).`,
   };
 }
 

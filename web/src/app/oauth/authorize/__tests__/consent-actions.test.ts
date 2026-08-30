@@ -67,7 +67,9 @@ function stubFetch(handlers: Record<string, () => Response>) {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockAuth.mockResolvedValue({ user: { id: "uid-1", email: "a@example.test" } });
+  mockAuth.mockResolvedValue({
+    user: { id: "uid-1", email: "a@example.test" },
+  });
 });
 
 describe("describeAuthorizationRequest", () => {
@@ -119,7 +121,9 @@ describe("approveAuthorization", () => {
       "/oauth/consent/ticket": () =>
         jsonResponse(200, { consent_ticket: "ticket-value", expires_in: 120 }),
       "/oauth/authorize/grant": () =>
-        jsonResponse(200, { redirect_to: "http://127.0.0.1:51763/callback?code=x" }),
+        jsonResponse(200, {
+          redirect_to: "http://127.0.0.1:51763/callback?code=x",
+        }),
     });
 
     const result = await approveAuthorization({
@@ -156,7 +160,9 @@ describe("approveAuthorization", () => {
       "/oauth/consent/ticket": () =>
         jsonResponse(200, { consent_ticket: "ticket-value", expires_in: 120 }),
       "/oauth/authorize/grant": () =>
-        jsonResponse(200, { redirect_to: "http://127.0.0.1:51763/callback?code=x" }),
+        jsonResponse(200, {
+          redirect_to: "http://127.0.0.1:51763/callback?code=x",
+        }),
     });
 
     const result = await approveAuthorization(request);
