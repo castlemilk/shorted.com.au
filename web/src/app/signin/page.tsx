@@ -21,7 +21,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, Lock } from "lucide-react";
 import { GoogleLogo } from "@/components/ui/google-logo";
 import { useSearchParams } from "next/navigation";
 
@@ -52,6 +52,25 @@ function SignInForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/";
+
+  // Is this sign-in the middle of an OAuth authorisation?
+  //
+  // It matters because the two journeys feel completely different. Someone who
+  // clicked "sign in" on the site is browsing. Someone who arrived here from
+  // /oauth/authorize clicked "connect" in Claude or ChatGPT, watched a browser
+  // window open by itself, and landed on a page that — without this — says
+  // "Sign in to access advanced features and insights" and gives them no reason
+  // to believe they are in the right place.
+  //
+  // Matched on the PATH only, and deliberately not on anything inside the
+  // query. The client_id there is attacker-supplied, and a sign-in page is the
+  // last place to render an unvalidated name: the consent screen shows the
+  // real, server-validated client on the very next step.
+  const isOAuthFlow = (() => {
+    if (!callbackUrl.startsWith("/oauth/authorize")) return false;
+    const next = callbackUrl.charAt("/oauth/authorize".length);
+    return next === "" || next === "?";
+  })();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -198,12 +217,31 @@ function SignInForm() {
             </div>
           </div>
           <div className="text-center space-y-2">
-            <CardTitle className="text-3xl font-bold tracking-tight">
-              Welcome to Shorted
-            </CardTitle>
-            <CardDescription className="text-base">
-              Sign in to access advanced features and insights
-            </CardDescription>
+            {isOAuthFlow ? (
+              <>
+                <div className="flex items-center justify-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  <Lock className="h-3.5 w-3.5" />
+                  <span>Authorise an application</span>
+                </div>
+                <CardTitle className="text-3xl font-bold tracking-tight">
+                  Sign in to continue
+                </CardTitle>
+                <CardDescription className="text-base">
+                  An application is waiting to connect to your Shorted account.
+                  You&rsquo;ll see exactly who is asking, and what they can read,
+                  before anything is shared.
+                </CardDescription>
+              </>
+            ) : (
+              <>
+                <CardTitle className="text-3xl font-bold tracking-tight">
+                  Welcome to Shorted
+                </CardTitle>
+                <CardDescription className="text-base">
+                  Sign in to access advanced features and insights
+                </CardDescription>
+              </>
+            )}
           </div>
         </CardHeader>
 

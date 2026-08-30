@@ -1,6 +1,17 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+// next/image needs a base URL its loader can resolve, which jsdom does not
+// provide. Mocked the same way state-companies.test.tsx does it.
+jest.mock("next/image", () => ({
+  __esModule: true,
+  // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
+  default: (props: { src: string; alt?: string }) => (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={props.src} alt={props.alt ?? ""} />
+  ),
+}));
+
 const mockApprove = jest.fn();
 const mockDeny = jest.fn();
 
@@ -127,5 +138,108 @@ describe("the consent screen", () => {
     });
     expect(screen.queryByRole("button", { name: /approve/i })).toBeNull();
     expect(screen.getByText(/unknown client_id/)).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The handoff
+// ---------------------------------------------------------------------------
+//
+// Approving used to set window.location and hope. The destination is almost
+// always a loopback listener on the user's own machine, and if it is gone — the
+// app crashed, the user closed it, the flow sat too long — the browser lands on
+// a raw connection error with no explanation. We cannot detect that from our
+// origin; it is a cross-origin navigation. So the screen says what is
+// happening and leaves a way forward behind it.
+
+describe("the handoff after a decision", () => {
+  function stubLocation() {
+    const assign = jest.fn();
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: {
+        set href(value: string) {
+          assign(value);
+        },
+      },
+    });
+    return assign;
+  }
+
+  it("tells the human what happened and where they are going", async () => {
+    mockApprove.mockResolvedValue({
+      ok: true,
+      redirectTo: "http://127.0.0.1:51763/callback?code=abc",
+    });
+    stubLocation();
+
+    renderScreen();
+    await userEvent.click(screen.getByRole("button", { name: /approve/i }));
+
+    expect(await screen.findByText(/access approved/i)).toBeInTheDocument();
+    // Named, so the user can tell they are going back to the app they started
+    // from rather than somewhere unexpected.
+    expect(screen.getAllByText(/Claude Desktop/).length).toBeGreaterThan(0);
+  });
+
+  // The escape hatch. Without it, a dead listener strands the user on a browser
+  // error page with no way to retry and no idea what went wrong.
+  it("leaves a manual link and an explanation behind the redirect", async () => {
+    mockApprove.mockResolvedValue({
+      ok: true,
+      redirectTo: "http://127.0.0.1:51763/callback?code=abc",
+    });
+    stubLocation();
+
+    renderScreen();
+    await userEvent.click(screen.getByRole("button", { name: /approve/i }));
+
+    const link = await screen.findByRole("link", { name: /continue to/i });
+    // A real anchor to the SAME url the redirect used — not a button that
+    // re-runs the flow, because the code has been issued and is single-use.
+    expect(link).toHaveAttribute(
+      "href",
+      "http://127.0.0.1:51763/callback?code=abc",
+    );
+    expect(
+      screen.getByText(/application needs to be running/i),
+    ).toBeInTheDocument();
+  });
+
+  // Cancelling is also a handoff — the client is told, at its registered URI.
+  // Saying "nothing was shared" is the reassurance the moment calls for.
+  it("says plainly that nothing was shared when cancelled", async () => {
+    mockDeny.mockResolvedValue({
+      ok: true,
+      redirectTo: "http://127.0.0.1:51763/callback?error=access_denied",
+    });
+    stubLocation();
+
+    renderScreen();
+    await userEvent.click(screen.getByRole("button", { name: /cancel/i }));
+
+    expect(await screen.findByText(/request cancelled/i)).toBeInTheDocument();
+    expect(screen.getByText(/nothing was shared/i)).toBeInTheDocument();
+  });
+
+  // A failure must NOT reach the handoff state — that would tell the user they
+  // were approved when they were not.
+  it("stays on the decision screen when the server refuses", async () => {
+    mockApprove.mockResolvedValue({
+      ok: false,
+      error: "access_denied",
+      description: "the consent ticket is not valid",
+    });
+    stubLocation();
+
+    renderScreen();
+    await userEvent.click(screen.getByRole("button", { name: /approve/i }));
+
+    expect(
+      await screen.findByText(/the consent ticket is not valid/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/access approved/i)).toBeNull();
+    // And the buttons come back, so the human can retry or cancel.
+    expect(screen.getByRole("button", { name: /approve/i })).toBeEnabled();
   });
 });
