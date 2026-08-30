@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { AlertTriangle, Check, Loader2, Lock, X } from "lucide-react";
 
+import { AsciiFire } from "@/components/ui/ascii-fire";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -33,6 +34,21 @@ import {
  * hides the destination cannot be used to notice that "Claude" is delivering to
  * somebody else's callback.
  */
+/**
+ * How long the approval screen is held before handing the browser back.
+ *
+ * Without a pause the redirect fires within a frame and the confirmation is
+ * never seen — the user goes from "Approve" to their app with no acknowledgement
+ * that anything happened, which is exactly when people wonder whether it
+ * worked. A beat and a half is long enough to read "Access approved" and short
+ * enough that nobody experiences it as latency.
+ *
+ * The code is already issued by this point, so the wait costs nothing but the
+ * wait itself. Cancelling gets a shorter one: there is less to read, and
+ * lingering on a refusal is just friction.
+ */
+const HANDOFF_PAUSE_MS = { approve: 1500, deny: 700 };
+
 export function ConsentScreen({
   request,
   described,
@@ -102,42 +118,88 @@ export function ConsentScreen({
   // page wondering what went wrong.
   if (handoff) {
     const approved = handoff.decision === "approve";
+
+    // APPROVAL GETS A MOMENT. Everything up to here has been careful and a
+    // little stern — read this URI, only approve if you recognise it — which is
+    // right for the decision and wrong for the instant after it. This is the
+    // one screen in the flow that is allowed to be pleased with itself.
+    //
+    // Cancelling deliberately does NOT get the same treatment: celebrating a
+    // refusal would read as sarcasm, and the thing that matters there is the
+    // reassurance that nothing was shared.
+    if (approved) {
+      // Full-bleed and dark, not a card. The rest of the flow is deliberately
+      // careful — read this URI, only approve if you recognise it — and a
+      // celebration wearing the same chrome does not land. This is the one
+      // screen that gets the whole viewport.
+      //
+      // Three lines and nothing else: the art, what happened, and the joke.
+      // Everything functional is demoted to the footer, because the user's job
+      // here is finished and the page is about to leave anyway.
+      //
+      // NOT min-h-screen: this renders inside the app shell, which already
+      // contributes a header and a footer, so a full-viewport section makes the
+      // page taller than the viewport — it scrolls, and on a phone the flame is
+      // clipped by the header before anyone sees it.
+      return (
+        <main className="flex min-h-[70vh] flex-col items-center justify-center gap-7 bg-neutral-950 px-6 py-14 text-center sm:gap-8">
+          <div className="relative">
+            {/* A warm bloom behind the flame, so it lights the page rather
+                than sitting on it. */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute left-1/2 top-1/2 h-[120%] w-[140%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(249,115,22,0.18),transparent_65%)]"
+            />
+            <AsciiFire className="relative text-[7px] leading-[1.05] xs:text-[8px] sm:text-[12px] md:text-[15px]" />
+          </div>
+
+          <div className="space-y-2">
+            {/* The fire is aria-hidden, so the outcome is announced here. */}
+            <p
+              role="status"
+              className="font-mono text-lg text-neutral-100 sm:text-xl"
+            >
+              successfully authenticated!
+            </p>
+            <p className="font-mono text-2xl font-bold tracking-tight text-amber-400 sm:text-3xl">
+              Burn it all down.
+            </p>
+          </div>
+
+          <div className="space-y-1 font-mono text-xs text-neutral-500">
+            <p>Returning you to {clientLabel}&hellip;</p>
+            {/* The safety net, demoted to a footnote rather than a panel. The
+                destination is usually a loopback listener on this machine; if
+                it is gone the browser lands on a connection error we cannot
+                detect from here, so the way forward stays on screen. */}
+            <p>
+              Not redirected?{" "}
+              <a
+                href={handoff.url}
+                className="text-amber-500/80 underline underline-offset-4 hover:text-amber-400"
+              >
+                Continue to {clientLabel}
+              </a>
+            </p>
+          </div>
+        </main>
+      );
+    }
+
     return (
       <Shell>
         <Card className="w-full shadow-lg">
           <CardHeader className="space-y-3">
-            <div
-              className={`flex h-11 w-11 items-center justify-center rounded-full ${
-                approved ? "bg-emerald-500/10" : "bg-muted"
-              }`}
-            >
-              {approved ? (
-                <Check className="h-5 w-5 text-emerald-600" />
-              ) : (
-                <X className="h-5 w-5 text-muted-foreground" />
-              )}
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-muted">
+              <X className="h-5 w-5 text-muted-foreground" />
             </div>
             <CardTitle className="text-2xl tracking-tight">
-              {approved ? "Access approved" : "Request cancelled"}
+              Request cancelled
             </CardTitle>
             <CardDescription className="text-base">
-              {approved ? (
-                <>
-                  Returning you to{" "}
-                  <span className="font-medium text-foreground">
-                    {clientLabel}
-                  </span>
-                  .
-                </>
-              ) : (
-                <>
-                  Nothing was shared. Returning you to{" "}
-                  <span className="font-medium text-foreground">
-                    {clientLabel}
-                  </span>
-                  .
-                </>
-              )}
+              Nothing was shared. Returning you to{" "}
+              <span className="font-medium text-foreground">{clientLabel}</span>
+              .
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
@@ -145,24 +207,7 @@ export function ConsentScreen({
               <Loader2 className="h-4 w-4 animate-spin" />
               <span>Handing you back&hellip;</span>
             </div>
-
-            <div className="space-y-2 rounded-lg border bg-muted/30 p-4">
-              <p className="text-sm font-medium">
-                Still here after a few seconds?
-              </p>
-              <p className="text-sm text-muted-foreground">
-                The application needs to be running to receive this. Make sure
-                it is still open, then use the link below.
-              </p>
-              {/* A real link, not a button that re-runs the flow: the code has
-                  already been issued and is single-use. */}
-              <a
-                href={handoff.url}
-                className="inline-block break-all font-mono text-xs text-primary underline underline-offset-4"
-              >
-                Continue to {clientLabel}
-              </a>
-            </div>
+            <HandoffFallback url={handoff.url} clientLabel={clientLabel} />
           </CardContent>
         </Card>
       </Shell>
@@ -182,11 +227,14 @@ export function ConsentScreen({
       setFailure(result.description);
       return;
     }
-    // Show the handoff first, then navigate. A full navigation, not a router
+    // Show the handoff first, then navigate after a beat. A full navigation,
+    // not a router
     // push: the destination belongs to the OAuth client (usually a loopback
     // listener on the user's own machine) and is not a route in this app.
     setHandoff({ decision, url: result.redirectTo });
-    window.location.href = result.redirectTo;
+    window.setTimeout(() => {
+      window.location.href = result.redirectTo;
+    }, HANDOFF_PAUSE_MS[decision]);
   }
 
   return (
@@ -230,7 +278,10 @@ export function ConsentScreen({
             <h2 className="text-sm font-semibold">It will be able to</h2>
             <ul className="space-y-2.5">
               {details.scopes.map((line) => (
-                <li key={line.scope} className="flex items-start gap-2.5 text-sm">
+                <li
+                  key={line.scope}
+                  className="flex items-start gap-2.5 text-sm"
+                >
                   <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
                   <span>
                     {line.description}
@@ -242,8 +293,8 @@ export function ConsentScreen({
               ))}
             </ul>
             <p className="text-xs text-muted-foreground">
-              Read-only. It cannot change anything in your account, and this does
-              not grant access to your billing or API keys.
+              Read-only. It cannot change anything in your account, and this
+              does not grant access to your billing or API keys.
             </p>
           </section>
 
@@ -307,6 +358,40 @@ export function ConsentScreen({
         </CardContent>
       </Card>
     </Shell>
+  );
+}
+
+/**
+ * The escape hatch behind the redirect, shared by both decisions.
+ *
+ * The destination is almost always a loopback listener on the user's own
+ * machine. If it is gone the browser lands on a raw connection error we cannot
+ * detect from here, so the link and the explanation sit behind the redirect: if
+ * it works nobody reads this, and if it does not, nobody is stranded.
+ */
+function HandoffFallback({
+  url,
+  clientLabel,
+}: {
+  url: string;
+  clientLabel: string;
+}) {
+  return (
+    <div className="space-y-2 rounded-lg border bg-muted/30 p-4">
+      <p className="text-sm font-medium">Still here after a few seconds?</p>
+      <p className="text-sm text-muted-foreground">
+        The application needs to be running to receive this. Make sure it is
+        still open, then use the link below.
+      </p>
+      {/* A real link, not a button that re-runs the flow: the code has already
+          been issued and is single-use. */}
+      <a
+        href={url}
+        className="inline-block break-all font-mono text-xs text-primary underline underline-offset-4"
+      >
+        Continue to {clientLabel}
+      </a>
+    </div>
   );
 }
 
