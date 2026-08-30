@@ -716,6 +716,14 @@ Next.js contributes only the consent screen.
 
 ### Landmines
 
+- **OAuth is live but DORMANT — nothing challenges a client, and that is not a
+  bug.** MCP auth is challenge-driven: a client learns OAuth exists from a `401`
+  carrying `WWW-Authenticate`. We never challenge an anonymous caller (that is
+  the adoption path), and the only other trigger — quota exhaustion — cannot
+  fire while the limiter is off. Measured 2026-08-30: a real client connects,
+  gets 24 tools, stores no auth state, never starts the flow. Do NOT "fix" it by
+  gating anonymous access. The unblock is a chain: first-party SSR identity at
+  the APP layer → `RATE_LIMIT_ENABLED` → quota 401s challenge clients naturally.
 - **`RATE_LIMIT_ENABLED` is set on NEITHER dev nor prod.** App-layer limiting has
   never run; a prod response carries no `X-RateLimit-*` headers, and the MCP
   rate-limit middleware is inert. **Do not just set the flag** — the Connect
