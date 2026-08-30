@@ -424,6 +424,27 @@ resource "google_cloud_run_v2_service" "shorts_api" {
         }
       }
 
+      # OpenTelemetry configuration (traces + metrics to Grafana Cloud)
+      env {
+        name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
+        value = var.otel_endpoint
+      }
+
+      env {
+        name  = "OTEL_EXPORTER_OTLP_PROTOCOL"
+        value = "http/protobuf"
+      }
+
+      env {
+        name = "OTEL_EXPORTER_OTLP_HEADERS"
+        value_source {
+          secret_key_ref {
+            secret  = "OTEL_EXPORTER_OTLP_HEADERS"
+            version = "latest"
+          }
+        }
+      }
+
       # Rate limiting. Quota counters live in Postgres on the pool this service
       # already holds, so there is no storage to configure — this flag is the
       # whole switch.
@@ -457,27 +478,6 @@ resource "google_cloud_run_v2_service" "shorts_api" {
               secret  = google_secret_manager_secret.ssr_bypass[0].secret_id
               version = "latest"
             }
-          }
-        }
-      }
-
-      # OpenTelemetry configuration (traces + metrics to Grafana Cloud)
-      env {
-        name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
-        value = var.otel_endpoint
-      }
-
-      env {
-        name  = "OTEL_EXPORTER_OTLP_PROTOCOL"
-        value = "http/protobuf"
-      }
-
-      env {
-        name = "OTEL_EXPORTER_OTLP_HEADERS"
-        value_source {
-          secret_key_ref {
-            secret  = "OTEL_EXPORTER_OTLP_HEADERS"
-            version = "latest"
           }
         }
       }
