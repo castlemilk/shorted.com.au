@@ -36,9 +36,10 @@ See [handover-2026-08-27.md](handover-2026-08-27.md) for how each was verified.
 | **[pipeline.md](pipeline.md)** | The collector's 22 modes, what each writes, order dependencies, timeouts and the exit-code contract |
 | **[operations.md](operations.md)** | Runbook: prod DDL regime, the residential-rig crawl, revalidation, and the landmines that have actually bitten |
 | [architecture.md](architecture.md) | The decision-and-incident record (the old 75KB monolith, moved here; its actively-wrong claims corrected inline, the rest assume residual drift) plus the extension recipes. Read it before touching crawl classification or caching |
+| [crawl-roadmap.md](crawl-roadmap.md) | Handover for the next crawl work: measured coverage/throughput/completeness numbers, what blocks per-property reporting and stock-over-time, and the coverage arithmetic for "all suburbs" |
 
 The old `docs/housing-architecture.md` path is now a redirect stub: the file was
-moved to [architecture.md](architecture.md), and **these five docs take
+moved to [architecture.md](architecture.md), and **these six docs take
 precedence over it** on any factual disagreement.
 
 ## The rules that shape everything
