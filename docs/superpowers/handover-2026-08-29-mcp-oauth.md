@@ -16,8 +16,8 @@ serve it over MCP, and put OAuth 2.1 + rate limits in front of it.
 |---|---|
 | **Phase 1** — generated OpenAPI + agent-readable docs | **MERGED (#509) and LIVE**, verified in prod |
 | **Phase 2** — MCP server, 24 tools, protocol `2026-07-28` | **MERGED (#510) and LIVE**, verified in prod |
-| **`Infinity` data fix** | **PR #513 OPEN, green, unmerged** — needs a prod SQL cleanup after merge |
-| **Phase 3** — OAuth 2.1 + rate limits | **all 10 tasks built and green**, unmerged, on `feat/mcp-oauth-phase3`. Only remaining item: verification against a REAL MCP client, which needs a deploy |
+| **`Infinity` data fix** | **CLOSED (#513) — already on main via #522**, and its prod cleanup has RUN. See §2.1 |
+| **Phase 3** — OAuth 2.1 + rate limits | **MERGED (#522) and LIVE**, verified against prod. OAuth itself is correct but **DORMANT** — nothing challenges a client, see §5 |
 
 Verified live in production (not just green CI):
 `/openapi.json`, `/openapi.yaml`, `/docs/api.md` and `/api/search/stocks` went
@@ -34,7 +34,7 @@ real `tools/call` returns live data.
 | 1. Migration `000116` on prod | **DONE.** Session pooler 5432, `statement_timeout=0`, `search_path=public`, single transaction. 4 tables + 6 indexes, 0 rows. Replay re-run and verified clean — the deploy replays this file every release |
 | 2. `INTERNAL_SERVICE_SECRET` | **Already set** on both sides (Vercel production, and Cloud Run via Secret Manager). No action was needed |
 | 3. Merge PR #522 → deploys Go + Terraform + Vercel | **DONE.** Merged 08:46Z. Deploy green after one re-run (see below) |
-| 4. Verify against prod | **DONE.** Protocol verified end to end; a real MCP client (Claude Code) connects to prod and reports healthy; the site and the consent route verified in a real browser. The OAuth *consent* half still needs a signed-in human |
+| 4. Verify against prod | **DONE.** Protocol verified end to end, and a real MCP client (Claude Code) connects and calls tools across all four domains. It never starts an OAuth flow, and that is expected — see the DORMANT note in §5 |
 | 5. Revalidation sweep | **DONE.** 9 paths (`/`, `/top`, `/docs/mcp.md`, `/housing`, `/price-drops`, `/economy`, `/politicians`, `/reports`, `/statistics`) |
 
 ### Verified against production
@@ -290,6 +290,50 @@ completing its callback. Run `/mcp` in Claude Code and choose to authenticate.
   listings only, so a suburb with one priced listing published that listing's
   exact asking price. Now withheld outright — neither `SuburbPriceDrop` nor
   `SuburbListingStats` carries `for_sale_priced` to floor against.
+
+### OAuth is live, correct — and DORMANT. Read this before "fixing" it.
+
+Verified 2026-08-30 with a real client (Claude Code) against prod: it connects,
+gets 24 tools, and **never starts an OAuth flow**. That is not a bug, and the
+consent screen is not broken. It is the design meeting an unfinished
+dependency, and it will look like a defect to whoever finds it next.
+
+**Why nothing triggers.** MCP auth is CHALLENGE-DRIVEN: a client learns OAuth
+exists by receiving a `401` carrying
+`WWW-Authenticate: Bearer resource_metadata="…"`. We deliberately never
+challenge an anonymous caller — anonymous access is the adoption path — so a
+spec-compliant client has no signal that OAuth exists. Measured: anonymous
+`initialize` and `tools/call` both return **200 with no `WWW-Authenticate`**,
+and the client stored no auth state at all.
+
+**Why the other trigger is also absent.** The one event that would legitimately
+401 a real caller is QUOTA EXHAUSTION — and `RATE_LIMIT_ENABLED` is set on
+neither dev nor prod, so the limiter is inert. Both doors are therefore shut:
+no challenge on first contact (by design), no challenge on quota (by
+omission).
+
+**The consequence, stated plainly:** as deployed, almost nobody will ever reach
+the consent screen. The flow was proven by driving it manually end to end,
+which established the mechanism works but masked the fact that nothing sets it
+off. The Phase 3 acceptance criterion ("add the URL and the client does the
+rest — challenge, discovery, registration, browser consent…") quietly assumed a
+challenge happens. It does not.
+
+**The unblock is a chain, and rate limiting is the middle link:**
+
+1. give Vercel SSR a first-party identity the APP layer recognises (the edge
+   worker already has one; the app layer has none);
+2. enable `RATE_LIMIT_ENABLED`;
+3. quota 401s become real, so clients get challenged, so the consent screen
+   gets used.
+
+Do NOT skip to step 2 — the Connect interceptor buckets unauthenticated callers
+as `ip:<address>` at the anonymous tier, and our SSR arrives from a handful of
+shared egress IPs with no token, so it would 429 our own rendering.
+
+**Decided 2026-08-30:** leave it dormant. It costs nothing, it is verified, and
+a user who wants higher limits can authenticate from their client. Revisit when
+the SSR identity path lands.
 
 ### Open, tracked
 
